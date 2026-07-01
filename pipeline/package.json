@@ -1,0 +1,16 @@
+{
+  "name": "outsystems-extraction-pipeline",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test tests/**/*.test.js tests/**/**/*.test.js"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^4.3.6",
+    "glob": "^10.3.12",
+    "iconv-lite": "^0.6.3",
+    "tree-sitter": "^0.21.1",
+    "tree-sitter-c-sharp": "^0.21.0",
+    "tree-sitter-javascript": "^0.21.4"
+  }
+}

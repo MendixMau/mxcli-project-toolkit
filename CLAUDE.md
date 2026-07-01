@@ -52,9 +52,19 @@ Configured in `pipeline/config.json`. Set `blueprintDir` to the folder containin
 - CS/JS/DB extractors (stubs exist, skipped — XML covers full OS stack)
 
 ## Shared toolkit
-Cross-project skills and prompt templates live in a separate repo:
-`https://github.com/MendixMau/mxcli-project-toolkit`
-Key skills: `migration-pipeline.md`, `brd-generation.md`, `kb-generation.md`
+`C:\Users\maurits.visser\Mendix\mxcli-project-toolkit\` (git repo: MendixMau/mxcli-project-toolkit)
+
+Load the relevant skill file **when the task calls for it**:
+
+| Task | Read this file |
+|------|---------------|
+| Running or explaining the pipeline | `skills/migration-pipeline.md` |
+| Writing or enriching a BRD | `skills/brd-generation.md` |
+| Extracting Excel/Word/PDF specs | `skills/kb-generation.md` |
+| Understanding OS XML structure | `skills/source-os11.md` + `skills/os-xml-schema.md` |
+| Writing MDL scripts | `skills/mdl-cookbook-microflows.md` |
+| Diagnosing mxcli CLI errors | `bug-logs/mxcli-bugs.md` |
+| Understanding past process decisions | `process/process-learnings.md` |
 
 ## Adding new extractors or mappers
 See `pipeline/extractors/README.md` and `pipeline/generators/brd-mappers/README.md`.

@@ -1,7 +1,7 @@
 # Migration Pipeline — Source Code to Mendix BRD
 **Purpose:** Platform-agnostic orchestration playbook for migrating any legacy application
 to Mendix via structured extraction, KB synthesis, and BRD generation.
-**Companion skills:** `source-os11.md`, `source-oracle-forms.md`, `source-java-spring.md`,
+**Companion skills:** `source-os11.md`, `source-oracle-forms.md`, `source-java-spring-angular.md`,
 `kb-generation.md`, `brd-generation.md`, `migrate-general.md`
 
 ---
@@ -275,6 +275,70 @@ mdlsource/
 3. `microflows` → layer2 scripts
 4. `integrations` with `stubName` → STUB_ microflows in layer2
 5. `pages` → layer3 scripts
+
+---
+
+## Creating a New Stack Pipeline (e.g. Java/Spring + Angular, .NET, Oracle Forms)
+
+Each source stack gets its own **self-contained pipeline repo** (e.g. `os-migration-pipeline`,
+`java-angular-migration-skills`) — not a shared npm dependency on a common engine package.
+Decided 2026-07: `mxcli-project-toolkit` holds only knowledge (skills, prompt templates), never
+executable pipeline code, so that every pipeline repo stays independently cloneable and runnable
+with zero cross-repo wiring. Revisit this only if real drift/duplication pain shows up across two
+or more working pipelines — don't extract a shared engine package pre-emptively.
+
+### Copy verbatim from the nearest existing pipeline repo
+
+These are already stack-agnostic — copy first, adapt only if a genuine gap appears:
+- `pipeline/lib/interfaces.js` — the ExtractionResult/BaseExtractor contract
+- `pipeline/lib/merger.js` — dedup + KB JSON emission (generic)
+- `pipeline/lib/linker.js` — the cross-reference *engine* is generic; the rules inside are not (see below)
+- `pipeline/generators/brd-mappers/*.js` — all 5 mappers (domain-entity, microflow, page, use-case,
+  integration) are ~90% generic; they read normalized KB fields (`name`, `module`, `attributes[]`,
+  `inputParameters`, `widgetSummary`, etc.), never raw source syntax
+- `pipeline/run.js` orchestration skeleton and `pipeline/config.json` shape
+- `pipeline/generate-report.js` — ~90% reusable as-is. It reads KB files defensively
+  (`readJson()` returns `[]` on anything missing, so a stack that never produces
+  `webBlocks.json`/`timers.json`/etc. doesn't break it) and the whole dashboard/heatmap/
+  module-drilldown is data-driven off KB + BRD JSON, not OS-specific structure. Only cosmetic
+  strings need changing (page title, any OS-flavored table labels like "Server Action / BPT").
+  **Do not rewrite this file — patch strings in place.**
+
+### Reuse the `logicKind` vocabulary — don't invent a parallel one
+
+`generate-report.js`'s `logicKindLabel()` and `microflow-mapper.js`'s `KIND_LABEL` both key off
+the same five values: `action`, `clientAction`, `screenAction`, `dataAction`, `process` →
+Microflow/Nanoflow/DataAction/BPTProcess. If a new extractor tags its own logic items using this
+same vocabulary wherever the concept genuinely matches (e.g. a Spring `@Service`/`@RestController`
+method is server-side business logic, same role as an OS Server Action → tag it `logicKind:
+'action'`), **both of those files need zero changes.** Only invent a new `logicKind` value if the
+new stack has a concept with no reasonable match in the existing five — and if you do, update both
+label maps together, not just one.
+
+### Must be newly written per stack
+
+- `pipeline/extractors/{type}-extractor.js` — one per source type, following
+  `pipeline/extractors/README.md`'s item interface exactly
+- Linker rules inside `lib/linker.js` — e.g. "Screen → Endpoint by URL match" for Spring/Angular
+  replaces OS's "Screen → JS module by filename" rule; the engine that runs the rules doesn't change
+- Any `KIND_LABEL`-style concept-mapping table entry that has no equivalent in the reused vocabulary
+  above (Spring has no client/server action split the way OS does, so most Java logic items will
+  just be `action`)
+- A `source-{stack}.md` skill in `mxcli-project-toolkit/skills/`, companion to this doc, same role as
+  `source-os11.md` — documents the stack's concept-mapping table and extraction conventions
+
+### Checklist for bootstrapping a new stack pipeline repo
+
+- [ ] Copy the generic files/folders listed above from the nearest existing pipeline repo
+- [ ] Write extractor(s) for the new source type(s), one per `extractors/README.md` template
+- [ ] Add/adapt linker rules for this stack's real cross-reference patterns
+- [ ] Run the copied `brd-mappers/*` against real extracted output; where a mapper's assumption
+      doesn't hold (e.g. no `logicKind` concept), patch it in place and note the change — don't fork
+      a parallel mapper implementation
+- [ ] Run `generate-report.js` against real extracted output and confirm the HTML report renders
+      (module/entity/page counts, gap heatmap, per-module drilldown) — update only cosmetic strings
+      (page title, any OS-flavored table labels), never the data-driven logic
+- [ ] Write `source-{stack}.md` and add it to this file's "Companion skills" line above
 
 ---
 

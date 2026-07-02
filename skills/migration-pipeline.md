@@ -39,6 +39,46 @@ SOURCE (code + docs)
 
 ---
 
+## Project Workspace Convention
+
+**A pipeline tool repo (`os-migration-pipeline`, `java-angular-migration-skills`, future ones)
+must never accumulate project-specific output inside its own directory tree.** Every project
+gets its own workspace folder, kept entirely separate from the reusable tool:
+
+```
+<workspace-root>/
+  sources/<source-repo-name>/          ← raw cloned/copied source, untouched
+  analysis/<source-repo-name>/         ← ALL project-specific output lives here
+    architecture.md                     ← hand-written findings (Phase 1, optional but recommended)
+    knowledge-base/                     ← everything the pipeline generates (Phase 2–4)
+      extracted/                        ← raw per-extractor JSON
+      entities.json, logics.json, screens.json, cross-reference-map.json, ...  ← merged KB
+      reports/                          ← gaps/coverage/summary .md
+      brd/                              ← Phase 3 scaffolds + Phase 4 enriched BRDs
+      extraction-report.html            ← raw extraction/gap dashboard
+      enrichment-summary.html           ← business-facing summary
+  os-migration-pipeline/                ← reusable tool, NO project-specific data
+  java-angular-migration-skills/        ← reusable tool, NO project-specific data
+```
+
+Rules:
+
+1. Every pipeline's `config.json` must have an `outputDir` field pointing at
+   `analysis/<source-repo-name>/knowledge-base` — every script (extractors, merger, `run.js`,
+   both report generators) reads its output location from `config.json`, never a hardcoded
+   path relative to the tool's own `__dirname`.
+2. Starting a new project always begins with creating `analysis/<source-repo-name>/` (mirroring
+   `sources/<source-repo-name>/` if a clone exists) *before* running anything, then pointing
+   `outputDir` there.
+3. A tool repo may still fall back to a local `knowledge-base/` when `config.json` has no
+   `outputDir` set — that's gitignored scratch space for quick standalone testing, never the
+   documented way to actually run an analysis.
+4. This is why the tool repo can stay genuinely downloadable/reusable per
+   `os-migration-pipeline`'s own README ("clone and run" quickstart) — a fresh clone of the
+   tool never has to be cleaned of a previous project's BRDs/reports before reuse.
+
+---
+
 ## Phase 1 — Source Analysis
 
 Before extracting anything, classify and scope the source.
@@ -84,6 +124,9 @@ Count before committing:
 Runs the extraction pipeline against source code to produce typed JSON per artifact.
 
 ### Output structure
+
+`knowledge-base/` below always means `analysis/<source-repo-name>/knowledge-base/` — see
+"Project Workspace Convention" above. Never a path inside the tool repo itself.
 
 ```
 knowledge-base/
@@ -329,6 +372,9 @@ label maps together, not just one.
 
 ### Checklist for bootstrapping a new stack pipeline repo
 
+- [ ] Every script (extractors, merger, `run.js`, both report generators) reads its output
+      location from `config.json`'s `outputDir`, never a path hardcoded relative to the tool's
+      own directory — see "Project Workspace Convention" above
 - [ ] Copy the generic files/folders listed above from the nearest existing pipeline repo
 - [ ] Write extractor(s) for the new source type(s), one per `extractors/README.md` template
 - [ ] Add/adapt linker rules for this stack's real cross-reference patterns

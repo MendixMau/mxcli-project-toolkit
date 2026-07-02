@@ -69,15 +69,15 @@ gets its own workspace folder, kept entirely separate from the reusable tool:
 
 Rules:
 
-1. Every pipeline's `config.json` must have an `outputDir` field pointing at
+1. Every pipeline's `config.json` must have a `knowledgeBaseDir` field pointing at
    `analysis/<source-repo-name>/knowledge-base` — every script (extractors, merger, `run.js`,
    both report generators) reads its output location from `config.json`, never a hardcoded
    path relative to the tool's own `__dirname`.
 2. Starting a new project always begins with creating `analysis/<source-repo-name>/` (mirroring
    `sources/<source-repo-name>/` if a clone exists) *before* running anything, then pointing
-   `outputDir` there.
+   `knowledgeBaseDir` there.
 3. A tool repo may still fall back to a local `knowledge-base/` when `config.json` has no
-   `outputDir` set — that's gitignored scratch space for quick standalone testing, never the
+   `knowledgeBaseDir` set — that's gitignored scratch space for quick standalone testing, never the
    documented way to actually run an analysis.
 4. This is why the tool repo can stay genuinely downloadable/reusable per
    `os-migration-pipeline`'s own README ("clone and run" quickstart) — a fresh clone of the
@@ -404,7 +404,7 @@ label maps together, not just one.
 ### Checklist for bootstrapping a new stack pipeline repo
 
 - [ ] Every script (extractors, merger, `run.js`, both report generators) reads its output
-      location from `config.json`'s `outputDir`, never a path hardcoded relative to the tool's
+      location from `config.json`'s `knowledgeBaseDir`, never a path hardcoded relative to the tool's
       own directory — see "Project Workspace Convention" above
 - [ ] Copy the generic files/folders listed above from the nearest existing pipeline repo
 - [ ] Write extractor(s) for the new source type(s), one per `extractors/README.md` template

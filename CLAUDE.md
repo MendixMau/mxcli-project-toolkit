@@ -48,11 +48,14 @@ Configured in `pipeline/config.json`. Set `blueprintDir` to the folder containin
 
 ## What is NOT in scope yet
 - Mendix Workflow mapping (BPT processes flagged but deferred — needs business conversation first)
-- MDL generation (Phase 5 — after BRD sign-off)
+- MDL generation (Phase 7 — after BRD sign-off)
 - CS/JS/DB extractors (stubs exist, skipped — XML covers full OS stack)
 
 ## Shared toolkit
-`C:\Users\maurits.visser\Mendix\mxcli-project-toolkit\` (git repo: MendixMau/mxcli-project-toolkit)
+Canonical repo: `https://github.com/MendixMau/mxcli-project-toolkit`. Local clone (this machine):
+`~/Mendix/mxcli-project-toolkit`. If that path is missing or looks stale, `git clone` the repo
+fresh rather than trusting an old local copy — this file previously pointed at a stale
+Windows path from a different machine.
 
 Load the relevant skill file **when the task calls for it**:
 

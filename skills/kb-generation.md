@@ -3,6 +3,13 @@
 base files that Claude can load as context for BRD and MDL generation.
 **Source:** Contoso M-0022 — 9 KB files produced across 4 sessions, 2026-05.
 
+**Upstream step:** this skill assumes you already know *which* files are worth processing.
+For an unstructured folder that hasn't been inventoried yet — and especially one that might
+contain source code, DB artifacts, or sensitive files mixed in with documents — run
+`document-discovery.md` first. It classifies every file, routes non-document artifacts away
+from this process, and produces the human-approved file list this skill then works through
+one file at a time.
+
 ---
 
 ## What a KB file is

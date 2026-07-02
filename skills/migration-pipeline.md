@@ -2,7 +2,7 @@
 **Purpose:** Platform-agnostic orchestration playbook for migrating any legacy application
 to Mendix via structured extraction, KB synthesis, and BRD generation.
 **Companion skills:** `source-os11.md`, `source-oracle-forms.md`, `source-java-spring-angular.md`,
-`kb-generation.md`, `brd-generation.md`, `migrate-general.md`
+`document-discovery.md`, `kb-generation.md`, `brd-generation.md`, `brd-validation.md`, `migrate-general.md`
 
 ---
 
@@ -21,21 +21,27 @@ SOURCE (code + docs)
        │
        ├─ Path A: Code Extraction
        │    └─ XML / Java / C# / SQL → extracted JSON (knowledge-base/)
+       │         → BRD Scaffold (auto-generated draft BRDs)
        │
-       ├─ Path B: Document Extraction
-       │    └─ xlsx / docx / PDF → KB_*.md files (knowledge-base/share/)
+       ├─ Path B: Document Discovery & Extraction
+       │    └─ recursive scan → classify → KB_*.md files (knowledge-base/share/) → KB.md
        │
        └─ MERGE
-            └─ JSON draft BRD  +  KB.md enrichment  →  F{NNN}.brd.json
+            └─ Scaffold BRD  +  KB.md enrichment  →  validate  →  F{NNN}.brd.json
                                                               │
-                                               Phase 4: Rearchitect to Mendix
+                                               Phase 6: Rearchitect to Mendix
                                                               │
                                                    F{NNN}.mx-brd.json (Mendix-aligned)
                                                               │
-                                                   Phase 5: MDL Generation
+                                                   Phase 7: MDL Generation
                                                               │
                                                 layer1/ (domain) + layer2/ (microflows)
 ```
+
+**Path A and Path B run independently and in either order** — Path B does not block Path A.
+For a demo or first pass on a new project, run Path A end-to-end first (extraction → scaffold)
+since it needs no human triage; run Path B (document discovery) as a follow-up once the code-side
+BRD scaffold exists to cross-reference against.
 
 ---
 
@@ -122,40 +128,12 @@ knowledge-base/
 
 ---
 
-## Phase 3 — Document Extraction (Path B)
+## Phase 3 — Automated BRD Scaffolding
 
-Converts raw design documents into structured KB.md files.
-See `kb-generation.md` for the full prompt template and extraction method.
-
-### Document priority order
-
-1. Requirements specifications (main feature spec per module)
-2. Field label / translation sheets (Japanese ↔ English mappings)
-3. QA / clarification sheets (resolved decisions, open questions)
-4. API / integration manuals (external system specs)
-5. Development standards (naming, audit fields, security conventions)
-
-### Output structure
-
-```
-knowledge-base/
-  share/
-    KB_{Module}_{Topic}.md     ← one per source document or domain area
-    EXTRACTION_LOG.md          ← session diary of what was processed
-```
-
-### When to skip Path B
-
-- Framework/platform modules with no design docs → skip, extract from code only
-- Modules fully covered by code (pure CRUD, no business rule ambiguity) → Path A sufficient
-- Duplicate docs (older version of same spec) → process latest only, note in log
-
----
-
-## Phase 3b — Automated BRD Scaffolding (new — runs after Phase 2 code extraction)
-
-When the code extraction pipeline has produced KB JSONs, run the BRD mapper layer to auto-generate
-one structured `{ModuleName}.brd.json` per source module:
+Once the code extraction pipeline (Phase 2) has produced KB JSONs, run the BRD mapper layer to
+auto-generate one structured `{ModuleName}.brd.json` per source module. This needs no human
+triage and no document input — it runs purely off the code-derived KB, so it's the fastest path
+to a first reviewable artifact on a new project:
 
 ```bash
 node run.js 3           # generates knowledge-base/brd/*.brd.json
@@ -175,10 +153,57 @@ click any module to see its BRD summary alongside raw extraction data.
 **Important:** use-case narrative (actors, preconditions, main flow) is NOT auto-generated — these are
 business decisions, not derivable from code. The scaffold provides the structure; the business fills in the content.
 
-## Phase 4 — BRD Generation (enrichment pass)
+---
 
-Merges auto-scaffolded BRDs (Phase 3b) with Path B KB.md documents into reviewed, complete BRDs.
-See `brd-generation.md` for the full JSON schema and prompt template.
+## Phase 4 — Document Discovery & KB (Path B)
+
+Recursively scans an unstructured document folder (design specs, requirements, manuals —
+whatever exists outside the source code), classifies every file, and turns the relevant ones
+into a canonical `KB.md`. See `document-discovery.md` for the full classification/routing
+methodology and human-checkpoint procedure, and `kb-generation.md` for the per-file extraction
+prompt template it hands off to.
+
+### Why this is a separate phase from BRD scaffolding
+
+Document folders often contain more than documents — source code exports, DB tooling,
+credentials-flagged spreadsheets. `document-discovery.md` classifies and routes all of that
+*before* any extraction happens; `kb-generation.md` only ever sees files already confirmed
+relevant.
+
+### Document priority order (within files classified as documents)
+
+1. Requirements specifications (main feature spec per module)
+2. Field label / translation sheets (Japanese ↔ English mappings)
+3. QA / clarification sheets (resolved decisions, open questions)
+4. API / integration manuals (external system specs)
+5. Development standards (naming, audit fields, security conventions)
+
+### Output structure
+
+```
+knowledge-base/
+  share/
+    discovery-manifest.json   ← full file inventory: classification, tier, alreadyCovered flag
+    Review_Later.md           ← unsupported / too-large / unclassifiable files, nothing dropped
+    KB_{Module}_{Topic}.md    ← one per source document or domain area
+    KB.md                     ← canonical merge, cross-references every KB_*.md
+    EXTRACTION_LOG.md         ← session diary of what was processed
+```
+
+### When to skip Path B
+
+- Framework/platform modules with no design docs → skip, extract from code only
+- Modules fully covered by code (pure CRUD, no business rule ambiguity) → Path A sufficient
+- Duplicate docs (older version of same spec) → process latest only, note in log
+
+---
+
+## Phase 5 — BRD Validation & Enrichment
+
+Merges the Phase 3 scaffold BRDs with Phase 4's `KB.md`, then validates the result for
+consistency before calling it done. See `brd-generation.md` for the merge schema/prompt template
+and `brd-validation.md` for the validation checks (duplicates, conflicts, orphaned concepts,
+broken relationships) and the iterate-until-clean procedure.
 
 ### BRD scope decision
 
@@ -194,15 +219,21 @@ One BRD = one Mendix module (roughly). Group by functional cohesion, not source 
 ### Merge strategy
 
 ```
-Path A JSON  →  draft BRD (high confidence on structure, low on intent)
+Phase 3 scaffold BRD →  draft (high confidence on structure, low on intent)
      +
-Path B KB.md →  enrichment (adds use cases, business rules, field labels, open questions)
+Phase 4 KB.md        →  enrichment (adds use cases, business rules, field labels, open questions)
      =
-F{NNN}.brd.json (complete)
+F{NNN}.brd.json (draft complete)
+     │
+     ▼
+brd-validation.md checks → validation-report.md → fix → re-run → repeat until clean
+     =
+F{NNN}.brd.json (validated)
 ```
 
-When no KB.md exists for a module, the JSON draft BRD is sufficient — mark `openQuestions`
-with items that need business confirmation.
+When no `KB.md` coverage exists for a module, the JSON draft BRD is sufficient — mark
+`openQuestions` with items that need business confirmation, and validation should not treat
+the absence as a conflict.
 
 ### BRD generation order
 
@@ -214,7 +245,7 @@ Write dependency BRDs first:
 
 ---
 
-## Phase 5 — Rearchitect BRDs to Mendix Architecture
+## Phase 6 — Rearchitect BRDs to Mendix Architecture
 
 OS/Java/Oracle modules don't map 1:1 to Mendix modules. This phase restructures.
 
@@ -249,7 +280,7 @@ knowledge-base/
 
 ---
 
-## Phase 6 — MDL Generation
+## Phase 7 — MDL Generation
 
 Reads `.mx-brd.json` files and produces layered MDL scripts.
 See `migrate-general.md` for layering rules, naming conventions, and known mxcli bugs.
@@ -352,3 +383,4 @@ Track key pipeline decisions per project:
 | BRD format | JSON / Markdown / Both | JSON + .md review copy | Machine-readable + human review |
 | Rearchitect strategy | 1:1 / Consolidated / Split | TBD per project | Depends on domain complexity |
 | Cross-module assocs | mxcli / Studio Pro | Studio Pro always | mxcli BUG-02 |
+| Phase ordering | Docs before code / Code before docs | Code first (Phase 3), docs second (Phase 4) | BRD scaffolding needs no human triage; document discovery does — run the free pass first |

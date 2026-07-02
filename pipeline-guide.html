@@ -232,7 +232,7 @@
 
   <div class="nav-section">Pipeline Phases</div>
   <div class="nav-item" onclick="show('phase1')">
-    <span class="nav-dot">1</span> Sample
+    <span class="nav-dot">1</span> Source Analysis
   </div>
   <div class="nav-item" onclick="show('phase2')">
     <span class="nav-dot">2</span> Extract
@@ -243,11 +243,10 @@
   <div class="nav-item" onclick="show('phase4')">
     <span class="nav-dot">4</span> Report &amp; Review
   </div>
-  <div class="nav-item" onclick="show('phase5')">
-    <span class="nav-dot">5</span> MDL Generation
-  </div>
-
   <div class="nav-section">Concepts</div>
+  <div class="nav-item" onclick="show('glossary')">
+    <span class="nav-dot">○</span> Glossary
+  </div>
   <div class="nav-item" onclick="show('mapping')">
     <span class="nav-dot">○</span> OS → Mendix Mapping
   </div>
@@ -293,8 +292,8 @@
       <div class="phase-flow">
         <div class="phase-box" onclick="show('phase1')">
           <div class="num">Phase 1</div>
-          <div class="title">Sample</div>
-          <div class="cmd">node run.js 1 xml</div>
+          <div class="title">Source Analysis</div>
+          <div class="cmd">manual — no script</div>
         </div>
         <div class="phase-arrow">→</div>
         <div class="phase-box" onclick="show('phase2')">
@@ -311,33 +310,29 @@
         <div class="phase-arrow">→</div>
         <div class="phase-box" onclick="show('phase4')">
           <div class="num">Phase 4</div>
-          <div class="title">Report</div>
+          <div class="title">Report &amp; Review</div>
           <div class="cmd">node generate-report.js</div>
         </div>
-        <div class="phase-arrow">→</div>
-        <div class="phase-box" onclick="show('phase5')">
-          <div class="num">Phase 5</div>
-          <div class="title">MDL Gen</div>
-          <div class="cmd">future</div>
-        </div>
+      </div>
+      <div class="callout callout-blue" style="margin-top:16px">
+        <strong>Phase 1 has no script</strong> — it is human + AI judgment: open the source files, confirm the platform, count and classify the modules. Phases 2–4 are automated commands you run from the <code>pipeline/</code> folder.
       </div>
     </div>
 
     <div class="card">
-      <h3>Quickstart — 3 commands</h3>
-<pre><code>cd OS-migration-skills/pipeline
-
-# 1. Extract all OS XML → JSON knowledge base
+      <h3>Quickstart</h3>
+      <p>All commands run from <code>OS-migration-skills/pipeline/</code>. Make sure <code>config.json</code> points to your XML source folder first (see Phase 2).</p>
+<pre><code># Phase 2 — extract all 114 OS XML files → JSON knowledge base
 node run.js 2 xml
 
-# 2. Generate BRD scaffolds (one per module)
+# Phase 3 — generate BRD scaffolds (one per module)
 node run.js 3
 
-# 3. Build interactive HTML report
+# Phase 4 — build interactive HTML report
 node generate-report.js
-# Open: knowledge-base/extraction-report.html</code></pre>
+# Open: knowledge-base/extraction-report.html in your browser</code></pre>
       <div class="callout callout-blue">
-        Set your source paths in <code>config.json</code> before running. See Phase 2 for details.
+        <strong>First time or changed XML source?</strong> Run <code>node run.js 1 xml</code> first to validate the extractor on a small sample before committing to all 114 files. Check <code>samples/schema.json</code> — if the fields look wrong, fix the extractor before running Phase 2.
       </div>
     </div>
 
@@ -370,108 +365,142 @@ node generate-report.js
       <div class="tree">
 <span class="dir">OS-migration-skills/</span>
 ├── pipeline-guide.html          <span class="note">← this file</span>
-├── <span class="dir">pipeline/</span>
-│   ├── config.json              <span class="note">← source paths (blueprintDir, shareDir, …)</span>
-│   ├── run.js                   <span class="note">← phase orchestrator</span>
-│   ├── generate-report.js       <span class="note">← HTML report builder</span>
-│   ├── <span class="dir">extractors/</span>
-│   │   ├── xml-extractor.js     <span class="note">← ACTIVE: OS eSpace XML → extracted/</span>
-│   │   └── README.md            <span class="note">← how to add a new extractor</span>
-│   ├── <span class="dir">generators/</span>
-│   │   ├── <span class="dir">brd-mappers/</span>     <span class="note">← Phase 3: KB JSON → BRD per module</span>
-│   │   │   ├── index.js
-│   │   │   ├── domain-entity-mapper.js
-│   │   │   ├── microflow-mapper.js
-│   │   │   ├── page-mapper.js
-│   │   │   ├── use-case-mapper.js
-│   │   │   ├── integration-mapper.js
-│   │   │   └── README.md
-│   │   ├── <span class="dir">mappers/</span>         <span class="note">← Phase 5 (future): BRD → MDL scripts</span>
-│   │   └── <span class="dir">lib/</span>             <span class="note">← type-converter, flow-translator</span>
-│   └── <span class="dir">lib/</span>
-│       ├── merger.js            <span class="note">← deduplicate + merge extracted items</span>
-│       ├── linker.js            <span class="note">← cross-reference linking + gap detection</span>
-│       └── key-resolver.js      <span class="note">← resolve OS internal keys across XMLs</span>
-└── <span class="dir">knowledge-base/</span>          <span class="note">← GENERATED — gitignored</span>
-    ├── entities.json
-    ├── logics.json
-    ├── screens.json
-    ├── <span class="dir">brd/</span>                 <span class="note">← one .brd.json per module</span>
-    └── extraction-report.html   <span class="note">← open in browser</span>
+└── <span class="dir">pipeline/</span>
+    ├── config.json              <span class="note">← source paths (blueprintDir, shareDir, …)</span>
+    ├── run.js                   <span class="note">← phase orchestrator (phases 1–3)</span>
+    ├── generate-report.js       <span class="note">← HTML report builder (standalone script)</span>
+    ├── <span class="dir">extractors/</span>
+    │   ├── xml-extractor.js     <span class="note">← ACTIVE: OS eSpace XML → extracted/xml.json</span>
+    │   └── README.md            <span class="note">← how to add a new extractor</span>
+    ├── <span class="dir">extracted/</span>               <span class="note">← INTERMEDIATE: raw extractor output (before merge)</span>
+    │   └── xml.json
+    ├── <span class="dir">generators/</span>
+    │   ├── <span class="dir">brd-mappers/</span>         <span class="note">← Phase 3: KB JSON → BRD per module</span>
+    │   │   ├── index.js
+    │   │   ├── domain-entity-mapper.js
+    │   │   ├── microflow-mapper.js
+    │   │   ├── page-mapper.js
+    │   │   ├── use-case-mapper.js
+    │   │   ├── integration-mapper.js
+    │   │   └── README.md
+    │   └── <span class="dir">lib/</span>                 <span class="note">← type-converter, flow-translator</span>
+    ├── <span class="dir">lib/</span>
+    │   ├── merger.js            <span class="note">← deduplicates + merges extracted/ → knowledge-base/</span>
+    │   ├── linker.js            <span class="note">← resolves cross-references; unresolved ones become gaps</span>
+    │   └── key-resolver.js      <span class="note">← resolves OS internal keys across XMLs</span>
+    ├── <span class="dir">knowledge-base/</span>          <span class="note">← GENERATED — gitignored, never edit manually</span>
+    │   ├── entities.json
+    │   ├── logics.json
+    │   ├── screens.json
+    │   ├── <span class="dir">brd/</span>                 <span class="note">← one .brd.json per module</span>
+    │   └── extraction-report.html   <span class="note">← open in browser</span>
+    └── <span class="dir">samples/</span>                 <span class="note">← Phase 1 output: schema preview (not committed)</span>
+        └── schema.json
       </div>
     </div>
 
     <div class="card">
       <h3>Data flow</h3>
       <table>
-        <tr><th>Step</th><th>Input</th><th>Component</th><th>Output</th></tr>
-        <tr><td>1</td><td>OS eSpace XML files</td><td>xml-extractor.js</td><td>extracted/xml.json</td></tr>
-        <tr><td>2</td><td>extracted/*.json</td><td>merger.js + linker.js</td><td>knowledge-base/*.json</td></tr>
-        <tr><td>3</td><td>knowledge-base/*.json</td><td>brd-mappers/index.js</td><td>knowledge-base/brd/*.brd.json</td></tr>
-        <tr><td>4</td><td>knowledge-base/ + brd/</td><td>generate-report.js</td><td>extraction-report.html</td></tr>
+        <tr><th>Phase</th><th>Input</th><th>Component</th><th>Output</th><th>What it does</th></tr>
+        <tr><td><strong>1 — manual</strong></td><td>the source files (visual inspection)</td><td>human + AI</td><td>module tier list (business / common / framework)</td><td>Identify the platform, count modules, classify them — no script runs</td></tr>
+        <tr><td>2a</td><td>all 114 OS eSpace XML files</td><td>xml-extractor.js</td><td>extracted/xml.json</td><td>Parses every eSpace XML into a normalized array of items</td></tr>
+        <tr><td>2b</td><td>extracted/xml.json</td><td>merger.js</td><td>knowledge-base/*.json (entities, logics, screens, …)</td><td>Deduplicates items and splits them into typed KB files</td></tr>
+        <tr><td>2c</td><td>knowledge-base/*.json</td><td>linker.js</td><td>knowledge-base/*.json (enriched with _links + _gaps)</td><td>Resolves cross-references (FK targets, action refs, permissions) — unresolvable ones become gaps</td></tr>
+        <tr><td><strong>3</strong></td><td>knowledge-base/*.json</td><td>brd-mappers/index.js</td><td>knowledge-base/brd/*.brd.json</td><td>Runs 5 mappers per module and writes one structured BRD scaffold per OS module</td></tr>
+        <tr><td><strong>4</strong></td><td>knowledge-base/ + brd/</td><td>generate-report.js (separate script)</td><td>knowledge-base/extraction-report.html</td><td>Builds a self-contained interactive HTML report for business and developer review</td></tr>
       </table>
     </div>
 
     <div class="card">
       <h3>Key design decisions</h3>
       <ul class="steps">
-        <li><strong>Phase 2 always processes ALL XML files</strong> — never a subset. The KB is always full-corpus (all 114 modules). Phase 3 filters per module internally.</li>
-        <li><strong>Extractors write to extracted/, never knowledge-base/</strong> — the merger owns the KB. This keeps extraction and merging cleanly separated.</li>
+        <li><strong>Phase 2 always processes ALL XML files — never a subset.</strong> The linker resolves cross-module references: if module A is missing from the corpus, module B's FK to an entity in module A becomes an unresolvable gap. Running a subset produces false gaps. The KB is always full-corpus (all 114 modules); Phase 3 filters per module internally.</li>
+        <li><strong>Extractors write to extracted/, never knowledge-base/</strong> — the merger owns the KB. This keeps extraction and merging cleanly separated so you can add new extractors without touching the merge step.</li>
         <li><strong>Mappers are pure functions</strong> — no file I/O, no globals. They receive items for one module and return an array. Easy to test, easy to add.</li>
         <li><strong>Use-case narrative is never fabricated</strong> — the scaffold marks every narrative field as an explicit TODO. Actors, preconditions, and main flow require business input.</li>
-        <li><strong>Gap = unresolved cross-reference</strong> — when a FK target or action reference can't be resolved, a gap string is added. Gaps roll up to confidence scoring.</li>
+        <li><strong>Gap = unresolved cross-reference</strong> — when a FK target or action reference can't be resolved, a gap string is added. Gaps roll up to confidence scoring. Not all gaps indicate real problems — see the Gaps &amp; Noise section.</li>
       </ul>
     </div>
   </div>
 
   <!-- PHASE 1 -->
   <div id="phase1" class="page-section">
-    <div class="page-title">Phase 1 — Sample</div>
-    <div class="page-subtitle">Understand the shape of your source before committing to full extraction</div>
+    <div class="page-title">Phase 1 — Source Analysis</div>
+    <div class="page-subtitle">Understand what you have before running any scripts — this phase is human + AI judgment, no commands</div>
 
     <div class="card card-blue">
-      <h3>Purpose</h3>
+      <h3>What is this phase?</h3>
       <p>
-        Reads a small subset of source files and outputs a <strong>schema summary</strong>.
-        Use this to verify the extractor understands your specific OS version / export format
-        before running Phase 2 on all 114 modules.
+        Before touching the pipeline, you need to understand your source. Phase 1 is not a script —
+        it is a <strong>manual review step</strong> where you (with AI assistance) open the source files,
+        identify the platform, count the modules, and classify them into tiers.
+        This takes 15–30 minutes and prevents running extraction on the wrong files or in the wrong format.
       </p>
     </div>
 
     <div class="card">
-      <h3>Command</h3>
-<pre><code>node run.js 1 xml        # sample XML files only (recommended)
-node run.js 1            # sample all configured source types</code></pre>
-      <p>Output: <code>pipeline/samples/schema.json</code></p>
+      <h3>Step 1 — Identify the platform</h3>
+      <p>Open one of the source files. The root XML tag tells you the platform:</p>
+      <table>
+        <tr><th>Root tag / file signature</th><th>Platform</th><th>Extractor to use</th></tr>
+        <tr><td><code>&lt;ESpace Version="11"&gt;</code></td><td>OutSystems 11</td><td>xml-extractor.js</td></tr>
+        <tr><td><code>pom.xml</code> + <code>@Entity</code> annotations</td><td>Java / Spring Boot</td><td>java-extractor.js (add)</td></tr>
+        <tr><td><code>*.csproj</code> + <code>DbContext</code></td><td>.NET / C#</td><td>cs-extractor.js (add)</td></tr>
+        <tr><td><code>*.fmb</code> / <code>*.fmx</code></td><td>Oracle Forms</td><td>(contact team)</td></tr>
+      </table>
+      <div class="callout callout-green">
+        This project uses <strong>OutSystems 11 eSpace XML files</strong>. The XML contains the <strong>full application stack</strong> per module: entities (data), logics (business rules), screens (UI), timers (scheduled jobs), and API definitions — all in one file.
+      </div>
     </div>
 
     <div class="card">
-      <h3>What to check in schema.json</h3>
-      <ul class="steps">
-        <li>Entity attributes are parsed correctly (name, type, isMandatory, isForeignKey)</li>
-        <li>Logic items show <code>logicKind</code>: action / clientAction / process</li>
-        <li>Screens show <code>widgetSummary</code> with hasListUI / hasFormUI booleans</li>
-        <li>At least one module has <code>serviceApis</code> if the OS app exposes REST APIs</li>
-      </ul>
+      <h3>Step 2 — Count and classify the modules</h3>
+      <p>List the source files and group them into three tiers:</p>
+      <table>
+        <tr><th>Tier</th><th>Description</th><th>What to do</th></tr>
+        <tr><td><span class="tag tag-green">Business</span></td><td>Core feature logic and user-facing screens — the real application</td><td>Extract and migrate</td></tr>
+        <tr><td><span class="tag tag-blue">Common / Shared</span></td><td>Reusable utilities, shared entities, integration helpers</td><td>Extract and migrate</td></tr>
+        <tr><td><span class="tag tag-gray">Framework</span></td><td>OS runtime, UI frameworks, third-party widgets (OSF_*, OutSystemsUI*, RichWidgets, etc.)</td><td>Skip — reference as stubs only</td></tr>
+      </table>
+      <p>For OutSystems, module name suffixes give you a fast signal:</p>
+      <table>
+        <tr><th>Suffix</th><th>Meaning</th></tr>
+        <tr><td>_CS</td><td>Consumer / Screens (UI layer)</td></tr>
+        <tr><td>_BL</td><td>Business Logic</td></tr>
+        <tr><td>_VE</td><td>View / Entity (data layer)</td></tr>
+        <tr><td>_CW</td><td>Core Web (shared web components)</td></tr>
+        <tr><td>_IS</td><td>Integration Service</td></tr>
+        <tr><td>_API_SAP</td><td>SAP API connector</td></tr>
+        <tr><td>OSF_*, RW*, CKEditor, DatePicker…</td><td>Framework — skip</td></tr>
+      </table>
     </div>
 
-    <div class="callout callout-blue" style="margin:0 0 20px">
-      If schema.json looks wrong (missing fields, wrong types), fix <code>extractors/xml-extractor.js</code>
-      before running Phase 2. It's much faster to iterate on 8 files than 114.
+    <div class="card">
+      <h3>Step 3 — Optional: validate the extractor on a sample</h3>
+      <p>Run this before Phase 2 if you are doing this for the first time or after changing the XML source:</p>
+<pre><code>node run.js 1 xml</code></pre>
+      <p>Output: <code>pipeline/samples/schema.json</code> — a small preview of what the extractor will produce. Check that entity attributes, logic kinds, and screen summaries look correct. If something looks wrong, fix <code>extractors/xml-extractor.js</code> now — it is much faster to iterate on 8 files than 114.</p>
+    </div>
+
+    <div class="callout callout-amber" style="margin:0 0 20px">
+      <strong>Do not skip Phase 1.</strong> Running extraction on the wrong files, or on a platform the extractor doesn't understand, produces silent bad output that's hard to debug downstream.
     </div>
   </div>
 
   <!-- PHASE 2 -->
   <div id="phase2" class="page-section">
-    <div class="page-title">Phase 2 — Full Extraction</div>
-    <div class="page-subtitle">Parse all source files and build the JSON knowledge base</div>
+    <div class="page-title">Phase 2 — Extraction</div>
+    <div class="page-subtitle">Read all 114 OS XML files and produce a structured JSON knowledge base — the foundation for everything that follows</div>
 
     <div class="card card-teal">
-      <h3>Purpose</h3>
+      <h3>What happens here?</h3>
       <p>
-        Runs all active extractors against the full corpus and produces normalized JSON files in
-        <code>knowledge-base/</code>. This is the foundation everything else builds on.
+        The extractor reads every XML file, pulls out all the application artifacts (entities, actions, screens, timers, APIs), and writes them to structured JSON files in <code>knowledge-base/</code>.
+        After extraction, the <strong>linker</strong> stitches cross-module references together — for example, connecting a foreign key in module A to the entity it points to in module B.
+        This JSON knowledge base is what all downstream steps (BRD generation, HTML report) read from.
       </p>
+      <p>You never edit these JSON files manually — they are always regenerated from source.</p>
     </div>
 
     <div class="card">
@@ -641,42 +670,79 @@ node run.js 2            # all configured source types</code></pre>
     </div>
   </div>
 
-  <!-- PHASE 5 -->
-  <div id="phase5" class="page-section">
-    <div class="page-title">Phase 5 — MDL Generation</div>
-    <div class="page-subtitle">Future phase — generate Mendix model scripts from approved BRDs</div>
+  <!-- GLOSSARY -->
+  <div id="glossary" class="page-section">
+    <div class="page-title">Glossary</div>
+    <div class="page-subtitle">Key terms used throughout this pipeline and guide</div>
 
-    <div class="card card-green">
-      <h3>Status</h3>
+    <div class="card card-blue">
+      <h4>BRD — Business Requirements Document</h4>
       <p>
-        Phase 5 is <strong>deferred</strong> — it runs only after BRD review and sign-off.
-        The scaffolding is in place (<code>pipeline/generators/mappers/</code>) but is not yet connected
-        to the BRD output.
+        The primary handoff artifact from automated analysis to Mendix development.
+        One BRD file (<code>.brd.json</code>) is generated per OutSystems module.
+        It contains auto-extracted sections (domain entities, microflows, pages, integrations)
+        plus use-case scaffolds with explicit TODO fields that must be filled in by the business team.
+        BRDs drive Mendix development; they replace weeks of manual module analysis.
+      </p>
+    </div>
+
+    <div class="card card-teal">
+      <h4>Knowledge Base (KB) — the JSON corpus</h4>
+      <p>
+        The set of JSON files in <code>knowledge-base/</code> that represent all extracted and
+        cross-referenced data from the OS source files. The KB is always full-corpus (all modules),
+        fully merged, and enriched with cross-reference links and gaps by the linker.
+        It is the foundation that all BRD mappers and the HTML report read from.
+        Files include <code>entities.json</code>, <code>logics.json</code>, <code>screens.json</code>, and others.
+      </p>
+      <p>
+        The KB is generated — never edit it manually. Re-run Phase 2 to regenerate from source.
       </p>
     </div>
 
     <div class="card">
-      <h3>What MDL generation will do</h3>
-      <table>
-        <tr><th>BRD section</th><th>MDL output</th><th>Layer</th></tr>
-        <tr><td>domainEntities</td><td>CREATE PERSISTENT ENTITY scripts</td><td>Layer 1 (domain)</td></tr>
-        <tr><td>microflows</td><td>CREATE MICROFLOW scripts</td><td>Layer 2 (logic)</td></tr>
-        <tr><td>pages</td><td>CREATE PAGE scripts</td><td>Layer 3 (UI)</td></tr>
-        <tr><td>integrations</td><td>CREATE MICROFLOW STUB scripts</td><td>Layer 2 (stubs)</td></tr>
-      </table>
-      <div class="callout callout-blue">
-        Domain model always first — microflows and pages reference entities that must already exist in Mendix.
-      </div>
+      <h4>eSpace</h4>
+      <p>
+        An OutSystems module. Each eSpace is exported as one XML file (<code>.oml</code> format).
+        It contains the full application stack for that module: entities, logics (server/client actions),
+        screens, timers, roles, and API definitions. This project has 114 eSpace XML files.
+      </p>
     </div>
 
     <div class="card">
-      <h3>Prerequisites before running Phase 5</h3>
-      <ul class="steps">
-        <li>All BRDs for the target modules have <code>"reviewStatus": "approved"</code></li>
-        <li>Use-case narrative is filled in (no TODO fields remaining)</li>
-        <li>Cross-module entity dependencies are mapped (which module owns shared entities)</li>
-        <li>Workflows (BPT processes) are designed separately — approval chains, SLAs, roles defined</li>
-      </ul>
+      <h4>merger.js</h4>
+      <p>
+        The library that runs after the extractors in Phase 2. It takes the raw extractor output
+        from <code>extracted/</code> (one JSON file per extractor), deduplicates items by <code>linkId</code>,
+        and splits them by type into the typed KB files (<code>entities.json</code>, <code>logics.json</code>, etc.).
+        If you add a second extractor (e.g. Java or SQL), the merger combines both sources transparently.
+      </p>
+    </div>
+
+    <div class="card">
+      <h4>linker.js</h4>
+      <p>
+        Runs cross-reference resolution across all KB items. It applies six rules (X1–X6)
+        that match references between item types — for example, an entity FK attribute is matched
+        to the entity it references, or a timer is matched to the logic it fires. Resolved references
+        are added as <code>_links</code> on the item. References that cannot be resolved become
+        <strong>gaps</strong>.
+      </p>
+    </div>
+
+    <div class="card card-amber">
+      <h4>Gap</h4>
+      <p>
+        A gap is a cross-reference that the linker could not resolve — for example, an entity FK
+        pointing to an entity name that doesn't exist in the KB, or a timer referencing a logic key
+        that wasn't found. Gaps are stored as strings on the item (e.g. <code>fk-unresolved:User</code>)
+        and roll up into a confidence score for each module in the BRD and report.
+      </p>
+      <p>
+        Not all gaps indicate real design problems. Many are <strong>expected noise</strong> from
+        OS platform system entities (User, Group, Role) that have no XML representation.
+        See the <a href="javascript:void(0)" onclick="show('gaps')">Gaps &amp; Noise</a> section for how to handle each type.
+      </p>
     </div>
   </div>
 

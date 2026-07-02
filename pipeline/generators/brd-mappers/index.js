@@ -5,7 +5,7 @@ const path = require('path');
 const { mapDomainEntities } = require('./domain-entity-mapper');
 const { mapMicroflows }     = require('./microflow-mapper');
 const { mapPages }          = require('./page-mapper');
-const { mapUseCases }       = require('./use-case-mapper');
+const { mapUseCases, classifyAppType } = require('./use-case-mapper');
 const { mapIntegrations }   = require('./integration-mapper');
 
 function readJson(file) {
@@ -17,6 +17,20 @@ function confidence(gapCount) {
   if (gapCount === 0) return 'high';
   if (gapCount <= 3)  return 'medium';
   return 'low';
+}
+
+// A BRD carries Phase 4/5 enrichment once a use case has been reviewed, or an open question
+// has been answered against the document KB — re-running Phase 3 must not silently clobber
+// that. Detect it and redirect the fresh scaffold instead of overwriting.
+function hasEnrichment(existingBrd) {
+  if (!existingBrd) return false;
+  const useCases = existingBrd.useCases || [];
+  return useCases.some(uc =>
+    uc.reviewStatus === 'reviewed' ||
+    uc.status === 'doc-confirmed' ||
+    uc.status === 'doc-conflict' ||
+    (uc.openQuestions || []).some(q => q && q.status === 'Resolved')
+  );
 }
 
 async function generate(kbDir, outDir, opts = {}) {
@@ -64,11 +78,13 @@ async function generate(kbDir, outDir, opts = {}) {
       const { pages, webBlocks: blocks } = mapPages(arts.screens, arts.webBlocks);
       const useCases       = mapUseCases(arts.screens);
       const integrations   = mapIntegrations(arts.serviceApis, arts.extEntities);
+      const appType        = classifyAppType(pages, microflows, integrations);
 
       const allGaps = [
         ...domainEntities.flatMap(e => e.gaps),
         ...microflows.flatMap(m => m.gaps),
         ...pages.flatMap(p => p.gaps),
+        ...useCases.flatMap(u => u.gaps),
         ...integrations.flatMap(i => i.gaps),
       ];
 
@@ -76,6 +92,7 @@ async function generate(kbDir, outDir, opts = {}) {
         module:      modName,
         generatedAt: new Date().toISOString(),
         confidence:  confidence(allGaps.length),
+        appType,
         summary: {
           entityCount:      domainEntities.filter(e => e.mendixType === 'PersistentEntity').length,
           enumerationCount: domainEntities.filter(e => e.mendixType === 'Enumeration').length,
@@ -106,11 +123,20 @@ async function generate(kbDir, outDir, opts = {}) {
         openGaps: [...new Set(allGaps)],
       };
 
-      fs.writeFileSync(
-        path.join(outDir, `${modName}.brd.json`),
-        JSON.stringify(brd, null, 2),
-        'utf8'
-      );
+      const brdPath = path.join(outDir, `${modName}.brd.json`);
+      const existing = fs.existsSync(brdPath) ? readJson(brdPath) : null;
+      const targetPath = hasEnrichment(existing)
+        ? path.join(outDir, `${modName}.brd.scaffold.json`)
+        : brdPath;
+      if (targetPath !== brdPath) {
+        warnings.push({
+          module: modName,
+          issue: `${modName}.brd.json already has reviewed/doc-confirmed content — ` +
+                 `fresh scaffold written to ${modName}.brd.scaffold.json instead of overwriting it`,
+        });
+      }
+
+      fs.writeFileSync(targetPath, JSON.stringify(brd, null, 2), 'utf8');
       modulesGenerated++;
     } catch (e) {
       warnings.push({ module: modName, issue: e.message });

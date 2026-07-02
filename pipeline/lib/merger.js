@@ -326,9 +326,10 @@ class Merger {
 
 if (require.main === module) {
   const config = JSON.parse(require('fs').readFileSync('config.json', 'utf8'));
+  const kbDir  = config.knowledgeBaseDir || require('path').join(__dirname, '..', 'knowledge-base');
   const merger = new Merger({
-    extractedDir: 'knowledge-base/extracted',
-    outputDir:    'knowledge-base',
+    extractedDir: require('path').join(kbDir, 'extracted'),
+    outputDir:    kbDir,
     blueprintDir: config.blueprintDir,
     logger:       console,
   });

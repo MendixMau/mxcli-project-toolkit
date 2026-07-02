@@ -7,6 +7,7 @@ const fs   = require('fs');
 
 const ROOT   = __dirname;
 const CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
+const KB_DIR = CONFIG.knowledgeBaseDir || path.join(ROOT, 'knowledge-base');
 
 const args   = process.argv.slice(2);
 const phase  = args[0] || '1';          // '1' | '2' | 'all'
@@ -96,14 +97,14 @@ async function phase2() {
 
   console.log('\nRunning merger...');
   await run('node', [path.join('lib', 'merger.js')], 'merger');
-  console.log(`Phase 2 complete. Knowledge base: ${path.join(ROOT, 'knowledge-base')}`);
+  console.log(`Phase 2 complete. Knowledge base: ${KB_DIR}`);
 }
 
 async function phase3() {
   console.log('\n=== PHASE 3: BRD Generation ===');
   const { generate } = require('./generators/brd-mappers/index');
-  const kbDir  = path.join(ROOT, 'knowledge-base');
-  const outDir = path.join(ROOT, 'knowledge-base', 'brd');
+  const kbDir  = KB_DIR;
+  const outDir = path.join(KB_DIR, 'brd');
   const report = await generate(kbDir, outDir, { blueprintDir: CONFIG.blueprintDir });
   console.log(`Phase 3 complete. ${report.modulesGenerated} BRD files → ${outDir}`);
   if (report.warnings.length) console.warn(`Warnings: ${report.warnings.length}. See ${path.join(outDir, 'generation-report.json')}`);

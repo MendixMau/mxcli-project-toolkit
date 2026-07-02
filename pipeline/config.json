@@ -1,6 +1,7 @@
 {
-  "blueprintDir": "C:\\Users\\maurits.visser\\Mendix\\OSSourceCode-Analysis\\OS-ExtractedXML",
-  "shareDir":     "C:\\Users\\maurits.visser\\Mendix\\OSSourceCode-Analysis\\Share\\Order & billing registration\\Outsystems_output_sourcecode",
-  "dbDir":        "",
-  "docsDir":      "C:\\Users\\maurits.visser\\Mendix\\OSSourceCode-Analysis\\Share\\WorkFlow\\"
+  "blueprintDir":    "C:\\Users\\maurits.visser\\Mendix\\OSSourceCode-Analysis\\Os-extractedXMl",
+  "shareDir":        "C:\\Users\\maurits.visser\\Mendix\\OSSourceCode-Analysis\\Share",
+  "dbDir":           "",
+  "docsDir":         "",
+  "knowledgeBaseDir": "C:\\Users\\maurits.visser\\Mendix\\OSSourceCode-Analysis\\knowledge-base"
 }

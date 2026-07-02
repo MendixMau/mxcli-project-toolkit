@@ -2,7 +2,8 @@
 const fs   = require('fs');
 const path = require('path');
 
-const KB  = path.join(__dirname, 'knowledge-base');
+const CONFIG = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
+const KB  = CONFIG.knowledgeBaseDir || path.join(__dirname, 'knowledge-base');
 const OUT = path.join(KB, 'extraction-report.html');
 
 function readJson(name) {
@@ -431,6 +432,39 @@ function showModule(name) {
     });
     html += '</div>';
 
+    // ── Business Process Overview (code-inferred, confirmed/corrected in Phase 5) ──
+    if (brd.appType || (brd.useCases && brd.useCases.length)) {
+      html += '<h3 style="margin-top:14px;margin-bottom:8px">Business Process Overview</h3>';
+      if (brd.appType) {
+        const at = brd.appType;
+        const atCol = at.confidence === 'high' ? '#22c55e' : at.confidence === 'medium' ? '#f59e0b' : '#94a3b8';
+        html += '<div style="margin-bottom:10px">';
+        html += '<span style="background:' + atCol + ';color:#fff;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600">' + esc(at.label) + '</span> ';
+        html += '<span style="color:#64748b;font-size:12px">' + esc((at.signals || []).join('; ')) + '</span>';
+        html += '</div>';
+      }
+      if (brd.useCases && brd.useCases.length) {
+        html += '<table style="margin-bottom:16px"><thead><tr><th>ID</th><th>Screen</th><th>Main Flow (code-inferred)</th><th>Open Questions</th><th>Status</th></tr></thead><tbody>';
+        brd.useCases.forEach(uc => {
+          const flow = Array.isArray(uc.mainFlow) ? uc.mainFlow.map(s => esc(s)).join('<br>') : '—';
+          const oq   = Array.isArray(uc.openQuestions) && uc.openQuestions.length
+                        ? uc.openQuestions.map(q => esc(q)).join('<br>') : '—';
+          const status = uc.status || 'code-inferred';
+          const statusStyle = status === 'doc-confirmed'
+            ? 'background:#dcfce7;color:#15803d'
+            : status === 'doc-conflict'
+              ? 'background:#fee2e2;color:#b91c1c'
+              : 'background:#eff6ff;color:#1d4ed8';
+          html += '<tr><td class="mono">' + esc(uc.id || '—') + '</td>';
+          html += '<td>' + esc(uc.screen || '—') + '</td>';
+          html += '<td style="font-size:12px;color:#475569">' + flow + '</td>';
+          html += '<td style="font-size:12px;color:#475569">' + oq + '</td>';
+          html += '<td><span style="' + statusStyle + ';padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">' + esc(status) + '</span></td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+    }
+
     // Domain Entities
     if (brd.domainEntities && brd.domainEntities.length) {
       html += '<h3 style="margin-top:14px;margin-bottom:8px">Domain Entities</h3>';
@@ -479,19 +513,6 @@ function showModule(name) {
         html += '<td style="font-size:12px;color:#475569">' + esc(params) + '</td>';
         html += '<td style="font-size:12px;color:#475569">' + esc(logics2) + '</td>';
         html += '<td>' + (gaps || '—') + '</td></tr>';
-      });
-      html += '</tbody></table>';
-    }
-
-    // Use Cases (scaffolds)
-    if (brd.useCases && brd.useCases.length) {
-      html += '<h3 style="margin-top:14px;margin-bottom:8px">Use Cases (scaffolds)</h3>';
-      html += '<table style="margin-bottom:16px"><thead><tr><th>ID</th><th>Screen</th><th>UI Pattern</th><th>Status</th></tr></thead><tbody>';
-      brd.useCases.forEach(uc => {
-        html += '<tr><td class="mono">' + esc(uc.id || uc.ucId || '—') + '</td>';
-        html += '<td>' + esc(uc.screen || uc.page || '—') + '</td>';
-        html += '<td><span class="tag tag-gray">' + esc(uc.uiPattern || '—') + '</span></td>';
-        html += '<td><span class="tag tag-yellow" style="background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">pending review</span></td></tr>';
       });
       html += '</tbody></table>';
     }

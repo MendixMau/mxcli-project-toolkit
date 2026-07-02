@@ -1046,11 +1046,13 @@ if (require.main === module) {
   const reader    = new FileReader();
   const extractor = new XmlExtractor({ fileReader: reader, logger: console });
   (async () => {
-    const files  = await reader.glob(dir, '*.xml');
+    const config  = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.json'), 'utf8'));
+    const kbDir   = config.knowledgeBaseDir || path.join(__dirname, '..', 'knowledge-base');
+    const files   = await reader.glob(dir, '*.xml');
     console.error(`Extracting from ${files.length} XML files...`);
-    const result = await extractor.run(files, {});
-    fs.mkdirSync('knowledge-base/extracted', { recursive: true });
-    fs.writeFileSync('knowledge-base/extracted/xml.json', JSON.stringify(result, null, 2));
+    const result  = await extractor.run(files, {});
+    fs.mkdirSync(path.join(kbDir, 'extracted'), { recursive: true });
+    fs.writeFileSync(path.join(kbDir, 'extracted', 'xml.json'), JSON.stringify(result, null, 2));
     console.error(`Done. Items: ${result.items.length}, Errors: ${result.errors.length}`);
   })();
 }

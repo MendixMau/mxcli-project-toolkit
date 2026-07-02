@@ -17,6 +17,7 @@ mxcli-project-toolkit/
     source-os11.md              ← OutSystems 11 XML schema reference
     os-xml-schema.md            ← OS eSpace XML structure details
     mdl-cookbook-microflows.md  ← MDL scripting patterns for microflows
+    qa-loop-goal-pattern.md     ← Iterative /goal-driven pipeline validation technique
     e2e-harness-base.md         ← End-to-end test harness base
     learned-*.md                ← Validated learnings from live projects
   bug-logs/
@@ -40,6 +41,7 @@ mxcli-project-toolkit/
 | Understanding OS XML source | `source-os11.md` + `os-xml-schema.md` |
 | Writing MDL microflow scripts | `mdl-cookbook-microflows.md` |
 | Diagnosing a mxcli error | `bug-logs/mxcli-bugs.md` |
+| Validating a new stack pipeline's extraction quality | `qa-loop-goal-pattern.md` |
 
 ---
 

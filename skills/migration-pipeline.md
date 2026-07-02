@@ -366,10 +366,21 @@ label maps together, not just one.
 - [ ] Run the copied `brd-mappers/*` against real extracted output; where a mapper's assumption
       doesn't hold (e.g. no `logicKind` concept), patch it in place and note the change — don't fork
       a parallel mapper implementation
+- [ ] Confirm `brd-mappers/index.js` guards against overwriting Phase 4 enrichment — before
+      writing `{module}.brd.json`, check whether the existing file already has enrichment
+      (any `reviewStatus: 'reviewed'` useCase, or non-empty `openQuestions`); if so, write the
+      fresh scaffold to `{module}.brd.scaffold.json` instead and warn, rather than silently
+      overwriting reviewed narrative with a fresh `pending` scaffold. Confirmed via the
+      java-angular-migration-skills build that re-running Phase 3 without this guard destroys
+      Phase 4 work with no warning.
 - [ ] Run `generate-report.js` against real extracted output and confirm the HTML report renders
       (module/entity/page counts, gap heatmap, per-module drilldown) — update only cosmetic strings
       (page title, any OS-flavored table labels), never the data-driven logic
 - [ ] Write `source-{stack}.md` and add it to this file's "Companion skills" line above
+- [ ] Before trusting BRD output, hand-verify a small amount of ground truth (an
+      `architecture.md`-style doc), then run the iterative validation loop in
+      `qa-loop-goal-pattern.md` until cross-reference quality is actually verified against
+      that ground truth, not just "no errors thrown"
 
 ---
 

@@ -92,6 +92,28 @@ definitions confirmed by a real spec) is a better candidate for manual review th
 neither code confidence nor doc coverage — surface both signals together in the report, not
 `confidence` alone.
 
+### 6. Business process flow reconciliation (code-inferred vs. documented)
+
+`use-case-mapper.js` now produces a best-effort `mainFlow` and `appType` per module from code
+alone (`status: 'code-inferred'`), instead of blank TODOs — see `migration-pipeline.md` Phase 3.
+Once `KB.md` exists (Phase 4), reconcile each use case against it:
+
+- **Confirmed:** the doc-KB describes the same flow/rule → flip `status` to `doc-confirmed`,
+  and if it answers one of the use case's `openQuestions`, mark that question resolved and cite
+  the `KB_*.md` source.
+- **Contradicted:** the doc-KB describes a different flow/rule for the same screen/action → flip
+  `status` to `doc-conflict` and add an `openQuestions` entry for business sign-off — same rule
+  as check #2, don't have the pipeline silently pick a side.
+- **No coverage:** doc-KB says nothing about this screen/action → leave `status` as
+  `code-inferred`. This is not itself a finding; it just means Phase 4 didn't cover that area.
+
+**Update these fields in place on the BRD JSON, not in a separate reconciliation file** — this
+is what makes re-running `node generate-report.js` produce the combined code+doc report for
+free, and it's exactly what `brd-mappers/index.js`'s overwrite guard exists to protect: a BRD
+with any `doc-confirmed`/`doc-conflict` use case (or a resolved `openQuestions` entry) will not
+be clobbered by a later `node run.js 3` — the fresh scaffold goes to
+`{module}.brd.scaffold.json` instead.
+
 ---
 
 ## Procedure
@@ -126,9 +148,14 @@ this loop has a stopping point instead of running forever.
 
 ## Tips
 
-- **Fix the extractor/mapper, not the JSON output by hand.** A hand-edited `brd.json` gets
-  silently overwritten the next time `run.js 3` runs. If a mapper's assumption is wrong for
-  this project, patch the mapper.
+- **Fix the extractor/mapper, not the JSON output by hand, for anything that should hold for
+  every module** (a wrong purpose-inference regex, a missing gap code). If a mapper's assumption
+  is wrong for this project, patch the mapper — that class of fix isn't protected by the
+  overwrite guard and will be silently redone by the next `node run.js 3`.
+- **Module-specific enrichment (use-case review, doc reconciliation) is safe to hand-edit in
+  place** — that's exactly what the overwrite guard in `brd-mappers/index.js` protects (see
+  check #6 above). Don't confuse the two: structural/mapper-level fixes go in code, per-module
+  business content goes in the BRD JSON directly.
 - **A conflict is not automatically a bug.** Code and docs disagreeing is often two true things
   at two points in time (code changed after the spec was written, or vice versa) — record it as
   an `openQuestions` entry for business sign-off, don't have the pipeline "decide."

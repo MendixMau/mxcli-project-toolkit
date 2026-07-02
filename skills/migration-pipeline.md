@@ -3,6 +3,7 @@
 to Mendix via structured extraction, KB synthesis, and BRD generation.
 **Companion skills:** `source-os11.md`, `source-oracle-forms.md`, `source-java-spring-angular.md`,
 `document-discovery.md`, `kb-generation.md`, `brd-generation.md`, `brd-validation.md`, `migrate-general.md`
+**Downstream:** once Phase 6 produces `.mx-brd.json` files, hand off to `brd-to-build-plan.md` to turn them into a dependency-ordered, numbered build plan before any MDL scripting starts.
 
 ---
 

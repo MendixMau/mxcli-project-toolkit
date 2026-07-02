@@ -12,6 +12,8 @@ Used across all mxcli-powered projects — OS migration, ClientB, future Java/An
 mxcli-project-toolkit/
   skills/
     migration-pipeline.md       ← Full pipeline phase guide (XML → KB → BRD → MDL)
+    brd-to-build-plan.md        ← Plan definition: BRD + architecture → dependency-ordered, numbered build plan
+    iterative-build-loop.md     ← Per-module build discipline: 12-step gate, CE triage, Studio Pro handoffs
     brd-generation.md           ← BRD JSON prompt templates + validation checklist
     kb-generation.md            ← Document extraction (Excel/Word/PDF → KB markdown)
     source-os11.md              ← OutSystems 11 XML schema reference
@@ -20,6 +22,10 @@ mxcli-project-toolkit/
     qa-loop-goal-pattern.md     ← Iterative /goal-driven pipeline validation technique
     e2e-harness-base.md         ← End-to-end test harness base
     learned-*.md                ← Validated learnings from live projects
+  examples/
+    outsystems-migration/
+      plan-overview.md          ← Worked example: 112 OS modules → 14 Mendix, architecture decisions
+      build-loop-example.md     ← Worked example: single module (PayerRegistration) step-by-step
   bug-logs/
     mxcli-bugs.md               ← Known mxcli CLI bugs and workarounds
     bug-log-contoso-m0022.md    ← Project-specific bug log (Contoso M-0022)
@@ -36,12 +42,15 @@ mxcli-project-toolkit/
 | Task | Skill to load |
 |------|--------------|
 | Running the extraction pipeline | `migration-pipeline.md` |
+| Turning BRDs + architecture into an ordered build plan | `brd-to-build-plan.md` |
+| Building a module with mxcli (verified, iterative) | `iterative-build-loop.md` |
 | Writing or enriching a BRD JSON | `brd-generation.md` |
 | Extracting Excel/Word/PDF specs | `kb-generation.md` |
 | Understanding OS XML source | `source-os11.md` + `os-xml-schema.md` |
 | Writing MDL microflow scripts | `mdl-cookbook-microflows.md` |
 | Diagnosing a mxcli error | `bug-logs/mxcli-bugs.md` |
 | Validating a new stack pipeline's extraction quality | `qa-loop-goal-pattern.md` |
+| Seeing how it all fits together on a real project | `examples/outsystems-migration/` |
 
 ---
 

@@ -12,6 +12,8 @@ Used across all mxcli-powered projects — OS migration, ClientB, future Java/An
 mxcli-project-toolkit/
   skills/
     migration-pipeline.md       ← Full pipeline phase guide (XML → KB → BRD → MDL)
+    architecture-blueprint.md   ← Target-architecture blueprint: diagrams, module defs, wiring, fit-gap, open-issues
+    design-artifacts.md         ← UI/brand layer: versioned design system + annotated wireframes
     brd-to-build-plan.md        ← Plan definition: BRD + architecture → dependency-ordered, numbered build plan
     iterative-build-loop.md     ← Per-module build discipline: 12-step gate, CE triage, Studio Pro handoffs
     brd-generation.md           ← BRD JSON prompt templates + validation checklist
@@ -42,6 +44,8 @@ mxcli-project-toolkit/
 | Task | Skill to load |
 |------|--------------|
 | Running the extraction pipeline | `migration-pipeline.md` |
+| Diagramming target architecture: module defs, wiring, fit-gap | `architecture-blueprint.md` |
+| Designing the brand + wireframes before building pages | `design-artifacts.md` |
 | Turning BRDs + architecture into an ordered build plan | `brd-to-build-plan.md` |
 | Building a module with mxcli (verified, iterative) | `iterative-build-loop.md` |
 | Writing or enriching a BRD JSON | `brd-generation.md` |

@@ -38,7 +38,11 @@ function mapDomainEntities(entities, staticEntities) {
 
     result.push({
       name:           e.name,
-      mendixType:     'PersistentEntity',
+      // Defaults to PersistentEntity when the extractor doesn't set isPersistent at all
+      // (true today for xml-extractor.js) — only flips to NonPersistentEntity when an
+      // extractor explicitly says so (e.g. java-angular-migration-skills' java-extractor.js
+      // on a plain @Data DTO with no @Entity).
+      mendixType:     e.isPersistent === false ? 'NonPersistentEntity' : 'PersistentEntity',
       isPublic:       e.isPublic || false,
       description:    e.description || '',
       attributeCount: attrs.filter(a => !a.isAutoNumber && !a.isForeignKey).length,

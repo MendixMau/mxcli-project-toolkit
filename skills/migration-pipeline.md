@@ -339,6 +339,10 @@ label maps together, not just one.
       (module/entity/page counts, gap heatmap, per-module drilldown) — update only cosmetic strings
       (page title, any OS-flavored table labels), never the data-driven logic
 - [ ] Write `source-{stack}.md` and add it to this file's "Companion skills" line above
+- [ ] Before trusting BRD output, hand-verify a small amount of ground truth (an
+      `architecture.md`-style doc), then run the iterative validation loop in
+      `qa-loop-goal-pattern.md` until cross-reference quality is actually verified against
+      that ground truth, not just "no errors thrown"
 
 ---
 

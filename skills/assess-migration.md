@@ -337,6 +337,7 @@ Combine all findings into a structured report:
 
 ## Related Skills
 
+- [/source-triage](./source-triage.md) - Checks this assessment's findings against this toolkit's actual extractor/mapper coverage, decides whether automation is warranted, and recommends a bounded scope before any BRD is generated
 - [/migrate-oracle-forms](./migrate-oracle-forms.md) - Oracle Forms-specific migration
 - [/generate-domain-model](./generate-domain-model.md) - Creating entities and associations in MDL
 - [/write-microflows](./write-microflows.md) - Implementing business logic in MDL

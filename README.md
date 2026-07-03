@@ -8,9 +8,13 @@ Used across all mxcli-powered projects — OS migrations, Java/Angular migration
 
 ## How a migration flows through this toolkit
 
-Every migration moves through the same six stages, regardless of source stack. Each stage has one skill that owns it, and each skill hands a concrete artifact to the next:
+Every migration moves through the same stages, regardless of source stack. Each stage has one skill that owns it, and each skill hands a concrete artifact to the next:
 
 ```
+0. TRIAGE               source stack → coverage decision + bounded scope, signed off
+   (source-triage.md, checked against assess-migration.md's inventory)
+        │
+        ▼
 1. ANALYSIS            source code/docs → extracted JSON + KB markdown
    (migration-pipeline.md, source-*.md, kb-generation.md)
         │
@@ -35,13 +39,15 @@ Every migration moves through the same six stages, regardless of source stack. E
    (e2e-harness-base.md)
 ```
 
+**Stage 0 (Triage) is a gate, not a formality.** It decides whether this app is even big enough to justify an extraction pipeline (small apps: skip straight to manual `assess-migration.md` + hand-written BRD), checks whether existing extractors/mappers cover this source stack or new ones are needed, and — for large sources — recommends a bounded scope subset rather than processing everything at once. It also flags (without deciding) whether the app is large enough to raise a multiple-Mendix-apps question, which has to be resolved before Stage 3's module-boundary work. Stage 2 (BRD generation) does not start until this is signed off.
+
 **Stage 1 (Analysis)** runs two independent paths that can happen in either order: Path A extracts structure straight from source code (XML/Java/C#/SQL → JSON), Path B extracts structure from business documents (Excel/Word/PDF/PPTX → KB markdown). Both feed the same merge step.
 
 **Stages 3a/3b run in parallel**, not sequentially: `modularize-domain.md` decides module boundaries first (never map source files 1:1 onto Mendix modules), then `architecture-blueprint.md` (the structural diagrams) and `design-artifacts.md` (the UI/brand layer) both consume that decision at the same time.
 
-**Nothing in stages 1–4 touches mxcli.** MDL scripting only starts at stage 5, against a plan that's already been reviewed. This is deliberate — it's cheaper to fix a wrong module boundary in a diagram than to fix it after 40 MDL scripts assume it.
+**Nothing in stages 0–4 touches mxcli.** MDL scripting only starts at stage 5, against a plan that's already been reviewed. This is deliberate — it's cheaper to fix a wrong module boundary in a diagram (or a wrong scope decision before any extraction ran) than to fix it after 40 MDL scripts assume it.
 
-See `examples/outsystems-migration/` for a worked run through all six stages on a real project.
+See `examples/outsystems-migration/` for a worked run through all six build stages on a real project (that example predates the triage stage).
 
 ---
 
@@ -51,6 +57,7 @@ See `examples/outsystems-migration/` for a worked run through all six stages on 
 mxcli-project-toolkit/
   skills/
     migration-pipeline.md       ← Full pipeline phase guide (XML → KB → BRD → MDL)
+    source-triage.md            ← Gate before extraction: coverage check, manual-vs-pipeline call, bounded scope
     modularize-domain.md        ← Deciding Mendix module boundaries (Phase 6): criteria, sign-off, HTML rationale
     architecture-blueprint.md   ← Target-architecture blueprint: diagrams, module defs, wiring, fit-gap, open-issues
     design-artifacts.md         ← UI/brand layer: versioned design system + annotated wireframes
@@ -89,6 +96,7 @@ mxcli-project-toolkit/
 
 | Task | Skill to load |
 |------|--------------|
+| Deciding whether to extract at all, checking coverage, scoping a large source | `source-triage.md` |
 | Running the extraction pipeline | `migration-pipeline.md` |
 | Diagramming target architecture: module defs, wiring, fit-gap | `architecture-blueprint.md` |
 | Designing the brand + wireframes before building pages | `design-artifacts.md` |

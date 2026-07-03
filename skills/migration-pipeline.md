@@ -3,6 +3,7 @@
 to Mendix via structured extraction, KB synthesis, and BRD generation.
 **Companion skills:** `source-os11.md`, `source-oracle-forms.md`, `source-java-spring-angular.md`,
 `document-discovery.md`, `kb-generation.md`, `brd-generation.md`, `brd-validation.md`, `migrate-general.md`
+**Gate:** `source-triage.md` runs right after Phase 1 (platform identified) and **before Phase 2/3 proceed** — it decides whether an extraction pipeline is even warranted at this size, checks coverage against the extractors/mappers that actually exist, and recommends a bounded scope. Phase 3 does not start on unconfirmed scope.
 **Downstream:** Phase 6 decides module boundaries via `modularize-domain.md` (criteria + user sign-off — never map source files/BRDs 1:1 onto modules) *before* writing `.mx-brd.json`. Then hand off to `architecture-blueprint.md` (diagrams, module defs, wiring, fit-gap) and `design-artifacts.md` (design system + wireframes) to make the architecture legible and verifiable, then to `brd-to-build-plan.md` to turn it all into a dependency-ordered, numbered build plan before any MDL scripting starts.
 
 ---
@@ -126,6 +127,19 @@ Count before committing:
 
 ---
 
+## Gate: Source Triage (`source-triage.md`)
+
+**Run this before Phase 2 or Phase 3, not after.** The counts from 1.3 tell you the app's size; they don't tell you whether this toolkit's extractors/mappers actually cover this stack, whether extraction is even worth setting up at this size, or what a sane first slice looks like if the app is large. `source-triage.md` produces:
+
+- An explicit **Manual-only / Reuse existing pipeline / Build new pipeline** decision (not every app justifies the extraction machinery)
+- A **coverage matrix** — per business capability, extractable? mapper exists? output trustworthy? — so gaps are named before Phase 2 runs, not discovered mid-run
+- A **bounded scope recommendation** when the source is large, signed off by the user
+- A flag (not a full decision) for whether this app's scale raises a multiple-Mendix-apps question, upstream of `modularize-domain.md`'s module-boundary decision
+
+**Phase 3 (BRD scaffolding) does not start until this triage is confirmed.** Skipping straight from extraction to BRDs produces scaffolds for a scope nobody agreed to.
+
+---
+
 ## Phase 2 — Code Extraction (Path A)
 
 Runs the extraction pipeline against source code to produce typed JSON per artifact.
@@ -174,10 +188,8 @@ knowledge-base/
 
 ## Phase 3 — Automated BRD Scaffolding
 
-Once the code extraction pipeline (Phase 2) has produced KB JSONs, run the BRD mapper layer to
-auto-generate one structured `{ModuleName}.brd.json` per source module. This needs no human
-triage and no document input — it runs purely off the code-derived KB, so it's the fastest path
-to a first reviewable artifact on a new project:
+**Requires the `source-triage.md` gate confirmed first** — scope subset agreed, coverage checked. Given that, this phase itself needs no *document* input (Path B) to run: once the code extraction pipeline (Phase 2) has produced KB JSONs for the confirmed scope, run the BRD mapper layer to
+auto-generate one structured `{ModuleName}.brd.json` per source module — purely off the code-derived KB, so it's the fastest path to a first reviewable artifact **within that confirmed scope**:
 
 ```bash
 node run.js 3           # generates knowledge-base/brd/*.brd.json

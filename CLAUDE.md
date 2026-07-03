@@ -10,6 +10,7 @@ Load skill files **on demand when the task calls for it** — not all upfront.
 
 | Task | Read this file |
 |------|---------------|
+| Deciding whether to extract at all, checking extractor/mapper coverage, scoping a large source | `skills/source-triage.md` |
 | Running or explaining the pipeline | `skills/migration-pipeline.md` |
 | Deciding Mendix module boundaries (Phase 6, before `create module`) | `skills/modularize-domain.md` |
 | Scanning/classifying an unstructured document folder | `skills/document-discovery.md` |

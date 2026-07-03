@@ -2,7 +2,7 @@
 
 **Purpose:** Decide *how many* Mendix modules a migrated app should have and *where the boundaries fall* — on their own merits, not by copying the source's structure. Produces a human-facing module-design rationale (HTML) and a sign-off checkpoint before boundaries are frozen into `.mx-brd.json`.
 
-**Upstream:** `migration-pipeline.md` Phase 6 (Rearchitect to Mendix) — run this skill *inside* Phase 6, before you write the `.mx-brd.json` module assignments.
+**Upstream:** `migration-pipeline.md` Phase 6 (Rearchitect to Mendix) — run this skill *inside* Phase 6, before you write the `.mx-brd.json` module assignments. If `source-triage.md` Step 5 flagged a multiple-Mendix-apps question for this migration, that gets resolved *before* this skill runs — this skill only decides module boundaries within one app.
 **Downstream:** `architecture-blueprint.md` (documents the boundaries you decided here), then `brd-to-build-plan.md` (turns them into build order).
 **Companion:** `design-artifacts.md` (the UI/brand half of the architecture phase).
 

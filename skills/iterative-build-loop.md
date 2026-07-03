@@ -38,7 +38,31 @@ Run this before scripting each module:
   - **Validation rules** → `VAL_` microflows to implement
   - **Enumerations / lookups** → correct widget type (combobox, radiobuttons) — set from the start, not patched later
 - [ ] Identify all pages/microflows this module will reference that don't exist yet → create stubs first (separate script, apply before the main script)
-- [ ] Back up the MPR (`cp Project.mpr Project.mpr.backup`)
+- [ ] MPR snapshot rotation is in place (see below) — do **not** make ad-hoc copies like `Project.mpr.backup`
+
+### MPR snapshot rotation (the crash net)
+
+Ad-hoc backup copies (`.mpr.backup`, `.mpr.pre-something`) accumulate, rot, and nobody remembers what they were. Use a **bounded, automated rotation** instead:
+
+- Project has a `bin/snapshot-mpr.sh`: copies every root `*.mpr` into a gitignored `.mpr-snapshots/` with a timestamp, then prunes to the **5 newest** per project file.
+- **Run it before every `mxcli exec`** (put this rule in the project's CLAUDE.md so every session follows it).
+- Git commits per phase gate remain the real history — commit after each verified milestone (`mprcontents/` is tracked, so the model diffs). The rotation only covers mid-session corruption between commits.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+mkdir -p .mpr-snapshots
+for f in *.mpr; do
+  [ -e "$f" ] || continue
+  base="${f%.mpr}"
+  cp "$f" ".mpr-snapshots/${base}.$(date +%Y%m%d-%H%M%S).mpr"
+  ls -t ".mpr-snapshots/${base}."*.mpr 2>/dev/null | tail -n +6 | while read -r old; do rm -f "$old"; done
+done
+echo "mpr snapshot ok — $(ls .mpr-snapshots/*.mpr 2>/dev/null | wc -l | tr -d ' ') kept"
+```
+
+Add `/.mpr-snapshots/` to the project `.gitignore`.
 
 ---
 

@@ -126,14 +126,15 @@ mxcli-project-toolkit/
    **Source:** which project or session this came from
    ```
 2. Structure it as a step-by-step guide with prompt templates where applicable
-3. Add it to the table above in this README
-4. Commit and push — available to all projects on next `git pull`
+3. Add it to the "When to use which skill" table above
+4. **If it applies on every MDL-writing session regardless of task** (not situational — e.g. a new universal MDL gotcha, not a phase-specific procedure), also add it to "Baseline routing" above. Situational skills stay out of that table; it's deliberately short.
+5. Commit and push — available to all projects on next `git pull`
 
 ---
 
 ## How to add a project-specific learning
 
-For validated patterns from a live project, add a file `skills/learned-{topic}.md`. These get loaded by Claude when relevant and accumulate into cross-project knowledge.
+For validated patterns from a live project, add a file `skills/learned-{topic}.md`. These get loaded by Claude when relevant and accumulate into cross-project knowledge. If the pattern is universal enough to belong in "Baseline routing" (most `learned-microflow-patterns.md`-style discipline is), add it there too — don't leave it purely situational.
 
 For bugs, append to `bug-logs/mxcli-bugs.md` or create a project-specific log.
 
@@ -147,6 +148,19 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 ```
 Each project's CLAUDE.md references `~/Mendix/mxcli-project-toolkit`. Pull updates with `git pull`.
 For a self-contained handoff, add it as a git submodule instead. Per pipeline, run `npm install` inside `pipelines/<x>/pipeline` (node_modules is gitignored).
+
+### Baseline routing — copy this into every new project's CLAUDE.md
+
+The "When to use which skill" table above is *situational* — load a skill when a specific task calls for it. A few skills apply on **every** MDL-writing session regardless of task, and situational discovery quietly misses them, because nothing mid-task prompts loading them. Every consuming project's own `CLAUDE.md` (or wherever it tells agents what to read before writing MDL, e.g. its own `write-microflows.md`) should reference these directly, not rely on stumbling onto them:
+
+| Always relevant for | Reference this |
+|---|---|
+| Writing or fixing any microflow | `skills/learned-microflow-patterns.md` — MDL gotchas + the annotation discipline (selective, not blanket; CE-error fixes always annotated) |
+| A CE error or behavior that looks like a known mxcli quirk, not a modeling mistake | `bug-logs/mxcli-bugs.md` |
+| Setting up a new project's dev-process subagents | `skills/agent-roles.md` — once, at project start, not "on demand" |
+| Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
+
+**Why this has to be explicit instead of implicit:** a project's own skill files are usually written before a given toolkit learning exists, or before a new one is added later — they never grow a cross-reference to it on their own. When you `git pull` this toolkit and it brings in a new baseline-worthy skill (most often a new `learned-*.md`), update every consuming project's routing to match — don't assume the next session will find it by chance.
 
 **After cloning, set your local source paths** in `pipelines/<x>/pipeline/config.json` — the committed file ships with `<placeholder>` values; point them at your own source workspace. Never commit real local paths.
 

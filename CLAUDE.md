@@ -49,4 +49,4 @@ Each project's CLAUDE.md references `~/Mendix/mxcli-project-toolkit` — one clo
 
 ## Adding new skills
 Create `skills/{topic}.md` with a `# Title`, `**Purpose:**`, and step-by-step guide.
-Add it to the table above and commit.
+Add it to the table above and commit. **If the skill applies on every MDL-writing session regardless of task** (universal discipline, not a phase-specific procedure), also add it to `README.md`'s "Baseline routing" table — that's the list consuming projects are told to copy into their own `CLAUDE.md`. A skill that only lives in the situational table here can go unnoticed by every project that isn't actively hunting for it.

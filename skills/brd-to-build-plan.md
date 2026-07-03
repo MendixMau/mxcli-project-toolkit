@@ -32,6 +32,7 @@ Skipping this step means these decisions get made ad hoc, mid-script, by whoever
 
 A single **build plan document** per project (or per phase, for large projects), containing:
 
+0. Confirmed marketplace ("Buy") modules imported into the `.mpr`, before any domain-model script
 1. Module dependency order
 2. Resolved architecture questions (with the questions that were asked, not just the answers)
 3. Iteration granularity decision
@@ -40,6 +41,27 @@ A single **build plan document** per project (or per phase, for large projects),
 6. Demo user / role mapping (needed before any security script)
 
 This becomes the checklist `iterative-build-loop.md` executes against.
+
+---
+
+## Step 0: Import Confirmed Marketplace Dependencies
+
+If `architecture/fit-gap.md` (from `architecture-blueprint.md` Step 4) has any confirmed **Buy** verdicts, resolve them now — before Step 1, before any domain-model script, before the skeleton build begins:
+
+```bash
+mxcli auth login                              # once per machine, see download-marketplace-content.md
+mxcli marketplace search "<capability>"       # find the content id
+mxcli marketplace install <content-id> -p app.mpr
+```
+
+Full search/download/install mechanics (auth, version pinning, the "module already present → not auto-updated" caveat) are in the project's own `.ai-context/skills/download-marketplace-content.md` — that's an mxcli built-in skill, not something this toolkit re-documents.
+
+**Why this has to happen before scripting, not during it:**
+- `mxcli check <script> --references` validates that referenced entities/microflows/associations actually exist — it can't validate a reference into a marketplace module that isn't imported yet.
+- Whoever (or whichever `mdl-agent`) drafts MDL against the marketplace module needs to read its real entity/microflow/association names first (`mxcli check`, `SHOW ENTITIES IN <MarketplaceModule>`, etc.) — guessing them produces scripts that look right and fail reference validation.
+- A module imported mid-build, after other modules already reference stubs for what it should have provided, means re-wiring those stubs — the exact rework this whole skill exists to prevent (see "Why This Step Exists" above).
+
+If fit-gap.md has no confirmed "Buy" verdicts yet — only "maybe, decide if needed" — resolve that decision first (back in `architecture-blueprint.md` Step 4) rather than deferring it into the build.
 
 ---
 
@@ -154,7 +176,8 @@ Before any `GRANT` script, decide and document:
 
 ## Handoff to the Build Loop
 
-Once Steps 1–6 are done, the plan is ready for `iterative-build-loop.md` to execute module-by-module. The build loop's Pre-Module Checklist assumes:
+Once Steps 0–6 are done, the plan is ready for `iterative-build-loop.md` to execute module-by-module. The build loop's Pre-Module Checklist assumes:
+- Confirmed marketplace modules are already imported into the `.mpr` (Step 0) — no domain-model script should be the first thing to discover one is missing
 - The module's position in the dependency graph is already known (Step 1)
 - The 4 standing architecture questions are already answered (Step 2) — no re-litigating mid-build
 - The granularity for this module's scripts is already chosen (Step 3)
@@ -169,6 +192,7 @@ If a build session discovers a gap in the plan (a dependency missed, a question 
 ## Anti-Patterns This Skill Prevents
 
 - **Bulk MDL generation from BRDs with no build plan.** Produces a mountain of scripts with no dependency order, no granularity decision, and no way to tell "was this stubbed on purpose or missed."
+- **Writing MDL that references a marketplace module before it's imported.** `mxcli check --references` can't validate against something that isn't in the `.mpr` yet, and whoever drafts the script ends up guessing entity/microflow names instead of reading them.
 - **Discovering cross-module association ownership mid-script.** Always a Studio Pro operation (BUG-02) — if not scheduled, it becomes a surprise blocker.
 - **Deciding role mapping after security scripts are already applied.** Forces a rewrite of every `GRANT` statement.
 - **Treating every CE error as equally investigatable.** Without a scope boundary, "is this stubbed on purpose" and "is this a design gap" look identical.

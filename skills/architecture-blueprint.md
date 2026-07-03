@@ -141,6 +141,8 @@ Verdict vocabulary: **Native** (ships with Mendix/Atlas) · **Config** (native, 
 
 **Marketplace rule of thumb:** for a small CRUD app, import almost nothing — the Administration module and Atlas/Data Grid ship by default. Only "Buy" when a capability is real, reusable, and cheaper than building. Over-importing adds upgrade surface; note every "Buy" as a dependency in Step 5.
 
+**Deciding "Buy" here is not the same as installing it.** The actual `mxcli marketplace search/install` step happens later, as `brd-to-build-plan.md` Step 0 — before any domain-model script, so the module's real entities/microflows exist for MDL scripts to reference and validate against. This step only produces the decision; don't stop partway and leave a confirmed "Buy" un-imported going into the build.
+
 ---
 
 ## Step 5: Dependencies & Open-Issues Register (`architecture/open-issues.md`)
@@ -162,6 +164,7 @@ Consolidate everything that must be *carried into the build plan*, not lost:
 ## Handoff to the Build Plan
 
 `brd-to-build-plan.md` consumes this blueprint directly:
+- **Step 4 fit-gap's confirmed "Buy" rows → imported before scripting starts** (its Step 0).
 - **Step 3 wiring graph → build order** (its Step 1).
 - **Step 4 fit-gap → scope boundary** (its Step 4: in-scope-real / in-scope-stubbed / out-of-scope).
 - **Step 5 open-issues → the questions answered before script 01** (its Step 2).
@@ -175,5 +178,6 @@ If the build plan can't answer one of its Step 2 questions, the gap is in *this*
 - **A module list mistaken for an architecture.** Boundaries without a dependency graph give no build order and hide cross-module coupling.
 - **Silently resolving open questions to make a diagram look finished.** The diagram then lies; the build inherits the wrong assumption.
 - **Discovering marketplace/build-vs-buy mid-build.** It's a fit-gap decision — make it here, with the capability in front of you.
+- **Deciding "Buy" here but installing it late.** A confirmed "Buy" that's still un-imported when scripting starts causes the same mid-build rework as never deciding at all — install it at `brd-to-build-plan.md` Step 0, not whenever a script first needs it.
 - **Drawing an up-the-tiers dependency.** Common importing a feature module is a boundary bug; the diagram should make it impossible to miss.
 - **Diagrams as throwaway images.** Keep them as Mermaid in git so they diff and stay true; render to HTML/SVG only for presentation.

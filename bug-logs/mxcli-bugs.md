@@ -695,6 +695,79 @@ DataGrid 2 is a pluggable widget. Its custom content column schema (`ShowContent
 2. For custom content columns (status badges, action buttons, association-path fields): configure them manually in Studio Pro after mxcli creates the base datagrid with direct-attribute columns.
 
 **Recovery if already corrupted:** restore the affected page's `.mxunit` from git:
+
+---
+
+## BUG-17: `[%BeginOfToday%]` / `[%EndOfToday%]` tokens in `retrieve ... where` are serialised with single quotes → CE0161
+
+**Severity:** Medium — today-date filters are broken; workaround required  
+**Reproducible:** Yes, consistently  
+**Mendix version:** 11.12.0  
+**Discovered:** 2026-07-03, IVM-MxCLI-main Phase 3a (script 14)
+
+### Steps to reproduce
+
+```mdl
+create or replace microflow "Module"."MyFlow" ()
+returns Boolean as $R
+begin
+  retrieve $Items from "Module"."Entity"
+    where TransactionDate >= [%BeginOfToday%] and TransactionDate < [%EndOfToday%];
+  -- or with outer brackets:
+  -- where [TransactionDate >= [%BeginOfToday%] and TransactionDate < [%EndOfToday%]]
+  return true;
+end;
+/
+```
+
+### Expected behavior
+
+Retrieve filters by server-local calendar day. `mx check` passes.
+
+### Actual behavior
+
+mxcli serialises both token forms into the MPR with single quotes around the token:
+`TransactionDate >= '[%BeginOfToday%]'`. Mendix treats single-quoted values as string
+literals — the tokens are never evaluated. `mx check` fails with:
+```
+[error] [CE0161] "Error(s) in XPath constraint." at Retrieve object(s) activity 'Retrieve list of ...'
+```
+
+`DESCRIBE MICROFLOW` always shows the single-quote form regardless of whether you wrote the tokens with or without outer `[...]`.
+
+### Root cause (inferred)
+
+mxcli's MDL-to-BSON compiler quotes `[%Token%]` expressions when they appear in XPath WHERE
+constraints, storing them as string literals instead of Mendix runtime token references.
+The same tokens work correctly in expression contexts (e.g. `declare $Now datetime = [%CurrentDateTime%]`)
+— the bug is XPath-specific.
+
+### Workaround
+
+**Option A (POC):** Filter inside the microflow loop instead of in the XPath:
+```mdl
+retrieve $AllItems from "Module"."Entity"
+  where SomeRequiredAttr != empty;  -- limit to "has been set" as proxy
+
+loop $Item in $AllItems begin
+  -- DateTime comparison works fine in microflow IF expressions
+  if $Item/TransactionDate != empty then
+    -- ... process only today's items (POC: no strict midnight boundary)
+  end if;
+end loop;
+```
+
+**Option B (production):** Create a Java action that returns today's start-of-day as a DateTime parameter, then pass it to a microflow and use `where TransactionDate >= $StartOfDay` — **but note that local microflow variables cannot be used in XPath WHERE** (page params and constants only); the Java-action result must be the parameter passed from a calling context or a module constant.
+
+**Option C (also broken):** Datetime arithmetic for midnight via `addHours` / `hour()` etc. fails with CE0117 because `hour()` / `minuteOfHour()` / `secondsOfMinute()` return Long but `addHours()` expects Integer — type mismatch. This option requires careful casting and is not viable without a helper Java action.
+
+### Does NOT affect
+
+- `[%CurrentDateTime%]` in expression contexts (`declare $Now datetime = [%CurrentDateTime%]`) — works correctly.
+- Static string filters (`where Code = 'ABC'`) — work correctly.
+
+**Recovery (already-exec'd script):** Re-exec with the loop-filter workaround. The BSON
+is not corrupted — it's just logically wrong (CE0161 blocks running anyway).
 ```bash
 git show HEAD:mprcontents/xx/yy/<uuid>.mxunit > /tmp/clean.mxunit
 cp /tmp/clean.mxunit mprcontents/xx/yy/<uuid>.mxunit

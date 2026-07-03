@@ -1,5 +1,5 @@
 # MDL Cookbook — Real Microflow Examples
-**Source project:** Contoso-TestRunOS-main (M-0022 OutSystems → Mendix migration)
+**Source project:** Apex-TestRunOS-main (M-0022 OutSystems → Mendix migration)
 **Date:** 2026-07-01
 
 These are the five largest and most complex microflows from the project, with full MDL
@@ -61,7 +61,7 @@ begin
     CustomerCode = $PayerDetail/CustomerCode,
     CurrencyCode = $PayerDetail/CurrencyCode,
     ContractorLocationCode = $PayerDetail/ContractorLocationCode,
-    IsBelongContosoGroup = false,
+    IsBelongApexGroup = false,
     In_WfMode = ''
   );
   return $Dto;

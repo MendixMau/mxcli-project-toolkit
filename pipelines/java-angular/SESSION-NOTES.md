@@ -1,6 +1,6 @@
 # java-angular-migration-skills — Session Notes
 **Date:** 2026-07-01/02
-**Project origin:** IVM-SourceCodeAnalysis — generalizing the Contoso OS→Mendix pipeline
+**Project origin:** IVM-SourceCodeAnalysis — generalizing the Apex OS→Mendix pipeline
 (`os-migration-pipeline` + `mxcli-project-toolkit`) to a Java/Spring Boot + Angular source,
 piloted against `inventory-management-with-angular-spring-boot`.
 

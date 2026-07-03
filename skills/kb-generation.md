@@ -1,7 +1,7 @@
 # KB File Generation — Prompt Template
 **Purpose:** How to turn raw source documents (xlsx, docx, PDF) into KB_*.md knowledge
 base files that Claude can load as context for BRD and MDL generation.
-**Source:** Contoso M-0022 — 9 KB files produced across 4 sessions, 2026-05.
+**Source:** Apex M-0022 — 9 KB files produced across 4 sessions, 2026-05.
 
 **Upstream step:** this skill assumes you already know *which* files are worth processing.
 For an unstructured folder that hasn't been inventoried yet — and especially one that might
@@ -144,7 +144,7 @@ The KB file will be used as context when generating BRD JSON and MDL scripts.
 
 ## Step 3 — KB file structure (what good output looks like)
 
-Based on the Contoso KB files. Adapt sections to what the source contains.
+Based on the Apex KB files. Adapt sections to what the source contains.
 
 ```markdown
 # [Topic] — [EN Title]

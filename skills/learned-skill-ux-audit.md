@@ -11,7 +11,7 @@ Invoke this skill when:
 
 ## Inputs required
 
-- Mendix app running at `http://localhost:8080` (logged in or loginable as yoko.taoka / Contoso12345)
+- Mendix app running at `http://localhost:8080` (logged in or loginable as yoko.taoka / Apex12345)
 - OutSystems reference screenshots in `Share/converted/` (auto-discovered)
 - `docs/ux-agent-brief.md` — evaluation rubric and report format (auto-updated in Phase 0)
 
@@ -49,12 +49,12 @@ After the screenshot capture, extract the MDL page structure for every page cove
 Run these commands and write the output to `tests/ux-page-structures.json`:
 
 ```bash
-./mxcli -p Contoso-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.PayerRegistration_Overview" > tests/ux-page-struct-overview.txt
-./mxcli -p Contoso-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.Payer_OrgChoice" > tests/ux-page-struct-orgchoice.txt
-./mxcli -p Contoso-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.Payer_Confirm_Selection" > tests/ux-page-struct-confirmation.txt
-./mxcli -p Contoso-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.PayerDetail_NewEdit" > tests/ux-page-struct-newedit.txt
-./mxcli -p Contoso-TestRunOS.mpr -c "DESCRIBE NAVIGATION Responsive" > tests/ux-page-struct-navigation.txt
-./mxcli -p Contoso-TestRunOS.mpr -c "SHOW SNIPPETS IN PayerRegistration" > tests/ux-page-struct-snippets.txt
+./mxcli -p Apex-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.PayerRegistration_Overview" > tests/ux-page-struct-overview.txt
+./mxcli -p Apex-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.Payer_OrgChoice" > tests/ux-page-struct-orgchoice.txt
+./mxcli -p Apex-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.Payer_Confirm_Selection" > tests/ux-page-struct-confirmation.txt
+./mxcli -p Apex-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.PayerDetail_NewEdit" > tests/ux-page-struct-newedit.txt
+./mxcli -p Apex-TestRunOS.mpr -c "DESCRIBE NAVIGATION Responsive" > tests/ux-page-struct-navigation.txt
+./mxcli -p Apex-TestRunOS.mpr -c "SHOW SNIPPETS IN PayerRegistration" > tests/ux-page-struct-snippets.txt
 ```
 
 These files are passed to the Phase 2 agent alongside the screenshots. The agent uses them to:

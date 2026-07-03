@@ -28,7 +28,7 @@ This shows how the 12-step build loop was applied to one real module. Use it as 
 | PostalCode | String | Mandatory, triggers address lookup | Textbox + lookup button |
 | Prefecture | String | Auto-filled after postal lookup | Textbox, Editable: Never |
 | AccountGroup | String | Optional dropdown from SAP master | Combobox (from start — not textbox) |
-| IsBelongContosoGroup | Boolean | Conditional visibility rule | Checkbox |
+| IsBelongApexGroup | Boolean | Conditional visibility rule | Checkbox |
 | SalesAreaData | List | Repeating row, add/remove | Gallery with row inputs |
 | Status | Enum | System-derived, read-only | DynamicText (not textbox) |
 | ... | | | |
@@ -160,7 +160,7 @@ ISSUE FOUND: CompanyName field is editable (should be Editable: Never)
 | Sec2: Address block | DataView + postal lookup | ✅ |
 | Sec3: Payment terms table | DataGrid | ✅ |
 | Sec4: AccountGroup (dropdown) | Combobox txtAccountGroup | ✅ |
-| Sec4: IsBelongContosoGroup | Checkbox | ✅ |
+| Sec4: IsBelongApexGroup | Checkbox | ✅ |
 | Sec4: TradingPartner | Combobox | ✅ |
 | **Overview: Filter panel (3 fields)** | **Container with no controls** | ❌ |
 | **Overview: Pagination** | **Missing** | ❌ |

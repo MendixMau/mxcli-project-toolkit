@@ -1,6 +1,6 @@
 # Process Learnings — M-0022 POC
 
-**Project:** Contoso M-0022 Payer Registration POC (OutSystems → Mendix)
+**Project:** Apex M-0022 Payer Registration POC (OutSystems → Mendix)
 **Author:** Maurits Visser
 **Created:** 2026-05-22
 **Purpose:** Retrospective on what worked, what didn't, and how to run this more structured in Phase 1 and beyond. Written to share with the team.
@@ -29,7 +29,7 @@ This POC used an AI-assisted development approach (Claude Code + mxcli MDL scrip
 
 We tracked pages as binary: `✅ Built` or `⬜ Not started`. A page with sec4 as an empty stub banner counted as "built." We only discovered missing sections weeks later by doing a systematic screenshot comparison.
 
-**What happened:** `PayerDetail_NewEdit` was marked done. Sec4 (AccountGroup, IsBelongContosoGroup, TradingPartner, CommissionBurdenCode, ReconciliationAccount) had a stub banner and nothing else. OS image36/37 clearly shows these as real form fields.
+**What happened:** `PayerDetail_NewEdit` was marked done. Sec4 (AccountGroup, IsBelongApexGroup, TradingPartner, CommissionBurdenCode, ReconciliationAccount) had a stub banner and nothing else. OS image36/37 clearly shows these as real form fields.
 
 **Root cause:** We never did a field-level coverage check between OS screenshots and Mendix widgets before marking a page done.
 

@@ -1,4 +1,4 @@
-# Bug Log — Contoso Payer Registration POC
+# Bug Log — Apex Payer Registration POC
 
 Bugs discovered during Playwright E2E testing and DOM inspection.
 Each entry has: symptom, reproduction steps, evidence, suspected root cause, and suggested fix.

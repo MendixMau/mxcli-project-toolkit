@@ -2,7 +2,7 @@
 **Purpose:** OS 11-specific extraction rules, concept mappings, and migration patterns
 for use alongside `migration-pipeline.md`.
 **Scope:** OutSystems 11 traditional eSpace/module model only. ODC is out of scope.
-**Source:** Contoso M-0022 — 114 eSpace XML files, 2026-05.
+**Source:** Apex M-0022 — 114 eSpace XML files, 2026-05.
 
 ---
 

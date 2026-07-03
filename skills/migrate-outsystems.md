@@ -215,9 +215,9 @@ This is the recommended recording setup:
 **Right pane — Terminal** running the pipeline:
 
 ```bash
-cd C:/Users/dev/Mendix/Contoso-TestRunOS-main/extraction
+cd <path-to-your-workspace>/extraction   # set to your local clone — see pipeline/config.json
 
-# Phase 2: full extraction (60 seconds on the full Contoso project)
+# Phase 2: full extraction (60 seconds on the full Apex project)
 node run.js 2 xml
 
 # Phase 3: BRD generation
@@ -272,7 +272,7 @@ The XML pipeline makes this concrete:
 - The raw XML is unreadable → the extractor makes it structured
 - The JSON is complete but flat → the mappers add business meaning
 - The BRD is readable and traceable → Claude can reason about it and plan Mendix implementation
-- Gaps are made explicit (266 in the Contoso project) → confidence is honest, not hidden
+- Gaps are made explicit (266 in the Apex project) → confidence is honest, not hidden
 
 ---
 

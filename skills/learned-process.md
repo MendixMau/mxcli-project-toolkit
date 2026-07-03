@@ -44,7 +44,7 @@ This applies to: pending Studio Pro steps, CE error descriptions, any instructio
 
 **Rule:** Never propose or execute a fix for a CE error without first tracing its root cause through the executed scripts AND the design documents.
 
-1. **Collect:** run `./mxcli docker check -p Contoso-TestRunOS.mpr` to get full CE error list.
+1. **Collect:** run `./mxcli docker check -p Apex-TestRunOS.mpr` to get full CE error list.
 2. **Trace to script:** review latest scripts in `mdlsource/layer2/` (highest number = most recent). For each error: which script created/modified the flagged element? Is it a **script bug** (wrong wiring) or a **design gap** (element never built)?
 3. **Consult design docs** (only for design gaps, in the priority order above).
 4. **Propose with justification:** state root cause, proposed fix, and the F-doc section or poc-plan decision that justifies it. Wait for user approval.
@@ -60,13 +60,13 @@ The MPR is a SQLite database (~290 KB) — copying it is instant.
 
 ```bash
 # Before starting
-cp Contoso-TestRunOS.mpr Contoso-TestRunOS.mpr.backup
+cp Apex-TestRunOS.mpr Apex-TestRunOS.mpr.backup
 
 # After verifying success
-rm Contoso-TestRunOS.mpr.backup
+rm Apex-TestRunOS.mpr.backup
 
 # If Studio Pro crashes or MPR is corrupt
-cp Contoso-TestRunOS.mpr.backup Contoso-TestRunOS.mpr
+cp Apex-TestRunOS.mpr.backup Apex-TestRunOS.mpr
 ```
 
 **Mandatory (not optional) when:**
@@ -80,7 +80,7 @@ cp Contoso-TestRunOS.mpr.backup Contoso-TestRunOS.mpr
 - `mxcli docker check` → CE errors (after exec)
 - Neither catches BSON-level null GUIDs (BUG-04) — only Studio Pro opening reveals these
 
-**Do NOT use** `git checkout HEAD -- Contoso-TestRunOS.mpr` as recovery — it discards all good MPR changes since the last commit. Use the `.backup` file.
+**Do NOT use** `git checkout HEAD -- Apex-TestRunOS.mpr` as recovery — it discards all good MPR changes since the last commit. Use the `.backup` file.
 
 ---
 

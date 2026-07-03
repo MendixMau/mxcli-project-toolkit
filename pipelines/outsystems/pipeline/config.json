@@ -1,7 +1,8 @@
 {
-  "blueprintDir":    "C:\\Users\\maurits.visser\\Mendix\\OSSourceCode-Analysis\\Os-extractedXMl",
-  "shareDir":        "C:\\Users\\maurits.visser\\Mendix\\OSSourceCode-Analysis\\Share",
+  "_comment": "Set these paths after cloning — they point at YOUR local source workspace (never commit real paths).",
+  "blueprintDir":    "<path-to-extracted-OS-XML>",
+  "shareDir":        "<path-to-share-docs>",
   "dbDir":           "",
   "docsDir":         "",
-  "knowledgeBaseDir": "C:\\Users\\maurits.visser\\Mendix\\OSSourceCode-Analysis\\knowledge-base"
+  "knowledgeBaseDir": "<path-to-project-workspace>/knowledge-base"
 }

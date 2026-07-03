@@ -1,7 +1,7 @@
 # BRD JSON Generation — Prompt Template
 **Purpose:** How to synthesise KB files + extracted JSON into BRD (Business Requirements
 Document) JSON files — the structured handoff from analysis to MDL scripting.
-**Source:** Contoso M-0022 — F001–F012 BRDs produced in conversation, 2026-05.
+**Source:** Apex M-0022 — F001–F012 BRDs produced in conversation, 2026-05.
 
 ---
 
@@ -280,5 +280,5 @@ Execute domain model first — microflows and pages reference entities that must
   during MDL scripting. Resolve them with client, update the BRD.
 - **Cross-BRD dependencies.** F001 may use entities from F003 (master data) and F006
   (common components). Write dependency BRDs first. Track in `cross-reference-map.json`.
-- **Language note.** The Contoso BRDs were written in Chinese (client preference).
+- **Language note.** The Apex BRDs were written in Chinese (client preference).
   For other clients, write in English. The structure is the same.

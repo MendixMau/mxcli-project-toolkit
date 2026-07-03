@@ -37,10 +37,10 @@ mxcli-project-toolkit/
       build-loop-example.md     ← Worked example: single module (PayerRegistration) step-by-step
   bug-logs/
     mxcli-bugs.md               ← Known mxcli CLI bugs and workarounds
-    bug-log-contoso-m0022.md    ← Project-specific bug log (Contoso M-0022)
+    bug-log-apex-m0022.md    ← Project-specific bug log (Apex M-0022)
   process/
     process-learnings.md        ← Cross-project process improvements
-    test-plan-contoso-m0022.md  ← Reference test plan
+    test-plan-apex-m0022.md  ← Reference test plan
   SESSION-NOTES.md              ← Running session diary
 ```
 
@@ -99,6 +99,8 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 ```
 Each project's CLAUDE.md references `~/Mendix/mxcli-project-toolkit`. Pull updates with `git pull`.
 For a self-contained handoff, add it as a git submodule instead. Per pipeline, run `npm install` inside `pipelines/<x>/pipeline` (node_modules is gitignored).
+
+**After cloning, set your local source paths** in `pipelines/<x>/pipeline/config.json` — the committed file ships with `<placeholder>` values; point them at your own source workspace. Never commit real local paths.
 
 **Project output never lives here** (`analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored) — each migration runs in its own workspace that references this repo.
 

@@ -8,7 +8,7 @@ build/
 target/
 *.log
 
-# Project output must never live in the tool repo (see MIGRATION-PLAN.md)
+# Project output must never live in the tool repo (see README.md "Consuming this toolkit")
 /workspaces/
 analysis/
 sources/

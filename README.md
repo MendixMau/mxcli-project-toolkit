@@ -2,7 +2,46 @@
 
 Shared skills, prompt templates, and learnings for **Mendix migration and development projects**.
 
-Used across all mxcli-powered projects — OS migration, ClientB, future Java/Angular migrations, and others.
+Used across all mxcli-powered projects — OS migrations, Java/Angular migrations, and other client integration work.
+
+---
+
+## How a migration flows through this toolkit
+
+Every migration moves through the same six stages, regardless of source stack. Each stage has one skill that owns it, and each skill hands a concrete artifact to the next:
+
+```
+1. ANALYSIS            source code/docs → extracted JSON + KB markdown
+   (migration-pipeline.md, source-*.md, kb-generation.md)
+        │
+        ▼
+2. REQUIREMENTS         KB + extracted JSON → validated BRD JSON (per module)
+   (brd-generation.md, brd-validation.md)
+        │
+        ▼
+3. ARCHITECTURE & DESIGN   BRD → Mendix module boundaries, diagrams, fit-gap, design system
+   (modularize-domain.md → architecture-blueprint.md + design-artifacts.md, run in parallel)
+        │
+        ▼
+4. BUILD PLAN           BRD + architecture → dependency-ordered, numbered script plan
+   (brd-to-build-plan.md)
+        │
+        ▼
+5. BUILD                plan → running Mendix app, one module at a time, gated
+   (iterative-build-loop.md, mdl-cookbook-microflows.md, bug-logs/mxcli-bugs.md)
+        │
+        ▼
+6. TEST                 running app → verified behavior (Playwright + DB assertions)
+   (e2e-harness-base.md)
+```
+
+**Stage 1 (Analysis)** runs two independent paths that can happen in either order: Path A extracts structure straight from source code (XML/Java/C#/SQL → JSON), Path B extracts structure from business documents (Excel/Word/PDF/PPTX → KB markdown). Both feed the same merge step.
+
+**Stages 3a/3b run in parallel**, not sequentially: `modularize-domain.md` decides module boundaries first (never map source files 1:1 onto Mendix modules), then `architecture-blueprint.md` (the structural diagrams) and `design-artifacts.md` (the UI/brand layer) both consume that decision at the same time.
+
+**Nothing in stages 1–4 touches mxcli.** MDL scripting only starts at stage 5, against a plan that's already been reviewed. This is deliberate — it's cheaper to fix a wrong module boundary in a diagram than to fix it after 40 MDL scripts assume it.
+
+See `examples/outsystems-migration/` for a worked run through all six stages on a real project.
 
 ---
 
@@ -41,7 +80,6 @@ mxcli-project-toolkit/
   process/
     process-learnings.md        ← Cross-project process improvements
     test-plan-apex-m0022.md  ← Reference test plan
-  SESSION-NOTES.md              ← Running session diary
 ```
 
 ---
@@ -104,8 +142,10 @@ For a self-contained handoff, add it as a git submodule instead. Per pipeline, r
 
 **Project output never lives here** (`analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored) — each migration runs in its own workspace that references this repo.
 
+**Your build plan and session notes live in your own project, not here.** This repo holds reusable tools + skills + small curated examples only. A project's architecture blueprint, numbered build plan, open-issues register, and running session diary belong in that project's own repo (e.g. `architecture/build-plan.md`, `SESSION-NOTES.md` at the project root) — never committed back into the toolkit. If a pattern from that plan turns out to be reusable across projects, promote it into a `skills/learned-*.md` file here instead of leaving the whole plan in place.
+
 ## Used by
 
 - `pipelines/outsystems/` — OutSystems 11 → Mendix pipeline (was the standalone `os-migration-pipeline` repo)
 - `pipelines/java-angular/` — Java + Angular/Spring Boot → Mendix pipeline
-- ClientB integration project
+- Several other client integration and migration projects

@@ -2,7 +2,7 @@
 
 ## What this repo is
 Shared skills, prompt templates, and learnings for **Mendix migration and development projects**.
-Used across all mxcli-powered projects — OS migration, ClientB, future Java/Angular migrations.
+Used across all mxcli-powered projects — OS migrations, Java/Angular migrations, and other client integration work.
 
 ## Key skills and when to load them
 
@@ -39,9 +39,11 @@ Clone once to a standard location and point projects at it:
 ```
 git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
 ```
-Each project's CLAUDE.md references `~/Mendix/mxcli-project-toolkit` — one clone, no copies, no drift. For a self-contained handoff, add it as a git submodule instead (see `MIGRATION-PLAN.md`).
+Each project's CLAUDE.md references `~/Mendix/mxcli-project-toolkit` — one clone, no copies, no drift. For a self-contained handoff, add it as a git submodule instead.
 
 **Project output never lives here** — `analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored. Each migration runs in its own workspace that *references* this repo.
+
+**A project's build plan and session notes live in that project's own repo, never here.** This is tools + skills + curated examples only — not a place to accumulate one project's architecture docs, numbered build plan, or running session diary. Promote a reusable pattern out of a project's own notes into `skills/learned-*.md` instead of leaving the whole plan here.
 
 ## Adding new skills
 Create `skills/{topic}.md` with a `# Title`, `**Purpose:**`, and step-by-step guide.

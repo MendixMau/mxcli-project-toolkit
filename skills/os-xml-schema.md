@@ -7,7 +7,7 @@ work without pasting raw XML first.
 
 ## What an eSpace XML file is
 
-Each `.xml` file in an BlueprintVendor blueprint delivery is one OutSystems **eSpace** —
+Each `.xml` file in an OS 11 blueprint delivery is one OutSystems **eSpace** —
 equivalent to one Mendix module. A large application has 10-100 eSpaces.
 The root element is `<ESpace>` with key attributes identifying the module.
 

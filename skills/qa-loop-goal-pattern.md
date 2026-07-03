@@ -2,8 +2,8 @@
 **Purpose:** A reusable `/goal` directive for autonomously validating a new stack's
 extractor/linker/mapper pipeline against real source, run until output quality is genuinely
 high — not just "runs without crashing."
-**Source:** java-angular-migration-skills pipeline build, 2026-07-01/02. See that project's
-`SESSION-NOTES.md` for the full bug list this produced.
+**Source:** `pipelines/java-angular/` pipeline build, 2026-07-01/02. See
+`pipelines/java-angular/SESSION-NOTES.md` for the full bug list this produced.
 
 ---
 
@@ -41,7 +41,7 @@ Not "run the whole pipeline and eyeball the summary." Each iteration was: make o
 code change → re-run just the affected extractor(s) + merger + relevant mapper → inspect actual
 field-level output (`python3 -c "import json; ..."` one-liners against the extracted JSON or
 generated BRD, not just exit codes) → compare specific values against the ground truth doc →
-fix or move on. The bugs this caught (see `java-angular-migration-skills/SESSION-NOTES.md` for
+fix or move on. The bugs this caught (see `pipelines/java-angular/SESSION-NOTES.md` for
 the full list) were mostly invisible to a "does it crash" check:
 
 - Chained method calls producing giant duplicated blob strings instead of clean names

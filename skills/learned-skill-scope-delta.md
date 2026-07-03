@@ -106,4 +106,4 @@ Same table format, but Side A = `analysis-design-architecture.md`, Side B = `ana
 
 **Top-level:** "Run scope-delta on the two analysis docs — compare analysis-design-architecture.md vs analysis-business-requirements.md"
 
-**Output location:** `Maurits-docs/04-delta/delta-code-vs-requirements.md`
+**Output location:** `docs/04-delta/delta-code-vs-requirements.md`

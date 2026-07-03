@@ -56,17 +56,20 @@ This applies to: pending Studio Pro steps, CE error descriptions, any instructio
 
 ## MPR Backup — Mandatory Before Any Build Sequence
 
-The MPR is a SQLite database (~290 KB) — copying it is instant.
+The MPR is a SQLite database (tiny, ~70–300 KB) — snapshotting it is instant.
+
+> **Superseded pattern:** this learning originally used a single ad-hoc copy
+> (`cp Project.mpr Project.mpr.backup`). That pattern rots — copies accumulate
+> and nobody remembers which is which. Use the **rotating keep-5 snapshot**
+> discipline instead: `bin/snapshot-mpr.sh` → `.mpr-snapshots/` (gitignored),
+> run before every `mxcli exec`. See `iterative-build-loop.md` for the script.
 
 ```bash
-# Before starting
-cp Apex-TestRunOS.mpr Apex-TestRunOS.mpr.backup
+# Before every exec
+./bin/snapshot-mpr.sh
 
-# After verifying success
-rm Apex-TestRunOS.mpr.backup
-
-# If Studio Pro crashes or MPR is corrupt
-cp Apex-TestRunOS.mpr.backup Apex-TestRunOS.mpr
+# If Studio Pro crashes or the MPR is corrupt: restore the newest snapshot
+cp .mpr-snapshots/<newest>.mpr Project.mpr
 ```
 
 **Mandatory (not optional) when:**

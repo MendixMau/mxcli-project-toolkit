@@ -3,7 +3,7 @@
 to Mendix via structured extraction, KB synthesis, and BRD generation.
 **Companion skills:** `source-os11.md`, `source-oracle-forms.md`, `source-java-spring-angular.md`,
 `document-discovery.md`, `kb-generation.md`, `brd-generation.md`, `brd-validation.md`, `migrate-general.md`
-**Downstream:** once Phase 6 produces `.mx-brd.json` files, hand off to `architecture-blueprint.md` (diagrams, module defs, wiring, fit-gap) and `design-artifacts.md` (design system + wireframes) to make the architecture legible and verifiable, then to `brd-to-build-plan.md` to turn it all into a dependency-ordered, numbered build plan before any MDL scripting starts.
+**Downstream:** Phase 6 decides module boundaries via `modularize-domain.md` (criteria + user sign-off — never map source files/BRDs 1:1 onto modules) *before* writing `.mx-brd.json`. Then hand off to `architecture-blueprint.md` (diagrams, module defs, wiring, fit-gap) and `design-artifacts.md` (design system + wireframes) to make the architecture legible and verifiable, then to `brd-to-build-plan.md` to turn it all into a dependency-ordered, numbered build plan before any MDL scripting starts.
 
 ---
 

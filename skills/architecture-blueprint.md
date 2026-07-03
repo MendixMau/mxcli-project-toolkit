@@ -12,7 +12,7 @@
 - Someone asked for "the architecture diagram," "module design docs," a "wiring diagram," or a "fit-gap analysis."
 - You keep hitting dependency surprises or "is this a gap or a deferral?" confusion mid-build.
 
-If module boundaries aren't decided yet, that's `migration-pipeline.md` Phase 6. This skill assumes they are, and makes them legible + verifiable.
+If module boundaries aren't decided yet, that's `migration-pipeline.md` Phase 6 — specifically `modularize-domain.md`, which decides boundaries on their own merits (never 1:1 from source structure) and gets user sign-off. This skill assumes they are decided, and makes them legible + verifiable.
 
 ---
 

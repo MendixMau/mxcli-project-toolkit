@@ -11,6 +11,7 @@ Load skill files **on demand when the task calls for it** — not all upfront.
 | Task | Read this file |
 |------|---------------|
 | Running or explaining the pipeline | `skills/migration-pipeline.md` |
+| Deciding Mendix module boundaries (Phase 6, before `create module`) | `skills/modularize-domain.md` |
 | Scanning/classifying an unstructured document folder | `skills/document-discovery.md` |
 | Writing or enriching a BRD JSON | `skills/brd-generation.md` |
 | Validating BRDs against code + doc KB, iterating to clean | `skills/brd-validation.md` |

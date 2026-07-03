@@ -12,7 +12,7 @@
 - You are about to start MDL scripting and need the build order, not just the module list
 - You keep discovering architecture questions *mid-build* that should have been settled up front
 
-If you're still deciding module boundaries or naming conventions, that's `migration-pipeline.md` Phase 6. This skill assumes those are already decided and turns them into an executable plan.
+If you're still deciding module boundaries or naming conventions, that's `migration-pipeline.md` Phase 6 — use `modularize-domain.md` for the boundary decision (criteria, over-split signals, one-module-plus-folders default, user sign-off). This skill assumes those are already decided and turns them into an executable plan.
 
 ---
 

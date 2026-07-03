@@ -1,5 +1,6 @@
 # Agent Roles — Draft / Gate / Test Split for mxcli Projects
 **Purpose:** How to generate a project's `.claude/agents/*.md` subagent definitions so MDL drafting, post-exec verification, and UI testing are separate agents with separate tool rights — instead of one agent doing everything, including unreviewed writes to the `.mpr`.
+**Upstream:** `bootstrap-project.md` — run that first if the project's `CLAUDE.md` doesn't exist yet or hasn't been checked against Baseline routing; this skill's Step 1 ("read the target project first") depends on that being reliable.
 **Companion skills:** `iterative-build-loop.md` (the gate/build/test discipline this pattern makes executable), `mdl-cookbook-microflows.md`, `bug-logs/mxcli-bugs.md`, `test-app.md`
 **Source:** Generalized from three project-specific agents built for a live mxcli project (IVM-MxCLI-main), after real use.
 

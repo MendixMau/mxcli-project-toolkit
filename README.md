@@ -73,6 +73,7 @@ mxcli-project-toolkit/
     assess-migration.md         ← Up-front migration assessment
     migrate-general.md          ← Source-agnostic migration guidance
     migrate-outsystems.md       ← OutSystems-specific migration guide
+    bootstrap-project.md        ← Generate a new project's CLAUDE.md: Baseline routing + project-specific facts
     agent-roles.md              ← Generate project-specific mdl/gate/test subagents with scoped tool rights
     learned-*.md                ← Validated learnings from live projects
   pipelines/                    ← Source-specific extraction tooling (code; node_modules gitignored)
@@ -113,6 +114,7 @@ mxcli-project-toolkit/
 | Migrating an OutSystems app | `migrate-outsystems.md` |
 | Running the OS or Java/Angular extraction pipeline | `pipelines/outsystems/` · `pipelines/java-angular/` |
 | Seeing how it all fits together on a real project | `examples/outsystems-migration/` |
+| Generating a new project's CLAUDE.md (Baseline routing + project-specific facts) | `bootstrap-project.md` |
 | Setting up dev-process subagents on a new project (draft/gate/test split) | `agent-roles.md` |
 
 ---

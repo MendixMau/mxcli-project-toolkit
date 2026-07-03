@@ -1,2 +1,20 @@
+# Dependencies / build artifacts (never commit)
 node_modules/
+.venv/
+venv/
+__pycache__/
+dist/
+build/
+target/
 *.log
+
+# Project output must never live in the tool repo (see MIGRATION-PLAN.md)
+/workspaces/
+analysis/
+sources/
+knowledge-base/
+*.mpr
+*.mpr.backup
+
+# OS noise
+.DS_Store

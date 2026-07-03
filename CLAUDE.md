@@ -23,6 +23,7 @@ Load skill files **on demand when the task calls for it** — not all upfront.
 | Migrating an OutSystems app | `skills/migrate-outsystems.md` |
 | Diagnosing a mxcli CLI error | `bug-logs/mxcli-bugs.md` |
 | Understanding past process decisions | `process/process-learnings.md` |
+| Setting up dev-process subagents (draft/gate/test) on a new project | `skills/agent-roles.md` |
 
 ## Pipelines (extraction tooling — code lives in this repo)
 The source-specific extraction pipelines now live **in this repo** under `pipelines/`:

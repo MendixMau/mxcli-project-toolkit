@@ -140,6 +140,9 @@ When a CE error appears, triage in this order — **never add model elements to 
 2. **Is the referenced element missing?** → Create the missing stub, don't patch the error around it
 3. **Is it a binding mismatch?** → Check whether the *page is wrong* (bound to wrong attribute/entity) rather than the *model being incomplete*. The page may be the bug.
 4. **Requirements justification:** Before adding any attribute, entity, or association to resolve a CE error, trace it to the feature doc. If it's not in the spec, the page binding is wrong — fix the page.
+5. **Annotate the fix.** Once the CE error is resolved, add an `@annotation` on the fixed activity recording what was tried and why it changed (e.g. "Was trying to retrieve via association — failed CE0056; now passed as parameter instead"). See `learned-microflow-patterns.md`'s annotation rule — this is the one case annotations are always worth adding, even in an otherwise unannotated microflow, because the next reviewer (human or agent) has no other way to see that this shape was already tried and rejected.
+
+**mxcli itself does not write anything back into the model on a CE error or exec failure** — `mxcli check`/`mxcli exec` only report to stdout/JSON/SARIF. Step 5 is a manual/agent discipline, not a CLI feature — there's no `--annotate-on-error` flag to reach for.
 
 ---
 

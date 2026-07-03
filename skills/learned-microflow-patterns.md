@@ -204,18 +204,26 @@ end if;
 
 ---
 
-## Annotations — Add Proactively on Every Key Activity
+## Annotations — Selectively, on Complex or Non-Obvious Activities Only
 
-**Rule:** Add `@annotation` above every meaningful activity in generated microflows. Mendix microflows have no inline comments — annotations are the only in-flow documentation available to developers reviewing Studio Pro.
+**Rule:** Add `@annotation` where an activity's *why* isn't obvious from its name and parameters alone — not on every activity. Mendix microflows have no inline comments, so annotations are the only in-flow documentation available to developers reviewing Studio Pro, but that makes them worth protecting from noise: an annotation on every `commit` and every simple `retrieve` trains reviewers to skip them all, including the ones that actually matter.
 
-Annotate especially:
+**Two annotation shapes, used differently:**
+
+- **Microflow-level summary** — a free-floating `@annotation` (no following activity) placed once, near the start of a genuinely complex microflow, stating the overall approach in a sentence or two. Complements, doesn't replace, the `/** ... */` doc-comment above the microflow signature: the doc-comment is the formal spec-facing summary (params, returns, what it validates); the free-floating annotation is the in-canvas one a reviewer sees without opening the properties panel. Reserve this for microflows whose logic isn't a straightforward linear read — a 3-activity CRUD save doesn't need one.
+- **Per-activity note** — attached to one specific activity, only when that activity's purpose or behavior would otherwise surprise a reviewer.
+
+**Annotate especially (per-activity):**
 - Activities that interact with cross-module microflows (explain what the external MF does and why)
 - Any activity that involves an NPE → PE copy (explain: "copying from in-memory Dto — cannot commit Dto directly because it is an NPE")
-- Any activity where a known mxcli limitation applies (explain the intent and the workaround)
-- Loop bodies (explain what each iteration produces)
-- Status transitions (explain what the new status means)
+- Any activity where a known mxcli limitation applies (explain the intent and the workaround — e.g. BUG-15b's XPath annotation pattern above)
+- Loop bodies whose per-iteration effect isn't obvious from the loop variable name alone
+- Status transitions whose new status value isn't self-explanatory
+- **The fix for a CE error**, once resolved (see below)
 
-When a CE error fires on an activity, the annotation should preserve the original intent: "Was trying to retrieve AreaDto via association — failed CE0056 (NPE); now passed as parameter instead."
+**Don't annotate:** a plain `commit`/`retrieve`/`change` whose activity name and parameters already say what it does. If the annotation would just restate the activity, skip it.
+
+**CE-error fixes must preserve the original intent, not just the fix.** When a CE error fires on an activity and gets resolved, the annotation on the fixed activity should record what was tried and why it changed: *"Was trying to retrieve AreaDto via association — failed CE0056 (NPE); now passed as parameter instead."* This is the same discipline as `iterative-build-loop.md`'s CE Error Triage — trace to requirements, don't just silence the error — the annotation is where that trace gets recorded for the next person (or agent) who reads this microflow.
 
 ---
 

@@ -58,6 +58,7 @@ You write MDL scripts for {{PROJECT}}. You draft and validate — you never exec
 - Business rules come from {{BUSINESS_RULES_SOURCE}} — read directly, don't guess.
 - Read {{DOMAIN_MODEL_SCRIPT}} for exact, case-sensitive entity/attribute/association names before referencing them.
 - Verify unfamiliar syntax with a throwaway `mxcli check` before relying on it in the real script.
+- Annotate selectively, not on every activity: a microflow-level summary for genuinely complex flows, per-activity notes only where the purpose isn't obvious. Always annotate a CE-error fix with what was tried and why it changed — mxcli never writes this itself, so it only exists if you write it. See `learned-microflow-patterns.md`.
 
 ## Workflow
 1. Read the task spec (which elements, which business rules apply).

@@ -12,6 +12,7 @@ Used across all mxcli-powered projects — OS migration, ClientB, future Java/An
 mxcli-project-toolkit/
   skills/
     migration-pipeline.md       ← Full pipeline phase guide (XML → KB → BRD → MDL)
+    modularize-domain.md        ← Deciding Mendix module boundaries (Phase 6): criteria, sign-off, HTML rationale
     architecture-blueprint.md   ← Target-architecture blueprint: diagrams, module defs, wiring, fit-gap, open-issues
     design-artifacts.md         ← UI/brand layer: versioned design system + annotated wireframes
     brd-to-build-plan.md        ← Plan definition: BRD + architecture → dependency-ordered, numbered build plan
@@ -23,7 +24,13 @@ mxcli-project-toolkit/
     mdl-cookbook-microflows.md  ← MDL scripting patterns for microflows
     qa-loop-goal-pattern.md     ← Iterative /goal-driven pipeline validation technique
     e2e-harness-base.md         ← End-to-end test harness base
+    assess-migration.md         ← Up-front migration assessment
+    migrate-general.md          ← Source-agnostic migration guidance
+    migrate-outsystems.md       ← OutSystems-specific migration guide
     learned-*.md                ← Validated learnings from live projects
+  pipelines/                    ← Source-specific extraction tooling (code; node_modules gitignored)
+    outsystems/                 ← OS XML → KB → BRD (imported with history) + sample-outputs
+    java-angular/               ← Java + Angular/Spring Boot → KB → BRD
   examples/
     outsystems-migration/
       plan-overview.md          ← Worked example: 112 OS modules → 14 Mendix, architecture decisions
@@ -54,6 +61,10 @@ mxcli-project-toolkit/
 | Writing MDL microflow scripts | `mdl-cookbook-microflows.md` |
 | Diagnosing a mxcli error | `bug-logs/mxcli-bugs.md` |
 | Validating a new stack pipeline's extraction quality | `qa-loop-goal-pattern.md` |
+| Deciding module boundaries before `create module` | `modularize-domain.md` |
+| Assessing / planning a migration up front | `assess-migration.md` |
+| Migrating an OutSystems app | `migrate-outsystems.md` |
+| Running the OS or Java/Angular extraction pipeline | `pipelines/outsystems/` · `pipelines/java-angular/` |
 | Seeing how it all fits together on a real project | `examples/outsystems-migration/` |
 
 ---
@@ -80,8 +91,19 @@ For bugs, append to `bug-logs/mxcli-bugs.md` or create a project-specific log.
 
 ---
 
+## Consuming this toolkit
+
+**Reference model (default):** clone once, point projects at it — no copies, no drift.
+```
+git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
+```
+Each project's CLAUDE.md references `~/Mendix/mxcli-project-toolkit`. Pull updates with `git pull`.
+For a self-contained handoff, add it as a git submodule instead. Per pipeline, run `npm install` inside `pipelines/<x>/pipeline` (node_modules is gitignored).
+
+**Project output never lives here** (`analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored) — each migration runs in its own workspace that references this repo.
+
 ## Used by
 
-- `OS-migration-skills/` — OutSystems 11 → Mendix pipeline
+- `pipelines/outsystems/` — OutSystems 11 → Mendix pipeline (was the standalone `os-migration-pipeline` repo)
+- `pipelines/java-angular/` — Java + Angular/Spring Boot → Mendix pipeline
 - ClientB integration project
-- Future: Java/Angular → Mendix migration pipeline

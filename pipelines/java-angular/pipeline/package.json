@@ -1,0 +1,15 @@
+{
+  "name": "java-angular-migration-pipeline",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test tests/**/*.test.js tests/**/**/*.test.js",
+    "reports": "node generate-report.js && node generate-enrichment-report.js"
+  },
+  "dependencies": {
+    "glob": "^10.3.12",
+    "tree-sitter": "^0.21.1",
+    "tree-sitter-java": "^0.21.0",
+    "tree-sitter-typescript": "^0.21.2"
+  }
+}

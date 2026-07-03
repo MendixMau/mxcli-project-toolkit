@@ -18,12 +18,30 @@ Load skill files **on demand when the task calls for it** — not all upfront.
 | Extracting Excel/Word/PDF specs | `skills/kb-generation.md` |
 | Understanding OS XML structure or concepts | `skills/source-os11.md` + `skills/os-xml-schema.md` |
 | Writing MDL microflow scripts | `skills/mdl-cookbook-microflows.md` |
+| Assessing a migration up front | `skills/assess-migration.md` |
+| Generic (source-agnostic) migration guidance | `skills/migrate-general.md` |
+| Migrating an OutSystems app | `skills/migrate-outsystems.md` |
 | Diagnosing a mxcli CLI error | `bug-logs/mxcli-bugs.md` |
 | Understanding past process decisions | `process/process-learnings.md` |
 
-## Pipeline repo
-The extraction pipeline lives at:
-`https://github.com/MendixMau/os-migration-pipeline`
+## Pipelines (extraction tooling — code lives in this repo)
+The source-specific extraction pipelines now live **in this repo** under `pipelines/`:
+
+| Source platform | Pipeline | Run |
+|-----------------|----------|-----|
+| OutSystems | `pipelines/outsystems/` (imported with history from the former `os-migration-pipeline` repo) | `cd pipelines/outsystems/pipeline && npm install` — see its `README.md` / `pipeline-guide.html` |
+| Java + Angular / Spring Boot | `pipelines/java-angular/` | `cd pipelines/java-angular/pipeline && npm install` — see its `README.md` |
+
+`node_modules/` is gitignored — run `npm install` locally per pipeline. Curated sample outputs live under each pipeline (e.g. `pipelines/outsystems/sample-outputs/`).
+
+## Consuming this toolkit (reference model)
+Clone once to a standard location and point projects at it:
+```
+git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
+```
+Each project's CLAUDE.md references `~/Mendix/mxcli-project-toolkit` — one clone, no copies, no drift. For a self-contained handoff, add it as a git submodule instead (see `MIGRATION-PLAN.md`).
+
+**Project output never lives here** — `analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored. Each migration runs in its own workspace that *references* this repo.
 
 ## Adding new skills
 Create `skills/{topic}.md` with a `# Title`, `**Purpose:**`, and step-by-step guide.

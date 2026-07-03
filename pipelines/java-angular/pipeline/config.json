@@ -1,0 +1,7 @@
+{
+  "javaSourceDir":    "/Users/dev/Mendix/IVM-SourceCodeAnalysis/sources/inventory-management-with-angular-spring-boot/server/src/main/java",
+  "angularSourceDir": "/Users/dev/Mendix/IVM-SourceCodeAnalysis/sources/inventory-management-with-angular-spring-boot/client/src/app",
+  "dbDir":            "",
+  "docsDir":          "/Users/dev/Mendix/IVM-SourceCodeAnalysis/sources/inventory-management-with-angular-spring-boot",
+  "knowledgeBaseDir":         "/Users/dev/Mendix/IVM-SourceCodeAnalysis/analysis/inventory-management-with-angular-spring-boot/knowledge-base"
+}

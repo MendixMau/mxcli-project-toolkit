@@ -174,8 +174,14 @@ Repeat for each module:
 5.  Create stub pages/microflows for any forward references (separate script, apply first)
 6.  Write + apply microflows
 7.  Write + apply pages (following screenshot top-to-bottom)
-8.  mxcli docker check → 0 CE errors
-9.  If GRANT scripts were applied → Studio Pro "Update security" → Ctrl+S
+8.  `./mxcli docker check -p app.mpr --no-update-widgets` → 0 CE errors
+      - Always use `--no-update-widgets`. Without it, `mx update-widgets` runs first and crashes
+        with `AggregateException` on Studio Pro 11.x Beta (path resolution bug) — the CE errors
+        still print, but the output is noisy and the exit code misleads automation.
+      - CE0066 alone = **conditional pass**: only Studio Pro can recompute the security hash.
+        Open Studio Pro, open the affected domain model, click "Update security", Cmd+S, re-run check.
+        Do not block the build on CE0066 alone.
+9.  If GRANT scripts were applied → Studio Pro "Update security" → Cmd+S
 10. Walk the happy path as a non-admin demo user:
       - Log in as demo user (not Administrator)
       - Navigate to the page
@@ -232,7 +238,10 @@ Use `SHOW PAGES IN Module` / `SHOW MICROFLOWS IN Module` to confirm a target exi
 
 When a CE error appears, triage in this order — **never add model elements to silence errors without tracing to requirements first**:
 
-1. **Is it CE0066?** → Studio Pro "Update security" click, then Ctrl+S (see `bug-logs/mxcli-bugs.md` BUG-03)
+1. **Is it CE0066?** → Conditional pass. This is a security hash that only Studio Pro can recompute —
+   mxcli GRANT/REVOKE cycling does not clear it. Open the affected module's domain model in Studio Pro,
+   click the "Update security" banner, Cmd+S, re-run `docker check --no-update-widgets`. Do not block
+   the build on CE0066 alone if all other errors are 0.
 2. **Is the referenced element missing?** → Create the missing stub, don't patch the error around it
 3. **Is it a binding mismatch?** → Check whether the *page is wrong* (bound to wrong attribute/entity) rather than the *model being incomplete*. The page may be the bug.
 4. **Requirements justification:** Before adding any attribute, entity, or association to resolve a CE error, trace it to the feature doc. If it's not in the spec, the page binding is wrong — fix the page.
@@ -249,12 +258,12 @@ Some operations cannot be done via mxcli. Plan for these explicitly in each modu
 | When | Action | Estimated time |
 |------|--------|---------------|
 | After any `GRANT` script | Open Studio Pro → click "Update security" banner → Ctrl+S | 2 min |
-| Cross-module associations | Draw in Studio Pro domain model (drag across modules) | 5–10 min per assoc |
+| Cross-module associations | Use `CREATE ASSOCIATION` via mxcli — BUG-02 fixed in v0.13.0 | — |
 | Drop attribute with access rules | Delete in Studio Pro (BUG-01 — mxcli corrupts MPR) | 2 min |
 | After `VALIDATION FEEDBACK` activities | Wire `Variable` manually in Studio Pro (BUG CE0639) | 1–2 min per activity |
 | After XPath retrieves written by mxcli | Run binary patch script + reload Studio Pro (BUG-15b) | 3 min |
 
-**Cross-module associations must always be created in Studio Pro.** This is non-negotiable (BUG-02 corrupts the MPR silently). Plan a dedicated Studio Pro session for cross-module associations after the mxcli entity scripts are applied.
+**Cross-module associations can be created via mxcli** using `CREATE ASSOCIATION` — BUG-02 is fixed in v0.13.0. No Studio Pro handoff needed.
 
 ---
 

@@ -6,6 +6,23 @@ Used across all mxcli-powered projects — OS migrations, Java/Angular migration
 
 ---
 
+## ⚠️ Critical rule: never screenshot or audit a stale build
+
+`mxcli exec` writes to the `.mpr` model file, but the **browser serves a JS bundle compiled by Studio Pro — not the raw model**. After any `mxcli exec`, the browser still shows the *old* build until SP recompiles. Screenshots taken before SP recompiles are worthless for UX audits and test verification.
+
+**Mandatory protocol before any screenshot, visual review, or UI test:**
+
+1. Run `mxcli exec` as usual
+2. Fully restart Studio Pro: `pkill -9 -f "Contents/MacOS/studiopro" && rm -f *.mpr.lock && open YourProject.mpr`
+   - `open file.mpr` only **foregrounds** an already-running SP — it does NOT reload the model. Always `pkill -9` first.
+3. Click **Run Locally** in SP and wait for compilation to finish
+4. Confirm the app is live: `curl -s -o /dev/null -w "%{http_code}" http://localhost:PORT/login.html` → `200`
+5. **Only then** take screenshots or run UI assertions
+
+**Add this rule to your project's CLAUDE.md** when setting up a new project so every agent session is bound by it. Copy the "Screenshot & UX audit rule" section from any existing project's CLAUDE.md as a template.
+
+---
+
 ## How a migration flows through this toolkit
 
 Every migration moves through the same stages, regardless of source stack. Each stage has one skill that owns it, and each skill hands a concrete artifact to the next:
@@ -40,6 +57,31 @@ Every migration moves through the same stages, regardless of source stack. Each 
 ```
 
 **Stage 0 (Triage) is a gate, not a formality.** It decides whether this app is even big enough to justify an extraction pipeline (small apps: skip straight to manual `assess-migration.md` + hand-written BRD), checks whether existing extractors/mappers cover this source stack or new ones are needed, and — for large sources — recommends a bounded scope subset rather than processing everything at once. It also flags (without deciding) whether the app is large enough to raise a multiple-Mendix-apps question, which has to be resolved before Stage 3's module-boundary work. Stage 2 (BRD generation) does not start until this is signed off.
+
+### How `assess-migration` and the extraction pipeline complement each other
+
+These are two tools for the same stage — they work together, not instead of each other:
+
+| Tool | What it does | When to use it |
+|------|-------------|----------------|
+| `assess-migration.md` | AI-guided manual inventory: reads source files, produces a human-readable markdown report covering entities, business logic, integrations, security, and migration risks. | Always — for small apps this is sufficient on its own; for large apps it provides the human-readable layer on top of the pipeline output. Run it before or after the extraction pipeline. |
+| ``outsystems/`) | Automated AST-based extraction: parses source code into normalized KB JSON, runs BRD mappers, generates a per-module BRD and HTML report. | Medium/large apps where manual reading would miss classes or where you need machine-processable output for BRD generation. |
+
+**The correct combined flow for a medium/large Java/Spring app:**
+
+```
+assess-migration.md          ←  AI reads source, produces markdown triage report
+        +
+java-extractor.js (Phase 2)  ←  AST parser extracts all entities/logic/endpoints → KB JSON
+        +
+BRD mappers (Phase 3)        ←  KB JSON → structured BRD per module
+        ↓
+source-triage.md             ←  human reviews both outputs, signs off on scope + approach
+        ↓
+stages 1–6 proceed
+```
+
+`assess-migration.md`'s output feeds `source-triage.md`'s coverage matrix (Step 3) — it tells you *what* is in the source. The extraction pipeline tells you the same thing in machine-readable form. Together they cross-validate each other: discrepancies between the two (e.g. the AI found a rule the extractor missed, or the extractor found 40 entities the AI only sampled 15 of) are exactly the gaps `source-triage.md` is designed to surface before Phase 2 BRDs are generated.
 
 **Stage 1 (Analysis)** runs two independent paths that can happen in either order: Path A extracts structure straight from source code (XML/Java/C#/SQL → JSON), Path B extracts structure from business documents (Excel/Word/PDF/PPTX → KB markdown). Both feed the same merge step.
 

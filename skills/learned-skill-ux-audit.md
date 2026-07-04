@@ -18,7 +18,27 @@ Invoke this skill when:
 
 ---
 
-## Five-phase execution
+## ⛔ Hard gate: confirm a fresh build before any screenshot
+
+**Run this check before Phase -1. If it fails, stop and tell the user to restart SP and Run Locally.**
+
+```bash
+# 1. App must be responding
+curl -s -o /dev/null -w "%{http_code}" http://localhost:${APP_PORT:-8080}/login.html
+# Expected: 200. If 000 or non-200 → app is not running. Do not proceed.
+
+# 2. Verify SP was restarted after the last mxcli exec
+# Ask yourself: was `pkill -9 -f "Contents/MacOS/studiopro"` run after the last exec?
+# If not, the browser may be serving a stale bundle. Restart SP before continuing.
+```
+
+**Why this matters:** `mxcli exec` writes to the `.mpr` file but the browser serves a JS bundle compiled by Studio Pro. Without a full SP restart + Run Locally, screenshots reflect the *previous* build — making any audit or diff meaningless. This has caused real wasted work: fixes were written for issues that had already been resolved, and issues were missed that were actually present.
+
+**Rule:** Never call playwright-cli screenshot or evaluate DOM until you have confirmed that SP was restarted *after* the last exec and the app returned 200 on the login URL.
+
+---
+
+## Four-phase execution (Phase -1 added for design artifact discovery)
 
 ### Phase -1 — Discover design artifacts (auto, < 30 seconds)
 
@@ -274,13 +294,21 @@ footer        — report version + date
 
 | File | Contents |
 |------|----------|
-| `tests/screenshots/ux/*.png` | Live app screenshots |
-| `tests/screenshots/design-system/*.png` | Design system reference screenshots |
-| `tests/ux-design-artifacts.md` | Design artifact manifest |
-| `tests/ux-page-struct-*.txt` | MDL DESCRIBE output per page |
-| `docs/ux-review-YYYY-MM-DD.md` | Full gap report with fixes (markdown) |
+| `tests/ux-design-artifacts.md` | Design artifacts discovered in Phase -1 (design system, screenshots, wireframes, external links) |
+| `tests/screenshots/ux/*.png` | All captured screenshots (overwritten each run) |
+| `tests/ux-capture-manifest.json` | Page metadata for the agent |
+| `tests/ux-page-struct-*.txt` | MDL DESCRIBE output per page — layout grids, widget types, CSS classes |
+| `docs/ux-review-YYYY-MM-DD.md` | Full scored UX report with design system compliance dimension |
 | `docs/ux-review-YYYY-MM-DD.html` | Styled HTML report using Stockpilot tokens |
-| Tasks | One task per theme-track item + one per MDL-track item |
+| Tasks in task list | One task per quick win + one per deeper improvement |
+
+---
+
+## Updating the brief
+
+`docs/ux-agent-brief.md` is the evaluation contract — it defines the rubric and output format. Do not change the rubric or output format sections. Only update:
+- The OS reference screenshot table (Phase 0 auto-syncs this)
+- The known bugs table (update manually after bug log changes)
 
 ---
 

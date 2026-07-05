@@ -79,24 +79,29 @@ snapshot → mxcli exec → kill port 8081 → kill Studio Pro → reopen SP via
 Two recurring problems make a bare `mxcli exec` + `open Project.mpr` unreliable:
 
 1. **Port 8081 stays occupied.** The Mendix Java runtime keeps its socket open even after the Studio Pro window closes. The next Run Locally fails with "port already in use." Fix: `lsof -ti :8081 | xargs kill -9` before reopening.
-2. **Version selector popup.** `open Project.mpr` without specifying the app triggers macOS's "open with which app?" dialog, which blocks headless sessions. Fix: always use `open -a "Mendix Studio Pro X.Y.Z" "$(pwd)/Project.mpr"` with the fully-qualified app name.
+2. **Version selector popup.** `open Project.mpr` without specifying the app triggers macOS's "open with which app?" dialog, which blocks headless sessions. Fix: always use `open -a "Mendix Studio Pro X.Y.Z" "$MPR"` with the fully-qualified app name.
+3. **`$(pwd)` path breaks when invoked from a different cwd.** If the terminal is not at the project root, `$(pwd)/Project.mpr` resolves to a wrong path and SP throws "cannot open files in the data format." Fix: anchor with `${BASH_SOURCE[0]}` so the path is always relative to the script file, not the caller's cwd.
 
 ### Template — copy into each project's `bin/exec.sh`
 
 ```bash
 #!/usr/bin/env bash
 # exec.sh — safe mxcli exec wrapper: snapshot → exec → restart SP
-# Usage: ./bin/exec.sh <script.mdl>
+# Usage: ./bin/exec.sh <script.mdl>  (safe to call from any cwd)
 set -e
 
-SCRIPT="$1"
-MPR="MyProject.mpr"                        # ← change to project MPR name
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+MPR="$PROJECT_ROOT/MyProject.mpr"          # ← change to project MPR name
 SP_APP="Mendix Studio Pro 11.12.0 Beta"    # ← change to installed SP version
+SCRIPT="$1"
 
 if [[ -z "$SCRIPT" ]]; then
   echo "Usage: ./bin/exec.sh <script.mdl>"
   exit 1
 fi
+
+cd "$PROJECT_ROOT"
 
 echo "→ Snapshotting MPR..."
 ./bin/snapshot-mpr.sh
@@ -109,7 +114,7 @@ lsof -ti :8081 | xargs kill -9 2>/dev/null || true
 pkill -9 -f "Contents/MacOS/studiopro" 2>/dev/null || true
 sleep 2
 rm -f "$MPR.lock"
-open -a "$SP_APP" "$(pwd)/$MPR"
+open -a "$SP_APP" "$MPR"
 
 echo "✓ Done — click Run Locally in Studio Pro when it finishes loading."
 ```
@@ -121,14 +126,19 @@ For cases where you need to restart SP without running a new exec (e.g. after a 
 ```bash
 #!/usr/bin/env bash
 # restart-sp.sh — kill runtime + SP, then reopen cleanly
-# Usage: ./bin/restart-sp.sh
+# Usage: ./bin/restart-sp.sh  (safe to call from any cwd)
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+MPR="$PROJECT_ROOT/MyProject.mpr"          # ← change to project MPR name
+SP_APP="Mendix Studio Pro 11.12.0 Beta"    # ← change to installed SP version
 
 lsof -ti :8081 | xargs kill -9 2>/dev/null || true
 pkill -9 -f "Contents/MacOS/studiopro" 2>/dev/null || true
 sleep 2
-rm -f MyProject.mpr.lock                   # ← change to project MPR name
-open -a "Mendix Studio Pro 11.12.0 Beta" "$(pwd)/MyProject.mpr"
+rm -f "$MPR.lock"
+open -a "$SP_APP" "$MPR"
 echo "✓ Done — click Run Locally in Studio Pro when it finishes loading."
 ```
 

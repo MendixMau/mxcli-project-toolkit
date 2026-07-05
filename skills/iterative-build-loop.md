@@ -66,6 +66,92 @@ Add `/.mpr-snapshots/` to the project `.gitignore`.
 
 ---
 
+## Standard Build Command — `bin/exec.sh`
+
+Every project should have a `bin/exec.sh` wrapper that runs the full build cycle in one command:
+
+```
+snapshot → mxcli exec → kill port 8081 → kill Studio Pro → reopen SP via full path
+```
+
+### Why this script exists
+
+Two recurring problems make a bare `mxcli exec` + `open Project.mpr` unreliable:
+
+1. **Port 8081 stays occupied.** The Mendix Java runtime keeps its socket open even after the Studio Pro window closes. The next Run Locally fails with "port already in use." Fix: `lsof -ti :8081 | xargs kill -9` before reopening.
+2. **Version selector popup.** `open Project.mpr` without specifying the app triggers macOS's "open with which app?" dialog, which blocks headless sessions. Fix: always use `open -a "Mendix Studio Pro X.Y.Z" "$(pwd)/Project.mpr"` with the fully-qualified app name.
+
+### Template — copy into each project's `bin/exec.sh`
+
+```bash
+#!/usr/bin/env bash
+# exec.sh — safe mxcli exec wrapper: snapshot → exec → restart SP
+# Usage: ./bin/exec.sh <script.mdl>
+set -e
+
+SCRIPT="$1"
+MPR="MyProject.mpr"                        # ← change to project MPR name
+SP_APP="Mendix Studio Pro 11.12.0 Beta"    # ← change to installed SP version
+
+if [[ -z "$SCRIPT" ]]; then
+  echo "Usage: ./bin/exec.sh <script.mdl>"
+  exit 1
+fi
+
+echo "→ Snapshotting MPR..."
+./bin/snapshot-mpr.sh
+
+echo "→ Executing $SCRIPT..."
+./mxcli exec "$SCRIPT" -p "$MPR"
+
+echo "→ Restarting Studio Pro..."
+lsof -ti :8081 | xargs kill -9 2>/dev/null || true
+pkill -9 -f "Contents/MacOS/studiopro" 2>/dev/null || true
+sleep 2
+rm -f "$MPR.lock"
+open -a "$SP_APP" "$(pwd)/$MPR"
+
+echo "✓ Done — click Run Locally in Studio Pro when it finishes loading."
+```
+
+### Standalone SP restart — `bin/restart-sp.sh`
+
+For cases where you need to restart SP without running a new exec (e.g. after a manual model change or a hung runtime):
+
+```bash
+#!/usr/bin/env bash
+# restart-sp.sh — kill runtime + SP, then reopen cleanly
+# Usage: ./bin/restart-sp.sh
+set -e
+
+lsof -ti :8081 | xargs kill -9 2>/dev/null || true
+pkill -9 -f "Contents/MacOS/studiopro" 2>/dev/null || true
+sleep 2
+rm -f MyProject.mpr.lock                   # ← change to project MPR name
+open -a "Mendix Studio Pro 11.12.0 Beta" "$(pwd)/MyProject.mpr"
+echo "✓ Done — click Run Locally in Studio Pro when it finishes loading."
+```
+
+### Usage during the build loop
+
+Replace every manual `./mxcli exec script.mdl -p Project.mpr` call with:
+
+```bash
+./bin/exec.sh mdlsource/my-script.mdl
+```
+
+After exec.sh completes, Studio Pro opens in the background. Click **Run Locally** and wait for it to finish before taking screenshots or running tests. This is part of the screenshot stale-build gate — never screenshot before Run Locally completes.
+
+### Per-project setup checklist
+
+- [ ] Copy `bin/exec.sh` into the project, update `MPR` and `SP_APP` variables
+- [ ] Copy `bin/restart-sp.sh`, update the app name and MPR name
+- [ ] `chmod +x bin/exec.sh bin/restart-sp.sh`
+- [ ] Add rule to `CLAUDE.md`: never use `open Project.mpr` directly — always use `./bin/exec.sh` or `./bin/restart-sp.sh`
+- [ ] Confirm `SP_APP` string matches exactly what appears in `/Applications/` (spaces and all)
+
+---
+
 ## The 12-Step Build Loop
 
 Repeat for each module:

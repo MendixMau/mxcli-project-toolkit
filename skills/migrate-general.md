@@ -110,7 +110,7 @@ The suffix `_Dto` marks these objects in this project.
 
 NPEs can have associations to other NPEs or persistent entities. Navigation works the same as for persistent entities in retrieve WHERE clauses and XPath expressions.
 
-**Cross-module NPE associations must be created in Studio Pro** — mxcli BUG-02 applies (see §6).
+**Cross-module NPE associations can be created via mxcli** — BUG-02 is fixed in v0.13.0 (see §6).
 
 ---
 
@@ -137,15 +137,11 @@ Access rules store per-attribute UUID pointers in BSON. mxcli does not update th
 
 **Fix:** Drop attributes in Studio Pro's domain model editor only.
 
-### BUG-02: `create association` for cross-module associations → MPR corruption
+### BUG-02: `create association` for cross-module associations → MPR corruption — **FIXED in v0.13.0**
 
-**Never create cross-module associations via mxcli.**
+`CREATE ASSOCIATION` for cross-module associations now works correctly. No Studio Pro handoff needed.
 
-mxcli embeds EntityImpl objects from other modules using internal UUIDs that Studio Pro cannot resolve, causing `KeyNotFoundException`.
-
-**Fix:** Create cross-module associations in Studio Pro by drawing the arrow from child entity to parent entity in the domain model view.
-
-**Inspection gap:** `SHOW ASSOCIATIONS IN Module` does NOT show cross-module associations. Use `SHOW ASSOCIATIONS` (global) or check the entity directly in Studio Pro.
+**Inspection gap (still applies):** `SHOW ASSOCIATIONS IN Module` does NOT show cross-module associations. Use `SHOW ASSOCIATIONS` (global) to verify they were created.
 
 ### BUG-03: SQLITE_BUSY mid-script — partial apply
 
@@ -176,7 +172,7 @@ Use `DESCRIBE ASSOCIATION Module.Name` to check which entity is `from`.
 | Operation | Why mxcli can't do it | Studio Pro action |
 |---|---|---|
 | Drop attribute on entity with access rules | BUG-01 | Domain model editor → select attribute → Delete |
-| Create cross-module association | BUG-02 | Domain model → draw arrow from child to parent |
+| ~~Create cross-module association~~ | ~~BUG-02~~ — fixed in v0.13.0, use `CREATE ASSOCIATION` | — |
 | CE0066 after GRANT scripts | Security hash not updated by mxcli | Domain model → "Update security" → Ctrl+S |
 | Java action body | mxcli creates stub only | `javasource/module/actions/ActionName.java` |
 | Workflow definition (J001 steps) | Not MDL-generatable | Studio Pro workflow editor |

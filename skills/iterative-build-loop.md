@@ -42,27 +42,77 @@ Run this before scripting each module:
 
 ### MPR snapshot rotation (the crash net)
 
-Ad-hoc backup copies (`.mpr.backup`, `.mpr.pre-something`) accumulate, rot, and nobody remembers what they were. Use a **bounded, automated rotation** instead:
+Ad-hoc backup copies (`.mpr.backup`, `.mpr.pre-something`) accumulate, rot, and nobody remembers what they were. Use a **bounded, automated rotation** instead.
 
-- Project has a `bin/snapshot-mpr.sh`: copies every root `*.mpr` into a gitignored `.mpr-snapshots/` with a timestamp, then prunes to the **5 newest** per project file.
-- **Run it before every `mxcli exec`** (put this rule in the project's CLAUDE.md so every session follows it).
-- Git commits per phase gate remain the real history — commit after each verified milestone (`mprcontents/` is tracked, so the model diffs). The rotation only covers mid-session corruption between commits.
+**Critical:** an MPR project is two parts — `Project.mpr` (SQLite index) and `mprcontents/` (BSON unit files holding the actual model data). Snapshotting only the `.mpr` is incomplete. A corrupted `mprcontents/` file cannot be restored from the `.mpr` alone, and Studio Pro will refuse to open the project with a `KeyNotFoundException` referencing a missing GUID. **Always snapshot both.**
+
+- Project has `bin/snapshot-mpr.sh` and `bin/restore-mpr.sh`.
+- **Run `bash bin/snapshot-mpr.sh` before every `mxcli exec`** — put this rule in the project's CLAUDE.md.
+- Keeps 5 newest snapshots, prunes older ones automatically.
+- Git commits per phase gate are the real history (`mprcontents/` tracked). Snapshots only cover mid-session corruption between commits.
+
+#### `bin/snapshot-mpr.sh`
 
 ```bash
 #!/usr/bin/env bash
+# Snapshot MPR + mprcontents before a script batch. Prunes to 5 newest.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-mkdir -p .mpr-snapshots
-for f in *.mpr; do
-  [ -e "$f" ] || continue
-  base="${f%.mpr}"
-  cp "$f" ".mpr-snapshots/${base}.$(date +%Y%m%d-%H%M%S).mpr"
-  ls -t ".mpr-snapshots/${base}."*.mpr 2>/dev/null | tail -n +6 | while read -r old; do rm -f "$old"; done
-done
-echo "mpr snapshot ok — $(ls .mpr-snapshots/*.mpr 2>/dev/null | wc -l | tr -d ' ') kept"
+
+MPR="$(ls *.mpr | head -1)"
+CONTENTS_DIR="mprcontents"
+SNAP_DIR="build/snapshots"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+DEST="$SNAP_DIR/$TIMESTAMP"
+
+mkdir -p "$DEST"
+cp "$MPR" "$DEST/$MPR"
+[ -d "$CONTENTS_DIR" ] && cp -r "$CONTENTS_DIR" "$DEST/$CONTENTS_DIR"
+
+echo "Snapshot saved: $DEST"
+ls -dt "$SNAP_DIR"/20* 2>/dev/null | tail -n +6 | while read -r old; do rm -rf "$old"; echo "Pruned: $old"; done
+echo "$(ls -d "$SNAP_DIR"/20* 2>/dev/null | wc -l | tr -d ' ') snapshot(s) kept"
 ```
 
-Add `/.mpr-snapshots/` to the project `.gitignore`.
+#### `bin/restore-mpr.sh`
+
+```bash
+#!/usr/bin/env bash
+# Restore MPR + mprcontents from a snapshot.
+# Usage: bash bin/restore-mpr.sh [snapshot-dir]   (defaults to newest)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+MPR="$(ls *.mpr | head -1)"
+CONTENTS_DIR="mprcontents"
+SNAP_DIR="build/snapshots"
+
+SNAP="${1:-$(ls -dt "$SNAP_DIR"/20* 2>/dev/null | head -1)}"
+[ -z "$SNAP" ] && { echo "ERROR: no snapshots in $SNAP_DIR"; exit 1; }
+[ ! -f "$SNAP/$MPR" ] && { echo "ERROR: snapshot missing $MPR"; exit 1; }
+
+echo "Restoring from: $SNAP"
+cp "$SNAP/$MPR" "$MPR" && echo "  Restored: $MPR"
+if [ -d "$SNAP/$CONTENTS_DIR" ]; then
+  rm -rf "$CONTENTS_DIR"
+  cp -r "$SNAP/$CONTENTS_DIR" "$CONTENTS_DIR"
+  echo "  Restored: $CONTENTS_DIR"
+else
+  echo "  WARNING: snapshot has no $CONTENTS_DIR — MPR index only (may be incomplete)"
+fi
+echo "Restore complete."
+```
+
+Add `build/snapshots/` to the project `.gitignore`.
+
+#### When Studio Pro crashes on open (KeyNotFoundException / AggregateException)
+
+This means a BSON unit file references a GUID that no longer exists in the model — typically caused by dropping an entity that pages or cross-module associations still point to. `mxcli` can still read/write the MPR; only `mx check` and Studio Pro fail.
+
+**Recovery procedure:**
+1. `bash bin/restore-mpr.sh` — restore both `.mpr` and `mprcontents/` from the newest snapshot
+2. If no clean snapshot is available: use `mxcli` to surgically drop the documents that reference the missing GUID, then recreate them clean
+3. After recovery, verify with `./mxcli docker check -p App.mpr --no-update-widgets` before proceeding
 
 ---
 
@@ -174,13 +224,27 @@ Repeat for each module:
 5.  Create stub pages/microflows for any forward references (separate script, apply first)
 6.  Write + apply microflows
 7.  Write + apply pages (following screenshot top-to-bottom)
-8.  `./mxcli docker check -p app.mpr --no-update-widgets` → 0 CE errors
+8.  **Gate 2 — BSON validation (mandatory, never skip):**
+    `./mxcli docker check -p app.mpr --no-update-widgets` → 0 CE errors
+
+      - **One-time setup required per machine:** run `./mxcli setup mxbuild -p app.mpr` before the
+        first `docker check`. Without it, mxcli uses a Linux CDN binary that cannot load MPRv2
+        projects (`mprcontents/`) and crashes before validating anything — silently passing BSON
+        corruption that will break Studio Pro on open. The setup command finds your local Studio Pro
+        installation and uses its `mx` binary instead.
       - Always use `--no-update-widgets`. Without it, `mx update-widgets` runs first and crashes
-        with `AggregateException` on Studio Pro 11.x Beta (path resolution bug) — the CE errors
-        still print, but the output is noisy and the exit code misleads automation.
+        with `AggregateException` on Studio Pro 11.x Beta (path resolution bug).
       - CE0066 alone = **conditional pass**: only Studio Pro can recompute the security hash.
         Open Studio Pro, open the affected domain model, click "Update security", Cmd+S, re-run check.
         Do not block the build on CE0066 alone.
+      - **Fallback if `docker check` itself fails to run** (binary missing, path error, etc.):
+        open Studio Pro via CLI and verify the project loads cleanly:
+        ```bash
+        open -a "Mendix Studio Pro X.Y.Z" app.mpr   # macOS
+        ```
+        If Studio Pro opens without an error dialog → gate passes. If it shows `AggregateException`,
+        `KeyNotFoundException`, or `AttributeIdentifier` errors → restore snapshot immediately.
+        **This fallback is mandatory — never mark a script DONE without Gate 2 passing.**
 9.  If GRANT scripts were applied → Studio Pro "Update security" → Cmd+S
 10. Walk the happy path as a non-admin demo user:
       - Log in as demo user (not Administrator)

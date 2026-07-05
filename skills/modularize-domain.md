@@ -22,7 +22,7 @@ If boundaries are already decided *and validated against the criteria below*, sk
 
 **The failure this prevents:** mapping source artifacts 1:1 onto Mendix modules. Source structure reflects how the *old* codebase was organized (controllers, services, screens, BRD count) — it says nothing about correct *target* boundaries.
 
-> **Cautionary case (IVM pilot).** Three source BRDs (`item`, `itemAction`, `itemSummary`) became three Mendix modules — one entity each. They were one bounded context: `ItemAction` references `Item`, `ItemSummary` aggregates both. The split forced a **cross-module association**, which mxcli cannot draw (BUG-02) → a manual Studio Pro handoff, plus a bespoke cascade microflow to substitute for a delete-behavior the split had broken. Collapsing to a single `Inventory` module (entities grouped, sub-areas as *folders*) deleted both problems. On a 3-entity app the cost was small; the same reflex on a 200-entity app produces dozens of chatty cross-module dependencies that are expensive to unwind.
+> **Cautionary case (IVM pilot).** Three source BRDs (`item`, `itemAction`, `itemSummary`) became three Mendix modules — one entity each. They were one bounded context: `ItemAction` references `Item`, `ItemSummary` aggregates both. The split forced a **cross-module association** (at the time BUG-02 made this a Studio Pro handoff; now fixed in v0.13.0 — but the coupling and cascade-delete problem remain regardless of tooling), plus a bespoke cascade microflow to substitute for a delete-behavior the split had broken. Collapsing to a single `Inventory` module (entities grouped, sub-areas as *folders*) deleted both problems. On a 3-entity app the cost was small; the same reflex on a 200-entity app produces dozens of chatty cross-module dependencies that are expensive to unwind.
 
 The rule: **BRD/file/table count is never the module count.**
 
@@ -56,7 +56,7 @@ A candidate module **earns its own boundary** only if it clears **at least one**
 If a candidate clears **none**, it does **not** get its own module.
 
 ### Over-split signals (merge these)
-- Two entities that are **always used together** sit in different modules → you get a **cross-module association** (the BUG-02 pain, plus module coupling).
+- Two entities that are **always used together** sit in different modules → you get a **cross-module association** (module coupling; associations themselves are fine via mxcli since BUG-02 fixed in v0.13.0).
 - A module holds **~1 entity** and nothing reusable.
 - A module exists only because the *source* had a matching file/service/BRD.
 - You're writing a microflow purely to bridge a boundary you created (e.g. a cascade-delete substitute).
@@ -72,7 +72,7 @@ If a candidate clears **none**, it does **not** get its own module.
 
 When no candidate clears the Step 2 bar (common for small/medium migrations), the answer is **one module**, with **folders** for sub-areas (`Items/`, `Transactions/`, `Reporting/`). Folders give the organizational clarity of the source grouping with **none** of the boundary cost:
 
-- entities share one domain model → associations stay intra-module (no BUG-02, delete behavior "just works"),
+- entities share one domain model → associations stay intra-module (delete behavior "just works"),
 - one security scope, one navigation contribution,
 - documents (pages, microflows) still grouped legibly via `MOVE ... TO FOLDER`.
 
@@ -90,7 +90,7 @@ Write `architecture/module-design.html` in the project workspace. It is the huma
 - **The business process / user journeys it serves** (which actors, which flows).
 - **Users / roles** who touch it (ties to the security-segregation criterion).
 - **Closely-tied data** — the entities it owns and the associations *within* it (the cohesion argument).
-- **Dependencies** — which other modules it may import, and explicitly **why there are no cross-module associations** for tightly-coupled data (or, if there are, the justification + the planned Studio Pro handoff).
+- **Dependencies** — which other modules it may import, and explicitly **why there are no cross-module associations** for tightly-coupled data (or, if there are, the justification and which module owns the association).
 - **Which Step 2 criterion earned the boundary** (or "single module — no criterion met, folders used").
 - **Rejected alternatives** — e.g. "considered splitting Transactions out; rejected because it shares the Item association."
 

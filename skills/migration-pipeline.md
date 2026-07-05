@@ -321,7 +321,7 @@ App (one Mendix app)
 - **Consolidate** small source modules covering the same domain into one Mendix module
 - **Split** large source modules where UI and domain logic are entangled
 - **Promote** entities used by 3+ source modules to a Common or Domain module
-- **Cross-module associations** must be created in Studio Pro (mxcli BUG-02)
+- **Cross-module associations** are created via mxcli `CREATE ASSOCIATION` (BUG-02 fixed in v0.13.0)
 - **Layering rule:** Common modules must not import from feature modules (same as OS 3-tier rule)
 
 ### Output
@@ -452,5 +452,5 @@ Track key pipeline decisions per project:
 | Module scope | All 114 / Business only | Business first | Framework modules add noise |
 | BRD format | JSON / Markdown / Both | JSON + .md review copy | Machine-readable + human review |
 | Rearchitect strategy | 1:1 / Consolidated / Split | TBD per project | Depends on domain complexity |
-| Cross-module assocs | mxcli / Studio Pro | Studio Pro always | mxcli BUG-02 |
+| Cross-module assocs | mxcli / Studio Pro | mxcli (BUG-02 fixed v0.13.0) | `CREATE ASSOCIATION` works correctly |
 | Phase ordering | Docs before code / Code before docs | Code first (Phase 3), docs second (Phase 4) | BRD scaffolding needs no human triage; document discovery does — run the free pass first |

@@ -42,40 +42,25 @@ Drop attributes manually in Studio Pro instead.
 
 ## BUG-02: `create association` for cross-module associations corrupts the MPR (CRITICAL)
 
-**Severity:** Critical — project becomes unopenable in Studio Pro and mxbuild  
-**Reproducible:** Yes, consistently  
-**Mendix version:** 11.10.0
+**Status: FIXED in mxcli v0.13.0** — `CREATE ASSOCIATION` for cross-module associations works correctly. Verified 2026-07-04 on WMS-LargeSource-main (Mendix 11.12.0): 0 CE errors, project loads cleanly in mxbuild. **No Studio Pro handoff required.**
 
-### Steps to reproduce
-1. Start with a project where entities in Module A and Module B both have security access rules applied.
-2. Run `create association "ModuleA"."AssocName" from "ModuleB"."ParentEntity" to "ModuleA"."ChildEntity" ...` via mxcli.
-3. Open the project in Studio Pro.
+~~**Severity:** Critical — project becomes unopenable in Studio Pro and mxbuild~~  
+~~**Reproducible:** Yes, consistently~~  
+~~**Mendix version:** 11.10.0~~
 
-### Expected behavior
-Cross-module association is created cleanly; project opens.
+### Fix history
+Fixed in the RnD mxcli changelog under: `CE1613 and Studio Pro crash from invalid CrossAssociation BSON (ParentConnection/ChildConnection fields) (#50)`. A follow-up fix landed in v0.9.0: `Cross-module associations preserved on CREATE object actions (#502)`.
 
-### Actual behavior
-Studio Pro fails to load with:
+### Original root cause (for reference only)
+mxcli was embedding `DomainModels$EntityImpl` objects from other modules using internal UUIDs that Studio Pro's unit loader could not resolve, causing `KeyNotFoundException`. This is now handled correctly by the `CrossModuleAssociation` type in the association executor.
+
+### Syntax (confirmed working)
+```mdl
+CREATE ASSOCIATION ModuleA."EntityA_EntityB"
+  FROM ModuleA."EntityA" TO ModuleB."EntityB"
+  TYPE Reference
+  OWNER Default;
 ```
-KeyNotFoundException: The given key '<entity-UUID>' was not present in the dictionary.
-   at UnitContentsLoader.ConstructObjectInternalAndResolvePendingPointers(...)
-```
-
-### Root cause (confirmed via BSON inspection)
-When mxcli creates a cross-module association, it creates a new domain model mxunit file that
-embeds `DomainModels$EntityImpl` objects from OTHER modules using their internal UUIDs. These
-embedded entity objects cannot be resolved by Studio Pro's unit loader because the loader looks
-up each entity UUID in its registered unit registry — finding them duplicated/misplaced causes
-`KeyNotFoundException`.
-
-The issue is consistently reproducible: mxcli always embeds entity objects from the referenced
-module's domain model into the association's storage unit, but the UUIDs don't resolve correctly
-when the loader processes the cross-module reference.
-
-### Workaround
-**Do NOT use `create association` via mxcli for cross-module associations.**
-Add cross-module associations manually in Studio Pro (drag the association line in the domain
-model editor between entities in different modules). Studio Pro handles UUID wiring atomically.
 
 ---
 
@@ -774,3 +759,29 @@ cp /tmp/clean.mxunit mprcontents/xx/yy/<uuid>.mxunit
 ```
 Find the correct mxunit by running `git diff --name-only` and reading each changed file for its `$Type = Forms$Page` + `Name` field.
 
+
+---
+
+## BUG-18: `visible: [expr]` on CONTAINER inside datagrid customContent column corrupts MPR
+
+**Affects:** mxcli (all tested versions on Mendix 11.12.0)
+
+**Symptom:** After executing a `CREATE OR REPLACE PAGE` or `CREATE PAGE` script that includes `container ctn (visible: [expr]) { ... }` widgets inside a `column (ShowContentAs: customContent)` datagrid column, `mx check` reports `StorageLoadException`:
+
+> `Conditional visibility settings in <blank> has an invalid value '' for property Attribute. The text '   ' is not a valid AttributeIdentifier.`
+
+Studio Pro itself cannot open the MPR. Gate 2 (javac) still passes because it does not load the BSON.
+
+**Root cause:** mxcli writes blank/whitespace into the `Attribute` field of the `ConditionalSettings` unit when the visibility expression is applied to a container inside a datagrid customContent column. The expression is silently dropped and a blank `AttributeIdentifier` is written instead.
+
+**Does NOT affect:** `visible: [expr]` on containers in regular dataviews and regular page containers — those work correctly.
+
+**Also affects (BUG-18b): snippets with no declared entity context.** If a snippet is created with no params (`create or replace snippet Module.Name { ... }`) and contains `container ctn (visible: [$currentObject/"Attr" = ...]) { ... }`, mxcli cannot resolve the attribute GUID (no entity context declared) and writes an empty `AttributeIdentifier` — same crash, same error message. The previous "Does NOT affect snippets" claim was wrong.
+
+**Workaround:**
+- Datagrid customContent columns: wire conditional visibility manually in Studio Pro.
+- Snippets with no entity context: remove `visible:` expressions entirely — show all content statically, or declare an explicit entity param if the snippet needs it.
+
+**Recovery:** Restore from snapshot immediately — the MPR is load-broken. Run `bash bin/restore-mpr.sh`.
+
+**Discovered:** 2026-07-03, IVM project (datagrid). 2026-07-05, WMS-LargeSource-main script 18 (snippet with no entity context).

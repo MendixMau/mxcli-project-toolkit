@@ -69,7 +69,7 @@ Module roles + which user role(s) map to them.
 ## Dependencies
 - **Imports (calls into):** <other modules + what it uses>
 - **Exposes (called by):** <the microflows/entities other modules consume>
-- **Cross-module associations:** <assoc + which side owns it> ⚠️ Studio Pro manual step (BUG-02)
+- **Cross-module associations:** <assoc + which side owns it> (created via `CREATE ASSOCIATION` in mxcli — BUG-02 fixed in v0.13.0)
 ```
 
 The **Dependencies** block is the raw material for Step 3 — fill it precisely; "imports X" must name the actual microflow/entity, not just the module.
@@ -108,7 +108,7 @@ Rule: arrows point *down* the tiers. An arrow pointing up (Common → feature) i
 
 ## Step 3: Draw the Wiring / Dependency Diagram (build-order view)
 
-A directed module graph from the Step 1 Dependencies blocks. **This is the input to the build plan's dependency order.** Flag cross-module associations distinctly — they're the Studio Pro handoffs.
+A directed module graph from the Step 1 Dependencies blocks. **This is the input to the build plan's dependency order.** Flag cross-module associations distinctly — they determine which module's script creates each association (ownership still matters even though BUG-02 is fixed).
 
 ````markdown
 ```mermaid
@@ -117,7 +117,7 @@ flowchart LR
   Common --> FeatureB
   FeatureA -->|calls ACT_X| FeatureB
   FeatureA -. assoc: A_has_B .-> FeatureB
-  %% dotted = cross-module association = Studio Pro manual step (BUG-02)
+  %% dotted = cross-module association (mxcli CREATE ASSOCIATION — BUG-02 fixed v0.13.0)
 ```
 ````
 
@@ -152,7 +152,7 @@ Consolidate everything that must be *carried into the build plan*, not lost:
 | # | Item | Type | Resolution / owner |
 |---|---|---|---|
 | 1 | Unresolved BRD `openQuestions` | Decision needed | who decides, by when |
-| 2 | Cross-module associations | Studio Pro handoff (BUG-02) | scheduled in which build step |
+| 2 | Cross-module associations | Scripted via mxcli (BUG-02 fixed v0.13.0) | which module's script creates each, scheduled in which build step |
 | 3 | Marketplace "Buy" decisions | Dependency | confirmed / deferred |
 | 4 | mxcli known bugs on this app's shape | Handoff | see `bug-logs/mxcli-bugs.md` |
 | 5 | Behavior changes vs. source | Faithful-rebuild risk | documented + signed off |

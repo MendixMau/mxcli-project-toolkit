@@ -80,6 +80,14 @@ function packageOf(tree) {
 // com.ims.server.item -> "item" (module = last package segment)
 function moduleFromPackage(pkg) {
   const parts = pkg.split('.');
+  // When MODULE_BASE_PACKAGE is set (e.g. "org.openwms"), the module is the first
+  // segment AFTER that base — so org.openwms.common.location.impl -> "common",
+  // org.openwms.tms.impl.state -> "tms". This matches the common Java convention of
+  // <base>.<module>.<subpackages>. Unset -> legacy behavior (leaf segment).
+  const base = process.env.MODULE_BASE_PACKAGE;
+  if (base && pkg.startsWith(base + '.')) {
+    return pkg.slice(base.length + 1).split('.')[0] || '(unknown)';
+  }
   return parts[parts.length - 1] || '(unknown)';
 }
 
@@ -274,9 +282,38 @@ function extractServiceMethods(classNode, className, module, file) {
   return items;
 }
 
+// ── Enum extraction (Java enum → Mendix Enumeration / KB staticEntity) ──
+// Emits records:[{name,label}] per constant — the shape domain-entity-mapper.js reads.
+function extractEnum(enumNode, enumName, module, file) {
+  const body = enumNode.childForFieldName('body');
+  const records = [];
+  if (body) {
+    for (const member of body.namedChildren) {
+      if (member.type !== 'enum_constant') continue;
+      const nameNode = member.childForFieldName('name');
+      if (nameNode) records.push({ name: nameNode.text, label: nameNode.text });
+    }
+  }
+  return {
+    type: 'staticEntity',
+    linkId: `java:staticEntity:${module}:${enumName}`,
+    uniqueId: `java:${module}.${enumName}`,
+    name: enumName,
+    label: enumName,
+    description: '',
+    module,
+    isStatic: true,
+    isPublic: true,
+    records,
+    _gaps: [],
+    _links: [],
+  };
+}
+
 // ── Pass 1: parse every file and classify each top-level class by annotation ──
 const files = walkDir(sourceDir);
 const entityItems = [];
+const staticItems = [];
 const rawLogicItems = [];
 const endpointsByModule = {};
 
@@ -291,10 +328,21 @@ for (const file of files) {
 
   const module = moduleFromPackage(packageOf(tree));
   const classNodes = [];
+  const enumNodes = [];
   (function collect(node) {
     if (node.type === 'class_declaration' || node.type === 'interface_declaration') classNodes.push(node);
+    else if (node.type === 'enum_declaration') enumNodes.push(node);
     for (const c of node.namedChildren) collect(c);
   })(tree.rootNode);
+
+  for (const enumNode of enumNodes) {
+    try {
+      const enumName = enumNode.childForFieldName('name').text;
+      staticItems.push(extractEnum(enumNode, enumName, module, file));
+    } catch (e) {
+      errors.push({ file, error: `enum: ${e.message}` });
+    }
+  }
 
   for (const classNode of classNodes) {
     const isInterface = classNode.type === 'interface_declaration';
@@ -302,8 +350,11 @@ for (const file of files) {
     const anns = annotationsOf(findChildOfType(classNode, 'modifiers'));
 
     const isEntity = !!findAnnotation(anns, 'Entity');
-    const isController = !!findAnnotation(anns, 'RestController');
-    const isService = !!findAnnotation(anns, 'Service');
+    // Match framework meta-stereotypes by suffix, not just vanilla Spring: OpenWMS/Ameba
+    // use @MeasuredRestController and @TxService. Suffix matching also future-proofs against
+    // other custom stereotypes (e.g. @CachedService) without further edits.
+    const isController = anns.some(a => a.name.endsWith('RestController'));
+    const isService = anns.some(a => a.name.endsWith('Service'));
     const isPlainDataDto = !isInterface && !isEntity && !isController && !isService && !!findAnnotation(anns, 'Data');
 
     try {
@@ -342,7 +393,7 @@ const logicItems = rawLogicItems.map(item => ({
 // ── Emit ──────────────────────────────────────────────────────────────────
 const result = {
   source: 'java',
-  items: [...entityItems, ...logicItems],
+  items: [...entityItems, ...staticItems, ...logicItems],
   errors,
   meta: { fileCount: files.length, duration: Date.now() - startTime },
 };

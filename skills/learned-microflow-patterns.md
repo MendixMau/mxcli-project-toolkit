@@ -80,7 +80,7 @@ Non-Persistent Entities (NPEs) used as form backing objects are named with the `
 **NPE association retrieval — mxcli limitation:**
 `declare $Var NPE.Entity = $Other/Assoc` generates a "Create Variable" activity (not "Retrieve by Association"), causing type errors. mxcli cannot generate a correct "Retrieve by Association" for NPEs. Fix in Studio Pro: delete the "Create Variable" activity, replace with "Retrieve" configured as "By Association".
 
-**Cross-module NPE associations:** must be created in Studio Pro — BUG-02 applies equally.
+**Cross-module NPE associations:** can be created via mxcli — BUG-02 fixed in v0.13.0.
 
 ---
 

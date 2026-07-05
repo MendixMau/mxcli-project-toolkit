@@ -117,7 +117,7 @@ These four questions were identified as blockers before any MDL could be written
 | # | Question | Resolution |
 |---|----------|-----------|
 | 1 | Which module owns `ApplicationCommonHeader`? | `BusinessApp_Common` — it's a shared header used by all 4 registration flows |
-| 2 | Cross-module associations: mxcli or Studio Pro? | Always Studio Pro (mxcli BUG-02 corrupts MPR) — schedule a dedicated Studio Pro session after entity scripts |
+| 2 | Cross-module associations: mxcli or Studio Pro? | **mxcli** via `CREATE ASSOCIATION` (BUG-02 fixed in v0.13.0) — decide ownership (which module's script creates each) before scripting |
 | 3 | Iteration granularity for MDL scripts? | One script per layer (domain / microflows / pages) per module — gives clean rollback without too many files |
 | 4 | Integration strategy: stub or live for POC? | Stub all external integrations (SAP, CorpSearch) via boolean constants — swap at Phase 1 |
 

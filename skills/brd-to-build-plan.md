@@ -95,7 +95,7 @@ Every project has open questions that block scripting until answered. Common one
 | # | Question | Why it blocks scripting |
 |---|----------|------------------------|
 | 1 | **Iteration granularity** — one script per layer (domain/microflows/pages) or per page cluster? | Determines script numbering scheme and rollback unit |
-| 2 | **Cross-module association ownership** — which module's domain model holds each cross-module association, and when is the Studio Pro session scheduled? | mxcli cannot create these (see `bug-logs/mxcli-bugs.md` BUG-02) — must be planned as a manual step, not discovered mid-script |
+| 2 | **Cross-module association ownership** — which module's domain model holds each cross-module association? | Determines which module's script creates it — `CREATE ASSOCIATION` via mxcli works (BUG-02 fixed in v0.13.0), but ownership must be clear before scripting |
 | 3 | **Stub vs. real scope for this phase** — which integrations are stubbed, which are live? | Determines whether `STUB_` microflows or real `IVK_` microflows get scripted first |
 | 4 | **Demo user / role mapping** — which target roles map to which source system roles? | Needed before any `GRANT` script; changing role mapping after grants means rewriting security scripts |
 
@@ -193,6 +193,6 @@ If a build session discovers a gap in the plan (a dependency missed, a question 
 
 - **Bulk MDL generation from BRDs with no build plan.** Produces a mountain of scripts with no dependency order, no granularity decision, and no way to tell "was this stubbed on purpose or missed."
 - **Writing MDL that references a marketplace module before it's imported.** `mxcli check --references` can't validate against something that isn't in the `.mpr` yet, and whoever drafts the script ends up guessing entity/microflow names instead of reading them.
-- **Discovering cross-module association ownership mid-script.** Always a Studio Pro operation (BUG-02) — if not scheduled, it becomes a surprise blocker.
+- **Discovering cross-module association ownership mid-script.** Decide which module's script creates each cross-module association upfront — it can now be done via `CREATE ASSOCIATION` (BUG-02 fixed in v0.13.0), but if ownership is unclear mid-script it still causes a surprise rewrite.
 - **Deciding role mapping after security scripts are already applied.** Forces a rewrite of every `GRANT` statement.
 - **Treating every CE error as equally investigatable.** Without a scope boundary, "is this stubbed on purpose" and "is this a design gap" look identical.

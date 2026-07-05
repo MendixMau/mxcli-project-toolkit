@@ -4,205 +4,269 @@
 
 Invoke this skill when:
 - Significant page changes have been made and UX quality needs checking
-- A customer demo is approaching and you need a gap analysis vs OutSystems
-- The user says "run a UX audit", "compare to OS", "check the UI", or types `/ux-audit`
+- A customer demo is approaching and you need a gap analysis vs the design system
+- The user says "run a UX audit", "compare to design system", "check the UI", or types `/ux-audit`
 
 ---
 
 ## Inputs required
 
-- Mendix app running at `http://localhost:8080` (or project-specific port — check `tests/helpers.sh` or the CLAUDE.md for the `APP` variable)
-- Source reference screenshots (optional — auto-discovered in `Share/converted/` or `docs/screenshots/`)
-- `docs/ux-agent-brief.md` — evaluation rubric and report format (auto-updated in Phase 0)
-- Design system file (optional but preferred — auto-discovered in Phase -1)
+- Mendix app running at `http://localhost:8080` (or project-specific port — check `tests/helpers.sh` or CLAUDE.md for the `APP` variable)
+- **Design system file** — look first at `design/design-system.html` (the Stockpilot standard location). Read it fully before auditing — tokens, component specs, Atlas mapping table, and app shell wireframe all inform the audit.
+- Source reference screenshots (optional — auto-discovered in `design/screenshots/` or `docs/screenshots/`)
+- `docs/ux-agent-brief.md` — evaluation rubric and report format (auto-updated in Phase 0, create if missing)
 
 ---
 
-## Four-phase execution (Phase -1 added for design artifact discovery)
+## Five-phase execution
 
 ### Phase -1 — Discover design artifacts (auto, < 30 seconds)
 
-**Before anything else, look for design artifacts to use as reference material.** This step runs even if the user did not mention a design system — the goal is to discover what exists.
-
-Search these locations in order:
+**Before anything else, look for design artifacts.** This step is mandatory.
 
 ```bash
-# 1. Design system HTML files — the highest-fidelity reference
+# 1. Design system HTML — highest-fidelity reference
 find . -maxdepth 3 -name "design-system.html" -o -name "design*.html" | grep -v node_modules
 
-# 2. Wireframe/design folders
+# 2. Design/wireframe folders
 find . -maxdepth 3 -type d \( -name "design" -o -name "designs" -o -name "wireframes" -o -name "mockups" \)
 
-# 3. Screenshots in design/docs folders
+# 3. Reference screenshots
 find . -maxdepth 4 \( -name "*.png" -o -name "*.jpg" \) \( -path "*/design/*" -o -path "*/wireframes/*" -o -path "*/docs/*" \)
-
-# 4. Figma/Zeplin/Sketch references in markdown docs
-grep -r "figma.com\|zeplin.io\|app.abstract.com" docs/ README.md CLAUDE.md 2>/dev/null | head -10
 ```
 
-After discovery, create `tests/ux-design-artifacts.md` — a short manifest of what was found:
+**If a design system HTML file is found:**
+1. Read the full file
+2. Extract all design tokens: brand colors, radius, spacing, typography scale, surface colors, status colors
+3. Note the Atlas mapping table (design token → Atlas SCSS variable)
+4. Note every component specified: buttons (variants + states), inputs (affix, error states), KPI tiles (with icon, delta), table (header style, row hover, status badges), dialog (icon + footer pattern), app shell (sidebar, command bar)
+5. Capture reference screenshots using Playwright headed (see Phase 1b below)
+6. Write `tests/ux-design-artifacts.md` manifest
 
-```markdown
-## Design artifacts discovered
-
-### Design system
-- Path: design/design-system.html
-- Type: HTML design system with CSS tokens, component samples, and Atlas mapping table
-- Key tokens extracted: [list 3-5 key tokens/colors/fonts from scanning the file]
-
-### Source reference screenshots
-- [list any screenshots found, or "None found"]
-
-### Wireframes
-- [list any wireframe files, or "None found"]
-
-### External links
-- [list any Figma/Zeplin URLs found, or "None found"]
+**Key tokens to extract from Stockpilot design system:**
+```
+--brand-500: #2a78d6          → $brand-primary (Atlas)
+--status-good: #0ca30c        → $brand-success
+--status-warning: #fab219     → $brand-warning
+--status-critical: #d03b3b    → $brand-danger
+--page: #f9f9f7               → $background-color
+--surface-1: #ffffff          → card surface
+--r-md: 10px / --r-lg: 14px  → border radius
+--font-sans: system-ui        → $font-family-base
 ```
 
-If a design system HTML file exists, read it and extract these into the manifest:
-- Primary brand color (e.g. `--brand-500: #2a78d6`)
-- Surface/background colors
-- Status colors (good/warning/critical)
-- Border-radius values
-- Font family and key type scale values
-- Any Atlas mapping table (`--token` → `$atlas-var`)
+**If no design system is found:** log `"No design artifacts found — audit will focus on Atlas conventions and general UX quality"` and continue.
 
-**This manifest is passed to the Phase 2 agent as the design compliance reference.** If no design artifacts are found at all, log `"No design artifacts found — audit will focus on Atlas conventions and general UX quality"` in the manifest and continue.
+---
 
 ### Phase 0 — Sync the brief (auto, < 10 seconds)
 
-Before running the capture, update `docs/ux-agent-brief.md` to reflect the current reference screenshots on disk. Scan `Share/converted/` (or `docs/screenshots/`) for all `.png` files and replace the reference table in the brief.
+Update `docs/ux-agent-brief.md` to reflect current reference screenshots. Create the file if missing:
 
 ```bash
-# Discover current reference files (try multiple locations)
-find Share/converted docs/screenshots -name "*.png" 2>/dev/null | sort
+find design/screenshots docs/screenshots -name "*.png" 2>/dev/null | sort
 ```
 
-Rewrite the reference screenshot table in `docs/ux-agent-brief.md` with the discovered files and their relative paths. Do not change any other section of the brief.
+---
 
-### Phase 1 — Capture (automated, ~3 min)
+### Phase 1 — Capture live app screenshots (Playwright, ~3 min)
+
+**Use the headed Playwright script at `tests/ux-visual-audit.js`** (IVM standard). If no such script exists, create one.
+
+The script must:
+- Run headed (`headless: false`) so the user can watch
+- Inject a visible red cursor dot for clarity
+- Use `slowMo: 80` for legible replay
+- Screenshot every distinct UI state: login, overview (full), KPI tiles close-up, datagrid close-up, add/edit popup (empty + filled), sell/insert popup, history page, delete confirmation
+
+All screenshots go to `tests/screenshots/ux/`.
+
+---
+
+### Phase 1b — Capture design system reference screenshots (Playwright, ~30s)
+
+Open the design system HTML file in a headless Playwright session and screenshot each component section:
+
+```javascript
+await page.goto('file:///path/to/design/design-system.html', { waitUntil: 'networkidle' });
+// Screenshot: KPI row, table, buttons panel, form panel, dialog, app shell
+```
+
+Save to `tests/screenshots/design-system/`. These are the pixel-level reference the comparison agent uses.
+
+---
+
+### Phase 1c — Dump page structures (mxcli, ~1 min)
 
 ```bash
-node tests/ux-capture.js
+./mxcli -p *.mpr -c "DESCRIBE PAGE Module.Overview" > tests/ux-page-struct-overview.txt
+./mxcli -p *.mpr -c "DESCRIBE PAGE Module.NewEdit"   > tests/ux-page-struct-newedit.txt
+# etc. for all pages
+./mxcli -p *.mpr -c "DESCRIBE NAVIGATION Responsive" > tests/ux-page-struct-nav.txt
 ```
 
-This produces:
-- `tests/screenshots/ux/*.png` — 30+ screenshots covering login, overview, orgchoice, confirmation, newedit (per section), validation state, mobile viewport
-- `tests/ux-capture-manifest.json` — structured metadata per page: button labels, editable/readonly field counts, section headers, validation errors, breadcrumb text
+---
 
-If the capture exits with an error, stop and report. Do not proceed to Phase 2 with a partial capture.
+### Phase 2 — Visual gap analysis agent (~5 min)
 
-### Phase 1b — Page structure dump (automated, ~1 min)
-
-After the screenshot capture, extract the MDL page structure for every page covered by the capture. This gives the agent DOM-equivalent information: layout grids, column widths, container nesting, widget types, CSS classes, and design properties — things that screenshots alone cannot reveal.
-
-Run these commands and write the output to `tests/ux-page-structures.json`:
-
-```bash
-./mxcli -p Apex-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.PayerRegistration_Overview" > tests/ux-page-struct-overview.txt
-./mxcli -p Apex-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.Payer_OrgChoice" > tests/ux-page-struct-orgchoice.txt
-./mxcli -p Apex-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.Payer_Confirm_Selection" > tests/ux-page-struct-confirmation.txt
-./mxcli -p Apex-TestRunOS.mpr -c "DESCRIBE PAGE PayerRegistration.PayerDetail_NewEdit" > tests/ux-page-struct-newedit.txt
-./mxcli -p Apex-TestRunOS.mpr -c "DESCRIBE NAVIGATION Responsive" > tests/ux-page-struct-navigation.txt
-./mxcli -p Apex-TestRunOS.mpr -c "SHOW SNIPPETS IN PayerRegistration" > tests/ux-page-struct-snippets.txt
-```
-
-These files are passed to the Phase 2 agent alongside the screenshots. The agent uses them to:
-- Identify layout grid column constraints causing narrow headers or clipped content
-- Detect widgets using wrong types (TextBox where ComboBox is needed, missing Required property)
-- Find containers missing Atlas card/spacing design classes
-- Spot gallery columns without responsive hide-phone/hide-tablet classes
-- Confirm widget Editable, Required, Visible properties match the page intent
-
-### Phase 2 — Review (UX agent, ~5 min)
-
-Spawn an Agent with the following prompt, passing all screenshot paths from the manifest, all reference paths discovered in Phase 0, the page structure files from Phase 1b, and the design artifacts manifest from Phase -1:
+Spawn an Agent with this prompt, passing all screenshots and page structures:
 
 ```
-You are a senior UX reviewer with expertise in Mendix Atlas design. Read the agent brief at:
-  docs/ux-agent-brief.md
+You are a senior UX reviewer with deep expertise in Mendix Atlas and the Stockpilot design system.
 
-Then read the capture manifest:
-  tests/ux-capture-manifest.json
+Read the design system:
+  design/design-system.html
 
-Then read the design artifacts manifest discovered for this project:
+Read the design artifacts manifest:
   tests/ux-design-artifacts.md
 
-[If a design system HTML file was found in Phase -1, also read it:]
-  [design/design-system.html or other path from the manifest]
+Read the design system REFERENCE screenshots (what it SHOULD look like):
+  tests/screenshots/design-system/ds-kpi-tiles.png
+  tests/screenshots/design-system/ds-table.png
+  tests/screenshots/design-system/ds-buttons.png
+  tests/screenshots/design-system/ds-form.png
+  tests/screenshots/design-system/ds-dialog.png
+  tests/screenshots/design-system/ds-app-shell.png
 
-Then read these Mendix screenshots (use the Read tool on each):
-[list all tests/screenshots/ux/*.png from the manifest]
+Read the LIVE app screenshots (what it ACTUALLY looks like):
+  [list all tests/screenshots/ux/*.png]
 
-Then read these source/reference screenshots (if any were discovered):
-[list all discovered reference PNGs, or skip this section if none]
+Read the page structures:
+  [list all tests/ux-page-struct-*.txt]
 
-Then read these page structure files (MDL DESCRIBE output — treat as the DOM equivalent):
-  tests/ux-page-struct-overview.txt
-  tests/ux-page-struct-orgchoice.txt
-  tests/ux-page-struct-confirmation.txt
-  tests/ux-page-struct-newedit.txt
-  tests/ux-page-struct-navigation.txt
-  tests/ux-page-struct-snippets.txt
+## Your job: identify EVERY gap between the design system and the live app.
 
-## Your review has four dimensions:
+### Dimension 1 — Color compliance
+Compare pixel colors in the live screenshots against design tokens:
+- Primary button: should be --brand-500 (#2a78d6). Is it?
+- Page background: should be --page (#f9f9f7). Is it?
+- Card surfaces: should be --surface-1 (#ffffff) with 1px --hairline (#e1e0d9) border and --shadow-sm. Are they?
+- KPI tiles: should have border-radius --r-lg (14px), icon in --grad-ai-soft background. Do they?
+- Table headers: should be --surface-2 with UPPERCASE xs text, --ink-muted color. Are they?
+- Status badges: should be pill-shaped with dot + label, colors good/warning/critical. Present?
+- Danger button: should be transparent with --status-critical text/border, NOT a solid red button. Is it?
 
-### 1. Design system compliance (if a design system was found)
-Compare the captured screenshots against the design system's:
-- **Color tokens**: Are primary action buttons using the brand primary color? Are status badges using the correct good/warning/critical colors?
-- **Typography**: Are heading sizes, font weights, and body text consistent with the type scale?
-- **Spacing**: Are cards and containers using the spacing tokens (not arbitrary px values)?
-- **Border radius**: Do buttons, inputs, and cards match the design system's radius values?
-- **Component patterns**: Are buttons, inputs, badges, and dialogs matching the design system's component specs?
+### Dimension 2 — Typography
+- Page heading: design specifies text-xl (22px) semibold for "Item list". What renders?
+- KPI values: design specifies text-3xl (2.25rem) bold tabular-nums. What renders?
+- Table header: should be text-xs uppercase letter-spacing .04em. What renders?
+- Body text: should be text-base (14px). What renders?
 
-For each non-compliance, state: (a) the widget name, (b) what the design system specifies, (c) what is currently rendered, (d) the severity (critical/moderate/minor), and (e) the exact `ALTER PAGE` or `custom-variables.scss` fix.
+### Dimension 3 — Component patterns
+Compare each live component against the design system spec:
+- KPI tiles: design has icon (SVG in grad-ai-soft box, top-right), label, value (hero size), delta (▲/▼ with status color). What does the live tile show?
+- Table actions column: design shows segmented Sell/Insert control + icon-only Edit + icon-only danger Delete. Live shows separate "Sell"/"Insert" buttons + text "History" button + icon trash. What are the gaps?
+- Edit button: design specifies icon-only (pencil SVG, 36×36 border btn). Live shows glyphicon class. Gap?
+- Delete button in table: design specifies icon-only danger hover. Live shows icon. Close?
+- Add Item button: design shows btn-primary with "+" icon. Live shows text-only. Gap?
+- Form inputs: design has input-affix with "€" prefix for Cost/Price. Live shows plain textbox. Gap?
+- Required field indicators: design shows red asterisk (*) next to label. Live shows?
+- Sidebar navigation: design specifies a 220px sidebar with brand mark + nav items with icons. Live uses Atlas top nav. Major gap?
+- Command bar: design specifies an AI command bar on every screen. Present in live?
+- Page background: design specifies --page (#f9f9f7, warm off-white). Live Atlas default is white. Gap?
 
-### 2. Layout and widget type issues
-- Identify layout grid column constraints that clip or narrow page content
-- Find widgets using wrong types (TextBox where ComboBox/DatePicker is needed)
-- Detect missing Atlas design properties: card class on gallery items, hide-phone on columns, Required on mandatory fields
-- Spot containers with fixed pixel widths that break responsive layout
-- Confirm widget Editable and Required properties match what screenshots suggest
+### Dimension 4 — Missing design system features entirely absent from live app
+List every feature defined in the design system that doesn't exist at all in the live app:
+- Stock status badges (In stock / Low stock / Out of stock) on table rows
+- Delta indicators on KPI tiles (▲ 8.2% vs yesterday)
+- AI insight KPI tile (Stockpilot insight chip)
+- Command bar / ⌘K search
+- Sidebar navigation with icons
+- Bar chart (stock on hand visualization)
+- Toast feedback on successful sell/insert
+- Icon-only buttons for Edit/Delete (not glyphicon text icons)
+- Segmented Sell/Insert control (not two separate buttons)
+- Affixed currency inputs (€ prefix)
+- Warm off-white page background (#f9f9f7)
 
-### 3. UX quality and source parity
-Compare against the source reference screenshots (if any). Flag regressions in information architecture, label text, or flow logic.
+For EACH gap found, state:
+(a) What the design system specifies
+(b) What the live app shows instead
+(c) Severity: critical (brand-breaking) / moderate (noticeable) / minor (polish)
+(d) The exact fix: either an MDL ALTER PAGE command, a custom-variables.scss change, or both
 
-### 4. Atlas mapping gaps
-If the design system has an Atlas mapping table (--token → $atlas-var), cross-reference with `theme/web/custom-variables.scss` if present. Flag any token that is defined in the design system but not applied in the theme.
-
-Report each dimension separately. For every issue in any dimension, always state:
-(a) the widget name or file, (b) the current value, (c) the recommended value,
-(d) the severity (critical/moderate/minor), and (e) the exact mxcli MDL command or SCSS change.
-
-Follow the evaluation rubric and output format in the brief EXACTLY.
-Be specific — cite widget names, section names, and screenshot filenames as evidence.
-For every quick win provide the exact mxcli MDL command or SCSS edit the team can run live.
+Format output as a structured list. Be exhaustive — this is a design compliance audit, not a quick check.
 
 Write the complete report to:
   docs/ux-review-[TODAY'S DATE].md
 ```
 
-Run the agent with `run_in_background: true`. You will be notified when it completes.
+---
 
-### Phase 3 — Parse output and create tasks (auto, after agent completes)
+### Phase 3 — Parse findings, create tasks, summarize
 
-When the agent completes, read `docs/ux-review-[DATE].md` and:
+After the agent completes:
+1. Extract all critical and moderate gaps
+2. Group into two tracks:
+   - **Theme track** (SCSS/Atlas vars — single fix covers all pages): color tokens, radius, background, typography scale
+   - **MDL track** (per-page widget changes): button variants, input affixes, badge widgets, layout additions
+3. Create a TaskCreate for each track item
+4. Report back with overall score (0–100) and prioritized fix list
 
-1. **Extract all Quick Wins** — lines matching the `### QW-NN:` pattern
-2. **Create a TaskCreate for each quick win** with:
-   - `subject`: `QW-NN: [short title from report]`
-   - `description`: Issue + Impact + exact mxcli command from the report
-3. **Extract all Deeper Improvements** — rows in the `### Deeper improvements` table
-4. **Create a TaskCreate for each deeper item** with:
-   - `subject`: `UX D-NN: [problem from report]`
-   - `description`: Problem + root cause + recommended fix + effort estimate
+---
 
-Report back to the user with:
-- Overall score summary (average per page from the scores table)
-- Count of quick wins created as tasks
-- Count of deeper improvements created as tasks
-- Link to the full report: `docs/ux-review-[DATE].md`
+### Phase 4 — Generate HTML report
+
+After the markdown report exists at `docs/ux-review-YYYY-MM-DD.md`, generate a styled HTML version at `docs/ux-review-YYYY-MM-DD.html` using the Stockpilot design tokens.
+
+**Structure of the HTML report:**
+
+```
+topbar        — brand-mark + "Stockpilot / UX Gap Report" logo + date badge + "N gaps found" badge
+summary row   — 4 stat tiles: Critical / Moderate / Minor / Total (with SCSS·MDL·arch breakdown)
+section: Theme Track    — gap cards, one per SCSS fix
+section: MDL Track      — gap cards, one per widget change
+section: Architectural  — table of out-of-scope features (Phase 4)
+section: Microflow Bugs — table of functional bugs found during E2E
+section: Priority Order — numbered priority list with track badges
+footer        — report version + date
+```
+
+**Gap card anatomy (reuse for every finding):**
+
+```html
+<div class="gap-card">
+  <div class="gap-header">
+    <span class="gap-num">01</span>         <!-- 2-digit number -->
+    <span class="gap-title">Gap name</span>
+    <span class="badge critical|warning|neutral">Severity</span>
+  </div>
+  <div class="gap-body">
+    <!-- 3 rows: Design spec / Live app / Fix -->
+    <div class="gap-row">
+      <span class="gap-key">Design spec</span>
+      <span class="gap-val">...</span>
+    </div>
+    <div class="gap-row">
+      <span class="gap-key">Live app</span>
+      <span class="gap-val">...</span>
+    </div>
+    <div class="gap-row">
+      <span class="gap-key">Fix</span>
+      <span class="gap-val"><div class="code-block">MDL or SCSS here</div></span>
+    </div>
+  </div>
+</div>
+```
+
+**Required CSS classes (copy verbatim from `docs/ux-review-2026-07-05.html` in the IVM project — it is the canonical template):**
+
+| Class | Purpose |
+|---|---|
+| `.gap-card` | White card, hairline border, r-lg, shadow-sm |
+| `.gap-header` | Surface-2 bg, hairline bottom border, flex row |
+| `.gap-num` | Brand-500 bold tabular number, 28px wide |
+| `.gap-body` | Padding sp-5 |
+| `.gap-row` | 2-col grid: 96px key + 1fr value |
+| `.gap-key` | xs uppercase muted label |
+| `.code-block` | Monospace, surface-sunken bg, hairline border, r-md |
+| `.track-badge.track-scss` | Blue pill for SCSS items |
+| `.track-badge.track-mdl` | Violet pill for MDL items |
+| `.track-badge.track-arch` | Muted pill for architectural items |
+| `.priority-item` | White card row: numbered circle + text + track badge |
+| `.stat-tile` | KPI-style tile: label / value (text-3xl) / sub |
+
+**Open the report:** After writing the file, run `open docs/ux-review-YYYY-MM-DD.html` so the user can see it immediately.
 
 ---
 
@@ -210,28 +274,44 @@ Report back to the user with:
 
 | File | Contents |
 |------|----------|
-| `tests/screenshots/ux/*.png` | All captured screenshots (overwritten each run) |
-| `tests/ux-capture-manifest.json` | Page metadata for the agent |
-| `tests/ux-page-struct-*.txt` | MDL DESCRIBE output per page — layout grids, widget types, CSS classes |
-| `docs/ux-review-YYYY-MM-DD.md` | Full scored UX report |
-| Tasks in task list | One task per quick win + one per deeper improvement |
-
----
-
-## Updating the brief
-
-`docs/ux-agent-brief.md` is the evaluation contract — it defines the rubric and output format. Do not change the rubric or output format sections. Only update:
-- The OS reference screenshot table (Phase 0 auto-syncs this)
-- The known bugs table (update manually after bug log changes)
+| `tests/screenshots/ux/*.png` | Live app screenshots |
+| `tests/screenshots/design-system/*.png` | Design system reference screenshots |
+| `tests/ux-design-artifacts.md` | Design artifact manifest |
+| `tests/ux-page-struct-*.txt` | MDL DESCRIBE output per page |
+| `docs/ux-review-YYYY-MM-DD.md` | Full gap report with fixes (markdown) |
+| `docs/ux-review-YYYY-MM-DD.html` | Styled HTML report using Stockpilot tokens |
+| Tasks | One task per theme-track item + one per MDL-track item |
 
 ---
 
 ## Re-running after fixes
 
-After applying quick wins, re-run the full skill to measure improvement. The new `ux-review-[DATE].md` file is written with today's date — previous reports are preserved for comparison.
+After applying fixes (theme or MDL), re-run the full skill. The new report date creates a new file — old reports are preserved for comparison.
 
-To compare scores across runs:
+To compare gap counts across runs:
 ```bash
-# List all UX reports chronologically
-Get-ChildItem docs -Filter "ux-review-*.md" | Sort-Object Name
+ls -1 docs/ux-review-*.html | sort
 ```
+
+---
+
+## Known design system gaps for IVM (as of 2026-07-05)
+
+These gaps were confirmed by the first full audit run:
+
+| Gap | Severity | Fix track |
+|-----|----------|-----------|
+| Page background is white, should be #f9f9f7 | moderate | SCSS |
+| Primary button color not #2a78d6 (Atlas default blue) | critical | SCSS |
+| KPI tiles missing icon, delta, and hero-size value | critical | MDL |
+| Table headers not uppercase xs text with letter-spacing | moderate | SCSS |
+| Sell/Insert are separate buttons, not segmented control | moderate | MDL |
+| Edit/Delete are glyphicon buttons, not clean icon-btns | moderate | MDL |
+| No stock status badge (In stock / Low / Out of stock) | critical | MDL + entity |
+| Cost/Price inputs lack € prefix affix | minor | MDL |
+| No sidebar navigation — uses Atlas top nav | major | Layout |
+| No command bar / AI search | major | MDL |
+| No toast feedback on sell/insert success | moderate | MDL |
+| No bar chart on overview | moderate | MDL |
+| Required field (*) indicators missing on form | minor | MDL |
+| Delete dialog lacks danger icon in header | minor | MDL |

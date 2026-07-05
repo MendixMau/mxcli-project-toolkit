@@ -150,3 +150,17 @@ else 'badge-default'
 - **Cannot INSERT rows into a layoutgrid by row name:** `insert after row5 { row newRow { ... } }` fails with "widget not found". ALTER PAGE can only INSERT widgets within an existing column. To add a full new row, use `create or modify page` to rebuild the section, or do it in Studio Pro.
 - **SET content on dynamictext with ContentParams (BUG-07):** fails with "property 'content' not found (widget has no pluggable Object)". Use REPLACE with a different widget name instead.
 - **REPLACE with same widget name (BUG-08):** fails with "duplicate widget name". Always use a different name in the replacement body — the old name is dropped when the old widget is removed.
+- **CONTAINER inside dataview/form slot corrupts BSON (BUG-18):** Wrapping a widget in a new CONTAINER via `replace txtWidget with { container cWrapper { textbox txtWidget } }` inside a `dataview` writes a `DivContainer` into a BSON slot typed for `WidgetObject` — SP crashes on load with `InvalidCastException`. Use SCSS to fake affixes/wrappers instead. Never REPLACE a widget with a container wrapping it inside a form/dataview body.
+- **REPLACE on datagrid custom-content columns drops them (observed IVM-MxCLI, 2026-07-05):** `replace colName with { column colName (...) { ... } }` silently deletes the column instead of swapping it. Use `insert after dgName.LastColumn { column ... }` to re-add dropped columns, or rebuild the full datagrid with `create or modify page`.
+
+## Studio Pro Launch — Use Binary Path, Not `open -a`
+
+**Rule:** Never use `open -a "Mendix Studio Pro X.Y.Z Beta" file.mpr` in scripts. macOS `-a` name matching is unreliable and fails with "data format" or error -600.
+
+**Always launch via the binary directly:**
+
+```bash
+"/Applications/Mendix Studio Pro X.Y.Z Beta.app/Contents/MacOS/studiopro" "$MPR" &
+```
+
+This matches exactly what Finder does when you double-click the MPR. The `&` backgrounds it so the script continues. Works reliably regardless of macOS session state, version selector, or app display name quirks.

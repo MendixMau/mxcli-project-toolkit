@@ -785,3 +785,85 @@ Studio Pro itself cannot open the MPR. Gate 2 (javac) still passes because it do
 **Recovery:** Restore from snapshot immediately — the MPR is load-broken. Run `bash bin/restore-mpr.sh`.
 
 **Discovered:** 2026-07-03, IVM project (datagrid). 2026-07-05, WMS-LargeSource-main script 18 (snippet with no entity context).
+
+---
+
+## BUG-19: `ALTER PAGE` — REPLACE wrapping existing widget in CONTAINER corrupts BSON (DivContainer/WidgetObject type clash)
+
+**Severity:** Critical — project becomes unopenable in Studio Pro with InvalidCastException  
+**Reproducible:** Yes, consistently  
+**Mendix version:** 11.12.0 Beta  
+**Discovered:** 2026-07-05, IVM-MxCLI sprint4-visual-polish.mdl
+
+### Steps to reproduce
+
+```mdl
+-- Inside an existing dataview with a textbox:
+alter page Module."PageName" {
+  replace txtCost with {
+    container cCostAffix (Class: 'input-affix') {
+      dynamictext lblEur (Content: '€', RenderMode: Paragraph)
+      textbox txtCost (Label: 'Cost *', Attribute: Cost)
+    }
+  }
+};
+```
+
+Also triggered by inserting a container block before a widget inside a dataview body:
+
+```mdl
+alter page Module."PageName" {
+  insert before txtConfirm {
+    container cHeader (Style: '...') {
+      dynamictext txtIcon (Content: '🗑', RenderMode: Paragraph)
+    }
+  }
+};
+```
+
+### Expected behavior
+
+Widget is replaced/inserted. `mx check` passes. SP loads the project.
+
+### Actual behavior
+
+mxcli reports success (`Altered page Module.PageName`). But SP crashes on project load with:
+
+```
+System.InvalidCastException: Unable to cast object of type
+  'Mendix.Modeler.WebUI.Forms.Widgets.LayoutWidgets.DivContainers.DivContainer'
+  to type
+  'Mendix.Modeler.WebUI.Forms.Widgets.CustomWidgets.WidgetObject'
+  at StreamingBsonUnitReader.AddListItem(...)
+```
+
+### Root cause (inferred)
+
+The dataview's widget children list in BSON is typed to hold `WidgetObject` (custom/pluggable widget references). When mxcli writes a `CONTAINER` (`DivContainer`) into that list, it uses the wrong BSON type tag. The SP model reader enforces the typed list at load time and throws `InvalidCastException`.
+
+Standard dataviews in Atlas use pluggable input widgets (TextBox, TextArea, etc.) — the widget list is typed for pluggable `WidgetObject`s, not layout containers. A `CONTAINER` is a `DivContainer`, not a `WidgetObject`, so it cannot be stored in that slot.
+
+### Does NOT affect
+
+- Inserting CONTAINER widgets at the page level (outside a dataview) — works correctly.
+- Inserting CONTAINER widgets inside a LAYOUTGRID column (not a dataview widget list) — works correctly.
+- Inserting ACTION BUTTONs, TEXTBOXES, DYNAMICTEXT widgets inside a dataview — those are pluggable widget types and serialize correctly.
+
+### Workaround
+
+**Never wrap a widget in a new CONTAINER via ALTER PAGE inside a dataview body.**
+
+For input affixes (e.g. € prefix on Cost/Price):
+- Use pure SCSS: position a `::before` pseudo-element or use a CSS `input-affix` class that overlays the prefix visually without changing the widget tree.
+
+For decorative header blocks (e.g. danger icon before confirm text):
+- Add as a `DYNAMICTEXT` sibling (not wrapped in a container), or
+- Do it in Studio Pro manually after the MDL exec.
+
+### Recovery
+
+Restore `mprcontents/` from the last clean git commit:
+```bash
+git checkout HEAD -- mprcontents/ IVM-MxCLI.mpr
+```
+Then restart SP.

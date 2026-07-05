@@ -47,7 +47,7 @@ Ad-hoc backup copies (`.mpr.backup`, `.mpr.pre-something`) accumulate, rot, and 
 **Critical:** an MPR project is two parts — `Project.mpr` (SQLite index) and `mprcontents/` (BSON unit files holding the actual model data). Snapshotting only the `.mpr` is incomplete. A corrupted `mprcontents/` file cannot be restored from the `.mpr` alone, and Studio Pro will refuse to open the project with a `KeyNotFoundException` referencing a missing GUID. **Always snapshot both.**
 
 - Project has `bin/snapshot-mpr.sh` and `bin/restore-mpr.sh`.
-- **Run `bash bin/snapshot-mpr.sh` before every `mxcli exec`** — put this rule in the project's CLAUDE.md.
+- **`bin/exec.sh` calls `snapshot-mpr.sh` automatically** — use exec.sh as the standard build command. Only run `bash bin/snapshot-mpr.sh` manually if calling `mxcli exec` directly (bypassing exec.sh).
 - Keeps 5 newest snapshots, prunes older ones automatically.
 - Git commits per phase gate are the real history (`mprcontents/` tracked). Snapshots only cover mid-session corruption between commits.
 

@@ -91,7 +91,7 @@ find design/screenshots docs/screenshots -name "*.png" 2>/dev/null | sort
 
 ### Phase 1 — Capture live app screenshots (Playwright, ~3 min)
 
-**Use the headed Playwright script at `tests/ux-visual-audit.js`** (IVM standard). If no such script exists, create one.
+**Use the headed Playwright script at `tests/ux-visual-audit.js`**. If no such script exists, create one.
 
 The script must:
 - Run headed (`headless: false`) so the user can watch
@@ -269,7 +269,7 @@ footer        — report version + date
 </div>
 ```
 
-**Required CSS classes (copy verbatim from `docs/ux-review-2026-07-05.html` in the IVM project — it is the canonical template):**
+**Required CSS classes (use these verbatim — they are the canonical template):**
 
 | Class | Purpose |
 |---|---|

@@ -13,8 +13,8 @@ Used across all mxcli-powered projects — OS migrations, Java/Angular migration
 **Mandatory protocol before any screenshot, visual review, or UI test:**
 
 1. Run `mxcli exec` as usual
-2. Fully restart Studio Pro: `pkill -9 -f "Contents/MacOS/studiopro" && rm -f *.mpr.lock && open YourProject.mpr`
-   - `open file.mpr` only **foregrounds** an already-running SP — it does NOT reload the model. Always `pkill -9` first.
+2. Fully restart Studio Pro: `pkill -9 -f "Contents/MacOS/studiopro" && rm -f *.mpr.lock && open -a "Mendix Studio Pro X.Y.Z" YourProject.mpr`
+   - `open file.mpr` (bare) only **foregrounds** an already-running SP and can trigger macOS's version-selector popup — it does NOT reload the model. Always use `open -a "..."` with the full app name, and always `pkill -9` first.
 3. Click **Run Locally** in SP and wait for compilation to finish
 4. Confirm the app is live: `curl -s -o /dev/null -w "%{http_code}" http://localhost:PORT/login.html` → `200`
 5. **Only then** take screenshots or run UI assertions

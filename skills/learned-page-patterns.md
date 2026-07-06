@@ -164,3 +164,28 @@ else 'badge-default'
 ```
 
 This matches exactly what Finder does when you double-click the MPR. The `&` backgrounds it so the script continues. Works reliably regardless of macOS session state, version selector, or app display name quirks.
+
+---
+
+## Navigation Sidebar — Icons Only, No Text Labels
+
+**Rule:** Navigation menu items must use icon-only display. Never set a text `Caption` on sidebar nav items — use a glyph or SVG icon class only.
+
+This applies to:
+- All `NAVIGATIONLIST` items in any sidebar navigation profile
+- Any future `CREATE OR REPLACE NAVIGATION` MDL that configures a side nav
+
+**Why:** Text labels in the sidebar violate the Stockpilot design system spec, which shows icon-only nav items in the 220px side panel. Text alongside icons makes the sidebar visually heavy and inconsistent with the design.
+
+**How to apply in MDL:**
+
+```mdl
+-- Icon-only nav item: set Caption to empty string, apply glyph class
+navigationitem navItems (
+  Caption: '',
+  Icon: 'glyphicon-list',
+  Action: show_page Inventory.Item_Overview
+)
+```
+
+For custom SVG icons, apply a CSS class and leave Caption empty. Never populate Caption with a human-readable label on sidebar profiles.

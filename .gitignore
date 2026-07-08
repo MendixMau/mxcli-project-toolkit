@@ -16,5 +16,8 @@ knowledge-base/
 *.mpr
 *.mpr.backup
 
+# WIP skills — machine-local drafts, not ready to publish
+wip/
+
 # OS noise
 .DS_Store

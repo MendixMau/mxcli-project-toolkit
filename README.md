@@ -149,6 +149,8 @@ mxcli-project-toolkit/
 | Extracting Excel/Word/PDF specs | `kb-generation.md` |
 | Understanding OS XML source | `source-os11.md` + `os-xml-schema.md` |
 | Writing MDL microflow scripts | `mdl-cookbook-microflows.md` |
+| Checking what's safe to write in MDL vs MCP vs SP GUI before drafting (STOP table) | `skills/learned-mdl-preflight.md` |
+| Using MCP alongside mxcli — handoff sequence, save discipline, confirmed JSON patterns, known bugs | `skills/learned-mcp-patterns.md` |
 | Diagnosing a mxcli error | `bug-logs/mxcli-bugs.md` |
 | Validating a new stack pipeline's extraction quality | `qa-loop-goal-pattern.md` |
 | Deciding module boundaries before `create module` | `modularize-domain.md` |
@@ -199,7 +201,9 @@ The "When to use which skill" table above is *situational* — load a skill when
 
 | Always relevant for | Reference this |
 |---|---|
-| Writing or fixing any microflow | `skills/learned-microflow-patterns.md` — MDL gotchas + the annotation discipline (selective, not blanket; CE-error fixes always annotated) |
+| Writing **any** MDL script — before the first line | `skills/learned-mdl-preflight.md` — 11 STOP conditions (each backed by a real corruption incident); check every planned operation here before drafting |
+| Writing or fixing any microflow | `skills/learned-microflow-patterns.md` — MDL gotchas + annotation discipline (placement rules — never before `if`; CE-error fixes always annotated) |
+| Using MCP alongside mxcli — any MCP write session | `skills/learned-mcp-patterns.md` — save discipline, uncommitted-MPR guard, pre-exec handoff sequence, confirmed JSON patterns |
 | A CE error or behavior that looks like a known mxcli quirk, not a modeling mistake | `bug-logs/mxcli-bugs.md` |
 | Setting up a new project's dev-process subagents | `skills/agent-roles.md` — once, at project start, not "on demand" |
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |

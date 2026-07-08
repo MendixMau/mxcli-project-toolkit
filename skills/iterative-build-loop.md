@@ -121,30 +121,39 @@ This means a BSON unit file references a GUID that no longer exists in the model
 Every project should have a `bin/exec.sh` wrapper that runs the full build cycle in one command:
 
 ```
-snapshot → mxcli exec → kill port 8081 → kill Studio Pro → reopen SP via full path
+uncommitted-guard → SP-open-guard → concurrent-writer-guard → snapshot → mxcli exec → mxbuild gate → (auto-restore on failure) → tell user to reopen SP manually
 ```
 
-### Why this script exists
+**Never auto-kill or auto-reopen Studio Pro from exec.sh.** See SP Lifecycle Rule below.
 
-Two recurring problems make a bare `mxcli exec` + `open Project.mpr` unreliable:
+### Why this script exists — four hard-learned problems
 
-1. **Port 8081 stays occupied.** The Mendix Java runtime keeps its socket open even after the Studio Pro window closes. The next Run Locally fails with "port already in use." Fix: `lsof -ti :8081 | xargs kill -9` before reopening.
-2. **Version selector popup.** `open Project.mpr` without specifying the app triggers macOS's "open with which app?" dialog, which blocks headless sessions. Fix: always use `open -a "Mendix Studio Pro X.Y.Z" "$MPR"` with the fully-qualified app name.
-3. **`$(pwd)` path breaks when invoked from a different cwd.** If the terminal is not at the project root, `$(pwd)/Project.mpr` resolves to a wrong path and SP throws "cannot open files in the data format." Fix: anchor with `${BASH_SOURCE[0]}` so the path is always relative to the script file, not the caller's cwd.
+1. **Port 8081 stays occupied.** The Mendix Java runtime keeps its socket open after Studio Pro closes. The next Run Locally fails with "port already in use." Fix: `lsof -ti :8081 | xargs kill -9` in `restart-sp.sh` only, not in exec.sh automatically.
+2. **`$(pwd)` path breaks when invoked from a different cwd.** Fix: anchor with `${BASH_SOURCE[0]}` so the path is always relative to the script file.
+3. **`mxcli check` does not catch BSON corruption.** It validates MDL grammar only. The only reliable gate is running the real mxbuild binary after exec — see gate below.
+4. **MCP writes lost on snapshot restore.** If mxbuild fails and exec.sh auto-restores from snapshot, any MCP work done since the last `git commit` is silently lost. The uncommitted-MPR guard prevents this by refusing to exec while uncommitted changes exist.
+
+### SP Lifecycle Rule — never auto-restart SP
+
+**Never** `pkill` Studio Pro or `open -a` it automatically from exec.sh. This was learned after auto-restart caused stale lock files, version-selector dialogs, and "cannot open files in the data format" errors on macOS in certain environments. Instead: exec.sh prints a message and waits for the user to close and reopen SP manually. Only `restart-sp.sh` kills/reopens SP, and only when the user explicitly asks for it.
 
 ### Template — copy into each project's `bin/exec.sh`
 
 ```bash
 #!/usr/bin/env bash
-# exec.sh — safe mxcli exec wrapper: snapshot → exec → restart SP
-# Usage: ./bin/exec.sh <script.mdl>  (safe to call from any cwd)
+# exec.sh — snapshot → exec → mxbuild gate → tell user to reopen SP
+# Usage: ./bin/exec.sh <script.mdl>
+# Override: FORCE_EXEC=1 ./bin/exec.sh <script.mdl>  (skips all guards — use only if you know why)
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-MPR="$PROJECT_ROOT/MyProject.mpr"          # ← change to project MPR name
-SP_APP="Mendix Studio Pro 11.12.0 Beta"    # ← change to installed SP version
+MPR="$PROJECT_ROOT/MyProject.mpr"                        # ← change to project MPR name
+MXBUILD="/Applications/Mendix Studio Pro X.Y.Z.app/Contents/modeler/mxbuild"  # ← change version
 SCRIPT="$1"
+FORCE="${FORCE_EXEC:-0}"
+LOCK="$PROJECT_ROOT/.mpr-snapshots/.exec.lock"
+mkdir -p "$(dirname "$LOCK")"
 
 if [[ -z "$SCRIPT" ]]; then
   echo "Usage: ./bin/exec.sh <script.mdl>"
@@ -153,62 +162,135 @@ fi
 
 cd "$PROJECT_ROOT"
 
+# Guard 1: SP must not have the project open (split-brain = data loss).
+# SP writes <mpr>.lock with the PID while the project is open.
+if [[ -f "$MPR.lock" ]]; then
+  SP_PID=$(grep -oE '"ProcessId":[0-9]+' "$MPR.lock" 2>/dev/null | grep -oE '[0-9]+' || true)
+  if [[ -n "$SP_PID" ]] && kill -0 "$SP_PID" 2>/dev/null; then
+    echo "✗ Studio Pro has the project open (PID $SP_PID) — refusing exec (split-brain risk)."
+    echo "  → Close the project in Studio Pro, then re-run."
+    [[ "$FORCE" == "1" ]] || exit 1
+  fi
+fi
+
+# Guard 2: No other exec.sh already running.
+if [[ -f "$LOCK" ]]; then
+  OTHER=$(cat "$LOCK" 2>/dev/null || true)
+  if [[ -n "$OTHER" ]] && kill -0 "$OTHER" 2>/dev/null; then
+    echo "✗ Another exec is running (PID $OTHER) — refusing concurrent write."
+    exit 1
+  fi
+fi
+
+# Guard 3: Uncommitted MPR changes — prevents silent loss if mxbuild fails and restores.
+MPR_DIRTY=$(git status --porcelain MyProject.mpr mprcontents/ 2>/dev/null | grep -v "^$" || true)
+if [[ -n "$MPR_DIRTY" ]]; then
+  echo "✗ Uncommitted MPR changes detected — refusing exec to prevent snapshot regression."
+  echo ""
+  echo "  If you did MCP work, commit it first:"
+  echo "    git add MyProject.mpr mprcontents/ && git commit -m 'Commit MCP changes before exec'"
+  echo "  Then re-run: ./bin/exec.sh $SCRIPT"
+  echo ""
+  echo "  Override (accepts silent-loss risk): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
+  [[ "$FORCE" == "1" ]] || exit 1
+fi
+
+echo $$ > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT
+
 echo "→ Snapshotting MPR..."
 ./bin/snapshot-mpr.sh
 
 echo "→ Executing $SCRIPT..."
 ./mxcli exec "$SCRIPT" -p "$MPR"
 
-echo "→ Restarting Studio Pro..."
-lsof -ti :8081 | xargs kill -9 2>/dev/null || true
-pkill -9 -f "Contents/MacOS/studiopro" 2>/dev/null || true
-sleep 2
-rm -f "$MPR.lock"
-open -a "$SP_APP" "$MPR"
+echo ""
+echo "→ Running mxbuild model check..."
+JAVA_HOME=$(/usr/libexec/java_home 2>/dev/null || true)
+JAVA_EXE="${JAVA_HOME}/bin/java"
 
-echo "✓ Done — click Run Locally in Studio Pro when it finishes loading."
+if [[ -x "$MXBUILD" && -x "$JAVA_EXE" ]]; then
+  ERRORS_FILE=$(mktemp /tmp/mxbuild-errors.XXXXXX)
+  "$MXBUILD" \
+    --java-home="$JAVA_HOME" \
+    --java-exe-path="$JAVA_EXE" \
+    --write-errors="$ERRORS_FILE" \
+    --target=deploy \
+    "$MPR" 2>&1 || true
+
+  if [[ -f "$ERRORS_FILE" && -s "$ERRORS_FILE" ]]; then
+    CE_COUNT=$(python3 -c "import json; d=json.load(open('$ERRORS_FILE')); print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null || echo "?")
+    echo "  ✗ mxbuild: $CE_COUNT error(s) — auto-restoring snapshot."
+    # Restore from the snapshot BEFORE this exec (second-newest, since snapshot ran before exec)
+    PREV_SNAP=$(ls -dt "$PROJECT_ROOT/.mpr-snapshots"/[0-9]*/ 2>/dev/null | head -2 | tail -1)
+    if [[ -n "$PREV_SNAP" && -f "$PREV_SNAP/MyProject.mpr" ]]; then
+      cp "$PREV_SNAP/MyProject.mpr" "$MPR"
+      rm -rf mprcontents && cp -r "$PREV_SNAP/mprcontents" mprcontents
+      echo "  → Restored from: $PREV_SNAP"
+    fi
+    python3 -c "import json; d=json.load(open('$ERRORS_FILE')); [print(' ', e.get('errorCode','?'), e.get('message','')) for e in d.get('problems',[]) if e.get('severity')=='Error']" 2>/dev/null || true
+    rm -f "$ERRORS_FILE"
+    exit 1
+  else
+    echo "  ✓ mxbuild: 0 errors — model is clean."
+  fi
+  rm -f "$ERRORS_FILE"
+else
+  echo "  ✗ mxbuild or java not found — gate skipped. Verify in SP before proceeding."
+fi
+
+echo ""
+echo "✓ Script applied to MPR."
+echo "  ⚠️  Please close the project in Studio Pro, reopen it, then click Run Locally."
+echo "  If SP is not open: open Version Selector → select your version → open the project."
 ```
 
 ### Standalone SP restart — `bin/restart-sp.sh`
 
-For cases where you need to restart SP without running a new exec (e.g. after a manual model change or a hung runtime):
+Only run this when the user explicitly asks to restart SP. Invoke the binary directly — `open -a` can trigger macOS's file-association picker in some environments:
 
 ```bash
 #!/usr/bin/env bash
-# restart-sp.sh — kill runtime + SP, then reopen cleanly
-# Usage: ./bin/restart-sp.sh  (safe to call from any cwd)
+# restart-sp.sh — kill runtime + SP, then reopen. Use only when explicitly asked.
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-MPR="$PROJECT_ROOT/MyProject.mpr"          # ← change to project MPR name
-SP_APP="Mendix Studio Pro 11.12.0 Beta"    # ← change to installed SP version
+MPR="$PROJECT_ROOT/MyProject.mpr"
+SP_APP="Mendix Studio Pro X.Y.Z"           # ← exact name as in /Applications/
 
 lsof -ti :8081 | xargs kill -9 2>/dev/null || true
 pkill -9 -f "Contents/MacOS/studiopro" 2>/dev/null || true
 sleep 2
 rm -f "$MPR.lock"
-open -a "$SP_APP" "$MPR"
-echo "✓ Done — click Run Locally in Studio Pro when it finishes loading."
+# Invoke binary directly — avoids macOS file-association picker (BUG-LOCAL-03)
+"/Applications/$SP_APP.app/Contents/MacOS/studiopro" "$MPR" &
+echo "✓ SP restarting — click Run Locally when it finishes loading."
 ```
 
-### Usage during the build loop
+### Pre-exec sequence when MCP work was done
 
-Replace every manual `./mxcli exec script.mdl -p Project.mpr` call with:
+Before running exec.sh after any MCP session:
 
-```bash
-./bin/exec.sh mdlsource/my-script.mdl
+```
+1. Cmd+S in Studio Pro (or run save-sp.sh)
+2. git add MyProject.mpr mprcontents/ && git commit -m "Commit MCP changes before exec"
+3. Close the project in Studio Pro
+4. ./bin/exec.sh mdlsource/my-script.mdl
 ```
 
-After exec.sh completes, Studio Pro opens in the background. Click **Run Locally** and wait for it to finish before taking screenshots or running tests. This is part of the screenshot stale-build gate — never screenshot before Run Locally completes.
+Step 3 is required — exec.sh refuses if SP has the project open.
 
 ### Per-project setup checklist
 
-- [ ] Copy `bin/exec.sh` into the project, update `MPR` and `SP_APP` variables
-- [ ] Copy `bin/restart-sp.sh`, update the app name and MPR name
-- [ ] `chmod +x bin/exec.sh bin/restart-sp.sh`
-- [ ] Add rule to `CLAUDE.md`: never use `open Project.mpr` directly — always use `./bin/exec.sh` or `./bin/restart-sp.sh`
-- [ ] Confirm `SP_APP` string matches exactly what appears in `/Applications/` (spaces and all)
+- [ ] Copy `bin/exec.sh` into the project; update `MPR`, `MXBUILD`, and the porcelain git path variables
+- [ ] Copy `bin/snapshot-mpr.sh` and `bin/restore-mpr.sh` — snapshot must cover both `.mpr` AND `mprcontents/`
+- [ ] Copy `bin/restart-sp.sh`; update the app name and MPR name
+- [ ] Copy `bin/save-sp.sh` (MCP save trigger)
+- [ ] `chmod +x bin/exec.sh bin/restart-sp.sh bin/snapshot-mpr.sh bin/restore-mpr.sh bin/save-sp.sh`
+- [ ] Add `build/snapshots/` and `.mpr-snapshots/` to `.gitignore`
+- [ ] Add rule to `CLAUDE.md`: the uncommitted-MPR guard — required sequence before any exec
+- [ ] Add rule to `CLAUDE.md`: never auto-restart SP; always tell the user to close and reopen manually
 
 ---
 
@@ -246,21 +328,29 @@ Repeat for each module:
         `KeyNotFoundException`, or `AttributeIdentifier` errors → restore snapshot immediately.
         **This fallback is mandatory — never mark a script DONE without Gate 2 passing.**
 9.  If GRANT scripts were applied → Studio Pro "Update security" → Cmd+S
-10. Walk the happy path as a non-admin demo user:
+10. **Update the project's progress tracker** (e.g. `MIGRATION-PROGRESS.md` or equivalent) —
+    mark this script/module as built and gate-verified, right after Gate 2 passes and Studio Pro
+    is confirmed to open/run without errors. Do this BEFORE the testing steps below — a build that
+    passed its gate is progress worth recording even if testing hasn't run yet; don't let the two
+    get conflated or let tracker updates wait on a separate testing pass.
+11. Walk the happy path as a non-admin demo user:
+      - After exec.sh completes, tell the user to close and reopen the project in SP, then Run Locally
+      - Wait for the user to confirm SP is running — never assume
+      - Confirm the app is actually serving the new build: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login.html` → `200`. The browser shows the old JS bundle until SP recompiles; screenshots taken before this check show stale state.
       - Log in as demo user (not Administrator)
       - Navigate to the page
       - Fill minimum required fields
       - Click save / next
       - Confirm record created or navigation succeeded
-11. Screenshot coverage check:
+12. Screenshot coverage check:
       - Open the source screenshot
       - List every visible field/section
       - Verify each has a widget with a real datasource binding (not a stub banner)
       - Document any gap as an explicit sub-task before marking done
-12. Mark module done ✅
+13. Mark module done ✅
 ```
 
-Steps 8–11 are the phase gate. Steps 1–7 without 8–11 = page may be built but wrong.
+Steps 8–12 are the phase gate. Steps 1–7 without 8–12 = page may be built but wrong.
 
 ---
 

@@ -68,6 +68,38 @@ With nested DataViews, a button has access to objects from all enclosing DataVie
 
 ---
 
+## Commit / Change / Rollback — Use `refresh` in Page-Triggered Microflows
+
+**Rule:** Any microflow invoked from a **page** (action button, on-change, or a save/edit flow
+the page returns to) that `commit`s or `change`s an object shown on that page **must** use the
+`refresh` keyword so the Mendix client re-renders the updated object. Same for `rollback`.
+Without it, the database updates but the client keeps the stale in-memory object — the
+grid/DataView won't reflect the change until a manual reload.
+
+```mdl
+-- Page-triggered save: refresh so the calling page / grid updates immediately
+commit $Item with events refresh;
+
+-- Change that must show immediately in the client
+change $Item ("Active" = false) refresh;
+
+-- Reverting an uncommitted edit shown on the page
+rollback $Item refresh;
+```
+
+**Applies to:** save / create / update / delete actions wired to a page button; anything whose
+result is visible on the page the user stays on or returns to.
+
+**Do NOT add `refresh` (it's meaningless there):**
+- Before/after-commit **event handlers** and other server-side-only microflows — no client to refresh.
+- Scheduled / batch / integration microflows with no page context.
+- An object that is not displayed on any current page.
+
+**Position:** `refresh` goes at the **end** of the statement, after `with events` —
+`commit $X with events refresh;` (never `commit refresh $X`).
+
+---
+
 ## NPE as Form Backing Object ("Dto" Pattern)
 
 Non-Persistent Entities (NPEs) used as form backing objects are named with the `_Dto` suffix. They are in-memory only — never committed.
@@ -206,6 +238,54 @@ end if;
 
 ## Annotations — Selectively, on Complex or Non-Obvious Activities Only
 
+### First: only `@annotation` shows on the canvas (the three "comment" forms)
+
+If annotations "aren't showing up in the microflow," it's almost always because the note was
+written in a form that doesn't render on the canvas. Three distinct forms land in three
+different places:
+
+| Form | Where it lands | On the canvas? |
+|------|----------------|----------------|
+| `@annotation 'text'` | A note on the microflow canvas (AnnotationFlow to the next activity, or free-floating) | **Yes — the only one that does** |
+| `/** ... */` above the signature | The microflow's **Documentation** property (properties pane / right-click → Documentation) | No |
+| `-- text` | MDL script comment only — **stripped on exec** | No — appears nowhere in Studio Pro |
+
+**Rule:** For anything a reviewer should see *on the canvas*, use `@annotation`. Use `/** */`
+for the formal spec-facing summary (params/returns) that belongs in the Documentation field,
+and `--` only for notes to whoever reads the `.mdl`. Writing `/**` or `--` and expecting a
+canvas note is the usual cause of "we're not seeing annotations." After exec, verify with
+`describe microflow Module.Name` — `@`-annotations appear in its output; if they're missing
+there, they weren't written as `@annotation`.
+
+### Critical: `@annotation` placement — never before an `if` or decision
+
+**This is the most common cause of annotations silently not persisting.** mxcli binds an `@annotation` to the *next activity* in the flow via an `AnnotationFlow` edge. When the next element is an `if` / decision / split — not a real activity — mxcli drops the annotation entirely. The script applies and reports success, but the canvas note never appears.
+
+**Confirmed failure at scale:** in one session, 12 annotations were written, all before `if` statements — 0 of 12 persisted. Same mxcli version annotates correctly on other flows where placement is correct.
+
+**Safe placements:**
+- At the **end of the flow**, after the last activity, before `end` — free-floating, no following element required
+- Immediately **before a real activity** (create / change / retrieve / commit / call microflow / log)
+
+**Unsafe placement (annotation silently dropped):**
+- Before `if` / `else if`
+- Before a decision or split
+- At the very start of the flow before any activity
+
+**Pattern — summary annotation at end:**
+```mdl
+create microflow Module.ACT_Save ("Input": Module.InputDto)
+begin
+  -- ... activities ...
+  commit $Result;
+  @annotation 'Saves the InputDto to the database. Validates required fields before commit.';
+end;
+```
+
+**Verify after exec:** run `DESCRIBE MICROFLOW Module.ACT_Save` and confirm `@annotation` text appears in the output. Syntax-check passing does not mean the annotation persisted.
+
+### Then: apply `@annotation` selectively
+
 **Rule:** Add `@annotation` where an activity's *why* isn't obvious from its name and parameters alone — not on every activity. Mendix microflows have no inline comments, so annotations are the only in-flow documentation available to developers reviewing Studio Pro, but that makes them worth protecting from noise: an annotation on every `commit` and every simple `retrieve` trains reviewers to skip them all, including the ones that actually matter.
 
 **Two annotation shapes, used differently:**
@@ -294,3 +374,21 @@ retrieve $SearchResult from PayerRegistration.CompanySearchResult
   where [PayerRegistration.PayerDetail_Dto_CompanySearchResult = $Dto]
   limit 1;
 ```
+
+---
+
+## Enum Attribute in String Context — Always Use `toString($Obj/Attr)`
+
+**Bug:** Using an enum attribute directly where a string is expected (e.g. string concatenation, `set $Str = $Obj/Status`, loop body building a result string) silently writes the raw enum key name without the module prefix, which Mendix rejects at runtime or produces a CE error.
+
+**Rule:** Always wrap enum attribute reads in `toString()` when the result is used as a String.
+
+```mdl
+-- WRONG: enum used as string directly
+set $Result = $Result + $Item/Status + '\n';
+
+-- CORRECT
+set $Result = $Result + toString($Item/Status) + '\n';
+```
+
+This applies anywhere an enum value flows into a String context: concatenation, `return`, `set`, `declare`, function arguments expecting String. Confirmed pattern in KT-POC (2026-07-07).

@@ -867,3 +867,118 @@ Restore `mprcontents/` from the last clean git commit:
 git checkout HEAD -- mprcontents/ IVM-MxCLI.mpr
 ```
 Then restart SP.
+
+---
+
+## BUG-20: Cross-module association traversal as widget datasource writes null `DestinationEntityId`
+
+**Severity:** Critical — project becomes unopenable in Studio Pro with `StorageLoadException`  
+**Status:** Open — no fix in mxcli; workaround: use MCP after exec  
+**Reproducible:** Yes, consistently  
+**Mendix version:** 11.12.0 Beta  
+**Discovered:** 2026-07-06
+
+### Steps to reproduce
+
+1. Define an association between two modules: `ModuleA.Assoc` from `ModuleA.EntityA` to `ModuleB.EntityB`
+2. In a page with a `ModuleB.EntityB` parameter, add a datagrid using the back-traversal as datasource:
+   ```mdl
+   datagrid dgItems (
+     datasource: $currentObject/ModuleA.Assoc,
+     ...
+   ) { ... }
+   ```
+3. Exec the script — mxcli reports success with no errors
+4. Open the project in Studio Pro
+
+### Expected behavior
+The datagrid loads objects on the other side of the association from the current context object.
+
+### Actual behavior
+Studio Pro crashes on project open with:
+```
+AggregateException: An error occurred when trying to set the 'DestinationEntity' property
+of a Entity ref step in a Page with ID <page-unit-uuid>.
+  --> ArgumentNullException: ArgumentNull_Generic Arg_ParamName_Name, value
+   at EntityRefStep.set_DestinationEntityId(EntityIdentifier value)
+   at StreamingBsonUnitReader.SetValue(...)
+```
+
+### Root cause (inferred)
+mxcli's page-widget writer does not correctly resolve cross-module entity identifiers when
+writing the `EntityRefStep` that makes up a traversal path (`$currentObject/OtherModule.Assoc`).
+The `DestinationEntityId` field in the BSON is written as null/empty, which SP rejects hard on load.
+
+Same-module traversals work correctly. The bug is isolated to cross-module association paths
+in widget datasource expressions.
+
+### Affected widget types
+Confirmed: `datagrid` with `datasource: $currentObject/OtherModule.Assoc`.  
+Likely also: `dataview`, `listview` — any widget datasource that traverses a cross-module association.
+
+### Workaround
+1. Write the page via MDL **without** the cross-module association datasource widget
+2. Exec and verify SP opens cleanly
+3. Add the cross-module datasource widget via MCP (`pg_patch_page`) while SP is open
+
+### Recovery
+Restore from the `.mpr-snapshots/` directory created automatically before the failing exec:
+```bash
+SNAP=".mpr-snapshots/<timestamp-before-bad-exec>"
+cp "$SNAP/<project>.mpr" <project>.mpr
+rsync -a --delete "$SNAP/mprcontents/" mprcontents/
+```
+
+---
+
+## BUG-21: Inline association-set in CHANGE/CREATE activity writes invalid `AttributeIdentifier` BSON → SP rejects on load
+
+**Severity:** Critical — project becomes unopenable in Studio Pro  
+**Reproducible:** Yes, consistently  
+**Confirmed:** KT-POC project, Mendix 11.12.0 Beta, 2026-07-06
+
+### Symptom
+`mxcli exec` reports success. Studio Pro refuses to open the project on the next load. The error is typically in the CHANGE or CREATE activity's BSON, where the association name was written as an `AttributeIdentifier` field instead of a proper association reference.
+
+### Affected patterns
+```mdl
+-- All three of these corrupt the MPR:
+change $Obj (Module.AssocName = $Other);
+create Module.Entity (Module.AssocName = $Other);
+-- Also: ReferenceSet assignments (System.User_UserRoles) — different surface, same root cause
+change $Account (System.User_UserRoles = $Role);
+```
+
+**Reading through an association is safe** — only setting one inline in a CHANGE/CREATE is affected:
+```mdl
+-- This is fine:
+$value = $Obj/Module.AssocName/TargetEntity/Attribute;
+```
+
+### Workaround
+Use MCP (`ped_create_document`/`ped_update_document`) to write microflow activities that set associations. This goes through SP's own model APIs which maintain BSON integrity. See `skills/learned-mcp-patterns.md`.
+
+### Recovery
+Restore from the `.mpr-snapshots/` snapshot taken by exec.sh before the failing exec. If no snapshot: `git checkout` the `.mpr` and `mprcontents/` back to the last clean commit, then replay scripts one at a time with `mxbuild` verification between each.
+
+---
+
+## BUG-22: `alter settings configuration` / `alter settings model` / `alter project security level` — deterministic BSON stream-desync on the Settings unit
+
+**Severity:** Critical — deterministic corruption, confirmed across multiple retry attempts  
+**Reproducible:** Yes, 100% — not flaky  
+**Confirmed:** KT-POC project, Mendix 11.12.0 Beta, 2026-07-06
+
+### Symptom
+The statement executes and reports success ("Updated configuration 'Default'"). On the next SP open or `mx check`, the project fails to load with `AggregateException` / "Expected '$ID' as the first property..." in the Settings unit. The *field* where corruption manifests varies between attempts (seen on `EnableMicroflowReachabilityAnalysis`, `EnableNewWidgetGeneration`, `UrlPrefix`) — this shift is the signature of a BSON stream-desync: once one object is written malformed, the next object in the same write batch inherits the corruption, appearing as an unrelated field error.
+
+### Affected statements
+- `alter settings configuration 'Name' DatabaseType = ..., DatabaseUrl = ...`
+- `alter settings model ...`
+- `alter project security level ...`
+
+### Workaround
+**Change these settings via Studio Pro's GUI only** — App menu → Settings/Configurations. Neither mxcli nor MCP has a safe path for these operations (MCP's `ped_read_document` and `ped_get_schema` reject every known Settings document type name).
+
+### Recovery
+`git checkout` the two tracked `mprcontents/*.mxunit` files for the Settings unit back to the last clean commit. No full project revert needed — only those unit files are corrupted.

@@ -167,6 +167,33 @@ This matches exactly what Finder does when you double-click the MPR. The `&` bac
 
 ---
 
+## New Page — Always Plan and Wire Its Entry Point
+
+**Rule:** Never create a page without deciding — and implementing, in the **same build step** —
+**how it is reached**. An orphan page is unreachable at runtime and invisible to testing. This
+is routinely forgotten; make it part of creating any page.
+
+Decide the entry point by page type:
+- **Overview / landing / home page** → add it to **navigation** (a navigation item / menu item
+  in the relevant profile). If it's the app's main screen, consider making it the home page.
+- **Detail / edit / new page** → wire the `show page` from its **caller** — a page action
+  button, or `show page Module.Page($Param = $obj)` in the microflow that opens it.
+- **Popup / snippet-hosted** → confirm the button or action that opens it exists.
+
+```mdl
+-- Detail page reached from an overview button (Action wired in the same step)
+actionbutton btnOpen (Caption: 'Detail', Action: show_page ItemManagement.Item_Detail(Item: $currentObject))
+```
+
+For overview/home pages, add the navigation item in the same step — see `manage-navigation.md`
+for the exact `navigation` MDL syntax; don't leave the page out of the nav profile.
+
+**Checklist when adding a page:** (1) who opens it? (2) is that entry point created in this same
+script/session? (3) if it's an overview, is it in navigation? State the entry point when you
+report the page as done — **a page with no wired caller is not "done."**
+
+---
+
 ## Navigation Sidebar — Icons Only, No Text Labels
 
 **Rule:** Navigation menu items must use icon-only display. Never set a text `Caption` on sidebar nav items — use a glyph or SVG icon class only.

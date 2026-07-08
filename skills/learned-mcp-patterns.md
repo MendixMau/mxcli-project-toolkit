@@ -1,7 +1,7 @@
 # MCP Patterns — mxcli + MCP Hybrid Workflow for Mendix Development
 **Purpose:** When to use MCP vs mxcli, how to handoff safely between them, and the confirmed JSON patterns for operations mxcli cannot do. This is the primary reference for MCP-augmented development — read it before any MCP write.
 
-**Source:** KT-POC project, Mendix 11.12.0 Beta, 2026-07-06/07. Corruptions and near-total module loss informed every rule here.
+**Source:** A live Mendix 11.12.0 Beta project, 2026-07-06/07. Corruptions and near-total module loss from that session informed every rule here.
 
 **Companion skills:** `learned-mdl-preflight.md` (the STOP table that routes to MCP), `iterative-build-loop.md` (exec.sh discipline), `bug-logs/mxcli-bugs.md` (incident detail)
 
@@ -35,10 +35,10 @@ If AppleScript is blocked by macOS accessibility permissions, ask the user to pr
 SP's in-memory model and mxcli's direct `.mpr`/`mprcontents/` file writes will silently clobber each other. This is split-brain corruption, confirmed as data loss. **Treat MCP-mode and mxcli-mode as mutually exclusive for a given unit of work.** The correct handoff sequence:
 
 ```
-MCP session → save-sp.sh → git commit KT-POC.mpr mprcontents/ → close SP → exec.sh
+MCP session → save-sp.sh → git commit Project.mpr mprcontents/ → close SP → exec.sh
 ```
 
-`exec.sh` enforces this: it reads the SP lock file (`KT-POC.mpr.lock`) and refuses to run if SP has the project open with a live PID.
+`exec.sh` enforces this: it reads the SP lock file (`Project.mpr.lock`) and refuses to run if SP has the project open with a live PID.
 
 ### 3. Never run two concurrent build streams on the same .mpr
 
@@ -46,10 +46,10 @@ Two Claude sessions, or one Claude session + a manual exec, writing to the same 
 
 ### 4. Commit before exec — the uncommitted MPR guard
 
-`exec.sh` refuses to run if `KT-POC.mpr` or `mprcontents/` have uncommitted git changes. The reason: if mxbuild fails after exec, exec.sh auto-restores from the pre-exec snapshot, silently losing any MCP work done since the last commit. **The required sequence before any exec:**
+`exec.sh` refuses to run if `Project.mpr` or `mprcontents/` have uncommitted git changes. The reason: if mxbuild fails after exec, exec.sh auto-restores from the pre-exec snapshot, silently losing any MCP work done since the last commit. **The required sequence before any exec:**
 
 ```
-Cmd+S in SP → save-sp.sh → git commit KT-POC.mpr mprcontents/ → close SP → exec.sh
+Cmd+S in SP → save-sp.sh → git commit Project.mpr mprcontents/ → close SP → exec.sh
 ```
 
 Override with `FORCE_EXEC=1` only when you are certain the disk state is safe and accept the restore-regression risk.

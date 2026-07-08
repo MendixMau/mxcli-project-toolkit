@@ -391,4 +391,4 @@ set $Result = $Result + $Item/Status + '\n';
 set $Result = $Result + toString($Item/Status) + '\n';
 ```
 
-This applies anywhere an enum value flows into a String context: concatenation, `return`, `set`, `declare`, function arguments expecting String. Confirmed pattern in KT-POC (2026-07-07).
+This applies anywhere an enum value flows into a String context: concatenation, `return`, `set`, `declare`, function arguments expecting String. Confirmed on a live project (2026-07-07).

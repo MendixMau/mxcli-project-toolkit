@@ -1,7 +1,7 @@
 # MDL Pre-flight Checklist — STOP conditions before writing any script
 **Purpose:** Before drafting any MDL script, check every planned operation against this table. Each STOP row was born from a real MPR corruption or silent runtime failure — not theoretical concerns. Skipping this check has caused project-unloadable corruption every time.
 
-**Source:** Generalized from KT-POC project, Mendix 11.12.0 Beta, 2026-07-06/07. Incident detail in that project's own `bug-logs/` — only the generalizable rule is here.
+**Source:** Generalized from a live Mendix 11.12.0 Beta project, 2026-07-06/07. Incident detail stays in that project's own `bug-logs/` — only the generalizable rule is here.
 
 **Companion skills:** `learned-mcp-patterns.md` (MCP alternatives), `bug-logs/mxcli-bugs.md` (bug detail), `iterative-build-loop.md` (exec discipline), `learned-microflow-patterns.md` (annotation + inline assoc rules)
 

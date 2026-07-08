@@ -935,7 +935,7 @@ rsync -a --delete "$SNAP/mprcontents/" mprcontents/
 
 **Severity:** Critical — project becomes unopenable in Studio Pro  
 **Reproducible:** Yes, consistently  
-**Confirmed:** KT-POC project, Mendix 11.12.0 Beta, 2026-07-06
+**Confirmed:** Mendix 11.12.0 Beta, 2026-07-06
 
 ### Symptom
 `mxcli exec` reports success. Studio Pro refuses to open the project on the next load. The error is typically in the CHANGE or CREATE activity's BSON, where the association name was written as an `AttributeIdentifier` field instead of a proper association reference.
@@ -967,7 +967,7 @@ Restore from the `.mpr-snapshots/` snapshot taken by exec.sh before the failing 
 
 **Severity:** Critical — deterministic corruption, confirmed across multiple retry attempts  
 **Reproducible:** Yes, 100% — not flaky  
-**Confirmed:** KT-POC project, Mendix 11.12.0 Beta, 2026-07-06
+**Confirmed:** Mendix 11.12.0 Beta, 2026-07-06
 
 ### Symptom
 The statement executes and reports success ("Updated configuration 'Default'"). On the next SP open or `mx check`, the project fails to load with `AggregateException` / "Expected '$ID' as the first property..." in the Settings unit. The *field* where corruption manifests varies between attempts (seen on `EnableMicroflowReachabilityAnalysis`, `EnableNewWidgetGeneration`, `UrlPrefix`) — this shift is the signature of a BSON stream-desync: once one object is written malformed, the next object in the same write batch inherits the corruption, appearing as an unrelated field error.

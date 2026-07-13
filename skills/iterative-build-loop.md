@@ -1,6 +1,7 @@
 # Iterative Build Loop — BRD to Running Mendix App
+**Applies to:** any mxcli project (migration and greenfield alike).
 **Purpose:** Per-module build discipline for mxcli-assisted Mendix development. Replaces bulk MDL generation with a verified, iterative gate per module.
-**Companion skills:** `brd-to-build-plan.md` (upstream — produces the plan this loop executes), `migration-pipeline.md`, `mdl-cookbook-microflows.md`, `bug-logs/mxcli-bugs.md`
+**Companion skills:** `brd-to-build-plan.md` (upstream — produces the plan this loop executes), `migration-pipeline.md`, `conversion-runbook.md` (Stage 5 — where the coverage checklist below gets confirmed with the user, not just self-extracted), `mdl-cookbook-microflows.md`, `bug-logs/mxcli-bugs.md`
 **Examples:** `../examples/outsystems-migration/build-loop-example.md`
 
 ---
@@ -19,9 +20,10 @@ The build gate is **not** "0 CE errors." It is:
 
 1. 0 CE errors **+**
 2. Happy path verified as a demo user **+**
-3. Every visible source field has a real widget binding
+3. Every visible source field has a real widget binding **+**
+4. The module's **business-rule coverage checklist** passes — not just extracted, but confirmed with the user at Stage 5 kickoff (`conversion-runbook.md`) as the actual definition of "done," and verified by `gate-agent` alongside Gate 2, not left as a step someone might skip under time pressure.
 
-A page with a stub banner and no data below it is a missing feature, not a stub.
+A page with a stub banner and no data below it is a missing feature, not a stub. **CE-error-free ≠ done — the coverage checklist is what "done" means.**
 
 ---
 
@@ -37,6 +39,7 @@ Run this before scripting each module:
   - **Conditional visibility** → container `Visible` expressions
   - **Validation rules** → `VAL_` microflows to implement
   - **Enumerations / lookups** → correct widget type (combobox, radiobuttons) — set from the start, not patched later
+- [ ] **Confirm this checklist with the user before scripting, not after.** This is the per-module business-rule coverage checklist `conversion-runbook.md` Stage 5 asks the user to confirm — the item that decides whether the module is actually done. `ba-agent` owns getting the confirmation; `gate-agent` owns verifying it was met, alongside Gate 2 (below), before the module is marked done. A checklist nobody signed off on is just a private To-Do — it doesn't count as the definition of done.
 - [ ] Identify all pages/microflows this module will reference that don't exist yet → create stubs first (separate script, apply before the main script)
 - [ ] MPR snapshot rotation is in place (see below) — do **not** make ad-hoc copies like `Project.mpr.backup`
 
@@ -385,10 +388,11 @@ Repeat for each module:
       - List every visible field/section
       - Verify each has a widget with a real datasource binding (not a stub banner)
       - Document any gap as an explicit sub-task before marking done
-13. Mark module done ✅
+13. **Gate 3 — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.
+14. Mark module done ✅
 ```
 
-Steps 8–12 are the phase gate. Steps 1–7 without 8–12 = page may be built but wrong.
+Steps 8–13 are the phase gate. Steps 1–7 without 8–13 = page may be built but wrong. Step 13 specifically closes the gap `process-learnings.md` §C flagged and left open ("who owns the coverage checklist review?") — `gate-agent` does, as part of the same gate pass as Gate 2, not a separate optional step.
 
 ---
 

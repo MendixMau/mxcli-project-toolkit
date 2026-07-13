@@ -1,4 +1,5 @@
 # Skill: scope-delta — Compare Code Extraction vs Business Requirements
+**Applies to:** migration.
 
 ## Purpose
 

@@ -1,4 +1,5 @@
 # MDL Cookbook — Real Microflow Examples
+**Applies to:** any mxcli project.
 **Source project:** Apex-TestRunOS-main (M-0022 OutSystems → Mendix migration)
 **Date:** 2026-07-01
 

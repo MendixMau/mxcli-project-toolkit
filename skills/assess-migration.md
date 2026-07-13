@@ -1,4 +1,5 @@
 # Migration Assessment: Investigating Non-Mendix Projects
+**Applies to:** migration.
 
 This skill guides the investigation of existing non-Mendix applications to produce a structured migration assessment for Mendix.
 

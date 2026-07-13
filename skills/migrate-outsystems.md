@@ -1,4 +1,5 @@
 # OutSystems → Mendix Migration: Source Analysis Pipeline
+**Applies to:** migration.
 
 This skill covers the full pipeline from raw OutSystems XML exports to structured BRD and knowledge-base documents, ready for Mendix implementation. It is the **analysis phase** (Phase 1) of a migration engagement. The Mendix implementation phase (MDL generation, Studio Pro work) is covered in `skills/migrate-general.md`.
 

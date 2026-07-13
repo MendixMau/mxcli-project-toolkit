@@ -1,7 +1,8 @@
 # Agent Roles — Discover / Design / Draft / Gate / Test Split for mxcli Projects
+**Applies to:** any mxcli project.
 **Purpose:** How to generate a project's `.claude/agents/*.md` subagent definitions so discovery, architecture, MDL drafting, post-exec verification, and UI testing are separate agents with separate tool rights — instead of one agent doing everything, including unreviewed writes to the `.mpr` or unowned interview gates.
 **Upstream:** `bootstrap-project.md` — run that first if the project's `CLAUDE.md` doesn't exist yet or hasn't been checked against Baseline routing; this skill's Step 1 ("read the target project first") depends on that being reliable.
-**Companion skills:** `conversion-runbook.md` (the stage/gate discipline `ba-agent` and `architect-agent` exist to run), `iterative-build-loop.md` (the gate/build/test discipline the build-phase trio makes executable), `query-the-model.md` (the lookup-before-ask rule every agent below follows), `mdl-cookbook-microflows.md`, `bug-logs/mxcli-bugs.md`, `test-app.md`
+**Companion skills:** `conversion-runbook.md` (the stage/gate discipline `ba-agent` and `architect-agent` exist to run), `iterative-build-loop.md` (the gate/build/test discipline the build-phase trio makes executable), `query-the-model.md` (the lookup-before-ask rule every agent below follows), `mdl-cookbook-microflows.md`, `bug-logs/mxcli-bugs.md`, `test-app.md`, `ui-preflight-pages.md` (mandatory design cross-reference before building any page or snippet)
 **Source:** The build-phase trio (mdl/gate/test) generalized from three project-specific agents built for a live mxcli project (IVM-MxCLI-main). `ba-agent` and `architect-agent` added per `TOOLKIT-IMPROVEMENT-PROPOSAL.md` §6 — Stages 0–4 had no owner, which was the mechanical reason interview gates never happened.
 
 ---
@@ -118,13 +119,15 @@ You write MDL scripts for {{PROJECT}}. You draft and validate — you never exec
 - Read {{DOMAIN_MODEL_SCRIPT}} for exact, case-sensitive entity/attribute/association names before referencing them.
 - Verify unfamiliar syntax with a throwaway `mxcli check` before relying on it in the real script.
 - Annotate selectively, not on every activity: a microflow-level summary for genuinely complex flows, per-activity notes only where the purpose isn't obvious. Always annotate a CE-error fix with what was tried and why it changed — mxcli never writes this itself, so it only exists if you write it. See `learned-microflow-patterns.md`.
+- **Pages/snippets only:** before writing any `create page`, `alter page`, or `create snippet`, run the full UI pre-flight from `ui-preflight-pages.md` (wireframe → design-system tokens → StyleGallery example → cross-check). Include the UI cross-reference block in your report back.
 
 ## Workflow
 1. Read the task spec (which elements, which business rules apply).
 2. Read the necessary skill file(s), spec, and existing MDL for exact names.
-3. Write the script to {{SCRIPT_PATH}}.
-4. Run `mxcli check <path> -p {{PROJECT_MPR}} --references` and iterate until clean.
-5. Do NOT run `mxcli exec` — that stays in the main session under the user's confirmation.
+3. If the script involves pages or snippets, complete `ui-preflight-pages.md` steps 1–4 before writing.
+4. Write the script to {{SCRIPT_PATH}}.
+5. Run `mxcli check <path> -p {{PROJECT_MPR}} --references` and iterate until clean.
+6. Do NOT run `mxcli exec` — that stays in the main session under the user's confirmation.
 
 ## Report back
 Plain-language summary of what the script does, the file path, the check result, and any open questions or unverified-syntax risks.

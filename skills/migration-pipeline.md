@@ -1,4 +1,5 @@
 # Migration Pipeline — Source Code to Mendix BRD
+**Applies to:** migration.
 **Purpose:** Platform-agnostic orchestration playbook for migrating any legacy application
 to Mendix via structured extraction, KB synthesis, and BRD generation.
 **Companion skills:** `source-os11.md`, `source-oracle-forms.md`, `source-java-spring-angular.md`,
@@ -84,6 +85,31 @@ Rules:
 4. This is why the tool repo can stay genuinely downloadable/reusable per
    `os-migration-pipeline`'s own README ("clone and run" quickstart) — a fresh clone of the
    tool never has to be cleaned of a previous project's BRDs/reports before reuse.
+
+### Variant: in-repo workspace (source already lives inside the Mendix target project)
+
+Some projects start with the source app already checked into the Mendix project repo itself
+(e.g. `<mendix-project>/source/` holding a cloned frontend+backend), rather than as a separate
+clone the pipeline tool has to be pointed at. In that case, don't relocate the source just to
+satisfy the `sources/` + `analysis/` split above — instead treat the Mendix project repo itself
+as `<workspace-root>`:
+
+```
+<mendix-project>/                        ← workspace root AND the mxcli target, same repo
+  source/                                 ← existing source app, left in place, untouched
+  analysis/<source-repo-name>/            ← ALL pipeline output lives here (same internal shape
+                                             as analysis/<source-repo-name>/ above: knowledge-base/,
+                                             brd/, reports/, etc.)
+  architecture/, design/, mdlsource/      ← later-phase outputs, per their own skills
+  <mendix-project>.mpr                    ← the actual mxcli target
+```
+
+The tool repo (`mxcli-project-toolkit`) still stays untouched — `config.json`'s
+`knowledgeBaseDir` points at `<mendix-project>/analysis/<source-repo-name>/knowledge-base`
+exactly as it would for the separate-workspace layout; only the location of `sources/` changes
+(it doesn't get a separate copy — `source/` in place serves that role). Use this variant when the
+source was never a standalone clone to begin with; use the strict separate-workspace layout above
+when scaffolding a new migration from scratch or when the source is a genuine external clone.
 
 ---
 

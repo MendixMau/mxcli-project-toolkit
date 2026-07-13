@@ -34,6 +34,7 @@ The source-specific extraction pipelines now live **in this repo** under `pipeli
 |-----------------|----------|-----|
 | OutSystems | `pipelines/outsystems/` (imported with history from the former `os-migration-pipeline` repo) | `cd pipelines/outsystems/pipeline && npm install` — see its `README.md` / `pipeline-guide.html` |
 | Java + Angular / Spring Boot | `pipelines/java-angular/` | `cd pipelines/java-angular/pipeline && npm install` — see its `README.md` |
+| Node/Express + React | `pipelines/node-express-react/` — **regex-based, proven on one source shape only, not yet a validated-generic tool; read its README's "Known gap" section first** | `cd pipelines/node-express-react/pipeline && npm install` — see its `README.md` and `skills/source-node-express-react.md` |
 
 `node_modules/` is gitignored — run `npm install` locally per pipeline. Curated sample outputs live under each pipeline (e.g. `pipelines/outsystems/sample-outputs/`).
 

@@ -1,4 +1,5 @@
 # E2E Test Harness — Base Methodology
+**Applies to:** any mxcli project.
 **Purpose:** How to build a Playwright E2E test suite for a Mendix app after completing
 a major build phase. Covers harness setup, widget discovery, suite structure, DB
 assertions, and bug reporting.

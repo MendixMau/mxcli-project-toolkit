@@ -2,7 +2,9 @@
 
 Shared skills, prompt templates, and learnings for **Mendix migration and development projects**.
 
-Used across all mxcli-powered projects — OS migrations, Java/Angular migrations, and other client integration work.
+Serves two audiences: **migrations** (all stages below) and **greenfield mxcli builds** (Stage 5 onward — the standard Mendix build discipline is not migration-specific).
+
+Used across all mxcli-powered projects — OS migrations, Java/Angular migrations, Node/Express+React migrations, and other client integration work.
 
 ---
 
@@ -22,40 +24,77 @@ Used across all mxcli-powered projects — OS migrations, Java/Angular migration
 
 ---
 
-## How a migration flows through this toolkit
+## Quickstart
 
-Every migration moves through the same stages, regardless of source stack. Each stage has one skill that owns it, and each skill hands a concrete artifact to the next:
+```bash
+git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
+```
+
+This clone stays clean — project output never lands inside it. Your workspace root holds this clone as a sibling to your source and project folders:
 
 ```
-0. TRIAGE               source stack → coverage decision + bounded scope, signed off
-   (source-triage.md, checked against assess-migration.md's inventory)
+<workspace-root>/
+  mxcli-project-toolkit/     ← this clone (stays clean; project output never lands here)
+  sources/<project>/         ← the original source, read-only
+  analysis/<project>/        ← everything the pipeline produces
+    PROJECT.md               ← decisions, assumptions, dependencies, open questions
+    intake.md · assessment.md · triage.md
+    knowledge-base/          ← extraction JSON + BRDs
+    architecture/ · design/
+    index.html               ← the project dashboard
+  mendix/<project>/          ← the target .mpr
+```
+
+Clone, run `skills/bootstrap-project.md` to scaffold `CLAUDE.local.md` + the subagents, then follow `skills/conversion-runbook.md` — it interviews you through each stage below.
+
+---
+
+## How a migration flows through this toolkit
+
+Every migration moves through the same stages, regardless of source stack. Each stage has one skill that owns it, one agent responsible for running it, and hands a concrete artifact + a recorded decision to the next. The full stage-by-stage detail — what you're asked, what gate stops the pipeline, who owns it — lives in `skills/conversion-runbook.md`; this is the summary:
+
+```
+P. KICKOFF              source folder, constraints, SME availability → workspace scaffold
+   (bootstrap-project.md, agent-roles.md)                                        [ba-agent]
         │
         ▼
-1. ANALYSIS            source code/docs → extracted JSON + KB markdown
-   (migration-pipeline.md, source-*.md, kb-generation.md)
+0. TRIAGE ✋             source stack → coverage decision + bounded scope, signed off
+   (source-triage.md, checked against assess-migration.md's inventory)           [ba-agent]
+        │
+        ▼
+1. ANALYSIS             source code/docs/SME → extracted JSON + KB markdown
+   (migration-pipeline.md, source-*.md, kb-generation.md)                        [ba-agent]
         │
         ▼
 2. REQUIREMENTS         KB + extracted JSON → validated BRD JSON (per module)
-   (brd-generation.md, brd-validation.md)
+   (brd-generation.md, brd-validation.md)                                        [ba-agent]
         │
         ▼
-3. ARCHITECTURE & DESIGN   BRD → Mendix module boundaries, diagrams, fit-gap, design system
-   (modularize-domain.md → architecture-blueprint.md + design-artifacts.md, run in parallel)
+3. ARCHITECTURE & DESIGN ✋   BRD → module boundaries, diagrams, fit-gap, design system,
+   (modularize-domain.md →        security model, NFRs, integration contracts, branding
+    architecture-blueprint.md + design-artifacts.md, run in parallel)      [architect-agent]
         │
         ▼
-4. BUILD PLAN           BRD + architecture → dependency-ordered, numbered script plan
-   (brd-to-build-plan.md)
+4. BUILD PLAN ✋         BRD + architecture → dependency-ordered, numbered script plan
+   (brd-to-build-plan.md)                                                 [architect-agent]
         │
         ▼
 5. BUILD                plan → running Mendix app, one module at a time, gated
    (iterative-build-loop.md, mdl-cookbook-microflows.md, bug-logs/mxcli-bugs.md)
+                                                              [mdl-agent → gate-agent]
         │
         ▼
-6. TEST                 running app → verified behavior (Playwright + DB assertions)
-   (e2e-harness-base.md)
+5.5 DATA MIGRATION & CUTOVER   legacy data: migrate, seed, or drop → cutover checklist
+                                                                     [ba-agent → mdl-agent]
+        │
+        ▼
+6. TEST                  running app → verified behavior (Playwright + DB assertions)
+   (e2e-harness-base.md)                                                       [test-agent]
 ```
 
-**Stage 0 (Triage) is a gate, not a formality.** It decides whether this app is even big enough to justify an extraction pipeline (small apps: skip straight to manual `assess-migration.md` + hand-written BRD), checks whether existing extractors/mappers cover this source stack or new ones are needed, and — for large sources — recommends a bounded scope subset rather than processing everything at once. It also flags (without deciding) whether the app is large enough to raise a multiple-Mendix-apps question, which has to be resolved before Stage 3's module-boundary work. Stage 2 (BRD generation) does not start until this is signed off.
+`✋` marks a hard gate — the pipeline does not proceed without an explicit, recorded decision. Every other stage still records decisions, but unknowns may default to a recommended option (marked `ASSUMED` in `PROJECT.md`) rather than blocking a solo run. See `skills/conversion-runbook.md` §1 for the exact interview mechanics every gate runs.
+
+**Stage 0 (Triage) is a gate, not a formality.** It decides whether this app is even big enough to justify an extraction pipeline (small apps: skip straight to manual `assess-migration.md` + hand-written BRD), whether existing extractors/mappers cover this source stack or a new one needs building, and — for large sources — recommends a bounded scope subset (**an ordering, not an exclusion**) rather than processing everything at once. It also flags (without deciding) whether the app is large enough to raise a multiple-Mendix-apps question, resolved before Stage 3's module-boundary work. Stage 2 (BRD generation) does not start until this is signed off.
 
 ### How `assess-migration` and the extraction pipeline complement each other
 
@@ -64,14 +103,14 @@ These are two tools for the same stage — they work together, not instead of ea
 | Tool | What it does | When to use it |
 |------|-------------|----------------|
 | `assess-migration.md` | AI-guided manual inventory: reads source files, produces a human-readable markdown report covering entities, business logic, integrations, security, and migration risks. | Always — for small apps this is sufficient on its own; for large apps it provides the human-readable layer on top of the pipeline output. Run it before or after the extraction pipeline. |
-| Extraction pipeline (`pipelines/<stack>/`, e.g. `outsystems/`, `java-angular/`) | Automated AST-based extraction: parses source code into normalized KB JSON, runs BRD mappers, generates a per-module BRD and HTML report. | Medium/large apps where manual reading would miss classes or where you need machine-processable output for BRD generation. |
+| Extraction pipeline (`pipelines/<stack>/`, e.g. `outsystems/`, `java-angular/`, `node-express-react/`) | Automated extraction: parses source code into normalized KB JSON, runs BRD mappers, generates a per-module BRD and HTML report. | Medium/large apps where manual reading would miss classes or where you need machine-processable output for BRD generation. |
 
-**The correct combined flow for a medium/large Java/Spring app:**
+**The correct combined flow for a medium/large app:**
 
 ```
 assess-migration.md          ←  AI reads source, produces markdown triage report
         +
-java-extractor.js (Phase 2)  ←  AST parser extracts all entities/logic/endpoints → KB JSON
+<stack>-extractor.js (Phase 2) ←  parser extracts all entities/logic/endpoints → KB JSON
         +
 BRD mappers (Phase 3)        ←  KB JSON → structured BRD per module
         ↓
@@ -80,15 +119,40 @@ source-triage.md             ←  human reviews both outputs, signs off on scope
 stages 1–6 proceed
 ```
 
-`assess-migration.md`'s output feeds `source-triage.md`'s coverage matrix (Step 3) — it tells you *what* is in the source. The extraction pipeline tells you the same thing in machine-readable form. Together they cross-validate each other: discrepancies between the two (e.g. the AI found a rule the extractor missed, or the extractor found 40 entities the AI only sampled 15 of) are exactly the gaps `source-triage.md` is designed to surface before Phase 2 BRDs are generated.
+`assess-migration.md`'s output feeds `source-triage.md`'s coverage matrix — it tells you *what* is in the source. The extraction pipeline tells you the same thing in machine-readable form. Together they cross-validate each other: discrepancies between the two (e.g. the AI found a rule the extractor missed, or the extractor found 40 entities the AI only sampled 15 of) are exactly the gaps `source-triage.md` is designed to surface before Phase 2 BRDs are generated.
 
-**Stage 1 (Analysis)** runs two independent paths that can happen in either order: Path A extracts structure straight from source code (XML/Java/C#/SQL → JSON), Path B extracts structure from business documents (Excel/Word/PDF/PPTX → KB markdown). Both feed the same merge step.
+**Stage 1 (Analysis)** runs three independent paths, not two: **Path A** extracts structure straight from source code (XML/Java/C#/TypeScript/SQL → JSON) — always runs. **Path B** extracts structure from business documents (Excel/Word/PDF/PPTX → KB markdown). **Path C** is the SME interview — the source no code or document answers (intent, "why", business rules that were never written down). Each path is either done or explicitly declared unavailable by a named person; never silently skipped.
 
-**Stages 3a/3b run in parallel**, not sequentially: `modularize-domain.md` decides module boundaries first (never map source files 1:1 onto Mendix modules), then `architecture-blueprint.md` (the structural diagrams) and `design-artifacts.md` (the UI/brand layer) both consume that decision at the same time.
+**Stages 3a/3b run in parallel**, not sequentially: `modularize-domain.md` decides module boundaries first (never map source files 1:1 onto Mendix modules), then `architecture-blueprint.md` (structural diagrams, marketplace buy-vs-build, security model, NFRs, integration contracts) and `design-artifacts.md` (UI/brand layer, branding as a real interview) both consume that decision at the same time.
 
 **Nothing in stages 0–4 touches mxcli.** MDL scripting only starts at stage 5, against a plan that's already been reviewed. This is deliberate — it's cheaper to fix a wrong module boundary in a diagram (or a wrong scope decision before any extraction ran) than to fix it after 40 MDL scripts assume it.
 
-See `examples/outsystems-migration/` for a worked run through all six build stages on a real project (that example predates the triage stage).
+See `examples/outsystems-migration/` for a worked run through all six build stages on a real project (that example predates the triage stage and the interview protocol).
+
+---
+
+## Decision flow: query the model, then read the source, then ask the human
+
+Before asking the user anything, or writing anything: **query the model → read the source → ask the human, in that order.** Never skip to the last one. Full source-of-truth table (which class of question answers from which source, and why) in `skills/query-the-model.md`. The two rules that are already load-bearing and easy to skip under pressure:
+
+- **`SHOW ASSOCIATIONS` before every `CREATE ASSOCIATION`** — MDL has no `IF NOT EXISTS`; re-running a CREATE silently duplicates it.
+- **`SHOW ENTITIES IN <MarketplaceModule>` before referencing a marketplace module** — `mxcli check --references` can't validate a module that isn't imported yet.
+
+Reads are always safe and free; writes go through the STOP table below.
+
+## Decision flow: mxcli vs MCP vs Studio Pro GUI
+
+```
+Write MDL  →  check the STOP table (skills/learned-mdl-preflight.md)
+                ├─ clean            → mxcli exec (SP closed)
+                ├─ STOP → MCP       → mxcli --mcp exec (SP open) — bypasses the BSON serializer
+                ├─ STOP → GUI       → Studio Pro by hand (settings, security-bearing drops)
+                └─ no MDL syntax    → hand-rolled MCP (pg_patch_page)
+Crashed anyway? → bin/restore-mpr.sh  (restores .mpr AND mprcontents/ — either alone is useless)
+                → log it in bug-logs/mxcli-bugs.md
+```
+
+**The crash net, stated plainly.** An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units with the actual model). `bin/exec.sh` snapshots **both** automatically before every batch; 5 rotate; `bin/restore-mpr.sh` rolls back; git commits at phase gates are the real history. Ad-hoc `.mpr.backup` copies are banned.
 
 ---
 
@@ -97,29 +161,35 @@ See `examples/outsystems-migration/` for a worked run through all six build stag
 ```
 mxcli-project-toolkit/
   skills/
-    migration-pipeline.md       ← Full pipeline phase guide (XML → KB → BRD → MDL)
-    source-triage.md            ← Gate before extraction: coverage check, manual-vs-pipeline call, bounded scope
-    modularize-domain.md        ← Deciding Mendix module boundaries (Phase 6): criteria, sign-off, HTML rationale
-    architecture-blueprint.md   ← Target-architecture blueprint: diagrams, module defs, wiring, fit-gap, open-issues
-    design-artifacts.md         ← UI/brand layer: versioned design system + annotated wireframes
-    brd-to-build-plan.md        ← Plan definition: BRD + architecture → dependency-ordered, numbered build plan
-    iterative-build-loop.md     ← Per-module build discipline: 12-step gate, CE triage, Studio Pro handoffs
-    brd-generation.md           ← BRD JSON prompt templates + validation checklist
-    kb-generation.md            ← Document extraction (Excel/Word/PDF → KB markdown)
-    source-os11.md              ← OutSystems 11 XML schema reference
-    os-xml-schema.md            ← OS eSpace XML structure details
-    mdl-cookbook-microflows.md  ← MDL scripting patterns for microflows
-    qa-loop-goal-pattern.md     ← Iterative /goal-driven pipeline validation technique
-    e2e-harness-base.md         ← End-to-end test harness base
-    assess-migration.md         ← Up-front migration assessment
-    migrate-general.md          ← Source-agnostic migration guidance
-    migrate-outsystems.md       ← OutSystems-specific migration guide
-    bootstrap-project.md        ← Generate a new project's CLAUDE.md: Baseline routing + project-specific facts
-    agent-roles.md              ← Generate project-specific mdl/gate/test subagents with scoped tool rights
-    learned-*.md                ← Validated learnings from live projects
+    conversion-runbook.md       ← [any project] The spine: 8-stage matrix + interview protocol + gates
+    query-the-model.md          ← [any project] Query-before-ask source-of-truth ordering
+    agent-roles.md              ← [any project] Generate ba/architect/mdl/gate/test subagents with scoped tool rights
+    bootstrap-project.md        ← [any project] Generate a new project's CLAUDE.md: Baseline routing + project-specific facts
+    migration-pipeline.md       ← [migration] Full pipeline phase guide (XML → KB → BRD → MDL)
+    source-triage.md            ← [migration] Gate before extraction: coverage check, reuse-vs-build-new call, bounded scope
+    modularize-domain.md        ← [migration] Deciding Mendix module boundaries (Stage 3): criteria, sign-off, HTML rationale
+    architecture-blueprint.md   ← [migration] Target-architecture blueprint: diagrams, module defs, wiring, fit-gap, marketplace, security, NFRs, integrations
+    design-artifacts.md         ← [migration] UI/brand layer: versioned design system + annotated wireframes + branding interview
+    brd-to-build-plan.md        ← [migration] Plan definition: BRD + architecture → dependency-ordered, numbered build plan
+    iterative-build-loop.md     ← [any project] Per-module build discipline: gate loop, coverage checklist, CE triage, Studio Pro handoffs
+    brd-generation.md           ← [migration] BRD JSON prompt templates + validation checklist
+    brd-validation.md           ← [migration] Validating BRDs against code + doc KB
+    document-discovery.md       ← [migration] Scanning/classifying an unstructured document folder
+    kb-generation.md            ← [migration] Document extraction (Excel/Word/PDF → KB markdown)
+    source-os11.md              ← [migration] OutSystems 11 XML schema reference
+    os-xml-schema.md            ← [migration] OS eSpace XML structure details
+    source-node-express-react.md ← [migration] Node/Express+React extraction layout + known gaps
+    mdl-cookbook-microflows.md  ← [any project] MDL scripting patterns for microflows
+    qa-loop-goal-pattern.md     ← [any project] Iterative /goal-driven pipeline validation technique
+    e2e-harness-base.md         ← [any project] End-to-end test harness base
+    assess-migration.md         ← [migration] Up-front migration assessment
+    migrate-general.md          ← [migration] Source-agnostic migration guidance
+    migrate-outsystems.md       ← [migration] OutSystems-specific migration guide
+    learned-*.md                ← [any project] Validated learnings from live projects
   pipelines/                    ← Source-specific extraction tooling (code; node_modules gitignored)
     outsystems/                 ← OS XML → KB → BRD (imported with history) + sample-outputs
-    java-angular/               ← Java + Angular/Spring Boot → KB → BRD
+    java-angular/                ← Java + Angular/Spring Boot → KB → BRD
+    node-express-react/          ← Node/Express + React → KB → BRD — regex-based, proven on one source shape only; read its README first
   examples/
     outsystems-migration/
       plan-overview.md          ← Worked example: 112 OS modules → 14 Mendix, architecture decisions
@@ -134,6 +204,8 @@ mxcli-project-toolkit/
     learned-process-apex.md     ← Apex M-0022 project-scoped process notes (not in Baseline routing)
 ```
 
+`[any project]` vs `[migration]` above mirrors each skill's own `Applies to:` header line — greenfield mxcli builds only need the `[any project]` set, starting at Stage 5.
+
 ---
 
 ## Division of labor: this toolkit vs bundled mxcli skills
@@ -143,9 +215,9 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Layer | Owned by | Contents | Updated by |
 |---|---|---|---|
 | `.ai-context/skills/` | mxcli (bundled) | MDL syntax, widget patterns, CRUD/data-processing templates, integration guides | `mxcli` release |
-| `mxcli-project-toolkit/skills/` | This repo | Migration pipeline, build discipline, agent roles, STOP rules from real corruption incidents | You (via `git pull`) |
+| `mxcli-project-toolkit/skills/` | This repo | Conversion runbook, migration pipeline, build discipline, agent roles, STOP rules from real corruption incidents | You (via `git pull`) |
 
-**When the two disagree, this toolkit's STOP rules take precedence** — until explicitly retested and the result stamped in `bug-logs/mxcli-bugs.md`. The bundled skills may teach patterns that were unsafe on older mxcli versions; the bug log's `Retested on v0.13.0` field is the authoritative reconciliation record. References to bundled skills in this toolkit's docs are marked with "(bundled)".
+**When the two disagree, this toolkit's STOP rules take precedence** — until explicitly retested and the result stamped in `bug-logs/mxcli-bugs.md`. The bundled skills may teach patterns that were unsafe on older mxcli versions; the bug log's `Retested on vX.Y.Z` field is the authoritative reconciliation record. References to bundled skills in this toolkit's docs are marked with "(bundled)".
 
 ---
 
@@ -153,20 +225,23 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |------|--------------|
+| Starting any conversion or greenfield build; not sure what stage you're in | `conversion-runbook.md` |
+| Deciding what source to answer a question from, before asking the user | `query-the-model.md` |
 | Deciding whether to extract at all, checking coverage, scoping a large source | `source-triage.md` |
 | Running the extraction pipeline | `migration-pipeline.md` |
 | Scanning/classifying an unstructured document folder | `document-discovery.md` |
-| Diagramming target architecture: module defs, wiring, fit-gap | `architecture-blueprint.md` + `graph-analysis.md` (bundled — run `mxcli graph-report` for community-detection data before drawing module boundaries) |
+| Diagramming target architecture: module defs, wiring, fit-gap, marketplace, security, NFRs, integrations | `architecture-blueprint.md` + `graph-analysis.md` (bundled — run `mxcli graph-report` for community-detection data before drawing module boundaries) |
 | Designing the brand + wireframes before building pages | `design-artifacts.md` |
 | Turning BRDs + architecture into an ordered build plan | `brd-to-build-plan.md` |
-| Building a module with mxcli (verified, iterative) | `iterative-build-loop.md` |
+| Building a module with mxcli (verified, iterative, coverage-checklist gated) | `iterative-build-loop.md` |
 | Writing or enriching a BRD JSON | `brd-generation.md` |
 | Validating BRDs against code + doc KB | `brd-validation.md` |
 | Extracting Excel/Word/PDF specs | `kb-generation.md` |
 | Understanding OS XML source | `source-os11.md` + `os-xml-schema.md` |
+| Understanding Node/Express+React source, its layout assumptions and gaps | `source-node-express-react.md` |
 | Writing MDL microflow scripts | `mdl-cookbook-microflows.md` |
 | Checking what's safe to write in MDL vs MCP vs SP GUI before drafting (STOP table) | `skills/learned-mdl-preflight.md` |
-| Using MCP alongside mxcli — handoff sequence, save discipline, confirmed JSON patterns, known bugs | `skills/learned-mcp-patterns.md` + `live-edit-with-studio-pro.md` (bundled — mxcli v0.13.0 `--mcp` flag is the designed alternative to hand-rolled MCP sessions) |
+| Using MCP alongside mxcli — handoff sequence, save discipline, confirmed JSON patterns, known bugs | `skills/learned-mcp-patterns.md` + `live-edit-with-studio-pro.md` (bundled) |
 | Diagnosing a mxcli error | `bug-logs/mxcli-bugs.md` |
 | Enforcing module-graph architecture boundaries via lint rules | `write-lint-rules.md` (bundled — Starlark rules over `mxcli lint`) |
 | Writing DB assertion tests (cross-check UI state against the database) | `learned-db-assertions.md` |
@@ -178,10 +253,10 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Deciding module boundaries before `create module` | `modularize-domain.md` |
 | Assessing / planning a migration up front | `assess-migration.md` |
 | Migrating an OutSystems app | `migrate-outsystems.md` |
-| Running the OS or Java/Angular extraction pipeline | `pipelines/outsystems/` · `pipelines/java-angular/` |
+| Running an extraction pipeline | `pipelines/outsystems/` · `pipelines/java-angular/` · `pipelines/node-express-react/` |
 | Seeing how it all fits together on a real project | `examples/outsystems-migration/` |
 | Generating a new project's CLAUDE.md (Baseline routing + project-specific facts) | `bootstrap-project.md` |
-| Setting up dev-process subagents on a new project (draft/gate/test split) | `agent-roles.md` |
+| Setting up dev-process subagents on a new project (ba/architect/mdl/gate/test split) | `agent-roles.md` |
 
 ---
 
@@ -190,12 +265,13 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 1. Create a new `.md` file in `skills/` with this header:
    ```markdown
    # Skill Name — Purpose
+   **Applies to:** migration | any mxcli project
    **Purpose:** one-line description
    **Source:** which project or session this came from
    ```
 2. Structure it as a step-by-step guide with prompt templates where applicable
 3. Add it to the "When to use which skill" table above
-4. **If it applies on every MDL-writing session regardless of task** (not situational — e.g. a new universal MDL gotcha, not a phase-specific procedure), also add it to "Baseline routing" above. Situational skills stay out of that table; it's deliberately short.
+4. **If it applies on every MDL-writing session regardless of task** (not situational — e.g. a new universal MDL gotcha, not a phase-specific procedure), also add it to "Baseline routing" below. Situational skills stay out of that table; it's deliberately short.
 5. Commit and push — available to all projects on next `git pull`
 
 ---
@@ -214,32 +290,35 @@ For bugs, append to `bug-logs/mxcli-bugs.md` or create a project-specific log.
 ```
 git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
 ```
-Each project's CLAUDE.md references `~/Mendix/mxcli-project-toolkit`. Pull updates with `git pull`.
+Each project's `CLAUDE.local.md` references `~/Mendix/mxcli-project-toolkit`. Pull updates with `git pull`.
 For a self-contained handoff, add it as a git submodule instead. Per pipeline, run `npm install` inside `pipelines/<x>/pipeline` (node_modules is gitignored).
 
-### Baseline routing — copy this into every new project's CLAUDE.md
+### Baseline routing — copy this into every new project's CLAUDE.md / CLAUDE.local.md
 
-The "When to use which skill" table above is *situational* — load a skill when a specific task calls for it. A few skills apply on **every** MDL-writing session regardless of task, and situational discovery quietly misses them, because nothing mid-task prompts loading them. Every consuming project's own `CLAUDE.md` (or wherever it tells agents what to read before writing MDL, e.g. its own `write-microflows.md`) should reference these directly, not rely on stumbling onto them:
+The "When to use which skill" table above is *situational* — load a skill when a specific task calls for it. A few skills apply on **every** MDL-writing session regardless of task, and situational discovery quietly misses them, because nothing mid-task prompts loading them. Every consuming project's own `CLAUDE.md`/`CLAUDE.local.md` (or wherever it tells agents what to read before writing MDL, e.g. its own `write-microflows.md`) should reference these directly, not rely on stumbling onto them:
 
 | Always relevant for | Reference this |
 |---|---|
-| Writing **any** MDL script — before the first line | `skills/learned-mdl-preflight.md` — 11 STOP conditions (each backed by a real corruption incident); check every planned operation here before drafting |
+| Any question before asking the user or writing anything | `skills/query-the-model.md` — query the model, then read the source, then ask the human, in that order |
+| Writing **any** MDL script — before the first line | `skills/learned-mdl-preflight.md` — STOP conditions (each backed by a real corruption incident); check every planned operation here before drafting |
 | Writing or fixing any microflow | `skills/learned-microflow-patterns.md` — MDL gotchas + annotation discipline (placement rules — never before `if`; CE-error fixes always annotated) |
 | Using MCP alongside mxcli — any MCP write session | `skills/learned-mcp-patterns.md` — save discipline, uncommitted-MPR guard, pre-exec handoff sequence, confirmed JSON patterns |
 | A CE error or behavior that looks like a known mxcli quirk, not a modeling mistake | `bug-logs/mxcli-bugs.md` |
 | Setting up a new project's dev-process subagents | `skills/agent-roles.md` — once, at project start, not "on demand" |
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
+| Not sure what stage a conversion is in, or what a gate requires | `skills/conversion-runbook.md` |
 
 **Why this has to be explicit instead of implicit:** a project's own skill files are usually written before a given toolkit learning exists, or before a new one is added later — they never grow a cross-reference to it on their own. When you `git pull` this toolkit and it brings in a new baseline-worthy skill (most often a new `learned-*.md`), update every consuming project's routing to match — don't assume the next session will find it by chance.
 
-**After cloning, set your local source paths** in `pipelines/<x>/pipeline/config.json` — the committed file ships with `<placeholder>` values; point them at your own source workspace. Never commit real local paths.
+**After cloning, set your local source paths** in `pipelines/<x>/pipeline/config.json` — the committed file ships with `<placeholder>` values; point them at your own source workspace. **Never commit real local paths.**
 
 **Project output never lives here** (`analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored) — each migration runs in its own workspace that references this repo.
 
-**Your build plan and session notes live in your own project, not here.** This repo holds reusable tools + skills + small curated examples only. A project's architecture blueprint, numbered build plan, open-issues register, and running session diary belong in that project's own repo (e.g. `architecture/build-plan.md`, `SESSION-NOTES.md` at the project root) — never committed back into the toolkit. If a pattern from that plan turns out to be reusable across projects, promote it into a `skills/learned-*.md` file here instead of leaving the whole plan in place.
+**Your build plan, `PROJECT.md`, and session notes live in your own project, not here.** This repo holds reusable tools + skills + small curated examples only. A project's architecture blueprint, numbered build plan, decision register, and running session diary belong in that project's own repo (e.g. `architecture/build-plan.md`, `PROJECT.md`, `SESSION-NOTES.md` at the project root) — never committed back into the toolkit. If a pattern from that plan turns out to be reusable across projects, promote it into a `skills/learned-*.md` file here instead of leaving the whole plan in place.
 
 ## Used by
 
 - `pipelines/outsystems/` — OutSystems 11 → Mendix pipeline (was the standalone `os-migration-pipeline` repo)
 - `pipelines/java-angular/` — Java + Angular/Spring Boot → Mendix pipeline
+- `pipelines/node-express-react/` — Node/Express + React → Mendix pipeline (regex-based, proven on one source shape — see its README)
 - Several other client integration and migration projects

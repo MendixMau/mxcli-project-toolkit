@@ -1,4 +1,5 @@
 # DB Assertions via PostgreSQL Direct
+**Applies to:** any mxcli project.
 
 ## Why mxcli OQL --direct Doesn't Work
 

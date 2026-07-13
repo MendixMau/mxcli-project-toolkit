@@ -1,4 +1,5 @@
 # MCP Patterns — mxcli + MCP Hybrid Workflow for Mendix Development
+**Applies to:** any mxcli project.
 **Purpose:** When to use MCP vs mxcli, how to handoff safely between them, and the confirmed JSON patterns for operations mxcli cannot do. This is the primary reference for MCP-augmented development — read it before any MCP write.
 
 **Source:** A live Mendix 11.12.0 Beta project, 2026-07-06/07. Corruptions and near-total module loss from that session informed every rule here.

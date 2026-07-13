@@ -9,7 +9,9 @@ Collected for reporting to the mxcli team.
 
 **Severity:** Critical — project becomes unopenable in Studio Pro and mxbuild  
 **Reproducible:** Yes, consistently  
-**Mendix version:** 11.10.0
+**Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact version unrecorded)  
+**Retested on v0.13.0:** No — not yet verified fixed or open
 
 ### Steps to reproduce
 1. Apply security GRANTs on a persistent entity with `read *, write *` (e.g. via `grant Role on Module.Entity (create, read *, write *)`)
@@ -46,7 +48,8 @@ Drop attributes manually in Studio Pro instead.
 
 ~~**Severity:** Critical — project becomes unopenable in Studio Pro and mxbuild~~  
 ~~**Reproducible:** Yes, consistently~~  
-~~**Mendix version:** 11.10.0~~
+~~**Mendix version:** 11.10.0~~  
+**mxcli version when fixed:** v0.13.0 (codec engine rewrite)
 
 ### Fix history
 Fixed in the RnD mxcli changelog under: `CE1613 and Studio Pro crash from invalid CrossAssociation BSON (ParentConnection/ChildConnection fields) (#50)`. A follow-up fix landed in v0.9.0: `Cross-module associations preserved on CREATE object actions (#502)`.
@@ -68,7 +71,9 @@ CREATE ASSOCIATION ModuleA."EntityA_EntityB"
 
 **Severity:** Low — developer friction  
 **Reproducible:** Yes  
-**Mendix version:** 11.10.0
+**Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No
 
 ### Issue
 When writing XPath constraints in MDL `retrieve` statements, attribute names and association
@@ -96,7 +101,9 @@ which causes subtle bugs specifically in XPath and attribute access expressions.
 
 **Severity:** Low — confusing behavior  
 **Reproducible:** Yes  
-**Mendix version:** 11.10.0
+**Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No
 
 ### Steps to reproduce
 1. Create a stub module (e.g. `Customer_Lookups`) with no module roles defined
@@ -120,7 +127,9 @@ Check module roles before writing grant statements. Skip grants for modules with
 
 **Severity:** Medium — causes cryptic errors if not known  
 **Reproducible:** Yes  
-**Mendix version:** 11.10.0
+**Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No — likely a grammar/parser rule, unlikely to change
 
 ### Issue
 MDL parameter declarations use bare names, but references in the body use `$` prefix.
@@ -146,7 +155,9 @@ The error message when `$` is included in the parameter name is not clearly diag
 
 **Severity:** Medium — requires manual recovery  
 **Reproducible:** Intermittent (worse when Studio Pro is open)  
-**Mendix version:** 11.10.0
+**Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No — v0.13.0 codec engine rewrote write path; SP-open guard in exec.sh makes this much less likely
 
 ### Symptom
 Script exec fails mid-run with a SQLite locking error. Objects created before the failure remain in the MPR. Re-running the full script fails on the first already-existing object with a duplicate-name error.
@@ -193,7 +204,9 @@ set $PayerDetail/PayerRegistration.PayerAreaData_PayerDetail = $PayerAreaData;
 
 **Severity:** Low — silent failure (SET returns success but value doesn't change)  
 **Reproducible:** Yes  
-**Mendix version:** 11.10.0
+**Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No
 
 ### Steps to reproduce
 1. Create a page with a `dynamictext` widget that has `ContentParams` (e.g. `Content: '{1}', ContentParams: [{1} = SomeAttr]`)
@@ -224,7 +237,9 @@ Use `REPLACE widgetName WITH { dynamictext newName (Content: 'New Text') }` — 
 
 **Severity:** Low — easy to work around once known  
 **Reproducible:** Yes  
-**Mendix version:** 11.10.0
+**Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No
 
 ### Steps to reproduce
 Run `ALTER PAGE Module.Page { REPLACE myWidget WITH { dynamictext myWidget (...) } }`
@@ -257,9 +272,11 @@ The old widget (and its name) is dropped; the new widget takes its place in the 
 
 ## BUG-09: Gallery `filter {}` block cannot express association-path filter attributes
 
-**Severity:** Medium — limits AI-assisted filter configuration; requires Studio Pro for association-based filters
-**Reproducible:** Yes, consistently
-**Mendix version:** 11.10.0
+**Severity:** Medium — limits AI-assisted filter configuration; requires Studio Pro for association-based filters  
+**Reproducible:** Yes, consistently  
+**Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No
 
 ### Context
 
@@ -309,9 +326,11 @@ Any gallery filter that needs to filter on an **associated entity's attribute** 
 
 ## BUG-10: Filter `Attributes` list — syntax checker and executor are inconsistent
 
-**Severity:** Medium — requires workaround to configure multi-attribute or correctly-bound filters via mxcli
-**Reproducible:** Yes, consistently
-**Mendix version:** 11.10.0
+**Severity:** Medium — requires workaround to configure multi-attribute or correctly-bound filters via mxcli  
+**Reproducible:** Yes, consistently  
+**Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No — v0.13.0 unified datagrid widget engine may have addressed the check/exec grammar split; not verified
 
 ### Symptom
 
@@ -351,7 +370,9 @@ The mxcli parser grammar does not allow dots inside `[]` attribute lists (treats
 
 **Severity:** Medium — requires Studio Pro manual step for datasource type changes  
 **Reproducible:** Yes, consistently  
-**Mendix version:** 11.10.0
+**Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No
 
 ### Issue
 
@@ -412,6 +433,8 @@ When Studio Pro manually sets Type = Context and traverses via the association t
 **Severity:** High — MPR becomes unloadable by `mx` after execution  
 **Reproducible:** Yes, consistently  
 **Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No — v0.13.0 fixed several page-authoring BSON issues; worth retesting before routing to SP  
 **Discovered:** 2026-05-25, M-0022 POC Script 56
 
 ### Steps to reproduce
@@ -474,6 +497,8 @@ Wire the button action manually in Studio Pro:
 **Severity:** High — silently writes broken BSON; causes CE0018 + CE0136 which cannot be fixed in Studio Pro (no visual indicator of which retrieve is broken)  
 **Reproducible:** Yes, consistently  
 **Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No  
 **Discovered:** 2026-05-26, M-0022 POC scripts 62 + 63
 
 ### Symptoms
@@ -579,7 +604,7 @@ This explains why annotation text writes correctly (its field name is spelled co
 
 **Implication:** ALL microflows in this project built via mxcli with `retrieve ... where [...]` should be inspected in Studio Pro. The XPath constraint field will be empty even when the business logic requires filtering.
 
-**STATUS: RESOLVED via binary patch (2026-05-26)**
+**STATUS: RESOLVED via binary patch (2026-05-26). Root cause fixed in mxcli v0.13.0** — the codec engine correctly serialises `XpathConstraint` (lowercase p). New projects on v0.13.0 do not need the binary patch. The patch script is preserved below for projects built on older mxcli versions.
 
 **Fix applied:** Binary search-replace of all `XPathConstraint` (capital P) → `XpathConstraint` (lowercase p) bytes across all mxunit files in `mprcontents/`. The fix was applied with mxcli v0.12.0 installed but the bug was NOT fixed in v0.12.0 — the binary patch was applied manually.
 
@@ -623,6 +648,8 @@ Write-Host "Patched $totalFiles files, $totalOccurrences occurrences"
 **Severity:** High — `mx check` crashes on project load with NullReferenceException; page is unloadable  
 **Reproducible:** Yes, consistently  
 **Mendix version:** 11.10.0  
+**mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
+**Retested on v0.13.0:** No — v0.13.0 unified the datagrid engine (#529 Phase 4); worth retesting before routing to Studio Pro  
 **Discovered:** 2026-05-26, M-0022 POC Script 77 (PayerRegistration_Overview_DG2)
 
 ### Steps to reproduce
@@ -688,6 +715,8 @@ DataGrid 2 is a pluggable widget. Its custom content column schema (`ShowContent
 **Severity:** Medium — today-date filters are broken; workaround required  
 **Reproducible:** Yes, consistently  
 **Mendix version:** 11.12.0  
+**mxcli version when found:** v0.12.x (pre-v0.13.0 codec engine)  
+**Retested on v0.13.0:** No — XPath token serialization may be fixed by codec engine; worth a quick retest  
 **Discovered:** 2026-07-03, IVM-MxCLI-main Phase 3a (script 14)
 
 ### Steps to reproduce
@@ -764,7 +793,9 @@ Find the correct mxunit by running `git diff --name-only` and reading each chang
 
 ## BUG-18: `visible: [expr]` on CONTAINER inside datagrid customContent column corrupts MPR
 
-**Affects:** mxcli (all tested versions on Mendix 11.12.0)
+**Affects:** mxcli v0.12.x–v0.13.0 on Mendix 11.12.0 — confirmed still present on v0.13.0 (2026-07-09 retest)  
+**mxcli version when found:** v0.12.x  
+**Retested on v0.13.0:** Yes — still corrupts. preflight rule 1 STOP remains valid for this specific case.
 
 **Symptom:** After executing a `CREATE OR REPLACE PAGE` or `CREATE PAGE` script that includes `container ctn (visible: [expr]) { ... }` widgets inside a `column (ShowContentAs: customContent)` datagrid column, `mx check` reports `StorageLoadException`:
 
@@ -793,6 +824,8 @@ Studio Pro itself cannot open the MPR. Gate 2 (javac) still passes because it do
 **Severity:** Critical — project becomes unopenable in Studio Pro with InvalidCastException  
 **Reproducible:** Yes, consistently  
 **Mendix version:** 11.12.0 Beta  
+**mxcli version when found:** v0.12.x (pre-v0.13.0)  
+**Retested on v0.13.0:** No — codec engine may address type-tag handling; worth a quick retest  
 **Discovered:** 2026-07-05, IVM-MxCLI sprint4-visual-polish.mdl
 
 ### Steps to reproduce
@@ -876,6 +909,8 @@ Then restart SP.
 **Status:** Open — no fix in mxcli; workaround: use MCP after exec  
 **Reproducible:** Yes, consistently  
 **Mendix version:** 11.12.0 Beta  
+**mxcli version when found:** v0.13.0 (confirmed on codec engine)  
+**Retested on v0.13.0:** Yes — still corrupts. Preflight rule 7 STOP remains valid.  
 **Discovered:** 2026-07-06
 
 ### Steps to reproduce
@@ -935,28 +970,30 @@ rsync -a --delete "$SNAP/mprcontents/" mprcontents/
 
 **Severity:** Critical — project becomes unopenable in Studio Pro  
 **Reproducible:** Yes, consistently  
-**Confirmed:** Mendix 11.12.0 Beta, 2026-07-06
+**Confirmed:** Mendix 11.12.0 Beta, 2026-07-06  
+**mxcli version when found:** v0.13.0 (confirmed on codec engine)  
+**Retested on v0.13.0:** Disk write path still corrupts. **`mxcli --mcp` path confirmed safe — retested 2026-07-09, `ped_check_errors` 0 errors.** Preflight rule 9 updated: use `mxcli --mcp` instead of hand-rolled MCP.
 
 ### Symptom
-`mxcli exec` reports success. Studio Pro refuses to open the project on the next load. The error is typically in the CHANGE or CREATE activity's BSON, where the association name was written as an `AttributeIdentifier` field instead of a proper association reference.
+`mxcli exec` (disk write path) reports success. Studio Pro refuses to open the project on the next load. The error is in the CHANGE or CREATE activity's BSON, where the association name was written as an `AttributeIdentifier` field instead of a proper association reference.
 
-### Affected patterns
+### Affected patterns (disk write path only)
 ```mdl
--- All three of these corrupt the MPR:
+-- All three of these corrupt the MPR via mxcli disk write:
 change $Obj (Module.AssocName = $Other);
 create Module.Entity (Module.AssocName = $Other);
 -- Also: ReferenceSet assignments (System.User_UserRoles) — different surface, same root cause
 change $Account (System.User_UserRoles = $Role);
 ```
 
-**Reading through an association is safe** — only setting one inline in a CHANGE/CREATE is affected:
+**Reading through an association is safe on any path** — only setting one inline in a CHANGE/CREATE via disk write is affected:
 ```mdl
--- This is fine:
+-- This is fine on any path:
 $value = $Obj/Module.AssocName/TargetEntity/Attribute;
 ```
 
 ### Workaround
-Use MCP (`ped_create_document`/`ped_update_document`) to write microflow activities that set associations. This goes through SP's own model APIs which maintain BSON integrity. See `skills/learned-mcp-patterns.md`.
+Use `mxcli --mcp http://localhost/mcp --mcp-dial localhost:7782 exec script.mdl` (SP must be open). The `--mcp` path routes writes through SP's own model engine, bypassing mxcli's BSON serializer entirely — the bug cannot occur. Hand-rolled MCP (`ped_create_document`/`ped_update_document`) still works as a fallback. See `skills/learned-mcp-patterns.md`.
 
 ### Recovery
 Restore from the `.mpr-snapshots/` snapshot taken by exec.sh before the failing exec. If no snapshot: `git checkout` the `.mpr` and `mprcontents/` back to the last clean commit, then replay scripts one at a time with `mxbuild` verification between each.
@@ -967,7 +1004,9 @@ Restore from the `.mpr-snapshots/` snapshot taken by exec.sh before the failing 
 
 **Severity:** Critical — deterministic corruption, confirmed across multiple retry attempts  
 **Reproducible:** Yes, 100% — not flaky  
-**Confirmed:** Mendix 11.12.0 Beta, 2026-07-06
+**Confirmed:** Mendix 11.12.0 Beta, 2026-07-06  
+**mxcli version when found:** v0.13.0 (confirmed on codec engine)  
+**Retested on v0.13.0:** Yes — still corrupts. Preflight rule 2 STOP (SP GUI only) remains valid.
 
 ### Symptom
 The statement executes and reports success ("Updated configuration 'Default'"). On the next SP open or `mx check`, the project fails to load with `AggregateException` / "Expected '$ID' as the first property..." in the Settings unit. The *field* where corruption manifests varies between attempts (seen on `EnableMicroflowReachabilityAnalysis`, `EnableNewWidgetGeneration`, `UrlPrefix`) — this shift is the signature of a BSON stream-desync: once one object is written malformed, the next object in the same write batch inherits the corruption, appearing as an unrelated field error.

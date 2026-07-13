@@ -1,4 +1,5 @@
 # Bootstrap Project — Generate a New Project's CLAUDE.md
+**Applies to:** any mxcli project.
 **Purpose:** Assemble a new mxcli-powered project's `CLAUDE.md` from this toolkit's standardized Baseline routing plus that project's own, genuinely project-specific facts — so a new project starts with the same discipline `IVM-MxCLI-main` had to retrofit, instead of discovering the gap after microflows already exist with no annotations.
 **Companion skills:** `agent-roles.md` (the natural next step once `CLAUDE.md` exists — generates the project's `.claude/agents/{mdl,gate,test}-agent.md`).
 **Source:** Written after finding `IVM-MxCLI-main`'s `CLAUDE.md` never routed to `learned-microflow-patterns.md` despite the toolkit having the rule — a gap that existed because nothing generated that project's routing table against a standard.

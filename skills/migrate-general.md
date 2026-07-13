@@ -1,4 +1,5 @@
 # General Migration to Mendix Skill
+**Applies to:** migration.
 
 Guidance for migrating any legacy application to Mendix using MDL and mxcli. Platform-agnostic process, with an OutSystems 11 section at the end.
 

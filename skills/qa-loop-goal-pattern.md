@@ -1,4 +1,5 @@
 # QA Loop Goal Pattern — Iterative Pipeline Validation
+**Applies to:** any mxcli project.
 **Purpose:** A reusable `/goal` directive for autonomously validating a new stack's
 extractor/linker/mapper pipeline against real source, run until output quality is genuinely
 high — not just "runs without crashing."

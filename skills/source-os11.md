@@ -1,4 +1,5 @@
 # Source Platform: OutSystems 11 → Mendix
+**Applies to:** migration.
 **Purpose:** OS 11-specific extraction rules, concept mappings, and migration patterns
 for use alongside `migration-pipeline.md`.
 **Scope:** OutSystems 11 traditional eSpace/module model only. ODC is out of scope.

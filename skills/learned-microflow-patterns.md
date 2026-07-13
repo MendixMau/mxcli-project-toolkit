@@ -1,4 +1,5 @@
 # Microflow Patterns — MDL Microflow & Association Rules for This Project
+**Applies to:** any mxcli project.
 
 ---
 

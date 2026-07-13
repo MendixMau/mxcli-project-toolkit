@@ -1,4 +1,5 @@
 # Skill: UX Audit
+**Applies to:** any mxcli project.
 
 ## When to use
 

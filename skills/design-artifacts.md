@@ -1,4 +1,5 @@
 # Design Artifacts — Design System & Wireframes Before Pages
+**Applies to:** migration.
 **Purpose:** Produce the UI/brand layer of the architecture phase — a versioned design system, then wireframes for every screen — so page-building has a visual spec to hit and the eventual Atlas theme is generated, not hand-tweaked screen by screen.
 **Upstream:** `migration-pipeline.md` Phase 6 (`.mx-brd.json`), source screenshots, BRD `pages`/`useCases`
 **Downstream:** `iterative-build-loop.md` (its Step 11 screenshot-coverage check verifies built pages against the wireframes produced here)
@@ -24,9 +25,9 @@ Get these right and the build loop's job becomes mechanical: reproduce the wiref
 
 ---
 
-## Step 0: Establish the Branding Basis (an analysis input — ask)
+## Step 0: Establish the Branding Basis ✋ (a real interview, not a footnote)
 
-Branding is an input, not an afterthought. Before designing, resolve the basis explicitly:
+Branding is an input, not an afterthought — and not a checkbox to tick silently. Run the full interview protocol (`conversion-runbook.md` §1): propose the options below with evidence for which fits this project, state the assumption if none is given, and get an explicit answer before designing. This is a `✋` gate — record the `CONFIRMED` choice in `PROJECT.md`, it cascades into every token below and doesn't get to default silently.
 
 | Basis | When | Effort |
 |---|---|---|

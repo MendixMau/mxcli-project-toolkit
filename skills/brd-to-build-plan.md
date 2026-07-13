@@ -1,4 +1,5 @@
 # BRD to Build Plan — Plan Definition Before Scripting
+**Applies to:** migration.
 **Purpose:** Turn validated BRDs + Mendix architecture into a concrete, dependency-ordered build plan — the step between architecture and the first line of MDL.
 **Upstream:** `migration-pipeline.md` (phases 1–6: extraction → BRD → Mendix rearchitecture)
 **Downstream:** `iterative-build-loop.md` (per-module execution against the plan produced here)
@@ -46,7 +47,9 @@ This becomes the checklist `iterative-build-loop.md` executes against.
 
 ## Step 0: Import Confirmed Marketplace Dependencies
 
-If `architecture/fit-gap.md` (from `architecture-blueprint.md` Step 4) has any confirmed **Buy** verdicts, resolve them now — before Step 1, before any domain-model script, before the skeleton build begins:
+**This step consumes a decision — it does not make one.** The confirming happens upstream, at `conversion-runbook.md`'s Stage 3 `✋` gate (`architecture-blueprint.md` Step 4 fit-gap, owned by `architect-agent`). If you arrive here and `architecture/fit-gap.md` has "maybe, decide if needed" rows instead of a resolved **Buy**/**Build**/**Native**/**Config** verdict, that gate wasn't actually closed — go back and close it; don't quietly decide it here to keep moving.
+
+If `architecture/fit-gap.md` has any confirmed **Buy** verdicts, resolve them now — before Step 1, before any domain-model script, before the skeleton build begins:
 
 ```bash
 mxcli auth login                              # once per machine, see download-marketplace-content.md
@@ -98,8 +101,10 @@ Every project has open questions that block scripting until answered. Common one
 | 2 | **Cross-module association ownership** — which module's domain model holds each cross-module association? | Determines which module's script creates it — `CREATE ASSOCIATION` via mxcli works (BUG-02 fixed in v0.13.0), but ownership must be clear before scripting |
 | 3 | **Stub vs. real scope for this phase** — which integrations are stubbed, which are live? | Determines whether `STUB_` microflows or real `IVK_` microflows get scripted first |
 | 4 | **Demo user / role mapping** — which target roles map to which source system roles? | Needed before any `GRANT` script; changing role mapping after grants means rewriting security scripts |
+| 5 | **Acceptance criteria per module** — what does "done" mean beyond CE-error-free? | This is the business-rule coverage checklist `iterative-build-loop.md`'s Gate 3 verifies against — without it agreed up front, "done" silently degenerates to "compiles" |
+| 6 | **Environment / DTAP / deployment target** — which environments does this plan need to reach, and in what order? | Determines whether the build plan needs environment-specific config/constant scripts, and when a deploy package first needs to be produced |
 
-Add project-specific questions as they surface (e.g. "which module owns the shared application header entity?"). The rule is: **if answering it wrong would require rewriting an already-executed script, it belongs on this list and must be answered before scripting starts** — not discovered as a CE error three scripts later.
+Add project-specific questions as they surface (e.g. "which module owns the shared application header entity?"). The rule is: **if answering it wrong would require rewriting an already-executed script, it belongs on this list and must be answered before scripting starts** — not discovered as a CE error three scripts later. Questions 5 and 6 are `conversion-runbook.md` Stage 4's `✋` gate — this step is where their answers get consumed into the plan, not where they first get asked.
 
 Document both the question and the resolution — future sessions (and future you) need the *why*, not just the decision.
 

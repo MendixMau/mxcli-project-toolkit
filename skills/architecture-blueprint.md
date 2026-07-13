@@ -1,4 +1,5 @@
 # Architecture Blueprint — Diagrams, Module Definitions, Wiring & Fit-Gap
+**Applies to:** migration.
 **Purpose:** Turn Mendix-rearchitected BRDs into a readable target-architecture blueprint — module definition docs, an architecture diagram, a wiring/dependency graph, and a fit-gap analysis — so dependencies and open gaps are visible *before* the build plan, not discovered mid-build.
 **Upstream:** `migration-pipeline.md` Phase 6 (produces `.mx-brd.json` — the module boundaries this skill documents)
 **Downstream:** `brd-to-build-plan.md` (consumes the dependency graph as build order, the fit-gap as scope boundary, and the open-issues register as the questions the plan must answer before script 01)
@@ -158,6 +159,35 @@ Consolidate everything that must be *carried into the build plan*, not lost:
 | 5 | Behavior changes vs. source | Faithful-rebuild risk | documented + signed off |
 
 **Every unresolved BRD `openQuestion` must appear here.** Do not resolve them silently to make the diagram tidy — an open question in a diagram is honest; a wrong assumption baked into MDL is expensive.
+
+---
+
+## Step 6: The Three Decisions the Source Can't Answer ✋
+
+These are genuine decisions, not derivable from the BRD or the source — run the full interview protocol (`conversion-runbook.md` §1) for each, and record every answer in `PROJECT.md`. This is a `✋` gate: `CONFIRMED` only, no `ASSUMED` past it.
+
+### 6a. Target Security / Role Model
+
+The source's auth model (if any) tells you what existed, not what the target should be. Ask explicitly:
+- Does the source's role list map cleanly onto Mendix user roles, or does it need collapsing/splitting (same over/under-split judgment as module boundaries)?
+- Anonymous/guest access: needed at all, and if so, for which entities/pages?
+- Any regulatory or PII segregation requirement that should become a security-driven module boundary (feeds back into `modularize-domain.md` Step 2, criterion 4, if this wasn't already decided there)?
+
+### 6b. Data Volumes, Concurrency, NFRs
+
+Not asked anywhere else in the pipeline, and they decide concrete build choices: indexing, pagination, `DATAGRID` vs. paged `GALLERY`, loop batch sizes in microflows. Ask:
+- Expected row counts per major entity (order-of-magnitude is enough — "dozens," "tens of thousands," "millions").
+- Expected concurrent users / peak load.
+- Any hard response-time or availability requirement.
+
+### 6c. Integration Contracts
+
+For every integration point the fit-gap flagged (Step 4) as needing a live connection:
+- Real endpoint or stub for this build?
+- Credentials/auth mechanism, and who owns provisioning them?
+- Which environment is the test target (source's own sandbox, a mock, production-adjacent)?
+
+Record each as a row in `architecture/open-issues.md` (Step 5's register) with its `CONFIRMED`/`ASSUMED` status, not as a separate untracked list — it's a dependency like any other.
 
 ---
 

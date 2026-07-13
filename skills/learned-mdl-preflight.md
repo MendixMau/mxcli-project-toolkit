@@ -1,7 +1,17 @@
 # MDL Pre-flight Checklist — STOP conditions before writing any script
+**Applies to:** any mxcli project.
 **Purpose:** Before drafting any MDL script, check every planned operation against this table. Each STOP row was born from a real MPR corruption or silent runtime failure — not theoretical concerns. Skipping this check has caused project-unloadable corruption every time.
 
 **Source:** Generalized from a live Mendix 11.12.0 Beta project, 2026-07-06/07. Incident detail stays in that project's own `bug-logs/` — only the generalizable rule is here.
+
+**Version context:** Rules marked "STOP" were confirmed on specific mxcli/Mendix versions noted per entry. Rules 1b and 10 were retested 2026-07-09 on mxcli v0.13.0 / Mendix 11.12.0 and confirmed resolved. Rule 9 was retested 2026-07-09 via `mxcli --mcp` on v0.13.0 and confirmed resolved (BSON serialization bug only affects the disk write path; `--mcp` bypasses it entirely). If in doubt, retest on your version and stamp the result in `bug-logs/mxcli-bugs.md`.
+
+**Three write modes — choose by operation:**
+| Mode | Command | When |
+|---|---|---|
+| mxcli disk write | `./mxcli exec script.mdl` | Default; SP must be closed; STOP rules apply |
+| mxcli via MCP | `./mxcli --mcp http://localhost/mcp --mcp-dial localhost:7782 exec script.mdl` | SP must be open; bypasses BSON serialization bugs; use for rule 9 operations |
+| Hand-rolled MCP | `pg_patch_page`, `ped_create_document` | Only when MDL has no syntax for the operation (widget JSON shapes — rules 6, 6b) |
 
 **Companion skills:** `learned-mcp-patterns.md` (MCP alternatives), `bug-logs/mxcli-bugs.md` (bug detail), `iterative-build-loop.md` (exec discipline), `learned-microflow-patterns.md` (annotation + inline assoc rules)
 
@@ -11,7 +21,8 @@
 
 | # | If your script will… | Then… | Root cause |
 |---|---|---|---|
-| 1 | Use `visible:` or `editable:` **conditional expressions** on any widget | **STOP → MCP** (`pg_patch_page`) | mxcli writes an invalid BSON shape for the visibility expression → `StorageLoadException` on SP open |
+| 1 | Use `visible:` or `editable:` **conditional expressions** on containers **inside a `datagrid customContent` column** | **STOP → MCP** (`pg_patch_page`) | mxcli writes blank `AttributeIdentifier` → `StorageLoadException` on SP open. **BUG-18, still open on v0.13.0** (found 2026-07-03 after v0.13.0 release). |
+| 1b | Use `visible:` or `editable:` conditional expressions on **regular widgets / dataview / page-level containers** | Safe on mxcli v0.13.0 — retested 2026-07-09 on WMS-LargeSource (Mendix 11.12.0), 0 mxbuild errors. Fixed by codec engine (#627). **Use mxcli.** | Was: STOP in pre-v0.13.0; no longer applies to regular widgets. |
 | 2 | Call `alter settings configuration`, `alter settings model`, or `alter project security level` | **STOP → Studio Pro GUI only** | Deterministic BSON stream-desync on the Settings unit — confirmed corrupt on every retry (see BUG-LOCAL-05) |
 | 3 | Drop an attribute that has security grants applied to it | **STOP → Studio Pro GUI** | mxcli removes the attribute but leaves dead UUID pointers in the entity access rules → `KeyNotFoundException` on load (BUG-01) |
 | 4 | Bind a widget to `AutoChangedBy` or `AutoChangedDate` system attributes | **STOP → omit or MCP** | Produces CE1613 dangling reference — these attributes are not bindable via mxcli widget expressions |
@@ -20,8 +31,8 @@
 | 6b | Use `DatagridDropdownFilter` in association (ref) mode as a DataGrid2 filter | **STOP → MCP** (`pg_patch_page`) | Confirmed working JSON pattern exists — see `learned-mcp-patterns.md`. `refOptions` microflow must be no-param; use `DomainModels$IndirectEntityRef` for `refEntity`; use `Pages$MicroflowSource` (not `CustomWidgets$CustomWidgetMicroflowSource`) |
 | 7 | Use a cross-module association traversal as a widget datasource (`$currentObject/OtherModule.Assoc`) in DataGrid/DataView/ListView | **STOP → MCP** (`pg_patch_page`) | mxcli writes null `DestinationEntityId` on the `EntityRefStep` → `StorageLoadException` on SP open. Same-module traversals are fine. |
 | 8 | Create any association — same- or cross-module | **STOP → run `SHOW ASSOCIATIONS` first** | No `IF NOT EXISTS` support — re-running a CREATE silently duplicates the association; mxbuild then flags CE0065/CE0069. Only write `CREATE ASSOCIATION` for names that do not yet appear in `SHOW ASSOCIATIONS` output. |
-| 9 | Set an association inline in a CHANGE or CREATE activity: `change $Obj (Module.AssocName = $Other)` or `create Entity (Module.AssocName = $Other)` | **STOP → MCP** (`ped_create_document`/`ped_update_document`) | mxcli writes the association name as an `AttributeIdentifier` in the CHANGE/CREATE BSON — Studio Pro rejects the model on load. **Reading through an association (`$Obj/Module.Assoc/Target/Attr`) is safe; setting one inline in change/create is not.** |
-| 10 | Use `count($list)` inside a `declare` expression | **STOP → MCP** (`ped_create_document` with `AggregateListAction`) | mxcli writes a `CreateVariable` with a `count()` expression → CE0117 in SP. Correct pattern: retrieve list → AggregateListAction(Count) → use result integer variable |
+| 9 | Set an association inline in a CHANGE or CREATE activity: `change $Obj (Module.AssocName = $Other)` or `create Entity (Module.AssocName = $Other)` | **Use `mxcli --mcp exec script.mdl`** (SP must be open). Retested 2026-07-09 on v0.13.0 — `ped_check_errors` 0 errors; BSON bug only affects disk write path. Hand-rolled MCP (`ped_update_document`) still works as fallback. | mxcli disk write path writes the association name as an `AttributeIdentifier` in CHANGE/CREATE BSON — SP rejects on load. `--mcp` path routes through SP's own engine, bypassing mxcli's serializer entirely. **Reading through an association (`$Obj/Module.Assoc/Target/Attr`) is safe on any path.** |
+| 10 | Use `count($list)` inside a `declare` expression | Safe on mxcli v0.13.0 — retested 2026-07-09 on WMS-LargeSource (Mendix 11.12.0). Both `$x = count($list)` and `declare $x integer = count($list)` pass mxbuild with 0 errors. **Use mxcli.** | Was: STOP / CE0117 in pre-v0.13.0; no longer applies. |
 | 11 | Filter an XPath with an association-traversal as the comparand: `[Assoc_X = $Ctx/Other.Assoc]` | **STOP → retrieve target first, then filter** | XPath constraint right-hand side must be a directly-bound variable, not an association path. Pattern: `retrieve $Target from ... where [...]; retrieve $Result from Module.Entity where [Module.Assoc_X = $Target]` |
 
 **Default to mxcli for:** entities/attributes/enums, associations (after SHOW ASSOCIATIONS check), microflows (without inline assoc-sets), demo users, module roles/grants, navigation.
@@ -44,4 +55,4 @@ These don't require a STOP, but will cause silent failures or check errors if mi
 
 ## Final self-check (mandatory before reporting back)
 
-After drafting a script, re-read it line by line against the table above — not just the mental pre-check you did before writing. Inline assoc-sets, count() in declare, and conditional visibility can creep in during drafting without intent. `mxcli check --references` will not catch them. This re-read is the actual corruption-prevention step.
+After drafting a script, re-read it line by line against the table above — not just the mental pre-check you did before writing. Inline assoc-sets, conditional visibility inside datagrid customContent columns, and cross-module association traversals as widget datasources can creep in during drafting without intent. `mxcli check --references` will not catch them. This re-read is the actual corruption-prevention step.

@@ -1,4 +1,5 @@
 # Page Patterns — MDL Page Build Rules
+**Applies to:** any mxcli project.
 
 **Convention:** each rule is stated generically so it transfers to any project. Where a rule has a
 concrete illustration, it's kept as a **labeled example** (often from the Apex M-0022 OS→Mendix PoC —

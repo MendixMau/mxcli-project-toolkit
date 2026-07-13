@@ -1,4 +1,5 @@
 # BRD Validation — Consistency Checks & Iterate-to-Clean
+**Applies to:** migration.
 **Purpose:** Once BRDs exist — whether the auto-generated per-module scaffold from
 `node run.js 3` or the enriched `F{NNN}.brd.json` from `brd-generation.md` — validate them
 against every KB source before calling the extraction/mapping pass done. Catches duplicates,

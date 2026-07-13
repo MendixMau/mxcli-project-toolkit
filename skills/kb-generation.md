@@ -1,4 +1,5 @@
 # KB File Generation — Prompt Template
+**Applies to:** migration.
 **Purpose:** How to turn raw source documents (xlsx, docx, PDF) into KB_*.md knowledge
 base files that Claude can load as context for BRD and MDL generation.
 **Source:** Apex M-0022 — 9 KB files produced across 4 sessions, 2026-05.

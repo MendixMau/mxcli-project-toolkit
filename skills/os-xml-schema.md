@@ -1,4 +1,5 @@
 # OS 11 XML Blueprint Schema
+**Applies to:** migration.
 **Purpose:** Teaches Claude the OutSystems 11 eSpace XML format so extraction prompts
 work without pasting raw XML first.
 **Source:** Apex M-0022 — 114 real eSpace XML files processed 2026-05.

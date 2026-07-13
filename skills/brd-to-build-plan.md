@@ -135,31 +135,82 @@ This becomes the reference for "is this a design gap or an intentional deferral?
 
 ---
 
-## Step 5: Produce the Numbered Script Sequence
+## Step 4b: Decide on a StyleGallery UI Module ✋
 
-Combine Steps 1–4 into a concrete, ordered list. Template:
+Before producing the script sequence, answer this question explicitly — it determines whether
+Phase 1 (scaffold) or Phase 2 (UI module) appears in the plan:
+
+**"Does this app warrant a dedicated StyleGallery UI module?"**
+
+| Signal | Verdict |
+|--------|---------|
+| 3+ feature modules, all sharing the same visual language | Yes — the ROI is clear from the first module |
+| Real client brand (palette, type, logo) that diverges from Atlas defaults | Yes — brand tokens need to be established once, not hand-applied per page |
+| POC or demo with 1–2 modules and Atlas defaults are fine | No — skip it, use bare Atlas + the design-system.html reference directly |
+| App will grow over time (new modules likely) | Yes — invest once, pay dividends on every new module |
+
+Record the decision in the build plan as `CONFIRMED` or `ASSUMED`. If Yes, add **Phase 2 — UI Scaffold** to the script sequence (see below). If No, note it so a future session doesn't re-ask.
+
+**The two-phase scaffolding pattern:**
 
 ```
-Phase: <name>
-Granularity: <per-layer | per-page-cluster | per-domain>
+Phase 1 — App Scaffold
+  Module structure, security roles, domain skeleton, navigation shell, demo users.
+  Gets you a runnable empty app with the right bones.
 
-Module: <CommonModuleA>          (dependency order: 1 — no dependencies)
-  01-<module>-domain.mdl
-  02-<module>-security.mdl
+Phase 2 — UI Scaffold  (only if StyleGallery decision = Yes)
+  brand.md + target-ui.md research
+  ds.css + design-system.html
+  themesource/<StyleGallery>/web/main.scss (SCSS port)
+  mdlsource/gallery/  (StyleGallery MDL module — 00 → 05 → 11-19 → 90)
+  Gets you a reusable component kit before any feature page is built.
+  Every subsequent module cross-references this gallery via ui-preflight-pages.md Step 3.
+```
 
-Module: <CommonModuleB>          (dependency order: 2 — depends on ModuleA)
-  03-<module>-domain.mdl
-  ...
+Phase 2 is a one-time investment. Without it, the first modules get built bare-Atlas and the
+design system is retrofitted later — the expensive cleanup `ui-preflight-pages.md` exists to prevent.
+See `design-artifacts.md` and `learned-stylegallery.md` for full process.
 
-Module: <FeatureModule>          (dependency order: 3 — depends on Common)
-  0N-<module>-domain.mdl
-  0N-<module>-stub-pages.mdl     ← forward-reference stubs, always before...
-  0N-<module>-microflows.mdl
-  0N-<module>-pages.mdl
-  0N-<module>-seed-data.mdl      ← idempotent (retrieve-before-create)
+---
 
-Module: <IntegrationModule>      (dependency order: 4 — stubbed first)
-  0N-<module>-stub-microflows.mdl
+## Step 5: Produce the Numbered Script Sequence
+
+Combine Steps 1–4 into a concrete, ordered list. If Phase 2 UI Scaffold is confirmed, it appears
+as a block between Phase 1 and the first feature module:
+
+```
+Phase 1 — App Scaffold
+  01-app-scaffold.mdl            ← module structure, navigation shell, demo users
+
+Phase 2 — UI Scaffold  (if StyleGallery = Yes)
+  design/brand.md                ← brand research (not an MDL — written before any CSS)
+  design/target-ui.md            ← UX pattern inventory
+  design/ds.css                  ← token + component CSS
+  design/design-system.html      ← annotated showcase
+  themesource/stylegallery/web/main.scss   ← SCSS port
+  mdlsource/gallery/00-module.mdl
+  mdlsource/gallery/05-demo-data.mdl
+  mdlsource/gallery/11-19-*.mdl  ← one snippet per component
+  mdlsource/gallery/90-home.mdl  ← exec last
+
+Phase 3 — Feature Modules  (granularity: per-layer | per-page-cluster | per-domain)
+  Module: <CommonModuleA>          (dependency order: 1 — no dependencies)
+    0N-<module>-domain.mdl
+    0N-<module>-security.mdl
+
+  Module: <CommonModuleB>          (dependency order: 2 — depends on ModuleA)
+    0N-<module>-domain.mdl
+    ...
+
+  Module: <FeatureModule>          (dependency order: 3 — depends on Common)
+    0N-<module>-domain.mdl
+    0N-<module>-stub-pages.mdl     ← forward-reference stubs, always before...
+    0N-<module>-microflows.mdl
+    0N-<module>-pages.mdl
+    0N-<module>-seed-data.mdl      ← idempotent (retrieve-before-create)
+
+  Module: <IntegrationModule>      (dependency order: 4 — stubbed first)
+    0N-<module>-stub-microflows.mdl
 ```
 
 Number sequentially across the whole plan, not per-module — this preserves a single audit trail matching `iterative-build-loop.md`'s "scripts are frozen once executed" rule.
@@ -201,3 +252,5 @@ If a build session discovers a gap in the plan (a dependency missed, a question 
 - **Discovering cross-module association ownership mid-script.** Decide which module's script creates each cross-module association upfront — it can now be done via `CREATE ASSOCIATION` (BUG-02 fixed in v0.13.0), but if ownership is unclear mid-script it still causes a surprise rewrite.
 - **Deciding role mapping after security scripts are already applied.** Forces a rewrite of every `GRANT` statement.
 - **Treating every CE error as equally investigatable.** Without a scope boundary, "is this stubbed on purpose" and "is this a design gap" look identical.
+- **Skipping the StyleGallery decision and building pages bare-Atlas.** First modules look fine; by module 3 the design is inconsistent and a retrofit is needed. The `✋` gate in Step 4b is cheap — the retrofit is not.
+- **Building feature pages before Phase 2 UI scaffold.** `ui-preflight-pages.md` Step 3 has nothing to cross-reference; mdl-agent invents class names or falls back to bare Atlas. Phase 2 must exist before the first real page is built.

@@ -136,11 +136,13 @@ Once you have a reviewed build plan, you have three tools to write to the `.mpr`
 
 | Mode | When to use it | Why |
 |---|---|---|
-| **CLI** (`mxcli exec script.mdl`) | Bulk scaffolding: entities, attributes, enumerations, associations, microflow logic, access rules, navigation, demo users | The CLI reads an MDL script and writes a full batch to disk in one shot. Studio Pro must be closed. Best for large, structural work where you want a reviewable, version-controlled script file and a single atomic write. Snapshots automatically before each exec — safe to iterate. |
-| **MCP + MDL** (`mxcli --mcp exec script.mdl`) | The same MDL you'd write for CLI, but for operations where the CLI's BSON serializer has known bugs (inline assoc-sets in microflows, certain visibility expressions) | Routes the MDL through Studio Pro's own engine instead of mxcli's disk writer. Studio Pro must be open. You still write human-readable MDL — you just dial the exec through MCP so SP handles the serialization. Use this for the specific STOP-table operations, not as a default. |
-| **Hand-rolled MCP** (`pg_patch_page`, `ped_create_document`) | Widget JSON shapes that MDL has no syntax for — DataGrid2 column configs, dropdown filter wiring, complex visibility expressions inside datagrid customContent | You're writing raw JSON/BSON payloads directly against SP's model API. No MDL file involved. Confirmed patterns are in `learned-mcp-patterns.md`. SP must be open; save discipline is critical (uncommitted MPR guard before every write). Use only when the other two modes have no syntax for the operation. |
+| **CLI** (`mxcli exec script.mdl`) | Initial build: entities, attributes, enumerations, associations, microflow logic, access rules, navigation, demo users — anything that is large, structural, and done once | You write a readable MDL script, the CLI writes the whole batch to disk in one shot, SP stays closed. The big advantage is scale — you can scaffold an entire module in a single exec. The script is version-controlled and reviewable before it runs. Automatic snapshot before every exec means you can iterate without fear. The tradeoff: SP must be closed and restarted after each exec, which takes time. |
+| **MCP + MDL** (`mxcli --mcp exec script.mdl`) | Targeted changes, UI tweaks, iterative refinement — anything you're actively tuning where restarting SP between each change would kill your flow | SP stays open the whole time. You make a change, it lands in the live model, SP reflects it immediately — no restart, no wait, no recompile cycle. This is the mode for UI work: adjusting a page layout, wiring a widget, fixing a visibility expression. The feel is closer to live editing. You still write MDL, so the script is readable — you just route it through SP's own engine instead of the CLI's disk writer, which also sidesteps a class of BSON serializer bugs. |
+| **Hand-rolled MCP** (`pg_patch_page`, `ped_create_document`) | Widget JSON shapes that MDL has no syntax for yet — DataGrid2 column configs, dropdown filter wiring, complex visibility inside datagrid customContent | Same SP-stays-open benefit as MCP+MDL, but you're writing raw JSON payloads directly against SP's model API. No MDL involved. Use only when the other two modes genuinely have no syntax for the operation. Confirmed patterns are in `learned-mcp-patterns.md`; save discipline is critical (uncommitted MPR guard before every write). |
 
-**Studio Pro GUI** is not a write mode for agents — it's the fallback for two specific operations that corrupt deterministically on every CLI/MCP retry: `ALTER SETTINGS` and dropping an attribute that has security grants attached. Those go to the human.
+**In practice:** use CLI to build, use MCP to refine. A typical module goes: one CLI exec to scaffold the domain model and microflows → MCP+MDL for page iteration and UI tweaks → hand-rolled MCP only for the specific widget shapes MDL can't reach.
+
+**Studio Pro GUI** is not a write mode for agents — it's the fallback for two operations that corrupt deterministically on every CLI/MCP retry: `ALTER SETTINGS` and dropping an attribute that has security grants. Those go to the human.
 
 ### Stage 6: testing
 
@@ -172,6 +174,36 @@ Use this before every write. Full per-rule detail (root causes, bug IDs, retest 
 | After any MPR corruption or load error | `bin/restore-mpr.sh` | Closed |
 
 **The crash net.** An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units). `bin/exec.sh` snapshots both before every batch; 5 rotate; `bin/restore-mpr.sh` rolls back both together (either alone is useless). Git commits at phase gates are the real history. Ad-hoc `.mpr.backup` copies are banned.
+
+### Something went wrong? Don't panic.
+
+Two things go wrong regularly on active projects. Both are recoverable.
+
+---
+
+**"Studio Pro won't open / the project fails to load"**
+
+This almost always means the MPR got a bad write — an exec that produced malformed BSON, an interrupted write, or a serializer bug that slipped through the preflight check. It sounds catastrophic but it isn't, because `bin/exec.sh` snapshots automatically before every batch.
+
+What to do:
+1. Tell Claude: *"The project won't load — restore the last snapshot."*
+2. Claude runs `bin/restore-mpr.sh` — this restores **both** `Project.mpr` and `mprcontents/` together. Restoring only one of the two will not work; the SQLite index and the BSON units must be in sync.
+3. SP opens cleanly from the restored snapshot. You've lost at most one exec batch.
+
+Why it happens: the CLI writes model units as BSON directly to disk, bypassing SP's own engine. Most operations are clean, but a handful of edge cases (see the STOP table) produce BSON that SP's loader rejects. The `bin/exec.sh` snapshot-before-exec pattern exists precisely because this is a known failure mode, not an exceptional one.
+
+---
+
+**"Studio Pro won't start / hangs on launch"**
+
+This almost always means a stale SP process is still running in the background — a previous session didn't exit cleanly, or a restart left a ghost process holding the port or the project lock.
+
+What to do:
+1. Tell Claude: *"SP won't start — kill any stale Studio Pro processes."*
+2. Claude checks for running SP processes and kills them: `pkill -f "studiopro"` (or the equivalent for your OS).
+3. Reopen SP normally.
+
+You don't need to restart your machine or reinstall anything. The stale process is the entire problem 95% of the time. If SP still won't start after killing the process, check for a stale `.mpr.lock` file in the project directory and remove it — that's the other 5%.
 
 ---
 

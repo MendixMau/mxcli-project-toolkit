@@ -8,22 +8,6 @@ Used across all mxcli-powered projects — OS migrations, Java/Angular migration
 
 ---
 
-## ⚠️ Critical rule: never screenshot or audit a stale build
-
-`mxcli exec` writes to the `.mpr` model file, but the **browser serves a JS bundle compiled by Studio Pro — not the raw model**. After any `mxcli exec`, the browser still shows the *old* build until SP recompiles. Screenshots taken before SP recompiles are worthless for UX audits and test verification.
-
-**Mandatory protocol before any screenshot, visual review, or UI test:**
-
-1. Run `./bin/exec.sh script.mdl` (or `mxcli exec`) as usual
-2. **Tell the user to close and reopen the project in Studio Pro manually**, then click Run Locally — do NOT auto-kill or auto-launch SP from a script. Auto-restart causes stale lock files, version-selector dialogs, and "cannot open files in the data format" errors. Only `bin/restart-sp.sh` may kill/reopen SP, and only when the user explicitly requests it. See `skills/iterative-build-loop.md` SP Lifecycle Rule.
-3. Wait for the user to confirm SP is running with the new build
-4. Confirm the app is live: `curl -s -o /dev/null -w "%{http_code}" http://localhost:PORT/login.html` → `200`
-5. **Only then** take screenshots or run UI assertions
-
-**Add this rule to your project's CLAUDE.md** when setting up a new project so every agent session is bound by it. Copy the "Screenshot & UX audit rule" section from any existing project's CLAUDE.md as a template.
-
----
-
 ## Quickstart
 
 ```bash
@@ -140,19 +124,27 @@ Before asking the user anything, or writing anything: **query the model → read
 
 Reads are always safe and free; writes go through the STOP table below.
 
-## Decision flow: mxcli vs MCP vs Studio Pro GUI
+## Decision flow: CLI vs MCP vs Studio Pro GUI
 
-```
-Write MDL  →  check the STOP table (skills/learned-mdl-preflight.md)
-                ├─ clean            → mxcli exec (SP closed)
-                ├─ STOP → MCP       → mxcli --mcp exec (SP open) — bypasses the BSON serializer
-                ├─ STOP → GUI       → Studio Pro by hand (settings, security-bearing drops)
-                └─ no MDL syntax    → hand-rolled MCP (pg_patch_page)
-Crashed anyway? → bin/restore-mpr.sh  (restores .mpr AND mprcontents/ — either alone is useless)
-                → log it in bug-logs/mxcli-bugs.md
-```
+Use this table before every write operation. The full STOP table with per-rule detail is in `skills/learned-mdl-preflight.md`.
 
-**The crash net, stated plainly.** An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units with the actual model). `bin/exec.sh` snapshots **both** automatically before every batch; 5 rotate; `bin/restore-mpr.sh` rolls back; git commits at phase gates are the real history. Ad-hoc `.mpr.backup` copies are banned.
+| Operation | Tool | SP state | Why |
+|---|---|---|---|
+| Entities, attributes, enumerations | `mxcli exec` (CLI) | Closed | Safe; BSON serializer handles these cleanly |
+| Associations — after `SHOW ASSOCIATIONS` check | `mxcli exec` (CLI) | Closed | No `IF NOT EXISTS`; must verify no duplicate before writing |
+| Microflows — no inline assoc-sets | `mxcli exec` (CLI) | Closed | Safe on v0.13.0+ |
+| Microflows — with inline assoc-sets (`CHANGE $Obj (Assoc = $Other)`) | `mxcli --mcp exec` | **Open** | Disk path writes bad BSON; `--mcp` routes through SP's own engine |
+| `visible:`/`editable:` on regular widgets, dataviews, page-level containers | `mxcli exec` (CLI) | Closed | Fixed in v0.13.0 (#627) |
+| `visible:`/`editable:` inside `datagrid customContent` columns | MCP (`pg_patch_page`) | **Open** | BUG-18: still writes blank `AttributeIdentifier` on v0.13.0 |
+| DataGrid2 widget JSON shapes (`DatagridDropdownFilter`, column configs) | MCP (`pg_patch_page`) | **Open** | No MDL syntax; confirmed JSON patterns in `learned-mcp-patterns.md` |
+| Cross-module association traversal as widget datasource | MCP (`pg_patch_page`) | **Open** | CLI writes null `DestinationEntityId` on `EntityRefStep` |
+| `ALTER SETTINGS`, `ALTER PROJECT SECURITY LEVEL` | Studio Pro GUI | N/A | Deterministic BSON stream-desync every retry (BUG-LOCAL-05) |
+| Drop an attribute that has security grants | Studio Pro GUI | N/A | CLI leaves dead UUID pointers in access rules → `KeyNotFoundException` |
+| Any operation after an MPR corruption or load error | `bin/restore-mpr.sh` | Closed | Restores both `Project.mpr` + `mprcontents/` — either alone is useless |
+
+**The crash net.** An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units). `bin/exec.sh` snapshots both before every batch; 5 snapshots rotate; `bin/restore-mpr.sh` rolls back. Git commits at phase gates are the real history. Ad-hoc `.mpr.backup` copies are banned.
+
+**Screenshot and UX audit discipline.** `mxcli exec` writes the model file — the browser still serves the old JS bundle until Studio Pro recompiles. Screenshots before SP recompiles are worthless for visual review. Protocol: exec → tell user to close and reopen in SP manually → wait for confirmation → `curl` confirms port 200 → only then screenshot or run UI assertions. Do NOT auto-kill/relaunch SP from a script (stale lock files, version-selector dialogs). Add this rule to each project's `CLAUDE.md` at setup time — copy from any existing project's "Screenshot & UX audit rule" section.
 
 ---
 

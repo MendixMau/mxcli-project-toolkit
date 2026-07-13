@@ -3,7 +3,8 @@
 **Purpose:** Platform-agnostic orchestration playbook for migrating any legacy application
 to Mendix via structured extraction, KB synthesis, and BRD generation.
 **Companion skills:** `source-os11.md`, `source-oracle-forms.md`, `source-java-spring-angular.md`,
-`document-discovery.md`, `kb-generation.md`, `brd-generation.md`, `brd-validation.md`, `migrate-general.md`
+`document-discovery.md`, `kb-generation.md`, `brd-generation.md`, `brd-validation.md`, `migrate-general.md`,
+`extractor-quality-loop.md` (mandatory Phase 2 gate — read before writing any extractor)
 **Gate:** `source-triage.md` runs right after Phase 1 (platform identified) and **before Phase 2/3 proceed** — it decides whether an extraction pipeline is even warranted at this size, checks coverage against the extractors/mappers that actually exist, and recommends a bounded scope. Phase 3 does not start on unconfirmed scope.
 **Downstream:** Phase 6 decides module boundaries via `modularize-domain.md` (criteria + user sign-off — never map source files/BRDs 1:1 onto modules) *before* writing `.mx-brd.json`. Then hand off to `architecture-blueprint.md` (diagrams, module defs, wiring, fit-gap) and `design-artifacts.md` (design system + wireframes) to make the architecture legible and verifiable, then to `brd-to-build-plan.md` to turn it all into a dependency-ordered, numbered build plan before any MDL scripting starts.
 
@@ -22,23 +23,35 @@ to Mendix via structured extraction, KB synthesis, and BRD generation.
 ```
 SOURCE (code + docs)
        │
-       ├─ Path A: Code Extraction
-       │    └─ XML / Java / C# / SQL → extracted JSON (knowledge-base/)
-       │         → BRD Scaffold (auto-generated draft BRDs)
+Phase 1: Source Triage → capabilities, coverage matrix
        │
-       ├─ Path B: Document Discovery & Extraction
-       │    └─ recursive scan → classify → KB_*.md files (knowledge-base/share/) → KB.md
+  [CAC-1 Scope] — POC boundary · extractor strategy · external refs
+       │
+       ├─ Path A: Code Extraction (Phase 2)
+       │    └─ XML / Java / C# / SQL → extracted JSON (knowledge-base/)
+       │         → BRD Scaffold (Phase 3 — auto-generated draft BRDs)
+       │              │
+       │         [CAC-2 BRD] — enrichment order · source patterns · hidden rules
+       │
+       ├─ Path B: Document Discovery & Extraction (Phase 4)
+       │    └─ recursive scan → classify → KB_*.md → KB.md
        │
        └─ MERGE
-            └─ Scaffold BRD  +  KB.md enrichment  →  validate  →  F{NNN}.brd.json
-                                                              │
-                                               Phase 6: Rearchitect to Mendix
-                                                              │
-                                                   F{NNN}.mx-brd.json (Mendix-aligned)
-                                                              │
-                                                   Phase 7: MDL Generation
-                                                              │
-                                                layer1/ (domain) + layer2/ (microflows)
+            └─ Scaffold BRD + KB.md enrichment → validate → F{NNN}.brd.json (Phase 5)
+                    │
+               [CAC-3 Architecture] — module split · cross-module data · NFRs
+                    │
+               Phase 6: Rearchitect to Mendix → F{NNN}.mx-brd.json
+                    │
+               [CAC-4 Design] — Atlas layout · platform target · branding/Figma
+                    │
+               Phase 6b: Design Artifacts (design-artifacts.md)
+                    │
+               [CAC-5 Build] — MDL strategy · security timing · deadline/priority
+                    │
+               Phase 7: MDL Generation
+                    │
+               layer1/ (domain) + layer2/ (microflows) + layer3/ (pages)
 ```
 
 **Path A and Path B run independently and in either order** — Path B does not block Path A.
@@ -164,6 +177,11 @@ Count before committing:
 
 **Phase 3 (BRD scaffolding) does not start until this triage is confirmed.** Skipping straight from extraction to BRDs produces scaffolds for a scope nobody agreed to.
 
+### ► CAC-1 Scope Checkpoint
+
+After triage is complete and confirmed, run `checkpoints/checkpoint-scope.md` before Phase 2 starts.
+This gate locks the POC boundary, extractor strategy, and any external project references.
+
 ---
 
 ## Phase 2 — Code Extraction (Path A)
@@ -203,12 +221,31 @@ knowledge-base/
 3. Review `gaps-report.md` — unresolved references indicate cross-module dependencies
 4. Review `coverage-report.md` — confirm expected artifact counts match source
 
-### Quality checks before BRD generation
+### Quality gate before BRD generation — enforced by `extractor-quality-loop.md`
 
-- [ ] Entity count matches source module inventory
-- [ ] Cross-reference gaps < 15% of total references
-- [ ] All business modules present in extracted output
-- [ ] No extractor failed silently (check `errors/` directory)
+**Phase 3 (BRD scaffolding) does not start until the extraction quality score ≥ 95%.**
+
+Read `extractor-quality-loop.md` in full before writing or running any extractor. That skill
+defines the mandatory test/build loop, the 6 scored dimensions, the `extraction-quality.json`
+format, and the `run.sh` interface every stack extractor must implement.
+
+The loop:
+1. Run extractor → emits `inventory.json` (or KB JSONs)
+2. Run validator → emits `extraction-quality.json` with dimension scores
+3. If overall score < 95%: fix the extractor, go to 1
+4. If overall score ≥ 95%: gate passed, update `pipeline-state.md`, proceed to Phase 3
+
+Never hand-patch `inventory.json` to inflate a score. The validator must derive ground truth
+from source files directly.
+
+Quick checklist (validator covers these automatically):
+- [ ] Entity field count matches source interfaces/models
+- [ ] Cross-file enum references resolved (not typed as String)
+- [ ] Union types resolved to the enum variant, not String fallback
+- [ ] All FK fields mapped to associations (including aliased FKs)
+- [ ] All route-defining files globbed (not just `*-routes.ts` — include auth, app.ts, etc.)
+- [ ] All test spec files classified to a capability (no "Other" bucket)
+- [ ] Business logic items explicitly listed as BRD-only, not penalised
 
 ---
 
@@ -234,6 +271,12 @@ click any module to see its BRD summary alongside raw extraction data.
 
 **Important:** use-case narrative (actors, preconditions, main flow) is NOT auto-generated — these are
 business decisions, not derivable from code. The scaffold provides the structure; the business fills in the content.
+
+### ► CAC-2 BRD Checkpoint
+
+After scaffold BRDs are generated, run `checkpoints/checkpoint-brd.md` before Phase 5 enrichment.
+This gate sets enrichment priority order, resolves detected source patterns (soft-delete, state machines,
+shared balances), and surfaces business rules not visible in code.
 
 ---
 
@@ -317,6 +360,12 @@ When no `KB.md` coverage exists for a module, the JSON draft BRD is sufficient �
 `openQuestions` with items that need business confirmation, and validation should not treat
 the absence as a conflict.
 
+### ► CAC-3 Architecture Checkpoint
+
+After BRDs are validated (all open questions resolved, `brd-validation.md` clean), run
+`checkpoints/checkpoint-architecture.md` before Phase 6 starts. This gate decides module
+structure, cross-module data strategy, and captures non-functional requirements.
+
 ### BRD generation order
 
 Write dependency BRDs first:
@@ -359,6 +408,27 @@ knowledge-base/
     F001-payer-registration.mx-brd.json  ← Mendix-rearchitected (add .mx- prefix)
     index.json
 ```
+
+---
+
+### ► CAC-4 Design Checkpoint
+
+After `.mx-brd.json` files are produced and module boundaries confirmed, run
+`checkpoints/checkpoint-design.md` before `design-artifacts.md`. This gate locks the Atlas
+layout, platform target (web/responsive/native), and captures branding or Figma assets.
+
+---
+
+## Phase 6b — Design Artifacts (`design-artifacts.md`)
+
+Produces design system decisions (Atlas layout, tokens, component naming) and wireframe outlines.
+Reads: `.mx-brd.json` files + CAC-4 design decisions.
+
+### ► CAC-5 Build Plan Checkpoint
+
+After design artifacts are signed off, run `checkpoints/checkpoint-build.md` before MDL
+generation starts. This gate sets MDL layer strategy, security timing, and surfaces any
+deadline or feature priority that should front-load the build plan.
 
 ---
 

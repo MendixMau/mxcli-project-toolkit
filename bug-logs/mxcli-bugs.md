@@ -910,7 +910,8 @@ Then restart SP.
 **Reproducible:** Yes, consistently  
 **Mendix version:** 11.12.0 Beta  
 **mxcli version when found:** v0.13.0 (confirmed on codec engine)  
-**Retested on v0.13.0:** Yes — still corrupts. Preflight rule 7 STOP remains valid.  
+**Retested on v0.13.0:** Yes — still corrupts. Preflight rule 7 STOP remained valid.  
+**Retested on v0.16.0:** **Still BROKEN — 2026-07-13**, KT-POC project (`1146version` branch). Script created page `ZZ_Retest16.Retest_BUG07_Page` with DataGrid datasource `$currentObject/ZZ_Retest16.Widget_Category` (cross-module, `ZZ_Retest16.Widget` → `ZZ_Retest16B.Category`). mxbuild gate: **0 errors** — but SP crashed on open with the identical `ArgumentNullException: value at EntityRefStep.set_DestinationEntityId`. **Critical new finding: mxbuild does NOT catch this BSON corruption — only Studio Pro's project load does.** Preflight rule 7 STOP remains in effect.  
 **Discovered:** 2026-07-06
 
 ### Steps to reproduce
@@ -972,7 +973,8 @@ rsync -a --delete "$SNAP/mprcontents/" mprcontents/
 **Reproducible:** Yes, consistently  
 **Confirmed:** Mendix 11.12.0 Beta, 2026-07-06  
 **mxcli version when found:** v0.13.0 (confirmed on codec engine)  
-**Retested on v0.13.0:** Disk write path still corrupts. **`mxcli --mcp` path confirmed safe — retested 2026-07-09, `ped_check_errors` 0 errors.** Preflight rule 9 updated: use `mxcli --mcp` instead of hand-rolled MCP.
+**Retested on v0.13.0:** Disk write path still corrupts. **`mxcli --mcp` path confirmed safe — retested 2026-07-09, `ped_check_errors` 0 errors.** Preflight rule 9 updated: use `mxcli --mcp` instead of hand-rolled MCP.  
+**Retested on v0.16.0:** **Still corrupts — 2026-07-13**, KT-POC project (`main` and `1146version` branches). Variant A (`change $NewAccount (System.User_UserRoles = $Role);`) reproduced the identical error on both branches: `"The text 'System.User_UserRoles' is not a valid AttributeIdentifier"` — a project-load-level failure. v0.14.0's "$ID-first BSON ordering fix" does not address this. **Preflight rule 9 (use `mxcli --mcp`) remains in effect.**
 
 ### Symptom
 `mxcli exec` (disk write path) reports success. Studio Pro refuses to open the project on the next load. The error is in the CHANGE or CREATE activity's BSON, where the association name was written as an `AttributeIdentifier` field instead of a proper association reference.

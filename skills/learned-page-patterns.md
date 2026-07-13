@@ -1,4 +1,10 @@
-# Page Patterns — MDL Page Build Rules for This Project
+# Page Patterns — MDL Page Build Rules
+
+**Convention:** each rule is stated generically so it transfers to any project. Where a rule has a
+concrete illustration, it's kept as a **labeled example** (often from the Apex M-0022 OS→Mendix PoC —
+Japanese captions, `PayerRegistration`/`PayerDetail` names). Read the rule as the portable part; the
+example is just there to show the shape. Some older sections below are still written in project-
+specific terms and haven't been generalized yet — treat their project names as examples too.
 
 ---
 
@@ -23,13 +29,13 @@ Applies to: pending Studio Pro steps, CE-error descriptions, and any instruction
 
 ---
 
-## Buttons — Always Define Caption (Japanese) Before Adding
+## Buttons — Always Define a Caption Before Adding
 
 **Rule:** Every `ACTIONBUTTON` in an MDL script MUST include a `Caption:` property. Never add a button without one.
 
-mxcli generates buttons with an empty label when `Caption:` is omitted — the button works functionally but shows nothing in the UI, requiring a Studio Pro fix after every exec.
+mxcli generates buttons with an empty label when `Caption:` is omitted — the button works functionally but shows nothing in the UI, requiring a Studio Pro fix after every exec. Keep a project caption glossary (in the target language) so captions are consistent and never left blank; if the correct label is uncertain, look it up in the project's field-label source before writing the script rather than shipping an empty caption.
 
-**Standard captions for this project:**
+**Example — Apex M-0022 (Japanese caption glossary):**
 
 | Action | Japanese caption |
 |--------|-----------------|
@@ -40,9 +46,8 @@ mxcli generates buttons with an empty label when `Caption:` is omitted — the b
 | Back to list | `Back to list` |
 | Next | `Next` |
 | Search | `Search` |
-| New (payer) | `New` |
+| New | `New` |
 
-**Example:**
 ```mdl
 ACTIONBUTTON btnAddSalesAreaRow (
   Caption: ' Add row',
@@ -50,8 +55,7 @@ ACTIONBUTTON btnAddSalesAreaRow (
   Action: MICROFLOW PayerRegistration.ACT_SalesAreaData_AddRow(Dto: $PayerDetail_Dto)
 )
 ```
-
-If the correct Japanese caption is uncertain, check `extraction/knowledge-base/share/KB_M0022_FieldLabels_EN.md` before writing the script — don't leave Caption blank.
+> In that project the glossary lived in `extraction/knowledge-base/share/KB_M0022_FieldLabels_EN.md`.
 
 ---
 
@@ -212,6 +216,24 @@ for the exact `navigation` MDL syntax; don't leave the page out of the nav profi
 **Checklist when adding a page:** (1) who opens it? (2) is that entry point created in this same
 script/session? (3) if it's an overview, is it in navigation? State the entry point when you
 report the page as done — **a page with no wired caller is not "done."**
+
+---
+
+## Page Build Discipline — Field Fidelity
+
+Learned after a build phase produced pages with wrong widget types, empty sections, and inaccessible fields. These rules are universal; the paths/users in the examples are project-specific.
+
+**Rule: Read the authoritative spec field-by-field before building any page — not the prototype.** A prototype/mockup HTML omits fields, flattens sections, and makes everything look like a text input. Build from the field-level spec (labels, types, mandatory/optional, section structure) and the domain-model bindings, not the mockup.
+> *Example — Apex M-0022:* authoritative sources were `KB_M0022_FieldLabels_EN.md` (labels + types), `KB_M0022_RequirementsSpec_V5.md` (rules), `07_Form.md` (section structure), and `docs/domain-design-enriched/F001–F012.md` (entity bindings).
+
+**Rule: Cross-check DTOs/NPEs against pages before calling a phase done.** When the domain model and pages are built in separate sessions, verify every DTO created in the domain phase is actually bound to a DataView on some page. A 34-attribute DTO that no page renders is invisible — a silent gap.
+
+**Rule: After any page build, test with a non-admin user before moving on.** Write access on non-persistent (DTO) entities is not inherited from persistent-entity access rules; failing to grant `write *` to the relevant User roles produces greyed-out forms that look built but aren't usable. Log in as a real end-user role immediately after page creation.
+> *Example — Apex M-0022:* tested with `yoko.taoka` (HQDomestic role) right after each page.
+
+**Rule: Stub banners must name the script that will replace them.** Use `[STUB: Script 44 will replace this section]`, never a bare `[STUB] handled elsewhere` — named stubs are trackable and don't get forgotten as sessions progress. (A stub banner with nothing rendered beneath it is invisible in a demo — always render at least one real data field below it.)
+
+**Rule: Use the correct widget type from the start** — don't plan to change textbox → combobox later. Widget-type swaps via `ALTER PAGE` are painful (BUG-08: the replacement must use a different name). If a field has a master-data source or enumeration, give it the correct widget (combobox/radiobuttons/datepicker) in the original page script, not a later patch.
 
 ---
 

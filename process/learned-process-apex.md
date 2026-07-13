@@ -2,11 +2,14 @@
 
 **Scope:** These are **project-specific** build-discipline notes from the Apex M-0022 OutSystems→Mendix PoC. They reference that project's paths, demo users, and design docs — they are **not** generic toolkit rules. They live here (not in `skills/learned-*.md`, not in Baseline routing) so a new project doesn't inherit Apex-specific paths by accident.
 
-**The generic versions of the durable rules that used to sit here now live in:**
+**The generic versions of the durable rules that used to sit here now live in shared skills:**
 - **Widget-location-context format** → `skills/learned-page-patterns.md` (generalized)
+- **Page build discipline / field fidelity** (spec-first, DTO cross-check, test-as-non-admin, stub naming, correct-widget-first) → `skills/learned-page-patterns.md` (generalized, with Apex examples kept)
 - **CE-error triage discipline** → `skills/iterative-build-loop.md` (CE Error Triage) + `skills/learned-microflow-patterns.md` (annotation-on-fix rule)
 - **MDL script freezing / new-numbered-script-per-fix** → `skills/iterative-build-loop.md` (Script Conventions → Numbering and versioning)
 - **Rotating keep-5 MPR snapshots + auto-restore gate** → `skills/iterative-build-loop.md` (`bin/exec.sh` template)
+
+**What remains below is genuinely Apex-specific** (exact doc paths, demo users, folder layout) — kept as a reference example, not a shared rule.
 
 ---
 
@@ -70,22 +73,7 @@ Use the rotating keep-5 snapshot discipline — **never** ad-hoc `.mpr.backup` c
 
 ---
 
-## Page Build Discipline — Field Fidelity Rules (Apex M-0022)
-
-Learned after Phase 3 produced pages with wrong widget types, empty sections, and inaccessible fields.
-
-**Rule: Read the F-doc field-by-field before building any page — not just the prototype.**
-
-The prototype HTML is a simplified mockup. It omits fields, flattens sections, and makes everything look like a text input. The authoritative source is:
-1. `extraction/knowledge-base/share/KB_M0022_FieldLabels_EN.md` — field labels + types
-2. `extraction/knowledge-base/share/KB_M0022_RequirementsSpec_V5.md` — field rules + mandatory/optional
-3. `Share/WorkFlow//07_Form.md` — section structure
-4. `docs/domain-design-enriched/F001–F012.md` — entity bindings
-
-**Rule: Cross-check DTOs against pages before calling a phase done.** When domain model and pages are built in separate sessions, verify every DTO created in the domain phase is actually bound to a DataView on some page. A DTO with 34 attrs that no page renders is invisible.
-
-**Rule: After any page build, test with a non-admin user before moving on.** Write access on NPE DTOs is not inherited from persistent entity rules; failing to grant `write *` to User roles produces greyed-out forms. Test with `yoko.taoka` (HQDomestic) immediately after page creation.
-
-**Rule: Stub banners must name the script that will replace them.** Use `[STUB: Script 44 will replace this section]`, not a bare `[STUB] SAP handles this`.
-
-**Rule: Use the correct widget type from the start** — don't plan textbox → combobox later (BUG-08: replacement must use a different name). If a field has a master-data source or enumeration, it gets the correct widget in the original page script, not a patch.
+> The **Page Build Discipline / Field Fidelity** rules that used to live here (spec-first, DTO
+> cross-check, test-as-non-admin, stub naming, correct-widget-first) are now generic rules in
+> `skills/learned-page-patterns.md`, with this project's paths (`KB_M0022_*`, `07_Form.md`) and demo
+> user (`yoko.taoka` / HQDomestic) preserved there as the worked example.

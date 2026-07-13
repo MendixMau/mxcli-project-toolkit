@@ -1,0 +1,91 @@
+# Project-Scoped Process Notes — Apex M-0022 (OS→Mendix PoC)
+
+**Scope:** These are **project-specific** build-discipline notes from the Apex M-0022 OutSystems→Mendix PoC. They reference that project's paths, demo users, and design docs — they are **not** generic toolkit rules. They live here (not in `skills/learned-*.md`, not in Baseline routing) so a new project doesn't inherit Apex-specific paths by accident.
+
+**The generic versions of the durable rules that used to sit here now live in:**
+- **Widget-location-context format** → `skills/learned-page-patterns.md` (generalized)
+- **CE-error triage discipline** → `skills/iterative-build-loop.md` (CE Error Triage) + `skills/learned-microflow-patterns.md` (annotation-on-fix rule)
+- **MDL script freezing / new-numbered-script-per-fix** → `skills/iterative-build-loop.md` (Script Conventions → Numbering and versioning)
+- **Rotating keep-5 MPR snapshots + auto-restore gate** → `skills/iterative-build-loop.md` (`bin/exec.sh` template)
+
+---
+
+## Design Sources — Where to Look Before Implementing (Apex M-0022)
+
+**Rule:** Consult design sources before any domain model change, CE error fix, or logic implementation. Never improvise from memory.
+
+| Priority | Path | Use when |
+|----------|------|----------|
+| 1 | `docs/domain-design-enriched/F001–F012.md` | Any entity, attribute, association, or microflow question |
+| 2 | `docs/poc-plan.md` | Scope boundary, stub vs. real, integration decisions |
+| 3 | `extraction/knowledge-base/brd/F001–F012.brd.json` | OS original behavior, field names, flow logic |
+| 4 | `extraction/knowledge-base/share/KB_*.md` | Requirements detail, field labels, CorpSearch/SAP API specs |
+| 5 | `docs/interface-registry.md` | Cross-module calls, parameter contracts |
+| 6 | `bug-logs/mxcli-bugs.md` | Unexpected mxcli behavior — check here before assuming a script bug |
+
+**F-doc index:** F001=Payer Reg UI, F002=Approval Workflow, F003=Master Data, F004=Corporate Search, F005=SAP Integration, F006=Common Components, F010=WF Backend, F011=Customer Common, F012=Payer Backend. F007–F009 are out of PoC scope.
+
+**Do NOT use:** `docs/domain-design/` (superseded), `docs/domain-design-patched/` (superseded), `docs/superpowers/` (pipeline planning), `extraction/extractors/`, `extraction/generators/`.
+
+---
+
+## CE Error Triage — Mandatory 5-Step Approach (Apex M-0022 specifics)
+
+The generic discipline is in `iterative-build-loop.md`. Project-specific hooks:
+
+1. **Collect:** run `./bin/exec.sh` — its mxbuild gate reports the CE error list and auto-restores on failure. (For an out-of-band check without an exec, open the project in Studio Pro.)
+2. **Trace to script:** review latest scripts in `mdlsource/layer2/` (highest number = most recent). For each error: which script created/modified the flagged element? Is it a **script bug** (wrong wiring) or a **design gap** (element never built)?
+3. **Consult design docs** (only for design gaps, in the priority order above).
+4. **Propose with justification:** state root cause, proposed fix, and the F-doc section or poc-plan decision that justifies it. Wait for user approval.
+5. **Execute:** only after explicit approval.
+
+**Never:** add attributes/entities to silence errors without requirement justification. Never fix the model to match a broken page binding — the page may be wrong.
+
+---
+
+## MPR Backup / Recovery (Apex M-0022)
+
+Use the rotating keep-5 snapshot discipline — **never** ad-hoc `.mpr.backup` copies (they accumulate and rot). `bin/exec.sh` snapshots automatically before every exec and auto-restores on an mxbuild failure.
+
+```bash
+# exec.sh snapshots automatically. To snapshot manually (only if calling mxcli exec directly):
+./bin/snapshot-mpr.sh
+
+# If Studio Pro crashes or the MPR is corrupt: restore the newest snapshot
+./bin/restore-mpr.sh
+```
+
+**Snapshot especially matters when:**
+- Any contentparams write (BUG-04 null GUID risk)
+- Any script touching cross-module associations or entity-qualified paths
+- Any sequence of 3+ mxcli exec calls in one session
+- Before scripting new pages with complex widget trees
+
+**Corruption detection:**
+- `mxcli check --references` → syntax/reference errors (before exec)
+- `bin/exec.sh` mxbuild gate → CE errors (after exec)
+- Neither catches BSON-level null GUIDs (BUG-04) — only Studio Pro opening reveals these
+
+**Do NOT** use `git checkout HEAD -- <project>.mpr` as recovery — it discards all good MPR changes since the last commit. Restore from `.mpr-snapshots/` via `bin/restore-mpr.sh`.
+
+---
+
+## Page Build Discipline — Field Fidelity Rules (Apex M-0022)
+
+Learned after Phase 3 produced pages with wrong widget types, empty sections, and inaccessible fields.
+
+**Rule: Read the F-doc field-by-field before building any page — not just the prototype.**
+
+The prototype HTML is a simplified mockup. It omits fields, flattens sections, and makes everything look like a text input. The authoritative source is:
+1. `extraction/knowledge-base/share/KB_M0022_FieldLabels_EN.md` — field labels + types
+2. `extraction/knowledge-base/share/KB_M0022_RequirementsSpec_V5.md` — field rules + mandatory/optional
+3. `Share/WorkFlow//07_Form.md` — section structure
+4. `docs/domain-design-enriched/F001–F012.md` — entity bindings
+
+**Rule: Cross-check DTOs against pages before calling a phase done.** When domain model and pages are built in separate sessions, verify every DTO created in the domain phase is actually bound to a DataView on some page. A DTO with 34 attrs that no page renders is invisible.
+
+**Rule: After any page build, test with a non-admin user before moving on.** Write access on NPE DTOs is not inherited from persistent entity rules; failing to grant `write *` to User roles produces greyed-out forms. Test with `yoko.taoka` (HQDomestic) immediately after page creation.
+
+**Rule: Stub banners must name the script that will replace them.** Use `[STUB: Script 44 will replace this section]`, not a bare `[STUB] SAP handles this`.
+
+**Rule: Use the correct widget type from the start** — don't plan textbox → combobox later (BUG-08: replacement must use a different name). If a field has a master-data source or enumeration, it gets the correct widget in the original page script, not a patch.

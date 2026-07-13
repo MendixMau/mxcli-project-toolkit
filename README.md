@@ -12,10 +12,9 @@ Used across all mxcli-powered projects — OS migrations, Java/Angular migration
 
 **Mandatory protocol before any screenshot, visual review, or UI test:**
 
-1. Run `mxcli exec` as usual
-2. Fully restart Studio Pro: `pkill -9 -f "Contents/MacOS/studiopro" && rm -f *.mpr.lock && open -a "Mendix Studio Pro X.Y.Z" YourProject.mpr`
-   - `open file.mpr` (bare) only **foregrounds** an already-running SP and can trigger macOS's version-selector popup — it does NOT reload the model. Always use `open -a "..."` with the full app name, and always `pkill -9` first.
-3. Click **Run Locally** in SP and wait for compilation to finish
+1. Run `./bin/exec.sh script.mdl` (or `mxcli exec`) as usual
+2. **Tell the user to close and reopen the project in Studio Pro manually**, then click Run Locally — do NOT auto-kill or auto-launch SP from a script. Auto-restart causes stale lock files, version-selector dialogs, and "cannot open files in the data format" errors. Only `bin/restart-sp.sh` may kill/reopen SP, and only when the user explicitly requests it. See `skills/iterative-build-loop.md` SP Lifecycle Rule.
+3. Wait for the user to confirm SP is running with the new build
 4. Confirm the app is live: `curl -s -o /dev/null -w "%{http_code}" http://localhost:PORT/login.html` → `200`
 5. **Only then** take screenshots or run UI assertions
 
@@ -65,7 +64,7 @@ These are two tools for the same stage — they work together, not instead of ea
 | Tool | What it does | When to use it |
 |------|-------------|----------------|
 | `assess-migration.md` | AI-guided manual inventory: reads source files, produces a human-readable markdown report covering entities, business logic, integrations, security, and migration risks. | Always — for small apps this is sufficient on its own; for large apps it provides the human-readable layer on top of the pipeline output. Run it before or after the extraction pipeline. |
-| ``outsystems/`) | Automated AST-based extraction: parses source code into normalized KB JSON, runs BRD mappers, generates a per-module BRD and HTML report. | Medium/large apps where manual reading would miss classes or where you need machine-processable output for BRD generation. |
+| Extraction pipeline (`pipelines/<stack>/`, e.g. `outsystems/`, `java-angular/`) | Automated AST-based extraction: parses source code into normalized KB JSON, runs BRD mappers, generates a per-module BRD and HTML report. | Medium/large apps where manual reading would miss classes or where you need machine-processable output for BRD generation. |
 
 **The correct combined flow for a medium/large Java/Spring app:**
 
@@ -125,13 +124,28 @@ mxcli-project-toolkit/
     outsystems-migration/
       plan-overview.md          ← Worked example: 112 OS modules → 14 Mendix, architecture decisions
       build-loop-example.md     ← Worked example: single module (PayerRegistration) step-by-step
+    apex-m0022/                 ← Project-specific artifacts, kept as reference examples (not shared rules)
+      bug-log-apex-m0022.md     ← Project-specific bug log (Apex M-0022)
+      test-plan-apex-m0022.md   ← Reference test plan
   bug-logs/
-    mxcli-bugs.md               ← Known mxcli CLI bugs and workarounds
-    bug-log-apex-m0022.md    ← Project-specific bug log (Apex M-0022)
+    mxcli-bugs.md               ← Known mxcli CLI bugs and workarounds (shared)
   process/
     process-learnings.md        ← Cross-project process improvements
-    test-plan-apex-m0022.md  ← Reference test plan
+    learned-process-apex.md     ← Apex M-0022 project-scoped process notes (not in Baseline routing)
 ```
+
+---
+
+## Division of labor: this toolkit vs bundled mxcli skills
+
+Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli init`, refreshed with each release) containing syntax references, widget patterns, CRUD templates, and how-to guides. **This toolkit does not duplicate those.** The two sets are complementary:
+
+| Layer | Owned by | Contents | Updated by |
+|---|---|---|---|
+| `.ai-context/skills/` | mxcli (bundled) | MDL syntax, widget patterns, CRUD/data-processing templates, integration guides | `mxcli` release |
+| `mxcli-project-toolkit/skills/` | This repo | Migration pipeline, build discipline, agent roles, STOP rules from real corruption incidents | You (via `git pull`) |
+
+**When the two disagree, this toolkit's STOP rules take precedence** — until explicitly retested and the result stamped in `bug-logs/mxcli-bugs.md`. The bundled skills may teach patterns that were unsafe on older mxcli versions; the bug log's `Retested on v0.13.0` field is the authoritative reconciliation record. References to bundled skills in this toolkit's docs are marked with "(bundled)".
 
 ---
 
@@ -141,17 +155,25 @@ mxcli-project-toolkit/
 |------|--------------|
 | Deciding whether to extract at all, checking coverage, scoping a large source | `source-triage.md` |
 | Running the extraction pipeline | `migration-pipeline.md` |
-| Diagramming target architecture: module defs, wiring, fit-gap | `architecture-blueprint.md` |
+| Scanning/classifying an unstructured document folder | `document-discovery.md` |
+| Diagramming target architecture: module defs, wiring, fit-gap | `architecture-blueprint.md` + `graph-analysis.md` (bundled — run `mxcli graph-report` for community-detection data before drawing module boundaries) |
 | Designing the brand + wireframes before building pages | `design-artifacts.md` |
 | Turning BRDs + architecture into an ordered build plan | `brd-to-build-plan.md` |
 | Building a module with mxcli (verified, iterative) | `iterative-build-loop.md` |
 | Writing or enriching a BRD JSON | `brd-generation.md` |
+| Validating BRDs against code + doc KB | `brd-validation.md` |
 | Extracting Excel/Word/PDF specs | `kb-generation.md` |
 | Understanding OS XML source | `source-os11.md` + `os-xml-schema.md` |
 | Writing MDL microflow scripts | `mdl-cookbook-microflows.md` |
 | Checking what's safe to write in MDL vs MCP vs SP GUI before drafting (STOP table) | `skills/learned-mdl-preflight.md` |
-| Using MCP alongside mxcli — handoff sequence, save discipline, confirmed JSON patterns, known bugs | `skills/learned-mcp-patterns.md` |
+| Using MCP alongside mxcli — handoff sequence, save discipline, confirmed JSON patterns, known bugs | `skills/learned-mcp-patterns.md` + `live-edit-with-studio-pro.md` (bundled — mxcli v0.13.0 `--mcp` flag is the designed alternative to hand-rolled MCP sessions) |
 | Diagnosing a mxcli error | `bug-logs/mxcli-bugs.md` |
+| Enforcing module-graph architecture boundaries via lint rules | `write-lint-rules.md` (bundled — Starlark rules over `mxcli lint`) |
+| Writing DB assertion tests (cross-check UI state against the database) | `learned-db-assertions.md` |
+| Building and auditing Mendix pages (widget patterns, datasource shapes) | `learned-page-patterns.md` |
+| UX audit / screenshot loop discipline | `learned-skill-ux-audit.md` |
+| Scope delta tracking between BRD and built state | `learned-skill-scope-delta.md` |
+| Cross-project process improvements and retrospective learnings | `process/process-learnings.md` |
 | Validating a new stack pipeline's extraction quality | `qa-loop-goal-pattern.md` |
 | Deciding module boundaries before `create module` | `modularize-domain.md` |
 | Assessing / planning a migration up front | `assess-migration.md` |

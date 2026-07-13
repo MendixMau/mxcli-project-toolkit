@@ -61,7 +61,7 @@ cd "$(dirname "$0")/.."
 
 MPR="$(ls *.mpr | head -1)"
 CONTENTS_DIR="mprcontents"
-SNAP_DIR="build/snapshots"
+SNAP_DIR=".mpr-snapshots"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 DEST="$SNAP_DIR/$TIMESTAMP"
 
@@ -85,7 +85,7 @@ cd "$(dirname "$0")/.."
 
 MPR="$(ls *.mpr | head -1)"
 CONTENTS_DIR="mprcontents"
-SNAP_DIR="build/snapshots"
+SNAP_DIR=".mpr-snapshots"
 
 SNAP="${1:-$(ls -dt "$SNAP_DIR"/20* 2>/dev/null | head -1)}"
 [ -z "$SNAP" ] && { echo "ERROR: no snapshots in $SNAP_DIR"; exit 1; }
@@ -103,7 +103,7 @@ fi
 echo "Restore complete."
 ```
 
-Add `build/snapshots/` to the project `.gitignore`.
+Add `.mpr-snapshots/` to the project `.gitignore`.
 
 #### When Studio Pro crashes on open (KeyNotFoundException / AggregateException)
 
@@ -112,7 +112,7 @@ This means a BSON unit file references a GUID that no longer exists in the model
 **Recovery procedure:**
 1. `bash bin/restore-mpr.sh` — restore both `.mpr` and `mprcontents/` from the newest snapshot
 2. If no clean snapshot is available: use `mxcli` to surgically drop the documents that reference the missing GUID, then recreate them clean
-3. After recovery, verify with `./mxcli docker check -p App.mpr --no-update-widgets` before proceeding
+3. After recovery, re-run `./bin/exec.sh` on a no-op/next script (its mxbuild gate re-validates the model), or open the project in Studio Pro to confirm it loads cleanly, before proceeding
 
 ---
 
@@ -143,7 +143,7 @@ uncommitted-guard → SP-open-guard → concurrent-writer-guard → snapshot →
 #!/usr/bin/env bash
 # exec.sh — snapshot → exec → mxbuild gate → tell user to reopen SP
 # Usage: ./bin/exec.sh <script.mdl>
-# Override: FORCE_EXEC=1 ./bin/exec.sh <script.mdl>  (skips all guards — use only if you know why)
+# Override: FORCE_EXEC=1 ./bin/exec.sh <script.mdl>  (skips the guards — use only if you know why)
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -163,26 +163,39 @@ fi
 cd "$PROJECT_ROOT"
 
 # Guard 1: SP must not have the project open (split-brain = data loss).
-# SP writes <mpr>.lock with the PID while the project is open.
+# SP writes <mpr>.lock = {"SessionId":...,"ProcessId":N} while the project is open.
+# Refuse only if that PID is actually alive, so a stale lock never blocks forever.
 if [[ -f "$MPR.lock" ]]; then
   SP_PID=$(grep -oE '"ProcessId":[0-9]+' "$MPR.lock" 2>/dev/null | grep -oE '[0-9]+' || true)
   if [[ -n "$SP_PID" ]] && kill -0 "$SP_PID" 2>/dev/null; then
     echo "✗ Studio Pro has the project open (PID $SP_PID) — refusing exec (split-brain risk)."
     echo "  → Close the project in Studio Pro, then re-run."
+    echo "    Override (NOT recommended): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
     [[ "$FORCE" == "1" ]] || exit 1
+    echo "  (FORCE_EXEC set — proceeding despite open SP)"
+  elif [[ -n "$SP_PID" ]]; then
+    echo "  (stale $MPR.lock from dead PID $SP_PID — SP not actually open, proceeding)"
   fi
 fi
 
-# Guard 2: No other exec.sh already running.
+# Guard 2: No other exec.sh already running (e.g. a second agent session).
 if [[ -f "$LOCK" ]]; then
   OTHER=$(cat "$LOCK" 2>/dev/null || true)
   if [[ -n "$OTHER" ]] && kill -0 "$OTHER" 2>/dev/null; then
     echo "✗ Another exec is running (PID $OTHER) — refusing concurrent write."
+    echo "  → Wait for it to finish. If it's stale (process dead): rm '$LOCK'"
     exit 1
   fi
 fi
 
-# Guard 3: Uncommitted MPR changes — prevents silent loss if mxbuild fails and restores.
+# Guard 3: No stray raw `mxcli exec` from another session.
+if pgrep -fl "mxcli exec" 2>/dev/null | grep -qv "$$"; then
+  echo "✗ A raw 'mxcli exec' is already running elsewhere — refusing to write concurrently."
+  [[ "$FORCE" == "1" ]] || exit 1
+fi
+
+# Guard 4: Uncommitted MPR changes — prevents silent loss if mxbuild fails and restores.
+# The snapshot below will not cover uncommitted MCP work; an auto-restore would wipe it.
 MPR_DIRTY=$(git status --porcelain MyProject.mpr mprcontents/ 2>/dev/null | grep -v "^$" || true)
 if [[ -n "$MPR_DIRTY" ]]; then
   echo "✗ Uncommitted MPR changes detected — refusing exec to prevent snapshot regression."
@@ -205,33 +218,48 @@ echo "→ Executing $SCRIPT..."
 ./mxcli exec "$SCRIPT" -p "$MPR"
 
 echo ""
-echo "→ Running mxbuild model check..."
+echo "→ Running mxbuild model check (catches BSON corruption before SP opens)..."
 JAVA_HOME=$(/usr/libexec/java_home 2>/dev/null || true)
 JAVA_EXE="${JAVA_HOME}/bin/java"
 
 if [[ -x "$MXBUILD" && -x "$JAVA_EXE" ]]; then
   ERRORS_FILE=$(mktemp /tmp/mxbuild-errors.XXXXXX)
-  "$MXBUILD" \
+  # --target=deploy (lowercase, required by mxbuild v11).
+  # --write-errors writes the file ONLY when errors exist; absence = clean.
+  MXBUILD_OUT=$("$MXBUILD" \
     --java-home="$JAVA_HOME" \
     --java-exe-path="$JAVA_EXE" \
     --write-errors="$ERRORS_FILE" \
     --target=deploy \
-    "$MPR" 2>&1 || true
+    "$MPR" 2>&1) || true
+  MXBUILD_EXIT=${PIPESTATUS[0]:-$?}
 
   if [[ -f "$ERRORS_FILE" && -s "$ERRORS_FILE" ]]; then
+    # Errors file written → model has CE errors → restore and stop.
     CE_COUNT=$(python3 -c "import json; d=json.load(open('$ERRORS_FILE')); print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null || echo "?")
-    echo "  ✗ mxbuild: $CE_COUNT error(s) — auto-restoring snapshot."
-    # Restore from the snapshot BEFORE this exec (second-newest, since snapshot ran before exec)
+    echo "  ✗ mxbuild: $CE_COUNT error(s) found — restoring snapshot to avoid loading a corrupt MPR."
+    # Restore from the snapshot taken BEFORE this exec (second-newest, since snapshot ran first).
     PREV_SNAP=$(ls -dt "$PROJECT_ROOT/.mpr-snapshots"/[0-9]*/ 2>/dev/null | head -2 | tail -1)
     if [[ -n "$PREV_SNAP" && -f "$PREV_SNAP/MyProject.mpr" ]]; then
       cp "$PREV_SNAP/MyProject.mpr" "$MPR"
       rm -rf mprcontents && cp -r "$PREV_SNAP/mprcontents" mprcontents
-      echo "  → Restored from: $PREV_SNAP"
+      echo "  → Auto-restored from: $PREV_SNAP"
     fi
     python3 -c "import json; d=json.load(open('$ERRORS_FILE')); [print(' ', e.get('errorCode','?'), e.get('message','')) for e in d.get('problems',[]) if e.get('severity')=='Error']" 2>/dev/null || true
+    cp "$ERRORS_FILE" "$PROJECT_ROOT/.mpr-snapshots/last-mxbuild-errors.json"
+    echo "  → Full error detail (untruncated): .mpr-snapshots/last-mxbuild-errors.json"
+    rm -f "$ERRORS_FILE"
+    exit 1
+  elif [[ "$MXBUILD_EXIT" -ne 0 ]]; then
+    # Non-zero exit but NO errors file → mxbuild itself failed (bad args, JVM crash, …).
+    # Do NOT treat as clean — the gate could not verify the model.
+    echo "  ✗ mxbuild failed to run (exit $MXBUILD_EXIT) — gate could not verify the model."
+    echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Assembly\|__" | head -20 || true
+    echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
     rm -f "$ERRORS_FILE"
     exit 1
   else
+    # Exit 0, no errors file → model is clean.
     echo "  ✓ mxbuild: 0 errors — model is clean."
   fi
   rm -f "$ERRORS_FILE"
@@ -244,6 +272,14 @@ echo "✓ Script applied to MPR."
 echo "  ⚠️  Please close the project in Studio Pro, reopen it, then click Run Locally."
 echo "  If SP is not open: open Version Selector → select your version → open the project."
 ```
+
+> **The two mxbuild failure modes are distinct — both must stop the build.** `--write-errors`
+> writes the file *only when the model has consistency errors*, so its absence normally means
+> "clean." But mxbuild can also exit non-zero **without** writing that file — bad arguments, a JVM
+> crash, a missing Java home. An earlier version treated that second case as a pass (no errors file
+> ⇒ "clean") and let an unverified model through. The gate must branch on the exit code as well:
+> errors-file → restore + stop; non-zero-exit-no-file → preserve snapshot + stop; exit-0-no-file →
+> clean.
 
 ### Standalone SP restart — `bin/restart-sp.sh`
 
@@ -288,7 +324,7 @@ Step 3 is required — exec.sh refuses if SP has the project open.
 - [ ] Copy `bin/restart-sp.sh`; update the app name and MPR name
 - [ ] Copy `bin/save-sp.sh` (MCP save trigger)
 - [ ] `chmod +x bin/exec.sh bin/restart-sp.sh bin/snapshot-mpr.sh bin/restore-mpr.sh bin/save-sp.sh`
-- [ ] Add `build/snapshots/` and `.mpr-snapshots/` to `.gitignore`
+- [ ] Add `.mpr-snapshots/` to `.gitignore` (snapshot scripts use this directory — do not also create `build/snapshots/`)
 - [ ] Add rule to `CLAUDE.md`: the uncommitted-MPR guard — required sequence before any exec
 - [ ] Add rule to `CLAUDE.md`: never auto-restart SP; always tell the user to close and reopen manually
 
@@ -307,24 +343,26 @@ Repeat for each module:
 6.  Write + apply microflows
 7.  Write + apply pages (following screenshot top-to-bottom)
 8.  **Gate 2 — BSON validation (mandatory, never skip):**
-    `./mxcli docker check -p app.mpr --no-update-widgets` → 0 CE errors
+    This runs **automatically inside `bin/exec.sh`** — the local `mxbuild` binary compiles the MPR
+    with `--target=deploy --write-errors` right after `mxcli exec`, and auto-restores the pre-exec
+    snapshot on any error (see the exec.sh template above). You do not run a separate command; a
+    clean exec.sh run *is* Gate 2 passing. `mxbuild` (Studio Pro's own compiler) is the reliable
+    gate because `mxcli check` validates MDL grammar only and does **not** catch BSON corruption.
 
-      - **One-time setup required per machine:** run `./mxcli setup mxbuild -p app.mpr` before the
-        first `docker check`. Without it, mxcli uses a Linux CDN binary that cannot load MPRv2
-        projects (`mprcontents/`) and crashes before validating anything — silently passing BSON
-        corruption that will break Studio Pro on open. The setup command finds your local Studio Pro
-        installation and uses its `mx` binary instead.
-      - Always use `--no-update-widgets`. Without it, `mx update-widgets` runs first and crashes
-        with `AggregateException` on Studio Pro 11.x Beta (path resolution bug).
+      - **Why the binary, not `mxcli docker check`:** the direct-binary path proved more reliable in
+        practice — no per-machine `mxcli setup mxbuild` step, no Linux CDN binary that silently can't
+        load `mprcontents/`, no `--no-update-widgets` crash. `docker check` remains a valid
+        alternative for CI / non-macOS runners where the local Studio Pro binary isn't installed.
       - CE0066 alone = **conditional pass**: only Studio Pro can recompute the security hash.
-        Open Studio Pro, open the affected domain model, click "Update security", Cmd+S, re-run check.
-        Do not block the build on CE0066 alone.
-      - **Fallback if `docker check` itself fails to run** (binary missing, path error, etc.):
-        open Studio Pro via CLI and verify the project loads cleanly:
+        Open Studio Pro, open the affected domain model, click "Update security", Cmd+S. (mxbuild may
+        keep reporting CE0066 until SP recomputes it — do not block the build on CE0066 alone.)
+      - **Fallback if the mxbuild binary can't run** (not found, JVM error): exec.sh preserves the
+        snapshot and exits non-zero rather than passing. Verify manually — open Studio Pro and check
+        the project loads cleanly:
         ```bash
         open -a "Mendix Studio Pro X.Y.Z" app.mpr   # macOS
         ```
-        If Studio Pro opens without an error dialog → gate passes. If it shows `AggregateException`,
+        If SP opens without an error dialog → gate passes. If it shows `AggregateException`,
         `KeyNotFoundException`, or `AttributeIdentifier` errors → restore snapshot immediately.
         **This fallback is mandatory — never mark a script DONE without Gate 2 passing.**
 9.  If GRANT scripts were applied → Studio Pro "Update security" → Cmd+S
@@ -394,7 +432,7 @@ When a CE error appears, triage in this order — **never add model elements to 
 
 1. **Is it CE0066?** → Conditional pass. This is a security hash that only Studio Pro can recompute —
    mxcli GRANT/REVOKE cycling does not clear it. Open the affected module's domain model in Studio Pro,
-   click the "Update security" banner, Cmd+S, re-run `docker check --no-update-widgets`. Do not block
+   click the "Update security" banner, Cmd+S, then re-run the exec.sh mxbuild gate. Do not block
    the build on CE0066 alone if all other errors are 0.
 2. **Is the referenced element missing?** → Create the missing stub, don't patch the error around it
 3. **Is it a binding mismatch?** → Check whether the *page is wrong* (bound to wrong attribute/entity) rather than the *model being incomplete*. The page may be the bug.

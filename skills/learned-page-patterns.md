@@ -2,6 +2,27 @@
 
 ---
 
+## Widget References — Always Include Full Location Context
+
+**Rule:** When referring to a widget in any handoff, instruction, or pending-action list (e.g. a Studio Pro step the user has to click), identify it by its **full path**, never a bare name:
+
+> Page → Section (container ID / label) → sub-context if inside a DataView or gallery → widget name (attribute) → property = value
+
+A bare `txtAccountGroup` is unfindable in Studio Pro — the user has no way to know which page and section it lives in.
+
+**Format:**
+> Page `Module.PageName`, Section **Name** (`containerID` / label)[, inside DataView `dvName`, sub-section **label**]: widget `widgetName` (`AttributeName`) → property = value
+
+**Correct:**
+> Page `PayerDetail_NewEdit`, Section D (`ctnSec4` / General data): textbox `txtAccountGroup` (AccountGroup) → Editable = Never
+
+**Wrong — do not use:**
+> Set `txtAccountGroup` to Editable = Never
+
+Applies to: pending Studio Pro steps, CE-error descriptions, and any instruction asking the user to find and click a widget.
+
+---
+
 ## Buttons — Always Define Caption (Japanese) Before Adding
 
 **Rule:** Every `ACTIONBUTTON` in an MDL script MUST include a `Caption:` property. Never add a button without one.

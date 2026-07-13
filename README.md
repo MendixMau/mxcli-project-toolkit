@@ -124,27 +124,54 @@ Before asking the user anything, or writing anything: **query the model → read
 
 Reads are always safe and free; writes go through the STOP table below.
 
-## Decision flow: CLI vs MCP vs Studio Pro GUI
+## Which tools do what — and when
 
-Use this table before every write operation. The full STOP table with per-rule detail is in `skills/learned-mdl-preflight.md`.
+### Stages 0–4: pure LLM, no mxcli needed
 
-| Operation | Tool | SP state | Why |
-|---|---|---|---|
-| Entities, attributes, enumerations | `mxcli exec` (CLI) | Closed | Safe; BSON serializer handles these cleanly |
-| Associations — after `SHOW ASSOCIATIONS` check | `mxcli exec` (CLI) | Closed | No `IF NOT EXISTS`; must verify no duplicate before writing |
-| Microflows — no inline assoc-sets | `mxcli exec` (CLI) | Closed | Safe on v0.13.0+ |
-| Microflows — with inline assoc-sets (`CHANGE $Obj (Assoc = $Other)`) | `mxcli --mcp exec` | **Open** | Disk path writes bad BSON; `--mcp` routes through SP's own engine |
-| `visible:`/`editable:` on regular widgets, dataviews, page-level containers | `mxcli exec` (CLI) | Closed | Fixed in v0.13.0 (#627) |
-| `visible:`/`editable:` inside `datagrid customContent` columns | MCP (`pg_patch_page`) | **Open** | BUG-18: still writes blank `AttributeIdentifier` on v0.13.0 |
-| DataGrid2 widget JSON shapes (`DatagridDropdownFilter`, column configs) | MCP (`pg_patch_page`) | **Open** | No MDL syntax; confirmed JSON patterns in `learned-mcp-patterns.md` |
-| Cross-module association traversal as widget datasource | MCP (`pg_patch_page`) | **Open** | CLI writes null `DestinationEntityId` on `EntityRefStep` |
-| `ALTER SETTINGS`, `ALTER PROJECT SECURITY LEVEL` | Studio Pro GUI | N/A | Deterministic BSON stream-desync every retry (BUG-LOCAL-05) |
-| Drop an attribute that has security grants | Studio Pro GUI | N/A | CLI leaves dead UUID pointers in access rules → `KeyNotFoundException` |
-| Any operation after an MPR corruption or load error | `bin/restore-mpr.sh` | Closed | Restores both `Project.mpr` + `mprcontents/` — either alone is useless |
+Triage, analysis, BRD generation, architecture, and design are entirely model-driven. The LLM reads source code, documents, and SME input; produces markdown, JSON, and diagrams; and hands a reviewed, signed-off plan to stage 5. No mxcli command runs, no `.mpr` is touched. This is deliberate — it is far cheaper to fix a wrong module boundary in a diagram than after 40 MDL scripts assume it.
 
-**The crash net.** An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units). `bin/exec.sh` snapshots both before every batch; 5 snapshots rotate; `bin/restore-mpr.sh` rolls back. Git commits at phase gates are the real history. Ad-hoc `.mpr.backup` copies are banned.
+### Stage 5+: three write modes
 
-**Screenshot and UX audit discipline.** `mxcli exec` writes the model file — the browser still serves the old JS bundle until Studio Pro recompiles. Screenshots before SP recompiles are worthless for visual review. Protocol: exec → tell user to close and reopen in SP manually → wait for confirmation → `curl` confirms port 200 → only then screenshot or run UI assertions. Do NOT auto-kill/relaunch SP from a script (stale lock files, version-selector dialogs). Add this rule to each project's `CLAUDE.md` at setup time — copy from any existing project's "Screenshot & UX audit rule" section.
+Once you have a reviewed build plan, you have three tools to write to the `.mpr`. Pick by what you're building:
+
+| Mode | When to use it | Why |
+|---|---|---|
+| **CLI** (`mxcli exec script.mdl`) | Bulk scaffolding: entities, attributes, enumerations, associations, microflow logic, access rules, navigation, demo users | The CLI reads an MDL script and writes a full batch to disk in one shot. Studio Pro must be closed. Best for large, structural work where you want a reviewable, version-controlled script file and a single atomic write. Snapshots automatically before each exec — safe to iterate. |
+| **MCP + MDL** (`mxcli --mcp exec script.mdl`) | The same MDL you'd write for CLI, but for operations where the CLI's BSON serializer has known bugs (inline assoc-sets in microflows, certain visibility expressions) | Routes the MDL through Studio Pro's own engine instead of mxcli's disk writer. Studio Pro must be open. You still write human-readable MDL — you just dial the exec through MCP so SP handles the serialization. Use this for the specific STOP-table operations, not as a default. |
+| **Hand-rolled MCP** (`pg_patch_page`, `ped_create_document`) | Widget JSON shapes that MDL has no syntax for — DataGrid2 column configs, dropdown filter wiring, complex visibility expressions inside datagrid customContent | You're writing raw JSON/BSON payloads directly against SP's model API. No MDL file involved. Confirmed patterns are in `learned-mcp-patterns.md`. SP must be open; save discipline is critical (uncommitted MPR guard before every write). Use only when the other two modes have no syntax for the operation. |
+
+**Studio Pro GUI** is not a write mode for agents — it's the fallback for two specific operations that corrupt deterministically on every CLI/MCP retry: `ALTER SETTINGS` and dropping an attribute that has security grants attached. Those go to the human.
+
+### Stage 6: testing
+
+Testing runs after a gate-agent pass and uses two independent layers:
+
+- **Playwright** (via `test-agent`) — walks the running app as a real user: login flows, form submission, navigation, happy-path and edge cases per BRD use case. Driven by the same use-case list from `migration/knowledge-base/brd/`.
+- **DB assertions** (`mxcli -p ... -c "SELECT ..."` OQL queries) — cross-checks what the UI shows against what's actually in the database. UI alone can't confirm a create/update/delete landed correctly; OQL can. Patterns in `learned-db-assertions.md`.
+
+These two layers catch different things — Playwright catches broken flows; OQL catches silent data corruption. Both run before any scenario is marked passing.
+
+**Screenshot discipline.** `mxcli exec` writes the model file but the browser serves a JS bundle compiled by Studio Pro — not the raw model. Screenshots before SP recompiles are worthless. Protocol: exec → user closes and reopens SP manually → wait for confirmation → `curl` port 200 → only then screenshot or run UI assertions. Never auto-kill/relaunch SP from a script. Add this rule to each project's `CLAUDE.md` at setup.
+
+### Per-operation reference table
+
+Use this before every write. Full per-rule detail (root causes, bug IDs, retest stamps) is in `skills/learned-mdl-preflight.md`.
+
+| Operation | Mode | SP state |
+|---|---|---|
+| Entities, attributes, enumerations | CLI | Closed |
+| Associations (after `SHOW ASSOCIATIONS` check) | CLI | Closed |
+| Microflows — no inline assoc-sets | CLI | Closed |
+| Access rules, module roles, demo users, navigation | CLI | Closed |
+| Microflows — with inline assoc-sets (`CHANGE $Obj (Assoc = $Other)`) | MCP + MDL | **Open** |
+| `visible:`/`editable:` inside `datagrid customContent` columns | Hand-rolled MCP (`pg_patch_page`) | **Open** |
+| DataGrid2 column configs, dropdown filter wiring | Hand-rolled MCP (`pg_patch_page`) | **Open** |
+| Cross-module association traversal as widget datasource | Hand-rolled MCP (`pg_patch_page`) | **Open** |
+| `ALTER SETTINGS`, `ALTER PROJECT SECURITY LEVEL` | Studio Pro GUI | N/A |
+| Drop an attribute that has security grants | Studio Pro GUI | N/A |
+| After any MPR corruption or load error | `bin/restore-mpr.sh` | Closed |
+
+**The crash net.** An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units). `bin/exec.sh` snapshots both before every batch; 5 rotate; `bin/restore-mpr.sh` rolls back both together (either alone is useless). Git commits at phase gates are the real history. Ad-hoc `.mpr.backup` copies are banned.
 
 ---
 

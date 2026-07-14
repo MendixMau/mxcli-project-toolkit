@@ -21,6 +21,19 @@ Phase 2 runs the extraction pipeline against the confirmed scope. If a new extra
 
 ---
 
+## Brainstorm First (before any predefined question)
+
+This checkpoint opens with a **divergent conversation**, not options. Present the classified
+source map (capabilities, sizes, effort signals) and then genuinely discuss:
+
+- What is this project actually *for* — POC, full replacement, demo, something else?
+- Full scope or a slice? Which parts matter most to you; which could be dropped or deferred?
+- Is anything missing from the map entirely — things you know exist that triage didn't surface?
+
+No option lists, no recommended answer — listen, reflect back, iterate until the user says the
+scope feels right. Only then run the predefined questions below, which *record* what the
+conversation converged on.
+
 ## Predefined Questions
 
 ### Q1 — POC boundary

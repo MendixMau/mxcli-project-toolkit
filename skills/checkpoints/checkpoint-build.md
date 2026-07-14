@@ -22,6 +22,19 @@ Phase 7 MDL generation follows the build plan strictly — no ad-hoc ordering.
 
 ---
 
+## Brainstorm First (before any predefined question)
+
+This checkpoint opens with a **divergent conversation** about build scope. Present the
+module/script map from the build plan with rough effort per module, then genuinely discuss:
+
+- Build everything in the plan, or a subset first? What ordering delivers value soonest?
+- Anything to add that the plan missed, or to defer/kill now that you see the full list?
+- Any constraints the plan should bend around — deadlines, demos, people?
+
+No option lists — iterate until the user says the plan's scope feels right. Then run the
+predefined questions below to record it, and quote any Stage-3/4 decisions being reused
+(never skip silently — see checkpoint-template.md's skip conditions).
+
 ## Predefined Questions
 
 ### Q1 — MDL layer strategy

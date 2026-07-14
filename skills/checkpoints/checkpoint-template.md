@@ -55,8 +55,21 @@ per `conversion-runbook.md` §1 step 6). Unanswered open questions go to `PROJEC
 `## Open questions`, not silently dropped. If a BRD or mx-brd file is already open, propagate
 relevant answers into `mendixNotes` or `openQuestions[].answer` fields.
 
-Never re-ask a resolved decision in a later stage. If a decision is found already recorded in
-`PROJECT.md`, skip that question.
+Never re-ask a resolved decision in a later stage — **but skipping has two conditions**:
+(1) the recorded decision was answered by the user in chat (an agent-recorded `CONFIRMED` the
+user never saw doesn't count — re-ask it), and (2) when skipping, **quote the prior decision
+back in chat** ("skipping X — you confirmed at Stage 3: '…', PROJECT.md row N") so the user can
+veto a decision they don't recognize as theirs.
+
+## Open Floor (every checkpoint, after the 2+1)
+
+Before closing any checkpoint, ask one standing open question — plain text, no options:
+> "Anything else you want changed, added, or worried about — scope, priorities, anything?"
+
+CAC-1 (scope) and CAC-5 (build) go further: they **open with a divergent brainstorm** before any
+predefined question — present the scope/module map with effort signals and discuss freely
+(full scope or slice? what's this for? what's missing?) until the user says it feels right.
+See `conversion-runbook.md` §1 "Two open brainstorms".
 
 ---
 

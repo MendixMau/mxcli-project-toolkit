@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mxcli Project Toolkit — How This Works</title>
+<style>
+  /* ── Shared shell tokens ─────────────────────────────────────────────
+     Every stage HTML surface (triage.html, architecture.html, build-plan.html,
+     test-report.html, index.html …) copies this :root block + base styles as its
+     shell, so all project artifacts read as one system. These are the neutral
+     bootstrap tokens; once Stage 3 produces design/design-system.html, THAT file's
+     tokens supersede these for everything generated afterwards. */
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --ink: #1e293b;
+    --ink-soft: #64748b;
+    --ink-faint: #94a3b8;
+    --line: #e2e8f0;
+    --accent: #0f4c81;
+    --pass-bg: #dcfce7;  --pass-ink: #166534;
+    --fail-bg: #fee2e2;  --fail-ink: #991b1b;
+    --warn-bg: #fef3c7;  --warn-ink: #92400e;
+    --radius: 10px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--ink); line-height: 1.55; padding: 40px 20px 80px; }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  h1 { font-size: 28px; letter-spacing: -0.02em; }
+  h2 { font-size: 19px; margin: 48px 0 14px; letter-spacing: -0.01em; }
+  h3 { font-size: 15px; margin: 18px 0 6px; }
+  p { margin: 8px 0; }
+  .lede { color: var(--ink-soft); font-size: 15px; max-width: 640px; margin-top: 10px; }
+  code { font-family: var(--mono); font-size: 0.88em; background: #eef2f7; border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+  .card h3 { margin-top: 0; }
+  .card .stages { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 600; }
+  .card p { font-size: 13.5px; color: var(--ink-soft); }
+  .badge { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 999px; vertical-align: 2px; }
+  .badge.gate { background: var(--fail-bg); color: var(--fail-ink); }
+  .badge.soft { background: var(--pass-bg); color: var(--pass-ink); }
+  .badge.mig { background: var(--warn-bg); color: var(--warn-ink); }
+
+  /* timeline */
+  .timeline { list-style: none; margin-top: 18px; }
+  .timeline li { position: relative; padding: 0 0 26px 56px; }
+  .timeline li::before { content: ""; position: absolute; left: 19px; top: 34px; bottom: -4px; width: 2px; background: var(--line); }
+  .timeline li:last-child::before { display: none; }
+  .stage-no { position: absolute; left: 0; top: 0; width: 40px; height: 40px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--accent); color: var(--accent);
+    font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .timeline .stage-title { font-weight: 700; font-size: 15px; padding-top: 8px; }
+  .yougive, .youget { font-size: 13.5px; margin-top: 4px; }
+  .yougive strong, .youget strong { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .yougive strong { color: var(--accent); }
+  .youget strong { color: var(--ink-faint); }
+
+  ol.protocol { margin: 12px 0 0 20px; }
+  ol.protocol li { margin-bottom: 8px; font-size: 14px; }
+  pre.tree { font-family: var(--mono); font-size: 12.5px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 16px 20px; overflow-x: auto; line-height: 1.7; }
+  pre.tree .c { color: var(--ink-faint); }
+  .panic { border-left: 4px solid var(--warn-ink); }
+  .panic h3 { color: var(--warn-ink); }
+  .kbd { font-family: var(--mono); background: var(--ink); color: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+  .footer { margin-top: 56px; font-size: 12px; color: var(--ink-faint); border-top: 1px solid var(--line); padding-top: 14px; }
+  table { border-collapse: collapse; width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 13px; border-bottom: 1px solid var(--line); }
+  th { background: var(--ink); color: #e2e8f0; font-weight: 600; font-size: 12.5px; }
+  tr:last-child td { border-bottom: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>mxcli Project Toolkit — how this works</h1>
+  <p class="lede">You point this toolkit at legacy source code <em>or</em> a stack of requirements, and it interviews you through to a running Mendix app. Every stage produces an artifact you can show a customer, and every decision you make is recorded — nothing is silently decided for you.</p>
+
+  <h2>1 · Three ways in — pick what you're starting from</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>Migration</h3>
+      <div class="stages">Stages P, 0–7</div>
+      <p>You have legacy source code (OutSystems, Java/Angular, Node/React, …). Extractors read it, BRDs are generated from it, and the app is rebuilt in Mendix — with an optional data cutover at the end.</p>
+    </div>
+    <div class="card">
+      <h3>Requirements-driven</h3>
+      <div class="stages">Stages P, 1–6</div>
+      <p>No legacy code — you have specs, BRDs, workshop outputs, wireframes, or an expert to interview. Document extraction and SME interviews replace the code extractors; everything after that is identical.</p>
+    </div>
+    <div class="card">
+      <h3>Greenfield</h3>
+      <div class="stages">Stages P, 5–6</div>
+      <p>You already know what to build. Skip straight to the Mendix build discipline: gated module-by-module construction, then end-to-end testing.</p>
+    </div>
+  </div>
+
+  <h2>2 · The journey</h2>
+  <p class="lede"><span class="badge gate">✋ HARD GATE</span> means the pipeline stops until you explicitly confirm a decision. <span class="badge soft">SOFT GATE</span> means unknowns get a recommended default, recorded as <code>ASSUMED</code>, and the run keeps moving.</p>
+
+  <ul class="timeline">
+    <li><span class="stage-no">P</span>
+      <div class="stage-title">Kickoff <span class="badge soft">SOFT GATE</span></div>
+      <div class="yougive"><strong>You're asked</strong> — where the source/requirements live, any licence constraints, whether an expert (SME) is available.</div>
+      <div class="youget"><strong>You get</strong> — a scaffolded workspace: <code>intake.md</code>, <code>PROJECT.md</code> (your decision register), <code>index.html</code> (your live dashboard).</div>
+    </li>
+    <li><span class="stage-no">0</span>
+      <div class="stage-title">Triage <span class="badge gate">✋ HARD GATE</span> <span class="badge mig">MIGRATION ONLY</span></div>
+      <div class="yougive"><strong>You're asked</strong> — reuse an existing extraction pipeline or build a new one (with a coverage matrix as evidence); what to do about each missing dependency; what order to tackle a large source in.</div>
+      <div class="youget"><strong>You get</strong> — <code>assessment.md</code> + <code>triage.md</code>: what's in your source, the risks, and a signed-off plan of attack.</div>
+    </li>
+    <li><span class="stage-no">1</span>
+      <div class="stage-title">Analysis <span class="badge soft">SOFT GATE</span></div>
+      <div class="yougive"><strong>You're asked</strong> — do documents exist beyond the source folder? DB schema? Sample data? Who can answer what the code can't?</div>
+      <div class="youget"><strong>You get</strong> — a knowledge base extracted three ways: from code, from documents, from the expert interview. Each path is done or explicitly declared unavailable — never silently skipped.</div>
+    </li>
+    <li><span class="stage-no">2</span>
+      <div class="stage-title">Requirements <span class="badge soft">SOFT GATE</span></div>
+      <div class="yougive"><strong>You're asked</strong> — to confirm business rules the code or documents imply. Narrative is never invented.</div>
+      <div class="youget"><strong>You get</strong> — validated BRDs (business requirements documents), one per module, checked clean.</div>
+    </li>
+    <li><span class="stage-no">3</span>
+      <div class="stage-title">Architecture &amp; Design <span class="badge gate">✋ HARD GATE</span></div>
+      <div class="yougive"><strong>You're asked</strong> — module boundaries, buy-vs-build per gap, target security roles, data volumes, integration contracts, branding (logo/palette/type).</div>
+      <div class="youget"><strong>You get</strong> — architecture diagrams, fit-gap analysis, a versioned design system, annotated wireframes.</div>
+    </li>
+    <li><span class="stage-no">4</span>
+      <div class="stage-title">Build Plan <span class="badge gate">✋ HARD GATE</span></div>
+      <div class="yougive"><strong>You're asked</strong> — acceptance criteria per module (what "done" means), target environments, iteration size.</div>
+      <div class="youget"><strong>You get</strong> — a numbered, dependency-ordered build plan. Nothing gets built before you approve it.</div>
+    </li>
+    <li><span class="stage-no">5</span>
+      <div class="stage-title">Build <span class="badge soft">SOFT GATE</span></div>
+      <div class="yougive"><strong>You're asked</strong> — to confirm each module's business-rule coverage checklist: the real definition of done, beyond "no errors".</div>
+      <div class="youget"><strong>You get</strong> — working modules, one at a time, each passing an automatic snapshot → execute → verify → restore-on-failure loop. A bad write costs one batch, never the project.</div>
+    </li>
+    <li><span class="stage-no">6</span>
+      <div class="stage-title">Test <span class="badge soft">SOFT GATE</span></div>
+      <div class="yougive"><strong>You're asked</strong> — which edge cases matter beyond the golden path.</div>
+      <div class="youget"><strong>You get</strong> — Playwright walking your app as a real user, plus database assertions catching what the UI can't. Results reported verbatim.</div>
+    </li>
+    <li><span class="stage-no">7</span>
+      <div class="stage-title">Cutover <span class="badge gate">✋ HARD GATE</span> <span class="badge mig">MIGRATION ONLY</span></div>
+      <div class="yougive"><strong>You're asked</strong> — migrate legacy data, seed fresh, or drop it? Who flips the switch, when, and what's the rollback?</div>
+      <div class="youget"><strong>You get</strong> — migration scripts and a cutover checklist. Runs only after testing passes — never before.</div>
+    </li>
+  </ul>
+
+  <h2>3 · How a gate works — you correct, you don't fill in forms</h2>
+  <div class="card">
+    <ol class="protocol">
+      <li><strong>The agent does its homework first.</strong> It never asks what it can derive from your source, the extraction, or the Mendix model itself.</li>
+      <li><strong>It proposes, with evidence.</strong> 2–4 concrete options, a recommendation, and why — citing your actual source (“your app has 4 auth roles, 3 are never checked; I recommend collapsing to 2”).</li>
+      <li><strong>It states its assumptions out loud</strong> so you can correct the premise, not just the conclusion.</li>
+      <li><strong>You answer in the terminal</strong> — multiple choice, “other” always available.</li>
+      <li><strong>The decision is written down twice</strong>: in that stage's HTML report and in <code>PROJECT.md</code>, marked <code>CONFIRMED</code>.</li>
+      <li><strong>Don't know? That's fine.</strong> The recommendation is applied and marked <code>ASSUMED</code> with the risk if wrong. A solo run never stalls — except at a ✋ gate, which waits for you.</li>
+    </ol>
+  </div>
+
+  <h2>4 · Where everything lands</h2>
+  <pre class="tree">&lt;workspace-root&gt;/
+  mxcli-project-toolkit/     <span class="c">← this clone (stays clean; nothing of yours lands here)</span>
+  sources/&lt;project&gt;/         <span class="c">← your original source, read-only</span>
+  analysis/&lt;project&gt;/        <span class="c">← everything the pipeline produces</span>
+    PROJECT.md               <span class="c">← every decision, assumption, and open question</span>
+    intake.md · assessment.md · triage.md
+    knowledge-base/          <span class="c">← extraction JSON + BRDs</span>
+    architecture/ · design/
+    index.html               <span class="c">← your dashboard — open this anytime to see where you are</span>
+  mendix/&lt;project&gt;/          <span class="c">← the target .mpr</span></pre>
+  <p style="font-size:13.5px; color:var(--ink-soft);">The dashboard regenerates from real project files every time a gate check runs (<code>bin/gate-check.sh</code>) — it can't drift from reality, because it's derived from it.</p>
+
+  <h2>5 · Something looks broken? Don't panic — it's designed for this</h2>
+  <div class="cards">
+    <div class="card panic">
+      <h3>“Studio Pro won't open / the project fails to load”</h3>
+      <p>A bad write happened — and the toolkit snapshotted automatically before it. Tell the agent: <span class="kbd">The project won't load — restore the last snapshot.</span> It runs <code>bin/restore-mpr.sh</code>, which restores both halves of the project together. You've lost at most one batch of changes.</p>
+    </div>
+    <div class="card panic">
+      <h3>“Studio Pro won't start / hangs on launch”</h3>
+      <p>Almost always a stale background process from the last session. Tell the agent: <span class="kbd">SP won't start — kill any stale Studio Pro processes.</span> That's the entire problem 95% of the time; a leftover <code>.mpr.lock</code> file is the other 5%.</p>
+    </div>
+  </div>
+  <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;">Nothing here requires reinstalling anything or starting over. Git commits at every phase gate are the real safety history.</p>
+
+  <h2>6 · For agents: this page is also the shared HTML shell</h2>
+  <p style="font-size:14px;">Every stage HTML surface (<code>triage.html</code>, <code>architecture.html</code>, <code>build-plan.html</code>, <code>test-report.html</code>, …) copies this file's <code>:root</code> token block and base styles, so all project artifacts look like one system. Once Stage 3 produces <code>design/design-system.html</code>, that file's tokens supersede these for artifacts generated afterwards. At Stage P kickoff, open this page in the user's browser (<code>open toolkit-guide.html</code>) before the first interview question.</p>
+
+  <div class="footer">mxcli-project-toolkit · toolkit-guide.html · The detailed, executable version of this page is <code>skills/conversion-runbook.md</code>; the thin text pointer is <code>CONVERSION-RUNBOOK.md</code>.</div>
+</div>
+</body>
+</html>

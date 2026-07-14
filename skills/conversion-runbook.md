@@ -6,7 +6,7 @@
 
 **Upstream:** `bootstrap-project.md` (Stage P scaffolding), `query-the-model.md` (the lookup-before-ask discipline every gate depends on).
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
-**Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail.
+**Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page — **open it in the user's browser at Stage P kickoff** (`open toolkit-guide.html`), before the first interview question. It doubles as the shared CSS shell/token source for every stage HTML surface.
 
 ---
 

@@ -18,8 +18,8 @@ fi
 PROJECT_DIR="$1"
 
 if [ ! -d "$PROJECT_DIR" ]; then
-  echo "Error: project directory does not exist: $PROJECT_DIR" >&2
-  exit 1
+  mkdir -p "$PROJECT_DIR"
+  echo "Created: $PROJECT_DIR"
 fi
 
 INTAKE="$PROJECT_DIR/intake.md"
@@ -101,6 +101,8 @@ EOF
   echo "Created: PROJECT.md"
 fi
 
+echo ""
+echo "New to the pipeline? Open the visual guide:  open \"$SCRIPT_DIR/../toolkit-guide.html\""
 echo ""
 echo "Next steps (not done by this script):"
 echo "  - Stage 0 triage: choose/reuse an extraction pipeline (needs triage first, see source-triage.md)."

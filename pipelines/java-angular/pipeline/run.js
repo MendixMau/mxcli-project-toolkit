@@ -41,12 +41,12 @@ async function phase1() {
   // No samplers yet — this pilot source is small enough (3 backend domains, ~9 Angular
   // screens) that schema sampling wasn't needed to write the extractors. Add
   // samplers/{java,angular}-sampler.js here first if a future, larger source needs it.
-  console.log('\n=== PHASE 1: Sampling ===');
+  console.log('\n=== EXTRACT STEP 1: Sampling ===');
   console.log('Skipped — no samplers built yet for this stack (see comment in run.js).');
 }
 
 async function phase2() {
-  console.log('\n=== PHASE 2: Full Extraction ===');
+  console.log('\n=== EXTRACT STEP 2: Full Extraction ===');
   fs.mkdirSync(path.join(ROOT, 'errors'), { recursive: true });
 
   const jobs = [];
@@ -80,16 +80,16 @@ async function phase2() {
 
   console.log('\nRunning merger...');
   await run('node', [path.join('lib', 'merger.js')], 'merger');
-  console.log(`Phase 2 complete. Knowledge base: ${KB_DIR}`);
+  console.log(`Extract step 2 complete. Knowledge base: ${KB_DIR}`);
 }
 
 async function phase3() {
-  console.log('\n=== PHASE 3: BRD Generation ===');
+  console.log('\n=== EXTRACT STEP 3: BRD Generation ===');
   const { generate } = require('./generators/brd-mappers/index');
   const kbDir  = KB_DIR;
   const outDir = path.join(KB_DIR, 'brd');
   const report = await generate(kbDir, outDir, {});
-  console.log(`Phase 3 complete. ${report.modulesGenerated} BRD files → ${outDir}`);
+  console.log(`Extract step 3 complete. ${report.modulesGenerated} BRD files → ${outDir}`);
   if (report.warnings.length) console.warn(`Warnings: ${report.warnings.length}. See ${path.join(outDir, 'generation-report.json')}`);
 }
 
@@ -97,7 +97,7 @@ async function phase3() {
   try {
     if (phase === '1' || phase === 'all') await phase1();
     if (phase === 'all') {
-      console.log('\nPhase 1 done. Review samples/schema.json, then press Enter to continue Phase 2...');
+      console.log('\nExtract step 1 done. Review samples/schema.json, then press Enter to continue to extract step 2...');
       await new Promise(r => process.stdin.once('data', r));
     }
     if (phase === '2' || phase === 'all') await phase2();

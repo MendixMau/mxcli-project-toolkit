@@ -176,6 +176,7 @@ An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units
 
 ## Checklist Before Calling a Stage "Done"
 
+- [ ] Run `bin/gate-check.sh <project-dir> <stage>` — it fails loudly if required artifacts are missing; a stage isn't done until this passes. This is mechanical (file-existence/grep checks), not something to self-attest from memory.
 - [ ] The stage's gate ran the full 6-step interview protocol (§1) for every user-facing decision — not just a yes/no on something already built.
 - [ ] Every decision is written to both the stage HTML surface and `PROJECT.md`, marked `CONFIRMED` or `ASSUMED` (never silently defaulted with no record).
 - [ ] `✋` gates have an explicit `CONFIRMED` decision — no `ASSUMED` allowed to pass a hard stop.

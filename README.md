@@ -29,7 +29,7 @@ This clone stays clean — project output never lands inside it. Your workspace 
   mendix/<project>/          ← the target .mpr
 ```
 
-Clone, run `skills/bootstrap-project.md` to scaffold `CLAUDE.local.md` + the subagents, then follow `skills/conversion-runbook.md` — it interviews you through each stage below.
+Clone, run `bin/init-project.sh <project-dir>` to scaffold `intake.md` + `PROJECT.md` + the initial `index.html` dashboard, then `skills/bootstrap-project.md` to scaffold `CLAUDE.local.md` + the subagents, then follow `skills/conversion-runbook.md` — it interviews you through each stage below. Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly if required artifacts are missing and regenerates `index.html` from the project's real state.
 
 ---
 

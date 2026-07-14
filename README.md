@@ -351,7 +351,7 @@ For bugs, append to `bug-logs/mxcli-bugs.md` or create a project-specific log.
 ```
 git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
 ```
-Each project's `CLAUDE.local.md` references `~/Mendix/mxcli-project-toolkit`. Pull updates with `git pull`.
+Each project's `CLAUDE.local.md` references `~/Mendix/mxcli-project-toolkit`. Pull updates with `git pull` — **everything referenced (skills, runbook, checkpoints, gate-check) updates instantly for all projects.** The three artifacts that were *copied* into a project (intake.md, agent stubs, the baseline-routing table in its CLAUDE.md) don't: run `bin/sync-project.sh <project-root>` after a pull — it appends new intake questions, refreshes untouched agent stubs (never completed ones), and flags a stale baseline routing. Then tell any already-running session to re-read the runbook.
 For a self-contained handoff, add it as a git submodule instead. Per pipeline, run `npm install` inside `pipelines/<x>/pipeline` (node_modules is gitignored).
 
 ### Baseline routing — copy this into every new project's CLAUDE.md / CLAUDE.local.md

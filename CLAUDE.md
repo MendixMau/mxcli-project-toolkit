@@ -10,6 +10,7 @@ Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"):
 - `skills/conversion-runbook.md` — **the spine**: 9-stage matrix, interview protocol, gates, entry modes. Start here when unsure what stage anything is in.
 - `bin/init-project.sh <project-dir>` — Stage P scaffold (`intake.md`, `PROJECT.md`, `index.html`).
 - `bin/gate-check.sh <project-dir> [stage]` — mechanical stage gates; regenerates the project dashboard from real files.
+- `bin/sync-project.sh <project-root>` — run after every toolkit `git pull`: refreshes the artifacts that were *copied* into the project (new intake questions, untouched agent stubs) and flags stale baseline routing. Referenced skills need no sync — they update with the pull.
 
 ## Live checklist — every stage, in the chat
 Every stage and module build follows the **Live Checklist Protocol** (`skills/conversion-runbook.md` §1b): post the stage's checklist in chat at start, update with ✅/🔄/⬜/❌/⏭ marks as items land, full repost before every gate. No stage works silently between gates. This is not build-phase-only.

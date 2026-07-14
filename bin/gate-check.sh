@@ -126,8 +126,15 @@ check_stage_3() {
     echo "FAIL|missing $( [ ! -f "$fit_gap" ] && echo "architecture/fit-gap.md ")$( [ ! -f "$design_system" ] && echo "design/design-system.html")"
     return
   fi
+  # Wireframes are load-bearing: ui-preflight-pages.md starts from them and the build
+  # loop verifies built pages against them. A design system without wireframes is half
+  # the Stage-3 deliverable (design-artifacts.md Step 3, one per screen).
+  if [ -z "$(find "$PROJECT_DIR/design/wireframes" -maxdepth 1 -name '*.html' -print -quit 2>/dev/null)" ]; then
+    echo "FAIL|design/wireframes/*.html missing — design system exists but no wireframes (design-artifacts.md Step 3); the mdl-agent's UI pre-flight cannot run without them"
+    return
+  fi
   if has_confirmed_decision 3; then
-    echo "PASS|artifacts present and a Stage-3 CONFIRMED decision is in PROJECT.md"
+    echo "PASS|fit-gap, design system, wireframes present and a Stage-3 CONFIRMED decision is in PROJECT.md"
   else
     echo "FAIL|artifacts exist but PROJECT.md has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass"
   fi

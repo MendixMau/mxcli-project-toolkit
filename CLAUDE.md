@@ -15,7 +15,9 @@ Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"):
 Every stage and module build follows the **Live Checklist Protocol** (`skills/conversion-runbook.md` §1b): post the stage's checklist in chat at start, update with ✅/🔄/⬜/❌/⏭ marks as items land, full repost before every gate. No stage works silently between gates. This is not build-phase-only.
 
 ## One decision register
-All gate decisions land in the consuming project's `PROJECT.md`, marked `CONFIRMED` or `ASSUMED`. The `skills/checkpoints/` CAC files are the packaged mechanism that runs the runbook's interview protocol at the five busiest transitions — they write to `PROJECT.md`, never to a separate state file.
+All gate decisions land in the consuming project's `PROJECT.md`, marked `CONFIRMED` or `ASSUMED`. The `skills/checkpoints/` CAC files are the packaged mechanism that runs the runbook's interview protocol at the six busiest transitions — they write to `PROJECT.md`, never to a separate state file.
+
+**Ask, then stop.** Gate questions are actually asked in chat (`AskUserQuestion`), and the agent ends its turn to wait for the answer. `ASSUMED` is earned by asking (user said "you decide"), never by skipping the question — finding the answer in the source justifies the *recommendation*, not silence. Unattended runs are opt-in only (`Interview mode: unattended` in `PROJECT.md`, at the user's explicit request).
 
 ## Key skills and when to load them
 

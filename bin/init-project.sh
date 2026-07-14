@@ -66,6 +66,12 @@ Unverified — how to verify: ask the human; not inferable from the source.
 ## 8. Single Mendix app, or does scale suggest a multiple-app split?
 
 Unverified — how to verify: assess source module count/size during Stage 0 triage.
+
+## 9. Interview mode: attended (default) or unattended?
+
+Attended unless the user explicitly says otherwise. Attended = every gate question is asked
+in chat and the agent waits for the answer. Unattended (opt-in only) = recommended options
+are applied as ASSUMED and questions are logged in PROJECT.md for later reconciliation.
 EOF
   echo "Created: intake.md"
 fi

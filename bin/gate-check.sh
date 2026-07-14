@@ -110,22 +110,39 @@ check_stage_2() {
   fi
 }
 
+# ✋ stages need a CONFIRMED decision row in PROJECT.md's Decisions table
+# (| Stage | Decision | Status | Notes |) — artifacts alone don't pass a hard gate.
+has_confirmed_decision() {
+  local stage="$1"
+  local f="$PROJECT_DIR/PROJECT.md"
+  [ -f "$f" ] || return 1
+  grep -Eiq "^\|[[:space:]]*(Stage[[:space:]]*)?${stage}[[:space:]]*\|.*CONFIRMED" "$f"
+}
+
 check_stage_3() {
   local fit_gap="$PROJECT_DIR/architecture/fit-gap.md"
   local design_system="$PROJECT_DIR/design/design-system.html"
-  if [ -f "$fit_gap" ] && [ -f "$design_system" ]; then
-    echo "PASS|architecture/fit-gap.md and design/design-system.html both present"
-  else
+  if [ ! -f "$fit_gap" ] || [ ! -f "$design_system" ]; then
     echo "FAIL|missing $( [ ! -f "$fit_gap" ] && echo "architecture/fit-gap.md ")$( [ ! -f "$design_system" ] && echo "design/design-system.html")"
+    return
+  fi
+  if has_confirmed_decision 3; then
+    echo "PASS|artifacts present and a Stage-3 CONFIRMED decision is in PROJECT.md"
+  else
+    echo "FAIL|artifacts exist but PROJECT.md has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass"
   fi
 }
 
 check_stage_4() {
   local build_plan="$PROJECT_DIR/architecture/build-plan.md"
-  if [ -f "$build_plan" ]; then
-    echo "PASS|architecture/build-plan.md present"
-  else
+  if [ ! -f "$build_plan" ]; then
     echo "FAIL|architecture/build-plan.md not found"
+    return
+  fi
+  if has_confirmed_decision 4; then
+    echo "PASS|build-plan.md present and a Stage-4 CONFIRMED decision is in PROJECT.md"
+  else
+    echo "FAIL|build-plan.md exists but PROJECT.md has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass"
   fi
 }
 

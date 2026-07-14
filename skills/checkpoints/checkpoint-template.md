@@ -22,6 +22,13 @@ only allowed at soft gates.
 Checkpoints are **decision gates, not artifact producers**. They never generate files —
 they produce decisions that propagate into the next stage's inputs via `PROJECT.md`.
 
+**Timing and stopping are non-negotiable:** a checkpoint fires *before* the next stage's
+artifacts are produced (no architecture diagram before CAC-3, no design system before CAC-4,
+no MDL before CAC-5). Ask the questions in chat via `AskUserQuestion`, then **end the turn
+and wait** — never answer your own questions and continue. Source evidence powers the
+recommended option; it never substitutes for asking. `ASSUMED` may only be recorded after
+the user was actually asked and delegated ("you decide").
+
 ---
 
 ## The 2 + 1 Question Structure

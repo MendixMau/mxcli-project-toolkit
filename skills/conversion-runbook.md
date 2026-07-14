@@ -45,15 +45,15 @@ Every gate in §2 runs the same six-step shape. This is the thing that should be
 1. **The agent does its homework first.** It never asks what it can derive. Anything answerable from the source, the extraction, or the model must be answered from there — see `query-the-model.md` for exactly which source answers which class of question. The intake rule already enforces the fallback: `"Unverified — how to verify: …"`, never a guess.
 2. **The agent proposes, with evidence.** 2–4 concrete options, a recommendation, and *why* — citing the artifact that supports it. ("Your source has 4 auth roles, 3 of which are never checked; I recommend collapsing to 2.")
 3. **The agent states its assumptions out loud** — the list of things it took for granted to reach that recommendation, so the user can correct the premise, not just the conclusion.
-4. **The user answers in the terminal** — multiple choice, "other" always available.
+4. **The question is actually asked, in the chat** — multiple choice (use `AskUserQuestion` where available), "other" always available. **Then the agent ends its turn and waits.** Do not answer your own question and keep working in the same turn — a gate that never reaches the user's screen is not a gate. Finding the answer in the source does not waive the question: source evidence powers the *recommendation* (step 2), it never replaces the *asking*.
 5. **The decision is written to two places**: the stage's HTML proposal doc (the artifact, customer-showable) and `PROJECT.md` (the register), marked `CONFIRMED`.
-6. **If the user doesn't know**: the agent applies its recommended option, marks it `ASSUMED` in `PROJECT.md` with the risk if wrong, and the run continues. A solo run never stalls; assumptions stay visible instead of silently baked in.
+6. **`ASSUMED` is earned by asking, never by skipping.** An answer may be recorded `ASSUMED` only after the question was actually posed and the user said "don't know" / "you decide" — that is delegation-by-consent, recorded with the risk if wrong. Deriving an answer yourself and not asking is a protocol violation, not an `ASSUMED`.
 
 A proposal beats a questionnaire because it asks the user to **correct** something rather than supply it cold — and by the time each gate arrives, the agent has read the source and has evidence to put behind its recommendation.
 
-**Unknowns are not blockers.** If nobody can answer a question yet, default + record + proceed (step 6). The pipeline only actually stops at a `✋` gate (§2) — every other stage keeps moving with `ASSUMED` markers trailing behind it for someone to reconcile later.
+**Unattended mode is opt-in, never inferred.** The "default + record + proceed" behavior (skipping the wait, not the question — questions still get logged in `PROJECT.md` open-questions) is only legal when the user explicitly said to run unattended, recorded at Stage P in `PROJECT.md` (`Interview mode: unattended`). Default is **attended**: every gate question is asked in chat and the turn ends there. (Real incident, 2026-07-14: an attended run produced architecture diagrams and a design system through Stage 3 without a single question reaching the user — "a solo run never stalls" was read as "never ask." It means "an *authorized* solo run doesn't deadlock," nothing more.)
 
-**The packaged form of this protocol is a checkpoint.** `skills/checkpoints/` ships ready-made Context-Aware Checkpoints (CAC) for the five busiest transitions (scope, BRD, architecture, design, build) — each runs the protocol above as a "2 predefined questions + 1 open question" script, derived from what the pipeline actually found. Use them where they exist; run the raw six steps where they don't. Either way the decisions land in `PROJECT.md` — checkpoints keep no state file of their own.
+**The packaged form of this protocol is a checkpoint — and checkpoints are mandatory where they exist.** `skills/checkpoints/` ships ready-made Context-Aware Checkpoints (CAC) for the six busiest transitions (scope, BRD, architecture, design, build, cutover) — each runs the protocol above as a "2 predefined questions + 1 open question" script, derived from what the pipeline actually found. Run the raw six steps only where no checkpoint exists. **A checkpoint fires *before* the next stage's artifacts are produced** — creating architecture diagrams or a design system before their checkpoint ran is a protocol violation: stop, run the checkpoint, and be prepared to throw the premature artifact away. Either way the decisions land in `PROJECT.md` — checkpoints keep no state file of their own.
 
 ---
 
@@ -93,7 +93,7 @@ be able to approve the gate by reading that one message.
 
 ## 2. The Stage Matrix
 
-Eight stages (plus Stage P kickoff). For each: what the user co-defines, what the agent produces, the review surface, the gate, and who owns it. `✋` marks a hard stop — the pipeline does not proceed past it without an explicit `CONFIRMED` decision (unknowns may still resolve to `ASSUMED` at non-✋ gates).
+Eight stages (plus Stage P kickoff). For each: what the user co-defines, what the agent produces, the review surface, the gate, and who owns it. `✋` marks a hard stop — the pipeline does not proceed past it without an explicit `CONFIRMED` decision. At non-✋ gates unknowns may resolve to `ASSUMED` — but only per §1 step 6: the question was asked and the user delegated; never because asking was skipped.
 
 ### Stage P — Kickoff
 
@@ -146,7 +146,7 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | **User defines** | ① One Mendix app or several (if flagged at Stage 0). ② **Module boundaries** (agent proposes with `modularize-domain.md` criteria). ③ **Buy vs build vs stub, per fit-gap item** — the confirming step `brd-to-build-plan.md` assumed already happened. ④ **Target security / role model** — not just whether auth existed in the source, but what the target should be. ⑤ **Data volumes, concurrency, NFRs** — these decide indexing, pagination, datagrid-vs-paged-gallery, loop batch sizes. ⑥ **Integration contracts** — real or stub, endpoint, credentials, owner, test environment. ⑦ **Branding inputs** — logo, palette, type, spacing, per `design-artifacts.md`. |
 | **Agent produces** | `.mx-brd.json`, `architecture/` (module defs, layer diagram, wiring diagram, `fit-gap.md`), `design/` (`design-system.html`, annotated wireframes). |
 | **Surface** | `module-design.html` · `architecture.html` · `design-system.html` + `wireframes/*.html` |
-| **Gate ✋** | Boundaries approved. Marketplace calls made. Role model, volumes, integrations and branding either `CONFIRMED` or recorded as `ASSUMED` with risk. |
+| **Gate ✋** | Boundaries approved. Marketplace calls made. Role model, volumes, integrations and branding **each asked and answered**: `CONFIRMED`, or explicitly delegated by the user ("you decide" → `ASSUMED` with risk). Never `ASSUMED` without the question having reached the user. **No architecture/design artifact is produced before its checkpoint ran.** |
 | **Owner** | `architect-agent` (interviews run by `ba-agent`) |
 
 ### Stage 4 — Build Plan ✋

@@ -40,9 +40,9 @@ if [ -f "$INTAKE" ]; then
 
 ## 9. Interview mode: attended (default) or unattended?
 
-Attended unless the user explicitly says otherwise. Attended = every gate question is asked
-in chat and the agent waits for the answer. Unattended (opt-in only) = recommended options
-are applied as ASSUMED and questions are logged in PROJECT.md for later reconciliation.
+Unverified — how to verify: ask the user; default is attended. Attended = every gate question
+is asked in chat and the agent waits for the answer. Unattended (opt-in only, explicit request
+required) = recommended options are applied as ASSUMED and logged for later reconciliation.
 EOF
     echo "Updated: intake.md — appended Q9 (interview mode). Answer it this session."
     CHANGES=$((CHANGES + 1))
@@ -75,6 +75,28 @@ if [ -d "$AGENT_DIR" ]; then
   done
 else
   echo "Note: no .claude/agents/ here — run bin/init-agents.sh $PROJECT_DIR if sessions run from this directory."
+fi
+
+# --- 2b. CLAUDE.local.md: append the session-start ritual if this project predates it ---
+CL="$PROJECT_DIR/CLAUDE.local.md"
+TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [ -f "$CL" ] && ! grep -q "Session-start ritual" "$CL"; then
+  cat >> "$CL" <<EOF
+
+## Session-start ritual (mandatory, before any pipeline work)
+
+1. \`git -C $TOOLKIT_ROOT pull --ff-only\` then \`git -C $TOOLKIT_ROOT rev-parse --short HEAD\`
+2. If the commit differs from \`PROJECT.md\`'s \`Toolkit commit:\` line: re-read
+   \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` in full, then update that line.
+3. State in chat which commit you're working from. gate-check blocks all gates on a mismatch.
+EOF
+  echo "Updated: CLAUDE.local.md — appended the session-start ritual."
+  CHANGES=$((CHANGES + 1))
+fi
+if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! grep -q "Toolkit commit:" "$PROJECT_DIR/PROJECT.md"; then
+  printf '\nToolkit commit: (set at session start — see CLAUDE.local.md ritual)\n' >> "$PROJECT_DIR/PROJECT.md"
+  echo "Updated: PROJECT.md — added the Toolkit commit acknowledgement line."
+  CHANGES=$((CHANGES + 1))
 fi
 
 # --- 3. Baseline routing / runbook-first wiring -----------------------------------------

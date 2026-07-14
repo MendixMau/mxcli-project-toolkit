@@ -196,6 +196,26 @@ STAGE_TITLES=(
 declare -a RESULTS
 declare -a NOTES
 
+# Protocol-freshness check: the session must have acknowledged the toolkit version it is
+# working from. PROJECT.md records "Toolkit commit: <sha>" (set by the session-start ritual
+# in CLAUDE.local.md); if it doesn't match the toolkit's current HEAD, the session is working
+# from a stale protocol read — the root cause of every skipped-gate incident so far.
+TOOLKIT_HEAD="$(git -C "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+SYNC_STATUS="FAIL"
+SYNC_NOTE="PROJECT.md has no 'Toolkit commit:' line — run the session-start ritual (CLAUDE.local.md): pull the toolkit, re-read the runbook, record the commit"
+if [ -f "$PROJECT_DIR/PROJECT.md" ]; then
+  RECORDED="$(grep -o 'Toolkit commit: [a-f0-9]*' "$PROJECT_DIR/PROJECT.md" | head -1 | awk '{print $3}')"
+  if [ -n "${RECORDED:-}" ]; then
+    if [ "$RECORDED" = "$TOOLKIT_HEAD" ]; then
+      SYNC_STATUS="PASS"
+      SYNC_NOTE="session acknowledged toolkit commit $TOOLKIT_HEAD"
+    else
+      SYNC_NOTE="PROJECT.md acknowledges toolkit commit $RECORDED but the toolkit is at $TOOLKIT_HEAD — the protocol changed since this session last read it: re-read conversion-runbook.md, then update the line"
+    fi
+  fi
+fi
+printf "Sync (Protocol freshness): %s — %s\n" "$SYNC_STATUS" "$SYNC_NOTE"
+
 # Stage P is checked outside the numeric loop (bash 3.2 arrays need integer indices).
 P_RESULT="$(check_stage_P)"
 P_STATUS="${P_RESULT%%|*}"
@@ -254,6 +274,8 @@ PROJECT_NAME="$(basename "$PROJECT_DIR")"
 <tr><th>Stage</th><th>Title</th><th>Status</th><th>Detail</th></tr>
 HTML_HEAD
 
+  printf '<tr><td>⟳</td><td>Protocol freshness</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
+    "$SYNC_STATUS" "$SYNC_STATUS" "$SYNC_NOTE"
   printf '<tr><td>P</td><td>Kickoff</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$P_STATUS" "$P_STATUS" "$P_NOTE"
   for stage in "${STAGE_NAMES[@]}"; do
@@ -273,6 +295,12 @@ echo ""
 echo "index.html regenerated at $INDEX"
 
 if [ -n "$REQUESTED_STAGE" ]; then
+  # No gate passes from a stale protocol read — freshness gates everything.
+  if [ "$SYNC_STATUS" = "FAIL" ]; then
+    echo "" >&2
+    echo "Gate BLOCKED by protocol staleness: $SYNC_NOTE" >&2
+    exit 1
+  fi
   if [ "$REQUESTED_STAGE" = "P" ] || [ "$REQUESTED_STAGE" = "p" ]; then
     if [ "$P_STATUS" = "FAIL" ]; then
       echo "" >&2

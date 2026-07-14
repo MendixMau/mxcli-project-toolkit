@@ -81,6 +81,9 @@ Common modules (no dependencies)
 
 **Rule:** Build order follows the dependency graph, not the BRD list order. A module that nothing else depends on can be built last even if its BRD number is F001.
 
+**The canonical plan shape (confirmed WOW, 2026-07-14 — deviate only with the user's explicit sign-off):**
+**Phase 1 = full scaffolding and domain models across ALL in-scope modules** (entities, enumerations, associations — the complete data skeleton, so every later script has real names to reference). **Phase 2 = the StyleGallery/UI module** (theme CSS tokens, example stylesheets and classes, live in the Mendix app — Step 4b). Only then per-module microflows → pages → security/demo users. Feature pages before Phase 2 is a named anti-pattern (see below).
+
 **Concretely, in dependency order:**
 1. Master data / enumerations (zero dependencies)
 2. Common/shared modules (depend only on master data)

@@ -144,6 +144,9 @@ EOF
   echo "Created: CLAUDE.local.md (runbook-first wiring + baseline routing)"
 fi
 
+# One-command install: agents are scaffolded here too, not as a separate step.
+"$SCRIPT_DIR/init-agents.sh" "$PROJECT_DIR" all
+
 GUIDE="$SCRIPT_DIR/../toolkit-guide.html"
 if [ -f "$GUIDE" ] && [ -z "${MXTK_NO_GUIDE:-}" ]; then
   # Best-effort auto-open of the visual guide; never fail the scaffold over it.
@@ -157,10 +160,8 @@ if [ -f "$GUIDE" ] && [ -z "${MXTK_NO_GUIDE:-}" ]; then
 fi
 echo ""
 echo "Next steps (not done by this script):"
-echo "  - Scaffold ALL FIVE agent stubs where your agent sessions run:"
-echo "      $SCRIPT_DIR/init-agents.sh <session-root>"
-echo "    Then complete each agent's {{PLACEHOLDER}}s per skills/agent-roles.md when its"
-echo "    stage starts (ba/architect now, mdl/gate/test at Stage 5). The stubs refuse to"
+echo "  - Complete each agent stub's {{PLACEHOLDER}}s per skills/agent-roles.md when its stage"
+echo "    starts (ba/architect at Stage P kickoff, mdl/gate/test at Stage 5). Stubs refuse to"
 echo "    run until completed, so a half-setup fails loudly instead of silently."
 echo "  - Stage 0 triage: choose/reuse an extraction pipeline (needs triage first, see source-triage.md)."
 echo ""

@@ -8,7 +8,7 @@ Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"):
 - `CONVERSION-RUNBOOK.md` (root) — thin "how to start" pointer.
 - `toolkit-guide.html` (root) — the visual onboarding page. **First-touch rule:** the first time a session uses this toolkit for a project (new conversion, new user, or the user seems unsure how the pipeline works), open it in their browser (`open toolkit-guide.html` / `xdg-open`) before the first interview question — `bin/init-project.sh` also does this automatically at scaffold time. Don't re-open it every session for a user who already knows it. It's also the shared CSS shell/tokens for every stage HTML surface.
 - `skills/conversion-runbook.md` — **the spine**: 9-stage matrix, interview protocol, gates, entry modes. Start here when unsure what stage anything is in.
-- `bin/init-project.sh <project-dir>` — Stage P scaffold (`intake.md`, `PROJECT.md`, `index.html`).
+- `bin/init-project.sh <project-root>` — **the one-command install**: `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook wiring), all five agent stubs, `index.html` dashboard; opens the guide. Idempotent.
 - `bin/gate-check.sh <project-dir> [stage]` — mechanical stage gates; regenerates the project dashboard from real files.
 - `bin/sync-project.sh <project-root>` — run after every toolkit `git pull`: refreshes the artifacts that were *copied* into the project (new intake questions, untouched agent stubs) and flags stale baseline routing. Referenced skills need no sync — they update with the pull.
 

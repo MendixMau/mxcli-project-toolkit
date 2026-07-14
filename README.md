@@ -40,7 +40,13 @@ Do **not** create `analysis/<project>/` as a sibling of the project — analysis
 
 **New here? Open `toolkit-guide.html` in a browser first** — the whole journey as a visual page: entry modes, the 9 stages, what each gate asks of you, and the don't-panic section. Agents open it for the user at kickoff.
 
-Clone, run `bin/init-project.sh <project-root>` (the project folder itself, not an analysis subfolder) to scaffold `intake.md` + `PROJECT.md` + the initial `index.html` dashboard, then `bin/init-agents.sh <project-root>` for all five agent stubs (inert until completed per `skills/agent-roles.md`), then `skills/bootstrap-project.md` for `CLAUDE.local.md`, then follow `skills/conversion-runbook.md` — it interviews you through each stage below. Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly if required artifacts are missing and regenerates `index.html` from the project's real state.
+**Install is one command per project:**
+
+```bash
+~/Mendix/mxcli-project-toolkit/bin/init-project.sh <project-root>
+```
+
+It scaffolds everything — `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook-first wiring + baseline routing, auto-loaded every session), all five agent stubs (inert until completed per `skills/agent-roles.md`), the `index.html` dashboard — and opens the visual guide. Idempotent: re-running never overwrites. Then just follow `skills/conversion-runbook.md` — it interviews you through each stage below. Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly if required artifacts are missing and regenerates `index.html` from the project's real state.
 
 ---
 

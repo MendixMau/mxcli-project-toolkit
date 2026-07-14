@@ -34,6 +34,29 @@ for candidate in "$PROJECT_DIR"/analysis/*/knowledge-base "$PROJECT_DIR/knowledg
   fi
 done
 
+check_stage_P() {
+  local f="$PROJECT_DIR/intake.md"
+  if [ ! -f "$f" ]; then
+    echo "FAIL|intake.md not found"
+    return
+  fi
+  # Every "## " question section must contain an "Answered" or "Unverified — how to verify" line.
+  local blanks
+  blanks=$(awk '
+    /^## /{ if (insec && !ok) bad++; insec=1; ok=0; next }
+    insec && (/Answered/ || /Unverified/) { ok=1 }
+    END { if (insec && !ok) bad++; print bad+0 }' "$f")
+  local total
+  total=$(grep -c '^## ' "$f")
+  if [ "$total" -eq 0 ]; then
+    echo "FAIL|intake.md has no question sections"
+  elif [ "$blanks" -eq 0 ]; then
+    echo "PASS|all $total intake questions answered or explicitly Unverified"
+  else
+    echo "FAIL|$blanks of $total intake questions have no answer and no 'Unverified — how to verify' line"
+  fi
+}
+
 check_stage_0() {
   local f="$PROJECT_DIR/triage.md"
   if [ ! -f "$f" ]; then
@@ -106,6 +129,30 @@ check_stage_4() {
   fi
 }
 
+check_stage_6() {
+  local f
+  for f in "$PROJECT_DIR/test-report.html" "$PROJECT_DIR"/reports/test-report.html; do
+    if [ -s "$f" ]; then
+      echo "PASS|$(basename "$f") present and non-empty"
+      return
+    fi
+  done
+  echo "FAIL|no test-report.html found (project root or reports/)"
+}
+
+check_stage_7() {
+  local f="$PROJECT_DIR/PROJECT.md"
+  if [ ! -f "$f" ]; then
+    echo "FAIL|PROJECT.md not found"
+    return
+  fi
+  if grep -i "cutover" "$f" | grep -q "CONFIRMED"; then
+    echo "PASS|CONFIRMED cutover decision found in PROJECT.md"
+  else
+    echo "FAIL|no CONFIRMED cutover decision in PROJECT.md (✋ gate — ASSUMED does not pass)"
+  fi
+}
+
 check_stage_manual() {
   echo "MANUAL|not file-existence-checkable — fill in status manually"
 }
@@ -125,6 +172,12 @@ STAGE_TITLES=(
 declare -a RESULTS
 declare -a NOTES
 
+# Stage P is checked outside the numeric loop (bash 3.2 arrays need integer indices).
+P_RESULT="$(check_stage_P)"
+P_STATUS="${P_RESULT%%|*}"
+P_NOTE="${P_RESULT#*|}"
+printf "Stage P (Kickoff): %s — %s\n" "$P_STATUS" "$P_NOTE"
+
 for stage in "${STAGE_NAMES[@]}"; do
   case "$stage" in
     0) result="$(check_stage_0)" ;;
@@ -132,6 +185,8 @@ for stage in "${STAGE_NAMES[@]}"; do
     2) result="$(check_stage_2)" ;;
     3) result="$(check_stage_3)" ;;
     4) result="$(check_stage_4)" ;;
+    6) result="$(check_stage_6)" ;;
+    7) result="$(check_stage_7)" ;;
     *) result="$(check_stage_manual)" ;;
   esac
   status="${result%%|*}"
@@ -175,6 +230,8 @@ PROJECT_NAME="$(basename "$PROJECT_DIR")"
 <tr><th>Stage</th><th>Title</th><th>Status</th><th>Detail</th></tr>
 HTML_HEAD
 
+  printf '<tr><td>P</td><td>Kickoff</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
+    "$P_STATUS" "$P_STATUS" "$P_NOTE"
   for stage in "${STAGE_NAMES[@]}"; do
     printf '<tr><td>%s</td><td>%s</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
       "$stage" "${STAGE_TITLES[$stage]}" "${RESULTS[$stage]}" "${RESULTS[$stage]}" "${NOTES[$stage]}"
@@ -192,6 +249,14 @@ echo ""
 echo "index.html regenerated at $INDEX"
 
 if [ -n "$REQUESTED_STAGE" ]; then
+  if [ "$REQUESTED_STAGE" = "P" ] || [ "$REQUESTED_STAGE" = "p" ]; then
+    if [ "$P_STATUS" = "FAIL" ]; then
+      echo "" >&2
+      echo "Stage P gate FAILED: $P_NOTE" >&2
+      exit 1
+    fi
+    exit 0
+  fi
   requested_status="${RESULTS[$REQUESTED_STAGE]:-}"
   if [ -z "$requested_status" ]; then
     echo "Error: unknown stage number: $REQUESTED_STAGE" >&2

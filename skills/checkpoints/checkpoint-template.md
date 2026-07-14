@@ -88,6 +88,7 @@ Present in this order:
 | CAC-3 | BRD Enrichment + Validation (Phase 5) | `checkpoint-architecture.md` |
 | CAC-4 | Architecture sign-off (Phase 6) | `checkpoint-design.md` |
 | CAC-5 | Design sign-off (before Phase 7 MDL gen) | `checkpoint-build.md` |
+| CAC-6 | Test pass (before Stage 7 cutover — `✋`, CONFIRMED only) | `checkpoint-cutover.md` |
 
 ---
 

@@ -36,13 +36,14 @@ Written to `architecture/` in the project workspace:
 ```
 architecture/
   blueprint.md                 ← the index: tiers, the two diagrams, links to module docs
+  blueprint.html               ← generated checkpoint render of blueprint.md (Step 7) — never hand-edited
   modules/
     <ModuleName>.md            ← one module definition doc per Mendix module
   fit-gap.md                   ← source capability → Mendix approach → build/buy/config/gap
   open-issues.md               ← consolidated dependency + gap + handoff register
 ```
 
-Diagrams live **inside** the markdown as Mermaid (git-diffable, no browser needed). A polished HTML/SVG render is optional, for stakeholder decks only — the Mermaid is the source of truth.
+Diagrams live **inside** the markdown as Mermaid (git-diffable, no browser needed) — **the markdown is the source of truth.** `blueprint.html` is a *generated render* of it, produced at Step 7 as the Stage-3 checkpoint surface (the runbook's `✋` gate is reviewed by a person, and the design track already arrives at that gate as HTML — the architecture track must too). Regenerate it whenever the markdown changes; never edit it directly.
 
 ---
 
@@ -191,6 +192,19 @@ Record each as a row in `architecture/open-issues.md` (Step 5's register) with i
 
 ---
 
+## Step 7: Render the Checkpoint Surface (`architecture/blueprint.html`)
+
+The Stage-3 `✋` gate is reviewed by a person, and raw Mermaid in markdown is a poor review surface. Generate `architecture/blueprint.html` from the markdown so the architecture track arrives at the checkpoint the same way the design track does (`design-system.html`, `wireframes/*.html`) — one system, one look.
+
+- **Style:** copy the `:root` token block + base styles from the shared CSS shell (`toolkit-guide.html`; once `design/ds.css` exists, its tokens supersede — same rule as every stage surface).
+- **Banner at the top:** `Generated from blueprint.md — do not edit; regenerate after changing the markdown.` Include the generation date.
+- **Content:** the layer + wiring diagrams, a module summary table (linking `modules/<Name>.md`), the fit-gap table, and the open-issues register. It renders what the markdown says; it introduces nothing new.
+- **Mermaid:** embed each diagram's source in `<pre class="mermaid">` with mermaid.js; if the review must work fully offline, pre-render to inline SVG (`npx @mermaid-js/mermaid-cli`) instead. Either way the markdown's Mermaid stays canonical.
+- **Freshness is gated:** `bin/gate-check.sh` Stage 3 fails if `blueprint.html` is missing or older than `blueprint.md` / `fit-gap.md` / `open-issues.md`. Regenerating is cheap; a stale render at a sign-off gate is a lie.
+- **Present it:** open `blueprint.html` in the user's browser when running the Stage-3 gate, alongside `module-design.html` and the design surfaces.
+
+---
+
 ## Handoff to the Build Plan
 
 `brd-to-build-plan.md` consumes this blueprint directly:
@@ -210,4 +224,5 @@ If the build plan can't answer one of its Step 2 questions, the gap is in *this*
 - **Discovering marketplace/build-vs-buy mid-build.** It's a fit-gap decision — make it here, with the capability in front of you.
 - **Deciding "Buy" here but installing it late.** A confirmed "Buy" that's still un-imported when scripting starts causes the same mid-build rework as never deciding at all — install it at `brd-to-build-plan.md` Step 0, not whenever a script first needs it.
 - **Drawing an up-the-tiers dependency.** Common importing a feature module is a boundary bug; the diagram should make it impossible to miss.
-- **Diagrams as throwaway images.** Keep them as Mermaid in git so they diff and stay true; render to HTML/SVG only for presentation.
+- **Diagrams as throwaway images.** Keep them as Mermaid in git so they diff and stay true; `blueprint.html` (Step 7) is the presentation render, regenerated from the markdown.
+- **Hand-editing `blueprint.html`.** The render silently forks from the markdown and the checkpoint reviews a fiction. Fix the markdown, regenerate. (Same failure mode as editing generated BRDs.)

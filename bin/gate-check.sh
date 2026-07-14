@@ -133,8 +133,23 @@ check_stage_3() {
     echo "FAIL|design/wireframes/*.html missing — design system exists but no wireframes (design-artifacts.md Step 3); the mdl-agent's UI pre-flight cannot run without them"
     return
   fi
+  # The architecture track must arrive at the ✋ gate as HTML too (architecture-blueprint.md
+  # Step 7): blueprint.html is the generated checkpoint render — markdown stays canonical,
+  # but a missing or stale render means the gate reviews raw Mermaid or an outdated picture.
+  local blueprint_html="$PROJECT_DIR/architecture/blueprint.html"
+  if [ ! -f "$blueprint_html" ]; then
+    echo "FAIL|architecture/blueprint.html missing — the Stage-3 checkpoint render (architecture-blueprint.md Step 7); regenerate it from blueprint.md"
+    return
+  fi
+  local src
+  for src in "$PROJECT_DIR/architecture/blueprint.md" "$PROJECT_DIR/architecture/fit-gap.md" "$PROJECT_DIR/architecture/open-issues.md"; do
+    if [ -f "$src" ] && [ "$blueprint_html" -ot "$src" ]; then
+      echo "FAIL|architecture/blueprint.html is older than $(basename "$src") — stale render at a sign-off gate; regenerate (architecture-blueprint.md Step 7)"
+      return
+    fi
+  done
   if has_confirmed_decision 3; then
-    echo "PASS|fit-gap, design system, wireframes present and a Stage-3 CONFIRMED decision is in PROJECT.md"
+    echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 CONFIRMED decision is in PROJECT.md"
   else
     echo "FAIL|artifacts exist but PROJECT.md has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass"
   fi

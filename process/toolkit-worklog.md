@@ -29,6 +29,30 @@ stockpiling scripts, add a check for unexecuted `.mdl` files more than one phase
 
 ---
 
+## 2026-07-15 — architecture render is a first-class Stage-3 surface
+
+**Incident:** in an arch test run, the wiring & architecture doc got no HTML while wireframes +
+design system did. Root cause was a spec contradiction, not agent error: the runbook's Stage-3
+Surface row promised `architecture.html`, but the owning skill (`architecture-blueprint.md`) called
+HTML "optional, for stakeholder decks only" — and per "rows are routing, not specs" the agent
+followed the skill. gate-check never checked for it either.
+
+**Rule now:** markdown/Mermaid stays the source of truth; `architecture/blueprint.html` is a
+**generated checkpoint render** (never hand-edited) that the architecture track must bring to the
+Stage-3 ✋ gate, same as the design track's HTML surfaces.
+
+**Shipped:**
+- `architecture-blueprint.md` Step 7: render `blueprint.html` from `blueprint.md` (shared CSS shell
+  tokens, generated-banner, Mermaid via `<pre class="mermaid">`+mermaid.js or inline SVG for
+  offline); new anti-pattern: hand-editing the render.
+- `bin/gate-check.sh` Stage 3: FAIL if `blueprint.html` missing **or older than**
+  `blueprint.md`/`fit-gap.md`/`open-issues.md` (mtime check). Verified: missing→FAIL,
+  stale→FAIL, fresh→PASS.
+- Naming aligned: runbook Stage-3 rows + `toolkit-guide.html` now say `architecture/blueprint.html`
+  (was `architecture.html`). `module-design.html` unchanged — that surface already existed.
+
+---
+
 ## 2026-07-14 — the big hardening day (~20 commits, be26d7c → d242c19)
 
 Context: full toolkit review + live validation on three projects (WMS-App-main, TFC-TCXGraphPOC-main

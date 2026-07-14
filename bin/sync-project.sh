@@ -77,7 +77,12 @@ else
   echo "Note: no .claude/agents/ here — run bin/init-agents.sh $PROJECT_DIR if sessions run from this directory."
 fi
 
-# --- 3. Baseline routing: report-only ---------------------------------------------------
+# --- 3. Baseline routing / runbook-first wiring -----------------------------------------
+if [ ! -f "$PROJECT_DIR/CLAUDE.local.md" ] && { [ ! -f "$PROJECT_DIR/CLAUDE.md" ] || ! grep -q "conversion-runbook" "$PROJECT_DIR/CLAUDE.md"; }; then
+  echo "⚠️  No runbook-first wiring found (no CLAUDE.local.md, and CLAUDE.md doesn't reference"
+  echo "   conversion-runbook.md). Run: $SCRIPT_DIR/init-project.sh $PROJECT_DIR"
+  echo "   (idempotent — it will only add the missing CLAUDE.local.md, never overwrite files)."
+fi
 for cm in "$PROJECT_DIR/CLAUDE.md" "$PROJECT_DIR/CLAUDE.local.md"; do
   if [ -f "$cm" ] && ! grep -q "query-the-model" "$cm"; then
     echo "⚠️  $(basename "$cm") does not reference the Baseline routing set — audit it per bootstrap-project.md."

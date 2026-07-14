@@ -1,5 +1,7 @@
 # mxcli-project-toolkit
 
+> **Agents: this README is orientation, not the spec.** For any pipeline work, the executable authority is `skills/conversion-runbook.md` (stages, gates, interview protocol) plus each stage's owning skill — load those before producing anything. Stage summaries here and in `toolkit-guide.html` are routing, not deliverable lists.
+
 Shared skills, prompt templates, and learnings for **Mendix migration and development projects**.
 
 Serves three audiences — same stages, different entry points (see `skills/conversion-runbook.md` "Entry Modes"; the mode is a **confirmed Stage-P decision**, never silently inferred — if source code exists it gets analyzed, if specs exist stages 2–4 run, and greenfield is only for starting from a conversation):
@@ -85,7 +87,7 @@ P. KICKOFF              source folder, constraints, SME availability → workspa
    (e2e-harness-base.md)                                                       [test-agent]
 ```
 
-`✋` marks a hard gate — the pipeline does not proceed without an explicit, recorded decision. Every other stage still records decisions, but unknowns may default to a recommended option (marked `ASSUMED` in `PROJECT.md`) rather than blocking a solo run. See `skills/conversion-runbook.md` §1 for the exact interview mechanics every gate runs.
+`✋` marks a hard gate — the pipeline does not proceed without an explicit, recorded decision. At every gate the question is actually asked in chat and the agent waits; `ASSUMED` is only recorded when the user was asked and delegated ("you decide"), never because asking was skipped. See `skills/conversion-runbook.md` §1 for the exact interview mechanics every gate runs.
 
 **Stage 0 (Triage) is a gate, not a formality.** It decides whether this app is even big enough to justify an extraction pipeline (small apps: skip straight to manual `assess-migration.md` + hand-written BRD), whether existing extractors/mappers cover this source stack or a new one needs building, and — for large sources — recommends a bounded scope subset (**an ordering, not an exclusion**) rather than processing everything at once. It also flags (without deciding) whether the app is large enough to raise a multiple-Mendix-apps question, resolved before Stage 3's module-boundary work. Stage 2 (BRD generation) does not start until this is signed off.
 
@@ -381,7 +383,7 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Setting up a new project's dev-process subagents | `skills/agent-roles.md` — once, at project start, not "on demand" |
 | First time this toolkit is used on a project, or the user seems unsure how the pipeline works | Open `toolkit-guide.html` in their browser (`open` / `xdg-open`) — the visual walkthrough. Once per project/user, not every session. |
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
-| Not sure what stage a conversion is in, or what a gate requires | `skills/conversion-runbook.md` |
+| **Any pipeline work at all** — every session, before producing any stage artifact (not just "when unsure") | `skills/conversion-runbook.md` — the executable spec; READMEs and guide are orientation only |
 
 **Why this has to be explicit instead of implicit:** a project's own skill files are usually written before a given toolkit learning exists, or before a new one is added later — they never grow a cross-reference to it on their own. When you `git pull` this toolkit and it brings in a new baseline-worthy skill (most often a new `learned-*.md`), update every consuming project's routing to match — don't assume the next session will find it by chance.
 

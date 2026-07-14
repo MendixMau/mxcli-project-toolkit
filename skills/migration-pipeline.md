@@ -261,7 +261,7 @@ The loop:
 1. Run extractor → emits `inventory.json` (or KB JSONs)
 2. Run validator → emits `extraction-quality.json` with dimension scores
 3. If overall score < 95%: fix the extractor, go to 1
-4. If overall score ≥ 95%: gate passed, update `pipeline-state.md`, proceed to Phase 3
+4. If overall score ≥ 95%: gate passed, update `PROJECT.md`, proceed to Phase 3
 
 Never hand-patch `inventory.json` to inflate a score. The validator must derive ground truth
 from source files directly.

@@ -36,7 +36,7 @@ Phase 7 MDL generation follows the build plan strictly — no ad-hoc ordering.
 > - B) Layer by layer with review between — generate layer1, validate, then layer2, then layer3
 > - C) Feature-by-feature — complete one BRD end-to-end before moving to the next
 
-**Record as:** `pipeline-state.md` → `## Decisions Made` → `MDL generation strategy:`
+**Record as:** `PROJECT.md` → `## Decisions` → `MDL generation strategy:`
 
 ---
 
@@ -53,7 +53,7 @@ Phase 7 MDL generation follows the build plan strictly — no ad-hoc ordering.
 > - B) Last — build everything first, add security as a final step
 > - C) Per-feature — add security immediately after each feature's MDL is complete
 
-**Record as:** `pipeline-state.md` → `## Decisions Made` → `Security setup timing:`
+**Record as:** `PROJECT.md` → `## Decisions` → `Security setup timing:`
 
 ---
 
@@ -65,7 +65,7 @@ Phase 7 MDL generation follows the build plan strictly — no ad-hoc ordering.
 > If no — say 'no deadline' and we'll optimize for dependency order."
 
 **What to do with the answer:**
-- If a deadline is given: convert to absolute date, record in `pipeline-state.md` under `## Decisions Made` → `Deadline:`
+- If a deadline is given: convert to absolute date, record in `PROJECT.md` under `## Decisions` → `Deadline:`
 - If a specific feature is prioritized: move its BRD to top of build order in `brd-to-build-plan.md`, even if it creates a non-ideal dependency order
 - If 'no deadline': proceed with pure dependency-ordered build plan
 
@@ -74,7 +74,7 @@ Phase 7 MDL generation follows the build plan strictly — no ad-hoc ordering.
 ## Decision Recording
 
 ```
-pipeline-state.md → ## Decisions Made:
+PROJECT.md → ## Decisions:
   MDL generation strategy: [full / layer-by-layer / feature-by-feature]
   Security setup timing: [layer1 / last / per-feature]
   Deadline: [date or 'none']

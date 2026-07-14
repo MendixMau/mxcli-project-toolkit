@@ -4,6 +4,13 @@
 **Purpose:** Structured human-in-the-loop gate between every major deliverable. Surfaces findings,
 previews what's next, asks 2 intelligence-driven questions + 1 open question per deliverable.
 
+**Relationship to `conversion-runbook.md`:** checkpoints are the *mechanism* that implements the
+runbook's interview protocol (§1) at each gate — the 2+1 question structure is how "propose with
+evidence, then ask" runs in practice. There is **one** decision register: `PROJECT.md` (the
+runbook's, scaffolded by `bin/init-project.sh`). Checkpoints write to it; they do not keep a
+separate state file. At a `✋` gate, answers must land as `CONFIRMED` — `ASSUMED` defaults are
+only allowed at soft gates.
+
 ---
 
 ## What Every Checkpoint Does
@@ -13,7 +20,7 @@ previews what's next, asks 2 intelligence-driven questions + 1 open question per
 3. **Steer** — 2 predefined questions (inferred from KB/BRD findings) + 1 open question (can't be inferred from code)
 
 Checkpoints are **decision gates, not artifact producers**. They never generate files —
-they produce decisions that propagate into the next stage's inputs via `pipeline-state.md`.
+they produce decisions that propagate into the next stage's inputs via `PROJECT.md`.
 
 ---
 
@@ -35,12 +42,14 @@ they produce decisions that propagate into the next stage's inputs via `pipeline
 
 ## Decision Recording
 
-After the user answers, record every decision in `pipeline-state.md` under `## Decisions Made`.
-If a BRD or mx-brd file is already open, propagate relevant answers into `mendixNotes` or
-`openQuestions[].answer` fields.
+After the user answers, record every decision in `PROJECT.md` under `## Decisions`, marked
+`CONFIRMED` (user answered) or `ASSUMED` (recommended default applied, with the risk if wrong —
+per `conversion-runbook.md` §1 step 6). Unanswered open questions go to `PROJECT.md` →
+`## Open questions`, not silently dropped. If a BRD or mx-brd file is already open, propagate
+relevant answers into `mendixNotes` or `openQuestions[].answer` fields.
 
 Never re-ask a resolved decision in a later stage. If a decision is found already recorded in
-`pipeline-state.md`, skip that question.
+`PROJECT.md`, skip that question.
 
 ---
 
@@ -103,7 +112,7 @@ Example — if KB entities.json shows a `balance` field updated on every transac
 ## When to Skip a Checkpoint
 
 A checkpoint may be skipped if:
-- All its predefined questions can be answered from already-recorded decisions in `pipeline-state.md`
+- All its predefined questions can be answered from already-recorded decisions in `PROJECT.md`
 - The open question has already been answered (e.g. user provided a Figma link earlier)
 
 In that case, show a one-line summary ("Scope checkpoint: all decisions already recorded — proceeding")

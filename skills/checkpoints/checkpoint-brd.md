@@ -36,7 +36,7 @@ BRD with most screens/logics as the "most complex." Offer priority ordering opti
 > - B) [Largest feature BRD by screen count] — get the core user flow detailed first
 > - C) Enrich all in parallel — fastest if scope is small (< 4 BRDs)
 
-**Record as:** `pipeline-state.md` → `## Decisions Made` → `BRD enrichment order:`
+**Record as:** `PROJECT.md` → `## Decisions` → `BRD enrichment order:`
 
 ---
 
@@ -62,7 +62,7 @@ approaches. Examples:
 > - B) Microflows only — simpler, no Workflow module dependency
 > - C) Flag for manual review — decide per state machine
 
-**Record as:** `pipeline-state.md` → `## Decisions Made` → named per pattern found
+**Record as:** `PROJECT.md` → `## Decisions` → named per pattern found
 
 ---
 
@@ -81,7 +81,7 @@ approaches. Examples:
 ## Decision Recording
 
 ```
-pipeline-state.md → ## Decisions Made:
+PROJECT.md → ## Decisions:
   BRD enrichment order: [list]
   [Pattern name]: [chosen approach]
   Business rules (not in code): [list or 'none confirmed']

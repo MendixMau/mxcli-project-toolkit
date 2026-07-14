@@ -24,7 +24,7 @@ until the extraction reaches ≥ 95% across all scored dimensions before Stage 3
      - Go to step 2
 6. If overall score ≥ 95%:
      - Write the quality report to analysis/<Project>/extraction-quality.json
-     - Mark Stage 2 COMPLETE in pipeline-state.md
+     - Mark Stage 2 COMPLETE in PROJECT.md
      - Proceed to Stage 3
 ```
 

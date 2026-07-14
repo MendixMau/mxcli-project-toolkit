@@ -33,6 +33,8 @@ A proposal beats a questionnaire because it asks the user to **correct** somethi
 
 **Unknowns are not blockers.** If nobody can answer a question yet, default + record + proceed (step 6). The pipeline only actually stops at a `✋` gate (§2) — every other stage keeps moving with `ASSUMED` markers trailing behind it for someone to reconcile later.
 
+**The packaged form of this protocol is a checkpoint.** `skills/checkpoints/` ships ready-made Context-Aware Checkpoints (CAC) for the five busiest transitions (scope, BRD, architecture, design, build) — each runs the protocol above as a "2 predefined questions + 1 open question" script, derived from what the pipeline actually found. Use them where they exist; run the raw six steps where they don't. Either way the decisions land in `PROJECT.md` — checkpoints keep no state file of their own.
+
 ---
 
 ## 2. The Stage Matrix

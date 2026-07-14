@@ -38,7 +38,7 @@ strategy before `.mx-brd.json` files are written.
 > - B) One module per feature + a Common module for shared entities ([Auth.User] is shared)
 > - C) Single module for POC — simplest, refactor later
 
-**Record as:** `pipeline-state.md` → `## Decisions Made` → `Module structure:`
+**Record as:** `PROJECT.md` → `## Decisions` → `Module structure:`
 
 ---
 
@@ -56,7 +56,7 @@ referenced by Accounts and Transactions).
 > - B) Duplicate a lightweight UserRef entity in each module — looser coupling, more data
 > - C) Expose via OData/REST between modules — needed only for multi-app architecture
 
-**Record as:** `pipeline-state.md` → `## Decisions Made` → `Cross-module strategy:`
+**Record as:** `PROJECT.md` → `## Decisions` → `Cross-module strategy:`
 
 ---
 
@@ -69,14 +69,14 @@ referenced by Accounts and Transactions).
 **What to do with the answer:**
 - Add to `project-profile.md` under `## Non-Functional Requirements`
 - Flag any that directly affect module structure (e.g. multi-tenancy → affects all XPath constraints)
-- Note deferred NFRs in `pipeline-state.md` so they aren't lost
+- Note deferred NFRs in `PROJECT.md` so they aren't lost
 
 ---
 
 ## Decision Recording
 
 ```
-pipeline-state.md → ## Decisions Made:
+PROJECT.md → ## Decisions:
   Module structure: [list of Mendix modules]
   Cross-module strategy: [chosen approach]
   NFRs: [list or 'none for POC']

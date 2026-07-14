@@ -36,7 +36,7 @@ Example:
 > - B) [Full feature set] — migrate everything now
 > - C) [Core feature 1 only] — one capability, lowest risk
 
-**Record as:** `pipeline-state.md` → `## Decisions Made` → `Goal:`
+**Record as:** `PROJECT.md` → `## Decisions` → `Goal:`
 
 ---
 
@@ -53,7 +53,7 @@ If found: option A = reuse it. If not found: offer build-new vs manual-only.
 > - B) Build a new extractor (30–60 min investment; reusable for future projects)
 > - C) Manual-only — skip extraction, write BRDs by hand from source reading
 
-**Record as:** `pipeline-state.md` → `## Decisions Made` → `Pipeline:`
+**Record as:** `PROJECT.md` → `## Decisions` → `Pipeline:`
 
 ---
 
@@ -64,7 +64,7 @@ If found: option A = reuse it. If not found: offer build-new vs manual-only.
 
 **What to do with the answer:**
 - If a link is provided: add it to `project-profile.md` under `## External References`
-- If constraints are pasted: record them in `pipeline-state.md` under `## Decisions Made`
+- If constraints are pasted: record them in `PROJECT.md` under `## Decisions`
 - If 'none': note it and proceed
 
 ---
@@ -72,7 +72,7 @@ If found: option A = reuse it. If not found: offer build-new vs manual-only.
 ## Decision Recording
 
 ```
-pipeline-state.md → ## Decisions Made:
+PROJECT.md → ## Decisions:
   Goal: [POC first / Full / Strangler fig] — [capability list]
   Pipeline: [pipeline name or manual-only]
   External refs: [links or 'none']

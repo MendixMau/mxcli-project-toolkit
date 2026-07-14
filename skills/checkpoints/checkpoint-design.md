@@ -40,7 +40,7 @@ generic Atlas output that will need rework.
 > - C) Atlas_Blank (no chrome — build from scratch)
 > - D) I'll describe a custom layout
 
-**Record as:** `pipeline-state.md` → `## Decisions Made` → `Atlas layout:`
+**Record as:** `PROJECT.md` → `## Decisions` → `Atlas layout:`
 
 ---
 
@@ -57,7 +57,7 @@ or desktop-first. Use that to set the recommended option.
 > - C) Native mobile — Mendix Native profile (separate build pipeline)
 > - D) Web + Native — both profiles, more complex
 
-**Record as:** `pipeline-state.md` → `## Decisions Made` → `Platform target:`
+**Record as:** `PROJECT.md` → `## Decisions` → `Platform target:`
 
 ---
 
@@ -83,7 +83,7 @@ or desktop-first. Use that to set the recommended option.
 ## Decision Recording
 
 ```
-pipeline-state.md → ## Decisions Made:
+PROJECT.md → ## Decisions:
   Atlas layout: [chosen layout]
   Platform target: [web / responsive / native / both]
   Design assets: [Figma URL / brand doc link / 'Atlas defaults' / description]

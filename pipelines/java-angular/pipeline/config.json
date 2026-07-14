@@ -1,11 +1,13 @@
 {
-  "_comment": "PROJECT-OWNED config for the shared java-angular pipeline. Source of truth for WMS-App-main, ALL THREE capabilities (Common, Transportation, Movements) in one combined, cross-linked run — see migration-pipeline.md 'Multiple source repos/modules' and source-triage.md. run.js has no config-path override — there is no sync-config.sh in this toolkit, so this file must be hand-edited back to a project's values before another project runs this pipeline. Backend-only: no Angular source exists for this project (CONFIRMED, PROJECT.md 2026-07-14), so angularSourceDir is intentionally empty.",
+  "_comment": "PROJECT-OWNED config for the shared java-angular pipeline. Source of truth for WMS-App-main, ALL FIVE source repos in one combined, cross-linked run — see migration-pipeline.md 'Multiple source repos' and source-triage.md. Backend-only: no Angular source exists for this project (CONFIRMED, triage.md 2026-07-14), so angularSourceDir is intentionally empty.",
   "sources": [
-    { "name": "common",    "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-common-lib/src/main/java" },
-    { "name": "tms",       "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-tms/src/main/java" },
-    { "name": "movements", "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/org.openwms.wms.movements.lib/src/main/java" }
+    { "name": "common-lib",    "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-common-lib/src/main/java" },
+    { "name": "tms",           "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-tms/src/main/java" },
+    { "name": "movements",     "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-movements/src/main/java" },
+    { "name": "movements-lib", "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-movements-lib/src/main/java" },
+    { "name": "core",          "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-core/org.openwms.core.util/src/main/java" }
   ],
   "angularSourceDir": "",
   "dbDir": "",
-  "knowledgeBaseDir": "/Users/dev/Mendix/WMS-App-main/analysis/openwms/knowledge-base"
+  "knowledgeBaseDir": "/Users/dev/Mendix/WMS-App-main/analysis/WMS-App/knowledge-base"
 }

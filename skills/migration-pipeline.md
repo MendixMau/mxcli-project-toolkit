@@ -286,7 +286,9 @@ Quick checklist (validator covers these automatically):
 ## Phase 3 — Automated BRD Scaffolding
 
 **Requires the `source-triage.md` gate confirmed first** — scope subset agreed, coverage checked. Given that, this phase itself needs no *document* input (Path B) to run: once the code extraction pipeline (Phase 2) has produced KB JSONs for the confirmed scope, run the BRD mapper layer to
-auto-generate one structured `{ModuleName}.brd.json` per source module — purely off the code-derived KB, so it's the fastest path to a first reviewable artifact **within that confirmed scope**:
+auto-generate one structured `{ModuleName}.brd.json` per **business capability** — purely off the code-derived KB, so it's the fastest path to a first reviewable artifact **within that confirmed scope**.
+
+**Capability grouping (Phase 3 built-in, java-angular + node-express-react):** the mapper does NOT emit one BRD per source package. Technical-layer package names (`impl`, `api`, `spi`, `commands`, `events`, `handler`, …) are rolled up into their business capability using each item's own source-path evidence (per-item, because the same leaf name legitimately spans several domains — real incident: 19 package-BRDs for ~6 capabilities, an `impl` bucket holding 113 items from 5 different domains). The applied mapping is written to `brd/grouping-proposal.md` and **confirmed at CAC-2** (`checkpoint-brd.md` Q0); corrections go in `config.json` → `"brdGrouping": { "<rawModule>": "<capability>" }` and Phase 3 re-runs. This fixes BRD granularity only — Mendix module boundaries remain the Stage 3 decision (`modularize-domain.md`). New pipelines must implement the same step (`generators/lib/capability-grouper.js` is the reference; the OutSystems pipeline is exempt because its BRDs are already function-centric):
 
 ```bash
 node run.js 3           # generates knowledge-base/brd/*.brd.json
@@ -551,6 +553,7 @@ label maps together, not just one.
       own directory — see "Project Workspace Convention" above
 - [ ] Copy the generic files/folders listed above from the nearest existing pipeline repo
 - [ ] Write extractor(s) for the new source type(s), one per `extractors/README.md` template
+- [ ] Wire capability grouping into the BRD mapper (copy `generators/lib/capability-grouper.js`, adapt `TECH_LAYERS`/path parsing to the stack) so BRDs land per business capability, not per source folder/package — and emit `brd/grouping-proposal.md` for CAC-2
 - [ ] Add/adapt linker rules for this stack's real cross-reference patterns
 - [ ] Run the copied `brd-mappers/*` against real extracted output; where a mapper's assumption
       doesn't hold (e.g. no `logicKind` concept), patch it in place and note the change — don't fork

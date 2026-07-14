@@ -88,7 +88,7 @@ async function phase3() {
   const { generate } = require('./generators/brd-mappers/index');
   const kbDir  = KB_DIR;
   const outDir = path.join(KB_DIR, 'brd');
-  const report = await generate(kbDir, outDir, {});
+  const report = await generate(kbDir, outDir, { brdGrouping: CONFIG.brdGrouping || {} });
   console.log(`Extract step 3 complete. ${report.modulesGenerated} BRD files → ${outDir}`);
   if (report.warnings.length) console.warn(`Warnings: ${report.warnings.length}. See ${path.join(outDir, 'generation-report.json')}`);
 }

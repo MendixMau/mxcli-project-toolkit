@@ -32,6 +32,47 @@ until the extraction reaches ≥ 95% across all scored dimensions before Stage 3
 Never skip the loop. Never hand-patch inventory.json to inflate a score. The validator must be
 able to re-derive the ground truth from source files without reading inventory.json.
 
+## Independent-Method Validation (correlated-blind-spot rule)
+
+A validator that parses the source the same way the extractor does will miss the same things —
+both return the same wrong answer and the score comes back a false 100%. (Real incident: an
+extractor and validator both missed enums entirely; a later re-check with a different method
+found them.)
+
+Rules:
+
+1. **The validator must derive ground truth using a different mechanism than the extractor.**
+   If the extractor walks an AST, the validator uses text-level heuristics (grep/regex/python),
+   or vice versa. Two runs of the same parser are not validation.
+2. **Agreement = trusted score. Disagreement = the loop continues.** When the two methods
+   disagree on any dimension, neither result is ground truth — investigate which method is
+   wrong, fix it, and re-run. Never average or pick the higher count.
+
+## Suspicious-Zero Gate
+
+A dimension that finds 0 items against 0 expected scores perfect by arithmetic — and hides a
+total extraction failure. Zero is a claim, not a pass.
+
+1. Any dimension where the extractor finds **0 items** (no enums, no associations, no
+   endpoints, …), or any item with **0 members** (an empty enum, an entity with no fields),
+   triggers a **mandatory second-method probe** before that dimension may score.
+2. Zero is only accepted when **two independent methods both return zero**.
+3. Record accepted zeros in `extraction-quality.json` under `"confirmedZeros"` with the two
+   methods used, so a reviewer can see the zero was verified, not assumed.
+
+## Method Log (re-evaluating which extraction methods to use)
+
+Every time the two methods disagree and one wins, append a line to the pipeline's
+`SESSION-NOTES.md` (or the extractor directory's README):
+
+```
+YYYY-MM-DD  <stack>  <dimension>  winner: <method>  loser: <method>  cause: <one line>
+```
+
+Before writing an extractor for a stack, read this log — it tells you which methods have
+actually worked for that stack's quirks. Over time each stack's extractor converges on the
+methods that win, instead of re-discovering the same blind spots.
+
 ## The 6 Scored Dimensions
 
 Each dimension is scored 0–100. The overall score is the unweighted average.
@@ -109,6 +150,9 @@ Noting these as "BRD-only" in the quality report is correct and expected.
     "endpoints":      { "score": 90.0, "found": 27, "expected": 30, "gaps": ["POST /login missing", "POST /logout missing", "GET /checkAuth missing"] },
     "testCoverage":   { "score": 100,  "found": 21, "expected": 21, "gaps": [] }
   },
+  "confirmedZeros": [
+    { "dimension": "enumerations", "methods": ["ts-ast", "python-regex"], "note": "source genuinely defines no enums" }
+  ],
   "brdOnly": [
     "Password hashing on User creation (bcrypt, 10 rounds)",
     "Balance debit/credit logic on Transaction completion",
@@ -122,11 +166,15 @@ Noting these as "BRD-only" in the quality report is correct and expected.
 The validator for a stack must:
 
 1. **Derive ground truth from source files directly** — not from inventory.json
-2. **Resolve cross-file enum imports** — follow import chains to find enum definitions
-3. **Maintain a `FK_ALIASES` map** — for FKs whose name doesn't match the target entity name
-4. **Glob all route-defining files** — not just `*-routes.ts`; include auth, middleware, app.ts
-5. **Be runnable standalone** — `ts-node validator.ts --source <path> --inventory <path>`
-6. **Exit code 0** if score ≥ threshold, **exit code 1** if below — so `run.sh` can loop
+2. **Use a different parsing mechanism than the extractor** — see "Independent-Method
+   Validation" above; two runs of the same parser are not validation
+3. **Enforce the Suspicious-Zero Gate** — never let a 0-found/0-expected dimension score
+   without a second-method probe; write accepted zeros to `"confirmedZeros"`
+4. **Resolve cross-file enum imports** — follow import chains to find enum definitions
+5. **Maintain a `FK_ALIASES` map** — for FKs whose name doesn't match the target entity name
+6. **Glob all route-defining files** — not just `*-routes.ts`; include auth, middleware, app.ts
+7. **Be runnable standalone** — `ts-node validator.ts --source <path> --inventory <path>`
+8. **Exit code 0** if score ≥ threshold, **exit code 1** if below — so `run.sh` can loop
 
 ## run.sh Requirements
 

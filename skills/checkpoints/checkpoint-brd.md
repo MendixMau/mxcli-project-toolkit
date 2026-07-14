@@ -24,6 +24,19 @@ the enrichment is semantic.
 
 ## Predefined Questions
 
+### Q0 — Capability grouping (ask FIRST — enrichment order is meaningless on wrong units)
+
+**When to ask:** Whenever `brd/grouping-proposal.md` exists (java-angular / node-express-react pipelines write it at Phase 3).
+
+**How to generate options:** Read the proposal table. Surface (a) how many raw packages became how many capability BRDs, (b) every raw name left *(unchanged)* that looks technical (`api`, `events`, `state`, …) — those had no path evidence and are the likeliest misgroupings.
+
+> "The mapper grouped 19 packages into 17 capability BRDs (proposal attached). `api` and `events` couldn't be grouped automatically — where do they belong?"
+> - A) Accept the proposal as-is; fold `api`/`events` into [nearest capability from context] *(recommended if evidence supports it)*
+> - B) Accept the proposal but keep `api`/`events` separate for now — regroup at Stage 3
+> - C) Adjust: [specific corrections] → set `config.json` → `brdGrouping` and re-run Phase 3
+
+**Record as:** `PROJECT.md` → `## Decisions` → `BRD grouping:` — and if corrections were made, re-run Phase 3 *before* Q1, then confirm the regenerated set. Note: this fixes BRD granularity only; Mendix module boundaries are still Stage 3's decision (`modularize-domain.md`).
+
 ### Q1 — Use case coverage priority
 
 **When to ask:** Always.

@@ -2,7 +2,7 @@
 
 Shared skills, prompt templates, and learnings for **Mendix migration and development projects**.
 
-Serves three audiences — same stages, different entry points (see `skills/conversion-runbook.md` "Entry Modes"):
+Serves three audiences — same stages, different entry points (see `skills/conversion-runbook.md` "Entry Modes"; the mode is a **confirmed Stage-P decision**, never silently inferred — if source code exists it gets analyzed, if specs exist stages 2–4 run, and greenfield is only for starting from a conversation):
 
 - **Migrations** (legacy source code) — all stages.
 - **Requirements-driven builds** (specs/BRDs/SME input, no legacy code) — stages 1–6; document discovery replaces source triage, extraction Path B/C replaces code extractors.

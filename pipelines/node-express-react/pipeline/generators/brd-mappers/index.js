@@ -7,6 +7,7 @@ const { mapMicroflows }     = require('./microflow-mapper');
 const { mapPages }          = require('./page-mapper');
 const { mapUseCases, classifyAppType } = require('./use-case-mapper');
 const { mapIntegrations }   = require('./integration-mapper');
+const { capabilityForItem, buildGroupingReport, buildEvidenceMajority, renderProposal } = require('../lib/capability-grouper');
 
 function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
@@ -31,11 +32,22 @@ async function generate(kbDir, outDir, opts = {}) {
   const extEntities = readJson(path.join(kbDir, 'extEntities.json'));
   const timers      = readJson(path.join(kbDir, 'timers.json'));
 
-  // Bucket by module
+  // Roll technical-layer packages up into business capabilities before bucketing.
+  // Per-item (path evidence), because the same leaf package name (impl, api…) legitimately
+  // belongs to several domains. opts.brdGrouping = explicit config overrides by raw name.
+  // Proposal doc goes to outDir for CAC-2 review — see capability-grouper.js.
+  const brdGrouping = opts.brdGrouping || {};
+  const allItems = [...entities, ...statics, ...logics, ...screens,
+                    ...webBlocks, ...serviceApis, ...extEntities, ...timers];
+  const evidenceMajority = buildEvidenceMajority(allItems);
+  fs.writeFileSync(path.join(outDir, 'grouping-proposal.md'),
+    renderProposal(buildGroupingReport(allItems, brdGrouping, evidenceMajority)), 'utf8');
+
+  // Bucket by module (post-grouping capability name)
   const modules = {};
   function bucket(items, key) {
     for (const item of items) {
-      const m = item.module || item.inferredModule || '(unknown)';
+      const m = capabilityForItem(item, brdGrouping, evidenceMajority);
       if (!modules[m]) modules[m] = {
         entities: [], statics: [], logics: [], screens: [],
         webBlocks: [], serviceApis: [], extEntities: [], timers: [],

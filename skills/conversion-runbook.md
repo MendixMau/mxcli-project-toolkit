@@ -12,7 +12,15 @@
 
 ## Entry Modes — Where Your Project Enters the Pipeline
 
-The stages are the same for everyone; what differs is where you enter and which analysis paths exist for you. Pick the row that matches what you're starting from — this decides which stages run and which are skipped *by design* (record the mode in `PROJECT.md` at Stage P; a skipped stage in the wrong mode is a gap, in the right mode it's correct).
+The stages are the same for everyone; what differs is where you enter and which analysis paths exist for you.
+
+**The entry mode is a Stage-P interview decision, not a silent inference.** The agent proposes a mode *with evidence* ("you have specs in X and source in Y, so…") and records it `CONFIRMED` in `PROJECT.md` before any stage is skipped. A skipped stage in the wrong mode is a gap; in the confirmed mode it's correct. Classification rules — apply in order, first match wins:
+
+1. **Any legacy/source code exists** (even a reference implementation you're not "migrating" — if it encodes behavior you want, it gets analyzed) → **Migration** (or at minimum, Stage 1 Path A runs on it).
+2. **Any requirements artifacts exist** — specs, BRDs, context docs, wireframes, workshop outputs → **Requirements-driven**. Having "complete" specs does *not* mean skipping to Stage 5: stages 2–4 are where those specs become validated BRDs, an architecture, module boundaries, a design system, and an ordered plan. Skipping them means improvising all of that mid-build.
+3. **Neither** — you're genuinely starting from a conversation → **Greenfield**. This is the narrowest mode, not the default for "no legacy system."
+
+(Real misrouting incident, 2026-07-14: a project with full specs + analyzable source was classified greenfield "because there's nothing to migrate," proposing to skip 0–4 — exactly what rules 1–2 exist to prevent.)
 
 | You're starting from… | Mode | Stages that run | What changes |
 |---|---|---|---|

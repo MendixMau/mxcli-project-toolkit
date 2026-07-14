@@ -38,7 +38,7 @@ Do **not** create `analysis/<project>/` as a sibling of the project — analysis
 
 **New here? Open `toolkit-guide.html` in a browser first** — the whole journey as a visual page: entry modes, the 9 stages, what each gate asks of you, and the don't-panic section. Agents open it for the user at kickoff.
 
-Clone, run `bin/init-project.sh <project-root>` (the project folder itself, not an analysis subfolder) to scaffold `intake.md` + `PROJECT.md` + the initial `index.html` dashboard, then `skills/bootstrap-project.md` to scaffold `CLAUDE.local.md` + the subagents, then follow `skills/conversion-runbook.md` — it interviews you through each stage below. Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly if required artifacts are missing and regenerates `index.html` from the project's real state.
+Clone, run `bin/init-project.sh <project-root>` (the project folder itself, not an analysis subfolder) to scaffold `intake.md` + `PROJECT.md` + the initial `index.html` dashboard, then `bin/init-agents.sh <project-root>` for all five agent stubs (inert until completed per `skills/agent-roles.md`), then `skills/bootstrap-project.md` for `CLAUDE.local.md`, then follow `skills/conversion-runbook.md` — it interviews you through each stage below. Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly if required artifacts are missing and regenerates `index.html` from the project's real state.
 
 ---
 
@@ -220,11 +220,24 @@ You don't need to restart your machine or reinstall anything. The stale process 
 
 ```
 mxcli-project-toolkit/
+  CONVERSION-RUNBOOK.md         ← thin front door: how to start, entry modes
+  toolkit-guide.html            ← visual onboarding page + shared CSS shell for stage HTMLs
+  bin/
+    init-project.sh             ← Stage P scaffold: intake.md, PROJECT.md, index.html (opens the guide)
+    init-agents.sh              ← scaffold all five agent stubs into a project's .claude/agents/
+    gate-check.sh               ← mechanical stage gates (P–7) + self-regenerating dashboard
+    sync-project.sh             ← after toolkit git pull: refresh the artifacts copied into a project
+  agents/                       ← the five agent stub templates (ba/architect/mdl/gate/test)
   skills/
-    conversion-runbook.md       ← [any project] The spine: 8-stage matrix + interview protocol + gates
+    conversion-runbook.md       ← [any project] The spine: stage matrix + interview protocol + entry modes + gates
+    checkpoints/                ← CAC checkpoint scripts (scope/BRD/architecture/design/build/cutover)
     query-the-model.md          ← [any project] Query-before-ask source-of-truth ordering
+    existing-app-assurance.md   ← [any project] Audit / regression-test an existing app — no pipeline
     agent-roles.md              ← [any project] Generate ba/architect/mdl/gate/test subagents with scoped tool rights
     bootstrap-project.md        ← [any project] Generate a new project's CLAUDE.md: Baseline routing + project-specific facts
+    extractor-quality-loop.md   ← [migration] Scored quality loop for building/validating extractors
+    ui-preflight-pages.md       ← [any project] Mandatory wireframe→tokens→StyleGallery cross-check before any page MDL
+    learned-stylegallery.md     ← [any project] Turn ds.css into a live in-app StyleGallery module
     migration-pipeline.md       ← [migration] Full pipeline phase guide (XML → KB → BRD → MDL)
     source-triage.md            ← [migration] Gate before extraction: coverage check, reuse-vs-build-new call, bounded scope
     modularize-domain.md        ← [migration] Deciding Mendix module boundaries (Stage 3): criteria, sign-off, HTML rationale

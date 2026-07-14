@@ -110,19 +110,10 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | | |
 |---|---|
 | **User defines** | Confirms the per-module **business-rule coverage checklist** — the definition of "done" for the module, not CE-error-free. |
-| **Agent produces** | Working modules, one at a time, each passing the build loop's gates. |
+| **Agent produces** | Working modules, one at a time, each passing the build loop's gates. Seed/demo data (per `demo-data.md`) is produced here too — you can't validate a coverage checklist against an empty database, so seeding is part of Build, not a separate stage. |
 | **Surface** | `ux-review-*.html` |
 | **Gate** | Every build-plan script passes its gates **and** its coverage checklist. CE-error-free ≠ done. |
 | **Owner** | `mdl-agent` → `gate-agent` |
-
-### Stage 5.5 — Data Migration & Cutover
-
-| | |
-|---|---|
-| **User defines** | Is legacy data migrated, seeded, or dropped? Who cuts over, and when? Rollback plan? |
-| **Agent produces** | Migration/seed scripts, cutover checklist. |
-| **Gate** | Decision recorded in `PROJECT.md` — even if the decision is "throw it away". |
-| **Owner** | `ba-agent` → `mdl-agent` |
 
 ### Stage 6 — Test
 
@@ -135,6 +126,17 @@ Also not migration-specific — the shared E2E discipline (`e2e-harness-base.md`
 | **Surface** | `test-report.html` |
 | **Gate** | Golden path + edge cases + DB assertions pass. Failures fixed and re-run. |
 | **Owner** | `test-agent` |
+
+### Stage 7 — Cutover
+
+Migration-specific — greenfield builds have no legacy system to cut over from and skip this stage. Runs **after** Stage 6, deliberately: don't migrate real production data and flip users onto an app that hasn't passed its E2E gate yet.
+
+| | |
+|---|---|
+| **User defines** | Is legacy data migrated, or is the app going live empty/with only the Stage 5 seed data? Who cuts over, and when? Rollback plan? |
+| **Agent produces** | Legacy-data migration scripts (if any), cutover checklist. |
+| **Gate ✋** | Stage 6 passed. Decision recorded in `PROJECT.md` — even if the decision is "throw the legacy data away". |
+| **Owner** | `ba-agent` → `mdl-agent` |
 
 ### Wrap-up
 

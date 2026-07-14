@@ -221,6 +221,34 @@ knowledge-base/
 3. Review `gaps-report.md` — unresolved references indicate cross-module dependencies
 4. Review `coverage-report.md` — confirm expected artifact counts match source
 
+### Multiple source repos/modules — extract everything before the one merge pass
+
+A legacy app is rarely a single repo. When source spans several repos or modules (a shared
+library plus multiple downstream services, several Maven modules, etc.), **every stack's
+orchestrator must extract all of them before running the merger, and the merger must run exactly
+once over the combined set** — not once per repo/module. The merger's cross-reference resolution
+only ever sees items merged together in the same run; splitting extraction across separate
+merge passes silently breaks cross-module links (a downstream module's call into the shared
+library's service shows up as an unresolved gap even though the target genuinely exists — it's
+just sitting in a different knowledge base).
+
+This is a required convention for every extractor pipeline built against this skill, not a
+one-off feature of any particular stack's implementation:
+
+- Config accepts a `sources` array — `[{ name, <stack-specific source path fields> }, ...]` — in
+  addition to (not replacing) a flat single-source config for the common case of one repo.
+- Each source's raw extractor output is tagged by name (e.g. `extracted/<type>-<name>.json`) so
+  writing multiple sources into the same `extracted/` directory never clobbers another source's
+  output.
+- The merger loads every tagged file it finds (glob, not a fixed filename list) and runs its
+  dedup/link/emit pass once over the full combined set.
+- A flat single-source config must keep working unchanged — this is additive, never a breaking
+  change to a stack's existing extractor/merger.
+
+See `pipelines/java-angular/pipeline/{run.js,lib/merger.js,extractors/*.js}` for the reference
+implementation of this pattern — copy its shape (source tag → tagged output filename → glob-load
+in merger) when building a new stack's extractor rather than re-deriving it.
+
 ### Quality gate before BRD generation — enforced by `extractor-quality-loop.md`
 
 **Phase 3 (BRD scaffolding) does not start until the extraction quality score ≥ 95%.**

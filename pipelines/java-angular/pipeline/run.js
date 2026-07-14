@@ -50,10 +50,23 @@ async function phase2() {
   fs.mkdirSync(path.join(ROOT, 'errors'), { recursive: true });
 
   const jobs = [];
-  if (!only || only === 'java')
-    jobs.push(run('node', [path.join('extractors', 'java-extractor.js'), CONFIG.javaSourceDir, KB_DIR], 'java-extractor'));
-  if (!only || only === 'angular')
-    jobs.push(run('node', [path.join('extractors', 'angular-extractor.js'), CONFIG.angularSourceDir, KB_DIR], 'angular-extractor'));
+  if (Array.isArray(CONFIG.sources) && CONFIG.sources.length) {
+    // Multi-source: extract every source into the same KB_DIR/extracted/, tagged by name, so
+    // merger.js's single pass over all of them can link calls/aggregates across modules — the
+    // whole reason for extracting everything before generating BRDs instead of module-by-module.
+    for (const src of CONFIG.sources) {
+      if ((!only || only === 'java') && src.javaSourceDir)
+        jobs.push(run('node', [path.join('extractors', 'java-extractor.js'), src.javaSourceDir, KB_DIR, src.name], `java-extractor:${src.name}`));
+      if ((!only || only === 'angular') && src.angularSourceDir)
+        jobs.push(run('node', [path.join('extractors', 'angular-extractor.js'), src.angularSourceDir, KB_DIR, src.name], `angular-extractor:${src.name}`));
+    }
+  } else {
+    // Legacy single-source config — unchanged behavior.
+    if (!only || only === 'java')
+      jobs.push(run('node', [path.join('extractors', 'java-extractor.js'), CONFIG.javaSourceDir, KB_DIR], 'java-extractor'));
+    if (!only || only === 'angular')
+      jobs.push(run('node', [path.join('extractors', 'angular-extractor.js'), CONFIG.angularSourceDir, KB_DIR], 'angular-extractor'));
+  }
 
   const results = await Promise.all(jobs);
   const failed = results.filter(r => !r.ok);

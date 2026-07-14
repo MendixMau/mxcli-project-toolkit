@@ -34,10 +34,38 @@ npm run reports
 ```
 
 Set `javaSourceDir`, `angularSourceDir`, and **`knowledgeBaseDir`** in `pipeline/config.json` before
-running. `knowledgeBaseDir` should point at `analysis/<source-repo-name>/knowledge-base` in your
+running. `knowledgeBaseDir` should point at `analysis/<project-name>/knowledge-base` in your
 project workspace — **never** leave it unset for a real run; this tool must never accumulate
 project-specific output inside its own directory tree (that's the whole point of it staying
 a reusable, downloadable pipeline rather than one-off-per-project code).
+
+### Multiple source repos (`sources` array)
+
+A real migration is rarely one repo. If the legacy app is split across several Maven/Angular repos
+(e.g. a Common lib + several downstream services), extract them **all before merging**, not one at a
+time — running them separately means cross-module calls (e.g. Service A calling into Common's
+`LocationService`) can never resolve, since the linker only sees whatever was merged in a single run.
+
+Replace the flat `javaSourceDir`/`angularSourceDir` fields with a `sources` array:
+
+```json
+{
+  "sources": [
+    { "name": "common", "javaSourceDir": "/abs/path/repo-a/src/main/java" },
+    { "name": "billing", "javaSourceDir": "/abs/path/repo-b/src/main/java" }
+  ],
+  "angularSourceDir": "",
+  "knowledgeBaseDir": "/abs/path/analysis/<project-name>/knowledge-base"
+}
+```
+
+`node run.js 2` extracts every entry in `sources` into the same `knowledgeBaseDir/extracted/`
+(tagged `java-<name>.json`/`angular-<name>.json` so they don't clobber each other), then runs the
+merger **once** over everything — so calls/aggregates across repos link correctly before BRD
+generation (`node run.js 3`) buckets the result by module.
+
+The old flat single-source config still works unchanged if `sources` is absent — this is additive,
+not a breaking change.
 
 ---
 

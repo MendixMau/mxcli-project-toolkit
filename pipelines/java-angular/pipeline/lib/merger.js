@@ -204,17 +204,25 @@ class Merger {
     if (onDone) onDone(counts);
   }
 
+  /**
+   * Loads every extracted/java*.json and extracted/angular*.json file. A single-source run still
+   * produces exactly java.json/angular.json (matches both globs), so this is backward compatible;
+   * a multi-source run (config.json's `sources` array) produces java-<tag>.json per source, and all
+   * of them get merged — and, critically, linked — together in one pass.
+   */
   _loadAll() {
-    const sources = ['java','angular'];
     const items = [];
-    for (const src of sources) {
-      const f = path.join(this.extractedDir, `${src}.json`);
-      if (!fs.existsSync(f)) { this.logger.log(`  [merge] Skipping missing: ${f}`); continue; }
+    if (!fs.existsSync(this.extractedDir)) return items;
+    const files = fs.readdirSync(this.extractedDir)
+      .filter(f => /^(java|angular)(-.+)?\.json$/.test(f));
+    if (!files.length) this.logger.log(`  [merge] No extracted files found in: ${this.extractedDir}`);
+    for (const f of files) {
+      const full = path.join(this.extractedDir, f);
       try {
-        const data = JSON.parse(fs.readFileSync(f, 'utf8'));
+        const data = JSON.parse(fs.readFileSync(full, 'utf8'));
         items.push(...(data.items || []));
       } catch (e) {
-        this.logger.error(`  [merge] Failed to load ${f}: ${e.message}`);
+        this.logger.error(`  [merge] Failed to load ${full}: ${e.message}`);
       }
     }
     return items;

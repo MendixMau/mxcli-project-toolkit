@@ -14,7 +14,11 @@ if (!sourceDir) {
 // this tool never accumulates project-specific data of its own; falls back to a local
 // knowledge-base/ for standalone/manual invocation outside the orchestrated pipeline.
 const knowledgeBaseDir = process.argv[3] || path.join(__dirname, '..', 'knowledge-base');
-const outputFile = path.join(knowledgeBaseDir, 'extracted', 'angular.json');
+// argv[4] is an optional source tag, set by run.js when config.json declares multiple `sources` —
+// each source's extraction lands in its own extracted/angular-<tag>.json so a combined run doesn't
+// clobber the others; merger.js globs angular*.json so all of them get merged (and linked) together.
+const sourceTag = process.argv[4];
+const outputFile = path.join(knowledgeBaseDir, 'extracted', sourceTag ? `angular-${sourceTag}.json` : 'angular.json');
 const startTime = Date.now();
 
 const parser = new Parser();

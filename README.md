@@ -7,6 +7,7 @@ Serves three audiences — same stages, different entry points (see `skills/conv
 - **Migrations** (legacy source code) — all stages.
 - **Requirements-driven builds** (specs/BRDs/SME input, no legacy code) — stages 1–6; document discovery replaces source triage, extraction Path B/C replaces code extractors.
 - **Greenfield mxcli builds** — Stage 5 onward; the standard Mendix build discipline is not migration-specific.
+- **Existing apps — à la carte, no pipeline** — audit, lint, or put a regression/e2e test net under a Mendix app you already have. No intake, no stages, no gates: start at `skills/existing-app-assurance.md` and grab only the tools you need.
 
 Used across all mxcli-powered projects — OS migrations, Java/Angular migrations, Node/Express+React migrations, and other client integration work.
 
@@ -283,6 +284,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Task | Skill to load |
 |------|--------------|
 | Starting any conversion or greenfield build; not sure what stage you're in | `conversion-runbook.md` |
+| Auditing or regression/e2e-testing an **existing** app — no pipeline needed | `existing-app-assurance.md` |
 | Deciding what source to answer a question from, before asking the user | `query-the-model.md` |
 | Deciding whether to extract at all, checking coverage, scoping a large source | `source-triage.md` |
 | Running the extraction pipeline | `migration-pipeline.md` |

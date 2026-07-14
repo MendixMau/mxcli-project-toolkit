@@ -20,6 +20,8 @@ The stages are the same for everyone; what differs is where you enter and which 
 | **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 1–6 (skip 0 and 7) | Stage 0's reuse-vs-build extractor call is meaningless with no source — replace it with `document-discovery.md` over the requirements corpus (still a `✋` gate: the user signs off on the document inventory and what's missing). Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
 | **Just an idea / a running start on the model** | **Greenfield** | P (light), 5–6 | Stages 0–4 collapse to whatever plan the user already has. If you find yourself inventing requirements mid-build, you're actually in requirements-driven mode — back up to Stage 2. |
 
+**No pipeline at all — à-la-carte tool use.** An existing Mendix app that just needs an audit, lint pass, or a regression/e2e test net doesn't enter this pipeline: no intake, no stages, no gates. Route straight to `existing-app-assurance.md` (which points at `query-the-model.md`, `e2e-harness-base.md`, `learned-db-assertions.md`, and the bundled lint/graph/quality skills). The pipeline is for *producing* an app; the tool shelf is for everything else.
+
 ## When to Use This Skill
 
 - Starting any conversion (legacy source → Mendix), requirements-driven build, or greenfield mxcli build.

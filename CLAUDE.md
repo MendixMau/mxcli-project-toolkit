@@ -2,7 +2,7 @@
 
 ## What this repo is
 Shared skills, stage-gate tooling, and learnings for **Mendix migration and development projects**.
-Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"): **migration** (legacy source, all stages), **requirements-driven** (specs/SME input, no legacy code, stages 1–6), and **greenfield** (stage 5 onward).
+Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"): **migration** (legacy source, all stages), **requirements-driven** (specs/SME input, no legacy code, stages 1–6), and **greenfield** (stage 5 onward). Plus **à-la-carte use with no pipeline at all** — auditing or regression/e2e-testing an existing app routes straight to `skills/existing-app-assurance.md`, skipping intake/stages/gates entirely.
 
 ## The front door
 - `CONVERSION-RUNBOOK.md` (root) — thin "how to start" pointer.
@@ -21,6 +21,7 @@ Load skill files **on demand when the task calls for it** — not all upfront. F
 | Task | Read this file |
 |------|---------------|
 | Any conversion/build — what stage, what gate, who owns it | `skills/conversion-runbook.md` |
+| Audit / lint / regression-test an existing app (no pipeline) | `skills/existing-app-assurance.md` |
 | Deciding what source answers a question, before asking the user | `skills/query-the-model.md` |
 | Running a stage-transition checkpoint (2+1 questions) | `skills/checkpoints/checkpoint-*.md` |
 | Extract-vs-not, extractor coverage, scoping a large source | `skills/source-triage.md` |

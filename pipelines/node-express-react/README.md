@@ -33,9 +33,16 @@ Set `sourceDir` and **`knowledgeBaseDir`** in `pipeline/config.json` before runn
 
 ---
 
-## Known gap: no HTML report generator yet
+## HTML reports
 
-Unlike `java-angular` (which has both `generate-report.js` and `generate-enrichment-report.js`), this pipeline currently ships only `generate-report.js`. The business-facing `enrichment-summary.html` has **not been ported here** — see `TOOLKIT-IMPROVEMENT-PROPOSAL.md` §4 Stage 2. Until it is, review enriched BRDs directly as JSON/markdown rather than expecting a rendered summary.
+This pipeline ships both report generators (ported from `java-angular`, 2026-07-14):
+
+```bash
+npm run reports   # generate-report.js (raw extraction/gap dashboard)
+                  # + generate-enrichment-report.js (business-facing enrichment-summary.html)
+```
+
+The enrichment summary's hero block is config-driven — set `config.json` → `"project": { "title", "description", "techTags": [] }`; without it the report still renders with a placeholder hero derived from the workspace folder name.
 
 ---
 

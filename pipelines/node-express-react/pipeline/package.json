@@ -1,12 +1,13 @@
 {
   "name": "node-express-react-migration-pipeline",
   "version": "1.0.0",
-  "description": "Extraction pipeline for Node.js/Express + React/TypeScript → Mendix migration.",
+  "description": "Extraction pipeline for Node.js/Express + React/TypeScript \u2192 Mendix migration.",
   "main": "run.js",
   "scripts": {
     "extract": "node run.js 2",
-    "brd":     "node run.js 3",
-    "all":     "node run.js all"
+    "brd": "node run.js 3",
+    "all": "node run.js all",
+    "reports": "node generate-report.js && node generate-enrichment-report.js"
   },
   "dependencies": {},
   "devDependencies": {}

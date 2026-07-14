@@ -1,20 +1,17 @@
 'use strict';
 // Phase 4 enrichment summary — the business-facing counterpart to generate-report.js (which is
 // the raw extraction/gap dashboard). Reads the enriched BRD JSON so every number here is
-// derived from actual data, never hand-typed. Reusable across future stacks/projects: nothing
-// here is specific to this pilot app beyond the source data it reads.
+// derived from actual data, never hand-typed. Ported from pipelines/java-angular (same
+// module-centric BRD schema). The hero block is config-driven, never hardcoded: set
+// config.json → "project": { "title", "description", "techTags": [] }.
 const fs = require('fs');
 const path = require('path');
 
-// Per-project analysis folder (see migration-pipeline.md's "Project Workspace Convention") —
-// falls back to a local knowledge-base/ (gitignored) only if config.json has no knowledgeBaseDir set.
 const CONFIG = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
 const KB = CONFIG.knowledgeBaseDir || path.join(__dirname, 'knowledge-base');
 const BRD_DIR = path.join(KB, 'brd');
 const OUT = path.join(KB, 'enrichment-summary.html');
 
-// Hero block is config-driven, never hardcoded (the original hardcoded pilot-app text kept
-// showing up on unrelated projects). Set config.json → "project": { "title", "description", "techTags": [] }.
 const PROJECT = CONFIG.project || {};
 const HERO_TITLE = PROJECT.title || path.basename(path.dirname(KB));
 const HERO_DESC = PROJECT.description ||

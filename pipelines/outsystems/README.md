@@ -19,9 +19,11 @@ node run.js 2 xml
 # 2. Generate BRD scaffolds (one .brd.json per module)
 node run.js 3
 
-# 3. Build the HTML report and open it
-node generate-report.js
-# → knowledge-base/extraction-report.html
+# 3. Build the HTML reports and open them
+npm run reports
+# → knowledge-base/extraction-report.html      (raw extraction/gap dashboard)
+# → knowledge-base/enrichment-summary.html     (business-facing summary — functions, use cases,
+#                                               rules, integrations; hero via config.json "project")
 ```
 
 Set your source paths in `pipeline/config.json` before running.

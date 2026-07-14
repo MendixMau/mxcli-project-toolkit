@@ -46,7 +46,15 @@ Do **not** create `analysis/<project>/` as a sibling of the project — analysis
 ~/Mendix/mxcli-project-toolkit/bin/init-project.sh <project-root>
 ```
 
-It scaffolds everything — `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook-first wiring + baseline routing, auto-loaded every session), all five agent stubs (inert until completed per `skills/agent-roles.md`), the `index.html` dashboard — and opens the visual guide. Idempotent: re-running never overwrites. Then just follow `skills/conversion-runbook.md` — it interviews you through each stage below. Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly if required artifacts are missing and regenerates `index.html` from the project's real state.
+It scaffolds everything — `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook-first wiring + baseline routing, auto-loaded every session), all five agent stubs (inert until completed per `skills/agent-roles.md`), the `index.html` dashboard — and opens the visual guide. Idempotent: re-running never overwrites. Then just follow `skills/conversion-runbook.md` — it interviews you through each stage below.
+
+**Even easier — install the slash command once**, and every project is a `/toolkit-init` away:
+
+```bash
+mkdir -p ~/.claude/commands && cp ~/Mendix/mxcli-project-toolkit/commands/toolkit-init.md ~/.claude/commands/
+```
+
+Typing `/toolkit-init` in any Claude Code session then runs the install, reads the runbook, and starts the Stage-P interview (or runs `sync-project.sh` if the project is already wired). Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly if required artifacts are missing and regenerates `index.html` from the project's real state.
 
 ---
 

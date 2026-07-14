@@ -22,6 +22,16 @@ generic Atlas output that will need rework.
 
 ---
 
+## Brainstorm First (before any predefined question)
+
+Design direction is the checkpoint users most often want to *talk about*, not pick from a list.
+Open with a divergent conversation: show references (the source app's look, the client's brand,
+2–3 mood directions described concretely or as quick HTML swatches) and discuss — what should
+this app *feel* like, what must carry over from the brand, what should deliberately change?
+If the user says anything like "let's ideate on the design" at any point, this conversation IS
+the response — do not generate the design system or launch agents until it converges and the
+user says to proceed. Then run the predefined questions to record the direction.
+
 ## Predefined Questions
 
 ### Q1 — Atlas layout pattern

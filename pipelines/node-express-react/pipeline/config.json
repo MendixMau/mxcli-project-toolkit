@@ -1,5 +1,5 @@
 {
   "_comment": "Set these paths after cloning — they point at YOUR local source workspace (never commit real paths). knowledgeBaseDir should point at analysis/<project>/knowledge-base per conversion-runbook.md's workspace convention, not inside the source checkout.",
-  "sourceDir":        "/Users/dev/Mendix/TestCLIApp-main/source",
-  "knowledgeBaseDir": "/Users/dev/Mendix/TestCLIApp-main/.migration/analysis/knowledge-base"
+  "sourceDir":        "<path-to-cloned-source-repo-root>",
+  "knowledgeBaseDir": "<path-to-project-workspace>/knowledge-base"
 }

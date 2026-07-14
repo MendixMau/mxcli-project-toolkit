@@ -1,54 +1,66 @@
 # mxcli-project-toolkit — Claude Context
 
 ## What this repo is
-Shared skills, prompt templates, and learnings for **Mendix migration and development projects**.
-Used across all mxcli-powered projects — OS migrations, Java/Angular migrations, and other client integration work.
+Shared skills, stage-gate tooling, and learnings for **Mendix migration and development projects**.
+Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"): **migration** (legacy source, all stages), **requirements-driven** (specs/SME input, no legacy code, stages 1–6), and **greenfield** (stage 5 onward).
+
+## The front door
+- `CONVERSION-RUNBOOK.md` (root) — thin "how to start" pointer.
+- `toolkit-guide.html` (root) — the visual onboarding page; agents open it in the user's browser at Stage P kickoff. Also the shared CSS shell/tokens for every stage HTML surface.
+- `skills/conversion-runbook.md` — **the spine**: 9-stage matrix, interview protocol, gates, entry modes. Start here when unsure what stage anything is in.
+- `bin/init-project.sh <project-dir>` — Stage P scaffold (`intake.md`, `PROJECT.md`, `index.html`).
+- `bin/gate-check.sh <project-dir> [stage]` — mechanical stage gates; regenerates the project dashboard from real files.
+
+## One decision register
+All gate decisions land in the consuming project's `PROJECT.md`, marked `CONFIRMED` or `ASSUMED`. The `skills/checkpoints/` CAC files are the packaged mechanism that runs the runbook's interview protocol at the five busiest transitions — they write to `PROJECT.md`, never to a separate state file.
 
 ## Key skills and when to load them
 
-Load skill files **on demand when the task calls for it** — not all upfront.
+Load skill files **on demand when the task calls for it** — not all upfront. Full routing table: `README.md` → "When to use which skill". The always-on set (`README.md` → "Baseline routing"): `query-the-model.md`, `learned-mdl-preflight.md`, `learned-microflow-patterns.md`, `learned-mcp-patterns.md`, `bug-logs/mxcli-bugs.md`.
 
 | Task | Read this file |
 |------|---------------|
-| Deciding whether to extract at all, checking extractor/mapper coverage, scoping a large source | `skills/source-triage.md` |
-| Running or explaining the pipeline | `skills/migration-pipeline.md` |
-| Deciding Mendix module boundaries (Phase 6, before `create module`) | `skills/modularize-domain.md` |
-| Scanning/classifying an unstructured document folder | `skills/document-discovery.md` |
-| Writing or enriching a BRD JSON | `skills/brd-generation.md` |
-| Validating BRDs against code + doc KB, iterating to clean | `skills/brd-validation.md` |
-| Extracting Excel/Word/PDF specs | `skills/kb-generation.md` |
-| Understanding OS XML structure or concepts | `skills/source-os11.md` + `skills/os-xml-schema.md` |
-| Writing MDL microflow scripts | `skills/mdl-cookbook-microflows.md` |
-| Assessing a migration up front | `skills/assess-migration.md` |
-| Generic (source-agnostic) migration guidance | `skills/migrate-general.md` |
-| Migrating an OutSystems app | `skills/migrate-outsystems.md` |
+| Any conversion/build — what stage, what gate, who owns it | `skills/conversion-runbook.md` |
+| Deciding what source answers a question, before asking the user | `skills/query-the-model.md` |
+| Running a stage-transition checkpoint (2+1 questions) | `skills/checkpoints/checkpoint-*.md` |
+| Extract-vs-not, extractor coverage, scoping a large source | `skills/source-triage.md` |
+| Building/validating a new extractor for an uncovered stack | `skills/extractor-quality-loop.md` |
+| Running or explaining the extraction pipeline | `skills/migration-pipeline.md` |
+| Mendix module boundaries (Stage 3, before `create module`) | `skills/modularize-domain.md` |
+| Architecture blueprint: diagrams, fit-gap, marketplace, security, NFRs, integrations | `skills/architecture-blueprint.md` |
+| UI/brand layer: design system, wireframes, branding interview | `skills/design-artifacts.md` |
+| BRDs + architecture → ordered build plan | `skills/brd-to-build-plan.md` |
+| Per-module build discipline (gates, coverage checklist) | `skills/iterative-build-loop.md` |
+| Writing/validating/enriching BRD JSON | `skills/brd-generation.md`, `skills/brd-validation.md` |
+| Document folder scan / Excel-Word-PDF extraction | `skills/document-discovery.md`, `skills/kb-generation.md` |
+| OS XML structure | `skills/source-os11.md` + `skills/os-xml-schema.md` |
+| MDL microflow scripting patterns | `skills/mdl-cookbook-microflows.md` |
+| Page/snippet pre-flight (wireframe → tokens → StyleGallery) | `skills/ui-preflight-pages.md`, `skills/learned-stylegallery.md` |
 | Diagnosing a mxcli CLI error | `bug-logs/mxcli-bugs.md` |
-| Understanding past process decisions | `process/process-learnings.md` |
-| Generating a new project's CLAUDE.md (Baseline routing + project-specific facts) | `skills/bootstrap-project.md` |
-| Setting up dev-process subagents (draft/gate/test) on a new project | `skills/agent-roles.md` |
+| Generating a new project's CLAUDE.md | `skills/bootstrap-project.md` (run `mxcli init` FIRST — init overwrites, bootstrap merges) |
+| Setting up dev-process subagents (ba/architect/mdl/gate/test) | `skills/agent-roles.md` |
+| Past process decisions | `process/process-learnings.md` |
+
+Migration assessment (`assess-migration`) is **bundled with mxcli** (`.ai-context/skills/`); `skills/assess-migration.md` here is a pointer plus toolkit-specific deltas only — the toolkit never duplicates bundled skills.
 
 ## Pipelines (extraction tooling — code lives in this repo)
-The source-specific extraction pipelines now live **in this repo** under `pipelines/`:
 
 | Source platform | Pipeline | Run |
 |-----------------|----------|-----|
-| OutSystems | `pipelines/outsystems/` (imported with history from the former `os-migration-pipeline` repo) | `cd pipelines/outsystems/pipeline && npm install` — see its `README.md` / `pipeline-guide.html` |
+| OutSystems | `pipelines/outsystems/` | `cd pipelines/outsystems/pipeline && npm install` — see its `README.md` / `pipeline-guide.html` |
 | Java + Angular / Spring Boot | `pipelines/java-angular/` | `cd pipelines/java-angular/pipeline && npm install` — see its `README.md` |
-| Node/Express + React | `pipelines/node-express-react/` — **regex-based, proven on one source shape only, not yet a validated-generic tool; read its README's "Known gap" section first** | `cd pipelines/node-express-react/pipeline && npm install` — see its `README.md` and `skills/source-node-express-react.md` |
+| Node/Express + React | `pipelines/node-express-react/` — **regex-based, proven on one source shape only; read its README's "Known gap" sections first** | `cd pipelines/node-express-react/pipeline && npm install` |
 
-`node_modules/` is gitignored — run `npm install` locally per pipeline. Curated sample outputs live under each pipeline (e.g. `pipelines/outsystems/sample-outputs/`).
+`node_modules/` is gitignored — `npm install` locally per pipeline. Set local paths in `pipelines/<x>/pipeline/config.json`; **never commit real local paths**. Curated sample outputs live under each pipeline.
 
 ## Consuming this toolkit (reference model)
-Clone once to a standard location and point projects at it:
+Clone once, point projects at it — no copies, no drift:
 ```
 git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
 ```
-Each project's CLAUDE.md references `~/Mendix/mxcli-project-toolkit` — one clone, no copies, no drift. For a self-contained handoff, add it as a git submodule instead.
+Each project's `CLAUDE.md`/`CLAUDE.local.md` references this clone and copies the **Baseline routing** table from `README.md`. For a self-contained handoff, use a git submodule.
 
-**Project output never lives here** — `analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored. Each migration runs in its own workspace that *references* this repo.
-
-**A project's build plan and session notes live in that project's own repo, never here.** This is tools + skills + curated examples only — not a place to accumulate one project's architecture docs, numbered build plan, or running session diary. Promote a reusable pattern out of a project's own notes into `skills/learned-*.md` instead of leaving the whole plan here.
+**Project output never lives here** — `analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored. A project's build plan, `PROJECT.md`, and session notes live in that project's own repo; promote reusable patterns into `skills/learned-*.md` instead of accumulating project docs here.
 
 ## Adding new skills
-Create `skills/{topic}.md` with a `# Title`, `**Purpose:**`, and step-by-step guide.
-Add it to the table above and commit. **If the skill applies on every MDL-writing session regardless of task** (universal discipline, not a phase-specific procedure), also add it to `README.md`'s "Baseline routing" table — that's the list consuming projects are told to copy into their own `CLAUDE.md`. A skill that only lives in the situational table here can go unnoticed by every project that isn't actively hunting for it.
+Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcli project | requirements-driven`, `**Purpose:**`, and a step-by-step guide. Add it to `README.md`'s "When to use which skill" table. **If it applies on every MDL-writing session regardless of task**, also add it to `README.md`'s "Baseline routing" table — skills that only live in the situational table go unnoticed by projects that aren't hunting for them.

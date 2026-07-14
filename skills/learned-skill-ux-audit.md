@@ -13,7 +13,7 @@ Invoke this skill when:
 ## Inputs required
 
 - Mendix app running at `http://localhost:8080` (or project-specific port — check `tests/helpers.sh` or CLAUDE.md for the `APP` variable)
-- **Design system file** — look first at `design/design-system.html` (the Stockpilot standard location). Read it fully before auditing — tokens, component specs, Atlas mapping table, and app shell wireframe all inform the audit.
+- **Design system file** — look first at `design/design-system.html` (the standard location). Read it fully before auditing — tokens, component specs, Atlas mapping table, and app shell wireframe all inform the audit.
 - Source reference screenshots (optional — auto-discovered in `design/screenshots/` or `docs/screenshots/`)
 - `docs/ux-agent-brief.md` — evaluation rubric and report format (auto-updated in Phase 0, create if missing)
 
@@ -64,7 +64,7 @@ find . -maxdepth 4 \( -name "*.png" -o -name "*.jpg" \) \( -path "*/design/*" -o
 5. Capture reference screenshots using Playwright headed (see Phase 1b below)
 6. Write `tests/ux-design-artifacts.md` manifest
 
-**Key tokens to extract from Stockpilot design system:**
+**Key tokens to extract from the project design system:**
 ```
 --brand-500: #2a78d6          → $brand-primary (Atlas)
 --status-good: #0ca30c        → $brand-success
@@ -133,7 +133,7 @@ Save to `tests/screenshots/design-system/`. These are the pixel-level reference 
 Spawn an Agent with this prompt, passing all screenshots and page structures:
 
 ```
-You are a senior UX reviewer with deep expertise in Mendix Atlas and the Stockpilot design system.
+You are a senior UX reviewer with deep expertise in Mendix Atlas and the project's design system.
 
 Read the design system:
   design/design-system.html
@@ -190,7 +190,7 @@ Compare each live component against the design system spec:
 List every feature defined in the design system that doesn't exist at all in the live app:
 - Stock status badges (In stock / Low stock / Out of stock) on table rows
 - Delta indicators on KPI tiles (▲ 8.2% vs yesterday)
-- AI insight KPI tile (Stockpilot insight chip)
+- AI insight KPI tile (design-system insight chip)
 - Command bar / ⌘K search
 - Sidebar navigation with icons
 - Bar chart (stock on hand visualization)
@@ -228,12 +228,12 @@ After the agent completes:
 
 ### Phase 4 — Generate HTML report
 
-After the markdown report exists at `docs/ux-review-YYYY-MM-DD.md`, generate a styled HTML version at `docs/ux-review-YYYY-MM-DD.html` using the Stockpilot design tokens.
+After the markdown report exists at `docs/ux-review-YYYY-MM-DD.md`, generate a styled HTML version at `docs/ux-review-YYYY-MM-DD.html` using the project's design tokens.
 
 **Structure of the HTML report:**
 
 ```
-topbar        — brand-mark + "Stockpilot / UX Gap Report" logo + date badge + "N gaps found" badge
+topbar        — brand-mark + "{Project} / UX Gap Report" logo + date badge + "N gaps found" badge
 summary row   — 4 stat tiles: Critical / Moderate / Minor / Total (with SCSS·MDL·arch breakdown)
 section: Theme Track    — gap cards, one per SCSS fix
 section: MDL Track      — gap cards, one per widget change
@@ -300,7 +300,7 @@ footer        — report version + date
 | `tests/ux-capture-manifest.json` | Page metadata for the agent |
 | `tests/ux-page-struct-*.txt` | MDL DESCRIBE output per page — layout grids, widget types, CSS classes |
 | `docs/ux-review-YYYY-MM-DD.md` | Full scored UX report with design system compliance dimension |
-| `docs/ux-review-YYYY-MM-DD.html` | Styled HTML report using Stockpilot tokens |
+| `docs/ux-review-YYYY-MM-DD.html` | Styled HTML report using project design tokens |
 | Tasks in task list | One task per quick win + one per deeper improvement |
 
 ---

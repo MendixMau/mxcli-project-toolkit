@@ -246,7 +246,7 @@ This applies to:
 - All `NAVIGATIONLIST` items in any sidebar navigation profile
 - Any future `CREATE OR REPLACE NAVIGATION` MDL that configures a side nav
 
-**Why:** Text labels in the sidebar violate the Stockpilot design system spec, which shows icon-only nav items in the 220px side panel. Text alongside icons makes the sidebar visually heavy and inconsistent with the design.
+**Why:** Text labels in the sidebar violate the project design-system spec, which shows icon-only nav items in the 220px side panel. Text alongside icons makes the sidebar visually heavy and inconsistent with the design.
 
 **How to apply in MDL:**
 

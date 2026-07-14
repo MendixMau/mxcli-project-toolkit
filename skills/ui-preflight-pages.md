@@ -1,4 +1,5 @@
 # UI Pre-flight — Design Cross-Reference Before Building Pages
+**Applies to:** any mxcli project.
 
 **Purpose:** Before writing any `create page`, `alter page`, or `create snippet` MDL, cross-reference
 the wireframe, design-system token file, and in-app StyleGallery examples. This prevents pages that

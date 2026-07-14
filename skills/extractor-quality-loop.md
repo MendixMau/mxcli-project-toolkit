@@ -1,4 +1,5 @@
 # Extractor Quality Loop
+**Applies to:** migration (any stack — governs building and validating extractors).
 
 This skill governs Stage 2 of the migration pipeline. Read it in full before writing or running
 any extractor. It applies to every stack.

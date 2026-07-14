@@ -23,7 +23,7 @@ A single do-everything agent has no natural place to stop before mutating the re
 
 | Role | Job | Runs `mxcli exec`? | Can write files? |
 |------|-----|---------------------|-------------------|
-| **ba-agent** | Owns discovery and the interview gates (`conversion-runbook.md` Stages P, 0–2, 5.5): runs the proposal-and-question loop, maintains `PROJECT.md`, chases `openQuestions` to closure, conducts the SME interview (Path C), turns answers into BRD enrichment | No | Yes — `PROJECT.md`, `intake.md`, `assessment.md`, `triage.md`, KB/BRD files, stage HTML surfaces, via `Bash` (no `Write`/`Edit` tool) |
+| **ba-agent** | Owns discovery and the interview gates (`conversion-runbook.md` Stages P, 0–2, 7): runs the proposal-and-question loop, maintains `PROJECT.md`, chases `openQuestions` to closure, conducts the SME interview (Path C), turns answers into BRD enrichment | No | Yes — `PROJECT.md`, `intake.md`, `assessment.md`, `triage.md`, KB/BRD files, stage HTML surfaces, via `Bash` (no `Write`/`Edit` tool) |
 | **architect-agent** | Owns Stages 3–4: modularize → blueprint → fit-gap → build plan. Hard rule: never touches mxcli. | No — never | Yes — `architecture/`, `design/`, `.mx-brd.json`, via `Bash` |
 | **mdl-agent** | Draft + syntax-validate MDL scripts against the project's BRDs/specs and skill references | No — validates with `mxcli check` only | Yes, but only `.mdl` script files under the project's script folder, via `Bash` (no `Write`/`Edit` tool) |
 | **gate-agent** | Run the project's build/quality gates (model check, compile gate, lint) *after* the main session has already executed a script | No | No — read-only/verification-only |
@@ -52,7 +52,7 @@ This mirrors `iterative-build-loop.md`'s gate discipline (0 CE errors + happy pa
 ```
 ---
 name: ba-agent
-description: "Owns discovery and interview gates for {{PROJECT}} (conversion-runbook.md Stages P, 0-2, 5.5). Use for intake, triage, extraction, requirements gathering, and any decision that needs a proposal-with-evidence interview and a PROJECT.md entry."
+description: "Owns discovery and interview gates for {{PROJECT}} (conversion-runbook.md Stages P, 0-2, 7). Use for intake, triage, extraction, requirements gathering, and any decision that needs a proposal-with-evidence interview and a PROJECT.md entry."
 model: inherit
 tools: Read, Grep, Glob, Bash
 ---

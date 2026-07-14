@@ -12,6 +12,8 @@
 - Auditing an existing project's `CLAUDE.md` against the toolkit's current Baseline routing (run this whenever the toolkit's `git pull` brings in a newly-baseline-worthy skill)
 - Someone says "review the toolkit and build the CLAUDE.md" — that instruction alone is not enough; this skill is what makes it repeatable instead of improvised
 
+**⚠️ Ordering rule with `mxcli init`: init first, bootstrap second — and never re-run init on an initialized project.** `mxcli init` **overwrites** an existing `CLAUDE.md` and `.claude/settings.json` without merging (confirmed on v0.16.0 — it clobbered a live project's files). So: run `mxcli init` on the fresh project to get `.ai-context/` and the generated baseline, *then* run this skill, which merges the toolkit's Baseline routing and project facts into the init-generated `CLAUDE.md` rather than replacing it. If someone needs to re-init later (e.g. after an mxcli upgrade to refresh `.ai-context/`), commit `CLAUDE.md` + `.claude/` first and restore/re-merge them afterwards.
+
 ---
 
 ## Core Principle

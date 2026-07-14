@@ -1,4 +1,5 @@
 # StyleGallery — In-App Design System Module
+**Applies to:** any mxcli project.
 
 **Purpose:** How to turn a project's `ds.css` design system into a live Mendix StyleGallery module
 that is the in-app twin of `design/design-system.html`. The gallery doubles as both a visual

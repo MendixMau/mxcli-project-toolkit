@@ -162,7 +162,25 @@
     </ol>
   </div>
 
-  <h2>4 · Where everything lands</h2>
+  <h2>4 · Three ways your app gets written — CLI, MCP+MDL, hand-rolled MCP</h2>
+  <p class="lede">From Stage 5 on, the agent writes to your Mendix project (<code>.mpr</code>) through one of three routes. You don't have to pick — the agent checks a safety table (the "STOP table") before every write — but knowing the difference explains why it sometimes asks you to close or open Studio Pro.</p>
+  <div class="cards">
+    <div class="card">
+      <h3>CLI <span class="badge soft">STUDIO PRO CLOSED</span></h3>
+      <p><strong>The bulk builder.</strong> <code>mxcli exec script.mdl</code> writes a whole reviewable script — entities, associations, microflows, security, navigation — to disk in one shot. Scaffolds an entire module at once, auto-snapshots before every run. Tradeoff: Studio Pro must be closed and reopened afterwards.</p>
+    </div>
+    <div class="card">
+      <h3>MCP + MDL <span class="badge mig">STUDIO PRO OPEN</span></h3>
+      <p><strong>The live editor.</strong> <code>mxcli --mcp exec</code> routes the same MDL through Studio Pro's own engine while it's running — changes appear immediately, no restart. This is the mode for UI iteration: page layouts, widget wiring, visibility tweaks. It also sidesteps a class of disk-writer bugs.</p>
+    </div>
+    <div class="card">
+      <h3>Hand-rolled MCP <span class="badge mig">STUDIO PRO OPEN</span></h3>
+      <p><strong>The precision tool.</strong> Raw JSON patches against Studio Pro's model API (<code>pg_patch_page</code>), for the few widget shapes MDL has no syntax for yet — complex datagrid columns, dropdown filters. Used only when the other two genuinely can't express the change.</p>
+    </div>
+  </div>
+  <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;"><strong>In practice:</strong> CLI to build, MCP to refine. A typical module: one CLI exec scaffolds the domain model and logic → MCP+MDL polishes the pages → hand-rolled MCP only for the exceptions. Two operations never go through any of these — project settings and dropping secured attributes go to <strong>you, in the Studio Pro GUI</strong>, because they corrupt on every automated route. The agent will tell you when, with the exact click path.</p>
+
+  <h2>5 · Where everything lands</h2>
   <pre class="tree">&lt;workspace-root&gt;/
   mxcli-project-toolkit/     <span class="c">← this clone (stays clean; nothing of yours lands here)</span>
   sources/&lt;project&gt;/         <span class="c">← your original source, read-only</span>
@@ -175,7 +193,7 @@
   mendix/&lt;project&gt;/          <span class="c">← the target .mpr</span></pre>
   <p style="font-size:13.5px; color:var(--ink-soft);">The dashboard regenerates from real project files every time a gate check runs (<code>bin/gate-check.sh</code>) — it can't drift from reality, because it's derived from it.</p>
 
-  <h2>5 · Something looks broken? Don't panic — it's designed for this</h2>
+  <h2>6 · Something looks broken? Don't panic — it's designed for this</h2>
   <div class="cards">
     <div class="card panic">
       <h3>“Studio Pro won't open / the project fails to load”</h3>
@@ -188,7 +206,7 @@
   </div>
   <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;">Nothing here requires reinstalling anything or starting over. Git commits at every phase gate are the real safety history.</p>
 
-  <h2>6 · For agents: this page is also the shared HTML shell</h2>
+  <h2>7 · For agents: this page is also the shared HTML shell</h2>
   <p style="font-size:14px;">Every stage HTML surface (<code>triage.html</code>, <code>architecture.html</code>, <code>build-plan.html</code>, <code>test-report.html</code>, …) copies this file's <code>:root</code> token block and base styles, so all project artifacts look like one system. Once Stage 3 produces <code>design/design-system.html</code>, that file's tokens supersede these for artifacts generated afterwards. At Stage P kickoff, open this page in the user's browser (<code>open toolkit-guide.html</code>) before the first interview question.</p>
 
   <div class="footer">mxcli-project-toolkit · toolkit-guide.html · The detailed, executable version of this page is <code>skills/conversion-runbook.md</code>; the thin text pointer is <code>CONVERSION-RUNBOOK.md</code>.</div>

@@ -362,6 +362,7 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Using MCP alongside mxcli — any MCP write session | `skills/learned-mcp-patterns.md` — save discipline, uncommitted-MPR guard, pre-exec handoff sequence, confirmed JSON patterns |
 | A CE error or behavior that looks like a known mxcli quirk, not a modeling mistake | `bug-logs/mxcli-bugs.md` |
 | Setting up a new project's dev-process subagents | `skills/agent-roles.md` — once, at project start, not "on demand" |
+| First time this toolkit is used on a project, or the user seems unsure how the pipeline works | Open `toolkit-guide.html` in their browser (`open` / `xdg-open`) — the visual walkthrough. Once per project/user, not every session. |
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
 | Not sure what stage a conversion is in, or what a gate requires | `skills/conversion-runbook.md` |
 

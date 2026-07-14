@@ -101,8 +101,17 @@ EOF
   echo "Created: PROJECT.md"
 fi
 
-echo ""
-echo "New to the pipeline? Open the visual guide:  open \"$SCRIPT_DIR/../toolkit-guide.html\""
+GUIDE="$SCRIPT_DIR/../toolkit-guide.html"
+if [ -f "$GUIDE" ] && [ -z "${MXTK_NO_GUIDE:-}" ]; then
+  # Best-effort auto-open of the visual guide; never fail the scaffold over it.
+  # Suppress with MXTK_NO_GUIDE=1 (e.g. headless/CI runs).
+  if command -v open >/dev/null 2>&1; then open "$GUIDE" || true
+  elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$GUIDE" >/dev/null 2>&1 || true
+  fi
+  echo ""
+  echo "Opened the visual guide in your browser (toolkit-guide.html) — it explains the stages,"
+  echo "the gates, and what happens when something looks broken. Set MXTK_NO_GUIDE=1 to suppress."
+fi
 echo ""
 echo "Next steps (not done by this script):"
 echo "  - Stage 0 triage: choose/reuse an extraction pipeline (needs triage first, see source-triage.md)."

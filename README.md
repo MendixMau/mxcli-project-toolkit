@@ -28,6 +28,7 @@ This clone stays clean — project output never lands inside it. **Everything el
   source/                                ← legacy source or requirements docs, read-only
   analysis/<source-name>/
     knowledge-base/                      ← extraction JSON + BRDs (config.json knowledgeBaseDir)
+                                           (single-source projects may flatten to analysis/knowledge-base/)
   architecture/ · design/                ← stage 3/4 artifacts
   mdlsource/                             ← MDL scripts
   <Project>.mpr                          ← the target app
@@ -373,7 +374,7 @@ The "When to use which skill" table above is *situational* — load a skill when
 
 **After cloning, set your local source paths** in `pipelines/<x>/pipeline/config.json` — the committed file ships with `<placeholder>` values; point them at your own source workspace. **Never commit real local paths.**
 
-**Project output never lives here** (`analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored) — each migration runs in its own workspace that references this repo.
+**Project output never lives here** (`analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored) — each project runs in its own project folder (with `analysis/` inside it) that references this repo.
 
 **Your build plan, `PROJECT.md`, and session notes live in your own project, not here.** This repo holds reusable tools + skills + small curated examples only. A project's architecture blueprint, numbered build plan, decision register, and running session diary belong in that project's own repo (e.g. `architecture/build-plan.md`, `PROJECT.md`, `SESSION-NOTES.md` at the project root) — never committed back into the toolkit. If a pattern from that plan turns out to be reusable across projects, promote it into a `skills/learned-*.md` file here instead of leaving the whole plan in place.
 

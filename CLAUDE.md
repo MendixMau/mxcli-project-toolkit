@@ -11,6 +11,9 @@ Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"):
 - `bin/init-project.sh <project-dir>` — Stage P scaffold (`intake.md`, `PROJECT.md`, `index.html`).
 - `bin/gate-check.sh <project-dir> [stage]` — mechanical stage gates; regenerates the project dashboard from real files.
 
+## Live checklist — every stage, in the chat
+Every stage and module build follows the **Live Checklist Protocol** (`skills/conversion-runbook.md` §1b): post the stage's checklist in chat at start, update with ✅/🔄/⬜/❌/⏭ marks as items land, full repost before every gate. No stage works silently between gates. This is not build-phase-only.
+
 ## One decision register
 All gate decisions land in the consuming project's `PROJECT.md`, marked `CONFIRMED` or `ASSUMED`. The `skills/checkpoints/` CAC files are the packaged mechanism that runs the runbook's interview protocol at the five busiest transitions — they write to `PROJECT.md`, never to a separate state file.
 

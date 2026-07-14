@@ -27,7 +27,7 @@ fi
 # Convention: analysis/<name>/knowledge-base/ under the project dir; fall back to
 # knowledge-base/ directly under the project dir if that's how the project is laid out.
 KB_DIR=""
-for candidate in "$PROJECT_DIR"/analysis/*/knowledge-base "$PROJECT_DIR/knowledge-base"; do
+for candidate in "$PROJECT_DIR"/analysis/*/knowledge-base "$PROJECT_DIR/analysis/knowledge-base" "$PROJECT_DIR/knowledge-base"; do
   if [ -d "$candidate" ]; then
     KB_DIR="$candidate"
     break

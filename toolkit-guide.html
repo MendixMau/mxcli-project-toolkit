@@ -186,16 +186,19 @@
   <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;"><strong>In practice:</strong> CLI to build, MCP to refine. A typical module: one CLI exec scaffolds the domain model and logic → MCP+MDL polishes the pages → hand-rolled MCP only for the exceptions. Two operations never go through any of these — project settings and dropping secured attributes go to <strong>you, in the Studio Pro GUI</strong>, because they corrupt on every automated route. The agent will tell you when, with the exact click path.</p>
 
   <h2>5 · Where everything lands</h2>
-  <pre class="tree">&lt;workspace-root&gt;/
-  mxcli-project-toolkit/     <span class="c">← this clone (stays clean; nothing of yours lands here)</span>
-  sources/&lt;project&gt;/         <span class="c">← your original source, read-only</span>
-  analysis/&lt;project&gt;/        <span class="c">← everything the pipeline produces</span>
-    PROJECT.md               <span class="c">← every decision, assumption, and open question</span>
-    intake.md · assessment.md · triage.md
-    knowledge-base/          <span class="c">← extraction JSON + BRDs</span>
-    architecture/ · design/
-    index.html               <span class="c">← your dashboard — open this anytime to see where you are</span>
-  mendix/&lt;project&gt;/          <span class="c">← the target .mpr</span></pre>
+  <pre class="tree">&lt;project-root&gt;/               <span class="c">← ONE folder per project — everything lives inside it</span>
+  PROJECT.md                  <span class="c">← every decision, assumption, and open question</span>
+  intake.md · assessment.md · triage.md
+  index.html                  <span class="c">← your dashboard — open this anytime to see where you are</span>
+  source/                     <span class="c">← your original source or requirements docs, read-only</span>
+  analysis/&lt;source-name&gt;/
+    knowledge-base/           <span class="c">← extraction JSON + BRDs</span>
+  architecture/ · design/     <span class="c">← diagrams, fit-gap, design system, build plan</span>
+  &lt;Project&gt;.mpr               <span class="c">← the target Mendix app</span>
+
+<span class="c">The toolkit clone (~/Mendix/mxcli-project-toolkit) stays elsewhere and stays clean —
+nothing of yours ever lands in it. And analysis/ is INSIDE your project folder,
+never a sibling next to it.</span></pre>
   <p style="font-size:13.5px; color:var(--ink-soft);">The dashboard regenerates from real project files every time a gate check runs (<code>bin/gate-check.sh</code>) — it can't drift from reality, because it's derived from it.</p>
 
   <h2>6 · Something looks broken? Don't panic — it's designed for this</h2>

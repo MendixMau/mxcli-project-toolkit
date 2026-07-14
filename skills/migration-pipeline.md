@@ -63,9 +63,30 @@ BRD scaffold exists to cross-reference against.
 
 ## Project Workspace Convention
 
-**A pipeline tool repo (`os-migration-pipeline`, `java-angular-migration-skills`, future ones)
-must never accumulate project-specific output inside its own directory tree.** Every project
-gets its own workspace folder, kept entirely separate from the reusable tool:
+**A pipeline tool repo (`mxcli-project-toolkit`, future ones) must never accumulate
+project-specific output inside its own directory tree.** Every project gets ONE project
+folder (usually its git repo), kept entirely separate from the reusable tool. **The default
+is the in-repo layout — `analysis/` lives INSIDE the project folder** (this is how every
+live project runs — KT-POC, WMS — and what `bin/init-project.sh <project-root>` and
+`bin/gate-check.sh` assume):
+
+```
+<project-root>/                        ← workspace root AND the mxcli target, same repo
+  PROJECT.md · intake.md · index.html   ← scaffolded by bin/init-project.sh
+  source/                               ← source app / requirements docs, left in place, untouched
+  analysis/<source-repo-name>/          ← ALL pipeline output lives here
+    knowledge-base/                     ← everything the pipeline generates (Phase 2–4)
+  architecture/, design/, mdlsource/    ← later-phase outputs, per their own skills
+  <Project>.mpr                         ← the actual mxcli target
+```
+
+`config.json`'s `knowledgeBaseDir` points at `<project-root>/analysis/<source-repo-name>/knowledge-base`.
+
+### Variant: split workspace (only when the source may not live in the project repo)
+
+Use this **only** when intake Q2's licence/security constraints forbid storing the client
+source alongside the target app (or the source is a huge external clone you don't want in
+the repo). Same shapes, split across siblings:
 
 ```
 <workspace-root>/
@@ -89,9 +110,10 @@ Rules:
    `analysis/<source-repo-name>/knowledge-base` — every script (extractors, merger, `run.js`,
    both report generators) reads its output location from `config.json`, never a hardcoded
    path relative to the tool's own `__dirname`.
-2. Starting a new project always begins with creating `analysis/<source-repo-name>/` (mirroring
-   `sources/<source-repo-name>/` if a clone exists) *before* running anything, then pointing
-   `knowledgeBaseDir` there.
+2. Starting a new project always begins with creating `analysis/<source-repo-name>/` **inside
+   the project root** (default layout) *before* running anything, then pointing
+   `knowledgeBaseDir` there. Never as a sibling of the project folder unless you're
+   deliberately in the split-workspace variant.
 3. A tool repo may still fall back to a local `knowledge-base/` when `config.json` has no
    `knowledgeBaseDir` set — that's gitignored scratch space for quick standalone testing, never the
    documented way to actually run an analysis.
@@ -99,30 +121,14 @@ Rules:
    `os-migration-pipeline`'s own README ("clone and run" quickstart) — a fresh clone of the
    tool never has to be cleaned of a previous project's BRDs/reports before reuse.
 
-### Variant: in-repo workspace (source already lives inside the Mendix target project)
-
-Some projects start with the source app already checked into the Mendix project repo itself
-(e.g. `<mendix-project>/source/` holding a cloned frontend+backend), rather than as a separate
-clone the pipeline tool has to be pointed at. In that case, don't relocate the source just to
-satisfy the `sources/` + `analysis/` split above — instead treat the Mendix project repo itself
-as `<workspace-root>`:
-
-```
-<mendix-project>/                        ← workspace root AND the mxcli target, same repo
-  source/                                 ← existing source app, left in place, untouched
-  analysis/<source-repo-name>/            ← ALL pipeline output lives here (same internal shape
-                                             as analysis/<source-repo-name>/ above: knowledge-base/,
-                                             brd/, reports/, etc.)
-  architecture/, design/, mdlsource/      ← later-phase outputs, per their own skills
-  <mendix-project>.mpr                    ← the actual mxcli target
-```
-
-The tool repo (`mxcli-project-toolkit`) still stays untouched — `config.json`'s
-`knowledgeBaseDir` points at `<mendix-project>/analysis/<source-repo-name>/knowledge-base`
-exactly as it would for the separate-workspace layout; only the location of `sources/` changes
-(it doesn't get a separate copy — `source/` in place serves that role). Use this variant when the
-source was never a standalone clone to begin with; use the strict separate-workspace layout above
-when scaffolding a new migration from scratch or when the source is a genuine external clone.
+Either way the tool repo (`mxcli-project-toolkit`) stays untouched — `config.json`'s
+`knowledgeBaseDir` points at the project's `analysis/<source-repo-name>/knowledge-base`
+regardless of which layout that folder sits in. The internal shape of
+`analysis/<source-repo-name>/` (knowledge-base/, brd/, reports/, …) is identical in both
+layouts. **Default to in-repo; use split-workspace only for the licence/size reasons above** —
+history note: in-repo used to be documented as the "variant" here while the front-door docs
+said split, which caused new projects to wrongly scaffold a sibling `analysis/<project>/`
+(2026-07-14). The default is now in-repo everywhere.
 
 ---
 

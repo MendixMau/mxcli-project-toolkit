@@ -29,7 +29,7 @@ node run.js 3
 #    migration-pipeline.md's "extractors capture structure, mappers/review supply narrative")
 ```
 
-Set `sourceDir` and **`knowledgeBaseDir`** in `pipeline/config.json` before running. `knowledgeBaseDir` should point at `analysis/<source-repo-name>/knowledge-base` in your project workspace — **never** leave it unset for a real run, and never commit real local paths into this file.
+Set `sourceDir` and **`knowledgeBaseDir`** in `pipeline/config.json` before running. `knowledgeBaseDir` should point at `<project-root>/analysis/<source-repo-name>/knowledge-base` (inside the project folder, never a sibling) — **never** leave it unset for a real run, and never commit real local paths into this file.
 
 ---
 

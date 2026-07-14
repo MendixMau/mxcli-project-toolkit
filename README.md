@@ -19,24 +19,25 @@ Used across all mxcli-powered projects — OS migrations, Java/Angular migration
 git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
 ```
 
-This clone stays clean — project output never lands inside it. Your workspace root holds this clone as a sibling to your source and project folders:
+This clone stays clean — project output never lands inside it. **Everything else lives inside one project folder** (usually one git repo — it is the session root, the workspace root, and the mxcli target all at once):
 
 ```
-<workspace-root>/
-  mxcli-project-toolkit/     ← this clone (stays clean; project output never lands here)
-  sources/<project>/         ← the original source, read-only
-  analysis/<project>/        ← everything the pipeline produces
-    PROJECT.md               ← decisions, assumptions, dependencies, open questions
-    intake.md · assessment.md · triage.md
-    knowledge-base/          ← extraction JSON + BRDs
-    architecture/ · design/
-    index.html               ← the project dashboard
-  mendix/<project>/          ← the target .mpr
+<project-root>/                          ← ONE folder per project; open your agent here
+  PROJECT.md · intake.md · index.html    ← decision register + dashboard (bin/init-project.sh)
+  .claude/agents/                        ← agent stubs (bin/init-agents.sh)
+  source/                                ← legacy source or requirements docs, read-only
+  analysis/<source-name>/
+    knowledge-base/                      ← extraction JSON + BRDs (config.json knowledgeBaseDir)
+  architecture/ · design/                ← stage 3/4 artifacts
+  mdlsource/                             ← MDL scripts
+  <Project>.mpr                          ← the target app
 ```
+
+Do **not** create `analysis/<project>/` as a sibling of the project — analysis output belongs *inside* the project folder. The only exception is when licence/security constraints (intake Q2) forbid storing the client source alongside the target app; that split-workspace variant is described in `migration-pipeline.md` → "Project Workspace Convention".
 
 **New here? Open `toolkit-guide.html` in a browser first** — the whole journey as a visual page: entry modes, the 9 stages, what each gate asks of you, and the don't-panic section. Agents open it for the user at kickoff.
 
-Clone, run `bin/init-project.sh <project-dir>` to scaffold `intake.md` + `PROJECT.md` + the initial `index.html` dashboard, then `skills/bootstrap-project.md` to scaffold `CLAUDE.local.md` + the subagents, then follow `skills/conversion-runbook.md` — it interviews you through each stage below. Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly if required artifacts are missing and regenerates `index.html` from the project's real state.
+Clone, run `bin/init-project.sh <project-root>` (the project folder itself, not an analysis subfolder) to scaffold `intake.md` + `PROJECT.md` + the initial `index.html` dashboard, then `skills/bootstrap-project.md` to scaffold `CLAUDE.local.md` + the subagents, then follow `skills/conversion-runbook.md` — it interviews you through each stage below. Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly if required artifacts are missing and regenerates `index.html` from the project's real state.
 
 ---
 

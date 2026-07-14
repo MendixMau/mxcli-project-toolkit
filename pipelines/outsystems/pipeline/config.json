@@ -4,5 +4,5 @@
   "shareDir":        "<path-to-share-docs>",
   "dbDir":           "",
   "docsDir":         "",
-  "knowledgeBaseDir": "<path-to-project-workspace>/knowledge-base"
+  "knowledgeBaseDir": "<project-root>/analysis/<source-name>/knowledge-base"
 }

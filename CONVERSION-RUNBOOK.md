@@ -10,9 +10,10 @@ This is the thin front door. The executable detail lives in **`skills/conversion
 
 ```bash
 git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
-mkdir -p <workspace-root>/analysis/<project>
-~/Mendix/mxcli-project-toolkit/bin/init-project.sh <workspace-root>/analysis/<project>
+~/Mendix/mxcli-project-toolkit/bin/init-project.sh <project-root>
 ```
+
+`<project-root>` is your project's own folder (usually its git repo) — scaffolding, analysis output, architecture, and the `.mpr` all live **inside** it. Never create a sibling `analysis/<project>/` next to the project.
 
 Then open your agent (Claude Code or equivalent) in the workspace and say what you're starting from. The agent picks the **entry mode** (`skills/conversion-runbook.md` → "Entry Modes"):
 

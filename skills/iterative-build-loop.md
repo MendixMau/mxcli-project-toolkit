@@ -29,6 +29,11 @@ A page with a stub banner and no data below it is a missing feature, not a stub.
 
 ## Pre-Module Checklist (before writing any MDL)
 
+> **Live visibility rule:** the moment this checklist is confirmed, post it — plus the 13-step
+> build sequence — in the chat with status marks, and keep it updated as each item lands. See
+> `conversion-runbook.md` §1b (Live Checklist Protocol). The user must never have to ask
+> "what are we doing right now?" mid-module.
+
 Run this before scripting each module:
 
 - [ ] Read source screenshots for this module top-to-bottom

@@ -114,11 +114,11 @@ if [ -f "$GUIDE" ] && [ -z "${MXTK_NO_GUIDE:-}" ]; then
 fi
 echo ""
 echo "Next steps (not done by this script):"
-echo "  - Scaffold the Stage-P agent stubs where your agent sessions run:"
-echo "      $SCRIPT_DIR/init-agents.sh <session-root> p        (ba-agent + architect-agent)"
-echo "    (and later, when Stage 5 starts:  ... <session-root> build)"
-echo "    Then complete their {{PLACEHOLDER}}s per skills/agent-roles.md — the stubs refuse"
-echo "    to run until completed, so a half-setup fails loudly instead of silently."
+echo "  - Scaffold ALL FIVE agent stubs where your agent sessions run:"
+echo "      $SCRIPT_DIR/init-agents.sh <session-root>"
+echo "    Then complete each agent's {{PLACEHOLDER}}s per skills/agent-roles.md when its"
+echo "    stage starts (ba/architect now, mdl/gate/test at Stage 5). The stubs refuse to"
+echo "    run until completed, so a half-setup fails loudly instead of silently."
 echo "  - Stage 0 triage: choose/reuse an extraction pipeline (needs triage first, see source-triage.md)."
 echo ""
 

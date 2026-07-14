@@ -6,11 +6,12 @@
 # remain, so a copied-but-unconfigured agent fails loudly instead of verifying nothing.
 # Complete them per skills/agent-roles.md (an LLM reading the actual project).
 #
-# Usage: bin/init-agents.sh <project-root> [p|build|all]
+# Usage: bin/init-agents.sh <project-root> [all|p|build]
 #   <project-root>  where your agent sessions run (the dir whose .claude/agents/ is loaded)
-#   p      ba-agent + architect-agent            (Stage P — discovery/architecture)  [default]
+#   all    all five agents  [default — stubs are inert until completed, so scaffold everything
+#          up front; complete each agent's placeholders when its stage actually starts]
+#   p      ba-agent + architect-agent            (Stage P — discovery/architecture)
 #   build  mdl-agent + gate-agent + test-agent   (Stage 5+ — build/verify/test)
-#   all    all five
 
 set -euo pipefail
 
@@ -23,7 +24,7 @@ if [ $# -lt 1 ]; then
 fi
 
 TARGET="$1"
-STAGE="${2:-p}"
+STAGE="${2:-all}"
 
 case "$STAGE" in
   p)     AGENTS="ba-agent architect-agent" ;;
@@ -54,7 +55,8 @@ done
 
 if [ "$created" -gt 0 ]; then
   echo ""
-  echo "⚠️  These are stubs. Complete every remaining {{PLACEHOLDER}} per"
-  echo "   skills/agent-roles.md (Step 1: read the actual project — paths, commands,"
-  echo "   demo user, domain context). Until then each agent refuses to run, by design."
+  echo "⚠️  These are stubs — inert until completed. Fill each agent's {{PLACEHOLDER}}s per"
+  echo "   skills/agent-roles.md WHEN ITS STAGE STARTS (ba/architect at Stage P kickoff;"
+  echo "   mdl/gate/test at Stage 5 kickoff). Until completed each agent refuses to run,"
+  echo "   by design — so having all five scaffolded up front is safe."
 fi

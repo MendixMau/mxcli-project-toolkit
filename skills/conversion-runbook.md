@@ -57,6 +57,40 @@ A proposal beats a questionnaire because it asks the user to **correct** somethi
 
 ---
 
+## 1b. The Live Checklist Protocol — Progress Is Shown in the Chat
+
+Gates inform the user at stage *transitions*; this protocol informs them *during* a stage.
+The failure it fixes (reported by a live user, 2026-07-14): the agent works silently against
+file-based checklists for a whole stage, and the user has no idea what is being done until
+the next gate. File checklists are the record; **the chat is the display.**
+
+Rules — these apply to every stage and every per-module build loop:
+
+1. **Post the checklist at stage/module start.** Before the first unit of work, print the
+   stage's checklist in chat as a numbered list with status marks. For a build module this is
+   the confirmed coverage checklist + the build-step sequence; for a pipeline stage it is that
+   stage's gate row broken into its concrete steps. Keep it ≤ ~12 items — group, don't dump.
+2. **Status marks:** ✅ done · 🔄 in progress · ⬜ pending · ❌ failed/blocked · ⏭ skipped
+   (always with a one-line reason).
+3. **Update as you go, compactly.** After each item completes or fails, post a one-line delta
+   ("✅ 4/9 — domain model applied, 12 entities, 0 CE errors"). Repost the *full* checklist at
+   milestones (roughly every 3–4 items, and always right before a gate) so the user never has
+   to scroll back to reconstruct state.
+4. **No silent stretches.** Never complete more than two checklist items without a chat line.
+   Long single items (an extractor run, a big exec) get a line when they start, not only when
+   they finish.
+5. **Subagent work counts.** When work is delegated, the main session posts which item the
+   subagent owns before dispatch, and updates the checklist from its verdict when it returns.
+   Delegation is not an exemption from visibility.
+6. **Chat mirrors the file, never replaces it.** `PROJECT.md`, the build plan, and stage
+   checklists remain the durable record; the chat checklist is a view of them. If they
+   disagree, the file is wrong or stale — fix it immediately.
+
+The final full-checklist repost before a gate doubles as the gate's evidence: the user should
+be able to approve the gate by reading that one message.
+
+---
+
 ## 2. The Stage Matrix
 
 Eight stages (plus Stage P kickoff). For each: what the user co-defines, what the agent produces, the review surface, the gate, and who owns it. `✋` marks a hard stop — the pipeline does not proceed past it without an explicit `CONFIRMED` decision (unknowns may still resolve to `ASSUMED` at non-✋ gates).
@@ -66,7 +100,7 @@ Eight stages (plus Stage P kickoff). For each: what the user co-defines, what th
 | | |
 |---|---|
 | **User defines** | Which source folder. Licence/security constraints on storing the client source. Is an SME available, and who? |
-| **Agent produces** | Workspace scaffold (`bin/init-project.sh`), `CLAUDE.local.md` (paths, tools, routing), `PROJECT.md` (empty register), the Stage-P agent pair (`bin/init-agents.sh <session-root> p`, then complete placeholders + domain context per `agent-roles.md`), `intake.md` (8 questions, no guesses). The build trio (mdl/gate/test) is scaffolded later, at Stage 5 kickoff: `bin/init-agents.sh <session-root> build`. |
+| **Agent produces** | Workspace scaffold (`bin/init-project.sh`), `CLAUDE.local.md` (paths, tools, routing), `PROJECT.md` (empty register), **all five agent stubs** (`bin/init-agents.sh <session-root>` — stubs are inert until completed, so all five exist from day one), `intake.md` (8 questions, no guesses). Complete ba/architect placeholders + domain context now (per `agent-roles.md`); complete mdl/gate/test at Stage 5 kickoff. |
 | **Surface** | `index.html` — the project dashboard, created here, grows every stage. |
 | **Gate** | Every intake question has an answer or an explicit "Unverified — how to verify". No blanks. |
 | **Owner** | `ba-agent` |

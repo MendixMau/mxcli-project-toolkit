@@ -1,6 +1,6 @@
 # Conversion Runbook — The Interview-Driven Stage Pipeline
 
-**Applies to:** migration (all stages) and greenfield mxcli builds (Stage 5 onward).
+**Applies to:** any mxcli project — see Entry Modes below for where your project type enters the pipeline.
 
 **Purpose:** The spine the toolkit was missing. Each stage below has an owning skill and each skill is good — but until now nothing said *what a stage must produce before the next one starts*, *what the user has to decide*, or *whose job it is to ask them*. This skill is that layer: a stage completes when a decision is on record, not when the agent stops typing.
 
@@ -10,9 +10,19 @@
 
 ---
 
+## Entry Modes — Where Your Project Enters the Pipeline
+
+The stages are the same for everyone; what differs is where you enter and which analysis paths exist for you. Pick the row that matches what you're starting from — this decides which stages run and which are skipped *by design* (record the mode in `PROJECT.md` at Stage P; a skipped stage in the wrong mode is a gap, in the right mode it's correct).
+
+| You're starting from… | Mode | Stages that run | What changes |
+|---|---|---|---|
+| **Legacy source code** (± docs, ± SME) | **Migration** | P, 0–7 (all) | The default everything below describes. Path A (code extractors) always runs. |
+| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 1–6 (skip 0 and 7) | Stage 0's reuse-vs-build extractor call is meaningless with no source — replace it with `document-discovery.md` over the requirements corpus (still a `✋` gate: the user signs off on the document inventory and what's missing). Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
+| **Just an idea / a running start on the model** | **Greenfield** | P (light), 5–6 | Stages 0–4 collapse to whatever plan the user already has. If you find yourself inventing requirements mid-build, you're actually in requirements-driven mode — back up to Stage 2. |
+
 ## When to Use This Skill
 
-- Starting any conversion (legacy source → Mendix) or any greenfield mxcli build.
+- Starting any conversion (legacy source → Mendix), requirements-driven build, or greenfield mxcli build.
 - You're not sure whether a stage is "done" — check its gate row in §2, not your own sense of completion.
 - A decision got made without the user's sign-off and it's now biting — that's this skill's gate being skipped, not a one-off mistake. Fix the gate, don't just redo the decision.
 

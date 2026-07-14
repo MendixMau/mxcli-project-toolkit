@@ -1,5 +1,5 @@
 # Architecture Blueprint — Diagrams, Module Definitions, Wiring & Fit-Gap
-**Applies to:** migration.
+**Applies to:** migration or requirements-driven build (works from documents/SME input — no legacy source needed).
 **Purpose:** Turn Mendix-rearchitected BRDs into a readable target-architecture blueprint — module definition docs, an architecture diagram, a wiring/dependency graph, and a fit-gap analysis — so dependencies and open gaps are visible *before* the build plan, not discovered mid-build.
 **Upstream:** `migration-pipeline.md` Phase 6 (produces `.mx-brd.json` — the module boundaries this skill documents)
 **Downstream:** `brd-to-build-plan.md` (consumes the dependency graph as build order, the fit-gap as scope boundary, and the open-issues register as the questions the plan must answer before script 01)

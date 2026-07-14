@@ -1,5 +1,5 @@
 # BRD to Build Plan — Plan Definition Before Scripting
-**Applies to:** migration.
+**Applies to:** migration or requirements-driven build (works from documents/SME input — no legacy source needed).
 **Purpose:** Turn validated BRDs + Mendix architecture into a concrete, dependency-ordered build plan — the step between architecture and the first line of MDL.
 **Upstream:** `migration-pipeline.md` (phases 1–6: extraction → BRD → Mendix rearchitecture)
 **Downstream:** `iterative-build-loop.md` (per-module execution against the plan produced here)

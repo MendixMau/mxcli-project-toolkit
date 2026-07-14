@@ -2,7 +2,11 @@
 
 Shared skills, prompt templates, and learnings for **Mendix migration and development projects**.
 
-Serves two audiences: **migrations** (all stages below) and **greenfield mxcli builds** (Stage 5 onward — the standard Mendix build discipline is not migration-specific).
+Serves three audiences — same stages, different entry points (see `skills/conversion-runbook.md` "Entry Modes"):
+
+- **Migrations** (legacy source code) — all stages.
+- **Requirements-driven builds** (specs/BRDs/SME input, no legacy code) — stages 1–6; document discovery replaces source triage, extraction Path B/C replaces code extractors.
+- **Greenfield mxcli builds** — Stage 5 onward; the standard Mendix build discipline is not migration-specific.
 
 Used across all mxcli-powered projects — OS migrations, Java/Angular migrations, Node/Express+React migrations, and other client integration work.
 
@@ -255,7 +259,7 @@ mxcli-project-toolkit/
     learned-process-apex.md     ← Apex M-0022 project-scoped process notes (not in Baseline routing)
 ```
 
-`[any project]` vs `[migration]` above mirrors each skill's own `Applies to:` header line — greenfield mxcli builds only need the `[any project]` set, starting at Stage 5.
+`[any project]` vs `[migration]` above mirrors each skill's own `Applies to:` header line — greenfield mxcli builds only need the `[any project]` set, starting at Stage 5. The stage 1–4 skills (document discovery, KB/BRD generation and validation, modularization, architecture, design, build plan) also apply to **requirements-driven builds** with no legacy source — their headers say so explicitly.
 
 ---
 

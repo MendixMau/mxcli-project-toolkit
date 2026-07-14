@@ -1,5 +1,5 @@
 # Design Artifacts — Design System & Wireframes Before Pages
-**Applies to:** migration.
+**Applies to:** migration or requirements-driven build (works from documents/SME input — no legacy source needed).
 **Purpose:** Produce the UI/brand layer of the architecture phase — a versioned design system, then wireframes for every screen — so page-building has a visual spec to hit and the eventual Atlas theme is generated, not hand-tweaked screen by screen.
 **Upstream:** `migration-pipeline.md` Phase 6 (`.mx-brd.json`), source screenshots, BRD `pages`/`useCases`
 **Downstream:** `iterative-build-loop.md` (its Step 11 screenshot-coverage check verifies built pages against the wireframes produced here); `learned-stylegallery.md` (turns the design system into a live Mendix StyleGallery module); `ui-preflight-pages.md` (mdl-agent cross-references these artifacts before every page build)

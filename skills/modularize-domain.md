@@ -1,5 +1,5 @@
 # Modularize Domain — Deciding Mendix Module Boundaries
-**Applies to:** migration.
+**Applies to:** migration or requirements-driven build (works from documents/SME input — no legacy source needed).
 
 **Purpose:** Decide *how many* Mendix modules a migrated app should have and *where the boundaries fall* — on their own merits, not by copying the source's structure. Produces a human-facing module-design rationale (HTML) and a sign-off checkpoint before boundaries are frozen into `.mx-brd.json`.
 

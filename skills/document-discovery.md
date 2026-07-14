@@ -1,5 +1,5 @@
 # Document Discovery — Recursive Scan, Classify, Route
-**Applies to:** migration.
+**Applies to:** migration or requirements-driven build (works from documents/SME input — no legacy source needed).
 **Purpose:** Before any document gets turned into a KB file, figure out what's actually in an
 unstructured project folder — it is rarely just documents. Scan recursively, classify every
 file, route source code and DB artifacts away from the document pipeline, never silently drop

@@ -1,5 +1,5 @@
 # BRD JSON Generation — Prompt Template
-**Applies to:** migration.
+**Applies to:** migration or requirements-driven build (works from documents/SME input — no legacy source needed).
 **Purpose:** How to synthesise KB files + extracted JSON into BRD (Business Requirements
 Document) JSON files — the structured handoff from analysis to MDL scripting.
 **Source:** Apex M-0022 — F001–F012 BRDs produced in conversation, 2026-05.

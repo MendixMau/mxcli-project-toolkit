@@ -44,8 +44,13 @@ predefined questions below to record it, and quote any Stage-3/4 decisions being
 **How to generate options:** Count entities + enumerations (layer1), microflows (layer2), pages
 (layer3). If page count > 5, suggest generating pages in batches.
 
-> "We have [N] entities, [M] microflows, [P] pages to generate. How should we approach MDL generation?"
-> - A) Full generation in dependency order — all layers in one session *(recommended for < 20 items)*
+**Hard rule regardless of the answer:** this question decides the *drafting unit within a phase*,
+never the gate cadence. MDL for phase N is drafted only after phase N−1 has passed its full gate
+(exec.sh mxbuild gate + SP reopen + happy-path verification) — no option below authorizes writing
+all scripts upfront. See `brd-to-build-plan.md` ("The build plan contains no MDL").
+
+> "We have [N] entities, [M] microflows, [P] pages to generate. Within each phase, how should we approach MDL drafting?"
+> - A) Phase-by-phase in dependency order — draft + exec + verify each phase before drafting the next *(recommended — default)*
 > - B) Layer by layer with review between — generate layer1, validate, then layer2, then layer3
 > - C) Feature-by-feature — complete one BRD end-to-end before moving to the next
 
@@ -88,7 +93,7 @@ predefined questions below to record it, and quote any Stage-3/4 decisions being
 
 ```
 PROJECT.md → ## Decisions:
-  MDL generation strategy: [full / layer-by-layer / feature-by-feature]
+  MDL generation strategy: [phase-by-phase / layer-by-layer / feature-by-feature]
   Security setup timing: [layer1 / last / per-feature]
   Deadline: [date or 'none']
   Priority feature: [name or 'none']

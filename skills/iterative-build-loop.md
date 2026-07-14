@@ -25,6 +25,11 @@ The build gate is **not** "0 CE errors." It is:
 
 A page with a stub banner and no data below it is a missing feature, not a stub. **CE-error-free ≠ done — the coverage checklist is what "done" means.**
 
+**Corollary — MDL is drafted just-in-time, never stockpiled.** Scripts for phase N are written only
+after phase N−1 has passed this gate. A backlog of pre-written, never-executed scripts is a defect,
+not a head start: each one encodes assumptions about a model state that the intervening gates may
+have changed (see `brd-to-build-plan.md`, "The build plan contains no MDL").
+
 ---
 
 ## Pre-Module Checklist (before writing any MDL)

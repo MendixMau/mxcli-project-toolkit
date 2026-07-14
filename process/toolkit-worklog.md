@@ -6,6 +6,29 @@ the re-entry point for continuing the work — read it plus `git log --oneline -
 
 ---
 
+## 2026-07-15 — MDL phasing made explicit: plan fully, generate incrementally
+
+Incident: a WMS build-plan session initially appeared to generate all MDL upfront (turned out
+benign — only the plan doc was being written), but the review showed the rule was implicit:
+`iterative-build-loop.md` said "replaces bulk MDL generation" without ever stating *when* MDL
+gets drafted, and CAC-5 Q1 option A actively offered "full generation in one session".
+
+Rule now (user-confirmed): **the build plan contains no MDL; MDL for phase N is drafted only after
+phase N−1 has passed its full gate** (exec.sh mxbuild + SP reopen + happy-path). Enforced in:
+
+- `skills/brd-to-build-plan.md` — ⛔ block after "Output of This Skill" + new anti-pattern
+  ("Generating all MDL upfront, even WITH a build plan")
+- `skills/checkpoints/checkpoint-build.md` — Q1 reframed as *drafting unit within a phase*;
+  option A is now phase-by-phase (default); hard rule stated above the options; Decision
+  Recording value updated
+- `skills/iterative-build-loop.md` — Core Principle corollary: "MDL is drafted just-in-time,
+  never stockpiled"
+
+No mechanical check yet — gate-check Stage 5 is manual by design; if a session is ever caught
+stockpiling scripts, add a check for unexecuted `.mdl` files more than one phase ahead.
+
+---
+
 ## 2026-07-14 — the big hardening day (~20 commits, be26d7c → d242c19)
 
 Context: full toolkit review + live validation on three projects (WMS-App-main, TFC-TCXGraphPOC-main

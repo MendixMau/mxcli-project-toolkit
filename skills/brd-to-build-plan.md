@@ -43,6 +43,13 @@ A single **build plan document** per project (or per phase, for large projects),
 
 This becomes the checklist `iterative-build-loop.md` executes against.
 
+> **⛔ The build plan contains no MDL.** It names every script, its scope, and its order — it never
+> contains the scripts themselves. MDL for phase N is drafted only after phase N−1 has passed its
+> full gate (exec.sh mxbuild gate + SP reopen + happy-path verification). MDL written upfront is
+> written against a model state that may never exist: one exec failure, MCP fallback, or widget
+> redesign in an earlier phase invalidates every downstream script silently. **Plan fully, generate
+> incrementally.**
+
 ---
 
 ## Step 0: Import Confirmed Marketplace Dependencies
@@ -251,6 +258,7 @@ If a build session discovers a gap in the plan (a dependency missed, a question 
 ## Anti-Patterns This Skill Prevents
 
 - **Bulk MDL generation from BRDs with no build plan.** Produces a mountain of scripts with no dependency order, no granularity decision, and no way to tell "was this stubbed on purpose or missed."
+- **Generating all MDL upfront, even WITH a build plan.** The plan is the checklist; the scripts are drafted per phase, after the previous phase's gate is paste-proven. A phase-3 script written before phase 1 has executed assumes entity names, associations, and widget choices that a single mid-build constraint (STOP-condition, MCP fallback, redesign) can invalidate — and every stale script then has to be re-audited, which costs more than writing it fresh.
 - **Writing MDL that references a marketplace module before it's imported.** `mxcli check --references` can't validate against something that isn't in the `.mpr` yet, and whoever drafts the script ends up guessing entity/microflow names instead of reading them.
 - **Discovering cross-module association ownership mid-script.** Decide which module's script creates each cross-module association upfront — it can now be done via `CREATE ASSOCIATION` (BUG-02 fixed in v0.13.0), but if ownership is unclear mid-script it still causes a surprise rewrite.
 - **Deciding role mapping after security scripts are already applied.** Forces a rewrite of every `GRANT` statement.

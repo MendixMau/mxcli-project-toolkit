@@ -56,7 +56,7 @@ Eight stages (plus Stage P kickoff). For each: what the user co-defines, what th
 | | |
 |---|---|
 | **User defines** | Which source folder. Licence/security constraints on storing the client source. Is an SME available, and who? |
-| **Agent produces** | Workspace scaffold (`bin/init-project.sh`), `CLAUDE.local.md` (paths, tools, routing), `PROJECT.md` (empty register), the 5 subagents (`agent-roles.md`), `intake.md` (8 questions, no guesses). |
+| **Agent produces** | Workspace scaffold (`bin/init-project.sh`), `CLAUDE.local.md` (paths, tools, routing), `PROJECT.md` (empty register), the Stage-P agent pair (`bin/init-agents.sh <session-root> p`, then complete placeholders + domain context per `agent-roles.md`), `intake.md` (8 questions, no guesses). The build trio (mdl/gate/test) is scaffolded later, at Stage 5 kickoff: `bin/init-agents.sh <session-root> build`. |
 | **Surface** | `index.html` — the project dashboard, created here, grows every stage. |
 | **Gate** | Every intake question has an answer or an explicit "Unverified — how to verify". No blanks. |
 | **Owner** | `ba-agent` |

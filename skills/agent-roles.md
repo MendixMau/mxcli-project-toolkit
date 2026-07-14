@@ -13,7 +13,9 @@
 - You're asked to "set up agents for this project" or "create dev-process agents" on a fresh repo.
 - An existing project's agents feel ad hoc or over-permissioned (e.g. one agent can both write MDL and run `mxcli exec`).
 
-**This is a generation guide, not a copy-paste template.** The three example bodies below are illustrative shapes — read the target project's own CLAUDE.md and skills first, then write agent files that match *that* project's actual commands, paths, and tooling. A gate-agent pointed at the wrong `.mpr` filename or a stale compile-gate command silently verifies nothing.
+**This is a generation guide, not a copy-paste template.** The example bodies below are illustrative shapes — read the target project's own CLAUDE.md and skills first, then write agent files that match *that* project's actual commands, paths, and tooling. A gate-agent pointed at the wrong `.mpr` filename or a stale compile-gate command silently verifies nothing.
+
+**Mechanical scaffolding exists:** `bin/init-agents.sh <session-root> [p|build|all]` copies stub versions of all five agents (from the toolkit's `agents/` folder) into the project's `.claude/agents/` — `p` for the Stage-P pair (ba/architect), `build` for the Stage-5 trio (mdl/gate/test). The stubs are safe by construction: each refuses to run while `{{PLACEHOLDER}}`s remain, so "downloaded but never configured" fails loudly instead of verifying nothing. Your job after scaffolding is Steps 1–4 below: fill every placeholder from the *actual* project, including the **Domain context** block.
 
 ---
 
@@ -40,6 +42,7 @@ This mirrors `iterative-build-loop.md`'s gate discipline (0 CE errors + happy pa
 ## How to generate these for a new project
 
 1. **Read the target project first**: its `CLAUDE.md`, `.ai-context/skills/` (or equivalent), and whatever it uses for build verification (mx check / mxbuild / lint), UI testing (Playwright integration, demo users), and business-rule source (BRDs, a requirements doc, or none yet). Don't guess any of this — if the project has no test setup yet, say so instead of inventing one.
+1b. **Fill the Domain context block** (ba/architect/mdl agents) from the Stage-P intake: customer industry, the app's one-sentence purpose, a 5–10 term glossary (source-system name = meaning), the SME, and pointers to where the truth lives (KB/BRD/`PROJECT.md` paths). Keep it *short and pointer-shaped*: the agent should know the customer's **language** and **where the truth lives** — never memorize the truth itself. Use cases, business rules, and open questions stay in `PROJECT.md`/KB/BRDs and are read fresh each run; baking them into the agent file means it silently goes stale as understanding evolves.
 2. **Write the files this project's stage actually needs** to `.claude/agents/`: `ba-agent.md` and `architect-agent.md` if the project is at Stage P–4 (discovery/architecture underway), `mdl-agent.md`/`gate-agent.md`/`test-agent.md` once Stage 5 (Build) starts — adapting the shapes below and substituting every project-specific detail (mpr filename, exact check/compile/lint commands, skill file names, BRD/spec location, demo user, known gotchas, `PROJECT.md` path) for the real ones you just read.
 3. **Preserve the tool scoping exactly**: `tools: Read, Grep, Glob, Bash` on all five, and an explicit line in each stating it never runs `mxcli exec` / never mutates the `.mpr` directly. `ba-agent` and `architect-agent` additionally never skip the interview protocol (`conversion-runbook.md` §1) to reach a decision faster.
 4. **Report back** which files you wrote, and flag any assumption you had to make because the project didn't document something (e.g. "assumed the demo user is X — couldn't find one specified, confirm").

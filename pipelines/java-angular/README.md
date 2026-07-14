@@ -3,11 +3,11 @@
 Reusable engine for migrating **Java/Spring Boot + Angular applications to Mendix**.
 
 Takes Java source (`@Entity`/`@RestController`/`@Service`) + Angular source (components,
-routes, dialogs) → structured JSON knowledge base → BRD scaffolds per module → enrichment →
-two HTML reports.
+routes, dialogs) → structured JSON knowledge base → BRD scaffolds **per business capability**
+(not per Java package — see Capability grouping below) → enrichment → two HTML reports.
 
-Sibling to `os-migration-pipeline` (OutSystems 11 → Mendix) — see
-`mxcli-project-toolkit/skills/migration-pipeline.md` for the shared phase model both follow.
+Sibling to `../outsystems` and `../node-express-react` — see
+`skills/migration-pipeline.md` for the shared phase model all three follow.
 
 ---
 
@@ -20,8 +20,9 @@ cd pipeline
 #    "Project Workspace Convention" in migration-pipeline.md)
 node run.js 2
 
-# 2. Generate BRD scaffolds (one .brd.json per module)
+# 2. Generate BRD scaffolds (one .brd.json per business capability) + grouping proposal
 node run.js 3
+# → review <knowledgeBaseDir>/brd/grouping-proposal.md at CAC-2 (checkpoint-brd.md Q0)
 
 # 3. Phase 4 — enrich the BRDs (human/conversational step, not mechanical — see
 #    migration-pipeline.md's "extractors capture structure, mappers/review supply narrative")
@@ -34,10 +35,28 @@ npm run reports
 ```
 
 Set `javaSourceDir`, `angularSourceDir`, and **`knowledgeBaseDir`** in `pipeline/config.json` before
-running. `knowledgeBaseDir` should point at `analysis/<project-name>/knowledge-base` in your
-project workspace — **never** leave it unset for a real run; this tool must never accumulate
-project-specific output inside its own directory tree (that's the whole point of it staying
-a reusable, downloadable pipeline rather than one-off-per-project code).
+running. `knowledgeBaseDir` points at `<project-root>/analysis/<source-name>/knowledge-base`
+(**inside the project folder, never a sibling** — see migration-pipeline.md's Project Workspace
+Convention). Never leave it unset for a real run, and never commit real local paths; this tool
+must never accumulate project-specific output inside its own directory tree.
+
+Optional `config.json` keys:
+
+- `"project": { "title", "description", "techTags": [] }` — drives the enrichment report's hero
+  block (a placeholder hero renders without it).
+- `"brdGrouping": { "<rawModule>": "<capability>" }` — explicit overrides for capability grouping
+  (see below); set after reviewing `grouping-proposal.md`, then re-run `node run.js 3`.
+
+### Capability grouping (Phase 3)
+
+BRDs land per **business capability**, not per Java package. Technical-layer packages (`impl`,
+`api`, `spi`, `commands`, `events`, `handler`, …) are rolled up into their business domain using
+each item's own source-path evidence — per item, because the same leaf name (an `impl` package)
+legitimately exists in several domains. The applied mapping is written to
+`brd/grouping-proposal.md` and confirmed at CAC-2 (`skills/checkpoints/checkpoint-brd.md` Q0);
+corrections go in `brdGrouping` and Phase 3 re-runs in seconds. Mendix module boundaries remain a
+Stage 3 decision (`skills/modularize-domain.md`). Implementation:
+`pipeline/generators/lib/capability-grouper.js`.
 
 ### Multiple source repos (`sources` array)
 
@@ -72,7 +91,7 @@ not a breaking change.
 ## Folder structure
 
 ```
-java-angular-migration-skills/
+java-angular/
   pipeline/
     config.json                  ← source paths
     run.js                       ← phase orchestrator (node run.js <1|2|3|all> [java|angular])
@@ -82,8 +101,9 @@ java-angular-migration-skills/
       java-extractor.js          ← tree-sitter-java: @Entity/@RestController/@Service
       angular-extractor.js       ← tree-sitter-typescript: components/routes/dialogs/forms
     generators/
-      brd-mappers/                ← 5 mappers, reused near-verbatim from os-migration-pipeline
+      brd-mappers/                ← 5 mappers, reused near-verbatim from the outsystems pipeline
       lib/type-converter.js       ← Java→Mendix type table (the one stack-specific swap)
+      lib/capability-grouper.js   ← package→capability rollup + grouping-proposal.md (CAC-2)
     lib/
       interfaces.js, merger.js    ← reused verbatim from os-migration-pipeline
       linker.js                   ← rules rewritten for this stack (repo-call naming,
@@ -109,6 +129,6 @@ java-angular-migration-skills/
 
 ## Shared toolkit
 
-Cross-project skills and prompt templates live in a separate repo:
-`https://github.com/MendixMau/mxcli-project-toolkit`
-Key skills: `migration-pipeline.md`, `brd-generation.md`, `qa-loop-goal-pattern.md`.
+This pipeline lives inside `mxcli-project-toolkit` — cross-project skills are two levels up in
+`skills/`. Key skills: `migration-pipeline.md`, `brd-generation.md`, `checkpoints/checkpoint-brd.md`,
+`qa-loop-goal-pattern.md`.

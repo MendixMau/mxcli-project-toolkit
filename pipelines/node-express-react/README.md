@@ -31,6 +31,8 @@ node run.js 3
 
 Set `sourceDir` and **`knowledgeBaseDir`** in `pipeline/config.json` before running. `knowledgeBaseDir` should point at `<project-root>/analysis/<source-repo-name>/knowledge-base` (inside the project folder, never a sibling) — **never** leave it unset for a real run, and never commit real local paths into this file.
 
+**Capability grouping (Phase 3):** BRDs land per business capability, not per source folder — technical-layer names roll up via each item's path evidence (`generators/lib/capability-grouper.js`, shared with java-angular). Review `brd/grouping-proposal.md` at CAC-2 (`checkpoint-brd.md` Q0); override via `config.json` → `"brdGrouping"` and re-run `node run.js 3`. Optional `"project": { "title", "description", "techTags" }` drives the enrichment report's hero.
+
 ---
 
 ## HTML reports

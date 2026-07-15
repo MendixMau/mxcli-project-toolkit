@@ -33,8 +33,7 @@ Read the full wireframe file and extract:
 | Conditional visibility | Callout notes describing "shown only when…" or "edit mode vs. view mode" states |
 | Navigation entry point | `.origin` annotation or a nav-link callout stating what opens this page |
 
-**If no wireframe exists:** report this explicitly to the main session and ask whether to proceed
-without one or pause and produce a wireframe first (see `design-artifacts.md`).
+**If no wireframe exists:** ⛔ STOP. Report to the main session that the wireframe is missing and that the page script cannot be drafted until one exists. Do not proceed, do not guess layout or bindings, do not ask whether to proceed without one — the wireframe is not optional. See `design-artifacts.md` to produce one first.
 
 **If an annotated `.md` companion exists** (e.g. `item-management.md` alongside
 `item-management.html`): read it — it often contains the binding table, widget-type decisions, and

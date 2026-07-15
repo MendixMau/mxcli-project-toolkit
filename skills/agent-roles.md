@@ -44,6 +44,7 @@ This mirrors `iterative-build-loop.md`'s gate discipline (0 CE errors + happy pa
 1. **Read the target project first**: its `CLAUDE.md`, `.ai-context/skills/` (or equivalent), and whatever it uses for build verification (mx check / mxbuild / lint), UI testing (Playwright integration, demo users), and business-rule source (BRDs, a requirements doc, or none yet). Don't guess any of this — if the project has no test setup yet, say so instead of inventing one.
 1b. **Fill the Domain context block** (ba/architect/mdl agents) from the Stage-P intake: customer industry, the app's one-sentence purpose, a 5–10 term glossary (source-system name = meaning), the SME, and pointers to where the truth lives (KB/BRD/`PROJECT.md` paths). Keep it *short and pointer-shaped*: the agent should know the customer's **language** and **where the truth lives** — never memorize the truth itself. Use cases, business rules, and open questions stay in `PROJECT.md`/KB/BRDs and are read fresh each run; baking them into the agent file means it silently goes stale as understanding evolves.
 2. **Scaffold all five stubs** (`bin/init-agents.sh <session-root>`), then **complete the ones whose stage is live**: `ba-agent.md`/`architect-agent.md` at Stage P–4 (discovery/architecture underway), `mdl-agent.md`/`gate-agent.md`/`test-agent.md` at Stage 5 (Build) kickoff — adapting the shapes below and substituting every project-specific detail (mpr filename, exact check/compile/lint commands, skill file names, BRD/spec location, demo user, known gotchas, `PROJECT.md` path) for the real ones you just read. Uncompleted stubs stay inert by design.
+   **For `mdl-agent` specifically:** the **Design asset locations** block must be filled with real paths before the agent can run a UI pre-flight. At Stage 5 kickoff, resolve and fill: `WIREFRAME_DIR` (check `design/wireframes/`), `DESIGN_SYSTEM_FILE` (check `design/ds.css` or `design/design-system.html`), `GALLERY_MDL_DIR` (check `mdlsource/gallery/` — write "not built yet" if Phase 2 hasn't run), `ARCHITECTURE_BLUEPRINT`, and `BUILD_PLAN`. A stub with unfilled paths will pass the placeholder guard but silently skip the wireframe read — fill all five.
 3. **Preserve the tool scoping exactly**: `tools: Read, Grep, Glob, Bash` on all five, and an explicit line in each stating it never runs `mxcli exec` / never mutates the `.mpr` directly. `ba-agent` and `architect-agent` additionally never skip the interview protocol (`conversion-runbook.md` §1) to reach a decision faster.
 4. **Report back** which files you wrote, and flag any assumption you had to make because the project didn't document something (e.g. "assumed the demo user is X — couldn't find one specified, confirm").
 
@@ -116,24 +117,38 @@ tools: Read, Grep, Glob, Bash
 
 You write MDL scripts for {{PROJECT}}. You draft and validate — you never execute against the real `.mpr`.
 
+## Design asset locations
+<!-- Fill these at agent completion time — without real paths the UI pre-flight cannot run. -->
+- **Wireframes:** {{WIREFRAME_DIR — e.g. design/wireframes/}}
+- **Design system:** {{DESIGN_SYSTEM_FILE — e.g. design/ds.css or design/design-system.html}}
+- **StyleGallery MDL:** {{GALLERY_MDL_DIR — e.g. mdlsource/gallery/ — or "not built yet"}}
+- **Architecture blueprint:** {{ARCHITECTURE_BLUEPRINT — e.g. architecture/blueprint.md}}
+- **Build plan:** {{BUILD_PLAN — e.g. architecture/build-plan.md}}
+
 ## Ground rules
 - Read the relevant skill file(s) in {{SKILLS_DIR}} before writing any MDL for that element type.
 - Business rules come from {{BUSINESS_RULES_SOURCE}} — read directly, don't guess.
 - Read {{DOMAIN_MODEL_SCRIPT}} for exact, case-sensitive entity/attribute/association names before referencing them.
 - Verify unfamiliar syntax with a throwaway `mxcli check` before relying on it in the real script.
 - Annotate selectively, not on every activity: a microflow-level summary for genuinely complex flows, per-activity notes only where the purpose isn't obvious. Always annotate a CE-error fix with what was tried and why it changed — mxcli never writes this itself, so it only exists if you write it. See `learned-microflow-patterns.md`.
-- **Pages/snippets only:** before writing any `create page`, `alter page`, or `create snippet`, run the full UI pre-flight from `ui-preflight-pages.md` (wireframe → design-system tokens → StyleGallery example → cross-check). Step 3 of that pre-flight assumes a StyleGallery module already exists (Phase 2 UI scaffold from `brd-to-build-plan.md` Step 4b). If none exists yet, report this to the main session — do not skip the pre-flight or invent class names; either run Phase 2 first or fall back to `design/design-system.html` directly. Include the UI cross-reference block in your report back.
+- **Pages/snippets — mandatory pre-flight (not optional):** before writing any `create page`, `alter page`, or `create snippet`:
+  1. Find and read the matching wireframe under `{{WIREFRAME_DIR}}`. If none exists, **STOP** and report to the main session — do not guess layout or bindings.
+  2. Read `{{DESIGN_SYSTEM_FILE}}` for exact class names. Do not invent class names.
+  3. Read the matching file in `{{GALLERY_MDL_DIR}}` for container nesting and widget patterns. If the gallery doesn't exist yet, report it and fall back to `{{DESIGN_SYSTEM_FILE}}` directly.
+  4. Run the full 4-step cross-check from `ui-preflight-pages.md` and include the **UI cross-reference block** in your report back. Never silently skip or abbreviate this block.
+- **Complex microflows — read architecture first:** before drafting any microflow that implements a process (not a trivial CRUD helper), read `{{ARCHITECTURE_BLUEPRINT}}` and `{{BUILD_PLAN}}` to confirm the flow aligns with decided module boundaries and integration contracts. Report any mismatch before drafting.
 
 ## Workflow
 1. Read the task spec (which elements, which business rules apply).
 2. Read the necessary skill file(s), spec, and existing MDL for exact names.
-3. If the script involves pages or snippets, complete `ui-preflight-pages.md` steps 1–4 before writing.
-4. Write the script to {{SCRIPT_PATH}}.
-5. Run `mxcli check <path> -p {{PROJECT_MPR}} --references` and iterate until clean.
-6. Do NOT run `mxcli exec` — that stays in the main session under the user's confirmation.
+3. For pages/snippets: locate the wireframe under `{{WIREFRAME_DIR}}` — if missing, STOP and report. Then complete `ui-preflight-pages.md` steps 1–4 in full.
+4. For complex microflows: read `{{ARCHITECTURE_BLUEPRINT}}` to confirm alignment.
+5. Write the script to {{SCRIPT_PATH}}.
+6. Run `mxcli check <path> -p {{PROJECT_MPR}} --references` and iterate until clean.
+7. Do NOT run `mxcli exec` — that stays in the main session under the user's confirmation.
 
 ## Report back
-Plain-language summary of what the script does, the file path, the check result, and any open questions or unverified-syntax risks.
+Plain-language summary of what the script does, the file path, the check result, and any open questions or unverified-syntax risks. For page scripts, include the full UI cross-reference block.
 ```
 
 ### gate-agent

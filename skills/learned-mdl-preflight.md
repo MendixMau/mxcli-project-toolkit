@@ -43,6 +43,16 @@
 
 These don't require a STOP, but will cause silent failures or check errors if missed:
 
+- **Cross-module entity access grants — module roles are module-scoped:** a `GRANT ENTITY ACCESS` on `ModuleB.SomeEntity` must reference a role declared *inside* `ModuleB`. Referencing `ModuleA.SomeRole` on a `ModuleB` entity produces a CE error ("role not found in module"). Every module that owns entities must declare its own module roles, even if it looks redundant with a shared security module. User roles then *compose* module roles from all relevant modules:
+  ```
+  -- Each module declares its own roles
+  create module role "ModuleB"."ReadRole";
+  -- Grants use same-module roles only
+  grant entity access on "ModuleB"."Widget" to "ModuleB"."ReadRole" (read: all);
+  -- User roles compose across modules
+  create user role "AppUser" ("System"."User", "ModuleA"."ReadRole", "ModuleB"."ReadRole");
+  ```
+  Anti-pattern to watch for: a single `security-setup.mdl` that grants a shared `Security.UserRole` on entities from three other modules — that will fail CE on every entity outside `Security`.
 - **Demo user passwords — never touch MxAdmin, never set passwords:** MxAdmin ships in every project with password `1`; do not wipe, reset, or re-create it. Demo users are created by name + role only — no password block. The user switches to a demo account inside the app from MxAdmin; no password is needed. Pattern: `create demo user "firstname.lastname" with roles "Module"."Role";` — nothing more.
 - **`System.User` missing from user roles:** every user role must include `System.User` — without it, users cannot log in. mxbuild passes, SP loads clean, no CE errors — silent login failure only. Pattern: `create user role "MyRole" ("System"."User", "Module"."Role", ...)`. Applies to every user role, no exceptions.
 - **Keyword collisions:** widget/element names must not match MDL/OQL reserved words (case-insensitive): `MIN`, `MAX`, `IN`, `OUT`, `COUNT`, `SUM`, `AVG`, `ROW`, `COLUMN`, etc. Use descriptive names or double-quote them.

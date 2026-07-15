@@ -6,6 +6,35 @@ the re-entry point for continuing the work — read it plus `git log --oneline -
 
 ---
 
+## 2026-07-15 — Cross-module grant CE error + mdl-agent not reading wireframes/architecture
+
+**Incident 4 — Cross-module entity grants produce CE errors.**
+Security MDL was applying a module role from `ModuleA` to entities in `ModuleB` — CE error
+("role not found in module"). Module roles are module-scoped: a grant on `ModuleB.Entity` must
+reference a role declared inside `ModuleB`, even if a shared security module exists. User roles
+then compose module roles from all relevant modules.
+
+Rule now: every module that owns entities declares its own module roles; grants are same-module
+only; user roles compose across modules at the user-role level.
+  → `learned-mdl-preflight.md` gotchas: new bullet with pattern + anti-pattern (fires at draft time).
+
+**Incident 5 — mdl-agent not reading wireframes; UI output was very poor.**
+Root cause: the mdl-agent stub had no concrete paths for design assets. `{{WIREFRAME_DIR}}` and
+friends were never filled at completion time, so `ui-preflight-pages.md` Step 1 had nowhere to
+go — the agent skipped wireframe reads silently and invented layout + class names from training data.
+
+Rules now:
+- mdl-agent stub + `agent-roles.md` template: new **Design asset locations** block with 5 path
+  placeholders (WIREFRAME_DIR, DESIGN_SYSTEM_FILE, GALLERY_MDL_DIR, ARCHITECTURE_BLUEPRINT,
+  BUILD_PLAN). All 5 must be filled at Stage 5 kickoff — unfilled = silent skip.
+- Pages pre-flight: "If no wireframe exists" is now a hard ⛔ STOP, not "ask whether to proceed".
+- Complex microflows: must read ARCHITECTURE_BLUEPRINT before drafting — new ground rule in agent.
+- Completion-time note added to `agent-roles.md` Step 2.
+
+No new mechanical gate — the placeholder guard in each stub is the enforcement mechanism.
+
+---
+
 ## 2026-07-15 — Demo user passwords + navigation wiring + StyleGallery seed data
 
 Three incidents from live KT-POC builds surfaced in a single session:

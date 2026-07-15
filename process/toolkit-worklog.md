@@ -6,6 +6,33 @@ the re-entry point for continuing the work — read it plus `git log --oneline -
 
 ---
 
+## 2026-07-16 — Access rights structurally broken: grants deferred, mxbuild silent, no access table
+
+**Incident 6 — Deferred security scripts leave pages/microflows silently inaccessible.**
+mxbuild produces no CE error for a missing grant. The only runtime signal is a blank screen or
+unreachable nav item when the demo user logs in. Root causes:
+
+1. The build plan's script sequence put a single `security.mdl` at the end of each module —
+   all grants deferred. Elements built without grants are inaccessible with zero tooling signal.
+2. No role-to-access table was produced at plan time. The mdl-agent invented grants from training
+   data — sometimes missing elements, sometimes using wrong module roles.
+3. Happy-path test in the build loop had no grant-completeness check before login — a missing
+   grant wasn't caught until it manifested as a blank screen.
+
+**Rules now:**
+
+| Problem | Rule | Where enforced |
+|---------|------|----------------|
+| Grants deferred to single security script | Grants co-located with element: `grant execute` ends the microflow script; `grant view` ends the page script; entity grants end the domain script. A `roles.mdl` handles role *creation* only — never grants | `brd-to-build-plan.md` script sequence rewritten; `learned-mdl-preflight.md` new gotcha |
+| No access table at plan time | Step 6 (new) in build plan: role-to-access table for every element, sourced from BRDs, before any script is written. mdl-agent reads this table for grants — never invents | `brd-to-build-plan.md` Step 6 added; old Steps 6/7/8 renumbered 7/8/9 |
+| No grant check before happy-path | Build loop Step 9 (new): `show access on page/microflow` + `show security matrix` for every element the demo user will touch, before SP reopen | `iterative-build-loop.md` Step 9 added; Steps 10–14 renumbered |
+
+**Also answered:** the failure root is Stage 4 (build plan), not BRD extraction. BRDs define
+who does what. The missing step was translating that into a per-element access table before
+Stage 5. That table is now a named plan output, not an improvised script-time decision.
+
+---
+
 ## 2026-07-15 — Cross-module grant CE error + mdl-agent not reading wireframes/architecture
 
 **Incident 4 — Cross-module grants produce CE errors (entities, microflows, pages).**

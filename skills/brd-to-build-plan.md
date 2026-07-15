@@ -205,29 +205,53 @@ Phase 2 — UI Scaffold  (if StyleGallery = Yes)
 
 Phase 3 — Feature Modules  (granularity: per-layer | per-page-cluster | per-domain)
   Module: <CommonModuleA>          (dependency order: 1 — no dependencies)
-    0N-<module>-domain.mdl
-    0N-<module>-security.mdl
+    0N-<module>-roles.mdl          ← module role + user role CREATION only (no grants yet)
+    0N-<module>-domain.mdl         ← entities/enums/assocs + entity access grants at the end
+    0N-<module>-demo-users.mdl     ← demo users (after user roles exist)
 
-  Module: <CommonModuleB>          (dependency order: 2 — depends on ModuleA)
-    0N-<module>-domain.mdl
-    ...
-
-  Module: <FeatureModule>          (dependency order: 3 — depends on Common)
-    0N-<module>-domain.mdl
+  Module: <FeatureModule>          (dependency order: 2+ — depends on Common)
+    0N-<module>-roles.mdl          ← module role creation for this module
+    0N-<module>-domain.mdl         ← entities + entity access grants at the end
     0N-<module>-stub-pages.mdl     ← forward-reference stubs, always before...
-    0N-<module>-microflows.mdl
-    0N-<module>-pages.mdl
+    0N-<module>-microflows.mdl     ← microflows + grant execute at the end
+    0N-<module>-pages.mdl          ← pages + grant view at the end
     0N-<module>-seed-data.mdl      ← idempotent (retrieve-before-create)
 
-  Module: <IntegrationModule>      (dependency order: 4 — stubbed first)
+  Module: <IntegrationModule>      (dependency order: last — stubbed first)
     0N-<module>-stub-microflows.mdl
+
+  ⛔ Anti-pattern: a single 0N-<module>-security.mdl at the end containing ALL grants.
+     This is how access rights get missed — elements built without grants are silently
+     inaccessible and mxbuild produces no CE error. Grants belong in the same script as
+     the element they protect.
 ```
 
 Number sequentially across the whole plan, not per-module — this preserves a single audit trail matching `iterative-build-loop.md`'s "scripts are frozen once executed" rule.
 
 ---
 
-## Step 6: Demo User and Role Mapping
+## Step 6: Role-to-Access Table (mandatory before any script is written)
+
+Before the build loop starts, produce a role-to-access table for every element in the plan. This is the extracted-requirements step that prevents the mdl-agent from inventing access rights at script time.
+
+**Why this step exists:** mxbuild and `mxcli check` do not catch missing grants — no CE error fires for an ungrated page or microflow. The only runtime signal is a blank screen or an unreachable menu item for the demo user. Discovering this at happy-path test time means rewriting security scripts. Deciding it here costs minutes.
+
+**Format — one table per module:**
+
+| Element | Type | Role(s) that may access | Access level |
+|---------|------|------------------------|--------------|
+| `ModuleB.Overview` | page | `ModuleB.User`, `ModuleB.Admin` | view |
+| `ModuleB.ACT_Save` | microflow | `ModuleB.User`, `ModuleB.Admin` | execute |
+| `ModuleB.Widget` | entity | `ModuleB.User` | read `*`, write `(Status)` |
+| `ModuleB.Widget` | entity | `ModuleB.Admin` | create, delete, read `*`, write `*` |
+
+**Source for this table:** BRDs → business roles → which screens/actions each role can reach. If the BRD doesn't specify, ask now — not at script time.
+
+**Rule:** every page, microflow, and entity that will be built in Phase 3+ must appear in this table. Gaps here = silent inaccessible elements in the running app.
+
+**Script placement rule:** grants travel with the element they protect, not to a deferred end-of-module security script. The `0N-<module>-microflows.mdl` script ends with `grant execute` for every microflow it creates. The `0N-<module>-pages.mdl` script ends with `grant view` for every page it creates. The `0N-<module>-domain.mdl` script ends with entity access grants. A separate `security.mdl` is only used for module role and user role *creation* (which must precede all grants) — not for the grants themselves.
+
+## Step 7: Demo User and Role Mapping
 
 Before any `GRANT` script, decide and document:
 
@@ -265,15 +289,16 @@ Every page generated in the build plan must be wired to a navigation item before
 
 ## Handoff to the Build Loop
 
-Once Steps 0–7 are done, the plan is ready for `iterative-build-loop.md` to execute module-by-module. The build loop's Pre-Module Checklist assumes:
+Once Steps 0–8 are done, the plan is ready for `iterative-build-loop.md` to execute module-by-module. The build loop's Pre-Module Checklist assumes:
 - Confirmed marketplace modules are already imported into the `.mpr` (Step 0) — no domain-model script should be the first thing to discover one is missing
 - The module's position in the dependency graph is already known (Step 1)
 - The 4 standing architecture questions are already answered (Step 2) — no re-litigating mid-build
 - The granularity for this module's scripts is already chosen (Step 3)
 - Whether each integration is stub or real is already decided (Step 4)
 - Script numbers are pre-allocated per the sequence (Step 5)
-- The demo user for happy-path testing is already named (Step 6)
-- Every page in the plan has a designated navigation wire point (Step 7)
+- The role-to-access table is produced for every element in the plan (Step 6) — mdl-agent reads this table when writing grants; never invents access rights from training data
+- The demo user for happy-path testing is already named (Step 7)
+- Every page in the plan has a designated navigation wire point (Step 8)
 
 If a build session discovers a gap in the plan (a dependency missed, a question not anticipated), fix the plan document first, then resume the build loop — don't patch it ad hoc in a script comment.
 

@@ -6,12 +6,19 @@
 
 **Version context:** Rules marked "STOP" were confirmed on specific mxcli/Mendix versions noted per entry. Rules 1b and 10 were retested 2026-07-09 on mxcli v0.13.0 / Mendix 11.12.0 and confirmed resolved. Rule 9 was retested 2026-07-09 via `mxcli --mcp` on v0.13.0 and confirmed resolved (BSON serialization bug only affects the disk write path; `--mcp` bypasses it entirely). If in doubt, retest on your version and stamp the result in `bug-logs/mxcli-bugs.md`.
 
-**Three write modes — choose by operation:**
-| Mode | Command | When |
-|---|---|---|
-| mxcli disk write | `./mxcli exec script.mdl` | Default; SP must be closed; STOP rules apply |
-| mxcli via MCP | `./mxcli --mcp http://localhost/mcp --mcp-dial localhost:7782 exec script.mdl` | SP must be open; bypasses BSON serialization bugs; use for rule 9 operations |
-| Hand-rolled MCP | `pg_patch_page`, `ped_create_document` | Only when MDL has no syntax for the operation (widget JSON shapes — rules 6, 6b) |
+## Step 0 — choose the write mode (do this first, before the STOP table)
+
+There are three write modes, and they are **co-equal tools chosen by the shape of the work** — not one default plus two fallbacks. Pick the mode from the task first; *then* use the STOP table below only as the safety overlay that overrides your pick for the handful of operations mxcli corrupts. "CLI unless forced to MCP" is the wrong mental model — it is why projects drift to CLI-only and never touch the live-editing loop.
+
+| Mode | Command | Reach for it when | SP |
+|---|---|---|---|
+| **CLI** (disk write) | `./mxcli exec script.mdl` | Bulk, structural, done-once: a whole domain model, a module's microflows, access rules, navigation, demo users. One script scaffolds a lot. | Closed |
+| **MCP + MDL** | `./mxcli --mcp http://localhost/mcp --mcp-dial localhost:7782 exec script.mdl` | Iterative refinement and UI tuning where restarting SP per change would kill flow — page layout, widget wiring, visibility expressions. Live edit, no recompile wait. Also the required path for rule 9 (inline assoc-sets). | Open |
+| **Hand-rolled MCP** | `pg_patch_page`, `ped_create_document`, `ped_update_document` | Widget JSON shapes MDL has no syntax for — rules 1, 6, 6b, 7 and datagrid customContent conditionals. Confirmed payloads in `learned-mcp-patterns.md`. | Open |
+
+**Typical module rhythm:** one CLI exec to scaffold domain + microflows → MCP+MDL for page iteration and UI tweaks → hand-rolled MCP only for the specific widget shapes MDL can't reach. A project that only ever runs CLI is usually leaving the fast UI-iteration loop on the table, not being more disciplined.
+
+Once you've picked a mode per operation, run the STOP table below against every one of them — it overrides your pick whenever an operation falls in the corrupting set.
 
 **Companion skills:** `learned-mcp-patterns.md` (MCP alternatives), `bug-logs/mxcli-bugs.md` (bug detail), `iterative-build-loop.md` (exec discipline), `learned-microflow-patterns.md` (annotation + inline assoc rules)
 
@@ -43,6 +50,7 @@
 
 These don't require a STOP, but will cause silent failures or check errors if missed:
 
+- **Grants belong co-located with the element — never deferred to a single security script:** write `grant execute` at the end of the microflow script that creates the microflow; `grant view` at the end of the page script; entity access grants at the end of the domain script. A deferred `security.mdl` that does all grants at once is the primary cause of silently inaccessible pages and microflows — mxbuild produces no CE error for a missing grant, so the only signal is a blank screen at runtime. A `roles.mdl` script for module/user role *creation* is fine; it must not carry grants.
 - **All grants — module roles are module-scoped (entities, microflows, pages):** the role in any `GRANT` must be declared *inside the same module as the element being granted*. This applies equally to entity access, microflow execute, and page view grants. Referencing `ModuleA.SomeRole` in a grant on any `ModuleB` element produces a CE error ("role not found in module"). Every module that owns grantable elements must declare its own module roles. User roles then *compose* module roles from all relevant modules:
   ```
   -- Each module declares its own roles

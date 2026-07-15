@@ -378,13 +378,20 @@ Repeat for each module:
         If SP opens without an error dialog → gate passes. If it shows `AggregateException`,
         `KeyNotFoundException`, or `AttributeIdentifier` errors → restore snapshot immediately.
         **This fallback is mandatory — never mark a script DONE without Gate 2 passing.**
-9.  If GRANT scripts were applied → Studio Pro "Update security" → Cmd+S
-10. **Update the project's progress tracker** (e.g. `MIGRATION-PROGRESS.md` or equivalent) —
+9.  **Grant completeness check (mandatory before happy-path):** for every page and microflow built in this phase, verify a grant exists. Run:
+    ```
+    show access on page Module.PageName;
+    show access on microflow Module.MFName;
+    show security matrix in Module;
+    ```
+    Every element the demo user will touch must show the demo user's module role in its access list. A page or microflow with no grants shows a blank result — fix before proceeding. mxbuild will not catch this; only the running app reveals it otherwise.
+10. If GRANT scripts were applied → Studio Pro "Update security" → Cmd+S
+11. **Update the project's progress tracker** (e.g. `MIGRATION-PROGRESS.md` or equivalent) —
     mark this script/module as built and gate-verified, right after Gate 2 passes and Studio Pro
     is confirmed to open/run without errors. Do this BEFORE the testing steps below — a build that
     passed its gate is progress worth recording even if testing hasn't run yet; don't let the two
     get conflated or let tracker updates wait on a separate testing pass.
-11. Walk the happy path as a non-admin demo user:
+12. Walk the happy path as a non-admin demo user:
       - After exec.sh completes, tell the user to close and reopen the project in SP, then Run Locally
       - Wait for the user to confirm SP is running — never assume
       - Confirm the app is actually serving the new build: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login.html` → `200`. The browser shows the old JS bundle until SP recompiles; screenshots taken before this check show stale state.
@@ -393,16 +400,16 @@ Repeat for each module:
       - Fill minimum required fields
       - Click save / next
       - Confirm record created or navigation succeeded
-12. Screenshot coverage check:
+13. Screenshot coverage check:
       - Open the source screenshot
       - List every visible field/section
       - Verify each has a widget with a real datasource binding (not a stub banner)
       - Document any gap as an explicit sub-task before marking done
-13. **Gate 3 — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.
-14. Mark module done ✅
+14. **Gate 3 — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.
+15. Mark module done ✅
 ```
 
-Steps 8–13 are the phase gate. Steps 1–7 without 8–13 = page may be built but wrong. Step 13 specifically closes the gap `process-learnings.md` §C flagged and left open ("who owns the coverage checklist review?") — `gate-agent` does, as part of the same gate pass as Gate 2, not a separate optional step.
+Steps 8–14 are the phase gate. Steps 1–7 without 8–14 = page may be built but wrong. Step 9 (grant completeness) is the new mandatory pre-happy-path check — mxbuild silence is not grant confirmation. Step 14 specifically closes the gap `process-learnings.md` §C flagged and left open ("who owns the coverage checklist review?") — `gate-agent` does, as part of the same gate pass as Gate 2, not a separate optional step.
 
 ---
 

@@ -378,13 +378,14 @@ Repeat for each module:
         If SP opens without an error dialog → gate passes. If it shows `AggregateException`,
         `KeyNotFoundException`, or `AttributeIdentifier` errors → restore snapshot immediately.
         **This fallback is mandatory — never mark a script DONE without Gate 2 passing.**
-9.  **Grant completeness check (mandatory before happy-path):** for every page and microflow built in this phase, verify a grant exists. Run:
+9.  **Grant completeness check (mandatory before happy-path):** for every page and microflow built in this phase, verify grants exist for the module roles that compose each user role. Run:
     ```
+    show user roles;
+    show security matrix in Module;
     show access on page Module.PageName;
     show access on microflow Module.MFName;
-    show security matrix in Module;
     ```
-    Every element the demo user will touch must show the demo user's module role in its access list. A page or microflow with no grants shows a blank result — fix before proceeding. mxbuild will not catch this; only the running app reveals it otherwise.
+    For each user role, trace which module roles it composes (`show user roles`), then confirm those module roles appear in the access list of every element that user role needs to reach. A page or microflow with no grants shows a blank result — fix before proceeding. The demo user is only the login vehicle; the access check is on module roles, not the demo user account. mxbuild will not catch missing grants; only the running app reveals them otherwise.
 10. If GRANT scripts were applied → Studio Pro "Update security" → Cmd+S
 11. **Update the project's progress tracker** (e.g. `MIGRATION-PROGRESS.md` or equivalent) —
     mark this script/module as built and gate-verified, right after Gate 2 passes and Studio Pro

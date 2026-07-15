@@ -6,6 +6,37 @@ the re-entry point for continuing the work — read it plus `git log --oneline -
 
 ---
 
+## 2026-07-15 — Demo user passwords + navigation wiring + StyleGallery seed data
+
+Three incidents from live KT-POC builds surfaced in a single session:
+
+**Incident 1 — CLI wiping/setting MxAdmin password.**
+Generated security MDL was touching MxAdmin (reset or wipe). MxAdmin ships with password `1` in
+every project — it is pre-existing infrastructure, not something the build creates. Demo users
+need no password set at all; the in-app user-switch from MxAdmin is the correct workflow.
+
+**Incident 2 — Pages left unwired from navigation.**
+StyleGallery home and other generated pages were left unreachable — not wired to any toolbar
+nav item. "Navigation shell" in the build plan was vague enough that the wiring step was
+consistently deferred and then skipped.
+
+**Incident 3 — StyleGallery rendered NPE/hardcoded containers instead of real widgets + data.**
+DataGrid2 and ListView gallery components backed by NPE entities appeared empty on every page
+reload. Static `div` containers were used where real Mendix widgets were needed. The "Default to
+static" guidance in `learned-stylegallery.md` was the root cause — it sent the wrong signal.
+
+**Rules now:**
+
+| Incident | Rule | Where enforced |
+|----------|------|----------------|
+| MxAdmin password reset | Never touch MxAdmin; demo users created name+role only, no password block | `learned-mdl-preflight.md` gotchas (fires at draft time); `brd-to-build-plan.md` Step 6 |
+| Pages unwired | Every page has a designated nav wire point decided at plan time; `Config` toolbar item for gallery/admin pages; wire at creation not cleanup | `brd-to-build-plan.md` Step 7 (new); Handoff checklist updated |
+| NPE/static for data widgets | DataGrid2/ListView must use persistent entity + seeded records; NPE only for object-context-only DataViews; static only for decorative non-widget elements | `learned-stylegallery.md` Static vs Real-Widget section rewritten; 3 new anti-patterns added |
+
+No mechanical gate added — these are author-time rules caught at `mxcli check` + mxbuild.
+
+---
+
 ## 2026-07-15 — MDL phasing made explicit: plan fully, generate incrementally
 
 Incident: a WMS build-plan session initially appeared to generate all MDL upfront (turned out

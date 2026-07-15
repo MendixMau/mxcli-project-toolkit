@@ -136,17 +136,21 @@ file; concurrent writers corrupt it silently.
 
 ---
 
-## Static vs NPE-Backed Components
+## Static vs Real-Widget Components
 
-For each gallery component, decide:
+For each gallery component, choose the rendering strategy based on what you are actually demonstrating:
 
-| Use **static** (hardcoded content) | Use **NPE-backed** (real Mendix widget + object) |
-|------------------------------------|--------------------------------------------------|
-| Purely visual structure (steppers, badges, button variants, typography) | Widget needs a real object context to apply styles (data grid columns, form input states, KPI tile with a microflow datasource) |
-| Fast to build, zero domain coupling | Lets you verify that the MDL class wiring survives a real render with Atlas |
+| Strategy | When to use | Example |
+|----------|-------------|---------|
+| **Static container** (hardcoded HTML structure) | Purely decorative layout: typography specimens, color chips, spacing rulers, icon sets — anything where no Mendix widget is involved | A row of color swatches using `div` containers |
+| **Real widget + NPE entity** | Widget that needs an object context to render but has no meaningful domain data to show (e.g. a button in a DataView to test its enabled/disabled state styling) | A DataView over a non-persistent `GalleryItem` entity with one or two string attributes |
+| **Real widget + persistent entity + seeded records** | Any data-rendering widget (DataGrid2, ListView, form fields in a DataView) — these **must** have real rows to show; NPE objects are ephemeral and vanish on page reload, leaving the widget empty at runtime | DataGrid2 displaying a `GalleryProduct` entity with 5 seeded rows via a `seed-data.mdl` |
 
-Default to static. Use NPE only when the Atlas-compiled output of a static container would differ
-from the real widget's rendered HTML in a way that matters for the component's styling.
+**⛔ Do not use hardcoded containers as a substitute for real widgets.** A `div` with class `btn-primary` renders the CSS but does not verify that the button widget itself receives and applies that class through Atlas. Use the actual Mendix widget.
+
+**⛔ Do not use NPE entities for data-rendering widgets.** NPE objects are not persisted — a DataGrid2 or ListView backed by an NPE microflow datasource will appear empty on every page load after the initial context object is gone. Use a persistent entity with seeded demo records.
+
+**Seeding rule:** any gallery component that renders rows or a list must have a `seed-data.mdl` (idempotent: retrieve-before-create) that inserts enough demo records to make the component visually meaningful (minimum 3–5 rows). Seed scripts run in Phase 2 after the gallery module MDL is exec'd.
 
 ---
 
@@ -196,3 +200,6 @@ mdlsource/gallery/
 | Exec-ing `90-gallery-home.mdl` before its snippets | Forward reference failure, partial MPR state |
 | Using brand hue vars directly as chart series colors | Bypasses CVD validator; ships colorblind-unsafe data |
 | Skipping the explicit dark mode authoring | `prefers-color-scheme` conflicts with Atlas's theme toggle |
+| Using a hardcoded `div` container instead of the real Mendix widget | CSS renders correctly in static HTML but may not apply through Atlas's widget output — widget behavior (enabled/disabled, hover, focus states) is untested |
+| Using an NPE entity for a data-rendering widget (DataGrid2, ListView) | NPE objects are ephemeral — grid appears empty on every page load; use a persistent entity with seeded demo records |
+| Leaving the StyleGallery home page unwired from navigation | Page is unreachable in a running app; wire under `Config` toolbar item at creation time, not in a later cleanup pass |

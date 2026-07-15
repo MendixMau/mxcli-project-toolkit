@@ -238,11 +238,34 @@ Before any `GRANT` script, decide and document:
 
 **Rule:** happy-path testing in `iterative-build-loop.md` step 10 always uses the non-admin demo user — decide who that is now, not when you hit the first login screen.
 
+**⛔ Demo user password rules — read before writing any security MDL:**
+
+- **Never touch MxAdmin.** Every project ships with MxAdmin and password `1` as a standard. Do not wipe it, reset it, or re-create it. Any script that modifies MxAdmin is wrong.
+- **Do not set passwords for demo users.** Create the user account (name, user role); leave the password field unset. The user switches to a demo account from inside the app after signing in as MxAdmin — no password is required. Setting a password is unnecessary and creates inconsistency across projects.
+- **Pattern:** `create demo user "firstname.lastname" with roles "Module"."Role";` — nothing more. No password block.
+
+## Step 7: Navigation Wiring
+
+Every page generated in the build plan must be wired to a navigation item before the module is considered done. Leaving pages unwired is a silent incompleteness — they exist in the MPR but are unreachable in a running app.
+
+**Required for every module:**
+
+| Page type | Where to wire |
+|-----------|---------------|
+| Feature/operational pages | Main nav, under the relevant functional group |
+| Config/admin pages | `Config` toolbar item |
+| StyleGallery home page | `Config` toolbar item (or a dedicated `Style` item if the gallery is a primary dev tool) |
+| Utility/support pages | `Config` toolbar item |
+
+**Rule:** `01-app-scaffold.mdl` must include the full navigation shell with all expected top-level items and at least a placeholder `Config` item. Later phase scripts add their pages under the correct item — they never leave a page unwired.
+
+**Anti-pattern:** generating pages and deferring navigation wiring to "a later cleanup pass." That pass never happens consistently. Wire at creation time.
+
 ---
 
 ## Handoff to the Build Loop
 
-Once Steps 0–6 are done, the plan is ready for `iterative-build-loop.md` to execute module-by-module. The build loop's Pre-Module Checklist assumes:
+Once Steps 0–7 are done, the plan is ready for `iterative-build-loop.md` to execute module-by-module. The build loop's Pre-Module Checklist assumes:
 - Confirmed marketplace modules are already imported into the `.mpr` (Step 0) — no domain-model script should be the first thing to discover one is missing
 - The module's position in the dependency graph is already known (Step 1)
 - The 4 standing architecture questions are already answered (Step 2) — no re-litigating mid-build
@@ -250,6 +273,7 @@ Once Steps 0–6 are done, the plan is ready for `iterative-build-loop.md` to ex
 - Whether each integration is stub or real is already decided (Step 4)
 - Script numbers are pre-allocated per the sequence (Step 5)
 - The demo user for happy-path testing is already named (Step 6)
+- Every page in the plan has a designated navigation wire point (Step 7)
 
 If a build session discovers a gap in the plan (a dependency missed, a question not anticipated), fix the plan document first, then resume the build loop — don't patch it ad hoc in a script comment.
 

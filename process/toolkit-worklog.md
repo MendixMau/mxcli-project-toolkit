@@ -8,15 +8,16 @@ the re-entry point for continuing the work — read it plus `git log --oneline -
 
 ## 2026-07-15 — Cross-module grant CE error + mdl-agent not reading wireframes/architecture
 
-**Incident 4 — Cross-module entity grants produce CE errors.**
-Security MDL was applying a module role from `ModuleA` to entities in `ModuleB` — CE error
-("role not found in module"). Module roles are module-scoped: a grant on `ModuleB.Entity` must
-reference a role declared inside `ModuleB`, even if a shared security module exists. User roles
-then compose module roles from all relevant modules.
+**Incident 4 — Cross-module grants produce CE errors (entities, microflows, pages).**
+Security MDL was applying a module role from `ModuleA` to elements in `ModuleB` — CE error
+("role not found in module"). Module roles are module-scoped for all grant types: entity access,
+microflow execute, and page view grants all require a role declared inside the same module as the
+element. User roles compose module roles from all relevant modules.
 
-Rule now: every module that owns entities declares its own module roles; grants are same-module
-only; user roles compose across modules at the user-role level.
-  → `learned-mdl-preflight.md` gotchas: new bullet with pattern + anti-pattern (fires at draft time).
+Rule now: every module that owns grantable elements declares its own module roles; all three grant
+types use same-module roles only; user roles compose across modules at the user-role level.
+  → `learned-mdl-preflight.md` gotchas: bullet updated to cover all three grant surfaces with
+    one example each (fires at draft time).
 
 **Incident 5 — mdl-agent not reading wireframes; UI output was very poor.**
 Root cause: the mdl-agent stub had no concrete paths for design assets. `{{WIREFRAME_DIR}}` and

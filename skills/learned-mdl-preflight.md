@@ -43,6 +43,7 @@
 
 These don't require a STOP, but will cause silent failures or check errors if missed:
 
+- **`System.User` missing from user roles:** every user role must include `System.User` — without it, users cannot log in. mxbuild passes, SP loads clean, no CE errors — silent login failure only. Pattern: `create user role "MyRole" ("System"."User", "Module"."Role", ...)`. Applies to every user role, no exceptions.
 - **Keyword collisions:** widget/element names must not match MDL/OQL reserved words (case-insensitive): `MIN`, `MAX`, `IN`, `OUT`, `COUNT`, `SUM`, `AVG`, `ROW`, `COLUMN`, etc. Use descriptive names or double-quote them.
 - **`EXTENDS` placement:** goes **before** the opening paren: `CREATE PERSISTENT ENTITY Mod.Photo EXTENDS System.Image (...)` — not after.
 - **No `CASE/WHEN`:** use nested `IF/ELSE`. No `TRY/CATCH`: use `ON ERROR { ... }`.

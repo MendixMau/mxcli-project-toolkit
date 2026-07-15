@@ -38,10 +38,12 @@ A single **build plan document** per project (or per phase, for large projects),
 2. Resolved architecture questions (with the questions that were asked, not just the answers)
 3. Iteration granularity decision
 4. Stub/real scope boundary for this phase
-5. The numbered script sequence, per module, respecting dependency order
-6. Demo user / role mapping (needed before any security script)
+5. The numbered script sequence, per module, respecting dependency order (with grants co-located per script — never a deferred end-of-module security script)
+6. The role-to-access table for every element (Step 6) — feeds the per-module brief
+7. Demo user / role mapping (Step 7)
+8. Navigation wire point for every page (Step 8)
 
-This becomes the checklist `iterative-build-loop.md` executes against.
+Per-module detail (domain summary, UI pointers, validation rules, the access-table slice for that module) is synthesized into a **module brief** — one per module, produced just-in-time — see `module-brief.md`. The build plan is the project-wide order and scope; the brief is the module-level input the `mdl-agent` reads. This becomes the checklist `iterative-build-loop.md` executes against.
 
 > **⛔ The build plan contains no MDL.** It names every script, its scope, and its order — it never
 > contains the scripts themselves. MDL for phase N is drafted only after phase N−1 has passed its
@@ -230,26 +232,42 @@ Number sequentially across the whole plan, not per-module — this preserves a s
 
 ---
 
-## Step 6: Role-to-Access Table (mandatory before any script is written)
+## Step 6: Role-to-Access Coverage (authored per-module in the brief; rolled up here)
 
-Before the build loop starts, produce a role-to-access table for every element in the plan. This is the extracted-requirements step that prevents the mdl-agent from inventing access rights at script time.
+The role-to-access table for each module is authored **in that module's brief** (`module-brief.md`,
+business layer, by `ba-agent`) — that is where the `mdl-agent` reads it. This build-plan step is the
+**cross-module completeness roll-up**: it verifies that, across all briefs, every user role's
+composed module roles have grants on every element that role needs to reach. Cross-module
+composition is only visible at the project level, which is why the roll-up lives here and the
+per-module detail lives in the brief.
 
-**Why this step exists:** mxbuild and `mxcli check` do not catch missing grants — no CE error fires for an ungrated page or microflow. The only runtime signal is a blank screen or an unreachable menu item for the demo user. Discovering this at happy-path test time means rewriting security scripts. Deciding it here costs minutes.
+**Why this matters:** mxbuild and `mxcli check` do not catch missing grants — no CE error fires for
+an ungranted page or microflow. The only runtime signal is a blank screen or an unreachable menu
+item. Discovering this at happy-path time means rewriting security scripts. Deciding it here costs
+minutes.
 
-**Format — one table per module:**
+**Per-module access table format (lives in the brief):**
 
-| Element | Type | Role(s) that may access | Access level |
-|---------|------|------------------------|--------------|
+| Element | Type | Module role(s) | Access level |
+|---------|------|----------------|--------------|
 | `ModuleB.Overview` | page | `ModuleB.User`, `ModuleB.Admin` | view |
 | `ModuleB.ACT_Save` | microflow | `ModuleB.User`, `ModuleB.Admin` | execute |
 | `ModuleB.Widget` | entity | `ModuleB.User` | read `*`, write `(Status)` |
 | `ModuleB.Widget` | entity | `ModuleB.Admin` | create, delete, read `*`, write `*` |
 
-**Source for this table:** BRDs → business roles → which screens/actions each role can reach. If the BRD doesn't specify, ask now — not at script time.
+**Roll-up check (here in the build plan):** for each user role, trace its composed module roles
+(`show user roles`) and confirm every element that role must reach has a grant in some module's
+brief. A gap in the roll-up = a silently inaccessible element.
 
-**Rule:** every page, microflow, and entity that will be built in Phase 3+ must appear in this table. Gaps here = silent inaccessible elements in the running app.
+**Source:** BRDs → business roles → which screens/actions each role can reach. If the BRD doesn't
+specify, `ba-agent` asks now — not at script time.
 
-**Script placement rule:** grants travel with the element they protect, not to a deferred end-of-module security script. The `0N-<module>-microflows.mdl` script ends with `grant execute` for every microflow it creates. The `0N-<module>-pages.mdl` script ends with `grant view` for every page it creates. The `0N-<module>-domain.mdl` script ends with entity access grants. A separate `security.mdl` is only used for module role and user role *creation* (which must precede all grants) — not for the grants themselves.
+**Script placement rule:** grants travel with the element they protect, not to a deferred
+end-of-module security script. The `0N-<module>-microflows.mdl` script ends with `grant execute` for
+every microflow it creates. The `0N-<module>-pages.mdl` script ends with `grant view` for every page
+it creates. The `0N-<module>-domain.mdl` script ends with entity access grants. A `roles.mdl` is used
+only for module role and user role *creation* (which must precede all grants) — never for the grants
+themselves.
 
 ## Step 7: Demo User and Role Mapping
 

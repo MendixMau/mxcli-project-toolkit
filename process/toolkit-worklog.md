@@ -6,6 +6,49 @@ the re-entry point for continuing the work — read it plus `git log --oneline -
 
 ---
 
+## 2026-07-16 — Module brief: the mdl-agent's single entry point; BA translation mode named
+
+**Incident 7 — mdl-agent synthesized 6+ sources at script time → poor UI, invented access, bad bindings.**
+Root cause behind nearly every incident logged this week: the `mdl-agent` had to synthesize BRDs,
+wireframes, blueprint, build plan, domain MDL, and the access table into each script *at script
+time*. That improvised-synthesis moment is where things got guessed. Compounding it: the BA agent
+had an unnamed second mode — **translation** (BRDs → per-module Mendix decisions) — that the toolkit
+never asked for, so once BRDs existed the user reasonably concluded "BA's job is done" and the
+translation never happened. The builder inherited it and guessed.
+
+**Fix — the module brief** (`skills/module-brief.md`, new): one file per module,
+`architecture/modules/<Module>-brief.md`, the `mdl-agent`'s single entry point.
+
+Design decisions (user-confirmed):
+- **Synthesis/index, not duplication.** The brief POINTS to wireframes/blueprint/domain-MDL and
+  synthesizes only the per-module decisions that live nowhere else (access table, screens-per-role,
+  validation rules, write-mode plan, open questions). Lowest drift risk.
+- **BA drives, pulls architect.** `ba-agent` owns the file + business layer; requests the technical
+  layer from `architect-agent`. Re-centers the domain expert (and the agent the user had stopped
+  using). This is BA's named **translation mode**, distinct from **extraction mode** (Stages P–2).
+- **Just-in-time.** Brief for module N produced after N−1 gates — same rule as MDL phasing. First
+  module's brief at Stage 4; rest as each build begins. No upfront stockpile.
+
+**Shipped:**
+- `skills/module-brief.md` — format, two-layer ownership, JIT timing, ready-check, anti-patterns.
+- `agent-roles.md` — `ba-agent` two modes (extraction/translation) + brief ownership; `architect-agent`
+  contributes technical layer when pulled; `mdl-agent` template reads brief first + gap-escalation;
+  completion-time note fills `MODULE_BRIEF_DIR` (now 6 design-asset paths).
+- `agents/mdl-agent.md` stub — same brief-first ground rule + workflow + escalation.
+- `brd-to-build-plan.md` — Step 6 reframed: access table authored per-module in the brief, build plan
+  does the cross-module completeness roll-up; Output list points to the brief.
+- `conversion-runbook.md` — Stage 4 produces first brief + names ba-agent brief ownership; also fixed
+  the stale dependency-order line (co-located grants, access table).
+- `iterative-build-loop.md` — Pre-Module Checklist item 1: brief must exist + pass ready-check before
+  scripting (manual JIT gate — gate-check.sh can't enforce since briefs don't all exist at Stage 4).
+- `README.md` — pipeline diagram, skill index, and lookup table list the brief.
+
+**Enforcement:** no mechanical gate (JIT). The placeholder guard in the stub + the manual
+pre-module ready-check are the mechanism. If briefs are ever skipped in practice, the mdl-agent's
+"no brief → STOP" ground rule is the backstop.
+
+---
+
 ## 2026-07-16 — Access rights structurally broken: grants deferred, mxbuild silent, no access table
 
 **Incident 6 — Deferred security scripts leave pages/microflows silently inaccessible.**

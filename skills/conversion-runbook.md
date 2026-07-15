@@ -169,10 +169,10 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | | |
 |---|---|
 | **User defines** | **Acceptance criteria per module** — what "done" means beyond CE-error-free. **Environment / DTAP / deployment target.** Iteration granularity. |
-| **Agent produces** | `architecture/build-plan.md` — numbered, dependency-ordered (marketplace imports → entities → associations → microflows → pages → demo users/roles), with pending decisions promoted to the top. |
+| **Agent produces** | `architecture/build-plan.md` — numbered, dependency-ordered (marketplace imports → module roles → entities + entity grants → associations → microflows + execute grants → pages + view grants → demo users), grants **co-located** with the element they protect (never a deferred security script), the role-to-access table for every element, with pending decisions promoted to the top. Plus the first module's **module brief** (`architecture/modules/<Module>-brief.md`, per `module-brief.md`) — subsequent briefs are produced just-in-time as each module's build begins. |
 | **Surface** | `build-plan.html` |
-| **Gate ✋** | Pending-decisions list empty or fully answered. User approves. |
-| **Owner** | `architect-agent` |
+| **Gate ✋** | Pending-decisions list empty or fully answered. Role-to-access table complete for every element. User approves. |
+| **Owner** | `architect-agent` for the build plan; `ba-agent` drives each module brief (pulling `architect-agent` for the technical layer). |
 
 ### Stage 5 — Build
 

@@ -85,10 +85,11 @@ P. KICKOFF              source folder, constraints, SME availability → workspa
         │
         ▼
 4. BUILD PLAN ✋         BRD + architecture → dependency-ordered, numbered script plan
-   (brd-to-build-plan.md)                                                 [architect-agent]
+   (brd-to-build-plan.md)                              [architect-agent]
+    + per-module brief (module-brief.md)  [ba-agent drives, pulls architect-agent]
         │
         ▼
-5. BUILD                plan → running Mendix app, one module at a time, gated
+5. BUILD                plan + brief → running Mendix app, one module at a time, gated
    (iterative-build-loop.md, mdl-cookbook-microflows.md, bug-logs/mxcli-bugs.md)
                                                               [mdl-agent → gate-agent]
         │
@@ -260,6 +261,7 @@ mxcli-project-toolkit/
     architecture-blueprint.md   ← [migration] Target-architecture blueprint: diagrams, module defs, wiring, fit-gap, marketplace, security, NFRs, integrations
     design-artifacts.md         ← [migration] UI/brand layer: versioned design system + annotated wireframes + branding interview
     brd-to-build-plan.md        ← [migration] Plan definition: BRD + architecture → dependency-ordered, numbered build plan
+    module-brief.md             ← [any project] Per-module brief: ba-agent synthesizes BRD/wireframe/access into the mdl-agent's single entry point
     iterative-build-loop.md     ← [any project] Per-module build discipline: gate loop, coverage checklist, CE triage, Studio Pro handoffs
     brd-generation.md           ← [migration] BRD JSON prompt templates + validation checklist
     brd-validation.md           ← [migration] Validating BRDs against code + doc KB
@@ -323,6 +325,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Diagramming target architecture: module defs, wiring, fit-gap, marketplace, security, NFRs, integrations | `architecture-blueprint.md` + `graph-analysis.md` (bundled — run `mxcli graph-report` for community-detection data before drawing module boundaries) |
 | Designing the brand + wireframes before building pages | `design-artifacts.md` |
 | Turning BRDs + architecture into an ordered build plan | `brd-to-build-plan.md` |
+| Synthesizing a module's BRD/wireframe/access into the mdl-agent's single input | `module-brief.md` |
 | Building a module with mxcli (verified, iterative, coverage-checklist gated) | `iterative-build-loop.md` |
 | Writing or enriching a BRD JSON | `brd-generation.md` |
 | Validating BRDs against code + doc KB | `brd-validation.md` |
@@ -390,9 +393,9 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Always relevant for | Reference this |
 |---|---|
 | Any question before asking the user or writing anything | `skills/query-the-model.md` — query the model, then read the source, then ask the human, in that order |
-| Writing **any** MDL script — before the first line | `skills/learned-mdl-preflight.md` — STOP conditions (each backed by a real corruption incident); check every planned operation here before drafting |
+| Writing **any** MDL script — before the first line | `skills/learned-mdl-preflight.md` — Step 0 picks the write mode (CLI / MCP+MDL / hand-rolled MCP by task shape), then the STOP table (each row backed by a real corruption incident) overrides that pick for corrupting operations; check every planned operation before drafting |
 | Writing or fixing any microflow | `skills/learned-microflow-patterns.md` — MDL gotchas + annotation discipline (placement rules — never before `if`; CE-error fixes always annotated) |
-| Using MCP alongside mxcli — any MCP write session | `skills/learned-mcp-patterns.md` — save discipline, uncommitted-MPR guard, pre-exec handoff sequence, confirmed JSON patterns |
+| Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session | `skills/learned-mcp-patterns.md` — three co-equal write modes (not CLI-only-unless-forced), save discipline, uncommitted-MPR guard, pre-exec handoff sequence, confirmed JSON patterns |
 | A CE error or behavior that looks like a known mxcli quirk, not a modeling mistake | `bug-logs/mxcli-bugs.md` |
 | Setting up a new project's dev-process subagents | `skills/agent-roles.md` — once, at project start, not "on demand" |
 | First time this toolkit is used on a project, or the user seems unsure how the pipeline works | Open `toolkit-guide.html` in their browser (`open` / `xdg-open`) — the visual walkthrough. Once per project/user, not every session. |

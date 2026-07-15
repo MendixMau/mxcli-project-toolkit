@@ -41,6 +41,7 @@ have changed (see `brd-to-build-plan.md`, "The build plan contains no MDL").
 
 Run this before scripting each module:
 
+- [ ] **Module brief exists and passes its ready-check.** `architecture/modules/<Module>-brief.md` must exist (authored by `ba-agent` translation mode, per `module-brief.md`) with every ready-check box ticked: every screen has a wireframe, the access table covers every element, no open business question blocks this phase, write mode chosen for every STOP-row element. **No brief, or an unchecked ready-check item touching this phase → STOP.** Produce/complete the brief first — do not let the `mdl-agent` synthesize the module from raw BRDs. This is the just-in-time gate: mechanical `gate-check.sh` cannot enforce it (briefs don't all exist at Stage 4), so it is enforced here, manually, per module.
 - [ ] Read source screenshots for this module top-to-bottom
 - [ ] Read the feature doc (F-doc or BRD) for this module
 - [ ] Extract the build checklist from the feature doc:

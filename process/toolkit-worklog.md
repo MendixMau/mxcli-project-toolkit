@@ -6,6 +6,23 @@ the re-entry point for continuing the work — read it plus `git log --oneline -
 
 ---
 
+## 2026-07-17 — gate-check made layout-aware (false-FAILs on the toolkit's own default layout)
+
+Incident: the WMS reconfigure run showed Stage 3/4/6 FAIL even though the artifacts existed. Root
+cause: gate-check's per-stage checks were root-anchored (`$PROJECT_DIR/architecture/…`,
+`$PROJECT_DIR/design/…`), but WMS uses the toolkit's **documented default** `analysis/<name>/`
+layout — so fit-gap, design-system, wireframes, blueprint, build-plan all live under
+`analysis/WMS-App/…`. The gate false-FAILed on its own prescribed layout. (The newer `build-ready`
+checks already used recursive `find` and got it right — the older per-stage checks never did.)
+
+Fix: resolve an `ANALYSIS_BASE` (parent of the knowledge-base dir when nested, else root) and a
+`resolve_artifact "<rel>"` helper that checks both root and the analysis base. Applied to Stage 3
+(fit-gap, design-system, wireframes, blueprint render + freshness), Stage 4 (build-plan), Stage 6
+(test-report). Verified on WMS: Stage 3 + 4 flipped false-FAIL → PASS; Stage 6 stays FAIL but now
+for a real reason (no `test-report.html` exists — the UI review report is not a Playwright test report).
+
+---
+
 ## 2026-07-16 — Wiring convergence: single manifest, build-ready gate, agents slimmed to routers
 
 User ask (post-audit): (1) a pre-build check that everything is wired; (2) slim MDL & BA agents if

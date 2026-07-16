@@ -34,6 +34,32 @@ for candidate in "$PROJECT_DIR"/analysis/*/knowledge-base "$PROJECT_DIR/analysis
   fi
 done
 
+# Resolve the analysis base (the dir that holds architecture/, design/, build-plan, etc.).
+# Projects using the documented analysis/<name>/ layout keep these UNDER that dir, not at root.
+# Per-stage checks must look in both places or they false-FAIL on the toolkit's own default layout.
+# ANALYSIS_BASE is the parent of the knowledge-base dir when that's nested (analysis/<name>/),
+# else the project root.
+ANALYSIS_BASE="$PROJECT_DIR"
+if [ -n "$KB_DIR" ]; then
+  kb_parent="$(dirname "$KB_DIR")"
+  # Only treat it as a nested base if it's actually below the project root (analysis/<name>/).
+  case "$kb_parent" in
+    "$PROJECT_DIR") ANALYSIS_BASE="$PROJECT_DIR" ;;
+    "$PROJECT_DIR"/*) ANALYSIS_BASE="$kb_parent" ;;
+  esac
+fi
+
+# Return the first existing path among "<root>/<rel>" and "<analysis-base>/<rel>".
+# Usage: resolve_artifact "architecture/build-plan.md" -> echoes the path, or empty if neither.
+resolve_artifact() {
+  local rel="$1" p
+  for p in "$PROJECT_DIR/$rel" "$ANALYSIS_BASE/$rel"; do
+    if [ -e "$p" ]; then echo "$p"; return 0; fi
+  done
+  echo ""
+  return 1
+}
+
 check_stage_P() {
   local f="$PROJECT_DIR/intake.md"
   if [ ! -f "$f" ]; then
@@ -120,29 +146,35 @@ has_confirmed_decision() {
 }
 
 check_stage_3() {
-  local fit_gap="$PROJECT_DIR/architecture/fit-gap.md"
-  local design_system="$PROJECT_DIR/design/design-system.html"
-  if [ ! -f "$fit_gap" ] || [ ! -f "$design_system" ]; then
-    echo "FAIL|missing $( [ ! -f "$fit_gap" ] && echo "architecture/fit-gap.md ")$( [ ! -f "$design_system" ] && echo "design/design-system.html")"
+  local fit_gap design_system
+  fit_gap="$(resolve_artifact "architecture/fit-gap.md")"
+  design_system="$(resolve_artifact "design/design-system.html")"
+  if [ -z "$fit_gap" ] || [ -z "$design_system" ]; then
+    echo "FAIL|missing $( [ -z "$fit_gap" ] && echo "architecture/fit-gap.md ")$( [ -z "$design_system" ] && echo "design/design-system.html")"
     return
   fi
   # Wireframes are load-bearing: ui-preflight-pages.md starts from them and the build
   # loop verifies built pages against them. A design system without wireframes is half
   # the Stage-3 deliverable (design-artifacts.md Step 3, one per screen).
-  if [ -z "$(find "$PROJECT_DIR/design/wireframes" -maxdepth 1 -name '*.html' -print -quit 2>/dev/null)" ]; then
+  local wireframes_dir
+  wireframes_dir="$(resolve_artifact "design/wireframes")"
+  if [ -z "$wireframes_dir" ] || [ -z "$(find "$wireframes_dir" -maxdepth 1 -name '*.html' -print -quit 2>/dev/null)" ]; then
     echo "FAIL|design/wireframes/*.html missing — design system exists but no wireframes (design-artifacts.md Step 3); the mdl-agent's UI pre-flight cannot run without them"
     return
   fi
   # The architecture track must arrive at the ✋ gate as HTML too (architecture-blueprint.md
   # Step 7): blueprint.html is the generated checkpoint render — markdown stays canonical,
   # but a missing or stale render means the gate reviews raw Mermaid or an outdated picture.
-  local blueprint_html="$PROJECT_DIR/architecture/blueprint.html"
-  if [ ! -f "$blueprint_html" ]; then
+  local blueprint_html
+  blueprint_html="$(resolve_artifact "architecture/blueprint.html")"
+  if [ -z "$blueprint_html" ]; then
     echo "FAIL|architecture/blueprint.html missing — the Stage-3 checkpoint render (architecture-blueprint.md Step 7); regenerate it from blueprint.md"
     return
   fi
+  local arch_base
+  arch_base="$(dirname "$blueprint_html")"
   local src
-  for src in "$PROJECT_DIR/architecture/blueprint.md" "$PROJECT_DIR/architecture/fit-gap.md" "$PROJECT_DIR/architecture/open-issues.md"; do
+  for src in "$arch_base/blueprint.md" "$arch_base/fit-gap.md" "$arch_base/open-issues.md"; do
     if [ -f "$src" ] && [ "$blueprint_html" -ot "$src" ]; then
       echo "FAIL|architecture/blueprint.html is older than $(basename "$src") — stale render at a sign-off gate; regenerate (architecture-blueprint.md Step 7)"
       return
@@ -156,8 +188,9 @@ check_stage_3() {
 }
 
 check_stage_4() {
-  local build_plan="$PROJECT_DIR/architecture/build-plan.md"
-  if [ ! -f "$build_plan" ]; then
+  local build_plan
+  build_plan="$(resolve_artifact "architecture/build-plan.md")"
+  if [ -z "$build_plan" ]; then
     echo "FAIL|architecture/build-plan.md not found"
     return
   fi
@@ -170,7 +203,8 @@ check_stage_4() {
 
 check_stage_6() {
   local f test_ok="" review_ok=""
-  for f in "$PROJECT_DIR/test-report.html" "$PROJECT_DIR"/reports/test-report.html; do
+  for f in "$PROJECT_DIR/test-report.html" "$PROJECT_DIR"/reports/test-report.html \
+           "$ANALYSIS_BASE/test-report.html" "$ANALYSIS_BASE"/reports/test-report.html; do
     [ -s "$f" ] && test_ok=1
   done
   # UI review loop report (ui-review-loop.md) — any non-empty dated report under a ui-reviews/ dir

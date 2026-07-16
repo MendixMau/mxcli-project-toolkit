@@ -416,6 +416,21 @@ Repeat for each module:
 
 Steps 8–14 are the phase gate. Steps 1–7 without 8–14 = page may be built but wrong. Step 9 (grant completeness) and Step 13 (UI review loop) are the two checks mxbuild is blind to — a missing grant and a blank-rendering field both pass mxbuild silently. Step 14 specifically closes the gap `process-learnings.md` §C flagged and left open ("who owns the coverage checklist review?") — `gate-agent` does, as part of the same gate pass as Gate 2, not a separate optional step.
 
+### Trivial-change fast path (don't run the full loop on a mechanical script)
+
+The full 15-step loop is for a build unit that adds/alters a **rendered or user-facing surface** — a
+page, widget, or a microflow a user triggers. A genuinely mechanical script has no such surface and
+does not need the UI passes:
+
+| Change | Skip | Still required |
+|--------|------|----------------|
+| Forward-reference stub, added enum value, rename, constant, a pure domain-attribute add with no page | Steps 12–13 (happy-path walk, UI review loop) — nothing renders to verify | `learned-mdl-preflight.md` STOP check · `mxcli check` · **Gate 2 mxbuild** (never skip) · grant completeness (Step 9) if it added a grantable element |
+
+**The line:** anything that adds or changes a page, a widget, or a microflow a user can invoke is
+**not** trivial — run the full loop. When unsure, treat it as full-discipline. This fast path exists
+to stop the review machinery from taxing genuinely invisible changes, not to let UI work skip
+verification. The mdl-agent applies the same rule (see its "Trivial-change fast path").
+
 ---
 
 ## Script Conventions

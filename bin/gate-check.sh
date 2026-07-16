@@ -205,6 +205,75 @@ check_stage_manual() {
   echo "MANUAL|not file-existence-checkable — fill in status manually"
 }
 
+# Pre-build readiness: everything that must be wired before Stage 5 build starts.
+# Prints a checklist and returns non-zero if ANY item fails (reports all, not first-fail).
+check_build_ready() {
+  local fails=0 f found
+  echo "Build-ready check for: $PROJECT_DIR"
+  echo ""
+
+  # 1. Project wired: CLAUDE.local.md with a Wiring block
+  if [ -f "$PROJECT_DIR/CLAUDE.local.md" ] && grep -q "## Wiring" "$PROJECT_DIR/CLAUDE.local.md"; then
+    echo "  ✓ CLAUDE.local.md present with a ## Wiring block"
+  else
+    echo "  ✗ no CLAUDE.local.md with a ## Wiring block — run bin/init-project.sh or bin/sync-project.sh"
+    fails=$((fails+1))
+  fi
+
+  # 2. Baseline routing includes the UI-quality skills (not the pre-audit table)
+  if grep -q "ui-review-loop.md" "$PROJECT_DIR/CLAUDE.local.md" 2>/dev/null; then
+    echo "  ✓ baseline routing references the UI review loop"
+  else
+    echo "  ✗ baseline routing missing UI-quality rows (ui-review-loop.md) — run bin/sync-project.sh"
+    fails=$((fails+1))
+  fi
+
+  # 3. All 5 agents present with no unfilled placeholders
+  local agents_dir="$PROJECT_DIR/.claude/agents" missing_agents="" a
+  for a in ba-agent architect-agent mdl-agent gate-agent test-agent; do
+    [ -f "$agents_dir/$a.md" ] || missing_agents="$missing_agents $a"
+  done
+  if [ -n "$missing_agents" ]; then
+    echo "  ✗ missing agent(s):$missing_agents — run bin/init-agents.sh"
+    fails=$((fails+1))
+  elif grep -rq "{{" "$agents_dir"/*.md 2>/dev/null; then
+    echo "  ✗ agent(s) still have {{placeholders}} — complete them (agent-roles.md)"
+    fails=$((fails+1))
+  else
+    echo "  ✓ all 5 agents present, no unfilled placeholders"
+  fi
+
+  # 4. At least one module brief exists (JIT — the first module's brief must be ready)
+  if find "$PROJECT_DIR" -path '*/architecture/modules/*-brief.md' -print -quit 2>/dev/null | grep -q .; then
+    echo "  ✓ at least one module brief exists (architecture/modules/)"
+  else
+    echo "  ✗ no module brief (architecture/modules/<Module>-brief.md) — ba-agent translation mode (module-brief.md)"
+    fails=$((fails+1))
+  fi
+
+  # 5. Design assets: wireframes + a design system file
+  if find "$PROJECT_DIR" -path '*/wireframes/*.html' -print -quit 2>/dev/null | grep -q .; then
+    echo "  ✓ wireframes present"
+  else
+    echo "  ✗ no wireframes (design/wireframes/*.html) — design-artifacts.md"
+    fails=$((fails+1))
+  fi
+  if find "$PROJECT_DIR" \( -name 'ds.css' -o -name 'design-system.html' \) -print -quit 2>/dev/null | grep -q .; then
+    echo "  ✓ design system present (ds.css / design-system.html)"
+  else
+    echo "  ✗ no design system (ds.css or design-system.html) — design-artifacts.md"
+    fails=$((fails+1))
+  fi
+
+  echo ""
+  if [ "$fails" -eq 0 ]; then
+    echo "BUILD-READY: PASS — all wiring checks passed"
+    return 0
+  fi
+  echo "BUILD-READY: FAIL — $fails item(s) above must be resolved before Stage 5 build"
+  return 1
+}
+
 STAGE_NAMES=(0 1 2 3 4 5 6 7)
 STAGE_TITLES=(
   "Triage"
@@ -324,6 +393,15 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "" >&2
     echo "Gate BLOCKED by protocol staleness: $SYNC_NOTE" >&2
     exit 1
+  fi
+  # Pre-build readiness: a wiring preflight, not a numeric stage.
+  if [ "$REQUESTED_STAGE" = "build-ready" ]; then
+    echo ""
+    if check_build_ready; then
+      exit 0
+    else
+      exit 1
+    fi
   fi
   if [ "$REQUESTED_STAGE" = "P" ] || [ "$REQUESTED_STAGE" = "p" ]; then
     if [ "$P_STATUS" = "FAIL" ]; then

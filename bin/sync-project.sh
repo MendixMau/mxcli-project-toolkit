@@ -99,6 +99,42 @@ if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! grep -q "Toolkit commit:" "$PROJECT_DIR
   CHANGES=$((CHANGES + 1))
 fi
 
+# --- 2c. CLAUDE.local.md: append the Wiring block if this project predates it -----------
+# Agents resolve all paths from this block; a project scaffolded before it has none.
+if [ -f "$CL" ] && ! grep -q "## Wiring" "$CL"; then
+  MPR_NAME="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1 | xargs -r basename || echo "<name>.mpr")"
+  cat >> "$CL" <<EOF
+
+## Wiring — single source of truth for all paths (agents read THIS block, not per-agent copies)
+
+Paths below are the toolkit conventions — **confirm each exists and correct any that differ**; a path
+that doesn't resolve is a wiring failure the \`build-ready\` gate catches. Refresh after a toolkit pull.
+
+| Key | Path | Notes |
+|---|---|---|
+| Toolkit root | \`$TOOLKIT_ROOT\` | The process authority |
+| Toolkit commit | see \`PROJECT.md\` \`Toolkit commit:\` | Authoritative there; ritual keeps it fresh |
+| Project MPR | \`$MPR_NAME\` | The model file |
+| MDL source dir | \`mdlsource/\` | Numbered build scripts |
+| Module briefs | \`architecture/modules/\` | one \`<Module>-brief.md\` per module (\`module-brief.md\`) |
+| Wireframes | \`design/wireframes/\` | one annotated HTML per screen |
+| Design system | \`design/ds.css\` + \`design/design-system.html\` | tokens + component showcase |
+| StyleGallery MDL | \`mdlsource/gallery/\` | or "not built yet" |
+| Architecture | \`architecture/blueprint.md\` | blueprint + fit-gap |
+| Build plan | \`architecture/build-plan.md\` | numbered, dependency-ordered |
+| Business rules | \`analysis/<source>/knowledge-base/\` | BRDs (\`F<NNN>.brd.json\`) |
+| UI review reports | \`design/ui-reviews/\` | \`ui-review-<date>.html\` (\`ui-review-loop.md\`) |
+EOF
+  echo "Updated: CLAUDE.local.md — appended the Wiring block. CONFIRM its paths this session."
+  CHANGES=$((CHANGES + 1))
+fi
+# Baseline routing must include the UI-quality skills (added after the WMS UI audit).
+if [ -f "$CL" ] && ! grep -q "ui-review-loop" "$CL"; then
+  echo "⚠️  CLAUDE.local.md baseline routing is missing the UI-quality rows (ui-review-loop.md,"
+  echo "   ui-preflight-pages.md, module-brief.md, learned-stylegallery.md) — add them from"
+  echo "   README.md 'Baseline routing'; the mdl-agent won't route to the UI gates without them."
+fi
+
 # --- 3. Baseline routing / runbook-first wiring -----------------------------------------
 if [ ! -f "$PROJECT_DIR/CLAUDE.local.md" ] && { [ ! -f "$PROJECT_DIR/CLAUDE.md" ] || ! grep -q "conversion-runbook" "$PROJECT_DIR/CLAUDE.md"; }; then
   echo "⚠️  No runbook-first wiring found (no CLAUDE.local.md, and CLAUDE.md doesn't reference"

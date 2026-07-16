@@ -174,6 +174,13 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | **Gate ✋** | Pending-decisions list empty or fully answered. Role-to-access table complete for every element. **Every CONFIRMED decision from Stages 0–3 maps to a build-plan script or an explicit `descoped` note** — a confirmed decision with no build disposition is how scoped work silently vanishes (a real WMS incident: the CONFIRMED Phone-Web nav profile, wireframe and all, was never built and nothing flagged it). User approves. |
 | **Owner** | `architect-agent` for the build plan; `ba-agent` drives each module brief (pulling `architect-agent` for the technical layer). |
 
+> **Before Stage 5 starts — run the build-ready check:** `bin/gate-check.sh <project-dir> build-ready`.
+> It asserts, in one shot, that the project is actually wired to build: `CLAUDE.local.md` has a
+> `## Wiring` block, baseline routing includes the UI-quality skills, all 5 agents are present with no
+> placeholders, at least one module brief exists, and wireframes + a design system are present. It
+> fails loud listing every missing item. This is the preflight that catches a project that looks
+> wired but is UI-blind (a real WMS-class miss).
+
 ### Stage 5 — Build
 
 **Not migration-specific.** This is the standard Mendix build discipline — greenfield builds start here. Already well codified: layer1 (entities/associations/enums, `security-setup.mdl` last) → layer2 (microflows) → layer3 (pages); the guard chain (uncommitted → SP-open → concurrent-writer → snapshot → exec → mxbuild gate → auto-restore → manual SP reopen); the stale-build protocol; the STOP conditions in `learned-mdl-preflight.md`.

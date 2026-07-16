@@ -152,9 +152,13 @@ This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 |---|---|
 | Any pipeline work, every session | \`skills/conversion-runbook.md\` |
 | Any question before asking the user or writing anything | \`skills/query-the-model.md\` |
-| Writing ANY MDL script — before the first line | \`skills/learned-mdl-preflight.md\` (STOP table) |
+| Building any module — before the first script | \`skills/module-brief.md\` (the mdl-agent's single per-module input) |
+| Writing ANY MDL script — before the first line | \`skills/learned-mdl-preflight.md\` (Step 0 write-mode choice, then STOP table) |
 | Writing or fixing any microflow | \`skills/learned-microflow-patterns.md\` |
-| Any MCP write session | \`skills/learned-mcp-patterns.md\` |
+| Building any page or snippet — before the first widget | \`skills/ui-preflight-pages.md\` (wireframe → tokens → gallery reuse) |
+| Building or using the in-app design gallery | \`skills/learned-stylegallery.md\` |
+| After building any page — before calling it done | \`skills/ui-review-loop.md\` (render/interaction/reuse/wireframe verification; mxbuild is blind to all four) |
+| Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session | \`skills/learned-mcp-patterns.md\` (three co-equal write modes, not CLI-only) |
 | A CE error that looks like a tool quirk | \`bug-logs/mxcli-bugs.md\` |
 EOF
   echo "Created: CLAUDE.local.md (runbook-first wiring + baseline routing)"

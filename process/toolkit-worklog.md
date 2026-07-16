@@ -6,6 +6,52 @@ the re-entry point for continuing the work — read it plus `git log --oneline -
 
 ---
 
+## 2026-07-16 — Output-side gate: UI review loop + 9 rules from a brutal WMS UI audit
+
+**Incident 8 — a full WMS UI audit found 6 P1 / 8 P2 / 5 P3 that mxbuild + happy-path all passed.**
+Root: the toolkit verified the INPUT side (module brief, this morning) but had no OUTPUT gate. A
+build that passes mxbuild and "record created" shipped: blank DateTime fields everywhere (incl. the
+gallery's own demo cards), unclickable nav (mobile toggle overlapping desktop bar), empty grids with
+no empty-state, a "View" button wired to a superseded page, badges/steppers built in the gallery but
+never applied to real pages, and a 3-col CSS class on the wrong DOM level. The review loop that found
+all this was **project-local** (`.playwright/ui-review-loop.md`) and run **manually** — never a
+toolkit-provided gate. WMS wiring was otherwise correct (agents filled, CLAUDE.local.md present, all
+wireframes present) — proving artifacts-present ≠ quality; the missing gate was the whole problem.
+
+**Master fix — `skills/ui-review-loop.md`** (new): post-build functional + visual verification gate,
+generalized from the battle-tested WMS loop. Diagnostic-only. Per-module quick pass + full pass
+before Stage 6. Verifies field VALUES render, nav is clickable, grids show rows/empty-state, buttons
+point at current pages, validation surfaces visibly, gallery components are reused, and live-vs-
+wireframe. **Graceful degradation table** (the user's resilience ask): no wireframe → compare vs
+design-system + brief and LOG it; no design system → heuristic; no gallery → skip reuse; unwired
+project → run ad-hoc + report as finding #0. Loud degradation, never silent skip.
+
+**The 9 findings → rules (A–I):**
+
+| Finding | Rule | Where |
+|---------|------|-------|
+| A/D No render/visual/wireframe gate | UI review loop as required gate | `ui-review-loop.md` (new); `iterative-build-loop.md` Step 13 (Gate 4, per-module); `conversion-runbook.md` Stage 6; `gate-check.sh` Stage 6 now needs a ui-review report |
+| B Gallery components built but unused | Reuse mandatory | `ui-preflight-pages.md` Step 3 + cross-check + report block + failure modes |
+| C Gallery never visually verified | Visual pass before gallery done | `learned-stylegallery.md` new section |
+| E 3-col CSS on gallery outer wrapper | Target `.widget-gallery-content` / native DesktopColumns | `learned-stylegallery.md` new section + anti-patterns |
+| F CONFIRMED decision silently not built (Phone Web profile) | Build-plan reconciliation: every CONFIRMED decision → script or descoped note | `conversion-runbook.md` Stage 4 gate; `brd-to-build-plan.md` Output #9; ba-agent Stage-6 cross-check |
+| G Superseded page still wired | Repoint every caller + retire old page | `iterative-build-loop.md` Script Conventions |
+| H Silent validation failure | Page must surface validation errors visibly | `ui-preflight-pages.md` cross-check; build checklist |
+| I Golden-path assoc not set (scan→order unlinked) | Brief's golden-path data-effects table lists required assoc-sets; rule 9 STOP must route to --mcp, never drop the set | `module-brief.md` format; `learned-mdl-preflight.md` rule 9 |
+
+**Resilience harness (the user's core question):** the fix for missing/changed/unwired inputs is
+(1) the review loop's degradation table, and (2) `init-project.sh` baseline routing + README routing
+now include UI-quality rows (module-brief, ui-preflight, ui-review-loop, learned-stylegallery) so
+even a freshly-wired project points at them — the template is the harness. `sync-project.sh` pushes
+these to existing projects.
+
+**WMS wiring verdict (checked, not fixed — toolkit-only session):** correctly wired overall; gaps
+were (a) review loop was project-local not toolkit-gated [now fixed in toolkit], (b) baseline routing
+UI-blind [now fixed in template; WMS needs sync-project.sh], (c) toolkit commit stale 3b3c9e4 [self-
+corrects next session]. WMS app fixes deferred to a separate WMS session per the hard rule.
+
+---
+
 ## 2026-07-16 — Module brief: the mdl-agent's single entry point; BA translation mode named
 
 **Incident 7 — mdl-agent synthesized 6+ sources at script time → poor UI, invented access, bad bindings.**

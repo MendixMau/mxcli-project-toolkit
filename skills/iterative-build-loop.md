@@ -48,7 +48,7 @@ Run this before scripting each module:
   - **Mandatory fields** → widget `Required` settings
   - **System-derived / read-only fields** → `Editable: Never`
   - **Conditional visibility** → container `Visible` expressions
-  - **Validation rules** → `VAL_` microflows to implement
+  - **Validation rules** → `VAL_` microflows to implement **and a visible validation message on the page** — the rule firing server-side is not enough; the user must see why a save failed (a silent 4xx/5xx is a P1 in the UI review loop)
   - **Enumerations / lookups** → correct widget type (combobox, radiobuttons) — set from the start, not patched later
 - [ ] **Confirm this checklist with the user before scripting, not after.** This is the per-module business-rule coverage checklist `conversion-runbook.md` Stage 5 asks the user to confirm — the item that decides whether the module is actually done. `ba-agent` owns getting the confirmation; `gate-agent` owns verifying it was met, alongside Gate 2 (below), before the module is marked done. A checklist nobody signed off on is just a private To-Do — it doesn't count as the definition of done.
 - [ ] Identify all pages/microflows this module will reference that don't exist yet → create stubs first (separate script, apply before the main script)
@@ -398,20 +398,23 @@ Repeat for each module:
       - Wait for the user to confirm SP is running — never assume
       - Confirm the app is actually serving the new build: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login.html` → `200`. The browser shows the old JS bundle until SP recompiles; screenshots taken before this check show stale state.
       - Log in as demo user (not Administrator)
-      - Navigate to the page
+      - **Navigate by clicking the nav item / button — not a direct URL** (this exercises real navigation; an overlay or stray toggle can silently swallow every click on one page)
       - Fill minimum required fields
       - Click save / next
-      - Confirm record created or navigation succeeded
-13. Screenshot coverage check:
-      - Open the source screenshot
-      - List every visible field/section
-      - Verify each has a widget with a real datasource binding (not a stub banner)
-      - Document any gap as an explicit sub-task before marking done
+      - Confirm record created or navigation succeeded — **and confirm the demo user actually reached the page** (a blank screen or unclickable nav is a failure, not a pass)
+13. **Gate 4 — UI review loop (mandatory, per module):** run `ui-review-loop.md` scoped to the pages this module built. This is not "take a screenshot" — it is the functional + visual verification that mxbuild and "record created" cannot do. At minimum, for each page this module added:
+      - **Every displayed field shows its value** — especially DateTime/enum/calculated fields. A blank where data must exist (e.g. a system `createdDate`) is a render bug (P1), not missing data — confirm the binding in MDL, then treat a persistent blank as a finding.
+      - **Every grid/gallery** shows rows or a proper empty-state message — never nothing.
+      - **Every action/View button** points at the *current* page, not a superseded one (`DESCRIBE PAGE`).
+      - **Required-field validation surfaces a visible message** — a silent 4xx/5xx save is a P1.
+      - **Built StyleGallery components are actually used** on this page (badges/steppers/empty-states), not reimplemented as plain text.
+      - **Wireframe-vs-live** compare where a wireframe exists; degrade loudly (log it) where one doesn't — see the review loop's degradation table.
+      Diagnostic only: findings go to the punch-list, fixes are a separate approved pass.
 14. **Gate 3 — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.
-15. Mark module done ✅
+15. Mark module done ✅ — only if Gate 4's per-module review produced no open P1.
 ```
 
-Steps 8–14 are the phase gate. Steps 1–7 without 8–14 = page may be built but wrong. Step 9 (grant completeness) is the new mandatory pre-happy-path check — mxbuild silence is not grant confirmation. Step 14 specifically closes the gap `process-learnings.md` §C flagged and left open ("who owns the coverage checklist review?") — `gate-agent` does, as part of the same gate pass as Gate 2, not a separate optional step.
+Steps 8–14 are the phase gate. Steps 1–7 without 8–14 = page may be built but wrong. Step 9 (grant completeness) and Step 13 (UI review loop) are the two checks mxbuild is blind to — a missing grant and a blank-rendering field both pass mxbuild silently. Step 14 specifically closes the gap `process-learnings.md` §C flagged and left open ("who owns the coverage checklist review?") — `gate-agent` does, as part of the same gate pass as Gate 2, not a separate optional step.
 
 ---
 
@@ -423,6 +426,24 @@ Steps 8–14 are the phase gate. Steps 1–7 without 8–14 = page may be built 
 - Once a script has been executed against the MPR it is **frozen** — never edit it
 - For fixes: write a new numbered script (`create or replace` / `create or modify`)
 - The MPR is the source of truth; scripts are the historical audit trail
+
+### Superseding a page (repoint every caller, then retire the old one)
+
+When a new, wireframe-aligned page replaces an earlier one (common when an early build script made a
+rough page before the wireframe existed), the replacement is not done until **every caller is
+repointed and the old page is retired.** A page is reached from many places — overview-grid row
+buttons, other pages' action buttons, microflow `Show page` activities, navigation items. Repointing
+only the one you were looking at leaves the rest opening the dead page (a real WMS P1: the Orders
+grid's "View" still opened the superseded detail page while the home dashboard's button opened the
+new one).
+
+Procedure:
+1. Find every caller: `grep` the MDL for the old page name; check `DESCRIBE PAGE` on caller pages and
+   `DESCRIBE MICROFLOW` for `Show page` activities; check navigation.
+2. Repoint each to the new page.
+3. Delete the old page (or, if kept temporarily, mark it dead and confirm nothing references it).
+4. The Stage-6 `ba-agent` cross-check flags any page with no callers as a suspected dead page —
+   don't ship those.
 
 ### Stub architecture
 

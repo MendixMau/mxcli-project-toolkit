@@ -169,14 +169,23 @@ check_stage_4() {
 }
 
 check_stage_6() {
-  local f
+  local f test_ok="" review_ok=""
   for f in "$PROJECT_DIR/test-report.html" "$PROJECT_DIR"/reports/test-report.html; do
-    if [ -s "$f" ]; then
-      echo "PASS|$(basename "$f") present and non-empty"
-      return
-    fi
+    [ -s "$f" ] && test_ok=1
   done
-  echo "FAIL|no test-report.html found (project root or reports/)"
+  # UI review loop report (ui-review-loop.md) — any non-empty dated report under a ui-reviews/ dir
+  if [ -n "$(find "$PROJECT_DIR" -path '*/ui-reviews/ui-review-*.html' -size +0c -print -quit 2>/dev/null)" ]; then
+    review_ok=1
+  fi
+  if [ -z "$test_ok" ]; then
+    echo "FAIL|no test-report.html found (project root or reports/)"
+    return
+  fi
+  if [ -z "$review_ok" ]; then
+    echo "FAIL|test-report.html present but no UI review loop report (ui-review-*.html under a ui-reviews/ dir) — Stage 6 requires the full-app UI review (ui-review-loop.md), zero open P1"
+    return
+  fi
+  echo "PASS|test-report.html + UI review loop report both present"
 }
 
 check_stage_7() {

@@ -171,7 +171,7 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | **User defines** | **Acceptance criteria per module** — what "done" means beyond CE-error-free. **Environment / DTAP / deployment target.** Iteration granularity. |
 | **Agent produces** | `architecture/build-plan.md` — numbered, dependency-ordered (marketplace imports → module roles → entities + entity grants → associations → microflows + execute grants → pages + view grants → demo users), grants **co-located** with the element they protect (never a deferred security script), the role-to-access table for every element, with pending decisions promoted to the top. Plus the first module's **module brief** (`architecture/modules/<Module>-brief.md`, per `module-brief.md`) — subsequent briefs are produced just-in-time as each module's build begins. |
 | **Surface** | `build-plan.html` |
-| **Gate ✋** | Pending-decisions list empty or fully answered. Role-to-access table complete for every element. User approves. |
+| **Gate ✋** | Pending-decisions list empty or fully answered. Role-to-access table complete for every element. **Every CONFIRMED decision from Stages 0–3 maps to a build-plan script or an explicit `descoped` note** — a confirmed decision with no build disposition is how scoped work silently vanishes (a real WMS incident: the CONFIRMED Phone-Web nav profile, wireframe and all, was never built and nothing flagged it). User approves. |
 | **Owner** | `architect-agent` for the build plan; `ba-agent` drives each module brief (pulling `architect-agent` for the technical layer). |
 
 ### Stage 5 — Build
@@ -188,15 +188,16 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 
 ### Stage 6 — Test
 
-Also not migration-specific — the shared E2E discipline (`e2e-harness-base.md`, `test-app.md`).
+Also not migration-specific — the shared E2E discipline (`e2e-harness-base.md`, `test-app.md`) plus
+the full-app UI review loop (`ui-review-loop.md`) run across every page, not just per-module.
 
 | | |
 |---|---|
 | **User defines** | Test scope beyond the golden path; which edge cases matter. |
-| **Agent produces** | Playwright golden-path + edge-case tests, DB assertions, results reported verbatim. |
-| **Surface** | `test-report.html` |
-| **Gate** | Golden path + edge cases + DB assertions pass. Failures fixed and re-run. |
-| **Owner** | `test-agent` |
+| **Agent produces** | Playwright golden-path + edge-case tests, DB assertions, results reported verbatim. Plus a full-app **UI review loop** pass (`ui-review-loop.md`): a diagnostic punch-list (`design/ui-reviews/ui-review-<date>.html`) covering render/interaction/reuse/wireframe-divergence across every page, with the `ba-agent` conformance cross-check. |
+| **Surface** | `test-report.html` · `design/ui-reviews/ui-review-<date>.html` |
+| **Gate** | Golden path + edge cases + DB assertions pass. **UI review loop: zero open P1** (blank required fields, unclickable nav, empty grids, wrong-page wiring, silent save failures). Failures fixed and re-run. |
+| **Owner** | `test-agent` (E2E) + the UI review loop (diagnostic; fixes routed back through the build loop) |
 
 ### Stage 7 — Cutover
 

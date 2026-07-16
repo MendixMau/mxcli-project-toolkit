@@ -108,6 +108,16 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
 | Field / action | Rule | Error path |
 |----------------|------|-----------|
 
+### Golden-path data effects (what each key action must persist)
+| Action | Creates/changes | Associations that MUST be set |
+|--------|-----------------|-------------------------------|
+| e.g. Scan barcode | new TransportOrder | `TransportOrder_TransportUnit`, `TransportOrder_SourceLocation` |
+<!-- A scoped journey that creates an object almost always must link it. An order created with no
+     association to the unit/location it's for is a broken golden path even though it "saved" — a real
+     WMS incident. List every association the action must set here so the mdl-agent writes them and
+     the review loop can verify them. Note: inline assoc-sets hit learned-mdl-preflight rule 9 (route
+     to `--mcp`, never drop the set to dodge the STOP). -->
+
 ### Open business questions
 - [ ] <anything unresolved — mdl-agent must escalate, not guess>
 

@@ -89,6 +89,15 @@ Read the **full file** and use it as the canonical MDL pattern to copy container
 naming conventions, and `class:` values from. If no gallery file matches, note this and fall back to
 the design-system HTML directly.
 
+**⛔ Reuse is mandatory, not optional.** If a gallery component exists for a pattern your page needs
+— a status badge/pill, a stepper, an empty-state, a KPI tile, a card — the page **must use it**, not
+reimplement it as plain text or a bare container. A plain-text status column next to a built badge
+component is a defect (`ui-review-loop.md` Pass 4 flags exactly this). If you deliberately do *not*
+reuse an existing component, state why in the UI cross-reference block — silence reads as "forgot to
+reuse", which is the failure this rule prevents. Concretely: enum/state/priority values → the badge
+component; a multi-state progression header → the stepper; an empty grid/gallery → the empty-state
+component; a single aggregate metric → the KPI tile (not a record list).
+
 ---
 
 ### Step 4 — Cross-check before writing a single widget
@@ -100,6 +109,9 @@ For each widget group in your planned MDL, verify all four:
 | **Binding** | Attribute/datasource in your script matches the wireframe binding table |
 | **Class names** | Every `class:` value is present in `ds.css` / `main.scss` |
 | **Widget nesting** | Container depth mirrors the StyleGallery example |
+| **Component reuse** | Every pattern with an existing gallery component (badge, stepper, empty-state, KPI, card) uses that component — not plain text or a bare container |
+| **Empty state** | Every grid/gallery has an empty-state message for the zero-result case — never renders nothing |
+| **Validation feedback** | Every form with a required/unique field surfaces a visible validation message on failed save (validation-message widget, or the form's own error display) — a save that fails silently (server rejects, UI shows nothing) is a P1, not a pass |
 | **Conditional visibility** | Any `visible:` expression on the widget is legal under the STOP table (safe on regular widgets; MCP-only inside `datagrid customContent` columns — BUG-18) |
 
 If a wireframe element cannot be expressed in MDL at all (e.g. association-mode COMBOBOX, cross-module
@@ -114,9 +126,12 @@ When you report the completed script back to the main session, include a **UI cr
 
 ```
 UI cross-reference:
-  Wireframe:      design/wireframes/<filename>.html [read — binding table extracted]
-  Design system:  design/ds.css — classes used: <list the class names>
-  Gallery example: mdlsource/gallery/<filename>.mdl
+  Wireframe:       design/wireframes/<filename>.html [read — binding table extracted]
+  Design system:   design/ds.css — classes used: <list the class names>
+  Gallery example:  mdlsource/gallery/<filename>.mdl
+  Components reused: <badge / stepper / empty-state / KPI used — or "none needed">
+  Reuse skipped:    <any existing gallery component deliberately NOT used, with reason — or "none">
+  Empty states:     <every grid/gallery on the page has a zero-result message: yes/no>
   Gaps / MCP fallbacks: <any element flagged as STOP, or "none">
 ```
 
@@ -135,3 +150,6 @@ If no wireframe existed, say so explicitly here. Never silently skip this block.
 | Association-mode COMBOBOX drafted in MDL (fails mxcli check) | Step 4 flags it before you write it |
 | Page has no navigation entry point | Step 1 `.origin` annotation surfaced in extract |
 | Widget nesting doesn't match design system | Step 3 StyleGallery example as canonical structure |
+| Built gallery component not reused (plain text instead of the badge/stepper) | Step 3 reuse rule + Step 4 component-reuse cross-check |
+| Grid/gallery renders nothing on zero results | Step 4 empty-state cross-check |
+| Required/unique field save fails with no visible message (silent 4xx/5xx) | Step 4 validation-feedback cross-check |

@@ -169,6 +169,44 @@ because their datasource and binding are context-specific.
 
 ---
 
+## Gallery Widget Layout — the wrapper-CSS trap
+
+**Never put grid/flex layout CSS on a Mendix gallery's outer wrapper.** Mendix's native gallery
+widget always wraps its output in three fixed structural children:
+`.widget-gallery-top-bar`, `.widget-gallery-content`, `.widget-gallery-footer`. If you set a class
+like `display:grid; grid-template-columns:repeat(3,1fr)` on the gallery's **outer element**, those
+three scaffolding elements become the grid columns — so the empty top-bar takes column 1, the
+actual cards get stranded in column 2, and the empty footer takes column 3. The single card floats
+off-center with large empty gutters, and it gets *worse* with more data, not better (all cards
+squeeze into the one middle track). This passed mxbuild and shipped — a real P1 from the WMS audit.
+
+**Two correct options:**
+1. Target the grid at the content child: `.my-gallery .widget-gallery-content { display:grid; ... }`.
+2. Drop the custom class entirely and use the widget's own native `DesktopColumns` / `TabletColumns`
+   / `PhoneColumns` properties (set in the MDL) — Mendix lays the cards out correctly by itself.
+
+The same "custom layout class on the wrong DOM level" trap applies to datagrid and any native
+widget with its own structural wrapper — inspect the live computed layout (`getBoundingClientRect`
+on the container and its children) before assuming your class landed where you think it did.
+
+## Visual Verification — the gallery is only worth it if someone looks
+
+The gallery's entire justification is being the **in-app twin that catches render bugs a static
+HTML mock can't** (see "Why a Live Gallery"). That only pays off if the gallery is actually looked
+at after it's built. **Before the StyleGallery phase is marked done, run a visual pass over the
+rendered gallery home page** (via `ui-review-loop.md`) and confirm:
+
+- **Every demo value renders** — dates, enums, calculated fields show real values, not blank. A
+  blank date in the gallery's own demo cards means the date renders blank *everywhere* downstream
+  (a real WMS P1 — the bug was visible in the gallery for the whole build and nobody looked).
+- **Labels are correct** — no `ONFAILURE` where `On Failure` was intended (enum-to-caption mapping).
+- **KPI tiles show one aggregate value**, not a stacked list of every record (a gallery/list widget
+  used where a single-value binding was intended).
+- **Each component matches its `design-system.html` spec** — the gallery is the diff target.
+
+A gallery that was built but never visually verified is not a reference — it's an untested surface
+that silently propagates its own bugs into every page that copies from it.
+
 ## Output
 
 ```
@@ -203,3 +241,5 @@ mdlsource/gallery/
 | Using a hardcoded `div` container instead of the real Mendix widget | CSS renders correctly in static HTML but may not apply through Atlas's widget output — widget behavior (enabled/disabled, hover, focus states) is untested |
 | Using an NPE entity for a data-rendering widget (DataGrid2, ListView) | NPE objects are ephemeral — grid appears empty on every page load; use a persistent entity with seeded demo records |
 | Leaving the StyleGallery home page unwired from navigation | Page is unreachable in a running app; wire under `Config` toolbar item at creation time, not in a later cleanup pass |
+| Grid/flex layout class on a gallery's outer wrapper | Hits `.widget-gallery-top-bar/-content/-footer` as the columns; cards strand in the middle track. Target `.widget-gallery-content` or use native `DesktopColumns` |
+| Marking the gallery done without a visual pass | Render bugs (blank dates, wrong labels, KPI-as-list) sit in the reference and propagate to every page that copies it |

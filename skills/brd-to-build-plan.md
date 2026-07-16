@@ -42,6 +42,7 @@ A single **build plan document** per project (or per phase, for large projects),
 6. The role-to-access table for every element (Step 6) — feeds the per-module brief
 7. Demo user / role mapping (Step 7)
 8. Navigation wire point for every page (Step 8)
+9. **A CONFIRMED-decision reconciliation** — every decision marked `CONFIRMED` in `PROJECT.md` from Stages 0–3 mapped to a specific build-plan script, or an explicit `descoped` note with the reason. A confirmed decision with no build disposition is how scoped work silently vanishes (e.g. a CONFIRMED extra navigation profile, wireframe and all, that never got built). The Stage-6 `ba-agent` conformance cross-check re-verifies this against the actual build — but it belongs in the plan first.
 
 Per-module detail (domain summary, UI pointers, validation rules, the access-table slice for that module) is synthesized into a **module brief** — one per module, produced just-in-time — see `module-brief.md`. The build plan is the project-wide order and scope; the brief is the module-level input the `mdl-agent` reads. This becomes the checklist `iterative-build-loop.md` executes against.
 

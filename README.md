@@ -263,6 +263,7 @@ mxcli-project-toolkit/
     brd-to-build-plan.md        ← [migration] Plan definition: BRD + architecture → dependency-ordered, numbered build plan
     module-brief.md             ← [any project] Per-module brief: ba-agent synthesizes BRD/wireframe/access into the mdl-agent's single entry point
     iterative-build-loop.md     ← [any project] Per-module build discipline: gate loop, coverage checklist, CE triage, Studio Pro handoffs
+    ui-review-loop.md           ← [any project] Post-build functional+visual verification gate: render/nav/reuse/wireframe-divergence, graceful degradation, diagnostic-only
     brd-generation.md           ← [migration] BRD JSON prompt templates + validation checklist
     brd-validation.md           ← [migration] Validating BRDs against code + doc KB
     document-discovery.md       ← [migration] Scanning/classifying an unstructured document folder
@@ -393,8 +394,12 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Always relevant for | Reference this |
 |---|---|
 | Any question before asking the user or writing anything | `skills/query-the-model.md` — query the model, then read the source, then ask the human, in that order |
+| Building any module — before the first script | `skills/module-brief.md` — the mdl-agent's single per-module input (ba-agent synthesizes BRD/wireframe/access into it) |
 | Writing **any** MDL script — before the first line | `skills/learned-mdl-preflight.md` — Step 0 picks the write mode (CLI / MCP+MDL / hand-rolled MCP by task shape), then the STOP table (each row backed by a real corruption incident) overrides that pick for corrupting operations; check every planned operation before drafting |
 | Writing or fixing any microflow | `skills/learned-microflow-patterns.md` — MDL gotchas + annotation discipline (placement rules — never before `if`; CE-error fixes always annotated) |
+| Building any page or snippet — before the first widget | `skills/ui-preflight-pages.md` — wireframe → design tokens → gallery reuse → cross-check (mandatory; no wireframe → STOP) |
+| Building or using the in-app design gallery | `skills/learned-stylegallery.md` — seed real data, reuse components, gallery-wrapper CSS trap, visual verification |
+| After building any page — before calling it done | `skills/ui-review-loop.md` — post-build render/interaction/reuse/wireframe verification; mxbuild + "record created" are blind to all four |
 | Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session | `skills/learned-mcp-patterns.md` — three co-equal write modes (not CLI-only-unless-forced), save discipline, uncommitted-MPR guard, pre-exec handoff sequence, confirmed JSON patterns |
 | A CE error or behavior that looks like a known mxcli quirk, not a modeling mistake | `bug-logs/mxcli-bugs.md` |
 | Setting up a new project's dev-process subagents | `skills/agent-roles.md` — once, at project start, not "on demand" |

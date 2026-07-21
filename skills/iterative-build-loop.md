@@ -32,6 +32,54 @@ have changed (see `brd-to-build-plan.md`, "The build plan contains no MDL").
 
 ---
 
+## Requirements Drift-Sync Rule — BRDs stay live, not just historical
+
+BRDs (`analysis/knowledge-base/brd/*.brd.json` or the project's equivalent) are the source of truth
+every downstream stage reads from — `mdl-agent` synthesizes scripts from them, `gate-agent` checks
+coverage against them, a future `ba-agent` module-brief pass inherits whatever they say. `PROJECT.md`'s
+Decisions table is an **append-only log** of what was decided and why — it is not itself the current
+definition of behavior. If a later-stage decision (an architecture refinement, a build-time judgment
+call, a bug found mid-scripting) changes what a BRD asserts and the BRD is never updated, the two
+diverge silently. Nobody notices until a future agent reads the stale BRD and inherits a wrong
+assumption.
+
+**Trigger — sync immediately, same session, when a confirmed decision does any of:**
+- Resolves or contradicts an `openQuestions` entry already recorded in a BRD
+- Changes the documented `purpose`, `returns`, `notes`, or `validations` of a microflow/page a BRD
+  already specs
+- Adds or changes a business rule a BRD's behavior section already encodes
+
+**Do not trigger** for decisions a BRD never made a claim about (internal naming, layout choice, an
+enum's internal value set) — there's nothing to drift, and syncing anyway is noise.
+
+**Wireframes follow the same trigger, filtered further:** only re-render a wireframe when the decision
+changes something visually observable (new field, new button, changed flow, different state/color) —
+not for logic/microflow changes invisible in the UI.
+
+**Mechanism:** whichever agent confirms the decision (`ba-agent`, `architect-agent`, `mdl-agent`,
+`gate-agent`) names which BRD/wireframe file(s) the decision touches at the moment it logs the
+decision to `PROJECT.md`. If none, say so explicitly ("no BRD touched — internal/architectural only")
+— a conscious skip, not a silent one.
+
+**Marker convention + enforcement** (ownership and cadence live in `conversion-runbook.md` §3b):
+tag the decision's `PROJECT.md` Notes cell `[sync: <files> UNSYNCED]` when it's pending, and `ba-agent`
+flips it to `[sync: <files> synced <YYYY-MM-DD>]` after re-syncing. `bin/gate-check.sh` greps for the
+`UNSYNCED` marker and **blocks every stage gate** until it's flushed — this is the mechanical backstop
+that makes the rule stick, not just this prose. `[sync: none]` records a conscious "nothing to sync".
+
+**Don't batch by a fixed count** ("sync every N decisions"). The cost that matters is the drift
+*window*, not the sync *frequency* — a stale BRD sitting for "N more decisions" is exactly how drift
+becomes invisible. The actual sync is usually a small, targeted diff (one purpose string, one
+validations entry, one openQuestions status flip) — cheap enough to do the moment the decision lands.
+
+This rule closes a real gap: nothing in the stage-forward pipeline (BRD → architecture → build)
+naturally flows *backward* when a later stage changes something an earlier BRD claimed. It was
+written after live drift was found on a real project (TFC-TCXGraphPOC, 2026-07-21): a Stage-3
+workflow refinement changed a microflow's query behavior and added a new validation, but the BRD
+still had the old (wrong) description and two already-resolved open questions still marked "Open."
+
+---
+
 ## Pre-Module Checklist (before writing any MDL)
 
 > **Live visibility rule:** the moment this checklist is confirmed, post it — plus the 13-step

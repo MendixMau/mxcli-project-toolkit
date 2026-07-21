@@ -343,6 +343,26 @@ if [ -f "$PROJECT_DIR/PROJECT.md" ]; then
 fi
 printf "Sync (Protocol freshness): %s — %s\n" "$SYNC_STATUS" "$SYNC_NOTE"
 
+# BRD drift-sync check: when a Stage-3+ decision changes something a BRD/wireframe already
+# asserts, the confirming agent appends a marker to that decision's Notes cell in PROJECT.md —
+# "[sync: <files> UNSYNCED]" — which ba-agent flips to "[sync: <files> synced <date>]" once the
+# BRD/wireframe is actually re-synced. No gate passes while any marker is still UNSYNCED: a
+# downstream agent (mdl-agent, gate-agent, a module brief) reading that BRD would otherwise
+# inherit a stale assertion. See conversion-runbook.md "Requirements drift-sync" + the detection
+# mechanics in iterative-build-loop.md. Projects that never adopt the convention have no markers
+# → PASS, so this is inert for them.
+DRIFT_STATUS="PASS"
+DRIFT_NOTE="no unsynced BRD-drift markers in PROJECT.md"
+if [ -f "$PROJECT_DIR/PROJECT.md" ]; then
+  UNSYNCED_ROWS="$(grep -nE '\[sync:[^]]*UNSYNCED' "$PROJECT_DIR/PROJECT.md" 2>/dev/null || true)"
+  if [ -n "$UNSYNCED_ROWS" ]; then
+    DRIFT_STATUS="FAIL"
+    DRIFT_COUNT="$(printf '%s\n' "$UNSYNCED_ROWS" | grep -c . | tr -d ' ')"
+    DRIFT_NOTE="$DRIFT_COUNT decision(s) touch a BRD/wireframe not yet re-synced (see '[sync: … UNSYNCED]' in PROJECT.md) — ba-agent must update the BRD/wireframe, then flip the marker to 'synced <date>', before this gate passes"
+  fi
+fi
+printf "Drift (BRD sync): %s — %s\n" "$DRIFT_STATUS" "$DRIFT_NOTE"
+
 # Stage P is checked outside the numeric loop (bash 3.2 arrays need integer indices).
 P_RESULT="$(check_stage_P)"
 P_STATUS="${P_RESULT%%|*}"
@@ -403,6 +423,8 @@ HTML_HEAD
 
   printf '<tr><td>⟳</td><td>Protocol freshness</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$SYNC_STATUS" "$SYNC_STATUS" "$SYNC_NOTE"
+  printf '<tr><td>⇄</td><td>BRD drift-sync</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
+    "$DRIFT_STATUS" "$DRIFT_STATUS" "$DRIFT_NOTE"
   printf '<tr><td>P</td><td>Kickoff</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$P_STATUS" "$P_STATUS" "$P_NOTE"
   for stage in "${STAGE_NAMES[@]}"; do
@@ -426,6 +448,13 @@ if [ -n "$REQUESTED_STAGE" ]; then
   if [ "$SYNC_STATUS" = "FAIL" ]; then
     echo "" >&2
     echo "Gate BLOCKED by protocol staleness: $SYNC_NOTE" >&2
+    exit 1
+  fi
+  # No gate passes while a decision has drifted a BRD that was never re-synced.
+  if [ "$DRIFT_STATUS" = "FAIL" ]; then
+    echo "" >&2
+    echo "Gate BLOCKED by unsynced BRD drift: $DRIFT_NOTE" >&2
+    printf '%s\n' "$UNSYNCED_ROWS" >&2
     exit 1
   fi
   # Pre-build readiness: a wiring preflight, not a numeric stage.

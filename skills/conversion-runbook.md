@@ -235,6 +235,52 @@ Promote proven patterns into `skills/learned-*.md`. **Every point where the pipe
 
 ---
 
+## 3b. Requirements drift-sync — BRDs stay the source of truth after Stage 2
+
+The BRDs (`analysis/knowledge-base/brd/*.brd.json`) are what every downstream stage reads:
+`architect-agent` builds the blueprint from them, `mdl-agent` synthesizes scripts from them,
+`gate-agent` checks coverage against them, a module brief inherits whatever they say. `PROJECT.md`'s
+Decisions table is an **append-only log of what was decided** — it is not itself the current
+definition of behavior. So when a Stage-3+ decision (an architecture refinement, a build-time
+judgment call, a bug found mid-scripting) changes something a BRD or wireframe *already asserts* and
+the BRD is never updated, the two diverge silently, and the next agent to read that BRD inherits a
+stale assertion. This is a real, observed failure mode, not a hypothetical — see the incident note in
+`iterative-build-loop.md` → "Requirements Drift-Sync Rule" (where the detection mechanics — which
+BRD fields count as "asserted" — live).
+
+**Ownership is split, on purpose:**
+- **Whoever confirms the decision** (`architect-agent`, `mdl-agent`, `gate-agent`, or `ba-agent`
+  itself) is responsible for **marking** it at the moment it logs the decision to `PROJECT.md`.
+- **`ba-agent`** owns the actual **BRD/wireframe edit** (the flush) — it is the BRD artifact owner.
+
+**Cadence — mark always, flush just-in-time, gate at the boundary** (do *not* batch by a fixed
+count; the cost that matters is the drift *window*, not the sync *frequency*):
+1. **Mark** every BRD-touching decision immediately, inline in its `PROJECT.md` Notes cell, using the
+   marker convention below. This is ~free — one tag on a row you're already writing.
+2. **Flush** (ba-agent re-syncs the named BRD/wireframe) before the next agent *reads* that artifact —
+   batched, just-in-time, the same "never stockpiled" discipline the build loop uses for MDL. This
+   avoids re-syncing a decision that gets revised again in the same session.
+3. **Gate**: a BRD-touching decision must be flushed before any stage gate it precedes. `gate-check.sh`
+   enforces this mechanically (see below) — nothing crosses a stage boundary with a pending marker.
+
+**Marker convention** (the exact string `gate-check.sh` greps for):
+- Pending: append `[sync: <files> UNSYNCED]` to the decision's Notes cell (e.g. `[sync: F003, F001 UNSYNCED]`).
+- Flushed: `ba-agent` flips it to `[sync: <files> synced <YYYY-MM-DD>]`.
+- Touches no BRD: no marker (the default) — or `[sync: none]` to record a conscious "checked, nothing to sync".
+
+**Enforcement:** `bin/gate-check.sh` computes a **BRD drift-sync** line alongside the protocol-freshness
+check and **blocks every stage gate** while any `[sync: … UNSYNCED]` marker remains in `PROJECT.md`
+(message names the offending rows). Projects that never adopt the convention have no markers → the
+check is inert (PASS) for them. This is the layer that makes the rule survive deadline pressure — a
+prose-only rule was skipped for a week on a real project, which is exactly how the drift it now guards
+against was introduced.
+
+**Wireframes** follow the same mark/flush/gate rule, filtered further: only re-render a wireframe when
+the decision changes something *visually observable* (new field, button, flow, state/color) — not for
+logic-only changes invisible in the UI.
+
+---
+
 ## 4. Decision Flow: mxcli vs MCP vs Studio Pro GUI
 
 Before writing any MDL, check the STOP table in `learned-mdl-preflight.md`:

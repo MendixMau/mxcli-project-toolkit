@@ -45,14 +45,14 @@ Long association names get truncated at 63 characters. Always verify with:
 
 ```sql
 SELECT column_name FROM information_schema.columns
-WHERE table_name = 'payerregistration$payerapplicationheader';
+WHERE table_name = 'orderregistration$orderapplicationheader';
 ```
 
 **Confirmed truncation in this project:**
 
 | Full name | Actual column name stored |
 |-----------|--------------------------|
-| `payerregistration$payerapplicationheader_applicationcommonheader` (65 chars) | `payerregistration$payerapplicationheader_applicationcommonheade` (63 chars, missing final `r`) |
+| `orderregistration$orderapplicationheader_applicationcommonheader` (65 chars) | `orderregistration$orderapplicationheader_applicationcommonheade` (63 chars, missing final `r`) |
 
 ---
 
@@ -60,11 +60,11 @@ WHERE table_name = 'payerregistration$payerapplicationheader';
 
 ```
 businessapp_common$applicationcommonheader
-payerregistration$payerapplicationheader
-payerregistration$payerdetail
-payerregistration$payerareadata
-customer_common$payercustomerbase
-payerregistration$choiceorg
+orderregistration$orderapplicationheader
+orderregistration$orderdetail
+orderregistration$orderareadata
+customer_common$ordercustomerbase
+orderregistration$choiceorg
 common_lookups$paymentterm
 ```
 
@@ -72,16 +72,16 @@ common_lookups$paymentterm
 
 ## Standard Assertion Queries
 
-### Latest PayerDetail with status (before/after submit)
+### Latest OrderDetail with status (before/after submit)
 
 ```js
 dbQuery(
   'SELECT ach.status, ach.lockversion ' +
   'FROM "businessapp_common$applicationcommonheader" ach ' +
-  'INNER JOIN "payerregistration$payerapplicationheader" pah ' +
-  '  ON pah."payerregistration$payerapplicationheader_applicationcommonheade" = ach.id ' +
-  'INNER JOIN "payerregistration$payerdetail" pd ' +
-  '  ON pd."payerregistration$payerdetail_payerapplicationheader" = pah.id ' +
+  'INNER JOIN "orderregistration$orderapplicationheader" pah ' +
+  '  ON pah."orderregistration$orderapplicationheader_applicationcommonheade" = ach.id ' +
+  'INNER JOIN "orderregistration$orderdetail" pd ' +
+  '  ON pd."orderregistration$orderdetail_orderapplicationheader" = pah.id ' +
   'ORDER BY pd.createdon DESC LIMIT 1'
 )?.[0] ?? null
 // Returns: { status: '01', lockversion: 0 }  (01=Draft, 02=Submitted)
@@ -89,27 +89,27 @@ dbQuery(
 
 Note: use truncated FK name `...applicationcommonheade` (missing final `r`).
 
-### PayerDetail with CurrencyCode and ApplyCategory
+### OrderDetail with CurrencyCode and ApplyCategory
 
 ```js
 dbQuery(
   'SELECT pd.customercode, pd.currencycode, pah.applycategory ' +
-  'FROM "payerregistration$payerdetail" pd ' +
-  'INNER JOIN "payerregistration$payerapplicationheader" pah ' +
-  '  ON pd."payerregistration$payerdetail_payerapplicationheader" = pah.id ' +
+  'FROM "orderregistration$orderdetail" pd ' +
+  'INNER JOIN "orderregistration$orderapplicationheader" pah ' +
+  '  ON pd."orderregistration$orderdetail_orderapplicationheader" = pah.id ' +
   'ORDER BY pd.createdon DESC LIMIT 1'
 )?.[0] ?? null
 ```
 
-### PayerAreaData row count for latest PayerDetail
+### OrderAreaData row count for latest OrderDetail
 
 ```js
 dbQuery(
   'SELECT COUNT(*) AS cnt ' +
-  'FROM "payerregistration$payerareadata" pad ' +
-  'INNER JOIN "payerregistration$payerdetail" pd ' +
-  '  ON pd.id = pad."payerregistration$payerareadata_payerdetail" ' +
-  'WHERE pd.createdon = (SELECT MAX(createdon) FROM "payerregistration$payerdetail")'
+  'FROM "orderregistration$orderareadata" pad ' +
+  'INNER JOIN "orderregistration$orderdetail" pd ' +
+  '  ON pd.id = pad."orderregistration$orderareadata_orderdetail" ' +
+  'WHERE pd.createdon = (SELECT MAX(createdon) FROM "orderregistration$orderdetail")'
 )?.[0] ?? null
 // Returns: { cnt: '1' }  — note: cnt is a string, use parseInt()
 ```

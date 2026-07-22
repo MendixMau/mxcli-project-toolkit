@@ -1,4 +1,4 @@
-# mxcli Bug Report — M-0022 POC session
+# mxcli Bug Report — MXXXX POC session
 
 Issues encountered during AI-assisted Mendix development using mxcli + MDL.
 Collected for reporting to the mxcli team.
@@ -169,7 +169,7 @@ Script exec fails mid-run with a SQLite locking error. Objects created before th
 
 Close Studio Pro before running large scripts where possible.
 
-**Discovered:** 2026-05-17, M-0022 POC Phase 1 (payer-registration.mdl).
+**Discovered:** 2026-05-17, MXXXX POC Phase 1 (order-registration.mdl).
 
 ---
 
@@ -184,19 +184,19 @@ Close Studio Pro before running large scripts where possible.
 **Diagnosis:** Run `DESCRIBE ASSOCIATION Module.AssocName` — the `from` entity is the one you must call `set` on.
 
 ```mdl
--- Association: PayerAreaData_PayerDetail
--- FROM = PayerAreaData (FK here), TO = PayerDetail
+-- Association: OrderAreaData_OrderDetail
+-- FROM = OrderAreaData (FK here), TO = OrderDetail
 
 -- CORRECT: set on the FROM entity
-set $PayerAreaData/PayerRegistration.PayerAreaData_PayerDetail = $PayerDetail;
+set $OrderAreaData/OrderRegistration.OrderAreaData_OrderDetail = $OrderDetail;
 
 -- WRONG: set on the TO entity → CE0854
-set $PayerDetail/PayerRegistration.PayerAreaData_PayerDetail = $PayerAreaData;
+set $OrderDetail/OrderRegistration.OrderAreaData_OrderDetail = $OrderAreaData;
 ```
 
 **Also check creation order:** the FK-owning entity (`from`) must be committed after the entity it points to (`to`) already exists in the database.
 
-**Discovered:** 2026-05-18, M-0022 POC script 11 (ACT_PayerDetail_SaveDraft).
+**Discovered:** 2026-05-18, MXXXX POC script 11 (ACT_OrderDetail_SaveDraft).
 
 ---
 
@@ -229,7 +229,7 @@ Use `REPLACE widgetName WITH { dynamictext newName (Content: 'New Text') }` — 
 **different name** for the replacement widget (see BUG-08). The REPLACE drops the old widget
 (including its ContentParams) and inserts a clean new one.
 
-**Discovered:** 2026-05-21, M-0022 POC script 34 (fixing CE0720 on lblHdrAction).
+**Discovered:** 2026-05-21, MXXXX POC script 34 (fixing CE0720 on lblHdrAction).
 
 ---
 
@@ -266,7 +266,7 @@ ALTER PAGE Module.Page {
 ```
 The old widget (and its name) is dropped; the new widget takes its place in the layout.
 
-**Discovered:** 2026-05-21, M-0022 POC script 34 (fixing CE0720 on lblHdrAction).
+**Discovered:** 2026-05-21, MXXXX POC script 34 (fixing CE0720 on lblHdrAction).
 
 ---
 
@@ -280,7 +280,7 @@ The old widget (and its name) is dropped; the new widget takes its place in the 
 
 ### Context
 
-Mendix Gallery filters **fully support** filtering over associated entities, including multi-hop paths (e.g. `PayerDetail → PayerApplicationHeader → ApplicationCommonHeader → Status`). This works correctly at runtime and is configurable in Studio Pro.
+Mendix Gallery filters **fully support** filtering over associated entities, including multi-hop paths (e.g. `OrderDetail → OrderApplicationHeader → ApplicationCommonHeader → Status`). This works correctly at runtime and is configurable in Studio Pro.
 
 ### Issue
 
@@ -289,8 +289,8 @@ MDL `filter {}` block syntax only accepts **direct entity attribute names** (sho
 ```mdl
 -- Works: direct attribute on datasource entity
 filter filter1 {
-  textfilter txtKeyword (Attributes: [PayerRegistration.PayerDetail.CustomerCode])
-  dropdownfilter statusFilter (Attributes: [PayerRegistration.PayerDetail.Status])
+  textfilter txtKeyword (Attributes: [OrderRegistration.OrderDetail.CustomerCode])
+  dropdownfilter statusFilter (Attributes: [OrderRegistration.OrderDetail.Status])
 }
 ```
 
@@ -300,7 +300,7 @@ There is no MDL syntax for specifying an association-path as a filter attribute:
 -- NOT expressible in MDL — cannot write association-path filter attributes
 filter filter1 {
   dropdownfilter statusFilter (Attributes: [
-    PayerDetail_PayerApplicationHeader/PayerApplicationHeader_ApplicationCommonHeader/Status
+    OrderDetail_OrderApplicationHeader/OrderApplicationHeader_ApplicationCommonHeader/Status
   ])
 }
 ```
@@ -318,9 +318,9 @@ Any gallery filter that needs to filter on an **associated entity's attribute** 
 ### Workaround
 
 - For filters on **direct entity attributes**: configure via mxcli as normal
-- For filters on **associated entity attributes**: document the filter as a Studio Pro manual step; note the association path (e.g. `PayerDetail → [PayerDetail_PayerApplicationHeader] → PayerApplicationHeader → [PayerApplicationHeader_ApplicationCommonHeader] → ApplicationCommonHeader.Status`)
+- For filters on **associated entity attributes**: document the filter as a Studio Pro manual step; note the association path (e.g. `OrderDetail → [OrderDetail_OrderApplicationHeader] → OrderApplicationHeader → [OrderApplicationHeader_ApplicationCommonHeader] → ApplicationCommonHeader.Status`)
 
-**Discovered:** 2026-05-22, M-0022 POC PayerRegistration_Overview (Status filter via 2-hop cross-module association).
+**Discovered:** 2026-05-22, MXXXX POC OrderRegistration_Overview (Status filter via 2-hop cross-module association).
 
 ---
 
@@ -362,7 +362,7 @@ Note: due to BUG-08 (REPLACE with same name fails), the replacement filter must 
 
 The mxcli parser grammar does not allow dots inside `[]` attribute lists (treats them as separate tokens). The executor uses a separate path-resolver that requires the qualified format to look up the attribute GUID. These two code paths are not aligned.
 
-**Discovered:** 2026-05-22, M-0022 POC script 35 (PayerRegistration_Overview gallery filter extension).
+**Discovered:** 2026-05-22, MXXXX POC script 35 (OrderRegistration_Overview gallery filter extension).
 
 ---
 
@@ -398,17 +398,17 @@ Both MDL syntaxes tested produce the **Association** internal type and get CE670
 
 ```mdl
 -- Tested outside parent DataView (page param traversal) → CE6705
-dataview dvTest (DataSource: $PayerDetail/PayerRegistration.PayerDetail_PayerCustomerBase) { ... }
+dataview dvTest (DataSource: $OrderDetail/OrderRegistration.OrderDetail_OrderCustomerBase) { ... }
 
 -- Tested inside parent DataView (currentObject traversal) → CE6705
-dataview dvTest (DataSource: $currentObject/PayerRegistration.PayerDetail_PayerCustomerBase) { ... }
+dataview dvTest (DataSource: $currentObject/OrderRegistration.OrderDetail_OrderCustomerBase) { ... }
 ```
 
 When Studio Pro manually sets Type = Context and traverses via the association tree picker, it writes a different internal type that does NOT trigger CE6705. mxcli has no syntax that produces this internal type.
 
 **Conclusion:** mxcli cannot create a valid DataView datasource that retrieves an associated entity. Use microflow datasource (current approach) or configure manually in Studio Pro.
 
-**Discovered:** 2026-05-22, M-0022 POC PayerDetail_View (`dvPayerCustomerBase`, `dvPaymentTermData`).
+**Discovered:** 2026-05-22, MXXXX POC OrderDetail_View (`dvOrderCustomerBase`, `dvPaymentTermData`).
 
 ---
 
@@ -424,7 +424,7 @@ When Studio Pro manually sets Type = Context and traverses via the association t
 
 **Fix option B (Studio Pro manual):** In Studio Pro, open the microflow and replace the "Retrieve from database" activity with a "Retrieve by association" activity. Set the association and the starting object. This is the correct Mendix pattern for NPE-to-NPE traversal and does not require changing the microflow signature.
 
-**Discovered:** 2026-05-18, M-0022 POC script 11 (ACT_PayerDetail_SaveDraft — CompanySearchResult NPE retrieve).
+**Discovered:** 2026-05-18, MXXXX POC script 11 (ACT_OrderDetail_SaveDraft — CompanySearchResult NPE retrieve).
 
 ---
 
@@ -435,7 +435,7 @@ When Studio Pro manually sets Type = Context and traverses via the association t
 **Mendix version:** 11.10.0  
 **mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
 **Retested on v0.13.0:** No — v0.13.0 fixed several page-authoring BSON issues; worth retesting before routing to SP  
-**Discovered:** 2026-05-25, M-0022 POC Script 56
+**Discovered:** 2026-05-25, MXXXX POC Script 56
 
 ### Steps to reproduce
 
@@ -499,7 +499,7 @@ Wire the button action manually in Studio Pro:
 **Mendix version:** 11.10.0  
 **mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
 **Retested on v0.13.0:** No  
-**Discovered:** 2026-05-26, M-0022 POC scripts 62 + 63
+**Discovered:** 2026-05-26, MXXXX POC scripts 62 + 63
 
 ### Symptoms
 
@@ -517,21 +517,21 @@ Two errors fire per broken retrieve activity. The activity appears in Studio Pro
 ### MDL that triggers the bug
 
 ```mdl
--- In ACT_Payer_ExpansionApply_Save (script 63):
-retrieve $OldPayerDetail from PayerRegistration.PayerDetail
-  where [PayerDetail/CustomerCode = $Dto/CustomerCode]
+-- In ACT_Order_ExpansionApply_Save (script 63):
+retrieve $OldOrderDetail from OrderRegistration.OrderDetail
+  where [OrderDetail/CustomerCode = $Dto/CustomerCode]
   limit 1;
 
 -- Then: Broken retrieve — association path from variable
-retrieve $ExistingBase from $OldPayerDetail/PayerRegistration.PayerDetail_PayerCustomerBase
+retrieve $ExistingBase from $OldOrderDetail/OrderRegistration.OrderDetail_OrderCustomerBase
   limit 1;
 ```
 
 The second `retrieve` (via object-variable association path) is the broken form.
 
 ```mdl
--- In ACT_Payer_ExpansionApply_InitNew (script 62):
-retrieve $Base from $ExistingPayerDetail/PayerRegistration.PayerDetail_PayerCustomerBase
+-- In ACT_Order_ExpansionApply_InitNew (script 62):
+retrieve $Base from $ExistingOrderDetail/OrderRegistration.OrderDetail_OrderCustomerBase
   limit 1;
 ```
 
@@ -539,7 +539,7 @@ Same pattern — both cause CE0018 + CE0136.
 
 ### Expected behavior
 
-mxcli generates a "Retrieve by Association" activity with `Association = PayerRegistration.PayerDetail_PayerCustomerBase` and `Entity = Customer_Common.PayerCustomerBase` properties wired correctly.
+mxcli generates a "Retrieve by Association" activity with `Association = OrderRegistration.OrderDetail_OrderCustomerBase` and `Entity = Customer_Common.OrderCustomerBase` properties wired correctly.
 
 ### Actual behavior
 
@@ -555,18 +555,18 @@ Replace the association-path retrieve with an XPath DB retrieve against the targ
 
 ```mdl
 -- BROKEN (generates empty BSON):
-retrieve $ExistingBase from $OldPayerDetail/PayerRegistration.PayerDetail_PayerCustomerBase
+retrieve $ExistingBase from $OldOrderDetail/OrderRegistration.OrderDetail_OrderCustomerBase
   limit 1;
 
 -- FIXED (XPath cross-entity filter):
 declare $CCode String = $Dto/CustomerCode;
-retrieve $ExistingBase from Customer_Common.PayerCustomerBase
-  where [PayerRegistration.PayerDetail_PayerCustomerBase/PayerRegistration.PayerDetail/CustomerCode = $CCode]
+retrieve $ExistingBase from Customer_Common.OrderCustomerBase
+  where [OrderRegistration.OrderDetail_OrderCustomerBase/OrderRegistration.OrderDetail/CustomerCode = $CCode]
   limit 1;
 ```
 
 **Pre-conditions required for XPath workaround:**
-1. The target entity (`PayerCustomerBase`) must be a **persistent** entity (not an NPE).
+1. The target entity (`OrderCustomerBase`) must be a **persistent** entity (not an NPE).
 2. All entities referenced in the XPath path must be **persistent**.
 3. The object being filtered on must be **committed to the database** — XPath queries the DB, not in-memory objects.
 
@@ -585,8 +585,8 @@ If any condition fails, pass the related object as a microflow parameter instead
 **Effect:** all filtered retrieves execute as "From database, entity X, Range=First/All" with no XPath — returns an arbitrary record or full table scan. Functionally incorrect at runtime.
 
 **Confirmed on:**
-- `retrieve $ExistingPayerDetail from PayerRegistration.PayerDetail where [PayerDetail/CustomerCode = $ExistingCustomerCode]` (simple attribute XPath)
-- `retrieve $Base from Customer_Common.PayerCustomerBase where [PayerRegistration.PayerDetail_PayerCustomerBase/.../CustomerCode = $ExistingCustomerCode]` (cross-module association XPath)
+- `retrieve $ExistingOrderDetail from OrderRegistration.OrderDetail where [OrderDetail/CustomerCode = $ExistingCustomerCode]` (simple attribute XPath)
+- `retrieve $Base from Customer_Common.OrderCustomerBase where [OrderRegistration.OrderDetail_OrderCustomerBase/.../CustomerCode = $ExistingCustomerCode]` (cross-module association XPath)
 
 **Root cause confirmed (2026-05-26) via `mxcli bson dump` comparison:**
 
@@ -595,7 +595,7 @@ mxcli writes the BSON key as **`XPathConstraint`** (capital P), but Studio Pro w
 Evidence from BSON dump:
 ```
 Working (GET_Sequence_NextId — written by Studio Pro):  "Key": "XpathConstraint"
-Broken  (ACT_Payer_ExpansionApply_* — written by mxcli): "Key": "XPathConstraint"
+Broken  (ACT_Order_ExpansionApply_* — written by mxcli): "Key": "XPathConstraint"
 ```
 
 This explains why annotation text writes correctly (its field name is spelled correctly in mxcli's writer) but XPath does not. The fix in mxcli's source (`writer_microflows.go`) is to change `XPathConstraint` → `XpathConstraint`.
@@ -650,7 +650,7 @@ Write-Host "Patched $totalFiles files, $totalOccurrences occurrences"
 **Mendix version:** 11.10.0  
 **mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
 **Retested on v0.13.0:** No — v0.13.0 unified the datagrid engine (#529 Phase 4); worth retesting before routing to Studio Pro  
-**Discovered:** 2026-05-26, M-0022 POC Script 77 (PayerRegistration_Overview_DG2)
+**Discovered:** 2026-05-26, MXXXX POC Script 77 (OrderRegistration_Overview_DG2)
 
 ### Steps to reproduce
 
@@ -1023,3 +1023,222 @@ The statement executes and reports success ("Updated configuration 'Default'"). 
 
 ### Recovery
 `git checkout` the two tracked `mprcontents/*.mxunit` files for the Settings unit back to the last clean commit. No full project revert needed — only those unit files are corrupted.
+
+---
+
+## BUG-23: `ContentParams` with an explicit `$currentObject/` prefix resolves as a literal (broken) attribute path → CE1613
+
+**Severity:** High — silent, repeat offender. Passes `mxcli check`/`describe page` every time; only fails on a real `mx check`/`docker check`/SP compile. Estimated to have caused this exact mistake ~500 times across sessions before the root cause was isolated.
+**Reproducible:** Yes, consistently
+**Confirmed:** Mendix 11.12.0, mxcli v0.13.0, 2026-07-20 (WMS-App)
+**Retested on v0.13.0:** N/A — first isolation of root cause; previously misattributed to "any function call" (see Rule 12 correction below)
+
+### Symptom
+A `dynamictext`'s `ContentParams` entry that includes an explicit `$currentObject/` prefix on the attribute — whether inside a wrapping function or completely bare — is accepted by `mxcli check` and shows up looking correct in `describe page`. It then fails a real compile with:
+
+```
+[CE1613] "The selected attribute '<Entity>.<literal ContentParams text>' no longer exists."
+```
+
+mxcli/mxbuild does not evaluate `$currentObject/Attr` as an expression inside `ContentParams` — it treats the *entire* ContentParams value as an attribute-path suffix and concatenates the dataview's qualified entity name onto it verbatim, producing a nonsense path that can never resolve.
+
+### Confirmed failing forms (all `dynamictext` `ContentParams`, all real-compile CE1613)
+- `ContentParams: [{1} = toString($currentObject/State)]` → `Common.TransportUnit.toString($currentObject/State)` no longer exists
+- `ContentParams: [{1} = toString($currentObject/State)]` → `Transportation.TransportOrder.toString($currentObject/State)` no longer exists
+- `ContentParams: [{1} = toString($currentObject/Priority)]` → `...toString($currentObject/Priority)` no longer exists
+- `ContentParams: [{1} = $currentObject/CreatedOn]` (bare, no function at all) → `...$currentObject/CreatedOn` no longer exists
+
+Also confirmed as a dead end: setting `Attribute: "AttrName"` directly on the `dynamictext` (previously believed to be the safe alternative — see Rule 12 in `skills/learned-mdl-preflight.md`, now corrected). For a non-string attribute type (e.g. DateTime), mxcli silently re-serializes this shorthand back into `Content: '{1}', ContentParams: [{1} = toString($currentObject/Attr)]` — i.e. it round-trips into the exact same broken form, confirmed via `describe page` showing the expanded (broken) version after the fact.
+
+### Confirmed working forms, on the same pages, never throwing CE1613
+- `ContentParams: [{1} = GroupName]`
+- `ContentParams: [{1} = ExternalId]`
+
+### Workaround (the fix that actually works)
+**Inside `ContentParams` (including inside a wrapping function like `toString()`/`formatDateTime()`), never write `$currentObject/` at all — use the bare attribute name.** The current dataview/gallery/listview object is already the implicit context; re-stating it as a path prefix is what breaks the serializer.
+
+```sql
+-- Broken (CE1613 on real compile, passes mxcli check):
+DYNAMICTEXT txt (Content: '{1}', ContentParams: [{1} = toString($currentObject/State)])
+
+-- Fixed:
+DYNAMICTEXT txt (Content: '{1}', ContentParams: [{1} = toString(State)])
+```
+
+**Important counterpart — do not over-apply this fix.** `DynamicClasses`, `Visible`, and other conditional/comparison expressions use the *opposite* convention and genuinely require the `$currentObject/` prefix — this is the already-established, working pattern used throughout this project's badge widgets:
+
+```sql
+-- Correct in DynamicClasses/Visible (keep the prefix here):
+DynamicClasses: 'if $currentObject/State = Transportation.ENUM_TransportOrderState.CREATED then ''neo-badge--created'' else ...'
+```
+
+Writing bare `State = ...` (no `$currentObject/`) inside `DynamicClasses` is the mirror-image mistake — not confirmed to throw CE1613, but inconsistent with the working convention and should be avoided.
+
+**Rule of thumb:** `ContentParams` = bare attribute, no `$currentObject/`. `DynamicClasses`/`Visible` = prefixed, with `$currentObject/`. These look like the same kind of expression but take opposite forms — that resemblance is exactly why this bug keeps recurring.
+
+### Verification
+Only a real compiler pass catches this — `mxcli check` / `mxcli check --references` / `describe page` all pass on every broken form above. Always confirm with `./mxcli docker check -p <project>.mpr` (or `mx check` directly) before considering a ContentParams/DynamicClasses fix done.
+
+### Cross-reference
+Supersedes/corrects `skills/learned-mdl-preflight.md` Rule 12, which blamed "any function call" as the trigger and recommended `Attribute: "AttrName"` as a safe alternative — both are wrong; see the updated rule text.
+
+---
+
+## `marketplace install` fails on modules that ship `themesource/` styling (exit 112, "Importing theme module is not supported")
+
+**Discovered:** 2026-07-22 (TFC-TCXGraphPOC, mxcli v0.16.0, mxbuild 11.12.0), importing **Conversational UI** (content-id 239450, v7.0.0, a Mendix Platform *Module*).
+
+### Symptom
+```
+$ ./mxcli marketplace install 239450 -p app.mpr
+mx module-import failed: exit status 112
+Importing theme module is not supported
+```
+The `.mpk` manifest declares `"type": "Module"` — it is NOT a theme package — but it bundles `themesource/conversationalui/**` (SCSS + design-properties). The offline `mx module-import` command refuses any package carrying theme content.
+
+### Scope of the probe (capability-probe rule — all exhausted, none work)
+- `mxcli marketplace install <id>` → exit 112
+- `mxcli docker check`-style path → docker subcommand is build/deploy only, no import
+- `mxcli module-import` → no such subcommand
+- direct `~/.mxcli/mxbuild/<v>/modeler/mx` binary → not runnable on this arch (`exec format error`; mxcli invokes it internally)
+
+### Workaround (the only one that works)
+**Studio Pro GUI import.** Download the .mpk first so it's local:
+```
+./mxcli marketplace download <id> -p app.mpr   # writes <Name>_vX_Y_Z.mpk to project root
+```
+Then in Studio Pro: **App → Import module package →** select that `.mpk`. Studio Pro handles merging `themesource/` into the app theme, which `mx module-import` cannot.
+
+### Detection / impact
+- After importing the module's *dependents* via CLI (GenAI/Agent/MCP Commons), `mxbuild check` reports `CE1613 "... no longer exists"` for every `ConversationalUI.*` element they reference — a hard dependency, not optional. All such errors clear once the module is GUI-imported.
+- General rule: before assuming a marketplace module is CLI-importable, note that **AI/chat/UI-widget modules commonly ship `themesource/`** and will hit this. Domain/logic modules (GenAI Commons, Agent Commons, MCP Server/Client, Workflow Commons, Teamcenter connector, Community Commons) imported cleanly via CLI.
+
+### Bonus finding (same session)
+`mxcli marketplace search "AgentCommons"` (no space) returns nothing, which led to a wrong "AgentCommons is bundled" conclusion. The module is listed as **"Agent Commons"** (with a space), content-id **240371**. Lesson: search by display name / browse ids, don't probe with an assumed camelCase identifier.
+
+---
+
+## 🚨 CRITICAL: `mxcli marketplace install` collapses a split-model project to monolithic `.mpr` and deletes `mprcontents/` — breaks Studio Pro
+
+**Severity:** Critical — corrupts the on-disk project format; Studio Pro's Git integration then fails to open/reconcile.
+**Discovered:** 2026-07-22 (TFC-TCXGraphPOC, mxcli v0.16.0, mxbuild 11.12.0, Mendix 11 split-model project).
+**Supersedes the theme-import entry above** — the theme error was a symptom encountered on one module; THIS is the real, general failure.
+
+### What happens
+`mxcli marketplace install <id>` calls `mx module-import` (the mxbuild tool) under the hood. On a project stored in the **Mendix 11 split-model format** (a small ~70 KB `.mpr` index + hundreds of `mprcontents/*.mxunit` BSON files), `mx module-import`:
+- **rewrites the entire project as a single monolithic `.mpr`** (in this case 68 KB → **49 MB**), and
+- **deletes the whole `mprcontents/` directory** (here: 369 `.mxunit` files gone).
+
+The imported modules ARE in the resulting model (mxbuild `check` loads it, reports only genuine missing-dep errors), so it looks like it worked. But:
+
+### The Studio Pro symptom
+Opening the project in Studio Pro throws (from its **Git provider**, not model load):
+```
+System.InvalidOperationException: Arg_InvalidOperationException
+  at ...ObjectUtil.ThrowIfNull[T](T value)
+  at ...LibGit2RepositoryProvider.WriteBaseFile(String versionedFilePath, String destinationPath)
+```
+Cause: git tracked 369 `mprcontents/*.mxunit` that vanished + a 49 MB binary `.mpr` swapped in; SP's LibGit2 integration can't write base files for the missing tracked paths. `git status` shows ~370 `D` (deletions) + `M TFC-TCXGraphPOC.mpr`.
+
+### Why it matters beyond SP
+The entire toolkit workflow assumes split format: mxcli's own MDL exec writes *into* `mprcontents/`, `exec.sh` commits `mprcontents/`, BUG-19 recovery does `git checkout HEAD -- mprcontents/`. A monolithic `.mpr` is off-workflow. **Normal `mxcli exec` (MDL) preserves the split format; only `marketplace install` / `mx module-import` collapses it.**
+
+### Prevention (the rule)
+**On a split-model project (has an `mprcontents/` dir), do NOT use `mxcli marketplace install`.** Import marketplace modules through **Studio Pro** (Marketplace panel, or App → Import module package), which preserves `mprcontents/`. Reserve mxcli for MDL exec only.
+- Safe to use `mxcli marketplace download <id>` (writes a `.mpk` to disk, touches nothing in the model) — then GUI-import that `.mpk`.
+- Detection before it bites: if `find mprcontents -name '*.mxunit' | wc -l` drops to 0 and the `.mpr` balloons to MBs after an install, you hit this.
+
+### Recovery (proven, non-destructive)
+1. **Close Studio Pro** (never restore files under an open SP — split-brain, see learned-mcp-patterns §2).
+2. Restore the pre-import split snapshot (both `.mpr` + `mprcontents/`):
+   ```bash
+   bash bin/restore-mpr.sh .mpr-snapshots/<pre-import-stamp>   # or: git checkout HEAD -- <app>.mpr mprcontents/
+   ```
+   (Prefer the snapshot if there were uncommitted model changes before the import — HEAD may be behind.)
+3. Verify: `.mpr` back to ~KB, `find mprcontents -name '*.mxunit' | wc -l` back to prior count, `git status` deletions gone.
+4. Re-import the modules via Studio Pro GUI instead.
+
+### Toolkit-fix candidate
+`exec.sh`-style guard: before/after `marketplace install`, assert `mprcontents/` file count is non-decreasing and `.mpr` size stays in KB range; abort+restore otherwise. Better: `learned-mdl-preflight.md` STOP row — "marketplace install on a split-model project → use Studio Pro, not mxcli."
+
+---
+
+## Studio Pro Git integration crashes on project open (Team Server repo) — detach .git to open
+
+**Discovered:** 2026-07-22 (TFC-TCXGraphPOC, Studio Pro 11.12.1 Beta, Mendix Team Server Git repo, working branch `pipeline-artifacts`).
+
+### Symptom
+Opening the project in Studio Pro throws during project-open, from the VC layer (not model load):
+```
+System.InvalidCastException: Unable to find 'system' property in 'system'
+  at ...Core.State.PropertyBag.GetProperty[T](String key, String path)
+  at ...VersionControl.Git.VersionControlAnalyticScopeFactory.OnProjectOpened(IProject project)
+```
+(A related earlier crash on a broken working tree: `LibGit2RepositoryProvider.WriteBaseFile ... ThrowIfNull`.)
+
+The project is a Team Server project (remote `https://git.api.mendix.com/<id>.git/`, `mendix.sprintr-project-id` in git config, git notes `refs/notes/mx_metadata`). SP's Git analytics scope factory runs on open and throws. Likely a Beta-specific VC bug; not reproduced on GA (unconfirmed — could not web-verify).
+
+### Workaround (reliable)
+SP activates its Git integration only when it detects a `.git` at/above the project. Temporarily detach it:
+```bash
+mv .git .git.disabled-for-sp-import     # before opening SP
+# ... open SP, do model work (imports, edits), Save, close SP ...
+mv .git.disabled-for-sp-import .git     # restore
+git add -A && git commit ...            # commit from terminal (SP closed)
+```
+Terminal git/mxcli work fine with `.git` attached — the crash is ONLY Studio Pro opening a project while `.git` is present. So: **git detached whenever SP is open; git attached for terminal commits with SP closed.**
+
+### Related launch gotcha (same session)
+- `open -a "<Studio Pro app>" file.mpr` (handing the .mpr to macOS) → "couldn't open item of data type". Instead launch bare `open -a "Mendix Studio Pro 11.12.1 Beta"` then File→Open inside SP.
+- A half-launched SP can jam further launches — `pkill -f "Mendix Studio Pro"` before relaunching.
+- Double-clicking .mpr routes through Mendix Version Selector, which may silently do nothing → use bare-launch + File→Open.
+
+## GRANT: association names silently dropped from member lists; multiple rules per role on one entity not supported
+
+**Discovered:** 2026-07-22 (TFC-TCXGraphPOC, mxcli v0.16.0, Mendix 11.12.1).
+
+### Symptom 1 — association as a grant member
+Adding an association name to a `READ (...)`/`WRITE (...)` member list in a `GRANT` statement execs with 0 errors and passes `mxcli check --references` (which does not validate grant-member names at all — even a totally nonexistent field name like `"TotallyMadeUp12345"` passes `--references` clean). But the association never appears in the resulting grant. Confirmed via `DESCRIBE ENTITY` after real exec, both forms tested:
+```sql
+GRANT Administration."User" ON Administration."Account" (READ ("FullName", "Account_Supplier"));      -- dropped
+GRANT Administration."User" ON Administration."Account" (READ ("FullName", "TFC.Account_Supplier"));  -- also dropped (module-qualified)
+```
+Exec's own echoed `Result:` line is the only signal — it omits the association from the granted member list even though the statement reported success.
+
+### Symptom 2 — same role, multiple rules on one entity
+mxcli cannot represent two separate access rules for the *same* module role on the *same* entity. A later `GRANT` for a role that already has any rule (from a prior `GRANT` in this or an earlier exec) silently **replaces** that role's rule rather than adding a second one — confirmed:
+- Two `GRANT Administration.User ON X (...)` statements in the same script → only the last is kept.
+- Same two statements split across two separate `exec` invocations (with a git commit between) → same result, only the last is kept.
+- Even with **no** `REVOKE` at all beforehand → a second `GRANT` for an already-granted role still replaces the first.
+
+This contradicts real Mendix, which fully supports multiple rules per role on one entity (visible in Studio Pro's access-rule editor, and present in this project's own marketplace-provided `Administration.Account` entity, which shipped with 2 separate `Administration.User` rules — one unscoped read, one self-scoped read/write — before any mxcli edit touched it).
+
+### Workaround
+- **Association-as-member:** don't try to grant an association explicitly via mxcli. If the association is only used inside an XPath constraint (`[Assoc = '[%CurrentUser/OtherAssoc%]']`), no member-level grant is needed — Mendix's security engine resolves `[%CurrentUser/Assoc%]` independent of the user's own read permission on that member. Only add the explicit member grant (via Studio Pro GUI) if a microflow/page actually needs to *display* the associated object's data to that role.
+- **Multiple rules per role:** if the entity didn't originate with multiple same-role rules already in the BSON, mxcli cannot construct a second one for you. Either (a) merge the intended rules into one (e.g. combine an unscoped read + a self-scoped read/write into one self-scoped rule, accepting the narrower scope — verify nothing in the app depends on the broader access first), or (b) add the second rule via Studio Pro GUI (its editor is unaffected by this mxcli limitation).
+- `mxcli check --references` gives **zero** signal for either symptom — it doesn't validate GRANT member names or detect rule collapse. The only reliable verification is `DESCRIBE ENTITY <name>` immediately after every access-rule-touching exec, comparing the actual member/rule list against what the script intended.
+
+### Related preflight rule
+Builds on `learned-mdl-preflight.md` rule 14 (revoke-all/regrant-all when patching one role's rule) — that rule assumes mxcli can construct N rules per role from N GRANT statements. It cannot. Rule 14's guidance to rebuild the *whole entity's* security in one script is still correct for avoiding cross-role collapse, but does not extend to multiple rules for the *same* role — that case has no mxcli-only fix.
+
+## CRITICAL: mxcli exec of association + GRANT script corrupted the MPR's BSON storage (unrecoverable except by restore)
+
+**Discovered:** 2026-07-22 (TFC-TCXGraphPOC, mxcli v0.16.0, Mendix 11.12.1).
+
+### Symptom
+After `mxcli exec` of a script creating an association (`Account_Supplier`, Administration↔TFC) plus `GRANT` rules referencing it (the same script documented in the "association names silently dropped from member lists" entry above), the `.mpr` became unopenable — both in Studio Pro GUI and in `mxbuild` (any platform, any architecture):
+```
+System.AggregateException: ... System.Collections.Generic.KeyNotFoundException:
+The given key '562830a8-ff20-4507-8d13-d435c347d2bd' was not present in the dictionary.
+  at Mendix.Modeler.Storage.Operations.StreamingBsonUnitReader.ResolvePostponedProperties()
+```
+This is a **postponed-property BSON resolution failure** — the storage layer wrote a unit referencing another unit's GUID that was never actually persisted (or was persisted incompletely), so on next load the reference can't resolve. It reproduces identically on Studio Pro's native macOS mxbuild (11.12.1, Mach-O arm64) and is not an artifact of any particular mxbuild binary — the `.mpr`/`mprcontents` on disk are genuinely corrupt at the storage level, not just at the model-semantics level `mxcli check` would catch.
+
+### How it was root-caused
+`bin/exec.sh`'s mxbuild gate (see "gate never ran" note below) had not actually been validating anything, so the corruption went uncaught for several subsequent commits. Root-caused by bisecting `.mpr-snapshots/` (which `exec.sh` takes before every script) with a working native `mxbuild`: the snapshot taken immediately before the association+GRANT script's exec loaded clean; the snapshot taken ~5s after that script's commit was already corrupt with the identical GUID-not-found error. No other script touched the model in between.
+
+### Workaround / recovery
+There is no known in-place repair — the fix is **restore from the last snapshot that predates the corrupting exec** (confirmed clean via a real mxbuild run, not just "the previous snapshot" — see gate-fix note below) and redo the association + GRANT via Studio Pro GUI instead of mxcli.
+
+### Related gate failure (compounding factor, not the root cause)
+Separately discovered in the same incident: this project's cached `~/.mxcli/mxbuild/<version>/modeler/mxbuild` was a **Linux ELF binary** (from a `setup mxbuild --force` at some point, intended for Docker builds) sitting on a macOS/arm64 host — every native invocation failed with `exec format error` (exit 126). `bin/exec.sh` has a branch that should hard-fail loudly on a nonzero mxbuild exit, but the gate's "0 errors" claims still made it into several commit messages/PROJECT.md — meaning either the gate wasn't actually the path used for those commits, or a past session recorded gate success without checking its actual exit status. Either way: **`mxcli setup mxbuild -p <project>.mpr` (no `--force`) will correctly prefer Studio Pro's bundled native binary if Studio Pro is installed** — but it only resolves the path at call-time, it does *not* cache/symlink it into `~/.mxcli/mxbuild/`, so any script (like `bin/exec.sh`) that does a naive `ls ~/.mxcli/mxbuild/*/modeler/mxbuild` will keep finding the stale wrong-arch binary. Any exec-gate script should either shell out to `mxcli` for binary resolution or sanity-check the cached binary (`file`, or run `--version` and check exit 0) before trusting it as a gate.

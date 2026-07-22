@@ -193,6 +193,50 @@ Avoid building the full activity graph in `documentContent` — use `ped_update_
 - `refEntity` uses `DomainModels$IndirectEntityRef` (not `AssociationRef`)
 - `refOptions` uses `Pages$MicroflowSource` (not `CustomWidgets$CustomWidgetMicroflowSource`)
 
+### Conditional visibility via `pg_patch_page` — confirmed pattern
+
+Use `Pages$ExpressionConditionSettings` to add conditional visibility to any widget:
+
+```json
+{
+  "op": "add",
+  "path": "/widgets/0/.../widgetIndex/conditionSettings",
+  "value": {
+    "$Type": "Pages$ExpressionConditionSettings",
+    "expression": "$currentObject/State = MyModule.MyEnum.SOMEVALUE"
+  }
+}
+```
+
+- Use `"op": "add"` (not `"replace"`) — the property does not exist by default
+- Expression follows the same syntax as MDL `Visible = [...]` — but WITHOUT the brackets
+- Enum reference: `Module.EnumName.ENUMVALUE` (not `toString()` wrapped)
+- Confirmed 0 errors on `ped_check_errors` AND `mxbuild` (docker check)
+- Confirmed working on `Pages$ActionButton` inside a DataView with a page parameter
+
+### formatDateTime in DynamicText ContentParams — confirmed pattern
+
+Use `formattingInfo.dateFormat = "Custom"` + `customDateFormat` on a `ClientTemplateParameter`. Keep the original `toString($currentObject/Attr)` expression — do NOT use a bare `$currentObject/Attr` path (CE0117) or `formatDateTime()` call as the expression string (CE1613 on CLI write path):
+
+```json
+{
+  "$Type": "Pages$ClientTemplateParameter",
+  "formattingInfo": {
+    "$Type": "Pages$FormattingInfo",
+    "decimalPrecision": 2,
+    "groupDigits": false,
+    "enumFormat": "Text",
+    "dateFormat": "Custom",
+    "customDateFormat": "dd-MM-yyyy HH:mm"
+  },
+  "expression": "toString($currentObject/CreatedOn)"
+}
+```
+
+Valid `dateFormat` values: `"Date"`, `"Time"`, `"DateTime"`, `"Custom"` (confirmed from schema).  
+**Do NOT use** `"DateTimeCustom"` — enum value not found error from SP engine.  
+The `toString()` wrapper in `expression` is what SP accepts via MCP; a bare attribute path produces CE0117 after save.
+
 ---
 
 ## MCP known limitations
@@ -214,6 +258,92 @@ Studio Pro's MCP system prompt forbids `ped_update_document` for `Pages$Page` do
 ### Cross-module datasource in DataGrid/ListView → use MCP, not mxcli
 
 mxcli writes null `DestinationEntityId` for cross-module association traversals used as widget datasources. Use `pg_patch_page` instead (see `learned-mdl-preflight.md` rule 7).
+
+### Nested DataView over an association traversal → `Pages$DataViewSource`, NOT `Pages$AssociationSource`
+
+Confirmed 2026-07-20 while wiring a to-one association card (TransportOrder → TransportUnit) via `pg_patch_page`. Using `dataSource.$Type: "Pages$AssociationSource"` on a `Pages$DataView` fails `ped_check_errors` with:
+```
+Widget Data view 'dvX' cannot have a data source of type association.
+```
+`Pages$AssociationSource` is only valid for list-type widgets (DataGrid/ListView/ReferenceSet). For a nested `Pages$DataView`, use `Pages$DataViewSource` with an `entityRef` of type `DomainModels$IndirectEntityRef` (steps: `association` + `destinationEntity`, both required) and an explicit `sourceVariable` pointing at the enclosing DataView by name:
+```json
+{
+  "$Type": "Pages$DataViewSource",
+  "entityRef": {
+    "$Type": "DomainModels$IndirectEntityRef",
+    "steps": [{ "$Type": "DomainModels$EntityRefStep", "association": "Module.Order_Unit", "destinationEntity": "Module.Unit" }]
+  },
+  "sourceVariable": { "$Type": "Pages$PageVariable", "widget": "dvOuter" }
+}
+```
+Omitting `sourceVariable` does not error but also does not fix the type-mismatch error above — the `$Type` is what matters. Before wiring, also confirm (via `SELECT * FROM CATALOG.ROLE_MAPPINGS`) that every user role able to view the outer entity also has read access to the target entity of the traversal, or the new card surfaces CE2729 the moment SP re-validates.
+
+### MCP cannot update existing microflows — only create new ones
+
+`ped_update_document` on an existing microflow fails with:
+```
+UpdateMicroflow: not supported by the MCP backend; run without --mcp to author against a local .mpr
+```
+And `create or replace microflow` on an existing microflow hits the update path. To replace an existing microflow via MCP: drop it via CLI exec first (SP closed), then recreate via MCP (SP open). If MCP also blocks other activities in the microflow (e.g. `SHOW PAGE`), abandon MCP entirely and use the CLI-safe CHANGE workaround for STOP rule 9 instead (see below).
+
+### MCP cannot handle SHOW PAGE in microflows
+
+`show page Module.PageName(...)` in a microflow fails via MCP with:
+```
+show page is not supported by the MCP backend — PED's ShowPageAction constructor does not expose the target page
+```
+Any microflow containing `SHOW PAGE` cannot be created via MCP. Combined with the STOP rule 9 constraint, the clean solution is the CLI-safe CHANGE workaround (see below) rather than MCP.
+
+### CLI-safe alternative for STOP rule 9 (inline assoc-sets)
+
+Instead of setting an association inline in a CREATE activity (which corrupts BSON on the CLI path), create the object first with scalar attributes only, then set the association in a separate CHANGE activity. CHANGE on an in-memory object is safe on the CLI disk-write path.
+
+```sql
+-- STOP rule 9 violation — DO NOT use via CLI:
+$Event = create Module.Event (
+  "Attr" = value,
+  "Module"."Event_Parent" = $Parent   -- ← corrupts BSON
+);
+
+-- CLI-safe alternative:
+$Event = create Module.Event (
+  "Attr" = value
+);
+change $Event (
+  "Module"."Event_Parent" = $Parent   -- ← safe as a CHANGE activity
+);
+commit $Event;
+```
+
+This avoids MCP entirely and keeps SP closed throughout. The functional result is identical — the association is set before the commit.
+
+Confirmed: Mendix 11.12.0 Beta, 2026-07-17.
+
+### MCP cannot create non-persistent entities (NPEs)
+
+`ped_create_document` / `ped_update_document` reject NPE creation with:
+```
+non-persistent entities are not yet supported by the MCP backend (entity slice); create it against a local .mpr instead
+```
+NPEs must always be created via plain CLI exec (SP closed). This means any script that creates an NPE **and** contains a STOP-rule 9 microflow (inline assoc-set) must be split into two scripts: a CLI part for the NPE and a MCP part for the microflow.
+
+**Pattern for NPE + STOP-rule-9 microflow in the same feature:**
+1. Close SP
+2. CLI exec: create NPE + grants
+3. Reopen SP
+4. MCP exec: create microflow (which references the NPE)
+
+Confirmed: Mendix 11.12.0 Beta, 2026-07-17.
+
+### MCP cannot modify existing enumerations
+
+`CREATE OR MODIFY ENUMERATION` on an enum that already exists in the MPR fails with:
+```
+modifying enumeration "ENUM_X" is not yet supported by the MCP backend (create a new one, or edit it in Studio Pro)
+```
+Only creating a brand-new enumeration is supported via MCP. Adding values to an existing enum must be done via CLI exec (`CREATE OR MODIFY ENUMERATION` on the CLI path is an upsert and works correctly). If the script also contains STOP-rule-9 logic, split the enum ALTER into a separate CLI script that runs first (SP closed), then reopen SP for the MCP microflow script.
+
+Confirmed: Mendix 11.12.0 Beta, 2026-07-17.
 
 ---
 

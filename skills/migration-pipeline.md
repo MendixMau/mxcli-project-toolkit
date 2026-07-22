@@ -440,8 +440,8 @@ App (one Mendix app)
 ```
 knowledge-base/
   brd/
-    F001-payer-registration.brd.json     ← OS-aligned draft
-    F001-payer-registration.mx-brd.json  ← Mendix-rearchitected (add .mx- prefix)
+    F001-order-registration.brd.json     ← OS-aligned draft
+    F001-order-registration.mx-brd.json  ← Mendix-rearchitected (add .mx- prefix)
     index.json
 ```
 

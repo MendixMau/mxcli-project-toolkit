@@ -44,6 +44,8 @@ A single **build plan document** per project (or per phase, for large projects),
 8. Navigation wire point for every page (Step 8)
 9. **A CONFIRMED-decision reconciliation** — every decision marked `CONFIRMED` in `PROJECT.md` from Stages 0–3 mapped to a specific build-plan script, or an explicit `descoped` note with the reason. A confirmed decision with no build disposition is how scoped work silently vanishes (e.g. a CONFIRMED extra navigation profile, wireframe and all, that never got built). The Stage-6 `ba-agent` conformance cross-check re-verifies this against the actual build — but it belongs in the plan first.
 
+10. **A rendered `build-plan.html`** — a single self-contained (inline CSS, no external deps) HTML **progress tracker** derived from the markdown: the phases, their numbered scripts, dependency order, and a per-phase/per-script **status** (done / in-progress / pending). The markdown remains the source of truth; the HTML is a derived *view* — never edited by hand, regenerated whenever a phase's status changes (the `iterative-build-loop` gate flips a phase to done). It doubles as the demo progress board. Keep it beside the markdown (`architecture/build-plan.html`). This mirrors the other Stage-3/4 HTML renders (`blueprint.html`, `workflow-definition.html`, `design-system.html`) — every primary architecture/design artifact gets a human-viewable HTML companion.
+
 Per-module detail (domain summary, UI pointers, validation rules, the access-table slice for that module) is synthesized into a **module brief** — one per module, produced just-in-time — see `module-brief.md`. The build plan is the project-wide order and scope; the brief is the module-level input the `mdl-agent` reads. This becomes the checklist `iterative-build-loop.md` executes against.
 
 > **⛔ The build plan contains no MDL.** It names every script, its scope, and its order — it never
@@ -190,6 +192,8 @@ See `design-artifacts.md` and `learned-stylegallery.md` for full process.
 
 Combine Steps 1–4 into a concrete, ordered list. If Phase 2 UI Scaffold is confirmed, it appears
 as a block between Phase 1 and the first feature module:
+
+**Folder layout — one subfolder per build-plan phase: `mdlsource/<phase>/`** (e.g. `mdlsource/1-domain/`, `mdlsource/1.5-stylegallery/`, `mdlsource/3b-core-microflows/`). Within a folder, numeric prefix = exec order; a `done-` filename prefix = passed its gate (see `iterative-build-loop.md` Gate step 5). The plain-named scripts in each phase folder are always "what's left in this phase."
 
 ```
 Phase 1 — App Scaffold

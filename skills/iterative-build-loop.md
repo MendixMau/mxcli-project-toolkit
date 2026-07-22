@@ -30,6 +30,21 @@ after phase N−1 has passed this gate. A backlog of pre-written, never-executed
 not a head start: each one encodes assumptions about a model state that the intervening gates may
 have changed (see `brd-to-build-plan.md`, "The build plan contains no MDL").
 
+### Gate step 5 — mark the script DONE (completed-implemented-tested)
+
+Once — and only once — a script has passed the **full** gate above (0 CE / mxbuild-clean **+** happy-path verified **+** coverage checklist), rename it with a `done-` filename prefix so the working set always shows *what's left to build*:
+
+```
+git mv mdlsource/<NN-name>.mdl mdlsource/done-<NN-name>.mdl
+```
+
+- **A script named `<NN-name>.mdl` = still pending or in-flight. A script named `done-<NN-name>.mdl` = executed, mxbuild-clean, and verified.** The filename itself is the "which MDL is finished" signal (no separate folder); git commits per phase remain the authoritative history.
+- Rename in the **same commit** as the phase gate pass (so "done" and "committed" are atomic).
+- The file stays in place and re-runnable — if a later phase invalidates it, rename back (drop the `done-` prefix), fix, re-exec, re-done.
+- Do **not** rename a script that only passed `mxcli check` or only exec'd without the happy-path/coverage check — `done-` means the *feature* works, not just that the MDL ran (mirrors the Core Principle: CE-error-free ≠ done).
+
+`build-plan.html` phase status and the `done-` prefixes should agree — when every script for a phase is `done-`, that phase flips to ✓ in the tracker.
+
 ---
 
 ## Requirements Drift-Sync Rule — BRDs stay live, not just historical

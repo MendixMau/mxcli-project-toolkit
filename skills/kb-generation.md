@@ -58,7 +58,7 @@ node run.js 3           # BRD mapper → knowledge-base/brd/*.brd.json
 node generate-report.js # → knowledge-base/extraction-report.html (open in browser for review)
 ```
 
-The HTML report is the primary review artifact after code extraction — it shows all 114 modules,
+The HTML report is the primary review artifact after code extraction — it shows all modules,
 confidence per module, gap heatmap, and full BRD summary per module. Use it before deciding
 which KB document files to process in depth.
 
@@ -66,7 +66,7 @@ which KB document files to process in depth.
 
 ## Step 1 — Read the source document
 
-The source is often Japanese. Use these extraction methods:
+The source is often non-English. Use these extraction methods:
 
 | Format | Method |
 |--------|--------|
@@ -113,7 +113,7 @@ The KB file will be used as context when generating BRD JSON and MDL scripts.
    - Name (OS name + English translation)
    - Purpose (what the user does here)
    - Input parameters
-   - Key fields with: field name, Japanese label, data type, mandatory/optional, validation rules
+   - Key fields with: field name, localized (non-English) label, data type, mandatory/optional, validation rules
    - Actions/buttons and what they trigger
 
 3. **Business rules** — numbered list. Each rule: what triggers it, what it enforces,
@@ -134,7 +134,7 @@ The KB file will be used as context when generating BRD JSON and MDL scripts.
    client confirmation. Format as: D[n]: [question] — [status: Open/Resolved/Deferred]
 
 ## Format:
-- English throughout (translate Japanese terms; keep Japanese originals in parentheses)
+- English throughout (translate non-English terms; keep non-English originals in parentheses)
 - Use markdown tables for field lists and permission matrices
 - Use numbered lists for business rules
 - Keep it dense — this is reference material, not prose
@@ -171,7 +171,7 @@ Function ID, purpose, users/roles, scope.
 
 ## 3. Screens
 
-### Screen 01 — [Name] ([Japanese Name])
+### Screen 01 — [Name] ([non-English Name])
 
 **Purpose:** ...
 **Input parameters:** [list]
@@ -228,7 +228,7 @@ Function ID, purpose, users/roles, scope.
 
 ## Tips from MXXXX processing
 
-- **Japanese document, multiple tabs:** Process one tab at a time. Extract the sheet
+- **non-English document, multiple tabs:** Process one tab at a time. Extract the sheet
   list first, then ask Claude to process the most relevant sheets.
 - **Embedded images in xlsx:** If sheets contain screen mockups as PNG images, note
   them in the KB as `[Screen mockup — [sheet name] — read visually]` and describe

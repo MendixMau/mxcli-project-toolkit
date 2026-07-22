@@ -2,7 +2,7 @@
 
 Reusable engine for migrating **OutSystems 11 applications to Mendix**.
 
-Takes OS eSpace XML files → structured JSON knowledge base → BRD scaffolds per module → interactive HTML report.
+Takes OS module XML files → structured JSON knowledge base → BRD scaffolds per module → interactive HTML report.
 
 > For the interactive step-by-step guide, open **`pipeline-guide.html`** in your browser.
 
@@ -54,7 +54,7 @@ OS-migration-skills/
     run.js                  ← phase orchestrator (node run.js <1|2|3>)
     generate-report.js      ← HTML report generator
     extractors/
-      xml-extractor.js      ← ACTIVE: parses OS eSpace XML → extracted/
+      xml-extractor.js      ← ACTIVE: parses OS module XML → extracted/
       README.md             ← how to add a new extractor
     generators/
       brd-mappers/
@@ -81,7 +81,7 @@ OS-migration-skills/
 
 ## What gets extracted from OS XML
 
-Every eSpace XML contains the **full stack** for one OS module:
+Every module XML contains the **full stack** for one OS module:
 
 | OS Concept | KB type | Mendix equivalent |
 |---|---|---|

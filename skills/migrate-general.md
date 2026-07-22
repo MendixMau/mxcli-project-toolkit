@@ -3,7 +3,7 @@
 
 Guidance for migrating any legacy application to Mendix using MDL and mxcli. Platform-agnostic process, with an OutSystems 11 section at the end.
 
-**Scope note — OutSystems version:** This skill covers **OutSystems 11 (traditional eSpace/module model)**. ODC (OutSystems Developer Cloud) has a fundamentally different architecture (cloud-native, REST-first, no eSpaces, no URPM) and is out of scope.
+**Scope note — OutSystems version:** This skill covers **OutSystems 11 (traditional module model)**. ODC (OutSystems Developer Cloud) has a fundamentally different architecture (cloud-native, REST-first, no modules, no URPM) and is out of scope.
 
 ## When to Use This Skill
 
@@ -196,13 +196,13 @@ CE0066 cannot be resolved via mxcli. It requires the Studio Pro security hash re
 
 ## 9. OutSystems 11 Platform Concepts → Mendix Mapping
 
-> **Scope:** OutSystems 11 traditional model (eSpaces, URPM, Reactive Web / Traditional Web modules). ODC is a different platform and is not covered here.
+> **Scope:** OutSystems 11 traditional model (modules, URPM, Reactive Web / Traditional Web modules). ODC is a different platform and is not covered here.
 
-### Module / eSpace structure
+### Module structure
 
 | OS 11 concept | Description | Mendix equivalent |
 |---|---|---|
-| eSpace / Module | Unit of deployment, has its own entities, actions, UI | Mendix module |
+| Module | Unit of deployment, has its own entities, actions, UI | Mendix module |
 | `M-XXXX` prefix | Business application module | Business feature module (e.g. `OrderRegistration`) |
 | `C-XXXX` prefix | Common / reusable component | Shared utility module (e.g. `Customer_Common`, `Common_Utils`) |
 | `AppCommon_*` | Framework-level base module | Base infrastructure module |
@@ -272,7 +272,7 @@ OS 11 Static Entities (lookup tables with fixed records) map to Mendix enumerati
 | Screen permission | Page grant (`GRANT VIEW ON PAGE`) |
 | Action permission | Microflow grant (`GRANT EXECUTE ON MICROFLOW`) |
 
-OS 11 projects using URPM have their permissions managed outside the eSpace (in the URPM module). When migrating, map each URPM role to a Mendix user role and reconstruct the grants from the OS permission matrix.
+OS 11 projects using URPM have their permissions managed outside the module (in the URPM module). When migrating, map each URPM role to a Mendix user role and reconstruct the grants from the OS permission matrix.
 
 ### Audit field standard
 

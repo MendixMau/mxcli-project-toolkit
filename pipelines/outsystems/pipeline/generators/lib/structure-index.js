@@ -59,7 +59,7 @@ function buildStructureIndex(blueprintDir) {
       if (original) {
         structureIndex[k] = { name: v.name, module: original.module };
       } else {
-        // OriginalKey not found (defined outside these 114 XMLs) — keep local name, drop _originalKey
+        // OriginalKey not found (defined outside the corpus) — keep local name, drop _originalKey
         structureIndex[k] = { name: v.name, module: v.module };
       }
     }

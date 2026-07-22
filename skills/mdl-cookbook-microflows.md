@@ -110,7 +110,7 @@ begin
   declare $IsValid Boolean = true;
 
   -- GATE 1: SelectedCompanyName — populated by the SNP corporate search step.
-  -- trim() guards against whitespace-only strings (common in Japanese input).
+  -- trim() guards against whitespace-only strings (common in non-English input).
   if trim($Dto/SelectedCompanyName) = '' then
     set $IsValid = false;
     validation feedback $Dto/SelectedCompanyName message 'Company name is mandatory';

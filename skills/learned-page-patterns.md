@@ -3,7 +3,7 @@
 
 **Convention:** each rule is stated generically so it transfers to any project. Where a rule has a
 concrete illustration, it's kept as a **labeled example** (often from the Apex sample OS→Mendix PoC —
-Japanese captions, `OrderRegistration`/`OrderDetail` names). Read the rule as the portable part; the
+non-English captions, `OrderRegistration`/`OrderDetail` names). Read the rule as the portable part; the
 example is just there to show the shape. Some older sections below are still written in project-
 specific terms and haven't been generalized yet — treat their project names as examples too.
 
@@ -36,9 +36,9 @@ Applies to: pending Studio Pro steps, CE-error descriptions, and any instruction
 
 mxcli generates buttons with an empty label when `Caption:` is omitted — the button works functionally but shows nothing in the UI, requiring a Studio Pro fix after every exec. Keep a project caption glossary (in the target language) so captions are consistent and never left blank; if the correct label is uncertain, look it up in the project's field-label source before writing the script rather than shipping an empty caption.
 
-**Example — Apex sample (Japanese caption glossary):**
+**Example — Apex sample (non-English caption glossary):**
 
-| Action | Japanese caption |
+| Action | non-English caption |
 |--------|-----------------|
 | Add row | `+ Add row` |
 | Delete row | `Delete` |

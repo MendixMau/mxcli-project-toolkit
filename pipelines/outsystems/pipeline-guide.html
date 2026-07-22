@@ -277,7 +277,7 @@
     <div class="card card-blue">
       <h3>What this pipeline does</h3>
       <p>
-        Takes raw <strong>OutSystems 11 eSpace XML files</strong> — which contain the full application stack (screens,
+        Takes raw <strong>OutSystems 11 module XML files</strong> — which contain the full application stack (screens,
         entities, logics, timers, APIs) — and transforms them into structured <strong>BRD scaffolds</strong>
         per module. These scaffolds drive Mendix development, replacing weeks of manual analysis.
       </p>
@@ -322,7 +322,7 @@
     <div class="card">
       <h3>Quickstart</h3>
       <p>All commands run from <code>OS-migration-skills/pipeline/</code>. Make sure <code>config.json</code> points to your XML source folder first (see Phase 2).</p>
-<pre><code># Phase 2 — extract all 114 OS XML files → JSON knowledge base
+<pre><code># Phase 2 — extract all OS XML files → JSON knowledge base
 node run.js 2 xml
 
 # Phase 3 — generate BRD scaffolds (one per module)
@@ -332,7 +332,7 @@ node run.js 3
 node generate-report.js
 # Open: knowledge-base/extraction-report.html in your browser</code></pre>
       <div class="callout callout-blue">
-        <strong>First time or changed XML source?</strong> Run <code>node run.js 1 xml</code> first to validate the extractor on a small sample before committing to all 114 files. Check <code>samples/schema.json</code> — if the fields look wrong, fix the extractor before running Phase 2.
+        <strong>First time or changed XML source?</strong> Run <code>node run.js 1 xml</code> first to validate the extractor on a small sample before committing to all files. Check <code>samples/schema.json</code> — if the fields look wrong, fix the extractor before running Phase 2.
       </div>
     </div>
 
@@ -370,7 +370,7 @@ node generate-report.js
     ├── run.js                   <span class="note">← phase orchestrator (phases 1–3)</span>
     ├── generate-report.js       <span class="note">← HTML report builder (standalone script)</span>
     ├── <span class="dir">extractors/</span>
-    │   ├── xml-extractor.js     <span class="note">← ACTIVE: OS eSpace XML → extracted/xml.json</span>
+    │   ├── xml-extractor.js     <span class="note">← ACTIVE: OS module XML → extracted/xml.json</span>
     │   └── README.md            <span class="note">← how to add a new extractor</span>
     ├── <span class="dir">extracted/</span>               <span class="note">← INTERMEDIATE: raw extractor output (before merge)</span>
     │   └── xml.json
@@ -404,7 +404,7 @@ node generate-report.js
       <table>
         <tr><th>Phase</th><th>Input</th><th>Component</th><th>Output</th><th>What it does</th></tr>
         <tr><td><strong>1 — manual</strong></td><td>the source files (visual inspection)</td><td>human + AI</td><td>module tier list (business / common / framework)</td><td>Identify the platform, count modules, classify them — no script runs</td></tr>
-        <tr><td>2a</td><td>all 114 OS eSpace XML files</td><td>xml-extractor.js</td><td>extracted/xml.json</td><td>Parses every eSpace XML into a normalized array of items</td></tr>
+        <tr><td>2a</td><td>all OS module XML files</td><td>xml-extractor.js</td><td>extracted/xml.json</td><td>Parses every module XML into a normalized array of items</td></tr>
         <tr><td>2b</td><td>extracted/xml.json</td><td>merger.js</td><td>knowledge-base/*.json (entities, logics, screens, …)</td><td>Deduplicates items and splits them into typed KB files</td></tr>
         <tr><td>2c</td><td>knowledge-base/*.json</td><td>linker.js</td><td>knowledge-base/*.json (enriched with _links + _gaps)</td><td>Resolves cross-references (FK targets, action refs, permissions) — unresolvable ones become gaps</td></tr>
         <tr><td><strong>3</strong></td><td>knowledge-base/*.json</td><td>brd-mappers/index.js</td><td>knowledge-base/brd/*.brd.json</td><td>Runs 5 mappers per module and writes one structured BRD scaffold per OS module</td></tr>
@@ -415,7 +415,7 @@ node generate-report.js
     <div class="card">
       <h3>Key design decisions</h3>
       <ul class="steps">
-        <li><strong>Phase 2 always processes ALL XML files — never a subset.</strong> The linker resolves cross-module references: if module A is missing from the corpus, module B's FK to an entity in module A becomes an unresolvable gap. Running a subset produces false gaps. The KB is always full-corpus (all 114 modules); Phase 3 filters per module internally.</li>
+        <li><strong>Phase 2 always processes ALL XML files — never a subset.</strong> The linker resolves cross-module references: if module A is missing from the corpus, module B's FK to an entity in module A becomes an unresolvable gap. Running a subset produces false gaps. The KB is always full-corpus (all modules); Phase 3 filters per module internally.</li>
         <li><strong>Extractors write to extracted/, never knowledge-base/</strong> — the merger owns the KB. This keeps extraction and merging cleanly separated so you can add new extractors without touching the merge step.</li>
         <li><strong>Mappers are pure functions</strong> — no file I/O, no globals. They receive items for one module and return an array. Easy to test, easy to add.</li>
         <li><strong>Use-case narrative is never fabricated</strong> — the scaffold marks every narrative field as an explicit TODO. Actors, preconditions, and main flow require business input.</li>
@@ -450,7 +450,7 @@ node generate-report.js
         <tr><td><code>*.fmb</code> / <code>*.fmx</code></td><td>Oracle Forms</td><td>(contact team)</td></tr>
       </table>
       <div class="callout callout-green">
-        This project uses <strong>OutSystems 11 eSpace XML files</strong>. The XML contains the <strong>full application stack</strong> per module: entities (data), logics (business rules), screens (UI), timers (scheduled jobs), and API definitions — all in one file.
+        This project uses <strong>OutSystems 11 module XML files</strong>. The XML contains the <strong>full application stack</strong> per module: entities (data), logics (business rules), screens (UI), timers (scheduled jobs), and API definitions — all in one file.
       </div>
     </div>
 
@@ -480,7 +480,7 @@ node generate-report.js
       <h3>Step 3 — Optional: validate the extractor on a sample</h3>
       <p>Run this before Phase 2 if you are doing this for the first time or after changing the XML source:</p>
 <pre><code>node run.js 1 xml</code></pre>
-      <p>Output: <code>pipeline/samples/schema.json</code> — a small preview of what the extractor will produce. Check that entity attributes, logic kinds, and screen summaries look correct. If something looks wrong, fix <code>extractors/xml-extractor.js</code> now — it is much faster to iterate on 8 files than 114.</p>
+      <p>Output: <code>pipeline/samples/schema.json</code> — a small preview of what the extractor will produce. Check that entity attributes, logic kinds, and screen summaries look correct. If something looks wrong, fix <code>extractors/xml-extractor.js</code> now — it is much faster to iterate on 8 files than the full set.</p>
     </div>
 
     <div class="callout callout-amber" style="margin:0 0 20px">
@@ -491,7 +491,7 @@ node generate-report.js
   <!-- PHASE 2 -->
   <div id="phase2" class="page-section">
     <div class="page-title">Phase 2 — Extraction</div>
-    <div class="page-subtitle">Read all 114 OS XML files and produce a structured JSON knowledge base — the foundation for everything that follows</div>
+    <div class="page-subtitle">Read all OS XML files and produce a structured JSON knowledge base — the foundation for everything that follows</div>
 
     <div class="card card-teal">
       <h3>What happens here?</h3>
@@ -701,11 +701,11 @@ node run.js 2            # all configured source types</code></pre>
     </div>
 
     <div class="card">
-      <h4>eSpace</h4>
-      <p>
-        An OutSystems module. Each eSpace is exported as one XML file (<code>.oml</code> format).
+      <h4>Module</h4>
+      <p class="glossary-def">
+        An OutSystems module. Each module's export (<code>.oml</code>) is encrypted; this pipeline works from the decrypted XML form of that module.
         It contains the full application stack for that module: entities, logics (server/client actions),
-        screens, timers, roles, and API definitions. This project has 114 eSpace XML files.
+        screens, timers, roles, and API definitions. A typical application has tens of module XML files.
       </p>
     </div>
 

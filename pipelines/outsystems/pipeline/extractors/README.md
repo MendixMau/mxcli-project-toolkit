@@ -10,7 +10,7 @@ The merger (`lib/merger.js`) picks up everything in `extracted/`, deduplicates, 
 
 | File | Source | Status |
 |------|--------|--------|
-| `xml-extractor.js` | OutSystems eSpace XML | Active — extracts full OS stack |
+| `xml-extractor.js` | OutSystems module XML | Active — extracts full OS stack |
 | `cs-extractor.js` | C# compiled output | Stub — skipped when no CS source |
 | `js-extractor.js` | JS compiled output | Stub — skipped when no JS source |
 

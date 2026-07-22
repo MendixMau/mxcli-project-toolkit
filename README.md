@@ -269,7 +269,7 @@ mxcli-project-toolkit/
     document-discovery.md       ← [migration] Scanning/classifying an unstructured document folder
     kb-generation.md            ← [migration] Document extraction (Excel/Word/PDF → KB markdown)
     source-os11.md              ← [migration] OutSystems 11 XML schema reference
-    os-xml-schema.md            ← [migration] OS eSpace XML structure details
+    os-xml-schema.md            ← [migration] OS module XML structure details
     source-node-express-react.md ← [migration] Node/Express+React extraction layout + known gaps
     mdl-cookbook-microflows.md  ← [any project] MDL scripting patterns for microflows
     qa-loop-goal-pattern.md     ← [any project] Iterative /goal-driven pipeline validation technique

@@ -351,7 +351,7 @@ end;
 ```mdl
 IF trim($Dto/FieldName) = '' THEN
   SET $IsValid = false;
-  VALIDATION FEEDBACK $Dto/FieldName MESSAGE 'Japanese message';
+  VALIDATION FEEDBACK $Dto/FieldName MESSAGE 'non-English message';
 END IF;
 ```
 

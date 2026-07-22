@@ -2,14 +2,14 @@
 **Applies to:** migration.
 **Purpose:** OS 11-specific extraction rules, concept mappings, and migration patterns
 for use alongside `migration-pipeline.md`.
-**Scope:** OutSystems 11 traditional eSpace/module model only. ODC is out of scope.
+**Scope:** OutSystems 11 traditional module model only. ODC is out of scope.
 **Examples:** All module names, entities, and descriptions below are a fictional
 sample ("Apex" demo application) for illustration only — not real customer data.
 
 > **Prerequisite — you cannot start from a raw OutSystems export.** An OutSystems
 > application export (`.osp`, containing one `.oml` per module) is **encrypted**;
 > its contents are not readable and cannot be parsed by this pipeline. You first need
-> each module in **decrypted eSpace XML** form. Obtaining that XML requires a
+> each module in **decrypted module XML** form. Obtaining that XML requires a
 > compatible OutSystems decryption service; that step is outside the scope of this
 > pipeline. Everything below assumes you already have the decrypted XML.
 
@@ -100,7 +100,7 @@ the key-resolver to map back to the source module and name.
 
 | OS 11 | Mendix |
 |-------|--------|
-| eSpace / Module | Module |
+| Module | Module |
 | `M-XXXX` business module | Feature module (e.g. `OrderRegistration`) |
 | `C-XXXX` common module | Shared utility module |
 | `AppCommon_*` base | Base infrastructure module |
@@ -154,12 +154,12 @@ OS uses soft-delete (`IsActive = false`) by default. Preserve in Mendix.
 
 | OS 11 | Mendix |
 |-------|--------|
-| Role (eSpace native) | Module role |
+| Role (module-native) | Module role |
 | URPM role | User role aggregating module roles |
 | Screen permission | Page grant (`GRANT VIEW ON PAGE`) |
 | Action permission | Microflow grant (`GRANT EXECUTE ON MICROFLOW`) |
 
-URPM permissions are managed outside the eSpace. Reconstruct grants from the OS
+URPM permissions are managed outside the module. Reconstruct grants from the OS
 permission matrix when migrating.
 
 ---
@@ -273,6 +273,6 @@ For each business module BRD, collect:
 |----------|-------|-----------|
 | Cross-module action calls unresolved | `ActionReference:` keys span modules | Run key-resolver across all XMLs together |
 | Client action logic missing | Client actions compile to JS, not in XML | Extract from compiled `scripts/` JS files |
-| URPM permissions not in eSpace XML | URPM module manages permissions centrally | Extract URPM module separately |
-| SAP field mappings | Stored in integration tables, not eSpace | Requires DB schema or integration doc |
+| URPM permissions not in module XML | URPM module manages permissions centrally | Extract URPM module separately |
+| SAP field mappings | Stored in integration tables, not the module | Requires DB schema or integration doc |
 | Screen layout detail | XML stores widget tree but not pixel layout | Use screen mockups from design docs |

@@ -3,7 +3,7 @@
 
 This skill covers the full pipeline from raw OutSystems XML exports to structured BRD and knowledge-base documents, ready for Mendix implementation. It is the **analysis phase** (Phase 1) of a migration engagement. The Mendix implementation phase (MDL generation, Studio Pro work) is covered in `skills/migrate-general.md`.
 
-**Scope:** OutSystems 11 traditional model (eSpaces, Reactive Web, Traditional Web). Not applicable to ODC.
+**Scope:** OutSystems 11 traditional model (modules, Reactive Web, Traditional Web). Not applicable to ODC.
 
 ---
 
@@ -19,7 +19,7 @@ OS-migration-skills/
 │   ├── run.js                     ← orchestrator: phase 1 (sample), phase 2 (extract), phase 3 (generate)
 │   ├── package.json               ← npm dependencies (fast-xml-parser, tree-sitter, glob)
 │   ├── extractors/
-│   │   ├── xml-extractor.js       ← parses OutSystems eSpace XML → structured JSON
+│   │   ├── xml-extractor.js       ← parses OutSystems module XML → structured JSON
 │   │   ├── cs-extractor.js        ← parses C# generated code (tree-sitter)
 │   │   └── js-extractor.js        ← parses JavaScript client code (tree-sitter)
 │   ├── generators/
@@ -122,7 +122,7 @@ This is a separate step covered in `skills/migrate-general.md`.
 
 ## What the xml-extractor Pulls Out
 
-The `xml-extractor.js` parses an OutSystems eSpace XML and extracts these construct types:
+The `xml-extractor.js` parses an OutSystems module XML and extracts these construct types:
 
 | XML element | Extracted as | KB JSON key |
 |---|---|---|

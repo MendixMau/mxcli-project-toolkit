@@ -334,7 +334,7 @@ relevant.
 ### Document priority order (within files classified as documents)
 
 1. Requirements specifications (main feature spec per module)
-2. Field label / translation sheets (Japanese ↔ English mappings)
+2. Field label / translation sheets (non-English ↔ English mappings)
 3. QA / clarification sheets (resolved decisions, open questions)
 4. API / integration manuals (external system specs)
 5. Development standards (naming, audit fields, security conventions)
@@ -582,7 +582,7 @@ Track key pipeline decisions per project:
 
 | Decision | Options | Chosen | Reason |
 |----------|---------|--------|--------|
-| Module scope | All 114 / Business only | Business first | Framework modules add noise |
+| Module scope | All modules / Business only | Business first | Framework modules add noise |
 | BRD format | JSON / Markdown / Both | JSON + .md review copy | Machine-readable + human review |
 | Rearchitect strategy | 1:1 / Consolidated / Split | TBD per project | Depends on domain complexity |
 | Cross-module assocs | mxcli / Studio Pro | mxcli (BUG-02 fixed v0.13.0) | `CREATE ASSOCIATION` works correctly |

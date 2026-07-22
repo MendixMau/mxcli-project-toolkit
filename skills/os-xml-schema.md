@@ -1,20 +1,20 @@
 # OS 11 XML Blueprint Schema
 **Applies to:** migration.
-**Purpose:** Teaches Claude the OutSystems 11 eSpace XML format so extraction prompts
+**Purpose:** Teaches Claude the OutSystems 11 module XML format so extraction prompts
 work without pasting raw XML first.
 **Examples:** module names, entities, and descriptions below are a fictional sample
 ("Apex" demo application) — not real customer data.
 
 > **Prerequisite:** OutSystems exports (`.osp` / `.oml`) are encrypted. This schema
-> applies to **decrypted eSpace XML** only; obtaining that XML requires a compatible
+> applies to **decrypted module XML** only; obtaining that XML requires a compatible
 > OutSystems decryption service and is outside this pipeline's scope.
 
 ---
 
-## What an eSpace XML file is
+## What a module XML file is
 
-Each `.xml` file in an OS 11 blueprint delivery is one OutSystems **eSpace** —
-equivalent to one Mendix module. A large application has 10-100 eSpaces.
+Each `.xml` file in an OS 11 blueprint delivery is one OutSystems **module** —
+equivalent to one Mendix module. A large application has 10-100 modules.
 The root element is `<ESpace>` with key attributes identifying the module.
 
 ```xml
@@ -54,8 +54,8 @@ Action:def456==
 WebScreen:ghi012==
 ```
 
-Keys are globally unique across all eSpaces. Cross-eSpace references use these keys
-(not names), so a `Reference` node in one eSpace pointing to `Entity:abc123==` in
+Keys are globally unique across all modules. Cross-module references use these keys
+(not names), so a `Reference` node in one module pointing to `Entity:abc123==` in
 another means "import this entity from that module".
 
 ---
@@ -76,7 +76,7 @@ OS `Entity` ≈ Mendix persistent entity.
     <Attribute
       Key="Attribute:abc..."
       Name="OrderCode"
-      Label="Order code"              ← Japanese UI label
+      Label="Order code"              ← UI label (any language)
       DataType="Text"                 ← Text / Integer / DateTime / Boolean / etc.
       Length="10"
       IsMandatory="Yes"
@@ -173,7 +173,7 @@ XML — it's a binary/base64 blob). What IS readable:
   Key="Action:def456..."
   Name="ACT_OrderDetail_Save"
   Description="Save processing"
-  IsPublic="Yes"                     ← Public = callable from other eSpaces
+  IsPublic="Yes"                     ← Public = callable from other modules
 >
   <InputParameters>
     <InputParameter Name="OrderDetailId" DataType="ENOrderDetail Identifier" IsMandatory="Yes" />
@@ -185,7 +185,7 @@ XML — it's a binary/base64 blob). What IS readable:
 ```
 
 **What you can extract from Actions:** name, description, input/output parameter names
-and types, public/private, which eSpace it belongs to.
+and types, public/private, which module it belongs to.
 **What you cannot extract:** the actual logic body (encoded in binary — use C# source
 if available for implementation details).
 
@@ -258,7 +258,7 @@ The widget tree inside WebScreen describes the UI structure. Key widget types:
 
 ## References (cross-module imports)
 
-When one eSpace uses entities or actions from another, they appear as References:
+When one module uses entities or actions from another, they appear as References:
 
 ```xml
 <References>

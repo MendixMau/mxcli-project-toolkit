@@ -24,7 +24,7 @@ Do NOT write microflow signatures before sketching the page structure. Page desi
 
 A microflow called from a page button can only receive **entity objects** — not individual primitives (String, Integer, etc.). The objects available to that button depend on which data views enclose it on the page. Designing microflows before pages means guessing what objects are in scope, and the guess is often wrong.
 
-**Concrete failure:** `ACT_PayerCustomerBase_Create` was initially designed with 8 individual String parameters (CompanyName, PostalCode, etc.). The correct design is `(Header: ApplicationCommonHeader, SearchResult: CompanySearchResult)` — two objects the page already has in scope. The 8-string version required a refactor.
+**Concrete failure:** `ACT_OrderCustomerBase_Create` was initially designed with 8 individual String parameters (CompanyName, PostalCode, etc.). The correct design is `(Header: ApplicationCommonHeader, SearchResult: CompanySearchResult)` — two objects the page already has in scope. The 8-string version required a refactor.
 
 ### Design order per feature
 
@@ -119,8 +119,8 @@ NPEs can have associations to other NPEs or persistent entities. Navigation work
 
 | Prefix | Purpose | Example |
 |--------|---------|---------|
-| `ACT_` | Action — creates/modifies persistent state | `ACT_PayerDetail_SaveDraft` |
-| `GET_` | Query — returns object(s), no side effects | `GET_PayerDetail_Dto` |
+| `ACT_` | Action — creates/modifies persistent state | `ACT_OrderDetail_SaveDraft` |
+| `GET_` | Query — returns object(s), no side effects | `GET_OrderDetail_Dto` |
 | `VAL_` | Validation — returns Boolean, fires validation feedback | `VAL_PaymentTerm` |
 | `CAL_` | Calculation — returns derived value, no side effects | `CAL_AccountGroup` |
 | `SUB_` | Sub-flow — internal helper, not called from pages | `SUB_BuildSAPRequest` |
@@ -155,13 +155,13 @@ If `exec` fails mid-script, already-created objects remain in the MPR. The next 
 `set $Entity/Module.AssocName = $Other` must be called on the entity that **owns the FK column** — the `from` entity in the association definition (`owner Default` means FK is on the `from` side).
 
 ```mdl
--- Association: PayerAreaData_PayerDetail
--- FROM = PayerAreaData (FK is here), TO = PayerDetail
--- CORRECT: set on the FROM entity (PayerAreaData)
-set $PayerAreaData/PayerRegistration.PayerAreaData_PayerDetail = $PayerDetail;
+-- Association: OrderAreaData_OrderDetail
+-- FROM = OrderAreaData (FK is here), TO = OrderDetail
+-- CORRECT: set on the FROM entity (OrderAreaData)
+set $OrderAreaData/OrderRegistration.OrderAreaData_OrderDetail = $OrderDetail;
 
 -- WRONG: set on the TO entity
-set $PayerDetail/PayerRegistration.PayerAreaData_PayerDetail = $PayerAreaData; -- CE0854
+set $OrderDetail/OrderRegistration.OrderAreaData_OrderDetail = $OrderAreaData; -- CE0854
 ```
 
 Use `DESCRIBE ASSOCIATION Module.Name` to check which entity is `from`.
@@ -203,7 +203,7 @@ CE0066 cannot be resolved via mxcli. It requires the Studio Pro security hash re
 | OS 11 concept | Description | Mendix equivalent |
 |---|---|---|
 | eSpace / Module | Unit of deployment, has its own entities, actions, UI | Mendix module |
-| `M-XXXX` prefix | Business application module | Business feature module (e.g. `PayerRegistration`) |
+| `M-XXXX` prefix | Business application module | Business feature module (e.g. `OrderRegistration`) |
 | `C-XXXX` prefix | Common / reusable component | Shared utility module (e.g. `Customer_Common`, `Common_Utils`) |
 | `AppCommon_*` | Framework-level base module | Base infrastructure module |
 | `T-XXXX` prefix | Technical/integration module | Integration module (e.g. `SAP_Integration`) |
@@ -212,7 +212,7 @@ CE0066 cannot be resolved via mxcli. It requires the Studio Pro security hash re
 
 **3-tier architecture rule (OS 11):** Business modules (M) may call Common modules (C), which may call base components — but never upward. A `C-` module cannot reference an `M-` module.
 
-**Mendix equivalent:** Enforce the same dependency direction via module layering. Lower modules (Common_Utils, BusinessApp_Common) must not import from higher modules (PayerRegistration). Mendix does not enforce this automatically — apply it as a design rule.
+**Mendix equivalent:** Enforce the same dependency direction via module layering. Lower modules (Common_Utils, BusinessApp_Common) must not import from higher modules (OrderRegistration). Mendix does not enforce this automatically — apply it as a design rule.
 
 ### Action types → Mendix flow types
 

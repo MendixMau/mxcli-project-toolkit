@@ -2,7 +2,12 @@
 **Applies to:** migration.
 **Purpose:** Teaches Claude the OutSystems 11 eSpace XML format so extraction prompts
 work without pasting raw XML first.
-**Source:** Apex M-0022 — 114 real eSpace XML files processed 2026-05.
+**Examples:** module names, entities, and descriptions below are a fictional sample
+("Apex" demo application) — not real customer data.
+
+> **Prerequisite:** OutSystems exports (`.osp` / `.oml`) are encrypted. This schema
+> applies to **decrypted eSpace XML** only; obtaining that XML requires a compatible
+> OutSystems decryption service and is outside this pipeline's scope.
 
 ---
 
@@ -16,8 +21,8 @@ The root element is `<ESpace>` with key attributes identifying the module.
 <ESpace
   Version="11"
   Key="ESpace:EXAMPLEeSpaceKey000001"     ← GUID with type prefix
-  Name="M0022_PayerRegist"                  ← module name (= file name without .xml)
-  Description="Order & billing registration"           ← Japanese description is common
+  Name="MXXXX_OrderRegist"                  ← module name (= file name without .xml)
+  Description="Order & billing registration"           ← developer-authored; any language
   ModuleType="Service|Extension|..."        ← Service = normal app module
 >
   <SiteProperties>...</SiteProperties>      ← module-level constants
@@ -62,7 +67,7 @@ OS `Entity` ≈ Mendix persistent entity.
 ```xml
 <Entity
   Key="Entity:Lmh5qP7..."
-  Name="ENPayerDetail"                ← EN prefix = External/Normal entity convention
+  Name="ENOrderDetail"                ← EN prefix = External/Normal entity convention
   Description="Order detail"
   IsPersistent="Yes"
   PublicEntityStatus="Internal"       ← Internal = not shared across modules
@@ -70,7 +75,7 @@ OS `Entity` ≈ Mendix persistent entity.
   <Attributes>
     <Attribute
       Key="Attribute:abc..."
-      Name="PayerCode"
+      Name="OrderCode"
       Label="Order code"              ← Japanese UI label
       DataType="Text"                 ← Text / Integer / DateTime / Boolean / etc.
       Length="10"
@@ -82,9 +87,9 @@ OS `Entity` ≈ Mendix persistent entity.
     <!-- ... more attributes ... -->
   </Attributes>
   <Indexes>
-    <Index Name="IdxPayerCode" IsUnique="Yes">
+    <Index Name="IdxOrderCode" IsUnique="Yes">
       <IndexAttributes>
-        <IndexAttribute AttributeName="PayerCode" />
+        <IndexAttribute AttributeName="OrderCode" />
       </IndexAttributes>
     </Index>
   </Indexes>
@@ -117,8 +122,8 @@ computed views.
 ```xml
 <Structure
   Key="Structure:xyz..."
-  Name="PayerDetailDto"
-  Description="Form data for payer detail screen"
+  Name="OrderDetailDto"
+  Description="Form data for order detail screen"
 >
   <RecordType>
     <Attribute Name="SelectedCompanyName" DataType="Text" Length="200" />
@@ -166,12 +171,12 @@ XML — it's a binary/base64 blob). What IS readable:
 ```xml
 <Action
   Key="Action:def456..."
-  Name="ACT_PayerDetail_Save"
+  Name="ACT_OrderDetail_Save"
   Description="Save processing"
   IsPublic="Yes"                     ← Public = callable from other eSpaces
 >
   <InputParameters>
-    <InputParameter Name="PayerDetailId" DataType="ENPayerDetail Identifier" IsMandatory="Yes" />
+    <InputParameter Name="OrderDetailId" DataType="ENOrderDetail Identifier" IsMandatory="Yes" />
   </InputParameters>
   <OutputParameters>
     <OutputParameter Name="Success" DataType="Boolean" />
@@ -193,13 +198,13 @@ OS `WebScreen` ≈ Mendix page.
 ```xml
 <WebScreen
   Key="WebScreen:ghi..."
-  Name="PayerDetail"
+  Name="OrderDetail"
   Description="Order detail"
   IsPublic="Yes"
   HTTPMethod="GET"
 >
   <InputParameters>
-    <InputParameter Name="PayerDetailId" DataType="ENPayerDetail Identifier" />
+    <InputParameter Name="OrderDetailId" DataType="ENOrderDetail Identifier" />
     <InputParameter Name="In_WfMode"     DataType="Text" />
   </InputParameters>
   <Layout Name="MainLayoutRW" />
@@ -325,11 +330,11 @@ built before others.
 
 | Prefix | Meaning |
 |--------|---------|
-| `EN` | Entity (e.g. `ENPayerDetail`) |
+| `EN` | Entity (e.g. `ENOrderDetail`) |
 | `ACT_` | Action (microflow) |
 | `SNP_` | Snippet/WebBlock |
 | `JOB_` | Timer/scheduled job |
-| `M0022_` | Function code prefix |
+| `MXXXX_` | Function code prefix |
 | `C-0031` | Common component code |
 | `KB_` | Knowledge base file (extraction output, not OS) |
 | `Dto` suffix | Non-persistent structure |

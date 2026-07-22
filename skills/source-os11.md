@@ -3,7 +3,15 @@
 **Purpose:** OS 11-specific extraction rules, concept mappings, and migration patterns
 for use alongside `migration-pipeline.md`.
 **Scope:** OutSystems 11 traditional eSpace/module model only. ODC is out of scope.
-**Source:** Apex M-0022 — 114 eSpace XML files, 2026-05.
+**Examples:** All module names, entities, and descriptions below are a fictional
+sample ("Apex" demo application) for illustration only — not real customer data.
+
+> **Prerequisite — you cannot start from a raw OutSystems export.** An OutSystems
+> application export (`.osp`, containing one `.oml` per module) is **encrypted**;
+> its contents are not readable and cannot be parsed by this pipeline. You first need
+> each module in **decrypted eSpace XML** form. Obtaining that XML requires a
+> compatible OutSystems decryption service; that step is outside the scope of this
+> pipeline. Everything below assumes you already have the decrypted XML.
 
 ---
 
@@ -41,8 +49,8 @@ Each `.xml` file is one eSpace. Root element: `<ESpace>`.
 ```xml
 <ESpace
   Key="ESpace:EXAMPLEeSpaceKey000001"   ← GUID with type prefix
-  Name="M0022_PayerRegist"               ← module name = file name without .xml
-  Description="Order & billing registration"        ← often Japanese
+  Name="MXXXX_OrderRegist"               ← module name = file name without .xml
+  Description="Order & billing registration"        ← developer-authored; any language
   ModuleType="Service"                   ← Service = normal app module
 >
 ```
@@ -93,7 +101,7 @@ the key-resolver to map back to the source module and name.
 | OS 11 | Mendix |
 |-------|--------|
 | eSpace / Module | Module |
-| `M-XXXX` business module | Feature module (e.g. `PayerRegistration`) |
+| `M-XXXX` business module | Feature module (e.g. `OrderRegistration`) |
 | `C-XXXX` common module | Shared utility module |
 | `AppCommon_*` base | Base infrastructure module |
 
@@ -225,7 +233,7 @@ In Mendix: `log info/warning/error node 'ModuleName' 'MSGS0001I: ...'`
 
 | OS name | Mendix module name |
 |---------|-------------------|
-| `M0022_PayerRegist` | `PayerRegistration` |
+| `MXXXX_OrderRegist` | `OrderRegistration` |
 | `C0031_ControlMaterialGroupSearch` | `MaterialGroupSearch` |
 | `AppCommon_BaseUtils` | `Common_Utils` |
 | `BusinessAppCommon_CS` | `BusinessApp_Common` |
@@ -236,9 +244,9 @@ Rules: drop `M-`/`C-`/`T-` prefix and number, expand abbreviations, PascalCase.
 
 | OS name | Mendix name |
 |---------|------------|
-| `ENPayerDetail` | `PayerDetail` (drop `EN` prefix) |
-| `ENPayerApplicationHeader` | `PayerApplicationHeader` |
-| `ENPayerAreaData` | `PayerAreaData` |
+| `ENOrderDetail` | `OrderDetail` (drop `EN` prefix) |
+| `ENOrderApplicationHeader` | `OrderApplicationHeader` |
+| `ENOrderAreaData` | `OrderAreaData` |
 
 ### BRD source inputs per OS module
 

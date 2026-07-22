@@ -1,4 +1,4 @@
-# Build Loop Example: PayerRegistration Module
+# Build Loop Example: OrderRegistration Module
 **Skill:** [iterative-build-loop.md](../../skills/iterative-build-loop.md)  
 **Context:** OutSystems → Mendix migration, single module walkthrough  
 
@@ -6,19 +6,19 @@ This shows how the 12-step build loop was applied to one real module. Use it as 
 
 ---
 
-## Module: PayerRegistration
+## Module: OrderRegistration
 
-**What it does:** Payer registration flow — org selection, detail entry, confirmation, SAP submission (stubbed)  
+**What it does:** Order registration flow — org selection, detail entry, confirmation, SAP submission (stubbed)  
 **Pages to build:** Overview, OrgChoice, NewEdit, View, Confirm_Selection, popup (CorporationSearch)  
 **Microflows:** ~12 (GET_, VAL_, ACT_, STUB_ variants)  
-**Source:** 2 OS modules (`M0022_PayerRegist`, `PayerRegist_CS`)  
+**Source:** 2 OS modules (`MXXXX_OrderRegist`, `OrderRegist_CS`)  
 
 ---
 
 ## Pre-Module Checklist (run before writing any MDL)
 
 - [x] Read OS screenshots for all 6 pages top-to-bottom
-- [x] Read F001 feature doc (payer registration section)
+- [x] Read F001 feature doc (order registration section)
 - [x] Extract build checklist from feature doc:
 
 | Field | Type | Rule | Widget |
@@ -33,7 +33,7 @@ This shows how the 12-step build loop was applied to one real module. Use it as 
 | Status | Enum | System-derived, read-only | DynamicText (not textbox) |
 | ... | | | |
 
-- [x] Forward references identified: `Payer_Confirm_Selection` page doesn't exist yet when `Payer_OrgChoice` is scripted → create stub first
+- [x] Forward references identified: `Order_Confirm_Selection` page doesn't exist yet when `Order_OrgChoice` is scripted → create stub first
 - [x] MPR backup taken before starting
 
 ---
@@ -43,15 +43,15 @@ This shows how the 12-step build loop was applied to one real module. Use it as 
 ### Scripts 01–02: Domain model
 
 ```
-script: 01-payerreg-domain.mdl
-  - PayerDetail entity (35 attributes)
-  - PayerDetail_Dto (non-persistent, 38 attributes)
+script: 01-orderreg-domain.mdl
+  - OrderDetail entity (35 attributes)
+  - OrderDetail_Dto (non-persistent, 38 attributes)
   - SalesAreaData_Dto (non-persistent, 3 attributes)
-  - Enumerations: PayerRegistrationType, BillingRegistrationType
+  - Enumerations: OrderRegistrationType, BillingRegistrationType
   
-script: 02-payerreg-security.mdl
-  - Module roles: PayerRegistration.User, PayerRegistration.Admin
-  - GRANT on PayerDetail (create, read *, write *)
+script: 02-orderreg-security.mdl
+  - Module roles: OrderRegistration.User, OrderRegistration.Admin
+  - GRANT on OrderDetail (create, read *, write *)
   → After this: Studio Pro "Update security" click required (CE0066)
 ```
 
@@ -63,11 +63,11 @@ script: 02-payerreg-security.mdl
 
 ```
 script: 03-stub-pages.mdl
-  - Payer_Confirm_Selection (stub: title widget + "under construction" text)
-  - PayerDetail_View (stub)
+  - Order_Confirm_Selection (stub: title widget + "under construction" text)
+  - OrderDetail_View (stub)
   - SNP_CorporationSearchPopup (stub)
   
-Reason: Script 05 (Payer_OrgChoice page) references all three.
+Reason: Script 05 (Order_OrgChoice page) references all three.
 Pattern: always apply stubs before the script that references them.
 ```
 
@@ -77,17 +77,17 @@ Pattern: always apply stubs before the script that references them.
 
 ```
 script: 04-get-microflows.mdl
-  - GET_PayerDetail_InitNew — creates new PayerDetail + Dto
+  - GET_OrderDetail_InitNew — creates new OrderDetail + Dto
   - GET_SalesAreaData_Dto_List — retrieves SalesAreaData_Dto list by association
-  - GET_PayerCustomerBase_ByPayerDetail — reads shared customer base
+  - GET_OrderCustomerBase_ByOrderDetail — reads shared customer base
 
 script: 05-val-microflows.mdl
-  - VAL_PayerDetail — validates mandatory fields (returns Boolean)
+  - VAL_OrderDetail — validates mandatory fields (returns Boolean)
   - VAL_OrgChoice_BeforeNext — validates org selection before navigation
 
 script: 06-act-microflows.mdl
-  - ACT_PayerDetail_Save — save wrapper (calls VAL_ first, then commit)
-  - ACT_PayerDetail_Submit — submit to WF_Engine (STUB_AW branch)
+  - ACT_OrderDetail_Save — save wrapper (calls VAL_ first, then commit)
+  - ACT_OrderDetail_Submit — submit to WF_Engine (STUB_AW branch)
   - ACT_SNP_CorpSearch_Execute — executes corporation search (STUB_CorpSearch branch)
   - STUB_PostalCode_Lookup — returns hardcoded address data
 ```
@@ -100,24 +100,24 @@ script: 06-act-microflows.mdl
 
 ```
 script: 07-overview-page.mdl
-  - PayerRegistration_Overview
-  - Gallery datasource: DATABASE PayerRegistration.PayerDetail
+  - OrderRegistration_Overview
+  - Gallery datasource: DATABASE OrderRegistration.OrderDetail
   - Filter container (empty stub — discovered later this was wrong)
   → mxcli docker check: 0 CE errors ✅
 
 script: 08-orgchoice-page.mdl
-  - Payer_OrgChoice (org selection, search popup trigger)
-  - References Payer_Confirm_Selection (stub from script 03)
+  - Order_OrgChoice (org selection, search popup trigger)
+  - References Order_Confirm_Selection (stub from script 03)
 
 script: 09-newedit-page.mdl
-  - PayerDetail_NewEdit (main form, 6 sections)
+  - OrderDetail_NewEdit (main form, 6 sections)
   - Section D (AccountGroup etc.) — built with combobox from start, not patched later
   - SalesAreaData gallery (add/remove rows)
   → Happy path test: save works, navigation to View succeeds ✅
 
 script: 10-view-confirm-pages.mdl
-  - PayerDetail_View (read-only, replaces stub from script 03)
-  - Payer_Confirm_Selection (replaces stub from script 03)
+  - OrderDetail_View (read-only, replaces stub from script 03)
+  - Order_Confirm_Selection (replaces stub from script 03)
 ```
 
 **What went wrong on script 07 (and caught by coverage check):**  
@@ -138,15 +138,15 @@ Overview filter panel — container existed, no filter controls inside. OS scree
 Studio Pro → domain model → "Update security" banner → click → Ctrl+S ✅
 ```
 
-#### Step 10: Happy path walk (as demo user `yoko.taoka`)
+#### Step 10: Happy path walk (as demo user `demo.user`)
 ```
-1. Log in as yoko.taoka (HQDomestic role) ✅
-2. Navigate to PayerRegistration_Overview ✅
-3. Click "New" → Payer_OrgChoice loads ✅
-4. Search for corporation → select → navigates to PayerDetail_NewEdit ✅
+1. Log in as demo.user (HQDomestic role) ✅
+2. Navigate to OrderRegistration_Overview ✅
+3. Click "New" → Order_OrgChoice loads ✅
+4. Search for corporation → select → navigates to OrderDetail_NewEdit ✅
 5. Fill mandatory fields (CompanyName pre-filled, fill PostalCode, SalesArea row) ✅
 6. Click Save → record created ✅
-7. Navigate to PayerDetail_View ✅
+7. Navigate to OrderDetail_View ✅
 
 ISSUE FOUND: CompanyName field is editable (should be Editable: Never)
 → Added to bug log, fixed in script 12

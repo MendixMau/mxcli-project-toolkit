@@ -3,7 +3,7 @@
 **Purpose:** How to build a Playwright E2E test suite for a Mendix app after completing
 a major build phase. Covers harness setup, widget discovery, suite structure, DB
 assertions, and bug reporting.
-**Source:** Apex M-0022 — 5 test suites built 2026-05, helpers.js pattern.
+**Source:** Apex sample — 5 test suites built 2026-05, helpers.js pattern.
 **Status:** Base methodology only — full skill to be written separately.
 
 ---
@@ -25,7 +25,7 @@ Build after completing a module build phase:
 - `npx playwright install chromium`
 - App running at `http://localhost:8080`
 - PostgreSQL accessible via psql.exe (for DB assertions)
-- Test user credentials known (e.g. `yoko.taoka / Apex12345`)
+- Test user credentials known (e.g. `demo.user / Apex12345`)
 
 ---
 
@@ -45,13 +45,13 @@ const { chromium } = require('playwright');
 
   // Login
   await page.goto('http://localhost:8080');
-  await page.fill('#usernameInput', 'yoko.taoka');
+  await page.fill('#usernameInput', 'demo.user');
   await page.fill('#passwordInput', 'Apex12345');
   await page.click('#loginButton');
   await page.waitForTimeout(3500);  // wait for post-login modal
 
   // Navigate to target page (click through navigation, never use /p/ URLs)
-  await page.click('.mx-name-btnNewPayer');  // example
+  await page.click('.mx-name-btnNewOrder');  // example
   await page.waitForTimeout(1500);
 
   // Dump all mx-name-* elements
@@ -83,7 +83,7 @@ const { execSync } = require('child_process');
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const BASE_URL  = process.env.APP_URL  || 'http://localhost:8080';
-const TEST_USER = process.env.TEST_USER || 'yoko.taoka';
+const TEST_USER = process.env.TEST_USER || 'demo.user';
 const TEST_PASS = process.env.TEST_PASS || 'Apex12345';
 
 // PostgreSQL config — for DB assertions
@@ -120,7 +120,7 @@ async function dismissModal(page, retries = 3) {
 // Always click through the navigation menu from the home page.
 async function navigateToOverview(page) {
   // Adjust selector to match your app's nav menu item
-  await page.click('.mx-name-navItemPayer');
+  await page.click('.mx-name-navItemOrder');
   await page.waitForTimeout(1000);
 }
 
@@ -221,7 +221,7 @@ const { chromium, login, navigateToOverview, dbQuery, makeReporter } = require('
     else R.fail('E01-02', 'Remained on form page', 'Save button gone — navigated away');
 
     // DB assertion: no new record created
-    const row = dbQuery('SELECT id FROM "payerregistration$payerdetail" ORDER BY createdon DESC LIMIT 1');
+    const row = dbQuery('SELECT id FROM "orderregistration$orderdetail" ORDER BY createdon DESC LIMIT 1');
     // Compare to baseline count if you tracked it before the test
 
   } catch (err) {

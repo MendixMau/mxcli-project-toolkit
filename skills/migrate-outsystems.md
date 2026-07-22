@@ -41,14 +41,12 @@ OS-migration-skills/
 │   │   │   └── ext-entity-mapper.js
 │   │   └── lib/                   ← shared type converter, structure index helpers
 │   └── lib/                       ← merger, interfaces, cross-reference builder
-└── sample-outputs/
-    ├── summary.md                 ← construct counts + gap report summary
-    ├── entities.json              ← extracted entity knowledge base
-    ├── screens.json               ← extracted screen knowledge base
-    └── brd/
-        ├── index.json             ← BRD feature index
-        └── F001-payer-registration.brd.json  ← worked example: full BRD for one feature
+└── (pipeline output is written to knowledge-base/ at runtime — gitignored)
 ```
+
+> Note: this repo does not ship sample extraction output. The pipeline writes its
+> knowledge base and BRDs into `knowledge-base/` when you run it against your own
+> (decrypted) source XML — that directory is gitignored and never committed here.
 
 ---
 
@@ -208,17 +206,17 @@ Each mapper is a single-concern transform from extracted JSON → Mendix-ready r
 This is the recommended recording setup:
 
 **Left pane — VS Code** open on this `OS-migration-skills/` folder:
-- Show the XML in `../OS-ExtractedXML/M0022_PayerRegist.xml` (raw, incomprehensible)
+- Show the XML in `../OS-ExtractedXML/MXXXX_OrderRegist.xml` (raw, incomprehensible)
 - Show the extractors in `pipeline/extractors/xml-extractor.js`
 - Show the mappers in `pipeline/generators/mappers/`
-- Show the BRD output in `sample-outputs/brd/F001-payer-registration.brd.json`
+- Show the BRD output the pipeline writes to `knowledge-base/brd/F001-order-registration.brd.json` (generated at runtime from your own source)
 
 **Right pane — Terminal** running the pipeline:
 
 ```bash
 cd <path-to-your-workspace>/extraction   # set to your local clone — see pipeline/config.json
 
-# Phase 2: full extraction (60 seconds on the full Apex project)
+# Phase 2: full extraction (about a minute on a large application)
 node run.js 2 xml
 
 # Phase 3: BRD generation
@@ -227,7 +225,7 @@ node run.js 3
 
 **Claude chat** (open in any window):
 
-> "I've just run the extraction pipeline on an OutSystems 11 application. The results are in `extraction/knowledge-base/`. Look at `summary.md` for the scale, then look at `brd/F001-payer-registration.brd.json`. Explain what this feature does, who uses it, and what Mendix constructs we'd need to implement it."
+> "I've just run the extraction pipeline on an OutSystems 11 application. The results are in `extraction/knowledge-base/`. Look at `summary.md` for the scale, then look at `brd/F001-order-registration.brd.json`. Explain what this feature does, who uses it, and what Mendix constructs we'd need to implement it."
 
 ---
 
@@ -253,11 +251,11 @@ Use these prompts in order when starting a real migration engagement:
 
 ### Step 5 — Deep-dive a feature
 
-> "Look at `knowledge-base/brd/F001-payer-registration.brd.json`. Walk me through every use case: who does what, what screens are involved, what business rules apply, and what open questions remain. Use the confidence flags to tell me where the evidence is strong vs uncertain."
+> "Look at `knowledge-base/brd/F001-order-registration.brd.json`. Walk me through every use case: who does what, what screens are involved, what business rules apply, and what open questions remain. Use the confidence flags to tell me where the evidence is strong vs uncertain."
 
 ### Step 6 — Reconcile with documents (Stream B)
 
-> "I have process documents in `Share/converted/`. Read the PDF for the Payer Registration feature and compare it against `brd/F001-payer-registration.brd.json`. What does the source code show that the document doesn't mention? What does the document clarify that the code doesn't make obvious?"
+> "I have process documents in `Share/converted/`. Read the PDF for the Order Registration feature and compare it against `brd/F001-order-registration.brd.json`. What does the source code show that the document doesn't mention? What does the document clarify that the code doesn't make obvious?"
 
 ### Step 7 — Plan the Mendix implementation
 

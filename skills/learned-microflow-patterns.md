@@ -127,13 +127,13 @@ Mendix association terminology is **opposite** to most ORMs:
 | Child | ONE side — referenced entity | MANY side |
 
 ```
-SHOW ASSOCIATIONS: Parent=ChoiceOrg, Child=PayerApplicationHeader
-→ Many ChoiceOrg → One PayerApplicationHeader. ChoiceOrg has the FK.
+SHOW ASSOCIATIONS: Parent=ChoiceOrg, Child=OrderApplicationHeader
+→ Many ChoiceOrg → One OrderApplicationHeader. ChoiceOrg has the FK.
 
-DESCRIBE ASSOCIATION: from ChoiceOrg to PayerApplicationHeader
+DESCRIBE ASSOCIATION: from ChoiceOrg to OrderApplicationHeader
 → from = MANY (owner), to = ONE (referenced)
 
-Studio Pro visual (ground truth): ChoiceOrg (*) ──► (1) PayerApplicationHeader
+Studio Pro visual (ground truth): ChoiceOrg (*) ──► (1) OrderApplicationHeader
 ```
 
 **Never propose flipping an association based solely on SHOW ASSOCIATIONS output** — the Parent/Child labels are misleading. Verify from the Studio Pro visual (`*` = many, `1` = one) before any association change.
@@ -146,10 +146,10 @@ Studio Pro visual (ground truth): ChoiceOrg (*) ──► (1) PayerApplicationHe
 
 ```
 -- CORRECT
-$currentObject/PayerDetail_PayerApplicationHeader/PayerApplicationHeader_ApplicationCommonHeader/Status
+$currentObject/OrderDetail_OrderApplicationHeader/OrderApplicationHeader_ApplicationCommonHeader/Status
 
 -- WRONG — module prefix causes expression error
-$currentObject/PayerRegistration.PayerDetail_PayerApplicationHeader/PayerRegistration.PayerApplicationHeader_ApplicationCommonHeader/Status
+$currentObject/OrderRegistration.OrderDetail_OrderApplicationHeader/OrderRegistration.OrderApplicationHeader_ApplicationCommonHeader/Status
 ```
 
 This applies in: dynamic class expressions, XPath constraints, microflow expressions, contentparams paths.
@@ -162,10 +162,10 @@ An association can be set from either side when both objects are in scope:
 
 ```mdl
 -- Standard: change the child (FK owner)
-change $SearchResult (PayerRegistration.PayerDetail_Dto_CompanySearchResult = $Dto)
+change $SearchResult (OrderRegistration.OrderDetail_Dto_CompanySearchResult = $Dto)
 
 -- Fallback: change the parent (same effect)
-change $Dto (PayerRegistration.PayerDetail_Dto_CompanySearchResult = $SearchResult)
+change $Dto (OrderRegistration.OrderDetail_Dto_CompanySearchResult = $SearchResult)
 ```
 
 If the child-side `change` fails, try the parent-side before diagnosing further.
@@ -181,8 +181,8 @@ mxcli silently translates `retrieve $Var from $Obj/NPE_Assoc limit 1` into a dat
 **Correct pattern:**
 ```mdl
 create or replace microflow Module.ACT_Save (
-  "Dto": Module.PayerDetail_Dto,
-  "AreaDto": Module.PayerArea_Dto      -- pass NPE directly; do NOT retrieve inside
+  "Dto": Module.OrderDetail_Dto,
+  "AreaDto": Module.OrderArea_Dto      -- pass NPE directly; do NOT retrieve inside
 )
 ```
 
@@ -204,13 +204,13 @@ Apply this proactively — don't wait for CE0056. If you're about to write a ret
 **Pattern — post-retrieve guard for direct attribute:**
 ```mdl
 @annotation 'BUG-15b: XPath may be empty in Studio Pro. Required constraint: [CustomerCode = $ExistingCustomerCode]'
-retrieve $ExistingPayerDetail from PayerRegistration.PayerDetail
+retrieve $ExistingOrderDetail from OrderRegistration.OrderDetail
   where [CustomerCode = $ExistingCustomerCode]
   limit 1;
 
-if $ExistingPayerDetail/CustomerCode != $ExistingCustomerCode then
-  log error node 'PayerRegistration'
-    'WRONG RECORD -- got CustomerCode=' + $ExistingPayerDetail/CustomerCode + ' expected=' + $ExistingCustomerCode
+if $ExistingOrderDetail/CustomerCode != $ExistingCustomerCode then
+  log error node 'OrderRegistration'
+    'WRONG RECORD -- got CustomerCode=' + $ExistingOrderDetail/CustomerCode + ' expected=' + $ExistingCustomerCode
     + '. Fix: open retrieve in Studio Pro, set Constraint=[CustomerCode = $ExistingCustomerCode]';
   return empty;
 end if;
@@ -218,15 +218,15 @@ end if;
 
 **Pattern — guard when no direct attribute is available (cross-entity association path):**
 ```mdl
-@annotation 'BUG-15b: XPath may be empty. Required constraint: [PayerRegistration.PayerDetail_PayerCustomerBase/PayerRegistration.PayerDetail/CustomerCode = $CCode]'
-retrieve $ExistingBase from Customer_Common.PayerCustomerBase
-  where [PayerRegistration.PayerDetail_PayerCustomerBase/PayerRegistration.PayerDetail/CustomerCode = $CCode]
+@annotation 'BUG-15b: XPath may be empty. Required constraint: [OrderRegistration.OrderDetail_OrderCustomerBase/OrderRegistration.OrderDetail/CustomerCode = $CCode]'
+retrieve $ExistingBase from Customer_Common.OrderCustomerBase
+  where [OrderRegistration.OrderDetail_OrderCustomerBase/OrderRegistration.OrderDetail/CustomerCode = $CCode]
   limit 1;
 
 if $ExistingBase = empty then
-  log error node 'PayerRegistration'
+  log error node 'OrderRegistration'
     'No record found for CustomerCode=' + $CCode
-    + '. If Studio Pro Constraint field is empty, add: [PayerRegistration.PayerDetail_PayerCustomerBase/PayerRegistration.PayerDetail/CustomerCode = $CCode]';
+    + '. If Studio Pro Constraint field is empty, add: [OrderRegistration.OrderDetail_OrderCustomerBase/OrderRegistration.OrderDetail/CustomerCode = $CCode]';
   return empty;
 end if;
 ```
@@ -329,10 +329,11 @@ end;
 - **Cross-module association `change`:** always `change` from the MANY/Parent side (FK owner). Setting from the ONE/Child side causes CE0854.
 - **NPE RETRIEVE from DB (CE0056):** `retrieve $Var from NPE.Entity` is invalid — NPEs have no database table. Pass NPE as parameter instead (see rule above).
 - **contentparams cross-module NPE traversal (CE0402):** `[{1} = Module.Assoc/Attribute]` fails when the target entity is an NPE in another module. Denormalize the field onto the source entity instead.
-- **`show message` in microflows → CE0720 (mxcli bug):** `show message 'literal text'` generates `show message '{1}' objects ['literal text']`. Mendix rejects string literals in the objects list (only variable refs allowed) → CE0720. Even `show message '{1}' objects [$Var]` is broken: mxcli inserts a rogue `'{1}'` literal as the first objects item. **Workaround:** use `log error` for server-side recording + wire the Show Message activity manually in Studio Pro if user-visible feedback is needed.
-- **`validation feedback $Dto/Attr message '...'` → CE0639 (mxcli bug):** mxcli stores the attribute path string but does NOT wire the Variable property in the underlying BSON → CE0639 "No variable selected". **Workaround:** use `log error` + configure Validation Feedback manually in Studio Pro (open the activity, set Variable = $PayerDetail_Dto, Member = AttributeName, Message = 'text').
+- **`show message` in microflows → CE0720 (mxcli bug):** `show message 'literal text'` generates `show message '{1}' objects ['literal text']`. Mendix rejects string literals in the objects list (only variable refs allowed) → CE0720. Even `show message '{1}' objects [$Var]` is broken: mxcli inserts a rogue `'{1}'` literal as the first objects item. **Workaround, confirmed working 2026-07-20 (WMS-App):** don't fight this in the microflow at all — wrap the microflow in a NANOFLOW that calls it via `CALL MICROFLOW`, then does `show message` in the nanoflow (works correctly there, real `mx check`/docker check passed 0 errors). Rewire the page button's `Action` to call the nanoflow instead of the microflow directly (`ALTER PAGE` can't `SET Action = ...` — must `REPLACE` the whole actionbutton). This is a clean, fully-CLI-doable fix, not just a "go do it manually in Studio Pro" fallback.
+- **`show message ... type Success` silently becomes `type Information` (no error, no warning):** Mendix's nanoflow Show Message action only has three severities — `Information`, `Warning`, `Error`. There is no `Success` level. Writing `show message '...' type Success;` passes `mxcli check` AND a real `mx check`/docker check with 0 errors, because mxcli silently remaps `Success` → `Information` rather than rejecting it — confirmed via `describe nanoflow` showing the persisted BSON as `type Information` after requesting `type Success`. Functionally harmless (message still shows) but visually wrong (blue "info" toast instead of a green "success" toast) and easy to miss since nothing errors. **Use `type Information` for a "success" message from the start** — don't write `type Success` expecting it to work or to at least fail loudly.
+- **`validation feedback $Dto/Attr message '...'` → CE0639 (mxcli bug):** mxcli stores the attribute path string but does NOT wire the Variable property in the underlying BSON → CE0639 "No variable selected". **Workaround:** use `log error` + configure Validation Feedback manually in Studio Pro (open the activity, set Variable = $OrderDetail_Dto, Member = AttributeName, Message = 'text').
 - **`not expr` → CE0117:** Mendix requires parentheses: `not(expr)`. `not $IsValid` is rejected. Always write `not($IsValid)`.
-- **LESSON-03:** Always use fully-qualified `Module.EntityName` in the `returns` clause. Unqualified entity names (e.g. `returns PayerDetail as $Var`) cause CE1613 "entity no longer exists" because the model checker cannot resolve the type. Always write `returns PayerRegistration.PayerDetail as $PayerDetail`.
+- **LESSON-03:** Always use fully-qualified `Module.EntityName` in the `returns` clause. Unqualified entity names (e.g. `returns OrderDetail as $Var`) cause CE1613 "entity no longer exists" because the model checker cannot resolve the type. Always write `returns OrderRegistration.OrderDetail as $OrderDetail`.
 - **LESSON-04 — `retrieve $X from $obj/Assoc limit 1` → CE0018 + CE0136 (mxcli BUG):** mxcli generates a "Retrieve by Association" BSON activity with empty `Association` and `Entity` properties. Mendix rejects these with CE0018 ("Association property required") and CE0136 ("Entity property required"). **Fix:** replace with XPath DB retrieve: `retrieve $X from Module.Entity where [AssocPath/Module.Entity/Attr = $var] limit 1;`. **Pre-flight before using XPath:** (1) target entity is persistent (not an NPE), (2) all entities in the XPath path are persistent, (3) all objects being filtered on are committed to the DB — XPath queries the database, not in-memory objects. If any condition fails, use a different approach (pass as parameter, loop retrieve, etc.).
 - **Microflow canvas layout — RESET LAYOUT, not @position (LESSON-01+02):**
   - `@position(x, y)` stores coordinates for individual activities but does NOT position the start event, end events, or merge nodes. Those are placed by mxcli at default coordinates that conflict with manual @position values, producing stacked or misaligned flows. `@position` is effectively useless for controlling visual layout.
@@ -343,7 +344,7 @@ end;
 
 ---
 
-## Validation Feedback — Correct Pattern (from ACT_PayerDetail_Save)
+## Validation Feedback — Correct Pattern (from ACT_OrderDetail_Save)
 
 **Rule:** Use `validation feedback` directly — no `log error` alongside it, no annotations.
 
@@ -354,7 +355,7 @@ IF trim($Dto/FieldName) = '' THEN
 END IF;
 ```
 
-**GRANT syntax:** Short role names only — `Admin, User` NOT `PayerRegistration.Admin`.
+**GRANT syntax:** Short role names only — `Admin, User` NOT `OrderRegistration.Admin`.
 
 **CE0639 is unavoidable via mxcli:** mxcli does not wire the Variable property in validation feedback BSON. After exec, open the microflow in Studio Pro → for each feedback activity → set Variable = $Dto, Member = attribute. One Studio Pro session fixes all.
 
@@ -368,11 +369,11 @@ END IF;
 
 ```mdl
 -- WRONG (CE0018)
-retrieve $SearchResult from $Dto/PayerRegistration.PayerDetail_Dto_CompanySearchResult;
+retrieve $SearchResult from $Dto/OrderRegistration.OrderDetail_Dto_CompanySearchResult;
 
 -- CORRECT
-retrieve $SearchResult from PayerRegistration.CompanySearchResult
-  where [PayerRegistration.PayerDetail_Dto_CompanySearchResult = $Dto]
+retrieve $SearchResult from OrderRegistration.CompanySearchResult
+  where [OrderRegistration.OrderDetail_Dto_CompanySearchResult = $Dto]
   limit 1;
 ```
 
@@ -393,3 +394,19 @@ set $Result = $Result + toString($Item/Status) + '\n';
 ```
 
 This applies anywhere an enum value flows into a String context: concatenation, `return`, `set`, `declare`, function arguments expecting String. Confirmed on a live project (2026-07-07).
+
+---
+
+## CHANGE activity: clear a String attribute — use `empty` not `''`
+
+Setting a String attribute to empty string via `''` in a CHANGE activity causes CE0117:
+
+```mdl
+-- CE0117 — DO NOT USE:
+change $Order ("ProblemMessage" = '') refresh;
+
+-- CORRECT — use empty keyword:
+change $Order ("ProblemMessage" = empty) refresh;
+```
+
+Using `''` in IF conditions and RETRIEVE WHERE clauses is fine. The restriction is specific to CHANGE/CREATE activity value assignments. Confirmed Mendix 11.12.0 Beta, 2026-07-17.

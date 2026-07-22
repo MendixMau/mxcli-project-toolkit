@@ -2,7 +2,7 @@
 **Applies to:** migration or requirements-driven build (works from documents/SME input — no legacy source needed).
 **Purpose:** How to synthesise KB files + extracted JSON into BRD (Business Requirements
 Document) JSON files — the structured handoff from analysis to MDL scripting.
-**Source:** Apex M-0022 — F001–F012 BRDs produced in conversation, 2026-05.
+**Source:** Apex sample — F001–F012 BRDs produced in conversation, 2026-05.
 
 ---
 
@@ -23,7 +23,7 @@ microflows to build, pages to build, and integration stubs needed.
 F{NNN}-{kebab-topic}.brd.json
 
 Examples:
-  F001-payer-registration.brd.json
+  F001-order-registration.brd.json
   F002-approval-workflow.brd.json
   F003-master-data.brd.json
   F004-corporate-search.brd.json
@@ -39,34 +39,34 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
 ```json
 {
   "id": "F001",
-  "title": "Payer & Billing Address Registration",
-  "modules": ["M0022_PayerRegist"],
-  "actors": ["PayerRegisterUser", "SuperUser", "SysAdmin"],
+  "title": "Order & Billing Address Registration",
+  "modules": ["MXXXX_OrderRegist"],
+  "actors": ["OrderRegisterUser", "SuperUser", "SysAdmin"],
 
   "useCases": [
     {
       "id": "UC001",
-      "title": "View Payer Registration List",
-      "actors": ["PayerRegisterUser", "SuperUser"],
+      "title": "View Order Registration List",
+      "actors": ["OrderRegisterUser", "SuperUser"],
       "preconditions": ["User is logged in with appropriate role"],
-      "postconditions": ["System displays the payer registration list"],
+      "postconditions": ["System displays the order registration list"],
       "mainFlow": [
-        "1. User navigates to PayerRegistration_Overview page",
-        "2. System retrieves and displays all PayerApplicationHeader records"
+        "1. User navigates to OrderRegistration_Overview page",
+        "2. System retrieves and displays all OrderApplicationHeader records"
       ],
-      "screens": ["PayerRegistration_Overview"],
-      "mdlRefs": ["M0022_PayerRegist"]
+      "screens": ["OrderRegistration_Overview"],
+      "mdlRefs": ["MXXXX_OrderRegist"]
     }
   ],
 
   "domainEntities": [
     {
-      "name": "PayerDetail",
-      "module": "PayerRegistration",
+      "name": "OrderDetail",
+      "module": "OrderRegistration",
       "persistent": true,
-      "sourceOS": "ENPayerDetail",
+      "sourceOS": "ENOrderDetail",
       "attributes": [
-        { "name": "PayerCode",     "type": "String",   "length": 10,  "mandatory": true  },
+        { "name": "OrderCode",     "type": "String",   "length": 10,  "mandatory": true  },
         { "name": "CustomerCode",  "type": "String",   "length": 10,  "mandatory": false },
         { "name": "CurrencyCode",  "type": "String",   "length": 3,   "mandatory": true  },
         { "name": "IsActive",      "type": "Boolean",                 "mandatory": true  }
@@ -74,10 +74,10 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
       "auditFields": ["IsActive", "LockVersion", "CreatedOn", "CreatedBy"],
       "associations": [
         {
-          "name": "PayerDetail_PayerApplicationHeader",
-          "target": "PayerApplicationHeader",
+          "name": "OrderDetail_OrderApplicationHeader",
+          "target": "OrderApplicationHeader",
           "type": "ManyToOne",
-          "owner": "PayerDetail"
+          "owner": "OrderDetail"
         }
       ]
     }
@@ -85,26 +85,26 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
 
   "microflows": [
     {
-      "name": "ACT_PayerDetail_Save",
-      "module": "PayerRegistration",
-      "purpose": "Validates and persists a new payer draft. Returns the created PayerDetail.",
-      "params": [{ "name": "Dto", "type": "PayerDetail_Dto" }],
-      "returns": "PayerDetail",
+      "name": "ACT_OrderDetail_Save",
+      "module": "OrderRegistration",
+      "purpose": "Validates and persists a new order draft. Returns the created OrderDetail.",
+      "params": [{ "name": "Dto", "type": "OrderDetail_Dto" }],
+      "returns": "OrderDetail",
       "pattern": "validate-then-save",
-      "calls": ["GET_PayerArea_Dto", "ACT_PayerDetail_SaveDraft"],
+      "calls": ["GET_OrderArea_Dto", "ACT_OrderDetail_SaveDraft"],
       "validations": ["SelectedCompanyName not blank", "CurrencyCode not blank", "Deadline not empty"]
     }
   ],
 
   "pages": [
     {
-      "name": "PayerDetail_NewEdit",
-      "module": "PayerRegistration",
+      "name": "OrderDetail_NewEdit",
+      "module": "OrderRegistration",
       "layout": "Atlas_Core.Atlas_Default",
-      "purpose": "Data entry form for new payer registration",
-      "dataContext": "PayerDetail_Dto",
-      "sections": ["OrgChoice", "PayerInfo", "AreaData", "SalesAreaData"],
-      "actions": ["ACT_PayerDetail_Save", "ACT_PayerDetail_Cancel"]
+      "purpose": "Data entry form for new order registration",
+      "dataContext": "OrderDetail_Dto",
+      "sections": ["OrgChoice", "OrderInfo", "AreaData", "SalesAreaData"],
+      "actions": ["ACT_OrderDetail_Save", "ACT_OrderDetail_Cancel"]
     }
   ],
 
@@ -113,7 +113,7 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
       "name": "CorpSearch Corporate Search",
       "type": "REST",
       "stubName": "STUB_ACT_CorpSearch_Execute",
-      "stubBehaviour": "Returns hardcoded PayerBase co. result",
+      "stubBehaviour": "Returns hardcoded OrderBase co. result",
       "realTarget": "C-0031 CorpSearch API",
       "apiDoc": "KB_C0031_CorporateSearch.md"
     }
@@ -124,9 +124,9 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
   ],
 
   "sourceKB": [
-    "KB_M0022_RequirementsSpec_V5.md",
-    "KB_M0022_FieldLabels_EN.md",
-    "KB_M0022_QA.md"
+    "KB_MXXXX_RequirementsSpec_V5.md",
+    "KB_MXXXX_FieldLabels_EN.md",
+    "KB_MXXXX_QA.md"
   ]
 }
 ```
@@ -190,7 +190,7 @@ Collect before prompting:
 
 ```
 You are writing a BRD JSON file for an OutSystems → Mendix migration.
-This BRD covers: [feature area, e.g. "Payer Registration — the main registration flow"]
+This BRD covers: [feature area, e.g. "Order Registration — the main registration flow"]
 Feature ID: F[NNN]
 
 ## Input context:
@@ -214,8 +214,8 @@ Write F[NNN]-[topic].brd.json following this structure:
 - sourceKB — list of KB files used
 
 ## Mendix naming conventions:
-- Entity: PascalCase, no EN prefix (ENPayerDetail → PayerDetail)
-- Module: PascalCase (M0022_PayerRegist → PayerRegistration)
+- Entity: PascalCase, no EN prefix (ENOrderDetail → OrderDetail)
+- Module: PascalCase (MXXXX_OrderRegist → OrderRegistration)
 - Microflow: ACT_ (action), GET_ (retrieve/build DTO), VAL_ (validation), SUB_ (sub-routine)
 - Page: EntityName_NewEdit, EntityName_View, EntityName_Overview
 - Dto: EntityName_Dto (non-persistent)
@@ -250,7 +250,7 @@ After Claude writes the BRD, review these checkpoints:
 {
   "generated": "YYYY-MM-DD",
   "brds": [
-    { "id": "F001", "title": "Payer Registration",      "file": "F001-payer-registration.brd.json",  "status": "complete" },
+    { "id": "F001", "title": "Order Registration",      "file": "F001-order-registration.brd.json",  "status": "complete" },
     { "id": "F002", "title": "Approval Workflow",        "file": "F002-approval-workflow.brd.json",   "status": "complete" },
     { "id": "F003", "title": "Master Data",              "file": "F003-master-data.brd.json",         "status": "complete" }
   ]
@@ -273,7 +273,7 @@ Execute domain model first — microflows and pages reference entities that must
 
 ---
 
-## Tips from M-0022
+## Tips from MXXXX
 
 - **One BRD session at a time.** Don't try to write all 12 BRDs in one session.
   Write F001, validate it, use it to generate MDL, learn what's missing, then write F002.

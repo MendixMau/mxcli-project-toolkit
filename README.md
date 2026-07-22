@@ -279,21 +279,21 @@ mxcli-project-toolkit/
     migrate-outsystems.md       ← [migration] OutSystems-specific migration guide
     learned-*.md                ← [any project] Validated learnings from live projects
   pipelines/                    ← Source-specific extraction tooling (code; node_modules gitignored)
-    outsystems/                 ← OS XML → KB → BRD (imported with history) + sample-outputs
+    outsystems/                 ← OS XML → KB → BRD (extraction tooling; output is gitignored)
     java-angular/                ← Java + Angular/Spring Boot → KB → BRD
     node-express-react/          ← Node/Express + React → KB → BRD — regex-based, proven on one source shape only; read its README first
   examples/
     outsystems-migration/
       plan-overview.md          ← Worked example: 112 OS modules → 14 Mendix, architecture decisions
-      build-loop-example.md     ← Worked example: single module (PayerRegistration) step-by-step
-    apex-m0022/                 ← Project-specific artifacts, kept as reference examples (not shared rules)
-      bug-log-apex-m0022.md     ← Project-specific bug log (Apex M-0022)
-      test-plan-apex-m0022.md   ← Reference test plan
+      build-loop-example.md     ← Worked example: single module (OrderRegistration) step-by-step
+    apex-sample/                ← Fictional sample artifacts, kept as reference examples (not shared rules)
+      bug-log-apex.md           ← Sample bug log
+      test-plan-apex.md         ← Sample test plan
   bug-logs/
     mxcli-bugs.md               ← Known mxcli CLI bugs and workarounds (shared)
   process/
     process-learnings.md        ← Cross-project process improvements
-    learned-process-apex.md     ← Apex M-0022 project-scoped process notes (not in Baseline routing)
+    learned-process-apex.md     ← Apex sample project-scoped process notes (not in Baseline routing)
 ```
 
 `[any project]` vs `[migration]` above mirrors each skill's own `Applies to:` header line — greenfield mxcli builds only need the `[any project]` set, starting at Stage 5. The stage 1–4 skills (document discovery, KB/BRD generation and validation, modularization, architecture, design, build plan) also apply to **requirements-driven builds** with no legacy source — their headers say so explicitly.

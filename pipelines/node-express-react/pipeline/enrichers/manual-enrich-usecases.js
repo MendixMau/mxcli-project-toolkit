@@ -29,21 +29,21 @@ const enrichmentRules = {
   // Transaction module
   'UC-TRANSACTION-01': {
     // User creates transaction → Payment
-    actors: ['Payer/Sender'],
+    actors: ['Order/Sender'],
     preconditions: ['User is authenticated', 'User has sufficient balance', 'Recipient exists and is a contact'],
     mainFlow: [
       'User navigates to new transaction',
       'User selects recipient from contacts',
       'User enters amount and description',
       'User confirms payment',
-      'System deducts amount from payer balance',
+      'System deducts amount from order balance',
       'System credits amount to recipient balance',
       'System records transaction in database',
       'Success confirmation shown to user',
     ],
     postconditions: [
       'Transaction created with status PENDING',
-      'Payer balance reduced by amount',
+      'Order balance reduced by amount',
       'Recipient balance increased by amount',
       'Notification sent to recipient',
       'Transaction visible in both users\' feeds',
@@ -89,7 +89,7 @@ const enrichmentRules = {
       'User navigates to transaction feed',
       'User clicks "Public" tab',
       'System fetches public transactions from all users',
-      'Transactions displayed with payer & recipient info (privacy rules applied)',
+      'Transactions displayed with order & recipient info (privacy rules applied)',
     ],
     postconditions: ['Public transactions displayed without sensitive data'],
   },

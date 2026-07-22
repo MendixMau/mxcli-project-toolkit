@@ -2,8 +2,8 @@
 **Applies to:** any mxcli project.
 
 **Convention:** each rule is stated generically so it transfers to any project. Where a rule has a
-concrete illustration, it's kept as a **labeled example** (often from the Apex M-0022 OS→Mendix PoC —
-Japanese captions, `PayerRegistration`/`PayerDetail` names). Read the rule as the portable part; the
+concrete illustration, it's kept as a **labeled example** (often from the Apex sample OS→Mendix PoC —
+Japanese captions, `OrderRegistration`/`OrderDetail` names). Read the rule as the portable part; the
 example is just there to show the shape. Some older sections below are still written in project-
 specific terms and haven't been generalized yet — treat their project names as examples too.
 
@@ -21,7 +21,7 @@ A bare `txtAccountGroup` is unfindable in Studio Pro — the user has no way to 
 > Page `Module.PageName`, Section **Name** (`containerID` / label)[, inside DataView `dvName`, sub-section **label**]: widget `widgetName` (`AttributeName`) → property = value
 
 **Correct:**
-> Page `PayerDetail_NewEdit`, Section D (`ctnSec4` / General data): textbox `txtAccountGroup` (AccountGroup) → Editable = Never
+> Page `OrderDetail_NewEdit`, Section D (`ctnSec4` / General data): textbox `txtAccountGroup` (AccountGroup) → Editable = Never
 
 **Wrong — do not use:**
 > Set `txtAccountGroup` to Editable = Never
@@ -36,11 +36,11 @@ Applies to: pending Studio Pro steps, CE-error descriptions, and any instruction
 
 mxcli generates buttons with an empty label when `Caption:` is omitted — the button works functionally but shows nothing in the UI, requiring a Studio Pro fix after every exec. Keep a project caption glossary (in the target language) so captions are consistent and never left blank; if the correct label is uncertain, look it up in the project's field-label source before writing the script rather than shipping an empty caption.
 
-**Example — Apex M-0022 (Japanese caption glossary):**
+**Example — Apex sample (Japanese caption glossary):**
 
 | Action | Japanese caption |
 |--------|-----------------|
-| Add row | ` Add row` |
+| Add row | `+ Add row` |
 | Delete row | `Delete` |
 | Save | `Save` |
 | Cancel | `Cancel` |
@@ -51,12 +51,12 @@ mxcli generates buttons with an empty label when `Caption:` is omitted — the b
 
 ```mdl
 ACTIONBUTTON btnAddSalesAreaRow (
-  Caption: ' Add row',
+  Caption: '+ Add row',
   ButtonStyle: Success,
-  Action: MICROFLOW PayerRegistration.ACT_SalesAreaData_AddRow(Dto: $PayerDetail_Dto)
+  Action: MICROFLOW OrderRegistration.ACT_SalesAreaData_AddRow(Dto: $OrderDetail_Dto)
 )
 ```
-> In that project the glossary lived in `extraction/knowledge-base/share/KB_M0022_FieldLabels_EN.md`.
+> In that project the glossary lived in `extraction/knowledge-base/share/KB_MXXXX_FieldLabels_EN.md`.
 
 ---
 
@@ -82,7 +82,7 @@ mxcli exec hard-fails with `"failed to resolve page: page not found: Module.Page
 - Fill-in: `create or modify page "Module"."PageName" (...) { ... }` — rewrites content in-place, preserving the document ID.
 - Same rule applies to snippets: `create or modify snippet`.
 
-**Risk in this project:** `15b-stub-pages.mdl` created stubs for `Payer_OrgChoice` and `PayerDetail_View`. Steps 7e and 7h MUST use `create or modify` to fill them in.
+**Risk in this project:** `15b-stub-pages.mdl` created stubs for `Order_OrgChoice` and `OrderDetail_View`. Steps 7e and 7h MUST use `create or modify` to fill them in.
 
 ---
 
@@ -138,15 +138,15 @@ A regular textbox outside the gallery has no filter binding → CE0544 + CE7005.
 
 **Rule:** When a nested DataView shows an object reachable via a direct association from the page parameter, use the **Context** datasource type, not a microflow datasource.
 
-- Context datasource: `DataSource: $PayerDetail/PayerRegistration.PayerDetail_PayerCustomerBase`
+- Context datasource: `DataSource: $OrderDetail/OrderRegistration.OrderDetail_OrderCustomerBase`
 - Simpler, faster, no extra microflow needed.
 - Only use microflow datasource when retrieval requires filtering, aggregation, or multi-hop XPath logic.
 
 **mxcli limitation:** `ALTER PAGE` has no syntax for changing a DataView's datasource type. This must be done manually in Studio Pro: DataView properties → Data source → Type: Context → navigate association tree from page parameter.
 
 **Affected pages (not yet converted):**
-- `PayerDetail_View`: `dvPayerCustomerBase` — use path `PayerDetail_PayerCustomerBase/PayerCustomerBase`
-- `PayerDetail_View`: `dvPaymentTermData` — check if direct association path exists
+- `OrderDetail_View`: `dvOrderCustomerBase` — use path `OrderDetail_OrderCustomerBase/OrderCustomerBase`
+- `OrderDetail_View`: `dvPaymentTermData` — check if direct association path exists
 
 ---
 
@@ -156,14 +156,14 @@ A regular textbox outside the gallery has no filter binding → CE0544 + CE7005.
 
 **Workaround:** wrap the widget in a container with a static base class, then set the dynamic class expression in Studio Pro: select the container → Properties → Dynamic class → enter expression.
 
-**Association path syntax in expressions — no module prefix:** use just the association/entity name, not `Module.AssocName`. Example for 2-hop Status from PayerDetail:
+**Association path syntax in expressions — no module prefix:** use just the association/entity name, not `Module.AssocName`. Example for 2-hop Status from OrderDetail:
 
 ```
-if $currentObject/PayerDetail_PayerApplicationHeader/PayerApplicationHeader_ApplicationCommonHeader/Status = '01' then 'badge-editing'
-else if $currentObject/PayerDetail_PayerApplicationHeader/PayerApplicationHeader_ApplicationCommonHeader/Status = '02' then 'badge-submitted'
-else if $currentObject/PayerDetail_PayerApplicationHeader/PayerApplicationHeader_ApplicationCommonHeader/Status = '03' then 'badge-approved'
-else if $currentObject/PayerDetail_PayerApplicationHeader/PayerApplicationHeader_ApplicationCommonHeader/Status = '04' then 'badge-returned'
-else if $currentObject/PayerDetail_PayerApplicationHeader/PayerApplicationHeader_ApplicationCommonHeader/Status = '99' then 'badge-cancelled'
+if $currentObject/OrderDetail_OrderApplicationHeader/OrderApplicationHeader_ApplicationCommonHeader/Status = '01' then 'badge-editing'
+else if $currentObject/OrderDetail_OrderApplicationHeader/OrderApplicationHeader_ApplicationCommonHeader/Status = '02' then 'badge-submitted'
+else if $currentObject/OrderDetail_OrderApplicationHeader/OrderApplicationHeader_ApplicationCommonHeader/Status = '03' then 'badge-approved'
+else if $currentObject/OrderDetail_OrderApplicationHeader/OrderApplicationHeader_ApplicationCommonHeader/Status = '04' then 'badge-returned'
+else if $currentObject/OrderDetail_OrderApplicationHeader/OrderApplicationHeader_ApplicationCommonHeader/Status = '99' then 'badge-cancelled'
 else 'badge-default'
 ```
 
@@ -225,12 +225,12 @@ report the page as done — **a page with no wired caller is not "done."**
 Learned after a build phase produced pages with wrong widget types, empty sections, and inaccessible fields. These rules are universal; the paths/users in the examples are project-specific.
 
 **Rule: Read the authoritative spec field-by-field before building any page — not the prototype.** A prototype/mockup HTML omits fields, flattens sections, and makes everything look like a text input. Build from the field-level spec (labels, types, mandatory/optional, section structure) and the domain-model bindings, not the mockup.
-> *Example — Apex M-0022:* authoritative sources were `KB_M0022_FieldLabels_EN.md` (labels + types), `KB_M0022_RequirementsSpec_V5.md` (rules), `07_Form.md` (section structure), and `docs/domain-design-enriched/F001–F012.md` (entity bindings).
+> *Example — Apex sample:* authoritative sources were `KB_MXXXX_FieldLabels_EN.md` (labels + types), `KB_MXXXX_RequirementsSpec_V5.md` (rules), `07_Form.md` (section structure), and `docs/domain-design-enriched/F001–F012.md` (entity bindings).
 
 **Rule: Cross-check DTOs/NPEs against pages before calling a phase done.** When the domain model and pages are built in separate sessions, verify every DTO created in the domain phase is actually bound to a DataView on some page. A 34-attribute DTO that no page renders is invisible — a silent gap.
 
 **Rule: After any page build, test with a non-admin user before moving on.** Write access on non-persistent (DTO) entities is not inherited from persistent-entity access rules; failing to grant `write *` to the relevant User roles produces greyed-out forms that look built but aren't usable. Log in as a real end-user role immediately after page creation.
-> *Example — Apex M-0022:* tested with `yoko.taoka` (HQDomestic role) right after each page.
+> *Example — Apex sample:* tested with `demo.user` (HQDomestic role) right after each page.
 
 **Rule: Stub banners must name the script that will replace them.** Use `[STUB: Script 44 will replace this section]`, never a bare `[STUB] handled elsewhere` — named stubs are trackable and don't get forgotten as sessions progress. (A stub banner with nothing rendered beneath it is invisible in a demo — always render at least one real data field below it.)
 

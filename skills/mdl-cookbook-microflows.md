@@ -1,6 +1,6 @@
 # MDL Cookbook — Real Microflow Examples
 **Applies to:** any mxcli project.
-**Source project:** Apex-TestRunOS-main (M-0022 OutSystems → Mendix migration)
+**Source project:** Apex-TestRunOS-main (MXXXX OutSystems → Mendix migration)
 **Date:** 2026-07-01
 
 These are the five largest and most complex microflows from the project, with full MDL
@@ -9,9 +9,9 @@ and a plain-language explanation of every decision. Read alongside
 
 ---
 
-## 1. `GET_PayerDetail_Dto` — DTO builder with chained cross-module XPath retrieves
+## 1. `GET_OrderDetail_Dto` — DTO builder with chained cross-module XPath retrieves
 
-**What it does:** Fetches the current workflow status for a PayerDetail record by
+**What it does:** Fetches the current workflow status for a OrderDetail record by
 walking two association hops across two modules, then packages selected fields into a
 Non-Persistent DTO for use by validation and page binding.
 
@@ -22,22 +22,22 @@ Non-Persistent DTO for use by validation and page binding.
 - Building a non-persistent entity (NPE) as the return value
 
 ```sql
-create or modify microflow PayerRegistration.GET_PayerDetail_Dto (
-  $PayerDetail: PayerRegistration.PayerDetail
+create or modify microflow OrderRegistration.GET_OrderDetail_Dto (
+  $OrderDetail: OrderRegistration.OrderDetail
 )
-returns PayerRegistration.PayerDetail_Dto as $Dto
-folder 'PayerDetail'
+returns OrderRegistration.OrderDetail_Dto as $Dto
+folder 'OrderDetail'
 begin
   -- PATTERN: Guard-early-return. Always check input before touching DB.
-  if $PayerDetail = empty then
+  if $OrderDetail = empty then
     return empty;
   end if;
 
   -- PATTERN: XPath retrieve over association.
   -- "where AssocName = $Object limit 1" is the standard 1:1 follow pattern.
   -- Association name is fully qualified: Module.Entity1_Entity2
-  retrieve $AppHeader from PayerRegistration.PayerApplicationHeader
-    where PayerRegistration.PayerDetail_PayerApplicationHeader = $PayerDetail
+  retrieve $AppHeader from OrderRegistration.OrderApplicationHeader
+    where OrderRegistration.OrderDetail_OrderApplicationHeader = $OrderDetail
     limit 1;
 
   -- Default value for the field we're trying to read
@@ -46,9 +46,9 @@ begin
   -- PATTERN: Nested null-check before second hop.
   -- Never chain a second retrieve inside an IF without checking the first result.
   if $AppHeader != empty then
-    -- Second hop: cross-module retrieve (PayerRegistration → BusinessApp_Common)
+    -- Second hop: cross-module retrieve (OrderRegistration → BusinessApp_Common)
     retrieve $Header from BusinessApp_Common.ApplicationCommonHeader
-      where PayerRegistration.PayerApplicationHeader_ApplicationCommonHeader = $AppHeader
+      where OrderRegistration.OrderApplicationHeader_ApplicationCommonHeader = $AppHeader
       limit 1;
     if $Header != empty then
       set $Status = $Header/Status;
@@ -57,11 +57,11 @@ begin
 
   -- PATTERN: Build NPE from persistent sources + computed variables.
   -- NPEs are never committed. Return directly from CREATE.
-  $Dto = create PayerRegistration.PayerDetail_Dto (
+  $Dto = create OrderRegistration.OrderDetail_Dto (
     Status = $Status,
-    CustomerCode = $PayerDetail/CustomerCode,
-    CurrencyCode = $PayerDetail/CurrencyCode,
-    ContractorLocationCode = $PayerDetail/ContractorLocationCode,
+    CustomerCode = $OrderDetail/CustomerCode,
+    CurrencyCode = $OrderDetail/CurrencyCode,
+    ContractorLocationCode = $OrderDetail/ContractorLocationCode,
     IsBelongApexGroup = false,
     In_WfMode = ''
   );
@@ -78,9 +78,9 @@ Each `retrieve ... where AssocName = $Var limit 1` is equivalent to SQL:
 
 ---
 
-## 2. `ACT_PayerDetail_Save` — Multi-gate validation with accumulated feedback
+## 2. `ACT_OrderDetail_Save` — Multi-gate validation with accumulated feedback
 
-**What it does:** The main "Save" button handler for the payer registration form.
+**What it does:** The main "Save" button handler for the order registration form.
 Runs three validation gates, accumulates all failures before aborting, then delegates
 persistence to a sub-microflow.
 
@@ -89,20 +89,20 @@ persistence to a sub-microflow.
 - `validation feedback $Dto/Attr message '...'` (shown in Studio Pro as inline error)
 - `trim(expr) = ''` for blank-string check
 - `not($IsValid)` (requires parentheses — bare `not $IsValid` is a parse error)
-- Retrieve over NPE association — `$Dto/PayerRegistration.PayerDetail_Dto_CompanySearchResult`
+- Retrieve over NPE association — `$Dto/OrderRegistration.OrderDetail_Dto_CompanySearchResult`
 - Delegating persistence to a sub-microflow (single responsibility)
 
 ```sql
-create or modify microflow PayerRegistration.ACT_PayerDetail_Save (
-  $Dto: PayerRegistration.PayerDetail_Dto
+create or modify microflow OrderRegistration.ACT_OrderDetail_Save (
+  $Dto: OrderRegistration.OrderDetail_Dto
 )
-returns PayerRegistration.PayerDetail as $PayerDetail
-folder 'PayerDetail'
+returns OrderRegistration.OrderDetail as $OrderDetail
+folder 'OrderDetail'
 begin
   -- PATTERN: Retrieve over NPE association (not XPath — association owner is the NPE itself).
   -- CE0018/CE0136 warnings from mxcli are a known limitation; Mendix runtime handles it correctly.
   -- Do NOT try to convert this to an XPath retrieve — NPEs have no DB table to query.
-  retrieve $SearchResult from $Dto/PayerRegistration.PayerDetail_Dto_CompanySearchResult;
+  retrieve $SearchResult from $Dto/OrderRegistration.OrderDetail_Dto_CompanySearchResult;
 
   -- PATTERN: Accumulate-all-errors.
   -- $IsValid starts true. Every gate sets it false AND fires validation feedback.
@@ -134,17 +134,17 @@ begin
   end if;
 
   -- All gates passed. Fetch AreaDto and delegate to SaveDraft.
-  $AreaDto = call microflow PayerRegistration.GET_PayerArea_Dto(Dto = $Dto) on error rollback;
+  $AreaDto = call microflow OrderRegistration.GET_OrderArea_Dto(Dto = $Dto) on error rollback;
 
   -- PATTERN: Single-responsibility save sub-microflow.
-  -- ACT_PayerDetail_Save owns validation; ACT_PayerDetail_SaveDraft owns persistence.
-  $PayerDetail = call microflow PayerRegistration.ACT_PayerDetail_SaveDraft(
+  -- ACT_OrderDetail_Save owns validation; ACT_OrderDetail_SaveDraft owns persistence.
+  $OrderDetail = call microflow OrderRegistration.ACT_OrderDetail_SaveDraft(
     Dto = $Dto, SearchResult = $SearchResult, AreaDto = $AreaDto
   ) on error rollback;
 
   -- Navigate to read-only view after save.
-  show page PayerRegistration.PayerDetail_View($PayerDetail = $PayerDetail);
-  return $PayerDetail;
+  show page OrderRegistration.OrderDetail_View($OrderDetail = $OrderDetail);
+  return $OrderDetail;
 end;
 /
 ```
@@ -157,11 +157,11 @@ end;
 
 ---
 
-## 3. `ACT_PayerDetail_SaveDraft` — Full object graph creation with association wiring and loop
+## 3. `ACT_OrderDetail_SaveDraft` — Full object graph creation with association wiring and loop
 
 **What it does:** Creates the full persistent object graph for a new draft registration:
-ApplicationCommonHeader → PayerApplicationHeader → PayerCustomerBase → PayerDetail →
-PayerAreaData → SalesAreaData (0..n rows). Each entity is created, wired by association,
+ApplicationCommonHeader → OrderApplicationHeader → OrderCustomerBase → OrderDetail →
+OrderAreaData → SalesAreaData (0..n rows). Each entity is created, wired by association,
 then committed before the next is created.
 
 **Patterns demonstrated:**
@@ -175,32 +175,32 @@ then committed before the next is created.
 - BUG-15b annotation pattern for XPath constraints lost after mxcli exec
 
 ```sql
-create or modify microflow PayerRegistration.ACT_PayerDetail_SaveDraft (
-  $Dto: PayerRegistration.PayerDetail_Dto,
+create or modify microflow OrderRegistration.ACT_OrderDetail_SaveDraft (
+  $Dto: OrderRegistration.OrderDetail_Dto,
   $SearchResult: Customer_Lookups.CompanySearchResult,
-  $AreaDto: PayerRegistration.PayerArea_Dto
+  $AreaDto: OrderRegistration.OrderArea_Dto
 )
-returns PayerRegistration.PayerDetail as $PayerDetail
-folder 'PayerDetail'
+returns OrderRegistration.OrderDetail as $OrderDetail
+folder 'OrderDetail'
 begin
   -- Step 1: ApplicationCommonHeader — cross-module header tracking function + applicant.
   $Header = call microflow BusinessApp_Common.ACT_ApplicationCommonHeader_Create(
-    FunctionId = 'M0022', Applicant = $currentUser/Name
+    FunctionId = 'MXXXX', Applicant = $currentUser/Name
   ) on error rollback;
 
-  -- Step 2: Sequence number for PayerCode. GET_Sequence_NextId returns an Integer.
-  $PayerCodeSeq = call microflow Common_Utils.GET_Sequence_NextId(
-    FunctionName = 'PayerRegistration', EntityName = 'Payer'
+  -- Step 2: Sequence number for OrderCode. GET_Sequence_NextId returns an Integer.
+  $OrderCodeSeq = call microflow Common_Utils.GET_Sequence_NextId(
+    FunctionName = 'OrderRegistration', EntityName = 'Order'
   ) on error rollback;
 
-  -- Step 3: PayerCustomerBase — delegates to Customer_Common module.
-  $PayerCustomerBase = call microflow Customer_Common.ACT_PayerCustomerBase_Create(
+  -- Step 3: OrderCustomerBase — delegates to Customer_Common module.
+  $OrderCustomerBase = call microflow Customer_Common.ACT_OrderCustomerBase_Create(
     Header = $Header, SearchResult = $SearchResult
   ) on error rollback;
 
-  -- Step 4: PayerApplicationHeader.
+  -- Step 4: OrderApplicationHeader.
   -- PATTERN: CREATE sets primitive attributes only. Associations wired separately with CHANGE.
-  $AppHeader = create PayerRegistration.PayerApplicationHeader (
+  $AppHeader = create OrderRegistration.OrderApplicationHeader (
     ApplyCategory = $Dto/ApplyCategory,
     RegistrationDue = $Dto/Deadline,
     MessageToApprover = $Dto/MessageToApprover,
@@ -210,14 +210,14 @@ begin
     CreatedBy = $currentUser/Name
   );
   -- PATTERN: Wire association AFTER create, BEFORE commit.
-  change $AppHeader (PayerRegistration.PayerApplicationHeader_ApplicationCommonHeader = $Header);
+  change $AppHeader (OrderRegistration.OrderApplicationHeader_ApplicationCommonHeader = $Header);
   commit $AppHeader on error rollback;
 
-  -- Step 5: PayerDetail — central entity.
-  -- toString($PayerCodeSeq) — GET_Sequence_NextId returns Integer; PayerCode is String.
+  -- Step 5: OrderDetail — central entity.
+  -- toString($OrderCodeSeq) — GET_Sequence_NextId returns Integer; OrderCode is String.
   -- 'Not assigned' = "not yet assigned" — initial placeholder, updated later.
-  $PayerDetail = create PayerRegistration.PayerDetail (
-    PayerCode = toString($PayerCodeSeq),
+  $OrderDetail = create OrderRegistration.OrderDetail (
+    OrderCode = toString($OrderCodeSeq),
     CustomerCode = 'Not assigned',
     CurrencyCode = $Dto/CurrencyCode,
     ContractorLocationCode = $Dto/ContractorLocationCode,
@@ -226,13 +226,13 @@ begin
     CreatedOn = [%CurrentDateTime%],
     CreatedBy = $currentUser/Name
   );
-  change $PayerDetail (PayerRegistration.PayerDetail_PayerApplicationHeader = $AppHeader);
-  change $PayerDetail (PayerRegistration.PayerDetail_PayerCustomerBase = $PayerCustomerBase);
-  commit $PayerDetail on error rollback;
+  change $OrderDetail (OrderRegistration.OrderDetail_OrderApplicationHeader = $AppHeader);
+  change $OrderDetail (OrderRegistration.OrderDetail_OrderCustomerBase = $OrderCustomerBase);
+  commit $OrderDetail on error rollback;
 
-  -- Step 6: PayerAreaData — optional section; all fields default to '' if AreaDto is empty.
+  -- Step 6: OrderAreaData — optional section; all fields default to '' if AreaDto is empty.
   -- PATTERN: Inline conditional in CREATE for optional sub-DTO.
-  $PayerAreaData = create PayerRegistration.PayerAreaData (
+  $OrderAreaData = create OrderRegistration.OrderAreaData (
     PrefixOfAbbreviation = if $AreaDto != empty then $AreaDto/PrefixOfAbbreviation else '',
     LBCOfficeCode        = if $AreaDto != empty then $AreaDto/LBCOfficeCode else '',
     EMail                = if $AreaDto != empty then $AreaDto/EMail else '',
@@ -250,20 +250,20 @@ begin
     CreatedOn = [%CurrentDateTime%],
     CreatedBy = $currentUser/Name
   );
-  change $PayerAreaData (PayerRegistration.PayerAreaData_PayerDetail = $PayerDetail);
-  commit $PayerAreaData on error rollback;
+  change $OrderAreaData (OrderRegistration.OrderAreaData_OrderDetail = $OrderDetail);
+  commit $OrderAreaData on error rollback;
 
   -- Step 7: SalesAreaData rows — 0..n rows, each persisted inside the loop.
   -- PATTERN: Retrieve NPE list via association traverse (no XPath — NPE has no table).
   -- BUG-15b: After mxcli exec, this retrieve's XPath constraint may be empty in Studio Pro.
-  -- Required constraint: [PayerRegistration.SalesAreaData_Dto_PayerDetail_Dto = $Dto]
+  -- Required constraint: [OrderRegistration.SalesAreaData_Dto_OrderDetail_Dto = $Dto]
   -- Check after exec and restore manually if missing.
-  retrieve $SalesAreaDtoList from $Dto/PayerRegistration.SalesAreaData_Dto_PayerDetail_Dto;
+  retrieve $SalesAreaDtoList from $Dto/OrderRegistration.SalesAreaData_Dto_OrderDetail_Dto;
 
   -- PATTERN: LOOP over list — create + wire + commit each row inside the loop body.
   loop $SalesAreaDtoRow in $SalesAreaDtoList
   begin
-    $SalesAreaData = create PayerRegistration.SalesAreaData (
+    $SalesAreaData = create OrderRegistration.SalesAreaData (
       AccountSettingGroup  = $SalesAreaDtoRow/AccountSettingGroup,
       TaxClassCode         = $SalesAreaDtoRow/TaxClassCode,
       CustomerInAccountId  = $SalesAreaDtoRow/CustomerInAccountId,
@@ -272,7 +272,7 @@ begin
       CreatedOn = [%CurrentDateTime%],
       CreatedBy = $currentUser/Name
     );
-    change $SalesAreaData (PayerRegistration.SalesAreaData_PayerDetail = $PayerDetail);
+    change $SalesAreaData (OrderRegistration.SalesAreaData_OrderDetail = $OrderDetail);
     commit $SalesAreaData on error rollback;
   end loop;
 
@@ -281,7 +281,7 @@ begin
     Header = $Header, NewStatus = '01'
   ) on error rollback;
 
-  return $PayerDetail;
+  return $OrderDetail;
 end;
 /
 ```
@@ -292,7 +292,7 @@ Check the domain model for who owns each side. Getting it backwards gives a CE00
 
 ---
 
-## 4. `ACT_Payer_Submit` — Orchestration flow with guard chain and $currentUser
+## 4. `ACT_Order_Submit` — Orchestration flow with guard chain and $currentUser
 
 **What it does:** The submit button handler. Runs five sequential guards (each returns early
 on failure), then calls three sub-microflows in sequence: DTO build → validation →
@@ -302,15 +302,15 @@ applicant field.
 **Patterns demonstrated:**
 - Guard chain pattern (early-return at each step, no deep nesting)
 - `$currentUser/Name` — built-in variable for the logged-in user's name
-- XPath retrieve chained across two modules (same as GET_PayerDetail_Dto)
+- XPath retrieve chained across two modules (same as GET_OrderDetail_Dto)
 - `$Obj/Attr` path navigation after retrieve
 - log with string concatenation: `'{1}' with ({1} = 'prefix' + $Var)`
 - STUB_ microflow call (external system integration placeholder)
 - `show page Module.Page` at end (navigate after action)
 
 ```sql
-create or modify microflow PayerRegistration.ACT_Payer_Submit (
-  $PayerDetail: PayerRegistration.PayerDetail
+create or modify microflow OrderRegistration.ACT_Order_Submit (
+  $OrderDetail: OrderRegistration.OrderDetail
 )
 returns Boolean as $Success
 folder 'OrgChoice'
@@ -318,53 +318,53 @@ begin
   declare $Success Boolean = false;
 
   -- GUARD 1: Input check.
-  if $PayerDetail = empty then
-    log warning node 'PayerRegistration' 'ACT_Payer_Submit: PayerDetail is empty';
+  if $OrderDetail = empty then
+    log warning node 'OrderRegistration' 'ACT_Order_Submit: OrderDetail is empty';
     return false;
   end if;
 
   -- GUARD 2: Build DTO (contains current status). Fail if DTO build fails.
-  $Dto = call microflow PayerRegistration.GET_PayerDetail_Dto(
-    PayerDetail = $PayerDetail
+  $Dto = call microflow OrderRegistration.GET_OrderDetail_Dto(
+    OrderDetail = $OrderDetail
   ) on error rollback;
 
   -- GUARD 3: Run field validation. VAL_ returns Boolean.
-  $IsValid = call microflow PayerRegistration.VAL_PayerDetail_BeforeSubmit(
+  $IsValid = call microflow OrderRegistration.VAL_OrderDetail_BeforeSubmit(
     Dto = $Dto
   ) on error rollback;
   if $IsValid = false then
-    log warning node 'PayerRegistration' 'ACT_Payer_Submit: validation failed';
+    log warning node 'OrderRegistration' 'ACT_Order_Submit: validation failed';
     return false;
   end if;
 
   -- GUARD 4: Duplicate check. ACT_DuplicateCheck_Run returns a result object.
   -- Navigate result object: $DupResult/IsDuplicate, $DupResult/ExistingCustomerCode
-  $DupResult = call microflow PayerRegistration.ACT_DuplicateCheck_Run(
-    PayerDetail = $PayerDetail
+  $DupResult = call microflow OrderRegistration.ACT_DuplicateCheck_Run(
+    OrderDetail = $OrderDetail
   ) on error rollback;
   if $DupResult/IsDuplicate = true then
     -- PATTERN: Log with string concatenation via {1} placeholder.
-    log warning node 'PayerRegistration'
-      '{1}' with ({1} = 'ACT_Payer_Submit: duplicate found. ExistingCode=' + $DupResult/ExistingCustomerCode);
+    log warning node 'OrderRegistration'
+      '{1}' with ({1} = 'ACT_Order_Submit: duplicate found. ExistingCode=' + $DupResult/ExistingCustomerCode);
     return false;
   end if;
 
   -- GUARD 5a: Walk association chain to find ApplicationCommonHeader.
-  -- Hop 1: PayerDetail → PayerApplicationHeader
-  retrieve $AppHeader from PayerRegistration.PayerApplicationHeader
-    where PayerRegistration.PayerDetail_PayerApplicationHeader = $PayerDetail
+  -- Hop 1: OrderDetail → OrderApplicationHeader
+  retrieve $AppHeader from OrderRegistration.OrderApplicationHeader
+    where OrderRegistration.OrderDetail_OrderApplicationHeader = $OrderDetail
     limit 1;
   if $AppHeader = empty then
-    log warning node 'PayerRegistration' 'ACT_Payer_Submit: PayerApplicationHeader not found for PayerDetail';
+    log warning node 'OrderRegistration' 'ACT_Order_Submit: OrderApplicationHeader not found for OrderDetail';
     return false;
   end if;
 
-  -- Hop 2: PayerApplicationHeader → ApplicationCommonHeader (cross-module)
+  -- Hop 2: OrderApplicationHeader → ApplicationCommonHeader (cross-module)
   retrieve $Header from BusinessApp_Common.ApplicationCommonHeader
-    where PayerRegistration.PayerApplicationHeader_ApplicationCommonHeader = $AppHeader
+    where OrderRegistration.OrderApplicationHeader_ApplicationCommonHeader = $AppHeader
     limit 1;
   if $Header = empty then
-    log warning node 'PayerRegistration' 'ACT_Payer_Submit: ApplicationCommonHeader not found';
+    log warning node 'OrderRegistration' 'ACT_Order_Submit: ApplicationCommonHeader not found';
     return false;
   end if;
 
@@ -372,8 +372,8 @@ begin
   -- PATTERN: $currentUser/Name — built-in, always resolves to logged-in user's display name.
   -- PATTERN: NPE created inline, passed as parameter — never committed.
   $WFRequest = create WF_Engine.WFSubmitRequest (
-    RegistrationNo = $PayerDetail/PayerCode,
-    ApplicationModule = 'PayerRegistration',
+    RegistrationNo = $OrderDetail/OrderCode,
+    ApplicationModule = 'OrderRegistration',
     ApplicantEMP_ID = '',
     ApplicantName = $currentUser/Name,
     RouteCode = 'J001'
@@ -385,8 +385,8 @@ begin
   ) on error rollback;
 
   if $WFResult/IsSuccess = false then
-    log warning node 'PayerRegistration'
-      '{1}' with ({1} = 'ACT_Payer_Submit: WF submission failed. ' + $WFResult/ErrorMessage);
+    log warning node 'OrderRegistration'
+      '{1}' with ({1} = 'ACT_Order_Submit: WF submission failed. ' + $WFResult/ErrorMessage);
     return false;
   end if;
 
@@ -397,7 +397,7 @@ begin
 
   set $Success = true;
   -- Navigate to overview after submit.
-  show page PayerRegistration.PayerRegistration_Overview;
+  show page OrderRegistration.OrderRegistration_Overview;
   return $Success;
 end;
 /
@@ -410,11 +410,11 @@ proceed only if all checks passed.
 
 ---
 
-## 5. `ACT_Payer_ExpansionApply_Save` — Cross-module XPath retrieve with BUG-15b workaround annotation
+## 5. `ACT_Order_ExpansionApply_Save` — Cross-module XPath retrieve with BUG-15b workaround annotation
 
-**What it does:** Creates a new PayerDetail for an *existing* customer (expansion
-registration, as opposed to new registration). Reuses the existing PayerCustomerBase
-instead of creating a new one. The key challenge: finding the PayerCustomerBase by
+**What it does:** Creates a new OrderDetail for an *existing* customer (expansion
+registration, as opposed to new registration). Reuses the existing OrderCustomerBase
+instead of creating a new one. The key challenge: finding the OrderCustomerBase by
 CustomerCode using a deep cross-module XPath, which BUG-15b may erase after mxcli exec.
 
 **Patterns demonstrated:**
@@ -426,17 +426,17 @@ CustomerCode using a deep cross-module XPath, which BUG-15b may erase after mxcl
 - Status '02' → using ApplyCategory from Dto (expansion vs new registration)
 
 ```sql
-create or modify microflow PayerRegistration.ACT_Payer_ExpansionApply_Save (
-  $Dto: PayerRegistration.PayerDetail_Dto,
-  $AreaDto: PayerRegistration.PayerArea_Dto
+create or modify microflow OrderRegistration.ACT_Order_ExpansionApply_Save (
+  $Dto: OrderRegistration.OrderDetail_Dto,
+  $AreaDto: OrderRegistration.OrderArea_Dto
 )
-returns PayerRegistration.PayerDetail as $NewPayerDetail
+returns OrderRegistration.OrderDetail as $NewOrderDetail
 folder 'OrgChoice'
 begin
   -- GUARD: CustomerCode must be set. Expansions require an existing customer.
   if $Dto/CustomerCode = '' then
-    log error node 'PayerRegistration'
-      '{1}' with ({1} = 'ACT_Payer_ExpansionApply_Save: CustomerCode is empty -- cannot save expansion.');
+    log error node 'OrderRegistration'
+      '{1}' with ({1} = 'ACT_Order_ExpansionApply_Save: CustomerCode is empty -- cannot save expansion.');
     return empty;
   end if;
 
@@ -447,45 +447,45 @@ begin
 
   -- Create ApplicationCommonHeader and get sequence number (same as new registration).
   $Header = call microflow BusinessApp_Common.ACT_ApplicationCommonHeader_Create(
-    FunctionId = 'M0022', Applicant = $currentUser/Name
+    FunctionId = 'MXXXX', Applicant = $currentUser/Name
   ) on error rollback;
-  $PayerCodeSeq = call microflow Common_Utils.GET_Sequence_NextId(
-    FunctionName = 'PayerRegistration', EntityName = 'Payer'
+  $OrderCodeSeq = call microflow Common_Utils.GET_Sequence_NextId(
+    FunctionName = 'OrderRegistration', EntityName = 'Order'
   ) on error rollback;
 
   -- PATTERN: Deep reverse XPath retrieve.
-  -- Goal: find PayerCustomerBase for the EXISTING customer with this CustomerCode.
-  -- Path: Customer_Common.PayerCustomerBase ← PayerDetail (via PayerDetail_PayerCustomerBase)
-  --       ← filtered by PayerDetail.CustomerCode = $CCode
-  -- This is a REVERSE traverse: start from PayerCustomerBase, filter via PayerDetail's attribute.
+  -- Goal: find OrderCustomerBase for the EXISTING customer with this CustomerCode.
+  -- Path: Customer_Common.OrderCustomerBase ← OrderDetail (via OrderDetail_OrderCustomerBase)
+  --       ← filtered by OrderDetail.CustomerCode = $CCode
+  -- This is a REVERSE traverse: start from OrderCustomerBase, filter via OrderDetail's attribute.
   --
   -- BUG-15b WARNING: After `mxcli exec`, the XPath constraint text is stored empty in Studio Pro.
-  -- Required constraint: [PayerRegistration.PayerDetail_PayerCustomerBase/PayerRegistration.PayerDetail/CustomerCode = $CCode]
+  -- Required constraint: [OrderRegistration.OrderDetail_OrderCustomerBase/OrderRegistration.OrderDetail/CustomerCode = $CCode]
   -- After exec: open Studio Pro → find this retrieve → paste the constraint above → save.
-  retrieve $ExistingBase from Customer_Common.PayerCustomerBase
-    where PayerRegistration.PayerDetail_PayerCustomerBase/PayerRegistration.PayerDetail/CustomerCode = $CCode
+  retrieve $ExistingBase from Customer_Common.OrderCustomerBase
+    where OrderRegistration.OrderDetail_OrderCustomerBase/OrderRegistration.OrderDetail/CustomerCode = $CCode
     limit 1;
 
   if $ExistingBase = empty then
-    log error node 'PayerRegistration'
-      '{1}' with ({1} = 'ACT_Payer_ExpansionApply_Save: no PayerCustomerBase found for CustomerCode=' + $CCode
-             + '. If Constraint is empty in Studio Pro, set it to: [PayerRegistration.PayerDetail_PayerCustomerBase/PayerRegistration.PayerDetail/CustomerCode = $CCode]');
+    log error node 'OrderRegistration'
+      '{1}' with ({1} = 'ACT_Order_ExpansionApply_Save: no OrderCustomerBase found for CustomerCode=' + $CCode
+             + '. If Constraint is empty in Studio Pro, set it to: [OrderRegistration.OrderDetail_OrderCustomerBase/OrderRegistration.OrderDetail/CustomerCode = $CCode]');
     return empty;
   end if;
 
   -- Verify step: check that the retrieve wasn't silently unfiltered (BUG-15b worst case).
-  -- If XPath was empty, the retrieve returns any PayerCustomerBase — which may be wrong.
-  retrieve $VerifyLink from PayerRegistration.PayerDetail
+  -- If XPath was empty, the retrieve returns any OrderCustomerBase — which may be wrong.
+  retrieve $VerifyLink from OrderRegistration.OrderDetail
     limit 1;
   if $VerifyLink = empty then
-    log warning node 'PayerRegistration'
-      '{1}' with ({1} = 'ACT_Payer_ExpansionApply_Save: no PayerDetail found for CustomerCode=' + $CCode
+    log warning node 'OrderRegistration'
+      '{1}' with ({1} = 'ACT_Order_ExpansionApply_Save: no OrderDetail found for CustomerCode=' + $CCode
              + '. Cannot verify $ExistingBase is correct.');
   end if;
 
-  -- Create PayerApplicationHeader for this expansion.
+  -- Create OrderApplicationHeader for this expansion.
   -- ApplyCategory comes from Dto (e.g. '02' = expansion vs '01' = new registration).
-  $AppHeader = create PayerRegistration.PayerApplicationHeader (
+  $AppHeader = create OrderRegistration.OrderApplicationHeader (
     ApplyCategory = $Dto/ApplyCategory,
     RegistrationDue = $Dto/Deadline,
     MessageToApprover = $Dto/MessageToApprover,
@@ -494,13 +494,13 @@ begin
     CreatedOn = [%CurrentDateTime%],
     CreatedBy = $currentUser/Name
   );
-  change $AppHeader (PayerRegistration.PayerApplicationHeader_ApplicationCommonHeader = $Header);
+  change $AppHeader (OrderRegistration.OrderApplicationHeader_ApplicationCommonHeader = $Header);
   commit $AppHeader on error rollback;
 
-  -- Create new PayerDetail — reuses existing $ExistingBase, does NOT create a new one.
+  -- Create new OrderDetail — reuses existing $ExistingBase, does NOT create a new one.
   -- CurrencyCode: fallback to 'JPY' if empty (expansion may not change currency).
-  $NewPayerDetail = create PayerRegistration.PayerDetail (
-    PayerCode = toString($PayerCodeSeq),
+  $NewOrderDetail = create OrderRegistration.OrderDetail (
+    OrderCode = toString($OrderCodeSeq),
     CustomerCode = $CCode,
     CurrencyCode = if $Dto/CurrencyCode != '' then $Dto/CurrencyCode else 'JPY',
     ContractorLocationCode = $Dto/ContractorLocationCode,
@@ -510,12 +510,12 @@ begin
     CreatedBy = $currentUser/Name
   );
   -- Wire TWO associations on the same entity — two separate CHANGE statements.
-  change $NewPayerDetail (PayerRegistration.PayerDetail_PayerApplicationHeader = $AppHeader);
-  change $NewPayerDetail (PayerRegistration.PayerDetail_PayerCustomerBase = $ExistingBase);
-  commit $NewPayerDetail on error rollback;
+  change $NewOrderDetail (OrderRegistration.OrderDetail_OrderApplicationHeader = $AppHeader);
+  change $NewOrderDetail (OrderRegistration.OrderDetail_OrderCustomerBase = $ExistingBase);
+  commit $NewOrderDetail on error rollback;
 
-  -- Create PayerAreaData from AreaDto (same conditional pattern as SaveDraft).
-  $PayerAreaData = create PayerRegistration.PayerAreaData (
+  -- Create OrderAreaData from AreaDto (same conditional pattern as SaveDraft).
+  $OrderAreaData = create OrderRegistration.OrderAreaData (
     PrefixOfAbbreviation = if $AreaDto != empty then $AreaDto/PrefixOfAbbreviation else '',
     LBCOfficeCode        = if $AreaDto != empty then $AreaDto/LBCOfficeCode else '',
     EMail                = if $AreaDto != empty then $AreaDto/EMail else '',
@@ -533,16 +533,16 @@ begin
     CreatedOn = [%CurrentDateTime%],
     CreatedBy = $currentUser/Name
   );
-  change $PayerAreaData (PayerRegistration.PayerAreaData_PayerDetail = $NewPayerDetail);
-  commit $PayerAreaData on error rollback;
+  change $OrderAreaData (OrderRegistration.OrderAreaData_OrderDetail = $NewOrderDetail);
+  commit $OrderAreaData on error rollback;
 
   -- Set status to 01 (Draft) on the new header.
   $UpdateOk = call microflow BusinessApp_Common.ACT_ApplicationCommonHeader_UpdateStatus(
     Header = $Header, NewStatus = '01'
   ) on error rollback;
 
-  show page PayerRegistration.PayerDetail_View($PayerDetail = $NewPayerDetail);
-  return $NewPayerDetail;
+  show page OrderRegistration.OrderDetail_View($OrderDetail = $NewOrderDetail);
+  return $NewOrderDetail;
 end;
 /
 ```

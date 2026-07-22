@@ -74,7 +74,6 @@ OS-migration-skills/
   skills/
     migrate-general.md
     assess-migration.md
-  sample-outputs/           ← reference BRD examples
   pipeline-guide.html       ← interactive pipeline guide (open in browser)
 ```
 

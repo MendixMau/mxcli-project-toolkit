@@ -1,13 +1,13 @@
 {
   "_comment": "PROJECT-OWNED config for the shared java-angular pipeline. Source of truth for WMS-App-main, ALL FIVE source repos in one combined, cross-linked run — see migration-pipeline.md 'Multiple source repos' and source-triage.md. Backend-only: no Angular source exists for this project (CONFIRMED, triage.md 2026-07-14), so angularSourceDir is intentionally empty.",
   "sources": [
-    { "name": "common-lib",    "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-common-lib/src/main/java" },
-    { "name": "tms",           "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-tms/src/main/java" },
-    { "name": "movements",     "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-movements/src/main/java" },
-    { "name": "movements-lib", "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-movements-lib/src/main/java" },
-    { "name": "core",          "javaSourceDir": "/Users/dev/Mendix/WMS-App-main/source/openwms-core/org.openwms.core.util/src/main/java" }
+    { "name": "common-lib",    "javaSourceDir": "/path/to/your/source-project/source/openwms-common-lib/src/main/java" },
+    { "name": "tms",           "javaSourceDir": "/path/to/your/source-project/source/openwms-tms/src/main/java" },
+    { "name": "movements",     "javaSourceDir": "/path/to/your/source-project/source/openwms-movements/src/main/java" },
+    { "name": "movements-lib", "javaSourceDir": "/path/to/your/source-project/source/openwms-movements-lib/src/main/java" },
+    { "name": "core",          "javaSourceDir": "/path/to/your/source-project/source/openwms-core/org.openwms.core.util/src/main/java" }
   ],
   "angularSourceDir": "",
   "dbDir": "",
-  "knowledgeBaseDir": "/Users/dev/Mendix/WMS-App-main/analysis/WMS-App/knowledge-base"
+  "knowledgeBaseDir": "/path/to/your/source-project/analysis/WMS-App/knowledge-base"
 }

@@ -1,6 +1,6 @@
-# Project-Scoped Process Notes — Apex M-0022 (OS→Mendix PoC)
+# Project-Scoped Process Notes — Apex sample (OS→Mendix PoC)
 
-**Scope:** These are **project-specific** build-discipline notes from the Apex M-0022 OutSystems→Mendix PoC. They reference that project's paths, demo users, and design docs — they are **not** generic toolkit rules. They live here (not in `skills/learned-*.md`, not in Baseline routing) so a new project doesn't inherit Apex-specific paths by accident.
+**Scope:** These are **project-specific** build-discipline notes from the Apex sample OutSystems→Mendix PoC. They reference that project's paths, demo users, and design docs — they are **not** generic toolkit rules. They live here (not in `skills/learned-*.md`, not in Baseline routing) so a new project doesn't inherit Apex-specific paths by accident.
 
 **The generic versions of the durable rules that used to sit here now live in shared skills:**
 - **Widget-location-context format** → `skills/learned-page-patterns.md` (generalized)
@@ -13,7 +13,7 @@
 
 ---
 
-## Design Sources — Where to Look Before Implementing (Apex M-0022)
+## Design Sources — Where to Look Before Implementing (Apex sample)
 
 **Rule:** Consult design sources before any domain model change, CE error fix, or logic implementation. Never improvise from memory.
 
@@ -26,13 +26,13 @@
 | 5 | `docs/interface-registry.md` | Cross-module calls, parameter contracts |
 | 6 | `bug-logs/mxcli-bugs.md` | Unexpected mxcli behavior — check here before assuming a script bug |
 
-**F-doc index:** F001=Payer Reg UI, F002=Approval Workflow, F003=Master Data, F004=Corporate Search, F005=SAP Integration, F006=Common Components, F010=WF Backend, F011=Customer Common, F012=Payer Backend. F007–F009 are out of PoC scope.
+**F-doc index:** F001=Order Reg UI, F002=Approval Workflow, F003=Master Data, F004=Corporate Search, F005=SAP Integration, F006=Common Components, F010=WF Backend, F011=Customer Common, F012=Order Backend. F007–F009 are out of PoC scope.
 
 **Do NOT use:** `docs/domain-design/` (superseded), `docs/domain-design-patched/` (superseded), `docs/superpowers/` (pipeline planning), `extraction/extractors/`, `extraction/generators/`.
 
 ---
 
-## CE Error Triage — Mandatory 5-Step Approach (Apex M-0022 specifics)
+## CE Error Triage — Mandatory 5-Step Approach (Apex sample specifics)
 
 The generic discipline is in `iterative-build-loop.md`. Project-specific hooks:
 
@@ -46,7 +46,7 @@ The generic discipline is in `iterative-build-loop.md`. Project-specific hooks:
 
 ---
 
-## MPR Backup / Recovery (Apex M-0022)
+## MPR Backup / Recovery (Apex sample)
 
 Use the rotating keep-5 snapshot discipline — **never** ad-hoc `.mpr.backup` copies (they accumulate and rot). `bin/exec.sh` snapshots automatically before every exec and auto-restores on an mxbuild failure.
 
@@ -75,5 +75,5 @@ Use the rotating keep-5 snapshot discipline — **never** ad-hoc `.mpr.backup` c
 
 > The **Page Build Discipline / Field Fidelity** rules that used to live here (spec-first, DTO
 > cross-check, test-as-non-admin, stub naming, correct-widget-first) are now generic rules in
-> `skills/learned-page-patterns.md`, with this project's paths (`KB_M0022_*`, `07_Form.md`) and demo
-> user (`yoko.taoka` / HQDomestic) preserved there as the worked example.
+> `skills/learned-page-patterns.md`, with this project's paths (`KB_MXXXX_*`, `07_Form.md`) and demo
+> user (`demo.user` / HQDomestic) preserved there as the worked example.

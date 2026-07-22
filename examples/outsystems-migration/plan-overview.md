@@ -47,7 +47,7 @@ OS modules are fine-grained and follow a `_CS` (server) / `_CW` (client) / `_VE`
 | `SAP_Integration` | Integration | BusinessAppCommon_IS_SAP, BusinessAppCommon_IS_SAP_WT |
 | `Org_Master` | Domain+Logic+UI | EmployeeService_CS/RWCW, DepartmentMaster_CS/CW |
 | `MailInquiry` | Domain+Logic | MailInquiryManagement_CS |
-| `PayerRegistration` | Domain+Logic+UI | M0022_PayerRegist, PayerRegist_CS |
+| `OrderRegistration` | Domain+Logic+UI | MXXXX_OrderRegist, OrderRegist_CS |
 | `ContractorRegistration` | Domain+Logic+UI+Integration | ContractorRegistration_BL/CS/VE, ContractorExpansion_CS |
 | `EndCustomerRegistration` | Domain+Logic+UI+Integration | EndCustomerRegistration_BL/CS/VE |
 | `ShipmentRegistration` | Domain+Logic+UI+Integration | ShipmentRegistration_BL/CS/VE |
@@ -57,7 +57,7 @@ OS modules are fine-grained and follow a `_CS` (server) / `_CW` (client) / `_VE`
 Common (no business logic, referenced by all)
   └─ BusinessApp_Common, Common_Utils, Common_Lookups, Security_Access, Customer_Lookups
 Domain+Logic (business feature modules)
-  └─ PayerRn, ContractorRegistration, EndCustomerRegistration, ShipmentRegistration
+  └─ OrderRn, ContractorRegistration, EndCustomerRegistration, ShipmentRegistration
       Customer_Common, Org_Master, MailInquiry
 Workflow platform
   └─ WF_Engine (Logic + UI + Integration in one module — justified by tight coupling)
@@ -75,17 +75,17 @@ Decided upfront, enforced throughout:
 
 | Concept | Convention | Example |
 |---------|-----------|---------|
-| Persistent entity | PascalCase singular, no prefix | `Payer`, `ShipmentDestination` |
-| Non-persistent (DTO) | Suffix `_Dto` | `PayerDetail_Dto`, `SearchCondition_Payer` |
-| Action microflow | `ACT_` | `ACT_PayerDetail_Save` |
-| Validation microflow | `VAL_` | `VAL_Payer` |
-| Read/retrieve microflow | `GET_` | `GET_PayerByCode` |
+| Persistent entity | PascalCase singular, no prefix | `Order`, `ShipmentDestination` |
+| Non-persistent (DTO) | Suffix `_Dto` | `OrderDetail_Dto`, `SearchCondition_Order` |
+| Action microflow | `ACT_` | `ACT_OrderDetail_Save` |
+| Validation microflow | `VAL_` | `VAL_Order` |
+| Read/retrieve microflow | `GET_` | `GET_OrderByCode` |
 | Sub-microflow (internal) | `SUB_` | `SUB_FormatCustomerCode` |
 | Integration call | `IVK_` | `IVK_SAP_GetCustomerBasic` |
 | Scheduled event | `SE_` | `SE_SyncSAPCustomerMaster` |
-| Overview page | `{Entity}_Overview` | `Payer_Overview` |
-| Edit page | `{Entity}_NewEdit` | `Payer_NewEdit` |
-| Detail/read-only page | `{Entity}_View` | `Payer_View` |
+| Overview page | `{Entity}_Overview` | `Order_Overview` |
+| Edit page | `{Entity}_NewEdit` | `Order_NewEdit` |
+| Detail/read-only page | `{Entity}_View` | `Order_View` |
 | Popup/search page | `{Entity}_Popup` | `Corporation_Popup` |
 | Snippet | `SNP_{Function}` | `SNP_AddressInfoSection` |
 
@@ -102,7 +102,7 @@ Decided before scripting — avoids mid-build surprises about what module owns w
 | `WF_Engine` | `ACT_WFApplication_Submit` | All 4 registration modules |
 | `WF_Engine` | `GET_WFStatus_ByApplicationHeader` | All 4 registration modules |
 | `SAP_Integration` | `IVK_SAP_GetCustomerBasic` | Customer_Common, registration modules |
-| `Customer_Common` | `ACT_PayerCustomerBase_CreateOrUpdate` | PayerRegistration, ContractorRegistration |
+| `Customer_Common` | `ACT_OrderCustomerBase_CreateOrUpdate` | OrderRegistration, ContractorRegistration |
 | `BusinessApp_Common` | `GET_ApplicationCommonHeader_ById` | All registration modules |
 | `Org_Master` | `GET_Employee_ByUserId` | WF_Engine, registration modules |
 

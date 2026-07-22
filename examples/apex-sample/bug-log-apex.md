@@ -1,4 +1,4 @@
-# Bug Log — Apex Payer Registration POC
+# Bug Log — Apex Order Registration POC
 
 Bugs discovered during Playwright E2E testing and DOM inspection.
 Each entry has: symptom, reproduction steps, evidence, suspected root cause, and suggested fix.
@@ -12,7 +12,7 @@ Each entry has: symptom, reproduction steps, evidence, suspected root cause, and
 **Discovered:** 2026-05-25 via Playwright e2e-01-empty-submit
 
 ### Symptom
-After the full OrgChoice → Next → Confirmation → Create flow, the `txtCompanyName` field on `PayerDetail_NewEdit` is **empty** (`value=""`). When the user clicks Save without touching that field, the validation gate fires: *"Company name is mandatory"*.
+After the full OrgChoice → Next → Confirmation → Create flow, the `txtCompanyName` field on `OrderDetail_NewEdit` is **empty** (`value=""`). When the user clicks Save without touching that field, the validation gate fires: *"Company name is mandatory"*.
 
 The user has no way to know they need to fill this — they just selected a company in the previous screen. It feels broken.
 
@@ -28,14 +28,14 @@ Playwright test output:
 ```
 
 ### Suspected root cause
-The init microflow for `PayerDetail_NewEdit` (or `ACT_PayerDetail_SaveDraft`) does not copy `CompanySearchResult.Name` (or equivalent) into `PayerDetail_Dto.SelectedCompanyName` when creating the Dto from the OrgChoice selection.
+The init microflow for `OrderDetail_NewEdit` (or `ACT_OrderDetail_SaveDraft`) does not copy `CompanySearchResult.Name` (or equivalent) into `OrderDetail_Dto.SelectedCompanyName` when creating the Dto from the OrgChoice selection.
 
 ### Suggested fix (do not implement without approval)
-In the microflow that initialises `PayerDetail_Dto` from the selected org/search result, add:
+In the microflow that initialises `OrderDetail_Dto` from the selected org/search result, add:
 ```
 CHANGE $Dto (SelectedCompanyName = $SearchResult/Name);
 ```
-Check which microflow creates the Dto — likely `ACT_PayerDetail_InitNew` or the `btnCreate` action on the Confirmation page.
+Check which microflow creates the Dto — likely `ACT_OrderDetail_InitNew` or the `btnCreate` action on the Confirmation page.
 
 ---
 
@@ -46,7 +46,7 @@ Check which microflow creates the Dto — likely `ACT_PayerDetail_InitNew` or th
 **Discovered:** 2026-05-25 via Playwright DOM inspection
 
 ### Symptom
-`txtCompanyName` and `txtCorporateNo` on `PayerDetail_NewEdit` are fully editable inputs (`readOnly: false`, `disabled: false`). These values came from the org selection / SNP corporate search and should not be manually overrideable by the user.
+`txtCompanyName` and `txtCorporateNo` on `OrderDetail_NewEdit` are fully editable inputs (`readOnly: false`, `disabled: false`). These values came from the org selection / SNP corporate search and should not be manually overrideable by the user.
 
 A user could type any company name and bypass the corporate lookup, creating invalid records.
 
@@ -57,7 +57,7 @@ txtCorporateNo: { hasInput: true, readOnly: false, disabled: false }
 ```
 
 ### Suggested fix (do not implement without approval)
-In Studio Pro, set `Editable: Never` on `txtCompanyName` and `txtCorporateNo` on `PayerDetail_NewEdit`. These widgets should display the SNP-sourced values read-only.
+In Studio Pro, set `Editable: Never` on `txtCompanyName` and `txtCorporateNo` on `OrderDetail_NewEdit`. These widgets should display the SNP-sourced values read-only.
 
 ---
 
@@ -68,7 +68,7 @@ In Studio Pro, set `Editable: Never` on `txtCompanyName` and `txtCorporateNo` on
 **Discovered:** 2026-05-25 — user observed during Playwright visible-browser runs
 
 ### Symptom
-After login and redirect, navigating immediately to `PayerDetail_Overview` sometimes triggers a Mendix "This page is not available" or "Page could not be loaded" dialog. The app then recovers and reloads correctly.
+After login and redirect, navigating immediately to `OrderDetail_Overview` sometimes triggers a Mendix "This page is not available" or "Page could not be loaded" dialog. The app then recovers and reloads correctly.
 
 Happens because the Mendix client navigates before the session is fully initialised server-side.
 
@@ -131,7 +131,7 @@ Linked to BUG-E2E-01 (SelectedCompanyName not populated).
 Same root cause as BUG-E2E-01 — the init microflow is not copying org-selection data into the Dto attributes that feed the second column widgets.
 
 ### Next step to investigate
-Run `DESCRIBE MICROFLOW` on whatever microflow is called by `btnCreate` on `Payer_Confirm_Selection`, and trace whether it sets: `SelectedCompanyName`, `CorporateNo`, `FormalName`, and other pre-populated fields.
+Run `DESCRIBE MICROFLOW` on whatever microflow is called by `btnCreate` on `Order_Confirm_Selection`, and trace whether it sets: `SelectedCompanyName`, `CorporateNo`, `FormalName`, and other pre-populated fields.
 
 ---
 

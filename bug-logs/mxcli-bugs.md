@@ -1277,3 +1277,22 @@ Re-diagnosed after the user manually fixed the `FeasibilityDecision` Vendor rule
 [TFC.FeasibilityDecision_Supplier/TFC.Supplier/Administration.Account_Supplier = '[%CurrentUser%]']
 ```
 This means the "Studio Pro GUI only, module-wide" conclusion above was too broad. Once an access-rule XPath uses the correct bare-CurrentUser/full-LHS-chain form, there's no known reason it can't be written via mxcli directly. **Confirmed same day**: `test-05-currentuser-xpath-chain.mdl` rebuilt all 4 `FeasibilityDecision` role grants via mxcli exec, reproducing the corrected Vendor XPath verbatim — `mx check: 0 errors`. The corrected form is genuinely mxcli-safe, not just Studio-Pro-GUI-safe. See STOP-table rule 16 (updated) for the corrected pattern — no GUI-only restriction remains for this specific XPath shape.
+
+## Inline association-set (STOP rule 9): same-module confirmed safe via plain CLI on v0.16.0 -- cross-module remains broken
+
+**Discovered:** 2026-07-23 (TFC-TCXGraphPOC, mxcli v0.16.0, Mendix 11.12.1). Scoping clarification of rule 9, not a reversal -- the pre-existing 2026-07-13 finding on this same mxcli version (`System.User_UserRoles`, cross-module, KT-POC project) still stands.
+
+### What was tested
+1. Isolated throwaway test: two brand-new entities in the same project module (`TFC`), new `Reference` association between them, set inline via `CHANGE` inside a microflow, executed via plain `bin/exec.sh`. `mx check` and full `mxcli docker check`: 0 errors. Cleaned up via the same plain-CLI path -- also clean.
+2. Real production script: `06-tfcint-bomstub.mdl`, a 176-activity microflow with 46 inline association-sets, all entirely within `TFC`. Ran via plain `bin/exec.sh` after MCP mode proved unreliable. `mx check`: 0 errors.
+
+### What this does and does not mean
+- Same-module inline association-sets (both sides in one module, including a marketplace module's own internal associations) are safe via plain CLI on v0.16.0.
+- Cross-module inline association-sets remain a confirmed STOP -- the `System.User_UserRoles` finding is untouched by this entry. Do not extrapolate; the two were tested separately and behave oppositely on the identical mxcli version.
+- When unclear whether an association is same-module or cross-module, default to treating it as cross-module and use `--mcp`.
+
+### MCP reliability note (same session)
+Before falling back to plain CLI for `06`, MCP mode failed twice on a stale module-container reference, then hung unresponsive after a fresh Studio Pro reopen (required a hard kill). MCP itself is not consistently available even when it's technically the correct choice.
+
+### Related preflight rule
+STOP-table rule 9 updated to reflect the same-module/cross-module split precisely, rather than a blanket "use MCP" for all inline association-sets.

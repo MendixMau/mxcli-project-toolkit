@@ -12,13 +12,15 @@ microflow (`TFC_GetExclusiveParts`, TFC-TCXGraphPOC, 2026-07-23) before anyone n
 made an MCP-mode exec (see `learned-mdl-preflight.md` STOP rule 9) slow enough to hit the 5-minute
 default timeout.
 
-**Rule of thumb:** never draft a microflow you expect to exceed ~30-50 activities. If a task
-naturally produces more (bulk seed data, a long linear pipeline), split it into sub-microflows by
-responsibility — e.g. one sub-microflow per entity/record-type being created, called in sequence
-from a thin orchestrating microflow — rather than one flat monolith. This is a stricter authoring
-ceiling than the lint layer's own threshold (`CONV009`, `assess-quality.md`: max 15 activities,
-flagged after the fact) — treat 30-50 as the absolute point past which a split is mandatory, and
-aim well under 15 where practical, matching the lint rule.
+**Guideline, not a hard cap:** aim to keep a freshly-drafted microflow under ~30-50 activities. If a
+task naturally produces more (bulk seed data, a long linear pipeline), prefer splitting into
+sub-microflows by responsibility — e.g. one sub-microflow per entity/record-type being created,
+called in sequence from a thin orchestrating microflow — over one flat monolith. But some
+microflows genuinely can't be meaningfully shrunk (a single cohesive validation/decision sequence
+with real branching, for instance) — don't force an artificial split that just adds indirection
+without improving anything. The lint layer's own threshold (`CONV009`, `assess-quality.md`: max 15
+activities) is stricter still and will flag most things in this range anyway — treat both numbers
+as signals to *consider* a split, not a rule to satisfy mechanically.
 
 **Bonus when a STOP-rule-9 (inline association-set) split is also needed:** if only part of the
 work needs MCP mode (setting associations) while the rest is plain attribute creation, split along

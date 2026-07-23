@@ -6,6 +6,47 @@ the re-entry point for continuing the work — read it plus `git log --oneline -
 
 ---
 
+## 2026-07-22 — Repo hygiene: purge non-generic data from tree + history, add leak guard
+
+Incident: an external review flagged that the public repo's docs, examples, and sample
+outputs contained **non-generic material** — real project-derived strings and identifiers,
+non-English (CJK) text copied from a real source application, real module/identifier keys,
+a project scale figure, and local filesystem paths. Some had survived an earlier partial
+scrub in the working tree but remained recoverable in git history (a working-tree edit only
+cleans the latest snapshot, not prior commits).
+
+What shipped (four commits + two history rewrites):
+- **Working tree scrubbed & genericized.** Deleted the committed `sample-outputs/` (a real
+  extraction dump — it is regenerated at runtime into gitignored `knowledge-base/`, never
+  shipped). Replaced source-derived domain names with neutral ones (Order*), real module
+  codes with an illustrative token (`MXXXX`), CJK strings with English, and a real key with
+  an `EXAMPLE…` placeholder. Genericized local paths. Added an encrypted-export prerequisite
+  note to `source-os11.md` / `os-xml-schema.md`, and softened `eSpace` prose to "OutSystems
+  module" (keeping the literal `<ESpace>` element only where code/XML examples require it).
+- **History purged** with `git-filter-repo`: content + commit-message redaction of the name
+  denylist, removal of two deleted planning docs, then a second pass removing the
+  `sample-outputs/` dumps at **both** historical path locations (the repo had been
+  restructured, so old paths existed) and a blob-callback stripping **all CJK codepoints**
+  from every remaining blob. Verified 0 across all commits. Force-pushed `master`.
+- **Leak guard added:** `bin/check-no-client-data.sh` fails on the name denylist, CJK
+  characters, real OutSystems typed GUIDs, or local `/Users/` paths; `bin/install-hooks.sh`
+  wires it as a pre-commit hook. Run `bin/install-hooks.sh` once per clone.
+
+How to avoid recurrence:
+- **Examples must be fictional.** Never paste real source strings, descriptions, identifiers,
+  or scale figures into docs/skills — invent a neutral sample (the "Apex" Order demo).
+- **Never commit extraction output.** `knowledge-base/`, `analysis/`, `sources/`,
+  `sample-outputs/` are runtime/project artifacts — they belong in the project repo, not here.
+- **Install the hook** (`bin/install-hooks.sh`) so `check-no-client-data.sh` runs before every
+  commit. A working-tree fix is cheap; a history fix means a force-push — catch it at commit time.
+- Lesson: scrubbing the working tree is **not** scrubbing history. If sensitive data was ever
+  committed, it needs a `filter-repo` pass, and path/structure moves mean checking **all**
+  historical locations, not just current paths.
+
+Open: none. Pre-existing forks / provider caches are out of scope (fix-going-forward only).
+
+---
+
 ## 2026-07-17 — gate-check made layout-aware (false-FAILs on the toolkit's own default layout)
 
 Incident: the WMS reconfigure run showed Stage 3/4/6 FAIL even though the artifacts existed. Root

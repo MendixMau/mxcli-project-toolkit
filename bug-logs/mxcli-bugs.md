@@ -1264,3 +1264,16 @@ Once a module contains **any** entity access rule with a cross-module `[%Current
 
 ### Related preflight rule
 Extends STOP-table rule 14 (`learned-mdl-preflight.md`) — rule 14's "rebuild the whole entity's grants in one script" guidance is still correct for avoiding cross-role collapse *within* a single entity, but does not protect against this failure mode, which crosses entities within the same module. New STOP-table entry added (rule 16) generalizing this.
+
+### Correction (2026-07-23, same day) — root cause was invalid XPath syntax, not mxcli corruption
+Re-diagnosed after the user manually fixed the `FeasibilityDecision` Vendor rule in Studio Pro and shared before/after screenshots. The actual bug: `[Assoc = '[%CurrentUser/Module.OtherAssoc%]']` — a path expression *inside* the `[%CurrentUser/...%]` substitution token, crossing module boundaries — is invalid Mendix XPath. `CE0161` was Mendix correctly rejecting it every time, not mxcli corrupting the domain model. The "unrelated `FeasibilityDecision` rule also broke" symptom above was actually two independently-broken rules (both written with this same invalid form) surfacing together the first time a full `mx check` ran on both — not evidence of one grant rewrite damaging an unrelated rule.
+
+**Confirmed working fix**, applied manually in Studio Pro:
+```
+-- Broken:
+[FeasibilityDecision_Supplier = '[%CurrentUser/TFC.Account_Supplier%]']
+-- Fixed — keep CurrentUser bare, walk the whole chain on the left,
+-- qualifying the entity name at each module crossing:
+[TFC.FeasibilityDecision_Supplier/TFC.Supplier/Administration.Account_Supplier = '[%CurrentUser%]']
+```
+This means the "Studio Pro GUI only, module-wide" conclusion above was too broad. Once an access-rule XPath uses the correct bare-CurrentUser/full-LHS-chain form, there's no known reason it can't be written via mxcli directly — this wasn't retested via mxcli exec as of this correction (the fix was applied by hand in Studio Pro), so treat "mxcli should be safe now" as a hypothesis to verify on the next attempt, not yet a confirmed-safe path. See STOP-table rule 16 (updated) for the corrected pattern.

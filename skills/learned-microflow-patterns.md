@@ -3,6 +3,33 @@
 
 ---
 
+## Microflow Size — Split Into Sub-Microflows Before Drafting, Not After
+
+Decide this **before** writing a microflow, not after a lint pass catches it. A single seed/stub
+microflow with dozens of create-object-per-record blocks (e.g. one CREATE+COMMIT per row of a
+16-row dataset) balloons past any reasonable size fast — this project hit ~93 activities in one
+microflow (`TFC_GetExclusiveParts`, TFC-TCXGraphPOC, 2026-07-23) before anyone noticed, which also
+made an MCP-mode exec (see `learned-mdl-preflight.md` STOP rule 9) slow enough to hit the 5-minute
+default timeout.
+
+**Rule of thumb:** never draft a microflow you expect to exceed ~30-50 activities. If a task
+naturally produces more (bulk seed data, a long linear pipeline), split it into sub-microflows by
+responsibility — e.g. one sub-microflow per entity/record-type being created, called in sequence
+from a thin orchestrating microflow — rather than one flat monolith. This is a stricter authoring
+ceiling than the lint layer's own threshold (`CONV009`, `assess-quality.md`: max 15 activities,
+flagged after the fact) — treat 30-50 as the absolute point past which a split is mandatory, and
+aim well under 15 where practical, matching the lint rule.
+
+**Bonus when a STOP-rule-9 (inline association-set) split is also needed:** if only part of the
+work needs MCP mode (setting associations) while the rest is plain attribute creation, split along
+that boundary too, not just by size — see `learned-mcp-patterns.md`'s NPE+STOP-rule-9 split
+precedent. A microflow that creates records AND sets their associations inline forces the *entire*
+microflow through the slower MCP path even though most of its activities didn't need to be there.
+Splitting into "create rows (plain CLI, fast)" + "set associations (MCP, smaller)" gets both the
+size-limit benefit and the exec-speed benefit from the same restructuring.
+
+---
+
 ## Parameter Naming — No `$` in Declarations
 
 Parameter names are declared WITHOUT `$`. The `$` is only used in the body as a reference sigil.

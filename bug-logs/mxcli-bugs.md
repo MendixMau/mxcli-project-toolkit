@@ -1296,3 +1296,42 @@ Before falling back to plain CLI for `06`, MCP mode failed twice on a stale modu
 
 ### Related preflight rule
 STOP-table rule 9 updated to reflect the same-module/cross-module split precisely, rather than a blanket "use MCP" for all inline association-sets.
+
+## Compound boolean `AND`/`OR` (uppercase) + `!=` in the same expression → CE0117/CE0161 (mxcli bug)
+
+**Discovered:** 2026-07-23 (TFC-TCXGraphPOC, mxcli v0.16.0, Mendix 11.12.1).
+
+### Symptom
+
+A microflow with a compound boolean condition mixing an uppercase `AND` and a `!=` comparison — in a Decision/IF activity, or in a `retrieve ... where` clause — passes `mxcli check` (with or without `--references`) cleanly, but a real `mx check` (or Studio Pro compile) fails:
+
+```
+[error] [CE0117] "Error(s) in expression." at Decision '$Flag = Enum.HIGH AND $Outcome != Enum.DieGoHold'
+[error] [CE0161] "Error(s) in XPath constraint." at Retrieve object(s) activity '...'
+```
+
+### What was tested (isolated throwaway microflows, each executed via plain `bin/exec.sh` + a real `mx check`)
+
+1. `IF $Flag = Enum.HIGH AND $Outcome != Enum.DieGoHold THEN` → **CE0117**.
+2. Same expression wrapped in explicit parens per comparison (`($Flag = Enum.HIGH) AND ($Outcome != Enum.DieGoHold)`) → **still CE0117**. Parens are not the fix.
+3. Same expression with lowercase `and` (no parens): `$Flag = Enum.HIGH and $Outcome != Enum.DieGoHold` → **0 errors**.
+4. Isolation of the actual trigger: uppercase `AND` combined with two `=` comparisons (no `!=`) → **0 errors**. Uppercase `OR` combined with two `=` comparisons → **0 errors**. Only uppercase `AND`/`OR` + a `!=` comparison anywhere in the same expression fails.
+5. Same bug reproduced in a `retrieve ... where` clause, not just a Decision activity: `where PartId = 'x' AND SupplyPlant = $P AND "Status" != Enum.Archived` → CE0161. Switching to lowercase `and` → 0 errors.
+
+### Fix
+
+Use lowercase `and`/`or` for boolean keyword operators in microflow expressions and retrieve WHERE clauses. Confirmed safe in every tested combination (lowercase + `!=`, uppercase + only `=`). Since the exact trigger boundary is narrow and easy to miss, treat lowercase `and`/`or` as the default habit rather than trying to remember which combination is safe.
+
+### Root cause (inferred, not confirmed against mxcli source)
+
+Likely an mxcli expression/XPath serializer bug in how it tokenizes `!=` after an uppercase `AND`/`OR` keyword — not a real Mendix expression-language restriction. Studio Pro itself has no issue with lowercase `and` + `!=`, and accepts uppercase `AND`/`OR` fine when no `!=` is present in the same expression, which rules out a genuine grammar restriction on operator case.
+
+### Related preflight rule
+
+Added as STOP-table rule 17 in `learned-mdl-preflight.md`.
+
+## Bare `Status` attribute name in a `retrieve ... where` clause → CE0161 (reserved-word conflict)
+
+**Discovered:** 2026-07-23 (TFC-TCXGraphPOC, mxcli v0.16.0, Mendix 11.12.1), same debugging session as the AND/OR bug above.
+
+`retrieve $X from TFC.TFCStub where ... and Status != Enum.Archived` passes `mxcli check` but fails a real `mx check` with CE0161. Quoting the attribute (`"Status" != Enum.Archived`) fixes it. Notably, this project's own domain model already quotes `"Status"` specifically in `TFCStub`'s access-rule read lists, while every sibling attribute in the same list is unquoted — a pre-existing signal (visible via `DESCRIBE ENTITY`) that this specific attribute name needs quoting, which would have shortened the debugging cycle if checked first. Added to the "Keyword collisions" bullet in `learned-mdl-preflight.md`.

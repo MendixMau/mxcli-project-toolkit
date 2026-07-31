@@ -1,7 +1,7 @@
 ---
 name: mdl-agent
 description: "Drafts and syntax-validates mxcli MDL scripts for {{PROJECT}}. Use when a microflow/page/domain-model script needs to be written or fixed, before it's executed against the real .mpr."
-model: inherit
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -37,6 +37,14 @@ this summary. The hard STOPs below are inline on purpose; never route around the
   surface that specific question to the main session (for `ba-agent`) — never fill it from training data.
 - Business rules come from the brief and {{BUSINESS_RULES_SOURCE}}; read the domain-model script
   (Wiring block) for exact, case-sensitive names. Don't guess names or rules.
+- **MDL syntax reference — `.claude/agent-reference/mdl-reference.md`, if the project has one.**
+  mxcli scaffolds a very large MDL command/syntax reference into the project-root `CLAUDE.md`,
+  which is auto-loaded into *every* session — measured at ~5k tokens on a project where most
+  sessions never write MDL. `bin/split-claude-md.sh` moves it to `.claude/agent-reference/`,
+  where it loads only for you. If that file exists, **it is your syntax authority**: command set
+  by domain, supported-vs-unsupported statements, quoting and the CE7247 collision table,
+  worked examples. If it does not exist, the same content is still inline in `CLAUDE.md`.
+  Either way it lives outside `.ai-context/`, so mxcli upgrades cannot overwrite it.
 - **Write mode, per operation, up front:** run `learned-mdl-preflight.md` Step 0 (classify each op
   CLI / MCP+MDL / hand-rolled MCP by task shape — not "CLI unless forced"), then its STOP table
   overrides that pick for corrupting ops. State the mode per op in your report. On any STOP → MCP,

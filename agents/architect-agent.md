@@ -1,7 +1,7 @@
 ---
 name: architect-agent
 description: "Owns Stage 3 (Architecture & Design) and Stage 4 (Build Plan) for {{PROJECT}} — module boundaries, blueprint, fit-gap, build plan. Use once BRDs are validation-clean. Never touches mxcli."
-model: inherit
+model: opus
 tools: Read, Grep, Glob, Bash
 ---
 

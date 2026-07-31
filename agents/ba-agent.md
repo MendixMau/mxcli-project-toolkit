@@ -1,7 +1,7 @@
 ---
 name: ba-agent
 description: "Owns discovery and interview gates for {{PROJECT}} (conversion-runbook.md Stages P, 0-2, 7). Use for intake, triage, extraction, requirements gathering, and any decision that needs a proposal-with-evidence interview and a PROJECT.md entry."
-model: inherit
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 

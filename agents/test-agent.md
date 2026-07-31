@@ -1,7 +1,7 @@
 ---
 name: test-agent
 description: "Walks happy-path and edge-case UI tests against the running {{PROJECT}} app and reports pass/fail per scenario. Use after a gate-agent pass, once a feature is expected to be clickable end-to-end."
-model: inherit
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 

@@ -41,9 +41,11 @@ MCP session → save-sp.sh → git commit Project.mpr mprcontents/ → close SP 
 
 `exec.sh` enforces this: it reads the SP lock file (`Project.mpr.lock`) and refuses to run if SP has the project open with a live PID.
 
-### 3. Never run two concurrent build streams on the same .mpr
+### 3. Never mix mxcli-exec-mode and MCP-mode concurrently — but parallel MCP-only writes to different pages are fine
 
-Two Claude sessions, or one Claude session + a manual exec, writing to the same `.mpr`/`mprcontents/` concurrently has caused near-total module loss (confirmed 2026-07-06). `exec.sh` enforces this with a `.exec.lock` file and checks for a running `mxcli exec` process. One writer at a time, always.
+The original incident behind this rule (confirmed 2026-07-06, near-total module loss) was two Claude sessions, or one Claude session + a manual exec, writing to the same `.mpr`/`mprcontents/` **on disk** concurrently — i.e. `mxcli exec` (direct file writes) racing against another writer. `exec.sh` still enforces this with a `.exec.lock` file and a check for a running `mxcli exec` process, and that guard stays absolute: one *disk* writer at a time, always, and never mxcli-exec while SP has the project open (see rule 2).
+
+**Narrower and confirmed in practice (2026-07-26):** multiple agents issuing real `pg_patch_page`/`ped_update_document` calls through the same live Studio Pro MCP server, targeting **different pages/documents**, run safely in parallel — SP's own in-process model serializes tool calls internally regardless of caller, so this isn't the same disk/memory split-brain the original incident describes. Ran 5+ page-patch agents concurrently against distinct `Pages$Page` documents in one session with no corruption. Still avoid two writers targeting the **same** document/page simultaneously — that's a genuine last-write-wins race, unrelated to the disk-split-brain mechanism but still worth serializing per-page.
 
 ### 4. Commit before exec — the uncommitted MPR guard
 

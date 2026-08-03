@@ -2,8 +2,11 @@
 **Applies to:** migration.
 **Purpose:** Teaches Claude the OutSystems 11 module XML format so extraction prompts
 work without pasting raw XML first.
-**Examples:** module names, entities, and descriptions below are a fictional sample
-("Apex" demo application) — not real customer data.
+**Examples:** every module name, entity, role and description below is a synthetic
+placeholder (`ACME01_…`, `C-0001`, `EXAMPLE…` keys). They illustrate the XML *shape*
+only — no real estate uses these names. Never paste identifiers, descriptions or
+scale figures from a real source into this file; `bin/check-no-client-data.sh`
+blocks the commit if you do.
 
 > **Prerequisite:** OutSystems exports (`.osp` / `.oml`) are encrypted. This schema
 > applies to **decrypted module XML** only; obtaining that XML requires a compatible
@@ -21,7 +24,7 @@ The root element is `<ESpace>` with key attributes identifying the module.
 <ESpace
   Version="11"
   Key="ESpace:EXAMPLEeSpaceKey000001"     ← GUID with type prefix
-  Name="MXXXX_OrderRegist"                  ← module name (= file name without .xml)
+  Name="ACME01_OrderRegist"                  ← module name (= file name without .xml)
   Description="Order & billing registration"           ← developer-authored; any language
   ModuleType="Service|Extension|..."        ← Service = normal app module
 >
@@ -235,9 +238,9 @@ The widget tree inside WebScreen describes the UI structure. Key widget types:
 ## WebBlocks (reusable UI = snippets)
 
 ```xml
-<WebBlock Name="SNP_CorpSearch" Description="Company search snippet">
+<WebBlock Name="SNP_PartnerLookup" Description="Company search snippet">
   <InputParameters>
-    <InputParameter Name="SearchDto" DataType="CorpSearchDto" />
+    <InputParameter Name="SearchDto" DataType="PartnerLookupDto" />
   </InputParameters>
   <!-- widget tree -->
 </WebBlock>
@@ -249,7 +252,7 @@ The widget tree inside WebScreen describes the UI structure. Key widget types:
 
 ```xml
 <Roles>
-  <Role Name="HQDomestic" Description="Domestic HQ" IsPersistent="Yes" />
+  <Role Name="HQUser" Description="Domestic HQ" IsPersistent="Yes" />
   <Role Name="SysAdmin"   Description="System administrator" IsPersistent="Yes" />
 </Roles>
 ```
@@ -326,17 +329,36 @@ built before others.
 
 ---
 
-## Common naming conventions in Apex OS code
+## Naming conventions: derive the estate's own map before extracting
 
-| Prefix | Meaning |
-|--------|---------|
-| `EN` | Entity (e.g. `ENOrderDetail`) |
-| `ACT_` | Action (microflow) |
-| `SNP_` | Snippet/WebBlock |
-| `JOB_` | Timer/scheduled job |
-| `MXXXX_` | Function code prefix |
-| `C-0031` | Common component code |
-| `KB_` | Knowledge base file (extraction output, not OS) |
-| `Dto` suffix | Non-persistent structure |
-| `RW` suffix | Read-Write screen variant |
-| `CS` suffix | Cross-space / shared module |
+**Do not reuse another estate's prefix table.** Every OutSystems estate invents its own
+scheme, it is almost never documented, and guessing it wrong mistranslates every name
+downstream. Deriving the map is a five-minute job that pays for itself immediately.
+
+**How to derive it:**
+
+1. List every module name (`ESpace/@Name` across all XML files) and sort them. The
+   shared leading tokens are the module-level scheme.
+2. Within one module, list `Entity/@Name`, `Action/@Name`, `WebBlock/@Name`,
+   `Timer/@Name`. Per-item-type prefixes fall out immediately.
+3. Look for *suffixes* too — they usually encode a variant (read-only vs read-write) or
+   a structure kind, and they are easier to miss than prefixes.
+4. Record the result in the project's own KB as a two-column table, and cite it from the
+   naming-translation section of the BRD. It is an input to every later mapping decision.
+
+**The shapes you will typically meet** (illustrative only — confirm against the estate):
+
+| Shape | Usually means |
+|---|---|
+| Two-letter item prefix (`ENOrderDetail`) | Item type — entity, structure, etc. |
+| Verb-ish action prefix (`ACT_`, `SVC_`) | Server action / microflow |
+| Snippet prefix (`SNP_`, `BLK_`) | WebBlock |
+| Job prefix (`JOB_`, `TMR_`) | Timer / scheduled job |
+| Alphanumeric module prefix (`ACME01_`, `FIN02_`) | Function or business-area code |
+| Dotted or dashed code (`C-0001`) | Entry in a component register maintained outside OS |
+| `Dto` / `Rec` / `Str` suffix | Non-persistent structure |
+| Single/double-letter suffix (`RW`, `RO`, `CS`) | Screen variant or shared/cross-module marker |
+
+**Ask, don't infer, for the two that matter most:** the module prefix (it maps to your
+Mendix module boundaries) and any component-register code (it points at documentation
+that lives outside the source entirely).

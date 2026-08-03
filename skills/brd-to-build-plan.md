@@ -3,7 +3,6 @@
 **Purpose:** Turn validated BRDs + Mendix architecture into a concrete, dependency-ordered build plan — the step between architecture and the first line of MDL.
 **Upstream:** `migration-pipeline.md` (phases 1–6: extraction → BRD → Mendix rearchitecture)
 **Downstream:** `iterative-build-loop.md` (per-module execution against the plan produced here)
-**Example:** `../examples/outsystems-migration/plan-overview.md` is the worked output of this skill
 
 ---
 
@@ -280,7 +279,7 @@ Before any `GRANT` script, decide and document:
 
 | Target role | Maps to source role(s) | Notes |
 |-------------|------------------------|-------|
-| e.g. `HQDomestic` | e.g. source "Domestic HQ User" | Primary demo/test user |
+| e.g. `HQUser` | e.g. source "Domestic HQ User" | Primary demo/test user |
 | e.g. `Admin` | e.g. source "System Administrator" | Used for setup only, never for happy-path testing |
 
 **Rule:** happy-path testing in `iterative-build-loop.md` step 10 always uses the non-admin demo user — decide who that is now, not when you hit the first login screen.

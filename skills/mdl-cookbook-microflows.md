@@ -1,6 +1,6 @@
 # MDL Cookbook — Real Microflow Examples
 **Applies to:** any mxcli project.
-**Source project:** Apex-TestRunOS-main (MXXXX OutSystems → Mendix migration)
+**Source project:** a test-run OutSystems project (ACME01 OutSystems → Mendix migration)
 **Date:** 2026-07-01
 
 These are the five largest and most complex microflows from the project, with full MDL
@@ -62,7 +62,7 @@ begin
     CustomerCode = $OrderDetail/CustomerCode,
     CurrencyCode = $OrderDetail/CurrencyCode,
     ContractorLocationCode = $OrderDetail/ContractorLocationCode,
-    IsBelongApexGroup = false,
+    IsGroupMember = false,
     In_WfMode = ''
   );
   return $Dto;
@@ -89,7 +89,7 @@ persistence to a sub-microflow.
 - `validation feedback $Dto/Attr message '...'` (shown in Studio Pro as inline error)
 - `trim(expr) = ''` for blank-string check
 - `not($IsValid)` (requires parentheses — bare `not $IsValid` is a parse error)
-- Retrieve over NPE association — `$Dto/OrderRegistration.OrderDetail_Dto_CompanySearchResult`
+- Retrieve over NPE association — `$Dto/OrderRegistration.OrderDetail_Dto_PartnerSearchResult`
 - Delegating persistence to a sub-microflow (single responsibility)
 
 ```sql
@@ -102,7 +102,7 @@ begin
   -- PATTERN: Retrieve over NPE association (not XPath — association owner is the NPE itself).
   -- CE0018/CE0136 warnings from mxcli are a known limitation; Mendix runtime handles it correctly.
   -- Do NOT try to convert this to an XPath retrieve — NPEs have no DB table to query.
-  retrieve $SearchResult from $Dto/OrderRegistration.OrderDetail_Dto_CompanySearchResult;
+  retrieve $SearchResult from $Dto/OrderRegistration.OrderDetail_Dto_PartnerSearchResult;
 
   -- PATTERN: Accumulate-all-errors.
   -- $IsValid starts true. Every gate sets it false AND fires validation feedback.
@@ -177,7 +177,7 @@ then committed before the next is created.
 ```sql
 create or modify microflow OrderRegistration.ACT_OrderDetail_SaveDraft (
   $Dto: OrderRegistration.OrderDetail_Dto,
-  $SearchResult: Customer_Lookups.CompanySearchResult,
+  $SearchResult: Customer_Lookups.PartnerSearchResult,
   $AreaDto: OrderRegistration.OrderArea_Dto
 )
 returns OrderRegistration.OrderDetail as $OrderDetail
@@ -185,7 +185,7 @@ folder 'OrderDetail'
 begin
   -- Step 1: ApplicationCommonHeader — cross-module header tracking function + applicant.
   $Header = call microflow BusinessApp_Common.ACT_ApplicationCommonHeader_Create(
-    FunctionId = 'MXXXX', Applicant = $currentUser/Name
+    FunctionId = 'ACME01', Applicant = $currentUser/Name
   ) on error rollback;
 
   -- Step 2: Sequence number for OrderCode. GET_Sequence_NextId returns an Integer.
@@ -447,7 +447,7 @@ begin
 
   -- Create ApplicationCommonHeader and get sequence number (same as new registration).
   $Header = call microflow BusinessApp_Common.ACT_ApplicationCommonHeader_Create(
-    FunctionId = 'MXXXX', Applicant = $currentUser/Name
+    FunctionId = 'ACME01', Applicant = $currentUser/Name
   ) on error rollback;
   $OrderCodeSeq = call microflow Common_Utils.GET_Sequence_NextId(
     FunctionName = 'OrderRegistration', EntityName = 'Order'

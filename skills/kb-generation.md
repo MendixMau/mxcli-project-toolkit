@@ -2,7 +2,7 @@
 **Applies to:** migration or requirements-driven build (works from documents/SME input — no legacy source needed).
 **Purpose:** How to turn raw source documents (xlsx, docx, PDF) into KB_*.md knowledge
 base files that Claude can load as context for BRD and MDL generation.
-**Source:** Apex sample — 9 KB files produced across 4 sessions, 2026-05.
+**Source:** reference sample — 9 KB files produced across 4 sessions, 2026-05.
 
 **Upstream step:** this skill assumes you already know *which* files are worth processing.
 For an unstructured folder that hasn't been inventoried yet — and especially one that might
@@ -34,11 +34,11 @@ KB files are NOT verbatim translations. They extract:
 KB_{SourceCode}_{Topic}.md
 
 Examples:
-  KB_MXXXX_RequirementsSpec_V5.md   ← main requirements doc
-  KB_MXXXX_FieldLabels_EN.md        ← field label translations
-  KB_MXXXX_QA.md                    ← QA/clarification sheet
-  KB_C0031_CorporateSearch.md       ← common component C-0031
-  KB_CorpSearch_API.md                  ← external API manuals (combined)
+  KB_ACME01_RequirementsSpec_V5.md   ← main requirements doc
+  KB_ACME01_FieldLabels_EN.md        ← field label translations
+  KB_ACME01_QA.md                    ← QA/clarification sheet
+  KB_C0001_CorporateSearch.md       ← common component C-0001
+  KB_PartnerLookup_API.md                  ← external API manuals (combined)
   KB_CommonComponents.md            ← internal common components
   KB_DevStandards.md                ← development standards
 ```
@@ -145,7 +145,7 @@ The KB file will be used as context when generating BRD JSON and MDL scripts.
 
 ## Step 3 — KB file structure (what good output looks like)
 
-Based on the Apex KB files. Adapt sections to what the source contains.
+Based on the reference KB files. Adapt sections to what the source contains.
 
 ```markdown
 # [Topic] — [EN Title]
@@ -204,7 +204,7 @@ Function ID, purpose, users/roles, scope.
 
 | System | Action | Parameters | Stub-able? |
 |--------|--------|-----------|-----------|
-| CorpSearch | Corporate search | CID, keyword | Yes — return hardcoded result |
+| PartnerLookup | Corporate search | CID, keyword | Yes — return hardcoded result |
 
 ---
 
@@ -226,7 +226,7 @@ Function ID, purpose, users/roles, scope.
 
 ---
 
-## Tips from MXXXX processing
+## Tips from ACME01 processing
 
 - **non-English document, multiple tabs:** Process one tab at a time. Extract the sheet
   list first, then ask Claude to process the most relevant sheets.

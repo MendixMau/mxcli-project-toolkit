@@ -137,7 +137,7 @@ stages 1–6 proceed
 
 **Nothing in stages 0–4 touches mxcli.** MDL scripting only starts at stage 5, against a plan that's already been reviewed. This is deliberate — it's cheaper to fix a wrong module boundary in a diagram (or a wrong scope decision before any extraction ran) than to fix it after 40 MDL scripts assume it.
 
-See `examples/outsystems-migration/` for a worked run through all six build stages on a real project (that example predates the triage stage and the interview protocol).
+*(A worked end-to-end example used to live in `examples/`. It was removed on 2026-08-03 because it was a client architecture document rather than a synthetic sample. A replacement built from invented data is on the backlog.)*
 
 ---
 
@@ -359,18 +359,10 @@ mxcli-project-toolkit/
     outsystems/                 ← OS XML → KB → BRD (extraction tooling; output is gitignored)
     java-angular/                ← Java + Angular/Spring Boot → KB → BRD
     node-express-react/          ← Node/Express + React → KB → BRD — regex-based, proven on one source shape only; read its README first
-  examples/
-    outsystems-migration/
-      plan-overview.md          ← Worked example: 112 OS modules → 14 Mendix, architecture decisions
-      build-loop-example.md     ← Worked example: single module (OrderRegistration) step-by-step
-    apex-sample/                ← Fictional sample artifacts, kept as reference examples (not shared rules)
-      bug-log-apex.md           ← Sample bug log
-      test-plan-apex.md         ← Sample test plan
   bug-logs/
     mxcli-bugs.md               ← Known mxcli CLI bugs and workarounds (shared)
   process/
     process-learnings.md        ← Cross-project process improvements
-    learned-process-apex.md     ← Apex sample project-scoped process notes (not in Baseline routing)
 ```
 
 `[any project]` vs `[migration]` above mirrors each skill's own `Applies to:` header line — greenfield mxcli builds only need the `[any project]` set, starting at Stage 5. The stage 1–4 skills (document discovery, KB/BRD generation and validation, modularization, architecture, design, build plan) also apply to **requirements-driven builds** with no legacy source — their headers say so explicitly.
@@ -425,7 +417,6 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Assessing / planning a migration up front | `assess-migration.md` |
 | Migrating an OutSystems app | `migrate-outsystems.md` |
 | Running an extraction pipeline | `pipelines/outsystems/` · `pipelines/java-angular/` · `pipelines/node-express-react/` |
-| Seeing how it all fits together on a real project | `examples/outsystems-migration/` |
 | Generating a new project's CLAUDE.md (Baseline routing + project-specific facts) | `bootstrap-project.md` |
 | Setting up dev-process subagents on a new project (ba/architect/mdl/gate/test split) | `agent-roles.md` |
 

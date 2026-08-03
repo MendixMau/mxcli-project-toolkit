@@ -2,7 +2,7 @@
 **Applies to:** any mxcli project.
 
 **Convention:** each rule is stated generically so it transfers to any project. Where a rule has a
-concrete illustration, it's kept as a **labeled example** (often from the Apex sample OS→Mendix PoC —
+concrete illustration, it's kept as a **labeled example** (often from the reference OS→Mendix PoC —
 non-English captions, `OrderRegistration`/`OrderDetail` names). Read the rule as the portable part; the
 example is just there to show the shape. Some older sections below are still written in project-
 specific terms and haven't been generalized yet — treat their project names as examples too.
@@ -36,7 +36,7 @@ Applies to: pending Studio Pro steps, CE-error descriptions, and any instruction
 
 mxcli generates buttons with an empty label when `Caption:` is omitted — the button works functionally but shows nothing in the UI, requiring a Studio Pro fix after every exec. Keep a project caption glossary (in the target language) so captions are consistent and never left blank; if the correct label is uncertain, look it up in the project's field-label source before writing the script rather than shipping an empty caption.
 
-**Example — Apex sample (non-English caption glossary):**
+**Example — reference sample (non-English caption glossary):**
 
 | Action | non-English caption |
 |--------|-----------------|
@@ -56,7 +56,7 @@ ACTIONBUTTON btnAddSalesAreaRow (
   Action: MICROFLOW OrderRegistration.ACT_SalesAreaData_AddRow(Dto: $OrderDetail_Dto)
 )
 ```
-> In that project the glossary lived in `extraction/knowledge-base/share/KB_MXXXX_FieldLabels_EN.md`.
+> In that project the glossary lived in `extraction/knowledge-base/share/KB_ACME01_FieldLabels_EN.md`.
 
 ---
 
@@ -177,7 +177,7 @@ else 'badge-default'
 - **SET content on dynamictext with ContentParams (BUG-07):** fails with "property 'content' not found (widget has no pluggable Object)". Use REPLACE with a different widget name instead.
 - **REPLACE with same widget name (BUG-08):** fails with "duplicate widget name". Always use a different name in the replacement body — the old name is dropped when the old widget is removed.
 - **CONTAINER inside dataview/form slot corrupts BSON (BUG-18):** Wrapping a widget in a new CONTAINER via `replace txtWidget with { container cWrapper { textbox txtWidget } }` inside a `dataview` writes a `DivContainer` into a BSON slot typed for `WidgetObject` — SP crashes on load with `InvalidCastException`. Use SCSS to fake affixes/wrappers instead. Never REPLACE a widget with a container wrapping it inside a form/dataview body.
-- **REPLACE on datagrid custom-content columns drops them (observed IVM-MxCLI, 2026-07-05):** `replace colName with { column colName (...) { ... } }` silently deletes the column instead of swapping it. Use `insert after dgName.LastColumn { column ... }` to re-add dropped columns, or rebuild the full datagrid with `create or modify page`.
+- **REPLACE on datagrid custom-content columns drops them (observed a Java/Angular analysis project, 2026-07-05):** `replace colName with { column colName (...) { ... } }` silently deletes the column instead of swapping it. Use `insert after dgName.LastColumn { column ... }` to re-add dropped columns, or rebuild the full datagrid with `create or modify page`.
 
 ## Studio Pro Launch — Use Binary Path, Not `open -a`
 
@@ -225,12 +225,12 @@ report the page as done — **a page with no wired caller is not "done."**
 Learned after a build phase produced pages with wrong widget types, empty sections, and inaccessible fields. These rules are universal; the paths/users in the examples are project-specific.
 
 **Rule: Read the authoritative spec field-by-field before building any page — not the prototype.** A prototype/mockup HTML omits fields, flattens sections, and makes everything look like a text input. Build from the field-level spec (labels, types, mandatory/optional, section structure) and the domain-model bindings, not the mockup.
-> *Example — Apex sample:* authoritative sources were `KB_MXXXX_FieldLabels_EN.md` (labels + types), `KB_MXXXX_RequirementsSpec_V5.md` (rules), `07_Form.md` (section structure), and `docs/domain-design-enriched/F001–F012.md` (entity bindings).
+> *Example — reference sample:* authoritative sources were `KB_ACME01_FieldLabels_EN.md` (labels + types), `KB_ACME01_RequirementsSpec_V5.md` (rules), `07_Form.md` (section structure), and `docs/domain-design-enriched/F001–F012.md` (entity bindings).
 
 **Rule: Cross-check DTOs/NPEs against pages before calling a phase done.** When the domain model and pages are built in separate sessions, verify every DTO created in the domain phase is actually bound to a DataView on some page. A 34-attribute DTO that no page renders is invisible — a silent gap.
 
 **Rule: After any page build, test with a non-admin user before moving on.** Write access on non-persistent (DTO) entities is not inherited from persistent-entity access rules; failing to grant `write *` to the relevant User roles produces greyed-out forms that look built but aren't usable. Log in as a real end-user role immediately after page creation.
-> *Example — Apex sample:* tested with `demo.user` (HQDomestic role) right after each page.
+> *Example — reference sample:* tested with `demo.user` (HQUser role) right after each page.
 
 **Rule: Stub banners must name the script that will replace them.** Use `[STUB: Script 44 will replace this section]`, never a bare `[STUB] handled elsewhere` — named stubs are trackable and don't get forgotten as sessions progress. (A stub banner with nothing rendered beneath it is invisible in a demo — always render at least one real data field below it.)
 

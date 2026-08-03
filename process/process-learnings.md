@@ -1,6 +1,6 @@
-# Process Learnings — MXXXX POC
+# Process Learnings — an OS 11 reference migration
 
-**Project:** Apex sample Order Registration POC (OutSystems → Mendix)
+**Project:** reference sample Order Registration POC (OutSystems → Mendix)
 **Author:** Maurits Visser
 **Created:** 2026-05-22
 **Purpose:** Retrospective on what worked, what didn't, and how to run this more structured in Phase 1 and beyond. Written to share with the team.
@@ -9,14 +9,14 @@
 
 ## Context
 
-This POC used an AI-assisted development approach (Claude Code + mxcli MDL scripting) to migrate the MXXXX Order Registration flow from OutSystems to Mendix. The POC was built iteratively over ~3 weeks across ~18 sessions.
+This POC used an AI-assisted development approach (Claude Code + mxcli MDL scripting) to migrate the ACME01 Order Registration flow from OutSystems to Mendix. The POC was built iteratively over ~3 weeks across ~18 sessions.
 
 ---
 
 ## What Worked Well
 
 - **MDL scripting via mxcli** — generating domain models, microflows, and pages from structured scripts is fast and repeatable. Domain model (Phase 1) went cleanly.
-- **Stub architecture** — constant-gated stubs (`STUB_SAP=true`, `STUB_CORPSEARCH=true`) let us build the full flow without live integrations. The pattern is clean and easy to swap out.
+- **Stub architecture** — constant-gated stubs (`STUB_SAP=true`, `STUB_PARTNERLOOKUP=true`) let us build the full flow without live integrations. The pattern is clean and easy to swap out.
 - **Enriched design docs (F001–F012)** — having a detailed requirements doc alongside OS screenshots meant design decisions could be grounded in spec, not guesswork.
 - **Iterative bug discovery** — mxcli/MDL bugs (BUG-01 through BUG-13) were discovered and documented as project rules, preventing repeated mistakes across sessions.
 - **Session memory** — maintaining a running project state doc meant each session could pick up without re-reading all prior scripts.
@@ -29,7 +29,7 @@ This POC used an AI-assisted development approach (Claude Code + mxcli MDL scrip
 
 We tracked pages as binary: `✅ Built` or `⬜ Not started`. A page with sec4 as an empty stub banner counted as "built." We only discovered missing sections weeks later by doing a systematic screenshot comparison.
 
-**What happened:** `OrderDetail_NewEdit` was marked done. Sec4 (AccountGroup, IsBelongApexGroup, TradingPartner, CommissionBurdenCode, ReconciliationAccount) had a stub banner and nothing else. OS image36/37 clearly shows these as real form fields.
+**What happened:** `OrderDetail_NewEdit` was marked done. Sec4 (AccountGroup, IsGroupMember, TradingPartner, SalesGroupCode, LedgerAccount) had a stub banner and nothing else. OS image36/37 clearly shows these as real form fields.
 
 **Root cause:** We never did a field-level coverage check between OS screenshots and Mendix widgets before marking a page done.
 
@@ -37,7 +37,7 @@ We tracked pages as binary: `✅ Built` or `⬜ Not started`. A page with sec4 a
 
 ### 2. Design docs used as reference, not as checklist
 
-F001 is 1092 lines. We read relevant sections when building specific functionality, then moved on. We never did a systematic sweep: "F001 field X → is there a widget for it?"
+The lead design doc ran to over a thousand lines. We read relevant sections when building specific functionality, then moved on. We never did a systematic sweep: "design-doc field X → is there a widget for it?"
 
 **What happened:** Validation rules (BR-001 through BR-017), mandatory fields, and system-derived read-only fields were documented in F001 but not translated into a build checklist. We re-discovered them later via ad-hoc testing ("save does nothing," "can proceed without filling fields").
 
@@ -45,7 +45,7 @@ F001 is 1092 lines. We read relevant sections when building specific functionali
 
 ### 3. OS screenshots underused as ground truth
 
-Screenshots in `Share/converted/v5_pages/` are the clearest picture of what the user actually sees. We referenced them per-section when writing a page script, but never did a full systematic comparison: screenshot left-to-right → Mendix page top-to-bottom.
+Screenshots in `<source-screenshots>/` are the clearest picture of what the user actually sees. We referenced them per-section when writing a page script, but never did a full systematic comparison: screenshot left-to-right → Mendix page top-to-bottom.
 
 **What happened:** Filter panel on Overview — container exists, no filter controls inside it. Payment Condition Table — not built at all. Both are clearly visible in the screenshots.
 
@@ -64,7 +64,7 @@ A CE-error-free page is not the same as a correct page. No CE errors means the m
 
 ### 5. Validation and save flow not verified end-to-end early
 
-We built the domain model, microflows, and pages in that order. We never walked the actual happy path (fill form → save → navigate to next page) until late in the POC. When we did, we found the save button does nothing (CompanySearchResult guard fails silently) and navigation has no validation at all.
+We built the domain model, microflows, and pages in that order. We never walked the actual happy path (fill form → save → navigate to next page) until late in the POC. When we did, we found the save button does nothing (PartnerSearchResult guard fails silently) and navigation has no validation at all.
 
 ---
 

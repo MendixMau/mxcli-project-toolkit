@@ -8,7 +8,9 @@ mismatches vs. the wireframe spec).
 
 **Companion skills:** `learned-page-patterns.md` (MDL gotchas), `design-artifacts.md` (how
 wireframes and the design system are produced), `iterative-build-loop.md` (Step 3 reads binding
-tables; Step 11 verifies against wireframe), `learned-skill-ux-audit.md` (post-build visual audit).
+tables; Step 11 verifies against wireframe), `learned-skill-ux-audit.md` (post-build visual audit),
+`oneshot-page-structure-patterns.md` (container/spacing/card mechanics once you've decided
+what the wireframe wants).
 
 **When to use:** Every time the mdl-agent (or main session) is about to draft a page or snippet.
 Not needed for pure microflow/domain/security scripts.
@@ -110,6 +112,7 @@ For each widget group in your planned MDL, verify all four:
 | **Class names** | Every `class:` value is present in `ds.css` / `main.scss` |
 | **Widget nesting** | Container depth mirrors the StyleGallery example |
 | **Component reuse** | Every pattern with an existing gallery component (badge, stepper, empty-state, KPI, card) uses that component — not plain text or a bare container |
+| **Block separation** | Every distinct content block the wireframe draws as its own section gets a `card` wrapper (project's design-system card component if one exists, else Atlas stock `card` design property) — not just a spaced, borderless container (`oneshot-page-structure-patterns.md` §6) |
 | **Empty state** | Every grid/gallery has an empty-state message for the zero-result case — never renders nothing |
 | **Validation feedback** | Every form with a required/unique field surfaces a visible validation message on failed save (validation-message widget, or the form's own error display) — a save that fails silently (server rejects, UI shows nothing) is a P1, not a pass |
 | **Conditional visibility** | Any `visible:` expression on the widget is legal under the STOP table (safe on regular widgets; MCP-only inside `datagrid customContent` columns — BUG-18) |
@@ -153,3 +156,4 @@ If no wireframe existed, say so explicitly here. Never silently skip this block.
 | Built gallery component not reused (plain text instead of the badge/stepper) | Step 3 reuse rule + Step 4 component-reuse cross-check |
 | Grid/gallery renders nothing on zero results | Step 4 empty-state cross-check |
 | Required/unique field save fails with no visible message (silent 4xx/5xx) | Step 4 validation-feedback cross-check |
+| Page's distinct blocks read as one undifferentiated wall of text | Step 4 block-separation cross-check |

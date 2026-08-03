@@ -8,7 +8,7 @@
 Decide this **before** writing a microflow, not after a lint pass catches it. A single seed/stub
 microflow with dozens of create-object-per-record blocks (e.g. one CREATE+COMMIT per row of a
 16-row dataset) balloons past any reasonable size fast — this project hit ~93 activities in one
-microflow (`TFC_GetExclusiveParts`, TFC-TCXGraphPOC, 2026-07-23) before anyone noticed, which also
+microflow (`TFC_GetExclusiveParts`, a PLM parts-flow project, 2026-07-23) before anyone noticed, which also
 made an MCP-mode exec (see `learned-mdl-preflight.md` STOP rule 9) slow enough to hit the 5-minute
 default timeout.
 
@@ -191,10 +191,10 @@ An association can be set from either side when both objects are in scope:
 
 ```mdl
 -- Standard: change the child (FK owner)
-change $SearchResult (OrderRegistration.OrderDetail_Dto_CompanySearchResult = $Dto)
+change $SearchResult (OrderRegistration.OrderDetail_Dto_PartnerSearchResult = $Dto)
 
 -- Fallback: change the parent (same effect)
-change $Dto (OrderRegistration.OrderDetail_Dto_CompanySearchResult = $SearchResult)
+change $Dto (OrderRegistration.OrderDetail_Dto_PartnerSearchResult = $SearchResult)
 ```
 
 If the child-side `change` fails, try the parent-side before diagnosing further.
@@ -398,11 +398,11 @@ END IF;
 
 ```mdl
 -- WRONG (CE0018)
-retrieve $SearchResult from $Dto/OrderRegistration.OrderDetail_Dto_CompanySearchResult;
+retrieve $SearchResult from $Dto/OrderRegistration.OrderDetail_Dto_PartnerSearchResult;
 
 -- CORRECT
-retrieve $SearchResult from OrderRegistration.CompanySearchResult
-  where [OrderRegistration.OrderDetail_Dto_CompanySearchResult = $Dto]
+retrieve $SearchResult from OrderRegistration.PartnerSearchResult
+  where [OrderRegistration.OrderDetail_Dto_PartnerSearchResult = $Dto]
   limit 1;
 ```
 

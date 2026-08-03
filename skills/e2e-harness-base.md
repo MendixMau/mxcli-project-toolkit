@@ -3,7 +3,7 @@
 **Purpose:** How to build a Playwright E2E test suite for a Mendix app after completing
 a major build phase. Covers harness setup, widget discovery, suite structure, DB
 assertions, and bug reporting.
-**Source:** Apex sample — 5 test suites built 2026-05, helpers.js pattern.
+**Source:** reference sample — 5 test suites built 2026-05, helpers.js pattern.
 **Status:** Base methodology only — full skill to be written separately.
 
 ---
@@ -25,7 +25,7 @@ Build after completing a module build phase:
 - `npx playwright install chromium`
 - App running at `http://localhost:8080`
 - PostgreSQL accessible via psql.exe (for DB assertions)
-- Test user credentials known (e.g. `demo.user / Apex12345`)
+- Test user credentials known (e.g. `demo.user / Demo12345`)
 
 ---
 
@@ -46,7 +46,7 @@ const { chromium } = require('playwright');
   // Login
   await page.goto('http://localhost:8080');
   await page.fill('#usernameInput', 'demo.user');
-  await page.fill('#passwordInput', 'Apex12345');
+  await page.fill('#passwordInput', 'Demo12345');
   await page.click('#loginButton');
   await page.waitForTimeout(3500);  // wait for post-login modal
 
@@ -84,7 +84,7 @@ const { execSync } = require('child_process');
 // ── Config ────────────────────────────────────────────────────────────────────
 const BASE_URL  = process.env.APP_URL  || 'http://localhost:8080';
 const TEST_USER = process.env.TEST_USER || 'demo.user';
-const TEST_PASS = process.env.TEST_PASS || 'Apex12345';
+const TEST_PASS = process.env.TEST_PASS || 'Demo12345';
 
 // PostgreSQL config — for DB assertions
 const PSQL = process.env.PSQL_PATH || 'C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe';

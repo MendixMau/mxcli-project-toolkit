@@ -2,7 +2,7 @@
 **Applies to:** migration or requirements-driven build (works from documents/SME input — no legacy source needed).
 **Purpose:** How to synthesise KB files + extracted JSON into BRD (Business Requirements
 Document) JSON files — the structured handoff from analysis to MDL scripting.
-**Source:** Apex sample — F001–F012 BRDs produced in conversation, 2026-05.
+**Source:** reference sample — F001–F012 BRDs produced in conversation, 2026-05.
 
 ---
 
@@ -40,7 +40,7 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
 {
   "id": "F001",
   "title": "Order & Billing Address Registration",
-  "modules": ["MXXXX_OrderRegist"],
+  "modules": ["ACME01_OrderRegist"],
   "actors": ["OrderRegisterUser", "SuperUser", "SysAdmin"],
 
   "useCases": [
@@ -55,7 +55,7 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
         "2. System retrieves and displays all OrderApplicationHeader records"
       ],
       "screens": ["OrderRegistration_Overview"],
-      "mdlRefs": ["MXXXX_OrderRegist"]
+      "mdlRefs": ["ACME01_OrderRegist"]
     }
   ],
 
@@ -110,12 +110,12 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
 
   "integrations": [
     {
-      "name": "CorpSearch Corporate Search",
+      "name": "PartnerLookup Corporate Search",
       "type": "REST",
-      "stubName": "STUB_ACT_CorpSearch_Execute",
+      "stubName": "STUB_ACT_PartnerLookup_Execute",
       "stubBehaviour": "Returns hardcoded OrderBase co. result",
-      "realTarget": "C-0031 CorpSearch API",
-      "apiDoc": "KB_C0031_CorporateSearch.md"
+      "realTarget": "C-0001 PartnerLookup API",
+      "apiDoc": "KB_C0001_CorporateSearch.md"
     }
   ],
 
@@ -124,9 +124,9 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
   ],
 
   "sourceKB": [
-    "KB_MXXXX_RequirementsSpec_V5.md",
-    "KB_MXXXX_FieldLabels_EN.md",
-    "KB_MXXXX_QA.md"
+    "KB_ACME01_RequirementsSpec_V5.md",
+    "KB_ACME01_FieldLabels_EN.md",
+    "KB_ACME01_QA.md"
   ]
 }
 ```
@@ -215,7 +215,7 @@ Write F[NNN]-[topic].brd.json following this structure:
 
 ## Mendix naming conventions:
 - Entity: PascalCase, no EN prefix (ENOrderDetail → OrderDetail)
-- Module: PascalCase (MXXXX_OrderRegist → OrderRegistration)
+- Module: PascalCase (ACME01_OrderRegist → OrderRegistration)
 - Microflow: ACT_ (action), GET_ (retrieve/build DTO), VAL_ (validation), SUB_ (sub-routine)
 - Page: EntityName_NewEdit, EntityName_View, EntityName_Overview
 - Dto: EntityName_Dto (non-persistent)
@@ -273,7 +273,7 @@ Execute domain model first — microflows and pages reference entities that must
 
 ---
 
-## Tips from MXXXX
+## Tips from ACME01
 
 - **One BRD session at a time.** Don't try to write all 12 BRDs in one session.
   Write F001, validate it, use it to generate MDL, learn what's missing, then write F002.
@@ -281,5 +281,7 @@ Execute domain model first — microflows and pages reference entities that must
   during MDL scripting. Resolve them with client, update the BRD.
 - **Cross-BRD dependencies.** F001 may use entities from F003 (master data) and F006
   (common components). Write dependency BRDs first. Track in `cross-reference-map.json`.
-- **Language note.** The Apex BRDs were written in Chinese (client preference).
-  For other clients, write in English. The structure is the same.
+- **Language note.** BRDs may need to be written in the client's working language rather
+  than English — ask at Stage 0, it is not a late-stage detail. The structure is identical
+  in any language; only the prose changes. If you do write non-English BRDs, keep entity,
+  microflow and page *identifiers* in English so the generated MDL stays readable.

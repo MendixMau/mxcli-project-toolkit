@@ -3,8 +3,11 @@
 **Purpose:** OS 11-specific extraction rules, concept mappings, and migration patterns
 for use alongside `migration-pipeline.md`.
 **Scope:** OutSystems 11 traditional module model only. ODC is out of scope.
-**Examples:** All module names, entities, and descriptions below are a fictional
-sample ("Apex" demo application) for illustration only — not real customer data.
+**Examples:** every module name, entity and description below is a synthetic
+placeholder (`ACME01_…`, `C-0001`, `PartnerLookup`). They illustrate the *shape* of an
+OS 11 estate, not any particular one. Never paste identifiers, descriptions or scale
+figures from a real source into this file; `bin/check-no-client-data.sh` blocks the
+commit if you do.
 
 > **Prerequisite — you cannot start from a raw OutSystems export.** An OutSystems
 > application export (`.osp`, containing one `.oml` per module) is **encrypted**;
@@ -49,7 +52,7 @@ Each `.xml` file is one eSpace. Root element: `<ESpace>`.
 ```xml
 <ESpace
   Key="ESpace:EXAMPLEeSpaceKey000001"   ← GUID with type prefix
-  Name="MXXXX_OrderRegist"               ← module name = file name without .xml
+  Name="ACME01_OrderRegist"               ← module name = file name without .xml
   Description="Order & billing registration"        ← developer-authored; any language
   ModuleType="Service"                   ← Service = normal app module
 >
@@ -189,7 +192,7 @@ Every persistent OS 11 entity carries these 8 fields. Preserve in Mendix:
 | SAP write-back via integration table | Database Connector → hub table; SAP reads async |
 | REST API consumption | Published REST client + microflow |
 | HRSystem employee sync | Scheduled microflow + External DB or REST |
-| CorpSearch corporate search | REST client (`CompanySearchResult` NPE as response DTO) |
+| PartnerLookup corporate search | REST client (`PartnerSearchResult` NPE as response DTO) |
 | `AppCommon_MSG` message table | `Common_Utils.Message` entity + `GET_Message_ById` microflow |
 
 ### Stub pattern for integrations
@@ -233,8 +236,8 @@ In Mendix: `log info/warning/error node 'ModuleName' 'MSGS0001I: ...'`
 
 | OS name | Mendix module name |
 |---------|-------------------|
-| `MXXXX_OrderRegist` | `OrderRegistration` |
-| `C0031_ControlMaterialGroupSearch` | `MaterialGroupSearch` |
+| `ACME01_OrderRegist` | `OrderRegistration` |
+| `C0001_ControlMaterialGroupSearch` | `MaterialGroupSearch` |
 | `AppCommon_BaseUtils` | `Common_Utils` |
 | `BusinessAppCommon_CS` | `BusinessApp_Common` |
 

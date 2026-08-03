@@ -1,8 +1,8 @@
 # Bootstrap Project — Generate a New Project's CLAUDE.md
 **Applies to:** any mxcli project.
-**Purpose:** Assemble a new mxcli-powered project's `CLAUDE.md` from this toolkit's standardized Baseline routing plus that project's own, genuinely project-specific facts — so a new project starts with the same discipline `IVM-MxCLI-main` had to retrofit, instead of discovering the gap after microflows already exist with no annotations.
+**Purpose:** Assemble a new mxcli-powered project's `CLAUDE.md` from this toolkit's standardized Baseline routing plus that project's own, genuinely project-specific facts — so a new project starts with the same discipline `a Java/Angular analysis project` had to retrofit, instead of discovering the gap after microflows already exist with no annotations.
 **Companion skills:** `agent-roles.md` (the natural next step once `CLAUDE.md` exists — generates the project's `.claude/agents/{mdl,gate,test}-agent.md`).
-**Source:** Written after finding `IVM-MxCLI-main`'s `CLAUDE.md` never routed to `learned-microflow-patterns.md` despite the toolkit having the rule — a gap that existed because nothing generated that project's routing table against a standard.
+**Source:** Written after finding `a Java/Angular analysis project`'s `CLAUDE.md` never routed to `learned-microflow-patterns.md` despite the toolkit having the rule — a gap that existed because nothing generated that project's routing table against a standard.
 
 ---
 
@@ -29,7 +29,7 @@ None of these live in the toolkit. Ask the user or check the project directly; d
 | Fact | Why it matters | How to check |
 |---|---|---|
 | **mxcli invocation style** | Global binary (`mxcli`) vs. project-local (`./mxcli`) — get this wrong and every command in `CLAUDE.md` is wrong | `which mxcli`; check for a binary committed in the project root |
-| **Source platform / stack** | Decides which situational skills apply (`source-os11.md` vs `source-java-spring-angular.md` vs none, if greenfield) | Ask the user, or run `source-triage.md` Step 1 if a migration is already underway |
+| **Source platform / stack** | Decides which situational skills apply (`source-os11.md` vs `source-node-express-react.md` vs `pipelines/java-angular/` vs none, if greenfield) | Ask the user, or run `source-triage.md` Step 1 if a migration is already underway |
 | **mxbuild / Studio Pro setup** | Whether `mx check` needs `mxcli setup mxbuild` first, and which Studio Pro version | `mxcli setup mxbuild --help`, check `~/.mxcli/mxbuild/` |
 | **Communication style preferences** | E.g. "never show raw MDL in chat, describe changes in plain language then execute silently" — genuinely project/client-specific, never assume the default | Ask the user directly |
 | **Migration-input location** (migrations only) | Where BRDs/architecture docs from an upstream analysis project live | Ask the user; this is almost never the toolkit's own `pipelines/` output location |
@@ -50,7 +50,9 @@ From this toolkit's `README.md` "Baseline routing" section, copy the table as-is
 From the toolkit's `README.md` "When to use which skill" table, include only the rows relevant to the source stack confirmed in Step 1:
 
 - **OutSystems source** → `source-os11.md`, `os-xml-schema.md`, `migrate-outsystems.md`, `pipelines/outsystems/`
-- **Java/Spring + Angular source** → `source-java-spring-angular.md` (if it exists yet — see `migration-pipeline.md`'s companion list), `pipelines/java-angular/`
+- **Java/Spring + Angular source** → `pipelines/java-angular/` and its `README.md` (there is no `source-java-spring-angular.md` skill — the pipeline is the documentation)
+- **Oracle Forms source** → mxcli's bundled `.ai-context/skills/migrate-oracle-forms.md` (the toolkit owns no Forms extractor; the bundled skill is canonical)
+- **K2 / Nintex workflow source** → mxcli's bundled `.ai-context/skills/migrate-k2-nintex.md` (server/database-stored, not file-based — extraction means the K2 DB or SmartObject APIs, so expect no XML-style extractor)
 - **Any migration, regardless of source** → `migration-pipeline.md`, `source-triage.md` (also Baseline, but worth restating in context), `brd-generation.md`, `brd-validation.md`, `modularize-domain.md`, `architecture-blueprint.md`, `design-artifacts.md`, `brd-to-build-plan.md`, `iterative-build-loop.md`
 - **Greenfield (no source migration at all)** → likely none of the migration-pipeline rows; the project probably only needs Baseline plus mxcli's own bundled `.ai-context/skills/` (which this toolkit doesn't own or duplicate)
 
@@ -77,8 +79,8 @@ Once `CLAUDE.md` exists and correctly routes to `learned-microflow-patterns.md`,
 
 ## Anti-Patterns This Skill Prevents
 
-- **Copying an existing project's `CLAUDE.md` as a starting template.** Carries over that project's stale, project-specific facts (the concrete case: `IVM-MxCLI-main`'s `CLAUDE.md` still says "mxcli is in the project root, use `./mxcli`" — wrong, it's a global binary — and that exact wrong instruction would silently propagate into any project bootstrapped from a copy of it).
+- **Copying an existing project's `CLAUDE.md` as a starting template.** Carries over that project's stale, project-specific facts (the concrete case: `a Java/Angular analysis project`'s `CLAUDE.md` still says "mxcli is in the project root, use `./mxcli`" — wrong, it's a global binary — and that exact wrong instruction would silently propagate into any project bootstrapped from a copy of it).
 - **Improvising the Baseline table from memory instead of copying it from the toolkit's README.** Reintroduces the inconsistency-across-projects problem "Baseline routing" was written to eliminate.
 - **Including every situational skill "just in case."** Produces a `CLAUDE.md` nobody reads closely, the same failure mode as over-annotating a microflow.
 - **Writing the file without a sign-off checkpoint.** A wrong mxcli invocation style or communication-style assumption baked into `CLAUDE.md` on day one is expensive precisely because every later session trusts it.
-- **Treating this as a one-time-per-project skill.** Re-run Step 1–2 whenever the toolkit's Baseline table changes (a `git pull` brought in a new baseline-worthy skill) — an existing project's `CLAUDE.md` goes stale the same way `IVM-MxCLI-main`'s did.
+- **Treating this as a one-time-per-project skill.** Re-run Step 1–2 whenever the toolkit's Baseline table changes (a `git pull` brought in a new baseline-worthy skill) — an existing project's `CLAUDE.md` goes stale the same way `a Java/Angular analysis project`'s did.

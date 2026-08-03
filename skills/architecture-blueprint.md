@@ -205,6 +205,125 @@ The Stage-3 `✋` gate is reviewed by a person, and raw Mermaid in markdown is a
 
 ---
 
+## Step 7b: Architecture Review Loop (iterative sign-off before Stage 4)
+
+**Purpose:** `blueprint.html` from Step 7 is a one-shot render. This step turns it into an iterative review surface — the same loop as `ui-review-loop.md` but for architecture decisions, not rendered pages. The goal: every structural decision (module boundaries, entity relationships, normalization, marketplace choices, single vs multi-app) is explicitly confirmed by the user before the build plan is written. Surprises discovered here are cheap; the same surprise mid-build costs a rewrite.
+
+**Diagnostic-only rule:** never update `blueprint.md`, BRDs, or module docs during a review pass. Findings only. Fixes are a separate approved step — same discipline as the UI review loop.
+
+---
+
+### What the review covers
+
+#### A. Single-app vs multi-app
+- Is the scope right for one Mendix app, or should any module become a separate app connected via OData/REST?
+- Flag if any module boundary crossed the threshold: different release cadence, different team, significantly different NFRs, or a natural API surface.
+- Record the decision in `PROJECT.md` as `CONFIRMED` — this cannot be an `ASSUMED` past this gate.
+
+#### B. Module structure
+For each module in the layer diagram:
+- Is its responsibility single and clear, or does it do two things that could drift apart?
+- Are the dependency arrows all pointing *down* the tiers? Any upward arrow = boundary bug.
+- Does the module size feel right — too much (should split) or too thin (should merge)?
+
+#### C. Domain model per module
+This is the highest-value review target — missed associations are the leading cause of build rework.
+
+For each module, the HTML must show an **entity diagram**: boxes per entity, labeled association lines with cardinality (`1`, `*`, `0..1`), and a normalization decision badge on each entity (`Entity` / `Attribute` / `Enum` — why this and not the other).
+
+**Review checklist per module:**
+- Every concept from the BRD that involves a relationship has an explicit association line — not just an attribute storing a foreign ID.
+- Every association has a cardinality label. Unlabeled = unreviewed = build risk.
+- Every normalization decision is documented: why is `Status` an enum and not a string? Why is `Address` an entity and not attributes on `Customer`?
+- No many-to-many associations without a named junction entity (Mendix handles these via a helper entity — it should be explicit, not generated silently).
+- Cross-module associations are flagged distinctly — they determine which module's script owns the `CREATE ASSOCIATION` call.
+
+#### D. Marketplace & fit-gap
+- For every "Buy" row in fit-gap: is this the right module, and is the dependency justified? Over-importing is a real cost (upgrade surface, version lock).
+- For every "Gap": is it genuinely deferred, or should it be resolved before Stage 4?
+- Any "Workaround" row: is the workaround acceptable, or does it need a design change?
+
+---
+
+### The loop
+
+```
+generate blueprint.html (Step 7)
+    ↓
+open in browser — user reviews all four sections above
+    ↓
+user gives feedback (annotated screenshot, chat, or written notes)
+    ↓
+agent updates blueprint.md + module docs (diagnostic findings → approved changes)
+    ↓
+regenerate blueprint.html
+    ↓
+repeat until user explicitly signs off
+    ↓
+✋ CONFIRMED gate — record in PROJECT.md before Stage 4 starts
+```
+
+**Iteration budget:** aim for 2–3 rounds maximum. If still unresolved after 3 rounds, escalate the specific open question to a `PROJECT.md` decision row and continue — don't loop indefinitely on one ambiguity.
+
+---
+
+### Entity diagram HTML spec
+
+Each module gets a section in `blueprint.html` with a self-contained entity diagram:
+
+- **Entity boxes:** module-colored background, entity name in bold, key attributes listed (type shown), normalization badge bottom-right (`Entity` / `Enum` / `Attr`).
+- **Association lines:** SVG arrows between boxes, labeled with association name + cardinality on both ends. Cross-module associations use a dashed line.
+- **Junction entities** for many-to-many: rendered as a smaller diamond-shaped box between the two entities.
+- **No external libraries required:** pure HTML/CSS/SVG so it renders offline and embeds cleanly as base64 if needed.
+- **Justification callouts:** every structural decision gets a one-line *why* shown as a small muted callout next to the element. Keep it to one line — the goal is reviewability, not documentation. Cite the source (BRD section, sample data observation, or open question resolution). Examples:
+  - Entity: `"Persistent — lifecycle + referenced by 3 modules (BRD F002 §3.2)"`
+  - Association: `"1→* — avg 4.2 orders/customer in sample data"`
+  - Normalization: `"Enum fixed 5 values, no own attributes (BRD F003 §2.1)"`
+  - Module boundary: `"Separate from Core — different release cadence (OQ-3 CONFIRMED)"`
+  - Marketplace: `"Buy Charts — 3 dashboard screens, build cost > buy cost"`
+  - Cross-module assoc: `"Owned by OrderModule — Order is the master side"`
+
+  If no justification exists for a decision, render the callout as `"⚠ no justification"` — that gap is itself a review finding.
+
+The entity diagram is generated from the module `.md` files' **Entities** table — it introduces nothing new, it just makes the relationships and their rationale visible. If an entity's associations aren't in the module doc, they aren't in the diagram, and the gap is immediately visible during review.
+
+---
+
+### Feedback format
+
+When the user gives feedback, capture it as a numbered finding list before making any change:
+
+| # | Section | Finding | Severity | Resolution |
+|---|---------|---------|----------|------------|
+| 1 | Domain / OrderModule | `Order → OrderLine` association missing — only `OrderLineCount` attribute present | **P1** — build risk | Add association + cardinality |
+| 2 | Fit-gap | Charts "Buy" decision not justified — only one KPI tile needed, build it | **P2** | Change to "Build" |
+| 3 | Module boundary | `NotificationService` too thin — merge into `Common` | **P3** | Discuss before merging |
+
+P1 = build risk (must resolve before Stage 4) · P2 = significant concern · P3 = polish / discuss.
+
+Present the finding list and ask which to action before touching any file.
+
+---
+
+### Sign-off gate
+
+Before proceeding to Stage 4 (`brd-to-build-plan.md`):
+
+- [ ] Single vs multi-app decision recorded as `CONFIRMED` in `PROJECT.md`
+- [ ] All module boundaries confirmed — no unresolved boundary bugs
+- [ ] Every entity in every module has its associations explicitly drawn and cardinality labeled
+- [ ] Every normalization decision documented (Entity / Attribute / Enum + reason)
+- [ ] All many-to-many junctions named and explicit
+- [ ] All cross-module associations ownership assigned
+- [ ] Fit-gap "Buy" decisions confirmed or revised
+- [ ] All P1 findings resolved; P2/P3 dispositioned (fix or consciously deferred)
+- [ ] `blueprint.html` regenerated after last change and confirmed fresh by `gate-check.sh`
+
+`bin/gate-check.sh <project-root> 3` enforces the last point mechanically (it fails when
+`blueprint.html` is older than `blueprint.md`, `fit-gap.md` or `open-issues.md`). The rest are human sign-off — the agent presents the checklist, the user confirms each item, and the `CONFIRMED` row goes into `PROJECT.md`.
+
+---
+
 ## Handoff to the Build Plan
 
 `brd-to-build-plan.md` consumes this blueprint directly:
@@ -226,3 +345,5 @@ If the build plan can't answer one of its Step 2 questions, the gap is in *this*
 - **Drawing an up-the-tiers dependency.** Common importing a feature module is a boundary bug; the diagram should make it impossible to miss.
 - **Diagrams as throwaway images.** Keep them as Mermaid in git so they diff and stay true; `blueprint.html` (Step 7) is the presentation render, regenerated from the markdown.
 - **Hand-editing `blueprint.html`.** The render silently forks from the markdown and the checkpoint reviews a fiction. Fix the markdown, regenerate. (Same failure mode as editing generated BRDs.)
+- **Skipping the entity diagram review.** Missing associations are the leading cause of MDL rework. A module doc with an entities table but no association lines reviewed is not architecture — it's a list. The diagram makes gaps visible; skipping it hides them until a script fails.
+- **Treating the first blueprint.html as the sign-off surface.** The loop exists because the first render always has gaps. One round is not a review; it's a draft. Sign-off requires an explicit confirmed checklist, not "looks good."

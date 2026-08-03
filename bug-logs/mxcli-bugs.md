@@ -1,7 +1,33 @@
-# mxcli Bug Report — MXXXX POC session
+# mxcli Bug Report
 
 Issues encountered during AI-assisted Mendix development using mxcli + MDL.
 Collected for reporting to the mxcli team.
+
+---
+
+## Provenance convention — read before adding an entry
+
+Every finding carries `**Discovered:**` and `**Reproducible:**` fields so a reader can
+judge whether it is *confirmed* or *theoretical*. That judgement needs the **mxcli
+version, the Mendix version, the date, and what was actually exercised**. It does not
+need the client's name — no reader of this file can go and check that project, so the
+name carries zero evidential value while carrying full NDA risk.
+
+**Refer to projects descriptively, never by name or repo:**
+
+| Instead of | Write |
+|---|---|
+| a client engagement codename | `a WMS conversion project` |
+| a repo name (`Foo-Bar-main`) | `a PLM parts-flow project` |
+| a source-analysis repo | `a Java/Angular analysis project` |
+| the demo/reference app | `a WMS demo project` |
+
+**Keep distinctness when it is the evidence.** "Reproduced independently on two projects"
+is a stronger claim than "reproduced" — so if two *different* projects hit the same bug,
+say so ("seen in both a WMS conversion project and a Java/Angular analysis project").
+Collapsing them to "a project" throws away the corroboration.
+
+`bin/check-no-client-data.sh` blocks the commit if a denylisted name reaches this file.
 
 ---
 
@@ -44,7 +70,7 @@ Drop attributes manually in Studio Pro instead.
 
 ## BUG-02: `create association` for cross-module associations corrupts the MPR (CRITICAL)
 
-**Status: FIXED in mxcli v0.13.0** — `CREATE ASSOCIATION` for cross-module associations works correctly. Verified 2026-07-04 on WMS-LargeSource-main (Mendix 11.12.0): 0 CE errors, project loads cleanly in mxbuild. **No Studio Pro handoff required.**
+**Status: FIXED in mxcli v0.13.0** — `CREATE ASSOCIATION` for cross-module associations works correctly. Verified 2026-07-04 on a large-source WMS project (Mendix 11.12.0): 0 CE errors, project loads cleanly in mxbuild. **No Studio Pro handoff required.**
 
 ~~**Severity:** Critical — project becomes unopenable in Studio Pro and mxbuild~~  
 ~~**Reproducible:** Yes, consistently~~  
@@ -169,7 +195,7 @@ Script exec fails mid-run with a SQLite locking error. Objects created before th
 
 Close Studio Pro before running large scripts where possible.
 
-**Discovered:** 2026-05-17, MXXXX POC Phase 1 (order-registration.mdl).
+**Discovered:** 2026-05-17, an OS 11 reference migration Phase 1 (order-registration.mdl).
 
 ---
 
@@ -196,7 +222,7 @@ set $OrderDetail/OrderRegistration.OrderAreaData_OrderDetail = $OrderAreaData;
 
 **Also check creation order:** the FK-owning entity (`from`) must be committed after the entity it points to (`to`) already exists in the database.
 
-**Discovered:** 2026-05-18, MXXXX POC script 11 (ACT_OrderDetail_SaveDraft).
+**Discovered:** 2026-05-18, an OS 11 reference migration script 11 (ACT_OrderDetail_SaveDraft).
 
 ---
 
@@ -229,7 +255,7 @@ Use `REPLACE widgetName WITH { dynamictext newName (Content: 'New Text') }` — 
 **different name** for the replacement widget (see BUG-08). The REPLACE drops the old widget
 (including its ContentParams) and inserts a clean new one.
 
-**Discovered:** 2026-05-21, MXXXX POC script 34 (fixing CE0720 on lblHdrAction).
+**Discovered:** 2026-05-21, an OS 11 reference migration script 34 (fixing CE0720 on lblHdrAction).
 
 ---
 
@@ -266,7 +292,7 @@ ALTER PAGE Module.Page {
 ```
 The old widget (and its name) is dropped; the new widget takes its place in the layout.
 
-**Discovered:** 2026-05-21, MXXXX POC script 34 (fixing CE0720 on lblHdrAction).
+**Discovered:** 2026-05-21, an OS 11 reference migration script 34 (fixing CE0720 on lblHdrAction).
 
 ---
 
@@ -320,7 +346,7 @@ Any gallery filter that needs to filter on an **associated entity's attribute** 
 - For filters on **direct entity attributes**: configure via mxcli as normal
 - For filters on **associated entity attributes**: document the filter as a Studio Pro manual step; note the association path (e.g. `OrderDetail → [OrderDetail_OrderApplicationHeader] → OrderApplicationHeader → [OrderApplicationHeader_ApplicationCommonHeader] → ApplicationCommonHeader.Status`)
 
-**Discovered:** 2026-05-22, MXXXX POC OrderRegistration_Overview (Status filter via 2-hop cross-module association).
+**Discovered:** 2026-05-22, an OS 11 reference migration OrderRegistration_Overview (Status filter via 2-hop cross-module association).
 
 ---
 
@@ -362,7 +388,7 @@ Note: due to BUG-08 (REPLACE with same name fails), the replacement filter must 
 
 The mxcli parser grammar does not allow dots inside `[]` attribute lists (treats them as separate tokens). The executor uses a separate path-resolver that requires the qualified format to look up the attribute GUID. These two code paths are not aligned.
 
-**Discovered:** 2026-05-22, MXXXX POC script 35 (OrderRegistration_Overview gallery filter extension).
+**Discovered:** 2026-05-22, an OS 11 reference migration script 35 (OrderRegistration_Overview gallery filter extension).
 
 ---
 
@@ -408,7 +434,7 @@ When Studio Pro manually sets Type = Context and traverses via the association t
 
 **Conclusion:** mxcli cannot create a valid DataView datasource that retrieves an associated entity. Use microflow datasource (current approach) or configure manually in Studio Pro.
 
-**Discovered:** 2026-05-22, MXXXX POC OrderDetail_View (`dvOrderCustomerBase`, `dvPaymentTermData`).
+**Discovered:** 2026-05-22, an OS 11 reference migration OrderDetail_View (`dvOrderCustomerBase`, `dvPaymentTermData`).
 
 ---
 
@@ -424,7 +450,7 @@ When Studio Pro manually sets Type = Context and traverses via the association t
 
 **Fix option B (Studio Pro manual):** In Studio Pro, open the microflow and replace the "Retrieve from database" activity with a "Retrieve by association" activity. Set the association and the starting object. This is the correct Mendix pattern for NPE-to-NPE traversal and does not require changing the microflow signature.
 
-**Discovered:** 2026-05-18, MXXXX POC script 11 (ACT_OrderDetail_SaveDraft — CompanySearchResult NPE retrieve).
+**Discovered:** 2026-05-18, an OS 11 reference migration script 11 (ACT_OrderDetail_SaveDraft — PartnerSearchResult NPE retrieve).
 
 ---
 
@@ -435,7 +461,7 @@ When Studio Pro manually sets Type = Context and traverses via the association t
 **Mendix version:** 11.10.0  
 **mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
 **Retested on v0.13.0:** No — v0.13.0 fixed several page-authoring BSON issues; worth retesting before routing to SP  
-**Discovered:** 2026-05-25, MXXXX POC Script 56
+**Discovered:** 2026-05-25, an OS 11 reference migration Script 56
 
 ### Steps to reproduce
 
@@ -499,7 +525,7 @@ Wire the button action manually in Studio Pro:
 **Mendix version:** 11.10.0  
 **mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
 **Retested on v0.13.0:** No  
-**Discovered:** 2026-05-26, MXXXX POC scripts 62 + 63
+**Discovered:** 2026-05-26, an OS 11 reference migration scripts 62 + 63
 
 ### Symptoms
 
@@ -650,7 +676,7 @@ Write-Host "Patched $totalFiles files, $totalOccurrences occurrences"
 **Mendix version:** 11.10.0  
 **mxcli version when found:** pre-v0.13.0 (exact unrecorded)  
 **Retested on v0.13.0:** No — v0.13.0 unified the datagrid engine (#529 Phase 4); worth retesting before routing to Studio Pro  
-**Discovered:** 2026-05-26, MXXXX POC Script 77 (OrderRegistration_Overview_DG2)
+**Discovered:** 2026-05-26, an OS 11 reference migration Script 77 (OrderRegistration_Overview_DG2)
 
 ### Steps to reproduce
 
@@ -717,7 +743,7 @@ DataGrid 2 is a pluggable widget. Its custom content column schema (`ShowContent
 **Mendix version:** 11.12.0  
 **mxcli version when found:** v0.12.x (pre-v0.13.0 codec engine)  
 **Retested on v0.13.0:** No — XPath token serialization may be fixed by codec engine; worth a quick retest  
-**Discovered:** 2026-07-03, IVM-MxCLI-main Phase 3a (script 14)
+**Discovered:** 2026-07-03, a Java/Angular analysis project Phase 3a (script 14)
 
 ### Steps to reproduce
 
@@ -815,7 +841,7 @@ Studio Pro itself cannot open the MPR. Gate 2 (javac) still passes because it do
 
 **Recovery:** Restore from snapshot immediately — the MPR is load-broken. Run `bash bin/restore-mpr.sh`.
 
-**Discovered:** 2026-07-03, IVM project (datagrid). 2026-07-05, WMS-LargeSource-main script 18 (snippet with no entity context).
+**Discovered:** 2026-07-03, IVM project (datagrid). 2026-07-05, a large-source WMS project script 18 (snippet with no entity context).
 
 ---
 
@@ -826,7 +852,7 @@ Studio Pro itself cannot open the MPR. Gate 2 (javac) still passes because it do
 **Mendix version:** 11.12.0 Beta  
 **mxcli version when found:** v0.12.x (pre-v0.13.0)  
 **Retested on v0.13.0:** No — codec engine may address type-tag handling; worth a quick retest  
-**Discovered:** 2026-07-05, IVM-MxCLI sprint4-visual-polish.mdl
+**Discovered:** 2026-07-05, a Java/Angular analysis project sprint4-visual-polish.mdl
 
 ### Steps to reproduce
 
@@ -897,7 +923,7 @@ For decorative header blocks (e.g. danger icon before confirm text):
 
 Restore `mprcontents/` from the last clean git commit:
 ```bash
-git checkout HEAD -- mprcontents/ IVM-MxCLI.mpr
+git checkout HEAD -- mprcontents/ Project.mpr
 ```
 Then restart SP.
 
@@ -911,7 +937,7 @@ Then restart SP.
 **Mendix version:** 11.12.0 Beta  
 **mxcli version when found:** v0.13.0 (confirmed on codec engine)  
 **Retested on v0.13.0:** Yes — still corrupts. Preflight rule 7 STOP remained valid.  
-**Retested on v0.16.0:** **Still BROKEN — 2026-07-13**, KT-POC project (`1146version` branch). Script created page `ZZ_Retest16.Retest_BUG07_Page` with DataGrid datasource `$currentObject/ZZ_Retest16.Widget_Category` (cross-module, `ZZ_Retest16.Widget` → `ZZ_Retest16B.Category`). mxbuild gate: **0 errors** — but SP crashed on open with the identical `ArgumentNullException: value at EntityRefStep.set_DestinationEntityId`. **Critical new finding: mxbuild does NOT catch this BSON corruption — only Studio Pro's project load does.** Preflight rule 7 STOP remains in effect.  
+**Retested on v0.16.0:** **Still BROKEN — 2026-07-13**, a WMS conversion project (`1146version` branch). Script created page `ZZ_Retest16.Retest_BUG07_Page` with DataGrid datasource `$currentObject/ZZ_Retest16.Widget_Category` (cross-module, `ZZ_Retest16.Widget` → `ZZ_Retest16B.Category`). mxbuild gate: **0 errors** — but SP crashed on open with the identical `ArgumentNullException: value at EntityRefStep.set_DestinationEntityId`. **Critical new finding: mxbuild does NOT catch this BSON corruption — only Studio Pro's project load does.** Preflight rule 7 STOP remains in effect.  
 **Discovered:** 2026-07-06
 
 ### Steps to reproduce
@@ -974,7 +1000,7 @@ rsync -a --delete "$SNAP/mprcontents/" mprcontents/
 **Confirmed:** Mendix 11.12.0 Beta, 2026-07-06  
 **mxcli version when found:** v0.13.0 (confirmed on codec engine)  
 **Retested on v0.13.0:** Disk write path still corrupts. **`mxcli --mcp` path confirmed safe — retested 2026-07-09, `ped_check_errors` 0 errors.** Preflight rule 9 updated: use `mxcli --mcp` instead of hand-rolled MCP.  
-**Retested on v0.16.0:** **Still corrupts — 2026-07-13**, KT-POC project (`main` and `1146version` branches). Variant A (`change $NewAccount (System.User_UserRoles = $Role);`) reproduced the identical error on both branches: `"The text 'System.User_UserRoles' is not a valid AttributeIdentifier"` — a project-load-level failure. v0.14.0's "$ID-first BSON ordering fix" does not address this. **Preflight rule 9 (use `mxcli --mcp`) remains in effect.**
+**Retested on v0.16.0:** **Still corrupts — 2026-07-13**, a WMS conversion project (`main` and `1146version` branches). Variant A (`change $NewAccount (System.User_UserRoles = $Role);`) reproduced the identical error on both branches: `"The text 'System.User_UserRoles' is not a valid AttributeIdentifier"` — a project-load-level failure. v0.14.0's "$ID-first BSON ordering fix" does not address this. **Preflight rule 9 (use `mxcli --mcp`) remains in effect.**
 
 ### Symptom
 `mxcli exec` (disk write path) reports success. Studio Pro refuses to open the project on the next load. The error is in the CHANGE or CREATE activity's BSON, where the association name was written as an `AttributeIdentifier` field instead of a proper association reference.
@@ -1086,7 +1112,7 @@ Supersedes/corrects `skills/learned-mdl-preflight.md` Rule 12, which blamed "any
 
 ## `marketplace install` fails on modules that ship `themesource/` styling (exit 112, "Importing theme module is not supported")
 
-**Discovered:** 2026-07-22 (TFC-TCXGraphPOC, mxcli v0.16.0, mxbuild 11.12.0), importing **Conversational UI** (content-id 239450, v7.0.0, a Mendix Platform *Module*).
+**Discovered:** 2026-07-22 (a PLM parts-flow project, mxcli v0.16.0, mxbuild 11.12.0), importing **Conversational UI** (content-id 239450, v7.0.0, a Mendix Platform *Module*).
 
 ### Symptom
 ```
@@ -1121,7 +1147,7 @@ Then in Studio Pro: **App → Import module package →** select that `.mpk`. St
 ## 🚨 CRITICAL: `mxcli marketplace install` collapses a split-model project to monolithic `.mpr` and deletes `mprcontents/` — breaks Studio Pro
 
 **Severity:** Critical — corrupts the on-disk project format; Studio Pro's Git integration then fails to open/reconcile.
-**Discovered:** 2026-07-22 (TFC-TCXGraphPOC, mxcli v0.16.0, mxbuild 11.12.0, Mendix 11 split-model project).
+**Discovered:** 2026-07-22 (a PLM parts-flow project, mxcli v0.16.0, mxbuild 11.12.0, Mendix 11 split-model project).
 **Supersedes the theme-import entry above** — the theme error was a symptom encountered on one module; THIS is the real, general failure.
 
 ### What happens
@@ -1138,7 +1164,7 @@ System.InvalidOperationException: Arg_InvalidOperationException
   at ...ObjectUtil.ThrowIfNull[T](T value)
   at ...LibGit2RepositoryProvider.WriteBaseFile(String versionedFilePath, String destinationPath)
 ```
-Cause: git tracked 369 `mprcontents/*.mxunit` that vanished + a 49 MB binary `.mpr` swapped in; SP's LibGit2 integration can't write base files for the missing tracked paths. `git status` shows ~370 `D` (deletions) + `M TFC-TCXGraphPOC.mpr`.
+Cause: git tracked 369 `mprcontents/*.mxunit` that vanished + a 49 MB binary `.mpr` swapped in; SP's LibGit2 integration can't write base files for the missing tracked paths. `git status` shows ~370 `D` (deletions) + `M Project.mpr`.
 
 ### Why it matters beyond SP
 The entire toolkit workflow assumes split format: mxcli's own MDL exec writes *into* `mprcontents/`, `exec.sh` commits `mprcontents/`, BUG-19 recovery does `git checkout HEAD -- mprcontents/`. A monolithic `.mpr` is off-workflow. **Normal `mxcli exec` (MDL) preserves the split format; only `marketplace install` / `mx module-import` collapses it.**
@@ -1165,7 +1191,7 @@ The entire toolkit workflow assumes split format: mxcli's own MDL exec writes *i
 
 ## Studio Pro Git integration crashes on project open (Team Server repo) — detach .git to open
 
-**Discovered:** 2026-07-22 (TFC-TCXGraphPOC, Studio Pro 11.12.1 Beta, Mendix Team Server Git repo, working branch `pipeline-artifacts`).
+**Discovered:** 2026-07-22 (a PLM parts-flow project, Studio Pro 11.12.1 Beta, Mendix Team Server Git repo, working branch `pipeline-artifacts`).
 
 ### Symptom
 Opening the project in Studio Pro throws during project-open, from the VC layer (not model load):
@@ -1195,7 +1221,7 @@ Terminal git/mxcli work fine with `.git` attached — the crash is ONLY Studio P
 
 ## GRANT: association names silently dropped from member lists; multiple rules per role on one entity not supported
 
-**Discovered:** 2026-07-22 (TFC-TCXGraphPOC, mxcli v0.16.0, Mendix 11.12.1).
+**Discovered:** 2026-07-22 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1).
 
 ### Symptom 1 — association as a grant member
 Adding an association name to a `READ (...)`/`WRITE (...)` member list in a `GRANT` statement execs with 0 errors and passes `mxcli check --references` (which does not validate grant-member names at all — even a totally nonexistent field name like `"TotallyMadeUp12345"` passes `--references` clean). But the association never appears in the resulting grant. Confirmed via `DESCRIBE ENTITY` after real exec, both forms tested:
@@ -1223,7 +1249,7 @@ Builds on `learned-mdl-preflight.md` rule 14 (revoke-all/regrant-all when patchi
 
 ## CRITICAL: mxcli exec of association + GRANT script corrupted the MPR's BSON storage (unrecoverable except by restore)
 
-**Discovered:** 2026-07-22 (TFC-TCXGraphPOC, mxcli v0.16.0, Mendix 11.12.1).
+**Discovered:** 2026-07-22 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1).
 
 ### Symptom
 After `mxcli exec` of a script creating an association (`Account_Supplier`, Administration↔TFC) plus `GRANT` rules referencing it (the same script documented in the "association names silently dropped from member lists" entry above), the `.mpr` became unopenable — both in Studio Pro GUI and in `mxbuild` (any platform, any architecture):
@@ -1245,7 +1271,7 @@ Separately discovered in the same incident: this project's cached `~/.mxcli/mxbu
 
 ## Any GRANT/REVOKE exec in a module fails once ANY entity there has an Account_Supplier-style cross-module XPath — 3rd occurrence, this time caught cleanly
 
-**Discovered:** 2026-07-23 (TFC-TCXGraphPOC, mxcli v0.16.0, Mendix 11.12.1), same project/association as the two entries above — this is the 3rd data point on the same root cause, refining the scope of the unsafe operation.
+**Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1), same project/association as the two entries above — this is the 3rd data point on the same root cause, refining the scope of the unsafe operation.
 
 ### Symptom
 `Administration.Account_Supplier` (Administration↔TFC, Reference, Default owner) was added cleanly via Studio Pro GUI per the workaround above, confirmed present via `SHOW ASSOCIATIONS`. A subsequent, unrelated mxcli script (`03b-tfc-domain-revision.mdl`) then dropped/recreated two non-persistent-to-persistent entities, added two new entities, added a new same-module association (`TFC.TFCStub_Supplier`), and — per STOP rule 14 — rebuilt **all four** role grants on `TFC.TFCStub` in one block (revoke all, regrant all), including a new Vendor XPath `[TFCStub_Supplier = '[%CurrentUser/TFC.Account_Supplier%]']` copying the already-existing `FeasibilityDecision` pattern.
@@ -1280,7 +1306,7 @@ This means the "Studio Pro GUI only, module-wide" conclusion above was too broad
 
 ## Inline association-set (STOP rule 9): same-module confirmed safe via plain CLI on v0.16.0 -- cross-module remains broken
 
-**Discovered:** 2026-07-23 (TFC-TCXGraphPOC, mxcli v0.16.0, Mendix 11.12.1). Scoping clarification of rule 9, not a reversal -- the pre-existing 2026-07-13 finding on this same mxcli version (`System.User_UserRoles`, cross-module, KT-POC project) still stands.
+**Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1). Scoping clarification of rule 9, not a reversal -- the pre-existing 2026-07-13 finding on this same mxcli version (`System.User_UserRoles`, cross-module, a WMS conversion project) still stands.
 
 ### What was tested
 1. Isolated throwaway test: two brand-new entities in the same project module (`TFC`), new `Reference` association between them, set inline via `CHANGE` inside a microflow, executed via plain `bin/exec.sh`. `mx check` and full `mxcli docker check`: 0 errors. Cleaned up via the same plain-CLI path -- also clean.
@@ -1299,24 +1325,25 @@ STOP-table rule 9 updated to reflect the same-module/cross-module split precisel
 
 ## Compound boolean `AND`/`OR` (uppercase) + `!=` in the same expression → CE0117/CE0161 (mxcli bug)
 
-**Discovered:** 2026-07-23 (TFC-TCXGraphPOC, mxcli v0.16.0, Mendix 11.12.1).
+**Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1).
 
 ### Symptom
 
 A microflow with a compound boolean condition mixing an uppercase `AND` and a `!=` comparison — in a Decision/IF activity, or in a `retrieve ... where` clause — passes `mxcli check` (with or without `--references`) cleanly, but a real `mx check` (or Studio Pro compile) fails:
 
 ```
-[error] [CE0117] "Error(s) in expression." at Decision '$Flag = Enum.HIGH AND $Outcome != Enum.DieGoHold'
+[error] [CE0117] "Error(s) in expression." at Decision '$Flag = Enum.HIGH AND $Outcome != Enum.ReleaseHold'
 [error] [CE0161] "Error(s) in XPath constraint." at Retrieve object(s) activity '...'
 ```
 
 ### What was tested (isolated throwaway microflows, each executed via plain `bin/exec.sh` + a real `mx check`)
 
-1. `IF $Flag = Enum.HIGH AND $Outcome != Enum.DieGoHold THEN` → **CE0117**.
-2. Same expression wrapped in explicit parens per comparison (`($Flag = Enum.HIGH) AND ($Outcome != Enum.DieGoHold)`) → **still CE0117**. Parens are not the fix.
-3. Same expression with lowercase `and` (no parens): `$Flag = Enum.HIGH and $Outcome != Enum.DieGoHold` → **0 errors**.
-4. Isolation of the actual trigger: uppercase `AND` combined with two `=` comparisons (no `!=`) → **0 errors**. Uppercase `OR` combined with two `=` comparisons → **0 errors**. Only uppercase `AND`/`OR` + a `!=` comparison anywhere in the same expression fails.
-5. Same bug reproduced in a `retrieve ... where` clause, not just a Decision activity: `where PartId = 'x' AND SupplyPlant = $P AND "Status" != Enum.Archived` → CE0161. Switching to lowercase `and` → 0 errors.
+1. `IF $Flag = Enum.HIGH AND $Outcome != Enum.ReleaseHold THEN` → **CE0117**.
+2. Same expression wrapped in explicit parens per comparison (`($Flag = Enum.HIGH) AND ($Outcome != Enum.ReleaseHold)`) → **still CE0117**. Parens are not the fix.
+3. Same expression with lowercase `and` (no parens): `$Flag = Enum.HIGH and $Outcome != Enum.ReleaseHold` → **0 errors**.
+4. Isolation of the actual trigger: uppercase `AND` combined with two `=` comparisons (no `!=`) → **0 errors**. Uppercase `OR` combined with two `=` comparisons → **0 errors**.
+5. Same bug reproduced in a `retrieve ... where` clause, not just a Decision activity: `where PartId = 'x' AND PlantCode = $P AND "Status" != Enum.Archived` → CE0161. Switching to lowercase `and` → 0 errors.
+6. **Correction (2026-07-23, same session):** the write-up originally claimed uppercase `OR` + `!=` fails "by symmetry" with `AND` + `!=`, without actually testing that combination — step 4 above only tested `OR` with two `=` comparisons. Flagged by the user as an unconfirmed assumption before it could harden into a toolkit rule. Retested directly: `IF $Outcome = Enum.Release OR $Outcome != Enum.ReleaseHold THEN` → **CE0117**, confirming the symmetry claim was correct, but it is now evidence-backed rather than inferred. Lesson: don't write a toolkit rule broader than what was literally executed through a real `mx check` — test every named combination (`AND`+`!=`, `OR`+`!=` are two separate claims), even when a pattern seems obviously symmetric.
 
 ### Fix
 
@@ -1330,8 +1357,725 @@ Likely an mxcli expression/XPath serializer bug in how it tokenizes `!=` after a
 
 Added as STOP-table rule 17 in `learned-mdl-preflight.md`.
 
+---
+
+## BUG-WF01: `ANNOTATION` in workflow body → BSON constructor crash (MX 11.12.1, mxcli v0.16.0)
+
+**Severity:** High — mx check hard-crashes (MPR won't load), not a CE error  
+**Reproducible:** Yes, consistently  
+**Mendix version:** 11.12.1  
+**mxcli version:** v0.16.0  
+
+### Symptom
+
+After executing a `CREATE WORKFLOW` script that contains `ANNOTATION` statements in the workflow body, `mx check` crashes before reporting any model errors:
+
+```
+Type Mendix.Modeler.Workflows.Model.Annotation does not contain a constructor
+with a parameter of type Mendix.Modeler.Workflows.Model.Flow
+```
+
+The MPR appears to load (no SQLite error), but mxbuild can't construct the workflow's annotation objects — the project is broken. `bin/exec.sh`'s size guard is not triggered (the file isn't truncated, just corrupted).
+
+### Fix
+
+Remove all `ANNOTATION` statements from workflow bodies. Annotations in workflows must be added via Studio Pro after the workflow exists.
+
+**Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1), during Phase 3c script 09.
+
+---
+
+## BUG-WF02: `WITH (...)` parameter mapping in workflow `CALL MICROFLOW` → null ParameterId BSON
+
+**Severity:** High — silent at exec, fails at runtime  
+**Reproducible:** Yes, consistently  
+**Mendix version:** 11.12.1  
+**mxcli version:** v0.16.0  
+
+### Symptom
+
+`CALL MICROFLOW TFC.MyMF WITH (TFC.MyMF.Param = '$workflowContext')` in a workflow body causes mxcli to write a null `ParameterId` into the BSON unit. `mxcli check` and `mx check` both pass (0 errors), but at runtime the parameter binding is invalid and the call fails.
+
+**Status (retested 2026-08-03): RESOLVED on RnD, PARTIALLY RESOLVED on Engalar.** Repro'd against
+RnD `bin/mxcli` (HEAD `504aec67`) and Engalar `bin/mxcli` (`26f2866`) on a fresh pristine project.
+`CALL MICROFLOW ... with (Item = '$workflowContext')` (lowercase, exactly as written above) now
+round-trips correctly through `DESCRIBE WORKFLOW` and passes a real `mx check` with 0 errors on
+**RnD** — three dated fixes landed 2026-07-29 (in HEAD, not yet in the tagged v0.16.0 release):
+`253d60d8` (version-gate call-microflow storage name at Mendix 11.9), `08746d00` (flag unmapped
+workflow call-microflow parameters, FINDINGS #40), `1b390dce` (match outcomes to return type +
+**normalize the context variable's case**, FINDINGS #39 regression), `b6a5043a` (parse
+CallMicroflowActivity storage name on read). The case-normalization fix (`1b390dce`) is the load-bearing
+one here: RnD silently rewrites a lowercase `'$workflowContext'` to the actual param name
+`$WorkflowContext` before storing it.
+**Engalar does not have that normalization fix.** The identical lowercase `with (Item =
+'$workflowContext')` — i.e. exactly the syntax this bug's own "no WITH" fix note assumes is safe —
+fails a real `mx check` with `CE0161`/`CE0117` ("Error(s) in expression") on Engalar, isolated and
+confirmed reproducible. Using the capitalized `'$WorkflowContext'` instead passes cleanly on
+Engalar too (0 errors) — so Engalar's WITH-clause path itself works, it just never got RnD's
+case-insensitivity fix. See BUG-WF04 below for the consolidated, corrected guidance — this entry's
+"remove all WITH clauses" fix advice is now superseded and should not be followed as written.
+
+### Fix (superseded — see BUG-WF04)
+
+Remove all `WITH (...)` clauses from `CALL MICROFLOW` statements inside workflow bodies. The workflow runtime automatically binds the workflow context object to the called microflow's first entity-typed parameter that matches the context type — no explicit mapping is needed or supported via MDL.
+
+Confirmed from the engalar/mxcli fork's `24-workflow-examples.mdl`: workflow `CALL MICROFLOW` statements use bare form with no argument list.
+
+**Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1), Phase 3c script 09.
+
+---
+
+## BUG-WF03: `DECISION` with enum comparison in workflow body → CE0117 (MX 11.12.1, mxcli v0.16.0)
+
+**Severity:** Medium — blocks scripting workflow branching via mxcli  
+**Reproducible:** Yes, consistently  
+**Mendix version:** 11.12.1  
+**mxcli version:** v0.16.0  
+
+### Symptom
+
+`DECISION '$workflowContext/Status = TFC.ENUM_TFCStatus.Release'` in a workflow body produces CE0117 "Error(s) in expression" regardless of quoting style tried (`TFC.ENUM_TFCStatus.Release`, `'Release'`, quoted attribute). `mxcli check` passes; `mx check` reports CE0117.
+
+Note: this is a plain `=` comparison (no `!=`), so it is distinct from the AND/OR + `!=` bug (BUG in learned-mdl-preflight rule 17). The trigger here appears to be the DECISION context itself in workflow scope, not the operator combination.
+
+### Fix
+
+Remove DECISION gateways from the MDL script. Wire the decision gateway manually in Studio Pro after the workflow exists. Studio Pro can add a gateway via drag-and-drop with no CE errors.
+
+**Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1), Phase 3c script 09.
+
+---
+
 ## Bare `Status` attribute name in a `retrieve ... where` clause → CE0161 (reserved-word conflict)
 
-**Discovered:** 2026-07-23 (TFC-TCXGraphPOC, mxcli v0.16.0, Mendix 11.12.1), same debugging session as the AND/OR bug above.
+**Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1), same debugging session as the AND/OR bug above.
 
 `retrieve $X from TFC.TFCStub where ... and Status != Enum.Archived` passes `mxcli check` but fails a real `mx check` with CE0161. Quoting the attribute (`"Status" != Enum.Archived`) fixes it. Notably, this project's own domain model already quotes `"Status"` specifically in `TFCStub`'s access-rule read lists, while every sibling attribute in the same list is unquoted — a pre-existing signal (visible via `DESCRIBE ENTITY`) that this specific attribute name needs quoting, which would have shortened the debugging cycle if checked first. Added to the "Keyword collisions" bullet in `learned-mdl-preflight.md`.
+
+---
+
+## BUG-24: `CALL MICROFLOW` in a workflow without `WITH` clause → broken activity (red pin) + runtime crash
+
+**Discovered:** 2026-07-24 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1 Beta), Phase 3c script 09.
+
+**Status (retested 2026-08-03): NOT REPRODUCIBLE on RnD or Engalar.** This is the exact "no WITH
+clause, microflow has a required param" case from the sibling BUG-WF02 entry above. On both current
+binaries (RnD `504aec67`, Engalar `26f2866`), omitting the `WITH` clause entirely does **not**
+produce a broken activity or crash — both CLIs auto-bind the microflow's sole entity-typed
+parameter to the workflow context automatically, and `DESCRIBE WORKFLOW` shows the resulting
+`with (Item = '$WorkflowContext')` mapping was inserted for you. A real `mx check` passes with 0
+errors on both forks for the no-WITH case. This directly contradicts this entry's original "always
+use WITH, or the model won't load" claim — likely stale from before the auto-binding path existed,
+or from a case where the microflow had more than one entity-typed parameter (untested here; worth
+retrying if seen again with a multi-param microflow). RnD additionally now warns proactively at
+`mxcli check --references` time (FINDINGS #40, commit `08746d00`) if a required param is left
+unmapped — Engalar has no equivalent warning, but the auto-bind still succeeds regardless of the
+warning being present. See BUG-WF04 below for the consolidated guidance replacing both this entry
+and BUG-WF02's original fix advice.
+
+### Symptom
+
+Writing a `CALL MICROFLOW` activity inside a `CREATE WORKFLOW` body **without** a `WITH (...)` parameter mapping clause creates a broken activity in the model when the target microflow has parameters. In Studio Pro, the activity shows as a red pin and cannot be double-clicked. At runtime the app crashes immediately:
+
+```
+java.lang.RuntimeException: No new model classes have arrived within ten seconds,
+aborting model initialization (Class 'Workflows$CallMicroflowTask' could not be found).
+```
+
+`mxcli check` and `mxcli check --references` both pass clean — the corruption is invisible until SP open or runtime.
+
+### Root cause
+
+mxcli creates the `CallMicroflowTask` model object but leaves the parameter bindings empty when no `WITH` clause is provided. The runtime model loader then cannot deserialize the incomplete object, causing the entire model load to abort.
+
+### Fix
+
+Always use the `WITH` clause when the target microflow has parameters:
+
+```sql
+-- WRONG (no WITH → broken activity, red pin, runtime crash)
+CALL MICROFLOW TFC."WF_ACT_RiskAgent_RiskFlag";
+
+-- CORRECT
+CALL MICROFLOW TFC."WF_ACT_RiskAgent_RiskFlag"
+  WITH (TFC."WF_ACT_RiskAgent_RiskFlag"."TFCStub" = '$workflowContext');
+```
+
+The `WITH` key format is `Module."MicroflowName"."ParameterName" = '$workflowContext'` where `$workflowContext` is the workflow's context variable. Microflows with no parameters do not need a `WITH` clause.
+
+**Added STOP rule to `learned-mdl-preflight.md`** (rule 18).
+
+**Recovery:** `CREATE OR REPLACE WORKFLOW` with correct `WITH` clauses on all `CALL MICROFLOW` steps. Drop-and-recreate is safer than `ALTER WORKFLOW REPLACE` when multiple activities are broken.
+
+---
+
+## BUG-25: `CREATE WORKFLOW` writes null ContentsBlob in SQLite — mx check crashes with InvalidCastException
+
+**Severity:** Critical — workflow unit is unusable; mx check crashes on project load  
+**Reproducible:** Yes, consistently  
+**Mendix version:** 11.12.1 Beta  
+**mxcli version when found:** v0.16.0  
+**Discovered:** 2026-07-24, a PLM parts-flow project Phase 3c (script 09g)
+
+### Symptom
+
+`CREATE WORKFLOW` reports success. `SHOW WORKFLOWS` returns 0 workflows. mx check crashes:
+
+```
+System.InvalidCastException: Unable to cast object of type 'System.DBNull' to type 'System.Byte[]'.
+  at MprV1UnitRepository.GetUnitContents(...)
+```
+
+### Root cause
+
+mxcli v0.16.0 inserts the workflow unit into the SQLite `Unit` table but writes a null `ContentsBlob`. For the split-format MPR (v2), the BSON should be written to `mprcontents/{uuid}.mxunit` with a null blob in SQLite. For the v1 format, the BSON goes in the blob. mxcli writes neither — the blob is null and no mxunit file is created. mx check's MPR loader casts the null blob to `byte[]` and crashes.
+
+### Workaround
+
+Create the workflow in Studio Pro:
+1. Detach git first: `mv .git .git-bak`
+2. Open SP → App Explorer → Right-click module → Add other → Workflow
+3. Set the context entity, drag WF_ACT_* microflows onto canvas (SP auto-wires params on drop)
+4. Save, close SP, reattach: `mv .git-bak .git`
+5. Commit `.mpr` + `mprcontents/`
+
+### Does NOT affect
+
+- `ALTER WORKFLOW set display/description` — scalar updates work
+- `ALTER WORKFLOW insert after ... call microflow` — inserts into existing workflow work (but WITH clause has separate bug, see BUG-24)
+
+### STOP rule
+
+Added to preflight rule 18: `CREATE WORKFLOW` — use Studio Pro, not MDL.
+
+---
+
+## BUG-26: `--mcp exec` unreliable for `ALTER PAGE` writes — widget-not-found on valid live anchors, malformed patch on trivial SET
+
+**Severity:** High — blocks the entire MCP page-patching workflow this project relies on for DG2/pluggable-widget work
+**Reproducible:** Yes, 3/3 attempts across 2 different failure modes
+**Mendix version:** 11.12.1
+**mxcli version when found:** v0.16.0
+**Discovered:** 2026-07-25, a PLM parts-flow project Phase 4 MCP pass, live SP session open the whole time (lock file confirmed live PID)
+
+### Symptom 1 — "widget not found" on anchors confirmed present via `DESCRIBE PAGE`
+
+Three separate `ALTER PAGE ... INSERT AFTER "<widget>"` attempts, on 3 different pages/anchor types, all failed:
+
+```
+./mxcli --mcp http://localhost:7782/mcp exec 39-....mdl -p Project.mpr
+Error: failed to insert: widget "CreatedOn" not found
+```
+(anchor was a DG2 datagrid column, name confirmed via `DESCRIBE PAGE TFC.TFC_PMODashboard` immediately beforehand)
+
+```
+Error: failed to insert: widget "SupplierName" not found
+```
+(same page, a different DG2 column)
+
+```
+Error: failed to insert: widget "row6" not found
+```
+(TFC_SupplierOverview — a plain top-level LAYOUTGRID row, NOT a DG2-internal widget, ruling out "DG2 columns aren't addressable" as the sole explanation)
+
+`--mcp-verbose` printed no PED tool-call trace before any of these errors — the failure happens before a `pg_patch_page` call is even logged, suggesting local anchor resolution (against the `-p` disk file) disagrees with whatever the live SP in-memory model actually has, OR the widget-name lookup path used for `INSERT AFTER` targeting is broken independent of the anchor's real existence.
+
+### Symptom 2 — malformed patch on a trivial single-property SET
+
+```sql
+ALTER PAGE "TFC"."TFC_SupplierOverview" {
+  SET Title = 'Vendor Portal'
+};
+```
+```
+Error: failed to save modified page: pg_patch_page TFC.TFC_SupplierOverview: Error invoking tool 'pg_patch_page':
+Error executing tool pg_patch_page: Operation at index 1 failed.
+Details: {"errors":[{"code":"PROP_NOT_PRIMITIVE","message":"Property 'widgets' is not a primitive property", ...}]}
+```
+This got further than Symptom 1 (a real `pg_patch_page` call was made — "Operation at index 1" implies mxcli generated ≥2 patch operations for a single `SET Title` MDL statement), but operation 1 apparently touches `widgets` as a whole (a non-primitive/array property) rather than the scalar `Title` field — looks like a bug in mxcli's MDL→JSON-Patch translation layer itself, not anything specific to this project's page structure.
+
+### Impact
+
+Blocks the `--mcp exec` path entirely for `ALTER PAGE` writes on this project/version combo — both the DG2-column-append use case (expected to need raw `pg_patch_page`, per `learned-mcp-patterns.md`) AND plain structural inserts/SETs that were expected to work per `mxcli mcp capabilities`' own claim ("Pages — CREATE + ALTER (widget coverage grows per type)").
+
+### Not yet tried
+
+- Whether reads via `--mcp` (not `-p`) would resolve the anchor mismatch (mxcli's own `--help` says "reads come from -p" always, so this may not be possible without a mxcli change).
+- Whether a freshly-reopened SP session (git-reattach → close → sp-open.sh cycle) changes anything — not attempted, to avoid disrupting an in-progress session's unsaved state.
+- Whether this repros on a page with zero DG2 grids / zero customContent columns at all (all 3 test pages here have at least one DG2 grid elsewhere on the page, even when the failing target itself wasn't DG2-internal).
+
+### Workaround
+
+None found yet. Recommend Studio Pro GUI for all `ALTER PAGE` structural work on this mxcli/SP version pair until root-caused. Reserve `--mcp exec` retries for a narrow, disposable throwaway page to binary-search whether it's a project-specific anchor-resolution issue or a global mxcli v0.16.0 regression.
+
+**Update 2026-07-26 — ruled out disk/live-model drift as the cause.** Fetched the MCP server's `mendix://studio-pro/system-prompt` resource (the one it says all callers must read first) — confirms `pg_patch_page` expects JSON Patch operations against numeric JSON Pointer paths (e.g. `/widgets/0/widgets/2`), resolved by index, not by widget name. Hypothesized this was disk (`-p` reads) vs. live-SP-memory (write target) divergence — a stale on-disk path computed from `-p` could easily miss the live tree if SP had unsaved edits. Tested by triggering a real Studio Pro save via AppleScript (`osascript ... keystroke "s" using command down`, no accessibility-permission error, so it plausibly landed) immediately before retrying the exact same `SET Title` sanity script. **Result: byte-identical failure** — same `PROP_NOT_PRIMITIVE` on `widgets`, same `elementId: f0e9b2e3-b7c7-4d56-a2e1-486e1d43a12b`, operation index 1. This rules out drift as the cause: the bug is deterministic and reproduces regardless of save state, pointing at a genuine bug in mxcli v0.16.0's `ALTER PAGE SET` → `pg_patch_page` JSON-Patch translation (it appears to always emit an operation touching the whole `widgets` array/property for even a single scalar `Title` SET). Root cause still not isolated to a specific line/commit in mxcli — flagging for upstream report.
+
+### STOP rule
+
+Added to preflight: treat `--mcp exec` on `ALTER PAGE` as unverified/high-risk on mxcli v0.16.0 + SP 11.12.1 until this is root-caused — do not chain multiple live attempts against an open SP session without confirming with the user first (each failed call is still a real request against the live model).
+
+---
+
+## Cross-project sweep, 2026-07-31 — findings below are reported, not independently re-reproduced
+
+The following (BUG-27 through BUG-55) were mined from local docs/scripts/bug-logs across 6
+other Mendix projects with an mxcli install (a WMS conversion project, a PLM parts-flow project, a large-source WMS project,
+a Java/Angular analysis project, a WMS reference app — a third project excluded per project decision). Each entry cites
+its source file. None were re-run against a fresh repro in this pass — treat as leads to verify
+before filing upstream. Full consolidation notes: `a WMS demo project/bug-logs/uncentralized-findings-2026-07-31.md`.
+
+## BUG-27: Cross-module `grant execute` → CE0148 (distinct trigger from BUG-04)
+
+**Status: DOWNGRADED 2026-08-03** — retested against RnD `504aec67`; RnD now gives a clear
+pre-emptive exec-time error rather than a silent/raw CE0148 failure. Not fully clean, but no
+longer the hidden-corruption class bug originally reported. Engalar instead crashes on the
+broader "multiple Security$ModuleSecurity units" defect — see the new consolidated Engalar
+entry below. Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-27.md`.
+**Reproducible:** Reported only, not re-verified in this pass
+**Discovered:** a WMS conversion project, `MIGRATION-PROGRESS.md`
+
+`grant execute` on a microflow fails with CE0148 when the granting role and the microflow's
+module differ, in a way not covered by the existing BUG-04 (which is about modules with no
+roles at all). Needs a fresh repro to confirm this is a distinct code path from BUG-04.
+
+## BUG-28: `reset layout` accepts invalid MDL at `check` time, fails at `exec`
+
+**Status: RECLASSIFIED 2026-08-03** — not a check/exec disagreement. RnD never implemented
+`RESET LAYOUT` at all (no such token in its grammar); Engalar built it from scratch
+(commit `2fabbac31`, including a since-fixed coordinate-corruption bug of their own). This is
+a feature gap in RnD, not a bug — worth an enhancement request rather than a bug report, if
+wanted. Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-28.md`.
+**Reproducible:** Reported only
+**Discovered:** a WMS conversion project, project-local `bug-logs/mxcli-bugs.md`
+
+`mxcli check` passes a `reset layout` statement that then fails when actually executed —
+syntax checker and executor disagree, same family as BUG-10.
+
+## BUG-29: Double-quoted attribute paths in nav expressions pass `check`, fail CE0117 at mxbuild
+
+**Status: CONFIRMED STILL OPEN 2026-08-03** — reproduced identically on RnD `504aec67` and
+Engalar `26f2866`; root cause traced to a shared grammar rule (`attributePath` reuses the
+generic `qualifiedName` rule instead of an unquoted-only attribute rule). Draft issue ready:
+`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/01-BUG-29-quoted-attribute-segment.md`.
+**Reproducible:** Reported only
+**Discovered:** a WMS conversion project, `CLAUDE.md:153-161` (project-local)
+
+`$Obj/"Attr"` (quoting the attribute segment of a navigation expression) is accepted by
+`mxcli check` but rejected by mxbuild with CE0117. Attribute segments in nav expressions must
+stay unquoted even under this project's "always quote identifiers" convention.
+
+## BUG-30: `currentDeviceType()` function-call form accepted by grammar, rejected by mxbuild
+
+**Status: PARTIAL FIX 2026-08-03** — RnD `504aec67`'s `check` now catches this via lint rule
+MDL044 and exits non-zero, but `exec` run directly still writes the invalid microflow (the
+same-family "check vs exec disagree" gap persists at the exec layer). Engalar has no
+equivalent lint at all — still fully broken there. Draft issue ready (targets the RnD
+exec-side gap): `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/02-BUG-30-currentdevicetype-exec-gap.md`.
+**Reproducible:** Reported only
+**Discovered:** a WMS conversion project, `CLAUDE.md:153-161`
+
+The grammar accepts `currentDeviceType()` as a function call, but mxbuild rejects it with
+CE0117. Only the bracket-percent token form `[%CurrentDeviceType%]` works.
+
+## BUG-31: Void/boolean-returning JS actions in nanoflows write malformed BSON
+
+**Status: RESOLVED 2026-08-03** — not reproducible on RnD `504aec67` or Engalar `26f2866`.
+Safe to remove from the active list. Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-31.md`.
+**Reproducible:** Reported only
+**Discovered:** a WMS conversion project, `CLAUDE.md:153-161`
+
+A JS action with a `void` or boolean return type, called from a nanoflow, produces BSON that
+fails CE0008/CE0109 checks.
+
+## BUG-32: `CREATE` document in an MCP-touched module leaves a dangling unregistered `.mxunit`
+
+**Reproducible:** Reported only
+**Discovered:** a WMS conversion project, project-local `bug-logs/mxcli-bugs.md` (BUG-LOCAL-06)
+
+After using MCP against a module, `CREATE` of a document leaves an orphaned `.mxunit` file
+that is never registered in the module's unit list — invisible to `DESCRIBE`/`check`/mxbuild,
+but causes Studio Pro to hang on open.
+
+## BUG-33: Cross-module association nav-through requires fully-qualified target-entity path
+
+**Status: CONFIRMED STILL OPEN 2026-08-03** — reproduced byte-for-byte identically on RnD
+`504aec67` and Engalar `26f2866` (CE0117 on real mxbuild); short form parses and writes
+cleanly on both, only the fully-qualified form compiles. Draft issue ready:
+`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/03-BUG-33-cross-module-assoc-nav-unqualified.md`.
+**Reproducible:** Reported only
+**Discovered:** a WMS conversion project, `CLAUDE.md:153-161`
+
+`$Item/Module.Assoc/TargetEntity/Attr` (short form) fails for cross-module association
+traversal; must fully qualify as `$Item/Module.Assoc/TargetModule.TargetEntity/Attr`.
+
+## BUG-34: MCP `pg_patch_page` rejects `AttributeRef[]` arrays for DataGrid2 external filter-bar widgets
+
+**Reproducible:** Reported only, seen independently in both a WMS conversion project and a WMS conversion project (same underlying project)
+**Discovered:** a WMS conversion project, project-local `bug-logs/mxcli-bugs.md`
+
+Setting a typed `AttributeRef[]` array property (DG2 external filter bar attribute list) via
+`pg_patch_page` fails with `PROP_NOT_PRIMITIVE`. Same failure family as the `widgets`-array
+patch bug in the BUG-26 entry above, but on a different property type.
+
+## BUG-35: `AutoChangedBy`/`AutoChangedDate` binding → CE1613
+
+**Status: ENGALAR-ONLY 2026-08-03** — RnD `504aec67` fully supports `autochangedby`/
+`autocreateddate`/`autochangeddate` (plus its own MDL022 lint guard); this only reproduces on
+Engalar `26f2866`, whose grammar/lexer never wired up these three token types (only
+`AUTONUMBER_TYPE` is implemented). Report to Engalar directly, not upstream to RnD.
+**Reproducible:** Reported only
+**Discovered:** a WMS conversion project, `CLAUDE.md:153`
+
+## BUG-36: Scalar parameter from page button to microflow silently fails to bind
+
+**Status: RESOLVED (at check/exec layer) 2026-08-03** — passes on both RnD `504aec67` and
+Engalar `26f2866` at the check/exec layer; the runtime layer was not independently retested
+(no live app launch in this pass). Safe to downgrade; re-verify at runtime before fully
+closing. Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-36.md`.
+**Reproducible:** Reported only
+**Discovered:** a WMS conversion project, `CLAUDE.md:154`
+
+A non-entity (scalar) parameter passed from a page action button to a microflow silently
+fails to bind — no error at `exec` or `check` time, only discoverable at runtime.
+
+## BUG-37: COMBOBOX in association mode rejected by mxcli despite Studio Pro requiring it
+
+**Status: ENGALAR-ONLY 2026-08-03** — RnD `504aec67` already fixed this (commit `240e7d2c`:
+reads the association ref from `Association:`/`attribute:`, adds an `MDL-WIDGET16`
+incomplete-binding check). Engalar `26f2866` has older, divergent combobox work that
+regresses it. Report to Engalar directly with a pointer to RnD's `240e7d2c` as the reference
+fix.
+**Reproducible:** Reported only
+**Discovered:** a WMS conversion project, `CLAUDE.md:155`
+
+Rejected with internal tag `MDL-WIDGET01`, for a configuration Studio Pro itself requires.
+
+## BUG-38: `DatagridDropdownFilter` in association/ref mode uncreatable via MDL
+
+**Status: CONFIRMED STILL OPEN 2026-08-03** — fails on both RnD `504aec67` and Engalar
+`26f2866` (CE1613, association written as a plain attribute path); Engalar additionally
+silently drops the nested filter widget entirely, worse than RnD. Draft issue ready:
+`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/04-BUG-38-dropdownfilter-association-mode.md`.
+**Reproducible:** Reported only
+**Discovered:** a WMS conversion project, `CLAUDE.md:156`
+
+Workaround: MCP `pg_patch_page` with an explicit `refOptions`/`refEntity`/
+`Pages$MicroflowSource` shape.
+
+## BUG-39: XPath filter cannot use an association-traversal expression as the comparand
+
+**Status: CONFIRMED STILL OPEN 2026-08-03** — reproduced on both RnD `504aec67` and Engalar
+`26f2866`, verified against real mxbuild (CE0161), not just mxcli's own check. Draft issue
+ready: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/05-BUG-39-xpath-association-traversal-rhs.md`.
+**Reproducible:** Reported only
+**Discovered:** a WMS conversion project, `CLAUDE.md:161`
+
+Workaround: retrieve the target object first, then filter, instead of filtering directly on
+the traversal expression.
+
+## BUG-40: `ALTER WORKFLOW INSERT` does not support USER TASK activities
+
+**Status: RESOLVED 2026-08-03** — passes on both RnD `504aec67` and Engalar `26f2866`; stale.
+Safe to remove from the active list. Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-40.md`.
+**Reproducible:** Reported only
+**Discovered:** a PLM parts-flow project, `mdlsource/3c-workflow/archived/09f-tfc-workflow-build.mdl` comment
+
+Only `CALL MICROFLOW` activities can be inserted into a workflow via `ALTER WORKFLOW INSERT`;
+USER TASK activities require Studio Pro.
+
+## BUG-41: Pluggable DataGrid2 `textfilter.attributes:` binding accepted but not persisted → CE1613
+
+**Status: RESOLVED (RnD) 2026-08-03** — passes on RnD `504aec67`; not directly comparable on
+Engalar `26f2866` (divergent filter architecture). Safe to downgrade for RnD purposes.
+Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-41.md`.
+**Reproducible:** Reported only
+**Discovered:** a PLM parts-flow project, `PROJECT.md:140,170`, `done-18-kt-filterbar-dg2.mdl`
+
+Distinct from BUG-10 and BUG-23 (both about the `Attributes` list generally) — this is
+specifically the pluggable-widget `textfilter.attributes` binding.
+
+## BUG-42: Pluggable DataGrid2 cannot combine row-click `Action:` with `DynamicCellClass` + TEXTFILTER/DROPDOWNFILTER
+
+**Status: ENGALAR-ONLY 2026-08-03** — RnD `504aec67` handles this combination cleanly; only
+reproduces on Engalar `26f2866`, where the combination reports success but `Action:` and both
+filters silently vanish from the widget (only `DynamicCellClass` survives). Report to Engalar
+directly, using RnD's datagrid-builder handling as the reference implementation.
+**Reproducible:** Reported only
+**Discovered:** a PLM parts-flow project, `PROJECT.md:117`
+
+A capability gap rather than corruption — the combination is simply not expressible via MDL.
+
+## BUG-43: `ALTER SETTINGS CONSTANT` corrupts the Settings unit BSON
+
+**Status: RESOLVED 2026-08-03** — passes on both RnD and Engalar; likely mis-attributed to
+BUG-22's family originally. Safe to remove from the active list (note: this group's RnD-side
+retest substituted the v0.16.0 release binary for a from-source build due to a sandbox
+restriction — see `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-43.md` for detail).
+**Reproducible:** Reported only
+**Discovered:** a large-source WMS project, `handoff/scripts/phase-3-complex-logic/transportation/DONE-17-flip-stubs.mdl:19`
+
+Same corruption family as BUG-22 (`ALTER SETTINGS CONFIGURATION`/`ALTER SETTINGS MODEL`/
+`ALTER PROJECT SECURITY LEVEL`), but BUG-22 doesn't list `ALTER SETTINGS CONSTANT` — worth
+folding in if confirmed to be the same code path.
+
+## BUG-44: CE0070 — validation rule on a non-persistent entity's attribute rejected
+
+**Status: CONFIRMED STILL OPEN 2026-08-03** — reproduced on both RnD and Engalar (silently
+accepted by check/exec, CE0070 on real compile). Draft issue ready:
+`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/06-BUG-44-ce0070-nonpersistent-validation.md`.
+**Reproducible:** Reported only
+**Discovered:** a large-source WMS project, `DONE-23b-barcode-scanner-fixes.mdl:1-5`, `DONE-23c-scaninput-recreate.mdl:1`
+
+## BUG-45: CE0161 — XPath `id=` lookups fail via mxcli/MDL retrieve
+
+**Status: CONFIRMED STILL OPEN (fix unreleased) 2026-08-03** — reproduced on both forks;
+notably, RnD's own unreleased source already has a targeted lint rule (MDL048, "ledger #42")
+that would catch this at check time, but it isn't in any tagged release through v0.16.0.
+Draft issue frames this as "please ship MDL048":
+`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/07-BUG-45-ce0161-id-string-mismatch-mdl048.md`.
+**Reproducible:** Reported only
+**Discovered:** a large-source WMS project, `DONE-25b-mfc-rest-fixes.mdl:1-16`, `DONE-25c-mfc-rest-final.mdl:1-16`
+
+Workaround: add a dedicated `ExternalId` business-key attribute instead of retrieving by
+system `id`.
+
+## BUG-46: CE0066 — security-hash reconciliation failure after a GRANT/security exec
+
+**Status: RESOLVED (RnD) / ENGALAR HAS WORSE BUG 2026-08-03** — passes on RnD `504aec67`.
+Engalar `26f2866` doesn't hit this specific CE0066 but instead crashes with the broader
+"multiple Security$ModuleSecurity units" defect on the same GRANT-execution path — see the
+new consolidated Engalar entry below. Safe to remove from RnD's active list.
+**Reproducible:** Reported only, seen independently in both a Java/Angular analysis project and a third, excluded project
+**Discovered:** a Java/Angular analysis project, `mdlsource/02-inventory-security.mdl:9`, `architecture/build-plan.md:75,136`, `architecture/open-issues.md:13`
+
+## BUG-47: CE0639 — validation-feedback `Variable` property not wired
+
+**Status: RESOLVED (as originally described) / NARROWER ENGALAR BUG REMAINS 2026-08-03** —
+passes on both forks for the reported attribute-path form. Engalar separately has a known,
+narrower issue (object-only `validation feedback` form emits a blank Attribute, CE0091) that
+Engalar already tracks internally per their own bug-test file. Safe to remove this entry;
+flag the narrower Engalar issue to them if not already open.
+**Reproducible:** Reported only, seen independently in both a Java/Angular analysis project and a third, excluded project
+**Discovered:** a Java/Angular analysis project, `architecture/build-plan.md:118,136`, `architecture/open-issues.md:13`
+
+## BUG-48: Silent microflow-datasource drop on pluggable datagrids
+
+**Status: RESOLVED 2026-08-03** — passes on both RnD `504aec67` and Engalar `26f2866`; this is
+RnD's own historical fix (#795), already shipped and inherited by Engalar. Safe to remove from
+the active list. (Note: a related but distinct new defect — parameter-binding loss on a
+parameterized DG2 microflow datasource, not datasource-drop — was found adjacent to BUG-51;
+see the new entry filed separately below.)
+**Reproducible:** Reported only
+**Discovered:** a Java/Angular analysis project, `mdlsource/12-inventory-history-delete.mdl:6-7`
+
+Workaround: use a `database` datasource via association XPath instead of a microflow
+datasource on pluggable datagrids.
+
+## BUG-49: `CREATE OR REPLACE PAGE` silently resets/drops existing view-access grants
+
+**Status: RESOLVED 2026-08-03** — passes on both RnD `504aec67` and Engalar `26f2866`. Safe to
+remove from the active list. Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-49.md`.
+**Reproducible:** Reported only
+**Discovered:** a Java/Angular analysis project, `mdlsource/09-regrant-page-access.mdl:4-6` (references CE0557)
+
+No error at write time; grants must be manually reapplied after any `CREATE OR REPLACE PAGE`.
+
+## BUG-50: `ALTER PAGE` cannot reach widgets nested inside a datagrid `customContent` column (broader than BUG-18)
+
+**Status: CONFIRMED STILL OPEN 2026-08-03** — fails on both RnD `504aec67` (hard parse error
+past 2 dotted path segments) and Engalar `26f2866` (parses 3 levels but misroutes to
+layout-grid-column logic). No working addressing scheme on either fork. Draft issue ready:
+`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/08-BUG-50-alter-page-customcontent-nested-widget.md`.
+**Reproducible:** Reported only
+**Discovered:** a Java/Angular analysis project, `mdlsource/20-ux-popup-manage-fixes.mdl:12-13`
+
+BUG-18 covers `visible:` on a CONTAINER inside customContent corrupting BSON; this report is
+broader — `ALTER PAGE` can't address anything nested inside customContent at all, not just
+the `visible:` case.
+
+## BUG-51: Quoting a reference-target identifier before a parenthesized param list breaks parsing
+
+**Status: RESOLVED (as described) — NEW BUG FOUND ADJACENT 2026-08-03** — not reproducible as
+originally described on RnD `504aec67` or Engalar `26f2866` across 3 tested contexts (show_page
+action, microflow action, microflow datasource; quoted and unquoted). Safe to remove this
+entry. However, retesting surfaced a genuine new defect: a DataGrid2 whose parameterized
+`microflow` datasource silently drops the parameter binding (CE1571), reproducing regardless of
+quoting — tracked as its own new issue, not a continuation of this one. Detail:
+`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-51.md`; new draft issue:
+`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/09-NEW-dg2-parameterized-datasource-ce1571.md`.
+**Reproducible:** Reported only
+**Discovered:** a Java/Angular analysis project, `mdlsource/05-inventory-pages.mdl:9-10`
+
+`"Target"(Param: value)` fails to parse — reference targets must stay unquoted immediately
+before a param list, even though attribute names should generally be quoted per this
+project's convention.
+
+## BUG-52: CHANGE-activity attribute quoting → `StorageLoadException` on Studio Pro open (passes mxbuild/check clean)
+
+**Status: RESOLVED 2026-08-03** — passes on both RnD and Engalar; the original source lines no
+longer exist to replay exactly, so treat as stale/unreproducible rather than definitively
+fixed. Safe to remove from the active list. (Note: this group's RnD-side retest substituted
+the v0.16.0 release binary due to a sandbox restriction — see
+`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-52.md`.)
+**Reproducible:** Reported only
+**Discovered:** a WMS reference app, `mdlsource/phase-4/fix-18-actualocation-bug.mdl:6`, `fix-14-trigger-state-change.mdl`
+
+## BUG-53: `Visible:` expression on an action button inside a plain DataView corrupts BSON
+
+**Status: RESOLVED (RnD) / ENGALAR HAS DIFFERENT BUG 2026-08-03** — passes on RnD `504aec67`,
+which correctly qualifies the bare attribute reference as `$currentObject/Attr`. Engalar
+`26f2866` writes it unqualified instead, causing a real CE0117 — report that to Engalar
+directly as its own issue, distinct from this one. Safe to remove this entry for RnD.
+**Severity:** blank `AttributeIdentifier` written → `StorageLoadException` on Studio Pro open
+**Mendix version:** 11.12.0
+**mxcli version:** v0.13.0
+**Discovered:** 2026-07-16, a WMS reference app, `mdlsource/phase-4/SUPERSEDED-04-state-conditional-buttons.mdl`
+
+Distinct from the already-logged datagrid-customContent `visible:` corruption (BUG-18) — this
+one hits a plain DataView, not a grid.
+
+## BUG-54: `--mcp exec` silently renames entities/associations before failing mid-script
+
+**Reproducible:** Reported only
+**Discovered:** a WMS reference app, `mdlsource/phase-4/10-rest-mfc-cleanup-rebuild.mdl` header
+
+E.g. `MFC_Simulator.ExRouteItem` renamed to `"Root"` before the script fails on an
+unsupported activity type — the rename is committed even though the script as a whole
+fails, leaving misnamed objects behind.
+
+## BUG-55: `ALTER PAGE ... DROP ... REPLACE ...` combined in one script → transient duplicate-name collision; and cross-module GRANT EXECUTE/page-view grants silently dropped
+
+**Status: SPLIT AND RETESTED 2026-08-03** — the two findings below were retested separately as
+BUG-55a and BUG-55b. **BUG-55a (DROP+REPLACE collision): RESOLVED**, passes on both RnD and
+Engalar. **BUG-55b (cross-module GRANT EXECUTE silently no-ops): RESOLVED on RnD** (now
+persists correctly); **Engalar instead crashes** on the "multiple Security$ModuleSecurity
+units" defect — see the new consolidated Engalar entry below. Safe to remove this entry from
+the active list. Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-55a.md`,
+`BUG-55b.md`.
+**Reproducible:** Reported only
+**Discovered:** a WMS reference app, `mdlsource/phase-4/DONE-06-mfc-dashboard-new-route-button.mdl` header; session memory `feedback_mdl_patterns.md:36-38`
+
+Two related a WMS reference app findings grouped here:
+- `ALTER PAGE` applies a `DROP` + `REPLACE` in one script atomically rather than
+  sequentially, causing a transient duplicate-name collision. Workaround: use a full
+  `CREATE OR REPLACE PAGE` instead of combining DROP+REPLACE.
+- `GRANT EXECUTE ON MICROFLOW` and page-view GRANTs targeting a cross-module role report
+  success but are never persisted — unlike entity-access grants, which throw a clear CE
+  error for cross-module roles instead of silently no-op'ing.
+
+---
+
+## Engalar-fork-only bugs found during the 2026-08-03 retest
+
+The following do NOT reproduce on RnD (`mendixlabs/mxcli` @ `504aec67`) — they are specific to
+the Engalar community fork (`engalar/mxcli` @ `26f2866`) and should be reported to Engalar
+directly, not filed upstream. Full detail and per-bug repro scripts:
+`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/`.
+
+### BUG-ENGALAR-01: "multiple Security$ModuleSecurity units" crash on module-role/GRANT operations
+
+**Discovered:** consolidated from retesting BUG-27, BUG-46, BUG-48, BUG-49, BUG-55b
+(2026-08-03)
+
+Any `create module role` immediately after `create module` in one script, or any
+`GRANT EXECUTE ON MICROFLOW` (even same-module), crashes `exec` with this error on Engalar.
+RnD does not have this bug at all. This is the single most impactful Engalar-only defect found
+in this retest pass — it acted as a blocking precondition for 5 of the 29 originally-mined
+bugs, making several of them look "still broken" on Engalar when the real defect is this one,
+more fundamental crash. Two existing Engalar commits touch the same area but don't cover this
+path: `4b60e8c56` and `ac7edbea8` ("SOLID-I" ModuleSecurity/ModuleSettings gen-typed API
+fixes). Likely location: the module-security-unit lookup in `mdl/executor/security_v2.go`.
+
+### BUG-ENGALAR-02: missing `autochangedby`/`autocreateddate`/`autochangeddate` attribute types
+
+**Discovered:** consolidated from retesting BUG-35 (2026-08-03)
+
+RnD fully supports these three system-audit attribute types (plus an MDL022 lint guard);
+Engalar's grammar only wires up `AUTONUMBER_TYPE`, leaving the other three dead in the lexer.
+
+### BUG-ENGALAR-03: COMBOBOX association-mode regression vs RnD's `240e7d2c` fix
+
+**Discovered:** consolidated from retesting BUG-37 (2026-08-03)
+
+RnD fixed association-bound comboboxes in commit `240e7d2c` (reads the association ref from
+`Association:`/`attribute:`, adds an `MDL-WIDGET16` incomplete-binding check). Engalar has
+older, divergent combobox work that doesn't include this and currently regresses it.
+
+### BUG-ENGALAR-04: pluggable DataGrid2 `Action:`/`DynamicCellClass`/filter combination silently drops properties
+
+**Discovered:** consolidated from retesting BUG-42 (2026-08-03)
+
+Combining a row-click `Action:`, `DynamicCellClass`, and a TEXTFILTER/DROPDOWNFILTER on the
+same pluggable DataGrid2 reports success on exec/check, but `DESCRIBE` afterward shows the
+action and both filters silently vanished — only `DynamicCellClass` survives. RnD handles the
+same combination cleanly.
+
+### BUG-ENGALAR-05: validation feedback, object-only form → blank Attribute (CE0091)
+
+**Discovered:** consolidated from retesting BUG-47 (2026-08-03)
+
+Narrower than the original BUG-47 report and already known to Engalar (documented in their own
+`358-validation-feedback-targets.mdl` bug-test): the object-only form of `validation feedback`
+(no attribute) parses/describes fine but the builder emits a blank `Attribute`, which Studio
+Pro rejects with CE0091. Confirm with Engalar whether it's still open on their end.
+
+### BUG-ENGALAR-06: `$currentObject/` qualifier dropped on `Visible:` expression
+
+**Discovered:** consolidated from retesting BUG-53 (2026-08-03)
+
+RnD correctly qualifies a bare attribute reference in a `Visible:` expression as
+`$currentObject/IsActive`; Engalar writes it unqualified, causing a real CE0117 at mxbuild.
+
+---
+
+## New bug found during the 2026-08-03 retest (not one of the original 29)
+
+### BUG-56: DataGrid2 parameterized microflow datasource silently loses its parameter binding (CE1571)
+
+**Discovered:** surfaced while retesting BUG-51, RnD `504aec67` (Engalar not yet checked)
+
+A DataGrid2 `datasource: microflow Module.MF(Param: $value)` calling a **parameterized**
+source microflow silently drops the parameter mapping — `mx check` reports
+`[CE1571] No argument has been selected for parameter '<name>'` even though the MDL script
+supplied one, and `DESCRIBE PAGE` shows the datasource microflow but no parameter mapping.
+Reproduces identically whether the target is quoted or unquoted, so unrelated to BUG-51's
+original quoting claim (BUG-51 itself is not reproducible — see above). Adjacent to BUG-48
+(pluggable DataGrid2 microflow datasource) but a distinct symptom (parameter-binding loss, not
+datasource-drop). Draft issue ready:
+`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/09-NEW-dg2-parameterized-datasource-ce1571.md`.
+
+---
+
+## New bug found during the 2026-08-03 workflow-microflow retest (consolidates BUG-WF02 + BUG-24)
+
+### BUG-WF04: `CALL MICROFLOW` in a workflow — corrected, current guidance (supersedes BUG-WF02 and BUG-24)
+
+**Discovered:** retest triggered 2026-08-03 in response to a direct user question about why this
+gap wasn't covered by the main 29-bug retest; BUG-WF02 and BUG-24 above were explicitly excluded
+from that pass and left stale/contradictory until now.
+
+**The two entries above (BUG-WF02, BUG-24) directly contradicted each other**: one said "always
+add a `WITH` clause or the model won't load," the other said "never add a `WITH` clause, it
+corrupts the parameter ID." Neither is correct against current binaries. Verified empirically
+against RnD `bin/mxcli` (HEAD `504aec67`) and Engalar `bin/mxcli` (`26f2866`) on a fresh pristine
+11.12.1 project, using `mxcli exec` + `DESCRIBE WORKFLOW` + a real `mx check`:
+
+| Form | RnD | Engalar |
+|---|---|---|
+| No `WITH` clause (single-param microflow) | ✅ auto-binds, 0 errors | ✅ auto-binds, 0 errors |
+| `with (Item = '$workflowContext')` (lowercase, as BUG-WF02's own "fix" recommended) | ✅ normalized, 0 errors | ❌ `CE0117` — Engalar never got RnD's case-normalization fix (`1b390dce`) |
+| `with (Item = '$WorkflowContext')` (correct case) | ✅ 0 errors | ✅ 0 errors |
+| Old fully-qualified form `Module."MF"."Param" = '$workflowContext'` | ✅ still parses, normalizes correctly, 0 errors | not retested |
+
+**Current correct guidance:** on RnD, all three forms above work — a `WITH` clause is optional for
+a single-param microflow (auto-bound) and, if present, is case-normalized regardless of how you
+write `$workflowContext`. **On Engalar specifically, always capitalize the context variable as
+`$WorkflowContext`** when writing an explicit `WITH` clause — the lowercase form used throughout
+mxcli's own documentation and this log's prior "CORRECT" example will fail a real `mx check` with
+CE0117 on that fork. RnD also has a proactive `mxcli check --references` warning
+(`08746d00`, FINDINGS #40) for a genuinely unmapped required parameter that Engalar lacks — not
+dangerous (auto-bind still succeeds on both), just a smaller safety net on Engalar.
+
+Only tested with a single entity-typed parameter on the target microflow — multi-parameter
+microflows (where auto-bind can't pick a single match) are untested and may behave differently;
+retest if this comes up.

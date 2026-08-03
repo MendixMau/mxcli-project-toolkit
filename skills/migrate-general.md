@@ -24,7 +24,7 @@ Do NOT write microflow signatures before sketching the page structure. Page desi
 
 A microflow called from a page button can only receive **entity objects** — not individual primitives (String, Integer, etc.). The objects available to that button depend on which data views enclose it on the page. Designing microflows before pages means guessing what objects are in scope, and the guess is often wrong.
 
-**Concrete failure:** `ACT_OrderCustomerBase_Create` was initially designed with 8 individual String parameters (CompanyName, PostalCode, etc.). The correct design is `(Header: ApplicationCommonHeader, SearchResult: CompanySearchResult)` — two objects the page already has in scope. The 8-string version required a refactor.
+**Concrete failure:** `ACT_OrderCustomerBase_Create` was initially designed with 8 individual String parameters (CompanyName, PostalCode, etc.). The correct design is `(Header: ApplicationCommonHeader, SearchResult: PartnerSearchResult)` — two objects the page already has in scope. The 8-string version required a refactor.
 
 ### Design order per feature
 
@@ -297,7 +297,7 @@ OS 11 applications typically carry an 8-field audit standard on persistent entit
 | SAP write-back via integration table | Database Connector writes to hub table; SAP reads asynchronously |
 | REST API consumption | Published REST client + microflow |
 | HRSystem employee sync | Scheduled microflow + External DB or REST |
-| CorpSearch corporate search | REST client (`CompanySearchResult` NPE as response DTO) |
+| PartnerLookup corporate search | REST client (`PartnerSearchResult` NPE as response DTO) |
 | AppCommon_MSG message table | `Common_Utils.Message` entity + `GET_Message_ById` microflow |
 
 ### Message / error code naming

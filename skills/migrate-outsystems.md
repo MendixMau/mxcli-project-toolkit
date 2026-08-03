@@ -206,7 +206,7 @@ Each mapper is a single-concern transform from extracted JSON → Mendix-ready r
 This is the recommended recording setup:
 
 **Left pane — VS Code** open on this `OS-migration-skills/` folder:
-- Show the XML in `../OS-ExtractedXML/MXXXX_OrderRegist.xml` (raw, incomprehensible)
+- Show the XML in `../OS-ExtractedXML/ACME01_OrderRegist.xml` (raw, incomprehensible)
 - Show the extractors in `pipeline/extractors/xml-extractor.js`
 - Show the mappers in `pipeline/generators/mappers/`
 - Show the BRD output the pipeline writes to `knowledge-base/brd/F001-order-registration.brd.json` (generated at runtime from your own source)
@@ -271,7 +271,7 @@ The XML pipeline makes this concrete:
 - The raw XML is unreadable → the extractor makes it structured
 - The JSON is complete but flat → the mappers add business meaning
 - The BRD is readable and traceable → Claude can reason about it and plan Mendix implementation
-- Gaps are made explicit (266 in the Apex project) → confidence is honest, not hidden
+- Every gap is made explicit and counted → confidence is honest, not hidden
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "_comment": "PROJECT-OWNED config for the shared java-angular pipeline. Source of truth for WMS-App-main, ALL FIVE source repos in one combined, cross-linked run — see migration-pipeline.md 'Multiple source repos' and source-triage.md. Backend-only: no Angular source exists for this project (CONFIRMED, triage.md 2026-07-14), so angularSourceDir is intentionally empty.",
+  "_comment": "PROJECT-OWNED config for the shared java-angular pipeline. Source of truth for a WMS reference app, ALL FIVE source repos in one combined, cross-linked run — see migration-pipeline.md 'Multiple source repos' and source-triage.md. Backend-only: no Angular source exists for this project (CONFIRMED, triage.md 2026-07-14), so angularSourceDir is intentionally empty.",
   "sources": [
     { "name": "common-lib",    "javaSourceDir": "/path/to/your/source-project/source/openwms-common-lib/src/main/java" },
     { "name": "tms",           "javaSourceDir": "/path/to/your/source-project/source/openwms-tms/src/main/java" },

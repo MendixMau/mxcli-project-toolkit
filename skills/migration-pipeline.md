@@ -2,9 +2,15 @@
 **Applies to:** migration.
 **Purpose:** Platform-agnostic orchestration playbook for migrating any legacy application
 to Mendix via structured extraction, KB synthesis, and BRD generation.
-**Companion skills:** `source-os11.md`, `source-oracle-forms.md`, `source-java-spring-angular.md`,
+**Companion skills:** `source-os11.md`, `source-node-express-react.md`,
 `document-discovery.md`, `kb-generation.md`, `brd-generation.md`, `brd-validation.md`, `migrate-general.md`,
 `extractor-quality-loop.md` (mandatory Phase 2 gate — read before writing any extractor)
+**Source skills that do NOT exist yet** — do not go looking for them, and do not assume the
+absence means "no guidance": there is no `source-java-spring-angular.md` (the pipeline at
+`pipelines/java-angular/` is real and working; only its companion skill is unwritten — read
+`pipelines/java-angular/README.md` instead), and no `source-oracle-forms.md` (but mxcli ships
+`.ai-context/skills/migrate-oracle-forms.md`, ~400 lines of Forms→Mendix concept mapping —
+read that before concluding you need to build anything).
 **Gate:** `source-triage.md` runs right after Phase 1 (platform identified) and **before Phase 2/3 proceed** — it decides whether an extraction pipeline is even warranted at this size, checks coverage against the extractors/mappers that actually exist, and recommends a bounded scope. Phase 3 does not start on unconfirmed scope.
 **Downstream:** Phase 6 decides module boundaries via `modularize-domain.md` (criteria + user sign-off — never map source files/BRDs 1:1 onto modules) *before* writing `.mx-brd.json`. Then hand off to `architecture-blueprint.md` (diagrams, module defs, wiring, fit-gap) and `design-artifacts.md` (design system + wireframes) to make the architecture legible and verifiable, then to `brd-to-build-plan.md` to turn it all into a dependency-ordered, numbered build plan before any MDL scripting starts.
 
@@ -67,7 +73,7 @@ BRD scaffold exists to cross-reference against.
 project-specific output inside its own directory tree.** Every project gets ONE project
 folder (usually its git repo), kept entirely separate from the reusable tool. **The default
 is the in-repo layout — `analysis/` lives INSIDE the project folder** (this is how every
-live project runs — KT-POC, WMS — and what `bin/init-project.sh <project-root>` and
+live project runs — a WMS conversion project, WMS — and what `bin/init-project.sh <project-root>` and
 `bin/gate-check.sh` assume):
 
 ```

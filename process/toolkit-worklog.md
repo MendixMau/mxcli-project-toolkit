@@ -6,6 +6,59 @@ the re-entry point for continuing the work — read it plus `git log --oneline -
 
 ---
 
+## 2026-08-03 — Second hygiene pass: the leak guard was itself the leak
+
+Incident: an audit of the public repo found the 2026-07-22 guard reporting `✅ clean` while
+five client names sat in `bin/check-no-client-data.sh:27` — the `DENY=` line itself. Line 23
+excluded the script from its own scan, so the guard published exactly the names it existed to
+suppress, for four months, silently. It also carried a real decrypted OutSystems module key at
+`:37` as its illustrative example. Separately, one engagement codename had **regressed** —
+commit `f19b9a5` (2026-07-08) removed it as "not ours to publish"; it was back at HEAD in four
+files. (Naming it here would reintroduce it; the guard now blocks that, and did, while this
+entry was being written.)
+
+Root cause of the regression: the July pass wrote the rule down (see the 2026-07-22 entry,
+"Examples must be fictional") but the only thing enforcing it was a five-name denylist that
+covered none of the project names actually in use. **A written rule with no mechanical check
+is a preference.**
+
+What shipped:
+- **Guard rewritten.** Denylist moved to gitignored `.leakguard-deny` (or `$LEAKGUARD_DENY`);
+  self-exclusion removed; synthetic GUID example; scans `--others --exclude-standard` so new
+  files are checked before they are staged; extensions widened to `.ts/.yml/.css/.py`; email
+  and credential-shaped-string checks added. `install-hooks.sh` now wires **pre-push** too —
+  a leak in a local commit is recoverable, one on a public remote is not.
+- **Deleted:** `examples/` (the OS "worked example" was a client architecture document, not a
+  sample), the project-scoped process notes under `process/`, and `TOOLKIT-IMPROVEMENT-PROPOSAL.md` (untracked
+  to gitignored `wip/improvements.md`, now the running backlog).
+- **Renamed throughout:** the renamed-customer app and its vocabulary → synthetic placeholders
+  (`ACME01`, `PartnerLookup`, `HQUser`, `C-0001`, `Release`/`ReleaseHold`, `PlantCode`).
+- **Two false assurances removed.** `os-xml-schema.md` and `source-os11.md` both claimed their
+  examples were "a fictional sample … not real customer data". They were not. A false NDA
+  assurance in a public repo is worse than the leak it covers.
+- **`os-xml-schema.md` reframed.** "Common naming conventions in <app> OS code" was one
+  customer's prefix table presented as OutSystems knowledge. It is now a *method* — derive the
+  estate's own map before extracting — which is more useful than any single estate's table.
+- **Bug-log provenance convention** (legend at the top of `mxcli-bugs.md`): refer to projects
+  descriptively, never by name or repo. The version, date and what was exercised are the
+  evidence; the client name carries zero evidential value to a reader who cannot go and check
+  it. Distinctness is preserved where "reproduced on two independent projects" is the claim.
+- **`sync-project.sh` glob hardened** to the explicit five-agent whitelist `init-agents.sh`
+  uses. It globbed `agents/*.md`, so any doc placed there installs into every project as a
+  frontmatter-less sixth agent.
+- **Promoted from personal-toolkit:** `close-the-loop.md`, `oneshot-page-structure-patterns.md`
+  — both were already cited by shared (one from the public `README.md`) and did not exist here.
+
+Deliberately kept: `Teamcenter` (public Marketplace connector, not client data — denylisting it
+only produces false positives), the bug log's technical content in full, and `pipelines/` code.
+
+Open:
+- **History not rewritten.** Every name above is still recoverable from prior commits on the
+  public remote, along with 7 commits authored from a corporate email. Deferred by decision.
+- The 5 hooks + `checkpoint.sh`/`close-task.sh` exist in both toolkits with no sync path.
+
+---
+
 ## 2026-07-22 — Repo hygiene: purge non-generic data from tree + history, add leak guard
 
 Incident: an external review flagged that the public repo's docs, examples, and sample
@@ -19,7 +72,7 @@ What shipped (four commits + two history rewrites):
 - **Working tree scrubbed & genericized.** Deleted the committed `sample-outputs/` (a real
   extraction dump — it is regenerated at runtime into gitignored `knowledge-base/`, never
   shipped). Replaced source-derived domain names with neutral ones (Order*), real module
-  codes with an illustrative token (`MXXXX`), CJK strings with English, and a real key with
+  codes with an illustrative token (`ACME01`), CJK strings with English, and a real key with
   an `EXAMPLE…` placeholder. Genericized local paths. Added an encrypted-export prerequisite
   note to `source-os11.md` / `os-xml-schema.md`, and softened `eSpace` prose to "OutSystems
   module" (keeping the literal `<ESpace>` element only where code/XML examples require it).
@@ -34,7 +87,7 @@ What shipped (four commits + two history rewrites):
 
 How to avoid recurrence:
 - **Examples must be fictional.** Never paste real source strings, descriptions, identifiers,
-  or scale figures into docs/skills — invent a neutral sample (the "Apex" Order demo).
+  or scale figures into docs/skills — invent a neutral sample (`ACME01_`, `C-0001`, `EXAMPLE…`).
 - **Never commit extraction output.** `knowledge-base/`, `analysis/`, `sources/`,
   `sample-outputs/` are runtime/project artifacts — they belong in the project repo, not here.
 - **Install the hook** (`bin/install-hooks.sh`) so `check-no-client-data.sh` runs before every
@@ -243,7 +296,7 @@ No new mechanical gate — the placeholder guard in each stub is the enforcement
 
 ## 2026-07-15 — Demo user passwords + navigation wiring + StyleGallery seed data
 
-Three incidents from live KT-POC builds surfaced in a single session:
+Three incidents from live a WMS conversion project builds surfaced in a single session:
 
 **Incident 1 — CLI wiping/setting MxAdmin password.**
 Generated security MDL was touching MxAdmin (reset or wipe). MxAdmin ships with password `1` in
@@ -321,8 +374,8 @@ Stage-3 ✋ gate, same as the design track's HTML surfaces.
 
 ## 2026-07-14 — the big hardening day (~20 commits, be26d7c → d242c19)
 
-Context: full toolkit review + live validation on three projects (WMS-App-main, TFC-TCXGraphPOC-main
-"TCX", KT-POC). Every incident below produced a named rule + where possible a mechanical check.
+Context: full toolkit review + live validation on three projects (a WMS reference app, a PLM parts-flow project
+"TCX", a WMS conversion project). Every incident below produced a named rule + where possible a mechanical check.
 
 ### Shipped
 
@@ -338,7 +391,7 @@ Context: full toolkit review + live validation on three projects (WMS-App-main, 
 | Pipelines | Capability grouping (`generators/lib/capability-grouper.js`, java-angular + node-express-react): per-item path-evidence rollup of technical-layer packages → business-capability BRDs; `brd/grouping-proposal.md` confirmed at CAC-2 Q0; `config.json brdGrouping` overrides. Verified on real WMS KB (19 pkg → 17 capability BRDs, `impl`'s 113 items fanned out correctly). Enrichment-summary report ported to outsystems (function-centric schema) + node-express-react; config-driven hero (`config.json "project"`); hardened vs missing arrays. `npm run reports` in all three |
 | Layout | **analysis/ lives INSIDE the project folder** (never a sibling); flat `analysis/knowledge-base` accepted; split-workspace demoted to licence-constrained variant |
 | Build WOW | brd-to-build-plan.md canonical phase shape (user-confirmed WOW): **Phase 1 full scaffolding + domain models across all modules → Phase 2 StyleGallery/UI module (theme CSS, example classes) → microflows → pages → security/demo users** |
-| Docs | README rewritten (agent banner: "orientation, not the spec"), toolkit CLAUDE.md rewritten, pipeline READMEs refreshed, assess-migration de-duplicated to a pointer (bundled skill is canonical), Stockpilot name stripped |
+| Docs | README rewritten (agent banner: "orientation, not the spec"), toolkit CLAUDE.md rewritten, pipeline READMEs refreshed, assess-migration de-duplicated to a pointer (bundled skill is canonical), a residual client name stripped |
 
 ### Incident → rule map (all cited inline in the runbook)
 
@@ -356,7 +409,7 @@ Context: full toolkit review + live validation on three projects (WMS-App-main, 
 
 ### Open items
 
-- [ ] **Run one full source end-to-end under the new protocol** — the real validation; then delete `TOOLKIT-IMPROVEMENT-PROPOSAL.md` (kept until then)
+- [ ] **Run one full source end-to-end under the new protocol** — the real validation. (The improvement proposal it used to reference was untracked on 2026-08-03; the running backlog now lives in gitignored `wip/improvements.md`.)
 - [ ] WMS: redo build plan via CAC-5 (brainstorm first, no pre-fill); re-validate existing MDL against the new plan; commit its wiring files (uncommitted in that repo)
 - [ ] TCX: retro CAC-3/CAC-4 pass (artifacts = proposals), move `reports/*` wireframes/design to `design/` convention paths, merge `architecture/PROJECT.md` into root `PROJECT.md`, commit wiring
 - [ ] `pipelines/java-angular/pipeline/config.json` is committed with real WMS paths — deliberate ("PROJECT-OWNED" comment) but violates the repo's own rule; decide keep-exception vs move out

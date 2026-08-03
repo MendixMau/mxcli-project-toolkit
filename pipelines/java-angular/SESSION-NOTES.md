@@ -1,6 +1,6 @@
 # java-angular-migration-skills — Session Notes
 **Date:** 2026-07-01/02
-**Project origin:** IVM-SourceCodeAnalysis — generalizing the Apex OS→Mendix pipeline
+**Project origin:** a Java/Angular analysis project — generalizing the OutSystems→Mendix pipeline
 (`os-migration-pipeline` + `mxcli-project-toolkit`) to a Java/Spring Boot + Angular source,
 piloted against `inventory-management-with-angular-spring-boot`.
 
@@ -167,7 +167,7 @@ the applicable parts here:
 ## `domain-entity-mapper.js` non-persistent entity fix (2026-07-02)
 
 Previously noted below as "harmless looseness, not silently wrong" — that assessment didn't hold
-up once the BRD's finished artifacts started traveling on their own into `IVM-MxCLI-main`,
+up once the BRD's finished artifacts started traveling on their own into `a Java/Angular analysis project`,
 detached from this session's context. `java-extractor.js` already correctly captures
 `isPersistent: false` for `ItemSummary` (a plain `@Data` DTO, no `@Entity`) in `entities.json` —
 but `domain-entity-mapper.js` (shared with `os-migration-pipeline`) ignored that field and
@@ -184,7 +184,7 @@ when an extractor explicitly says otherwise. Re-ran `node run.js 3`, confirmed t
 shows `NonPersistentEntity`, then hand-patched just that one field on the real (enriched)
 `itemSummary.brd.json` rather than letting the overwrite guard redirect it — a mapper-level
 correctness fix isn't enrichment content, so it's fine to touch in place. Re-copied the corrected
-file into `IVM-MxCLI-main/migration-input/.../brd/itemSummary.brd.json`.
+file into `a Java/Angular analysis project/migration-input/.../brd/itemSummary.brd.json`.
 
 **Lesson**: "acceptable POC looseness" is only actually acceptable as long as the person reading
 the output still has the context to know it's loose. Once a BRD is handed off standalone, every

@@ -16,8 +16,13 @@ knowledge-base/
 *.mpr
 *.mpr.backup
 
-# WIP skills — machine-local drafts, not ready to publish
+# WIP skills + the improvement backlog — machine-local drafts, not ready to publish
 wip/
+
+# The leak guard's denylist is itself sensitive: it enumerates the client and
+# person names this repo must never publish. Never track it.
+# Format documented in the header of bin/check-no-client-data.sh.
+.leakguard-deny
 
 # OS noise
 .DS_Store

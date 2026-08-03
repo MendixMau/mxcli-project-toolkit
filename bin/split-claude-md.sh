@@ -5,7 +5,7 @@
 # WHY: mxcli scaffolds a full MDL command set, syntax reference, worked examples, lint-rule
 # tables and best-practices scoring into CLAUDE.md. CLAUDE.md is auto-loaded into EVERY session
 # and sits in the context prefix, so it is re-read on every API call for the whole session —
-# including the many sessions that never write a line of MDL. Measured on WMS-Demo-main
+# including the many sessions that never write a line of MDL. Measured on a WMS demo project
 # 2026-07-31: 494 of 699 lines, ~4.4k tokens, paid on every call.
 #
 # The content is not deleted. It moves to:

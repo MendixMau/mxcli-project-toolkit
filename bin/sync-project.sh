@@ -55,8 +55,12 @@ fi
 AGENT_DIR="$PROJECT_DIR/.claude/agents"
 if [ -d "$AGENT_DIR" ]; then
   PROJECT_NAME="$(basename "$(cd "$PROJECT_DIR" && pwd)")"
-  for src in "$TEMPLATE_DIR"/*.md; do
-    a="$(basename "$src")"
+  # Explicit whitelist, mirroring init-agents.sh — NOT a glob over agents/*.md.
+  # A glob installs any doc that happens to sit in agents/ as a sixth agent; one
+  # without YAML frontmatter is silently broken in the target project.
+  for a in ba-agent.md architect-agent.md mdl-agent.md gate-agent.md test-agent.md; do
+    src="$TEMPLATE_DIR/$a"
+    [ -f "$src" ] || { echo "Error: template missing: $src" >&2; continue; }
     dst="$AGENT_DIR/$a"
     if [ ! -f "$dst" ]; then
       sed "s/{{PROJECT}}/$PROJECT_NAME/g" "$src" > "$dst"

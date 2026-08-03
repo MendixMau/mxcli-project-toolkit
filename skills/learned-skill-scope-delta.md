@@ -27,7 +27,7 @@ Domain-design docs are the **primary target for code gen**. BRD JSON is the fall
 | Side | Sources | Represents |
 |------|---------|------------|
 | **A — Code extraction** | `docs/arch-overview.md`, `docs/interface-registry.md`, `docs/domain-design/F00X-*.md`, `extraction/knowledge-base/brd/F00X-*.json` | What the colleague extracted and interpreted from the OS source |
-| **B — Business requirements** | `extraction/knowledge-base/share/KB_MXXXX_RequirementsSpec_V5.md`, `KB_MXXXX_QA.md`, `KB_MXXXX_FieldLabels_EN.md`, `KB_MXXXX_CS_FieldLabels_EN.md`, `KB_C0031_CorporateSearch.md`, `KB_CorpSearch_API.md`, `KB_DevStandards.md`, `KB_CommonComponents.md`, `KB_MXXXX_OrderCreation_UserManual_EN.md` | What the business documents say the system should do |
+| **B — Business requirements** | `extraction/knowledge-base/share/KB_ACME01_RequirementsSpec_V5.md`, `KB_ACME01_QA.md`, `KB_ACME01_FieldLabels_EN.md`, `KB_ACME01_CS_FieldLabels_EN.md`, `KB_C0001_CorporateSearch.md`, `KB_PartnerLookup_API.md`, `KB_DevStandards.md`, `KB_CommonComponents.md`, `KB_ACME01_OrderCreation_UserManual_EN.md` | What the business documents say the system should do |
 
 ---
 
@@ -74,7 +74,7 @@ Analyse findings across these 6 dimensions:
 ## Delta: [Module Name] (F0XX)
 
 **Side A sources read:** domain-design/F0XX-*.md, brd/F0XX-*.json
-**Side B sources read:** KB_MXXXX_RequirementsSpec_V5.md (sheets X–Y), KB_MXXXX_QA.md, ...
+**Side B sources read:** KB_ACME01_RequirementsSpec_V5.md (sheets X–Y), KB_ACME01_QA.md, ...
 
 ### Findings
 
@@ -103,7 +103,7 @@ Same table format, but Side A = `analysis-design-architecture.md`, Side B = `ana
 
 ## Usage Examples
 
-**Module-level:** "Run scope-delta on F001 OrderRegistration — compare domain-design/F001 + brd/F001 vs KB_MXXXX_RequirementsSpec + KB_MXXXX_QA"
+**Module-level:** "Run scope-delta on F001 OrderRegistration — compare domain-design/F001 + brd/F001 vs KB_ACME01_RequirementsSpec + KB_ACME01_QA"
 
 **Top-level:** "Run scope-delta on the two analysis docs — compare analysis-design-architecture.md vs analysis-business-requirements.md"
 

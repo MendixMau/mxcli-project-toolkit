@@ -2,7 +2,6 @@
 **Applies to:** any mxcli project (migration and greenfield alike).
 **Purpose:** Per-module build discipline for mxcli-assisted Mendix development. Replaces bulk MDL generation with a verified, iterative gate per module.
 **Companion skills:** `brd-to-build-plan.md` (upstream — produces the plan this loop executes), `migration-pipeline.md`, `conversion-runbook.md` (Stage 5 — where the coverage checklist below gets confirmed with the user, not just self-extracted), `mdl-cookbook-microflows.md`, `bug-logs/mxcli-bugs.md`
-**Examples:** `../examples/outsystems-migration/build-loop-example.md`
 
 ---
 
@@ -89,7 +88,7 @@ validations entry, one openQuestions status flip) — cheap enough to do the mom
 
 This rule closes a real gap: nothing in the stage-forward pipeline (BRD → architecture → build)
 naturally flows *backward* when a later stage changes something an earlier BRD claimed. It was
-written after live drift was found on a real project (TFC-TCXGraphPOC, 2026-07-21): a Stage-3
+written after live drift was found on a real project (a PLM parts-flow project, 2026-07-21): a Stage-3
 workflow refinement changed a microflow's query behavior and added a new validation, but the BRD
 still had the old (wrong) description and two already-resolved open questions still marked "Open."
 

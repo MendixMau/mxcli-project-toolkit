@@ -379,6 +379,21 @@ check_build_ready() {
     echo "  ✓ all 5 agents present, no unfilled placeholders"
   fi
 
+  # 3b. Crash net present. Stage 5 writes to a binary .mpr that Studio Pro holds
+  # open; without snapshot/restore a bad exec is recovered from git or not at all.
+  # These are installed by init-project.sh — a project missing them predates that,
+  # or someone deleted them.
+  local missing_net="" s
+  for s in _common.sh snapshot-mpr.sh restore-mpr.sh exec.sh; do
+    [ -f "$PROJECT_DIR/bin/$s" ] || missing_net="$missing_net $s"
+  done
+  if [ -n "$missing_net" ]; then
+    echo "  ✗ crash net incomplete, missing:$missing_net — run bin/init-project.sh (or bin/sync-project.sh)"
+    fails=$((fails+1))
+  else
+    echo "  ✓ crash net present (snapshot / restore / guarded exec)"
+  fi
+
   # 4. At least one module brief exists (JIT — the first module's brief must be ready)
   if find "$PROJECT_DIR" -path '*/architecture/modules/*-brief.md' -print -quit 2>/dev/null | grep -q .; then
     echo "  ✓ at least one module brief exists (architecture/modules/)"

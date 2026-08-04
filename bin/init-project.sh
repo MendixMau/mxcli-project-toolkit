@@ -189,6 +189,33 @@ fi
 # One-command install: agents are scaffolded here too, not as a separate step.
 "$SCRIPT_DIR/init-agents.sh" "$PROJECT_DIR" all
 
+# ── Crash net ────────────────────────────────────────────────────────────────
+# The guard-chain scripts are PROJECT-LOCAL: they are invoked as ./bin/exec.sh
+# from the project root, resolve that project's .mpr, and call its ./mxcli. So
+# they are installed into the project rather than run from the toolkit, the same
+# way the agent stubs are.
+#
+# They were cited by README, the runbook and toolkit-guide.html for months while
+# shipping nowhere — every project either hand-rolled them or went without a
+# snapshot/restore net entirely. Installing them here is what makes those
+# citations true.
+#
+# Existing files are NOT overwritten: a project may have locally hardened its
+# copy, and clobbering that on a re-run of init/sync would be its own incident.
+CRASHNET_SRC="$SCRIPT_DIR/../project-bin"
+if [ -d "$CRASHNET_SRC" ]; then
+  mkdir -p "$PROJECT_DIR/bin"
+  for s in _common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh; do
+    if [ -f "$PROJECT_DIR/bin/$s" ]; then
+      echo "Kept (already present): bin/$s"
+    elif [ -f "$CRASHNET_SRC/$s" ]; then
+      cp "$CRASHNET_SRC/$s" "$PROJECT_DIR/bin/$s"
+      chmod +x "$PROJECT_DIR/bin/$s"
+      echo "Created: bin/$s"
+    fi
+  done
+fi
+
 GUIDE="$SCRIPT_DIR/../toolkit-guide.html"
 if [ -f "$GUIDE" ] && [ -z "${MXTK_NO_GUIDE:-}" ]; then
   # Best-effort auto-open of the visual guide; never fail the scaffold over it.

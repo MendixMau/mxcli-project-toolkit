@@ -442,19 +442,57 @@ declare -a NOTES
 
 # Protocol-freshness check: the session must have acknowledged the toolkit version it is
 # working from. PROJECT.md records "Toolkit commit: <sha>" (set by the session-start ritual
-# in CLAUDE.local.md); if it doesn't match the toolkit's current HEAD, the session is working
-# from a stale protocol read — the root cause of every skipped-gate incident so far.
-TOOLKIT_HEAD="$(git -C "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+# in CLAUDE.local.md); if the protocol has moved since that ack, the session is working from a
+# stale read — the root cause of every skipped-gate incident so far.
+#
+# Compared against the REMOTE tip, not local HEAD. Local HEAD only advances when someone runs
+# `git pull`, so a session that skips the pull records its stale SHA and the check compares the
+# stale clone to itself — always passing, in precisely the case it exists to catch.
+#
+# Only PROTOCOL_PATHS invalidate an ack. The toolkit's rules live in skills/ and agents/;
+# bin/, README and docs can move without a session needing to re-read anything. The strict
+# form was tried: landing §1.6 turned WMS-Demo red claiming "the protocol changed" when only
+# bin/ had moved. A gate that cries wolf teaches people to rubber-stamp the SHA without opening
+# the runbook, which costs more than the bug it closes. See TOOLKIT-UPGRADE-PLAN.md §1.9.
+TOOLKIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROTOCOL_PATHS="skills agents"
+TOOLKIT_HEAD="$(git -C "$TOOLKIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+
+# Resolve the reference tip. Fetch failure must not silently degrade to the old self-comparison:
+# fall back to local HEAD so offline work isn't stranded, but label the verdict UNVERIFIED so a
+# pass that proved nothing cannot read as a pass that did.
+SYNC_REF_LABEL="origin"
+if git -C "$TOOLKIT_DIR" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1 \
+   && git -C "$TOOLKIT_DIR" fetch --quiet 2>/dev/null; then
+  TOOLKIT_REF="$(git -C "$TOOLKIT_DIR" rev-parse --short '@{u}' 2>/dev/null || echo "unknown")"
+else
+  TOOLKIT_REF="$TOOLKIT_HEAD"
+  SYNC_REF_LABEL="local HEAD — UNVERIFIED, could not reach origin"
+fi
+
 SYNC_STATUS="FAIL"
 SYNC_NOTE="PROJECT.md has no 'Toolkit commit:' line — run the session-start ritual (CLAUDE.local.md): pull the toolkit, re-read the runbook, record the commit"
 if [ -f "$PROJECT_DIR/PROJECT.md" ]; then
   RECORDED="$(grep -o 'Toolkit commit: [a-f0-9]*' "$PROJECT_DIR/PROJECT.md" | head -1 | awk '{print $3}')"
   if [ -n "${RECORDED:-}" ]; then
-    if [ "$RECORDED" = "$TOOLKIT_HEAD" ]; then
+    if [ "$RECORDED" = "$TOOLKIT_REF" ]; then
       SYNC_STATUS="PASS"
-      SYNC_NOTE="session acknowledged toolkit commit $TOOLKIT_HEAD"
+      SYNC_NOTE="session acknowledged toolkit commit $TOOLKIT_REF ($SYNC_REF_LABEL)"
+    elif ! git -C "$TOOLKIT_DIR" cat-file -e "${RECORDED}^{commit}" 2>/dev/null; then
+      SYNC_NOTE="PROJECT.md acknowledges toolkit commit $RECORDED, which does not exist in the toolkit clone — fetch the toolkit and re-run the session-start ritual against a real commit"
+    elif git -C "$TOOLKIT_DIR" merge-base --is-ancestor "$TOOLKIT_REF" "$RECORDED" 2>/dev/null; then
+      SYNC_STATUS="PASS"
+      SYNC_NOTE="ack $RECORDED is ahead of $TOOLKIT_REF ($SYNC_REF_LABEL) — unpushed toolkit work, acknowledgement is current"
     else
-      SYNC_NOTE="PROJECT.md acknowledges toolkit commit $RECORDED but the toolkit is at $TOOLKIT_HEAD — the protocol changed since this session last read it: re-read conversion-runbook.md, then update the line"
+      # shellcheck disable=SC2086 — PROTOCOL_PATHS is a deliberate multi-pathspec list.
+      SYNC_CHANGED="$(git -C "$TOOLKIT_DIR" diff --name-only "$RECORDED" "$TOOLKIT_REF" -- $PROTOCOL_PATHS 2>/dev/null || true)"
+      if [ -n "$SYNC_CHANGED" ]; then
+        SYNC_N="$(printf '%s\n' "$SYNC_CHANGED" | wc -l | tr -d ' ')"
+        SYNC_NOTE="protocol changed since this session's ack ($RECORDED → $TOOLKIT_REF, $SYNC_REF_LABEL) — $SYNC_N file(s): $(printf '%s' "$SYNC_CHANGED" | tr '\n' ' ')— re-read them, then update the Toolkit commit line"
+      else
+        SYNC_STATUS="PASS"
+        SYNC_NOTE="ack $RECORDED is behind $TOOLKIT_REF ($SYNC_REF_LABEL) but no protocol path (${PROTOCOL_PATHS// /, }) changed — acknowledgement still valid"
+      fi
     fi
   fi
 fi

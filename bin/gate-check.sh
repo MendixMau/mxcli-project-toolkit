@@ -18,6 +18,20 @@ fi
 PROJECT_DIR="$1"
 REQUESTED_STAGE="${2:-}"
 
+# Validate the stage argument BEFORE it is ever used as an array subscript.
+# bash evaluates subscripts arithmetically, so RESULTS[Stage3] dereferences a
+# variable named Stage3; under `set -u` that aborts the script mid-run, and the
+# abort was observed exiting 0 — a typo'd stage silently forged a passing gate.
+# A gate you can pass by misspelling is not a gate.
+case "$REQUESTED_STAGE" in
+  ""|P|p|0|1|2|3|4|5|6|7|build-ready) ;;
+  *)
+    echo "Error: unknown stage '$REQUESTED_STAGE'." >&2
+    echo "Valid: P, 0-7, build-ready, or omit for an informational run." >&2
+    exit 2
+    ;;
+esac
+
 if [ ! -d "$PROJECT_DIR" ]; then
   echo "Error: project directory does not exist: $PROJECT_DIR" >&2
   exit 1
@@ -26,13 +40,53 @@ fi
 # Resolve the knowledge-base dir the same way this project's artifacts actually live.
 # Convention: analysis/<name>/knowledge-base/ under the project dir; fall back to
 # knowledge-base/ directly under the project dir if that's how the project is laid out.
+#
+# All matches are collected, not just the first. The old loop `break`-ed on the
+# first analysis/*/knowledge-base hit, so in a repo with two workstreams the one
+# that sorts first won — and every stage verdict silently described that
+# workstream. Observed in WMS-Demo-main: a dead 3-BRD workstream sorted ahead of
+# the live 18-BRD one, so Stage 1 reported PASS and Stage 2 FAIL, both about the
+# wrong project, for days. Worse, the PASS was pointing at a client extraction
+# the run-sheet marks "do not open".
+#
+# With more than one workstream a single verdict is not just wrong, it is
+# meaningless — so refuse rather than guess. $GATE_WORKSTREAM selects one.
 KB_DIR=""
-for candidate in "$PROJECT_DIR"/analysis/*/knowledge-base "$PROJECT_DIR/analysis/knowledge-base" "$PROJECT_DIR/knowledge-base"; do
-  if [ -d "$candidate" ]; then
-    KB_DIR="$candidate"
-    break
-  fi
+KB_MATCHES=""
+KB_COUNT=0
+for candidate in "$PROJECT_DIR"/analysis/*/knowledge-base; do
+  [ -d "$candidate" ] || continue
+  KB_MATCHES="${KB_MATCHES}  $candidate"$'\n'
+  KB_COUNT=$((KB_COUNT + 1))
+  KB_DIR="$candidate"
 done
+
+if [ "$KB_COUNT" -gt 1 ]; then
+  if [ -n "${GATE_WORKSTREAM:-}" ]; then
+    KB_DIR="$PROJECT_DIR/analysis/$GATE_WORKSTREAM/knowledge-base"
+    if [ ! -d "$KB_DIR" ]; then
+      echo "Error: GATE_WORKSTREAM='$GATE_WORKSTREAM' does not resolve to a knowledge-base dir." >&2
+      echo "Available:" >&2
+      printf '%s' "$KB_MATCHES" >&2
+      exit 2
+    fi
+  else
+    echo "Error: $KB_COUNT workstreams found under $PROJECT_DIR/analysis/:" >&2
+    printf '%s' "$KB_MATCHES" >&2
+    echo "A single gate verdict cannot describe more than one. Re-run with:" >&2
+    echo "  GATE_WORKSTREAM=<name> $0 $*" >&2
+    exit 2
+  fi
+fi
+
+if [ -z "$KB_DIR" ]; then
+  for candidate in "$PROJECT_DIR/analysis/knowledge-base" "$PROJECT_DIR/knowledge-base"; do
+    if [ -d "$candidate" ]; then
+      KB_DIR="$candidate"
+      break
+    fi
+  done
+fi
 
 # Resolve the analysis base (the dir that holds architecture/, design/, build-plan, etc.).
 # Projects using the documented analysis/<name>/ layout keep these UNDER that dir, not at root.
@@ -138,11 +192,31 @@ check_stage_2() {
 
 # ✋ stages need a CONFIRMED decision row in PROJECT.md's Decisions table
 # (| Stage | Decision | Status | Notes |) — artifacts alone don't pass a hard gate.
+# Matches a whole table FIELD equal to CONFIRMED, never a substring of the row.
+# The old pattern was `.*CONFIRMED`, which UNCONFIRMED and "NOT CONFIRMED" both
+# satisfy — a row explicitly marked as not decided passed the ✋ hard gate. The
+# gate whose entire purpose is "ASSUMED does not pass" was passable by a row
+# that said so in the status column.
+# Any field may hold the status (column order varies by project); the field must
+# equal CONFIRMED exactly after trimming, so UNCONFIRMED no longer qualifies.
 has_confirmed_decision() {
   local stage="$1"
   local f="$PROJECT_DIR/PROJECT.md"
   [ -f "$f" ] || return 1
-  grep -Eiq "^\|[[:space:]]*(Stage[[:space:]]*)?${stage}[[:space:]]*\|.*CONFIRMED" "$f"
+  awk -F'|' -v want="$stage" '
+    /^\|/ {
+      s = $2
+      gsub(/^[ \t]+|[ \t]+$/, "", s)
+      sub(/^[Ss]tage[ \t]*/, "", s)
+      if (s != want) next
+      for (i = 3; i <= NF; i++) {
+        f = toupper($i)
+        gsub(/^[ \t]+|[ \t]+$/, "", f)
+        if (f == "CONFIRMED") found = 1
+      }
+    }
+    END { exit !found }
+  ' "$f"
 }
 
 check_stage_3() {
@@ -228,7 +302,18 @@ check_stage_7() {
     echo "FAIL|PROJECT.md not found"
     return
   fi
-  if grep -i "cutover" "$f" | grep -q "CONFIRMED"; then
+  # Field-exact, for the same reason as has_confirmed_decision: the old
+  # `grep -i cutover | grep -q CONFIRMED` passed on a row reading UNCONFIRMED.
+  if awk -F'|' '
+       /^\|/ && tolower($0) ~ /cutover/ {
+         for (i = 2; i <= NF; i++) {
+           f = toupper($i)
+           gsub(/^[ \t]+|[ \t]+$/, "", f)
+           if (f == "CONFIRMED") found = 1
+         }
+       }
+       END { exit !found }
+     ' "$f"; then
     echo "PASS|CONFIRMED cutover decision found in PROJECT.md"
   else
     echo "FAIL|no CONFIRMED cutover decision in PROJECT.md (✋ gate — ASSUMED does not pass)"
@@ -483,6 +568,17 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "" >&2
     echo "Stage $REQUESTED_STAGE gate FAILED: ${NOTES[$REQUESTED_STAGE]}" >&2
     exit 1
+  fi
+  # MANUAL is not PASS. Only FAIL used to exit non-zero, so every manual stage —
+  # including Stage 5 (Build), the stage with the most work in it — returned 0
+  # against an empty directory. "The checker said 0" then reads as a passed gate.
+  # Exit 2 keeps it distinguishable from both a pass (0) and a real failure (1).
+  if [ "$requested_status" = "MANUAL" ]; then
+    echo "" >&2
+    echo "Stage $REQUESTED_STAGE is NOT machine-checkable: ${NOTES[$REQUESTED_STAGE]}" >&2
+    echo "This is not a pass. Paste the stage's own evidence (for Stage 5: the" >&2
+    echo "per-module coverage checklists and each script's gate result)." >&2
+    exit 2
   fi
 fi
 

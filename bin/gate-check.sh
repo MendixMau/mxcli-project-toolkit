@@ -352,11 +352,28 @@ check_build_ready() {
   for a in ba-agent architect-agent mdl-agent gate-agent test-agent; do
     [ -f "$agents_dir/$a.md" ] || missing_agents="$missing_agents $a"
   done
+  # {{DOUBLE_BRACE}} is EXCLUDED, and the exclusion is load-bearing. Every agent
+  # template carries, on line 11, "If any {{DOUBLE_BRACE}} placeholder remains in
+  # this file, refuse to proceed" — the token is prose standing in for "double
+  # brace", not an unfilled slot. A bare `grep "{{"` therefore fails build-ready
+  # on a CORRECTLY completed project, and the only way to pass is to delete the
+  # sentence. That is exactly what happened: all five agents in a real project
+  # ended up with zero occurrences of "refuse to proceed", because a false
+  # positive made deleting the safety net the cheapest way to get a green gate.
+  # A check that punishes the correct state trains people to break it.
+  local remaining
+  remaining=$(sed 's/{{DOUBLE_BRACE}}//g' "$agents_dir"/*.md 2>/dev/null \
+              | grep -o '{{[^}]*}}' | sort -u | tr '\n' ' ')
   if [ -n "$missing_agents" ]; then
     echo "  ✗ missing agent(s):$missing_agents — run bin/init-agents.sh"
     fails=$((fails+1))
-  elif grep -rq "{{" "$agents_dir"/*.md 2>/dev/null; then
-    echo "  ✗ agent(s) still have {{placeholders}} — complete them (agent-roles.md)"
+  elif [ -n "$remaining" ]; then
+    # Name them. "still have placeholders" sends you grepping five files by hand.
+    # ${remaining} braced, not bare: $remaining— splices the em-dash's UTF-8
+    # bytes into the variable NAME on byte-oriented bash 3.2, and set -u then
+    # aborts the whole run. Only the failure branch ever built that string, so
+    # a pass-path-only test would have shipped it.
+    echo "  ✗ agent(s) still have unfilled placeholders: ${remaining}— complete them (agent-roles.md)"
     fails=$((fails+1))
   else
     echo "  ✓ all 5 agents present, no unfilled placeholders"

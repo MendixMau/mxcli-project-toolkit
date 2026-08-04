@@ -205,7 +205,7 @@ fi
 CRASHNET_SRC="$SCRIPT_DIR/../project-bin"
 if [ -d "$CRASHNET_SRC" ]; then
   mkdir -p "$PROJECT_DIR/bin"
-  for s in _common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh; do
+  for s in _common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh; do
     if [ -f "$PROJECT_DIR/bin/$s" ]; then
       echo "Kept (already present): bin/$s"
     elif [ -f "$CRASHNET_SRC/$s" ]; then

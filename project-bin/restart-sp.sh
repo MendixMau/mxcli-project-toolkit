@@ -5,17 +5,37 @@
 # every SP on the machine. Two projects open at once is normal; killing the
 # wrong one loses unsaved work.
 #
-# macOS only (lsof/open/Version Selector).
+# macOS only (lsof/open/sample). See restart-sp.ps1 for the Windows port
+# (added 2026-08-04, far less proven — no `sample`-equivalent hang check).
+#
+# AUTO_SP=1 skips BOTH the reopen confirmation below and the post-launch hang
+# warning's retry gate. Default is interactive: a stray invocation should not
+# force-quit someone's live session, or silently loop retries unattended.
 set -euo pipefail
 . "$(dirname "$0")/_common.sh"
 
 MPR="$(find_mpr)" || exit 1
 NAME="$(basename "$MPR" .mpr)"
 DEPLOYMENT="$PROJECT_ROOT/deployment"
-RUNTIME_PORT="${MENDIX_RUNTIME_PORT:-8081}"
+HEALTH_CHECK="$(dirname "$0")/check-sp-health.sh"
 
-echo "→ Killing Mendix runtime (port $RUNTIME_PORT + deployment-path processes)..."
-lsof -ti :"$RUNTIME_PORT" 2>/dev/null | xargs kill -9 2>/dev/null || true
+if [ "${AUTO_SP:-0}" != "1" ]; then
+  read -r -p "This will force-quit and reopen Studio Pro (any unsaved work is lost). Continue? [y/N] " REPLY
+  case "$REPLY" in
+    [Yy]*) ;;
+    *) echo "Aborted — nothing was touched. (Override: AUTO_SP=1 ./bin/restart-sp.sh)"; exit 0 ;;
+  esac
+fi
+
+# Ports: Mendix's own native runtime port defaults to 8080, but at least one
+# project's Docker-mode logs referenced 8081 for the same deployment — confirmed
+# 2026-08-04, see ~/Mendix/personal-toolkit/skills/restart-sp-reopen-and-hang-detection.md.
+# Kill both unconditionally; MENDIX_RUNTIME_PORT adds a third if this project
+# uses something else entirely.
+EXTRA_PORT="${MENDIX_RUNTIME_PORT:-}"
+PORTS="8080,8081${EXTRA_PORT:+,$EXTRA_PORT}"
+echo "→ Killing Mendix runtime (ports $PORTS + deployment-path processes)..."
+lsof -ti :"$PORTS" 2>/dev/null | xargs kill -9 2>/dev/null || true
 [ -d "$DEPLOYMENT" ] && { lsof -t "$DEPLOYMENT" 2>/dev/null | xargs kill -9 2>/dev/null || true; }
 
 echo "→ Killing the SP instance holding $NAME..."
@@ -65,6 +85,54 @@ for _ in $(seq 1 15); do
 done
 
 echo "→ Reopening $NAME..."
-open -a "Mendix Version Selector" "$MPR"
+# NOT `open -a "Mendix Version Selector" "$MPR"`: confirmed 2026-08-04 that this
+# fails silently on macOS. `open -a` without --args delivers the file path via
+# an "open documents" Apple Event, and the unified log shows tccd denying it —
+# Mendix Version Selector.app is missing the com.apple.security.automation.
+# apple-events entitlement in its own code signature. The process launches,
+# never receives the project path, and quits within seconds with no window.
+# That's a bug in Mendix's app bundle, not fixable via a permission toggle.
+#
+# Fix: skip Version Selector and launch the resolved Studio Pro app directly
+# with --args, which passes the path as a plain argv argument — no Apple Events
+# involved. find_sp_app already exists for exactly this (used by find_mxbuild);
+# it picks the newest installed version, same tradeoff mxbuild already accepts
+# — if this project needs an older version, set MENDIX_APP to pin it.
+SP_APP="$(find_sp_app)" || exit 1
+open -a "$SP_APP" --args "$MPR"
 
-echo "✓ Done — click Run Locally in Studio Pro once it finishes loading."
+if [ -x "$HEALTH_CHECK" ]; then
+  echo "→ Waiting for the new instance to claim the lock file..."
+  NEW_PID=""
+  for _ in $(seq 1 30); do
+    if [ -f "$MPR.lock" ]; then
+      NEW_PID=$(grep -oE '"ProcessId":[0-9]+' "$MPR.lock" 2>/dev/null | grep -oE '[0-9]+' || true)
+      [ -n "$NEW_PID" ] && break
+    fi
+    sleep 1
+  done
+
+  if [ -z "$NEW_PID" ]; then
+    echo "✓ Done — couldn't confirm the new PID (lock file never appeared); click Run Locally when it finishes loading."
+    exit 0
+  fi
+
+  echo "✓ Opened (PID $NEW_PID). Giving it 60s to finish loading before a health check..."
+  sleep 60
+  HEALTH_OUTPUT=$("$HEALTH_CHECK" "$NEW_PID" 0 2>&1) && HEALTH_STATUS=0 || HEALTH_STATUS=$?
+  echo "$HEALTH_OUTPUT"
+
+  if [ "$HEALTH_STATUS" -eq 1 ]; then
+    echo "⚠ Studio Pro looks hung."
+    if [ "${AUTO_SP:-0}" = "1" ] && [ "${_SP_RETRIED:-0}" != "1" ]; then
+      echo "  AUTO_SP=1 — retrying the reopen once automatically..."
+      _SP_RETRIED=1 AUTO_SP=1 exec "$0"
+    else
+      echo "  Run this script again to force-kill and relaunch it, or check manually."
+    fi
+  else
+    echo "✓ Done — click Run Locally in Studio Pro when it finishes loading."
+  fi
+else
+  echo "✓ Done — click Run Locally in Studio Pro once it finishes loading."
+fi

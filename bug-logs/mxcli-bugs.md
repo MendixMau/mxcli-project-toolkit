@@ -1481,6 +1481,21 @@ basis of a lowercase `w`. Gateways are usable — reinstate them if the design w
 
 ## BUG-24: `CALL MICROFLOW` in a workflow without `WITH` clause → broken activity (red pin) + runtime crash
 
+> ### ⚠️ MISDIAGNOSED — see BUG-WF06 (2026-08-05)
+>
+> **The red pin and the runtime `Class 'Workflows$CallMicroflowTask' could not be found` have
+> nothing to do with the `WITH` clause.** They are caused by mxcli v0.16.0 writing the pre-Mendix-11.9
+> `$Type` for the activity. The symptoms recorded below are real and accurately described; the
+> attribution to a missing `WITH` clause, and therefore this entry's "Fix", are wrong.
+>
+> **Do not follow this entry's fix.** Adding a fully-qualified `WITH` key makes things worse — that
+> is BUG-WF05, a *second*, independent defect. Reproduced 2026-08-05 on TFC-TCXGraphPOC with correct
+> short `WITH` keys, with fully-qualified keys, and with no `WITH` at all: red pin in every case.
+>
+> The "NOT REPRODUCIBLE on RnD or Engalar" note below is consistent with this — both binaries
+> post-date `253d60d8`, which version-gates the storage name. It was the binary that fixed it, not
+> the `WITH` clause. See **BUG-WF06** for the root cause and the A/B.
+
 **Discovered:** 2026-07-24 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1 Beta), Phase 3c script 09.
 
 **Status (retested 2026-08-03): NOT REPRODUCIBLE on RnD or Engalar.** This is the exact "no WITH
@@ -2109,6 +2124,24 @@ retest if this comes up.
 
 ## BUG-WF05: `CALL MICROFLOW` fully-qualified `WITH` writes a null `ParameterId` → **MPR will not load** on Mendix 11.13
 
+> ### ⚠️ CORRECTION (2026-08-05) — this entry is right, but incomplete, and its workaround is not sufficient
+>
+> The defect described below is real and correctly root-caused. **What is wrong is the conclusion
+> added on 08-05 that "v0.16.0 can author `CALL MICROFLOW` as long as you use a short `WITH` key or
+> omit it."** It cannot. Fixing the `WITH` key clears *this* bug and leaves **BUG-WF06** — the
+> pre-11.9 `$Type` storage name — fully in place: the model loads and passes `mx check`, but every
+> call activity is a red pin in Studio Pro and the app will not boot.
+>
+> **How the wrong conclusion was reached:** the six-variant trigger-boundary probe that produced it
+> graded every arm with `mx check` alone. `mx check` returns `0 errors` on both `$Type` names, so all
+> six arms "passed" — and all six were broken. A gate that cannot fail for the defect you have will
+> confirm whichever hypothesis you brought.
+>
+> **Corrected guidance for tagged v0.16.0:** there is no MDL-level workaround for authoring
+> `CALL MICROFLOW`. Build from `main` ≥ `253d60d8`, or hand-drag the activity in Studio Pro. The
+> short-`WITH`/omit-`WITH` advice remains correct *for this bug specifically*, and is still needed on
+> top of a fixed binary if you write the key by hand.
+
 **Severity:** Critical — the model becomes unloadable. `mx check` hard-crashes; Studio Pro cannot
 open the project at all. This is an escalation of BUG-WF02's severity, not a new trigger.
 **Reproducible:** Yes, first attempt, on the real TFC project.
@@ -2376,3 +2409,118 @@ leaves the pane broken. In TFC both had to be addressed:
 Two candidates, both worth filing: the **DataGrid2 widget** (emit a real code), and **Studio Pro**
 (one malformed record should degrade that row, not the whole pane). Not an mxcli bug — logged here
 because the CLI-vs-GUI divergence is what makes it expensive to diagnose.
+
+---
+
+## BUG-WF06: v0.16.0 writes the pre-11.9 `$Type` for workflow call-microflow activities → red pin in SP, app will not boot
+
+**Severity:** Critical — affects **every** MDL-authored `CALL MICROFLOW` on any Mendix ≥ 11.9,
+independent of syntax. Both checkers report success.
+**Reproducible:** Yes, every time, on any project format ≥ 11.9.
+**Mendix version:** 11.13.0 (reproduced); applies from 11.9 onward
+**mxcli version:** `v0.16.0` (tagged release, 2026-07-12). Fixed on `main` by `253d60d8` (2026-07-29).
+**Discovered:** 2026-08-05, TFC-TCXGraphPOC, after Studio Pro rendered a scripted 5-activity workflow
+as five red pins despite `mx check` reporting `0 errors`.
+
+### Why this entry exists
+
+It supersedes the attribution in **BUG-24** (which blamed a missing `WITH` clause for the red pin)
+and completes **BUG-WF05** (which is a real but *separate* defect in the same statement). Both of
+those entries now carry correction banners pointing here.
+
+### Symptom
+
+A workflow written from MDL containing `CALL MICROFLOW`:
+
+- **Studio Pro:** each call activity is a **red pin**, cannot be double-clicked or configured. User
+  tasks, outcomes, and branching in the same workflow render perfectly, so it reads as a modelling
+  error rather than a tool defect.
+- **Runtime:** `Failed to load model: ... Class 'Workflows$CallMicroflowTask' could not be found` —
+  the entire app fails to boot, not just the workflow.
+- **`mxcli check --references`:** passes. **`mxcli exec`:** `Created workflow`. **`mx check`:**
+  `0 errors`. **Studio Pro opens the project** without complaint.
+
+### Root cause
+
+Mendix 11.9 (**WOR-2802**) split `MicroflowBasedActivity` into `CallMicroflowActivity` +
+`AIAgentTaskActivity`, renaming the on-disk `$Type` from `Workflows$CallMicroflowTask` to
+`Workflows$CallMicroflowActivity`. Tagged v0.16.0 predates the version gate and emits the pre-11.9
+name unconditionally.
+
+Evidence from the fix commit (`253d60d8`): the 11.6.3 modeler knows only `CallMicroflowTask`; the
+11.10 modeler carries both (the old one marked *"Removed due to code refactoring … WOR-2802"*, plus
+a conversion routine); the 11.10+ runtime metamodel jars know only `CallMicroflowActivity`.
+
+**Independent of the `WITH` clause** — reproduced with a short key, a fully-qualified key, and no
+`WITH` at all.
+
+### Controlled A/B — only the binary varied
+
+Same MDL, same `.mpr` (rsync copy in `/tmp`), same gate
+(`Mendix Studio Pro 11.13.0 Beta.app/Contents/modeler/mx`). BSON read straight out of
+`mprcontents/*.mxunit`.
+
+| binary | stored `$Type` (×5) | `mx check` | Studio Pro |
+|---|---|---|---|
+| `v0.16.0` (tagged) | `Workflows$CallMicroflowTask` | 0 errors | **red pins, not clickable** |
+| `504aec67` (main, 2026-07-31) | `Workflows$CallMicroflowActivity` | 0 errors | renders, opens normally |
+
+### Why every gate missed it
+
+`mx check` is not sensitive to this `$Type`. The upstream commit message says so directly: *"Both
+checkers passed (mxcli check ✓, mx check → 0 errors), but on an 11.9+ project the runtime refused
+to load the ENTIRE model at boot."*
+
+Do not use `DESCRIBE WORKFLOW` to verify either — v0.16.0's read path folds both `$Type` names into
+one semantic type, so a broken model reads back looking correct.
+
+**The cheapest gate that catches it: open the workflow in Studio Pro and look at the activity icons.**
+
+### Detection
+
+```bash
+u=$(LC_ALL=C grep -rla "<WorkflowName>" mprcontents/ | head -1)
+LC_ALL=C strings -n 4 "$u" | grep -oE 'Workflows\$Call[A-Za-z]+'
+# want: Workflows$CallMicroflowActivity
+```
+
+### Fix
+
+Build from `main` ≥ `253d60d8`. There is no MDL-level workaround. If you must stay on tagged
+v0.16.0, hand-drag call-microflow activities in Studio Pro.
+
+### Recovery
+
+mxcli reads models Studio Pro's loader rejects, so no restore is needed:
+
+```bash
+./mxcli -p App.mpr -c "DROP WORKFLOW <Module>.<Bad>"
+# re-create with a fixed binary
+```
+
+Verified on TFC-TCXGraphPOC: dropped and rebuilt with `504aec67`, `mx check` `0 errors`, split model
+format preserved, exactly one unit swapped, the unrelated production workflow untouched.
+
+### How it was found (method worth reusing)
+
+The project contained a **hand-dragged workflow that worked**, in the same model, with the same
+microflows. Diffing the two BSON units reduced a day of syntax hypotheses to one line:
+
+```bash
+LC_ALL=C strings -n 3 <hand-built>.mxunit > /tmp/good.txt
+LC_ALL=C strings -n 3 <scripted>.mxunit   > /tmp/bad.txt
+diff /tmp/good.txt /tmp/bad.txt
+# < Workflows$CallMicroflowActivity
+# > Workflows$CallMicroflowTask
+```
+
+Everything the two units shared was exonerated at a stroke. When a known-good twin exists, diff it
+before theorising.
+
+### Where to report
+
+`mendixlabs/mxcli`. Already fixed on `main`; the report is effectively *"please cut a release"* —
+`v0.16.0` is still tagged **Latest** while the 2026-08-03 nightly is a Pre-release, so every user on
+the official release hits this. Draft prepared at
+`TFC-TCXGraphPOC-main/docs/gh-issues-ready/03-workflow-callmicroflow-storage-name-pre-11.9.md`
+(not filed).

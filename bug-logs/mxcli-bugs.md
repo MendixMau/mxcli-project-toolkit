@@ -1438,11 +1438,36 @@ Confirmed from the engalar/mxcli fork's `24-workflow-examples.mdl`: workflow `CA
 
 Note: this is a plain `=` comparison (no `!=`), so it is distinct from the AND/OR + `!=` bug (BUG in learned-mdl-preflight rule 17). The trigger here appears to be the DECISION context itself in workflow scope, not the operator combination.
 
-### Fix
+### Fix (SUPERSEDED — see the correction below; do NOT drop your DECISION gateways)
 
 Remove DECISION gateways from the MDL script. Wire the decision gateway manually in Studio Pro after the workflow exists. Studio Pro can add a gateway via drag-and-drop with no CE errors.
 
 **Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1), Phase 3c script 09.
+
+### CORRECTION 2026-08-05: this is a CASING bug, not "DECISION is broken"
+
+Retested on Mendix 11.13 across both binaries, isolating the decision from the `CALL MICROFLOW`
+defect (branches use user tasks, no microflow calls — otherwise BUG-WF05 fires first and masks it):
+
+| Expression | v0.16.0 | `504aec67` |
+|---|---|---|
+| `'$WorkflowContext/Status = TFC.ENUM_TFCStatus.DieGo'` — **capital W** | ✅ 0 errors | ✅ 0 errors |
+| `'$workflowContext/...'` — **lowercase w** | — | ❌ **CE0117** |
+| `TFC.ENUM_TFCStatus.Release` — value not in the enum | — | ❌ CE1613 (correct, honest error) |
+
+**An enum DECISION works fine, including on v0.16.0.** The CE0117 comes from the lowercase context
+variable. The original 2026-07-23 report additionally used `ENUM_TFCStatus.Release`, which is not a
+value in that enumeration — so that entry likely conflated two separate mistakes and neither is an
+mxcli DECISION defect.
+
+**Still live on `504aec67`:** `1b390dce` normalizes `$workflowContext` casing inside a
+`CALL MICROFLOW` WITH clause, but **not** inside a DECISION expression. So decisions must be written
+`$WorkflowContext`. This is a genuine, unreported, still-unfixed inconsistency — worth an upstream
+issue on its own (mxcli writes the expression verbatim; mxbuild then rejects it).
+
+**Cost of the original misdiagnosis:** TFC dropped DECISION gateways from its workflow design
+entirely (see `09b-tfc-workflow-fix-callmf.mdl` header, "ALSO removes the Decision gateway") on the
+basis of a lowercase `w`. Gateways are usable — reinstate them if the design wants them.
 
 ---
 
@@ -2079,3 +2104,275 @@ dangerous (auto-bind still succeeds on both), just a smaller safety net on Engal
 Only tested with a single entity-typed parameter on the target microflow — multi-parameter
 microflows (where auto-bind can't pick a single match) are untested and may behave differently;
 retest if this comes up.
+
+---
+
+## BUG-WF05: `CALL MICROFLOW` fully-qualified `WITH` writes a null `ParameterId` → **MPR will not load** on Mendix 11.13
+
+**Severity:** Critical — the model becomes unloadable. `mx check` hard-crashes; Studio Pro cannot
+open the project at all. This is an escalation of BUG-WF02's severity, not a new trigger.
+**Reproducible:** Yes, first attempt, on the real TFC project.
+**Mendix version:** 11.13.0 Beta (project format 11.13.0)
+**mxcli version:** v0.16.0 (tagged release, built 2026-07-12)
+**Discovered:** 2026-08-04, TFC-TCXGraphPOC, isolated probe `mdlsource/3c-workflow/probe-wf-callmf-11.13.mdl`.
+
+### Why this entry exists
+
+BUG-WF04 (2026-08-03) retested this area and found it green — but **only against RnD HEAD
+`504aec67` and Engalar `26f2866`**, both of which post-date the four workflow fixes that landed
+2026-07-29 (`253d60d8`, `08746d00`, `1b390dce`, `b6a5043a`). Projects still running the **tagged
+v0.16.0 release** have none of those fixes. BUG-WF04's "resolved" verdict does not transfer to them.
+This entry records what v0.16.0 actually does on 11.13.
+
+### Trigger
+
+```sql
+CREATE WORKFLOW TFC."WF_ProbeCallMF"
+  PARAMETER $WorkflowContext: TFC."TFCStub"
+BEGIN
+  CALL MICROFLOW TFC.WF_ACT_TCCopilot_Prefill
+    WITH (TFC.WF_ACT_TCCopilot_Prefill.TFCStub = '$workflowContext');
+END WORKFLOW;
+```
+
+Target microflow has a **single** entity-typed parameter (`$TFCStub: TFC.TFCStub`) — i.e. squarely
+inside BUG-WF04's verified envelope. The fully-qualified `Module.Microflow.Param` WITH-key form is
+the one BUG-24 recommended as "CORRECT".
+
+### Symptom
+
+`mxcli check` passes. `mxcli exec` reports `Created workflow: TFC.WF_ProbeCallMF`. Then `mx check`:
+
+```
+ERROR: System.AggregateException: One or more errors occurred. (An error occurred when trying to
+set the 'Parameter' property of a Microflow call parameter mapping in a Workflow with ID
+4bf42a2c-d50d-4e26-abb2-27f0c06190cc.)
+ ---> System.InvalidOperationException: ...
+ ---> System.ArgumentNullException: Value cannot be null. (Parameter 'value')
+   at Mendix.Modeler.Workflows.Model.MicroflowCallParameterMapping.set_ParameterId(MicroflowParameterIdentifier value)
+   at Mendix.Modeler.Storage.Operations.StreamingBsonUnitReader.SetValue(...)
+   at Mendix.Modeler.Storage.Operations.StreamingBsonUnitReader.FillProperties(...)
+   at Mendix.Modeler.Storage.Operations.UnitLoader.ConstructUnits()
+```
+
+`set_ParameterId` receives null — the same null `ParameterId` BUG-WF02 described, now confirmed at
+the BSON loader level.
+
+### What changed versus BUG-WF02
+
+BUG-WF02 (11.12.1) recorded this as **silent**: "`mxcli check` and `mx check` both pass (0 errors),
+but at runtime the parameter binding is invalid." On **11.13 the loader is stricter** — the null is
+rejected at model load, so the failure surfaces as an unloadable MPR rather than a runtime fault.
+Strictly better (fails loud, not silent) but far more disruptive: SP cannot open the project until
+the offending workflow is removed.
+
+### Recovery (proven, non-destructive — used here)
+
+**mxcli can still read the model even though SP's loader cannot.** No full restore needed:
+
+```bash
+./mxcli -p <project>.mpr -c "DROP WORKFLOW <Module>.<BadWorkflow>"
+```
+
+Then re-run `mx check` to confirm — went straight back to `0 errors` here, with the unrelated
+production workflow (10 activities / 3 user tasks, including hand-placed microflow activities)
+fully intact. Prefer this over `restore-mpr.sh` / `git checkout`: it is surgical and preserves any
+Studio-Pro work done since the last snapshot.
+
+### Guidance for v0.16.0 projects
+
+Until the binary is upgraded past 2026-07-29, **do not script `CALL MICROFLOW` inside a workflow
+body on v0.16.0**. Create the workflow with user tasks only and drag the microflow activities onto
+the canvas in Studio Pro (SP auto-wires the context parameter on drop) — the workaround
+`TFC-TCXGraphPOC/mdlsource/3c-workflow/archived/09j-tfc-workflow-correct.mdl` already documents.
+Upgrading to a post-`1b390dce` binary is the real fix — **now verified on 11.13**, see below.
+
+### RESOLVED on RnD `504aec67` — controlled A/B on 11.13 (2026-08-04, same day)
+
+Re-tested as a clean two-arm experiment: two throwaway `rsync` copies of the real TFC project in
+`/tmp` (full project dir — `theme/`+`themesource/` are required or `mx check` reports 1337 spurious
+CE6083s), the **same** probe script, the **same** gate (`Mendix Studio Pro 11.13.0 Beta.app/
+Contents/modeler/mx`). Only the mxcli binary differed. The real `.mpr` was never touched.
+
+| | v0.16.0 (tagged, 2026-07-12) | RnD `504aec67` (2026-07-31) |
+|---|---|---|
+| `mxcli check --references` | pass | pass |
+| `mxcli exec` | `Created workflow` | `Created workflow` |
+| `mx check` | **CRASH**, `ArgumentNullException` on `set_ParameterId`, MPR unloadable | **0 errors** |
+| roundtrip `DESCRIBE WORKFLOW` | n/a — unloadable | correct (below) |
+
+RnD roundtrip is faithful, and shows both post-fix behaviours:
+
+```sql
+call microflow TFC.WF_ACT_TCCopilot_Prefill with (TFCStub = '$WorkflowContext')
+  outcomes
+    DEFAULT -> { };
+```
+
+- WITH-key stored **short** (`TFCStub`), not fully-qualified — `253d60d8`'s 11.9+ version gate.
+- context var normalized `'$workflowContext'` → `'$WorkflowContext'`, and `outcomes DEFAULT -> { }`
+  synthesized from the target's return type — `1b390dce`.
+- read back at all — `b6a5043a` (parse `CallMicroflowActivity` storage name on read).
+
+**Conclusion: BUG-WF05 is a binary-version defect, not a Mendix 11.13 limitation.** The
+drag-in-Studio-Pro workaround is only required for projects still on the tagged v0.16.0 release.
+Note the input form is unchanged — the *same* fully-qualified `Module.Microflow.Param` WITH-key
+that crashes v0.16.0 is accepted and normalized by `504aec67`; no script rewrite is needed, only a
+binary swap.
+
+### Confirmed on the REAL production workflow, not just a probe (2026-08-05)
+
+The above used a 1-activity throwaway. Re-run with TFC's actual
+`09b-tfc-workflow-fix-callmf.mdl` — `CREATE OR REPLACE`, **5 × `CALL MICROFLOW` with WITH clauses,
+3 user tasks, nested `Required`/`WaveOff` branching** — same two-arm sandbox method:
+
+| | v0.16.0 | `504aec67` |
+|---|---|---|
+| `mx check` (11.13) | **CRASH**, MPR unloadable | **0 errors** |
+| roundtrip | n/a | all 5 mappings + nested branches intact; 10 activities / 3 user tasks |
+
+The rebuilt workflow's activity/user-task counts match the hand-dragged production workflow exactly.
+So the fix holds at full scale, not just for a single activity.
+
+**Still unverified:** nothing has been opened in Studio Pro or run at runtime. `mx check` passing is
+the Mendix *loader* accepting the model — on 11.12.1 BUG-WF02 was a *silent* failure where checks
+passed and the runtime binding was still wrong. 11.13's loader is strict about the null so this is
+stronger evidence, but "loader accepts" is not "runtime binds correctly."
+
+### v0.16.0 is the LATEST OFFICIAL RELEASE — this bug is live for everyone (2026-08-05)
+
+`gh release list --repo mendixlabs/mxcli`: `v0.16.0` is tagged **Latest**; `Nightly 2026-08-03`
+(`689e8ce4`) is a **Pre-release**. So BUG-WF05 affects the current official release on Mendix 11.13,
+and **is not filed upstream** — no workflow issue exists in the tracker or in any local
+`gh-issues-ready/` folder. Worth reporting, and easy for a maintainer to action since the fix
+commits are already in `main` (it is effectively a "please cut a release" report).
+
+Also note `504aec67` **predates 11.13 being in upstream CI at all** — Mendix 11.13 was only added
+to the nightly matrix on 2026-08-02 (`6100e4c`, which also fixed real 11.13 drift:
+`DatabaseConnector$DatabaseQuery.QueryType` int → string enum, CE5277 per query activity). Any
+future swap should target the published nightly (`689e8ce4`), not `504aec67`, and re-run this A/B —
+the evidence here does not transfer between binaries.
+
+### Secondary finding: the exec.sh gate does not roll back a BSON crash
+
+`bin/exec.sh`'s mx-check gate parses error JSON to count CEs. A BSON loader crash emits a **stack
+trace, not JSON**, so the parse fails and the gate falls through to:
+
+```
+(could not parse error JSON: Expecting value: line 1 column 1 (char 0))
+✓ Script applied to MPR (with CE errors — see above).
+```
+
+It treats "gate could not read the result" as "applied with errors" and **keeps the change**, when a
+crash is precisely the case that most needs an automatic rollback. Any exec.sh variant that parses
+`--write-errors` JSON has this hole. Fix: treat unparseable gate output as a hard failure and
+restore, rather than as a soft warning.
+
+
+---
+
+## BUG-57: `assess-quality.md` prescribes `HTMLSanitize()`, a Community Commons function that does not exist
+
+**Class:** documentation defect in an mxcli-bundled skill — **not** a runtime/corruption bug. Logged
+here because the target is mxcli's own shipped content and the failure mode is an agent confidently
+writing a call to a function that isn't there.
+
+**Severity:** Medium. It sits in the *security* section, so the cost of following it is either a
+CE error on a nonexistent Java action, or — worse — an agent that hits the error, can't find the
+function, and quietly drops the sanitisation step rather than substituting the right one.
+
+**Where:** `.ai-context/skills/assess-quality.md:167`
+
+```
+- Sanitize user input to prevent XSS (use `HTMLSanitize()` from Community Commons)
+```
+
+**Verified 2026-08-05** against this project's own vendored Community Commons
+(`javasource/communitycommons/actions/`):
+
+| Present | Absent |
+|---|---|
+| `EscapeHTML.java`, `HTMLEncode.java`, `HTMLToPlainText.java`, **`XSSSanitize.java`** | `HTMLSanitize` — `grep -rl 'HTMLSanitize' javasource/` returns **nothing** |
+
+**Correct action: `XSSSanitize`.**
+
+**Provenance:** surfaced by cross-reading an external Mendix coding-standards corpus (a customer's
+internal conventions repo, 2026-08-05), whose security-conventions section names `XSSSanitize`
+correctly. The external corpus is right and the bundled skill is wrong — worth noting as a case
+where an outside body of standards corrected ours, which is the argument for cross-reading them.
+
+**Cannot be fixed locally in a way that sticks.** `.ai-context/` is regenerated by mxcli upgrades,
+so an edit there is silently reverted on the next upgrade — the same class of trap as
+`agents/test-agent.md` citing `.ai-context/skills/test-app.md`. **Needs to go upstream**; candidate
+for `bug-logs/pending-github-issues/`.
+
+**Not yet checked:** whether the rest of `assess-quality.md`'s named Java actions and function
+references resolve against a real Community Commons. One wrong name in a list this size warrants
+sweeping the others rather than assuming this was the only one.
+
+---
+
+## BUG-SP01: one pluggable-widget warning with a non-code `code` field kills Studio Pro's entire Errors pane
+
+**Severity:** High for diagnosis — SP shows **no** errors/warnings at all, so the modeller flies blind.
+Not a model defect: the app is valid.
+**Reproducible:** Yes, every open.
+**Mendix version:** 11.13.0 Beta. **Not mxcli-related** — reproduces on a model mxcli never touched.
+**Discovered:** 2026-08-05, TFC-TCXGraphPOC.
+
+### Symptom
+
+On opening the project, Studio Pro raises a modal:
+
+```
+Error
+Application errors could not be retrieved.
+Details: The string did not match the expected pattern.
+```
+
+The Errors pane then stays empty. Best Practice Recommender still populates normally, which makes it
+look like a partial UI glitch rather than a parse failure.
+
+### Root cause
+
+`mx check <mpr> -w -j out.json` shows every warning carries a well-formed `code`
+(`CW0114`, `CE0711`, …) — **except two, whose `code` is the literal string `Error`**:
+
+```json
+{ "code": "Error",
+  "message": "A caption is required if 'Can hide' is Yes or Yes, hidden by default...",
+  "locations": [{ "module-name": "TFC", "document-name": "Page 'TFC_NPDGate'",
+                  "element-name": "Property 'Columns/7/Can hide' of data grid 2 'dgNPDGate'" }] }
+```
+
+The **DataGrid2 pluggable widget** emits its own validation messages without a Mendix `CE####`/
+`CW####` code. Studio Pro parses that field against a pattern, throws
+(`The string did not match the expected pattern` — the standard .NET format-parse message), and the
+**whole list fails**, not just the offending row. 108 well-formed warnings are suppressed by 2 bad ones.
+
+`mx check` tolerates it and reports `0 errors, 110 warnings` — so CLI gates stay green while the GUI
+is blind. That divergence is the trap.
+
+### Diagnosis recipe (generalizes to any "SP pane won't load" case)
+
+```bash
+mx check <app>.mpr -w -d -j /tmp/w.json
+python3 -c "import json;[print(w) for w in json.load(open('/tmp/w.json'))['warnings']
+            if not __import__('re').fullmatch(r'C[EW]\d+', w['code'])]"
+```
+
+Anything printed is a candidate. Do **not** start by suspecting the model — check whether the CLI
+validator and the GUI disagree, then look for a malformed record.
+
+### Workaround
+
+Give the offending column a caption (or set *Can hide* = No) on **every** offending grid — fixing one
+leaves the pane broken. In TFC both had to be addressed:
+`TFC.TFC_NPDGate` → `dgNPDGate` (own code) and **`WorkflowCommons.WorkflowDefinition_View` →
+`dataGrid26` (marketplace module)**. The second means editing vendor code — decide deliberately.
+
+### Where to report
+
+Two candidates, both worth filing: the **DataGrid2 widget** (emit a real code), and **Studio Pro**
+(one malformed record should degrade that row, not the whole pane). Not an mxcli bug — logged here
+because the CLI-vs-GUI divergence is what makes it expensive to diagnose.

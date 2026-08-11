@@ -44,6 +44,29 @@ git mv mdlsource/<NN-name>.mdl mdlsource/done-<NN-name>.mdl
 
 `build-plan.html` phase status and the `done-` prefixes should agree — when every script for a phase is `done-`, that phase flips to ✓ in the tracker.
 
+### Gate step 6 — reopen Studio Pro and propose running the app
+
+**An `mxcli` write never reaches a *running* Studio Pro.** SP holds the model in memory, so until it reopens, the change exists on disk and nowhere the user can see. That makes the reopen part of the gate, not an afterthought — and it is the step that turns "the MDL ran" into "the feature works," which gate step 5 already insists on.
+
+`project-bin/exec.sh` closes this automatically on gate pass:
+
+| `SP_RESTART` | Behaviour |
+|---|---|
+| `1` | reopen without asking — agent turns, CI, chained scripts |
+| `0` | print the hint only (pre-2026-08-11 behaviour) |
+| unset | prompt when interactive; print the hint when there is no TTY |
+
+It delegates to `restart-sp.sh`, which targets **only** the SP holding this project's `.mpr` (via `lsof`) — two projects open at once is normal, and killing the wrong one loses unsaved work. Defaults are conservative: no TTY means nothing is touched.
+
+**Never end a build turn with "Studio Pro needs a restart" as a note for the user to action** — offer it, and on a yes, do it.
+
+Two mechanics worth knowing before automating this yourself:
+
+- **A synthesized `Cmd+Q` does not register on Studio Pro.** Use `osascript -e 'tell application "Mendix Studio Pro <version>" to quit'`; SP then releases its own lock file cleanly. Verify with `pgrep -f studiopro` and confirm `*.mpr.lock` is gone **before** any mxcli write — the standing rule that mxcli must never touch a `.mpr` while SP has it open applies to reads too.
+- `restart-sp.sh` prompts for confirmation by default; pass `AUTO_SP=1` when calling it from a script or an agent turn, which cannot answer it.
+
+The loop, end to end: **close SP → exec → gate → `done-` rename → reopen SP → propose Run Locally.**
+
 ---
 
 ## Requirements Drift-Sync Rule — BRDs stay live, not just historical

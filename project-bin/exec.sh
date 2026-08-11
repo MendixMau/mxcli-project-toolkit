@@ -373,7 +373,44 @@ fi
 echo ""
 echo "✓ Script applied to $MPR_BASE."
 echo ""
-echo "  ⚠️  Studio Pro needs a restart to pick up these changes."
-echo "      Close $NAME in Studio Pro, reopen it, then click Run Locally."
-echo "      Or: ./bin/restart-sp.sh"
+
+# --- Close the loop in Studio Pro -------------------------------------------
+# An mxcli write never reaches a RUNNING Studio Pro — SP holds the model in
+# memory. Printing "please restart" left the loop open and made the last step
+# the user's chore, which is also how a build gets declared "done" without
+# anyone ever seeing it run.
+#
+#   SP_RESTART=1  reopen without asking (agent turns, CI, chained scripts)
+#   SP_RESTART=0  never touch SP, just print the hint (previous behaviour)
+#   unset         interactive prompt if we have a TTY, else print the hint
+#
+# restart-sp.sh targets only the SP holding THIS project's .mpr (via lsof), so
+# a second project open in another window is unaffected.
+RESTART_SP="${SP_RESTART:-}"
+
+if [ -z "$RESTART_SP" ]; then
+  if [ -t 0 ]; then
+    read -r -p "  Reopen Studio Pro now to pick up these changes? [Y/n] " REPLY
+    case "$REPLY" in [Nn]*) RESTART_SP=0 ;; *) RESTART_SP=1 ;; esac
+  else
+    RESTART_SP=0
+  fi
+fi
+
+if [ "$RESTART_SP" = "1" ] && [ -x "$(dirname "$0")/restart-sp.sh" ]; then
+  echo "→ Reopening Studio Pro..."
+  # AUTO_SP=1: restart-sp.sh's own confirm is redundant once we've asked (or
+  # been told) here, and is unanswerable from a non-interactive caller.
+  if AUTO_SP=1 "$(dirname "$0")/restart-sp.sh"; then
+    echo ""
+    echo "  ▶ Studio Pro is reopening with your changes. Click Run Locally when it finishes loading."
+  else
+    echo ""
+    echo "  ⚠️  Reopen failed — restart Studio Pro by hand before continuing."
+  fi
+else
+  echo "  ⚠️  Studio Pro needs a restart to pick up these changes."
+  echo "      Close $NAME in Studio Pro, reopen it, then click Run Locally."
+  echo "      Or: ./bin/restart-sp.sh   (or re-run with SP_RESTART=1)"
+fi
 echo ""

@@ -130,7 +130,7 @@ at build time and correct any that differ**; a path that doesn't resolve is a wi
 | Toolkit commit | see \`PROJECT.md\` \`Toolkit commit:\` | Authoritative there; ritual keeps it fresh |
 | Project MPR | \`$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1 | xargs -r basename || echo "<name>.mpr")\` | The model file |
 | MDL source dir | \`mdlsource/\` | Numbered build scripts |
-| Module briefs | \`architecture/modules/\` | one \`<Module>-brief.md\` per module (\`module-brief.md\`) |
+| Module briefs | \`architecture/modules/<Module>/\` | one \`module-brief.md\` per module |
 | Wireframes | \`design/wireframes/\` | one annotated HTML per screen |
 | Design system | \`design/ds.css\` + \`design/design-system.html\` | tokens + component showcase |
 | StyleGallery MDL | \`mdlsource/gallery/\` | or "not built yet" |

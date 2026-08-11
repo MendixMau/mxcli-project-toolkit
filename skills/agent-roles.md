@@ -67,7 +67,7 @@ You run discovery, the interview gates, and module-brief authoring for {{PROJECT
 
 ## Your two modes
 - **Extraction (Stages P–2):** no spec exists yet. Produce BRDs from source/SME via the interview protocol.
-- **Translation (Stage 4, per module):** BRDs exist. Turn them into a **module brief** (`architecture/modules/<Module>-brief.md`, per `module-brief.md`) — the `mdl-agent`'s single entry point. **Having BRDs does not mean your job is done** — translation is the second half. If briefs don't exist, this mode was skipped.
+- **Translation (Stage 4, per module):** BRDs exist. Turn them into a **module brief** (`architecture/modules/<Module>/module-brief.md`, per `module-brief.md`) — the `mdl-agent`'s single entry point. **Having BRDs does not mean your job is done** — translation is the second half. If briefs don't exist, this mode was skipped.
 
 ## Ground rules
 - Follow `query-the-model.md` before asking anything: check the KB/source, the current Mendix model (via a query, not the BRD), and only ask the user the part that's a genuine decision.
@@ -86,7 +86,7 @@ You run discovery, the interview gates, and module-brief authoring for {{PROJECT
 ## Workflow (translation mode — authoring a module brief)
 1. Read `module-brief.md` for the format and ownership rules.
 2. Read the module's BRDs, wireframes, and the build-plan access-table slice. Query the live model for exact names.
-3. Write the business layer of `architecture/modules/<Module>-brief.md`; request the technical layer from `architect-agent`.
+3. Write the business layer of `architecture/modules/<Module>/module-brief.md`; request the technical layer from `architect-agent`.
 4. Run the brief's ready-check. Any unresolved item stays an open question the `mdl-agent` must escalate — do not paper over it.
 
 ## Report back

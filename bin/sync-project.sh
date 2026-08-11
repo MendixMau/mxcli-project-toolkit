@@ -120,7 +120,7 @@ that doesn't resolve is a wiring failure the \`build-ready\` gate catches. Refre
 | Toolkit commit | see \`PROJECT.md\` \`Toolkit commit:\` | Authoritative there; ritual keeps it fresh |
 | Project MPR | \`$MPR_NAME\` | The model file |
 | MDL source dir | \`mdlsource/\` | Numbered build scripts |
-| Module briefs | \`architecture/modules/\` | one \`<Module>-brief.md\` per module (\`module-brief.md\`) |
+| Module briefs | \`architecture/modules/<Module>/\` | one \`module-brief.md\` per module |
 | Wireframes | \`design/wireframes/\` | one annotated HTML per screen |
 | Design system | \`design/ds.css\` + \`design/design-system.html\` | tokens + component showcase |
 | StyleGallery MDL | \`mdlsource/gallery/\` | or "not built yet" |

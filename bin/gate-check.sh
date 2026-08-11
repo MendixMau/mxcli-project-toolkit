@@ -398,7 +398,7 @@ check_build_ready() {
   if find "$PROJECT_DIR" -path '*/architecture/modules/*-brief.md' -print -quit 2>/dev/null | grep -q .; then
     echo "  ✓ at least one module brief exists (architecture/modules/)"
   else
-    echo "  ✗ no module brief (architecture/modules/<Module>-brief.md) — ba-agent translation mode (module-brief.md)"
+    echo "  ✗ no module brief (architecture/modules/<Module>/module-brief.md) — ba-agent translation mode (module-brief.md)"
     fails=$((fails+1))
   fi
 

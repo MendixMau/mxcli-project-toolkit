@@ -65,7 +65,7 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
 
 ## Location & Timing
 
-- **Location:** `architecture/modules/<ModuleName>-brief.md` — one file per module.
+- **Location:** `architecture/modules/<ModuleName>/module-brief.md` — one directory per module, holding its brief (and any per-module assets alongside it).
 - **Timing (just-in-time):** the brief for module N is produced only after module N−1 has passed
   its full build gate. Same rule as MDL phasing (`brd-to-build-plan.md`) — a brief written against
   a model state that later changes is a brief that lies. The **first** module's brief is produced

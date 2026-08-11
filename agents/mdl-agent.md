@@ -56,6 +56,15 @@ this summary. The hard STOPs below are inline on purpose; never route around the
   them as plain text.
 - **Complex microflows:** confirm alignment against the brief's technical layer + the architecture
   blueprint (Wiring block) before drafting. Report any mismatch.
+- **Project-local records override the skills.** A skill describes how the tool is supposed to
+  behave; these files record how it behaved here, and they are updated per incident. Where they
+  conflict with a skill, they win — and where they conflict with each other, the capability
+  record beats the intent record. Read them; do not rely on your memory of them.
+
+  {{PROJECT_LOCAL_SOURCES_OF_TRUTH — a table of the project's own override files and what each
+  settles. Typically: a write-modes/capability doc (what each tool can actually author), a
+  per-page intent doc, the project's own bug log of live incidents, a build log of what has
+  actually been executed and what failed, and per-module build-plan + coverage-ledger files.}}
 - **Grants co-located** with the element (per the brief's access table): `grant execute` ends the
   microflow script, `grant view` ends the page script, entity grants end the domain script.
 

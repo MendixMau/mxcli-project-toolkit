@@ -45,8 +45,44 @@ This mirrors `iterative-build-loop.md`'s gate discipline (0 CE errors + happy pa
 1b. **Fill the Domain context block** (ba/architect/mdl agents) from the Stage-P intake: customer industry, the app's one-sentence purpose, a 5–10 term glossary (source-system name = meaning), the SME, and pointers to where the truth lives (KB/BRD/`PROJECT.md` paths). Keep it *short and pointer-shaped*: the agent should know the customer's **language** and **where the truth lives** — never memorize the truth itself. Use cases, business rules, and open questions stay in `PROJECT.md`/KB/BRDs and are read fresh each run; baking them into the agent file means it silently goes stale as understanding evolves.
 2. **Scaffold all five stubs** (`bin/init-agents.sh <session-root>`), then **complete the ones whose stage is live**: `ba-agent.md`/`architect-agent.md` at Stage P–4 (discovery/architecture underway), `mdl-agent.md`/`gate-agent.md`/`test-agent.md` at Stage 5 (Build) kickoff — adapting the shapes below and substituting every project-specific detail (mpr filename, exact check/compile/lint commands, skill file names, BRD/spec location, demo user, known gotchas, `PROJECT.md` path) for the real ones you just read. Uncompleted stubs stay inert by design.
    **Paths are centralized in the `## Wiring` block of `CLAUDE.local.md`** — not per-agent. Agents read that block at task start and resolve every path (MPR, briefs, wireframes, design system, gallery, architecture, build plan) from it. At Stage 5 kickoff your job is to confirm the Wiring block is correct and every path in it resolves (the `build-ready` gate checks this), not to fill six placeholders in each agent. This removes the drift risk of five agents each carrying their own path copies.
-3. **Preserve the tool scoping exactly**: `tools: Read, Grep, Glob, Bash` on all five, and an explicit line in each stating it never runs `mxcli exec` / never mutates the `.mpr` directly. `ba-agent` and `architect-agent` additionally never skip the interview protocol (`conversion-runbook.md` §1) to reach a decision faster.
+3. **Preserve the tool scoping exactly**: `tools: Read, Grep, Glob, Bash` on all of them, and an explicit line in each stating it never runs `mxcli exec` / never mutates the `.mpr` directly. `ba-agent` and `architect-agent` additionally never skip the interview protocol (`conversion-runbook.md` §1) to reach a decision faster.
+
+   **One deliberate exception:** `test-agent` also carries `Write, Edit`, because it authors test
+   specs rather than only walking a scenario list someone else wrote. Its boundary is therefore
+   stated by *directory*, not by tool: it may write under the project's test directory and
+   nowhere else, and the never-`exec`/never-`.mpr` rule binds it exactly as it binds the others.
+   Do not widen any other agent's tools by analogy — this one is scoped by what it produces.
 4. **Report back** which files you wrote, and flag any assumption you had to make because the project didn't document something (e.g. "assumed the demo user is X — couldn't find one specified, confirm").
+
+---
+
+## Getting improvements back OUT of a project
+
+Distribution only ever flowed downhill. `sync-project.sh` refreshes a **pure stub**, but the
+moment an agent is completed it is never touched again — and there was no way to see what it had
+learned. In practice a rewritten agent, a working lint rule and two new instruments all sat in
+one project for a week, invisible to the toolkit, because nothing surfaced the divergence.
+
+```bash
+bin/sync-project.sh <project-root> --diff-completed
+```
+
+Report-only, in both directions, for every completed agent:
+
+- **template-only lines** — the project is missing a template improvement it never received.
+- **project-only lines** — a candidate for promotion upstream.
+
+Expect placeholder-substitution noise on project-fact lines (glossary, paths, commands). What
+matters is **protocol that exists on one side only**.
+
+**Promoting is a split, not a copy.** A completed agent is a mixture of transferable protocol and
+project fact. Move only the protocol into the template, and leave a `{{PLACEHOLDER}}` where the
+fact was — the same discipline as the Domain context block in step 1b. If you find yourself
+pasting a module name, an mpr filename or a demo user into `agents/`, you are promoting the wrong
+half.
+
+Run this before a toolkit review, and after any session that meaningfully changed how an agent
+works.
 
 ---
 

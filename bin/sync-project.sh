@@ -18,15 +18,87 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/../agents"
 
-if [ $# -lt 1 ]; then
-  echo "Usage: $0 <project-root>" >&2
+# THE agent list. Explicit, NOT a glob over agents/*.md — a glob installs any doc that
+# happens to sit in agents/ as an extra agent, and one without YAML frontmatter is
+# silently broken in the target project. Adding an agent to the toolkit is a one-word
+# change here; both the sync loop and --diff-completed read this list.
+AGENTS="ba-agent.md architect-agent.md mdl-agent.md gate-agent.md test-agent.md"
+
+DIFF_COMPLETED=0
+PROJECT_DIR=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --diff-completed) DIFF_COMPLETED=1; shift ;;
+    -h|--help)
+      echo "Usage: $0 <project-root> [--diff-completed]"
+      echo
+      echo "  (default)          refresh copied artifacts; never touches a completed agent"
+      echo "  --diff-completed   report-only: show how each COMPLETED agent has diverged from"
+      echo "                     its template, in both directions. Nothing is written."
+      exit 0 ;;
+    -*) echo "unknown option: $1" >&2; exit 1 ;;
+    *)  PROJECT_DIR="$1"; shift ;;
+  esac
+done
+
+if [ -z "$PROJECT_DIR" ]; then
+  echo "Usage: $0 <project-root> [--diff-completed]" >&2
   exit 1
 fi
-
-PROJECT_DIR="$1"
 if [ ! -d "$PROJECT_DIR" ]; then
   echo "Error: project directory does not exist: $PROJECT_DIR" >&2
   exit 1
+fi
+
+PROJECT_NAME="$(basename "$(cd "$PROJECT_DIR" && pwd)")"
+
+# --- 0. --diff-completed: the reverse path ----------------------------------------------
+# Sync only ever flowed downhill. A completed agent was cut off from its template in BOTH
+# directions: the project never saw template improvements, and the toolkit never saw what
+# the project learned. The old code said "review it manually if the template changed",
+# which nobody can act on without knowing WHAT changed. This makes that concrete.
+#
+# Report-only, always. Promotion is a human decision, per the toolkit's own rule that work
+# lands in a project first and moves upstream only on explicit instruction.
+if [ "$DIFF_COMPLETED" -eq 1 ]; then
+  echo "=== Completed-agent divergence for $PROJECT_DIR ==="
+  echo "Report-only; nothing is written."
+  echo
+  AGENT_DIR="$PROJECT_DIR/.claude/agents"
+  if [ ! -d "$AGENT_DIR" ]; then
+    echo "No .claude/agents/ here — nothing to compare."
+    exit 0
+  fi
+  any=0
+  for a in $AGENTS; do
+    src="$TEMPLATE_DIR/$a"
+    dst="$AGENT_DIR/$a"
+    [ -f "$src" ] && [ -f "$dst" ] || continue
+    # Pure stubs are handled by the normal sync path; only completed agents are interesting.
+    if grep -q "STUB GENERATED" "$dst" && grep -q "{{[A-Z_]*[^}]*}}" "$dst"; then
+      continue
+    fi
+    any=1
+    TMPL=$(mktemp "${TMPDIR:-/tmp}/synctmpl.XXXXXX") || exit 2
+    sed "s/{{PROJECT}}/$PROJECT_NAME/g" "$src" > "$TMPL"
+    tonly=$(diff "$TMPL" "$dst" | grep -c '^<' || true)
+    ponly=$(diff "$TMPL" "$dst" | grep -c '^>' || true)
+    echo "--- $a"
+    echo "    $tonly line(s) only in TEMPLATE  → this project may be missing a template improvement"
+    echo "    $ponly line(s) only in PROJECT   → candidate for promotion upstream"
+    if [ "$tonly" -gt 0 ] || [ "$ponly" -gt 0 ]; then
+      # `|| true` is load-bearing: diff exits 1 whenever it finds differences, which under
+      # `set -e` + `pipefail` killed the loop after the FIRST diverging agent. The report
+      # looked fine — it just silently stopped at 1 of 5.
+      diff -u --label "template/$a" "$TMPL" --label "project/$a" "$dst" | sed 's/^/      /' || true
+    fi
+    rm -f "$TMPL"
+    echo
+  done
+  [ "$any" -eq 1 ] || echo "No completed agents — all still pure stubs."
+  echo "Placeholder-substitution noise is expected on project-fact lines (glossary, paths,"
+  echo "commands). What matters is PROTOCOL that exists on one side only."
+  exit 0
 fi
 
 echo "=== Toolkit sync for $PROJECT_DIR ==="
@@ -54,11 +126,7 @@ fi
 # --- 2. Agent stubs: refresh pure stubs, report completed ones --------------------------
 AGENT_DIR="$PROJECT_DIR/.claude/agents"
 if [ -d "$AGENT_DIR" ]; then
-  PROJECT_NAME="$(basename "$(cd "$PROJECT_DIR" && pwd)")"
-  # Explicit whitelist, mirroring init-agents.sh — NOT a glob over agents/*.md.
-  # A glob installs any doc that happens to sit in agents/ as a sixth agent; one
-  # without YAML frontmatter is silently broken in the target project.
-  for a in ba-agent.md architect-agent.md mdl-agent.md gate-agent.md test-agent.md; do
+  for a in $AGENTS; do
     src="$TEMPLATE_DIR/$a"
     [ -f "$src" ] || { echo "Error: template missing: $src" >&2; continue; }
     dst="$AGENT_DIR/$a"
@@ -74,7 +142,7 @@ if [ -d "$AGENT_DIR" ]; then
         CHANGES=$((CHANGES + 1))
       fi
     else
-      echo "Kept: .claude/agents/$a is completed — review it against agents/$a manually if the template changed."
+      echo "Kept: .claude/agents/$a is completed — see what diverged with: $0 $PROJECT_DIR --diff-completed"
     fi
   done
 else

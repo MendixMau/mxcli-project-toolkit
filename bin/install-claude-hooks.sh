@@ -60,6 +60,11 @@ TIER 2  --full         Changes your working rhythm. Useful after a bad bill;
   work-boundary        Notices when a write is owed and says so at the next
                        natural stopping point.
   precompact-guard     Warns once before a compaction discards unfiled work.
+  interview-gate       BLOCKS the end of a turn while questions the pipeline
+                       generated have never been put to you, and writes
+                       docs/open-questions.html for you to review. Only fires on
+                       projects that actually have BRDs; never blocks the same
+                       question set twice, so it cannot trap a session.
 
 TIER 3  --ceiling      A DELIBERATE, INFORMED CHOICE. Not on by default, ever.
   context-ceiling      BLOCKS tool calls above a context limit. The session goes
@@ -74,7 +79,7 @@ TIER 3  --ceiling      A DELIBERATE, INFORMED CHOICE. Not on by default, ever.
 
 Every hook has an env-var escape that needs no reinstall:
   CLAUDE_CTX_WATCH=0  CLAUDE_CTX_CEILING=0  CLAUDE_PRECOMPACT_GUARD=0
-  CLAUDE_WORK_BOUNDARY=0
+  CLAUDE_WORK_BOUNDARY=0  CLAUDE_INTERVIEW_GATE=0
 
 What a beginner needs is visibility, not enforcement: --basic, then --full once
 context cost has actually bitten.
@@ -93,6 +98,7 @@ ALL=(
   "shrink-image-read.sh:PreToolUse:Read:1"
   "context-watch.sh:PostToolUse::2"
   "work-boundary.sh:PostToolUse:Bash:2"
+  "interview-gate.sh:Stop::2"
   "precompact-guard.sh:PreCompact::2"
   "context-ceiling.sh:PreToolUse::3"
 )

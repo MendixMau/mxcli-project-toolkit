@@ -240,8 +240,44 @@ After Claude writes the BRD, review these checkpoints:
 - [ ] Stub plan defined for every external integration
 - [ ] Open questions from KB QA sheets captured in `openQuestions`
 - [ ] `sourceKB` lists every KB file that contributed
+- [ ] `bin/facts-lock.sh <project> check` is clean — see below
 
 ---
+
+## Running BRDs in parallel — bind to the facts lock
+
+BRDs fan out well: one agent per module, no dependencies between them. The catch is that each
+agent re-derives the same identifiers from the same corpus, and they disagree.
+
+Measured on WMS-Demo-main, 20 BRDs written in parallel: **10 identifier conflicts**, every one
+of them acronym casing — `WIPStatus`/`WipStatus`, `CreateWIPException`/`CreateWipException`,
+`QueryAISafeWIPSummary`/`QueryAiSafeWipSummary` (71 uses against 78). Each surfaced later as an
+*open question* addressed to the user, as though it were a business decision. It is not. It is
+what happens when N agents each hold their own copy of a fact.
+
+So the order is: **freeze first, then fan out.**
+
+```bash
+bin/facts-lock.sh <project> build    # harvest, freeze what is unanimous, list what is contested
+bin/facts-lock.sh <project> check    # fail any BRD that contradicts a frozen fact
+```
+
+`build` freezes every identifier the corpus agrees on into `analysis/facts.lock.json`. Where it
+finds two mixed-case spellings it freezes **nothing** and records the conflict — picking a
+winner silently is the failure being prevented. Resolve a conflict by verifying against the
+source corpus and setting `canonical` in the lock; **do not ask the user which spelling is
+right**, that is research, not a decision (see `interview-protocol.md` on the RESEARCH tier).
+
+Once frozen, the lock wins. Parallel agents read it instead of re-deriving, and `check` fails
+any BRD that drifts — at write time, where it costs one edit, instead of at gate time, where it
+costs the user's attention.
+
+**Its blind spot, stated plainly:** it compares BRDs against each other, so it cannot detect a
+mistake every BRD makes identically. It replaces N inconsistent guesses with one consistent
+guess — which is strictly better and still a guess until someone checks it against the source.
+
+Chunk per module rather than per capability while you are at it: cheaper retries, and a bad
+run poisons one file instead of a capability.
 
 ## Step 5 — Maintain the BRD index
 

@@ -270,7 +270,13 @@ NORMALISED=$(printf '%s\n' "$RECORDS" | awk -F'\t' '
     else if (L == "") {
       state = "UNRAISED"; reason = "verdict column present but blank (rule 1)"
     }
-    else if (L ~ /^resolved/ || L ~ /^closed/) {
+    # `answered`, `decided` and `confirmed` belong here and were missing until 2026-08-12.
+    # ANSWERED is the canonical vocabulary word this toolkit tells authors to write, and the
+    # collector classified that literal word UNRECOGNISED — i.e. the one status that is
+    # unambiguously correct blocked the gate forever, while "closed" passed. Found by the
+    # questions-report fixture. CONFIRMED is the word the runbook uses for a hard-gate decision.
+    # (No apostrophes in this comment: the awk program is inside a single-quoted shell string.)
+    else if (L ~ /^resolved/ || L ~ /^closed/ || L ~ /^answered/ || L ~ /^decided/ || L ~ /^confirmed/) {
       if (answer != "" || assumption != "") { state = "ANSWERED"; reason = "resolved with a recorded answer (rule 2)" }
       else { state = "UNRECOGNISED"; reason = "claims resolved but records no answer/decision/resolution (rule 3)" }
     }
@@ -450,6 +456,8 @@ else
     echo "NOTHING EXAMINED — no *.brd.json and no analysis/sme-questions.md exist under this"
     echo "project. This is not a clean result; it is an absence of evidence. Zero questions"
     echo "found because zero sources were read."
+    echo "(BRDs are discovered at <kb>/brd/*.brd.json, where <kb> is analysis/*/knowledge-base,"
+    echo " analysis/knowledge-base, or knowledge-base. A BRD anywhere else is not read.)"
     exit 3
   fi
   echo "Counts: UNRAISED=$N_UNRAISED  RAISED=$N_RAISED  ANSWERED=$N_ANSWERED  ASSUMED=$N_ASSUMED  MOOT=$N_MOOT  UNRECOGNISED=$N_UNRECOGNISED  (total $N_TOTAL)"
@@ -486,5 +494,11 @@ records as ASSUMED with your consent, which is a different thing from me decidin
 FTR
 fi
 
+# Exit 3 must fire in BOTH output modes. It used to live only inside the human-output branch,
+# so `--json` on a project with no BRDs and no sme-questions.md returned 0 — the exact
+# false-green the code above says the exit code exists to prevent, available to every machine
+# caller and unavailable to none of them. Found 2026-08-12 by the questions-report fixture,
+# which trusted rc=3 and happily rendered an all-clear report for an empty directory.
+[ "$NOTHING_EXAMINED" = "1" ] && exit 3
 [ "$N_BLOCKING" -gt 0 ] && exit 1
 exit 0

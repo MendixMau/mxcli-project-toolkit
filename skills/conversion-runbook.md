@@ -59,7 +59,15 @@ So, **as a required step at every gate, before the gate's own questions**:
 bin/open-questions.sh <project-root> --stage <N>
 ```
 
-It prints a numbered, chat-ready batch — question, where it came from, and, where a BRD already took a drafting position, what was assumed. **Paste it into the chat verbatim, then end the turn and wait.** The user only has to confirm or overturn each position; they should never have to go find them.
+It prints a numbered, chat-ready batch — question, where it came from, and, where a BRD already took a drafting position, what was assumed. **Put it in the chat, then end the turn and wait.** The user only has to confirm or overturn each position; they should never have to go find them.
+
+**How the batch is asked is not free-form — `interview-protocol.md` owns it.** The gate can only detect *that* you asked; it cannot detect that you asked badly, and 39 bare questions pasted in one block technically unblocks the gate while handing the user the analysis the stage was meant to do. The four rules: ask in the chat (not in a file), two named options plus your recommendation on every question, one batch per gate then stop, and write the answer back where the collector can see it. Alongside the batch, generate the report the user actually reads:
+
+```bash
+bin/questions-report.sh <project-root> --stage <N>    # → docs/open-questions.html
+```
+
+`gate-check.sh` writes it for you whenever the open-questions row blocks a gate. Give the user the path — it is openable, sortable and forwardable to a customer SME in a way a terminal dump is not, and it flags every question that arrived without a proposed answer.
 
 The vocabulary is controlled, and only these six values are legal in a `status`:
 
@@ -151,12 +159,41 @@ Eight stages (plus Stage P kickoff). For each: what the user co-defines, what th
 
 ### Stage 0 — Triage ✋
 
+**First, grade the source. `bin/source-sufficiency.sh init <root>` → read the sources → fill every
+dimension → `report`.** Nothing else in this toolkit reads a source; `facts-lock`, `coverage-check`,
+`open-questions` and `gate-check` all read BRDs. Skip this and a two-page epic deck and a validated
+spec enter the pipeline indistinguishably, and the gap only surfaces at the Stage 2 interview gate
+disguised as a question backlog — WMS-Demo's 127 questions were largely a silent source, not a
+decision backlog.
+
+Three things come out of it, and each changes what you do next:
+
+- **A band.** `SPECIFICATION` / `OUTLINE` / `SKETCH`, with the honest sentence for describing the
+  output. Below `SPECIFICATION` the output is a *proposal informed by* the source, not a conversion
+  of it — say that every time you present it, including in the Stage 3 and 4 gates.
+- **A recommended interview mode**, derived from the gap-versus-contradiction split rather than the
+  score. Thin-and-consistent is safe to run fast: an agent can take a position on silence and record
+  it, but it cannot resolve a contradiction without overruling somebody. Feed the recommendation to
+  `bin/interview-mode.sh --set` **after the user agrees to it**, never before — see `interview-protocol.md`.
+- **Shape-changing gaps.** Silences that redesign the model rather than fill in a detail. These are
+  the Stage 0 gate questions. Everything else waits for Stage 2.
+
+**A thin source is not a rejection.** Colleagues bring epic decks because that is frequently all
+that exists, and a pipeline that answers "come back with better requirements" gets routed around
+rather than fixed. The report exits 0 at 0%. The only real failure is thin input whose output is
+later presented as a faithful conversion.
+
+**If the source is a document rather than a codebase, `source-triage.md` does not apply** — it is
+migration-scoped and gates on standing up an extractor, and there is nothing to extract from a PDF
+of epics. Run the sufficiency report, take the shape-changing gaps to the gate, and skip to Stage 1
+with the extraction rows marked N/A rather than unanswered.
+
 | | |
 |---|---|
 | **User defines** | Reuse-vs-build-new extraction pipeline (agent proposes with a coverage matrix — two-way call, not three-way; see `source-triage.md`). Policy per missing dependency: acquire / stub / declare-not-implemented. Slice ordering if the source is too big for one pass — **a slice is an ordering, not an exclusion**. |
 | **Agent produces** | `assessment.md` (inventory, 6 areas, risks), `triage.md` (pipeline decision, capability + coverage matrix, boundary handling, multi-app flag). If "build new": the new extractor, validated against hand-built ground truth. |
-| **Surface** | `triage.html` |
-| **Gate ✋** | User signs off on the extraction-pipeline decision and every missing-dependency policy. No BRDs are written before this. |
+| **Surface** | `source-sufficiency.html`, `triage.html` |
+| **Gate ✋** | User signs off on the extraction-pipeline decision, every missing-dependency policy, the interview mode the sufficiency report recommends, and each shape-changing gap. No BRDs are written before this. |
 | **Owner** | `ba-agent` |
 
 ### Stage 1 — Analysis

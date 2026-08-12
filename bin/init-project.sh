@@ -199,7 +199,9 @@ This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 |---|---|
 | Any pipeline work, every session | \`skills/conversion-runbook.md\` |
 | Any question before asking the user or writing anything | \`skills/query-the-model.md\` |
+| Putting any question TO the user, at any gate | \`skills/interview-protocol.md\` (ask in chat, two options + a recommendation each, batch then stop, record the answer) |
 | Building any module — before the first script | \`skills/module-brief.md\` (the mdl-agent's single per-module input) |
+| Writing BRDs, especially several in parallel | \`bin/facts-lock.sh <root> build\` FIRST, then \`check\` before calling any BRD done. Freezes the identifiers every BRD must share; a casing disagreement becomes an error at write time instead of an open question at gate time. |
 | Writing ANY MDL script — before the first line | \`skills/learned-mdl-preflight.md\` (Step 0 write-mode choice, then STOP table) |
 | Writing or fixing any microflow | \`skills/learned-microflow-patterns.md\` |
 | Building any page or snippet — before the first widget | \`skills/ui-preflight-pages.md\` (wireframe → tokens → gallery reuse) |

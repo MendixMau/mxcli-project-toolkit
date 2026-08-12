@@ -136,6 +136,44 @@ Pick one granularity for the whole project (or per-module, if complexity varies)
 
 **Default recommendation:** per-layer. Drop to per-page-cluster only for modules you already know are complex (many sections, many validation rules, heavy conditional visibility).
 
+### A layer is a naming scheme, not a size limit
+
+Per-layer says what a script is *called*. It does not say a layer is one script, and reading it
+that way produces scripts that are too big to diagnose. Observed on SonnyPOC: a per-layer plan
+put **13 microflows in one exec** — the toolkit working exactly as documented, and still wrong.
+
+Why big MDL execs fail badly, specifically:
+
+- `exec` writes to the `.mpr`. A failure at unit 9 leaves partial state, and nothing reports
+  which units landed.
+- CE errors cascade. Thirteen microflows produce a wall in which causes and consequences are
+  indistinguishable, so you re-read the whole script to find one bad activity.
+- Retry cost is the whole script, and re-running is not free when it is `CREATE` not `ALTER`.
+- If `exec.sh` restores on failure, the units that were fine are discarded with the one that
+  was not.
+- RULE 1 is hollowed out: one approval covering thirteen units of risk is not something the
+  user can inspect at the moment they are asked.
+
+**The size rule — a script is the largest unit whose failure you could diagnose from the error
+output alone.** Apply it when numbering, in this order:
+
+1. **Isolate the load-bearing.** Anything the other units depend on gets its own script. Not
+   because it is large — because if it is wrong, everything after it is wrong, and you want
+   that answer before writing them. On SonnyPOC that was the `SUB_CallMockApi` retry chokepoint.
+2. **Group the rest by "would one failure explain the others?"** Three decision tables of the
+   same shape share a pattern: one bad pattern breaks all three and you fix it once, so they
+   belong together. Units that fail for unrelated reasons do not.
+3. **Never mix layers.** Pages and domain-model changes stay out of a microflow script.
+
+**Do not over-split.** Every extra script is another approval prompt, another gate run, and
+another ordering dependency to track — and approval fatigue hollows out RULE 1 from the other
+side just as effectively as an opaque mega-script does. Roughly **five units is a tripwire, not
+a law**: above it, state in the plan why the group is still one diagnosable unit, and proceed.
+
+This is deliberately left as judgement rather than a counted gate. A hard numeric limit would
+enforce the proxy instead of the principle, and would fire on the legitimate five-decision-table
+script while passing five genuinely unrelated microflows. Revisit if plans are seen ignoring it.
+
 ---
 
 ## Step 4: Set the Scope Boundary

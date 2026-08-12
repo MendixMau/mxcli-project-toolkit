@@ -1409,7 +1409,7 @@ if [ -n "$REQUESTED_STAGE" ]; then
   # verdicts into exit 2 across two existing fixtures. A stage that fails on its own evidence
   # must keep saying so; this check exists to stop a PASS, not to relabel a failure.
   enforce_open_questions() { # enforce_open_questions <stage-id>
-    local st="$1" arg="" j blk counts
+    local st="$1" arg="" j blk counts QR_SCRIPT QR_OUT
     case "$st" in P|p) return 0 ;; esac
     case "$st" in [0-7]) arg="--stage $st" ;; esac
     # Nothing examined: only meaningful from Stage 2, when BRDs are supposed to exist.
@@ -1431,13 +1431,31 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "" >&2
     echo "Gate BLOCKED: $blk question(s) at stage $st have never been raised with the user." >&2
     echo "  $counts" >&2
+    # Write the triage report the user reads, alongside the batch the agent reads.
+    # A terminal dump scrolls away and only the agent ever sees it; the HTML is the artefact
+    # a human can open, sort by state, and hand to someone else. --no-html suppresses it for
+    # the same reason it suppresses the board: a read-only query must not dirty a tree.
+    QR_SCRIPT="$TOOLKIT_DIR/bin/questions-report.sh"
+    QR_OUT="$PROJECT_DIR/docs/open-questions.html"
+    if [ "$HTML_MODE" != "never" ] && [ -x "$QR_SCRIPT" ]; then
+      "$QR_SCRIPT" "$PROJECT_DIR" $arg -o "$QR_OUT" --quiet >/dev/null 2>&1
+      [ -f "$QR_OUT" ] || QR_OUT=""
+    else
+      QR_OUT=""
+    fi
+
     echo "" >&2
     echo "  See them, as a chat-ready batch:" >&2
     echo "    $OQ_SCRIPT $PROJECT_DIR${arg:+ $arg}" >&2
+    [ -n "$QR_OUT" ] && echo "  Triage report (open this, and give the user the path): $QR_OUT" >&2
     echo "" >&2
-    echo "  Raising is mandatory; assuming is not forbidden. Paste the batch, end the turn," >&2
-    echo "  and wait. Anything the user hands back ('you decide') is recorded ASSUMED with" >&2
-    echo "  consentBy/consentAt and stops blocking. An assumption they never saw does not." >&2
+    echo "  Raising is mandatory; assuming is not forbidden. Anything the user hands back" >&2
+    echo "  ('you decide') is recorded ASSUMED with consentBy/consentAt and stops blocking." >&2
+    echo "  An assumption they never saw does not." >&2
+    echo "" >&2
+    echo "  HOW to raise is not free-form — read skills/interview-protocol.md. In short:" >&2
+    echo "  ask in chat, in batches, every question carrying two named options and your" >&2
+    echo "  recommendation. A bare question hands your analysis back to the user." >&2
     exit 1
   }
   # Pre-build readiness: a wiring preflight, not a numeric stage.

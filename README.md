@@ -326,6 +326,7 @@ mxcli-project-toolkit/
     conversion-runbook.md       ← [any project] The spine: stage matrix + interview protocol + entry modes + gates
     checkpoints/                ← CAC checkpoint scripts (scope/BRD/architecture/design/build/cutover)
     query-the-model.md          ← [any project] Query-before-ask source-of-truth ordering
+    interview-protocol.md       ← [any project] How a question is put to the user: chat not files, options + recommendation, batch per gate, record the answer
     existing-app-assurance.md   ← [any project] Audit / regression-test an existing app — no pipeline
     agent-roles.md              ← [any project] Generate ba/architect/mdl/gate/test subagents with scoped tool rights
     bootstrap-project.md        ← [any project] Generate a new project's CLAUDE.md: Baseline routing + project-specific facts
@@ -462,6 +463,10 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Always relevant for | Reference this |
 |---|---|
 | Any question before asking the user or writing anything | `skills/query-the-model.md` — query the model, then read the source, then ask the human, in that order |
+| Putting a question TO the user — any gate, any stage | `skills/interview-protocol.md` — ask in the chat not in a file, two named options + your recommendation on every question, one batch per gate then end the turn, record the answer where the collector reads it |
+| Taking in a new source — before generating anything from it | `bin/source-sufficiency.sh init <root>`, read the sources, fill every dimension, then `report`. Grades what the source can support and recommends an interview mode from the gap/contradiction split. Nothing else in this toolkit reads a source: `facts-lock`, `coverage-check`, `open-questions` and `gate-check` all read BRDs, so without this a two-page epic deck and a validated spec enter the pipeline indistinguishably and the difference only surfaces at the interview gate, as a question backlog. |
+| Deciding who answers a question — before putting any batch to the user | `bin/question-kinds.sh <root>`. Every BRD `openQuestion` carries `"kind": "gap" \| "conflict" \| "choice"`. **gap** = the source is silent, so an agent may take a position and record it. **conflict** = the source contradicts itself, so resolving it overrules a real person — human only. **choice** = a fork with real cost, so whoever pays decides. Unclassified routes to the human by design. This is what keeps a gate batch at four questions instead of 127. |
+| Writing BRDs, especially several in parallel | `bin/facts-lock.sh <root> build` before the fan-out, `check` before any BRD is done — freezes the identifiers every BRD must share (see `skills/brd-generation.md`). Without it, N agents re-derive the same names, disagree on acronym casing, and the disagreement reaches the user as an open question: 10 of them on WMS-Demo. |
 | Building any module — before the first script | `skills/module-brief.md` — the mdl-agent's single per-module input (ba-agent synthesizes BRD/wireframe/access into it) |
 | Writing **any** MDL script — before the first line | `skills/learned-mdl-preflight.md` — Step 0 picks the write mode (CLI / MCP+MDL / hand-rolled MCP by task shape), then the STOP table (each row backed by a real corruption incident) overrides that pick for corrupting operations; check every planned operation before drafting |
 | Writing or fixing any microflow | `skills/learned-microflow-patterns.md` — MDL gotchas + annotation discipline (placement rules — never before `if`; CE-error fixes always annotated) |

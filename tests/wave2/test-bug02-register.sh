@@ -51,19 +51,38 @@ mksplit() {
 
 driftline() { "$GATE" --no-html "$1" 2>&1 | grep '^Drift' | head -1; }
 
-echo "== T1: two DIFFERING registers — refuse rather than grade a coin flip =="
+echo "== T1: two DIFFERING registers — say so, offer A/B, and grade a coin flip for nobody =="
+# CONTRACT CHANGED 2026-08-12. This originally asserted exit 2 — a hard refusal. The user's rule
+# is now that tooling conditions the project's own author can fix in one line must NOTIFY, never
+# block. What must NOT change is that the gate never guesses which register is live: it reports
+# "cannot evaluate", names both candidates and both remedies, and lets unrelated stages report.
 P="$(mksplit t1 '[sync: F001.brd.json UNSYNCED]')"
 OUT="$("$GATE" --no-html "$P" 2>&1)"; RC=$?
-if [ "$RC" = "2" ] && printf '%s' "$OUT" | grep -q 'differing decision registers'; then
-  # Naming BOTH candidates is the point — a refusal you cannot act on is just an outage.
-  if printf '%s' "$OUT" | grep -q 'analysis/Live/PROJECT.md' && printf '%s' "$OUT" | grep -qE '/t1/PROJECT.md'; then
-    ok "refuses with exit 2 and names both candidates"
+if printf '%s' "$OUT" | grep -q 'differing decision registers'; then
+  if ! printf '%s' "$OUT" | grep -q 'analysis/Live/PROJECT.md' \
+     || ! printf '%s' "$OUT" | grep -qE '/t1/PROJECT.md'; then
+    bad "names the problem but not both candidates: $OUT"
+  elif ! printf '%s' "$OUT" | grep -q 'A)' || ! printf '%s' "$OUT" | grep -q 'B)'; then
+    bad "names both candidates but offers no A/B remedy: $OUT"
+  elif [ "$RC" != "0" ]; then
+    bad "reported correctly but still blocked the informational run (rc=$RC)"
   else
-    bad "refuses but does not name both candidates: $OUT"
+    ok "reports cannot-evaluate, names both candidates and both remedies, blocks nothing"
   fi
 else
-  bad "did not refuse over two differing registers (rc=$RC)"
+  bad "did not report two differing registers (rc=$RC)"
 fi
+
+# The other half of the contract: it must still refuse to GUESS. A register-dependent stage
+# reports MANUAL — never a PASS, and never a FAIL that blames the project for our ambiguity.
+OUT7="$("$GATE" --no-html "$P" 7 2>&1)"; RC7=$?
+case "$OUT7" in
+  *'Stage 7 (Cutover): MANUAL'*)
+    [ "$RC7" = "2" ] && ok "register-dependent stage reports MANUAL, exit 2 (not a pass, not a block)" \
+                     || bad "MANUAL verdict but exit $RC7" ;;
+  *'Stage 7 (Cutover): PASS'*) bad "GUESSED a register and passed Stage 7 — the defect this closes" ;;
+  *) bad "Stage 7 neither MANUAL nor PASS: $OUT7" ;;
+esac
 
 echo "== T2: the drift-blindness case — a live UNSYNCED row must BLOCK stage 4 =="
 # Measured on the pre-fix script: exit 0 over a live '[sync: … UNSYNCED]' row, because the

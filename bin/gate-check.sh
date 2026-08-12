@@ -244,16 +244,28 @@ if [ -n "$REG_SEL" ]; then
     exit 2
   fi
 elif [ "$REG_DIFFER" = "1" ]; then
-  echo "Error: $REG_COUNT differing decision registers (PROJECT.md) found under $PROJECT_DIR:" >&2
-  printf '%s' "$REG_MATCHES" >&2
-  echo "The ✋ decision gates and the BRD drift-sync gate each grade exactly one register;" >&2
-  echo "with two present, whichever one is graded is a coin flip and a green board proves" >&2
-  echo "nothing. Name the live one and re-run:" >&2
-  echo "  GATE_REGISTER=<path-relative-to-project-dir> $0 $*" >&2
-  echo "or add a row to CLAUDE.local.md ## Wiring:" >&2
-  echo "  | Decision register | analysis/<name>/PROJECT.md | the live one; the other is superseded |" >&2
-  exit 2
+  # Two differing registers. This used to exit 2 and stop the run. It no longer does: nothing in
+  # this script blocks a project over a condition the project's own author can resolve in one
+  # line — see the staleness rationale further down. But it cannot GUESS either, because grading
+  # the wrong register silently is exactly the defect this resolution was added to close.
+  #
+  # So it does the third thing: says it cannot evaluate, names both candidates and both remedies,
+  # and lets every gate that does NOT depend on the register report normally. REGISTER stays
+  # empty, so register-dependent verdicts degrade to a stated "cannot evaluate" rather than a
+  # coin flip, and the exit code reflects the requested stage's own merits.
+  REGISTER=""
+  REG_AMBIGUOUS=1
+  echo "⚠ $REG_COUNT differing decision registers (PROJECT.md) found under $PROJECT_DIR:"
+  printf '%s' "$REG_MATCHES"
+  echo "  Nothing is blocked, but the ✋ decision gates and BRD drift-sync cannot be evaluated"
+  echo "  until one is named — whichever were graded would be a coin flip."
+  echo "  A) Name it for this run:"
+  echo "       GATE_REGISTER=<path-relative-to-project-dir> $0 $*"
+  echo "  B) Name it permanently, in CLAUDE.local.md ## Wiring:"
+  echo "       | Decision register | analysis/<name>/PROJECT.md | the live one; the other is superseded |"
+  echo ""
 fi
+REG_AMBIGUOUS="${REG_AMBIGUOUS:-0}"
 
 # The pre-12828e4 Q9 body. gate-check NEVER rewrites it — the repair lives in
 # sync-project.sh --repair-intake, which rewrites only when the section is byte-identical to
@@ -468,6 +480,17 @@ check_stage_2() {
 # that said so in the status column.
 # Any field may hold the status (column order varies by project); the field must
 # equal CONFIRMED exactly after trimming, so UNCONFIRMED no longer qualifies.
+# When two differing registers exist, REGISTER is deliberately empty and this cannot answer.
+# Callers must ask reg_unavailable() FIRST and report MANUAL — "no CONFIRMED decision found" would
+# be a false negative dressed as a verdict, which is the failure this whole wave is about.
+reg_unavailable() {
+  [ "$REG_AMBIGUOUS" = "1" ] && return 0
+  return 1
+}
+reg_unavailable_note() {
+  echo "MANUAL|cannot evaluate: $REG_COUNT differing decision registers exist and none is named — see the ⚠ notice above; set GATE_REGISTER or add the CLAUDE.local.md ## Wiring row"
+}
+
 has_confirmed_decision() {
   local stage="$1"
   local f="$REGISTER"
@@ -523,6 +546,7 @@ check_stage_3() {
       return
     fi
   done
+  if reg_unavailable; then reg_unavailable_note; return; fi
   if has_confirmed_decision 3; then
     echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 CONFIRMED decision is in $REGISTER"
   else
@@ -537,6 +561,7 @@ check_stage_4() {
     echo "FAIL|architecture/build-plan.md not found"
     return
   fi
+  if reg_unavailable; then reg_unavailable_note; return; fi
   if has_confirmed_decision 4; then
     echo "PASS|build-plan.md present and a Stage-4 CONFIRMED decision is in $REGISTER"
   else
@@ -568,6 +593,7 @@ check_stage_6() {
 check_stage_7() {
   # MERGE NOTE: bug02 changes WHICH register is read, bug03 changes WHICH ROWS in it count.
   # Orthogonal; both applied.
+  if reg_unavailable; then reg_unavailable_note; return; fi
   local f="$REGISTER"
   if [ -z "$f" ] || [ ! -f "$f" ]; then
     echo "FAIL|no decision register (PROJECT.md) found under $PROJECT_DIR"
@@ -877,7 +903,12 @@ SYNC_NOTE="$REGISTER has no 'Toolkit commit:' line — protocol freshness cannot
 SYNC_HEADLINE="$REGISTER records no toolkit commit, so this project's protocol freshness is unknown."
 SYNC_DETAIL=""
 SYNC_OPT_A="Record the current protocol commit:  $0 $PROJECT_DIR --ack-protocol"
-if [ -z "$REGISTER" ] || [ ! -f "$REGISTER" ]; then
+if [ "$REG_AMBIGUOUS" = "1" ]; then
+  # Do not say "none found" when the problem is that there are two. Naming the wrong cause sends
+  # the reader looking for a missing file that is not missing.
+  SYNC_NOTE="cannot evaluate: $REG_COUNT differing decision registers exist and none is named — see the ⚠ notice above"
+  SYNC_HEADLINE="$REG_COUNT differing decision registers under $PROJECT_DIR, so protocol freshness cannot be read from either."
+elif [ -z "$REGISTER" ] || [ ! -f "$REGISTER" ]; then
   SYNC_NOTE="no decision register (PROJECT.md) found under $PROJECT_DIR — protocol freshness cannot be established"
   SYNC_HEADLINE="No decision register (PROJECT.md) under $PROJECT_DIR, so protocol freshness is unknown."
   SYNC_OPT_A="Scaffold one:  bin/init-project.sh $PROJECT_DIR   (it stamps the current commit)"
@@ -1132,7 +1163,13 @@ fi
 #      machine lacks a register, and SYNC already FAILs in that case, so this blocks nothing
 #      that was not already blocked.)
 UNSYNCED_ROWS=""
-if [ -z "$REGISTER" ] || [ ! -f "$REGISTER" ]; then
+if [ "$REG_AMBIGUOUS" = "1" ]; then
+  # Two registers exist and neither was named. "Cannot evaluate" is not "FAIL": a FAIL here would
+  # block every gate over a condition that is one wiring row away, which is the behaviour this
+  # wave removed everywhere else. MANUAL keeps it visibly not-a-pass without stopping anyone.
+  DRIFT_STATUS="MANUAL"
+  DRIFT_NOTE="cannot evaluate: $REG_COUNT differing decision registers exist and none is named — see the ⚠ notice above"
+elif [ -z "$REGISTER" ] || [ ! -f "$REGISTER" ]; then
   DRIFT_STATUS="FAIL"
   DRIFT_NOTE="no decision register (PROJECT.md) found under $PROJECT_DIR — the BRD drift-sync gate has nothing to read, which is not the same as nothing to report"
 else

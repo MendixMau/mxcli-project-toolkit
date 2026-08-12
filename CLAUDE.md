@@ -6,7 +6,17 @@ Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"):
 
 ## The front door
 - `CONVERSION-RUNBOOK.md` (root) — thin "how to start" pointer.
-- `toolkit-guide.html` (root) — the visual onboarding page. **First-touch rule:** the first time a session uses this toolkit for a project (new conversion, new user, or the user seems unsure how the pipeline works), open it in their browser (`open toolkit-guide.html` / `xdg-open`) before the first interview question — `bin/init-project.sh` also does this automatically at scaffold time. Don't re-open it every session for a user who already knows it. It's also the shared CSS shell/tokens for every stage HTML surface.
+- `toolkit-guide.html` (root) — the visual onboarding page. **First-touch rule — this is the single source of the rule; every other mention defers here:**
+
+  ```
+  [ -e "<project-root>/.claude/.guide-shown" ] && DO NOT OPEN
+  ```
+
+  Open it in the user's browser (`open toolkit-guide.html` / `xdg-open`) **only** when that sentinel is absent, and immediately `touch` it so no later session repeats. `bin/init-project.sh` opens it at scaffold time and writes the sentinel then. The user may also ask for it by name at any time — that's always allowed and does not consult the sentinel.
+
+  **Do not re-open it on a hunch** that the user "seems unsure" — a session cannot tell a first-timer from someone who has seen it fifty times, and every session that guesses guesses "yes". The sentinel is the only test. (Real incident, 2026-08-12: this rule was stated conditionally here and in `README.md` but *unconditionally* in `skills/conversion-runbook.md`, `CONVERSION-RUNBOOK.md`, and inside `toolkit-guide.html` itself. Because the runbook is the one file every session is required to read first, every pipeline session opened the guide, and the user got a browser tab per session.)
+
+  It's also the shared CSS shell/tokens for every stage HTML surface — that use has nothing to do with opening it.
 - `skills/conversion-runbook.md` — **the spine**: 9-stage matrix, interview protocol, gates, entry modes. Start here when unsure what stage anything is in.
 - `bin/init-project.sh <project-root>` — **the one-command install**: `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook wiring), all five agent stubs, `index.html` dashboard; opens the guide. Idempotent.
 - `bin/gate-check.sh <project-dir> [stage]` — mechanical stage gates; regenerates the project dashboard from real files.

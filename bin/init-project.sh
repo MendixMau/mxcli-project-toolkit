@@ -242,15 +242,24 @@ if [ -d "$CRASHNET_SRC" ]; then
 fi
 
 GUIDE="$SCRIPT_DIR/../toolkit-guide.html"
-if [ -f "$GUIDE" ] && [ -z "${MXTK_NO_GUIDE:-}" ]; then
+# First-touch sentinel. This is the same file every agent must test before opening the guide
+# (see CLAUDE.md "First-touch rule"); writing it here is what stops the next session — and the
+# one after that — from opening a browser tab the user has already seen.
+GUIDE_SENTINEL="$PROJECT_DIR/.claude/.guide-shown"
+if [ -f "$GUIDE" ] && [ -z "${MXTK_NO_GUIDE:-}" ] && [ ! -e "$GUIDE_SENTINEL" ]; then
   # Best-effort auto-open of the visual guide; never fail the scaffold over it.
   # Suppress with MXTK_NO_GUIDE=1 (e.g. headless/CI runs).
   if command -v open >/dev/null 2>&1; then open "$GUIDE" || true
   elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$GUIDE" >/dev/null 2>&1 || true
   fi
+  # Record it even if the open failed: a browser we could not launch is not a reason to
+  # re-prompt forever, and the user can always ask for the guide by name.
+  mkdir -p "$(dirname "$GUIDE_SENTINEL")" 2>/dev/null || true
+  : > "$GUIDE_SENTINEL" 2>/dev/null || true
   echo ""
   echo "Opened the visual guide in your browser (toolkit-guide.html) — it explains the stages,"
   echo "the gates, and what happens when something looks broken. Set MXTK_NO_GUIDE=1 to suppress."
+  echo "Recorded .claude/.guide-shown, so later sessions will not reopen it. Delete it to see it again."
 fi
 echo ""
 echo "Next steps (not done by this script):"

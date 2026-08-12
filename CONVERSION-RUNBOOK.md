@@ -2,7 +2,7 @@
 
 This is the thin front door. The executable detail lives in **`skills/conversion-runbook.md`** — the stage matrix, the interview protocol every gate runs, and the done-checklist. This file only tells you how to start and what to expect.
 
-**Prefer a visual walkthrough?** Open **`toolkit-guide.html`** in a browser (`open toolkit-guide.html`) — the same journey as a guided page, including the "something went wrong" section. Agents: open it *for* the user at Stage P kickoff.
+**Prefer a visual walkthrough?** Open **`toolkit-guide.html`** in a browser (`open toolkit-guide.html`) — the same journey as a guided page, including the "something went wrong" section. *Agents:* open it for the user only under the first-touch rule in `CLAUDE.md` (sentinel `<project-root>/.claude/.guide-shown` absent), never once per session.
 
 ---
 

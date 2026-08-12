@@ -38,7 +38,7 @@ This clone stays clean — project output never lands inside it. **Everything el
 
 Do **not** create `analysis/<project>/` as a sibling of the project — analysis output belongs *inside* the project folder. The only exception is when licence/security constraints (intake Q2) forbid storing the client source alongside the target app; that split-workspace variant is described in `migration-pipeline.md` → "Project Workspace Convention".
 
-**New here? Open `toolkit-guide.html` in a browser first** — the whole journey as a visual page: entry modes, the 9 stages, what each gate asks of you, and the don't-panic section. Agents open it for the user at kickoff.
+**New here? Open `toolkit-guide.html` in a browser first** — the whole journey as a visual page: entry modes, the 9 stages, what each gate asks of you, and the don't-panic section. *Agents:* open it for the user only when `<project-root>/.claude/.guide-shown` is absent, then `touch` it — see the first-touch rule in `CLAUDE.md`. Never once per session.
 
 **Install is one command per project:**
 
@@ -471,7 +471,7 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session | `skills/learned-mcp-patterns.md` — three co-equal write modes (not CLI-only-unless-forced), save discipline, uncommitted-MPR guard, pre-exec handoff sequence, confirmed JSON patterns |
 | A CE error or behavior that looks like a known mxcli quirk, not a modeling mistake | `bug-logs/mxcli-bugs.md` |
 | Setting up a new project's dev-process subagents | `skills/agent-roles.md` — once, at project start, not "on demand" |
-| First time this toolkit is used on a project, or the user seems unsure how the pipeline works | Open `toolkit-guide.html` in their browser (`open` / `xdg-open`) — the visual walkthrough. Once per project/user, not every session. |
+| First time this toolkit is used on a project — tested as `<project-root>/.claude/.guide-shown` being absent, never as a judgement about the user | Open `toolkit-guide.html` in their browser (`open` / `xdg-open`) — the visual walkthrough — then `touch` the sentinel. Full rule: `CLAUDE.md` "First-touch rule". |
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
 | **Any pipeline work at all** — every session, before producing any stage artifact (not just "when unsure") | `skills/conversion-runbook.md` — the executable spec; READMEs and guide are orientation only |
 

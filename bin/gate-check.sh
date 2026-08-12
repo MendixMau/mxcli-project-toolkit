@@ -151,8 +151,7 @@ resolve_artifact() {
 # MERGE NOTE: bug02 proposed this as a shared helper; gate-check-intake-patch.md proposed the
 # same logic inlined in check_stage_P, arguing it keeps resolve_artifact's semantics from
 # spreading. The helper won: check_stage_0 needs byte-identical behaviour, and an inline copy is
-# how the two call sites would drift apart again. Deliberately NOT wired into check_stage_0 in
-# this change — that is bug02's patch and carries its own blast radius.
+# how the two call sites would drift apart again. Wired into check_stage_0 by bug02's patch.
 resolve_stage_file() {
   local rel="$1" root_f="$PROJECT_DIR/$1" base_f="$ANALYSIS_BASE/$1"
   if [ "$root_f" != "$base_f" ] && [ -f "$root_f" ] && [ -f "$base_f" ] \
@@ -162,6 +161,86 @@ resolve_stage_file() {
   fi
   resolve_artifact "$rel"
 }
+
+# --- Decision register (PROJECT.md) --------------------------------------------
+# Two BLOCKING checks (protocol freshness, BRD drift-sync), both ✋ decision gates and Stage 7
+# read the decision register. They used to hardcode "$PROJECT_DIR/PROJECT.md".
+#
+# Calling resolve_artifact is NOT the fix: it tries the project root first, so on a project
+# whose live register lives at analysis/<name>/PROJECT.md while an abandoned stub survives at
+# the root, it lands on exactly the same blank file. Observed on WMS-App-main: root register =
+# 7 CONFIRMED rows, ack 11eafdf (16 Jul); live register at analysis/WMS-App/PROJECT.md = 42
+# CONFIRMED rows, ack 13b5445 (20 Jul). A drift gate that grades the abandoned register is
+# worse than no drift gate — the live register's UNSYNCED markers are invisible to it and
+# every gate goes green. Measured: the unpatched script exits 0 on `<that project> 4`.
+#
+# So: when two DIFFERENT candidate registers exist, REFUSE. Same stance, same shape, as the
+# multi-workstream refusal above — a single verdict cannot describe two registers.
+# Disambiguate persistently with a "Decision register" row in CLAUDE.local.md's ## Wiring
+# table, or per-run with $GATE_REGISTER.
+#
+# MERGE NOTE (bug02 × resolve_stage_file): two reconciliations were needed here.
+#   1. STANCE. resolve_stage_file() returns AMBIGUOUS and the owning stage prints one FAIL
+#      row; the register refuses hard with exit 2. They differ deliberately: an ambiguous
+#      intake.md poisons one stage line, an ambiguous register poisons the two BLOCKING
+#      checks that gate EVERY stage plus three verdicts, and those print before any stage
+#      row exists to carry the message. There is no row to put a FAIL in, so the run stops.
+#   2. IDENTICAL COPIES. bug02's draft refused on count alone. Aligned with
+#      resolve_stage_file() instead: byte-identical copies are not ambiguous, either one
+#      grades the same, and refusing over them is pure cry-wolf. Only differing copies refuse.
+REGISTER=""
+REG_MATCHES=""
+REG_COUNT=0
+REG_FIRST=""
+REG_DIFFER=0
+for candidate in "$PROJECT_DIR/PROJECT.md" "$PROJECT_DIR"/analysis/*/PROJECT.md; do
+  [ -f "$candidate" ] || continue
+  REG_MATCHES="${REG_MATCHES}  $candidate"$'\n'
+  REG_COUNT=$((REG_COUNT + 1))
+  if [ -z "$REG_FIRST" ]; then
+    REG_FIRST="$candidate"
+  elif ! cmp -s "$REG_FIRST" "$candidate"; then
+    REG_DIFFER=1
+  fi
+  REGISTER="$candidate"
+done
+# With only identical copies, grade the first — deterministic, and every copy says the same.
+[ "$REG_DIFFER" = "0" ] && REGISTER="$REG_FIRST"
+
+# Explicit selection wins over any inference.
+REG_SEL="${GATE_REGISTER:-}"
+if [ -z "$REG_SEL" ] && [ -f "$PROJECT_DIR/CLAUDE.local.md" ]; then
+  REG_SEL="$(awk -F'|' '
+    /^## Wiring/ { w = 1; next }
+    /^## / { w = 0 }
+    w && /^\|/ && tolower($2) ~ /decision register/ {
+      p = $3
+      gsub(/`/, "", p)
+      gsub(/^[ \t]+|[ \t]+$/, "", p)
+      if (p != "") { print p; exit }
+    }' "$PROJECT_DIR/CLAUDE.local.md")"
+fi
+if [ -n "$REG_SEL" ]; then
+  case "$REG_SEL" in
+    /*) REGISTER="$REG_SEL" ;;
+    *)  REGISTER="$PROJECT_DIR/$REG_SEL" ;;
+  esac
+  if [ ! -f "$REGISTER" ]; then
+    echo "Error: selected decision register does not exist: $REGISTER" >&2
+    echo "Fix the 'Decision register' row in CLAUDE.local.md ## Wiring, or \$GATE_REGISTER." >&2
+    exit 2
+  fi
+elif [ "$REG_DIFFER" = "1" ]; then
+  echo "Error: $REG_COUNT differing decision registers (PROJECT.md) found under $PROJECT_DIR:" >&2
+  printf '%s' "$REG_MATCHES" >&2
+  echo "The ✋ decision gates and the BRD drift-sync gate each grade exactly one register;" >&2
+  echo "with two present, whichever one is graded is a coin flip and a green board proves" >&2
+  echo "nothing. Name the live one and re-run:" >&2
+  echo "  GATE_REGISTER=<path-relative-to-project-dir> $0 $*" >&2
+  echo "or add a row to CLAUDE.local.md ## Wiring:" >&2
+  echo "  | Decision register | analysis/<name>/PROJECT.md | the live one; the other is superseded |" >&2
+  exit 2
+fi
 
 # The pre-12828e4 Q9 body. gate-check NEVER rewrites it — the repair lives in
 # sync-project.sh --repair-intake, which rewrites only when the section is byte-identical to
@@ -269,15 +348,39 @@ check_stage_P() {
 }
 
 check_stage_0() {
-  local f="$PROJECT_DIR/triage.md"
-  if [ ! -f "$f" ]; then
-    echo "FAIL|triage.md not found"
+  # MERGE NOTE: bug02 supplies the resolver (root-first resolve_artifact grades the abandoned
+  # copy on a nested-layout project), bug03 supplies the anchored sign-off test. They touch
+  # different halves of this function and both are applied.
+  local f
+  f="$(resolve_stage_file "triage.md")"
+  if [ "$f" = "AMBIGUOUS" ]; then
+    echo "FAIL|two different triage.md files — $PROJECT_DIR/triage.md and $ANALYSIS_BASE/triage.md — a single Stage 0 verdict cannot describe both; delete or merge the stale one (the analysis/<name>/ copy is normally the live one) and re-run"
     return
   fi
-  if grep -q "^## Sign-off" "$f" && grep -q "Confirmed by:" "$f"; then
-    echo "PASS|triage.md has a signed-off ## Sign-off section"
+  if [ -z "$f" ] || [ ! -f "$f" ]; then
+    echo "FAIL|triage.md not found (looked in $PROJECT_DIR/ and $ANALYSIS_BASE/)"
+    return
+  fi
+  # Two INDEPENDENT greps used to satisfy this: `grep -q "^## Sign-off" && grep -q "Confirmed
+  # by:"`. The "Confirmed by:" line did not have to be inside ## Sign-off — or anywhere near
+  # it; a quoted email or a code fence sufficed — and its VALUE was never inspected, so the
+  # unedited template line "Confirmed by: [user] on [date]" passed a human-sign-off gate.
+  # Now the line must live INSIDE the section AND carry a filled-in value.
+  local signer
+  signer=$(awk '
+    /^##[ \t]+Sign-off/ { insec=1; next }
+    insec && /^##[ \t]/ { exit }
+    insec && tolower($0) ~ /confirmed by:/ {
+      v=$0; sub(/^.*[Cc]onfirmed by:[ \t]*/,"",v)
+      gsub(/^[ \t]+|[ \t]+$/,"",v); gsub(/\*/,"",v)
+      print v; exit
+    }' "$f")
+  if [ -z "$signer" ]; then
+    echo "FAIL|no non-empty 'Confirmed by:' line inside the '## Sign-off' section of $f"
+  elif printf '%s' "$signer" | grep -q '\['; then
+    echo "FAIL|'Confirmed by:' still holds template placeholders: \"$signer\" — replace [user]/[date] with a literal name and date ($f, ## Sign-off)"
   else
-    echo "FAIL|triage.md exists but missing a ## Sign-off section with Confirmed by:"
+    echo "PASS|triage.md signed off by \"$signer\" [$f]"
   fi
 }
 
@@ -314,11 +417,33 @@ check_stage_2() {
     echo "FAIL|reports/validation-report.md not found"
     return
   fi
-  if grep -A2 "^## Stop condition" "$validation" | grep -qi "clean"; then
-    echo "PASS|brd/*.brd.json present, validation-report.md Stop condition is Clean"
-  else
-    echo "FAIL|validation-report.md exists but Stop condition is not Clean"
+  # Anchored and section-aware. `grep -A2 … | grep -qi clean` matched "clean" ANYWHERE in the
+  # three-line window after the header, case-blind and in any polarity, so a report reading
+  # "NOT clean, 14 findings outstanding" PASSED Stage 2 — and the verdict text then asserted
+  # "Stop condition is Clean", i.e. the dashboard denied the gap rather than merely missing it.
+  # Now: take the FIRST non-empty line of the "## Stop condition" section, strip markdown
+  # decoration, and require it to START with "clean". Echo the line back so a failure is
+  # diagnosable without opening the file.
+  local first
+  first=$(awk '
+    /^##[ \t]+Stop condition/ { insec=1; next }
+    insec && /^##[ \t]/       { exit }
+    insec {
+      line=$0
+      gsub(/^[ \t>*_-]+/,"",line); gsub(/[ \t]+$/,"",line); gsub(/\*/,"",line)
+      if (line == "") next
+      print line; exit
+    }' "$validation")
+  if [ -z "$first" ]; then
+    echo "FAIL|'## Stop condition' section not found or empty in $validation"
+    return
   fi
+  case "$(printf '%s' "$first" | tr '[:upper:]' '[:lower:]')" in
+    clean|clean[^a-z0-9]*)
+      echo "PASS|brd/*.brd.json present, Stop condition reads \"$first\"" ;;
+    *)
+      echo "FAIL|'## Stop condition' in $validation reads \"$first\" — it must START with \"Clean\"; a report that merely contains the word (\"NOT clean, 14 findings\") is not a clean stop" ;;
+  esac
 }
 
 # ✋ stages need a CONFIRMED decision row in PROJECT.md's Decisions table
@@ -332,8 +457,8 @@ check_stage_2() {
 # equal CONFIRMED exactly after trimming, so UNCONFIRMED no longer qualifies.
 has_confirmed_decision() {
   local stage="$1"
-  local f="$PROJECT_DIR/PROJECT.md"
-  [ -f "$f" ] || return 1
+  local f="$REGISTER"
+  [ -n "$f" ] && [ -f "$f" ] || return 1
   awk -F'|' -v want="$stage" '
     /^\|/ {
       s = $2
@@ -386,9 +511,9 @@ check_stage_3() {
     fi
   done
   if has_confirmed_decision 3; then
-    echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 CONFIRMED decision is in PROJECT.md"
+    echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 CONFIRMED decision is in $REGISTER"
   else
-    echo "FAIL|artifacts exist but PROJECT.md has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass"
+    echo "FAIL|artifacts exist but ${REGISTER:-PROJECT.md} has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass"
   fi
 }
 
@@ -400,9 +525,9 @@ check_stage_4() {
     return
   fi
   if has_confirmed_decision 4; then
-    echo "PASS|build-plan.md present and a Stage-4 CONFIRMED decision is in PROJECT.md"
+    echo "PASS|build-plan.md present and a Stage-4 CONFIRMED decision is in $REGISTER"
   else
-    echo "FAIL|build-plan.md exists but PROJECT.md has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass"
+    echo "FAIL|build-plan.md exists but ${REGISTER:-PROJECT.md} has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass"
   fi
 }
 
@@ -428,26 +553,37 @@ check_stage_6() {
 }
 
 check_stage_7() {
-  local f="$PROJECT_DIR/PROJECT.md"
-  if [ ! -f "$f" ]; then
-    echo "FAIL|PROJECT.md not found"
+  # MERGE NOTE: bug02 changes WHICH register is read, bug03 changes WHICH ROWS in it count.
+  # Orthogonal; both applied.
+  local f="$REGISTER"
+  if [ -z "$f" ] || [ ! -f "$f" ]; then
+    echo "FAIL|no decision register (PROJECT.md) found under $PROJECT_DIR"
     return
   fi
-  # Field-exact, for the same reason as has_confirmed_decision: the old
-  # `grep -i cutover | grep -q CONFIRMED` passed on a row reading UNCONFIRMED.
-  if awk -F'|' '
-       /^\|/ && tolower($0) ~ /cutover/ {
-         for (i = 2; i <= NF; i++) {
-           f = toupper($i)
-           gsub(/^[ \t]+|[ \t]+$/, "", f)
-           if (f == "CONFIRMED") found = 1
-         }
-       }
-       END { exit !found }
-     ' "$f"; then
-    echo "PASS|CONFIRMED cutover decision found in PROJECT.md"
+  # Field-exact on the STATUS (as has_confirmed_decision already is, since d8117be) and now
+  # also column-aware on ROW SELECTION. `tolower($0) ~ /cutover/` scanned the whole row
+  # including the free-text Notes cell, so an unrelated CONFIRMED row whose notes said
+  # "groundwork for the eventual cutover" passed Stage 7 — the ✋ gate whose stated purpose is
+  # "ASSUMED does not pass". A row qualifies only if it IS the cutover decision: stage field
+  # (col 2) equal to 7, or the decision field (col 3) naming the cutover. Distinguish "no such
+  # row" from "row present but not CONFIRMED" — they need different fixes.
+  local verdict rows
+  verdict=$(awk -F'|' '
+    /^\|/ {
+      s=$2; gsub(/^[ \t]+|[ \t]+$/,"",s); sub(/^[Ss]tage[ \t]*/,"",s)
+      d=(NF>=3)?tolower($3):""
+      if (s != "7" && d !~ /cutover/) next
+      rows++
+      for (i=2;i<=NF;i++){ v=toupper($i); gsub(/^[ \t]+|[ \t]+$/,"",v); if (v=="CONFIRMED") found=1 }
+    }
+    END { print (found?"PASS":"FAIL") " " rows+0 }' "$f")
+  rows="${verdict#* }"
+  if [ "${verdict%% *}" = "PASS" ]; then
+    echo "PASS|a Stage-7/cutover decision row in $f has Status exactly CONFIRMED ($rows candidate row(s))"
+  elif [ "$rows" = "0" ]; then
+    echo "FAIL|no cutover decision row in $f — add a Decisions row whose Stage field is 7 (or whose Decision names the cutover) with Status exactly CONFIRMED"
   else
-    echo "FAIL|no CONFIRMED cutover decision in PROJECT.md (✋ gate — ASSUMED does not pass)"
+    echo "FAIL|$rows cutover decision row(s) in $f, none with a field exactly CONFIRMED (✋ gate — UNCONFIRMED/ASSUMED does not pass)"
   fi
 }
 
@@ -603,14 +739,20 @@ fi
 
 SYNC_STATUS="FAIL"
 SYNC_NOTE="PROJECT.md has no 'Toolkit commit:' line — run the session-start ritual (CLAUDE.local.md): pull the toolkit, re-read the runbook, record the commit"
-if [ -f "$PROJECT_DIR/PROJECT.md" ]; then
-  RECORDED="$(grep -o 'Toolkit commit: [a-f0-9]*' "$PROJECT_DIR/PROJECT.md" | head -1 | awk '{print $3}')"
+if [ -z "$REGISTER" ] || [ ! -f "$REGISTER" ]; then
+  SYNC_NOTE="no decision register (PROJECT.md) found under $PROJECT_DIR — the session-start ritual records 'Toolkit commit: <sha>' there; without one, freshness cannot be established"
+fi
+# Reads $REGISTER, not "$PROJECT_DIR/PROJECT.md" (bug02): on WMS-App-main the root stub acked
+# 11eafdf while the live nested register acked 13b5445, so the freshness verdict described a
+# register nobody had touched since 16 July.
+if [ -n "$REGISTER" ] && [ -f "$REGISTER" ]; then
+  RECORDED="$(grep -o 'Toolkit commit: [a-f0-9]*' "$REGISTER" | head -1 | awk '{print $3}')"
   if [ -n "${RECORDED:-}" ]; then
     if [ "$RECORDED" = "$TOOLKIT_REF" ]; then
       SYNC_STATUS="PASS"
       SYNC_NOTE="session acknowledged toolkit commit $TOOLKIT_REF ($SYNC_REF_LABEL)"
     elif ! git -C "$TOOLKIT_DIR" cat-file -e "${RECORDED}^{commit}" 2>/dev/null; then
-      SYNC_NOTE="PROJECT.md acknowledges toolkit commit $RECORDED, which does not exist in the toolkit clone — fetch the toolkit and re-run the session-start ritual against a real commit"
+      SYNC_NOTE="$REGISTER acknowledges toolkit commit $RECORDED, which does not exist in the toolkit clone — fetch the toolkit and re-run the session-start ritual against a real commit"
     elif git -C "$TOOLKIT_DIR" merge-base --is-ancestor "$TOOLKIT_REF" "$RECORDED" 2>/dev/null; then
       SYNC_STATUS="PASS"
       SYNC_NOTE="ack $RECORDED is ahead of $TOOLKIT_REF ($SYNC_REF_LABEL) — unpushed toolkit work, acknowledgement is current"
@@ -637,14 +779,29 @@ printf "Sync (Protocol freshness): %s — %s\n" "$SYNC_STATUS" "$SYNC_NOTE"
 # inherit a stale assertion. See conversion-runbook.md "Requirements drift-sync" + the detection
 # mechanics in iterative-build-loop.md. Projects that never adopt the convention have no markers
 # → PASS, so this is inert for them.
-DRIFT_STATUS="PASS"
-DRIFT_NOTE="no unsynced BRD-drift markers in PROJECT.md"
-if [ -f "$PROJECT_DIR/PROJECT.md" ]; then
-  UNSYNCED_ROWS="$(grep -nE '\[sync:[^]]*UNSYNCED' "$PROJECT_DIR/PROJECT.md" 2>/dev/null || true)"
+#
+# Two ways this gate used to be inert, both closed here (bug02):
+#   1. It read "$PROJECT_DIR/PROJECT.md". On a project whose live register is nested, the
+#      UNSYNCED markers live in a file the gate never opened. Measured: the unpatched script
+#      exits 0 on `<such a project> 4` over a live "[sync: … UNSYNCED]" row.
+#   2. DRIFT_STATUS initialised to PASS and the whole block was guarded by `[ -f … ]`, so a
+#      MISSING register produced a green "no unsynced markers" verdict — inert by absence,
+#      and stated as a positive finding. Absence of the register is now a FAIL: the gate could
+#      not be evaluated, and "could not evaluate" is not "passed". (No real project on this
+#      machine lacks a register, and SYNC already FAILs in that case, so this blocks nothing
+#      that was not already blocked.)
+UNSYNCED_ROWS=""
+if [ -z "$REGISTER" ] || [ ! -f "$REGISTER" ]; then
+  DRIFT_STATUS="FAIL"
+  DRIFT_NOTE="no decision register (PROJECT.md) found under $PROJECT_DIR — the BRD drift-sync gate has nothing to read, which is not the same as nothing to report"
+else
+  DRIFT_STATUS="PASS"
+  DRIFT_NOTE="no unsynced BRD-drift markers in $REGISTER"
+  UNSYNCED_ROWS="$(grep -nE '\[sync:[^]]*UNSYNCED' "$REGISTER" 2>/dev/null || true)"
   if [ -n "$UNSYNCED_ROWS" ]; then
     DRIFT_STATUS="FAIL"
     DRIFT_COUNT="$(printf '%s\n' "$UNSYNCED_ROWS" | grep -c . | tr -d ' ')"
-    DRIFT_NOTE="$DRIFT_COUNT decision(s) touch a BRD/wireframe not yet re-synced (see '[sync: … UNSYNCED]' in PROJECT.md) — ba-agent must update the BRD/wireframe, then flip the marker to 'synced <date>', before this gate passes"
+    DRIFT_NOTE="$DRIFT_COUNT decision(s) touch a BRD/wireframe not yet re-synced (see '[sync: … UNSYNCED]' in $REGISTER) — ba-agent must update the BRD/wireframe, then flip the marker to 'synced <date>', before this gate passes"
   fi
 fi
 printf "Drift (BRD sync): %s — %s\n" "$DRIFT_STATUS" "$DRIFT_NOTE"

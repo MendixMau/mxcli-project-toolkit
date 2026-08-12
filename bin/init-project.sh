@@ -80,6 +80,22 @@ if [ -f "$PROJECT_MD" ]; then
   echo "Skip: PROJECT.md already exists — not overwritten."
 else
   PROJECT_NAME="$(basename "$PROJECT_DIR")"
+  # Stamp the toolkit sha this scaffold was built from.
+  #
+  # This line used to read "(set at session start — see CLAUDE.local.md)", which no sha pattern
+  # matches, so gate-check.sh's freshness check FAILed on a project that was seconds old and
+  # every stage request exited 1. A brand-new project could not pass its own freshness gate
+  # until a human performed the four-step ritual — the gate blocking the very state it exists
+  # to certify. Stamping it here is correct rather than a workaround: at this instant the
+  # project provably IS current, because these files were just generated from this commit.
+  TOOLKIT_SHA="$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || echo "")"
+  if [ -n "$TOOLKIT_SHA" ]; then
+    TOOLKIT_COMMIT_LINE="Toolkit commit: $TOOLKIT_SHA"
+  else
+    # Not a git clone (a tarball install, say). Leave the prose, which still FAILs the freshness
+    # check — correct here, because freshness genuinely cannot be established without a repo.
+    TOOLKIT_COMMIT_LINE="Toolkit commit: (set at session start — see CLAUDE.local.md's session-start ritual)"
+  fi
   cat > "$PROJECT_MD" <<EOF
 # PROJECT.md — ${PROJECT_NAME} Decision Register
 
@@ -90,7 +106,7 @@ Every gate decision lands here as \`CONFIRMED\` or \`ASSUMED\`, never silently d
 
 **Stage P — Kickoff**, in progress.
 
-Toolkit commit: (set at session start — see CLAUDE.local.md's session-start ritual)
+${TOOLKIT_COMMIT_LINE}
 
 ## Decisions
 
@@ -139,19 +155,28 @@ at build time and correct any that differ**; a path that doesn't resolve is a wi
 | Business rules | \`analysis/<source>/knowledge-base/\` | BRDs (\`F<NNN>.brd.json\`) |
 | UI review reports | \`design/ui-reviews/\` | \`ui-review-<date>.html\` (\`ui-review-loop.md\`) |
 
-## Session-start ritual (mandatory, before any pipeline work)
+## Session-start ritual (before any pipeline work)
 
 The toolkit's rules change; your memory of them is stale by default. At the start of every
 session that will touch the pipeline:
 
 1. \`git -C $TOOLKIT_ROOT pull --ff-only\`
-2. \`git -C $TOOLKIT_ROOT rev-parse --short HEAD\`
-3. If the commit differs from the \`Toolkit commit:\` line in \`PROJECT.md\`: re-read
-   \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` in full, then update that line to the new commit.
+2. \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root>\` — it reports protocol freshness and
+   tells you whether anything you depend on moved.
+3. If it says so: re-read the named files, then
+   \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> --ack-protocol\`. That one command shows the
+   diffstat, offers the full diff, rewrites the \`Toolkit commit:\` line in \`PROJECT.md\`, and
+   records which files and how many lines you accepted in \`docs/BUILD-LOG.md\`.
 4. State in chat which commit you're working from.
 
-\`bin/gate-check.sh\` refuses to pass ANY gate while \`PROJECT.md\`'s acknowledged commit doesn't
-match the toolkit's HEAD — a session on a stale protocol read cannot advance the pipeline.
+Steps 1-3 used to be a four-step manual ritual; \`--ack-protocol\` replaces the middle of it.
+It is interactive on purpose — an ack asserts a human read the diff, so it refuses when there
+is no TTY and points an unattended caller at \`--force-stale\`, which works and is logged.
+
+**Protocol staleness NEVER blocks a gate.** It prints a notice with lettered options and the
+stage verdict is reported on its own merits either way — a project is not broken because
+someone else pushed to a shared repo. CI that genuinely wants the old behaviour opts in with
+\`--strict-protocol\`.
 
 ## The toolkit is the process authority
 

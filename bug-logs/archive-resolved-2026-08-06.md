@@ -209,6 +209,19 @@ Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-41.md`.
 Distinct from BUG-10 and BUG-23 (both about the `Attributes` list generally) — this is
 specifically the pluggable-widget `textfilter.attributes` binding.
 
+**Re-opened / refined 2026-08-13 on SonnyPOC** (mxcli v0.17.0, Mendix 11.13.0): reproduced the
+same CE1613 on a single-attribute `textfilter (attributes: [...])`, ruling out "multi-attribute
+list" as the actual trigger. Root cause is narrower: a **quoted** 3-part identifier
+(`"Module"."Entity"."Attribute"`) inside a `textfilter.attributes:` list is accepted by
+`mxcli check`/`describe page` round-trip but not persisted correctly (CE1613 on native
+`mx check`); the **unquoted** dotted form (`Module.Entity.Attribute`, matching
+`create-page.md`'s own documented example) persists correctly and checks clean. This directly
+conflicts with the general "always quote identifiers, it's always safe" convention used
+elsewhere — it is a confirmed exception specific to this one widget property. Not yet filed as
+a GitHub issue; see SonnyPOC `docs/BUILD-LOG.md` 2026-08-13 entries and
+`mdlsource/01-sharedplumbing/01c-fix2-filter-unquoted.mdl` / `01c-fix3-filter-unquoted2.mdl` for
+the fix and verification detail.
+
 ---
 
 ## BUG-43: `ALTER SETTINGS CONSTANT` corrupts the Settings unit BSON

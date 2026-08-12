@@ -31,6 +31,29 @@ AGENTS="ba-agent.md architect-agent.md mdl-agent.md gate-agent.md test-agent.md"
 
 DIFF_COMPLETED=0
 DRY_RUN=0
+
+# EVERY write in this script must go through one of these. Enforcing --dry-run at each write
+# site was tried and failed within a day: sections 1 and 4 honoured it, sections 2, 2b and 2c
+# did not, so a run that printed "(--dry-run: nothing will be written)" created 11 agent files
+# across 5 real projects. A promise a caller cannot verify is worse than no promise, and a flag
+# enforced per-site is one new pass away from lying again.
+#
+# Usage:  w_to <dst>   — reads stdin, writes the file (truncating)
+#         w_app <dst>  — reads stdin, appends
+#         w_mkdir <d>  — creates a directory
+# Each is a no-op under --dry-run, and each still CONSUMES stdin so pipelines behave identically.
+w_to() {
+  if [ "$DRY_RUN" -eq 1 ]; then cat >/dev/null; return 0; fi
+  cat > "$1"
+}
+w_app() {
+  if [ "$DRY_RUN" -eq 1 ]; then cat >/dev/null; return 0; fi
+  cat >> "$1"
+}
+w_mkdir() {
+  [ "$DRY_RUN" -eq 1 ] && return 0
+  mkdir -p "$1"
+}
 STRICT=0
 UPGRADE_BIN=""
 REPAIR_INTAKE=0
@@ -128,7 +151,10 @@ if [ "$DIFF_COMPLETED" -eq 1 ]; then
 fi
 
 echo "=== Toolkit sync for $PROJECT_DIR ==="
-[ "$DRY_RUN" -eq 1 ] && echo "(--dry-run: nothing will be written)"
+# Prefix every would-be-action line under --dry-run. Without it the run printed "Created: …"
+# in the past tense for files it had not created — indistinguishable from a real sync in a log.
+DRY=""
+[ "$DRY_RUN" -eq 1 ] && { DRY="[dry-run] would be — "; echo "(--dry-run: nothing will be written)"; }
 CHANGES=0
 WARNINGS=0
 
@@ -261,14 +287,14 @@ if [ -d "$AGENT_DIR" ]; then
     [ -f "$src" ] || { echo "Error: template missing: $src" >&2; continue; }
     dst="$AGENT_DIR/$a"
     if [ ! -f "$dst" ]; then
-      sed "s/{{PROJECT}}/$PROJECT_NAME/g" "$src" > "$dst"
-      echo "Created: .claude/agents/$a (new since this project was scaffolded)"
+      sed "s/{{PROJECT}}/$PROJECT_NAME/g" "$src" | w_to "$dst"
+      echo "${DRY:-}Created: .claude/agents/$a (new since this project was scaffolded)"
       CHANGES=$((CHANGES + 1))
     elif grep -q "STUB GENERATED" "$dst" && grep -q "{{[A-Z_]*[^}]*}}" "$dst"; then
       # Pure stub, never completed — safe to refresh with the current template.
       if ! sed "s/{{PROJECT}}/$PROJECT_NAME/g" "$src" | cmp -s - "$dst"; then
-        sed "s/{{PROJECT}}/$PROJECT_NAME/g" "$src" > "$dst"
-        echo "Refreshed: .claude/agents/$a (was an untouched stub; template has changed)"
+        sed "s/{{PROJECT}}/$PROJECT_NAME/g" "$src" | w_to "$dst"
+        echo "${DRY:-}Refreshed: .claude/agents/$a (was an untouched stub; template has changed)"
         CHANGES=$((CHANGES + 1))
       fi
     else
@@ -283,7 +309,7 @@ fi
 CL="$PROJECT_DIR/CLAUDE.local.md"
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 if [ -f "$CL" ] && ! grep -q "Session-start ritual" "$CL"; then
-  cat >> "$CL" <<EOF
+  w_app "$CL" <<EOF
 
 ## Session-start ritual (mandatory, before any pipeline work)
 
@@ -296,7 +322,7 @@ EOF
   CHANGES=$((CHANGES + 1))
 fi
 if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! grep -q "Toolkit commit:" "$PROJECT_DIR/PROJECT.md"; then
-  printf '\nToolkit commit: (set at session start — see CLAUDE.local.md ritual)\n' >> "$PROJECT_DIR/PROJECT.md"
+  printf '\nToolkit commit: (set at session start — see CLAUDE.local.md ritual)\n' | w_app "$PROJECT_DIR/PROJECT.md"
   echo "Updated: PROJECT.md — added the Toolkit commit acknowledgement line."
   CHANGES=$((CHANGES + 1))
 fi
@@ -305,7 +331,7 @@ fi
 # Agents resolve all paths from this block; a project scaffolded before it has none.
 if [ -f "$CL" ] && ! grep -q "## Wiring" "$CL"; then
   MPR_NAME="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1 | xargs -r basename || echo "<name>.mpr")"
-  cat >> "$CL" <<EOF
+  w_app "$CL" <<EOF
 
 ## Wiring — single source of truth for all paths (agents read THIS block, not per-agent copies)
 

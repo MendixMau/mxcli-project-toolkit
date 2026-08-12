@@ -20,7 +20,7 @@ The build gate is **not** "0 CE errors." It is:
 1. 0 CE errors **+**
 2. Happy path verified as a demo user **+**
 3. Every visible source field has a real widget binding **+**
-4. The module's **business-rule coverage checklist** passes — not just extracted, but confirmed with the user at Stage 5 kickoff (`conversion-runbook.md`) as the actual definition of "done," and verified by `gate-agent` alongside Gate 2, not left as a step someone might skip under time pressure.
+4. The module's **business-rule coverage checklist** passes — not just extracted, but confirmed with the user at Stage 5 kickoff (`conversion-runbook.md`) as the actual definition of "done," and verified by `gate-agent` alongside Gate: BUILD, not left as a step someone might skip under time pressure.
 
 A page with a stub banner and no data below it is a missing feature, not a stub. **CE-error-free ≠ done — the coverage checklist is what "done" means.**
 
@@ -29,7 +29,7 @@ after phase N−1 has passed this gate. A backlog of pre-written, never-executed
 not a head start: each one encodes assumptions about a model state that the intervening gates may
 have changed (see `brd-to-build-plan.md`, "The build plan contains no MDL").
 
-### Gate step 5 — mark the script DONE (completed-implemented-tested)
+### Marking a script DONE (completed-implemented-tested)
 
 Once — and only once — a script has passed the **full** gate above (0 CE / mxbuild-clean **+** happy-path verified **+** coverage checklist), rename it with a `done-` filename prefix so the working set always shows *what's left to build*:
 
@@ -44,9 +44,9 @@ git mv mdlsource/<NN-name>.mdl mdlsource/done-<NN-name>.mdl
 
 `build-plan.html` phase status and the `done-` prefixes should agree — when every script for a phase is `done-`, that phase flips to ✓ in the tracker.
 
-### Gate step 6 — reopen Studio Pro and propose running the app
+### Reopening Studio Pro and proposing to run the app
 
-**An `mxcli` write never reaches a *running* Studio Pro.** SP holds the model in memory, so until it reopens, the change exists on disk and nowhere the user can see. That makes the reopen part of the gate, not an afterthought — and it is the step that turns "the MDL ran" into "the feature works," which gate step 5 already insists on.
+**An `mxcli` write never reaches a *running* Studio Pro.** SP holds the model in memory, so until it reopens, the change exists on disk and nowhere the user can see. That makes the reopen part of the gate, not an afterthought — and it is the step that turns "the MDL ran" into "the feature works," which the DONE rule above already insists on.
 
 `project-bin/exec.sh` closes this automatically on gate pass:
 
@@ -119,8 +119,8 @@ still had the old (wrong) description and two already-resolved open questions st
 
 ## Pre-Module Checklist (before writing any MDL)
 
-> **Live visibility rule:** the moment this checklist is confirmed, post it — plus the 13-step
-> build sequence — in the chat with status marks, and keep it updated as each item lands. See
+> **Live visibility rule:** the moment this checklist is confirmed, post it — plus the build
+> sequence below — in the chat with status marks, and keep it updated as each item lands. See
 > `conversion-runbook.md` §1b (Live Checklist Protocol). The user must never have to ask
 > "what are we doing right now?" mid-module.
 
@@ -135,7 +135,7 @@ Run this before scripting each module:
   - **Conditional visibility** → container `Visible` expressions
   - **Validation rules** → `VAL_` microflows to implement **and a visible validation message on the page** — the rule firing server-side is not enough; the user must see why a save failed (a silent 4xx/5xx is a P1 in the UI review loop)
   - **Enumerations / lookups** → correct widget type (combobox, radiobuttons) — set from the start, not patched later
-- [ ] **Confirm this checklist with the user before scripting, not after.** This is the per-module business-rule coverage checklist `conversion-runbook.md` Stage 5 asks the user to confirm — the item that decides whether the module is actually done. `ba-agent` owns getting the confirmation; `gate-agent` owns verifying it was met, alongside Gate 2 (below), before the module is marked done. A checklist nobody signed off on is just a private To-Do — it doesn't count as the definition of done.
+- [ ] **Confirm this checklist with the user before scripting, not after.** This is the per-module business-rule coverage checklist `conversion-runbook.md` Stage 5 asks the user to confirm — the item that decides whether the module is actually done. `ba-agent` owns getting the confirmation; `gate-agent` owns verifying it was met, alongside Gate: BUILD (below), before the module is marked done. A checklist nobody signed off on is just a private To-Do — it doesn't count as the definition of done.
 - [ ] Identify all pages/microflows this module will reference that don't exist yet → create stubs first (separate script, apply before the main script)
 - [ ] MPR snapshot rotation is in place (see below) — do **not** make ad-hoc copies like `Project.mpr.backup`
 
@@ -204,6 +204,10 @@ echo "Restore complete."
 
 Add `.mpr-snapshots/` to the project `.gitignore`.
 
+The two scripts above are printed to show what they do. **`project-bin/snapshot-mpr.sh` and
+`project-bin/restore-mpr.sh` are the authoritative copies** — install them with
+`bin/init-project.sh` rather than pasting from here.
+
 #### When Studio Pro crashes on open (KeyNotFoundException / AggregateException)
 
 This means a BSON unit file references a GUID that no longer exists in the model — typically caused by dropping an entity that pages or cross-module associations still point to. `mxcli` can still read/write the MPR; only `mx check` and Studio Pro fail.
@@ -236,149 +240,42 @@ uncommitted-guard → SP-open-guard → concurrent-writer-guard → snapshot →
 
 **Never** `pkill` Studio Pro or `open -a` it automatically from exec.sh. This was learned after auto-restart caused stale lock files, version-selector dialogs, and "cannot open files in the data format" errors on macOS in certain environments. Instead: exec.sh prints a message and waits for the user to close and reopen SP manually. Only `restart-sp.sh` kills/reopens SP, and only when the user explicitly asks for it.
 
-### Template — copy into each project's `bin/exec.sh`
+### There is no template to copy — `bin/init-project.sh` installs the real one
 
-```bash
-#!/usr/bin/env bash
-# exec.sh — snapshot → exec → mxbuild gate → tell user to reopen SP
-# Usage: ./bin/exec.sh <script.mdl>
-# Override: FORCE_EXEC=1 ./bin/exec.sh <script.mdl>  (skips the guards — use only if you know why)
-set -e
+**The script lives at `project-bin/exec.sh` in this toolkit, and that copy is the only one.**
+`bin/init-project.sh` installs it (with `_common.sh`, `snapshot-mpr.sh`, `restore-mpr.sh`,
+`restart-sp.sh`, `save-sp.sh`) into the project's `bin/`. Do not hand-write one, and do not paste
+one out of a document.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-MPR="$PROJECT_ROOT/MyProject.mpr"                        # ← change to project MPR name
-MXBUILD="/Applications/Mendix Studio Pro X.Y.Z.app/Contents/modeler/mxbuild"  # ← change version
-SCRIPT="$1"
-FORCE="${FORCE_EXEC:-0}"
-LOCK="$PROJECT_ROOT/.mpr-snapshots/.exec.lock"
-mkdir -p "$(dirname "$LOCK")"
+This section used to carry a 130-line copy of that script, and the copy is what broke:
 
-if [[ -z "$SCRIPT" ]]; then
-  echo "Usage: ./bin/exec.sh <script.mdl>"
-  exit 1
-fi
+- Its gate branched on `[[ -f "$ERRORS_FILE" && -s "$ERRORS_FILE" ]]`. But `--write-errors` writes
+  the file **always** — `{"problems":[]}` on success, which is non-empty — so a *clean* build took
+  the restore branch, printed `✗ mxbuild: 0 error(s) found — restoring snapshot`, exited 1, and
+  rolled back good work. The `else` branch commented "Exit 0, no errors file → model is clean" was
+  unreachable in the normal case.
+- `project-bin/exec.sh` had the correct `CE_COUNT = 0` test from 2026-07-29. The fix reached the
+  shipped script and never reached the document people paste from, and the broken copy was the
+  authoritative-looking one.
+- The same drift hit the SP-reopen logic: `fcf5ad0` taught `project-bin/exec.sh` to reopen Studio
+  Pro, while the copy here still ended with "Please close the project in Studio Pro" — the exact
+  line that commit was written to delete.
 
-cd "$PROJECT_ROOT"
+Two copies of a 140-line script is the numbering bug with a bigger blast radius. Read
+`project-bin/exec.sh` when you need the detail; what follows is what the script guarantees, which
+is the part worth stating twice.
 
-# Guard 1: SP must not have the project open (split-brain = data loss).
-# SP writes <mpr>.lock = {"SessionId":...,"ProcessId":N} while the project is open.
-# Refuse only if that PID is actually alive, so a stale lock never blocks forever.
-if [[ -f "$MPR.lock" ]]; then
-  SP_PID=$(grep -oE '"ProcessId":[0-9]+' "$MPR.lock" 2>/dev/null | grep -oE '[0-9]+' || true)
-  if [[ -n "$SP_PID" ]] && kill -0 "$SP_PID" 2>/dev/null; then
-    echo "✗ Studio Pro has the project open (PID $SP_PID) — refusing exec (split-brain risk)."
-    echo "  → Close the project in Studio Pro, then re-run."
-    echo "    Override (NOT recommended): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
-    [[ "$FORCE" == "1" ]] || exit 1
-    echo "  (FORCE_EXEC set — proceeding despite open SP)"
-  elif [[ -n "$SP_PID" ]]; then
-    echo "  (stale $MPR.lock from dead PID $SP_PID — SP not actually open, proceeding)"
-  fi
-fi
+**Gate invariants — true of `project-bin/exec.sh`, and the acceptance criteria for any change to it:**
 
-# Guard 2: No other exec.sh already running (e.g. a second agent session).
-if [[ -f "$LOCK" ]]; then
-  OTHER=$(cat "$LOCK" 2>/dev/null || true)
-  if [[ -n "$OTHER" ]] && kill -0 "$OTHER" 2>/dev/null; then
-    echo "✗ Another exec is running (PID $OTHER) — refusing concurrent write."
-    echo "  → Wait for it to finish. If it's stale (process dead): rm '$LOCK'"
-    exit 1
-  fi
-fi
-
-# Guard 3: No stray raw `mxcli exec` from another session.
-if pgrep -fl "mxcli exec" 2>/dev/null | grep -qv "$$"; then
-  echo "✗ A raw 'mxcli exec' is already running elsewhere — refusing to write concurrently."
-  [[ "$FORCE" == "1" ]] || exit 1
-fi
-
-# Guard 4: Uncommitted MPR changes — prevents silent loss if mxbuild fails and restores.
-# The snapshot below will not cover uncommitted MCP work; an auto-restore would wipe it.
-MPR_DIRTY=$(git status --porcelain MyProject.mpr mprcontents/ 2>/dev/null | grep -v "^$" || true)
-if [[ -n "$MPR_DIRTY" ]]; then
-  echo "✗ Uncommitted MPR changes detected — refusing exec to prevent snapshot regression."
-  echo ""
-  echo "  If you did MCP work, commit it first:"
-  echo "    git add MyProject.mpr mprcontents/ && git commit -m 'Commit MCP changes before exec'"
-  echo "  Then re-run: ./bin/exec.sh $SCRIPT"
-  echo ""
-  echo "  Override (accepts silent-loss risk): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
-  [[ "$FORCE" == "1" ]] || exit 1
-fi
-
-echo $$ > "$LOCK"
-trap 'rm -f "$LOCK"' EXIT
-
-echo "→ Snapshotting MPR..."
-./bin/snapshot-mpr.sh
-
-echo "→ Executing $SCRIPT..."
-./mxcli exec "$SCRIPT" -p "$MPR"
-
-echo ""
-echo "→ Running mxbuild model check (catches BSON corruption before SP opens)..."
-JAVA_HOME=$(/usr/libexec/java_home 2>/dev/null || true)
-JAVA_EXE="${JAVA_HOME}/bin/java"
-
-if [[ -x "$MXBUILD" && -x "$JAVA_EXE" ]]; then
-  ERRORS_FILE=$(mktemp /tmp/mxbuild-errors.XXXXXX)
-  # --target=deploy (lowercase, required by mxbuild v11).
-  # --write-errors writes the file ONLY when errors exist; absence = clean.
-  MXBUILD_OUT=$("$MXBUILD" \
-    --java-home="$JAVA_HOME" \
-    --java-exe-path="$JAVA_EXE" \
-    --write-errors="$ERRORS_FILE" \
-    --target=deploy \
-    "$MPR" 2>&1) || true
-  MXBUILD_EXIT=${PIPESTATUS[0]:-$?}
-
-  if [[ -f "$ERRORS_FILE" && -s "$ERRORS_FILE" ]]; then
-    # Errors file written → model has CE errors → restore and stop.
-    CE_COUNT=$(python3 -c "import json; d=json.load(open('$ERRORS_FILE')); print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null || echo "?")
-    echo "  ✗ mxbuild: $CE_COUNT error(s) found — restoring snapshot to avoid loading a corrupt MPR."
-    # Restore from the snapshot taken BEFORE this exec (second-newest, since snapshot ran first).
-    PREV_SNAP=$(ls -dt "$PROJECT_ROOT/.mpr-snapshots"/[0-9]*/ 2>/dev/null | head -2 | tail -1)
-    if [[ -n "$PREV_SNAP" && -f "$PREV_SNAP/MyProject.mpr" ]]; then
-      cp "$PREV_SNAP/MyProject.mpr" "$MPR"
-      rm -rf mprcontents && cp -r "$PREV_SNAP/mprcontents" mprcontents
-      echo "  → Auto-restored from: $PREV_SNAP"
-    fi
-    python3 -c "import json; d=json.load(open('$ERRORS_FILE')); [print(' ', e.get('errorCode','?'), e.get('message','')) for e in d.get('problems',[]) if e.get('severity')=='Error']" 2>/dev/null || true
-    cp "$ERRORS_FILE" "$PROJECT_ROOT/.mpr-snapshots/last-mxbuild-errors.json"
-    echo "  → Full error detail (untruncated): .mpr-snapshots/last-mxbuild-errors.json"
-    rm -f "$ERRORS_FILE"
-    exit 1
-  elif [[ "$MXBUILD_EXIT" -ne 0 ]]; then
-    # Non-zero exit but NO errors file → mxbuild itself failed (bad args, JVM crash, …).
-    # Do NOT treat as clean — the gate could not verify the model.
-    echo "  ✗ mxbuild failed to run (exit $MXBUILD_EXIT) — gate could not verify the model."
-    echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Assembly\|__" | head -20 || true
-    echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
-    rm -f "$ERRORS_FILE"
-    exit 1
-  else
-    # Exit 0, no errors file → model is clean.
-    echo "  ✓ mxbuild: 0 errors — model is clean."
-  fi
-  rm -f "$ERRORS_FILE"
-else
-  echo "  ✗ mxbuild or java not found — gate skipped. Verify in SP before proceeding."
-fi
-
-echo ""
-echo "✓ Script applied to MPR."
-echo "  ⚠️  Please close the project in Studio Pro, reopen it, then click Run Locally."
-echo "  If SP is not open: open Version Selector → select your version → open the project."
-```
-
-> **The two mxbuild failure modes are distinct — both must stop the build.** `--write-errors`
-> writes the file *only when the model has consistency errors*, so its absence normally means
-> "clean." But mxbuild can also exit non-zero **without** writing that file — bad arguments, a JVM
-> crash, a missing Java home. An earlier version treated that second case as a pass (no errors file
-> ⇒ "clean") and let an unverified model through. The gate must branch on the exit code as well:
-> errors-file → restore + stop; non-zero-exit-no-file → preserve snapshot + stop; exit-0-no-file →
-> clean.
+| Invariant | Why |
+|---|---|
+| Branch on the **parsed error count**, never on the errors file's existence or size | `--write-errors` writes `{"problems":[]}` on success; "file is non-empty" reports every clean build as broken |
+| `mxbuild` exit ≠ 0 **with no errors file** is a distinct failure — bad args, JVM crash, missing Java home | Treating it as "no file ⇒ clean" lets an unverified model through |
+| `mxcli exec`'s status is **captured**, never allowed to trip `set -e` | mxcli is not transactional across statements; aborting skips the gate, the restore and the log while partial changes are already live |
+| The pre-exec `mxcli check … --references` runs **before** the snapshot | The only gate that can reject a script before it mutates the `.mpr` |
+| Every outcome writes exactly one build-log row, carrying an ISO-8601 stamp and an explicit gate verdict | A clean build that logs nothing makes "no row" mean nothing at all — see the build log section below |
+| `last-mxbuild-errors.json` is cleared at the **start** of a run, not on success | An interrupted run must not leave a previous failure's file looking like its own report |
+| Studio Pro is never auto-killed; the reopen is offered, then done on a yes | See the SP Lifecycle Rule above |
 
 ### Standalone SP restart — `bin/restart-sp.sh`
 
@@ -418,35 +315,52 @@ Step 3 is required — exec.sh refuses if SP has the project open.
 
 ### Per-project setup checklist
 
-- [ ] Copy `bin/exec.sh` into the project; update `MPR`, `MXBUILD`, and the porcelain git path variables
-- [ ] Copy `bin/snapshot-mpr.sh` and `bin/restore-mpr.sh` — snapshot must cover both `.mpr` AND `mprcontents/`
-- [ ] Copy `bin/restart-sp.sh`; update the app name and MPR name
-- [ ] Copy `bin/save-sp.sh` (MCP save trigger)
-- [ ] `chmod +x bin/exec.sh bin/restart-sp.sh bin/snapshot-mpr.sh bin/restore-mpr.sh bin/save-sp.sh`
+- [ ] Run `bin/init-project.sh <project-root>` — it installs `exec.sh`, `_common.sh`,
+      `snapshot-mpr.sh`, `restore-mpr.sh`, `restart-sp.sh` and `save-sp.sh` from `project-bin/`,
+      already executable and with nothing to edit: the `.mpr`, the Studio Pro version and the
+      mxbuild path are all discovered at runtime by `_common.sh`
+- [ ] Confirm `bin/exec.sh` really came from `project-bin/` (`diff` them). `init-project.sh`
+      deliberately never overwrites an existing `bin/exec.sh`, so a project initialised months ago
+      is frozen at whatever the template was that day — every hand-edited copy found so far was
+      strictly older and missing a fix
 - [ ] Add `.mpr-snapshots/` to `.gitignore` (snapshot scripts use this directory — do not also create `build/snapshots/`)
 - [ ] Add rule to `CLAUDE.md`: the uncommitted-MPR guard — required sequence before any exec
 - [ ] Add rule to `CLAUDE.md`: never auto-restart SP; always tell the user to close and reopen manually
 
 ---
 
-## The 12-Step Build Loop
+## The Build Loop
 
-Repeat for each module:
+Repeat for each module. **This is a list, not a code block** — it was fenced for most of its life,
+which is why nobody saw that its steps and its gates had drifted out of order. Gates are named, not
+numbered: a gate inserted in the middle used to leave every ordinal behind it wrong, silently.
 
-```
 1.  Read source screenshots top-to-bottom (not the data model outward)
 2.  Read feature doc section for this module
 3.  Extract build checklist (mandatory, read-only, conditional, validation)
 4.  Sketch page data-view nesting → derive microflow signatures
 5.  Create stub pages/microflows for any forward references (separate script, apply first)
-6.  Write + apply microflows
-7.  Write + apply pages (following screenshot top-to-bottom)
-8.  **Gate 2 — BSON validation (mandatory, never skip):**
+6.  **Gate: SYNTAX — `mxcli check --references` (mandatory, never skip):**
+    Runs **inside `bin/exec.sh`**, before the snapshot and before `mxcli exec`, on every apply in
+    the steps below. You do not run it as a separate command; `SKIP_CHECK=1` disables it and needs
+    a reason written down.
+
+    It is the **only** gate that can reject a script *before* it mutates the `.mpr`. Everything
+    after it recovers by snapshot-restore, which is a rollback, not a prevention. For most of this
+    loop's life the discipline was mandated in prose and enforced nowhere — `exec.sh` went
+    snapshot → exec → mxbuild — so a reference error `mxcli check` catches in two seconds instead
+    reached `exec`, mutated the model, and cost a full restore cycle.
+
+    It validates MDL grammar and references only. It does **not** catch BSON corruption; that is
+    Gate: BUILD's job, and neither substitutes for the other.
+7.  Write + apply microflows
+8.  Write + apply pages (following screenshot top-to-bottom)
+9.  **Gate: BUILD — mxbuild / BSON validation (mandatory, never skip):**
     This runs **automatically inside `bin/exec.sh`** — the local `mxbuild` binary compiles the MPR
     with `--target=deploy --write-errors` right after `mxcli exec`, and auto-restores the pre-exec
-    snapshot on any error (see the exec.sh template above). You do not run a separate command; a
-    clean exec.sh run *is* Gate 2 passing. `mxbuild` (Studio Pro's own compiler) is the reliable
-    gate because `mxcli check` validates MDL grammar only and does **not** catch BSON corruption.
+    snapshot on any *new* error. You do not run a separate command; a clean exec.sh run *is*
+    Gate: BUILD passing. `mxbuild` (Studio Pro's own compiler) is the reliable gate because
+    `mxcli check` validates MDL grammar only and does **not** catch BSON corruption.
 
       - **Why the binary, not `mxcli docker check`:** the direct-binary path proved more reliable in
         practice — no per-machine `mxcli setup mxbuild` step, no Linux CDN binary that silently can't
@@ -458,27 +372,37 @@ Repeat for each module:
       - **Fallback if the mxbuild binary can't run** (not found, JVM error): exec.sh preserves the
         snapshot and exits non-zero rather than passing. Verify manually — open Studio Pro and check
         the project loads cleanly:
+
         ```bash
         open -a "Mendix Studio Pro X.Y.Z" app.mpr   # macOS
         ```
+
         If SP opens without an error dialog → gate passes. If it shows `AggregateException`,
         `KeyNotFoundException`, or `AttributeIdentifier` errors → restore snapshot immediately.
-        **This fallback is mandatory — never mark a script DONE without Gate 2 passing.**
-9.  **Grant completeness check (mandatory before happy-path):** for every page and microflow built in this phase, verify grants exist for the module roles that compose each user role. Run:
+        **This fallback is mandatory — never mark a script DONE without Gate: BUILD passing.**
+      - **Read the verdict, not the exit code.** Every run appends one row to `docs/BUILD-LOG.md`
+        with an ISO-8601 stamp and a `gate` cell: `pass` · `fail` · `skipped` · `unverified` ·
+        `not-run`. Only `pass` means anything looked at the model. Full error detail for the most
+        recent *failing* run is at `.mpr-snapshots/last-mxbuild-errors.json`, which is cleared at
+        the start of every run — if it is absent, this run did not fail, and if it is present it
+        belongs to this run and no other.
+10. **Grant completeness check (mandatory before happy-path):** for every page and microflow built in this phase, verify grants exist for the module roles that compose each user role. Run:
+
     ```
     show user roles;
     show security matrix in Module;
     show access on page Module.PageName;
     show access on microflow Module.MFName;
     ```
+
     For each user role, trace which module roles it composes (`show user roles`), then confirm those module roles appear in the access list of every element that user role needs to reach. A page or microflow with no grants shows a blank result — fix before proceeding. The demo user is only the login vehicle; the access check is on module roles, not the demo user account. mxbuild will not catch missing grants; only the running app reveals them otherwise.
-10. If GRANT scripts were applied → Studio Pro "Update security" → Cmd+S
-11. **Update the project's progress tracker** (e.g. `MIGRATION-PROGRESS.md` or equivalent) —
-    mark this script/module as built and gate-verified, right after Gate 2 passes and Studio Pro
+11. If GRANT scripts were applied → Studio Pro "Update security" → Cmd+S
+12. **Update the project's progress tracker** (e.g. `MIGRATION-PROGRESS.md` or equivalent) —
+    mark this script/module as built and gate-verified, right after Gate: BUILD passes and Studio Pro
     is confirmed to open/run without errors. Do this BEFORE the testing steps below — a build that
     passed its gate is progress worth recording even if testing hasn't run yet; don't let the two
     get conflated or let tracker updates wait on a separate testing pass.
-12. Walk the happy path as a non-admin demo user:
+13. Walk the happy path as a non-admin demo user:
       - After exec.sh completes, tell the user to close and reopen the project in SP, then Run Locally
       - Wait for the user to confirm SP is running — never assume
       - Confirm the app is actually serving the new build: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login.html` → `200`. The browser shows the old JS bundle until SP recompiles; screenshots taken before this check show stale state.
@@ -487,29 +411,40 @@ Repeat for each module:
       - Fill minimum required fields
       - Click save / next
       - Confirm record created or navigation succeeded — **and confirm the demo user actually reached the page** (a blank screen or unclickable nav is a failure, not a pass)
-13. **Gate 4 — UI review loop (mandatory, per module):** run `ui-review-loop.md` scoped to the pages this module built. This is not "take a screenshot" — it is the functional + visual verification that mxbuild and "record created" cannot do. At minimum, for each page this module added:
+14. **Gate: UI — the review loop (mandatory, per module):** run `ui-review-loop.md` scoped to the pages this module built. This is not "take a screenshot" — it is the functional + visual verification that mxbuild and "record created" cannot do. At minimum, for each page this module added:
       - **Every displayed field shows its value** — especially DateTime/enum/calculated fields. A blank where data must exist (e.g. a system `createdDate`) is a render bug (P1), not missing data — confirm the binding in MDL, then treat a persistent blank as a finding.
       - **Every grid/gallery** shows rows or a proper empty-state message — never nothing.
       - **Every action/View button** points at the *current* page, not a superseded one (`DESCRIBE PAGE`).
       - **Required-field validation surfaces a visible message** — a silent 4xx/5xx save is a P1.
       - **Built StyleGallery components are actually used** on this page (badges/steppers/empty-states), not reimplemented as plain text.
       - **Wireframe-vs-live** compare where a wireframe exists; degrade loudly (log it) where one doesn't — see the review loop's degradation table.
-      Diagnostic only: findings go to the punch-list, fixes are a separate approved pass.
-14. **Gate 3 — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.
-15. Mark module done ✅ — only if Gate 4's per-module review produced no open P1.
-```
 
-Steps 8–14 are the phase gate. Steps 1–7 without 8–14 = page may be built but wrong. Step 9 (grant completeness) and Step 13 (UI review loop) are the two checks mxbuild is blind to — a missing grant and a blank-rendering field both pass mxbuild silently. Step 14 specifically closes the gap `process-learnings.md` §C flagged and left open ("who owns the coverage checklist review?") — `gate-agent` does, as part of the same gate pass as Gate 2, not a separate optional step.
+      Diagnostic only: findings go to the punch-list, fixes are a separate approved pass.
+15. **Gate: COVERAGE — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.
+16. Mark module done ✅ — only if Gate: UI's per-module review produced no open P1.
+
+Everything from Gate: SYNTAX onward is the phase gate; the writing steps without it mean the page
+may be built and still wrong. **Grant completeness (step 10) and Gate: UI are the two checks mxbuild
+is blind to** — a missing grant and a blank-rendering field both pass mxbuild silently. Gate:
+COVERAGE closes the gap `process-learnings.md` §C flagged and left open ("who owns the coverage
+checklist review?") — `gate-agent` does, in the same pass as Gate: BUILD, not as a separate optional
+step.
+
+> **Older ordinals, for anyone arriving from a document that still cites them:** Gate 2 = Gate:
+> BUILD, Gate 3 = Gate: COVERAGE, Gate 4 = Gate: UI. There was never a Gate 1 — the pre-exec
+> `mxcli check` was the unwritten first gate, which is why the numbering started at 2, and it is
+> now Gate: SYNTAX and actually enforced. The ordinals are retired: they ran 2 → 4 → 3 in document
+> order for months because a gate was inserted in the middle and nothing renumbered.
 
 ### Trivial-change fast path (don't run the full loop on a mechanical script)
 
-The full 15-step loop is for a build unit that adds/alters a **rendered or user-facing surface** — a
+The full loop is for a build unit that adds/alters a **rendered or user-facing surface** — a
 page, widget, or a microflow a user triggers. A genuinely mechanical script has no such surface and
 does not need the UI passes:
 
 | Change | Skip | Still required |
 |--------|------|----------------|
-| Forward-reference stub, added enum value, rename, constant, a pure domain-attribute add with no page | Steps 12–13 (happy-path walk, UI review loop) — nothing renders to verify | `learned-mdl-preflight.md` STOP check · `mxcli check` · **Gate 2 mxbuild** (never skip) · grant completeness (Step 9) if it added a grantable element |
+| Forward-reference stub, added enum value, rename, constant, a pure domain-attribute add with no page | The happy-path walk and Gate: UI — nothing renders to verify | `learned-mdl-preflight.md` STOP check · **Gate: SYNTAX** and **Gate: BUILD** (never skip either) · grant completeness if it added a grantable element |
 
 **The line:** anything that adds or changes a page, a widget, or a microflow a user can invoke is
 **not** trivial — run the full loop. When unsure, treat it as full-discipline. This fast path exists
@@ -594,7 +529,6 @@ Some operations cannot be done via mxcli. Plan for these explicitly in each modu
 | When | Action | Estimated time |
 |------|--------|---------------|
 | After any `GRANT` script | Open Studio Pro → click "Update security" banner → Ctrl+S | 2 min |
-| Cross-module associations | Use `CREATE ASSOCIATION` via mxcli — BUG-02 fixed in v0.13.0 | — |
 | Drop attribute with access rules | Delete in Studio Pro (BUG-01 — mxcli corrupts MPR) | 2 min |
 | After `VALIDATION FEEDBACK` activities | Wire `Variable` manually in Studio Pro (BUG CE0639) | 1–2 min per activity |
 | After XPath retrieves written by mxcli | Run binary patch script + reload Studio Pro (BUG-15b) | 3 min |

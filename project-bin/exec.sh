@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # exec.sh — the guard chain around a model write.
 #
-#   concurrent-writer guard → snapshot → baseline → exec → mxbuild gate
-#   → auto-restore on regression → manual SP reopen
+#   concurrent-writer guard → mxcli check → snapshot → baseline → exec
+#   → mxbuild gate → auto-restore on regression → SP reopen
 #
 # Usage: ./bin/exec.sh <script.mdl>
 #
-# Overrides: FORCE_EXEC=1 (skip refusals), SKIP_BASELINE=1 (skip pre-flight),
+# Overrides: FORCE_EXEC=1 (skip refusals), SKIP_CHECK=1 (skip the pre-exec
+#            mxcli check), SKIP_BASELINE=1 (skip pre-flight mxbuild),
 #            MXBUILD_PATH=..., MENDIX_APP=..., MPR_FILE=...
 set -e
 
@@ -82,11 +83,30 @@ echo $$ > "$LOCK"
 trap 'rm -f "$LOCK"' EXIT
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ── Stale gate artefact ──────────────────────────────────────────────────────
+# last-mxbuild-errors.json is written only on the failure paths below and was
+# never removed, so after one bad run it outlived every clean run that followed
+# while iterative-build-loop.md still points readers at it for "full error
+# detail". Clear it HERE, at the start, rather than on success: a run killed
+# mid-flight (Ctrl-C, crash, SP taking the lock) reaches no success path and
+# would otherwise leave the old file looking like a report on the run that died.
+# One generation is archived as .prev — the previous failure's detail is often
+# still wanted after a re-run.
+LAST_ERRS="$PROJECT_ROOT/.mpr-snapshots/last-mxbuild-errors.json"
+if [ -f "$LAST_ERRS" ]; then
+  mv -f "$LAST_ERRS" "$LAST_ERRS.prev" 2>/dev/null || rm -f "$LAST_ERRS"
+fi
+
 # ── Build log (auto) ─────────────────────────────────────────────────────────
 # One line per exec, written by the script rather than by hand, so it stays true
 # when someone forgets. Added after cross-workstream collisions where a session
 # left the model non-building and it was only found by running something else.
 BUILD_LOG="$PROJECT_ROOT/docs/BUILD-LOG.md"
+
+# Declared HERE, above log_build, not next to the gate: a row must be able to
+# carry a gate verdict even when the gate block below is never reached.
+GATE_STATE="not-run"   # not-run | skipped | unverified | pass | fail
+
 log_build() {   # $1=status  $2=detail
   mkdir -p "$(dirname "$BUILD_LOG")"
   [ -f "$BUILD_LOG" ] || cat > "$BUILD_LOG" <<'HDR'
@@ -95,12 +115,52 @@ log_build() {   # $1=status  $2=detail
 One line per exec against the model. Written by the script, not by hand, so it is
 true even when someone forgets. Read this before assuming the model builds.
 
-| when | script | result | detail |
-|---|---|---|---|
+`gate` is the mxbuild verdict, and it is never blank:
+`pass` verified clean · `fail` verified broken · `skipped` mxbuild/java missing ·
+`unverified` errors file unparseable · `not-run` the gate was never reached.
+Only `pass` means anything looked at the model. A zero exit does not.
+
+| when (ISO-8601 local) | script | gate | result | detail |
+|---|---|---|---|---|
 HDR
-  printf '| %s | `%s` | %s | %s |\n' \
-    "$(date '+%m-%d %H:%M')" "$(basename "$SCRIPT")" "$1" "$2" >> "$BUILD_LOG"
+  # One-time migration: logs written before the gate column existed keep their
+  # 4-column header, and 5-column rows would render ragged under it. Start a
+  # fresh table rather than rewrite history.
+  if ! grep -q '| when (ISO-8601 local) |' "$BUILD_LOG"; then
+    cat >> "$BUILD_LOG" <<'HDR2'
+
+<!-- gate column added; rows above this line predate it -->
+
+| when (ISO-8601 local) | script | gate | result | detail |
+|---|---|---|---|---|
+HDR2
+  fi
+  # The gate cell is read from GATE_STATE rather than passed in, so no caller
+  # can omit it — a blank cell in this table reads as "fine", which is the exact
+  # false-green the gate exists to prevent.
+  printf '| %s | `%s` | %s | %s | %s |\n' \
+    "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$(basename "$SCRIPT")" \
+    "${GATE_STATE:-not-run}" "$1" "$2" >> "$BUILD_LOG"
 }
+
+# ── Pre-exec syntax gate ─────────────────────────────────────────────────────
+# `mxcli check --references` is the ONLY gate that can reject a bad script
+# before it mutates the .mpr. Every gate after this one recovers by snapshot
+# restore. It was mandated in prose (CLAUDE.md, learned-mdl-preflight.md) and
+# enforced nowhere — the pipeline went snapshot → exec → mxbuild. Costs ~2s on
+# a passing build. SKIP_CHECK=1 for the rare script mxcli's parser rejects but
+# the model accepts (log why, in the script).
+if [ "${SKIP_CHECK:-0}" != "1" ] && [ -x "$PROJECT_ROOT/mxcli" ]; then
+  echo "→ Pre-exec check: mxcli check (grammar + references)..."
+  if ! ./mxcli check "$SCRIPT" -p "$MPR" --references; then
+    echo ""
+    echo "  ✗ mxcli check failed — refusing to exec. NOTHING was written to the model."
+    echo "    Fix the script, or re-run with SKIP_CHECK=1 if you know why the parser is wrong."
+    log_build "🚫 blocked" "mxcli check failed pre-exec — nothing written to the model"
+    exit 1
+  fi
+  echo "  ✓ check clean"
+fi
 
 echo "→ Snapshotting model..."
 ./bin/snapshot-mpr.sh
@@ -168,7 +228,8 @@ echo "  (mxbuild: $MXBUILD)"
 # Three states, not two. "did not fail" is not "passed": the gate can be
 # skipped entirely (no mxbuild) or produce an unparseable result, and reporting
 # either as clean is the same false-green this script exists to prevent.
-GATE_STATE="not-run"   # not-run | skipped | unverified | pass | fail
+# GATE_STATE is declared alongside log_build above so the gate column can never
+# be blank, even on a path that never reaches this block.
 
 if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   ERRORS_FILE=$(mktemp /tmp/mxbuild-errors.XXXXXX)
@@ -210,7 +271,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
         echo "     Pre-existing [$KEEP_CODES], not introduced by this script. KEEPING the changes."
         echo "     The model still will not deploy until those are cleared in Studio Pro."
         [ "$EXEC_STATUS" -eq 0 ] && log_build "⚠️ applied (dirty model)" "no new errors; pre-existing $KEEP_CODES still blocks deploy"
-        cp "$ERRORS_FILE" "$PROJECT_ROOT/.mpr-snapshots/last-mxbuild-errors.json"
+        cp "$ERRORS_FILE" "$LAST_ERRS"
         rm -f "$ERRORS_FILE"
       else
         GATE_STATE="fail"
@@ -245,7 +306,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
           fi
         fi
         python3 -c "import json; d=json.load(open('$ERRORS_FILE')); [print('  ', e.get('errorCode','?'), e.get('message','')) for e in d.get('problems',[]) if e.get('severity')=='Error']" 2>/dev/null || true
-        cp "$ERRORS_FILE" "$PROJECT_ROOT/.mpr-snapshots/last-mxbuild-errors.json"
+        cp "$ERRORS_FILE" "$LAST_ERRS"
         echo "  → Full error detail: .mpr-snapshots/last-mxbuild-errors.json"
 
         # ── Whose error is it? ───────────────────────────────────────────────
@@ -285,6 +346,12 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   else
     GATE_STATE="pass"
     echo "  ✓ mxbuild: 0 errors — model is clean."
+    # No errors file, or an empty one. The comment at the CE_COUNT=0 branch says
+    # mxbuild ALWAYS writes one; on Mendix 11.13 it does not, so THIS is where
+    # the ordinary clean build lands. It was the only outcome with no log_build
+    # call: VB-USI-main hit 7 consecutive clean execs that produced 0 log rows
+    # (2026-08-06) and patched it locally before the template caught up.
+    [ "$EXEC_STATUS" -eq 0 ] && log_build "✅ applied" "mxbuild clean (no errors file written)"
   fi
   rm -f "$ERRORS_FILE"
 else

@@ -6,7 +6,9 @@
 
 **Upstream:** `bootstrap-project.md` (Stage P scaffolding), `query-the-model.md` (the lookup-before-ask discipline every gate depends on).
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
-**Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page — **open it in the user's browser at Stage P kickoff** (`open toolkit-guide.html`), before the first interview question. It doubles as the shared CSS shell/token source for every stage HTML surface.
+**Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.
+
+**Do not open `toolkit-guide.html` because you read this line.** Opening is governed by the first-touch rule in the toolkit's `CLAUDE.md` — open only if `<project-root>/.claude/.guide-shown` is absent, then `touch` it. You are reading this file *every session*; an unconditional "open it at kickoff" here means a browser tab every session, which is exactly the bug this wording replaced.
 
 ---
 
@@ -48,6 +50,31 @@ Every gate in §2 runs the same six-step shape. This is the thing that should be
 4. **The question is actually asked, in the chat** — multiple choice (use `AskUserQuestion` where available), "other" always available. **Then the agent ends its turn and waits.** Do not answer your own question and keep working in the same turn — a gate that never reaches the user's screen is not a gate. Finding the answer in the source does not waive the question: source evidence powers the *recommendation* (step 2), it never replaces the *asking*.
 5. **The decision is written to two places**: the stage's HTML proposal doc (the artifact, customer-showable) and `PROJECT.md` (the register), marked `CONFIRMED`.
 6. **`ASSUMED` is earned by asking, never by skipping.** An answer may be recorded `ASSUMED` only after the question was actually posed and the user said "don't know" / "you decide" — that is delegation-by-consent, recorded with the risk if wrong. Deriving an answer yourself and not asking is a protocol violation, not an `ASSUMED`.
+
+**The gate's own questions are not the only questions — raise the accumulated batch too.** Steps 1–6 govern the questions the *gate* asks. But the pipeline generates a second stream all the time: every `openQuestions` entry a BRD records, every row added to `analysis/sme-questions.md`. Those were never wired to anything, and they rotted. Measured on one real project (2026-08-12): 46 rows in `sme-questions.md` against 7 mentions of an answer, ~35 unresolved BRD `openQuestions`, one status reading *"Open — routed to sme-questions.md F1/F2"* — routed to a file nobody opens. Several were not merely unasked but already **decided**: *"ASSUMED drafting position (a), hardcode — taken to keep this BRD buildable… NOT a settled product decision"* is a real product choice (hardcode vs. build a configurable rules engine) taken unilaterally and never shown to anyone. And 23 distinct free-text status strings meant nothing could count them, which is why nothing ever surfaced them.
+
+So, **as a required step at every gate, before the gate's own questions**:
+
+```bash
+bin/open-questions.sh <project-root> --stage <N>
+```
+
+It prints a numbered, chat-ready batch — question, where it came from, and, where a BRD already took a drafting position, what was assumed. **Paste it into the chat verbatim, then end the turn and wait.** The user only has to confirm or overturn each position; they should never have to go find them.
+
+The vocabulary is controlled, and only these six values are legal in a `status`:
+
+| State | Meaning | Blocks a gate? |
+|---|---|---|
+| `UNRAISED` | never put in front of the user — the default for anything not positively past it | **yes** |
+| `RAISED` | put to the user at a named gate, awaiting their reply | no |
+| `ANSWERED` | the user decided; requires a non-empty `answer` | no |
+| `ASSUMED` | agent took a position **and** the user consented after seeing it; requires `consentBy` + `consentAt` | no |
+| `MOOT` | descoped by another decision; the reason is in the text | no |
+| `UNRECOGNISED` | the normaliser could not place it — counts as **not done** | **yes** |
+
+An `ASSUMED` with no `consentBy`/`consentAt` is not an assumption, it is the defect: it normalises to `UNRAISED` and blocks. `bin/gate-check.sh <project-root> <N>` enforces this and will not pass a stage carrying unraised questions. Unlike protocol staleness (which notifies), this one blocks — it is the project's own state, and an architecture built on decisions the customer never saw is exactly what §1 exists to prevent.
+
+Note the ruling this encodes, from the user, 2026-08-12: *"At each gate, also give the option for the model to make assumptions. But it should at least raise the questions right?"* **Raising is mandatory. Assuming is permitted only after raising.** Nothing here forbids the agent from having a position — it forbids the user finding out later.
 
 A proposal beats a questionnaire because it asks the user to **correct** something rather than supply it cold — and by the time each gate arrives, the agent has read the source and has evidence to put behind its recommendation.
 
@@ -151,7 +178,7 @@ Three extraction methods, not two. Each is either **done** or **explicitly decla
 | **User defines** | Confirms business rules the code implies. Answers `openQuestions` (via SME). Narrative is never invented. |
 | **Agent produces** | BRD scaffolds → enrichment from `KB.md` → validation to clean. `F{NNN}.brd.json`. |
 | **Surface** | `enrichment-summary.html` |
-| **Gate** | Every BRD validation-clean; `validation-report.md` has 0 issues; open questions are chased to closure, not merely logged. |
+| **Gate** | Every BRD validation-clean; `validation-report.md` has 0 issues; **every `openQuestions` entry raised in chat** — `bin/open-questions.sh <root> --stage 2` reports 0 blocking, which `gate-check.sh` enforces. "Chased to closure" was the old wording and it was unenforceable: a question logged with a self-answer read as closed. |
 | **Owner** | `ba-agent` |
 
 ### Stage 3 — Architecture & Design ✋

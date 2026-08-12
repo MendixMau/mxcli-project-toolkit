@@ -1184,6 +1184,57 @@ else
 fi
 printf "Drift (BRD sync): %s — %s\n" "$DRIFT_STATUS" "$DRIFT_NOTE"
 
+# ---------------------------------------------------------------------------
+# Open questions — has the project actually ASKED what it wrote down?
+#
+# The pipeline has always generated questions (BRD `openQuestions`, analysis/sme-questions.md)
+# and never checked that any reached the user. Measured on one real project: 46 rows in
+# sme-questions.md against 7 mentions of an answer, and BRD statuses like "ASSUMED drafting
+# position (a), hardcode … NOT a settled product decision" — real product decisions taken
+# unilaterally. Stage 2 already required BRDs to HAVE open questions; nothing required anyone
+# to answer them.
+#
+# The user's ruling: batch per gate, raising is mandatory, assuming is permitted only AFTER
+# raising. So the blocking condition is NOT "unanswered" — it is "never raised". A question
+# the user saw and delegated back ("you decide") is ASSUMED-with-consent and passes.
+#
+# This one BLOCKS. Protocol staleness notifies because it is toolkit hygiene; unraised
+# questions are the project's own state, and shipping an architecture built on decisions the
+# customer never saw is the failure the whole interview protocol exists to prevent.
+OQ_STATUS="PASS"
+OQ_NOTE="no unraised questions"
+OQ_BLOCKING=0
+OQ_JSON=""
+OQ_SCRIPT="$TOOLKIT_DIR/bin/open-questions.sh"
+if [ ! -x "$OQ_SCRIPT" ]; then
+  OQ_STATUS="MANUAL"
+  OQ_NOTE="bin/open-questions.sh not found or not executable at $OQ_SCRIPT — cannot evaluate, which is not a pass"
+elif ! command -v jq >/dev/null 2>&1; then
+  OQ_STATUS="MANUAL"
+  OQ_NOTE="jq not installed — the open-questions collector cannot run; cannot evaluate, which is not a pass"
+else
+  OQ_JSON="$("$OQ_SCRIPT" "$PROJECT_DIR" --json 2>/dev/null || true)"
+  if [ -z "$OQ_JSON" ]; then
+    OQ_STATUS="MANUAL"
+    OQ_NOTE="open-questions collector produced no output — cannot evaluate, which is not a pass"
+  elif [ "$(printf '%s' "$OQ_JSON" | jq -r '.examined.nothingExamined')" = "true" ]; then
+    # Zero questions because zero sources. Never render as clean.
+    OQ_STATUS="MANUAL"
+    OQ_NOTE="NOTHING EXAMINED — no *.brd.json and no analysis/sme-questions.md exist; zero questions found because zero sources were read"
+  else
+    OQ_BLOCKING="$(printf '%s' "$OQ_JSON" | jq -r '.blocking')"
+    oq_examined="$(printf '%s' "$OQ_JSON" | jq -r '"\(.examined.brdFiles) BRD file(s), \(.examined.smeQuestionFiles) sme-questions file(s), \(.examined.duplicatesCollapsed) duplicate(s) collapsed"')"
+    oq_counts="$(printf '%s' "$OQ_JSON" | jq -r '.counts | "UNRAISED=\(.UNRAISED) RAISED=\(.RAISED) ANSWERED=\(.ANSWERED) ASSUMED=\(.ASSUMED) MOOT=\(.MOOT) UNRECOGNISED=\(.UNRECOGNISED)"')"
+    if [ "${OQ_BLOCKING:-0}" -gt 0 ]; then
+      OQ_STATUS="FAIL"
+      OQ_NOTE="$OQ_BLOCKING question(s) never put to the user [$oq_counts; examined $oq_examined]"
+    else
+      OQ_NOTE="every question has been raised [$oq_counts; examined $oq_examined]"
+    fi
+  fi
+fi
+printf "Open questions (raised?): %s — %s\n" "$OQ_STATUS" "$OQ_NOTE"
+
 # Stage P is checked outside the numeric loop (bash 3.2 arrays need integer indices).
 P_RESULT="$(check_stage_P)"
 P_STATUS="${P_RESULT%%|*}"
@@ -1290,6 +1341,8 @@ HTML_HEAD
     "$SYNC_STATUS" "$SYNC_STATUS" "$SYNC_NOTE"
   printf '<tr><td>⇄</td><td>BRD drift-sync</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$DRIFT_STATUS" "$DRIFT_STATUS" "$DRIFT_NOTE"
+  printf '<tr><td>?</td><td>Open questions raised</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
+    "$OQ_STATUS" "$OQ_STATUS" "$(printf '%s' "$OQ_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
   printf '<tr><td>P</td><td>Kickoff</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$P_STATUS" "$P_STATUS" "$P_NOTE"
   for stage in "${STAGE_NAMES[@]}"; do
@@ -1348,10 +1401,50 @@ if [ -n "$REQUESTED_STAGE" ]; then
     printf '%s\n' "$UNSYNCED_ROWS" >&2
     exit 1
   fi
+  # No gate passes while questions this stage owns were never put to the user.
+  #
+  # Deliberately invoked LAST, only on a gate that would otherwise PASS. An earlier draft ran
+  # it up here, ahead of the stage's own verdict, and its "nothing examined" MANUAL then
+  # hijacked stages that were already FAILing for their own reasons — turning 8 exit-1
+  # verdicts into exit 2 across two existing fixtures. A stage that fails on its own evidence
+  # must keep saying so; this check exists to stop a PASS, not to relabel a failure.
+  enforce_open_questions() { # enforce_open_questions <stage-id>
+    local st="$1" arg="" j blk counts
+    case "$st" in P|p) return 0 ;; esac
+    case "$st" in [0-7]) arg="--stage $st" ;; esac
+    # Nothing examined: only meaningful from Stage 2, when BRDs are supposed to exist.
+    # Before that there is genuinely nothing to have raised, and Stage 2's own check already
+    # FAILs a project with no BRDs — escalating here would just duplicate it one stage early.
+    if [ "$OQ_STATUS" = "MANUAL" ]; then
+      case "$st" in
+        0|1) echo "" >&2; echo "Note: open questions not evaluated — $OQ_NOTE" >&2; return 0 ;;
+        *)   echo "" >&2
+             echo "Gate NOT EVALUATED for open questions: $OQ_NOTE" >&2
+             echo "This is not a pass. Fix the collector or the project layout, then re-run." >&2
+             exit 2 ;;
+      esac
+    fi
+    j="$("$OQ_SCRIPT" "$PROJECT_DIR" $arg --json 2>/dev/null || true)"
+    blk="$(printf '%s' "$j" | jq -r '.blocking // 0' 2>/dev/null || echo 0)"
+    [ "${blk:-0}" -gt 0 ] || return 0
+    counts="$(printf '%s' "$j" | jq -r '.counts | "UNRAISED=\(.UNRAISED) UNRECOGNISED=\(.UNRECOGNISED) (of \(.total) examined)"')"
+    echo "" >&2
+    echo "Gate BLOCKED: $blk question(s) at stage $st have never been raised with the user." >&2
+    echo "  $counts" >&2
+    echo "" >&2
+    echo "  See them, as a chat-ready batch:" >&2
+    echo "    $OQ_SCRIPT $PROJECT_DIR${arg:+ $arg}" >&2
+    echo "" >&2
+    echo "  Raising is mandatory; assuming is not forbidden. Paste the batch, end the turn," >&2
+    echo "  and wait. Anything the user hands back ('you decide') is recorded ASSUMED with" >&2
+    echo "  consentBy/consentAt and stops blocking. An assumption they never saw does not." >&2
+    exit 1
+  }
   # Pre-build readiness: a wiring preflight, not a numeric stage.
   if [ "$REQUESTED_STAGE" = "build-ready" ]; then
     echo ""
     if check_build_ready; then
+      enforce_open_questions build-ready
       exit 0
     else
       exit 1
@@ -1395,6 +1488,9 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "per-module coverage checklists and each script's gate result)." >&2
     exit 2
   fi
+  # The stage passes on its own evidence. Last question: was anything decided behind the
+  # user's back? This is the project's own state, so unlike protocol staleness it BLOCKS.
+  enforce_open_questions "$REQUESTED_STAGE"
 fi
 
 exit 0

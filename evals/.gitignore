@@ -1,0 +1,6 @@
+# Raw session transcripts — large, run-specific
+**/transcripts/
+# Temp project dirs created during eval runs
+/tmp/eval-*/
+# Any captured source fixtures larger than the manifest stub
+**/input/source/

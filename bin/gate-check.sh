@@ -134,26 +134,137 @@ resolve_artifact() {
   return 1
 }
 
+# Resolve a per-stage SOURCE file (intake.md, triage.md) rather than a build artifact.
+#
+# resolve_artifact() deliberately prefers the ROOT copy — correct for artifacts, where a root
+# build-plan.md really is the project's build plan. It is wrong for a stage source file, which
+# is a hand-maintained document that gets forked and abandoned: on WMS-App-main the root holds
+# a July-era scaffold with one unanswered question while analysis/WMS-App/intake.md holds eight
+# real answers, and root-first grades the file nobody has touched. So a plain
+# `resolve_artifact "intake.md"` is NOT the fix — it lands on exactly the same stale file.
+#
+# Echoes the resolved path, or the literal AMBIGUOUS when two DIFFERENT copies exist. Two
+# differing copies is not a layout a single verdict can describe; one is stale and only a human
+# knows which. Byte-identical copies are not ambiguous — either one grades the same. On a flat
+# project both candidates are the same path and this is a no-op.
+#
+# MERGE NOTE: bug02 proposed this as a shared helper; gate-check-intake-patch.md proposed the
+# same logic inlined in check_stage_P, arguing it keeps resolve_artifact's semantics from
+# spreading. The helper won: check_stage_0 needs byte-identical behaviour, and an inline copy is
+# how the two call sites would drift apart again. Deliberately NOT wired into check_stage_0 in
+# this change — that is bug02's patch and carries its own blast radius.
+resolve_stage_file() {
+  local rel="$1" root_f="$PROJECT_DIR/$1" base_f="$ANALYSIS_BASE/$1"
+  if [ "$root_f" != "$base_f" ] && [ -f "$root_f" ] && [ -f "$base_f" ] \
+     && ! cmp -s "$root_f" "$base_f"; then
+    echo "AMBIGUOUS"
+    return 1
+  fi
+  resolve_artifact "$rel"
+}
+
+# The pre-12828e4 Q9 body. gate-check NEVER rewrites it — the repair lives in
+# sync-project.sh --repair-intake, which rewrites only when the section is byte-identical to
+# this text. The hint below is therefore printed only on a byte-identical match, so the command
+# it offers is one that will actually succeed and cannot lose an edited answer.
+q9_stale_scaffold_text() {
+  cat <<'EOF'
+## 9. Interview mode: attended (default) or unattended?
+
+Attended unless the user explicitly says otherwise. Attended = every gate question is asked
+in chat and the agent waits for the answer. Unattended (opt-in only) = recommended options
+are applied as ASSUMED and questions are logged in PROJECT.md for later reconciliation.
+EOF
+}
+
+# Print the "## 9." section, trailing blank lines stripped.
+q9_section() {
+  awk '/^## 9\./{insec=1} insec && /^## /&&!/^## 9\./{insec=0} insec{print}' "$1" \
+    | awk '{a[NR]=$0} END{last=NR; while(last>0 && a[last]~/^[ \t]*$/) last--; for(i=1;i<=last;i++) print a[i]}'
+}
+
 check_stage_P() {
-  local f="$PROJECT_DIR/intake.md"
-  if [ ! -f "$f" ]; then
-    echo "FAIL|intake.md not found"
+  local f
+  f="$(resolve_stage_file "intake.md")"
+  if [ "$f" = "AMBIGUOUS" ]; then
+    echo "FAIL|two different intake.md files — $PROJECT_DIR/intake.md and $ANALYSIS_BASE/intake.md — a single Stage P verdict cannot describe both; delete or merge the stale one (the analysis/<name>/ copy is normally the live one) and re-run"
     return
   fi
-  # Every "## " question section must contain an "Answered" or "Unverified — how to verify" line.
-  local blanks
-  blanks=$(awk '
-    /^## /{ if (insec && !ok) bad++; insec=1; ok=0; next }
-    insec && (/Answered/ || /Unverified/) { ok=1 }
-    END { if (insec && !ok) bad++; print bad+0 }' "$f")
-  local total
-  total=$(grep -c '^## ' "$f")
+  if [ -z "$f" ] || [ ! -f "$f" ]; then
+    echo "FAIL|intake.md not found (looked in $PROJECT_DIR/ and $ANALYSIS_BASE/)"
+    return
+  fi
+
+  # Every "## " question section must carry an answer MARKER at the start of a line.
+  #
+  # The old test was an unanchored, case-sensitive substring search for "Answered" or
+  # "Unverified" anywhere in the section, and it was wrong in BOTH directions:
+  #   - "- Status: Not Answered" PASSED, because it contains "Answered";
+  #   - a bare "Unverified." PASSED without the how-to-verify clause the FAIL message promises;
+  #   - a lowercase "answered: ..." FAILED;
+  #   - a real prose answer with no marker FAILED (see the known limitation below).
+  #
+  # MERGE NOTE — two anchored matchers were proposed and they disagree:
+  #   * gate-check-intake-patch.md: case-SENSITIVE, exactly two words (Answered|Unverified), no
+  #     colon required. Its argument, recorded because it is a good one: the accepted vocabulary
+  #     is a runbook decision, not a script decision, and should change in the template preamble
+  #     and the runbook together. It lost anyway, on two measured facts — case-sensitivity
+  #     reproduces the false-FAIL on a lowercase "answered:" (bug01 §"Adjacent finding"), and
+  #     accepting a bare "Unverified" keeps the FAIL message a lie.
+  #   * bug03: case-insensitive, five markers, an optional parenthetical qualifier, a required
+  #     colon, and "Unverified" only counts when the line also says how to verify. Chosen.
+  # The qualifier branch is NOT cosmetic: VB-USI-main and TFC-TCXGraphPOC-main both write
+  # "Answered (CONFIRMED):", and bug03's first draft turned both projects red by rejecting it.
+  # That form is a real workspace convention and any future tightening must keep accepting it.
+  #
+  # GATE_INTAKE_LOOSE=1 (an escape hatch in gate-check-intake-patch.md) is deliberately NOT
+  # carried over: it restores the substring match, under which "- Status: Not Answered" passes
+  # again — the single worst false-green this change exists to close. The merged matcher is far
+  # wider than the one that hatch was written to soften, so the migration case it covered is
+  # mostly gone; a project that still needs it should widen the marker list here, in the open.
+  local bad total
+  bad=$(awk '
+    function flush(){ if (insec && !ok) { bad = bad sep title; sep = "; " } }
+    /^##[ \t]/ { flush(); insec=1; ok=0; title=$0; sub(/^##[ \t]*/,"",title); next }
+    insec {
+      line=$0
+      gsub(/^[ \t>*_-]+/,"",line); gsub(/\*/,"",line)
+      l=tolower(line)
+      if (l ~ /^(answered|answer|a|decision|assumed)[ \t]*(\([^)]*\))?[ \t]*:/) ok=1
+      else if (l ~ /^unverified/ && l ~ /how to verify/) ok=1
+    }
+    END { flush(); print bad }' "$f")
+  total=$(grep -c '^##[ \t]' "$f")
+
+  # Always name the file that was graded. A Stage P line that does not is what let the
+  # wrong-file bug survive for weeks: the output was locally coherent and globally wrong.
+  local where=" [$f]"
+
+  # If the offending section is the untouched pre-12828e4 Q9 boilerplate, name the repair.
+  # Detection is by the gate's OWN criterion (it landed in $bad), so it cannot drift away from
+  # what is graded; the byte comparison only decides whether the offered command is safe.
+  local hint="" q9_a q9_b
+  case "$bad" in
+    *9.*)
+      q9_a=$(mktemp "${TMPDIR:-/tmp}/q9a.XXXXXX") || q9_a=""
+      q9_b=$(mktemp "${TMPDIR:-/tmp}/q9b.XXXXXX") || q9_b=""
+      if [ -n "$q9_a" ] && [ -n "$q9_b" ]; then
+        q9_section "$f" > "$q9_a"
+        q9_stale_scaffold_text > "$q9_b"
+        if cmp -s "$q9_a" "$q9_b"; then
+          hint=" — Q9 is the untouched pre-12828e4 scaffold text, which can never pass this gate; it is byte-identical to the old template so replacing it loses nothing: bin/sync-project.sh $PROJECT_DIR --repair-intake"
+        fi
+        rm -f "$q9_a" "$q9_b"
+      fi
+      ;;
+  esac
+
   if [ "$total" -eq 0 ]; then
-    echo "FAIL|intake.md has no question sections"
-  elif [ "$blanks" -eq 0 ]; then
-    echo "PASS|all $total intake questions answered or explicitly Unverified"
+    echo "FAIL|intake.md has no '## ' question sections$where"
+  elif [ -z "$bad" ]; then
+    echo "PASS|all $total intake questions carry an answer marker$where"
   else
-    echo "FAIL|$blanks of $total intake questions have no answer and no 'Unverified — how to verify' line"
+    echo "FAIL|unanswered section(s) in $f: $bad — each '## ' section needs a line STARTING with 'Answered:' (Answer:/A:/Decision:/Assumed: also accepted, and a qualifier such as 'Answered (CONFIRMED):' is fine), or 'Unverified — how to verify: …'$hint"
   fi
 }
 

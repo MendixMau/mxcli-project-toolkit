@@ -196,6 +196,182 @@ const navItems = moduleNames.map(n => {
   return `<div class="nav-item module-nav" id="nav-${esc(n)}" onclick="showModule('${esc(n)}')">${dot} ${esc(n)}<span class="nav-badge">${badge}</span></div>`;
 }).join('\n');
 
+// ── "What this application is" block ─────────────────────────────────────────
+// Two clearly separated halves. The HUMAN-AUTHORED statement leads and is never
+// invented here: if no human has written one, the block says so and gives the single
+// action that fixes it. The CODE-DERIVED half sits beneath, labelled as inference, and
+// shows what it was derived FROM so a reader can judge it. A derivation that examined
+// nothing renders as "nothing examined", never as a confident empty summary.
+const APP_SUMMARY_HEADING_RE = /^\s{0,3}#{1,4}\s*(?:\d+[.)]\s*)?(?:what this application is|what this app is|what the application does|application summary|app summary|application purpose)\b/i;
+const APP_SUMMARY_SOURCES = ['intake.md', 'triage.md', 'PROJECT.md'];
+
+function findProjectRoot(startDir) {
+  let dir = path.resolve(startDir);
+  for (let i = 0; i < 8; i++) {
+    for (const marker of APP_SUMMARY_SOURCES) {
+      if (fs.existsSync(path.join(dir, marker))) return dir;
+    }
+    const up = path.dirname(dir);
+    if (up === dir) break;
+    dir = up;
+  }
+  return null;
+}
+
+function extractSummarySection(text) {
+  const lines = text.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    if (!APP_SUMMARY_HEADING_RE.test(lines[i])) continue;
+    const heading = lines[i].replace(/^\s*#+\s*/, '').trim();
+    const body = [];
+    for (let j = i + 1; j < lines.length; j++) {
+      if (/^\s{0,3}#{1,6}\s/.test(lines[j])) break;
+      body.push(lines[j]);
+    }
+    const prose = body.join('\n').replace(/^\s+|\s+$/g, '');
+    if (prose) return { heading, prose };
+  }
+  return null;
+}
+
+function findHumanStatement() {
+  const searched = [];
+  const root = CONFIG.projectRoot || findProjectRoot(KB);
+  const candidates = (CONFIG.appSummaryFile ? [path.resolve(CONFIG.appSummaryFile)] : [])
+    .concat(root ? APP_SUMMARY_SOURCES.map(f => path.join(root, f)) : []);
+  for (const file of candidates) {
+    searched.push(file);
+    let text;
+    try { text = fs.readFileSync(file, 'utf8'); } catch (_) { continue; }
+    const found = extractSummarySection(text);
+    if (found) return { found: true, file, heading: found.heading, prose: found.prose, searched, root };
+  }
+  return { found: false, searched, root };
+}
+
+const APP_SUMMARY_STOPWORDS = new Set([
+  'data','info','item','items','entity','entities','dto','model','models','base','type','types',
+  'list','detail','details','service','services','manager','record','records','table','request',
+  'response','impl','abstract','common','util','utils','helper','main','new','edit','view','page',
+  'screen','form','popup','block','get','set','api','vo','bo','id','ids','the','and','for','with',
+]);
+
+function appSummaryTokens(name) {
+  return String(name)
+    .replace(/[^A-Za-z0-9]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .split(/\s+/).filter(Boolean).map(t => t.toLowerCase());
+}
+
+function appSummaryTopTokens(names, n) {
+  const counts = new Map();
+  for (const nm of names) {
+    for (const t of new Set(appSummaryTokens(nm))) {
+      if (t.length < 3 || /^\d+$/.test(t) || APP_SUMMARY_STOPWORDS.has(t)) continue;
+      counts.set(t, (counts.get(t) || 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .filter(([, c]) => c > 1 || counts.size <= 6)
+    .slice(0, n);
+}
+
+function buildAppSummaryBlock() {
+  const human = findHumanStatement();
+
+  // ── Derived signals (inference only) ───────────────────────────────────────
+  const examinedEntities = entities.length;
+  const examinedScreens  = screens.length;
+  const examinedLogics   = logics.length;
+  const examinedTotal    = examinedEntities + examinedScreens + examinedLogics;
+
+  const signals = [];
+  const nouns = appSummaryTopTokens(entities.map(e => e.name), 6);
+  if (nouns.length) {
+    signals.push(['Dominant entity nouns', nouns.map(([t, c]) => t + ' ×' + c).join(', ')]);
+  }
+  if (examinedScreens) {
+    const listUI = screens.filter(s => s.widgetSummary && s.widgetSummary.hasListUI).length;
+    const formUI = screens.filter(s => s.widgetSummary && s.widgetSummary.hasFormUI).length;
+    signals.push(['Screen shapes', listUI + ' with a list, ' + formUI + ' with a form, of ' + examinedScreens + ' screens']);
+  }
+  const bigModules = moduleNames
+    .map(n => [n, modules[n].entities.length])
+    .filter(([, c]) => c > 0)
+    .sort((a, b) => b[1] - a[1]).slice(0, 5);
+  if (bigModules.length) {
+    signals.push(['Largest modules by entity', bigModules.map(([n, c]) => n + ' (' + c + ')').join(', ')]);
+  }
+  const typeTally = new Map();
+  brdModules.forEach(b => {
+    const lbl = b.appType && b.appType.label;
+    if (lbl) typeTally.set(lbl, (typeTally.get(lbl) || 0) + 1);
+  });
+  const topTypes = [...typeTally.entries()].sort((a, b) => b[1] - a[1]);
+  if (topTypes.length) {
+    signals.push(['Per-module app type (BRD)', topTypes.map(([l, c]) => l + ' ×' + c).join(', ')]);
+  }
+
+  let derivedBody;
+  if (examinedTotal === 0) {
+    derivedBody = '<p><strong>Nothing was examined, so nothing is inferred.</strong> This extraction ' +
+      'contains 0 entities, 0 screens and 0 logic items. Check that the pipeline actually ran and that ' +
+      '<code>knowledgeBaseDir</code> in <code>config.json</code> points at the completed extraction.</p>';
+  } else {
+    const lead = nouns.length
+      ? 'Reading only the extracted code, the recurring subject matter is ' +
+        '<strong>' + esc(nouns.slice(0, 3).map(([t]) => t).join(', ')) + '</strong>.'
+      : 'Reading only the extracted code, no entity naming pattern is dominant enough to name a subject matter.';
+    derivedBody = '<p>' + lead + ' This is a machine reading of names and shapes, not a description of ' +
+      'what the business does with it — treat it as a prompt for the human statement above, not a substitute.</p>';
+    if (signals.length) {
+      derivedBody += '<ul class="app-summary-signals">' +
+        signals.map(([k, v]) => '<li><span class="k">' + esc(k) + '</span>' + esc(v) + '</li>').join('') +
+        '</ul>';
+    }
+  }
+  const basis = 'Derived from ' + examinedEntities + ' entities, ' + examinedScreens + ' screens, ' +
+    examinedLogics + ' logic items across ' + moduleNames.length + ' modules and ' +
+    brdModules.length + ' BRD file' + (brdModules.length === 1 ? '' : 's') + '.';
+
+  // ── Human half ─────────────────────────────────────────────────────────────
+  let head;
+  if (human.found) {
+    const paras = human.prose
+      .replace(/\*\*/g, '').replace(/^\s*>\s?/gm, '')
+      .split(/\n\s*\n/).map(p => p.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 3);
+    const clipped = paras.map(p => (p.length > 400 ? p.slice(0, 400).trim() + '…' : p));
+    head = '<div class="app-summary-statement">' +
+      clipped.map(p => '<p>' + esc(p) + '</p>').join('') + '</div>' +
+      '<div class="app-summary-source">Stated by a human in <code>' + esc(path.basename(human.file)) +
+      '</code> § “' + esc(human.heading) + '”. Not derived from code.</div>';
+  } else {
+    const target = human.root ? path.join(human.root, 'intake.md') : 'intake.md';
+    head = '<div class="app-summary-statement"><p>No one has stated what this application is.</p></div>' +
+      '<div class="app-summary-action"><strong>To fix:</strong> add a <code>## What this application is</code> ' +
+      'section to <code>' + esc(target) + '</code> (or <code>triage.md</code> / <code>PROJECT.md</code>), ' +
+      'write two or three plain-language sentences, then re-run this report. ' +
+      'Nothing below is a substitute for it.</div>' +
+      '<div class="app-summary-source">Searched: ' +
+      (human.searched.length ? human.searched.map(f => '<code>' + esc(f) + '</code>').join(', ')
+                             : 'no project root found above <code>' + esc(KB) + '</code>') +
+      '.</div>';
+  }
+
+  return '<div class="app-summary' + (human.found ? '' : ' unstated') + '">' +
+    '<div class="app-summary-label">What this application is</div>' +
+    head +
+    '<div class="app-summary-derived">' +
+    '<div class="app-summary-derived-label">Inferred from the code — not a statement of fact</div>' +
+    derivedBody +
+    '<div class="app-summary-basis">' + esc(basis) + '</div>' +
+    '</div></div>';
+}
+
+const appSummaryBlock = buildAppSummaryBlock();
+
 // ── HTML ──────────────────────────────────────────────────────────────────────
 const html = `<!DOCTYPE html>
 <html lang="en">
@@ -235,6 +411,24 @@ const html = `<!DOCTYPE html>
   .stat-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; }
   .stat-card .val { font-size: 28px; font-weight: 700; color: #1d4ed8; }
   .stat-card .lbl { font-size: 12px; color: #64748b; margin-top: 2px; }
+
+  /* "What this application is" block — human statement above, inference below */
+  .app-summary { background: #fff; border: 1px solid #e2e8f0; border-left: 5px solid #1d4ed8; border-radius: 10px; padding: 20px 24px; margin-bottom: 24px; }
+  .app-summary.unstated { border-left-color: #f59e0b; }
+  .app-summary-label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+  .app-summary-statement { font-size: 19px; font-weight: 600; line-height: 1.4; color: #0f172a; }
+  .app-summary-statement p { margin-bottom: 6px; }
+  .app-summary-statement p + p { font-size: 14px; font-weight: 400; color: #475569; }
+  .app-summary-source { font-size: 12px; color: #64748b; margin-top: 8px; }
+  .app-summary-action { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 12px; font-size: 13px; color: #854d0e; margin-top: 10px; }
+  .app-summary-derived { border-top: 1px dashed #e2e8f0; margin-top: 16px; padding-top: 14px; }
+  .app-summary-derived-label { display: inline-block; background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 8px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+  .app-summary-derived p { font-size: 14px; color: #334155; line-height: 1.5; }
+  .app-summary-signals { list-style: none; margin: 8px 0 0; padding: 0; }
+  .app-summary-signals li { font-size: 12px; color: #475569; padding: 2px 0; }
+  .app-summary-signals li span.k { color: #64748b; display: inline-block; min-width: 150px; }
+  .app-summary-basis { font-size: 11px; color: #94a3b8; margin-top: 10px; }
+  .app-summary code { font-family: 'SF Mono', Consolas, monospace; font-size: 12px; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
 
   /* Tables */
   table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
@@ -288,6 +482,7 @@ const html = `<!DOCTYPE html>
 
   <!-- Dashboard -->
   <div class="page active" id="page-dashboard">
+    ${appSummaryBlock}
     <h2 style="margin-bottom:20px">Extraction Dashboard</h2>
     <div class="stat-grid">
       <div class="stat-card"><div class="val">${moduleNames.length}</div><div class="lbl">Modules</div></div>

@@ -2573,6 +2573,26 @@ moment to change the pipeline's tool version. Logged and continuing the build pe
 click (or a `v0.17.0` upgrade + re-verify) needs a human in Studio Pro before Stage 5's final
 deploy-readiness gate, not before every intermediate script.
 
+### New sighting, 2026-08-13, VB-USI-main, mxcli v0.17.0 — upgrade does NOT fix this instance
+
+VB-USI-main was upgraded `v0.16.0` → `v0.17.0` mid-build (script 59's fix arc, separately motivated
+by BUG-20/BUG-21-class DataView/column defects, which the upgrade did resolve). `CE0066` on the
+`Common` domain model from the 2026-08-12 sighting above **persisted unchanged** across every
+`docker check`/gate-agent run on the upgraded binary — this contradicts the "should no longer be
+needed on `v0.17.0`" expectation logged for TFC-TCXGraphPOC-main's association-level case.
+
+Narrows the scope of the earlier "0 new errors on v0.17.0" result: that test was against a
+**newly-created association**'s `MemberAccess` gap. This sighting is the broader, zero-association,
+entity-level trigger (new entity + `EXTENDS System.FileDocument` + entity-level `GRANT` in the same
+session) — apparently a distinct code path in mxcli's security-metadata regeneration that v0.17.0's
+fix didn't cover. Treat "v0.17.0 fixes CE0066" as validated only for the association-`MemberAccess`
+case until the entity-level trigger is independently retested elsewhere.
+
+Confirmed non-blocking for VB-USI-main: gate-agent PASS'd script 59 with CE0066 as the sole
+(pre-existing, script-51-attributable, out-of-scope) remaining error. The manual Studio Pro
+"Update security" click is still the only known fix for this trigger; deferred to the pre-deploy
+gate per the same standing note as the original sighting.
+
 ## BUG-60: `./mxcli docker check` collapses a v2 split-tree `.mpr` back to v1 single-file and deletes `mprcontents/` — on a plain read-only check, no exec involved
 
 ### Symptom

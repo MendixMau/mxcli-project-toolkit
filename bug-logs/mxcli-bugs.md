@@ -3613,3 +3613,55 @@ than an explicit `return`), but distinct: BUG-73 causes a hard mxbuild failure (
 causes a *silent* structural change that mxbuild accepts as valid, making it strictly more
 dangerous — there is no compiler signal to catch it, only a source-vs-live-model diff or a reviewer
 who knows to look for the appended `return;`.
+
+## BUG-75: a quoted attribute path used as a call-microflow argument value keeps its literal quotes in the compiled expression, causing native mxbuild CE0117 — invisible to `mxcli check`/`describe microflow`
+
+**Project:** SonnyPOC, script 02 (CheckSystemStatus). **mxcli version:** same pinned build used for
+BUG-70 through BUG-74.
+
+**Symptom:** a call-microflow argument whose value is a quoted member-access expression —
+`"Param" = $Var/"Attribute"` — round-trips cleanly through `mxcli check --references` and
+`describe microflow` (both show it as valid, and `describe microflow` even prints it back with the
+quotes intact as if that were normal MDL). But the quotes are NOT stripped when this specific
+expression shape is compiled into the actual flow-graph node: the literal string `$Var/"Attribute"`
+(quote characters and all) lands in the call activity's argument expression, which is not valid
+Mendix expression syntax (member access does not take a quoted attribute name — quotes denote a
+string literal). Native mxbuild fails with `CE0117 "Error(s) in expression."` pointing at the call
+activity. `mxcli check` never sees this because its reference/syntax validation does not compile
+expressions to Mendix's actual expression grammar.
+
+**Scope — confirmed NOT a general quoting problem:** the exact same quoted path
+(`$Item/"StatusCode"`) used as a *create*/*change* statement's attribute value, or on the
+right-hand side of a `set`/`if` condition, compiles fine — `describe microflow` shows the quotes
+correctly stripped there. The defect is narrow: quoted member-access specifically as a
+call-microflow **argument value**. Two independent repros in one build unit:
+`"StatusCode" = $Item/"StatusCode"` (call to `SUB_EvaluateAvailability`) and
+`"CallingApplication" = $Request/"CallingApplication"` (call to `GET_BR_ChekedSystemsApp`) — both
+fixed by dropping the quotes on the attribute segment: `$Item/StatusCode`, `$Request/CallingApplication`.
+
+**Workaround used in SonnyPOC:** when passing a member-access expression (`$Var/Attribute`) as a
+call-microflow argument value, do not quote the attribute segment, even though this project's
+general convention (CLAUDE.md) is to always quote identifiers. This is a second, narrower exception
+to that convention, alongside the existing `textfilter (attributes: [...])` exception from the
+BUG-41 refinement (2026-08-13 note in `archive-resolved-2026-08-06.md`) — that one is about a
+*list of quoted 3-part identifiers*, this one is about a *quoted attribute segment inside a
+member-access expression used as a call argument*. Different syntax position, same underlying
+class of bug: mxcli's quote-stripping pass does not cover every place a quoted identifier can
+legally appear in MDL.
+
+**Detection:** only native `mx check` (or `mxbuild`) catches this — the BUG-60 rsync-scratch-copy
+workaround is required to run it on Darwin. `mxcli check --references` and `describe microflow`
+both give false confidence that the script is correct.
+
+**Not yet isolated** in mxcli's Go source — not traced to the specific quote-stripping function
+that misses this expression position. Whether it's limited to `call microflow`/`call nanoflow`
+argument values specifically, or extends to other statement-argument positions not yet tried
+(e.g. `call javascript action` params, `import from mapping` inputs), is unconfirmed — treat any
+quoted member-access expression passed as a value into a call-style statement as suspect until
+proven otherwise, and verify with native `mx check`, not `mxcli check`.
+
+**Related:** same general family as BUG-41 (quoting round-trips through `mxcli check`/`describe`
+but silently breaks native mxbuild) — that one was about a list of quoted identifiers in
+`textfilter (attributes: [...])`, this one is about a quoted identifier inside a member-access
+expression in a call argument. Both are reminders that "always quote identifiers" (this project's
+default) has real, narrow exceptions that only a native `mx check` surfaces.

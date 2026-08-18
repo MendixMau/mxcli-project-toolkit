@@ -15,6 +15,10 @@ running app and a live database.
 replacement for that loop. It says nothing about build, gate, monkey testing, what counts as
 acceptable, or the handoff to the next module — that loop still owns all of those.
 
+**Worked examples:** `journey-examples.md` — a field-by-field reference plus three runnable example
+journeys (minimal / full / no-seed) in a neutral domain. Read it before authoring your first
+journey; it also lists the places where this spec and the runner currently disagree.
+
 **What is shipped here: rungs 1–5 only.** Every rung, mutant, trap and pipeline stage below has been
 run on real work and watched going red. That is the whole of the claim.
 

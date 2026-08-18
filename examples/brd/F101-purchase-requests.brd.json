@@ -1,0 +1,264 @@
+{
+  "_readme": [
+    "EXAMPLE BRD FRAGMENT — exists so the requirement pointers in examples/journeys/*.json",
+    "actually resolve, instead of the traceability being merely asserted.",
+    "",
+    "A journey pointer is `<BRD id>#<RFC 6901 JSON Pointer>`, e.g. F101#/useCases/0/mainFlow/0",
+    "resolves to the first string of the first use case's main flow below. journey-runner.js",
+    "does NOT resolve or validate these — it copies the string into every finding it records.",
+    "Nothing in the harness will tell you a pointer is dangling, which is why",
+    "examples/validate-journeys.js resolves them against a BRD directory when you give it one.",
+    "",
+    "The key set here mirrors the real BRD schema (id, title, modules, actors, useCases,",
+    "domainEntities, associations, microflows, pages, security, crossCuttingRequirements).",
+    "It is trimmed to the branches the example journeys point into; a real BRD is far larger.",
+    "Domain and identifiers are invented.",
+    "",
+    "NOTE ON THE SPEC: journey-proof.md illustrates the pointer format with `F007#/rules/3`.",
+    "That is illustrative only — the BRD schema has no `rules` key, so a pointer of that shape",
+    "does not resolve against a real BRD. Point at useCases / pages / security / microflows."
+  ],
+  "id": "F101",
+  "title": "Purchase requests and supplier catalogue (example domain)",
+  "modules": [
+    "Procurement"
+  ],
+  "actors": [
+    "Requester",
+    "Approver"
+  ],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Submit a purchase request for approval",
+      "actors": [
+        "Requester"
+      ],
+      "preconditions": [
+        "At least one active supplier exists"
+      ],
+      "postconditions": [
+        "A PurchaseRequest exists in state Submitted, linked to the chosen supplier",
+        "An ApprovalRecord exists for that request"
+      ],
+      "mainFlow": [
+        "1. User navigates to Request List",
+        "2. System renders the request grid",
+        "3. User clicks New request",
+        "4. System opens the request form",
+        "5. User enters a title",
+        "6. User selects a supplier from the catalogue of active suppliers",
+        "7. User clicks Submit for approval; the system saves the request, links it to the selected supplier, sets state to Submitted, writes an ApprovalRecord and returns the user to the list with a confirmation"
+      ],
+      "alternateFlows": [
+        "7a. No supplier selected — the system blocks submission and states which field is missing"
+      ],
+      "buildPriority": "slice 1"
+    },
+    {
+      "id": "UC002",
+      "title": "Browse the integrated supplier catalogue",
+      "actors": [
+        "Approver"
+      ],
+      "preconditions": [
+        "The upstream catalogue service is reachable"
+      ],
+      "postconditions": [
+        "No data is written; the path is read-only"
+      ],
+      "mainFlow": [
+        "1. User navigates to Supplier Catalogue",
+        "2. System calls the upstream catalogue read model",
+        "3. System renders the catalogue grid",
+        "4. User clicks Refresh to re-issue the same read-model call"
+      ],
+      "alternateFlows": [
+        "3a. Zero entries returned — the system renders the designed empty state, not the framework default"
+      ],
+      "buildPriority": "slice 1"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "PurchaseRequest",
+      "module": "Procurement",
+      "persistent": true,
+      "attributes": [
+        "Title",
+        "Status"
+      ]
+    },
+    {
+      "name": "Supplier",
+      "module": "Procurement",
+      "persistent": true,
+      "attributes": [
+        "SupplierCode",
+        "Name",
+        "Active"
+      ]
+    },
+    {
+      "name": "ApprovalRecord",
+      "module": "Procurement",
+      "persistent": true,
+      "attributes": [
+        "DecidedAt"
+      ]
+    },
+    {
+      "name": "CatalogueEntryReadModel",
+      "module": "Procurement",
+      "persistent": false,
+      "persistenceRationale": "REST-fed read model; never written by this app. This is why J-CAT-01 declares no data or outcome rung."
+    }
+  ],
+  "associations": [
+    {
+      "name": "Procurement.PurchaseRequest_Supplier",
+      "from": "Procurement.PurchaseRequest",
+      "to": "Procurement.Supplier",
+      "type": "reference"
+    },
+    {
+      "name": "Procurement.ApprovalRecord_PurchaseRequest",
+      "from": "Procurement.ApprovalRecord",
+      "to": "Procurement.PurchaseRequest",
+      "type": "reference"
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_Supplier_Lookup",
+      "module": "Procurement",
+      "trigger": "supplier combobox datasource"
+    },
+    {
+      "name": "ACT_Request_Save",
+      "module": "Procurement",
+      "trigger": "btnSubmit, before submit"
+    },
+    {
+      "name": "ACT_Request_Submit",
+      "module": "Procurement",
+      "trigger": "btnSubmit"
+    },
+    {
+      "name": "ACT_Catalogue_Load",
+      "module": "Procurement",
+      "trigger": "page load and btnRefreshCatalogue"
+    }
+  ],
+  "pages": [
+    {
+      "id": "PG-001",
+      "name": "Request_List",
+      "module": "Procurement",
+      "pageType": "list",
+      "roles": [
+        "MxRole_Requester",
+        "MxRole_Approver"
+      ],
+      "buildComposition": {
+        "gridColumns": [
+          "title",
+          "supplierName",
+          "status"
+        ],
+        "actionBar": [
+          "New request"
+        ],
+        "emptyState": "No purchase requests yet — create one to get started"
+      },
+      "actions": [
+        {
+          "id": "ACT-001",
+          "label": "New request",
+          "type": "Open page"
+        }
+      ]
+    },
+    {
+      "id": "PG-002",
+      "name": "Request_Form",
+      "module": "Procurement",
+      "pageType": "form",
+      "roles": [
+        "MxRole_Requester"
+      ],
+      "buildComposition": {
+        "fields": [
+          "title",
+          "supplier"
+        ],
+        "actionBar": [
+          "Cancel",
+          "Submit for approval"
+        ]
+      },
+      "actions": [
+        {
+          "id": "ACT-002",
+          "label": "Cancel",
+          "type": "Close page"
+        },
+        {
+          "id": "ACT-003",
+          "label": "Submit for approval",
+          "type": "Command",
+          "confirmation": false,
+          "note": "Must persist the request, set its supplier association, set Status to Submitted and write an ApprovalRecord. This is the pointer J-PR-01's submit step carries."
+        }
+      ]
+    },
+    {
+      "id": "PG-003",
+      "name": "Supplier_Catalogue",
+      "module": "Procurement",
+      "pageType": "list",
+      "roles": [
+        "MxRole_Approver"
+      ],
+      "buildComposition": {
+        "actionBar": [
+          "Refresh"
+        ],
+        "emptyState": "The supplier catalogue returned no entries"
+      },
+      "actions": [
+        {
+          "id": "ACT-004",
+          "label": "Refresh",
+          "type": "Refresh"
+        }
+      ]
+    }
+  ],
+  "security": {
+    "model": "Mendix role gates page access; the upstream service revalidates every call",
+    "rolesToPages": [
+      {
+        "page": "Request_List",
+        "allow": [
+          "MxRole_Requester",
+          "MxRole_Approver"
+        ],
+        "readOnly": []
+      },
+      {
+        "page": "Supplier_Catalogue",
+        "allow": [
+          "MxRole_Approver"
+        ],
+        "readOnly": [
+          "MxRole_Requester"
+        ]
+      }
+    ]
+  },
+  "crossCuttingRequirements": [
+    "Every outbound call carries a trace header so the journey's span assertions can resolve",
+    "The catalogue path is read-only and must never write upstream"
+  ]
+}

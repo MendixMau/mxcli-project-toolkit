@@ -19,7 +19,7 @@ So the harness **asserts** the precondition and faults. A separate, approved ste
 ## The flow
 
 ```
-1. DERIVE   what the journeys declare they need            project-bin/fixture-manifest.sh
+1. DERIVE   what the journeys declare they need            bin/fixture-manifest.sh
 2. MEASURE  what the running app actually has              (same script — it probes via OQL)
 3. CLASSIFY the gap, by cause and by owner                 (same script)
 4. INTERVIEW only the residue that is genuinely undecidable   ← the human gate
@@ -30,8 +30,12 @@ So the harness **asserts** the precondition and faults. A separate, approved ste
 Steps 1–3 are one read-only command. Run it before asking anyone anything.
 
 ```bash
-project-bin/fixture-manifest.sh              # 0 = sufficient · 1 = short · 2 = could not measure
+bin/fixture-manifest.sh              # 0 = sufficient · 1 = short · 2 = could not measure
 ```
+
+Run it from the project root. The path is `bin/` — the toolkit's own copy lives in `project-bin/`,
+which is the *install source*, not where a wired project runs it from. Pointing at `project-bin/`
+runs the template instead of your project's installed copy, or nothing at all.
 
 ## 1–3. Derive and measure — do not interview for what is already written down
 

@@ -66,6 +66,30 @@ c_warn() { printf '\033[33m%s\033[0m' "$1"; }
 FINDINGS=0
 FAULTED=0
 
+# The scope of a verdict is GENERATED from what actually ran, never hardcoded.
+#
+# This existed as a fixed sentence claiming "the golden-path journey and a 24-round crash net",
+# printed verbatim after `--skip-journeys --skip-monkey` and on any project where monkey.js is
+# simply not installed. That is a false green inside the harness whose entire purpose is to retire
+# false greens — see the header of this file. Measured 2026-08-18.
+#
+# A flag-skip stays exit 0: the operator asked for it. What must not survive is a verdict sentence
+# claiming coverage the flag suppressed.
+print_scope() {
+  awk -F'\t' '
+    NR > 1 {
+      if      ($2 == "PASS")    pass = pass ? pass ", " $1 : $1
+      else if ($2 == "INFO")    info = info ? info ", " $1 : $1
+      else if ($2 == "SKIPPED") skip = skip ? skip "; " $1 " " $5 : $1 " " $5
+    }
+    END {
+      if (pass) print "  Verified: " pass
+      if (info) print "  Ran, informational — does not gate: " info
+      if (skip) print "  NOT MEASURED: " skip
+      if (skip) print "                These are absent, not green."
+    }' "$SUMMARY"
+}
+
 # Record a fault for something that could not even be attempted. Same bucket as a crashed
 # instrument, because the consequence is identical: that property of the module is UNMEASURED.
 fault() {
@@ -247,8 +271,16 @@ else
     printf '\n\033[1m── monkey\033[0m\n'; c_warn "  · skipped by flag"; echo ""
     printf 'monkey\tSKIPPED\t0\t-\t(--skip-monkey)\n' >> "$SUMMARY"
   elif [ ! -f "$MONKEY_JS" ]; then
-    printf '\n\033[1m── monkey\033[0m\n'; c_warn "  · not installed"; echo " (${MONKEY_JS#$ROOT/})"
-    printf 'monkey\tSKIPPED\t0\t-\t(not installed)\n' >> "$SUMMARY"
+    # Absence is a FAULT; findings stay informational. Those are two different questions and the
+    # two sources that own them each answer one:
+    #   module-completion-loop.md — a monkey pass "skipped because happy-path was green" is NOT
+    #     acceptable. Presence is required.
+    #   this file, below — letting its findings gate the module "would give it an authority the
+    #     measured yield does not support". Authority is not.
+    # Recording absence as SKIPPED/rc 0 conflated them, and let a fresh project (where monkey.js is
+    # simply not installed) reach a CLEAN verdict having never run a crash net at all.
+    fault "monkey" "not installed at ${MONKEY_JS#$ROOT/}" \
+          "Set MONKEY_JS, or see journey-proof.md for the harness this expects. Crash-on-input for $MODULE is UNMEASURED — its findings are informational, its absence is not."
   else
     # info, not gate: on one project the monkey pass scored 0 fail while its scripted journeys found
     # all 9 real defects. It is a crash net. Letting it gate the module would give it an authority
@@ -273,11 +305,12 @@ if [ "$FAULTED" -gt 0 ]; then
   exit 2
 fi
 if [ "$FINDINGS" -gt 0 ]; then
-  echo ""; c_bad "  FINDINGS"; echo " — $FINDINGS instrument(s) reported. Every one ran; the model/app disagreed with the claim."
+  echo ""; c_bad "  FINDINGS"; echo " — $FINDINGS instrument(s) reported. Every one that ran did so completely; the model/app disagreed with the claim."
+  print_scope
   exit 1
 fi
-echo ""; c_ok "  CLEAN"; echo " — every instrument ran and found nothing."
-echo "  Scope of that claim: ledger conformance, wiring, BRD coverage, the golden-path journey"
-echo "  and a 24-round crash net. It is not a claim about anything unledgered, and it says"
-echo "  nothing about UI/design quality — that instrument is not part of this chain."
+echo ""; c_ok "  CLEAN"; echo " — every instrument that ran found nothing."
+print_scope
+echo "  It is not a claim about anything unledgered, and it says nothing about UI/design"
+echo "  quality — that instrument is not part of this chain."
 exit 0

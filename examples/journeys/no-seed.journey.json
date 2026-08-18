@@ -1,0 +1,146 @@
+{
+  "_readme": [
+    "NO-SEED JOURNEY — the shape for a screen fed from a mock or REST source rather than",
+    "persisted rows. Reference example for skills/journey-proof.md; tour in",
+    "skills/journey-examples.md; preconditions in fixture-seeding.md.",
+    "",
+    "Invented domain: a supplier catalogue browsed through a read-only integration. The",
+    "entities behind the grid are non-persistent, so there is no table for OQL to reach.",
+    "",
+    "THE POINT OF THIS FILE IS WHAT IT DOES NOT CLAIM. Rungs 4 and 5 are structurally",
+    "unavailable here, so they are ABSENT AND NAMED AS ABSENT rather than filled with",
+    "queries that would return INVALID on every run. A missing rung is `fault`; a fabricated",
+    "rung is worse, because it dresses a missing instrument up as coverage."
+  ],
+  "id": "J-CAT-01",
+  "title": "Supplier catalogue — the approver can browse and refresh the integrated catalogue",
+  "persona": "approver_test_user",
+  "requirement": [
+    "F101#/useCases/1/mainFlow/0"
+  ],
+  "seeds": [],
+  "_seedNote": [
+    "No seeds, and this is the WHY that an empty array cannot say on its own.",
+    "",
+    "Every entity this journey touches (Procurement.CatalogueEntryReadModel and the four",
+    "other read models behind the grid) is NON-PERSISTENT: the list is built in memory by",
+    "ACT_Catalogue_Load from a REST call to the upstream system. There is no row to SELECT,",
+    "so there is nothing for a {{placeholder}} to bind to and nothing a seed script could",
+    "insert that the page would ever show.",
+    "",
+    "This is a different state from 'the seed returned nothing', which is INVALID and means",
+    "the fixture or the admin API is broken. An empty seeds[] resolves ok and the walk runs.",
+    "Say which of the two you are in — fixture-seeding.md lists four causes of 'seeds return",
+    "nothing' with four different owners, and reporting them as one sends someone to debug",
+    "the wrong subsystem."
+  ],
+  "_dataRungGap": [
+    "Every step carries no `data` block, for a measured reason and not by omission:",
+    "the module's golden-path data-effects table is empty because this slice is read-only,",
+    "and DESCRIBE ENTITY reports every entity in it non-persistent. OQL cannot see a",
+    "non-persistent entity, so even a delta check would return null and be recorded INVALID",
+    "on every run forever.",
+    "",
+    "Record the evidence for the gap in the journey, the way this note does. A reviewer who",
+    "sees blank data cells needs to know whether the rung was skipped or was impossible."
+  ],
+  "_outcomeGap": [
+    "No `outcome` block. Rung 5 is one OQL query over the end state and there is no end",
+    "state in a database to query. The `outcome` control mutant returns false and skips this",
+    "journey correctly, so the control run will not fabricate a proof for a rung that cannot",
+    "run — it will simply not report one, which is the honest result."
+  ],
+  "_mutantCoverage": [
+    "This journey supports four of the seven mutants: ui-landing, ui-text, trace-order and",
+    "trace-negative. data-delta, data-target and outcome return false and are skipped.",
+    "A green control run over this file proves four rungs, not five. Do not summarise it as",
+    "'controls passed'."
+  ],
+  "steps": [
+    {
+      "name": "open the supplier catalogue",
+      "requirement": [
+        "F101#/useCases/1/mainFlow/0",
+        "F101#/security/rolesToPages/1"
+      ],
+      "actions": [
+        {
+          "do": "nav",
+          "group": "Procurement",
+          "item": "Supplier Catalogue",
+          "settleMs": 2500
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dgCatalogue",
+        "checks": [
+          "btnRefreshCatalogue"
+        ],
+        "textPresent": [
+          "Supplier catalogue"
+        ],
+        "textAbsent": [
+          "No items found"
+        ],
+        "_textAbsentNote": [
+          "This is the load-bearing check when the data rung is unavailable. The landing guard",
+          "goes green on an EMPTY grid — the element renders either way — and the trace rung",
+          "goes green because the microflow fires without errors. Reading the rendered text is",
+          "the only rung left that can tell a working page from a page showing nothing.",
+          "",
+          "'No items found' is the framework default. If the requirement specifies a designed",
+          "empty state, a red here is at minimum a spec miss and possibly two defects stacked:",
+          "no rows AND no empty state. Say which you believe it is in the finding, not here."
+        ]
+      },
+      "spans": {
+        "ordered": [
+          "Procurement.ACT_Catalogue_Load"
+        ],
+        "mustNotFire": [
+          "ACT_Catalogue_Write"
+        ],
+        "_note": [
+          "The negative claim carries real weight on a read-only screen: the requirement says",
+          "this path never writes upstream. `mustNotFire` is the only rung that can assert it,",
+          "and it is evaluated only because `ordered` is present and non-empty."
+        ]
+      }
+    },
+    {
+      "name": "refresh the catalogue",
+      "requirement": [
+        "F101#/useCases/1/mainFlow/3"
+      ],
+      "actions": [
+        {
+          "do": "click",
+          "widget": "btnRefreshCatalogue",
+          "label": "Refresh",
+          "settleMs": 3000
+        },
+        {
+          "do": "wait",
+          "ms": 1000,
+          "_note": "`wait` takes `ms`; every other action takes `settleMs`, applied after the action."
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dgCatalogue",
+        "textAbsent": [
+          "No items found"
+        ]
+      },
+      "spans": {
+        "ordered": [
+          "Procurement.ACT_Catalogue_Load"
+        ],
+        "_note": [
+          "Re-declared so assertNoErrors runs again over THIS step's capture window. Each step",
+          "captures spans from its own start time, which is why a refresh failure is never",
+          "blamed on the initial load."
+        ]
+      }
+    }
+  ]
+}

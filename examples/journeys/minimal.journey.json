@@ -1,0 +1,65 @@
+{
+  "_readme": [
+    "MINIMAL JOURNEY — the smallest thing journey-runner.js will still run as a journey.",
+    "Reference example for skills/journey-proof.md; guided tour in skills/journey-examples.md.",
+    "Domain is invented (a purchase-request app) so nothing here is project-specific.",
+    "",
+    "It asserts exactly two things: that the persona arrived on the list page (rung 1) and",
+    "that the page says what the requirement says it should say (rung 2).",
+    "",
+    "IT IS NOT A VERIFIED MODULE, AND MUST NOT BE COPIED AS IF IT WERE. Rungs 3 (spans),",
+    "4 (data) and 5 (outcome) are absent. journey-proof.md is explicit that an absent rung",
+    "is `fault`, never `pass` — so a green run of this file means 'two rungs held', not",
+    "'the feature works'. --positive-control can only produce two of the seven mutants",
+    "from it (ui-landing and ui-text); the other five return false and are skipped.",
+    "Use full.journey.json as the copy-from template."
+  ],
+  "id": "J-MIN-01",
+  "title": "Purchase requests — the approver can open the request list",
+  "persona": "approver_test_user",
+  "_personaWarning": [
+    "VERIFIED IN journey-runner.js: `persona` is a LABEL, not a credential. The runner prints",
+    "it and copies it into the walk, but authenticates via H.login(page), which uses",
+    "cfg.user (env TEST_USER) and may silently fall back to cfg.fallbackUser. Set TEST_USER",
+    "to this account, or the report names a persona that never walked the app."
+  ],
+  "requirement": [
+    "F101#/useCases/0/mainFlow/0"
+  ],
+  "seeds": [],
+  "_seedNote": [
+    "No seeds. Nothing in this journey substitutes a {{placeholder}}, so there is nothing to",
+    "bind. An empty seeds array resolves ok — that is NOT the same as a seed that returned",
+    "nothing, which makes the whole journey INVALID."
+  ],
+  "steps": [
+    {
+      "name": "open the request list",
+      "actions": [
+        {
+          "do": "nav",
+          "group": "Procurement",
+          "item": "Request List",
+          "settleMs": 2500
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dgRequests",
+        "_readyNote": [
+          "RUNG 1. A full CSS selector, not a bare widget name — the runner passes this string",
+          "straight to page.locator(). Contrast ui.checks below, which the runner wraps in",
+          "`.mx-name-`. Getting the two the wrong way round is the most common authoring error.",
+          "If this selector never appears the step is FAIL and every rung below it is recorded",
+          "INVALID rather than asserted against the previous page."
+        ],
+        "textPresent": [
+          "Purchase requests"
+        ],
+        "_textNote": [
+          "RUNG 2. Matched against the whole rendered body text, case-sensitive, substring.",
+          "This is the only rung that can catch a screen that lies about correct data."
+        ]
+      }
+    }
+  ]
+}

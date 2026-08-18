@@ -1,0 +1,83 @@
+# THE skill-routing table — the single source of truth for every routing surface.
+#
+# Routing a skill used to take six coordinated edits (README's two tables, the runbook row,
+# init-project.sh's CLAUDE.local.md heredoc, gate-check.sh's stage map, the agent templates)
+# plus a seventh copy inside every project's CLAUDE.local.md that no script could update.
+# Measured on 2026-08-18, before this file existed: 17 of 43 skills were routed by NOTHING a
+# project agent reads; facts-lock.sh reached 1 of 6 wired projects; agent-roles.md and
+# source-triage.md reached 1 each. Every skill added since had silently become the eighteenth.
+#
+# Edit THIS file, then run:  bin/render-routing.sh
+# CI / gate:                 bin/render-routing.sh --check   (exit 2 == a surface has drifted)
+#
+# Format: TAB-separated, six columns. Blank lines and #-comments ignored.
+#   1 name    stable id (basename without .md/.sh)
+#   2 path    repo-relative path of the thing to load
+#   3 when    one line: "always relevant for ..." — the trigger, not a description
+#   4 agents  comma list of ba|architect|mdl|gate|test|review, or "all"
+#   5 stages  comma list of P,0,1,2,3,4,5,6,7 (conversion-runbook stages), or "-" for none
+#   6 tier    baseline (always-on: goes into every project's CLAUDE.local.md)
+#             ondemand (situational: load when the task calls for it)
+#
+# TSV rather than a markdown ROUTING.md because a renderer has to parse this in bash 3.2 on
+# macOS, and several "when" strings contain the "|" that a markdown table uses as its column
+# separator. ROUTING.md at the repo root is the human-readable view — rendered FROM here, so
+# it can never disagree with what the scripts install. Kept in bin/lib/ next to
+# install-manifest.sh (the same one-manifest-N-readers precedent) and deliberately NOT in
+# skills/, which gate-check.sh treats as PROTOCOL_PATHS: a data file there would trip a
+# protocol-staleness ack on every routing edit.
+#
+# name	path	when	agents	stages	tier
+conversion-runbook	skills/conversion-runbook.md	Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only	all	P,0,1,2,3,4,5,6,7	baseline
+query-the-model	skills/query-the-model.md	Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order	all	P,0,1,2,3,4,5,6,7	baseline
+interview-protocol	skills/interview-protocol.md	Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn	ba,architect	P,0,1,2,3,4,5,6,7	baseline
+agent-roles	skills/agent-roles.md	Setting up or completing a project's dev-process subagents — once, at project start, not "on demand"	all	P,4,5	baseline
+source-triage	skills/source-triage.md	Deciding whether to extract at all, before any BRD gets generated	ba	0	baseline
+source-sufficiency	bin/source-sufficiency.sh	Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source	ba	0,1	baseline
+question-kinds	bin/question-kinds.sh	Deciding who answers a question — before putting any batch to the user. gap/conflict/choice is what keeps a gate batch at four questions instead of 127	ba	1,2,3	baseline
+facts-lock	bin/facts-lock.sh	Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done	ba	2	baseline
+module-brief	skills/module-brief.md	Building any module — before the first script. The mdl-agent's single per-module input	ba,mdl	4,5	baseline
+learned-mdl-preflight	skills/learned-mdl-preflight.md	Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations	mdl	5	baseline
+learned-microflow-patterns	skills/learned-microflow-patterns.md	Writing or fixing any microflow — MDL gotchas plus annotation discipline	mdl	5	baseline
+ui-preflight-pages	skills/ui-preflight-pages.md	Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP	mdl	5	baseline
+learned-stylegallery	skills/learned-stylegallery.md	Building or using the in-app design gallery	mdl	5	baseline
+learned-mcp-patterns	skills/learned-mcp-patterns.md	Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only	mdl	5	baseline
+ui-review-loop	skills/ui-review-loop.md	After building any page — before calling it done. mxbuild and "record created" are blind to render, interaction, reuse and wireframe divergence	mdl,review,test	5,6	baseline
+testing-shape	skills/testing-shape.md	Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature	test,gate,review	5,6	baseline
+verify-module	project-bin/verify-module.sh	Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh	mdl,gate,test,review	5,6	baseline
+mxcli-bugs	bug-logs/mxcli-bugs.md	A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake	mdl,gate	5,6	baseline
+bootstrap-project	skills/bootstrap-project.md	Generating a new project's CLAUDE.md — baseline routing plus project-specific facts	ba	P	ondemand
+existing-app-assurance	skills/existing-app-assurance.md	Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates	test,review	6	ondemand
+assess-migration	skills/assess-migration.md	Assessing or planning a migration up front, before any pipeline is chosen	ba	0	ondemand
+migration-pipeline	skills/migration-pipeline.md	Running the extraction pipeline	ba	0,1	ondemand
+migrate-general	skills/migrate-general.md	Migrating from a stack that has no dedicated pipeline	ba	0	ondemand
+migrate-outsystems	skills/migrate-outsystems.md	Migrating an OutSystems app	ba	0	ondemand
+source-os11	skills/source-os11.md	Understanding OutSystems 11 source	ba	0,1	ondemand
+os-xml-schema	skills/os-xml-schema.md	Reading the OutSystems XML export schema	ba	0,1	ondemand
+source-node-express-react	skills/source-node-express-react.md	Understanding Node/Express+React source, its layout assumptions and its gaps	ba	0,1	ondemand
+document-discovery	skills/document-discovery.md	Scanning or classifying an unstructured document folder	ba	0,1	ondemand
+extractor-quality-loop	skills/extractor-quality-loop.md	Validating an extractor's output before its BRDs are trusted	ba	0,1	ondemand
+qa-loop-goal-pattern	skills/qa-loop-goal-pattern.md	Validating a new stack pipeline's extraction quality	ba	0,6	ondemand
+kb-generation	skills/kb-generation.md	Extracting Excel/Word/PDF specs into a knowledge base	ba	1,2	ondemand
+brd-generation	skills/brd-generation.md	Writing or enriching a BRD JSON	ba	2	ondemand
+brd-validation	skills/brd-validation.md	Validating BRDs against the code and document KB	ba	2	ondemand
+architecture-blueprint	skills/architecture-blueprint.md	Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations	architect	3	ondemand
+modularize-domain	skills/modularize-domain.md	Deciding module boundaries before "create module"	architect	3	ondemand
+design-artifacts	skills/design-artifacts.md	Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable	architect	3	ondemand
+brd-to-build-plan	skills/brd-to-build-plan.md	Turning BRDs plus architecture into a numbered, dependency-ordered build plan	architect	3,4	ondemand
+coverage-ledger	skills/coverage-ledger.md	Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible	architect,gate	4	ondemand
+coverage-check	bin/coverage-check.sh	Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered	architect,gate	4	ondemand
+iterative-build-loop	skills/iterative-build-loop.md	Building a module with mxcli — verified, iterative, coverage-checklist gated	mdl,gate	5	ondemand
+mdl-cookbook-microflows	skills/mdl-cookbook-microflows.md	Writing MDL microflow scripts — worked recipes	mdl	5	ondemand
+learned-page-patterns	skills/learned-page-patterns.md	Building and auditing Mendix pages — widget patterns, datasource shapes	mdl	5	ondemand
+oneshot-page-structure-patterns	skills/oneshot-page-structure-patterns.md	Generating a whole page tree in one script — the structure patterns that survive it	mdl	5	ondemand
+conformance-check	project-bin/conformance-check.sh	Running the ledger rung alone — recompute every stored ledger status against the live model and catch the STALE rows that claim built for something the model no longer has	gate,review	5,6	ondemand
+graph-sweep	project-bin/graph-sweep.sh	Running the wiring rung alone — a module imported but never reached, an element built but wired to nothing, a boundary crossed; mxbuild and e2e are blind to all three	review,gate	5,6	ondemand
+test-stack-up	project-bin/test-stack-up.sh	Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only	test,gate	5,6	ondemand
+e2e-harness-base	skills/e2e-harness-base.md	Standing up or extending the Playwright e2e harness	test	6	ondemand
+learned-db-assertions	skills/learned-db-assertions.md	Writing DB assertion tests that cross-check UI state against the database	test	6	ondemand
+fixture-seeding	skills/fixture-seeding.md	Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness	test,review	5,6	ondemand
+journey-proof	skills/journey-proof.md	Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red	test,review	5,6	ondemand
+learned-skill-ux-audit	skills/learned-skill-ux-audit.md	UX audit and screenshot-loop discipline	review	6	ondemand
+learned-skill-scope-delta	skills/learned-skill-scope-delta.md	Tracking scope delta between the BRD and the built state	review	6	ondemand
+close-the-loop	skills/close-the-loop.md	Cutover and retrospective — promoting proven patterns back into the toolkit	all	7	ondemand

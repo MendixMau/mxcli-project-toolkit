@@ -1,0 +1,290 @@
+{
+  "_readme": [
+    "FULL JOURNEY — exercises every field journey-runner.js actually reads, and supports all",
+    "seven --positive-control mutants. Reference example for skills/journey-proof.md;",
+    "field-by-field tour in skills/journey-examples.md; preconditions in fixture-seeding.md.",
+    "",
+    "The domain is invented: a purchase-request app where an approver picks a supplier,",
+    "submits a request, and an approval record is written alongside it. Entities, widget",
+    "names, microflow names and BRD ids are all fictional. examples/brd/F101.brd.json is the",
+    "matching BRD fragment, so every requirement pointer below actually resolves.",
+    "",
+    "Nothing in this file is asserted to pass against any real app. It is a SHAPE reference.",
+    "It has never been executed — see the honesty note at the bottom of journey-examples.md."
+  ],
+  "id": "J-PR-01",
+  "title": "Purchase request — pick a supplier, submit for approval, land back on the list",
+  "persona": "approver_test_user",
+  "_personaWarning": [
+    "VERIFIED IN journey-runner.js: the runner never authenticates as `persona`. It logs in",
+    "via H.login(page) using cfg.user (env TEST_USER, default in config.js) and can fall back",
+    "to cfg.fallbackUser. On a fallback the runner records login INVALID and SKIPS every",
+    "journey, so the findings file contains one row and no walk. Keep TEST_USER and this",
+    "field in step, or the report attributes the walk to an identity that never made it."
+  ],
+  "requirement": [
+    "F101#/useCases/0/mainFlow/0",
+    "F101#/useCases/0/mainFlow/6"
+  ],
+  "_requirementNote": [
+    "Journey-level pointers are the FALLBACK. A step that declares its own `requirement`",
+    "array replaces this list for every check that step records; a step that does not,",
+    "inherits it. Pointers are `<BRD id>#<JSON Pointer>` into analysis/**/F<NNN>.brd.json.",
+    "The runner treats them as opaque strings — it carries them into every finding and never",
+    "resolves or validates them. Nothing will tell you a pointer is dangling; that is why",
+    "examples/validate-journeys.js checks them against the BRD fragment when one is supplied."
+  ],
+  "seeds": [
+    {
+      "name": "supplierCode",
+      "sql": "SELECT SupplierCode AS c FROM Procurement.Supplier WHERE Active = true LIMIT 1",
+      "_note": [
+        "Every OQL column must be aliased — helpers.oqlScalar reads the first cell of the first",
+        "row, and mxcli rejects an unaliased SELECT. A seed that returns null or an empty",
+        "string aborts the journey as INVALID (instrument absent), never FAIL (feature broken)."
+      ]
+    },
+    {
+      "name": "supplierName",
+      "sql": "SELECT Name AS n FROM Procurement.Supplier WHERE SupplierCode = '{{supplierCode}}' LIMIT 1",
+      "_note": [
+        "CHAINED ON PURPOSE. Two independent `LIMIT 1` queries are not guaranteed to return the",
+        "same row, and then the journey types supplier A into the combobox and asserts about",
+        "supplier B. Seeds are resolved in array order and may reference any EARLIER seed."
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "name": "open the request list",
+      "requirement": [
+        "F101#/useCases/0/mainFlow/0",
+        "F101#/security/rolesToPages/0"
+      ],
+      "actions": [
+        {
+          "do": "nav",
+          "group": "Procurement",
+          "item": "Request List",
+          "settleMs": 2500,
+          "_note": [
+            "`group` and `item` are the nav anchors' title attributes, clicked as a real user",
+            "would. Nav groups TOGGLE: clicking an already-expanded group collapses it, which",
+            "is why journeys must start from a reset state and never force-click nav."
+          ]
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dgRequests",
+        "checks": [
+          "btnNewRequest"
+        ],
+        "_checksNote": [
+          "BARE WIDGET NAMES here — the runner prepends `.mx-name-`. `ready` above is a FULL",
+          "selector. The two fields take different vocabularies; mixing them up produces a",
+          "selector like `.mx-name-.mx-name-btnNewRequest`, which is FAIL, not INVALID, and",
+          "reads in the report as a missing button."
+        ]
+      }
+    },
+    {
+      "name": "start a new request",
+      "actions": [
+        {
+          "do": "click",
+          "widget": "btnNewRequest",
+          "label": "New request",
+          "settleMs": 2000
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dvRequestForm",
+        "checks": [
+          "tbRequestTitle",
+          "cbSupplier",
+          "btnSubmit"
+        ]
+      }
+    },
+    {
+      "name": "fill in the request header",
+      "actions": [
+        {
+          "do": "fill",
+          "widget": "tbRequestTitle",
+          "value": "Reference example request",
+          "label": "Request title",
+          "settleMs": 500
+        },
+        {
+          "do": "combobox",
+          "widget": "cbSupplier",
+          "match": "{{supplierName}}",
+          "label": "Supplier",
+          "settleMs": 800,
+          "_note": [
+            "The combobox action asserts as it goes: it reads aria-activedescendant while",
+            "stepping the highlight, then re-reads the committed input value and requires it to",
+            "contain `match`. That produces a PASS row of its own ('combobox cbSupplier",
+            "committed the seeded value'). If no option matches, the action THROWS — the step",
+            "is FAIL and the journey stops. That is deliberate: a fallback to option 0 once",
+            "committed a valid neighbouring row and every downstream rung agreed with it."
+          ]
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dvRequestForm"
+      },
+      "spans": {
+        "ordered": [
+          "Procurement.ACT_Supplier_Lookup"
+        ],
+        "mustNotFire": [
+          "ACT_Request_Submit"
+        ],
+        "_note": [
+          "`ordered` names are matched EXACTLY against the mx.microflow.name tag, so they are",
+          "module-qualified. `mustNotFire` names are compiled with `new RegExp(n)` and tested",
+          "against the same tag, so an unqualified name works as a substring match.",
+          "",
+          "TRAP, VERIFIED IN THE RUNNER: the whole trace block — capture, guard, ordered,",
+          "assertNoErrors AND mustNotFire — runs only when `ordered` is present and non-empty.",
+          "A step declaring `mustNotFire` alone is silently never checked. Always pair them.",
+          "",
+          "Declaring `ordered` also buys assertNoErrors for free, which walks ACTIVITY spans.",
+          "That is the only check that sees a caught error: the microflow span stays OK while",
+          "its CallRest activity is ERROR and the page renders normally."
+        ]
+      }
+    },
+    {
+      "name": "submit the request for approval",
+      "requirement": [
+        "F101#/useCases/0/mainFlow/6",
+        "F101#/pages/1/actions/1"
+      ],
+      "actions": [
+        {
+          "do": "click",
+          "widget": "btnSubmit",
+          "label": "Submit for approval",
+          "settleMs": 4000
+        },
+        {
+          "do": "dismissModal",
+          "settleMs": 1000
+        }
+      ],
+      "ui": {
+        "ready": ".mx-name-dgRequests",
+        "textPresent": [
+          "Request submitted",
+          "{{supplierName}}"
+        ],
+        "textAbsent": [
+          "No requests yet"
+        ],
+        "_textNote": [
+          "Both arrays are {{...}}-substituted, so they can assert about the SEEDED value and",
+          "not just about boilerplate. `textAbsent` is the rung that catches a screen telling",
+          "the user nothing was saved while the row is sitting in the database — five other",
+          "instruments call that state healthy, because by their own lights it is.",
+          "",
+          "These are arrays of STRINGS. Do not drop a `_note` object inside them; the runner",
+          "will stringify it and assert the page contains it."
+        ]
+      },
+      "spans": {
+        "ordered": [
+          "Procurement.ACT_Request_Save",
+          "Procurement.ACT_Request_Submit"
+        ],
+        "mustNotFire": [
+          "ACT_Request_Delete"
+        ],
+        "_note": [
+          "assertSequence is a SUBSEQUENCE check over span start time: incidental microflows",
+          "between these two are tolerated, a reorder or a skip is not. Spans sharing a start",
+          "time are treated as concurrent and either order is accepted."
+        ]
+      },
+      "data": {
+        "creates": "Procurement.PurchaseRequest",
+        "delta": 1,
+        "_deltaNote": [
+          "Baseline is taken ONCE, before the walk starts, for every distinct `creates` entity",
+          "in the journey — not per step. After each step's check the baseline is advanced to",
+          "the observed count, so a second step creating the same entity measures its own",
+          "delta. `delta` defaults to 1 when omitted, so declare 0 explicitly if the step must",
+          "write nothing."
+        ],
+        "assocMustBeSet": [
+          {
+            "entity": "Procurement.PurchaseRequest",
+            "assoc": "Procurement.PurchaseRequest_Supplier",
+            "target": "Procurement.Supplier",
+            "mustPointAt": {
+              "attr": "SupplierCode",
+              "value": "{{supplierCode}}"
+            },
+            "_note": [
+              "TWO SEPARATE CLAIMS, AND THEY ARE NOT THE SAME CLAIM.",
+              "  assocMustBeSet -> the FK is non-null. Measured as an assocGap: COUNT(*) minus",
+              "                    COUNT over an INNER JOIN, because the join silently drops",
+              "                    null-FK rows. It passes for a request linked to ANY supplier.",
+              "  mustPointAt    -> the FK points at the SEEDED supplier. Without this, a run that",
+              "                    picked the wrong-but-valid neighbouring row is indistinguishable",
+              "                    from a correct one on every instrument in the harness.",
+              "SET-NESS IS NOT CORRECTNESS. Never present a green assocMustBeSet as evidence the",
+              "right row was chosen.",
+              "",
+              "SCOPE CAVEAT, VERIFIED IN THE RUNNER AND WEAKER THAN IT LOOKS: both queries run",
+              "over the WHOLE table, not over the row this run created. assocMustBeSet therefore",
+              "goes red forever if one legacy row has a null FK, and mustPointAt goes green if",
+              "ANY row anywhere points at the seed — including one an earlier run wrote. It is",
+              "only a per-run claim on a fixture that is reset between runs. See fixture-seeding.md."
+            ]
+          },
+          {
+            "entity": "Procurement.ApprovalRecord",
+            "assoc": "Procurement.ApprovalRecord_PurchaseRequest",
+            "target": "Procurement.PurchaseRequest",
+            "_note": [
+              "`entity` may differ from `data.creates` — this asserts about a SIDE EFFECT of the",
+              "step, the approval record written alongside the request. Omit `entity` and it",
+              "defaults to `data.creates`; omit both and the SQL is built with `undefined` in it,",
+              "which returns null and is recorded INVALID."
+            ]
+          }
+        ],
+        "oql": [
+          {
+            "label": "an approval record exists for the seeded supplier's request",
+            "sql": "SELECT COUNT(*) AS n FROM Procurement.ApprovalRecord AS a INNER JOIN a/Procurement.ApprovalRecord_PurchaseRequest/Procurement.PurchaseRequest AS p INNER JOIN p/Procurement.PurchaseRequest_Supplier/Procurement.Supplier AS s WHERE s.SupplierCode = '{{supplierCode}}'",
+            "atLeast": 1,
+            "_note": [
+              "A floor, not an exact count: the fixture carries history, so 'at least one linked",
+              "row now exists' is the honest claim. The +1 delta above is what proves THIS run",
+              "wrote one. A query with NEITHER `expect` nor `atLeast` is recorded INVALID, not",
+              "PASS — the runner refuses to print a green cell for a check that cannot go red."
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "outcome": {
+    "sql": "SELECT COUNT(*) AS n FROM Procurement.PurchaseRequest AS p INNER JOIN p/Procurement.PurchaseRequest_Supplier/Procurement.Supplier AS s WHERE s.SupplierCode = '{{supplierCode}}' AND p.Status = 'Submitted'",
+    "atLeast": 1,
+    "_note": [
+      "RUNG 5, one query over the END STATE. Per-step deltas can each be right while the net",
+      "result is wrong: a request that saved, linked correctly, and then never left Draft",
+      "passes every rung above and fails here.",
+      "",
+      "VERIFIED IN THE RUNNER: the outcome block is evaluated after the LAST step returns",
+      "normally. If any step fails its actions or its landing guard the runner returns early",
+      "and the outcome rung produces NO row at all — silence, not INVALID. Read a missing",
+      "outcome row as 'the walk did not get there', never as 'not applicable'."
+    ]
+  }
+}

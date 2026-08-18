@@ -88,10 +88,24 @@ toolkit detects and skips it, but turn it off anyway: Settings → Apps → Adva
 App execution aliases.
 
 **What Studio Pro automation being macOS-only actually costs you.** It is built on `osascript`,
-`lsof` and `open -a`. On Windows and Linux, drive Studio Pro by hand at the points where those
-scripts would save, restart or reopen it — everything either side of that still works. One
-exception worth setting up: `exec.sh` looks for `mxbuild` inside a macOS Studio Pro bundle, so
-export `MXBUILD_PATH=/path/to/mxbuild.exe` and its build validation works normally.
+`lsof` and `open -a`. `save-sp.sh`, `restart-sp.sh` and `check-sp-health.sh` detect a non-macOS
+platform, say so, and exit — they will not half-run. Drive Studio Pro by hand at the points where
+they would have saved, restarted or reopened it. Everything either side of that still works.
+
+> **Known hazard on Windows and Linux — `bin/exec.sh` writes with its safety gate off.**
+>
+> `exec.sh` validates every model write by running `mxbuild`, which lives *inside a macOS Studio
+> Pro application bundle*. When it cannot find it, it prints `mxbuild or java not found — GATE
+> SKIPPED` and **continues with the write anyway**. You get a clean-looking exec with nothing
+> verifying it. Set this before any write and the gate works normally:
+>
+> ```bash
+> export MXBUILD_PATH="/c/Program Files/Mendix/<version>/modeler/mxbuild.exe"
+> ```
+>
+> Same file, second gap: the guard that refuses two concurrent writes uses `pgrep`, which Git Bash
+> does not have, so it silently never fires. Do not run two write sessions against one model on
+> Windows. Both are tracked for a proper fix.
 
 **Existing clone from before 2026-08-18?** You predate `.gitattributes`, so if git checked the
 scripts out with CRLF they will not run. Fix once:

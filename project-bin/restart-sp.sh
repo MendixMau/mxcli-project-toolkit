@@ -12,6 +12,18 @@
 # warning's retry gate. Default is interactive: a stray invocation should not
 # force-quit someone's live session, or silently loop retries unattended.
 set -euo pipefail
+# PLATFORM GUARD. macOS only: this drives the Studio Pro GUI through AppleScript
+# (`osascript`), which exists on no other platform. Without this guard a Windows or Linux
+# user gets a force-quit prompt followed by a silent no-op (there is no `lsof`) — a message about a directory their machine does not have, from a script
+# whose real problem is that it can never work there. Say it plainly and stop.
+case "$(uname -s)" in
+  Darwin) ;;
+  *) echo "restart-sp.sh: macOS only — it drives Studio Pro through AppleScript." >&2
+     echo "   On $(uname -s), do this by hand instead: close Studio Pro, stop the running app, and reopen the project yourself." >&2
+     echo "   See the Platform support section of the toolkit README." >&2
+     exit 2 ;;
+esac
+
 . "$(dirname "$0")/_common.sh"
 
 MPR="$(find_mpr)" || exit 1

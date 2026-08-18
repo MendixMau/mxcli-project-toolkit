@@ -20,6 +20,18 @@
 # path account for ~all of the sampling window?
 set -euo pipefail
 
+# PLATFORM GUARD. macOS only: this drives the Studio Pro GUI through AppleScript
+# (`osascript`), which exists on no other platform. Without this guard a Windows or Linux
+# user gets a health verdict derived from tools that are not installed — a message about a directory their machine does not have, from a script
+# whose real problem is that it can never work there. Say it plainly and stop.
+case "$(uname -s)" in
+  Darwin) ;;
+  *) echo "check-sp-health.sh: macOS only — it drives Studio Pro through AppleScript." >&2
+     echo "   On $(uname -s), do this by hand instead: look at the Studio Pro window: if it responds to a click, it is alive." >&2
+     echo "   See the Platform support section of the toolkit README." >&2
+     exit 2 ;;
+esac
+
 PID="${1:?usage: check-sp-health.sh <pid> [grace_seconds]}"
 GRACE="${2:-60}"
 

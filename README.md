@@ -19,7 +19,13 @@ Used across all mxcli-powered projects — OS migrations, Java/Angular migration
 
 ```bash
 git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
+~/Mendix/mxcli-project-toolkit/bin/doctor.sh          # <- run this first, on any platform
 ```
+
+`doctor.sh` probes the machine once and says in plain language what is missing — bash, a Python 3,
+sqlite3, line endings, Studio Pro — and exits non-zero if something will break a pipeline stage.
+It takes a second and it replaces every "the toolkit is broken" that is really a missing
+prerequisite. **Windows and Linux users: do not skip it.** See *Platform support* below.
 
 This clone stays clean — project output never lands inside it. **Everything else lives inside one project folder** (usually one git repo — it is the session root, the workspace root, and the mxcli target all at once):
 
@@ -57,6 +63,47 @@ mkdir -p ~/.claude/commands && cp ~/Mendix/mxcli-project-toolkit/commands/toolki
 Typing `/toolkit-init` in any Claude Code session then runs the install, reads the runbook, and starts the Stage-P interview (or runs `sync-project.sh` if the project is already wired). Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly if required artifacts are missing and regenerates `index.html` from the project's real state.
 
 ---
+
+## Platform support
+
+The toolkit is bash plus Python 3. Most of it is platform neutral; the exceptions are listed
+here rather than discovered halfway through a stage.
+
+| | macOS | Linux | Windows (Git Bash) |
+|---|---|---|---|
+| Analysis, BRDs, architecture, build plan, gates, reports | yes | yes | yes |
+| MDL authoring and `mxcli` | yes | yes | yes |
+| Context-cost hooks | yes | yes | yes |
+| **Studio Pro automation** — `save-sp.sh`, `restart-sp.sh`, the SP handling in `exec.sh` | yes | no | **no** |
+
+**Windows: use Git Bash, not WSL.** WSL is a separate Linux machine — it cannot see Studio Pro,
+cannot find the process holding your `.mpr`, and reaches a locally running app only over a host
+network hop with path translation on every file argument. The toolkit does none of that plumbing.
+Git Bash runs where Studio Pro, `mxcli` and your model already live, and ships with Git for
+Windows. `doctor.sh` detects WSL and warns.
+
+**Windows: install Python 3 from python.org with "Add python.exe to PATH" ticked.** If typing
+`python3` opens the Microsoft Store, that is the Store *alias stub*, not an interpreter. The
+toolkit detects and skips it, but turn it off anyway: Settings → Apps → Advanced app settings →
+App execution aliases.
+
+**What Studio Pro automation being macOS-only actually costs you.** It is built on `osascript`,
+`lsof` and `open -a`. On Windows and Linux, drive Studio Pro by hand at the points where those
+scripts would save, restart or reopen it — everything either side of that still works. One
+exception worth setting up: `exec.sh` looks for `mxbuild` inside a macOS Studio Pro bundle, so
+export `MXBUILD_PATH=/path/to/mxbuild.exe` and its build validation works normally.
+
+**Existing clone from before 2026-08-18?** You predate `.gitattributes`, so if git checked the
+scripts out with CRLF they will not run. Fix once:
+
+```bash
+cd ~/Mendix/mxcli-project-toolkit
+git config core.autocrlf false && git rm --cached -r . && git reset --hard
+bin/install-claude-hooks.sh --full     # re-install: the installed copies are the old ones
+```
+
+Then re-run `bin/sync-project.sh <project-root>` per project to refresh its copied scripts.
+
 
 ## How a migration flows through this toolkit
 

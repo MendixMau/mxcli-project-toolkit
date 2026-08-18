@@ -31,7 +31,20 @@ CEILING=${CLAUDE_CTX_CEILING:-400000}
 GRACE=${CLAUDE_CTX_GRACE:-900}
 
 command -v jq >/dev/null 2>&1 || exit 0
-command -v python3 >/dev/null 2>&1 || exit 0
+# Portability: a hook must never break the session, but it must not disable itself in silence
+# either. `command -v python3` was the old guard — it succeeds on the Windows Store alias stub
+# and fails on a machine whose Python 3 is called `python`, so on Windows this hook quietly
+# stopped running and the context guard it provides was simply absent. resolve_py probes by
+# executing. If there is genuinely no Python, say so ONCE per session and stand down.
+PORTABLE_LIB="__TOOLKIT_ROOT__/bin/lib/portable.sh"
+# shellcheck disable=SC1090
+[ -f "$PORTABLE_LIB" ] && . "$PORTABLE_LIB"
+PY="$(resolve_py 2>/dev/null)" || {
+  _warned="${TMPDIR:-/tmp}/.claude-nopy-warned"
+  [ -f "$_warned" ] || { printf '%s: no working Python 3 found — this hook is inactive.\n' "$(basename "$0")" >&2
+                         printf '   Run <toolkit>/bin/doctor.sh to see why.\n' >&2; : > "$_warned"; }
+  exit 0
+}
 
 input=$(cat)
 tool=$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null)
@@ -75,7 +88,7 @@ if [ -f "$cache" ]; then
 fi
 
 if [ -z "$ctx" ]; then
-  ctx=$(python3 - "$transcript" <<'PY' 2>/dev/null
+  ctx=$("$PY" - "$transcript" <<'PY' 2>/dev/null
 import json, os, sys
 path = sys.argv[1]; CAP = 8 << 20
 def newest(chunk):

@@ -1,6 +1,7 @@
 # Close the Loop — filing what a finished task produced
 
 **Applies to:** any agent-driven build session that produces knowledge faster than it
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 writes it down. Written 2026-07-30 after a session in which every durable output —
 a token audit, five model pins, three hooks, six traps — existed only in the
 conversation at the moment compaction was requested.

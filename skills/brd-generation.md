@@ -1,5 +1,6 @@
 # BRD JSON Generation — Prompt Template
 **Applies to:** migration or requirements-driven build (works from documents/SME input — no legacy source needed).
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 **Purpose:** How to synthesise KB files + extracted JSON into BRD (Business Requirements
 Document) JSON files — the structured handoff from analysis to MDL scripting.
 **Source:** reference sample — F001–F012 BRDs produced in conversation, 2026-05.

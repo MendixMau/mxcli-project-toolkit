@@ -22,6 +22,12 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT="$(cd "$HERE/../.." && pwd)"
+
+# Portability: the test suite must run on the platforms the toolkit targets, or the fix for
+# a Windows bug can never be verified on Windows. Resolve Python by executing candidates.
+# shellcheck disable=SC1091
+. "$TOOLKIT/bin/lib/portable.sh"
+require_py
 WORK="$(mktemp -d /tmp/appsummary.XXXXXX)"
 trap 'rm -rf "$WORK"' EXIT
 PASS=0; FAIL=0
@@ -61,7 +67,7 @@ render() {
 
 # block <report.html> → the app-summary block only (one line)
 block() {
-  python3 - "$1" <<'PY'
+  "$PY" - "$1" <<'PY'
 import re, sys
 h = open(sys.argv[1], encoding='utf8').read()
 m = re.search(r'<div class="app-summary[ "].*?<div class="app-summary-basis">.*?</div></div>', h, re.S)
@@ -71,7 +77,7 @@ PY
 
 # statement_slot <report.html> → text of the human-statement div only
 statement_slot() {
-  python3 - "$1" <<'PY'
+  "$PY" - "$1" <<'PY'
 import re, sys
 h = open(sys.argv[1], encoding='utf8').read()
 m = re.search(r'<div class="app-summary-statement">(.*?)</div>', h, re.S)

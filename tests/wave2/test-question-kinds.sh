@@ -16,6 +16,12 @@
 set -u
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+
+# Portability: the test suite must run on the platforms the toolkit targets, or the fix for
+# a Windows bug can never be verified on Windows. Resolve Python by executing candidates.
+# shellcheck disable=SC1091
+. "$ROOT/bin/lib/portable.sh"
+require_py
 QK="$ROOT/bin/question-kinds.sh"
 PASS=0; FAIL=0
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
@@ -25,7 +31,7 @@ bad()  { FAIL=$((FAIL+1)); printf '  FAIL %s\n     %s\n' "$1" "${2:-}"; }
 check(){ if [ "$2" = "$3" ]; then ok "$1"; else bad "$1" "expected '$3', got '$2'"; fi; }
 has()  { case "$2" in *"$3"*) ok "$1" ;; *) bad "$1" "missing '$3'" ;; esac; }
 
-jqf() { printf '%s' "$1" | python3 -c "import json,sys; print(json.load(sys.stdin)['$2'])"; }
+jqf() { printf '%s' "$1" | "$PY" -c "import json,sys; print(json.load(sys.stdin)['$2'])"; }
 
 mkbrd() { # mkbrd <dir> <file> <json-array-body>
   mkdir -p "$1"; printf '{"openQuestions":%s}' "$3" > "$1/$2"

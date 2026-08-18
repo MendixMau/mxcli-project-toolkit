@@ -28,6 +28,12 @@
 
 set -uo pipefail
 
+# Portability: resolve a real Python 3 by EXECUTING candidates, not by looking one up on PATH.
+# On Windows `python3` is usually the Microsoft Store alias stub, which `command -v` finds and
+# which then opens the Store instead of running. See bin/lib/portable.sh.
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/portable.sh"
+
 ROOT="${1:-}"
 APPLY=0
 [ "${2:-}" = "--apply" ] && APPLY=1
@@ -48,8 +54,10 @@ MDL Reference'
 QUAL_HEADS='Linting
 Best Practices Report'
 
+require_py
+
 export CM MDL_HEADS QUAL_HEADS APPLY ROOT
-python3 - <<'PY'
+"$PY" - <<'PY'
 import os, re, sys, shutil, datetime
 
 cm    = os.environ['CM']; root = os.environ['ROOT']

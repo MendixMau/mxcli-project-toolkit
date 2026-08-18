@@ -1,6 +1,7 @@
 # Conversion Runbook — The Interview-Driven Stage Pipeline
 
 **Applies to:** any mxcli project — see Entry Modes below for where your project type enters the pipeline.
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 
 **Purpose:** The spine the toolkit was missing. Each stage below has an owning skill and each skill is good — but until now nothing said *what a stage must produce before the next one starts*, *what the user has to decide*, or *whose job it is to ask them*. This skill is that layer: a stage completes when a decision is on record, not when the agent stops typing.
 
@@ -11,6 +12,41 @@
 **Do not open `toolkit-guide.html` because you read this line.** Opening is governed by the first-touch rule in the toolkit's `CLAUDE.md` — open only if `<project-root>/.claude/.guide-shown` is absent, then `touch` it. You are reading this file *every session*; an unconditional "open it at kickoff" here means a browser tab every session, which is exactly the bug this wording replaced.
 
 ---
+
+## Prerequisites — run this once on a new machine
+
+This runbook drives shell scripts. They need **bash** and a **Python 3**, and on Windows neither
+is guaranteed. Do not discover that partway into a stage; find out now:
+
+```bash
+bin/doctor.sh                      # probe the machine
+bin/doctor.sh /path/to/project     # and a specific project's wiring
+```
+
+It prints, in plain language, what is present and what is missing, and exits non-zero if
+something will break a stage. Everything below assumes it came back clean.
+
+| Platform | What to install | Notes |
+|---|---|---|
+| macOS | nothing, usually | bash 3.2 and Python 3 are there or one `brew install python3` away. |
+| Linux | `apt install python3 sqlite3` (or your equivalent) | |
+| Windows | **Git for Windows** (gives you Git Bash), and Python 3 from python.org with *"Add python.exe to PATH"* ticked | Run every toolkit command from the Git Bash prompt, not PowerShell or cmd. |
+
+**Windows, the one trap worth naming.** A `python3` that opens the Microsoft Store when you type
+it is the *Store alias stub*, not an interpreter. The toolkit detects and skips it, but you
+should still turn it off: Settings → Apps → Advanced app settings → App execution aliases.
+
+**Git Bash, not WSL.** WSL is a separate Linux machine: it cannot see Studio Pro or reach a
+Mendix app running on the Windows side without extra network and path plumbing, and the toolkit
+does none of that plumbing for you. Git Bash runs in the Windows filesystem and process space,
+which is where Studio Pro, mxcli and your model all live. `bin/doctor.sh` detects WSL and warns.
+
+**What does not work on Windows yet, and is not a mistake on your part.** The Studio Pro
+automation scripts — `project-bin/save-sp.sh`, `project-bin/restart-sp.sh`, and the Studio Pro
+handling inside `project-bin/exec.sh` — are macOS-only: they are built on `osascript`, `lsof` and
+`open -a`. On Windows, drive Studio Pro by hand at the points where those scripts would run.
+Everything else in the pipeline works.
+
 
 ## Entry Modes — Where Your Project Enters the Pipeline
 

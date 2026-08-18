@@ -34,10 +34,14 @@ case "$ext" in
   *) exit 0 ;;
 esac
 
-bytes=$(stat -f%z "$path" 2>/dev/null) || exit 0
+# `stat -f` is BSD-only. This is an installed hook, so a Linux or Git Bash user hit it in
+# every session. Try BSD, then GNU, then wc -c, and only then give up.
+bytes=$(stat -f%z "$path" 2>/dev/null || stat -c%s "$path" 2>/dev/null \
+        || wc -c < "$path" 2>/dev/null | tr -d ' ') || exit 0
+[ -n "$bytes" ] || exit 0
 [ "$bytes" -gt "$MAX_BYTES" ] 2>/dev/null || exit 0
 
-mtime=$(stat -f%m "$path" 2>/dev/null)
+mtime=$(stat -f%m "$path" 2>/dev/null || stat -c%Y "$path" 2>/dev/null)
 key=$(printf '%s:%s:%s:%s' "$path" "$mtime" "$bytes" "$MAX_DIM" | md5 -q 2>/dev/null)
 [ -n "$key" ] || exit 0
 
@@ -51,7 +55,8 @@ if [ ! -f "$out" ]; then
 fi
 [ -s "$out" ] || exit 0
 
-newbytes=$(stat -f%z "$out" 2>/dev/null || echo "$bytes")
+newbytes=$(stat -f%z "$out" 2>/dev/null || stat -c%s "$out" 2>/dev/null \
+           || wc -c < "$out" 2>/dev/null | tr -d ' ' || echo "$bytes")
 # If shrinking didn't actually help, don't bother redirecting.
 [ "$newbytes" -lt "$bytes" ] 2>/dev/null || exit 0
 

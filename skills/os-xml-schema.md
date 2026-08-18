@@ -1,5 +1,6 @@
 # OS 11 XML Blueprint Schema
 **Applies to:** migration.
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 **Purpose:** Teaches Claude the OutSystems 11 module XML format so extraction prompts
 work without pasting raw XML first.
 **Examples:** every module name, entity, role and description below is a synthetic

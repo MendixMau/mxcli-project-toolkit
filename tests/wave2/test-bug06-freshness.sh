@@ -27,6 +27,13 @@ set -uo pipefail
 
 GATE="${1:?usage: test-bug06-freshness.sh /path/to/gate-check.sh}"
 WORK="$(mktemp -d /tmp/bug06.XXXXXX)"
+
+# Portability: python is used here only to allocate a pty. The test already skips without
+# one; resolve_py just makes the probe honest on a machine where Python 3 is not called
+# `python3`, where the old check skipped a test that could in fact have run.
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/bin/lib/portable.sh"
+PY="$(resolve_py 2>/dev/null || true)"
 PASS=0; FAIL=0
 
 ok()  { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
@@ -287,8 +294,8 @@ while time.time() < deadline:
         break
 sys.stdout.write(buf.decode("utf-8", "replace"))
 PYDRIVER
-if command -v python3 >/dev/null 2>&1; then
-  python3 "$PTY_DRIVER" "$GC" --no-html --ack-protocol "$PROJ" > "$WORK/ack.out" 2>&1
+if [ -n "$PY" ]; then
+  "$PY" "$PTY_DRIVER" "$GC" --no-html --ack-protocol "$PROJ" > "$WORK/ack.out" 2>&1
   grep -q 'd=diff' "$WORK/ack.out" && ok "the ack prompt is reached under a TTY" \
                                    || bad "never reached the prompt: $(tail -1 "$WORK/ack.out")"
   if grep -q "Toolkit commit: $NEWREF" "$PROJ/PROJECT.md"; then
@@ -309,7 +316,7 @@ if command -v python3 >/dev/null 2>&1; then
   fi
   [ "$(sync_status 0)" = "PASS" ] && ok "the notice stops after the ack" || bad "still notifying: $(sync_status 0)"
 else
-  echo "  skip (no python3 to allocate a pty)"
+  echo "  skip (no Python 3 to allocate a pty)"
 fi
 
 echo "== T14: an informational run is unaffected =="

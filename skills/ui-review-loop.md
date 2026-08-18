@@ -1,5 +1,6 @@
 # UI Review Loop — Post-Build Functional + Visual Verification Gate
 **Applies to:** any mxcli project with built pages.
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 
 **Purpose:** The output-side counterpart to `module-brief.md` (which fixes the input side). A build
 that passes mxbuild and a "record created" happy-path can still ship blank fields, unclickable

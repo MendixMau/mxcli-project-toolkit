@@ -1,5 +1,6 @@
 # Architecture Blueprint — Diagrams, Module Definitions, Wiring & Fit-Gap
 **Applies to:** migration or requirements-driven build (works from documents/SME input — no legacy source needed).
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 **Purpose:** Turn Mendix-rearchitected BRDs into a readable target-architecture blueprint — module definition docs, an architecture diagram, a wiring/dependency graph, and a fit-gap analysis — so dependencies and open gaps are visible *before* the build plan, not discovered mid-build.
 **Upstream:** `migration-pipeline.md` Phase 6 (produces `.mx-brd.json` — the module boundaries this skill documents)
 **Downstream:** `brd-to-build-plan.md` (consumes the dependency graph as build order, the fit-gap as scope boundary, and the open-issues register as the questions the plan must answer before script 01)

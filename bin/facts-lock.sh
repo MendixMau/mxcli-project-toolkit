@@ -35,6 +35,12 @@
 
 set -u
 
+# Portability: resolve a real Python 3 by EXECUTING candidates, not by looking one up on PATH.
+# On Windows `python3` is usually the Microsoft Store alias stub, which `command -v` finds and
+# which then opens the Store instead of running. See bin/lib/portable.sh.
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/portable.sh"
+
 PROJECT_DIR="${1:-}"
 CMD="${2:-show}"
 
@@ -60,7 +66,9 @@ KBS=$(discover_brds "$PROJECT_DIR" | sed 's|/brd/[^/]*$||' | sort -u)
 # knowledge-bases is exactly the conflict worth catching, and a per-corpus lock would hide it.
 LOCK="$PROJECT_DIR/analysis/facts.lock.json"
 
-PROJECT_DIR="$PROJECT_DIR" KBS="$KBS" LOCK="$LOCK" CMD="$CMD" python3 - <<'PYEOF'
+require_py
+
+PROJECT_DIR="$PROJECT_DIR" KBS="$KBS" LOCK="$LOCK" CMD="$CMD" "$PY" - <<'PYEOF'
 import glob, json, os, re, sys
 from datetime import datetime, timezone
 

@@ -13,6 +13,12 @@
 # Usage: bash test-facts-lock.sh [path-to-facts-lock.sh]
 
 TOOLKIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Portability: the test suite must run on the platforms the toolkit targets, or the fix for
+# a Windows bug can never be verified on Windows. Resolve Python by executing candidates.
+# shellcheck disable=SC1091
+. "$TOOLKIT/bin/lib/portable.sh"
+require_py
 SUBJECT="${1:-$TOOLKIT/bin/facts-lock.sh}"
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ok   — $1"; }
@@ -79,7 +85,7 @@ grep -q 'C05_MAP_TYPE_CODE_SET' "$LOCK" 2>/dev/null \
 grep -q '"conflicts"' "$LOCK" 2>/dev/null && grep -q 'QueryA' "$LOCK" 2>/dev/null \
   && ok "records the contested ones in the lock rather than silently picking" \
   || bad "conflicts absent from the lock — nothing to resolve against"
-python3 -c "import json,sys; json.load(open('$LOCK'))" 2>/dev/null \
+"$PY" -c "import json,sys; json.load(open('$LOCK'))" 2>/dev/null \
   && ok "the lock is valid JSON" || bad "the lock is not parseable"
 
 bash "$SUBJECT" "$P" build >/dev/null 2>&1
@@ -88,7 +94,7 @@ bash "$SUBJECT" "$P" build >/dev/null 2>&1
 
 # --- the lock wins ------------------------------------------------------------------------------------
 # Resolve the WIP conflict by hand, the way an agent would, then prove deviations are caught.
-python3 - "$LOCK" <<'PY'
+"$PY" - "$LOCK" <<'PY'
 import json, sys
 p = sys.argv[1]
 d = json.load(open(p))

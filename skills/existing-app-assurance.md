@@ -1,5 +1,6 @@
 # Existing App Assurance — Audit & Regression-Test a Mendix App You Already Have
 **Applies to:** any mxcli project — an existing Mendix app with nothing to migrate or build.
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 **Purpose:** The recipe for pointing this toolkit at an app that already exists: analyze it, lint it, and put a regression net under it. **No pipeline, no stages, no gates** — this is à-la-carte tool-shelf use; grab the track you need and go.
 **Source:** Toolkit review 2026-07-14 — the `[any project]` skills always worked on existing apps, but nothing said so, and nothing routed the "I just want e2e tests / an audit" user anywhere.
 

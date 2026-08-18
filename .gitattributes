@@ -1,0 +1,32 @@
+# Line endings. This is the single highest-value portability setting in the repo.
+#
+# Without it, a Windows clone with git's default core.autocrlf=true rewrites every shell script
+# to CRLF on checkout. bash then fails on line 1 of each one with
+#     $'\r': command not found
+#     set: pipefail: invalid option name
+# which names nothing the reader can act on, and happens before any check inside the scripts
+# could report anything useful. Verified 2026-08-18 by CRLF-ing a script and running it.
+#
+# `text eol=lf` means: normalise to LF in the repository, and check out LF on every platform,
+# whatever the user's core.autocrlf says. Git Bash and WSL both run LF scripts natively.
+*.sh      text eol=lf
+*.bash    text eol=lf
+*.star    text eol=lf
+*.mdl     text eol=lf
+*.md      text eol=lf
+*.json    text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+
+# Scripts with no extension are still scripts. Add them by name as they appear.
+mxcli     -text
+
+# Binary, never touched.
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.pdf     binary
+*.mpr     binary
+*.db      binary
+*.xlsx    binary

@@ -42,9 +42,16 @@
 #   source-sufficiency.sh report <project-dir> [--html PATH] [--json] [--quiet]
 #   source-sufficiency.sh show   <project-dir>
 #
-# Bash 3.2 + python3. macOS/BSD userland. Read-only with respect to the Mendix model.
+# Bash 3.2 + any Python 3 (resolved by lib/portable.sh, not assumed to be named `python3`).
+# No BSD-only userland. Read-only with respect to the Mendix model.
 
 set -u
+
+# Portability: resolve a real Python 3 by EXECUTING candidates, not by looking one up on PATH.
+# On Windows `python3` is usually the Microsoft Store alias stub, which `command -v` finds and
+# which then opens the Store instead of running. See bin/lib/portable.sh.
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/portable.sh"
 
 CMD="${1:-}"
 PROJECT_DIR="${2:-}"
@@ -85,7 +92,9 @@ done
 RUBRIC="$PROJECT_DIR/analysis/source-sufficiency.json"
 DEFAULT_HTML="$PROJECT_DIR/analysis/source-sufficiency.html"
 
-command -v python3 >/dev/null 2>&1 || { echo "source-sufficiency: python3 required" >&2; exit 2; }
+# Was: `command -v python3` — which succeeds on the Windows Store alias stub. require_py
+# probes by running the interpreter, so a stub fails here instead of halfway through a stage.
+require_py
 
 # --- the rubric -------------------------------------------------------------------------
 #
@@ -142,7 +151,7 @@ if [ "$CMD" = "init" ]; then
               ! -path '*/knowledge-base/*' ! -name 'source-sufficiency.*' 2>/dev/null | sort)
   fi
 
-  DIMENSIONS="$DIMENSIONS" FILES="$FILES" SRC_ROOT="$SRC_ROOT" RUBRIC="$RUBRIC" python3 <<'PY'
+  DIMENSIONS="$DIMENSIONS" FILES="$FILES" SRC_ROOT="$SRC_ROOT" RUBRIC="$RUBRIC" "$PY" <<'PY'
 import json, os, datetime
 
 dims = [l.split('|', 1) for l in os.environ['DIMENSIONS'].strip().splitlines() if l.strip()]
@@ -210,7 +219,7 @@ fi
 [ "$CMD" = "show" ] && HTML_OUT=""
 
 RUBRIC="$RUBRIC" HTML_OUT="$HTML_OUT" AS_JSON="$AS_JSON" QUIET="$QUIET" \
-PROJECT_DIR="$PROJECT_DIR" python3 <<'PY'
+PROJECT_DIR="$PROJECT_DIR" "$PY" <<'PY'
 import json, os, sys, html, datetime
 
 rubric_path = os.environ['RUBRIC']

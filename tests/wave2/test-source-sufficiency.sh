@@ -14,7 +14,14 @@
 
 set -u
 
-SS="$(cd "$(dirname "$0")/../.." && pwd)/bin/source-sufficiency.sh"
+TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
+SS="$TOOLKIT/bin/source-sufficiency.sh"
+# Portability: the test suite must run on the platforms the toolkit targets, or a Windows fix
+# can never be verified on Windows. Resolve Python by executing candidates, not by name.
+# shellcheck disable=SC1091
+. "$TOOLKIT/bin/lib/portable.sh"
+require_py
+
 PASS=0; FAIL=0
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -69,7 +76,7 @@ hasnt "  and does not print a verdict" "$OUT" "build-ready"
 
 # The dangerous case: nine rated, one silently unread.
 rubric "$TMP/p4" specified
-python3 - "$TMP/p4/analysis/source-sufficiency.json" <<'PY'
+"$PY" - "$TMP/p4/analysis/source-sufficiency.json" <<'PY'
 import json,sys
 p=sys.argv[1]; d=json.load(open(p)); d['dimensions']['tenancy']['rating']=None
 json.dump(d,open(p,'w'))
@@ -147,7 +154,7 @@ has "the verdict carries its denominator" "$OUT" "of 10 dimensions"
 has "  and its corpus size" "$OUT" "source file(s)"
 
 OUT=$("$SS" report "$TMP/h" --json 2>&1)
-echo "$OUT" | python3 -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d["total"]==10 and "pct" in d else 1)' \
+echo "$OUT" | "$PY" -c 'import json,sys; d=json.load(sys.stdin); sys.exit(0 if d["total"]==10 and "pct" in d else 1)' \
   && ok "--json is machine-readable and carries the total" || bad "--json is machine-readable and carries the total"
 
 OUT=$("$SS" report "$TMP/nonexistent-dir" 2>&1); RC=$?

@@ -25,9 +25,22 @@
 
 [ "${CLAUDE_INTERVIEW_GATE:-1}" = "0" ] && exit 0
 
+# Portability: this hook had NO interpreter guard — it piped straight into `python3`. On
+# Windows that is usually the Microsoft Store alias stub. resolve_py probes by executing, and
+# a Stop hook that cannot run must stand down rather than block the session on a broken pipe.
+PORTABLE_LIB="__TOOLKIT_ROOT__/bin/lib/portable.sh"
+# shellcheck disable=SC1090
+[ -f "$PORTABLE_LIB" ] && . "$PORTABLE_LIB"
+PY="$(resolve_py 2>/dev/null)" || {
+  _warned="${TMPDIR:-/tmp}/.claude-nopy-warned"
+  [ -f "$_warned" ] || { printf '%s: no working Python 3 found — this hook is inactive.\n' "$(basename "$0")" >&2
+                         printf '   Run <toolkit>/bin/doctor.sh to see why.\n' >&2; : > "$_warned"; }
+  exit 0
+}
+
 INPUT=$(cat)
 
-STOP_ACTIVE=$(printf '%s' "$INPUT" | python3 -c '
+STOP_ACTIVE=$(printf '%s' "$INPUT" | "$PY" -c '
 import json,sys
 try: print(json.load(sys.stdin).get("stop_hook_active", False))
 except Exception: print("True")
@@ -111,7 +124,7 @@ choosing how much the user is consulted is not a choice you get to make for them
 REASON="${REASON}
 ${BATCH}"
 
-printf '%s' "$REASON" | python3 -c '
+printf '%s' "$REASON" | "$PY" -c '
 import json, sys
 print(json.dumps({"decision": "block", "reason": sys.stdin.read()}))
 '

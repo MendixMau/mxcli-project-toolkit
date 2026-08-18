@@ -1,5 +1,6 @@
 # Migration Pipeline — Source Code to Mendix BRD
 **Applies to:** migration.
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 **Purpose:** Platform-agnostic orchestration playbook for migrating any legacy application
 to Mendix via structured extraction, KB synthesis, and BRD generation.
 **Companion skills:** `source-os11.md`, `source-node-express-react.md`,

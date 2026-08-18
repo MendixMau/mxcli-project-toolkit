@@ -22,6 +22,12 @@
 # Not sure? Run it with no arguments. It prints the tier table and installs nothing.
 set -euo pipefail
 
+# Portability: resolve a real Python 3 by EXECUTING candidates, not by looking one up on PATH.
+# On Windows `python3` is usually the Microsoft Store alias stub, which `command -v` finds and
+# which then opens the Store instead of running. See bin/lib/portable.sh.
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/portable.sh"
+
 TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC="$TOOLKIT_ROOT/claude-hooks"
 DEST="$HOME/.claude"
@@ -103,10 +109,13 @@ ALL=(
   "context-ceiling.sh:PreToolUse::3"
 )
 
+# Both the install and the uninstall path rewrite settings.json through Python.
+require_py
+
 if [ "$uninstall" = 1 ]; then
   for entry in "${ALL[@]}"; do rm -f "$DEST/hooks/${entry%%:*}"; done
   rm -f "$CLAUDE_BIN/checkpoint.sh" "$CLAUDE_BIN/close-task.sh"
-  python3 - "$DEST/settings.json" "${ALL[@]}" <<'PY'
+  "$PY" - "$DEST/settings.json" "${ALL[@]}" <<'PY'
 import json, os, shutil, sys
 p, *reg = sys.argv[1:]
 if not os.path.exists(p):
@@ -169,7 +178,7 @@ done
 rewrite "$SRC/bin/checkpoint.sh" "$CLAUDE_BIN/checkpoint.sh"
 rewrite "$SRC/bin/close-task.sh" "$CLAUDE_BIN/close-task.sh"
 
-python3 - "$DEST/settings.json" "$DEST/hooks" "${want[@]}" <<'PY'
+"$PY" - "$DEST/settings.json" "$DEST/hooks" "${want[@]}" <<'PY'
 import json, os, shutil, sys
 settings, hookdir, *reg = sys.argv[1:]
 if os.path.exists(settings):

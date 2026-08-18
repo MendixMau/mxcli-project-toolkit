@@ -2,6 +2,8 @@
 
 **Read this before raising any question, at any gate, in any stage.**
 
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
+
 The pipeline has always *generated* questions. It has never been good at *asking* them.
 Measured on one real project: 46 rows in `sme-questions.md` against 7 recorded answers, and
 BRD statuses reading `ASSUMED drafting position (a), hardcode … NOT a settled product

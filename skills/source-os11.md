@@ -1,5 +1,6 @@
 # Source Platform: OutSystems 11 → Mendix
 **Applies to:** migration.
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 **Purpose:** OS 11-specific extraction rules, concept mappings, and migration patterns
 for use alongside `migration-pipeline.md`.
 **Scope:** OutSystems 11 traditional module model only. ODC is out of scope.

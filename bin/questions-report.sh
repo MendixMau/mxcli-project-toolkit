@@ -26,6 +26,12 @@
 
 set -uo pipefail
 
+# Portability: resolve a real Python 3 by EXECUTING candidates, not by looking one up on PATH.
+# On Windows `python3` is usually the Microsoft Store alias stub, which `command -v` finds and
+# which then opens the Store instead of running. See bin/lib/portable.sh.
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/portable.sh"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COLLECTOR="$SCRIPT_DIR/open-questions.sh"
 
@@ -70,10 +76,12 @@ fi
 
 mkdir -p "$(dirname "$OUT")" || { echo "questions-report.sh: cannot create $(dirname "$OUT")" >&2; exit 2; }
 
+require_py
+
 PROJECT_NAME="$(basename "$PROJECT_DIR")"
 GENERATED="$(date '+%Y-%m-%d %H:%M')"
 
-# The collector's JSON goes through a temp FILE, not a pipe. `python3 - <<'PYEOF'` takes its
+# The collector's JSON goes through a temp FILE, not a pipe. `"$PY" - <<'PYEOF'` takes its
 # program from stdin, so a pipe into the same command is swallowed by the heredoc and json.load
 # reads an empty string. Costing a temp file is cheaper than an inline-quoted program.
 JSON_TMP=$(mktemp "${TMPDIR:-/tmp}/qreport.XXXXXX.json") || exit 2
@@ -81,7 +89,7 @@ trap 'rm -f "$JSON_TMP"' EXIT
 printf '%s' "$JSON" > "$JSON_TMP"
 
 PROJECT_NAME="$PROJECT_NAME" GENERATED="$GENERATED" JSON_TMP="$JSON_TMP" \
-  PROJECT_DIR="$PROJECT_DIR" OUT="$OUT" python3 - <<'PYEOF'
+  PROJECT_DIR="$PROJECT_DIR" OUT="$OUT" "$PY" - <<'PYEOF'
 import html, json, os, sys
 
 with open(os.environ["JSON_TMP"], encoding="utf-8") as fh:
@@ -273,7 +281,7 @@ if [ "$QUIET" -eq 0 ]; then
   echo "Wrote: $OUT"
   # Reads the temp file, not a pipe, and no 2>/dev/null: a summary that silently prints
   # nothing when it breaks is worse than one that says why.
-  JSON_TMP="$JSON_TMP" python3 - <<'PYSUM'
+  JSON_TMP="$JSON_TMP" "$PY" - <<'PYSUM'
 import json, os
 with open(os.environ["JSON_TMP"], encoding="utf-8") as fh:
     d = json.load(fh)

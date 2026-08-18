@@ -1,5 +1,6 @@
 # Iterative Build Loop — BRD to Running Mendix App
 **Applies to:** any mxcli project (migration and greenfield alike).
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 **Purpose:** Per-module build discipline for mxcli-assisted Mendix development. Replaces bulk MDL generation with a verified, iterative gate per module.
 **Companion skills:** `brd-to-build-plan.md` (upstream — produces the plan this loop executes), `migration-pipeline.md`, `conversion-runbook.md` (Stage 5 — where the coverage checklist below gets confirmed with the user, not just self-extracted), `mdl-cookbook-microflows.md`, `bug-logs/mxcli-bugs.md`
 

@@ -30,6 +30,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ "$#" -gt 0 ]; then TARGETS="$*"; else TARGETS="$ROOT/bin $ROOT/project-bin $ROOT/claude-hooks $ROOT/tests"; fi
 
 VIOLATIONS=0
+SCANNED=0
 
 # Files allowed to name a macOS-only tool, because driving Studio Pro on macOS IS their job.
 # A file is listed here by basename. Keep the list short and justify every addition.
@@ -54,6 +55,7 @@ code_lines() { grep -n '' "$1" | grep -v ':[[:space:]]*#' ; }
 
 while IFS= read -r f; do
   [ -f "$f" ] || continue
+  SCANNED=$((SCANNED + 1))
 
   # 1. CRLF. Checked first: it makes every other finding moot.
   if ! tr -d '\r' < "$f" | cmp -s - "$f"; then
@@ -114,9 +116,19 @@ done <<EOF
 $(find $TARGETS -name '*.sh' -type f 2>/dev/null | sort)
 EOF
 
+# A checker that inspected nothing must not report a pass. Found 2026-08-18 by a parallel
+# session: bin/lint-gate.sh pointed at a nonexistent project, mxcli exited 0, and the gate
+# reported a clean PASS over an empty set. This script had the identical hole — a bad path or
+# an empty directory printed "clean" and exited 0. Same shape as the [].every() trace bug.
+if [ "$SCANNED" -eq 0 ]; then
+  printf 'check-portability: inspected ZERO files under: %s\n' "$TARGETS" >&2
+  printf '  This is NOT a pass. Check the path, or that the directories still contain *.sh.\n' >&2
+  exit 2
+fi
+
 if [ "$VIOLATIONS" -gt 0 ]; then
   printf '\ncheck-portability: %s violation(s).\n' "$VIOLATIONS"
   printf 'Each one is a script that runs here and fails on a colleague'"'"'s machine.\n'
   exit 1
 fi
-printf 'check-portability: clean (%s)\n' "$TARGETS"
+printf 'check-portability: clean — %s file(s) inspected under %s\n' "$SCANNED" "$TARGETS"

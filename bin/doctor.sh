@@ -101,9 +101,11 @@ head_ "Line endings"
 # a reader can act on. It happens before any other check in this script would ever run.
 CRLF_HITS=0
 CRLF_FIRST=""
+CRLF_SEEN=0
 for f in "$TOOLKIT_ROOT"/bin/*.sh "$TOOLKIT_ROOT"/bin/lib/*.sh "$TOOLKIT_ROOT"/project-bin/*.sh \
          "$TOOLKIT_ROOT"/claude-hooks/hooks/*.sh "$TOOLKIT_ROOT"/claude-hooks/bin/*.sh; do
   [ -f "$f" ] || continue
+  CRLF_SEEN=$((CRLF_SEEN + 1))
   # Strip CR and compare with the original: any difference means the file carries CRs.
   if ! tr -d '\r' < "$f" | cmp -s - "$f"; then
     CRLF_HITS=$((CRLF_HITS + 1))
@@ -111,7 +113,12 @@ for f in "$TOOLKIT_ROOT"/bin/*.sh "$TOOLKIT_ROOT"/bin/lib/*.sh "$TOOLKIT_ROOT"/p
   fi
 done
 
-if [ "$CRLF_HITS" -gt 0 ]; then
+# Zero scripts found is not "all your scripts are fine" — it means the probe looked in the
+# wrong place and would report LF over an empty set. Say so instead.
+if [ "$CRLF_SEEN" -eq 0 ]; then
+  bad "found no shell scripts under $TOOLKIT_ROOT to check — this is not a pass"
+  note "Either the toolkit path is wrong, or the clone is incomplete."
+elif [ "$CRLF_HITS" -gt 0 ]; then
   bad "$CRLF_HITS script(s) have Windows line endings (CRLF). They will not run."
   note "first one: $CRLF_FIRST"
   note "Every one fails on its first line with: \$'\\r': command not found"
@@ -120,7 +127,7 @@ if [ "$CRLF_HITS" -gt 0 ]; then
   note "  git rm --cached -r . && git reset --hard"
   note "The .gitattributes in this repo prevents it happening again on a fresh clone."
 else
-  ok "shell scripts are LF, as required"
+  ok "shell scripts are LF, as required ($CRLF_SEEN checked)"
 fi
 
 AUTOCRLF="$(git -C "$TOOLKIT_ROOT" config --get core.autocrlf 2>/dev/null || echo unset)"

@@ -243,6 +243,21 @@ if [ -d "$CRASHNET_SRC" ]; then
   done
 fi
 
+# ── Agent wiring ─────────────────────────────────────────────────────────────
+# Every AI coding agent gets the same entry point, not just Claude. Until this
+# call existed, init-project.sh wrote CLAUDE.local.md and stopped, so a project
+# opened in Copilot/Cursor/Windsurf had no routing at all: it found PROJECT.md,
+# read a 60k decision register as an orientation doc, and guessed at next steps.
+#
+# wire-agents.sh is idempotent and preserves any file that already exists, so a
+# re-run of init on a live project cannot clobber a hand-tuned CLAUDE.md.
+# opencode and vibe are NOT included by default — they cannot use a pointer file
+# and cost ~54k lines of duplicated skills each. Opt in with --with-skill-copies.
+"$SCRIPT_DIR/wire-agents.sh" "$PROJECT_DIR" || {
+  echo "Agent wiring did not complete. The scaffold is otherwise fine; re-run:"
+  echo "  $SCRIPT_DIR/wire-agents.sh $PROJECT_DIR"
+}
+
 GUIDE="$SCRIPT_DIR/../toolkit-guide.html"
 # First-touch sentinel. This is the same file every agent must test before opening the guide
 # (see CLAUDE.md "First-touch rule"); writing it here is what stops the next session — and the

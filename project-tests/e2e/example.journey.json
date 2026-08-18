@@ -1,0 +1,82 @@
+{
+  "$comment": [
+    "example.journey.json — a worked example of the journey shape, shipped WITH the engine.",
+    "",
+    "Two jobs. First, journey-runner.selftest.js falls back to this file when a project has",
+    "no journeys/ of its own, so the instrument that proves the assertions can fail is itself",
+    "runnable on day one instead of dying ENOENT before its first check.",
+    "",
+    "Second, it is the reference for the shape — in particular for rung 4, where the three",
+    "claims are easy to confuse. They are NOT interchangeable:",
+    "  delta          something was saved.",
+    "  assocMustBeSet something was saved WITH its association filled in.",
+    "  mustPointAt    ...and that association points at the RIGHT row.",
+    "Set-ness is not correctness. A journey that stops at delta passes over a record that",
+    "saved with a null link, and one that stops at assocMustBeSet passes over a record",
+    "linked to the wrong parent. Both read as green.",
+    "",
+    "scope is MANDATORY whenever assocMustBeSet or mustPointAt is present: without a",
+    "watermark the query grades every row in the table, including rows that predate the run,",
+    "so a single good historical row carries the assertion. A data block that carries",
+    "assocMustBeSet with no scope must be reported [WEAK EVIDENCE], never silently accepted.",
+    "",
+    "Names below are placeholders. Replace <Module>/<Entity>/<Page> with your own."
+  ],
+
+  "name": "Example",
+  "role": "<the persona who performs this journey>",
+  "goal": "One sentence in the user's language. Not 'the microflow succeeds'.",
+
+  "seeds": [
+    {
+      "name": "parentKey",
+      "$comment": "Referenced later as {{parentKey}}. Seeds are the only values a step may assume exist.",
+      "value": "EXAMPLE-0001"
+    }
+  ],
+
+  "steps": [
+    {
+      "name": "Open the overview and see the seeded row",
+      "page": "<Module>.<Page_Overview>",
+      "$comment": "rung 1 landing guard + rung 2 what the screen says. Without the guard an assertion grades the PREVIOUS page.",
+      "expectPage": "<Module>.<Page_Overview>",
+      "expectText": ["{{parentKey}}"]
+    },
+    {
+      "name": "Submit the form",
+      "click": "<button label or selector>",
+      "$comment": "rung 3 ordered spans, rung 4 data effects. An empty span list is a fault, never a pass — [].every() is true.",
+      "spans": [
+        { "mf": "<Module>.<Microflow>", "status": "OK" }
+      ],
+      "data": {
+        "creates": "<Module>.<Entity>",
+        "delta": 1,
+        "scope": { "newRowsBy": "id" },
+        "assocMustBeSet": [
+          {
+            "entity": "<Module>.<Entity>",
+            "assoc": "<Module>.<Entity>_<Parent>",
+            "target": "<Module>.<Parent>",
+            "mustPointAt": { "attr": "<KeyAttribute>", "value": "{{parentKey}}" }
+          }
+        ],
+        "oql": [
+          {
+            "label": "the new row exists and is not a draft",
+            "sql": "SELECT COUNT(*) AS n FROM <module>$<entity> WHERE status <> 'Draft'",
+            "atLeast": 1
+          }
+        ]
+      }
+    }
+  ],
+
+  "outcome": {
+    "$comment": "rung 5. The thing the user actually came for, asserted once, in their terms.",
+    "label": "the parent shows the submitted row",
+    "sql": "SELECT COUNT(*) AS n FROM <module>$<entity> e JOIN <module>$<parent> p ON e.parent_id = p.id WHERE p.<keyattribute> = '{{parentKey}}'",
+    "atLeast": 1
+  }
+}

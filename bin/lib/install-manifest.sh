@@ -91,6 +91,30 @@ MXTK_LINT_RULES_CONFIGURABLE="conv020_action_user_feedback.star"
 # delivered or declared undelivered. README.md is documentation, not a rule.
 MXTK_LINT_RULES_NOINSTALL="README.md STOCK-HASHES.txt"
 
+# --- verification engine ------------------------------------------------------------------
+# Copied from toolkit project-tests/e2e/ into <project>/tests/e2e/. This is the journey-proof
+# engine: the five shipped rungs, the two design rungs, the report pipeline, and their
+# selftests. Unlike MXTK_PROJECT_BIN these are .js into a nested directory, not flat shell
+# scripts into bin/ — which is precisely why they never travelled before. The toolkit has
+# shipped project-bin/verify-module.sh for weeks; verify-module.sh drives journey-runner.js,
+# and journey-runner.js existed in exactly one project. A conductor and no orchestra: on a
+# fresh project the first instrument exits 2 and the whole gate reads as fault.
+#
+# The split is the engine/config line drawn in project.config.template.js. Everything named
+# here must be portable with NO edits; anything that knows the project's name, pages, menu or
+# credentials belongs in that template instead. Two known violations of that line are logged
+# in the commit that added this and are NOT fixed here: helpers.js:473-540 hardcodes one app's
+# AI-assistant widget names (wants a cfg.copilot block), and helpers.js dismissModal uses a
+# literal .mx-name-closeButton.
+#
+# project.config.template.js is listed separately because it is the one file a project is
+# EXPECTED to edit — installing it over an edited copy would silently revert the port.
+MXTK_PROJECT_TESTS="config.js helpers.js otel.js journey-runner.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js report-normalize.js report-render.js review-report.js example.journey.json"
+MXTK_PROJECT_TESTS_TEMPLATE="project.config.template.js"
+
+# Deliberately not installed. Same contract as the lists above.
+MXTK_PROJECT_TESTS_NOINSTALL=""
+
 # --- self-check: subsets must cover the whole agent list -------------------------------
 _mxtk_manifest_check() {
   local union all
@@ -211,7 +235,44 @@ _mxtk_manifest_check_lint() {
   return $rc
 }
 
+
+# --- self-check: the verification engine, both directions ---------------------------------
+# Same forward/reverse pair as project-bin, for the same reason. The reverse half matters more
+# here than anywhere else in this file: the failure that created MXTK_PROJECT_TESTS was a whole
+# directory of instruments that no manifest named, so nothing warned and nothing shipped.
+_mxtk_manifest_check_tests() {
+  local here dir f missing="" unnamed="" p
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  dir="$here/../../project-tests/e2e"
+  [ -d "$dir" ] || return 0
+  for f in $MXTK_PROJECT_TESTS $MXTK_PROJECT_TESTS_TEMPLATE; do
+    [ -f "$dir/$f" ] || missing="$missing $f"
+  done
+  if [ -n "$missing" ]; then
+    echo "install-manifest.sh: MXTK_PROJECT_TESTS names files not in project-tests/e2e/:" >&2
+    echo "  $missing" >&2
+    echo "  Either add the file or remove the name — a manifest that lies installs nothing." >&2
+    return 1
+  fi
+  for p in "$dir"/*.js; do
+    [ -f "$p" ] || continue
+    f="$(basename "$p")"
+    case " $MXTK_PROJECT_TESTS $MXTK_PROJECT_TESTS_TEMPLATE $MXTK_PROJECT_TESTS_NOINSTALL " in
+      *" $f "*) continue ;;
+    esac
+    unnamed="$unnamed $f"
+  done
+  if [ -n "$unnamed" ]; then
+    echo "install-manifest.sh: project-tests/e2e/ holds file(s) named by NEITHER list:" >&2
+    echo " $unnamed" >&2
+    echo "  They install into no project at all. Add each to MXTK_PROJECT_TESTS, or to" >&2
+    echo "  MXTK_PROJECT_TESTS_NOINSTALL with a reason. This is a warning, not a failure." >&2
+  fi
+  return 0
+}
+
 _mxtk_manifest_check
 _mxtk_manifest_check_bin
 _mxtk_manifest_check_lint
 _mxtk_manifest_check_bin_unnamed
+_mxtk_manifest_check_tests

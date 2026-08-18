@@ -46,7 +46,7 @@ topics at once.
 | A script was executed against the `.mpr` | `docs/BUILD-LOG.md` | Append-only. One entry per exec: what it did · exec result · mxbuild result · manual SP work after |
 | A build-plan step is now done, blocked, or descoped | `architecture/build-plan.md` (+ the module's own plan) | Someone reading only the plan would otherwise redo it or skip it |
 | A decision that constrains future decisions | `PROJECT.md` | Without the *why*, a future session could reasonably decide the opposite |
-| A lesson that transfers to another Mendix project | `~/Mendix/personal-toolkit/skills/` | Still true with a different client, different module, different .mpr |
+| A lesson that transfers to another Mendix project | the shared toolkit's `skills/` | Still true with a different client, different module, different .mpr |
 | A confirmed, reproducible tool defect | `bug-logs/mxcli-bugs.md` | You could hand the repro to the tool's author |
 | How the user wants me to work; project context not derivable from code | memory dir + one line in `MEMORY.md` | It's about the collaboration, not the codebase |
 | Where we are, what's next, what's unfiled | `docs/progress/checkpoints.md` | It expires. Nobody will want it in a month |
@@ -98,7 +98,7 @@ forgotten* — they are on disk, not in working memory.
 ## The procedure
 
 ```sh
-~/Mendix/personal-toolkit/bin/close-task.sh          # what is owed + the routing table
+./bin/close-task.sh          # what is owed + the routing table (installed by sync-project.sh)
 ```
 
 1. **Read the ledger.** It lists execs, gates, and commits since the last close, each of

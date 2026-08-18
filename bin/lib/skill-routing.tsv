@@ -81,3 +81,11 @@ journey-proof	skills/journey-proof.md	Proving a module's user journey end-to-end
 learned-skill-ux-audit	skills/learned-skill-ux-audit.md	UX audit and screenshot-loop discipline	review	6	ondemand
 learned-skill-scope-delta	skills/learned-skill-scope-delta.md	Tracking scope delta between the BRD and the built state	review	6	ondemand
 close-the-loop	skills/close-the-loop.md	Cutover and retrospective — promoting proven patterns back into the toolkit	all	7	ondemand
+report-schema	skills/report-schema.md	Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer	test,review,gate	5,6	ondemand
+harness-architecture	skills/harness-architecture.md	Installing, extending, debugging or porting the verification harness — which part owns what, which parts run standalone, and what a missing part must report	test,review	5,6	ondemand
+measured-claims	skills/measured-claims.md	Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited	all	-	ondemand
+tool-output-is-not-ground-truth	skills/tool-output-is-not-ground-truth.md	Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude	all	-	baseline
+process-coherence-pass	skills/process-coherence-pass.md	Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss	review	5,6	ondemand
+module-completion-loop	skills/module-completion-loop.md	The full build → gate → prove → confirm → next loop a module runs through before it is called done	mdl,test,gate,review	5,6	ondemand
+e2e-evidence-report	skills/e2e-evidence-report.md	Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything	test,review	6	ondemand
+mpr-corruption-and-sp-load-errors	skills/mpr-corruption-and-sp-load-errors.md	Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout	mdl,gate	-	ondemand

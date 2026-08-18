@@ -41,7 +41,7 @@ fi
 
 # Ports: Mendix's own native runtime port defaults to 8080, but at least one
 # project's Docker-mode logs referenced 8081 for the same deployment — confirmed
-# 2026-08-04, see ~/Mendix/personal-toolkit/skills/restart-sp-reopen-and-hang-detection.md.
+# 2026-08-04 against a Docker-mode deployment.
 # Kill both unconditionally; MENDIX_RUNTIME_PORT adds a third if this project
 # uses something else entirely.
 EXTRA_PORT="${MENDIX_RUNTIME_PORT:-}"

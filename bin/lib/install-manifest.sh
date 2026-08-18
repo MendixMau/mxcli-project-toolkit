@@ -45,7 +45,12 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # fixture-manifest.sh is the executable step 1-3 of skills/fixture-seeding.md. It sat in
 # project-bin/ unnamed here and therefore installed into NO project at all, while the skill
 # documented it as the entry point — the reverse self-check below exists because of it.
-MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh conformance-check.sh graph-sweep.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh"
+#
+# close-task.sh is the executable half of skills/close-the-loop.md, which cited it by an
+# absolute path into a personal clone — a path that resolves on one laptop and nowhere else.
+# It now resolves the toolkit from project context ($MXTK_ROOT, then CLAUDE.local.md's
+# Wiring block, then its own install location) and ships here.
+MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh conformance-check.sh graph-sweep.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. Empty today, and that
 # is the point: the reverse check below flags anything named by NEITHER list, so a new file in

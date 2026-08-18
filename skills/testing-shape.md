@@ -17,14 +17,14 @@ and the guard for each. Job 2 is why this skill exists; if you shorten it, do no
 | Why a green UI report can still be lying | **§4a below** — merged in, no longer a separate file |
 | The deep five-rung version of "prove it", with per-rung non-vacuity controls | `journey-proof.md` (shared toolkit) |
 | Requirement traceability the suite asserts against | `coverage-ledger.md` (shared toolkit) |
-| Why `$?` and tool output are not evidence | `tool-output-is-not-ground-truth.md` — ⚠ **personal toolkit only** |
-| Does the whole journey hang together, not just each piece — a different axis, not a fifth rung | `process-coherence-pass.md` — ⚠ **personal toolkit only** |
-| The full build→gate→prove→confirm→next loop this shape plugs into, incl. monkey testing | `module-completion-loop.md` — ⚠ **personal toolkit only** |
+| Why `$?` and tool output are not evidence | `tool-output-is-not-ground-truth.md` (shared toolkit) |
+| Does the whole journey hang together, not just each piece — a different axis, not a fifth rung | `process-coherence-pass.md` (shared toolkit) |
+| The full build→gate→prove→confirm→next loop this shape plugs into, incl. monkey testing | `module-completion-loop.md` (shared toolkit) |
 
-> **Promotion note.** The last two have no shared-toolkit copy and are cited from §4, the
-> load-bearing section. Promote them with this skill or those references dangle. The former
-> `e2e-ui-test-honesty.md` **has** been merged here (§4a) — if you find a copy of it anywhere,
-> this file is canonical and that copy is stale.
+> **Promotion note, closed 2026-08-18.** All three rows above now have a shared-toolkit copy,
+> so §4 — the load-bearing section — no longer cites anything a fresh project cannot open.
+> `e2e-ui-test-honesty.md` was merged into §4a and deliberately has **no** shared copy: if you
+> find one anywhere, this file is canonical and that copy is stale.
 
 ---
 

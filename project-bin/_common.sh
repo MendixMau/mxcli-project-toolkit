@@ -89,3 +89,36 @@ project_name() {
   mpr=$(find_mpr) || return 1
   basename "$mpr" .mpr
 }
+
+# --- Python 3 ------------------------------------------------------------------------------
+# The project-side twin of bin/lib/portable.sh's require_py. It cannot simply source that file:
+# portable.sh is toolkit-side and no installer copies it into a project, while these scripts
+# run from <project>/bin/ on machines that may have no toolkit clone at all.
+#
+# Probe by EXECUTING, never `command -v`. On Windows `python3` usually resolves to the Microsoft
+# Store App Execution Alias stub: `command -v` succeeds and the script then opens the Store
+# instead of running. On a Mac without the Command Line Tools, /usr/bin/python3 is a prompt-only
+# stub that does the same thing. A name on PATH is not an interpreter.
+_py_is_store_stub() {
+  case "$(command -v "$1" 2>/dev/null)" in
+    *WindowsApps*|*windowsapps*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Sets $PY to a working Python 3, or exits 2 with a message the reader can act on.
+require_py() {
+  _c=""
+  for _c in python3 python py; do
+    _py_is_store_stub "$_c" && continue
+    if "$_c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+      PY="$_c"; export PY; return 0
+    fi
+  done
+  echo "$(basename "${0:-script}"): Python 3 is required and was not found." >&2
+  echo "  Tried, by running each one: python3, python, py." >&2
+  echo "  macOS  : brew install python3    Linux: apt install python3" >&2
+  echo "  Windows: python.org installer, tick 'Add python.exe to PATH'. A 'python3' that only" >&2
+  echo "           opens the Microsoft Store is the alias stub — Settings > App execution aliases." >&2
+  exit 2
+}

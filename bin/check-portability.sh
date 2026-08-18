@@ -41,9 +41,14 @@ is_exempt_macos_only() {
   esac
 }
 # Files allowed to contain the literal denied strings because they define or document the rule.
+# _common.sh is here for the same reason portable.sh is: it now carries require_py for the
+# project-side scripts, which cannot source portable.sh (no installer copies it into a project).
+# The names python3/python/py appear there as the probe list and in the failure message.
+# Tradeoff, accepted knowingly and identical to portable.sh's: a genuine hard-coded python3
+# added to _common.sh later will not be flagged. Review that file by eye.
 is_meta() {
   case "$(basename "$1")" in
-    portable.sh|doctor.sh|check-portability.sh) return 0 ;;
+    portable.sh|_common.sh|doctor.sh|check-portability.sh) return 0 ;;
     *) return 1 ;;
   esac
 }

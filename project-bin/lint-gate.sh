@@ -23,6 +23,32 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT" || exit 2
 
+# Python is resolved, not assumed: a bare `python3` is the Store alias stub on Windows and a
+# prompt-only stub on a Mac without the CLT. Both satisfy `command -v` and neither runs anything.
+#
+# require_py lives in _common.sh, but this script MUST NOT assume a sibling of its own vintage.
+# sync-project.sh installs a missing _common.sh and REPORTS a locally-modified one rather than
+# overwriting it — deliberately, since projects harden their crash net. So every project that
+# has already tuned _common.sh would receive this script and have it die on line 1 with
+# "require_py: command not found". Measured on WMS-Demo-main before this fallback existed.
+if [ -f "$(dirname "${BASH_SOURCE[0]}")/_common.sh" ]; then
+  . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
+fi
+if ! type require_py >/dev/null 2>&1; then
+  require_py() {
+    _c=""
+    for _c in python3 python py; do
+      case "$(command -v "$_c" 2>/dev/null)" in *[Ww]indows[Aa]pps*) continue ;; esac
+      if "$_c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+        PY="$_c"; export PY; return 0
+      fi
+    done
+    echo "lint-gate: Python 3 is required and was not found (tried python3, python, py)." >&2
+    exit 2
+  }
+fi
+require_py
+
 # The .mpr is discovered, not hardcoded. A per-project default here is how this script
 # was previously un-promotable: it named WMS-Demo.mpr and silently linted nothing anywhere
 # else (mxcli exits 0 on a missing project, so the gate reported a clean PASS).
@@ -81,7 +107,7 @@ else
 fi
 [ -s "$OUT" ] || { echo "lint-gate: lint produced no output" >&2; exit 2; }
 
-BASELINE="$BASELINE" OUT="$OUT" UPDATE="$UPDATE" python3 - <<'PY'
+BASELINE="$BASELINE" OUT="$OUT" UPDATE="$UPDATE" "$PY" - <<'PY'
 import json, os, sys, collections
 
 out_path  = os.environ["OUT"]

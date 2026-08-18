@@ -2,12 +2,40 @@
 
 Starlark rules for `mxcli lint`, held here so they can be reviewed and carried between
 projects instead of being reinvented per repo. Copy into a project's `.claude/lint-rules/`
-and configure the marked constants.
+and configure the marked constants — **after** running `mxcli init`, never before; see below.
 
 | Rule | What it catches | Configure? |
 |---|---|---|
 | `conv010_act_microflow_content.star` | `ACT_` page-action microflows holding business logic instead of delegating to `SUB_` | no |
 | `conv020_action_user_feedback.star` | Page-triggered microflows that commit / import / delete but tell the user nothing | **yes** — `PROJECT_MODULES` |
+| `data_change_microflows.star` | ARCH002 — persistent entities written from pages instead of microflows | no |
+| `entity_business_key.star` | ARCH003 — persistent entities with no UNIQUE NOT NULL business key | no |
+
+`data_change_microflows` and `entity_business_key` are **repaired copies of rules `mxcli init`
+already seeds**, not new ones. Both shipped comparing `entity.entity_type` to `"PERSISTENT"`
+while the model returns `"Persistent"`, so both skipped every entity and reported a clean pass
+for their entire life. One word each. Measured on TestCLIApp 2026-08-18: ARCH002 went from 0 to
+38 findings. (ARCH003 stays at 0 on that project and that is correct — every persistent entity
+there is a `System` entity, which the rule skips by design. Before the fix it reached none.)
+
+`conv010` here is likewise the repaired form of the rule mxcli seeds, and supersedes the
+version this directory shipped on 11 Aug: one violation per microflow instead of one per
+activity, plus four action types allowlisted. On WMS-Demo-main that is 399 rows -> 51 findings.
+
+## `mxcli init` overwrites these without asking
+
+Verified 2026-08-18 on v0.17.0: a line appended to a seeded `.star` was gone after a second
+`mxcli init` in the same directory — exit 0, no prompt, no warning, nothing in the output.
+
+So these rules are the only copied artifact with an *active adversary*: they revert on their
+own, and a reverted ARCH002/ARCH003 reports a clean pass while inspecting nothing. Each file
+therefore carries a `# mxtk-lint-rule:` header ending in an explicit terminator line, and
+`STOCK-HASHES.txt` records the md5 of each rule as mxcli seeds it. Together those let a copy
+path tell four states apart: ours, ours-but-older, untouched-stock (safe to replace), and a
+file the project wrote (never overwrite). `install-manifest.sh` names the rules in two lists —
+`MXTK_LINT_RULES` for the toolkit-owned ones and `MXTK_LINT_RULES_CONFIGURABLE` for `conv020`,
+which is installed once and never refreshed because refreshing it would silently discard the
+`PROJECT_MODULES` a project had configured.
 
 ---
 

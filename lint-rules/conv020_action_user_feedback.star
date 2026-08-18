@@ -1,3 +1,10 @@
+# mxtk-lint-rule: conv020_action_user_feedback
+# Shipped by mxcli-project-toolkit. UNLIKE the other rules here this one is MEANT to be
+# edited: PROJECT_MODULES must name the modules this project owns, or the rule inspects
+# nothing and says so. sync-project.sh therefore installs it once and never refreshes it;
+# when the template changes it reports the change and leaves your configured copy alone.
+# See lint-rules/README.md.
+# --- end mxtk-lint-rule header ---
 # CONV020: Completing user actions must tell the user what happened
 #
 # A microflow that is triggered from a page and that COMPLETES WORK -- commits

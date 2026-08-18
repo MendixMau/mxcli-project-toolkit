@@ -1,3 +1,10 @@
+# mxtk-lint-rule: conv010_act_microflow_content
+# Shipped by mxcli-project-toolkit. This file REPLACES the same-named rule that
+# `mxcli init` seeds into .claude/lint-rules/. Do not hand-edit: `mxcli init`
+# silently overwrites it (verified 2026-08-18, mxcli v0.17.0), and sync-project.sh
+# restores it only while the marker line above is present and unmodified.
+# See skills/lint-that-actually-runs.md.
+# --- end mxtk-lint-rule header ---
 # CONV010: ACT_ Microflow Content Restriction
 #
 # Microflows prefixed with ACT_ are page action microflows. They should only
@@ -26,6 +33,23 @@
 #
 # ShowHomeFormAction has no real counterpart and was dropped rather than guessed at.
 # Never take an action-type string from that guide without probing the model first.
+#
+# DE-NOISED 2026-08-14 — the un-inverted rule still emitted 399 rows on this project's
+# own modules, but those were only 55 distinct microflows: it fired once per *activity*,
+# so one fat ACT_ microflow produced 43 identical-looking rows and buried everything
+# else in the report. Two changes:
+#   1. One violation per microflow, naming the offending action types and the count.
+#   2. Four action types moved to the allowlist because flagging them was wrong, not
+#      merely noisy (212 of the 399 rows):
+#        MicroflowCallAction  - this IS the delegation the rule demands. Activities
+#                               recorded as ActionActivity/MicroflowCallAction never
+#                               reach the activity_type=="SubMicroflow" branch, so
+#                               correctly-delegating microflows were being flagged.
+#        LogMessageAction     - logging is not business logic.
+#        CreateVariableAction - a local variable is not business logic.
+#        ExclusiveMerge       - a control-flow join. ExclusiveSplit was already
+#                               allowlisted; its matching merge was overlooked.
+# Net on this project: 399 rows -> 51 findings, each a real fat ACT_ microflow.
 
 RULE_ID = "CONV010"
 RULE_NAME = "ACTMicroflowContent"
@@ -41,14 +65,32 @@ ALLOWED_ACTIONS = (
     "ClosePageAction",
     "ShowMessageAction",
     "DownloadFileAction",
+    "MicroflowCallAction",   # the delegation this rule asks for -- see DE-NOISED note
+    "LogMessageAction",      # logging is not business logic
+    "CreateVariableAction",  # a local variable is not business logic
 )
 
-# Allowed activity types (non-action activities)
+# Allowed activity types (non-action activities).
+# Every string here must be a real ActivityType. Probe before adding:
+#   sqlite3 .mxcli/catalog.db "SELECT DISTINCT ActivityType FROM activities;"
+# The complete real set (verified 2026-08-14) is exactly nine values:
+#   ActionActivity Annotation EndEvent ErrorEvent ExclusiveMerge
+#   ExclusiveSplit InheritanceSplit LoopedActivity StartEvent
+#
+# "SubMicroflow" was here since the rule was written and is NOT one of them -- zero rows
+# in the catalog. It was the ROOT CAUSE of the MicroflowCallAction false positives fixed
+# above: a sub-microflow call is recorded as ActionActivity/MicroflowCallAction, so this
+# dead entry never matched and the rule flagged the very delegation it demands. Removed.
+#
+# Deliberately NOT allowlisted: LoopedActivity (a loop is business logic -- 18 occurrences
+# in this project's ACT_ microflows, all fair findings).
 ALLOWED_ACTIVITY_TYPES = (
-    "SubMicroflow",
     "StartEvent",
     "EndEvent",
-    "ExclusiveSplit",
+    "ErrorEvent",        # control flow
+    "ExclusiveSplit",    # control flow
+    "ExclusiveMerge",    # control flow
+    "InheritanceSplit",  # control flow -- same category as ExclusiveSplit, was overlooked
     "Annotation",
 )
 
@@ -62,45 +104,43 @@ def check():
             continue
 
         inspected += 1
+
+        # Collect the offending kinds for THIS microflow, then emit at most one
+        # violation for it. Per-activity rows made a single fat microflow look like
+        # dozens of separate problems and drowned every other rule in the report.
+        offenders = []      # distinct kind names, in first-seen order
+        offender_count = 0  # total offending activities
+
         for act in activities_for(mf.qualified_name):
             saw_any_activity = True
-            # Skip allowed activity types
             if act.activity_type in ALLOWED_ACTIVITY_TYPES:
                 continue
 
-            # For ActionActivity, check the action type
             if act.activity_type == "ActionActivity":
                 if act.action_type in ALLOWED_ACTIONS:
                     continue
+                kind = act.action_type
+            else:
+                kind = act.activity_type
 
-                violations.append(violation(
-                    message="ACT_ microflow '{}' contains '{}' action. Delegate business logic to a SUB_ microflow.".format(
-                        mf.name, act.action_type
-                    ),
-                    location=location(
-                        module=mf.module_name,
-                        document_type="Microflow",
-                        document_name=mf.qualified_name,
-                    ),
-                    suggestion="Move the '{}' action to a SUB_ microflow and call it from '{}'".format(
-                        act.action_type, mf.name
-                    ),
-                ))
-            elif act.activity_type not in ALLOWED_ACTIVITY_TYPES:
-                # Any other non-allowed activity type
-                violations.append(violation(
-                    message="ACT_ microflow '{}' contains '{}' activity. Delegate to a SUB_ microflow.".format(
-                        mf.name, act.activity_type
-                    ),
-                    location=location(
-                        module=mf.module_name,
-                        document_type="Microflow",
-                        document_name=mf.qualified_name,
-                    ),
-                    suggestion="Move the '{}' to a SUB_ microflow called from '{}'".format(
-                        act.activity_type, mf.name
-                    ),
-                ))
+            offender_count += 1
+            if kind not in offenders:
+                offenders.append(kind)
+
+        if offender_count > 0:
+            violations.append(violation(
+                message="ACT_ microflow '{}' contains {} business-logic activities ({}). Delegate them to a SUB_ microflow.".format(
+                    mf.name, offender_count, ", ".join(offenders)
+                ),
+                location=location(
+                    module=mf.module_name,
+                    document_type="Microflow",
+                    document_name=mf.qualified_name,
+                ),
+                suggestion="Extract the {} into one or more SUB_ microflows and call them from '{}', leaving only page/message/download actions here.".format(
+                    ", ".join(offenders), mf.name
+                ),
+            ))
 
     # SELF-CHECK. activities_for() is a stub returning [] in some mxcli builds (the
     # microflow adapter no longer emits Activity nodes). A rule that reads no

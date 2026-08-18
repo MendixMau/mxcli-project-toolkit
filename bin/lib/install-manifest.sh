@@ -45,13 +45,46 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # fixture-manifest.sh is the executable step 1-3 of skills/fixture-seeding.md. It sat in
 # project-bin/ unnamed here and therefore installed into NO project at all, while the skill
 # documented it as the entry point — the reverse self-check below exists because of it.
-MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh conformance-check.sh graph-sweep.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh"
+MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh conformance-check.sh graph-sweep.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. Empty today, and that
 # is the point: the reverse check below flags anything named by NEITHER list, so a new file in
 # project-bin/ has to be either installed or declared unwanted. "Nobody noticed" stops being a
 # third option. Add a name here only with a one-line reason on the same line as a comment.
 MXTK_PROJECT_BIN_NOINSTALL=""
+
+# --- Starlark lint rules -----------------------------------------------------------------
+# Copied from toolkit lint-rules/ into <project>/.claude/lint-rules/. Two lists, because the
+# rules divide on one question: may a project edit this file?
+#
+# MXTK_LINT_RULES — toolkit-owned. Fixes to rules `mxcli init` seeds. Three of them, and two
+# are dead on arrival as shipped: data_change_microflows (ARCH002) and entity_business_key
+# (ARCH003) compare entity_type to "PERSISTENT" when the model returns "Persistent", so they
+# skip every entity and report a clean pass forever. Measured on TestCLIApp 2026-08-18,
+# ARCH002 went 0 -> 38 findings on the one-word fix. conv010 (CONV010) is the top rule by
+# volume everywhere it runs; the de-noised version here took WMS-Demo-main 399 -> 51.
+#
+# The toolkit ships ONLY these three of mxcli's ~29. Copying the rest would pin every project
+# to whatever mxcli shipped the day someone copied them.
+#
+# MXTK_LINT_RULES_CONFIGURABLE — installed once, then owned by the project. conv020 is not an
+# mxcli rule at all (init never seeds it) and it REQUIRES editing: PROJECT_MODULES ships empty
+# and the rule refuses to run until it is filled in. Refreshing it on sync would silently
+# revert that configuration and the rule would go back to inspecting nothing. So: install if
+# absent, report if the template moves, never overwrite.
+#
+# `mxcli init` OVERWRITES an edited .star without asking (verified 2026-08-18, mxcli v0.17.0:
+# a local edit was gone after a second `init` in the same directory; exit 0, no warning). A
+# project that re-runs init loses these fixes and its lint gate goes quietly blind. Re-running
+# sync-project.sh restores them; lint-rules/STOCK-HASHES.txt is what lets it tell a
+# reverted-to-stock file (safe to restore) from one a project deliberately tuned (hands off).
+MXTK_LINT_RULES="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star"
+MXTK_LINT_RULES_CONFIGURABLE="conv020_action_user_feedback.star"
+
+# Files in lint-rules/ deliberately NOT installed. Same contract as MXTK_PROJECT_BIN_NOINSTALL:
+# the reverse check below flags anything named by no list, so a new rule has to be either
+# delivered or declared undelivered. README.md is documentation, not a rule.
+MXTK_LINT_RULES_NOINSTALL="README.md STOCK-HASHES.txt"
 
 # --- self-check: subsets must cover the whole agent list -------------------------------
 _mxtk_manifest_check() {
@@ -126,6 +159,54 @@ _mxtk_manifest_check_bin_unnamed() {
   return 0
 }
 
+# --- self-check: lint rules exist, are marked, and none is silently undelivered ------------
+# Forward (does the manifest lie?) plus reverse (is it complete?) — the same pair the
+# project-bin checks above settled on, for the same reason: fixture-manifest.sh proved that a
+# forward-only check passes happily while a documented file reaches zero projects.
+#
+# The marker requirement is load-bearing. sync-project.sh identifies "this file is ours" by
+# that line alone; a rule shipped without it can never be maintained after first install,
+# because it is indistinguishable from something the project wrote.
+_mxtk_manifest_check_lint() {
+  local here dir f missing="" unmarked="" unnamed="" rc=0
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  dir="$here/../../lint-rules"
+  [ -d "$dir" ] || return 0
+  for f in $MXTK_LINT_RULES $MXTK_LINT_RULES_CONFIGURABLE; do
+    if [ ! -f "$dir/$f" ]; then
+      missing="$missing $f"
+    elif ! grep -q '^# mxtk-lint-rule:' "$dir/$f"; then
+      unmarked="$unmarked $f"
+    fi
+  done
+  if [ -n "$missing" ]; then
+    echo "install-manifest.sh: lint rules named here do not exist in lint-rules/:$missing" >&2
+    echo "  Either add the file or remove the name — a manifest that lies installs nothing." >&2
+    rc=1
+  fi
+  if [ -n "$unmarked" ]; then
+    echo "install-manifest.sh: these lint rules lack the '# mxtk-lint-rule:' provenance marker," >&2
+    echo "  so sync-project.sh could never maintain them after install:$unmarked" >&2
+    rc=1
+  fi
+  # Reverse: a rule sitting in lint-rules/ that no list names reaches no project, and nothing
+  # else would ever say so. Warning, not failure — same call as the project-bin reverse check.
+  for f in "$dir"/*; do
+    [ -f "$f" ] || continue
+    case " $MXTK_LINT_RULES $MXTK_LINT_RULES_CONFIGURABLE $MXTK_LINT_RULES_NOINSTALL " in
+      *" $(basename "$f") "*) ;;
+      *) unnamed="$unnamed $(basename "$f")" ;;
+    esac
+  done
+  if [ -n "$unnamed" ]; then
+    echo "install-manifest.sh: lint-rules/ holds files no list names, so they install nowhere:" >&2
+    echo " $unnamed" >&2
+    echo "  Add each to MXTK_LINT_RULES, MXTK_LINT_RULES_CONFIGURABLE, or _NOINSTALL." >&2
+  fi
+  return $rc
+}
+
 _mxtk_manifest_check
 _mxtk_manifest_check_bin
+_mxtk_manifest_check_lint
 _mxtk_manifest_check_bin_unnamed

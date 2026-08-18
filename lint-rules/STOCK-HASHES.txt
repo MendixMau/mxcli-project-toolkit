@@ -1,0 +1,22 @@
+# Known md5 checksums of the STOCK .star rules that `mxcli init` seeds into
+# .claude/lint-rules/. One line per known-stock version:
+#
+#   <rule-file>  <md5>  <mxcli version it was observed in>
+#
+# WHY THIS FILE EXISTS. sync-project.sh must tell three cases apart before it writes:
+#
+#   1. the file is OURS      -> carries the `# mxtk-lint-rule:` marker; refresh freely
+#   2. the file is STOCK     -> matches a hash below; nobody edited it, safe to replace
+#   3. the file is SOMETHING ELSE -> a project hand-tuned it, or mxcli shipped a version
+#                                    newer than anything listed here. REPORT, never write.
+#
+# Case 3 is why a hash list beats "overwrite if it lacks our marker". WMS-Demo-main's
+# conv010 at git HEAD is bafa1a26… — a hand fix predating this copy path. Blind-overwriting
+# on a missing marker destroys it; the hash list correctly routes it to "report and offer".
+#
+# Adding a version: run `mxcli init` into an EMPTY directory and md5 the seeded files.
+# Never harvest a hash from a real project — you cannot tell there whether it was edited.
+
+conv010_act_microflow_content.star  276df639edbd90d8010ee711a1e7c0fa  v0.17.0
+data_change_microflows.star         a47e068e01895ce2938d39846a8d907d  v0.17.0
+entity_business_key.star            956c7469e234033e22a9ac32844cb236  v0.17.0

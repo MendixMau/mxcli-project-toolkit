@@ -41,50 +41,76 @@ PROJECT_MD="$PROJECT_DIR/PROJECT.md"
 if [ -f "$INTAKE" ]; then
   echo "Skip: intake.md already exists — not overwritten."
 else
+  # The pre-filled bodies must carry NO answer marker.
+  #
+  # They used to read "Unverified — how to verify: ...", which is one of the two forms
+  # check_stage_P() accepts — so `gate-check.sh <dir> P` reported
+  #   "PASS — all 9 intake questions carry an answer marker"
+  # on a project that was two seconds old, before a single question had been asked. The
+  # generator was manufacturing the gate's own pass condition. Reported from a Copilot/Windows
+  # dry run, 2026-08-19, and reproduced here.
+  #
+  # "Unverified — how to verify: ..." stays a legitimate ANSWER: it means the question was
+  # asked and the answer is pending. It is not a legitimate PLACEHOLDER. So the scaffold says
+  # "_Not yet asked._" instead, which normalises (check_stage_P strips leading [ \t>*_-]) to
+  # "not yet asked._ how to verify: ..." — matching neither marker branch, failing the gate,
+  # and naming the section. Same shape as the "- Status: Not Answered" case pinned by
+  # tests/wave2/test-stage-p.sh T3.
+  #
+  # sync-project.sh's q9_current_text() mirrors Q9 below verbatim. Change both together, or
+  # --repair-intake writes the false-green back into a project.
   cat > "$INTAKE" <<'EOF'
 # intake.md — Stage P Kickoff Interview
 
-Answer each question either "Answered (verified by inspection): ..." or
-"Unverified — how to verify: ...". Per conversion-runbook.md's interview protocol, unknowns
-default and get recorded as ASSUMED in PROJECT.md rather than blocking Stage P.
+Replace each "_Not yet asked._" line below with a real answer, in one of two forms:
+
+  Answered (CONFIRMED): ...          the question was asked and answered
+  Unverified — how to verify: ...    the question WAS asked, the answer is not known yet,
+                                     and this line says how it will be established
+
+Both forms pass gate-check's Stage P. "_Not yet asked._" passes nothing, deliberately: this
+file is generated before the interview happens, and a scaffold must never be able to certify
+an interview that never took place. Per conversion-runbook.md's interview protocol, every
+question is asked in chat and the turn ends to wait for the answer; unknowns the user hands
+back ("you decide") are recorded as ASSUMED in PROJECT.md rather than blocking Stage P.
 
 ## 1. Which source folder(s) hold the legacy application?
 
-Unverified — how to verify: inspect the workspace root for source clones/submodules.
+_Not yet asked._ How to verify: inspect `sources/` and the workspace root for clones/submodules.
 
 ## 2. Are there licence/security constraints on storing this client's source in this workspace?
 
-Unverified — how to verify: ask the human; not inferable from the code.
+_Not yet asked._ How to verify: ask the human; not inferable from the code.
 
 ## 3. Is an SME available, and who?
 
-Unverified — how to verify: ask the human.
+_Not yet asked._ How to verify: ask the human.
 
 ## 4. Are there documents outside the source folders (specs, manuals, screenshots) not yet accounted for?
 
-Unverified — how to verify: search the workspace for spec/doc directories outside the source tree.
+_Not yet asked._ How to verify: search the workspace for spec/doc directories outside the source tree.
 
 ## 5. Is this a fresh migration or a continuation/re-run of prior work?
 
-Unverified — how to verify: check for an existing PROJECT.md / analysis/ directory.
+_Not yet asked._ How to verify: check for an existing PROJECT.md / analysis/ directory.
 
 ## 6. Target Mendix version / mxbuild setup?
 
-Unverified — how to verify: check `~/.mxcli/mxbuild` and the project's .mpr version.
+_Not yet asked._ How to verify: check `~/.mxcli/mxbuild` and the project's .mpr version.
 
 ## 7. Deployment target / environment (DTAP)?
 
-Unverified — how to verify: ask the human; not inferable from the source.
+_Not yet asked._ How to verify: ask the human; not inferable from the source.
 
 ## 8. Single Mendix app, or does scale suggest a multiple-app split?
 
-Unverified — how to verify: assess source module count/size during Stage 0 triage.
+_Not yet asked._ How to verify: assess source module count/size during Stage 0 triage.
 
 ## 9. Interview mode: attended (default) or unattended?
 
-Unverified — how to verify: ask the user; default is attended. Attended = every gate question
-is asked in chat and the agent waits for the answer. Unattended (opt-in only, explicit request
-required) = recommended options are applied as ASSUMED and logged for later reconciliation.
+_Not yet asked._ How to verify: ask the user; default is attended. Attended = every gate
+question is asked in chat and the agent waits for the answer. Unattended (opt-in only, explicit
+request required) = recommended options are applied as ASSUMED and logged for reconciliation.
 EOF
   echo "Created: intake.md"
 fi

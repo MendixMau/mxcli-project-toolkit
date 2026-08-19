@@ -225,13 +225,18 @@ warn() {
 # this command). If the user has written anything of their own there, we say so and stop:
 # silently rewriting an answered intake question is data loss, and the stale text reads enough
 # like an answer that someone may well have edited it into one.
+#
+# MUST stay byte-identical to Q9 in bin/init-project.sh's intake heredoc. It used to open with
+# "Unverified — how to verify: ...", which gate-check ACCEPTS as an answer — so --repair-intake
+# would have written a passing marker into a question nobody had asked, and appending a missing
+# Q9 (below) shipped the same false-green. See the long comment in init-project.sh.
 q9_current_text() {
   cat <<'EOF'
 ## 9. Interview mode: attended (default) or unattended?
 
-Unverified — how to verify: ask the user; default is attended. Attended = every gate question
-is asked in chat and the agent waits for the answer. Unattended (opt-in only, explicit request
-required) = recommended options are applied as ASSUMED and logged for later reconciliation.
+_Not yet asked._ How to verify: ask the user; default is attended. Attended = every gate
+question is asked in chat and the agent waits for the answer. Unattended (opt-in only, explicit
+request required) = recommended options are applied as ASSUMED and logged for reconciliation.
 EOF
 }
 # Byte-for-byte the pre-12828e4 body. MUST stay identical to gate-check.sh's function of the
@@ -285,8 +290,18 @@ elif [ -n "$INTAKE" ]; then
     Q9_TMP=$(mktemp "${TMPDIR:-/tmp}/q9sec.XXXXXX") || exit 2
     Q9_REF=$(mktemp "${TMPDIR:-/tmp}/q9ref.XXXXXX") || exit 2
     q9_section "$INTAKE" > "$Q9_TMP"
-    q9_stale_scaffold_text > "$Q9_REF"
+
+    # Q9 stopped carrying a marker on purpose: the CURRENT template is unanswered by design, so
+    # that a generated scaffold cannot pass Stage P. Recognise that case first and say nothing
+    # alarming — it is the expected state of a project whose interview has not happened yet.
+    # Without this branch every freshly-scaffolded project drew the "text has been edited, NOT
+    # touching it" warning below, which is both false and --strict-failing.
+    q9_current_text > "$Q9_REF"
     if cmp -s "$Q9_TMP" "$Q9_REF"; then
+      echo "Note: $INTAKE Q9 is the current template, still unanswered — Stage P will FAIL until"
+      echo "      the kickoff interview happens. That is correct; nothing to repair."
+
+    elif q9_stale_scaffold_text > "$Q9_REF"; cmp -s "$Q9_TMP" "$Q9_REF"; then
       if [ "$REPAIR_INTAKE" -eq 1 ]; then
         if [ "$DRY_RUN" -eq 1 ]; then
           echo "Would repair: $INTAKE — Q9 replaced with the current template text."

@@ -847,6 +847,100 @@ PROTOCOL_PATHS="skills agents"
 # stale read of it is safe — you cannot know in advance which stage it will bite at. The cost is
 # small and checkable rather than asserted: agents/ churns far less than skills/, and the
 # block-rate measurement reports the agents/-only figure separately for exactly that reason.
+# ── The runbook's Surface column ─────────────────────────────────────────────────────────
+# WHY THIS EXISTS. This script walks the runbook's **Gate** column and, until now, nothing else.
+# A gate asks "is the required evidence present and internally consistent" — it cannot ask "is
+# the work any good", because that is a human's judgement and it is made by READING the stage's
+# Surface artifact. So a stage could pass its gate while the one artifact a human would review
+# had never been generated, and the board would show green. That is not hypothetical: on
+# USI-RoutingModule the Stage 2 surface was simply never produced, the gate-required
+# validation-report.md was, and "gate PASS" was read as "stage done" by the agent that wrote it.
+#
+# Reported, never enforced. A missing Surface does NOT fail a gate and does NOT touch the exit
+# code — it is a stage nobody can review, which is a different complaint and belongs in a
+# different sentence.
+#
+# PARSED, NOT COPIED. The list lives in exactly one place, skills/conversion-runbook.md §2, and
+# is read out of it at runtime. A second copy here is the disease this repo keeps catching
+# itself with (see bin/lib/discover-brds.sh's header). The cost of that choice is honest: the
+# parser below is hand-tuned against PROSE cells and it WILL rot the day someone rewords one.
+# When it does it must say "cannot parse", never fall silent — a surface that cannot be checked
+# and a surface that is present must never print the same way.
+RUNBOOK_FILE="$TOOLKIT_DIR/skills/conversion-runbook.md"
+
+# "<stage>\t<raw cell>" for every stage that declares a Surface row.
+stage_surface_cells() {
+  [ -r "$RUNBOOK_FILE" ] || return 1
+  awk '
+    /^### Stage / { cur=""; if (match($0, /^### Stage (P|[0-7])/)) cur=substr($0, 11, RLENGTH-10); next }
+    /^\| \*\*Surface\*\* \|/ && cur!="" {
+      cell=$0; sub(/^\| \*\*Surface\*\* \| ?/,"",cell); sub(/ ?\|[[:space:]]*$/,"",cell)
+      print cur "\t" cell; cur=""
+    }
+  ' "$RUNBOOK_FILE"
+}
+
+# The artifact patterns for one stage, space-separated. Empty output means either "no Surface
+# row" or "a Surface row we could not read"; the caller distinguishes them via stage_surface_cells.
+stage_surface_patterns() {
+  local want="$1" st cell
+  while IFS="$(printf '\t')" read -r st cell; do
+    [ "$st" = "$want" ] || continue
+    # Order matters. Strip parentheticals FIRST: Stage 3's cell carries an em-dash INSIDE a
+    # parenthetical, so cutting at the gloss first would swallow design-system.html and the
+    # wireframes with it. Cutting at " — " second is what keeps Stage 2's historical mention of
+    # the renamed enrichment-summary.html — the exact file this whole check is about — from
+    # being reported as a surface the project still owes.
+    cell="$(printf '%s' "$cell" | sed -E 's/\([^)]*\)//g')"
+    cell="${cell%% — *}"
+    # Backticked tokens that look like artifacts. The no-space filter drops toolkit COMMANDS
+    # (`bin/brd-report.sh <project-root>`); ^bin/ is belt-and-braces for the same reason.
+    printf '%s' "$cell" \
+      | grep -oE '`[^`]+`' | tr -d '`' \
+      | grep -E '^[^ ]+\.(html|json|md)$' | grep -v '^bin/' \
+      | sed -E 's/<[^>]*>/*/g' \
+      | tr '\n' ' '
+    return 0
+  done <<EOF
+$(stage_surface_cells)
+EOF
+  return 1
+}
+
+# "present" | "MISSING: a, b" | "not declared in runbook §2" | "cannot parse"
+stage_surface_status() {
+  local st="$1" pats missing="" pat base f hit
+  if ! stage_surface_cells >/dev/null 2>&1; then
+    echo "cannot parse — $RUNBOOK_FILE is unreadable"; return
+  fi
+  if ! pats="$(stage_surface_patterns "$st")"; then
+    # No Surface row at all. §2's intro promises every stage a review surface, so this is a
+    # runbook gap rather than a project one, and saying so is how it gets closed.
+    echo "not declared in runbook §2"; return
+  fi
+  if [ -z "$(printf '%s' "$pats" | tr -d ' ')" ]; then
+    echo "cannot parse — the Surface row for stage $st yielded no artifact"; return
+  fi
+  for pat in $pats; do
+    hit=0
+    for base in "$PROJECT_DIR" "$ANALYSIS_BASE"; do
+      # Unmatched globs stay literal with nullglob off, so -e is the whole test.
+      for f in $base/$pat; do [ -e "$f" ] && { hit=1; break 2; }; done
+    done
+    [ "$hit" = "1" ] || missing="$missing${missing:+, }$pat"
+  done
+  [ -z "$missing" ] && echo "present" || echo "MISSING: $missing"
+}
+
+# The one-line suffix appended to a stage's verdict.
+stage_surface_suffix() {
+  local s; s="$(stage_surface_status "$1")"
+  case "$s" in
+    present) printf ' · Surface present' ;;
+    *)       printf ' · Surface %s' "$s" ;;
+  esac
+}
+
 PROTOCOL_ALWAYS="skills/conversion-runbook.md skills/query-the-model.md agents/"
 stage_protocol_paths() {
   # The arms below are GENERATED from bin/lib/skill-routing.tsv by bin/render-routing.sh.
@@ -1334,7 +1428,7 @@ printf "Skill routing (surfaces vs table): %s — %s\n" "$ROUTING_STATUS" "$ROUT
 P_RESULT="$(check_stage_P)"
 P_STATUS="${P_RESULT%%|*}"
 P_NOTE="${P_RESULT#*|}"
-printf "Stage P (Kickoff): %s — %s\n" "$P_STATUS" "$P_NOTE"
+printf "Stage P (Kickoff): %s%s — %s\n" "$P_STATUS" "$(stage_surface_suffix P)" "$P_NOTE"
 
 for stage in "${STAGE_NAMES[@]}"; do
   case "$stage" in
@@ -1352,8 +1446,13 @@ for stage in "${STAGE_NAMES[@]}"; do
   tbl_add RESULTS_TBL "$stage" "$status"
   tbl_add NOTES_TBL "$stage" "$note"
   tbl_get "$stage" "$STAGE_TITLES_TBL" || TBL_VALUE="(untitled stage)"
-  printf "Stage %s (%s): %s — %s\n" "$stage" "$TBL_VALUE" "$status" "$note"
+  printf "Stage %s (%s): %s%s — %s\n" "$stage" "$TBL_VALUE" "$status" "$(stage_surface_suffix "$stage")" "$note"
 done
+# Said once, after the list, because it calibrates every line above it. A reader who
+# does not know that a missing Surface left the exit code alone will read the first one
+# they see as a failure the gate somehow let through.
+echo "Surface = the artifact a human READS to judge the stage (runbook §2). A missing one is"
+echo "not a gate failure and does not affect the exit code — it is a stage nobody can review."
 
 # Regenerate index.html from these exact results — subject to three conditions, all of which
 # exist because this write has destroyed a real file:

@@ -38,10 +38,28 @@ open-ended search without a specific term in mind.
 
 1. **Full call-graph trace per persona journey.** Walk each persona's intended journey hop-by-hop
    as the requirements describe it. At every hop, confirm the *next* step is actually reachable
-   from the current one — not just that both individually exist. Use whatever this project's
-   tooling exposes for caller/callee/reference graphs (mxcli: `SHOW CALLERS OF` / `SHOW CALLEES OF`
-   / `SHOW REFERENCES OF` *and* `SHOW REFERENCES TO` — the `OF` direction misses page-button/grid-
-   action bindings, which only show up as references *to* the microflow, not calls *from* one).
+   from the current one — not just that both individually exist.
+
+   **Start with mxcli's own static instruments — do not hand-roll `SHOW REFERENCES` sweeps first.**
+   mxcli already ships the graph this pass needs:
+   - `mxcli lint` rule **QUAL004 "Orphaned Elements"** flags any microflow or page with zero
+     qualifying inbound references (entry points — `ACT_`/`SCH_`/`WS_`/`REST_`/`OData_` prefixes,
+     `Home`/`Login`/`Index`/`Dashboard`-pattern pages — excluded). Run it before anything else; it
+     is the exact shape of the 2026-08-13 originating defect (a correctly built, correctly granted
+     microflow with zero references anywhere).
+   - `mxcli` graph tables (`REFRESH CATALOG FULL` then `REFRESH CATALOG COMMUNITIES`, once):
+     `GRAPH_DEAD_ASSETS` for unreachable elements project-wide, `GRAPH_INTEGRATION_SURFACE` for
+     what actually crosses module boundaries, `GRAPH_MODULE_COUPLING`/`GRAPH_CENTRALITY` for the
+     module-level wiring shape a single element's orphan status doesn't show. See
+     `.ai-context/skills/graph-analysis.md` (bundled with mxcli in the consuming project) for the
+     full table reference and query patterns.
+
+   Only fall back to manual `SHOW CALLERS OF` / `SHOW CALLEES OF` / `SHOW REFERENCES OF` *and*
+   `SHOW REFERENCES TO` for the specific hops the lint/graph pass didn't resolve — e.g. confirming
+   a *particular* button's action targets the *current* page, which is a one-element check, not a
+   whole-graph sweep. Remember the `OF` direction alone misses page-button/grid-action bindings,
+   which only show up as references *to* the microflow, not calls *from* one.
+
    A step nothing before it can reach is the same defect as a step that dead-ends going forward.
 
 2. **State-machine coherence.** Pull the full value set of whatever enumeration drives the
@@ -86,15 +104,23 @@ This is not a per-module rung (that debate — depth 1–4, tiers — is `testin
 explicitly settled the other way there: no tiers, no numbers). This pass runs at coarser, named
 checkpoints instead:
 
-- Once requirements-conformance and UI/Data testing are both clean for a module or a related
-  cluster of modules — this pass assumes the pieces already checked out individually and is
-  specifically hunting for composition failures between them. Running it before the component
-  checks are clean just re-discovers component bugs at ten times the token cost.
+- **Every N=2–3 modules** (a cluster), not only once at Stage 6. Waiting for the whole app means
+  a composition defect planted in module 2 is only found after modules 3–10 have already built on
+  top of the same wrong assumption — the exact shape of the 2026-08-19 incident, where the escaped
+  defects had been buildable-and-findable for sessions before anyone ran this pass. `mxcli lint`
+  QUAL004 is cheap enough (seconds, no browser) to run at every module-review CONFIRM; this fuller
+  4-pass sweep is the one that waits for a cluster, not the lint check that feeds it.
+- Once requirements-conformance and UI/Data testing are both clean for that module or cluster —
+  this pass assumes the pieces already checked out individually and is specifically hunting for
+  composition failures between them. Running it before the component checks are clean just
+  re-discovers component bugs at ten times the token cost.
 - On demand, whenever a user asks "does this actually work end to end" or "does the process make
   sense" — that phrasing is the tell that they want this pass, not another component sweep.
 - Before a milestone/demo that will be walked live by someone who isn't the builder — this is
   exactly the class of gap ("the screen you'd naturally click doesn't do the thing") that burns
   trust fastest in front of an audience.
+- Always, still, at Stage 6 across the whole app — the cluster cadence above narrows the interval,
+  it does not replace the full-app pass.
 
 ## Output shape
 

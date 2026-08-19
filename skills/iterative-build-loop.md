@@ -418,17 +418,48 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
       - Fill minimum required fields
       - Click save / next
       - Confirm record created or navigation succeeded — **and confirm the demo user actually reached the page** (a blank screen or unclickable nav is a failure, not a pass)
-14. **Gate: UI — the review loop (mandatory, per module):** run `ui-review-loop.md` scoped to the pages this module built. This is not "take a screenshot" — it is the functional + visual verification that mxbuild and "record created" cannot do. At minimum, for each page this module added:
+14. **Gate: UI — one `module-review.md` pass, scoped to this module (mandatory, per module):** this
+    is not "take a screenshot" — it is the functional + visual verification that mxbuild and "record
+    created" cannot do. `module-review.md` is the ONE pass for closing a module; it replaces the
+    tombstoned `module-completion-loop.md` and `ui-review-loop.md`. Five stages, one report:
+
+    ```
+    1. BUILD    already done — steps 1-9 above
+    2. GATE     already done — Gate: BUILD (bin/exec.sh, 0 mxbuild errors, lint clean)
+    3. PROVE    the mechanical rungs: UI (Playwright) + Data (OQL/DB) + wiring-sweep
+                (`wiring-sweep.md` — every clickable element on the page gets
+                clicked and checked for an effect, not just what a journey
+                visits) + monkey.js pass (`monkey-test.md` — diagnostic
+                crash/fuzz net, never proof on its own). Deep form when an
+                instrument is green and you cannot say what would have made it
+                red: journey-proof.md
+    4. LOOK     THE INTELLIGENCE CHECK — every page this module added, not just the
+                ones the happy-path walk (step 13) visited. Is it logical? Does it
+                look right? Does it match our design? Stages 1-3 cannot answer any
+                of those. This is the stage that gets skipped, and the stage the
+                escaped defects come from.
+    5. CONFIRM  one report, explicit denominator (`N of N pages reviewed`), a human
+                look, then next module
+    ```
+
+    At minimum, stage 3/4 must confirm for each page this module added:
       - **Every displayed field shows its value** — especially DateTime/enum/calculated fields. A blank where data must exist (e.g. a system `createdDate`) is a render bug (P1), not missing data — confirm the binding in MDL, then treat a persistent blank as a finding.
       - **Every grid/gallery** shows rows or a proper empty-state message — never nothing.
       - **Every action/View button** points at the *current* page, not a superseded one (`DESCRIBE PAGE`).
+      - **Every nav item, breadcrumb, and button actually reaches working logic** — a wired affordance with no microflow behind it, or one that dead-ends, is a P1, not a cosmetic finding.
       - **Required-field validation surfaces a visible message** — a silent 4xx/5xx save is a P1.
       - **Built StyleGallery components are actually used** on this page (badges/steppers/empty-states), not reimplemented as plain text.
-      - **Wireframe-vs-live** compare where a wireframe exists; degrade loudly (log it) where one doesn't — see the review loop's degradation table.
+      - **Wireframe-vs-live** compare where a wireframe exists; degrade loudly (log it) where one doesn't — see `module-review.md`'s degradation table.
 
       Diagnostic only: findings go to the punch-list, fixes are a separate approved pass.
 15. **Gate: COVERAGE — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.
 16. Mark module done ✅ — only if Gate: UI's per-module review produced no open P1.
+17. **Every N=2–3 modules, run `process-coherence-pass.md`** on the cluster just closed — a
+    cross-module seam check (does the persona journey actually chain across these modules, not
+    just within each). This is not a per-module step and does not gate an individual module, but
+    do not defer it to Stage 6: a wiring defect planted in module 2 and never caught survives
+    every later per-module review, since each of those only looks at its own module. Leads with
+    `mxcli lint` QUAL004 and the graph-analysis tables, not hand-rolled reference queries.
 
 Everything from Gate: SYNTAX onward is the phase gate; the writing steps without it mean the page
 may be built and still wrong. **Grant completeness (step 10) and Gate: UI are the two checks mxbuild

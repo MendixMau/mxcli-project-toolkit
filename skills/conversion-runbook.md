@@ -363,9 +363,10 @@ the looking. Both files are now tombstones pointing here. Five stages, one repor
 ```
 1. BUILD    mdl-agent drafts + validates MDL (mxcli check --references, 0 errors)
 2. GATE     bin/exec.sh (snapshot -> exec -> mxbuild -> auto-restore on failure); 0 errors, lint clean
-3. PROVE    the mechanical rungs: UI (Playwright) + Data (OQL/DB) + monkey pass.
-            Deep form, when an instrument is green and you cannot say what would have
-            made it red: journey-proof.md
+3. PROVE    the mechanical rungs: UI (Playwright) + Data (OQL/DB) + wiring-sweep
+            (every clickable element, not just what a journey visits) + monkey
+            pass. Deep form, when an instrument is green and you cannot say what
+            would have made it red: journey-proof.md
 4. LOOK     THE INTELLIGENCE CHECK — every screen in the module, not the ones a test
             visited. Is it logical? Does it look right? Does it match our design?
             Stages 1-3 cannot answer any of those. This is the stage that gets skipped,
@@ -377,6 +378,13 @@ the looking. Both files are now tombstones pointing here. Five stages, one repor
 **"instrument faulted"** apart from **"feature failed"**. It does not perform stage 4, and a green
 run buys no exemption from it — per `skills-over-scripts.md`, judgement lives in the skill and code
 only fetches facts a reader cannot.
+
+**Every N=2–3 modules, also run `process-coherence-pass.md`** — the cross-module seam check (does
+the whole persona journey actually chain across the modules just closed, not just within each
+one). Do not wait for Stage 6 to run it for the first time; that is how a wiring defect planted
+early survives every later module-review pass, each of which only looks at its own module.
+`process-coherence-pass.md` leads with `mxcli lint` QUAL004 and the `GRAPH_DEAD_ASSETS`/
+`GRAPH_INTEGRATION_SURFACE` tables, not hand-rolled `SHOW REFERENCES` queries.
 
 ### Stage 6 — Test
 

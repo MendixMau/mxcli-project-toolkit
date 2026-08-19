@@ -208,9 +208,9 @@ The Stage-3 `✋` gate is reviewed by a person, and raw Mermaid in markdown is a
 
 ## Step 7b: Architecture Review Loop (iterative sign-off before Stage 4)
 
-**Purpose:** `blueprint.html` from Step 7 is a one-shot render. This step turns it into an iterative review surface — the same loop as `ui-review-loop.md` but for architecture decisions, not rendered pages. The goal: every structural decision (module boundaries, entity relationships, normalization, marketplace choices, single vs multi-app) is explicitly confirmed by the user before the build plan is written. Surprises discovered here are cheap; the same surprise mid-build costs a rewrite.
+**Purpose:** `blueprint.html` from Step 7 is a one-shot render. This step turns it into an iterative review surface — the same loop as `module-review.md`'s LOOK stage but for architecture decisions, not rendered pages. The goal: every structural decision (module boundaries, entity relationships, normalization, marketplace choices, single vs multi-app) is explicitly confirmed by the user before the build plan is written. Surprises discovered here are cheap; the same surprise mid-build costs a rewrite.
 
-**Diagnostic-only rule:** never update `blueprint.md`, BRDs, or module docs during a review pass. Findings only. Fixes are a separate approved step — same discipline as the UI review loop.
+**Diagnostic-only rule:** never update `blueprint.md`, BRDs, or module docs during a review pass. Findings only. Fixes are a separate approved step — same discipline as `module-review.md`.
 
 ---
 

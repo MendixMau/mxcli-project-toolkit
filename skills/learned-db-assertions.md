@@ -1,6 +1,6 @@
 # DB Assertions — M2EE admin API first, psql only as a fallback
 **Applies to:** any mxcli project.
-**Companion skills:** `e2e-harness-base.md`, `ui-review-loop.md`, `existing-app-assurance.md`
+**Companion skills:** `e2e-harness-base.md`, `module-review.md`, `existing-app-assurance.md`
 
 A data assertion ("did the row actually get written, with its associations set?") is the only
 rung of an e2e suite that can catch a golden path which persisted nothing. A green UI assertion

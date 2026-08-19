@@ -11,7 +11,9 @@ down anywhere it could read.
 **Upstream:** `brd-to-build-plan.md` (build plan + role-to-access table), `architecture-blueprint.md`
 (module boundaries, fit-gap), `design-artifacts.md` (wireframes, design system)
 **Downstream:** `iterative-build-loop.md` (the brief is the per-module input its Pre-Module
-Checklist requires), `ui-preflight-pages.md` (the brief's UI pointers name the exact wireframe files)
+Checklist requires), `ui-preflight-pages.md` (the brief's UI pointers name the exact wireframe files),
+`module-review.md` (the pass that defines "done" for the module this brief opens — see
+"Ready-check" below: the brief's own checklist is a *pre-build* gate, not the closing one)
 
 ---
 
@@ -163,6 +165,13 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
 - [ ] Write mode chosen for every element that hits a learned-mdl-preflight STOP row
 - [ ] Folder plan names the module's feature groups and covers every document to be built
 ```
+
+**This Ready-check gates the start of the build, not the end of it.** This brief's job is
+finished once `mdl-agent` has enough to build without guessing. **The module is not "done" when
+this checklist is satisfied** — it is done when `module-review.md`'s five-stage pass (build, gate,
+prove, LOOK, confirm) closes clean against what this brief specified. A `module-review.md` finding
+that traces back to a gap in this brief (an access table row that was wrong, a screen the wireframe
+never covered) is fed back here, not silently fixed in the model with the brief left stale.
 
 ---
 

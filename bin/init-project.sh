@@ -238,7 +238,7 @@ at build time and correct any that differ**; a path that doesn't resolve is a wi
 | Architecture | \`architecture/blueprint.md\` | blueprint + fit-gap |
 | Build plan | \`architecture/build-plan.md\` | numbered, dependency-ordered |
 | Business rules | \`analysis/<source>/knowledge-base/\` | BRDs (\`F<NNN>.brd.json\`) |
-| UI review reports | \`design/ui-reviews/\` | \`ui-review-<date>.html\` (\`ui-review-loop.md\`) |
+| UI review reports | \`design/ui-reviews/\` | \`ui-review-<date>.html\` (\`module-review.md\`) |
 
 ## Session-start ritual (before any pipeline work)
 

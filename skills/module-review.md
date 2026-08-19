@@ -15,9 +15,10 @@ looking. That is how a module ships with 31/31 green checks and a broken grid on
 1. BUILD    mdl-agent drafts + validates MDL (mxcli check --references, 0 errors)
 2. GATE     bin/exec.sh (snapshot -> exec -> mxbuild -> auto-restore on failure)
             gate-agent confirms 0 mxbuild errors, lint clean
-3. PROVE    the mechanical rungs: UI (Playwright) + Data (OQL/DB) + monkey pass
-            deep form when an instrument is green and you cannot say what would
-            have made it red: journey-proof.md
+3. PROVE    the mechanical rungs: UI (Playwright) + Data (OQL/DB) + wiring-sweep
+            (every clickable element on the page, not just what a journey visits
+            — wiring-sweep.md) + monkey pass. Deep form when an instrument is
+            green and you cannot say what would have made it red: journey-proof.md
 4. LOOK     THE INTELLIGENCE CHECK — a human-equivalent pass over every screen in
             the module. Is it logical? Does it look right? Does it match our design?
             Stages 1-3 cannot answer any of those. This is the stage that gets
@@ -199,6 +200,12 @@ symptom, and a wireframe-vs-live side-by-side where a wireframe exists.
 **A fix found faster in Studio Pro than the root cause was found is not a closed bug.** Record it
 as unexplained or it will return.
 
+**Before closing the pass, append every P1/P2 to `docs/improvement-register.md`**
+(`improvement-register.md`) — one row per finding, with its defect class from that skill's fixed
+vocabulary. This is what turns "did this recur" from an archaeology project across dated HTML
+reports into a grep, and it is how the trend line the Acceptable table below asks for actually
+gets tracked.
+
 **Before any live demo, manually click through exactly what will be shown** — the actual path, in
 the actual order. Stage 3 green is necessary, not sufficient, and the gap is widest on the
 surfaces built last, which are the ones being demoed.
@@ -270,6 +277,7 @@ Not yet run. The first team to run it records recall/precision here as the first
 ## Related
 
 - `skills/skills-over-scripts.md` — why stage 4 is prose and not a program
-- `skills/journey-proof.md` · `skills/monkey-test.md` — stage 3's instruments
+- `skills/journey-proof.md` · `skills/monkey-test.md` · `skills/wiring-sweep.md` — stage 3's instruments
 - `skills/e2e-evidence-report.md` — the denominator rule, in full
 - `skills/process-coherence-pass.md` — the cross-module seam, run per cluster not per module
+- `skills/improvement-register.md` — where every P1/P2 from CONFIRM gets appended, and the trend read across modules

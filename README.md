@@ -402,7 +402,7 @@ mxcli-project-toolkit/
     brd-to-build-plan.md        ← [migration] Plan definition: BRD + architecture → dependency-ordered, numbered build plan
     module-brief.md             ← [any project] Per-module brief: ba-agent synthesizes BRD/wireframe/access into the mdl-agent's single entry point
     iterative-build-loop.md     ← [any project] Per-module build discipline: gate loop, coverage checklist, CE triage, Studio Pro handoffs
-    ui-review-loop.md           ← [any project] Post-build functional+visual verification gate: render/nav/reuse/wireframe-divergence, graceful degradation, diagnostic-only
+    module-review.md            ← [any project] The one per-module closing pass: build, gate, prove (UI+Data+wiring-sweep+monkey), LOOK (every page, not just tested ones), confirm with denominator, diagnostic-only
     brd-generation.md           ← [migration] BRD JSON prompt templates + validation checklist
     brd-validation.md           ← [migration] Validating BRDs against code + doc KB
     document-discovery.md       ← [migration] Scanning/classifying an unstructured document folder
@@ -487,6 +487,8 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness | `skills/fixture-seeding.md` |
 | Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red | `skills/journey-proof.md` |
 | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works | `skills/monkey-test.md` |
+| Checking that every clickable element on a page (button, breadcrumb, nav item) actually does something — the exhaustive click-and-observe sweep, not just the clicks a written journey happens to visit | `skills/wiring-sweep.md` |
+| Tracking P1/P2 findings across modules so a recurring defect class reads as one process finding, not N unrelated one-offs | `skills/improvement-register.md` |
 | UX audit and screenshot-loop discipline | `skills/learned-skill-ux-audit.md` |
 | Tracking scope delta between the BRD and the built state | `skills/learned-skill-scope-delta.md` |
 | Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` |

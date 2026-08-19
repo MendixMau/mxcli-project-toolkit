@@ -14,7 +14,7 @@
 // monkey run as evidence the module works.
 //
 // DIAGNOSTIC ONLY. It never fixes anything and never files anything. Both
-// e2e-harness-base.md and ui-review-loop.md forbid unapproved fixes from a test run.
+// e2e-harness-base.md and module-review.md forbid unapproved fixes from a test run.
 //
 // REPRODUCIBILITY
 // Every run prints and records MONKEY_SEED. A finding that cannot be reproduced

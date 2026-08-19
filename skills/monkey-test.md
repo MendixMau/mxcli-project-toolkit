@@ -44,7 +44,7 @@ travel base64 and decode inside the page. If you are ever tempted to echo a payl
 shell, stop — that is the bug the payload was testing for, and you just wrote it.
 
 **3. Diagnostic only. It fixes nothing and files nothing.**
-Same rule as `e2e-harness-base.md` and `ui-review-loop.md`: no unapproved fix from a test run.
+Same rule as `e2e-harness-base.md` and `module-review.md`: no unapproved fix from a test run.
 
 ## Reading the result — the verdict table
 

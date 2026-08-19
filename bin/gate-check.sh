@@ -575,7 +575,7 @@ check_stage_6() {
            "$ANALYSIS_BASE/test-report.html" "$ANALYSIS_BASE"/reports/test-report.html; do
     [ -s "$f" ] && test_ok=1
   done
-  # UI review loop report (ui-review-loop.md) — any non-empty dated report under a ui-reviews/ dir
+  # module-review.md report — any non-empty dated report under a ui-reviews/ dir
   if [ -n "$(find "$PROJECT_DIR" -path '*/ui-reviews/ui-review-*.html' -size +0c -print -quit 2>/dev/null)" ]; then
     review_ok=1
   fi
@@ -584,10 +584,10 @@ check_stage_6() {
     return
   fi
   if [ -z "$review_ok" ]; then
-    echo "FAIL|test-report.html present but no UI review loop report (ui-review-*.html under a ui-reviews/ dir) — Stage 6 requires the full-app UI review (ui-review-loop.md), zero open P1"
+    echo "FAIL|test-report.html present but no module-review report (ui-review-*.html under a ui-reviews/ dir) — Stage 6 requires the full-app module-review.md pass, zero open P1"
     return
   fi
-  echo "PASS|test-report.html + UI review loop report both present"
+  echo "PASS|test-report.html + module-review report both present"
 }
 
 check_stage_7() {
@@ -646,15 +646,15 @@ check_build_ready() {
   fi
 
   # 2. Baseline routing includes the UI-quality skills (not the pre-audit table)
-  # Test ui-preflight-pages, NOT ui-review-loop — same fix as bin/sync-project.sh §2c.
-  # The Wiring block that init/sync GENERATE contains the literal "ui-review-loop.md" in
+  # Test ui-preflight-pages, NOT module-review — same fix as bin/sync-project.sh §2c.
+  # The Wiring block that init/sync GENERATE contains the literal "module-review.md" in
   # its "UI review reports" row, so grepping for that string made this check satisfied by
   # the installer's own output: a project with zero real baseline routing passed.
   # ui-preflight-pages.md appears only in a genuine Baseline routing table.
   if grep -q "ui-preflight-pages" "$PROJECT_DIR/CLAUDE.local.md" 2>/dev/null; then
     echo "  ✓ baseline routing references the UI-quality skills"
   else
-    echo "  ✗ baseline routing missing UI-quality rows (ui-preflight-pages.md, ui-review-loop.md) — run bin/sync-project.sh"
+    echo "  ✗ baseline routing missing UI-quality rows (ui-preflight-pages.md, module-review.md) — run bin/sync-project.sh"
     fails=$((fails+1))
   fi
 

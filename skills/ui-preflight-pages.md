@@ -94,7 +94,7 @@ the design-system HTML directly.
 **⛔ Reuse is mandatory, not optional.** If a gallery component exists for a pattern your page needs
 — a status badge/pill, a stepper, an empty-state, a KPI tile, a card — the page **must use it**, not
 reimplement it as plain text or a bare container. A plain-text status column next to a built badge
-component is a defect (`ui-review-loop.md` Pass 4 flags exactly this). If you deliberately do *not*
+component is a defect (`module-review.md` §4e flags exactly this). If you deliberately do *not*
 reuse an existing component, state why in the UI cross-reference block — silence reads as "forgot to
 reuse", which is the failure this rule prevents. Concretely: enum/state/priority values → the badge
 component; a multi-state progression header → the stepper; an empty grid/gallery → the empty-state

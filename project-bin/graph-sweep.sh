@@ -9,6 +9,16 @@
 # standard module. It compiles, it behaves identically, and the graph shows the standard
 # module with zero inbound edges.
 #
+# Relationship to `mxcli lint` QUAL004 ("Orphaned Elements"): QUAL004 answers the same
+# element-level question as this script's "orphaned microflows" finding, natively, from the
+# same catalog — prefer it when it's available (`mxcli lint`, or `mxcli report`) rather than
+# reading this script's ORPHANS query as ground truth; the exclusion lists here (entry-point
+# prefixes, RefKind set) are hand-maintained and can drift from QUAL004's. This script earns
+# its keep on the "module wiring shape" finding (aggregate inbound/outbound edges per module),
+# which is a different, coarser question than any single element's orphan status — that finding
+# has no direct mxcli-native equivalent yet (closest is `GRAPH_MODULE_COUPLING`, which is edge-
+# weighted, not this script's plain in/out counts). See `skills/process-coherence-pass.md`.
+#
 # Read-only: opens the catalog database. Never runs mxcli exec, never touches the .mpr.
 #
 # IMPORTANT — an unwired marketplace module is not a defect. Most are legitimately unused.

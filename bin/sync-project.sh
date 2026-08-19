@@ -533,7 +533,7 @@ that doesn't resolve is a wiring failure the \`build-ready\` gate catches. Refre
 | Architecture | \`architecture/blueprint.md\` | blueprint + fit-gap |
 | Build plan | \`architecture/build-plan.md\` | numbered, dependency-ordered |
 | Business rules | \`analysis/<source>/knowledge-base/\` | BRDs (\`F<NNN>.brd.json\`) |
-| UI review reports | \`design/ui-reviews/\` | \`ui-review-<date>.html\` (\`ui-review-loop.md\`) |
+| UI review reports | \`design/ui-reviews/\` | \`ui-review-<date>.html\` (\`module-review.md\`) |
 EOF
   echo "Updated: CLAUDE.local.md — appended the Wiring block. CONFIRM its paths this session."
   CHANGES=$((CHANGES + 1))

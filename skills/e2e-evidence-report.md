@@ -14,7 +14,7 @@ equipped to spot them.
 
 | Existing artifact | Answers | Audience |
 |---|---|---|
-| `ui-review-loop.md` (toolkit) | What's broken/off-design? | Builder, diagnostic only |
+| `module-review.md` (toolkit) | What's broken/off-design? | Builder, diagnostic only |
 | `tests/e2e/*.sh` + `results/*.json` | Did the regression pass? | CI, pass/fail |
 | **This skill's output** | **Did the feature actually work, and how do I know?** | **Stakeholder, narrative** |
 
@@ -46,7 +46,7 @@ skill's report template accordingly — that is a stronger, not just different, 
 ## Report structure
 
 One self-contained HTML file (screenshots embedded as base64 PNG — same portability constraint as
-`ui-review-loop.md`'s own output; no external file references). Organize by **user journey**, in
+`module-review.md`'s own output; no external file references). Organize by **user journey**, in
 the order a real user walks them — not by test-suite filename, which groups by implementation
 detail the reader doesn't care about.
 

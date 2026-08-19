@@ -321,7 +321,7 @@ else
   elif [ ! -f "$MONKEY_JS" ]; then
     # Absence is a FAULT; findings stay informational. Those are two different questions and the
     # two sources that own them each answer one:
-    #   module-completion-loop.md — a monkey pass "skipped because happy-path was green" is NOT
+    #   module-review.md — a monkey pass "skipped because happy-path was green" is NOT
     #     acceptable. Presence is required.
     #   this file, below — letting its findings gate the module "would give it an authority the
     #     measured yield does not support". Authority is not.

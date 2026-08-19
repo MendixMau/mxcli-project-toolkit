@@ -19,7 +19,7 @@ and the guard for each. Job 2 is why this skill exists; if you shorten it, do no
 | Requirement traceability the suite asserts against | `coverage-ledger.md` (shared toolkit) |
 | Why `$?` and tool output are not evidence | `tool-output-is-not-ground-truth.md` (shared toolkit) |
 | Does the whole journey hang together, not just each piece — a different axis, not a fifth rung | `process-coherence-pass.md` (shared toolkit) |
-| The full build→gate→prove→confirm→next loop this shape plugs into, incl. monkey testing | `module-completion-loop.md` (shared toolkit) |
+| The full build→gate→prove→look→confirm→next loop this shape plugs into, incl. monkey testing | `module-review.md` (shared toolkit) |
 
 > **Promotion note, closed 2026-08-18.** All three rows above now have a shared-toolkit copy,
 > so §4 — the load-bearing section — no longer cites anything a fresh project cannot open.

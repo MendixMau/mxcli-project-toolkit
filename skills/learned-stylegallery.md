@@ -194,7 +194,7 @@ on the container and its children) before assuming your class landed where you t
 The gallery's entire justification is being the **in-app twin that catches render bugs a static
 HTML mock can't** (see "Why a Live Gallery"). That only pays off if the gallery is actually looked
 at after it's built. **Before the StyleGallery phase is marked done, run a visual pass over the
-rendered gallery home page** (via `ui-review-loop.md`) and confirm:
+rendered gallery home page** (via `module-review.md`'s LOOK stage) and confirm:
 
 - **Every demo value renders** — dates, enums, calculated fields show real values, not blank. A
   blank date in the gallery's own demo cards means the date renders blank *everywhere* downstream

@@ -25,7 +25,7 @@
 //   R1 every in-scope page is screenshotted, not just the ones a journey walks.
 //   R2 a report section PER PAGE.
 //   R3 graded against rules extracted from .ai-context/skills/*, the toolkit's
-//      ui-preflight-pages.md / ui-review-loop.md / learned-stylegallery.md, and the
+//      ui-preflight-pages.md / module-review.md / learned-stylegallery.md, and the
 //      project's own mdlsource/ exemplars. Every rule cites its source.
 //   R4 a page with NO wireframe is still fully graded. The wireframe check is one
 //      section of that page's report; its absence renders as an explicit
@@ -339,7 +339,7 @@ function auditPageStatic(qn, wfFiles) {
       : `ELK tree covers all ${comp.mdlDeclared} declared widgets`,
     cite: 'mxcli issue #891 — object-list content-slot children are never read',
     remediation: comp.partial
-      ? `Do not treat this page's mechanical result as a clean sweep — it is not. The structural rules below ran over the page's own mdlSource and are sound, but any tree-only reading (design-audit.js class sweep, a hand DESCRIBE) has not looked at ${comp.unread.length} widget(s). Review those subtrees by hand per ui-review-loop.md, and track mxcli #891.`
+      ? `Do not treat this page's mechanical result as a clean sweep — it is not. The structural rules below ran over the page's own mdlSource and are sound, but any tree-only reading (design-audit.js class sweep, a hand DESCRIBE) has not looked at ${comp.unread.length} widget(s). Review those subtrees by hand per module-review.md §4b, and track mxcli #891.`
       : undefined,
   }));
 

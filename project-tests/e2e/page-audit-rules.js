@@ -25,7 +25,7 @@
 // runs over a tree parsed from `mdlSource`, which is complete; the ELK tree is used
 // only to DETECT the loss (readCompleteness) and to union class usage.
 //
-// SEVERITY uses the ui-review-loop.md scale: P1 broken/missing, P2 significant,
+// SEVERITY uses the module-review.md scale: P1 broken/missing, P2 significant,
 // P3 polish.
 //
 // PROJECT-SPECIFIC TEXT: the rule LOGIC below is generic, but `exemplar` and
@@ -433,7 +433,7 @@ const RULES = [
     category: 'list',
     title: 'Every grid/list/gallery needs a zero-result empty state',
     severity: 'P2',
-    cite: 'ui-preflight-pages.md Step 4 "Empty state"; ui-review-loop.md Pass 2; learned-stylegallery.md:199-205',
+    cite: 'ui-preflight-pages.md Step 4 "Empty state"; module-review.md §4c; learned-stylegallery.md:199-205',
     exemplar: 'mdlsource/usi/usi-89-route-list-banner-emptystate.mdl:137-149 — container emptyState (Class: \'empty-state\')',
     evaluate(ctx) {
       const lists = ctx.mdlNodes.filter((n) => LIST_WIDGETS.includes(n.type));
@@ -448,7 +448,7 @@ const RULES = [
     },
     remediate: () => `Add the project's empty-state block next to the grid with an \`alter page\` script in mdlsource/: `
       + `\`container emptyState (Class: 'empty-state') { dynamictext t (Content: 'No results match these filters', RenderMode: H3, Class: 'empty-state__title') ... }\` `
-      + `— copy the shape from mdlsource/usi/usi-89-route-list-banner-emptystate.mdl:137. A grid that renders nothing on zero rows is a P1 in ui-review-loop.md; `
+      + `— copy the shape from mdlsource/usi/usi-89-route-list-banner-emptystate.mdl:137. A grid that renders nothing on zero rows is a P1 in module-review.md; `
       + `it is graded P2 here because the static view cannot prove the runtime is ever empty.`,
     mutate: (mdl) => mdl.split('empty-state').join('plainbox'),
   },
@@ -527,7 +527,7 @@ const RULES = [
     category: 'style',
     title: 'Every page needs exactly one H1 heading widget',
     severity: 'P2',
-    cite: 'ui-review-loop.md Pass 0 (one h1 per page); .ai-context/skills/create-page.md RenderMode',
+    cite: 'module-review.md §4b (one h1 per page); .ai-context/skills/create-page.md RenderMode',
     exemplar: "mdlsource/usi/done-usi-03-page-routelist.mdl — dynamictext pageHeading (RenderMode: H1, Class: 'page-head')",
     evaluate(ctx) {
       const h1s = ctx.mdlNodes.filter((n) => /^H1$/i.test(String(unquote(prop(n, 'RenderMode')) || '')));
@@ -549,7 +549,7 @@ const RULES = [
     category: 'reuse',
     title: 'A status/state/priority value must render through the badge component, not plain text',
     severity: 'P2',
-    cite: 'ui-preflight-pages.md Step 3 "⛔ Reuse is mandatory" (lines 94-101); ui-review-loop.md Pass 4',
+    cite: 'ui-preflight-pages.md Step 3 "⛔ Reuse is mandatory" (lines 94-101); module-review.md §4e',
     exemplar: `mdlsource/gallery/13-badges-chips.mdl + ${EX.listPage}'s Lifecycle column: Class: 'badge badge-info'`,
     evaluate(ctx) {
       const bad = [];
@@ -570,7 +570,7 @@ const RULES = [
     },
     remediate: (f) => `Add the gallery's badge classes to ${f.map((x) => x.where).join(', ')} in the page's mdlsource/ script — `
       + `\`Class: 'badge badge-info'\` (or -success/-warning/-danger/-neutral per design/ds.css), copying mdlsource/gallery/13-badges-chips.mdl. `
-      + `A plain-text status column next to a built badge component is the exact defect ui-review-loop.md Pass 4 exists to catch.`,
+      + `A plain-text status column next to a built badge component is the exact defect module-review.md §4e exists to catch.`,
     mutate: (mdl) => mdl.replace("Class: 'badge badge-info'", "Class: 'plaintext'"),
   },
   {
@@ -625,7 +625,7 @@ const RULES = [
     category: 'convention',
     title: 'Page Title must be set and human-readable',
     severity: 'P3',
-    cite: '.ai-context/skills/create-page.md (page header Title:); ui-review-loop.md (browser-tab and breadcrumb text)',
+    cite: '.ai-context/skills/create-page.md (page header Title:); module-review.md §4c (browser-tab and breadcrumb text)',
     exemplar: "mdlsource/usi/done-usi-03-page-routelist.mdl — Title: 'Route List'",
     evaluate(ctx) {
       const t = String(ctx.doc.title || '').trim();
@@ -682,7 +682,7 @@ const WIREFRAME_RULES = [
     category: 'wireframe',
     title: 'The wireframe is not older than the page build scripts that name the page',
     severity: 'P3',
-    cite: 'ui-review-loop.md Graceful-degradation table — "Wireframe older than the page\'s last build script (mtime)"',
+    cite: 'module-review.md Degrade-loudly table — "Wireframe older than the page\'s last build script (mtime)"',
     evaluate(ctx) {
       const w = ctx.wireframe;
       if (!w.exists) return { ok: true, findings: [], detail: 'no wireframe to date-check', notApplicable: true };
@@ -706,7 +706,7 @@ const WIREFRAME_RULES = [
     // HEURISTIC AND LABELLED AS SUCH. Matching wireframe heading text against page
     // text can only ever be suggestive; it is graded so that it fires on gross
     // divergence (nothing matched) and stays quiet on wording differences.
-    cite: 'ui-review-loop.md Pass 3 — "is a region missing, is the information hierarchy inverted"',
+    cite: 'module-review.md §4d — "is a region missing, is the information hierarchy inverted"',
     provenance: 'inferred',
     evaluate(ctx) {
       const w = ctx.wireframe;
@@ -728,7 +728,7 @@ const WIREFRAME_RULES = [
       };
     },
     remediate: (f, ctx) => `Open design/wireframes/${ctx.wireframe.file} beside a screenshot of the page and confirm each named region was built. `
-      + `This check is a heuristic on heading text, so treat it as a prompt for the ui-review-loop.md Pass-3 side-by-side, not as proof of a missing region.`,
+      + `This check is a heuristic on heading text, so treat it as a prompt for the module-review.md §4d side-by-side, not as proof of a missing region.`,
     mutateCtx: (ctx) => { ctx.wireframe = { ...ctx.wireframe, exists: true, headings: ['Zygomorphic Manifold', 'Quixotic Ledger', 'Brumal Cadastre', 'Fylfot Reticule'] }; },
   },
 ];
@@ -744,7 +744,7 @@ const LIVE_RULES = [
     category: 'live',
     title: 'The page renders substantive content and no runtime error dialog',
     severity: 'P1',
-    cite: 'ui-review-loop.md Pass 1/2 — mxbuild-clean pages still ship blank',
+    cite: 'module-review.md §4c — mxbuild-clean pages still ship blank',
     evaluate(ctx) {
       const p = ctx.probe;
       const bad = [];
@@ -762,7 +762,7 @@ const LIVE_RULES = [
     category: 'live',
     title: 'A list rendering zero rows shows an empty-state message',
     severity: 'P1',
-    cite: 'ui-review-loop.md Pass 2 — "a grid with no empty-state"; only the DOM can answer this',
+    cite: 'module-review.md §4c — "a grid with no empty-state"; only the DOM can answer this',
     evaluate(ctx) {
       const p = ctx.probe;
       if (!p.lists || !p.lists.length) return { ok: true, findings: [], detail: 'no list widget rendered', notApplicable: true };
@@ -787,13 +787,13 @@ const ALL_CATEGORIES = ['completeness', 'structure', 'binding', 'list', 'securit
 // the artifact verbatim so a per-page report says what it did not judge, rather
 // than letting silence imply the page was judged on it.
 const HUMAN_JUDGEMENT = [
-  { topic: 'Is this the right page at all?', note: 'A page can pass every class and structure check and still be the wrong page — wrong information hierarchy, an affordance the wireframe implied that was never built.', cite: 'ui-review-loop.md Pass 3' },
+  { topic: 'Is this the right page at all?', note: 'A page can pass every class and structure check and still be the wrong page — wrong information hierarchy, an affordance the wireframe implied that was never built.', cite: 'module-review.md §4d' },
   { topic: 'Which element is THE call to action', note: 'The --primary / --cta split is a design decision per screen; no rule can pick the one CTA.', cite: 'learned-stylegallery.md §Token Naming' },
   { topic: 'Static container vs real widget', note: 'Whether a gallery component should be a hardcoded container or a live widget depends on what it is demonstrating.', cite: 'learned-stylegallery.md §Static vs Real-Widget Components' },
-  { topic: 'Is the caption the right business word', note: 'Column captions and labels being *correct domain language* is a BA judgement against the BRDs.', cite: 'ui-review-loop.md Pass 3' },
+  { topic: 'Is the caption the right business word', note: 'Column captions and labels being *correct domain language* is a BA judgement against the BRDs.', cite: 'module-review.md §4f' },
   { topic: 'Snippet vs inline', note: 'Only purely visual, data-agnostic components should become snippets; data-bound widgets must stay inline.', cite: '.ai-context/skills/fragments.md' },
-  { topic: 'Silent save failure', note: 'Submitting a form with required fields empty and watching for a visible validation message needs interaction, not a screenshot.', cite: 'ui-review-loop.md Pass 2' },
-  { topic: 'Root-causing a visual symptom', note: 'getComputedStyle + judgement to find which DOM level a wrong class landed on.', cite: 'ui-review-loop.md Pass 3' },
+  { topic: 'Silent save failure', note: 'Submitting a form with required fields empty and watching for a visible validation message needs interaction, not a screenshot.', cite: 'module-review.md §4c' },
+  { topic: 'Root-causing a visual symptom', note: 'getComputedStyle + judgement to find which DOM level a wrong class landed on.', cite: 'module-review.md §4d' },
 ];
 
 module.exports = {

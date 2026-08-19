@@ -101,5 +101,5 @@ A capability that has never been exercised by hand does not yet know what it nee
 
 - `skills/measured-claims.md` — a claim about the harness is itself a claim; measure it
 - `skills/harness-architecture.md` — instrument boundaries and the verdict vocabulary
-- `skills/journey-proof.md`, `skills/ui-review-loop.md`, `skills/module-completion-loop.md`,
-  `skills/monkey-test.md` — the four judgement skills; the harness serves these, not the reverse
+- `skills/journey-proof.md`, `skills/module-review.md`,
+  `skills/monkey-test.md` — the judgement skills; the harness serves these, not the reverse

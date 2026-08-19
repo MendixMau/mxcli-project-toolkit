@@ -412,7 +412,7 @@ Two consequences, both load-bearing:
   empty group and a class sweep reports clean **without having looked**. When
   `design-audit/read/<page>/complete` is `fault`, every class finding under that page is a *lower
   bound*, and a `pass` computed from a page only half seen is not a pass — it is rewritten to
-  `fault`, and the page must be reviewed by hand (`ui-review-loop.md`). Calibration: **6 of 19
+  `fault`, and the page must be reviewed by hand (`module-review.md` §4b). Calibration: **6 of 19
   in-scope pages** were in this state on the measured project. Expect a meaningful minority, not a
   rarity.
 

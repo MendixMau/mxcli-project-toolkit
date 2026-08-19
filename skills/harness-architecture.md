@@ -90,8 +90,11 @@ downstream rung then measured a foreign app and reported plausibly. See `measure
 │  testing-shape.md         what testing a module means + false-green register    │
 │  fixture-seeding.md       preconditions: derive, measure, interview, seed       │
 │  coverage-ledger.md       the traceability content model                        │
-│  ui-review-loop.md        the agent-driven UI pass                              │
-│  module-completion-loop.md   build→gate→prove→cohere→confirm→next               │
+│  module-review.md         the agent-driven pass: build→gate→prove→look→confirm  │
+│  wiring-sweep.md          every clickable element gets clicked + checked for an  │
+│                           effect — mxcli playwright snapshot/click, no new script │
+│  monkey-test.md           the crash net — mxcli-project-toolkit's own instrument │
+│  process-coherence-pass.md  cross-module seam: mxcli lint QUAL004 + graph tables │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -293,7 +296,7 @@ Any page whose structural output shows an empty content slot must be recorded as
 `partially-read` → **`fault`, never `pass`.** A suspiciously clean design sweep: suspect this
 first, before concluding the pages are fine.
 
-`design-audit.js` and `ui-review-loop.md` **compose; neither supersedes the other.** The mechanical
+`design-audit.js` and `module-review.md` **compose; neither supersedes the other.** The mechanical
 audit cannot see that a Save button silently 4xx'd. The agent loop cannot reliably diff a class
 corpus across hundreds of pages. Interaction checking and empty-state judgement live only in the
 agent loop; a11y scanning and class-promotion diffing live only in the audit.

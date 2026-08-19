@@ -48,6 +48,7 @@ topics at once.
 | A decision that constrains future decisions | `PROJECT.md` | Without the *why*, a future session could reasonably decide the opposite |
 | A lesson that transfers to another Mendix project | the shared toolkit's `skills/` | Still true with a different client, different module, different .mpr |
 | A confirmed, reproducible tool defect | `bug-logs/mxcli-bugs.md` | You could hand the repro to the tool's author |
+| A P1/P2 finding from `module-review.md`, `process-coherence-pass.md`, `monkey-test.md`, or `wiring-sweep.md` | `docs/improvement-register.md` (`improvement-register.md`) | You need to know later whether this defect class recurred — a single pass's own report cannot answer that |
 | How the user wants me to work; project context not derivable from code | memory dir + one line in `MEMORY.md` | It's about the collaboration, not the codebase |
 | Where we are, what's next, what's unfiled | `docs/progress/checkpoints.md` | It expires. Nobody will want it in a month |
 

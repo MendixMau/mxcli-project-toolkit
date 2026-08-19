@@ -50,13 +50,16 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # absolute path into a personal clone — a path that resolves on one laptop and nowhere else.
 # It now resolves the toolkit from project context ($MXTK_ROOT, then CLAUDE.local.md's
 # Wiring block, then its own install location) and ships here.
-# conformance-check.sh and graph-sweep.sh are NOT named here yet, deliberately. They were named
-# in d05437c while existing only in a working tree, so at HEAD this manifest was false: the
-# forward self-check below returned 1, and because that check runs at SOURCE time under the
-# callers' `set -euo pipefail`, every script that sources this file died before doing anything.
-# It stayed invisible only because nothing at HEAD sourced the manifest yet. When those two
-# scripts are committed to project-bin/, add them back — the reverse check will ask for it.
-MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh"
+# conformance-check.sh and graph-sweep.sh were once named here while existing only in a
+# working tree, so at that HEAD this manifest was false: the forward self-check below returned
+# 1, and because that check runs at SOURCE time under the callers' `set -euo pipefail`, every
+# script that sources this file died before doing anything. They are committed to project-bin/
+# now, so they are named again — and the forward check is what proves that is still true.
+#
+# review-module.sh joins them for the same reason: verify-module.sh calls all three, and until
+# they shipped, three of its rungs faulted with "not installed" on every freshly wired project.
+# That is the false green this whole harness exists to retire, produced by the harness itself.
+MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh graph-sweep.sh review-module.sh"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. Empty today, and that
 # is the point: the reverse check below flags anything named by NEITHER list, so a new file in
@@ -310,3 +313,36 @@ _mxtk_manifest_check_lint_wiring() {
 _mxtk_manifest_check_lint_wiring
 _mxtk_manifest_check_bin_unnamed
 _mxtk_manifest_check_tests
+
+# --- self-check: the e2e engine is actually WIRED to a caller ------------------------------
+# Exactly the lint-rules wiring failure, one directory over, and it is live at this commit:
+# bin/install-tests.sh exists and ships the whole journey-proof engine, and NEITHER
+# init-project.sh nor sync-project.sh calls it (verified 2026-08-19: zero matches in each).
+# So a freshly wired project has no tests/e2e/ at all, and every journey rung of
+# verify-module.sh faults with "not installed" — the harness reporting itself broken.
+#
+# WARNING, NOT FAILURE, unlike the lint-rules twin. The lint check can hard-fail because its
+# wiring is present; this one's is absent right now, and a fatal check would abort every
+# script that sources this manifest — including the installers that would carry the fix.
+# Promote it to `return 1` in the same commit that adds the call to both scripts.
+#
+# The fix is one line in each, next to the existing mxtk_install_lint_rules call:
+#     "$TOOLKIT/bin/install-tests.sh" "$PROJECT_DIR"
+# (install-tests.sh is idempotent: it keeps any file the project already has, and never
+# overwrites project.config.js.)
+_mxtk_manifest_check_tests_wiring() {
+  _here="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
+  [ -f "$_here/../install-tests.sh" ] || return 0
+  _unwired=""
+  for _c in init-project.sh sync-project.sh; do
+    [ -f "$_here/../$_c" ] || continue
+    grep -q 'install-tests.sh' "$_here/../$_c" || _unwired="$_unwired $_c"
+  done
+  [ -z "$_unwired" ] && return 0
+  echo "install-manifest.sh: the e2e engine is shipped but NOT WIRED into:$_unwired" >&2
+  echo "  Add: \"\$TOOLKIT/bin/install-tests.sh\" \"\$PROJECT_DIR\"" >&2
+  echo "  Until then a wired project has no tests/e2e/ and every journey rung faults." >&2
+  echo "  (Workaround for an existing project: bin/check-requirements.sh --fix)" >&2
+  return 0
+}
+_mxtk_manifest_check_tests_wiring

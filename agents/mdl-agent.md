@@ -53,6 +53,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/oneshot-page-structure-patterns.md` | Generating a whole page tree in one script — the structure patterns that survive it |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
+| `project-bin/coherence-cadence.sh` | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory |
 | `skills/mpr-corruption-and-sp-load-errors.md` | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout |
 | `project-bin/lint-gate.sh` | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing |
 <!-- ROUTING:END -->

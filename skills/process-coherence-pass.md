@@ -104,6 +104,15 @@ This is not a per-module rung (that debate — depth 1–4, tiers — is `testin
 explicitly settled the other way there: no tiers, no numbers). This pass runs at coarser, named
 checkpoints instead:
 
+**The cluster trigger is mechanical, not remembered.** `project-bin/coherence-cadence.sh` (no
+args) counts how many modules have been proven by `verify-module.sh` since the last cluster/full
+pass and exits 1 — "DUE" — once that count reaches the threshold (default N=2,
+`COHERENCE_CLUSTER_N` to override). Run it after every module's CONFIRM stage, per
+`iterative-build-loop.md`. This exists because the cadence below was prose-only for weeks and nothing
+forced the moment — the same shape that took `gate-agent` to 0/21 invocations. The script counts;
+it never judges — that stays here. **When a pass finishes, run
+`coherence-cadence.sh --record`** so the modules just covered stop counting toward the next due date.
+
 - **Every N=2–3 modules** (a cluster), not only once at Stage 6. Waiting for the whole app means
   a composition defect planted in module 2 is only found after modules 3–10 have already built on
   top of the same wrong assumption — the exact shape of the 2026-08-19 incident, where the escaped
@@ -129,3 +138,9 @@ exact instrument calls behind it, and a suggested owner (the role that corrects 
 vs. the role that writes fix code vs. "needs a human decision" for anything touching intent). A
 persona journey with no findings gets stated as clean, not padded — this pass is expensive enough
 that a false "found something" pressure to justify the cost is a real risk; resist it.
+
+## Related
+
+- `project-bin/coherence-cadence.sh` — the mechanical cluster-cadence trip-wire, above
+- `skills/module-review.md` — CONFIRM stage is what makes a module "proven" and countable
+- `project-bin/build-plan-status.sh` — the build-wide view this pass's findings feed into

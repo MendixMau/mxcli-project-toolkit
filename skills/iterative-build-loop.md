@@ -453,13 +453,23 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
 
       Diagnostic only: findings go to the punch-list, fixes are a separate approved pass.
 15. **Gate: COVERAGE — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.
-16. Mark module done ✅ — only if Gate: UI's per-module review produced no open P1.
+16. Mark module done ✅ — only if Gate: UI's per-module review produced no open P1. Then run
+    `project-bin/build-plan-status.sh --html` to regenerate `architecture/build-plan.html` — the
+    tracker `brd-to-build-plan.md` specifies should update "whenever a phase's status changes."
+    Mechanical, not judged: it reads `done-` prefixes and verify-module.sh summaries, it does not
+    decide anything.
 17. **Every N=2–3 modules, run `process-coherence-pass.md`** on the cluster just closed — a
     cross-module seam check (does the persona journey actually chain across these modules, not
     just within each). This is not a per-module step and does not gate an individual module, but
     do not defer it to Stage 6: a wiring defect planted in module 2 and never caught survives
     every later per-module review, since each of those only looks at its own module. Leads with
     `mxcli lint` QUAL004 and the graph-analysis tables, not hand-rolled reference queries.
+
+    **Don't rely on memory for the "every N" part.** Run
+    `project-bin/coherence-cadence.sh` right after step 16 — it counts proven modules since the
+    last cluster/full pass and exits 1 (DUE) once the threshold is reached. When it says DUE, run
+    the pass before starting the next module's step 1; when the pass finishes, run
+    `coherence-cadence.sh --record` so those modules stop counting toward the next one.
 
 Everything from Gate: SYNTAX onward is the phase gate; the writing steps without it mean the page
 may be built and still wrong. **Grant completeness (step 10) and Gate: UI are the two checks mxbuild

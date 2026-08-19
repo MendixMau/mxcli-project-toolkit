@@ -18,9 +18,9 @@
 #   5 stages  comma list of P,0,1,2,3,4,5,6,7 (conversion-runbook stages), or "-" for none
 #   6 tier    baseline     (always-on: goes into every project's CLAUDE.local.md)
 #             ondemand     (situational: load when the task calls for it)
-#             experimental (under trial: surfaces in README "Skills under trial" and in
-#                          ROUTING.md, but _routing_stage_arm skips it on purpose, so a skill
-#                          nobody has proven yet can never be the reason a gate fails)
+#             experimental (under trial: routed and discoverable, but _routing_stage_arm skips
+#                          it on purpose, so a skill nobody has proven yet can never be the
+#                          reason a gate fails)
 #
 # TSV rather than a markdown ROUTING.md because a renderer has to parse this in bash 3.2 on
 # macOS, and several "when" strings contain the "|" that a markdown table uses as its column
@@ -42,6 +42,7 @@ question-kinds	bin/question-kinds.sh	Deciding who answers a question — before 
 facts-lock	bin/facts-lock.sh	Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done	ba	2	baseline
 module-brief	skills/module-brief.md	Building any module — before the first script. The mdl-agent's single per-module input	ba,mdl	4,5	baseline
 learned-mdl-preflight	skills/learned-mdl-preflight.md	Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations	mdl	5	baseline
+module-folder-convention	skills/module-folder-convention.md	Placing any document in a module — before the first `create`. Feature group, then Pages/Microflows/Services/Resources; the path comes from the brief's folder plan, and the table says which types mxcli can actually place	architect,mdl	4,5	baseline
 learned-microflow-patterns	skills/learned-microflow-patterns.md	Writing or fixing any microflow — MDL gotchas plus annotation discipline	mdl	5	baseline
 ui-preflight-pages	skills/ui-preflight-pages.md	Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP	mdl	5	baseline
 learned-stylegallery	skills/learned-stylegallery.md	Building or using the in-app design gallery	mdl	5	baseline
@@ -93,4 +94,6 @@ tool-output-is-not-ground-truth	skills/tool-output-is-not-ground-truth.md	Any ti
 process-coherence-pass	skills/process-coherence-pass.md	Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss	review	5,6	ondemand
 e2e-evidence-report	skills/e2e-evidence-report.md	Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything	test,review	6	ondemand
 mpr-corruption-and-sp-load-errors	skills/mpr-corruption-and-sp-load-errors.md	Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout	mdl,gate	-	ondemand
+lint-gate	project-bin/lint-gate.sh	Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing	mdl,gate	5,6	ondemand
+lint-that-actually-runs	skills/lint-that-actually-runs.md	Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence	gate,review	5,6	ondemand
 journey-map	skills/journey-map.md	Authoring the cross-module user journey ONCE at design time as a source artifact, bound L0→L3, that the module brief, coherence pass and journey-proof read instead of each re-deriving it	ba,architect,test	2,3,4	experimental

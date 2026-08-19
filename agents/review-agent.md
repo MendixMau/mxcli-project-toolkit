@@ -54,6 +54,7 @@ protects: you have no Write or Edit tool, and you never run `mxcli exec`.
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
 | `skills/process-coherence-pass.md` | Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss |
 | `skills/e2e-evidence-report.md` | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything |
+| `skills/lint-that-actually-runs.md` | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence |
 <!-- ROUTING:END -->
 
 `mxbuild` and the UI/OTel e2e suite both verify that what was built *works*. Neither verifies that

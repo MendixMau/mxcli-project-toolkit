@@ -23,6 +23,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/../agents"
 
+# Starlark lint rules. Same "missing -> install, drifted -> report, never blind-overwrite"
+# contract as the crash net, plus one case the crash net does not have: `mxcli init` can
+# silently revert a rule to stock, and the two rules that matter report a clean pass when
+# stock. See bin/lib/install-lint-rules.sh for the full classification. It sources
+# install-manifest.sh itself, so this one line is the whole dependency.
+. "$SCRIPT_DIR/lib/install-lint-rules.sh"
+
 # THE agent list. Explicit, NOT a glob over agents/*.md — a glob installs any doc that
 # happens to sit in agents/ as an extra agent, and one without YAML frontmatter is
 # silently broken in the target project. Adding an agent to the toolkit is a one-word
@@ -56,10 +63,12 @@ w_mkdir() {
 }
 STRICT=0
 UPGRADE_BIN=""
+UPGRADE_LINT=""
 REPAIR_INTAKE=0
 PROJECT_DIR=""
 USAGE="Usage: $0 <project-root> [--diff-completed] [--dry-run] [--strict]
-                          [--upgrade-bin <script.sh|all>] [--repair-intake]"
+                          [--upgrade-bin <script.sh|all>] [--upgrade-lint-rules <rule.star|all>]
+                          [--repair-intake]"
 while [ $# -gt 0 ]; do
   case "$1" in
     --diff-completed) DIFF_COMPLETED=1; shift ;;
@@ -70,6 +79,10 @@ while [ $# -gt 0 ]; do
       shift
       [ $# -gt 0 ] || { echo "--upgrade-bin needs a script name or 'all'" >&2; exit 1; }
       UPGRADE_BIN="$1"; shift ;;
+    --upgrade-lint-rules)
+      shift
+      [ $# -gt 0 ] || { echo "--upgrade-lint-rules needs a rule file name or 'all'" >&2; exit 1; }
+      UPGRADE_LINT="$1"; shift ;;
     -h|--help)
       echo "$USAGE"
       echo
@@ -81,6 +94,8 @@ while [ $# -gt 0 ]; do
       echo "  --strict           exit 3 if any warning was emitted (for CI / gate-check)"
       echo "  --upgrade-bin X    accept the toolkit version of a LOCALLY MODIFIED bin/ crash-net"
       echo "                     script (or 'all'). The project copy is backed up first."
+      echo "  --upgrade-lint-rules X  accept the toolkit version of a LOCALLY MODIFIED"
+      echo "                     .claude/lint-rules/ rule (or 'all'), backing the copy up first."
       echo "  --repair-intake    accept the offered repair of a stale, still-verbatim intake"
       echo "                     question (see the OFFER printed by a plain run). Only ever"
       echo "                     rewrites boilerplate nobody has edited."
@@ -463,6 +478,16 @@ elif [ -d "$CRASHNET_SRC" ]; then
   fi
 else
   warn "Toolkit has no project-bin/ — cannot check this project's crash net."
+fi
+
+# ── Starlark lint rules ─────────────────────────────────────────────────────────────────────
+# Gated on WIRED for the same reason as the crash net: a mistyped path must not scatter .star
+# files into an unrelated directory. Unlike the crash net this is also a REPAIR path, not only
+# a first install — `mxcli init` reverts these rules on its own, so re-running sync is the
+# documented way to get a project's lint back after anyone re-inits it.
+if [ "$WIRED" -eq 1 ]; then
+  mxtk_install_lint_rules "$(cd "$SCRIPT_DIR/.." && pwd)" "$PROJECT_DIR" "$DRY_RUN" "$UPGRADE_LINT"
+  CHANGES=$((CHANGES + ${MXTK_LINT_CHANGES:-0}))
 fi
 
 echo ""

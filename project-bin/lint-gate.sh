@@ -37,13 +37,13 @@ fi
 if ! type require_py >/dev/null 2>&1; then
   require_py() {
     _c=""
-    for _c in python3 python py; do
+    for _c in python3 python py; do  # portability-ok: this IS the interpreter probe
       case "$(command -v "$_c" 2>/dev/null)" in *[Ww]indows[Aa]pps*) continue ;; esac
       if "$_c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
         PY="$_c"; export PY; return 0
       fi
     done
-    echo "lint-gate: Python 3 is required and was not found (tried python3, python, py)." >&2
+    echo "lint-gate: Python 3 is required and was not found (tried python3, python, py)." >&2  # portability-ok: names in a diagnostic
     exit 2
   }
 fi

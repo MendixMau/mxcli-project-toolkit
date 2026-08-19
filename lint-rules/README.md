@@ -14,13 +14,33 @@ and configure the marked constants — **after** running `mxcli init`, never bef
 `data_change_microflows` and `entity_business_key` are **repaired copies of rules `mxcli init`
 already seeds**, not new ones. Both shipped comparing `entity.entity_type` to `"PERSISTENT"`
 while the model returns `"Persistent"`, so both skipped every entity and reported a clean pass
-for their entire life. One word each. Measured on TestCLIApp 2026-08-18: ARCH002 went from 0 to
-38 findings. (ARCH003 stays at 0 on that project and that is correct — every persistent entity
-there is a `System` entity, which the rule skips by design. Before the fix it reached none.)
+for their entire life. One word each.
+
+Measured on TestCLIApp 2026-08-18, ARCH002 went from 0 to 38 findings. Read that number
+carefully: it proves the rule now *reaches* entities, and nothing more. **All 38 are in the
+`System` module** — ARCH003 skips `System`/`Administration` and ARCH002 has no module skip at
+all, so on a project with Marketplace content ARCH002's first run is mostly platform code
+nobody can fix. Give it the same skip, or exclude vendor modules at the gate, before reading
+its count as signal. (ARCH003 stays at 0 on TestCLIApp and that is correct — every persistent
+entity there is a `System` entity. Before the fix it reached none at all.)
 
 `conv010` here is likewise the repaired form of the rule mxcli seeds, and supersedes the
 version this directory shipped on 11 Aug: one violation per microflow instead of one per
 activity, plus four action types allowlisted. On WMS-Demo-main that is 399 rows -> 51 findings.
+
+## How these reach a project
+
+`bin/init-project.sh` installs them at scaffold time and `bin/sync-project.sh` refreshes them
+on every sync; both call `mxtk_install_lint_rules` in `bin/lib/install-lint-rules.sh`, so there
+is one implementation rather than two that drift. Nothing a human edited is ever overwritten
+without `--upgrade-lint-rules <rule|all>`, which backs the local copy up first.
+
+A project's `.claude/.mxtk-lint-receipt` records the md5 of each rule *as installed*. Because
+rules are copied verbatim, that one hash answers both questions the copy path needs: if the
+project's file still matches it, nobody here edited it; if the toolkit's file still matches it,
+the template has not moved. The receipt lives outside `lint-rules/`, which is what makes it
+survive `mxcli init` — and surviving matters, because init wipes every in-file marker at once,
+which would otherwise make a genuine revert indistinguishable from a first install.
 
 ## `mxcli init` overwrites these without asking
 
@@ -31,8 +51,10 @@ So these rules are the only copied artifact with an *active adversary*: they rev
 own, and a reverted ARCH002/ARCH003 reports a clean pass while inspecting nothing. Each file
 therefore carries a `# mxtk-lint-rule:` header ending in an explicit terminator line, and
 `STOCK-HASHES.txt` records the md5 of each rule as mxcli seeds it. Together those let a copy
-path tell four states apart: ours, ours-but-older, untouched-stock (safe to replace), and a
-file the project wrote (never overwrite). `install-manifest.sh` names the rules in two lists —
+path tell six states apart: ours; ours-but-older (refresh); ours-without-the-header, from a
+project that applied the fixes by hand before this path existed (refresh, and say so);
+untouched-stock (safe to replace); a configured `conv020` (never touch); and a file the project
+wrote (report, never overwrite). `install-manifest.sh` names the rules in two lists —
 `MXTK_LINT_RULES` for the toolkit-owned ones and `MXTK_LINT_RULES_CONFIGURABLE` for `conv020`,
 which is installed once and never refreshed because refreshing it would silently discard the
 `PROJECT_MODULES` a project had configured.

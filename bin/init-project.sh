@@ -10,6 +10,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Starlark lint rules. Same "missing -> install, drifted -> report, never blind-overwrite"
+# contract as the crash net, plus one case the crash net does not have: `mxcli init` can
+# silently revert a rule to stock, and the two rules that matter report a clean pass when
+# stock. See bin/lib/install-lint-rules.sh for the full classification. It sources
+# install-manifest.sh itself, so this one line is the whole dependency.
+. "$SCRIPT_DIR/lib/install-lint-rules.sh"
+
 if [ $# -lt 1 ]; then
   echo "Usage: $0 <project-dir>" >&2
   exit 1
@@ -242,6 +249,13 @@ if [ -d "$CRASHNET_SRC" ]; then
     fi
   done
 fi
+
+# ── Starlark lint rules ─────────────────────────────────────────────────────────────────────
+# mxcli seeds .claude/lint-rules/ with its own copies and two of them are broken as shipped:
+# they match no entity at all and report a clean pass forever. Install the toolkit's fixed
+# versions over the stock ones, plus conv020, which mxcli does not ship. Nothing a human
+# edited is overwritten — see bin/lib/install-lint-rules.sh.
+mxtk_install_lint_rules "$(cd "$SCRIPT_DIR/.." && pwd)" "$PROJECT_DIR" 0 ""
 
 # ── Agent wiring ─────────────────────────────────────────────────────────────
 # Every AI coding agent gets the same entry point, not just Claude. Until this

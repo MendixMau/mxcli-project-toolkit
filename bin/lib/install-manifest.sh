@@ -50,7 +50,13 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # absolute path into a personal clone — a path that resolves on one laptop and nowhere else.
 # It now resolves the toolkit from project context ($MXTK_ROOT, then CLAUDE.local.md's
 # Wiring block, then its own install location) and ships here.
-MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh conformance-check.sh graph-sweep.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh"
+# conformance-check.sh and graph-sweep.sh are NOT named here yet, deliberately. They were named
+# in d05437c while existing only in a working tree, so at HEAD this manifest was false: the
+# forward self-check below returned 1, and because that check runs at SOURCE time under the
+# callers' `set -euo pipefail`, every script that sources this file died before doing anything.
+# It stayed invisible only because nothing at HEAD sourced the manifest yet. When those two
+# scripts are committed to project-bin/, add them back — the reverse check will ask for it.
+MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. Empty today, and that
 # is the point: the reverse check below flags anything named by NEITHER list, so a new file in
@@ -66,7 +72,9 @@ MXTK_PROJECT_BIN_NOINSTALL=""
 # are dead on arrival as shipped: data_change_microflows (ARCH002) and entity_business_key
 # (ARCH003) compare entity_type to "PERSISTENT" when the model returns "Persistent", so they
 # skip every entity and report a clean pass forever. Measured on TestCLIApp 2026-08-18,
-# ARCH002 went 0 -> 38 findings on the one-word fix. conv010 (CONV010) is the top rule by
+# ARCH002 went 0 -> 38 findings on the one-word fix — which proves it now reaches entities and
+# nothing more: all 38 are `System` entities, because ARCH002 has no module skip. See
+# lint-rules/README.md. conv010 (CONV010) is the top rule by
 # volume everywhere it runs; the de-noised version here took WMS-Demo-main 399 -> 51.
 #
 # The toolkit ships ONLY these three of mxcli's ~29. Copying the rest would pin every project
@@ -274,5 +282,31 @@ _mxtk_manifest_check_tests() {
 _mxtk_manifest_check
 _mxtk_manifest_check_bin
 _mxtk_manifest_check_lint
+
+# --- self-check: the lint rules are actually WIRED to a caller -----------------------------
+# The rules can be perfect and still reach nobody. Delivery is two lines in each of
+# init-project.sh and sync-project.sh — one `.` and one call — and two lines are exactly what
+# a concurrent rewrite of those files drops without anyone noticing. The failure is silent by
+# construction: projects simply never receive the rules, sync says "all copied artifacts up to
+# date", and the stock rules that report a clean pass over nothing stay in place.
+#
+# So the manifest, which both callers load anyway, asserts its own wiring. Grep, not runtime
+# introspection, because the point is to catch the line being ABSENT from the file on disk.
+_mxtk_manifest_check_lint_wiring() {
+  _here="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
+  [ -f "$_here/install-lint-rules.sh" ] || return 0
+  _unwired=""
+  for _c in init-project.sh sync-project.sh; do
+    [ -f "$_here/../$_c" ] || continue
+    grep -q 'mxtk_install_lint_rules' "$_here/../$_c" || _unwired="$_unwired $_c"
+  done
+  [ -z "$_unwired" ] && return 0
+  echo "install-manifest.sh: lint rules are shipped but NOT WIRED into:$_unwired" >&2
+  echo "  Those scripts must source bin/lib/install-lint-rules.sh and call" >&2
+  echo "  mxtk_install_lint_rules <toolkit_root> <project_dir> <dry_run> <upgrade_spec>." >&2
+  echo "  Until they do, no project receives the rules and nothing reports a problem." >&2
+  return 1
+}
+_mxtk_manifest_check_lint_wiring
 _mxtk_manifest_check_bin_unnamed
 _mxtk_manifest_check_tests

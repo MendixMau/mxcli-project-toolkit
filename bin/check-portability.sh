@@ -72,6 +72,20 @@ while IFS= read -r f; do
   while IFS= read -r hit; do
     ln="${hit%%:*}"; txt="${hit#*:}"
 
+    # Per-line opt-out: `# portability-ok: <reason>` trailing the offending line.
+    #
+    # is_meta exempts a WHOLE FILE, which is far too blunt for a script that legitimately
+    # names an interpreter in one place and must still be checked everywhere else. The case
+    # that forced this: project-bin/lint-gate.sh carries an inline require_py FALLBACK, for
+    # projects whose _common.sh predates require_py and which sync will not overwrite. That
+    # fallback has to probe python3/python/py by name — there is no other way to find an
+    # interpreter — so the checker flagged the fix for the very defect it was checking for.
+    # Whole-file exemption would then have blinded the checker to the rest of lint-gate.sh.
+    #
+    # The reason text is not parsed; requiring it is the point. An opt-out somebody had to
+    # justify in writing is one a reviewer can argue with.
+    case "$txt" in *portability-ok:*) continue ;; esac
+
     case "$txt" in
       *python3*|*' python '*)
         report "$f" "$ln" "hard-coded Python name" \

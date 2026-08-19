@@ -84,3 +84,18 @@ portable_file_mtime_iso() {
   [ -n "$_v" ] || return 1
   printf '%s\n' "$_v" | cut -c1-19 | tr ' ' 'T'
 }
+
+# md5 of a file, hash only, no filename. macOS ships `md5 -q`; GNU/Linux ships `md5sum`.
+# Neither exists on the other by default, and `md5sum` output carries a trailing filename
+# that must be cut off before any comparison. Used by install-lint-rules.sh to tell a
+# reverted-to-stock lint rule from one a project deliberately edited — a wrong answer there
+# either destroys local work or silently leaves a blind rule in place, so this must not
+# guess: it returns nonzero when no hasher is available rather than emitting an empty string
+# that would compare equal to another empty string.
+portable_md5() {
+  [ -f "$1" ] || return 1
+  md5 -q "$1" 2>/dev/null && return 0
+  _v="$(md5sum "$1" 2>/dev/null)" || return 1
+  [ -n "$_v" ] || return 1
+  printf '%s\n' "${_v%% *}"
+}

@@ -89,3 +89,5 @@ process-coherence-pass	skills/process-coherence-pass.md	Checking whether the who
 module-completion-loop	skills/module-completion-loop.md	The full build → gate → prove → confirm → next loop a module runs through before it is called done	mdl,test,gate,review	5,6	ondemand
 e2e-evidence-report	skills/e2e-evidence-report.md	Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything	test,review	6	ondemand
 mpr-corruption-and-sp-load-errors	skills/mpr-corruption-and-sp-load-errors.md	Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout	mdl,gate	-	ondemand
+lint-gate	project-bin/lint-gate.sh	Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing	mdl,gate	5,6	ondemand
+lint-that-actually-runs	skills/lint-that-actually-runs.md	Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence	gate,review	5,6	ondemand

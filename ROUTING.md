@@ -90,4 +90,6 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | The full build → gate → prove → confirm → next loop a module runs through before it is called done | `skills/module-completion-loop.md` | mdl,test,gate,review | 5,6 | ondemand |
 | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything | `skills/e2e-evidence-report.md` | test,review | 6 | ondemand |
 | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` | mdl,gate | - | ondemand |
+| Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` | mdl,gate | 5,6 | ondemand |
+| Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence | `skills/lint-that-actually-runs.md` | gate,review | 5,6 | ondemand |
 <!-- ROUTING:END -->

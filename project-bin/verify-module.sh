@@ -20,7 +20,14 @@
 # therefore deliberately absent from this chain, however read-only they sound.)
 #
 # Usage:
-#   bin/verify-module.sh <Module> [--skip-monkey] [--skip-journeys] [--quick]
+#   bin/verify-module.sh <Module> [--skip-monkey] [--skip-journeys] [--quick] [--parallel-runtime]
+#
+# The model-side instruments (conformance, graph sweep, coverage) always run in parallel — they
+# share no state and touch no app. The runtime instruments (journeys, monkey) stay sequential by
+# default because they log into the Mendix runtime, and a trial licence caps concurrent sessions:
+# racing two logins can produce a spurious refusal that reads as a finding but isn't one (measured
+# 2026-08-18, see tests/e2e/journey-runner.js). Pass --parallel-runtime to opt into running them
+# concurrently anyway; results are then reported as caveated, never as clean.
 #
 # Optional inputs, discovered not assumed. Each missing one is a FAULT with a named reason, never a
 # silent skip:
@@ -66,12 +73,13 @@ MODULE="${1:-}"
   sed -n '2,40p' "$0"; exit 2; }
 shift
 
-SKIP_MONKEY=0; SKIP_JOURNEYS=0; QUICK=0
+SKIP_MONKEY=0; SKIP_JOURNEYS=0; QUICK=0; PARALLEL_RUNTIME=0
 for a in "$@"; do
   case "$a" in
-    --skip-monkey)   SKIP_MONKEY=1 ;;
-    --skip-journeys) SKIP_JOURNEYS=1 ;;
-    --quick)         QUICK=1; SKIP_MONKEY=1 ;;
+    --skip-monkey)      SKIP_MONKEY=1 ;;
+    --skip-journeys)    SKIP_JOURNEYS=1 ;;
+    --quick)            QUICK=1; SKIP_MONKEY=1 ;;
+    --parallel-runtime) PARALLEL_RUNTIME=1 ;;
     *) echo "unknown arg: $a" >&2; exit 2 ;;
   esac
 done
@@ -88,6 +96,12 @@ c_warn() { printf '\033[33m%s\033[0m' "$1"; }
 
 FINDINGS=0
 FAULTED=0
+
+# Parallel-job bookkeeping for run_launch/run_join_all below. Indexed arrays only — no
+# associative arrays — and always declared, even empty: macOS ships bash 3.2, and under
+# `set -u`, expanding an array that was never declared at all (as opposed to declared empty)
+# throws "unbound variable" on bash <4.4.
+JOB_NAMES=(); JOB_LOGS=(); JOB_KINDS=(); JOB_TMOS=(); JOB_T0S=(); JOB_PIDS=()
 
 # The scope of a verdict is GENERATED from what actually ran, never hardcoded.
 #
@@ -143,16 +157,10 @@ with_timeout() {
   return "$rc"
 }
 
-# run <name> <logfile> <kind> <timeout_s> -- <cmd...>
-#   kind=gate   exit 1 => finding, exit 2 => instrument fault
-#   kind=info   never fails the pass; recorded for the trend line
-run() {
-  local name="$1" log="$2" kind="$3" tmo="$4"; shift 5   # the literal --
-  printf '\n\033[1m── %s\033[0m  \033[2m(budget %ss)\033[0m\n' "$name" "$tmo"
-  local t0; t0=$(date +%s)
-  with_timeout "$tmo" "$@" > "$log" 2>&1
-  local rc=$?
-  local secs=$(( $(date +%s) - t0 ))
+# _report_result <name> <log> <kind> <tmo> <rc> <secs> — the verdict/print/SUMMARY logic shared
+# by run() (sequential) and run_join_all() (parallel), so the two paths cannot drift apart.
+_report_result() {
+  local name="$1" log="$2" kind="$3" tmo="$4" rc="$5" secs="$6"
   [ "$rc" -eq 2 ] && [ "$secs" -ge "$tmo" ] && \
     echo "TIMED OUT after ${tmo}s — did not finish, so nothing was measured." >> "$log"
   local verdict
@@ -171,7 +179,56 @@ run() {
   printf '%s\t%s\t%s\t%ss\t%s\n' "$name" "$verdict" "$rc" "$secs" "${log#$ROOT/}" >> "$SUMMARY"
   # Show the tail of anything that was not clean — a log path alone gets ignored.
   [ "$verdict" = PASS ] || tail -12 "$log" | sed 's/^/      /'
+}
+
+# run <name> <logfile> <kind> <timeout_s> -- <cmd...>
+#   kind=gate   exit 1 => finding, exit 2 => instrument fault
+#   kind=info   never fails the pass; recorded for the trend line
+# Blocks until the instrument finishes.
+run() {
+  local name="$1" log="$2" kind="$3" tmo="$4"; shift 5   # the literal --
+  printf '\n\033[1m── %s\033[0m  \033[2m(budget %ss)\033[0m\n' "$name" "$tmo"
+  local t0; t0=$(date +%s)
+  with_timeout "$tmo" "$@" > "$log" 2>&1
+  local rc=$?
+  local secs=$(( $(date +%s) - t0 ))
+  _report_result "$name" "$log" "$kind" "$tmo" "$rc" "$secs"
   return 0
+}
+
+# run_launch <name> <logfile> <kind> <timeout_s> -- <cmd...>
+# Same contract as run(), but starts the instrument in the background and returns immediately.
+# Call run_join_all afterward to wait for every launched job and report it — in launch order, not
+# completion order, so the summary stays deterministic across runs.
+run_launch() {
+  local name="$1" log="$2" kind="$3" tmo="$4"; shift 5   # the literal --
+  printf '\n\033[1m▶ %s\033[0m  \033[2m(budget %ss, running in parallel)\033[0m\n' "$name" "$tmo"
+  local t0; t0=$(date +%s)
+  ( with_timeout "$tmo" "$@" > "$log" 2>&1 ) &
+  local n=${#JOB_PIDS[@]}
+  JOB_NAMES[$n]="$name"; JOB_LOGS[$n]="$log"; JOB_KINDS[$n]="$kind"
+  JOB_TMOS[$n]="$tmo";   JOB_T0S[$n]="$t0";   JOB_PIDS[$n]=$!
+}
+
+# run_join_all — wait for every run_launch()ed job and report each one. No-op if nothing was
+# launched. The `[ ... ] || return 0` guard is load-bearing, not decorative: it is what keeps the
+# `${JOB_PIDS[@]}`-style expansions below from ever running against an empty array under `set -u`.
+run_join_all() {
+  [ "${#JOB_PIDS[@]}" -gt 0 ] || return 0
+  local i rc secs
+  for i in "${!JOB_PIDS[@]}"; do
+    wait "${JOB_PIDS[$i]}"; rc=$?
+    secs=$(( $(date +%s) - JOB_T0S[$i] ))
+    printf '\n\033[1m── %s\033[0m  \033[2m(result)\033[0m\n' "${JOB_NAMES[$i]}"
+    _report_result "${JOB_NAMES[$i]}" "${JOB_LOGS[$i]}" "${JOB_KINDS[$i]}" "${JOB_TMOS[$i]}" "$rc" "$secs"
+  done
+  JOB_NAMES=(); JOB_LOGS=(); JOB_KINDS=(); JOB_TMOS=(); JOB_T0S=(); JOB_PIDS=()
+}
+
+# _exec — dispatch a runtime instrument to run() or run_launch(), gated by --parallel-runtime.
+# One call site so every runtime instrument obeys the same flag without repeating the if/else.
+_exec() {
+  if [ "$PARALLEL_RUNTIME" -eq 1 ]; then run_launch "$@"; else run "$@"; fi
 }
 
 echo "══ verify-module: $MODULE ══  $STAMP"
@@ -205,15 +262,18 @@ else
 fi
 
 # ── 1. Model-side instruments (no app required) ─────────────────────────────
+# These three share no state and touch no app, so they always run in parallel — unlike the
+# runtime instruments in §2 there is nothing here to race on and no login session to spend, so
+# this needs no opt-in flag.
 if [ -x "$(_tool conformance-check.sh)" ]; then
-  run "conformance (ledger claims vs live model)" "$OUTDIR/10-conformance.log" gate "${VM_TMO_CONFORMANCE:-1200}" -- \
+  run_launch "conformance (ledger claims vs live model)" "$OUTDIR/10-conformance.log" gate "${VM_TMO_CONFORMANCE:-1200}" -- \
     "$(_tool conformance-check.sh)" --module "$MODULE"
 else
   fault "conformance (ledger claims vs live model)" "bin/conformance-check.sh not installed"
 fi
 
 if [ -x "$(_tool graph-sweep.sh)" ]; then
-  run "graph sweep (orphans + wiring shape)" "$OUTDIR/11-graph.log" gate 300 -- \
+  run_launch "graph sweep (orphans + wiring shape)" "$OUTDIR/11-graph.log" gate 300 -- \
     "$(_tool graph-sweep.sh)" --module "$MODULE"
 else
   fault "graph sweep (orphans + wiring shape)" "bin/graph-sweep.sh not installed"
@@ -245,13 +305,17 @@ if [ -z "$COVERAGE_CHECK" ]; then
   fault "coverage (BRD leaves)" "coverage-check.sh not found" \
         "Looked in bin/ and \$MXTK_ROOT/bin. Set COVERAGE_CHECK=<path>, or copy the toolkit's bin/coverage-check.sh into the project."
 elif [ -f "$LEDGER" ] && [ -n "$BRD" ]; then
-  run "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate 300 -- \
+  run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate 300 -- \
     "$COVERAGE_CHECK" --summary "$BRD" "$LEDGER"
 else
   fault "coverage (BRD leaves)" \
         "missing $( [ -f "$LEDGER" ] || echo 'coverage-ledger.md' )$( [ -n "$BRD" ] || echo ' BRD' ) for $MODULE" \
         "Requirement traceability for this module is UNMEASURED, not clean."
 fi
+
+echo ""
+echo "  waiting on model-side instrument(s)..."
+run_join_all
 
 # ── 1b. Review: the model-side instruments, as one report.json ──────────────
 # INFO, not gate. The rungs above already gate on these same measurements; gating again would
@@ -295,6 +359,15 @@ elif [ "$STACK_OK" -eq 0 ] && [ "${ALLOW_CAVEATED_STACK:-0}" -ne 1 ]; then
            "      If this module does not depend on the above, re-run with ALLOW_CAVEATED_STACK=1;" \
            "      results are then reported as caveated, never as clean.")"
 else
+  if [ "$PARALLEL_RUNTIME" -eq 1 ]; then
+    c_warn "  ! PARALLEL RUNTIME"; echo " — journeys/monkey below run concurrently (--parallel-runtime)."
+    echo "      A Mendix trial licence caps concurrent sessions: two logins racing on the same"
+    echo "      runtime can produce a spurious login refusal (INVALID, not a real FAIL) that has"
+    echo "      nothing to do with $MODULE's correctness (measured 2026-08-18, see journey-runner.js)."
+    echo "      Results below are reported as caveated, never as clean — if anything reads INVALID,"
+    echo "      re-run with the flag omitted before trusting the result."
+  fi
+
   JOURNEY="$JOURNEY_DIR/$MODULE.journey.json"
   if [ "$SKIP_JOURNEYS" -eq 1 ]; then
     printf '\n\033[1m── journeys\033[0m\n'; c_warn "  · skipped by flag"; echo ""
@@ -303,11 +376,11 @@ else
     fault "journeys" "no journey runner at ${JOURNEY_RUNNER#$ROOT/}" \
           "Set JOURNEY_RUNNER, or see the journey-proof.md skill for the harness this expects."
   elif [ -f "$JOURNEY" ]; then
-    run "journeys (UI + ordered spans + data effects)" "$OUTDIR/20-journeys.log" gate 900 -- \
+    _exec "journeys (UI + ordered spans + data effects)" "$OUTDIR/20-journeys.log" gate 900 -- \
       node "$JOURNEY_RUNNER" "$JOURNEY"
     # Non-vacuity: a journey that cannot fail is not evidence. Skipped under --quick because it
     # re-walks every step.
-    [ "$QUICK" -eq 1 ] || run "journeys (positive control — MUST detect a broken precondition)" \
+    [ "$QUICK" -eq 1 ] || _exec "journeys (positive control — MUST detect a broken precondition)" \
       "$OUTDIR/21-journeys-control.log" gate 900 -- \
       node "$JOURNEY_RUNNER" "$JOURNEY" --positive-control
   else
@@ -333,8 +406,14 @@ else
     # info, not gate: on one project the monkey pass scored 0 fail while its scripted journeys found
     # all 9 real defects. It is a crash net. Letting it gate the module would give it an authority
     # the measured yield does not support.
-    run "monkey (crash net — informational)" "$OUTDIR/30-monkey.log" info 1800 -- \
+    _exec "monkey (crash net — informational)" "$OUTDIR/30-monkey.log" info 1800 -- \
       node "$MONKEY_JS" --rounds 24
+  fi
+
+  if [ "$PARALLEL_RUNTIME" -eq 1 ]; then
+    echo ""
+    echo "  waiting on parallel runtime instrument(s)..."
+    run_join_all
   fi
 fi
 

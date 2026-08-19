@@ -263,6 +263,99 @@ else
   bad "fixture invalid: a routing table appeared"
 fi
 
+echo "== T10: an intake from the OLD question set is reported, then appended to =="
+#
+# The kickoff set was rewritten 2026-08-19. Projects scaffolded before it answered a different
+# set of questions — notably never the entry mode — and nothing said so. What is pinned here is
+# the CONTRACT, not just the detection: a sync run after a toolkit pull must not silently flip
+# a mid-pipeline project's Stage P from PASS to FAIL.
+
+P10="$(mkproj t10)"
+# The pre-redesign question set, written inline rather than recovered from git history: a SHA
+# in a test fixture rots the first time history is rewritten, and the fixture only needs to BE
+# an old-shaped intake, not to be a specific commit's. The licence/security question is copied
+# verbatim from the old template on purpose — it is now Q6, word for word, and it is what pins
+# that matching is on question text rather than number.
+cat > "$P10/intake.md" <<'OLDINTAKE'
+# intake.md — Stage P Kickoff Interview
+
+## 1. Which source folder(s) hold the legacy application?
+
+Answered (CONFIRMED): yes.
+
+## 2. Are there licence/security constraints on storing this client's source in this workspace?
+
+Answered (CONFIRMED): yes.
+
+## 3. Is an SME available, and who?
+
+Answered (CONFIRMED): yes.
+
+## 4. Are there documents outside the source folders (specs, manuals, screenshots) not yet accounted for?
+
+Answered (CONFIRMED): yes.
+
+## 5. Is this a fresh migration or a continuation/re-run of prior work?
+
+Answered (CONFIRMED): yes.
+
+## 6. Target Mendix version / mxbuild setup?
+
+Answered (CONFIRMED): yes.
+
+## 7. Deployment target / environment (DTAP)?
+
+Answered (CONFIRMED): yes.
+
+## 8. Single Mendix app, or does scale suggest a multiple-app split?
+
+Answered (CONFIRMED): yes.
+
+## 9. Interview mode: attended (default) or unattended?
+
+Answered (CONFIRMED): attended.
+OLDINTAKE
+
+"$GATE" "$P10" P >/dev/null 2>&1 && ok "control: the old-template project PASSES Stage P" \
+                                  || bad "control: the old-template project PASSES Stage P"
+
+# Only intake.md is fingerprinted, not the tree: a plain sync legitimately refreshes agent
+# stubs and routing. What must not happen is this file changing, because changing it is what
+# would flip a mid-pipeline project's Stage P from PASS to FAIL on a routine post-pull sync.
+BEFORE="$(md5 -q "$P10/intake.md" 2>/dev/null || md5sum "$P10/intake.md" | cut -d' ' -f1)"
+O="$("$SYNC" "$P10" 2>&1)"
+case "$O" in *"predates the current kickoff question set"*) ok "a plain run REPORTS the old set" ;;
+              *) bad "a plain run REPORTS the old set" ;; esac
+case "$O" in *"Entry mode: migration, requirements-driven, or greenfield?"*)
+      ok "  and names the question that matters most" ;;
+  *)  bad "  and names the question that matters most" ;; esac
+case "$O" in *"licence/security constraints"*)
+      bad "  a renumbered but identical question is NOT reported missing" ;;
+  *)  ok "  a renumbered but identical question is NOT reported missing" ;; esac
+case "$O" in *"--repair-intake"*) ok "  and prints the command to accept it" ;;
+              *) bad "  and prints the command to accept it" ;; esac
+AFTER="$(md5 -q "$P10/intake.md" 2>/dev/null || md5sum "$P10/intake.md" | cut -d' ' -f1)"
+[ "$AFTER" = "$BEFORE" ] \
+  && ok "  and left intake.md alone — a pull must not fail a mid-pipeline project's gate" \
+  || bad "  and left intake.md alone — a pull must not fail a mid-pipeline project's gate"
+
+"$SYNC" "$P10" --repair-intake >/dev/null 2>&1
+[ "$(grep -c '^## 9\. Interview mode' "$P10/intake.md")" = "1" ] \
+  && ok "the repair leaves exactly one Q9, still at number 9" \
+  || bad "the repair leaves exactly one Q9, still at number 9"
+grep -q '^## 10\. Entry mode' "$P10/intake.md" \
+  && ok "  new questions continue from 10 rather than renumbering" \
+  || bad "  new questions continue from 10 rather than renumbering"
+[ "$(grep -c 'Answered (CONFIRMED)' "$P10/intake.md")" = "9" ] \
+  && ok "  all nine existing answers survive" || bad "  all nine existing answers survive"
+"$GATE" "$P10" P >/dev/null 2>&1 \
+  && bad "  Stage P now FAILS on the questions nobody asked" \
+  || ok "  Stage P now FAILS on the questions nobody asked"
+O="$("$SYNC" "$P10" 2>&1)"
+case "$O" in *"predates the current kickoff question set"*)
+      bad "  a second sync finds nothing left to append" ;;
+  *)  ok "  a second sync finds nothing left to append" ;; esac
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"
 [ "$FAIL" -eq 0 ]

@@ -44,6 +44,13 @@ AGENTS="$MXTK_AGENTS"
 # stock. See bin/lib/install-lint-rules.sh for the full classification.
 . "$SCRIPT_DIR/lib/install-lint-rules.sh"
 
+# The intake.md template — the same one init-project.sh writes from. This file used to carry
+# its own hand-kept copy of Q9 under a comment reading "MUST stay byte-identical to Q9 in
+# bin/init-project.sh's intake heredoc". It did not stay identical: init's Q9 was fixed to
+# drop the false-green marker and this copy kept it, so --repair-intake would have written a
+# passing marker into a question nobody had asked.
+. "$SCRIPT_DIR/lib/intake-template.sh"
+
 # Is this agent file an UNTOUCHED stub (safe to overwrite), or completed work?
 # Two conditions, both required: it still carries the STUB GENERATED banner AND it still
 # has at least one genuinely unfilled {{PLACEHOLDER}}.
@@ -231,14 +238,9 @@ warn() {
 # would have written a passing marker into a question nobody had asked, and appending a missing
 # Q9 (below) shipped the same false-green. See the long comment in init-project.sh.
 q9_current_text() {
-  cat <<'EOF'
-## 9. Interview mode: attended (default) or unattended?
-
-_Not yet asked._ How to verify: ask the user; default is attended. Attended = every gate
-question is asked in chat and the agent waits for the answer. Unattended (opt-in only, explicit
-request required) = recommended options are applied as ASSUMED and logged for reconciliation.
-EOF
+  mxtk_intake_question_section 'Interview mode: attended (default) or unattended?'
 }
+
 # Byte-for-byte the pre-12828e4 body. MUST stay identical to gate-check.sh's function of the
 # same name: that one decides whether to PRINT the hint, this one decides whether to ACT on it.
 # If they drift, the gate points at a command that refuses.
@@ -335,6 +337,77 @@ elif [ -n "$INTAKE" ]; then
            "Prefix your answer with 'Answered (verified by inspection):'."
     fi
     rm -f "$Q9_TMP" "$Q9_REF"
+  fi
+
+  # --- questions the CURRENT template asks that this intake never did ---------------------
+  #
+  # The kickoff set was rewritten on 2026-08-19: four of the nine questions were things the
+  # agent could derive for itself (which source folder, which Mendix version, fresh-or-
+  # continuation, stray documents), and the ones that actually decide how the pipeline runs —
+  # the ENTRY MODE above all — were asked nowhere gate-check could see. Projects scaffolded
+  # before that keep the old nine, so a migration and a greenfield build sit in the same
+  # workspace having answered different questions, and nothing says so.
+  #
+  # WHY THIS REPORTS RATHER THAN ACTS. Appending an unanswered question flips Stage P from
+  # PASS to FAIL. That is HONEST — the project genuinely never answered it — but a sync is
+  # something people run after every toolkit `git pull`, and having that silently fail the
+  # kickoff gate of a project at Stage 4 is the kind of surprise that gets a tool routed
+  # around instead of fixed. So it follows the same contract as every other drift this script
+  # finds: say what is missing, print the exact command to accept it, change nothing.
+  #
+  # Matching is on the question TEXT, not its number. "Are there licence/security constraints
+  # on storing this client's source in this workspace?" was Q2 and is now Q6, word for word; a
+  # number-sensitive comparison would call it missing and append a duplicate of a question the
+  # user has already answered.
+  #
+  # Appended questions continue from the highest number present — they do NOT renumber, and in
+  # particular Q9 does not move. "## 9." is the hardcoded locator for the interview-mode
+  # question in gate-check.sh, in this script, and in four places across tests/wave2/; a
+  # repaired old project ends up numbered 1-9 then 10+, which is untidy and correct, in that
+  # order of priority.
+  MISSING_Q=""
+  MISSING_N=0
+  while IFS= read -r _q; do
+    [ -n "$_q" ] || continue
+    if ! sed -n 's/^## [0-9][0-9]*\. //p' "$INTAKE" | grep -Fxq "$_q"; then
+      MISSING_Q="$MISSING_Q$_q
+"
+      MISSING_N=$((MISSING_N + 1))
+    fi
+  done <<MXTK_Q_EOF
+$(mxtk_intake_question_texts)
+MXTK_Q_EOF
+
+  if [ "$MISSING_N" -gt 0 ]; then
+    if [ "$REPAIR_INTAKE" -eq 1 ]; then
+      if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would update: $INTAKE — append $MISSING_N question(s) from the current template."
+      else
+        _next=$(sed -n 's/^## \([0-9][0-9]*\)\..*/\1/p' "$INTAKE" | sort -n | tail -1)
+        [ -n "$_next" ] || _next=0
+        while IFS= read -r _q; do
+          [ -n "$_q" ] || continue
+          _next=$((_next + 1))
+          printf '\n' >> "$INTAKE"
+          mxtk_intake_question_section "$_q" \
+            | sed "1s/^## [0-9][0-9]*\. /## $_next. /" >> "$INTAKE"
+          printf '\n' >> "$INTAKE"
+        done <<MXTK_APPEND_EOF
+$MISSING_Q
+MXTK_APPEND_EOF
+        echo "Updated: $INTAKE — appended $MISSING_N question(s) from the current template,"
+        echo "         numbered from $((_next - MISSING_N + 1)). Existing answers untouched."
+        echo "         Stage P now FAILS until these are answered. That is the point: they were"
+        echo "         never asked, and until today nothing in the gate could tell."
+      fi
+    else
+      echo "Note: $INTAKE predates the current kickoff question set — $MISSING_N question(s)"
+      echo "      the template now asks were never asked here:"
+      printf '%s' "$MISSING_Q" | sed 's/^/        - /'
+      echo "      Your existing answers are fine and would not be touched. Appending these will"
+      echo "      make Stage P FAIL until they are answered — honest, but it is your call:"
+      echo "         $0 $PROJECT_DIR --repair-intake"
+    fi
   fi
 else
   echo "Note: no intake.md — run bin/init-project.sh first if this project uses the pipeline."

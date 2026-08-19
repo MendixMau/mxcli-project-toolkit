@@ -23,6 +23,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # here is how facts-lock.sh ended up routed in 1 of 6 projects.
 . "$SCRIPT_DIR/lib/skill-routing.sh"
 
+# The intake.md template. ONE copy, in bin/lib/intake-template.sh, because sync-project.sh
+# repairs the same file and needs the same text — see that file's header for what the two
+# hand-kept copies cost.
+. "$SCRIPT_DIR/lib/intake-template.sh"
+
 # SOURCES_MODE: ask | ignore | track. "ask" prompts only when stdin is a TTY; with no TTY it
 # ignores and says so. Ignoring is the default because a source drop is routinely hundreds of
 # MB of someone else's code, and the first time you find out it was committed is when you try
@@ -122,84 +127,7 @@ else
   # sync-project.sh (q9_current_text, q9_stale_scaffold_text, the append-if-missing guard) and
   # four places across tests/wave2/. Renumber it and sync stops finding it, concludes it is
   # missing, and appends a SECOND copy. Add new questions at 1-8; never renumber 9.
-  cat > "$INTAKE" <<'EOF'
-# intake.md — Stage P Kickoff Interview
-
-Replace each "_Not yet asked._" line below with a real answer, in one of two forms:
-
-  Answered (CONFIRMED): ...          the question was asked and answered
-  Unverified — how to verify: ...    the question WAS asked, the answer is not known yet,
-                                     and this line says how it will be established
-
-Both forms pass gate-check's Stage P. "_Not yet asked._" passes nothing, deliberately: this
-file is generated before the interview happens, and a scaffold must never be able to certify
-an interview that never took place. Per conversion-runbook.md's interview protocol, every
-question is asked in chat and the turn ends to wait for the answer; unknowns the user hands
-back ("you decide") are recorded as ASSUMED in PROJECT.md rather than blocking Stage P.
-
-**These are the questions only the human can answer.** Anything derivable — where the source
-sits, what documents exist, which Mendix version the .mpr targets, whether prior analysis is
-present — is the agent's homework, brought back as "I found X, confirm?" rather than asked
-here. Do that homework FIRST: it is what turns each question below into a recommendation
-with evidence instead of a blank prompt.
-
-## 1. Entry mode: migration, requirements-driven, or greenfield?
-
-_Not yet asked._ The agent proposes with evidence and the user confirms — never a silent
-inference (conversion-runbook.md "Entry Modes"; classification rules apply in order, first
-match wins: any legacy source → migration; else any specs/BRDs/wireframes →
-requirements-driven; else greenfield). Auditing or regression-testing an app nobody is
-rebuilding is not a mode at all — that routes to existing-app-assurance.md and skips the
-pipeline. Getting this wrong skips whole stages: real misrouting, 2026-07-14.
-
-## 2. What is this project, and what is driving it?
-
-_Not yet asked._ Sets stakes, urgency and the default for Q3 in one answer. (a) POC/demo —
-prove feasibility, throwaway output, speed over completeness. (b) Production replacement with
-a hard date — licence expiry, platform EOL, contract; fidelity and speed win, improvements
-deferred. (c) Production replacement, open-ended — modernisation is part of the goal. Only
-the user knows; record the date itself if there is one.
-
-## 3. Fidelity: port as-is, or improve as we go?
-
-_Not yet asked._ Default inherited from Q2 — (b) implies as-is, (c) licenses redesign — so
-put the inherited default to the user and ask what to override. This decides whether every
-Stage 3 fit-gap finding is a gap to close or an opportunity to take.
-
-## 4. Scope boundary: the whole application, or a slice?
-
-_Not yet asked._ Name what is explicitly OUT, not just what is in — "out" is the half that
-gets forgotten and rebuilt anyway. A module-sized source is the common case and is easy to
-mistake for a whole app; if it is a slice, say what the slice must keep working with.
-
-## 5. What must NOT change?
-
-_Not yet asked._ Integrations, data contracts, external URLs, scheduled jobs, reports other
-systems consume. These are the constraints that invalidate an architecture late and cheaply
-if found now; they are rarely visible in the source, because they live in its consumers.
-
-## 6. Are there licence/security constraints on storing this client's source in this workspace?
-
-_Not yet asked._ How to verify: ask the human; not inferable from the code.
-
-## 7. Is an SME available — who, and at what cadence?
-
-_Not yet asked._ Availability is not the useful half: an SME who exists but answers in two
-weeks reshapes the plan as much as no SME at all. Ask who, for which class of decision, and
-what the realistic turnaround is.
-
-## 8. Anything else — scope, priorities, or worries?
-
-_Not yet asked._ The standing open-floor question the runbook requires at every checkpoint
-(§1). Closed questions capture decisions; they never surface what the user wanted to say
-unprompted. "Nothing further" is a valid answer — but it has to be the user's, not assumed.
-
-## 9. Interview mode: attended (default) or unattended?
-
-_Not yet asked._ How to verify: ask the user; default is attended. Attended = every gate
-question is asked in chat and the agent waits for the answer. Unattended (opt-in only, explicit
-request required) = recommended options are applied as ASSUMED and logged for reconciliation.
-EOF
+  mxtk_intake_template > "$INTAKE"
   echo "Created: intake.md"
 fi
 

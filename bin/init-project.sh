@@ -4,7 +4,7 @@
 #
 # Idempotent: never overwrites a file that already exists. Safe to re-run.
 #
-# Usage: bin/init-project.sh <project-dir>
+# Usage: bin/init-project.sh <project-dir> [--ignore-sources|--track-sources]
 
 set -euo pipefail
 
@@ -23,12 +23,41 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # here is how facts-lock.sh ended up routed in 1 of 6 projects.
 . "$SCRIPT_DIR/lib/skill-routing.sh"
 
-if [ $# -lt 1 ]; then
-  echo "Usage: $0 <project-dir>" >&2
+# SOURCES_MODE: ask | ignore | track. "ask" prompts only when stdin is a TTY; with no TTY it
+# ignores and says so. Ignoring is the default because a source drop is routinely hundreds of
+# MB of someone else's code, and the first time you find out it was committed is when you try
+# to push. --track-sources is for the case where the source genuinely belongs in this repo.
+SOURCES_MODE="ask"
+PROJECT_DIR=""
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --ignore-sources) SOURCES_MODE="ignore" ;;
+    --track-sources)  SOURCES_MODE="track" ;;
+    -h|--help)
+      echo "Usage: $0 <project-dir> [--ignore-sources|--track-sources]"
+      exit 0
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      echo "Usage: $0 <project-dir> [--ignore-sources|--track-sources]" >&2
+      exit 1
+      ;;
+    *)
+      if [ -n "$PROJECT_DIR" ]; then
+        echo "Unexpected extra argument: $1" >&2
+        exit 1
+      fi
+      PROJECT_DIR="$1"
+      ;;
+  esac
+  shift
+done
+
+if [ -z "$PROJECT_DIR" ]; then
+  echo "Usage: $0 <project-dir> [--ignore-sources|--track-sources]" >&2
   exit 1
 fi
-
-PROJECT_DIR="$1"
 
 if [ ! -d "$PROJECT_DIR" ]; then
   mkdir -p "$PROJECT_DIR"
@@ -59,6 +88,40 @@ else
   #
   # sync-project.sh's q9_current_text() mirrors Q9 below verbatim. Change both together, or
   # --repair-intake writes the false-green back into a project.
+  #
+  # WHY THESE NINE, and why the interview-mode question is pinned at "## 9."
+  #
+  # The nine used to be almost entirely logistical — which source folder, which stray
+  # documents, fresh-or-continuation, which Mendix version. Four of those broke the runbook's
+  # own first rule (§1 step 1: "never ask what it can derive"), and the Copilot dry run of
+  # 2026-08-19 showed it in the agent's own words: its recommendation for "fresh or
+  # continuation?" was "(a) — this project was just reset to a clean slate", and for the
+  # Mendix version, "let me inspect the .mpr and confirm rather than guessing". Those are not
+  # questions, they are the agent asking the human to rubber-stamp its own homework. A fifth
+  # (single-app vs multi-app split) could not be answered at all at Stage P — its own hint
+  # said "assess during Stage 0 triage".
+  #
+  # Meanwhile the questions that decide how the whole pipeline should run were not asked
+  # anywhere gate-check can see:
+  #   - the ENTRY MODE, which conversion-runbook.md §"Entry Modes" calls "a Stage-P interview
+  #     decision, not a silent inference" — and which has already caused one real misrouting
+  #     (2026-07-14, a specs+source project classified greenfield, proposing to skip 0-4);
+  #   - what the project IS (POC / hard-date replacement / open-ended) and what drives it,
+  #     which lived only in the Stage 0 scope brainstorm (runbook §1, "What is this project
+  #     actually for (POC, replacement, demo)?") — ungated, so nothing checked it happened;
+  #   - the standing open-floor question the runbook mandates at every checkpoint.
+  # The logistical questions were gated; the strategic ones were not. That is backwards.
+  #
+  # So: Q1-Q8 are the things only a human can answer, at a stage where they can answer them.
+  # The derivable four become agent homework, presented as "I found X — confirm?" per the
+  # six-step protocol's step 2. The multi-app split moves to Stage 0 and DTAP to Stage 3,
+  # where each is actually answerable.
+  #
+  # Q9 STAYS AT NUMBER 9, with this exact heading. "## 9." is hardcoded as the locator for the
+  # interview-mode question in gate-check.sh (q9_section, the stale-scaffold hint),
+  # sync-project.sh (q9_current_text, q9_stale_scaffold_text, the append-if-missing guard) and
+  # four places across tests/wave2/. Renumber it and sync stops finding it, concludes it is
+  # missing, and appends a SECOND copy. Add new questions at 1-8; never renumber 9.
   cat > "$INTAKE" <<'EOF'
 # intake.md — Stage P Kickoff Interview
 
@@ -74,37 +137,62 @@ an interview that never took place. Per conversion-runbook.md's interview protoc
 question is asked in chat and the turn ends to wait for the answer; unknowns the user hands
 back ("you decide") are recorded as ASSUMED in PROJECT.md rather than blocking Stage P.
 
-## 1. Which source folder(s) hold the legacy application?
+**These are the questions only the human can answer.** Anything derivable — where the source
+sits, what documents exist, which Mendix version the .mpr targets, whether prior analysis is
+present — is the agent's homework, brought back as "I found X, confirm?" rather than asked
+here. Do that homework FIRST: it is what turns each question below into a recommendation
+with evidence instead of a blank prompt.
 
-_Not yet asked._ How to verify: inspect `sources/` and the workspace root for clones/submodules.
+## 1. Entry mode: migration, requirements-driven, or greenfield?
 
-## 2. Are there licence/security constraints on storing this client's source in this workspace?
+_Not yet asked._ The agent proposes with evidence and the user confirms — never a silent
+inference (conversion-runbook.md "Entry Modes"; classification rules apply in order, first
+match wins: any legacy source → migration; else any specs/BRDs/wireframes →
+requirements-driven; else greenfield). Auditing or regression-testing an app nobody is
+rebuilding is not a mode at all — that routes to existing-app-assurance.md and skips the
+pipeline. Getting this wrong skips whole stages: real misrouting, 2026-07-14.
+
+## 2. What is this project, and what is driving it?
+
+_Not yet asked._ Sets stakes, urgency and the default for Q3 in one answer. (a) POC/demo —
+prove feasibility, throwaway output, speed over completeness. (b) Production replacement with
+a hard date — licence expiry, platform EOL, contract; fidelity and speed win, improvements
+deferred. (c) Production replacement, open-ended — modernisation is part of the goal. Only
+the user knows; record the date itself if there is one.
+
+## 3. Fidelity: port as-is, or improve as we go?
+
+_Not yet asked._ Default inherited from Q2 — (b) implies as-is, (c) licenses redesign — so
+put the inherited default to the user and ask what to override. This decides whether every
+Stage 3 fit-gap finding is a gap to close or an opportunity to take.
+
+## 4. Scope boundary: the whole application, or a slice?
+
+_Not yet asked._ Name what is explicitly OUT, not just what is in — "out" is the half that
+gets forgotten and rebuilt anyway. A module-sized source is the common case and is easy to
+mistake for a whole app; if it is a slice, say what the slice must keep working with.
+
+## 5. What must NOT change?
+
+_Not yet asked._ Integrations, data contracts, external URLs, scheduled jobs, reports other
+systems consume. These are the constraints that invalidate an architecture late and cheaply
+if found now; they are rarely visible in the source, because they live in its consumers.
+
+## 6. Are there licence/security constraints on storing this client's source in this workspace?
 
 _Not yet asked._ How to verify: ask the human; not inferable from the code.
 
-## 3. Is an SME available, and who?
+## 7. Is an SME available — who, and at what cadence?
 
-_Not yet asked._ How to verify: ask the human.
+_Not yet asked._ Availability is not the useful half: an SME who exists but answers in two
+weeks reshapes the plan as much as no SME at all. Ask who, for which class of decision, and
+what the realistic turnaround is.
 
-## 4. Are there documents outside the source folders (specs, manuals, screenshots) not yet accounted for?
+## 8. Anything else — scope, priorities, or worries?
 
-_Not yet asked._ How to verify: search the workspace for spec/doc directories outside the source tree.
-
-## 5. Is this a fresh migration or a continuation/re-run of prior work?
-
-_Not yet asked._ How to verify: check for an existing PROJECT.md / analysis/ directory.
-
-## 6. Target Mendix version / mxbuild setup?
-
-_Not yet asked._ How to verify: check `~/.mxcli/mxbuild` and the project's .mpr version.
-
-## 7. Deployment target / environment (DTAP)?
-
-_Not yet asked._ How to verify: ask the human; not inferable from the source.
-
-## 8. Single Mendix app, or does scale suggest a multiple-app split?
-
-_Not yet asked._ How to verify: assess source module count/size during Stage 0 triage.
+_Not yet asked._ The standing open-floor question the runbook requires at every checkpoint
+(§1). Closed questions capture decisions; they never surface what the user wanted to say
+unprompted. "Nothing further" is a valid answer — but it has to be the user's, not assumed.
 
 ## 9. Interview mode: attended (default) or unattended?
 
@@ -304,6 +392,90 @@ fi
 # explicitly ("REVERTED TO STOCK — `mxcli init` overwrote the toolkit version") and restores it,
 # while still refusing to clobber anything a human edited.
 mxtk_install_lint_rules "$(cd "$SCRIPT_DIR/.." && pwd)" "$PROJECT_DIR" 0 ""
+
+# --- sources/ drop folder ----------------------------------------------------------------
+#
+# Intake Q1 and Q2 ask what is being migrated and where the source lives, and until now the
+# scaffold gave it nowhere to go — so a Copilot dry run (2026-08-19) invented `source/`,
+# singular, which nothing in the toolkit matches. `sources/` is the name the toolkit's own
+# .gitignore already uses; picking it here is what stops the two spellings from both existing.
+#
+# Idempotent in the way that matters: an existing sources/ is never touched, and the README is
+# only written when it is absent, so a user who replaced it with their own notes keeps them.
+SOURCES_DIR="$PROJECT_DIR/sources"
+if [ -d "$SOURCES_DIR" ]; then
+  echo "Skip: sources/ already exists — not touched."
+else
+  mkdir -p "$SOURCES_DIR"
+  echo "Created: sources/"
+fi
+
+if [ -f "$SOURCES_DIR/README.md" ]; then
+  echo "Skip: sources/README.md already exists — not overwritten."
+else
+  cat > "$SOURCES_DIR/README.md" <<'EOF'
+# sources/
+
+Drop the legacy application source here — one subfolder per source system.
+
+```
+sources/
+  outsystems-export/     # .oml / .osp exports, or an unpacked OS 11 XML tree
+  legacy-api/            # a clone or copy of the backing service
+  docs/                  # specs, BRDs, screenshots, anything the SME hands over
+```
+
+**What this folder is for:** it is the input to Stage 0 triage. Nothing here is read
+automatically — `skills/source-triage.md` decides what is in scope, and only then does an
+extraction pipeline run against it.
+
+**Where it is declared:** intake questions 1 and 2 (`../intake.md`) record *what* is being
+migrated and *where* it came from. Keep those answers and this folder in agreement; if the
+source lives outside this workspace (a network share, a client VPN clone), say so in Q2
+rather than symlinking it in.
+
+**Version control:** whether this folder is committed was decided at scaffold time — check
+`../.gitignore`. Source drops are routinely large and frequently belong to the client, so the
+default is to ignore them.
+EOF
+  echo "Created: sources/README.md"
+fi
+
+# Gitignore decision. Only relevant if the project is (or becomes) a git repo, but writing the
+# entry unconditionally is harmless and survives a later `git init`.
+GITIGNORE="$PROJECT_DIR/.gitignore"
+if [ -f "$GITIGNORE" ] && grep -qE '^/?sources/?$' "$GITIGNORE"; then
+  echo "Skip: sources/ already listed in .gitignore."
+else
+  case "$SOURCES_MODE" in
+    ask)
+      if [ -t 0 ]; then
+        printf 'Add sources/ to .gitignore? Source drops are often large and client-owned. [Y/n] '
+        read -r _reply || _reply=""
+        case "$_reply" in
+          [Nn]*) SOURCES_MODE="track" ;;
+          *)     SOURCES_MODE="ignore" ;;
+        esac
+      else
+        # No TTY (CI, a piped run, an agent shell). Ignoring silently would be a decision made
+        # on the user's behalf without telling them, so it is made loudly instead.
+        SOURCES_MODE="ignore"
+        echo "No TTY — defaulting to gitignoring sources/. Re-run with --track-sources, or"
+        echo "  remove the 'sources/' line from .gitignore, to commit the source drop instead."
+      fi
+      ;;
+  esac
+
+  if [ "$SOURCES_MODE" = "ignore" ]; then
+    if [ -f "$GITIGNORE" ] && [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
+      printf '\n' >> "$GITIGNORE"
+    fi
+    printf '# Legacy source drop — see sources/README.md\nsources/\n' >> "$GITIGNORE"
+    echo "Created/updated: .gitignore (sources/ ignored)"
+  else
+    echo "sources/ will be tracked by git — not added to .gitignore."
+  fi
+fi
 
 GUIDE="$SCRIPT_DIR/../toolkit-guide.html"
 # First-touch sentinel. This is the same file every agent must test before opening the guide

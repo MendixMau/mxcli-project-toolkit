@@ -271,13 +271,6 @@ if [ -d "$CRASHNET_SRC" ]; then
   done
 fi
 
-# ── Starlark lint rules ──────────────────────────────────────────────────────────────────
-# mxcli seeds .claude/lint-rules/ with its own copies; three of them are broken as shipped
-# (two match no entity at all and report a clean pass forever). Install the toolkit's fixed
-# versions over the stock ones, and conv020 — which mxcli does not ship — alongside them.
-# Nothing a human edited is overwritten: see bin/lib/install-lint-rules.sh.
-mxtk_install_lint_rules "$(cd "$SCRIPT_DIR/.." && pwd)" "$PROJECT_DIR" 0 ""
-
 # ── Agent wiring ─────────────────────────────────────────────────────────────
 # Every AI coding agent gets the same entry point, not just Claude. Until this
 # call existed, init-project.sh wrote CLAUDE.local.md and stopped, so a project
@@ -292,6 +285,25 @@ mxtk_install_lint_rules "$(cd "$SCRIPT_DIR/.." && pwd)" "$PROJECT_DIR" 0 ""
   echo "Agent wiring did not complete. The scaffold is otherwise fine; re-run:"
   echo "  $SCRIPT_DIR/wire-agents.sh $PROJECT_DIR"
 }
+
+# ── Starlark lint rules ──────────────────────────────────────────────────────────────────
+# mxcli seeds .claude/lint-rules/ with its own copies; three of them are broken as shipped
+# (two match no entity at all and report a clean pass forever). Install the toolkit's fixed
+# versions over the stock ones, and conv020 — which mxcli does not ship — alongside them.
+# Nothing a human edited is overwritten: see bin/lib/install-lint-rules.sh.
+#
+# THIS MUST RUN AFTER wire-agents.sh. That script runs `mxcli init`, and `mxcli init` re-seeds
+# .claude/lint-rules/ from stock without asking — wire-agents.sh's PRESERVE list covers
+# AGENTS.md and CLAUDE.md but not the rules directory. This call used to sit ABOVE the wiring,
+# so every freshly scaffolded project ended up with all three repaired rules reverted to stock,
+# and two of those report a clean pass forever in that state (lint-rules/README.md). Silent, and
+# a fresh project's very first lint run was already lying. Measured on a scaffold produced by
+# this script, 2026-08-19: all three differed from the toolkit copies.
+#
+# Running last is a real fix, not a race: install-lint-rules.sh classifies a stock-reverted rule
+# explicitly ("REVERTED TO STOCK — `mxcli init` overwrote the toolkit version") and restores it,
+# while still refusing to clobber anything a human edited.
+mxtk_install_lint_rules "$(cd "$SCRIPT_DIR/.." && pwd)" "$PROJECT_DIR" 0 ""
 
 GUIDE="$SCRIPT_DIR/../toolkit-guide.html"
 # First-touch sentinel. This is the same file every agent must test before opening the guide

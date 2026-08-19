@@ -6,8 +6,8 @@ and configure the marked constants — **after** running `mxcli init`, never bef
 
 | Rule | What it catches | Configure? |
 |---|---|---|
-| `conv010_act_microflow_content.star` | `ACT_` page-action microflows holding business logic instead of delegating to `SUB_` | no |
-| `conv020_action_user_feedback.star` | Page-triggered microflows that commit / import / delete but tell the user nothing | **yes** — `PROJECT_MODULES` |
+| `conv010_act_microflow_content.star` | `ACT_` page-action microflows holding business logic instead of delegating to `SUB_` | if your prefixes differ — `ACTION_PREFIX`, `DELEGATE_PREFIX` |
+| `conv020_action_user_feedback.star` | Page-triggered microflows that commit / import / delete but tell the user nothing | **yes** — `PROJECT_MODULES`, and `ACTION_PREFIX` if your prefixes differ |
 | `data_change_microflows.star` | ARCH002 — persistent entities written from pages instead of microflows | no |
 | `entity_business_key.star` | ARCH003 — persistent entities with no UNIQUE NOT NULL business key | no |
 
@@ -16,17 +16,34 @@ already seeds**, not new ones. Both shipped comparing `entity.entity_type` to `"
 while the model returns `"Persistent"`, so both skipped every entity and reported a clean pass
 for their entire life. One word each.
 
-Measured on TestCLIApp 2026-08-18, ARCH002 went from 0 to 38 findings. Read that number
-carefully: it proves the rule now *reaches* entities, and nothing more. **All 38 are in the
-`System` module** — ARCH003 skips `System`/`Administration` and ARCH002 has no module skip at
-all, so on a project with Marketplace content ARCH002's first run is mostly platform code
-nobody can fix. Give it the same skip, or exclude vendor modules at the gate, before reading
-its count as signal. (ARCH003 stays at 0 on TestCLIApp and that is correct — every persistent
-entity there is a `System` entity. Before the fix it reached none at all.)
+Measured on TestCLIApp 2026-08-18, ARCH002 went from 0 to 38 findings on the casing fix —
+which proved the rule *reached* entities, and nothing more. **All 38 were `System` entities.**
+ARCH003 has always skipped `System`/`Administration`; ARCH002 never did, which was invisible
+while it was dead. It now carries the same `SKIP_MODULES` list, and the same project measures
+**0** — the 38 were entirely platform noise. Marketplace modules are a separate concern and
+are excluded at the gate (`bin/lint-gate.sh -e`, from a per-project
+`.claude/lint-vendor-modules.txt`), not hardcoded in a shared rule.
 
 `conv010` here is likewise the repaired form of the rule mxcli seeds, and supersedes the
 version this directory shipped on 11 Aug: one violation per microflow instead of one per
 activity, plus four action types allowlisted. On WMS-Demo-main that is 399 rows -> 51 findings.
+
+## A rule that matches nothing now says so
+
+`CONV010` and `CONV020` can only identify a page action by its name — `refs_to()` reports the
+same `ref_kind` for a button click and a datasource, so the `ACT_` prefix is the only available
+signal. That prefix is Mendix's own Development Best Practices convention, but it is a
+convention: on a project that names things differently both rules matched nothing, found
+nothing, and reported a clean pass.
+
+Both now emit a `_rule` finding when the prefix matches zero microflows (CONV010 guards on the
+project having any microflows at all; CONV020 on `PROJECT_MODULES` containing any). Verified by
+fixture on TestCLIApp — setting `ACTION_PREFIX` to an unused string produces the finding, and
+the real prefix produces none. `bin/lint-gate.sh` treats `module == "_rule"` as blindness, so
+this turns a silent pass into a gate failure rather than a line in a report nobody reads.
+
+Set `ACTION_PREFIX` / `DELEGATE_PREFIX` to your project's prefixes. If the project has no such
+convention, delete the rule deliberately rather than leaving it inert.
 
 ## How these reach a project
 

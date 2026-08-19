@@ -51,6 +51,16 @@
 #                               allowlisted; its matching merge was overlooked.
 # Net on this project: 399 rows -> 51 findings, each a real fat ACT_ microflow.
 
+# HOUSE NAMING CONVENTION. `ACT_` for page actions and `SUB_` for delegated logic come from
+# Mendix's own Development Best Practices, so they are a reasonable default -- but they are a
+# convention, not a guarantee, and this rule is USELESS on a project that names things
+# differently: it matches no microflow, finds no violations, and reports a clean pass.
+#
+# Change these two strings to match your project rather than deleting the rule. If neither
+# prefix matches anything, the self-check at the bottom says so instead of going quiet.
+ACTION_PREFIX = "ACT_"
+DELEGATE_PREFIX = "SUB_"
+
 RULE_ID = "CONV010"
 RULE_NAME = "ACTMicroflowContent"
 DESCRIPTION = "ACT_ microflows should only contain UI actions and sub-microflow calls"
@@ -97,10 +107,12 @@ ALLOWED_ACTIVITY_TYPES = (
 def check():
     violations = []
     inspected = 0
+    total = 0
     saw_any_activity = False
 
     for mf in microflows():
-        if not mf.name.startswith("ACT_"):
+        total += 1
+        if not mf.name.startswith(ACTION_PREFIX):
             continue
 
         inspected += 1
@@ -129,16 +141,16 @@ def check():
 
         if offender_count > 0:
             violations.append(violation(
-                message="ACT_ microflow '{}' contains {} business-logic activities ({}). Delegate them to a SUB_ microflow.".format(
-                    mf.name, offender_count, ", ".join(offenders)
+                message="{} microflow '{}' contains {} business-logic activities ({}). Delegate them to a {} microflow.".format(
+                    ACTION_PREFIX, mf.name, offender_count, ", ".join(offenders), DELEGATE_PREFIX
                 ),
                 location=location(
                     module=mf.module_name,
                     document_type="Microflow",
                     document_name=mf.qualified_name,
                 ),
-                suggestion="Extract the {} into one or more SUB_ microflows and call them from '{}', leaving only page/message/download actions here.".format(
-                    ", ".join(offenders), mf.name
+                suggestion="Extract the {} into one or more {} microflows and call them from '{}', leaving only page/message/download actions here.".format(
+                    ", ".join(offenders), DELEGATE_PREFIX, mf.name
                 ),
             ))
 
@@ -146,6 +158,18 @@ def check():
     # microflow adapter no longer emits Activity nodes). A rule that reads no
     # activities reports zero violations and looks CLEAN -- a silent false pass.
     # Fail loudly instead. Same guard as CONV020.
+    # SELF-CHECK 2: the naming convention does not match this project.
+    # The guard below only fires once at least one microflow matched the prefix. A project
+    # that does not use ACT_ at all inspects ZERO, skips that guard, and gets a clean pass
+    # from a rule that never looked at anything -- the same false pass, arrived at from the
+    # other direction. Guarded on total so a project with no microflows yet stays quiet.
+    if total > 0 and inspected == 0:
+        violations.append(violation(
+            message="CONV010 matched no microflows: none of the {} in this project start with '{}', so this rule inspected NOTHING. A clean result here means the naming convention does not match, not that the code is fine.".format(total, ACTION_PREFIX),
+            location=location(module="_rule", document_type="Microflow", document_name="CONV010"),
+            suggestion="Set ACTION_PREFIX and DELEGATE_PREFIX at the top of this rule to the prefixes this project actually uses for page-action and delegated microflows. If the project has no such convention, remove the rule deliberately rather than leaving it silently inert.",
+        ))
+
     if inspected > 0 and not saw_any_activity:
         violations.append(violation(
             message="CONV010 could not read any microflow activities ({} ACT_ microflows inspected, all reported zero). activities_for() is returning nothing -- this rule checked NOTHING. Do not read a clean result as a pass.".format(inspected),

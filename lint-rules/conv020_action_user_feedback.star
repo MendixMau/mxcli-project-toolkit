@@ -27,6 +27,12 @@
 # write-lint-rules.md -- that guide names them ShowFormAction / CloseFormAction,
 # which match nothing. See CONV010, which is broken for exactly that reason.
 
+# HOUSE NAMING CONVENTION, same as CONV010 -- see the note there. refs_to() cannot tell a
+# button click from a datasource (both report ref_kind "action"), so the prefix is the ONLY
+# available filter for "a user actually triggered this". A project that names things
+# differently gets no findings and no signal, which the self-check at the bottom now catches.
+ACTION_PREFIX = "ACT_"
+
 RULE_ID = "CONV020"
 RULE_NAME = "ActionUserFeedback"
 DESCRIPTION = "Page-triggered microflows that commit, import or delete should show the user a message"
@@ -90,6 +96,8 @@ def check():
     call_cache = {}
     saw_any_activity = False
     inspected = 0
+    in_scope = 0        # microflows in PROJECT_MODULES, before the prefix filter
+    prefix_matched = 0  # ...of those, how many carry ACTION_PREFIX
 
     # UNCONFIGURED GUARD. Ships from the toolkit with an empty module list. Without
     # this, an uncustomised copy inspects zero microflows and reports a clean pass --
@@ -107,14 +115,18 @@ def check():
         if mf.module_name not in PROJECT_MODULES:
             continue
 
+        in_scope += 1
+
         # LIMITATION: refs_to() reports ref_kind == "action" for EVERY page
         # reference -- a button click and a datasource look identical. A
         # datasource must not be flagged (nobody clicked it, and a message on
         # every page load is exactly the spam we are avoiding). With no API
         # signal, the ACT_ naming convention is the only available filter.
         # If a real user action is named something else, this rule misses it.
-        if not mf.name.startswith("ACT_"):
+        if not mf.name.startswith(ACTION_PREFIX):
             continue
+
+        prefix_matched += 1
 
         # NOTE: these source_type values are UPPERCASE in the actual API
         # (verified by probe), NOT lowercase as write-lint-rules.md claims.
@@ -204,6 +216,18 @@ def check():
     # no activities reports zero violations and looks CLEAN -- a silent false
     # pass. Fail loudly instead: if we inspected page-triggered microflows and
     # not one of them had a single activity, the API is dead, not the model.
+    # SELF-CHECK: the naming convention does not match this project.
+    # PROJECT_MODULES is configured (checked at the top) and those modules hold microflows,
+    # but not one carries the prefix -- so the filter above discarded everything and the rule
+    # inspected nothing. Distinct from "matched the prefix but none is page-triggered", which
+    # is a legitimate clean result and stays quiet.
+    if in_scope > 0 and prefix_matched == 0:
+        violations.append(violation(
+            message="CONV020 matched no microflows: none of the {} in PROJECT_MODULES start with '{}', so this rule inspected NOTHING. A clean result here means the naming convention does not match, not that every action gives feedback.".format(in_scope, ACTION_PREFIX),
+            location=location(module="_rule", document_type="Microflow", document_name="CONV020"),
+            suggestion="Set ACTION_PREFIX at the top of this rule to the prefix this project uses for page-action microflows. Without a prefix convention this rule cannot tell a button click from a datasource and should be removed deliberately rather than left inert.",
+        ))
+
     if inspected > 0 and not saw_any_activity:
         violations.append(violation(
             message="CONV020 could not read any microflow activities ({} page-triggered microflows inspected, all reported zero). activities_for() is returning nothing -- this rule checked NOTHING. Do not read a clean result as a pass.".format(inspected),

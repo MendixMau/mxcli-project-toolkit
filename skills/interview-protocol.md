@@ -139,6 +139,43 @@ and the answers come back structured. Fall back to prose in chat when a question
 than four options or a free-text answer. Either way the batch also goes in the chat text, so
 it survives in the transcript.
 
+#### Asking on a non-Claude agent
+
+**This is the canonical statement. Every other file in the toolkit that names `AskUserQuestion`
+points here rather than restating it.**
+
+`AskUserQuestion` is a Claude Code **built-in harness tool**. It is not a package, not an MCP
+server, not a skill, and there is nothing to install. Copilot, Cursor, Windsurf, Continue and
+Aider — all of them wired by `bin/wire-agents.sh`, all of them first-class consumers of this
+toolkit — have no equivalent and no way to add one.
+
+So separate the *invariant* from its *rendering*. Three things hold on every agent:
+
+1. **The question reaches the human, in the chat**, as a small set of numbered options with
+   "something else" always available — never buried in a file, never a bare question.
+2. **The agent then ends its turn and waits.** It does not answer its own question. It does not
+   ask and keep working in the same message.
+3. **`ASSUMED` is earned only by asking** and being told "you decide" — never by skipping.
+
+Only (1)'s rendering is tool-specific:
+
+| Harness | How the batch is rendered |
+|---|---|
+| Claude Code | `AskUserQuestion` — clickable options, structured answers. Preferred; also paste the batch as chat text so it survives compaction. |
+| Copilot, Cursor, Windsurf, Continue, Aider, anything else | Plain numbered markdown in the chat — `1.` / `2.` / `3. Something else — tell me`. Then stop. |
+
+Both satisfy the protocol. **Neither is optional**, and the *end-the-turn* half is not
+tool-specific at all — it is the half that actually enforces the gate, and the half a harness
+without `AskUserQuestion` will drop first, because "I can't call that tool" reads as "skip this
+step" rather than "render it differently".
+
+*Why this is spelled out (real incident, 2026-08-19).* A dry run of this toolkit on GitHub
+Copilot on Windows produced the question *"AskUserQuestion doesn't seem installed, is that
+something we can include in the setup?"* It cannot be. Until then every call site here named
+the tool as **the** mechanism, so on a non-Claude agent the instruction was simply
+unfollowable — and an unfollowable gate is not a loud failure, it is a silent skip. Same shape
+as the Stage P false-green: the enforcement quietly evaporates and nothing says so.
+
 ### 4. Record the answer where the collector can see it.
 
 An answer that lives only in the chat is lost at the next compaction. Write it back to the

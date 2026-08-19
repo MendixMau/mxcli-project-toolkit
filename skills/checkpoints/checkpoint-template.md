@@ -24,9 +24,12 @@ they produce decisions that propagate into the next stage's inputs via `PROJECT.
 
 **Timing and stopping are non-negotiable:** a checkpoint fires *before* the next stage's
 artifacts are produced (no architecture diagram before CAC-3, no design system before CAC-4,
-no MDL before CAC-5). Ask the questions in chat via `AskUserQuestion`, then **end the turn
-and wait** — never answer your own questions and continue. Source evidence powers the
-recommended option; it never substitutes for asking. `ASSUMED` may only be recorded after
+no MDL before CAC-5). Ask the questions in chat — on Claude Code via `AskUserQuestion`, on any
+other harness as plain numbered markdown (`AskUserQuestion` is a Claude Code built-in and
+cannot be installed; see `interview-protocol.md` §3 "Asking on a non-Claude agent") — then
+**end the turn and wait, on every harness**. Never answer your own questions and continue: the
+stopping is what makes a checkpoint a checkpoint, and it is the half a non-Claude session drops
+first. Source evidence powers the recommended option; it never substitutes for asking. `ASSUMED` may only be recorded after
 the user was actually asked and delegated ("you decide").
 
 ---
@@ -36,7 +39,8 @@ the user was actually asked and delegated ("you decide").
 ### Predefined questions (x2)
 - Generated from what the extractor/BRD/KB actually found
 - Options are context-derived, not generic
-- Use `AskUserQuestion` with 3–4 options so answers are clickable in the UI
+- 3–4 options, rendered with `AskUserQuestion` on Claude Code so answers are clickable; as a
+  numbered `1.`/`2.`/`3.` list plus "something else" on any other harness
 - Always mark the recommended option clearly
 
 ### Open question (x1)
@@ -88,14 +92,16 @@ Present in this order:
 [1–2 sentences describing the next stage and what it needs]
 
 ---
-[Predefined Q1 — via AskUserQuestion]
+[Predefined Q1 — AskUserQuestion on Claude Code, numbered options otherwise]
 
-[Predefined Q2 — via AskUserQuestion]
+[Predefined Q2 — AskUserQuestion on Claude Code, numbered options otherwise]
 
 [Open Q — plain text]
 
 ---
 ```
+
+Then **end the turn.** The block above is the last thing in the message, on every harness.
 
 ---
 

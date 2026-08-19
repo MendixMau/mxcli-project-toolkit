@@ -236,10 +236,14 @@ else
   bad "refused silently (or never looked)"
 fi
 
-echo "== T9: the ui-review-loop guard fires on a project with no routing table =="
-# G3. sync's own Wiring block contains the literal 'ui-review-loop.md', so a guard grepping for
-# that string is permanently satisfied by sync's OWN output — silent forever on a project that
-# has no Baseline routing at all. The guard must test a string sync does not itself write.
+echo "== T9: a CLAUDE.local.md with no routing table gets one, and only one =="
+# Supersedes the original G3 test, which pinned a WARNING guard grepping for 'ui-preflight-pages'.
+# That guard no longer exists: section 2d now RENDERS the Baseline routing block into
+# CLAUDE.local.md from bin/lib/skill-routing.tsv instead of complaining that it is absent, which
+# is strictly better — the old test's precondition ("routing genuinely absent after a sync") is
+# now unreachable, so it could only ever report "fixture invalid". What still needs pinning is
+# the pair of properties that replaced it: the block arrives, and a second sync does not append
+# a second, disagreeing copy of it. Rewritten 2026-08-19.
 P="$WORK/t9"; mkdir -p "$P"
 cat > "$P/CLAUDE.local.md" <<'EOF'
 # CLAUDE.local.md
@@ -250,18 +254,18 @@ cat > "$P/CLAUDE.local.md" <<'EOF'
 
 Route every question through `skills/query-the-model.md` before asking the user.
 EOF
-"$SYNC" "$P" >/dev/null 2>&1                 # run 1 appends the Wiring block
-OUT="$("$SYNC" "$P" --strict 2>&1)"; RC=$?
-if [ "$(grep -c 'Baseline routing' "$P/CLAUDE.local.md")" -eq 0 ]; then
-  if printf '%s' "$OUT" | grep -q 'ui-preflight-pages'; then
-    ok "guard still fires after sync injected 'ui-review-loop.md' itself"
-  else
-    bad "guard silenced by sync's own output (routing genuinely absent)"
-  fi
-  [ "$RC" -eq 3 ] && ok "--strict exited 3 on the silenced-guard project" || bad "exit $RC, expected 3"
+"$SYNC" "$P" >/dev/null 2>&1
+if grep -q 'ROUTING:BEGIN baseline' "$P/CLAUDE.local.md"; then
+  ok "sync rendered the baseline routing block into a file that lacked it"
 else
-  bad "fixture invalid: a routing table appeared"
+  bad "no baseline routing block after sync — section 2d did not fire"
 fi
+B="$(fingerprint "$P")"
+"$SYNC" "$P" >/dev/null 2>&1
+A="$(fingerprint "$P")"
+[ "$B" = "$A" ] && ok "a second sync adds no second routing table" || bad "second sync rewrote the project"
+N="$(grep -c 'ROUTING:BEGIN baseline' "$P/CLAUDE.local.md")"
+[ "$N" -eq 1 ] && ok "exactly one routing block, not two" || bad "$N routing blocks in CLAUDE.local.md"
 
 echo "== T10: an intake from the OLD question set is reported, then appended to =="
 #

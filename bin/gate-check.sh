@@ -646,10 +646,15 @@ check_build_ready() {
   fi
 
   # 2. Baseline routing includes the UI-quality skills (not the pre-audit table)
-  if grep -q "ui-review-loop.md" "$PROJECT_DIR/CLAUDE.local.md" 2>/dev/null; then
-    echo "  ✓ baseline routing references the UI review loop"
+  # Test ui-preflight-pages, NOT ui-review-loop — same fix as bin/sync-project.sh §2c.
+  # The Wiring block that init/sync GENERATE contains the literal "ui-review-loop.md" in
+  # its "UI review reports" row, so grepping for that string made this check satisfied by
+  # the installer's own output: a project with zero real baseline routing passed.
+  # ui-preflight-pages.md appears only in a genuine Baseline routing table.
+  if grep -q "ui-preflight-pages" "$PROJECT_DIR/CLAUDE.local.md" 2>/dev/null; then
+    echo "  ✓ baseline routing references the UI-quality skills"
   else
-    echo "  ✗ baseline routing missing UI-quality rows (ui-review-loop.md) — run bin/sync-project.sh"
+    echo "  ✗ baseline routing missing UI-quality rows (ui-preflight-pages.md, ui-review-loop.md) — run bin/sync-project.sh"
     fails=$((fails+1))
   fi
 
@@ -844,17 +849,24 @@ PROTOCOL_PATHS="skills agents"
 # block-rate measurement reports the agents/-only figure separately for exactly that reason.
 PROTOCOL_ALWAYS="skills/conversion-runbook.md skills/query-the-model.md agents/"
 stage_protocol_paths() {
+  # The arms below are GENERATED from bin/lib/skill-routing.tsv by bin/render-routing.sh.
+  # Do not hand-edit them: add or change the skill's ROW (its `stages` column) and re-render.
+  # This map used to be one of six hand-kept copies of the same routing knowledge; a skill
+  # added to skills/ and forgotten here trips protocol_is_mapped()'s fail-safe and blocks
+  # every stage as "(unmapped)" — noisy by design, but only after someone hits it.
   case "$1" in
-    P)  echo "skills/bootstrap-project.md skills/agent-roles.md" ;;
-    0)  echo "skills/source-triage.md skills/document-discovery.md skills/assess-migration.md skills/source-os11.md skills/source-node-express-react.md skills/os-xml-schema.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/extractor-quality-loop.md" ;;
-    1)  echo "skills/kb-generation.md skills/extractor-quality-loop.md skills/document-discovery.md skills/source-os11.md skills/source-node-express-react.md skills/os-xml-schema.md" ;;
-    2)  echo "skills/brd-generation.md skills/brd-validation.md skills/kb-generation.md" ;;
-    3)  echo "skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md" ;;
-    4)  echo "skills/brd-to-build-plan.md skills/module-brief.md skills/agent-roles.md" ;;
-    5|build-ready) echo "skills/iterative-build-loop.md skills/learned-mdl-preflight.md skills/learned-microflow-patterns.md skills/learned-page-patterns.md skills/mdl-cookbook-microflows.md skills/ui-preflight-pages.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-brief.md skills/oneshot-page-structure-patterns.md skills/agent-roles.md" ;;
-    6)  echo "skills/e2e-harness-base.md skills/learned-db-assertions.md skills/ui-review-loop.md skills/qa-loop-goal-pattern.md skills/existing-app-assurance.md" ;;
-    7)  echo "skills/close-the-loop.md" ;;
+# <!-- ROUTING:BEGIN stage-map -->
+    P)  echo "skills/interview-protocol.md skills/agent-roles.md skills/bootstrap-project.md" ;;
+    0)  echo "skills/interview-protocol.md skills/source-triage.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md" ;;
+    1)  echo "skills/interview-protocol.md skills/migration-pipeline.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md" ;;
+    2)  echo "skills/interview-protocol.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
+    3)  echo "skills/interview-protocol.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md" ;;
+    4)  echo "skills/interview-protocol.md skills/agent-roles.md skills/module-brief.md skills/brd-to-build-plan.md skills/coverage-ledger.md" ;;
+    5|build-ready) echo "skills/interview-protocol.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md" ;;
+    6)  echo "skills/interview-protocol.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/lint-that-actually-runs.md" ;;
+    7)  echo "skills/interview-protocol.md skills/close-the-loop.md" ;;
     *)  echo "" ;;
+# <!-- ROUTING:END -->
   esac
 }
 # Does this file appear under ANY stage? A "no" is what triggers the fail-safe.
@@ -1234,6 +1246,37 @@ else
   fi
 fi
 printf "Open questions (raised?): %s — %s\n" "$OQ_STATUS" "$OQ_NOTE"
+
+# ---------------------------------------------------------------------------
+# Skill routing — do the rendered surfaces still match the table?
+#
+# Every routing surface (README's two tables, the runbook's baseline block, each agent
+# template, the stage map above, and the block sync-project.sh writes into a project's
+# CLAUDE.local.md) is rendered from bin/lib/skill-routing.tsv. Hand-editing inside the markers
+# reintroduces exactly the drift the table replaced — and drift here is invisible: nothing
+# fails, a skill simply stops reaching anyone.
+#
+# NOTIFIES, never blocks. Same class as protocol staleness: this is TOOLKIT hygiene, not the
+# project's own state, and a project is not broken because a routing surface in a shared repo
+# needs a re-render. (Open questions block; that is the project's own state.) Run
+# `bin/render-routing.sh` to fix, then re-run this gate.
+ROUTING_STATUS="PASS"
+ROUTING_NOTE="rendered surfaces match bin/lib/skill-routing.tsv"
+RR_SCRIPT="$TOOLKIT_DIR/bin/render-routing.sh"
+if [ ! -x "$RR_SCRIPT" ]; then
+  ROUTING_STATUS="MANUAL"
+  ROUTING_NOTE="bin/render-routing.sh not found or not executable at $RR_SCRIPT — cannot evaluate, which is not a pass"
+else
+  RR_OUT="$("$RR_SCRIPT" --check 2>&1)"; RR_RC=$?
+  if [ "$RR_RC" -eq 2 ]; then
+    ROUTING_STATUS="DRIFT"
+    ROUTING_NOTE="$(printf '%s' "$RR_OUT" | grep -E '^(drifted|unwired):' | tr '\n' ' ')fix with: $RR_SCRIPT"
+  elif [ "$RR_RC" -ne 0 ]; then
+    ROUTING_STATUS="MANUAL"
+    ROUTING_NOTE="render-routing.sh --check exited $RR_RC (structural error) — cannot evaluate, which is not a pass: $(printf '%s' "$RR_OUT" | tail -3 | tr '\n' ' ')"
+  fi
+fi
+printf "Skill routing (surfaces vs table): %s — %s\n" "$ROUTING_STATUS" "$ROUTING_NOTE"
 
 # Stage P is checked outside the numeric loop (bash 3.2 arrays need integer indices).
 P_RESULT="$(check_stage_P)"

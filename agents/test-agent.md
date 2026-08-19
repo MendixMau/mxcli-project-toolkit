@@ -18,6 +18,36 @@ changes and are out of scope regardless of what a test failure seems to call for
 proves the model is wrong, that is a finding you report, not a fix you make. `mxcli -c "SHOW ..."`
 and `"DESCRIBE ..."` reads are always fine, and are how you ground every name you use.
 
+## Skills this agent must load
+<!-- Generated from mxcli-project-toolkit/bin/lib/skill-routing.tsv by bin/render-routing.sh.
+     Do not hand-edit between the markers: add or change the ROW, then re-render.
+     Paths are relative to the toolkit root given in the CLAUDE.local.md Wiring block. -->
+<!-- ROUTING:BEGIN agent:test -->
+| Load this | When |
+|---|---|
+| `skills/conversion-runbook.md` | Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only |
+| `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
+| `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
+| `skills/agent-roles.md` | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" |
+| `skills/module-review.md` | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated |
+| `skills/testing-shape.md` | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature |
+| `project-bin/verify-module.sh` | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh |
+| `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
+| `skills/existing-app-assurance.md` | Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates |
+| `project-bin/test-stack-up.sh` | Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only |
+| `skills/e2e-harness-base.md` | Standing up or extending the Playwright e2e harness |
+| `skills/learned-db-assertions.md` | Writing DB assertion tests that cross-check UI state against the database |
+| `skills/fixture-seeding.md` | Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness |
+| `skills/journey-proof.md` | Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red |
+| `skills/monkey-test.md` | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works |
+| `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
+| `skills/report-schema.md` | Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer |
+| `skills/harness-architecture.md` | Installing, extending, debugging or porting the verification harness — which part owns what, which parts run standalone, and what a missing part must report |
+| `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
+| `skills/e2e-evidence-report.md` | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything |
+| `skills/journey-map.md` | Authoring the cross-module user journey ONCE at design time as a source artifact, bound L0→L3, that the module brief, coherence pass and journey-proof read instead of each re-deriving it |
+<!-- ROUTING:END -->
+
 ## Before you start
 - Read {{TEST_SETUP_SKILL_REFS}} for this project's exact test setup (demo user, how the app is
   started, DB assertion pattern).

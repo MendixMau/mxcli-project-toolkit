@@ -446,41 +446,56 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 ## When to use which skill
 
+<!-- Generated from bin/lib/skill-routing.tsv by bin/render-routing.sh.
+     Do not hand-edit between the markers: add or change the ROW, then re-render. -->
+<!-- ROUTING:BEGIN readme-situational -->
 | Task | Skill to load |
-|------|--------------|
-| Starting any conversion or greenfield build; not sure what stage you're in | `conversion-runbook.md` |
-| Auditing or regression/e2e-testing an **existing** app — no pipeline needed | `existing-app-assurance.md` |
-| Deciding what source to answer a question from, before asking the user | `query-the-model.md` |
-| Deciding whether to extract at all, checking coverage, scoping a large source | `source-triage.md` |
-| Running the extraction pipeline | `migration-pipeline.md` |
-| Scanning/classifying an unstructured document folder | `document-discovery.md` |
-| Diagramming target architecture: module defs, wiring, fit-gap, marketplace, security, NFRs, integrations | `architecture-blueprint.md` + `graph-analysis.md` (bundled — run `mxcli graph-report` for community-detection data before drawing module boundaries) |
-| Designing the brand + wireframes before building pages | `design-artifacts.md` |
-| Turning BRDs + architecture into an ordered build plan | `brd-to-build-plan.md` |
-| Synthesizing a module's BRD/wireframe/access into the mdl-agent's single input | `module-brief.md` |
-| Building a module with mxcli (verified, iterative, coverage-checklist gated) | `iterative-build-loop.md` |
-| Writing or enriching a BRD JSON | `brd-generation.md` |
-| Validating BRDs against code + doc KB | `brd-validation.md` |
-| Extracting Excel/Word/PDF specs | `kb-generation.md` |
-| Understanding OS XML source | `source-os11.md` + `os-xml-schema.md` |
-| Understanding Node/Express+React source, its layout assumptions and gaps | `source-node-express-react.md` |
-| Writing MDL microflow scripts | `mdl-cookbook-microflows.md` |
-| Checking what's safe to write in MDL vs MCP vs SP GUI before drafting (STOP table) | `skills/learned-mdl-preflight.md` |
-| Using MCP alongside mxcli — handoff sequence, save discipline, confirmed JSON patterns, known bugs | `skills/learned-mcp-patterns.md` + `live-edit-with-studio-pro.md` (bundled) |
-| Diagnosing a mxcli error | `bug-logs/mxcli-bugs.md` |
-| Enforcing module-graph architecture boundaries via lint rules | `write-lint-rules.md` (bundled — Starlark rules over `mxcli lint`) |
-| Writing DB assertion tests (cross-check UI state against the database) | `learned-db-assertions.md` |
-| Building and auditing Mendix pages (widget patterns, datasource shapes) | `learned-page-patterns.md` |
-| UX audit / screenshot loop discipline | `learned-skill-ux-audit.md` |
-| Scope delta tracking between BRD and built state | `learned-skill-scope-delta.md` |
-| Cross-project process improvements and retrospective learnings | `process/process-learnings.md` |
-| Validating a new stack pipeline's extraction quality | `qa-loop-goal-pattern.md` |
-| Deciding module boundaries before `create module` | `modularize-domain.md` |
-| Assessing / planning a migration up front | `assess-migration.md` |
-| Migrating an OutSystems app | `migrate-outsystems.md` |
-| Running an extraction pipeline | `pipelines/outsystems/` · `pipelines/java-angular/` · `pipelines/node-express-react/` |
-| Generating a new project's CLAUDE.md (Baseline routing + project-specific facts) | `bootstrap-project.md` |
-| Setting up dev-process subagents on a new project (ba/architect/mdl/gate/test split) | `agent-roles.md` |
+|---|---|
+| Generating a new project's CLAUDE.md — baseline routing plus project-specific facts | `skills/bootstrap-project.md` |
+| Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates | `skills/existing-app-assurance.md` |
+| Assessing or planning a migration up front, before any pipeline is chosen | `skills/assess-migration.md` |
+| Running the extraction pipeline | `skills/migration-pipeline.md` |
+| Migrating from a stack that has no dedicated pipeline | `skills/migrate-general.md` |
+| Migrating an OutSystems app | `skills/migrate-outsystems.md` |
+| Understanding OutSystems 11 source | `skills/source-os11.md` |
+| Reading the OutSystems XML export schema | `skills/os-xml-schema.md` |
+| Understanding Node/Express+React source, its layout assumptions and its gaps | `skills/source-node-express-react.md` |
+| Scanning or classifying an unstructured document folder | `skills/document-discovery.md` |
+| Validating an extractor's output before its BRDs are trusted | `skills/extractor-quality-loop.md` |
+| Validating a new stack pipeline's extraction quality | `skills/qa-loop-goal-pattern.md` |
+| Extracting Excel/Word/PDF specs into a knowledge base | `skills/kb-generation.md` |
+| Writing or enriching a BRD JSON | `skills/brd-generation.md` |
+| Validating BRDs against the code and document KB | `skills/brd-validation.md` |
+| Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations | `skills/architecture-blueprint.md` |
+| Deciding module boundaries before "create module" | `skills/modularize-domain.md` |
+| Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` |
+| Turning BRDs plus architecture into a numbered, dependency-ordered build plan | `skills/brd-to-build-plan.md` |
+| Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible | `skills/coverage-ledger.md` |
+| Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered | `bin/coverage-check.sh` |
+| Building a module with mxcli — verified, iterative, coverage-checklist gated | `skills/iterative-build-loop.md` |
+| Writing MDL microflow scripts — worked recipes | `skills/mdl-cookbook-microflows.md` |
+| Building and auditing Mendix pages — widget patterns, datasource shapes | `skills/learned-page-patterns.md` |
+| Generating a whole page tree in one script — the structure patterns that survive it | `skills/oneshot-page-structure-patterns.md` |
+| Running the ledger rung alone — recompute every stored ledger status against the live model and catch the STALE rows that claim built for something the model no longer has | `project-bin/conformance-check.sh` |
+| Running the wiring rung alone — a module imported but never reached, an element built but wired to nothing, a boundary crossed; mxbuild and e2e are blind to all three | `project-bin/graph-sweep.sh` |
+| Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only | `project-bin/test-stack-up.sh` |
+| Standing up or extending the Playwright e2e harness | `skills/e2e-harness-base.md` |
+| Writing DB assertion tests that cross-check UI state against the database | `skills/learned-db-assertions.md` |
+| Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness | `skills/fixture-seeding.md` |
+| Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red | `skills/journey-proof.md` |
+| Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works | `skills/monkey-test.md` |
+| UX audit and screenshot-loop discipline | `skills/learned-skill-ux-audit.md` |
+| Tracking scope delta between the BRD and the built state | `skills/learned-skill-scope-delta.md` |
+| Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` |
+| Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer | `skills/report-schema.md` |
+| Installing, extending, debugging or porting the verification harness — which part owns what, which parts run standalone, and what a missing part must report | `skills/harness-architecture.md` |
+| Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited | `skills/measured-claims.md` |
+| Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss | `skills/process-coherence-pass.md` |
+| Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything | `skills/e2e-evidence-report.md` |
+| Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` |
+| Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` |
+| Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence | `skills/lint-that-actually-runs.md` |
+<!-- ROUTING:END -->
 
 ---
 
@@ -521,25 +536,32 @@ For a self-contained handoff, add it as a git submodule instead. Per pipeline, r
 
 The "When to use which skill" table above is *situational* — load a skill when a specific task calls for it. A few skills apply on **every** MDL-writing session regardless of task, and situational discovery quietly misses them, because nothing mid-task prompts loading them. Every consuming project's own `CLAUDE.md`/`CLAUDE.local.md` (or wherever it tells agents what to read before writing MDL, e.g. its own `write-microflows.md`) should reference these directly, not rely on stumbling onto them:
 
+<!-- Generated from bin/lib/skill-routing.tsv by bin/render-routing.sh.
+     Do not hand-edit between the markers: add or change the ROW, then re-render. -->
+<!-- ROUTING:BEGIN readme-baseline -->
 | Always relevant for | Reference this |
 |---|---|
-| Any question before asking the user or writing anything | `skills/query-the-model.md` — query the model, then read the source, then ask the human, in that order |
-| Putting a question TO the user — any gate, any stage | `skills/interview-protocol.md` — ask in the chat not in a file, two named options + your recommendation on every question, one batch per gate then end the turn, record the answer where the collector reads it |
-| Taking in a new source — before generating anything from it | `bin/source-sufficiency.sh init <root>`, read the sources, fill every dimension, then `report`. Grades what the source can support and recommends an interview mode from the gap/contradiction split. Nothing else in this toolkit reads a source: `facts-lock`, `coverage-check`, `open-questions` and `gate-check` all read BRDs, so without this a two-page epic deck and a validated spec enter the pipeline indistinguishably and the difference only surfaces at the interview gate, as a question backlog. |
-| Deciding who answers a question — before putting any batch to the user | `bin/question-kinds.sh <root>`. Every BRD `openQuestion` carries `"kind": "gap" \| "conflict" \| "choice"`. **gap** = the source is silent, so an agent may take a position and record it. **conflict** = the source contradicts itself, so resolving it overrules a real person — human only. **choice** = a fork with real cost, so whoever pays decides. Unclassified routes to the human by design. This is what keeps a gate batch at four questions instead of 127. |
-| Writing BRDs, especially several in parallel | `bin/facts-lock.sh <root> build` before the fan-out, `check` before any BRD is done — freezes the identifiers every BRD must share (see `skills/brd-generation.md`). Without it, N agents re-derive the same names, disagree on acronym casing, and the disagreement reaches the user as an open question: 10 of them on WMS-Demo. |
-| Building any module — before the first script | `skills/module-brief.md` — the mdl-agent's single per-module input (ba-agent synthesizes BRD/wireframe/access into it) |
-| Writing **any** MDL script — before the first line | `skills/learned-mdl-preflight.md` — Step 0 picks the write mode (CLI / MCP+MDL / hand-rolled MCP by task shape), then the STOP table (each row backed by a real corruption incident) overrides that pick for corrupting operations; check every planned operation before drafting |
-| Writing or fixing any microflow | `skills/learned-microflow-patterns.md` — MDL gotchas + annotation discipline (placement rules — never before `if`; CE-error fixes always annotated) |
-| Building any page or snippet — before the first widget | `skills/ui-preflight-pages.md` — wireframe → design tokens → gallery reuse → cross-check (mandatory; no wireframe → STOP) |
-| Building or using the in-app design gallery | `skills/learned-stylegallery.md` — seed real data, reuse components, gallery-wrapper CSS trap, visual verification |
-| After building any page — before calling it done | `skills/ui-review-loop.md` — post-build render/interaction/reuse/wireframe verification; mxbuild + "record created" are blind to all four |
-| Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session | `skills/learned-mcp-patterns.md` — three co-equal write modes (not CLI-only-unless-forced), save discipline, uncommitted-MPR guard, pre-exec handoff sequence, confirmed JSON patterns |
-| A CE error or behavior that looks like a known mxcli quirk, not a modeling mistake | `bug-logs/mxcli-bugs.md` |
-| Setting up a new project's dev-process subagents | `skills/agent-roles.md` — once, at project start, not "on demand" |
-| First time this toolkit is used on a project — tested as `<project-root>/.claude/.guide-shown` being absent, never as a judgement about the user | Open `toolkit-guide.html` in their browser (`open` / `xdg-open`) — the visual walkthrough — then `touch` the sentinel. Full rule: `CLAUDE.md` "First-touch rule". |
+| Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only | `skills/conversion-runbook.md` |
+| Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order | `skills/query-the-model.md` |
+| Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot | `skills/skills-over-scripts.md` |
+| Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn | `skills/interview-protocol.md` |
+| Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" | `skills/agent-roles.md` |
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
-| **Any pipeline work at all** — every session, before producing any stage artifact (not just "when unsure") | `skills/conversion-runbook.md` — the executable spec; READMEs and guide are orientation only |
+| Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source | `bin/source-sufficiency.sh` |
+| Deciding who answers a question — before putting any batch to the user. gap/conflict/choice is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` |
+| Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done | `bin/facts-lock.sh` |
+| Building any module — before the first script. The mdl-agent's single per-module input | `skills/module-brief.md` |
+| Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations | `skills/learned-mdl-preflight.md` |
+| Writing or fixing any microflow — MDL gotchas plus annotation discipline | `skills/learned-microflow-patterns.md` |
+| Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP | `skills/ui-preflight-pages.md` |
+| Building or using the in-app design gallery | `skills/learned-stylegallery.md` |
+| Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only | `skills/learned-mcp-patterns.md` |
+| Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated | `skills/module-review.md` |
+| Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` |
+| Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` |
+| A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake | `bug-logs/mxcli-bugs.md` |
+| Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
+<!-- ROUTING:END -->
 
 **Why this has to be explicit instead of implicit:** a project's own skill files are usually written before a given toolkit learning exists, or before a new one is added later — they never grow a cross-reference to it on their own. When you `git pull` this toolkit and it brings in a new baseline-worthy skill (most often a new `learned-*.md`), update every consuming project's routing to match — don't assume the next session will find it by chance.
 

@@ -31,6 +31,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 |---|---|---|---|---|
 | Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only | `skills/conversion-runbook.md` | all | P,0,1,2,3,4,5,6,7 | baseline |
 | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order | `skills/query-the-model.md` | all | P,0,1,2,3,4,5,6,7 | baseline |
+| Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot | `skills/skills-over-scripts.md` | all | - | baseline |
 | Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn | `skills/interview-protocol.md` | ba,architect | P,0,1,2,3,4,5,6,7 | baseline |
 | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" | `skills/agent-roles.md` | all | P,4,5 | baseline |
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` | ba | 0 | baseline |
@@ -43,7 +44,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP | `skills/ui-preflight-pages.md` | mdl | 5 | baseline |
 | Building or using the in-app design gallery | `skills/learned-stylegallery.md` | mdl | 5 | baseline |
 | Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only | `skills/learned-mcp-patterns.md` | mdl | 5 | baseline |
-| After building any page — before calling it done. mxbuild and "record created" are blind to render, interaction, reuse and wireframe divergence | `skills/ui-review-loop.md` | mdl,review,test | 5,6 | baseline |
+| Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated | `skills/module-review.md` | mdl,review,test | 5,6 | baseline |
 | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` | test,gate,review | 5,6 | baseline |
 | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` | mdl,gate,test,review | 5,6 | baseline |
 | A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake | `bug-logs/mxcli-bugs.md` | mdl,gate | 5,6 | baseline |
@@ -79,6 +80,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Writing DB assertion tests that cross-check UI state against the database | `skills/learned-db-assertions.md` | test | 6 | ondemand |
 | Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness | `skills/fixture-seeding.md` | test,review | 5,6 | ondemand |
 | Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red | `skills/journey-proof.md` | test,review | 5,6 | ondemand |
+| Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works | `skills/monkey-test.md` | test,review | 5,6 | ondemand |
 | UX audit and screenshot-loop discipline | `skills/learned-skill-ux-audit.md` | review | 6 | ondemand |
 | Tracking scope delta between the BRD and the built state | `skills/learned-skill-scope-delta.md` | review | 6 | ondemand |
 | Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` | all | 7 | ondemand |
@@ -87,7 +89,6 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited | `skills/measured-claims.md` | all | - | ondemand |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` | all | - | baseline |
 | Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss | `skills/process-coherence-pass.md` | review | 5,6 | ondemand |
-| The full build → gate → prove → confirm → next loop a module runs through before it is called done | `skills/module-completion-loop.md` | mdl,test,gate,review | 5,6 | ondemand |
 | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything | `skills/e2e-evidence-report.md` | test,review | 6 | ondemand |
 | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` | mdl,gate | - | ondemand |
 | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` | mdl,gate | 5,6 | ondemand |

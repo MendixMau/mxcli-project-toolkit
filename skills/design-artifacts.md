@@ -113,6 +113,21 @@ This table *is* the build checklist `iterative-build-loop.md` Step 3 extracts. G
 
 ---
 
+## Step 3b: Scope Crosscheck — Every Wireframed Element Needs a Requirement
+
+Wireframing invents structure the BRD never asked for — breadcrumbs, a back button, a filter chip, a "clear all" link. None of these are source *fields*, so they never earn a row in the binding-annotation table above, which means they never reach `iterative-build-loop.md`'s checklist either. The result ships as static chrome: it renders, but no microflow, datasource, or navigation action stands behind it — a breadcrumb with no trail logic, a button with no on-click.
+
+Before moving to Step 4, walk each wireframe and list every interactive or structural element that has **no row** in its binding-annotation table. For each one, force an explicit call:
+
+| Call | When | Action |
+|---|---|---|
+| **Cut it** | Out of scope, or a "nice to have" no use-case asked for | Remove from the wireframe — don't ship UI with nothing behind it |
+| **Spec it** | In scope, just missed | Add a row/mini-spec: what generates it, what it does, what it calls. A breadcrumb needs its trail source and each crumb's nav target; a button needs the microflow it triggers |
+
+Record the call — cut or spec'd — next to the element; a wireframe with unresolved chrome does not pass to the build loop. This is a cheap gate here versus a silent "why doesn't this button do anything" discovery mid-build.
+
+---
+
 ## Step 4: Tooling — Own HTML Leads
 
 | Tool | Role | Use for |
@@ -185,4 +200,5 @@ mdlsource/gallery/
 - **Generative design for screens that have a source screenshot.** Invents divergence you then correct back toward the source.
 - **Treating the design as a throwaway mockup.** It's the spec the coverage check depends on — version it in-repo, don't paste it into a chat and lose it.
 - **Building the wireframe as a page count of routes.** Misses the dialogs/popups that are most of the real UI surface.
+- **Skipping the Step 3b scope crosscheck.** Wireframe-invented chrome (breadcrumbs, extra buttons, filter chips) ships with no requirement behind it — it renders but has no logic, and the gap surfaces mid-build instead of at spec time.
 - **Skipping the StyleGallery module.** Design system tokens go untested against the real Atlas cascade; no reusable snippet kit for the build loop.

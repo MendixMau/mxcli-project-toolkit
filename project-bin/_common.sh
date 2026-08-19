@@ -136,19 +136,31 @@ _py_is_store_stub() {
   esac
 }
 
-# Sets $PY to a working Python 3, or exits 2 with a message the reader can act on.
-require_py() {
+# Echoes a working Python 3 and returns 0; echoes nothing and returns 1 when there is none.
+# The non-fatal half, for the callers that must degrade rather than stop: exec.sh still writes
+# and snapshots your changes when the mxbuild gate cannot read its results — it just has to say
+# so instead of dying. $PYTHON overrides the search.
+resolve_py() {
   _c=""
-  for _c in python3 python py; do
+  for _c in "${PYTHON:-}" python3 python py; do  # portability-ok: this IS the interpreter probe
+    [ -n "$_c" ] || continue
     _py_is_store_stub "$_c" && continue
     if "$_c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
-      PY="$_c"; export PY; return 0
+      echo "$_c"; return 0
     fi
   done
-  echo "$(basename "${0:-script}"): Python 3 is required and was not found." >&2
-  echo "  Tried, by running each one: python3, python, py." >&2
-  echo "  macOS  : brew install python3    Linux: apt install python3" >&2
-  echo "  Windows: python.org installer, tick 'Add python.exe to PATH'. A 'python3' that only" >&2
-  echo "           opens the Microsoft Store is the alias stub — Settings > App execution aliases." >&2
-  exit 2
+  return 1
+}
+
+# Sets $PY to a working Python 3, or exits 2 with a message the reader can act on.
+require_py() {
+  PY="$(resolve_py)" || {
+    echo "$(basename "${0:-script}"): Python 3 is required and was not found." >&2
+    echo "  Tried, by running each one: python3, python, py." >&2
+    echo "  macOS  : brew install python3    Linux: apt install python3" >&2
+    echo "  Windows: python.org installer, tick 'Add python.exe to PATH'. A 'python3' that only" >&2
+    echo "           opens the Microsoft Store is the alias stub — Settings > App execution aliases." >&2
+    exit 2
+  }
+  export PY
 }

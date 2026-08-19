@@ -169,14 +169,66 @@ MXBUILD="$(find_mxbuild)" || true
 JAVA_HOME=$(/usr/libexec/java_home 2>/dev/null || true)
 JAVA_EXE="${JAVA_HOME}/bin/java"
 
+# ── JSON reader ──────────────────────────────────────────────────────────────
+# The mxbuild gate reads its verdict out of a JSON errors file, so it needs a
+# JSON parser. `python3` is not guaranteed: a bare macOS has no /usr/bin/python3
+# until the Command Line Tools are installed, and some minimal Linux images ship
+# only `python`. Hardcoding `python3` meant that on such a machine all three
+# helpers below silently fell back to their "unknown" sentinels, the gate
+# reported `unverified` on every run, and the message the user saw blamed the
+# errors file — pointing the diagnosis away from the actual cause.
+#
+# Resolve once, say so loudly if there is nothing to resolve to. Override with
+# PYTHON=/path/to/python3.
+#
+# The probe itself is _common.sh's resolve_py — the non-fatal twin of require_py, which
+# would exit 2 here and take the write with it. This script must still apply and snapshot
+# your changes on a machine with no interpreter; only the GATE is unavailable, and saying
+# that plainly is the whole point of the block below.
+#
+# resolve_py probes by RUNNING each candidate, never `command -v`: on a Mac without the
+# Command Line Tools /usr/bin/python3 is a prompt-only stub, and on Windows `python3` is
+# usually the Store alias stub. Both satisfy a presence test and neither runs anything, so
+# a presence test would set PY and the warning below would never fire on exactly the
+# machines it was written for.
+#
+# Guarded fallback, not a second implementation: sync-project.sh installs a missing
+# _common.sh but REPORTS a locally-modified one rather than overwriting it, so a project
+# that hardened its crash net before resolve_py existed would receive this script and die
+# on "resolve_py: command not found". Same reason lint-gate.sh carries one.
+if ! type resolve_py >/dev/null 2>&1; then
+  resolve_py() {
+    _c=""
+    for _c in "${PYTHON:-}" python3 python py; do  # portability-ok: this IS the interpreter probe
+      [ -n "$_c" ] || continue
+      case "$(command -v "$_c" 2>/dev/null)" in *[Ww]indows[Aa]pps*) continue ;; esac
+      if "$_c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+        echo "$_c"; return 0
+      fi
+    done
+    return 1
+  }
+fi
+PY="$(resolve_py || true)"
+if [ -z "$PY" ]; then
+  echo "  ⚠  No WORKING Python 3 found (tried python3, python, py by running each one)."  # portability-ok: names in a diagnostic
+  echo "     The mxbuild gate cannot read its results. Your changes are still written and"
+  echo "     snapshotted, but the gate will report 'unverified' on every run: NOTHING is"
+  echo "     being verified."
+  echo "     Fix: install Python 3 (macOS: xcode-select --install), or set PYTHON=/path/to/python3"  # portability-ok: names in a diagnostic
+fi
+
 err_count() {  # $1=errors json
-  python3 -c "import json;d=json.load(open('$1'));print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null || echo "?"
+  [ -n "$PY" ] || { echo "?"; return; }
+  "$PY" -c "import json;d=json.load(open('$1'));print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null || echo "?"
 }
 err_codes() {
-  python3 -c "import json;d=json.load(open('$1'));print(','.join(sorted({x.get('errorCode','?') for x in d.get('problems',[]) if x.get('severity')=='Error'})))" 2>/dev/null || echo "?"
+  [ -n "$PY" ] || { echo "?"; return; }
+  "$PY" -c "import json;d=json.load(open('$1'));print(','.join(sorted({x.get('errorCode','?') for x in d.get('problems',[]) if x.get('severity')=='Error'})))" 2>/dev/null || echo "?"
 }
 err_set() {
-  python3 -c "import json;d=json.load(open('$1'));print('|'.join(sorted(x.get('message','') for x in d.get('problems',[]) if x.get('severity')=='Error')))" 2>/dev/null || echo ""
+  [ -n "$PY" ] || { echo ""; return; }
+  "$PY" -c "import json;d=json.load(open('$1'));print('|'.join(sorted(x.get('message','') for x in d.get('problems',[]) if x.get('severity')=='Error')))" 2>/dev/null || echo ""
 }
 
 # ── Pre-flight baseline ──────────────────────────────────────────────────────
@@ -305,7 +357,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
             echo "     Recover with: git checkout HEAD -- $MPR_BASE mprcontents/"
           fi
         fi
-        python3 -c "import json; d=json.load(open('$ERRORS_FILE')); [print('  ', e.get('errorCode','?'), e.get('message','')) for e in d.get('problems',[]) if e.get('severity')=='Error']" 2>/dev/null || true
+        [ -n "$PY" ] && "$PY" -c "import json; d=json.load(open('$ERRORS_FILE')); [print('  ', e.get('errorCode','?'), e.get('message','')) for e in d.get('problems',[]) if e.get('severity')=='Error']" 2>/dev/null || true
         cp "$ERRORS_FILE" "$LAST_ERRS"
         echo "  → Full error detail: .mpr-snapshots/last-mxbuild-errors.json"
 
@@ -447,27 +499,26 @@ echo ""
 # the user's chore, which is also how a build gets declared "done" without
 # anyone ever seeing it run.
 #
-#   SP_RESTART=1  reopen without asking (agent turns, CI, chained scripts)
-#   SP_RESTART=0  never touch SP, just print the hint (previous behaviour)
-#   unset         interactive prompt if we have a TTY, else print the hint
+#   SP_RESTART=1  reopen Studio Pro after applying (opt in per run)
+#   unset / 0     never touch SP, just print the hint  ← DEFAULT
+#
+# This used to prompt "[Y/n]" when it had a TTY, defaulting to YES. Reopening
+# Studio Pro force-quits it, which DISCARDS whatever the user had unsaved — so
+# the most destructive option was the one you got by pressing Enter, on a
+# prompt that appears after a script has already succeeded and attention has
+# moved on. That also contradicted the SP Lifecycle Rule stated twice in
+# iterative-build-loop.md. Closing the loop is not worth owning the user's
+# unsaved work: make reopening explicit, and never infer consent from Enter.
 #
 # restart-sp.sh targets only the SP holding THIS project's .mpr (via lsof), so
 # a second project open in another window is unaffected.
-RESTART_SP="${SP_RESTART:-}"
-
-if [ -z "$RESTART_SP" ]; then
-  if [ -t 0 ]; then
-    read -r -p "  Reopen Studio Pro now to pick up these changes? [Y/n] " REPLY
-    case "$REPLY" in [Nn]*) RESTART_SP=0 ;; *) RESTART_SP=1 ;; esac
-  else
-    RESTART_SP=0
-  fi
-fi
+RESTART_SP="${SP_RESTART:-0}"
 
 if [ "$RESTART_SP" = "1" ] && [ -x "$(dirname "$0")/restart-sp.sh" ]; then
   echo "→ Reopening Studio Pro..."
-  # AUTO_SP=1: restart-sp.sh's own confirm is redundant once we've asked (or
-  # been told) here, and is unanswerable from a non-interactive caller.
+  # AUTO_SP=1: reaching here now requires an explicit SP_RESTART=1, so consent
+  # was given deliberately rather than inferred from a keypress, and a second
+  # confirm would only be unanswerable from a non-interactive caller.
   if AUTO_SP=1 "$(dirname "$0")/restart-sp.sh"; then
     echo ""
     echo "  ▶ Studio Pro is reopening with your changes. Click Run Locally when it finishes loading."

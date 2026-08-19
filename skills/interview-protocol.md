@@ -60,12 +60,12 @@ overturn any of these"* instead of burying them among questions that were genuin
 
 ---
 
-## Who can answer this? — gap, conflict, choice
+## Who can answer this? — gap, conflict, choice, user-only
 
 Interview mode sets *how much* gets asked. This sets *what is even eligible* to be asked, and it
 is the bigger lever: it is why a gate batch is four questions instead of 127.
 
-Every question exists for one of three reasons, and they need different answerers. Tag each BRD
+Every question exists for one of four reasons, and they need different answerers. Tag each BRD
 `openQuestion` with `"kind"`, then run `bin/question-kinds.sh <root>`.
 
 | kind | what it means | who answers |
@@ -73,6 +73,56 @@ Every question exists for one of three reasons, and they need different answerer
 | `gap` | The source is silent. No stated position is being overridden, because nobody stated one. | **An agent.** Take a position, record it with the rejected alternative and the cost if wrong. |
 | `conflict` | The source says two things that cannot both be true. | **The user, always.** Resolving it means overruling somebody who will turn up at UAT. |
 | `choice` | The source is clear on the *what* and silent on a fork that costs real money or is expensive to undo. | **The user.** An agent could pick; the person who eats the cost should. |
+| `user-only` | The answer is not a property of the source at all. It is a fact about the user's organisation, and it lives in their head or in a document you have never been shown. | **The user, and only the user** — with **no recommendation** and **never inside a batch**. See below. |
+
+### `user-only` — the silence you are not entitled to fill
+
+`gap` and `user-only` both begin "the source is silent", and they route in opposite directions.
+That makes this the tag most often got wrong, and the one where being wrong invents an answer on
+somebody's behalf.
+
+The test is not "did the source say?" but **"could the source ever have said?"** A `gap` is
+silence about something that was never written down anywhere — field lengths, a default sort
+order. A `user-only` is silence that only means *you were not handed the document*. The brand
+guideline exists or it does not, and the user knows which; your not having seen it is a fact
+about your inputs, not about the world.
+
+Typical `user-only` questions, none of which a source can answer:
+
+- Is there a brand guideline, a style guide, an existing design system?
+- What accessibility standard applies — WCAG 2.1 AA, something else, nothing stated?
+- Expected concurrent users, data volumes, retention and residency requirements.
+- Who is the SME for this area, and who signs the gate off?
+- Licensing: is there a subscription for the marketplace module this needs?
+- Cutover date, freeze windows, and what "done" means for this phase.
+
+**Two constraints, and they are the whole point of the kind:**
+
+1. **Never carry a recommendation.** Rule 2 below requires two options and a recommendation for
+   every other kind. Here a recommendation is a fabrication with a default bolted on — you have
+   no basis, and dressing a guess as analysis is what makes it get approved. Say plainly that you
+   cannot know, and state what you will assume **only if they decline to answer**.
+2. **Never batch-approvable.** It cannot be one line of a batch that can be cleared with "approve
+   all as recommended", because there is no recommendation to approve. Ask it on its own.
+
+*Real incident, 2026-08-19 (USI-RoutingModule).* "Are there branding inputs?" went in as line 7
+of a seven-item Stage 3 gate batch, carrying the recommended default *"no branding assets
+provided — use Atlas defaults."* The user approved the batch. There was in fact a real art
+direction — top-bar layout, industrial look, grey background, cool colours, the USI wordmark in
+the shell — and a WCAG 2.1 AA target, and neither had ever been asked for. Both surfaced only
+when the user challenged the finished design system and asked why nobody had checked. The
+question had been treated as a `gap`. The recommendation was the entire defect: it converted
+"I don't know" into "I've decided", and a batch approval swallowed it.
+
+**Design-system questions specifically.** Branding and accessibility are `user-only` on every
+project and are asked plainly and separately at the design step — not folded into a batched
+recommended-default line. This is a standing checklist item in `design-artifacts.md`, not
+something that comes up only after a user catches it being skipped.
+
+**What the tooling can and cannot do here.** `bin/question-kinds.sh` counts `user-only`
+separately, routes it to the human, and prints both constraints. It cannot tell that a question
+tagged `gap` should have been `user-only` — a counter sees the tag, never the question. Getting
+the tag right is yours.
 
 **Do not ask a human a `gap`.** *"How long is the member name field?"* has no answer in anyone's
 head — the source never said, and the user is being asked to invent a number so the agent doesn't
@@ -121,6 +171,12 @@ Two options is the floor, not the target. Where the honest answer is "I need a n
 name from you" (a threshold, a system owner, a cutover date), say so plainly and say what you
 will assume if they shrug.
 
+**Exception, and it is the one exception: `user-only` questions carry no recommendation.** A
+threshold, a system owner, a cutover date, a brand guideline, an accessibility target — you have
+no basis for a position on any of them, and offering one anyway is how it gets nodded through.
+The shape there is *"I can't know this and you can"*, plus what you will assume only if they
+decline. Everything else on this page still applies: it goes in the chat, and you stop.
+
 `bin/open-questions.sh` prints whatever drafting position the BRD recorded. Where it prints a
 question with no position, **that is a defect in the stage that wrote it** — the collector and
 `bin/questions-report.sh` both mark those. Do not simply forward them; take a position first,
@@ -133,6 +189,21 @@ interest. Not all 74 either. One batch, scoped to the gate you are trying to pas
 (`--stage N`), grouped so related questions are decided together.
 
 Then **end the turn**. Do not ask and keep working. Do not ask and assume in the same message.
+
+**`user-only` questions do not go in the batch.** A batch is answerable in one pass — often with
+a single "approve all as recommended" — and that is exactly what must not happen to a question
+with no recommendation behind it. Ask each one separately, before or after the batch, and wait
+for its own answer. If that means two stops at one gate, take two stops.
+
+**And approving a batch approves the decisions, not an execution run underneath them.** The
+concrete choices you make while building the artefacts those decisions produce — role names, an
+NFR number nobody gave you, page layouts, palette values, a specific technical workaround — are
+new decisions, not consequences of the approved ones. Surface them per artefact. The cheapest
+form that works: end each artefact with **"decided without you"** — at most five lines naming
+what you chose on your own. On 2026-08-19 a seven-item Stage 3 approval was followed by twelve
+files, an invented concurrency figure and an installed mock server with no check-in at all, and
+the user's *"why did you not ask for any inputs for these steps!!!!"* is the only reason it
+surfaced.
 
 In Claude Code, put the batch through `AskUserQuestion` where it fits — options are clickable
 and the answers come back structured. Fall back to prose in chat when a question needs more

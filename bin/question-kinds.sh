@@ -7,23 +7,52 @@
 # source produces a wall (127 on WMS-Demo) at the interview gate and the user is asked to
 # adjudicate field lengths alongside the multi-tenancy decision. Nobody reads item 90.
 #
-# THE THREE KINDS. Deliberately about the ANSWERER, not about difficulty or size.
+# THE FOUR KINDS. Deliberately about the ANSWERER, not about difficulty or size.
 #
-#   gap       The source is silent. Nobody's stated position is being overridden, because
-#             nobody stated one. An agent may take a position and record it. "How long is the
-#             member name field?" Asking a human is theatre.
+#   gap        The source is silent. Nobody's stated position is being overridden, because
+#              nobody stated one. An agent may take a position and record it. "How long is the
+#              member name field?" Asking a human is theatre.
 #
-#   conflict  The source says two things that cannot both be true. Resolving it means
-#             overruling somebody, and that somebody is a real person who turns up at UAT.
-#             An agent must never do this, however obvious the right answer looks. Human.
+#   conflict   The source says two things that cannot both be true. Resolving it means
+#              overruling somebody, and that somebody is a real person who turns up at UAT.
+#              An agent must never do this, however obvious the right answer looks. Human.
 #
-#   choice    The source is clear on the what and silent on a fork that costs real money or is
-#             expensive to undo. An agent COULD pick; the point is that it shouldn't, because
-#             the person who eats the cost should be the one choosing. Human.
+#   choice     The source is clear on the what and silent on a fork that costs real money or is
+#              expensive to undo. An agent COULD pick; the point is that it shouldn't, because
+#              the person who eats the cost should be the one choosing. Human.
 #
-# The routing rule is the whole value: gaps go to agents, conflicts and choices go to the user.
+#   user-only  The answer is not in the source and not derivable from it, because it is not a
+#              property of the source at all. It is a fact about the user's organisation, and
+#              it exists only in their head or in a document the agent has never been shown.
+#              "Does a brand guideline exist?" "What accessibility standard applies?" "How many
+#              concurrent users?" "Who signs off?" Human — and unlike the other three, an agent
+#              has NO BASIS on which to recommend. Saying one anyway is invention with a
+#              default attached. See the incident note below.
+#
+# The routing rule is the whole value: gaps go to agents, everything else goes to the user.
 # On the BJJ reference source that is 4 questions to a human instead of nine dimensions of
 # silence — not because anything was skipped, but because the gaps went somewhere else.
+#
+# WHY `user-only` IS SEPARATE FROM `gap`, AND WHY IT IS THE EASIEST ONE TO GET WRONG.
+# Both begin "the source is silent", and they route in opposite directions. A `gap` is silence
+# an agent is entitled to fill, because the answer was never anywhere. A `user-only` is silence
+# that only means the agent was not given the document — the answer very much exists, on the
+# user's side, and filling it is not a drafting position but a guess presented as analysis.
+#
+# Real incident, 2026-08-19 (USI-RoutingModule). "Are there branding inputs?" was folded into
+# one line of a seven-item Stage 3 gate batch, carrying the recommended default "no branding
+# assets provided — use Atlas defaults". The user approved the batch. There was, in fact, a
+# real art direction — top-bar layout, industrial look, grey background, cool colours, the USI
+# wordmark in the shell — and a WCAG 2.1 AA target. Neither had ever been asked for. Both were
+# discovered only when the user challenged the finished design system. The question was tagged
+# and treated as a `gap`; it was `user-only`, and the recommendation was the whole defect.
+#
+# Hence the two constraints this kind carries, enforced in interview-protocol.md rather than
+# here (a counter cannot see the shape of a question you put in chat):
+#   1. A `user-only` question never carries a recommendation. "I have no basis for this; you do"
+#      is the honest form. State what you will assume ONLY if the user declines to answer.
+#   2. A `user-only` question is never batch-approvable. It cannot be one line of an
+#      approve-all-as-recommended batch, because there is no recommendation to approve.
 #
 # UNCLASSIFIED DEFAULTS TO `choice`, i.e. to the human. Same failure-direction discipline as
 # interview-mode.sh: the direction a mistake resolves in must be "asked too much". An
@@ -82,9 +111,15 @@ RECORDS=$(printf '%s\n' "$BRD_FILES" | while IFS= read -r f; do
     def clean: (. // "") | tostring | gsub("[\t\n\r]"; " ") | gsub("  +"; " ");
     def kindof:
       ((.kind // .questionKind // "") | tostring | ascii_downcase) as $k
-      | if   $k == "gap"      then "gap"
-        elif $k == "conflict" then "conflict"
-        elif $k == "choice"   then "choice"
+      | if   $k == "gap"       then "gap"
+        elif $k == "conflict"  then "conflict"
+        elif $k == "choice"    then "choice"
+        # Spelling tolerance, deliberately narrow. These four are the forms that turn up when a
+        # human or an LLM writes the tag by hand; anything else stays UNCLASSIFIED rather than
+        # being guessed at, because a mis-absorbed user-only is the exact failure this kind exists
+        # to stop.
+        elif $k == "user-only" or $k == "useronly" or $k == "user_only" or $k == "user only"
+                               then "user-only"
         else "UNCLASSIFIED" end;
     (.openQuestions // [])[] |
     [ kindof, (.id | clean), $src, (.question | clean) ] | @tsv
@@ -101,14 +136,15 @@ count_kind() {
 N_GAP=$(count_kind gap)
 N_CONFLICT=$(count_kind conflict)
 N_CHOICE=$(count_kind choice)
+N_USERONLY=$(count_kind user-only)
 N_UNCLASSIFIED=$(count_kind UNCLASSIFIED)
 
 # The human's list. UNCLASSIFIED is in it by the failure-direction rule above.
-N_HUMAN=$((N_CONFLICT + N_CHOICE + N_UNCLASSIFIED))
+N_HUMAN=$((N_CONFLICT + N_CHOICE + N_USERONLY + N_UNCLASSIFIED))
 
 if [ "$AS_JSON" = "1" ]; then
-  printf '{"brdCount":%s,"total":%s,"gap":%s,"conflict":%s,"choice":%s,"unclassified":%s,"human":%s}\n' \
-    "$BRD_COUNT" "$TOTAL" "$N_GAP" "$N_CONFLICT" "$N_CHOICE" "$N_UNCLASSIFIED" "$N_HUMAN"
+  printf '{"brdCount":%s,"total":%s,"gap":%s,"conflict":%s,"choice":%s,"userOnly":%s,"unclassified":%s,"human":%s}\n' \
+    "$BRD_COUNT" "$TOTAL" "$N_GAP" "$N_CONFLICT" "$N_CHOICE" "$N_USERONLY" "$N_UNCLASSIFIED" "$N_HUMAN"
 elif [ "$QUIET" != "1" ]; then
   # Every count carries what it was counted against. A bare "0 conflicts" is indistinguishable
   # from a scanner that read nothing, and this toolkit has shipped that bug four times.
@@ -116,6 +152,7 @@ elif [ "$QUIET" != "1" ]; then
   echo "  gap          $N_GAP  — source is silent; an agent may take a position and record it"
   echo "  conflict     $N_CONFLICT  — source contradicts itself; only a human may overrule"
   echo "  choice       $N_CHOICE  — a fork with real cost; the person who pays it decides"
+  echo "  user-only    $N_USERONLY  — not in the source at all; ask plainly, offer NO recommendation"
   echo "  unclassified $N_UNCLASSIFIED  — not triaged; counted as needing a human"
   echo
   if [ "$TOTAL" = "0" ]; then
@@ -124,9 +161,15 @@ elif [ "$QUIET" != "1" ]; then
   else
     echo "  → $N_HUMAN question(s) need a human; $N_GAP can be absorbed by BA agents."
   fi
+  if [ "$N_USERONLY" != "0" ]; then
+    echo
+    echo "  $N_USERONLY question(s) are 'user-only'. Ask each one SEPARATELY and with NO recommendation."
+    echo "  They must not appear as lines in an approve-all-as-recommended batch: there is nothing"
+    echo "  to recommend, and a default offered here is invention. See skills/interview-protocol.md."
+  fi
   if [ "$N_UNCLASSIFIED" != "0" ]; then
     echo
-    echo "  $N_UNCLASSIFIED question(s) have no 'kind'. Add \"kind\": \"gap\"|\"conflict\"|\"choice\"" >&2
+    echo "  $N_UNCLASSIFIED question(s) have no 'kind'. Add \"kind\": \"gap\"|\"conflict\"|\"choice\"|\"user-only\"" >&2
     echo "  to each BRD openQuestion. Until then they are routed to the user, which is the safe" >&2
     echo "  direction but not the fast one." >&2
   fi

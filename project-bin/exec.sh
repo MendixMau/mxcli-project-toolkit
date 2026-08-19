@@ -492,6 +492,10 @@ fi
 echo ""
 echo "✓ Script applied to $MPR_BASE."
 echo ""
+echo "  Gate passed (mxbuild-clean). If the happy path / coverage checklist is ALSO"
+echo "  verified for this script, rename it now: git mv <path> <path>/done-<name>"
+echo "  (skills/iterative-build-loop.md — a clean gate is necessary, not sufficient)"
+echo ""
 
 # --- Close the loop in Studio Pro -------------------------------------------
 # An mxcli write never reaches a RUNNING Studio Pro — SP holds the model in

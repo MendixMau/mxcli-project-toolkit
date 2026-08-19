@@ -94,6 +94,18 @@ If flagged, resolve "one app or several" as its own open issue **before** `modul
 
 ## Output Template
 
+**You do not type this from scratch.** `bin/init-project.sh` scaffolds `triage.md` into the
+project root from `bin/lib/triage-template.sh`, pre-seeded with the coverage-matrix headers, the
+five verdict words, the two-row (never three-row) extraction decision, and an unsigned sign-off
+line that `bin/gate-check.sh <project> 0` refuses on purpose. `bin/sync-project.sh` refreshes it
+while it is still untouched. Render it for review with `bin/triage-report.sh <project>`, which
+writes `analysis/triage.html` — the `triage.html` surface the runbook's Stage 0 row names. The
+renderer renders; it never grades. Every judgement in this document stays in this document.
+
+The fence below is what that scaffold contains, kept here so the two can be diffed by eye.
+**Change one, change the other** — this skill and `bin/lib/triage-template.sh` are the pair that
+must not silently diverge, which is exactly what happened while the template did not exist.
+
 ```markdown
 # Source Triage: [Application Name]
 

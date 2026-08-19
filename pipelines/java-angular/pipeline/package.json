@@ -4,7 +4,7 @@
   "type": "commonjs",
   "scripts": {
     "test": "node --test tests/**/*.test.js tests/**/**/*.test.js",
-    "reports": "node generate-report.js && node generate-enrichment-report.js"
+    "reports": "node generate-report.js"
   },
   "dependencies": {
     "glob": "^10.3.12",

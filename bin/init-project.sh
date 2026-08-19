@@ -28,6 +28,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # hand-kept copies cost.
 . "$SCRIPT_DIR/lib/intake-template.sh"
 
+# The triage.md template — Stage 0's one required artifact. Same one-copy arrangement as the
+# intake template above, for the same reason: sync-project.sh refreshes untouched scaffolds and
+# needs the identical text. Until this existed, gate-check.sh REQUIRED triage.md and nothing
+# wrote it; the one project that hand-typed it drifted on the reuse-vs-build-new question the
+# skill bolds twice. See bin/lib/triage-template.sh's header.
+. "$SCRIPT_DIR/lib/triage-template.sh"
+
 # SOURCES_MODE: ask | ignore | track. "ask" prompts only when stdin is a TTY; with no TTY it
 # ignores and says so. Ignoring is the default because a source drop is routinely hundreds of
 # MB of someone else's code, and the first time you find out it was committed is when you try
@@ -178,6 +185,29 @@ ${TOOLKIT_COMMIT_LINE}
 None yet.
 EOF
   echo "Created: PROJECT.md"
+fi
+
+TRIAGE="$PROJECT_DIR/triage.md"
+# ENTRY MODE IS NOT KNOWN HERE, and no prompt is added to find out.
+#
+# triage.md is migration-scoped (conversion-runbook.md, Stage 0: a documents-rather-than-codebase
+# source skips it). But entry mode is intake QUESTION 1 — it is decided in the Stage P interview,
+# which happens after this script runs, and the runbook is explicit that it is "a Stage-P
+# interview decision, not a silent inference". Asking here would either duplicate Q1 or, on a
+# TTY-less agent shell, answer it by default — which is the silent inference the runbook forbids.
+#
+# So the file is written unconditionally and says so in its own header: which entry modes it
+# applies to, when to delete it, and — for the documents-only case — why deleting it is the wrong
+# move (gate-check then reports "triage.md not found", an unanswered gate rather than a settled
+# one; the runbook's documents-only path marks the extraction rows N/A instead).
+#
+# It cannot self-sign: the "Confirmed by:" line ships bracketed placeholders and check_stage_0
+# refuses those explicitly. A fresh scaffold FAILS Stage 0, deliberately.
+if [ -f "$TRIAGE" ]; then
+  echo "Skip: triage.md already exists — not overwritten."
+else
+  mxtk_triage_template > "$TRIAGE"
+  echo "Created: triage.md (Stage 0 scaffold — migration entry mode; see its header)"
 fi
 
 CLAUDE_LOCAL="$PROJECT_DIR/CLAUDE.local.md"

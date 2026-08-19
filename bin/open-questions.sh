@@ -76,7 +76,9 @@ words and is Open.
   4 | assumed                | AND consentBy AND consentAt      | ASSUMED
   5 | assumed                | no consent recorded              | UNRAISED  <- the defect
   6 | raised | awaiting      | (any)                            | RAISED
-  7 | moot | n/a | withdrawn | (any)                            | MOOT
+  7 | moot | n/a | not      | (any)                            | MOOT
+    | relevant | irrelevant |                                  |
+    | does not apply | withdrawn |                              |
   8 | open | carried forward | next clause begins "moot"        | MOOT
   9 | open | carried forward | otherwise                        | UNRAISED
  10 | <no verdict column>    | md table has no Decision/        | UNRAISED
@@ -290,8 +292,15 @@ NORMALISED=$(printf '%s\n' "$RECORDS" | awk -F'\t' '
     else if (L ~ /^raised/ || L ~ /^awaiting/) {
       state = "RAISED"; reason = "raised, awaiting the user (rule 6)"
     }
-    else if (L ~ /^moot/ || L ~ /^n\/a/ || L ~ /^not applicable/ || L ~ /^withdrawn/) {
-      state = "MOOT"; reason = "moot (rule 7)"
+    else if (L ~ /^moot/ || L ~ /^n\/a/ || L ~ /^not applicable/ || L ~ /^not relevant/ ||
+             L ~ /^irrelevant/ || L ~ /^does not apply/ || L ~ /^withdrawn/) {
+      state = "MOOT"
+      # A bare trigger word with no clause after it is still accepted (a non-answer here would
+      # defeat the point of recognising the phrase at all) but flagged distinctly, so an
+      # auditor can tell "not relevant, here is why" from "not relevant." with nothing behind it.
+      NC = nextclause(raw)
+      if (NC == "") reason = "moot, no reason given (rule 7)"
+      else reason = "moot — marked not relevant (rule 7)"
     }
     else if (L ~ /^open/ || L ~ /^carried forward/) {
       NC = nextclause(raw)

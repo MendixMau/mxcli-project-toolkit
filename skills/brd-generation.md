@@ -9,12 +9,36 @@ Document) JSON files — the structured handoff from analysis to MDL scripting.
 
 ## What a BRD file is
 
-A BRD JSON file is a structured, machine-readable summary of ONE feature area.
-It combines information from multiple KB files and extracted JSON (screens, entities,
-logics) into a format that Claude uses when writing MDL domain model and microflow scripts.
+A BRD JSON file is a structured, machine-readable summary of ONE feature area. It combines
+information from multiple KB files and extracted JSON (screens, entities, logics) into a format
+that Claude uses when writing MDL domain model and microflow scripts. It contains use cases,
+domain entities, microflows to build, pages to build, and integration stubs needed.
 
-One BRD = one Mendix module (roughly). It contains use cases, domain entities,
-microflows to build, pages to build, and integration stubs needed.
+**A BRD's scope is whatever is listed in its `modules[]`, and that is an array of 1..n.**
+
+- **Module-scoped** — `modules` has exactly one entry. This is what the extractor scaffolders
+  produce: `node run.js 3` writes one `{ModuleName}.brd.json` per source module, so its
+  `modules` array always has length 1.
+- **Feature-scoped** — `modules` has several. This is what a hand-written or doc-derived
+  `F{NNN}` BRD usually is: one business capability that lands across more than one Mendix
+  module.
+
+Neither is more correct. The array is what makes them the same kind of file, and every reader
+must handle both lengths.
+
+> **Why this paragraph is this pedantic (2026-08-19).** This section used to say *"A BRD JSON
+> file is a structured, machine-readable summary of ONE feature area"* and, two sentences
+> later, *"One BRD = one Mendix module (roughly)."* That `(roughly)` was read three different
+> ways by three different implementations. All three extractor scaffolders emitted `module:`
+> **singular**; the OutSystems report renderer read `modules` **plural** and therefore rendered
+> `undefined` against its own pipeline's output; the other two renderers read the singular and
+> rendered `undefined` against anything written by hand from this file. Nobody noticed, because
+> a BRD reader that cannot find a key prints a blank, not an error. A definition that can be
+> read two ways will be, and the cost lands in a renderer months later.
+
+`module` (singular) is the retired key. `bin/brd-report.sh` still reads it so existing
+knowledge bases keep rendering, and it names every BRD that still carries it so the transition
+finishes instead of becoming permanent.
 
 ---
 
@@ -128,9 +152,46 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
     "KB_ACME01_RequirementsSpec_V5.md",
     "KB_ACME01_FieldLabels_EN.md",
     "KB_ACME01_QA.md"
-  ]
+  ],
+
+  "provenance": "documents"
 }
 ```
+
+### `provenance` — optional, and the one key worth filling in by hand
+
+`"provenance"` is one of `code-extracted` | `documents` | `interview` | `greenfield`. It says
+where this BRD's content came from, and it is the field `bin/brd-report.sh` uses to decide what
+an EMPTY section means: a requirements-driven BRD with no `domainEntities` is normal, and a
+migration BRD with no `domainEntities` means the extractor produced nothing and nobody looked.
+Without it the report can only infer — from the scaffolder fingerprint, or from a non-empty
+`sourceKB` — and when it can do neither it reports **provenance undetermined** and refuses a
+verdict on every section rather than guessing. `sourceKB` is *evidence* of document provenance,
+never a substitute for declaring it: the scaffolders never emit `sourceKB`, and an SME-interview
+BRD has no KB files to name.
+
+`coverage-ledger.md` already ledgers `/provenance/*` and `/sourceKB/*` as BRD metadata rather
+than buildable requirements, so neither key needs a build-plan row.
+
+### Keys the scaffolders add that the block above does not show
+
+Verified against `pipelines/*/pipeline/generators/brd-mappers/`. These are real, they are on
+every scaffolded BRD, and they were missing from this document — which is part of why readers
+of BRDs kept guessing at the shape.
+
+| Key | Where | Emitted by | Notes |
+|---|---|---|---|
+| `confidence` | top level | all three scaffolders (`brd-mappers/index.js`) | `high` / `medium` / `low`, purely a gap count — see "Confidence" below |
+| `generatedAt`, `appType`, `summary{}`, `openGaps[]` | top level | all three scaffolders | the fingerprint that identifies a BRD as code-extracted |
+| `webBlocks[]`, `timers[]` | top level | all three scaffolders | |
+| `reviewStatus` | `useCases[]` | all three (`use-case-mapper.js`) | `pending` until a human reviews the narrative |
+| `status` | `useCases[]` | set by `brd-validation.md` check 6 | `code-inferred` / `doc-confirmed` / `doc-conflict` |
+| `hiddenRules[]` | `microflows[]` | java-angular and node-express-react only (`microflow-mapper.js`) — **not** OutSystems | rules found inside code that the domain model does not show |
+| `mendixType`, `attributeCount` | `domainEntities[]` | all three (`domain-entity-mapper.js`) | `attributeCount` is the retired form of `attributes[]`; the count is derivable from the list, the list is not derivable from the count |
+| `gaps[]` | every mapped item | all three | feeds `confidence` |
+
+A hand-written BRD is not obliged to carry any of these. A reader of BRDs is obliged to
+tolerate all of them.
 
 ---
 
@@ -140,8 +201,9 @@ Before writing BRDs manually, run the automated BRD mapper layer if a code extra
 This produces a `{ModuleName}.brd.json` scaffold per module in `knowledge-base/brd/`.
 
 ```bash
-node run.js 3           # brd-mappers/ → knowledge-base/brd/*.brd.json
-node generate-report.js # → knowledge-base/extraction-report.html
+node run.js 3               # brd-mappers/ → knowledge-base/brd/*.brd.json
+node generate-report.js     # → knowledge-base/extraction-report.html
+bin/brd-report.sh <root>    # → analysis/brd-report.html   (Stage 2 surface, any source)
 ```
 
 Each auto-generated BRD contains:
@@ -151,9 +213,15 @@ Each auto-generated BRD contains:
 - `useCases[]` — **scaffold only** — screen-per-row with all narrative fields as explicit TODOs
 - `integrations[]` — exposed APIs (inbound) + external entities (outbound)
 - `timers[]` — scheduled events
-- `confidence` — high (0 gaps) / medium (1–3) / low (4+)
+- `confidence` — high (0 gaps) / medium (1–3) / low (4+). **This measures the extractor, not
+  the requirement.** `brd-validation.md` check 5 says so and says what to do about it: read it
+  next to doc-KB corroboration, never alone. `bin/brd-report.sh` prints the two side by side.
 
-**Use the HTML report** (`extraction-report.html`) as the review surface — click any module to inspect its BRD.
+**Use the HTML reports** as the review surface: `extraction-report.html` (produced by the
+pipeline, `npm run reports`) for what the extractors did and did not get, and
+`bin/brd-report.sh <project-root>` → `analysis/brd-report.html` for the Stage 2 business-facing
+BRD surface. The second one is not a pipeline script: it reads BRDs, not source, so it renders
+the same page for a hand-written or doc-derived BRD as for a scaffolded one.
 Use the auto-generated BRD as the starting point for Step 3 (Claude enrichment prompt).
 The use-case narrative is never auto-generated — that requires business input.
 
@@ -164,7 +232,8 @@ The use-case narrative is never auto-generated — that requires business input.
 Before prompting, decide the BRD boundaries. One BRD per major feature area.
 Use the extracted `screens.json` and `entities.json` to group by functional cohesion.
 
-A good BRD boundary = one Mendix module. Aim for 3-8 use cases per BRD.
+A good BRD boundary is one coherent feature area. Whether that is one Mendix module or
+several, list every one of them in `modules[]`. Aim for 3-8 use cases per BRD.
 
 **Typical split for a medium OS application:**
 - F001: Core registration flow (main screens + entities)
@@ -213,6 +282,7 @@ Write F[NNN]-[topic].brd.json following this structure:
 - integrations — external calls with stub plan
 - openQuestions — anything still unclear
 - sourceKB — list of KB files used
+- provenance — code-extracted | documents | interview | greenfield
 
 ## Mendix naming conventions:
 - Entity: PascalCase, no EN prefix (ENOrderDetail → OrderDetail)
@@ -241,6 +311,12 @@ After Claude writes the BRD, review these checkpoints:
 - [ ] Stub plan defined for every external integration
 - [ ] Open questions from KB QA sheets captured in `openQuestions`
 - [ ] `sourceKB` lists every KB file that contributed
+- [ ] `modules[]` is an array and lists **every** Mendix module this BRD covers — one entry for
+      a module-scoped BRD, several for a feature-scoped one. Never the retired `module` string.
+- [ ] `provenance` is set. Without it `bin/brd-report.sh` cannot tell a legitimately empty
+      section from a broken one, and says so on the page rather than guessing.
+- [ ] `bin/brd-report.sh <project> --json` shows 0 unreadable keys. A non-zero count is schema
+      drift: a key this file documents that the BRD carries under some other name.
 - [ ] `bin/facts-lock.sh <project> check` is clean — see below
 
 ---

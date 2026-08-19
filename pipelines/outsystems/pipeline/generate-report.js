@@ -31,7 +31,11 @@ if (fs.existsSync(BRD_DIR)) {
   for (const f of fs.readdirSync(BRD_DIR).filter(n => n.endsWith('.brd.json'))) {
     try {
       const brd = JSON.parse(fs.readFileSync(path.join(BRD_DIR, f), 'utf8'));
-      brdByModule[brd.module] = brd;
+      // A BRD names modules[] (an array of 1..n); `module` singular is the pre-2026-08-19
+      // scaffolder key and is still read so an existing knowledge-base keeps rendering.
+      // Index EVERY entry: a feature-scoped BRD covers several modules, and indexing only
+      // the first would drop the rest from this dashboard without saying so.
+      for (const m of (brd.modules || (brd.module ? [brd.module] : []))) brdByModule[m] = brd;
     } catch(_) {}
   }
 }

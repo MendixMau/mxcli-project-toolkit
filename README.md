@@ -451,6 +451,8 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 <!-- ROUTING:BEGIN readme-situational -->
 | Task | Skill to load |
 |---|---|
+| Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough | `skills/grill-mode.md` |
+| Rendering a filled triage.md for review — the triage.html surface Stage 0 names. Renders only; the Stage 0 verdict stays with gate-check and the judgement with source-triage.md | `bin/triage-report.sh` |
 | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts | `skills/bootstrap-project.md` |
 | Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates | `skills/existing-app-assurance.md` |
 | Assessing or planning a migration up front, before any pipeline is chosen | `skills/assess-migration.md` |

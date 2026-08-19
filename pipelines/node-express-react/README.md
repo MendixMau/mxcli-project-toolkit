@@ -37,14 +37,20 @@ Set `sourceDir` and **`knowledgeBaseDir`** in `pipeline/config.json` before runn
 
 ## HTML reports
 
-This pipeline ships both report generators (ported from `java-angular`, 2026-07-14):
+Two surfaces, and only one of them lives here.
 
 ```bash
-npm run reports   # generate-report.js (raw extraction/gap dashboard)
-                  # + generate-enrichment-report.js (business-facing enrichment-summary.html)
+npm run reports                        # generate-report.js — raw extraction/gap dashboard
+../../../bin/brd-report.sh <project>   # Stage 2 — the business-facing BRD surface
 ```
 
-The enrichment summary's hero block is config-driven — set `config.json` → `"project": { "title", "description", "techTags": [] }`; without it the report still renders with a placeholder hero derived from the workspace folder name.
+`generate-report.js` is a pipeline tool: it reads this stack's extracted JSON and reports what
+the extractors did and did not get. `bin/brd-report.sh` reads **BRDs**, which is why it is not
+in this folder — the same page has to render for a requirements-driven or greenfield project
+that never runs an extractor at all. This pipeline had its own copy
+(`generate-enrichment-report.js`) until 2026-08-19; all three pipeline copies had drifted onto
+different BRD key names and rendered blanks for each other's output. See CLAUDE.md, "Writing in
+this toolkit — generic first".
 
 ---
 

@@ -87,7 +87,12 @@ async function generate(kbDir, outDir, opts = {}) {
       ];
 
       const brd = {
-        module:      modName,
+        // modules[] not `module`: brd-generation.md's schema has always said an array,
+        // and every BRD reader now goes through bin/brd-report.sh, which is source-agnostic.
+        // A module-scoped scaffold has exactly one entry; a hand-written feature-scoped BRD
+        // has several. Emitting the singular here is what let three separate report
+        // renderers each pick a different key and each render undefined for the other two.
+        modules:     [modName],
         generatedAt: new Date().toISOString(),
         confidence:  confidence(allGaps.length),
         appType,

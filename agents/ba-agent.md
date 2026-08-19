@@ -45,6 +45,8 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 | `bin/facts-lock.sh` | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done |
 | `skills/module-brief.md` | Building any module — before the first script. The mdl-agent's single per-module input |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
+| `skills/grill-mode.md` | Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough |
+| `bin/triage-report.sh` | Rendering a filled triage.md for review — the triage.html surface Stage 0 names. Renders only; the Stage 0 verdict stays with gate-check and the judgement with source-triage.md |
 | `skills/bootstrap-project.md` | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts |
 | `skills/assess-migration.md` | Assessing or planning a migration up front, before any pipeline is chosen |
 | `skills/migration-pipeline.md` | Running the extraction pipeline |

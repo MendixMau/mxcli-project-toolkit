@@ -93,6 +93,25 @@ definitions confirmed by a real spec) is a better candidate for manual review th
 neither code confidence nor doc coverage — surface both signals together in the report, not
 `confidence` alone.
 
+**Where this is surfaced.** `bin/brd-report.sh` prints the pair on every BRD: `confidence` as
+written, and a doc-KB corroboration signal read off the BRD — `confirmed` (at least one use
+case at `status: doc-confirmed`, i.e. check 6 was actually run on it), `cited` (`sourceKB`
+names doc-KB files but nothing has been reconciled against them yet), or `none`.
+
+It labels exactly the one comparison this check makes and no more:
+
+| confidence | corroboration | label |
+|---|---|---|
+| low / medium | confirmed or cited | **review-ready** — there is doc-KB material to review against |
+| low / medium | none | **uncorroborated** — needs SME input, not a reviewer; review has nothing to check it against |
+| anything else | — | **unranked** |
+
+The `unranked` row is deliberate. This check ranks the low-confidence pair against each other
+and says nothing about how a `high`-confidence module with no doc coverage compares to a `low`
+one with a spec behind it. Both signals are shown; if that ordering ever matters, decide it
+*here*, in this skill, and the report will follow. Do not put a score in the script —
+`skills-over-scripts.md`.
+
 ### 6. Business process flow reconciliation (code-inferred vs. documented)
 
 `use-case-mapper.js` now produces a best-effort `mainFlow` and `appType` per module from code

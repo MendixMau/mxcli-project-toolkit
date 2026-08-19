@@ -45,6 +45,12 @@ git mv mdlsource/<NN-name>.mdl mdlsource/done-<NN-name>.mdl
 
 `build-plan.html` phase status and the `done-` prefixes should agree — when every script for a phase is `done-`, that phase flips to ✓ in the tracker.
 
+`project-bin/exec.sh` prints this rename reminder at the moment a script's gate passes clean.
+`project-bin/done-drift-check.sh` (surfaced automatically by `close-task.sh`) is the backstop for
+anything missed at that moment — it flags gate-clean scripts still missing their `done-` prefix,
+and flags `architecture/build-plan.md` as stale once several BUILD-LOG rows have landed since it
+was last touched. Neither auto-renames or blocks anything; both are informational only.
+
 ### Reopening Studio Pro and proposing to run the app
 
 **An `mxcli` write never reaches a *running* Studio Pro.** SP holds the model in memory, so until it reopens, the change exists on disk and nowhere the user can see. That makes the reopen part of the gate, not an afterthought — and it is the step that turns "the MDL ran" into "the feature works," which the DONE rule above already insists on.

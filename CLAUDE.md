@@ -79,5 +79,69 @@ Each project's `CLAUDE.md`/`CLAUDE.local.md` references this clone and copies th
 
 **Project output never lives here** — `analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored. A project's build plan, `PROJECT.md`, and session notes live in that project's own repo; promote reusable patterns into `skills/learned-*.md` instead of accumulating project docs here.
 
+## Writing in this toolkit — generic first
+
+**Authoring rule. This section governs work *on* this repo. It is not shipped guidance:
+consuming projects load their own generated `CLAUDE.local.md`, and the per-tool files
+(`AGENTS.md`, `.github/copilot-instructions.md`, `.cursorrules`, `.windsurfrules`) are
+POINTERS, never copies — see `project-bin/check-root-clean.sh`.**
+
+> **Build it generic. Source-specific work stops at the extractor. Everything downstream of
+> the BRD must work for any input — extracted code, documents, SME interview, or requirements
+> typed by hand — and therefore lives in `bin/`, not in `pipelines/<platform>/`.**
+
+The BRD is the platform boundary. Upstream of it a source is OutSystems, Java, or a folder of
+epics. Downstream of it there are only entities, microflows, pages and use cases. This repo
+serves three entry modes (migration, requirements-driven, greenfield) plus à-la-carte use, and
+only the first of those runs a pipeline at all.
+
+**Where things go.**
+
+| Kind of thing | Home | Why |
+|---|---|---|
+| Reading a specific source shape | `pipelines/<platform>/extractors/` | genuinely per-stack; `extractor-quality-loop.md` governs building one for a new stack |
+| Anything reading BRDs | `bin/`, via `bin/lib/discover-brds.sh` | BRDs arrive from extractors, `kb-generation.md`, SME interviews, or by hand — the reader must not care |
+| Judgement, verdicts, gates | `skills/` | `skills-over-scripts.md` is the governing rule and it wins over this one |
+
+**Specialisation is the consumer's job, and it is already supported** — `extractor-quality-loop.md`
+(any stack: interface, validator contract, `run.sh`, 6 scored dimensions, 95% gate) plus three
+worked pipelines to copy. Do not add a scaffold that stamps those files out; a prose spec and
+worked examples are the correct form here.
+
+**Why this is written down (2026-08-19).** `generate-enrichment-report.js` — the Stage 2 surface
+— was built three times, once inside each pipeline, because nothing said it shouldn't be. The
+three copies drifted onto three different BRD shapes (`module` vs `modules[]`, `attributeCount`
+vs `attributes[]`, `a.to` vs `target`), so a BRD written by hand per `brd-generation.md` rendered
+a page of `undefined` and zeros that looked complete. Requirements-driven and greenfield projects
+got no Stage 2 surface at all, though `conversion-runbook.md` promises one unconditionally. The
+same disease had already been diagnosed one layer down a week earlier — see the header of
+`bin/lib/discover-brds.sh`: *"That is what duplication costs: the fix does not travel."*
+
+**Before adding any file under `pipelines/`, ask: does this read a source, or does it read a
+BRD?** If it reads a BRD, it is in the wrong directory.
+
 ## Adding new skills
 Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcli project | requirements-driven`, `**Purpose:**`, and a step-by-step guide. Add it to `README.md`'s "When to use which skill" table. **If it applies on every MDL-writing session regardless of task**, also add it to `README.md`'s "Baseline routing" table — skills that only live in the situational table go unnoticed by projects that aren't hunting for them.
+
+## Testing this toolkit — scoped by default
+
+`tests/wave2/run-all.sh` runs every fixture in the suite. **Do not run it as a reflex "did I
+break anything" check after a normal edit.** Run only the fixture(s) that exercise the file(s)
+you actually touched (e.g. changed `bin/open-questions.sh` → run `test-open-questions.sh`;
+changed `bin/gate-check.sh` → also run `test-bug03-gates.sh`, `test-source-sufficiency-gate.sh`,
+whatever else targets it). Grep `tests/wave2/` for the filename you changed if you're unsure
+which fixtures cover it.
+
+**Why:** this repo is routinely edited by more than one agent session at once (real incident,
+2026-08-19 — a peer session mid-edit reported known, unrelated failures already present in the
+shared working tree). A full-suite run over a moving target mixes someone else's in-flight
+breakage into your result and tells you nothing trustworthy about your own change — it looks
+like verification but isn't. It is also strictly slower for no more signal than the scoped run,
+since the untouched fixtures were never at risk.
+
+Run the full suite only when: the user explicitly asks for it, you are about to open a PR or
+close out a multi-file piece of work touching many parts of the toolkit, or you have reason to
+believe a change had wide blast radius (e.g. editing `bin/lib/skill-routing.tsv` and
+re-rendering, which touches README.md, ROUTING.md, every agent template, and `gate-check.sh`'s
+stage map at once — there, `bin/render-routing.sh --check` is the right scoped check, not the
+full suite).

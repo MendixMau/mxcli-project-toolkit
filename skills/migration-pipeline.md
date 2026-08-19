@@ -106,7 +106,10 @@ the repo). Same shapes, split across siblings:
       reports/                          ← gaps/coverage/summary .md
       brd/                              ← Phase 3 scaffolds + Phase 4 enriched BRDs
       extraction-report.html            ← raw extraction/gap dashboard
-      enrichment-summary.html           ← business-facing summary
+    brd-report.html                     ← Stage 2 business-facing BRD surface — note the level:
+                                          it sits in analysis/, not in a knowledge-base, because
+                                          bin/brd-report.sh reads EVERY knowledge base under the
+                                          project and renders one page over all of them
   os-migration-pipeline/                ← reusable tool, NO project-specific data
   java-angular-migration-skills/        ← reusable tool, NO project-specific data
 ```
@@ -115,8 +118,11 @@ Rules:
 
 1. Every pipeline's `config.json` must have a `knowledgeBaseDir` field pointing at
    `analysis/<source-repo-name>/knowledge-base` — every script (extractors, merger, `run.js`,
-   both report generators) reads its output location from `config.json`, never a hardcoded
-   path relative to the tool's own `__dirname`.
+   `generate-report.js`) reads its output location from `config.json`, never a hardcoded
+   path relative to the tool's own `__dirname`. `bin/brd-report.sh` is the exception and does
+   not read `config.json` at all: it takes the project root and finds every knowledge base
+   under it via `bin/lib/discover-brds.sh`, because it must also work on projects that have no
+   pipeline and therefore no `config.json`.
 2. Starting a new project always begins with creating `analysis/<source-repo-name>/` **inside
    the project root** (default layout) *before* running anything, then pointing
    `knowledgeBaseDir` there. Never as a sibling of the project folder unless you're

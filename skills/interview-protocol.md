@@ -247,3 +247,5 @@ A gate is a conversation with the user, not a script's exit code.
 - `skills/conversion-runbook.md` §1 — gate mechanics.
 - `skills/close-the-loop.md` — writing a decision back into `PROJECT.md`.
 - `skills/brd-generation.md` — the stage that must stop emitting bare questions.
+- `skills/grill-mode.md` — a fixed gate batch not enough on one topic? On-demand, sustained,
+  adaptive Q&A that follows up, invoked at any moment on any topic.

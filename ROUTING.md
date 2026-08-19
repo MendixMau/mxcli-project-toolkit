@@ -33,9 +33,11 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order | `skills/query-the-model.md` | all | P,0,1,2,3,4,5,6,7 | baseline |
 | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot | `skills/skills-over-scripts.md` | all | - | baseline |
 | Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn | `skills/interview-protocol.md` | ba,architect | P,0,1,2,3,4,5,6,7 | baseline |
+| Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough | `skills/grill-mode.md` | ba,architect | P,0,1,2,3,4,5,6,7 | ondemand |
 | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" | `skills/agent-roles.md` | all | P,4,5 | baseline |
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` | ba | 0 | baseline |
 | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source | `bin/source-sufficiency.sh` | ba | 0,1 | baseline |
+| Rendering a filled triage.md for review — the triage.html surface Stage 0 names. Renders only; the Stage 0 verdict stays with gate-check and the judgement with source-triage.md | `bin/triage-report.sh` | ba | 0 | ondemand |
 | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` | ba | 1,2,3 | baseline |
 | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done | `bin/facts-lock.sh` | ba | 2 | baseline |
 | Building any module — before the first script. The mdl-agent's single per-module input | `skills/module-brief.md` | ba,mdl | 4,5 | baseline |

@@ -170,6 +170,11 @@ And at **every** checkpoint, after the 2+1 questions: one standing open-floor qu
 
 **The packaged form of this protocol is a checkpoint — and checkpoints are mandatory where they exist.** `skills/checkpoints/` ships ready-made Context-Aware Checkpoints (CAC) for the six busiest transitions (scope, BRD, architecture, design, build, cutover) — each runs the protocol above as a "2 predefined questions + 1 open question" script, derived from what the pipeline actually found. Run the raw six steps only where no checkpoint exists. **A checkpoint fires *before* the next stage's artifacts are produced** — creating architecture diagrams or a design system before their checkpoint ran is a protocol violation: stop, run the checkpoint, and be prepared to throw the premature artifact away. Either way the decisions land in `PROJECT.md` — checkpoints keep no state file of their own.
 
+A checkpoint is fixed (2+1, one fire, no follow-up). When the user believes a topic needs more
+than that — "grill me on the security model" — see `skills/grill-mode.md`: on-demand, sustained,
+adaptive Q&A on one topic, invoked at any moment, that follows up on hedgy answers instead of
+stopping at two questions.
+
 ---
 
 ## 1b. The Live Checklist Protocol — Progress Is Shown in the Chat
@@ -283,8 +288,8 @@ with the extraction rows marked N/A rather than unanswered.
 | | |
 |---|---|
 | **User defines** | Reuse-vs-build-new extraction pipeline (agent proposes with a coverage matrix — two-way call, not three-way; see `source-triage.md`). Policy per missing dependency: acquire / stub / declare-not-implemented. Slice ordering if the source is too big for one pass — **a slice is an ordering, not an exclusion**. |
-| **Agent produces** | `assessment.md` (inventory, 6 areas, risks), `triage.md` (pipeline decision, capability + coverage matrix, boundary handling, multi-app flag). If "build new": the new extractor, validated against hand-built ground truth. |
-| **Surface** | `source-sufficiency.html`, `triage.html` |
+| **Agent produces** | `assessment.md` (inventory, 6 areas, risks), `triage.md` (pipeline decision, capability + coverage matrix, boundary handling, multi-app flag) — **scaffolded by `bin/init-project.sh`**, so it is filled in rather than composed from memory. If "build new": the new extractor, validated against hand-built ground truth. |
+| **Surface** | `source-sufficiency.html` (`bin/source-sufficiency.sh report`), `triage.html` (`bin/triage-report.sh <project>`) |
 | **Gate ✋** | User signs off on the extraction-pipeline decision, every missing-dependency policy, the interview mode the sufficiency report recommends, and each shape-changing gap. No BRDs are written before this. |
 | **Owner** | `ba-agent` |
 
@@ -306,7 +311,7 @@ Three extraction methods, not two. Each is either **done** or **explicitly decla
 |---|---|
 | **User defines** | Confirms business rules the code implies. Answers `openQuestions` (via SME). Narrative is never invented. |
 | **Agent produces** | BRD scaffolds → enrichment from `KB.md` → validation to clean. `F{NNN}.brd.json`. |
-| **Surface** | `enrichment-summary.html` |
+| **Surface** | `analysis/brd-report.html` — `bin/brd-report.sh <project-root>`. One renderer for every entry mode: it reads BRDs, not source, so a requirements-driven or greenfield project gets the same surface as a migration, and so does a BRD no extractor produced. Each section carries a `report-schema.md` verdict, so a section that is empty because this kind of BRD has nothing to put there reads differently from one that is empty because something broke. Until 2026-08-19 this was `enrichment-summary.html`, built three times inside three pipelines against three different BRD key shapes — each copy rendered blanks for the other two’s output, and non-migration projects got no surface at all despite this row promising one. |
 | **Gate** | Every BRD validation-clean; `validation-report.md` has 0 issues; **every `openQuestions` entry raised in chat** — `bin/open-questions.sh <root> --stage 2` reports 0 blocking, which `gate-check.sh` enforces. "Chased to closure" was the old wording and it was unenforceable: a question logged with a self-answer read as closed. |
 | **Owner** | `ba-agent` |
 

@@ -27,11 +27,18 @@ node run.js 3
 # 3. Phase 4 — enrich the BRDs (human/conversational step, not mechanical — see
 #    migration-pipeline.md's "extractors capture structure, mappers/review supply narrative")
 
-# 4. Generate both reports
+# 4. Generate the extraction dashboard
 npm run reports
 # → <knowledgeBaseDir>/extraction-report.html      (raw extraction + gaps, interactive drilldown)
-# → <knowledgeBaseDir>/enrichment-summary.html      (business-facing: app overview, modules,
-#                                              entities, functions, use cases, open questions)
+
+# 5. Stage 2 — the business-facing BRD surface
+../../../bin/brd-report.sh <project-root>
+# → <project-root>/analysis/brd-report.html
+#
+# Not a pipeline script and deliberately not in this folder: it reads BRDs, not source, so it
+# is the same renderer for every entry mode (migration, requirements-driven, greenfield) and
+# for BRDs that no extractor produced. It replaced this pipeline's own
+# generate-enrichment-report.js on 2026-08-19 — see CLAUDE.md, "Writing in this toolkit".
 ```
 
 Set `javaSourceDir`, `angularSourceDir`, and **`knowledgeBaseDir`** in `pipeline/config.json` before
@@ -96,7 +103,8 @@ java-angular/
     config.json                  ← source paths
     run.js                       ← phase orchestrator (node run.js <1|2|3|all> [java|angular])
     generate-report.js           ← raw extraction/gap HTML dashboard
-    generate-enrichment-report.js ← business-facing enrichment summary HTML
+                                 ← (no enrichment report here: the business-facing Stage 2
+                                    surface is bin/brd-report.sh, one renderer for every source)
     extractors/
       java-extractor.js          ← tree-sitter-java: @Entity/@RestController/@Service
       angular-extractor.js       ← tree-sitter-typescript: components/routes/dialogs/forms

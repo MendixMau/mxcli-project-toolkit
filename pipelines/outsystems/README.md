@@ -19,11 +19,18 @@ node run.js 2 xml
 # 2. Generate BRD scaffolds (one .brd.json per module)
 node run.js 3
 
-# 3. Build the HTML reports and open them
+# 3. Build the extraction dashboard and open it
 npm run reports
 # → knowledge-base/extraction-report.html      (raw extraction/gap dashboard)
-# → knowledge-base/enrichment-summary.html     (business-facing summary — functions, use cases,
-#                                               rules, integrations; hero via config.json "project")
+
+# 4. Stage 2 — the business-facing BRD surface
+../../../bin/brd-report.sh <project-root>
+# → <project-root>/analysis/brd-report.html
+#
+# Not a pipeline script and deliberately not in this folder: it reads BRDs, not source, so it
+# is the same renderer for every entry mode (migration, requirements-driven, greenfield) and
+# for BRDs that no extractor produced. It replaced this pipeline's own
+# generate-enrichment-report.js on 2026-08-19 — see CLAUDE.md, "Writing in this toolkit".
 ```
 
 Set your source paths in `pipeline/config.json` before running.

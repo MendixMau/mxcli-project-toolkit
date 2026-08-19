@@ -81,6 +81,12 @@ produced `generate-enrichment-report.js` — a business-facing summary (app over
 entities/functions/pages/use-cases/hidden-rules/open-questions), reading only from the enriched
 BRD JSON so its numbers are never hand-typed.
 
+> **Retired 2026-08-19.** `generate-enrichment-report.js` was deleted from all three pipelines.
+> It had been copied into each of them and the three copies drifted onto three different BRD
+> key shapes, so each one rendered blanks for the other two's output — and no non-migration
+> project got the surface at all. Its replacement is `bin/brd-report.sh`, one source-agnostic
+> renderer. The reasoning above still holds; only its address changed.
+
 Two more real findings surfaced by actually looking at the screenshots, not just the code:
 - **"Item History" is a dead nav link.** `sidenav-menu-items.component.ts` advertises
   `routerLink: ['/items/history']`, but no such route exists, and no screen anywhere calls the

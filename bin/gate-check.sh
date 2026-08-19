@@ -856,15 +856,15 @@ stage_protocol_paths() {
   # every stage as "(unmapped)" — noisy by design, but only after someone hits it.
   case "$1" in
 # <!-- ROUTING:BEGIN stage-map -->
-    P)  echo "skills/interview-protocol.md skills/agent-roles.md skills/bootstrap-project.md" ;;
-    0)  echo "skills/interview-protocol.md skills/source-triage.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md" ;;
-    1)  echo "skills/interview-protocol.md skills/migration-pipeline.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md" ;;
-    2)  echo "skills/interview-protocol.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
-    3)  echo "skills/interview-protocol.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md" ;;
-    4)  echo "skills/interview-protocol.md skills/agent-roles.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md" ;;
-    5|build-ready) echo "skills/interview-protocol.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md" ;;
-    6)  echo "skills/interview-protocol.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/lint-that-actually-runs.md" ;;
-    7)  echo "skills/interview-protocol.md skills/close-the-loop.md" ;;
+    P)  echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/bootstrap-project.md" ;;
+    0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/source-triage.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md" ;;
+    1)  echo "skills/interview-protocol.md skills/grill-mode.md skills/migration-pipeline.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md" ;;
+    2)  echo "skills/interview-protocol.md skills/grill-mode.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
+    3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md" ;;
+    4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md" ;;
+    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md" ;;
+    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/lint-that-actually-runs.md" ;;
+    7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/close-the-loop.md" ;;
     *)  echo "" ;;
 # <!-- ROUTING:END -->
   esac
@@ -1248,6 +1248,58 @@ fi
 printf "Open questions (raised?): %s — %s\n" "$OQ_STATUS" "$OQ_NOTE"
 
 # ---------------------------------------------------------------------------
+# Source sufficiency — was the source actually characterised, or did Stage 0
+# pass on nobody having looked?
+#
+# bin/source-sufficiency.sh exists to force exactly this: open every source file, rate each
+# dimension, band the verdict. Before this check, nothing ever confirmed it ran — Stage 0 passed
+# on a triage.md sign-off alone, the same "instrument built, never wired to a gate" gap Open
+# Questions used to have.
+#
+# A thin source is not a failure — the instrument's own design note says so: exit 0 for a thin
+# source, the verdict is information, not a refusal. Only "nobody ran it" (no rubric, or pass
+# 1/pass 2 left incomplete) fails here.
+#
+# BLOCKS Stage 0 only (enforced below, where the requested stage is known) — this is the
+# project's own state, not toolkit hygiene, same reasoning as Open Questions.
+SUFF_STATUS="PASS"
+SUFF_NOTE="source sufficiency assessed"
+SUFF_SCRIPT="$TOOLKIT_DIR/bin/source-sufficiency.sh"
+if [ ! -x "$SUFF_SCRIPT" ]; then
+  SUFF_STATUS="MANUAL"
+  SUFF_NOTE="bin/source-sufficiency.sh not found or not executable at $SUFF_SCRIPT — cannot evaluate, which is not a pass"
+elif ! command -v jq >/dev/null 2>&1; then
+  SUFF_STATUS="MANUAL"
+  SUFF_NOTE="jq not installed — cannot read the source-sufficiency report; cannot evaluate, which is not a pass"
+else
+  SUFF_OUT="$("$SUFF_SCRIPT" report "$PROJECT_DIR" --json --quiet 2>&1)"; SUFF_RC=$?
+  case "$SUFF_RC" in
+    0)
+      suff_band="$(printf '%s' "$SUFF_OUT" | jq -r '.band // "unknown"' 2>/dev/null || echo unknown)"
+      suff_pct="$(printf '%s' "$SUFF_OUT" | jq -r '.pct // "?"' 2>/dev/null || echo '?')"
+      SUFF_NOTE="assessed: band=$suff_band pct=$suff_pct — a thin verdict is information, not a refusal"
+      ;;
+    3)
+      SUFF_STATUS="FAIL"
+      SUFF_NOTE="source was never characterised, or the assessment is incomplete — run: $SUFF_SCRIPT init $PROJECT_DIR (then fill in pass 1/pass 2), then $SUFF_SCRIPT report $PROJECT_DIR. $(printf '%s' "$SUFF_OUT" | grep -v '^source-sufficiency: this rubric predates' | tail -3 | tr '\n' ' ')"
+      ;;
+    4)
+      SUFF_STATUS="FAIL"
+      SUFF_NOTE="source-sufficiency rubric is invalid: $(printf '%s' "$SUFF_OUT" | tail -3 | tr '\n' ' ')"
+      ;;
+    2)
+      SUFF_STATUS="MANUAL"
+      SUFF_NOTE="source-sufficiency.sh usage error — cannot evaluate, which is not a pass: $(printf '%s' "$SUFF_OUT" | tail -3 | tr '\n' ' ')"
+      ;;
+    *)
+      SUFF_STATUS="MANUAL"
+      SUFF_NOTE="source-sufficiency.sh report exited $SUFF_RC (unexpected) — cannot evaluate, which is not a pass"
+      ;;
+  esac
+fi
+printf "Source sufficiency (assessed?): %s — %s\n" "$SUFF_STATUS" "$SUFF_NOTE"
+
+# ---------------------------------------------------------------------------
 # Skill routing — do the rendered surfaces still match the table?
 #
 # Every routing surface (README's two tables, the runbook's baseline block, each agent
@@ -1386,6 +1438,8 @@ HTML_HEAD
     "$DRIFT_STATUS" "$DRIFT_STATUS" "$DRIFT_NOTE"
   printf '<tr><td>?</td><td>Open questions raised</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$OQ_STATUS" "$OQ_STATUS" "$(printf '%s' "$OQ_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
+  printf '<tr><td>~</td><td>Source sufficiency assessed</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
+    "$SUFF_STATUS" "$SUFF_STATUS" "$(printf '%s' "$SUFF_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
   printf '<tr><td>P</td><td>Kickoff</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$P_STATUS" "$P_STATUS" "$P_NOTE"
   for stage in "${STAGE_NAMES[@]}"; do
@@ -1442,6 +1496,15 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "" >&2
     echo "Gate BLOCKED by unsynced BRD drift: $DRIFT_NOTE" >&2
     printf '%s\n' "$UNSYNCED_ROWS" >&2
+    exit 1
+  fi
+  # Stage 0 does not pass while the source was never characterised. Scoped to Stage 0 only —
+  # later stages do not re-check it, same as Open Questions is not re-derived per stage beyond
+  # its own scoping — this is the one place the toolkit already knows the source should have
+  # been graded before anything gets built on top of it.
+  if [ "$REQUESTED_STAGE" = "0" ] && [ "$SUFF_STATUS" = "FAIL" ]; then
+    echo "" >&2
+    echo "Gate BLOCKED by source sufficiency: $SUFF_NOTE" >&2
     exit 1
   fi
   # No gate passes while questions this stage owns were never put to the user.

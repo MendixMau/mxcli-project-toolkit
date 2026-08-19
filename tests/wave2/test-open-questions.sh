@@ -161,6 +161,13 @@ brd "$P" "F001.brd.json" '[{"id":"Q1","question":"a","status":"Open, moot for th
 [ "$(state_of "$P" Q1)" = "MOOT" ] && ok "'Open, moot for this BRD' is MOOT" || bad "should be MOOT" "$(state_of "$P" Q1)"
 [ "$(state_of "$P" Q2)" = "UNRAISED" ] && ok "'moot' buried mid-sentence does NOT excuse the question" || bad "buried moot must not pass" "$(state_of "$P" Q2)"
 
+# --- 11b. "Not relevant" is a real answer, not UNRECOGNISED -----------------
+P="$(mkproj not-relevant)"
+brd "$P" "F001.brd.json" '[{"id":"Q1","question":"a","status":"Not relevant — legacy-only, we no longer support that flow."},{"id":"Q2","question":"b","status":"Irrelevant"}]'
+[ "$(state_of "$P" Q1)" = "MOOT" ] && ok "'Not relevant — <reason>' is MOOT" || bad "should be MOOT" "$(state_of "$P" Q1)"
+[ "$(blocking_of "$P")" = "0" ] && ok "a 'not relevant' answer does not block" || bad "'not relevant' must not block" "$(blocking_of "$P")"
+[ "$(state_of "$P" Q2)" = "MOOT" ] && ok "bare 'Irrelevant' is still MOOT (no reason required to pass)" || bad "should be MOOT" "$(state_of "$P" Q2)"
+
 # --- 12. --stage filters, and earlier-stage debt carries forward -----------
 P="$(mkproj staged)"
 brd "$P" "F001.brd.json" '[{"id":"Q1","question":"a","status":"Open"},{"id":"Q2","question":"b","status":"Open — deferred to Stage 4 architecture"}]'

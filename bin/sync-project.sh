@@ -10,6 +10,10 @@
 #     script is REPORTED, never overwritten, unless --upgrade-bin names it (and then the local
 #     copy is backed up first). Six of this machine's projects have hand-hardened their
 #     exec.sh; a blind-overwrite sync would have destroyed all six.
+#   - triage.md: installs it if the project predates the Stage 0 scaffold, refreshes it only
+#     while it is still an untouched scaffold, and otherwise KEEPS it. Same contract as the
+#     agent stubs below, not the intake one — a triage document has no per-question unit to
+#     append to.
 #   - agent stubs: refreshes only PURE stubs (still carry the STUB marker and at least one
 #     {{PLACEHOLDER}} — i.e. nobody completed them). Completed agents are never touched;
 #     they get a "review against current template" note instead.
@@ -50,6 +54,10 @@ AGENTS="$MXTK_AGENTS"
 # drop the false-green marker and this copy kept it, so --repair-intake would have written a
 # passing marker into a question nobody had asked.
 . "$SCRIPT_DIR/lib/intake-template.sh"
+
+# The triage.md template, and the predicate that says whether a project's copy is still an
+# untouched scaffold. Same one-copy arrangement, same reason.
+. "$SCRIPT_DIR/lib/triage-template.sh"
 
 # Is this agent file an UNTOUCHED stub (safe to overwrite), or completed work?
 # Two conditions, both required: it still carries the STUB GENERATED banner AND it still
@@ -411,6 +419,46 @@ MXTK_APPEND_EOF
   fi
 else
   echo "Note: no intake.md — run bin/init-project.sh first if this project uses the pipeline."
+fi
+
+# --- 1b. triage.md: install if missing, refresh only an UNTOUCHED scaffold ----------------
+# Deliberately the agent-stub contract (section 2 below), not the intake contract (section 1).
+#
+# intake.md is APPENDED to question by question, because its unit is a question and a project
+# may legitimately have answered eight of nine. triage.md has no such unit: it is one document
+# whose sections are cross-referenced, and merging a new Coverage Matrix header into a filled-in
+# one is an LLM job, not a sed job. So: missing -> install; still-pristine scaffold -> refresh
+# wholesale; touched -> KEEP and report, exactly as a completed agent is kept.
+#
+# mxtk_triage_is_pristine() (bin/lib/triage-template.sh) is the marker+placeholder test that
+# is_pure_stub() uses for agents. It lives beside the template so the two cannot drift.
+#
+# Installed at the PROJECT ROOT, which is where init-project.sh writes it and the first of the
+# two locations gate-check.sh's resolve_stage_file() looks. If this project keeps its Stage 0
+# source under analysis/<name>/ instead, that copy is found first by the human and this one
+# would be a second, differing triage.md — which check_stage_0 refuses as AMBIGUOUS. So a
+# nested copy suppresses the install rather than racing it.
+TRIAGE="$PROJECT_DIR/triage.md"
+TRIAGE_NESTED=""
+for _t in "$PROJECT_DIR"/analysis/*/triage.md; do
+  # `|| true`: with no match the glob stays literal, the test fails, and the for loop's exit
+  # status becomes the failing test's — which under `set -e` would abort the whole sync.
+  [ -f "$_t" ] && TRIAGE_NESTED="$_t" || true
+done
+if [ -n "$TRIAGE_NESTED" ] && [ ! -f "$TRIAGE" ]; then
+  echo "Kept: $TRIAGE_NESTED is this project's Stage 0 triage — not adding a second copy at the root."
+elif [ ! -f "$TRIAGE" ]; then
+  mxtk_triage_template | w_to "$TRIAGE"
+  echo "${DRY:-}Created: triage.md (Stage 0 scaffold — new since this project was scaffolded)"
+  CHANGES=$((CHANGES + 1))
+elif mxtk_triage_is_pristine "$TRIAGE"; then
+  if ! mxtk_triage_template | cmp -s - "$TRIAGE"; then
+    mxtk_triage_template | w_to "$TRIAGE"
+    echo "${DRY:-}Refreshed: triage.md (was an untouched scaffold; template has changed)"
+    CHANGES=$((CHANGES + 1))
+  fi
+else
+  echo "Kept: triage.md has been worked on — not overwritten. Re-read skills/source-triage.md if the toolkit moved."
 fi
 
 # --- 2. Agent stubs: refresh pure stubs, report completed ones --------------------------

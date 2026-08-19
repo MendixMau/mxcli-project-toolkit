@@ -79,6 +79,20 @@ else
 fi
 echo
 
+# ---- done-drift: gate-clean scripts unrenamed, build-plan staleness ---
+# Backstop only — exec.sh already prints the rename reminder at the moment of a clean
+# gate pass. This catches anything missed at that moment, e.g. scripts gated before the
+# reminder existed, or a rename someone forgot to follow through on.
+DRIFT_SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/done-drift-check.sh"
+if [ -x "$DRIFT_SCRIPT" ]; then
+  drift_out=$("$DRIFT_SCRIPT" "$ROOT" 2>/dev/null)
+  if printf '%s\n' "$drift_out" | grep -qE '^- `|may be stale'; then
+    printf '%s\n' "$drift_out" | tail -n +3
+    echo
+    owed=1
+  fi
+fi
+
 # ---- unfiled carry-over from the last checkpoint -----------------------
 if [ -f "$CKPT" ]; then
   # Only look at the most recent checkpoint block.

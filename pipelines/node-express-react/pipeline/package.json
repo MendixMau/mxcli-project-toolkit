@@ -7,7 +7,7 @@
     "extract": "node run.js 2",
     "brd": "node run.js 3",
     "all": "node run.js all",
-    "reports": "node generate-report.js && node generate-enrichment-report.js"
+    "reports": "node generate-report.js"
   },
   "dependencies": {},
   "devDependencies": {}

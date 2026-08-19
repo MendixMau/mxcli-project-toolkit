@@ -57,6 +57,7 @@ MARK_START="mxtk:wiring:start"
 MARK_END="mxtk:wiring:end"
 
 PROJECT_DIR=""
+MXCLI_HINT='`./mxcli`, not `mxcli`.** The binary is in the project root, never on PATH.'
 WITH_COPIES=""
 CHECK_ONLY=""
 DRY=""
@@ -97,7 +98,7 @@ emit_stamp() {
 3. **Never run \`./mxcli exec\`, \`./bin/exec.sh\`, \`mxcli test\`, \`mxcli docker check\`, or any
    \`--mcp\` write against the real \`.mpr\` without asking the user first — every time.** All of
    those mutate the model; the last two mutate it despite sounding read-only.
-4. **\`./mxcli\`, not \`mxcli\`.** The binary is in the project root, never on PATH.
+4. **$MXCLI_HINT
 5. **No new \`.md\`/\`.html\` in the project root.** Use docs/ architecture/ analysis/ design/.
    \`bin/check-root-clean.sh\` fails the build on strays.
 
@@ -193,13 +194,35 @@ if [ -n "$WITH_COPIES" ]; then
   echo "Including opt-in tools ($OPTIN_TOOLS): adds ~54k lines of duplicated skill copies."
 fi
 
-MXCLI="$PROJECT_DIR/mxcli"
-if [ ! -x "$MXCLI" ]; then
+# Find mxcli. A project-local binary wins, because that is what the project's own docs and the
+# guard-chain scripts call — but plenty of developers install it once and put it on PATH, and
+# the first version of this script simply gave up on them: zero files wired, plus a message
+# telling them to copy a binary they already had. Reported 2026-08-18.
+if [ -x "$PROJECT_DIR/mxcli" ]; then
+  MXCLI="$PROJECT_DIR/mxcli"
+  MXCLI_HOW="project-local"
+elif command -v mxcli >/dev/null 2>&1 && mxcli --help >/dev/null 2>&1; then
+  # Probed by EXECUTING, per bin/lib/portable.sh: a name on PATH is not necessarily a runnable
+  # program (on Windows it is routinely a Store alias stub that opens a shop instead).
+  MXCLI="$(command -v mxcli)"
+  MXCLI_HOW="on PATH"
+else
   # Not fatal: init-project.sh scaffolds docs before the binary is necessarily in place, and
   # failing the whole scaffold over a missing optional step is worse than saying so plainly.
-  echo "No executable ./mxcli in $PROJECT_DIR — skipping generation."
-  echo "Put the binary in the project root, then re-run: bin/wire-agents.sh $PROJECT_DIR"
+  echo "mxcli not found — not in $PROJECT_DIR and not runnable on PATH. Skipping generation."
+  echo "Install it, or drop the binary in the project root, then re-run:"
+  echo "  bin/wire-agents.sh $PROJECT_DIR"
   exit 0
+fi
+echo "Using mxcli ($MXCLI_HOW): $MXCLI"
+
+# The stamp must tell the truth about THIS project. Telling a PATH user "the binary is in the
+# project root, never on PATH" is not a harmless inaccuracy — it is a wrong instruction copied
+# into six files, and it contradicts what they can see in their own shell.
+if [ "$MXCLI_HOW" = "project-local" ]; then
+  MXCLI_HINT='`./mxcli`, not `mxcli`.** The binary is in the project root, never on PATH.'
+else
+  MXCLI_HINT='`mxcli` is on your PATH.** This project has no local copy; plain `mxcli` is correct here.'
 fi
 
 # Preserve anything that already exists. `mxcli init` overwrites AGENTS.md and CLAUDE.md
@@ -223,10 +246,10 @@ TOOL_ARGS=""
 for t in $TOOLS; do TOOL_ARGS="$TOOL_ARGS --tool $t"; done
 
 if [ -n "$DRY" ]; then
-  echo "${DRY}Would run: ./mxcli init$TOOL_ARGS"
+  echo "${DRY}Would run: $MXCLI init$TOOL_ARGS"
 else
   echo "Running: ./mxcli init$TOOL_ARGS"
-  ( cd "$PROJECT_DIR" && ./mxcli init $TOOL_ARGS >/dev/null 2>&1 ) || {
+  ( cd "$PROJECT_DIR" && "$MXCLI" init $TOOL_ARGS >/dev/null 2>&1 ) || {
     echo "wire-agents.sh: mxcli init failed. Nothing was stamped; your backups are in .mxtk-backup/." >&2
     exit 1
   }

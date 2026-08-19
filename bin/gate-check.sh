@@ -925,7 +925,10 @@ stage_surface_status() {
     hit=0
     for base in "$PROJECT_DIR" "$ANALYSIS_BASE"; do
       # Unmatched globs stay literal with nullglob off, so -e is the whole test.
-      for f in $base/$pat; do [ -e "$f" ] && { hit=1; break 2; }; done
+      # "$base"/$pat, not $base/$pat: the base must be quoted (a project path with a space in
+      # it word-splits otherwise and every surface reports MISSING), the pattern must not be
+      # (it has to glob). Same idiom as the analysis/*/knowledge-base scan above.
+      for f in "$base"/$pat; do [ -e "$f" ] && { hit=1; break 2; }; done
     done
     [ "$hit" = "1" ] || missing="$missing${missing:+, }$pat"
   done

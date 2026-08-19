@@ -22,6 +22,8 @@ There are three write modes, and they are **co-equal tools chosen by the shape o
 
 Once you've picked a mode per operation, run the STOP table below against every one of them — it overrides your pick whenever an operation falls in the corrupting set.
 
+**Also decide, per document, where it lands.** Any operation that *creates* a document — page, snippet, microflow, nanoflow — needs its folder chosen now and written into the `folder` property of the same statement, not fixed afterwards. Read the path off the brief's `### Document folder plan`; when there is no row for it, derive it per `module-folder-convention.md` ("Deciding the path"), and escalate rather than guess when the feature group is unclear. Omitting `folder` is legal MDL that silently drops the document at module root — no error, no gate, and a cleanup job later that nobody schedules.
+
 **Companion skills:** `learned-mcp-patterns.md` (MCP alternatives), `bug-logs/mxcli-bugs.md` (bug detail), `iterative-build-loop.md` (exec discipline), `learned-microflow-patterns.md` (annotation + inline assoc rules)
 
 ---

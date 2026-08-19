@@ -116,7 +116,9 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
      association to the unit/location it's for is a broken golden path even though it "saved" — a real
      WMS incident. List every association the action must set here so the mdl-agent writes them and
      the review loop can verify them. Note: inline assoc-sets hit learned-mdl-preflight rule 9 (route
-     to `--mcp`, never drop the set to dodge the STOP). -->
+     to `--mcp`, never drop the set to dodge the STOP) on mxcli v0.16.0 — resolved in v0.17.0, see
+     rule 9's 2026-08-11 update; check which binary the target project is pinned to before assuming
+     either behavior. -->
 
 ### Open business questions
 - [ ] <anything unresolved — mdl-agent must escalate, not guess>
@@ -129,6 +131,25 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
 | Element | CLI / MCP+MDL / hand-rolled MCP | Why |
 |---------|--------------------------------|-----|
 
+### Document folder plan  (layout: module-folder-convention.md — feature group, then type)
+<!-- Type folders: Pages | Microflows (nanoflows too) | Services | Resources, plus
+     module-level Common/. module-folder-convention.md carries the per-type table, incl.
+     which types mxcli can place at creation and which need a MOVE or Studio Pro. -->
+- **Feature groups:** <RouteDefinition, Sequencing, Assignment> · plus `Common/` if module-wide docs exist
+
+| Document | Folder |
+|----------|--------|
+| e.g. Route_Overview | `RouteDefinition/Pages` |
+| e.g. ACT_Route_Save | `RouteDefinition/Microflows` |
+| e.g. SUB_Route_Publish | `RouteDefinition/Services` |
+| e.g. RouteStatus (enum) | `RouteDefinition/Resources` — no create-time folder, needs `move enumeration` |
+<!-- Naming the feature groups is an ARCHITECTURE call, which is why it lives here and not in the
+     mdl-agent. An agent improvising a group per script is how one module ends up with three
+     schemes. One row per document to be built in this phase; the mdl-agent copies the path into
+     the `folder` property and never invents one. A document with no row and no derivable feature
+     (module-folder-convention.md, "Deciding the path") is escalated, NOT swept into Common/. -->
+
+
 ### Cross-module dependencies & integrations
 - Depends on: <ModuleX.Entity via assoc> · Integrations: <stub | real>
 
@@ -140,6 +161,7 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
 - [ ] Access table covers every page, microflow, and entity to be built
 - [ ] No open business question blocks the elements in this build phase
 - [ ] Write mode chosen for every element that hits a learned-mdl-preflight STOP row
+- [ ] Folder plan names the module's feature groups and covers every document to be built
 ```
 
 ---

@@ -490,6 +490,28 @@ if [ "$WIRED" -eq 1 ]; then
   CHANGES=$((CHANGES + ${MXTK_LINT_CHANGES:-0}))
 fi
 
+# ── Agent entry points ───────────────────────────────────────────────────────────────────
+# Same story as the lint rules directly above, for the same reason: `mxcli init` regenerates
+# AGENTS.md, CLAUDE.md and the per-tool pointer files, dropping the block that routes an agent
+# to RESUME.md. Without this call the wiring only ever reached projects created AFTER it
+# existed — and the projects most likely to be opened in Copilot or Cursor are the ones already
+# in flight, not the ones scaffolded today. WMS-Demo-main sat unwired for exactly that reason.
+#
+# Safe by construction, matching this script's contract: wire-agents.sh preserves every file
+# that already exists, backs up to .mxtk-backup/, and reports what it suppressed rather than
+# adopting it. It is a no-op on a project that is already wired.
+#
+# Gated on WIRED like the two blocks above, so a mistyped path cannot scatter tool config into
+# an unrelated directory.
+if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/wire-agents.sh" ]; then
+  WA_ARGS=""
+  [ "$DRY_RUN" -eq 1 ] && WA_ARGS="--dry-run"
+  if ! "$SCRIPT_DIR/wire-agents.sh" "$PROJECT_DIR" $WA_ARGS; then
+    warn "Agent wiring did not complete. Everything else in this sync stands; re-run:"
+    warn "  $SCRIPT_DIR/wire-agents.sh $PROJECT_DIR"
+  fi
+fi
+
 echo ""
 VERB="updated"; [ "$DRY_RUN" -eq 1 ] && VERB="would be updated"
 if [ "$CHANGES" -gt 0 ]; then

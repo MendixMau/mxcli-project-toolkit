@@ -11,8 +11,38 @@
 # Bash 3.2 compatible on purpose: `env bash` on stock macOS is 3.2.57. No
 # mapfile, no readarray, no associative arrays, no ${var,,}.
 
-# Resolve the project root from the sourcing script's location (bin/ -> ..).
-PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}")/.." && pwd)}"
+# Resolve the project root. Three tiers, because these scripts run from two places.
+#
+#   1. $PROJECT_ROOT, if the caller set it — always wins.
+#   2. The sourcing script's location (bin/ -> ..), when that parent IS a project.
+#      This is the installed-copy case: <project>/bin/verify-module.sh.
+#   3. The current directory's project root, found by walking up for an .mpr.
+#
+# Tier 3 is why this is not a one-liner any more. The toolkit's own copy of these
+# scripts used to resolve tier 2 to the TOOLKIT, so running
+#     ~/mxcli-project-toolkit/project-bin/verify-module.sh <Module>
+# from inside a project pointed every instrument at the toolkit, which has no .mpr
+# and no tests/e2e — and the run reported instrument faults rather than saying the
+# obvious thing, that it was aimed at the wrong directory. Copying the script into
+# every project was the workaround. Tier 3 removes the need for it: the shared
+# toolkit copy now works from inside any wired project, no env var, no install.
+_mxtk_resolve_root() {
+  local self_parent d
+  self_parent=$(cd "$(dirname "${BASH_SOURCE[2]:-${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}}")/.." 2>/dev/null && pwd)
+  # tier 2: the script sits in a real project's bin/
+  if [ -n "$self_parent" ] && ls "$self_parent"/*.mpr >/dev/null 2>&1; then
+    printf '%s\n' "$self_parent"; return 0
+  fi
+  # tier 3: walk up from $PWD looking for the .mpr
+  d=$(pwd)
+  while [ "$d" != "/" ]; do
+    if ls "$d"/*.mpr >/dev/null 2>&1; then printf '%s\n' "$d"; return 0; fi
+    d=$(dirname "$d")
+  done
+  # nothing found: keep the old behaviour so the caller's own error is the one seen
+  printf '%s\n' "${self_parent:-$(pwd)}"
+}
+PROJECT_ROOT="${PROJECT_ROOT:-$(_mxtk_resolve_root)}"
 
 # ---------------------------------------------------------------------------
 # find_mpr — echo the project's single .mpr, or fail loudly.

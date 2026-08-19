@@ -38,6 +38,29 @@ ROOT="$PROJECT_ROOT"
 cd "$ROOT" || exit 2
 BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# _tool NAME — where does this helper script actually live?
+#
+# BIN above is the directory THIS script sits in, which is only the project's bin/
+# when the script was copied into the project. Run the shared toolkit copy against a
+# project instead and BIN is the toolkit's project-bin/ — so a helper the project has
+# in its own bin/ is invisible, and the run reports "not installed" for a file that is
+# right there. Measured on WMS-Demo 2026-08-19: coverage-check.sh and review-module.sh
+# both existed in <project>/bin/ and both came back INSTRUMENT FAULT.
+#
+# Search order, most specific first:
+#   1. <project>/bin  — the project's own, possibly tuned, copy wins
+#   2. $BIN           — alongside this script (the installed-copy case)
+#   3. $MXTK_ROOT/bin and $MXTK_ROOT/project-bin — the shared toolkit
+# Echoes the first hit; echoes <project>/bin/NAME when there is none, so the caller's
+# own "not found" message names the place a reader would look first.
+_tool() {
+  local n="$1" d
+  for d in "$ROOT/bin" "$BIN" "${MXTK_ROOT:-}/bin" "${MXTK_ROOT:-}/project-bin"; do
+    [ -n "$d" ] && [ -x "$d/$n" ] && { printf '%s\n' "$d/$n"; return 0; }
+  done
+  printf '%s\n' "$ROOT/bin/$n"
+}
+
 MODULE="${1:-}"
 [ -n "$MODULE" ] && [ "${MODULE#--}" = "$MODULE" ] || {
   sed -n '2,40p' "$0"; exit 2; }
@@ -158,26 +181,40 @@ echo "══ verify-module: $MODULE ══  $STAMP"
 # actually "nothing was listening". test-stack-up --check also resolves and PUBLISHES the real port,
 # so the runtime instruments below cannot be pointed at a guessed one.
 STACK_OK=0
-if [ -x "$BIN/test-stack-up.sh" ]; then
+if [ -x "$(_tool test-stack-up.sh)" ]; then
   run "stack (test-stack-up --check)" "$OUTDIR/00-stack.log" gate 60 -- \
-    "$BIN/test-stack-up.sh" --check
+    "$(_tool test-stack-up.sh)" --check
   grep -q "^stack (test-stack-up --check)	PASS" "$SUMMARY" && STACK_OK=1
+  # "app up with a caveat" is not "app down", and reporting it as one sends the reader
+  # to debug a stack that is running fine. test-stack-up exits 1 for BOTH "nothing is
+  # listening" and "the app is serving but something around it is wrong" (on 2026-08-19:
+  # the Dockerised app could not reach the host mock). Split them: STACK_UP is about
+  # whether anything answers, STACK_WHY carries the real reason downstream.
+  STACK_UP=0; STACK_WHY=""
+  if grep -q "App serving on" "$OUTDIR/00-stack.log" 2>/dev/null; then
+    STACK_UP=1
+    # Match on CONTENT, not on the leading marker: the log is coloured, so the "!" is
+    # preceded by an ANSI escape and "^\s*!" never matches. Strip escapes, then filter.
+    STACK_WHY=$(sed $'s/\033\[[0-9;]*m//g' "$OUTDIR/00-stack.log" 2>/dev/null \
+                | grep -E "CANNOT|INVALID|not serving|→" | head -4 \
+                | sed 's/^[[:space:]]*/      /')
+  fi
 else
   fault "stack (test-stack-up --check)" "bin/test-stack-up.sh not installed" \
         "Without it the app port is a guess, so no runtime instrument below can be trusted."
 fi
 
 # ── 1. Model-side instruments (no app required) ─────────────────────────────
-if [ -x "$BIN/conformance-check.sh" ]; then
+if [ -x "$(_tool conformance-check.sh)" ]; then
   run "conformance (ledger claims vs live model)" "$OUTDIR/10-conformance.log" gate "${VM_TMO_CONFORMANCE:-1200}" -- \
-    "$BIN/conformance-check.sh" --module "$MODULE"
+    "$(_tool conformance-check.sh)" --module "$MODULE"
 else
   fault "conformance (ledger claims vs live model)" "bin/conformance-check.sh not installed"
 fi
 
-if [ -x "$BIN/graph-sweep.sh" ]; then
+if [ -x "$(_tool graph-sweep.sh)" ]; then
   run "graph sweep (orphans + wiring shape)" "$OUTDIR/11-graph.log" gate 300 -- \
-    "$BIN/graph-sweep.sh" --module "$MODULE"
+    "$(_tool graph-sweep.sh)" --module "$MODULE"
 else
   fault "graph sweep (orphans + wiring shape)" "bin/graph-sweep.sh not installed"
 fi
@@ -200,7 +237,7 @@ fi
 # there would be a fault we manufactured ourselves.
 COVERAGE_CHECK="${COVERAGE_CHECK:-}"
 if [ -z "$COVERAGE_CHECK" ]; then
-  for c in "$BIN/coverage-check.sh" "${MXTK_ROOT:-}/bin/coverage-check.sh"; do
+  for c in "$(_tool coverage-check.sh)" "${MXTK_ROOT:-}/bin/coverage-check.sh"; do
     [ -n "$c" ] && [ -x "$c" ] && { COVERAGE_CHECK="$c"; break; }
   done
 fi
@@ -228,9 +265,9 @@ fi
 # a second time in the same pass buys nothing. The path is passed unconditionally: if rung 1 faulted
 # the file is absent, review says so and FAULTS, which is the truth — nothing was measured — and it
 # costs seconds instead of minutes.
-if [ -x "$BIN/review-module.sh" ]; then
+if [ -x "$(_tool review-module.sh)" ]; then
   run "review (model vs decided — report.json)" "$OUTDIR/13-review.log" info 600 -- \
-    "$BIN/review-module.sh" "$MODULE" --json-only \
+    "$(_tool review-module.sh)" "$MODULE" --json-only \
     --out "$OUTDIR/review-report.json" \
     --reuse-conformance "docs/conformance/report-$(date +%Y-%m-%d).tsv"
 else
@@ -243,9 +280,20 @@ JOURNEY_DIR="${JOURNEY_DIR:-$ROOT/journeys}"
 JOURNEY_RUNNER="${JOURNEY_RUNNER:-$ROOT/tests/e2e/journey-runner.js}"
 MONKEY_JS="${MONKEY_JS:-$ROOT/tests/e2e/monkey.js}"
 
-if [ "$STACK_OK" -eq 0 ]; then
-  fault "runtime instruments" "stack not up" \
+if [ "$STACK_OK" -eq 0 ] && [ "${STACK_UP:-0}" -eq 0 ]; then
+  fault "runtime instruments" "app not serving" \
         "Journeys and monkey did NOT run. This report covers the model only."
+elif [ "$STACK_OK" -eq 0 ] && [ "${ALLOW_CAVEATED_STACK:-0}" -ne 1 ]; then
+  # The app IS up. Something around it is not, and running anyway would manufacture
+  # findings: a journey whose REST feed is unreachable renders an empty grid and captures
+  # zero spans, which reads as "the feature is broken" when nothing about the feature was
+  # exercised. That false red costs more than the missing run, so it stays blocked — but
+  # with the actual reason, not "stack not up".
+  fault "runtime instruments" "app is up, but the stack has findings — running now would produce false failures" \
+        "$(printf '%s\n' "${STACK_WHY:-      see 00-stack.log}" \
+           "      Journeys and monkey did NOT run." \
+           "      If this module does not depend on the above, re-run with ALLOW_CAVEATED_STACK=1;" \
+           "      results are then reported as caveated, never as clean.")"
 else
   JOURNEY="$JOURNEY_DIR/$MODULE.journey.json"
   if [ "$SKIP_JOURNEYS" -eq 1 ]; then

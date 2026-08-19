@@ -228,14 +228,37 @@ Eight stages (plus Stage P kickoff). For each: what the user co-defines, what th
 
 ### Stage 0 — Triage ✋
 
-**First, grade the source. `bin/source-sufficiency.sh init <root>` → read the sources → fill every
-dimension → `report`.** Nothing else in this toolkit reads a source; `facts-lock`, `coverage-check`,
-`open-questions` and `gate-check` all read BRDs. Skip this and a two-page epic deck and a validated
-spec enter the pipeline indistinguishably, and the gap only surfaces at the Stage 2 interview gate
-disguised as a question backlog — WMS-Demo's 127 questions were largely a silent source, not a
-decision backlog.
+**First, characterise the source, then grade it. `bin/source-sufficiency.sh init <root>` → fill the
+`inventory` → fill every dimension → `report`.** Nothing else in this toolkit reads a source;
+`facts-lock`, `coverage-check`, `open-questions` and `gate-check` all read BRDs. Skip this and a
+two-page epic deck and a validated spec enter the pipeline indistinguishably, and the gap only
+surfaces at the Stage 2 interview gate disguised as a question backlog — WMS-Demo's 127 questions
+were largely a silent source, not a decision backlog.
 
-Three things come out of it, and each changes what you do next:
+#### Two passes, and the order is the point
+
+The rubric has an `inventory` section and a `dimensions` section, and `report` refuses to score
+until the inventory is filled.
+
+- **Pass 1 — inventory: what is this source even about?** One row per file, filled by *opening* it:
+  what kind of thing it is, which rubric dimensions it can speak to, any boundary the source states
+  about *itself* (quote it verbatim — a source that says what it does not cover is the cheapest
+  scope signal you will ever get), and the components it names. The report prints this as a source
+  overview, with a component index and the list of dimensions no source claims.
+- **Pass 2 — dimensions: is it good enough to build from?** The grade, as below.
+
+Then, and only then, **the open scope question** ("Scope brainstorm", further down this section):
+present the overview, say what the corpus appears to cover versus what the user described at Stage
+P, and discuss it openly. No option lists.
+
+Doing this out of order is a real, reported failure (2026-08-19): a Stage 0 run on a four-file
+documents-only corpus produced a correct ten-dimension grade and then asked the user a closed,
+rubric-shaped gate question — because the grade was the only artifact in front of it. The
+instruction to present a source map already existed here; nothing produced the map, so the agent
+asked what the tooling gave it something to ask about. **An uncovered dimension is an open question
+for a human. A low rating is a closed one. Reach the first list before the second.**
+
+Three things come out of pass 2, and each changes what you do next:
 
 - **A band.** `SPECIFICATION` / `OUTLINE` / `SKETCH`, with the honest sentence for describing the
   output. Below `SPECIFICATION` the output is a *proposal informed by* the source, not a conversion

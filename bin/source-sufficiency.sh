@@ -24,7 +24,9 @@
 # exists anywhere on the page. Any text heuristic honest enough to be useful here is a reader,
 # and we already have one. So the split is:
 #
-#   init    this script writes a rubric skeleton naming the dimensions and what each demands
+#   init    this script writes a two-pass rubric skeleton: an `inventory` row per source file
+#           (what is this thing about) and the `dimensions` rows (is it good enough to build
+#           from). `report` refuses to score until pass 1 is filled.
 #   (you)   an agent READS the sources and fills in a rating + evidence + consequence per row
 #   report  this script validates the filled rubric, computes the verdict, recommends an
 #           interview mode, and renders the HTML
@@ -62,6 +64,7 @@ usage() {
 usage: source-sufficiency.sh <init|report|show> <project-dir> [options]
 
   init    [--sources DIR]   write analysis/source-sufficiency.json skeleton (never overwrites)
+                            two passes: fill `inventory` first, then `dimensions`
   report  [--html PATH] [--json] [--quiet]
   show                      print the current rubric's verdict without re-rendering
 
@@ -142,13 +145,31 @@ if [ "$CMD" = "init" ]; then
 
   # Enumerate what is actually there, so the assessment names its own corpus and a later
   # reader can tell whether a file was added after the grading.
+  #
+  # The extension list was documents-only (.pdf/.png/.jpg/.docx/.md/.txt/.html) until
+  # 2026-08-19, when a live Stage 0 run on a four-file corpus silently skipped the OpenAPI
+  # .yaml contract — one of the four. A COVERAGE instrument that cannot see a source does not
+  # under-report it, it reports a corpus that never contained it, and the integrations row
+  # gets graded `absent` against a contract sitting on disk. Machine-readable sources
+  # (.yaml/.yml/.json/.sql/.xml/.csv) are first-class here: a DB schema and an API contract
+  # are frequently the two BEST-specified things a client hands over.
+  #
+  # The prunes matter now that init-project.sh scaffolds sources/ and people drop real repos
+  # into it: without them a single node_modules turns a 4-file corpus into 40,000 .json files
+  # and the rubric's `sources` list — the thing that makes the verdict checkable by someone
+  # else — becomes unreadable.
   SRC_ROOT="${SOURCES_DIR:-$PROJECT_DIR/analysis}"
   FILES=""
   if [ -d "$SRC_ROOT" ]; then
-    FILES=$(find "$SRC_ROOT" -type f \
+    FILES=$(find "$SRC_ROOT" \
+              \( -name node_modules -o -name .git -o -name dist -o -name build \
+                 -o -name vendor -o -name .venv -o -name __pycache__ \) -prune -o \
+              -type f \
               \( -name '*.pdf' -o -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \
-                 -o -name '*.docx' -o -name '*.md' -o -name '*.txt' -o -name '*.html' \) \
-              ! -path '*/knowledge-base/*' ! -name 'source-sufficiency.*' 2>/dev/null | sort)
+                 -o -name '*.docx' -o -name '*.md' -o -name '*.txt' -o -name '*.html' \
+                 -o -name '*.yaml' -o -name '*.yml' -o -name '*.json' -o -name '*.sql' \
+                 -o -name '*.xml' -o -name '*.csv' -o -name '*.xlsx' \) \
+              ! -path '*/knowledge-base/*' ! -name 'source-sufficiency.*' -print 2>/dev/null | sort)
   fi
 
   DIMENSIONS="$DIMENSIONS" FILES="$FILES" SRC_ROOT="$SRC_ROOT" RUBRIC="$RUBRIC" "$PY" <<'PY'
@@ -160,10 +181,24 @@ root = os.environ['SRC_ROOT']
 
 doc = {
     "_readme": [
-        "Fill in every dimension by READING the sources. Do not infer a rating from file size.",
-        "rating: absent | named | specified | verified",
-        "evidence: where you saw it (page, section, screen) — or why you concluded absent.",
-        "consequence: what the BUILD has to invent if this stays as-is. Be concrete.",
+        "TWO PASSES, IN ORDER. Pass 1 is `inventory` — what is this source even about.",
+        "Pass 2 is `dimensions` — is it good enough to build from. Do not start pass 2 until",
+        "every inventory row is filled: a grade over a corpus you have not identified is a",
+        "grade of your own assumptions.",
+        "",
+        "INVENTORY (pass 1), one row per file, filled by OPENING it:",
+        "  kind:        docs | code | data | ui | contract | unknown",
+        "  answers:     which dimension keys this source can speak to, e.g. [\"domain\",\"rules\"].",
+        "               Empty list is a real answer — say so rather than leaving it null.",
+        "  statedScope: if the source declares its own boundary, quote it VERBATIM. Sources",
+        "               that say what they do not cover are the cheapest scope signal there is.",
+        "  components:  named modules/components/aggregates this source defines, one string each.",
+        "",
+        "DIMENSIONS (pass 2). Fill in every dimension by READING the sources. Do not infer a",
+        "rating from file size.",
+        "  rating: absent | named | specified | verified",
+        "  evidence: where you saw it (page, section, screen) — or why you concluded absent.",
+        "  consequence: what the BUILD has to invent if this stays as-is. Be concrete.",
         "Leave rating null for any dimension you did not actually check; the report will",
         "refuse to score rather than treat unchecked as absent."
     ],
@@ -171,6 +206,18 @@ doc = {
     "sourceRoot": root,
     "sources": files,
     "sourceCount": len(files),
+    # INVENTORY — pass 1. Pre-populated with path and size because those are the only two
+    # facts a script can know; every other field is left null so an unopened file is visibly
+    # unopened. This section exists because conversion-runbook.md Stage 0 already instructs
+    # the agent to "present the source/requirements map... discuss openly", and nothing
+    # produced that map — so the agent skipped to the rubric and asked rubric-shaped closed
+    # questions about a corpus nobody had characterised. (Live run, 2026-08-19.)
+    "inventory": [
+        {"path": f,
+         "bytes": (os.path.getsize(f) if os.path.exists(f) else None),
+         "kind": None, "answers": None, "statedScope": "", "components": []}
+        for f in files
+    ],
     "dimensions": {
         k: {"demands": v, "rating": None, "evidence": "", "consequence": ""}
         for k, v in dims
@@ -203,7 +250,11 @@ PY
     echo "  NOTE: zero source files found. Either --sources points elsewhere, or the sources"
     echo "        are not on disk yet. An empty corpus is not a thin source; it is no source." >&2
   fi
-  echo "  next: read the sources, fill in every rating, then: $0 report $PROJECT_DIR"
+  echo "  next, IN ORDER:"
+  echo "    pass 1 — open each file and fill its inventory row (kind, answers, statedScope,"
+  echo "             components). What is this source about, before whether it is any good."
+  echo "    pass 2 — fill in every dimension rating."
+  echo "    then: $0 report $PROJECT_DIR"
   exit 0
 fi
 
@@ -239,6 +290,41 @@ if not dims:
     print("source-sufficiency: rubric has no dimensions", file=sys.stderr)
     sys.exit(4)
 
+# --- pass 1: inventory ---------------------------------------------------------------------
+#
+# Blocking, and deliberately blocking BEFORE the dimension check, so the failure a reader hits
+# first is "you have not said what these files are" rather than "you have not graded them".
+# Grading an unidentified corpus is how a documents-only source got scored against a rubric
+# built for legacy code.
+#
+# A rubric written before the two-pass format has no `inventory` key at all. That is not the
+# same as an unfilled one — it is an older instrument, and failing it would strand every
+# in-flight project. It warns and scores; only a PRESENT-but-unfilled inventory blocks.
+inventory = doc.get('inventory')
+legacy_rubric = inventory is None
+
+if legacy_rubric:
+    print("source-sufficiency: this rubric predates the inventory pass — scoring it anyway.",
+          file=sys.stderr)
+    print("  Its grade is not backed by a characterised corpus. Delete it and re-init to get",
+          file=sys.stderr)
+    print("  the two-pass form.", file=sys.stderr)
+    inventory = []
+else:
+    unopened = [e.get('path') or '(unnamed)' for e in inventory
+                if e.get('kind') is None or e.get('answers') is None]
+    if unopened:
+        print(f"source-sufficiency: {len(unopened)} of {len(inventory)} source file(s) have no "
+              f"inventory entry — nothing graded.", file=sys.stderr)
+        for p in unopened[:20]:
+            print(f"    unopened: {p}", file=sys.stderr)
+        if len(unopened) > 20:
+            print(f"    ... and {len(unopened) - 20} more", file=sys.stderr)
+        print("  Open each one and set `kind` and `answers` (an empty answers list is a valid",
+              file=sys.stderr)
+        print("  answer). Pass 1 before pass 2.", file=sys.stderr)
+        sys.exit(3)
+
 VALID = ('absent', 'named', 'specified', 'verified')
 # Weights are build-readiness, not quality. `named` scores 0 on purpose: a vendor name with no
 # integration contract behind it buys the build exactly nothing, and scoring it 0.25 lets nine
@@ -267,6 +353,31 @@ if unchecked:
           f"({', '.join(sorted(unchecked))})", file=sys.stderr)
     print("  nothing scored. Rate every dimension, or state absent with a reason.", file=sys.stderr)
     sys.exit(3)
+
+# --- coverage: the join between pass 1 and pass 2 -------------------------------------------
+#
+# Which source claims to answer which dimension. This turns "what is missing" from a judgement
+# into arithmetic, and it is the material for the OPEN scope question the runbook asks for:
+# an uncovered dimension is a real gap to put to a human, not a low rating to average away.
+#
+# Worth reading the two lists against each other. A dimension that is `specified` but claimed
+# by NO source was graded from something outside the corpus — the agent's own knowledge, or a
+# conversation nobody wrote down. That is exactly the kind of confident invention this
+# instrument exists to catch, so it gets called out rather than quietly passing.
+claims = {k: [] for k in dims}
+for e in inventory:
+    for k in (e.get('answers') or []):
+        if k in claims:
+            claims[k].append(e.get('path') or '(unnamed)')
+
+uncovered   = sorted(k for k, v in claims.items() if not v)
+unsourced   = sorted(k for k in uncovered
+                     if (dims[k].get('rating') in ('specified', 'verified')))
+kind_counts = {}
+for e in inventory:
+    kind_counts[e.get('kind') or 'unknown'] = kind_counts.get(e.get('kind') or 'unknown', 0) + 1
+stated_scopes = [(e.get('path'), e.get('statedScope')) for e in inventory if e.get('statedScope')]
+components    = sorted({c for e in inventory for c in (e.get('components') or [])})
 
 counts = {r: 0 for r in VALID}
 for v in dims.values():
@@ -335,6 +446,26 @@ result = {
 if as_json:
     print(json.dumps(result, indent=2))
 elif not quiet:
+    # Pass 1 prints FIRST and unconditionally. The order is the point: a reader (and an agent
+    # about to open its mouth in chat) should know what the corpus is before it sees a grade,
+    # because the grade is the thing that suggests closed questions and the inventory is the
+    # thing that suggests open ones.
+    if inventory:
+        print(f"Source overview: {len(inventory)} file(s) — "
+              f"{', '.join(f'{n} {k}' for k, n in sorted(kind_counts.items()))}")
+        for e in inventory:
+            ans = ', '.join(e.get('answers') or []) or 'nothing in the rubric'
+            print(f"    {e.get('path')}  [{e.get('kind')}] → {ans}")
+        if components:
+            print(f"  components the sources define ({len(components)}): {', '.join(components)}")
+        for p, s in stated_scopes:
+            print(f"  scope stated by {p}: {s}")
+        print(f"  dimensions no source claims ({len(uncovered)}): {', '.join(uncovered) or 'none'}")
+        if unsourced:
+            print(f"  WARNING — graded specified/verified but claimed by NO source: "
+                  f"{', '.join(unsourced)}")
+            print("    that rating came from outside the corpus. Cite a source or drop it.")
+        print("")
     print(f"Source sufficiency: {band} — {pct}% build-ready "
           f"({score:g} of {total} dimensions specified or better, across {len(sources)} source file(s))")
     print(f"  specified/verified : {counts['specified'] + counts['verified']}  ({', '.join(buildable) or 'none'})")

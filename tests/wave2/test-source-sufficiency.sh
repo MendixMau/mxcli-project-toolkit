@@ -33,11 +33,21 @@ has()  { case "$2" in *"$3"*) ok "$1" ;; *) bad "$1" "missing '$3'" ;; esac; }
 hasnt(){ case "$2" in *"$3"*) bad "$1" "unexpected '$3'" ;; *) ok "$1" ;; esac; }
 
 # rubric <dir> <rating-for-all> [conflicts-json] [landmines-json]
+#
+# Carries a FILLED inventory row. The inventory is pass 1 of the two-pass rubric and it blocks
+# scoring, so a fixture without one exercises the legacy-rubric path rather than the current
+# instrument — and the legacy warning on stderr would corrupt the `--json 2>&1` assertion
+# below. The single row claims every dimension so the "graded but claimed by no source"
+# warning stays quiet here; the tests that want those states build their own.
 rubric() {
   d=$1; r=$2; c=${3:-[]}; l=${4:-[]}
   mkdir -p "$d/analysis"
   {
-    printf '{"assessedAt":"2026-01-01","sources":["s.md"],"dimensions":{'
+    printf '{"assessedAt":"2026-01-01","sources":["s.md"],'
+    printf '"inventory":[{"path":"s.md","bytes":10,"kind":"docs","answers":['
+    printf '"actors","domain","processes","rules","ui","integrations","nfr","tenancy",'
+    printf '"security_model","data_migration"],"statedScope":"","components":[]}],'
+    printf '"dimensions":{'
     first=1
     for k in actors domain processes rules ui integrations nfr tenancy security_model data_migration; do
       [ $first -eq 1 ] || printf ','
@@ -164,6 +174,78 @@ P6="$TMP/p6"; mkdir -p "$P6/analysis"
 OUT=$("$SS" report "$P6" 2>&1); RC=$?
 check "a missing rubric exits 3, not 0" "$RC" "3"
 has "  and says how to make one" "$OUT" "init"
+
+echo "== pass 1: the inventory =="
+#
+# The failure these pin: a live Stage 0 run (2026-08-19) graded a four-file documents-only
+# corpus without the OpenAPI contract, because init's scan was documents-only, and asked the
+# user closed rubric-shaped questions because nothing produced a source map. Both halves.
+
+P7="$TMP/p7"; mkdir -p "$P7/analysis/source"
+: > "$P7/analysis/source/spec.md"
+: > "$P7/analysis/source/openapi.yaml"
+: > "$P7/analysis/source/schema.sql"
+: > "$P7/analysis/source/config.json"
+mkdir -p "$P7/analysis/source/node_modules/junk"; : > "$P7/analysis/source/node_modules/junk/a.json"
+OUT=$("$SS" init "$P7" --sources "$P7/analysis/source" 2>&1)
+has "machine-readable sources are in the corpus" "$OUT" "4 file(s)"
+grep -q 'openapi.yaml' "$P7/analysis/source-sufficiency.json" \
+  && ok "  the .yaml contract is listed, not silently skipped" \
+  || bad "  the .yaml contract is listed, not silently skipped"
+grep -q 'schema.sql' "$P7/analysis/source-sufficiency.json" \
+  && ok "  so is the .sql schema" || bad "  so is the .sql schema"
+grep -q 'node_modules' "$P7/analysis/source-sufficiency.json" \
+  && bad "  node_modules is pruned" || ok "  node_modules is pruned"
+
+# An unopened file blocks the grade, and blocks it BEFORE the dimension check — otherwise the
+# first thing a reader is told is to grade a corpus nobody has identified.
+OUT=$("$SS" report "$P7" 2>&1); RC=$?
+check "an unfilled inventory refuses to score" "$RC" "3"
+has "  and names an unopened file" "$OUT" "openapi.yaml"
+has "  and says which pass comes first" "$OUT" "Pass 1 before pass 2"
+
+# A dimension rated from outside the corpus is called out rather than quietly scored.
+P8="$TMP/p8"; mkdir -p "$P8/analysis"
+"$PY" - "$P8/analysis/source-sufficiency.json" <<'PY'
+import json, sys
+keys = ["actors","domain","processes","rules","ui","integrations","nfr","tenancy",
+        "security_model","data_migration"]
+doc = {
+    "assessedAt": "2026-01-01", "sources": ["s.md"],
+    # claims everything EXCEPT security_model, which is nonetheless graded `specified` below
+    "inventory": [{"path": "s.md", "bytes": 10, "kind": "docs",
+                   "answers": [k for k in keys if k != "security_model"],
+                   "statedScope": "covers ordering only, not billing",
+                   "components": ["Orders", "Catalog"]}],
+    "dimensions": {k: {"demands": "d", "rating": "specified", "evidence": "e",
+                       "consequence": "c"} for k in keys},
+    "conflicts": [], "landmines": [],
+}
+json.dump(doc, open(sys.argv[1], "w"))
+PY
+OUT=$("$SS" report "$P8" 2>&1)
+has "the overview prints before the grade" "$OUT" "Source overview:"
+has "  it surfaces a source's own stated scope" "$OUT" "covers ordering only"
+has "  it lists the components the sources define" "$OUT" "Orders"
+has "  an uncovered dimension is named" "$OUT" "security_model"
+has "  grading it anyway is called out" "$OUT" "claimed by NO source"
+
+# Ordering is load-bearing: the overview suggests open questions, the grade suggests closed
+# ones. An agent that reads the grade first asks the wrong question, which is the reported bug.
+case "$OUT" in
+  *"Source overview:"*"Source sufficiency:"*) ok "  overview precedes the verdict" ;;
+  *) bad "  overview precedes the verdict" ;;
+esac
+
+# In-flight projects hold pre-inventory rubrics. Those must still score, and must say so.
+P9="$TMP/p9"; rubric "$P9" specified
+"$PY" - "$P9/analysis/source-sufficiency.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d.pop("inventory", None); json.dump(d, open(p, "w"))
+PY
+OUT=$("$SS" report "$P9" 2>&1); RC=$?
+check "a pre-inventory rubric still scores" "$RC" "0"
+has "  but says its grade is not backed by a characterised corpus" "$OUT" "predates the inventory pass"
 
 echo
 echo "  $PASS passed, $FAIL failed"

@@ -3685,3 +3685,395 @@ but silently breaks native mxbuild) — that one was about a list of quoted iden
 `textfilter (attributes: [...])`, this one is about a quoted identifier inside a member-access
 expression in a call argument. Both are reminders that "always quote identifiers" (this project's
 default) has real, narrow exceptions that only a native `mx check` surfaces.
+
+## BUG-76: `DECISION` activities in a native `WORKFLOW` are unconditionally storage-corrupted — mxcli writes the outcome label as a raw string into a field that must be a real `EnumerationValueIdentifier`, on every DECISION regardless of the underlying expression's type
+
+**Project:** VB-USI-main, Phase 15 (Approval/E800 native Workflow build), script 65
+(`Approval.ApprovalWorkflow`). **mxcli version:** v0.17.0 (`2026-08-10T05:12:17Z`).
+
+**Symptom:** a `.mpr` containing one or more `DECISION` activities inside a `CREATE WORKFLOW` (or
+`CREATE OR MODIFY WORKFLOW`) round-trips cleanly through every mxcli-native validation path —
+`mxcli check --references`, `DESCRIBE WORKFLOW`, `DESCRIBE MICROFLOW` — all report success. But the
+project **fails to load at all** in real Mendix tooling (Studio Pro, native `mxbuild`, and
+`mxcli docker check`, which shells out to the same native loader). The failure is a hard
+`Mendix.Modeler.Storage.StorageLoadException` thrown before any check/build logic even runs:
+
+```
+ERROR: Mendix.Modeler.Storage.StorageLoadException: One or more invalid values were detected while loading the project: Mendix.Modeler.Projects.Project:
+ - Enumeration value condition outcome in  has an invalid value '' for property Value. The text 'Reject' is not a valid EnumerationValueIdentifier.
+ - Enumeration value condition outcome in  has an invalid value '' for property Value. The text 'Skip' is not a valid EnumerationValueIdentifier.
+ - Enumeration value condition outcome in  has an invalid value '' for property Value. The text 'Applies' is not a valid EnumerationValueIdentifier.
+ - Enumeration value condition outcome in  has an invalid value '' for property Value. The text 'Continue' is not a valid EnumerationValueIdentifier.
+```
+
+One error line per `DECISION` outcome in the project. The flagged text is always the outcome's own
+label — i.e. mxcli is writing the literal outcome name (`'Reject'`, `'Continue'`, `'Applies'`,
+`'Skip'`) straight into a storage field (`ConditionOutcome.Value`, per the stack trace) that Mendix's
+loader requires to deserialize as an `EnumerationValueIdentifier` object, not a bare string. This
+went undetected in this project from script 65's execution (2026-08-13) through script 66's
+execution and gate-pass, silently blocking Studio Pro and any real build the entire time — surfaced
+only because the user reported "mpr error" and asked whether Studio Pro had been tried.
+
+**Scope — confirmed to be unconditional, not tied to enum-valued expressions:** the four corrupted
+outcomes in this project came from two different `DECISION` activities with genuinely different
+expression shapes:
+- `WFST040`'s decision, whose condition expression reads an actual enumeration attribute
+  (`SamplingDecision`), outcomes `'Continue'` / `'Reject'`.
+- `CoarseClassification`'s decision, whose condition expression reads a plain **String** attribute
+  (no enumeration involved at all), outcomes `'Applies'` / `'Skip'`.
+
+Both corrupt identically. This rules out any theory that the bug is specific to enum-typed decision
+expressions (e.g. "outcome label happens to not match a real enum value name") — it is a systemic,
+unconditional defect in the DECISION-outcome serializer that fires for every DECISION regardless of
+what the expression evaluates over.
+
+**Minimal reproduction** (confirmed against a full sandbox copy of the live project — the `.mpr`
+v2 store keys its `mprcontents/` to the original filename, so the copy must keep the exact same
+filename in its own directory, not just be renamed/copied to `/tmp`):
+
+```sql
+create workflow Approval."TestDecisionWF"
+  parameter $Context: Approval."ApprovalRun"
+begin
+  decision '1 = 1'
+    outcomes 'OutcomeA' -> { }
+             'OutcomeB' -> { };
+end workflow;
+/
+```
+
+- `mxcli check --references` → clean, "All references valid".
+- `mxcli exec` → "Created workflow: Approval.TestDecisionWF", no errors.
+- `mxcli docker check` (native loader) → the pre-existing 4 errors become **6**: the same 4 plus
+  two new ones for `'OutcomeA'` and `'OutcomeB'` — brand-new, never-before-used outcome labels,
+  added to a brand-new decision on a trivial literal boolean expression (`1 = 1`, no attribute or
+  enumeration involved at all). This confirms the defect is universal to `DECISION` activity
+  codegen, not sensitive to naming, expression type, or workflow context — there is no MDL-only
+  workaround (naming the outcomes differently, changing the expression shape, etc. all corrupt
+  identically).
+
+**Detection gap:** identical to BUG-75/BUG-41/BUG-70/BUG-71 in kind but worse in degree — this one
+is not just invisible to `mxcli check`, it is invisible to *every* mxcli-native command including
+`mxcli exec` itself (which reports success) and `DESCRIBE WORKFLOW`/`DESCRIBE MICROFLOW` (which
+print the outcomes back correctly, with no indication of the underlying storage-type mismatch).
+Only a real native `mxbuild`/Studio Pro load — via `mxcli docker check` or an actual Studio Pro
+open — surfaces it, and by the time it does, the corruption may already be several scripts and
+commits deep (it was, here: scripts 65 and 66 both executed and gate-passed on top of it before
+discovery).
+
+**Workaround used in VB-USI-main:** do not use `DECISION` activities in mxcli-authored `WORKFLOW`
+definitions at all, for any expression type, until this is fixed upstream. Build the native
+workflow with the decision points left out entirely (a documented gap), then add the `DECISION`
+gateways manually in Studio Pro after the fact. This matches prior precedent from the TFC project's
+own DECISION+enum issues (see BUG-WF03 below) of avoiding mxcli-authored DECISION gateways in favor
+of a manual Studio Pro add.
+
+**Related:** distinct from BUG-WF03 (CE0117 from lowercase `AND`/`!=` operator casing inside
+DECISION expressions) — that one is a parse/casing defect caught by mxbuild's expression compiler;
+this one is a storage-serialization defect that native mxbuild's *loader* rejects before compilation
+even starts, and is unconditional rather than casing-dependent. Also notable: `mxcli syntax workflow
+--json`'s own documented DECISION grammar (`DECISION ['<caption>'] OUTCOMES '<outcome>' { ... }
+...;`, no arrow) is independently wrong/incomplete — the real required grammar needs
+`DECISION '<boolean-expression>' OUTCOMES 'name' -> { } ...;` (arrow required). `mxcli -c "HELP
+DECISION"` returns no help text at all. Neither the wrong docs nor the missing help contributed to
+this specific corruption (the corruption reproduces with correct arrow syntax too), but both should
+be fixed alongside it.
+
+## BUG-77: BUG-75's "create/change attribute values are safe" scope claim is wrong — quoted attribute segments (`$Var/"Attr"`) DO cause CE0117 in create/change statements too, just not consistently
+
+**Project:** VB-USI-main, script 64 (`Approval.ACT_ApprovalRun_CreateVersion`, part of the same
+Phase 15 Approval-workflow rebuild as BUG-76). **mxcli version:** v0.17.0 (`2026-08-10T05:12:17Z`).
+
+**Symptom:** BUG-75 asserted, based on two repros in a different project, that a quoted
+member-access expression (`$Var/"Attribute"`) used as a **create/change statement's attribute
+value** "compiles fine" and is only broken as a call-microflow argument value. This project
+disproves that as a general claim. `ACT_ApprovalRun_CreateVersion` had three activities using the
+identical `$Var/"Attribute"` shape purely as create/change attribute values:
+
+1. A `create Approval.ApprovalRun (...)` with 14 members, each value a quoted nav path like
+   `"ArticleNumber" = $ApprovalRun/"ArticleNumber"` — **passed** native `mx check` (0 errors on
+   this activity).
+2. A `change $NewStation (...)` with 11 members, same shape (`"IsNotApplicable" =
+   $OldStation/"IsNotApplicable"`, etc.) — **failed** with `CE0117 "Error(s) in expression."`.
+3. A `create Common.Attachment (...)` with 3 members, same shape (`"Category" =
+   $OldAttachment/"Category"`, etc.) — **failed** with `CE0117`.
+
+All three activities used the exact same MDL shape (quoted attribute segment on the RHS of a
+member-access expression, as a create/change value). Only two of three failed. The only fix that
+resolved both failures — unquoting every attribute segment across all three activities
+(`$Var/Attribute` everywhere, including the one that had already been passing) — took the whole
+microflow from 2 `CE0117` errors to 0 with no other change. `mxcli check --references` never
+flagged any of this (same detection gap as BUG-75/BUG-29).
+
+**What this means:** the trigger is NOT "create/change is always safe, call-microflow-argument is
+always broken" as BUG-75 concluded. Something else determines whether a given quoted `$Var/"Attr"`
+in a create/change value actually corrupts the compiled expression — number of members in the same
+statement, attribute type, entity generalization (the failing Attachment create was on an entity
+`extends System.FileDocument`; the passing ApprovalRun create was on a plain persistent entity —
+untested whether generalization is the actual variable), or something else not yet isolated. Given
+two different projects have now each found a context they believed was "safe" and been wrong, **do
+not trust ANY context as safe for a quoted attribute segment on the right-hand side of a
+member-access expression** — treat `$Var/"Attr"` as unconditionally suspect in every position
+(create, change, call-microflow argument, decision condition, retrieve WHERE, anything) and default
+to `$Var/Attr` (unquoted attribute segment) everywhere, verified with a real `mx check`, not
+`mxcli check`.
+
+**Recommendation:** supersede BUG-75's narrow "only call-microflow arguments" framing and BUG-29's
+"only nav expressions" framing with a single blanket rule in `learned-mdl-preflight.md`: attribute
+segments in `$Var/Attr`-style member-access expressions are NEVER quoted, full stop, regardless of
+statement context — this is the one confirmed safe exception to this project's general "always
+quote identifiers" convention, and the boundary of when quoting silently corrupts vs. silently
+no-ops is not worth memorizing since it isn't reliable.
+
+**Related:** same underlying quote-stripping gap as BUG-29 and BUG-75; this entry narrows/corrects
+BUG-75's scope claim rather than describing a new mechanism.
+
+## BUG-78: CE0161 on a reference-set-to-string-literal retrieve WHERE clause (`where [Assoc = 'Value']`) — fixed by comparing the association to a retrieved object instead
+
+**Project:** VB-USI-main, script 64 (`Approval.ACT_ApprovalWorkflow_TargetEngineering`, same Phase
+15 rebuild). **mxcli version:** v0.17.0.
+
+**Symptom:** filtering `System.User` by role membership via a reference-set association compared
+directly to a role-name string literal fails `mx check` with `CE0161 "Error(s) in XPath
+constraint."`, in every one of three tried forms (`mxcli check --references` passes all three
+cleanly — same detection gap as every other entry in this file):
+
+```mdl
+retrieve $Users from System.User where [UserRoles/Name = 'Engineering'];        -- CE0161
+retrieve $Users from System.User where [UserRoles = 'Engineering'];             -- CE0161
+retrieve $Users from System.User where [System.UserRoles = 'Engineering'];      -- CE0161
+```
+
+**Fix:** retrieve the role object first with a plain single-attribute comparison (the
+already-proven-safe form), then compare the reference-set association directly to that **object**,
+not a string:
+
+```mdl
+retrieve $Role from System.UserRole where "Name" = 'Engineering' limit 1;
+retrieve $Users from System.User where System.UserRoles = $Role;
+```
+
+0 errors. This is a real, if narrow, syntax constraint (not merely an mxcli detection gap like
+BUG-29/75/77 above): a reference-set/many-to-many association in an XPath WHERE clause must be
+compared to an object reference, not to a bare string identifier — mxcli's grammar accepts the
+string-literal form without complaint, but mxbuild's XPath constraint compiler rejects it.
+
+**Related:** distinct from BUG-45 (`id=` lookups) — this is specifically about comparing a
+reference-set association to a scalar in a bracket-predicate retrieve, not an ID lookup.
+
+## BUG-79: `GRANT`/`REVOKE` cannot target any `System`-module entity — no local domain-model file to write into
+
+**Project:** VB-USI-main, script 69b (`GRANT Approval.Reader ON System.WorkflowUserTask (READ *)`).
+**mxcli version:** v0.17.0.
+
+**Symptom:** any `GRANT`/`REVOKE` statement whose target entity lives in the built-in `System`
+module fails identically, regardless of which `System` entity is targeted:
+
+```
+Error: failed to grant entity access: load domain model
+00000000-0000-0000-0000-000000000002: open
+mprcontents/00/00/00000000-0000-0000-0000-000000000002.mxunit: no such file or directory
+```
+
+Confirmed general, not specific to `WorkflowUserTask`: a control test against `System.User`
+(`GRANT SomeRole ON System.User (READ *)`) fails with the exact same error and the exact same
+missing-file path.
+
+**Root cause:** `System` is a built-in/read-only module with no local domain-model `.mxunit` file
+unpacked under `mprcontents/` in the v2 split-format project — mxcli's grant path always tries to
+load and rewrite the *target entity's own module's* domain-model file, and for `System` that file
+simply does not exist on disk to write into. Read paths (`DESCRIBE ENTITY System.X`,
+`SHOW ACCESS ON ... System.X`) are unaffected — those don't need to write anything.
+
+**Distinct from the working `EXTENDS System.X` pattern**: `CREATE PERSISTENT ENTITY MyModule.Foo
+EXTENDS System.Image (...)` works fine and is used elsewhere in this project, because that grant
+would be written into the *extending* entity's own module (`MyModule`), never into `System` itself.
+This bug is only about a grant whose target entity IS a `System` entity directly.
+
+**Workaround:** none via mxcli. Add the access rule manually in Studio Pro's Security editor
+(Domain Model → right-click the System entity being consumed, e.g. via a reference or the page
+that uses it → Access rules), or grant it on the referencing custom entity/association instead if
+the design allows avoiding a direct `System` entity dependency.
+
+**Related:** none identified yet — first sighting of a `System`-module write-path limitation
+distinct from BUG-59/60/62 (which are all Studio-Pro/format-compatibility issues, not grant-path
+issues).
+
+## BUG-80: no MDL/mxcli syntax exists to start a native Workflow *instance* from a microflow
+
+**Project:** VB-USI-main, script 68a (`Approval.ACT_ApprovalRun_Start`). **mxcli version:** v0.17.0.
+
+**Symptom:** `CREATE/ALTER/DROP WORKFLOW` only model the workflow *definition* (the canvas of
+`USER TASK`/`DECISION`/etc. activities). There is no MDL statement, and no `mxcli syntax` entry,
+for the microflow-side activity that starts a *new instance* of a workflow definition (Mendix
+Studio Pro's own "Start workflow" activity, which binds a `Context` object and returns the created
+`System.Workflow`).
+
+**Confirmed exhaustively, not just "not found in the docs"**: `./mxcli syntax microflow --json`
+and `./mxcli syntax workflow --json` both enumerate every supported activity type with no
+workflow-start entry; `SHOW JAVA ACTIONS IN System` shows no callable Java action wrapping it
+either; a full-text catalog search for "start" + "workflow" across skill files and `SEARCH
+'workflow'` turned up nothing beyond the definition-authoring commands.
+
+**Workaround:** none via mxcli — this is a genuine gap in the modelable activity surface, not a
+detection/quoting bug. Every microflow that needs to start a workflow instance must be built via
+mxcli up to the point right before the start (parameter/preparation logic, all scriptable), then
+finished with one manual Studio Pro step: drag in a "Start workflow" activity, bind
+`Context = $YourContextObject`, capture its result into a `System.Workflow` variable, and continue
+scripting from there (e.g. `CHANGE` a companion entity to store the returned workflow reference).
+
+**Related:** none — first sighting. Worth checking whether a future mxcli version adds this
+activity type before re-deriving the same manual-step workaround on another project.
+
+## BUG-81: mxbuild model loader nondeterministically fails to load a valid, previously-clean .mpr with fabricated AttributeIdentifier errors
+
+**Project:** TFC-TCXGraphPOC-main. **mxcli/mxbuild version:** confirmed on both v0.17.0's bundled
+Studio Pro 11.13.0 Beta mxbuild AND the separately-downloaded `~/.mxcli/mxbuild/11.12.0` binary.
+
+**Symptom:** `mxbuild --target=deploy <project>.mpr` throws `Mendix.Modeler.Storage.
+StorageLoadException` at "Reading project file" — before any real model validation runs — citing
+`Mendix.Modeler.DomainModels.AttributeIdentifier.FromString` failures against a *deterministic* set
+of otherwise real, valid, correctly-used attributes (`AgentRiskSummary`, `AgentRiskFlag`,
+`AgentPrefillSummary`, `ToolResponsibility`, `SupplyCondition`, `PartName` on this run). Confirmed
+via `mxcli SEARCH` (after `REFRESH CATALOG` + `REFRESH CATALOG SOURCE`) that every named attribute
+genuinely exists and is correctly referenced — this is not a real modeling defect.
+
+**Confirmed reproducible, confirmed NOT session/on-disk-state related:**
+1. `bin/exec.sh`'s own mxbuild gate (SP 11.13.0's bundled binary) reported **0 errors, clean** for
+   two scripts (`09-...`, `10-...`) executed minutes apart, each immediately followed by a commit.
+2. Minutes later, with the working tree showing **zero diff** against that same commit (`git
+   status` clean on `TFC-TCXGraphPOC.mpr`/`mprcontents/`), re-running the *identical* `mxbuild
+   --target=deploy` invocation against the on-disk tree failed **5/5 times**, always with the same
+   6 attribute names.
+3. A completely fresh `git archive HEAD` extraction into an isolated `/tmp` directory — no shared
+   state with the working tree at all — **also failed**, same error set. Rules out any on-disk-only
+   corruption, lock file, or journal artifact specific to the working copy.
+4. `mxcli docker build --skip-check` (which only skips the separate `mx check` pre-validation step)
+   hits the identical failure, because the deploy build still invokes mxbuild's own loader.
+5. A separate isolated test earlier in the same investigation, against an *older* pre-session
+   commit extracted into its own `/tmp` copy, reproduced the same failure class but with a
+   **different random set** of fabricated invalid-attribute names each of 3 runs — i.e. the
+   nondeterminism is real and not tied to any specific commit's content.
+
+**Working theory:** the mxbuild loader's replay of the MPR v2 split-tree journal
+(`mprcontents/`-format incremental change log) has a race condition — some attribute references
+get read before their identifier GUID resolution is fully in scope, so the loader falls back to
+resolving by an empty/interned name string and fails. Whether this fires, and which attributes it
+picks, appears to depend on load-order/threading timing, not on the actual model content. This
+would explain why `exec.sh`'s gate can report a clean pass immediately after a `mxcli exec` write
+(when the freshly-in-memory journal state happens to align) while a cold re-load of the exact same
+committed bytes minutes later fails.
+
+**Impact — significant, not yet fully resolved:** this makes `bin/exec.sh`'s own mxbuild gate
+**not a reliable green light** — a script can pass the gate and be committed, then fail to load on
+the very next `mxcli docker reload`/`docker build`/CLI `mxbuild` invocation, with no way to tell
+from the gate result alone. Studio Pro's own interactive "Run Locally" load path has NOT yet been
+tested against this exact failure (GUI automation is not available in this environment to verify
+independently) — it's unconfirmed whether SP's loader shares this bug or only the CLI mxbuild path
+does.
+
+**Workaround:** none found yet that's reliable. Retrying the identical build a handful of times did
+not produce a clean pass in this session (5/5 failures). Not yet tried: reopening in Studio Pro
+interactively (GUI, to see if SP's own loader is affected) — flagged as the next diagnostic step.
+
+**Related:** distinct from BUG-60 (`docker check` collapsing v2→v1 tree) and CE0066 (SP
+security-cache staleness, which is a semantic-check-level issue, not a load-time
+`StorageLoadException`). This is the first sighting of the model *failing to load at all*
+nondeterministically. Given the severity (undermines trust in the exec.sh gate itself), this should
+be escalated/filed upstream once reproduced against a minimal repro case, not just documented here.
+
+### BUG-81 update (2026-08-14) — root cause confirmed, bisected to a specific script
+
+**Root cause found:** bisecting TFC-TCXGraphPOC-main's git history commit-by-commit (`git archive`
++ fresh `mxbuild --target=deploy` per commit) pinpointed the exact first-bad commit: a
+`create or modify microflow` (full-rewrite) statement against two existing, non-trivial
+microflows (`WF_ACT_GraphAgent_RiskFlag`, `WF_ACT_TCCopilot_Prefill`) that changed only a
+one-line string literal inside each (an `AgentCommons.Agent` title lookup). The rewrite corrupted
+the attribute-identifier serialization of **every** `change $Object (...)` activity in both
+rewritten microflows — not just the one containing the intentional edit, and not specific to any
+one attribute type (hit a String, an Enumeration, and several other String attributes across two
+unrelated `change` activities in a second microflow that had no direct relationship to the edited
+line). `exec.sh`'s own mxbuild gate passed clean immediately after the write (in-memory model still
+had references resolved); only a cold reload — confirmed independently via both the CLI mxbuild
+binary AND Studio Pro's own interactive load (screenshot of the identical error dialog) — exposes
+the corruption.
+
+**Practical implication:** `create or modify microflow` (full replace) is not safe to trust from a
+single post-write mxbuild gate pass when the microflow contains multiple `change $Object (...)`
+activities touching entity attributes — this looks like a genuine mxcli/mxbuild write-path
+serialization bug in how attribute GUIDs get resolved during a full-microflow re-serialize pass on
+an existing (not brand-new) microflow, distinct from a load-time-only race. Recommended mitigation
+until this is understood/fixed upstream: after any `create or modify microflow` touching existing
+`change` activities, do a SECOND, independent cold-load verification (fresh `git archive` of the
+just-committed state + direct `mxbuild`) before trusting the change as landed — a single gate pass
+right after the write is not sufficient proof.
+
+**Fix applied this session:** reverted the .mpr to the last commit before this write landed; the
+underlying one-line Title-string fix was small enough to be worth re-deriving from scratch with
+this new verification step, rather than attempting a repair-in-place.
+
+### BUG-81 update 2 (2026-08-14) — confirmed 100% reproducible, not intermittent
+
+Re-ran the EXACT same `create or modify microflow` statement (identical MDL, identical target
+microflows `WF_ACT_GraphAgent_RiskFlag`/`WF_ACT_TCCopilot_Prefill`) a second time against a freshly
+reverted, confirmed-clean baseline. Result: **identical corruption reproduced**, confirmed via an
+independent cold-load immediately after the write (not just `exec.sh`'s own gate, which again
+reported 0 errors). This rules out one-off nondeterminism for THIS specific case — the statement is
+deterministically unsafe against this project's model, every time. Reverted again (uncommitted this
+time, so a plain `git checkout HEAD --` sufficed). **This script's fix (a one-line Title-string
+correction inside two existing microflows) cannot currently be landed via mxcli's
+`create or modify microflow` at all** — needs either a different mxcli approach (untried: smaller,
+single-microflow-only script; different statement ordering; single microflow per exec instead of
+two in one script) or a manual Studio Pro edit.
+
+### BUG-81 update 3 (2026-08-14) — single-microflow-per-exec does NOT avoid it either
+
+Tested the leading untried hypothesis from update 2: split the combined script into two, one
+`create or modify microflow` statement per exec (`09a-riskflag-title-fix-only.mdl`, touching ONLY
+`WF_ACT_GraphAgent_RiskFlag`, nothing else in the same script/exec). `bin/exec.sh`'s own gate again
+reported 0 errors, clean. An independent cold-load (fresh scaffold copy, direct
+`mxbuild --target=deploy`, `--java-home`/`--java-exe-path` set explicitly) immediately reproduced
+the **identical** `AttributeIdentifier.FromString` corruption on `AgentRiskSummary`/`AgentRiskFlag`
+— same signature as the combined script. **This rules out "touching two microflows in one exec" as
+the trigger.** The defect is in `create or modify microflow`'s full-rewrite serialization of THIS
+microflow's `change $Object (...)` activities specifically (both early-return branches use
+`change $TFCStub ("AgentRiskFlag" = ..., "AgentRiskSummary" = ...)`), independent of how many other
+microflows are touched in the same script/exec.
+
+Reverted the uncommitted write (`git checkout HEAD -- TFC-TCXGraphPOC.mpr mprcontents`), reconfirmed
+clean via cold-load (0 `AttributeIdentifier` errors; the only residual errors were `CE0462` missing-
+widget noise from the isolated scaffold's stale `widgets/` folder, a known artifact of this test
+method, not a real defect — see update 1).
+
+**Current status: this specific fix cannot be landed via any `create or modify microflow` variant
+tried so far (combined, split, single-exec).** Remaining untried options, in order of preference:
+1. A manual Studio Pro GUI edit of the Title-lookup string literal in both microflows (lowest risk
+   now — proven mxcli path is unsafe for this element).
+2. If mxcli exposes a narrower "modify one activity in place" statement (not a full microflow
+   rewrite) — untested, may not exist in this binary's grammar.
+3. Delete-and-recreate the two specific `change` activities via separate DROP/ADD-style statements,
+   if such granularity exists — untested.
+Do not retry `create or modify microflow` against this microflow again without a new mitigating
+theory backed by evidence — three consecutive reproductions (combined ×2, single-exec ×1) is enough
+to call this deterministic and closed pending a real fix, not something to keep probing blindly.
+
+## BUG-82: neither `create or modify entity` (full redeclare) nor `ALTER ENTITY MODIFY ATTRIBUTE` can clear an existing "not null error" validation rule — silent no-op with a misleading success message
+
+**Sighted:** POCTibor-BJJ-app, mobile-UI-fixes cycle, fix-65 (2026-08-18).
+
+**Symptom:** `TechniquesLibrary.TechniqueNote.NoteText` was declared `String(2000) not null error 'Note text is required'`. Attempting to remove the constraint two ways both printed a normal success line but left the constraint completely unchanged (confirmed via `DESCRIBE ENTITY` immediately after, and via `SELECT ValidationRuleCount FROM CATALOG.ENTITIES` staying at 1 throughout):
+
+1. `create or modify persistent entity TechniquesLibrary."TechniqueNote" ("NoteText": String(2000));` (attribute redeclared with no constraints at all) → prints `Modified entity: TechniquesLibrary.TechniqueNote`, but `DESCRIBE ENTITY` afterward still shows `NoteText: String(2000) not null error 'Note text is required'` unchanged.
+2. `alter entity TechniquesLibrary."TechniqueNote" modify attribute "NoteText": string(2000) nullable;` → prints `Modified attribute 'NoteText' on entity TechniquesLibrary.TechniqueNote`, but `DESCRIBE ENTITY` afterward is again completely unchanged.
+
+Note: `mxcli syntax domain-model.entity.alter` reveals `ALTER ENTITY ... MODIFY ATTRIBUTE` only officially supports `SET DEFAULT val` — it does not document a NULLABLE/NOT NULL clause at all, despite `.ai-context/skills/generate-domain-model.md` in this project documenting `modify attribute X: type nullable;` and `not null` as supported MODIFY clauses. The tool accepted the unsupported clause without a parse error and silently did nothing to the constraint, rather than rejecting it — an under-report-failure pattern consistent with BUG-66/69.
+
+**Isolated repro (rules out live-reference explanations):** created a throwaway scratch entity `TechniquesLibrary.ZZProbe_NotNull (Field: string(50) not null error 'req')` with zero other references. Both `create or modify entity` redeclare-without-constraint and `alter entity modify attribute ... nullable` reproduced the exact same silent no-op on this isolated entity.
+
+**Confirmed workaround:** `DROP ENTITY` + recreate clears the constraint reliably (verified on the same isolated probe: drop, then `create persistent entity ... (Field: string(50));` with no constraint → `DESCRIBE ENTITY` correctly shows the plain attribute, constraint gone).
+
+**Caveat on the workaround for a non-isolated entity:** per BUG-01 (`migrate-general.md`), dropping an entity/attribute that is already referenced by existing microflows/pages leaves dangling UUIDs in their BSON (`KeyNotFoundException` on load) even after recreating an entity/attribute with the identical name — a fresh create gets a fresh UUID, not the old one. For an entity like `TechniqueNote` with live associations, microflows, and a page referencing it, the safe form of this workaround requires dropping and recreating the entire dependent chain (associations → microflows → pages, in dependency order) and re-verifying any external caller (e.g. an action-button `Action:` on a different, unrelated page) that resolves to the recreated microflow/page by UUID, not just by name.
+
+**Impact:** Medium-high — any project that sets `not null` on a persistent attribute (a very common, ordinary domain-modeling choice) has no working non-destructive way via mxcli to later relax that constraint. Combined with BUG-66/69, this strongly suggests `ALTER ENTITY`/`create or modify entity`'s diff-and-apply logic under `ValidationRule`-backed constraints (not null, unique, with a custom error message) generally fails silently rather than actually diffing and applying the removal, while succeeding correctly for pure attribute-property changes (type, length) and additions.
+
+**No fix exists at the MDL/CLI level for a referenced entity.** Needs an mxcli code fix so `ALTER ENTITY MODIFY ATTRIBUTE` genuinely supports (and diffs/applies) NOT NULL/NULLABLE/UNIQUE constraint removal, or at minimum makes the currently-silent no-op a hard error when the requested constraint change doesn't take effect.

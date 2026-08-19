@@ -10,12 +10,18 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Starlark lint rules. Same "missing -> install, drifted -> report, never blind-overwrite"
-# contract as the crash net, plus one case the crash net does not have: `mxcli init` can
-# silently revert a rule to stock, and the two rules that matter report a clean pass when
-# stock. See bin/lib/install-lint-rules.sh for the full classification. It sources
-# install-manifest.sh itself, so this one line is the whole dependency.
+# What a project gets installed — agents and project-bin scripts — comes from ONE manifest
+# that sync-project.sh and init-agents.sh read too. This script used to carry its own copy
+# and fell two scripts behind sync's (conformance-check.sh, graph-sweep.sh), which are the
+# instruments review-agent.md needs. A fresh project got neither the agent nor its tools.
+. "$SCRIPT_DIR/lib/install-manifest.sh"
 . "$SCRIPT_DIR/lib/install-lint-rules.sh"
+
+# The baseline routing block this script writes into CLAUDE.local.md is NOT a heredoc copy of
+# the README's table any more. It is rendered from bin/lib/skill-routing.tsv — the same table
+# gate-check.sh's stage map, the agent templates and sync-project.sh read. A hand-kept copy
+# here is how facts-lock.sh ended up routed in 1 of 6 projects.
+. "$SCRIPT_DIR/lib/skill-routing.sh"
 
 if [ $# -lt 1 ]; then
   echo "Usage: $0 <project-dir>" >&2
@@ -200,24 +206,12 @@ This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
    \`ASSUMED\` is earned by asking — the user said "you decide" — never by skipping.
 4. **Before calling a stage done:** \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> <stage>\`.
 
-## Baseline routing (always-on — from the toolkit README, keep in sync via bin/sync-project.sh)
-
-| Always relevant for | Reference this (under \`$TOOLKIT_ROOT/\`) |
-|---|---|
-| Any pipeline work, every session | \`skills/conversion-runbook.md\` |
-| Any question before asking the user or writing anything | \`skills/query-the-model.md\` |
-| Putting any question TO the user, at any gate | \`skills/interview-protocol.md\` (ask in chat, two options + a recommendation each, batch then stop, record the answer) |
-| Building any module — before the first script | \`skills/module-brief.md\` (the mdl-agent's single per-module input) |
-| Writing BRDs, especially several in parallel | \`bin/facts-lock.sh <root> build\` FIRST, then \`check\` before calling any BRD done. Freezes the identifiers every BRD must share; a casing disagreement becomes an error at write time instead of an open question at gate time. |
-| Writing ANY MDL script — before the first line | \`skills/learned-mdl-preflight.md\` (Step 0 write-mode choice, then STOP table) |
-| Writing or fixing any microflow | \`skills/learned-microflow-patterns.md\` |
-| Building any page or snippet — before the first widget | \`skills/ui-preflight-pages.md\` (wireframe → tokens → gallery reuse) |
-| Building or using the in-app design gallery | \`skills/learned-stylegallery.md\` |
-| After building any page — before calling it done | \`skills/ui-review-loop.md\` (render/interaction/reuse/wireframe verification; mxbuild is blind to all four) |
-| Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session | \`skills/learned-mcp-patterns.md\` (three co-equal write modes, not CLI-only) |
-| A CE error that looks like a tool quirk | \`bug-logs/mxcli-bugs.md\` |
 EOF
   echo "Created: CLAUDE.local.md (runbook-first wiring + baseline routing)"
+  # Baseline routing is appended here, not carried in the heredoc above: one table
+  # (bin/lib/skill-routing.tsv), rendered by one function, so a skill added to the table
+  # reaches a brand-new project and every existing one (via sync-project.sh) alike.
+  routing_sync_claude_local "$CLAUDE_LOCAL" "$TOOLKIT_ROOT" || true
 fi
 
 # One-command install: agents are scaffolded here too, not as a separate step.
@@ -239,7 +233,8 @@ fi
 CRASHNET_SRC="$SCRIPT_DIR/../project-bin"
 if [ -d "$CRASHNET_SRC" ]; then
   mkdir -p "$PROJECT_DIR/bin"
-  for s in _common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh; do
+  # List from bin/lib/install-manifest.sh — the same one sync-project.sh installs from.
+  for s in $MXTK_PROJECT_BIN; do
     if [ -f "$PROJECT_DIR/bin/$s" ]; then
       echo "Kept (already present): bin/$s"
     elif [ -f "$CRASHNET_SRC/$s" ]; then
@@ -250,11 +245,11 @@ if [ -d "$CRASHNET_SRC" ]; then
   done
 fi
 
-# ── Starlark lint rules ─────────────────────────────────────────────────────────────────────
-# mxcli seeds .claude/lint-rules/ with its own copies and two of them are broken as shipped:
-# they match no entity at all and report a clean pass forever. Install the toolkit's fixed
-# versions over the stock ones, plus conv020, which mxcli does not ship. Nothing a human
-# edited is overwritten — see bin/lib/install-lint-rules.sh.
+# ── Starlark lint rules ──────────────────────────────────────────────────────────────────
+# mxcli seeds .claude/lint-rules/ with its own copies; three of them are broken as shipped
+# (two match no entity at all and report a clean pass forever). Install the toolkit's fixed
+# versions over the stock ones, and conv020 — which mxcli does not ship — alongside them.
+# Nothing a human edited is overwritten: see bin/lib/install-lint-rules.sh.
 mxtk_install_lint_rules "$(cd "$SCRIPT_DIR/.." && pwd)" "$PROJECT_DIR" 0 ""
 
 # ── Agent wiring ─────────────────────────────────────────────────────────────

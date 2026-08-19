@@ -19,6 +19,33 @@ back to v1 and deleting `mprcontents/`, and `test` writes too. Two consecutive r
 comparable, and the project's write-approval rule applies to them. Confirm against the project's
 own bug log before running anything you have not run here before.
 
+## Skills this agent must load
+<!-- Generated from mxcli-project-toolkit/bin/lib/skill-routing.tsv by bin/render-routing.sh.
+     Do not hand-edit between the markers: add or change the ROW, then re-render.
+     Paths are relative to the toolkit root given in the CLAUDE.local.md Wiring block. -->
+<!-- ROUTING:BEGIN agent:gate -->
+| Load this | When |
+|---|---|
+| `skills/conversion-runbook.md` | Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only |
+| `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
+| `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
+| `skills/agent-roles.md` | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" |
+| `skills/testing-shape.md` | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature |
+| `project-bin/verify-module.sh` | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh |
+| `bug-logs/mxcli-bugs.md` | A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake |
+| `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
+| `skills/coverage-ledger.md` | Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible |
+| `bin/coverage-check.sh` | Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered |
+| `skills/iterative-build-loop.md` | Building a module with mxcli — verified, iterative, coverage-checklist gated |
+| `project-bin/conformance-check.sh` | Running the ledger rung alone — recompute every stored ledger status against the live model and catch the STALE rows that claim built for something the model no longer has |
+| `project-bin/graph-sweep.sh` | Running the wiring rung alone — a module imported but never reached, an element built but wired to nothing, a boundary crossed; mxbuild and e2e are blind to all three |
+| `project-bin/test-stack-up.sh` | Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only |
+| `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
+| `skills/report-schema.md` | Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer |
+| `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
+| `skills/mpr-corruption-and-sp-load-errors.md` | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout |
+<!-- ROUTING:END -->
+
 ## Gates to run (in order)
 1. **Model check**: {{MODEL_CHECK_COMMAND}}. Expect 0 CE errors.
 2. **Compile gate** (if applicable): {{COMPILE_GATE_COMMAND}}.

@@ -24,7 +24,11 @@ Build after completing a module build phase:
 - Playwright installed: `npm init -y && npm i -D playwright`
 - `npx playwright install chromium`
 - App running at `http://localhost:8080`
-- PostgreSQL accessible via psql.exe (for DB assertions)
+- A working data-assertion instrument. **Prefer the M2EE admin API** (`mxcli oql --direct`,
+  `adminPort = runtime port + 10`, token from the project's own m2ee config) — see
+  `learned-db-assertions.md`. The `psql.exe` config further down is the Windows-only
+  **fallback**; there is no `psql.exe` on macOS, and a harness with neither instrument has no
+  data rung at all while still reporting "e2e".
 - Test user credentials known (e.g. `demo.user / Demo12345`)
 
 ---
@@ -86,7 +90,9 @@ const BASE_URL  = process.env.APP_URL  || 'http://localhost:8080';
 const TEST_USER = process.env.TEST_USER || 'demo.user';
 const TEST_PASS = process.env.TEST_PASS || 'Demo12345';
 
-// PostgreSQL config — for DB assertions
+// PostgreSQL config — the FALLBACK data-assertion path (Windows/Docker/managed Postgres only).
+// Try the M2EE admin API first; see learned-db-assertions.md. On macOS these defaults cannot
+// resolve, and silently losing this rung turns the suite UI-only without changing its verdict.
 const PSQL = process.env.PSQL_PATH || 'C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe';
 const PG_DB   = process.env.PG_DB   || 'PGadmin';
 const PG_USER = process.env.PG_USER || 'postgres';

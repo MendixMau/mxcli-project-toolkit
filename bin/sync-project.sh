@@ -23,18 +23,43 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATE_DIR="$SCRIPT_DIR/../agents"
 
+# THE install manifest — agents and project-bin scripts — lives in ONE file that
+# init-project.sh and init-agents.sh read too. It used to be duplicated here, and the
+# copies drifted: sync installed review-agent.md + conformance-check.sh + graph-sweep.sh
+# and init did not, so a freshly scaffolded project never got them. Add new agents/scripts
+# to bin/lib/install-manifest.sh, never to a per-script list.
+. "$SCRIPT_DIR/lib/install-manifest.sh"
+AGENTS="$MXTK_AGENTS"
+
+# The OTHER thing that was copied into a project and could never be refreshed: the baseline
+# skill-routing table inside CLAUDE.local.md. Everything else in this script had at least a
+# warning; routing had one too ("add them from README.md"), and a warning nobody can act on
+# in one command is how facts-lock.sh reached 1 of 6 projects and agent-roles.md reached 1.
+# Now it is rendered from bin/lib/skill-routing.tsv and rewritten IN PLACE between markers.
+. "$SCRIPT_DIR/lib/skill-routing.sh"
+
 # Starlark lint rules. Same "missing -> install, drifted -> report, never blind-overwrite"
 # contract as the crash net, plus one case the crash net does not have: `mxcli init` can
 # silently revert a rule to stock, and the two rules that matter report a clean pass when
-# stock. See bin/lib/install-lint-rules.sh for the full classification. It sources
-# install-manifest.sh itself, so this one line is the whole dependency.
+# stock. See bin/lib/install-lint-rules.sh for the full classification.
 . "$SCRIPT_DIR/lib/install-lint-rules.sh"
 
-# THE agent list. Explicit, NOT a glob over agents/*.md — a glob installs any doc that
-# happens to sit in agents/ as an extra agent, and one without YAML frontmatter is
-# silently broken in the target project. Adding an agent to the toolkit is a one-word
-# change here; both the sync loop and --diff-completed read this list.
-AGENTS="ba-agent.md architect-agent.md mdl-agent.md gate-agent.md test-agent.md"
+# Is this agent file an UNTOUCHED stub (safe to overwrite), or completed work?
+# Two conditions, both required: it still carries the STUB GENERATED banner AND it still
+# has at least one genuinely unfilled {{PLACEHOLDER}}.
+#
+# {{DOUBLE_BRACE}} is EXCLUDED, and the exclusion is load-bearing. Every agent template
+# carries "If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed" —
+# that token is PROSE standing in for "double brace", not an unfilled slot, and it survives
+# completion by design. Without the strip, a fully completed 8 KB agent still matched
+# `{{[A-Z_]*[^}]*}}`, was judged a pure stub, and was overwritten with the 4.6 KB template.
+# Measured: this would have destroyed ~33 KB of finished agent files in one project.
+# bin/gate-check.sh's build-ready placeholder scan already carries the same exclusion.
+is_pure_stub() {
+  local f="$1"
+  grep -q "STUB GENERATED" "$f" || return 1
+  sed 's/{{DOUBLE_BRACE}}//g' "$f" | grep -q '{{[A-Z_]*[^}]*}}'
+}
 
 DIFF_COMPLETED=0
 DRY_RUN=0
@@ -65,16 +90,18 @@ STRICT=0
 UPGRADE_BIN=""
 UPGRADE_LINT=""
 REPAIR_INTAKE=0
+ADOPT_ROUTING=0
 PROJECT_DIR=""
 USAGE="Usage: $0 <project-root> [--diff-completed] [--dry-run] [--strict]
                           [--upgrade-bin <script.sh|all>] [--upgrade-lint-rules <rule.star|all>]
-                          [--repair-intake]"
+                          [--repair-intake] [--adopt-routing]"
 while [ $# -gt 0 ]; do
   case "$1" in
     --diff-completed) DIFF_COMPLETED=1; shift ;;
     --dry-run)        DRY_RUN=1; shift ;;
     --strict)         STRICT=1; shift ;;
     --repair-intake)  REPAIR_INTAKE=1; shift ;;
+    --adopt-routing)  ADOPT_ROUTING=1; shift ;;
     --upgrade-bin)
       shift
       [ $# -gt 0 ] || { echo "--upgrade-bin needs a script name or 'all'" >&2; exit 1; }
@@ -99,6 +126,10 @@ while [ $# -gt 0 ]; do
       echo "  --repair-intake    accept the offered repair of a stale, still-verbatim intake"
       echo "                     question (see the OFFER printed by a plain run). Only ever"
       echo "                     rewrites boilerplate nobody has edited."
+      echo "  --adopt-routing    accept the offered conversion of a hand-written, UNMARKED"
+      echo "                     '## Baseline routing' section in CLAUDE.local.md into the"
+      echo "                     generated, marked block. The file is backed up first, and"
+      echo "                     everything outside that one section is untouched."
       exit 0 ;;
     -*) echo "unknown option: $1" >&2; exit 1 ;;
     *)  PROJECT_DIR="$1"; shift ;;
@@ -139,7 +170,7 @@ if [ "$DIFF_COMPLETED" -eq 1 ]; then
     dst="$AGENT_DIR/$a"
     [ -f "$src" ] && [ -f "$dst" ] || continue
     # Pure stubs are handled by the normal sync path; only completed agents are interesting.
-    if grep -q "STUB GENERATED" "$dst" && grep -q "{{[A-Z_]*[^}]*}}" "$dst"; then
+    if is_pure_stub "$dst"; then
       continue
     fi
     any=1
@@ -305,7 +336,7 @@ if [ -d "$AGENT_DIR" ]; then
       sed "s/{{PROJECT}}/$PROJECT_NAME/g" "$src" | w_to "$dst"
       echo "${DRY:-}Created: .claude/agents/$a (new since this project was scaffolded)"
       CHANGES=$((CHANGES + 1))
-    elif grep -q "STUB GENERATED" "$dst" && grep -q "{{[A-Z_]*[^}]*}}" "$dst"; then
+    elif is_pure_stub "$dst"; then
       # Pure stub, never completed — safe to refresh with the current template.
       if ! sed "s/{{PROJECT}}/$PROJECT_NAME/g" "$src" | cmp -s - "$dst"; then
         sed "s/{{PROJECT}}/$PROJECT_NAME/g" "$src" | w_to "$dst"
@@ -371,15 +402,50 @@ EOF
   echo "Updated: CLAUDE.local.md — appended the Wiring block. CONFIRM its paths this session."
   CHANGES=$((CHANGES + 1))
 fi
-# Baseline routing must include the UI-quality skills (added after the WMS UI audit).
-# Test ui-preflight-pages, NOT ui-review-loop: the Wiring block §2c appends just above contains
-# the literal "ui-review-loop.md" in its "UI review reports" row, so the old test was
-# permanently satisfied by sync's OWN output — silent forever, on projects with no Baseline
-# routing table at all.
-if [ -f "$CL" ] && ! grep -q "ui-preflight-pages" "$CL"; then
-  warn "CLAUDE.local.md baseline routing is missing the UI-quality rows (ui-review-loop.md," \
-       "ui-preflight-pages.md, module-brief.md, learned-stylegallery.md) — add them from" \
-       "README.md 'Baseline routing'; the mdl-agent won't route to the UI gates without them."
+# --- 2d. CLAUDE.local.md: rewrite the baseline routing block from the one routing table ----
+#
+# This is the seventh copy — the one inside each project, which no script could update. The
+# previous code here could only WARN ("add them from README.md 'Baseline routing'"), and a
+# warning that costs a human a manual merge is a warning that gets ignored: measured across
+# the six wired projects on this machine on 2026-08-18, bin/facts-lock.sh was routed in 1,
+# agent-roles.md in 1, source-triage.md in 1, and 17 of 43 skills in none.
+#
+# Only the marked block is touched. A project's CLAUDE.local.md carries hand-written wiring —
+# real paths, local conventions, the session ritual — and all of it is copied byte-for-byte.
+# Three cases, and the third refuses rather than guesses:
+#   markers present            -> rewrite between them (idempotent; no-op when already current)
+#   no markers, no such heading-> append the section, markers included
+#   no markers, but a hand-written "## Baseline routing" heading exists -> REFUSE and offer
+#                                 --adopt-routing, which backs the file up first. Appending a
+#                                 second table would leave two disagreeing tables in the file
+#                                 an agent reads first, which is worse than the drift.
+if [ -f "$CL" ]; then
+  if [ "$ADOPT_ROUTING" -eq 1 ] && ! grep -q 'ROUTING:BEGIN[[:space:]]\{1,\}baseline' "$CL" \
+     && grep -q '^##.*[Bb]aseline routing' "$CL"; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      echo "Would adopt: CLAUDE.local.md '## Baseline routing' section -> generated marked block."
+    else
+      RBAK="$(routing_adopt_claude_local "$CL" "$TOOLKIT_ROOT")"
+      echo "Adopted: CLAUDE.local.md baseline routing is now generated from the routing table."
+      echo "         Your previous file is kept at $(basename "$RBAK")."
+    fi
+    CHANGES=$((CHANGES + 1))
+  else
+    RRC=0; routing_sync_claude_local "$CL" "$TOOLKIT_ROOT" "$DRY_RUN" || RRC=$?
+    case "$RRC" in
+      0)  : ;;  # already current
+      10) echo "${DRY:-}Updated: CLAUDE.local.md baseline routing block (rendered from bin/lib/skill-routing.tsv)."
+          CHANGES=$((CHANGES + 1)) ;;
+      11) echo "${DRY:-}Added: CLAUDE.local.md baseline routing block — this project predates it."
+          CHANGES=$((CHANGES + 1)) ;;
+      12) warn "CLAUDE.local.md has a hand-written '## Baseline routing' section with no" \
+               "<!-- ROUTING:BEGIN baseline --> markers, so sync cannot refresh it and will not" \
+               "append a second, disagreeing table. Convert it (your file is backed up first):" \
+               "  $0 $PROJECT_DIR --adopt-routing" \
+               "Everything outside that one section is left byte-for-byte alone." ;;
+      *)  warn "could not sync CLAUDE.local.md's routing block (routing_sync_claude_local -> $RRC)." ;;
+    esac
+  fi
 fi
 
 # --- 3. Baseline routing / runbook-first wiring -----------------------------------------
@@ -410,7 +476,12 @@ done
 #   locally modified -> REPORT the drift, print how to see it and how to accept it.
 #                       Never overwritten without --upgrade-bin, which backs the copy up first.
 CRASHNET_SRC="$(cd "$SCRIPT_DIR/.." && pwd)/project-bin"
-CRASHNET_FILES="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh"
+# The list comes from bin/lib/install-manifest.sh (sourced at the top), the same one
+# init-project.sh copies from. Beyond the crash net it also carries the two read-only
+# review instruments (conformance-check.sh, graph-sweep.sh) that review-agent.md depends
+# on — not crash-net per se, but "missing -> install, drifted -> report, never
+# blind-overwrite" applies identically to a project's tuned copy of either.
+CRASHNET_FILES="$MXTK_PROJECT_BIN"
 # Only manage bin/ in a directory that is actually a wired project. Otherwise a mistyped path
 # (`sync-project.sh ~/Downloads`) scatters seven executables into somebody's folder.
 WIRED=0
@@ -480,11 +551,11 @@ else
   warn "Toolkit has no project-bin/ — cannot check this project's crash net."
 fi
 
-# ── Starlark lint rules ─────────────────────────────────────────────────────────────────────
-# Gated on WIRED for the same reason as the crash net: a mistyped path must not scatter .star
-# files into an unrelated directory. Unlike the crash net this is also a REPAIR path, not only
-# a first install — `mxcli init` reverts these rules on its own, so re-running sync is the
-# documented way to get a project's lint back after anyone re-inits it.
+# ── Starlark lint rules ──────────────────────────────────────────────────────────────────
+# Gated on WIRED for the same reason as the crash net: a mistyped path must not scatter
+# .star files into an unrelated directory. Unlike the crash net this is also a REPAIR path,
+# not only a first install — `mxcli init` reverts these rules on its own, so re-running sync
+# is the documented way to get a project's lint back after anyone re-inits it.
 if [ "$WIRED" -eq 1 ]; then
   mxtk_install_lint_rules "$(cd "$SCRIPT_DIR/.." && pwd)" "$PROJECT_DIR" "$DRY_RUN" "$UPGRADE_LINT"
   CHANGES=$((CHANGES + ${MXTK_LINT_CHANGES:-0}))

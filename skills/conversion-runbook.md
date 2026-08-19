@@ -6,6 +6,38 @@
 **Purpose:** The spine the toolkit was missing. Each stage below has an owning skill and each skill is good — but until now nothing said *what a stage must produce before the next one starts*, *what the user has to decide*, or *whose job it is to ask them*. This skill is that layer: a stage completes when a decision is on record, not when the agent stops typing.
 
 **Upstream:** `bootstrap-project.md` (Stage P scaffolding), `query-the-model.md` (the lookup-before-ask discipline every gate depends on).
+
+## Skills always loaded — every session, before any stage artifact
+
+This table is the canonical baseline set. It is rendered from the toolkit's one routing
+table; a skill missing here is a skill no agent will find.
+
+<!-- Generated from bin/lib/skill-routing.tsv by bin/render-routing.sh.
+     Do not hand-edit between the markers: add or change the ROW, then re-render. -->
+<!-- ROUTING:BEGIN readme-baseline -->
+| Always relevant for | Reference this |
+|---|---|
+| Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only | `skills/conversion-runbook.md` |
+| Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order | `skills/query-the-model.md` |
+| Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot | `skills/skills-over-scripts.md` |
+| Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn | `skills/interview-protocol.md` |
+| Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" | `skills/agent-roles.md` |
+| Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
+| Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source | `bin/source-sufficiency.sh` |
+| Deciding who answers a question — before putting any batch to the user. gap/conflict/choice is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` |
+| Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done | `bin/facts-lock.sh` |
+| Building any module — before the first script. The mdl-agent's single per-module input | `skills/module-brief.md` |
+| Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations | `skills/learned-mdl-preflight.md` |
+| Writing or fixing any microflow — MDL gotchas plus annotation discipline | `skills/learned-microflow-patterns.md` |
+| Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP | `skills/ui-preflight-pages.md` |
+| Building or using the in-app design gallery | `skills/learned-stylegallery.md` |
+| Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only | `skills/learned-mcp-patterns.md` |
+| Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated | `skills/module-review.md` |
+| Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` |
+| Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` |
+| A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake | `bug-logs/mxcli-bugs.md` |
+| Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
+<!-- ROUTING:END -->
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
 **Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.
 
@@ -290,23 +322,58 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | | |
 |---|---|
 | **User defines** | Confirms the per-module **business-rule coverage checklist** — the definition of "done" for the module, not CE-error-free. |
-| **Agent produces** | Working modules, one at a time, each passing the build loop's gates. Seed/demo data (per `demo-data.md`) is produced here too — you can't validate a coverage checklist against an empty database, so seeding is part of Build, not a separate stage. |
-| **Surface** | `ux-review-*.html` |
-| **Gate** | Every build-plan script passes its gates **and** its coverage checklist. CE-error-free ≠ done. |
-| **Owner** | `mdl-agent` → `gate-agent` |
+| **Agent produces** | Working modules, one at a time, each closed out by **one `module-review.md` pass** (below). Fixtures — the data and identities the module's checks need — are established here too, per `fixture-seeding.md`, which owns *what this app actually needs and which channel should supply it*; the project-bundled `.ai-context/skills/demo-data.md` is one channel (direct SQL insert), not the decision. You cannot validate a coverage checklist against an empty database, so seeding is part of Build. **Never seed from inside the harness** — a harness that repairs its own fixture can no longer report that the fixture was missing. |
+| **Surface** | `design/ui-reviews/ui-review-<YYYY-MM-DD>.html` — the module-review report, one per pass |
+| **Gate** | Every build-plan script passes its gates **and** its coverage checklist. CE-error-free ≠ done. **And the module-review report's headline states its denominator** — pages reviewed of pages that exist, journeys executed of journeys that exist. "All green" is a banned phrase whenever the denominator is not stated. |
+| **Owner** | `mdl-agent` → `gate-agent`, with `review-agent`/`test-agent` on stages 3–4 of the review |
+
+**Closing a module: there is ONE pass, `module-review.md`.** It replaces `module-completion-loop.md`
+and `ui-review-loop.md`, which were two skills for one job — and the one that got skipped was always
+the looking. Both files are now tombstones pointing here. Five stages, one report:
+
+```
+1. BUILD    mdl-agent drafts + validates MDL (mxcli check --references, 0 errors)
+2. GATE     bin/exec.sh (snapshot -> exec -> mxbuild -> auto-restore on failure); 0 errors, lint clean
+3. PROVE    the mechanical rungs: UI (Playwright) + Data (OQL/DB) + monkey pass.
+            Deep form, when an instrument is green and you cannot say what would have
+            made it red: journey-proof.md
+4. LOOK     THE INTELLIGENCE CHECK — every screen in the module, not the ones a test
+            visited. Is it logical? Does it look right? Does it match our design?
+            Stages 1-3 cannot answer any of those. This is the stage that gets skipped,
+            and the stage the escaped defects come from.
+5. CONFIRM  one report, explicit denominator, a human look, then next module
+```
+
+`bin/verify-module.sh` runs the mechanical instruments of stage 3 in one shot and keeps
+**"instrument faulted"** apart from **"feature failed"**. It does not perform stage 4, and a green
+run buys no exemption from it — per `skills-over-scripts.md`, judgement lives in the skill and code
+only fetches facts a reader cannot.
 
 ### Stage 6 — Test
 
-Also not migration-specific — the shared E2E discipline (`e2e-harness-base.md`, `test-app.md`) plus
-the full-app UI review loop (`ui-review-loop.md`) run across every page, not just per-module.
+Also not migration-specific — the shared E2E discipline (`e2e-harness-base.md`, plus the
+mxcli-bundled `.ai-context/skills/test-app.md` inside the project) run across the whole app, not
+per-module. Stage 5 closed each module with its own `module-review.md` pass; Stage 6 is where the
+**app-wide** passes run and where the seams *between* modules are exercised — all-green modules say
+nothing about the seams.
+
+**Read `testing-shape.md` before writing or judging any test here.** It defines what testing a
+module means, so it is the same thing every time, and it carries the **false-green register**: the
+confirmed ways a test reports green while the feature is broken. Alongside it, `measured-claims.md`
+holds the rule that gives evidence its force — *a claim not measured in that register may not be
+cited as evidence.*
 
 | | |
 |---|---|
 | **User defines** | Test scope beyond the golden path; which edge cases matter. |
-| **Agent produces** | Playwright golden-path + edge-case tests, DB assertions, results reported verbatim. Plus a full-app **UI review loop** pass (`ui-review-loop.md`): a diagnostic punch-list (`design/ui-reviews/ui-review-<date>.html`) covering render/interaction/reuse/wireframe-divergence across every page, with the `ba-agent` conformance cross-check. |
-| **Surface** | `test-report.html` · `design/ui-reviews/ui-review-<date>.html` |
-| **Gate** | Golden path + edge cases + DB assertions pass. **UI review loop: zero open P1** (blank required fields, unclickable nav, empty grids, wrong-page wiring, silent save failures). Failures fixed and re-run. |
-| **Owner** | `test-agent` (E2E) + the UI review loop (diagnostic; fixes routed back through the build loop) |
+| **Agent produces** | Playwright golden-path + edge-case tests, DB assertions, results reported verbatim. A full-app **`module-review.md`** pass: the diagnostic punch-list (`design/ui-reviews/ui-review-<YYYY-MM-DD>.html`) covering render/interaction/reuse/wireframe-divergence across **every** page, with the `ba-agent` conformance cross-check. `journey-proof.md` for any journey whose green you cannot explain — five rungs, each proven non-vacuous by a deliberately-broken control. `monkey-test.md` **after** the journeys pass, never before: a monkey run against a broken module reports the breakage as a crash and buries the real finding. `process-coherence-pass.md`, which asks what none of the above can — is the piece being tested even the right piece, and do the individually-passing pieces chain into the process the requirements describe. Optionally `e2e-evidence-report.md`, to repackage an already-rigorous run for a stakeholder who will not run anything. |
+| **Surface** | `test-report.html` · `design/ui-reviews/ui-review-<YYYY-MM-DD>.html` · `docs/report.json` — the append-only contract instruments write and renderers only read (`report-schema.md`), so a renderer can be swapped without touching a harness |
+| **Gate** | Golden path + edge cases + DB assertions pass. **`module-review` app-wide: zero open P1** (blank required fields, unclickable nav, empty grids, wrong-page wiring, silent save failures). **The headline states the denominator** — pages reviewed of pages that exist, journeys executed of journeys that exist, and any dimension left UNMEASURED named explicitly. A pass over 2 of 6 journeys reported as "all green" has already cost one demo. Failures fixed and re-run. |
+| **Owner** | `test-agent` (E2E) + `review-agent` (the review pass is diagnostic; fixes route back through the build loop, and are never applied from inside the harness) |
+
+> **Instruments vs. judgement.** `harness-architecture.md` is the map of the machine — which part
+> owns what, which parts run standalone, and what a missing part must report (degrade loudly, never
+> silently). Whether a result *means* anything is decided by the skills above, not by the scripts.
 
 ### Stage 7 — Cutover
 

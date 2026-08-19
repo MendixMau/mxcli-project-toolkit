@@ -1,5 +1,6 @@
 # MCP Patterns — mxcli + MCP Hybrid Workflow for Mendix Development
 **Applies to:** any mxcli project.
+**Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 **Purpose:** When to use MCP vs mxcli, how to handoff safely between them, and the confirmed JSON patterns for operations mxcli cannot do. This is the primary reference for MCP-augmented development — read it before any MCP write.
 
 **Source:** A live Mendix 11.12.0 Beta project, 2026-07-06/07. Corruptions and near-total module loss from that session informed every rule here.
@@ -259,7 +260,7 @@ Studio Pro's MCP system prompt forbids `ped_update_document` for `Pages$Page` do
 
 ### Cross-module datasource in DataGrid/ListView → use MCP, not mxcli
 
-mxcli writes null `DestinationEntityId` for cross-module association traversals used as widget datasources. Use `pg_patch_page` instead (see `learned-mdl-preflight.md` rule 7).
+mxcli writes null `DestinationEntityId` for cross-module association traversals used as widget datasources on v0.16.0. Use `pg_patch_page` instead (see `learned-mdl-preflight.md` rule 7). **RESOLVED in mxcli v0.17.0 — verified 2026-08-11**; this MCP-only requirement no longer applies once a project's `./mxcli` is upgraded to v0.17.0+.
 
 ### Nested DataView over an association traversal → `Pages$DataViewSource`, NOT `Pages$AssociationSource`
 

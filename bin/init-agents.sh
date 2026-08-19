@@ -8,10 +8,11 @@
 #
 # Usage: bin/init-agents.sh <project-root> [all|p|build]
 #   <project-root>  where your agent sessions run (the dir whose .claude/agents/ is loaded)
-#   all    all five agents  [default — stubs are inert until completed, so scaffold everything
-#          up front; complete each agent's placeholders when its stage actually starts]
-#   p      ba-agent + architect-agent            (Stage P — discovery/architecture)
-#   build  mdl-agent + gate-agent + test-agent   (Stage 5+ — build/verify/test)
+#   all    every agent in bin/lib/install-manifest.sh  [default — stubs are inert until
+#          completed, so scaffold everything up front; complete each agent's placeholders
+#          when its stage actually starts]
+#   p      ba-agent + architect-agent                        (Stage P — discovery/architecture)
+#   build  mdl-agent + gate-agent + test-agent + review-agent (Stage 5+ — build/verify/test)
 
 set -euo pipefail
 
@@ -26,12 +27,19 @@ fi
 TARGET="$1"
 STAGE="${2:-all}"
 
+# The agent list is NOT hardcoded here. It used to be, and it drifted from
+# sync-project.sh's copy: this script installed 5 agents while sync installed 6, so
+# review-agent.md never reached a freshly scaffolded project. One manifest, three readers.
+. "$SCRIPT_DIR/lib/install-manifest.sh"
+
 case "$STAGE" in
-  p)     AGENTS="ba-agent architect-agent" ;;
-  build) AGENTS="mdl-agent gate-agent test-agent" ;;
-  all)   AGENTS="ba-agent architect-agent mdl-agent gate-agent test-agent" ;;
+  p)     AGENTS="$MXTK_AGENTS_STAGE_P" ;;
+  build) AGENTS="$MXTK_AGENTS_STAGE_BUILD" ;;
+  all)   AGENTS="$MXTK_AGENTS" ;;
   *) echo "Error: unknown stage '$STAGE' (use p, build, or all)" >&2; exit 1 ;;
 esac
+# The manifest names files (foo.md); this loop works in bare agent names.
+AGENTS="$(printf '%s\n' $AGENTS | sed 's/\.md$//' | tr '\n' ' ')"
 
 mkdir -p "$TARGET/.claude/agents"
 PROJECT_NAME="$(basename "$(cd "$TARGET" && pwd)")"

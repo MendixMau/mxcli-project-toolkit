@@ -46,6 +46,13 @@ in chat and the agent waits for the answer. Unattended (opt-in only) = recommend
 are applied as ASSUMED and questions are logged in PROJECT.md for later reconciliation.
 EOF
 }
+# Q9 of $1 exactly as the scripts see it: heading, body, trailing blank lines trimmed. This
+# mirrors sync-project.sh's q9_section() on purpose — "byte-identical to the template" has to
+# be compared the same way the scripts compare it, or the test grades a different string.
+q9_of() {
+  awk '/^## 9\./{insec=1} insec && /^## /&&!/^## 9\./{insec=0} insec{print}' "$1" \
+    | awk '{a[NR]=$0} END{last=NR; while(last>0 && a[last]~/^[ \t]*$/) last--; for(i=1;i<=last;i++) print a[i]}'
+}
 # Replace the current Q9 section of $1 with the text on stdin.
 set_q9() {
   awk '/^## 9\./{insec=1; next} insec && /^## /{insec=0} insec{next} {print}' "$1" > "$1.hd"
@@ -153,8 +160,22 @@ else
   ok "second run claims no changes"
 fi
 
-echo "== T7: a stale Q9 is OFFERED a repair, then repaired, and the gate goes green =="
+echo "== T7: a stale Q9 is OFFERED a repair, then repaired into the CURRENT, UNANSWERED template =="
+# This test used to end "...and the gate goes green", and that assertion was itself the bug.
+# Closed by 0f16140: the template --repair-intake writes is the same Q9 init-project.sh writes,
+# and it used to open with "Unverified — how to verify: ...", which check_stage_P() ACCEPTS as
+# an answer. So repairing a project — or merely generating one — certified a kickoff interview
+# that had never happened. The template now says "_Not yet asked._", which carries no marker.
+#
+# The contract the repair actually owes is narrower, and that is what is pinned here: swap
+# ungradeable boilerplate (prose that no answer marker can ever be found in) for the current,
+# GRADEABLE-but-unanswered template. Stage P must stay RED afterwards and must NAME section 9.
+# A repair that greens the gate is the false green coming back. The green is a human's to give,
+# and the tail of this test proves the repaired text is answerable rather than permanently red.
 P="$(mkproj t7)"
+# The reference template is read off the fresh scaffold, never copied into this file: a second
+# hand-maintained copy of that text is precisely what wave-2 #1 was.
+TEMPLATE_Q9="$(q9_of "$P/intake.md")"
 stale_q9 | set_q9 "$P/intake.md"
 printf 'Toolkit commit: none\n' >> "$P/PROJECT.md"
 # Positive control: the instrument must be red BEFORE the repair, or nothing below means anything.
@@ -177,10 +198,25 @@ fi
 [ "$B" = "$A" ] && ok "plain run did not touch intake.md" || bad "plain run rewrote intake.md unasked"
 "$SYNC" "$P" --repair-intake >/dev/null 2>&1
 GOUT="$("$GATE" "$P" P 2>&1)"
-if printf '%s' "$GOUT" | grep -q 'Stage P.*PASS'; then
-  ok "--repair-intake heals Q9; gate-check P now passes"
+if [ "$(q9_of "$P/intake.md")" != "$TEMPLATE_Q9" ]; then
+  bad "--repair-intake did not write the current Q9 template byte-for-byte"
+elif ! printf '%s' "$GOUT" | grep -q 'Stage P.*FAIL'; then
+  bad "Stage P went GREEN on a repaired-but-unanswered Q9 — the 0f16140 false green is back"
+elif ! printf '%s' "$GOUT" | grep -q '9\. Interview mode'; then
+  bad "Stage P fails but never names section 9 — the repaired text is not gradeable"
 else
-  bad "after --repair-intake the project still fails gate-check P"
+  # Red is only the right answer if it is a red a human can clear. Answer every question the
+  # scaffold left open — the marker is what the gate grades, the prose after it is not — and
+  # Stage P must go green. Without this tail, "repair leaves it failing" would also be
+  # satisfied by a repair that wrote something permanently ungradeable.
+  awk '/^_Not yet asked\._/{print "Answered (CONFIRMED): attended."; next} {print}' \
+    "$P/intake.md" > "$P/intake.md.ans" && mv "$P/intake.md.ans" "$P/intake.md"
+  GOUT="$("$GATE" "$P" P 2>&1)"
+  if printf '%s' "$GOUT" | grep -q 'Stage P.*PASS'; then
+    ok "--repair-intake writes the gradeable template; Stage P stays RED until answered, then passes"
+  else
+    bad "Stage P still fails once every question is answered — the repaired Q9 is unanswerable"
+  fi
 fi
 
 echo "== T8: an EDITED Q9 is left alone even with --repair-intake =="

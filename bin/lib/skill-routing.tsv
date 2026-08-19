@@ -16,8 +16,11 @@
 #   3 when    one line: "always relevant for ..." — the trigger, not a description
 #   4 agents  comma list of ba|architect|mdl|gate|test|review, or "all"
 #   5 stages  comma list of P,0,1,2,3,4,5,6,7 (conversion-runbook stages), or "-" for none
-#   6 tier    baseline (always-on: goes into every project's CLAUDE.local.md)
-#             ondemand (situational: load when the task calls for it)
+#   6 tier    baseline     (always-on: goes into every project's CLAUDE.local.md)
+#             ondemand     (situational: load when the task calls for it)
+#             experimental (under trial: routed and discoverable, but _routing_stage_arm skips
+#                          it on purpose, so a skill nobody has proven yet can never be the
+#                          reason a gate fails)
 #
 # TSV rather than a markdown ROUTING.md because a renderer has to parse this in bash 3.2 on
 # macOS, and several "when" strings contain the "|" that a markdown table uses as its column
@@ -91,3 +94,4 @@ e2e-evidence-report	skills/e2e-evidence-report.md	Turning an already-rigorous ru
 mpr-corruption-and-sp-load-errors	skills/mpr-corruption-and-sp-load-errors.md	Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout	mdl,gate	-	ondemand
 lint-gate	project-bin/lint-gate.sh	Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing	mdl,gate	5,6	ondemand
 lint-that-actually-runs	skills/lint-that-actually-runs.md	Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence	gate,review	5,6	ondemand
+journey-map	skills/journey-map.md	Authoring the cross-module user journey ONCE at design time as a source artifact, bound L0→L3, that the module brief, coherence pass and journey-proof read instead of each re-deriving it	ba,architect,test	2,3,4	experimental

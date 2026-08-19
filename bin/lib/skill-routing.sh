@@ -45,6 +45,7 @@ _routing_stage_arm() {
   out="$(routing_rows | awk -F'\t' -v st="$st" '
     $2 !~ /^skills\// { next }
     $2 == "skills/conversion-runbook.md" || $2 == "skills/query-the-model.md" { next }
+    $6 == "experimental" { next }   # a trial skill must never be able to block a gate
     { n = split($5, a, ","); for (i = 1; i <= n; i++) if (a[i] == st) { printf "%s ", $2; break } }
   ')"
   printf '%s' "${out% }"
@@ -54,6 +55,7 @@ _routing_stage_arm() {
 #   full               | When | Load this | Agents | Stage | Tier |
 #   readme-baseline    | Always relevant for | Reference this |          (tier=baseline)
 #   readme-situational | Task | Skill to load |                          (tier=ondemand)
+#   readme-experimental| Under trial | Skill |                            (tier=experimental)
 #   baseline <prefix>  same as readme-baseline, paths shown under <prefix>/ (for CLAUDE.local.md)
 #   agent:<name>       | When | Load this |   rows for that agent, baseline first
 #   stage-map          shell `case` arms for gate-check.sh's stage_protocol_paths()
@@ -80,6 +82,14 @@ routing_render() {
         printf '| %s | `%s` |\n' "$(_routing_md_escape "$when")" "$path"
       done
       ;;
+    readme-experimental)
+      echo "| Under trial — NEVER cite in a gate | Skill |"
+      echo "|---|---|"
+      routing_rows | while IFS=$'\t' read -r name path when agents stages tier; do
+        [ "$tier" = "experimental" ] || continue
+        printf '| %s | `%s` |\n' "$(_routing_md_escape "$when")" "$path"
+      done
+      ;;
     readme-situational)
       echo "| Task | Skill to load |"
       echo "|---|---|"
@@ -93,7 +103,7 @@ routing_render() {
       echo "| Load this | When |"
       echo "|---|---|"
       local t
-      for t in baseline ondemand; do
+      for t in baseline ondemand experimental; do
         routing_rows | while IFS=$'\t' read -r name path when agents stages tier; do
           [ "$tier" = "$t" ] || continue
           if [ "$agents" != "all" ]; then _routing_has "$agents" "$who" || continue; fi

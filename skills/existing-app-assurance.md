@@ -38,12 +38,38 @@ Not for building anything new — that's `conversion-runbook.md` (pick an entry 
 ## Track B — Regression / e2e test net
 
 1. Stand up the harness per `e2e-harness-base.md` (Playwright + demo user + app-start discipline).
-2. Walk the app's real golden paths — derive scenarios from navigation + the user's "what must never break" list, not from guesses.
-3. Add DB assertions (`learned-db-assertions.md`): the UI can lie about whether a create/update/delete landed; OQL can't.
-4. Commit the suite **and the baseline**: "this is what the app does today, proven." That baseline is the acceptance yardstick for any future upgrade, refactor — or migration Stage 6.
-5. Optionally generate `test-agent` for repeat runs: `bin/init-agents.sh <session-root> build` (use just test-agent; complete its placeholders per `agent-roles.md`).
+2. **Per module, inventory every workflow action before writing a single journey — from the
+   model, not from memory or a quick click-around:**
+   ```bash
+   ./mxcli -p <project>.mpr -c "SHOW PAGES IN <Module>"
+   ./mxcli -p <project>.mpr -c "SHOW MICROFLOWS IN <Module>"
+   ```
+   List every button/action on every page (New, Edit, Delete, status/workflow transitions, add
+   comment, add note, approve/reject — anything that calls a microflow), then write one journey
+   per action, not one journey per screen. Record the count: `<N> actions found, <N> journeys
+   written` is a claim; "covered the golden paths" is not — same denominator discipline as
+   `wiring-sweep.md`. A workflow's secondary actions (commenting, annotating, cancelling) are
+   exactly the ones a quick pass skips and a real user relies on daily; they are not optional
+   because they aren't the module's headline feature.
+3. Author/extend `journeys/<Module>.journey.json` per `journey-proof.md` for every action from
+   step 2's inventory (5 rungs, `--positive-control` proving each could have failed).
+4. Add DB assertions (`learned-db-assertions.md`): the UI can lie about whether a create/update/delete landed; OQL can't.
+5. Run `wiring-sweep.md` per module — every clickable element on every page, not just the ones a
+   journey happens to visit. A dead button is invisible to step 3 by construction: nobody writes
+   a journey through a broken affordance because nobody knows it's broken.
+6. Run `module-review.md` stage 4 (LOOK) per module — styling, spacing, information hierarchy,
+   empty states, design-system reuse; `design-audit.js` for the mechanical dimensions (class
+   discipline, overflow, a11y), 4c/4d/4e by eye for the rest. This is the only place "does the UI
+   look right" gets asked at all — nothing upstream of it checks visual quality, so skipping it
+   means styling was never actually reviewed, however green the journeys are. Skip only 4d's
+   wireframe-diff sub-bullet if the app predates this toolkit and has no wireframe on file; run
+   the design-system-consistency and root-cause-the-symptom checks regardless.
+7. Commit the suite **and the baseline**: "this is what the app does today, proven." That baseline is the acceptance yardstick for any future upgrade, refactor — or migration Stage 6.
+8. Optionally generate `test-agent` for repeat runs: `bin/init-agents.sh <session-root> build` (use just test-agent; complete its placeholders per `agent-roles.md`).
 
-**Deliverable:** a green, committed test suite + `test-report.html`.
+**Deliverable:** a green, committed test suite + `test-report.html`, plus the LOOK-stage and
+wiring-sweep findings folded into `docs/improvement-register.md` — a green journey suite alone is
+not the deliverable; it only proves the paths someone thought to write.
 
 ---
 

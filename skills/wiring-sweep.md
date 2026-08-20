@@ -1,7 +1,8 @@
 # Skill: wiring-sweep — does every clickable thing actually do something
 
-**Applies to:** every module before it is called done. Runs as part of `module-review.md` stage 3
-(PROVE), as a rung alongside UI/Data/monkey.
+**Applies to:** every module before it is called done, whether it was just built (runs as part of
+`module-review.md` stage 3 PROVE, a rung alongside UI/Data/monkey) or already exists and is being
+audited (runs as part of `existing-app-assurance.md` Track B, step 5).
 **Instrument:** `mxcli playwright snapshot` + `click`, driven by hand or by an agent — no new
 harness file. This is a driving procedure over mxcli's existing Playwright wrapper
 (`.ai-context/skills/test-app.md` in the consuming project), not a bespoke script. Per

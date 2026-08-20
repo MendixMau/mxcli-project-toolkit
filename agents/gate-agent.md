@@ -29,11 +29,13 @@ own bug log before running anything you have not run here before.
 | `skills/conversion-runbook.md` | Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only |
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
 | `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
+| `skills/checkpoints/checkpoint-template.md` | Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table |
 | `skills/agent-roles.md` | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" |
 | `skills/testing-shape.md` | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature |
 | `project-bin/verify-module.sh` | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh |
 | `bug-logs/mxcli-bugs.md` | A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
+| `skills/checkpoints/checkpoint-cutover.md` | CAC-6, after Stage 6 passes and before any cutover step — migration mode only, and a hard gate: every answer lands CONFIRMED, no ASSUMED defaults |
 | `skills/coverage-ledger.md` | Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible |
 | `bin/coverage-check.sh` | Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered |
 | `skills/iterative-build-loop.md` | Building a module with mxcli — verified, iterative, coverage-checklist gated |

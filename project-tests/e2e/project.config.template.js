@@ -371,15 +371,168 @@ const EXEMPLARS = {
   detailPage:   'Equipment.Item_Detail',
 };
 
+// ── CONFIGURED: the roles the business process passes through ────────────────
+// full-app-walkthrough.js signs OUT and signs IN again at every role change, so
+// each entry needs real credentials for a real account. Use accounts that hold
+// exactly one business role: an account carrying two of them cannot fail a role
+// boundary and every negative check below it is vacuous.
+//   Find the roles:     ./mxcli -p <mpr> -c "SHOW SECURITY ROLES"
+//   Find the accounts:  the app's own Administration → Accounts page
+// Env overrides exist so CI can inject credentials without editing this file.
+const ROLES = {
+  requester: {
+    label: 'Manufacturing Engineer',
+    user: process.env.ROLE_REQUESTER_USER || 'erika.engineer',
+    pass: process.env.ROLE_REQUESTER_PASS || 'Engineer2025!',
+  },
+  approver: {
+    label: 'Production Planner',
+    user: process.env.ROLE_APPROVER_USER || 'paul.planner',
+    pass: process.env.ROLE_APPROVER_PASS || 'Planner2025!',
+  },
+};
+
+// ── CONFIGURED: the one cross-module, cross-role business process ────────────
+// THE GAP THIS CLOSES, in this project's own history: a full e2e pass over six
+// modules produced six journey-findings files, each recording
+// configuredUser == actualUser == one single persona, usedFallback:false, and not
+// one role change anywhere. Six single-persona smoke tests do not add up to an
+// end-to-end test of a business process, because the handoff between two roles
+// falls in the gap BETWEEN two per-module journeys and belongs to neither.
+//
+// So this block describes ONE process, the way the business describes it — raised
+// by somebody, approved by somebody else, consumed by a third — and
+// full-app-walkthrough.js walks it. Per-module depth stays in journeys/*.journey.json
+// and journey-runner.js; do not reproduce it here.
+//
+// A walk configured with one role, or one module, FAILS its own pre-flight checks:
+// it would be a module journey wearing an end-to-end label.
+//
+// Widget names:  ./mxcli -p <mpr> -c "DESCRIBE PAGE <Module>.<Page>"
+// Menu captions: ./mxcli -p <mpr> -c "DESCRIBE NAVIGATION"
+// Entity names:  ./mxcli -p <mpr> -c "SHOW ENTITIES IN <Module>"
+//
+// Step verbs (the whole vocabulary — see full-app-walkthrough.js `runStep`):
+//   nav {group,item,ready}        click {widget}            fill {widget,value,debounceMs}
+//   expect {widget}               expectAbsent {widget}     expectText {widget,text}
+//   expectRows {widget,min}       expectMatchesDb {widget,sql}
+//   baseline {name,sql}           capture {name,sql}        oql {label,sql,expect|atLeast|deltaFrom,by}
+//   wait {ms}                     shot {name}
+// Any step may carry `label` (what the report calls it) and `fatal: true` (nothing
+// after this is worth attempting — later steps are then reported NOT REACHED
+// rather than left silently absent). `{{name}}` interpolates a seed or a capture.
+const WALKTHROUGH = {
+  label: `${ID} — cross-role business process`,
+  // One sentence, in the language the business uses. It is printed in the report.
+  process: 'Engineer raises a routing change → planner approves it → the change is visible on the shop floor',
+
+  // Live values, never literals: a walk pinned to 'RT-PCBA-008' reports "the
+  // feature is broken" the first time somebody reseeds the database.
+  seeds: [
+    { name: 'routeCode', sql: "SELECT RoutingCode AS c FROM RoutingManagement.Route WHERE LifecycleState = 'Released' LIMIT 1" },
+  ],
+
+  acts: [
+    {
+      key: 'raise', role: 'requester', module: 'RoutingManagement',
+      label: 'raise a change request against a released route',
+      checks: ['dgRoutes', 'btnSearch'],
+      steps: [
+        { do: 'nav', group: 'Routing', item: 'Route List', ready: 'dgRoutes', label: 'Route List opens for the engineer', fatal: true },
+        { do: 'fill', widget: 'txtRoutingCode', value: '{{routeCode}}', debounceMs: 2500, label: 'search for the seeded route' },
+        { do: 'click', widget: 'btnSearch', label: 'run the search' },
+        { do: 'expectRows', widget: 'dgRoutes', min: 1, label: 'the route is found' },
+        { do: 'baseline', name: 'requests', sql: 'SELECT COUNT(*) AS n FROM RoutingManagement.ChangeRequest' },
+        { do: 'click', widget: 'btnRequestChange', label: 'open the change request form', fatal: true },
+        { do: 'fill', widget: 'txtReason', value: 'E2E cross-role walkthrough', label: 'state a reason' },
+        { do: 'click', widget: 'btnSubmit', settle: 3000, label: 'submit the request' },
+        { do: 'oql', label: 'the request was written', deltaFrom: 'requests', by: 1,
+          sql: 'SELECT COUNT(*) AS n FROM RoutingManagement.ChangeRequest', fatal: true },
+        { do: 'capture', name: 'requestNo',
+          sql: 'SELECT RequestNo AS r FROM RoutingManagement.ChangeRequest ORDER BY CreatedDate DESC LIMIT 1' },
+        { do: 'oql', label: 'it is queued for approval, not auto-approved', expect: 'Submitted',
+          sql: "SELECT Status AS s FROM RoutingManagement.ChangeRequest WHERE RequestNo = '{{requestNo}}'" },
+        { do: 'expectAbsent', widget: 'btnApprove', label: 'the engineer cannot approve their own request' },
+        { do: 'shot', name: 'act-raise' },
+      ],
+    },
+    {
+      key: 'approve', role: 'approver', module: 'ApprovalManagement',
+      label: 'approve the request the engineer raised',
+      // handoffAssert runs immediately after the sign-in, on the HANDOFF page of the
+      // report, and it is the point of this whole instrument: proof that the second
+      // role can SEE the first role's work. Nothing in a per-module journey can make
+      // that claim, because no per-module journey ever changes identity.
+      handoffAssert: [
+        { do: 'nav', group: 'Approvals', item: 'My Queue', ready: 'dgApprovals', label: 'the planner has an approval queue', fatal: true },
+        { do: 'expectText', widget: 'dgApprovals', text: '{{requestNo}}',
+          label: "the engineer's request appears in the planner's queue" },
+      ],
+      checks: ['dgApprovals', 'btnApprove'],
+      steps: [
+        { do: 'click', widget: 'btnOpenRequest', label: 'open the request', fatal: true },
+        { do: 'expectText', widget: 'dvRequest', text: '{{routeCode}}', label: 'it is the route the engineer picked' },
+        { do: 'click', widget: 'btnApprove', settle: 3000, label: 'approve it' },
+        { do: 'oql', label: 'approval is recorded against the request', expect: 'Approved',
+          sql: "SELECT Status AS s FROM RoutingManagement.ChangeRequest WHERE RequestNo = '{{requestNo}}'" },
+        { do: 'oql', label: 'the approver on the record is the planner, not the engineer',
+          expect: ROLES.approver.user,
+          sql: "SELECT ApprovedBy AS u FROM RoutingManagement.ChangeRequest WHERE RequestNo = '{{requestNo}}'" },
+        { do: 'shot', name: 'act-approve' },
+      ],
+    },
+    {
+      key: 'consume', role: 'requester', module: 'ProcessVariant',
+      label: 'the engineer sees the approved change downstream',
+      handoffAssert: [
+        { do: 'nav', group: 'Routing', item: 'Route List', ready: 'dgRoutes', label: 'the engineer is back in Route List' },
+        { do: 'expectText', widget: 'dgRoutes', text: '{{routeCode}}', label: "the planner's approval is visible to the engineer" },
+      ],
+      checks: ['dgRoutes'],
+      steps: [
+        { do: 'expectMatchesDb', widget: 'dtOpenRequests',
+          sql: 'SELECT COUNT(*) AS n FROM RoutingManagement.ChangeRequest WHERE Status = \'Submitted\'',
+          label: 'the open-requests tile agrees with the database' },
+        { do: 'shot', name: 'act-consume' },
+      ],
+    },
+  ],
+
+  // Put the data back. A walk that writes and does not restore makes the second
+  // run measure the first run's leftovers — and the cleanup itself is reported,
+  // because a cleanup that silently failed is exactly what the next reader needs
+  // to know before believing anything.
+  cleanup: {
+    role: 'approver',
+    steps: [
+      { do: 'oql', label: 'no walkthrough request left in Submitted state', expect: '0',
+        sql: "SELECT COUNT(*) AS n FROM RoutingManagement.ChangeRequest WHERE Reason = 'E2E cross-role walkthrough' AND Status = 'Submitted'" },
+    ],
+  },
+};
+
 // ── CONFIGURED: the weak walkthrough instruments ─────────────────────────────
-// report-normalize.js used to branch on these two instrument names as string
-// literals in three places. They are the project's own walkthrough scripts, so
-// a project with different ones (or none) had no way to say so.
+// report-normalize.js used to branch on these instrument names as string literals
+// in three places. They are the project's own walkthrough scripts, so a project
+// with different ones (or none) had no way to say so.
 //   `input` is the key in report-normalize's INPUTS table that holds the
 //   instrument's findings file; `script` is what a reader is told to re-run.
+//
+// EVERY ENTRY HERE MUST HAVE A SCRIPT THAT EXISTS. A declared instrument with no
+// file behind it does not report "missing script" — it reports the APPLICATION at
+// verdict `fault`, reason "findings.json does not exist — the instrument did not
+// run, or ran without writing", which reads as a broken app and sends the reader
+// to debug configuration that was never wrong. That is not hypothetical: this
+// template declared `full-app-walkthrough` for months while no such file had ever
+// existed in the toolkit, and VB-USI-main's 6-module pass reported exactly that
+// (2026-08-20, process/improvement-plan-e2e-reporting.md Finding 5).
 const WALKTHROUGHS = [
-  { instrument: 'full-app-walkthrough', input: 'findings',       script: 'full-app-walkthrough.js', tags: [] },
-  { instrument: 'mobile-fieldscan',     input: 'findingsMobile', script: 'mobile-fieldscan.js',     tags: ['mobile'] },
+  { instrument: 'full-app-walkthrough', input: 'findings', script: 'full-app-walkthrough.js', tags: [] },
+  // A phone-viewport walkthrough is a real second instrument, but the toolkit
+  // ships no `mobile-fieldscan.js` and most projects have no mobile surface at
+  // all. UNCOMMENT THIS ONLY ONCE tests/e2e/mobile-fieldscan.js exists in your
+  // project — otherwise you are re-creating the fault described above:
+  // { instrument: 'mobile-fieldscan', input: 'findingsMobile', script: 'mobile-fieldscan.js', tags: ['mobile'] },
 ];
 
 module.exports = {
@@ -404,6 +557,8 @@ module.exports = {
   probePage,
   exemplars: EXEMPLARS,
   walkthroughs: WALKTHROUGHS,
+  roles: ROLES,
+  walkthrough: WALKTHROUGH,
 };
 
 // --- `node project.config.js` -------------------------------------------------------------
@@ -436,4 +591,12 @@ if (require.main === module) {
   console.log(`  PAGE_WIREFRAME  ${n(e.PAGE_WIREFRAME)}`);
   console.log(`  exemplars       ${n(e.exemplars)}`);
   console.log(`  walkthroughs    ${n(e.walkthroughs)}`);
+  console.log(`  roles           ${n(e.roles)}`);
+  // Roles and modules, not act count: a walk with ten acts and one role is the
+  // single-persona blind spot this instrument exists to close, and it should be
+  // visible as such the moment somebody prints this file.
+  const acts = (e.walkthrough && e.walkthrough.acts) || [];
+  const uniq = (k) => [...new Set(acts.map((a) => a[k]).filter(Boolean))];
+  console.log(`  walkthrough     ${acts.length} act(s), ${uniq('role').length} role(s), ${uniq('module').length} module(s)`
+              + `${uniq('role').length < 2 ? '   ← SINGLE PERSONA: this is a module journey, not a process' : ''}`);
 }

@@ -17,7 +17,12 @@
  *   - pass / fail / fault are three verdicts and never collapse into two.
  *   - `fault` ("did not run") renders achromatic + dashed + 45deg hatch: a hole in the page.
  *     Never amber. Amber reads "caution but running"; the truth is "nothing here".
- *   - No percentages are printed anywhere. Counts only.
+ *   - The page LEADS WITH COVERAGE: what did not run, above the fold, before any count
+ *     of what passed. See coverageOf()/executionLine() for the measured incident.
+ *   - Exactly ONE percentage is permitted in this document and it is the share of checks
+ *     that DID NOT RUN. No pass rate is printed, ever — and any ratio that is printed
+ *     uses a denominator that includes the faults. A rate over "the checks that ran"
+ *     describes the part that ran and hides the part that did not.
  *   - A pass badge is never larger or heavier than a fail or fault badge.
  *   - Verdict is hue + glyph + texture, so it survives greyscale and colour blindness.
  *   - Screenshots appear only inside expanded FAIL rows. No gallery of passing thumbnails.
@@ -266,6 +271,49 @@ function rollup(checks) {
   return { fail, fault, pass, other, total: checks.length };
 }
 
+/* ── coverage arithmetic: the denominator that includes the holes ────────────
+ * MEASURED, 2026-08-20 (VB-USI-main, schema 1.2). 611 checks: 205 pass, 23 fail,
+ * 353 fault, 30 skipped. A reader took that page for "roughly 90% healthy". It is
+ * 205 of 611 — 34% — and 353 checks NEVER RAN. Four instruments were entirely at
+ * `fault` (coverage-ledger, conformance, deferrals, full-app-walkthrough). Minutes
+ * later a hand walkthrough found a runtime crash, a broken widget, an unstyled page
+ * and a live data-integrity bug, every one of them on a surface inside those 353.
+ *
+ * The report did not lie — all 353 rows already said DID NOT RUN. It let a
+ * flattering number be the headline instead. So: ONE denominator, and it is
+ * `total`. `ran` is pass + fail only; a skipped check did not execute either, and a
+ * fault means the instrument never got there at all.
+ *
+ * The only percentage this document prints is the share that did NOT run, because
+ * it is the one figure that an instrument dying early makes WORSE, not better. */
+function coverageOf(c) {
+  const ran = c.pass + c.fail;
+  return { ran, notRun: c.fault, skipped: c.other, total: c.total };
+}
+/** Integer share of `n` in `total`, never rounded down into a flattering 0. */
+function pct(n, total) {
+  if (!total || n <= 0) return '0%';
+  const p = Math.round((n / total) * 100);
+  return (p === 0 ? '<1' : p === 100 && n < total ? '>99' : String(p)) + '%';
+}
+
+/* The one line every other number on this page must be read against. Rendered
+ * above the verdict word, echoed on stdout, and reused verbatim wherever a run is
+ * summarised, so two summaries on one page can never disagree.
+ * Vocabulary reused, not invented: "NOTHING EXAMINED" is bin/open-questions.sh's
+ * rc-3 state, and bin/questions-report.sh:72 refuses outright to render a clean
+ * zero over it. This renderer does not refuse — nothing here blocks — but it says
+ * the same words in the same place a refusal would have gone. */
+function executionLine(c) {
+  const k = coverageOf(c);
+  if (!k.total) {
+    return 'NOTHING EXAMINED — this report contains zero checks';
+  }
+  return pct(k.notRun, k.total) + ' of ' + k.total + ' checks did not run · ' +
+         c.pass + ' passed · ' + c.fail + ' failed · ' +
+         k.notRun + ' did not run · ' + k.skipped + ' skipped';
+}
+
 /* ───────────────────────── page fragments ───────────────────────── */
 
 function renderMasthead(d) {
@@ -407,21 +455,49 @@ function renderVerdict(d, checks, instruments) {
       'verified, and the difference is not visible in the counts.</div>';
   }
 
+  // ── COVERAGE FIRST ────────────────────────────────────────────────────────
+  // Above the verdict word, above every count of what passed. A reader who reads
+  // one line of this page reads this one, and it is the line that cannot be made
+  // to look better by an instrument that died before it measured anything.
+  const k = coverageOf(c);
+  const execBand =
+    '<div class="execband' + (k.notRun || !k.total ? ' hole' : '') + '">' +
+      '<div class="el">' + esc(executionLine(c)) + '</div>' +
+      '<div class="ef">' +
+        (k.total
+          ? 'Denominator: all ' + k.total + ' checks, faults included. ' +
+            plural(k.ran, 'check', 'checks') + ' actually executed. ' +
+            (k.notRun
+              ? 'A "did not run" is not a pass, not a fail and not amber \u2014 it is a hole, ' +
+                'and every statement below is silent about what is in it.'
+              : 'Every check in this report reached the system.')
+          : 'Nothing was examined. A report with no checks is not a clean report; it is a ' +
+            'run that produced no evidence at all.') +
+        (instFault
+          ? ' ' + plural(instFault, 'instrument', 'instruments') + ' produced no verdict at all.'
+          : '') +
+      '</div>' +
+    '</div>';
+
   return '<section><div class="card verdict" style="border-left-color:' + accent + '">' +
+    execBand +
     '<div class="word">' + esc(word) + '</div>' +
     '<p style="font-size:15px;color:var(--text)">' + esc(lead) + '</p>' +
+    // Order is deliberate: what did not run comes first. The old order led with the
+    // pass cell, so the largest, greenest number on the page was also the first one
+    // read — which is exactly how 205 of 611 got read as "roughly 90% healthy".
     '<div class="counts tab">' +
-      cell(c.pass, '\u2713', 'passed', 'var(--pass-ink)') +
+      cell(c.fault, '\u2300', 'DID NOT RUN', 'var(--text-muted)') +
       cell(c.fail, '\u2715', 'failed', 'var(--fail-ink)') +
-      cell(c.fault, '\u2300', 'not run', 'var(--text-muted)') +
+      cell(c.pass, '\u2713', 'passed', 'var(--pass-ink)') +
       cell(c.other, '\u2298', 'skipped / manual', 'var(--text-muted)') +
       cell(instFault, '\u2300', 'instruments dark', 'var(--text-muted)') +
     '</div>' +
     (cov
       ? '<div class="counts tab" style="margin-top:2px">' +
+          cell(cov.uncovered, '⌀', 'NEVER WALKED', 'var(--text-muted)') +
           cell(cov.inScope, '▣', 'pages in scope', 'var(--text-muted)') +
           cell(cov.walked, '✓', 'walked', 'var(--pass-ink)') +
-          cell(cov.uncovered, '⌀', 'never walked', 'var(--text-muted)') +
           cell(des.fail, '✕', 'design findings', 'var(--fail-ink)') +
           cell(des.fault + des.other, '⌀', 'design rungs not run', 'var(--text-muted)') +
         '</div>'
@@ -430,8 +506,11 @@ function renderVerdict(d, checks, instruments) {
         'much of the application the numbers above cover. A pass count without a denominator ' +
         'is not a measurement.</div></div>') +
     bar +
-    '<div class="rule">Counts, never percentages. A percentage of a run that stopped early ' +
-    'describes the part that ran and hides the part that did not.</div>' +
+    '<div class="rule">No pass rate is printed on this page, here or anywhere below. The one ' +
+    'percentage in this document is the share of checks that <b>did not run</b>, and its ' +
+    'denominator is every check including the holes. A rate computed over the checks that ran ' +
+    'describes the part that ran and hides the part that did not — which is how ' +
+    'a third of a run reads as nine tenths of one.</div>' +
     stitched + vacuity +
   '</div></section>';
 }
@@ -501,12 +580,61 @@ function evidenceTable(evs, rebase) {
   return rows + '</table>';
 }
 
-function renderInstruments(d, instruments) {
+/* Which checks did each instrument actually append?
+ * Instrument ROWS are sometimes per-module (`coverage-ledger/Sales`) while the checks
+ * they emit carry the base name (`coverage-ledger`), so both sides are keyed on the
+ * segment before the first slash. Deliberately conservative: a name that fails to
+ * join counts as "we could not tell", never as "it produced nothing". */
+const instKey = (n) => String(n == null ? '' : n).split('/')[0];
+function checksByInstrument(checks) {
+  const m = new Map();
+  for (const c of checks) {
+    const k = instKey(c.instrument);
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(c);
+  }
+  return m;
+}
+
+/* The gap this closes, measured 2026-08-20: four instruments on VB-USI-main were at
+ * verdict `fault` for the whole run and a fifth reported `pass` having appended
+ * nothing. On the page they were five tiles among fourteen. An instrument that
+ * produced no evidence at all has to LOOK different from one that measured
+ * something and agreed — the badge below is the "did the instrument produce
+ * anything" axis, distinct from the existing liveness verdict and from the
+ * WEAK EVIDENCE / CANNOT EXPRESS FAULT axes it sits beside.
+ * Wording is gate-check.sh's, verbatim where it fits: cannot evaluate is not a pass. */
+function evidenceFlag(own) {
+  const ro = rollup(own);
+  if (!own.length) {
+    return { badge: ghostBadge('NOTHING EXAMINED — NO CHECKS EMITTED'), dark: true,
+             note: 'This instrument appended no check to the report. There is nothing here ' +
+                   'to evaluate, which is not a pass.' };
+  }
+  if (ro.fault === own.length) {
+    return { badge: ghostBadge('EVERY CHECK DID NOT RUN (' + own.length + ' of ' +
+                               own.length + ')'), dark: true,
+             note: 'Every one of this instrument’s ' + own.length + ' checks is a hole. ' +
+                   'It is present in the report and it measured nothing — cannot evaluate, ' +
+                   'which is not a pass.' };
+  }
+  return { badge: '', dark: false, note: null, ran: ro.pass + ro.fail, total: own.length };
+}
+
+function renderInstruments(d, instruments, checks) {
   const env = (d.run || {}).env || {};
+  const owned = checksByInstrument(arr(checks));
+  const noEvidence = [];
   let strip = '';
   for (const i of instruments) {
     const info = vinfo(i.verdict);
-    const dark = info.bucket === 'fault';
+    const own = owned.get(instKey(i.name)) || [];
+    const ev = evidenceFlag(own);
+    if (ev.dark) noEvidence.push(i.name || 'unnamed instrument');
+    // `dark` was liveness alone; an instrument that reports RAN and appended nothing
+    // now gets the same hatched treatment, because to a reader the two are the same
+    // fact: no evidence came from here.
+    const dark = info.bucket === 'fault' || ev.dark;
     const extra = [];
     if (has(i.checksEmitted)) extra.push(i.checksEmitted + ' checks');
     if (has(i.rowsRead)) extra.push(i.rowsRead + ' rows');
@@ -515,6 +643,9 @@ function renderInstruments(d, instruments) {
     if (has(i.rc)) extra.push('rc ' + i.rc);
 
     const flags = [];
+    // First flag, before the strength/dialect ones: "did anything at all come out of
+    // this?" outranks "how good is what came out".
+    if (ev.badge) flags.push(ev.badge);
     if (i.evidenceStrength === 'weak') flags.push(warnBadge('WEAK EVIDENCE'));
     else if (i.evidenceStrength === 'strong') flags.push(neutBadge('strong evidence'));
     // An instrument whose source enum has no "did not run" value cannot report a hole.
@@ -534,6 +665,9 @@ function renderInstruments(d, instruments) {
       '</div>' +
       (flags.length ? '<div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">' +
                       flags.join('') + '</div>' : '') +
+      (ev.note ? '<div class="muted note">' + esc(ev.note) + '</div>'
+               : '<div class="muted note">' + esc(ev.ran + ' of ' + ev.total +
+                 ' checks from this instrument executed') + '</div>') +
       (has(i.reason) ? '<div class="muted note">' +
                        esc(i.reason) + '</div>' : '') +
       (has(i.note) ? '<div class="muted note">' +
@@ -564,6 +698,18 @@ function renderInstruments(d, instruments) {
     '<b>"did the instrument run"</b> — they are liveness, not a rollup of the checks it ' +
     'emitted. An instrument can be RAN while one of its own checks failed; the counts above ' +
     'are the authority on findings.</div>';
+  // Stated once, in the open, in the same place the reader is deciding how much this
+  // page is worth. Named, because "4 instruments" is a number and "coverage-ledger,
+  // conformance, deferrals, full-app-walkthrough" is a to-do list.
+  if (noEvidence.length) {
+    alert += '<div class="alert alert-invl"><b>' +
+      plural(noEvidence.length, 'instrument', 'instruments') +
+      ' produced no evidence at all: </b>' + esc(noEvidence.join(', ')) +
+      '. Either no check was emitted, or every check emitted is a hole. Whatever these ' +
+      'would have measured is unknown in both directions — cannot evaluate, which is not ' +
+      'a pass. Their absence subtracts nothing from the counts above precisely because ' +
+      'there is nothing there to subtract, and that is the point.</div>';
+  }
   const blind = instruments.filter((i) => i.canExpressFault === false);
   if (blind.length) {
     alert += '<div class="alert alert-warn"><b>' + plural(blind.length, 'instrument', 'instruments') +
@@ -764,12 +910,27 @@ function renderJourneys(d, checks, rebase) {
   for (const j of journeys) {
     const all = j.stepList.reduce((a, s) => a.concat(s.checks), []).concat(j.outcome, j.loose);
     const ro = rollup(all);
-    const walked = j.stepList.filter((s) => rollup(s.checks).fail === 0).length;
+    // A step whose every check faulted has `fail === 0`, and this line used to count it
+    // as walked — zero failures over zero executed checks is `[].every()` in another
+    // costume, and it inflated the numerator of the one ratio in this header.
+    const walked = j.stepList.filter((s) => {
+      const r = rollup(s.checks);
+      return r.fail === 0 && r.pass > 0;
+    }).length;
+    const unmeasured = j.stepList.length - walked - j.stepList.filter(
+      (s) => rollup(s.checks).fail > 0).length;
     const head = [
       has(j.module) ? neutBadge('module ' + j.module) : ghostBadge('NO MODULE DECLARED'),
-      ro.fail ? warnBadge(walked + ' of ' + plural(j.stepList.length, 'step walked', 'steps walked'))
-              : neutBadge(plural(j.stepList.length, 'step', 'steps')),
+      walked < j.stepList.length
+        ? warnBadge(walked + ' of ' + plural(j.stepList.length, 'step walked clean',
+                                             'steps walked clean'))
+        : neutBadge(plural(j.stepList.length, 'step', 'steps')),
     ];
+    // Never left to be inferred from the difference between two numbers.
+    if (unmeasured > 0) {
+      head.push(ghostBadge(plural(unmeasured, 'step measured nothing',
+                                  'steps measured nothing')));
+    }
     if (all.some((c) => c.nonVacuity && c.nonVacuity.controlRan === false)) {
       head.push(ghostBadge('CONTROL NOT RUN'));
     }
@@ -2250,6 +2411,16 @@ a{color:var(--cta)}
 /* verdict card */
 .verdict{border-left:4px solid var(--n-300)}
 .verdict .word{font-size:2rem;line-height:1.15;font-weight:900;letter-spacing:-.6px;margin:0 0 .375rem}
+/* Coverage band: first thing inside the verdict card, and it is set LARGER than the
+   verdict word on purpose. What did not run outranks what the run concluded. It is
+   achromatic + hatched like every other "hole" on this page — never amber, never green. */
+.execband{margin:0 0 .875rem;padding:.7rem .85rem;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface-2)}
+.execband.hole{border:1px dashed var(--n-300);background:var(--hatch)}
+.execband .el{font-size:1.15rem;line-height:1.3;font-weight:900;letter-spacing:-.3px;
+  color:var(--text);font-variant-numeric:tabular-nums}
+.execband .ef{margin-top:.3rem;font-size:.76rem;line-height:1.45;color:var(--text-secondary)}
+@media(max-width:560px){.execband .el{font-size:1rem}}
 .counts{display:flex;gap:1.6rem;flex-wrap:wrap;margin:1rem 0 .75rem}
 .counts div{font-size:.69rem;text-transform:uppercase;letter-spacing:.7px;color:var(--text-muted);
   font-weight:700}
@@ -2447,7 +2618,7 @@ function render(d, ver, rebase, shotCtx) {
     renderNextSteps(d),
     renderPersonas(d, checks),
     renderHeadline(checks, rebase),
-    renderInstruments(d, instruments),
+    renderInstruments(d, instruments, checks),
     renderJourneys(d, checks, rebase),
     renderWalks(d, ctx),
     renderBridge(d, checks),
@@ -2528,6 +2699,46 @@ function selftest() {
   t('a report with zero checks says NOT MEASURED',
     html(base()).indexOf('NOT MEASURED') !== -1);
   t('and never says PASSED', html(base()).indexOf('>PASSED<') === -1);
+  t('a report with zero checks says NOTHING EXAMINED in the coverage band',
+    html(base()).indexOf('NOTHING EXAMINED — this report contains zero checks') !== -1);
+
+  /* 2b. COVERAGE LEADS — the measured misread ------------------------------
+     VB-USI-main, 2026-08-20: 205 pass / 23 fail / 353 fault / 30 skipped over 611
+     checks was read as "roughly 90% healthy". Scaled-down fixture, same shape.     */
+  const lopsided = base({
+    instruments: [{ name: 'design-audit', verdict: 'pass' },
+                  { name: 'coverage-ledger/M', verdict: 'pass' },
+                  { name: 'conformance', verdict: 'pass' }],
+    checks: [
+      daCheck('M.A', 'rung7/a', 'pass'),
+      daCheck('M.A', 'rung7/b', 'fail'),
+      { id: 'coverage/M/1', instrument: 'coverage-ledger', kind: 'coverage', module: 'M',
+        page: null, journey: null, stepIndex: null, stepName: null, requirement: null,
+        title: 'leaves', verdict: 'fault', provenance: 'declared', notRun: true,
+        detail: 'ledger never read', evidence: [], blocks: [] },
+      { id: 'coverage/M/2', instrument: 'coverage-ledger', kind: 'coverage', module: 'M',
+        page: null, journey: null, stepIndex: null, stepName: null, requirement: null,
+        title: 'rows', verdict: 'fault', provenance: 'declared', notRun: true,
+        detail: 'ledger never read', evidence: [], blocks: [] },
+    ],
+  });
+  const hL = html(lopsided);
+  t('the headline leads with what did NOT run, with a faults-included denominator',
+    hL.indexOf('50% of 4 checks did not run · 1 passed · 1 failed · 2 did not run · 0 skipped')
+      !== -1);
+  t('the not-run count is printed before the pass count',
+    hL.indexOf('⌀ DID NOT RUN</div>') !== -1 &&
+    hL.indexOf('⌀ DID NOT RUN</div>') < hL.indexOf('✓ passed</div>'));
+  t('no pass rate is offered anywhere on the page',
+    !/\d+% (passed|pass|healthy|green|of checks passed)/i.test(hL));
+  t('an instrument whose every check faulted is marked, not left looking like a pass',
+    hL.indexOf('EVERY CHECK DID NOT RUN (2 of 2)') !== -1);
+  t('an instrument that emitted no check at all says NOTHING EXAMINED',
+    hL.indexOf('NOTHING EXAMINED — NO CHECKS EMITTED') !== -1);
+  t('  …and both are named once, in the open, not left to be counted off the tiles',
+    hL.indexOf('produced no evidence at all: </b>coverage-ledger/M, conformance') !== -1);
+  t('an instrument that DID produce evidence is not flagged',
+    hL.indexOf('2 of 2 checks from this instrument executed') !== -1);
 
   /* 3. an in-scope page with no walk renders as fault --------------------- */
   const uncovered = base({
@@ -2864,8 +3075,11 @@ function main() {
   const c = rollup(arr(data.checks));
   const size = Buffer.byteLength(html, 'utf8');
   console.log('report-render: wrote ' + args.out + '  (' + (size / 1024).toFixed(1) + ' KB = ' +
-    mb(size) + ')  ' +
-    c.pass + ' pass / ' + c.fail + ' fail / ' + c.fault + ' not run / ' + c.other + ' other');
+    mb(size) + ')');
+  // Same sentence as the band at the top of the page, and for the same reason: this
+  // line is pasted into chat and read as the result. It led with the pass count until
+  // 2026-08-20, which is one of the two places 205/611 got quoted as near-healthy.
+  console.log('report-render: ' + executionLine(c));
   console.log('report-render: walk shots — ' + shotCtx.embedded + ' embedded (' +
     mb(shotCtx.bytes) + ' base64) / ' + shotCtx.missing + ' missing from disk / ' +
     shotCtx.overBudget + ' dropped for budget');

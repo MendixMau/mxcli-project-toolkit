@@ -37,7 +37,7 @@ A single **build plan document** per project (or per phase, for large projects),
 2. Resolved architecture questions (with the questions that were asked, not just the answers)
 3. Iteration granularity decision
 4. Stub/real scope boundary for this phase
-5. The numbered script sequence, per module, respecting dependency order (with grants co-located per script — never a deferred end-of-module security script)
+5. The numbered script sequence, per module, respecting dependency order (with grants co-located per script — never a deferred end-of-module security script). **Every row authored from now on carries a `claims` field naming the BRD leaves it discharges — see Step 5b. Rows written before that step existed are not retrofitted.**
 6. The role-to-access table for every element (Step 6) — feeds the per-module brief
 7. Demo user / role mapping (Step 7)
 8. Navigation wire point for every page (Step 8)
@@ -274,6 +274,83 @@ Number sequentially across the whole plan, not per-module — this preserves a s
 
 ---
 
+## Step 5b: Every new row names the BRD leaves it claims
+
+**Write the `claims` field in the same keystrokes as the row.** You have the BRD open, you just
+decided what this script is for, and naming the leaves costs one line. Any later — at gate time,
+at ledger time, at review time — and it costs re-reading the BRD to reconstruct a decision you
+already made and did not write down.
+
+**The incident (2026-07-29, Order_List / F001).** The row read:
+
+```
+4 · f001-04-page-orderlist.mdl | page skeleton | filter bar · grid · footer | CLI, SP closed
+```
+
+Six BRD requirements vanished behind it — the action bar, row-click navigation, footer
+pagination, a mandatory AI panel (BR-07), `ACT_Order_OpenDetail`, and two alternate flows.
+`mxbuild` was clean, the page existed, and nobody noticed for days. `coverage-ledger.md` names the
+root cause: *"No traceability back to source — no row said which BRD fields it discharged. Loss was
+undetectable because there was nothing to check against."*
+
+**The second measurement (2026-08-20).** `claims` was designed as the fix, and `coverage-ledger.md`
+consumes it — but nothing ever required an author to write it. A real 12-BRD migration plan
+(VB-USI, authored 2026-08-06) contains **zero** occurrences of `claims`. There is now no way to know
+what that plan dropped without reading twelve BRDs against a built app. A field that is only needed
+by a downstream check gets written by nobody; that is why this step sits here, in Step 5, and not in
+the ledger skill.
+
+### Format
+
+Directly under each row, a `claims:` block, one pointer per line:
+
+```
+5 · 05-orders-pages.mdl | Order_List page + supporting microflows
+claims:
+  /pages/0/buildComposition/gridColumns/* (7)
+  /pages/0/buildComposition/filterBar/* (3)
+  /pages/0/buildComposition/actionBar/* (2)
+  /pages/0/buildComposition/rowClick
+  /pages/0/buildComposition/footer
+  /pages/0/buildComposition/rightPanel
+```
+
+Three rules, all of them from `coverage-ledger.md` §"Expansion rules" — that skill is the authority
+on the format and on how the pointers are checked; this step only makes writing them part of
+authoring a row:
+
+- A bare pointer claims exactly that leaf.
+- A wildcard **must carry a count**: `/a/b/* (N)`. An uncounted wildcard silently absorbs every
+  requirement added to the BRD after the plan was written, which is the same failure again.
+- Claiming a container is not a claim. Leaves and counted wildcards only.
+
+A leaf that is real but deliberately not built by any row — deferred to a later slice, descoped,
+blocked on an open question — is not omitted. It goes in the coverage ledger with a category and a
+reason (`coverage-ledger.md` §"Ledger Categories"). Omission is the thing this step exists to stop;
+a written "not now, because X" is fine.
+
+### This applies to new rows only
+
+**A row authored from this point forward carries `claims`. A row that already exists does not have
+to, and a build plan written before this section existed is not defective, not incomplete, and not
+a finding.** Projects whose plans predate the convention — VB-USI among them — are in a known,
+accepted state. Do not flag them at the operator, do not report their plans as broken, do not open
+an improvement-register entry for them, and do not start a backfill unless the user explicitly asks
+for one. Retrofitting claims onto a plan whose build is already underway means re-reading every BRD
+against a built app, which is expensive, and the value is in the rows still to be written.
+
+If you edit an existing plan to **add** a row, that new row carries `claims`. The rows around it
+stay as they are; a plan may legitimately be half-claimed for the rest of its life.
+
+### Nothing blocks on this
+
+This step adds no gate, no exit code, and no script that refuses. It changes no existing check —
+`coverage-ledger.md`'s Stage 4 verdicts are exactly as they were. It is authoring guidance, and at
+most an advisory note in chat ("rows 7–9 are new and carry no claims — want me to add them?"). A
+surprising new blocker in a shared toolkit gets switched off, and then the guidance is gone too.
+
+---
+
 ## Step 6: Role-to-Access Coverage (authored per-module in the brief; rolled up here)
 
 The role-to-access table for each module is authored **in that module's brief** (`module-brief.md`,
@@ -355,7 +432,7 @@ Once Steps 0–8 are done, the plan is ready for `iterative-build-loop.md` to ex
 - The 4 standing architecture questions are already answered (Step 2) — no re-litigating mid-build
 - The granularity for this module's scripts is already chosen (Step 3)
 - Whether each integration is stub or real is already decided (Step 4)
-- Script numbers are pre-allocated per the sequence (Step 5)
+- Script numbers are pre-allocated per the sequence (Step 5), and every newly authored row names the BRD leaves it claims (Step 5b) — pre-existing rows without `claims` are accepted as-is and block nothing
 - The role-to-access table is produced for every element in the plan (Step 6) — mdl-agent reads this table when writing grants; never invents access rights from training data
 - The demo user for happy-path testing is already named (Step 7)
 - Every page in the plan has a designated navigation wire point (Step 8)
@@ -370,6 +447,7 @@ If a build session discovers a gap in the plan (a dependency missed, a question 
 - **Generating all MDL upfront, even WITH a build plan.** The plan is the checklist; the scripts are drafted per phase, after the previous phase's gate is paste-proven. A phase-3 script written before phase 1 has executed assumes entity names, associations, and widget choices that a single mid-build constraint (STOP-condition, MCP fallback, redesign) can invalidate — and every stale script then has to be re-audited, which costs more than writing it fresh.
 - **Writing MDL that references a marketplace module before it's imported.** `mxcli check --references` can't validate against something that isn't in the `.mpr` yet, and whoever drafts the script ends up guessing entity/microflow names instead of reading them.
 - **Discovering cross-module association ownership mid-script.** Decide which module's script creates each cross-module association upfront — it can now be done via `CREATE ASSOCIATION` (BUG-02 fixed in v0.13.0), but if ownership is unclear mid-script it still causes a surprise rewrite.
+- **Writing a row now and its `claims` later.** "Later" is a gate, a ledger pass, or a review — by then the BRD has to be re-read to reconstruct what the author already knew. Measured: a 12-BRD plan with zero claims (Step 5b). This applies to rows being written now; an older plan without claims is accepted, not a defect.
 - **Deciding role mapping after security scripts are already applied.** Forces a rewrite of every `GRANT` statement.
 - **Treating every CE error as equally investigatable.** Without a scope boundary, "is this stubbed on purpose" and "is this a design gap" look identical.
 - **Skipping the StyleGallery decision and building pages bare-Atlas.** First modules look fine; by module 3 the design is inconsistent and a retrofit is needed. The `✋` gate in Step 4b is cheap — the retrofit is not.

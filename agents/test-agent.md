@@ -28,11 +28,13 @@ and `"DESCRIBE ..."` reads are always fine, and are how you ground every name yo
 | `skills/conversion-runbook.md` | Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only |
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
 | `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
+| `skills/checkpoints/checkpoint-template.md` | Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table |
 | `skills/agent-roles.md` | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" |
 | `skills/module-review.md` | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated |
 | `skills/testing-shape.md` | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature |
 | `project-bin/verify-module.sh` | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
+| `skills/checkpoints/checkpoint-cutover.md` | CAC-6, after Stage 6 passes and before any cutover step — migration mode only, and a hard gate: every answer lands CONFIRMED, no ASSUMED defaults |
 | `skills/existing-app-assurance.md` | Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates |
 | `project-bin/test-stack-up.sh` | Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only |
 | `skills/e2e-harness-base.md` | Standing up or extending the Playwright e2e harness |

@@ -37,6 +37,14 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot | `skills/skills-over-scripts.md` | all | - | baseline |
 | Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn | `skills/interview-protocol.md` | ba,architect | P,0,1,2,3,4,5,6,7 | baseline |
 | Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough | `skills/grill-mode.md` | ba,architect | P,0,1,2,3,4,5,6,7 | ondemand |
+| Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table | `skills/checkpoints/checkpoint-template.md` | all | 0,1,2,3,4,6,7 | baseline |
+| CAC-1, closing Stage 0 in EVERY entry mode — scope IN: full scope or a slice, and in what order. Opens with a brainstorm, not options | `skills/checkpoints/checkpoint-scope.md` | ba,architect | 0 | ondemand |
+| CAC-1b, after Stage 1 — scope OUT: is what extraction produced what you meant. No gate stops you; run it late against the BRDs if it was skipped | `skills/checkpoints/checkpoint-extraction.md` | ba | 1 | ondemand |
+| CAC-2, after BRD scaffolding and before enrichment — capability grouping and enrichment order | `skills/checkpoints/checkpoint-brd.md` | ba | 2 | ondemand |
+| CAC-3, after BRD validation and before architecture locks — the hidden business rules that are expensive to discover later | `skills/checkpoints/checkpoint-architecture.md` | ba,architect | 2 | ondemand |
+| CAC-4, after rearchitect sign-off and before any design artifact — branding and UI direction. Opens with a brainstorm | `skills/checkpoints/checkpoint-design.md` | architect | 3 | ondemand |
+| CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm | `skills/checkpoints/checkpoint-build.md` | architect,mdl | 4 | ondemand |
+| CAC-6, after Stage 6 passes and before any cutover step — migration mode only, and a hard gate: every answer lands CONFIRMED, no ASSUMED defaults | `skills/checkpoints/checkpoint-cutover.md` | gate,test | 6,7 | ondemand |
 | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" | `skills/agent-roles.md` | all | P,4,5 | baseline |
 | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` | ba | 1,2,3 | baseline |
 | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts | `skills/bootstrap-project.md` | ba | P | ondemand |

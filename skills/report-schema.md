@@ -640,10 +640,80 @@ collection.
 
 ---
 
+# Rendering rules added 2026-08-20 — coverage is the headline
+
+**No schema change. No field added, none removed, nothing renamed, `schemaVersion` stays
+`1.2`.** Everything below is derived by the renderer from fields the contract already
+defines, so a 1.1 or 1.2 report renders under the new rules with no re-normalisation, and an
+older renderer reading the same file still works. It is written here because it changes what
+the report *says*, and this file is the contract for that.
+
+## The measured problem, again, one layer up
+
+VB-USI-main, `docs/report.json` at 1.2: **611 checks — 205 pass, 23 fail, 353 fault, 30
+skipped.** A human read the rendered page as "roughly 90% healthy". It is 205 of 611 — **34%
+executed and agreed, and 58% never ran at all.** Four instruments were at verdict `fault` for
+the entire run (coverage-ledger, conformance, deferrals, full-app-walkthrough). A hand
+walkthrough minutes later found a runtime crash, a broken widget, an unstyled page and a live
+data-integrity bug, every one of them on a surface inside those 353.
+
+Every one of those 353 rows already rendered as `DID NOT RUN`. **The verdict discipline held
+perfectly and the report was still misread**, because the arithmetic a reader does in their
+head is done on whichever number is largest and highest on the page. Verdict-per-row is
+necessary and it is not sufficient; the *summary* has to carry the same discipline.
+
+## The four rules
+
+| # | Rule |
+|---|---|
+| 1 | **The report leads with coverage.** The first element inside the verdict card, above the verdict word, is one line: `58% of 611 checks did not run · 205 passed · 23 failed · 353 did not run · 30 skipped`. Same sentence on stdout. Two summaries of one run can therefore never disagree — they are one function, `executionLine()`. |
+| 2 | **One denominator, and it is every check.** `ran = pass + fail`. A `fault` never ran; a `skipped` did not execute either. **No pass rate is printed anywhere.** The single percentage the document is allowed to contain is the share that did **not** run — the one figure an instrument dying early makes *worse* rather than better. Any ratio printed elsewhere counts faults in its denominator or is not printed. |
+| 3 | **Counts are ordered not-run first.** The old counts row led with the pass cell, so the largest and greenest number was also the first one read. |
+| 4 | **"Did it produce anything" is its own axis**, beside the existing `evidenceStrength` / `canExpressFault` badges and distinct from the liveness verdict. An instrument with **no** `checks[]` entry is badged `NOTHING EXAMINED — NO CHECKS EMITTED`; one whose every check is `fault` is badged `EVERY CHECK DID NOT RUN (n of n)`. Both get the hatched hole treatment even when their own `verdict` is `pass`, and both are named in one alert rather than left to be counted off the tiles. |
+
+Nothing here blocks. No gate, no exit code, no refusal to render — other projects run this
+renderer on their own reports and a change that stops their work gets switched off rather
+than obeyed. The number is made impossible to misread instead.
+
+**Vocabulary is reused, not invented.** `NOTHING EXAMINED` is `bin/open-questions.sh`'s rc-3
+state, and `bin/questions-report.sh:72` refuses outright to render a clean-looking zero over
+it — the closest existing precedent for this whole change. "cannot evaluate, which is not a
+pass" is `bin/gate-check.sh`'s wording, verbatim.
+
+## Instrument rows join to checks on the name before the first slash
+
+Rule 4 needs to know which checks an instrument appended. `instruments[].name` is sometimes
+per-module (`coverage-ledger/Sales`) while the checks it emits carry the base name
+(`coverage-ledger`), so **both sides are keyed on the segment before the first `/`**. A name
+that fails to join counts as *we could not tell*, never as *it produced nothing* — the flag
+is deliberately conservative, because a false "produced nothing" would be its own false
+signal. **If you add an instrument, make its `instruments[].name` and its
+`checks[].instrument` share that first segment**, or its tile will under-report.
+
+## Every absent artifact names what would write it
+
+`report-normalize.js` carries a `PRODUCERS` table from input path to the command that writes
+it, and the `missing` fault reason appends it:
+
+> `tests/e2e/artifacts/findings.json` does not exist — the instrument did not run, or ran
+> without writing. `node tests/e2e/full-app-walkthrough.js` writes it; until it does, nothing
+> in this report is evidence about what it would have measured.
+
+Same house style as `bin/gate-check.sh:577`: name where it looked **and** what produces it.
+The walkthrough entries come from `project.config.js` → `walkthroughs[]`, not from literals.
+**Verified producers only** — a path with no entry says it has no entry and names the table
+as the gap, exactly as `class: "unclassified"` with `action: null` is the only honest
+fallthrough for a remediation. An invented command is worse than an admitted hole.
+
+---
+
 ## Adding a new instrument — the short checklist
 
 - [ ] It **appends** to `checks[]` and never reads the report back or renders anything.
 - [ ] It emits an `instruments[]` row **whether or not it ran**, with `fault` when it did not.
+- [ ] Its `instruments[].name` shares its first `/`-delimited segment with the
+      `checks[].instrument` value it stamps — otherwise the "produced no evidence" badge
+      cannot join the two and its tile under-reports (see *Instrument rows join to checks*).
 - [ ] It declares `canExpressFault` / `expressibleVerdicts[]` honestly. If its dialect cannot say
       "did not run", say so — the renderer must weight its greens down, not treat them as equal.
 - [ ] Every assertion guards non-emptiness first. `[].every()` is `true`.

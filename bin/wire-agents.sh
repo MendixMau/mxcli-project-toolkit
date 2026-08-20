@@ -93,6 +93,10 @@ emit_stamp() {
 1. **Read \`docs/progress/RESUME.md\` first, and nothing else yet.** Where we are, the next
    actions, and a table saying which larger file to open for the task at hand. Do NOT read
    \`PROJECT.md\` to get oriented — it is a decision register, not a resume doc.
+   If that file is not there: \`bin/init-project.sh\` scaffolds it and \`bin/close-task.sh\`
+   overwrites it at the end of each session, so its absence means neither has run here. Get
+   oriented from \`CLAUDE.local.md\` (wiring + baseline routing) and \`intake.md\` instead, and
+   say in chat that you did — never from \`PROJECT.md\`.
 2. **\`CLAUDE.md\` is the canonical project instruction file** regardless of which agent you
    are. Every other instruction file in this repo, including this one, is a pointer to it.
 3. **Never run \`./mxcli exec\`, \`./bin/exec.sh\`, \`mxcli test\`, \`mxcli docker check\`, or any

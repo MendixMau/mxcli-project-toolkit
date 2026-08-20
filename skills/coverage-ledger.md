@@ -1,16 +1,95 @@
 # Coverage-Ledger Method
 
-**Status:** Skill / repeatable method. Produces a coverage ledger as part of the Stage 4 build plan —
-`architecture/coverage-ledger.md` for a single-BRD project, or one per module at
-`architecture/modules/<Module>/coverage-ledger.md`, which is where `bin/verify-module.sh` looks.
+**Status:** Skill / repeatable method. Produces a coverage ledger as part of the Stage 4 build plan.
 
-**Applies to:** Every BRD-driven build after `build-plan-method.md` is adopted. The ledger closes a gap in the build-plan format: **a requirement must either be claimed by a row or explicitly catalogued with a reason — requirements must never become invisible.**
+**Applies to:** Every BRD-driven build whose plan carries `claims` (see `brd-to-build-plan.md` Step 5b). The ledger closes a gap in the build-plan format: **a requirement must either be claimed by a row or explicitly catalogued with a reason — requirements must never become invisible.**
 
 **Fits into:** `conversion-runbook.md` Stage 4 (`✋`) — coverage check runs at gate time and blocks the gate until all three verdict-classes are clean.
 
-**Consumes:** `architecture/build-plan.md` with `claims` field (per `build-plan-method.md`) + the authoritative BRD JSON files.
+**Consumes:** `architecture/build-plan.md` with the `claims` field (authored per `brd-to-build-plan.md` Step 5b) + the authoritative BRD JSON files.
 
 **Feeds:** Stage 4 gate (chat output); Stage 5 build (rows referencing ledger entries for deferred/descoped work).
+
+---
+
+## Where the ledger lives
+
+Three path shapes exist in real projects. All three are read by `project-bin/conformance-check.sh`
+and `project-bin/coverage-preflight.sh`; the first is canonical.
+
+| Path | When | Status |
+|---|---|---|
+| `architecture/modules/<Module>/coverage-ledger.md` | multi-module project | **canonical** |
+| `architecture/modules/<Module>-coverage-ledger.md` | project whose `architecture/modules/` is flat | accepted |
+| `architecture/coverage-ledger.md` | single-BRD project | accepted |
+
+The per-module directory is canonical because it is the shape both instruments already name, it
+scales (the directory holds the module's brief, ledger and notes together), and changing canon
+would invalidate every ledger already written to it.
+
+The flat shape is read because it is what projects actually have: VB-USI's `architecture/modules/`
+contains `Approval-brief.md`, `ProductNumbers.md`, `Common-brief.md` and no subdirectories at all.
+An instrument that globs only the canonical shape tells such a project it has no ledger even when
+it has one. **When no ledger is found, the instruments print all three paths they tried** — a
+"not found" that does not name what it looked for is not actionable.
+
+---
+
+## The four fallback levels — what an instrument does when there is no ledger
+
+A missing `coverage-ledger.md` used to be one hard FAULT covering two opposite situations: a
+Track B existing-app audit that was never going to have one (permanent, meaningless noise), and a
+migration project that should have one and doesn't (a real gap with a real remedy). The verdict is
+now graded on **what is present**, never on a declared entry mode — a project onboarded as
+Migration can be running a Track B assurance pass the same day, and VB-USI is doing exactly that.
+
+| Level | Condition | What happens | rc |
+|---|---|---|---|
+| **1 · MEASURED** | ledger found | run the engine; verdicts exactly as before | engine's own (0/1) |
+| **2 · DERIVED** | no ledger, but BRDs + build-plan `claims` | join those two into a ledger written to `docs/coverage/derived-ledger[-<Module>].md`, **labelled DERIVED**, then measure against it | engine's own (0/1) |
+| **3 · NOT MEASURED** | BRDs present, no `claims` anywhere in the plan | report the honest denominator — "N requirement leaves across M BRDs; 0 traceable to a build-plan row" — and name the remedy | 3 |
+| **4 · NOT APPLICABLE** | no BRD at all | say so, with the reason: no pipeline produced a spec for this module | 4 |
+
+**Nothing blocks.** No level adds a gate and no exit code got more severe than it was: levels 2–4
+are all strictly less severe than the FAULT (rc 2) they replaced. Every level states what it
+knows, what it does not, and what would upgrade it. Louder and clearer, never stricter.
+
+**rc 3 is "NOTHING EXAMINED", not "clean".** Same contract as `bin/open-questions.sh` rc 3 and
+`bin/questions-report.sh`, which refuses to render a clean-looking zero over an empty directory.
+An instrument that examined nothing must not exit 0, because 0 reads as green everywhere it is
+consumed.
+
+### Level 2 is a join, not an invention
+
+Deriving is legitimate because this skill already defines the ledger as *generated from the BRD
+and the build plan's `claims` field*, and lists exactly those two under **Consumes**. Level 2 does
+that join mechanically instead of by hand. It is still not a decided artifact: the derived file
+lands in `docs/coverage/`, **never** in `architecture/`, so the next run cannot read its own output
+back as level 1, and it carries a header saying nobody signed it off. A derived ledger has no
+NON-BUILDABLE table, so a leaf that was deliberately deferred or descoped shows as UNCLAIMED —
+reviewing the derived file and committing it to the canonical path with reasons filled in is what
+upgrades the project to level 1.
+
+Note for `conformance-check.sh` specifically: a derived ledger carries no `acceptance` cells, and
+conformance measures precisely those. So at level 2 conformance still reports NOT MEASURED (rc 3)
+rather than inventing acceptance commands.
+
+### The boundary that is never crossed
+
+**Derive from the BRD and the build plan only. Never reverse-derive a requirement from the live
+model or from shipped code.** A ledger records what was *decided*; a ledger reconstructed from what
+happens to exist inverts that meaning and turns every bug into a requirement. This is
+`process/improvement-plan-e2e-reporting.md` Finding 3 option 2, considered and rejected, and
+`skills/report-schema.md` says the same thing from the other end: a requirement pointer must never
+be synthesized.
+
+### Reading this on an existing-app audit
+
+If you arrived here from `existing-app-assurance.md` — a Mendix app you already have, no pipeline,
+no BRD, no stages — level 4 is your normal, permanent state, and it is not a defect. There is no
+spec to trace the app back to because the app was never produced from one; it is audited against
+itself. The instruments that carry real signal for that entry mode are the journeys, the wiring
+sweep, and the LOOK stage, not coverage or conformance.
 
 ---
 
@@ -48,7 +127,7 @@ Three distinct defects caused this:
 |--------|-----------------|--------------------------|
 | **Layout inventory, not behaviour** | "filter bar · grid · footer" is a *region inventory*, not a functional spec. A row click is not a region, so it has nowhere to live. | **`claims` field is mandatory and exhaustive.** Every BRD leaf must either be claimed by a row ID or appear in the ledger. |
 | **No traceability back to source** | No row said which BRD fields it discharged. Loss was undetectable because there was nothing to check against. | **Mechanical coverage check** (§2): which BRD leaves are claimed by no row? Answer must be empty or fully ledgered. |
-| **Format forced compression** | A table cell or Mermaid node punishes detail — acceptance criterion doesn't fit, so it's dropped. | **Block form, never table form.** See `build-plan-method.md` §3 — rows are prose blocks; tables are only indexes. Prose has room for what matters. |
+| **Format forced compression** | A table cell or Mermaid node punishes detail — acceptance criterion doesn't fit, so it's dropped. | **Block form, never table form** (stated in full below) — build-plan rows are prose blocks; tables are only indexes. Prose has room for what matters. |
 
 ---
 
@@ -194,14 +273,47 @@ The gate output is pasted in chat, like `gate-check.sh` — user signs off on th
 
 ---
 
+## Two build-plan conventions this method depends on
+
+These were cited for months as `build-plan-method.md` §3 and §6. **That file does not exist and
+never did** — `git log --all --diff-filter=A -- '*build-plan-method*'` returns nothing on any ref.
+The `claims` field found a real home in `brd-to-build-plan.md` Step 5b; these two did not, so they
+are stated here, in the skill that consumes them, rather than left pointing at a phantom.
+
+**1. Block form, never table form.** A build-plan row is a prose block, not a table cell or a
+Mermaid node. Tables are indexes only. The reason is mechanical: a cell punishes detail, so the
+acceptance criterion is the first thing dropped when it does not fit, and a dropped acceptance
+criterion is how the Order_List failure above stayed invisible. `claims:` blocks (Step 5b) assume
+this form — they are lines under a row, which a table cell cannot hold.
+
+**2. The `acceptance` field.** Every buildable row carries one, and it is what makes the row
+checkable rather than merely claimed:
+
+> **`acceptance`** — one line stating the observable fact that makes the row done. Where the fact
+> is machine-checkable, write it as a backticked, runnable `SHOW …` / `DESCRIBE …` command against
+> the model, e.g. `` `DESCRIBE PAGE Orders.Order_List` ``. Where it is not, write the prose test a
+> human applies. Never a restatement of the row's title.
+
+`project-bin/conformance-check.sh` reads exactly this: it re-runs the backticked command from the
+ledger's `acceptance` column against the live `.mpr` and compares the result with the stored
+`status` (OK / STALE / UNDERSTATED). Rows whose acceptance cell is prose are counted, not run —
+that is the `prose-only` number in its output. An ellipsis or an operand-less fragment
+(`` `DESCRIBE PAGE …Route_List` ``) is classified UNRUNNABLE rather than executed. So: a runnable
+acceptance cell is the difference between a ledger that is measured and one that is merely stored.
+
+---
+
 ## Known Limits
 
-- **Coverage proves accounting, not correctness.** A row can claim `/rightPanel` and build the wrong panel. The `acceptance` field (per `build-plan-method.md` §6) defends against that.
+- **Coverage proves accounting, not correctness.** A row can claim `/rightPanel` and build the wrong panel. The `acceptance` field (specified above) defends against that.
 - **The BRD is assumed complete.** A requirement absent from the BRD is invisible here. Stage 1–2 addresses BRD completeness.
 - **Leaf granularity is `jq`'s.** A single long prose leaf bundling seven concepts is one claimable unit. Mitigation: when a row's description is materially longer than the leaf it claims, consider splitting the row or asking `ba-agent` to split the leaf.
-- **The script exists — use it.** `bin/coverage-check.sh` (shared toolkit) implements the procedure
-  above and parses **this** ledger format; the hand-run commands are kept here so you can see what it
-  measures and reproduce a verdict without it. `bin/verify-module.sh` calls it as
-  `bin/coverage-check.sh --summary <brd.json> <coverage-ledger.md>` and treats a **missing ledger or
-  missing BRD as a FAULT, not a pass** — "no requirements to check against" is precisely how projects
-  shipped with no ledger at all and read that absence as silence.
+- **The script exists — use it.** `bin/coverage-check.sh` (shared toolkit) is the measurement
+  **engine**: it implements the procedure above and parses **this** ledger format, given a BRD and a
+  ledger. The hand-run commands are kept here so you can see what it measures and reproduce a
+  verdict without it. `project-bin/coverage-preflight.sh` is the **front-end** that decides what can be
+  measured at all — it resolves the three ledger path shapes, grades a missing ledger into the four
+  levels above, and calls the engine at levels 1 and 2. Run the front-end; it delegates.
+  A missing ledger or BRD is still never read as a pass — but it is no longer a single
+  undifferentiated FAULT either, because "this project skipped a step" and "this entry mode never
+  had the step" are opposite facts that were printing the same sentence.

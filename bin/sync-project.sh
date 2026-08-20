@@ -59,6 +59,11 @@ AGENTS="$MXTK_AGENTS"
 # untouched scaffold. Same one-copy arrangement, same reason.
 . "$SCRIPT_DIR/lib/triage-template.sh"
 
+# The docs/progress/RESUME.md starter — the file every generated entry point tells an agent to
+# read FIRST, and which nothing in the toolkit created until 2026-08-20. Same one-copy
+# arrangement; see bin/lib/resume-template.sh's header for what was broken.
+. "$SCRIPT_DIR/lib/resume-template.sh"
+
 # Is this agent file an UNTOUCHED stub (safe to overwrite), or completed work?
 # Two conditions, both required: it still carries the STUB GENERATED banner AND it still
 # has at least one genuinely unfilled {{PLACEHOLDER}}.
@@ -709,6 +714,94 @@ elif [ -d "$CRASHNET_SRC" ]; then
   fi
 else
   warn "Toolkit has no project-bin/ — cannot check this project's crash net."
+fi
+
+# --- 4a. docs/progress/RESUME.md backfill -------------------------------------------------
+# CREATE-IF-ABSENT ONLY, and that is the whole contract. RESUME.md is overwritten by every
+# closing session (skills/close-the-loop.md) — it is the most project-owned file in the repo, and
+# refreshing it from a template would delete the state the next session was supposed to read.
+#
+# Backfilled here because the instruction that depends on it is stamped into every project by
+# wire-agents.sh, including every project scaffolded before init-project.sh started writing this
+# file. On an in-flight project the starter is honest rather than wrong: it says no session has
+# closed the loop HERE (true — there is no RESUME.md) and routes to gate-check.sh for the real
+# stage instead of asserting one.
+if [ "$WIRED" -eq 1 ] && [ ! -f "$PROJECT_DIR/docs/progress/RESUME.md" ]; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo "Would create: docs/progress/RESUME.md (the file every entry point says to read first)"
+  else
+    mkdir -p "$PROJECT_DIR/docs/progress"
+    mxtk_resume_template "$TOOLKIT_ROOT" > "$PROJECT_DIR/docs/progress/RESUME.md"
+    echo "Created: docs/progress/RESUME.md — every generated entry point already told agents to"
+    echo "         read it first; until now it did not exist. Overwrite it at close-the-loop."
+  fi
+  CHANGES=$((CHANGES + 1))
+fi
+
+# --- 4b. Verification engine: tests/e2e/ (same contract as the crash net) ----------------
+# project-bin/verify-module.sh has been installed by section 4 for weeks and it DRIVES
+# project-tests/e2e/journey-runner.js — which reached exactly one project, by hand, and that
+# hand-copy took a partial subset: every selftest (journey-runner.selftest.js, monkey.selftest.js,
+# journey-rung4-scope.test.js, example.journey.json) was left behind, so the harness there cannot
+# check itself. Measured on VB-USI-main, 2026-08-20.
+#
+# Delivery goes through bin/install-tests.sh — the shipped script — rather than a second copy of
+# its loop here, for the reason the header of bin/lib/discover-brds.sh states: the fix does not
+# travel. bin/lib/install-manifest.sh's _mxtk_manifest_check_tests_wiring() greps this file for
+# that name and is what proves the call is still here.
+#
+# ASK BEFORE ACTING, exactly like the wire-agents.sh block below: install-tests.sh re-copies
+# every engine file whether or not it changed, so calling it unconditionally would report work on
+# a sync where nothing was due. The cheap question is asked first, per file.
+#
+# WHAT IS THE PROJECT'S, NOT THE TOOLKIT'S:
+#   - project.config.js  — the pages, menu paths and credentials of THIS app. install-tests.sh
+#     writes it from the template only when absent and refuses even under --force, so it is not
+#     considered here at all.
+#   - tests/e2e/artifacts/ — run output. Named by no manifest list, so nothing copies over it.
+# A drifted engine file is REPORTED and kept, never overwritten — the same call section 4 makes
+# for a hand-hardened exec.sh, and for the same reason.
+if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-tests.sh" ]; then
+  E2E_SRC="$(cd "$SCRIPT_DIR/.." && pwd)/project-tests/e2e"
+  E2E_DST="$PROJECT_DIR/tests/e2e"
+  E2E_MISSING=""
+  E2E_DRIFTED=""
+  for t in $MXTK_PROJECT_TESTS; do
+    [ -f "$E2E_SRC/$t" ] || continue
+    if [ ! -f "$E2E_DST/$t" ]; then
+      E2E_MISSING="$E2E_MISSING $t"
+    elif ! cmp -s "$E2E_SRC/$t" "$E2E_DST/$t"; then
+      E2E_DRIFTED="$E2E_DRIFTED $t"
+    fi
+  done
+  [ -f "$E2E_DST/project.config.js" ] || E2E_MISSING="$E2E_MISSING project.config.js"
+
+  if [ -n "$E2E_MISSING" ]; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      echo "Would run: bin/install-tests.sh $PROJECT_DIR  (tests/e2e/ is missing:$E2E_MISSING)"
+    else
+      echo "Installing the verification engine (missing:$E2E_MISSING)"
+      if "$SCRIPT_DIR/install-tests.sh" "$PROJECT_DIR" | sed 's/^/   /'; then
+        :
+      else
+        warn "bin/install-tests.sh did not complete. Everything else in this sync stands; re-run:" \
+             "  $SCRIPT_DIR/install-tests.sh $PROJECT_DIR"
+      fi
+    fi
+    CHANGES=$((CHANGES + 1))
+  fi
+
+  # Drift is reported, not healed. install-tests.sh already keeps a differing file and says so;
+  # naming it here is what makes a sync tell you the engine is behind, which is the whole reason
+  # this script exists. --force is deliberately NOT offered automatically: it is the caller's
+  # decision, exactly as --upgrade-bin is for the crash net.
+  if [ -n "$E2E_DRIFTED" ]; then
+    warn "tests/e2e/ file(s) differ from the toolkit engine:$E2E_DRIFTED" \
+         "Not overwritten — they may be locally hardened, or they may be missing fixes shipped since." \
+         "See what differs:  diff -u $E2E_SRC/<file> $E2E_DST/<file>" \
+         "Accept the toolkit versions:  $SCRIPT_DIR/install-tests.sh $PROJECT_DIR --force" \
+         "(--force still refuses to touch project.config.js.)"
+  fi
 fi
 
 # ── Agent entry points ───────────────────────────────────────────────────────────────────

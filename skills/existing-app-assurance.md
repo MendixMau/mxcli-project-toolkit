@@ -67,6 +67,44 @@ Not for building anything new — that's `conversion-runbook.md` (pick an entry 
 7. Commit the suite **and the baseline**: "this is what the app does today, proven." That baseline is the acceptance yardstick for any future upgrade, refactor — or migration Stage 6.
 8. Optionally generate `test-agent` for repeat runs: `bin/init-agents.sh <session-root> build` (use just test-agent; complete its placeholders per `agent-roles.md`).
 
+### Why the coverage and conformance rungs never come back clean here
+
+Running `project-bin/verify-module.sh <Module>` on an existing app will never get a clean result
+from *conformance (ledger claims vs live model)* or *coverage (BRD leaves)*. That is correct and
+permanent for this entry mode — not a broken instrument and nothing to fix.
+
+Both measure a built module against `architecture/.../coverage-ledger.md` and the BRD it was
+generated from. Those are build-loop artifacts: a BRD is written, a ledger is generated from it and
+the build plan's `claims`, and the module is built against both. Track B has no pipeline, no BRD
+and no stages by design — it audits an app that already exists rather than tracing one back to a
+spec it never had. So there is no denominator, and the honest answer is "does not apply", not
+"clean" and not "fault".
+
+Until 2026-08-20 both printed a hard **INSTRUMENT FAULT**, identical to the one a real missing
+ledger produces, so the operator could not tell permanent noise from a real gap. They now grade the
+absence into four levels (`coverage-ledger.md` → "The four fallback levels"). **Level 4 · NOT
+APPLICABLE is this entry mode's normal state**, and the rung now names the reason — "no pipeline
+produced a spec for this module" — instead of just failing.
+
+Two things to know about how that renders today:
+
+- `verify-module.sh` maps any non-zero, non-2 exit to **FINDING**, so level 4 shows as `✗ findings`
+  rather than as its own verdict. Read the rung's log, which states the level in its first line.
+  What has changed is that it no longer counts as a FAULT, so the run stops declaring itself
+  `INCOMPLETE` over a file that was never going to exist.
+- The *conformance* rung reaches the new grading directly. The *coverage* rung does not yet:
+  `verify-module.sh` still short-circuits to a FAULT of its own before calling the coverage script
+  when the ledger file is absent. Run `project-bin/coverage-preflight.sh --assess --module <Module>` by
+  hand to see the graded answer until that call site is updated.
+
+If you see level 3 instead ("N requirement leaves across M BRDs; 0 traceable to a build-plan row"),
+the app *does* have BRDs on disk — you are auditing a project that also went through the pipeline,
+and that number is a real gap in that project's traceability, worth raising even though closing it
+is not this track's job.
+
+What carries the real signal on Track B is steps 3–6 above: the journeys, the wiring sweep, and the
+LOOK stage.
+
 **Deliverable:** a green, committed test suite + `test-report.html`, plus the LOOK-stage and
 wiring-sweep findings folded into `docs/improvement-register.md` — a green journey suite alone is
 not the deliverable; it only proves the paths someone thought to write.

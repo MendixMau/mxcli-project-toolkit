@@ -304,13 +304,33 @@ fi
 if [ -z "$COVERAGE_CHECK" ]; then
   fault "coverage (BRD leaves)" "coverage-check.sh not found" \
         "Looked in bin/ and \$MXTK_ROOT/bin. Set COVERAGE_CHECK=<path>, or copy the toolkit's bin/coverage-check.sh into the project."
-elif [ -f "$LEDGER" ] && [ -n "$BRD" ]; then
-  run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate 300 -- \
-    "$COVERAGE_CHECK" --summary "$BRD" "$LEDGER"
 else
-  fault "coverage (BRD leaves)" \
-        "missing $( [ -f "$LEDGER" ] || echo 'coverage-ledger.md' )$( [ -n "$BRD" ] || echo ' BRD' ) for $MODULE" \
-        "Requirement traceability for this module is UNMEASURED, not clean."
+  # Route through coverage-preflight.sh, which GRADES what is present instead of demanding the
+  # ideal artefact. The old form here was `elif [ -f "$LEDGER" ] && [ -n "$BRD" ]` with a blanket
+  # FAULT otherwise — which meant the four fallback levels added 2026-08-20 were unreachable from
+  # the one command every module review runs, i.e. built and never invoked. That is the same
+  # failure as report-normalize.js never being called from this script (improvement-plan Finding 2),
+  # and it would have shipped the whole grading layer dead on arrival.
+  #
+  # The preflight resolves the ledger (all three path shapes) and the BRD itself, so the $LEDGER /
+  # $BRD guesses above are passed only as hints. Its exit codes: 0/1 measured (levels 1-2, the
+  # engine's own verdict), 3 NOT MEASURED (BRDs but no `claims` — an honest denominator plus the
+  # named remedy), 4 NOT APPLICABLE (no BRD at all — nothing produced a spec for this module).
+  # 3 and 4 are not passes and not faults; they are graded absences, and the rung says which.
+  PREFLIGHT="$(_tool coverage-preflight.sh)"
+  if [ -n "$PREFLIGHT" ] && [ -x "$PREFLIGHT" ]; then
+    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate 300 -- \
+      "$PREFLIGHT" --summary ${MODULE:+--module "$MODULE"}
+  elif [ -f "$LEDGER" ] && [ -n "$BRD" ]; then
+    # Preflight absent (an older wired project that has not synced). Fall back to the engine
+    # directly — level 1 only, which is what this rung did before the grading layer existed.
+    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate 300 -- \
+      "$COVERAGE_CHECK" --summary "$BRD" "$LEDGER"
+  else
+    fault "coverage (BRD leaves)" \
+          "coverage-preflight.sh not installed, and no ledger+BRD to measure directly" \
+          "Requirement traceability for this module is UNMEASURED, not clean. Run bin/sync-project.sh to install coverage-preflight.sh, which grades what IS present instead of requiring a ledger."
+  fi
 fi
 
 echo ""

@@ -38,6 +38,7 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
 | `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
 | `skills/interview-protocol.md` | Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn |
+| `skills/checkpoints/checkpoint-template.md` | Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table |
 | `skills/agent-roles.md` | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" |
 | `skills/source-triage.md` | Deciding whether to extract at all, before any BRD gets generated |
 | `bin/source-sufficiency.sh` | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source |
@@ -46,6 +47,10 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 | `skills/module-brief.md` | Building any module — before the first script. The mdl-agent's single per-module input |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `skills/grill-mode.md` | Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough |
+| `skills/checkpoints/checkpoint-scope.md` | CAC-1, closing Stage 0 in EVERY entry mode — scope IN: full scope or a slice, and in what order. Opens with a brainstorm, not options |
+| `skills/checkpoints/checkpoint-extraction.md` | CAC-1b, after Stage 1 — scope OUT: is what extraction produced what you meant. No gate stops you; run it late against the BRDs if it was skipped |
+| `skills/checkpoints/checkpoint-brd.md` | CAC-2, after BRD scaffolding and before enrichment — capability grouping and enrichment order |
+| `skills/checkpoints/checkpoint-architecture.md` | CAC-3, after BRD validation and before architecture locks — the hidden business rules that are expensive to discover later |
 | `bin/triage-report.sh` | Rendering a filled triage.md for review — the triage.html surface Stage 0 names. Renders only; the Stage 0 verdict stays with gate-check and the judgement with source-triage.md |
 | `bin/extraction-report.sh` | Reviewing what the extraction actually produced — the Stage 1 surface, and the file the Stage 1 gate looks for. Renders a code-extracted and a document knowledge base alike, so a requirements-driven project gets the surface too; prints no zero that a second record does not agree with |
 | `bin/brd-report.sh` | Reviewing what the BRDs actually say — the Stage 2 surface, for BRDs from any source. Reads every knowledge base at once, and keeps a section that is absent-because-not-applicable apart from one that is absent-because-expected |

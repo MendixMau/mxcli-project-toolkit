@@ -211,8 +211,43 @@ function readJsonInput(rel) {
     return { status: 'malformed', path: rel, error: e.message };
   }
 }
+// ── What would produce this input? ───────────────────────────────────────────
+// House style for an absent artifact is bin/gate-check.sh:577's: name WHERE it looked
+// AND what writes it. Measured 2026-08-20 (VB-USI-main): the report carried the reason
+// "tests/e2e/artifacts/findings.json does not exist — the instrument did not run, or ran
+// without writing" for a whole instrument that was dark, and a reader could do nothing
+// with it. Four instruments were in that state at once.
+//
+// VERIFIED producers only. An input with no entry says it has no entry — an invented
+// command is worse than an admitted gap, exactly as `class: "unclassified"` with
+// `action: null` is the only honest fallthrough for a remediation (report-schema.md §1.2).
+const PRODUCERS = {
+  [INPUTS.journeyFindings]:
+    'node tests/e2e/journey-runner.js journeys/<Journey>.journey.json',
+  [INPUTS.journeyFindingsControl]:
+    'node tests/e2e/journey-runner.js --positive-control journeys/<Journey>.journey.json',
+  [INPUTS.designAudit]: 'node tests/e2e/design-audit.js',
+};
+// The walkthrough scripts are per-project (project.config.js `walkthroughs`), so they are
+// read from there rather than hard-coded — the same table the remediation classifier
+// already uses to tell a reader what to re-run.
+for (const w of WALKTHROUGHS) {
+  if (w && w.input && INPUTS[w.input] && w.script) {
+    PRODUCERS[INPUTS[w.input]] = `node tests/e2e/${w.script}`;
+  }
+}
+const producerOf = p => PRODUCERS[p] || null;
+
 const REASON = {
-  missing:    f => `${f.path} does not exist — the instrument did not run, or ran without writing`,
+  missing: (f) => {
+    const prod = producerOf(f.path);
+    return `${f.path} does not exist — the instrument did not run, or ran without writing. ` +
+      (prod
+        ? `\`${prod}\` writes it; until it does, nothing in this report is evidence about ` +
+          `what it would have measured.`
+        : `No producer for this path is recorded in report-normalize.js PRODUCERS, so this ` +
+          `report cannot say what writes it — closing that gap is the first step.`);
+  },
   unreadable: f => `${f.path} could not be read: ${f.error}`,
   malformed:  f => `${f.path} is not valid JSON: ${f.error}`,
 };

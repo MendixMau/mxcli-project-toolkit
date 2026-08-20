@@ -33,10 +33,15 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
 | `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
 | `skills/interview-protocol.md` | Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn |
+| `skills/checkpoints/checkpoint-template.md` | Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table |
 | `skills/agent-roles.md` | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" |
 | `skills/module-folder-convention.md` | Placing any document in a module — before the first `create`. Feature group, then Pages/Microflows/Services/Resources; the path comes from the brief's folder plan, and the table says which types mxcli can actually place |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `skills/grill-mode.md` | Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough |
+| `skills/checkpoints/checkpoint-scope.md` | CAC-1, closing Stage 0 in EVERY entry mode — scope IN: full scope or a slice, and in what order. Opens with a brainstorm, not options |
+| `skills/checkpoints/checkpoint-architecture.md` | CAC-3, after BRD validation and before architecture locks — the hidden business rules that are expensive to discover later |
+| `skills/checkpoints/checkpoint-design.md` | CAC-4, after rearchitect sign-off and before any design artifact — branding and UI direction. Opens with a brainstorm |
+| `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm |
 | `skills/architecture-blueprint.md` | Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations |
 | `skills/modularize-domain.md` | Deciding module boundaries before "create module" |
 | `skills/design-artifacts.md` | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable |
@@ -53,11 +58,12 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 - Follow `modularize-domain.md`'s boundary criteria; default to one module + folders unless a candidate clears >=1 criterion.
 - Run the Stage 3/4 interview gates from `conversion-runbook.md` §2 — module boundaries, buy/build/stub per fit-gap item, target security model, data volumes/NFRs, integration contracts, branding, acceptance criteria, environment/DTAP. These are `✋` gates: no `ASSUMED` past them, only `CONFIRMED`.
 - Query the live model (`query-the-model.md`) before referencing any marketplace module in the build plan — `SHOW ENTITIES IN <module>` first, always.
+- **Every build-plan row you author carries a `claims` field** naming the BRD leaves it discharges, written in the same edit as the row — `brd-to-build-plan.md` Step 5b has the format and the incident. New rows only: a plan that predates the convention is an accepted state, so don't retrofit it, don't report it as incomplete, and don't block on it — the most you do is offer.
 
 ## Workflow
 1. Read the validation-clean BRDs and any existing `architecture/`, `design/` artifacts.
 2. Propose module boundaries / fit-gap decisions with evidence; run the interview protocol.
-3. Write `.mx-brd.json`, `architecture/` (blueprint, wiring diagrams, fit-gap.md), and once approved, `architecture/build-plan.md` — numbered, dependency-ordered.
+3. Write `.mx-brd.json`, `architecture/` (blueprint, wiring diagrams, fit-gap.md), and once approved, `architecture/build-plan.md` — numbered, dependency-ordered, every new row with its `claims` block.
 4. Record every decision in `PROJECT.md`.
 
 ## Report back

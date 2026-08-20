@@ -59,7 +59,20 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # review-module.sh joins them for the same reason: verify-module.sh calls all three, and until
 # they shipped, three of its rungs faulted with "not installed" on every freshly wired project.
 # That is the false green this whole harness exists to retire, produced by the harness itself.
-MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh graph-sweep.sh review-module.sh"
+#
+# coherence-cadence.sh, build-plan-status.sh and done-drift-check.sh joined on 2026-08-20, and
+# they are the reverse check below being right for the third time. All three read a PROJECT:
+# mdlsource/<phase>/done- prefixes, .claude/loop/verify/<Module>/summary.tsv, docs/BUILD-LOG.md,
+# architecture/build-plan.md. None of them can run from the toolkit clone. Yet:
+#   - close-task.sh — which IS installed — resolves done-drift-check.sh as its own SIBLING
+#     ("$(dirname "${BASH_SOURCE[0]}")/done-drift-check.sh", :86). In every wired project that
+#     sibling was absent, so the drift backstop skills/iterative-build-loop.md:49 describes as
+#     "surfaced automatically by close-task.sh" surfaced nothing, silently.
+#   - skill-routing.tsv routes coherence-cadence.sh and build-plan-status.sh (rows 125-126) and
+#     gate/review/mdl/architect-agent.md all cite them by path.
+# Routed, cited, invoked by an installed script — and installed nowhere. The stderr warning
+# below had been naming all three on every sourced run the whole time.
+MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. Empty today, and that
 # is the point: the reverse check below flags anything named by NEITHER list, so a new file in
@@ -120,7 +133,7 @@ MXTK_LINT_RULES_NOINSTALL="README.md STOCK-HASHES.txt"
 #
 # project.config.template.js is listed separately because it is the one file a project is
 # EXPECTED to edit — installing it over an edited copy would silently revert the port.
-MXTK_PROJECT_TESTS="config.js helpers.js otel.js journey-runner.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js report-normalize.js report-render.js review-report.js example.journey.json"
+MXTK_PROJECT_TESTS="config.js helpers.js otel.js journey-runner.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js full-app-walkthrough.js report-normalize.js report-render.js review-report.js example.journey.json"
 MXTK_PROJECT_TESTS_TEMPLATE="project.config.template.js"
 
 # Deliberately not installed. Same contract as the lists above.
@@ -315,21 +328,20 @@ _mxtk_manifest_check_bin_unnamed
 _mxtk_manifest_check_tests
 
 # --- self-check: the e2e engine is actually WIRED to a caller ------------------------------
-# Exactly the lint-rules wiring failure, one directory over, and it is live at this commit:
-# bin/install-tests.sh exists and ships the whole journey-proof engine, and NEITHER
-# init-project.sh nor sync-project.sh calls it (verified 2026-08-19: zero matches in each).
-# So a freshly wired project has no tests/e2e/ at all, and every journey rung of
-# verify-module.sh faults with "not installed" — the harness reporting itself broken.
+# Exactly the lint-rules wiring failure, one directory over. It WAS live: bin/install-tests.sh
+# shipped the whole journey-proof engine and neither init-project.sh nor sync-project.sh called
+# it (verified 2026-08-19: zero matches in each), so a freshly wired project had no tests/e2e/ at
+# all and every journey rung of verify-module.sh faulted with "not installed" — the harness
+# reporting itself broken.
 #
-# WARNING, NOT FAILURE, unlike the lint-rules twin. The lint check can hard-fail because its
-# wiring is present; this one's is absent right now, and a fatal check would abort every
-# script that sources this manifest — including the installers that would carry the fix.
-# Promote it to `return 1` in the same commit that adds the call to both scripts.
+# FIXED 2026-08-20: init-project.sh calls it after the crash-net loop, sync-project.sh in its
+# section 4b. Both are the shipped script, not a copy of its loop.
 #
-# The fix is one line in each, next to the existing mxtk_install_lint_rules call:
-#     "$TOOLKIT/bin/install-tests.sh" "$PROJECT_DIR"
-# (install-tests.sh is idempotent: it keeps any file the project already has, and never
-# overwrites project.config.js.)
+# NOW A HARD FAILURE, as this comment said it should become "in the same commit that adds the
+# call to both scripts". The reason it was only a warning was that a fatal check would have
+# aborted every script sourcing this manifest — including the installers that had to carry the
+# fix. That is no longer the situation, and the lint-rules twin directly above hard-fails for
+# precisely this reason: the wiring is present, so its ABSENCE is a regression, not a to-do.
 _mxtk_manifest_check_tests_wiring() {
   _here="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
   [ -f "$_here/../install-tests.sh" ] || return 0
@@ -343,6 +355,44 @@ _mxtk_manifest_check_tests_wiring() {
   echo "  Add: \"\$TOOLKIT/bin/install-tests.sh\" \"\$PROJECT_DIR\"" >&2
   echo "  Until then a wired project has no tests/e2e/ and every journey rung faults." >&2
   echo "  (Workaround for an existing project: bin/check-requirements.sh --fix)" >&2
-  return 0
+  return 1
 }
 _mxtk_manifest_check_tests_wiring
+
+# --- self-check: every instrument the template DECLARES has a script behind it --------------
+# The third form of the same disease, and the one that stayed invisible longest, because the
+# reference is not in a manifest list at all — it is a `script:` string inside a config template.
+#
+# Measured 2026-08-20. project.config.template.js declared TWO instruments whose scripts have
+# never existed in this repo — `git log --all --diff-filter=A` finds no commit that ever added
+# either `full-app-walkthrough.js` or `mobile-fieldscan.js`. report-normalize.js meanwhile treats
+# `full-app-walkthrough` as a real, expected slot and asserts that no instrument is silently
+# absent. So every project scaffolded from the template inherited a reference to a script nobody
+# wrote, and the harness dutifully reported the APPLICATION at fault for it. A real run against
+# VB-USI-main (6 modules, 611 checks) recorded, verbatim: "tests/e2e/artifacts/findings.json does
+# not exist — the instrument did not run, or ran without writing." Nothing was misconfigured. A
+# sibling project hand-authored its own walkthrough because the toolkit never shipped one.
+#
+# Forward-only, and a HARD failure, for the same reason as _mxtk_manifest_check_bin: a declaration
+# that names a missing file installs nothing and warns nobody. There is no reverse half — a script
+# that exists without being declared is caught by _mxtk_manifest_check_tests above.
+#
+# Commented-out slots are deliberately ignored: commenting one out is how you legitimately park an
+# instrument that has no script yet, and mobile-fieldscan is parked exactly that way today.
+_mxtk_manifest_check_walkthroughs() {
+  _here="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
+  _tpl="$_here/../../project-tests/e2e/$MXTK_PROJECT_TESTS_TEMPLATE"
+  _dir="$_here/../../project-tests/e2e"
+  [ -f "$_tpl" ] || return 0
+  _phantom=""
+  for _s in $(grep -o "^[^/]*script: *'[^']*'" "$_tpl" 2>/dev/null | sed "s/.*script: *'\([^']*\)'.*/\1/"); do
+    [ -f "$_dir/$_s" ] || _phantom="$_phantom $_s"
+  done
+  [ -z "$_phantom" ] && return 0
+  echo "install-manifest.sh: project.config.template.js declares instrument script(s) that do not exist:" >&2
+  echo " $_phantom" >&2
+  echo "  Write the script, or comment the slot out until it exists. A declared-but-missing" >&2
+  echo "  instrument does not read as 'not built yet' — it reports the APPLICATION as faulty." >&2
+  return 1
+}
+_mxtk_manifest_check_walkthroughs

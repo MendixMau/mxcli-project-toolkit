@@ -35,6 +35,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # skill bolds twice. See bin/lib/triage-template.sh's header.
 . "$SCRIPT_DIR/lib/triage-template.sh"
 
+# The docs/progress/RESUME.md starter. Same one-copy arrangement as the two templates above.
+# wire-agents.sh stamps "Read docs/progress/RESUME.md first, and nothing else yet" into all six
+# generated entry points, and until this existed nothing in the init path created docs/ at all —
+# so a project's very first instruction, in every tool, pointed at a missing file. See the header
+# of bin/lib/resume-template.sh.
+. "$SCRIPT_DIR/lib/resume-template.sh"
+
 # SOURCES_MODE: ask | ignore | track. "ask" prompts only when stdin is a TTY; with no TTY it
 # ignores and says so. Ignoring is the default because a source drop is routinely hundreds of
 # MB of someone else's code, and the first time you find out it was committed is when you try
@@ -219,8 +226,22 @@ else
   echo "Created: triage.md (Stage 0 scaffold — migration entry mode; see its header)"
 fi
 
-CLAUDE_LOCAL="$PROJECT_DIR/CLAUDE.local.md"
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# docs/progress/RESUME.md — the file every generated entry point tells an agent to read FIRST.
+# Written here so that instruction is true on a project that is two seconds old. Never
+# overwritten: after the first close-the-loop this file is the project's own, and clobbering it
+# on a re-run of init would destroy exactly the state it exists to carry.
+RESUME="$PROJECT_DIR/docs/progress/RESUME.md"
+if [ -f "$RESUME" ]; then
+  echo "Skip: docs/progress/RESUME.md already exists — not overwritten."
+else
+  mkdir -p "$PROJECT_DIR/docs/progress"
+  mxtk_resume_template "$TOOLKIT_ROOT" > "$RESUME"
+  echo "Created: docs/progress/RESUME.md (starter — the first close-the-loop overwrites it)"
+fi
+
+CLAUDE_LOCAL="$PROJECT_DIR/CLAUDE.local.md"
 if [ -f "$CLAUDE_LOCAL" ]; then
   echo "Skip: CLAUDE.local.md already exists — not overwritten."
 else
@@ -324,6 +345,27 @@ if [ -d "$CRASHNET_SRC" ]; then
       echo "Created: bin/$s"
     fi
   done
+fi
+
+# ── Verification engine (tests/e2e/) ─────────────────────────────────────────
+# The other half of the crash net above, and it never travelled: project-bin/verify-module.sh
+# HAS been installed for weeks and it DRIVES project-tests/e2e/journey-runner.js, which existed
+# in exactly one project. A conductor and no orchestra — on a fresh project verify-module.sh's
+# first runtime rung exits 2 and the whole gate reads as fault, i.e. the harness reporting
+# itself broken. Four skills cite tests/e2e/* paths and skill-routing.tsv routes verify-module.sh
+# as a BASELINE skill for stages 5-6, so every one of those citations was false here.
+#
+# Separate script rather than another loop, because these are .js into a nested directory while
+# the loop above copies flat shell scripts into bin/. install-tests.sh is idempotent by the same
+# contract as the crash net: a file the project has already changed is KEPT and reported, and
+# project.config.js — the one file a project is expected to edit — is written only when absent,
+# even under --force. tests/e2e/artifacts/ is run output and is never named by the manifest, so
+# it is never touched.
+if [ -x "$SCRIPT_DIR/install-tests.sh" ]; then
+  "$SCRIPT_DIR/install-tests.sh" "$PROJECT_DIR" || {
+    echo "Verification engine did not install. The scaffold is otherwise fine; re-run:"
+    echo "  $SCRIPT_DIR/install-tests.sh $PROJECT_DIR"
+  }
 fi
 
 # ── Agent wiring ─────────────────────────────────────────────────────────────

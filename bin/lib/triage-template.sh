@@ -201,5 +201,14 @@ mxtk_triage_is_pristine() {
   local f="$1"
   [ -f "$f" ] || return 1
   grep -q 'MXTK-TRIAGE-STUB' "$f" || return 1
-  grep -q '{{[^}]*}}' "$f"
+  # The placeholder test must skip the MXTK-TRIAGE-STUB header itself. That comment explains the
+  # mechanism using a literal {{PLACEHOLDER}}, and nothing tells the filler to delete the header —
+  # the file says the opposite. So counting it made EVERY correctly-completed triage.md test
+  # pristine forever, and the next `sync-project.sh` would overwrite a signed-off Stage 0 gate
+  # artifact. (Found by a field run against 3680559, 2026-08-20; same bug class as the
+  # {{DOUBLE_BRACE}} false positive that is_pure_stub() already strips in sync-project.sh:81, and
+  # that gate-check.sh:1340 records as having cost the agent templates their refusal sentence.)
+  # awk rather than `sed '/a/,/b/d'`: sed's range would not close on a one-line header.
+  awk '/<!-- MXTK-TRIAGE-STUB/{skip=1} skip{if(/-->/){skip=0}; next} {print}' "$f" \
+    | grep -q '{{[^}]*}}'
 }

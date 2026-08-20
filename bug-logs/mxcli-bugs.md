@@ -4496,3 +4496,71 @@ risking the silent-drop path.
 **Discovered:** 2026-08-20, a workflow-tracking project (`ProductNumberWorkflow.ProductNumberWorkflow_Overview`,
 `dgRuns` datagrid, `RunStatus` pill column), rehearsed before execution per
 `skills/learned-mdl-preflight.md`.
+
+## BUG-94: `hasRole('Module.Role')` is not a valid Mendix expression-language function — MDL has no syntax to set a widget's module-role-scoped `Visible` condition
+
+**Severity:** Medium — `mxcli check --references` passes clean (it doesn't validate expression-language function names, only references), so the failure is invisible until a real `mxbuild`/native `mx check` or Studio Pro open
+**Reproducible:** Yes, consistently — every use of `hasRole(...)` in a `SET Visible = [...]` expression fails native `mx check` with `CE0117` ("Error(s) in expression")
+**Mendix version:** 11.13.0
+
+### Symptom
+
+A script of the shape:
+
+```
+ALTER PAGE Module.Page {
+  SET Visible = [hasRole('Module.SomeRole')] ON someTile;
+};
+```
+
+writes and passes `mxcli check --references` cleanly (0 errors), and even passes a plain
+`mxcli exec` against a live `.mpr` with no reported error — the write itself succeeds, because
+`Visible` accepts an arbitrary expression string and mxcli's writer does not validate it as
+Mendix expression syntax. Only a subsequent **native** `mx check`/mxbuild gate catches it:
+
+```
+CE0117: Error(s) in expression '[hasRole('Module.SomeRole')]'
+```
+
+`hasRole()` does not exist anywhere in the Mendix client/microflow expression grammar (no such
+function in the documented expression library), is not present in any prior working MDL in this
+project's history, and is not documented in any toolkit skill as a real construct — it appears to
+be a plausible-sounding hallucinated function name, not a shorthand or deprecated alias.
+
+### Reproduction
+
+1. Write any `ALTER PAGE { SET Visible = [hasRole('Some.Role')] ON widgetName; }` script.
+2. `mxcli check script.mdl -p Project.mpr --references` → passes, 0 errors.
+3. `./mxcli exec script.mdl` (or `bin/exec.sh` if the project has one) → reports success, no error.
+4. Run a **native** `mx check` (the real macOS/Windows/Linux Studio Pro `mx`/`mxbuild` binary
+   matching the project's Mendix version, not just mxcli's own gate if it silently no-ops) →
+   `CE0117` fires immediately.
+5. Isolated via sandbox rehearsal (full project-tree copy in `/tmp`, native `mx check` on the
+   sandbox) before ever touching the real `.mpr` — confirmed the failure is in the expression
+   text itself, not a corruption/serialization issue (direct BSON inspection of the resulting
+   `Forms$ConditionalVisibilitySettings` showed a well-formed document with the expression string
+   correctly serialized verbatim — the document is valid, the *content* of the expression is not).
+
+### Root cause
+
+There is no MDL syntax today to populate `ConditionalVisibilitySettings.ModuleRoles` — the
+first-class BSON field backing Studio Pro's actual "Visible for these module roles" checkbox
+list on a widget. That field is a list of module-role references, not an expression. mxcli's
+`SET Visible = [...]` only writes to the `Expression`-based visibility path (data-context boolean
+expressions, e.g. `[$SomeDataViewEntity/BooleanAttr = true]`), which has no access to the current
+user's roles as a first-class expression construct in this Mendix version. Someone reaching for
+"visible only to role X" naturally guesses at a `hasRole()`-shaped function; it does not exist.
+
+### Workaround
+
+Role-scoped widget visibility must be done one of two ways:
+1. **Studio Pro GUI or MCP `pg_patch_page`** — directly set `ConditionalVisibilitySettings.ModuleRoles`
+   on the widget (the real, first-class mechanism). MDL cannot express this today.
+2. **Data-context workaround, MDL-only** — add a non-persistent entity holding the current user's
+   relevant roles as boolean attributes, retrieve/create one instance into a dataview on the page,
+   and drive `Visible` off an `[$CurrentUserRoles/IsSomeRole = true]`-style expression instead.
+   This is materially more design work than a one-line `SET Visible`, not a drop-in substitute.
+
+**Discovered:** 2026-08-21, a client project (a Home/dashboard page, 4 tiles needing per-role
+visibility per its own design wireframe), caught in sandbox rehearsal before ever touching
+the real `.mpr`, per `skills/learned-mdl-preflight.md`.

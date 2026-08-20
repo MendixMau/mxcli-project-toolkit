@@ -11,7 +11,7 @@
 //
 // WHY THIS EXISTS
 // journey-runner.js walks ONE persona down ONE golden path and grades it on five
-// rungs. Run it once per module and you get what VB-USI-main got on 2026-08-20:
+// rungs. Run it once per module and you get what PROJECT-A got on 2026-08-20:
 // six per-module journey files, every one of them recording
 // `configuredUser == actualUser == erika.engineer`, `usedFallback:false`, no role
 // change anywhere in the run. Six isolated single-persona smoke tests. The thing
@@ -211,7 +211,7 @@ async function runStep(page, meta, s) {
       // humanTypeKeys fires real key events. fill() sets .value without them, and a
       // React-backed filter or an on-change microflow never sees the change — the
       // assertion afterwards then grades an unfiltered grid and passes. Measured in
-      // WMS-Demo's Datagrid 2 filter, 2026-08.
+      // PROJECT-C's Datagrid 2 filter, 2026-08.
       if (s.keys === false) await H.humanType(page, el, String(subst(s.value)));
       else await H.humanTypeKeys(page, el, String(subst(s.value)));
       await PAUSE(s.debounceMs || 0);   // REAL ms: a debounce does not scale with DEMO_SPEED

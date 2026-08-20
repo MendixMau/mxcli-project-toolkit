@@ -326,7 +326,7 @@ After Claude writes the BRD, review these checkpoints:
 BRDs fan out well: one agent per module, no dependencies between them. The catch is that each
 agent re-derives the same identifiers from the same corpus, and they disagree.
 
-Measured on WMS-Demo-main, 20 BRDs written in parallel: **10 identifier conflicts**, every one
+Measured on PROJECT-C, 20 BRDs written in parallel: **10 identifier conflicts**, every one
 of them acronym casing — `WIPStatus`/`WipStatus`, `CreateWIPException`/`CreateWipException`,
 `QueryAISafeWIPSummary`/`QueryAiSafeWipSummary` (71 uses against 78). Each surfaced later as an
 *open question* addressed to the user, as though it were a business decision. It is not. It is

@@ -4,7 +4,7 @@
 # WHY THIS EXISTS. open-questions.sh answers "has the user seen this?" — a status axis, and the
 # right one for consent. It cannot answer the question that actually governs pace: "does this
 # need a human at all?" Without that second axis every question is equally blocking, so a thin
-# source produces a wall (127 on WMS-Demo) at the interview gate and the user is asked to
+# source produces a wall (127 on PROJECT-C) at the interview gate and the user is asked to
 # adjudicate field lengths alongside the multi-tenancy decision. Nobody reads item 90.
 #
 # THE FOUR KINDS. Deliberately about the ANSWERER, not about difficulty or size.
@@ -39,10 +39,10 @@
 # that only means the agent was not given the document — the answer very much exists, on the
 # user's side, and filling it is not a drafting position but a guess presented as analysis.
 #
-# Real incident, 2026-08-19 (USI-RoutingModule). "Are there branding inputs?" was folded into
+# Real incident, 2026-08-19 (PROJECT-B). "Are there branding inputs?" was folded into
 # one line of a seven-item Stage 3 gate batch, carrying the recommended default "no branding
 # assets provided — use Atlas defaults". The user approved the batch. There was, in fact, a
-# real art direction — top-bar layout, industrial look, grey background, cool colours, the USI
+# real art direction — top-bar layout, industrial look, grey background, cool colours, the client
 # wordmark in the shell — and a WCAG 2.1 AA target. Neither had ever been asked for. Both were
 # discovered only when the user challenged the finished design system. The question was tagged
 # and treated as a `gap`; it was `user-only`, and the recommendation was the whole defect.

@@ -1,7 +1,7 @@
 # RnD (mendixlabs/mxcli) main retest — 2026-08-06
 
 Investigation only. No GitHub issues filed. No real Mendix project touched — all
-testing done in scratch sandboxes copied from `/private/tmp/ivm-baseline/`.
+testing done in scratch sandboxes copied from `/private/tmp/mx-baseline/`.
 
 ## Gate 0 — commit tested
 
@@ -41,7 +41,7 @@ binary copied in:
 - `/tmp/rnd-retest-mapping/` (+ `mxcli`, project file `EmptyTest.mpr`)
 - `/tmp/rnd-retest-widget/` (+ `mxcli`, project file `EmptyTest.mpr`)
 
-Note: `EmptyTest.mpr` (copied from `/private/tmp/ivm-baseline/`) already
+Note: `EmptyTest.mpr` (copied from `/private/tmp/mx-baseline/`) already
 contains some ambient, pre-existing `mx check` errors unrelated to any of
 these repros (a `CE0066` on module `RouteShowcase` and two `CE5015` "Root"
 MinOccurs/MaxOccurs errors) — these show up in every `mx check` run below

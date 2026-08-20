@@ -3,7 +3,7 @@
 # WHY THIS EXISTS. On 2026-08-12 this logic existed in three places — open-questions.sh,
 # gate-check.sh and facts-lock.sh — and one of them was wrong. facts-lock.sh matched only the
 # FIRST knowledge-base directory, so on a project with `analysis/source/` (2 BRDs) and
-# `analysis/usi-source/` (18) it read two files and reported "0 contested, 2 BRD(s) read".
+# `analysis/alt-source/` (18) it read two files and reported "0 contested, 2 BRD(s) read".
 # A clean result over 10% of the corpus.
 #
 # The comment on the correct copy said "ALL matches, not the first". It was right there, in a

@@ -106,7 +106,7 @@ Incident: the WMS reconfigure run showed Stage 3/4/6 FAIL even though the artifa
 cause: gate-check's per-stage checks were root-anchored (`$PROJECT_DIR/architecture/…`,
 `$PROJECT_DIR/design/…`), but WMS uses the toolkit's **documented default** `analysis/<name>/`
 layout — so fit-gap, design-system, wireframes, blueprint, build-plan all live under
-`analysis/WMS-App/…`. The gate false-FAILed on its own prescribed layout. (The newer `build-ready`
+`analysis/PROJECT-D/…`. The gate false-FAILed on its own prescribed layout. (The newer `build-ready`
 checks already used recursive `find` and got it right — the older per-stage checks never did.)
 
 Fix: resolve an `ANALYSIS_BASE` (parent of the knowledge-base dir when nested, else root) and a

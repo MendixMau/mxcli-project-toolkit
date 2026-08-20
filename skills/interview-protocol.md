@@ -105,10 +105,10 @@ Typical `user-only` questions, none of which a source can answer:
 2. **Never batch-approvable.** It cannot be one line of a batch that can be cleared with "approve
    all as recommended", because there is no recommendation to approve. Ask it on its own.
 
-*Real incident, 2026-08-19 (USI-RoutingModule).* "Are there branding inputs?" went in as line 7
+*Real incident, 2026-08-19 (PROJECT-B).* "Are there branding inputs?" went in as line 7
 of a seven-item Stage 3 gate batch, carrying the recommended default *"no branding assets
 provided — use Atlas defaults."* The user approved the batch. There was in fact a real art
-direction — top-bar layout, industrial look, grey background, cool colours, the USI wordmark in
+direction — top-bar layout, industrial look, grey background, cool colours, the client wordmark in
 the shell — and a WCAG 2.1 AA target, and neither had ever been asked for. Both surfaced only
 when the user challenged the finished design system and asked why nobody had checked. The
 question had been treated as a `gap`. The recommendation was the entire defect: it converted

@@ -4,7 +4,7 @@
 # WHY THIS EXISTS. Measured on the toolkit as it stood 2026-08-12: every instrument reads BRDs
 # or ledgers (facts-lock, coverage-check, open-questions, gate-check). Not one reads a source.
 # So a two-page epic deck and a 300-page validated spec enter the pipeline indistinguishably,
-# and the difference only surfaces at the interview gate — as a question backlog. WMS-Demo's
+# and the difference only surfaces at the interview gate — as a question backlog. PROJECT-C's
 # 127 questions were largely that: the source was silent, so the collector asked. By then the
 # thinness has been laundered into BRD prose that reads as authoritative because it is JSON.
 #
@@ -104,7 +104,7 @@ require_py
 # Ten dimensions, chosen as what a Mendix BUILD PLAN needs rather than what a requirements
 # textbook lists. Two of them exist because of specific, repeated, expensive misses:
 #
-#   tenancy         WMS-Demo shipped every module hardcoding SiteId because multi-site was
+#   tenancy         PROJECT-C shipped every module hardcoding SiteId because multi-site was
 #                   one bullet under a scalability heading. The BJJ reference source files
 #                   "multiple academies and locations" in exactly the same place. A source
 #                   can score well everywhere else and still be missing the decision that

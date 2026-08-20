@@ -70,7 +70,7 @@ mkdir -p "$OUTDIR"
 # --- find the ledger(s) ------------------------------------------------------------------
 # Three path shapes are in the wild and all three are legitimate. The canonical one is the
 # per-module directory; the flat one exists because real projects lay architecture/modules/ out
-# flat (VB-USI: `Approval-brief.md`, `ProductNumbers.md`, no subdirectories at all); the
+# flat (PROJECT-A: `Approval-brief.md`, `ProductNumbers.md`, no subdirectories at all); the
 # project-level one is sanctioned by skills/coverage-ledger.md's own header for a single-BRD
 # project. Globbing only the canonical shape is why a project with ledgers in the flat shape
 # would still be told it had none.

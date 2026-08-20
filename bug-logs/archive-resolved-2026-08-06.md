@@ -191,7 +191,7 @@ fails to bind — no error at `exec` or `check` time, only discoverable at runti
 **Status: RESOLVED 2026-08-03** — passes on both RnD `504aec67` and Engalar `26f2866`; stale.
 Safe to remove from the active list. Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-40.md`.
 **Reproducible:** Reported only
-**Discovered:** a PLM parts-flow project, `mdlsource/3c-workflow/archived/09f-tfc-workflow-build.mdl` comment
+**Discovered:** a PLM parts-flow project, `mdlsource/3c-workflow/archived/09f-plm-workflow-build.mdl` comment
 
 Only `CALL MICROFLOW` activities can be inserted into a workflow via `ALTER WORKFLOW INSERT`;
 USER TASK activities require Studio Pro.
@@ -209,7 +209,7 @@ Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-41.md`.
 Distinct from BUG-10 and BUG-23 (both about the `Attributes` list generally) — this is
 specifically the pluggable-widget `textfilter.attributes` binding.
 
-**Re-opened / refined 2026-08-13 on SonnyPOC** (mxcli v0.17.0, Mendix 11.13.0): reproduced the
+**Re-opened / refined 2026-08-13 on PROJECT-F** (mxcli v0.17.0, Mendix 11.13.0): reproduced the
 same CE1613 on a single-attribute `textfilter (attributes: [...])`, ruling out "multi-attribute
 list" as the actual trigger. Root cause is narrower: a **quoted** 3-part identifier
 (`"Module"."Entity"."Attribute"`) inside a `textfilter.attributes:` list is accepted by
@@ -218,7 +218,7 @@ list" as the actual trigger. Root cause is narrower: a **quoted** 3-part identif
 `create-page.md`'s own documented example) persists correctly and checks clean. This directly
 conflicts with the general "always quote identifiers, it's always safe" convention used
 elsewhere — it is a confirmed exception specific to this one widget property. Not yet filed as
-a GitHub issue; see SonnyPOC `docs/BUILD-LOG.md` 2026-08-13 entries and
+a GitHub issue; see PROJECT-F `docs/BUILD-LOG.md` 2026-08-13 entries and
 `mdlsource/01-sharedplumbing/01c-fix2-filter-unquoted.mdl` / `01c-fix3-filter-unquoted2.mdl` for
 the fix and verification detail.
 
@@ -392,7 +392,7 @@ sweeping the others rather than assuming this was the only one.
 Not a model defect: the app is valid.
 **Reproducible:** Yes, every open.
 **Mendix version:** 11.13.0 Beta. **Not mxcli-related** — reproduces on a model mxcli never touched.
-**Discovered:** 2026-08-05, TFC-TCXGraphPOC.
+**Discovered:** 2026-08-05, PROJECT-E.
 
 ### Symptom
 
@@ -415,7 +415,7 @@ look like a partial UI glitch rather than a parse failure.
 ```json
 { "code": "Error",
   "message": "A caption is required if 'Can hide' is Yes or Yes, hidden by default...",
-  "locations": [{ "module-name": "TFC", "document-name": "Page 'TFC_NPDGate'",
+  "locations": [{ "module-name": "PLM", "document-name": "Page 'PLM_NPDGate'",
                   "element-name": "Property 'Columns/7/Can hide' of data grid 2 'dgNPDGate'" }] }
 ```
 
@@ -441,8 +441,8 @@ validator and the GUI disagree, then look for a malformed record.
 ### Workaround
 
 Give the offending column a caption (or set *Can hide* = No) on **every** offending grid — fixing one
-leaves the pane broken. In TFC both had to be addressed:
-`TFC.TFC_NPDGate` → `dgNPDGate` (own code) and **`WorkflowCommons.WorkflowDefinition_View` →
+leaves the pane broken. In PROJECT-E both had to be addressed:
+`PLM.PLM_NPDGate` → `dgNPDGate` (own code) and **`WorkflowCommons.WorkflowDefinition_View` →
 `dataGrid26` (marketplace module)**. The second means editing vendor code — decide deliberately.
 
 ### Where to report

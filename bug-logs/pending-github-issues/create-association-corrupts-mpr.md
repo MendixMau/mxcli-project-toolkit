@@ -18,8 +18,8 @@ Studio Pro fails to reopen the project cleanly (`KeyNotFoundException` from BSON
 
 ### Repro
 ```sql
-CREATE ASSOCIATION TFC."Account_Supplier"
-FROM Administration."Account" TO TFC."Supplier"
+CREATE ASSOCIATION PLM."Account_Supplier"
+FROM Administration."Account" TO PLM."Supplier"
 TYPE Reference
 OWNER Default;
 ```

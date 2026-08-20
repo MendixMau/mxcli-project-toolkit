@@ -4,14 +4,14 @@
 # WHY THIS EXISTS. init-project.sh wrote CLAUDE.local.md and nothing else, so a scaffolded
 # project was Claude-only. A colleague opening it in Copilot, Cursor or Windsurf got no
 # routing at all: they found PROJECT.md (a 60k decision register), read it as an orientation
-# doc, and started guessing at next steps. Measured on WMS-Demo-main, 2026-08-18.
+# doc, and started guessing at next steps. Measured on PROJECT-C, 2026-08-18.
 #
 # `mxcli init --tool X` already emits a decent pointer file for eight tools. Two problems kept
 # it from being usable as-is, and this script exists to fix exactly those two:
 #
 #   1. IT CLOBBERS HAND-WRITTEN INSTRUCTIONS. `mxcli init` overwrites AGENTS.md *and* CLAUDE.md
 #      with a 649-line generated file — byte-identical to each other — with no prompt, no
-#      backup and no diff. WMS-Demo-main's AGENTS.md was a hand-written 11-line pointer that
+#      backup and no diff. PROJECT-C's AGENTS.md was a hand-written 11-line pointer that
 #      existed *because* someone had already deleted a 650-line generated copy; the next
 #      `mxcli init` would have silently restored the very thing they removed. So: this script
 #      never lets init destroy a file that was already there. Pre-existing content always wins.

@@ -30,7 +30,7 @@ cd "$ROOT" || exit 2
 # sync-project.sh installs a missing _common.sh and REPORTS a locally-modified one rather than
 # overwriting it — deliberately, since projects harden their crash net. So every project that
 # has already tuned _common.sh would receive this script and have it die on line 1 with
-# "require_py: command not found". Measured on WMS-Demo-main before this fallback existed.
+# "require_py: command not found". Measured on PROJECT-C before this fallback existed.
 if [ -f "$(dirname "${BASH_SOURCE[0]}")/_common.sh" ]; then
   . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
 fi
@@ -50,7 +50,7 @@ fi
 require_py
 
 # The .mpr is discovered, not hardcoded. A per-project default here is how this script
-# was previously un-promotable: it named WMS-Demo.mpr and silently linted nothing anywhere
+# was previously un-promotable: it named PROJECT-C.mpr and silently linted nothing anywhere
 # else (mxcli exits 0 on a missing project, so the gate reported a clean PASS).
 if [ -z "${MPR:-}" ]; then
   MPR="$(ls "$ROOT"/*.mpr 2>/dev/null | head -1)"
@@ -97,7 +97,7 @@ if [ -n "${LINT_JSON:-}" ]; then
   cp "$LINT_JSON" "$OUT"
 else
   echo "==> linting $MPR${EXCLUDE:+ (excluding vendor modules)}"
-  # First run on a cold catalog can take MINUTES (measured: 717s on VB-USI, 2s warm) --
+  # First run on a cold catalog can take MINUTES (measured: 717s on PROJECT-A, 2s warm) --
   # the catalog rebuild dominates, not the lint. Do not treat a slow first run as a hang.
   if [ -n "$EXCLUDE" ]; then
     ./mxcli lint -p "$MPR" -e "$EXCLUDE" --format json > "$OUT" 2>/dev/null
@@ -132,7 +132,7 @@ sev    = {v["ruleId"]: v["severity"] for v in viol}
 #      documents but activities_for() hands back nothing.
 #   2. A hard Starlark crash: mxcli reports these as severity=error with an EMPTY
 #      module and a "Starlark rule error:" message prefix -- NOT as "_rule". Observed
-#      on TFC-TCXGraphPOC 2026-08-14: CONV018 died with '"page" struct has no .widgets
+#      on PROJECT-E 2026-08-14: CONV018 died with '"page" struct has no .widgets
 #      attribute'. Keying only on "_rule" meant the gate baselined a crashed rule as a
 #      legitimate error-severity finding and then reported PASS while CONV018 saw
 #      nothing at all. A crashed rule must never be ratcheted.

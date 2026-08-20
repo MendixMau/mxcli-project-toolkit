@@ -51,7 +51,7 @@ BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # when the script was copied into the project. Run the shared toolkit copy against a
 # project instead and BIN is the toolkit's project-bin/ — so a helper the project has
 # in its own bin/ is invisible, and the run reports "not installed" for a file that is
-# right there. Measured on WMS-Demo 2026-08-19: coverage-check.sh and review-module.sh
+# right there. Measured on PROJECT-C 2026-08-19: coverage-check.sh and review-module.sh
 # both existed in <project>/bin/ and both came back INSTRUMENT FAULT.
 #
 # Search order, most specific first:

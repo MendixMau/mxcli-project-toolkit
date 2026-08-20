@@ -1,7 +1,7 @@
 # Wengao fork (engalar/mxcli) — Section A retest against newest build `bc3d94ef4-dirty` — 2026-08-07
 
 Investigation only. No GitHub issues filed. No real Mendix project touched — all testing done
-in scratch sandboxes copied from `/private/tmp/ivm-baseline/`.
+in scratch sandboxes copied from `/private/tmp/mx-baseline/`.
 
 ## Why this report exists
 
@@ -33,7 +33,7 @@ findings.** Only ENGALAR-01 has been fixed so far.
 
 ## Sandbox setup
 
-Five fresh copies of the clean baseline project (`/private/tmp/ivm-baseline/EmptyTest.mpr` +
+Five fresh copies of the clean baseline project (`/private/tmp/mx-baseline/EmptyTest.mpr` +
 `mprcontents/` etc.), each with the binary copied in, one per bug:
 
 - `/tmp/wengao-sectionA-2026-08-07/bug35/`
@@ -195,24 +195,24 @@ $ ./mxcli check repro-42.mdl -p EmptyTest.mpr --references
   ✓ Check passed! (5 statements)
 
 $ ./mxcli exec repro-42.mdl -p EmptyTest.mpr
-Created module: ZTFC42
-Created enumeration: ZTFC42.Status
-Created entity: ZTFC42.Item
-Created page ZTFC42.ItemDetail
-Created page ZTFC42.NativeGridTest
+Created module: ZPLM42
+Created enumeration: ZPLM42.Status
+Created entity: ZPLM42.Item
+Created page ZPLM42.ItemDetail
+Created page ZPLM42.NativeGridTest
 EXIT: 0
 ```
 
 **`describe` (fresh process):**
 ```
-$ ./mxcli -p EmptyTest.mpr -c "DESCRIBE PAGE ZTFC42.NativeGridTest"
-create or modify page ZTFC42.NativeGridTest (title: 'Native Grid Test', layout: Atlas_Core.Atlas_Default) {
-  datagrid dgNative (datasource: database from ZTFC42.Item sort by Code asc) {
-    -- Context: $currentObject (ZTFC42.Item), $dgNative (selection)
+$ ./mxcli -p EmptyTest.mpr -c "DESCRIBE PAGE ZPLM42.NativeGridTest"
+create or modify page ZPLM42.NativeGridTest (title: 'Native Grid Test', layout: Atlas_Core.Atlas_Default) {
+  datagrid dgNative (datasource: database from ZPLM42.Item sort by Code asc) {
+    -- Context: $currentObject (ZPLM42.Item), $dgNative (selection)
     column colCode (
       attribute: Code,
       caption: 'Code',
-      DynamicCellClass: 'if ($currentObject/Status = ZTFC42.Status.Closed) then ''text-danger'' else '''' '
+      DynamicCellClass: 'if ($currentObject/Status = ZPLM42.Status.Closed) then ''text-danger'' else '''' '
     )
     column colStatus (attribute: Status, caption: 'Status')
   }
@@ -263,7 +263,7 @@ and both filters still vanish from the write path when combined with `DynamicCel
 **Sandbox:** `/tmp/wengao-sectionA-2026-08-07/bug47/`
 
 **Repro (`repro-47.mdl`):** used the **Engalar-dialect** variant from `BUG-47.md` (`{ }`
-microflow body, `ZIVM47B`) since this build uses brace syntax, not `begin...end`.
+microflow body, `ZBUG47B`) since this build uses brace syntax, not `begin...end`.
 
 This is a check-time claim (`CE0639`/blank `Attribute`), not a write-path/read-back distinction
 per the detail file's oracle — `describe` (a fresh-process read) plus `mx check` (independent
@@ -275,17 +275,17 @@ $ ./mxcli check repro-47.mdl -p EmptyTest.mpr
   ✓ Check passed! (3 statements)
 
 $ ./mxcli exec repro-47.mdl -p EmptyTest.mpr
-Created module: ZIVM47B
-Created entity: ZIVM47B.Product
-Created microflow: ZIVM47B.M001_ValidateProduct
+Created module: ZBUG47B
+Created entity: ZBUG47B.Product
+Created microflow: ZBUG47B.M001_ValidateProduct
 EXIT: 0
 ```
 
 **`describe` (fresh process):**
 ```
-$ ./mxcli -p EmptyTest.mpr -c "DESCRIBE MICROFLOW ZIVM47B.M001_ValidateProduct"
-create or modify microflow ZIVM47B.M001_ValidateProduct (
-  $Product: ZIVM47B.Product
+$ ./mxcli -p EmptyTest.mpr -c "DESCRIBE MICROFLOW ZBUG47B.M001_ValidateProduct"
+create or modify microflow ZBUG47B.M001_ValidateProduct (
+  $Product: ZBUG47B.Product
 )
 {
   if $Product/Code = '' {

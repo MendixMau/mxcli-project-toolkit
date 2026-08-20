@@ -4,7 +4,7 @@ type` (originally discovered 2026-05-22 on Mendix 11.10.0, mxcli pre-v0.13.0; ne
 retested)
 **Status:** FILED — https://github.com/mendixlabs/mxcli/issues/855 (2026-08-06)
 **Note:** re-verified fresh in an isolated scratch sandbox on 2026-08-06 against the current
-tagged `v0.16.0` release binary (Gate 0), copied off `/private/tmp/ivm-baseline`, never touching
+tagged `v0.16.0` release binary (Gate 0), copied off `/private/tmp/mx-baseline`, never touching
 a real project. The retest **substantially narrows** the original claim (Gate 5/7):
 - The original "Additional finding" — CE6705 (`"Data view cannot have a data source of type
   association"`) blocking creation of *any* DataView with an association-traversal datasource —

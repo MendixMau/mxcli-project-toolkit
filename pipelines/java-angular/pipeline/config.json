@@ -9,5 +9,5 @@
   ],
   "angularSourceDir": "",
   "dbDir": "",
-  "knowledgeBaseDir": "/path/to/your/source-project/analysis/WMS-App/knowledge-base"
+  "knowledgeBaseDir": "/path/to/your/source-project/analysis/<source-name>/knowledge-base"
 }

@@ -34,7 +34,7 @@ stagep() { "$GATE" "$1" P 2>&1 | grep '^Stage P' | head -1; }
 section() { printf '\n## %s\n\n%s\n' "$1" "$2"; }
 
 echo "== T1: 'Answered (CONFIRMED):' is accepted (the regression that must never return) =="
-# bug03's FIRST draft required ^answered: and turned VB-USI-main and TFC-TCXGraphPOC-main red,
+# bug03's FIRST draft required ^answered: and turned PROJECT-A and PROJECT-E red,
 # because both write this parenthetical-qualifier form. It is a real workspace convention.
 P="$(mkproj t1)"
 { section '1. How many sites?' 'Answered (CONFIRMED): three — Rotterdam, Genk, Tilburg.'

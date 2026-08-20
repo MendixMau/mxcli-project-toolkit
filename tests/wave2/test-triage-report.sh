@@ -66,7 +66,7 @@ has "  and the reason is the unsigned sign-off" "$OUT" "still holds template pla
 hasnt "  it is not reported as a pass" "$OUT" "Stage 0 (Triage): PASS"
 
 # The five verdict words and the two-way call live IN the file, because that is where the author
-# is typing. This is the VB-USI drift: a hand-written triage invented "Direct read (recommended)"
+# is typing. This is the PROJECT-A drift: a hand-written triage invented "Direct read (recommended)"
 # as a third option and concluded "Build no extractor".
 T=$(cat "$P/triage.md")
 has "the five verdicts are stated inline" "$T" "**Extract-only**"

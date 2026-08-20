@@ -272,7 +272,7 @@ function rollup(checks) {
 }
 
 /* ── coverage arithmetic: the denominator that includes the holes ────────────
- * MEASURED, 2026-08-20 (VB-USI-main, schema 1.2). 611 checks: 205 pass, 23 fail,
+ * MEASURED, 2026-08-20 (PROJECT-A, schema 1.2). 611 checks: 205 pass, 23 fail,
  * 353 fault, 30 skipped. A reader took that page for "roughly 90% healthy". It is
  * 205 of 611 — 34% — and 353 checks NEVER RAN. Four instruments were entirely at
  * `fault` (coverage-ledger, conformance, deferrals, full-app-walkthrough). Minutes
@@ -596,7 +596,7 @@ function checksByInstrument(checks) {
   return m;
 }
 
-/* The gap this closes, measured 2026-08-20: four instruments on VB-USI-main were at
+/* The gap this closes, measured 2026-08-20: four instruments on PROJECT-A were at
  * verdict `fault` for the whole run and a fifth reported `pass` having appended
  * nothing. On the page they were five tiles among fourteen. An instrument that
  * produced no evidence at all has to LOOK different from one that measured
@@ -2703,7 +2703,7 @@ function selftest() {
     html(base()).indexOf('NOTHING EXAMINED — this report contains zero checks') !== -1);
 
   /* 2b. COVERAGE LEADS — the measured misread ------------------------------
-     VB-USI-main, 2026-08-20: 205 pass / 23 fail / 353 fault / 30 skipped over 611
+     PROJECT-A, 2026-08-20: 205 pass / 23 fail / 353 fault / 30 skipped over 611
      checks was read as "roughly 90% healthy". Scaled-down fixture, same shape.     */
   const lopsided = base({
     instruments: [{ name: 'design-audit', verdict: 'pass' },

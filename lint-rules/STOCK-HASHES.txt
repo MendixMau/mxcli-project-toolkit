@@ -10,7 +10,7 @@
 #   3. the file is SOMETHING ELSE -> a project hand-tuned it, or mxcli shipped a version
 #                                    newer than anything listed here. REPORT, never write.
 #
-# Case 3 is why a hash list beats "overwrite if it lacks our marker". WMS-Demo-main's
+# Case 3 is why a hash list beats "overwrite if it lacks our marker". PROJECT-C's
 # conv010 at git HEAD is bafa1a26… — a hand fix predating this copy path. Blind-overwriting
 # on a missing marker destroys it; the hash list correctly routes it to "report and offer".
 #

@@ -17,7 +17,7 @@ scaffold and a Stage 0 triage behave correctly on a non-Claude harness.
 
 ## Next action
 Awaiting the user's Windows verification run: `git pull` in the toolkit, then
-`bin/sync-project.sh <project>` on the USI-RoutingModule project. Expect it to name the
+`bin/sync-project.sh <project>` on the PROJECT-B project. Expect it to name the
 kickoff questions that were never asked (entry mode among them) and change nothing.
 
 ## Expensive findings

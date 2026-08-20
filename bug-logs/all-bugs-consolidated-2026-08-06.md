@@ -1,14 +1,14 @@
 # Consolidated mxcli / engalar-mxcli bug report — 2026-08-06
 
 Sources: toolkit master log (`bug-logs/mxcli-bugs.md`, 69 `BUG-*`/`BUG-ENGALAR-*` headers),
-WMS-Demo bakeoff (`bug-logs/bakeoff-2026-07-31/`, 14 `BUG-LOCAL-*` files), WMS-Demo
-gh-issues-ready (17 files, filed as #827-843), TFC gh-issues-ready (3 files, filed as
+PROJECT-C bakeoff (`bug-logs/bakeoff-2026-07-31/`, 14 `BUG-LOCAL-*` files), PROJECT-C
+gh-issues-ready (17 files, filed as #827-843), PROJECT-E gh-issues-ready (3 files, filed as
 #844-846). All GitHub states below were re-checked live via `gh issue view --repo
 mendixlabs/mxcli`, not read off any log's prose.
 
 ## Summary
 
-- **Raw entries surveyed:** 83 (69 toolkit headers + 14 bakeoff `BUG-LOCAL-*` files; the 3 TFC
+- **Raw entries surveyed:** 83 (69 toolkit headers + 14 bakeoff `BUG-LOCAL-*` files; the 3 PROJECT-E
   files are the same defects as toolkit `BUG-WF03/WF05/WF06`, not additional entries).
 - **Distinct defects after dedup: 72.** 7 toolkit headers fold into a canonical sibling
   (`BUG-24`→`WF06`, `WF02`→`WF05`, `WF04`→ guidance note only, `35`→`ENGALAR-02`,
@@ -163,7 +163,7 @@ ROOT-CAUSE-UNDIAGNOSED / **SUBMISSION-READY**.
 ## Notes on scope
 
 - The 14 `BUG-LOCAL-*` bakeoff files are a **separate, project-local numbering space**
-  (WMS-Demo's own `bug-logs/mxcli-bugs.md`, not the toolkit's master log) — only `BUG-LOCAL-06`
+  (PROJECT-C's own `bug-logs/mxcli-bugs.md`, not the toolkit's master log) — only `BUG-LOCAL-06`
   had previously been folded into the toolkit log (as `BUG-32`). The other 13 were not in the
   toolkit's 69 headers at all until this reconciliation.
 - BSON codec bug (`BUG-15b`) and the mxcli v0.13.0 association fix (`BUG-02`) are the only two

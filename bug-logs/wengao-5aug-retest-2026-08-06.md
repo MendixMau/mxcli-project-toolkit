@@ -1,7 +1,7 @@
 # Wengao fork (engalar/mxcli) 5-Aug build retest — 2026-08-06
 
 Investigation only. No GitHub issues filed. No real Mendix project touched — all
-testing done in scratch sandboxes copied from `/private/tmp/ivm-baseline/`.
+testing done in scratch sandboxes copied from `/private/tmp/mx-baseline/`.
 
 This mirrors the identical 3-test repro run against `mendixlabs/mxcli` main in
 `rnd-main-retest-2026-08-06.md`, same day, against a different binary, for a
@@ -208,7 +208,7 @@ The stored `JsonPath` for `RoutingCode` is literally `(Object)|routing_code`
 structure wraps the mapped fields inside an `items` array. This is the
 broken/flat form — byte-for-byte the same defect signature as the RnD-main
 retest and the earlier `BUG-LOCAL-13` finding
-(`~/Mendix/WMS-Demo-main/bug-logs/bakeoff-2026-07-31/BUG-LOCAL-13.md`).
+(`~/Mendix/PROJECT-C/bug-logs/bakeoff-2026-07-31/BUG-LOCAL-13.md`).
 
 **Result: FAIL — bug still present on `bc3d94ef4-dirty`.** `CE5015` still
 fires and the BSON-stored `JsonPath` still drops the `items` array segment.

@@ -621,7 +621,7 @@ fi
 #
 # It cannot simply copy over them either. Census of the 8 crash-net projects on this machine:
 # 56 slots, 13 identical, 25 locally modified, 18 missing — and exec.sh is locally modified in
-# ALL 6 projects that have one (WMS-Demo-main's carries a build-rollback fix that never went
+# ALL 6 projects that have one (PROJECT-C's carries a build-rollback fix that never went
 # upstream). A blind-overwrite sync destroys real work in six projects at once. So:
 #   missing          -> install (nothing local to destroy)
 #   identical        -> leave alone; repair the exec bit if it was lost
@@ -743,7 +743,7 @@ fi
 # project-tests/e2e/journey-runner.js — which reached exactly one project, by hand, and that
 # hand-copy took a partial subset: every selftest (journey-runner.selftest.js, monkey.selftest.js,
 # journey-rung4-scope.test.js, example.journey.json) was left behind, so the harness there cannot
-# check itself. Measured on VB-USI-main, 2026-08-20.
+# check itself. Measured on PROJECT-A, 2026-08-20.
 #
 # Delivery goes through bin/install-tests.sh — the shipped script — rather than a second copy of
 # its loop here, for the reason the header of bin/lib/discover-brds.sh states: the fix does not
@@ -809,7 +809,7 @@ fi
 # AGENTS.md, CLAUDE.md and the per-tool pointer files, dropping the block that routes an agent
 # to RESUME.md. Without this call the wiring only ever reached projects created AFTER it
 # existed — and the projects most likely to be opened in Copilot or Cursor are the ones already
-# in flight, not the ones scaffolded today. WMS-Demo-main sat unwired for exactly that reason.
+# in flight, not the ones scaffolded today. PROJECT-C sat unwired for exactly that reason.
 #
 # Safe by construction, matching this script's contract: wire-agents.sh preserves every file
 # that already exists, backs up to .mxtk-backup/, and reports what it suppressed rather than

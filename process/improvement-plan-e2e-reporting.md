@@ -3,7 +3,7 @@
 **Author:** Maurits Visser (with Claude Code)
 **Created:** 2026-08-20
 **Status:** OPEN — fixes in flight. Findings 1–4 confirmed against the toolkit's own source;
-Findings 5–9 merged 2026-08-20 from the VB-USI-main postmortem and a toolkit-wide wiring audit.
+Findings 5–9 merged 2026-08-20 from the PROJECT-A postmortem and a toolkit-wide wiring audit.
 Decisions taken are recorded at the end of this document and govern the work now underway.
 **Purpose:** Record what a run of the mobile e2e prompt against a real app surfaced — shallow
 journeys, zero UI findings, ledger faults nobody expected — trace each one to its actual cause in
@@ -109,16 +109,16 @@ always there.
 
 ---
 
-## Merged — VB-USI-main postmortem + toolkit-wide wiring audit (2026-08-20)
+## Merged — PROJECT-A postmortem + toolkit-wide wiring audit (2026-08-20)
 
-The parallel investigation completed. Its project was `VB-USI-main`; a static wiring audit of the
+The parallel investigation completed. Its project was `PROJECT-A`; a static wiring audit of the
 whole toolkit ran alongside it. Both are folded in below. **Status of this document changes from
 OPEN/no-code-changes to OPEN/fixes-in-flight** — see "Decisions taken" at the end, which resolves
 several options Findings 1–4 above left undecided.
 
 ### The trigger, from the other side
 
-A full harness run against VB-USI-main (6 modules) reported 611 checks: **205 pass / 23 fail /
+A full harness run against PROJECT-A (6 modules) reported 611 checks: **205 pass / 23 fail /
 353 fault / 30 skipped**. It read as roughly 90% healthy. It is 34% — over half the checks never
 executed. A manual walkthrough minutes later found a runtime crash (`Remark CreatedBy`), a broken
 Attachment widget, an unstyled page, and a live data-integrity double-fork bug in
@@ -131,16 +131,16 @@ The report did not lie. `instruments[]` shows `coverage-ledger`, `conformance`, 
 writing."* Nothing anywhere treated 353 non-runs differently from 353 passes, and nothing blocked
 Stage 4 sign-off.
 
-Harness code was ruled out as the cause: diffed against sibling `WMS-Demo-main` at the same
+Harness code was ruled out as the cause: diffed against sibling `PROJECT-C` at the same
 toolkit commit `5acd442`, `monkey.js` / `design-audit.js` / `report-normalize.js` are byte-identical
-and VB-USI's `journey-runner.js` is actually ahead by two local fixes.
+and PROJECT-A's `journey-runner.js` is actually ahead by two local fixes.
 
 ### Finding 5 — `full-app-walkthrough.js` has never existed in this repo
 
 `project-tests/e2e/project.config.template.js:381` declares the instrument slot; `report-normalize.js`
 treats it as expected and at `:1143` stamps it `canExpressFault:false, evidenceStrength:'weak'`.
-There is no `full-app-walkthrough.js` anywhere in the toolkit. `WMS-Demo-main` hand-authored its
-own because the toolkit never shipped one; VB-USI never got one. So the fault above was not a
+There is no `full-app-walkthrough.js` anywhere in the toolkit. `PROJECT-C` hand-authored its
+own because the toolkit never shipped one; PROJECT-A never got one. So the fault above was not a
 misconfiguration — the script does not exist.
 
 This is the same disease as Finding 2, one step earlier: Finding 2 is a real instrument that never
@@ -154,7 +154,7 @@ gets *called*; Finding 5 is a declared instrument that was never *written*.
 installed and drives `journey-runner.js`, four skills cite `tests/e2e/*` paths, and
 `skill-routing.tsv:81` routes `verify-module.sh` as a **baseline** skill for stages 5–6.
 
-Confirmed from the project side: VB-USI's `tests/e2e/` is a hand-assembled partial copy. Missing
+Confirmed from the project side: PROJECT-A's `tests/e2e/` is a hand-assembled partial copy. Missing
 every self-test (`journey-runner.selftest.js`, `monkey.selftest.js`, `journey-rung4-scope.test.js`,
 `example.journey.json`); extra local files (`pk-probe.js`, `project.config.js`, `artifacts/`, a
 stray `tmp-sketchnumbers-skagent.journey.json`). **The harness in a real project cannot check
@@ -200,16 +200,16 @@ gets rediscovered and re-fixed.
 ### Finding 9 — the ledger check cannot tell "never applicable" from "genuinely missing"
 
 Finding 3 above concluded that ledger faults on a Track B app are by-design. That reasoning is
-sound but **does not apply to VB-USI**, and the discrepancy exposes a deeper bug.
+sound but **does not apply to PROJECT-A**, and the discrepancy exposes a deeper bug.
 
-`VB-USI-main/PROJECT.md:16` records `Entry mode: Migration (Stages P, 0–7 all run)` — CONFIRMED,
+`PROJECT-A/PROJECT.md:16` records `Entry mode: Migration (Stages P, 0–7 all run)` — CONFIRMED,
 2026-08-06. It has `blueprint.md`, `build-plan.md`, 7 module briefs, 12 BRDs. It should have
 ledgers. It has none. Meanwhile `PROJECT.md:10` records that the *current* work is à-la-carte
 Track B assurance with no pipeline stage active. **A Migration project running a Track B pass** —
 so entry mode alone cannot decide the verdict, and `conformance-check.sh:53` faults identically in
 both cases.
 
-**Second, separate defect:** `architecture/modules/` in VB-USI is flat (`Approval-brief.md`,
+**Second, separate defect:** `architecture/modules/` in PROJECT-A is flat (`Approval-brief.md`,
 `ProductNumbers.md`), zero subdirectories — but `conformance-check.sh:52` and
 `verify-module.sh:286` glob `architecture/modules/<Module>/coverage-ledger.md`, requiring per-module
 *directories*, and `verify-module.sh:287` falls back to a project-level `architecture/coverage-ledger.md`,
@@ -276,7 +276,7 @@ These close options left open in Findings 1–4 and set the constraints for the 
    pointer.
 6. **`claims` required on new build-plan rows only.** Written at authoring time, when it costs one
    line and the author knows the answer. Existing plans without `claims` are an accepted state, not
-   a defect — VB-USI must not start reading as broken. Backfilling VB-USI is a separate, optional
+   a defect — PROJECT-A must not start reading as broken. Backfilling PROJECT-A is a separate, optional
    track.
 7. **Module briefs are not a ledger substitute.** Prose design intent, no leaf pointers, and the
    granularity does not line up (7 briefs vs 12 feature BRDs). Usable as a cross-check only.
@@ -319,7 +319,7 @@ All in the working tree, uncommitted, none of it executed (see "Still open").
   read but not canonical, and all three are printed by name when none is found.
   `conformance-check.sh` no longer hard-FAULTs, and refuses level 2 for itself specifically — a
   derived ledger has no `acceptance` cells and synthesizing them is the inversion being refused.
-  Measured against VB-USI: **4012 leaves across 12 BRDs, level 3, zero traceable.**
+  Measured against PROJECT-A: **4012 leaves across 12 BRDs, level 3, zero traceable.**
 - **Finding 10** — the four phantom citations repointed; block form and the `acceptance` field now
   specified inline in `coverage-ledger.md`, written against what `conformance-check.sh` actually
   reads so the two cannot drift.
@@ -338,7 +338,7 @@ All in the working tree, uncommitted, none of it executed (see "Still open").
 - **Nothing here has been executed.** Per this repo's standing rule no test was run — not
   `run-all.sh`, not a fixture, not a selftest. Verification was `bash -n`, `node --check`,
   inspection, and (flagged by its author) three read-only runs of the new preflight against
-  VB-USI and throwaway `/tmp` dirs that wrote nothing. The code is reviewed, not proven.
+  PROJECT-A and throwaway `/tmp` dirs that wrote nothing. The code is reviewed, not proven.
 - **Finding 4 is untouched and is now larger.** There is still zero automated coverage over the
   runtime-verification seam, and today's work added to what that seam carries. This is the single
   biggest remaining exposure in this document: every fix above is exactly the kind of change the
@@ -347,7 +347,7 @@ All in the working tree, uncommitted, none of it executed (see "Still open").
   dry-run honest.
 - `checkpoint-cutover.md` is migration-only but the routing table has no mode column, so it routes
   at stages 6-7 in every entry mode. A mode column is the real fix; it is a table-schema change.
-- Backfilling `claims` into VB-USI's build plan (12 BRDs, 4012 leaves, against a built app) — not
+- Backfilling `claims` into PROJECT-A's build plan (12 BRDs, 4012 leaves, against a built app) — not
   scheduled, and explicitly optional.
 - Two known engine/config violations still logged at `install-manifest.sh:130-132`
   (`helpers.js:473-540` hardcodes one app's widget names; `dismissModal` uses a literal selector).

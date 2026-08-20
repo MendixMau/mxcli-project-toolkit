@@ -292,7 +292,7 @@ async function humanScroll(page, { distance = 300, axis = 'down' } = {}) {
 // password does not recover — it permanently locks the account out and every
 // later run then fails for a different reason than the original one. (This
 // harness learned that the hard way: a single transient failure plus two
-// automatic retries blocked plantops_test_user, and the symptom then read as
+// automatic retries blocked demo_test_user, and the symptom then read as
 // "wrong password" instead of "blocked".)
 //
 // A submitted-but-rejected credential is therefore final. We only re-attempt

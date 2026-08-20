@@ -324,7 +324,7 @@ ls -1 docs/ux-review-*.html | sort
 
 ---
 
-## Known design system gaps for IVM (as of 2026-07-05)
+## Known design system gaps for PROJECT-H (as of 2026-07-05)
 
 These gaps were confirmed by the first full audit run:
 

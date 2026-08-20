@@ -120,7 +120,7 @@ fi
 # All matches are collected, not just the first. The old loop `break`-ed on the
 # first analysis/*/knowledge-base hit, so in a repo with two workstreams the one
 # that sorts first won — and every stage verdict silently described that
-# workstream. Observed in WMS-Demo-main: a dead 3-BRD workstream sorted ahead of
+# workstream. Observed in PROJECT-C: a dead 3-BRD workstream sorted ahead of
 # the live 18-BRD one, so Stage 1 reported PASS and Stage 2 FAIL, both about the
 # wrong project, for days. Worse, the PASS was pointing at a client extraction
 # the run-sheet marks "do not open".
@@ -194,8 +194,8 @@ resolve_artifact() {
 #
 # resolve_artifact() deliberately prefers the ROOT copy — correct for artifacts, where a root
 # build-plan.md really is the project's build plan. It is wrong for a stage source file, which
-# is a hand-maintained document that gets forked and abandoned: on WMS-App-main the root holds
-# a July-era scaffold with one unanswered question while analysis/WMS-App/intake.md holds eight
+# is a hand-maintained document that gets forked and abandoned: on PROJECT-D the root holds
+# a July-era scaffold with one unanswered question while analysis/PROJECT-D/intake.md holds eight
 # real answers, and root-first grades the file nobody has touched. So a plain
 # `resolve_artifact "intake.md"` is NOT the fix — it lands on exactly the same stale file.
 #
@@ -224,8 +224,8 @@ resolve_stage_file() {
 #
 # Calling resolve_artifact is NOT the fix: it tries the project root first, so on a project
 # whose live register lives at analysis/<name>/PROJECT.md while an abandoned stub survives at
-# the root, it lands on exactly the same blank file. Observed on WMS-App-main: root register =
-# 7 CONFIRMED rows, ack 11eafdf (16 Jul); live register at analysis/WMS-App/PROJECT.md = 42
+# the root, it lands on exactly the same blank file. Observed on PROJECT-D: root register =
+# 7 CONFIRMED rows, ack 11eafdf (16 Jul); live register at analysis/PROJECT-D/PROJECT.md = 42
 # CONFIRMED rows, ack 13b5445 (20 Jul). A drift gate that grades the abandoned register is
 # worse than no drift gate — the live register's UNSYNCED markers are invisible to it and
 # every gate goes green. Measured: the unpatched script exits 0 on `<that project> 4`.
@@ -596,7 +596,7 @@ check_stage_P() {
   #     accepting a bare "Unverified" keeps the FAIL message a lie.
   #   * bug03: case-insensitive, five markers, an optional parenthetical qualifier, a required
   #     colon, and "Unverified" only counts when the line also says how to verify. Chosen.
-  # The qualifier branch is NOT cosmetic: VB-USI-main and TFC-TCXGraphPOC-main both write
+  # The qualifier branch is NOT cosmetic: PROJECT-A and PROJECT-E both write
   # "Answered (CONFIRMED):", and bug03's first draft turned both projects red by rejecting it.
   # That form is a real workspace convention and any future tightening must keep accepting it.
   #
@@ -1170,7 +1170,7 @@ NOTES_TBL=""
 #
 # Only PROTOCOL_PATHS invalidate an ack. The toolkit's rules live in skills/ and agents/;
 # bin/, README and docs can move without a session needing to re-read anything. The strict
-# form was tried: landing §1.6 turned WMS-Demo red claiming "the protocol changed" when only
+# form was tried: landing §1.6 turned PROJECT-C red claiming "the protocol changed" when only
 # bin/ had moved. A gate that cries wolf teaches people to rubber-stamp the SHA without opening
 # the runbook, which costs more than the bug it closes. See TOOLKIT-UPGRADE-PLAN.md §1.9.
 #
@@ -1224,7 +1224,7 @@ PROTOCOL_PATHS="skills agents"
 # the work any good", because that is a human's judgement and it is made by READING the stage's
 # Surface artifact. So a stage could pass its gate while the one artifact a human would review
 # had never been generated, and the board would show green. That is not hypothetical: on
-# USI-RoutingModule the Stage 2 surface was simply never produced, the gate-required
+# PROJECT-B the Stage 2 surface was simply never produced, the gate-required
 # validation-report.md was, and "gate PASS" was read as "stage done" by the agent that wrote it.
 #
 # Reported, never enforced. A missing Surface does NOT fail a gate and does NOT touch the exit
@@ -1407,7 +1407,7 @@ elif [ -z "$REGISTER" ] || [ ! -f "$REGISTER" ]; then
   SYNC_HEADLINE="No decision register (PROJECT.md) under $PROJECT_DIR, so protocol freshness is unknown."
   SYNC_OPT_A="Scaffold one:  bin/init-project.sh $PROJECT_DIR   (it stamps the current commit)"
 fi
-# Reads $REGISTER, not "$PROJECT_DIR/PROJECT.md" (bug02): on WMS-App-main the root stub acked
+# Reads $REGISTER, not "$PROJECT_DIR/PROJECT.md" (bug02): on PROJECT-D the root stub acked
 # 11eafdf while the live nested register acked 13b5445, so the freshness verdict described a
 # register nobody had touched since 16 July.
 if [ -n "$REGISTER" ] && [ -f "$REGISTER" ]; then

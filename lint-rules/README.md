@@ -26,7 +26,7 @@ are excluded at the gate (`bin/lint-gate.sh -e`, from a per-project
 
 `conv010` here is likewise the repaired form of the rule mxcli seeds, and supersedes the
 version this directory shipped on 11 Aug: one violation per microflow instead of one per
-activity, plus four action types allowlisted. On WMS-Demo-main that is 399 rows -> 51 findings.
+activity, plus four action types allowlisted. On PROJECT-C that is 399 rows -> 51 findings.
 
 ## A rule that matches nothing now says so
 

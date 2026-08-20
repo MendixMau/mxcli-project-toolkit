@@ -213,7 +213,7 @@ function readJsonInput(rel) {
 }
 // ── What would produce this input? ───────────────────────────────────────────
 // House style for an absent artifact is bin/gate-check.sh:577's: name WHERE it looked
-// AND what writes it. Measured 2026-08-20 (VB-USI-main): the report carried the reason
+// AND what writes it. Measured 2026-08-20 (PROJECT-A): the report carried the reason
 // "tests/e2e/artifacts/findings.json does not exist — the instrument did not run, or ran
 // without writing" for a whole instrument that was dark, and a reader could do nothing
 // with it. Four instruments were in that state at once.

@@ -401,7 +401,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
     # No errors file, or an empty one. The comment at the CE_COUNT=0 branch says
     # mxbuild ALWAYS writes one; on Mendix 11.13 it does not, so THIS is where
     # the ordinary clean build lands. It was the only outcome with no log_build
-    # call: VB-USI-main hit 7 consecutive clean execs that produced 0 log rows
+    # call: PROJECT-A hit 7 consecutive clean execs that produced 0 log rows
     # (2026-08-06) and patched it locally before the template caught up.
     [ "$EXEC_STATUS" -eq 0 ] && log_build "✅ applied" "mxbuild clean (no errors file written)"
   fi

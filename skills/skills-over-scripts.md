@@ -49,7 +49,7 @@ measurement is never a pass) is an **instruction**. It has been re-implemented i
 scripts in this toolkit's history and got it subtly wrong in three of them. It is six lines of
 prose.
 
-## What this costs when ignored — measured, WMS-Demo, 2026-08-19
+## What this costs when ignored — measured, PROJECT-C, 2026-08-19
 
 | | lines |
 |---|---:|

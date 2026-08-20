@@ -1,7 +1,7 @@
 # Park — interview-kinds-surface · 2026-08-19 18:25
 
 ## Cycle goal
-Turn the USI-RoutingModule field log (`~/Desktop/PIPELINE_PROGRESS.md`) into toolkit changes:
+Turn the PROJECT-B field log (`~/Desktop/PIPELINE_PROGRESS.md`) into toolkit changes:
 #2 the `user-only` question kind, #1 gate-check reporting the runbook's Surface column.
 
 ## Done this cycle

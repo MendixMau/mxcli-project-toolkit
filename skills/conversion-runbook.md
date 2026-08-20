@@ -342,7 +342,7 @@ scope brainstorm is the part no mode may skip.
 `inventory` → fill every dimension → `report`.** Nothing else in this toolkit reads a source;
 `facts-lock`, `coverage-check`, `open-questions` and `gate-check` all read BRDs. Skip this and a
 two-page epic deck and a validated spec enter the pipeline indistinguishably, and the gap only
-surfaces at the Stage 2 interview gate disguised as a question backlog — WMS-Demo's 127 questions
+surfaces at the Stage 2 interview gate disguised as a question backlog — PROJECT-C's 127 questions
 were largely a silent source, not a decision backlog.
 
 #### Two passes, and the order is the point

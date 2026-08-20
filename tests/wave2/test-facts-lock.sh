@@ -29,7 +29,7 @@ trap 'rm -rf "$WORK"' EXIT
 echo "== subject: $SUBJECT"
 
 P="$WORK/proj"
-mkdir -p "$P/analysis/source/knowledge-base/brd" "$P/analysis/usi-source/knowledge-base/brd"
+mkdir -p "$P/analysis/source/knowledge-base/brd" "$P/analysis/alt-source/knowledge-base/brd"
 
 # A decoy corpus that sorts FIRST alphabetically. If the tool reads only one knowledge-base,
 # it reads this one, finds nothing, and reports all-clear over the real corpus next door.
@@ -39,12 +39,12 @@ JSON
 
 # The real corpus. Two spellings of one operation, deliberately never under the same key:
 # one under `operationId`, the other buried in a prose note and a path.
-cat > "$P/analysis/usi-source/knowledge-base/brd/F001-a.brd.json" <<'JSON'
+cat > "$P/analysis/alt-source/knowledge-base/brd/F001-a.brd.json" <<'JSON'
 { "id":"F001","title":"A",
   "integrations":[{"operationId":"QueryAISafeWIPSummary","path":"/ai/summary"}],
   "domainEntities":[{"entity":"WIPStatus"},{"entity":"genealogy"}] }
 JSON
-cat > "$P/analysis/usi-source/knowledge-base/brd/F002-b.brd.json" <<'JSON'
+cat > "$P/analysis/alt-source/knowledge-base/brd/F002-b.brd.json" <<'JSON'
 { "id":"F002","title":"B",
   "notes":["calls QueryAiSafeWipSummary then refreshes"],
   "domainEntities":[{"entity":"WipStatus"},{"entity":"Genealogy"}],
@@ -110,7 +110,7 @@ bash "$SUBJECT" "$P" check >/dev/null 2>&1
 [ "$?" -ne 0 ] && ok "check exits non-zero on deviation" || bad "check exited 0 while a BRD contradicts the lock"
 
 # --- honest about what it cannot read ---------------------------------------------------------------
-echo '{ broken' > "$P/analysis/usi-source/knowledge-base/brd/F003-bad.brd.json"
+echo '{ broken' > "$P/analysis/alt-source/knowledge-base/brd/F003-bad.brd.json"
 OUT=$(bash "$SUBJECT" "$P" show 2>&1)
 case "$OUT" in
   *UNREADABLE*F003*) ok "names a BRD it could not parse instead of skipping it silently" ;;

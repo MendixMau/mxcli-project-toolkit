@@ -139,7 +139,7 @@ Pick one granularity for the whole project (or per-module, if complexity varies)
 ### A layer is a naming scheme, not a size limit
 
 Per-layer says what a script is *called*. It does not say a layer is one script, and reading it
-that way produces scripts that are too big to diagnose. Observed on SonnyPOC: a per-layer plan
+that way produces scripts that are too big to diagnose. Observed on PROJECT-F: a per-layer plan
 put **13 microflows in one exec** — the toolkit working exactly as documented, and still wrong.
 
 Why big MDL execs fail badly, specifically:
@@ -159,7 +159,7 @@ output alone.** Apply it when numbering, in this order:
 
 1. **Isolate the load-bearing.** Anything the other units depend on gets its own script. Not
    because it is large — because if it is wrong, everything after it is wrong, and you want
-   that answer before writing them. On SonnyPOC that was the `SUB_CallMockApi` retry chokepoint.
+   that answer before writing them. On PROJECT-F that was the `SUB_CallMockApi` retry chokepoint.
 2. **Group the rest by "would one failure explain the others?"** Three decision tables of the
    same shape share a pattern: one bad pattern breaks all three and you fix it once, so they
    belong together. Units that fail for unrelated reasons do not.
@@ -295,7 +295,7 @@ undetectable because there was nothing to check against."*
 
 **The second measurement (2026-08-20).** `claims` was designed as the fix, and `coverage-ledger.md`
 consumes it — but nothing ever required an author to write it. A real 12-BRD migration plan
-(VB-USI, authored 2026-08-06) contains **zero** occurrences of `claims`. There is now no way to know
+(PROJECT-A, authored 2026-08-06) contains **zero** occurrences of `claims`. There is now no way to know
 what that plan dropped without reading twelve BRDs against a built app. A field that is only needed
 by a downstream check gets written by nobody; that is why this step sits here, in Step 5, and not in
 the ledger skill.
@@ -333,7 +333,7 @@ a written "not now, because X" is fine.
 
 **A row authored from this point forward carries `claims`. A row that already exists does not have
 to, and a build plan written before this section existed is not defective, not incomplete, and not
-a finding.** Projects whose plans predate the convention — VB-USI among them — are in a known,
+a finding.** Projects whose plans predate the convention — PROJECT-A among them — are in a known,
 accepted state. Do not flag them at the operator, do not report their plans as broken, do not open
 an improvement-register entry for them, and do not start a backfill unless the user explicitly asks
 for one. Retrofitting claims onto a plan whose build is already underway means re-reading every BRD

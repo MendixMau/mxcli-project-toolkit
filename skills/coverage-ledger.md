@@ -27,7 +27,7 @@ The per-module directory is canonical because it is the shape both instruments a
 scales (the directory holds the module's brief, ledger and notes together), and changing canon
 would invalidate every ledger already written to it.
 
-The flat shape is read because it is what projects actually have: VB-USI's `architecture/modules/`
+The flat shape is read because it is what projects actually have: PROJECT-A's `architecture/modules/`
 contains `Approval-brief.md`, `ProductNumbers.md`, `Common-brief.md` and no subdirectories at all.
 An instrument that globs only the canonical shape tells such a project it has no ledger even when
 it has one. **When no ledger is found, the instruments print all three paths they tried** — a
@@ -41,7 +41,7 @@ A missing `coverage-ledger.md` used to be one hard FAULT covering two opposite s
 Track B existing-app audit that was never going to have one (permanent, meaningless noise), and a
 migration project that should have one and doesn't (a real gap with a real remedy). The verdict is
 now graded on **what is present**, never on a declared entry mode — a project onboarded as
-Migration can be running a Track B assurance pass the same day, and VB-USI is doing exactly that.
+Migration can be running a Track B assurance pass the same day, and PROJECT-A is doing exactly that.
 
 | Level | Condition | What happens | rc |
 |---|---|---|---|

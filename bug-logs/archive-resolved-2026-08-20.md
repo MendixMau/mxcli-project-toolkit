@@ -42,13 +42,13 @@ Workaround: MCP `pg_patch_page` with an explicit `refOptions`/`refEntity`/
 **Severity:** Medium — real mxbuild gate-blocker (`CE0066`), no data-loss risk, workaround is a
 single Studio Pro click
 **Reproducible:** Yes, consistently
-**Confirmed:** Mendix 11.13.0, mxcli v0.16.0, 2026-08-07, TFC-TCXGraphPOC-main
+**Confirmed:** Mendix 11.13.0, mxcli v0.16.0, 2026-08-07, PROJECT-E
 **mxcli version when found:** v0.16.0 (`GRANT`/`REVOKE` write path)
 
 ### Symptom
 
 A bidirectional association (`Owner: Both` in the BSON — created between two entities in
-different modules, e.g. `TFC.DrawingDocs` ←→ `TFC.FeasibilityDecision`) requires a
+different modules, e.g. `PLM.DrawingDocs` ←→ `PLM.FeasibilityDecision`) requires a
 `MemberAccess` entry for that association in **both** entities' access rules. If one side's
 access rules were authored (or GRANT'd) before the association existed, or the association
 was added without updating that side's rules, real `mxbuild`/Studio Pro reports:
@@ -110,7 +110,7 @@ Same "silent at check/exec, only real mxbuild/SP-load catches it" shape as [[BUG
 [[BUG-21]]. Distinct from either — this is a **gap in `GRANT`'s coverage of association
 members**, not a corruption of a written value.
 
-**Discovered:** 2026-08-07, TFC-TCXGraphPOC-main, Batch 4 of the 2026-08-06 audit
+**Discovered:** 2026-08-07, PROJECT-E, Batch 4 of the 2026-08-06 audit
 remediation (`FeasibilityDecision_FileDocument` association, added earlier the same
 remediation pass without a matching `FeasibilityDecision`-side access-rule update).
 
@@ -118,7 +118,7 @@ remediation pass without a matching `FeasibilityDecision`-side access-rule updat
 
 Changelog claims "a `GRANT` now covers every entity member, including both-owner associations."
 Verified with a controlled A/B, not taken on faith: two fresh sandbox copies of
-TFC-TCXGraphPOC-main (rsync to `/tmp`, real `.mpr` untouched), identical minimal probe —
+PROJECT-E (rsync to `/tmp`, real `.mpr` untouched), identical minimal probe —
 two new entities, a fresh `Owner: Both` `ReferenceSet` association between them, then
 `GRANT Mod.Role ON Entity (CREATE, DELETE, READ *, WRITE *)` on both sides, varying only the
 binary — gated with the matching `Mendix Studio Pro 11.13.0` `mx check`:
@@ -128,13 +128,13 @@ binary — gated with the matching `Mendix Studio Pro 11.13.0` `mx check`:
 | `v0.16.0` (tagged) | `[error] [CE0115]`-class `CE0066` reproduced on the new association |
 | `v0.17.0` (tagged, official) | 0 new errors (only an unrelated, pre-existing `CE0115` on the project remained) |
 
-TFC-TCXGraphPOC-main upgraded to `v0.17.0` on 2026-08-11 on the combined strength of this and the
+PROJECT-E upgraded to `v0.17.0` on 2026-08-11 on the combined strength of this and the
 [[BUG-WF06]] result above. The manual "Update security" click workaround should no longer be
 needed on `v0.17.0` for this specific gap — not yet retested on a pre-existing, previously-broken
 association (only on a newly-created one), so leave the detection technique above in place as a
 guard until that's confirmed too.
 
-### New sighting, 2026-08-12, VB-USI-main, mxcli v0.16.0 — reproduces with ZERO associations
+### New sighting, 2026-08-12, PROJECT-A, mxcli v0.16.0 — reproduces with ZERO associations
 
 Broader trigger than originally documented: `CE0066` on the whole `Common` domain-model document
 after script 51 (`create persistent entity Common.Remark`, `create persistent entity
@@ -151,20 +151,20 @@ before — only real mxbuild (`--target=deploy`) surfaced it. Coverage-checklist
 (`DESCRIBE ENTITY`, `SHOW SECURITY MATRIX`) confirmed the actual model content was correct and
 complete; this is a pure build-gate false positive, not model damage.
 
-VB-USI-main is still pinned to `v0.16.0` (not yet upgraded, unlike TFC-TCXGraphPOC-main above) —
-left as-is rather than upgrading mid-build, since an unattended DafNe build session is not the
+PROJECT-A is still pinned to `v0.16.0` (not yet upgraded, unlike PROJECT-E above) —
+left as-is rather than upgrading mid-build, since an unattended build session on that track is not the
 moment to change the pipeline's tool version. Logged and continuing the build per this project's
 "tool bugs get logged, not fought" standing execution mode; the outstanding "Update security"
 click (or a `v0.17.0` upgrade + re-verify) needs a human in Studio Pro before Stage 5's final
 deploy-readiness gate, not before every intermediate script.
 
-### New sighting, 2026-08-13, VB-USI-main, mxcli v0.17.0 — upgrade does NOT fix this instance
+### New sighting, 2026-08-13, PROJECT-A, mxcli v0.17.0 — upgrade does NOT fix this instance
 
-VB-USI-main was upgraded `v0.16.0` → `v0.17.0` mid-build (script 59's fix arc, separately motivated
+PROJECT-A was upgraded `v0.16.0` → `v0.17.0` mid-build (script 59's fix arc, separately motivated
 by BUG-20/BUG-21-class DataView/column defects, which the upgrade did resolve). `CE0066` on the
 `Common` domain model from the 2026-08-12 sighting above **persisted unchanged** across every
 `docker check`/gate-agent run on the upgraded binary — this contradicts the "should no longer be
-needed on `v0.17.0`" expectation logged for TFC-TCXGraphPOC-main's association-level case.
+needed on `v0.17.0`" expectation logged for PROJECT-E's association-level case.
 
 Narrows the scope of the earlier "0 new errors on v0.17.0" result: that test was against a
 **newly-created association**'s `MemberAccess` gap. This sighting is the broader, zero-association,
@@ -173,7 +173,7 @@ session) — apparently a distinct code path in mxcli's security-metadata regene
 fix didn't cover. Treat "v0.17.0 fixes CE0066" as validated only for the association-`MemberAccess`
 case until the entity-level trigger is independently retested elsewhere.
 
-Confirmed non-blocking for VB-USI-main: gate-agent PASS'd script 59 with CE0066 as the sole
+Confirmed non-blocking for PROJECT-A: gate-agent PASS'd script 59 with CE0066 as the sole
 (pre-existing, script-51-attributable, out-of-scope) remaining error. The manual Studio Pro
 "Update security" click is still the only known fix for this trigger; deferred to the pre-deploy
 gate per the same standing note as the original sighting.
@@ -195,12 +195,12 @@ Reproduced twice in a row on the same session, both times immediately after a cl
 
 ```
 $ git status --short *.mpr mprcontents/    # clean, 0 diff
-$ ./mxcli docker check -p TFC-TCXGraphPOC.mpr
+$ ./mxcli docker check -p PROJECT-E.mpr
 ...
 The app contains: 0 errors.
 Project check passed.
 $ git status --short *.mpr mprcontents/
- M TFC-TCXGraphPOC.mpr                      # 352K -> 107M
+ M PROJECT-E.mpr                      # 352K -> 107M
  D mprcontents/00/09/....mxunit             # x2627 (every unit)
  D mprcontents/00/22/....mxunit
  ...
@@ -255,12 +255,12 @@ signature. `ls mprcontents | wc -l` dropping to 0 and `.mpr` file size jumping f
 ### Related
 
 Explains, retroactively, an apparent "CE0066 regression" seen in a `bin/exec.sh` internal
-gate run on TFC-TCXGraphPOC-main directly after a Batch-4 script exec that did not touch
+gate run on PROJECT-E directly after a Batch-4 script exec that did not touch
 the affected entity at all — the regression was an artifact of this bug, not a real
 defect introduced by that script. Distinct from [[BUG-59]] (a `GRANT` coverage gap) though
 discovered while investigating the same CE0066 incident.
 
-**Discovered:** 2026-08-07, TFC-TCXGraphPOC-main, while diagnosing a spurious CE0066
+**Discovered:** 2026-08-07, PROJECT-E, while diagnosing a spurious CE0066
 recurrence during Batch 4 of the 2026-08-06 audit remediation.
 
 ---
@@ -270,7 +270,7 @@ recurrence during Batch 4 of the 2026-08-06 audit remediation.
 **Severity:** High — action executes/checks clean via `mxcli`/`--references` but Studio Pro
 rejects the call on open/build; requires a manual Studio Pro rewire to recover
 **Reproducible:** Yes, consistently, for this specific marketplace Java action
-**Confirmed:** Mendix 11.13.0, mxcli v0.16.0, 2026-08-07, TFC-TCXGraphPOC-main
+**Confirmed:** Mendix 11.13.0, mxcli v0.16.0, 2026-08-07, PROJECT-E
 **mxcli version when found:** v0.16.0 (`CALL JAVA ACTION` write path, `addCallJavaActionAction`)
 
 ### Symptom
@@ -282,7 +282,7 @@ written via MDL like:
 
 ```
 $ChatContext = call java action AgentCommons.ChatContext_Create_ForAgent(
-  Agent = $Agent, ActionMicroflow = 'TFCIntegrations.ACT_Agent_ChatAction',
+  Agent = $Agent, ActionMicroflow = 'PLMIntegrations.ACT_Agent_ChatAction',
   ContextObject = $SomeEntity, OverwritingDeployedModel = $DeployedModel
 ) on error rollback;
 ```
@@ -306,10 +306,10 @@ in Studio Pro reports:
 - everything else → the default `microflows.BasicCodeActionParameterValue{Argument: "..."}`
 
 Dumped the actual stored BSON for the call activity (`./mxcli bson dump -p <project>.mpr
---type microflow --object "TFCIntegrations.DS_GraphAgent_ChatContext"`) and confirmed **both**
+--type microflow --object "PLMIntegrations.DS_GraphAgent_ChatContext"`) and confirmed **both**
 `ActionMicroflow` and `ContextObject` were written using the plain default
 `Microflows$BasicCodeActionParameterValue` — e.g. `ActionMicroflow` holds the literal string
-`"'TFCIntegrations.ACT_Agent_ChatAction'"` (a quoted string expression), not a
+`"'PLMIntegrations.ACT_Agent_ChatAction'"` (a quoted string expression), not a
 `MicroflowParameterValue` with a `Microflow` field. There is no `GenericType`/`TypeParameter`
 binding anywhere in the dump. This means the parameter-type switch in `addCallJavaActionAction`
 fell through to the `default:` branch for both parameters — i.e. `p.ParameterType` was not
@@ -350,9 +350,9 @@ Same "clean `mxcli check`, real Studio Pro/mxbuild catches it" blind spot as [[B
 [[BUG-59]]. Distinct from either — this is a **parameter-type misclassification in the
 `CALL JAVA ACTION` builder**, not an association-grant gap or a bad attribute-expression shape.
 
-**Discovered:** 2026-08-07, TFC-TCXGraphPOC-main, while diagnosing recurring CE0115/CE0126 on
+**Discovered:** 2026-08-07, PROJECT-E, while diagnosing recurring CE0115/CE0126 on
 `AgentCommons.ChatContext_Create_ForAgent` calls added in Batch 5 of the audit remediation
-(`DS_GraphAgent_ChatContext`, `DS_TCCopilot_ChatContext`, `DS_TFCAssistant_ChatContext`).
+(`DS_GraphAgent_ChatContext`, `DS_TCCopilot_ChatContext`, `DS_PLMAssistant_ChatContext`).
 
 ---
 

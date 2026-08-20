@@ -173,10 +173,10 @@ P="$TMP/multikb"
 brd "$P" source A.brd.json <<'J'
 {"id":"A","provenance":"documents","modules":["A"],"useCases":[{"id":"U","title":"t"}]}
 J
-brd "$P" usi-source B.brd.json <<'J'
+brd "$P" alt-source B.brd.json <<'J'
 {"id":"B","provenance":"documents","modules":["B"],"useCases":[{"id":"U","title":"t"}]}
 J
-brd "$P" usi-source C.brd.json <<'J'
+brd "$P" alt-source C.brd.json <<'J'
 {"id":"C","provenance":"documents","modules":["C"],"useCases":[{"id":"U","title":"t"}]}
 J
 OUT=$("$BR" "$P" 2>&1)

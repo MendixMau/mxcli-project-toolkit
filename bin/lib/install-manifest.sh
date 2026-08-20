@@ -91,7 +91,7 @@ MXTK_PROJECT_BIN_NOINSTALL=""
 # ARCH002 went 0 -> 38 findings on the one-word fix — which proves it now reaches entities and
 # nothing more: all 38 are `System` entities, because ARCH002 has no module skip. See
 # lint-rules/README.md. conv010 (CONV010) is the top rule by
-# volume everywhere it runs; the de-noised version here took WMS-Demo-main 399 -> 51.
+# volume everywhere it runs; the de-noised version here took PROJECT-C 399 -> 51.
 #
 # The toolkit ships ONLY these three of mxcli's ~29. Copying the rest would pin every project
 # to whatever mxcli shipped the day someone copied them.
@@ -369,7 +369,7 @@ _mxtk_manifest_check_tests_wiring
 # `full-app-walkthrough` as a real, expected slot and asserts that no instrument is silently
 # absent. So every project scaffolded from the template inherited a reference to a script nobody
 # wrote, and the harness dutifully reported the APPLICATION at fault for it. A real run against
-# VB-USI-main (6 modules, 611 checks) recorded, verbatim: "tests/e2e/artifacts/findings.json does
+# PROJECT-A (a 6-module migration, 611 checks) recorded, verbatim: "tests/e2e/artifacts/findings.json does
 # not exist — the instrument did not run, or ran without writing." Nothing was misconfigured. A
 # sibling project hand-authored its own walkthrough because the toolkit never shipped one.
 #

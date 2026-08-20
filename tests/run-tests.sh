@@ -153,7 +153,7 @@ echo "jq leaf enumeration — false and null are requirements too"
 # ---------------------------------------------------------------------------
 # `paths(scalars)` is `paths | select(getpath(.)|scalars)`, and only false and
 # null are falsy in jq — so every leaf whose value was false or null vanished.
-# Across four WMS-Demo BRDs that hid 292 requirement leaves, including the
+# Across four PROJECT-C BRDs that hid 292 requirement leaves, including the
 # `allowedInUrl: false` flags in a deep-link contract.
 echo '{"a":false,"b":true,"c":null}' > "$WORK/leaf.json"
 LEAVES=$(jq -r 'paths as $p | select(getpath($p)|type|IN("object","array")|not)

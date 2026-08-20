@@ -4,7 +4,7 @@
 # The two BLOCKING checks — protocol freshness and BRD drift-sync — plus both ✋ decision gates
 # and Stage 7 used to read "$PROJECT_DIR/PROJECT.md" unconditionally. On a project whose live
 # register is nested at analysis/<name>/PROJECT.md while an abandoned stub survives at the root
-# (WMS-App-main: 7 rows vs 42), every one of them graded the file nobody had touched.
+# (PROJECT-D: 7 rows vs 42), every one of them graded the file nobody had touched.
 #
 # Run it against the PRE-fix script too — that is the positive control. Expected on the pre-fix
 # script (2ea198c): T1, T2, T3, T5 and T6 fail.

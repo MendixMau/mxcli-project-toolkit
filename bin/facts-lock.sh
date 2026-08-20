@@ -6,7 +6,7 @@
 # QUESTION — the worst possible place for it, because it lands in front of the user as if it
 # were a business decision when it is a transcription defect.
 #
-# Measured on WMS-Demo-main, from the 127-question backlog:
+# Measured on PROJECT-C, from the 127-question backlog:
 #   OQ-6   `QueryAISafeWIPSummary` vs `QueryAiSafeWipSummary` — same operation, two BRDs.
 #   OQ-8   50 vs 46 action buttons across three sheets.
 #   OQ-F011-08  104 vs 94 placeholder operations.
@@ -51,7 +51,7 @@ case "$CMD" in build|check|show) ;; *)
   echo "usage: facts-lock.sh <project-dir> [build|check|show]" >&2; exit 2 ;; esac
 
 # Discovery is SHARED, not re-derived here. This script originally had its own copy and the
-# copy was wrong: it matched analysis/source (2 BRDs), silently skipped analysis/usi-source
+# copy was wrong: it matched analysis/source (2 BRDs), silently skipped analysis/alt-source
 # (18), and reported "0 contested" over a corpus it had not read. The correct logic was sitting
 # in open-questions.sh under a comment that said "ALL matches, not the first", and got
 # re-derived wrong anyway. A facts lock built over a different file set than the collector
@@ -129,7 +129,7 @@ for path in brds:
 
 # --- second pass: the same identifier, spelled differently somewhere else -------------------
 # Pass one only sees a string sitting under a key that declares it an identifier. That missed
-# the very conflict this tool was built for: on WMS-Demo, `QueryAISafeWIPSummary` (71 uses) and
+# the very conflict this tool was built for: on PROJECT-C, `QueryAISafeWIPSummary` (71 uses) and
 # `QueryAiSafeWipSummary` (78) both exist, but never both under `operationId` — one spelling
 # hides in a `path`, a `returns`, a prose `note`. Pass one alone reported "0 contested" over a
 # corpus with a 149-occurrence disagreement in it.

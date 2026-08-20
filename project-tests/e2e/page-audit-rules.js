@@ -255,7 +255,7 @@ const RULES = [
     title: 'DYNAMICTEXT must not carry an inline Style',
     severity: 'P1',
     cite: '.ai-context/skills/create-page.md:98; alter-page.md:112-123',
-    exemplar: "mdlsource/usi/done-usi-147-operation-detail-page.mdl:491 — Style sits on the container wrapper, never on the text",
+    exemplar: "mdlsource/project-a/done-147-operation-detail-page.mdl:491 — Style sits on the container wrapper, never on the text",
     evaluate(ctx) {
       const bad = ctx.mdlNodes.filter((n) => n.type === 'dynamictext' && prop(n, 'Style'));
       return {
@@ -275,7 +275,7 @@ const RULES = [
     title: 'Input widgets must sit inside a data context (dataview / list template)',
     severity: 'P1',
     cite: '.ai-context/skills/create-page.md:524 ("Input widgets must be inside a DATAVIEW context"); CE1571',
-    exemplar: 'mdlsource/usi/done-usi-147-operation-detail-page.mdl — every textbox is nested under the $Operation dataview',
+    exemplar: 'mdlsource/project-a/done-147-operation-detail-page.mdl — every textbox is nested under the $Operation dataview',
     evaluate(ctx) {
       const inputs = ctx.mdlNodes.filter((n) => INPUT_WIDGETS.includes(n.type));
       const bad = inputs.filter((n) => !hasAncestor(n, CONTEXT_WIDGETS));
@@ -295,7 +295,7 @@ const RULES = [
     title: 'A dataview holding inputs must sit inside layoutgrid → row → column',
     severity: 'P2',
     cite: '.ai-context/skills/create-page.md:856-860 (Customer Edit example); lint MPR010',
-    exemplar: 'mdlsource/usi/done-usi-147-operation-detail-page.mdl:385-392',
+    exemplar: 'mdlsource/project-a/done-147-operation-detail-page.mdl:385-392',
     evaluate(ctx) {
       const dvs = ctx.mdlNodes.filter((n) => n.type === 'dataview'
         && n.children && subtree(n).some((c) => INPUT_WIDGETS.includes(c.type)));
@@ -340,7 +340,7 @@ const RULES = [
     title: 'Every {N} placeholder in Content must be bound by ContentParams',
     severity: 'P1',
     cite: '.ai-context/skills/create-page.md:240-244 (MDL-WIDGET04 / CE0720)',
-    exemplar: 'mdlsource/usi/done-usi-147-operation-detail-page.mdl:425 — Content: \'{1}\', ContentParams: [{1} = OperationCode]',
+    exemplar: 'mdlsource/project-a/done-147-operation-detail-page.mdl:425 — Content: \'{1}\', ContentParams: [{1} = OperationCode]',
     evaluate(ctx) {
       const bad = [];
       for (const n of ctx.mdlNodes) {
@@ -364,8 +364,8 @@ const RULES = [
     category: 'binding',
     title: 'ContentParams values must be bare attribute names, not $currentObject/Attr',
     severity: 'P2',
-    cite: '.ai-context/skills/create-page.md:233-238; project STOP-12 note in mdlsource/usi/usi-89-route-list-banner-emptystate.mdl',
-    exemplar: 'mdlsource/usi/done-usi-147-operation-detail-page.mdl:425',
+    cite: '.ai-context/skills/create-page.md:233-238; project STOP-12 note in mdlsource/project-a/89-route-list-banner-emptystate.mdl',
+    exemplar: 'mdlsource/project-a/done-147-operation-detail-page.mdl:425',
     // KNOWN FALSE-POSITIVE SURFACE, stated rather than hidden: MCP-authored widgets
     // legitimately carry the qualified form (the MCP path has no such defect) and the
     // ELK output cannot tell us which channel wrote a widget. Severity is P2 for that reason.
@@ -387,7 +387,7 @@ const RULES = [
     title: 'Every declared page parameter must be consumed by a widget',
     severity: 'P2',
     cite: '.ai-context/skills/overview-pages.md:262-268; master-detail-pages.md:70-76',
-    exemplar: 'mdlsource/usi/done-usi-03-page-routelist.mdl — $Filter is consumed by the dataview it was declared for',
+    exemplar: 'mdlsource/project-a/done-03-page-routelist.mdl — $Filter is consumed by the dataview it was declared for',
     evaluate(ctx) {
       const params = (ctx.doc.parameters || []).map((p) => p.name).filter(Boolean);
       // The page BODY only. `ctx.mdl.indexOf('{')` lands inside the header's
@@ -411,7 +411,7 @@ const RULES = [
     title: 'A `DataSource: selection <widget>` must name a widget that exists on the page',
     severity: 'P1',
     cite: '.ai-context/skills/master-detail-pages.md:132-146 (Selection Binding / Widget Names)',
-    exemplar: 'mdlsource/usi/done-usi-147-operation-detail-page.mdl — detail pane binds the list widget by its exact name',
+    exemplar: 'mdlsource/project-a/done-147-operation-detail-page.mdl — detail pane binds the list widget by its exact name',
     evaluate(ctx) {
       const names = new Set(ctx.mdlNodes.map((n) => n.name));
       const refs = [...ctx.mdl.matchAll(/DataSource:\s*selection\s+([A-Za-z_][\w]*)/gi)].map((m) => m[1]);
@@ -434,7 +434,7 @@ const RULES = [
     title: 'Every grid/list/gallery needs a zero-result empty state',
     severity: 'P2',
     cite: 'ui-preflight-pages.md Step 4 "Empty state"; module-review.md §4c; learned-stylegallery.md:199-205',
-    exemplar: 'mdlsource/usi/usi-89-route-list-banner-emptystate.mdl:137-149 — container emptyState (Class: \'empty-state\')',
+    exemplar: 'mdlsource/project-a/89-route-list-banner-emptystate.mdl:137-149 — container emptyState (Class: \'empty-state\')',
     evaluate(ctx) {
       const lists = ctx.mdlNodes.filter((n) => LIST_WIDGETS.includes(n.type));
       if (!lists.length) return { ok: true, findings: [], detail: 'page has no list widget', notApplicable: true };
@@ -448,7 +448,7 @@ const RULES = [
     },
     remediate: () => `Add the project's empty-state block next to the grid with an \`alter page\` script in mdlsource/: `
       + `\`container emptyState (Class: 'empty-state') { dynamictext t (Content: 'No results match these filters', RenderMode: H3, Class: 'empty-state__title') ... }\` `
-      + `— copy the shape from mdlsource/usi/usi-89-route-list-banner-emptystate.mdl:137. A grid that renders nothing on zero rows is a P1 in module-review.md; `
+      + `— copy the shape from mdlsource/project-a/89-route-list-banner-emptystate.mdl:137. A grid that renders nothing on zero rows is a P1 in module-review.md; `
       + `it is graded P2 here because the static view cannot prove the runtime is ever empty.`,
     mutate: (mdl) => mdl.split('empty-state').join('plainbox'),
   },
@@ -459,8 +459,8 @@ const RULES = [
     category: 'security',
     title: 'Every page must grant view to at least one module role',
     severity: 'P1',
-    cite: 'lint MPR007 / CE0557; project convention — mdlsource/usi/done-usi-147-operation-detail-page.mdl:518',
-    exemplar: 'mdlsource/usi/done-usi-147-operation-detail-page.mdl:518',
+    cite: 'lint MPR007 / CE0557; project convention — mdlsource/project-a/done-147-operation-detail-page.mdl:518',
+    exemplar: 'mdlsource/project-a/done-147-operation-detail-page.mdl:518',
     evaluate(ctx) {
       const grants = [...ctx.mdl.matchAll(/grant view on page\s+([\w.]+)\s+to\s+([^;]+);/gi)];
       const roles = grants.flatMap((g) => g[2].split(',').map((s) => s.trim())).filter(Boolean);
@@ -482,7 +482,7 @@ const RULES = [
     title: 'ButtonStyle must be one of the seven legal Mendix values',
     severity: 'P2',
     cite: '.ai-context/skills/create-page.md:282-284 (MDL-WIDGET02)',
-    exemplar: "mdlsource/usi/done-usi-147-operation-detail-page.mdl:400 — ButtonStyle: Info + Class: 'btn btn-secondary'",
+    exemplar: "mdlsource/project-a/done-147-operation-detail-page.mdl:400 — ButtonStyle: Info + Class: 'btn btn-secondary'",
     evaluate(ctx) {
       const btns = ctx.mdlNodes.filter((n) => /button/.test(n.type));
       const bad = [];
@@ -496,7 +496,7 @@ const RULES = [
     },
     remediate: (f) => `In the page's mdlsource/ script set ${f.map((x) => x.where).join(', ')} to one of `
       + `${LEGAL_BUTTON_STYLES.join('/')} and express the visual variant through a design-system class from design/ds.css `
-      + `(\`btn btn-secondary\`, \`btn btn-ghost\`, \`btn btn-cta\`) — that is the pattern used throughout mdlsource/usi/.`,
+      + `(\`btn btn-secondary\`, \`btn btn-ghost\`, \`btn btn-cta\`) — that is the pattern used throughout mdlsource/project-a/.`,
     mutate: (mdl) => mdl.replace('ButtonStyle: Primary', 'ButtonStyle: Secondary'),
   },
   {
@@ -528,7 +528,7 @@ const RULES = [
     title: 'Every page needs exactly one H1 heading widget',
     severity: 'P2',
     cite: 'module-review.md §4b (one h1 per page); .ai-context/skills/create-page.md RenderMode',
-    exemplar: "mdlsource/usi/done-usi-03-page-routelist.mdl — dynamictext pageHeading (RenderMode: H1, Class: 'page-head')",
+    exemplar: "mdlsource/project-a/done-03-page-routelist.mdl — dynamictext pageHeading (RenderMode: H1, Class: 'page-head')",
     evaluate(ctx) {
       const h1s = ctx.mdlNodes.filter((n) => /^H1$/i.test(String(unquote(prop(n, 'RenderMode')) || '')));
       return {
@@ -626,7 +626,7 @@ const RULES = [
     title: 'Page Title must be set and human-readable',
     severity: 'P3',
     cite: '.ai-context/skills/create-page.md (page header Title:); module-review.md §4c (browser-tab and breadcrumb text)',
-    exemplar: "mdlsource/usi/done-usi-03-page-routelist.mdl — Title: 'Route List'",
+    exemplar: "mdlsource/project-a/done-03-page-routelist.mdl — Title: 'Route List'",
     evaluate(ctx) {
       const t = String(ctx.doc.title || '').trim();
       const short = (ctx.qn.split('.')[1] || '');

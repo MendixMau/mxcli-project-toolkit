@@ -90,7 +90,7 @@ chmod -x "$P/bin/snapshot-mpr.sh"
 
 echo "== T3: a LOCALLY MODIFIED script is never overwritten without the flag =="
 # The destructive case. exec.sh is locally modified in all 6 projects on this machine that have
-# one; WMS-Demo's carries a build-rollback fix that never went upstream. A sync that overwrites
+# one; PROJECT-C's carries a build-rollback fix that never went upstream. A sync that overwrites
 # here destroys real work in six projects at once.
 P="$(mkproj t3)"
 printf '#!/usr/bin/env bash\n# LOCAL HARDENING — do not lose this\nexit 0\n' > "$P/bin/exec.sh"

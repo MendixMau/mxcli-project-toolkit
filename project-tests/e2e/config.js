@@ -27,7 +27,7 @@ const ROOT = PROJ.root;
 //
 // ── Ownership, and why a port alone is not enough ────────────────────────────
 // MEASURED 2026-08-18: stack.env held APP_PORT=8080 for a day. :8080 was
-// `poctiborbjj-mendix-1` — a DIFFERENT PROJECT's Mendix, serving a real login page
+// `otherapp-mendix-1` — a DIFFERENT PROJECT's Mendix, serving a real login page
 // on 200. Every rung of this harness would have run green or red against another
 // project's software and reported it as ours. A dead port fails loudly; a live
 // port belonging to someone else does not fail at all, which is far worse.

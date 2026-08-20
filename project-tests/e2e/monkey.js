@@ -7,7 +7,7 @@
 //   node tests/e2e/monkey.js --target fieldscan-receive --rounds 40
 //
 // HONEST WEIGHTING, UP FRONT
-// TFC's monkey pass scored 0 fail / 27 pass / 5 info while its scripted journeys
+// PROJECT-E's monkey pass scored 0 fail / 27 pass / 5 info while its scripted journeys
 // found all 9 real defects. Fuzzing is not where the yield is in this stack. It is
 // here to catch the crash class that journeys cannot reach — an unhandled exception
 // on input nobody thought to type — and the report says so, so nobody reads a clean

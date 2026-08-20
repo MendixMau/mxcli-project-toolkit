@@ -13,12 +13,12 @@
 #   (a) an existing-app audit (skills/existing-app-assurance.md — "no pipeline, no BRD, no
 #       stages"). No ledger was ever going to exist. The fault is permanent, meaningless noise.
 #   (b) a migration project that genuinely should have ledgers and has none. Measured case:
-#       VB-USI — 12 BRDs, a blueprint, a build plan, 7 module briefs, zero ledgers. Here the
+#       PROJECT-A — 12 BRDs, a blueprint, a build plan, 7 module briefs, zero ledgers. Here the
 #       fault is real and the remedy is real.
 #
 # Same message, opposite meanings. This script separates them into four levels, keyed on WHAT IS
 # PRESENT and never on a declared entry mode — a project onboarded as Migration can be running a
-# Track B assurance pass on the same day, and VB-USI is doing exactly that.
+# Track B assurance pass on the same day, and PROJECT-A is doing exactly that.
 #
 #   LEVEL 1  MEASURED        ledger found            -> run the engine, verdicts unchanged
 #   LEVEL 2  DERIVED         no ledger, but BRD +    -> join those two into a labelled derived
@@ -39,7 +39,7 @@
 #
 # Ledger path shapes — all three are read, the first is canonical:
 #   architecture/modules/<Module>/coverage-ledger.md    canonical (per-module, scales)
-#   architecture/modules/<Module>-coverage-ledger.md    flat module layout (VB-USI's shape)
+#   architecture/modules/<Module>-coverage-ledger.md    flat module layout (PROJECT-A's shape)
 #   architecture/coverage-ledger.md                     single-BRD project (sanctioned by
 #                                                       skills/coverage-ledger.md's header)
 # When none exists the message names all three, so an operator can act without reading source.

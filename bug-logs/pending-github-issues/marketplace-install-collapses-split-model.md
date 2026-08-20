@@ -4,15 +4,15 @@ project to monolithic .mpr and deletes mprcontents/ — breaks Studio Pro` (orig
 2026-07-22 on a PLM parts-flow project, mxcli v0.16.0, mxbuild 11.12.0)
 **Status:** FILED — https://github.com/mendixlabs/mxcli/issues/879 (2026-08-13)
 **Note:** re-verified twice before filing:
-1. On the real SonnyPOC project (mxcli v0.17.0, mxbuild/Studio Pro 11.13.0) — installing
+1. On the real PROJECT-F project (mxcli v0.17.0, mxbuild/Studio Pro 11.13.0) — installing
    Workflow Commons (content id 117066) deleted all 401 tracked `mprcontents/*.mxunit` files and
-   grew `SonnyPOC.mpr` from 74 KB to 35 MB. Recovered via `git checkout HEAD -- SonnyPOC.mpr
+   grew `PROJECT-F.mpr` from 74 KB to 35 MB. Recovered via `git checkout HEAD -- PROJECT-F.mpr
    mprcontents/`; a follow-up `mxcli docker check` on a scratch copy of the restored project
    passed with 0 errors, confirming the restore was clean and the corruption was specific to the
    install step.
 2. On a **fresh, disposable scratch project** created purely for this report (`mxcli new
    BugReproMktInstall --version 11.13.0 --theme none --skip-build`, never touching a real
-   project), to rule out anything specific to SonnyPOC's history or prior edits. Same module,
+   project), to rule out anything specific to PROJECT-F's history or prior edits. Same module,
    same result — see Steps to reproduce below. This is the repro filed here.
 
 This is a second independent confirmation (different project, newer mxcli/Mendix version) of the

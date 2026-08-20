@@ -757,7 +757,7 @@ Studio Pro itself cannot open the MPR. Gate 2 (javac) still passes because it do
 
 **Recovery:** Restore from snapshot immediately — the MPR is load-broken. Run `bash bin/restore-mpr.sh`.
 
-**Discovered:** 2026-07-03, IVM project (datagrid). 2026-07-05, a large-source WMS project script 18 (snippet with no entity context).
+**Discovered:** 2026-07-03, PROJECT-H (an inventory pilot, datagrid). 2026-07-05, a large-source WMS project script 18 (snippet with no entity context).
 
 ---
 
@@ -925,8 +925,8 @@ rsync -a --delete "$SNAP/mprcontents/" mprcontents/
 > identical `StorageLoadException`. On v0.17.0, the same script execs cleanly and `docker check`
 > ends on the standard 3-error EmptyTest baseline (PASS) — the project loads in Studio Pro too.
 > **Preflight rule 7 STOP and the MCP-only workaround for this widget shape can be retired once the
-> project's own `mxcli` binary is upgraded to v0.17.0** (not yet done on WMS-Demo-main as of
-> 2026-08-11). See `WMS-Demo-main/bug-logs/mxcli-bugs.md` BUG-LOCAL-07 for the project-local mirror
+> project's own `mxcli` binary is upgraded to v0.17.0** (not yet done on PROJECT-C as of
+> 2026-08-11). See `PROJECT-C/bug-logs/mxcli-bugs.md` BUG-LOCAL-07 for the project-local mirror
 > of this finding.
 
 ---
@@ -977,8 +977,8 @@ Restore from the `.mpr-snapshots/` snapshot taken by exec.sh before the failing 
 > path executes cleanly and `docker check` ends on the standard 3-error EmptyTest baseline (PASS).
 > **Preflight rule 9 (route inline association-set writes through `mxcli --mcp`) can be relaxed to
 > the disk-write path once the project's own `mxcli` binary is upgraded to v0.17.0** (not yet done
-> on WMS-Demo-main as of 2026-08-11) — the `--mcp` route remains valid as a fallback but is no
-> longer required for this construct. See `WMS-Demo-main/bug-logs/mxcli-bugs.md` BUG-LOCAL-01 for
+> on PROJECT-C as of 2026-08-11) — the `--mcp` route remains valid as a fallback but is no
+> longer required for this construct. See `PROJECT-C/bug-logs/mxcli-bugs.md` BUG-LOCAL-01 for
 > the project-local mirror of this finding.
 
 ---
@@ -1011,7 +1011,7 @@ The statement executes and reports success ("Updated configuration 'Default'"). 
 
 **Severity:** High — silent, repeat offender. Passes `mxcli check`/`describe page` every time; only fails on a real `mx check`/`docker check`/SP compile. Estimated to have caused this exact mistake ~500 times across sessions before the root cause was isolated.
 **Reproducible:** Yes, consistently
-**Confirmed:** Mendix 11.12.0, mxcli v0.13.0, 2026-07-20 (WMS-App)
+**Confirmed:** Mendix 11.12.0, mxcli v0.13.0, 2026-07-20 (PROJECT-D)
 **Retested on v0.13.0:** N/A — first isolation of root cause; previously misattributed to "any function call" (see Rule 12 correction below)
 
 ### Symptom
@@ -1102,7 +1102,7 @@ Then in Studio Pro: **App → Import module package →** select that `.mpk`. St
 ## 🚨 CRITICAL: `mxcli marketplace install` collapses a split-model project to monolithic `.mpr` and deletes `mprcontents/` — breaks Studio Pro
 
 **FILED — https://github.com/mendixlabs/mxcli/issues/879 (2026-08-13).** Independently
-reconfirmed twice before filing: on SonnyPOC (mxcli v0.17.0, mxbuild/Studio Pro 11.13.0, real
+reconfirmed twice before filing: on PROJECT-F (mxcli v0.17.0, mxbuild/Studio Pro 11.13.0, real
 project — installing Workflow Commons 117066 deleted all 401 tracked `mprcontents/*.mxunit`
 files and grew the `.mpr` from 74 KB to 35 MB; recovered via `git checkout HEAD --`), and again
 on a fresh disposable scratch project created solely for the issue repro (same module, same
@@ -1191,7 +1191,7 @@ Terminal git/mxcli work fine with `.git` attached — the crash is ONLY Studio P
 Adding an association name to a `READ (...)`/`WRITE (...)` member list in a `GRANT` statement execs with 0 errors and passes `mxcli check --references` (which does not validate grant-member names at all — even a totally nonexistent field name like `"TotallyMadeUp12345"` passes `--references` clean). But the association never appears in the resulting grant. Confirmed via `DESCRIBE ENTITY` after real exec, both forms tested:
 ```sql
 GRANT Administration."User" ON Administration."Account" (READ ("FullName", "Account_Supplier"));      -- dropped
-GRANT Administration."User" ON Administration."Account" (READ ("FullName", "TFC.Account_Supplier"));  -- also dropped (module-qualified)
+GRANT Administration."User" ON Administration."Account" (READ ("FullName", "PLM.Account_Supplier"));  -- also dropped (module-qualified)
 ```
 Exec's own echoed `Result:` line is the only signal — it omits the association from the granted member list even though the statement reported success.
 
@@ -1216,7 +1216,7 @@ Builds on `learned-mdl-preflight.md` rule 14 (revoke-all/regrant-all when patchi
 **Discovered:** 2026-07-22 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1).
 
 ### Symptom
-After `mxcli exec` of a script creating an association (`Account_Supplier`, Administration↔TFC) plus `GRANT` rules referencing it (the same script documented in the "association names silently dropped from member lists" entry above), the `.mpr` became unopenable — both in Studio Pro GUI and in `mxbuild` (any platform, any architecture):
+After `mxcli exec` of a script creating an association (`Account_Supplier`, Administration↔PLM) plus `GRANT` rules referencing it (the same script documented in the "association names silently dropped from member lists" entry above), the `.mpr` became unopenable — both in Studio Pro GUI and in `mxbuild` (any platform, any architecture):
 ```
 System.AggregateException: ... System.Collections.Generic.KeyNotFoundException:
 The given key '562830a8-ff20-4507-8d13-d435c347d2bd' was not present in the dictionary.
@@ -1238,16 +1238,16 @@ Separately discovered in the same incident: this project's cached `~/.mxcli/mxbu
 **Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1), same project/association as the two entries above — this is the 3rd data point on the same root cause, refining the scope of the unsafe operation.
 
 ### Symptom
-`Administration.Account_Supplier` (Administration↔TFC, Reference, Default owner) was added cleanly via Studio Pro GUI per the workaround above, confirmed present via `SHOW ASSOCIATIONS`. A subsequent, unrelated mxcli script (`03b-tfc-domain-revision.mdl`) then dropped/recreated two non-persistent-to-persistent entities, added two new entities, added a new same-module association (`TFC.TFCStub_Supplier`), and — per STOP rule 14 — rebuilt **all four** role grants on `TFC.TFCStub` in one block (revoke all, regrant all), including a new Vendor XPath `[TFCStub_Supplier = '[%CurrentUser/TFC.Account_Supplier%]']` copying the already-existing `FeasibilityDecision` pattern.
+`Administration.Account_Supplier` (Administration↔PLM, Reference, Default owner) was added cleanly via Studio Pro GUI per the workaround above, confirmed present via `SHOW ASSOCIATIONS`. A subsequent, unrelated mxcli script (`03b-plm-domain-revision.mdl`) then dropped/recreated two non-persistent-to-persistent entities, added two new entities, added a new same-module association (`PLM.PLMStub_Supplier`), and — per STOP rule 14 — rebuilt **all four** role grants on `PLM.PLMStub` in one block (revoke all, regrant all), including a new Vendor XPath `[PLMStub_Supplier = '[%CurrentUser/PLM.Account_Supplier%]']` copying the already-existing `FeasibilityDecision` pattern.
 
 `bin/exec.sh`'s `mx check` gate caught 2 errors post-exec, both `CE0161` "Error(s) in XPath constraint":
-- `Access rule of entity 'TFC.TFCStub'` (the one this script actually touched)
-- `Access rule of entity 'TFC.FeasibilityDecision'` (**untouched by this script** — a pre-existing rule from a prior, already-committed exec, broken as collateral damage)
+- `Access rule of entity 'PLM.PLMStub'` (the one this script actually touched)
+- `Access rule of entity 'PLM.FeasibilityDecision'` (**untouched by this script** — a pre-existing rule from a prior, already-committed exec, broken as collateral damage)
 
 Auto-restore worked correctly this time (unlike the BSON-corruption entry above) — rolled back to the last known-good snapshot and reported clearly. But that snapshot predated *both* this script *and* the `Account_Supplier` GUI addition, so the association was lost from the working tree again too (the git commit recording it still exists in history, but `.mpr`/`mprcontents` on disk reverted under it — a real, visible working-tree/HEAD mismatch, not silently reconciled).
 
 ### Root cause (refined from the two entries above)
-The failure isn't scoped to "creating the association + a grant referencing it in the same script" (the original 2026-07-22 finding) — it's that **once any entity access rule anywhere in a module has an XPath referencing this association, mxcli cannot successfully write *any* GRANT/REVOKE touching *any* entity in that module**, even when the script never mentions the broken rule. mxcli's domain-model write path appears to reserialize the whole `Domain model` unit on any access-rule change, not just the targeted entity — so a previously-fine `FeasibilityDecision` rule gets re-touched and re-broken purely as a side effect of an unrelated `TFCStub` grant rewrite in the same exec.
+The failure isn't scoped to "creating the association + a grant referencing it in the same script" (the original 2026-07-22 finding) — it's that **once any entity access rule anywhere in a module has an XPath referencing this association, mxcli cannot successfully write *any* GRANT/REVOKE touching *any* entity in that module**, even when the script never mentions the broken rule. mxcli's domain-model write path appears to reserialize the whole `Domain model` unit on any access-rule change, not just the targeted entity — so a previously-fine `FeasibilityDecision` rule gets re-touched and re-broken purely as a side effect of an unrelated `PLMStub` grant rewrite in the same exec.
 
 ### Workaround (updated)
 Once a module contains **any** entity access rule with a cross-module `[%CurrentUser/OtherModule.Assoc%]` XPath, treat **all** subsequent GRANT/REVOKE work on **any** entity in that module as Studio-Pro-GUI-only — not just the rule that references the association. Structural changes (entities, attributes, non-security associations) in the same module remain mxcli-safe; only the access-rule layer is affected. Verify with `DESCRIBE ENTITY` + a real `mx check` (not just `mxcli check --references`, which gives zero signal for this) after every grant-touching exec in an affected module.
@@ -1261,10 +1261,10 @@ Re-diagnosed after the user manually fixed the `FeasibilityDecision` Vendor rule
 **Confirmed working fix**, applied manually in Studio Pro:
 ```
 -- Broken:
-[FeasibilityDecision_Supplier = '[%CurrentUser/TFC.Account_Supplier%]']
+[FeasibilityDecision_Supplier = '[%CurrentUser/PLM.Account_Supplier%]']
 -- Fixed — keep CurrentUser bare, walk the whole chain on the left,
 -- qualifying the entity name at each module crossing:
-[TFC.FeasibilityDecision_Supplier/TFC.Supplier/Administration.Account_Supplier = '[%CurrentUser%]']
+[PLM.FeasibilityDecision_Supplier/PLM.Supplier/Administration.Account_Supplier = '[%CurrentUser%]']
 ```
 This means the "Studio Pro GUI only, module-wide" conclusion above was too broad. Once an access-rule XPath uses the correct bare-CurrentUser/full-LHS-chain form, there's no known reason it can't be written via mxcli directly. **Confirmed same day**: `test-05-currentuser-xpath-chain.mdl` rebuilt all 4 `FeasibilityDecision` role grants via mxcli exec, reproducing the corrected Vendor XPath verbatim — `mx check: 0 errors`. The corrected form is genuinely mxcli-safe, not just Studio-Pro-GUI-safe. See STOP-table rule 16 (updated) for the corrected pattern — no GUI-only restriction remains for this specific XPath shape.
 
@@ -1273,8 +1273,8 @@ This means the "Studio Pro GUI only, module-wide" conclusion above was too broad
 **Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1). Scoping clarification of rule 9, not a reversal -- the pre-existing 2026-07-13 finding on this same mxcli version (`System.User_UserRoles`, cross-module, a WMS conversion project) still stands.
 
 ### What was tested
-1. Isolated throwaway test: two brand-new entities in the same project module (`TFC`), new `Reference` association between them, set inline via `CHANGE` inside a microflow, executed via plain `bin/exec.sh`. `mx check` and full `mxcli docker check`: 0 errors. Cleaned up via the same plain-CLI path -- also clean.
-2. Real production script: `06-tfcint-bomstub.mdl`, a 176-activity microflow with 46 inline association-sets, all entirely within `TFC`. Ran via plain `bin/exec.sh` after MCP mode proved unreliable. `mx check`: 0 errors.
+1. Isolated throwaway test: two brand-new entities in the same project module (`PLM`), new `Reference` association between them, set inline via `CHANGE` inside a microflow, executed via plain `bin/exec.sh`. `mx check` and full `mxcli docker check`: 0 errors. Cleaned up via the same plain-CLI path -- also clean.
+2. Real production script: `06-plmint-bomstub.mdl`, a 176-activity microflow with 46 inline association-sets, all entirely within `PLM`. Ran via plain `bin/exec.sh` after MCP mode proved unreliable. `mx check`: 0 errors.
 
 ### What this does and does not mean
 - Same-module inline association-sets (both sides in one module, including a marketplace module's own internal associations) are safe via plain CLI on v0.16.0.
@@ -1358,7 +1358,7 @@ Remove all `ANNOTATION` statements from workflow bodies. Annotations in workflow
 
 ### Symptom
 
-`CALL MICROFLOW TFC.MyMF WITH (TFC.MyMF.Param = '$workflowContext')` in a workflow body causes mxcli to write a null `ParameterId` into the BSON unit. `mxcli check` and `mx check` both pass (0 errors), but at runtime the parameter binding is invalid and the call fails.
+`CALL MICROFLOW PLM.MyMF WITH (PLM.MyMF.Param = '$workflowContext')` in a workflow body causes mxcli to write a null `ParameterId` into the BSON unit. `mxcli check` and `mx check` both pass (0 errors), but at runtime the parameter binding is invalid and the call fails.
 
 **Status (retested 2026-08-03): RESOLVED on RnD, PARTIALLY RESOLVED on Engalar.** Repro'd against
 RnD `bin/mxcli` (HEAD `504aec67`) and Engalar `bin/mxcli` (`26f2866`) on a fresh pristine project.
@@ -1398,7 +1398,7 @@ Confirmed from the engalar/mxcli fork's `24-workflow-examples.mdl`: workflow `CA
 
 ### Symptom
 
-`DECISION '$workflowContext/Status = TFC.ENUM_TFCStatus.Release'` in a workflow body produces CE0117 "Error(s) in expression" regardless of quoting style tried (`TFC.ENUM_TFCStatus.Release`, `'Release'`, quoted attribute). `mxcli check` passes; `mx check` reports CE0117.
+`DECISION '$workflowContext/Status = PLM.ENUM_PLMStatus.Release'` in a workflow body produces CE0117 "Error(s) in expression" regardless of quoting style tried (`PLM.ENUM_PLMStatus.Release`, `'Release'`, quoted attribute). `mxcli check` passes; `mx check` reports CE0117.
 
 Note: this is a plain `=` comparison (no `!=`), so it is distinct from the AND/OR + `!=` bug (BUG in learned-mdl-preflight rule 17). The trigger here appears to be the DECISION context itself in workflow scope, not the operator combination.
 
@@ -1415,12 +1415,12 @@ defect (branches use user tasks, no microflow calls — otherwise BUG-WF05 fires
 
 | Expression | v0.16.0 | `504aec67` |
 |---|---|---|
-| `'$WorkflowContext/Status = TFC.ENUM_TFCStatus.DieGo'` — **capital W** | ✅ 0 errors | ✅ 0 errors |
+| `'$WorkflowContext/Status = PLM.ENUM_PLMStatus.DieGo'` — **capital W** | ✅ 0 errors | ✅ 0 errors |
 | `'$workflowContext/...'` — **lowercase w** | — | ❌ **CE0117** |
-| `TFC.ENUM_TFCStatus.Release` — value not in the enum | — | ❌ CE1613 (correct, honest error) |
+| `PLM.ENUM_PLMStatus.Release` — value not in the enum | — | ❌ CE1613 (correct, honest error) |
 
 **An enum DECISION works fine, including on v0.16.0.** The CE0117 comes from the lowercase context
-variable. The original 2026-07-23 report additionally used `ENUM_TFCStatus.Release`, which is not a
+variable. The original 2026-07-23 report additionally used `ENUM_PLMStatus.Release`, which is not a
 value in that enumeration — so that entry likely conflated two separate mistakes and neither is an
 mxcli DECISION defect.
 
@@ -1429,8 +1429,8 @@ mxcli DECISION defect.
 `$WorkflowContext`. This is a genuine, unreported, still-unfixed inconsistency — worth an upstream
 issue on its own (mxcli writes the expression verbatim; mxbuild then rejects it).
 
-**Cost of the original misdiagnosis:** TFC dropped DECISION gateways from its workflow design
-entirely (see `09b-tfc-workflow-fix-callmf.mdl` header, "ALSO removes the Decision gateway") on the
+**Cost of the original misdiagnosis:** PROJECT-E dropped DECISION gateways from its workflow design
+entirely (see `09b-plm-workflow-fix-callmf.mdl` header, "ALSO removes the Decision gateway") on the
 basis of a lowercase `w`. Gateways are usable — reinstate them if the design wants them.
 
 > **RESOLVED in v0.17.0 — verified 2026-08-11.** Upstream GitHub issue #845, closed 2026-08-10
@@ -1444,7 +1444,7 @@ basis of a lowercase `w`. Gateways are usable — reinstate them if the design w
 > uppercase `$WorkflowContext` continues to work unchanged. **This closes the "genuine, unreported,
 > still-unfixed inconsistency" flagged in the 2026-08-05 correction.** DECISION gateways can be
 > written with either casing once the project's own `mxcli` binary is upgraded to v0.17.0 (not yet
-> done); recommend TFC and similar projects reconsider reinstating dropped DECISION gateways at
+> done); recommend PROJECT-E and similar projects reconsider reinstating dropped DECISION gateways at
 > that point, per the "Cost of the original misdiagnosis" note above.
 
 ---
@@ -1453,7 +1453,7 @@ basis of a lowercase `w`. Gateways are usable — reinstate them if the design w
 
 **Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1), same debugging session as the AND/OR bug above.
 
-`retrieve $X from TFC.TFCStub where ... and Status != Enum.Archived` passes `mxcli check` but fails a real `mx check` with CE0161. Quoting the attribute (`"Status" != Enum.Archived`) fixes it. Notably, this project's own domain model already quotes `"Status"` specifically in `TFCStub`'s access-rule read lists, while every sibling attribute in the same list is unquoted — a pre-existing signal (visible via `DESCRIBE ENTITY`) that this specific attribute name needs quoting, which would have shortened the debugging cycle if checked first. Added to the "Keyword collisions" bullet in `learned-mdl-preflight.md`.
+`retrieve $X from PLM.PLMStub where ... and Status != Enum.Archived` passes `mxcli check` but fails a real `mx check` with CE0161. Quoting the attribute (`"Status" != Enum.Archived`) fixes it. Notably, this project's own domain model already quotes `"Status"` specifically in `PLMStub`'s access-rule read lists, while every sibling attribute in the same list is unquoted — a pre-existing signal (visible via `DESCRIBE ENTITY`) that this specific attribute name needs quoting, which would have shortened the debugging cycle if checked first. Added to the "Keyword collisions" bullet in `learned-mdl-preflight.md`.
 
 ---
 
@@ -1467,7 +1467,7 @@ basis of a lowercase `w`. Gateways are usable — reinstate them if the design w
 > attribution to a missing `WITH` clause, and therefore this entry's "Fix", are wrong.
 >
 > **Do not follow this entry's fix.** Adding a fully-qualified `WITH` key makes things worse — that
-> is BUG-WF05, a *second*, independent defect. Reproduced 2026-08-05 on TFC-TCXGraphPOC with correct
+> is BUG-WF05, a *second*, independent defect. Reproduced 2026-08-05 on PROJECT-E with correct
 > short `WITH` keys, with fully-qualified keys, and with no `WITH` at all: red pin in every case.
 >
 > The "NOT REPRODUCIBLE on RnD or Engalar" note below is consistent with this — both binaries
@@ -1512,11 +1512,11 @@ Always use the `WITH` clause when the target microflow has parameters:
 
 ```sql
 -- WRONG (no WITH → broken activity, red pin, runtime crash)
-CALL MICROFLOW TFC."WF_ACT_RiskAgent_RiskFlag";
+CALL MICROFLOW PLM."WF_ACT_RiskAgent_RiskFlag";
 
 -- CORRECT
-CALL MICROFLOW TFC."WF_ACT_RiskAgent_RiskFlag"
-  WITH (TFC."WF_ACT_RiskAgent_RiskFlag"."TFCStub" = '$workflowContext');
+CALL MICROFLOW PLM."WF_ACT_RiskAgent_RiskFlag"
+  WITH (PLM."WF_ACT_RiskAgent_RiskFlag"."PLMStub" = '$workflowContext');
 ```
 
 The `WITH` key format is `Module."MicroflowName"."ParameterName" = '$workflowContext'` where `$workflowContext` is the workflow's context variable. Microflows with no parameters do not need a `WITH` clause.
@@ -1604,7 +1604,7 @@ Three separate `ALTER PAGE ... INSERT AFTER "<widget>"` attempts, on 3 different
 ./mxcli --mcp http://localhost:7782/mcp exec 39-....mdl -p Project.mpr
 Error: failed to insert: widget "CreatedOn" not found
 ```
-(anchor was a DG2 datagrid column, name confirmed via `DESCRIBE PAGE TFC.TFC_PMODashboard` immediately beforehand)
+(anchor was a DG2 datagrid column, name confirmed via `DESCRIBE PAGE PLM.PLM_PMODashboard` immediately beforehand)
 
 ```
 Error: failed to insert: widget "SupplierName" not found
@@ -1614,19 +1614,19 @@ Error: failed to insert: widget "SupplierName" not found
 ```
 Error: failed to insert: widget "row6" not found
 ```
-(TFC_SupplierOverview — a plain top-level LAYOUTGRID row, NOT a DG2-internal widget, ruling out "DG2 columns aren't addressable" as the sole explanation)
+(PLM_SupplierOverview — a plain top-level LAYOUTGRID row, NOT a DG2-internal widget, ruling out "DG2 columns aren't addressable" as the sole explanation)
 
 `--mcp-verbose` printed no PED tool-call trace before any of these errors — the failure happens before a `pg_patch_page` call is even logged, suggesting local anchor resolution (against the `-p` disk file) disagrees with whatever the live SP in-memory model actually has, OR the widget-name lookup path used for `INSERT AFTER` targeting is broken independent of the anchor's real existence.
 
 ### Symptom 2 — malformed patch on a trivial single-property SET
 
 ```sql
-ALTER PAGE "TFC"."TFC_SupplierOverview" {
+ALTER PAGE "PLM"."PLM_SupplierOverview" {
   SET Title = 'Vendor Portal'
 };
 ```
 ```
-Error: failed to save modified page: pg_patch_page TFC.TFC_SupplierOverview: Error invoking tool 'pg_patch_page':
+Error: failed to save modified page: pg_patch_page PLM.PLM_SupplierOverview: Error invoking tool 'pg_patch_page':
 Error executing tool pg_patch_page: Operation at index 1 failed.
 Details: {"errors":[{"code":"PROP_NOT_PRIMITIVE","message":"Property 'widgets' is not a primitive property", ...}]}
 ```
@@ -2078,10 +2078,10 @@ retest if this comes up.
 
 **Severity:** Critical — the model becomes unloadable. `mx check` hard-crashes; Studio Pro cannot
 open the project at all. This is an escalation of BUG-WF02's severity, not a new trigger.
-**Reproducible:** Yes, first attempt, on the real TFC project.
+**Reproducible:** Yes, first attempt, on the real PROJECT-E project.
 **Mendix version:** 11.13.0 Beta (project format 11.13.0)
 **mxcli version:** v0.16.0 (tagged release, built 2026-07-12)
-**Discovered:** 2026-08-04, TFC-TCXGraphPOC, isolated probe `mdlsource/3c-workflow/probe-wf-callmf-11.13.mdl`.
+**Discovered:** 2026-08-04, PROJECT-E, isolated probe `mdlsource/3c-workflow/probe-wf-callmf-11.13.mdl`.
 
 ### Why this entry exists
 
@@ -2094,21 +2094,21 @@ This entry records what v0.16.0 actually does on 11.13.
 ### Trigger
 
 ```sql
-CREATE WORKFLOW TFC."WF_ProbeCallMF"
-  PARAMETER $WorkflowContext: TFC."TFCStub"
+CREATE WORKFLOW PLM."WF_ProbeCallMF"
+  PARAMETER $WorkflowContext: PLM."PLMStub"
 BEGIN
-  CALL MICROFLOW TFC.WF_ACT_TCCopilot_Prefill
-    WITH (TFC.WF_ACT_TCCopilot_Prefill.TFCStub = '$workflowContext');
+  CALL MICROFLOW PLM.WF_ACT_TCCopilot_Prefill
+    WITH (PLM.WF_ACT_TCCopilot_Prefill.PLMStub = '$workflowContext');
 END WORKFLOW;
 ```
 
-Target microflow has a **single** entity-typed parameter (`$TFCStub: TFC.TFCStub`) — i.e. squarely
+Target microflow has a **single** entity-typed parameter (`$PLMStub: PLM.PLMStub`) — i.e. squarely
 inside BUG-WF04's verified envelope. The fully-qualified `Module.Microflow.Param` WITH-key form is
 the one BUG-24 recommended as "CORRECT".
 
 ### Symptom
 
-`mxcli check` passes. `mxcli exec` reports `Created workflow: TFC.WF_ProbeCallMF`. Then `mx check`:
+`mxcli check` passes. `mxcli exec` reports `Created workflow: PLM.WF_ProbeCallMF`. Then `mx check`:
 
 ```
 ERROR: System.AggregateException: One or more errors occurred. (An error occurred when trying to
@@ -2151,12 +2151,12 @@ Studio-Pro work done since the last snapshot.
 Until the binary is upgraded past 2026-07-29, **do not script `CALL MICROFLOW` inside a workflow
 body on v0.16.0**. Create the workflow with user tasks only and drag the microflow activities onto
 the canvas in Studio Pro (SP auto-wires the context parameter on drop) — the workaround
-`TFC-TCXGraphPOC/mdlsource/3c-workflow/archived/09j-tfc-workflow-correct.mdl` already documents.
+`PROJECT-E/mdlsource/3c-workflow/archived/09j-plm-workflow-correct.mdl` already documents.
 Upgrading to a post-`1b390dce` binary is the real fix — **now verified on 11.13**, see below.
 
 ### RESOLVED on RnD `504aec67` — controlled A/B on 11.13 (2026-08-04, same day)
 
-Re-tested as a clean two-arm experiment: two throwaway `rsync` copies of the real TFC project in
+Re-tested as a clean two-arm experiment: two throwaway `rsync` copies of the real PROJECT-E project in
 `/tmp` (full project dir — `theme/`+`themesource/` are required or `mx check` reports 1337 spurious
 CE6083s), the **same** probe script, the **same** gate (`Mendix Studio Pro 11.13.0 Beta.app/
 Contents/modeler/mx`). Only the mxcli binary differed. The real `.mpr` was never touched.
@@ -2171,12 +2171,12 @@ Contents/modeler/mx`). Only the mxcli binary differed. The real `.mpr` was never
 RnD roundtrip is faithful, and shows both post-fix behaviours:
 
 ```sql
-call microflow TFC.WF_ACT_TCCopilot_Prefill with (TFCStub = '$WorkflowContext')
+call microflow PLM.WF_ACT_TCCopilot_Prefill with (PLMStub = '$WorkflowContext')
   outcomes
     DEFAULT -> { };
 ```
 
-- WITH-key stored **short** (`TFCStub`), not fully-qualified — `253d60d8`'s 11.9+ version gate.
+- WITH-key stored **short** (`PLMStub`), not fully-qualified — `253d60d8`'s 11.9+ version gate.
 - context var normalized `'$workflowContext'` → `'$WorkflowContext'`, and `outcomes DEFAULT -> { }`
   synthesized from the target's return type — `1b390dce`.
 - read back at all — `b6a5043a` (parse `CallMicroflowActivity` storage name on read).
@@ -2189,8 +2189,8 @@ binary swap.
 
 ### Confirmed on the REAL production workflow, not just a probe (2026-08-05)
 
-The above used a 1-activity throwaway. Re-run with TFC's actual
-`09b-tfc-workflow-fix-callmf.mdl` — `CREATE OR REPLACE`, **5 × `CALL MICROFLOW` with WITH clauses,
+The above used a 1-activity throwaway. Re-run with PROJECT-E's actual
+`09b-plm-workflow-fix-callmf.mdl` — `CREATE OR REPLACE`, **5 × `CALL MICROFLOW` with WITH clauses,
 3 user tasks, nested `Required`/`WaveOff` branching** — same two-arm sandbox method:
 
 | | v0.16.0 | `504aec67` |
@@ -2257,7 +2257,7 @@ independent of syntax. Both checkers report success.
 **Reproducible:** Yes, every time, on any project format ≥ 11.9.
 **Mendix version:** 11.13.0 (reproduced); applies from 11.9 onward
 **mxcli version:** `v0.16.0` (tagged release, 2026-07-12). Fixed on `main` by `253d60d8` (2026-07-29).
-**Discovered:** 2026-08-05, TFC-TCXGraphPOC, after Studio Pro rendered a scripted 5-activity workflow
+**Discovered:** 2026-08-05, PROJECT-E, after Studio Pro rendered a scripted 5-activity workflow
 as five red pins despite `mx check` reporting `0 errors`.
 
 ### Why this entry exists
@@ -2329,7 +2329,7 @@ v0.16.0, hand-drag call-microflow activities in Studio Pro.
 
 **RESOLVED in official tag `v0.17.0` (2026-08-10).** Confirmed `253d60d8` is an ancestor of
 `v0.17.0` via `git merge-base --is-ancestor`, then reran the sandbox A/B from scratch against the
-tagged release (not an RnD/dev commit this time — TFC-TCXGraphPOC's 2026-08-05 "never use the 504"
+tagged release (not an RnD/dev commit this time — PROJECT-E's 2026-08-05 "never use the 504"
 ruling was specifically about `504aec67` being unofficial; it named "an official release containing
 `253d60d8` + `2099bbe1`" as the exit condition). Same probe
 (`probes-v016-boundary/A-fq-lower.mdl`), same `.mpr`, same `mx check` gate:
@@ -2347,7 +2347,7 @@ A leftover `WF_ProbeA` object with the broken `$Type` in the same sandbox also d
 "red pin, app won't boot" description above — worth knowing if you're triaging a hard mxbuild crash
 rather than a red pin.
 
-TFC-TCXGraphPOC-main upgraded its bundled `./mxcli` to `v0.17.0` on 2026-08-11 on the strength of
+PROJECT-E upgraded its bundled `./mxcli` to `v0.17.0` on 2026-08-11 on the strength of
 this result (plus independent confirmation that it also fixes BUG-59 below and the DECISION-casing
 gap tracked as issue #845 — `DESCRIBE WORKFLOW` on v0.16.0 echoes an authored lowercase
 `$workflowContext` unchanged; v0.17.0 normalizes it to `$WorkflowContext` on write).
@@ -2361,7 +2361,7 @@ mxcli reads models Studio Pro's loader rejects, so no restore is needed:
 # re-create with a fixed binary
 ```
 
-Verified on TFC-TCXGraphPOC: dropped and rebuilt with `504aec67`, `mx check` `0 errors`, split model
+Verified on PROJECT-E: dropped and rebuilt with `504aec67`, `mx check` `0 errors`, split model
 format preserved, exactly one unit swapped, the unrelated production workflow untouched.
 
 ### How it was found (method worth reusing)
@@ -2385,7 +2385,7 @@ before theorising.
 `mendixlabs/mxcli`. Already fixed on `main`; the report is effectively *"please cut a release"* —
 `v0.16.0` is still tagged **Latest** while the 2026-08-03 nightly is a Pre-release, so every user on
 the official release hits this. Draft prepared at
-`TFC-TCXGraphPOC-main/docs/gh-issues-ready/03-workflow-callmicroflow-storage-name-pre-11.9.md`
+`PROJECT-E/docs/gh-issues-ready/03-workflow-callmicroflow-storage-name-pre-11.9.md`
 (not filed).
 
 > **RESOLVED, the requested release has now shipped, confirmed 2026-08-11.** Filed upstream as
@@ -2397,7 +2397,7 @@ the official release hits this. Draft prepared at
 > `Workflows$CallMicroflowTask`. `mx check` 0 errors, and, the gate that actually matters here per
 > "Why every gate missed it" above, Studio Pro opens the workflow with normal, clickable activity
 > icons, no red pins. **This lifts the project-wide CALL MICROFLOW ban recorded for
-> TFC-TCXGraphPOC-main** (commit `504aec67` banned hand-dragging requirement project-wide) once
+> PROJECT-E** (commit `504aec67` banned hand-dragging requirement project-wide) once
 > that project's `mxcli` binary is upgraded to v0.17.0 (not yet done as of 2026-08-11), CALL
 > MICROFLOW activities can then be authored from MDL again instead of hand-dragged in Studio Pro.
 
@@ -2526,13 +2526,13 @@ customContent columns.
 > the only fix is Studio Pro → right-click → *Refresh snippet parameters*.
 > Severity revised **Low → Medium-High**. Filed upstream as
 > [mendixlabs/mxcli#868](https://github.com/mendixlabs/mxcli/issues/868); full test matrix in
-> `TFC-TCXGraphPOC-main/docs/gh-issues-ready/04-snippetcall-params-mandatory-but-invalid.md`.
+> `PROJECT-E/docs/gh-issues-ready/04-snippetcall-params-mandatory-but-invalid.md`.
 > Lesson repeat: `DESCRIBE PAGE` never renders `Params:` for this widget kind, so it cannot detect
 > the bug either way — grade snippet-call writes with `mx check`, not with a reader.
 
 **Severity:** ~~Low~~ **Medium-High** (see correction above) — no in-mxcli workaround exists
 **Reproducible:** Yes, consistently
-**Confirmed:** Mendix 11.13.0, mxcli v0.16.0 **and v0.17.0**, 2026-08-07 / re-tested 2026-08-11, TFC-TCXGraphPOC-main
+**Confirmed:** Mendix 11.13.0, mxcli v0.16.0 **and v0.17.0**, 2026-08-07 / re-tested 2026-08-11, PROJECT-E
 **mxcli version when found:** v0.16.0 (`ALTER PAGE ... SET` write path)
 
 ### Symptom
@@ -2571,8 +2571,8 @@ ALTER PAGE Mod.SomePage {
 }
 ```
 
-Verified on `TFC.TFC_GraphAgentChat` (`mxcli bson dump -p <project>.mpr --type page --object
-"TFC.TFC_GraphAgentChat"`): the resulting `Forms$SnippetCall` object has a
+Verified on `PLM.PLM_GraphAgentChat` (`mxcli bson dump -p <project>.mpr --type page --object
+"PLM.PLM_GraphAgentChat"`): the resulting `Forms$SnippetCall` object has a
 `Forms$SnippetParameterMapping` entry correctly binding
 `ConversationalUI.Snippet_ChatContext_ConversationalUI.ChatContext` to a `Forms$PageVariable`
 with `PageParameter: "currentObject"` — i.e. the enclosing `DATAVIEW`'s `$currentObject`. Note
@@ -2596,8 +2596,8 @@ Same widget class of "`--references` passes, `SET` isn't a supported operation f
 property" issue as [[BUG-07]]; consider both when authoring a `write-lint-rules` check that
 flags `SET <prop> ON <widget>` for known-unsupported widget/property combinations.
 
-**Discovered:** 2026-08-07, TFC-TCXGraphPOC-main, Batch 5 item 3 (D-UI1) of the audit
-remediation — `TFC.TFC_GraphAgentChat`'s `snippetCall1` re-target.
+**Discovered:** 2026-08-07, PROJECT-E, Batch 5 item 3 (D-UI1) of the audit
+remediation — `PLM.PLM_GraphAgentChat`'s `snippetCall1` re-target.
 
 ---
 
@@ -2703,7 +2703,7 @@ project with a FULL catalog.
 not between 1 and 65535`) whenever the model's port fields are `0`; does not affect `mxcli
 docker run`, which manages ports itself
 **Reproducible:** Yes, consistently
-**Confirmed:** Mendix 11.13.0, 2026-08-12, VB-USI-main
+**Confirmed:** Mendix 11.13.0, 2026-08-12, PROJECT-A
 **mxcli version when found:** v0.16.0
 
 ### Symptom
@@ -2753,7 +2753,7 @@ silently drops an association) and BUG-62 (SNIPPETCALL SET passes but fails at e
 recurring class where `ALTER`'s success message is not sufficient evidence a write actually
 landed.
 
-**Discovered:** 2026-08-12, VB-USI-main, while trying to fix a Studio Pro local-run crash
+**Discovered:** 2026-08-12, PROJECT-A, while trying to fix a Studio Pro local-run crash
 caused by `HttpPortNumber = 0` left over from Docker-oriented project setup.
 
 ## BUG-65: *(mis-filed — a toolkit bug, not an mxcli bug)* `gate-check.sh` could not discover a second, parallel decision register — **RESOLVED 2026-08-20**
@@ -2806,7 +2806,7 @@ layout, with no detection for the mismatch.
 
 ## BUG-66: `ALTER ENTITY ... ADD ATTRIBUTE "X": autocreateddate;` silently no-ops — no error, no confirmation line, no attribute added
 
-**Sighted:** VB-USI-main, DafNe track Stage 5 Phase 11, script 55b (2026-08-12).
+**Sighted:** PROJECT-A, main build track Stage 5 Phase 11, script 55b (2026-08-12).
 
 **Symptom:** `alter entity "Common"."Attachment" add attribute "CreatedDate": autocreateddate;` passes
 `mxcli check` (syntax + `--references`) cleanly, and `mxcli exec` prints only the connection banner —
@@ -2830,7 +2830,7 @@ entity via `CREATE OR REPLACE ENTITY` (data-loss risk if rows exist) or use a pl
 with manual stamping in a microflow instead (e.g. `CreatedDate: datetime` + `change $Entity (CreatedDate
 = [%CurrentDateTime%])` on the create path) rather than relying on the auto-managed pseudo-type.
 
-**Decision applied in VB-USI-main:** skipped `Common.Attachment.CreatedDate` entirely rather than
+**Decision applied in PROJECT-A:** skipped `Common.Attachment.CreatedDate` entirely rather than
 work around it — it was a "nice to have, matches Remark's shape" cosmetic audit field, not required by
 the actual fix in flight (F012 open question S3's author-or-admin lock only needed `CreatedBy`, which
 added successfully as a plain `string` attribute). `CreatedBy` alone is sufficient for the delete-lock
@@ -2838,7 +2838,7 @@ logic in `ACT_Attachment_Delete`.
 
 ## BUG-67: `CREATE SNIPPET ... (Params: { $X: String })` — a primitive-typed snippet parameter, documented in `mxcli syntax snippet.create`'s own example, fails at exec time with "entity not found"
 
-**Sighted:** VB-USI-main, DafNe track Stage 5 Phase 11, script 56 (2026-08-12).
+**Sighted:** PROJECT-A, main build track Stage 5 Phase 11, script 56 (2026-08-12).
 
 **Symptom:** `mxcli syntax snippet.create` documents this as valid:
 ```
@@ -2866,7 +2866,7 @@ in general.
 reusable snippet) with no workaround at the syntax level; the tool's own syntax reference is actively
 misleading here since it shows an example that cannot execute.
 
-**Workaround used in VB-USI-main:** introduced a small non-persistent "parameter holder" entity
+**Workaround used in PROJECT-A:** introduced a small non-persistent "parameter holder" entity
 (`Common.RefIDHolder`, single `RefID: String` attribute) purely to carry a string value into a
 snippet as an entity-typed param, which does work. The embedding page must create/populate a
 `RefIDHolder` object before calling the snippet and pass that object in as the snippet param instead
@@ -2896,7 +2896,7 @@ strip quotes the same way page param resolution already does).
 
 ## BUG-68: Snippet datagrid columns/sort bars cannot reference system (`autocreateddate`) or generalized (inherited) attributes — resolves fine in a PAGE datagrid, fails under native mxbuild in a SNIPPET datagrid
 
-**Sighted:** VB-USI-main, DafNe track Stage 5 Phase 11, script 56 (2026-08-12).
+**Sighted:** PROJECT-A, main build track Stage 5 Phase 11, script 56 (2026-08-12).
 
 **Symptom:** A snippet's datagrid column or sort bar bound to either (a) a `autocreateddate` system
 attribute (e.g. `Common.Remark.CreatedDate`, added via `CREATE ENTITY ... "CreatedDate":
@@ -2926,7 +2926,7 @@ timestamp or any attribute inherited from a system generalization (very common: 
 per mxcli's own tooling and then fail real Studio Pro validation, with no warning at MDL-authoring
 time.
 
-**Workaround used in VB-USI-main:** don't reference the system/generalized attribute in the snippet
+**Workaround used in PROJECT-A:** don't reference the system/generalized attribute in the snippet
 at all. Add a plain, ordinary (non-system, non-inherited) duplicate attribute on the entity instead,
 and stamp it manually from the existing create-path microflow:
 - `Common.Remark.LoggedDate: DateTime` (plain), stamped to `[%CurrentDateTime%]` alongside `CreatedBy`
@@ -2946,7 +2946,7 @@ Studio Pro validation.
 
 ## BUG-69: `ALTER ENTITY ... DROP ATTRIBUTE "RefID";` silently no-ops — prints a success line but the attribute is never actually removed, specific to the attribute name "RefID"
 
-**Sighted:** VB-USI-main, DafNe track Stage 5 Phase 11, script 56d (2026-08-12).
+**Sighted:** PROJECT-A, main build track Stage 5 Phase 11, script 56d (2026-08-12).
 
 **Symptom:** `alter entity "Common"."RefIDHolder" drop attribute "RefID";` prints `Dropped attribute
 'RefID' from entity Common.RefIDHolder` (a normal success line, not an error), but a `DESCRIBE ENTITY`
@@ -2984,7 +2984,7 @@ related or referenced.
 modeling). Combined with BUG-66's similar "silent no-op with a success-looking message" failure mode
 on `ALTER ENTITY ADD`, this suggests `ALTER ENTITY` add/drop code paths generally under-report failure.
 
-**Workaround used in VB-USI-main:** whole-entity `DROP ENTITY` + `CREATE ... ENTITY` recreate instead
+**Workaround used in PROJECT-A:** whole-entity `DROP ENTITY` + `CREATE ... ENTITY` recreate instead
 of an attribute-level drop, once all referencing documents are confirmed dropped/absent
 (`SHOW REFERENCES TO` returning zero). Reliable pattern already established earlier in this same build
 effort for other drop+recreate scenarios (see script 56's own RE-RUN CLEANUP notes).
@@ -2995,7 +2995,7 @@ check off fully-qualified `Entity.Attribute`, not bare attribute name, and to su
 
 ## BUG-70: A widget-level `action: show_page Page(Param: value, ...)` action property unconditionally drops ALL params — not just in the `create_object ... then show_page(...)` chained form previously logged; this is a general defect in the plain, non-chained widget-action form too
 
-**Sighted:** VB-USI-main, DafNe track Stage 5 Phase 11, script 56d gate-check follow-up (2026-08-12).
+**Sighted:** PROJECT-A, main build track Stage 5 Phase 11, script 56d gate-check follow-up (2026-08-12).
 **Supersedes/broadens** the narrower framing recorded in script 56d's header comment, which believed
 only the `create_object Entity then show_page Page(Param: val)` chained form was affected. It is not:
 the defect is in the `show_page(...)` action-with-params mechanism itself, chained or not.
@@ -3051,7 +3051,7 @@ widget's `action:` at that microflow instead (`action: microflow Module.SomeActi
 navigation tiles in `mdlsource/9-nav-and-seed/41-navigation-and-home-regroup.mdl`, which pass no
 params and compile/wire correctly).
 
-**Decision applied in VB-USI-main:** `Common.SNIPPET_Remarks`'s `btnEditRemark` needs its own
+**Decision applied in PROJECT-A:** `Common.SNIPPET_Remarks`'s `btnEditRemark` needs its own
 microflow (`Common.ACT_Remark_Edit($Remark)`, mirroring the existing `ACT_Remark_New` pattern) that
 does the `show page` internally — this was not caught in script 56d because the header comment's
 working theory (downstream artifact of the `$Context` rename) was wrong; only a live gate-check
@@ -3066,7 +3066,7 @@ microflow-level `show page` statement already does correctly.
 
 ## BUG-71: `ALTER SNIPPET|PAGE ... replace "<Column>" with { column ... }` on a datagrid column silently deletes the column instead of replacing it — and once emptied, the datagrid has no anchor left for `INSERT AFTER` to recover it
 
-**Sighted:** VB-USI-main, DafNe track Stage 5 Phase 11, script 56e follow-up verification (2026-08-12).
+**Sighted:** PROJECT-A, main build track Stage 5 Phase 11, script 56e follow-up verification (2026-08-12).
 
 **Symptom:** Script 56e ran `alter snippet "Common"."SNIPPET_Remarks" { replace "Actions" with { column
 colRemarkActions (caption: 'Actions') { actionbutton btnEditRemark (...), actionbutton btnDeleteRemark
@@ -3118,7 +3118,7 @@ via any further ALTER operation (no anchor widget remains for INSERT AFTER/BEFOR
 columns are gone). Combined with BUG-69 and BUG-70, this is the third silent-success-but-actually-lossy
 `ALTER`/`DROP` code path found in this one build phase alone.
 
-**Workaround used in VB-USI-main:** abandon `ALTER SNIPPET ... replace` for datagrid column changes
+**Workaround used in PROJECT-A:** abandon `ALTER SNIPPET ... replace` for datagrid column changes
 entirely. Drop and recreate the whole snippet (`drop snippet ...; / create snippet ... { ... full
 datagrid, all columns ... };`) with the corrected column content included from the start — the same
 whole-document-recreate pattern already established for BUG-67/BUG-68 snippet fixes. Follow-up fix
@@ -3141,10 +3141,10 @@ column change must go through a full snippet/page drop+recreate.
 
 ## BUG-72: `mxcli --mcp exec` fails on ANY `CREATE MICROFLOW` statement — wrong ModelSDK property shape for the flow's return type and action nodes
 
-**Sighted:** VB-USI-main, DafNe track Stage 5 Phase 12, script 57b (2026-08-12).
+**Sighted:** PROJECT-A, main build track Stage 5 Phase 12, script 57b (2026-08-12).
 
 **Symptom:** `./mxcli --mcp http://localhost/mcp --mcp-dial localhost:<port> exec <file.mdl> -p
-VB-USI.mpr` (Studio Pro running, MCP session live, correct port confirmed via a working
+PROJECT-A.mpr` (Studio Pro running, MCP session live, correct port confirmed via a working
 `initialize` handshake) fails on every `CREATE MICROFLOW` statement tested, regardless of
 complexity or return type, with:
 
@@ -3203,7 +3203,7 @@ inline association writes must go through MCP, not plain CLI, on this pinned mxc
 at all, typed or void, simple or complex. This forces a full bypass of mxcli's MCP wrapper for any
 such microflow.
 
-**Workaround used in VB-USI-main:** abandoned mxcli's `--mcp exec` wrapper entirely for this write.
+**Workaround used in PROJECT-A:** abandoned mxcli's `--mcp exec` wrapper entirely for this write.
 Used direct, hand-rolled MCP JSON-RPC calls (`curl` against the Studio Pro MCP server's `/mcp`
 endpoint) instead, calling `ped_get_schema` (constructor schemas for `Microflows$Microflow`,
 `Microflows$MicroflowParameterObject`, `Microflows$StartEvent`/`EndEvent`, `Microflows$ActionActivity`,
@@ -3231,7 +3231,7 @@ MCP JSON-RPC calls instead of `--mcp exec` to create the affected microflow.
 
 ## BUG-73: `raise error;` in a microflow's main flow always fails mxbuild with CE0710 — a genuine flow-graph codegen defect, not an MDL authoring issue
 
-**Project:** SonnyPOC. **mxcli version:** same pinned build used for BUG-59 through BUG-72 (not
+**Project:** PROJECT-F. **mxcli version:** same pinned build used for BUG-59 through BUG-72 (not
 re-checked against a newer release before filing).
 
 **Symptom:** any microflow that uses `raise error;` anywhere in its main flow — including as the
@@ -3276,7 +3276,7 @@ correctly-implemented code path (`addErrorHandlerFlow`/`handleErrorHandlerMergeW
 already treats `RaiseErrorStmt` as terminal via `bodyTerminates`). The bug is specific to
 `raise error;` appearing directly in the main flow.
 
-**Workaround used in SonnyPOC:** stopped using `raise error;` in the main flow entirely. Added a
+**Workaround used in PROJECT-F:** stopped using `raise error;` in the main flow entirely. Added a
 tiny Java action (`create java action Module.JA_RaiseTechnicalError(Message: string not null)
 returns boolean as $$ throw new com.mendix.systemwideinterfaces.MendixRuntimeException(Message); $$;`)
 and call it as an ordinary activity where `raise error;` was wanted, followed by a normal `return`
@@ -3313,7 +3313,7 @@ on error {
 };
 ```
 
-Live model, round-tripped via `mxcli -p SonnyPOC.mpr -c "DESCRIBE MICROFLOW SharedPlumbing.SUB_StateSynchronization"`:
+Live model, round-tripped via `mxcli -p PROJECT-F.mpr -c "DESCRIBE MICROFLOW SharedPlumbing.SUB_StateSynchronization"`:
 ```
 call microflow SharedPlumbing.STUB_DO_SYNCH_PCG_STATE(SyncContext = $SyncContext
 ) on error {
@@ -3357,7 +3357,7 @@ or only under some condition (e.g. only in main-flow scope, only for void microf
 fully mapped — the one minimal repro above is enough to confirm it is not specific to this
 project's exact microflow shape, but the general boundary of the defect is unconfirmed.
 
-### Workaround used in SonnyPOC
+### Workaround used in PROJECT-F
 
 Do not rely on an `on error {}` handler's fall-through to continue past a caught fault within the
 *same* microflow when more logic follows in the main flow. Instead, extract each
@@ -3380,7 +3380,7 @@ who knows to look for the appended `return;`.
 
 ## BUG-75: a quoted attribute path used as a call-microflow argument value keeps its literal quotes in the compiled expression, causing native mxbuild CE0117 — invisible to `mxcli check`/`describe microflow`
 
-**Project:** SonnyPOC, script 02 (CheckSystemStatus). **mxcli version:** same pinned build used for
+**Project:** PROJECT-F, script 02 (CheckSystemStatus). **mxcli version:** same pinned build used for
 BUG-70 through BUG-74.
 
 **Symptom:** a call-microflow argument whose value is a quoted member-access expression —
@@ -3403,7 +3403,7 @@ call-microflow **argument value**. Two independent repros in one build unit:
 `"CallingApplication" = $Request/"CallingApplication"` (call to `GET_BR_ChekedSystemsApp`) — both
 fixed by dropping the quotes on the attribute segment: `$Item/StatusCode`, `$Request/CallingApplication`.
 
-**Workaround used in SonnyPOC:** when passing a member-access expression (`$Var/Attribute`) as a
+**Workaround used in PROJECT-F:** when passing a member-access expression (`$Var/Attribute`) as a
 call-microflow argument value, do not quote the attribute segment, even though this project's
 general convention (CLAUDE.md) is to always quote identifiers. This is a second, narrower exception
 to that convention, alongside the existing `textfilter (attributes: [...])` exception from the
@@ -3432,7 +3432,7 @@ default) has real, narrow exceptions that only a native `mx check` surfaces.
 
 ## BUG-76: `DECISION` activities in a native `WORKFLOW` are unconditionally storage-corrupted — mxcli writes the outcome label as a raw string into a field that must be a real `EnumerationValueIdentifier`, on every DECISION regardless of the underlying expression's type
 
-**Project:** VB-USI-main, Phase 15 (Approval/E800 native Workflow build), script 65
+**Project:** PROJECT-A, Phase 15 (Approval native Workflow build), script 65
 (`Approval.ApprovalWorkflow`). **mxcli version:** v0.17.0 (`2026-08-10T05:12:17Z`).
 
 **Symptom:** a `.mpr` containing one or more `DECISION` activities inside a `CREATE WORKFLOW` (or
@@ -3505,10 +3505,10 @@ open — surfaces it, and by the time it does, the corruption may already be sev
 commits deep (it was, here: scripts 65 and 66 both executed and gate-passed on top of it before
 discovery).
 
-**Workaround used in VB-USI-main:** do not use `DECISION` activities in mxcli-authored `WORKFLOW`
+**Workaround used in PROJECT-A:** do not use `DECISION` activities in mxcli-authored `WORKFLOW`
 definitions at all, for any expression type, until this is fixed upstream. Build the native
 workflow with the decision points left out entirely (a documented gap), then add the `DECISION`
-gateways manually in Studio Pro after the fact. This matches prior precedent from the TFC project's
+gateways manually in Studio Pro after the fact. This matches prior precedent from the PROJECT-E project's
 own DECISION+enum issues (see BUG-WF03 below) of avoiding mxcli-authored DECISION gateways in favor
 of a manual Studio Pro add.
 
@@ -3525,7 +3525,7 @@ be fixed alongside it.
 
 ## BUG-77: BUG-75's "create/change attribute values are safe" scope claim is wrong — quoted attribute segments (`$Var/"Attr"`) DO cause CE0117 in create/change statements too, just not consistently
 
-**Project:** VB-USI-main, script 64 (`Approval.ACT_ApprovalRun_CreateVersion`, part of the same
+**Project:** PROJECT-A, script 64 (`Approval.ACT_ApprovalRun_CreateVersion`, part of the same
 Phase 15 Approval-workflow rebuild as BUG-76). **mxcli version:** v0.17.0 (`2026-08-10T05:12:17Z`).
 
 **Symptom:** BUG-75 asserted, based on two repros in a different project, that a quoted
@@ -3574,7 +3574,7 @@ BUG-75's scope claim rather than describing a new mechanism.
 
 ## BUG-78: CE0161 on a reference-set-to-string-literal retrieve WHERE clause (`where [Assoc = 'Value']`) — fixed by comparing the association to a retrieved object instead
 
-**Project:** VB-USI-main, script 64 (`Approval.ACT_ApprovalWorkflow_TargetEngineering`, same Phase
+**Project:** PROJECT-A, script 64 (`Approval.ACT_ApprovalWorkflow_TargetEngineering`, same Phase
 15 rebuild). **mxcli version:** v0.17.0.
 
 **Symptom:** filtering `System.User` by role membership via a reference-set association compared
@@ -3607,7 +3607,7 @@ reference-set association to a scalar in a bracket-predicate retrieve, not an ID
 
 ## BUG-79: `GRANT`/`REVOKE` cannot target any `System`-module entity — no local domain-model file to write into
 
-**Project:** VB-USI-main, script 69b (`GRANT Approval.Reader ON System.WorkflowUserTask (READ *)`).
+**Project:** PROJECT-A, script 69b (`GRANT Approval.Reader ON System.WorkflowUserTask (READ *)`).
 **mxcli version:** v0.17.0.
 
 **Symptom:** any `GRANT`/`REVOKE` statement whose target entity lives in the built-in `System`
@@ -3645,7 +3645,7 @@ issues).
 
 ## BUG-80: no MDL/mxcli syntax exists to start a native Workflow *instance* from a microflow
 
-**Project:** VB-USI-main, script 68a (`Approval.ACT_ApprovalRun_Start`). **mxcli version:** v0.17.0.
+**Project:** PROJECT-A, script 68a (`Approval.ACT_ApprovalRun_Start`). **mxcli version:** v0.17.0.
 
 **Symptom:** `CREATE/ALTER/DROP WORKFLOW` only model the workflow *definition* (the canvas of
 `USER TASK`/`DECISION`/etc. activities). There is no MDL statement, and no `mxcli syntax` entry,
@@ -3684,7 +3684,7 @@ activity type before re-deriving the same manual-step workaround on another proj
 > upstream of it, in the write path. Not retested against v0.18.0 — no changelog line addresses
 > this, and reproducing it needs a project carrying the affected microflow shape.
 
-**Project:** TFC-TCXGraphPOC-main. **mxcli/mxbuild version:** confirmed on both v0.17.0's bundled
+**Project:** PROJECT-E. **mxcli/mxbuild version:** confirmed on both v0.17.0's bundled
 Studio Pro 11.13.0 Beta mxbuild AND the separately-downloaded `~/.mxcli/mxbuild/11.12.0` binary.
 
 **Symptom:** `mxbuild --target=deploy <project>.mpr` throws `Mendix.Modeler.Storage.
@@ -3699,7 +3699,7 @@ genuinely exists and is correctly referenced — this is not a real modeling def
 1. `bin/exec.sh`'s own mxbuild gate (SP 11.13.0's bundled binary) reported **0 errors, clean** for
    two scripts (`09-...`, `10-...`) executed minutes apart, each immediately followed by a commit.
 2. Minutes later, with the working tree showing **zero diff** against that same commit (`git
-   status` clean on `TFC-TCXGraphPOC.mpr`/`mprcontents/`), re-running the *identical* `mxbuild
+   status` clean on `PROJECT-E.mpr`/`mprcontents/`), re-running the *identical* `mxbuild
    --target=deploy` invocation against the on-disk tree failed **5/5 times**, always with the same
    6 attribute names.
 3. A completely fresh `git archive HEAD` extraction into an isolated `/tmp` directory — no shared
@@ -3741,7 +3741,7 @@ be escalated/filed upstream once reproduced against a minimal repro case, not ju
 
 ### BUG-81 update (2026-08-14) — root cause confirmed, bisected to a specific script
 
-**Root cause found:** bisecting TFC-TCXGraphPOC-main's git history commit-by-commit (`git archive`
+**Root cause found:** bisecting PROJECT-E's git history commit-by-commit (`git archive`
 + fresh `mxbuild --target=deploy` per commit) pinpointed the exact first-bad commit: a
 `create or modify microflow` (full-rewrite) statement against two existing, non-trivial
 microflows (`WF_ACT_GraphAgent_RiskFlag`, `WF_ACT_TCCopilot_Prefill`) that changed only a
@@ -3794,10 +3794,10 @@ the **identical** `AttributeIdentifier.FromString` corruption on `AgentRiskSumma
 — same signature as the combined script. **This rules out "touching two microflows in one exec" as
 the trigger.** The defect is in `create or modify microflow`'s full-rewrite serialization of THIS
 microflow's `change $Object (...)` activities specifically (both early-return branches use
-`change $TFCStub ("AgentRiskFlag" = ..., "AgentRiskSummary" = ...)`), independent of how many other
+`change $PLMStub ("AgentRiskFlag" = ..., "AgentRiskSummary" = ...)`), independent of how many other
 microflows are touched in the same script/exec.
 
-Reverted the uncommitted write (`git checkout HEAD -- TFC-TCXGraphPOC.mpr mprcontents`), reconfirmed
+Reverted the uncommitted write (`git checkout HEAD -- PROJECT-E.mpr mprcontents`), reconfirmed
 clean via cold-load (0 `AttributeIdentifier` errors; the only residual errors were `CE0462` missing-
 widget noise from the isolated scaffold's stale `widgets/` folder, a known artifact of this test
 method, not a real defect — see update 1).
@@ -3837,7 +3837,7 @@ to call this deterministic and closed pending a real fix, not something to keep 
 > attribute is the entity's only one the drop is a total silent no-op. The drop-and-recreate
 > workaround is therefore only safe at **entity** granularity.
 
-**Sighted:** POCTibor-BJJ-app, mobile-UI-fixes cycle, fix-65 (2026-08-18).
+**Sighted:** PROJECT-G, mobile-UI-fixes cycle, fix-65 (2026-08-18).
 
 **Symptom:** `TechniquesLibrary.TechniqueNote.NoteText` was declared `String(2000) not null error 'Note text is required'`. Attempting to remove the constraint two ways both printed a normal success line but left the constraint completely unchanged (confirmed via `DESCRIBE ENTITY` immediately after, and via `SELECT ValidationRuleCount FROM CATALOG.ENTITIES` staying at 1 throughout):
 

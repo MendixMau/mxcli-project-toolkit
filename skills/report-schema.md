@@ -650,7 +650,7 @@ the report *says*, and this file is the contract for that.
 
 ## The measured problem, again, one layer up
 
-VB-USI-main, `docs/report.json` at 1.2: **611 checks — 205 pass, 23 fail, 353 fault, 30
+PROJECT-A, `docs/report.json` at 1.2: **611 checks — 205 pass, 23 fail, 353 fault, 30
 skipped.** A human read the rendered page as "roughly 90% healthy". It is 205 of 611 — **34%
 executed and agreed, and 58% never ran at all.** Four instruments were at verdict `fault` for
 the entire run (coverage-ledger, conformance, deferrals, full-app-walkthrough). A hand

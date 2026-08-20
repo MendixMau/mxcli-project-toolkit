@@ -103,11 +103,11 @@ function mprPath() {
 // ── DERIVED: identity ────────────────────────────────────────────────────────
 // The project root's directory name is the one name that is always present, so
 // it is the default: `id` is it verbatim, `displayName` is it made
-// human-readable ("WMS-Demo" -> "WMS Demo").
+// human-readable ("acme-wms" -> "acme wms").
 //
 // NAME_OVERRIDE exists because a checkout directory is not always the app's
-// name. This one is `WMS-Demo-main` — the `-main` is a GitHub zip-download
-// suffix, not part of the project. `id` also feeds the default OTel service
+// name. A common case is a directory ending in `-main`, which is a GitHub
+// zip-download suffix, not part of the project. `id` also feeds the default OTel service
 // name, which MUST match what the runtime emits, so deriving a wrong name here
 // would make every trace assertion query a service that does not exist. Set
 // NAME_OVERRIDE to null in a project whose directory name is correct.
@@ -123,8 +123,8 @@ const DISPLAY_NAME = process.env.PROJECT_DISPLAY_NAME || ID.replace(/[-_]+/g, ' 
 // ── CONFIGURED: credentials ──────────────────────────────────────────────────
 // The demo accounts this app was seeded with. Prefer a non-admin identity so the
 // harness exercises the role grants a real user has.
-const DEFAULT_USER = 'plantops_test_user';
-const DEFAULT_PASS = 'PlantOps2025!';
+const DEFAULT_USER = 'demo_test_user';
+const DEFAULT_PASS = 'Demo2025!';
 // Last-resort identity so a credential problem degrades to a reported finding
 // instead of a zero-coverage run. Set FALLBACK_USER='' to disable.
 const DEFAULT_FALLBACK_USER = 'MxAdmin';
@@ -327,11 +327,11 @@ const PAGE_WIREFRAME = {
   'FieldScan.MobileScan_Count': 'mobile-scan.html',                        // "Mobile Field-Scan"
   'FieldScan.Receive_Scan': 'movement-scan.html',                          // "Movement Scan (Receive · Move)"
   'FieldScan.Move_Scan': 'movement-scan.html',
-  'RoutingManagement.Route_List': 'usi-route-list.html',
-  'RoutingManagement.Route_Detail': 'usi-route-detail.html',
-  'OperationManagement.Operation_List': 'usi-operation-list.html',
-  'ProcessVariant.ProcessVariant_List': 'usi-processvariant-list.html',
-  'ReworkDeviationRouting.ReworkRoute_List': 'usi-reworkroute-list.html',
+  'RoutingManagement.Route_List': 'route-list.html',
+  'RoutingManagement.Route_Detail': 'route-detail.html',
+  'OperationManagement.Operation_List': 'operation-list.html',
+  'ProcessVariant.ProcessVariant_List': 'processvariant-list.html',
+  'ReworkDeviationRouting.ReworkRoute_List': 'reworkroute-list.html',
   // Deliberately unmapped — no wireframe was ever drawn for these five. Not a
   // mapping bug, a coverage gap, and reported as a finding on each page rather
   // than silently omitted:
@@ -524,7 +524,7 @@ const WALKTHROUGH = {
 // run, or ran without writing", which reads as a broken app and sends the reader
 // to debug configuration that was never wrong. That is not hypothetical: this
 // template declared `full-app-walkthrough` for months while no such file had ever
-// existed in the toolkit, and VB-USI-main's 6-module pass reported exactly that
+// existed in the toolkit, and PROJECT-A's 6-module pass reported exactly that
 // (2026-08-20, process/improvement-plan-e2e-reporting.md Finding 5).
 const WALKTHROUGHS = [
   { instrument: 'full-app-walkthrough', input: 'findings', script: 'full-app-walkthrough.js', tags: [] },
@@ -540,7 +540,7 @@ module.exports = {
   root: ROOT,
   rootSource: ROOT_INFO.source,
   get mpr() { return mprPath(); },                       // absolute path
-  get mprName() { return path.basename(mprPath()); },    // e.g. "WMS-Demo.mpr"
+  get mprName() { return path.basename(mprPath()); },    // e.g. "YourApp.mpr"
   findMpr,
   id: ID,
   displayName: DISPLAY_NAME,

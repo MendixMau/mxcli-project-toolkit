@@ -8,7 +8,7 @@
 # skills/source-triage.md. The predictable happened, and it is measured:
 #
 #   ROUTING.md records source-triage.md reaching 1 of 6 wired projects. That one project
-#   (VB-USI-main) hand-wrote its triage.md and it DRIFTED from the skill in the exact place
+#   (PROJECT-A) hand-wrote its triage.md and it DRIFTED from the skill in the exact place
 #   the skill shouts about: it invented a third extraction option, "Direct read
 #   (recommended)", and concluded "Build no extractor" — while source-triage.md says in bold,
 #   twice, that this is "a two-way call, not three-way" and "There is no manual-only path
@@ -85,7 +85,7 @@ row. There is no third option and no manual-only path: field finding, recorded i
 `source-triage.md`'s Core Principle, is that reading source without an extractor missed
 information even on small, cleanly structured apps. A small app still gets an extractor; it just
 means the extractor is small too. Inventing a third row here — "direct read", "no extractor
-needed" — is the specific drift this scaffold exists to prevent (VB-USI, 2026).
+needed" — is the specific drift this scaffold exists to prevent (PROJECT-A, 2026).
 
 | Decision | Chosen? | Which pipeline / what has to be built |
 |---|---|---|

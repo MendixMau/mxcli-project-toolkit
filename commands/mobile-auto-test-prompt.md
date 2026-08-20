@@ -39,23 +39,44 @@ Setup (do this first, in order):
 Skill to follow: skills/existing-app-assurance.md — Track B (Regression / e2e test net).
 No intake, no stages, no gates; this is à-la-carte tool-shelf use.
 
+**Do not stop at a handful of obvious happy paths.** A prior run of this exact prompt produced
+short, shallow tests that skipped ordinary workflow actions (adding a comment, adding a note) and
+never checked UI styling/spacing at all. Both failures trace to skipped steps below — do not skip
+them again.
+
 For each module:
 1. Stand up/extend the harness per skills/e2e-harness-base.md.
-2. Walk each module's real golden paths — derive them from actual navigation and any
-   "what must never break" list, not guesses. Author/extend journeys/<Module>.journey.json
-   per skills/journey-proof.md (5 rungs: landing guard, screen text, ordered spans, data
+2. Inventory every workflow action from the model BEFORE writing any journey — not from a
+   click-around, not from memory:
+   `./mxcli -p <project>.mpr -c "SHOW PAGES IN <Module>"` and `"SHOW MICROFLOWS IN <Module>"`.
+   List every button/action on every page — New, Edit, Delete, status/workflow transitions, add
+   comment, add note, approve/reject, anything that calls a microflow. Write one journey per
+   action, not one journey per screen. Report the count: "<N> actions found, <N> journeys
+   written." Secondary actions (commenting, annotating, cancelling) are exactly what a quick pass
+   skips — they are not optional because they aren't the module's headline feature.
+3. Author/extend journeys/<Module>.journey.json per skills/journey-proof.md for every action
+   from step 2's inventory (5 rungs: landing guard, screen text, ordered spans, data
    effects, outcome — each backed by its own mutant via --positive-control, never just "did
    something fail").
-3. Add DB assertions per skills/learned-db-assertions.md — the UI can lie about whether a
+4. Add DB assertions per skills/learned-db-assertions.md — the UI can lie about whether a
    write landed, OQL/DB can't.
-4. Run project-bin/verify-module.sh <Module> for each module (it runs conformance-check,
+5. Run skills/wiring-sweep.md per module — every clickable element on every page via
+   `mxcli playwright snapshot`/`click`, not just what a journey visits. Report "<N> of <N>
+   elements swept." A dead button is invisible to step 3 by construction.
+6. Run skills/module-review.md stage 4 (LOOK) per module — styling, spacing, information
+   hierarchy, empty states, design-system reuse. Run `node tests/e2e/design-audit.js` first for
+   the mechanical dimensions (class discipline, overflow, a11y), then 4c/4d/4e by eye for
+   everything it cannot see (does it look right, is the hierarchy sane, is a built component
+   reused vs reimplemented). This is the only place "does the UI look right" gets asked — skip it
+   and styling is never actually reviewed, however green the journeys are.
+7. Run project-bin/verify-module.sh <Module> for each module (it runs conformance-check,
    graph-sweep, coverage-check, journeys, journeys-control, and monkey — read its own header
    comment for flags; --parallel-runtime is opt-in only, there's a documented Mendix
    trial-license concurrent-session risk running journeys/monkey in parallel).
-5. After every module, run project-bin/coherence-cadence.sh — when it reports DUE, run the
+8. After every module, run project-bin/coherence-cadence.sh — when it reports DUE, run the
    full skills/process-coherence-pass.md sweep before moving to the next module, then run
    coherence-cadence.sh --record.
-6. Run project-bin/build-plan-status.sh --html periodically to keep architecture/build-plan.html
+9. Run project-bin/build-plan-status.sh --html periodically to keep architecture/build-plan.html
    current — it shows built (done- prefixes) vs proven (verify-module.sh + improvement-register.md)
    as two separate views on purpose.
 

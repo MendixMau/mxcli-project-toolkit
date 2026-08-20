@@ -15,10 +15,17 @@ looking. That is how a module ships with 31/31 green checks and a broken grid on
 1. BUILD    mdl-agent drafts + validates MDL (mxcli check --references, 0 errors)
 2. GATE     bin/exec.sh (snapshot -> exec -> mxbuild -> auto-restore on failure)
             gate-agent confirms 0 mxbuild errors, lint clean
-3. PROVE    the mechanical rungs: UI (Playwright) + Data (OQL/DB) + wiring-sweep
-            (every clickable element on the page, not just what a journey visits
-            — wiring-sweep.md) + monkey pass. Deep form when an instrument is
-            green and you cannot say what would have made it red: journey-proof.md
+3. PROVE    one command runs the mechanical rungs: `project-bin/verify-module.sh <Module>`
+            — conformance-check + graph-sweep + coverage-check (model-side, parallel) +
+            journeys (UI/Playwright + Data/OQL + Trace/OTel, one ordered walk via
+            journey-runner.js) + journeys-control (positive control — proves the journey
+            could have failed) + monkey (crash net). This IS the UI (Playwright) + Data
+            (OQL/DB) + monkey rungs named above, run as one instrument, not a second pass
+            alongside them. wiring-sweep.md (every clickable element on the page, not just
+            what a journey visits) runs alongside it but by hand, deliberately outside
+            verify-module.sh — skills-over-scripts.md: the verdict on an ambiguous click
+            stays a judgement call, not a script. Deep form when an instrument is green and
+            you cannot say what would have made it red: journey-proof.md
 4. LOOK     THE INTELLIGENCE CHECK — a human-equivalent pass over every screen in
             the module. Is it logical? Does it look right? Does it match our design?
             Stages 1-3 cannot answer any of those. This is the stage that gets

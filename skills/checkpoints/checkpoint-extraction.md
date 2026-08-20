@@ -33,8 +33,15 @@ whether the thing being thrown away exists yet.
 
 ## What to Surface
 
-Build one table. It is the entire checkpoint, and it has three columns because two of them are
-already on record — the work here is the diff, not a fresh inventory.
+**If CAC-1 recorded a slice, build the table below** — it is then the entire checkpoint, and it
+has three columns because two of them are already on record: the work is the diff, not a fresh
+inventory.
+
+**If it did not** — the ordinary one-app case, where nobody narrowed anything because there was
+nothing to narrow — there is no left-hand column and a three-column table would be theatre. The
+surface is then the single sentence in Q1: name what extraction covers, say BRDs will follow for
+all of it, and move on. Do not manufacture an "intended" column so the table has something in it;
+`## Upstream / downstream` at the foot of this file already forbids inventing one retroactively.
 
 Pull **intended scope** from `PROJECT.md` → `## Decisions` → the CAC-1 slice ordering, and from
 `triage.md` → "Recommended Scope Subset".
@@ -73,10 +80,36 @@ someone chose it.
 
 ### Q1 — The extra
 
-**When to ask:** Whenever any capability appears in the extraction output that CAC-1 did not put
-in the current slice.
-**Skip if:** The delta is empty — say so explicitly in chat ("extraction matched the confirmed
-scope exactly, nothing to decide"), record it, and move on. A skipped question still gets a line.
+**Default: do not ask. State it.** The common case is one app dropped in a folder, and there the
+answer is obvious to everyone in the room. A checkpoint that asks anyway is friction, and friction
+is what gets a checkpoint routed around rather than fixed — the same reasoning
+`bin/source-sufficiency.sh`'s header gives for not refusing thin input.
+
+So the default path is one line in chat, always written, never skipped in silence:
+
+> "Extraction covers Orders, Inventory, Shipping and Users — that's the app you gave me. BRDs for
+> all of it unless you say otherwise."
+
+That costs the user nothing to read and no turn to answer, and it is what makes a wrong scope
+visible: if that list holds something they did not expect, they say so right there. **Silence does
+not do that job.** Until 2026-08-20 the skip path was "the delta is empty, move on", which in
+practice meant nothing was said at all — and a delta computes as empty both when extraction
+matched the agreed slice *and* when no slice was ever agreed, which is the case this checkpoint
+exists for. The statement is the fix; it is cheap enough to be unconditional.
+
+**When to ask a real question instead:** when the output is not plausibly one coherent app
+matching what has been discussed. Any of:
+
+- capabilities appear that nobody has mentioned in this project — the failure this checkpoint was
+  created for (*"extraction reached far past the subsystems under discussion"*)
+- the output plainly spans more than one system, not one app with several modules
+- CAC-1 recorded a slice and the output exceeds it
+- the volume is large enough that "all of it at once" is not a credible first pass, so a first
+  slice is a genuine decision rather than a formality
+
+**Do not ask on ritual.** "No scope decision is on record" is not by itself a reason to ask — for
+a single app it is the expected state and the statement above covers it. Ask when there is
+something to decide, not when a field is empty.
 
 **How to generate options:** Name the out-of-scope capabilities and their weight (entities +
 screens). Recommend narrowing unless the user's Stage 0 answer was an explicit full-scope
@@ -91,6 +124,13 @@ commitment.
 **Record as:** `PROJECT.md` → `## Decisions` → `Extraction scope:` — list what is **in** and what
 is **out**, by name. Both halves, in the Decisions table rather than as a free-text note
 elsewhere — "what is out" is the half that gets lost, and the next session reads the table.
+
+**The statement path records too, and records honestly.** When no question was asked, the row is
+still written — `Extraction scope: all of <app>, in full (Orders, Inventory, Shipping, Users);
+out: nothing` — marked `ASSUMED`, not `CONFIRMED`, unless the user actually answered. Stating a
+scope and having nobody object is not the same as being asked and choosing, and the register
+should not claim otherwise. `ASSUMED` here is earned the way `interview-protocol.md` requires:
+the user was told, in chat, in a sentence they could have objected to.
 
 If the answer is A or C, **say what happens to the excluded output**: it is not deleted, it is not
 BRD'd, and Stage 2's coverage denominator is the confirmed set — not everything on disk. A
@@ -166,10 +206,14 @@ Do not re-run extraction to make this checkpoint look like it happened on time.
 
 ## Upstream / downstream
 
-**Upstream:** `checkpoint-scope.md` (CAC-1) — this checkpoint reads the decision that one wrote,
-and is meaningless without it. If `PROJECT.md` has no CAC-1 slice decision, the honest report is
-"scope was never confirmed, so there is nothing to diff against" — go back and run CAC-1, do not
-invent an intended scope retroactively so this table has a left-hand column.
+**Upstream:** `checkpoint-scope.md` (CAC-1) — when that one recorded a slice, this checkpoint
+diffs against it. When it did not, this checkpoint is not void: it falls back to Q1's statement
+path, which is the right answer for the ordinary one-app project and needs no left-hand column.
+Never invent an intended scope retroactively so the table has one.
+
+Send the user back to CAC-1 only when the statement cannot honestly be made — the output spans
+things nobody has mentioned, or more than one system. Then the missing scope conversation is the
+actual problem and it is cheaper to have it now than to BRD around it.
 
 **Downstream:** `checkpoint-brd.md` (CAC-2) — capability grouping, over the set this checkpoint
 confirmed.

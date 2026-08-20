@@ -1,14 +1,35 @@
 # CAC-1 — Scope Checkpoint
 
-**Fires after:** Phase 1 Source Triage
-**Feeds into:** Phase 2 Extraction + Phase 3 BRD Scaffolding
+**Fires at the close of:** Stage 0 — Triage & Scope (migration: after Phase 1 Source Triage)
+**Feeds into:** Stage 1 Analysis, and CAC-1b's scope-out diff
 **Template:** See `checkpoint-template.md` for format rules.
+
+---
+
+## This checkpoint runs in EVERY entry mode
+
+It is the one part of Stage 0 that no mode may skip, and until 2026-08-20 it was reachable only
+from `migration-pipeline.md` — so requirements-driven and greenfield projects never ran it, and
+went into extraction with no agreed scope at all. Extraction then covered whatever the corpus
+happened to contain.
+
+What varies is only where the capability map comes from:
+
+| Mode | Build the map from |
+|---|---|
+| Migration | `triage.md`'s Business Capability Map, from the codebase. |
+| Requirements-driven | The same table in `triage.md`, built from the document corpus and any DB schema — `document-discovery.md` and `bin/source-sufficiency.sh`'s pass-1 inventory feed it. A spec pack has capabilities exactly like a codebase does. |
+| Greenfield | There is no corpus. Run the brainstorm anyway, off the user's own description, and record the result — it is the only scope statement the project will have. |
+
+**Do not skip the brainstorm because the map was easy to build.** A short capability list makes
+the conversation faster, not unnecessary.
 
 ---
 
 ## What to Surface
 
-Pull from `source-triage.md` output:
+Pull from `source-triage.md` output (or, in a non-migration mode, `triage.md`'s capability map
+and the sufficiency report's pass-1 inventory):
 - Total modules/files classified
 - Business vs framework breakdown (count)
 - Capabilities identified and coverage status (extractable / manual / skip)

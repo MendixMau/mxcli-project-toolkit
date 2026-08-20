@@ -122,8 +122,16 @@ echo "== T5: no register at all — the drift gate must not report PASS by absen
 # a green "no unsynced markers" — a positive finding manufactured from nothing.
 P="$WORK/t5"; mkdir -p "$P"
 D="$(driftline "$P")"
-case "$D" in *FAIL*) ok "absent register reports FAIL, not a manufactured PASS" ;;
-             *) bad "inert by absence — reported: $D" ;; esac
+# Asserts the INTENT in the header above — "must not report PASS by absence" — not the specific
+# non-PASS verdict. The verdict changed from FAIL to MANUAL on 2026-08-20: FAIL here also BLOCKED
+# every `--stage N` query, so a project with no PROJECT.md could not ask about Stage P, whose job
+# is to create the PROJECT.md being demanded. MANUAL keeps it visibly not-a-pass without holding
+# the door shut against the key. Both still catch the original bug, which was a manufactured green.
+case "$D" in
+  *PASS*) bad "inert by absence — a missing register manufactured a PASS: $D" ;;
+  *FAIL*|*MANUAL*) ok "absent register reports non-PASS (${D#*: }), not a manufactured PASS" ;;
+  *) bad "no drift verdict at all for an absent register: $D" ;;
+esac
 
 echo "== T6: Stage 0 resolves the live triage.md, and refuses two differing ones =="
 # Pre-fix, check_stage_0 read \$PROJECT_DIR/triage.md only: it graded the root template

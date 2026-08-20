@@ -385,7 +385,7 @@ mxcli-project-toolkit/
   agents/                       ← the five agent stub templates (ba/architect/mdl/gate/test)
   skills/
     conversion-runbook.md       ← [any project] The spine: stage matrix + interview protocol + entry modes + gates
-    checkpoints/                ← CAC checkpoint scripts (scope/BRD/architecture/design/build/cutover)
+    checkpoints/                ← CAC checkpoint scripts (scope/extraction-scope/BRD/architecture/design/build/cutover)
     query-the-model.md          ← [any project] Query-before-ask source-of-truth ordering
     interview-protocol.md       ← [any project] How a question is put to the user: chat not files, options + recommendation, batch per gate, record the answer
     existing-app-assurance.md   ← [any project] Audit / regression-test an existing app — no pipeline

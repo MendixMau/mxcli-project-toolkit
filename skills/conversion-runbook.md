@@ -96,8 +96,39 @@ The stages are the same for everyone; what differs is where you enter and which 
 | You're starting from… | Mode | Stages that run | What changes |
 |---|---|---|---|
 | **Legacy source code** (± docs, ± SME) | **Migration** | P, 0–7 (all) | The default everything below describes. Path A (code extractors) always runs. |
-| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 1–6 (skip 0 and 7) | Stage 0's reuse-vs-build extractor call is meaningless with no source — replace it with `document-discovery.md` over the requirements corpus (still a `✋` gate: the user signs off on the document inventory and what's missing). Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
-| **Just an idea / a running start on the model** | **Greenfield** | P (light), 5–6 | Stages 0–4 collapse to whatever plan the user already has. If you find yourself inventing requirements mid-build, you're actually in requirements-driven mode — back up to Stage 2. |
+| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs, and its *extraction* rows are marked N/A — see "Stage 0 runs in every entry mode" below. Use `document-discovery.md` over the requirements corpus for the inventory. Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
+| **Just an idea / a running start on the model** | **Greenfield** | P (light), 0 (scope only), 5–6 | Stages 1–4 collapse to whatever plan the user already has. Stage 0 does **not** collapse: with no corpus there is nothing to grade, but the scope conversation is exactly as load-bearing as it is anywhere else, so Stage 0 reduces to CAC-1's brainstorm and its sign-off. If you find yourself inventing requirements mid-build, you're actually in requirements-driven mode — back up to Stage 2. |
+
+### Stage 0 runs in every entry mode
+
+**Stage 0 is the scope stage. It is not the extractor stage.** Reuse-vs-build-new is one question
+*inside* it, and it is the only part that needs a codebase.
+
+This distinction was implicit until 2026-08-20, when a customer round made the cost of leaving it
+implicit measurable. A project whose source was markdown files plus database tables was classified
+requirements-driven — reasonably, given the rules above. The mode's row then said "skip 0", so
+Stage 0 was skipped **whole**: no source characterisation, no `analysis/` folder, no triage
+artifact, and — the expensive one — **no scope conversation**, because CAC-1 fires after Stage 0
+and Stage 0 never ran. Extraction was then run anyway and pulled in far more than the subsystems
+under discussion, which nothing downstream was positioned to notice: Stage 2's gate checks that
+BRDs are *validation-clean*, and a hundred clean BRDs describing things nobody asked for pass it.
+
+So: **no entry mode may skip Stage 0, because no entry mode may skip the scope conversation.**
+What varies is how much of the stage is applicable, and inapplicability is *recorded*, never
+inferred:
+
+| Stage 0 component | Migration | Requirements-driven | Greenfield |
+|---|---|---|---|
+| Source inventory + sufficiency grade (`bin/source-sufficiency.sh`) | runs | runs — over the requirements corpus | N/A (no corpus) |
+| Reuse-vs-build-new extraction call (`source-triage.md`) | runs | **N/A** — record the reason, don't delete `triage.md` | **N/A** — record the reason |
+| Business capability map + coverage matrix | runs | capability map runs; coverage matrix N/A | N/A |
+| **Scope brainstorm + slice ordering (CAC-1)** | **runs** | **runs** | **runs** |
+| Sign-off (`## Sign-off` in `triage.md`) | required | required | required |
+
+**N/A is an answer and it is written down.** Mark the row `N/A` in `triage.md` with the reason,
+and sign the file off. Do not delete `triage.md` to express "this doesn't apply" — `gate-check.sh`
+then reports *"triage.md not found"*, which reads as an unanswered gate rather than a settled one,
+and the difference between those two is the whole point of having a gate.
 
 **No pipeline at all — à-la-carte tool use.** An existing Mendix app that just needs an audit, lint pass, or a regression/e2e test net doesn't enter this pipeline: no intake, no stages, no gates. Route straight to `existing-app-assurance.md` (which points at `query-the-model.md`, `e2e-harness-base.md`, `learned-db-assertions.md`, and the bundled lint/graph/quality skills). The pipeline is for *producing* an app; the tool shelf is for everything else.
 
@@ -219,6 +250,25 @@ Eight stages (plus Stage P kickoff). For each: what the user co-defines, what th
 
 **"Let's ideate" means stop producing.** If the user asks to ideate, discuss, or explore a direction (branding, design, scope — anything), that is a request for a brainstorm conversation *now*: no artifact generation, no background agents, until the conversation converges and the user says to proceed. Producing the artifact first and offering to "review the direction together" afterwards inverts the protocol. (Same incident: the user answered a layout question with "let's ideate further on the actual design" — and the design system was generated anyway.)
 
+**Every stage transition has a packaged checkpoint. Here is where they attach.** The `skills/checkpoints/`
+CAC files run the §1 interview protocol at the busiest transitions; they write to `PROJECT.md`,
+never to a separate state file. Until 2026-08-20 this runbook — the file every session is required
+to read — **named none of them**, and they were reachable only from `skills/migration-pipeline.md`.
+A requirements-driven session never loads that skill, so it never fired a single checkpoint, and
+CAC-1's scope brainstorm silently did not exist outside migration mode. Checkpoints are wired to
+*stages* here, not to pipeline phases, precisely so that a project running no pipeline still gets
+them.
+
+| Fires at the close of | Checkpoint | The question it exists to force |
+|---|---|---|
+| Stage 0 | `checkpoint-scope.md` (CAC-1) | Scope **in** — full scope or a slice, and in what order? Opens with a brainstorm, not options. |
+| Stage 1 | `checkpoint-extraction.md` (CAC-1b) | Scope **out** — is what extraction produced what you meant? |
+| Stage 2 (scaffold) | `checkpoint-brd.md` (CAC-2) | Capability grouping and enrichment order. |
+| Stage 2 (validated) | `checkpoint-architecture.md` (CAC-3) | Hidden business rules before architecture locks. |
+| Stage 3 | `checkpoint-design.md` (CAC-4) | Branding and UI direction. Opens with a brainstorm. |
+| Stage 4 | `checkpoint-build.md` (CAC-5) | Build order and slice boundaries. Opens with a brainstorm. |
+| Stage 6 | `checkpoint-cutover.md` (CAC-6) | Cutover readiness. `✋`, `CONFIRMED` only. |
+
 **These rows are routing, not specs.** Before producing any stage artifact, open the stage's owning skill file and follow *its* output list end-to-end — the summary here (and in the README / `toolkit-guide.html`) names the highlights, not the full deliverable. (Real incident, 2026-07-14: a Stage-3 run worked from the summary, produced a design system, and skipped the one-wireframe-per-screen requirement that only `design-artifacts.md` spells out — half the deliverable, and the half the build loop depends on.)
 
 ### Stage P — Kickoff
@@ -231,7 +281,11 @@ Eight stages (plus Stage P kickoff). For each: what the user co-defines, what th
 | **Gate** | Every intake question has an answer or an explicit "Unverified — how to verify". No blanks. |
 | **Owner** | `ba-agent` |
 
-### Stage 0 — Triage ✋
+### Stage 0 — Triage & Scope ✋
+
+**Runs in every entry mode** — see "Stage 0 runs in every entry mode" under Entry Modes for which
+components are N/A where. **Closes with CAC-1** (`skills/checkpoints/checkpoint-scope.md`): the
+scope brainstorm is the part no mode may skip.
 
 **First, characterise the source, then grade it. `bin/source-sufficiency.sh init <root>` → fill the
 `inventory` → fill every dimension → `report`.** Nothing else in this toolkit reads a source;
@@ -280,14 +334,30 @@ that exists, and a pipeline that answers "come back with better requirements" ge
 rather than fixed. The report exits 0 at 0%. The only real failure is thin input whose output is
 later presented as a faithful conversion.
 
-**If the source is a document rather than a codebase, `source-triage.md` does not apply** — it is
-migration-scoped and gates on standing up an extractor, and there is nothing to extract from a PDF
-of epics. Run the sufficiency report, take the shape-changing gaps to the gate, and skip to Stage 1
-with the extraction rows marked N/A rather than unanswered.
+**If the corpus is genuinely prose only, `source-triage.md`'s extraction rows do not apply** —
+there is nothing to extract from a PDF of epics. Run the sufficiency report, take the
+shape-changing gaps to the gate, and mark the extraction rows N/A rather than unanswered.
+
+**Decide that on evidence, and decide it per artifact — not off the entry-mode label.** Open the
+folder first. A schema, a table dump, an ORM model, an OpenAPI contract or entity/field tables
+inside a spec are extractable structure, and each earns a Coverage Matrix row and the two-way
+reuse-or-build call exactly as a codebase would. A mode-shaped `N/A` is precisely how the misroute
+in the next paragraph happens: the corpus reads like requirements, the whole of it goes down Path
+B, and the entities that were sitting in the schema are re-typed out of prose three stages later.
+
+**"Does not apply" stops at the extraction rows. It never reaches the scope brainstorm.** Read
+that sentence as licence to move on to Stage 1 and you have skipped the one thing Stage 0 exists
+for. Finish the stage: run CAC-1, get the slice ordering, sign `triage.md` off.
+
+**A source that is documents plus a database is not a documents-only source.** A schema, a table
+dump, or an ORM model file is extractable structure and grades as such — the presence of markdown
+alongside it does not downgrade it. This is the shape that misroutes most often in presales
+(2026-08-20): the corpus *reads* like requirements, so it gets treated as prose, and the entities
+that were sitting right there in the schema get re-derived by hand later.
 
 | | |
 |---|---|
-| **User defines** | Reuse-vs-build-new extraction pipeline (agent proposes with a coverage matrix — two-way call, not three-way; see `source-triage.md`). Policy per missing dependency: acquire / stub / declare-not-implemented. Slice ordering if the source is too big for one pass — **a slice is an ordering, not an exclusion**. |
+| **User defines** | Reuse-vs-build-new extraction pipeline (agent proposes with a coverage matrix — two-way call, not three-way, made per extractable structure found in the source and never off the entry-mode label; see `source-triage.md`). Policy per missing dependency: acquire / stub / declare-not-implemented. Slice ordering if the source is too big for one pass — **a slice is an ordering, not an exclusion**. |
 | **Agent produces** | `assessment.md` (inventory, 6 areas, risks), `triage.md` (pipeline decision, capability + coverage matrix, boundary handling, multi-app flag) — **scaffolded by `bin/init-project.sh`**, so it is filled in rather than composed from memory. If "build new": the new extractor, validated against hand-built ground truth. |
 | **Surface** | `source-sufficiency.html` (`bin/source-sufficiency.sh report`), `triage.html` (`bin/triage-report.sh <project>`) |
 | **Gate ✋** | User signs off on the extraction-pipeline decision, every missing-dependency policy, the interview mode the sufficiency report recommends, and each shape-changing gap. No BRDs are written before this. |
@@ -297,12 +367,36 @@ with the extraction rows marked N/A rather than unanswered.
 
 Three extraction methods, not two. Each is either **done** or **explicitly declared unavailable by a named person** — never silently skipped.
 
+**Closes with CAC-1b** (`skills/checkpoints/checkpoint-extraction.md`) — the scope-out
+confirmation. It is a checkpoint you run, not a gate that stops you, and the reason is worth
+keeping in front of you.
+
+Stage 0 confirms scope *in*: what we intend to cover. It cannot confirm scope *out*, because
+nobody knows what extraction will actually produce until it has produced it. On the customer round
+that prompted this, extraction ran across the whole corpus rather than the subsystems under
+discussion, and the over-reach was invisible until modules were being built — every downstream
+gate measured *quality*, and the output was perfectly good BRDs about the wrong things. A
+validation-clean BRD for a subsystem nobody asked for is a clean pass at every remaining gate in
+this runbook.
+
+So before any BRD is written: put the extraction result next to the Stage 0 scope decision, name
+the delta, and get a decision on it. Do it before the BRDs rather than after — writing them first
+makes narrowing feel expensive, which is exactly when people stop narrowing.
+
+**Nothing enforces this and nothing should.** A script can only check that a `CONFIRMED` row
+exists in `PROJECT.md`, and an agent can type that row without asking anyone — so the check
+cannot tell the conversation from the string, which is the only thing worth telling apart. (A
+blocking version of this gate existed for part of 2026-08-20 and was removed the same day; see
+`skills/skills-over-scripts.md`.) If the checkpoint gets skipped, run it late against the BRD set
+you already have — with the extraction report in hand you can see what actually came out, which
+is better input than the triage map ever was.
+
 | | |
 |---|---|
-| **User defines** | Do documents exist that aren't in the folder (specs, manuals, field-label sheets, screenshots)? DB schema? Sample data? Who has them? SME access for what neither code nor docs answer. |
-| **Agent produces** | **Path A — code → AST extractors** (always runs). **Path B — documents → LLM extraction** (`kb-generation.md`). **Path C — SME interview** (closes `openQuestions` that neither code nor docs answer). |
+| **User defines** | Do documents exist that aren't in the folder (specs, manuals, field-label sheets, screenshots)? DB schema? Sample data? Who has them? SME access for what neither code nor docs answer. **Then, at CAC-1b: does the extraction output match the intended scope — accept, narrow, or re-extract.** |
+| **Agent produces** | **Path A — code → AST extractors** (always runs *in migration mode*; N/A with attribution otherwise). **Path B — documents → LLM extraction** (`kb-generation.md`). **Path C — SME interview** (closes `openQuestions` that neither code nor docs answer). Plus the scope delta table CAC-1b puts to the user. |
 | **Surface** | `extraction-report.html` |
-| **Gate** | 4 extraction quality checks pass with evidence. Paths B and C are done or declared-unavailable, with attribution (who declared it, when). |
+| **Gate** | 4 extraction quality checks pass with evidence. Paths B and C are done or declared-unavailable, with attribution (who declared it, when). Advisory — `bin/gate-check.sh <project> 1` reports and exits 0. Record CAC-1b's outcome as a Stage-1 `Extraction scope:` decision naming what is in and what is out, so the next session isn't guessing. |
 | **Owner** | `ba-agent` |
 
 ### Stage 2 — Requirements

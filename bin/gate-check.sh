@@ -206,7 +206,15 @@ REG_MATCHES=""
 REG_COUNT=0
 REG_FIRST=""
 REG_DIFFER=0
-for candidate in "$PROJECT_DIR/PROJECT.md" "$PROJECT_DIR"/analysis/*/PROJECT.md; do
+# PROJECT-*.md siblings are candidates too (bug65). A project running two tracks against one
+# directory keeps a second register next to the first — PROJECT.md + PROJECT-DAFNE.md. Without
+# this term the sibling was never a CANDIDATE, so REG_COUNT stayed 1, REG_DIFFER stayed 0, the
+# ambiguity path below never fired, and the run graded the primary track in silence. That is
+# the failure this whole block exists to prevent, arriving through the one door left open.
+# Adding the term needs no new mechanism: the sibling now differs from PROJECT.md, trips
+# REG_DIFFER=1, and lands in the existing refusal-to-guess path, which blocks nothing and
+# names both candidates and both remedies. $GATE_REGISTER still overrides, as before.
+for candidate in "$PROJECT_DIR/PROJECT.md" "$PROJECT_DIR"/PROJECT-*.md "$PROJECT_DIR"/analysis/*/PROJECT.md; do
   [ -f "$candidate" ] || continue
   REG_MATCHES="${REG_MATCHES}  $candidate"$'\n'
   REG_COUNT=$((REG_COUNT + 1))
@@ -401,9 +409,9 @@ check_stage_0() {
       print v; exit
     }' "$f")
   if [ -z "$signer" ]; then
-    echo "FAIL|no non-empty 'Confirmed by:' line inside the '## Sign-off' section of $f"
+    echo "FAIL|no non-empty 'Confirmed by:' line inside the '## Sign-off' section of $f — anything the user actually said is enough (\"confirmed in chat\", \"agreed, move on\"); it only has to not be the shipped placeholder"
   elif printf '%s' "$signer" | grep -q '\['; then
-    echo "FAIL|'Confirmed by:' still holds template placeholders: \"$signer\" — replace [user]/[date] with a literal name and date ($f, ## Sign-off)"
+    echo "FAIL|'Confirmed by:' still holds the shipped placeholder: \"$signer\" — replace it with whatever the user actually said (\"confirmed in chat 2026-08-20\" is fine; a full name is not required) ($f, ## Sign-off)"
   else
     echo "PASS|triage.md signed off by \"$signer\" [$f]"
   fi
@@ -411,7 +419,11 @@ check_stage_0() {
 
 check_stage_1() {
   if [ -z "$KB_DIR" ]; then
-    echo "FAIL|no knowledge-base directory found"
+    # An entry-mode-blind message here sent a real requirements-driven session looking for an
+    # extractor it was never going to run (2026-08-20). "No knowledge-base directory" is true in
+    # every mode; what to DO about it is not, and the KB for a document corpus is built by a
+    # skill, not a pipeline. Name both routes rather than assuming the migration one.
+    echo "FAIL|no knowledge-base directory found — migration: run the extraction pipeline; requirements-driven: build the KB from the document corpus per skills/kb-generation.md (Path B). Either way it lands at analysis/<source>/knowledge-base/"
     return
   fi
   local report="$KB_DIR/extraction-report.html"
@@ -424,6 +436,31 @@ check_stage_1() {
     echo "FAIL|share/KB.md exists but is empty"
     return
   fi
+
+  # --- Scope-out (CAC-1b) is a SKILL, not a check here. Deliberate; read before re-adding. -----
+  #
+  # A blocking scope gate lived here for part of 2026-08-20 and was removed the same day. What it
+  # tested was whether a `CONFIRMED` row existed in the register — i.e. whether a string was
+  # present in a markdown file. An agent can write that string without asking anyone, so the gate
+  # could not distinguish "the scope conversation happened" from "the row got typed", which is the
+  # only thing it was there to distinguish. skills/skills-over-scripts.md, row 4 of its test table:
+  # "check that X is filled in" → write the sentence, stop.
+  #
+  # The real defect the gate was reaching for is real: extraction on a customer round reached far
+  # past the subsystems under discussion, and no later gate notices, because every later gate
+  # measures whether the extraction is GOOD, never whether it is the RIGHT one. Validation-clean
+  # BRDs for capabilities nobody asked for pass Stage 2, pass coverage-check, and surface during
+  # the build.
+  #
+  # That is fixed upstream of here, by wiring: CAC-1 and CAC-1b are now named in
+  # conversion-runbook.md's stage matrix, so a session running any entry mode loads them. Before
+  # 2026-08-20 CAC-1 was reachable only from migration-pipeline.md, so requirements-driven and
+  # greenfield sessions fired no checkpoint at all and went into extraction with no agreed scope.
+  # The wiring is what fixes it; the exit code added nothing on top.
+  #
+  # Recovery when the conversation was skipped anyway is also a skill, not a gate:
+  # skills/checkpoints/checkpoint-extraction.md holds it late, with the extraction report as its
+  # input instead of the triage map — better input, since you can see what actually came out.
   echo "PASS|extraction-report.html present and non-empty$( [ -f "$kb_md" ] && echo ", KB.md present and non-empty")"
 }
 
@@ -483,6 +520,65 @@ check_stage_2() {
 # When two differing registers exist, REGISTER is deliberately empty and this cannot answer.
 # Callers must ask reg_unavailable() FIRST and report MANUAL — "no CONFIRMED decision found" would
 # be a false negative dressed as a verdict, which is the failure this whole wave is about.
+# --- Artifact search, without crawling the whole Mendix project ----------------------------
+#
+# WHY THIS EXISTS (2026-08-20). Four checks searched for toolkit artifacts with a bare
+# `find "$PROJECT_DIR" …  -print -quit`. `-print -quit` bails on the FIRST MATCH — so the cost
+# was invisible while developing against a project that had the artifact, and unbounded on one
+# that did not. Find only knows there is no match once it has walked every last inode.
+#
+# The projects that do not have the artifact are, precisely, the ones early in the pipeline. So
+# a Stage 0/1 project paid a full recursive crawl of a Mendix app root — deployment/,
+# mprcontents/, theme-cache/, javasource/, userlib/, .git/, and sources/, which holds the
+# client's entire legacy codebase because that is what sources/ is for. Reported as
+# "gate-check was hanging" from a Windows customer round; under Git Bash, where each stat
+# crosses a translation layer, "slow" and "hung" are the same observation.
+#
+# Toolkit artifacts live in a handful of shallow, known places. None of them is ever inside a
+# Mendix build directory or the source drop, so pruning costs no coverage. Deliberately NOT
+# pruned: `modules` and `resources`, because `*/architecture/modules/*-brief.md` is a real
+# search path and a name-prune cannot tell that dir from the Mendix one.
+MXTK_PRUNE_DIRS='.git .svn .hg node_modules deployment mprcontents theme-cache themesource
+                 javasource javascriptsource mlsource userlib widgets theme .mendix-cache
+                 .mendix .vscode sources'
+
+# find_artifact <find-expression...> — same semantics as `find "$PROJECT_DIR" <expr> -print -quit`,
+# minus the dead weight. Prints the first match, or nothing.
+find_artifact() {
+  local prune=() d first=1
+  for d in $MXTK_PRUNE_DIRS; do
+    if [ "$first" = 1 ]; then prune+=( -name "$d" ); first=0
+    else prune+=( -o -name "$d" ); fi
+  done
+  find "$PROJECT_DIR" \( "${prune[@]}" \) -prune -o \( "$@" \) -print -quit 2>/dev/null
+}
+
+# advise <key> <message> — print an advisory the FIRST time this project sees it, then never again.
+#
+# For things worth saying once and not worth repeating: Stage 0/1 incompleteness, which is
+# ordinary on a young project and stops being news immediately. A warning printed on every run
+# is indistinguishable from noise by the third run, and the whole point of demoting these from
+# blocking gates was to stop the tool nagging people who have decided to move on.
+#
+# State lives in .claude/, alongside the existing .guide-shown sentinel and gitignored for the
+# same reason. Writing it is the one exception to "a stage query must not dirty the working
+# tree": the alternative is not remembering, and not remembering is the nagging.
+#
+# Keys are per-advisory, so signing triage.md later does not resurrect an unrelated advisory,
+# and clearing the file (or deleting .claude/.gate-advisories) makes them all show once more.
+advise() {
+  local key="$1" msg="$2" state="$PROJECT_DIR/.claude/.gate-advisories"
+  if [ -f "$state" ] && grep -qxF "$key" "$state" 2>/dev/null; then
+    return 0
+  fi
+  echo "" >&2
+  echo "⚠ $msg" >&2
+  echo "  Advisory only — Stages 0 and 1 do not block. Shown once; re-run with an empty" >&2
+  echo "  $state to see it again." >&2
+  mkdir -p "$PROJECT_DIR/.claude" 2>/dev/null || return 0
+  printf '%s\n' "$key" >> "$state" 2>/dev/null || true
+}
+
 reg_unavailable() {
   [ "$REG_AMBIGUOUS" = "1" ] && return 0
   return 1
@@ -576,7 +672,7 @@ check_stage_6() {
     [ -s "$f" ] && test_ok=1
   done
   # module-review.md report — any non-empty dated report under a ui-reviews/ dir
-  if [ -n "$(find "$PROJECT_DIR" -path '*/ui-reviews/ui-review-*.html' -size +0c -print -quit 2>/dev/null)" ]; then
+  if [ -n "$(find_artifact -path '*/ui-reviews/ui-review-*.html' -size +0c)" ]; then
     review_ok=1
   fi
   if [ -z "$test_ok" ]; then
@@ -706,7 +802,7 @@ check_build_ready() {
   fi
 
   # 4. At least one module brief exists (JIT — the first module's brief must be ready)
-  if find "$PROJECT_DIR" -path '*/architecture/modules/*-brief.md' -print -quit 2>/dev/null | grep -q .; then
+  if find_artifact -path '*/architecture/modules/*-brief.md' | grep -q .; then
     echo "  ✓ at least one module brief exists (architecture/modules/)"
   else
     echo "  ✗ no module brief (architecture/modules/<Module>/module-brief.md) — ba-agent translation mode (module-brief.md)"
@@ -714,13 +810,13 @@ check_build_ready() {
   fi
 
   # 5. Design assets: wireframes + a design system file
-  if find "$PROJECT_DIR" -path '*/wireframes/*.html' -print -quit 2>/dev/null | grep -q .; then
+  if find_artifact -path '*/wireframes/*.html' | grep -q .; then
     echo "  ✓ wireframes present"
   else
     echo "  ✗ no wireframes (design/wireframes/*.html) — design-artifacts.md"
     fails=$((fails+1))
   fi
-  if find "$PROJECT_DIR" \( -name 'ds.css' -o -name 'design-system.html' \) -print -quit 2>/dev/null | grep -q .; then
+  if find_artifact \( -name 'ds.css' -o -name 'design-system.html' \) | grep -q .; then
     echo "  ✓ design system present (ds.css / design-system.html)"
   else
     echo "  ✗ no design system (ds.css or design-system.html) — design-artifacts.md"
@@ -1279,8 +1375,18 @@ if [ "$REG_AMBIGUOUS" = "1" ]; then
   DRIFT_STATUS="MANUAL"
   DRIFT_NOTE="cannot evaluate: $REG_COUNT differing decision registers exist and none is named — see the ⚠ notice above"
 elif [ -z "$REGISTER" ] || [ ! -f "$REGISTER" ]; then
-  DRIFT_STATUS="FAIL"
-  DRIFT_NOTE="no decision register (PROJECT.md) found under $PROJECT_DIR — the BRD drift-sync gate has nothing to read, which is not the same as nothing to report"
+  # WAS FAIL until 2026-08-20, and FAIL here BLOCKS every `--stage N` query (see the "Gate
+  # BLOCKED by unsynced BRD drift" bail-out below). So a project with no PROJECT.md could not ask
+  # about any stage at all — including Stage P, whose entire job is to produce the PROJECT.md
+  # being demanded. The gate held the door shut against the key.
+  #
+  # The branch immediately above states the rule this violated: "'cannot evaluate' is not 'FAIL':
+  # a FAIL here would block every gate over a condition that is one wiring row away." A missing
+  # register is exactly that, and the justification for treating it differently — "no real project
+  # on this machine lacks a register" — described the author's machine, not a customer's first
+  # hour. Reported from a customer round where several people never got a project scaffolded.
+  DRIFT_STATUS="MANUAL"
+  DRIFT_NOTE="no decision register (PROJECT.md) found under $PROJECT_DIR — nothing to read, which is not the same as nothing to report. Scaffold one with bin/init-project.sh $PROJECT_DIR"
 else
   DRIFT_STATUS="PASS"
   DRIFT_NOTE="no unsynced BRD-drift markers in $REGISTER"
@@ -1412,7 +1518,19 @@ printf "Source sufficiency (assessed?): %s — %s\n" "$SUFF_STATUS" "$SUFF_NOTE"
 ROUTING_STATUS="PASS"
 ROUTING_NOTE="rendered surfaces match bin/lib/skill-routing.tsv"
 RR_SCRIPT="$TOOLKIT_DIR/bin/render-routing.sh"
-if [ ! -x "$RR_SCRIPT" ]; then
+# Only meaningful when gate-check is run against the TOOLKIT ITSELF. It re-renders every routing
+# surface in this repo and diffs them against bin/lib/skill-routing.tsv — an authoring check, and
+# a 15-second one (measured 2026-08-20, ~70% of a whole gate-check run).
+#
+# On a customer's project it was 15 seconds spent auditing a repo they did not write, to report
+# drift they cannot fix and should never have been shown. Skip it there and say why, so the row
+# still appears and nobody concludes the check was quietly dropped.
+if [ "$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P)" != "$(cd "$TOOLKIT_DIR" 2>/dev/null && pwd -P)" ]; then
+  # "SKIPPED", not "N/A": these statuses are interpolated straight into a CSS class name in the
+  # dashboard, and `.N/A` is not one.
+  ROUTING_STATUS="SKIPPED"
+  ROUTING_NOTE="toolkit-authoring check — only runs when gate-check targets the toolkit repo itself"
+elif [ ! -x "$RR_SCRIPT" ]; then
   ROUTING_STATUS="MANUAL"
   ROUTING_NOTE="bin/render-routing.sh not found or not executable at $RR_SCRIPT — cannot evaluate, which is not a pass"
 else
@@ -1433,6 +1551,30 @@ P_STATUS="${P_RESULT%%|*}"
 P_NOTE="${P_RESULT#*|}"
 printf "Stage P (Kickoff): %s%s — %s\n" "$P_STATUS" "$(stage_surface_suffix P)" "$P_NOTE"
 
+# NOT-STARTED IS NOT FAILED — a real problem, and the obvious fix is WRONG. Read before retrying.
+#
+# The problem is genuine: a freshly scaffolded project prints twelve consecutive red FAILs,
+# because every stage checker asks "is your artifact here?" and on day one nothing is. Twelve
+# FAILs is unreadable, so the one actionable line is buried in eleven that are not, and readers
+# correctly learn the output does not reward reading. Raised after a customer round on
+# 2026-08-20: "we need to be careful our gates are not too hard — they create more damage
+# than good."
+#
+# THE ATTEMPTED FIX, AND WHY IT WAS REVERTED THE SAME DAY. Treat the first non-PASS stage as the
+# frontier; relabel every later FAIL as PENDING "not started". It reads beautifully on a bare
+# project and it lies on a real one. `tests/wave2/test-bug03-gates.sh` caught it immediately: a
+# Stage 2 validation report reading *"NOT clean, 14 findings outstanding"* was reported as "not
+# started", because Stage P happened to be incomplete too. Stage order is not artifact order —
+# people scaffold BRDs before finishing intake all the time — so "downstream of the frontier"
+# does not imply "has no artifacts", and the softening cannot tell a stage with nothing in it
+# from a stage with something broken in it.
+#
+# WHAT A CORRECT FIX NEEDS: the discrimination has to come from the checkers, not from position
+# in the list. Each check_stage_N already knows whether it bailed on "artifact absent" or on
+# "artifact present and wrong" — it just collapses both into FAIL. Give it a distinct verdict for
+# the first (PENDING/EMPTY), leave FAIL meaning "I looked at something and it was wrong", and the
+# wall of red disappears without a single real failure being hidden. That is a checker-by-checker
+# change, not a display-layer one, and it is the only version worth shipping.
 for stage in "${STAGE_NAMES[@]}"; do
   case "$stage" in
     0) result="$(check_stage_0)" ;;
@@ -1446,6 +1588,7 @@ for stage in "${STAGE_NAMES[@]}"; do
   esac
   status="${result%%|*}"
   note="${result#*|}"
+
   tbl_add RESULTS_TBL "$stage" "$status"
   tbl_add NOTES_TBL "$stage" "$note"
   tbl_get "$stage" "$STAGE_TITLES_TBL" || TBL_VALUE="(untitled stage)"
@@ -1524,6 +1667,10 @@ ${GC_SENTINEL}
   .WARN { background: #ffedd5; color: #9a3412; }
   .NOTICE { background: #dbeafe; color: #1e40af; }
   .BYPASSED { background: #e2e8f0; color: #475569; }
+  /* PENDING = downstream of work not yet done. Deliberately calm: a new project is not a broken
+     one, and a board of red on day one is the reason nobody reads the board by week two. */
+  .PENDING { background: #f1f5f9; color: #64748b; }
+  .SKIPPED { background: #f1f5f9; color: #64748b; }
   .footer { margin-top: 20px; font-size: 11px; color: #94a3b8; }
 </style>
 </head>
@@ -1604,10 +1751,12 @@ if [ -n "$REQUESTED_STAGE" ]; then
   # later stages do not re-check it, same as Open Questions is not re-derived per stage beyond
   # its own scoping — this is the one place the toolkit already knows the source should have
   # been graded before anything gets built on top of it.
+  # WARNS, does not block (2026-08-20). Stage 0's own verdict already fails when triage.md is
+  # unsigned, so blocking here added no safety — it just meant a Stage 0 query printed a refusal
+  # instead of an answer, on exactly the projects least able to interpret one: brand-new ones.
+  # Same shape as the drift gate two blocks up, loosened the same day and for the same reason.
   if [ "$REQUESTED_STAGE" = "0" ] && [ "$SUFF_STATUS" = "FAIL" ]; then
-    echo "" >&2
-    echo "Gate BLOCKED by source sufficiency: $SUFF_NOTE" >&2
-    exit 1
+    advise "source-sufficiency" "Source sufficiency not established: $SUFF_NOTE"
   fi
   # No gate passes while questions this stage owns were never put to the user.
   #
@@ -1698,6 +1847,25 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "Error: unknown stage number: $REQUESTED_STAGE" >&2
     exit 1
   fi
+  # STAGES 0 AND 1 ARE ADVISORY. They do not block and do not exit non-zero (2026-08-20).
+  #
+  # They produce INPUTS — a sufficiency grade, a signed triage sheet, an extraction. Nothing is
+  # generated from them yet, so a hard gate there cannot protect anything; it can only stop
+  # someone early, which on this customer round is precisely what it did. Value starts at the
+  # BRDs: from Stage 2 on, everything downstream is built out of whatever the gate let through,
+  # and that is where blocking earns its place. Soft until BRDs, hard from BRDs.
+  #
+  # NO EXCEPTIONS. A scope-confirmation exception lived here for part of 2026-08-20 and came out
+  # with the gate it served — see the long note in check_stage_1 for why a string-presence test
+  # could not do that job.
+  case "$REQUESTED_STAGE" in
+    0|1)
+      if [ "$requested_status" = "FAIL" ]; then
+        advise "stage$REQUESTED_STAGE" "Stage $REQUESTED_STAGE not complete: $requested_note"
+        exit 0
+      fi
+      ;;
+  esac
   if [ "$requested_status" = "FAIL" ]; then
     echo "" >&2
     echo "Stage $REQUESTED_STAGE gate FAILED: $requested_note" >&2

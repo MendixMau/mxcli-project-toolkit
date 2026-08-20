@@ -139,9 +139,16 @@ breakage into your result and tells you nothing trustworthy about your own chang
 like verification but isn't. It is also strictly slower for no more signal than the scoped run,
 since the untouched fixtures were never at risk.
 
-Run the full suite only when: the user explicitly asks for it, you are about to open a PR or
-close out a multi-file piece of work touching many parts of the toolkit, or you have reason to
-believe a change had wide blast radius (e.g. editing `bin/lib/skill-routing.tsv` and
-re-rendering, which touches README.md, ROUTING.md, every agent template, and `gate-check.sh`'s
-stage map at once — there, `bin/render-routing.sh --check` is the right scoped check, not the
-full suite).
+**Run the full suite only when the user explicitly asks for it in that message. There is no
+other trigger, and none of the following is one: about to open a PR, closing out a multi-file
+change, or a change that looks like it had wide blast radius.** Those read as licence to
+self-authorize, and they were — the rule said "ask first" and then handed out three reasons not
+to. Wide blast radius is a reason to pick the right *scoped* check, not to run everything: for
+`bin/lib/skill-routing.tsv` and its re-render (README.md, ROUTING.md, every agent template, and
+`gate-check.sh`'s stage map at once) that check is `bin/render-routing.sh --check`.
+
+**Asking is also required for a single fixture** — name it, say what it will tell us, and wait.
+
+Where a fixture's assertions are greps over a file you changed, prefer verifying by inspection:
+read the fixture, replicate its greps against the changed file, and report that. Same signal, no
+suite run, no interference with whatever another session has in the tree right now.

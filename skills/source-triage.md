@@ -1,5 +1,5 @@
 # Source Triage — Coverage, Scope, and the Go/No-Go Gate Before Extraction
-**Applies to:** migration.
+**Applies to:** migration, and requirements-driven whenever the corpus holds extractable structure — a DB schema or table dump, an ORM model, an OpenAPI/GraphQL contract, or entity/field table definitions inside a spec. Greenfield has no source to triage; Stage 0 there is scope only.
 **Purpose:** Before generating any BRD, decide whether this toolkit's pipelines already cover the source stack or a new extractor needs building, and — if the source is large — recommend a bounded scope subset (an ordering, not an exclusion) instead of processing everything at once.
 **Upstream:** `migration-pipeline.md` Phase 1 (Source Analysis) — run this immediately after identifying the platform (1.1) and before scoping the extraction (1.3).
 **Downstream:** `migration-pipeline.md` Phase 2/3 (extraction + BRD scaffolding) — **gated** on this skill's output. `modularize-domain.md` (module boundaries within *one* app — assumes the "how many apps" question this skill raises is already answered).
@@ -28,10 +28,29 @@
 
 This is a two-way call, not three-way — decide explicitly which side of it you're on, don't default into whichever the last project did:
 
+**Make the call per extractable structure in the source folder — never once per project, and never
+off the entry-mode label.** What triggers it is evidence in the folder, not what the project is
+called: an application codebase, yes, but equally a DB schema or table dump, an ORM model, an
+OpenAPI/GraphQL contract, or entity/field table definitions inside a spec document. Each is
+extractable structure, each gets its own Coverage Matrix row in Step 3, and each gets its own
+verdict.
+
+Mixed corpora are where this goes wrong, and they are the normal case in presales. The folder
+*reads* like requirements, so the whole thing is sent down the document path (`kb-generation.md`,
+Path B) and comes back as prose — including the entities that were sitting in the schema, which
+then get re-derived by hand three stages later. Prose is the right reading method for prose and
+the wrong one for structure. Choosing per artifact is this step's job; routing a whole corpus by
+how it looks at a glance is the failure it exists to prevent.
+
+**This does not reopen the two-way call.** Path B is not "read the code by hand" — it is the
+correct method for genuine prose. For every *extractable structure* the answer is still
+reuse-or-build. What widens here is what gets triaged, not how many answers are on offer.
+
 | Signal | Lean toward |
 |---|---|
 | Source platform already covered by `pipelines/outsystems/`, `pipelines/java-angular/`, or `pipelines/node-express-react/` **and its layout assumptions actually match this source** (check the pipeline's own README/companion skill — e.g. `source-node-express-react.md`'s layout table — before assuming "same stack name" means "reuse cleanly") | **Reuse existing pipeline** — run Phase 2 as documented. |
 | Source platform matches nothing in `migration-pipeline.md` 1.1's platform table, or matches a pipeline whose layout assumptions don't fit this source (e.g. `node-express-react`'s regex passes assume a specific directory layout the current source doesn't use) | **Build new pipeline** (or extend the closest existing one) — validate it against hand-built ground truth per `qa-loop-goal-pattern.md` before trusting its output, regardless of app size. |
+| Extractable structure that is **not** application source — a DB schema, table dump, ORM model, OpenAPI/GraphQL contract, or entity/field tables in a spec — and no pipeline reads that shape | **Build new** — and expect it to be small. A reader that turns a schema into entities and associations is a fraction of a full stack extractor, and it is the thing that stops the domain model being re-typed out of prose. Same validation rule: ground truth first. |
 
 **This call is the user's, not the agent's.** Lay out the signal (stack match, layout fit, effort) and a recommendation, then wait for the user to pick — don't silently record a decision and proceed to Phase 2 on your own read of the signal, even when it looks one-sided. Record the decision explicitly as one of: **Reuse existing pipeline / Build new pipeline**, with who confirmed it. If "build new," `qa-loop-goal-pattern.md` governs validating the new extractor/linker/mapper against real source until output quality is genuinely high — don't skip straight to trusting its first run, and don't fold pipeline-development time into the migration timeline as if it were a fixed cost. A small app still gets an extractor; it just means the extractor is small too — see Core Principle above.
 
@@ -139,4 +158,5 @@ Confirmed by: [user] on [date] — required before Phase 2/3 proceed.
 - **Running Phase 3 (BRD scaffolding) the moment Phase 2 produces output, with no scope sign-off.** Produces BRDs for capabilities nobody agreed should come first.
 - **Calling every bounded-scope decision a "POC."** Forces artificial throwaway framing onto phased full migrations, and invites treating the first slice's shortcuts as permanent. A slice is an ordering, not an exclusion — capabilities left out of slice 1 are scheduled later, not dropped.
 - **Deciding module boundaries (`modularize-domain.md`) before asking whether this should be multiple apps.** The app-count question is upstream of the module-count question — answering them in the wrong order means redrawing module boundaries after discovering they should've been app boundaries.
+- **Routing a mixed corpus wholesale to the document path because it "looks like requirements."** A folder of specs *with a schema in it* is not a documents-only source. Path B narrates the schema into markdown, the entities read as authoritative because they are written down, and the structure that could have been extracted is re-derived by hand at Stage 2. Decide per artifact (Step 1), on what is in the folder, not on the entry mode.
 - **Treating "extracts cleanly" as equivalent to "high priority."** The easiest capability to automate is not automatically the right one to migrate first.

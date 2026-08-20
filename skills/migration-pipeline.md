@@ -36,6 +36,9 @@ Phase 1: Source Triage → capabilities, coverage matrix
        │
        ├─ Path A: Code Extraction (Phase 2)
        │    └─ XML / Java / C# / SQL → extracted JSON (knowledge-base/)
+       │         │
+       │    [CAC-1b Extraction Scope] — extracted vs intended · accept / narrow / re-extract
+       │         │
        │         → BRD Scaffold (Phase 3 — auto-generated draft BRDs)
        │              │
        │         [CAC-2 BRD] — enrichment order · source patterns · hidden rules
@@ -293,6 +296,29 @@ Quick checklist (validator covers these automatically):
 - [ ] All route-defining files globbed (not just `*-routes.ts` — include auth, app.ts, etc.)
 - [ ] All test spec files classified to a capability (no "Other" bucket)
 - [ ] Business logic items explicitly listed as BRD-only, not penalised
+
+### ► CAC-1b Extraction Scope Checkpoint
+
+Run `checkpoints/checkpoint-extraction.md` **now** — after extraction, before a single BRD is
+scaffolded. Nothing blocks on it: Stage 1 is advisory and `gate-check.sh <project> 1` exits 0
+either way. It is here because it is the last cheap moment, not because a script will stop you.
+
+CAC-1 above already says *"Phase 3 does not start until this triage is confirmed — skipping
+straight from extraction to BRDs produces scaffolds for a scope nobody agreed to."* That was
+correct and it was unenforced, and on a customer round in August 2026 exactly the predicted thing
+happened: extraction reached well past the subsystems under discussion and every downstream gate
+waved it through, because they all measure whether BRDs are *good* and none asks whether they are
+*wanted*.
+
+The fix for that is this checkpoint being *reachable* — before 2026-08-20 CAC-1 was named only in
+this file, so requirements-driven and greenfield sessions ran no scope conversation at all. It is
+not a new exit code: the only thing a script can test here is whether a `CONFIRMED` row exists in
+`PROJECT.md`, and an agent can write that row without asking anyone. If this got skipped, see
+"Running this late" in the checkpoint — late is recoverable and the input is arguably better.
+
+CAC-1 confirms scope **in**, from a capability map, before anyone knows what extraction will
+yield. CAC-1b confirms scope **out**, by diffing the actual output against that decision. Both are
+needed; neither substitutes for the other.
 
 ---
 

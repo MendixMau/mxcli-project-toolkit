@@ -368,6 +368,56 @@ else
   echo "Created: sources/"
 fi
 
+# analysis/ — THE OUTPUT SIDE, and it was never scaffolded (fixed 2026-08-20).
+#
+# Every rendered surface in the pipeline lands here: triage.html (bin/triage-report.sh),
+# source-sufficiency.html, brd-report.html (bin/brd-report.sh), open-questions.html. gate-check.sh
+# resolves $ANALYSIS_BASE against it. sources/ was created here from day one; analysis/ was not,
+# on the unstated assumption that an extraction pipeline would `mkdir -p` it on its way past.
+#
+# That assumption holds for exactly one entry mode. A requirements-driven or greenfield project
+# runs no pipeline, so nothing ever created the folder, so every surface the runbook promises had
+# nowhere to be written — reported from a customer round on 2026-08-20, where the absence of
+# analysis/ was the first visible symptom of a much larger hole (Stage 0 being skipped entirely).
+# The folder is cheap and mode-independent; the pipeline it was waiting on is not.
+ANALYSIS_DIR="$PROJECT_DIR/analysis"
+if [ -d "$ANALYSIS_DIR" ]; then
+  echo "Skip: analysis/ already exists — not touched."
+else
+  mkdir -p "$ANALYSIS_DIR"
+  echo "Created: analysis/"
+fi
+
+if [ -f "$ANALYSIS_DIR/README.md" ]; then
+  echo "Skip: analysis/README.md already exists — not overwritten."
+else
+  cat > "$ANALYSIS_DIR/README.md" <<'EOF'
+# analysis/
+
+Generated analysis output and every customer-showable surface the pipeline renders. Unlike
+`../sources/`, nothing here is hand-authored — each file has a script or skill that produces it,
+and the honest way to change one is to re-run its producer.
+
+| File | Produced by | Stage |
+|---|---|---|
+| `source-sufficiency.html` | `bin/source-sufficiency.sh report` | 0 |
+| `triage.html` | `bin/triage-report.sh <project>` | 0 |
+| `extraction-report.html` | the extraction pipeline, or `kb-generation.md` for a document corpus | 1 |
+| `brd-report.html` | `bin/brd-report.sh <project>` | 2 |
+| `open-questions.html` | `bin/questions-report.sh <project> --stage N` | any gate |
+
+**This folder exists in every entry mode.** A requirements-driven or greenfield project runs no
+extraction pipeline, but it still produces a sufficiency grade, a scope decision and a BRD report
+— `bin/brd-report.sh` reads BRDs, not source, so the Stage 2 surface is the same page whatever
+wrote the BRDs.
+
+**Where the knowledge base goes:** under `analysis/<source-name>/knowledge-base/`, not at the top
+level, so a project with two source systems keeps them apart. `bin/lib/discover-brds.sh` is the
+one thing that resolves that path — never hardcode it.
+EOF
+  echo "Created: analysis/README.md"
+fi
+
 if [ -f "$SOURCES_DIR/README.md" ]; then
   echo "Skip: sources/README.md already exists — not overwritten."
 else

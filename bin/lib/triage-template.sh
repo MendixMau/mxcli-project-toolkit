@@ -43,21 +43,38 @@ mxtk_triage_template() {
 
 # Source Triage: {{APPLICATION_NAME}}
 
-**Stage 0 · migration entry mode.** This file is the Stage 0 deliverable named by
+**Stage 0 — every entry mode.** This file is the Stage 0 deliverable named by
 `skills/conversion-runbook.md` and gated by `bin/gate-check.sh <project> 0`. Fill it in by
 following `skills/source-triage.md` — that skill is the reasoning, this file is only where the
 answers land. Render it for review with `bin/triage-report.sh <project>` → `analysis/triage.html`.
 
-**If this project is not a migration**, this file does not apply as written. Entry mode is
-intake question 1, so it is not known at scaffold time and this file is written unconditionally:
+**Never delete this file.** Whatever your entry mode, `gate-check.sh` would then report
+*"triage.md not found"* — an unanswered gate rather than a settled one, and telling those two
+apart is the only reason the gate exists. Until 2026-08-20 this header said the opposite
+(*"requirements-driven or greenfield — delete this file"*) while the gate required it
+unconditionally. Real sessions found the contradiction, correctly guessed that keeping the file
+and marking rows `N/A` was the intent, and had to stop and ask. The instruction is now the one
+they reverse-engineered.
 
-- **Requirements-driven or greenfield** — there is no legacy source to triage. Delete this file
-  and say so in `PROJECT.md`; Stage 0's extraction rows are N/A.
-- **Migration whose source is documents rather than a codebase** (a PDF of epics, a spec pack) —
-  per `conversion-runbook.md`, `source-triage.md` does not apply: there is nothing to extract
-  from a PDF. Do NOT delete this file — `gate-check.sh` would then report "triage.md not found",
-  which reads as an unanswered gate rather than a settled one. Keep it, mark the extraction
-  rows `N/A` (documents, not a codebase), run the sufficiency report instead, and sign off.
+**Stage 0 is the scope stage, not the extractor stage.** Only the *extraction* parts below need a
+codebase. What varies by mode:
+
+- **Migration** — everything applies.
+- **Requirements-driven** — the Extraction Approach and Coverage Matrix rows are `N/A` **only if
+  the corpus holds no extractable structure at all**. Open the folder before deciding: a DB schema
+  or table dump, an ORM model, an OpenAPI/GraphQL contract, or entity/field tables inside a spec
+  are extractable structure, and each gets a Coverage Matrix row and the two-way call above,
+  exactly as a codebase would. Mark `N/A` on evidence (*"prose only — no schema anywhere in the
+  corpus"*), never on the entry-mode label: "requirements-driven" says where the project came
+  from, not what is in the folder. The Business Capability Map and the Recommended Scope Subset
+  **still apply and still matter** — a document corpus has capabilities and a slice order exactly
+  like a codebase does. Run `bin/source-sufficiency.sh` over the corpus.
+- **Greenfield** — mark the extraction rows *and* the coverage matrix `N/A`. The scope subset is
+  still the deliverable.
+
+**Documents plus a database schema is not a documents-only source.** A table schema, an ORM model
+or an OpenAPI contract is extractable structure and grades as such, whatever the markdown around
+it looks like.
 
 ---
 
@@ -157,11 +174,19 @@ Verdict: {{"No concern" OR the open question as raised, naming the triggers that
 
 Confirmed by: [user] on [date] — required before Phase 2/3 proceed.
 
-Sign-off means a human agreed to the extraction decision, the coverage verdicts and the slice
-ordering — not that this file is filled in. Replace `[user]` and `[date]` with a literal name
-and date; `gate-check.sh <project> 0` refuses the bracketed placeholder on purpose, and refuses
-an empty value too. Record the same decision in `PROJECT.md` as `CONFIRMED` (or `ASSUMED`, if
-the user answered "you decide" — never if the question went unasked).
+Sign-off means a human saw the scope and said go — the extraction decision, the coverage verdicts
+and the slice ordering — not that this file is filled in.
+
+**This is a low bar on purpose, and it is not a signature.** "Confirmed in chat, 2026-08-20" is a
+complete answer. So is "user said move to the next stage". A full name is *not* required and must
+not be chased: the gate is checking that somebody was asked, not maintaining an audit trail, and a
+session that interrogates a colleague for their legal name before it will proceed has turned a
+five-second confirmation into an obstacle. Do not block on it, do not ask twice, and never invent
+a name to get past it.
+
+The one thing `gate-check.sh <project> 0` refuses is this file signing *itself* off — the shipped
+bracketed placeholder, and an empty value. Record the same decision in `PROJECT.md` as `CONFIRMED`
+(or `ASSUMED`, if the user answered "you decide" — never if the question went unasked).
 MXTK_TRIAGE_EOF
 }
 

@@ -635,6 +635,19 @@ WIRED=0
 for m in bin PROJECT.md intake.md CLAUDE.local.md; do
   [ -e "$PROJECT_DIR/$m" ] && WIRED=1
 done
+# analysis/ backfill. init-project.sh has created this since 2026-08-20; every project scaffolded
+# before that date lacks it, and this is the script whose whole job is bringing those forward.
+# Cheap, mode-independent, and never overwrites: it only ever creates a missing empty directory.
+if [ "$WIRED" -eq 1 ] && [ ! -d "$PROJECT_DIR/analysis" ]; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo "Would create: analysis/ (every rendered surface lands here; absent on projects scaffolded before 2026-08-20)"
+  else
+    mkdir -p "$PROJECT_DIR/analysis"
+    echo "Created: analysis/ (every rendered surface lands here)"
+  fi
+  CHANGES=$((CHANGES + 1))
+fi
+
 if [ "$WIRED" -eq 0 ]; then
   warn "$PROJECT_DIR has no PROJECT.md, intake.md, CLAUDE.local.md or bin/ — this does not look" \
        "like a wired project, so the crash net was not touched. Run bin/init-project.sh first."

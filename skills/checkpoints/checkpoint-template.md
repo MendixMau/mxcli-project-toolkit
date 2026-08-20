@@ -105,16 +105,23 @@ Then **end the turn.** The block above is the last thing in the message, on ever
 
 ---
 
-## The 5 Checkpoints in the Pipeline
+## The Checkpoints in the Pipeline
 
-| ID | Fires After | Skill |
-|---|---|---|
-| CAC-1 | Source Triage (Phase 1) | `checkpoint-scope.md` |
-| CAC-2 | BRD Scaffold (Phase 3) | `checkpoint-brd.md` |
-| CAC-3 | BRD Enrichment + Validation (Phase 5) | `checkpoint-architecture.md` |
-| CAC-4 | Architecture sign-off (Phase 6) | `checkpoint-design.md` |
-| CAC-5 | Design sign-off (before Phase 7 MDL gen) | `checkpoint-build.md` |
-| CAC-6 | Test pass (before Stage 7 cutover — `✋`, CONFIRMED only) | `checkpoint-cutover.md` |
+**These are wired to STAGES, from `conversion-runbook.md` §2.** They used to be described only in
+terms of the migration pipeline's phase numbers, and reachable only from `migration-pipeline.md`
+— so a project running no pipeline (requirements-driven, greenfield) fired none of them, and
+CAC-1's scope brainstorm silently did not exist outside migration mode. Phase numbers are kept
+below as a secondary reference for migration projects; the stage is the wiring.
+
+| ID | Fires at the close of | Phase (migration) | Skill |
+|---|---|---|---|
+| CAC-1 | Stage 0 — Triage & Scope | Source Triage (Phase 1) | `checkpoint-scope.md` |
+| CAC-1b | Stage 1 — Analysis | after extraction, before any BRD | `checkpoint-extraction.md` |
+| CAC-2 | Stage 2 — BRD scaffold | BRD Scaffold (Phase 3) | `checkpoint-brd.md` |
+| CAC-3 | Stage 2 — BRDs validated | BRD Enrichment + Validation (Phase 5) | `checkpoint-architecture.md` |
+| CAC-4 | Stage 3 — Architecture & Design | Architecture sign-off (Phase 6) | `checkpoint-design.md` |
+| CAC-5 | Stage 4 — Build Plan | Design sign-off (before Phase 7 MDL gen) | `checkpoint-build.md` |
+| CAC-6 | Stage 6 — Test | before Stage 7 cutover — `✋`, CONFIRMED only | `checkpoint-cutover.md` |
 
 ---
 

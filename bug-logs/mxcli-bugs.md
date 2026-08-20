@@ -735,6 +735,48 @@ Find the correct mxunit by running `git diff --name-only` and reading each chang
 
 ## BUG-18: `visible: [expr]` on CONTAINER inside datagrid customContent column corrupts MPR
 
+> ### ⚠️ CORRECTION — "does NOT affect" claim narrowed (2026-08-20)
+>
+> The claim below, "**Does NOT affect:** `visible: [expr]` on containers in regular dataviews and
+> regular page containers — those work correctly," is **wrong for the sibling `Editable`
+> property**, and the same root cause is now confirmed to reach plain, non-datagrid widgets too.
+>
+> Confirmed 3x with a controlled A/B (mxcli project-local build, Mendix 11.13.0), including a
+> negative-control replay of the page's own pre-existing, already-working expression: `ALTER PAGE
+> Module.Page { SET Editable = ["Attr" = '' or "Attr" = empty] ON widget }` on a plain `textbox`
+> inside a plain `dataview` (not a datagrid, not a customContent column, not a container) passes
+> `mxcli check --references` cleanly, executes with no error from `mxcli exec`, but writes a
+> corrupt `ConditionalEditabilitySettings` unit with a blank `Attribute` reference:
+> ```
+> Mendix.Modeler.Storage.StorageLoadException: One or more invalid values were detected while
+> loading the project: ... Conditional editability settings in  has an invalid value '' for
+> property Attribute. The text 'Forms$ConditionalEditabilitySettings' is not a valid
+> AttributeIdentifier.
+> ```
+> Studio Pro cannot reopen the project afterward. `mxcli check --references` gives zero warning —
+> this is a storage-level (BSON) defect entirely invisible to the syntax/reference checker.
+>
+> **What makes this a correction and not a suspicion:** re-issuing the exact same expression the
+> page already had *before* the edit (`SET Editable = ["Attr" = ''] ON widget`, verbatim, no
+> compound `or`, no `empty` keyword) through the same `ALTER PAGE SET` path, on a fresh sandbox
+> copy, produced **identical corruption, identical error** — ruling out the compound boolean
+> expression or the `empty` keyword as the cause. The defect is `ALTER PAGE ... SET Editable =
+> [...]` itself on this Mendix version, independent of expression content, and independent of
+> datagrid/customContent/container as claimed below.
+>
+> Whether the same widening also applies to `Visible` (not just `Editable`) on a plain-dataview
+> widget is untested — this correction covers only `Editable`.
+>
+> **Workaround confirmed to work:** a full `CREATE OR MODIFY PAGE` rebuild of the entire page
+> (reproducing the unaffected widgets unchanged) with the new `Editable: [...]` expression written
+> directly in the `CREATE OR MODIFY` body, never through `ALTER PAGE SET`. Verified via sandbox
+> copy + `mxcli docker check`: no `StorageLoadException`, only pre-existing unrelated noise.
+>
+> **Method:** per-arm sandbox copy (`cp Project.mpr /tmp/sandbox-N.mpr`), `mxcli exec
+> candidate.mdl -p /tmp/sandbox-N.mpr`, then `mxcli docker check -p /tmp/sandbox-N.mpr`, grep for
+> `StorageLoadException`. Never touch the real project file — prove the gate is sensitive to the
+> defect before trusting a green result from it.
+
 **Affects:** mxcli v0.12.x–v0.13.0 on Mendix 11.12.0 — confirmed still present on v0.13.0 (2026-07-09 retest)  
 **mxcli version when found:** v0.12.x  
 **Retested on v0.13.0:** Yes — still corrupts. preflight rule 1 STOP remains valid for this specific case.
@@ -3295,6 +3337,31 @@ semantics from generated MDL should use the Java-action-throw workaround above i
 
 ## BUG-74: `on error { ... }` handler with no explicit terminal statement silently gets `return;` appended — breaks any "log and continue" error-handling pattern
 
+> ### 🔎 Second sighting — candidate/unconfirmed, NOT ready to file (2026-08-20)
+>
+> A second, differently-shaped manifestation was found in a REST-call `on error without
+> rollback { ... }` handler (a shared plumbing microflow that calls a mock API, retries, and
+> logs). Root-caused with high confidence from **runtime/behavioral evidence only** — the
+> `.mxunit` BSON was not inspected, and no isolated scratch-copy repro (new microflow, zero
+> shared project history) has been built yet, unlike the minimal repro already confirmed above.
+> **Do not treat this second sighting as confirmed or promote its specifics further until that
+> isolation step is done.**
+>
+> Evidence: the handler's own literal error string appeared in runtime logs (proving the handler
+> ran), but a direct Postgres check (bypassing OQL/M2EE) showed a downstream logging microflow's
+> row was never written — even though that microflow commits inside its own independent `on error
+> without rollback` boundary. The only explanation consistent with both facts is that a bare
+> `return;` silently appended to the REST-call handler (which sets two variables but has no
+> explicit terminal statement) exited the whole microflow before reaching the trailing `change`/
+> log-call statements — same defect shape as the confirmed case below, on a different microflow.
+> `mxcli check --references` and native `mx check` both passed with 0 errors, consistent with the
+> family.
+>
+> **Open question, deliberately left open:** whether the fix validated for the confirmed case
+> (give the handler its own explicit `return`) generalizes to this microflow's "handle the fault
+> and continue in the same flow" shape, or whether that shape needs a different fix — this
+> distinction was not resolved before the finding was deferred.
+
 ### Symptom
 
 An `on error { ... }` block attached to a `call microflow` activity, whose body is just a
@@ -3429,6 +3496,73 @@ but silently breaks native mxbuild) — that one was about a list of quoted iden
 `textfilter (attributes: [...])`, this one is about a quoted identifier inside a member-access
 expression in a call argument. Both are reminders that "always quote identifiers" (this project's
 default) has real, narrow exceptions that only a native `mx check` surfaces.
+
+### Extension (confirmed 2026-08-20): the defect is general to any argument-list value and to page expression strings, not just call-microflow arguments
+
+Well-evidenced, ready to file. Found on a second project while debugging a page-building script:
+
+1. **`create (...)` argument lists**, not just `call microflow (...)` ones. `$Var/"Attribute"`
+   as a value inside `create Module.Entity ("Attr" = $Var/"Other")` hits the identical CE0117.
+2. **Quoted enum literals as argument values**, in either position: `"Module"."ENUM_X"."Value"`
+   used as a call-microflow argument value or a create argument value also keeps literal quotes
+   and fails the same way.
+3. **The "safe precedent" trap:** quoted enum literals had been assumed universally safe because
+   they'd been seen working cleanly elsewhere — but every one of those clean sightings was inside
+   a call-microflow **parameter declaration list** (`$P: Enumeration("Module"."ENUM_X")`), never
+   an **argument value**. Declaration-position quoting and argument-value-position quoting are
+   different code paths in mxcli's compiler; one is safe, the other isn't. Don't generalize
+   "safe" from one syntactic position to another that merely looks similar.
+
+**Revised general rule:** inside any argument-list VALUE (call-microflow args or create args),
+never use a quoted qualified path — not for member access, not for enum literals. Use the fully
+unquoted dotted form: `Module.Entity.Attribute`, `Module.ENUM_X.Value`, `$Var/Attribute`. Quoting
+stays necessary (and safe) for: DDL identifiers, `set`/`declare` RHS, `if` conditions,
+`retrieve ... where` clauses, and call-microflow *parameter declarations*.
+
+**Confirmed reproduction (positions 1–2):**
+1. Create any persistent entity `Mod.Foo` with a String attribute `Bar` and an enumeration
+   `Mod.ENUM_X` with at least one value.
+2. Write a microflow containing either `$Item = create Mod.Foo ("Bar" = $Other/"Bar");` or
+   `$Result = call microflow Mod.SUB_Do ("Bar" = $Other/"Bar");` (substitute
+   `"Mod"."ENUM_X"."SomeValue"` for the quoted member-access to hit variant 2).
+3. `mxcli check --references` → 0 errors. `mxcli exec` → succeeds, `describe microflow`
+   round-trips the quotes without complaint.
+4. Native check (`mxcli docker build`, or `mx check` with the matching `--mxbuild-path`) →
+   **fails with CE0117 "Error(s) in expression"** on the exact activity.
+5. Fix: replace `$Other/"Bar"` with `$Other/Bar` (or the enum path with `Mod.ENUM_X.SomeValue`)
+   and re-run step 4 → 0 errors.
+
+**A third position — page-level dynamic-class expression strings:** `DynamicClasses`/
+`DynamicCellClass` properties on page widgets (dataview containers, DATAGRID columns) take an
+expression string, and the same quoted-member-access / quoted-enum-path forms inside that string
+trigger the identical CE0117 at native `mxbuild`, invisible to `mxcli check --references` in
+exactly the same way:
+
+```mdl
+alter page Mod.Foo_Overview {
+  SET DynamicCellClass = 'if ($currentObject/"BusState" = "Mod"."ENUM_BusState"."Error") then '
+    + '"danger" else "plain" endif' ON "col1";
+}
+```
+
+`mxcli check --references`: 0 errors. `mxcli exec`: succeeds (note: this exact `ALTER PAGE SET
+DynamicCellClass` form fails for a *different* reason first on `DynamicCellClass` specifically —
+see BUG-91 — so this quoting repro was actually confirmed while fixing pages via `create or
+replace page` instead). Native `mx check`/`docker build`: **CE0117** on the page's dynamic-class
+expression. Fix: same as always — `$currentObject/BusState` and `Mod.ENUM_BusState.Error`, fully
+unquoted dotted form, no quotes anywhere in the expression string.
+
+**Conclusion:** the defect is general to **any** expression-string compilation path in mxcli's
+codegen, not specific to call/create argument lists — treat every expression string (page dynamic
+classes, validation conditions, anywhere else a raw expression is embedded as a string literal) as
+suspect until proven otherwise with a native build, not just `mxcli check`.
+
+**Diagnostic method:** `mxcli check --references` and `describe microflow`/`describe page` cannot
+detect this class of bug at all — only native `mx check` (via `--mxbuild-path "<Studio Pro
+app>/Contents" --no-update-widgets`) surfaces it. To isolate which of several candidate fixes
+actually resolves a given CE0117, use a scratch copy (`rsync -a --exclude='.git' <project>/
+/tmp/<project>-scratch/`) and iterate `mxcli exec` + native `mx check` against the scratch `.mpr`
+before touching the live one.
 
 ## BUG-76: `DECISION` activities in a native `WORKFLOW` are unconditionally storage-corrupted — mxcli writes the outcome label as a raw string into a field that must be a real `EnumerationValueIdentifier`, on every DECISION regardless of the underlying expression's type
 
@@ -4041,3 +4175,262 @@ giving the filter a `DataSource:`. There is no explicit mode keyword. A `DROPDOW
 `Association:` for a ref-mode dropdown filter. It round-trips losslessly but reads misleadingly —
 to an agent it looks like exactly the "association in an attribute-typed property" that mxcli now
 refuses elsewhere.
+
+---
+
+## BUG-90: loop-variable association-path member access inlined into a `call microflow` parameter corrupts codegen
+
+**Severity:** High — a real build-breaker mxcli's own validation never catches
+**Reproducible:** Yes, consistently
+**Mendix version:** 11.13.0
+
+### Symptom
+
+`mxcli check --references` and `mxcli exec` both report success for a `call microflow` activity
+whose parameter directly inlines a **loop variable's association-path member access**, e.g.:
+
+```mdl
+loop $Item in $Items
+begin
+  $IsOnline = call microflow "Mod"."SUB_EvaluateAvailability" (
+    "StatusCode" = $Item/"StatusCode"
+  );
+  ...
+end loop;
+```
+
+Both mxcli static checks pass (0 errors), but native `mx check` (mxbuild) flags the exact activity
+with:
+
+```
+[error] [CE0117] "Error(s) in expression."
+```
+
+...and the resulting `mxcli docker build` fails outright.
+
+### Isolated bisection
+
+Re-executed the EXACT unmodified MDL for the affected microflow (byte-for-byte, taken verbatim
+from `DESCRIBE MICROFLOW` output) against a freshly reset `.mpr` — it still failed native
+`mx check` with the identical CE0117 at the identical call activity. This proves the defect is in
+how mxcli's own codegen represents this specific parameter-mapping shape (loop-var →
+association-path → inline call param), not a symptom of stale/corrupted prior edits or model
+history. Also confirmed via `CATALOG.ATTRIBUTES` that the types line up exactly on both sides
+(`$Item/StatusCode` is String(10), the callee's `$StatusCode` parameter is String) — ruling out a
+genuine type mismatch as the cause.
+
+### Fix
+
+Bind the association-path expression to an intermediate `declare`d variable first, then pass that
+variable as the call parameter, instead of inlining the association-path access directly:
+
+```mdl
+loop $Item in $Items
+begin
+  declare $ItemStatusCode string = $Item/"StatusCode";
+  $IsOnline = call microflow "Mod"."SUB_EvaluateAvailability" (
+    "StatusCode" = $ItemStatusCode
+  );
+  ...
+end loop;
+```
+
+Verified: `mxcli docker build` succeeds (0 errors) with the intermediate-variable form, where the
+byte-identical inlined form failed identically every time.
+
+### General rule going forward
+
+Never inline a loop variable's association-path member access (`$Item/"Attr"`) directly as a
+`call microflow`/`call nanoflow` parameter value. Always bind it to an intermediate `declare`d
+primitive variable first, then pass the variable. Apply this prophylactically to any new
+loop-body call activity, not just when CE0117 is observed — `mxcli check`/`mxcli exec` give no
+warning before the native build fails.
+
+### Related
+
+Same general class of defect as BUG-75/BUG-77 (mxcli's own static checks pass but native
+`mx check`/runtime behavior diverges) — verify with the native toolchain or live runtime
+behavior, not mxcli's own check output, whenever a construct is unusual.
+
+**Discovered:** 2026-08-13/14, PROJECT-I (a mock-API integration POC project).
+
+---
+
+## BUG-91: `DynamicCellClass` (DATAGRID column property) can only be set at CREATE time — `ALTER PAGE SET` silently fails at exec
+
+**Severity:** Medium — fails one step later than `check --references`, so a script can look
+validated and still fail when actually run
+**Reproducible:** Yes, consistently
+**Mendix version:** 11.13.0
+
+**Distinct from BUG-42.** BUG-42 is a capability gap on **pluggable DataGrid2** — it cannot
+combine a row-click `Action:` with `DynamicCellClass` plus TEXTFILTER/DROPDOWNFILTER on one
+widget, and is reported as Engalar-fork-specific (not reproducing on RnD `504aec67`). BUG-91 is a
+different defect on a **plain (non-pluggable) DATAGRID column**: `DynamicCellClass` alone, with no
+filter/action combination involved at all, simply cannot be *set* via `ALTER PAGE` once the column
+already exists — a targeting/verb gap in the ALTER code path, not a widget-combination capability
+gap. The two share only the property name.
+
+### Symptom
+
+`mxcli check --references` validates `ALTER PAGE ... SET DynamicCellClass = '<expr>' ON <col>`
+against an EXISTING DATAGRID column with 0 errors — but running it with `mxcli exec` fails at
+execution time with:
+
+```
+Error: failed to set: failed to set DynamicCellClass on <Col>: column property "DynamicCellClass" not found
+```
+
+This is the opposite failure shape from most of this bug family: it's not silent (it does error),
+but the error only surfaces at `exec` time, one full step later than `check --references`. The
+same property set inline as part of a brand-new column definition inside a `create or replace
+page` statement works with no error at all.
+
+### Reproduction
+
+1. Create any page with a DATAGRID bound to an entity, with at least one plain column (no
+   `DynamicCellClass` set):
+   ```mdl
+   create page Mod.Foo_Overview (Title: 'Foo') {
+     datagrid dgFoo (DataSource: DATABASE Mod.Foo) {
+       column col1 (Attribute: Status, Caption: 'Status')
+     }
+   }
+   ```
+   `mxcli exec`: succeeds.
+2. Attempt to add `DynamicCellClass` to the EXISTING column via `ALTER PAGE`:
+   ```mdl
+   alter page Mod.Foo_Overview {
+     SET DynamicCellClass = 'if $currentObject/Status = "Error" then "danger" else "plain" endif' ON "col1";
+   }
+   ```
+3. `mxcli check --references` → **0 errors** (validates cleanly).
+4. `mxcli exec` → **fails**: `Error: failed to set: failed to set DynamicCellClass on Col: column
+   property "DynamicCellClass" not found`
+5. Confirmed via a disposable scratch page (created then dropped — don't leave scratch objects in
+   the live model) that the identical property, when included directly in a fresh `create page`/
+   `create or replace page` statement's column definition from the start, applies with no error:
+   ```mdl
+   create or replace page Mod.Foo_Overview (Title: 'Foo') {
+     datagrid dgFoo (DataSource: DATABASE Mod.Foo) {
+       column col1 (
+         Attribute: Status,
+         Caption: 'Status',
+         DynamicCellClass: 'if $currentObject/Status = "Error" then "danger" else "plain" endif'
+       )
+     }
+   }
+   ```
+   → `mxcli exec`: succeeds, property applies and renders correctly.
+
+### Root cause (as observed, not verified against mxcli source)
+
+`DynamicCellClass` appears to be handled by mxcli's `create page`/`create or replace page`
+column-construction path, but has no corresponding "alter existing column" handler wired into the
+`ALTER PAGE SET ... ON <col>` code path — the ALTER command's validator (used by
+`check --references`) doesn't distinguish "this property exists but isn't settable via ALTER" from
+"this property is generally valid," so it passes the check but the executor then can't find a
+handler for it.
+
+### Workaround
+
+Any page needing a NEW or CHANGED `DynamicCellClass` on an EXISTING column requires a full
+`create or replace page` rewrite of that page, grounded in the current live `DESCRIBE PAGE` output
+(never a stale saved `.mdl` file — the live page may have drifted from any prior script via later
+ALTERs). A full rewrite also risks resurfacing unrelated legacy issues that a narrower ALTER would
+have tolerated — e.g. duplicate layoutgrid column widget names (`col1`/`col2`/`col3` reused across
+multiple rows) that years of incremental ALTERs never flagged, but `create or replace page`'s
+CREATE-time validator rejects outright as `duplicate widget name 'col1' (used N times) — Mendix
+requires unique widget names per page (CE0495)`. Rename to unique names per row before attempting
+the rewrite.
+
+### General rule going forward
+
+Never assume `mxcli check --references` passing on an `ALTER PAGE SET <Property> ON <widget>`
+means the property is actually settable via ALTER — some page/column properties (confirmed so
+far: `DynamicCellClass`) are CREATE-time only despite validating cleanly. If an ALTER unexpectedly
+fails at exec with "`<property>` not found", the fix is a full `create or replace` rewrite, not a
+syntax correction.
+
+**Discovered:** 2026-08-14, PROJECT-I (a mock-API integration POC project).
+
+---
+
+## BUG-92: `ALTER PAGE INSERT` silently no-ops against a wrong-but-plausible anchor, and drops the whole INSERT on an empty caption — both can leave invisible orphaned duplicate widgets
+
+**Severity:** High — the actually-costly failure mode is not the no-op itself but that repeated
+retries against it leave orphaned duplicate widgets invisible to `DESCRIBE PAGE`, which native
+`mx check` then rejects
+**Reproducible:** Yes, consistently (isolated via disposable scratch-file A/B testing)
+**Mendix version:** 11.13.0
+
+**Distinct from BUG-18/BUG-18's `ConditionalXSettings` blank-AttributeIdentifier corruption** —
+this is an `ALTER PAGE INSERT` targeting/validation gap plus a storage-tree accumulation issue,
+not a blank-AttributeIdentifier writer.
+
+### Trap 1 — wrong-but-plausible target silently no-ops
+
+`insert after dgCases.ApplicationCount` (a column whose derived name matched `describe page`'s own
+printed output exactly) completed with `mxcli exec`'s normal "Altered page ..." success message
+and **no error**, but added nothing — confirmed via `DESCRIBE PAGE` showing no new widget,
+reproduced twice across two separate full-script executions. The *identical* `insert after`/
+`insert before` statement targeting a different, working column (`dgCases.colOpen`) succeeded
+immediately. Root cause not fully isolated — the working hypothesis is that `ApplicationCount` is
+a plain attribute-bound column (`Attribute: ApplicationCount`, no nested widgets) while `colOpen`
+is a `customContent` column with a nested `actionbutton`, and `INSERT AFTER/BEFORE` may require
+the anchor to itself be a customContent-style column — untested against a plain attribute-bound
+anchor elsewhere to confirm this generalizes.
+
+### Trap 2 — an empty `caption: ''` on the new column silently drops the entire INSERT
+
+Even after retargeting to the working anchor (`colOpen`), a column declared with `caption: ''`
+(matching the column header's actual intended blank appearance) still silently inserted nothing —
+no error, no widget. Giving the same column a real non-empty caption (matching `colOpen`'s own
+precedent, which is non-empty for the same customContent-column reason, even though its rendered
+header is expected to read as blank/icon-only) made the insert succeed immediately.
+
+### Trap 3 — the actually-costly one: repeated debugging attempts do NOT cleanly no-op; they leave orphaned duplicate widgets invisible to `DESCRIBE PAGE`
+
+After finally getting a real, visible INSERT to work (confirmed via a single `DESCRIBE PAGE` call
+showing exactly one clean `column`/`actionbutton` pair), native `mx check` (NOT
+`mxcli check --references`, NOT `mxcli exec`, NOT a single `DESCRIBE PAGE` call — all four were
+silent) reported:
+
+```
+[error] [CE0495] "Duplicate name 'btnStartSigning'." at Action button 'btnStartSigning',
+Action button 'btnStartSigning', Action button 'btnStartSigning', Action button 'btnStartSigning',
+Action button 'btnStartSigning'
+```
+
+Five instances, matching the five `mxcli exec` attempts made against the same target widget name
+across the Trap 1 → Trap 2 → working-version debugging sequence (two silent-per-`DESCRIBE`
+"no-ops" against the wrong anchor, one silent-per-`DESCRIBE` "no-op" with the empty caption, and
+two of the final working-caption version). **The lesson: what a single `DESCRIBE PAGE` call
+reports as "nothing happened, safe to retry with a fix" is not reliable evidence that nothing was
+written** — some or all of those apparent no-ops actually wrote a widget into a part of the page's
+storage tree that `DESCRIBE PAGE`'s serializer does not walk/render, but that native mxbuild's
+uniqueness check still sees and collides on.
+
+### Workaround
+
+If an `ALTER PAGE INSERT` against the same widget name has been retried more than once while
+debugging Trap 1/Trap 2-style failures, do **not** trust a clean `DESCRIBE PAGE` as proof the page
+is now duplicate-free. Rebuild the whole page via `create or replace page` with the full widget
+tree written out literally (copied from the last known-good `DESCRIBE PAGE` output, plus the one
+new widget). `create or replace` regenerates the entire tree from the literal definition, so it
+cannot contain orphans — unlike `ALTER PAGE`, there is no accumulation risk. Confirmed via native
+`mx check`: 0 errors after the rebuild, versus 5x CE0495 before it.
+
+### Bonus false-positive noted along the way
+
+`mxcli check --references` flagged the rebuilt page's pre-existing `col1`/`col2` layoutgrid column
+names (reused identically across three separate `row`s, completely unchanged from the page's
+already-live, already-passing-native-check state) as `"duplicate widget name 'col1' (used 3
+times)"` / `'col2' (used 2 times)"`. This is a **false positive of the checker's own
+`--references` validation** — native `mx check` has never flagged this pre-existing pattern,
+meaning `column` names are actually scoped to their parent `row`, not page-wide, contrary to what
+the checker's stricter duplicate-name rule assumes. Don't treat every `--references` "duplicate
+widget name" report as ground truth for whether a page will actually fail native `mx check` —
+cross-check against native `mx check` before treating it as blocking.
+
+**Discovered:** 2026-08-14/15, PROJECT-I (a mock-API integration POC project, `PackageCase_Overview` datagrid).

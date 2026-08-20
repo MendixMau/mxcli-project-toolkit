@@ -51,6 +51,10 @@ own bug log before running anything you have not run here before.
 | `project-bin/lint-gate.sh` | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing |
 | `skills/lint-that-actually-runs.md` | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence |
 | `skills/improvement-register.md` | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend |
+| `skills/bug-submission-checklist.md` | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable |
+| `skills/sandbox-ab-tool-defect-probe.md` | Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary — proving it's version-specific without risking the real model |
+| `skills/restart-sp-reopen-and-hang-detection.md` | Restarting Studio Pro on macOS — the reopen bug, the port bug, and detecting a real hang vs a slow load |
+| `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
 <!-- ROUTING:END -->
 
 ## Gates to run (in order)

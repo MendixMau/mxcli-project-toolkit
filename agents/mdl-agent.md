@@ -61,6 +61,18 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `project-bin/lint-gate.sh` | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing |
 | `skills/improvement-register.md` | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend |
 | `skills/wiring-sweep.md` | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before |
+| `skills/learned-workflow-patterns.md` | Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) — syntax, the 11 workflow microflow statements, and the binary-version $Type corruption class |
+| `skills/rest-integration-first-time-right.md` | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call |
+| `skills/bug-submission-checklist.md` | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable |
+| `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause |
+| `skills/sandbox-ab-tool-defect-probe.md` | Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary — proving it's version-specific without risking the real model |
+| `skills/restart-sp-reopen-and-hang-detection.md` | Restarting Studio Pro on macOS — the reopen bug, the port bug, and detecting a real hang vs a slow load |
+| `skills/learned-sidebar-collapse-icons.md` | Building or auditing a collapsible sidebar nav — Atlas Core's collapsed state needs icons assigned per menu item or it silently clips label text |
+| `skills/learned-popup-navigation.md` | Writing a popup page's microflow with a retry/validation-failure branch that re-shows the same popup — missing close page stacks duplicate dialogs |
+| `skills/learned-datagrid-customcontent-binding.md` | Writing MDL for a datagrid column with ShowContentAs customContent that needs to display a bound value |
+| `skills/learned-popup-feedback-pattern.md` | Writing a popup whose primary button creates/commits an object or triggers a backend flow — MDL has no native toast, so feedback must be explicit |
+| `skills/anonymize-client-app-for-demo.md` | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets |
+| `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
 <!-- ROUTING:END -->
 
 ## Ground rules

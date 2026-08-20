@@ -86,6 +86,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered | `bin/coverage-check.sh` | architect,gate | 4 | ondemand |
 | Authoring the cross-module user journey ONCE at design time as a source artifact, bound L0→L3, that the module brief, coherence pass and journey-proof read instead of each re-deriving it | `skills/journey-map.md` | ba,architect,test | 2,3,4 | experimental |
 | Writing an actual .journey.json — the worked field-by-field reference for the contract journey-proof.md argues for | `skills/journey-examples.md` | test,review | 5,6 | ondemand |
+| Extracting structured requirements from a large delivered document corpus into per-scope knowledge-base files | `skills/corpus-extraction-integrity.md` | ba | P,0,1 | ondemand |
 
 #### Architecture — how it is shaped
 
@@ -110,6 +111,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated | `skills/module-review.md` | mdl,review,test | 5,6 | baseline |
 | Building a module with mxcli — verified, iterative, coverage-checklist gated | `skills/iterative-build-loop.md` | mdl,gate | 5 | ondemand |
 | After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views | `project-bin/build-plan-status.sh` | architect,gate,review | 4,5,6 | ondemand |
+| Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets | `skills/anonymize-client-app-for-demo.md` | mdl,review | 6 | ondemand |
 
 #### Build · MDL — the language and tool reference
 
@@ -120,6 +122,9 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only | `skills/learned-mcp-patterns.md` | mdl | 5 | baseline |
 | Writing MDL microflow scripts — worked recipes | `skills/mdl-cookbook-microflows.md` | mdl | 5 | ondemand |
 | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check | `skills/build/mdl/oneshot-mdl-method.md` | mdl | 5 | ondemand |
+| Writing a popup page's microflow with a retry/validation-failure branch that re-shows the same popup — missing close page stacks duplicate dialogs | `skills/learned-popup-navigation.md` | mdl | 5 | ondemand |
+| Writing MDL for a datagrid column with ShowContentAs customContent that needs to display a bound value | `skills/learned-datagrid-customcontent-binding.md` | mdl | 5 | ondemand |
+| Writing a popup whose primary button creates/commits an object or triggers a backend flow — MDL has no native toast, so feedback must be explicit | `skills/learned-popup-feedback-pattern.md` | mdl | 5 | ondemand |
 
 #### Build · Pages — page-building patterns
 
@@ -127,6 +132,19 @@ picks the row up. That is the whole procedure — there is no second list to rem
 |---|---|---|---|---|
 | Building and auditing Mendix pages — widget patterns, datasource shapes | `skills/learned-page-patterns.md` | mdl | 5 | ondemand |
 | Generating a whole page tree in one script — the structure patterns that survive it | `skills/oneshot-page-structure-patterns.md` | mdl | 5 | ondemand |
+| Building or auditing a collapsible sidebar nav — Atlas Core's collapsed state needs icons assigned per menu item or it silently clips label text | `skills/learned-sidebar-collapse-icons.md` | mdl | 5 | ondemand |
+
+#### Build · Workflow
+
+| Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
+|---|---|---|---|---|
+| Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) — syntax, the 11 workflow microflow statements, and the binary-version $Type corruption class | `skills/learned-workflow-patterns.md` | mdl | 5 | ondemand |
+
+#### Build · Integration
+
+| Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
+|---|---|---|---|---|
+| Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call | `skills/rest-integration-first-time-right.md` | mdl | 4,5 | ondemand |
 
 #### Verify — does it work
 
@@ -161,4 +179,15 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake | `bug-logs/mxcli-bugs.md` | mdl,gate | 5,6 | baseline |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` | all | - | baseline |
 | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` | mdl,gate | - | ondemand |
+| Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable | `skills/bug-submission-checklist.md` | mdl,gate,review | 5,6 | ondemand |
+| A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause | `skills/empty-widget-triage.md` | mdl,test,review | 5,6 | ondemand |
+| Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary — proving it's version-specific without risking the real model | `skills/sandbox-ab-tool-defect-probe.md` | mdl,gate | - | ondemand |
+| Restarting Studio Pro on macOS — the reopen bug, the port bug, and detecting a real hang vs a slow load | `skills/restart-sp-reopen-and-hang-detection.md` | mdl,gate | - | ondemand |
+| Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds | `skills/field-run.md` | all | - | ondemand |
+
+#### Reference — lookup tables, not method
+
+| Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
+|---|---|---|---|---|
+| Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal | `skills/mendix-epics-api.md` | ba,architect | P,0 | ondemand |
 <!-- ROUTING:END -->

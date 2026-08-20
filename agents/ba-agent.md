@@ -70,6 +70,9 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 | `skills/brd-validation.md` | Validating BRDs against the code and document KB |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
+| `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal |
+| `skills/corpus-extraction-integrity.md` | Extracting structured requirements from a large delivered document corpus into per-scope knowledge-base files |
+| `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
 | `skills/journey-map.md` | Authoring the cross-module user journey ONCE at design time as a source artifact, bound L0→L3, that the module brief, coherence pass and journey-proof read instead of each re-deriving it |
 <!-- ROUTING:END -->
 - Follow `query-the-model.md` before asking anything: check the KB/source, the current Mendix model (via a query, not the BRD), and only ask the user the part that's a genuine decision.

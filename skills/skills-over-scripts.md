@@ -91,6 +91,16 @@ Do not just delete it. Order matters:
 3. **Keep the fact-fetching**, if any, as a much smaller instrument.
 4. **Delete, then re-run the gate.** A retirement that was never re-measured is not done.
 
+## The harness updates itself, in the same cycle, not after
+
+When a review run falsifies a hypothesis a skill currently endorses, patch that skill
+**immediately, in the same turn** — not as a follow-up, not as a note for later. A finding that
+contradicts a written rule and gets filed as "just a finding" leaves the wrong rule in place for
+the next reader, who will trust the skill over a buried review note every time. Decide on the spot
+whether the new evidence extends an existing skill (add a row, a caveat, a corrected example) or
+needs a new file — but decide now, while the falsifying evidence is still in front of you, not
+after the review report is written up and the context that produced it is gone.
+
 ## Adding a new capability
 
 Write the skill first and use it by hand, at least twice, on real work. Only the parts that were

@@ -342,6 +342,6 @@ diff /tmp/good.txt /tmp/bad.txt
 One line of output, one minute, after a day of syntax hypotheses. A known-good twin beats any
 amount of reasoning about what *should* be equivalent.
 
-See [[workflow-patterns]] for the workflow-specific version, and [[sandbox-ab-tool-defect-probe]]
+See [[learned-workflow-patterns]] for the workflow-specific version, and [[sandbox-ab-tool-defect-probe]]
 for varying one cause at a time once you have a candidate. Once a defect is verified, see
 [[bug-submission-checklist]] for what has to be true before it goes upstream as a filed issue.

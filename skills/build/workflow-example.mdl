@@ -1,0 +1,398 @@
+/**
+ * ============================================================================
+ * MENDIX NATIVE WORKFLOW IN PURE MDL — a complete, self-contained example
+ * ============================================================================
+ * Verified on mxcli v0.17.0 / Mendix 11.13.0 — this whole file passes
+ *     mxcli check example.mdl
+ * Substitute your own module for `MyModule` and it will reference-check too.
+ *
+ * It builds a small 3-step purchase-request approval, end to end:
+ *   context entity -> per-step rows -> two REUSABLE task pages -> workflow
+ *   -> the microflow that starts it.
+ *
+ * The two things people most often hand-build in Studio Pro — starting an
+ * instance (§5) and completing a task with an outcome (§3) — are both plain
+ * MDL. Read the three warnings at the bottom before trusting your own build;
+ * the first one silently corrupts your .mpr.
+ * ============================================================================
+ */
+
+-- ---------------------------------------------------------------------------
+-- 1. THE WORKFLOW CONTEXT ENTITY
+-- ---------------------------------------------------------------------------
+-- A workflow instance is parameterised by exactly ONE persistent entity.
+-- Every user task, page and condition receives it. Keep it as the *case file*:
+-- what the process reasons about, not a kitchen sink. Per-step detail goes on
+-- a child entity — that child is what makes one page serve many steps (§2/§3).
+
+CREATE PERSISTENT ENTITY MyModule."PurchaseRequest" (
+  "RequestNumber": String(20),
+  "Description": String(200),
+  "Amount": Decimal,
+  "SubmittedOn": DateTime
+);
+
+CREATE ENUMERATION MyModule."StepKey" (
+  "Manager"  'Manager review',
+  "Finance"  'Finance check',
+  "Purchase" 'Purchasing'
+);
+
+CREATE PERSISTENT ENTITY MyModule."StepData" (
+  "StepKey": Enumeration(MyModule."StepKey"),
+  "Comment": String(500),
+  "BudgetCode": String(20),
+  "CompletedOn": DateTime
+);
+
+CREATE ASSOCIATION MyModule."StepData_PurchaseRequest"
+  FROM MyModule."StepData" TO MyModule."PurchaseRequest"
+  TYPE Reference OWNER Default;
+
+-- THE IMPORTANT ONE — the back-reference from your data to the instance.
+-- Nothing populates this for you. Populate it in §5 or §2 cannot get home.
+CREATE ASSOCIATION MyModule."PurchaseRequest_Workflow"
+  FROM MyModule."PurchaseRequest" TO System."Workflow"
+  TYPE Reference OWNER Default
+  DELETE_BEHAVIOR DELETE_BUT_KEEP_REFERENCES;
+/
+
+-- ---------------------------------------------------------------------------
+-- 2. RESOLVE "which step row does this task edit?"
+-- ---------------------------------------------------------------------------
+-- The hinge of the reusable-page pattern. A task page gets a
+-- $WorkflowUserTask; from it you walk
+--     task -> System.Workflow -> your context entity -> the step row
+-- picking the row by a key derived FROM THE TASK ITSELF. That is what lets one
+-- page serve every step with no per-step parameter.
+--
+-- System.WorkflowUserTask has exactly these attributes and no others:
+--   Name, Description, StartTime, DueDate, EndTime, Outcome, State,
+--   CompletionType
+-- `Name` is the task's name in the workflow definition — so name your tasks
+-- deliberately. It is your routing key.
+
+CREATE OR MODIFY MICROFLOW MyModule."SUB_StepData_ForTask" (
+  $WorkflowUserTask: System."WorkflowUserTask"
+)
+RETURNS MyModule."StepData" AS $StepData
+BEGIN
+  RETRIEVE $Workflow FROM $WorkflowUserTask/System."WorkflowUserTask_Workflow";
+
+  IF $Workflow = empty THEN
+    LOG WARNING NODE 'MyModule' 'SUB_StepData_ForTask: task has no System.Workflow.';
+    RETURN empty;
+  END IF;
+
+  RETRIEVE $Request FROM MyModule."PurchaseRequest"
+    WHERE MyModule."PurchaseRequest_Workflow" = $Workflow
+    LIMIT 1;
+
+  IF $Request = empty THEN
+    -- Almost always means §5 never ran: the back-reference was not wired.
+    LOG WARNING NODE 'MyModule' 'SUB_StepData_ForTask: no PurchaseRequest wired to this instance via MyModule."PurchaseRequest_Workflow".';
+    RETURN empty;
+  END IF;
+
+  DECLARE $Key Enumeration(MyModule."StepKey") = MyModule."StepKey"."Manager";
+
+  IF $WorkflowUserTask/Name = 'Finance' THEN
+    SET $Key = MyModule."StepKey"."Finance";
+  ELSE
+    IF $WorkflowUserTask/Name = 'Purchase' THEN
+      SET $Key = MyModule."StepKey"."Purchase";
+    END IF;
+  END IF;
+
+  RETRIEVE $StepData FROM MyModule."StepData"
+    WHERE MyModule."StepData_PurchaseRequest" = $Request AND "StepKey" = $Key
+    LIMIT 1;
+
+  RETURN $StepData;
+END;
+/
+
+-- ---------------------------------------------------------------------------
+-- 3. THE REUSABLE TASK PAGES
+-- ---------------------------------------------------------------------------
+-- `complete_task` is a first-class PAGE BUTTON ACTION. One button:
+--   commits the form -> completes the task with that outcome -> closes.
+-- No microflow required.
+--
+--     ACTIONBUTTON "btn" (Caption: 'Approve', Action: complete_task 'Approve')
+--
+-- The string must EXACTLY match an outcome declared on the task in §4.
+--
+-- Four structural rules, each learned the hard way:
+--   a) Params MUST declare BOTH $WorkflowUserTask and $WorkflowContext.
+--      Omit either and you get CE7412 when the workflow targets the page.
+--   b) The complete_task button must sit inside a DATAVIEW bound to
+--      $WorkflowUserTask. Data-editing buttons go in the context dataview.
+--   c) Group pages by OUTCOME SHAPE, not by step. Steps ending in a single
+--      'Complete' share one page; Approve/Reject steps share another. Per-step
+--      fields become containers gated on the step enum:
+--          CONTAINER "c" (Visible: [StepKey = MyModule.StepKey.Finance]) { ... }
+--      Bare attribute names auto-root to $currentObject; enum VALUES must be
+--      fully qualified. An empty CONTAINER compiles but crashes at runtime.
+--   d) Wrap widgets in a LAYOUTGRID or you trip lint rule MPR010.
+
+CREATE OR REPLACE PAGE MyModule."WF_Task_SingleOutcome" (
+  Title: 'Complete step',
+  Layout: Atlas_Core.Atlas_Default,
+  Params: { $WorkflowUserTask: System."WorkflowUserTask", $WorkflowContext: MyModule."PurchaseRequest" }
+) {
+  LAYOUTGRID "mainGrid" {
+    ROW "row1" {
+      COLUMN "colTask" (DesktopWidth: 4) {
+        DATAVIEW "dvTask" (DataSource: $WorkflowUserTask) {
+          DYNAMICTEXT "txtName" (Content: '{1}', RenderMode: H3, ContentParams: [{1} = Name])
+          DYNAMICTEXT "txtDesc" (Content: '{1}', ContentParams: [{1} = Description])
+          FOOTER "ftTask" {
+            ACTIONBUTTON "btnComplete" (
+              Caption: 'Complete',
+              Action: complete_task 'Complete',
+              ButtonStyle: Success
+            )
+          }
+        }
+      }
+      COLUMN "colBody" (DesktopWidth: 8) {
+        -- Header data: the context object, straight from the page parameter.
+        DATAVIEW "dvContext" (DataSource: $WorkflowContext) {
+          TEXTBOX "txtNumber" (Label: 'Request', Attribute: "RequestNumber", Editable: Never)
+          TEXTBOX "txtDesc2"  (Label: 'Description', Attribute: "Description", Editable: Never)
+        }
+        -- Step data: resolved from the task by §2. One page, every step.
+        DATAVIEW "dvStep" (DataSource: MICROFLOW MyModule."SUB_StepData_ForTask"("WorkflowUserTask": $WorkflowUserTask)) {
+          TEXTAREA "taComment" (Label: 'Comment', Attribute: "Comment")
+          CONTAINER "ctnFinance" (Visible: [StepKey = MyModule.StepKey.Finance]) {
+            TEXTBOX "tbBudget" (Label: 'Budget code', Attribute: "BudgetCode")
+          }
+        }
+      }
+    }
+  }
+};
+/
+
+CREATE OR REPLACE PAGE MyModule."WF_Task_ApproveReject" (
+  Title: 'Approve or reject',
+  Layout: Atlas_Core.Atlas_Default,
+  Params: { $WorkflowUserTask: System."WorkflowUserTask", $WorkflowContext: MyModule."PurchaseRequest" }
+) {
+  LAYOUTGRID "mainGrid" {
+    ROW "row1" {
+      COLUMN "colTask" (DesktopWidth: 4) {
+        DATAVIEW "dvTask" (DataSource: $WorkflowUserTask) {
+          DYNAMICTEXT "txtName" (Content: '{1}', RenderMode: H3, ContentParams: [{1} = Name])
+          FOOTER "ftTask" {
+            -- Two buttons, two outcomes, zero microflows.
+            -- The workflow branches on whichever was pressed.
+            ACTIONBUTTON "btnApprove" (
+              Caption: 'Approve',
+              Action: complete_task 'Approve',
+              ButtonStyle: Success
+            )
+            ACTIONBUTTON "btnReject" (
+              Caption: 'Reject',
+              Action: complete_task 'Reject',
+              ButtonStyle: Danger
+            )
+          }
+        }
+      }
+      COLUMN "colBody" (DesktopWidth: 8) {
+        DATAVIEW "dvContext" (DataSource: $WorkflowContext) {
+          TEXTBOX "txtNumber" (Label: 'Request', Attribute: "RequestNumber", Editable: Never)
+          TEXTBOX "txtAmount" (Label: 'Amount', Attribute: "Amount", Editable: Never)
+        }
+        DATAVIEW "dvStep" (DataSource: MICROFLOW MyModule."SUB_StepData_ForTask"("WorkflowUserTask": $WorkflowUserTask)) {
+          TEXTAREA "taComment" (Label: 'Reason', Attribute: "Comment")
+        }
+      }
+    }
+  }
+};
+/
+
+-- ---------------------------------------------------------------------------
+-- 4. THE WORKFLOW DEFINITION
+-- ---------------------------------------------------------------------------
+-- Branch on USER TASK OUTCOMES, not on DECISION activities — see WARNING 1.
+--
+-- Outcome-block semantics (matches CE1876's own guidance):
+--   OUTCOMES 'X' { }              -- empty block: rejoins the enclosing flow
+--   OUTCOMES 'X' { activities }   -- nested block: a private terminal branch
+-- So a linear flow is a series of tasks with empty outcome blocks, and a real
+-- fork is one outcome carrying its own nested activities.
+--
+-- TARGETING: prefer XPATH over a targeting microflow, and target by ROLE
+-- COMPOSITION, not by one role's literal name. A microflow that retrieves the
+-- role literally named 'Manager' hides every task from an Administrator
+-- holding the same module role — which surfaces only as "my inbox is empty"
+-- for exactly one persona, long after you shipped.
+--
+-- The XPath needs all THREE segments. Two-segment forms are rejected CE0161.
+-- Double the inner quotes.
+
+CREATE WORKFLOW MyModule."PurchaseApproval"
+  PARAMETER $Context: MyModule."PurchaseRequest"
+BEGIN
+
+  USER TASK "Manager" 'Manager review'
+    PAGE MyModule."WF_Task_ApproveReject"
+    TARGETING USERS XPATH '[(System.UserRoles/System.UserRole/Name = ''Manager'') or (System.UserRoles/System.UserRole/Name = ''Administrator'')]'
+    OUTCOMES
+      'Approve' { }
+      'Reject' {
+        CALL MICROFLOW MyModule."SUB_PurchaseRequest_Close"
+          WITH (MyModule."SUB_PurchaseRequest_Close"."Request" = '$Context');
+      };
+
+  -- Reached only via the empty 'Approve' block above.
+  USER TASK "Finance" 'Finance check'
+    PAGE MyModule."WF_Task_SingleOutcome"
+    TARGETING USERS XPATH '[(System.UserRoles/System.UserRole/Name = ''Finance'') or (System.UserRoles/System.UserRole/Name = ''Administrator'')]'
+    OUTCOMES 'Complete' { };
+
+  USER TASK "Purchase" 'Purchasing'
+    PAGE MyModule."WF_Task_SingleOutcome"
+    TARGETING USERS XPATH '[(System.UserRoles/System.UserRole/Name = ''Purchasing'') or (System.UserRoles/System.UserRole/Name = ''Administrator'')]'
+    OUTCOMES 'Complete' { };
+
+  CALL MICROFLOW MyModule."SUB_PurchaseRequest_Close"
+    WITH (MyModule."SUB_PurchaseRequest_Close"."Request" = '$Context');
+
+END WORKFLOW;
+/
+
+-- A microflow called FROM a workflow must return Boolean, an enumeration, or
+-- nothing — returning an entity is rejected. Wrap entity-returning logic in a
+-- boolean shim. It also runs headless: it cannot SHOW PAGE.
+-- Note the CALL MICROFLOW parameter form above: fully-qualified param name on
+-- the left, and the value as a QUOTED string ('$Context', or a literal like
+-- 'MyModule.StepKey.Finance').
+CREATE OR MODIFY MICROFLOW MyModule."SUB_PurchaseRequest_Close" (
+  $Request: MyModule."PurchaseRequest"
+)
+RETURNS Boolean AS $Done
+BEGIN
+  LOG INFO NODE 'MyModule' 'Purchase approval finished.';
+  RETURN true;
+END;
+/
+
+-- ---------------------------------------------------------------------------
+-- 5. STARTING THE INSTANCE
+-- ---------------------------------------------------------------------------
+--     $Wf = CALL WORKFLOW Mod."Name" (WorkflowContext = $Object);
+--
+-- Two gotchas, both of which cost real time here:
+--   * You CANNOT `DECLARE $Wf System.Workflow;` first — MDL043 / CE0053,
+--     "Mendix does not allow the Create Variable activity to hold an object".
+--     Assign straight from the call; the assignment creates the variable.
+--   * The mapping must be NAMED (`WorkflowContext = $x`). A bare `($x)` fails
+--     with "mismatched input ')' expecting '='" — even though mxcli's own
+--     internal deparse template reads `call workflow %s ($%s);`.
+--
+-- Then WIRE THE BACK-REFERENCE. Skip the CHANGE below and everything still
+-- compiles, the workflow still runs, tasks still appear in the inbox — and
+-- every task page renders blank forever, because §2 cannot get home. This is
+-- the single most common way to lose a day on this pattern.
+
+CREATE OR MODIFY MICROFLOW MyModule."ACT_PurchaseRequest_Submit" (
+  $Request: MyModule."PurchaseRequest"
+)
+RETURNS Boolean AS $Success
+BEGIN
+  DECLARE $Success Boolean = false;
+
+  CHANGE $Request ("SubmittedOn" = [%CurrentDateTime%]);
+  COMMIT $Request WITH EVENTS REFRESH;
+
+  -- Create every step row up front so §2 always finds one.
+  -- Note `CREATE LIST OF`, not `DECLARE ... List of ... = empty` — the latter
+  -- is rejected MDL040/CE0053: Create Variable cannot produce a list, for the
+  -- same reason it cannot hold an object (see the CALL WORKFLOW note below).
+  $Steps = CREATE LIST OF MyModule."StepData";
+
+  $S1 = CREATE MyModule."StepData" ("StepKey" = MyModule."StepKey"."Manager",  MyModule."StepData_PurchaseRequest" = $Request);
+  ADD $S1 TO $Steps;
+  $S2 = CREATE MyModule."StepData" ("StepKey" = MyModule."StepKey"."Finance",  MyModule."StepData_PurchaseRequest" = $Request);
+  ADD $S2 TO $Steps;
+  $S3 = CREATE MyModule."StepData" ("StepKey" = MyModule."StepKey"."Purchase", MyModule."StepData_PurchaseRequest" = $Request);
+  ADD $S3 TO $Steps;
+
+  COMMIT $Steps WITH EVENTS REFRESH;
+
+  $Workflow = CALL WORKFLOW MyModule."PurchaseApproval" (WorkflowContext = $Request);
+
+  CHANGE $Request (MyModule."PurchaseRequest_Workflow" = $Workflow);
+  COMMIT $Request;
+
+  SET $Success = true;
+  RETURN $Success;
+END;
+/
+
+--  ============================================================================
+--  THE FULL SET OF WORKFLOW MICROFLOW STATEMENTS
+--  ============================================================================
+--  None of these appear in `mxcli syntax workflow --json` or in HELP, yet all
+--  of them parse and reference-check on v0.17.0. Absence from the syntax index
+--  is not evidence of anything — probe with `check` before believing
+--  "unsupported".
+--
+--    $Wf    = CALL WORKFLOW Mod."Wf" (WorkflowContext = $Ctx);
+--    SET TASK OUTCOME $Task 'OutcomeName';     -- if you must do it in a flow
+--    OPEN WORKFLOW $Wf;
+--    OPEN USER TASK $Task;
+--    LOCK WORKFLOW $Wf;   UNLOCK WORKFLOW $Wf;   UNLOCK WORKFLOW ALL;
+--    $R     = NOTIFY WORKFLOW $Wf;
+--    $Wfs   = GET WORKFLOWS FOR $Ctx;
+--    $D     = GET WORKFLOW DATA $Wf AS Mod."Entity";
+--    $Recs  = GET WORKFLOW ACTIVITY RECORDS $Wf;
+--    WORKFLOW OPERATION ABORT|PAUSE|UNPAUSE|RETRY|RESTART|CONTINUE $Wf;
+--    WORKFLOW OPERATION ABORT $Wf REASON 'Superseded by v2';
+--
+--  Prefer the `complete_task` BUTTON over `SET TASK OUTCOME` in a microflow.
+--  The button also commits the form and closes the page; the statement does
+--  neither, so you end up rebuilding both by hand.
+--
+--  ============================================================================
+--  THREE WARNINGS
+--  ============================================================================
+--
+--  1. DO NOT EMIT A `DECISION` ACTIVITY INSIDE A WORKFLOW.
+--     mxcli writes the decision's outcome label as a raw string into a field
+--     requiring an EnumerationValueIdentifier. The result is a .mpr Studio Pro
+--     refuses to load — StorageLoadException. It reproduces with something as
+--     trivial as `DECISION '1 = 1'`, and it is INVISIBLE to `mxcli check`, to
+--     `mxcli exec`, and to `DESCRIBE WORKFLOW`. No MDL workaround exists.
+--     Refactor the branch into a user task outcome (as in §4), or add that one
+--     gateway by hand in Studio Pro.
+--
+--  2. `DESCRIBE MICROFLOW` LIES ABOUT `CALL WORKFLOW`.
+--     It renders the activity as `-- Empty action`, and the call appears in
+--     neither `SHOW CALLEES` nor `CATALOG.REFS`. A microflow that DOES start a
+--     workflow reads back as though it doesn't. Audit your MDL source, not
+--     DESCRIBE output. This misrendering has repeatedly led people to conclude
+--     "this must have been hand-built in Studio Pro" and to build stub
+--     microflows around a blocker that never existed.
+--
+--  3. AFTER BUILDING A WORKFLOW, RUN THE NATIVE CHECK AND OPEN IT IN STUDIO PRO.
+--         <StudioPro.app>/Contents/modeler/mx check YourApp.mpr
+--     then look at the activity icons. `check` / `exec` / `DESCRIBE` all pass
+--     happily on a model whose loader-level structure is malformed — warning 1
+--     is precisely that class of defect, and only the native loader sees it.
+--
+--  ============================================================================
+--  WHAT TO TAKE, IN ORDER OF VALUE
+--  ============================================================================
+--    1. Reusable pages grouped by OUTCOME SHAPE + `complete_task` buttons.
+--       An N-step process usually needs only 2-3 pages, not N.
+--    2. The task -> workflow -> context -> step-row resolver (§2), keyed off
+--       the task Name. This is what makes (1) possible.
+--    3. Wiring the context -> System.Workflow back-reference at start (§5).
+--       Skipping it is silent, and fatal to (2).
+--    4. Role-composition XPath targeting instead of a name-matching microflow.

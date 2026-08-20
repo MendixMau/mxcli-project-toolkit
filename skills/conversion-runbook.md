@@ -338,6 +338,12 @@ is the expensive one. Acking never obliges anyone to produce anything; it record
 components are N/A where. **Closes with CAC-1** (`skills/checkpoints/checkpoint-scope.md`): the
 scope brainstorm is the part no mode may skip.
 
+**Write `triage.md` (and `assessment.md`) at the project root, not under `analysis/`.**
+`gate-check.sh`'s `ANALYSIS_BASE` falls back to the project root until Stage 1 creates
+`analysis/<source>/knowledge-base/` — before that folder exists, a Stage 0 artifact written under
+`analysis/` is invisible to the gate, which then reports the misleading *"triage.md not found"*
+rather than reading what is actually there.
+
 **First, characterise the source, then grade it. `bin/source-sufficiency.sh init <root>` → fill the
 `inventory` → fill every dimension → `report`.** Nothing else in this toolkit reads a source;
 `facts-lock`, `coverage-check`, `open-questions` and `gate-check` all read BRDs. Skip this and a

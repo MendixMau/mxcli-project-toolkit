@@ -145,10 +145,17 @@ else
   echo "Created: intake.md"
 fi
 
+# Hoisted out of the PROJECT.md branch below. It used to be assigned only when
+# PROJECT.md did NOT already exist, which is fine while the only reader is that
+# same branch — but this scaffold is idempotent and re-run routinely, so on the
+# second run the variable was simply unset. The leak-guard registration further
+# down reads it, and an unset name there writes a bare `\b\b` to the denylist:
+# a pattern that matches every file. Assign it once, unconditionally.
+PROJECT_NAME="$(basename "$PROJECT_DIR")"
+
 if [ -f "$PROJECT_MD" ]; then
   echo "Skip: PROJECT.md already exists — not overwritten."
 else
-  PROJECT_NAME="$(basename "$PROJECT_DIR")"
   # Stamp the toolkit sha this scaffold was built from.
   #
   # This line used to read "(set at session start — see CLAUDE.local.md)", which no sha pattern
@@ -534,6 +541,53 @@ else
   else
     echo "sources/ will be tracked by git — not added to .gitignore."
   fi
+fi
+
+# ---------------------------------------------------------------------------
+# Register this project's name with the toolkit's leak guard.
+#
+# Scaffold time is the ONE moment the toolkit knows a project's name for
+# certain. bin/check-no-client-data.sh hard-fails when .leakguard-deny is
+# ABSENT, but has no way to notice one that is merely STALE — and a stale
+# denylist reports "✅ no client data detected" just as confidently as a
+# correct one.
+#
+# Real incident, 2026-08-20: .leakguard-deny was last edited on 5 Aug and held
+# 19 patterns. Five projects started after that date. None of their names were
+# in it, so ~200 occurrences across ~41 tracked files passed every pre-commit
+# run in a PUBLIC repo. The guard was working perfectly; it was looking at the
+# wrong list. Capturing the name here is the fix — a "is the denylist stale?"
+# heuristic inside the guard would only be guessing.
+#
+# .leakguard-deny is gitignored by design (a tracked denylist publishes exactly
+# the names it exists to suppress — the 2026-08-03 finding), so this writes to
+# the toolkit CLONE, never to the project, and never to anything committed.
+DENYFILE="$TOOLKIT_ROOT/.leakguard-deny"
+if [ -w "$TOOLKIT_ROOT" ]; then
+  # Dedupe with a FIXED-STRING search, not a regex one. The obvious version —
+  # matching the name with `[^A-Za-z0-9]` boundaries — never fires, because the
+  # stored form is `\bName\b` and the character immediately before the name is
+  # the `b` of `\b`, which is alphanumeric. Every re-run appended a duplicate.
+  # -F also removes any need to escape names containing `.`, `+` or `-`.
+  if [ ! -f "$DENYFILE" ] || ! grep -qiF -- "$PROJECT_NAME" "$DENYFILE" 2>/dev/null; then
+    {
+      [ -f "$DENYFILE" ] || printf '# Leak-guard denylist — gitignored. See bin/check-no-client-data.sh header.\n'
+      printf '\\b%s\\b\n' "$PROJECT_NAME"
+    } >> "$DENYFILE" 2>/dev/null && {
+      echo ""
+      echo "Registered \"$PROJECT_NAME\" with the toolkit leak guard ($DENYFILE)."
+      echo "  The guard will now refuse any toolkit commit that mentions it by name."
+      echo "  If you also need variants (a client name, a codename, an internal host),"
+      echo "  add them there — one extended-regex pattern per line."
+    }
+  fi
+else
+  # Not fatal — a read-only toolkit clone is a legitimate setup — but say so,
+  # because the alternative is a name silently outside the guard's view.
+  echo ""
+  echo "NOTE: could not register \"$PROJECT_NAME\" with the toolkit leak guard"
+  echo "  ($TOOLKIT_ROOT is not writable). Add \\b$PROJECT_NAME\\b to"
+  echo "  $DENYFILE by hand, or this project's name is invisible to the guard."
 fi
 
 GUIDE="$SCRIPT_DIR/../toolkit-guide.html"

@@ -22,13 +22,28 @@
 #   <project>/knowledge-base               legacy / hand-made
 # Every match is read. A project legitimately has several.
 
+# discover_kbs <project-dir> -> newline-separated knowledge-base directories on stdout
+#
+# The three-path convention above, on its own. `discover_brds` is built on it, and so is
+# `bin/extraction-report.sh`, which renders the Stage 1 surface for whatever a knowledge base
+# holds. Anything that needs "where are this project's knowledge bases" calls THIS — the one
+# lesson of the 2026-08-12 bug is that the second copy of a path list is the one that is wrong.
+discover_kbs() {
+  _dkb_dir="${1:-}"
+  [ -n "$_dkb_dir" ] || return 0
+  for _dkb_kb in "$_dkb_dir"/analysis/*/knowledge-base \
+                 "$_dkb_dir"/analysis/knowledge-base \
+                 "$_dkb_dir"/knowledge-base; do
+    [ -d "$_dkb_kb" ] || continue
+    printf '%s\n' "$_dkb_kb"
+  done
+}
+
 # discover_brds <project-dir> -> newline-separated paths on stdout
 discover_brds() {
   _dbrd_dir="${1:-}"
   [ -n "$_dbrd_dir" ] || return 0
-  for _dbrd_kb in "$_dbrd_dir"/analysis/*/knowledge-base \
-                  "$_dbrd_dir"/analysis/knowledge-base \
-                  "$_dbrd_dir"/knowledge-base; do
+  discover_kbs "$_dbrd_dir" | while IFS= read -r _dbrd_kb; do
     [ -d "$_dbrd_kb/brd" ] || continue
     for _dbrd_f in "$_dbrd_kb"/brd/*.brd.json; do
       [ -f "$_dbrd_f" ] || continue

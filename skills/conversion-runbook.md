@@ -271,6 +271,56 @@ them.
 
 **These rows are routing, not specs.** Before producing any stage artifact, open the stage's owning skill file and follow *its* output list end-to-end — the summary here (and in the README / `toolkit-guide.html`) names the highlights, not the full deliverable. (Real incident, 2026-07-14: a Stage-3 run worked from the summary, produced a design system, and skipped the one-wireframe-per-screen requirement that only `design-artifacts.md` spells out — half the deliverable, and the half the build loop depends on.)
 
+### What a gate verdict means — and how a project that joined late says so
+
+`bin/gate-check.sh` has five verdicts, and the difference between the first two is the point:
+
+| Verdict | Means | Exit code on a stage query |
+|---|---|---|
+| `PASS` | Checked, and it holds. | 0 |
+| `PENDING` | The artifact is not there at all. **Not started is not failed.** | 3 |
+| `FAIL` | Something *is* there and it is wrong — or a `✋` stage has its artifacts but no `CONFIRMED` decision. | 1 |
+| `WAIVED` | Declared out of scope for this project, in the register, with a reason. | 0 |
+| `MANUAL` | Not machine-checkable; paste the stage's own evidence. | 2 |
+
+An informational run (no stage argument) exits 0 whatever it finds — it is a status report.
+
+**Not every project starts at Stage P, and the ones that don't are not behind.** A project that
+wires the toolkit in mid-build, or whose entry mode does not run a stage, would otherwise carry a
+permanent red row for an artifact nobody intends to produce — which teaches the reader that the
+board is noise, and by the time that lesson lands a *real* failure looks identical. So the project
+says where it stands, once, in the decision register:
+
+```
+Adopted at stage: 5 — build was underway before the toolkit was wired in; analysis lives in Confluence
+Waived stage 6: QA runs in the client's own Cypress suite
+```
+
+One line per waived stage — a waiver is one stage's reason, and a shared reason stops being true
+the moment a second stage is waived for a different one. The older aggregate spelling
+(`Waived stages: 1, 2 — reason`) is still read, and is fine to hand-write for a contiguous block
+that genuinely shares one reason.
+
+Write them with `bin/gate-check.sh <project> --adopt 5 --reason "..."` or `--waive 2 --reason "..."`,
+or by hand — the register line is the authority either way, and deleting it puts the stage straight
+back under the gate. `--reason` is required: an unexplained skip is the thing gates exist to prevent.
+Stage P is never covered by `--adopt`; the kickoff interview is how the toolkit learns what the
+project is, and it costs one conversation.
+
+**A waiver cannot hide a defect.** It excuses an empty stage, and it excuses an unsigned `✋`
+decision on work the project did its own way. It does **not** touch a stage whose artifacts exist
+and are inconsistent — a validation report reading *"NOT clean, 14 findings outstanding"* keeps
+failing under any waiver, because that is a fact about the project and no line in a register makes
+it stop being one. Entry-mode waivers are narrower still: they only ever apply to a stage with
+nothing in it, since the entry mode is a statement about the *shape* of the project, not about any
+artifact in it.
+
+**Upgrading the toolkit is an offer, not a demand.** When a `git pull` changes protocol a project
+depends on, `gate-check` names the stages it touches and offers three answers with equal billing:
+read and ack it, ignore it for now, or record that it is not needed here. A mid-build project
+hearing only "the protocol moved" guesses, and the safe-looking guess — regenerate the artifact —
+is the expensive one. Acking never obliges anyone to produce anything; it records that they read it.
+
 ### Stage P — Kickoff
 
 | | |
@@ -395,7 +445,7 @@ is better input than the triage map ever was.
 |---|---|
 | **User defines** | Do documents exist that aren't in the folder (specs, manuals, field-label sheets, screenshots)? DB schema? Sample data? Who has them? SME access for what neither code nor docs answer. **Then, at CAC-1b: does the extraction output match the intended scope — accept, narrow, or re-extract.** |
 | **Agent produces** | **Path A — code → AST extractors** (always runs *in migration mode*; N/A with attribution otherwise). **Path B — documents → LLM extraction** (`kb-generation.md`). **Path C — SME interview** (closes `openQuestions` that neither code nor docs answer). Plus CAC-1b's scope-out surface — the delta table when CAC-1 recorded a slice to diff against, otherwise the one-line statement of what extraction covers (a single app dropped in a folder needs stating, not interrogating). |
-| **Surface** | `extraction-report.html` |
+| **Surface** | `<kb>/extraction-report.html` — `bin/extraction-report.sh <project-root>`. One renderer for every entry mode: it reads the knowledge base, not the source, so a Path B document corpus gets the same surface as a Path A extraction, one page per knowledge base at the path the gate looks for. Each section carries a `report-schema.md` verdict, and no zero is printed unless a second record (the pre-merge `extracted/*.json`, or `reports/summary.md`) agrees with it — one method returning zero renders `manual`, not a green. Until 2026-08-20 this was `node generate-report.js` inside each pipeline, so requirements-driven and greenfield projects could not produce the file their own Stage 1 gate requires, despite this row promising it. |
 | **Gate** | 4 extraction quality checks pass with evidence. Paths B and C are done or declared-unavailable, with attribution (who declared it, when). Advisory — `bin/gate-check.sh <project> 1` reports and exits 0. Record CAC-1b's outcome as a Stage-1 `Extraction scope:` decision naming what is in and what is out, so the next session isn't guessing. |
 | **Owner** | `ba-agent` |
 
@@ -601,7 +651,7 @@ An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units
 
 ## Checklist Before Calling a Stage "Done"
 
-- [ ] Run `bin/gate-check.sh <project-dir> <stage>` — it fails loudly if required artifacts are missing; a stage isn't done until this passes. This is mechanical (file-existence/grep checks), not something to self-attest from memory.
+- [ ] Run `bin/gate-check.sh <project-dir> <stage>` — a stage isn't done until this passes (`PASS` or `WAIVED`). This is mechanical (file-existence/grep checks), not something to self-attest from memory. `PENDING` means not started, `FAIL` means something is there and it is wrong — see "What a gate verdict means" in §2.
 - [ ] The stage's gate ran the full 6-step interview protocol (§1) for every user-facing decision — not just a yes/no on something already built.
 - [ ] Every decision is written to both the stage HTML surface and `PROJECT.md`, marked `CONFIRMED` or `ASSUMED` (never silently defaulted with no record).
 - [ ] `✋` gates have an explicit `CONFIRMED` decision — no `ASSUMED` allowed to pass a hard stop.

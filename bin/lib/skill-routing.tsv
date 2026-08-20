@@ -10,7 +10,7 @@
 # Edit THIS file, then run:  bin/render-routing.sh
 # CI / gate:                 bin/render-routing.sh --check   (exit 2 == a surface has drifted)
 #
-# Format: TAB-separated, six columns. Blank lines and #-comments ignored.
+# Format: TAB-separated, seven columns. Blank lines and #-comments ignored.
 #   1 name    stable id (basename without .md/.sh)
 #   2 path    repo-relative path of the thing to load
 #   3 when    one line: "always relevant for ..." — the trigger, not a description
@@ -21,6 +21,31 @@
 #             experimental (under trial: routed and discoverable, but _routing_stage_arm skips
 #                          it on purpose, so a skill nobody has proven yet can never be the
 #                          reason a gate fails)
+#   7 group   which question the skill answers, NOT what kind of thing it is. One of:
+#               spine         what am I doing, who decides, how do I ask
+#               source        reading a legacy system (migration entry mode only)
+#               requirements  what must be built
+#               architecture  how it is shaped
+#               design        how it looks, before any MDL
+#               build         authoring the model — the loop itself
+#               build/mdl     the MDL language and tool reference
+#               build/pages   page-building patterns
+#               build/workflow / build/integration / build/security   (declared, still empty)
+#               verify        does it work
+#               diagnose      something is broken and it may be the tooling
+#               reference     lookup tables, not method
+#             The set is CLOSED — routing_validate_groups() rejects anything else, because a
+#             typo would otherwise render as a real fourteenth group nobody notices.
+#
+#             Added 2026-08-20. Four of the build/* groups are empty on purpose: a flat list of
+#             62 skills hid the fact that this toolkit says nothing at all about workflows,
+#             REST, grids or build-time security. The empty group is the finding.
+#
+#             Groups order the RENDERED tables (ROUTING.md, README's situational table). They
+#             deliberately do NOT group the baseline views: baseline is a read-all-of-these set,
+#             where sub-headings would imply a selectivity that does not exist, and that view is
+#             copied into every project's CLAUDE.local.md — regrouping it churns every project
+#             for no gain.
 #
 # TSV rather than a markdown ROUTING.md because a renderer has to parse this in bash 3.2 on
 # macOS, and several "when" strings contain the "|" that a markdown table uses as its column
@@ -30,75 +55,80 @@
 # skills/, which gate-check.sh treats as PROTOCOL_PATHS: a data file there would trip a
 # protocol-staleness ack on every routing edit.
 #
-# name	path	when	agents	stages	tier
-conversion-runbook	skills/conversion-runbook.md	Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only	all	P,0,1,2,3,4,5,6,7	baseline
-query-the-model	skills/query-the-model.md	Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order	all	P,0,1,2,3,4,5,6,7	baseline
-skills-over-scripts	skills/skills-over-scripts.md	Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot	all	-	baseline
-interview-protocol	skills/interview-protocol.md	Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn	ba,architect	P,0,1,2,3,4,5,6,7	baseline
-grill-mode	skills/grill-mode.md	Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough	ba,architect	P,0,1,2,3,4,5,6,7	ondemand
-agent-roles	skills/agent-roles.md	Setting up or completing a project's dev-process subagents — once, at project start, not "on demand"	all	P,4,5	baseline
-source-triage	skills/source-triage.md	Deciding whether to extract at all, before any BRD gets generated	ba	0	baseline
-source-sufficiency	bin/source-sufficiency.sh	Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source	ba	0,1	baseline
-triage-report	bin/triage-report.sh	Rendering a filled triage.md for review — the triage.html surface Stage 0 names. Renders only; the Stage 0 verdict stays with gate-check and the judgement with source-triage.md	ba	0	ondemand
-question-kinds	bin/question-kinds.sh	Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127	ba	1,2,3	baseline
-facts-lock	bin/facts-lock.sh	Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done	ba	2	baseline
-brd-report	bin/brd-report.sh	Reviewing what the BRDs actually say — the Stage 2 surface, for BRDs from any source. Reads every knowledge base at once, and keeps a section that is absent-because-not-applicable apart from one that is absent-because-expected	ba	2	ondemand
-module-brief	skills/module-brief.md	Building any module — before the first script. The mdl-agent's single per-module input	ba,mdl	4,5	baseline
-learned-mdl-preflight	skills/learned-mdl-preflight.md	Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations	mdl	5	baseline
-module-folder-convention	skills/module-folder-convention.md	Placing any document in a module — before the first `create`. Feature group, then Pages/Microflows/Services/Resources; the path comes from the brief's folder plan, and the table says which types mxcli can actually place	architect,mdl	4,5	baseline
-learned-microflow-patterns	skills/learned-microflow-patterns.md	Writing or fixing any microflow — MDL gotchas plus annotation discipline	mdl	5	baseline
-ui-preflight-pages	skills/ui-preflight-pages.md	Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP	mdl	5	baseline
-learned-stylegallery	skills/learned-stylegallery.md	Building or using the in-app design gallery	mdl	5	baseline
-learned-mcp-patterns	skills/learned-mcp-patterns.md	Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only	mdl	5	baseline
-module-review	skills/module-review.md	Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated	mdl,review,test	5,6	baseline
-testing-shape	skills/testing-shape.md	Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature	test,gate,review	5,6	baseline
-verify-module	project-bin/verify-module.sh	Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh	mdl,gate,test,review	5,6	baseline
-mxcli-bugs	bug-logs/mxcli-bugs.md	A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake	mdl,gate	5,6	baseline
-bootstrap-project	skills/bootstrap-project.md	Generating a new project's CLAUDE.md — baseline routing plus project-specific facts	ba	P	ondemand
-existing-app-assurance	skills/existing-app-assurance.md	Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates	test,review	6	ondemand
-assess-migration	skills/assess-migration.md	Assessing or planning a migration up front, before any pipeline is chosen	ba	0	ondemand
-migration-pipeline	skills/migration-pipeline.md	Running the extraction pipeline	ba	0,1	ondemand
-migrate-general	skills/migrate-general.md	Migrating from a stack that has no dedicated pipeline	ba	0	ondemand
-migrate-outsystems	skills/migrate-outsystems.md	Migrating an OutSystems app	ba	0	ondemand
-source-os11	skills/source-os11.md	Understanding OutSystems 11 source	ba	0,1	ondemand
-os-xml-schema	skills/os-xml-schema.md	Reading the OutSystems XML export schema	ba	0,1	ondemand
-source-node-express-react	skills/source-node-express-react.md	Understanding Node/Express+React source, its layout assumptions and its gaps	ba	0,1	ondemand
-document-discovery	skills/document-discovery.md	Scanning or classifying an unstructured document folder	ba	0,1	ondemand
-extractor-quality-loop	skills/extractor-quality-loop.md	Validating an extractor's output before its BRDs are trusted	ba	0,1	ondemand
-qa-loop-goal-pattern	skills/qa-loop-goal-pattern.md	Validating a new stack pipeline's extraction quality	ba	0,6	ondemand
-kb-generation	skills/kb-generation.md	Extracting Excel/Word/PDF specs into a knowledge base	ba	1,2	ondemand
-brd-generation	skills/brd-generation.md	Writing or enriching a BRD JSON	ba	2	ondemand
-brd-validation	skills/brd-validation.md	Validating BRDs against the code and document KB	ba	2	ondemand
-architecture-blueprint	skills/architecture-blueprint.md	Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations	architect	3	ondemand
-modularize-domain	skills/modularize-domain.md	Deciding module boundaries before "create module"	architect	3	ondemand
-design-artifacts	skills/design-artifacts.md	Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable	architect	3	ondemand
-brd-to-build-plan	skills/brd-to-build-plan.md	Turning BRDs plus architecture into a numbered, dependency-ordered build plan	architect	3,4	ondemand
-coverage-ledger	skills/coverage-ledger.md	Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible	architect,gate	4	ondemand
-coverage-check	bin/coverage-check.sh	Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered	architect,gate	4	ondemand
-iterative-build-loop	skills/iterative-build-loop.md	Building a module with mxcli — verified, iterative, coverage-checklist gated	mdl,gate	5	ondemand
-mdl-cookbook-microflows	skills/mdl-cookbook-microflows.md	Writing MDL microflow scripts — worked recipes	mdl	5	ondemand
-learned-page-patterns	skills/learned-page-patterns.md	Building and auditing Mendix pages — widget patterns, datasource shapes	mdl	5	ondemand
-oneshot-page-structure-patterns	skills/oneshot-page-structure-patterns.md	Generating a whole page tree in one script — the structure patterns that survive it	mdl	5	ondemand
-conformance-check	project-bin/conformance-check.sh	Running the ledger rung alone — recompute every stored ledger status against the live model and catch the STALE rows that claim built for something the model no longer has	gate,review	5,6	ondemand
-graph-sweep	project-bin/graph-sweep.sh	Running the wiring rung alone — a module imported but never reached, an element built but wired to nothing, a boundary crossed; mxbuild and e2e are blind to all three	review,gate	5,6	ondemand
-test-stack-up	project-bin/test-stack-up.sh	Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only	test,gate	5,6	ondemand
-e2e-harness-base	skills/e2e-harness-base.md	Standing up or extending the Playwright e2e harness	test	6	ondemand
-learned-db-assertions	skills/learned-db-assertions.md	Writing DB assertion tests that cross-check UI state against the database	test	6	ondemand
-fixture-seeding	skills/fixture-seeding.md	Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness	test,review	5,6	ondemand
-journey-proof	skills/journey-proof.md	Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red	test,review	5,6	ondemand
-monkey-test	skills/monkey-test.md	Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works	test,review	5,6	ondemand
-learned-skill-ux-audit	skills/learned-skill-ux-audit.md	UX audit and screenshot-loop discipline	review	6	ondemand
-learned-skill-scope-delta	skills/learned-skill-scope-delta.md	Tracking scope delta between the BRD and the built state	review	6	ondemand
-close-the-loop	skills/close-the-loop.md	Cutover and retrospective — promoting proven patterns back into the toolkit	all	7	ondemand
-report-schema	skills/report-schema.md	Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer	test,review,gate	5,6	ondemand
-harness-architecture	skills/harness-architecture.md	Installing, extending, debugging or porting the verification harness — which part owns what, which parts run standalone, and what a missing part must report	test,review	5,6	ondemand
-measured-claims	skills/measured-claims.md	Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited	all	-	ondemand
-tool-output-is-not-ground-truth	skills/tool-output-is-not-ground-truth.md	Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude	all	-	baseline
-process-coherence-pass	skills/process-coherence-pass.md	Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss	review	5,6	ondemand
-coherence-cadence	project-bin/coherence-cadence.sh	After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory	mdl,gate,review	5,6	ondemand
-build-plan-status	project-bin/build-plan-status.sh	After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views	architect,gate,review	4,5,6	ondemand
-e2e-evidence-report	skills/e2e-evidence-report.md	Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything	test,review	6	ondemand
-mpr-corruption-and-sp-load-errors	skills/mpr-corruption-and-sp-load-errors.md	Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout	mdl,gate	-	ondemand
-lint-gate	project-bin/lint-gate.sh	Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing	mdl,gate	5,6	ondemand
-lint-that-actually-runs	skills/lint-that-actually-runs.md	Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence	gate,review	5,6	ondemand
-journey-map	skills/journey-map.md	Authoring the cross-module user journey ONCE at design time as a source artifact, bound L0→L3, that the module brief, coherence pass and journey-proof read instead of each re-deriving it	ba,architect,test	2,3,4	experimental
+# name	path	when	agents	stages	tier	group
+conversion-runbook	skills/conversion-runbook.md	Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only	all	P,0,1,2,3,4,5,6,7	baseline	spine
+query-the-model	skills/query-the-model.md	Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order	all	P,0,1,2,3,4,5,6,7	baseline	spine
+skills-over-scripts	skills/skills-over-scripts.md	Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot	all	-	baseline	spine
+interview-protocol	skills/interview-protocol.md	Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn	ba,architect	P,0,1,2,3,4,5,6,7	baseline	spine
+grill-mode	skills/grill-mode.md	Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough	ba,architect	P,0,1,2,3,4,5,6,7	ondemand	spine
+agent-roles	skills/agent-roles.md	Setting up or completing a project's dev-process subagents — once, at project start, not "on demand"	all	P,4,5	baseline	spine
+source-triage	skills/source-triage.md	Deciding whether to extract at all, before any BRD gets generated	ba	0	baseline	source
+source-sufficiency	bin/source-sufficiency.sh	Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source	ba	0,1	baseline	source
+triage-report	bin/triage-report.sh	Rendering a filled triage.md for review — the triage.html surface Stage 0 names. Renders only; the Stage 0 verdict stays with gate-check and the judgement with source-triage.md	ba	0	ondemand	source
+extraction-report	bin/extraction-report.sh	Reviewing what the extraction actually produced — the Stage 1 surface, and the file the Stage 1 gate looks for. Renders a code-extracted and a document knowledge base alike, so a requirements-driven project gets the surface too; prints no zero that a second record does not agree with	ba	1	ondemand	source
+question-kinds	bin/question-kinds.sh	Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127	ba	1,2,3	baseline	spine
+facts-lock	bin/facts-lock.sh	Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done	ba	2	baseline	requirements
+brd-report	bin/brd-report.sh	Reviewing what the BRDs actually say — the Stage 2 surface, for BRDs from any source. Reads every knowledge base at once, and keeps a section that is absent-because-not-applicable apart from one that is absent-because-expected	ba	2	ondemand	requirements
+module-brief	skills/module-brief.md	Building any module — before the first script. The mdl-agent's single per-module input	ba,mdl	4,5	baseline	requirements
+learned-mdl-preflight	skills/learned-mdl-preflight.md	Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations	mdl	5	baseline	build/mdl
+module-folder-convention	skills/module-folder-convention.md	Placing any document in a module — before the first `create`. Feature group, then Pages/Microflows/Services/Resources; the path comes from the brief's folder plan, and the table says which types mxcli can actually place	architect,mdl	4,5	baseline	architecture
+learned-microflow-patterns	skills/learned-microflow-patterns.md	Writing or fixing any microflow — MDL gotchas plus annotation discipline	mdl	5	baseline	build/mdl
+ui-preflight-pages	skills/ui-preflight-pages.md	Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP	mdl	5	baseline	design
+learned-stylegallery	skills/learned-stylegallery.md	Building or using the in-app design gallery	mdl	5	baseline	design
+learned-mcp-patterns	skills/learned-mcp-patterns.md	Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only	mdl	5	baseline	build/mdl
+module-review	skills/module-review.md	Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated	mdl,review,test	5,6	baseline	build
+testing-shape	skills/testing-shape.md	Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature	test,gate,review	5,6	baseline	verify
+verify-module	project-bin/verify-module.sh	Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh	mdl,gate,test,review	5,6	baseline	verify
+mxcli-bugs	bug-logs/mxcli-bugs.md	A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake	mdl,gate	5,6	baseline	diagnose
+bootstrap-project	skills/bootstrap-project.md	Generating a new project's CLAUDE.md — baseline routing plus project-specific facts	ba	P	ondemand	spine
+existing-app-assurance	skills/existing-app-assurance.md	Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates	test,review	6	ondemand	verify
+assess-migration	skills/assess-migration.md	Assessing or planning a migration up front, before any pipeline is chosen	ba	0	ondemand	source
+migration-pipeline	skills/migration-pipeline.md	Running the extraction pipeline	ba	0,1	ondemand	source
+migrate-general	skills/migrate-general.md	Migrating from a stack that has no dedicated pipeline	ba	0	ondemand	source
+migrate-outsystems	skills/migrate-outsystems.md	Migrating an OutSystems app	ba	0	ondemand	source
+source-os11	skills/source-os11.md	Understanding OutSystems 11 source	ba	0,1	ondemand	source
+os-xml-schema	skills/os-xml-schema.md	Reading the OutSystems XML export schema	ba	0,1	ondemand	source
+source-node-express-react	skills/source-node-express-react.md	Understanding Node/Express+React source, its layout assumptions and its gaps	ba	0,1	ondemand	source
+document-discovery	skills/document-discovery.md	Scanning or classifying an unstructured document folder	ba	0,1	ondemand	source
+extractor-quality-loop	skills/extractor-quality-loop.md	Validating an extractor's output before its BRDs are trusted	ba	0,1	ondemand	source
+qa-loop-goal-pattern	skills/qa-loop-goal-pattern.md	Validating a new stack pipeline's extraction quality	ba	0,6	ondemand	requirements
+kb-generation	skills/kb-generation.md	Extracting Excel/Word/PDF specs into a knowledge base	ba	1,2	ondemand	source
+brd-generation	skills/brd-generation.md	Writing or enriching a BRD JSON	ba	2	ondemand	requirements
+brd-validation	skills/brd-validation.md	Validating BRDs against the code and document KB	ba	2	ondemand	requirements
+architecture-blueprint	skills/architecture-blueprint.md	Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations	architect	3	ondemand	architecture
+modularize-domain	skills/modularize-domain.md	Deciding module boundaries before "create module"	architect	3	ondemand	architecture
+design-artifacts	skills/design-artifacts.md	Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable	architect	3	ondemand	design
+brd-to-build-plan	skills/brd-to-build-plan.md	Turning BRDs plus architecture into a numbered, dependency-ordered build plan	architect	3,4	ondemand	requirements
+coverage-ledger	skills/coverage-ledger.md	Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible	architect,gate	4	ondemand	requirements
+coverage-check	bin/coverage-check.sh	Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered	architect,gate	4	ondemand	requirements
+iterative-build-loop	skills/iterative-build-loop.md	Building a module with mxcli — verified, iterative, coverage-checklist gated	mdl,gate	5	ondemand	build
+mdl-cookbook-microflows	skills/mdl-cookbook-microflows.md	Writing MDL microflow scripts — worked recipes	mdl	5	ondemand	build/mdl
+oneshot-mdl-method	skills/build/mdl/oneshot-mdl-method.md	Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check	mdl	5	ondemand	build/mdl
+learned-page-patterns	skills/learned-page-patterns.md	Building and auditing Mendix pages — widget patterns, datasource shapes	mdl	5	ondemand	build/pages
+oneshot-page-structure-patterns	skills/oneshot-page-structure-patterns.md	Generating a whole page tree in one script — the structure patterns that survive it	mdl	5	ondemand	build/pages
+conformance-check	project-bin/conformance-check.sh	Running the ledger rung alone — recompute every stored ledger status against the live model and catch the STALE rows that claim built for something the model no longer has	gate,review	5,6	ondemand	verify
+graph-sweep	project-bin/graph-sweep.sh	Running the wiring rung alone — a module imported but never reached, an element built but wired to nothing, a boundary crossed; mxbuild and e2e are blind to all three	review,gate	5,6	ondemand	verify
+test-stack-up	project-bin/test-stack-up.sh	Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only	test,gate	5,6	ondemand	verify
+e2e-harness-base	skills/e2e-harness-base.md	Standing up or extending the Playwright e2e harness	test	6	ondemand	verify
+learned-db-assertions	skills/learned-db-assertions.md	Writing DB assertion tests that cross-check UI state against the database	test	6	ondemand	verify
+fixture-seeding	skills/fixture-seeding.md	Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness	test,review	5,6	ondemand	verify
+journey-proof	skills/journey-proof.md	Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red	test,review	5,6	ondemand	verify
+monkey-test	skills/monkey-test.md	Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works	test,review	5,6	ondemand	verify
+learned-skill-ux-audit	skills/learned-skill-ux-audit.md	UX audit and screenshot-loop discipline	review	6	ondemand	verify
+learned-skill-scope-delta	skills/learned-skill-scope-delta.md	Tracking scope delta between the BRD and the built state	review	6	ondemand	verify
+close-the-loop	skills/close-the-loop.md	Cutover and retrospective — promoting proven patterns back into the toolkit	all	7	ondemand	spine
+report-schema	skills/report-schema.md	Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer	test,review,gate	5,6	ondemand	verify
+harness-architecture	skills/harness-architecture.md	Installing, extending, debugging or porting the verification harness — which part owns what, which parts run standalone, and what a missing part must report	test,review	5,6	ondemand	verify
+measured-claims	skills/measured-claims.md	Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited	all	-	ondemand	spine
+tool-output-is-not-ground-truth	skills/tool-output-is-not-ground-truth.md	Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude	all	-	baseline	diagnose
+process-coherence-pass	skills/process-coherence-pass.md	Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss	review	5,6	ondemand	verify
+coherence-cadence	project-bin/coherence-cadence.sh	After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory	mdl,gate,review	5,6	ondemand	verify
+build-plan-status	project-bin/build-plan-status.sh	After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views	architect,gate,review	4,5,6	ondemand	build
+e2e-evidence-report	skills/e2e-evidence-report.md	Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything	test,review	6	ondemand	verify
+mpr-corruption-and-sp-load-errors	skills/mpr-corruption-and-sp-load-errors.md	Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout	mdl,gate	-	ondemand	diagnose
+lint-gate	project-bin/lint-gate.sh	Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing	mdl,gate	5,6	ondemand	verify
+lint-that-actually-runs	skills/lint-that-actually-runs.md	Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence	gate,review	5,6	ondemand	verify
+journey-map	skills/journey-map.md	Authoring the cross-module user journey ONCE at design time as a source artifact, bound L0→L3, that the module brief, coherence pass and journey-proof read instead of each re-deriving it	ba,architect,test	2,3,4	experimental	requirements
+improvement-register	skills/improvement-register.md	Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend	mdl,gate,test,review	5,6	ondemand	spine
+journey-examples	skills/journey-examples.md	Writing an actual .journey.json — the worked field-by-field reference for the contract journey-proof.md argues for	test,review	5,6	ondemand	requirements
+wiring-sweep	skills/wiring-sweep.md	Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before	mdl,test,review	5,6	ondemand	verify

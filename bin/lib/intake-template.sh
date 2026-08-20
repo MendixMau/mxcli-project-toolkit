@@ -99,6 +99,16 @@ unprompted. "Nothing further" is a valid answer — but it has to be the user's,
 _Not yet asked._ How to verify: ask the user; default is attended. Attended = every gate
 question is asked in chat and the agent waits for the answer. Unattended (opt-in only, explicit
 request required) = recommended options are applied as ASSUMED and logged for reconciliation.
+
+## 10. Is any of this already done outside the toolkit — and where does the pipeline pick up?
+
+_Not yet asked._ Only relevant when the project did not start here: a build already underway,
+analysis that lives in Confluence, a design system someone else owns. Name the stage the toolkit
+picks up at and record it — `bin/gate-check.sh <project> --adopt <stage> --reason "..."` — so the
+earlier stages report WAIVED instead of a red row nobody can ever clear. Answer "starting from
+scratch here" and nothing is waived, which is the right answer for most projects. Do NOT infer
+this from what happens to be on disk: a missing artifact and an artifact produced elsewhere look
+identical, and guessing wrong either nags forever or waives a stage that genuinely still matters.
 MXTK_INTAKE_EOF
 }
 

@@ -79,6 +79,11 @@ case "${1:-}" in
 esac
 [ -n "$ONLY" ] && SURFACES="$ONLY"
 
+# The group column decides render ORDER and the sub-headings. An unknown value would silently
+# render as its own extra group with one row under it — invisible until someone notices a skill
+# nobody loads. Validate before writing anything, on every mode including --check.
+routing_validate_groups || exit 1
+
 # Rewrite $1 into $2, replacing each marked block with freshly rendered content.
 # Everything outside the markers is copied byte-for-byte.
 render_file() {

@@ -55,8 +55,18 @@ For **code extraction** (XML, Java, C# → JSON knowledge base), use the pipelin
 ```bash
 node run.js 2 xml       # extracts all XMLs → knowledge-base/ JSONs (full corpus, not a subset)
 node run.js 3           # BRD mapper → knowledge-base/brd/*.brd.json
-node generate-report.js # → knowledge-base/extraction-report.html (open in browser for review)
 ```
+
+Then render the Stage 1 surface — **from the toolkit, not from the pipeline**:
+
+```bash
+bin/extraction-report.sh <project-root>   # → <kb>/extraction-report.html, one per knowledge base
+```
+
+This is the same command whichever path produced the knowledge base. It was
+`node generate-report.js` inside each pipeline until 2026-08-20, which meant a documents-only
+project — the whole subject of this skill — could not produce the file its own Stage 1 gate
+requires, because the only renderer lived in a pipeline it never runs.
 
 The HTML report is the primary review artifact after code extraction — it shows all modules,
 confidence per module, gap heatmap, and full BRD summary per module. Use it before deciding

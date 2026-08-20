@@ -28,6 +28,8 @@ Then open your agent (Claude Code or equivalent) in the workspace and say what y
 - The pipeline **interviews you** at every gate: the agent proposes 2–4 options with evidence from your actual source, states its assumptions, and asks you to correct it — it never asks what it can derive itself.
 - If you don't know an answer, the run doesn't stall: the recommendation is applied and recorded as `ASSUMED` in `PROJECT.md` with the risk if wrong. Hard gates (`✋`) are the exception — those need an explicit `CONFIRMED` answer.
 - Every stage ends with `bin/gate-check.sh <project-dir> <stage>` — a mechanical check that required artifacts exist, which also regenerates your project dashboard (`index.html`).
+- Verdicts: `PASS`, `PENDING` (not there yet — **not started is not failed**), `FAIL` (something *is* there and it is wrong), `WAIVED`, `MANUAL`.
+- **Already underway when you wired this in?** Say so once — `bin/gate-check.sh <project-dir> --adopt <stage> --reason "..."` — and every earlier stage reports `WAIVED` instead of red. `--waive <stage>` does one stage. See the runbook's "What a gate verdict means" in §2.
 - Every decision ends up in exactly one place: **`PROJECT.md`**, your project's decision register.
 
 ## The stages at a glance

@@ -15,9 +15,10 @@ Confirmed on Mendix 11.12.0 / mxcli v0.16.0.
 ## Not in scope
 
 Button colours, badge classes, brand palettes — anything from a project's own theme file. That
-lives in a project-specific stylesheet reference (see e.g. `stylesheet-classes.md` in this same
-toolkit, which is intentionally project-scoped and not transferable). This file is the opposite:
-generic structural rules that hold on any Mendix project, with or without a custom theme.
+lives in the consuming project's own stylesheet reference, which is project-scoped and not
+transferable by design, and in `learned-stylegallery.md` for turning it into a live in-app
+gallery. This file is the opposite: generic structural rules that hold on any Mendix project,
+with or without a custom theme.
 
 ## 1. Pick the base Layout deliberately, not by inheritance from whatever reference page you copied
 

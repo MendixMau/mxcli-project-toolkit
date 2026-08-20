@@ -51,7 +51,9 @@ note() { printf "    %s\n" "$1"; }
 echo "── requirements: $(basename "$ROOT") ──"
 ok "project root" "$ROOT"
 if [ -d "$MXTK_ROOT/skills" ]; then
-  ok "toolkit" "$MXTK_ROOT ($(ls "$MXTK_ROOT"/skills/*.md 2>/dev/null | wc -l | tr -d ' ') skills, read in place)"
+  # find, not `ls skills/*.md`: skills/ is no longer flat (skills/build/mdl/… since 2026-08-20)
+  # and a shell glob does not cross "/", so the count silently under-reported every grouped skill.
+  ok "toolkit" "$(find "$MXTK_ROOT/skills" -name '*.md' 2>/dev/null | wc -l | tr -d ' ') skills, read in place — $MXTK_ROOT"
 else
   gone "toolkit" "not found at $MXTK_ROOT — set MXTK_ROOT or fix CLAUDE.local.md's Wiring block"
   echo; echo "Cannot check anything else without the toolkit."; exit 1

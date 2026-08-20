@@ -19,7 +19,7 @@ Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"):
   It's also the shared CSS shell/tokens for every stage HTML surface — that use has nothing to do with opening it.
 - `skills/conversion-runbook.md` — **the spine**: 9-stage matrix, interview protocol, gates, entry modes. Start here when unsure what stage anything is in.
 - `bin/init-project.sh <project-root>` — **the one-command install**: `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook wiring), all five agent stubs, `index.html` dashboard; opens the guide. Idempotent.
-- `bin/gate-check.sh <project-dir> [stage]` — mechanical stage gates; regenerates the project dashboard from real files.
+- `bin/gate-check.sh <project-dir> [stage]` — mechanical stage gates; regenerates the project dashboard from real files. Verdicts are `PASS` / `PENDING` (nothing there yet) / `FAIL` (there and wrong) / `WAIVED` (declared out of scope in the register, with a reason, via `--adopt` / `--waive`) / `MANUAL`. Never infer a project's position — read the register line, or ask.
 - `bin/sync-project.sh <project-root>` — run after every toolkit `git pull`: refreshes the artifacts that were *copied* into the project (new intake questions, untouched agent stubs) and flags stale baseline routing. Referenced skills need no sync — they update with the pull.
 
 ## Live checklist — every stage, in the chat

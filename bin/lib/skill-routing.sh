@@ -36,6 +36,68 @@ _routing_has() {
   return 1
 }
 
+# ── Groups ─────────────────────────────────────────────────────────────────────────────────
+#
+# Column 7. The order here is the RENDER order — it follows the arc of a project (what am I
+# doing → read the source → what to build → how it is shaped → how it looks → build it → does
+# it work → it is broken), NOT the alphabet. Alphabetical would put `verify` before `build`.
+#
+# Empty groups are listed on purpose and render as nothing. build/workflow, build/integration
+# and build/security are declared and empty: that is the finding, not an oversight.
+_routing_group_order() {
+  printf '%s\n' spine source requirements architecture design \
+                build build/mdl build/pages build/workflow build/integration build/security \
+                verify diagnose reference
+}
+
+# One-line label per group, used as the sub-heading in rendered views.
+_routing_group_label() {
+  case "$1" in
+    spine)             echo "Spine — what am I doing, who decides, how do I ask" ;;
+    source)            echo "Source — reading a legacy system (migration entry mode)" ;;
+    requirements)      echo "Requirements — what must be built" ;;
+    architecture)      echo "Architecture — how it is shaped" ;;
+    design)            echo "Design — how it looks, before any MDL" ;;
+    build)             echo "Build — the loop itself" ;;
+    build/mdl)         echo "Build · MDL — the language and tool reference" ;;
+    build/pages)       echo "Build · Pages — page-building patterns" ;;
+    build/workflow)    echo "Build · Workflow" ;;
+    build/integration) echo "Build · Integration" ;;
+    build/security)    echo "Build · Security" ;;
+    verify)            echo "Verify — does it work" ;;
+    diagnose)          echo "Diagnose — something is broken and it may be the tooling" ;;
+    reference)         echo "Reference — lookup tables, not method" ;;
+    *)                 echo "$1" ;;
+  esac
+}
+
+# The group set is CLOSED. A typo ("verfiy") would otherwise render as a real extra group with
+# one row in it and nobody would notice — the same silent-drift failure the whole table exists
+# to end. Called by render-routing.sh before it writes anything.
+# Exit 0 clean; 1 with the offending rows on stderr.
+routing_validate_groups() {
+  local bad
+  bad="$(routing_rows | awk -F'\t' -v ok="$(_routing_group_order | tr '\n' ' ')" '
+    { n = split(ok, a, " "); hit = 0
+      for (i = 1; i <= n; i++) if (a[i] == $7) { hit = 1; break }
+      if (NF < 7 || $7 == "") printf "  %s: no group (column 7 is required)\n", $1
+      else if (!hit)          printf "  %s: unknown group %s\n", $1, $7
+    }')"
+  if [ -n "$bad" ]; then
+    echo "skill-routing: invalid group column in $MXTK_ROUTING_TSV:" >&2
+    printf '%s\n' "$bad" >&2
+    echo "  valid: $(_routing_group_order | tr '\n' ' ')" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Emit rows of one tier and one group, already tab-separated. Empty output == render nothing.
+# `tier` of "*" means every tier.
+_routing_group_rows() {
+  routing_rows | awk -F'\t' -v g="$1" -v t="$2" '$7 == g && (t == "*" || $6 == t)'
+}
+
 # The skills/ paths mapped to one stage, space-separated. Only skills/ paths: PROTOCOL_PATHS
 # decides whether a toolkit change invalidates a project's protocol ack, and widening it to
 # bin/ would make every script edit block every gate. Rows already covered by gate-check's
@@ -63,11 +125,19 @@ routing_render() {
   local view="$1" prefix="${2:-}"
   case "$view" in
     full)
-      echo "| Always relevant for | Load this | Agent(s) | Stage(s) | Tier |"
-      echo "|---|---|---|---|---|"
-      routing_rows | while IFS=$'\t' read -r name path when agents stages tier; do
-        printf '| %s | `%s` | %s | %s | %s |\n' \
-          "$(_routing_md_escape "$when")" "$path" "$agents" "$stages" "$tier"
+      # Grouped: one sub-heading and one table per non-empty group, in _routing_group_order.
+      # A reader looking for "how do I build a page" scans 14 headings, not 74 rows.
+      local g rows
+      _routing_group_order | while IFS= read -r g; do
+        rows="$(_routing_group_rows "$g" '*')"
+        [ -n "$rows" ] || continue
+        printf '\n#### %s\n\n' "$(_routing_group_label "$g")"
+        echo "| Always relevant for | Load this | Agent(s) | Stage(s) | Tier |"
+        echo "|---|---|---|---|---|"
+        printf '%s\n' "$rows" | while IFS=$'\t' read -r name path when agents stages tier group; do
+          printf '| %s | `%s` | %s | %s | %s |\n' \
+            "$(_routing_md_escape "$when")" "$path" "$agents" "$stages" "$tier"
+        done
       done
       ;;
     readme-baseline|baseline)
@@ -77,7 +147,7 @@ routing_render() {
         echo "| Always relevant for | Reference this |"
       fi
       echo "|---|---|"
-      routing_rows | while IFS=$'\t' read -r name path when agents stages tier; do
+      routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
         [ "$tier" = "baseline" ] || continue
         printf '| %s | `%s` |\n' "$(_routing_md_escape "$when")" "$path"
       done
@@ -85,17 +155,24 @@ routing_render() {
     readme-experimental)
       echo "| Under trial — NEVER cite in a gate | Skill |"
       echo "|---|---|"
-      routing_rows | while IFS=$'\t' read -r name path when agents stages tier; do
+      routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
         [ "$tier" = "experimental" ] || continue
         printf '| %s | `%s` |\n' "$(_routing_md_escape "$when")" "$path"
       done
       ;;
     readme-situational)
-      echo "| Task | Skill to load |"
-      echo "|---|---|"
-      routing_rows | while IFS=$'\t' read -r name path when agents stages tier; do
-        [ "$tier" = "ondemand" ] || continue
-        printf '| %s | `%s` |\n' "$(_routing_md_escape "$when")" "$path"
+      # Grouped — this is the view the grouping was added for. 50 ondemand rows in one flat
+      # alphabetical-ish list is the surface an agent actually scans to decide what to load.
+      local g rows
+      _routing_group_order | while IFS= read -r g; do
+        rows="$(_routing_group_rows "$g" ondemand)"
+        [ -n "$rows" ] || continue
+        printf '\n**%s**\n\n' "$(_routing_group_label "$g")"
+        echo "| Task | Skill to load |"
+        echo "|---|---|"
+        printf '%s\n' "$rows" | while IFS=$'\t' read -r name path when agents stages tier group; do
+          printf '| %s | `%s` |\n' "$(_routing_md_escape "$when")" "$path"
+        done
       done
       ;;
     agent:*)
@@ -104,7 +181,7 @@ routing_render() {
       echo "|---|---|"
       local t
       for t in baseline ondemand experimental; do
-        routing_rows | while IFS=$'\t' read -r name path when agents stages tier; do
+        routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
           [ "$tier" = "$t" ] || continue
           if [ "$agents" != "all" ]; then _routing_has "$agents" "$who" || continue; fi
           printf '| `%s` | %s |\n' "$path" "$(_routing_md_escape "$when")"
@@ -238,7 +315,7 @@ routing_adopt_claude_local() {
 # table — the row is what makes the new skill reachable at all).
 routing_missing_paths() {
   local root="${1:-$(cd "$_routing_lib_dir/../.." && pwd)}"
-  routing_rows | while IFS=$'\t' read -r name path when agents stages tier; do
+  routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
     [ -e "$root/$path" ] || echo "$path"
   done
 }

@@ -6,7 +6,9 @@
 # actual project state. A stage-specific run answers one question and writes nothing: that is the
 # invocation used in agent loops and hooks, and a read-only query must leave no trace.
 #
-# Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol|--force-stale] <project-dir> [stage]
+# Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol|--force-stale]
+#                          [--adopt <stage> --reason "..."] [--waive <stage> --reason "..."]
+#                          <project-dir> [stage]
 #   - With a stage-number, additionally exits non-zero if that specific stage's check fails.
 #   - Without one, evaluates and reports all stages, exits 0 regardless (informational run).
 #   - --html forces the dashboard write; --no-html suppresses it. Neither changes any verdict.
@@ -17,6 +19,20 @@
 #   - --force-stale (or MXTK_ACK_STALE=1) proceeds past a --strict-protocol block and writes a
 #     PROTOCOL-BYPASS line to docs/BUILD-LOG.md. Meaningless without --strict-protocol, which
 #     is the point: with nothing blocking there is nothing to force.
+#   - --adopt <stage> --reason "..." records that this project JOINED the toolkit at <stage>.
+#     Every earlier stage then reports WAIVED instead of red, and never affects an exit code.
+#   - --waive <stage> --reason "..." does the same for one stage — for work a project already
+#     did its own way. Both write a line into the decision register and docs/BUILD-LOG.md;
+#     --reason is required, because an unexplained skip is the thing gates exist to prevent.
+#
+# VERDICT VOCABULARY (four, and the difference between the first two is the whole point):
+#   PASS    — checked, and it holds.
+#   PENDING — the artifact is not there at all. Nothing is wrong; nothing has been done yet.
+#   FAIL    — something IS there and it is wrong, or a ✋ gate has artifacts but no sign-off.
+#   WAIVED  — declared out of scope for this project, in writing, with a reason.
+#   MANUAL  — not machine-checkable; a human must paste the evidence.
+# Exit codes on a stage query: PASS/WAIVED 0, FAIL 1, MANUAL 2, PENDING 3. An informational
+# run (no stage argument) still exits 0 regardless — it is a status report, not a verdict.
 
 set -uo pipefail
 
@@ -26,6 +42,9 @@ HTML_MODE="auto"
 ACK_PROTOCOL=0
 FORCE_STALE="${MXTK_ACK_STALE:-0}"
 STRICT_PROTOCOL="${MXTK_STRICT_PROTOCOL:-0}"
+ADOPT_STAGE=""
+WAIVE_STAGE=""
+WAIVER_REASON=""
 declare -a GC_ARGS
 GC_ARGS=()
 while [ $# -gt 0 ]; do
@@ -33,6 +52,9 @@ while [ $# -gt 0 ]; do
     --html)    HTML_MODE="always" ;;
     --no-html) HTML_MODE="never" ;;
     --ack-protocol)    ACK_PROTOCOL=1 ;;
+    --adopt)           shift; ADOPT_STAGE="${1:-}" ;;
+    --waive)           shift; WAIVE_STAGE="${1:-}" ;;
+    --reason)          shift; WAIVER_REASON="${1:-}" ;;
     --force-stale)     FORCE_STALE=1 ;;
     --strict-protocol) STRICT_PROTOCOL=1 ;;
     --)        shift; while [ $# -gt 0 ]; do GC_ARGS[${#GC_ARGS[@]}]="$1"; shift; done; break ;;
@@ -64,6 +86,27 @@ case "$REQUESTED_STAGE" in
     exit 2
     ;;
 esac
+
+for opt_pair in "--adopt:$ADOPT_STAGE" "--waive:$WAIVE_STAGE"; do
+  opt_name="${opt_pair%%:*}"; opt_val="${opt_pair#*:}"
+  [ -n "$opt_val" ] || continue
+  case "$opt_val" in
+    P|p|[0-7]) ;;
+    *) echo "Error: $opt_name takes a stage (P or 0-7), got '$opt_val'." >&2; exit 2 ;;
+  esac
+done
+if [ -n "$ADOPT_STAGE" ] && [ -n "$WAIVE_STAGE" ]; then
+  echo "Error: --adopt and --waive do different things; run them one at a time." >&2
+  exit 2
+fi
+# A skip with no reason is the failure mode gates exist to prevent, so the reason is not
+# optional and there is no default. "Recorded via --adopt" would be a sentence that says nothing
+# and would be written by whichever agent found the flag first.
+if { [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; } && [ -z "$WAIVER_REASON" ]; then
+  echo "Error: --adopt/--waive require --reason \"why this project does not need it\"." >&2
+  echo "It is written into the register and read back by everyone who sees the WAIVED row." >&2
+  exit 2
+fi
 
 if [ ! -d "$PROJECT_DIR" ]; then
   echo "Error: project directory does not exist: $PROJECT_DIR" >&2
@@ -275,6 +318,234 @@ elif [ "$REG_DIFFER" = "1" ]; then
 fi
 REG_AMBIGUOUS="${REG_AMBIGUOUS:-0}"
 
+# ── WHERE DID THIS PROJECT JOIN, AND WHAT DOES ITS ENTRY MODE NOT RUN? ──────────────────────
+#
+# WHY THIS EXISTS (2026-08-20, customer round). gate-check evaluated P–7 against every project
+# on earth, so two completely different situations arrived as the same wall of red:
+#   1. a project that has not started a stage yet, and
+#   2. a project that will never start it — it wired the toolkit in at build phase, or its entry
+#      mode does not run that stage at all — so no amount of work will ever clear the row.
+# (2) is the corrosive one: a permanent red for an artifact nobody intends to produce teaches
+# the reader that the board is noise, and by then (1) and a REAL failure look identical too.
+#
+# The fix is not inference. "This project looks like it is past Stage 3, stay quiet" was tried
+# on 2026-08-20 in its display-layer form and reverted the same day — see the long note above
+# the stage loop. Position in the list cannot tell an empty stage from a broken one.
+#
+# So the toolkit's own rule applies, the one Stage 0 already states for triage rows: N/A IS AN
+# ANSWER AND IT IS WRITTEN DOWN. A stage is skipped because the register says so, in a line a
+# human put there with a reason attached — never because a script guessed. Two forms, both read
+# from the decision register (the one place gate decisions live, per CLAUDE.md):
+#
+#     Adopted at stage: 5 — build was underway before the toolkit was wired in
+#     Waived stage 2: analysis was done in Confluence; BRDs will not be regenerated
+#
+# plus the entry mode, which the runbook already treats as a recorded Stage-P decision:
+#
+#     Entry mode: greenfield
+#
+# Write them with `--adopt` / `--waive`, or by hand; both spellings are read the same way.
+#
+# WHAT A WAIVER MAY NOT DO — see waiver_applies() below. It may excuse a stage with nothing in
+# it, and it may excuse an unsigned ✋ decision (that is the toolkit's own ritual, and a project
+# that did the work elsewhere never had a reason to run it). It may NOT hide a stage whose
+# artifacts exist and are inconsistent: "NOT clean, 14 findings outstanding" is a fact about the
+# project, and no line in a register makes it stop being one.
+
+# Rank orders the pipeline for "earlier than". P sorts before 0 — the numbers alone cannot.
+stage_rank() { case "$1" in P|p) echo 0 ;; [0-7]) echo $(( $1 + 1 )) ;; *) echo 99 ;; esac; }
+
+# reg_field <lowercased label> — value of the first "Label: value" line in the register.
+# Tolerant of markdown decoration (>, *, -, bold) because these lines get written by hand.
+reg_field() {
+  [ -n "$REGISTER" ] && [ -f "$REGISTER" ] || return 1
+  awk -v want="$1" '
+    # Skip HTML comment blocks. A register can carry a commented-out example of exactly these
+    # labels — the scaffold nearly shipped one — and a waiver read out of a comment would be
+    # invisible to the person who wrote it and permanent for everyone after them.
+    /<!--/ { incomment = 1 }
+    incomment { if ($0 ~ /-->/) incomment = 0; next }
+    { line = $0
+      gsub(/^[ \t>*_-]+/, "", line); gsub(/\*/, "", line)
+      i = index(line, ":"); if (i == 0) next
+      key = tolower(substr(line, 1, i - 1)); gsub(/^[ \t]+|[ \t]+$/, "", key)
+      if (key != want) next
+      v = substr(line, i + 1); gsub(/^[ \t]+|[ \t]+$/, "", v)
+      if (v != "") { print v; exit }
+    }' "$REGISTER"
+}
+
+ADOPTED_AT=""; ADOPTED_REASON=""; WAIVED_LIST=""; WAIVED_REASON=""; ENTRY_MODE=""
+
+# Dashes are split with parameter expansion, not a bracket expression: an em-dash inside a
+# sed/awk character class is a multibyte trap on BSD userland, and these lines are hand-written
+# by people who will use whichever dash their editor produces.
+strip_lead_dash() { # strip_lead_dash <text> — drop a leading dash/colon and the space after it
+  local t="$1"
+  case "$t" in
+    —*) t="${t#—}" ;; –*) t="${t#–}" ;; -*) t="${t#-}" ;; :*) t="${t#:}" ;;
+  esac
+  printf '%s' "$t" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+split_reason() { # split_reason <text> — everything after the first dash separator, or nothing
+  local t="$1"
+  case "$t" in
+    *—*) printf '%s' "${t#*—}" | sed 's/^[[:space:]]*//' ;;
+    *–*) printf '%s' "${t#*–}" | sed 's/^[[:space:]]*//' ;;
+    *" - "*) printf '%s' "${t#* - }" ;;
+    *) printf '' ;;
+  esac
+}
+split_head() { # split_head <text> — everything BEFORE the first dash separator
+  local t="$1"
+  case "$t" in
+    *—*) printf '%s' "${t%%—*}" ;;
+    *–*) printf '%s' "${t%%–*}" ;;
+    *" - "*) printf '%s' "${t%% - *}" ;;
+    *) printf '%s' "$t" ;;
+  esac
+}
+
+POS_RAW="$(reg_field "adopted at stage" 2>/dev/null || true)"
+if [ -n "$POS_RAW" ]; then
+  ADOPTED_AT="$(printf '%s' "$POS_RAW" | awk '{print $1}' | tr -d '.,;')"
+  ADOPTED_REASON="$(strip_lead_dash "$(printf '%s' "$POS_RAW" | sed 's/^[^ ]*[ ]*//')")"
+  case "$ADOPTED_AT" in
+    P|p|[0-7]) ;;
+    *) echo "⚠ '$POS_RAW' in $REGISTER is not a stage this pipeline has — ignoring the adoption line." >&2
+       ADOPTED_AT=""; ADOPTED_REASON="" ;;
+  esac
+fi
+
+# Waivers, in two spellings. ONE LINE PER STAGE is what --waive writes and what the docs show,
+# because a waiver is one stage's reason and a shared reason is a lie the moment a second stage
+# is added for a different one (measured: two --waive runs nested "(was: …)" inside each other
+# and relabelled the first stage with the second stage's reason):
+#
+#     Waived stage 6: QA runs in the client's own suite
+#
+# The aggregate spelling is still read — it is shorter to write by hand for a contiguous block,
+# and projects that adopted it before the per-stage form existed must keep working:
+#
+#     Waived stages: 1, 2 — requirements came from the workshop deck
+#
+# Per-stage lines win where both name the same stage: they are the more specific statement.
+WAIVED_REASONS=""   # newline-separated "STAGE<TAB>reason"
+while IFS= read -r wline; do
+  [ -n "$wline" ] || continue
+  WAIVED_LIST="$WAIVED_LIST${wline%%	*} "
+  WAIVED_REASONS="$WAIVED_REASONS$wline
+"
+done <<WAIVED_EOF
+$(awk '
+  /<!--/ { incomment = 1 }
+  incomment { if ($0 ~ /-->/) incomment = 0; next }
+  { line = $0
+    gsub(/^[ \t>*_-]+/, "", line); gsub(/\*/, "", line)
+    i = index(line, ":"); if (i == 0) next
+    key = tolower(substr(line, 1, i - 1)); gsub(/^[ \t]+|[ \t]+$/, "", key)
+    if (key !~ /^waived stage[ \t]+[p0-7]$/) next
+    st = toupper(substr(key, length(key)))
+    v = substr(line, i + 1); gsub(/^[ \t]+|[ \t]+$/, "", v)
+    printf "%s\t%s\n", st, v
+  }' "${REGISTER:-/dev/null}" 2>/dev/null)
+WAIVED_EOF
+
+POS_RAW="$(reg_field "waived stages" 2>/dev/null || true)"
+if [ -n "$POS_RAW" ]; then
+  WAIVED_REASON="$(split_reason "$POS_RAW")"
+  WAIVED_LIST="$WAIVED_LIST$(split_head "$POS_RAW" | tr ',;' '  ' \
+                 | awk '{ for (i=1;i<=NF;i++) if ($i ~ /^[Pp0-7]$/) printf "%s ", toupper($i) }')"
+fi
+
+waived_reason_for() { # waived_reason_for <STAGE> — the per-stage reason, else the aggregate one
+  local st="$1" r
+  r="$(printf '%s' "$WAIVED_REASONS" | awk -F'\t' -v s="$st" '$1 == s { print $2; exit }')"
+  [ -n "$r" ] && { printf '%s' "$r"; return 0; }
+  printf '%s' "$WAIVED_REASON"
+}
+
+# Entry mode: the register first (the runbook says it is recorded CONFIRMED there), then the
+# intake answer, which is where it is actually decided and the only copy a young project has.
+ENTRY_RAW="$(reg_field "entry mode" 2>/dev/null || true)"
+if [ -z "$ENTRY_RAW" ]; then
+  ENTRY_SRC="$(resolve_stage_file "intake.md")"
+  if [ -n "$ENTRY_SRC" ] && [ "$ENTRY_SRC" != "AMBIGUOUS" ] && [ -f "$ENTRY_SRC" ]; then
+    ENTRY_RAW="$(awk '
+      /^##[ \t]*1\./ && tolower($0) ~ /entry mode/ { insec = 1; next }
+      insec && /^##[ \t]/ { exit }
+      insec { line = tolower($0); gsub(/^[ \t>*_-]+/, "", line)
+              if (line ~ /^(answered|answer|a|decision|assumed)[ \t]*(\([^)]*\))?[ \t]*:/) { print line; exit } }
+    ' "$ENTRY_SRC")"
+  fi
+fi
+case "$(printf '%s' "$ENTRY_RAW" | tr '[:upper:]' '[:lower:]')" in
+  *greenfield*)    ENTRY_MODE="greenfield" ;;
+  *requirement*)   ENTRY_MODE="requirements-driven" ;;
+  *migration*)     ENTRY_MODE="migration" ;;
+esac
+
+# stage_waiver <stage> — "<scope>|<reason>", or nothing. Most specific source of truth first.
+#
+# SCOPE MATTERS, and it is not decoration:
+#   declared — a human wrote this stage off for this project, by name, with a reason. That is a
+#              statement about the artifact, so it can also excuse an unsigned ✋ decision.
+#   mode     — the entry mode says the stage does not run. That is a statement about the SHAPE of
+#              the project, not about anything in it, so it excuses an EMPTY stage only. A
+#              greenfield project that went and wrote a build-plan.md still needs to sign it off:
+#              the plan is real, people will build from it, and "greenfield" never said otherwise.
+stage_waiver() {
+  local st="$1" w
+  for w in $WAIVED_LIST; do
+    if [ "$w" = "$(printf '%s' "$st" | tr '[:lower:]' '[:upper:]')" ]; then
+      local r; r="$(waived_reason_for "$w")"
+      printf 'declared|waived in %s%s\n' "$(basename "${REGISTER:-PROJECT.md}")" "${r:+ — $r}"
+      return 0
+    fi
+  done
+  # Adoption never waives Stage P. Intake is how the toolkit learns what the project IS, it costs
+  # one conversation, and the adoption decision is itself a Stage-P answer. `--waive P` still can.
+  if [ -n "$ADOPTED_AT" ] && [ "$st" != "P" ] && [ "$st" != "p" ] \
+     && [ "$(stage_rank "$st")" -lt "$(stage_rank "$ADOPTED_AT")" ]; then
+    printf 'declared|this project joined the toolkit at stage %s%s — the stage happened (or did not) before that, and is not required here\n' \
+      "$ADOPTED_AT" "${ADOPTED_REASON:+: $ADOPTED_REASON}"
+    return 0
+  fi
+  # Entry mode. The runbook's Entry Modes table already says these stages do not run; until now
+  # the gate did not know that, so it demanded artifacts the runbook had excused.
+  case "$ENTRY_MODE" in
+    greenfield)
+      case "$st" in
+        1|2|3|4) printf 'mode|greenfield entry mode — stages 1–4 collapse into the plan the user already has (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
+      esac ;;
+    requirements-driven)
+      case "$st" in
+        7) printf 'mode|requirements-driven entry mode — no legacy system to cut over from; if legacy data turns up, record a Stage-7 decision and this goes back to being checked (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
+      esac ;;
+  esac
+  return 1
+}
+
+# waiver_applies <scope> <status> <note> — may a waiver speak for THIS verdict?
+#
+#   PENDING                    yes, either scope. Nothing is there and nothing needs to be.
+#   FAIL with a ✋, declared    yes. That marker is only ever emitted by the decision-row gates —
+#                              artifacts present, no CONFIRMED row. It is the toolkit's own
+#                              sign-off ritual, and a project that did the work elsewhere never
+#                              ran it. KEEP THE ✋ IN THOSE MESSAGES: it is this branch's contract.
+#   FAIL with a ✋, mode        no. See the scope note above stage_waiver().
+#   FAIL otherwise             no. Something was examined and it was wrong, and no line in a
+#                              register makes that stop being true.
+#   PASS / MANUAL              no. A pass is better news than a waiver, and MANUAL wants evidence.
+waiver_applies() {
+  case "$2" in
+    PENDING) return 0 ;;
+    FAIL)    [ "$1" = "declared" ] || return 1
+             case "$3" in *✋*) return 0 ;; esac; return 1 ;;
+  esac
+  return 1
+}
+
 # The pre-12828e4 Q9 body. gate-check NEVER rewrites it — the repair lives in
 # sync-project.sh --repair-intake, which rewrites only when the section is byte-identical to
 # this text. The hint below is therefore printed only on a byte-identical match, so the command
@@ -303,7 +574,7 @@ check_stage_P() {
     return
   fi
   if [ -z "$f" ] || [ ! -f "$f" ]; then
-    echo "FAIL|intake.md not found (looked in $PROJECT_DIR/ and $ANALYSIS_BASE/)"
+    echo "PENDING|intake.md not found (looked in $PROJECT_DIR/ and $ANALYSIS_BASE/) — the kickoff interview has not started; bin/init-project.sh scaffolds it"
     return
   fi
 
@@ -391,7 +662,7 @@ check_stage_0() {
     return
   fi
   if [ -z "$f" ] || [ ! -f "$f" ]; then
-    echo "FAIL|triage.md not found (looked in $PROJECT_DIR/ and $ANALYSIS_BASE/)"
+    echo "PENDING|triage.md not found (looked in $PROJECT_DIR/ and $ANALYSIS_BASE/) — Stage 0 has not started"
     return
   fi
   # Two INDEPENDENT greps used to satisfy this: `grep -q "^## Sign-off" && grep -q "Confirmed
@@ -423,12 +694,16 @@ check_stage_1() {
     # extractor it was never going to run (2026-08-20). "No knowledge-base directory" is true in
     # every mode; what to DO about it is not, and the KB for a document corpus is built by a
     # skill, not a pipeline. Name both routes rather than assuming the migration one.
-    echo "FAIL|no knowledge-base directory found — migration: run the extraction pipeline; requirements-driven: build the KB from the document corpus per skills/kb-generation.md (Path B). Either way it lands at analysis/<source>/knowledge-base/"
+    echo "PENDING|no knowledge-base directory yet — migration: run the extraction pipeline; requirements-driven: build the KB from the document corpus per skills/kb-generation.md (Path B). Either way it lands at analysis/<source>/knowledge-base/"
     return
   fi
   local report="$KB_DIR/extraction-report.html"
+  if [ ! -f "$report" ]; then
+    echo "PENDING|$report not written yet — run bin/extraction-report.sh <project-root>. It renders whatever the knowledge base holds, code-extracted or document, so this is the same command in every entry mode"
+    return
+  fi
   if [ ! -s "$report" ]; then
-    echo "FAIL|$report missing or empty"
+    echo "FAIL|$report exists but is empty — an extraction ran and produced nothing readable"
     return
   fi
   local kb_md="$KB_DIR/share/KB.md"
@@ -466,17 +741,17 @@ check_stage_1() {
 
 check_stage_2() {
   if [ -z "$KB_DIR" ]; then
-    echo "FAIL|no knowledge-base directory found"
+    echo "PENDING|no knowledge-base directory yet — Stage 1 has not produced one"
     return
   fi
   local brd_dir="$KB_DIR/brd"
   if [ ! -d "$brd_dir" ] || [ -z "$(find "$brd_dir" -maxdepth 1 -name '*.brd.json' -print -quit 2>/dev/null)" ]; then
-    echo "FAIL|no brd/*.brd.json scaffolds found"
+    echo "PENDING|no brd/*.brd.json scaffolds yet"
     return
   fi
   local validation="$KB_DIR/reports/validation-report.md"
   if [ ! -f "$validation" ]; then
-    echo "FAIL|reports/validation-report.md not found"
+    echo "PENDING|reports/validation-report.md not written yet — the BRDs have not been validated"
     return
   fi
   # Anchored and section-aware. `grep -A2 … | grep -qi clean` matched "clean" ANYWHERE in the
@@ -612,7 +887,7 @@ check_stage_3() {
   fit_gap="$(resolve_artifact "architecture/fit-gap.md")"
   design_system="$(resolve_artifact "design/design-system.html")"
   if [ -z "$fit_gap" ] || [ -z "$design_system" ]; then
-    echo "FAIL|missing $( [ -z "$fit_gap" ] && echo "architecture/fit-gap.md ")$( [ -z "$design_system" ] && echo "design/design-system.html")"
+    echo "PENDING|not started — missing $( [ -z "$fit_gap" ] && echo "architecture/fit-gap.md ")$( [ -z "$design_system" ] && echo "design/design-system.html")"
     return
   fi
   # Wireframes are load-bearing: ui-preflight-pages.md starts from them and the build
@@ -621,7 +896,7 @@ check_stage_3() {
   local wireframes_dir
   wireframes_dir="$(resolve_artifact "design/wireframes")"
   if [ -z "$wireframes_dir" ] || [ -z "$(find "$wireframes_dir" -maxdepth 1 -name '*.html' -print -quit 2>/dev/null)" ]; then
-    echo "FAIL|design/wireframes/*.html missing — design system exists but no wireframes (design-artifacts.md Step 3); the mdl-agent's UI pre-flight cannot run without them"
+    echo "PENDING|design/wireframes/*.html missing — design system exists but no wireframes (design-artifacts.md Step 3); the mdl-agent's UI pre-flight cannot run without them"
     return
   fi
   # The architecture track must arrive at the ✋ gate as HTML too (architecture-blueprint.md
@@ -630,7 +905,7 @@ check_stage_3() {
   local blueprint_html
   blueprint_html="$(resolve_artifact "architecture/blueprint.html")"
   if [ -z "$blueprint_html" ]; then
-    echo "FAIL|architecture/blueprint.html missing — the Stage-3 checkpoint render (architecture-blueprint.md Step 7); regenerate it from blueprint.md"
+    echo "PENDING|architecture/blueprint.html missing — the Stage-3 checkpoint render (architecture-blueprint.md Step 7); regenerate it from blueprint.md"
     return
   fi
   local arch_base
@@ -654,7 +929,7 @@ check_stage_4() {
   local build_plan
   build_plan="$(resolve_artifact "architecture/build-plan.md")"
   if [ -z "$build_plan" ]; then
-    echo "FAIL|architecture/build-plan.md not found"
+    echo "PENDING|architecture/build-plan.md not written yet"
     return
   fi
   if reg_unavailable; then reg_unavailable_note; return; fi
@@ -676,11 +951,11 @@ check_stage_6() {
     review_ok=1
   fi
   if [ -z "$test_ok" ]; then
-    echo "FAIL|no test-report.html found (project root or reports/)"
+    echo "PENDING|no test-report.html yet (looked in the project root and reports/)"
     return
   fi
   if [ -z "$review_ok" ]; then
-    echo "FAIL|test-report.html present but no module-review report (ui-review-*.html under a ui-reviews/ dir) — Stage 6 requires the full-app module-review.md pass, zero open P1"
+    echo "PENDING|test-report.html present but no module-review report (ui-review-*.html under a ui-reviews/ dir) — Stage 6 requires the full-app module-review.md pass, zero open P1"
     return
   fi
   echo "PASS|test-report.html + module-review report both present"
@@ -692,7 +967,7 @@ check_stage_7() {
   if reg_unavailable; then reg_unavailable_note; return; fi
   local f="$REGISTER"
   if [ -z "$f" ] || [ ! -f "$f" ]; then
-    echo "FAIL|no decision register (PROJECT.md) found under $PROJECT_DIR"
+    echo "PENDING|no decision register (PROJECT.md) under $PROJECT_DIR — nothing to read a cutover decision from"
     return
   fi
   # Field-exact on the STATUS (as has_confirmed_decision already is, since d8117be) and now
@@ -716,7 +991,7 @@ check_stage_7() {
   if [ "${verdict%% *}" = "PASS" ]; then
     echo "PASS|a Stage-7/cutover decision row in $f has Status exactly CONFIRMED ($rows candidate row(s))"
   elif [ "$rows" = "0" ]; then
-    echo "FAIL|no cutover decision row in $f — add a Decisions row whose Stage field is 7 (or whose Decision names the cutover) with Status exactly CONFIRMED"
+    echo "PENDING|no cutover decision row in $f — add a Decisions row whose Stage field is 7 (or whose Decision names the cutover) with Status exactly CONFIRMED"
   else
     echo "FAIL|$rows cutover decision row(s) in $f, none with a field exactly CONFIRMED (✋ gate — UNCONFIRMED/ASSUMED does not pass)"
   fi
@@ -1055,13 +1330,27 @@ stage_protocol_paths() {
     2)  echo "skills/interview-protocol.md skills/grill-mode.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
     3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md" ;;
     4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md" ;;
-    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md" ;;
-    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/lint-that-actually-runs.md" ;;
+    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md" ;;
+    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md" ;;
     7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/close-the-loop.md" ;;
     *)  echo "" ;;
 # <!-- ROUTING:END -->
   esac
 }
+# stages_for_protocol_files <file...> — which stages route to these files. Used to turn "eight
+# skill files changed" into "this touches stages 3 and 5", which is the form a reader can act on.
+stages_for_protocol_files() {
+  local st k f out=""
+  for st in P 0 1 2 3 4 5 6 7; do
+    for f in "$@"; do
+      for k in $(stage_protocol_paths "$st"); do
+        case "$f" in "$k"*) out="$out$st "; break 2 ;; esac
+      done
+    done
+  done
+  printf '%s' "$out" | sed 's/ *$//'
+}
+
 # Does this file appear under ANY stage? A "no" is what triggers the fail-safe.
 protocol_is_mapped() {
   local f="$1" st k
@@ -1206,12 +1495,27 @@ if [ "$SYNC_STATUS" = "NOTICE" ]; then
   echo ""
   echo "  ⚠ $SYNC_HEADLINE"
   [ -n "$SYNC_DETAIL" ] && printf '    %s\n' "$SYNC_DETAIL"
+  # An UPGRADE IS AN OFFER, NOT A DEMAND (2026-08-20). When the toolkit grows a new artifact or
+  # a new stage requirement, the projects that see it first are the ones already mid-build — and
+  # for them "the protocol changed" often means nothing needs to happen: they did that analysis
+  # their own way, or they are past the stage entirely. Saying only "the toolkit moved" leaves
+  # them to guess whether they are now behind, and the safe-looking guess (regenerate it) is the
+  # expensive one. So name the stages it touches and put the "not needed here" answer on the
+  # same screen as the "yes please" one, with equal billing.
+  if [ -n "${SYNC_RELEVANT:-}" ]; then
+    # shellcheck disable=SC2086 — SYNC_RELEVANT is a deliberate list.
+    SYNC_STAGES="$(stages_for_protocol_files $SYNC_RELEVANT)"
+    [ -n "$SYNC_STAGES" ] && echo "    Stages this touches: $SYNC_STAGES"
+  fi
   echo "    A) $SYNC_OPT_A"
   if [ "$SYNC_BLOCKING" = "1" ]; then
     echo "    B) Proceed anyway:  $0 --force-stale $PROJECT_DIR ${REQUESTED_STAGE:-<stage>}"
     echo "       (--strict-protocol is on, so this run WILL stop; the bypass is logged.)"
   else
     echo "    B) Ignore for now — nothing is blocked. This notice repeats until acked."
+    echo "    C) Not needed here — if the change asks for artifacts this project already covered"
+    echo "       its own way, or is past: $0 --waive <stage> --reason \"...\" $PROJECT_DIR"
+    echo "       Acking (A) never obliges you to produce anything; it records that you read it."
   fi
   echo ""
 fi
@@ -1225,6 +1529,66 @@ build_log_append() {
   mkdir -p "$(dirname "$BUILD_LOG")" 2>/dev/null || true
   printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" >> "$BUILD_LOG"
 }
+
+# ── --adopt / --waive: the way a project says "not here, and here is why" ────
+#
+# Writes ONE line into the resolved register and one into the build log, then exits. It writes
+# nothing else and grades nothing — the next ordinary run reads the line back through reg_field()
+# and the stage turns WAIVED. That indirection is deliberate: the line in the register is the
+# authority, so a human can write, edit or delete it by hand without this script's help, and
+# deleting it puts the stage straight back under the gate.
+register_set_line() { # register_set_line <Label> <value> — replace the line, or append a section
+  local label="$1" value="$2" tmp
+  tmp="$(mktemp "${TMPDIR:-/tmp}/reg.XXXXXX")" || return 1
+  if awk -v lab="$label" -v val="$value" '
+       BEGIN { key = tolower(lab) }
+       # Same comment guard as reg_field(): never rewrite a label the reader would not have read.
+       /<!--/ { incomment = 1 }
+       incomment { print; if ($0 ~ /-->/) incomment = 0; next }
+       !done {
+         line = $0; gsub(/^[ \t>*_-]+/, "", line); gsub(/\*/, "", line)
+         i = index(line, ":")
+         if (i > 0) {
+           k = tolower(substr(line, 1, i - 1)); gsub(/^[ \t]+|[ \t]+$/, "", k)
+           if (k == key) { print lab ": " val; done = 1; next }
+         }
+       }
+       { print }
+       END { exit !done }
+     ' "$REGISTER" > "$tmp"; then
+    cat "$tmp" > "$REGISTER"; rm -f "$tmp"; return 0
+  fi
+  rm -f "$tmp"
+  printf '\n## Toolkit position\n\n%s: %s\n' "$label" "$value" >> "$REGISTER"
+}
+
+if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
+  if [ -z "$REGISTER" ] || [ ! -f "$REGISTER" ]; then
+    echo "No decision register (PROJECT.md) found under $PROJECT_DIR — nothing to record in." >&2
+    echo "Scaffold one first:  bin/init-project.sh $PROJECT_DIR" >&2
+    exit 1
+  fi
+  if [ -n "$ADOPT_STAGE" ]; then
+    ADOPT_STAGE="$(printf '%s' "$ADOPT_STAGE" | tr '[:lower:]' '[:upper:]')"
+    register_set_line "Adopted at stage" "$ADOPT_STAGE — $WAIVER_REASON" \
+      || { echo "Could not write to $REGISTER" >&2; exit 1; }
+    build_log_append "TOOLKIT-ADOPTED-AT $ADOPT_STAGE reason: $WAIVER_REASON"
+    echo "Recorded in $REGISTER:  Adopted at stage: $ADOPT_STAGE — $WAIVER_REASON"
+    echo "Every stage before $ADOPT_STAGE now reports WAIVED and exits 0. Stage P is deliberately"
+    echo "not covered — the kickoff interview is how the toolkit learns what this project is."
+  else
+    WAIVE_STAGE="$(printf '%s' "$WAIVE_STAGE" | tr '[:lower:]' '[:upper:]')"
+    # One line per stage, so a second --waive cannot relabel the first stage's reason. Repeating
+    # --waive for the same stage overwrites that stage's line and nothing else.
+    register_set_line "Waived stage $WAIVE_STAGE" "$WAIVER_REASON" \
+      || { echo "Could not write to $REGISTER" >&2; exit 1; }
+    build_log_append "STAGE-WAIVED $WAIVE_STAGE reason: $WAIVER_REASON"
+    echo "Recorded in $REGISTER:  Waived stage $WAIVE_STAGE: $WAIVER_REASON"
+  fi
+  echo "A waiver excuses an empty stage and an unsigned ✋ decision. It does NOT hide artifacts"
+  echo "that exist and are inconsistent — those keep failing, which is the point."
+  exit 0
+fi
 
 # Rewrite the "Toolkit commit:" line in the RESOLVED register — not "$PROJECT_DIR/PROJECT.md".
 # On a project whose live register is nested, the root stub is exactly the file nobody reads.
@@ -1546,19 +1910,34 @@ fi
 printf "Skill routing (surfaces vs table): %s — %s\n" "$ROUTING_STATUS" "$ROUTING_NOTE"
 
 # Stage P is checked outside the numeric loop (bash 3.2 arrays need integer indices).
+N_PASS=0; N_PENDING=0; N_WAIVED=0; N_FAIL=0; N_MANUAL=0; NEXT_UP=""; NEXT_UP_STATUS=""; ATTENTION=""
 P_RESULT="$(check_stage_P)"
 P_STATUS="${P_RESULT%%|*}"
 P_NOTE="${P_RESULT#*|}"
+if P_WAIVER="$(stage_waiver P)" \
+   && waiver_applies "${P_WAIVER%%|*}" "$P_STATUS" "$P_NOTE"; then
+  P_NOTE="${P_WAIVER#*|} · underlying check: $P_STATUS"
+  P_STATUS="WAIVED"
+fi
+case "$P_STATUS" in
+  PASS)    N_PASS=$((N_PASS+1)) ;;
+  PENDING) N_PENDING=$((N_PENDING+1)); NEXT_UP="P"; NEXT_UP_STATUS=PENDING ;;
+  WAIVED)  N_WAIVED=$((N_WAIVED+1)) ;;
+  FAIL)    N_FAIL=$((N_FAIL+1)); NEXT_UP="P"; NEXT_UP_STATUS=FAIL
+           ATTENTION="$ATTENTION
+  Stage P — $P_NOTE" ;;
+  *)       N_MANUAL=$((N_MANUAL+1)) ;;
+esac
 printf "Stage P (Kickoff): %s%s — %s\n" "$P_STATUS" "$(stage_surface_suffix P)" "$P_NOTE"
 
-# NOT-STARTED IS NOT FAILED — a real problem, and the obvious fix is WRONG. Read before retrying.
+# NOT-STARTED IS NOT FAILED — done (2026-08-20). The history is kept because the obvious fix
+# is WRONG and someone will propose it again.
 #
-# The problem is genuine: a freshly scaffolded project prints twelve consecutive red FAILs,
-# because every stage checker asks "is your artifact here?" and on day one nothing is. Twelve
-# FAILs is unreadable, so the one actionable line is buried in eleven that are not, and readers
-# correctly learn the output does not reward reading. Raised after a customer round on
-# 2026-08-20: "we need to be careful our gates are not too hard — they create more damage
-# than good."
+# The problem: a freshly scaffolded project printed twelve consecutive red FAILs, because every
+# stage checker asks "is your artifact here?" and on day one nothing is. Twelve FAILs is
+# unreadable, so the one actionable line was buried in eleven that were not, and readers
+# correctly learned the output did not reward reading. Raised after a customer round:
+# "we need to be careful our gates are not too hard — they create more damage than good."
 #
 # THE ATTEMPTED FIX, AND WHY IT WAS REVERTED THE SAME DAY. Treat the first non-PASS stage as the
 # frontier; relabel every later FAIL as PENDING "not started". It reads beautifully on a bare
@@ -1569,12 +1948,15 @@ printf "Stage P (Kickoff): %s%s — %s\n" "$P_STATUS" "$(stage_surface_suffix P)
 # does not imply "has no artifacts", and the softening cannot tell a stage with nothing in it
 # from a stage with something broken in it.
 #
-# WHAT A CORRECT FIX NEEDS: the discrimination has to come from the checkers, not from position
-# in the list. Each check_stage_N already knows whether it bailed on "artifact absent" or on
-# "artifact present and wrong" — it just collapses both into FAIL. Give it a distinct verdict for
-# the first (PENDING/EMPTY), leave FAIL meaning "I looked at something and it was wrong", and the
-# wall of red disappears without a single real failure being hidden. That is a checker-by-checker
-# change, not a display-layer one, and it is the only version worth shipping.
+# WHAT SHIPPED INSTEAD: the discrimination comes from the checkers, never from position in the
+# list. Each check_stage_N knew all along whether it bailed on "artifact absent" or on "artifact
+# present and wrong" — it just collapsed both into FAIL. Absent is now PENDING; FAIL kept its
+# older, narrower meaning of "I looked at something and it was wrong". Nothing here reads the
+# neighbouring stages, so the Stage 2 report above still FAILs however incomplete Stage P is.
+#
+# The second half of the same problem — a stage that will NEVER start, because the project
+# joined the toolkit later or its entry mode does not run that stage — is WAIVED, and is
+# declared in the register rather than inferred. See the block above stage_waiver().
 for stage in "${STAGE_NAMES[@]}"; do
   case "$stage" in
     0) result="$(check_stage_0)" ;;
@@ -1589,6 +1971,21 @@ for stage in "${STAGE_NAMES[@]}"; do
   status="${result%%|*}"
   note="${result#*|}"
 
+  if waiver="$(stage_waiver "$stage")" \
+     && waiver_applies "${waiver%%|*}" "$status" "$note"; then
+    note="${waiver#*|} · underlying check: $status"
+    status="WAIVED"
+  fi
+  case "$status" in
+    PASS)    N_PASS=$((N_PASS+1)) ;;
+    PENDING) N_PENDING=$((N_PENDING+1)); [ -z "$NEXT_UP" ] && { NEXT_UP="$stage"; NEXT_UP_STATUS=PENDING; } ;;
+    WAIVED)  N_WAIVED=$((N_WAIVED+1)) ;;
+    FAIL)    N_FAIL=$((N_FAIL+1)); [ -z "$NEXT_UP" ] && { NEXT_UP="$stage"; NEXT_UP_STATUS=FAIL; }
+             ATTENTION="$ATTENTION
+  Stage $stage — $note" ;;
+    *)       N_MANUAL=$((N_MANUAL+1)) ;;
+  esac
+
   tbl_add RESULTS_TBL "$stage" "$status"
   tbl_add NOTES_TBL "$stage" "$note"
   tbl_get "$stage" "$STAGE_TITLES_TBL" || TBL_VALUE="(untitled stage)"
@@ -1599,6 +1996,37 @@ done
 # they see as a failure the gate somehow let through.
 echo "Surface = the artifact a human READS to judge the stage (runbook §2). A missing one is"
 echo "not a gate failure and does not affect the exit code — it is a stage nobody can review."
+
+# ── The summary. Twelve rows is a data dump; the reader needs to know which one is theirs. ──
+# Deliberately AFTER the rows, not before: the rows are the evidence and the summary is the
+# claim, and a claim printed above its evidence is what people quote without checking.
+echo ""
+printf "Summary: %d passed · %d not started · %d waived · %d need attention · %d manual\n" \
+  "$N_PASS" "$N_PENDING" "$N_WAIVED" "$N_FAIL" "$N_MANUAL"
+if [ "$N_FAIL" -gt 0 ]; then
+  echo "Needs attention — something is there and it is wrong:$ATTENTION"
+fi
+# The FIRST stage that is neither passed nor waived — whether it is empty or wrong. Skipping
+# over a FAIL to name the first empty stage further down would point the reader past the thing
+# actually in their way.
+if [ -n "$NEXT_UP" ]; then
+  tbl_get "$NEXT_UP" "$STAGE_TITLES_TBL" || TBL_VALUE="Kickoff"
+  if [ "$NEXT_UP_STATUS" = "FAIL" ]; then
+    printf "Next up: Stage %s (%s) — listed under 'needs attention' above.\n" "$NEXT_UP" "$TBL_VALUE"
+  else
+    printf "Next up: Stage %s (%s) — nothing there yet, which is not a failure.\n" "$NEXT_UP" "$TBL_VALUE"
+  fi
+fi
+if [ "$N_WAIVED" = "0" ] && { [ "$N_PENDING" -ge 4 ] || [ "$N_FAIL" -ge 3 ]; }; then
+  # Said once, and only where it could actually apply: a project with several empty stages is
+  # either young (in which case this is noise it can ignore) or joined late (in which case it is
+  # the whole answer, and nothing else in the output would ever tell it).
+  echo ""
+  echo "Already past some of these — build underway, analysis done your own way, artifacts you"
+  echo "do not intend to produce? Say so once and they stop being counted against you:"
+  echo "  $0 --adopt <stage> --reason \"...\" $PROJECT_DIR    (every earlier stage → WAIVED)"
+  echo "  $0 --waive <stage> --reason \"...\" $PROJECT_DIR    (one stage → WAIVED)"
+fi
 
 # Regenerate index.html from these exact results — subject to three conditions, all of which
 # exist because this write has destroyed a real file:
@@ -1671,6 +2099,9 @@ ${GC_SENTINEL}
      one, and a board of red on day one is the reason nobody reads the board by week two. */
   .PENDING { background: #f1f5f9; color: #64748b; }
   .SKIPPED { background: #f1f5f9; color: #64748b; }
+  /* WAIVED = declared out of scope for this project, in the register, with a reason. Blue-grey
+     rather than green: it is settled, not achieved, and the board must not read as credit. */
+  .WAIVED { background: #e0e7ff; color: #3730a3; }
   .footer { margin-top: 20px; font-size: 11px; color: #94a3b8; }
 </style>
 </head>
@@ -1826,6 +2257,16 @@ if [ -n "$REQUESTED_STAGE" ]; then
     fi
   fi
   if [ "$REQUESTED_STAGE" = "P" ] || [ "$REQUESTED_STAGE" = "p" ]; then
+    if [ "$P_STATUS" = "WAIVED" ]; then
+      echo ""
+      echo "Stage P is WAIVED for this project: $P_NOTE"
+      exit 0
+    fi
+    if [ "$P_STATUS" = "PENDING" ]; then
+      echo "" >&2
+      echo "Stage P NOT STARTED: $P_NOTE" >&2
+      exit 3
+    fi
     if [ "$P_STATUS" = "FAIL" ]; then
       echo "" >&2
       echo "Stage P gate FAILED: $P_NOTE" >&2
@@ -1858,14 +2299,40 @@ if [ -n "$REQUESTED_STAGE" ]; then
   # NO EXCEPTIONS. A scope-confirmation exception lived here for part of 2026-08-20 and came out
   # with the gate it served — see the long note in check_stage_1 for why a string-presence test
   # could not do that job.
+  # A declared waiver is an answer, and an answer is a pass for exit-code purposes. This is the
+  # branch the whole adoption mechanism exists for: a project that joined at Stage 5 can ask
+  # about Stage 3 all day and get a calm 0 with the reason, instead of a red it cannot ever clear.
+  if [ "$requested_status" = "WAIVED" ]; then
+    echo ""
+    echo "Stage $REQUESTED_STAGE is WAIVED for this project: $requested_note"
+    exit 0
+  fi
   case "$REQUESTED_STAGE" in
     0|1)
       if [ "$requested_status" = "FAIL" ]; then
         advise "stage$REQUESTED_STAGE" "Stage $REQUESTED_STAGE not complete: $requested_note"
         exit 0
       fi
+      if [ "$requested_status" = "PENDING" ]; then
+        echo ""
+        echo "Stage $REQUESTED_STAGE not started: $requested_note"
+        echo "Stages 0 and 1 are advisory — this does not block anything."
+        exit 0
+      fi
       ;;
   esac
+  # NOT STARTED gets its own exit code, and the wording is not a telling-off. The stage you
+  # ASKED about still does not pass — you asked, and the honest answer is no — but a caller can
+  # now tell "nothing has been done here" (3) from "something is wrong here" (1), which is the
+  # difference between a project that is early and a project that is broken.
+  if [ "$requested_status" = "PENDING" ]; then
+    echo "" >&2
+    echo "Stage $REQUESTED_STAGE NOT STARTED: $requested_note" >&2
+    echo "Nothing is wrong — there is just nothing here yet. If this project is never going to" >&2
+    echo "produce it, say so once and it stops being counted:" >&2
+    echo "  $0 --waive $REQUESTED_STAGE --reason \"...\" $PROJECT_DIR" >&2
+    exit 3
+  fi
   if [ "$requested_status" = "FAIL" ]; then
     echo "" >&2
     echo "Stage $REQUESTED_STAGE gate FAILED: $requested_note" >&2

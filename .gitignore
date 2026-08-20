@@ -8,6 +8,15 @@ build/
 target/
 *.log
 
+# ...but `build/` above is unanchored, so it matches a directory named "build" at ANY depth —
+# including skills/build/, the page/MDL/workflow skill group added 2026-08-20. Caught the same
+# day: skills/build/mdl/oneshot-mdl-method.md existed on disk, rendered into every routing
+# surface, passed --check, and was invisible to git. A skill nobody can clone reaches nobody.
+# The directory must be re-included before its contents: git does not descend into an excluded
+# directory, so a `!skills/build/**` on its own would never match.
+!skills/build/
+!skills/build/**
+
 # Project output must never live in the tool repo (see README.md "Consuming this toolkit")
 /workspaces/
 analysis/

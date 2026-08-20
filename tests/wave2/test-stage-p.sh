@@ -181,11 +181,15 @@ case "$V" in
   *)      bad "nested-only intake not found: $V" ;;
 esac
 
-echo "== T11: a missing intake.md says where it looked =="
+echo "== T11: a missing intake.md does not pass, and says where it looked =="
+# PENDING since 2026-08-20 rather than FAIL — absent is not wrong, and an intake that was never
+# scaffolded is the ordinary state of a project on day one. What must not change is that it
+# does NOT pass and that it names both search paths; assert those, not the word.
 P="$(mkproj t11)"
 V="$(stagep "$P")"
-if printf '%s' "$V" | grep -q 'FAIL' && printf '%s' "$V" | grep -q 'looked in'; then
-  ok "missing intake names both search paths"
+if ! printf '%s' "$V" | grep -q 'PASS' && printf '%s' "$V" | grep -q 'PENDING' \
+   && printf '%s' "$V" | grep -q 'looked in'; then
+  ok "missing intake reports PENDING and names both search paths"
 else
   bad "missing intake message unhelpful: $V"
 fi

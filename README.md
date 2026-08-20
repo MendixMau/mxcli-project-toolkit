@@ -60,7 +60,7 @@ It scaffolds everything — `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runboo
 mkdir -p ~/.claude/commands && cp ~/Mendix/mxcli-project-toolkit/commands/toolkit-init.md ~/.claude/commands/
 ```
 
-Typing `/toolkit-init` in any Claude Code session then runs the install, reads the runbook, and starts the Stage-P interview (or runs `sync-project.sh` if the project is already wired). Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly if required artifacts are missing and regenerates `index.html` from the project's real state.
+Typing `/toolkit-init` in any Claude Code session then runs the install, reads the runbook, and starts the Stage-P interview (or runs `sync-project.sh` if the project is already wired). Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly when an artifact is *there and wrong* and regenerates `index.html` from the project's real state. An artifact that simply isn't there yet reports `PENDING`, not red — and a project that joined the toolkit mid-flight records that once (`--adopt <stage> --reason "..."`) so the stages it will never run report `WAIVED` instead of failing forever. See `skills/conversion-runbook.md` §2 → "What a gate verdict means".
 
 ---
 
@@ -377,6 +377,7 @@ mxcli-project-toolkit/
     init-project.sh             ← Stage P scaffold: intake.md, PROJECT.md, index.html (opens the guide)
     init-agents.sh              ← scaffold all five agent stubs into a project's .claude/agents/
     gate-check.sh               ← mechanical stage gates (P–7) + self-regenerating dashboard
+                                   PASS / PENDING / FAIL / WAIVED / MANUAL; --adopt, --waive
     sync-project.sh             ← after toolkit git pull: refresh the artifacts copied into a project
     split-claude-md.sh          ← move MDL/lint reference out of CLAUDE.md into load-on-demand files
     install-claude-hooks.sh     ← tiered context-cost hooks → ~/.claude (see "Context cost" above)
@@ -449,13 +450,23 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 <!-- Generated from bin/lib/skill-routing.tsv by bin/render-routing.sh.
      Do not hand-edit between the markers: add or change the ROW, then re-render. -->
 <!-- ROUTING:BEGIN readme-situational -->
+
+**Spine — what am I doing, who decides, how do I ask**
+
 | Task | Skill to load |
 |---|---|
 | Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough | `skills/grill-mode.md` |
-| Rendering a filled triage.md for review — the triage.html surface Stage 0 names. Renders only; the Stage 0 verdict stays with gate-check and the judgement with source-triage.md | `bin/triage-report.sh` |
-| Reviewing what the BRDs actually say — the Stage 2 surface, for BRDs from any source. Reads every knowledge base at once, and keeps a section that is absent-because-not-applicable apart from one that is absent-because-expected | `bin/brd-report.sh` |
 | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts | `skills/bootstrap-project.md` |
-| Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates | `skills/existing-app-assurance.md` |
+| Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` |
+| Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited | `skills/measured-claims.md` |
+| Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend | `skills/improvement-register.md` |
+
+**Source — reading a legacy system (migration entry mode)**
+
+| Task | Skill to load |
+|---|---|
+| Rendering a filled triage.md for review — the triage.html surface Stage 0 names. Renders only; the Stage 0 verdict stays with gate-check and the judgement with source-triage.md | `bin/triage-report.sh` |
+| Reviewing what the extraction actually produced — the Stage 1 surface, and the file the Stage 1 gate looks for. Renders a code-extracted and a document knowledge base alike, so a requirements-driven project gets the surface too; prints no zero that a second record does not agree with | `bin/extraction-report.sh` |
 | Assessing or planning a migration up front, before any pipeline is chosen | `skills/assess-migration.md` |
 | Running the extraction pipeline | `skills/migration-pipeline.md` |
 | Migrating from a stack that has no dedicated pipeline | `skills/migrate-general.md` |
@@ -465,20 +476,60 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Understanding Node/Express+React source, its layout assumptions and its gaps | `skills/source-node-express-react.md` |
 | Scanning or classifying an unstructured document folder | `skills/document-discovery.md` |
 | Validating an extractor's output before its BRDs are trusted | `skills/extractor-quality-loop.md` |
-| Validating a new stack pipeline's extraction quality | `skills/qa-loop-goal-pattern.md` |
 | Extracting Excel/Word/PDF specs into a knowledge base | `skills/kb-generation.md` |
+
+**Requirements — what must be built**
+
+| Task | Skill to load |
+|---|---|
+| Reviewing what the BRDs actually say — the Stage 2 surface, for BRDs from any source. Reads every knowledge base at once, and keeps a section that is absent-because-not-applicable apart from one that is absent-because-expected | `bin/brd-report.sh` |
+| Validating a new stack pipeline's extraction quality | `skills/qa-loop-goal-pattern.md` |
 | Writing or enriching a BRD JSON | `skills/brd-generation.md` |
 | Validating BRDs against the code and document KB | `skills/brd-validation.md` |
-| Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations | `skills/architecture-blueprint.md` |
-| Deciding module boundaries before "create module" | `skills/modularize-domain.md` |
-| Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` |
 | Turning BRDs plus architecture into a numbered, dependency-ordered build plan | `skills/brd-to-build-plan.md` |
 | Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible | `skills/coverage-ledger.md` |
 | Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered | `bin/coverage-check.sh` |
+| Writing an actual .journey.json — the worked field-by-field reference for the contract journey-proof.md argues for | `skills/journey-examples.md` |
+
+**Architecture — how it is shaped**
+
+| Task | Skill to load |
+|---|---|
+| Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations | `skills/architecture-blueprint.md` |
+| Deciding module boundaries before "create module" | `skills/modularize-domain.md` |
+
+**Design — how it looks, before any MDL**
+
+| Task | Skill to load |
+|---|---|
+| Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` |
+
+**Build — the loop itself**
+
+| Task | Skill to load |
+|---|---|
 | Building a module with mxcli — verified, iterative, coverage-checklist gated | `skills/iterative-build-loop.md` |
+| After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views | `project-bin/build-plan-status.sh` |
+
+**Build · MDL — the language and tool reference**
+
+| Task | Skill to load |
+|---|---|
 | Writing MDL microflow scripts — worked recipes | `skills/mdl-cookbook-microflows.md` |
+| Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check | `skills/build/mdl/oneshot-mdl-method.md` |
+
+**Build · Pages — page-building patterns**
+
+| Task | Skill to load |
+|---|---|
 | Building and auditing Mendix pages — widget patterns, datasource shapes | `skills/learned-page-patterns.md` |
 | Generating a whole page tree in one script — the structure patterns that survive it | `skills/oneshot-page-structure-patterns.md` |
+
+**Verify — does it work**
+
+| Task | Skill to load |
+|---|---|
+| Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates | `skills/existing-app-assurance.md` |
 | Running the ledger rung alone — recompute every stored ledger status against the live model and catch the STALE rows that claim built for something the model no longer has | `project-bin/conformance-check.sh` |
 | Running the wiring rung alone — a module imported but never reached, an element built but wired to nothing, a boundary crossed; mxbuild and e2e are blind to all three | `project-bin/graph-sweep.sh` |
 | Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only | `project-bin/test-stack-up.sh` |
@@ -489,17 +540,20 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works | `skills/monkey-test.md` |
 | UX audit and screenshot-loop discipline | `skills/learned-skill-ux-audit.md` |
 | Tracking scope delta between the BRD and the built state | `skills/learned-skill-scope-delta.md` |
-| Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` |
 | Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer | `skills/report-schema.md` |
 | Installing, extending, debugging or porting the verification harness — which part owns what, which parts run standalone, and what a missing part must report | `skills/harness-architecture.md` |
-| Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited | `skills/measured-claims.md` |
 | Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss | `skills/process-coherence-pass.md` |
 | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory | `project-bin/coherence-cadence.sh` |
-| After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views | `project-bin/build-plan-status.sh` |
 | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything | `skills/e2e-evidence-report.md` |
-| Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` |
 | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` |
 | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence | `skills/lint-that-actually-runs.md` |
+| Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before | `skills/wiring-sweep.md` |
+
+**Diagnose — something is broken and it may be the tooling**
+
+| Task | Skill to load |
+|---|---|
+| Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` |
 <!-- ROUTING:END -->
 
 ---

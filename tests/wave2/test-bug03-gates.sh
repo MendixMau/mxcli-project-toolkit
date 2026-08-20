@@ -78,10 +78,17 @@ printf '# Triage\n\n## Sign-off\n\nConfirmed by: Maurits Visser on 2026-08-11\n'
 V="$(verdict "$P" 0)"
 case "$V" in *PASS*) ok "real signature still passes" ;; *) bad "false red on a real sign-off: $V" ;; esac
 
-echo "== T6: Stage 0 still fails a missing triage.md =="
-P="$(mkproj t6)"
-V="$(verdict "$P" 0)"
-case "$V" in *FAIL*) ok "missing triage.md still fails" ;; *) bad "missing triage.md passed: $V" ;; esac
+echo "== T6: Stage 0 does not PASS a missing triage.md =="
+# Vocabulary widened 2026-08-20: an ABSENT artifact is PENDING ("not started"), and FAIL keeps
+# the narrower meaning "something is there and it is wrong" — the discrimination T1/T3/T4 above
+# are built on. The assertion here is the INTENT ("a missing triage.md does not pass"), not the
+# word, so it survives that change and still catches the only bug it was ever guarding against.
+V="$(verdict "$(mkproj t6)" 0)"
+case "$V" in
+  *PASS*)             bad "missing triage.md PASSED: $V" ;;
+  *PENDING*|*FAIL*)   ok "missing triage.md does not pass (${V#*: })" ;;
+  *)                  bad "no Stage 0 verdict at all for a missing triage.md: $V" ;;
+esac
 
 echo "== T7: Stage 7 must FAIL when only the NOTES of an unrelated row mention the cutover =="
 # Row SELECTION scanned $0, the whole row including free text. The status check was already

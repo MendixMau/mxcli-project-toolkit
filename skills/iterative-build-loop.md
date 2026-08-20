@@ -426,13 +426,17 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
     ```
     1. BUILD    already done — steps 1-9 above
     2. GATE     already done — Gate: BUILD (bin/exec.sh, 0 mxbuild errors, lint clean)
-    3. PROVE    the mechanical rungs: UI (Playwright) + Data (OQL/DB) + wiring-sweep
-                (`wiring-sweep.md` — every clickable element on the page gets
-                clicked and checked for an effect, not just what a journey
-                visits) + monkey.js pass (`monkey-test.md` — diagnostic
-                crash/fuzz net, never proof on its own). Deep form when an
-                instrument is green and you cannot say what would have made it
-                red: journey-proof.md
+    3. PROVE    one command runs the mechanical rungs: `project-bin/verify-module.sh <Module>`
+                — conformance-check + graph-sweep + coverage-check (model-side, parallel) +
+                journeys (UI/Playwright + Data/OQL + Trace/OTel, one ordered walk via
+                journey-runner.js) + journeys-control (positive control) + monkey.js pass
+                (`monkey-test.md` — diagnostic crash/fuzz net, never proof on its own). This
+                IS the UI/Data/monkey rungs, run as one instrument — not a second pass
+                alongside them. `wiring-sweep.md` (every clickable element on the page gets
+                clicked and checked for an effect, not just what a journey visits) runs
+                alongside it but by hand, deliberately outside verify-module.sh. Deep form
+                when an instrument is green and you cannot say what would have made it red:
+                journey-proof.md
     4. LOOK     THE INTELLIGENCE CHECK — every page this module added, not just the
                 ones the happy-path walk (step 13) visited. Is it logical? Does it
                 look right? Does it match our design? Stages 1-3 cannot answer any

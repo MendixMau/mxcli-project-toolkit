@@ -1869,6 +1869,18 @@ directly, using RnD's datagrid-builder handling as the reference implementation.
 
 A capability gap rather than corruption — the combination is simply not expressible via MDL.
 
+**Confirmed via isolated sandbox A/B, 2026-08-20** — per `skills/sandbox-ab-tool-defect-probe.md`,
+byte-identical DataGrid2/column/filter/action MDL run through RnD `v0.17.0` and Engalar
+`bc3d94ef4` against two independently-baselined (0-error) sandbox copies of `TestCLIApp-main`
+(Mendix 11.12.0). RnD's `describe page` roundtrip preserved `onClick`, `DynamicCellClass`,
+`textfilter`, and `dropdownfilter` intact; Engalar's — from the same MDL block — dropped
+`onClick`, `textfilter`, and `dropdownfilter` entirely, keeping only `DynamicCellClass`. Both
+arms reported exec success and gated at 0 errors, so the loss is silent end-to-end on Engalar.
+This raises **Reproducible** from "Reported only" to **confirmed, isolated, fork-specific**.
+Full write-up (commands, exact `mx check`/`describe page` output, diff of the two probe scripts)
+was produced as `test-assessments/dg2-bug42-probe/RESULT.md` — that folder is gitignored scratch
+per `test-assessments/README.md`, so the evidence lives here in this entry, not in a tracked file.
+
 ## BUG-43: `ALTER SETTINGS CONSTANT` corrupts the Settings unit BSON
 
 **RESOLVED — archived 2026-08-06, see [archive-resolved-2026-08-06.md](archive-resolved-2026-08-06.md).**
@@ -4434,3 +4446,53 @@ widget name" report as ground truth for whether a page will actually fail native
 cross-check against native `mx check` before treating it as blocking.
 
 **Discovered:** 2026-08-14/15, PROJECT-I (a mock-API integration POC project, `PackageCase_Overview` datagrid).
+
+---
+
+## BUG-93: `ALTER PAGE REPLACE` of a `DATAGRID` column with `ShowContentAs: customContent` silently drops any nested `dropdownfilter` widget
+
+**Severity:** High — passes every automated gate (`mxcli check --references`, `mxcli exec`, `mxcli docker check`) with no error, but the filter widget never lands in the model; the only way to catch it is a targeted `DESCRIBE PAGE` diff against sibling columns
+**Reproducible:** Yes, consistently (isolated via disposable scratch-file A/B testing: a plain non-customContent column with only a `dropdownfilter` round-trips fine; the identical `dropdownfilter` becomes silently unreadable the moment its column also carries `ShowContentAs: customContent`, regardless of what else is in the column)
+**Mendix version:** 11.13.0
+
+### Symptom
+
+`ALTER PAGE ... REPLACE <column>` on an existing customContent `DATAGRID` column (e.g. a
+`RunStatus` pill column rendered via a nested `container`/`dynamictext`), adding a `dropdownfilter`
+alongside the existing customContent widgets, completes cleanly:
+
+- `mxcli check --references` — 0 errors
+- `mxcli exec` — reports success, no error
+- `mxcli docker check` (mxbuild gate) — 0 errors
+
+But a follow-up `DESCRIBE PAGE` on the executed result shows the customContent pill container
+intact, with **no `dropdownfilter` anywhere on the page**. This is a genuine silent drop, not a
+`DESCRIBE`-emitter rendering gap — confirmed by cross-checking that pre-existing filters on
+sibling, non-customContent columns (`fKind`, `fSequence`, `fCoarse` in the reproducing case) DO
+render correctly in the same `DESCRIBE PAGE` output.
+
+### Root cause (as isolated)
+
+Not fully diagnosed at the BSON level, but narrowed via two throwaway scratch-file tests: a plain
+column (no `ShowContentAs: customContent`) containing only a `dropdownfilter` writes and reads
+back correctly every time. The same `dropdownfilter`, added to a column that also declares
+`ShowContentAs: customContent`, is silently discarded on write — regardless of what other widgets
+share the customContent column. This looks like an mxcli MDL-writer gap specific to the
+customContent `DATAGRID` column type, distinct from the already-logged `dg2-grid-pattern.md`
+"filtersPlaceholder"/pluggable-DG2 filter gaps — this is an MDL-native `DATAGRID` (v1-style)
+customContent column, not a pluggable DG2 form.
+
+### Workaround
+
+Do not add a `dropdownfilter` inside an existing customContent column. Leave the customContent
+column completely untouched (zero risk of the drop) and `INSERT AFTER` (or `BEFORE`) it a new
+sibling column bound to the same attribute, whose only content is the `dropdownfilter`. Confirmed
+via native `mx check`: 0 errors, and a follow-up `DESCRIBE PAGE` shows the new column's filter
+intact alongside the original, unmodified customContent column. Tradeoff: the attribute's plain
+enum-caption text now appears twice (once inside the original customContent rendering, once as
+the new column's default cell text) — a minor, accepted visual duplication in exchange for not
+risking the silent-drop path.
+
+**Discovered:** 2026-08-20, a workflow-tracking project (`ProductNumberWorkflow.ProductNumberWorkflow_Overview`,
+`dgRuns` datagrid, `RunStatus` pill column), rehearsed before execution per
+`skills/learned-mdl-preflight.md`.

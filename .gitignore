@@ -28,6 +28,12 @@ knowledge-base/
 # WIP skills + the improvement backlog — machine-local drafts, not ready to publish
 wip/
 
+# Throwaway sandbox runs (tool-defect A/B probes, skill-wiring proof runs) — see
+# test-assessments/README.md. Machine-local by nature: rsynced project copies, agent
+# transcripts. Re-include the README the same way skills/build/ is re-included above.
+/test-assessments/*
+!/test-assessments/README.md
+
 # The leak guard's denylist is itself sensitive: it enumerates the client and
 # person names this repo must never publish. Never track it.
 # Format documented in the header of bin/check-no-client-data.sh.

@@ -14,6 +14,14 @@ it has no filesystem in common with your laptop and cannot reach `localhost` on 
 exists so that gap gets stated up front, once, instead of being rediscovered as a confusing
 `fault` deep into a run.
 
+**Updated 2026-08-21 — the container can now stand the app up itself.** This file used to present
+a laptop-hosted app plus a hand-rolled ngrok/cloudflared tunnel as the only options. It is no
+longer the shortest path: given the project's repo, this session can run the app locally with
+`mxcli docker run` or `mxcli run --local`, and publish it with `mxcli run --local --hub` (a public
+URL via `mxcli tunnel-hub`, with `ApplicationRootUrl` set correctly for that origin). Option (c)
+below is now the default; (a) and (b) remain valid when you specifically want to test an app
+instance that already exists elsewhere.
+
 ---
 
 ```
@@ -28,12 +36,17 @@ Setup (do this first, in order):
 2. From the toolkit clone, run `bin/doctor.sh` and fix anything it reports missing before
    continuing — it names exactly what's absent (Python, mxcli binary, etc.) and how to get it.
 3. This app must be RUNNING and reachable from this container, plus its database reachable
-   for OQL/DB assertions. This container cannot reach a laptop's localhost. Either:
-   (a) it's deployed at a reachable URL — set APP_URL to that, and PG_HOST/PG_PORT (or the
-       M2EE admin port) to the reachable DB, or
-   (b) tunnel the local instance out (ngrok/cloudflared) and set APP_URL/PG_HOST to the
-       tunnel address: <FILL IN THE TUNNEL URL / DEPLOYED URL AND DB CONNECTION DETAILS HERE>.
-   If neither is possible, stop and say so rather than guessing — a runtime instrument that
+   for OQL/DB assertions. This container cannot reach a laptop's localhost. In order of
+   preference:
+   (c) **stand it up here** — `mxcli docker run -p <app>.mpr --wait`, or `mxcli run --local`
+       for a Docker-free warm loop (needs JDK 21 and a reachable PostgreSQL whose database
+       already exists). Add `--hub` if I need to click through it from a browser myself.
+       Verify with `mxcli docker status`; never infer "up" from the absence of an error.
+   (a) it's already deployed at a reachable URL — set APP_URL to that, and PG_HOST/PG_PORT (or
+       the M2EE admin port) to the reachable DB, or
+   (b) tunnel an existing local instance out and set APP_URL/PG_HOST to the tunnel address:
+       <FILL IN THE TUNNEL URL / DEPLOYED URL AND DB CONNECTION DETAILS HERE>.
+   If none is possible, stop and say so rather than guessing — a runtime instrument that
    can't reach the app should report `fault`/`INVALID`, never be skipped silently or faked green.
 
 Skill to follow: skills/existing-app-assurance.md — Track B (Regression / e2e test net).

@@ -4564,3 +4564,63 @@ Role-scoped widget visibility must be done one of two ways:
 **Discovered:** 2026-08-21, a client project (a Home/dashboard page, 4 tiles needing per-role
 visibility per its own design wireframe), caught in sandbox rehearsal before ever touching
 the real `.mpr`, per `skills/learned-mdl-preflight.md`.
+
+## BUG-95: `show_page` action on a widget outside a `dataview` always binds an entity-typed argument to `$currentObject`, ignoring the variable named in the MDL
+
+### Symptom
+
+Adding an `actionbutton` (outside any `dataview`, i.e. no `currentObject` in scope) with an
+`Action: show_page Module.TargetPage(SomeEntityParam: $SomeVariable)` clause round-trips clean
+through `mxcli check --references` and `mxcli exec` reports success with no error — but native
+`mx check` / `docker check` then fails:
+
+```
+[CE1571] "No argument has been selected for parameter 'SomeEntityParam' and no default is
+available."
+```
+
+Confirmed via `DESCRIBE PAGE` on the button after exec: the stored action's argument is
+`$currentObject`, not the variable actually named in the MDL script — silently rewritten by
+mxcli's writer at write time. Since the button lives outside a dataview, there is no
+`currentObject` in scope, so the argument is genuinely unbound at runtime, hence CE1571.
+
+### What was tried, and ruled out
+
+1. `Action: show_page Module.Page(Param: $WorkflowRun)` (colon form) — round-trips to
+   `$currentObject`.
+2. `Action: show_page Module.Page($Param = $WorkflowRun)` (microflow-style `=` form, in case the
+   two documented forms hit different codegen paths) — round-trips to `$currentObject` as well.
+3. Re-`SET`ting the action directly via `ALTER PAGE ... SET action = ... ON btnName` (bypassing
+   the `INSERT ... { }` path entirely, in case the bug was specific to insert-then-parse) — same
+   result.
+
+All three attempts validated clean against `.ai-context/skills/create-page.md` /
+`alter-page.md`'s own documented `show_page` syntax (both `Param: value` and `Param = value`
+forms are listed as accepted) — this rules out an MDL authoring mistake; the writer itself does
+not thread the argument through for this specific widget/context combination.
+
+### Root cause
+
+mxcli's `show_page` action writer appears to special-case the entity-typed argument as
+`$currentObject` whenever the action is attached outside a dataview context, rather than
+resolving the variable expression the script actually specifies. This is a different code path
+from BUG-56 (DataGrid2 *datasource* parameterized-microflow binding loss, resolved in v0.17.0) —
+this is a `show_page` *action* argument binding on a plain, non-dataview action button.
+
+### Workaround
+
+None found via MDL. Either:
+1. Place the target button inside a `dataview` scoped to the entity the target page needs (so
+   `$currentObject` is the correct, in-scope binding) — only viable if the page's layout already
+   has (or can acceptably gain) such a dataview.
+2. Add the button via Studio Pro GUI or MCP `pg_patch_page` directly, then leave it alone —
+   MDL cannot safely round-trip further edits to it until this is fixed upstream.
+3. If neither is acceptable for the page in question, drop the button and route the feature to a
+   manual Studio Pro GUI step instead of retrying variations of the MDL syntax — further syntactic
+   variation will not help, since the defect is in the writer's argument-resolution logic, not in
+   how the argument is spelled.
+
+**Discovered:** 2026-08-21, a client project (a workflow-run "Station" page needing an
+action button to open a related detail page with the current run passed as a parameter,
+outside any dataview), confirmed via `DESCRIBE PAGE` round-trip and two independent rewrite
+attempts before reverting the widget to restore a green build.

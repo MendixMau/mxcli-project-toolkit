@@ -128,6 +128,59 @@ From this graph, the build order falls out: a module with no incoming arrows bui
 
 ---
 
+## Step 3b: Workflow Diagram (state view) — conditional
+
+**Only produced when `checkpoint-architecture.md` CAC-3 Q3's Workflow-scope answer is A** (real
+human-task/approval/escalation shape, modeled as a native Mendix Workflow, not a checkpoint-created
+speculative artifact). Never draw this before that answer is `CONFIRMED` — same rule as every other
+architecture/design artifact (`conversion-runbook.md` §"Stages are sequential").
+
+One Mermaid `stateDiagram-v2` per Workflow-shaped process: states are the Workflow's user/system
+tasks, transitions are its `OUTCOMES`.
+
+````markdown
+```mermaid
+stateDiagram-v2
+  [*] --> Submitted
+  Submitted --> ManagerReview : Submit
+  ManagerReview --> Approved : Approve
+  ManagerReview --> Rejected : Reject
+  ManagerReview --> Submitted : RequestChanges
+  Approved --> [*]
+  Rejected --> [*]
+```
+````
+
+Embed in `blueprint.md` alongside the layer/wiring diagrams — the markdown is the source of truth,
+`blueprint.html` (Step 7) is the generated render, per the rule at the top of this file.
+
+---
+
+## Step 3c: Agent-Wiring Diagram — conditional
+
+**Only produced when CAC-3 Q3's Agent-wiring answer is A** (a real, scoped call site — not just
+"agent"/"AI"/"copilot" language in a user story). A Mermaid sequence or flow diagram showing the
+calling module/microflow, the agent/LLM endpoint, and the response path, annotated with the
+sync/async and timeout/fallback decision recorded at the checkpoint.
+
+````markdown
+```mermaid
+sequenceDiagram
+  participant MF as ACT_ClassifyTicket (microflow)
+  participant Agent as Support-Triage Agent
+  MF->>Agent: request (ticket text)
+  Agent-->>MF: response (category, confidence) or timeout
+  MF->>MF: fallback microflow on timeout/low confidence
+```
+````
+
+Same source-of-truth/render rule as Step 3b. No toolkit skill currently documents building this
+kind of integration (confirmed by search, 2026-08-21) — the diagram records the *decision*, it does
+not imply a scripted pattern exists yet. See `module-brief.md`'s "Build skills to read first" for
+how that gap is surfaced to the builder rather than silently assumed away.
+
+---
+
 ## Step 4: Fit-Gap Analysis (`architecture/fit-gap.md`)
 
 The build-vs-buy-vs-workaround decision, one row per source capability. **This is where marketplace review lives** — reviewing marketplace for modules that (partly) match scope is a fit-gap decision, not a separate phase.
@@ -199,7 +252,7 @@ The Stage-3 `✋` gate is reviewed by a person, and raw Mermaid in markdown is a
 
 - **Style:** copy the `:root` token block + base styles from the shared CSS shell (`toolkit-guide.html`; once `design/ds.css` exists, its tokens supersede — same rule as every stage surface).
 - **Banner at the top:** `Generated from blueprint.md — do not edit; regenerate after changing the markdown.` Include the generation date.
-- **Content:** the layer + wiring diagrams, a module summary table (linking `modules/<Name>.md`), the fit-gap table, and the open-issues register. It renders what the markdown says; it introduces nothing new.
+- **Content:** the layer + wiring diagrams, **the workflow diagram (Step 3b) and/or agent-wiring diagram (Step 3c) when either was produced** — omit the section entirely when CAC-3 didn't call for it, never render an empty placeholder — a module summary table (linking `modules/<Name>.md`), the fit-gap table, and the open-issues register. It renders what the markdown says; it introduces nothing new.
 - **Mermaid:** embed each diagram's source in `<pre class="mermaid">` with mermaid.js; if the review must work fully offline, pre-render to inline SVG (`npx @mermaid-js/mermaid-cli`) instead. Either way the markdown's Mermaid stays canonical.
 - **Freshness is gated:** `bin/gate-check.sh` Stage 3 fails if `blueprint.html` is missing or older than `blueprint.md` / `fit-gap.md` / `open-issues.md`. Regenerating is cheap; a stale render at a sign-off gate is a lie.
 - **Present it:** open `blueprint.html` in the user's browser when running the Stage-3 gate, alongside `module-design.html` and the design surfaces.

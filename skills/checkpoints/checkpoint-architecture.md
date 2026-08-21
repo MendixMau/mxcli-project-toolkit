@@ -60,6 +60,47 @@ referenced by Accounts and Transactions).
 
 ---
 
+### Q3 — Workflow & Agent-Wiring scope
+
+**When to ask:** Always. Before asking, scan every validated BRD (`F{NNN}.brd.json`, or the
+BRD markdown for hand-authored/SME-sourced BRDs — this runs in all three entry modes, not just
+migration) for two independent signal groups:
+- *Workflow-shaped:* approval, escalation, SLA, user task, hand-off between roles over time,
+  "waits for", queue-and-claim language.
+- *Agent-shaped:* AI agent, LLM, copilot, assistant, autonomous, chatbot, "ask the model".
+
+This generalizes `checkpoint-brd.md`'s existing state-machine question (which only fires from
+migration scaffold detection) to fire from BRD *content* in every entry mode.
+
+**Skip if:** zero signals in both groups — still record that explicitly ("no workflow/agent scope
+detected") so a later reviewer sees it was checked, not missed.
+
+**How to generate options:** cite which BRDs/features triggered each signal group.
+
+**Workflow half** (reuses `checkpoint-brd.md`'s phrasing):
+
+> "Found [N] workflow-shaped requirements (approval/escalation/SLA language) in [BRDs]. How should
+> these map to Mendix?"
+> - A) Native Mendix Workflow for the human-approval parts, microflows for automated transitions
+>   *(recommended)* — produces a workflow diagram in the blueprint (`architecture-blueprint.md`
+>   Step 3b) and flags the module's build brief to read `learned-workflow-patterns.md` first
+> - B) Microflows only — simpler, no Workflow module dependency, no extra diagram
+> - C) Flag for manual review — decide per process
+
+**Agent-wiring half:**
+
+> "Found [M] agent-wiring signals (AI agent/LLM/copilot language) in [BRDs]. Is this a real,
+> scoped integration point?"
+> - A) Yes — document which module/microflow calls the agent, sync/async, timeout/fallback, and
+>   produce an agent-wiring diagram (`architecture-blueprint.md` Step 3c)
+> - B) No — just terminology in a user story, not a real integration
+> - C) Not yet — flag as an open question, decide once the integration is scoped
+
+**Record as:** `PROJECT.md` → `## Decisions` → `Workflow scope:` / `Agent-wiring scope:`, each
+listing which BRDs/features triggered it and the chosen option.
+
+---
+
 ## Open Question
 
 > "Are there non-functional requirements we should design around? (e.g. 'this must handle 10k
@@ -79,5 +120,7 @@ referenced by Accounts and Transactions).
 PROJECT.md → ## Decisions:
   Module structure: [list of Mendix modules]
   Cross-module strategy: [chosen approach]
+  Workflow scope: [BRDs/features triggered + chosen option, or 'none detected']
+  Agent-wiring scope: [BRDs/features triggered + chosen option, or 'none detected']
   NFRs: [list or 'none for POC']
 ```

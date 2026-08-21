@@ -123,6 +123,27 @@ BRD?** If it reads a BRD, it is in the wrong directory.
 ## Adding new skills
 Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcli project | requirements-driven`, `**Purpose:**`, and a step-by-step guide. Add it to `README.md`'s "When to use which skill" table. **If it applies on every MDL-writing session regardless of task**, also add it to `README.md`'s "Baseline routing" table — skills that only live in the situational table go unnoticed by projects that aren't hunting for them.
 
+## Committing in this clone — never `git add -A`
+
+Several Claude sessions routinely have this clone open at once, in **one working tree and
+therefore one git index**. So:
+
+> **Stage and commit in the same breath, or pass explicit paths: `git commit -- <paths>`.
+> Never `git add -A`.** Before resetting a commit, look at what else is in the index.
+
+**Why (real incident, 2026-08-21).** A session ran `git commit` with no pathspec while another
+session had 29 unrelated files staged. Git takes the whole index, so that work landed inside a
+commit titled "Log BUG-95: …". The resulting `git reset` restored the 29 files — and silently
+took the committer's *own* bug-log entry out of the working tree with it, where it survived
+only in a dangling commit. Authorship is not readable from mtimes either: eight files were
+mislabelled as a peer's until someone read the diffs.
+
+Same root cause as the testing rule below — a shared, moving tree makes any whole-tree
+operation untrustworthy. Coordinate with `ListAgents` / `SendMessage` before committing, and
+if a peer's untracked scratch file trips the pre-commit leak guard
+(`bin/check-no-client-data.sh` scans untracked files too), ask them to fix it. Do not gitignore
+it and do not narrow the denylist.
+
 ## Testing this toolkit — scoped by default
 
 `tests/wave2/run-all.sh` runs every fixture in the suite. **Do not run it as a reflex "did I

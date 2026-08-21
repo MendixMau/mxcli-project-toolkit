@@ -180,7 +180,7 @@ Add `sleep 5` between scripts in any batch runner.
 ## Seed-data bootstrap (before the DB smoke check is a hard gate)
 
 **Added 2026-08-21**, after a project with several modules' worth of hand-written demo data
-(VB-USI-main) found its DB smoke check only ever *detected* absent seed data and failed the
+(a QA-sampling approval project) found its DB smoke check only ever *detected* absent seed data and failed the
 whole harness on it — there was no path from "fresh clone / fresh CI runner, empty DB" back to
 a runnable suite short of a human re-seeding by hand.
 

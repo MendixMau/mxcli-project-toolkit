@@ -59,6 +59,25 @@ None substitutes for the others. A module can pass `module-review.md` and `wirin
 every page and still fail `process-coherence-pass.md` if nothing outside the module ever calls into
 it. Run all three; don't let a pass on one stand in for the others in a report.
 
+`module-review.md`'s LOOK stage also has a whole-app variant: the same human-eyes pass run once
+across every page in every custom-built module, instead of one module at a time — reach for it
+before a demo or after a batch of build work spanning several modules. It's not a different check,
+just a different scope; a project may wire it as its own command (e.g. `/full-ui-loop`) rather than
+adding a fourth row to the table above.
+
+**Two UI-focused checks live inside/alongside LOOK and are easy to lose track of:**
+
+- **`design-audit.js`** — not a skill, a Playwright script LOOK's Stage 4b runs automatically. Purely
+  mechanical: invented CSS classes never promoted to the deployed theme, raw `class=` where a
+  sanctioned design-system property exists, axe accessibility (serious/critical, one `h1`,
+  landmarks), horizontal overflow at three widths. Has a `--static-only` mode for when the app
+  isn't running. This is the answer when someone wants "just a UI check, not the whole human pass."
+- **`learned-skill-ux-audit.md`** — a heavier, standalone, on-demand pass: Playwright screenshots
+  the live app and the design-system reference side by side, then an agent scores gaps across
+  color, typography, component-pattern reuse, and design-system features never built into the live
+  app. Triggered explicitly ("run a UX audit", "compare to design system", `/ux-audit`) — it is
+  **not** part of the automatic per-module close-out, unlike `design-audit.js`.
+
 ## 3. The five journey rungs — what "the golden path is proven" actually requires
 
 One journey = one persona walking a path with carried state, asserted in this order (each rung is

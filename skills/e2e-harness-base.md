@@ -13,7 +13,11 @@ assertions, and bug reporting.
 Build after completing a module build phase:
 - Domain model + all microflows done
 - Pages implemented and reachable via navigation
-- Seed data loaded (ACT_SeedData_Run executed)
+- Seed data loaded — either via an `ACT_SeedData_Run` after-startup microflow, or (the more
+  common shape once a project has several modules' worth of hand-written demo data) an ordered
+  set of idempotent seed SQL scripts run directly against Postgres. See "Seed-data bootstrap"
+  below — the DB smoke check is now expected to self-heal a missing/fresh case rather than just
+  fault the harness on it.
 - App running locally (`mxcli docker run -p App.mpr --wait`)
 
 ---
@@ -161,7 +165,7 @@ Build suites in this order. Each is a separate `.js` file.
 
 | Suite | File | What it tests |
 |-------|------|--------------|
-| DB smoke | `e2e-db-smoke.js` | PostgreSQL direct — seed data present, table structure correct |
+| DB smoke | `e2e-db-smoke.js` | PostgreSQL direct — seed data present, table structure correct. Self-heals: on a missing/short table it now runs the project's seed bootstrap and re-checks once, rather than just failing (see "Seed-data bootstrap" below). |
 | Empty submit | `e2e-01-empty-submit.js` | All mandatory validation guards fire on empty form submit |
 | Partial fill | `e2e-02-partial-fill.js` | Partial fill (30-50%) — correct errors, no crash |
 | Happy path | `e2e-03-happy-path.js` | Full golden path — fill all fields, save, verify DB record |
@@ -170,6 +174,50 @@ Build suites in this order. Each is a separate `.js` file.
 
 **Rule: Never run two suites simultaneously.** Mendix has a session limit.
 Add `sleep 5` between scripts in any batch runner.
+
+---
+
+## Seed-data bootstrap (before the DB smoke check is a hard gate)
+
+**Added 2026-08-21**, after a project with several modules' worth of hand-written demo data
+(VB-USI-main) found its DB smoke check only ever *detected* absent seed data and failed the
+whole harness on it — there was no path from "fresh clone / fresh CI runner, empty DB" back to
+a runnable suite short of a human re-seeding by hand.
+
+The fix has two parts, and both are project-repo artifacts (this skill only documents the
+pattern — implement it per-project, next to that project's own seed SQL):
+
+1. **Every per-module seed script must be idempotent.** Guard each `INSERT` with
+   `WHERE NOT EXISTS (...)`, keyed on the natural/business key the journey specs
+   (`journeys/*.journey.json` `seeds` blocks, or equivalent) actually resolve by — not on the
+   Mendix-generated `id`, which is random per environment. See
+   `.ai-context/skills/demo-data.md` (or the project's own copy of that skill) for the
+   underlying ID-generation/`object_sequence`-advancement technique; the idempotency guard is
+   an addition on top of that, not a replacement for it. A script guarded this way is safe to
+   run against an empty DB (normal insert) or an already-seeded one (no-op) without ever
+   double-inserting or throwing a unique-constraint error.
+2. **One canonical, ordered runner** (e.g. `mdlsource/seed/run-all-seeds.sh`) that calls every
+   per-module seed script via `psql`, in dependency order (a seed that looks up another
+   module's rows by natural key — e.g. a workflow run resolving a product number — must run
+   after the script that seeds those rows). Standard libpq env vars
+   (`PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD`) resolve the connection, with a
+   `docker exec`-based fallback for the (common) case where the host's own Postgres port is
+   shadowed by an unrelated local instance — see individual seed scripts' headers for that
+   caveat and `demo-data.md`'s "Step 2: Connect to the Database" for the general pattern. **Do
+   not trust the `.mpr`'s configured `DatabaseName` blindly** — the live dev database's actual
+   name can differ from what `describe settings` reports; confirm with `psql -l` first.
+
+`e2e-db-smoke.js` then wraps that runner as its self-heal path: check every seed-bearing table
+against its expected minimum row count (the count the seed script itself inserts on a clean
+run, not the live count — that grows as journeys exercise the app); if any table is missing or
+short, invoke the runner once and re-check; only fail the gate (exit 1, a genuine finding) if
+seed data is still missing after the bootstrap ran without error. A `psql`/DB-connectivity
+failure is an instrument fault (exit 2), never a finding — same convention as the rest of this
+harness (`learned-db-assertions.md`).
+
+This turns "empty DB" from a hard fault into a one-time, automatic, idempotent catch-up step —
+the harness bootstraps itself on a fresh clone or CI runner instead of requiring a human to
+seed by hand before the first run.
 
 ---
 

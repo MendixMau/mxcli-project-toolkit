@@ -45,17 +45,25 @@ done
 
 cd "$ROOT" || exit 2
 
-MODULES_DIR="$ROOT/architecture/modules"
+VERIFY_DIR="$ROOT/.claude/loop/verify"
 MARKER="$ROOT/.claude/loop/coherence/last-cluster-pass.tsv"
 mkdir -p "$(dirname "$MARKER")"
 
-# Every module that has ever completed a verify-module.sh pass (proven, per the header note above).
+# Every module that has ever completed a verify-module.sh pass (proven, per the header note
+# above). Source of truth is .claude/loop/verify/<Module>/summary.tsv directly — do NOT derive
+# module names from architecture/modules/*/ subdirectories, even though module-brief.md:70
+# specifies exactly that layout (one directory per module). A project that drifted from spec —
+# flat <Module>.md / <Module>-brief.md files at architecture/modules/ root, no per-module
+# subdirectory — made this loop match zero directories, silently reporting 0 proven modules
+# forever regardless of how many verify passes had actually run. verify/ is this project's own
+# record of what ran; trust that over a second directory that may not match the convention it's
+# supposed to. Found on a real project, 2026-08-21.
 PROVEN=""
-if [ -d "$MODULES_DIR" ]; then
-  for d in "$MODULES_DIR"/*/; do
+if [ -d "$VERIFY_DIR" ]; then
+  for d in "$VERIFY_DIR"/*/; do
     [ -d "$d" ] || continue
     m="$(basename "$d")"
-    [ -f "$ROOT/.claude/loop/verify/$m/summary.tsv" ] && PROVEN="${PROVEN}${m}
+    [ -f "$d/summary.tsv" ] && PROVEN="${PROVEN}${m}
 "
   done
 fi

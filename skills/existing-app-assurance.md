@@ -107,7 +107,10 @@ LOOK stage.
 
 **Deliverable:** a green, committed test suite + `test-report.html`, plus the LOOK-stage and
 wiring-sweep findings folded into `docs/improvement-register.md` — a green journey suite alone is
-not the deliverable; it only proves the paths someone thought to write.
+not the deliverable; it only proves the paths someone thought to write. Before calling the run
+done, apply `finding-disposition.md`: name every module/persona/affordance the run didn't reach and
+why, fix or log every harness gap the run hit, and ask the user which logged findings to route into
+the build loop now.
 
 ---
 

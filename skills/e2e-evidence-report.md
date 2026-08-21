@@ -96,3 +96,11 @@ If the report is meant for a human to open without repo access, publish it (e.g.
 tool where available) at a **utilitarian/report treatment**, not an editorial one — this is
 evidence, not a marketing page. Keep a repo copy regardless, for history and for readers who do
 have repo access.
+
+## Before calling it done
+
+Publishing the HTML is not the last step. Apply `finding-disposition.md`: every journey/module the
+denominator names but this run didn't execute gets a named reason, every finding surfaced while
+producing the report (not just in the source suite) is routed through `close-the-loop.md`, and any
+harness gap hit while building the report (a helper that no longer matches a selector, a missing
+`oql()` case) is fixed now or logged — never silently patched around just to get the report out.

@@ -219,8 +219,12 @@ requirements and the process, exactly as the named rows do.
 ## Diagnostic only
 
 This pass **never fixes anything**. Diagnosis and repair stay separate passes, or you end with a
-half-fixed unverified state and no record of what was wrong. Finish by asking
-**"Which P1/P2 findings shall I fix?"**
+half-fixed unverified state and no record of what was wrong. Before asking what to fix, run
+`finding-disposition.md`'s closing procedure: every P1/P2 routed through `close-the-loop.md` to
+`docs/improvement-register.md` (never left only in this report), every page/journey that 4a's
+denominator named but this run didn't reach given a named reason, and any harness fault fixed now
+or logged. Then finish by asking **"Which P1/P2 findings shall I fix?"** (per `finding-disposition.md`,
+this now also covers harness gaps: which to fix now versus log for later).
 
 ---
 

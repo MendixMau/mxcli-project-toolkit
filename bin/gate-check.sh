@@ -7,7 +7,8 @@
 # invocation used in agent loops and hooks, and a read-only query must leave no trace.
 #
 # Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol|--force-stale]
-#                          [--adopt <stage> --reason "..."] [--waive <stage> --reason "..."]
+#                          [--adopt <stage> --reason "..."]
+#                          [--waive <stage|obligation[/module]> --reason "..."]
 #                          <project-dir> [stage]
 #   - With a stage-number, additionally exits non-zero if that specific stage's check fails.
 #   - Without one, evaluates and reports all stages, exits 0 regardless (informational run).
@@ -24,6 +25,11 @@
 #   - --waive <stage> --reason "..." does the same for one stage — for work a project already
 #     did its own way. Both write a line into the decision register and docs/BUILD-LOG.md;
 #     --reason is required, because an unexplained skip is the thing gates exist to prevent.
+#   - --waive <obligation>[/<module>] --reason "..." waives a PASS rather than a stage — the
+#     rows in bin/lib/obligations.tsv (look, sweep, journeys, coherence). `look/Orders` waives
+#     one module; bare `look` waives every module. Same flag and same mandatory reason on
+#     purpose: a second waiver vocabulary is a second place to look and a second thing to keep
+#     in step. A waived pass reports WAIVED with its reason — never PASS.
 #
 # VERDICT VOCABULARY (four, and the difference between the first two is the whole point):
 #   PASS    — checked, and it holds.
@@ -87,13 +93,32 @@ case "$REQUESTED_STAGE" in
     ;;
 esac
 
+# --waive also accepts an OBLIGATION target (bin/lib/obligations.tsv): `look/Orders` for one
+# module, `sweep` for every module. Same flag, same mandatory --reason, same register — a second
+# waiver vocabulary would be a second place to look and a second thing to keep in step.
+# --adopt stays stage-only: adoption is a statement about where the project joined the pipeline.
+_gc_is_obligation() {
+  local tsv; tsv="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/obligations.tsv"
+  [ -f "$tsv" ] || return 1
+  awk -F'\t' -v w="$(printf '%s' "${1%%/*}" | tr '[:upper:]' '[:lower:]')" \
+      '!/^#/ && $1==w && $1!="obligation" {found=1} END{exit !found}' "$tsv"
+}
 for opt_pair in "--adopt:$ADOPT_STAGE" "--waive:$WAIVE_STAGE"; do
   opt_name="${opt_pair%%:*}"; opt_val="${opt_pair#*:}"
   [ -n "$opt_val" ] || continue
   case "$opt_val" in
-    P|p|[0-7]) ;;
-    *) echo "Error: $opt_name takes a stage (P or 0-7), got '$opt_val'." >&2; exit 2 ;;
+    P|p|[0-7]) continue ;;
   esac
+  if [ "$opt_name" = "--waive" ] && _gc_is_obligation "$opt_val"; then continue; fi
+  if [ "$opt_name" = "--waive" ]; then
+    echo "Error: --waive takes a stage (P or 0-7) or an obligation target, got '$opt_val'." >&2
+    echo "Obligations (bin/lib/obligations.tsv): $(awk -F'\t' '!/^#/ && NF>=9 && $1!="obligation"{printf "%s ", $1}' \
+      "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/obligations.tsv" 2>/dev/null)" >&2
+    echo "  per module:  --waive look/Orders  --reason \"...\"" >&2
+    echo "  every module: --waive look        --reason \"...\"" >&2
+    exit 2
+  fi
+  echo "Error: $opt_name takes a stage (P or 0-7), got '$opt_val'." >&2; exit 2
 done
 if [ -n "$ADOPT_STAGE" ] && [ -n "$WAIVE_STAGE" ]; then
   echo "Error: --adopt and --waive do different things; run them one at a time." >&2
@@ -1029,9 +1054,16 @@ check_build_ready() {
     fails=$((fails+1))
   fi
 
-  # 3. All 5 agents present with no unfilled placeholders
+  # 3. All 6 agents present with no unfilled placeholders
+  #
+  # review-agent was missing from this list until 2026-08-20, and so was every count that
+  # said "five". It owns module-review.md stage 4 — the LOOK, the one pass that assesses
+  # rendered pages — so a project could pass build-ready with the reviewer an inert stub,
+  # then run a module review with no configured owner for the stage that finds the escaped
+  # defects. Measured: an end-to-end run that executed journeys, DB/OQL assertions and a
+  # monkey pass, reported all three, and never looked at a page. The count is six.
   local agents_dir="$PROJECT_DIR/.claude/agents" missing_agents="" a
-  for a in ba-agent architect-agent mdl-agent gate-agent test-agent; do
+  for a in ba-agent architect-agent mdl-agent gate-agent test-agent review-agent; do
     [ -f "$agents_dir/$a.md" ] || missing_agents="$missing_agents $a"
   done
   # {{DOUBLE_BRACE}} is EXCLUDED, and the exclusion is load-bearing. Every agent
@@ -1058,7 +1090,7 @@ check_build_ready() {
     echo "  ✗ agent(s) still have unfilled placeholders: ${remaining}— complete them (agent-roles.md)"
     fails=$((fails+1))
   else
-    echo "  ✓ all 5 agents present, no unfilled placeholders"
+    echo "  ✓ all 6 agents present, no unfilled placeholders"
   fi
 
   # 3b. Crash net present. Stage 5 writes to a binary .mpr that Studio Pro holds
@@ -1577,6 +1609,24 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
     echo "Every stage before $ADOPT_STAGE now reports WAIVED and exits 0. Stage P is deliberately"
     echo "not covered — the kickoff interview is how the toolkit learns what this project is."
   else
+    # An obligation waiver (bin/lib/obligations.tsv) uses the SAME flag and the same reason
+    # requirement, because a second waiver vocabulary is a second place to look and a second
+    # thing to keep in step. Spelled as a target rather than a stage:
+    #     --waive look/Orders --reason "integration module, no pages"   (one module)
+    #     --waive sweep       --reason "QA runs in the client's own suite"  (every module)
+    # The obligation form is recognised by the target naming a row in obligations.tsv.
+    OB_TSV="$TOOLKIT_DIR/bin/lib/obligations.tsv"
+    WAIVE_OB="${WAIVE_STAGE%%/*}"
+    if [ -f "$OB_TSV" ] && awk -F'\t' -v w="$(printf '%s' "$WAIVE_OB" | tr '[:upper:]' '[:lower:]')" \
+         '!/^#/ && $1==w && $1!="obligation" {found=1} END{exit !found}' "$OB_TSV"; then
+      register_set_line "Waived obligation $WAIVE_STAGE" "$WAIVER_REASON" \
+        || { echo "Could not write to $REGISTER" >&2; exit 1; }
+      build_log_append "OBLIGATION-WAIVED $WAIVE_STAGE reason: $WAIVER_REASON"
+      echo "Recorded in $REGISTER:  Waived obligation $WAIVE_STAGE: $WAIVER_REASON"
+      echo "That pass now reports WAIVED with its reason instead of PENDING. It does NOT report"
+      echo "PASS — a waived pass is one nobody performed, and the register says who decided that."
+      exit 0
+    fi
     WAIVE_STAGE="$(printf '%s' "$WAIVE_STAGE" | tr '[:lower:]' '[:upper:]')"
     # One line per stage, so a second --waive cannot relabel the first stage's reason. Repeating
     # --waive for the same stage overwrites that stage's line and nothing else.
@@ -1815,6 +1865,28 @@ fi
 printf "Open questions (raised?): %s — %s\n" "$OQ_STATUS" "$OQ_NOTE"
 
 # ---------------------------------------------------------------------------
+# Obligations — did the passes that owe a mark actually leave one?
+#
+# This started as one hand-rolled block for module LOOK coverage. It generalised the moment a
+# second pass needed the same treatment: the LOOK was skipped on a real end-to-end run
+# (2026-08-20) and so was wiring-sweep.md, for the identical reason — no row anywhere, and an
+# absent row renders green. The declarative form lives in bin/lib/obligations.tsv; read its
+# header for why, and bin/lib/install-manifest.sh's for the pattern it copies.
+#
+# INFORMATIONAL here, not blocking: the verify loop is optional on small projects, a module can
+# legitimately have no pages (an integration module), and a project that joined at Stage 5 owes
+# nothing below its adoption point. What must not happen is silence. Stage 6 still blocks.
+if [ -r "$TOOLKIT_DIR/bin/lib/obligation-check.sh" ]; then
+  # shellcheck source=lib/obligation-check.sh
+  . "$TOOLKIT_DIR/bin/lib/obligation-check.sh"
+  mxtk_obligations_report "$PROJECT_DIR" "$REGISTER"
+  mxtk_obligations_reverse_check
+else
+  # Same discipline the table itself enforces: the checker failing is not the project passing.
+  printf 'Obligations: FAULT — bin/lib/obligation-check.sh missing from %s; no pass was checked\n' "$TOOLKIT_DIR"
+fi
+
+# ---------------------------------------------------------------------------
 # Source sufficiency — was the source actually characterised, or did Stage 0
 # pass on nobody having looked?
 #
@@ -2026,6 +2098,7 @@ if [ "$N_WAIVED" = "0" ] && { [ "$N_PENDING" -ge 4 ] || [ "$N_FAIL" -ge 3 ]; }; 
   echo "do not intend to produce? Say so once and they stop being counted against you:"
   echo "  $0 --adopt <stage> --reason \"...\" $PROJECT_DIR    (every earlier stage → WAIVED)"
   echo "  $0 --waive <stage> --reason \"...\" $PROJECT_DIR    (one stage → WAIVED)"
+  echo "  $0 --waive look/<Module> --reason \"...\" $PROJECT_DIR (one PASS on one module → WAIVED)"
 fi
 
 # Regenerate index.html from these exact results — subject to three conditions, all of which

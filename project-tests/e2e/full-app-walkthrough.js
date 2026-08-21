@@ -80,6 +80,46 @@ if (!WT || !Array.isArray(WT.acts) || WT.acts.length === 0) {
   process.exit(2);
 }
 
+// ── --built-only: run this as a REGRESSION test, before the app is finished ──
+// The full walkthrough was Stage-6-only because a process that crosses six modules
+// cannot be walked until six modules exist. But acts already declare `module`, so
+// the prefix of the process that IS built can be walked today, and re-walked after
+// every cluster — which is the point: a composition defect planted in module 2 is
+// cheapest to find before modules 3-6 are built on top of it. Same reasoning, and
+// the same "built" definition, as coherence-cadence.sh: a module is built when it
+// has been through verify-module.sh at least once
+// (.claude/loop/verify/<Module>/summary.tsv exists).
+//
+// Out-of-scope acts are NOT dropped. They keep their page and every declared step
+// is written `scoped-out`, which V_WALK maps to `fault` — "not measured". Dropping
+// them would shrink the denominator to match the scope and report a two-act run as
+// a complete walkthrough, which is the false-green this whole instrument distrusts.
+const BUILT_ONLY = process.argv.includes('--built-only');
+
+function builtModules() {
+  const dir = path.join(cfg.root, '.claude', 'loop', 'verify');
+  if (!fs.existsSync(dir)) return new Set();
+  return new Set(fs.readdirSync(dir, { withFileTypes: true })
+    .filter((e) => e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'summary.tsv')))
+    .map((e) => e.name));
+}
+
+const BUILT = BUILT_ONLY ? builtModules() : null;
+// An act with no `module` declared cannot be excluded on evidence, so it stays in
+// scope. The pre-flight already fails a walkthrough whose acts declare no modules.
+const inScope = (a) => !BUILT_ONLY || !a.module || BUILT.has(a.module);
+const ACTS = WT.acts.filter(inScope);
+const EXCLUDED = WT.acts.filter((a) => !inScope(a));
+
+if (BUILT_ONLY && ACTS.length === 0) {
+  console.error(
+    '\n  NOTHING IN SCOPE — --built-only was passed, but no act\'s module has been through\n' +
+    '  verify-module.sh yet (no .claude/loop/verify/<Module>/summary.tsv).\n' +
+    '  Build and verify at least one module in the process, then re-run.\n' +
+    '  Writing a findings.json here would report a walkthrough that walked nothing.\n');
+  process.exit(2);
+}
+
 const PAUSE = (ms) => new Promise((r) => setTimeout(r, ms));
 const p = (ms) => PAUSE(Math.round(ms / cfg.speed));   // speed-scaled, for pacing only
 const R = H.makeReporter(WT.label || `${PROJ.displayName} — full-app walkthrough`);
@@ -406,9 +446,15 @@ async function switchTo(page, roleKey, handoffMeta) {
 
   // Every act gets its page up front, in order, so that an act the run never
   // reaches still has somewhere to write its NOT REACHED rows.
-  const actMetas = WT.acts.map((a, i) =>
+  const actMetas = ACTS.map((a, i) =>
     newPage(a.key || `act-${i + 1}`,
             `Act ${i + 1} · ${(ROLES[a.role] && ROLES[a.role].label) || a.role} — ${a.label || a.key || ''}`));
+
+  // Excluded acts get their page too, so the report's act list is the PROCESS, not
+  // this run's slice of it. Their steps are filled in below as `scoped-out`.
+  const excludedMetas = EXCLUDED.map((a, i) =>
+    newPage(a.key || `excluded-${i + 1}`,
+            `Act (out of scope) · ${(ROLES[a.role] && ROLES[a.role].label) || a.role} — ${a.label || a.key || ''}`));
 
   try {
     // ── PRE-FLIGHT: is this actually a cross-role, cross-module walk? ────────
@@ -429,6 +475,16 @@ async function switchTo(page, roleKey, handoffMeta) {
     step(mPre, !!WT.process, 'the process is named in the user\'s language',
       WT.process || 'WALKTHROUGH.process is empty — the report cannot say what business process was walked');
 
+    // THE DENOMINATOR. A scoped run that does not say it is scoped is a full-app
+    // claim made from a fraction of the app.
+    step(mPre, true, 'scope of this run is declared',
+      BUILT_ONLY
+        ? `--built-only: ${ACTS.length} of ${WT.acts.length} acts in scope; `
+          + `${EXCLUDED.length} excluded (module not yet through verify-module.sh: `
+          + `${[...new Set(EXCLUDED.map((a) => a.module))].join(', ') || 'n/a'}). `
+          + 'Excluded acts are recorded scoped-out (= not measured), never passed.'
+        : `full run: all ${WT.acts.length} of ${WT.acts.length} acts in scope`);
+
     // ── SEEDS ────────────────────────────────────────────────────────────────
     // Live values, never literals. A walkthrough pinned to 'RT-PCBA-008' reports
     // "the feature is broken" the first time somebody reseeds — a false finding,
@@ -445,8 +501,8 @@ async function switchTo(page, roleKey, handoffMeta) {
     }
 
     // ── THE WALK ─────────────────────────────────────────────────────────────
-    for (let i = 0; i < WT.acts.length; i++) {
-      const act = WT.acts[i];
+    for (let i = 0; i < ACTS.length; i++) {
+      const act = ACTS[i];
       const meta = actMetas[i];
       if (act.module) modulesTouched.add(act.module);
 
@@ -519,7 +575,7 @@ async function switchTo(page, roleKey, handoffMeta) {
       const reason = `NOT REACHED — the walk stopped at ${stoppedAt}. This is not a verdict about the `
                    + 'feature: it was never exercised. The findings.json dialect has no "did not run" '
                    + 'state, so it is recorded as a fail rather than left silently absent.';
-      WT.acts.forEach((act, i) => {
+      ACTS.forEach((act, i) => {
         const meta = actMetas[i];
         const executed = new Set(meta.steps.map((s) => s.label));
         for (const s of act.steps || []) {
@@ -532,6 +588,23 @@ async function switchTo(page, roleKey, handoffMeta) {
         }
       });
     }
+
+    // Excluded acts: every declared step written out as NOT MEASURED. `scoped-out`
+    // is not in V_WALK's pass/fail map, and report-normalize.js maps anything it does
+    // not recognise to `fault` — which is precisely the verdict wanted here, and is
+    // declared explicitly in that map rather than left to the fallback.
+    EXCLUDED.forEach((act, i) => {
+      const meta = excludedMetas[i];
+      const reason = `NOT MEASURED — --built-only, and module "${act.module}" has not been through `
+                   + 'verify-module.sh yet. This is a statement about this run\'s scope, not about '
+                   + 'the feature. Re-run without --built-only once the module is proven.';
+      for (const st of act.steps || []) {
+        meta.steps.push({ label: st.label || describe(st), status: 'scoped-out', detail: reason });
+      }
+      for (const name of act.checks || []) {
+        meta.widgets.push({ name, status: 'missing', detail: reason });
+      }
+    });
 
     // ── Runtime health ───────────────────────────────────────────────────────
     const mHealth = newPage('runtime', 'Runtime health');
@@ -577,6 +650,14 @@ async function switchTo(page, roleKey, handoffMeta) {
       user: actual,
       roles: rolesUsed,
       modulesTouched: [...modulesTouched],
+      scope: {
+        builtOnly: BUILT_ONLY,
+        actsInScope: ACTS.length,
+        actsTotal: WT.acts.length,
+        excluded: EXCLUDED.map((a) => ({ key: a.key || null, module: a.module || null,
+                                         why: 'module not yet through verify-module.sh' })),
+        builtModules: BUILT ? [...BUILT].sort() : null,
+      },
       stoppedAt,
       capturedAt: new Date().toISOString(),
       pages: pageResults,

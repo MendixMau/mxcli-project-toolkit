@@ -190,6 +190,19 @@ const META = {
     expressibleVerdicts: ['pass', 'fail', 'fault'],
     source: 'journeys/' + MODULE + '.journey.json',
   },
+  // Stage 4 of module-review.md. Not an instrument this chain can ever run — a script
+  // cannot look at a page — but it must appear, because an omitted dimension renders as
+  // a covered one. `evidenceStrength: 'none'` is honest: there is no evidence here at all
+  // until review-agent's job 2 has produced design/ui-reviews/ui-review-<date>.html.
+  'ui-review': {
+    canExpressFault: true, evidenceStrength: 'none',
+    expressibleVerdicts: ['fault'],
+    source: 'design/ui-reviews/ui-review-<date>.html (written by review-agent, not by this script)',
+    note: 'the visual assessment of every page in the module against wireframe, design ' +
+          'system, or module-review.md §4d\'s unaided rubric. Judgement, not measurement — ' +
+          'it is performed by a reviewer looking at rendered screens, and this chain never ' +
+          'performs it',
+  },
 };
 
 for (const r of instrRows) {
@@ -451,6 +464,38 @@ if (!byName.has('journey-runner')) {
   instruments.push({
     name: 'journey-runner', verdict: 'fault',
     reason: 'no journey run in this invocation', canExpressFault: true,
+  });
+}
+
+/* ── the LOOK that did not happen ─────────────────────────────────────────── */
+// Same rule, same reason, one layer up: module-review.md stage 4 is the pass that finds
+// the defects a journey walks straight past — a page that renders but is unusable, a
+// placeholder heading, a primary action nobody can find. No script performs it. Omitting
+// the row let an end-to-end run report journeys, DB assertions and a monkey pass, go
+// green, and never look at a screen (measured 2026-08-20).
+
+checks.push({
+  id: 'review/look/' + slug(MODULE), instrument: 'ui-review', kind: 'outcome',
+  module: MODULE, journey: null, stepIndex: null, stepName: null, requirement: null,
+  title: MODULE + ' — no page in this module was looked at',
+  verdict: 'fault', provenance: 'declared', notRun: true,
+  detail: 'module-review.md stage 4 (the LOOK) was not performed in this invocation and ' +
+          'cannot be: it is a judgement pass over rendered pages, assessed against the ' +
+          'wireframe, the design system, or §4d\'s unaided rubric where neither exists. ' +
+          'Nothing in this report is evidence about how ' + MODULE + ' looks or whether a ' +
+          'user could complete anything on it. For that: review-agent job 2, which writes ' +
+          'design/ui-reviews/ui-review-<date>.html and appends P1/P2 findings to ' +
+          'docs/improvement-register.md.',
+  measuredAt: STARTED,
+  nonVacuity: { controlRan: false, note: 'nobody looked, so there is nothing to control for' },
+  evidence: [{ type: 'command', command: 'review-agent — module-review.md §4 over ' + MODULE }],
+  blocks: [],
+});
+if (!byName.has('ui-review')) {
+  instruments.push({
+    name: 'ui-review', verdict: 'fault',
+    reason: 'no visual review in this invocation - module-review.md stage 4',
+    canExpressFault: true,
   });
 }
 

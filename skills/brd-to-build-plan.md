@@ -38,6 +38,7 @@ A single **build plan document** per project (or per phase, for large projects),
 3. Iteration granularity decision
 4. Stub/real scope boundary for this phase
 5. The numbered script sequence, per module, respecting dependency order (with grants co-located per script — never a deferred end-of-module security script). **Every row authored from now on carries a `claims` field naming the BRD leaves it discharges — see Step 5b. Rows written before that step existed are not retrofitted.**
+5c. **A test shape per module** — UI + Data always, plus Unit and/or Trace where Step 1's table calls for them, with the reason. Expanded per module in `module-brief.md` → Test plan.
 6. The role-to-access table for every element (Step 6) — feeds the per-module brief
 7. Demo user / role mapping (Step 7)
 8. Navigation wire point for every page (Step 8)
@@ -102,6 +103,23 @@ Common modules (no dependencies)
 4. Integration modules (stubbed first, real implementation can slot in later without reordering)
 
 This mirrors the BRD generation order in `migration-pipeline.md` Phase 5 — if you generated BRDs in dependency order, the build plan inherits that order for free.
+
+**Every module row carries its test shape.** One column, filled in when the row is written — not
+deferred to the brief, because by brief time the module is being built and "what does testing mean
+here" is being answered by whatever the harness happens to run. UI and Data are always present;
+the column exists to record the two *choices* (Unit, Trace) and the one *fact* (does this module
+call out?). Vocabulary and rules: `testing-shape.md` §1–2. The brief expands this row into the
+named base set and journeys (`module-brief.md` → Test plan); the plan just fixes the shape.
+
+| Module | Dep. order | Test shape | Calls out? |
+|--------|-----------|-----------|-----------|
+| e.g. `Common` | 1 | UI + Data | no |
+| e.g. `Orders` | 3 | UI + Data + Unit | no — but pricing logic warrants unit |
+| e.g. `ErpSync` | 4 | UI + Data + Trace | yes — REST + import mapping |
+
+**Rule:** a module that calls out to REST, an import mapping or external data gets **Trace**,
+whatever the project default said at intake. That is where failures get swallowed silently, and a
+module-level override is cheaper here than a post-mortem later.
 
 ---
 

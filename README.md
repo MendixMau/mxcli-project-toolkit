@@ -52,7 +52,7 @@ Do **not** create `analysis/<project>/` as a sibling of the project — analysis
 ~/Mendix/mxcli-project-toolkit/bin/init-project.sh <project-root>
 ```
 
-It scaffolds everything — `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook-first wiring + baseline routing, auto-loaded every session), all five agent stubs (inert until completed per `skills/agent-roles.md`), the `index.html` dashboard — and opens the visual guide. Idempotent: re-running never overwrites. Then just follow `skills/conversion-runbook.md` — it interviews you through each stage below.
+It scaffolds everything — `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook-first wiring + baseline routing, auto-loaded every session), all six agent stubs (inert until completed per `skills/agent-roles.md`), the `index.html` dashboard — and opens the visual guide. Idempotent: re-running never overwrites. Then just follow `skills/conversion-runbook.md` — it interviews you through each stage below.
 
 **Even easier — install the slash command once**, and every project is a `/toolkit-init` away:
 
@@ -60,7 +60,7 @@ It scaffolds everything — `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runboo
 mkdir -p ~/.claude/commands && cp ~/Mendix/mxcli-project-toolkit/commands/toolkit-init.md ~/.claude/commands/
 ```
 
-Typing `/toolkit-init` in any Claude Code session then runs the install, reads the runbook, and starts the Stage-P interview (or runs `sync-project.sh` if the project is already wired). Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly when an artifact is *there and wrong* and regenerates `index.html` from the project's real state. An artifact that simply isn't there yet reports `PENDING`, not red — and a project that joined the toolkit mid-flight records that once (`--adopt <stage> --reason "..."`) so the stages it will never run report `WAIVED` instead of failing forever. See `skills/conversion-runbook.md` §2 → "What a gate verdict means".
+Typing `/toolkit-init` in any Claude Code session then runs the install, reads the runbook, and starts the Stage-P interview (or runs `sync-project.sh` if the project is already wired). Each stage's "done" checklist runs `bin/gate-check.sh <project-dir> <stage>`, which fails loudly when an artifact is *there and wrong* and regenerates `index.html` from the project's real state. An artifact that simply isn't there yet reports `PENDING`, not red — and a project that joined the toolkit mid-flight records that once (`--adopt <stage> --reason "..."`) so the stages it will never run report `WAIVED` instead of failing forever. Alongside the stage gates it runs the **obligation check** (`bin/lib/obligations.tsv`): the per-module *passes* that owe a mark — the LOOK, the wiring sweep, journeys, the coherence pass — each named with the artifact that proves it happened and the denominator that artifact must state. A pass nobody performed reports `PENDING` (or `FAULT`, if the artifact is there but silent on its denominator); it never renders green by being absent. `--waive look/<Module> --reason "..."` records one deliberately not performed, and any obligation below an `--adopt` point reports `ADOPTED`. See `skills/conversion-runbook.md` §2 → "What a gate verdict means".
 
 ---
 
@@ -375,22 +375,27 @@ mxcli-project-toolkit/
   toolkit-guide.html            ← visual onboarding page + shared CSS shell for stage HTMLs
   bin/
     init-project.sh             ← Stage P scaffold: intake.md, PROJECT.md, index.html (opens the guide)
-    init-agents.sh              ← scaffold all five agent stubs into a project's .claude/agents/
+    init-agents.sh              ← scaffold all six agent stubs into a project's .claude/agents/
     gate-check.sh               ← mechanical stage gates (P–7) + self-regenerating dashboard
                                    PASS / PENDING / FAIL / WAIVED / MANUAL; --adopt, --waive
+                                   + the obligation check: which per-module PASSES owe a mark
+    lib/obligations.tsv         ← the obligation manifest: pass, performer, scope, proof artifact,
+                                   whether it must state a denominator, and the stage it arms at
+    lib/obligation-check.sh     ← forward check (every owed mark is there, or waived in the register)
+                                   + reverse check (a verify-group skill no obligation names → warn)
     sync-project.sh             ← after toolkit git pull: refresh the artifacts copied into a project
     split-claude-md.sh          ← move MDL/lint reference out of CLAUDE.md into load-on-demand files
     install-claude-hooks.sh     ← tiered context-cost hooks → ~/.claude (see "Context cost" above)
     install-hooks.sh            ← unrelated: the git pre-commit client-data guard for THIS repo
   claude-hooks/                 ← sources for the above: hooks/ (5) + bin/ (checkpoint, close-task)
-  agents/                       ← the five agent stub templates (ba/architect/mdl/gate/test)
+  agents/                       ← the six agent stub templates (ba/architect/mdl/gate/test/review)
   skills/
     conversion-runbook.md       ← [any project] The spine: stage matrix + interview protocol + entry modes + gates
     checkpoints/                ← CAC checkpoint scripts (scope/extraction-scope/BRD/architecture/design/build/cutover)
     query-the-model.md          ← [any project] Query-before-ask source-of-truth ordering
     interview-protocol.md       ← [any project] How a question is put to the user: chat not files, options + recommendation, batch per gate, record the answer
     existing-app-assurance.md   ← [any project] Audit / regression-test an existing app — no pipeline
-    agent-roles.md              ← [any project] Generate ba/architect/mdl/gate/test subagents with scoped tool rights
+    agent-roles.md              ← [any project] Generate ba/architect/mdl/gate/test/review subagents with scoped tool rights
     bootstrap-project.md        ← [any project] Generate a new project's CLAUDE.md: Baseline routing + project-specific facts
     extractor-quality-loop.md   ← [migration] Scored quality loop for building/validating extractors
     ui-preflight-pages.md       ← [any project] Mandatory wireframe→tokens→StyleGallery cross-check before any page MDL
@@ -639,6 +644,7 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only | `skills/conversion-runbook.md` |
 | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order | `skills/query-the-model.md` |
 | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot | `skills/skills-over-scripts.md` |
+| Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict | `skills/degrade-to-judgement.md` |
 | Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn | `skills/interview-protocol.md` |
 | Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table | `skills/checkpoints/checkpoint-template.md` |
 | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" | `skills/agent-roles.md` |

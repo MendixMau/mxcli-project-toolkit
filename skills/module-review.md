@@ -24,8 +24,12 @@ looking. That is how a module ships with 31/31 green checks and a broken grid on
             alongside them. wiring-sweep.md (every clickable element on the page, not just
             what a journey visits) runs alongside it but by hand, deliberately outside
             verify-module.sh — skills-over-scripts.md: the verdict on an ambiguous click
-            stays a judgement call, not a script. Deep form when an instrument is green and
-            you cannot say what would have made it red: journey-proof.md
+            stays a judgement call, not a script. It is NOT optional and it leaves a file:
+            test-agent writes .claude/loop/sweep/<Module>/sweep.md, first line the
+            denominator "N of N interactive elements swept across P of P pages". No file
+            means the sweep did not happen, and the gate says so. Deep form when an
+            instrument is green and you cannot say what would have made it red:
+            journey-proof.md
 4. LOOK     THE INTELLIGENCE CHECK — a human-equivalent pass over every screen in
             the module. Is it logical? Does it look right? Does it match our design?
             Stages 1-3 cannot answer any of those. This is the stage that gets
@@ -114,13 +118,47 @@ For each page, ask and answer in writing:
 Class correctness, a11y, structure and overflow are 4b's job — do not re-check them by eye. What
 remains is the judgement a diff cannot make.
 
-- **Against the wireframe, if one exists.** Serve the design folder (`python3 -m http.server` if
-  `file://` is blocked) and screenshot side by side. Compare **structure and intent**: is a
-  region missing, is the hierarchy inverted, did an affordance the wireframe implied never get
-  built. *A page can have a perfect class sweep and still be the wrong page.*
-- **Against the design system, always** — including on pages with no wireframe. A page built
-  from no design input at all (common with native Mendix Workflow UI, which arrives unstyled) is
-  a finding in its own right, not an absence of one.
+**Every page gets a written visual verdict. Which yardstick you use depends on what exists — but
+"no wireframe" is never an answer, and neither is "looked fine".** The three yardsticks, most
+authoritative first; use the best one available and *say which one you used*:
+
+| Available | Assess against | Verdict must state |
+|---|---|---|
+| A wireframe for this page | the wireframe — the design that was agreed | `vs wireframe` + the divergences |
+| No wireframe, a design system exists | the design system, plus §4c's intent questions | `vs design system` + what had no spec |
+| Neither | **design judgement, unaided — see the rubric below** | `unaided judgement` + the rubric rows that failed |
+
+**1 — Against the wireframe, when one exists.** Serve the design folder (`python3 -m http.server`
+if `file://` is blocked) and screenshot side by side. Compare **structure and intent**: is a
+region missing, is the hierarchy inverted, did an affordance the wireframe implied never get
+built. *A page can have a perfect class sweep and still be the wrong page.* Divergence is not
+automatically a defect — a deliberate improvement is fine — but it is always a **finding to
+state**, so someone can confirm it was deliberate.
+
+**2 — Against the design system, always**, including on pages that have a wireframe. A page built
+from no design input at all (common with native Mendix Workflow UI, which arrives unstyled) is a
+finding in its own right, not an absence of one.
+
+**3 — Unaided design judgement, when there is neither.** This is the case the loop kept treating
+as an exemption, and it is not one: a user looking at that page has no wireframe either. Run these
+seven rows per page and write a one-line verdict for each. They are ordinary interface-quality
+questions — nothing here needs a spec to answer:
+
+| # | Ask | A finding looks like |
+|---|---|---|
+| 1 | **Is there one clear primary action, and is it the visually dominant one?** | three equally-weighted buttons; the destructive action styled like the primary |
+| 2 | **Is the vertical rhythm consistent** — do like elements share spacing, do sections separate? | one card 8px from its heading and the next 40px; a wall with no grouping |
+| 3 | **Is alignment intentional?** Does anything sit on an axis nothing else shares? | a stray right-aligned field in a left-aligned form; ragged column starts |
+| 4 | **Is the type hierarchy legible at a glance** — heading, label and body distinguishable without reading? | everything at one size and weight; a label heavier than its heading |
+| 5 | **Does the page use the width it has?** | a 300px form stranded in a 1600px viewport; a grid squeezed into a third of the page |
+| 6 | **Is anything unfinished on show?** | placeholder text, `New Page`, `Untitled`, a lorem string, a default Atlas icon standing in |
+| 7 | **Would you put this in front of the customer tomorrow?** If no, say the reason in one sentence. | "the header and the grid look like they came from two different apps" |
+
+Rows 1–6 are specific enough to be arguable, which is the point. **Row 7 is the one that must not
+be softened** — a reviewer who would not show the page but reports no P1 has recorded a false
+green in the only place that mattered. If the answer is no, that is at minimum a P2 with the
+sentence attached.
+
 - **Root-cause every visual symptom.** Misaligned, floating, oddly spaced → inspect
   `getComputedStyle` and `getBoundingClientRect()` on the container *and its children*. Mendix
   native widgets wrap content in fixed structural children (gallery →
@@ -146,21 +184,35 @@ whether it was actually built** — a confirmed decision silently not executed i
 
 ---
 
-## Degrade loudly, never silently
+## Degrade to judgement, never to silence
 
-Every input may be missing or stale. Each fallback is **logged in the report** so a reader knows
-fidelity was reduced. Degradation lowers fidelity; it never lowers the bar to "pass".
+**The rule itself lives in `skills/degrade-to-judgement.md` — baseline routing, governing, and it
+applies to every pass in the toolkit, not just this one.** In one line: *a missing input changes
+what you assess against, never whether you assess.* Every degraded row carries all three of
+**Named** (which input was missing, by path), **Substituted** (what you assessed against instead),
+**Still a verdict** (per page, per dimension). `UNMEASURED` is legitimate only for a *mechanical*
+dimension — never for a judgement one, because your judgement was available the whole time.
 
-| Missing / stale | Degrade to | Log line |
+What follows is the worked table for *this* pass. It is an application of that skill, not a
+second copy of it; when the two disagree, that skill wins.
+
+| Missing / stale | Assess against instead | Report line |
 |---|---|---|
-| No wireframe for a page | design-system specs + the brief's screen intent | `⚠ No wireframe for <Page> — visual pass ran against design-system + brief only` |
-| No design system either | Atlas conventions + UX heuristics | `⚠ No design system — visual pass is heuristic only` |
-| No StyleGallery | skip 4e | `⚠ No StyleGallery — component-reuse pass skipped` |
-| No module brief | functional passes still run | `⚠ No brief for <Module> — reviewed without scoped intent` |
-| Wireframe older than the page's last build script | compare, flag as possibly stale | `⚠ <Page>.html older than build — divergence may be intentional` |
-| No `design-audit.js` | run 4c–4e unaided | `⚠ No design-audit.js — class promotion, a11y, structure, overflow UNMEASURED on every page` |
+| No wireframe for a page | design-system specs + the brief's screen intent; if neither, §4d's unaided-judgement rubric | `⚠ No wireframe for <Page> — visual verdict from <design system \| unaided rubric>` |
+| No design system either | §4d rubric rows 1–7 + Atlas conventions. **Every page still gets a written verdict** | `⚠ No design system — visual verdict is unaided judgement, rubric rows cited` |
+| No StyleGallery | 4e's question survives without it: is any component on this page a hand-rolled version of something the app already builds elsewhere? Compare against sibling pages | `⚠ No StyleGallery — reuse checked against sibling pages, not a gallery` |
+| No module brief | 4c and 4d run unchanged. For 4f, fall back to the BRD, then to the requirements the module was built from, then to the build-plan row | `⚠ No brief for <Module> — intent taken from <BRD \| build plan>; scope may be wider than reviewed` |
+| Wireframe older than the page's last build script | compare anyway, flag as possibly stale | `⚠ <Page>.html older than build — divergence may be intentional` |
+| No `design-audit.js` | 4c–4e unaided. Class promotion, a11y, structure and overflow are genuinely UNMEASURED — say so per page; do **not** claim them from eyeballing | `⚠ No design-audit.js — class promotion, a11y, structure, overflow UNMEASURED on every page` |
 | Page marked `partially-read` (#891) | review that page fully by hand | `⚠ <Page> partially read — its clean sweep did not look at the whole page` |
-| Project not wired to the toolkit | run this skill ad hoc | `⚠ Project not wired — run bin/sync-project.sh; finding #0` |
+| Project not wired to the toolkit | run this skill ad hoc, from the running app + whatever requirements exist | `⚠ Project not wired — run bin/sync-project.sh; finding #0` |
+| An instrument faulted (exit 2) rather than being absent | the fault is a **handoff to judgement**, not an exemption: assess that dimension by hand and report both — the fault, and your verdict | `⚠ <instrument> FAULTED — <dimension> assessed by hand instead; see finding <n>` |
+| Something is missing that this table does not list | the same three rules: name it, substitute the best remaining yardstick, still deliver a verdict | `⚠ <what> missing — assessed against <what instead>` |
+
+**The last row is the important one.** This table cannot enumerate every way a project can be
+half-wired. When you meet a gap it does not cover, the answer is never "not applicable" or a
+silent skip — it is to say what is missing and then use your own judgement against the
+requirements and the process, exactly as the named rows do.
 
 ---
 
@@ -236,7 +288,7 @@ is non-deterministic run to run, so a prior pass is not evidence for a re-run of
 | Build (2) | 0 mxbuild errors, 0 unaddressed lint findings above the project's bar. A **newly authored** lint rule runs advisory-only for its first pass | any error; "warnings are fine" on a rule the project enabled; a day-one rule blocking with no false-positive check |
 | Prove (3) | every declared scenario passes with a landing-guard-verified pass; every write has a Data assertion or a documented reason it does not apply; re-run after any change | green UI with no landing guard; trusting a stale pass on since-changed code |
 | Monkey (3) | zero unhandled crashes — a legitimate flat bar, crash-on-input being unambiguous. Track findings-per-module as a trend | skipped because happy-path was green; a crash dismissed as "edge case"; a rising trend read as N unrelated one-offs |
-| **Look (4)** | **every page in 4a's set reviewed, each with a written answer to 4c's questions; degradation logged by name** | **sampling the pages a journey happened to visit; "looked fine"; a clean `design-audit.js` reported as "the UI is reviewed"** |
+| **Look (4)** | **every page in 4a's set reviewed, each with a written answer to 4c's questions and a 4d visual verdict naming its yardstick (wireframe / design system / unaided rubric); every degradation named, substituted and still carrying a verdict** | **sampling the pages a journey happened to visit; "looked fine"; a clean `design-audit.js` reported as "the UI is reviewed"; a missing wireframe or uninstalled instrument treated as a reason to skip a page rather than to change yardstick** |
 | Confirm (5) | an independent human looked at the running app; the denominator is in the headline | the agent self-certifying; citing an earlier control run as if it still applies |
 | Loop bound | a declared max retry count per module; escalate to a human on hitting it regardless of pass/fail | indefinite silent retries; declaring victory without surfacing how many attempts it took |
 
@@ -272,6 +324,7 @@ Not yet run. The first team to run it records recall/precision here as the first
 |---|---|
 | **Reporting stage 3 green as "demo-ready"** | proves specific flows only; says nothing about the pages it never opened or how any of it looks. This is the 2026-08-19 incident |
 | **Reviewing only the pages a journey visited** | the page with no coverage is the one that breaks live |
+| **Skipping a dimension because its artifact is missing** | a skipped check and a passed check look identical in the report. Degrade to judgement, name the substitution |
 | Treating mxbuild-clean + "record created" as done | blank fields, unclickable nav, empty grids all pass |
 | Navigating by direct URL instead of clicking | overlay/toggle bugs that swallow clicks are never exercised |
 | Describing a visual symptom without the computed-CSS root cause | "looks weird" produces no fix; the wrong-DOM-level bug survives |

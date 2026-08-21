@@ -125,9 +125,82 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
 ### Open business questions
 - [ ] <anything unresolved — mdl-agent must escalate, not guess>
 
+## Test plan  (ba-agent drafts, confirmed with the user at brief sign-off)
+
+**This section is not optional and may not be left blank.** Without it nothing per module says
+what testing this module means, and the answer degrades to "whatever the harness happened to run"
+— which is how an end-to-end run executes journeys, DB assertions and a monkey pass, reports them
+all, and never looks at a page.
+
+### Declared shape  (vocabulary and rules: `testing-shape.md` §1–2)
+| Part | This module | Why |
+|------|-------------|-----|
+| UI (Playwright) | **always** | — |
+| Data (source of truth) | **always** — say which: OQL count delta \| upstream REST response \| documented n/a + the query proving it | `testing-shape.md` §1: "Data" means check the source of truth, not always query a database |
+| Unit (`.test.mdl`) | yes / no | the project default from intake, unless this module has fiddly calculation or mapping logic |
+| Trace (OTel) | yes / no | **yes if this module calls out** to REST, an import mapping, or external data — that is where failures get swallowed, and it overrides the project default |
+
+### Base set — the trigger  (`testing-shape.md` §3)
+The named scripts that constitute this module's base logic. **When every script in this list is
+done, testing opens.** Scripts added later do not move the goalpost, because the goalpost was
+placed before they existed. This list must cover the module's coverage checklist — otherwise two
+scripts get declared "base", the suite goes green, and the module isn't built.
+
+- [ ] `<NN-script-name.mdl>`
+- [ ] `<NN-script-name.mdl>`
+
+### Journeys  (compiled to `journeys/<Module>.journey.json`)
+One row per golden path. **The steps come from the Roles & journeys table above and the data
+effects come from the Golden-path table above — this is a projection of those two, not a third
+hand-authored list.** Step ids are stable and are what the journey JSON keys on.
+
+| Journey id | Persona | Trigger → outcome | Steps (from Roles & journeys) | Data effect asserted (from Golden-path) |
+|---|---|---|---|---|
+| e.g. `receive-order` | Operator | scans a unit → order exists and is linked | 1 open list · 2 scan · 3 confirm | +1 TransportOrder with both associations set |
+
+Cross-module journeys do **not** live here — a journey that fits in one module is a use case; one
+that crosses modules belongs to the process-level artifact (`journey-map.md`) and is exercised by
+`process-coherence-pass.md`, not by this brief.
+
+### Interactive elements — the wiring sweep's denominator  (`wiring-sweep.md`)
+
+Journeys walk the golden path. **The bugs are in the affordances no journey walks** — a button
+that renders, styles and reads correctly and does nothing when clicked. The sweep enumerates them
+mechanically (`mxcli playwright snapshot`), so this brief does not list elements; it records the
+claim the sweep must be able to make:
+
+> `N of N interactive elements swept across P of P pages in <Module>`
+
+That line is the first line of `.claude/loop/sweep/<Module>/sweep.md`, and a sweep report without
+it is **fault**, not pass. Sampling is not sweeping — "clicked the main buttons" discharges
+nothing. If some affordance genuinely cannot be exercised (needs a third-party callback, needs
+production data), name it here at brief time so the sweep can report it as a known exclusion with
+its reason, rather than as a silent shortfall in the denominator.
+
+| Known exclusion | Why it cannot be swept |
+|---|---|
+| _(usually none — leave empty rather than inventing rows)_ | |
+
+### Pages to LOOK at  (`module-review.md` stage 4)
+Derived from the model at review time (`SHOW PAGES IN <Module>`), **not** listed here — a copy
+would go stale the first time a page is added. What this brief owes stage 4 is the *intent* each
+screen was built to serve, which the "Screens per role" table above already carries. If a screen
+in that table has no wireframe, say so there: it tells the reviewer to use §4d's unaided rubric
+rather than wondering whether they missed a file.
+
 ## Technical layer  (architect-agent)
 ### Domain summary (exact names live in the domain MDL — link above)
 - Entities: <names> · key associations: <names>
+
+### Build skills to read first  (from PROJECT.md's Workflow scope / Agent-wiring scope decisions)
+<!-- Populated by matching this module's element types against bin/lib/skill-routing.tsv. Never
+     leave silently empty when a Workflow/Agent-wiring decision named this module — say "none
+     detected for this module" explicitly, same stop-sign convention as Open business questions. -->
+- <e.g. "This module builds a native Workflow → read skills/learned-workflow-patterns.md and
+  skills/learned-mdl-preflight.md STOP #18/#19 before scripting.">
+- <e.g. "This module calls an AI agent (see architecture/blueprint.md Step 3c) — no toolkit skill
+  exists yet for this pattern. Escalate to ba-agent/architect-agent before scripting; the first
+  real build here should produce one.">
 
 ### Write-mode plan (per learned-mdl-preflight.md Step 0)
 | Element | CLI / MCP+MDL / hand-rolled MCP | Why |
@@ -164,6 +237,9 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
 - [ ] No open business question blocks the elements in this build phase
 - [ ] Write mode chosen for every element that hits a learned-mdl-preflight STOP row
 - [ ] Folder plan names the module's feature groups and covers every document to be built
+- [ ] Test plan complete: shape declared, base set named and covering the coverage checklist, at least one journey with its data effect
+- [ ] Build skills to read first is filled in — or explicitly says "none detected" — for every
+      Workflow/Agent-wiring element PROJECT.md's CAC-3 decisions assigned to this module
 ```
 
 **This Ready-check gates the start of the build, not the end of it.** This brief's job is

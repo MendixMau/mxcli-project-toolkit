@@ -3,7 +3,7 @@
 #
 # WHY THIS FILE EXISTS. Stage 0's gate (bin/gate-check.sh check_stage_0) has always REQUIRED
 # triage.md, and until now nothing in the toolkit CREATED it. bin/init-project.sh scaffolded
-# intake.md, PROJECT.md, CLAUDE.local.md, five agent stubs and index.html — and left the one
+# intake.md, PROJECT.md, CLAUDE.local.md, six agent stubs and index.html — and left the one
 # Stage 0 artifact to be hand-typed from the "Output Template" fence at the bottom of
 # skills/source-triage.md. The predictable happened, and it is measured:
 #

@@ -437,6 +437,22 @@ else
   fi
 fi
 
+# ── 2c. The LOOK is not in this chain, and must say so ──────────────────────
+# module-review.md stage 4 — every page in the module assessed against wireframe, design system
+# or the unaided rubric — is a judgement pass. It is performed by review-agent, never by this
+# script, and it will never be performed by this script: a shell script cannot look at a page.
+#
+# But a report that simply omits it renders green. Absence is not green (report-schema.md rule 5),
+# and the escaped defects an end-to-end run misses are overwhelmingly the ones only a person
+# looking at the screen would have caught. So the row is emitted UNCONDITIONALLY, on every branch,
+# and lands in print_scope's "NOT MEASURED" bucket where a reader cannot mistake it for coverage.
+#
+# SKIPPED, not FAULT, deliberately: FAULT increments FAULTED and turns every clean verify run into
+# exit 2, which would make the honest row unusable and get it deleted within a week. The row's job
+# is to be visible, not to gate. What gates it is gate-check.sh, which requires a ui-review-*.html
+# per closed module.
+printf 'look (module-review.md §4)\tSKIPPED\t0\t-\t(judgement pass — not performed by this chain; review-agent owns it)\n' >> "$SUMMARY"
+
 # ── 3. Verdict ──────────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════"
@@ -449,6 +465,7 @@ if [ "$FAULTED" -gt 0 ]; then
   c_warn "  INCOMPLETE"; echo " — $FAULTED instrument(s) did not run, $FINDINGS with findings."
   echo "  This is NOT a pass with caveats. The unrun checks are absent, not green:"
   echo "  do not read this report as evidence that $MODULE is verified."
+  print_scope
   exit 2
 fi
 if [ "$FINDINGS" -gt 0 ]; then
@@ -458,6 +475,6 @@ if [ "$FINDINGS" -gt 0 ]; then
 fi
 echo ""; c_ok "  CLEAN"; echo " — every instrument that ran found nothing."
 print_scope
-echo "  It is not a claim about anything unledgered, and it says nothing about UI/design"
-echo "  quality — that instrument is not part of this chain."
+echo "  It is not a claim about anything unledgered. UI/design quality is listed above as"
+echo "  NOT MEASURED and stays that way until module-review.md §4 has been performed."
 exit 0

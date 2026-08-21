@@ -84,7 +84,17 @@ fi
 if [ "$NEW_COUNT" -ge "$THRESHOLD" ]; then
   echo ""
   echo "  DUE — run process-coherence-pass.md before starting the next module."
-  echo "  When it finishes, run: $0 $ROOT --record"
+  # The cross-module REGRESSION half of the same cadence. process-coherence-pass.md
+  # reads the call graph; this walks the built prefix of the business process in a
+  # browser, as the real roles, and is the only instrument that exercises the handoff
+  # BETWEEN two modules' journeys. --built-only scopes it to modules that have been
+  # through verify-module.sh; out-of-scope acts report as not-measured, never green.
+  if [ -f "$ROOT/tests/e2e/full-app-walkthrough.js" ]; then
+    echo "  And re-run the cross-module regression over what is built so far:"
+    echo "      node tests/e2e/full-app-walkthrough.js --built-only"
+    echo "      (exit 2 = nothing in scope yet; the report states 'k of N acts in scope')"
+  fi
+  echo "  When both finish, run: $0 $ROOT --record"
   exit 1
 fi
 

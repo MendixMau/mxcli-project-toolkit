@@ -20,6 +20,7 @@ table; a skill missing here is a skill no agent will find.
 | Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only | `skills/conversion-runbook.md` |
 | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order | `skills/query-the-model.md` |
 | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot | `skills/skills-over-scripts.md` |
+| Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict | `skills/degrade-to-judgement.md` |
 | Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn | `skills/interview-protocol.md` |
 | Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table | `skills/checkpoints/checkpoint-template.md` |
 | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" | `skills/agent-roles.md` |
@@ -327,7 +328,7 @@ is the expensive one. Acking never obliges anyone to produce anything; it record
 | | |
 |---|---|
 | **User defines** | Which source folder. Licence/security constraints on storing the client source. Is an SME available, and who? |
-| **Agent produces** | Workspace scaffold (`bin/init-project.sh`), `CLAUDE.local.md` (paths, tools, routing), `PROJECT.md` (empty register), **all five agent stubs** (`bin/init-agents.sh <session-root>` — stubs are inert until completed, so all five exist from day one), `intake.md` (8 questions, no guesses). Complete ba/architect placeholders + domain context now (per `agent-roles.md`); complete mdl/gate/test at Stage 5 kickoff. |
+| **Agent produces** | Workspace scaffold (`bin/init-project.sh`), `CLAUDE.local.md` (paths, tools, routing), `PROJECT.md` (empty register), **all six agent stubs** (`bin/init-agents.sh <session-root>` — stubs are inert until completed, so all six exist from day one), `intake.md` (8 questions, no guesses). Complete ba/architect placeholders + domain context now (per `agent-roles.md`); complete mdl/gate/test/**review** at Stage 5 kickoff — review-agent owns `module-review.md` stage 4, the LOOK, and a project that leaves it a stub reviews no pages. |
 | **Surface** | `index.html` — the project dashboard, created here, grows every stage. |
 | **Gate** | Every intake question has an answer or an explicit "Unverified — how to verify". No blanks. |
 | **Owner** | `ba-agent` |
@@ -473,7 +474,7 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | | |
 |---|---|
 | **User defines** | ① One Mendix app or several (if flagged at Stage 0). ② **Module boundaries** (agent proposes with `modularize-domain.md` criteria). ③ **Buy vs build vs stub, per fit-gap item** — the confirming step `brd-to-build-plan.md` assumed already happened. ④ **Target security / role model** — not just whether auth existed in the source, but what the target should be. ⑤ **Data volumes, concurrency, NFRs** — these decide indexing, pagination, datagrid-vs-paged-gallery, loop batch sizes. ⑥ **Integration contracts** — real or stub, endpoint, credentials, owner, test environment. ⑦ **Branding inputs** — logo, palette, type, spacing, per `design-artifacts.md`. |
-| **Agent produces** | `.mx-brd.json`, `architecture/` (module defs, layer diagram, wiring diagram, `fit-gap.md`, `blueprint.html` checkpoint render), `design/` per `design-artifacts.md`'s full output list: `ds.css` + `design-system.html` + **`wireframes/*.html`, one annotated wireframe per screen** — the design system without the wireframes is half the deliverable and fails the gate. |
+| **Agent produces** | `.mx-brd.json`, `architecture/` (module defs, layer diagram, wiring diagram, `fit-gap.md`, `blueprint.html` checkpoint render — plus a workflow diagram and/or agent-wiring diagram in `blueprint.md`/`blueprint.html` when CAC-3's Q3 flags real scope for either), `design/` per `design-artifacts.md`'s full output list: `ds.css` + `design-system.html` + **`wireframes/*.html`, one annotated wireframe per screen** — the design system without the wireframes is half the deliverable and fails the gate. |
 | **Surface** | `module-design.html` · `architecture/blueprint.html` (generated render of `blueprint.md` — architecture-blueprint.md Step 7, never hand-edited) · `design-system.html` + `wireframes/*.html` |
 | **Gate ✋** | Boundaries approved. Marketplace calls made. Role model, volumes, integrations and branding **each asked and answered**: `CONFIRMED`, or explicitly delegated by the user ("you decide" → `ASSUMED` with risk). Never `ASSUMED` without the question having reached the user. **No architecture/design artifact is produced before its checkpoint ran.** |
 | **Owner** | `architect-agent` (interviews run by `ba-agent`) |
@@ -490,7 +491,7 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 
 > **Before Stage 5 starts — run the build-ready check:** `bin/gate-check.sh <project-dir> build-ready`.
 > It asserts, in one shot, that the project is actually wired to build: `CLAUDE.local.md` has a
-> `## Wiring` block, baseline routing includes the UI-quality skills, all 5 agents are present with no
+> `## Wiring` block, baseline routing includes the UI-quality skills, all 6 agents are present with no
 > placeholders, at least one module brief exists, and wireframes + a design system are present. It
 > fails loud listing every missing item. This is the preflight that catches a project that looks
 > wired but is UI-blind (a real WMS-class miss).

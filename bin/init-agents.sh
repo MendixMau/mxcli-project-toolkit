@@ -65,6 +65,6 @@ if [ "$created" -gt 0 ]; then
   echo ""
   echo "⚠️  These are stubs — inert until completed. Fill each agent's {{PLACEHOLDER}}s per"
   echo "   skills/agent-roles.md WHEN ITS STAGE STARTS (ba/architect at Stage P kickoff;"
-  echo "   mdl/gate/test at Stage 5 kickoff). Until completed each agent refuses to run,"
-  echo "   by design — so having all five scaffolded up front is safe."
+  echo "   mdl/gate/test/review at Stage 5 kickoff). Until completed each agent refuses to"
+  echo "   run, by design — so having all six scaffolded up front is safe."
 fi

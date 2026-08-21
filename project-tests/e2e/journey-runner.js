@@ -429,16 +429,35 @@ function assocGap(entity, assoc, target, sc) {
 // Each mutant returns the journey to run, which rung it challenges, and a predicate
 // naming the check that MUST catch it. A mutant is only useful if the journey
 // actually declares the thing being broken — `mustPointAt` cannot be proven on a
-// journey that has none — so unsupported mutants are skipped rather than faked.
+// journey that has none.
+//
+// UNSUPPORTED IS NOT ABSENT. Until 2026-08-21 `add` returned early and pushed no
+// record at all when a journey could not express a mutant, and nothing anywhere
+// carried a denominator: a run that proved 4 of the 7 rungs printed identically to
+// one that proved all 7. journey-proof.md:128 has always said the opposite —
+// "a rung with no mutant is UNPROVEN, which is fault, never pass" — so the skipped
+// rungs were being silently counted as though the control run had vouched for them.
+// An unsupported mutant now emits a record with supported:false, and the run loop
+// turns that into INVALID (the instrument did not run), never PASS.
+const CONTROL_RUNGS = [
+  'ui-landing', 'ui-text', 'trace-order', 'trace-negative',
+  'data-delta', 'data-target', 'outcome',
+];
+
 function controlMutants(j) {
   const clone = () => JSON.parse(JSON.stringify(j));
   const out = [];
   const add = (rung, what, mutate, expectFail) => {
     const c = clone();
-    if (mutate(c) === false) return;          // journey does not support this mutant
+    if (mutate(c) === false) {
+      // The journey declares nothing this rung could break. Record it as unproven.
+      out.push({ rung, what, supported: false,
+                 why: 'this journey declares nothing this mutant can break' });
+      return;
+    }
     c.id = `${j.id}-CTL-${rung}`;
     c.title = `(positive control · ${rung} — ${what}; MUST fail)`;
-    out.push({ rung, what, journey: c, expectFail });
+    out.push({ rung, what, supported: true, journey: c, expectFail });
   };
   const named = (s) => (r) => r.name.includes(s);
 
@@ -501,6 +520,15 @@ function controlMutants(j) {
     c.outcome.atLeast = 999999;
   }, named('end state'));
 
+  // The denominator is declared, not counted from whatever happened to be added.
+  // A rung that loses its `add` call in a future edit shows up here as unproven
+  // rather than shrinking the denominator to match and going green.
+  for (const rung of CONTROL_RUNGS) {
+    if (!out.some(m => m.rung === rung)) {
+      out.push({ rung, what: '(no mutant defined)', supported: false,
+                 why: 'no mutant is defined for this rung — the control suite itself has a hole' });
+    }
+  }
   return out;
 }
 
@@ -800,6 +828,10 @@ if (require.main !== module) return;
     record('ui', 'login', 'PASS', li.user);
   }
 
+  // Every mutant this run considered, supported or not. This is the denominator:
+  // "N of M rungs proven", never a bare list of the ones that happened to work.
+  const mutantLedger = [];
+
   if (li.ok && !li.usedFallback) {
     for (const j of journeys) {
       if (POSITIVE_CONTROL) {
@@ -820,12 +852,23 @@ if (require.main !== module) return;
         // breaks by accident vouch for a rung it never reached, which is the same
         // vacuity bug one level up.
         for (const m of controlMutants(j)) {
+          if (!m.supported) {
+            // Unproven, and it must say so. INVALID is the verdict for "the
+            // instrument did not run" — the summary already refuses to read
+            // INVALID as green, which is exactly the treatment this deserves.
+            mutantLedger.push({ journey: j.id, rung: m.rung, supported: false, why: m.why });
+            record('control', `${j.id} · ${m.rung}: ${m.what}`, 'INVALID',
+                   `${m.why} — this rung is UNPROVEN for ${j.id}, not passed ` +
+                   '(journey-proof.md: a rung with no mutant is fault, never pass)');
+            continue;
+          }
           const before = results.length;
           await resetToStart(page);
           await runJourney(page, m.journey);
           const produced = results.slice(before);
           const hit = produced.find(r => r.verdict === 'FAIL' && m.expectFail(r));
           const anyFail = produced.some(r => r.verdict === 'FAIL');
+          mutantLedger.push({ journey: j.id, rung: m.rung, supported: true, proven: !!hit });
           record('control', `${j.id} · ${m.rung}: ${m.what}`,
                  hit ? 'PASS' : 'FAIL',
                  hit ? `caught by "${hit.name}"`
@@ -855,6 +898,27 @@ if (require.main !== module) return;
     console.log('    they are absent. Fix the instrument before reading this report as coverage.');
   }
 
+  // The control run's own denominator. Without it, 4 of 7 rungs proven and 7 of 7
+  // print the same, and the second claim is the one everyone reads.
+  const mutants = {
+    expectedPerJourney: CONTROL_RUNGS.length,
+    expected: mutantLedger.length,
+    supported: mutantLedger.filter(m => m.supported).length,
+    proven: mutantLedger.filter(m => m.proven).length,
+    unsupported: mutantLedger.filter(m => !m.supported)
+      .map(m => ({ journey: m.journey, rung: m.rung, why: m.why })),
+  };
+  if (POSITIVE_CONTROL) {
+    console.log(`  control rungs: ${mutants.proven} of ${mutants.expected} proven ` +
+                `(${CONTROL_RUNGS.length} rungs × ${journeys.length} journeys)`);
+    if (mutants.unsupported.length) {
+      console.log(`  ⚠ ${mutants.unsupported.length} rung(s) UNPROVEN — no mutant the journey could express:`);
+      for (const u of mutants.unsupported) console.log(`      ${u.journey} · ${u.rung} — ${u.why}`);
+      console.log('    Unproven is fault, not pass. Declare the missing claim on the journey,');
+      console.log('    or accept that this rung has never been shown able to go red.');
+    }
+  }
+
   fs.mkdirSync(cfg.artifactsDir, { recursive: true });
   // A control run NEVER writes to the real walk's slot.
   //
@@ -871,7 +935,7 @@ if (require.main !== module) return;
   fs.writeFileSync(out, JSON.stringify({
     capturedAt: new Date().toISOString(),
     configuredUser: cfg.user, actualUser: li.user, usedFallback: !!li.usedFallback,
-    baseUrl: cfg.baseUrl, positiveControl: POSITIVE_CONTROL, results, walks,
+    baseUrl: cfg.baseUrl, positiveControl: POSITIVE_CONTROL, mutants, results, walks,
   }, null, 2));
   console.log(`  findings → ${path.relative(cfg.root, out)}`);
 

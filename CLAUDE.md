@@ -18,8 +18,8 @@ Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"):
 
   It's also the shared CSS shell/tokens for every stage HTML surface — that use has nothing to do with opening it.
 - `skills/conversion-runbook.md` — **the spine**: 9-stage matrix, interview protocol, gates, entry modes. Start here when unsure what stage anything is in.
-- `bin/init-project.sh <project-root>` — **the one-command install**: `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook wiring), all five agent stubs, `index.html` dashboard; opens the guide. Idempotent.
-- `bin/gate-check.sh <project-dir> [stage]` — mechanical stage gates; regenerates the project dashboard from real files. Verdicts are `PASS` / `PENDING` (nothing there yet) / `FAIL` (there and wrong) / `WAIVED` (declared out of scope in the register, with a reason, via `--adopt` / `--waive`) / `MANUAL`. Never infer a project's position — read the register line, or ask.
+- `bin/init-project.sh <project-root>` — **the one-command install**: `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook wiring), all six agent stubs, `index.html` dashboard; opens the guide. Idempotent.
+- `bin/gate-check.sh <project-dir> [stage]` — mechanical stage gates; regenerates the project dashboard from real files. Verdicts are `PASS` / `PENDING` (nothing there yet) / `FAIL` (there and wrong) / `WAIVED` (declared out of scope in the register, with a reason, via `--adopt` / `--waive`) / `MANUAL`. Never infer a project's position — read the register line, or ask. It also runs the **obligation check** (`bin/lib/obligations.tsv` + `bin/lib/obligation-check.sh`): per-module *passes* that owe a mark — LOOK, wiring sweep, journeys, coherence — each with the artifact that proves it and the denominator that artifact must state. A pass nobody performed reports `PENDING`/`FAULT`, never green-by-absence; `--waive look/<Module> --reason "..."` records a pass deliberately not performed, and obligations below an `--adopt` point report `ADOPTED`.
 - `bin/sync-project.sh <project-root>` — run after every toolkit `git pull`: refreshes the artifacts that were *copied* into the project (new intake questions, untouched agent stubs) and flags stale baseline routing. Referenced skills need no sync — they update with the pull.
 
 ## Live checklist — every stage, in the chat
@@ -55,7 +55,7 @@ Load skill files **on demand when the task calls for it** — not all upfront. F
 | Page/snippet pre-flight (wireframe → tokens → StyleGallery) | `skills/ui-preflight-pages.md`, `skills/learned-stylegallery.md` |
 | Diagnosing a mxcli CLI error | `bug-logs/mxcli-bugs.md` |
 | Generating a new project's CLAUDE.md | `skills/bootstrap-project.md` (run `mxcli init` FIRST — init overwrites, bootstrap merges) |
-| Setting up dev-process subagents (ba/architect/mdl/gate/test) | `skills/agent-roles.md` |
+| Setting up dev-process subagents (ba/architect/mdl/gate/test/review) | `skills/agent-roles.md` |
 | Past process decisions | `process/process-learnings.md` |
 
 Migration assessment (`assess-migration`) is **bundled with mxcli** (`.ai-context/skills/`); `skills/assess-migration.md` here is a pointer plus toolkit-specific deltas only — the toolkit never duplicates bundled skills.

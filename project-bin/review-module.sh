@@ -402,6 +402,23 @@ echo "      For the app-side answer: bin/verify-module.sh $MODULE (needs the sta
 printf 'journeys\tFAULT\t2\t-\t(no journey run in this invocation)\n' >> "$SUMMARY"
 note_instrument journey-runner fault 2 "" "" "no journey run in this invocation"
 
+# ── 4b. The LOOK: also not run here, and the report must say so ─────────────
+# Same reasoning as the journeys row directly above, for module-review.md stage 4 — the visual
+# assessment of every page in the module. This script answers a model question; stage 4 is a
+# judgement pass over rendered screens and no script performs it. Left unmentioned it renders as
+# covered, which is precisely how an end-to-end run reports journeys, DB assertions and a monkey
+# pass, goes green, and never looks at a page (measured 2026-08-20).
+#
+# Like the journeys row this does NOT increment FAULTED: it is a permanent property of this
+# invocation, not a breakage, and gating on it would make every clean review exit 2.
+printf '\n\033[1m── look (module-review.md §4 — the rendered pages)\033[0m\n'
+c_warn "  ! NOT RUN IN THIS INVOCATION"; echo " — review answers a model question."
+echo "      The report carries a \`look\` fault row so it cannot render as covered."
+echo "      For the visual answer: review-agent, job 2 — every page in $MODULE assessed"
+echo "      against wireframe, design system, or module-review.md §4d's unaided rubric."
+printf 'look\tFAULT\t2\t-\t(no visual review in this invocation — module-review.md §4)\n' >> "$SUMMARY"
+note_instrument ui-review fault 2 "" "" "no visual review in this invocation - module-review.md stage 4"
+
 # ── 5. Verdict ──────────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════"
@@ -421,5 +438,6 @@ if [ "$FINDINGS" -gt 0 ]; then
 fi
 echo ""; c_ok "  CLEAN"; echo " — every model instrument ran and found nothing."
 echo "  Scope of that claim: ledger conformance, wiring shape, BRD coverage. It is NOT a"
-echo "  claim about the running app — no journey ran (see the fault row in the report)."
+echo "  claim about the running app — no journey ran, and nobody looked at a page"
+echo "  (see the journeys and look fault rows in the report)."
 exit 0

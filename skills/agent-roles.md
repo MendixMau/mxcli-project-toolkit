@@ -1,10 +1,10 @@
-# Agent Roles — Discover / Design / Draft / Gate / Test Split for mxcli Projects
+# Agent Roles — Discover / Design / Draft / Gate / Test / Review Split for mxcli Projects
 **Applies to:** any mxcli project.
 **Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 **Purpose:** How to generate a project's `.claude/agents/*.md` subagent definitions so discovery, architecture, MDL drafting, post-exec verification, and UI testing are separate agents with separate tool rights — instead of one agent doing everything, including unreviewed writes to the `.mpr` or unowned interview gates.
 **Upstream:** `bootstrap-project.md` — run that first if the project's `CLAUDE.md` doesn't exist yet or hasn't been checked against Baseline routing; this skill's Step 1 ("read the target project first") depends on that being reliable.
 **Companion skills:** `conversion-runbook.md` (the stage/gate discipline `ba-agent` and `architect-agent` exist to run), `iterative-build-loop.md` (the gate/build/test discipline the build-phase trio makes executable), `query-the-model.md` (the lookup-before-ask rule every agent below follows), `mdl-cookbook-microflows.md`, `bug-logs/mxcli-bugs.md`, `test-app.md`, `ui-preflight-pages.md` (mandatory design cross-reference before building any page or snippet)
-**Source:** The build-phase trio (mdl/gate/test) generalized from three project-specific agents built for a live mxcli project (a Java/Angular analysis project). `ba-agent` and `architect-agent` were added because Stages 0–4 had no owner, which was the mechanical reason interview gates never happened.
+**Source:** The build-phase trio (mdl/gate/test) generalized from three project-specific agents built for a live mxcli project (a Java/Angular analysis project). `ba-agent` and `architect-agent` were added because Stages 0–4 had no owner, which was the mechanical reason interview gates never happened. `review-agent` was added because `module-review.md` stage 4 had no owner either, which was the mechanical reason the LOOK never happened.
 
 ---
 
@@ -16,11 +16,19 @@
 
 **This is a generation guide, not a copy-paste template.** The example bodies below are illustrative shapes — read the target project's own CLAUDE.md and skills first, then write agent files that match *that* project's actual commands, paths, and tooling. A gate-agent pointed at the wrong `.mpr` filename or a stale compile-gate command silently verifies nothing.
 
-**Mechanical scaffolding exists:** `bin/init-agents.sh <session-root> [p|build|all]` copies stub versions of all five agents (from the toolkit's `agents/` folder) into the project's `.claude/agents/` — `p` for the Stage-P pair (ba/architect), `build` for the Stage-5 trio (mdl/gate/test). The stubs are safe by construction: each refuses to run while `{{PLACEHOLDER}}`s remain, so "downloaded but never configured" fails loudly instead of verifying nothing. Your job after scaffolding is Steps 1–4 below: fill every placeholder from the *actual* project, including the **Domain context** block.
+**Mechanical scaffolding exists:** `bin/init-agents.sh <session-root> [p|build|all]` copies stub versions of all **six** agents (from the toolkit's `agents/` folder) into the project's `.claude/agents/` — `p` for the Stage-P pair (ba/architect), `build` for the Stage-5 quartet (mdl/gate/test/**review**). The stubs are safe by construction: each refuses to run while `{{PLACEHOLDER}}`s remain, so "downloaded but never configured" fails loudly instead of verifying nothing. Your job after scaffolding is Steps 1–4 below: fill every placeholder from the *actual* project, including the **Domain context** block.
+
+> **This file said "five" until 2026-08-20, and that cost the review.** `review-agent` — the owner
+> of `module-review.md` stage 4, the LOOK — has been scaffolded by `bin/lib/install-manifest.sh`
+> and routed to its skills for some time, but this file never listed it. So every session that set
+> agents up "per `agent-roles.md`" completed five, left the sixth an inert stub, and then ran a
+> module review with no configured owner for the one stage that finds the escaped defects.
+> Measured consequence: an end-to-end run that executed journeys, DB/OQL assertions and the monkey
+> pass, reported them, and never looked at a single page. **The count is load-bearing. It is six.**
 
 ---
 
-## Why split into five roles
+## Why split into six roles
 
 A single do-everything agent has no natural place to stop before mutating the real `.mpr`, and no natural place to stop before making a decision that's the user's to make. Splitting by role makes both boundaries structural instead of a hope:
 
@@ -31,8 +39,9 @@ A single do-everything agent has no natural place to stop before mutating the re
 | **mdl-agent** | Draft + syntax-validate MDL scripts against the project's BRDs/specs and skill references | No — validates with `mxcli check` only | Yes, but only `.mdl` script files under the project's script folder, via `Bash` (no `Write`/`Edit` tool) |
 | **gate-agent** | Run the project's build/quality gates (model check, compile gate, lint) *after* the main session has already executed a script | No | No — read-only/verification-only |
 | **test-agent** | Walk UI test scenarios against the running app, cross-check against the database | No | No — read-only/verification-only |
+| **review-agent** | Owns `module-review.md` — the one pass that closes a module. Stage 3's model-side instruments (`bin/review-module.sh`: conformance + graph sweep) **and stage 4, the LOOK**: every page in the module assessed against wireframe, design system and plain design judgement. Diagnostic only — never fixes what it finds | No — never | Yes, but only its own report under `design/ui-reviews/`, via `Bash` |
 
-**The one rule that matters more than any other: only the main session (the one talking to the user) ever runs the command that mutates the real `.mpr`.** All five subagents get `tools: Read, Grep, Glob, Bash` — never `Write`/`Edit`. Agents that need to produce files (`ba-agent`, `architect-agent`, `mdl-agent`) do so via `Bash` (shell redirection/heredoc), not the `Write` tool — that keeps "can this agent silently overwrite something outside its lane" a visible, auditable choice in its tool list rather than an assumption.
+**The one rule that matters more than any other: only the main session (the one talking to the user) ever runs the command that mutates the real `.mpr`.** All six subagents get `tools: Read, Grep, Glob, Bash` — never `Write`/`Edit`. Agents that need to produce files (`ba-agent`, `architect-agent`, `mdl-agent`) do so via `Bash` (shell redirection/heredoc), not the `Write` tool — that keeps "can this agent silently overwrite something outside its lane" a visible, auditable choice in its tool list rather than an assumption.
 
 **A second rule specific to `ba-agent` and `architect-agent`: they never skip the interview protocol to save time.** A gate that "completes" because the agent picked a reasonable default without surfacing it is exactly the failure `conversion-runbook.md` §1 exists to prevent — unknowns get `ASSUMED` and recorded, they don't get silently decided.
 
@@ -44,8 +53,8 @@ This mirrors `iterative-build-loop.md`'s gate discipline (0 CE errors + happy pa
 
 1. **Read the target project first**: its `CLAUDE.md`, `.ai-context/skills/` (or equivalent), and whatever it uses for build verification (mx check / mxbuild / lint), UI testing (Playwright integration, demo users), and business-rule source (BRDs, a requirements doc, or none yet). Don't guess any of this — if the project has no test setup yet, say so instead of inventing one.
 1b. **Fill the Domain context block** (ba/architect/mdl agents) from the Stage-P intake: customer industry, the app's one-sentence purpose, a 5–10 term glossary (source-system name = meaning), the SME, and pointers to where the truth lives (KB/BRD/`PROJECT.md` paths). Keep it *short and pointer-shaped*: the agent should know the customer's **language** and **where the truth lives** — never memorize the truth itself. Use cases, business rules, and open questions stay in `PROJECT.md`/KB/BRDs and are read fresh each run; baking them into the agent file means it silently goes stale as understanding evolves.
-2. **Scaffold all five stubs** (`bin/init-agents.sh <session-root>`), then **complete the ones whose stage is live**: `ba-agent.md`/`architect-agent.md` at Stage P–4 (discovery/architecture underway), `mdl-agent.md`/`gate-agent.md`/`test-agent.md` at Stage 5 (Build) kickoff — adapting the shapes below and substituting every project-specific detail (mpr filename, exact check/compile/lint commands, skill file names, BRD/spec location, demo user, known gotchas, `PROJECT.md` path) for the real ones you just read. Uncompleted stubs stay inert by design.
-   **Paths are centralized in the `## Wiring` block of `CLAUDE.local.md`** — not per-agent. Agents read that block at task start and resolve every path (MPR, briefs, wireframes, design system, gallery, architecture, build plan) from it. At Stage 5 kickoff your job is to confirm the Wiring block is correct and every path in it resolves (the `build-ready` gate checks this), not to fill six placeholders in each agent. This removes the drift risk of five agents each carrying their own path copies.
+2. **Scaffold all six stubs** (`bin/init-agents.sh <session-root>`), then **complete the ones whose stage is live**: `ba-agent.md`/`architect-agent.md` at Stage P–4 (discovery/architecture underway), `mdl-agent.md`/`gate-agent.md`/`test-agent.md`/`review-agent.md` at Stage 5 (Build) kickoff — adapting the shapes below and substituting every project-specific detail (mpr filename, exact check/compile/lint commands, skill file names, BRD/spec location, demo user, known gotchas, `PROJECT.md` path) for the real ones you just read. Uncompleted stubs stay inert by design.
+   **Paths are centralized in the `## Wiring` block of `CLAUDE.local.md`** — not per-agent. Agents read that block at task start and resolve every path (MPR, briefs, wireframes, design system, gallery, architecture, build plan) from it. At Stage 5 kickoff your job is to confirm the Wiring block is correct and every path in it resolves (the `build-ready` gate checks this), not to fill six placeholders in each agent. This removes the drift risk of six agents each carrying their own path copies.
 3. **Preserve the tool scoping exactly**: `tools: Read, Grep, Glob, Bash` on all of them, and an explicit line in each stating it never runs `mxcli exec` / never mutates the `.mpr` directly. `ba-agent` and `architect-agent` additionally never skip the interview protocol (`conversion-runbook.md` §1) to reach a decision faster.
 
    **One deliberate exception:** `test-agent` also carries `Write, Edit`, because it authors test
@@ -272,12 +281,63 @@ You test {{PROJECT}}'s running UI. Verification-only — never edit MDL, never t
 Per-scenario pass/fail, the exact failing step (if any) with expected vs. observed, and any UI/data mismatches. Don't narrate every click.
 ```
 
+### review-agent
+```
+---
+name: review-agent
+description: "Closes a module in {{PROJECT}}: runs the model-side review instruments, then LOOKS at every page in the module and says whether it is logical, whether it looks right, and whether it matches the design. Use when a module's build and gate stages are done. Diagnostic only — never fixes anything."
+model: inherit
+tools: Read, Grep, Glob, Bash
+---
+
+You run `skills/module-review.md` for {{PROJECT}}. Read that skill in full before you start; this
+file only tells you where things are.
+
+## What you own
+Stage 3's model-side instruments, and **stage 4 — the LOOK**. Stage 4 is the reason you exist.
+Stages 1–3 are already covered by mdl-agent, gate-agent, test-agent and `bin/verify-module.sh`;
+none of them can answer "is this screen logical, does it look right, does it match our design",
+and a module has repeatedly shipped broken because nobody asked.
+
+## The page set is every page in the module
+```
+{{MXCLI}} -p {{MPR}} -c "SHOW PAGES IN <Module>"
+```
+Not the pages a journey visited. A page no test touches is the highest-risk page in the module.
+Report the denominator: `12 of 12 pages reviewed`, never "reviewed the module".
+
+## Order
+1. `bin/verify-module.sh <Module>` results — read them, do not re-run them.
+2. `node tests/e2e/design-audit.js` — the mechanical sweep (classes, a11y, overflow). Where it
+   and your eye overlap, it wins.
+3. **Then look**, page by page, per module-review.md §4c/§4d/§4e. Navigate via the nav menu or a
+   button, never a direct URL.
+4. Write the report to `design/ui-reviews/ui-review-<YYYY-MM-DD>.html` and append every P1/P2 to
+   `docs/improvement-register.md`.
+
+## When an input is missing, you assess anyway
+A missing wireframe, an absent design system, an uninstalled `design-audit.js`, a module with no
+brief — none of these is permission to skip a page. Follow module-review.md's
+**"Degrade to judgement, never to silence"** table: name what is missing, name what you assessed
+against instead, and still deliver a verdict per page. Reduced fidelity is reported as reduced
+fidelity. It is never reported as a pass, and never reported as nothing.
+
+## You never fix
+No MDL, no `mxcli exec`, no edits to the model or the theme. You have no Write or Edit tool. End
+by asking which P1/P2 findings should be fixed — the fix routes back through mdl-agent.
+
+## Project specifics
+- MPR: {{MPR}} · app URL: {{APP_URL}} · demo user: {{DEMO_USER}}
+- Wireframes: {{WIREFRAME_DIR}} · design system: {{DESIGN_SYSTEM}} · StyleGallery: {{STYLEGALLERY}}
+- All of the above resolve from the `## Wiring` block of `CLAUDE.local.md` — read it at task start.
+```
+
 ---
 
 ## Anti-patterns to avoid
 
-- **Don't give any of these five agents `Write`/`Edit` directly.** File writes happen via `Bash` so the mutation boundary stays visible in the tool list, not buried in a general-purpose write permission.
+- **Don't give any of these six agents `Write`/`Edit` directly.** File writes happen via `Bash` so the mutation boundary stays visible in the tool list, not buried in a general-purpose write permission.
 - **Don't let gate-agent or test-agent run `mxcli exec`, ever** — they exist specifically to check work the main session already committed.
 - **Don't let ba-agent or architect-agent skip the interview protocol to move faster.** A boundary or role model decided without the proposal-and-question loop in `conversion-runbook.md` §1 is exactly the failure this split exists to prevent — it just moves the unowned-decision problem into a subagent instead of fixing it.
 - **Don't copy the template shapes above verbatim into a new project.** A gate-agent checking the wrong `.mpr` filename, a test-agent logging in as a demo user that doesn't exist, or a ba-agent pointed at the wrong `PROJECT.md` path will report false confidence instead of failing loudly.
-- **Scaffold all five on day one; don't *complete* an agent before its stage starts.** The stubs are inert (refuse-to-run while placeholders remain), so having all five in `.claude/agents/` from kickoff is safe and avoids the "where's my mdl-agent?" confusion. The discipline moves to completion time: fill ba/architect at Stage P, mdl/gate/test at Stage 5 kickoff — completing a gate-agent before any build exists means filling its commands from guesses, which is exactly the false-confidence failure the placeholders exist to prevent. (A greenfield build starting at Stage 5 may simply never complete ba/architect — that's fine, they stay inert.)
+- **Scaffold all six on day one; don't *complete* an agent before its stage starts.** The stubs are inert (refuse-to-run while placeholders remain), so having all six in `.claude/agents/` from kickoff is safe and avoids the "where's my mdl-agent?" confusion. The discipline moves to completion time: fill ba/architect at Stage P, mdl/gate/test/review at Stage 5 kickoff — completing a gate-agent before any build exists means filling its commands from guesses, which is exactly the false-confidence failure the placeholders exist to prevent. (A greenfield build starting at Stage 5 may simply never complete ba/architect — that's fine, they stay inert.)

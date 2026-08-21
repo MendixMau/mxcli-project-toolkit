@@ -9,7 +9,7 @@ Wire the current project to the mxcli-project-toolkit and enter its pipeline. St
    ```bash
    ~/Mendix/mxcli-project-toolkit/bin/init-project.sh "$PWD"
    ```
-   This scaffolds `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook-first wiring + baseline routing), all five agent stubs in `.claude/agents/`, and the `index.html` dashboard, and opens the visual guide in the browser. It is idempotent — existing files are never overwritten.
+   This scaffolds `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook-first wiring + baseline routing), all six agent stubs in `.claude/agents/`, and the `index.html` dashboard, and opens the visual guide in the browser. It is idempotent — existing files are never overwritten.
 3. Read `~/Mendix/mxcli-project-toolkit/skills/conversion-runbook.md` **in full** — it is the executable spec; READMEs are orientation only.
 4. Read the generated `CLAUDE.local.md` and `intake.md`.
 5. Start Stage P: propose the **entry mode** with evidence per the runbook's Entry Modes classification rules (source code exists → analyze it; specs exist → requirements-driven; greenfield only from a conversation; existing-app-assurance if nothing is being built), then run the intake interview — ask the questions in chat (Claude Code: `AskUserQuestion`; any other harness: plain numbered markdown, since `AskUserQuestion` is a Claude Code built-in and cannot be installed — see `skills/interview-protocol.md` §3 "Asking on a non-Claude agent"), then **end your turn and wait for answers**. Ending the turn is the part that makes it a gate, and it applies on every agent. Record every answer in `PROJECT.md` as `CONFIRMED` (or `ASSUMED` only if the user explicitly delegates).

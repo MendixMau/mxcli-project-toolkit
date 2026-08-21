@@ -140,7 +140,13 @@ const V_LOOP = { PASS: 'pass', FINDING: 'fail', FAULT: 'fault', INFO: 'manual', 
 // harness that died mid-page leaves greens behind for the pages it never reached.
 // That weakness is recorded machine-readably on the instruments[] entry
 // (canExpressFault:false, evidenceStrength:"weak") — see walkthroughInstrument().
-const V_WALK = { ok: 'pass', pass: 'pass', fail: 'fail', missing: 'fail', error: 'fail' };
+// `scoped-out` is full-app-walkthrough.js --built-only saying "this act's module is
+// not built yet, so I did not measure it". It is a fault (absent), never a fail — a
+// fail would report an unbuilt module as a broken one, and a pass would report a
+// two-act run as a six-act walkthrough. Declared here rather than relying on the
+// `|| 'fault'` fallback, so removing it is a visible edit.
+const V_WALK = { ok: 'pass', pass: 'pass', fail: 'fail', missing: 'fail', error: 'fail',
+                 'scoped-out': 'fault' };
 
 // docs/conformance/report-<date>.tsv. STALE and UNDERSTATED are both "the ledger and
 // the model disagree" — findings. UNRUNNABLE is the instrument admitting it could not
@@ -1150,6 +1156,18 @@ function collectControl(input, ctx) {
         requirement: null, evidence: [{ type: 'contract', ref: 'controlMutants() in journey-runner.js' }] });
       continue;
     }
+    // INVALID from the runner means the journey could not express this mutant, so
+    // the rung was never challenged. That is UNPROVEN — the same fault as a missing
+    // row, not a `fail`. Added 2026-08-21 alongside journey-runner.js emitting these
+    // rows at all; before that an unsupported mutant produced silence, and silence
+    // arrived here as the `!row` branch by luck rather than by design.
+    if (row.verdict === 'INVALID') {
+      checks.push({ id, instrument: 'positive-control', kind: 'control', rung: 'control', verdict: 'fault',
+        name: `${rung} — ${what}`, provenance: 'notRun',
+        detail: row.detail || 'the journey declares nothing this mutant can break; rung never challenged',
+        requirement: null, evidence: [{ type: 'log', ref: input.path }] });
+      continue;
+    }
     const ok = row.verdict === 'PASS';
     if (ok) proven++;
     checks.push({ id, instrument: 'positive-control', kind: 'control', rung: 'control',
@@ -1165,7 +1183,12 @@ function collectControl(input, ctx) {
   return { checks, instrument: mk(all ? 'pass' : 'fail',
     all ? `all ${proven} rungs proven non-vacuous — each broken precondition was caught by its own targeted check`
         : `${proven}/${CONTROL_RUNGS.length} rungs proven; the rest are UNPROVEN — greens on those rungs are not evidence`,
-    { rungsProven: proven, rungsTotal: CONTROL_RUNGS.length, capturedAt: d.capturedAt || null }) };
+    { rungsProven: proven, rungsTotal: CONTROL_RUNGS.length, capturedAt: d.capturedAt || null,
+      // The runner's own per-journey ledger, when it wrote one. This table is per
+      // RUNG across all journeys; d.mutants is per rung × journey, and a rung can be
+      // proven by one journey while unprovable on three others. Both denominators
+      // are real and neither substitutes for the other.
+      runnerMutants: d.mutants || null }) };
 }
 
 // ============================================================================

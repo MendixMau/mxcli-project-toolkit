@@ -1,0 +1,50 @@
+# THE obligation table — which PASSES owe a mark, and what mark discharges them.
+#
+# bin/lib/install-manifest.sh solved this one layer down: it declares which FILES a wired
+# project must have, forward-checks that every named file exists, and reverse-checks that every
+# existing file is named by some list. Before it, init installed 5 agents while sync installed 6,
+# and review-agent reached no fresh project for weeks with nothing anywhere going red.
+#
+# The same hole exists one layer up, for passes rather than files, and it cost more. Measured
+# 2026-08-20, on a real end-to-end run: the harness executed journeys, DB assertions and a monkey
+# pass, reported them all, and never once looked at a page. module-review.md stage 4 — the LOOK,
+# the pass the skill itself calls "the stage that gets skipped, and the stage the escaped defects
+# come from" — did not run, and nothing said so, because there was no row for it. wiring-sweep.md
+# was routed in four surfaces and enforced in none.
+#
+# PROSE HAS NO EXIT CODE. A skill that is never invoked leaves no mark, and a missing mark reads
+# as a clean one. This file gives every judgement pass a mark to leave. It decides NOTHING about
+# quality — the verdicts stay in the skills (skills-over-scripts.md). It only notices absence.
+#
+# Read by bin/lib/obligation-check.sh, sourced from bin/gate-check.sh.
+#
+# Format: TAB-separated, nine columns. Blank lines and #-comments ignored.
+#   1 obligation   stable id, used in waiver lines
+#   2 performer    which agent owes it (agents/<performer>-agent.md)
+#   3 scope        module   — once per module that has been opened for work
+#                  cluster  — once per 2-3 proven modules (coherence-cadence.sh's cadence)
+#                  project  — once for the whole project
+#   4 match        path  — artifact is a literal path; <Module> is substituted
+#                  names — artifact is a glob; the file must MENTION the module by name.
+#                          Used where projects date their filenames (ui-review-2026-08-20.html)
+#                          and a strict <Module> filename rule would fail every existing one.
+#   5 artifact     project-relative path or glob; may contain <Module>
+#   6 denominator  yes = the artifact's first line must state one ("N of N ... "). A pass that
+#                  cannot say what it covered has not covered it — e2e-evidence-report.md.
+#   7 degradable   yes = a missing INPUT does not excuse the pass; degrade-to-judgement.md says
+#                  assess against the next yardstick and name the substitution in the artifact.
+#                  no  = the pass genuinely cannot run without its instrument; absence is FAULT.
+#   8 from-stage   conversion-runbook stage at which this first becomes owed. A project that
+#                  ran `gate-check.sh --adopt <stage>` owes nothing below its adoption point.
+#   9 skill        the skill that governs the pass and holds every verdict
+#
+# WHAT THIS TABLE MUST NOT DO: force a back-fill. A project that joined at Stage 5 does not owe
+# Stage-1 artifacts, and an app that predates the toolkit does not owe anything for modules
+# nobody is building. Scope resolves against modules OPENED FOR WORK, never modules in the MPR.
+# An obligation is owed by the pass you are performing now, never by the app's history.
+#
+obligation	performer	scope	match	artifact	denominator	degradable	from-stage	skill
+look	review	module	names	design/ui-reviews/ui-review-*.html	yes	yes	5	skills/module-review.md
+sweep	test	module	path	.claude/loop/sweep/<Module>/sweep.md	yes	yes	5	skills/wiring-sweep.md
+journeys	test	module	path	.claude/loop/verify/<Module>/summary.tsv	no	no	5	skills/journey-proof.md
+coherence	architect	cluster	path	.claude/loop/coherence/last-cluster-pass.tsv	no	yes	5	skills/process-coherence-pass.md

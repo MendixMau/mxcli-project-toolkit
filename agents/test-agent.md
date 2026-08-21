@@ -28,6 +28,7 @@ and `"DESCRIBE ..."` reads are always fine, and are how you ground every name yo
 | `skills/conversion-runbook.md` | Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only |
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
 | `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
+| `skills/degrade-to-judgement.md` | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict |
 | `skills/checkpoints/checkpoint-template.md` | Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table |
 | `skills/agent-roles.md` | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" |
 | `skills/module-review.md` | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated |
@@ -93,6 +94,42 @@ opted in. If it did, {{OTEL_SETUP}} describes the setup, and two rules are absol
    reports `OK` while its own activity spans are `ERROR` — the handler swallowed a real failure.
    Always walk the activity spans. A page can render fine with an empty grid over a completely
    dead integration, and both a UI check and a microflow-status check will lie about it.
+
+## The wiring sweep — you own it, and it leaves a file
+
+Journeys walk the golden path. The user's own words on where the bugs actually are: *"not always
+all elements on a page are clicked — usually only the base flow, not edge cases, and that is where
+I find bugs."* `skills/wiring-sweep.md` is the answer to that and **this agent performs it**.
+
+Run it after the module's happy-path journey is green (sweeping a broken page reports the breakage
+as "no effect" and buries the real finding), over every page in `module-review.md` §4a's page set —
+the one from `SHOW PAGES IN <Module>`, not the pages a journey happened to visit.
+
+**Write the result to `.claude/loop/sweep/<Module>/sweep.md`.** First line, always, is the
+denominator:
+
+```
+N of N interactive elements swept across P of P pages in <Module>
+```
+
+Then one row per element that was not a clean PASS, using `wiring-sweep.md`'s verdict table
+(PASS / FAIL-no-effect / FAIL-error / FAIL-not-interactable / FAULT). Clean elements need no rows —
+the denominator already accounts for them.
+
+Rules that are not negotiable:
+
+- **A missing first line is fault, not pass.** A sweep report that cannot state its denominator
+  has not swept; see `skills/e2e-evidence-report.md`.
+- **Sampling is not sweeping.** "Clicked the main buttons" discharges nothing.
+- **Diagnostic only.** Findings go to `docs/improvement-register.md`; no unapproved fixes from a
+  sweep pass.
+- **Instrument missing or session dead is FAULT and you still report.** Per
+  `skills/degrade-to-judgement.md`: name what was missing, say what you assessed against instead
+  (a by-hand click-through of the primary affordances, say), and still deliver a verdict with an
+  honest, smaller denominator. Absence must never render as green.
+
+Known exclusions declared in the module brief's **Interactive elements** table are reported as
+excluded, with their reason, and subtracted from the denominator explicitly — never dropped.
 
 ## Demo users (verify live with `SHOW DEMO USERS` — never hardcode passwords here)
 

@@ -170,6 +170,15 @@ so the next person argues with the incident rather than with the rule.
 | **Trace** | A caught error leaves the microflow span `OK` while its activities are `ERROR` | Assert at **activity** granularity, not microflow granularity |
 | **all** | `$?` after a pipeline measures the pipe, not the script — biased toward false *success* | Never read `$?` through a pipe. See `tool-output-is-not-ground-truth.md`. |
 
+**Verdict discipline — the canonical statement, referenced from `journey-proof.md` rather than
+restated there.** PASS / FAIL / INVALID are never collapsed: `PASS` is measured and correct, `FAIL`
+is measured and wrong (the feature is broken), `INVALID` means **the instrument did not run** —
+absent, not green. "The test could not run" and "the feature is broken" send you to different
+people; blending them is how a week gets spent debugging a page that was never reached. In the
+report/exit-code dialect these become `pass` / `fail` / `fault`, and **`fault` is never amber** —
+amber means "ran, degraded". Corollary, applied everywhere in this toolkit: an empty result set is
+never a pass — guard non-emptiness first, then assert (`[].every()` is `true`).
+
 **Two verdicts, never collapsed.** When a §4 shape is present the correct report is ***the test is
 invalid***, not *the feature failed*. Collapsing them is what sends people diagnosing the wrong
 subsystem. Refuse to report green on a zero-span trace assertion, an unguarded navigation, or a
@@ -195,7 +204,7 @@ Found 2026-07-30 in a warehouse-management project: twelve "Route List" failures
 about a missing module and a dead mock service — all one nav click that never happened. Caught by a
 human looking at the screenshot, not by the suite.
 
-### The six rules
+### The seven rules
 
 1. **Every navigation needs a landing guard.** Prove the page changed before asserting anything on
    it. Downstream sections that depend on it check the same flag and **skip**, they do not cascade.
@@ -223,7 +232,8 @@ human looking at the screenshot, not by the suite.
 4. **One navigation helper, reused everywhere.** Sections that hand-roll navigation skip the
    accumulated knowledge in the shared one. Here the shared `navClick()` already knew nav **groups
    toggle** — force-clicking an expanded group collapses it and hides the child. The hand-rolled
-   block did not.
+   block did not. **This is the canonical statement of the nav-group-toggle trap** — `journey-proof.md`
+   and `journey-examples.md` both point back here rather than restating it.
 
 5. **Never reload to "get unstuck".** `page.goto(baseUrl)` as recovery wipes client state, hides real
    carry-over between flows, and lets the suite continue as though navigation worked. Navigate by the
@@ -235,6 +245,12 @@ human looking at the screenshot, not by the suite.
 6. **Assert on the database, not just the DOM.** A committed action should move a row count.
    `before=N, after=N` is the assertion that revealed a session record was never created — the
    UI-level "list is empty" was a downstream symptom pointing at the wrong place entirely.
+
+7. **Take the success screenshot after the actions and landing guard, before the text/trace/data
+   rungs** — so the image is the page state those rungs measured. A shot taken later shows the app
+   after any navigation the rungs provoked and quietly stops being evidence for the checks printed
+   beside it. **This is the canonical statement of the screenshot-timing rule** — `journey-proof.md`
+   and `journey-examples.md` both point back here.
 
 ### Platform notes (Mendix / Playwright)
 

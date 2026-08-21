@@ -249,6 +249,17 @@ Three claims that must never be merged:
 Stage 3 proves the **first only**. **"All green" is a banned phrase** whenever the denominator is
 not the whole set: a journey that did not run is *absent*, and absent is never green.
 
+**Name what the harness structurally cannot see**, every time, verbatim enough that it reads as a
+boundary and not as boilerplate:
+
+- **Any page off the literal click path.** A journey advancing through a grid's inline buttons
+  never opens a single station's detail page. That page can have had zero coverage since it was
+  built and no report will ever mention it, because reports enumerate what ran, not what exists.
+- **Visual and styling regressions**, even on a covered page. Text-presence and DB-state
+  assertions cannot tell styled-but-empty from unstyled-but-populated: *both pass* whenever the
+  underlying write is correct — this is exactly what stage 4 exists to catch instead.
+- **Cell-level rendering** on a grid the journey does not otherwise assert against.
+
 Severity: **P1** user cannot complete a task (unclickable nav, silent save failure, blank required
 field, empty grid with no message, button wired to the wrong page). **P2** confusing, inconsistent,
 diverges from intent, or a built component not reused. **P3** polish.
@@ -338,6 +349,7 @@ Not yet run. The first team to run it records recall/precision here as the first
 
 - `skills/skills-over-scripts.md` — why stage 4 is prose and not a program
 - `skills/journey-proof.md` · `skills/monkey-test.md` · `skills/wiring-sweep.md` — stage 3's instruments
-- `skills/e2e-evidence-report.md` — the denominator rule, in full
+- `skills/e2e-evidence-report.md` — turning a passing e2e run into a stakeholder-readable HTML
+  report (this file owns the denominator rule itself; that skill points back here for it)
 - `skills/process-coherence-pass.md` — the cross-module seam, run per cluster not per module
 - `skills/improvement-register.md` — where every P1/P2 from CONFIRM gets appended, and the trend read across modules

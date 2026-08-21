@@ -111,7 +111,7 @@ row means "the walk did not get there", never "not applicable".
 
 | `do` | Fields read | Notes |
 |---|---|---|
-| `nav` | `group`, `item` | Anchor `title` attributes, clicked as a user would. Nav groups **toggle** — clicking an expanded one collapses it, so journeys must start from a reset state. |
+| `nav` | `group`, `item` | Anchor `title` attributes, clicked as a user would. Nav groups toggle — journeys must start from a reset state. **See `testing-shape.md` §4a rule 4 for the canonical statement of this trap.** |
 | `click` | `widget` | Waits for attached, scrolls into view, requires visible, then `click({force:true})`. Not visible → throws → step `FAIL`. |
 | `fill` | `widget`, `value` | Targets `input`/`textarea` inside the widget. `value` is substituted. |
 | `combobox` | `widget`, `match` | The heavy one — see below. |
@@ -144,10 +144,8 @@ the screenshot looked perfect.
 the format: `checks: [".mx-name-btnGo"]` becomes `.mx-name-.mx-name-btnGo`, which reports as a
 missing button rather than as a broken contract.
 
-The success screenshot is taken **after the actions and the landing guard, before the text, trace and
-data rungs** — so the image is the page state those rungs measured. A shot taken later shows the app
-after any navigation the rungs provoked and quietly stops being evidence for the checks printed
-beside it.
+The success screenshot's timing follows `testing-shape.md` §4a rule 7 (canonical): after actions
+and landing guard, before text/trace/data.
 
 ### `spans` — rung 3
 

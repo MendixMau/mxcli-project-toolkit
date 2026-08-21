@@ -90,15 +90,8 @@ const BASE_URL  = process.env.APP_URL  || 'http://localhost:8080';
 const TEST_USER = process.env.TEST_USER || 'demo.user';
 const TEST_PASS = process.env.TEST_PASS || 'Demo12345';
 
-// PostgreSQL config — the FALLBACK data-assertion path (Windows/Docker/managed Postgres only).
-// Try the M2EE admin API first; see learned-db-assertions.md. On macOS these defaults cannot
-// resolve, and silently losing this rung turns the suite UI-only without changing its verdict.
-const PSQL = process.env.PSQL_PATH || 'C:\\Program Files\\PostgreSQL\\18\\bin\\psql.exe';
-const PG_DB   = process.env.PG_DB   || 'PGadmin';
-const PG_USER = process.env.PG_USER || 'postgres';
-const PG_PASS = process.env.PG_PASS || 'Mendix1!';
-const PG_HOST = process.env.PG_HOST || 'localhost';
-const PG_PORT = process.env.PG_PORT || '5432';
+// DB assertion config: see `learned-db-assertions.md` for the full instrument (M2EE admin API
+// first, psql fallback, and why). Do not hand-roll dbQuery() from this file alone.
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 async function login(page) {
@@ -131,24 +124,11 @@ async function navigateToOverview(page) {
 }
 
 // ── DB assertions ─────────────────────────────────────────────────────────────
-// Mendix table naming: Module.EntityName → module$entityname (all lowercase)
-// FK column: module$entity_otherentity (truncated at 63 chars by PostgreSQL)
-function dbQuery(sql) {
-  const wrapped = `SELECT json_agg(t) FROM (${sql}) t`;
-  try {
-    const env = { ...process.env, PGPASSWORD: PG_PASS };
-    const raw = execSync(
-      `"${PSQL}" -h ${PG_HOST} -p ${PG_PORT} -U ${PG_USER} -d ${PG_DB} -t -c "${wrapped.replace(/"/g, '\\"')}"`,
-      { env, encoding: 'utf8' }
-    );
-    const clean = raw.replace(/\s+\+\r?\n\s*/g, '').trim();
-    if (!clean || clean === 'null') return null;
-    return JSON.parse(clean);
-  } catch (e) {
-    console.error('[dbQuery] error:', e.message);
-    return null;
-  }
-}
+// dbQuery() is NOT defined here. Build it per `learned-db-assertions.md`: M2EE admin API
+// first (mxcli oql --direct, adminPort = runtime port + 10, token from the project's own
+// m2ee config), psql only as a fallback and only where PostgreSQL is actually reachable.
+// A harness with neither instrument wired has no data rung at all — say so in the run report,
+// don't silently ship UI-only and call it "e2e".
 
 // ── Reporting ─────────────────────────────────────────────────────────────────
 function makeReporter(suiteName) {
@@ -170,7 +150,7 @@ function makeReporter(suiteName) {
   return { pass, fail, summary };
 }
 
-module.exports = { chromium, login, dismissModal, navigateToOverview, dbQuery, makeReporter, BASE_URL };
+module.exports = { chromium, login, dismissModal, navigateToOverview, /* dbQuery, see learned-db-assertions.md */ makeReporter, BASE_URL };
 ```
 
 ---
@@ -304,6 +284,4 @@ Write a gap report in `tests/results/YYYY-MM-DD-gap-report.md`:
 - **3.5s wait after login** — less and the modal check may race; more is safe
 - **Never use `/p/` deep-links after login** — Mendix invalidates the context; navigate via clicks
 - **Session limit** — one browser session at a time; Studio Pro counts as a session too
-- **M2EE token** — Mendix 11.10+ randomises it on every startup; use PostgreSQL direct (`dbQuery()`) not OQL for DB assertions
-- **Table naming** — `Module.EntityName` → `module$entityname` all lowercase in PostgreSQL
-- **FK truncation** — PostgreSQL truncates FK column names at 63 chars; verify with `information_schema.columns`
+- **DB assertions** — instrument choice, token handling, table/FK naming: see `learned-db-assertions.md` (M2EE admin API first, psql fallback only where PostgreSQL is actually reachable — do not assume the M2EE token is always randomised, read the project's own config)

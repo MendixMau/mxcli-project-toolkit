@@ -63,67 +63,18 @@ Per journey, per step:
 Close each journey with one line: "this journey's assertions satisfy testing-shape.md §4 rows:
 [which ones]" — makes the report's own rigor auditable, not just asserted.
 
-## The denominator rule — a green result without its scope is a lie
+## The denominator rule — see `module-review.md`
 
-**Real incident, 2026-08-19.** Two of six defined journeys were re-run and came back green,
-31/31 checks. That was reported as *"the app is demo-ready."* A manual click-through minutes
-before the meeting found a broken data grid and a completely unstyled page. Neither was in
-either journey. Cost: a live demo, and the credibility of every green run before it.
+**This section now lives in `skills/module-review.md`'s Stage 5** (the same 2026-08-19 incident,
+the same three-claims table, the same banned-phrase rule, "name what the harness structurally
+cannot see," and the two follow-on rules about demo click-throughs and root-causing before
+calling a bug closed). Read it there — this file no longer carries its own copy, to avoid the
+two-files-one-concept drift that caused the `ui-review-loop.md` merge in the first place.
 
-Nothing in the harness was broken. **Every check that ran, ran correctly.** The failure was
-entirely in the sentence used to report it. That is why this is a skill and not a feature.
-
-### Three separate claims that must never be merged
-
-| Claim | What proves it |
-|---|---|
-| *These N flows are provably correct* | the journeys that actually executed this run |
-| *The app is complete* | coverage — which surfaces no journey touches at all |
-| *The app is presentable* | a human looking at it |
-
-A green e2e run proves the **first only**. It is necessary for the other two and evidence for
-neither. "Demo-ready" is the third claim, and no harness in this toolkit can produce it.
-
-### Every report states its denominator, in the headline
-
-Not in a footnote, not in a "not re-verified" line further down that the headline overrides.
-
-```
-e2e · 2 of 6 journeys executed · 31/31 checks green
-   NOT RUN this session: Packaging Numbers, Product Numbers, Sketch Numbers, Throughput
-   Out of scope by design: visual/styling correctness on every page, including covered ones
-```
-
-**"All green" is a banned phrase** when the denominator is not the whole suite. A journey that
-did not run is **absent**, and absent is never green — the same rule that governs a rung inside
-a journey governs a journey inside a suite. It is the identical failure one level up, and it is
-the level nobody checks.
-
-### Name what the harness structurally cannot see
-
-Say this every time, verbatim enough that it stops reading as boilerplate and starts reading as
-a boundary:
-
-- **Any page off the literal click path.** A journey advancing 20 stations through a grid's
-  inline buttons never opens a single station's detail page. That page can have had zero
-  coverage since it was built and no report will ever mention it, because reports enumerate
-  what ran, not what exists.
-- **Visual and styling regressions**, even on a covered page. Text-presence and DB-state
-  assertions cannot tell styled-but-empty from unstyled-but-populated: *both pass* whenever the
-  underlying write is correct.
-- **Cell-level rendering** on a grid the journey does not otherwise assert against.
-
-### The two follow-on rules
-
-**Before any live demo, manually click through exactly what will be shown.** Not a sample of
-it — the actual path, in the actual order. E2e green is necessary, not sufficient, and the gap
-is widest precisely on the surfaces built last, which are the ones being demoed.
-
-**A fix found faster in Studio Pro than the root cause was found in the harness is not a closed
-bug.** In the incident above, the grid was fixed directly in SP while the mxcli-side
-investigation had not yet reached a cause — the access rules that looked wrong were complete,
-so the real cause was somewhere else and was *never confirmed*. That is an open defect wearing
-a fixed screen. Record it as unexplained, or it will return.
+The one thing worth restating here: this skill's report is downstream of that rule, not a
+replacement for it. State the denominator in this report's headline exactly as `module-review.md`
+specifies, and do not let this file's prettier packaging soften "N of M journeys executed" into
+something that reads like completeness.
 
 ## Reuse rule
 

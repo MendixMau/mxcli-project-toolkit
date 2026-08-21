@@ -56,17 +56,11 @@ central discipline is that a green is worthless until the same check has been *w
 
 ## Verdict discipline (the one rule to keep if you keep nothing else)
 
-**PASS / FAIL / INVALID are never collapsed.**
-
-- `PASS` — measured, correct.
-- `FAIL` — measured, wrong. The feature is broken.
-- `INVALID` — **the instrument did not run.** Not green. *Absent.*
-
-"The test could not run" and "the feature is broken" send you to different people. Blending them is
-how a week gets spent debugging a page that was never reached. In the report dialect these become
-`pass` / `fail` / `fault`, and **`fault` is never amber** — amber means "ran, degraded".
-
-Corollary, applied everywhere: **an empty result set is never a pass.** Guard non-emptiness first.
+**PASS / FAIL / INVALID are never collapsed** — full statement, and why, is canonical in
+`testing-shape.md` §4 ("Verdict discipline"). In one line: `PASS` measured-correct, `FAIL`
+measured-wrong, `INVALID` **the instrument did not run** — absent, never green. Everything below
+in this spec assumes that discipline; it is what makes a rung's mutant meaningful rather than
+decorative.
 
 ---
 
@@ -169,10 +163,8 @@ caught it.
 
 Therefore:
 - Screenshots are for **locating and understanding** a failure, never for establishing one.
-- Take the shot **after the actions and landing guard, before the text/trace/data rungs** — so the
-  image is the page state those rungs measured. A shot taken at the end of the step shows the app
-  after any navigation the rungs provoked and quietly stops being evidence for the checks printed
-  beside it.
+- **Timing: `testing-shape.md` §4a rule 7 is canonical** — shot after actions and landing guard,
+  before text/trace/data. A shot taken later is not evidence for the checks printed beside it.
 - A step with **zero checks is `fault`**, however good its screenshot. An empty check list passing
   is `[].every()` in another costume.
 - Precedence for a step's status: **fault > fail > pass**. "Could not measure" outranks "everything
@@ -220,7 +212,7 @@ across runs, so a diff in the report means a diff in the project.
 |---|---|---|
 | Downshift combobox | committed a valid *neighbouring* row | Step the highlight and **read `aria-activedescendant` each time**; commit only when it matches. Never compute the index — Downshift's highlight index is a different coordinate system from the DOM array index |
 | `CSS.escape` in Node | `CSS is not defined` | `page.locator('[id="..."]')`, not `#id` |
-| Nav groups | child vanishes on click | Groups **toggle** — clicking an expanded one collapses it. Never force-click nav |
+| Nav groups | child vanishes on click | **See `testing-shape.md` §4a rule 4** — groups toggle, never force-click nav |
 | Two windows, one account | menu entries disappear mid-run, read as "role restriction" | One account per window; a menu that *loses* entries mid-run is never a role restriction |
 | `DEMO_SPEED` raised | four real-looking failures | It divides hand-tuned pauses too |
 | Seeds return nothing | whole journey INVALID | Usually a race: runner fired while the runtime was still warming. **INVALID, not FAIL** |

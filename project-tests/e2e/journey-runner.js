@@ -16,7 +16,7 @@
 //   1. LANDING GUARD  — did we actually arrive? A nav click that silently didn't
 //      navigate leaves every later assertion measuring the PREVIOUS page and
 //      screenshotting it under the new page's title. Assertions live only inside
-//      the else branch. (e2e-ui-test-honesty.md)
+//      the else branch. (testing-shape.md §4a)
 //   2. ORDERED SPANS  — otel.assertSequence, not assertFired. Existence checks
 //      cannot tell a skipped step from a reordered one.
 //   3. DATA EFFECTS   — the row exists AND every association that must be set IS set.

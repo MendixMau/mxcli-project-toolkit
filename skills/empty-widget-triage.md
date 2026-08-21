@@ -7,7 +7,7 @@ Written 2026-08-19 after a UI-review-loop pass and an e2e journey run flagged th
 ("a grid renders blank cells") twice, from two different angles, and each time reached for a
 different single-cause explanation without checking the other two. See
 `security-is-not-a-later-script.md` (the entity-access half of this) and
-`e2e-ui-test-honesty.md` (the "assert on the database, not just the DOM" rule this generalizes).
+`testing-shape.md` §4a (the "assert on the database, not just the DOM" rule this generalizes).
 
 ## The mistake this prevents
 

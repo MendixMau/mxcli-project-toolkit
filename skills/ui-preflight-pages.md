@@ -85,7 +85,7 @@ whose component matches what you are building:
 | Buttons | `11-buttons.mdl` |
 | Form controls | `12-form-controls.mdl` |
 | Badges / chips | `13-badges-chips.mdl` |
-| AI copilot / sidebar | `19-ai-copilot.mdl` |
+| AI copilot / sidebar | `19-ai-copilot.mdl` — the gallery snippet is the *frame* only; for the working chat surface read `skills/mendix-agent-ui.md` |
 
 Read the **full file** and use it as the canonical MDL pattern to copy container nesting, widget
 naming conventions, and `class:` values from. If no gallery file matches, note this and fall back to

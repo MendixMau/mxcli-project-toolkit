@@ -92,7 +92,9 @@ detected") so a later reviewer sees it was checked, not missed.
 > "Found [M] agent-wiring signals (AI agent/LLM/copilot language) in [BRDs]. Is this a real,
 > scoped integration point?"
 > - A) Yes — document which module/microflow calls the agent, sync/async, timeout/fallback, and
->   produce an agent-wiring diagram (`architecture-blueprint.md` Step 3c)
+>   produce an agent-wiring diagram (`architecture-blueprint.md` Step 3c), and flag the module's
+>   build brief to read `skills/mendix-agents.md` first — an agent is runtime data, not a model
+>   document, so none of it is declarable in MDL and mxbuild stays green when it is wrong
 > - B) No — just terminology in a user story, not a real integration
 > - C) Not yet — flag as an open question, decide once the integration is scoped
 

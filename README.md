@@ -543,6 +543,13 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Generating a whole page tree in one script — the structure patterns that survive it | `skills/oneshot-page-structure-patterns.md` |
 | Building or auditing a collapsible sidebar nav — Atlas Core's collapsed state needs icons assigned per menu item or it silently clips label text | `skills/learned-sidebar-collapse-icons.md` |
 
+**Build · Agents — Mendix AI agents, tools, knowledge bases, chat UI**
+
+| Task | Skill to load |
+|---|---|
+| Building a Mendix AI agent — the agent is runtime data not a model document, so JSON import, tool microflows, knowledge base chunk loading and the runtime wiring all sit outside MDL, and mxbuild stays green when they are wrong | `skills/mendix-agents.md` |
+| Embedding a copilot chat panel — the frame is yours, ConversationalUI owns the conversation; wireframe to tokens to snippet to page placement | `skills/mendix-agent-ui.md` |
+
 **Build · Workflow**
 
 | Task | Skill to load |

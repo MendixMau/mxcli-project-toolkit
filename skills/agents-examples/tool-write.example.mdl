@@ -1,0 +1,102 @@
+/**
+ * TOOL_MoveItem — a WRITE tool. Different rules apply.
+ *
+ * ⛔ EXEC PATH: this microflow contains inline association-sets:
+ *      change $Placement (Inventory.ItemPlacement_Location = $TargetLoc, ...)
+ *      create Inventory.ItemPlacement (..., ItemPlacement_Item = $Item, ...)
+ *    These MUST be written over the MCP path with Studio Pro open:
+ *      mxcli --mcp http://localhost/mcp --mcp-dial localhost:7782 exec <this file>
+ *    The disk-write path corrupts inline association-sets.
+ *
+ * DISPLAY-ONLY PARAMETERS: $ItemName and $TargetLocName are never used by the
+ * DB logic. They exist so the chat UI can render a confirmation card without a
+ * second round-trip. Say so in the tool Description, and tell callers that do
+ * not need them to pass ''. Otherwise the model invents values for them.
+ *
+ * APPROVAL: set UserAccessApproval to UserConfirmationRequired on this tool in
+ * the agent JSON. HiddenForUser on a write tool means the model mutates data
+ * with no human in the loop.
+ *
+ * AUDIT: every branch writes a MovementLog. A write tool with no audit trail is
+ * indistinguishable from a hallucinated write when someone asks later.
+ *
+ * @param ItemCode       item to move
+ * @param TargetLocId    destination location code
+ * @param ItemName       display only — not used by DB logic
+ * @param TargetLocName  display only — not used by DB logic
+ */
+create or modify microflow AIAssistant.TOOL_MoveItem (
+  "ItemCode": String,
+  "TargetLocId": String,
+  "ItemName": String,
+  "TargetLocName": String
+)
+returns String
+folder 'Chat'
+begin
+  @annotation 'Params: ItemCode, TargetLocId (required for DB logic); ItemName, TargetLocName (display-only for the chat confirmation card).'
+
+  @position(180, 200)
+  @caption '$ItemCode or $TargetLocId empty'
+  if $ItemCode = empty or $ItemCode = '' or $TargetLocId = empty or $TargetLocId = '' then
+    @position(350, 300)
+    return 'Please provide both an item code and a destination location code.';
+  end if;
+
+  @position(430, 200)
+  retrieve $Item from Equipment.Item
+    where ItemCode = $ItemCode
+    limit 1;
+
+  @position(590, 200)
+  @caption '$Item = empty'
+  if $Item = empty then
+    @position(760, 300)
+    return 'Item "' + $ItemCode + '" was not found.';
+  end if;
+
+  @position(840, 200)
+  retrieve $TargetLoc from Location.Location
+    where LocId = $TargetLocId
+    limit 1;
+
+  @position(1000, 200)
+  @caption '$TargetLoc = empty'
+  if $TargetLoc = empty then
+    @position(1170, 300)
+    return 'Location "' + $TargetLocId + '" was not found.';
+  end if;
+
+  @position(1250, 200)
+  retrieve $Placement from Inventory.ItemPlacement
+    where Inventory.ItemPlacement_Item = $Item
+    limit 1;
+
+  @position(1410, 200)
+  @caption '$Placement != empty'
+  if $Placement != empty then
+    @position(1580, 200)
+    change $Placement (Inventory.ItemPlacement_Location = $TargetLoc, Status = Inventory.PlacementStatus.Moved, PlacedOn = [%CurrentDateTime%]);
+    @position(1760, 200)
+    commit $Placement with events refresh on error rollback;
+    @position(1940, 200)
+    $Log = create Inventory.MovementLog (EventType = Inventory.MovementEventType.Moved, OccurredOn = [%CurrentDateTime%], Quantity = 1, ItemCode = $Item/ItemCode, ModelName = $Item/ModelName, ToLocationId = $TargetLoc/LocId, ToLocationName = $TargetLoc/LocName, FromLocationId = '', FromLocationName = '');
+    @position(2120, 200)
+    commit $Log with events on error rollback;
+    @position(2300, 200)
+    return 'Moved ' + $Item/ItemCode + ' (' + $Item/ModelName + ') to ' + $TargetLoc/LocName + ' (' + $TargetLoc/LocId + ').';
+  else
+    @position(1410, 340)
+    @anchor(from: bottom, to: top)
+    $NewPlacement = create Inventory.ItemPlacement (Quantity = 1, Status = Inventory.PlacementStatus.Moved, PlacedOn = [%CurrentDateTime%], ItemPlacement_Item = $Item, ItemPlacement_Location = $TargetLoc);
+    @position(1590, 340)
+    commit $NewPlacement with events refresh on error rollback;
+    @position(1770, 340)
+    $Log2 = create Inventory.MovementLog (EventType = Inventory.MovementEventType.Moved, OccurredOn = [%CurrentDateTime%], Quantity = 1, ItemCode = $Item/ItemCode, ModelName = $Item/ModelName, ToLocationId = $TargetLoc/LocId, ToLocationName = $TargetLoc/LocName, FromLocationId = '', FromLocationName = '');
+    @position(1950, 340)
+    commit $Log2 with events on error rollback;
+    @position(2130, 340)
+    return 'Moved ' + $Item/ItemCode + ' (' + $Item/ModelName + ') to ' + $TargetLoc/LocName + ' (' + $TargetLoc/LocId + '). (new placement created)';
+  end if;
+end;
+/

@@ -1,0 +1,88 @@
+/**
+ * AIAssistant.Agent_Snippet — the copilot sidebar.
+ *
+ * You hand-build the frame; ConversationalUI owns the conversation. The split is
+ * the whole trick:
+ *
+ *   .copilot
+ *     .c-head    ← yours: badge, title, subtitle, spacer, minimise affordance
+ *     .c-body    ← yours: greeting, autofill CTA, starter chips
+ *       dataview → ConversationalUI.Snippet_ChatContext_ConversationalUI_Bubbles
+ *                  ← theirs: message list AND the input bar
+ *
+ * FOUR THINGS THAT COST TIME:
+ *
+ * 1. NO STATIC .c-foot. The ConvUI snippet renders its own input bar. Build one
+ *    from the wireframe and the page ships with two.
+ *
+ * 2. Class 'chat-dataview--display-contents' on the DataView. Without it the
+ *    DataView's own wrapper div breaks the flex chain and the bubbles do not
+ *    fill the body.
+ *
+ * 3. flex:1;min-height:0 on .c-body. min-height:0 is the non-obvious half —
+ *    without it the page scrolls instead of the sidebar.
+ *
+ * 4. Starter chips are placeholders here. Real conversation starters are injected
+ *    at runtime by the DS_ChatContext_Create_* datasource via
+ *    SuggestedUserPrompt_Create. Hardcoding them means they never change per page.
+ *
+ * KNOWN mxcli LIMIT: CE0115 blocks snippetcall parameter wiring. If your snippet
+ * needs a parameter, exec this with a placeholder container and patch the
+ * snippetcall in over MCP afterwards.
+ */
+create or modify snippet AIAssistant.Agent_Snippet {
+
+  container cop (Class: 'copilot') {
+
+    -- ── HEADER ──────────────────────────────────────────────
+    container copHead (Class: 'c-head') {
+
+      container copK (Class: 'k') {
+        dynamictext copKt (Content: 'A')
+      }
+
+      container copTitle (Class: 't') {
+        dynamictext copTitleMain (Content: 'Ops Copilot')
+        dynamictext copTitleSub  (Content: 'Warehouse assistant', Class: 't-sub')
+      }
+
+      container copSpacer (Class: 'spacer') {}
+
+      container copMin (Class: 'ico') {
+        dynamictext copMinT (Content: '–')
+      }
+    }
+
+    -- ── BODY ────────────────────────────────────────────────
+    -- flex:1 + min-height:0 keep the scroll inside the sidebar, not the page
+    container copBody (Class: 'c-body', Style: 'flex:1;min-height:0') {
+
+      -- Greeting bubble — shown while there are no messages yet
+      container copGreeting (Class: 'bubble ai') {
+        dynamictext copGreetT (Content: 'Hi 👋 what can I help you with?')
+      }
+
+      -- Autofill CTA
+      container copAuto (Class: 'autofill') {
+        dynamictext copAt (Content: '✦ Fill this in for me')
+      }
+
+      -- Placeholder starter chips — real ones come from SuggestedUserPrompt_Create
+      container copChips (Class: 'c-chips') {
+        container copCh1 (Class: 'chip') { dynamictext copCh1t (Content: 'Find similar items') }
+        container copCh2 (Class: 'chip') { dynamictext copCh2t (Content: 'Stock by category') }
+        container copCh3 (Class: 'chip') { dynamictext copCh3t (Content: 'Unused items') }
+      }
+
+      -- ConversationalUI owns the message list AND the input bar from here down
+      dataview dvChat (
+        DataSource: microflow AIAssistant.DS_ChatContext_Create,
+        Class: 'chat-dataview--display-contents'
+      ) {
+        -- Context: $currentObject (ConversationalUI.ChatContext)
+        snippetcall scBubbles (Snippet: ConversationalUI.Snippet_ChatContext_ConversationalUI_Bubbles)
+      }
+    }
+  }
+}
+/

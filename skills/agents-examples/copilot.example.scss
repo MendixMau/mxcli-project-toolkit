@@ -1,0 +1,130 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// .copilot — chat sidebar component
+//
+// Every value is a design-system token. No literal colours, no literal radii.
+// That is what lets the same markup sit in a page column, a modal, or a docked
+// sidebar and still look like the rest of the app.
+//
+// Pair with agent-snippet.example.mdl — the class names there are these.
+//
+// The three structural rules that actually matter:
+//   .copilot          flex column + overflow:hidden  → rounds the corners of
+//                     whatever ConversationalUI renders inside
+//   .c-body           flex:1 + min-height:0          → scroll lives HERE, not
+//                     on the page. min-height:0 is the half everyone forgets.
+//   .c-foot           only for static mockups. In a live app ConvUI renders the
+//                     input bar itself — see the snippet example.
+// ─────────────────────────────────────────────────────────────────────────────
+
+.copilot {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+// ── header ───────────────────────────────────────────────────────────────────
+.copilot .c-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--divider);
+}
+
+.copilot .c-head .k {              // square brand badge
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.copilot .c-head .t       { font-weight: var(--fw-semibold); font-size: var(--fs-body); }
+.copilot .c-head .t-sub,
+.copilot .c-head .t small { display: block; font-weight: var(--fw-regular); color: var(--text-muted); font-size: var(--fs-xs); }
+.copilot .c-head .spacer  { flex: 1; }
+
+// ── body ─────────────────────────────────────────────────────────────────────
+// flex:1 + min-height:0 are set inline on the snippet container too, because the
+// snippet may be dropped into a grid column that does not inherit them.
+.copilot .c-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: auto;
+}
+
+.copilot .c-intro { font-size: var(--fs-sm); color: var(--text-secondary); }
+
+.copilot .autofill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  background: var(--cta);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-semibold);
+  cursor: pointer;
+}
+
+.copilot .c-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chip:hover { background: var(--surface-inset); color: var(--text); border-color: var(--text-muted); }
+
+// ── bubbles ──────────────────────────────────────────────────────────────────
+// Only .ai is used by a live app — ConversationalUI renders user messages itself.
+// .me is here so static wireframes can show both sides of a conversation.
+.copilot .bubble        { font-size: var(--fs-sm); padding: 10px 12px; border-radius: var(--radius-md); max-width: 85%; line-height: 1.45; }
+.copilot .bubble.ai     { background: var(--surface-inset); color: var(--text); align-self: flex-start; border-bottom-left-radius: 4px; }
+.copilot .bubble.me,
+.copilot .bubble.user   { background: var(--accent); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+
+// ── footer — STATIC MOCKUPS ONLY ─────────────────────────────────────────────
+// In a live app ConversationalUI renders the input bar. Ship this too and the
+// page has two input bars.
+.copilot .c-foot { margin-top: auto; padding: 12px; border-top: 1px solid var(--divider); }
+
+.copilot .ask {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-inset);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  padding: 8px 12px;
+}
+.copilot .ask input { flex: 1; border: none; background: transparent; font: inherit; font-size: var(--fs-sm); color: var(--text); outline: none; }
+.copilot .ask .send { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; cursor: pointer; }
+
+// ── the DataView wrapper fix ─────────────────────────────────────────────────
+// A Mendix DataView emits its own div. Without this the flex chain breaks
+// between .c-body and the ConversationalUI bubbles and the list will not fill.
+.chat-dataview--display-contents,
+.chat-dataview--display-contents > .mx-dataview-content {
+  display: contents;
+}

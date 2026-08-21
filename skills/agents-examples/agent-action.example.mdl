@@ -1,0 +1,140 @@
+/**
+ * ACT_AI_AgentAction — the runtime action microflow the chat UI calls per message.
+ *
+ * WHY THIS EXISTS. AgentCommons ships
+ * ChatContext_ChatWithHistory_ActionMicroflow_AgentBuilder, and it looks like the
+ * one to wire up. It is not: it requires a PageHelper, an Agent Editor concept
+ * that does not exist at runtime outside the editor. Wire it to a running app and
+ * it fails. This microflow is the runtime replacement — same job, no PageHelper.
+ *
+ * SHAPE: retrieve agent by Title → PromptToUse_GetAndReplace (resolves the InUse
+ * version) → Request_CreateFromChatContext → Request_AddAgentCapabilities (wires
+ * every tool the agent version declares) → ChatCompletions_WithHistory.
+ *
+ * Every failure path logs a warning naming what to fix and returns false. A chat
+ * that silently does nothing is the hardest thing in this stack to debug.
+ */
+create or modify microflow AIAssistant."ACT_AI_AgentAction" (
+  $ChatContext: ConversationalUI.ChatContext
+)
+returns Boolean
+folder 'Chat'
+begin
+  @annotation 'Runtime replacement for the AgentBuilder action MF (which needs a PageHelper, unavailable at runtime). Retrieves the agent, builds PromptToUse from the InUse version, wires tools, calls ChatCompletions_WithHistory.'
+
+  retrieve $Agent from AgentCommons.Agent
+    where [Title = 'Ops Copilot']
+    limit 1;
+
+  if $Agent = empty then
+    log warning node 'AIAssistant' 'ACT_AI_AgentAction: no Agent with Title=Ops Copilot. Import or create the agent first.';
+    return false;
+  end if;
+
+  $PromptToUse = call java action AgentCommons."PromptToUse_GetAndReplace"(
+    Agent = $Agent,
+    ContextObject = empty
+  ) on error rollback;
+
+  if $PromptToUse = empty then
+    log warning node 'AIAssistant' 'ACT_AI_AgentAction: PromptToUse_GetAndReplace returned empty. The agent needs an InUse version configured.';
+    return false;
+  end if;
+
+  $Request = call microflow ConversationalUI.Request_CreateFromChatContext(
+    ChatContext = $ChatContext,
+    SystemPrompt = $PromptToUse/SystemPrompt,
+    MaxTokens = empty,
+    TopP = empty
+  ) on error rollback;
+
+  if $Request = empty then
+    return false;
+  end if;
+
+  @annotation 'Wires every tool declared on the InUse version. Without this the model has a prompt but no capabilities.'
+  call microflow AgentCommons.Request_AddAgentCapabilities(
+    Request = $Request,
+    PromptToUse = $PromptToUse
+  ) on error rollback;
+
+  retrieve $DeployedModel from GenAICommons.DeployedModel
+    where [IsActive = true and OutputModality = GenAICommons.ENUM_ModelModality.Text]
+    limit 1;
+
+  if $DeployedModel = empty then
+    log warning node 'AIAssistant' 'ACT_AI_AgentAction: no active Text DeployedModel. Configure a model in the GenAI provider settings.';
+    return false;
+  end if;
+
+  $Response = call microflow GenAICommons.ChatCompletions_WithHistory(
+    Request = $Request,
+    DeployedModel = $DeployedModel
+  ) on error rollback;
+
+  if $Response/GenAICommons.Response_Message != empty then
+    call microflow ConversationalUI.ChatContext_UpdateAssistantResponse(
+      ChatContext = $ChatContext,
+      MessageStatus = ConversationalUI.ENUM_MessageStatus.Success,
+      Response = $Response
+    ) on error rollback;
+    return true;
+  else
+    return false;
+  end if;
+end;
+/
+
+/**
+ * VARIANT — plain RAG, no agent document.
+ *
+ * If all you need is "chat over a knowledge base" with no tools, skip the Agent
+ * entirely: ChatContext_Preprocessing → Request_AddKnowledgeBaseRetrieval per KB
+ * → ChatCompletions_WithHistory. Fewer moving parts, no agent to keep in sync.
+ *
+ * Retrieve DeployedKnowledgeBase, NOT ConsumedKnowledgeBase — Deployed is the
+ * retrieval-side entity. The names are close enough to cost an afternoon.
+ */
+create or modify microflow AIAssistant."ACT_AI_ChatAction" (
+  $ChatContext: ConversationalUI.ChatContext
+)
+returns Boolean
+folder 'Chat'
+begin
+  @annotation 'Standard ConversationalUI pre-processing: sets topic, builds a GenAI Request from chat history + active provider config.'
+  $Request = call microflow ConversationalUI.ChatContext_Preprocessing(ChatContext = $ChatContext) on error rollback;
+
+  if $Request != empty then
+    @annotation 'Register the KB as a named retrieval tool so the model invokes RAG only when relevant. Name/Description are what the model sees; DisplayTitle is what the user sees in the trace.'
+    retrieve $ItemKB from GenAICommons.DeployedKnowledgeBase where [Name = 'ItemCatalog'] limit 1;
+    if $ItemKB != empty then
+      call microflow GenAICommons.Request_AddKnowledgeBaseRetrieval(
+        Request = $Request,
+        MaxNumberOfResults = empty,
+        MinimumSimilarity = empty,
+        MetadataCollection = empty,
+        Name = 'ItemCatalog',
+        Description = 'Item catalogue: equipment records, barcodes, attributes and classification data.',
+        DeployedKnowledgeBase = $ItemKB,
+        CollectionIdentifier = empty,
+        DisplayTitle = 'Item Catalog',
+        IsVisible = true
+      ) on error rollback;
+    end if;
+
+    $Response = call microflow GenAICommons.ChatCompletions_WithHistory(
+      Request = $Request,
+      DeployedModel = $ChatContext/ConversationalUI.ChatContext_ProviderConfig_Active/ConversationalUI.ProviderConfig/ConversationalUI.ProviderConfig_DeployedModel/GenAICommons.DeployedModel
+    ) on error rollback;
+
+    if $Response/GenAICommons.Response_Message != empty then
+      call microflow ConversationalUI.ChatContext_UpdateAssistantResponse(ChatContext = $ChatContext, MessageStatus = ConversationalUI.ENUM_MessageStatus.Success, Response = $Response) on error rollback;
+      return true;
+    else
+      return false;
+    end if;
+  else
+    return false;
+  end if;
+end;
+/

@@ -1,0 +1,97 @@
+/**
+ * Read-only AI tool microflows — the house shape.
+ *
+ * Every tool in this file follows the same seven rules. They are not stylistic;
+ * each one exists because the LLM only ever sees the tool's Description string
+ * and the String this microflow returns.
+ *
+ *   1. Scalar params only        — an LLM tool call cannot populate an object or
+ *                                  an Enumeration. String in, String out.
+ *   2. folder 'Chat'             — keeps tools out of the business-logic folders.
+ *   3. Guard every empty param   — return a human sentence, never a blank string.
+ *   4. limit 10                  — an unbounded list blows the context window.
+ *   5. "No results" is a sentence, not empty. The model will invent results
+ *      to fill a void; it will faithfully relay "no matches for X".
+ *   6. Pipe-delimited lines      — cheap to tokenise, unambiguous to parse.
+ *   7. @annotation restates the contract, so `DESCRIBE MICROFLOW` is readable.
+ */
+
+create or modify microflow AIAssistant.TOOL_SearchLocations (
+  $SearchText: String
+)
+returns String
+folder 'Chat'
+begin
+  @annotation 'GenAI tool: searches Locations by SearchText across LocId, LocName, Address. Returns formatted list for LLM response.'
+
+  if $SearchText = empty or $SearchText = '' then
+    return 'Please provide a search term.';
+  end if;
+
+  retrieve $Locs from Location.Location
+    where [contains(LocId, $SearchText) or contains(LocName, $SearchText) or contains(Address, $SearchText)]
+    limit 10;
+
+  if $Locs = empty then
+    return 'No results for: "' + $SearchText + '"';
+  end if;
+
+  declare $Result string = '';
+  declare $ActiveStr string = '';
+  loop $Loc in $Locs
+  begin
+    set $ActiveStr = if $Loc/IsActive then 'true' else 'false';
+    set $Result = $Result + $Loc/LocId + ' | ' + $Loc/LocName + ' | ' + $Loc/Address + ' (' + $ActiveStr + ')\n';
+  end loop;
+
+  return $Result;
+end;
+/
+
+/**
+ * TOOL_LookupItemLocation — resolves an Item's current placement.
+ *
+ * Note the three separate "not found" returns. Each names which lookup failed.
+ * A single generic failure string makes the model guess at the cause and say
+ * something wrong to the user.
+ */
+create or modify microflow AIAssistant.TOOL_LookupItemLocation (
+  $ItemCode: String
+)
+returns String
+folder 'Chat'
+begin
+  @annotation 'GenAI tool: resolves current location of an Item via ItemPlacement. Cross-module XPath in a microflow is fine — the page-widget restriction does not apply here.'
+
+  if $ItemCode = empty or $ItemCode = '' then
+    return 'Please provide an item code.';
+  end if;
+
+  retrieve $Item from Equipment.Item
+    where [ItemCode = $ItemCode]
+    limit 1;
+
+  if $Item = empty then
+    return 'Item "' + $ItemCode + '" was not found.';
+  end if;
+
+  retrieve $Placement from Inventory.ItemPlacement
+    where [Inventory.ItemPlacement_Item = $Item]
+    sort by Inventory.ItemPlacement.PlacedOn desc
+    limit 1;
+
+  if $Placement = empty then
+    return $Item/ItemCode + ' (' + $Item/ModelName + ') has not been placed yet.';
+  end if;
+
+  retrieve $Loc from Location.Location
+    where [Inventory.ItemPlacement_Location = $Placement]
+    limit 1;
+
+  if $Loc = empty then
+    return $Item/ItemCode + ' (' + $Item/ModelName + ') has a placement record but no resolvable location.';
+  end if;
+
+  return $Item/ItemCode + ' | ' + $Item/ModelName + ' is at ' + $Loc/LocName + ' (' + $Loc/LocId + '). Status: ' + toString($Placement/Status) + ', moved: ' + toString($Placement/PlacedOn);
+end;
+/

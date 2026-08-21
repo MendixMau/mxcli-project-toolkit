@@ -49,6 +49,7 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 | `skills/brd-to-build-plan.md` | Turning BRDs plus architecture into a numbered, dependency-ordered build plan |
 | `skills/coverage-ledger.md` | Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible |
 | `bin/coverage-check.sh` | Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered |
+| `skills/mendix-agents.md` | Building a Mendix AI agent — the agent is runtime data not a model document, so JSON import, tool microflows, knowledge base chunk loading and the runtime wiring all sit outside MDL, and mxbuild stays green when they are wrong |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
 | `project-bin/build-plan-status.sh` | After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views |

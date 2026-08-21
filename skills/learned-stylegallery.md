@@ -124,7 +124,7 @@ Number files to express the required exec order:
 | `15-data-grid.mdl` | Data grid snippet | |
 | `16-process-stepper.mdl` | Process stepper snippet | |
 | `17-dialog-toast.mdl` | Dialog / toast snippet | |
-| `19-ai-copilot.mdl` | AI copilot / chat snippet (if applicable) | |
+| `19-ai-copilot.mdl` | AI copilot / chat snippet (if applicable) | Frame only — `skills/mendix-agent-ui.md` for the live surface |
 | `90-gallery-home.mdl` | Home page assembling all snippets via `snippetcall` | **Last** — snippet references must exist |
 
 **Hard constraint:** exec `90-gallery-home.mdl` last. Its `snippetcall` references depend on

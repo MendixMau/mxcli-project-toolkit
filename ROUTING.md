@@ -135,6 +135,13 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Generating a whole page tree in one script — the structure patterns that survive it | `skills/oneshot-page-structure-patterns.md` | mdl | 5 | ondemand |
 | Building or auditing a collapsible sidebar nav — Atlas Core's collapsed state needs icons assigned per menu item or it silently clips label text | `skills/learned-sidebar-collapse-icons.md` | mdl | 5 | ondemand |
 
+#### Build · Agents — Mendix AI agents, tools, knowledge bases, chat UI
+
+| Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
+|---|---|---|---|---|
+| Building a Mendix AI agent — the agent is runtime data not a model document, so JSON import, tool microflows, knowledge base chunk loading and the runtime wiring all sit outside MDL, and mxbuild stays green when they are wrong | `skills/mendix-agents.md` | mdl,architect | 5 | ondemand |
+| Embedding a copilot chat panel — the frame is yours, ConversationalUI owns the conversation; wireframe to tokens to snippet to page placement | `skills/mendix-agent-ui.md` | mdl | 5 | ondemand |
+
 #### Build · Workflow
 
 | Always relevant for | Load this | Agent(s) | Stage(s) | Tier |

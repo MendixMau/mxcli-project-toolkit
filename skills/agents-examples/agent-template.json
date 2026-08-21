@@ -1,0 +1,36 @@
+{
+  "_comment": "Scrubbed skeleton. Copy, replace every REPLACE ME, regenerate all UUIDs. Version_InUse.UUID MUST match one of Versions[].UUID or nothing is active after import.",
+  "Title": "REPLACE ME — agent name",
+  "Description": "REPLACE ME — one line on what this agent does and for whom.",
+  "UsageType": "Conversational",
+  "UUID": "00000000-0000-0000-0000-000000000000",
+  "Versions": [
+    {
+      "Title": "v1",
+      "SystemPrompt": "REPLACE ME.\n\nState the domain and vocabulary. List valid enum values verbatim so the model passes them through unchanged. State explicitly whether the agent may write, and if not, that it must never claim to have changed anything.",
+      "VersionNumber": 1,
+      "UUID": "00000000-0000-0000-0000-000000000001",
+      "VersionChangedDate": "2026-01-01T00:00:00.000Z",
+      "ToolChoice": "auto",
+      "Tools": [
+        {
+          "Name": "ToolName",
+          "Description": "What it does and what each parameter accepts. The model only sees this string — it is the tool's entire interface.",
+          "Microflow": "Module.TOOL_Something",
+          "UserAccessApproval": "HiddenForUser",
+          "IsEnabled": true,
+          "UUID": "00000000-0000-0000-0000-000000000002"
+        }
+      ],
+      "MCPs": [],
+      "SingleMCPTools": [],
+      "Temperature": 0.2,
+      "KnowledgeBases": []
+    }
+  ],
+  "Variables": [],
+  "Version_InUse": {
+    "UUID": "00000000-0000-0000-0000-000000000001"
+  },
+  "TestCases": []
+}

@@ -1,0 +1,101 @@
+/**
+ * Knowledge base loader — one Item per chunk, with metadata for filterable retrieval.
+ *
+ * THREE FAILURES THIS SHAPE EXISTS TO AVOID. All three were silent: the admin
+ * button reported success and the knowledge base stayed empty or partial.
+ *
+ * 1. ChunkCollection_AddChunk creates a plain GenAICommons.Chunk. The retrieval
+ *    path only accepts GenAICommons.KnowledgeBaseChunk (a specialization).
+ *    ChunkCollection_GetKnowledgeBaseChunkList silently filters plain Chunks out,
+ *    and both Embed_Insert and Embed_Replace depend on it. Net effect: nothing
+ *    ever reached the KB. USE ChunkCollection_AddKnowledgeBaseChunk.
+ *
+ * 2. Embed_Replace requires an MxObjectID on every chunk to dedupe by object.
+ *    Plain Chunks have none, so Replace validation fails silently. Once you are
+ *    on KnowledgeBaseChunk you get MxObjectID and Replace becomes the right call
+ *    — it makes a re-run idempotent instead of duplicating the whole catalogue.
+ *
+ * 3. The KB API rejects chunk metadata whose value is an empty string
+ *    (400: "must not be empty"). Optional String attributes are legitimately
+ *    empty on some records, and one empty value fails that whole chunk. GUARD
+ *    EVERY metadata add, exactly as you already guard the chunk text.
+ *
+ * Empty-field guards on the text itself are about embedding quality, not errors:
+ * ' | Notes: ' with nothing after it is pure noise in the vector.
+ */
+create or modify microflow AIAssistant.ACT_AI_LoadItemKnowledgeBase ()
+returns nothing
+folder 'KnowledgeBase'
+begin
+  @annotation 'Batch-loads all Items into the ItemCatalog KB as KnowledgeBaseChunk objects (not plain Chunk), each with Category/IsActive metadata for filterable retrieval.'
+
+  retrieve $ItemList from Equipment.Item;
+
+  if $ItemList = empty then
+    log warning node 'AI_LoadItemKB' 'No Item records found - nothing loaded.';
+    return;
+  end if;
+
+  $ChunkCollection = call microflow GenAICommons.ChunkCollection_Create() on error rollback;
+
+  loop $Item in $ItemList
+  begin
+    @annotation 'Build chunk text — only include optional fields when non-empty to avoid noise in embeddings.'
+    declare $versionPart string = if trim($Item/Version) != '' then ' | Version: ' + $Item/Version else '';
+    declare $notesPart   string = if trim($Item/Notes)   != '' then ' | Notes: '   + $Item/Notes   else '';
+
+    declare $ChunkText string =
+      'Item code: ' + $Item/ItemCode +
+      ' | Model: '   + $Item/ModelName +
+      ' | Name: '    + $Item/FullName +
+      ' | Category: '+ toString($Item/Category) +
+      ' | Active: '  + toString($Item/IsActive) +
+      $versionPart +
+      $notesPart;
+
+    @annotation 'Metadata: only add a key when its value is non-empty — the KB API 400s on an empty metadata value and fails the whole chunk.'
+    $Metadata = call microflow GenAICommons.MetadataCollection_Create() on error rollback;
+
+    call microflow GenAICommons.MetadataCollection_AddMetadata(MetadataCollection = $Metadata, Key = 'category', Value = toString($Item/Category)) on error rollback;
+
+    if trim($Item/Version) != '' then
+      call microflow GenAICommons.MetadataCollection_AddMetadata(MetadataCollection = $Metadata, Key = 'version', Value = $Item/Version) on error rollback;
+    end if;
+
+    @annotation 'AddKnowledgeBaseChunk (not AddChunk) — plain Chunks are filtered out of the retrieval path.'
+    call java action GenAICommons.ChunkCollection_AddKnowledgeBaseChunk(
+      ChunkCollection = $ChunkCollection,
+      InputText = $ChunkText,
+      MxObject = $Item,
+      MetadataCollection = $Metadata
+    ) on error rollback;
+  end loop;
+
+  @annotation 'The KB resource must be pre-configured on the MxGenAIConnector admin page (Portal key import).'
+  retrieve $KBResource from MxGenAIConnector.MxCloudKnowledgeBaseResource limit 1;
+
+  if $KBResource = empty then
+    log error node 'AI_LoadItemKB' 'No MxCloudKnowledgeBaseResource found. Configure it on the MxGenAIConnector admin page first.';
+    return;
+  end if;
+
+  @annotation 'Collection_GetCreate: retrieves ItemCatalog if it exists, creates otherwise. No whitespace in CollectionName.'
+  $DeployedKB = call microflow MxGenAIConnector.Collection_GetCreate(MxCloudKnowledgeBaseResource = $KBResource, CollectionName = 'ItemCatalog') on error rollback;
+
+  if $DeployedKB = empty then
+    log error node 'AI_LoadItemKB' 'Could not get or create the ItemCatalog collection.';
+    return;
+  end if;
+
+  @annotation 'Embed_Replace is safe now that chunks carry MxObjectID — makes a re-run idempotent instead of duplicating the catalogue.'
+  $EmbedResult = call microflow MxGenAIConnector.ChunkCollection_Embed_Replace(DeployedKnowledgeBase = $DeployedKB, ChunkCollection = $ChunkCollection) on error rollback;
+
+  if $EmbedResult then
+    log info node 'AI_LoadItemKB' 'ItemCatalog loaded successfully.';
+  else
+    log error node 'AI_LoadItemKB' 'Embed_Replace returned false — check the MxGenAIConnector logs.';
+  end if;
+
+  return;
+end;
+/

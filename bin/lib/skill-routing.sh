@@ -42,11 +42,11 @@ _routing_has() {
 # doing → read the source → what to build → how it is shaped → how it looks → build it → does
 # it work → it is broken), NOT the alphabet. Alphabetical would put `verify` before `build`.
 #
-# Empty groups are listed on purpose and render as nothing. build/workflow, build/integration
-# and build/security are declared and empty: that is the finding, not an oversight.
+# Empty groups are listed on purpose and render as nothing. build/security is declared and
+# empty: that is the finding, not an oversight.
 _routing_group_order() {
   printf '%s\n' spine source requirements architecture design \
-                build build/mdl build/pages build/workflow build/integration build/security \
+                build build/mdl build/pages build/agents build/workflow build/integration build/security \
                 verify diagnose reference
 }
 
@@ -61,6 +61,7 @@ _routing_group_label() {
     build)             echo "Build — the loop itself" ;;
     build/mdl)         echo "Build · MDL — the language and tool reference" ;;
     build/pages)       echo "Build · Pages — page-building patterns" ;;
+    build/agents)      echo "Build · Agents — Mendix AI agents, tools, knowledge bases, chat UI" ;;
     build/workflow)    echo "Build · Workflow" ;;
     build/integration) echo "Build · Integration" ;;
     build/security)    echo "Build · Security" ;;

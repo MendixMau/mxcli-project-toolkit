@@ -55,6 +55,8 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/build/mdl/oneshot-mdl-method.md` | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check |
 | `skills/learned-page-patterns.md` | Building and auditing Mendix pages — widget patterns, datasource shapes |
 | `skills/oneshot-page-structure-patterns.md` | Generating a whole page tree in one script — the structure patterns that survive it |
+| `skills/mendix-agents.md` | Building a Mendix AI agent — the agent is runtime data not a model document, so JSON import, tool microflows, knowledge base chunk loading and the runtime wiring all sit outside MDL, and mxbuild stays green when they are wrong |
+| `skills/mendix-agent-ui.md` | Embedding a copilot chat panel — the frame is yours, ConversationalUI owns the conversation; wireframe to tokens to snippet to page placement |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
 | `project-bin/coherence-cadence.sh` | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory |

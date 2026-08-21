@@ -1,0 +1,51 @@
+{
+  "Title": "Catalog Copilot",
+  "Description": "Read-only assistant for Routing Management. Answers questions about routings via the live Core API.",
+  "UsageType": "Conversational",
+  "UUID": "11111111-1111-4111-8111-111111111111",
+  "Versions": [
+    {
+      "Title": "v1",
+      "SystemPrompt": "You are the Catalog Copilot for the Routing Management module.\n\nAnswer questions about routings by calling your tools. Always call a tool rather than guessing — you have no routing knowledge of your own.\n\nDomain vocabulary, pass these values exactly as written:\n- Lifecycle states: Draft, Active, Released, Retired, Superseded\n- Routing types: Standard, Rework, Deviation, Template\nAn empty value means 'no filter'.\n\nCore is the system of record. You are STRICTLY READ-ONLY and have no tools that can change anything. Never claim to have created, changed, released or deleted a routing. If asked to change something, explain that changes are made in Core and offer to look up current state.\n\nBe concise. When listing routings, give the routing code and lifecycle state. If a tool returns nothing, say so plainly rather than inventing plausible routings.",
+      "VersionNumber": 1,
+      "UUID": "22222222-2222-4222-8222-222222222222",
+      "VersionChangedDate": "2026-01-01T00:00:00.000Z",
+      "ToolChoice": "auto",
+      "Tools": [
+        {
+          "Name": "SearchRoutes",
+          "Description": "Search routings. Optional filters: RoutingCode (partial match), RoutingType (Standard/Rework/Deviation/Template), LifecycleState (Draft/Active/Released/Retired/Superseded). Leave a filter blank to ignore it.",
+          "Microflow": "RoutingManagement.TOOL_Route_Search",
+          "UserAccessApproval": "HiddenForUser",
+          "IsEnabled": true,
+          "UUID": "33333333-3333-4333-8333-333333333331"
+        },
+        {
+          "Name": "GetRouteDetail",
+          "Description": "Get the full field set for one routing by its exact routing code, e.g. RT-PCBA-001.",
+          "Microflow": "RoutingManagement.TOOL_Route_GetDetail",
+          "UserAccessApproval": "HiddenForUser",
+          "IsEnabled": true,
+          "UUID": "33333333-3333-4333-8333-333333333332"
+        },
+        {
+          "Name": "CountRoutesByState",
+          "Description": "Count routings in a given lifecycle state (Draft/Active/Released/Retired/Superseded).",
+          "Microflow": "RoutingManagement.TOOL_Route_CountByState",
+          "UserAccessApproval": "HiddenForUser",
+          "IsEnabled": true,
+          "UUID": "33333333-3333-4333-8333-333333333333"
+        }
+      ],
+      "MCPs": [],
+      "SingleMCPTools": [],
+      "Temperature": 0.2,
+      "KnowledgeBases": []
+    }
+  ],
+  "Variables": [],
+  "Version_InUse": {
+    "UUID": "22222222-2222-4222-8222-222222222222"
+  },
+  "TestCases": []
+}

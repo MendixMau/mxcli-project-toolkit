@@ -29,13 +29,22 @@
 # 2026-08-18, see tests/e2e/journey-runner.js). Pass --parallel-runtime to opt into running them
 # concurrently anyway; results are then reported as caveated, never as clean.
 #
+# design-audit.js (the UI/a11y instrument, harness-architecture.md §6) is NOT in that
+# --parallel-runtime bucket — it always runs sequentially, flag or not. journeys and monkey have a
+# measured positive control for racing each other; design-audit has none, so it is not assumed
+# safe. It also does not need the runtime up: it runs --static-only (model + CSS only, reduced
+# evidenceStrength, recorded as such in its own artifact) whenever the app isn't fully verified up,
+# and the full rendered pass only once test-stack-up has verified ownership.
+#
 # Optional inputs, discovered not assumed. Each missing one is a FAULT with a named reason, never a
 # silent skip:
 #   architecture/modules/<Module>/coverage-ledger.md   requirement traceability
 #   analysis/*/brd/*.brd.json | analysis/*/knowledge-base/brd/*.brd.json   the BRD
 #   journeys/<Module>.journey.json                     the golden-path walk
 #   tests/e2e/journey-runner.js, tests/e2e/monkey.js   the runtime instruments
-# Override any of them: JOURNEY_DIR, JOURNEY_RUNNER, MONKEY_JS, BRD_FILE, LEDGER_FILE.
+#   tests/e2e/design-audit.js   the UI/a11y instrument — rungs 6-7, SEPARATE from the journey
+#                               (harness-architecture.md §6); informational, never gates a run
+# Override any of them: JOURNEY_DIR, JOURNEY_RUNNER, MONKEY_JS, DESIGN_AUDIT_JS, BRD_FILE, LEDGER_FILE.
 #
 # Exit: 0 all instruments ran and found nothing · 1 findings · 2 an instrument could not run
 
@@ -435,6 +444,32 @@ else
     echo "  waiting on parallel runtime instrument(s)..."
     run_join_all
   fi
+fi
+
+# ── 2b. Design audit — a SEPARATE instrument, not a sixth/seventh journey rung ──────────────
+# harness-architecture.md §6: design-audit.js's rungs 6/7 compose with the journey and the crash
+# net but never gate a run and must never be merged into the 1-5 rung numbering — they pass their
+# own positive control but have not yet gone red on real work a human then confirmed was a real
+# defect. So kind=info unconditionally below, same trichotomy as everything else (fault/finding/
+# pass), just never the thing that turns FAULTED/FINDINGS nonzero on its own findings.
+#
+# Placed outside the runtime-instruments if/elif/else above on purpose: unlike journeys/monkey it
+# does not need the app up at all. --static-only reads the model + CSS only ("the running app was
+# not contacted" — design-audit.js) and is explicitly weaker evidence (evidenceStrength:
+# static-model+css vs static-model+css+rendered, recorded IN its own artifact, never silently
+# upgraded to look like a full run). So it still runs — at reduced strength — when the stack is
+# down or only caveated-up; the full rendered pass runs only once test-stack-up has verified
+# OWNERSHIP (STACK_OK=1), the same bar journeys/monkey require before trusting what they measure.
+DESIGN_AUDIT_JS="${DESIGN_AUDIT_JS:-$ROOT/tests/e2e/design-audit.js}"
+if [ ! -f "$DESIGN_AUDIT_JS" ]; then
+  fault "design audit (rungs 6-7 — UI/a11y, informational)" "not installed at ${DESIGN_AUDIT_JS#$ROOT/}" \
+        "Set DESIGN_AUDIT_JS, or see harness-architecture.md §6 for the instrument this expects. UI/a11y quality for $MODULE is UNMEASURED — it never gates a run even when present."
+elif [ "${STACK_OK:-0}" -eq 1 ]; then
+  run "design audit (rungs 6-7 — UI/a11y, informational)" "$OUTDIR/40-design-audit.log" info 900 -- \
+    node "$DESIGN_AUDIT_JS"
+else
+  run "design audit (rungs 6-7 — UI/a11y, static-only — REDUCED EVIDENCE)" "$OUTDIR/40-design-audit.log" info 300 -- \
+    node "$DESIGN_AUDIT_JS" --static-only
 fi
 
 # ── 2c. The LOOK is not in this chain, and must say so ──────────────────────

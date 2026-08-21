@@ -634,6 +634,18 @@ CRASHNET_SRC="$(cd "$SCRIPT_DIR/.." && pwd)/project-bin"
 # on — not crash-net per se, but "missing -> install, drifted -> report, never
 # blind-overwrite" applies identically to a project's tuned copy of either.
 CRASHNET_FILES="$MXTK_PROJECT_BIN"
+
+# known_fix_note NAME — a one-line pointer at a specific, named fix for a crash-net file, so a
+# drift warning can say WHAT was missed instead of only how many lines differ. Deliberately a flat
+# case statement, not a new registry: add one line per fix worth calling out by name, nothing more.
+# Empty output means "no specific fix to name" — the generic diff-stat warning still fires.
+known_fix_note() {
+  case "$1" in
+    verify-module.sh)
+      echo "bin/verify-module.sh is missing the design-audit wiring fix (toolkit, 2026-08-21) — wires tests/e2e/design-audit.js (rungs 6-7, UI/a11y) into the composed pass as an informational, non-gating rung. Recommended upgrade." ;;
+  esac
+}
+
 # Only manage bin/ in a directory that is actually a wired project. Otherwise a mistyped path
 # (`sync-project.sh ~/Downloads`) scatters seven executables into somebody's folder.
 WIRED=0
@@ -703,6 +715,8 @@ elif [ -d "$CRASHNET_SRC" ]; then
              "See what differs:  diff -u $src $dst" \
              "Accept the toolkit version (your copy is backed up):" \
              "  $0 $PROJECT_DIR --upgrade-bin $s"
+        FIX_NOTE="$(known_fix_note "$s")"
+        [ -n "$FIX_NOTE" ] && echo "   → $FIX_NOTE"
         if [ ! -x "$dst" ]; then
           warn "  ...and bin/$s is not executable."
         fi

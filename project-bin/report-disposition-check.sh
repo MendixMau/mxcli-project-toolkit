@@ -130,7 +130,15 @@ echo "  report date             $report_date  (from: $date_source)"
 # architecture.md's own trichotomy) appear in the rendered text either way, and a real parser
 # here would be exactly the "parser for a document you also wrote the format of" tell
 # skills-over-scripts.md warns against.
-vocab_hits="$(grep -oE 'FAULT|FINDING|\bFAIL\b|NOT RUN|[Nn]ot reached' "$newest" 2>/dev/null | grep -c . || true)"
+#
+# CASE-INSENSITIVE, and covers the prose forms reports actually use, not just the shouted
+# instrument vocabulary. Found 2026-08-21: a report can be entirely CLEAN by this check's own
+# reading while containing real un-filed gaps, if those gaps are phrased in prose ("not run",
+# "unmeasured", "could not", "excluded", "no time budget") rather than the literal uppercase
+# FAULT/FINDING/FAIL/NOT RUN tokens the original pattern looked for — those tokens only
+# co-occurred with the prose forms by coincidence in the report that first exercised this script.
+# A report whose only gap is phrased in prose must still be caught.
+vocab_hits="$(grep -oiE 'FAULT|FINDING|\bFAIL(ED|URE)?\b|not[[:space:]]+run\b|not[[:space:]]+reached|not[[:space:]]+attempted|not[[:space:]]+(re)?written|could[[:space:]]*n.?t|unmeasured|not[[:space:]]+coverable|excluded|\bskipped\b|no time budget|zero[[:space:]-]+(journey[[:space:]]+)?coverage|never (run|authored|attempted)' "$newest" 2>/dev/null | grep -c . || true)"
 
 # Denominator gaps: "N of M" where N < M — the shape module-review.md's and e2e-evidence-
 # report.md's own denominator rule requires reports to state.

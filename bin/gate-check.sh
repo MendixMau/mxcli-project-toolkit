@@ -1981,6 +1981,43 @@ else
 fi
 printf "Skill routing (surfaces vs table): %s — %s\n" "$ROUTING_STATUS" "$ROUTING_NOTE"
 
+# ---------------------------------------------------------------------------
+# Report disposition — did the newest test/review report's own findings get filed?
+#
+# skills/finding-disposition.md requires every report-producing run (module-review.md,
+# existing-app-assurance.md, e2e-evidence-report.md) to route its findings through
+# close-the-loop.md into docs/improvement-register.md before the run is called done — the same
+# "a rule that is only read when someone remembers to read it changes nothing" gap
+# bin/lib/obligations.tsv exists to close for the LOOK and the sweep. This is that same closing
+# for report disposition specifically: project-bin/report-disposition-check.sh reads the newest
+# report, greps it for the verdict vocabulary those skills already use, and checks whether the
+# register picked up a matching entry the same day. It is an INSTRUMENT (skills-over-scripts.md):
+# it never judges whether a finding matters, only whether the paper trail exists.
+#
+# BLOCKS Stages 5 and 6 only (enforced below, where the requested stage is known) — the same two
+# stages finding-disposition.md and existing-app-assurance.md apply to. Exit 2 (FAULT — no report
+# and no register exist at all) is NOT a block: early in a project there is genuinely nothing yet
+# to have filed, same reasoning as source-sufficiency's Stage-0-only scope above.
+DISP_STATUS="PASS"
+DISP_NOTE="no un-filed report findings"
+DISP_SCRIPT="$TOOLKIT_DIR/project-bin/report-disposition-check.sh"
+if [ ! -x "$DISP_SCRIPT" ]; then
+  DISP_STATUS="MANUAL"
+  DISP_NOTE="project-bin/report-disposition-check.sh not found or not executable at $DISP_SCRIPT — cannot evaluate, which is not a pass"
+else
+  DISP_OUT="$("$DISP_SCRIPT" "$PROJECT_DIR" 2>&1)"; DISP_RC=$?
+  case "$DISP_RC" in
+    0) DISP_NOTE="$(printf '%s' "$DISP_OUT" | grep -E '^  (CLEAN|newest report)' | tr '\n' ' ' | sed 's/  */ /g')" ;;
+    1) DISP_STATUS="FAIL"
+       DISP_NOTE="a report shows findings/gaps with no matching $PROJECT_DIR/docs/improvement-register.md row — $(printf '%s' "$DISP_OUT" | grep -E '^  FINDING' | tr '\n' ' ' | sed 's/  */ /g')" ;;
+    2) DISP_STATUS="MANUAL"
+       DISP_NOTE="cannot evaluate, which is not a pass — $(printf '%s' "$DISP_OUT" | tail -3 | tr '\n' ' ')" ;;
+    *) DISP_STATUS="MANUAL"
+       DISP_NOTE="report-disposition-check.sh exited $DISP_RC (unexpected) — cannot evaluate, which is not a pass" ;;
+  esac
+fi
+printf "Report disposition (findings filed?): %s — %s\n" "$DISP_STATUS" "$DISP_NOTE"
+
 # Stage P is checked outside the numeric loop (bash 3.2 arrays need integer indices).
 N_PASS=0; N_PENDING=0; N_WAIVED=0; N_FAIL=0; N_MANUAL=0; NEXT_UP=""; NEXT_UP_STATUS=""; ATTENTION=""
 P_RESULT="$(check_stage_P)"
@@ -2193,6 +2230,8 @@ HTML_HEAD
     "$OQ_STATUS" "$OQ_STATUS" "$(printf '%s' "$OQ_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
   printf '<tr><td>~</td><td>Source sufficiency assessed</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$SUFF_STATUS" "$SUFF_STATUS" "$(printf '%s' "$SUFF_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
+  printf '<tr><td>⚑</td><td>Report disposition (Stage 5/6)</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
+    "$DISP_STATUS" "$DISP_STATUS" "$(printf '%s' "$DISP_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
   printf '<tr><td>P</td><td>Kickoff</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$P_STATUS" "$P_STATUS" "$P_NOTE"
   for stage in "${STAGE_NAMES[@]}"; do
@@ -2261,6 +2300,20 @@ if [ -n "$REQUESTED_STAGE" ]; then
   # Same shape as the drift gate two blocks up, loosened the same day and for the same reason.
   if [ "$REQUESTED_STAGE" = "0" ] && [ "$SUFF_STATUS" = "FAIL" ]; then
     advise "source-sufficiency" "Source sufficiency not established: $SUFF_NOTE"
+  fi
+  # No Stage-5/6 gate passes while the newest test/review report has un-filed findings.
+  # finding-disposition.md and existing-app-assurance.md both apply at exactly these two
+  # stages; report-disposition-check.sh is their mechanical backstop (see above). Unlike
+  # source-sufficiency this BLOCKS rather than advises: an un-filed report is the exact failure
+  # skills/close-the-loop.md was written to retire, and a warning shown once per key
+  # (advise()'s own semantics) is too easy to have already been shown and forgotten by the time
+  # a report goes un-filed again.
+  if { [ "$REQUESTED_STAGE" = "5" ] || [ "$REQUESTED_STAGE" = "6" ]; } && [ "$DISP_STATUS" = "FAIL" ]; then
+    echo "" >&2
+    echo "Gate BLOCKED by report-disposition-check: $DISP_NOTE" >&2
+    echo "Route the findings via skills/close-the-loop.md into docs/improvement-register.md" >&2
+    echo "(skills/finding-disposition.md), then re-run this gate." >&2
+    exit 1
   fi
   # No gate passes while questions this stage owns were never put to the user.
   #

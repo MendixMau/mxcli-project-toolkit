@@ -52,6 +52,14 @@ case "$cmd" in
       what="commit made → work boundary; checkpoint if the task is closed" ;;
   *check-root-clean.sh*)
       what="root-clean check ran → stage may be closable; confirm artifacts are in their folders" ;;
+  *verify-module.sh*)
+      what="verify-module.sh ran → owes a finding-disposition.md pass (route findings via close-the-loop.md to docs/improvement-register.md, name what didn't run)" ;;
+  *review-module.sh*)
+      what="review-module.sh ran → owes a finding-disposition.md pass (route findings via close-the-loop.md to docs/improvement-register.md, name what didn't run)" ;;
+  *journey-runner.js*)
+      what="journey-runner.js ran → owes a finding-disposition.md pass (route findings via close-the-loop.md to docs/improvement-register.md, name what didn't run)" ;;
+  *design-audit.js*)
+      what="design-audit.js ran → owes a finding-disposition.md pass (route findings via close-the-loop.md to docs/improvement-register.md, name what didn't run)" ;;
 esac
 [ -n "$what" ] || exit 0
 

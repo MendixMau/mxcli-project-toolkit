@@ -280,6 +280,26 @@ and only report a blocker if you cannot.
 | `mxcli docker reload` | rebuild + hot reload after an exec |
 | `mxcli docker down` | tear down |
 
+**Docker-free alternative — `mxcli run --local`.** Keeps an `mxbuild --serve` process and a
+standalone Mendix runtime hot: cold first build ~10-15s, then an incremental rebuild ~1s that is
+hot-applied without a restart for page/microflow/text changes (entity, view and association changes
+still restart the runtime — the metamodel is reconciled only at startup). Needs Mendix 11.x, JDK 21,
+and a reachable PostgreSQL whose database **already exists**; no Docker daemon. Runtime stack traces
+and microflow `LOG` output land in `<projectDir>/.mxcli/runtime.log` — the browser only shows a
+generic dialog, so that file is where a server-side error is actually readable.
+
+| Flag | Use |
+|---|---|
+| `--watch` | rebuild and hot-apply on every model change |
+| `--hub` | expose the running app at a public URL through `mxcli tunnel-hub` — a chisel client reverse-tunnels out over 443 and the runtime boots with `ApplicationRootUrl` set to the hub URL, so the app works under that origin. Implies `--local`. |
+| `--test-endpoint` | host mxcli's token-guarded test endpoint, so `mxcli test <files> -p <app.mpr> --attach` runs against this already-warm app — a couple of seconds instead of ~30 |
+
+**`--hub` is what makes a container-hosted run reachable.** A cloud/devcontainer session has no
+shared filesystem with a laptop and cannot serve `localhost` to one. Before `--hub` the only answer
+was a hand-rolled ngrok/cloudflared tunnel; it is now a flag. `mxcli test --local` likewise boots on
+mxcli's own runtime (ports 8081/8091, its own `<project>_test` database), so a warm `run --local`
+loop can keep serving while tests run.
+
 > ### 🔴 Docker is NOT a safe default if the app calls host services by `localhost`
 >
 > **Confirmed the hard way, 2026-08-06, on the first real run of this skill.** Inside a container,

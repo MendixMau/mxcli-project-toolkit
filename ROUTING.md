@@ -146,7 +146,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 
 | Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
 |---|---|---|---|---|
-| Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) — syntax, the 11 workflow microflow statements, and the binary-version $Type corruption class | `skills/learned-workflow-patterns.md` | mdl | 5 | ondemand |
+| Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) — syntax, the 11 workflow microflow statements, DECISION vs CALL MICROFLOW, and the two corruption classes (binary-version $Type, and create-before-reference) | `skills/learned-workflow-patterns.md` | mdl | 5 | ondemand |
 
 #### Build · Integration
 

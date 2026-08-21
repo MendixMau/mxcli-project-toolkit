@@ -1,9 +1,10 @@
 # Mendix Native Workflows in MDL
 
 **Applies to:** any mxcli project scripting a Mendix native Workflow (definition, task
-pages, targeting, starting instances) from MDL. Everything here is scriptable; the two
-exceptions are a data-driven `DECISION` gateway, which must still be added by hand (§8),
-and a visual check in Studio Pro, which is not optional (§8, Warning 3).
+pages, targeting, starting instances) from MDL. Everything here is scriptable on a current
+binary, including the `DECISION` gateway (§15 — but read Warning 1 first, it is *not*
+scriptable on `v0.16.0`). The one thing that is never optional is a visual check in Studio
+Pro (§8, Warning 3).
 
 **Verified on:** Mendix 11.13.0, mxcli v0.17.0/v0.18.0. Every MDL form that appears in
 `build/workflow-example.mdl` was confirmed with `mxcli check`. Forms discussed only in
@@ -390,28 +391,39 @@ Then **wire the back-reference** on the very next line, as above — see §3 for
 
 ## 8. Warnings
 
-### Warning 1 — do not emit a `DECISION` activity inside a workflow
+### Warning 1 — `DECISION` corrupts the `.mpr` on old binaries; check your version
 
-**This is a known open mxcli defect, and it corrupts your `.mpr` silently.**
+**This was an absolute prohibition until 2026-08-20. It no longer is — but only on a
+current binary.** Corrected 2026-08-21 against mxcli **v0.18.0**, where `DECISION` writes
+correctly and is often the preferred construct (§15).
+
+**The defect, on affected builds:**
 
 - **Symptom:** the `.mpr` becomes unloadable. Studio Pro and the native `mx` loader fail
   with `Mendix.Modeler.Storage.StorageLoadException`.
 - **Cause:** mxcli writes the decision's outcome label as a raw string into a field the
-  native loader requires to be a real `EnumerationValueIdentifier`. This is unconditional —
-  it does not depend on the expression's type.
+  native loader requires to be a real `EnumerationValueIdentifier`. Unconditional — it does
+  not depend on the expression's type.
 - **Repro:** something as trivial as `DECISION '1 = 1'` inside a `CREATE WORKFLOW` body.
 - **Why it is invisible:** `mxcli check`, `mxcli exec` and `DESCRIBE WORKFLOW` all report
   success. Nothing in the mxcli toolchain sees it. You find out when someone opens the
   project.
-- **There is no MDL-only workaround.**
 
-**What to do instead:** express the branch as **user task outcomes** (§6) — an outcome with
-a nested activity block *is* an exclusive branch, and covers most real gateways. Where you
-genuinely need a data-driven gateway with no user decision behind it, flatten the flow to
-its happy path in MDL, leave a plain MDL comment at the insertion point describing the
-gateway precisely, and add that one activity by hand in Studio Pro.
+**What to do:** this is the same *binary-version* story as §13 — run `mxcli --version`
+first and treat it as a gate, not a folk rule.
 
-`PARALLEL SPLIT` is unaffected.
+- **On a confirmed-clean binary (v0.18.0 or later):** write the `DECISION` from MDL. Use
+  §15 to decide whether a given gate should be a `DECISION` at all, then **verify what was
+  actually stored** (§13's `strings`-on-the-unit check, plus a real `mx check` and an SP
+  open) before moving on. A passing `mxcli check` still proves nothing here.
+- **On `v0.16.0` or an unverified binary:** the old rule stands in full — there is no
+  MDL-only workaround. Express the branch as **user task outcomes** (§6), since an outcome
+  with a nested activity block *is* an exclusive branch and covers most real gateways.
+  Where you genuinely need a data-driven gateway with no user decision behind it, flatten
+  the flow to its happy path in MDL, leave a plain MDL comment at the insertion point
+  describing the gateway precisely, and add that one activity by hand in Studio Pro.
+
+`PARALLEL SPLIT` is unaffected on every binary (§18).
 
 ### Warning 2 — `DESCRIBE MICROFLOW` lies about `CALL WORKFLOW`
 
@@ -582,6 +594,240 @@ LC_ALL=C strings -n 4 "$u" | grep -oE 'Workflows\$Call[A-Za-z]+' | sort | uniq -
 
 This is cheap (a few seconds) and closes the one gap `mx check` cannot see for this class
 of write, regardless of which binary produced it.
+
+---
+
+## 14. Referencing a not-yet-created microflow from a workflow body corrupts the stored workflow
+
+**This is a distinct defect class from Warning 1 and §13.** Those are binary-version bugs
+in how an activity is *written*. This one is a corruption of the stored workflow object
+that survives fixing the thing that caused it.
+
+**Incident** (a QA-sampling approval project, mxcli v0.18.0, 2026-08-20/21): a fix script
+rebuilt a workflow with a `call microflow Module.DEC_CoarseClassification` activity, but
+that microflow did not exist in the project yet — its `create or modify microflow`
+statement lived only in an earlier, superseded script that was never executed. `mxcli
+check --references` passed clean and `mxcli exec` completed with no error. Only a later,
+separate native `mx check` caught CE1613 (`… no longer exists`). Creating the missing
+microflow afterward cleared CE1613 — but **not** the underlying damage. Roughly a day
+later the workflow failed with `CE0495 "Duplicate name '<ActivityName>'"` across 8 sibling
+`CALL MICROFLOW` activities that the fix had never touched.
+
+**Root cause, confirmed by elimination, not assumed.** It is not a workflow-grammar limit
+and not a shared naming namespace between branch subtrees — both theories were disproven
+by cloning the exact 17-call nested structure fresh into a throwaway `_TEST` workflow (0
+errors), and separately by retargeting all 17 calls to a project-unique dummy microflow
+(still 0 errors). The corruption lives inside the specific stored workflow object's own
+Unit-blob storage tree: an orphaned/duplicated activity record left behind by the original
+bad write, surviving even after the dangling reference was repaired. **Same defect class
+as `bug-logs/mxcli-bugs.md` BUG-92** (orphaned widgets surviving page edits, invisible to
+`DESCRIBE`) — here in a workflow instead of a page. The exact write-sequence trigger could
+not be reproduced fresh in an isolated `_TEST` object, so treat this as a strong candidate
+mechanism, not a nailed-down repro.
+
+**The reference-checker gap that lets it happen:** `mxcli check --references` and `mxcli
+exec` do **not** validate `CALL MICROFLOW` targets inside a workflow body against the live
+model. A workflow written against a genuinely nonexistent microflow — not "created later
+in the same script," which mxcli's checker does correctly special-case, but never created
+anywhere at all — passes both clean. Only native `mx check` catches it (CE1613), once,
+well after the damage is done.
+
+> **Hard rule.** Within any single script that writes a workflow calling one or more
+> microflows, the `create/modify microflow` statements for every callee must come
+> **before** the `create or modify/replace workflow` statement that references them — same
+> file, same exec. Never split "create the workflow" and "create a microflow it calls"
+> across two exec passes, even if you intend to run the second immediately after.
+> `mxcli check --references` will not catch the ordering mistake; only `mx check`, and even
+> then only the symptom, not the corruption it leaves behind.
+
+**If you suspect this has already happened** (a `CE0495`/duplicate-name error appears on a
+workflow that was *not* the target of your most recent edit): don't assume the most recent
+script caused it. Bisect via mxcli's auto-snapshots (`.mpr-snapshots/<timestamp>/`) — swap
+each candidate snapshot's `.mpr` **in place** into the live project directory (preserving
+relative paths such as `theme/`, or you get spurious `CE6083` errors from an incomplete
+sandbox) and run a real `./mxcli docker check` against each — never `--references`, which
+cannot see it — working backward until you find the first clean one. The corrupted state
+can predate the change you were about to fix.
+
+**Recovery — untested against a real corrupted object as of 2026-08-21.** Try `create or
+replace workflow` with the byte-identical current definition (same control flow, no
+behavior change) first: this is the mechanism BUG-92's page-rebuild precedent uses to force
+full regeneration of the stored activity tree. It could not be verified in isolation
+because a throwaway copy could not be driven into the corrupted state to test the fix. If
+that doesn't clear it, the fallback is `DROP WORKFLOW` + recreate from the same literal
+definition — higher risk to inbound references (role grants, `CALL WORKFLOW` start sites,
+WF task pages). Either way: **verify with native `mx check` afterward, not
+`--references`**, and confirm first that no deployed runtime paired with this `.mpr` has
+in-flight instances — a full regeneration can orphan in-flight tasks, and that cannot be
+determined from the design-time `.mpr` alone.
+
+---
+
+## 15. `DECISION` vs. `CALL MICROFLOW` — when a boolean gate belongs in the workflow
+
+**Read Warning 1 first.** On a clean binary, `DECISION` is writable from MDL and is often
+the *better* choice. Native workflow has a `DECISION` activity — an inline exclusive
+gateway — that needs no microflow at all:
+
+```
+DECISION ['<caption>'] [COMMENT '<text>']
+  OUTCOMES '<outcome>' -> { <activities> } ...;
+```
+
+It evaluates an expression directly against the workflow's context data. What decides
+whether a boolean gate should be a `DECISION` or stay a `CALL MICROFLOW … OUTCOMES true ->
+{} false -> {}` is **not** "is the logic simple" — it's **what the expression needs to
+reach**:
+
+- **Direct attribute access on the context parameter** (`$WorkflowContext/SomeField =
+  'SomeValue'` — no association hop, no filter predicate) → `DECISION`. No side effects, no
+  commit, nothing a microflow buys you, and one fewer stored microflow artifact referenced
+  by the workflow (§17 for why that matters beyond style).
+- **Anything needing a `RETRIEVE` with a `WHERE` predicate, a bracketed
+  association-traversal filter, a commit, or multi-step logic** → stays a `CALL MICROFLOW`.
+  Confirmed empirically (2026-08-21): workflow expressions reject the bracket-predicate
+  traversal form (`$Context/Module.Assoc_Entity[SomeAttr = 'X']`) with `CE0117` — the same
+  constraint already noted for `CALL MICROFLOW … WITH` binding expressions in §7, and it
+  applies just as hard inside a `DECISION` expression. A decision that must find "the one
+  child row matching a key" (filtering a to-many association down to a single row by an
+  enum/string key) **cannot** be expressed as a `DECISION` — write it as a microflow with a
+  real `RETRIEVE … WHERE … LIMIT 1`.
+
+In short: `DECISION` replaces a microflow whose entire body is "read one field, no
+retrieve, return a bool." It does not replace a microflow that has to go find the field
+first.
+
+---
+
+## 16. `OUTCOMES` is optional — the dead-branch smell
+
+`CALL MICROFLOW`'s outcome clause is optional in the grammar:
+
+```
+CALL MICROFLOW Module.MF [COMMENT '<text>']
+  [OUTCOMES '<outcome>' { <activities> } ...];
+```
+
+Whether a workflow needs outcome branches at all is driven entirely by the called
+microflow's **return type**, not by habit:
+
+- Returns **Void** → no `OUTCOMES` clause needed. The workflow runs the activity and moves
+  on.
+- Returns **Boolean** → the workflow is forced into a two-outcome `true -> { } false -> { }`
+  shape, whether or not either branch does anything.
+- Returns an **enumeration** → one outcome per enum value the workflow actually branches on.
+
+**The smell:** a `CALL MICROFLOW` whose microflow returns Boolean and whose `true -> { }`
+and `false -> { }` outcomes are *both* empty. The workflow computed a boolean and threw it
+away — nothing is decided by the branch. This is easy to miss because it looks structurally
+identical to a real decision point; only reading the outcome *bodies*, not the outcome
+names, reveals it's dead.
+
+Two legitimate fixes — pick based on whether the boolean carries real business consequence:
+
+1. **The result genuinely doesn't affect control flow** (a denormalization/stamping helper
+   whose only failure mode is "no matching row found," already logged internally) → change
+   the microflow's return type from Boolean to Void, delete its `$Success` variable, and
+   drop the `OUTCOMES` clause at every call site. Move any error handling that depended on
+   the boolean (a `LOG ERROR` on the not-found path) **inside** the microflow body first —
+   the caller can no longer react to it.
+2. **The result does carry consequence** ("did the version-fork actually get created," "did
+   the terminal status-close actually commit") → don't silently drop it. Either make the
+   `false` branch do something (log at ERROR, escalate, retry, route to a recovery task) or,
+   at minimum, confirm via `SHOW CALLERS OF` and a read of the callee that failure is
+   already unreachable before flattening to Void. A boolean quietly discarded on a
+   *terminal* activity is a different risk profile than one discarded on a per-station
+   stamp — the same "empty branches" shape can be a harmless no-op or a swallowed failure,
+   depending entirely on what the callee does on the false path.
+
+**Signature-change risk:** Boolean → Void is a public signature change. Always run `SHOW
+CALLERS OF Module.TheMicroflow` first. If the workflow is the only caller — common for
+`ACT_*_ByKey`/shim microflows built specifically for one workflow's `WITH`-clause
+limitations — the change is low-risk, but every `CALL MICROFLOW` call site must be updated
+**in the same script and the same exec** as the signature change. Same discipline as §14's
+create-before-reference rule, and for the same reason: never leave a workflow definition and
+a microflow signature out of sync between two execs.
+
+---
+
+## 17. Fewer moving parts is a corruption-risk criterion, not a style preference
+
+§14's corruption class has a direct design-time countermeasure: **every separately-created
+microflow a workflow references is one more chance to get create-before-reference ordering
+wrong — across one more script, one more exec, one more future edit.** Collapsing a
+microflow-wrapped boolean gate into a native `DECISION` (§15) doesn't just read cleaner; it
+permanently removes an artifact-and-reference pair from the workflow's dependency surface.
+
+Treat "does this activity need to be a separate stored microflow at all, or can it be a
+native construct" as a concrete corruption-risk question when auditing an existing workflow
+or planning a new one — not only a readability one. This is not a licence to collapse
+everything: a microflow doing a real `RETRIEVE`/commit/multi-step mutation still has to be a
+microflow (§15). But a pure attribute-equality gate wrapped in a microflow *only* because
+that's how the workflow was first drafted is exactly the avoidable moving part this targets.
+
+---
+
+## 18. `PARALLEL SPLIT` — confirm it isn't already there before flagging a fan-out
+
+Don't assume a set of sibling human tasks described informally as "done in parallel" (in a
+module brief, BRD, or prose) is modeled sequentially just because they're adjacent in a
+script or listed one after another in a doc. Read the live `DESCRIBE WORKFLOW` output before
+flagging a missing `PARALLEL SPLIT`. Confirmed 2026-08-21 on a three-station sub-review: the
+workflow already had a genuine `parallel split` with three `path N { user task … }`
+branches, each independently completable. `DESCRIBE WORKFLOW` renders nested `path` blocks
+clearly, so this is a cheap check — do it before recommending a structural change that
+already exists.
+
+---
+
+## 19. `BOUNDARY EVENT TIMER` — don't add one without a documented business trigger
+
+`BOUNDARY EVENT TIMER` (Mendix 10.6.0+) is available and syntactically simple:
+
+```
+user task ReviewTask 'Review'
+  outcomes 'Done' { }
+  boundary event timer 'P3D' {
+    call microflow Module.WF_Escalate;
+  };
+```
+
+or after the fact: `ALTER WORKFLOW <wf> INSERT BOUNDARY EVENT ON <task> TIMER '<duration>'
+{ <activities> }`. Availability is not a reason to add one to every long-running human task.
+Before recommending it, search the actual requirements evidence — BRDs, blueprint,
+source-migration triage notes — for SLA/timeout/escalation/deadline language tied to *that
+specific task*. Absence of that evidence is a legitimate "no action" finding. Don't invent
+an SLA the business never asked for because the construct exists and the task is
+human-facing. (Confirmed practice, 2026-08-21: a full-text search across an approval
+module's BRDs and migration-triage notes for SLA/timeout/escalation/deadline/overdue
+language turned up nothing tied to any of its 15 user tasks — correctly documented as "no
+boundary event needed," not silently skipped.)
+
+This partly supersedes the "Notes on scope" caveat below: boundary-event body syntax has now
+been used in a real build.
+
+---
+
+## 20. `= empty` on an association: valid in an `IF`, invalid in a `RETRIEVE WHERE`
+
+Found 2026-08-21 writing a utility to find context rows with no wired `System.Workflow`.
+
+```
+RETRIEVE $Runs FROM Module.Entity WHERE RunStatus = X and Assoc_Ref = empty;
+```
+
+passed both `mxcli check` and `mxcli check --references` clean, but native `mx check` failed
+with `CE0161 "Error(s) in XPath constraint"`. A `RETRIEVE … WHERE` clause compiles to an
+XPath constraint, and **XPath has no `= empty` comparison for an association reference** —
+that syntax exists only in the microflow expression language (IF conditions, decisions).
+Fix: filter the retrieve on plain attributes only, then check `$Var/Module.Association =
+empty` inside an `IF` in the loop body.
+
+Separately, that `IF` check itself first failed with `CE0117 "Error(s) in expression"` when
+written bare as `$Run/AssocName = empty`. Association references in microflow expressions
+need the **module-qualified** association name: `$Run/Module.Entity_Other = empty`. Same
+silent-pass-then-native-fail pattern — `mxcli check`/`--references` caught neither defect,
+only a real `mx check` run did.
 
 ---
 

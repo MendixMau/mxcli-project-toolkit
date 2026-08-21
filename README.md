@@ -554,7 +554,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
-| Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) — syntax, the 11 workflow microflow statements, and the binary-version $Type corruption class | `skills/learned-workflow-patterns.md` |
+| Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) — syntax, the 11 workflow microflow statements, DECISION vs CALL MICROFLOW, and the two corruption classes (binary-version $Type, and create-before-reference) | `skills/learned-workflow-patterns.md` |
 
 **Build · Integration**
 

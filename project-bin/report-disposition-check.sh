@@ -13,14 +13,26 @@
 #
 # WHAT IT CHECKS
 #   1. Locates the newest report/log this project has produced (see candidates below).
-#   2. Greps its text for FAULT / FINDING / FAIL / NOT RUN / NOT reached, and for an "N of M"
-#      denominator where N < M — the shape module-review.md and e2e-evidence-report.md already use
-#      to state what ran short of what was promised.
-#   3. Derives the report's own date (filename suffix, else "Generated <date>" in its text, else
-#      falls back to the file's mtime and SAYS SO).
+#   2. GROUND TRUTH SOURCE, in priority order:
+#      a. tests/e2e/report-normalize.js's own output, docs/report.json — a structured artifact
+#         that reads the raw instrument files directly (journey-findings.json, design-audit.json,
+#         verify-loop logs, ...) and already applies "absent is not green" / "did-not-run is not
+#         pass" (see that file's own header). Its `nextSteps[]` array IS the grouped, ranked
+#         remediation list this whole disposition pass exists to route into the register — a
+#         mechanical fact, not a word grepped out of prose. Used only when NOT STALE: its mtime
+#         must be >= the newest HTML/tsv report's mtime, otherwise it is reporting on an earlier
+#         run than the one someone is about to call done, which is worse than not having it.
+#      b. Falling back (no docs/report.json, or it's stale): grep the newest report's own text for
+#         FAULT / FINDING / FAIL / NOT RUN / NOT reached (and prose equivalents), and for an
+#         "N of M" denominator where N < M. Weaker — it only catches what the report *chooses* to
+#         say — kept only as a backstop for projects/report shapes report-normalize.js doesn't
+#         cover yet.
+#   3. Derives the report's own date: from docs/report.json's `run.finishedAt` when in structured
+#      mode, else filename suffix, else "Generated <date>" in the report text, else the file's
+#      mtime (SAYS SO either way).
 #   4. Counts docs/improvement-register.md rows whose Date column equals that date.
-#   5. A report with findings/gaps and zero matching register rows is an un-filed report: a
-#      FINDING, not a fault in this instrument.
+#   5. Findings with zero matching register rows on that date is an un-filed report: a FINDING,
+#      not a fault in this instrument.
 #
 # WHAT IT DOES NOT DO — per skills/skills-over-scripts.md, "judgement goes in a skill, code only
 # fetches facts a reader cannot": it never reads a finding's SEVERITY, never decides a fix is
@@ -29,9 +41,9 @@
 # Usage:
 #   project-bin/report-disposition-check.sh [project-root]
 #
-# Exit: 0 clean — either no findings/gaps in the newest report, or they are filed for that date
-#       1 FINDING — the report shows findings/gaps, but the register has no row dated that day
-#       2 FAULT — no report AND no register could be located at all; nothing was measured
+# Exit: 0 clean — either no findings/gaps for the newest evidence, or they are filed for that date
+#       1 FINDING — findings/gaps exist, but the register has no row dated that day
+#       2 FAULT — no report, no docs/report.json, and no register could be located; nothing measured
 
 set -uo pipefail
 
@@ -39,7 +51,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/_common.sh"
 
 case "${1:-}" in
-  -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
+  -h|--help) sed -n '2,46p' "$0"; exit 0 ;;
 esac
 
 # Positional project-root override — _common.sh already resolves PROJECT_ROOT by walking up for
@@ -81,23 +93,48 @@ for f in "$PROJECT_ROOT"/.claude/loop/verify/*/summary.tsv; do
   _consider "$f"
 done
 
-if [ -z "$newest" ] && [ ! -f "$REGISTER" ]; then
-  echo "FAULT: no report (docs/progress/*.html, design/ui-reviews/*.html," >&2
-  echo "       .claude/loop/verify/*/summary.tsv) and no $REGISTER found." >&2
+REPORT_JSON="$PROJECT_ROOT/docs/report.json"
+structured=0
+if [ -f "$REPORT_JSON" ]; then
+  rj_mtime="$(stat -c %Y "$REPORT_JSON" 2>/dev/null || stat -f %m "$REPORT_JSON" 2>/dev/null || echo 0)"
+  if [ -z "$newest" ] || [ "$rj_mtime" -ge "$newest_mtime" ]; then
+    structured=1
+  fi
+fi
+
+if [ "$structured" -eq 0 ] && [ -z "$newest" ] && [ ! -f "$REGISTER" ]; then
+  echo "FAULT: no docs/report.json, no report (docs/progress/*.html, design/ui-reviews/*.html," >&2
+  echo "       .claude/loop/verify/*/summary.tsv), and no $REGISTER found." >&2
   echo "       Nothing was measured — this is not a clean run." >&2
   exit 2
 fi
-if [ -z "$newest" ]; then
-  echo "FAULT: no report found (docs/progress/*.html, design/ui-reviews/*.html," >&2
-  echo "       .claude/loop/verify/*/summary.tsv all empty or absent)." >&2
+if [ "$structured" -eq 0 ] && [ -z "$newest" ]; then
+  echo "FAULT: no docs/report.json and no report found (docs/progress/*.html," >&2
+  echo "       design/ui-reviews/*.html, .claude/loop/verify/*/summary.tsv all empty or absent)." >&2
   echo "       $REGISTER exists, but there is nothing to check it against." >&2
   exit 2
 fi
 
 echo "report-disposition-check · $(date +%Y-%m-%d)"
-echo "  newest report          ${newest#$PROJECT_ROOT/}"
+if [ -n "$newest" ]; then
+  echo "  newest report           ${newest#$PROJECT_ROOT/}"
+fi
+
+if [ "$structured" -eq 1 ]; then
+  echo "  ground truth            docs/report.json (structured — report-normalize.js)"
+else
+  if [ -f "$REPORT_JSON" ]; then
+    echo "  docs/report.json         present but STALE (older than ${newest#$PROJECT_ROOT/}) — falling back to prose"
+  else
+    echo "  docs/report.json         absent — falling back to prose"
+  fi
+  echo "  ground truth            report text (prose/vocab grep — weaker; see script header)"
+fi
 
 # --- derive the report's own date --------------------------------------------------------
+# In structured mode, pull it straight from docs/report.json's run.finishedAt (a real
+# timestamp the normalizer wrote, not text scraped back out of an HTML rendering of it).
+# Otherwise:
 # 1. A YYYY-MM-DD suffix in the filename (every real example — e2e-assurance-report-2026-08-21.html,
 #    ui-review-2026-08-19.html — carries one).
 # 2. Failing that, a "Generated <date>" string in the body (e2e-evidence-report.md's own report
@@ -105,24 +142,109 @@ echo "  newest report          ${newest#$PROJECT_ROOT/}"
 # 3. Failing that, the file's own mtime — logged as a fallback, never silently used.
 report_date=""
 date_source=""
-base="$(basename "$newest")"
-case "$base" in
-  *[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*)
-    report_date="$(printf '%s\n' "$base" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)"
-    date_source="filename"
-    ;;
-esac
-if [ -z "$report_date" ]; then
+if [ "$structured" -eq 1 ]; then
+  report_date="$(python3 -c "
+import json
+try:
+    d = json.load(open('$REPORT_JSON'))
+except Exception:
+    d = {}
+run = d.get('run') or {}
+ts = run.get('finishedAt') or (run.get('evidenceTimestamps') or [None])[0] or ''
+print(ts[:10])
+" 2>/dev/null)"
+  [ -n "$report_date" ] && date_source="docs/report.json run.finishedAt"
+fi
+if [ -z "$report_date" ] && [ -n "$newest" ]; then
+  base="$(basename "$newest")"
+  case "$base" in
+    *[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]*)
+      report_date="$(printf '%s\n' "$base" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)"
+      date_source="filename"
+      ;;
+  esac
+fi
+if [ -z "$report_date" ] && [ -n "$newest" ]; then
   report_date="$(grep -oiE 'Generated[[:space:]]+[0-9]{4}-[0-9]{2}-[0-9]{2}' "$newest" 2>/dev/null \
                   | head -1 | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')"
   [ -n "$report_date" ] && date_source="'Generated <date>' text"
 fi
 if [ -z "$report_date" ]; then
-  report_date="$(date -u -d "@$newest_mtime" +%Y-%m-%d 2>/dev/null \
-                  || date -u -r "$newest_mtime" +%Y-%m-%d 2>/dev/null)"
-  date_source="file mtime (fallback — no date in filename or body)"
+  fallback_mtime="$newest_mtime"
+  [ "$structured" -eq 1 ] && [ -f "$REPORT_JSON" ] && fallback_mtime="$rj_mtime"
+  report_date="$(date -u -d "@$fallback_mtime" +%Y-%m-%d 2>/dev/null \
+                  || date -u -r "$fallback_mtime" +%Y-%m-%d 2>/dev/null)"
+  date_source="file mtime (fallback — no date in filename, body, or report.json)"
 fi
 echo "  report date             $report_date  (from: $date_source)"
+
+if [ "$structured" -eq 1 ]; then
+  # --- structured verdict: docs/report.json is ground truth --------------------------------
+  # nextSteps[] is report-normalize.js's own grouped/ranked remediation list — one row per
+  # (defect class[, target]), already collapsed from raw checks[]. That collapse IS the register
+  # row shape (skills/close-the-loop.md's pipe table), so its count is exactly "how many things
+  # are owed filing", not a proxy for it. Instrument-level fault/fail counts are reported for
+  # visibility only and do not drive the verdict: many are Track-B's permanent, expected N/A
+  # (conformance/coverage-ledger — see existing-app-assurance.md's "why the coverage and
+  # conformance rungs never come back clean here") and judging which is which is exactly the
+  # per-project judgement skills-over-scripts.md keeps out of this script.
+  read -r next_steps checks_fail checks_fault inst_fault inst_fail <<EOF_PY
+$(python3 -c "
+import json
+try:
+    d = json.load(open('$REPORT_JSON'))
+except Exception:
+    d = {}
+checks = d.get('checks') or []
+instruments = d.get('instruments') or []
+nextSteps = d.get('nextSteps') or []
+print(len(nextSteps),
+      sum(1 for c in checks if c.get('verdict')=='fail'),
+      sum(1 for c in checks if c.get('verdict')=='fault'),
+      sum(1 for i in instruments if i.get('verdict')=='fault'),
+      sum(1 for i in instruments if i.get('verdict')=='fail'))
+" 2>/dev/null || echo "0 0 0 0 0")
+EOF_PY
+  next_steps="${next_steps:-0}"; checks_fail="${checks_fail:-0}"; checks_fault="${checks_fault:-0}"
+  inst_fault="${inst_fault:-0}"; inst_fail="${inst_fail:-0}"
+
+  echo "  nextSteps (remediation) $next_steps"
+  echo "  checks fail/fault       $checks_fail / $checks_fault  (informational)"
+  echo "  instruments fault/fail  $inst_fault / $inst_fail  (informational — includes expected Track-B N/A)"
+
+  has_findings=0
+  [ "$next_steps" -gt 0 ] && has_findings=1
+
+  if [ ! -f "$REGISTER" ]; then
+    reg_rows=0
+  else
+    reg_rows="$(awk -F'|' -v d="$report_date" '
+      NF >= 7 {
+        c=$2; gsub(/^[ \t]+|[ \t]+$/, "", c)
+        if (c == d) n++
+      }
+      END { print n+0 }' "$REGISTER")"
+  fi
+  echo "  $REGISTER rows dated $report_date   $reg_rows"
+
+  if [ "$has_findings" -eq 0 ]; then
+    echo ""
+    echo "  CLEAN — docs/report.json's nextSteps[] is empty; nothing owed filing."
+    exit 0
+  fi
+  if [ "$reg_rows" -eq 0 ]; then
+    echo ""
+    echo "  FINDING — docs/report.json lists $next_steps remediation group(s) dated $report_date," >&2
+    echo "  but $REGISTER has zero rows dated $report_date." >&2
+    echo "  This is an un-filed report, not a broken instrument: route these findings via" >&2
+    echo "  skills/close-the-loop.md into $REGISTER, per skills/finding-disposition.md, before" >&2
+    echo "  calling the run done." >&2
+    exit 1
+  fi
+  echo ""
+  echo "  CLEAN — $reg_rows register row(s) dated $report_date account for docs/report.json's $next_steps remediation group(s)."
+  exit 0
+fi
 
 # --- grep the verdict vocabulary ----------------------------------------------------------
 # Plain substring/regex matching over the report's raw text. Deliberately not HTML-aware: the

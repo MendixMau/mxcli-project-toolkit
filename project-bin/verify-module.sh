@@ -45,12 +45,18 @@
 #   tests/e2e/design-audit.js   the UI/a11y instrument — rungs 6-7, SEPARATE from the journey
 #                               (harness-architecture.md §6); informational, never gates a run
 #   tests/e2e/report-normalize.js + report-render.js   the report surfaces — docs/report.json
-#                               and docs/verification/report.html, composed as a final
-#                               non-gating step (§2d); their failure never moves the exit code
+#                               and docs/verification/report.html, composed by emit_report()
+#                               (§2d) — which `trap emit_report EXIT` runs on EVERY exit
+#                               path: normal end, early fault, nonexistent module, SIGINT
+#                               alike (review-module.sh's pattern), so "aborted" is never
+#                               indistinguishable from "never started". Non-gating: their
+#                               failure never moves the exit code
 # Override any of them: JOURNEY_DIR, JOURNEY_RUNNER, MONKEY_JS, DESIGN_AUDIT_JS, BRD_FILE,
 # LEDGER_FILE, REPORT_NORMALIZE_JS, REPORT_RENDER_JS.
 #
 # Exit: 0 all instruments ran and found nothing · 1 findings · 2 an instrument could not run
+#       (SIGINT/SIGTERM exit 2: instruments incomplete). The report is emitted on every exit
+#       path, and nothing inside that emission can change the exit status the run earned.
 
 set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
@@ -83,7 +89,7 @@ _tool() {
 
 MODULE="${1:-}"
 [ -n "$MODULE" ] && [ "${MODULE#--}" = "$MODULE" ] || {
-  sed -n '2,53p' "$0"; exit 2; }
+  sed -n '2,59p' "$0"; exit 2; }
 shift
 
 SKIP_MONKEY=0; SKIP_JOURNEYS=0; QUICK=0; PARALLEL_RUNTIME=0
@@ -243,6 +249,92 @@ run_join_all() {
 _exec() {
   if [ "$PARALLEL_RUNTIME" -eq 1 ]; then run_launch "$@"; else run "$@"; fi
 }
+
+# ── Report emission — on EVERY exit path (harness-architecture.md §5 improvement 1) ─────────
+# This is §2d's body, lifted into a function so `trap emit_report EXIT` can run it on the
+# paths the old end-of-script placement missed: SIGINT nine minutes into conformance, a
+# `set -u` death, any early exit. review-module.sh's pattern, mirrored deliberately. The
+# normal path calls it explicitly at the §2d position (so the summary table and the final
+# "report:" lines keep their order); the guard makes the trap's second call a no-op.
+#
+# NON-GATING BY CONSTRUCTION, one step past the design-audit rung: not even its FAULTS gate.
+# This step renders the evidence, it does not add any — a module whose instruments all passed
+# must not read INCOMPLETE because the renderer hiccupped, and a broken report pipeline is
+# report-normalize's own selftest's problem, not this module's. So the rungs run through
+# run()/_report_result() as usual (the summary rows and 50-/51- logs stay honest), and the
+# FAULTED/FINDINGS counters are restored afterwards so the exit code belongs to the
+# instruments alone. On the trap path the exit status is decided before the trap runs — the
+# restore is kept anyway for the normal-path call, which happens BEFORE the verdict.
+#
+# NOTHING IN HERE MAY CALL `exit`. An EXIT trap preserves the script's real exit status
+# unless the trap body exits — that is the classic trap bug, and it would let a renderer
+# failure overwrite a verdict the instruments earned. prior_rc is captured first (before any
+# command in the body can clobber $?) and used only for the honest trap-path message.
+RENDER_OK=0
+REPORT_EMITTED=0
+emit_report() {
+  local prior_rc=$?
+  local mode="${1:-trap}"
+  [ "$REPORT_EMITTED" -eq 0 ] || return 0
+  REPORT_EMITTED=1
+  local pre_faulted=$FAULTED pre_findings=$FINDINGS
+  local norm="${REPORT_NORMALIZE_JS:-$ROOT/tests/e2e/report-normalize.js}"
+  local rend="${REPORT_RENDER_JS:-$ROOT/tests/e2e/report-render.js}"
+  if [ ! -f "$SUMMARY" ]; then
+    # Very-early death: not even the summary exists. There is nothing to normalize and no
+    # fault() row to write it into — emit what can be emitted (nothing) and say so, once.
+    echo "" >&2
+    echo "  report: NOT PRODUCED — this run ended before any instrument wrote to the summary," >&2
+    echo "          so there is nothing to normalize. Aborted before start, not clean." >&2
+    return 0
+  fi
+  if [ ! -f "$norm" ] || [ ! -f "$rend" ]; then
+    fault "report (normalize + render)" \
+          "engine not installed at ${norm#$ROOT/} / ${rend#$ROOT/}" \
+          "docs/report.json and docs/verification/report.html were NOT (re)generated. Run bin/sync-project.sh to install the tests/e2e engine, or set REPORT_NORMALIZE_JS / REPORT_RENDER_JS."
+  else
+    run "report (normalize → docs/report.json)" "$OUTDIR/50-report-normalize.log" info 300 -- \
+      node "$norm" --out docs/report.json
+    if [ -s "$ROOT/docs/report.json" ]; then
+      run "report (render → docs/verification/report.html)" "$OUTDIR/51-report-render.log" info 300 -- \
+        node "$rend" --in docs/report.json --out docs/verification/report.html
+      [ -s "$ROOT/docs/verification/report.html" ] && RENDER_OK=1
+    else
+      fault "report (render → docs/verification/report.html)" \
+            "normalize wrote no docs/report.json — nothing to render" \
+            "See ${OUTDIR#$ROOT/}/50-report-normalize.log for why."
+    fi
+  fi
+  # Restore the counters: the rows above stay in the summary (visible, named), the exit code
+  # does not move on their account. See the NON-GATING note at the head of this function.
+  FAULTED=$pre_faulted; FINDINGS=$pre_findings
+  if [ "$mode" = "trap" ]; then
+    # Abnormal end: §3 never runs, so its "report:" lines are printed here — an aborted run
+    # must still say where its report landed, or "aborted" reads as "never started".
+    echo ""
+    if [ "$RENDER_OK" -eq 1 ]; then
+      echo "  report: docs/verification/report.html (the human surface) · docs/report.json (machine)"
+      echo "          Emitted by the EXIT trap after an early exit (status $prior_rc): it reflects"
+      echo "          what the instruments had written when the run ended, NOT a completed pass."
+    else
+      echo "  report: NOT PRODUCED this run — see the report rows above; the exit status"
+      echo "          ($prior_rc) is unaffected (the report renders evidence, it does not add any)."
+    fi
+  fi
+  return 0
+}
+# The traps write to the SCRIPT's stdout/stderr, pinned here on fds 3/4 — not to whatever
+# happens to be redirected when the signal lands. A trap that fires mid-instrument executes
+# while run()'s `> "$log" 2>&1` redirection is active, so without this the INTERRUPTED
+# message and the whole report emission vanish into the interrupted instrument's log file
+# (measured 2026-08-22: SIGINT during the stack rung put all of it in 00-stack.log).
+exec 3>&1 4>&2
+trap 'emit_report trap 1>&3 2>&4' EXIT
+# An interrupted run is still a run that happened, and it must still leave a report saying
+# how far it got. Without this, Ctrl-C on the 9-minute conformance rung leaves nothing on
+# disk and the next reader cannot tell an aborted verify from a verify nobody started.
+# exit 2 is honest — instruments incomplete — and it lands in the EXIT trap above.
+trap '{ echo ""; c_warn "  ! INTERRUPTED"; echo " — emitting the partial report"; } 1>&3 2>&4; exit 2' INT TERM
 
 echo "══ verify-module: $MODULE ══  $STAMP"
 
@@ -493,43 +585,18 @@ fi
 printf 'look (module-review.md §4)\tSKIPPED\t0\t-\t(judgement pass — not performed by this chain; review-agent owns it)\n' >> "$SUMMARY"
 
 # ── 2d. Report surface — normalize + render (closes improvement-plan Finding 2) ─────────────
-# Every instrument above writes its own artifact; this step composes them into the two report
-# surfaces: docs/report.json (report-normalize.js — the machine half, versioned schema) and
-# docs/verification/report.html (report-render.js — the human surface check_stage_6 accepts).
-# Until this rung existed, report-normalize.js was invoked by no orchestrator at all
+# Every instrument above writes its own artifact; emit_report() composes them into the two
+# report surfaces: docs/report.json (report-normalize.js — the machine half, versioned schema)
+# and docs/verification/report.html (report-render.js — the human surface check_stage_6
+# accepts). Until this rung existed, report-normalize.js was invoked by no orchestrator at all
 # (harness-architecture.md §5), so the richest artifact in the harness was unreachable from
 # the harness's one command and nothing anywhere produced Stage 6's test surface.
 #
-# NON-GATING BY CONSTRUCTION, one step past the design-audit rung: not even its FAULTS gate.
-# This step renders the evidence, it does not add any — a module whose instruments all passed
-# must not read INCOMPLETE because the renderer hiccupped, and a broken report pipeline is
-# report-normalize's own selftest's problem, not this module's. So the rungs run through
-# run()/_report_result() as usual (the summary row and log stay honest), and the FAULTED/
-# FINDINGS counters are restored afterwards so the exit code belongs to the instruments alone.
-REPORT_NORMALIZE_JS="${REPORT_NORMALIZE_JS:-$ROOT/tests/e2e/report-normalize.js}"
-REPORT_RENDER_JS="${REPORT_RENDER_JS:-$ROOT/tests/e2e/report-render.js}"
-RENDER_OK=0
-PRE_REPORT_FAULTED=$FAULTED; PRE_REPORT_FINDINGS=$FINDINGS
-if [ ! -f "$REPORT_NORMALIZE_JS" ] || [ ! -f "$REPORT_RENDER_JS" ]; then
-  fault "report (normalize + render)" \
-        "engine not installed at ${REPORT_NORMALIZE_JS#$ROOT/} / ${REPORT_RENDER_JS#$ROOT/}" \
-        "docs/report.json and docs/verification/report.html were NOT (re)generated. Run bin/sync-project.sh to install the tests/e2e engine, or set REPORT_NORMALIZE_JS / REPORT_RENDER_JS."
-else
-  run "report (normalize → docs/report.json)" "$OUTDIR/50-report-normalize.log" info 300 -- \
-    node "$REPORT_NORMALIZE_JS" --out docs/report.json
-  if [ -s "$ROOT/docs/report.json" ]; then
-    run "report (render → docs/verification/report.html)" "$OUTDIR/51-report-render.log" info 300 -- \
-      node "$REPORT_RENDER_JS" --in docs/report.json --out docs/verification/report.html
-    [ -s "$ROOT/docs/verification/report.html" ] && RENDER_OK=1
-  else
-    fault "report (render → docs/verification/report.html)" \
-          "normalize wrote no docs/report.json — nothing to render" \
-          "See ${OUTDIR#$ROOT/}/50-report-normalize.log for why."
-  fi
-fi
-# Restore the counters: the rows above stay in the summary (visible, named), the exit code
-# does not move on their account. See the NON-GATING note at the head of this section.
-FAULTED=$PRE_REPORT_FAULTED; FINDINGS=$PRE_REPORT_FINDINGS
+# The body lives in emit_report() above — installed as the EXIT trap, so an interrupted or
+# early-faulted run still emits (harness-architecture.md §5 improvement 1, closed 2026-08-22).
+# This explicit call is the normal-path invocation, at the same position §2d always ran;
+# the guard inside makes the trap's later call a no-op, so the step runs exactly once.
+emit_report normal
 
 # ── 3. Verdict ──────────────────────────────────────────────────────────────
 echo ""

@@ -1,0 +1,83 @@
+# THE artifact table — which per-stage ARTIFACTS the pipeline promises, and who reads each one.
+#
+# This is the third layer of the same fix. bin/lib/install-manifest.sh declares which FILES a
+# wired project must carry; bin/lib/obligations.tsv declares which PASSES owe a mark. Between
+# them sat a hole this repo fell into at least seven measured times (improvement-plan
+# Findings 2, 5, 10, 11, 12, 13, 15): a consumer was written, routed and gated against an
+# artifact whose producer was never wired into the stage that owns it. The coverage ledger had
+# ELEVEN executable readers and no producer in the spine; page-scope.json had two readers and a
+# documented phantom producer; check_stage_6() demanded a report.html nothing generated, so the
+# terminal gate was structurally unpassable in every project. Each was found by a human reading
+# a failed project, not by anything in this repo going red.
+#
+# A CONSUMER IS NOT A PRODUCER. The rule "absence is never a pass" was implemented only at the
+# consumer end — every fail-closed reader became a permanent red no correct work could clear,
+# and a permanent red gets routed around. This table is the producer-side mirror: one row per
+# artifact some stage's "Agent produces" row promises, so a stage that never emitted its
+# artifact reports PENDING out loud instead of nothing at all. It decides NOTHING about content
+# quality — whether a blueprint is any good stays with the skills (skills-over-scripts.md). It
+# only notices absence.
+#
+# A ROW EARNS ITS PLACE BY CITING A REAL CONSUMER — a script, gate or skill that actually reads
+# the artifact, named with file:line (or file §section) in the consumers column. This is not an
+# inventory of everything imaginable: an artifact nobody reads is an artifact whose absence
+# costs nothing, and a table full of those is a table nobody reads. Stage-7 outputs (cutover
+# checklist, migration scripts) have no row for exactly that reason — check_stage_7() reads
+# only the decision register. When something starts reading one, it gets a row that day.
+#
+# Read by bin/lib/artifact-check.sh, sourced from bin/gate-check.sh (informational, never
+# blocking — Decision 1 in process/improvement-plan-e2e-reporting.md stands: nothing blocks).
+#
+# Format: TAB-separated, seven columns. Blank lines and #-comments ignored.
+#   1 artifact    stable id, used in waiver lines ("Waived artifact blueprint-html: ...")
+#   2 stage       conversion-runbook.md stage (P, 0-7) whose "Agent produces" row owns it
+#   3 paths       project-relative glob(s), |-separated — ANY non-empty match discharges the
+#                 row. Also resolved under analysis/<name>/ (the nested layout gate-check.sh's
+#                 ANALYSIS_BASE serves). Alternatives exist where real projects legitimately
+#                 differ (the three ledger shapes of skills/coverage-ledger.md §"Where the
+#                 ledger lives"), never as a hedge against not knowing the convention.
+#   4 producer    the skill step or script that emits it — the thing a PENDING row tells you
+#                 to run
+#   5 consumers   the citations that earn the row its place (see above)
+#   6 modes       comma list of entry modes that owe it: migration,requirements,greenfield
+#                 (conversion-runbook.md §"Entry Modes", table at :98-102). À-la-carte projects
+#                 run no stages and are excused wholesale by artifact-check.sh, same test as
+#                 obligation-check.sh.
+#   7 absence     gate   — an existing mechanical check already refuses without it
+#                          (check_stage_*/build-ready); absence at a reached stage is holding
+#                          a gate shut RIGHT NOW
+#                 report — report-only; absence is named, nothing blocks on it
+#
+# WHAT THIS TABLE MUST NOT DO: force a back-fill. A project that ran `--adopt <stage>` owes
+# nothing below its adoption point (those rows report ADOPTED), a waived stage's artifacts are
+# waived with it, and an entry mode that does not run a stage does not owe its artifacts.
+# Stages the register shows the project has not begun report their absence quietly — owed
+# later, not overdue now.
+#
+artifact	stage	paths	producer	consumers	modes	absence
+intake	P	intake.md	bin/init-project.sh scaffold + the Stage-P kickoff interview (conversion-runbook.md §2 Stage P)	bin/gate-check.sh:596 (check_stage_P), bin/gate-check.sh:497 (entry-mode fallback read)	migration,requirements,greenfield	gate
+register	P	PROJECT.md	bin/init-project.sh (empty register); every checkpoint writes into it (CLAUDE.md §One decision register)	bin/gate-check.sh:285 (register resolution feeding every ✋ gate), bin/lib/obligation-check.sh:151 (waivers/adoption read from it)	migration,requirements,greenfield	gate
+triage	0	triage.md	bin/init-project.sh scaffold, filled per skills/source-triage.md; N/A rows recorded, never deleted (conversion-runbook.md:130)	bin/gate-check.sh:684 (check_stage_0 sign-off test)	migration,requirements,greenfield	gate
+extraction-report	1	analysis/*/knowledge-base/extraction-report.html|analysis/knowledge-base/extraction-report.html|knowledge-base/extraction-report.html	bin/extraction-report.sh <project-root> — one renderer for every entry mode	bin/gate-check.sh:725 (check_stage_1)	migration,requirements	gate
+brds	2	analysis/*/knowledge-base/brd/*.brd.json|analysis/knowledge-base/brd/*.brd.json|knowledge-base/brd/*.brd.json	pipeline generators (migration), skills/kb-generation.md (documents), skills/brd-generation.md (by hand) — the reader must not care which	bin/lib/discover-brds.sh:43 (the one path authority), bin/gate-check.sh:773 (check_stage_2), bin/brd-report.sh, bin/open-questions.sh	migration,requirements	gate
+brd-validation	2	analysis/*/knowledge-base/reports/validation-report.md|analysis/knowledge-base/reports/validation-report.md|knowledge-base/reports/validation-report.md	skills/brd-validation.md loop, run to Clean	bin/gate-check.sh:777-807 (check_stage_2 Stop-condition test)	migration,requirements	gate
+brd-surface	2	analysis/brd-report.html	bin/brd-report.sh <project-root> (default output, bin/brd-report.sh:113)	conversion-runbook.md §2 Stage-2 Surface row, parsed at bin/gate-check.sh:1284 (stage_surface_cells)	migration,requirements	report
+module-design	3	architecture/module-design.html|module-design.html	skills/modularize-domain.md:88 (the human-facing sign-off artifact)	skills/modularize-domain.md:109 (gate checklist), conversion-runbook.md:478 Stage-3 Surface row (parsed at bin/gate-check.sh:1284)	migration,requirements	report
+fit-gap	3	architecture/fit-gap.md	skills/architecture-blueprint.md Step 4	bin/gate-check.sh:912 (check_stage_3), bin/gate-check.sh:939 (blueprint.html staleness input)	migration,requirements	gate
+blueprint-md	3	architecture/blueprint.md	skills/architecture-blueprint.md Steps 2-6 — the markdown is the source of truth	bin/gate-check.sh:939 (staleness input), skills/architecture-blueprint.md:54 (render source for blueprint.html)	migration,requirements	report
+blueprint-html	3	architecture/blueprint.html	skills/architecture-blueprint.md Step 7 (generated render, never hand-edited)	bin/gate-check.sh:931-943 (check_stage_3 presence + freshness)	migration,requirements	gate
+design-system	3	design/design-system.html	skills/design-artifacts.md:79 (annotated showcase linking ds.css)	bin/gate-check.sh:913 (check_stage_3), bin/gate-check.sh:1135 (build-ready)	migration,requirements	gate
+ds-css	3	design/ds.css	skills/design-artifacts.md:75 (the physical token/component source)	skills/design-artifacts.md:68 (two-files rule — every wireframe links it), bin/gate-check.sh:1135 (build-ready accepts either file)	migration,requirements	report
+wireframes	3	design/wireframes/*.html	skills/design-artifacts.md Step 3, one per screen	bin/gate-check.sh:923 (check_stage_3), bin/gate-check.sh:1129 (build-ready), skills/ui-preflight-pages.md (mdl-agent pre-flight input)	migration,requirements	gate
+module-definition	3	architecture/modules/*/definition.md	skills/architecture-blueprint.md Step 1 (:60 — the directory shape, one doc per module)	THIS ROW IS ITS FIRST MECHANICAL CONSUMER — as of 2026-08-22 nothing executable read definition.md (improvement-plan P7 residue, the newest instance of the pattern this table exists to stop); prose consumers: skills/architecture-blueprint.md:43, skills/coverage-ledger.md:27	migration,requirements	report
+build-plan	4	architecture/build-plan.md	skills/brd-to-build-plan.md	bin/gate-check.sh:955 (check_stage_4), project-bin/build-plan-status.sh (progress board), project-bin/coverage-preflight.sh:238 (the claims join)	migration,requirements	gate
+build-plan-html	4	architecture/build-plan.html	project-bin/build-plan-status.sh --html (skills/brd-to-build-plan.md:47 — derived view, never hand-edited)	conversion-runbook.md §2 Stage-4 Surface row, parsed at bin/gate-check.sh:1284	migration,requirements	report
+module-brief	4	architecture/modules/*/module-brief.md|architecture/modules/*-brief.md	skills/module-brief.md — ba-agent writes the first at Stage 4, the rest just-in-time	bin/gate-check.sh:1121 (build-ready fails without one), project-bin/build-plan-status.sh:98	migration,requirements	gate
+coverage-ledger	4	architecture/modules/*/coverage-ledger.md|architecture/modules/*-coverage-ledger.md|architecture/coverage-ledger.md	skills/coverage-ledger.md procedure at Stage 4 (BRD leaves × build-plan claims); the three shapes are §"Where the ledger lives", first canonical	project-bin/conformance-check.sh:85-93, project-bin/coverage-preflight.sh:134-137, project-bin/verify-module.sh:299-300, project-bin/review-module.sh:289, conversion-runbook.md:487 (Stage-4 produces row) — the eleven-consumers-no-producer artifact of improvement-plan Finding 12	migration,requirements	report
+ui-reviews	5	design/ui-reviews/ui-review-*.html	skills/module-review.md pass (review-agent), one report per module close-out	bin/gate-check.sh:984 (check_stage_6), bin/lib/obligations.tsv:47 (the look row — per-module coverage and denominators live THERE; this row only asks whether the stage produced any report at all)	migration,requirements,greenfield	gate
+journeys	5	journeys/*.journey.json	journey authoring per skills/testing-shape.md / skills/journey-proof.md (worked example: project-tests/e2e/example.journey.json)	project-bin/verify-module.sh:376,404 (the journeys rung), project-tests/e2e/journey-runner.js:5	migration,requirements,greenfield	report
+page-scope	5	.claude/loop/page-scope.json	project-bin/page-scope.sh (the phantom of improvement-plan Finding 15 until 078c7d8 shipped it)	project-tests/e2e/design-audit.js:55, project-tests/e2e/page-audit.js:66, project-tests/e2e/report-normalize.js:112 — without it the LOOK instruments degrade to --static-only	migration,requirements,greenfield	report
+improvement-register	5	docs/improvement-register.md	skills/improvement-register.md:39 (append-only, one row per finding, written during build/verify passes)	project-bin/build-plan-status.sh:58,202 (the proven-vs-built cross-reference), skills/close-the-loop.md	migration,requirements,greenfield	report
+improvement-register-html	5	docs/improvement-register.html	project-bin/render-improvement-register.sh (landed 2026-08-22; in MXTK_PROJECT_BIN — bin/lib/install-manifest.sh:81-85)	project-bin/render-improvement-register.sh:35 (output contract); human review surface for the register above — report-only by assignment	migration,requirements,greenfield	report
+report-json	6	docs/report.json	project-bin/verify-module.sh:518 (normalize rung → report-normalize.js), run as part of every module verify	bin/gate-check.sh:980 (check_stage_6 requires it alongside the HTML), project-tests/e2e/report-render.js (renders from it)	migration,requirements,greenfield	gate
+verification-html	6	docs/verification/report.html|test-report.html|reports/test-report.html	project-bin/verify-module.sh:521 (render rung → report-render.js); the two test-report.html shapes are the legacy names check_stage_6 still accepts	bin/gate-check.sh:970-995 (check_stage_6 — the gate that was structurally unpassable before b9c90a4/078c7d8, improvement-plan Finding 14)	migration,requirements,greenfield	gate

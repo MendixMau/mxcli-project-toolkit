@@ -256,16 +256,23 @@ ends every completed run with a non-gating normalize → render step producing `
 and `docs/verification/report.html`; its failure lands as a named FAULT row in the summary and
 never moves the exit code, because the step renders evidence rather than adding any.
 
-Two structural improvements remain, in order of value:
+One structural improvement remains; the other closed:
 
-1. **Emit the report on every exit path**, not only at the end of a completed run. Copy the
-   pattern `review-module.sh` already uses: a `trap emit_report EXIT` that produces the report
-   **including on SIGINT and including a module that does not exist**. Most harnesses produce
-   nothing when interrupted, and "aborted" then looks indistinguishable from "never started".
-   §2d runs after the instruments, so an interrupted run still produces no report today.
-2. **Make `report-normalize.js` the single composer**, with `review-report.js` demoted to an input
-   adapter that writes `artifacts/review-<module>.json`. One composer means one place where "a
-   missing instrument is a `fault` row, never silence" is enforced.
+1. **Emit the report on every exit path** — **CLOSED, 2026-08-22.** `verify-module.sh` now
+   mirrors `review-module.sh`'s pattern: §2d's body is an `emit_report()` installed via
+   `trap emit_report EXIT` (plus an INT/TERM trap that exits 2 into it), so the report is
+   produced on the clean path, the early-fault path, a module that does not exist, and SIGINT
+   nine minutes into conformance alike — "aborted" no longer looks like "never started". A
+   guard makes the normal-path call and the trap's call run the step exactly once; nothing in
+   the trap body may call `exit`, so a renderer failure can never overwrite the exit status
+   the instruments earned (unlike `review-module.sh`, whose report IS its output and which
+   therefore deliberately exits 2 when emission fails). One wrinkle worth copying too: the
+   trap fires while `run()`'s per-instrument redirection is still active, so its output is
+   pinned to the script's own stdout/stderr (`exec 3>&1 4>&2`) — without that, the whole
+   emission vanishes into the interrupted instrument's log (measured 2026-08-22).
+2. **Make `report-normalize.js` the single composer** — still open. `review-report.js` should be
+   demoted to an input adapter that writes `artifacts/review-<module>.json`. One composer means
+   one place where "a missing instrument is a `fault` row, never silence" is enforced.
 
 `review-report.js` is also the one engine file with **no argv parsing at all** — it is driven
 entirely by environment variables set by its orchestrator, so it cannot be run or tested alone. It

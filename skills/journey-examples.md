@@ -7,6 +7,10 @@ write: what every field does, what reads it, and what happens when you leave it 
 **Preconditions are a different skill.** What the seeds need to find, who is allowed to create it,
 and how the fixture gets reset between a real run and a control run: `fixture-seeding.md`.
 
+**Where the journey list itself comes from:** when the project ran Stage 3, the blueprint's
+cross-persona journey table (`architecture-blueprint.md` Step 3d) is the seed — one journey file
+per row.
+
 ## The files
 
 | File | What it shows |

@@ -765,3 +765,31 @@ verdict vocabulary — is wired, fail-closed and hard to skip. Every artifact th
 is not an accident of any one file; it is what happens when the producer-side mirror rule (P10) has
 never existed, because construction artifacts have scripts that emit them and comprehension artifacts
 only ever had prose asking someone to write them.
+
+---
+
+## What landed (2026-08-22, same day as the review pass)
+
+The register was executed the same day, drafted by three parallel sessions with disjoint file
+sets, reviewed and committed by the coordinating session. Three commits on
+`claude/e2e-testing-module-validation-5o6mly`, merged to master immediately after (a fresh
+end-to-end test run was scheduled against master ~20 minutes out):
+
+| P | Status | Commit | What changed |
+|---|--------|--------|--------------|
+| P1 | **LANDED** | `d758afb` | Runbook Stage 4 "Agent produces" now names the coverage ledger (per-module canonical path first); the gate row carries the three coverage checks; `coverage-ledger.md` §"Integration with Stage 4 Gate" demoted from unexecuted instruction to reference copy; Stage 5 disambiguates checklist vs ledger. |
+| P2 | **LANDED** | `e8d0081` | `journey-map` row deleted from `skill-routing.tsv`; surfaces re-rendered; tombstone's false "never reachable" sentence corrected. Bonus: the `learned-workflow-patterns` table/render drift from `05a5765` fixed table-side; `render-routing.sh --check` clean. |
+| P3 | **LANDED** | `d758afb` | `architecture-blueprint.md` Step 5 (and every reference: output tree, Step 4 vocabulary, 6c, 7, 7b, handoff, Downstream) now writes register rows into `PROJECT.md`; `brd-to-build-plan.md` Step 2 names that upstream; runbook :589 "absorbs" reworded; `modularize-domain.md` checkpoint recording redirected. `gate-check.sh`'s `[ -f ]`-guarded legacy mtime check kept for projects that have the file. |
+| P4 | **LANDED** | `d758afb` | CAC-3 Q3 options A and B both produce Step 3b's state diagram — the answer decides implementation only; Step 3b rebound to "workflow-shaped requirements detected at all", with the option-B spec (states = enum values, transitions = role-labeled microflows). |
+| P5 | DEFERRED | — | Overtaken by `c3130c4` (per the review pass). Residue if wanted later: an obligations.tsv row for the Q3 question being put. |
+| P6 | DEFERRED | — | Still blocked on the Finding 13 ownership decision (who owns the cross-persona design-time artifact). |
+| P7 | **LANDED** | `d758afb` | Stage-3 module definition doc moves to `architecture/modules/<Name>/definition.md` — the directory shape everything else already globs; `coverage-ledger.md` :27 names it among the directory's contents. Noted: nothing mechanically consumes `definition.md` yet — a residual Finding-12-shaped gap, candidate obligations row. |
+| P8 | **LANDED** | `078c7d8` | `project-bin/page-scope.sh` exists: facts-only, read-only (`SHOW`/`describe`), FAULT exit 2 without clobbering a prior scope, orphans carried forward never derived, `distinctRolePageSets` computed exactly as `report-normalize.js` recomputes it. In `MXTK_PROJECT_BIN`. `harness-architecture.md`'s four phantom mentions now describe a shipped script. |
+| P9 | **LANDED** | `078c7d8` | `verify-module.sh` §2d: final non-gating normalize→render rung (`docs/report.json` + `docs/verification/report.html`; FAULT/FINDINGS counters restored so the exit code stays the instruments'). `check_stage_6()` accepts that pair alongside legacy `test-report.html` — the terminal gate is passable by the harness that was built to satisfy it. Finding 2 CLOSED; the trap-EXIT emit-on-interrupt half stays open (`harness-architecture.md` §5 improvement 1). |
+| P10 | DEFERRED | — | Least-evidenced, biggest. The third wiring layer (per-stage artifact manifest) remains the open through-line item; P7's unconsumed `definition.md` is the newest instance of the pattern it would catch. |
+
+Consequence for the sync-impact section above: P1/P3/P4 travel by `git pull` alone (referenced
+skills); P2's re-rendered agent files, P7's path change, and P8/P9's `project-bin` + engine
+changes all land in consuming projects **only after `bin/sync-project.sh`** — which strengthens,
+not changes, the existing rule: pre-2026-08-20 projects rerun sync, and now every project should
+rerun it after pulling past this date to receive `page-scope.sh` and the render rung.

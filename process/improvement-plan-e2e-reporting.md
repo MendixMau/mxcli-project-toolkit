@@ -573,24 +573,110 @@ explicitly declared optional. That is `render-routing.sh --check` shaped — a c
 assertion over files that already exist — and it belongs next to
 `_mxtk_manifest_check_walkthroughs()`, which is the same idea applied to one file format.
 
-### Proposed, not decided
+### Finding 16 — the architecture artifact set has the same three breaks, and one of them is a diagram nobody drew
 
-Ordered by cost, all producer-side, none of them gating (Decision 1 stands):
+Prompted by the question *"on architecture, don't we also need other artifacts — and if there's a
+workflow in the app, shouldn't we draw the process flow?"* Checked, and the answer is that the
+toolkit already specifies all of it. Three separate producer-side breaks stopped it landing.
 
-1. **Runbook edits, three lines.** Add `architecture/coverage-ledger.md` to Stage 4 "Agent produces";
-   add `design/journeys/` to Stage 3 "Agent produces"; make the three checkboxes that
-   `coverage-ledger.md:266-270` has been asking for since it was written. Resolve the
-   "checklist"/"ledger" collision by naming both in the Stage 5 row. Unblocks Decision 6.
-2. **Finish the `journey-map.md` tombstone** — drop its row from `bin/lib/skill-routing.tsv` and
-   re-render, as both earlier tombstones already are, and correct the tombstone's claim about which
-   tables reached it. Separately, record the cross-persona handoff as an *open need* rather than
-   letting it close with the file — Finding 5 is the executable half of the same requirement.
-3. **Write `page-scope.sh`**, or delete its four citations from `harness-architecture.md` and record
-   that `--static-only` is the supported mode. Either is honest; the current state is not.
-4. **Invoke the renderer from the Stage 5/6 procedure**, which is Finding 2's fix, plus the
-   `check_stage_6()` consequence above — the gate stays as-is once something produces its inputs.
-5. **The producer-side mirror check.** The expensive one, and the only one that stops the eighth
-   instance.
+**16a — the state diagram is bound to the implementation, not the domain shape.**
+`architecture-blueprint.md` Step 3b already specifies exactly the artifact the question asks for: one
+Mermaid `stateDiagram-v2` per Workflow-shaped process, states as tasks, transitions as outcomes,
+embedded in `blueprint.md`. It is conditional on `checkpoint-architecture.md` CAC-3 Q3, whose two
+options are:
 
-Item 5 is also the one with the least evidence behind it — it is a proposal from a pattern, not a
-measured fix, and it should be judged that way.
+> - A) Native Mendix Workflow for the human-approval parts, microflows for automated transitions
+> - B) Microflows only — simpler, no Workflow module dependency, **no extra diagram**
+
+So the state view is bundled to the *implementation technology* and traded away with it. This is
+backwards. The diagram is a **comprehension** artifact, and its value does not depend on where the
+states are stored — if anything option B needs it *more*, because a native Workflow at least renders
+itself in Studio Pro, while an enum-plus-microflows lifecycle is drawn nowhere by anything, ever.
+
+PROJECT-C is the demonstration. Its entire domain is a six-state, role-gated lifecycle —
+`ENUM_ReleaseStatus` (Draft → Validated → Submitted → Approved → Released → Retired), three module
+roles, a separation-of-duties guard on Approve, and a whole entity (`RouteStateHistory`) that exists
+solely to record transitions. Zero native Workflow constructs, so option B, so no diagram.
+`blueprint.md` carries two Mermaid blocks: layer and wiring. **There is no picture of the lifecycle
+anywhere in the project** — not in the blueprint, not in the module brief, not in the wireframes.
+The one thing a reviewer most needs to see to judge whether the process is right is the one thing
+nothing draws.
+
+**And the trigger never actually fired.** `checkpoint-architecture.md:101` requires the answer be
+recorded as `PROJECT.md` → `## Decisions` → `Workflow scope:`. PROJECT-C's `PROJECT.md` contains no
+such line, and `run/decisions.md` — 31KB of every gate exchange verbatim — contains no occurrence of
+"Workflow" at all. So this was not "option B chosen deliberately". **The question that decides
+whether the process gets drawn was never put to the user.** Same producer-side shape as Findings 12
+and 13: the artifact is specified, its trigger is specified, and nothing makes the trigger happen.
+
+**16b — the Step 1 module definition doc is not produced, and the path shape disagrees.**
+`architecture-blueprint.md` Step 1 mandates one module definition doc per module, and its own
+"Output of This Skill" tree names `architecture/modules/<ModuleName>.md` — entities, key microflows,
+pages, security, dependencies, at Stage 3. PROJECT-C has `architecture/modules/RoutingMgmt/module-brief.md`,
+which is the **Stage 4** artifact from a different skill. The Stage 3 doc does not exist.
+
+Note the path shape: the skill says `modules/<ModuleName>.md` (a file), the project has
+`modules/<ModuleName>/module-brief.md` (a directory). That is the same file-vs-directory disagreement
+Finding 9 recorded for the ledger glob, on a different artifact — worth checking whether anything
+globs for the Step 1 doc and silently finds nothing.
+
+**16c — `open-issues.md` is superseded in the runbook and still live in the skill.**
+`conversion-runbook.md:589` states `PROJECT.md` "Absorbs `architecture/open-issues.md`". But
+`architecture-blueprint.md` still lists it in its output tree (`:44`), still has a whole Step 5
+producing it (`:204`), still routes gaps into it from the fit-gap vocabulary (`:196`) and from Step
+6's three decisions (`:245`) — and `brd-to-build-plan.md` still consumes it as a named upstream input
+(`architecture-blueprint.md:6`: "the open-issues register as the questions the plan must answer
+before script 01"). PROJECT-C produced no `open-issues.md`, correctly per the runbook, which means
+the downstream consumer's named input does not exist.
+
+**This is the journey-map tombstone pattern exactly**: a supersession that landed in one file and not
+in the file that produces the thing. Either the skill drops Step 5 and points at `PROJECT.md`, or the
+runbook line is wrong. Both cannot be right.
+
+**The general shape.** Two of the three architecture artifacts a reviewer would most want — the
+process state view and the per-module definition — are specified, unproduced, and unnoticed, because
+in each case the *only* thing standing between spec and artifact was a conditional nobody evaluated
+or a producer nobody ran. Add the cross-persona journey (Finding 13) and the pattern is complete:
+**the toolkit's design-time comprehension artifacts — the ones that answer "is this the right
+process?" rather than "did it build?" — are the least mechanically enforced things in it.**
+
+### Proposed, not decided — the full register
+
+Every proposal arising from Findings 12–16, ordered by cost. All producer-side. **None of them
+gating** — Decision 1 stands, and nothing here adds a new blocking check.
+
+| # | Proposal | Closes | Cost |
+|---|---|---|---|
+| P1 | Add `architecture/coverage-ledger.md` to the runbook's Stage 4 "Agent produces" row, and make the three checkboxes `coverage-ledger.md:266-270` has been asking for since it was written. Resolve the "coverage checklist" / "coverage ledger" name collision by naming both in the Stage 5 row. | 12 | 3 lines |
+| P2 | Finish the `journey-map.md` tombstone: drop its row from `bin/lib/skill-routing.tsv` and re-render, as both earlier tombstones already are; correct the tombstone's claim about which tables reached it. | 13 | 1 row + render |
+| P3 | Reconcile `open-issues.md`: either drop Step 5 from `architecture-blueprint.md` and repoint its four internal references plus `brd-to-build-plan.md`'s named input at `PROJECT.md`, or correct `conversion-runbook.md:589`. One of the two is wrong. | 16c | 1 file |
+| P4 | Rebind Step 3b's trigger from the implementation to the domain shape: draw the `stateDiagram-v2` whenever a lifecycle enum drives role-gated transitions, whether or not it is a native Mendix Workflow. Delete "no extra diagram" from CAC-3 Q3 option B — it is not a benefit. | 16a | 1 skill + 1 checkpoint |
+| P5 | Make CAC-3 Q3 actually fire. The question was never put in PROJECT-C and its `PROJECT.md` line is absent; whatever makes the other checkpoint questions reliable should cover this one. | 16a | needs diagnosis first |
+| P6 | Add `design/journeys/` (or whatever replaces it) to the runbook's Stage 3 "Agent produces", once Finding 13's open need has an owner. Not actionable until then. | 13 | blocked on P2 |
+| P7 | Produce the Step 1 module definition doc at Stage 3, and reconcile `modules/<Module>.md` (file, per the skill) against `modules/<Module>/` (directory, per every project) — the same shape disagreement Finding 9 found on the ledger glob. | 16b | 1 skill + a glob audit |
+| P8 | Write `page-scope.sh`, **or** delete its four citations from `harness-architecture.md` and record `--static-only` as the supported mode. Either is honest; the current state is not. | 15 | script, or 4 deletions |
+| P9 | Invoke the renderer from the Stage 5/6 procedure (Finding 2's fix). `check_stage_6()` needs no change — it becomes satisfiable the moment something produces its two inputs. | 2, 14 | procedure + wiring |
+| P10 | The producer-side mirror check: walk every artifact path read by `bin/`, `project-bin/`, `project-tests/e2e/` and every path cited as normative in a `skills/*.md` body; assert each appears in some stage's "Agent produces" row or is explicitly declared optional. | all | the expensive one |
+
+**P1–P3 are the cheap, unambiguous ones** — each is a correction to a file that already contains the
+contradiction, and none of them require a decision about what the toolkit should do, only that it
+stop saying two things at once.
+
+**P10 has the least evidence behind it.** It is a proposal generalized from a pattern seen eight
+times, not a measured fix, and it should be judged that way — it is also the only one that stops
+the ninth.
+
+### The through-line, stated plainly
+
+Findings 2, 5, 10, 11, 12, 13, 15 and 16 are one defect. But 13 and 16 sharpen what kind:
+
+> The toolkit enforces **"did it build?"** mechanically and **"is this the right process?"** not at
+> all.
+
+Every instrument that measures construction — lint, gates, conformance, journeys, monkey, the
+verdict vocabulary — is wired, fail-closed and hard to skip. Every artifact that supports *judgement*
+— the state view, the cross-persona journey, the module definition doc, the per-step narrative report
+— is conditional, unproduced, or tombstoned, and nothing notices when it is missing. That asymmetry
+is not an accident of any one file; it is what happens when the producer-side mirror rule (P10) has
+never existed, because construction artifacts have scripts that emit them and comprehension artifacts
+only ever had prose asking someone to write them.

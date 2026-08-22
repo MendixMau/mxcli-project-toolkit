@@ -1,0 +1,24 @@
+create or modify microflow "ApiTest"."TEST_ImportCount" () returns Integer as $Out
+begin
+  declare $Json String = '{"pagination":{"page":1,"pageSize":20,"totalItems":2,"totalPages":1},"items":[{"routing_id":"r-1","route_code":"RT-001","route_name":"SMT Main","is_current":true,"effective_from":"2026-01-01T00:00:00","row_version":1},{"routing_id":"r-2","route_code":"RT-002","route_name":"THT Line","is_current":false,"effective_from":"2026-02-01T00:00:00","row_version":3}]}';
+  $Response = import from mapping ApiTest."IMM_SearchRoutes"($Json) all on error {
+    log error node 'MapTest' 'RESULT mapping THREW type={1} msg={2}' with ({1} = $latestError/ErrorType, {2} = $latestError/Message);
+    return -2;
+  };
+  if $Response = empty then
+    log error node 'MapTest' 'RESULT root=EMPTY';
+    return -1;
+  end if;
+  retrieve $Routes from $Response/ApiTest."SearchResponse_Route";
+  retrieve $Page from $Response/ApiTest."SearchResponse_PageInfo";
+  $Count = count($Routes);
+  declare $Out Integer = $Count * 100;
+  if $Page != empty then
+    set $Out = $Out + $Page/TotalItems;
+    log info node 'MapTest' 'RESULT page present totalItems={1}' with ({1} = toString($Page/TotalItems));
+  else
+    log warning node 'MapTest' 'RESULT page EMPTY';
+  end if;
+  log info node 'MapTest' 'RESULT items={1} out={2}' with ({1} = toString($Count), {2} = toString($Out));
+  return $Out;
+end;

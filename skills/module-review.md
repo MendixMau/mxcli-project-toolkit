@@ -141,7 +141,7 @@ finding in its own right, not an absence of one.
 
 **3 — Unaided design judgement, when there is neither.** This is the case the loop kept treating
 as an exemption, and it is not one: a user looking at that page has no wireframe either. Run these
-seven rows per page and write a one-line verdict for each. They are ordinary interface-quality
+nine rows per page and write a one-line verdict for each. They are ordinary interface-quality
 questions — nothing here needs a spec to answer:
 
 | # | Ask | A finding looks like |
@@ -153,11 +153,26 @@ questions — nothing here needs a spec to answer:
 | 5 | **Does the page use the width it has?** | a 300px form stranded in a 1600px viewport; a grid squeezed into a third of the page |
 | 6 | **Is anything unfinished on show?** | placeholder text, `New Page`, `Untitled`, a lorem string, a default Atlas icon standing in |
 | 7 | **Would you put this in front of the customer tomorrow?** If no, say the reason in one sentence. | "the header and the grid look like they came from two different apps" |
+| 8 | **Is the page shell right — nav chrome, breadcrumb, page title/H1, top padding — not just the content region?** Against the wireframe's shell when one exists; unaided otherwise. | no page title where the wireframe has an H1; an un-skinned default nav bar; content starting flush under the breadcrumb; a sidebar design shipped as a top-bar app with nobody deciding that |
+| 9 | **Is every field the design names actually present and populated?** Count fields against the wireframe/spec — a missing field is not a spacing quirk. | "Product number" in the wireframe, absent on the page; a grid cell blank where data must exist |
 
 Rows 1–6 are specific enough to be arguable, which is the point. **Row 7 is the one that must not
 be softened** — a reviewer who would not show the page but reports no P1 has recorded a false
 green in the only place that mattered. If the answer is no, that is at minimum a P2 with the
 sentence attached.
+
+**Rows 8–9 run on every page, whichever yardstick applies** — they were added after 2026-08-22,
+when a Station page passed its LOOK review with no page title at all, an unstyled default nav bar,
+a field missing outright, and ragged field layout, because the rubric only ever interrogated the
+content region and the reviewer verified layout from CSS, not pixels (see the rule below).
+
+**The pixel rule: a visual verdict cites what the screenshot shows, never what the CSS declares.**
+The 2026-08-22 escape was written as *"fields render in a clean 4-column grid
+(`grid-template-columns: repeat(4,1fr)`) matching the wireframe"* — the property existed, the
+render was ragged, a field was missing, and the claim was false. `getComputedStyle` is for
+root-causing a symptom your eye already found (next bullet); it is never itself evidence that a
+page looks right. If a verdict's evidence is a CSS property and not a described screenshot, the
+page has not been looked at.
 
 - **Root-cause every visual symptom.** Misaligned, floating, oddly spaced → inspect
   `getComputedStyle` and `getBoundingClientRect()` on the container *and its children*. Mendix
@@ -199,7 +214,7 @@ second copy of it; when the two disagree, that skill wins.
 | Missing / stale | Assess against instead | Report line |
 |---|---|---|
 | No wireframe for a page | design-system specs + the brief's screen intent; if neither, §4d's unaided-judgement rubric | `⚠ No wireframe for <Page> — visual verdict from <design system \| unaided rubric>` |
-| No design system either | §4d rubric rows 1–7 + Atlas conventions. **Every page still gets a written verdict** | `⚠ No design system — visual verdict is unaided judgement, rubric rows cited` |
+| No design system either | §4d rubric rows 1–9 + Atlas conventions. **Every page still gets a written verdict** | `⚠ No design system — visual verdict is unaided judgement, rubric rows cited` |
 | No StyleGallery | 4e's question survives without it: is any component on this page a hand-rolled version of something the app already builds elsewhere? Compare against sibling pages | `⚠ No StyleGallery — reuse checked against sibling pages, not a gallery` |
 | No module brief | 4c and 4d run unchanged. For 4f, fall back to the BRD, then to the requirements the module was built from, then to the build-plan row | `⚠ No brief for <Module> — intent taken from <BRD \| build plan>; scope may be wider than reviewed` |
 | Wireframe older than the page's last build script | compare anyway, flag as possibly stale | `⚠ <Page>.html older than build — divergence may be intentional` |
@@ -234,13 +249,23 @@ One self-contained HTML report, screenshots embedded base64, saved with the desi
 (`design/ui-reviews/ui-review-<YYYY-MM-DD>.html`). Sections: Summary · P1 · P2 · P3 · Reuse gaps ·
 (if ba-agent ran) BA/design conformance.
 
-**The headline states the denominator.** Not a footnote — the headline.
+**The headline states the denominator — and the commit it was true at.** Not a footnote — the
+headline.
 
 ```
 <Module> · 12 of 12 pages reviewed · stage 3: 2 of 6 journeys executed
+  VALID AT: <project repo short-hash at review time>
   NOT RUN this session: <named journeys>
   UNMEASURED: <named dimensions, if any instrument was absent>
 ```
+
+**A LOOK report expires when the module changes.** Any BUILD/GATE commit that touches the module
+after `VALID AT` invalidates stage 4 for that module — the module is no longer "reviewed", it is
+"reviewed as of a model that no longer exists". The check is one command:
+`git log --oneline <valid-at-hash>..HEAD -- <module's mdlsource dirs> <the .mpr>` — any output
+means re-run stage 4 before citing the report. Measured consequence, 2026-08-22: a month-old
+green report was cited for a page that several later build sessions had changed underneath it,
+and the page in front of the user matched nothing in the report.
 
 Three claims that must never be merged:
 
@@ -303,7 +328,7 @@ is non-deterministic run to run, so a prior pass is not evidence for a re-run of
 | Build (2) | 0 mxbuild errors, 0 unaddressed lint findings above the project's bar. A **newly authored** lint rule runs advisory-only for its first pass | any error; "warnings are fine" on a rule the project enabled; a day-one rule blocking with no false-positive check |
 | Prove (3) | every declared scenario passes with a landing-guard-verified pass; every write has a Data assertion or a documented reason it does not apply; re-run after any change | green UI with no landing guard; trusting a stale pass on since-changed code |
 | Monkey (3) | zero unhandled crashes — a legitimate flat bar, crash-on-input being unambiguous. Track findings-per-module as a trend | skipped because happy-path was green; a crash dismissed as "edge case"; a rising trend read as N unrelated one-offs |
-| **Look (4)** | **every page in 4a's set reviewed, each with a written answer to 4c's questions and a 4d visual verdict naming its yardstick (wireframe / design system / unaided rubric); every degradation named, substituted and still carrying a verdict** | **sampling the pages a journey happened to visit; "looked fine"; a clean `design-audit.js` reported as "the UI is reviewed"; a missing wireframe or uninstalled instrument treated as a reason to skip a page rather than to change yardstick** |
+| **Look (4)** | **every page in 4a's set reviewed, each with a written answer to 4c's questions and a 4d visual verdict naming its yardstick (wireframe / design system / unaided rubric); every degradation named, substituted and still carrying a verdict; every verdict's evidence a screenshot, not a CSS declaration; the report stamped `VALID AT` a commit** | **sampling the pages a journey happened to visit; "looked fine"; a clean `design-audit.js` reported as "the UI is reviewed"; a missing wireframe or uninstalled instrument treated as a reason to skip a page rather than to change yardstick; a layout claim proven by `getComputedStyle` instead of pixels; citing a report the module has been built past** |
 | Confirm (5) | an independent human looked at the running app; the denominator is in the headline | the agent self-certifying; citing an earlier control run as if it still applies |
 | Loop bound | a declared max retry count per module; escalate to a human on hitting it regardless of pass/fail | indefinite silent retries; declaring victory without surfacing how many attempts it took |
 
@@ -348,6 +373,8 @@ Not yet run. The first team to run it records recall/precision here as the first
 | Never checking the StyleGallery | built components rot while pages reimplement them as plain text |
 | Eyeballing classes, a11y or overflow page by page | 4b does it deterministically with a positive control; by hand it degrades after page 20 |
 | Treating a clean `design-audit.js` as "the UI is reviewed" | it cannot see a silent 4xx save, a missing empty-state, or a wireframe region never built |
+| **Answering "did we already catch this?" by grepping an old report** | a prior report is a lead, never a verdict: it can only mention defects someone thought to write down, and it may be stale. The answer to "check our reports" is re-running the wireframe-vs-live comparison now, then citing the report as history. 2026-08-22: a text-search for "top bar" found nothing; the actual side-by-side found six findings in one look |
+| **Verdicting the content region and never the shell** | nav chrome, breadcrumb, page title and top spacing are on every screen the user sees; a rubric that stops at the card border ships a page with no H1 and calls it reviewed (rubric rows 8–9 exist because of this) |
 
 ## Related
 

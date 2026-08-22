@@ -1,291 +1,301 @@
-# REST integration in Mendix via mxcli — getting it right the first time
+# REST-fed filterable DataGrid in Mendix via mxcli — first time right
 
-**Applies to:** any mxcli project modelling a REST-backed entity.
+**Applies to:** any mxcli project that shows data from a REST API in a page: search/filter bar →
+microflow calls the API → import mapping → non-persistent rows → DataGrid. The "Route List /
+Route Detail" shape.
 
-**Read before modelling any REST-backed entity.** Not after the grid comes up empty.
-
-Derived from one 6-hour debugging session on a production REST integration (2026-07-29) in which
-**four independent defects all presented as the same symptom: an empty grid.** Nothing in the
-tooling distinguished them. This file exists so the next integration costs 40 minutes.
-
----
-
-## RULE 0 — NAMING IS KING
-
-**Every entity name must exactly match the JSON structure's element name, at every object
-level, including the root.**
-
-```
-schema element      entity must be called
-─────────────────   ─────────────────────
-Root                Root
-Pagination          Pagination
-ItemsItem           ItemsItem
-NodesItem           NodesItem
-EdgesItem           EdgesItem
-```
-
-Nothing else in this file matters if this is wrong. A mismatch does not warn, does not error,
-and does not fail the build. The mapping simply instantiates nothing and every downstream panel
-reads empty.
-
-**Proven directly (2026-07-29).** `IMM_PagedThings` returned `(empty)` in the debugger while
-its root targeted `ThingsResponse`. Renaming that entity to `Root` — changing nothing
-else — made it work. Same for the child: `ItemsItem`, not `ThingVersion`.
-
-**Do not argue with this from a counterexample.** `IMM_SearchThings` works with semantic names
-(`SearchThingsResponse` / `Things`) because it was authored in Studio Pro. Every mapping
-mxcli generated with mismatched names came back empty. I used that one counterexample to
-dismiss the rule three separate times while the user kept fixing it by hand. If a mapping
-returns nothing, check the names first, not last.
-
-### The consequence you must design around
-
-Every paged endpoint yields the same element names — `Root`, `Pagination`, `ItemsItem` — and
-entity names are unique per module. So two paged endpoints in one module cannot each own a
-`Root`.
-
-**Share the entities.** One `Root`, one `Pagination`, one `ItemsItem` carrying the union of
-fields, reused by every mapping in the module:
-
-```
-Root ──Root_ItemsItem──▶ ItemsItem   (versions AND effectivities)
-     ──Root_NodesItem──▶ NodesItem
-     ──Root_EdgesItem──▶ EdgesItem
-```
-
-These are non-persistent read-model DTOs, not domain entities. A shared, slightly baggy shape is
-the correct trade — fields the calling endpoint doesn't supply are simply empty.
-
-The alternatives are worse: per-structure Custom Name edits (manual, per structure, in Studio
-Pro) or one module per endpoint (sprawl).
-
-### And the association must match too
-
-Naming alone isn't enough — the shape has to be right as well:
-
-```
-Root_ItemsItem     Root → ItemsItem     ReferenceSet   ✅ parent owns, loader walks forward
-ChildNode_Root      ChildNode → Root    Reference      ❌ backwards, and singular
-```
-
-A reverse walk on a non-persistent entity resolves as a database query against objects that were
-never in a database. Silently zero.
+**Status:** v2, rewritten 2026-08-22. Every claim below was re-measured on **mxcli v0.18.0 +
+Mendix 11.13.0** with a runtime test (`mxcli test`, Docker), not inferred from `DESCRIBE`,
+`check --references` or mxbuild. v1 of this skill (2026-07-29) carried two rules that are now
+**proven false** — see §0. If you hold a copy of v1, discard it.
 
 ---
 
-## Why this is hard — the thing to internalise
+## 0. What changed since v1 — read this even if you know the old skill
 
-Every layer in this stack swallows its own failure:
-
-| layer | how it fails | what you see |
+| v1 said | Measured 2026-08-22 on v0.18.0 | Consequence |
 |---|---|---|
-| JSON structure with root occurrence 0 | produces no root object | empty list |
-| Import mapping with unbound elements | matches nothing | empty list |
-| Reverse association retrieve (non-persistent) | resolves as a DB query | empty list |
-| `rest call` throwing | caught by `on error` | empty list |
-| Stale deployment | runs yesterday's model | empty list |
+| **RULE 0 — entity name must equal the JSON element name at every level (`Root`, `Pagination`, `ItemsItem`)** | **False.** `SearchResponse`/`PageInfo`/`Route` mapped to `(Object)`/`pagination`/`items` — not one name matches — and the runtime import returned root + pagination + 2 items. | **Name entities after the domain.** No shared `Root` NPE, no union `ItemsItem`, no `custom name map` gymnastics. The mapping binds by explicit element path; name equality was never a Mendix rule. |
+| **mxcli writes JSON structures DEAD (root occurrence `0..0`); run `fix-json-occurrences.sh --fix` before every mapping** | **Fixed since v0.17.0.** v0.17/v0.18 write root `0..1`, array items `0..*`. A fresh, unpatched structure imported correctly. Patching the root to `1..1` changed nothing. | **Retire the patch step.** The fixer script still prints `DEAD` for anything ≠ `1..1` — that verdict is now a false alarm. |
+| *(not known)* | **NEW trap — the `import from mapping` activity's range.** Omit the range keyword and mxcli (v0.17 **and** v0.18) writes `ForceSingleOccurrence=1`. On an object-rooted mapping that activity **returns EMPTY, throws nothing, logs nothing** — at `check`, `--references`, mxbuild and runtime. `DESCRIBE` shows it as a trailing `first`. Write **`all`**. | This is the defect the folk-fix "re-select the mapping in Studio Pro" was silently repairing: SP resets the flag to 0. It is also the likeliest cause behind BUG-84 ("array child never populated") and a project's 0-row read-model pages. |
 
-`mxcli check`, `--references` and `mxbuild` pass on **all** of them. So does the page render.
-You get one symptom for five causes and no signal to separate them. That is the whole problem —
-it is not that REST is hard.
-
-There is also a hidden layer people don't model: it is **not** API ↔ entity. It is
-**API → JSON structure → import mapping → entity**. The structure is invisible in most views,
-has no error state, and mxcli generates it broken.
+The whole v1 diagnosis chain (naming → occurrences → re-select in SP) was three symptoms of
+**one flag on the calling activity**, never on the structure or the mapping.
 
 ---
 
-## The protocol
+## 1. The pattern, end to end
 
-### 1. Capture the real payload before modelling anything
+Five documents, one page. Build in this order; each step has a read-back.
 
-```bash
-curl -s "$BASE/endpoint" -H "$AUTH" | python3 -m json.tool > analysis/json-samples/JSON_Thing.json
-```
-
-One file per structure, named after it. **Never model from the contract or an OpenAPI spec.**
-Real example: the contract implied a field held a code; the payload showed it holds an id
-(`"node-003-1"` vs `"N01"`). Only the bytes tell you.
-
-Check every endpoint — sibling endpoints often share an identical `{pagination, items}` wrapper and
-differ only inside `items`. That similarity is how the wrong payload ends up in the right
-structure, and it is invisible until you read the item fields.
-
-### 2. Name entity attributes from the payload — this is the biggest lever
-
-Mendix derives each schema element's **Custom Name** from the JSON key by capitalising the first
-character and keeping underscores:
-
-| JSON key | Custom Name | your attribute should be |
-|---|---|---|
-| `routing_id` | `Routing_id` | `Routing_id` |
-| `product_family_code` | `Product_family_code` | `Product_family_code` |
-| `is_current` | `Is_current` | `Is_current` |
-
-**Why it matters more than it looks.** Studio Pro's *Map automatically* pairs elements to
-attributes by **exact name**. With PascalCase entities it matches nothing, silently skips every
-field, and — if no entity is assigned — invents a parallel entity that *does* match, leaving you
-with two competing domain models.
-
-With matching names you never hand-bind anything. That is the real prize: **hand-made bindings
-reference schema elements by internal ID, so regenerating a structure destroys every one of them**
-and leaves red dots plus CE0272. Name-matched mappings survive regeneration and re-bind in one
-click.
-
-Do **not** rename UI-only entities (filter holders, view models). They are not mapping targets;
-keep them in your normal convention.
-
-It is not a mechanical PascalCase→snake_case transform. Derive from the payload:
-`ThingVersionId` → `Thing_version_id`, not `Version_id`.
-
-### 2b. Map automatically matches OBJECT names too — align Custom Names, not entities
-
-**Attribute names alone are not enough.** *Map automatically* matches at two levels:
-
-| schema element | must equal |
-|---|---|
-| the **ROOT** object (always named `Root`) | the **entity** name — so the entity must literally be called `Root` |
-| every nested object (`Pagination`, `ItemsItem`, `NodesItem`, `EdgesItem`) | the **entity** name |
-| the **leaf** elements (`routing_version_id`…) | the **attribute** names |
-
-**The root counts.** This is the part that is easy to miss and cost hours: a mapping whose root
-object targets a semantically-named entity (`ThingsResponse`) instantiates NOTHING under
-auto-map, and the failure is invisible — `check --references` is green, the build stops reporting
-it, and the only symptom is the response variable reading `(empty)` in the debugger.
-
-**Consequence — one auto-mappable structure of a given shape per module.** Every paged endpoint
-of that shape produces `Root` / `Pagination` / `ItemsItem`. Entity names are unique within a
-module, so the second structure of that shape cannot have its entities named the same way. Either
-give each structure distinct Custom Names by hand, or accept that only one mapping per module is
-auto-mappable and hand-bind the rest.
-
-If the object name does not match any entity, Studio Pro **creates a new one** — plus a new
-association — rather than reusing yours. Observed 2026-07-29: one module accumulated
-`Item`, `ItemItems`, `Items`, `ItemsItem` and `Pagination`, all duplicating hand-built
-`Thing` / `ThingVersion` / `SearchThingsPagination`, from repeated auto-map runs. Each new
-mapping silently retargeted to the duplicate, so the microflow's retrieve over the ORIGINAL
-association returned nothing while the mapping "worked".
-
-**Fix direction: change the schema's Custom Name, not the entity.** Mendix derives `ItemsItem`
-from the array's item object, but the **Custom Name column is editable**. Set it to your entity's
-name (`ThingVersion`) and auto-map binds to the real entity.
-
-Custom Name is a display/binding label with no other meaning. An entity name carries domain
-meaning and is referenced across pages, microflows and access rules. Bend the one that costs
-nothing.
-
-Do this for the object element BEFORE running Map automatically the first time — retargeting an
-already-generated mapping means deleting the duplicate entity and its association too.
-
-### 3. JSON structures: mxcli writes them DEAD (BUG-LOCAL-14)
-
-Every structure mxcli creates gets **root occurrence `0..0`**. A root at 0 never instantiates, so
-the mapping yields nothing — with no error at any gate. Measured, not recalled:
+### 1.1 Filter object — one non-persistent entity per search page
 
 ```
-create json structure Mod."JSON_Test" snippet $${...}$$;
-  →  ROOT occ = 0..0
+create non-persistent entity "Mod"."RouteFilter" (
+  "RoutingCode": string(50),
+  "RoutingType": enumeration("Mod"."ENUM_RoutingType"),
+  "LifecycleState": enumeration("Mod"."ENUM_LifecycleState"),
+  "PageNo": integer default 1,
+  "PageSize": integer default 20,
+  "TotalItems": integer default 0,
+  "TotalPages": integer default 1
+);
 ```
 
-Two ways out:
+- Do **not** name it `Filter` — reserved word, the page's datasource call silently breaks.
+- Paging counters live here so the page footer can show them without a second call.
 
-**(a) Regenerate in Studio Pro** — paste the snippet, Refresh, confirm the top `(Object)` row reads
-Occurrence `1`. Reliable, manual, does not scale.
-
-**(b) Patch the bytes** — `bin/fix-json-occurrences.sh --fix`. The value is two integers; rewriting
-them does not change file length. mxcli stores them as **int32 (BSON 0x10)**, Studio Pro as
-**int64 (0x12)** — handle both. Verified: model loads, `DESCRIBE` round-trips, independent reader
-confirms `1..1`. *Not yet verified: Studio Pro acceptance and runtime mapping output — confirm both
-before trusting it on a real build.*
-
-Either way, **verify occurrence the moment the structure exists**, before building anything on it.
-
-Multi-array structures (e.g. `nodes` + `edges`) must be checked on **every** array. A half-fixed
-structure gives you a populated first list and a permanently empty second one, which looks exactly
-like a mapping bug and is not.
-
-### 4. Instrument the microflow while writing it, not when it breaks
-
-Five log lines. They are what make the failure modes distinguishable:
+### 1.2 Response entities — domain names, parent owns the children
 
 ```
-[1] URL        <the fully assembled url>
-[2] json len   <bytes returned>
-[3] mapped     <count after import mapping>
-[3E] THREW     <error type + message — INSIDE the on-error handler>
-[4] retrieved  <count after the association retrieve>
+create non-persistent entity "Mod"."SearchResponse" ();          -- wrapper, may have 0 attributes
+create non-persistent entity "Mod"."PageInfo" ( "Page": integer, "PageSize": integer,
+                                                "TotalItems": integer, "TotalPages": integer );
+create non-persistent entity "Mod"."Route" ( "RouteId": string(100), "RouteCode": string(50), … );
+
+create association "Mod"."SearchResponse_PageInfo"
+  from "Mod"."SearchResponse" to "Mod"."PageInfo" type Reference    owner Both;
+create association "Mod"."SearchResponse_Route"
+  from "Mod"."SearchResponse" to "Mod"."Route"    type ReferenceSet owner Default;
 ```
 
-Read them as a decision tree:
+- **Direction matters, names don't.** The wrapper → child direction lets the microflow walk
+  *forward* (`$Response/Mod.SearchResponse_Route`). A child → parent association is walked in
+  reverse, which on non-persistent objects resolves as a *database query* and returns nothing,
+  silently. (Re-confirmed 2026-08-22: with child-owned associations the test could not even
+  compile `$Page/TotalItems` — the reverse walk types as a list.)
+- A flat `GET /things/{id}` response can map straight onto the real domain entity; the wrapper
+  is only for paged/nested responses.
+- Reuse the wrapper/PageInfo pair across every paged endpoint in the module — that is the
+  "reuse standard mapping entities" you want, and it needs no generic names to work.
 
-- `[2]` zero → the call failed. Check `[3E]`.
-- `[2]` large, `[3]` zero → **dead structure or unbound mapping.**
-- `[3]` fine, `[4]` zero → **wrong association direction.**
-- All fine, page empty → **stale deployment**, or the page reads a different variable.
-
-The single log line `[2] json length=4774` is what finally cracked the reference session. Add it
-first, not last.
-
-### 5. Never let `on error` return empty silently
+### 1.3 JSON structure — from a captured payload, never from the contract
 
 ```
-$Response = import from mapping Mod.IMM_Thing($Json) on error {
-  log error node 'X' '[3E] mapping THREW — type=' + $latestError/ErrorType
-      + ' message=' + $latestError/Message;
-  return $NoResults;
+create json structure "Mod"."JSON_SearchRoutes"
+  snippet $${ "pagination": { "page": 1, "pageSize": 20, "totalItems": 2, "totalPages": 1 },
+              "items": [ { "routing_id": "r-1", "route_code": "RT-001", "is_current": true,
+                           "effective_from": "2026-01-01T00:00:00", "row_version": 1 } ] }$$;
+```
+
+- `curl` the real endpoint and paste the bytes. Contracts lie about types and field names.
+- Give every field a **typed, non-null sample** — `null` in the snippet infers Unknown.
+- Occurrences are written correctly on v0.17+. No patch step.
+
+### 1.4 Import mapping — explicit paths, raw keys on the right
+
+```
+create import mapping "Mod"."IMM_SearchRoutes"
+  with json structure "Mod"."JSON_SearchRoutes"
+{
+  create Mod.SearchResponse {
+    create Mod.SearchResponse_PageInfo/Mod.PageInfo = pagination {
+      Page = page, PageSize = pageSize, TotalItems = totalItems, TotalPages = totalPages
+    },
+    create Mod.SearchResponse_Route/Mod.Route = items {
+      RouteId = routing_id, RouteCode = route_code, IsCurrent = is_current,
+      EffectiveFrom = effective_from, RowVersion = row_version
+    }
+  }
 };
 ```
 
-An empty list meaning "it threw" and an empty list meaning "no matches" must never look the same.
+- **Left** of `=` is the attribute; **right** is the raw JSON key as the API sends it. Since
+  #882 (v0.18.0) either the raw key or Mendix's exposed name (`Routing_id`) resolves — but
+  `DESCRIBE` prints the exposed form, so its output is still not a safe paste-back.
+- **Unquoted identifiers inside the mapping body.** This inverts the always-quote rule; quotes
+  here are stored literally and produce 58× CE1613.
+- **Never `create or modify` a mapping that contains an array** — drop, then create.
 
-Also: mxcli **silently attaches `on error rollback`** to `import from mapping` and `call microflow`
-when you don't specify one (BUG-LOCAL-11). Always write the handler explicitly, and read it back.
-
-### 6. Response wrapper owns the children; always retrieve forward
-
-Create a wrapper entity per response and give it a **reference set** to the child entity, owned by
-the parent:
+### 1.5 The search microflow — URL as one string, `all`, explicit error path, log ladder
 
 ```
-create association Mod."ThingResponse_Thing"
-  from Mod."ThingResponse" to Mod."Thing" [reference_set] owner both;
+create microflow "Mod"."ACT_Route_Search" ("Filter": "Mod"."RouteFilter")
+returns List of "Mod"."Route" as $Routes
+begin
+  $NoRoutes = create list of Mod."Route";                      -- error-path return, declared FIRST
+  declare $CodeParam String = if $Filter/RoutingCode = empty then '' else $Filter/RoutingCode;
+  declare $TypeParam String = if $Filter/RoutingType = empty then '' else toString($Filter/RoutingType);
+  declare $Url String = @Mod.ApiBaseUrl + '/routes'
+      + '?routingCode=' + $CodeParam + '&amp;routingType=' + $TypeParam
+      + '&amp;page=' + toString($Filter/PageNo) + '&amp;pageSize=' + toString($Filter/PageSize);
+  log info node 'RouteSearch' '[1] url={1}' with ({1} = $Url);
+
+  $Json = rest call get '{1}' with ({1} = $Url)
+      header 'Accept' = 'application/json'
+      timeout 30 returns String on error continue;
+  log info node 'RouteSearch' '[2] json len={1}' with ({1} = toString(length($Json)));
+
+  $Response = import from mapping Mod."IMM_SearchRoutes"($Json) all on error {
+    log error node 'RouteSearch' '[3E] mapping THREW type={1} msg={2}'
+        with ({1} = $latestError/ErrorType, {2} = $latestError/Message);
+    return $NoRoutes;
+  };
+  if $Response = empty then
+    log warning node 'RouteSearch' '[3] mapping returned EMPTY — range flag or dead structure';
+    return $NoRoutes;
+  end if;
+
+  retrieve $Routes from $Response/Mod."SearchResponse_Route";
+  retrieve $Page   from $Response/Mod."SearchResponse_PageInfo";
+  $Count = count($Routes);
+  log info node 'RouteSearch' '[4] items={1}' with ({1} = toString($Count));
+  if $Page != empty then
+    change $Filter (TotalItems = $Page/TotalItems, TotalPages = $Page/TotalPages);
+  end if;
+  return $Routes;
+end;
 ```
 
-Then `retrieve $Items from $Response/Mod.ThingResponse_Thing` walks **forward**.
+Why each line is there:
 
-A reverse walk (child → parent) on **non-persistent** entities is resolved by a database query and
-silently returns nothing, because non-persistent objects are not in the database. This defect cost
-a full day twice in the same module.
+| Line | Reason |
+|---|---|
+| `$NoRoutes` first | a custom `on error {}` opens a branch that never reaches the retrieve; it must return something or CE0108 |
+| unset enum → `''` | any non-blank value is an exact-match filter server-side; `toString(empty)` poisons the URL |
+| one `{1}` for the whole URL | multi-placeholder templates do not substitute — they go out literally |
+| `@Mod.ApiBaseUrl` constant | a hard-coded `localhost` is the container under Docker; constant syntax proven |
+| `on error continue` on `rest call` | the only handler it accepts; a block is CE6035. An empty body is how failure presents |
+| **`all`** on `import from mapping` | **see §0** — omitted = `ForceSingleOccurrence=1` = silent EMPTY |
+| `[3]` empty check | distinguishes "threw" from "mapped nothing" — the two must never look alike |
+| `$Count = count($Routes)` | bare `$x = count(...)` is the aggregate form; `length()` is for strings |
+| counters from `$Page` | `count($Routes)` only sees one page, never the true total |
 
-### 7. Deploy before concluding anything
+### 1.6 The page — filter bar above the grid, both inside the filter dataview
 
-A saved model is not a running model. After any structure or mapping edit, **redeploy** before
-judging the result. And note: `deployment/model`'s *directory* mtime does not move when files
-inside are overwritten — it is not a deploy timestamp. Check a file inside it.
+```
+create page "Mod"."Route_List" (
+  Title: 'Routes',
+  Layout: Atlas_Core.Atlas_TopBar,
+  Params: { $FilterObj: Mod.RouteFilter }
+) {
+  dataview dvFilter (DataSource: $FilterObj, Class: 'card') {
+    layoutgrid filterBar {
+      row row1 {
+        column col1 (DesktopWidth: AutoFill) { textbox txtCode (Label: 'Routing code', Attribute: RoutingCode) }
+        column col2 (DesktopWidth: AutoFill) { combobox cbType (Label: 'Type', Attribute: RoutingType) }
+      }
+      row row2 {
+        column col1 (DesktopWidth: AutoFill) {
+          container actions (Class: 'page-actions') {
+            actionbutton btnReset  (Caption: 'Reset',
+              Action: microflow Mod.ACT_Filter_Reset(FilterObj: $FilterObj))
+            actionbutton btnSearch (Caption: 'Search', ButtonStyle: Primary,
+              Action: microflow Mod.ACT_Filter_Apply(FilterObj: $FilterObj))
+          }
+        }
+      }
+    }
+    datagrid dgRoutes (DataSource: MICROFLOW Mod.ACT_Route_Search(Filter: $currentObject)) {
+      column RouteCode (Attribute: RouteCode, Caption: 'Code', Sortable: false)
+      column Lifecycle (Caption: 'Lifecycle', ShowContentAs: customContent) {
+        dynamictext txtBadge (Attribute: LifecycleState, Class: 'badge badge-info')
+      }
+    }
+  }
+};
+```
 
-### 8. One session owns writes
+- The grid must sit **inside** the dataview that supplies the filter object — a sibling gets
+  CE1571 (scope, not a missing argument).
+- Put the filter widgets in a `layoutgrid` **outside** the grid, not in the grid's `controlbar`:
+  control-bar widgets resolve against the *row* entity and CE1613 on every combobox.
+- A DataGrid-2 `textfilter`/`dropdownfilter` filters the rows the datasource already returned.
+  For server-side filtering the inputs bind to the filter object, and the API does the work.
+- Search/Reset are a **no-op write with `refresh`** — there is no "re-run datasource" action:
 
-Two agents (or two terminals) writing one `.mpr` means measurements go stale between reading and
-reasoning. Symptoms appear and vanish for no visible cause.
+```
+create microflow "Mod"."ACT_Filter_Apply" ("FilterObj": "Mod"."RouteFilter")
+begin
+  change $FilterObj (PageNo = 1) refresh;
+end;
+```
+
+- An opener microflow creates the filter object and shows the page:
+  `$F = create Mod.RouteFilter; show page Mod.Route_List(FilterObj: $F);`
+- Binding an Action onto an **existing** button needs `alter page … replace btn with {…}`
+  in full; `set` cannot bind actions. A datasource can be set after the fact with
+  `alter page … { set DataSource = microflow … on dgRoutes }`, but list-view datasource
+  **arguments** are dropped by ALTER — write list-view datasources inline at CREATE time.
+- Detail page: same shape without the filter object — `dataview (DataSource: $Route)` and
+  child `listview`s whose datasource microflows take `$currentObject/RouteId`.
 
 ---
 
-## Verification checklist — before calling an integration done
+## 2. Prove it before the page exists — the 60-second runtime test
+
+Deploy-and-click is the slow oracle. `mxcli test` is the fast one, and it is the only one
+that catches the §0 trap. Put this beside the mapping on day one:
+
+```
+-- tests/import.test.mdl
+/**
+ * @test import mapping instantiates root, pagination and the items array
+ * @expect $result = 202
+ */
+$result = call microflow Mod.TEST_ImportCount();
+/
+```
+
+```
+create microflow "Mod"."TEST_ImportCount" () returns Integer as $Out
+begin
+  declare $Json String = '<the captured payload, 2 items, totalItems 2>';
+  $Response = import from mapping Mod."IMM_SearchRoutes"($Json) all;
+  if $Response = empty then return -1; end if;
+  retrieve $Routes from $Response/Mod."SearchResponse_Route";
+  retrieve $Page   from $Response/Mod."SearchResponse_PageInfo";
+  $Count = count($Routes);
+  declare $Out Integer = $Count * 100;
+  if $Page != empty then set $Out = $Out + $Page/TotalItems; end if;
+  return $Out;
+end;
+```
+
+`./mxcli test tests/ -p app.mpr` (Docker; `--local` cannot run on macOS — the cached mxbuild
+is the Linux build). The encoding `items×100 + totalItems` makes every failure mode a different
+number: `-1` root never instantiated (range flag), `200` pagination branch unbound, `2` items
+branch unbound, `202` correct. **`mxcli test` writes a `MxTest` module into the `.mpr` and
+restores it afterwards — it is a model write; ask first on a real project.**
+
+---
+
+## 3. Verification checklist — before calling the integration done
 
 ```bash
-./bin/fix-json-occurrences.sh                  # every structure root 1..1?
-./mxcli -p app.mpr -c "DESCRIBE IMPORT MAPPING Mod.IMM_X"   # bindings present?
-curl -s "$URL" | python3 -m json.tool | head   # payload still the shape you modelled?
+./mxcli -p app.mpr -c "DESCRIBE MICROFLOW Mod.ACT_Route_Search" | grep "import from"
+#   must end in "all" — a trailing "first" is the silent-EMPTY flag
+./mxcli -p app.mpr -c "DESCRIBE IMPORT MAPPING Mod.IMM_SearchRoutes"   # both branches present?
+curl -s "$URL" | python3 -m json.tool | head          # payload still the shape you modelled?
+./mxcli test tests/ -p app.mpr                         # 202
 ```
 
-Then in the running app, read the `[1]`–`[4]` log lines. **A clean build is not a working page** —
-mxbuild is blind to every failure in the table at the top of this file.
+Then in the running app read `[1]`–`[4]`. Decision tree: `[2]` zero → call failed;
+`[2]` large, `[3]` EMPTY → **range flag** (was: dead structure); `[3]` fine, `[4]` zero →
+association direction; all fine, page empty → stale deployment or a different variable.
+
+**A clean build is not a working page.** mxbuild is blind to every row in that tree.
 
 ---
+
+## 4. Things that still hold from v1
+
+- Capture the real payload before modelling anything; only the bytes tell you a "code" field
+  holds an id.
+- Deploy before concluding anything — `deployment/model`'s directory mtime is not a deploy
+  timestamp.
+- One session owns writes to a given `.mpr`.
+- mxcli silently attaches `on error rollback` to `import from mapping` and `call microflow`
+  when you write no handler (BUG-LOCAL-11); a rollback swallows the exception. Write the
+  handler, read it back.
+- Fixture facts cost hours: an endpoint that genuinely returns 0 children looks exactly like
+  a broken mapping. Know which fixture id has data before you debug.
 
 ## Related
 
 - `learned-mdl-preflight.md` — write-mode choice and the STOP table
-- `tool-output-is-not-ground-truth.md` — why read-back is mandatory
-- project `bug-logs/mxcli-bugs.md` — BUG-LOCAL-09 … -17
+- `learned-page-patterns.md` — DataGrid-2 filter placement for database-backed grids
+- `tool-output-is-not-ground-truth.md` — why the runtime test, not `DESCRIBE`, is the oracle
+- `bugs/bug-84-import-mapping-array-child-never-populated.md` — re-run its discriminating test
+  with `all` before filing anything
+- project `bug-logs/mxcli-bugs.md` — BUG-LOCAL-14 (resolved), BUG-LOCAL-33 (the range flag)

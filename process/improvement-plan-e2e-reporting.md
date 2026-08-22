@@ -666,6 +666,91 @@ stop saying two things at once.
 times, not a measured fix, and it should be judged that way — it is also the only one that stops
 the ninth.
 
+### Review pass over the register (2026-08-22, later the same day)
+
+Re-checked every proposal against master head (`f2d1a5a`) instead of against the state PROJECT-C
+ran under. Three commits from the parallel session changed the picture, and one finding above
+needs a correction against its own evidence.
+
+**Correction to Finding 16a.** The CAC-3 Q3 Workflow-scope question and Steps 3b/3c were added by
+`c3130c4` on **2026-08-21 — after PROJECT-C's architecture stage ran.** So "the question was never
+put" is true but not an enforcement failure: the trigger did not exist yet. What survives of 16a,
+verified against today's text: option B still reads "Microflows only — … no extra diagram", so the
+state view is still traded away with the implementation choice, and PROJECT-C still stands as the
+measured cost of that trade — a six-state lifecycle with no picture of it. P4 stands; P5 is
+overtaken (below).
+
+**Finding 5 is CLOSED** — `b22cdad` shipped `full-app-walkthrough.js` (now a real, 37KB engine
+file in the install manifest), parked `mobile-fieldscan` as a commented slot, and — closing
+Finding 6 in the same stroke — wired `install-tests.sh` into both `init-project.sh` and
+`sync-project.sh`, so the engine now reaches projects at scaffold time and existing projects at
+sync time.
+
+**Finding 14 is narrower now.** `e75c912`'s obligation manifest (`bin/lib/obligations.tsv` +
+`obligation-check.sh`, run from `gate-check.sh`) makes the LOOK and sweep passes owe per-module
+marks from Stage 5 — the `ui-review-*.html` half of `check_stage_6()`'s inputs is now *demanded*
+mechanically (absence reports PENDING/FAULT, waivable with a reason, adoptable below an `--adopt`
+point). What remains of Finding 14: still nothing *generates* `test-report.html`, the renderer is
+still never invoked (Finding 2's core), and no obligation row covers the Stage 6 app-wide surface.
+
+**Register status after the pass:**
+
+| # | Status | What changed |
+|---|---|---|
+| P1 | **Stands, unchanged** | Runbook Stage 4 rows re-verified on `f2d1a5a`: still no ledger, checkboxes still unmade, name collision still present |
+| P2 | **Stands, unchanged** | `skill-routing.tsv:145` still carries the tombstoned row; both older tombstones still have none |
+| P3 | **Stands, unchanged** | The `open-issues.md` contradiction is intact on both sides |
+| P4 | **Stands, sharpened** | `c3130c4` re-authored the exact lines, yesterday, and kept "no extra diagram" in option B — so this is now a proposal against fresh text, not legacy text |
+| P5 | **Overtaken by `c3130c4`** | Detection is now mandatory ("When to ask: Always"), scans BRD content in every entry mode, and a zero-signal skip must itself be recorded. Residue: nothing yet *enforces* the `Workflow scope:` line in `PROJECT.md` — a candidate obligations row, not a new mechanism |
+| P6 | Blocked, unchanged | Still waits on Finding 13's open need finding an owner |
+| P7 | **Stands, unchanged** | Step 1 doc still unproduced; file-vs-directory shape still disagrees |
+| P8 | **Stands, more urgent** | `page-scope.sh` is still in no manifest — and `b22cdad` now ships `design-audit.js`/`page-audit.js` to *every* project, so the static-only degradation now installs everywhere by default |
+| P9 | **Half done** | `b9c90a4` wired `design-audit.js` into `verify-module.sh` as a non-gating rung. The normalize/render step is still uninvoked — `verify-module.sh:321` cites Finding 2 as the known open case in its own comments. Remaining scope: the renderer call + a `test-report.html` producer |
+| P10 | **Precedented, cheaper than estimated** | `e75c912` built exactly this shape one layer down: file layer = `install-manifest.sh`, pass layer = `obligations.tsv`. P10 is the third layer — artifacts read vs. artifacts produced — and both existing layers prove the pattern (a TSV + a forward/reverse check sourced from `gate-check.sh`) rather than requiring a new one |
+
+Net: two closed by the parallel session, one overtaken, one halved, five stand, and the expensive
+one got cheaper. Nothing in the register was wrong in a way that would have caused harm if
+executed — but P5 executed as written would have rebuilt something that landed yesterday, which is
+the argument for this review pass being a standing step and not a courtesy.
+
+### Impact on existing projects — who must rerun `sync-project.sh`
+
+The toolkit reaches a consuming project over two channels, and every proposal lands on exactly one
+of them:
+
+**Channel 1 — referenced from the clone.** Skills, checkpoints, the runbook, `gate-check.sh`,
+routing tables. These update with `git pull` alone; no per-project action. P1, P3, P4, P5's
+residue and P10 all live here — **no project ever needs to sync for them.**
+
+One consequence of the pull itself is worth telling users about: `gate-check.sh` now runs the
+obligation check (`e75c912`), so an existing project's next gate run will report look/sweep/
+journeys/coherence obligations for modules opened for work at Stage ≥ 5 — PENDING where the pass
+genuinely never ran. That is the mechanism working, not a regression; the built-in remedies are
+`--adopt <stage>` for history that predates the rule and `--waive <obligation>/<Module> --reason`
+for passes deliberately not performed. Projects should adopt, not back-fill.
+
+**Channel 2 — copied into the project.** Agent stubs, `bin/` crash-net scripts (including
+`verify-module.sh`, `conformance-check.sh`, and the new `coverage-preflight.sh`), lint rules, the
+`tests/e2e/` engine, and the baseline-routing block inside `CLAUDE.local.md` (rewritten in place
+between markers). These move **only** when `bin/sync-project.sh <project-root>` runs. P2 lands
+here (the routing block), as would P7's glob fixes, P8's script and P9's `verify-module.sh`
+changes.
+
+**So: every consuming project scaffolded before 2026-08-20 should rerun
+`bin/sync-project.sh <project-root>` after its next toolkit pull** — that is the cut before
+`b22cdad`/`e75c912`/`b9c90a4`, the commits that changed what a wired project carries. Concretely a
+stale project is missing some or all of: the `tests/e2e/` engine (16 files), the design-audit rung
+in `verify-module.sh`, `coverage-preflight.sh` (without which the coverage rung's four grading
+levels are unreachable and it faults the old way), and the current routing rows in
+`CLAUDE.local.md`. A project that predates the ledger `claims:` convention additionally shows
+coverage as NOT MEASURED after syncing — that is Decision 6's accepted state, not breakage.
+
+The sync contract makes this safe to run blind: it appends intake questions rather than rewriting,
+installs only missing `bin/` scripts and *reports* locally-modified ones, keeps a differing engine
+file with a "differs, kept (--force to overwrite)" note, and never touches `project.config.js`. A
+project that hand-authored its own `full-app-walkthrough.js` before the toolkit shipped one keeps
+its copy and gets told the toolkit's now differs — the right outcome in both directions.
+
 ### The through-line, stated plainly
 
 Findings 2, 5, 10, 11, 12, 13, 15 and 16 are one defect. But 13 and 16 sharpen what kind:

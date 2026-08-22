@@ -96,6 +96,18 @@ row. This is the mechanism `module-review.md`'s Acceptable table names and does 
 recurring class read as one process finding, not silently re-counted as N independent one-offs
 each time it recurs.
 
+## The rendered surface
+
+`bin/render-improvement-register.sh` (installed by the toolkit; toolkit copy:
+`project-bin/render-improvement-register.sh`) renders the register as one self-contained HTML
+page, `docs/improvement-register.html` — the findings table, counts by disposition-read and
+severity, and the opened-vs-closed-over-time view the markdown itself cannot show. Run it after
+each pass that appends findings, so the page a stakeholder opens is never a pass behind the
+file. It renders only: what counts as a finding, when one may close, and what a recurring class
+means stay here in this skill — the trend read above is still performed by a person against the
+register, and the page's "closed" tag is nothing more than this skill's own fixed/resolved grep
+made visible, with the raw disposition text alongside it.
+
 ## The three rules
 
 1. **A row is appended, never edited to hide what happened.** If a disposition changes (a deferred

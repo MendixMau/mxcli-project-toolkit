@@ -144,6 +144,34 @@ _ob_has_denominator() {
     | grep -qiE '[0-9]+[[:space:]]+of[[:space:]]+[0-9]+|[0-9]+[[:space:]]*/[[:space:]]*[0-9]+'
 }
 
+# _ob_stale <project-root> <artifact>  → prints "<hash>+<n>" and returns 0 if the mark has
+# expired; returns 1 if current, unstamped, or unmeasurable.
+#
+# A review artifact may stamp the commit it was true at: "VALID AT: <short-hash>"
+# (module-review.md stage 5 — the LOOK report headline). If commits touching the model (*.mpr,
+# mdlsource/) exist after that hash, the artifact describes a model that no longer exists and
+# the pass is owed again. Measured consequence, 2026-08-22: a month-old green LOOK report was
+# cited for a page several later build sessions had changed underneath it — no page title, an
+# unstyled nav bar, a missing field, none of it in the report.
+#
+# Opt-in by the artifact itself carrying the stamp: reports that predate the rule are left
+# alone (this check must never retro-brick a project — the reverse, a stamped report going
+# quietly stale, is the failure being retired). Unmeasurable (no git, hash unknown here) also
+# returns 1: an instrument reports what it measured, and "could not measure" must not read as
+# "expired".
+_ob_stale() {
+  local root="$1" hit="$2" hash n
+  hash="$(head -c 8000 "$hit" 2>/dev/null | tr -d '\r' \
+    | grep -oiE 'VALID[[:space:]]+AT:?[[:space:]]*[0-9a-f]{7,40}' \
+    | grep -oiE '[0-9a-f]{7,40}$' | head -1)"
+  [ -n "$hash" ] || return 1
+  git -C "$root" cat-file -e "${hash}^{commit}" 2>/dev/null || return 1
+  n="$(git -C "$root" log --oneline "${hash}..HEAD" -- '*.mpr' mdlsource 2>/dev/null | wc -l | tr -d ' ')"
+  [ "${n:-0}" -gt 0 ] || return 1
+  printf '%s+%s' "$hash" "$n"
+  return 0
+}
+
 # ── the forward check ───────────────────────────────────────────────────────
 # mxtk_obligations_report <project-dir> [register-path]
 # Prints one line per obligation. Sets MXTK_OB_STATUS to the worst verdict seen.
@@ -195,7 +223,7 @@ mxtk_obligations_report() {
       continue
     fi
 
-    local total=0 done_n=0 waived_n=0 pending="" faulted="" u hit reason
+    local total=0 done_n=0 waived_n=0 pending="" faulted="" stale="" u hit reason stale_at
     while IFS= read -r u; do
       [ -n "$u" ] || continue
       total=$((total+1))
@@ -212,6 +240,10 @@ mxtk_obligations_report() {
         pending="$pending $u"
       elif [ "$denom" = "yes" ] && ! _ob_has_denominator "$hit"; then
         faulted="$faulted $u"
+      elif stale_at="$(_ob_stale "$root" "$hit")"; then
+        # A stamped mark the model has been built past is not a mark — the pass is owed again.
+        pending="$pending $u"
+        stale="$stale $u(valid-at ${stale_at%%+*}, ${stale_at##*+} model commit(s) since)"
       else
         done_n=$((done_n+1))
       fi
@@ -230,6 +262,10 @@ mxtk_obligations_report() {
     else
       printf 'Obligation %-10s PASS — %d of %d discharged%s (%s)\n' "$ob" "$done_n" "$scoped" "$tail" "$skill"
     fi
+    # Printed under whichever verdict won: a stale unit is counted in NOT DONE above, and this
+    # line says WHY it is owed again rather than letting it read as never-reviewed.
+    [ -n "$stale" ] && printf 'Obligation %-10s   STALE:%s — the model was built past the report; re-run the pass (module-review.md stage 5, VALID AT)\n' \
+      "$ob" "$stale"
   done < "$OBLIGATIONS_TSV"
 
   return 0

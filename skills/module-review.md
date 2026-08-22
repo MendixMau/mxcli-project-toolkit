@@ -147,13 +147,13 @@ questions — nothing here needs a spec to answer:
 | # | Ask | A finding looks like |
 |---|---|---|
 | 1 | **Is there one clear primary action, and is it the visually dominant one?** | three equally-weighted buttons; the destructive action styled like the primary |
-| 2 | **Is the vertical rhythm consistent** — do like elements share spacing, do sections separate? | one card 8px from its heading and the next 40px; a wall with no grouping |
+| 2 | **Is the vertical rhythm consistent** — do like elements share spacing, do sections separate? Judge against `design-spacing.md` §2's scale, measured from the screenshot: 0px between two sections is always a finding; same-level boundaries at different gaps is a finding | one card 8px from its heading and the next 40px; a wall with no grouping; a new section starting flush against the previous one |
 | 3 | **Is alignment intentional?** Does anything sit on an axis nothing else shares? | a stray right-aligned field in a left-aligned form; ragged column starts |
 | 4 | **Is the type hierarchy legible at a glance** — heading, label and body distinguishable without reading? | everything at one size and weight; a label heavier than its heading |
 | 5 | **Does the page use the width it has?** | a 300px form stranded in a 1600px viewport; a grid squeezed into a third of the page |
 | 6 | **Is anything unfinished on show?** | placeholder text, `New Page`, `Untitled`, a lorem string, a default Atlas icon standing in |
 | 7 | **Would you put this in front of the customer tomorrow?** If no, say the reason in one sentence. | "the header and the grid look like they came from two different apps" |
-| 8 | **Is the page shell right — nav chrome, breadcrumb, page title/H1, top padding — not just the content region?** Against the wireframe's shell when one exists; unaided otherwise. | no page title where the wireframe has an H1; an un-skinned default nav bar; content starting flush under the breadcrumb; a sidebar design shipped as a top-bar app with nobody deciding that |
+| 8 | **Is the page shell right — nav chrome, breadcrumb, page title/H1, top padding — not just the content region?** Against the wireframe's shell when one exists; unaided otherwise. The scaffold every full page owes is `design-spacing.md` §3 — a page without it is a finding regardless of yardstick. | no page title where the wireframe has an H1; an un-skinned default nav bar; content starting flush under the breadcrumb; a sidebar design shipped as a top-bar app with nobody deciding that |
 | 9 | **Is every field the design names actually present and populated?** Count fields against the wireframe/spec — a missing field is not a spacing quirk. | "Product number" in the wireframe, absent on the page; a grid cell blank where data must exist |
 
 Rows 1–6 are specific enough to be arguable, which is the point. **Row 7 is the one that must not

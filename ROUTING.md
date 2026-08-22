@@ -101,6 +101,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
 |---|---|---|---|---|
 | Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP | `skills/ui-preflight-pages.md` | mdl | 5 | baseline |
+| Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires | `skills/design-spacing.md` | mdl,review | 5 | baseline |
 | Building or using the in-app design gallery | `skills/learned-stylegallery.md` | mdl | 5 | baseline |
 | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` | architect | 3 | ondemand |
 

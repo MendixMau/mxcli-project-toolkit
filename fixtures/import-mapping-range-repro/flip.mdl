@@ -1,0 +1,31 @@
+drop import mapping ApiTest.IMM_SearchRoutes;
+drop association "ApiTest"."PageInfo_SearchResponse";
+drop association "ApiTest"."Route_SearchResponse";
+create association "ApiTest"."SearchResponse_PageInfo" from "ApiTest"."SearchResponse" to "ApiTest"."PageInfo" type Reference owner Both;
+create association "ApiTest"."SearchResponse_Route" from "ApiTest"."SearchResponse" to "ApiTest"."Route" type ReferenceSet owner Default;
+create import mapping "ApiTest"."IMM_SearchRoutes"
+  with json structure "ApiTest"."JSON_SearchRoutes"
+{
+  create ApiTest.SearchResponse {
+    create ApiTest.SearchResponse_PageInfo/ApiTest.PageInfo = pagination {
+      Page = page, PageSize = pageSize, TotalItems = totalItems, TotalPages = totalPages
+    },
+    create ApiTest.SearchResponse_Route/ApiTest.Route = items {
+      RouteId = routing_id, RouteCode = route_code, RouteName = route_name,
+      IsCurrent = is_current, EffectiveFrom = effective_from, RowVersion = row_version
+    }
+  }
+};
+create or modify microflow "ApiTest"."TEST_ImportCount" () returns Integer as $Out
+begin
+  declare $Json String = '{"pagination":{"page":1,"pageSize":20,"totalItems":2,"totalPages":1},"items":[{"routing_id":"r-1","route_code":"RT-001","route_name":"SMT Main","is_current":true,"effective_from":"2026-01-01T00:00:00","row_version":1},{"routing_id":"r-2","route_code":"RT-002","route_name":"THT Line","is_current":false,"effective_from":"2026-02-01T00:00:00","row_version":3}]}';
+  $Response = import from mapping ApiTest."IMM_SearchRoutes"($Json);
+  retrieve $Routes from $Response/ApiTest."SearchResponse_Route";
+  retrieve $Page from $Response/ApiTest."SearchResponse_PageInfo";
+  $Count = count($Routes);
+  declare $Out Integer = $Count * 100;
+  if $Page != empty then
+    set $Out = $Out + $Page/TotalItems;
+  end if;
+  return $Out;
+end;

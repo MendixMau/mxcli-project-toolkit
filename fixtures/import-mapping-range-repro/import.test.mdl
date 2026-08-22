@@ -1,0 +1,6 @@
+/**
+ * @test import mapping with non-matching entity names instantiates root, pagination and 2 items
+ * @expect $result = 202
+ */
+$result = call microflow ApiTest.TEST_ImportCount();
+/

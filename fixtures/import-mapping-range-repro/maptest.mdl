@@ -1,0 +1,52 @@
+create module "ApiTest";
+
+create non-persistent entity "ApiTest"."SearchResponse" (
+  "TotalItems": integer,
+  "Page": integer
+);
+create non-persistent entity "ApiTest"."PageInfo" (
+  "Page": integer,
+  "PageSize": integer,
+  "TotalItems": integer,
+  "TotalPages": integer
+);
+create non-persistent entity "ApiTest"."Route" (
+  "RouteId": string(100),
+  "RouteCode": string(50),
+  "RouteName": string(200),
+  "IsCurrent": boolean,
+  "EffectiveFrom": datetime,
+  "RowVersion": integer
+);
+create association "ApiTest"."PageInfo_SearchResponse" from "ApiTest"."PageInfo" to "ApiTest"."SearchResponse";
+create association "ApiTest"."Route_SearchResponse" from "ApiTest"."Route" to "ApiTest"."SearchResponse";
+
+create json structure "ApiTest"."JSON_SearchRoutes"
+  snippet $${
+    "pagination": { "page": 1, "pageSize": 20, "totalItems": 2, "totalPages": 1 },
+    "items": [
+      { "routing_id": "r-1", "route_code": "RT-001", "route_name": "SMT Main", "is_current": true, "effective_from": "2026-01-01T00:00:00", "row_version": 1 },
+      { "routing_id": "r-2", "route_code": "RT-002", "route_name": "THT Line", "is_current": false, "effective_from": "2026-02-01T00:00:00", "row_version": 3 }
+    ]
+}$$;
+
+create import mapping "ApiTest"."IMM_SearchRoutes"
+  with json structure "ApiTest"."JSON_SearchRoutes"
+{
+  create "ApiTest"."SearchResponse" {
+    create "ApiTest"."PageInfo_SearchResponse"/"ApiTest"."PageInfo" = pagination {
+      "Page" = page,
+      "PageSize" = pageSize,
+      "TotalItems" = totalItems,
+      "TotalPages" = totalPages
+    },
+    create "ApiTest"."Route_SearchResponse"/"ApiTest"."Route" = items {
+      "RouteId" = routing_id,
+      "RouteCode" = route_code,
+      "RouteName" = route_name,
+      "IsCurrent" = is_current,
+      "EffectiveFrom" = effective_from,
+      "RowVersion" = row_version
+    }
+  }
+};

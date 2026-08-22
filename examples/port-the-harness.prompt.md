@@ -80,10 +80,11 @@ Gap 1 — THE ENGINE DOES NOT TRAVEL. The toolkit ships project-bin/verify-modul
   copied by hand is a file the installer should have shipped.
   If <REFERENCE_IMPL> is NONE, this is a hard fault. Report it and continue with the shell layer.
 
-Gap 2 — review-module.sh and page-scope.sh are not in the toolkit at all, so verify-module.sh's
-  model-side composite rung faults permanently. Confirm and move on.
+Gap 2 — review-module.sh is not in the toolkit at all, so verify-module.sh's model-side composite
+  rung faults permanently. Confirm and move on. (page-scope.sh WAS this gap's second half until
+  2026-08-22; it now ships in the install manifest — confirm it actually arrived.)
 
-Gap 3 — the Stage 6 gate accepts only one artifact shape. See Step 6.
+Gap 3 — the Stage 6 gate historically accepted only one artifact shape. See Step 6.
 
 ## Step 0 — record the starting state, so "it broke" can be attributed
 
@@ -185,9 +186,11 @@ this first.
 
   <TOOLKIT_ROOT>/bin/gate-check.sh <TARGET_ROOT> 6
 
-Stage 6 currently accepts only `ui-reviews/ui-review-*.html`, so a project running this whole
-harness FAILS the gate it was built to satisfy. Confirm that is still true here and report it. Do
-NOT work around it by renaming a file to match the glob — that is manufacturing a pass.
+Stage 6's test half historically accepted only `test-report.html`, which nothing produced, so a
+project running this whole harness FAILED the gate it was built to satisfy. As of 2026-08-22 it
+also accepts `docs/verification/report.html` + `docs/report.json` — the pair verify-module.sh's
+render rung emits. Confirm which behavior this checkout has and report it. Do NOT work around a
+failing gate by renaming a file to match the glob — that is manufacturing a pass.
 
 ## Constraints — these are not negotiable
 

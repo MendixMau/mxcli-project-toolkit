@@ -72,7 +72,12 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 #     gate/review/mdl/architect-agent.md all cite them by path.
 # Routed, cited, invoked by an installed script — and installed nowhere. The stderr warning
 # below had been naming all three on every sourced run the whole time.
-MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh"
+#
+# page-scope.sh joined on 2026-08-22 (improvement-plan Finding 15 / P8): design-audit.js and
+# page-audit.js — both shipped to every project via MXTK_PROJECT_TESTS since b22cdad — read
+# .claude/loop/page-scope.json, and the producer existed nowhere, so the LOOK rung ran
+# --static-only (reduced evidence) in every project by construction.
+MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. Empty today, and that
 # is the point: the reverse check below flags anything named by NEITHER list, so a new file in

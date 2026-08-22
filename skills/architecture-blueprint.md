@@ -3,7 +3,7 @@
 **Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 **Purpose:** Turn Mendix-rearchitected BRDs into a readable target-architecture blueprint — module definition docs, an architecture diagram, a wiring/dependency graph, and a fit-gap analysis — so dependencies and open gaps are visible *before* the build plan, not discovered mid-build.
 **Upstream:** `migration-pipeline.md` Phase 6 (produces `.mx-brd.json` — the module boundaries this skill documents)
-**Downstream:** `brd-to-build-plan.md` (consumes the dependency graph as build order, the fit-gap as scope boundary, and the open-issues register as the questions the plan must answer before script 01)
+**Downstream:** `brd-to-build-plan.md` (consumes the dependency graph as build order, the fit-gap as scope boundary, and Step 5's dependency/open-issue rows in `PROJECT.md` as the questions the plan must answer before script 01)
 **Companion:** `design-artifacts.md` (the UI/brand half of the same architecture phase — run in parallel)
 
 ---
@@ -39,10 +39,17 @@ architecture/
   blueprint.md                 ← the index: tiers, the two diagrams, links to module docs
   blueprint.html               ← generated checkpoint render of blueprint.md (Step 7) — never hand-edited
   modules/
-    <ModuleName>.md            ← one module definition doc per Mendix module
+    <ModuleName>/
+      definition.md            ← one module definition doc per Mendix module (Step 1)
   fit-gap.md                   ← source capability → Mendix approach → build/buy/config/gap
-  open-issues.md               ← consolidated dependency + gap + handoff register
 ```
+
+Each module's directory is shared with its later artifacts — `module-brief.md` lands beside
+`definition.md` at Stage 4 (per `module-brief.md`), and `coverage-ledger.md` after it — so
+everything about one module lives in one place. One output deliberately does **not** land in
+`architecture/`: Step 5's dependency + open-issues register is written as rows in the consuming
+project's `PROJECT.md`, the single decision register (`conversion-runbook.md` §"One decision
+register") — never as a separate `open-issues.md` file.
 
 Diagrams live **inside** the markdown as Mermaid (git-diffable, no browser needed) — **the markdown is the source of truth.** `blueprint.html` is a *generated render* of it, produced at Step 7 as the Stage-3 checkpoint surface (the runbook's `✋` gate is reviewed by a person, and the design track already arrives at that gate as HTML — the architecture track must too). Regenerate it whenever the markdown changes; never edit it directly.
 
@@ -50,7 +57,9 @@ Diagrams live **inside** the markdown as Mermaid (git-diffable, no browser neede
 
 ## Step 1: Write One Module Definition Doc per Module
 
-`architecture/modules/<ModuleName>.md`. Keep it to what's decidable now:
+`architecture/modules/<ModuleName>/definition.md` — the directory, not a flat file, because the
+same `<ModuleName>/` directory later holds the module's Stage-4 `module-brief.md` and its
+`coverage-ledger.md`, and the ledger tooling already globs that shape. Keep it to what's decidable now:
 
 ```markdown
 # Module: <Name>
@@ -130,13 +139,17 @@ From this graph, the build order falls out: a module with no incoming arrows bui
 
 ## Step 3b: Workflow Diagram (state view) — conditional
 
-**Only produced when `checkpoint-architecture.md` CAC-3 Q3's Workflow-scope answer is A** (real
-human-task/approval/escalation shape, modeled as a native Mendix Workflow, not a checkpoint-created
-speculative artifact). Never draw this before that answer is `CONFIRMED` — same rule as every other
+**Produced whenever `checkpoint-architecture.md` CAC-3 Q3 detected workflow-shaped requirements at
+all** — answer A *or* B: any lifecycle where a native Workflow or a status enum drives role-gated
+transitions. The Q3 answer decides the *implementation* (native Workflow vs. enum plus microflows),
+never whether the process gets drawn — a native Workflow at least renders itself in Studio Pro,
+while an enum-driven lifecycle is drawn nowhere by anything, so option B needs this diagram *more*,
+not less. Never draw it before that answer is `CONFIRMED` — same rule as every other
 architecture/design artifact (`conversion-runbook.md` §"Stages are sequential").
 
-One Mermaid `stateDiagram-v2` per Workflow-shaped process: states are the Workflow's user/system
-tasks, transitions are its `OUTCOMES`.
+One Mermaid `stateDiagram-v2` per lifecycle. Under option A, states are the Workflow's user/system
+tasks and transitions are its `OUTCOMES`; under option B, states are the status enum's values and
+transitions are the microflows that move between them, each labeled with the role allowed to fire it.
 
 ````markdown
 ```mermaid
@@ -193,7 +206,7 @@ The build-vs-buy-vs-workaround decision, one row per source capability. **This i
 | e.g. signed-quantity convention | Explicit enum + sign-deriving microflow | **Build (changed behavior)** | resolved decision |
 | e.g. feature never built in source | new page over existing logic | **Build (new)** | design from BRD |
 
-Verdict vocabulary: **Native** (ships with Mendix/Atlas) · **Config** (native, needs setup) · **Buy** (marketplace) · **Build** (we script it) · **Workaround** (mxcli limitation → Studio Pro or manual) · **Gap** (unresolved — goes to open-issues).
+Verdict vocabulary: **Native** (ships with Mendix/Atlas) · **Config** (native, needs setup) · **Buy** (marketplace) · **Build** (we script it) · **Workaround** (mxcli limitation → Studio Pro or manual) · **Gap** (unresolved — goes to Step 5's register rows in `PROJECT.md`).
 
 **Marketplace rule of thumb:** for a small CRUD app, import almost nothing — the Administration module and Atlas/Data Grid ship by default. Only "Buy" when a capability is real, reusable, and cheaper than building. Over-importing adds upgrade surface; note every "Buy" as a dependency in Step 5.
 
@@ -201,9 +214,13 @@ Verdict vocabulary: **Native** (ships with Mendix/Atlas) · **Config** (native, 
 
 ---
 
-## Step 5: Dependencies & Open-Issues Register (`architecture/open-issues.md`)
+## Step 5: Dependencies & Open-Issues → `PROJECT.md`
 
-Consolidate everything that must be *carried into the build plan*, not lost:
+Consolidate everything that must be *carried into the build plan*, not lost. The destination is
+the consuming project's `PROJECT.md` — rows under its dependencies and open-questions sections —
+**not** a separate `architecture/open-issues.md` file. `PROJECT.md` is the single decision
+register (`conversion-runbook.md` §"One decision register"), and a second register beside it is
+how the same question ends up with two answers:
 
 | # | Item | Type | Resolution / owner |
 |---|---|---|---|
@@ -242,7 +259,7 @@ For every integration point the fit-gap flagged (Step 4) as needing a live conne
 - Credentials/auth mechanism, and who owns provisioning them?
 - Which environment is the test target (source's own sandbox, a mock, production-adjacent)?
 
-Record each as a row in `architecture/open-issues.md` (Step 5's register) with its `CONFIRMED`/`ASSUMED` status, not as a separate untracked list — it's a dependency like any other.
+Record each as a row in `PROJECT.md` (Step 5's register) with its `CONFIRMED`/`ASSUMED` status, not as a separate untracked list — it's a dependency like any other.
 
 ---
 
@@ -252,9 +269,9 @@ The Stage-3 `✋` gate is reviewed by a person, and raw Mermaid in markdown is a
 
 - **Style:** copy the `:root` token block + base styles from the shared CSS shell (`toolkit-guide.html`; once `design/ds.css` exists, its tokens supersede — same rule as every stage surface).
 - **Banner at the top:** `Generated from blueprint.md — do not edit; regenerate after changing the markdown.` Include the generation date.
-- **Content:** the layer + wiring diagrams, **the workflow diagram (Step 3b) and/or agent-wiring diagram (Step 3c) when either was produced** — omit the section entirely when CAC-3 didn't call for it, never render an empty placeholder — a module summary table (linking `modules/<Name>.md`), the fit-gap table, and the open-issues register. It renders what the markdown says; it introduces nothing new.
+- **Content:** the layer + wiring diagrams, **the workflow diagram (Step 3b) and/or agent-wiring diagram (Step 3c) when either was produced** — omit the section entirely when CAC-3 didn't call for it, never render an empty placeholder — a module summary table (linking `modules/<Name>/definition.md`), the fit-gap table, and Step 5's dependency/open-issue rows from `PROJECT.md`. It renders what the markdown says; it introduces nothing new.
 - **Mermaid:** embed each diagram's source in `<pre class="mermaid">` with mermaid.js; if the review must work fully offline, pre-render to inline SVG (`npx @mermaid-js/mermaid-cli`) instead. Either way the markdown's Mermaid stays canonical.
-- **Freshness is gated:** `bin/gate-check.sh` Stage 3 fails if `blueprint.html` is missing or older than `blueprint.md` / `fit-gap.md` / `open-issues.md`. Regenerating is cheap; a stale render at a sign-off gate is a lie.
+- **Freshness is gated:** `bin/gate-check.sh` Stage 3 fails if `blueprint.html` is missing or older than `blueprint.md` / `fit-gap.md`. Regenerating is cheap; a stale render at a sign-off gate is a lie.
 - **Present it:** open `blueprint.html` in the user's browser when running the Stage-3 gate, alongside `module-design.html` and the design surfaces.
 
 ---
@@ -339,7 +356,7 @@ Each module gets a section in `blueprint.html` with a self-contained entity diag
 
   If no justification exists for a decision, render the callout as `"⚠ no justification"` — that gap is itself a review finding.
 
-The entity diagram is generated from the module `.md` files' **Entities** table — it introduces nothing new, it just makes the relationships and their rationale visible. If an entity's associations aren't in the module doc, they aren't in the diagram, and the gap is immediately visible during review.
+The entity diagram is generated from the module definition docs' **Entities** table — it introduces nothing new, it just makes the relationships and their rationale visible. If an entity's associations aren't in the module doc, they aren't in the diagram, and the gap is immediately visible during review.
 
 ---
 
@@ -374,7 +391,7 @@ Before proceeding to Stage 4 (`brd-to-build-plan.md`):
 - [ ] `blueprint.html` regenerated after last change and confirmed fresh by `gate-check.sh`
 
 `bin/gate-check.sh <project-root> 3` enforces the last point mechanically (it fails when
-`blueprint.html` is older than `blueprint.md`, `fit-gap.md` or `open-issues.md`). The rest are human sign-off — the agent presents the checklist, the user confirms each item, and the `CONFIRMED` row goes into `PROJECT.md`.
+`blueprint.html` is older than `blueprint.md` or `fit-gap.md`). The rest are human sign-off — the agent presents the checklist, the user confirms each item, and the `CONFIRMED` row goes into `PROJECT.md`.
 
 ---
 
@@ -384,7 +401,7 @@ Before proceeding to Stage 4 (`brd-to-build-plan.md`):
 - **Step 4 fit-gap's confirmed "Buy" rows → imported before scripting starts** (its Step 0).
 - **Step 3 wiring graph → build order** (its Step 1).
 - **Step 4 fit-gap → scope boundary** (its Step 4: in-scope-real / in-scope-stubbed / out-of-scope).
-- **Step 5 open-issues → the questions answered before script 01** (its Step 2).
+- **Step 5's register rows in `PROJECT.md` → the questions answered before script 01** (its Step 2).
 
 If the build plan can't answer one of its Step 2 questions, the gap is in *this* blueprint — fix it here, then continue. Don't patch it in a script comment.
 

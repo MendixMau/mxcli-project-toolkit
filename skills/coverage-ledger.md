@@ -24,8 +24,8 @@ and `project-bin/coverage-preflight.sh`; the first is canonical.
 | `architecture/coverage-ledger.md` | single-BRD project | accepted |
 
 The per-module directory is canonical because it is the shape both instruments already name, it
-scales (the directory holds the module's brief, ledger and notes together), and changing canon
-would invalidate every ledger already written to it.
+scales (the directory holds the module's Stage-3 definition doc, brief, ledger and notes
+together), and changing canon would invalidate every ledger already written to it.
 
 The flat shape is read because it is what projects actually have: PROJECT-A's `architecture/modules/`
 contains `Approval-brief.md`, `ProductNumbers.md`, `Common-brief.md` and no subdirectories at all.
@@ -263,7 +263,8 @@ None are unclaimed, none are double-claimed. Coverage is clean.
 
 ## Integration with Stage 4 Gate
 
-Add to the Stage 4 (`✋`) checklist in `conversion-runbook.md`:
+The Stage 4 (`✋`) gate row in `conversion-runbook.md` carries these three items — this list is the
+reference copy, not an instruction to add them:
 
 - [ ] Coverage check run (procedure above). UNCLAIMED, PHANTOM, DOUBLE-CLAIMED all empty. Leaf counts pasted in chat.
 - [ ] Every ledger entry has a category and a reason; every `open-question` entry appears in pending-decisions and some row's `blockedBy`.

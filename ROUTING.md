@@ -36,7 +36,6 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order | `skills/query-the-model.md` | all | P,0,1,2,3,4,5,6,7 | baseline |
 | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot | `skills/skills-over-scripts.md` | all | - | baseline |
 | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict | `skills/degrade-to-judgement.md` | all | - | baseline |
-| Any test/review run producing a report (`module-review.md`, `existing-app-assurance.md`, `e2e-evidence-report.md`) — before calling it done: route every finding via `close-the-loop.md`, name every gap in what ran, fix or log every harness fault, ask which to route into the build loop now | `skills/finding-disposition.md` | review,test,mdl,gate | 5,6 | baseline |
 | Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn | `skills/interview-protocol.md` | ba,architect | P,0,1,2,3,4,5,6,7 | baseline |
 | Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough | `skills/grill-mode.md` | ba,architect | P,0,1,2,3,4,5,6,7 | ondemand |
 | Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table | `skills/checkpoints/checkpoint-template.md` | all | 0,1,2,3,4,6,7 | baseline |
@@ -86,7 +85,6 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Turning BRDs plus architecture into a numbered, dependency-ordered build plan | `skills/brd-to-build-plan.md` | architect | 3,4 | ondemand |
 | Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible | `skills/coverage-ledger.md` | architect,gate | 4 | ondemand |
 | Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered | `bin/coverage-check.sh` | architect,gate | 4 | ondemand |
-| Authoring the cross-module user journey ONCE at design time as a source artifact, bound L0→L3, that the module brief, coherence pass and journey-proof read instead of each re-deriving it | `skills/journey-map.md` | ba,architect,test | 2,3,4 | experimental |
 | Writing an actual .journey.json — the worked field-by-field reference for the contract journey-proof.md argues for | `skills/journey-examples.md` | test,review | 5,6 | ondemand |
 | Extracting structured requirements from a large delivered document corpus into per-scope knowledge-base files | `skills/corpus-extraction-integrity.md` | ba | P,0,1 | ondemand |
 

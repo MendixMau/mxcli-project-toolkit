@@ -82,10 +82,16 @@ detected") so a later reviewer sees it was checked, not missed.
 > "Found [N] workflow-shaped requirements (approval/escalation/SLA language) in [BRDs]. How should
 > these map to Mendix?"
 > - A) Native Mendix Workflow for the human-approval parts, microflows for automated transitions
->   *(recommended)* — produces a workflow diagram in the blueprint (`architecture-blueprint.md`
->   Step 3b) and flags the module's build brief to read `learned-workflow-patterns.md` first
-> - B) Microflows only — simpler, no Workflow module dependency, no extra diagram
+>   *(recommended)* — flags the module's build brief to read `learned-workflow-patterns.md` first
+> - B) Microflows only — simpler, no Workflow module dependency; the lifecycle lives in a status
+>   enum plus transition microflows
 > - C) Flag for manual review — decide per process
+
+**Both A and B produce the state diagram in the blueprint (`architecture-blueprint.md` Step 3b).**
+The answer decides the *implementation*, never whether the process gets drawn — a native Workflow
+at least renders itself in Studio Pro, while an enum-driven lifecycle is drawn nowhere by anything
+else, so B needs the diagram more, not less. (Measured cost of bundling them: a six-state,
+role-gated lifecycle built under option B with no picture of it anywhere in the project.)
 
 **Agent-wiring half:**
 

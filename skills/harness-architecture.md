@@ -171,9 +171,10 @@ Invoking it per file burns one login session per journey and will hit the runtim
 cap — which the login page then misreports as a credential failure (`measured-claims.md` §4).
 
 **Argument-surface warning.** Flag coverage across the parts is uneven: `-h/--help` and `--module`
-are honoured by some instruments and not others, and at least one (`page-scope.sh`) parses no
-arguments at all and is whole-project only. Check `-h` before assuming a flag exists; if it prints
-nothing, read the script's header block.
+are honoured by some instruments and not others, and the spellings differ — `page-scope.sh`, for
+one, scopes by positional module names rather than `--module`, and is whole-project when given
+none. Check `-h` before assuming a flag exists; if it prints nothing, read the script's header
+block.
 
 ---
 
@@ -246,19 +247,22 @@ design-audit.js  ──┼─> report-normalize.js ──> report.json ──> r
 monkey.js        ──┘                                                            (full)
 ```
 
-Two producers of `report.json`, one renderer — and in the reference implementation
-`report-normalize.js` **is invoked by no orchestrator at all**, only by hand and by the pipeline
-prompt. **VERIFIED** by grepping every orchestrator. So `verify-module.sh` runs the journeys and
-then never normalizes or renders them: the richest artifact in the harness is unreachable from the
-harness's main command.
+Two producers of `report.json`, one renderer. Until 2026-08-22, `report-normalize.js` was
+invoked **by no orchestrator at all**, only by hand and by the pipeline prompt — so
+`verify-module.sh` ran the journeys and then never normalized or rendered them, and the richest
+artifact in the harness was unreachable from the harness's main command
+(`process/improvement-plan-e2e-reporting.md` Finding 2). **CLOSED**: `verify-module.sh` §2d now
+ends every completed run with a non-gating normalize → render step producing `docs/report.json`
+and `docs/verification/report.html`; its failure lands as a named FAULT row in the summary and
+never moves the exit code, because the step renders evidence rather than adding any.
 
-Two structural improvements, in order of value:
+Two structural improvements remain, in order of value:
 
-1. **Add a final normalize → render rung to `verify-module.sh`**, emitted *unconditionally* —
-   including on a faulted run. Copy the pattern `review-module.sh` already uses: a
-   `trap emit_report EXIT` that produces the report on every exit path, **including SIGINT and
-   including a module that does not exist**. Most harnesses produce nothing when interrupted, and
-   "aborted" then looks indistinguishable from "never started".
+1. **Emit the report on every exit path**, not only at the end of a completed run. Copy the
+   pattern `review-module.sh` already uses: a `trap emit_report EXIT` that produces the report
+   **including on SIGINT and including a module that does not exist**. Most harnesses produce
+   nothing when interrupted, and "aborted" then looks indistinguishable from "never started".
+   §2d runs after the instruments, so an interrupted run still produces no report today.
 2. **Make `report-normalize.js` the single composer**, with `review-report.js` demoted to an input
    adapter that writes `artifacts/review-<module>.json`. One composer means one place where "a
    missing instrument is a `fault` row, never silence" is enforced.
@@ -328,9 +332,9 @@ looking identical to a real run. This has happened; it is in the false-green reg
 ## 8. What travels, and what you must supply
 
 **Ships with the toolkit and is portable:** `_common.sh`, `test-stack-up.sh`,
-`conformance-check.sh`, `graph-sweep.sh`, `verify-module.sh`, `fixture-manifest.sh`, plus the
-Layer-0 skills and the journey validator in `examples/`. **VERIFIED**: no project-specific string
-in any of them, `find_mpr()` used throughout, `APP_PORTS` overridable.
+`conformance-check.sh`, `graph-sweep.sh`, `verify-module.sh`, `fixture-manifest.sh`,
+`page-scope.sh`, plus the Layer-0 skills and the journey validator in `examples/`. **VERIFIED**:
+no project-specific string in any of them, `find_mpr()` used throughout, `APP_PORTS` overridable.
 
 **Does not ship, at the time of writing — you must supply it:**
 
@@ -339,7 +343,6 @@ in any of them, `find_mpr()` used throughout, `APP_PORTS` overridable.
 | the engine (`journey-runner.js`, `design-audit.js`, `monkey.js`, the three libraries, and the report pair) | rung 1-5 verification does not exist; `verify-module.sh` faults at the first runtime rung |
 | `journeys/` for this project | nothing to run even once the engine is present — author from `journey-examples.md` |
 | `review-module.sh`, `review-report.js` | the model-side composite rung faults permanently |
-| `page-scope.sh` | no scope instrument |
 | `coverage-check.sh` | recovered via the orchestrator's toolkit-`bin/` fallback — good design, working as intended |
 
 **Consequence, stated plainly:** on a project with none of the above, `verify-module.sh` exits 2

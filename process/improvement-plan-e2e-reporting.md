@@ -3,8 +3,9 @@
 **Author:** Maurits Visser (with Claude Code)
 **Created:** 2026-08-20
 **Status:** OPEN — fixes in flight. Findings 1–4 confirmed against the toolkit's own source;
-Findings 5–9 merged 2026-08-20 from the PROJECT-A postmortem and a toolkit-wide wiring audit.
-Decisions taken are recorded at the end of this document and govern the work now underway.
+Findings 5–11 merged 2026-08-20 from the PROJECT-A postmortem and a toolkit-wide wiring audit;
+Findings 12–15 merged 2026-08-22 from PROJECT-C, the first end-to-end pipeline run this document
+has evidence from. Decisions taken are recorded mid-document and govern the work now underway.
 **Purpose:** Record what a run of the mobile e2e prompt against a real app surfaced — shallow
 journeys, zero UI findings, ledger faults nobody expected — trace each one to its actual cause in
 this repo, and lay out resolution options before any fix lands. Written to merge with a parallel
@@ -351,3 +352,444 @@ All in the working tree, uncommitted, none of it executed (see "Still open").
   scheduled, and explicitly optional.
 - Two known engine/config violations still logged at `install-manifest.sh:130-132`
   (`helpers.js:473-540` hardcodes one app's widget names; `dismissModal` uses a literal selector).
+
+---
+
+## Merged — PROJECT-C plan-vs-execution review (2026-08-22)
+
+### What this is
+
+PROJECT-C ran the pipeline end to end — Stages P through 6, requirements-driven entry mode, one
+module, 50 build-plan steps, a real booted app. It is the first full-pipeline run this document has
+evidence from; Findings 1–11 were written from an à-la-carte Track B pass and from PROJECT-A, a
+Migration project that never ran the later stages. Reviewed against the toolkit at `f2d1a5a`.
+
+**It independently confirms Findings 5, 9, 10 and 11 from a third project**, which matters: those
+were diagnosed on projects that had *skipped* stages, leaving open the reading that the artifacts
+were missing because the stage never ran. PROJECT-C ran every stage, passed every gate through
+Stage 4, and still produced no ledger, no journeys and no Stage 5/6 surface. So the cause is not a
+skipped stage. It is that **nothing in the spine ever asks for them.**
+
+Findings 12–15 below are the delta — none of them are restatements of 5–11.
+
+### What went well, and it is not a courtesy paragraph
+
+The property this whole document exists to protect **held under a full autonomous run**:
+
+- Coverage reported `UNMEASURED`, not PASS. Graph-sweep reported `FAULT` (missing `sqlite3`), not
+  skipped. The module was denied its `done-` prefix on the strength of those two, with the reasons
+  named. A gate that had every incentive to round up did not.
+- 15 improvement-register rows, each carrying status, evidence and commit; the two it could not fix
+  are logged as open rather than waived. The no-silent-fix rule survived contact.
+- Self-correction inside the run: the first fix for IR-10 was wrong, was re-probed against the live
+  runtime, and was corrected — `$currentUser/Name` is Mendix `empty`, not `''`, so the original
+  guard let nulls through. The same bug class was then found twice more independently.
+- IR-12 — the app could only ever boot once, because the seed microflow's idempotent branch returned
+  `false` and the runtime reads that as startup failure. A deploy blocker, found and proven fixed
+  across ten restarts.
+- **IR-15 vindicates Finding 1's fix.** A live browser walk found that `ACT_RoutingVersion_Approve`
+  never created the record the Approval History page reads, so that screen was permanently empty for
+  every approval ever made. Eight of eight passing MDL tests did not catch it. Nothing but looking
+  would have.
+
+The gaps below are all *producer-side*. None of them are a discipline failure by the run.
+
+### Finding 12 — the ledger has eleven consumers and no producer in the spine
+
+The ledger is read by eleven executable files — `gate-check.sh`, `brd-report.sh`, `verify-module.sh`,
+`conformance-check.sh`, `coverage-preflight.sh`, `review-module.sh`, `report-disposition-check.sh`,
+`report-normalize.js`, `report-render.js`, `review-report.js`, plus the routing table — and is cited
+as normative by ten other skills and all four build-side agent files. It is a hub artifact. Its producer side is broken
+in three independent places, all in the two files a session is *required* to read:
+
+1. **`conversion-runbook.md` Stage 4 "Agent produces"** names `architecture/build-plan.md` and the
+   first module brief. It does not name `coverage-ledger.md`. The spine never asks for the artifact.
+2. **The Stage 4 `✋` gate row** asks for pending-decisions, the role-to-access table, and CONFIRMED
+   decisions mapping to build-plan rows. It says nothing about coverage, `claims`, or the ledger.
+3. **`check_stage_4()` (`bin/gate-check.sh:953-966`) checks exactly two things** — that
+   `build-plan.md` exists, and that `PROJECT.md` carries a Stage-4 CONFIRMED decision. A build plan
+   with zero `claims:` blocks passes Stage 4 cleanly, which is what happened.
+
+Meanwhile `skills/coverage-ledger.md:264-272` carries a section headed **"Integration with Stage 4
+Gate"** whose body is an instruction — *"Add to the Stage 4 (✋) checklist in
+`conversion-runbook.md`"* — followed by three checkboxes. **That edit was never made.** The skill has
+documented its own integration as though it exists for as long as it has existed.
+
+**A contributing cause worth naming separately: a name collision.** The runbook uses the phrase
+*"coverage checklist"* at Stage 5 for the per-module business-rule checklist out of `module-brief.md`
+— a different artifact with a different producer, granularity and purpose. The words *"coverage
+ledger"* appear nowhere in `conversion-runbook.md`. An agent reading the spine sees coverage
+addressed at Stage 5, produces the thing the spine named, and never learns a second coverage artifact
+was owed at Stage 4.
+
+**This is a gap in Decision 6, not a contradiction of it.** Requiring `claims` on new rows only is
+right. But `claims` is authored into the build plan at Stage 4, and Stage 4 is precisely where
+nothing asks for it — so on current wiring a brand-new project reaching Stage 4 tomorrow still
+produces a plan with no `claims`, and the four-level fallback lands on level 3 forever. The producer
+edit is what makes Decision 6 reachable.
+
+### Finding 13 — the cross-persona journey has no owner, and its tombstone only half-landed
+
+The swim-lane view of a process — one flow, across modules, across personas, with the handoffs
+asserted — is exactly what a per-module journey suite structurally cannot see. The toolkit has
+approached it twice and currently ships neither.
+
+**Design-time half: dropped, correctly, on 2026-08-21.** `skills/journey-map.md` was a 529-line
+method (L0→L3 binding, normative L1 table schema, refusal classes, a `journey-lint` list). Its own
+falsification trial failed — 2a `INVALID` on every pairing, 2b untested — and it is now a 20-line
+tombstone. That is the promote-only-on-a-watched-red rule working on itself, and it was the right
+call.
+
+**But the tombstone did not reach the routing table.** `bin/lib/skill-routing.tsv:145` still carries
+the row, tagged `experimental`, routed to `ba`, `architect` and `test` at stages 2, 3 and 4 — and it
+has therefore been rendered into `ROUTING.md:89`, `agents/ba-agent.md:77`,
+`agents/architect-agent.md:58` and `agents/test-agent.md:56`, each advertising it by its original
+description ("Authoring the cross-module user journey ONCE at design time…"). Three agent roles are
+still told a tombstoned method is an available option. The comparison that makes this a slip rather
+than a judgement call: the repo's two other tombstones, `ui-review-loop` and
+`module-completion-loop`, have **no** row in the tsv. This one does.
+
+The tombstone's own text also asserts the file "was never reachable from README.md's routing tables
+or `conversion-runbook.md`". True of `README.md` and the runbook; not true of `ROUTING.md` or the
+three agent files, which are generated from the same table. Worth correcting when the row goes.
+
+**Executable half: Finding 5, still open.** `full-app-walkthrough.js` is the cross-role instrument —
+log in as A, do A's work, assert the DB effect, *log out*, log in as B, assert B can see what A
+produced. Its slot is declared in `project.config.template.js` and `report-normalize.js` grades it;
+the script has never existed in this repo. PROJECT-C is the project that hand-authored one, and its
+header states the requirement better than any toolkit file currently does: *"it LOGS OUT and logs in
+as role B — no session reuse, no impersonation switch — and asserts that B can see the state A
+produced. That assertion is the handoff, and it is the reason this file is not six journey files."*
+When Finding 5's fix lands, that file is the reference implementation, not a blank page.
+
+**It did not run in PROJECT-C either**, for a third reason independent of both halves:
+`tests/e2e/project.config.js` still carries another project's placeholder values — module
+`RoutingManagement` against an app whose module is `RoutingMgmt`, users `erika.engineer` against demo
+users named `route.*`, a `PROBE_PAGE` naming a page that does not exist here, port 8081 against an
+app served on 8080. The run logged this and made an explicit, recorded judgement call to substitute a
+hand-driven live browser walk. That substitution is what found IR-15, so it was not a bad call — but
+porting the config is a real per-project cost that no stage currently owns.
+
+**So the need is unmet on all three fronts, and PROJECT-C shows the shape of the hole**: twelve
+wireframes, one per screen, full coverage — and no artifact anywhere claiming a screen *order* or a
+persona handoff. Every module green, the seams between them measured by nothing. Dropping the
+unproven method was right; it leaves the requirement unowned, and that should be recorded as an open
+need rather than closed with the file.
+
+The executable half of the same idea is Finding 5's `full-app-walkthrough.js`, and PROJECT-C is the
+project that hand-authored one. Worth recording that its header states the requirement better than
+any toolkit file currently does: *"it LOGS OUT and logs in as role B — no session reuse, no
+impersonation switch — and asserts that B can see the state A produced. That assertion is the
+handoff, and it is the reason this file is not six journey files."* When Finding 5's fix lands, that
+file is the reference implementation, not a blank page.
+
+**It did not run in PROJECT-C either**, for a reason that is neither the banner nor Finding 5:
+`tests/e2e/project.config.js` still carries another project's placeholder values — module
+`RoutingManagement` against an app whose module is `RoutingMgmt`, users `erika.engineer` against demo
+users named `route.*`, `PROBE_PAGE` naming a page that does not exist here, port 8081 against an app
+served on 8080. The run logged this as friction and made an explicit, recorded judgement call to
+substitute a hand-driven live browser walk. That substitution is what found IR-15, so it was not a
+bad call — but it is a per-project porting cost that currently has no step that owns it.
+
+### Finding 14 — the HTML surfaces stop dead at the Stage 4/5 boundary, and Stage 6 cannot pass
+
+The runbook promises a surface per stage. Measured against PROJECT-C:
+
+| Stage | Promised surface | Present |
+|---|---|---|
+| P | `index.html` | yes |
+| 0 | `source-sufficiency.html`, `triage.html` | yes, both |
+| 1 | `extraction-report.html` | yes |
+| 2 | `analysis/brd-report.html` | yes |
+| 3 | `module-design.html`, `blueprint.html`, `design-system.html`, `wireframes/*.html` | yes, all four (12 wireframes) |
+| 4 | `build-plan.html` | yes |
+| 5 | `design/ui-reviews/ui-review-<date>.html` | **no** |
+| 6 | `test-report.html`, `ui-review-*.html`, `docs/report.json` | **no, none of the three** |
+
+Not a gradual decline — a clean break at one boundary, and the boundary is structural. **Every
+Stage 0–4 surface has a generator in `bin/` that some stage procedure tells you to run**
+(`source-sufficiency.sh report`, `triage-report.sh`, `brd-report.sh`, the blueprint render).
+**No Stage 5 or 6 surface has one.** The rendering code exists and is substantial —
+`report-normalize.js` and `report-render.js` are ~310KB between them, both self-testing and
+deterministic — and Finding 2 already records that `verify-module.sh` never invokes it. What
+PROJECT-C adds is the consequence at the *gate*:
+
+**`check_stage_6()` (`bin/gate-check.sh:968-987`) requires both `test-report.html` and a
+`ui-review-*.html` under a `ui-reviews/` directory, and fails naming each.** Nothing in the toolkit
+produces either file. So Stage 6 is not merely un-surfaced, it is **structurally un-passable in every
+project** — the terminal gate of the pipeline cannot be satisfied by any sequence of correct work.
+PROJECT-C did the Stage 6 work (real boot, live OQL, 8/8 microflow proofs, a full live lifecycle walk
+across two roles, ten verified restarts) and still cannot pass the gate that asks whether Stage 6
+happened.
+
+This also answers the question the run's own `artifacts.md` raises honestly and cannot resolve: it
+records that no Stage 5/6 HTML was produced and attributes it to the sweep being interactive rather
+than scripted. That is true of *that* sweep, but it is not the cause. The cause is that no procedure
+anywhere invokes the renderer.
+
+### Finding 15 — `page-scope.sh` is a third phantom, and it is the one that weakens the LOOK rung
+
+`design-audit.js:55` and `page-audit.js:66` both read `.claude/loop/page-scope.json`.
+`harness-architecture.md` documents its producer four times — `:75` in the machine diagram, `:142` in
+the run sequence (`./bin/page-scope.sh`), `:174` on scope-flag handling, `:342` in the
+instrument/scope table. `examples/port-the-harness.prompt.md:83` already flags it in passing.
+**No such script exists in the toolkit or in any project.**
+
+Same class as Findings 5 and 11, but it evades the fix those got.
+`_mxtk_manifest_check_walkthroughs()` parses `script:` slots out of the config template; this
+reference lives in skill prose and in two `require`-time path constants. It is Finding 10's blind
+spot (a skill citing a file that was never written) with an executable consumer attached — the
+combination neither existing check covers.
+
+**Why it matters more than the other two:** `design-audit.js` degrades to `--static-only` without a
+scope file, which is the correct fail-loud behaviour and is exactly what PROJECT-C did. But that
+means **the LOOK rung runs at reduced evidence in every project, by construction, and always has.**
+The original complaint that opened this document was an e2e run reporting zero UI findings. Finding 2
+explains why the *report* was thin; this explains why the *instrument* was too.
+
+### The single pattern, now seen six times
+
+Findings 2, 5, 10, 11, 12, 13 and 15 are one defect wearing seven faces:
+
+> **A consumer was written, routed and gated against an artifact whose producer was never wired into
+> the stage that owns it.**
+
+The toolkit's central rule — *absence is never a pass* — is correct, is implemented, and is working:
+every one of these surfaces as a FAULT or an UNMEASURED rather than a false green. But the rule is
+only ever applied at the **consumer** end. Nothing applies its mirror at the **producer** end:
+
+> If any script, gate or skill reads artifact X, some stage's *"Agent produces"* row must name X, and
+> that stage's gate must check that it exists.
+
+Without that mirror, every correctly fail-closed consumer becomes a permanent red that no amount of
+correct work can clear — and a permanent red gets routed around, which costs more than the guard was
+ever worth. PROJECT-C is that outcome, measured: two instruments permanently faulted, one gate
+permanently unpassable, all three logged honestly and all three unfixable from inside the project.
+
+**The check this implies is mechanical and is the one that would have caught all seven.** Walk every
+artifact path read by `bin/`, `project-bin/` and `project-tests/e2e/`, and every path cited as
+normative in a `skills/*.md` body; assert each appears in some runbook stage's produces row or is
+explicitly declared optional. That is `render-routing.sh --check` shaped — a cross-file consistency
+assertion over files that already exist — and it belongs next to
+`_mxtk_manifest_check_walkthroughs()`, which is the same idea applied to one file format.
+
+### Finding 16 — the architecture artifact set has the same three breaks, and one of them is a diagram nobody drew
+
+Prompted by the question *"on architecture, don't we also need other artifacts — and if there's a
+workflow in the app, shouldn't we draw the process flow?"* Checked, and the answer is that the
+toolkit already specifies all of it. Three separate producer-side breaks stopped it landing.
+
+**16a — the state diagram is bound to the implementation, not the domain shape.**
+`architecture-blueprint.md` Step 3b already specifies exactly the artifact the question asks for: one
+Mermaid `stateDiagram-v2` per Workflow-shaped process, states as tasks, transitions as outcomes,
+embedded in `blueprint.md`. It is conditional on `checkpoint-architecture.md` CAC-3 Q3, whose two
+options are:
+
+> - A) Native Mendix Workflow for the human-approval parts, microflows for automated transitions
+> - B) Microflows only — simpler, no Workflow module dependency, **no extra diagram**
+
+So the state view is bundled to the *implementation technology* and traded away with it. This is
+backwards. The diagram is a **comprehension** artifact, and its value does not depend on where the
+states are stored — if anything option B needs it *more*, because a native Workflow at least renders
+itself in Studio Pro, while an enum-plus-microflows lifecycle is drawn nowhere by anything, ever.
+
+PROJECT-C is the demonstration. Its entire domain is a six-state, role-gated lifecycle —
+`ENUM_ReleaseStatus` (Draft → Validated → Submitted → Approved → Released → Retired), three module
+roles, a separation-of-duties guard on Approve, and a whole entity (`RouteStateHistory`) that exists
+solely to record transitions. Zero native Workflow constructs, so option B, so no diagram.
+`blueprint.md` carries two Mermaid blocks: layer and wiring. **There is no picture of the lifecycle
+anywhere in the project** — not in the blueprint, not in the module brief, not in the wireframes.
+The one thing a reviewer most needs to see to judge whether the process is right is the one thing
+nothing draws.
+
+**And the trigger never actually fired.** `checkpoint-architecture.md:101` requires the answer be
+recorded as `PROJECT.md` → `## Decisions` → `Workflow scope:`. PROJECT-C's `PROJECT.md` contains no
+such line, and `run/decisions.md` — 31KB of every gate exchange verbatim — contains no occurrence of
+"Workflow" at all. So this was not "option B chosen deliberately". **The question that decides
+whether the process gets drawn was never put to the user.** Same producer-side shape as Findings 12
+and 13: the artifact is specified, its trigger is specified, and nothing makes the trigger happen.
+
+**16b — the Step 1 module definition doc is not produced, and the path shape disagrees.**
+`architecture-blueprint.md` Step 1 mandates one module definition doc per module, and its own
+"Output of This Skill" tree names `architecture/modules/<ModuleName>.md` — entities, key microflows,
+pages, security, dependencies, at Stage 3. PROJECT-C has `architecture/modules/RoutingMgmt/module-brief.md`,
+which is the **Stage 4** artifact from a different skill. The Stage 3 doc does not exist.
+
+Note the path shape: the skill says `modules/<ModuleName>.md` (a file), the project has
+`modules/<ModuleName>/module-brief.md` (a directory). That is the same file-vs-directory disagreement
+Finding 9 recorded for the ledger glob, on a different artifact — worth checking whether anything
+globs for the Step 1 doc and silently finds nothing.
+
+**16c — `open-issues.md` is superseded in the runbook and still live in the skill.**
+`conversion-runbook.md:589` states `PROJECT.md` "Absorbs `architecture/open-issues.md`". But
+`architecture-blueprint.md` still lists it in its output tree (`:44`), still has a whole Step 5
+producing it (`:204`), still routes gaps into it from the fit-gap vocabulary (`:196`) and from Step
+6's three decisions (`:245`) — and `brd-to-build-plan.md` still consumes it as a named upstream input
+(`architecture-blueprint.md:6`: "the open-issues register as the questions the plan must answer
+before script 01"). PROJECT-C produced no `open-issues.md`, correctly per the runbook, which means
+the downstream consumer's named input does not exist.
+
+**This is the journey-map tombstone pattern exactly**: a supersession that landed in one file and not
+in the file that produces the thing. Either the skill drops Step 5 and points at `PROJECT.md`, or the
+runbook line is wrong. Both cannot be right.
+
+**The general shape.** Two of the three architecture artifacts a reviewer would most want — the
+process state view and the per-module definition — are specified, unproduced, and unnoticed, because
+in each case the *only* thing standing between spec and artifact was a conditional nobody evaluated
+or a producer nobody ran. Add the cross-persona journey (Finding 13) and the pattern is complete:
+**the toolkit's design-time comprehension artifacts — the ones that answer "is this the right
+process?" rather than "did it build?" — are the least mechanically enforced things in it.**
+
+### Proposed, not decided — the full register
+
+Every proposal arising from Findings 12–16, ordered by cost. All producer-side. **None of them
+gating** — Decision 1 stands, and nothing here adds a new blocking check.
+
+| # | Proposal | Closes | Cost |
+|---|---|---|---|
+| P1 | Add `architecture/coverage-ledger.md` to the runbook's Stage 4 "Agent produces" row, and make the three checkboxes `coverage-ledger.md:266-270` has been asking for since it was written. Resolve the "coverage checklist" / "coverage ledger" name collision by naming both in the Stage 5 row. | 12 | 3 lines |
+| P2 | Finish the `journey-map.md` tombstone: drop its row from `bin/lib/skill-routing.tsv` and re-render, as both earlier tombstones already are; correct the tombstone's claim about which tables reached it. | 13 | 1 row + render |
+| P3 | Reconcile `open-issues.md`: either drop Step 5 from `architecture-blueprint.md` and repoint its four internal references plus `brd-to-build-plan.md`'s named input at `PROJECT.md`, or correct `conversion-runbook.md:589`. One of the two is wrong. | 16c | 1 file |
+| P4 | Rebind Step 3b's trigger from the implementation to the domain shape: draw the `stateDiagram-v2` whenever a lifecycle enum drives role-gated transitions, whether or not it is a native Mendix Workflow. Delete "no extra diagram" from CAC-3 Q3 option B — it is not a benefit. | 16a | 1 skill + 1 checkpoint |
+| P5 | Make CAC-3 Q3 actually fire. The question was never put in PROJECT-C and its `PROJECT.md` line is absent; whatever makes the other checkpoint questions reliable should cover this one. | 16a | needs diagnosis first |
+| P6 | Add `design/journeys/` (or whatever replaces it) to the runbook's Stage 3 "Agent produces", once Finding 13's open need has an owner. Not actionable until then. | 13 | blocked on P2 |
+| P7 | Produce the Step 1 module definition doc at Stage 3, and reconcile `modules/<Module>.md` (file, per the skill) against `modules/<Module>/` (directory, per every project) — the same shape disagreement Finding 9 found on the ledger glob. | 16b | 1 skill + a glob audit |
+| P8 | Write `page-scope.sh`, **or** delete its four citations from `harness-architecture.md` and record `--static-only` as the supported mode. Either is honest; the current state is not. | 15 | script, or 4 deletions |
+| P9 | Invoke the renderer from the Stage 5/6 procedure (Finding 2's fix). `check_stage_6()` needs no change — it becomes satisfiable the moment something produces its two inputs. | 2, 14 | procedure + wiring |
+| P10 | The producer-side mirror check: walk every artifact path read by `bin/`, `project-bin/`, `project-tests/e2e/` and every path cited as normative in a `skills/*.md` body; assert each appears in some stage's "Agent produces" row or is explicitly declared optional. | all | the expensive one |
+
+**P1–P3 are the cheap, unambiguous ones** — each is a correction to a file that already contains the
+contradiction, and none of them require a decision about what the toolkit should do, only that it
+stop saying two things at once.
+
+**P10 has the least evidence behind it.** It is a proposal generalized from a pattern seen eight
+times, not a measured fix, and it should be judged that way — it is also the only one that stops
+the ninth.
+
+### Review pass over the register (2026-08-22, later the same day)
+
+Re-checked every proposal against master head (`f2d1a5a`) instead of against the state PROJECT-C
+ran under. Three commits from the parallel session changed the picture, and one finding above
+needs a correction against its own evidence.
+
+**Correction to Finding 16a.** The CAC-3 Q3 Workflow-scope question and Steps 3b/3c were added by
+`c3130c4` on **2026-08-21 — after PROJECT-C's architecture stage ran.** So "the question was never
+put" is true but not an enforcement failure: the trigger did not exist yet. What survives of 16a,
+verified against today's text: option B still reads "Microflows only — … no extra diagram", so the
+state view is still traded away with the implementation choice, and PROJECT-C still stands as the
+measured cost of that trade — a six-state lifecycle with no picture of it. P4 stands; P5 is
+overtaken (below).
+
+**Finding 5 is CLOSED** — `b22cdad` shipped `full-app-walkthrough.js` (now a real, 37KB engine
+file in the install manifest), parked `mobile-fieldscan` as a commented slot, and — closing
+Finding 6 in the same stroke — wired `install-tests.sh` into both `init-project.sh` and
+`sync-project.sh`, so the engine now reaches projects at scaffold time and existing projects at
+sync time.
+
+**Finding 14 is narrower now.** `e75c912`'s obligation manifest (`bin/lib/obligations.tsv` +
+`obligation-check.sh`, run from `gate-check.sh`) makes the LOOK and sweep passes owe per-module
+marks from Stage 5 — the `ui-review-*.html` half of `check_stage_6()`'s inputs is now *demanded*
+mechanically (absence reports PENDING/FAULT, waivable with a reason, adoptable below an `--adopt`
+point). What remains of Finding 14: still nothing *generates* `test-report.html`, the renderer is
+still never invoked (Finding 2's core), and no obligation row covers the Stage 6 app-wide surface.
+
+**Register status after the pass:**
+
+| # | Status | What changed |
+|---|---|---|
+| P1 | **Stands, unchanged** | Runbook Stage 4 rows re-verified on `f2d1a5a`: still no ledger, checkboxes still unmade, name collision still present |
+| P2 | **Stands, unchanged** | `skill-routing.tsv:145` still carries the tombstoned row; both older tombstones still have none |
+| P3 | **Stands, unchanged** | The `open-issues.md` contradiction is intact on both sides |
+| P4 | **Stands, sharpened** | `c3130c4` re-authored the exact lines, yesterday, and kept "no extra diagram" in option B — so this is now a proposal against fresh text, not legacy text |
+| P5 | **Overtaken by `c3130c4`** | Detection is now mandatory ("When to ask: Always"), scans BRD content in every entry mode, and a zero-signal skip must itself be recorded. Residue: nothing yet *enforces* the `Workflow scope:` line in `PROJECT.md` — a candidate obligations row, not a new mechanism |
+| P6 | Blocked, unchanged | Still waits on Finding 13's open need finding an owner |
+| P7 | **Stands, unchanged** | Step 1 doc still unproduced; file-vs-directory shape still disagrees |
+| P8 | **Stands, more urgent** | `page-scope.sh` is still in no manifest — and `b22cdad` now ships `design-audit.js`/`page-audit.js` to *every* project, so the static-only degradation now installs everywhere by default |
+| P9 | **Half done** | `b9c90a4` wired `design-audit.js` into `verify-module.sh` as a non-gating rung. The normalize/render step is still uninvoked — `verify-module.sh:321` cites Finding 2 as the known open case in its own comments. Remaining scope: the renderer call + a `test-report.html` producer |
+| P10 | **Precedented, cheaper than estimated** | `e75c912` built exactly this shape one layer down: file layer = `install-manifest.sh`, pass layer = `obligations.tsv`. P10 is the third layer — artifacts read vs. artifacts produced — and both existing layers prove the pattern (a TSV + a forward/reverse check sourced from `gate-check.sh`) rather than requiring a new one |
+
+Net: two closed by the parallel session, one overtaken, one halved, five stand, and the expensive
+one got cheaper. Nothing in the register was wrong in a way that would have caused harm if
+executed — but P5 executed as written would have rebuilt something that landed yesterday, which is
+the argument for this review pass being a standing step and not a courtesy.
+
+### Impact on existing projects — who must rerun `sync-project.sh`
+
+The toolkit reaches a consuming project over two channels, and every proposal lands on exactly one
+of them:
+
+**Channel 1 — referenced from the clone.** Skills, checkpoints, the runbook, `gate-check.sh`,
+routing tables. These update with `git pull` alone; no per-project action. P1, P3, P4, P5's
+residue and P10 all live here — **no project ever needs to sync for them.**
+
+One consequence of the pull itself is worth telling users about: `gate-check.sh` now runs the
+obligation check (`e75c912`), so an existing project's next gate run will report look/sweep/
+journeys/coherence obligations for modules opened for work at Stage ≥ 5 — PENDING where the pass
+genuinely never ran. That is the mechanism working, not a regression; the built-in remedies are
+`--adopt <stage>` for history that predates the rule and `--waive <obligation>/<Module> --reason`
+for passes deliberately not performed. Projects should adopt, not back-fill.
+
+**Channel 2 — copied into the project.** Agent stubs, `bin/` crash-net scripts (including
+`verify-module.sh`, `conformance-check.sh`, and the new `coverage-preflight.sh`), lint rules, the
+`tests/e2e/` engine, and the baseline-routing block inside `CLAUDE.local.md` (rewritten in place
+between markers). These move **only** when `bin/sync-project.sh <project-root>` runs. P2 lands
+here (the routing block), as would P7's glob fixes, P8's script and P9's `verify-module.sh`
+changes.
+
+**So: every consuming project scaffolded before 2026-08-20 should rerun
+`bin/sync-project.sh <project-root>` after its next toolkit pull** — that is the cut before
+`b22cdad`/`e75c912`/`b9c90a4`, the commits that changed what a wired project carries. Concretely a
+stale project is missing some or all of: the `tests/e2e/` engine (16 files), the design-audit rung
+in `verify-module.sh`, `coverage-preflight.sh` (without which the coverage rung's four grading
+levels are unreachable and it faults the old way), and the current routing rows in
+`CLAUDE.local.md`. A project that predates the ledger `claims:` convention additionally shows
+coverage as NOT MEASURED after syncing — that is Decision 6's accepted state, not breakage.
+
+The sync contract makes this safe to run blind: it appends intake questions rather than rewriting,
+installs only missing `bin/` scripts and *reports* locally-modified ones, keeps a differing engine
+file with a "differs, kept (--force to overwrite)" note, and never touches `project.config.js`. A
+project that hand-authored its own `full-app-walkthrough.js` before the toolkit shipped one keeps
+its copy and gets told the toolkit's now differs — the right outcome in both directions.
+
+### The through-line, stated plainly
+
+Findings 2, 5, 10, 11, 12, 13, 15 and 16 are one defect. But 13 and 16 sharpen what kind:
+
+> The toolkit enforces **"did it build?"** mechanically and **"is this the right process?"** not at
+> all.
+
+Every instrument that measures construction — lint, gates, conformance, journeys, monkey, the
+verdict vocabulary — is wired, fail-closed and hard to skip. Every artifact that supports *judgement*
+— the state view, the cross-persona journey, the module definition doc, the per-step narrative report
+— is conditional, unproduced, or tombstoned, and nothing notices when it is missing. That asymmetry
+is not an accident of any one file; it is what happens when the producer-side mirror rule (P10) has
+never existed, because construction artifacts have scripts that emit them and comprehension artifacts
+only ever had prose asking someone to write them.
+
+---
+
+## What landed (2026-08-22, same day as the review pass)
+
+The register was executed the same day, drafted by three parallel sessions with disjoint file
+sets, reviewed and committed by the coordinating session. Three commits on
+`claude/e2e-testing-module-validation-5o6mly`, merged to master immediately after (a fresh
+end-to-end test run was scheduled against master ~20 minutes out):
+
+| P | Status | Commit | What changed |
+|---|--------|--------|--------------|
+| P1 | **LANDED** | `d758afb` | Runbook Stage 4 "Agent produces" now names the coverage ledger (per-module canonical path first); the gate row carries the three coverage checks; `coverage-ledger.md` §"Integration with Stage 4 Gate" demoted from unexecuted instruction to reference copy; Stage 5 disambiguates checklist vs ledger. |
+| P2 | **LANDED** | `e8d0081` | `journey-map` row deleted from `skill-routing.tsv`; surfaces re-rendered; tombstone's false "never reachable" sentence corrected. Bonus: the `learned-workflow-patterns` table/render drift from `05a5765` fixed table-side; `render-routing.sh --check` clean. |
+| P3 | **LANDED** | `d758afb` | `architecture-blueprint.md` Step 5 (and every reference: output tree, Step 4 vocabulary, 6c, 7, 7b, handoff, Downstream) now writes register rows into `PROJECT.md`; `brd-to-build-plan.md` Step 2 names that upstream; runbook :589 "absorbs" reworded; `modularize-domain.md` checkpoint recording redirected. `gate-check.sh`'s `[ -f ]`-guarded legacy mtime check kept for projects that have the file. |
+| P4 | **LANDED** | `d758afb` | CAC-3 Q3 options A and B both produce Step 3b's state diagram — the answer decides implementation only; Step 3b rebound to "workflow-shaped requirements detected at all", with the option-B spec (states = enum values, transitions = role-labeled microflows). |
+| P5 | DEFERRED | — | Overtaken by `c3130c4` (per the review pass). Residue if wanted later: an obligations.tsv row for the Q3 question being put. |
+| P6 | DEFERRED | — | Still blocked on the Finding 13 ownership decision (who owns the cross-persona design-time artifact). |
+| P7 | **LANDED** | `d758afb` | Stage-3 module definition doc moves to `architecture/modules/<Name>/definition.md` — the directory shape everything else already globs; `coverage-ledger.md` :27 names it among the directory's contents. Noted: nothing mechanically consumes `definition.md` yet — a residual Finding-12-shaped gap, candidate obligations row. |
+| P8 | **LANDED** | `078c7d8` | `project-bin/page-scope.sh` exists: facts-only, read-only (`SHOW`/`describe`), FAULT exit 2 without clobbering a prior scope, orphans carried forward never derived, `distinctRolePageSets` computed exactly as `report-normalize.js` recomputes it. In `MXTK_PROJECT_BIN`. `harness-architecture.md`'s four phantom mentions now describe a shipped script. |
+| P9 | **LANDED** | `078c7d8` | `verify-module.sh` §2d: final non-gating normalize→render rung (`docs/report.json` + `docs/verification/report.html`; FAULT/FINDINGS counters restored so the exit code stays the instruments'). `check_stage_6()` accepts that pair alongside legacy `test-report.html` — the terminal gate is passable by the harness that was built to satisfy it. Finding 2 CLOSED; the trap-EXIT emit-on-interrupt half stays open (`harness-architecture.md` §5 improvement 1). |
+| P10 | DEFERRED | — | Least-evidenced, biggest. The third wiring layer (per-stage artifact manifest) remains the open through-line item; P7's unconsumed `definition.md` is the newest instance of the pattern it would catch. |
+
+Consequence for the sync-impact section above: P1/P3/P4 travel by `git pull` alone (referenced
+skills); P2's re-rendered agent files, P7's path change, and P8/P9's `project-bin` + engine
+changes all land in consuming projects **only after `bin/sync-project.sh`** — which strengthens,
+not changes, the existing rule: pre-2026-08-20 projects rerun sync, and now every project should
+rerun it after pulling past this date to receive `page-scope.sh` and the render rung.

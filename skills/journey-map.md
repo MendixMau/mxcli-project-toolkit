@@ -1,7 +1,9 @@
 # TOMBSTONED — falsification trial failed
 
 This skill was self-declared **UNPROVEN**, personal-toolkit-only, and was never reachable from
-README.md's routing tables or `conversion-runbook.md`. Its own closing section specified a
+README.md's routing tables or `conversion-runbook.md` — it was, however, routed in ROUTING.md
+and three agent files (ba, architect, test) until 2026-08-22, when its row was removed from
+`bin/lib/skill-routing.tsv`. Its own closing section specified a
 falsification trial and a gate: *"fail 2 or 4 and drop this."* The trial was run.
 
 **2a — does the L1 spine reconcile against an existing target?** INVALID on every pairing tried:
@@ -18,3 +20,7 @@ not assume the schema was fine.
 For proven journey/E2E testing guidance, see `journey-proof.md` (rungs, mutants, verdict
 discipline) and `testing-shape.md` (routing). Kept short rather than deleted, per this repo's
 tombstone convention (`ui-review-loop.md`); full history is in git if the trial is ever rerun.
+
+The cross-persona/cross-module handoff need this skill aimed at is NOT closed by this tombstone:
+its executable counterpart is `tests/e2e`'s `full-app-walkthrough.js` (shipped 2026-08-20), and
+the design-time gap is tracked in `process/improvement-plan-e2e-reporting.md` Finding 13.

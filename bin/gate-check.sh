@@ -971,19 +971,28 @@ check_stage_6() {
            "$ANALYSIS_BASE/test-report.html" "$ANALYSIS_BASE"/reports/test-report.html; do
     [ -s "$f" ] && test_ok=1
   done
+  # The harness's own surface also satisfies the test half: verify-module.sh's final render
+  # rung produces docs/verification/report.html from docs/report.json (report-render.js /
+  # report-normalize.js). Both halves must be present — the HTML is rendered FROM the JSON,
+  # and accepting one without the other would accept a surface whose machine half is gone.
+  # Before this, test-report.html was the only accepted name and nothing in the toolkit
+  # generated it, so Stage 6 was structurally unpassable (improvement-plan Finding 14 / P9).
+  if [ -s "$PROJECT_DIR/docs/verification/report.html" ] && [ -s "$PROJECT_DIR/docs/report.json" ]; then
+    test_ok=1
+  fi
   # module-review.md report — any non-empty dated report under a ui-reviews/ dir
   if [ -n "$(find_artifact -path '*/ui-reviews/ui-review-*.html' -size +0c)" ]; then
     review_ok=1
   fi
   if [ -z "$test_ok" ]; then
-    echo "PENDING|no test-report.html yet (looked in the project root and reports/)"
+    echo "PENDING|no test surface yet — need test-report.html (project root or reports/), or docs/verification/report.html + docs/report.json (verify-module.sh's render rung)"
     return
   fi
   if [ -z "$review_ok" ]; then
-    echo "PENDING|test-report.html present but no module-review report (ui-review-*.html under a ui-reviews/ dir) — Stage 6 requires the full-app module-review.md pass, zero open P1"
+    echo "PENDING|test surface present but no module-review report (ui-review-*.html under a ui-reviews/ dir) — Stage 6 requires the full-app module-review.md pass, zero open P1"
     return
   fi
-  echo "PASS|test-report.html + module-review report both present"
+  echo "PASS|test surface (test-report.html, or docs/verification/report.html + docs/report.json) + module-review report both present"
 }
 
 check_stage_7() {

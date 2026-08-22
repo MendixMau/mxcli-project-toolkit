@@ -44,7 +44,11 @@
 #   tests/e2e/journey-runner.js, tests/e2e/monkey.js   the runtime instruments
 #   tests/e2e/design-audit.js   the UI/a11y instrument — rungs 6-7, SEPARATE from the journey
 #                               (harness-architecture.md §6); informational, never gates a run
-# Override any of them: JOURNEY_DIR, JOURNEY_RUNNER, MONKEY_JS, DESIGN_AUDIT_JS, BRD_FILE, LEDGER_FILE.
+#   tests/e2e/report-normalize.js + report-render.js   the report surfaces — docs/report.json
+#                               and docs/verification/report.html, composed as a final
+#                               non-gating step (§2d); their failure never moves the exit code
+# Override any of them: JOURNEY_DIR, JOURNEY_RUNNER, MONKEY_JS, DESIGN_AUDIT_JS, BRD_FILE,
+# LEDGER_FILE, REPORT_NORMALIZE_JS, REPORT_RENDER_JS.
 #
 # Exit: 0 all instruments ran and found nothing · 1 findings · 2 an instrument could not run
 
@@ -79,7 +83,7 @@ _tool() {
 
 MODULE="${1:-}"
 [ -n "$MODULE" ] && [ "${MODULE#--}" = "$MODULE" ] || {
-  sed -n '2,40p' "$0"; exit 2; }
+  sed -n '2,53p' "$0"; exit 2; }
 shift
 
 SKIP_MONKEY=0; SKIP_JOURNEYS=0; QUICK=0; PARALLEL_RUNTIME=0
@@ -488,12 +492,57 @@ fi
 # per closed module.
 printf 'look (module-review.md §4)\tSKIPPED\t0\t-\t(judgement pass — not performed by this chain; review-agent owns it)\n' >> "$SUMMARY"
 
+# ── 2d. Report surface — normalize + render (closes improvement-plan Finding 2) ─────────────
+# Every instrument above writes its own artifact; this step composes them into the two report
+# surfaces: docs/report.json (report-normalize.js — the machine half, versioned schema) and
+# docs/verification/report.html (report-render.js — the human surface check_stage_6 accepts).
+# Until this rung existed, report-normalize.js was invoked by no orchestrator at all
+# (harness-architecture.md §5), so the richest artifact in the harness was unreachable from
+# the harness's one command and nothing anywhere produced Stage 6's test surface.
+#
+# NON-GATING BY CONSTRUCTION, one step past the design-audit rung: not even its FAULTS gate.
+# This step renders the evidence, it does not add any — a module whose instruments all passed
+# must not read INCOMPLETE because the renderer hiccupped, and a broken report pipeline is
+# report-normalize's own selftest's problem, not this module's. So the rungs run through
+# run()/_report_result() as usual (the summary row and log stay honest), and the FAULTED/
+# FINDINGS counters are restored afterwards so the exit code belongs to the instruments alone.
+REPORT_NORMALIZE_JS="${REPORT_NORMALIZE_JS:-$ROOT/tests/e2e/report-normalize.js}"
+REPORT_RENDER_JS="${REPORT_RENDER_JS:-$ROOT/tests/e2e/report-render.js}"
+RENDER_OK=0
+PRE_REPORT_FAULTED=$FAULTED; PRE_REPORT_FINDINGS=$FINDINGS
+if [ ! -f "$REPORT_NORMALIZE_JS" ] || [ ! -f "$REPORT_RENDER_JS" ]; then
+  fault "report (normalize + render)" \
+        "engine not installed at ${REPORT_NORMALIZE_JS#$ROOT/} / ${REPORT_RENDER_JS#$ROOT/}" \
+        "docs/report.json and docs/verification/report.html were NOT (re)generated. Run bin/sync-project.sh to install the tests/e2e engine, or set REPORT_NORMALIZE_JS / REPORT_RENDER_JS."
+else
+  run "report (normalize → docs/report.json)" "$OUTDIR/50-report-normalize.log" info 300 -- \
+    node "$REPORT_NORMALIZE_JS" --out docs/report.json
+  if [ -s "$ROOT/docs/report.json" ]; then
+    run "report (render → docs/verification/report.html)" "$OUTDIR/51-report-render.log" info 300 -- \
+      node "$REPORT_RENDER_JS" --in docs/report.json --out docs/verification/report.html
+    [ -s "$ROOT/docs/verification/report.html" ] && RENDER_OK=1
+  else
+    fault "report (render → docs/verification/report.html)" \
+          "normalize wrote no docs/report.json — nothing to render" \
+          "See ${OUTDIR#$ROOT/}/50-report-normalize.log for why."
+  fi
+fi
+# Restore the counters: the rows above stay in the summary (visible, named), the exit code
+# does not move on their account. See the NON-GATING note at the head of this section.
+FAULTED=$PRE_REPORT_FAULTED; FINDINGS=$PRE_REPORT_FINDINGS
+
 # ── 3. Verdict ──────────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════════════════════════════"
 column -t -s "$(printf '\t')" "$SUMMARY" 2>/dev/null | sed 's/^/  /' || cat "$SUMMARY"
 echo "════════════════════════════════════════════════════════"
 echo "  logs: ${OUTDIR#$ROOT/}"
+if [ "$RENDER_OK" -eq 1 ]; then
+  echo "  report: docs/verification/report.html (the human surface) · docs/report.json (machine)"
+else
+  echo "  report: NOT PRODUCED this run — see the report rows above; the verdict below is"
+  echo "          unaffected (the report renders evidence, it does not add any)."
+fi
 
 if [ "$FAULTED" -gt 0 ]; then
   echo ""

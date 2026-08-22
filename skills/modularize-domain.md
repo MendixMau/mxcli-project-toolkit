@@ -97,7 +97,7 @@ Write `architecture/module-design.html` in the project workspace. It is the huma
 
 Match the project's design system if one exists (`design/design-system.html`): reuse its CSS variables (palette, fonts, radii, light+dark). If it doesn't exist yet (this skill usually runs *before* Stage 3c creates it), use the neutral bootstrap tokens from the toolkit's `toolkit-guide.html` `:root` block — the shared shell every stage HTML starts from. Self-contained single file, no external assets. Keep it a **rationale document**, not a dashboard — cards + prose, one section per module, a dependency summary, and a closing **"Does this match how your teams and processes are actually organized?"** feedback prompt listing the Step 1 inputs so the reviewer can correct any assumption.
 
-**The checkpoint is mandatory:** share the HTML, ask the four Step 1 questions explicitly, and **wait for confirmation** before writing `.mx-brd.json` boundaries or running any `create module`. Record the user's answers (and any correction to your proposed split) in `architecture/open-issues.md`.
+**The checkpoint is mandatory:** share the HTML, ask the four Step 1 questions explicitly, and **wait for confirmation** before writing `.mx-brd.json` boundaries or running any `create module`. Record the user's answers (and any correction to your proposed split) in `PROJECT.md` — the single decision register (`conversion-runbook.md` §"One decision register"); there is no separate `architecture/open-issues.md`.
 
 ---
 
@@ -108,5 +108,5 @@ Match the project's design system if one exists (`design/design-system.html`): r
 - [ ] No over-split signal present (especially: no cross-module association for always-together entities).
 - [ ] `architecture/module-design.html` written, with per-module *rationale* (process, users, tied data, dependencies, criterion).
 - [ ] HTML shared with the user, four Step 1 questions asked, **confirmation received**.
-- [ ] Decision + user answers recorded in `architecture/open-issues.md`.
+- [ ] Decision + user answers recorded in `PROJECT.md`.
 - [ ] Only then: write `.mx-brd.json` boundaries → hand off to `architecture-blueprint.md`.

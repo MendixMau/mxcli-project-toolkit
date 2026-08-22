@@ -125,7 +125,7 @@ module-level override is cheaper here than a post-mortem later.
 
 ## Step 2: Resolve Architecture Questions Before Scripting
 
-Every project has open questions that block scripting until answered. Common ones (answer these explicitly, in writing, before script 01):
+Every project has open questions that block scripting until answered. The project-specific ones arrive as `architecture-blueprint.md` Step 5's register rows in `PROJECT.md` — the blueprint's dependency and open-issues register writes there, the single decision register, not to a separate `open-issues.md` file. Common ones (answer these explicitly, in writing, before script 01):
 
 | # | Question | Why it blocks scripting |
 |---|----------|------------------------|

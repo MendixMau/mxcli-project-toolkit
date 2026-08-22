@@ -36,7 +36,7 @@ Written to `architecture/` in the project workspace:
 
 ```
 architecture/
-  blueprint.md                 ← the index: tiers, the two diagrams, links to module docs
+  blueprint.md                 ← the index: tiers, the diagrams (Steps 2–3d, as produced), links to module docs
   blueprint.html               ← generated checkpoint render of blueprint.md (Step 7) — never hand-edited
   modules/
     <ModuleName>/
@@ -194,6 +194,73 @@ how that gap is surfaced to the builder rather than silently assumed away.
 
 ---
 
+## Step 3d: Cross-Persona Journeys (swim lanes) — conditional
+
+**Produced whenever the BRDs contain more than one user role/persona.** A single-persona app may
+skip it — with a one-line note recorded in `blueprint.md` ("single persona — no cross-persona
+journeys"), never silently. This is the view a per-module artifact structurally cannot show: one
+end-to-end flow, across modules, across personas, with the handoffs between people visible.
+Never draw it before the role model (Step 6a) and module boundaries are `CONFIRMED` — same rule
+as Steps 3b/3c. Sections inside `blueprint.md`, no separate file.
+
+**One Mermaid diagram per end-to-end journey.** Default form: `sequenceDiagram`, one participant
+per persona, messages = the actions and handoffs between them — a swim-lane read: who acts, and
+what passes to whom.
+
+````markdown
+```mermaid
+sequenceDiagram
+  participant Req as Requester
+  participant App as Approver
+  participant Adm as Administrator
+  Req->>Req: create Draft
+  Req->>App: submit for approval
+  App-->>Req: request changes (back to Draft)
+  App->>Adm: approve — hand off for release
+  Adm->>Adm: release
+```
+````
+
+When branching dominates the flow (rejects, reroutes, parallel paths — more decision than
+handoff chain), use a `flowchart` with one subgraph per persona as the lanes instead:
+
+````markdown
+```mermaid
+flowchart LR
+  subgraph Req[Requester]
+    A[Create draft] --> B[Submit]
+  end
+  subgraph App[Approver]
+    C{Review} -->|approve| D[Hand off for release]
+    C -->|request changes| B
+  end
+  subgraph Adm[Administrator]
+    E[Release]
+  end
+  B --> C
+  D --> E
+```
+````
+
+**Plus one journey list table** beside the diagrams:
+
+| Journey id | Name | Personas involved | Modules touched |
+|---|---|---|---|
+| J-01 | Draft → Approve → Release | Requester, Approver, Administrator | `<modules>` |
+
+This table is a seed, not just documentation: it is the list Stage 5's `journeys/*.journey.json`
+files are written from (`journey-examples.md`) and the list the full-app walkthrough
+(`tests/e2e/full-app-walkthrough.js`) walks — the design-time picture and the runtime instrument
+point at the same journeys, so a journey drawn here and never walked is a visible gap, not a
+silent one.
+
+Deliberately a picture plus a list, nothing more — the heavyweight L0–L3 binding schema that once
+owned this need failed its falsification trial and is tombstoned (`journey-map.md`); do not
+rebuild it here. Same source-of-truth/render rule as Steps 3b/3c: the markdown is canonical,
+`blueprint.html` (Step 7) is the generated render.
+
+---
+
 ## Step 4: Fit-Gap Analysis (`architecture/fit-gap.md`)
 
 The build-vs-buy-vs-workaround decision, one row per source capability. **This is where marketplace review lives** — reviewing marketplace for modules that (partly) match scope is a fit-gap decision, not a separate phase.
@@ -269,7 +336,7 @@ The Stage-3 `✋` gate is reviewed by a person, and raw Mermaid in markdown is a
 
 - **Style:** copy the `:root` token block + base styles from the shared CSS shell (`toolkit-guide.html`; once `design/ds.css` exists, its tokens supersede — same rule as every stage surface).
 - **Banner at the top:** `Generated from blueprint.md — do not edit; regenerate after changing the markdown.` Include the generation date.
-- **Content:** the layer + wiring diagrams, **the workflow diagram (Step 3b) and/or agent-wiring diagram (Step 3c) when either was produced** — omit the section entirely when CAC-3 didn't call for it, never render an empty placeholder — a module summary table (linking `modules/<Name>/definition.md`), the fit-gap table, and Step 5's dependency/open-issue rows from `PROJECT.md`. It renders what the markdown says; it introduces nothing new.
+- **Content:** the layer + wiring diagrams, **the workflow diagram (Step 3b), agent-wiring diagram (Step 3c), and/or cross-persona journey diagrams + journey list (Step 3d) when each was produced** — omit a section entirely when its step didn't call for it, never render an empty placeholder (Step 3d's single-persona note, if that's what the markdown records, renders as that one line) — a module summary table (linking `modules/<Name>/definition.md`), the fit-gap table, and Step 5's dependency/open-issue rows from `PROJECT.md`. It renders what the markdown says; it introduces nothing new.
 - **Mermaid:** embed each diagram's source in `<pre class="mermaid">` with mermaid.js; if the review must work fully offline, pre-render to inline SVG (`npx @mermaid-js/mermaid-cli`) instead. Either way the markdown's Mermaid stays canonical.
 - **Freshness is gated:** `bin/gate-check.sh` Stage 3 fails if `blueprint.html` is missing or older than `blueprint.md` / `fit-gap.md`. Regenerating is cheap; a stale render at a sign-off gate is a lie.
 - **Present it:** open `blueprint.html` in the user's browser when running the Stage-3 gate, alongside `module-design.html` and the design surfaces.
@@ -386,6 +453,7 @@ Before proceeding to Stage 4 (`brd-to-build-plan.md`):
 - [ ] Every normalization decision documented (Entity / Attribute / Enum + reason)
 - [ ] All many-to-many junctions named and explicit
 - [ ] All cross-module associations ownership assigned
+- [ ] Cross-persona journeys (Step 3d) drawn for every multi-persona flow, or the single-persona note recorded
 - [ ] Fit-gap "Buy" decisions confirmed or revised
 - [ ] All P1 findings resolved; P2/P3 dispositioned (fix or consciously deferred)
 - [ ] `blueprint.html` regenerated after last change and confirmed fresh by `gate-check.sh`
@@ -402,6 +470,8 @@ Before proceeding to Stage 4 (`brd-to-build-plan.md`):
 - **Step 3 wiring graph → build order** (its Step 1).
 - **Step 4 fit-gap → scope boundary** (its Step 4: in-scope-real / in-scope-stubbed / out-of-scope).
 - **Step 5's register rows in `PROJECT.md` → the questions answered before script 01** (its Step 2).
+
+One handoff bypasses the build plan and goes straight to Stage 5 testing: **Step 3d's journey list → `journeys/*.journey.json`** — each row seeds one journey file (written per `journey-examples.md`) and names a leg of the full-app walkthrough, so the runtime walk exercises the same list the blueprint drew.
 
 If the build plan can't answer one of its Step 2 questions, the gap is in *this* blueprint — fix it here, then continue. Don't patch it in a script comment.
 

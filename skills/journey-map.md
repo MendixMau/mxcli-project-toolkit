@@ -23,4 +23,6 @@ tombstone convention (`ui-review-loop.md`); full history is in git if the trial 
 
 The cross-persona/cross-module handoff need this skill aimed at is NOT closed by this tombstone:
 its executable counterpart is `tests/e2e`'s `full-app-walkthrough.js` (shipped 2026-08-20), and
-the design-time gap is tracked in `process/improvement-plan-e2e-reporting.md` Finding 13.
+the design-time gap is closed by `architecture-blueprint.md` Step 3d (2026-08-22) — a swim-lane
+picture plus a journey list in the Stage-3 blueprint, deliberately without this skill's L0–L3
+binding schema, which remains dead.

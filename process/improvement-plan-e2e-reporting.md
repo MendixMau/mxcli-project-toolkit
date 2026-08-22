@@ -793,3 +793,24 @@ skills); P2's re-rendered agent files, P7's path change, and P8/P9's `project-bi
 changes all land in consuming projects **only after `bin/sync-project.sh`** — which strengthens,
 not changes, the existing rule: pre-2026-08-20 projects rerun sync, and now every project should
 rerun it after pulling past this date to receive `page-scope.sh` and the render rung.
+
+---
+
+## What landed, round two (2026-08-22, later the same day)
+
+The user approved the three remaining topics from the round-one deferral list plus the two gaps
+their own questions surfaced. Same method: three parallel drafting sessions with disjoint file
+sets, reviewed and committed by the coordinating session.
+
+| Item | Status | Commit | What changed |
+|---|---|---|---|
+| P6 / Finding 13 | **LANDED** | `2f3d558` | Cross-persona journeys return as `architecture-blueprint.md` **Step 3d** — one Mermaid swim-lane diagram per end-to-end journey (sequenceDiagram per persona by default, flowchart-with-lanes when branching dominates) plus a journey list table, inside `blueprint.md`, whenever the BRDs carry >1 persona; single-persona skip is a recorded note, never silent. The table seeds Stage 5's `journeys/*.journey.json` and names the full-app walkthrough's legs — design-time picture and runtime instrument point at the same list. Deliberately a picture plus a list; the L0-L3 schema stays dead, and the tombstone now says the gap is closed. |
+| Register trend surface (new, from user Q) | **LANDED** | `8923525` | `project-bin/render-improvement-register.sh`: `docs/improvement-register.md` → self-contained `docs/improvement-register.html` — findings table, counts, opened-vs-closed trend. Render-only (the "closed" tag is the skill's own fixed/resolved grep made visible); unparsed rows counted on-page; missing register is FAULT, never an empty green page. Verified against the real 15-row reference register: 15 parsed, open=7/closed=8, honest "no dates" line. In `MXTK_PROJECT_BIN`. |
+| trap-EXIT emission (F14 residue) | **LANDED** | `8923525` | `verify-module.sh` §2d became `emit_report()` on `trap EXIT` (+ INT/TERM → exit 2): the report is produced on clean end, early fault, nonexistent module, and SIGINT alike. Guard = exactly once; nothing in the trap calls `exit`; output pinned to the script's own fds (`exec 3>&1 4>&2` — without it the emission vanished into the interrupted instrument's log, measured). `harness-architecture.md` §5 improvement 1 CLOSED; improvement 2 (single composer) still open. |
+| P10 | **LANDED** | (this commit) | The third wiring layer exists: `bin/lib/artifact-manifest.tsv` (26 rows, every row citing the consumer that earns it its place; Stage 7 deliberately rowless — nothing reads its outputs yet) + `bin/lib/artifact-check.sh` (PRESENT / PENDING-owed / PENDING-not-begun / FAULT-empty / WAIVED / ADOPTED / N/A; position read from the register, never inferred; waivers are register lines, no new state file), sourced from `gate-check.sh` directly after the obligation check, informational per Decision 1. Wiring verified to change no existing gate verdict or exit code. The `module-definition` row is its own first mechanical consumer — the P7 residue, caught by the layer built to catch it. |
+
+Still open, honestly: F13's design-time artifact is now owned (Step 3d), but nothing yet checks a
+drawn journey against the walked one — the reconciliation the old skill died trying to specify
+stays unspecified, on purpose, until a real project shows what shape it wants. And
+`harness-architecture.md` §5 improvement 2 (report-normalize as single composer) remains the one
+named structural improvement left in the harness.

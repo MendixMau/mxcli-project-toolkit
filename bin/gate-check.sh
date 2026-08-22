@@ -1896,6 +1896,30 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Artifacts — did the stages that promise a file actually leave one?
+#
+# The obligation check above is the mirror rule for PASSES; this is the same mirror for
+# per-stage ARTIFACTS, and it exists because the pattern recurred one layer up: consumers were
+# shipped with no producer anywhere (the coverage ledger had eleven executable readers and no
+# spine producer; page-scope.json had two readers and a documented phantom; check_stage_6
+# demanded a report nothing generated). Each was found by a human reading a failed project.
+# The declarative form lives in bin/lib/artifact-manifest.tsv; read its header for why, and
+# every row's consumers column for who is left waiting when it reports PENDING.
+#
+# INFORMATIONAL here, not blocking, same stance as the obligations block: Decision 1 of
+# process/improvement-plan-e2e-reporting.md stands (nothing blocks), adoption/waivers/entry
+# mode excuse what the register says they excuse, and stages the register shows not begun
+# report quietly. What must not happen is silence.
+if [ -r "$TOOLKIT_DIR/bin/lib/artifact-check.sh" ]; then
+  # shellcheck source=lib/artifact-check.sh
+  . "$TOOLKIT_DIR/bin/lib/artifact-check.sh"
+  mxtk_artifacts_report "$PROJECT_DIR" "$REGISTER"
+else
+  # Same discipline again: the checker failing is not the project passing.
+  printf 'Artifacts: FAULT — bin/lib/artifact-check.sh missing from %s; no artifact was checked\n' "$TOOLKIT_DIR"
+fi
+
+# ---------------------------------------------------------------------------
 # Source sufficiency — was the source actually characterised, or did Stage 0
 # pass on nobody having looked?
 #

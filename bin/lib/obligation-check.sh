@@ -172,6 +172,86 @@ _ob_stale() {
   return 0
 }
 
+# _ob_look_proof_broken <project-root> <report>  → prints WHY the proof is broken and returns 0;
+# returns 1 when the proof holds or the report predates the rule.
+#
+# THE PROOF-OF-LOOK RULE (module-review.md stage 5). A LOOK verdict is only evidence if the
+# reviewer actually looked at rendered pixels. The 2026-08-22 escape proved a report can cite
+# CSS declarations page after page ("grid-template-columns: repeat(4,1fr) — matches wireframe")
+# while the render is ragged, a field is missing and the page has no title. Prose rules did not
+# stop it, because nothing mechanical distinguished a pixel review from a CSS read. This does:
+#
+#   Each reviewed page cites its screenshot, one line, greppable inside the HTML:
+#       PROOF-OF-LOOK: <Module.PageName> = <path relative to the report>
+#   and the checker verifies what a citation cannot fake:
+#     1. at least as many citations as the headline's reviewed-page count;
+#     2. every cited file EXISTS on disk and is ≥ 10 KB — a real full-page PNG is hundreds of
+#        KB; a blank capture or a placeholder is not (base64 embeds in the report are display,
+#        not proof: they cannot be checked for freshness);
+#     3. every cited file is NEWER than the report's VALID AT commit — shots are taken during
+#        the review, after the last model commit; citing last month's screenshots fails here.
+#   A report that fails is treated exactly like no report (FAULT): a visual verdict with no
+#   verifiable screenshot behind it is a CSS review wearing a LOOK report's clothes.
+#
+# Adoption boundary: reports whose filename date (ui-review-<YYYY-MM-DD>*.html) is on/after
+# 2026-08-23 owe the proof; older reports are left alone (never retro-brick, same stance as
+# _ob_stale). A dateless filename that matched the artifact glob owes it too — the modern
+# schema names its date. Freshness (rule 3) is checked only when VALID AT resolves in git and
+# the mtime is measurable; an instrument reports what it measured, and "could not measure"
+# must not read as "broken".
+_OB_LOOK_PROOF_SINCE="2026-08-23"
+_ob_look_proof_broken() {
+  local root="$1" hit="$2" fdate reldir entries n_cited=0 missing="" small="" oldshots=""
+  fdate="$(basename "$hit" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)"
+  if [ -n "$fdate" ] && [[ "$fdate" < "$_OB_LOOK_PROOF_SINCE" ]]; then return 1; fi
+
+  entries="$(tr -d '\r' < "$hit" | grep -oE 'PROOF-OF-LOOK:[[:space:]]*[^=<]+=[[:space:]]*[^<>[:space:]]+')"
+  if [ -z "$entries" ]; then
+    printf 'no PROOF-OF-LOOK citations — verdicts with no screenshot on disk are a CSS review'
+    return 0
+  fi
+
+  # Headline denominator: first number of "N of M pages" is how many pages claim review.
+  local claimed
+  claimed="$(head -c 4000 "$hit" 2>/dev/null | tr -d '\r' \
+    | grep -oiE '[0-9]+[[:space:]]+of[[:space:]]+[0-9]+' | head -1 | awk '{print $1}')"
+
+  # VALID AT commit time, for freshness. Unresolvable → freshness unmeasured, not failed.
+  local vhash vtime=""
+  vhash="$(head -c 8000 "$hit" 2>/dev/null | tr -d '\r' \
+    | grep -oiE 'VALID[[:space:]]+AT:?[[:space:]]*[0-9a-f]{7,40}' \
+    | grep -oiE '[0-9a-f]{7,40}$' | head -1)"
+  [ -n "$vhash" ] && vtime="$(git -C "$root" show -s --format=%ct "${vhash}^{commit}" 2>/dev/null || true)"
+
+  reldir="$(dirname "$hit")"
+  local line page shot f sz mt
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    page="$(printf '%s' "$line" | sed 's/^PROOF-OF-LOOK:[[:space:]]*//;s/[[:space:]]*=.*$//')"
+    shot="$(printf '%s' "$line" | sed 's/^.*=[[:space:]]*//')"
+    n_cited=$((n_cited+1))
+    case "$shot" in /*) f="$shot" ;; *) f="$reldir/$shot" ;; esac
+    if [ ! -f "$f" ]; then missing="$missing $page"; continue; fi
+    sz="$(wc -c < "$f" 2>/dev/null | tr -d ' ')"
+    if [ "${sz:-0}" -lt 10240 ]; then small="$small $page"; continue; fi
+    if [ -n "$vtime" ]; then
+      mt="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || true)"
+      [ -n "$mt" ] && [ "$mt" -lt "$vtime" ] && oldshots="$oldshots $page"
+    fi
+  done <<< "$entries"
+
+  local why=""
+  [ -n "$missing" ] && why="cited screenshots not on disk:$missing"
+  [ -n "$small" ] && why="${why:+$why; }cited screenshots under 10KB (blank/placeholder):$small"
+  [ -n "$oldshots" ] && why="${why:+$why; }screenshots older than VALID AT (a previous review's shots):$oldshots"
+  if [ -n "$claimed" ] && [ "$n_cited" -lt "$claimed" ]; then
+    why="${why:+$why; }$n_cited citation(s) for $claimed reviewed page(s)"
+  fi
+  [ -z "$why" ] && return 1
+  printf '%s' "$why"
+  return 0
+}
+
 # ── the forward check ───────────────────────────────────────────────────────
 # mxtk_obligations_report <project-dir> [register-path]
 # Prints one line per obligation. Sets MXTK_OB_STATUS to the worst verdict seen.
@@ -223,7 +303,7 @@ mxtk_obligations_report() {
       continue
     fi
 
-    local total=0 done_n=0 waived_n=0 pending="" faulted="" stale="" u hit reason stale_at
+    local total=0 done_n=0 waived_n=0 pending="" faulted="" stale="" noproof="" u hit reason stale_at proof_why
     while IFS= read -r u; do
       [ -n "$u" ] || continue
       total=$((total+1))
@@ -240,6 +320,9 @@ mxtk_obligations_report() {
         pending="$pending $u"
       elif [ "$denom" = "yes" ] && ! _ob_has_denominator "$hit"; then
         faulted="$faulted $u"
+      elif [ "$ob" = "look" ] && proof_why="$(_ob_look_proof_broken "$root" "$hit")"; then
+        # A LOOK whose screenshots cannot be verified is a CSS review — treated as no report.
+        noproof="$noproof $u($proof_why)"
       elif stale_at="$(_ob_stale "$root" "$hit")"; then
         # A stamped mark the model has been built past is not a mark — the pass is owed again.
         pending="$pending $u"
@@ -251,9 +334,12 @@ mxtk_obligations_report() {
 
     local scoped=$((total - waived_n)) tail=""
     [ "$waived_n" -gt 0 ] && tail=" ($waived_n waived)"
-    if [ -n "$faulted" ]; then
-      printf 'Obligation %-10s FAULT — %d of %d discharged%s; NO DENOMINATOR:%s — a pass that cannot say what it covered has not covered it (%s)\n' \
-        "$ob" "$done_n" "$scoped" "$tail" "$faulted" "$skill"
+    if [ -n "$faulted" ] || [ -n "$noproof" ]; then
+      local why_bits=""
+      [ -n "$faulted" ] && why_bits="NO DENOMINATOR:$faulted — a pass that cannot say what it covered has not covered it"
+      [ -n "$noproof" ] && why_bits="${why_bits:+$why_bits; }NO PROOF-OF-LOOK — a visual verdict with no verifiable screenshot is a CSS review, treated as no report"
+      printf 'Obligation %-10s FAULT — %d of %d discharged%s; %s (%s)\n' \
+        "$ob" "$done_n" "$scoped" "$tail" "$why_bits" "$skill"
       MXTK_OB_STATUS="FAULT"
     elif [ -n "$pending" ]; then
       printf 'Obligation %-10s PENDING — %d of %d discharged%s; NOT DONE:%s — owner: %s-agent, governed by %s\n' \
@@ -266,6 +352,8 @@ mxtk_obligations_report() {
     # line says WHY it is owed again rather than letting it read as never-reviewed.
     [ -n "$stale" ] && printf 'Obligation %-10s   STALE:%s — the model was built past the report; re-run the pass (module-review.md stage 5, VALID AT)\n' \
       "$ob" "$stale"
+    [ -n "$noproof" ] && printf 'Obligation %-10s   NO PROOF-OF-LOOK:%s — the pixel rule, made mechanical (module-review.md stage 5, PROOF-OF-LOOK)\n' \
+      "$ob" "$noproof"
   done < "$OBLIGATIONS_TSV"
 
   return 0

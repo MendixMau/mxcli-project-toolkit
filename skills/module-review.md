@@ -259,6 +259,26 @@ headline.
   UNMEASURED: <named dimensions, if any instrument was absent>
 ```
 
+**Every reviewed page cites its screenshot — the PROOF-OF-LOOK block.** The pixel rule (stage 4)
+says a verdict cites what the screenshot shows; this is the part a checker can verify. The report
+carries one line per reviewed page, greppable in the HTML (a `<pre>` block is fine), path relative
+to the report file:
+
+```
+PROOF-OF-LOOK: <Module.PageName> = shots/<YYYY-MM-DD>/<Module.PageName>.png
+```
+
+Save the actual capture files under `design/ui-reviews/shots/<date>/` **and commit them with the
+report** — the base64 embeds inside the HTML are for display; the files on disk are the proof.
+`obligation-check.sh` verifies mechanically: at least as many citations as the headline's
+reviewed-page count; every cited file exists and is ≥ 10 KB (a real full-page capture is hundreds
+of KB — a blank render or a placeholder is not); every file newer than the `VALID AT` commit
+(citing a previous review's screenshots fails). **A report that fails any of these is treated
+exactly like no report.** A CSS export, a `getComputedStyle` dump, or a DOM snapshot can never
+satisfy it — which is the point: the 2026-08-22 escape (verdicts written from declared CSS while
+the render was broken) becomes mechanically impossible to repeat, not just prohibited in prose.
+Reports dated before 2026-08-23 predate the rule and are left alone.
+
 **A LOOK report expires when the module changes.** Any BUILD/GATE commit that touches the module
 after `VALID AT` invalidates stage 4 for that module — the module is no longer "reviewed", it is
 "reviewed as of a model that no longer exists". The check is one command:
@@ -328,7 +348,7 @@ is non-deterministic run to run, so a prior pass is not evidence for a re-run of
 | Build (2) | 0 mxbuild errors, 0 unaddressed lint findings above the project's bar. A **newly authored** lint rule runs advisory-only for its first pass | any error; "warnings are fine" on a rule the project enabled; a day-one rule blocking with no false-positive check |
 | Prove (3) | every declared scenario passes with a landing-guard-verified pass; every write has a Data assertion or a documented reason it does not apply; re-run after any change | green UI with no landing guard; trusting a stale pass on since-changed code |
 | Monkey (3) | zero unhandled crashes — a legitimate flat bar, crash-on-input being unambiguous. Track findings-per-module as a trend | skipped because happy-path was green; a crash dismissed as "edge case"; a rising trend read as N unrelated one-offs |
-| **Look (4)** | **every page in 4a's set reviewed, each with a written answer to 4c's questions and a 4d visual verdict naming its yardstick (wireframe / design system / unaided rubric); every degradation named, substituted and still carrying a verdict; every verdict's evidence a screenshot, not a CSS declaration; the report stamped `VALID AT` a commit** | **sampling the pages a journey happened to visit; "looked fine"; a clean `design-audit.js` reported as "the UI is reviewed"; a missing wireframe or uninstalled instrument treated as a reason to skip a page rather than to change yardstick; a layout claim proven by `getComputedStyle` instead of pixels; citing a report the module has been built past** |
+| **Look (4)** | **every page in 4a's set reviewed, each with a written answer to 4c's questions and a 4d visual verdict naming its yardstick (wireframe / design system / unaided rubric); every degradation named, substituted and still carrying a verdict; every verdict's evidence a screenshot, not a CSS declaration; the report stamped `VALID AT` a commit and carrying a `PROOF-OF-LOOK:` citation per page, each pointing at a real capture file on disk** | **sampling the pages a journey happened to visit; "looked fine"; a clean `design-audit.js` reported as "the UI is reviewed"; a missing wireframe or uninstalled instrument treated as a reason to skip a page rather than to change yardstick; a layout claim proven by `getComputedStyle` instead of pixels; citing a report the module has been built past** |
 | Confirm (5) | an independent human looked at the running app; the denominator is in the headline | the agent self-certifying; citing an earlier control run as if it still applies |
 | Loop bound | a declared max retry count per module; escalate to a human on hitting it regardless of pass/fail | indefinite silent retries; declaring victory without surfacing how many attempts it took |
 

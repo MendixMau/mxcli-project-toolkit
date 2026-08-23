@@ -130,6 +130,20 @@ result is visible on the page the user stays on or returns to.
 
 ---
 
+## Every Required Attribute Is Set BEFORE the Commit — One COMMIT, as Late as Possible
+
+`COMMIT` runs the entity's validation rules at commit time. A `NOT NULL`/required attribute set
+*after* an earlier `COMMIT` in the same flow means that first commit always fails validation —
+and in a page-triggered flow the failure is swallowed, so the user's first save silently
+persists nothing. Order every flow: CREATE/CHANGE sets **all** required attributes and
+associations → then a single `COMMIT`. If a value genuinely cannot exist before commit, the
+attribute cannot be `NOT NULL` — fix the domain model, not the order. Measured consequence
+(2026-08-23, sibling project): a flow committed the new object before setting `CreatedOn`
+(`NOT NULL`), so the first save always failed and nothing persisted; every visual review
+passed, and only a live walkthrough with a data assertion (journey rung 4 delta) found it.
+
+---
+
 ## NPE as Form Backing Object ("Dto" Pattern)
 
 Non-Persistent Entities (NPEs) used as form backing objects are named with the `_Dto` suffix. They are in-memory only — never committed.

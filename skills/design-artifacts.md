@@ -173,7 +173,7 @@ design/
   screenshots/                 ← source screenshots copied in (tier-1 ground truth)
 
 themesource/<gallery>/web/
-  main.scss                    ← ds.css ported to SCSS (resets stripped, .row renamed)
+  main.scss                    ← ds.css ported to SCSS (resets stripped, .row renamed) — the ONLY file the app compiles; a fix landed in ds.css alone ships nothing (learned-stylegallery.md)
 
 mdlsource/gallery/
   00-module.mdl … 90-home.mdl ← StyleGallery in-app component module

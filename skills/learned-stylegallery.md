@@ -42,6 +42,27 @@ This means:
 **Never redeclare tokens inside wireframe HTML files.** If a wireframe needs a color, it uses
 the token from `ds.css`. If the token doesn't exist, add it to `ds.css` first.
 
+**⛔ `design/ds.css` is never compiled into the app.** It is the design reference that the
+wireframes and `design-system.html` link to. The only stylesheet the Mendix build ships is
+`themesource/<module>/web/main.scss`. **Any CSS fix that must be visible in the running app lands
+in `main.scss`; any fix that changes the design contract lands in both files in the same
+commit** — and the finding closes only after the changed value is observed rendered live,
+post-rebuild (`module-review.md`, pixel rule). Measured consequence (2026-08-23, sibling
+project): a styling fix "landed" in `ds.css`, silently did nothing, and survived a full review
+pass; a second pass was needed to move it to `main.scss`. `design-audit.js`'s never-promoted
+check will not save you here — it diffs class *names*, so a property edit to an
+already-promoted class is invisible to it.
+
+**Keep the two files self-auditing.** `main.scss` opens with a comment block naming every
+deliberate exclusion vs `ds.css` (global resets, wireframe-only annotation chrome, the
+`.row` rename). Then drift is one command, and every line of output is either in that
+documented list or a bug:
+
+```bash
+diff <(grep -oE '^\.[a-zA-Z0-9_-]+' design/ds.css | sort -u) \
+     <(grep -oE '^\.[a-zA-Z0-9_-]+' themesource/*/web/main.scss | sort -u) | grep '^<'
+```
+
 ---
 
 ## Token Naming: Three-Tier Architecture
@@ -130,6 +151,36 @@ Number files to express the required exec order:
 **Hard constraint:** exec `90-gallery-home.mdl` last. Its `snippetcall` references depend on
 every snippet from 11–19 existing in the MPR. Exec out of order → forward reference failure,
 script aborts mid-way, MPR left in partial state.
+
+**The gallery home page owes the same shell every page owes (`design-spacing.md` §2–3) — this
+is mandatory, not styling taste.** Measured consequence (2026-08-23, sibling project): a gallery
+home scaffolded as bare sibling `snippetcall`s at page root shipped with no side gutters and no
+gap between its five sections — and because this page is generated fresh into every project by
+this skill, the bug reproduces identically everywhere until the scaffold below is used.
+`90-gallery-home.mdl` follows this shape:
+
+```
+create page StyleGallery.Gallery_Home (Title: 'Style Gallery', Layout: Atlas_Core.Atlas_Default) {
+  container "galleryShell" (Class: 'spacing-inner-horizontal-large spacing-inner-vertical-large') {
+    container "pageHead" (Class: 'page-head spacing-outer-bottom-large') {
+      dynamictext "heading" (Content: 'Style Gallery', RenderMode: H1)
+      dynamictext "sub" (Content: 'Every sanctioned component, live')
+    }
+    container "secButtons" (Class: 'card card-pad spacing-outer-bottom-large') {
+      dynamictext "titleButtons" (Content: 'Buttons', RenderMode: H2)
+      snippetcall "scButtons" (Snippet: StyleGallery.SNIPPET_Buttons)
+    }
+    /* ...one card container per section, each carrying spacing-outer-bottom-large... */
+  }
+}
+```
+
+Three rules the scaffold encodes: (1) one top-level wrapper container with horizontal + vertical
+inner padding (Atlas `spacing-inner-*-large`, or the project design system's shell class if
+`ds.css` defines one) — sections never sit flush at page root; (2) every section is a
+`card`/`card-pad` container carrying `spacing-outer-bottom-large` — never an inline
+`Style: 'margin-top: NNpx'`, which is off-scale and forbidden by `design-spacing.md`;
+(3) exactly one `RenderMode: H1`, on the page head.
 
 **`mxcli check` anytime; `mxcli exec` only with Studio Pro closed.** The `.mpr` is a single
 file; concurrent writers corrupt it silently.
@@ -236,6 +287,8 @@ mdlsource/gallery/
 | Using `.row` as a class name in SCSS | Collides with Atlas's layout utility → broken page layouts |
 | Putting SCSS under `theme/web/` instead of `themesource/<module>/web/` | Module not self-contained; breaks if extracted to another project |
 | Exec-ing `90-gallery-home.mdl` before its snippets | Forward reference failure, partial MPR state |
+| Gallery home assembling snippets flush at page root — no wrapper, no gutters, no section gaps | Reproduces into every project this skill scaffolds; the shell scaffold above is mandatory (2026-08-23, sibling project) |
+| Landing a CSS fix only in `design/ds.css` | ds.css is never compiled — the fix is a no-op in-app; theme source first, mirror to ds.css in the same commit |
 | Using brand hue vars directly as chart series colors | Bypasses CVD validator; ships colorblind-unsafe data |
 | Skipping the explicit dark mode authoring | `prefers-color-scheme` conflicts with Atlas's theme toggle |
 | Using a hardcoded `div` container instead of the real Mendix widget | CSS renders correctly in static HTML but may not apply through Atlas's widget output — widget behavior (enabled/disabled, hover, focus states) is untested |

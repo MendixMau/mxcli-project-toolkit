@@ -79,6 +79,12 @@ unreviewable (off-scale, invisible to a class sweep) and unthemable. Use the uti
 a real grid needs a gap, use the project's spacing token (`gap: var(--space-3)`) via a
 design-system class, not a literal.
 
+**Decorative overlays never eat clicks.** Any purely decorative positioned layer — a
+`::before`/`::after` wash, gradient, sheen — carries `pointer-events: none`, always. The wiring
+sweep catches the failure live (`wiring-sweep.md`, overlay row), but the class should never ship
+without the property: a full-bleed `.card-hero::after` without it made a card's real buttons
+un-clickable while passing every screenshot review (2026-08-23, sibling project).
+
 ## 3. The page scaffold — every full page starts with this
 
 A page without a header block is a defect, not a style choice (`module-review.md` rubric

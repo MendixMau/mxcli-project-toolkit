@@ -50,7 +50,7 @@ Find the project's design-system CSS file. Typical paths (project may use one or
 
 - `design/ds.css` — raw CSS source of truth (`:root` tokens, component classes)
 - `design/design-system.html` — annotated gallery: same tokens plus Atlas mapping table, usage notes
-- `themesource/<gallery-module>/web/main.scss` — Mendix-compiled port of `ds.css`
+- `themesource/<gallery-module>/web/main.scss` — Mendix-compiled port of `ds.css`. **This is the only stylesheet that ships**; a CSS change landed only in `ds.css` is a no-op in-app (`learned-stylegallery.md`, the ⛔ rule)
 
 From the relevant component sections, extract the **exact class names** you will need for this page.
 Common component classes:

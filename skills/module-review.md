@@ -161,6 +161,14 @@ be softened** — a reviewer who would not show the page but reports no P1 has r
 green in the only place that mattered. If the answer is no, that is at minimum a P2 with the
 sentence attached.
 
+**Row 1 is a visual verdict only — it must never claim the button *works*.** Whether the primary
+action responds to a click is stage 3's wiring sweep (`wiring-sweep.md`), which clicks every
+interactive element and fails one that is present but covered by an overlay; a LOOK verdict citing
+row 1 as proof of clickability is the CSS-declaration fallacy in pointer form. Measured
+consequence (2026-08-23, sibling project): a decorative full-bleed `.card-hero::after` without
+`pointer-events: none` sat over the card's real buttons — every screenshot review passed; only
+clicking found them dead.
+
 **Rows 8–9 run on every page, whichever yardstick applies** — they were added after 2026-08-22,
 when a Station page passed its LOOK review with no page title at all, an unstyled default nav bar,
 a field missing outright, and ragged field layout, because the rubric only ever interrogated the
@@ -218,7 +226,7 @@ second copy of it; when the two disagree, that skill wins.
 | No StyleGallery | 4e's question survives without it: is any component on this page a hand-rolled version of something the app already builds elsewhere? Compare against sibling pages | `⚠ No StyleGallery — reuse checked against sibling pages, not a gallery` |
 | No module brief | 4c and 4d run unchanged. For 4f, fall back to the BRD, then to the requirements the module was built from, then to the build-plan row | `⚠ No brief for <Module> — intent taken from <BRD \| build plan>; scope may be wider than reviewed` |
 | Wireframe older than the page's last build script | compare anyway, flag as possibly stale | `⚠ <Page>.html older than build — divergence may be intentional` |
-| No `design-audit.js` | 4c–4e unaided. Class promotion, a11y, structure and overflow are genuinely UNMEASURED — say so per page; do **not** claim them from eyeballing | `⚠ No design-audit.js — class promotion, a11y, structure, overflow UNMEASURED on every page` |
+| No `design-audit.js` | 4c–4e unaided. Class promotion, axe-level a11y, structure and overflow are genuinely UNMEASURED — say so per page; do **not** claim them from eyeballing. **Exception: the one-h1 check degrades to hand, never to UNMEASURED** — count headings per page while taking the row-8 screenshot (one DOM query); that judgement was available the whole time | `⚠ No design-audit.js — class promotion, a11y, structure, overflow UNMEASURED on every page (h1 count checked by hand)` |
 | Page marked `partially-read` (#891) | review that page fully by hand | `⚠ <Page> partially read — its clean sweep did not look at the whole page` |
 | Project not wired to the toolkit | run this skill ad hoc, from the running app + whatever requirements exist | `⚠ Project not wired — run bin/sync-project.sh; finding #0` |
 | An instrument faulted (exit 2) rather than being absent | the fault is a **handoff to judgement**, not an exemption: assess that dimension by hand and report both — the fault, and your verdict | `⚠ <instrument> FAULTED — <dimension> assessed by hand instead; see finding <n>` |
@@ -316,6 +324,13 @@ diverges from intent, or a built component not reused. **P3** polish.
 Each finding: page, element (by `mx-name-` class), what is wrong, the **root cause** not the
 symptom, and a wireframe-vs-live side-by-side where a wireframe exists.
 
+**Aggregate same-row failures before writing them up.** When one rubric row fails on most or all
+pages, report it once as a systemic finding with the count in the headline ("0 of 12 pages have
+an H1") and root-cause it to the build default that should have prevented it (`design-spacing.md`
+§3), not as N unrelated per-page P2s. Measured consequence (2026-08-23, sibling project): zero
+`<h1>` app-wide — every heading shipped H2/H3 — read page-by-page as unremarkable notes; nobody
+summed them until a systematic sweep.
+
 **A fix found faster in Studio Pro than the root cause was found is not a closed bug.** Record it
 as unexplained or it will return.
 
@@ -393,6 +408,7 @@ Not yet run. The first team to run it records recall/precision here as the first
 | Never checking the StyleGallery | built components rot while pages reimplement them as plain text |
 | Eyeballing classes, a11y or overflow page by page | 4b does it deterministically with a positive control; by hand it degrades after page 20 |
 | Treating a clean `design-audit.js` as "the UI is reviewed" | it cannot see a silent 4xx save, a missing empty-state, or a wireframe region never built |
+| **Closing a CSS finding from the edited file, not the rendered page** | `design/ds.css` is a reference file; only the compiled theme (`themesource/<module>/web/main.scss`) ships. A fix landed in ds.css alone did nothing for a full pass (2026-08-23, sibling project) — and `design-audit.js`'s never-promoted check diffs class *names*, so a property edit to an already-promoted class is invisible to it. The pixel rule applies to fixes, not just verdicts: close only after the changed value is observed rendered live, post-rebuild |
 | **Answering "did we already catch this?" by grepping an old report** | a prior report is a lead, never a verdict: it can only mention defects someone thought to write down, and it may be stale. The answer to "check our reports" is re-running the wireframe-vs-live comparison now, then citing the report as history. 2026-08-22: a text-search for "top bar" found nothing; the actual side-by-side found six findings in one look |
 | **Verdicting the content region and never the shell** | nav chrome, breadcrumb, page title and top spacing are on every screen the user sees; a rubric that stops at the card border ships a page with no H1 and calls it reviewed (rubric rows 8–9 exist because of this) |
 

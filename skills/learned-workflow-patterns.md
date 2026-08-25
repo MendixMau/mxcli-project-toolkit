@@ -1,10 +1,11 @@
 # Mendix Native Workflows in MDL
 
 **Applies to:** any mxcli project scripting a Mendix native Workflow (definition, task
-pages, targeting, starting instances) from MDL. Everything here is scriptable; the two
-exceptions are a `DECISION` gateway, which must still be added by hand in Studio Pro
-(§8 Warning 1 — BUG-76, still open), and a visual check in Studio Pro, which is not
-optional (§8, Warning 3).
+pages, targeting, starting instances) from MDL. Everything here is scriptable **on mxcli
+v0.18.0 or later**; on older binaries a `DECISION` gateway must still be added by hand in
+Studio Pro, because emitting it from MDL corrupts the `.mpr` (§8 Warning 1 — BUG-76, a
+version gate, not an absolute prohibition). A visual check in Studio Pro is never optional
+(§8, Warning 3).
 
 **Verified on:** Mendix 11.13.0, mxcli v0.17.0/v0.18.0. Every MDL form that appears in
 `build/workflow-example.mdl` was confirmed with `mxcli check`. Forms discussed only in
@@ -391,12 +392,26 @@ Then **wire the back-reference** on the very next line, as above — see §3 for
 
 ## 8. Warnings
 
-### Warning 1 — do not emit a `DECISION` activity inside a workflow
+### Warning 1 — `DECISION` corrupts the `.mpr` on old binaries; check your version
 
-**This is a known open mxcli defect (`bug-logs/mxcli-bugs.md` BUG-76), and it corrupts your
-`.mpr` silently.** Confirmed on **v0.17.0** — this is *not* the same story as §13's
-`CALL MICROFLOW` `$Type` bug, which was a v0.16.0-only defect. Do not read §13's
-version-gating as applying here.
+**This is a `bug-logs/mxcli-bugs.md` BUG-76 defect and it corrupts your `.mpr` silently —
+but it is a *version gate*, not an absolute prohibition.** Reconciled 2026-08-26 against
+mxcli **v0.18.0**, where `DECISION` writes correctly.
+
+| mxcli binary | `DECISION` in a native `WORKFLOW` |
+|---|---|
+| `v0.16.0` | **corrupts the `.mpr`** — do not emit |
+| `v0.17.0` | **corrupts the `.mpr`** — confirmed, BUG-76 (binary `2026-08-10T05:12:17Z`) |
+| `v0.18.0`+ | writes correctly; verify what was stored anyway |
+
+Two half-right versions of this warning coexisted for four days from 2026-08-21. One said
+"absolute prohibition, confirmed on v0.17.0" and never learned about the v0.18.0 fix — follow
+it and you hand-build gateways you no longer need. The other said "corrected on v0.18.0" but
+named only v0.16.0 as affected, quietly implying v0.17.0 was safe — follow *that* on v0.17.0
+and you silently corrupt a `.mpr`. Both failure directions are real. The affected set is
+everything before v0.18.0.
+
+**The defect, on affected builds (v0.16.0, v0.17.0):**
 
 - **Symptom:** the `.mpr` becomes unloadable. Studio Pro, native `mxbuild`, and
   `mxcli docker check` all fail with `Mendix.Modeler.Storage.StorageLoadException`,
@@ -404,27 +419,32 @@ version-gating as applying here.
 - **Cause:** mxcli writes the decision's outcome label as a raw string into
   `ConditionOutcome.Value`, a field the native loader requires to deserialize as a real
   `EnumerationValueIdentifier`. One error line per DECISION outcome in the project.
-- **Unconditional.** It does not depend on the expression's type. BUG-76 reproduced it on a
-  decision over an enumeration attribute, on a decision over a plain String attribute, and
-  on `decision '1 = 1'` with brand-new outcome labels in a throwaway workflow. Renaming
-  outcomes or reshaping the expression does not help.
+- **Unconditional on those binaries.** It does not depend on the expression's type. BUG-76
+  reproduced it on a decision over an enumeration attribute, on a decision over a plain
+  String attribute, and on `decision '1 = 1'` with brand-new outcome labels in a throwaway
+  workflow. Renaming outcomes or reshaping the expression does not help.
 - **Why it is invisible:** `mxcli check --references`, `mxcli exec` *itself*, and
   `DESCRIBE WORKFLOW`/`DESCRIBE MICROFLOW` all report success and print the outcomes back
   correctly. Nothing in the mxcli toolchain sees it. In BUG-76's project it survived two
   scripts and a gate pass before a user reported "mpr error."
-- **There is no MDL-only workaround.**
+- **On affected binaries there is no MDL-only workaround.**
 
-**What to do instead:** express the branch as **user task outcomes** (§6) — an outcome with
-a nested activity block *is* an exclusive branch, and covers most real gateways. Where you
-genuinely need a data-driven gateway with no user decision behind it, flatten the flow to
-its happy path in MDL, leave a plain MDL comment at the insertion point describing the
-gateway precisely, and add that one activity by hand in Studio Pro. §15 tells you which
-gates are worth adding by hand at all.
+**What to do — run `mxcli --version` first and treat it as a gate, not a folk rule:**
 
-**Before assuming this is still open on a newer binary — probe, don't infer.** As of
-2026-08-21 no project has written a `DECISION` on v0.18.0, so v0.18.0 is *untested*, not
-*clean*. To retest, in a sandbox copy that keeps the exact original `.mpr` filename (the v2
-store keys `mprcontents/` to it):
+- **On v0.18.0 or later:** write the `DECISION` from MDL. Use §15 to decide whether a given
+  gate should be a `DECISION` at all, then **verify what was actually stored** — §13's
+  `strings`-on-the-storage-unit check, plus a real `mx check` and a Studio Pro open — before
+  moving on. A passing `mxcli check` still proves nothing here, for exactly the reason above.
+- **On anything before v0.18.0, or an unverified binary:** the old rule stands in full.
+  Express the branch as **user task outcomes** (§6) — an outcome with a nested activity block
+  *is* an exclusive branch, and covers most real gateways. Where you genuinely need a
+  data-driven gateway with no user decision behind it, flatten the flow to its happy path in
+  MDL, leave a plain MDL comment at the insertion point describing the gateway precisely, and
+  add that one activity by hand in Studio Pro. §15 tells you which gates are worth adding by
+  hand at all.
+
+**To re-verify on any binary you have not personally tested**, in a sandbox copy that keeps
+the exact original `.mpr` filename (the v2 store keys `mprcontents/` to it):
 
 ```sql
 create workflow Module."TestDecisionWF"
@@ -437,13 +457,13 @@ end workflow;
 ```
 
 then `mxcli docker check` and count `EnumerationValueIdentifier` error lines against the
-pre-existing baseline. Two new ones means BUG-76 is still live. Record the binary and the
-result in BUG-76 either way — a negative result is what unblocks §15.
+pre-existing baseline. Two new ones means BUG-76 is live on that binary. Record the binary
+and the result in BUG-76 either way.
 
 Neither `PARALLEL SPLIT` (§18) nor a lowercase `$workflowContext` inside a decision
 expression is affected — the latter was BUG-WF03, a separate casing defect, fixed in
-v0.17.0. BUG-WF03 being fixed does **not** make `DECISION` safe; it fixed the expression
-compiler, not the storage serializer.
+v0.17.0. BUG-WF03 being fixed did **not** make `DECISION` safe on v0.17.0; it fixed the
+expression compiler, not the storage serializer.
 
 ### Warning 2 — `DESCRIBE MICROFLOW` lies about `CALL WORKFLOW`
 
@@ -685,13 +705,12 @@ determined from the design-time `.mpr` alone.
 
 ## 15. `DECISION` vs. `CALL MICROFLOW` — which gates would belong in the workflow
 
-> **Blocked in MDL by BUG-76 (Warning 1) — this section is design guidance, not a licence
-> to script one.** Everything below tells you which boolean gates *deserve* to be a
-> `DECISION`; today those must be added by hand in Studio Pro after the workflow exists.
-> It becomes directly actionable the moment Warning 1's probe comes back clean on a newer
-> binary. It is written down now because the analysis is binary-independent, and because
-> the alternative — a microflow-wrapped gate — is a real design choice with its own cost
-> (§17), not a free fallback.
+> **Read Warning 1 first — BUG-76 is a version gate.** On mxcli **v0.18.0 or later** this
+> section is directly actionable: script the `DECISION` from MDL, then verify what was
+> stored. On **anything before v0.18.0** it is design guidance only — those gates must be
+> added by hand in Studio Pro after the workflow exists. The analysis below is
+> binary-independent either way, and the alternative — a microflow-wrapped gate — is a real
+> design choice with its own cost (§17), not a free fallback.
 
 Native workflow has a `DECISION` activity — an inline exclusive
 gateway — that needs no microflow at all:
@@ -708,7 +727,7 @@ reach**:
 
 - **Direct attribute access on the context parameter** (`$WorkflowContext/SomeField =
   'SomeValue'` — no association hop, no filter predicate) → belongs in a `DECISION`
-  (hand-added, per Warning 1). No side effects, no
+  (scriptable on v0.18.0+, hand-added before that — Warning 1). No side effects, no
   commit, nothing a microflow buys you, and one fewer stored microflow artifact referenced
   by the workflow (§17 for why that matters beyond style).
 - **Anything needing a `RETRIEVE` with a `WHERE` predicate, a bracketed

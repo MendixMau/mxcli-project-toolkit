@@ -643,6 +643,8 @@ known_fix_note() {
   case "$1" in
     verify-module.sh)
       echo "bin/verify-module.sh is missing the design-audit wiring fix (toolkit, 2026-08-21) — wires tests/e2e/design-audit.js (rungs 6-7, UI/a11y) into the composed pass as an informational, non-gating rung. Recommended upgrade." ;;
+    exec.sh)
+      echo "bin/exec.sh predates two fixes worth naming. (1) The WINDOWS MXBUILD GATE (toolkit, 2026-08-25): find_sp_app/find_mxbuild and JAVA_HOME resolution were macOS-only, so under Git Bash the gate block was skipped entirely and every exec on a Windows machine went UNVERIFIED — it reported 'skipped', not a false pass, but a skip nobody acts on is the same outcome. (2) The MODULE-BRIEF GUARD (toolkit, 2026-08-25): refuses a write to a module with no module-brief.md (or no '## Module brief — <M>' section in the build plan), overridable with FORCE_EXEC=1. Strongly recommended upgrade on Windows — without (1) nothing checks your builds." ;;
   esac
 }
 

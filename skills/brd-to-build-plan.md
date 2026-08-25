@@ -245,6 +245,55 @@ See `design-artifacts.md` and `learned-stylegallery.md` for full process.
 
 ## Step 5: Produce the Numbered Script Sequence
 
+### Row schema — four kinds, one number sequence
+
+Every row is one of four kinds, sharing one numbering and one dependency graph. **A row may say
+`not built`; it may never be absent.** No caption stands in for several items.
+
+| Col | Meaning |
+|---|---|
+| # | step number, dependency-ordered, never reused |
+| Kind | `BUILD` / `PROVE` / `RUN` / `HARNESS` |
+| Step | the `.mdl` script, the command, or the harness to invoke |
+| Produces / Proves | the model artifact, or what a pass demonstrates |
+| Depends on | prior row number(s) |
+| **Skills** | required reading before authoring this row, from `bin/lib/skill-routing.tsv`. **`none` is a valid value but must be written** — blank is not. The module brief's "Build skills to read first" is the union of this column across the module's rows. |
+| State | `built` / `partial` / `not built` / `blocked` |
+
+- **`BUILD`** — writes model. One entity, one microflow group (≤6), or one page section.
+- **`PROVE`** — headless and mechanical, mid-phase. `mxcli test`, a `curl`, a `DESCRIBE` read-back.
+- **`RUN`** — deploy, reopen Studio Pro, walk the happy path as a demo user.
+- **`HARNESS`** — invoke a named harness or skill (`journey-runner.js`, `design-audit.js`, …).
+
+`PROVE`/`RUN`/`HARNESS` rows carry **no test content** — only what to run, what counts as a pass,
+and what they depend on. Content lives in `testing-shape.md`, the brief's Test plan, and the
+harness. This is the *moment*; the shape is Step 1's column and the detail is the brief.
+
+> **RULE: every phase ends in at least one verification row. A phase of only `BUILD` rows is
+> malformed — reject it and add the row.**
+
+**Why this is a schema and not advice (a customer training round, 2026-08-25).** That plan had 35 build
+rows and one coverage ledger at the end — zero verification rows. Nobody omitted them: the row
+schema in use was `# / script / produces / depends on / write mode / state`, every column of which
+describes a build. There was nowhere to write "prove the mapping returns 202" or "run the journey",
+so no one did, and a day's work went unverified on machines where the mxbuild gate was also
+silently skipping. Give verification a row and it can be numbered, depended on, counted, and
+rendered in `build-plan.html` like anything else.
+
+### Row 0 of every phase is that module's brief
+
+The brief (`module-brief.md`) is the first row of its module's phase — not stockpiled upfront, not
+produced after the previous module's gate. That placement makes it early enough to be an input and
+late enough not to be speculative, and it gives it a state that `build-plan-status.sh` can show and
+`project-bin/exec.sh`'s module-brief guard can enforce.
+
+**Single-module projects: merge it.** The brief's sections become sections of the build plan under
+a `## Module brief — <Module>` heading (the form the exec guard also accepts). A project-wide
+ordering over one module is that module's ordering; two documents at ~70% overlap is how one of
+them ends up unwritten — which is exactly what happened to the workshop project above.
+
+---
+
 Combine Steps 1–4 into a concrete, ordered list. If Phase 2 UI Scaffold is confirmed, it appears
 as a block between Phase 1 and the first feature module:
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # exec.sh — the guard chain around a model write.
 #
-#   concurrent-writer guard → mxcli check → snapshot → baseline → exec
+#   concurrent-writer guard → module-brief guard → mxcli check → snapshot → baseline → exec
 #   → mxbuild gate → auto-restore on regression → SP reopen
 #
 # Usage: ./bin/exec.sh <script.mdl>
@@ -77,6 +77,93 @@ if [ -n "$MPR_DIRTY" ]; then
   echo "  Override (accepts silent-loss risk): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
   [ "$FORCE" = "1" ] || exit 1
   echo "  (FORCE_EXEC set — proceeding despite uncommitted changes)"
+fi
+
+# 5. No module brief for a module this script writes to.
+#
+# WHY. The brief is the mdl-agent's single per-module input: the access-table slice,
+# screens-per-role, field-level validation rules, edge cases, and the wireframe->page map.
+# Nothing else in the project carries them. Without it the agent synthesises them from
+# training data, and every access-rights / wrong-binding / invented-validation incident
+# traces back to that. It was previously enforced only by check_build_ready() in
+# gate-check.sh — a separate command nobody is obliged to run — so a project that never
+# declared itself build-ready was never asked for one. Real incident (a customer training round,
+# 2026-08-25): 12 domain scripts and 13 feature scripts executed against a module whose
+# architecture/modules/<M>/ held only definition.md. Binding it to the write is the point;
+# there is nothing to rewrite when it fires, unlike a missing skill, so firing late still
+# costs only the brief.
+#
+# Satisfied by EITHER form, because single-module projects merge the brief into the plan
+# rather than maintaining two documents that overlap ~70%:
+#   a) architecture/modules/<Module>/module-brief.md
+#   b) a "## Module brief — <Module>" heading in architecture/build-plan.md
+#
+# Platform and marketplace modules are skipped — this project does not author their briefs.
+brief_missing=""
+if [ -f "$SCRIPT" ]; then
+  # Comments FIRST, before any pattern match. A `-- ... CREATE MODULE errors if ...` line in a
+  # real workshop script otherwise yielded a module named "errors" and would have demanded a
+  # brief for it forever. A guard that cries wolf gets switched off — same reasoning as
+  # bin/check-portability.sh's "NOT on the denylist" note. POSIX awk, no python/perl: Git Bash
+  # on Windows has to run this too.
+  # Assigned single-quoted, invoked double-quoted: bash does not re-expand the *result* of a
+  # variable expansion, so awk's $0 survives. The alternative (inlining the program in quotes)
+  # was tried and mangled it — $0 expanded to the shell script's own name.
+  awk_strip_comments='
+    {
+      s = $0; out = ""; i = 1
+      while (i <= length(s)) {
+        c = substr(s, i, 2)
+        if (!inblk && c == "/*") { inblk = 1; i += 2; continue }
+        if (inblk  && c == "*/") { inblk = 0; i += 2; continue }
+        if (!inblk && c == "--") { break }
+        if (!inblk) out = out substr(s, i, 1)
+        i++
+      }
+      print out
+    }'
+  script_body=$(awk "$awk_strip_comments" "$SCRIPT" 2>/dev/null)
+
+  # Modules written to by this script: the qualified name on a create/alter/drop target.
+  script_modules=$(printf '%s\n' "$script_body" \
+    | grep -oiE '(create|alter|drop)[[:space:]]+(or[[:space:]]+modify[[:space:]]+)?(persistent[[:space:]]+|non-persistent[[:space:]]+)?[a-z_ ]*[[:space:]]"?([A-Za-z_][A-Za-z0-9_]*)"?\.' \
+    | grep -oE '"?[A-Za-z_][A-Za-z0-9_]*"?\.$' | tr -d '".' | sort -u)
+  # DELIBERATELY NOT `CREATE MODULE <X>` on its own. Creating an empty module is scaffolding; the
+  # brief describes what goes *inside* one, so demanding it before the module exists is backwards.
+  # It also keeps tests/wave2/test-bug07-08.sh working — its fixture project execs
+  # `CREATE MODULE "Nope";` with no architecture/ at all, and would otherwise fail every case.
+  #
+  # Everything else about a module DOES need the brief first, including `create or modify module
+  # role <M>.<Role>` — module roles are the subject of the brief's access table, so authoring them
+  # unspecified is the exact gap this guard exists to close. Replaying that round's real day
+  # 1 (28 scripts, empty architecture/) the first refusal lands on script 1, at the module-role
+  # line in 01-app-scaffold.mdl. That is the intended blast radius: the brief is row 0, so nothing
+  # numbered after it may run first.
+
+  for m in $(echo "$script_modules" | grep -v '^$' | sort -u); do
+    case "$m" in
+      System|Administration|Atlas_Core|Atlas_Web_Content|Atlas_UI_Resources|MxModelReflection      |CommunityCommons|Encryption|NanoflowCommons|WebActions|DeepLink|MxTest) continue ;;
+    esac
+    [ -f "$PROJECT_ROOT/architecture/modules/$m/module-brief.md" ] && continue
+    grep -qiE "^#+[[:space:]]*Module brief[[:space:]]*(—|-|:)[[:space:]]*$m[[:space:]]*$" \
+      "$PROJECT_ROOT/architecture/build-plan.md" 2>/dev/null && continue
+    brief_missing="$brief_missing $m"
+  done
+fi
+if [ -n "$brief_missing" ]; then
+  echo "✗ No module brief for:$brief_missing — refusing to write a module nothing has specified."
+  echo ""
+  for m in $brief_missing; do
+    echo "    $m — expected architecture/modules/$m/module-brief.md"
+    echo "         or a '## Module brief — $m' section in architecture/build-plan.md"
+  done
+  echo ""
+  echo "  The brief is row 0 of this module's phase. It carries the access table, screens-per-role,"
+  echo "  validation rules, edge cases, wireframe->page map and test plan — see module-brief.md."
+  echo "  → Draft it (ba-agent translation mode, pulling architect-agent), then sign it off in chat."
+  echo "  Override (proceeds with nothing having specified this module): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
+  [ "$FORCE" = "1" ] || exit 1
+  echo "  (FORCE_EXEC set — proceeding with no module brief for:$brief_missing)"
 fi
 
 echo $$ > "$LOCK"

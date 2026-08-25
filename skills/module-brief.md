@@ -73,7 +73,13 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
   a model state that later changes is a brief that lies. The **first** module's brief is produced
   at Stage 4 alongside the build plan; the rest are produced as each module's build begins.
 - Do **not** stockpile all briefs upfront. `gate-check.sh` cannot mechanically require all briefs
-  at Stage 4 for this reason — the brief gate is a **manual pre-module check** in the build loop.
+  at Stage 4 for this reason. It is not a manual-only check any more, though: the brief is **row 0
+  of its module's phase** (`brd-to-build-plan.md` Step 5), and `project-bin/exec.sh` guard 5
+  refuses any write to a module that has no brief. Row 0 placement is what makes the guard
+  unreachable in the normal flow — early enough to be an input, late enough not to be speculative.
+- **Single-module projects: merge the brief into the build plan** under a `## Module brief — <M>`
+  heading (the exec guard accepts that form). Two documents at ~70% overlap is how one goes
+  unwritten.
 
 ---
 
@@ -192,10 +198,23 @@ rather than wondering whether they missed a file.
 ### Domain summary (exact names live in the domain MDL — link above)
 - Entities: <names> · key associations: <names>
 
-### Build skills to read first  (from PROJECT.md's Workflow scope / Agent-wiring scope decisions)
-<!-- Populated by matching this module's element types against bin/lib/skill-routing.tsv. Never
-     leave silently empty when a Workflow/Agent-wiring decision named this module — say "none
-     detected for this module" explicitly, same stop-sign convention as Open business questions. -->
+### Build skills to read first  (every build group, not just Workflow/Agent)
+<!-- Populated by matching this module's element types against bin/lib/skill-routing.tsv — ALL of
+     its build groups: build/integration, build/pages, build/mdl, build/workflow, build/agents.
+     Never leave silently empty — say "none detected for this module" explicitly, same stop-sign
+     convention as Open business questions.
+
+     WHY THIS IS NOT WORKFLOW/AGENT-ONLY ANY MORE. It was, and integration fell straight through
+     the gap. A customer training round, 2026-08-25: the module built a REST-fed filterable DataGrid,
+     skill-routing.tsv had rest-integration-first-time-right.md sitting in build/integration, and
+     because this field only asked about Workflow and Agent decisions nothing ever named it. All
+     15 `import from mapping` calls shipped with the range keyword omitted (silent EMPTY, clean at
+     check/--references/mxbuild/runtime) and all 4 wrapper associations pointed child->parent. A
+     day of debugging for two rules that were written down three days earlier.
+
+     This is a ROLL-UP, not a second authoring pass: it is the union of the Skills field on this
+     module's build-plan rows (brd-to-build-plan.md "Row schema"). Author at row level, collect
+     here. 77 of 101 skills are ondemand — a project only ever meets the ones something names. -->
 - <e.g. "This module builds a native Workflow → read skills/learned-workflow-patterns.md and
   skills/learned-mdl-preflight.md STOP #18/#19 before scripting.">
 - <e.g. "This module calls an AI agent (see architecture/blueprint.md Step 3c) — no toolkit skill
@@ -239,7 +258,9 @@ rather than wondering whether they missed a file.
 - [ ] Folder plan names the module's feature groups and covers every document to be built
 - [ ] Test plan complete: shape declared, base set named and covering the coverage checklist, at least one journey with its data effect
 - [ ] Build skills to read first is filled in — or explicitly says "none detected" — for every
-      Workflow/Agent-wiring element PROJECT.md's CAC-3 decisions assigned to this module
+      build group this module touches (integration, pages, mdl, workflow, agents), not just
+      Workflow/Agent-wiring. It must agree with the union of the Skills field on this module's
+      build-plan rows
 ```
 
 **This Ready-check gates the start of the build, not the end of it.** This brief's job is

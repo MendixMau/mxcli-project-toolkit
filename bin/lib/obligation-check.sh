@@ -73,36 +73,91 @@ _ob_register_lines() {
 # Spelling, matching the per-stage waivers gate-check.sh already reads:
 #     Waived obligation look/Orders: integration module, no pages
 #     Waived obligation sweep: this project tests in the client's own suite   (all units)
+# --- Register parsing: ONCE per file, not once per lookup ---------------------------------
+#
+# WHY (2026-08-25). _ob_waiver() is called for every (obligation x unit) pair, and each call
+# re-read the whole register, forking `tr` AND `sed` for EVERY LINE. Measured on a one-module
+# project: 603 `sed` + 345 `tr` out of 1,127 total forks in a single gate-check run — and it
+# scaled at roughly +800 forks per module, so it got worse exactly as a project grew.
+#
+# That is free on Linux/macOS (~4ms a fork) and ruinous under Git Bash on Windows, where MSYS
+# emulates fork() with CreateProcess and a spawn measured 152ms on a training laptop. 1,127
+# forks x 152ms = 171s, which is why gate-check "hung" for 5-15 minutes there and got switched
+# off. See the same root cause in project-bin/_common.sh's platform note.
+#
+# The parse is now one awk pass, memoized per register path. Trim + lowercase happen inside
+# that pass rather than per line per lookup.
+#
+# NOTE ON \t: the old `sed 's/^[ \t]*//'` was not portable. BSD sed (macOS) does not read \t as
+# tab inside a bracket expression — it read it as the literal characters backslash and 't', so
+# a key beginning with 't' had it stripped. GNU sed (Git Bash, Linux) read a real tab. The
+# awk below trims real whitespace on every platform, which is what the code always meant.
+_OB_REG_NORM=""        # cached "key<TAB>value" lines, key lowercased, both trimmed
+_OB_REG_NORM_FILE=""   # which register path _OB_REG_NORM was built from
+
+_ob_register_norm() { # sets _OB_REG_NORM
+  local reg="$1"
+  [ "$_OB_REG_NORM_FILE" = "$reg" ] && return 0
+  _OB_REG_NORM_FILE="$reg"
+  _OB_REG_NORM="$(_ob_register_lines "$reg" | awk '
+    { i = index($0, ":"); if (i == 0) next
+      k = substr($0, 1, i-1); v = substr($0, i+1)
+      gsub(/^[ \t]+/, "", k); gsub(/[ \t]+$/, "", k)
+      gsub(/^[ \t]+/, "", v); gsub(/[ \t]+$/, "", v)
+      if (v == "") next
+      print tolower(k) "\t" v }')"
+  return 0
+}
+
+# _ob_lc <string> — sets _OB_LC to the lowercased string. Sets a global instead of echoing
+# because "$(_ob_lc x)" would fork a subshell, which is the cost this whole change removes.
+# Hand-rolled because bash 3.2 (macOS's /bin/bash) has no ${var,,}.
+_OB_LC=""
+_ob_lc() {
+  local s="$1" out="" c i=0 n=${#1}
+  while [ $i -lt $n ]; do
+    c=${s:$i:1}
+    case $c in
+      A) c=a ;; B) c=b ;; C) c=c ;; D) c=d ;; E) c=e ;; F) c=f ;; G) c=g ;; H) c=h ;;
+      I) c=i ;; J) c=j ;; K) c=k ;; L) c=l ;; M) c=m ;; N) c=n ;; O) c=o ;; P) c=p ;;
+      Q) c=q ;; R) c=r ;; S) c=s ;; T) c=t ;; U) c=u ;; V) c=v ;; W) c=w ;; X) c=x ;;
+      Y) c=y ;; Z) c=z ;;
+    esac
+    out="$out$c"; i=$((i+1))
+  done
+  _OB_LC="$out"
+}
+
 _ob_waiver() {
   local reg="$1" ob="$2" unit="$3" line key val want_u want_a
   # Compared case-insensitively: reg_field() lowercases the key it reads, and a waiver that
   # silently missed because someone typed "orders" for module "Orders" would be a waiver the
   # author believes is in force and the gate does not — the worst of both.
-  want_u="$(printf 'waived obligation %s/%s' "$ob" "$unit" | tr '[:upper:]' '[:lower:]')"
-  want_a="$(printf 'waived obligation %s' "$ob" | tr '[:upper:]' '[:lower:]')"
-  while IFS= read -r line; do
-    key="${line%%:*}"; val="${line#*:}"
-    [ "$key" = "$line" ] && continue
-    key="$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]' | sed 's/^[ \t]*//;s/[ \t]*$//')"
-    val="$(printf '%s' "$val" | sed 's/^[ \t]*//;s/[ \t]*$//')"
-    [ -n "$val" ] || continue
+  _ob_lc "waived obligation $ob/$unit"; want_u="$_OB_LC"
+  _ob_lc "waived obligation $ob";       want_a="$_OB_LC"
+  _ob_register_norm "$reg"
+  local IFS=$'\n'
+  for line in $_OB_REG_NORM; do
+    key="${line%%$'\t'*}"; val="${line#*$'\t'}"
     if [ "$key" = "$want_u" ] || [ "$key" = "$want_a" ]; then
       printf '%s\n' "$val"; return 0
     fi
-  done < <(_ob_register_lines "$reg")
+  done
   return 1
 }
 
 _ob_adopted_stage() {
   local reg="$1" line key val
-  while IFS= read -r line; do
-    key="${line%%:*}"; val="${line#*:}"
-    [ "$key" = "$line" ] && continue
-    key="$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]' | sed 's/^[ \t]*//;s/[ \t]*$//')"
+  _ob_register_norm "$reg"
+  local IFS=$'\n'
+  for line in $_OB_REG_NORM; do
+    key="${line%%$'\t'*}"; val="${line#*$'\t'}"
     [ "$key" = "adopted at stage" ] || continue
-    printf '%s\n' "$(printf '%s' "$val" | sed 's/^[ \t]*//;s/[ \t]*$//' | awk '{print $1}')"
+    # First whitespace-delimited word, as `awk '{print $1}'` gave. Value is already trimmed,
+    # so the leading-blank case awk tolerated cannot arise here.
+    printf '%s\n' "${val%%[ 	]*}"
     return 0
-  done < <(_ob_register_lines "$reg")
+  done
   return 1
 }
 

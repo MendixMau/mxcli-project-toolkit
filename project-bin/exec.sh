@@ -166,8 +166,23 @@ echo "→ Snapshotting model..."
 ./bin/snapshot-mpr.sh
 
 MXBUILD="$(find_mxbuild)" || true
-JAVA_HOME=$(/usr/libexec/java_home 2>/dev/null || true)
-JAVA_EXE="${JAVA_HOME}/bin/java"
+# Was: JAVA_HOME=$(/usr/libexec/java_home ...) — a macOS-only binary, so on Windows
+# JAVA_HOME came back empty, JAVA_EXE was the literal "/bin/java", the gate guard
+# below failed its -x test and the entire mxbuild block was skipped on every run.
+# find_java/find_java_exe (project-bin/_common.sh) resolve per platform and prefer
+# Studio Pro's own bundled JRE, which is the one paired with this mxbuild.
+JAVA_HOME="$(find_java 2>/dev/null || true)"
+JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
+
+# Say WHY the gate will be skipped, at the point we can still name the cause. The
+# gate's own "skipped" verdict is honest but arrives without a reason, and a skip
+# nobody can explain is a skip nobody acts on — which is how Windows machines ran
+# unverified execs for an entire training round.
+if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
+  echo "⚠ mxbuild gate will be SKIPPED — this exec will NOT be model-verified." >&2
+  [ -x "$MXBUILD" ]  || echo "    mxbuild not found/executable: ${MXBUILD:-<none>}   (set MXBUILD_PATH=)" >&2
+  [ -x "$JAVA_EXE" ] || echo "    java not found/executable:    ${JAVA_EXE:-<none>}  (set JAVA_HOME=)" >&2
+fi
 
 # ── JSON reader ──────────────────────────────────────────────────────────────
 # The mxbuild gate reads its verdict out of a JSON errors file, so it needs a

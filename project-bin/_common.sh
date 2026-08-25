@@ -82,7 +82,39 @@ find_mpr() {
 }
 
 # ---------------------------------------------------------------------------
-# find_sp_app — newest installed Studio Pro .app bundle.
+# mxtk_platform — "macos" | "windows" | "linux".
+#
+# WHY THIS EXISTS (2026-08-25). Everything below used to assume macOS: Studio Pro
+# was looked for at /Applications/*.app and Java at /usr/libexec/java_home. Under
+# Git Bash on Windows both lookups return nothing, so exec.sh's gate guard
+# `[ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]` was false on every run and the whole
+# mxbuild block was skipped. The gate reported `skipped` — honestly, it was built
+# "three states, not two" for exactly this reason — but nobody reads a skip as a
+# problem, so every MDL exec on a Windows machine went unverified. That is the
+# BSON-corruption class iterative-build-loop.md:243 says mxbuild is the ONLY
+# reliable detector for. Found during a Windows training round.
+#
+# $OSTYPE is set by the shell; `uname -s` is the fallback for shells that do not
+# export it. Git Bash reports MINGW64_NT-*, MSYS2 reports MSYS_NT-*.
+# ---------------------------------------------------------------------------
+mxtk_platform() {
+  case "${OSTYPE:-}" in
+    darwin*)            echo macos   ; return ;;
+    msys*|cygwin*|win*) echo windows ; return ;;
+  esac
+  case "$(uname -s 2>/dev/null)" in
+    Darwin)                    echo macos   ;;
+    MINGW*|MSYS*|CYGWIN*|Windows*) echo windows ;;
+    *)                         echo linux   ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
+# find_sp_app — newest installed Studio Pro root.
+#
+# Returns an .app bundle on macOS and a version directory on Windows; callers
+# must go through find_mxbuild() rather than appending a path themselves, because
+# the layout below the root differs per platform.
 #
 # Version-sorted, NOT lexically sorted: with 11.9.0 and 11.13.0 both installed,
 # a plain `sort` picks 11.9.0 as "highest" because '9' > '1' at the third
@@ -92,9 +124,45 @@ find_mpr() {
 # ---------------------------------------------------------------------------
 find_sp_app() {
   if [ -n "${MENDIX_APP:-}" ]; then echo "$MENDIX_APP"; return 0; fi
-  local list
-  list=$(ls -d /Applications/Mendix\ Studio\ Pro*.app 2>/dev/null) || true
-  [ -z "$list" ] && { echo "ERROR: no 'Mendix Studio Pro *.app' in /Applications" >&2; return 1; }
+  local list="" root
+  case "$(mxtk_platform)" in
+    macos)
+      list=$(ls -d /Applications/Mendix\ Studio\ Pro*.app 2>/dev/null) || true
+      [ -z "$list" ] && { echo "ERROR: no 'Mendix Studio Pro *.app' in /Applications" >&2; return 1; }
+      ;;
+    windows)
+      # Studio Pro installs as C:\Program Files\Mendix\<version>\ . Both Program
+      # Files roots are checked, plus whatever Windows says they are — a machine
+      # with a relocated install (D:\ is common on managed laptops, and the
+      # training round's Git lived on D:) is not reachable by hardcoded /c.
+      # NB: `PROGRAMFILES(X86)` cannot be expanded as ${...} — parentheses are not
+      # legal in a bash identifier and it fails at RUNTIME with "bad substitution"
+      # while passing `bash -n` cleanly. printenv is the only way to read it.
+      for root in "${ProgramW6432:-}" "${PROGRAMFILES:-}" \
+                  "$(printenv 'PROGRAMFILES(X86)' 2>/dev/null)" \
+                  "/c/Program Files" "/c/Program Files (x86)" \
+                  "/d/Program Files" "/d/Mendix" "/c/Mendix"; do
+        [ -n "$root" ] || continue
+        # Env vars arrive in Windows form (C:\Program Files); make them POSIX.
+        case "$root" in
+          [A-Za-z]:*) root="/$(printf '%s' "${root%%:*}" | tr '[:upper:]' '[:lower:]')${root#*:}"
+                      root=$(printf '%s' "$root" | tr '\\' '/') ;;
+        esac
+        [ -d "$root/Mendix" ] && root="$root/Mendix"
+        [ -d "$root" ] || continue
+        list="$list$(ls -d "$root"/*/ 2>/dev/null)"
+      done
+      list=$(printf '%s\n' "$list" | sed 's:/*$::' | grep -v '^$') || true
+      [ -z "$list" ] && {
+        echo "ERROR: no Mendix Studio Pro install found under Program Files\\Mendix." >&2
+        echo "       Set MENDIX_APP=<path to the version dir> or MXBUILD_PATH=<path to mxbuild.exe>." >&2
+        return 1; }
+      ;;
+    *)
+      echo "ERROR: Studio Pro does not run on this platform; set MXBUILD_PATH to skip discovery." >&2
+      return 1
+      ;;
+  esac
 
   if printf '1.10\n1.9\n' | sort -V >/dev/null 2>&1; then
     printf '%s\n' "$list" | sort -V | tail -1
@@ -105,12 +173,50 @@ find_sp_app() {
   fi
 }
 
-# find_mxbuild — the mxbuild binary inside the chosen SP app. $MXBUILD_PATH overrides.
+# find_mxbuild — the mxbuild binary inside the chosen SP install. $MXBUILD_PATH overrides.
 find_mxbuild() {
   if [ -n "${MXBUILD_PATH:-}" ]; then echo "$MXBUILD_PATH"; return 0; fi
   local app
   app=$(find_sp_app) || return 1
-  echo "$app/Contents/modeler/mxbuild"
+  case "$(mxtk_platform)" in
+    windows) echo "$app/modeler/mxbuild.exe" ;;
+    *)       echo "$app/Contents/modeler/mxbuild" ;;
+  esac
+}
+
+# find_java — JAVA_HOME for the mxbuild invocation. $JAVA_HOME wins if already set.
+#
+# /usr/libexec/java_home is a macOS binary and does not exist anywhere else, so on
+# Windows this used to leave JAVA_HOME empty and JAVA_EXE as the literal "/bin/java".
+# Studio Pro ships its own JRE, which is the right one to use — it matches the
+# mxbuild it is paired with — so that is tried before any system Java.
+find_java() {
+  if [ -n "${JAVA_HOME:-}" ] && [ -d "$JAVA_HOME" ]; then echo "$JAVA_HOME"; return 0; fi
+  local app jh
+  if [ "$(mxtk_platform)" = macos ] && [ -x /usr/libexec/java_home ]; then
+    jh=$(/usr/libexec/java_home 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
+  fi
+  # Studio Pro's bundled JRE.
+  if app=$(find_sp_app 2>/dev/null); then
+    for jh in "$app/jre" "$app/Contents/jre" "$app/runtime/jre"; do
+      [ -d "$jh" ] && { echo "$jh"; return 0; }
+    done
+  fi
+  # System Java, resolved from the java on PATH (two levels up from bin/java).
+  local j
+  j=$(command -v java 2>/dev/null) && [ -n "$j" ] && {
+    jh=$(dirname "$(dirname "$j")"); [ -d "$jh" ] && { echo "$jh"; return 0; }; }
+  return 1
+}
+
+# find_java_exe — the java binary itself, matching find_java's home.
+find_java_exe() {
+  local jh
+  jh=$(find_java) || return 1
+  case "$(mxtk_platform)" in
+    windows) echo "$jh/bin/java.exe" ;;
+    *)       echo "$jh/bin/java" ;;
+  esac
 }
 
 # project_name — the .mpr basename without extension, for user-facing messages.

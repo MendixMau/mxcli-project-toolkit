@@ -76,6 +76,32 @@ if [ $# -lt 1 ]; then
   exit 1
 fi
 
+# --- Escape hatches, for when the gate itself is the thing blocking the room -------------
+#
+# MXTK_SKIP_GATES=1 — return "no verdict" immediately and do no work at all. Added during a
+# training round (2026-08-25) where gate-check took 5-15 minutes per invocation on participant
+# machines that could not be reproduced here: on this Mac a full run is 1.9s empty / 7.8s on a
+# real project, and the artifact tree walk — the previously known slow path, see the prune
+# comment further down — costs 0.30s worst case over a 107k-file project.
+#
+# Exits 0 DELIBERATELY, including for a stage-specific run that would normally exit non-zero
+# on failure. A skipped gate must not read as a failed one, and it must not wedge a caller
+# that branches on the exit code. It is loud on stderr for the same reason the WAIVED verdict
+# exists: a check nobody performed has to say so, every time, or it becomes green-by-absence.
+#
+# MXTK_NO_FETCH=1 — keep every gate, drop only the network. The protocol-freshness check runs
+# `git fetch` against the toolkit remote on EVERY invocation (see TOOLKIT_REF below) over an
+# HTTPS remote with no timeout, so a proxy that swallows packets or a credential prompt nobody
+# is there to answer stalls the whole run. The fallback that this forces is already designed
+# and already non-blocking: local HEAD, labelled UNVERIFIED. Prefer this over SKIP_GATES —
+# it keeps the verdicts and only gives up the "is your toolkit current?" answer.
+if [ "${MXTK_SKIP_GATES:-0}" = "1" ]; then
+  echo "gate-check: SKIPPED — MXTK_SKIP_GATES=1 is set in this environment." >&2
+  echo "  No stage was evaluated and no verdict was produced. This is NOT a pass." >&2
+  echo "  Re-enable with: unset MXTK_SKIP_GATES" >&2
+  exit 0
+fi
+
 PROJECT_DIR="$1"
 REQUESTED_STAGE="${2:-}"
 
@@ -1409,8 +1435,19 @@ TOOLKIT_HEAD="$(git -C "$TOOLKIT_DIR" rev-parse --short HEAD 2>/dev/null || echo
 # fall back to local HEAD so offline work isn't stranded, but label the verdict UNVERIFIED so a
 # pass that proved nothing cannot read as a pass that did.
 SYNC_REF_LABEL="origin"
-if git -C "$TOOLKIT_DIR" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1 \
-   && git -C "$TOOLKIT_DIR" fetch --quiet 2>/dev/null; then
+# The fetch is the only network call in this script and it had no timeout and no opt-out, so a
+# slow or captive network turned a local file check into an unbounded wait. Two guards, both of
+# which fall through to the existing UNVERIFIED path rather than failing:
+#   - MXTK_NO_FETCH=1 skips it outright.
+#   - Otherwise it is capped by git's own low-speed abort (~8s). A `timeout`/`gtimeout` wrapper
+#     was rejected: macOS ships NEITHER, so it would have silently broken every trainer's Mac.
+#     GIT_TERMINAL_PROMPT=0 stops it blocking forever on credentials nobody is there to type.
+if [ "${MXTK_NO_FETCH:-0}" = "1" ]; then
+  TOOLKIT_REF="$TOOLKIT_HEAD"
+  SYNC_REF_LABEL="local HEAD — UNVERIFIED, fetch skipped (MXTK_NO_FETCH=1)"
+elif git -C "$TOOLKIT_DIR" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1 \
+   && GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes -o ConnectTimeout=5}" \
+      git -C "$TOOLKIT_DIR" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=8 fetch --quiet 2>/dev/null; then
   TOOLKIT_REF="$(git -C "$TOOLKIT_DIR" rev-parse --short '@{u}' 2>/dev/null || echo "unknown")"
 else
   TOOLKIT_REF="$TOOLKIT_HEAD"

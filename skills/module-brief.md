@@ -68,17 +68,25 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
 ## Location & Timing
 
 - **Location:** `architecture/modules/<ModuleName>/module-brief.md` — one directory per module, holding its brief (and any per-module assets alongside it).
-- **Timing (just-in-time):** the brief for module N is produced only after module N−1 has passed
-  its full build gate. Same rule as MDL phasing (`brd-to-build-plan.md`) — a brief written against
-  a model state that later changes is a brief that lies. The **first** module's brief is produced
-  at Stage 4 alongside the build plan; the rest are produced as each module's build begins.
-- Do **not** stockpile all briefs upfront. `gate-check.sh` cannot mechanically require all briefs
-  at Stage 4 for this reason. It is not a manual-only check any more, though: the brief is **row 0
-  of its module's phase** (`brd-to-build-plan.md` Step 5), and `project-bin/exec.sh` guard 5
-  refuses any write to a module that has no brief. Row 0 placement is what makes the guard
-  unreachable in the normal flow — early enough to be an input, late enough not to be speculative.
+- **Timing — it is a row in the build plan.** Every phase opens with a `BRIEF` row
+  (`brd-to-build-plan.md` Step 5), written as a **check-then-create**: *does the brief for this
+  phase's module exist and cover this phase's rows? Create it if absent, extend it if thin.* Not
+  stockpiled upfront, not produced after the previous module's gate — a brief written against a
+  model state that later changes is a brief that lies, and a brief written after the build is a
+  transcript rather than an input.
+- **It grows; it is not rewritten per phase.** One brief per module, extended by each phase's
+  `BRIEF` row with the sections that phase's rows require — access rows for elements with access
+  rules, wireframe→page mapping for pages, validation rules for attributes, error paths for
+  integration calls, and always the union of that phase's `Skills` column. A short phase therefore
+  adds a short increment; see `brd-to-build-plan.md` → "How big is a brief for a short phase?".
+- **A step, not a gate.** Do not stockpile all briefs upfront — `gate-check.sh` cannot mechanically
+  require them all at Stage 4 for that reason. The ordering guarantee lives in the build plan, where
+  it is a numbered row with a `State` cell rather than a rule someone has to have read.
+  `project-bin/exec.sh` **warns** — never refuses — when a script writes to a module with no brief,
+  and only in projects that have a build plan at all; à-la-carte use is a supported choice and must
+  not be blocked by a pipeline artifact.
 - **Single-module projects: merge the brief into the build plan** under a `## Module brief — <M>`
-  heading (the exec guard accepts that form). Two documents at ~70% overlap is how one goes
+  heading (`exec.sh`'s advisory recognises that form). Two documents at ~70% overlap is how one goes
   unwritten.
 
 ---

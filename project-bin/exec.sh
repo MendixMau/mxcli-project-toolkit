@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # exec.sh — the guard chain around a model write.
 #
-#   concurrent-writer guard → module-brief guard → mxcli check → snapshot → baseline → exec
+#   concurrent-writer guard → module-brief advisory → mxcli check → snapshot → baseline → exec
 #   → mxbuild gate → auto-restore on regression → SP reopen
 #
 # Usage: ./bin/exec.sh <script.mdl>
@@ -79,28 +79,36 @@ if [ -n "$MPR_DIRTY" ]; then
   echo "  (FORCE_EXEC set — proceeding despite uncommitted changes)"
 fi
 
-# 5. No module brief for a module this script writes to.
+# 5. Module brief advisory (WARNS, never blocks).
 #
-# WHY. The brief is the mdl-agent's single per-module input: the access-table slice,
+# WHY THE BRIEF. It is the mdl-agent's single per-module input: the access-table slice,
 # screens-per-role, field-level validation rules, edge cases, and the wireframe->page map.
 # Nothing else in the project carries them. Without it the agent synthesises them from
 # training data, and every access-rights / wrong-binding / invented-validation incident
-# traces back to that. It was previously enforced only by check_build_ready() in
-# gate-check.sh — a separate command nobody is obliged to run — so a project that never
-# declared itself build-ready was never asked for one. Real incident (a customer training round,
-# 2026-08-25): 12 domain scripts and 13 feature scripts executed against a module whose
-# architecture/modules/<M>/ held only definition.md. Binding it to the write is the point;
-# there is nothing to rewrite when it fires, unlike a missing skill, so firing late still
-# costs only the brief.
+# traces back to that. Real incident (a customer training round, 2026-08-25): 12 domain
+# scripts and 13 feature scripts executed against a module whose architecture/modules/<M>/
+# held only definition.md.
+#
+# WHY THIS ONLY WARNS. The brief is a build-plan artifact — "write the module brief" is a
+# numbered row at the head of each phase (brd-to-build-plan.md Step 5). That is where the
+# ordering guarantee belongs, because that is the document every build follows. exec.sh is
+# not the pipeline's gatekeeper and must not become one: the toolkit is deliberately usable
+# a la carte, and refusing a write is the wrong answer to "this project chose not to run the
+# pipeline". A hard block here would also have needed FORCE_EXEC on every legitimate
+# non-pipeline write, and a guard routinely overridden teaches people to override guards.
+#
+# So: no architecture/build-plan.md means the project never opted in, and this block says
+# nothing at all. With a build plan, a missing brief means a row was skipped — worth saying
+# once, out loud, and then getting out of the way.
 #
 # Satisfied by EITHER form, because single-module projects merge the brief into the plan
 # rather than maintaining two documents that overlap ~70%:
 #   a) architecture/modules/<Module>/module-brief.md
-#   b) a "## Module brief — <Module>" heading in architecture/build-plan.md
+#   b) a "## Module brief - <Module>" heading in architecture/build-plan.md
 #
-# Platform and marketplace modules are skipped — this project does not author their briefs.
+# Platform and marketplace modules are skipped - this project does not author their briefs.
 brief_missing=""
-if [ -f "$SCRIPT" ]; then
+if [ -f "$SCRIPT" ] && [ -f "$PROJECT_ROOT/architecture/build-plan.md" ]; then
   # Comments FIRST, before any pattern match. A `-- ... CREATE MODULE errors if ...` line in a
   # real workshop script otherwise yielded a module named "errors" and would have demanded a
   # brief for it forever. A guard that cries wolf gets switched off — same reasoning as
@@ -151,19 +159,18 @@ if [ -f "$SCRIPT" ]; then
   done
 fi
 if [ -n "$brief_missing" ]; then
-  echo "✗ No module brief for:$brief_missing — refusing to write a module nothing has specified."
+  echo "⚠ No module brief for:$brief_missing — proceeding, but nothing has specified this module."
   echo ""
   for m in $brief_missing; do
     echo "    $m — expected architecture/modules/$m/module-brief.md"
-    echo "         or a '## Module brief — $m' section in architecture/build-plan.md"
+    echo "         or a '## Module brief - $m' section in architecture/build-plan.md"
   done
   echo ""
-  echo "  The brief is row 0 of this module's phase. It carries the access table, screens-per-role,"
-  echo "  validation rules, edge cases, wireframe->page map and test plan — see module-brief.md."
-  echo "  → Draft it (ba-agent translation mode, pulling architect-agent), then sign it off in chat."
-  echo "  Override (proceeds with nothing having specified this module): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
-  [ "$FORCE" = "1" ] || exit 1
-  echo "  (FORCE_EXEC set — proceeding with no module brief for:$brief_missing)"
+  echo "  This project has a build plan, so a row was skipped: the brief is the first row of"
+  echo "  this module's phase. It carries the access table, screens-per-role, validation rules,"
+  echo "  edge cases, wireframe->page map and test plan — see module-brief.md."
+  echo "  → Write it before the next script, or the MDL after this one is guesswork too."
+  echo ""
 fi
 
 echo $$ > "$LOCK"

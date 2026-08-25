@@ -643,8 +643,10 @@ known_fix_note() {
   case "$1" in
     verify-module.sh)
       echo "bin/verify-module.sh is missing the design-audit wiring fix (toolkit, 2026-08-21) — wires tests/e2e/design-audit.js (rungs 6-7, UI/a11y) into the composed pass as an informational, non-gating rung. Recommended upgrade." ;;
+    _common.sh)
+      echo "bin/_common.sh predates the WINDOWS MXBUILD GATE fix (toolkit, 2026-08-25). This is where find_sp_app/find_mxbuild, JAVA_HOME resolution and mxtk_platform actually live — exec.sh only calls them. So upgrading exec.sh ALONE does not deliver the fix, and grepping exec.sh for mxtk_platform reports 0 even on a fully patched project: grep _common.sh instead. Without this file the mxbuild gate is skipped on every Windows exec and nothing checks your builds. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh." ;;
     exec.sh)
-      echo "bin/exec.sh predates two fixes worth naming. (1) The WINDOWS MXBUILD GATE (toolkit, 2026-08-25): find_sp_app/find_mxbuild and JAVA_HOME resolution were macOS-only, so under Git Bash the gate block was skipped entirely and every exec on a Windows machine went UNVERIFIED — it reported 'skipped', not a false pass, but a skip nobody acts on is the same outcome. (2) The MODULE-BRIEF GUARD (toolkit, 2026-08-25): refuses a write to a module with no module-brief.md (or no '## Module brief — <M>' section in the build plan), overridable with FORCE_EXEC=1. Strongly recommended upgrade on Windows — without (1) nothing checks your builds." ;;
+      echo "bin/exec.sh predates two fixes worth naming. (1) The WINDOWS MXBUILD GATE (toolkit, 2026-08-25): find_sp_app/find_mxbuild and JAVA_HOME resolution were macOS-only, so under Git Bash the gate block was skipped entirely and every exec on a Windows machine went UNVERIFIED — it reported 'skipped', not a false pass, but a skip nobody acts on is the same outcome. (2) The MODULE-BRIEF GUARD (toolkit, 2026-08-25): refuses a write to a module with no module-brief.md (or no '## Module brief — <M>' section in the build plan), overridable with FORCE_EXEC=1. Strongly recommended upgrade on Windows — without (1) nothing checks your builds. NOTE: (1) mostly lives in _common.sh, so upgrade that too or the fix is incomplete." ;;
   esac
 }
 

@@ -43,7 +43,7 @@ Two failure modes this catches that `finding-disposition.md` structurally cannot
 Filed here rather than under this project's own `.ai-context/`, for the same reason
 `finding-disposition.md` and `module-review.md` are toolkit skills and not project-local ones:
 **the judgement transfers.** Nothing about "does the report's own arithmetic hold together" is
-specific to VB-USI's domain, its modules, or its Track-B-vs-pipeline entry mode — every project
+specific to the originating project's domain, its modules, or its Track-B-vs-pipeline entry mode — every project
 that runs `report-normalize.js` produces the same `checks[]`/`instruments[]`/`nextSteps[]` shape
 this skill reads, and the same four suspicious-pattern checks below apply unchanged. Per
 `close-the-loop.md`'s own routing test ("is this still true in a repo that isn't this one?" — yes),
@@ -82,7 +82,7 @@ ls architecture/modules/*/module-brief.md 2>/dev/null
 ls analysis/*/knowledge-base/brd/*.brd.json 2>/dev/null
 ```
 
-**Name what you have before judging anything.** This project (VB-USI-main) is Track B
+**Name what you have before judging anything.** This project (the worked example here) is Track B
 (`existing-app-assurance.md`) — no BRD, no module-brief pipeline was ever run against it, so both
 `ls` calls above legitimately return nothing. **That is not a reason to skip this skill; it changes
 what "coverage" means to judge against.** With no BRD/module-brief to check test scope against,

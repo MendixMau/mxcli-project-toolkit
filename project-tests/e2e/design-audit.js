@@ -352,6 +352,22 @@ function mapPageToWireframe(qn, wfFiles) {
 // arms, because neither alone is complete — `ann`/`ann-block` are defined only in the
 // wireframes' inline <style> (arm 1), while `wf-note` was promoted into ds.css and
 // would slip past arm 1 entirely (arm 2).
+//
+// TODO (found 2026-08-24, mxcli-project-toolkit field validation run — see
+// skills/learned-stylegallery.md § "Don't Stop at ds.css — a Wireframe Can Own Real Layout
+// CSS Too"): arm 2's `wfAll.has(c) && !css.ds.has(c) && !css.theme.has(c)` test cannot tell
+// genuine wireframe-only annotation chrome apart from a real, page-specific LAYOUT class the
+// wireframe legitimately owns (e.g. a `.detail-grid` two-column rule) that a page correctly
+// references but whose CSS rule was simply never ported anywhere real. Both land in `chrome`
+// today, which reads as "strip this class from the page" — the wrong fix for the second case,
+// where the actual fix is "add this class's rule to main.scss". A confirmed real incident
+// (TransportOrder_Detail's `.detail-grid`) hit exactly this. Splitting arm 2 into its own
+// bucket (distinct from CHROME_NAME matches) would need: a new classifyClasses() return key, a
+// new finding row/id, a defectClass entry in report-normalize.js, and its own positive-control
+// mutant (this file's own non-vacuity discipline, see runControls() control 1) — not done here
+// because a live pipeline instrument used to gate other projects deserves that done carefully,
+// with its test suite run deliberately, not as a drive-by fix. Flagging precisely for whoever
+// picks it up next.
 const CHROME_NAME = /^(ann|ann-.*|annotation.*|wf-note.*|wireframe-.*)$/;
 
 // THE differ. One function, used by the real sweep AND by the positive control, so a

@@ -101,6 +101,39 @@ mxcli writes the title as `Forms$ClientTemplate` instead of `Mendix.Modeler.Text
 
 ---
 
+## Popup Pages — Never Duplicate the Chrome Title Inside the Body
+
+**Rule:** A popup page's own `Title:` property already renders as the modal's chrome title bar.
+Do not also add a body-level heading (a `dynamictext` with `RenderMode: H1`/`H2`, or a
+`container ctnPageHead` copied from the full-page header scaffold) that restates the same text —
+it reads as a genuine defect (two headings, one screen), not a design choice.
+
+Found on a real project (2026-08-24, `mxcli-project-toolkit` field validation run): two separate
+popups (`TransportOrder_Redirect`, `TransportOrder_RecordProblem`), built in different scripts at
+different times, both carried the exact same defect — the full-page `ctnPageHead` idiom used
+everywhere else in the app was copy-pasted into a popup without accounting for the popup's own
+chrome. Two independent occurrences of the same bug is a pattern, not a slip, which is why this is
+recorded here rather than left as a one-off fix.
+
+**Why it survives every mechanical check:** the chrome title bar and the body heading are two
+different DOM regions. `design-audit.js`'s structure rung counts real `<h1>` elements and only
+flags 0 or 2+ of them — a single body `<h1>` next to a non-semantic chrome title bar is exactly
+one `<h1>`, so it passes clean. Nothing before `module-review.md`'s Stage 4 (LOOK) — the actual
+human/visual pass — catches this class of defect; it will not be caught by `mxcli check`,
+`mxbuild`, a journey run, or a wiring sweep, all of which only confirm the popup opens and its
+buttons work.
+
+**What to do instead:**
+- If the popup needs no more identification than its static `Title:` already gives it, build the
+  body straight from its first real field/section — no `ctnPageHead`, no restated heading.
+- If the popup genuinely needs to show something the static chrome title can't (a per-object value
+  like an order number — Mendix's `Title:` property is static text, it cannot embed a page
+  parameter), keep that text visually subordinate to the chrome (a plain label line, not
+  `RenderMode: H1`/`H2`) rather than a second full heading duplicating the first in weight and
+  wording.
+
+---
+
 ## ContentParams — Never Use Entity-Qualified Paths for Cross-Module Multi-Hop (BUG-04)
 
 `Assoc1/Assoc2/Module.Entity/Attribute` in contentparams writes a null `AttributeId` GUID → Studio Pro crashes on load.

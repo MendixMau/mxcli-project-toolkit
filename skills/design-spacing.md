@@ -105,7 +105,13 @@ container ctnPageHead (Class: 'page-head spacing-outer-bottom-large') {
   `design-audit.js`. Section titles are H2/H3, never a bare `dynamictext` at body size.
 - Use the project design system's header component/class (`.page-head` or equivalent) when one
   exists; the Atlas fallback is the scaffold above with only stock classes.
-- Popups/dialogs are exempt from the crumb, not from the title.
+- Popups/dialogs are exempt from the crumb, not from **needing a title somewhere** — but that
+  title is usually already the popup's own `Title:` property, rendered as the modal chrome bar.
+  **Do not also add this `ctnPageHead`/H1 scaffold inside a popup's body** unless the body needs
+  to show something the static chrome text can't (a per-object value) — and even then keep it
+  visually subordinate, not a second `RenderMode: H1`. Two real popups shipped with exactly this
+  duplicate-heading defect before it was caught at LOOK, not before — see
+  `learned-page-patterns.md` § "Popup Pages — Never Duplicate the Chrome Title Inside the Body".
 - The wireframe's header (title text, subtitle, actions) is part of Step 1 extraction in
   `ui-preflight-pages.md` — building the body without the header is the escape that motivated
   this file.

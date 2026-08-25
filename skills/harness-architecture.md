@@ -310,6 +310,21 @@ audit cannot see that a Save button silently 4xx'd. The agent loop cannot reliab
 corpus across hundreds of pages. Interaction checking and empty-state judgement live only in the
 agent loop; a11y scanning and class-promotion diffing live only in the audit.
 
+**Not yet a promotion, and here's the specific incident that almost was one (2026-08-24, field
+validation run).** A real page (`TransportOrder_Detail`) shipped a class (`.detail-grid`) that
+was correctly referenced on the page but whose CSS rule existed only in its wireframe's own
+mockup `<style>` block, never ported anywhere real — the page rendered stacked/unstyled instead
+of its intended 2-column layout, invisible to every check up through PROVE, caught only at LOOK
+(a human looking at the rendered page). That is exactly the "went red on real work a human then
+agreed was a real defect" trigger this section names for promotion — **except the check that
+would have caught it (`rung6/wireframe-chrome`) currently classifies that class as throwaway
+annotation chrome to strip from the page, not as a real layout rule to promote into the theme —
+the wrong prescription** (see the `// TODO` on `classifyClasses`/`CHROME_NAME` in
+`design-audit.js`, and `skills/learned-stylegallery.md` § "Don't Stop at ds.css"). Promoting rung
+6/7 on the strength of this incident, before that classifier is fixed, would gate projects on a
+check that gives the wrong answer for this exact case. Fix the classifier first; re-evaluate
+promotion once it can be trusted to say "port this" instead of "delete this."
+
 ---
 
 ## 7. Nothing may be hardcoded — the derivation table

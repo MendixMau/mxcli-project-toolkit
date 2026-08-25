@@ -113,6 +113,43 @@ prevents a change to one from silently breaking the other.
 
 ---
 
+## Don't Stop at ds.css — a Wireframe Can Own Real Layout CSS Too
+
+This porting pass, and the self-audit diff command above it, both compare `ds.css` against
+`main.scss` — deliberately, since `ds.css` is the shared token/component contract. But a wireframe
+file (`design/wireframes/<Page>.html`) is also free to declare its own **page-specific** inline
+`<style>` rules that are never meant to go in `ds.css` at all, because they only apply to one
+screen's layout — e.g. a two-column detail-view grid. If the built page's own MDL then reuses that
+same class name (correctly, matching the wireframe's intended structure), but nobody ported the
+*rule* anywhere real, the page ships wired to a class that resolves to nothing. It builds clean,
+`mxcli check` and `mxbuild` pass, every journey and wiring-sweep passes (the widget tree is
+correct) — and the page silently renders as an unstyled fallback (stacked full-width instead of a
+grid, in the case that surfaced this).
+
+**Found on a real project** (2026-08-24, `mxcli-project-toolkit` field validation run):
+`TransportOrder_Detail`'s wireframe declared `.detail-grid { display:grid; grid-template-
+columns:1fr 1fr }` in its own `<style>` block. The built page correctly used `Class: 'kt-page-body
+detail-grid'`. The rule was never added to `ds.css` *or* `main.scss`. Nothing caught it before
+`module-review.md`'s Stage 4 (LOOK) — a human actually looking at the rendered page.
+
+**When porting a wireframe's design into a real page, also scan that wireframe's own `<style>`
+block** for classes that are not `ds.css` tokens/components and not throwaway annotation chrome
+(`ann-*`, `wf-note-*`, `wireframe-*`, the wireframe's own layout/meta scaffolding) — anything else
+is a candidate for real, page-specific layout CSS that belongs in `main.scss` alongside the ds.css
+port, scoped to that page/module rather than promoted into the shared design system.
+
+**Caveat about `design-audit.js`'s rung 6 "wireframe-chrome" check:** as of this writing, its
+classifier buckets *any* class that's in a wireframe but not in `ds.css`/the theme as "wireframe-
+only chrome that must never reach a real page" (`project-tests/e2e/design-audit.js` — see the
+`classifyClasses` function, `CHROME_NAME` regex and its `wfAll` fallback branch). That's the right
+call for genuine annotation markup, but it does not distinguish that from a real, page-specific
+layout class like `.detail-grid` — a finding there can read as "strip this class from the page"
+when the actual fix is "add this class's rule to the theme." Don't blindly delete a flagged class
+without checking which case it is; a code fix to that classifier (splitting the two cases) is
+flagged inline in the source but not yet made — see the `// TODO` comment at `classifyClasses`.
+
+---
+
 ## Mendix Module Setup
 
 **File location:** `themesource/<StyleGalleryModuleName>/web/main.scss`

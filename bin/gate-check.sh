@@ -6,7 +6,7 @@
 # actual project state. A stage-specific run answers one question and writes nothing: that is the
 # invocation used in agent loops and hooks, and a read-only query must leave no trace.
 #
-# Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol|--force-stale]
+# Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol [--approved-in-chat]|--force-stale] [--verbose]
 #                          [--adopt <stage> --reason "..."]
 #                          [--waive <stage|obligation[/module]> --reason "..."]
 #                          <project-dir> [stage]
@@ -46,6 +46,8 @@ set -uo pipefail
 # The obvious `set -- $POSITIONAL` form word-splits the path and was rejected for that reason.
 HTML_MODE="auto"
 ACK_PROTOCOL=0
+APPROVED_IN_CHAT=0
+PROTOCOL_VERBOSE=0
 FORCE_STALE="${MXTK_ACK_STALE:-0}"
 STRICT_PROTOCOL="${MXTK_STRICT_PROTOCOL:-0}"
 ADOPT_STAGE=""
@@ -58,6 +60,8 @@ while [ $# -gt 0 ]; do
     --html)    HTML_MODE="always" ;;
     --no-html) HTML_MODE="never" ;;
     --ack-protocol)    ACK_PROTOCOL=1 ;;
+    --approved-in-chat) APPROVED_IN_CHAT=1 ;;
+    --verbose)         PROTOCOL_VERBOSE=1 ;;
     --adopt)           shift; ADOPT_STAGE="${1:-}" ;;
     --waive)           shift; WAIVE_STAGE="${1:-}" ;;
     --reason)          shift; WAIVER_REASON="${1:-}" ;;
@@ -1565,35 +1569,69 @@ fi
 SYNC_BLOCKING=0
 [ "$STRICT_PROTOCOL" = "1" ] && [ "$SYNC_STATUS" = "NOTICE" ] && SYNC_BLOCKING=1
 
-printf "Sync (Protocol freshness): %s — %s\n" "$SYNC_STATUS" "$SYNC_NOTE"
+# The one-line verdict is jargon by construction — it names commits and paths so a maintainer
+# can act on it without a second command. Non-verbose readers get the same verdict in words.
+if [ "$PROTOCOL_VERBOSE" = "1" ]; then
+  printf "Sync (Protocol freshness): %s — %s\n" "$SYNC_STATUS" "$SYNC_NOTE"
+else
+  case "$SYNC_STATUS" in
+    PASS)   printf "Toolkit updates: up to date.\n" ;;
+    WARN)   printf "Toolkit updates: the shared toolkit moved, but nothing this stage uses changed. No action needed.\n" ;;
+    NOTICE) printf "Toolkit updates: available, not yet reviewed. Nothing is blocked.\n" ;;
+    *)      printf "Toolkit updates: %s\n" "$SYNC_STATUS" ;;
+  esac
+fi
 if [ "$SYNC_STATUS" = "NOTICE" ]; then
   # Lead with the CHOICE, not with the diagnosis. The old message named files, showed no diff,
   # offered no command, and did not say where the value it wanted was written — so the only
   # available response was to go and find the four-step ritual in another file.
   echo ""
-  echo "  ⚠ $SYNC_HEADLINE"
-  [ -n "$SYNC_DETAIL" ] && printf '    %s\n' "$SYNC_DETAIL"
-  # An UPGRADE IS AN OFFER, NOT A DEMAND (2026-08-20). When the toolkit grows a new artifact or
-  # a new stage requirement, the projects that see it first are the ones already mid-build — and
-  # for them "the protocol changed" often means nothing needs to happen: they did that analysis
-  # their own way, or they are past the stage entirely. Saying only "the toolkit moved" leaves
-  # them to guess whether they are now behind, and the safe-looking guess (regenerate it) is the
-  # expensive one. So name the stages it touches and put the "not needed here" answer on the
-  # same screen as the "yes please" one, with equal billing.
+  # LAYERED, and plain-language by default (2026-08-26). The old notice was written for someone
+  # who already knew what a "protocol commit" was: it led with two abbreviated SHAs, said "ack",
+  # and named skill file paths. A TAM running this in an enablement session reads that and can
+  # only conclude something is broken. Nothing about the SHAs helps them decide; the decision is
+  # "has the shared toolkit changed in a way that affects what I am about to build?" — so ask
+  # exactly that, in those words, and put the identifiers behind --verbose for the people who
+  # actually diff things.
+  if [ "$PROTOCOL_VERBOSE" = "1" ]; then
+    echo "  ⚠ $SYNC_HEADLINE"
+    [ -n "$SYNC_DETAIL" ] && printf '    %s\n' "$SYNC_DETAIL"
+  else
+    echo "  ⚠ The shared toolkit has been updated since this project last checked."
+    if [ -n "${SYNC_RELEVANT:-}" ]; then
+      SYNC_N="$(printf '%s' "$SYNC_RELEVANT" | wc -w | tr -d ' ')"
+      echo "    $SYNC_N guidance file(s) that this stage relies on changed. Nothing is broken and"
+      echo "    nothing is blocked — this is asking whether you want to take the update."
+    fi
+  fi
   if [ -n "${SYNC_RELEVANT:-}" ]; then
     # shellcheck disable=SC2086 — SYNC_RELEVANT is a deliberate list.
     SYNC_STAGES="$(stages_for_protocol_files $SYNC_RELEVANT)"
     [ -n "$SYNC_STAGES" ] && echo "    Stages this touches: $SYNC_STAGES"
+    if [ "$PROTOCOL_VERBOSE" != "1" ]; then
+      echo "    For the file list and commit ids, re-run with --verbose."
+    fi
   fi
-  echo "    A) $SYNC_OPT_A"
+  echo ""
+  if [ "$PROTOCOL_VERBOSE" = "1" ]; then
+    echo "    A) $SYNC_OPT_A"
+  else
+    echo "    If you are an agent: run \"$0 $PROJECT_DIR --ack-protocol --verbose\" to see what"
+    echo "    changed, summarise it for the user in plain language, ask whether to take the"
+    echo "    update, and only if they say yes re-run with --ack-protocol --approved-in-chat."
+    echo "    Do not decide this on the user's behalf and do not ask them to type anything."
+    echo ""
+    echo "    A) Take the update  — the agent records it for you once you say yes."
+  fi
   if [ "$SYNC_BLOCKING" = "1" ]; then
     echo "    B) Proceed anyway:  $0 --force-stale $PROJECT_DIR ${REQUESTED_STAGE:-<stage>}"
     echo "       (--strict-protocol is on, so this run WILL stop; the bypass is logged.)"
   else
-    echo "    B) Ignore for now — nothing is blocked. This notice repeats until acked."
-    echo "    C) Not needed here — if the change asks for artifacts this project already covered"
-    echo "       its own way, or is past: $0 --waive <stage> --reason \"...\" $PROJECT_DIR"
-    echo "       Acking (A) never obliges you to produce anything; it records that you read it."
+    echo "    B) Decide later — nothing is blocked. This notice repeats until you answer."
+    echo "    C) Not needed here — if the update asks for work this project already did its own"
+    echo "       way, or is past: $0 --waive <stage> --reason \"...\" $PROJECT_DIR"
+    echo "       Taking the update (A) never obliges you to produce anything; it records that"
+    echo "       you were told."
   fi
   echo ""
 fi
@@ -1727,24 +1765,56 @@ if [ "$ACK_PROTOCOL" = "1" ]; then
     echo "Cannot acknowledge: the toolkit clone at $TOOLKIT_DIR has no resolvable commit." >&2
     exit 1
   fi
-  # Non-interactive: REFUSE, and name the path forward at the moment of refusal.
+  # Non-interactive: the ack still needs a HUMAN, but it no longer needs a TERMINAL.
   #
-  # An ack asserts that a HUMAN READ THE DIFF. Prompting for that with no human present is
-  # theatre, and an unattended auto-yes (the proposal's MXTK_ACK_YES=1) is worse than theatre:
-  # an agent would write PROTOCOL-ACK — a record asserting a read that never happened — into the
-  # one log this design relies on to tell reads from rubber-stamps, poisoning that signal
-  # permanently and silently. So an agent session takes the explicit, logged bypass instead:
-  # PROTOCOL-BYPASS is honest about what actually occurred and is countable. There is no
-  # MXTK_ACK_YES, and the refusal below always names --force-stale and says it is logged.
-  if [ ! -t 0 ]; then
-    echo "Refusing to acknowledge protocol non-interactively (no TTY on stdin)." >&2
-    echo "An ack asserts a human read the diff; nothing here can make that true." >&2
-    echo "  A) A human runs:    $0 $PROJECT_DIR --ack-protocol" >&2
-    echo "  B) Proceed anyway:  $0 --force-stale $PROJECT_DIR ${REQUESTED_STAGE:-<stage>}" >&2
+  # The original rule refused any ack without a TTY, because an ack asserts that a human read
+  # the diff and an unattended auto-yes would write a record of a read that never happened —
+  # poisoning the one signal that tells reads from rubber-stamps. That reasoning is intact and
+  # this code still enforces it. What it got wrong was equating "a human" with "a human at a
+  # terminal". The people this now runs in front of — TAMs in an enablement session, consultants
+  # in a workshop — are humans who will never open a shell, and refusing them left the notice
+  # repeating forever with no reachable answer, which is its own kind of rubber-stamp.
+  #
+  # So there are two honest ways to ack, and the log records WHICH:
+  #   at a terminal   — the human ran this, saw the diffstat, optionally paged the full diff
+  #   approved in chat — the agent ran --ack-protocol --verbose, summarised what changed in
+  #                      plain language, ASKED, and the human said yes
+  # Both are real reads. Neither is an agent deciding alone: --approved-in-chat is a claim the
+  # agent makes on the record, in a countable log line, and an agent that sets it without having
+  # asked has falsified an audit trail rather than skipped a step. That is the same trust model
+  # every other write in this toolkit already runs on.
+  #
+  # There is still no env-var auto-yes, and --approved-in-chat is deliberately not implied by
+  # anything: it must be typed, once, per ack, after the question was actually put.
+  if [ ! -t 0 ] && [ "$APPROVED_IN_CHAT" != "1" ]; then
+    if [ "$PROTOCOL_VERBOSE" = "1" ] && [ -n "${RECORDED:-}" ] \
+       && git -C "$TOOLKIT_DIR" cat-file -e "${RECORDED}^{commit}" 2>/dev/null; then
+      # The agent asked to SEE it. Show it, record nothing, and say what to do next.
+      echo "What changed in the shared toolkit since this project last checked:"
+      echo ""
+      # shellcheck disable=SC2086 — PROTOCOL_PATHS is a deliberate multi-pathspec list.
+      git -C "$TOOLKIT_DIR" --no-pager diff --stat "$RECORDED" "$TOOLKIT_REF" -- $PROTOCOL_PATHS
+      echo ""
+      # shellcheck disable=SC2086
+      git -C "$TOOLKIT_DIR" --no-pager log --oneline "$RECORDED..$TOOLKIT_REF" -- $PROTOCOL_PATHS
+      echo ""
+      echo "NOTHING HAS BEEN RECORDED. This was a read-only preview."
+      echo "Agent: summarise the above for the user in plain language — what changed and what it"
+      echo "means for what they are building — then ask whether to take the update. Only if they"
+      echo "say yes, re-run:  $0 $PROJECT_DIR --ack-protocol --approved-in-chat"
+      exit 0
+    fi
+    echo "Refusing to record this without a human having been asked." >&2
+    echo "An ack asserts a person was told what changed; nothing here can make that true." >&2
+    echo "  A) Agent: preview it, ask the user, then record their answer:" >&2
+    echo "       $0 $PROJECT_DIR --ack-protocol --verbose            (shows it, records nothing)" >&2
+    echo "       $0 $PROJECT_DIR --ack-protocol --approved-in-chat   (after they say yes)" >&2
+    echo "  B) Human at a terminal: $0 $PROJECT_DIR --ack-protocol" >&2
+    echo "  C) Proceed anyway:  $0 --force-stale $PROJECT_DIR ${REQUESTED_STAGE:-<stage>}" >&2
     echo "     — that works, and records a PROTOCOL-BYPASS line in docs/BUILD-LOG.md." >&2
     if [ "$STRICT_PROTOCOL" != "1" ]; then
       echo "     Note: without --strict-protocol nothing is blocked anyway — this run can" >&2
-      echo "     simply proceed, and the notice repeats until a human acks it." >&2
+      echo "     simply proceed, and the notice repeats until someone answers it." >&2
     fi
     exit 1
   fi
@@ -1758,8 +1828,10 @@ if [ "$ACK_PROTOCOL" = "1" ]; then
     # shellcheck disable=SC2086 — PROTOCOL_PATHS is a deliberate multi-pathspec list.
     git -C "$TOOLKIT_DIR" --no-pager diff --stat "$RECORDED" "$TOOLKIT_REF" -- $PROTOCOL_PATHS
     echo ""
+    if [ "$APPROVED_IN_CHAT" = "1" ]; then reply=y; else
     printf "Print the full diff before acknowledging? [d=diff / y=ack / n=abort] "
     read -r reply
+    fi
     case "$reply" in
       d|D) # shellcheck disable=SC2086
            git -C "$TOOLKIT_DIR" diff "$RECORDED" "$TOOLKIT_REF" -- $PROTOCOL_PATHS
@@ -1775,16 +1847,20 @@ if [ "$ACK_PROTOCOL" = "1" ]; then
     # No usable prior ack (a fresh scaffold, or a sha this clone has never seen). There is no
     # diff to show, so there is nothing to pretend was read — stamp it and say so in the log.
     echo "$REGISTER records no toolkit commit this clone can diff from."
+    if [ "$APPROVED_IN_CHAT" = "1" ]; then reply=y; else
     printf "Record the current protocol commit %s as this project's baseline? [y/N] " "$TOOLKIT_REF"
     read -r reply
+    fi
     case "$reply" in y|Y) ;; *) echo "Aborted — Toolkit commit line unchanged."; exit 1 ;; esac
     ACK_STAT="no prior ack to diff from — recorded as a baseline"
     ACK_FILES="(baseline)"
     ACK_FROM="${RECORDED:-none}"
   fi
   if register_stamp_commit "$TOOLKIT_REF"; then
-    build_log_append "PROTOCOL-ACK $ACK_FROM -> $TOOLKIT_REF ($ACK_STAT) files: $ACK_FILES"
-    echo "Acknowledged $TOOLKIT_REF — $REGISTER updated, recorded in $BUILD_LOG."
+    ACK_HOW="read at a terminal"
+  [ "$APPROVED_IN_CHAT" = "1" ] && ACK_HOW="approved in chat after the agent summarised it"
+  build_log_append "PROTOCOL-ACK $ACK_FROM -> $TOOLKIT_REF [$ACK_HOW] ($ACK_STAT) files: $ACK_FILES"
+    echo "Update taken — $REGISTER now records $TOOLKIT_REF, logged in $BUILD_LOG ($ACK_HOW)."
     exit 0
   fi
   echo "Could not find a 'Toolkit commit:' line in $REGISTER — add one reading:" >&2

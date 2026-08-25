@@ -285,15 +285,23 @@ session that will touch the pipeline:
 1. \`git -C $TOOLKIT_ROOT pull --ff-only\`
 2. \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root>\` — it reports protocol freshness and
    tells you whether anything you depend on moved.
-3. If it says so: re-read the named files, then
-   \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> --ack-protocol\`. That one command shows the
-   diffstat, offers the full diff, rewrites the \`Toolkit commit:\` line in \`PROJECT.md\`, and
-   records which files and how many lines you accepted in \`docs/BUILD-LOG.md\`.
+3. If it says an update is available, **you (the agent) handle it — never ask the user to type
+   a command.** Run \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> --ack-protocol --verbose\`,
+   which shows what changed and **records nothing**. Re-read the named files. Then tell the user
+   in plain language what changed and what it means for what they are building, and ask whether
+   to take the update. Only if they say yes:
+   \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> --ack-protocol --approved-in-chat\` — that
+   rewrites the \`Toolkit commit:\` line in \`PROJECT.md\` and records which files, how many
+   lines, and that it was approved in chat, in \`docs/BUILD-LOG.md\`.
 4. State in chat which commit you're working from.
 
-Steps 1-3 used to be a four-step manual ritual; \`--ack-protocol\` replaces the middle of it.
-It is interactive on purpose — an ack asserts a human read the diff, so it refuses when there
-is no TTY and points an unattended caller at \`--force-stale\`, which works and is logged.
+An ack asserts a human was told what changed, so it cannot happen unattended: without a TTY and
+without \`--approved-in-chat\` it refuses and names the routes out. \`--approved-in-chat\` is a
+claim you are making on the record — set it only after you actually asked and they actually
+answered. There is no env-var auto-yes.
+
+By default the output is written for whoever is in the room, not for a maintainer: plain
+language, no commit ids, no file paths. Add \`--verbose\` for the ids, paths and diffstat.
 
 **Protocol staleness NEVER blocks a gate.** It prints a notice with lettered options and the
 stage verdict is reported on its own merits either way — a project is not broken because

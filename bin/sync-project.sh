@@ -125,7 +125,13 @@ while [ $# -gt 0 ]; do
     --upgrade-bin)
       shift
       [ $# -gt 0 ] || { echo "--upgrade-bin needs a script name or 'all'" >&2; exit 1; }
-      UPGRADE_BIN="$1"; shift ;;
+      # ACCUMULATE, do not assign. This was `UPGRADE_BIN="$1"`, so `--upgrade-bin _common.sh
+      # --upgrade-bin exec.sh` silently upgraded only exec.sh and left _common.sh drifted --
+      # with no warning, because the drift report is suppressed as soon as UPGRADE_BIN is
+      # non-empty. That is the worst possible shape: the one file carrying the Windows mxbuild
+      # fix stayed stale while the run looked like it had succeeded. Found 2026-08-26 by
+      # actually running the command a workshop prompt was about to hand out.
+      UPGRADE_BIN="$UPGRADE_BIN $1"; shift ;;
     --upgrade-lint-rules)
       shift
       [ $# -gt 0 ] || { echo "--upgrade-lint-rules needs a rule file name or 'all'" >&2; exit 1; }
@@ -703,7 +709,7 @@ elif [ -d "$CRASHNET_SRC" ]; then
       DRIFTED="$DRIFTED $s"
       add=$(diff "$src" "$dst" | grep -c '^>' || true)
       del=$(diff "$src" "$dst" | grep -c '^<' || true)
-      if [ "$UPGRADE_BIN" = "all" ] || [ "$UPGRADE_BIN" = "$s" ]; then
+      if case " $UPGRADE_BIN " in *" all "*|*" $s "*) true ;; *) false ;; esac; then
         if [ "$DRY_RUN" -eq 1 ]; then
           echo "Would upgrade: bin/$s (+$add/-$del local) — local copy would be backed up first"
         else

@@ -78,13 +78,18 @@ push_change() {  # push_change <relative-path> <mode: edit|add|rename-to>
   git -C "$TK" push -q origin HEAD:refs/heads/main
 }
 
-run()  { "$GC" --no-html "$PROJ" ${1:+$1} 2>&1; }
+# --verbose on the helpers (2026-08-26). The default rendering became plain-language by decision:
+# gate-check now leads with "Toolkit updates: ..." and words, and puts commit ids, file paths and
+# diffstat behind --verbose, because the people running this in enablement sessions are not the
+# people who diff skill files. Every technical assertion below is about that verbose surface and
+# still holds verbatim against it. The plain default gets its own control at the end of the file.
+run()  { "$GC" --no-html --verbose "$PROJ" ${1:+$1} 2>&1; }
 # `run X | grep -q ...` is a TRAP under `set -o pipefail`: grep -q exits on the first match and
 # SIGPIPEs gate-check, whose 141 then becomes the pipeline's status — so a matching pattern
 # reports NO MATCH. It cost three false "CONTROL BROKEN" results while writing this file. Every
 # content assertion below therefore goes through this helper, which uses a herestring, not a pipe.
 saw()  { grep -q "$2" <<<"$1"; }
-rc()   { "$GC" --no-html "$PROJ" ${1:+$1} >/dev/null 2>&1; echo "$?"; }
+rc()   { "$GC" --no-html --verbose "$PROJ" ${1:+$1} >/dev/null 2>&1; echo "$?"; }
 sync_status() { run "${1:-}" | grep '^Sync' | sed 's/^Sync (Protocol freshness): \([A-Z]*\).*/\1/'; }
 # A notice is only useful if a human sees the choice. Every control checks all three parts.
 notice_ok() { # notice_ok <output> <label> <file-that-must-be-named>
@@ -327,3 +332,23 @@ saw "$(run "")" ' A)' && ok "and still shows the notice" || bad "informational r
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"
 [ "$FAIL" -eq 0 ]
+
+# ── Control: the plain-language default ──────────────────────────────────────
+# The notice a non-developer actually meets. It must state the situation in words, say plainly
+# that nothing is blocked, tell the agent to ask rather than decide, and point at --verbose for
+# anyone who wants the identifiers. It must NOT lead with a commit id.
+PLAIN="$("$GC" --no-html "$PROJ" 0 2>&1)"
+saw "$PLAIN" '^Toolkit updates:' && ok "plain default leads with a plain verdict line" \
+  || bad "plain default did not print a 'Toolkit updates:' line"
+saw "$PLAIN" 'Sync (Protocol freshness)' && bad "plain default still prints the jargon verdict" \
+  || ok "plain default suppresses the jargon verdict line"
+if saw "$PLAIN" ' A)'; then
+  saw "$PLAIN" 'nothing is blocked' && ok "plain notice says nothing is blocked" \
+    || bad "plain notice does not say nothing is blocked"
+  saw "$PLAIN" 'verbose' && ok "plain notice points at --verbose" \
+    || bad "plain notice offers no route to the detail"
+  saw "$PLAIN" 'approved-in-chat' && ok "plain notice names the no-terminal ack path" \
+    || bad "plain notice does not name --approved-in-chat"
+  saw "$PLAIN" 'do not ask them to type anything' && ok "plain notice tells the agent not to delegate typing" \
+    || bad "plain notice does not tell the agent to relay"
+fi

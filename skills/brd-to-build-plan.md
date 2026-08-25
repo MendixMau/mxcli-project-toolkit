@@ -245,21 +245,23 @@ See `design-artifacts.md` and `learned-stylegallery.md` for full process.
 
 ## Step 5: Produce the Numbered Script Sequence
 
-### Row schema — four kinds, one number sequence
+### Row schema — five kinds, one number sequence
 
-Every row is one of four kinds, sharing one numbering and one dependency graph. **A row may say
+Every row is one of five kinds, sharing one numbering and one dependency graph. **A row may say
 `not built`; it may never be absent.** No caption stands in for several items.
 
 | Col | Meaning |
 |---|---|
 | # | step number, dependency-ordered, never reused |
-| Kind | `BUILD` / `PROVE` / `RUN` / `HARNESS` |
+| Kind | `BRIEF` / `BUILD` / `PROVE` / `RUN` / `HARNESS` |
 | Step | the `.mdl` script, the command, or the harness to invoke |
 | Produces / Proves | the model artifact, or what a pass demonstrates |
 | Depends on | prior row number(s) |
 | **Skills** | required reading before authoring this row, from `bin/lib/skill-routing.tsv`. **`none` is a valid value but must be written** — blank is not. The module brief's "Build skills to read first" is the union of this column across the module's rows. |
 | State | `built` / `partial` / `not built` / `blocked` |
 
+- **`BRIEF`** — writes no model. *Check the brief for this phase's module exists and covers this
+  phase's rows; create it if absent, extend it if thin.* Exactly one per phase, always first.
 - **`BUILD`** — writes model. One entity, one microflow group (≤6), or one page section.
 - **`PROVE`** — headless and mechanical, mid-phase. `mxcli test`, a `curl`, a `DESCRIBE` read-back.
 - **`RUN`** — deploy, reopen Studio Pro, walk the happy path as a demo user.
@@ -280,15 +282,52 @@ so no one did, and a day's work went unverified on machines where the mxbuild ga
 silently skipping. Give verification a row and it can be numbered, depended on, counted, and
 rendered in `build-plan.html` like anything else.
 
-### Row 0 of every phase is that module's brief
+### The first row of every phase is a `BRIEF` row
 
-The brief (`module-brief.md`) is the first row of its module's phase — not stockpiled upfront, not
-produced after the previous module's gate. That placement makes it early enough to be an input and
-late enough not to be speculative, and it gives it a state that `build-plan-status.sh` can show and
-`project-bin/exec.sh`'s module-brief guard can enforce.
+Every phase opens with a numbered `BRIEF` row, and it is written as a **check-then-create**, not as
+an unconditional authoring task:
+
+> *Check `architecture/modules/<Module>/module-brief.md` exists and covers this phase's rows.
+> Create it if absent; extend it if it does not.*
+
+Phase 1 row 1, phase 2 row 1, phase 3 row 1 — every phase, including phases of a module already
+briefed. Nothing else in the phase may depend on anything earlier than it.
+
+**Make it a row, not a rule.** A rule stated in a skill file is followed by whoever loaded the skill;
+a numbered row is followed by whoever works the plan, which is everyone, on every build, in every
+entry mode — *the plan is what the agent is being steered by.* The row also carries a `State` cell,
+so `build-plan-status.sh` shows it unwritten and the phase cannot report complete around it.
+
+**And it is a step, not a gate.** The distinction matters: a gate is something you fail, and the
+project stops; a step is something you do, and the project continues. `project-bin/exec.sh` warns
+when a script writes to a module with no brief but never refuses (see its guard 5 comment), because
+the toolkit is usable à la carte and a project that never opted into the pipeline should not have
+its writes blocked by a pipeline artifact. Ordering belongs to the document that orders things.
+
+### How big is a brief for a short phase?
+
+**A brief is per module and grows across that module's phases — it is not rewritten per phase.** The
+first `BRIEF` row that hits a module creates it; every later one appends the sections its own rows
+need. So the size follows the phase, and a two-row phase legitimately adds two or three lines.
+
+What a `BRIEF` row must add is fixed by *what this phase's rows touch*, not by a word count:
+
+| This phase's rows include… | The brief must gain… |
+|---|---|
+| any element with access rules | those elements' rows in the access table |
+| a page or snippet | its wireframe → page mapping, and the screens-per-role entry |
+| an entity or attribute | its field-level validation rules |
+| an integration call | its error paths — 401 / 404 / 500 / empty |
+| anything at all | the union of that phase's `Skills` column, into "Build skills to read first" |
+
+If a phase's rows touch none of those, the row is satisfied by confirming the existing brief already
+covers them, and its `State` becomes `built` with a one-line note. **That is a real outcome, not a
+skipped step** — the value is in having looked. What is *not* acceptable is a brief that is one
+sentence because writing it felt like overhead: if the phase builds pages with no wireframe mapping
+and no access rows, the phase is underspecified and the brief is telling you so.
 
 **Single-module projects: merge it.** The brief's sections become sections of the build plan under
-a `## Module brief — <Module>` heading (the form the exec guard also accepts). A project-wide
+a `## Module brief — <Module>` heading (the form `exec.sh`'s advisory also recognises). A project-wide
 ordering over one module is that module's ordering; two documents at ~70% overlap is how one of
 them ends up unwritten — which is exactly what happened to the workshop project above.
 

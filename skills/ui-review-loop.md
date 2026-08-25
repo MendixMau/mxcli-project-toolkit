@@ -16,3 +16,16 @@ journey happened to visit.
 
 Do not restore this file. If you are here from an old cross-reference, follow the link; if you
 are here to run a review, run the one pass.
+
+---
+
+**If you came here looking for a UI loop, there is one — `skills/ui-loop.md`** (added 2026-08-25).
+It is not a restoration of this file and it does not compete with `module-review.md`: it is the
+cheap per-page look *during* the build (one page, one screenshot, three questions, no report),
+where this file was a second *module-close verdict*. Cadence is the difference, and it is the whole
+difference — `Gate: UI` fires per module, so on a single-module app the looking happens once, at
+the very end, after every page already exists. `ui-loop.md` feeds that gate and never discharges it.
+
+The lesson recorded above still stands and is quoted in that skill: if you ever find yourself
+running `ui-loop.md` *instead of* `module-review.md` stage 4, you have re-created exactly the bug
+this tombstone exists to record.

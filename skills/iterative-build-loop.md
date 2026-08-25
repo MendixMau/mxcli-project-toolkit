@@ -423,6 +423,15 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
     created" cannot do. `module-review.md` is the ONE pass for closing a module; it replaces the
     tombstoned `module-completion-loop.md` and `ui-review-loop.md`. Five stages, one report:
 
+    > **Do not wait until here to look at a page for the first time.** This gate fires per
+    > *module*, so on a single-module app it is once, at the very end, after every page already
+    > exists. Run `skills/ui-loop.md` — one page, one screenshot, three questions, minutes — after
+    > **each page-building script**, all through steps 8–13 above. It does not discharge this gate
+    > and produces no report; it just stops a visual defect from living four scripts deep before
+    > anyone sees it. Measured (2026-08-24): a detail page shipped stacked instead of two-column
+    > because its layout class was never in the real theme — introduced at script 09, mxbuild clean
+    > and every journey green, found only here.
+
     ```
     1. BUILD    already done — steps 1-9 above
     2. GATE     already done — Gate: BUILD (bin/exec.sh, 0 mxbuild errors, lint clean)

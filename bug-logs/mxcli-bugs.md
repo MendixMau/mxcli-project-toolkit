@@ -4624,3 +4624,60 @@ None found via MDL. Either:
 action button to open a related detail page with the current run passed as a parameter,
 outside any dataview), confirmed via `DESCRIBE PAGE` round-trip and two independent rewrite
 attempts before reverting the widget to restore a green build.
+
+## BUG-96: `ALTER PAGE … SET DataSource = … ON widget` silently no-ops on a native DataGrid — reports success, passes the mxbuild gate, XPath never changes
+
+**Severity:** High — silent success, stale runtime behavior, surfaces only by testing the running app
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08-26, TFC-TCXGraphPOC-main, fixing a live security/behavior defect in a
+task-inbox page's DataGrid XPath
+**Reproducible:** yes, deterministic — reproduced twice in a row against the same page
+
+```
+ALTER PAGE TFC.TFC_MyTasks {
+  SET DataSource = DATABASE FROM System.WorkflowUserTask
+    WHERE [System.WorkflowUserTask_Assignees = '[%CurrentUser%]' or System.WorkflowUserTask_TargetUsers = '[%CurrentUser%]']
+          [State = 'InProgress']
+    SORT BY StartTime ASC
+} ON "dgMyTasks";
+→ "Altered page TFC.TFC_MyTasks"     (no error, exit 0)
+→ mxbuild: 0 errors                  (gate passes)
+```
+
+The DataGrid's actual persisted `DataSource` XPath **never changes**. `DESCRIBE PAGE` immediately
+after this exec still showed the pre-exec XPath verbatim. Confirmed twice, independently:
+
+1. Ran once to add a `TargetUsers` clause the grid was missing (it had `Assignees` only). Exec
+   reported success, gate passed. `DESCRIBE PAGE` on the resulting commit — via a scratch copy of
+   the `.mpr` extracted with `git show <commit>:TFC-TCXGraphPOC.mpr` into an isolated temp
+   directory, bypassing any running process, catalog cache, or working-tree state — showed the
+   `TargetUsers` clause **absent**.
+2. Ran again immediately after, this time to *remove* a different clause
+   (`.../WorkflowDefinition/Name = '...'`) that a live `SecurityRuntimeException` had traced to.
+   Same result: "Altered page", gate passed, and the same isolated-extraction check on that commit
+   showed the clause **still present**.
+
+Two consecutive silent no-ops on the identical widget, in the identical page, back to back — not a
+one-off. The live running app kept throwing the exact same `SecurityRuntimeException:
+No access rights for System$WorkflowDefinition/Name` after the "fix" that was supposed to remove
+that XPath clause, because the clause was never actually removed.
+
+**Distinct from [[BUG-84]]** (`SET DataSource = DATABASE Module.Entity` on a *DataView* silently
+**wipes** the datasource to nothing). This is a native **DataGrid**, the datasource *type* was
+never changing (`DATABASE System.WorkflowUserTask` before and after — only the WHERE clause
+differed), and the property **kept its old value** rather than being wiped. A different failure
+shape from the same family: `SET DataSource` on a widget's `WHERE` constraint appears to be a
+write that mxcli accepts syntactically, reports as applied, and passes structurally through
+mxbuild — but never actually reaches the persisted unit for at least the DataGrid case.
+
+**Workaround:** `CREATE OR REPLACE PAGE` for the whole page instead of `ALTER PAGE … SET
+DataSource` on a DataGrid. Verified reliable: the same page, entirely recreated with the corrected
+XPath, showed the correct value in `DESCRIBE PAGE` immediately after exec.
+
+**Process note:** this defect would have shipped silently if the fix hadn't been tested against
+the *running app* — `mx check`/mxbuild's "0 errors" and mxcli's own "Altered page" success message
+were both wrong signals, agreeing with each other and both wrong. Only clicking through the actual
+UI (twice, since the first re-test still showed the bug because the exec before it had *also*
+silently no-op'd) surfaced it. Recorded per this project's own `tool-output-is-not-ground-truth.md`
+discipline.

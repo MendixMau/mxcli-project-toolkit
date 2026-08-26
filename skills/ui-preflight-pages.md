@@ -119,6 +119,8 @@ For each widget group in your planned MDL, verify all four:
 | **Empty state** | Every grid/gallery has an empty-state message for the zero-result case — never renders nothing |
 | **Validation feedback** | Every form with a required/unique field surfaces a visible validation message on failed save (validation-message widget, or the form's own error display) — a save that fails silently (server rejects, UI shows nothing) is a P1, not a pass |
 | **Conditional visibility** | Any `visible:` expression on the widget is legal under the STOP table (safe on regular widgets; MCP-only inside `datagrid customContent` columns — BUG-18) |
+| **Class carrier** | Every `class:` value is on the widget its design-system entry names as the carrier. A class alone does not win the cascade: CONTAINER → a bare `<div>` with no competing rule, but ACTIONBUTTON carries Atlas's compound `.mx-button.btn` (0-2-0) which **beats a single class (0-1-0) and overrides it only partially** — background applies, `display`/`padding`/`font-size` do not. See `learned-stylegallery.md` → "The Mendix DOM contract" |
+| **Computed class names** | Every `DynamicClasses` expression's **complete output set** exists in the stylesheet. Work out every string the expression can emit and confirm each has a rule — one that does not fails silently, as an empty or unstyled element beside a caption asserting otherwise. Note: **Mendix `div` is float division** (`63 div 10 = 6.3`), so `(x div 10) * 10` does not bucket |
 
 If a wireframe element cannot be expressed in MDL at all (e.g. association-mode COMBOBOX, cross-module
 widget datasource, `DatagridDropdownFilter` in ref mode), flag it before drafting — note which STOP
@@ -161,3 +163,5 @@ If no wireframe existed, say so explicitly here. Never silently skip this block.
 | Required/unique field save fails with no visible message (silent 4xx/5xx) | Step 4 validation-feedback cross-check |
 | Page's distinct blocks read as one undifferentiated wall of text | Step 4 block-separation cross-check |
 | Page built with no title/header block; sections starting flush at 0px; per-page inline pixel spacing | Step 4 page-scaffold + spacing-rhythm cross-checks (`design-spacing.md`) |
+| Design-system class on an ACTIONBUTTON, half-overridden by Atlas — reads on screen as a layout bug in the component, not as a CSS problem | Step 4 class-carrier cross-check |
+| `DynamicClasses` names a class that does not exist; the element falls back to nothing and the page shows an empty bar/badge next to a caption claiming a value | Step 4 computed-class-name cross-check |

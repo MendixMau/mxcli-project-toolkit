@@ -158,6 +158,41 @@ This step makes the design system testable inside the real Atlas cascade (catche
 standalone HTML cannot) and produces reusable snippets the build loop can call from production
 pages directly.
 
+### 5b is a GATE, not a step, and the difference is the whole point
+
+A step is complete when the file is produced. A gate is complete when someone looked. **Producing
+the gallery module and never opening it is the failure mode this rule exists for** — and it is not
+hypothetical: on a 2026-08-26 field run the gallery module existed, contained exactly the three
+components that turned out to be broken, passed every check, and was **in no navigation profile and
+had no URL**. Unreachable in the running app. Loaded with the right ammunition, never fired. Wiring
+it into navigation and opening it surfaced four real defects in one pass, three of which had already
+survived a full module review.
+
+The gate is all four, and 3 and 4 are the ones projects skip:
+
+1. every token in `ds.css` has a matching class in the ported SCSS;
+2. the gallery module builds with 0 CE errors;
+3. the gallery home page is **in a navigation profile and granted to a role a demo user actually
+   holds** — check with `SHOW MODULE ROLES IN <GalleryModule>`, because a security script that was
+   drafted and never executed leaves every grant on the auto-created `.User` role, and then the
+   first attempt to screenshot the gallery silently measures whatever the demo user lands on
+   instead;
+4. **someone opened it and wrote down what they saw.**
+
+### Before you port a rule, check it can match Mendix's DOM
+
+Tokens port; rules may not. Run `bin/check-design-portability.sh` (installed by
+`sync-project.sh`) over `ds.css` before the SCSS port, not after. It checks three measured Mendix
+DOM facts — rem against the app's real root font size, selectors naming HTML elements Mendix never
+emits, and positional row selectors — and it exists because none of `mx check`, `mxcli check` or
+`mxcli lint` can see a stylesheet at all. See `learned-stylegallery.md` → "The Mendix DOM contract"
+for the facts behind each check.
+
+**The property that makes this worth gating: a design-system defect is dormant until some widget
+carries the class.** So the defects are all present from the first build and surface one at a time,
+much later, as UI work attaches classes to pages. "The build is green and the pages look fine" is
+not evidence that the design system is correct — it is evidence that it is not being exercised yet.
+
 ---
 
 ## Output of This Skill
@@ -202,3 +237,5 @@ mdlsource/gallery/
 - **Building the wireframe as a page count of routes.** Misses the dialogs/popups that are most of the real UI surface.
 - **Skipping the Step 3b scope crosscheck.** Wireframe-invented chrome (breadcrumbs, extra buttons, filter chips) ships with no requirement behind it — it renders but has no logic, and the gap surfaces mid-build instead of at spec time.
 - **Skipping the StyleGallery module.** Design system tokens go untested against the real Atlas cascade; no reusable snippet kit for the build loop.
+- **Building the StyleGallery and leaving it unreachable.** Strictly worse than skipping it: the artifact exists, so every checklist ticks, and the instrument that would have caught the defects is the thing nobody opened. See Step 5b's gate, items 3 and 4.
+- **Authoring `ds.css` in `rem`.** Atlas Core sets `html { font-size: 10px }`, so every `rem` renders at **62.5%** of a 16px-root design — a `1.6rem` KPI value paints at 16px, a `.75rem` badge at 7.5px. Nothing warns. Author component sizes in `px`; the app has one target platform whose root is fixed by a framework the project does not control, so the indirection buys nothing and hides a 1.6x error.

@@ -167,6 +167,73 @@ actual rendering context, not an isolated iframe.
 
 ---
 
+## The Mendix DOM contract — what your CSS is actually selecting
+
+Every fact here was measured with `getComputedStyle` in a running Mendix 11.13.0 app with Atlas
+Core, not inferred from reading source. They are the reason a design system's **tokens** port
+perfectly while its **rules** silently do not: the tokens are values, the rules are bets on HTML
+that Mendix may not emit.
+
+| Fact | Consequence for your stylesheet |
+|---|---|
+| `html { font-size: 10px }`, body 14px | Every `rem` renders at **62.5%** of a 16px-root design. Author component sizes in `px`. |
+| CONTAINER → a plain `<div>` | The only carrier with no competing Atlas rule. **Default choice for a design-system class.** |
+| DYNAMICTEXT → an inline `<span>` | A `.foo span` rule matches it *by accident* at 0-1-1 and beats the class-only `.foo-value` (0-1-0) it was meant to support. |
+| ACTIONBUTTON → `<button class="btn mx-button … btn-default">`, inline-block | Atlas's **compound** `.mx-button.btn` (0-2-0) beats any single class (0-1-0). Buttons and adjacent text share a line box — no margin fixes it; needs `display: block`. |
+| Listview row → wrapped in its own `div.mx-dataview > div.mx-dataview-content` | **Every row is `:nth-of-type(1)` in its own parent.** Row alternation must be driven from data via `DynamicClasses`. |
+| DataGrid2 → `role="grid"` `<div>`s | `table` / `th` / `td` / `tr` selectors match **nothing**. A whole responsive-table component can be unreachable. `Size` on a column is a flex weight, not pixels. |
+| `theme/web/main.scss` compiles **last** — after Atlas Core and every module theme source | Correct home for app-level styling; overrides Atlas with no `!important`. |
+| `theme/web/custom-variables.scss` is imported **once per module** | Declarations only. A CSS *rule* placed there is emitted once per module. |
+| Mendix `div` is **float** division: `63 div 10 = 6.3` | Bucketing with `(x div 10) * 10` does not bucket. Bites `DynamicClasses` expressions. |
+| Absent CSS and overridden CSS look **identical** in the browser | Never diagnose by squinting. `grep -c '<probe selector>' deployment/web/theme.compiled.css` tells you which one you have. |
+
+### Every class states its carrier
+
+**A class name does not say which widget carries it, and the wrong carrier fails *partially*, which
+is worse than failing completely.** Measured: the same `.opt` class on a CONTAINER rendered exactly
+as designed; on an ACTIONBUTTON, background, border and the `::before` chip still applied while
+`display`, `padding` and `font-size` did not — so the chip lost its flex context and stretched the
+full row width with the text pushed underneath. On screen that reads as a **layout bug in the
+component**, not as a stylesheet that lost the cascade, and it sends the reader to fix the wrong
+thing.
+
+So the component table gets one more column, and it is nearly free:
+
+> `.opt` — **carrier: CONTAINER** (a `<div>`). Not an ACTIONBUTTON: Atlas's `.mx-button.btn`
+> compound (0-2-0) outranks `.opt` (0-1-0) and overrides it partially.
+
+Three rules follow:
+
+- **Default to CONTAINER.** Reach for another carrier only when the widget's behaviour is needed.
+- **Any rule that sets `background` must also set `color`.** Inheriting text colour from an unknown
+  carrier is how a `.opt` with a pale-green background rendered white-on-pale-green — invisible —
+  the moment it landed on a `<button>` carrying Atlas's white button text.
+- **Add a degradation guard** so the wrong carrier fails visibly rather than half-applying:
+  `.mx-button.opt, button.opt { … }`.
+
+### The gallery must be a twin, not a lookalike
+
+**Instantiate each gallery component with the same widget the real pages use.** Look up each class
+in the real page sources first. A gallery that renders `.opt` on a CONTAINER while the pages render
+it on an ACTIONBUTTON does not just fail to catch the defect — it actively *hides* it, and reports a
+clean visual pass over a component that is broken everywhere it actually ships.
+
+### Enumerate every `DynamicClasses` output
+
+A computed class name is outside every contract the toolkit has: the expression is valid MDL, the
+class it names may not exist, and the element silently falls back — a `width: 0` bar sitting beside
+a caption reading "63% of answers correct". `mxcli check`, `mxcli lint` and `mx check` are all green.
+
+**A `DynamicClasses` expression whose output set is not enumerated in the stylesheet is an
+unreviewed contract.** Generate the full range:
+
+```scss
+// bar-w-0 … bar-w-100 — the complete set the DynamicClasses expression can emit
+@for $w from 0 through 100 { .bar-w-#{$w} { width: #{$w}#{'%'}; } }
+```
+
+---
+
 ## MDL File Structure and Exec Order
 
 Number files to express the required exec order:
@@ -292,8 +359,24 @@ rendered gallery home page** (via `module-review.md`'s LOOK stage) and confirm:
   used where a single-value binding was intended).
 - **Each component matches its `design-system.html` spec** — the gallery is the diff target.
 
+**Wire it into navigation as part of building it — the scaffold is not done without this.** Every
+gallery build ends with (a) a navigation entry in a profile, (b) a role grant, and (c) the skill
+stating **which demo user can see it**. A gallery with no menu entry and no URL is unreachable in
+the running app, and unreachable is indistinguishable from absent to everyone downstream. Check the
+grant landed on a real role, not the auto-created `.User`:
+
+```
+SHOW MODULE ROLES IN <GalleryModule>
+```
+
+Measured failure, 2026-08-26: the module was granted to an admin role, there *was* a demo user in
+that role, nobody knew, and the first attempt to screenshot the gallery silently measured the
+Dashboard instead — and reported on it.
+
 A gallery that was built but never visually verified is not a reference — it's an untested surface
-that silently propagates its own bugs into every page that copies from it.
+that silently propagates its own bugs into every page that copies from it. A gallery that was built
+and left unreachable is worse: every checklist ticks, and the one instrument that would have caught
+the defects is the thing nobody opened.
 
 ## Output
 

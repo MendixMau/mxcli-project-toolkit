@@ -35,6 +35,78 @@ Not for building anything new — that's `conversion-runbook.md` (pick an entry 
 
 **Deliverable:** a findings report (markdown or HTML — reuse `toolkit-guide.html`'s tokens), each finding with evidence (the query/lint output) and a proposed disposition: fix now / log / accept. Triage the list *with the user* — dispositions are their call.
 
+## Track A2 — Audit the design system (bounded: an afternoon, not a re-design)
+
+Track A audits the model. **Nothing in it looks at CSS, because CSS is not in the model** — and a
+design system ported into Mendix is where a specific, uniform, invisible class of defect lives: the
+tokens port perfectly, the *rules* may be selecting HTML that Mendix never emits. Every instrument
+in Track A stays green through all of it. Run these nine steps in this order; they are ordered by
+findings per hour.
+
+**1. Measure the root font size, before anything else.** One line, and it tells you whether the
+whole app is uniformly mis-sized:
+
+```bash
+grep -oE 'html\{font-size:[^;}]+' deployment/web/theme.compiled.css | head -1
+grep -cE '[0-9.]+rem' design/ds.css      # or the app's SCSS partial
+```
+
+Atlas Core sets `html { font-size: 10px }`. If the root is 10px and the stylesheet uses `rem`,
+**every** rem-sized element in the app renders at **62.5%** of intent. Fix it once, at the
+stylesheet, in `px`. Do not touch pages.
+
+**2. Prove the stylesheet is compiled at all.** Absent CSS and overridden CSS look *identical* in
+the browser, and only one of them is a specificity problem:
+
+```bash
+grep -c '<a probe selector from your partial>' deployment/web/theme.compiled.css
+```
+
+The app-level partial belongs in `theme/web/main.scss`, which compiles **last** — after Atlas Core
+and every module theme source — so it overrides Atlas with no `!important`.
+
+**3. Build or wire up the StyleGallery, even retroactively.** If the module exists, put it in a
+navigation profile and grant it to a role a demo user holds. If it does not, build one page with one
+instance of each component. **This is the highest-yield hour in the whole procedure** — it renders
+every component at once, in the real cascade, on one screen.
+
+**4. Instantiate each gallery component with the widget the real pages use.** Look each class up in
+the page sources first. A gallery built with a different widget *hides* the carrier defect rather
+than exposing it, and then reports a clean pass.
+
+**5. Open it, screenshot it, and probe rather than squint.** Per component, three questions: is the
+font size what was intended; did the rule apply **fully or partially**; does the element carrying
+the class match the contract?
+
+```js
+const el = document.querySelector('.your-class');
+({ tag: el.tagName, cls: el.className, ...getComputedStyle(el) })
+```
+
+**6. Grep the stylesheet for element-coupled selectors and delete or rewrite them.** `b`, `i`,
+`table`, `th`, `td`, `tr`, `thead`, `ul`, `li`. Each is either dead (harmless but misleading) or —
+worse — matching by accident and outranking the class it was meant to support. `bin/check-design-portability.sh`
+does this and the two checks above it in one command.
+
+**7. Enumerate every `DynamicClasses` output.** Search the model for `DynamicClasses` expressions,
+work out the full output set, and confirm every member has a rule. This is the one that produces
+silently-empty UI. Watch the arithmetic: **Mendix `div` is float division.**
+
+**8. Audit the shared aggregators.** For each microflow that scripts drop and recreate — after-startup
+chains, seed aggregators, navigation profiles — `describe` it and check the call list against what
+each script intended to add. Then verify the effect **in the database, not in the model**: an
+uncalled microflow is legal, so `mx check` will not tell you.
+
+**9. Record every fix in the design system, not just the app.** A fix that lands only in the compiled
+SCSS drifts from `ds.css`, and the next project inherits the original defect. Both files, same commit.
+This is the mechanism by which a fixed project still ships a broken toolkit.
+
+**Do not "fix" the wireframes.** Moving them to Atlas class names is the obvious hypothesis and the
+evidence is against it: a wireframe is a spec for a human and a diff target for a screenshot, not a
+source file. Atlas names would make it unrenderable standalone, couple the spec to an Atlas version,
+and catch none of the defects above — which live in units, selectors, computed names, widget carriers
+and script hygiene, not in class naming.
+
 ## Track B — Regression / e2e test net
 
 1. Stand up the harness per `e2e-harness-base.md` (Playwright + demo user + app-start discipline).

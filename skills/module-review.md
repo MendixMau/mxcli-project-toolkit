@@ -44,6 +44,25 @@ costs attention. Budget for it; do not let a green stage 3 buy an exemption from
 
 ## Stage 4 — the intelligence check
 
+### 4a-0. Look at the StyleGallery FIRST, before any page in 4a's set
+
+If the app has a StyleGallery, it is the first screen you open, not the last. It is the only page
+where **every component appears at once, in the real Atlas cascade**, which gives it the highest
+defect yield per screenshot of any page in the app — and a defect found there is *one* defect, while
+the same defect found page by page is one per page, each diagnosed separately and usually wrongly.
+
+Measured on a 2026-08-26 field run: one look at a gallery that had never been opened surfaced, in
+order, a badge rendering at 7.5px instead of 12px (a stylesheet-wide unit error), a component
+rendering as a full-width bar with its text underneath (a class on the wrong widget carrier),
+white-on-pale-green text (a rule that set `background` and inherited `color`), and a table reading
+"0 to 0 of 0" that led back to a seed microflow silently regressed three scripts earlier. Three of
+the four were invisible to `mx check`, `mxcli lint` and the wireframe comparison, and all four had
+already survived a full module review.
+
+**If the gallery has no navigation entry, that is finding number one** — record it, wire it, then
+look. A gallery that exists and is unreachable is why this rung is stated as an order and not a
+suggestion; see `design-artifacts.md` Step 5b and `learned-stylegallery.md`.
+
 ### 4a. The page set is every page in the module, not the pages a test visited
 
 Derive it from the model, not from the journeys:

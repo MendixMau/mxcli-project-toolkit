@@ -104,6 +104,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires | `skills/design-spacing.md` | mdl,review | 5 | baseline |
 | After every page-building script, and any time the UI looks wrong — the cheap repeatable look during the build: one page, one screenshot, three questions. Feeds Gate: UI, never replaces it | `skills/ui-loop.md` | mdl,review | 5 | baseline |
 | Building or using the in-app design gallery | `skills/learned-stylegallery.md` | mdl | 5 | baseline |
+| Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS | `project-bin/check-design-portability.sh` | architect,mdl,gate | 3,5 | ondemand |
 | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` | architect | 3 | ondemand |
 
 #### Build — the loop itself
@@ -174,7 +175,6 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Tracking scope delta between the BRD and the built state | `skills/learned-skill-scope-delta.md` | review | 6 | ondemand |
 | Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer | `skills/report-schema.md` | test,review,gate | 5,6 | ondemand |
 | Installing, extending, debugging or porting the verification harness — which part owns what, which parts run standalone, and what a missing part must report | `skills/harness-architecture.md` | test,review | 5,6 | ondemand |
-| A user asks for "a full end-to-end test," "does everything work," or a click-through proof — before running anything, or if a prior pass turns out to have covered one module and gotten called e2e | `skills/full-harness-audit.md` | test,review | 5,6 | ondemand |
 | Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss | `skills/process-coherence-pass.md` | review | 5,6 | ondemand |
 | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory | `project-bin/coherence-cadence.sh` | mdl,gate,review | 5,6 | ondemand |
 | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything | `skills/e2e-evidence-report.md` | test,review | 6 | ondemand |

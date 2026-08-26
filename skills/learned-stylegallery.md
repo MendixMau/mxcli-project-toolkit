@@ -186,6 +186,7 @@ that Mendix may not emit.
 | `theme/web/custom-variables.scss` is imported **once per module** | Declarations only. A CSS *rule* placed there is emitted once per module. |
 | Mendix `div` is **float** division: `63 div 10 = 6.3` | Bucketing with `(x div 10) * 10` does not bucket. Bites `DynamicClasses` expressions. |
 | Absent CSS and overridden CSS look **identical** in the browser | Never diagnose by squinting. `grep -c '<probe selector>' deployment/web/theme.compiled.css` tells you which one you have. |
+| **`DROP MODULE` is a model operation and removes no CSS at all** | `theme/web/*.scss` is app-level and survives every drop, wholesale. So a project that "reset to a clean slate" still has its old styling on the page, and the rebuild either ports the same component twice under two class names or writes a class that *appears* to work because the old rule is still painting it. After any reset, decide per file — keep as the baseline, or archive and re-port — and say which. `themesource/<Module>/web/main.scss` survives too; it is usually a two-line `@import` stub, but a StyleGallery module's real SCSS lives at exactly that path, so read it before deleting. |
 
 ### Every class states its carrier
 

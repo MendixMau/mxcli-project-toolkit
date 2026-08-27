@@ -105,8 +105,20 @@ function score(wf, mdl) {
   const hit = txt => { const w = words(txt); return w.length ? w.filter(x => corpus.includes(x)).length / w.length >= 0.6 : true; };
   const dim = arr => ({ n: arr.length, ok: arr.filter(hit).length, miss: arr.filter(x => !hit(x)) });
   const h = dim(wf.headings), b = dim(wf.buttons), k = dim(wf.blocks);
-  const cMiss = wf.classes.filter(c => !cls.has(c));
-  const c = { n: wf.classes.length, ok: wf.classes.length - cMiss.length, miss: cMiss };
+  // Platform-supplied classes are not the page's to declare, so they leave the
+  // denominator — REPORTED, never silently dropped (see the printout below):
+  //   * on a popup layout, the dialog frame (dialog/dialog-head/-body/-foot) is
+  //     rendered by the layout; a page that restated it would be duplicating
+  //     chrome (learned-page-patterns.md, "Never Duplicate the Chrome Title").
+  //   * a wireframe's <label>/<input> pair IS the MDL textbox widget — the widget
+  //     emits both elements itself, so a textbox on the page satisfies them.
+  const popup = /Layout:\s*[^,)\n]*Popup/i.test(mdl);
+  const chromeSet = new Set(popup ? ['dialog', 'dialog-head', 'dialog-body', 'dialog-foot'] : []);
+  const intrinsic = new Set(/\btextbox\b/i.test(mdl) ? ['label', 'input'] : []);
+  const scoredCls = wf.classes.filter(x => !chromeSet.has(x));
+  const cMiss = scoredCls.filter(x => !cls.has(x) && !intrinsic.has(x));
+  const c = { n: scoredCls.length, ok: scoredCls.length - cMiss.length, miss: cMiss,
+              chrome: wf.classes.filter(x => chromeSet.has(x)) };
   const parts = [[h, .25], [b, .30], [k, .25], [c, .20]];
   let num = 0, den = 0;
   for (const [d, w] of parts) if (d.n) { num += w * (d.ok / d.n); den += w; }
@@ -123,3 +135,4 @@ const miss = [...s.h.miss.map(x => 'heading: ' + x), ...s.b.miss.map(x => 'actio
               ...s.k.miss.map(x => 'content: ' + x.slice(0, 78)),
               ...(s.c.miss.length ? ['classes: ' + s.c.miss.join(' ')] : [])];
 if (miss.length) console.log('  missed:\n  ' + miss.join('\n  '));
+if (s.c.chrome.length) console.log('  chrome (layout-supplied, not scored): ' + s.c.chrome.join(' '));

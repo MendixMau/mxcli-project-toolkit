@@ -18,7 +18,9 @@ Not needed for pure microflow/domain/security scripts.
 
 ---
 
-## The Four Steps (all mandatory, in order)
+## The Five Steps (all mandatory, in order)
+
+Steps 1–4 are judgement; Step 5 is the mechanical check that judgement alone was measured to miss.
 
 ### Step 1 — Read the wireframe
 
@@ -128,6 +130,37 @@ rule applies and that MCP will handle it as a follow-up.
 
 ---
 
+### Step 5 — Run the shell check before you exec (mechanical, seconds)
+
+Steps 1–4 are judgement and they are the substance. This step is the part a script can
+settle, and it exists because **judgement performed correctly still shipped the wrong
+shell on ten pages out of ten**:
+
+```
+bin/check-page-shell.sh mdlsource/<your-page-script>.mdl
+```
+
+It compares the drafted MDL against the wireframe on the three things the wireframe
+states unambiguously — the page column, the layout/nav shell, one `RenderMode: H1` —
+and exits non-zero on a mismatch. Run it **before** `bin/exec.sh`, alongside
+`mxcli check`; it reads files only, so it needs no app, no Studio Pro, and no
+screenshot, and it runs in a cloud/mobile session where the rest of Gate: UI cannot.
+
+**Measured, ToeicBuddy field run 2026-08-25/26** (`process/first-build-page-fidelity-2026-08-27.md`):
+first-build fidelity across 10 pages was **32% median** against a target of 80%. All 14
+wireframes declared a 900px page column and **0 of 10** pages capped their width — repaired
+wholesale at script 67, fifty-five scripts later, after rendering at 1360px. All 10 were
+built on a sidebar layout against wireframes drawing a top bar — repaired at script 20.
+The script's header carries the full evidence for each check.
+
+The build script that produced those pages **cited this file's Step 3 by name**. That is
+the point: the pre-flight was run, and its output was a paragraph nobody could fail. A
+shell defect is uniform across every page built the same way, so no page stands out as a
+diff and per-page review does not surface it — which is exactly what a mechanical check
+is for, and exactly what human judgement is worst at.
+
+---
+
 ## Report-back format
 
 When you report the completed script back to the main session, include a **UI cross-reference block**:
@@ -141,7 +174,10 @@ UI cross-reference:
   Reuse skipped:    <any existing gallery component deliberately NOT used, with reason — or "none">
   Empty states:     <every grid/gallery on the page has a zero-result message: yes/no>
   Gaps / MCP fallbacks: <any element flagged as STOP, or "none">
+  Shell check:      bin/check-page-shell.sh — <N page(s), N violation(s)> [or: NOT RUN, and why]
 ```
+
+**The shell-check line is the one row in this block with a denominator, and it is not optional.** Every other line is a claim the author grades themselves; that is what made this block unfalsifiable, and a block nobody can fail is not a check. `NOT RUN` is a legal value — silence is not.
 
 If no wireframe existed, say so explicitly here. Never silently skip this block.
 
@@ -162,6 +198,7 @@ If no wireframe existed, say so explicitly here. Never silently skip this block.
 | Grid/gallery renders nothing on zero results | Step 4 empty-state cross-check |
 | Required/unique field save fails with no visible message (silent 4xx/5xx) | Step 4 validation-feedback cross-check |
 | Page's distinct blocks read as one undifferentiated wall of text | Step 4 block-separation cross-check |
+| Page built full-bleed against a wireframe that draws a fixed page column; a sidebar layout against a wireframe drawing a top bar — uniform across every page, so no page reads as the odd one out | Step 5 shell check (`0/10` on the run that produced this row) |
 | Page built with no title/header block; sections starting flush at 0px; per-page inline pixel spacing | Step 4 page-scaffold + spacing-rhythm cross-checks (`design-spacing.md`) |
 | Design-system class on an ACTIONBUTTON, half-overridden by Atlas — reads on screen as a layout bug in the component, not as a CSS problem | Step 4 class-carrier cross-check |
 | `DynamicClasses` names a class that does not exist; the element falls back to nothing and the page shows an empty bar/badge next to a caption claiming a value | Step 4 computed-class-name cross-check |

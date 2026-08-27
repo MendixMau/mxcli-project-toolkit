@@ -91,7 +91,7 @@ for f in $TARGETS; do
 
     case "$txt" in *page-shell-ok:*) continue ;; esac
 
-    page="$(printf '%s' "$txt" | sed -E 's/.*PAGE[[:space:]]+"?[A-Za-z0-9_]+"?\."?([A-Za-z0-9_]+)"?.*/\1/')"
+    page="$(printf '%s' "$txt" | sed -E 's/.*[Pp][Aa][Gg][Ee][[:space:]]+"?[A-Za-z0-9_]+"?\."?([A-Za-z0-9_]+)"?.*/\1/')"
     [ -n "$page" ] || continue
 
     wf="$WF_DIR/$page.html"
@@ -151,11 +151,18 @@ for f in $TARGETS; do
         'design-spacing.md §3: exactly one H1 per full page. A second one is usually a section heading that should be H2.'
     fi
 
-    # `--` is an MDL comment. Script 12's own header narrates "CREATE OR MODIFY PAGE" in
-    # prose four times; matching those invents four pages that do not exist and reports a
-    # missing wireframe for each. A finding that cries wolf gets the script switched off.
+    # `--` is an MDL comment; a leading `*` is a `/* ... */` block-comment continuation line
+    # (this project's own doc-comment style, e.g. "* BUILD-LOG 08-07 ... CREATE OR MODIFY
+    # PAGE re-specifies the whole page"). Script 12's own header narrates "CREATE OR MODIFY
+    # PAGE" in prose four times; matching those invents pages that do not exist and reports
+    # a missing wireframe for each. A finding that cries wolf gets the script switched off.
+    #
+    # MDL itself is case-insensitive (`create or replace page` and `CREATE OR MODIFY PAGE`
+    # are the same statement) — matching CREATE/PAGE case-sensitively silently skipped every
+    # lowercase declaration in this project's own build scripts (done-09-productnumbers-
+    # pages.mdl among them), reporting "no page declaration found" instead of scanning them.
   done <<EOF
-$(grep -nE 'CREATE([[:space:]]+OR[[:space:]]+(MODIFY|REPLACE))?[[:space:]]+PAGE[[:space:]]' "$f" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*--')
+$(grep -inE 'CREATE([[:space:]]+OR[[:space:]]+(MODIFY|REPLACE))?[[:space:]]+PAGE[[:space:]]' "$f" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*(--|\*)')
 EOF
 done
 

@@ -112,3 +112,19 @@ you have before acting on it.
 - `design-spacing.md` — the spacing scale and page scaffold this loop judges against.
 - `ui-review-loop.md` — tombstone. Read it before proposing to merge this file into
   `module-review.md`; it explains what merging cost last time, and why cadence is the difference.
+- **Mechanical instruments that run alongside the eyeball look, added 2026-08-25/26 from a
+  second field run** (a `rem`-vs-10px-root defect family this loop's own "look at it" step
+  cannot see by eye — a 1.6× size error reads as merely "a bit small," not as broken):
+  - `project-bin/check-design-portability.sh` — greps `ds.css`/theme for units and selectors
+    that cannot match what Mendix emits (`rem` against the real root, `table`/`th`/`td`
+    selectors, positional `nth-child` rows). Run before porting, and at the Stage-3 gate.
+  - `project-bin/check-page-shell.sh` — a binary gate on the page shell (column, layout/nav,
+    one H1) against the wireframe, before `exec`.
+  - `project-bin/page-fidelity.js` — the scored companion: headings/actions/content/classes
+    against the wireframe, weighted. Run it after drafting and again after `exec`.
+  - `learned-stylegallery.md` § "The Mendix DOM contract" and § "Every class states its
+    carrier" — the same class can render correctly on one widget and half-apply on another
+    (Atlas's compound selectors on `ACTIONBUTTON` beat a single design-system class); state
+    the intended carrier in the component table, don't assume it.
+  None of these replace the look — a portability check cannot tell you a heading is missing,
+  and this loop cannot tell you a `rem` is 62.5% of what was authored. Run both.

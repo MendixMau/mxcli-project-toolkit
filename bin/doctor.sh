@@ -289,6 +289,36 @@ else
 fi
 note "e2e additionally needs a Playwright browser in the project: npx playwright install chromium"
 
+# --- self-verification (docker) -------------------------------------------------------------
+
+head_ "Self-verification stack (Docker — recommended)"
+
+# With Docker, the loop closes without a human: after a build the agent runs a Linux build of
+# the app, brings up Postgres + the app (project-bin/test-stack-up.sh), drives it with
+# Playwright, screenshots the pages, and verifies its own work — nobody has to open Studio
+# Pro to find out whether a page renders. Without Docker the mxbuild gate still verifies the
+# MODEL, but nothing verifies the RUNNING APP unless a human does. Recommended, never
+# required — hence WARN, not FAIL.
+if command -v docker >/dev/null 2>&1; then
+  if docker info >/dev/null 2>&1; then
+    ok "docker daemon responding — mxcli docker check + test-stack-up.sh (app up, e2e, screenshots) available"
+  else
+    warn "docker is installed but the daemon is not responding."
+    note "Start Docker Desktop (or colima / Rancher Desktop). Until it runs: no app container,"
+    note "no throwaway Postgres, no agent-driven e2e/screenshots."
+  fi
+else
+  warn "docker is not installed — recommended for new builders."
+  note "It is what lets the agent verify its own build: 'mxcli docker check' (deep model+build"
+  note "verification) and project-bin/test-stack-up.sh (Postgres + the app up, Playwright e2e,"
+  note "page screenshots) both need it. Without it, only mxbuild verifies the model and a human"
+  note "must open Studio Pro to see whether anything actually renders."
+  note "No-Docker fallback for just running the app: 'mxcli run --local' against a native"
+  note "PostgreSQL (host:PORT)."
+  note "Corporate machines: Docker Desktop needs a paid licence at larger companies — Rancher"
+  note "Desktop or Podman (docker-CLI compatible) and colima (macOS) are common substitutes."
+fi
+
 # --- spawn speed (git bash) -----------------------------------------------------------------
 
 # gate-check.sh + the obligation check fork over a thousand subprocesses per run. On a healthy

@@ -620,6 +620,9 @@ if [ -f "$GUIDE" ] && [ -z "${MXTK_NO_GUIDE:-}" ] && [ ! -e "$GUIDE_SENTINEL" ];
 fi
 echo ""
 echo "Next steps (not done by this script):"
+echo "  - Machine preflight: bin/doctor.sh '$PROJECT_DIR' — once per machine, BEFORE the first"
+echo "    model write. It says whether mxbuild/java actually run here; without them every exec"
+echo "    is silently unverified (gate=skipped) and consistency errors are never captured."
 echo "  - Complete each agent stub's {{PLACEHOLDER}}s per skills/agent-roles.md when its stage"
 echo "    starts (ba/architect at Stage P kickoff, mdl/gate/test at Stage 5). Stubs refuse to"
 echo "    run until completed, so a half-setup fails loudly instead of silently."

@@ -171,6 +171,173 @@ case "$PLATFORM" in
     ;;
 esac
 
+# --- build toolchain -----------------------------------------------------------------------
+
+head_ "Build toolchain (mxbuild model verification)"
+
+# WHY THIS SECTION EXISTS. exec.sh verifies every model write with mxbuild. When mxbuild or
+# its Java cannot be resolved, the gate does not fail — it reports `skipped` and the exec goes
+# through UNVERIFIED. Real incident (Windows training round, 2026-08): machines where mxbuild
+# could not run went whole exercises without a single consistency error being captured,
+# because nobody reads a skip as a problem. This section answers, before any work starts,
+# the one question that decided that: will the mxbuild gate actually run on this machine?
+#
+# Discovery is deliberately the SAME code exec.sh uses (project-bin/_common.sh), so a green
+# line here predicts the gate's behaviour instead of approximating it.
+
+# _common.sh resolves PROJECT_ROOT by walking up from $PWD when unset; pin it first so
+# sourcing it from an arbitrary directory stays inert. (It also redefines resolve_py with its
+# project-side twin — harmless, the Python probe above already ran.)
+PROJECT_ROOT="${PROJECT_DIR:-$TOOLKIT_ROOT}"
+# shellcheck disable=SC1091
+. "$TOOLKIT_ROOT/project-bin/_common.sh"
+
+SP_APP="$(find_sp_app 2>/dev/null || true)"
+MXBUILD="$(find_mxbuild 2>/dev/null || true)"
+JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
+JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
+
+GATE_OK=1
+
+# Studio Pro install (the root mxbuild and the bundled JRE are discovered under).
+if [ -n "$SP_APP" ]; then
+  ok "Studio Pro install: $SP_APP"
+elif [ "$PLATFORM" = linux ]; then
+  warn "no Studio Pro install (none exists for Linux)."
+  note "If you have a standalone mxbuild, point at it: MXBUILD_PATH=/path/to/mxbuild."
+else
+  bad "no Studio Pro install found — mxbuild and its bundled Java live inside it."
+  note "Install Mendix Studio Pro, or point past the discovery:"
+  note "  MENDIX_APP=<install root>   (macOS: /Applications/Mendix Studio Pro X.Y.Z.app,"
+  note "                               Windows: C:/Program Files/Mendix/X.Y.Z)"
+  note "  MXBUILD_PATH=<mxbuild binary>   JAVA_HOME=<jdk/jre root>"
+fi
+
+# mxbuild: present, executable, AND RUNS. Presence alone has lied before — a wrong-platform
+# binary sits at the right path, exits 126 on invocation, and a careless reading of "0 errors
+# reported" becomes a false green. Execute it and read the exit code.
+if [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ]; then
+  MXB_EXIT=0
+  MXB_OUT="$("$MXBUILD" --version 2>&1)" || MXB_EXIT=$?
+  if [ "$MXB_EXIT" -eq 0 ]; then
+    ok "mxbuild runs: $(printf '%s' "$MXB_OUT" | head -1)  ($MXBUILD)"
+  else
+    GATE_OK=0
+    bad "mxbuild exists but cannot run (exit $MXB_EXIT): $MXBUILD"
+    printf '%s\n' "$MXB_OUT" | grep -v '^[[:space:]]*$' | head -3 | while IFS= read -r l; do note "  $l"; done
+    note "Exit 126 usually means a binary built for another platform/architecture."
+  fi
+else
+  GATE_OK=0
+  if [ "$PLATFORM" = linux ]; then
+    warn "mxbuild not found/executable: ${MXBUILD:-<none>}   (set MXBUILD_PATH=)"
+  else
+    bad "mxbuild not found/executable: ${MXBUILD:-<none>}   (set MXBUILD_PATH=)"
+  fi
+fi
+
+# Java: mxbuild is invoked with an explicit --java-exe-path; if none resolves, the gate skips.
+if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
+  # -version writes to stderr, and wrappers can prepend noise (JAVA_TOOL_OPTIONS pickup
+  # lines); take the line that actually names a version, not merely the first.
+  JV="$("$JAVA_EXE" -version 2>&1 | grep -i 'version' | head -1)" || JV=""
+  if [ -n "$JV" ]; then
+    ok "java runs: $JV  ($JAVA_EXE)"
+  else
+    GATE_OK=0
+    bad "java exists but produced no version output: $JAVA_EXE"
+  fi
+else
+  GATE_OK=0
+  if [ "$PLATFORM" = linux ] && [ -z "$SP_APP" ]; then
+    warn "java not found (looked for JAVA_HOME, Studio Pro's bundled JRE, then PATH)."
+  else
+    bad "java not found/executable: ${JAVA_EXE:-<none>}"
+    note "Studio Pro ships its own JRE and that is the preferred one; if discovery missed it,"
+    note "set JAVA_HOME=<jdk/jre root> explicitly."
+  fi
+fi
+
+if [ "$GATE_OK" -eq 1 ] && [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ]; then
+  ok "exec.sh mxbuild gate WILL RUN on this machine — model writes get verified."
+else
+  # Same fact, platform-matched severity: on Linux there is no Studio Pro to install, so a
+  # skipping gate is expected (WARN) unless the user provides a standalone mxbuild. On the
+  # platforms Studio Pro runs on, a skipping gate is the training-round failure itself.
+  if [ "$PLATFORM" = linux ] && [ -z "$SP_APP" ] && [ -z "${MXBUILD_PATH:-}" ]; then
+    warn "exec.sh mxbuild gate WILL BE SKIPPED on this machine."
+  else
+    bad "exec.sh mxbuild gate WILL BE SKIPPED on this machine. Fix the FAIL lines above"
+    note "before writing to any model from this machine."
+  fi
+  note "Every MDL exec here will report gate=skipped and go through UNVERIFIED: consistency"
+  note "errors (CE) are never captured, and BSON corruption — which mxbuild is the only"
+  note "reliable detector for — reaches Studio Pro undetected."
+fi
+
+# --- node -----------------------------------------------------------------------------------
+
+head_ "Node.js (pipelines, page fidelity, e2e)"
+
+NODE_V="$(node --version 2>/dev/null)" || NODE_V=""
+if [ -n "$NODE_V" ]; then
+  ok "node $NODE_V"
+else
+  warn "node is missing. Needed by the extraction pipelines (npm install per pipeline),"
+  note "project-bin/page-fidelity.js, and Playwright e2e (project-bin/test-stack-up.sh)."
+  note "Not needed for a pure MDL-writing session."
+fi
+note "e2e additionally needs a Playwright browser in the project: npx playwright install chromium"
+
+# --- spawn speed (git bash) -----------------------------------------------------------------
+
+# gate-check.sh + the obligation check fork over a thousand subprocesses per run. On a healthy
+# machine a fork is ~1-3 ms and the run takes seconds; observed on a managed Windows laptop:
+# 152 ms per fork, which turns the same run into a 5-15 minute "hang" (see the header of
+# bin/lib/obligation-check.sh). Measure it once here so slow reads as "this machine", not
+# "the toolkit is broken".
+if [ "$PLATFORM" = gitbash ]; then
+  head_ "Process spawn speed"
+  T0="$(date +%s%N 2>/dev/null || echo x)"
+  case "$T0" in
+    *[!0-9]*) note "cannot measure spawn speed (no nanosecond clock in this date)" ;;
+    *)
+      i=0
+      while [ "$i" -lt 25 ]; do _="$(true)"; i=$((i + 1)); done
+      T1="$(date +%s%N)"
+      MS_PER_FORK=$(( (T1 - T0) / 25 / 1000000 ))
+      if [ "$MS_PER_FORK" -le 40 ]; then
+        ok "~${MS_PER_FORK} ms per subprocess — gate-check will run in normal time"
+      else
+        warn "~${MS_PER_FORK} ms per subprocess — gate-check.sh will feel HUNG (minutes, not seconds)."
+        note "The usual causes, in order:"
+        note "  - Windows Defender real-time scanning every process start. Ask IT to exclude"
+        note "    the Git Bash install directory and this repo's folder."
+        note "  - The repo living under OneDrive/Dropbox (every file touch syncs)."
+        note "  - Corporate endpoint agents hooking process creation."
+      fi
+      ;;
+  esac
+fi
+
+# --- path hygiene ---------------------------------------------------------------------------
+
+for p in "$TOOLKIT_ROOT" "${PROJECT_DIR:+$PROJECT_DIR}"; do
+  [ -n "$p" ] || continue
+  case "$p" in
+    *OneDrive*|*onedrive*)
+      head_ "Path hygiene"
+      warn "$p is under OneDrive. Sync fights every model write and slows every script;"
+      note "move the folder outside OneDrive." ;;
+  esac
+  case "$p" in
+    *" "*)
+      warn "path contains a space: $p"
+      note "Most toolkit scripts quote correctly, but tooling invoked underneath (npm, java"
+      note "launchers) has a long history of not doing so. A space-free path avoids the class." ;;
+  esac
+done
+
 # --- project ------------------------------------------------------------------------------
 
 if [ -n "$PROJECT_DIR" ]; then
@@ -182,7 +349,18 @@ if [ -n "$PROJECT_DIR" ]; then
       || warn "no CLAUDE.local.md — run bin/init-project.sh '$PROJECT_DIR'"
     MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
     [ -n "$MPR" ] && ok "model: $(basename "$MPR")" || warn "no .mpr found in the project root"
-    if [ -x "$PROJECT_DIR/mxcli" ]; then ok "mxcli present and executable"
+    if [ -x "$PROJECT_DIR/mxcli" ]; then
+      # Present is not enough — a wrong-platform binary is present, executable, and exits 126.
+      MXCLI_EXIT=0
+      MXCLI_OUT="$(cd "$PROJECT_DIR" && ./mxcli --version 2>&1)" || MXCLI_EXIT=$?
+      if [ "$MXCLI_EXIT" -eq 0 ]; then
+        ok "mxcli runs: $(printf '%s' "$MXCLI_OUT" | head -1)"
+      else
+        bad "mxcli exists but cannot run (exit $MXCLI_EXIT)"
+        printf '%s\n' "$MXCLI_OUT" | grep -v '^[[:space:]]*$' | head -3 | while IFS= read -r l; do note "  $l"; done
+        note "Exit 126 usually means a binary built for another platform/architecture —"
+        note "re-download the mxcli build for this OS."
+      fi
     elif [ -f "$PROJECT_DIR/mxcli" ]; then bad "mxcli is present but not executable — chmod +x mxcli"
     else warn "no mxcli in the project root"; fi
   fi
@@ -191,6 +369,19 @@ fi
 # --- verdict ---------------------------------------------------------------------------------
 
 head_ "Verdict"
+
+# Leave a dated receipt in the project so gate-check can tell "doctor ran and passed" from
+# "nobody ever ran doctor here". Informational only — nothing gates on it, because a machine
+# check must never turn into a stage verdict.
+if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
+  if [ "$FAIL" -gt 0 ]; then RECEIPT_VERDICT=fail
+  elif [ "$WARN" -gt 0 ]; then RECEIPT_VERDICT=warn
+  else RECEIPT_VERDICT=ok; fi
+  mkdir -p "$PROJECT_DIR/.claude" 2>/dev/null || true
+  printf '%s %s fail=%s warn=%s\n' "$(date '+%Y-%m-%d %H:%M')" "$RECEIPT_VERDICT" "$FAIL" "$WARN" \
+    > "$PROJECT_DIR/.claude/.doctor-receipt" 2>/dev/null || true
+fi
+
 if [ "$FAIL" -gt 0 ]; then
   printf '  %s problem(s) that will break a pipeline stage, %s warning(s).\n' "$FAIL" "$WARN"
   printf '  Fix the FAIL lines above before running anything else.\n'

@@ -123,6 +123,23 @@ case "$REQUESTED_STAGE" in
     ;;
 esac
 
+# Machine preflight receipt — informational only, on full runs only (stage queries run inside
+# agent loops and hooks and must stay quiet). bin/doctor.sh writes the receipt; a missing one
+# means nobody ever checked whether the mxbuild gate can even run on this machine, which is
+# how a Windows training round shipped unverified model writes for a whole exercise. This
+# line never affects a verdict or an exit code: a machine check is not a stage gate.
+if [ -z "$REQUESTED_STAGE" ]; then
+  _DOCTOR_RECEIPT="$PROJECT_DIR/.claude/.doctor-receipt"
+  if [ -f "$_DOCTOR_RECEIPT" ]; then
+    case "$(cat "$_DOCTOR_RECEIPT" 2>/dev/null)" in
+      *" fail="[1-9]*) echo "note: last bin/doctor.sh run on this machine reported FAILures ($(cat "$_DOCTOR_RECEIPT")) — re-run it and fix them; the mxbuild gate may be silently skipping." ;;
+    esac
+  else
+    echo "note: bin/doctor.sh has never been run against this project on this machine. Run it once —"
+    echo "      it says up front whether mxbuild/java work here (i.e. whether execs get verified at all)."
+  fi
+fi
+
 # --waive also accepts an OBLIGATION target (bin/lib/obligations.tsv): `look/Orders` for one
 # module, `sweep` for every module. Same flag, same mandatory --reason, same register — a second
 # waiver vocabulary would be a second place to look and a second thing to keep in step.

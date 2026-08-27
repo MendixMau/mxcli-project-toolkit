@@ -934,7 +934,7 @@ has_confirmed_decision() {
         # "CONFIRMED 2026-07-21" — status plus an inline date in one cell — and the
         # string-exact test reported "no Stage-3/Stage-4 CONFIRMED decision" over a
         # register holding eight of them (TFC-TCXGraphPOC, logged there as TD-07).
-        # The project's own response was to treat a real gate FAIL as known-false and
+        # That project logged the response as treating a real gate FAIL as known-false and
         # stop reading it, which is precisely the habit gates exist to prevent.
         #
         # Still anchored at the START of the FIELD, so what d8117be bought is kept:

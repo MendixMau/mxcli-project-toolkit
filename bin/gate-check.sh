@@ -930,7 +930,19 @@ has_confirmed_decision() {
       for (i = 3; i <= NF; i++) {
         f = toupper($i)
         gsub(/^[ \t]+|[ \t]+$/, "", f)
-        if (f == "CONFIRMED") found = 1
+        # Word-anchored, not string-exact. Projects routinely write the status as
+        # "CONFIRMED 2026-07-21" — status plus an inline date in one cell — and the
+        # string-exact test reported "no Stage-3/Stage-4 CONFIRMED decision" over a
+        # register holding eight of them (TFC-TCXGraphPOC, logged there as TD-07).
+        # The project's own response was to treat a real gate FAIL as known-false and
+        # stop reading it, which is precisely the habit gates exist to prevent.
+        #
+        # Still anchored at the START of the FIELD, so what d8117be bought is kept:
+        # a Notes cell that merely mentions the word ("groundwork, not confirmed
+        # yet") does not qualify, and neither does "NOT CONFIRMED". What this newly
+        # admits is a field that BEGINS with CONFIRMED and then continues — which is
+        # the convention it exists to accept.
+        if (f ~ /^CONFIRMED([ \t]|$)/) found = 1
       }
     }
     END { exit !found }

@@ -16,11 +16,24 @@
 //   page-fidelity.js <wireframe.html> <page-name> <mdl-file> [mdl-file...]
 //   page-fidelity.js <wireframe.html> <page-name> -        (MDL on stdin, e.g. DESCRIBE output)
 //
-// Scoring (unchanged from the prototype, so numbers stay comparable to the 32%-median
-// ToeicBuddy baseline): headings 25%, action labels 30%, content blocks 25%,
-// structural classes 20%. A dimension the wireframe doesn't use is dropped from the
-// denominator. Prints per-dimension hits and every miss; exits 0 always — it is an
-// instrument, not a gate. The gate is check-page-shell.sh.
+// Scoring: headings 25%, action labels 30%, content blocks 25%, structural classes 20%,
+// bindings 25% (normalized over the dimensions the wireframe actually uses — one it
+// doesn't use is dropped from the denominator). Prints per-dimension hits and every miss;
+// exits 0 always — it is an instrument, not a gate. The gate is check-page-shell.sh.
+//
+// Third field run (ToeicBuddy Reading_Part, 2026-08-27) added bind-table awareness:
+// on a data-heavy page nearly all visible copy is BOUND (passages, stems, options),
+// and scoring it as literal text put a screenshot-verified faithful page at 43%.
+// Now: wireframe-local mock classes (defined in the wireframe's own <style>) mark
+// bound-data regions whose sample text leaves the text dimensions, and the binding-
+// annotation table's Datasource identifiers are scored as their own dimension.
+//
+// STATED LIMITATION: identifier presence cannot see NESTING. The pre-fix Reading_Part
+// (passage re-rendered per question instead of once per group — the script 64 defect)
+// scores identically to the fixed page: same identifiers, same classes, wrong tree.
+// List-nesting faithfulness stays with the LOOK pass (ui-review-loop.md) — this
+// instrument will not catch it, by construction. Verified, not assumed: scored the
+// pre-64 script set and the post-64 set; both 100%.
 'use strict';
 const fs = require('fs');
 
@@ -96,8 +109,53 @@ const strip = s => s.replace(/<[^>]+>/g, ' ').replace(/&[a-z]+;/g, ' ').replace(
 const norm  = s => s.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
 const words = s => norm(s).split(' ').filter(w => w.length > 3);
 
+// Classes defined in the wireframe's OWN <style> block are wireframe-local mock
+// scaffolding, not design-system classes (those live in ds.css, which wireframes
+// link). Measured (ToeicBuddy Reading_Part, 2026-08-27): .passage/.qcard exist
+// only to mock the bound-data list items — passage bodies, question stems,
+// option buttons — whose literal text a correctly-BINDING page contains none of
+// (same reasoning as the <td> exclusion). Their subtrees leave the text
+// dimensions and the classes leave the class denominator; both are REPORTED.
+function localMockClasses(html) {
+  const out = new Set();
+  for (const st of html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi))
+    for (const sel of st[1].matchAll(/\.([a-z][a-z0-9-]*)/gi)) out.add(sel[1]);
+  return out;
+}
+
+// The binding-annotation table (table.bind / table.bt) is dropped from the text
+// corpus — but its Datasource column names real model identifiers, and whether
+// the page actually references them is the fidelity backbone of a data-heavy
+// page. One row per binding; a row scores when every identifier-looking token
+// in its datasource cell (CamelCase words, Entity.Attr paths) appears in the
+// page MDL. Rows whose cell names no identifier are annotation prose and skip.
+function bindRows(html) {
+  const t = innerBalanced(html, /<(table)[^>]*class="[^"]*\b(?:bind|bt)\b[^"]*"/i);
+  if (!t) return [];
+  const rows = [];
+  for (const tr of t.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const cells = [...tr[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(c => strip(c[1]));
+    if (!cells.length || /<th/i.test(tr[1])) continue;
+    const src = cells[2] || '';
+    const ids = new Set();
+    for (const m of src.matchAll(/\b([A-Z][A-Za-z0-9]*\.[A-Z][A-Za-z0-9_]*)\b/g))
+      m[1].split('.').forEach(x => ids.add(x));
+    for (const m of src.matchAll(/\b([A-Z][a-z0-9]+(?:[A-Z][A-Za-z0-9]*)+)\b/g)) ids.add(m[1]);
+    if (ids.size) rows.push({ label: (cells[0] || '?').slice(0, 40), ids: [...ids] });
+  }
+  return rows;
+}
+
 function wfFacts(file) {
-  const html = fs.readFileSync(file, 'utf8'), main = contentOf(html);
+  const html = fs.readFileSync(file, 'utf8');
+  const mock = localMockClasses(html);
+  let main = contentOf(html);
+  const mockUsed = [];
+  for (const c of mock) {
+    if (['wf-note', 'wf-bar', 'wf-section', 'bind', 'bt'].includes(c)) continue;
+    const re = new RegExp('<(div|button|span|p)[^>]*class="[^"]*\\b' + c + '\\b[^"]*"', 'i');
+    if (re.test(main)) { mockUsed.push(c); main = dropBalanced(main, re); }
+  }
   const grab = re => [...main.matchAll(re)].map(x => strip(x[1])).filter(Boolean);
   const headings = grab(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi);
   const buttons  = grab(/<button[^>]*>([\s\S]*?)<\/button>/gi);
@@ -121,7 +179,10 @@ function wfFacts(file) {
   const noGrids = dropBalanced(main, /<(table)[^>]*class="[^"]*\bgrid\b[^"]*"/i);
   for (const x of noGrids.matchAll(/class="([^"]+)"/g)) x[1].split(/\s+/).forEach(c => outside.add(c));
   const gridOnly = GRID_OWN.filter(c => classes.has(c) && !outside.has(c));
-  return { headings, buttons, blocks: blocks.filter(b => b.length > 12), classes: [...classes], gridOnly };
+  const mockCls = [...classes].filter(c => mockUsed.includes(c) || mock.has(c));
+  mockCls.forEach(c => classes.delete(c));
+  return { headings, buttons, blocks: blocks.filter(b => b.length > 12), classes: [...classes],
+           gridOnly, mockUsed, mockCls, binds: bindRows(html) };
 }
 
 // ---- MDL side -------------------------------------------------------------------------
@@ -168,10 +229,13 @@ function score(wf, mdl) {
   const cMiss = scoredCls.filter(x => !cls.has(x) && !intrinsic.has(x));
   const c = { n: scoredCls.length, ok: scoredCls.length - cMiss.length, miss: cMiss,
               chrome: wf.classes.filter(x => chromeSet.has(x)) };
-  const parts = [[h, .25], [b, .30], [k, .25], [c, .20]];
+  // Bindings: every identifier the annotation row names must appear in the MDL.
+  const bindMiss = wf.binds.filter(r => !r.ids.every(id => corpus.includes(norm(id))));
+  const bd = { n: wf.binds.length, ok: wf.binds.length - bindMiss.length, miss: bindMiss };
+  const parts = [[h, .25], [b, .30], [k, .25], [c, .20], [bd, .25]];
   let num = 0, den = 0;
   for (const [d, w] of parts) if (d.n) { num += w * (d.ok / d.n); den += w; }
-  return { pct: den ? Math.round(100 * num / den) : null, h, b, k, c };
+  return { pct: den ? Math.round(100 * num / den) : null, h, b, k, c, bd };
 }
 
 const wf = wfFacts(WF);
@@ -179,9 +243,13 @@ const mdl = pageMdl();
 if (!mdl.trim()) { console.error('page-fidelity: no declaration of page "' + PAGE + '" found in input'); process.exit(2); }
 const s = score(wf, mdl);
 console.log(PAGE + '  fidelity ' + s.pct + '%   headings ' + s.h.ok + '/' + s.h.n +
-  '  actions ' + s.b.ok + '/' + s.b.n + '  content ' + s.k.ok + '/' + s.k.n + '  classes ' + s.c.ok + '/' + s.c.n);
+  '  actions ' + s.b.ok + '/' + s.b.n + '  content ' + s.k.ok + '/' + s.k.n + '  classes ' + s.c.ok + '/' + s.c.n +
+  (s.bd.n ? '  bindings ' + s.bd.ok + '/' + s.bd.n : ''));
 const miss = [...s.h.miss.map(x => 'heading: ' + x), ...s.b.miss.map(x => 'action:  ' + x),
               ...s.k.miss.map(x => 'content: ' + x.slice(0, 78)),
-              ...(s.c.miss.length ? ['classes: ' + s.c.miss.join(' ')] : [])];
+              ...(s.c.miss.length ? ['classes: ' + s.c.miss.join(' ')] : []),
+              ...s.bd.miss.map(r => 'binding: ' + r.label + ' (' + r.ids.join(' ') + ')')];
 if (miss.length) console.log('  missed:\n  ' + miss.join('\n  '));
 if (s.c.chrome.length) console.log('  chrome (layout-supplied, not scored): ' + s.c.chrome.join(' '));
+if (wf.mockUsed.length) console.log('  bound-data mocks (wireframe-local, text not scored): ' + wf.mockUsed.join(' '));
+if (wf.mockCls.length) console.log('  wireframe-local classes (not scored): ' + wf.mockCls.join(' '));

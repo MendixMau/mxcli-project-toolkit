@@ -92,11 +92,16 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # none; the trend view lived only as a grep in the skill.
 MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh"
 
-# Files in project-bin/ that are deliberately NOT installed into projects. Empty today, and that
-# is the point: the reverse check below flags anything named by NEITHER list, so a new file in
-# project-bin/ has to be either installed or declared unwanted. "Nobody noticed" stops being a
-# third option. Add a name here only with a one-line reason on the same line as a comment.
-MXTK_PROJECT_BIN_NOINSTALL=""
+# Files in project-bin/ that are deliberately NOT installed into projects. The reverse check
+# below flags anything named by NEITHER list, so a new file in project-bin/ has to be either
+# installed or declared unwanted. "Nobody noticed" stops being a third option. Add a name here
+# only with a one-line reason on the same line as a comment.
+#
+# The one entry earns its place by the rule this file exists to enforce: a project-bin/ script is
+# installed because a PROJECT runs it. report-disposition-check.sh is run by gate-check.sh out of
+# the toolkit clone, so a project copy would be a second copy nothing calls — which is how the
+# per-script lists drifted in the first place.
+MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh"  # gate-check.sh runs it from the TOOLKIT clone ($TOOLKIT_DIR/project-bin/, gate-check.sh:2149), never from a project copy — installing it would create a second copy nothing calls
 
 # --- Starlark lint rules -----------------------------------------------------------------
 # Copied from toolkit lint-rules/ into <project>/.claude/lint-rules/. Two lists, because the

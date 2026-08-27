@@ -140,15 +140,23 @@ for f in $TARGETS; do
 
     # --- 3. The page scaffold -------------------------------------------------------------
     # design-spacing.md §3: every full page opens with a header block carrying exactly one
-    # RenderMode: H1. Measured escape (module-review.md, 2026-08-22): a page passed its LOOK
+    # page title. Measured escape (module-review.md, 2026-08-22): a page passed its LOOK
     # review with no page title at all, because the rubric only interrogated the content region.
-    h1="$(printf '%s' "$body" | grep -cE 'RenderMode:[[:space:]]*H1')"
-    if [ "$h1" -eq 0 ]; then
-      report "$f:$ln" "page $page has no RenderMode: H1 title block" \
-        'design-spacing.md §3: a full page opens with crumb + one H1 (+ subtitle/actions where the wireframe has them). A full page with no H1 is a defect, not a layout choice.'
-    elif [ "$h1" -gt 1 ]; then
-      report "$f:$ln" "page $page declares $h1 H1 titles" \
-        'design-spacing.md §3: exactly one H1 per full page. A second one is usually a section heading that should be H2.'
+    #
+    # The title LEVEL is the wireframe's to state, not this script's: ToeicBuddy titles
+    # pages with <h1>, VB-USI with <h2> (its topbar design), and hardcoding H1 here flagged
+    # every correct VB-USI page as defective (field run 2026-08-27). The first h1/h2 in the
+    # wireframe is the design's page-title level; H1 is only the fallback when the wireframe
+    # draws neither.
+    lvl="$(grep -oiE '<h[12][^>]*>' "$wf" | head -1 | grep -oiE 'h[12]' | tr 'a-z' 'A-Z')"
+    [ -n "$lvl" ] || lvl="H1"
+    n="$(printf '%s' "$body" | grep -cE "RenderMode:[[:space:]]*$lvl\b")"
+    if [ "$n" -eq 0 ]; then
+      report "$f:$ln" "page $page has no RenderMode: $lvl title block (its wireframe titles with <${lvl}>)" \
+        "design-spacing.md §3: a full page opens with crumb + one page title at the wireframe's level (+ subtitle/actions where the wireframe has them). A full page with no title is a defect, not a layout choice."
+    elif [ "$n" -gt 1 ]; then
+      report "$f:$ln" "page $page declares $n $lvl titles; its wireframe draws one" \
+        "design-spacing.md §3: exactly one page title per full page. A second $lvl is usually a section heading that should be one level down."
     fi
 
     # `--` is an MDL comment; a leading `*` is a `/* ... */` block-comment continuation line

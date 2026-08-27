@@ -52,11 +52,38 @@ function dropBalanced(html, openRe) {
   return out;
 }
 
+// Inner HTML of the first element whose opening tag matches `openRe` (balanced).
+function innerBalanced(html, openRe) {
+  const m = html.match(openRe);
+  if (!m) return null;
+  const tag = m[1].toLowerCase();
+  const open = html.indexOf('>', m.index) + 1;
+  const re = new RegExp('<' + tag + '\\b|</' + tag + '>', 'gi');
+  re.lastIndex = open;
+  let depth = 1, end = html.length, t;
+  while (depth > 0 && (t = re.exec(html))) {
+    depth += t[0][1] === '/' ? -1 : 1;
+    if (depth === 0) end = t.index;
+  }
+  return html.slice(open, end);
+}
+
 function contentOf(html) {
-  // Boundary preference: <main> (ToeicBuddy shape) → whole body (VB-USI shape),
+  // Boundary preference, most-specific first:
+  //   <main>            ToeicBuddy shape — content-only wireframes
+  //   div.main          VB-USI full-page shape — the wireframe mocks the WHOLE app
+  //                     shell; the sidebar is layout chrome, but div.main holds the
+  //                     page title (VB-USI titles pages from the top bar), so it is
+  //                     the boundary and the user chip is stripped below
+  //   div.content       same shape when the wireframe has no .main wrapper
+  //   <body>            popup/dialog wireframes with annotation siblings
   // then strip annotation chrome either way.
   const m = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
-  let s = m ? m[1] : (html.match(/<body[^>]*>([\s\S]*)<\/body>/i) || [,html])[1];
+  let s = m ? m[1]
+    : innerBalanced(html, /<(div)[^>]*class="[^"]*\bmain\b[^"]*"/i)
+    || innerBalanced(html, /<(div)[^>]*class="[^"]*\bcontent\b[^"]*"/i)
+    || (html.match(/<body[^>]*>([\s\S]*)<\/body>/i) || [, html])[1];
+  s = dropBalanced(s, /<(div)[^>]*class="[^"]*\buserchip\b[^"]*"/i);
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*wf-(?:bar|note)[^"]*"/i);
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*wf-section[^"]*"/i);
   s = dropBalanced(s, /<(table)[^>]*class="[^"]*\bbind\b[^"]*"/i);
@@ -74,14 +101,27 @@ function wfFacts(file) {
   const grab = re => [...main.matchAll(re)].map(x => strip(x[1])).filter(Boolean);
   const headings = grab(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi);
   const buttons  = grab(/<button[^>]*>([\s\S]*?)<\/button>/gi);
+  // <th> (column captions) is page-owned copy; <td> deliberately is NOT — a
+  // wireframe's table cells are sample rows of BOUND data, and a page that
+  // correctly binds them contains none of the literal text (same reasoning as
+  // check-page-shell.sh's "bound content" non-check).
   const blocks   = [...grab(/<p[^>]*>([\s\S]*?)<\/p>/gi), ...grab(/<li[^>]*>([\s\S]*?)<\/li>/gi),
-                    ...grab(/<label[^>]*>([\s\S]*?)<\/label>/gi), ...grab(/<td[^>]*>([\s\S]*?)<\/td>/gi),
+                    ...grab(/<label[^>]*>([\s\S]*?)<\/label>/gi), ...grab(/<th[^>]*>([\s\S]*?)<\/th>/gi),
                     ...grab(/<span[^>]*>([\s\S]*?)<\/span>/gi),
                     ...grab(/<div class="muted"[^>]*>([\s\S]*?)<\/div>/gi)];
   const classes = new Set();
   for (const x of main.matchAll(/class="([^"]+)"/g))
     x[1].split(/\s+/).forEach(c => { if (c && !/^(wf-|ann|crosscheck|alert-ic|x-btn|req)/.test(c)) classes.add(c); });
-  return { headings, buttons, blocks: blocks.filter(b => b.length > 12), classes: [...classes] };
+  // Classes confined to the wireframe's table.grid mock describe markup the
+  // DATAGRID widget renders itself (wrapper, filter row, cell emphasis) — a page
+  // cannot declare them. Curated: pill/status classes stay scored, because a page
+  // CAN declare those (Class/DynamicClasses on in-column widgets).
+  const GRID_OWN = ['grid', 'table-wrap', 'filter-row', 'actions', 'key', 'mono', 'input', 'row-blocked'];
+  const outside = new Set();
+  const noGrids = dropBalanced(main, /<(table)[^>]*class="[^"]*\bgrid\b[^"]*"/i);
+  for (const x of noGrids.matchAll(/class="([^"]+)"/g)) x[1].split(/\s+/).forEach(c => outside.add(c));
+  const gridOnly = GRID_OWN.filter(c => classes.has(c) && !outside.has(c));
+  return { headings, buttons, blocks: blocks.filter(b => b.length > 12), classes: [...classes], gridOnly };
 }
 
 // ---- MDL side -------------------------------------------------------------------------
@@ -102,6 +142,11 @@ function score(wf, mdl) {
   const corpus = norm(mdl);
   const cls = new Set();
   for (const m of mdl.matchAll(/Class:\s*['"]([^'"]+)['"]/gi)) m[1].split(/\s+/).forEach(c => cls.add(c));
+  // DynamicClasses expressions emit class names conditionally — every quoted
+  // token that looks like a class name lands in the DOM on some branch.
+  for (const m of mdl.matchAll(/DynamicClasses:\s*'((?:[^']|'')*)'/gi))
+    for (const t of m[1].matchAll(/''([a-z][a-z0-9-]*)''|'([a-z][a-z0-9-]*)'/gi))
+      cls.add(t[1] || t[2]);
   const hit = txt => { const w = words(txt); return w.length ? w.filter(x => corpus.includes(x)).length / w.length >= 0.6 : true; };
   const dim = arr => ({ n: arr.length, ok: arr.filter(hit).length, miss: arr.filter(x => !hit(x)) });
   const h = dim(wf.headings), b = dim(wf.buttons), k = dim(wf.blocks);
@@ -112,9 +157,13 @@ function score(wf, mdl) {
   //     chrome (learned-page-patterns.md, "Never Duplicate the Chrome Title").
   //   * a wireframe's <label>/<input> pair IS the MDL textbox widget — the widget
   //     emits both elements itself, so a textbox on the page satisfies them.
+  //   * on a full-page layout, the top bar itself (its page title is still scored
+  //     — the heading and crumb live in the page's own header block).
   const popup = /Layout:\s*[^,)\n]*Popup/i.test(mdl);
-  const chromeSet = new Set(popup ? ['dialog', 'dialog-head', 'dialog-body', 'dialog-foot'] : []);
-  const intrinsic = new Set(/\btextbox\b/i.test(mdl) ? ['label', 'input'] : []);
+  const chromeSet = new Set(popup ? ['dialog', 'dialog-head', 'dialog-body', 'dialog-foot']
+                                  : ['topbar', 'userchip', 'avatar', 'content']);
+  const intrinsic = new Set(/\btextbox\b|\btextfilter\b/i.test(mdl) ? ['label', 'input'] : []);
+  if (/\bdatagrid\b/i.test(mdl)) wf.gridOnly.forEach(x => intrinsic.add(x));
   const scoredCls = wf.classes.filter(x => !chromeSet.has(x));
   const cMiss = scoredCls.filter(x => !cls.has(x) && !intrinsic.has(x));
   const c = { n: scoredCls.length, ok: scoredCls.length - cMiss.length, miss: cMiss,

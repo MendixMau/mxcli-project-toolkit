@@ -106,6 +106,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Building or using the in-app design gallery | `skills/learned-stylegallery.md` | mdl | 5 | baseline |
 | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS | `project-bin/check-design-portability.sh` | architect,mdl,gate | 3,5 | ondemand |
 | Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later | `project-bin/check-page-shell.sh` | mdl,gate,review | 5 | baseline |
+| After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it | `project-bin/page-fidelity.js` | mdl,gate,review | 5 | baseline |
 | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` | architect | 3 | ondemand |
 
 #### Build — the loop itself

@@ -90,7 +90,7 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # point is the across-runs trend — the stakeholder-visibility story that "we are finding bugs
 # and improving" — and every other stage artifact gets an HTML surface while the register had
 # none; the trend view lived only as a grep in the skill.
-MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-page-shell.sh"
+MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-page-shell.sh page-fidelity.js"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. Empty today, and that
 # is the point: the reverse check below flags anything named by NEITHER list, so a new file in

@@ -39,19 +39,25 @@
 // run (2026-08-27) built its first pages with no fidelity trace at all, and "what went
 // wrong" had to be reconstructed from a session status line. So the scorer appends each
 // run to <project>/docs/PAGE-FIDELITY.tsv (project root = nearest .mpr above the
-// wireframe). The FIRST row for a page is its first-build score of record — the number
-// the 80% target judges; later rows show the rework curve. --no-log suppresses (for
-// scoring fixtures or another project's files); an unloggable run says so on stderr
-// rather than logging silently nowhere.
+// wireframe). The FIRST NON-STUB row for a page is its first-build score of record — the
+// number the 80% target judges; later rows show the rework curve. A forward-reference
+// stub page (iterative-build-loop.md § Forward references — created only so a later
+// script's references resolve) is scored with --stub: its row lands marked `stub` and
+// is exempt from the target, because the stub is deliberately not the build. The
+// exemption is the flag, never inferred — a bare page that someone forgot to finish
+// scores as what it is. --no-log suppresses logging entirely (for scoring fixtures or
+// another project's files); an unloggable run says so on stderr rather than logging
+// silently nowhere.
 'use strict';
 const fs = require('fs');
 const path = require('path');
 
 const argv = process.argv.slice(2);
 const NOLOG = argv.includes('--no-log');
-const [WF, PAGE, ...MDLS] = argv.filter(a => a !== '--no-log');
+const STUB = argv.includes('--stub');
+const [WF, PAGE, ...MDLS] = argv.filter(a => a !== '--no-log' && a !== '--stub');
 if (!WF || !PAGE || !MDLS.length) {
-  console.error('usage: page-fidelity.js [--no-log] <wireframe.html> <page-name> <mdl-file...|->');
+  console.error('usage: page-fidelity.js [--no-log] [--stub] <wireframe.html> <page-name> <mdl-file...|->');
   process.exit(2);
 }
 
@@ -265,6 +271,7 @@ if (miss.length) console.log('  missed:\n  ' + miss.join('\n  '));
 if (s.c.chrome.length) console.log('  chrome (layout-supplied, not scored): ' + s.c.chrome.join(' '));
 if (wf.mockUsed.length) console.log('  bound-data mocks (wireframe-local, text not scored): ' + wf.mockUsed.join(' '));
 if (wf.mockCls.length) console.log('  wireframe-local classes (not scored): ' + wf.mockCls.join(' '));
+if (STUB) console.log('  stub — forward-reference target, exempt from the 80% target; the first non-stub row is the score of record');
 
 // ---- record the run (see header: EVERY RUN IS RECORDED) -------------------------------
 if (!NOLOG) {
@@ -288,8 +295,10 @@ if (!NOLOG) {
       if (!fs.existsSync(tsv)) {
         fs.writeFileSync(tsv,
           '# PAGE-FIDELITY.tsv — appended by project-bin/page-fidelity.js on every run.\n' +
-          '# The FIRST row for a page is its first-build score of record (target: >=80%);\n' +
-          '# later rows for the same page show the rework curve. Do not edit rows by hand.\n' +
+          '# The first NON-STUB row for a page is its first-build score of record (target:\n' +
+          '# >=80%); later rows for the same page show the rework curve. Rows with source\n' +
+          '# `stub` are forward-reference targets (scored with --stub) and are exempt from\n' +
+          '# the target. Do not edit rows by hand.\n' +
           'date\tpage\tscore\theadings\tactions\tcontent\tclasses\tbindings\tsource\twireframe\n');
       }
       const frac = x => x.n ? x.ok + '/' + x.n : '-';
@@ -297,7 +306,7 @@ if (!NOLOG) {
         new Date().toISOString().slice(0, 16).replace('T', ' '),
         PAGE, s.pct === null ? '-' : s.pct + '%',
         frac(s.h), frac(s.b), frac(s.k), frac(s.c), frac(s.bd),
-        MDLS[0] === '-' ? 'describe' : 'draft',
+        STUB ? 'stub' : MDLS[0] === '-' ? 'describe' : 'draft',
         path.relative(root, path.resolve(WF)),
       ].join('\t');
       fs.appendFileSync(tsv, row + '\n');

@@ -162,6 +162,16 @@ scored — visible at gate time, not reconstructed afterwards (the MarkUseCase f
 had to be reconstructed from a session status line). Run it again after `exec` against
 `DESCRIBE` output (`-` for stdin) to record what actually landed in the model.
 
+**Stub pages are exempt — by flag, never by inference.** A forward-reference stub
+(`iterative-build-loop.md` § "Forward references": a page created only so a later
+script's references resolve, replaced by its real script) is deliberately not the
+build, so it must not become the first-build score of record. Score it with
+`--stub`: the row lands marked `stub` and the target skips it — the **first
+non-stub row** is the score of record. The flag is a declaration, exactly like a
+gate waiver: if you didn't declare it a stub at scoring time, it scores as what
+it is. "It was meant as a stub" after a bad score is not a category — it is the
+bad score.
+
 **Measured, ToeicBuddy field run 2026-08-25/26** (`process/first-build-page-fidelity-2026-08-27.md`):
 first-build fidelity across 10 pages was **32% median** against a target of 80%. All 14
 wireframes declared a 900px page column and **0 of 10** pages capped their width — repaired

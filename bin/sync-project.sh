@@ -897,6 +897,19 @@ if [ "$WIRED" -eq 1 ]; then
   CHANGES=$((CHANGES + ${MXTK_LINT_CHANGES:-0}))
 fi
 
+# ── Script smoke — do the refreshed copies actually load on THIS machine? ────────────────
+# A sync can install or refresh scripts that then cannot run here (CRLF from a Windows
+# editor, a bashism this bash rejects) and nothing would say so until a stage depends on
+# them. Same probe doctor.sh runs, parse-level only, seconds. A failure is a warning in the
+# sync's own terms — the copies are correct, the MACHINE can't run them — and the FAIL lines
+# it prints name the file.
+if [ "$WIRED" -eq 1 ] && [ "$DRY_RUN" -eq 0 ] && [ -x "$SCRIPT_DIR/check-scripts.sh" ]; then
+  if ! "$SCRIPT_DIR/check-scripts.sh" "$PROJECT_DIR"; then
+    warn "script(s) that will not load on this machine — see the FAIL lines above, and run" \
+         "bin/doctor.sh '$PROJECT_DIR' for the environment picture."
+  fi
+fi
+
 echo ""
 VERB="updated"; [ "$DRY_RUN" -eq 1 ] && VERB="would be updated"
 if [ "$CHANGES" -gt 0 ]; then

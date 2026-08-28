@@ -620,9 +620,9 @@ if [ -f "$GUIDE" ] && [ -z "${MXTK_NO_GUIDE:-}" ] && [ ! -e "$GUIDE_SENTINEL" ];
 fi
 echo ""
 echo "Next steps (not done by this script):"
-echo "  - Machine preflight: bin/doctor.sh '$PROJECT_DIR' — once per machine, BEFORE the first"
-echo "    model write. It says whether mxbuild/java actually run here; without them every exec"
-echo "    is silently unverified (gate=skipped) and consistency errors are never captured."
+echo "  - Machine preflight runs below (bin/doctor.sh). Re-run it on every OTHER machine that"
+echo "    will touch this project, BEFORE its first model write: without a working mxbuild/java"
+echo "    every exec is silently unverified (gate=skipped) and consistency errors are never captured."
 echo "  - Complete each agent stub's {{PLACEHOLDER}}s per skills/agent-roles.md when its stage"
 echo "    starts (ba/architect at Stage P kickoff, mdl/gate/test at Stage 5). Stubs refuse to"
 echo "    run until completed, so a half-setup fails loudly instead of silently."
@@ -634,5 +634,13 @@ echo "      bin/install-claude-hooks.sh          # prints the tier table, instal
 echo ""
 
 "$SCRIPT_DIR/gate-check.sh" "$PROJECT_DIR" || true
+
+# Machine preflight, at the one moment everyone passes through. Setup is where "this script
+# does not run on this machine" must surface — mid-stage it reads as "the toolkit is broken"
+# (the F-042 / CRLF lesson). Never fails the scaffold: doctor's verdict is advice, and it
+# leaves .claude/.doctor-receipt either way.
+echo ""
+echo "Machine preflight (bin/doctor.sh):"
+"$SCRIPT_DIR/doctor.sh" "$PROJECT_DIR" || true
 
 echo "Done. index.html dashboard rendered at $PROJECT_DIR/index.html"

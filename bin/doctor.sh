@@ -136,6 +136,26 @@ case "$AUTOCRLF" in
   *)    ok "git core.autocrlf=$AUTOCRLF" ;;
 esac
 
+# --- the toolkit's own scripts --------------------------------------------------------------
+
+head_ "Do the toolkit's own scripts load here?"
+
+# CRLF above catches one way a script cannot run; this catches the rest of the parse-level
+# class (a bashism this bash rejects, a syntax error that shipped, a mangled installed copy)
+# by running every shipped script through its interpreter's parse step. check-scripts.sh is
+# standalone so sync-project.sh can run the same probe after every refresh.
+if [ -x "$TOOLKIT_ROOT/bin/check-scripts.sh" ]; then
+  CS_EXIT=0
+  "$TOOLKIT_ROOT/bin/check-scripts.sh" ${PROJECT_DIR:+"$PROJECT_DIR"} || CS_EXIT=$?
+  case "$CS_EXIT" in
+    0) ok "every shipped script parses under this machine's bash and node" ;;
+    1) warn "shell scripts parse; Node instruments unchecked (no node — see the Node section)" ;;
+    *) bad "script(s) that will not run on this machine — see the FAIL lines above" ;;
+  esac
+else
+  bad "bin/check-scripts.sh is missing — the clone is incomplete or predates it"
+fi
+
 # --- command line tools ---------------------------------------------------------------------
 
 head_ "Command line tools"

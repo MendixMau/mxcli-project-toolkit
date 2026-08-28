@@ -564,6 +564,21 @@ fi
 # upgraded to look like a full run). So it still runs — at reduced strength — when the stack is
 # down or only caveated-up; the full rendered pass runs only once test-stack-up has verified
 # OWNERSHIP (STACK_OK=1), the same bar journeys/monkey require before trusting what they measure.
+# F-042 (MarkUseCase, 2026-08-28): design-audit.js reads .claude/loop/page-scope.json for
+# its page denominator, but nothing in any mandatory chain ever GENERATED that file — its
+# producer (bin/page-scope.sh) was wired into no step, so the audit either faulted on a
+# missing scope or ran against a stale one. Generate/refresh it here, right before its one
+# consumer. info, not gate: a scope refresh that fails leaves the audit to report the
+# missing/stale scope itself, which it already does loudly.
+PAGE_SCOPE_SH="${PAGE_SCOPE_SH:-$(_tool page-scope.sh)}"
+if [ -x "$PAGE_SCOPE_SH" ]; then
+  run "page scope (denominator for the design audit)" "$OUTDIR/39-page-scope.log" info 300 -- \
+    "$PAGE_SCOPE_SH"
+else
+  fault "page scope (denominator for the design audit)" "not installed at ${PAGE_SCOPE_SH#$ROOT/}" \
+        "Set PAGE_SCOPE_SH, or install bin/page-scope.sh. The design audit's page denominator is whatever stale .claude/loop/page-scope.json says, or nothing."
+fi
+
 DESIGN_AUDIT_JS="${DESIGN_AUDIT_JS:-$ROOT/tests/e2e/design-audit.js}"
 if [ ! -f "$DESIGN_AUDIT_JS" ]; then
   fault "design audit (rungs 6-7 — UI/a11y, informational)" "not installed at ${DESIGN_AUDIT_JS#$ROOT/}" \

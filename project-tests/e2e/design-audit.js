@@ -50,14 +50,25 @@ const PROJ = require('./project.config');
 
 const ROOT = PROJ.root;
 const MPR = PROJ.mprName;
-const MXCLI = path.join(ROOT, 'mxcli');
+// F-042 (MarkUseCase, 2026-08-28): in a two-tree layout ROOT is the model's app/
+// directory while design/, .claude/ and the mxcli wrapper sit beside it at the
+// repo root. Every ROOT-joined path here silently pointed at nothing on that
+// layout, so probe ROOT first and fall back to ROOT's parent when the ROOT copy
+// does not exist.
+const nearRoot = (...parts) => {
+  const inRoot = path.join(ROOT, ...parts);
+  if (fs.existsSync(inRoot)) return inRoot;
+  const beside = path.join(path.dirname(ROOT), ...parts);
+  return fs.existsSync(beside) ? beside : inRoot;
+};
+const MXCLI = nearRoot('mxcli');
 const ARTIFACTS = path.join(__dirname, 'artifacts');
-const SCOPE_FILE = path.join(ROOT, '.claude', 'loop', 'page-scope.json');
-const DS_CSS = path.join(ROOT, 'design', 'ds.css');
-const WIREFRAME_DIR = path.join(ROOT, 'design', 'wireframes');
+const SCOPE_FILE = nearRoot('.claude', 'loop', 'page-scope.json');
+const DS_CSS = PROJ.dsCss || nearRoot('design', 'ds.css');
+const WIREFRAME_DIR = nearRoot('design', 'wireframes');
 const THEME_CSS = [
-  path.join(ROOT, 'deployment', 'web', 'theme.compiled.css'),
-  path.join(ROOT, 'deployment', 'web', 'dist', 'widgets.css'),
+  nearRoot('deployment', 'web', 'theme.compiled.css'),
+  nearRoot('deployment', 'web', 'dist', 'widgets.css'),
 ];
 const SCHEMA_VERSION = '1.1';
 

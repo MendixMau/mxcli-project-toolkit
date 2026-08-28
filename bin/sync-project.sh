@@ -648,7 +648,9 @@ CRASHNET_FILES="$MXTK_PROJECT_BIN"
 known_fix_note() {
   case "$1" in
     verify-module.sh)
-      echo "bin/verify-module.sh is missing the design-audit wiring fix (toolkit, 2026-08-21) — wires tests/e2e/design-audit.js (rungs 6-7, UI/a11y) into the composed pass as an informational, non-gating rung. Recommended upgrade." ;;
+      echo "bin/verify-module.sh is missing the design-audit wiring fix (toolkit, 2026-08-21) — wires tests/e2e/design-audit.js (rungs 6-7, UI/a11y) into the composed pass as an informational, non-gating rung — and/or the page-scope wiring fix (F-042, 2026-08-28), which generates .claude/loop/page-scope.json right before the audit reads it; before that fix the scope file's producer was wired into no step and the audit measured against a stale or missing denominator. Recommended upgrade." ;;
+    page-scope.sh)
+      echo "bin/page-scope.sh predates the HEADER_WORDS fix (F-042, 2026-08-28): SHOW PAGES header columns Excluded/Folder/Params were parsed as page rows, inflating the page denominator (measured: 6 real pages counted as 13), so every consumer of page-scope.json graded against furniture. One-line fix — recommended upgrade." ;;
     _common.sh)
       echo "bin/_common.sh predates the WINDOWS MXBUILD GATE fix (toolkit, 2026-08-25). This is where find_sp_app/find_mxbuild, JAVA_HOME resolution and mxtk_platform actually live — exec.sh only calls them. So upgrading exec.sh ALONE does not deliver the fix, and grepping exec.sh for mxtk_platform reports 0 even on a fully patched project: grep _common.sh instead. Without this file the mxbuild gate is skipped on every Windows exec and nothing checks your builds. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh." ;;
     exec.sh)
@@ -825,6 +827,23 @@ if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-tests.sh" ]; then
          "See what differs:  diff -u $E2E_SRC/<file> $E2E_DST/<file>" \
          "Accept the toolkit versions:  $SCRIPT_DIR/install-tests.sh $PROJECT_DIR --force" \
          "(--force still refuses to touch project.config.js.)"
+  fi
+
+  # project.config.js is the project's, so no sync path ever refreshes it — which means a fix to
+  # the TEMPLATE reaches only projects scaffolded after the fix. The F-042 root-walk fix
+  # (2026-08-28) is exactly such a fix: on a two-tree layout (model under app/, tests/e2e at the
+  # repo root) the old findRoot() walked ancestors only, never entered the sibling app/, and every
+  # derived path in the config pointed at the repo root instead of the model. Detection is a grep
+  # for the fix's own marker; the warning fires only where the layout actually bites — a project
+  # whose .mpr sits under app/. Advisory only: the file is hand-edited per project, so the fix is
+  # ported by hand (copy the findRoot/designPath blocks from the template), never by overwrite.
+  PC_JS="$E2E_DST/project.config.js"
+  if [ -f "$PC_JS" ] && ls "$PROJECT_DIR/app/"*.mpr >/dev/null 2>&1 \
+     && ! grep -q "PROJECT_ROOT" "$PC_JS"; then
+    warn "tests/e2e/project.config.js predates the F-042 two-tree root fix (2026-08-28) and this" \
+         "project's .mpr lives under app/ — its findRoot() cannot find the model, so every derived" \
+         "path (root, mpr, ds.css) is wrong. Port the findRoot()/designPath() blocks from" \
+         "$E2E_SRC/project.config.template.js by hand (this file is the project's; sync never rewrites it)."
   fi
 fi
 

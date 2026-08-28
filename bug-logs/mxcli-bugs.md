@@ -4681,3 +4681,33 @@ were both wrong signals, agreeing with each other and both wrong. Only clicking 
 UI (twice, since the first re-test still showed the bug because the exec before it had *also*
 silently no-op'd) surfaced it. Recorded per this project's own `tool-output-is-not-ground-truth.md`
 discipline.
+
+## BUG-97: `DESCRIBE MICROFLOW` emits `log` strings with embedded doubled quotes that `mxcli check` then rejects — round-trip asymmetry
+
+**Severity:** Medium — breaks the describe→edit→exec loop for any microflow whose log message quotes a name
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08-28, TFC-TCXGraphPOC-main, rebuilding `TFC.WF_ACT_GraphAgent_RiskFlag` from its own `DESCRIBE` output
+**Reproducible:** yes, deterministic — isolated with a two-probe bisection
+
+`DESCRIBE MICROFLOW` round-trips a log activity whose message contains a quoted name as:
+
+```
+log warning node 'WF_GraphAgent' 'No agent titled ''Graph Agent'' configured';
+```
+
+Feeding that exact output back through `mxcli check` fails with
+**"Unexpected token after expression"** (reported as glued keywords at the doubled quotes).
+The identical `''…''` escape inside a `@caption` annotation in the same script parses fine —
+the escape is only rejected in `log` message strings. So a microflow that `DESCRIBE` prints
+cannot be re-executed unmodified: the CLI's own output is not valid input to its own parser.
+
+Bisection (probe scripts, one construct each): `@caption` with `''X''` → passes;
+`replaceAll` with a bracketed regex → passes; `log … '…''X''…'` → **fails**;
+the same `change`/`commit` body with the log line reworded → passes.
+
+**Workaround:** reword log message strings to avoid embedded quotes entirely
+(e.g. `…no AgentCommons.Agent titled Graph Agent configured…`). Purely cosmetic loss.
+
+**Related:** same describe→check round-trip family as [[BUG-84]]/[[BUG-96]] in spirit (tool
+output disagreeing with tool input), but this one is a parser gap, not a silent write no-op.

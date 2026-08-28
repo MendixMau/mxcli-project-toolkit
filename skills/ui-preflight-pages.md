@@ -146,6 +146,22 @@ and exits non-zero on a mismatch. Run it **before** `bin/exec.sh`, alongside
 `mxcli check`; it reads files only, so it needs no app, no Studio Pro, and no
 screenshot, and it runs in a cloud/mobile session where the rest of Gate: UI cannot.
 
+Then run the scored companion on the same draft:
+
+```
+node <toolkit>/project-bin/page-fidelity.js design/wireframes/<Page>.html <Page> mdlsource/<script>.mdl
+```
+
+**Every run is stored.** The scorer appends its result to the project's
+`docs/PAGE-FIDELITY.tsv` — the first row for a page is that page's **first-build score
+of record**, the number the ≥80% target judges; later rows for the same page show the
+rework curve. This is not optional bookkeeping the session may skip: the log is written
+by the instrument itself, so a page with no row in the TSV is a page that was never
+scored — visible at gate time, not reconstructed afterwards (the MarkUseCase field run,
+2026-08-27, built its first pages with no fidelity trace at all, and "what went wrong"
+had to be reconstructed from a session status line). Run it again after `exec` against
+`DESCRIBE` output (`-` for stdin) to record what actually landed in the model.
+
 **Measured, ToeicBuddy field run 2026-08-25/26** (`process/first-build-page-fidelity-2026-08-27.md`):
 first-build fidelity across 10 pages was **32% median** against a target of 80%. All 14
 wireframes declared a 900px page column and **0 of 10** pages capped their width — repaired
@@ -175,9 +191,10 @@ UI cross-reference:
   Empty states:     <every grid/gallery on the page has a zero-result message: yes/no>
   Gaps / MCP fallbacks: <any element flagged as STOP, or "none">
   Shell check:      bin/check-page-shell.sh — <N page(s), N violation(s)> [or: NOT RUN, and why]
+  Fidelity score:   page-fidelity.js — <NN% (headings a/b, actions c/d, …)>, logged to docs/PAGE-FIDELITY.tsv [or: NOT RUN, and why]
 ```
 
-**The shell-check line is the one row in this block with a denominator, and it is not optional.** Every other line is a claim the author grades themselves; that is what made this block unfalsifiable, and a block nobody can fail is not a check. `NOT RUN` is a legal value — silence is not.
+**The shell-check and fidelity-score lines are the rows in this block with a denominator, and they are not optional.** Every other line is a claim the author grades themselves; that is what made this block unfalsifiable, and a block nobody can fail is not a check. `NOT RUN` is a legal value — silence is not. A fidelity score below 80% on a first build is not a failure to hide — it is the number that tells the next step (fix before the next page, per `ui-loop.md`), and the TSV row is already written either way.
 
 If no wireframe existed, say so explicitly here. Never silently skip this block.
 

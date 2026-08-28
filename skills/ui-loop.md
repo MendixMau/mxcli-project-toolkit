@@ -121,7 +121,10 @@ you have before acting on it.
   - `project-bin/check-page-shell.sh` — a binary gate on the page shell (column, layout/nav,
     one H1) against the wireframe, before `exec`.
   - `project-bin/page-fidelity.js` — the scored companion: headings/actions/content/classes
-    against the wireframe, weighted. Run it after drafting and again after `exec`.
+    against the wireframe, weighted. Run it after drafting and again after `exec`. Every run
+    is appended to the project's `docs/PAGE-FIDELITY.tsv` — the first row per page is the
+    first-build score of record against the ≥80% target; later rows are the rework curve.
+    A page with no row was never scored, and that absence is itself a finding.
   - `learned-stylegallery.md` § "The Mendix DOM contract" and § "Every class states its
     carrier" — the same class can render correctly on one widget and half-apply on another
     (Atlas's compound selectors on `ACTIONBUTTON` beat a single design-system class); state

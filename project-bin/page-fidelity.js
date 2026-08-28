@@ -34,12 +34,24 @@
 // List-nesting faithfulness stays with the LOOK pass (ui-review-loop.md) — this
 // instrument will not catch it, by construction. Verified, not assumed: scored the
 // pre-64 script set and the post-64 set; both 100%.
+//
+// EVERY RUN IS RECORDED. A score printed to a terminal evaporates — the MarkUseCase field
+// run (2026-08-27) built its first pages with no fidelity trace at all, and "what went
+// wrong" had to be reconstructed from a session status line. So the scorer appends each
+// run to <project>/docs/PAGE-FIDELITY.tsv (project root = nearest .mpr above the
+// wireframe). The FIRST row for a page is its first-build score of record — the number
+// the 80% target judges; later rows show the rework curve. --no-log suppresses (for
+// scoring fixtures or another project's files); an unloggable run says so on stderr
+// rather than logging silently nowhere.
 'use strict';
 const fs = require('fs');
+const path = require('path');
 
-const [WF, PAGE, ...MDLS] = process.argv.slice(2);
+const argv = process.argv.slice(2);
+const NOLOG = argv.includes('--no-log');
+const [WF, PAGE, ...MDLS] = argv.filter(a => a !== '--no-log');
 if (!WF || !PAGE || !MDLS.length) {
-  console.error('usage: page-fidelity.js <wireframe.html> <page-name> <mdl-file...|->');
+  console.error('usage: page-fidelity.js [--no-log] <wireframe.html> <page-name> <mdl-file...|->');
   process.exit(2);
 }
 
@@ -253,3 +265,45 @@ if (miss.length) console.log('  missed:\n  ' + miss.join('\n  '));
 if (s.c.chrome.length) console.log('  chrome (layout-supplied, not scored): ' + s.c.chrome.join(' '));
 if (wf.mockUsed.length) console.log('  bound-data mocks (wireframe-local, text not scored): ' + wf.mockUsed.join(' '));
 if (wf.mockCls.length) console.log('  wireframe-local classes (not scored): ' + wf.mockCls.join(' '));
+
+// ---- record the run (see header: EVERY RUN IS RECORDED) -------------------------------
+if (!NOLOG) {
+  try {
+    // Project root = nearest directory containing a .mpr, walking up from the wireframe.
+    let root = null, d = path.resolve(path.dirname(WF));
+    for (let i = 0; i < 12; i++) {
+      let entries = [];
+      try { entries = fs.readdirSync(d); } catch (e) { break; }
+      if (entries.some(f => f.endsWith('.mpr'))) { root = d; break; }
+      const up = path.dirname(d);
+      if (up === d) break;
+      d = up;
+    }
+    if (!root) {
+      console.error('page-fidelity: score NOT logged — no .mpr found above ' + WF +
+        ' (pass --no-log to silence this when scoring fixtures)');
+    } else {
+      const tsv = path.join(root, 'docs', 'PAGE-FIDELITY.tsv');
+      fs.mkdirSync(path.join(root, 'docs'), { recursive: true });
+      if (!fs.existsSync(tsv)) {
+        fs.writeFileSync(tsv,
+          '# PAGE-FIDELITY.tsv — appended by project-bin/page-fidelity.js on every run.\n' +
+          '# The FIRST row for a page is its first-build score of record (target: >=80%);\n' +
+          '# later rows for the same page show the rework curve. Do not edit rows by hand.\n' +
+          'date\tpage\tscore\theadings\tactions\tcontent\tclasses\tbindings\tsource\twireframe\n');
+      }
+      const frac = x => x.n ? x.ok + '/' + x.n : '-';
+      const row = [
+        new Date().toISOString().slice(0, 16).replace('T', ' '),
+        PAGE, s.pct === null ? '-' : s.pct + '%',
+        frac(s.h), frac(s.b), frac(s.k), frac(s.c), frac(s.bd),
+        MDLS[0] === '-' ? 'describe' : 'draft',
+        path.relative(root, path.resolve(WF)),
+      ].join('\t');
+      fs.appendFileSync(tsv, row + '\n');
+      console.log('  logged: ' + path.relative(process.cwd(), tsv));
+    }
+  } catch (e) {
+    console.error('page-fidelity: score NOT logged (' + e.message + ')');
+  }
+}

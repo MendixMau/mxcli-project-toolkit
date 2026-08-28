@@ -53,6 +53,18 @@ pass; a second pass was needed to move it to `main.scss`. `design-audit.js`'s ne
 check will not save you here — it diffs class *names*, so a property edit to an
 already-promoted class is invisible to it.
 
+**⛔ `mxcli theme create/apply` does NOT perform the port.** It writes the *palette tokens*
+(`--mxt-*` custom properties) into the theme — nothing else. No component class rule
+(`.tab`, `.status`, `.metric`, `.kpi`, …) ever travels with it. The trap is that its result
+is *visibly convincing*: the brand colors land, the app stops looking like bare Atlas, and
+the session concludes the design system is installed. Measured (MarkUseCase field run,
+2026-08-28): every page across four screens referenced `ds.css` component classes, `theme
+apply` had run, and **zero** of those classes existed in `main.scss` — the whole app rendered
+unstyled for the entire build, confirmed as 5 pages FAIL on `design-audit.js`'s
+never-promoted check. A visible palette change is evidence of exactly one thing: the palette.
+The port is a separate, manual pass (§ "ds.css → SCSS Porting Rules" below), and it is done
+only when the self-audit diff below prints nothing undocumented.
+
 **Keep the two files self-auditing.** `main.scss` opens with a comment block naming every
 deliberate exclusion vs `ds.css` (global resets, wireframe-only annotation chrome, the
 `.row` rename). Then drift is one command, and every line of output is either in that
@@ -62,6 +74,12 @@ documented list or a bug:
 diff <(grep -oE '^\.[a-zA-Z0-9_-]+' design/ds.css | sort -u) \
      <(grep -oE '^\.[a-zA-Z0-9_-]+' themesource/*/web/main.scss | sort -u) | grep '^<'
 ```
+
+Run it at three moments: right after `mxcli theme apply` (expect it to list every component
+class — that is the port's to-do list, not a pass), at the end of the porting pass (expect
+zero undocumented lines), and in every page script's report-back (`ui-preflight-pages.md`,
+the class-promotion row) — because a page script may add classes to `ds.css` after the port
+was "done".
 
 ---
 

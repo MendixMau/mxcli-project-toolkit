@@ -202,9 +202,16 @@ UI cross-reference:
   Gaps / MCP fallbacks: <any element flagged as STOP, or "none">
   Shell check:      bin/check-page-shell.sh — <N page(s), N violation(s)> [or: NOT RUN, and why]
   Fidelity score:   page-fidelity.js — <NN% (headings a/b, actions c/d, …)>, logged to docs/PAGE-FIDELITY.tsv [or: NOT RUN, and why]
+  Class promotion:  self-audit diff (learned-stylegallery.md § "Keep the two files self-auditing") — <N never-promoted class(es), expect 0> [or: NOT RUN, and why]
 ```
 
-**The shell-check and fidelity-score lines are the rows in this block with a denominator, and they are not optional.** Every other line is a claim the author grades themselves; that is what made this block unfalsifiable, and a block nobody can fail is not a check. `NOT RUN` is a legal value — silence is not. A fidelity score below 80% on a first build is not a failure to hide — it is the number that tells the next step (fix before the next page, per `ui-loop.md`), and the TSV row is already written either way.
+The class-promotion row exists because a page can be perfect and still render unstyled: every
+class it uses lives in `ds.css`, and `ds.css` never ships — only the `main.scss` port does.
+`mxcli theme apply` does **not** do that port (it moves palette tokens only — the trap that
+cost the MarkUseCase build every styled element on every page, 2026-08-28). One `diff`
+command answers it.
+
+**The shell-check, fidelity-score and class-promotion lines are the rows in this block with a denominator, and they are not optional.** Every other line is a claim the author grades themselves; that is what made this block unfalsifiable, and a block nobody can fail is not a check. `NOT RUN` is a legal value — silence is not. A fidelity score below 80% on a first build is not a failure to hide — it is the number that tells the next step (fix before the next page, per `ui-loop.md`), and the TSV row is already written either way.
 
 If no wireframe existed, say so explicitly here. Never silently skip this block.
 

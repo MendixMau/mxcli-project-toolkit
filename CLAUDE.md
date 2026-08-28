@@ -120,6 +120,35 @@ same disease had already been diagnosed one layer down a week earlier — see th
 **Before adding any file under `pipelines/`, ask: does this read a source, or does it read a
 BRD?** If it reads a BRD, it is in the wrong directory.
 
+## Shipping an instrument — field-proof before merge
+
+Every defect in the F-042 cluster (2026-08-28) shipped the same way: an instrument written
+against **imagined** input and merged without ever executing against real input. The
+selftests all passed — selftests prove the logic, and the logic was fine; what was wrong was
+the assumptions. So, before a new or materially changed instrument under `bin/`,
+`project-bin/` or `project-tests/` merges:
+
+1. **Golden input is captured, never hand-written.** A parser of tool output (`SHOW PAGES`,
+   `SHOW MODULES`, mxbuild logs) gets a verbatim capture from a real model committed beside
+   its fixture, with the parsed counts asserted. Hand-written test input encodes the same
+   assumption the code makes — F-042's header-row bug (6 real pages counted as 13) was
+   invisible to anything but real output, because real output had columns nobody imagined.
+2. **Both layouts.** Paths resolve through `_common.sh` / config-derived roots, probed on
+   single-tree AND two-tree (`.mpr` under `app/`) checkouts. F-020 and F-042 are the same
+   bug found twice, three weeks apart, in different files.
+3. **Both platforms.** Bash runs under Git Bash on Windows, where MSYS maps `foo` →
+   `foo.exe` transparently — but Node does not: never `execFileSync` a bare wrapper name
+   without an `.exe`/`.cmd` probe or env override. Guard mac-only tools (`sips`,
+   `/usr/libexec/java_home`) behind `mxtk_platform` / `process.platform`.
+4. **One field run, cited.** The commit that ships an instrument names the real project it
+   ran against and what it measured there. An instrument nobody has run is a claim, not a
+   check.
+5. **A producer for every consumer.** If the instrument reads an artifact
+   (`page-scope.json`, `stack.env`), say in its header which **mandatory** chain step
+   produces that artifact — "documented in a skill" is how design-audit.js sat installed
+   and never ran for an entire build. If no mandatory step produces it, wire one before
+   shipping the consumer.
+
 ## Adding new skills
 Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcli project | requirements-driven`, `**Purpose:**`, and a step-by-step guide. Add it to `README.md`'s "When to use which skill" table. **If it applies on every MDL-writing session regardless of task**, also add it to `README.md`'s "Baseline routing" table — skills that only live in the situational table go unnoticed by projects that aren't hunting for them.
 

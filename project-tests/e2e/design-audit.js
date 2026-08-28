@@ -61,7 +61,14 @@ const nearRoot = (...parts) => {
   const beside = path.join(path.dirname(ROOT), ...parts);
   return fs.existsSync(beside) ? beside : inRoot;
 };
-const MXCLI = nearRoot('mxcli');
+// MXCLI env wins (same contract as project.config.js's `mxcli` export). Otherwise probe
+// for the wrapper by name — including Windows names: bash under MSYS maps `mxcli` to
+// `mxcli.exe` transparently, but Node's execFileSync does not, so without the explicit
+// .exe/.cmd probes every model-describe rung on a Windows machine dies ENOENT while the
+// file sits right there.
+const MXCLI = process.env.MXCLI ||
+  ['mxcli', 'mxcli.exe', 'mxcli.cmd', 'mxcli.bat']
+    .map((n) => nearRoot(n)).find((p) => fs.existsSync(p)) || nearRoot('mxcli');
 const ARTIFACTS = path.join(__dirname, 'artifacts');
 const SCOPE_FILE = nearRoot('.claude', 'loop', 'page-scope.json');
 const DS_CSS = PROJ.dsCss || nearRoot('design', 'ds.css');

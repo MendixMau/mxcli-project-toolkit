@@ -106,17 +106,40 @@ function contentOf(html) {
   //                     shell; the sidebar is layout chrome, but div.main holds the
   //                     page title (VB-USI titles pages from the top bar), so it is
   //                     the boundary and the user chip is stripped below
+  //   div.wf-screen     DealIQ shape — the wireframe is an annotated DOCUMENT, and the
+  //   div.wf-shell      screen is one labelled block inside it, with the annotation
+  //   div.mockup-frame  apparatus (meta header, binding tables, scope crosschecks) as
+  //                     siblings. A wireframe that names its own screen has told us
+  //                     where the boundary is; falling through to <body> scores the
+  //                     annotation against the page. See the null-score note below.
+  //                     Three names because one project's own wireframes were not
+  //                     internally consistent: 02/03 .wf-screen, 04 .wf-shell,
+  //                     06/07 .mockup-frame. Measured, not assumed — every one of them
+  //                     fell through to <body> before this list existed.
   //   div.content       same shape when the wireframe has no .main wrapper
   //   <body>            popup/dialog wireframes with annotation siblings
   // then strip annotation chrome either way.
   const m = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
   let s = m ? m[1]
-    : innerBalanced(html, /<(div)[^>]*class="[^"]*\bmain\b[^"]*"/i)
+    : innerBalanced(html, /<(div)[^>]*class="[^"]*\bwf-screen\b[^"]*"/i)
+    || innerBalanced(html, /<(div)[^>]*class="[^"]*\bwf-shell\b[^"]*"/i)
+    || innerBalanced(html, /<(div)[^>]*class="[^"]*\bmockup-frame\b[^"]*"/i)
+    || innerBalanced(html, /<(div)[^>]*class="[^"]*\bmain\b[^"]*"/i)
     || innerBalanced(html, /<(div)[^>]*class="[^"]*\bcontent\b[^"]*"/i)
     || (html.match(/<body[^>]*>([\s\S]*)<\/body>/i) || [, html])[1];
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*\buserchip\b[^"]*"/i);
-  s = dropBalanced(s, /<(div)[^>]*class="[^"]*wf-(?:bar|note)[^"]*"/i);
+  // wf-note is a <p> at least as often as a <div> ("Header binding note: ...", "Six rows,
+  // MEDPIC SortOrder 1-6"). Prose ABOUT the page is not page copy whichever tag carries it;
+  // scoring it as page copy is why an annotation-heavy wireframe reads as a content miss.
+  s = dropBalanced(s, /<(div|p)[^>]*class="[^"]*wf-(?:bar|note|annot|meta|head)[^"]*"/i);
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*wf-section[^"]*"/i);
+  // Annotation apparatus that does not carry the wf- prefix: section captions, the
+  // binding/scope-crosscheck table wrappers, and "out of scope for this wireframe"
+  // callouts. Vocabulary, like .userchip and table.bind above — extend as shapes arrive.
+  s = dropBalanced(s, /<(div)[^>]*class="[^"]*\bsection-h\b[^"]*"/i);
+  s = dropBalanced(s, /<(div)[^>]*class="[^"]*\banno-wrap\b[^"]*"/i);
+  s = dropBalanced(s, /<(div)[^>]*class="[^"]*\brail-note\b[^"]*"/i);
+  s = dropBalanced(s, /<(div)[^>]*class="[^"]*\bannot\b[^"]*"/i);
   s = dropBalanced(s, /<(table)[^>]*class="[^"]*\bbind\b[^"]*"/i);
   // A "this screen is descoped/annotation-only" banner is chrome, not page copy.
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*alert[^"]*"(?=[\s\S]{0,400}?DESCOPED)/i);
@@ -134,10 +157,35 @@ const words = s => norm(s).split(' ').filter(w => w.length > 3);
 // option buttons — whose literal text a correctly-BINDING page contains none of
 // (same reasoning as the <td> exclusion). Their subtrees leave the text
 // dimensions and the classes leave the class denominator; both are REPORTED.
+// ...but a wireframe's own <style> also defines its STRUCTURE and its ANNOTATION
+// apparatus, and those are not mocks of bound data. Treating them as mocks does not
+// merely mis-score — dropBalanced removes the matched subtree, so classing the
+// wireframe's outer wrapper as a mock DELETES THE ENTIRE PAGE, and every dimension
+// then reports 0-of-0, which normalizes to a null score rather than to a low one.
+//
+// Measured (DealIQ, 2026-08-28): wireframes shaped .wf-wrap > .wf-screen scored `null%`
+// on all seven pages. Nothing failed and nothing said "unmeasured" — the run printed a
+// clean report over an empty corpus. That is the failure mode worth fixing: the
+// instrument is the score of record, and it was silently scoring nothing.
+//
+// The wf- prefix is already the annotation vocabulary elsewhere in this file (see the
+// class-denominator filter in wfFacts), so the rule is the prefix, not a name list.
+// The unprefixed entries are vocabulary, same as .userchip and table.bind in contentOf.
+const SCAFFOLD_CLASSES = ['bind', 'bt', 'section-h', 'anno-wrap', 'rail-note', 'anno'];
+const isScaffoldClass = c => /^wf-/.test(c) || SCAFFOLD_CLASSES.includes(c);
+
 function localMockClasses(html) {
   const out = new Set();
-  for (const st of html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi))
-    for (const sel of st[1].matchAll(/\.([a-z][a-z0-9-]*)/gi)) out.add(sel[1]);
+  for (const st of html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)) {
+    // Comments first. A wireframe's <style> is commented prose as much as it is CSS, and
+    // that prose NAMES CLASSES: "same bug class as .card/.right/.chat earlier this
+    // session" harvested .card — a design-system class the wireframe only mentions —
+    // whose subtree is every card on the page. Scoring then ran over what was left of a
+    // gutted page. Cause and cure are both one line; the symptom was a 0% on a page that
+    // screenshots as faithful.
+    const css = st[1].replace(/\/\*[\s\S]*?\*\//g, ' ');
+    for (const sel of css.matchAll(/\.([a-z][a-z0-9-]*)/gi)) out.add(sel[1]);
+  }
   return out;
 }
 
@@ -169,10 +217,21 @@ function wfFacts(file) {
   const mock = localMockClasses(html);
   let main = contentOf(html);
   const mockUsed = [];
+  const structural = [];
   for (const c of mock) {
-    if (['wf-note', 'wf-bar', 'wf-section', 'bind', 'bt'].includes(c)) continue;
+    if (isScaffoldClass(c)) continue;
     const re = new RegExp('<(div|button|span|p)[^>]*class="[^"]*\\b' + c + '\\b[^"]*"', 'i');
-    if (re.test(main)) { mockUsed.push(c); main = dropBalanced(main, re); }
+    if (!re.test(main)) continue;
+    const after = dropBalanced(main, re);
+    // STRUCTURE IS NOT A MOCK. A bound-data mock is a repeated REGION of the page —
+    // .passage/.qcard occur once per list item, which is what makes their sample text
+    // bound data. A class that occurs ONCE and whose subtree is most of the page is the
+    // wireframe's own wrapper (.wf-wrap, .mockup-frame), and dropping it deletes the page.
+    // Both tests must hold, so a genuinely dominant repeated mock still scores as a mock.
+    const uses = (main.match(new RegExp(re.source, 'gi')) || []).length;
+    const kept = strip(after).length / Math.max(1, strip(main).length);
+    if (uses === 1 && kept < 0.4) { structural.push(c); continue; }
+    mockUsed.push(c); main = after;
   }
   const grab = re => [...main.matchAll(re)].map(x => strip(x[1])).filter(Boolean);
   const headings = grab(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi);
@@ -200,7 +259,7 @@ function wfFacts(file) {
   const mockCls = [...classes].filter(c => mockUsed.includes(c) || mock.has(c));
   mockCls.forEach(c => classes.delete(c));
   return { headings, buttons, blocks: blocks.filter(b => b.length > 12), classes: [...classes],
-           gridOnly, mockUsed, mockCls, binds: bindRows(html) };
+           gridOnly, mockUsed, structural, mockCls, binds: bindRows(html) };
 }
 
 // ---- MDL side -------------------------------------------------------------------------
@@ -270,6 +329,7 @@ const miss = [...s.h.miss.map(x => 'heading: ' + x), ...s.b.miss.map(x => 'actio
 if (miss.length) console.log('  missed:\n  ' + miss.join('\n  '));
 if (s.c.chrome.length) console.log('  chrome (layout-supplied, not scored): ' + s.c.chrome.join(' '));
 if (wf.mockUsed.length) console.log('  bound-data mocks (wireframe-local, text not scored): ' + wf.mockUsed.join(' '));
+if (wf.structural.length) console.log('  wireframe structure (kept as page content, not a mock): ' + wf.structural.join(' '));
 if (wf.mockCls.length) console.log('  wireframe-local classes (not scored): ' + wf.mockCls.join(' '));
 if (STUB) console.log('  stub — forward-reference target, exempt from the 80% target; the first non-stub row is the score of record');
 

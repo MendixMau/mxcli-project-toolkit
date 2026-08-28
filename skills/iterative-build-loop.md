@@ -564,6 +564,16 @@ Mark each stub with the script number that will replace it: `[STUB: Script 44 wi
 
 Use `SHOW PAGES IN Module` / `SHOW MICROFLOWS IN Module` to confirm a target exists before referencing it.
 
+**Stub pages and the fidelity log.** If a stub page has a wireframe, score it with
+`page-fidelity.js --stub` — the row lands in `docs/PAGE-FIDELITY.tsv` marked `stub` and
+is exempt from the ≥80% first-build target; the real script's score becomes the first
+non-stub row, which is the score of record. The flag must be passed **when the stub is
+scored**, in the stub script's round — retro-declaring a page "it was just a stub" after
+a bad first-build score does not reclassify the row. And a stub row is a promise: at
+module close, any page whose *only* rows are `stub` rows is an unfinished page wearing a
+stub label — the same finding as no row at all (`ui-preflight-pages.md` Step 5,
+`module-review.md` rubric row 6).
+
 ---
 
 ## CE Error Triage

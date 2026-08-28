@@ -18,7 +18,9 @@ Not needed for pure microflow/domain/security scripts.
 
 ---
 
-## The Four Steps (all mandatory, in order)
+## The Five Steps (all mandatory, in order)
+
+Steps 1–4 are judgement; Step 5 is the mechanical check that judgement alone was measured to miss.
 
 ### Step 1 — Read the wireframe
 
@@ -128,6 +130,63 @@ rule applies and that MCP will handle it as a follow-up.
 
 ---
 
+### Step 5 — Run the shell check before you exec (mechanical, seconds)
+
+Steps 1–4 are judgement and they are the substance. This step is the part a script can
+settle, and it exists because **judgement performed correctly still shipped the wrong
+shell on ten pages out of ten**:
+
+```
+bin/check-page-shell.sh mdlsource/<your-page-script>.mdl
+```
+
+It compares the drafted MDL against the wireframe on the three things the wireframe
+states unambiguously — the page column, the layout/nav shell, one `RenderMode: H1` —
+and exits non-zero on a mismatch. Run it **before** `bin/exec.sh`, alongside
+`mxcli check`; it reads files only, so it needs no app, no Studio Pro, and no
+screenshot, and it runs in a cloud/mobile session where the rest of Gate: UI cannot.
+
+Then run the scored companion on the same draft:
+
+```
+node <toolkit>/project-bin/page-fidelity.js design/wireframes/<Page>.html <Page> mdlsource/<script>.mdl
+```
+
+**Every run is stored.** The scorer appends its result to the project's
+`docs/PAGE-FIDELITY.tsv` — the first row for a page is that page's **first-build score
+of record**, the number the ≥80% target judges; later rows for the same page show the
+rework curve. This is not optional bookkeeping the session may skip: the log is written
+by the instrument itself, so a page with no row in the TSV is a page that was never
+scored — visible at gate time, not reconstructed afterwards (the MarkUseCase field run,
+2026-08-27, built its first pages with no fidelity trace at all, and "what went wrong"
+had to be reconstructed from a session status line). Run it again after `exec` against
+`DESCRIBE` output (`-` for stdin) to record what actually landed in the model.
+
+**Stub pages are exempt — by flag, never by inference.** A forward-reference stub
+(`iterative-build-loop.md` § "Forward references": a page created only so a later
+script's references resolve, replaced by its real script) is deliberately not the
+build, so it must not become the first-build score of record. Score it with
+`--stub`: the row lands marked `stub` and the target skips it — the **first
+non-stub row** is the score of record. The flag is a declaration, exactly like a
+gate waiver: if you didn't declare it a stub at scoring time, it scores as what
+it is. "It was meant as a stub" after a bad score is not a category — it is the
+bad score.
+
+**Measured, ToeicBuddy field run 2026-08-25/26** (`process/first-build-page-fidelity-2026-08-27.md`):
+first-build fidelity across 10 pages was **32% median** against a target of 80%. All 14
+wireframes declared a 900px page column and **0 of 10** pages capped their width — repaired
+wholesale at script 67, fifty-five scripts later, after rendering at 1360px. All 10 were
+built on a sidebar layout against wireframes drawing a top bar — repaired at script 20.
+The script's header carries the full evidence for each check.
+
+The build script that produced those pages **cited this file's Step 3 by name**. That is
+the point: the pre-flight was run, and its output was a paragraph nobody could fail. A
+shell defect is uniform across every page built the same way, so no page stands out as a
+diff and per-page review does not surface it — which is exactly what a mechanical check
+is for, and exactly what human judgement is worst at.
+
+---
+
 ## Report-back format
 
 When you report the completed script back to the main session, include a **UI cross-reference block**:
@@ -141,7 +200,18 @@ UI cross-reference:
   Reuse skipped:    <any existing gallery component deliberately NOT used, with reason — or "none">
   Empty states:     <every grid/gallery on the page has a zero-result message: yes/no>
   Gaps / MCP fallbacks: <any element flagged as STOP, or "none">
+  Shell check:      bin/check-page-shell.sh — <N page(s), N violation(s)> [or: NOT RUN, and why]
+  Fidelity score:   page-fidelity.js — <NN% (headings a/b, actions c/d, …)>, logged to docs/PAGE-FIDELITY.tsv [or: NOT RUN, and why]
+  Class promotion:  self-audit diff (learned-stylegallery.md § "Keep the two files self-auditing") — <N never-promoted class(es), expect 0> [or: NOT RUN, and why]
 ```
+
+The class-promotion row exists because a page can be perfect and still render unstyled: every
+class it uses lives in `ds.css`, and `ds.css` never ships — only the `main.scss` port does.
+`mxcli theme apply` does **not** do that port (it moves palette tokens only — the trap that
+cost the MarkUseCase build every styled element on every page, 2026-08-28). One `diff`
+command answers it.
+
+**The shell-check, fidelity-score and class-promotion lines are the rows in this block with a denominator, and they are not optional.** Every other line is a claim the author grades themselves; that is what made this block unfalsifiable, and a block nobody can fail is not a check. `NOT RUN` is a legal value — silence is not. A fidelity score below 80% on a first build is not a failure to hide — it is the number that tells the next step (fix before the next page, per `ui-loop.md`), and the TSV row is already written either way.
 
 If no wireframe existed, say so explicitly here. Never silently skip this block.
 
@@ -162,6 +232,7 @@ If no wireframe existed, say so explicitly here. Never silently skip this block.
 | Grid/gallery renders nothing on zero results | Step 4 empty-state cross-check |
 | Required/unique field save fails with no visible message (silent 4xx/5xx) | Step 4 validation-feedback cross-check |
 | Page's distinct blocks read as one undifferentiated wall of text | Step 4 block-separation cross-check |
+| Page built full-bleed against a wireframe that draws a fixed page column; a sidebar layout against a wireframe drawing a top bar — uniform across every page, so no page reads as the odd one out | Step 5 shell check (`0/10` on the run that produced this row) |
 | Page built with no title/header block; sections starting flush at 0px; per-page inline pixel spacing | Step 4 page-scaffold + spacing-rhythm cross-checks (`design-spacing.md`) |
 | Design-system class on an ACTIONBUTTON, half-overridden by Atlas — reads on screen as a layout bug in the component, not as a CSS problem | Step 4 class-carrier cross-check |
 | `DynamicClasses` names a class that does not exist; the element falls back to nothing and the page shows an empty bar/badge next to a caption claiming a value | Step 4 computed-class-name cross-check |

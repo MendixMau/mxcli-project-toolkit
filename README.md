@@ -27,6 +27,17 @@ sqlite3, line endings, Studio Pro — and exits non-zero if something will break
 It takes a second and it replaces every "the toolkit is broken" that is really a missing
 prerequisite. **Windows and Linux users: do not skip it.** See *Platform support* below.
 
+When the mxbuild toolchain is what's missing, doctor can also fix it instead of only reporting it:
+
+```bash
+~/Mendix/mxcli-project-toolkit/bin/doctor.sh --install <project-dir>
+```
+
+runs the project's own `./mxcli setup mxbuild` — the same download the headless container build
+uses — and caches the version-matched mxbuild under `~/.mxcli/mxbuild/`. Discovery (and therefore
+`exec.sh`'s mxbuild gate) finds that cache automatically, so a machine without Studio Pro still
+verifies every model write.
+
 This clone stays clean — project output never lands inside it. **Everything else lives inside one project folder** (usually one git repo — it is the session root, the workspace root, and the mxcli target all at once):
 
 ```

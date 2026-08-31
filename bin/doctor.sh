@@ -11,8 +11,16 @@
 # able to report "you have no Python" while itself having no Python. Do not add a dependency
 # here without checking it against that rule.
 #
-#   bin/doctor.sh                 # probe the machine
-#   bin/doctor.sh <project-dir>   # also probe a specific project's wiring
+#   bin/doctor.sh                           # probe the machine
+#   bin/doctor.sh <project-dir>             # also probe a specific project's wiring
+#   bin/doctor.sh --install <project-dir>   # and, if the mxbuild toolchain is missing,
+#                                           # download it locally via the project's ./mxcli
+#                                           # (same `setup mxbuild` the headless container
+#                                           # build uses; cached at ~/.mxcli/mxbuild/)
+#
+# --install is the one deliberate exception to the no-dependency rule: it needs the project's
+# own mxcli binary and network access, runs only when asked, and a failed download degrades to
+# the same report you would have had without it.
 #
 # Exit: 0 = ready. 1 = warnings only, the toolkit will mostly work. 2 = something required is
 # missing and a pipeline stage will fail.
@@ -20,7 +28,14 @@
 set -u
 
 TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT_DIR="${1:-}"
+PROJECT_DIR=""
+INSTALL=0
+for _arg in "$@"; do
+  case "$_arg" in
+    --install) INSTALL=1 ;;
+    *)         PROJECT_DIR="$_arg" ;;
+  esac
+done
 
 FAIL=0
 WARN=0
@@ -30,6 +45,31 @@ warn() { printf '  WARN  %s\n' "$*"; WARN=$((WARN + 1)); }
 bad()  { printf '  FAIL  %s\n' "$*"; FAIL=$((FAIL + 1)); }
 note() { printf '        %s\n' "$*"; }
 head_() { printf '\n%s\n' "$*"; }
+
+# probe_runs <binary> — does this binary actually EXECUTE on this machine?
+#
+# Not the same question as "does --version exit 0". Field report (2026-08-31, macOS, latest
+# Studio Pro): its mxbuild dropped --version, so the flag exits non-zero while the binary is
+# perfectly healthy — and this script's old probe read that as "mxbuild cannot run" on exactly
+# the machine of the person we told to run doctor first. The probe the section needs is
+# execute-level: try --version, and when the flag (not the binary) is what failed, try --help.
+# Exit 126/127 is the binary itself failing (wrong platform / not found) — no retry can fix
+# that. Both flags failing with other codes is also reported broken, with the output shown.
+# On success: PROBE_OUT holds the first probe's output, PROBE_HOW names the flag that worked.
+PROBE_OUT=""
+PROBE_HOW=""
+probe_runs() {
+  PROBE_OUT=""; PROBE_HOW=""
+  _pr_exit=0
+  PROBE_OUT="$("$1" --version 2>&1)" || _pr_exit=$?
+  if [ "$_pr_exit" -eq 0 ]; then PROBE_HOW="--version"; return 0; fi
+  case "$_pr_exit" in 126|127) return "$_pr_exit" ;; esac
+  if _pr_out2="$("$1" --help 2>&1)"; then
+    PROBE_OUT="$_pr_out2"; PROBE_HOW="--help; this build has no --version"
+    return 0
+  fi
+  return "$_pr_exit"
+}
 
 # --- platform -------------------------------------------------------------------------------
 
@@ -217,6 +257,43 @@ MXBUILD="$(find_mxbuild 2>/dev/null || true)"
 JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
 JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 
+# --install: when no runnable mxbuild was discovered, download the standalone toolchain
+# through the project's own mxcli — `./mxcli setup mxbuild -p <app>.mpr`, the exact download
+# the headless container build runs, cached at ~/.mxcli/mxbuild/<version>/ and shared across
+# projects. find_mxbuild/find_java (project-bin/_common.sh) discover that cache, so after a
+# successful download the exec.sh mxbuild gate runs from it too — no Studio Pro required.
+# This happens BEFORE the reporting below, so the report describes the machine as it now is.
+if [ "$INSTALL" -eq 1 ]; then
+  if [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ] && probe_runs "$MXBUILD"; then
+    ok "--install: a runnable mxbuild is already discovered — nothing to download"
+  elif [ -z "$PROJECT_DIR" ]; then
+    bad "--install needs a project directory: bin/doctor.sh --install <project-dir>"
+    note "The download runs through that project's own ./mxcli, which reads the model's"
+    note "Mendix version and fetches the matching toolchain."
+  elif [ ! -x "$PROJECT_DIR/mxcli" ]; then
+    bad "--install: no executable mxcli in $PROJECT_DIR — cannot download the toolchain."
+    note "Get the mxcli build for this OS into the project root first (chmod +x mxcli)."
+  else
+    INSTALL_MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
+    if [ -z "$INSTALL_MPR" ]; then
+      bad "--install: no .mpr in $PROJECT_DIR — setup mxbuild needs the model to pick a version."
+    else
+      note "downloading the mxbuild toolchain (./mxcli setup mxbuild — same as the container build)..."
+      if (cd "$PROJECT_DIR" && ./mxcli setup mxbuild -p "$(basename "$INSTALL_MPR")"); then
+        # Re-run the discovery: the cache did not exist the first time around.
+        SP_APP="$(find_sp_app 2>/dev/null || true)"
+        MXBUILD="$(find_mxbuild 2>/dev/null || true)"
+        JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
+        JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
+        ok "toolchain downloaded to ~/.mxcli/mxbuild/ (shared cache, reused by every project)"
+      else
+        bad "'./mxcli setup mxbuild' failed — see its output above."
+        note "A blocked network/proxy is the usual cause; the download comes from the Mendix CDN."
+      fi
+    fi
+  fi
+fi
+
 GATE_OK=1
 
 # Studio Pro install (the root mxbuild and the bundled JRE are discovered under).
@@ -224,36 +301,50 @@ if [ -n "$SP_APP" ]; then
   ok "Studio Pro install: $SP_APP"
 elif [ "$PLATFORM" = linux ]; then
   warn "no Studio Pro install (none exists for Linux)."
-  note "If you have a standalone mxbuild, point at it: MXBUILD_PATH=/path/to/mxbuild."
+  note "A standalone mxbuild works instead: bin/doctor.sh --install <project-dir> downloads"
+  note "one to ~/.mxcli (the container build's toolchain), or set MXBUILD_PATH=/path/to/mxbuild."
 else
-  bad "no Studio Pro install found — mxbuild and its bundled Java live inside it."
-  note "Install Mendix Studio Pro, or point past the discovery:"
-  note "  MENDIX_APP=<install root>   (macOS: /Applications/Mendix Studio Pro X.Y.Z.app,"
-  note "                               Windows: C:/Program Files/Mendix/X.Y.Z)"
-  note "  MXBUILD_PATH=<mxbuild binary>   JAVA_HOME=<jdk/jre root>"
+  # Severity depends on whether the standalone toolchain covers for it below.
+  if [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ]; then
+    warn "no Studio Pro install found — running on the downloaded toolchain instead (fine for"
+    note "the mxbuild gate; you still need Studio Pro to open the model yourself)."
+  else
+    bad "no Studio Pro install found — mxbuild and its bundled Java live inside it."
+    note "Two ways out:"
+    note "  1. No Studio Pro needed for the gate: bin/doctor.sh --install <project-dir>"
+    note "     downloads the standalone toolchain (same one the headless container build uses)."
+    note "  2. Install Mendix Studio Pro, or point past the discovery:"
+    note "     MENDIX_APP=<install root>   (macOS: /Applications/Mendix Studio Pro X.Y.Z.app,"
+    note "                                  Windows: C:/Program Files/Mendix/X.Y.Z)"
+    note "     MXBUILD_PATH=<mxbuild binary>   JAVA_HOME=<jdk/jre root>"
+  fi
 fi
 
 # mxbuild: present, executable, AND RUNS. Presence alone has lied before — a wrong-platform
 # binary sits at the right path, exits 126 on invocation, and a careless reading of "0 errors
-# reported" becomes a false green. Execute it and read the exit code.
+# reported" becomes a false green. Execute it and read the exit code (probe_runs above — a
+# failed --version alone is NOT "cannot run").
 if [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ]; then
   MXB_EXIT=0
-  MXB_OUT="$("$MXBUILD" --version 2>&1)" || MXB_EXIT=$?
+  probe_runs "$MXBUILD" || MXB_EXIT=$?
   if [ "$MXB_EXIT" -eq 0 ]; then
-    ok "mxbuild runs: $(printf '%s' "$MXB_OUT" | head -1)  ($MXBUILD)"
+    ok "mxbuild runs ($PROBE_HOW): $(printf '%s' "$PROBE_OUT" | head -1)"
+    note "at: $MXBUILD"
   else
     GATE_OK=0
     bad "mxbuild exists but cannot run (exit $MXB_EXIT): $MXBUILD"
-    printf '%s\n' "$MXB_OUT" | grep -v '^[[:space:]]*$' | head -3 | while IFS= read -r l; do note "  $l"; done
+    printf '%s\n' "$PROBE_OUT" | grep -v '^[[:space:]]*$' | head -3 | while IFS= read -r l; do note "  $l"; done
     note "Exit 126 usually means a binary built for another platform/architecture."
   fi
 else
   GATE_OK=0
   if [ "$PLATFORM" = linux ]; then
-    warn "mxbuild not found/executable: ${MXBUILD:-<none>}   (set MXBUILD_PATH=)"
+    warn "mxbuild not found/executable: ${MXBUILD:-<none>}"
   else
-    bad "mxbuild not found/executable: ${MXBUILD:-<none>}   (set MXBUILD_PATH=)"
+    bad "mxbuild not found/executable: ${MXBUILD:-<none>}"
   fi
+  note "Fix without Studio Pro: bin/doctor.sh --install <project-dir>   (downloads it locally,"
+  note "like the container build). Or set MXBUILD_PATH=/path/to/mxbuild."
 fi
 
 # Java: mxbuild is invoked with an explicit --java-exe-path; if none resolves, the gate skips.
@@ -293,6 +384,8 @@ else
   note "Every MDL exec here will report gate=skipped and go through UNVERIFIED: consistency"
   note "errors (CE) are never captured, and BSON corruption — which mxbuild is the only"
   note "reliable detector for — reaches Studio Pro undetected."
+  note "Fastest fix on ANY platform: bin/doctor.sh --install <project-dir> — downloads the"
+  note "toolchain locally through the project's ./mxcli, exactly like the container build."
 fi
 
 # --- node -----------------------------------------------------------------------------------
@@ -402,12 +495,12 @@ if [ -n "$PROJECT_DIR" ]; then
     if [ -x "$PROJECT_DIR/mxcli" ]; then
       # Present is not enough — a wrong-platform binary is present, executable, and exits 126.
       MXCLI_EXIT=0
-      MXCLI_OUT="$(cd "$PROJECT_DIR" && ./mxcli --version 2>&1)" || MXCLI_EXIT=$?
+      probe_runs "$PROJECT_DIR/mxcli" || MXCLI_EXIT=$?
       if [ "$MXCLI_EXIT" -eq 0 ]; then
-        ok "mxcli runs: $(printf '%s' "$MXCLI_OUT" | head -1)"
+        ok "mxcli runs ($PROBE_HOW): $(printf '%s' "$PROBE_OUT" | head -1)"
       else
         bad "mxcli exists but cannot run (exit $MXCLI_EXIT)"
-        printf '%s\n' "$MXCLI_OUT" | grep -v '^[[:space:]]*$' | head -3 | while IFS= read -r l; do note "  $l"; done
+        printf '%s\n' "$PROBE_OUT" | grep -v '^[[:space:]]*$' | head -3 | while IFS= read -r l; do note "  $l"; done
         note "Exit 126 usually means a binary built for another platform/architecture —"
         note "re-download the mxcli build for this OS."
       fi

@@ -20,7 +20,7 @@ see `skills/mendix-agents.md`.
 Get that boundary wrong and you ship two input bars. Get it right and the chat comes for
 free while the panel still looks like your app.
 
-## Four layers, in order
+## Five layers, in order
 
 ### 1. Wireframe first
 
@@ -114,6 +114,68 @@ Example of the last part, worth copying as a habit:
 > `visibilityCondition` in the schema). Needs `ped_update_document` with widget `$ID`s — logged
 > as a separate task.*
 
+### 5. Getting the page's context into the model
+
+The panel can render perfectly, the agent can answer fluently, and the conversation can
+still know nothing about the record on screen. That failure looks like a *quality* problem
+("the agent gave a shitty answer", "it asked me which part I meant") rather than a wiring
+problem, so it survives every check in the list above. Four things decide whether the
+context arrives.
+
+**Messages you create are not messages the model sees.** `ConversationalUI.Message_Create`
+creates without committing, and `ConversationalUI.Request_CreateFromChatContext` builds the
+request from a *database retrieve* over `ConversationalUI.Message`. An uncommitted context
+message is therefore invisible to the very request it was written for — no error, no log
+line, just an agent answering with no idea what page it is on. Any message that must reach
+the model is followed by `ConversationalUI.Message_Commit`.
+
+**Do not put context in a `system`-role message.** Committing one makes it worse, not
+better: the provider rejects the whole request —
+
+```
+400 … messages: Unexpected role "system". The Messages API accepts a top-level
+`system` parameter, not "system" as an input message role.
+```
+
+— and the panel renders a bare `Error` bubble for every question. Page context belongs in
+the **system prompt**, not the message list.
+
+**Append to the chat's own ProviderConfig, not to the agent.**
+`AgentCommons.ChatContext_Create_ForAgent` creates a `ProviderConfig` *per chat context*
+(one project: 92 configs against 90 contexts), so
+
+```
+retrieve $ProviderConfig from $ChatContext/ConversationalUI.ChatContext_ProviderConfig_Active;
+change $ProviderConfig (SystemPrompt = $ProviderConfig/SystemPrompt + ' Context for this conversation: ' + $ContextMessage);
+commit $ProviderConfig without events;
+```
+
+scopes the context to this one conversation and leaves the agent's stored configuration
+untouched. Log a warning on the empty branch — a chat with no active ProviderConfig will
+answer context-blind and nothing else will say so.
+
+**The ActionMicroflow decides whether that append is read at all.** The two stock handlers
+take the system prompt from different places:
+
+| ActionMicroflow | System prompt comes from | Per-chat context |
+|---|---|---|
+| a handler built on `ConversationalUI.ChatContext_Preprocessing` | the chat's **ProviderConfig** | reaches the model |
+| `AgentCommons.ChatContext_ChatWithHistory_ActionMicroflow_AgentBuilder` | `$PromptToUse/SystemPrompt` on the agent **Version** | silently ignored |
+
+Both call `Request_AddAgentCapabilities`, so tools and knowledge bases stay attached either
+way — the handler choice costs you the page context and nothing visible. Two panels wired to
+two different handlers will disagree about what they know while looking identically healthy.
+After switching a handler, re-run the KB-grounding probe: the tools survive the switch in
+principle, but "in principle" is what this whole section is about.
+
+**Probe by reading the reply, never by counting bubbles.** A bubble count passes over an
+empty bubble, an `Error` bubble, and a fluent answer about the wrong record alike. The probe
+that finds these defects types a question whose answer *requires* the page context, waits for
+the text to stabilise, and prints the reply in full for a human to judge. Discover the panels
+by class stem (`[class*="mx-name-dvGraphChat"]`) rather than a hardcoded widget-name list —
+panel names carry per-page suffixes, and a stale suffix reads as "the panel is missing",
+which hides the defect you are hunting.
+
 ## Where the panel goes
 
 Overview pages take an 8 / 4 split. Dashboards take a fixed-height panel (~420px) in a top
@@ -130,5 +192,8 @@ snippet.
 - [ ] No static `.c-foot` in the live snippet
 - [ ] `chat-dataview--display-contents` on the DataView
 - [ ] Starters come from `SuggestedUserPrompt_Create`, not hardcoded
+- [ ] Page context reaches the model: in the chat's ProviderConfig system prompt, not an uncommitted or `system`-role message
+- [ ] The panel's ActionMicroflow is one that reads the ProviderConfig prompt
+- [ ] Proven by a probe that prints the reply text, not a bubble count
 - [ ] `ped_check_errors` → 0 on every patched page, then saved
 - [ ] Each MCP patch recorded as a comment-only `.mdl`, deferrals included

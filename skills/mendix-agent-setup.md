@@ -68,6 +68,13 @@ and exists to *reach that dialog*.
 - **Answers can exceed 60s** for tool-using agents. Default the answer timeout to 120s, and
   before trusting any SILENT verdict, check `conversationalui$message` for an assistant row
   that landed after the window — `Success` late means only your timeout was wrong.
+- **A fluent answer is not a passing answer.** An agent wired to a page can answer every
+  question smoothly and still know nothing about the record on screen — it will simply ask
+  which one you mean, or invent a plausible one. Judge the reply's *content* against the
+  page's context; a bubble count, or a human skim of "it responded", passes over exactly
+  the defect worth finding. The wiring rules behind this are in `mendix-agent-ui.md` §5
+  (page context goes in the chat's ProviderConfig system prompt, never in an uncommitted or
+  `system`-role message, and only some ActionMicroflows read it).
 - **Tool names must match `^[a-zA-Z]\w*$`** (the converse API validates every
   `toolSpec.name`). Both `AgentCommons.Tool.Name` and **`KnowledgeBase.Name`** feed that
   field — an attached KB is sent as a retrieval tool under its machine `Name`, not its

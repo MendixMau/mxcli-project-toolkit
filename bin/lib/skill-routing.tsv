@@ -98,6 +98,7 @@ testing-shape	skills/testing-shape.md	Before calling any module tested — what 
 verify-module	project-bin/verify-module.sh	Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh	mdl,gate,test,review	5,6	baseline	verify
 mxcli-bugs	bug-logs/mxcli-bugs.md	A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake	mdl,gate	5,6	baseline	diagnose
 bootstrap-project	skills/bootstrap-project.md	Generating a new project's CLAUDE.md — baseline routing plus project-specific facts	ba	P	ondemand	spine
+cloud-dev-environment	skills/cloud-dev-environment.md	Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim	all	P	ondemand	spine
 existing-app-assurance	skills/existing-app-assurance.md	Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates	test,review	6	ondemand	verify
 assess-migration	skills/assess-migration.md	Assessing or planning a migration up front, before any pipeline is chosen	ba	0	ondemand	source
 migration-pipeline	skills/migration-pipeline.md	Running the extraction pipeline	ba	0,1	ondemand	source

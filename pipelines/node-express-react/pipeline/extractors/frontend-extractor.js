@@ -2,8 +2,14 @@
 
 /**
  * Frontend extractor for React/TypeScript.
- * Reads src/containers/*.tsx → screen items (one per container/page component).
+ * Reads the configured screen directories → screen items (one per page/component).
  * Also scans src/graphql/query.ts and src/graphql/mutation.ts for API call shapes.
+ *
+ * LAYOUT IS CONFIGURED, NOT ASSUMED (2026-08-31) — see the same note in
+ * backend-extractor.js. `src/containers` is the RWA shape and remains the default; a source
+ * that keeps screens in `web/src/pages` + `web/src/components` sets config.json's
+ * `layout.screenDirs` rather than forking this file. Directories are walked recursively,
+ * because pages routinely nest one level (`pages/user/UserApp.tsx`).
  *
  * Output: { source: 'frontend', items: [...], errors: [...], meta: {...} }
  * Written to: <knowledgeBaseDir>/extracted/frontend.json
@@ -69,6 +75,52 @@ if (fs.existsSync(gqlDir)) {
 const apolloFile = path.join(sourceDir, 'src', 'utils', 'apolloClient.ts');
 if (fs.existsSync(apolloFile)) { readFile(apolloFile); fileCount++; } // just count it
 
+// ── 1b. Typed API-client scan (layout.apiClientFiles) ────────────────────────
+// A React app that centralises its calls in a typed client module (`api.listDashboards(id)`
+// → `request('/api/users/${id}/dashboards')`) has NO axios call anywhere in a screen, so the
+// axios pass below reports every screen as `no-api-calls-found` and the linker cannot join a
+// single screen to an endpoint. Field case: Puffin, 10 of 10 screens with zero API calls
+// while the client module held all 13. This pass maps client method → {method, path}; the
+// screen pass then resolves `client.method(` usages through it, exactly as it already does
+// for GraphQL operations.
+const clientApiCalls = new Map();   // methodName → { method, path }
+
+function loadFrontendLayout() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(process.env.PIPELINE_CONFIG || path.join(__dirname, '..', 'config.json'), 'utf8'));
+    return cfg.layout || {};
+  } catch { return {}; }
+}
+const feLayout = loadFrontendLayout();
+
+for (const rel of (feLayout.apiClientFiles || [])) {
+  const abs = path.join(sourceDir, rel);
+  if (!fs.existsSync(abs)) { errors.push({ file: abs, error: 'api client file not found' }); continue; }
+  const content = readFile(abs);
+  if (!content) continue;
+  fileCount++;
+
+  // methodName: (args) => request<T>(`/api/...`, { method: 'POST' })  — and fetch(`${base}/api/...`)
+  // The body window is generous on purpose: a one-line `=> request('/path')` and a
+  // block-bodied `async () => { … 40 lines of status handling … }` are both normal in a
+  // hand-written client, and a short window silently drops the second kind (Puffin's
+  // fetchMe and fetchVersionContent, the two methods with their own error handling).
+  const methodRegex = /(\w+)\s*:\s*(?:async\s*)?\([^)]*\)\s*(?::[^=]+)?=>\s*([\s\S]{0,2000}?)(?=\n\s{2}(?:\/\*|\w+\s*:)|\n\};)/g;
+  let mm;
+  while ((mm = methodRegex.exec(content)) !== null) {
+    const methodName = mm[1];
+    const body       = mm[2];
+    const pathMatch  = body.match(/[`'"]((?:\$\{[^}]*\})?\/[^`'"]*)[`'"]/);
+    if (!pathMatch) continue;
+    const httpMatch  = body.match(/method:\s*['"](\w+)['"]/);
+    const urlPath    = pathMatch[1]
+      .replace(/\$\{[^}]*base[^}]*\}/gi, '')          // strip the base-URL interpolation
+      .replace(/\$\{[^}]+\}/g, ':param');             // remaining interpolations are params
+    if (!urlPath.startsWith('/')) continue;
+    clientApiCalls.set(methodName, { method: (httpMatch ? httpMatch[1] : 'GET').toUpperCase(), path: urlPath });
+  }
+}
+
 // ── 2. REST calls from containers ─────────────────────────────────────────────
 // Scan axios calls: axios.get('/api/transactions'), axios.post('/api/users'), etc.
 
@@ -82,19 +134,34 @@ function extractAxiosCalls(content) {
   return calls;
 }
 
-// ── 3. Container extraction (src/containers/*.tsx) ───────────────────────────
+// ── 3. Screen extraction (layout.screenDirs) ─────────────────────────────────
 
-const containersDir = path.join(sourceDir, 'src', 'containers');
-if (!fs.existsSync(containersDir)) {
-  errors.push({ file: containersDir, error: 'containers directory not found — skipping frontend screens' });
-} else {
-  const containerFiles = fs.readdirSync(containersDir)
-    .filter(f => f.endsWith('.tsx') || f.endsWith('.ts'));
+const DEFAULT_SCREEN_DIRS = ['src/containers'];
+function loadScreenDirs() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(process.env.PIPELINE_CONFIG || path.join(__dirname, '..', 'config.json'), 'utf8'));
+    return (cfg.layout && cfg.layout.screenDirs) || DEFAULT_SCREEN_DIRS;
+  } catch { return DEFAULT_SCREEN_DIRS; }
+}
 
-  for (const file of containerFiles) {
-    if (file.endsWith('.cy.tsx')) continue; // skip Cypress component tests
+function walkTsx(dir, out) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) walkTsx(full, out);
+    else if (/\.(tsx|ts)$/.test(entry.name) && !entry.name.endsWith('.cy.tsx') && !entry.name.endsWith('.d.ts')) out.push(full);
+  }
+  return out;
+}
 
-    const filePath = path.join(containersDir, file);
+const screenPaths = [];
+for (const rel of loadScreenDirs()) {
+  const abs = path.join(sourceDir, rel);
+  if (!fs.existsSync(abs)) { errors.push({ file: abs, error: 'screen directory not found — skipping' }); continue; }
+  walkTsx(abs, screenPaths);
+}
+{
+  for (const filePath of screenPaths) {
+    const file     = path.basename(filePath);
     const content  = readFile(filePath);
     if (!content) continue;
     fileCount++;
@@ -104,6 +171,14 @@ if (!fs.existsSync(containersDir)) {
 
     // Collect API calls (axios REST)
     const apiCalls = extractAxiosCalls(content);
+
+    // Collect typed-client calls: api.listDashboards(…), userApi.fetchMe(…)
+    const clientCallRegex = /\b\w*[Aa]pi\.(\w+)\s*\(/g;
+    let cm;
+    while ((cm = clientCallRegex.exec(content)) !== null) {
+      const hit = clientApiCalls.get(cm[1]);
+      if (hit && !apiCalls.some(c => c.method === hit.method && c.path === hit.path)) apiCalls.push(hit);
+    }
 
     // Collect referenced GraphQL operations (useQuery/useMutation hook calls)
     const gqlOpRegex = /use(?:Query|Mutation|Subscription)\s*\(\s*(\w+)/g;

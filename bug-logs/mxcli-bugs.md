@@ -4711,3 +4711,61 @@ the same `change`/`commit` body with the log line reworded → passes.
 
 **Related:** same describe→check round-trip family as [[BUG-84]]/[[BUG-96]] in spirit (tool
 output disagreeing with tool input), but this one is a parser gap, not a silent write no-op.
+
+## BUG-98: quoting a microflow parameter as `"$Name"` silently keeps the `$` in the parameter name — CE1613 at mxbuild while `check --references` passes
+
+**Severity:** High — the always-quote-identifiers house rule, applied to a parameter, produces a corrupt parameter name that only surfaces at the mxbuild gate
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08-31, TFC-TCXGraphPOC-main, writing a microflow taking a `TFC.TFCStub`
+**Reproducible:** yes
+
+The documented quoting rule ("always quote identifiers; quotes are stripped automatically")
+does not extend to the `$` sigil on a microflow parameter. Declaring
+
+```
+create microflow M.Flow ("$TFCStub": TFC.TFCStub) ...
+```
+
+strips the quotes but keeps the `$` **inside** the stored parameter name, so the model holds a
+parameter literally named `$TFCStub` whose body references `$TFCStub` — which now resolves as
+`$` + name `TFCStub` and matches nothing. `mxcli check --references` passes; the failure is
+CE1613 at mxbuild. Correct form: `$TFCStub: TFC.TFCStub` (sigil unquoted; quote only the
+bare-name identifiers).
+
+**Workaround:** never wrap the `$`-prefixed form in quotes. If already written, regenerate the
+microflow with the unquoted sigil.
+
+## BUG-99: `ALTER PAGE … REPLACE`/multi-root `INSERT` can register the same widget name twice, then fail every later edit with duplicate-name errors
+
+**Severity:** Medium — page becomes uneditable through mxcli for the affected names
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08 (TFC-TCXGraphPOC-main, iterating on agent-panel page edits)
+**Reproducible:** intermittent but recurred across sessions
+
+A `REPLACE widget WITH { … }` (and an `INSERT` whose block carries more than one root widget)
+can leave the page holding two registrations of one widget name. Later `ALTER PAGE`
+operations naming any widget on that page then fail with a duplicate-name error even though
+`DESCRIBE PAGE` renders a single occurrence.
+
+**Workaround:** `CREATE OR REPLACE PAGE` from a clean `DESCRIBE` dump under fresh names, or
+edit via MCP `pg_patch_page`. Prefer single-root blocks in `REPLACE`/`INSERT`.
+
+## BUG-100: widget names stay burned after a rolled-back exec — a restore of the `.mpr` does not free names the failed script had claimed
+
+**Severity:** Medium — retrying a failed page script verbatim fails on names that no longer exist in the model
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08 (TFC-TCXGraphPOC-main, exec.sh auto-restore path)
+**Reproducible:** yes within a session
+
+After an exec fails mxbuild and the snapshot is restored, re-running the corrected script can
+still be rejected with duplicate-widget-name errors for names that only ever existed in the
+rolled-back attempt — the name registry appears to survive the restore (cache keyed on the
+project path, not the file contents). `DESCRIBE PAGE` on the restored model shows the names
+absent.
+
+**Workaround:** bump the widget names (suffix `2`), or clear/refresh the mxcli catalog cache
+before retrying. Renaming is the reliable path; it is why several TFC pages carry `_v2`
+widget names.

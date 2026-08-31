@@ -4624,3 +4624,108 @@ None found via MDL. Either:
 action button to open a related detail page with the current run passed as a parameter,
 outside any dataview), confirmed via `DESCRIBE PAGE` round-trip and two independent rewrite
 attempts before reverting the widget to restore a green build.
+
+---
+
+## BUG-96: cross-module `ALTER PAGE ... INSERT AFTER <col> { column ... }` into a DataGrid2 writes a malformed widget unit — Studio Pro loader crashes, `DESCRIBE` hides the evidence, `DROP PAGE` does not clear it
+
+**Severity:** Fatal — whole project refuses to load in Studio Pro / `mx check`
+**Reproducible:** Yes (single occurrence, but mechanism confirmed via recovery)
+**mxcli / Mendix version:** not recorded in the source log (build ran 2026-08 on Mendix 11.x)
+**Discovered:** 2026-08-14, a martial-arts-academy PoC project
+**Related:** BUG-19 — same `InvalidCastException` (DivContainer → WidgetObject typed-list clash), different write path: BUG-19 is a CONTAINER inserted inside a dataview body; this is a DataGrid2 `column {}` block inserted cross-module.
+
+### Trigger
+
+A module's script ran a **cross-module** alter — inserting a new DataGrid2 column (with a
+nested actionbutton) into a page owned by a *different* module:
+
+```mdl
+alter page "OtherModule"."SomePage" {
+  insert after Actions {
+    column colMessage (caption: 'Message') {
+      actionbutton btnMessage (...)
+    }
+  }
+}
+```
+
+### Actual behavior
+
+- Every `mxcli exec` / `mxcli check` / `DESCRIBE PAGE` on the file keeps succeeding.
+- Studio Pro's own loader (`mx check`, full project load) crashes:
+  ```
+  System.InvalidCastException: Unable to cast object of type
+  'Mendix.Modeler.WebUI.Forms.Widgets.LayoutWidgets.DivContainers.DivContainer'
+  to type 'Mendix.Modeler.WebUI.Forms.Widgets.CustomWidgets.WidgetObject'
+     at ...StreamingBsonUnitReader... at ...UnitLoader.ConstructUnits()
+  ```
+- **`DESCRIBE PAGE` silently omits the malformed column** from its export — the corrupt
+  widget is invisible to mxcli's own lenient reader while still present in the raw BSON.
+- **`DROP PAGE` does not clear the crash** — the malformed unit survives in storage. Only
+  `DROP MODULE` (removes the whole module folder) or a full `create or replace page` of
+  that exact page clears it.
+
+### Fix / recovery
+
+`create or replace page` (full overwrite, NOT `create or modify`) of the affected page,
+built from `DESCRIBE PAGE` output. Since `DESCRIBE` cannot represent the malformed column,
+the replacement necessarily drops it — the intended new column is lost and must be re-added
+via a plain single-module `CREATE OR REPLACE PAGE`, never a cross-module
+`ALTER PAGE ... INSERT` column.
+
+### Operating rule until fixed upstream
+
+Treat cross-module `ALTER PAGE ... INSERT` of DataGrid2 columns as forbidden. The lenient
+reader means a green `mxcli check` proves nothing here — run Studio Pro's own `mx check`
+before trusting any session that used this construct.
+
+---
+
+## BUG-97: `.mpr` write path corrupts the entire project on the ~15th cumulative write operation — content-, order-, transaction- and engine-independent
+
+**Severity:** Critical — silent, project-wide corruption; surfaces only on the next full `mx check`, as ~70 errors across entities/microflows/pages never touched in the session
+**Reproducible:** Yes — 6 independent disposable copies, corruption at the same cumulative count every time
+**mxcli / Mendix version:** not recorded in the source log (build ran 2026-08 on Mendix 11.x)
+**Discovered:** 2026-08-14, a martial-arts-academy PoC project
+
+### Trigger
+
+The 15th sequential write-class `mxcli exec` operation (`create or replace microflow/page`,
+`alter page`, `grant`/`revoke` — any content) against the same `.mpr`, counting cumulatively
+from a clean baseline.
+
+### Ruled out (each reproduced identically)
+
+1. **Content** — three unrelated 15th operations (heavy microflow recreation, the same with
+   the logic stripped, a one-widget `alter page`) all corrupt.
+2. **Order** — the complex operation placed 1st, 12th or 15th; corruption always at count 15.
+3. **Transaction boundaries** — 15 separate `mxcli exec` invocations vs one invocation with
+   48 statements: identical.
+4. **Write engine** — `modelsdk` and `--engine legacy`: identical.
+5. **External cache** — corruption follows the `.mpr` file's own lineage across fresh `/tmp`
+   copies; nothing project-keyed found outside the file. Points at something in the file's
+   own structure (hypothesis, labelled as such: an incremental-write delta counter/index a
+   full Studio Pro save would compact and reset — unconfirmed).
+
+At exactly 14 operations `mx check` is clean (verified 3 times across orderings); at 15 it
+reports ~70 errors with a project-wide signature (CE0066/CE0069/CE0109/CE0156/CE1571/CE7247
+spanning untouched modules) — a global ID/reference-table corruption, not a local defect.
+
+### Workaround / operating rule
+
+Cap sequential `mxcli exec` writes at **10–12 per session** against any given `.mpr` (14 is
+the measured cliff edge; leave margin), then have a human do one interactive Studio Pro save
+before resuming scripted work. The counter-reset theory is unconfirmed — re-test after a
+manual save and update this entry.
+
+### Recovery hard lessons (from the same incident's postmortem)
+
+- A saved `.mpr` file alone is **not a backup** — on split-model projects the real unit data
+  lives in `mprcontents/` (hex-sharded `.mxunit` store); the `.mpr` is an index. Snapshot
+  both together or the rollback restores an index over already-lost data.
+- `mprcontents/` is primary storage, never a disposable cache — deleting it kills the project.
+- **Verify a backup actually loads (`mx check`) before trusting it as the clean state** — the
+  incident's one full backup turned out to carry a pre-existing fatal loader crash (BUG-96's
+  class) that had never been load-verified.
+

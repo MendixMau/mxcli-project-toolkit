@@ -57,12 +57,16 @@ q() { sqlite3 -noheader "$DB" "$1"; }
 
 # --- guard 1: freshness ------------------------------------------------------------------
 CAT_MTIME="$(q "SELECT value FROM catalog_meta WHERE key='mpr_mod_time';" | cut -c1-19)"
-# `stat -f` is BSD, `stat -c` is GNU coreutils (Linux, and Git Bash on Windows). Both forms
-# are tried. The third case matters most: if NEITHER works, MPR_MTIME is empty and the
-# freshness guard below reports "catalog is stale" against a blank mtime — a real fault
-# reported as the wrong fault. Fail on the read instead of comparing against nothing.
-MPR_MTIME="$(stat -f "%Sm" -t "%Y-%m-%dT%H:%M:%S" "$MPR" 2>/dev/null \
-  || { stat -c "%y" "$MPR" 2>/dev/null | cut -c1-19 | tr ' ' 'T'; })"
+# `stat -c` is GNU coreutils (Linux, and Git Bash on Windows), `stat -f` is BSD/macOS.
+# GNU must be tried FIRST: on GNU, `stat -f` does not fail — it reads `-f`/`-t` as
+# filesystem-info flags and prints plausible-looking garbage, so a BSD-first chain's
+# fallback never fires and every Linux run FAULTs as "catalog is stale" against a bogus
+# mtime (found independently on two projects, 2026-08-19 and 2026-08-14). The third case
+# still matters most: if NEITHER works, MPR_MTIME is empty and the freshness guard below
+# reports "catalog is stale" against a blank mtime — a real fault reported as the wrong
+# fault. Fail on the read instead of comparing against nothing.
+MPR_MTIME="$(stat -c "%y" "$MPR" 2>/dev/null | cut -c1-19 | tr ' ' 'T')"
+[ -n "$MPR_MTIME" ] || MPR_MTIME="$(stat -f "%Sm" -t "%Y-%m-%dT%H:%M:%S" "$MPR" 2>/dev/null)"
 [ -n "$MPR_MTIME" ] || {
   echo "FAULT: cannot read the modification time of $MPR." >&2
   echo "       Neither 'stat -f' (BSD/macOS) nor 'stat -c' (GNU/Linux/Git Bash) worked here." >&2

@@ -155,12 +155,35 @@ Everything in this section is about restricted-egress environments (e.g. a cloud
 container behind a mandatory proxy). Skip it on a normal workstation.
 
 - **MxGenAIConnector's HTTP client does not honour Java's system proxy properties.** The JVM
-  can have the proxy configured and logged, and the connector still opens its own direct
-  socket — which a default-deny gateway 403s (`Host not in allowlist: …`) no matter what the
-  allowlist says. The workaround class is a loopback shim: one local listener per backend
-  host, splicing each connection into a `CONNECT` tunnel on the real proxy, plus `/etc/hosts`
-  entries. TLS still terminates at the proxy with its CA in the JVM truststore — never
-  disable TLS verification.
+  can have `-Dhttps.proxyHost` configured and logged, and the connector still opens its own
+  direct socket — which a default-deny gateway 403s (`Host not in allowlist: …`) no matter
+  what the allowlist says. Worse, there is no HTTP response to report, so the connector logs
+  its own error with nothing after the colon:
+  `Something went wrong while attempting to retrieve model information from the backend:`
+  A failing call here says nothing about the credential — check it with `curl` before
+  suspecting the key.
+
+- **Try the runtime's own proxy settings FIRST.** Mendix has `http.proxyHost` /
+  `http.proxyPort` as *runtime settings*, which is a different mechanism from JVM system
+  properties and is the one its HTTP client actually reads. On a PAD they are overridable
+  from the environment, and the package documents them itself in
+  `etc/constants/variables.conf`:
+
+  ```bash
+  export RUNTIME_PARAMS_HTTP_PROXYHOST=127.0.0.1
+  export RUNTIME_PARAMS_HTTP_PROXYPORT=39493      # parse from $HTTPS_PROXY, never hardcode
+  ```
+
+  Measured 2026-08-31 (DealIQ): two exported variables, worked on the first boot — the model
+  list came back and nine `DeployedModel` rows landed. No shim, no `/etc/hosts`.
+
+- **The loopback shim is the fallback, not the default.** Where the runtime settings are not
+  reachable — an embedded runtime, a host you cannot pass environment variables to — the
+  workaround class is a shim: one local listener per backend host, splicing each connection
+  into a `CONNECT` tunnel on the real proxy, plus `/etc/hosts` entries. It is a lot of moving
+  parts for something two variables usually solve, so reach for it only after the above
+  fails. TLS still terminates at the proxy with its CA in the JVM truststore — never disable
+  TLS verification.
 - **The proxy port is not stable across container recycles.** Anything that captured it at
   startup (the shim, the app's runtime settings) silently tunnels into nothing after a
   recycle. Read the proxy from the live environment at every start, and verify the port in

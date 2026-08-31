@@ -261,6 +261,21 @@ human looking at the screenshot, not by the suite.
   slower window mid-run, and it reports as "role restriction". One account per window; an empty
   fallback user or a rejected login silently recombines them. *A menu that loses entries mid-run is
   never a role restriction.*
+- **A probe that logs in and never logs out holds a Mendix session until it times out, and a trial
+  license caps concurrent sessions.** Once the pool is exhausted the *next* run's login fails as a
+  bland **"Sign in failed."** on the login page — indistinguishable from a wrong password, and
+  `system$user.failedlogins` stays at **0** because authentication was never reached. Every
+  downstream step then reports as a feature failure. Measured 2026-08-31 on a Mendix 11.13 app: a
+  16-step narrated tour scored 0, with each step labelled `(as (not signed in))`, and the only honest
+  evidence was one line in the runtime log —
+  `ERROR - Connector: ... Maximum number of sessions exceeded! (You are currently using a trial
+  license)`. Sixteen "defects" that were one leaked session pool.
+  **Guard, two halves, both required:** every probe logs out in a `finally` block
+  (`page.goto('<base>/logout')` before closing the context — closing the browser alone does *not*
+  release the server-side session); and **before any login failure is reported as a defect, grep the
+  runtime log for `Maximum number of sessions exceeded`**. When it is there the verdict is
+  `INVALID`/`fault` — the instrument did not run — never `FAIL`. `failedlogins = 0` alongside a
+  "Sign in failed." on screen is itself the tell: the credentials were never checked.
 - **Phone viewports:** a target can be attached and rendered but **below the fold**, where
   `isVisible()` is false and the click is skipped. `scrollIntoViewIfNeeded()` before the visibility
   check.

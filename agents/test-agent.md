@@ -37,6 +37,7 @@ and `"DESCRIBE ..."` reads are always fine, and are how you ground every name yo
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `skills/checkpoints/checkpoint-cutover.md` | CAC-6, after Stage 6 passes and before any cutover step — migration mode only, and a hard gate: every answer lands CONFIRMED, no ASSUMED defaults |
 | `skills/existing-app-assurance.md` | Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates |
+| `skills/mendix-agent-setup.md` | Standing up a project's GenAI agents in any environment — model-to-agent binding, KB indexing and the agent-answers-a-question proof are UI-only, driven with Playwright; key import also has a headless path that silently omits the deployed models. You need the resource keys handed to you as env vars first |
 | `project-bin/test-stack-up.sh` | Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only |
 | `skills/e2e-harness-base.md` | Standing up or extending the Playwright e2e harness |
 | `skills/learned-db-assertions.md` | Writing DB assertion tests that cross-check UI state against the database |

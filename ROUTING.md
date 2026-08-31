@@ -145,6 +145,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 |---|---|---|---|---|
 | Building a Mendix AI agent — the agent is runtime data not a model document, so JSON import, tool microflows, knowledge base chunk loading and the runtime wiring all sit outside MDL, and mxbuild stays green when they are wrong | `skills/mendix-agents.md` | mdl,architect | 5 | ondemand |
 | Embedding a copilot chat panel — the frame is yours, ConversationalUI owns the conversation; wireframe to tokens to snippet to page placement | `skills/mendix-agent-ui.md` | mdl | 5 | ondemand |
+| Standing up a project's GenAI agents in any environment — model-to-agent binding, KB indexing and the agent-answers-a-question proof are UI-only, driven with Playwright; key import also has a headless path that silently omits the deployed models. You need the resource keys handed to you as env vars first | `skills/mendix-agent-setup.md` | mdl,test | 5,6 | ondemand |
 
 #### Build · Workflow
 

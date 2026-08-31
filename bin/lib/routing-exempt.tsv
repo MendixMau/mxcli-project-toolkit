@@ -1,0 +1,22 @@
+# Skills deliberately NOT in bin/lib/skill-routing.tsv — the coverage audit's allowlist.
+#
+# Every skills/**/*.md must either have a routing row (that is what makes it reachable) or a
+# line here saying WHY it doesn't. An unrouted, unexempted skill fails
+# `bin/render-routing.sh --check` — that is the point: orphans surface mechanically, not by
+# someone happening to triage the directory. (Measured 2026-08-31, first run of this audit:
+# 6 unrouted skills on disk — 3 were tombstones, but `full-harness-audit.md` and
+# `test-result-audit.md` had ZERO inbound references anywhere in the repo, and
+# `finding-disposition.md` was reachable only through other skills' prose.)
+#
+# Format: path<TAB>reason. `#` comments and blank lines ignored. A path ending in `/`
+# exempts the whole directory. An exemption whose path no longer exists, or whose path HAS
+# a routing row, is stale and reported — a dead exemption is a hole the audit can no longer
+# see.
+#
+# Valid reasons are narrow: a tombstone (file kept so old links resolve, content moved or
+# withdrawn), or a file reached by a dedicated mechanism other than the routing table. "We
+# forgot" is not a reason — add the row instead.
+skills/checkpoints/	reached via the checkpoint mechanism (conversion-runbook stage transitions + gate-check), not the routing table
+skills/journey-map.md	tombstone — falsification trial failed 2026-08-22, row removed then; file kept so old links resolve
+skills/ui-review-loop.md	merge tombstone — content lives in skills/module-review.md (routed)
+skills/module-completion-loop.md	merge tombstone — content lives in skills/module-review.md (routed)

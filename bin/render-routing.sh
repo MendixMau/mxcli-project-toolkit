@@ -174,15 +174,34 @@ fi
 GHOSTS="$(routing_missing_paths "$ROOT" | tr '\n' ' ')"
 [ -n "${GHOSTS// /}" ] && echo "NOTE: routed but not on disk yet:$( echo " $GHOSTS" | sed 's/ *$//')"
 
+# Coverage audit: every skills/**/*.md is routed or exempted (bin/lib/routing-exempt.tsv).
+# Fails --check — an unrouted skill is unreachable by anything that scans the tables, and the
+# first run of this audit found 6 such files, two with zero inbound references anywhere.
+# In render mode it warns but still renders: rendering the surfaces you CAN reach is the
+# remedy path, and a guard must never block the action that resolves it.
+ORPHANS="$(routing_unrouted_skills "$ROOT")"
+if [ -n "$ORPHANS" ]; then
+  echo "UNROUTED: skill(s) on disk with no routing row and no exemption:"
+  printf '%s\n' "$ORPHANS" | sed 's/^/    /'
+  echo "    → add a row to bin/lib/skill-routing.tsv (then re-render), or an exemption with a reason to bin/lib/routing-exempt.tsv"
+fi
+STALE_EXEMPT="$(routing_stale_exemptions "$ROOT")"
+if [ -n "$STALE_EXEMPT" ]; then
+  echo "STALE EXEMPTION(s) in bin/lib/routing-exempt.tsv (a dead exemption can silently swallow a future orphan):"
+  printf '%s\n' "$STALE_EXEMPT" | sed 's/^/    /'
+fi
+
 if [ "$MODE" = "check" ]; then
-  if [ -n "$DRIFTED" ] || [ -n "$UNWIRED" ]; then
+  if [ -n "$DRIFTED" ] || [ -n "$UNWIRED" ] || [ -n "$ORPHANS" ] || [ -n "$STALE_EXEMPT" ]; then
     echo ""
     [ -n "$DRIFTED" ] && echo "drifted:$DRIFTED — hand-edited inside the markers, or the table moved."
     [ -n "$UNWIRED" ] && echo "unwired:$UNWIRED — add a <!-- ROUTING:BEGIN <view> --> block."
+    [ -n "$ORPHANS" ] && echo "unrouted skill(s) — see UNROUTED above."
+    [ -n "$STALE_EXEMPT" ] && echo "stale exemption(s) — see above."
     echo "Fix the TABLE, then run: $0    (never hand-edit inside the markers)"
     exit 2
   fi
-  echo "Routing surfaces in sync with the table."
+  echo "Routing surfaces in sync with the table; all skills routed or exempted."
   exit 0
 fi
 

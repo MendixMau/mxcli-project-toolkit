@@ -94,10 +94,15 @@ while IFS= read -r f; do
 
     case "$txt" in
       *'stat -f'*)
-        # A GNU fallback may sit on the next physical line via a backslash continuation, so the
-        # window is two lines, not one. Same-line only produced a false positive on graph-sweep.
+        # The GNU form may sit on the adjacent line in EITHER direction: next line for a
+        # BSD-first chain (backslash continuation), previous line for a GNU-first chain —
+        # and GNU-first is the RECOMMENDED order, because on GNU `stat -f` doesn't fail, it
+        # prints filesystem-info garbage, so a BSD-first fallback never fires (the
+        # graph-sweep bug). Looking only forward flagged the very fix that repaired that
+        # bug and turned master's CI red on 2026-08-31.
         nxt="$(sed -n "$((ln + 1))p" "$f" 2>/dev/null)"
-        case "$txt$nxt" in
+        prv="$(sed -n "$((ln - 1))p" "$f" 2>/dev/null)"
+        case "$prv$txt$nxt" in
           *'stat -c'*) : ;;  # BSD form with a GNU fallback within reach is fine
           *) report "$f" "$ln" "BSD-only stat -f with no GNU fallback" \
                'Use portable_file_size / portable_file_mtime_iso from bin/lib/portable.sh, or add || stat -c.' ;;

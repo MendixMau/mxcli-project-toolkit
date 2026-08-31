@@ -82,6 +82,32 @@ find_mpr() {
 }
 
 # ---------------------------------------------------------------------------
+# find_model_dir — echo the directory that holds the .mpr AND its mprcontents/.
+#
+# WHY THIS EXISTS (2026-08-31, field-found on a dashboard-publishing migration).
+# A Mendix model is two things in ONE directory: `Project.mpr` and `mprcontents/`.
+# On a single-tree checkout that directory happens to equal $PROJECT_ROOT, so every
+# script here simply said $PROJECT_ROOT and was right by accident. On a two-tree
+# checkout — repo at the root, `mxcli new` app under `app/` — it is not, and
+# $PROJECT_ROOT points at a directory containing neither file.
+#
+# The failure was silent and total. snapshot-mpr.sh globbed `$PROJECT_ROOT/*.mpr`,
+# matched nothing, copied nothing, printed "mpr snapshot ok", and pruned the older
+# (equally empty) snapshots. exec.sh then ran twelve execs behind a crash-net that
+# held zero bytes; the first gate failure tried to auto-restore, found a snapshot
+# with no mprcontents/, and left the broken model on disk while reporting the
+# restore path. The same wrong root also drove exec.sh's "PROJECT IS IN v1
+# SINGLE-FILE FORMAT — Studio Pro WILL crash" warning, which fired after every
+# successful exec on a perfectly healthy v2 model.
+#
+# Resolve from the .mpr itself (which honours MPR_FILE) instead of from the repo.
+find_model_dir() {
+  local mpr
+  mpr=$(find_mpr) || return 1
+  (cd "$(dirname "$mpr")" && pwd)
+}
+
+# ---------------------------------------------------------------------------
 # mxtk_platform — "macos" | "windows" | "linux".
 #
 # WHY THIS EXISTS (2026-08-25). Everything below used to assume macOS: Studio Pro

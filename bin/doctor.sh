@@ -13,16 +13,21 @@
 #
 #   bin/doctor.sh                           # probe the machine
 #   bin/doctor.sh <project-dir>             # also probe a specific project's wiring
-#   bin/doctor.sh --install <project-dir>   # and, if the mxbuild toolchain is missing,
-#                                           # download it locally via the project's ./mxcli
-#                                           # (same `setup mxbuild` the headless container
-#                                           # build uses; cached at ~/.mxcli/mxbuild/).
-#                                           # A missing ./mxcli is fetched first, from the
-#                                           # mendixlabs/mxcli GitHub releases.
+#   bin/doctor.sh --install <project-dir>   # and, if tools are missing, offer to download
+#                                           # them locally: a missing ./mxcli from the
+#                                           # mendixlabs/mxcli GitHub releases, then the
+#                                           # mxbuild toolchain via `./mxcli setup mxbuild`
+#                                           # (same download the headless container build
+#                                           # uses; cached at ~/.mxcli/mxbuild/).
+#   bin/doctor.sh --install --yes <dir>     # skip the confirmation (unattended/agent runs)
 #
-# --install is the one deliberate exception to the no-dependency rule: it needs the project's
-# own mxcli binary and network access, runs only when asked, and a failed download degrades to
-# the same report you would have had without it.
+# --install never downloads silently: it prints the plan first — what, from where, how big,
+# why, and the detected OS/arch — then asks [y/N] at a terminal, or requires --yes when there
+# is no terminal to ask on. $MXCLI_VERSION=vX.Y.Z pins the mxcli release; default is latest.
+#
+# --install is the one deliberate exception to the no-dependency rule: it needs network access
+# (and curl or wget), runs only when asked, and a failed or declined download degrades to the
+# same report you would have had without it.
 #
 # Exit: 0 = ready. 1 = warnings only, the toolkit will mostly work. 2 = something required is
 # missing and a pipeline stage will fail.
@@ -32,9 +37,11 @@ set -u
 TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR=""
 INSTALL=0
+ASSUME_YES=0
 for _arg in "$@"; do
   case "$_arg" in
     --install) INSTALL=1 ;;
+    --yes|-y)  ASSUME_YES=1 ;;
     *)         PROJECT_DIR="$_arg" ;;
   esac
 done
@@ -299,19 +306,29 @@ install_toolchain() {
 }
 
 if [ "$INSTALL" -eq 1 ]; then
-  if [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ] && probe_runs "$MXBUILD"; then
-    ok "--install: a runnable mxbuild is already discovered — nothing to download"
+  # What is actually missing? --install covers two tools: the project's ./mxcli (which every
+  # MDL session needs anyway) and the mxbuild toolchain (which the gate needs).
+  NEED_TOOLCHAIN=1
+  if [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ] && probe_runs "$MXBUILD"; then NEED_TOOLCHAIN=0; fi
+  NEED_MXCLI=0
+  if [ -n "$PROJECT_DIR" ] && [ ! -x "$PROJECT_DIR/mxcli" ] && [ ! -f "$PROJECT_DIR/mxcli" ]; then
+    NEED_MXCLI=1
+  fi
+
+  if [ "$NEED_TOOLCHAIN" -eq 0 ] && [ "$NEED_MXCLI" -eq 0 ]; then
+    ok "--install: nothing to download — a runnable mxbuild and the project mxcli are in place"
   elif [ -z "$PROJECT_DIR" ]; then
     bad "--install needs a project directory: bin/doctor.sh --install <project-dir>"
     note "The download runs through that project's own ./mxcli, which reads the model's"
     note "Mendix version and fetches the matching toolchain."
   elif [ -f "$PROJECT_DIR/mxcli" ] && [ ! -x "$PROJECT_DIR/mxcli" ]; then
     bad "--install: mxcli in $PROJECT_DIR is present but not executable — chmod +x mxcli, re-run."
-  elif [ ! -x "$PROJECT_DIR/mxcli" ]; then
-    # No mxcli either — fetch that too. The release assets follow one naming scheme
-    # (verified against the published releases, 2026-08-31): mxcli-{darwin|linux}-{amd64|arm64},
-    # mxcli-windows-amd64.exe. Windows gets the .exe name so Git Bash's transparent
-    # foo -> foo.exe mapping serves the project convention ./mxcli unchanged.
+  else
+    # The release assets follow one naming scheme (verified against the published releases,
+    # 2026-08-31): mxcli-{darwin|linux}-{amd64|arm64}, mxcli-windows-amd64.exe. Windows gets
+    # the .exe name so Git Bash's transparent foo -> foo.exe mapping serves the project
+    # convention ./mxcli unchanged. $MXCLI_VERSION pins a release tag (e.g. v0.16.0) for
+    # teams that standardise; default is latest.
     MXCLI_ARCH="$(uname -m 2>/dev/null || echo unknown)"
     case "$MXCLI_ARCH" in
       x86_64|amd64) MXCLI_ARCH=amd64 ;;
@@ -325,31 +342,89 @@ if [ "$INSTALL" -eq 1 ]; then
       gitbash-amd64) MXCLI_ASSET="mxcli-windows-amd64.exe"; MXCLI_DEST="mxcli.exe" ;;
       *)             MXCLI_ASSET=""; MXCLI_DEST="" ;;
     esac
-    MXCLI_URL="https://github.com/mendixlabs/mxcli/releases/latest/download/${MXCLI_ASSET:-<asset>}"
+    if [ -n "${MXCLI_VERSION:-}" ]; then
+      MXCLI_URL="https://github.com/mendixlabs/mxcli/releases/download/$MXCLI_VERSION/${MXCLI_ASSET:-<asset>}"
+    else
+      MXCLI_URL="https://github.com/mendixlabs/mxcli/releases/latest/download/${MXCLI_ASSET:-<asset>}"
+    fi
     if command -v curl >/dev/null 2>&1; then MXCLI_FETCH="curl -fsSL -o"
     elif command -v wget >/dev/null 2>&1; then MXCLI_FETCH="wget -q -O"
     else MXCLI_FETCH=""; fi
-    if [ -z "$MXCLI_ASSET" ] || [ -z "$MXCLI_FETCH" ]; then
+
+    if [ "$NEED_MXCLI" -eq 1 ] && { [ -z "$MXCLI_ASSET" ] || [ -z "$MXCLI_FETCH" ]; }; then
       bad "--install: no mxcli in $PROJECT_DIR and cannot auto-fetch one here"
-      [ -z "$MXCLI_ASSET" ] && note "(no published mxcli build for $PLATFORM/$MXCLI_ARCH)"
+      [ -z "$MXCLI_ASSET" ] && note "(no published mxcli build detected for $PLATFORM/$MXCLI_ARCH — if that"
+      [ -z "$MXCLI_ASSET" ] && note " detection is wrong, pick your asset at github.com/mendixlabs/mxcli/releases)"
       [ -z "$MXCLI_FETCH" ] && note "(neither curl nor wget on this machine)"
       note "Download it yourself into the project root, then re-run:"
       note "  $MXCLI_URL"
       note "  chmod +x mxcli"
     else
-      note "no mxcli in the project — fetching $MXCLI_ASSET from the mxcli releases..."
-      if $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && chmod +x "$PROJECT_DIR/$MXCLI_DEST" \
-         && probe_runs "$PROJECT_DIR/$MXCLI_DEST"; then
-        ok "mxcli fetched into the project root: $(probe_line)"
-        install_toolchain
+      # ---- the plan, before anything is downloaded ------------------------------------
+      # Downloading executables onto someone's machine is not a silent act: say what, from
+      # where, how big, why, and what was detected — then get a yes. A wrong OS/arch guess,
+      # a metered connection, or a company policy against fetching binaries are all things
+      # only the human in front of the machine can judge.
+      note ""
+      note "--install plan — this machine is missing tools the toolkit needs, and doctor can"
+      note "download them now. Nothing has been downloaded yet. The plan:"
+      _STEP=0
+      if [ "$NEED_MXCLI" -eq 1 ]; then
+        _STEP=$((_STEP + 1))
+        note "  $_STEP. mxcli (~90 MB) -> $PROJECT_DIR/$MXCLI_DEST"
+        note "     the MDL CLI every session here uses; from $MXCLI_URL"
+        [ -z "${MXCLI_VERSION:-}" ] && note "     (latest release — set MXCLI_VERSION=vX.Y.Z to pin the team's version)"
+      fi
+      if [ "$NEED_TOOLCHAIN" -eq 1 ]; then
+        _STEP=$((_STEP + 1))
+        note "  $_STEP. mxbuild toolchain (~800 MB, one-time) -> ~/.mxcli/mxbuild/<version>/"
+        note "     verifies every model write (the exec.sh gate); from cdn.mendix.com, exact"
+        note "     version read from the project's .mpr — the same download the container build uses."
+        if [ "$NEED_MXCLI" -eq 0 ] && [ -x "$PROJECT_DIR/mxcli" ]; then
+          _PLAN_MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
+          [ -n "$_PLAN_MPR" ] && (cd "$PROJECT_DIR" && ./mxcli setup mxbuild -p "$(basename "$_PLAN_MPR")" --dry-run 2>/dev/null) \
+            | grep -E 'Version:|URL:' | while IFS= read -r l; do note "     $l"; done
+        fi
+      fi
+      note "  Detected machine: $PLATFORM/$MXCLI_ARCH — if that looks wrong, answer no and use the"
+      note "  URLs above by hand (a wrong-platform binary downloads fine and then cannot run)."
+      note "  If your company restricts downloading executables, route these same URLs through"
+      note "  your approved channel instead."
+      # ---- consent --------------------------------------------------------------------
+      CONSENT=0
+      if [ "$ASSUME_YES" -eq 1 ]; then
+        note "  (--yes given: proceeding)"
+        CONSENT=1
+      elif [ -t 0 ]; then
+        printf '        Proceed with the download(s)? [y/N] '
+        IFS= read -r _REPLY || _REPLY=""
+        case "$_REPLY" in y|Y|yes|Yes|YES) CONSENT=1 ;; *) CONSENT=0 ;; esac
       else
-        rm -f "$PROJECT_DIR/$MXCLI_DEST" 2>/dev/null
-        bad "--install: fetching mxcli failed (network/proxy, or the binary would not run here)."
-        note "Download it yourself into the project root, then re-run:  $MXCLI_URL"
+        warn "--install: no terminal to ask on and no --yes — nothing downloaded."
+        note "An unattended run needs the explicit flag: bin/doctor.sh --install --yes $PROJECT_DIR"
+      fi
+
+      if [ "$CONSENT" -eq 0 ]; then
+        [ "$ASSUME_YES" -eq 0 ] && [ -t 0 ] && note "Understood — nothing downloaded. The URLs above work by hand too."
+      else
+        MXCLI_READY=1
+        if [ "$NEED_MXCLI" -eq 1 ]; then
+          note "fetching $MXCLI_ASSET from the mxcli releases..."
+          if $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && chmod +x "$PROJECT_DIR/$MXCLI_DEST" \
+             && probe_runs "$PROJECT_DIR/$MXCLI_DEST"; then
+            ok "mxcli fetched into the project root: $(probe_line)"
+          else
+            rm -f "$PROJECT_DIR/$MXCLI_DEST" 2>/dev/null
+            MXCLI_READY=0
+            bad "--install: fetching mxcli failed (network/proxy, or the binary would not run here)."
+            note "Download it yourself into the project root, then re-run:  $MXCLI_URL"
+          fi
+        fi
+        if [ "$NEED_TOOLCHAIN" -eq 1 ] && [ "$MXCLI_READY" -eq 1 ]; then
+          install_toolchain
+        fi
       fi
     fi
-  else
-    install_toolchain
   fi
 fi
 

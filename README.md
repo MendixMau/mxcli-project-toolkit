@@ -33,10 +33,18 @@ When the mxbuild toolchain is what's missing, doctor can also fix it instead of 
 ~/Mendix/mxcli-project-toolkit/bin/doctor.sh --install <project-dir>
 ```
 
-runs the project's own `./mxcli setup mxbuild` — the same download the headless container build
-uses — and caches the version-matched mxbuild under `~/.mxcli/mxbuild/`. Discovery (and therefore
-`exec.sh`'s mxbuild gate) finds that cache automatically, so a machine without Studio Pro still
-verifies every model write.
+first fetches a missing project `./mxcli` (right OS/arch build from the mendixlabs/mxcli
+releases; `MXCLI_VERSION=vX.Y.Z` pins it), then runs `./mxcli setup mxbuild` — the same download
+the headless container build uses — caching the version-matched mxbuild under `~/.mxcli/mxbuild/`.
+Discovery (and therefore `exec.sh`'s mxbuild gate) finds that cache automatically, so a machine
+without Studio Pro still verifies every model write.
+
+It never downloads silently: it prints the plan first — what, from where, how big (~90 MB +
+~800 MB one-time), why, and the OS/arch it detected — then asks `[y/N]` at the terminal.
+Unattended runs (agents, CI) must pass `--yes` explicitly; without it nothing is downloaded and
+the report simply shows what is missing. Declining leaves you the URLs to fetch by hand — the
+right move on a wrong OS/arch guess or when company policy routes binaries through an approved
+channel.
 
 This clone stays clean — project output never lands inside it. **Everything else lives inside one project folder** (usually one git repo — it is the session root, the workspace root, and the mxcli target all at once):
 

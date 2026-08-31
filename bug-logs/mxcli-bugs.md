@@ -33,6 +33,8 @@ Collapsing them to "a project" throws away the corroboration.
 
 ## BUG-01: `alter entity drop attribute` causes MPR corruption when entity has access rules
 
+> **RESOLVED in ≤v0.20.0 — verified 2026-08-31 on a real Linux mxbuild. Dropping a granted attribute now prints `Removed N access rule member reference(s)`, grants are updated, cold load clean (0 errors).** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 **Severity:** Critical — project becomes unopenable in Studio Pro and mxbuild  
 **Reproducible:** Yes, consistently  
 **Mendix version:** 11.10.0  
@@ -1227,6 +1229,8 @@ Terminal git/mxcli work fine with `.git` attached — the crash is ONLY Studio P
 
 ## GRANT: association names silently dropped from member lists; multiple rules per role on one entity not supported
 
+> **RESOLVED — verified 2026-08-31 on v0.20.0. Symptom 1 fixed in v0.17.0 (BUG-59); symptom 2 fixed in v0.19.0 (#936): a second GRANT now merges additively, and two GRANTs with different XPath constraints yield two coexisting rules.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 **Discovered:** 2026-07-22 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1).
 
 ### Symptom 1 — association as a grant member
@@ -1330,6 +1334,8 @@ Before falling back to plain CLI for `06`, MCP mode failed twice on a stale modu
 STOP-table rule 9 updated to reflect the same-module/cross-module split precisely, rather than a blanket "use MCP" for all inline association-sets.
 
 ## Compound boolean `AND`/`OR` (uppercase) + `!=` in the same expression → CE0117/CE0161 (mxcli bug)
+
+> **RESOLVED in ≤v0.20.0 — verified 2026-08-31: uppercase `AND` + `!=` in one expression builds at 0 errors on native mxbuild 11.13.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1).
 
@@ -2459,6 +2465,8 @@ the official release hits this. Draft prepared at
 
 ## BUG-58: `ALTER PAGE ... SET Editable = [...] ON widget` writes a blank `AttributeIdentifier` regardless of expression complexity → `StorageLoadException` on Studio Pro open
 
+> **RESOLVED in ≤v0.20.0 — verified 2026-08-31. `SET Editable = [expr] ON widget` stores the expression, describes back, and the project cold-loads with 0 errors.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 **Severity:** Critical — project becomes unopenable in Studio Pro
 **Reproducible:** Yes, consistently — reproduced with both a compound and the plain
 single-condition form of the expression
@@ -2657,6 +2665,8 @@ remediation — `PLM.PLM_GraphAgentChat`'s `snippetCall1` re-target.
 
 ## BUG-63: `write-lint-rules.md` documents API values that do not exist — every `action_type` example is wrong, and `source_type` case is wrong — so rules written from the guide silently match nothing
 
+> **CONFIRMED STILL OPEN on v0.20.0 — verified 2026-08-31 by inspection: same fictional `action_type` row, now at line 318 of the directory-shaped `write-lint-rules/SKILL.md`.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 > ### ⚠️ CONFIRMED STILL OPEN on mxcli v0.18.0 — verified 2026-08-20
 >
 > Verified by direct inspection of the skill shipped in the v0.18.0 binary
@@ -2752,6 +2762,8 @@ the probe that disproved the guide also revealed `CONV010`'s inversion.
 project with a FULL catalog.
 
 ## BUG-64: `ALTER SETTINGS CONFIGURATION 'Name' HttpPortNumber = ..., ServerPortNumber = ...` reports success but silently no-ops — value stays unchanged on disk
+
+> **RESOLVED in v0.20.0 — verified 2026-08-31 (changelog: configuration upserts + ALTER SETTINGS name resolution). `HttpPortNumber`/`ServerPortNumber` land and read back via SHOW SETTINGS; 0 errors.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Severity:** Medium — blocks Studio Pro's local "Run" (crashes with `HTTP Port number 0 is
 not between 1 and 65535`) whenever the model's port fields are `0`; does not affect `mxcli
@@ -2860,6 +2872,8 @@ layout, with no detection for the mismatch.
 
 ## BUG-66: `ALTER ENTITY ... ADD ATTRIBUTE "X": autocreateddate;` silently no-ops — no error, no confirmation line, no attribute added
 
+> **RESOLVED in ≤v0.20.0 — verified 2026-08-31. `ALTER ENTITY ADD ATTRIBUTE … autocreateddate` adds the system member; a non-matching declared name now gets warning MDL022 explaining the rename instead of a silent no-op.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 **Sighted:** PROJECT-A, main build track Stage 5 Phase 11, script 55b (2026-08-12).
 
 **Symptom:** `alter entity "Common"."Attachment" add attribute "CreatedDate": autocreateddate;` passes
@@ -2891,6 +2905,8 @@ added successfully as a plain `string` attribute). `CreatedBy` alone is sufficie
 logic in `ACT_Attachment_Delete`.
 
 ## BUG-67: `CREATE SNIPPET ... (Params: { $X: String })` — a primitive-typed snippet parameter, documented in `mxcli syntax snippet.create`'s own example, fails at exec time with "entity not found"
+
+> **CONFIRMED STILL OPEN on v0.20.0 — verified 2026-08-31: `Params: { $X: String }` still fails at exec with `entity not found: String`.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Sighted:** PROJECT-A, main build track Stage 5 Phase 11, script 56 (2026-08-12).
 
@@ -3000,6 +3016,8 @@ Studio Pro validation.
 
 ## BUG-69: `ALTER ENTITY ... DROP ATTRIBUTE "RefID";` silently no-ops — prints a success line but the attribute is never actually removed, specific to the attribute name "RefID"
 
+> **RESOLVED in ≤v0.20.0 — verified 2026-08-31: an attribute literally named `RefID` (with a not-null rule, as the entity's only attribute) drops for real; `Removed 1 validation rule(s)`; 0 errors.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 **Sighted:** PROJECT-A, main build track Stage 5 Phase 11, script 56d (2026-08-12).
 
 **Symptom:** `alter entity "Common"."RefIDHolder" drop attribute "RefID";` prints `Dropped attribute
@@ -3048,6 +3066,8 @@ check off fully-qualified `Entity.Attribute`, not bare attribute name, and to su
 (not a false-success message) when a drop is refused for any reason.
 
 ## BUG-70: A widget-level `action: show_page Page(Param: value, ...)` action property unconditionally drops ALL params — not just in the `create_object ... then show_page(...)` chained form previously logged; this is a general defect in the plain, non-chained widget-action form too
+
+> **CONFIRMED STILL OPEN on v0.20.0 — verified 2026-08-31. v0.19's MDL-PAGEARG01 refusal does NOT cover a page-level button in CREATE PAGE: args are silently rebound to `$currentObject`, CE1571 per param + CE0117 at build. See also BUG-95.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Sighted:** PROJECT-A, main build track Stage 5 Phase 11, script 56d gate-check follow-up (2026-08-12).
 **Supersedes/broadens** the narrower framing recorded in script 56d's header comment, which believed
@@ -3119,6 +3139,8 @@ microflow-level `show page` statement already does correctly.
 ---
 
 ## BUG-71: `ALTER SNIPPET|PAGE ... replace "<Column>" with { column ... }` on a datagrid column silently deletes the column instead of replacing it — and once emptied, the datagrid has no anchor left for `INSERT AFTER` to recover it
+
+> **RESOLVED in v0.19.0 (#891) — verified 2026-08-31. A bare column name is now REFUSED with a message naming the `grid.column` form; the qualified form replaces in place. Note: DataGrid2 columns are addressed by DERIVED name (attribute or caption — MDL-WIDGET16), not the authored name.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Sighted:** PROJECT-A, main build track Stage 5 Phase 11, script 56e follow-up verification (2026-08-12).
 
@@ -3285,6 +3307,8 @@ MCP JSON-RPC calls instead of `--mcp exec` to create the affected microflow.
 
 ## BUG-73: `raise error;` in a microflow's main flow always fails mxbuild with CE0710 — a genuine flow-graph codegen defect, not an MDL authoring issue
 
+> **CONFIRMED STILL OPEN on v0.20.0 — verified 2026-08-31: `raise error` in a main flow (inside IF) still builds to CE0710 on native mxbuild 11.13.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 **Project:** PROJECT-F. **mxcli version:** same pinned build used for BUG-59 through BUG-72 (not
 re-checked against a newer release before filing).
 
@@ -3348,6 +3372,8 @@ a microflow's main flow. Until fixed, any project needing "propagate a technical
 semantics from generated MDL should use the Java-action-throw workaround above instead.
 
 ## BUG-74: `on error { ... }` handler with no explicit terminal statement silently gets `return;` appended — breaks any "log and continue" error-handling pattern
+
+> **RESOLVED in ≤v0.20.0 — verified 2026-08-31: describe shows the on-error handler without an injected `return;`, execution continues past the call, 0 errors.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 > ### 🔎 Second sighting — candidate/unconfirmed, NOT ready to file (2026-08-20)
 >
@@ -3458,6 +3484,8 @@ dangerous — there is no compiler signal to catch it, only a source-vs-live-mod
 who knows to look for the appended `return;`.
 
 ## BUG-75: a quoted attribute path used as a call-microflow argument value keeps its literal quotes in the compiled expression, causing native mxbuild CE0117 — invisible to `mxcli check`/`describe microflow`
+
+> **PARTIALLY RESOLVED in ≤v0.20.0 — verified 2026-08-31 for the call-argument form: `"P" = $Item/"StatusCode"` now builds at 0 errors. The BUG-77 create/change extension was not separately retested.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Project:** PROJECT-F, script 02 (CheckSystemStatus). **mxcli version:** same pinned build used for
 BUG-70 through BUG-74.
@@ -3577,6 +3605,8 @@ actually resolves a given CE0117, use a scratch copy (`rsync -a --exclude='.git'
 before touching the live one.
 
 ## BUG-76: `DECISION` activities in a native `WORKFLOW` are unconditionally storage-corrupted — mxcli writes the outcome label as a raw string into a field that must be a real `EnumerationValueIdentifier`, on every DECISION regardless of the underlying expression's type
+
+> **CONFIRMED STILL OPEN on v0.20.0 — CRITICAL, verified 2026-08-31 with the byte-exact original signature: `StorageLoadException … The text 'OutcomeA' is not a valid EnumerationValueIdentifier`, project unloadable by mxbuild. Keep the STOP rule: no DECISION activities in CREATE WORKFLOW via mxcli.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Project:** PROJECT-A, Phase 15 (Approval native Workflow build), script 65
 (`Approval.ApprovalWorkflow`). **mxcli version:** v0.17.0 (`2026-08-10T05:12:17Z`).
@@ -3753,6 +3783,8 @@ reference-set association to a scalar in a bracket-predicate retrieve, not an ID
 
 ## BUG-79: `GRANT`/`REVOKE` cannot target any `System`-module entity — no local domain-model file to write into
 
+> **RESOLVED (BY-DESIGN, better refusal) in v0.20.0 — verified 2026-08-31: the grant is refused up front with Mendix's own reason (System domain model is never stored) and named workarounds. The limitation is the platform's; the leaky error is gone.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 **Project:** PROJECT-A, script 69b (`GRANT Approval.Reader ON System.WorkflowUserTask (READ *)`).
 **mxcli version:** v0.17.0.
 
@@ -3791,6 +3823,8 @@ issues).
 
 ## BUG-80: no MDL/mxcli syntax exists to start a native Workflow *instance* from a microflow
 
+> **RESOLVED in ≤v0.20.0 — verified 2026-08-31: `call workflow Mod.WF ($Ctx);` now exists as a microflow activity, execs and builds at 0 errors (v0.20 also fixed its multi-line parameter mapping, CE0109).** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 **Project:** PROJECT-A, script 68a (`Approval.ACT_ApprovalRun_Start`). **mxcli version:** v0.17.0.
 
 **Symptom:** `CREATE/ALTER/DROP WORKFLOW` only model the workflow *definition* (the canvas of
@@ -3816,6 +3850,8 @@ scripting from there (e.g. `CHANGE` a companion entity to store the returned wor
 activity type before re-deriving the same manual-step workaround on another project.
 
 ## BUG-81: `create or modify microflow` corrupts attribute-identifier serialization in existing `change $Object (...)` activities — the .mpr then fails to load with fabricated `AttributeIdentifier` errors
+
+> **NOT REPRODUCED on v0.20.0 — verified 2026-08-31 on the minimal shape (2 change activities, create-or-modify rewrite, independent cold load 0 errors). Never minimised originally; likely cured by the v0.19/v0.20 `canon.TransplantIDs`/identity-preservation rework. Downgrade the STOP rule to a read-back.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 > ### ⚠️ TITLE AND ATTRIBUTION CORRECTED — 2026-08-20
 >
@@ -3962,6 +3998,8 @@ to call this deterministic and closed pending a real fix, not something to keep 
 
 ## BUG-82: neither `create or modify entity` (full redeclare) nor `ALTER ENTITY MODIFY ATTRIBUTE` can clear an existing "not null error" validation rule — silent no-op with a misleading success message
 
+> **RESOLVED in ≤v0.20.0 — verified 2026-08-31: `MODIFY ATTRIBUTE Email string(200) NULLABLE` now really removes the not-null rule (read back via DESCRIBE). NB the redeclare-without-constraint form reports `Unchanged` and preserves the rule — that is v0.20's omitted-clause-preserves semantics, not the bug.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 > ### ⚠️ CONFIRMED STILL OPEN on mxcli v0.18.0 — retested 2026-08-20
 >
 > Reproduced on a clean scratch Mendix 11.12.0 project: an attribute declared
@@ -4035,6 +4073,8 @@ time, not to rewrite it into something else.
 
 ## BUG-84: `ALTER PAGE … SET DataSource = DATABASE Module.Entity` on a DataView silently wipes the datasource and reports success
 
+> **CONFIRMED STILL OPEN on v0.20.0 — verified 2026-08-31: `SET DataSource = DATABASE Mod.Entity ON <dataview>` (braced ALTER PAGE form) still reports success and wipes the datasource; CE7007 downstream.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 **Severity:** High — silent success, corrupted widget, surfaces only at check time
 **mxcli version:** v0.18.0
 **Mendix version:** 11.12.0
@@ -4060,6 +4100,8 @@ form should be rejected the same way, rather than half-applied.
 ---
 
 ## BUG-85: `ALTER ENTITY … DROP ATTRIBUTE` never deletes the attribute's validation rule — orphaned rule (`CE1613`), resurrected constraints, and a total silent no-op on a single-attribute entity
+
+> **RESOLVED in v0.19.0 — verified 2026-08-31 (changelog: 'DROP ATTRIBUTE left orphaned validation rules behind'). Both the orphan mode and the sole-attribute silent no-op mode are gone; drop prints `Removed 1 validation rule(s)`; 0 errors.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Severity:** High — three distinct silent-success failure modes from one missing delete branch
 **mxcli version:** v0.18.0 **and v0.17.0** — pre-existing, not a v0.18.0 regression
@@ -4090,6 +4132,8 @@ catches but mxcli reports as success.
 
 ## BUG-86: MDL044's new write barrier is microflow-only — the identical expression in a `create nanoflow` passes `check`, is written, and fails the build with `CE0117`
 
+> **PARTIALLY RESOLVED / STILL OPEN on v0.20.0 — verified 2026-08-31: `currentDeviceType()` in a CREATE NANOFLOW still passes check+exec and fails the build CE0117 (isolated by drop-and-recheck). The `[%CurrentDeviceType%]` token form now builds CLEAN in a nanoflow on 11.13, so the remediation note stands corrected.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 **Severity:** High — `check` does not even lint the nanoflow case, so this is worse than the
 microflow situation was before the barrier landed
 **mxcli version:** v0.18.0
@@ -4116,6 +4160,8 @@ visibility expression where the token form is genuinely valid.
 ---
 
 ## BUG-87: `DESCRIBE JAVA ACTION` drops the type-parameter name, printing `entity <>` — the declaration does not round-trip
+
+> **CONFIRMED STILL OPEN on v0.20.0 — verified 2026-08-31: DESCRIBE JAVA ACTION still prints `entity <>` for a named type parameter; does not round-trip.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Severity:** Low (cosmetic, but breaks read-back-and-rewrite workflows)
 **mxcli version:** v0.18.0 **and v0.17.0**
@@ -4191,6 +4237,8 @@ refuses elsewhere.
 ---
 
 ## BUG-90: loop-variable association-path member access inlined into a `call microflow` parameter corrupts codegen
+
+> **RESOLVED in ≤v0.20.0 — verified 2026-08-31: loop-variable attribute path inlined into a call-microflow parameter builds at 0 errors.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Severity:** High — a real build-breaker mxcli's own validation never catches
 **Reproducible:** Yes, consistently
@@ -4269,6 +4317,8 @@ behavior, not mxcli's own check output, whenever a construct is unusual.
 ---
 
 ## BUG-91: `DynamicCellClass` (DATAGRID column property) can only be set at CREATE time — `ALTER PAGE SET` silently fails at exec
+
+> **RESOLVED in ≤v0.20.0 — verified 2026-08-31: `SET DynamicCellClass = '…' ON grid.col` lands and describes back (columns addressed by derived name).** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Severity:** Medium — fails one step later than `check --references`, so a script can look
 validated and still fail when actually run
@@ -4567,6 +4617,8 @@ the real `.mpr`, per `skills/learned-mdl-preflight.md`.
 
 ## BUG-95: `show_page` action on a widget outside a `dataview` always binds an entity-typed argument to `$currentObject`, ignoring the variable named in the MDL
 
+> **CONFIRMED STILL OPEN on v0.20.0 — verified 2026-08-31, same probe as BUG-70: page-level button args rebound to `$currentObject`, CE1571 + CE0117.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
 ### Symptom
 
 Adding an `actionbutton` (outside any `dataview`, i.e. no `currentObject` in scope) with an
@@ -4683,6 +4735,8 @@ before trusting any session that used this construct.
 ---
 
 ## BUG-97: `.mpr` write path corrupts the entire project on the ~15th cumulative write operation — content-, order-, transaction- and engine-independent
+
+> **NOT REPRODUCED on v0.20.0 — verified 2026-08-31: 16 sequential mixed write-class execs against one lineage, native mx check clean at cumulative writes 14, 15 and 16. Lighter content mix than the original incident; relax the hard 10–12 cap to snapshot-plus-read-back until a real project confirms.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
 **Severity:** Critical — silent, project-wide corruption; surfaces only on the next full `mx check`, as ~70 errors across entities/microflows/pages never touched in the session
 **Reproducible:** Yes — 6 independent disposable copies, corruption at the same cumulative count every time

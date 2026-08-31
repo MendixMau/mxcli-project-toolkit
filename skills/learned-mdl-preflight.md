@@ -6,6 +6,13 @@
 
 **Version context:** Rules marked "STOP" were confirmed on specific mxcli/Mendix versions noted per entry. Rules 1b and 10 were retested 2026-07-09 on mxcli v0.13.0 / Mendix 11.12.0 and confirmed resolved. Rule 9 was retested 2026-07-09 via `mxcli --mcp` on v0.13.0 and confirmed resolved (BSON serialization bug only affects the disk write path; `--mcp` bypasses it entirely). If in doubt, retest on your version and stamp the result in `bug-logs/mxcli-bugs.md`.
 
+**v0.20.0 deltas (retested 2026-08-31, [bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md](../bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md)) — on a project whose mxcli is ≥ v0.20.0:**
+- **Rule 17 (uppercase `AND`/`OR` + `!=`) is resolved** — builds at 0 errors; keep the lowercase habit only for projects pinned to older binaries.
+- **Rule 1c's class (ALTER PAGE `SET Editable`/conditional settings) is resolved** — `SET Editable = [expr] ON widget` stores correctly and the project loads.
+- **ALTER PAGE now requires the braced block form** `ALTER PAGE Mod.Page { SET … ON w; };` — the old flat `alter page X set … on w;` is a parse error. DataGrid2 columns are addressed by **derived** name (bound attribute, else caption — MDL-WIDGET16), and a bare column name in REPLACE is refused in favour of `grid.column`.
+- **Still corrupting, STOP stays:** workflow `DECISION` activities (BUG-76 — project unloadable, `EnumerationValueIdentifier`), and `marketplace install` on a split-model project (#879, unfixed in v0.19/v0.20).
+- The 10–12-writes-per-session cap from BUG-97 is downgraded to snapshot-plus-read-back: 16 sequential writes were clean on v0.20.0.
+
 ## Step 0 — choose the write mode (do this first, before the STOP table)
 
 There are three write modes, and they are **co-equal tools chosen by the shape of the work** — not one default plus two fallbacks. Pick the mode from the task first; *then* use the STOP table below only as the safety overlay that overrides your pick for the handful of operations mxcli corrupts. "CLI unless forced to MCP" is the wrong mental model — it is why projects drift to CLI-only and never touch the live-editing loop.

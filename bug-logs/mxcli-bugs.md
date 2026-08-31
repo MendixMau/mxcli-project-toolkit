@@ -856,141 +856,11 @@ Then restart SP.
 
 ## BUG-20: Cross-module association traversal as widget datasource writes null `DestinationEntityId`
 
-> **Filed 2026-08-06:** re-verified clean on the tagged v0.16.0 release binary (Mendix 11.12.0 Beta)
-> in an isolated scratch sandbox — BSON-decoded `DestinationEntity: ""` directly on the
-> `EntityRefStep`, reproduced the crash via `mxcli docker check` (mxbuild's own loader) and via a
-> live, freshly-launched Studio Pro instance (separate from any open project). Filed as
-> [mxcli#854](https://github.com/mendixlabs/mxcli/issues/854). One nuance vs. the note below: this
-> retest saw `mxcli docker check` crash outright rather than report "0 errors" — noted in the
-> filed issue as consistent with the same root cause (loader throws before the error-counter runs).
-
-**Severity:** Critical — project becomes unopenable in Studio Pro with `StorageLoadException`  
-**Status:** Open — no fix in mxcli; workaround: use MCP after exec  
-**Reproducible:** Yes, consistently  
-**Mendix version:** 11.12.0 Beta  
-**mxcli version when found:** v0.13.0 (confirmed on codec engine)  
-**Retested on v0.13.0:** Yes — still corrupts. Preflight rule 7 STOP remained valid.  
-**Retested on v0.16.0:** **Still BROKEN — 2026-07-13**, a WMS conversion project (`1146version` branch). Script created page `ZZ_Retest16.Retest_BUG07_Page` with DataGrid datasource `$currentObject/ZZ_Retest16.Widget_Category` (cross-module, `ZZ_Retest16.Widget` → `ZZ_Retest16B.Category`). mxbuild gate: **0 errors** — but SP crashed on open with the identical `ArgumentNullException: value at EntityRefStep.set_DestinationEntityId`. **Critical new finding: mxbuild does NOT catch this BSON corruption — only Studio Pro's project load does.** Preflight rule 7 STOP remains in effect.  
-**Discovered:** 2026-07-06
-
-### Steps to reproduce
-
-1. Define an association between two modules: `ModuleA.Assoc` from `ModuleA.EntityA` to `ModuleB.EntityB`
-2. In a page with a `ModuleB.EntityB` parameter, add a datagrid using the back-traversal as datasource:
-   ```mdl
-   datagrid dgItems (
-     datasource: $currentObject/ModuleA.Assoc,
-     ...
-   ) { ... }
-   ```
-3. Exec the script — mxcli reports success with no errors
-4. Open the project in Studio Pro
-
-### Expected behavior
-The datagrid loads objects on the other side of the association from the current context object.
-
-### Actual behavior
-Studio Pro crashes on project open with:
-```
-AggregateException: An error occurred when trying to set the 'DestinationEntity' property
-of a Entity ref step in a Page with ID <page-unit-uuid>.
-  --> ArgumentNullException: ArgumentNull_Generic Arg_ParamName_Name, value
-   at EntityRefStep.set_DestinationEntityId(EntityIdentifier value)
-   at StreamingBsonUnitReader.SetValue(...)
-```
-
-### Root cause (inferred)
-mxcli's page-widget writer does not correctly resolve cross-module entity identifiers when
-writing the `EntityRefStep` that makes up a traversal path (`$currentObject/OtherModule.Assoc`).
-The `DestinationEntityId` field in the BSON is written as null/empty, which SP rejects hard on load.
-
-Same-module traversals work correctly. The bug is isolated to cross-module association paths
-in widget datasource expressions.
-
-### Affected widget types
-Confirmed: `datagrid` with `datasource: $currentObject/OtherModule.Assoc`.  
-Likely also: `dataview`, `listview` — any widget datasource that traverses a cross-module association.
-
-### Workaround
-1. Write the page via MDL **without** the cross-module association datasource widget
-2. Exec and verify SP opens cleanly
-3. Add the cross-module datasource widget via MCP (`pg_patch_page`) while SP is open
-
-### Recovery
-Restore from the `.mpr-snapshots/` directory created automatically before the failing exec:
-```bash
-SNAP=".mpr-snapshots/<timestamp-before-bad-exec>"
-cp "$SNAP/<project>.mpr" <project>.mpr
-rsync -a --delete "$SNAP/mprcontents/" mprcontents/
-```
-
-> **RESOLVED in v0.17.0 — verified 2026-08-11.** Filed upstream as #854; unlike most of the
-> v0.17.0 release-sweep closures this one has a real traceable fix: PR `ako/mxcli#119` ("Fix an
-> unqualified association datasource that wrote an unloadable page (#854 follow-on)"), merge
-> commit `6195c52a4566d73d0262c25ac3ec0e15d7b70a0a`, confirmed an ancestor of the v0.17.0 tag
-> (`gh api compare/v0.17.0...6195c52a` → `status: behind, ahead_by: 0`). Empirically retested with
-> a minimal two-module cross-module datagrid-datasource repro against a fresh EmptyTest.mpr
-> scratch copy: on v0.16.0, exec succeeds silently and `docker check` crashes on load with the
-> identical `StorageLoadException`. On v0.17.0, the same script execs cleanly and `docker check`
-> ends on the standard 3-error EmptyTest baseline (PASS) — the project loads in Studio Pro too.
-> **Preflight rule 7 STOP and the MCP-only workaround for this widget shape can be retired once the
-> project's own `mxcli` binary is upgraded to v0.17.0** (not yet done on PROJECT-C as of
-> 2026-08-11). See `PROJECT-C/bug-logs/mxcli-bugs.md` BUG-LOCAL-07 for the project-local mirror
-> of this finding.
-
----
+**RESOLVED (FIXED in v0.17.0, upstream #854) — archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md).**
 
 ## BUG-21: Inline association-set in CHANGE/CREATE activity writes invalid `AttributeIdentifier` BSON → SP rejects on load
 
-**Severity:** Critical — project becomes unopenable in Studio Pro  
-**Reproducible:** Yes, consistently  
-**Confirmed:** Mendix 11.12.0 Beta, 2026-07-06  
-**mxcli version when found:** v0.13.0 (confirmed on codec engine)  
-**Retested on v0.13.0:** Disk write path still corrupts. **`mxcli --mcp` path confirmed safe — retested 2026-07-09, `ped_check_errors` 0 errors.** Preflight rule 9 updated: use `mxcli --mcp` instead of hand-rolled MCP.  
-**Retested on v0.16.0:** **Still corrupts — 2026-07-13**, a WMS conversion project (`main` and `1146version` branches). Variant A (`change $NewAccount (System.User_UserRoles = $Role);`) reproduced the identical error on both branches: `"The text 'System.User_UserRoles' is not a valid AttributeIdentifier"` — a project-load-level failure. v0.14.0's "$ID-first BSON ordering fix" does not address this. **Preflight rule 9 (use `mxcli --mcp`) remains in effect.**
-
-### Symptom
-`mxcli exec` (disk write path) reports success. Studio Pro refuses to open the project on the next load. The error is in the CHANGE or CREATE activity's BSON, where the association name was written as an `AttributeIdentifier` field instead of a proper association reference.
-
-### Affected patterns (disk write path only)
-```mdl
--- All three of these corrupt the MPR via mxcli disk write:
-change $Obj (Module.AssocName = $Other);
-create Module.Entity (Module.AssocName = $Other);
--- Also: ReferenceSet assignments (System.User_UserRoles) — different surface, same root cause
-change $Account (System.User_UserRoles = $Role);
-```
-
-**Reading through an association is safe on any path** — only setting one inline in a CHANGE/CREATE via disk write is affected:
-```mdl
--- This is fine on any path:
-$value = $Obj/Module.AssocName/TargetEntity/Attribute;
-```
-
-### Workaround
-Use `mxcli --mcp http://localhost/mcp --mcp-dial localhost:7782 exec script.mdl` (SP must be open). The `--mcp` path routes writes through SP's own model engine, bypassing mxcli's BSON serializer entirely — the bug cannot occur. Hand-rolled MCP (`ped_create_document`/`ped_update_document`) still works as a fallback. See `skills/learned-mcp-patterns.md`.
-
-### Recovery
-Restore from the `.mpr-snapshots/` snapshot taken by exec.sh before the failing exec. If no snapshot: `git checkout` the `.mpr` and `mprcontents/` back to the last clean commit, then replay scripts one at a time with `mxbuild` verification between each.
-
-> **RESOLVED in v0.17.0 — verified 2026-08-11.** Filed upstream as #838, closed 2026-08-10 in an
-> unverified bulk sweep alongside #839/#844/#846 with no linked fix commit (`closer: null` on the
-> GraphQL timeline) — not trusted on GitHub state alone, so this was retested empirically instead.
-> Against a fresh EmptyTest.mpr scratch copy: on v0.16.0 the exact Variant A statement
-> (`change $Acc (System.User_UserRoles = $Role);`) still corrupts identically — `docker check`
-> fails with the same `StorageLoadException`, `"is not a valid AttributeIdentifier"`. On v0.17.0
-> the same statement is now **rejected at exec time** with a clear pre-write validation error
-> (`"is not a known association ... create the association first or fix the name"`) instead of
-> writing bad BSON — no corruption occurs either way. Using the entity's correct association name
-> (`System.UserRoles`, not the repro's typo'd `System.User_UserRoles`) on v0.17.0, the disk-write
-> path executes cleanly and `docker check` ends on the standard 3-error EmptyTest baseline (PASS).
-> **Preflight rule 9 (route inline association-set writes through `mxcli --mcp`) can be relaxed to
-> the disk-write path once the project's own `mxcli` binary is upgraded to v0.17.0** (not yet done
-> on PROJECT-C as of 2026-08-11) — the `--mcp` route remains valid as a fallback but is no
-> longer required for this construct. See `PROJECT-C/bug-logs/mxcli-bugs.md` BUG-LOCAL-01 for
-> the project-local mirror of this finding.
-
----
+**RESOLVED (FIXED in v0.17.0, upstream #838) — archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md).**
 
 ## BUG-22: `alter settings configuration` / `alter settings model` / `alter project security level` — deterministic BSON stream-desync on the Settings unit
 
@@ -1344,63 +1214,7 @@ Confirmed from the engalar/mxcli fork's `24-workflow-examples.mdl`: workflow `CA
 
 ## BUG-WF03: `DECISION` with enum comparison in workflow body → CE0117 (MX 11.12.1, mxcli v0.16.0)
 
-**Severity:** Medium — blocks scripting workflow branching via mxcli  
-**Reproducible:** Yes, consistently  
-**Mendix version:** 11.12.1  
-**mxcli version:** v0.16.0  
-
-### Symptom
-
-`DECISION '$workflowContext/Status = PLM.ENUM_PLMStatus.Release'` in a workflow body produces CE0117 "Error(s) in expression" regardless of quoting style tried (`PLM.ENUM_PLMStatus.Release`, `'Release'`, quoted attribute). `mxcli check` passes; `mx check` reports CE0117.
-
-Note: this is a plain `=` comparison (no `!=`), so it is distinct from the AND/OR + `!=` bug (BUG in learned-mdl-preflight rule 17). The trigger here appears to be the DECISION context itself in workflow scope, not the operator combination.
-
-### Fix (SUPERSEDED — see the correction below; do NOT drop your DECISION gateways)
-
-Remove DECISION gateways from the MDL script. Wire the decision gateway manually in Studio Pro after the workflow exists. Studio Pro can add a gateway via drag-and-drop with no CE errors.
-
-**Discovered:** 2026-07-23 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1), Phase 3c script 09.
-
-### CORRECTION 2026-08-05: this is a CASING bug, not "DECISION is broken"
-
-Retested on Mendix 11.13 across both binaries, isolating the decision from the `CALL MICROFLOW`
-defect (branches use user tasks, no microflow calls — otherwise BUG-WF05 fires first and masks it):
-
-| Expression | v0.16.0 | `504aec67` |
-|---|---|---|
-| `'$WorkflowContext/Status = PLM.ENUM_PLMStatus.DieGo'` — **capital W** | ✅ 0 errors | ✅ 0 errors |
-| `'$workflowContext/...'` — **lowercase w** | — | ❌ **CE0117** |
-| `PLM.ENUM_PLMStatus.Release` — value not in the enum | — | ❌ CE1613 (correct, honest error) |
-
-**An enum DECISION works fine, including on v0.16.0.** The CE0117 comes from the lowercase context
-variable. The original 2026-07-23 report additionally used `ENUM_PLMStatus.Release`, which is not a
-value in that enumeration — so that entry likely conflated two separate mistakes and neither is an
-mxcli DECISION defect.
-
-**Still live on `504aec67`:** `1b390dce` normalizes `$workflowContext` casing inside a
-`CALL MICROFLOW` WITH clause, but **not** inside a DECISION expression. So decisions must be written
-`$WorkflowContext`. This is a genuine, unreported, still-unfixed inconsistency — worth an upstream
-issue on its own (mxcli writes the expression verbatim; mxbuild then rejects it).
-
-**Cost of the original misdiagnosis:** PROJECT-E dropped DECISION gateways from its workflow design
-entirely (see `09b-plm-workflow-fix-callmf.mdl` header, "ALSO removes the Decision gateway") on the
-basis of a lowercase `w`. Gateways are usable — reinstate them if the design wants them.
-
-> **RESOLVED in v0.17.0 — verified 2026-08-11.** Upstream GitHub issue #845, closed 2026-08-10
-> alongside the same PR that fixed the sibling `CALL MICROFLOW` WITH-clause casing bug
-> (commit `c68177e9`, part of PR #853, confirmed an ancestor of the v0.17.0 tag). Empirically
-> retested a DECISION with `'$workflowContext/Status = Mod.ENUM_X.Value'` (lowercase `w`) against
-> a fresh 11.13-equivalent scratch project: on v0.16.0 this still produces `CE0117` exactly as the
-> "Still live on `504aec67`" note above describes. On v0.17.0 the lowercase `$workflowContext` is
-> now normalized inside DECISION expressions too, matching the casing normalization that already
-> existed for `CALL MICROFLOW` WITH clauses — `mx check`/`docker check` pass with 0 errors, and
-> uppercase `$WorkflowContext` continues to work unchanged. **This closes the "genuine, unreported,
-> still-unfixed inconsistency" flagged in the 2026-08-05 correction.** DECISION gateways can be
-> written with either casing once the project's own `mxcli` binary is upgraded to v0.17.0 (not yet
-> done); recommend PROJECT-E and similar projects reconsider reinstating dropped DECISION gateways at
-> that point, per the "Cost of the original misdiagnosis" note above.
-
----
+**RESOLVED (FIXED in v0.17.0, upstream #845) — archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md).**
 
 ## Bare `Status` attribute name in a `retrieve ... where` clause → CE0161 (reserved-word conflict)
 
@@ -1412,73 +1226,7 @@ basis of a lowercase `w`. Gateways are usable — reinstate them if the design w
 
 ## BUG-24: `CALL MICROFLOW` in a workflow without `WITH` clause → broken activity (red pin) + runtime crash
 
-> ### ⚠️ MISDIAGNOSED — see BUG-WF06 (2026-08-05)
->
-> **The red pin and the runtime `Class 'Workflows$CallMicroflowTask' could not be found` have
-> nothing to do with the `WITH` clause.** They are caused by mxcli v0.16.0 writing the pre-Mendix-11.9
-> `$Type` for the activity. The symptoms recorded below are real and accurately described; the
-> attribution to a missing `WITH` clause, and therefore this entry's "Fix", are wrong.
->
-> **Do not follow this entry's fix.** Adding a fully-qualified `WITH` key makes things worse — that
-> is BUG-WF05, a *second*, independent defect. Reproduced 2026-08-05 on PROJECT-E with correct
-> short `WITH` keys, with fully-qualified keys, and with no `WITH` at all: red pin in every case.
->
-> The "NOT REPRODUCIBLE on RnD or Engalar" note below is consistent with this — both binaries
-> post-date `253d60d8`, which version-gates the storage name. It was the binary that fixed it, not
-> the `WITH` clause. See **BUG-WF06** for the root cause and the A/B.
-
-**Discovered:** 2026-07-24 (a PLM parts-flow project, mxcli v0.16.0, Mendix 11.12.1 Beta), Phase 3c script 09.
-
-**Status (retested 2026-08-03): NOT REPRODUCIBLE on RnD or Engalar.** This is the exact "no WITH
-clause, microflow has a required param" case from the sibling BUG-WF02 entry above. On both current
-binaries (RnD `504aec67`, Engalar `26f2866`), omitting the `WITH` clause entirely does **not**
-produce a broken activity or crash — both CLIs auto-bind the microflow's sole entity-typed
-parameter to the workflow context automatically, and `DESCRIBE WORKFLOW` shows the resulting
-`with (Item = '$WorkflowContext')` mapping was inserted for you. A real `mx check` passes with 0
-errors on both forks for the no-WITH case. This directly contradicts this entry's original "always
-use WITH, or the model won't load" claim — likely stale from before the auto-binding path existed,
-or from a case where the microflow had more than one entity-typed parameter (untested here; worth
-retrying if seen again with a multi-param microflow). RnD additionally now warns proactively at
-`mxcli check --references` time (FINDINGS #40, commit `08746d00`) if a required param is left
-unmapped — Engalar has no equivalent warning, but the auto-bind still succeeds regardless of the
-warning being present. See BUG-WF04 below for the consolidated guidance replacing both this entry
-and BUG-WF02's original fix advice.
-
-### Symptom
-
-Writing a `CALL MICROFLOW` activity inside a `CREATE WORKFLOW` body **without** a `WITH (...)` parameter mapping clause creates a broken activity in the model when the target microflow has parameters. In Studio Pro, the activity shows as a red pin and cannot be double-clicked. At runtime the app crashes immediately:
-
-```
-java.lang.RuntimeException: No new model classes have arrived within ten seconds,
-aborting model initialization (Class 'Workflows$CallMicroflowTask' could not be found).
-```
-
-`mxcli check` and `mxcli check --references` both pass clean — the corruption is invisible until SP open or runtime.
-
-### Root cause
-
-mxcli creates the `CallMicroflowTask` model object but leaves the parameter bindings empty when no `WITH` clause is provided. The runtime model loader then cannot deserialize the incomplete object, causing the entire model load to abort.
-
-### Fix
-
-Always use the `WITH` clause when the target microflow has parameters:
-
-```sql
--- WRONG (no WITH → broken activity, red pin, runtime crash)
-CALL MICROFLOW PLM."WF_ACT_RiskAgent_RiskFlag";
-
--- CORRECT
-CALL MICROFLOW PLM."WF_ACT_RiskAgent_RiskFlag"
-  WITH (PLM."WF_ACT_RiskAgent_RiskFlag"."PLMStub" = '$workflowContext');
-```
-
-The `WITH` key format is `Module."MicroflowName"."ParameterName" = '$workflowContext'` where `$workflowContext` is the workflow's context variable. Microflows with no parameters do not need a `WITH` clause.
-
-**Added STOP rule to `learned-mdl-preflight.md`** (rule 18).
-
-**Recovery:** `CREATE OR REPLACE WORKFLOW` with correct `WITH` clauses on all `CALL MICROFLOW` steps. Drop-and-recreate is safer than `ALTER WORKFLOW REPLACE` when multiple activities are broken.
-
----
+**SUPERSEDED — misdiagnosed; the real cause is BUG-WF06 (pre-11.9 `$Type` storage name for workflow call-microflow activities), fixed in v0.17.0 — archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md).**
 
 ## BUG-25: `CREATE WORKFLOW` writes null ContentsBlob in SQLite — mx check crashes with InvalidCastException
 
@@ -1617,41 +1365,11 @@ before filing upstream. Full consolidation notes: `a WMS demo project/bug-logs/u
 
 ## BUG-27: Cross-module `grant execute` → CE0148 (distinct trigger from BUG-04)
 
-**Status: DOWNGRADED 2026-08-03** — retested against RnD `504aec67`; RnD now gives a clear
-pre-emptive exec-time error rather than a silent/raw CE0148 failure. Not fully clean, but no
-longer the hidden-corruption class bug originally reported. Engalar instead crashes on the
-broader "multiple Security$ModuleSecurity units" defect — see the new consolidated Engalar
-entry below. Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-27.md`.
-**Reproducible:** Reported only, not re-verified in this pass
-**Discovered:** a WMS conversion project, `MIGRATION-PROGRESS.md`
-
-`grant execute` on a microflow fails with CE0148 when the granting role and the microflow's
-module differ, in a way not covered by the existing BUG-04 (which is about modules with no
-roles at all). Needs a fresh repro to confirm this is a distinct code path from BUG-04.
-
-> **RESOLVED in v0.17.0 — verified 2026-08-11.** Upstream GitHub issue #836. Empirically retested
-> a cross-module `grant execute` statement against a fresh EmptyTest.mpr scratch copy: on v0.16.0
-> the statement still surfaces the raw `CE0148` only at `mxcli check --references`/`docker check`
-> time, exactly as this entry's 2026-08-03 downgrade describes. On v0.17.0, `mxcli check` now
-> catches the cross-module GRANT issue **at plain-check time**, via a new dedicated lint rule
-> (`MDL-GRANT01`), before any exec is attempted — a further improvement on the 2026-08-03
-> "clear pre-emptive exec-time error" finding, not a regression of it. No corruption at any point
-> in either version; this has always been a hard-fail class, not a silent one. Recommend treating
-> `MDL-GRANT01` findings from `mxcli check` as authoritative once the project's own `mxcli` binary
-> is upgraded to v0.17.0 (not yet done).
+**RESOLVED (FIXED in v0.17.0, upstream #836) — archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md).**
 
 ## BUG-28: `reset layout` accepts invalid MDL at `check` time, fails at `exec`
 
-**Status: RECLASSIFIED 2026-08-03** — not a check/exec disagreement. RnD never implemented
-`RESET LAYOUT` at all (no such token in its grammar); Engalar built it from scratch
-(commit `2fabbac31`, including a since-fixed coordinate-corruption bug of their own). This is
-a feature gap in RnD, not a bug — worth an enhancement request rather than a bug report, if
-wanted. Detail: `a WMS demo project/bug-logs/mxcli-retest-2026-08-03/BUG-28.md`.
-**Reproducible:** Reported only
-**Discovered:** a WMS conversion project, project-local `bug-logs/mxcli-bugs.md`
-
-`mxcli check` passes a `reset layout` statement that then fails when actually executed —
-syntax checker and executor disagree, same family as BUG-10.
+**RECLASSIFIED as an enhancement request, not a bug — `RESET LAYOUT` was never implemented in RnD's grammar; Engalar built it fork-specific from scratch — archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md).**
 
 ## BUG-29: Double-quoted attribute paths in nav expressions pass `check`, fail CE0117 at mxbuild
 
@@ -1958,32 +1676,7 @@ RnD correctly qualifies a bare attribute reference in a `Visible:` expression as
 
 ## New bug found during the 2026-08-03 retest (not one of the original 29)
 
-### BUG-56: DataGrid2 parameterized microflow datasource silently loses its parameter binding (CE1571)
-
-**Discovered:** surfaced while retesting BUG-51, RnD `504aec67` (Engalar not yet checked)
-
-A DataGrid2 `datasource: microflow Module.MF(Param: $value)` calling a **parameterized**
-source microflow silently drops the parameter mapping — `mx check` reports
-`[CE1571] No argument has been selected for parameter '<name>'` even though the MDL script
-supplied one, and `DESCRIBE PAGE` shows the datasource microflow but no parameter mapping.
-Reproduces identically whether the target is quoted or unquoted, so unrelated to BUG-51's
-original quoting claim (BUG-51 itself is not reproducible — see above). Adjacent to BUG-48
-(pluggable DataGrid2 microflow datasource) but a distinct symptom (parameter-binding loss, not
-datasource-drop). Draft issue ready:
-`a WMS demo project/bug-logs/mxcli-retest-2026-08-03/gh-issues-ready/09-NEW-dg2-parameterized-datasource-ce1571.md`.
-
-> **RESOLVED in v0.17.0 — verified 2026-08-11.** Upstream GitHub issue #835. Empirically retested
-> a DataGrid2 `datasource: microflow Module.MF(Param: $value)` against a parameterized source
-> microflow, on a fresh EmptyTest.mpr scratch copy: on v0.16.0 the parameter mapping is still
-> silently dropped and `mx check`/`docker check` still report `CE1571` for the un-bound parameter,
-> exactly as documented above. On v0.17.0 the same script's `DESCRIBE PAGE` read-back shows the
-> full parameter mapping persisted, and `docker check` ends on the standard 3-error EmptyTest
-> baseline (PASS) with no `CE1571`. Confirmed with both a quoted and unquoted target, matching the
-> original finding that quoting is unrelated. Recommend retiring this STOP once the project's own
-> `mxcli` binary is upgraded to v0.17.0 (not yet done); note BUG-48 (pluggable DataGrid2 datasource
-> drop) is a separate defect and was not part of this verification.
-
----
+**RESOLVED (FIXED in v0.17.0, upstream #835) — archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md).**
 
 ## New bug found during the 2026-08-03 workflow-microflow retest (consolidates BUG-WF02 + BUG-24)
 
@@ -2217,156 +1910,7 @@ restore, rather than as a soft warning.
 
 ## BUG-WF06: v0.16.0 writes the pre-11.9 `$Type` for workflow call-microflow activities → red pin in SP, app will not boot
 
-**Severity:** Critical — affects **every** MDL-authored `CALL MICROFLOW` on any Mendix ≥ 11.9,
-independent of syntax. Both checkers report success.
-**Reproducible:** Yes, every time, on any project format ≥ 11.9.
-**Mendix version:** 11.13.0 (reproduced); applies from 11.9 onward
-**mxcli version:** `v0.16.0` (tagged release, 2026-07-12). Fixed on `main` by `253d60d8` (2026-07-29).
-**Discovered:** 2026-08-05, PROJECT-E, after Studio Pro rendered a scripted 5-activity workflow
-as five red pins despite `mx check` reporting `0 errors`.
-
-### Why this entry exists
-
-It supersedes the attribution in **BUG-24** (which blamed a missing `WITH` clause for the red pin)
-and completes **BUG-WF05** (which is a real but *separate* defect in the same statement). Both of
-those entries now carry correction banners pointing here.
-
-### Symptom
-
-A workflow written from MDL containing `CALL MICROFLOW`:
-
-- **Studio Pro:** each call activity is a **red pin**, cannot be double-clicked or configured. User
-  tasks, outcomes, and branching in the same workflow render perfectly, so it reads as a modelling
-  error rather than a tool defect.
-- **Runtime:** `Failed to load model: ... Class 'Workflows$CallMicroflowTask' could not be found` —
-  the entire app fails to boot, not just the workflow.
-- **`mxcli check --references`:** passes. **`mxcli exec`:** `Created workflow`. **`mx check`:**
-  `0 errors`. **Studio Pro opens the project** without complaint.
-
-### Root cause
-
-Mendix 11.9 (**WOR-2802**) split `MicroflowBasedActivity` into `CallMicroflowActivity` +
-`AIAgentTaskActivity`, renaming the on-disk `$Type` from `Workflows$CallMicroflowTask` to
-`Workflows$CallMicroflowActivity`. Tagged v0.16.0 predates the version gate and emits the pre-11.9
-name unconditionally.
-
-Evidence from the fix commit (`253d60d8`): the 11.6.3 modeler knows only `CallMicroflowTask`; the
-11.10 modeler carries both (the old one marked *"Removed due to code refactoring … WOR-2802"*, plus
-a conversion routine); the 11.10+ runtime metamodel jars know only `CallMicroflowActivity`.
-
-**Independent of the `WITH` clause** — reproduced with a short key, a fully-qualified key, and no
-`WITH` at all.
-
-### Controlled A/B — only the binary varied
-
-Same MDL, same `.mpr` (rsync copy in `/tmp`), same gate
-(`Mendix Studio Pro 11.13.0 Beta.app/Contents/modeler/mx`). BSON read straight out of
-`mprcontents/*.mxunit`.
-
-| binary | stored `$Type` (×5) | `mx check` | Studio Pro |
-|---|---|---|---|
-| `v0.16.0` (tagged) | `Workflows$CallMicroflowTask` | 0 errors | **red pins, not clickable** |
-| `504aec67` (main, 2026-07-31) | `Workflows$CallMicroflowActivity` | 0 errors | renders, opens normally |
-
-### Why every gate missed it
-
-`mx check` is not sensitive to this `$Type`. The upstream commit message says so directly: *"Both
-checkers passed (mxcli check ✓, mx check → 0 errors), but on an 11.9+ project the runtime refused
-to load the ENTIRE model at boot."*
-
-Do not use `DESCRIBE WORKFLOW` to verify either — v0.16.0's read path folds both `$Type` names into
-one semantic type, so a broken model reads back looking correct.
-
-**The cheapest gate that catches it: open the workflow in Studio Pro and look at the activity icons.**
-
-### Detection
-
-```bash
-u=$(LC_ALL=C grep -rla "<WorkflowName>" mprcontents/ | head -1)
-LC_ALL=C strings -n 4 "$u" | grep -oE 'Workflows\$Call[A-Za-z]+'
-# want: Workflows$CallMicroflowActivity
-```
-
-### Fix
-
-Build from `main` ≥ `253d60d8`. There is no MDL-level workaround. If you must stay on tagged
-v0.16.0, hand-drag call-microflow activities in Studio Pro.
-
-**RESOLVED in official tag `v0.17.0` (2026-08-10).** Confirmed `253d60d8` is an ancestor of
-`v0.17.0` via `git merge-base --is-ancestor`, then reran the sandbox A/B from scratch against the
-tagged release (not an RnD/dev commit this time — PROJECT-E's 2026-08-05 "never use the 504"
-ruling was specifically about `504aec67` being unofficial; it named "an official release containing
-`253d60d8` + `2099bbe1`" as the exit condition). Same probe
-(`probes-v016-boundary/A-fq-lower.mdl`), same `.mpr`, same `mx check` gate:
-
-| binary | stored `$Type` | Verdict |
-|---|---|---|
-| `v0.16.0` (tagged) | `Workflows$CallMicroflowTask` | reproduces the bug |
-| `v0.17.0` (tagged, official) | `Workflows$CallMicroflowActivity` | fixed |
-
-A leftover `WF_ProbeA` object with the broken `$Type` in the same sandbox also demonstrated a
-**worse failure mode than previously recorded**: on this SP loader build, the malformed
-`$Type` doesn't degrade to a red pin — it throws `System.ArgumentNullException` in
-`MicroflowCallParameterMapping.set_ParameterId` and makes the **entire model unloadable**
-(`mx check` returns a .NET stack trace, not JSON). Same root cause, more severe symptom than the
-"red pin, app won't boot" description above — worth knowing if you're triaging a hard mxbuild crash
-rather than a red pin.
-
-PROJECT-E upgraded its bundled `./mxcli` to `v0.17.0` on 2026-08-11 on the strength of
-this result (plus independent confirmation that it also fixes BUG-59 below and the DECISION-casing
-gap tracked as issue #845 — `DESCRIBE WORKFLOW` on v0.16.0 echoes an authored lowercase
-`$workflowContext` unchanged; v0.17.0 normalizes it to `$WorkflowContext` on write).
-
-### Recovery
-
-mxcli reads models Studio Pro's loader rejects, so no restore is needed:
-
-```bash
-./mxcli -p App.mpr -c "DROP WORKFLOW <Module>.<Bad>"
-# re-create with a fixed binary
-```
-
-Verified on PROJECT-E: dropped and rebuilt with `504aec67`, `mx check` `0 errors`, split model
-format preserved, exactly one unit swapped, the unrelated production workflow untouched.
-
-### How it was found (method worth reusing)
-
-The project contained a **hand-dragged workflow that worked**, in the same model, with the same
-microflows. Diffing the two BSON units reduced a day of syntax hypotheses to one line:
-
-```bash
-LC_ALL=C strings -n 3 <hand-built>.mxunit > /tmp/good.txt
-LC_ALL=C strings -n 3 <scripted>.mxunit   > /tmp/bad.txt
-diff /tmp/good.txt /tmp/bad.txt
-# < Workflows$CallMicroflowActivity
-# > Workflows$CallMicroflowTask
-```
-
-Everything the two units shared was exonerated at a stroke. When a known-good twin exists, diff it
-before theorising.
-
-### Where to report
-
-`mendixlabs/mxcli`. Already fixed on `main`; the report is effectively *"please cut a release"* —
-`v0.16.0` is still tagged **Latest** while the 2026-08-03 nightly is a Pre-release, so every user on
-the official release hits this. Draft prepared at
-`PROJECT-E/docs/gh-issues-ready/03-workflow-callmicroflow-storage-name-pre-11.9.md`
-(not filed).
-
-> **RESOLVED, the requested release has now shipped, confirmed 2026-08-11.** Filed upstream as
-> #846, closed 2026-08-10 in the same unverified bulk sweep as #838/#839/#844 (`closer: null`, no
-> linked commit), so GitHub state alone was not trusted; verified independently instead. v0.17.0
-> IS the release this report was asking for: repeated the exact controlled A/B from the table
-> above with `v0.17.0` substituted for `504aec67`, BSON read straight out of the resulting
-> `.mxunit` shows `Workflows$CallMicroflowActivity` (x5), matching `main`, not the broken tagged
-> `Workflows$CallMicroflowTask`. `mx check` 0 errors, and, the gate that actually matters here per
-> "Why every gate missed it" above, Studio Pro opens the workflow with normal, clickable activity
-> icons, no red pins. **This lifts the project-wide CALL MICROFLOW ban recorded for
-> PROJECT-E** (commit `504aec67` banned hand-dragging requirement project-wide) once
-> that project's `mxcli` binary is upgraded to v0.17.0 (not yet done as of 2026-08-11), CALL
-> MICROFLOW activities can then be authored from MDL again instead of hand-dragged in Studio Pro.
-
----
+**RESOLVED (FIXED in official tag v0.17.0, upstream #846) — archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md).**
 
 ## BUG-58: `ALTER PAGE ... SET Editable = [...] ON widget` writes a blank `AttributeIdentifier` regardless of expression complexity → `StorageLoadException` on Studio Pro open
 

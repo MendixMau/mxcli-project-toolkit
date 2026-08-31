@@ -1,17 +1,19 @@
 # Mendix Agent Setup — credentials, model binding, and the proof it answers
 
-**Applies to:** any mxcli project that ships GenAI agents (MxGenAIConnector + AgentCommons + ConversationalUI)
+**Applies to:** any mxcli project that ships GenAI agents (MxGenAIConnector + AgentCommons + ConversationalUI).
 **Purpose:** stand up a project's agents in a fresh environment — import the MxCloud GenAI
 resource keys, bind a deployed model to each agent version, index the knowledge base, and
 verify each agent by making it answer a question. Most of this has no MDL, mxcli or SQL path
 and is done by driving the **running app's UI with Playwright**; key import is the one
 exception, and the section below says exactly what the headless route omits.
 
-Completes the agent skill family: `mendix-agents.md` builds the agent, `mendix-agent-ui.md`
-embeds the chat panel, **this skill makes the runtime actually answer**. Worked, battle-tested
-driver scripts live in the TFC-TCXGraphPOC project (`tests/e2e/configure-genai.js`,
-`import-agents.js`, `test-agents.js`, plus `.ai-context/skills/genai-configuration.md` with
-the full app-specific detail); copy and adapt them rather than rewriting from scratch.
+Completes the agent skill family: `skills/mendix-agents.md` builds the agent,
+`skills/mendix-agent-ui.md` embeds the chat panel, **this skill makes the runtime actually
+answer**. Worked, battle-tested driver scripts live in the TFC-TCXGraphPOC project
+(`tests/e2e/configure-genai.js`, `import-agents.js`, `test-agents.js`, plus
+`.ai-context/skills/genai-configuration.md` with the full app-specific detail); copy and
+adapt them rather than rewriting from scratch. **They are on the `claude/tfc-app-e2e-testing-rra3km`
+branch, not `main`** — checked 2026-08-31; on `main` those four paths do not exist.
 
 ## Prerequisites — what you must be handed before starting
 
@@ -199,7 +201,7 @@ container behind a mandatory proxy). Skip it on a normal workstation.
 
 | Skill | Why |
 |---|---|
-| `mendix-agents.md` | building the agent itself — runtime data, not model documents |
-| `mendix-agent-ui.md` | embedding the ConversationalUI chat panel |
-| `testing-shape.md` | the false-green register these verification rules extend |
-| `tool-output-is-not-ground-truth.md` | why an exit code from these scripts is not yet a finding |
+| `skills/mendix-agents.md` | building the agent itself — runtime data, not model documents |
+| `skills/mendix-agent-ui.md` | embedding the ConversationalUI chat panel |
+| `skills/testing-shape.md` | the false-green register these verification rules extend |
+| `skills/tool-output-is-not-ground-truth.md` | why an exit code from these scripts is not yet a finding |

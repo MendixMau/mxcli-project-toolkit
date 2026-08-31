@@ -16,7 +16,9 @@
 #   bin/doctor.sh --install <project-dir>   # and, if the mxbuild toolchain is missing,
 #                                           # download it locally via the project's ./mxcli
 #                                           # (same `setup mxbuild` the headless container
-#                                           # build uses; cached at ~/.mxcli/mxbuild/)
+#                                           # build uses; cached at ~/.mxcli/mxbuild/).
+#                                           # A missing ./mxcli is fetched first, from the
+#                                           # mendixlabs/mxcli GitHub releases.
 #
 # --install is the one deliberate exception to the no-dependency rule: it needs the project's
 # own mxcli binary and network access, runs only when asked, and a failed download degrades to
@@ -56,8 +58,11 @@ head_() { printf '\n%s\n' "$*"; }
 # Exit 126/127 is the binary itself failing (wrong platform / not found) — no retry can fix
 # that. Both flags failing with other codes is also reported broken, with the output shown.
 # On success: PROBE_OUT holds the first probe's output, PROBE_HOW names the flag that worked.
+# (Show PROBE_OUT via probe_line — real mxbuild's --help opens with a blank-lined ASCII
+# banner, so a naive head -1 prints nothing.)
 PROBE_OUT=""
 PROBE_HOW=""
+probe_line() { printf '%s\n' "$PROBE_OUT" | grep -v '^[[:space:]]*$' | head -1; }
 probe_runs() {
   PROBE_OUT=""; PROBE_HOW=""
   _pr_exit=0
@@ -157,7 +162,7 @@ done
 # wrong place and would report LF over an empty set. Say so instead.
 if [ "$CRLF_SEEN" -eq 0 ]; then
   bad "found no shell scripts under $TOOLKIT_ROOT to check — this is not a pass"
-  note "Either the toolkit path is wrong, or the clone is incomplete."
+  note "Either the toolkit path is wrong, or the clone is incomplete — re-clone the toolkit."
 elif [ "$CRLF_HITS" -gt 0 ]; then
   bad "$CRLF_HITS script(s) have Windows line endings (CRLF). They will not run."
   note "first one: $CRLF_FIRST"
@@ -194,15 +199,21 @@ if [ -x "$TOOLKIT_ROOT/bin/check-scripts.sh" ]; then
   esac
 else
   bad "bin/check-scripts.sh is missing — the clone is incomplete or predates it"
+  note "git pull inside the toolkit clone restores it (or re-clone the toolkit)."
 fi
 
 # --- command line tools ---------------------------------------------------------------------
 
 head_ "Command line tools"
 
+CORE_MISSING=0
 for c in git sed grep awk find sort tr cut; do
-  command -v "$c" >/dev/null 2>&1 && ok "$c" || bad "$c is missing — it is used by nearly every script"
+  command -v "$c" >/dev/null 2>&1 && ok "$c" || { bad "$c is missing — it is used by nearly every script"; CORE_MISSING=$((CORE_MISSING + 1)); }
 done
+if [ "$CORE_MISSING" -gt 0 ]; then
+  note "These all arrive together: Windows — install Git for Windows and use its Git Bash;"
+  note "macOS — xcode-select --install; Linux — apt install git (coreutils ships with the distro)."
+fi
 
 command -v sqlite3 >/dev/null 2>&1 && ok "sqlite3" || {
   warn "sqlite3 is missing. project-bin/graph-sweep.sh reads the mxcli catalog with it."
@@ -221,6 +232,8 @@ case "$PLATFORM" in
       ok "found: $(ls -d /Applications/Mendix\ Studio\ Pro*.app | tr '\n' ' ')"
     else
       warn "no 'Mendix Studio Pro *.app' in /Applications — project-bin/restart-sp.sh cannot run"
+      note "Install Studio Pro (Mendix Marketplace) if you want SP automation; everything"
+      note "else works without it — the mxbuild gate can run on the downloaded toolchain."
     fi
     ;;
   gitbash|wsl|linux|unknown)
@@ -263,6 +276,28 @@ JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 # projects. find_mxbuild/find_java (project-bin/_common.sh) discover that cache, so after a
 # successful download the exec.sh mxbuild gate runs from it too — no Studio Pro required.
 # This happens BEFORE the reporting below, so the report describes the machine as it now is.
+
+# The setup step itself, shared by the had-mxcli and just-fetched-mxcli paths. Re-runs the
+# toolchain discovery on success — the cache did not exist the first time around.
+install_toolchain() {
+  INSTALL_MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
+  if [ -z "$INSTALL_MPR" ]; then
+    bad "--install: no .mpr in $PROJECT_DIR — setup mxbuild needs the model to pick a version."
+    return
+  fi
+  note "downloading the mxbuild toolchain (./mxcli setup mxbuild — same as the container build)..."
+  if (cd "$PROJECT_DIR" && ./mxcli setup mxbuild -p "$(basename "$INSTALL_MPR")"); then
+    SP_APP="$(find_sp_app 2>/dev/null || true)"
+    MXBUILD="$(find_mxbuild 2>/dev/null || true)"
+    JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
+    JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
+    ok "toolchain downloaded to ~/.mxcli/mxbuild/ (shared cache, reused by every project)"
+  else
+    bad "'./mxcli setup mxbuild' failed — see its output above."
+    note "A blocked network/proxy is the usual cause; the download comes from the Mendix CDN."
+  fi
+}
+
 if [ "$INSTALL" -eq 1 ]; then
   if [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ] && probe_runs "$MXBUILD"; then
     ok "--install: a runnable mxbuild is already discovered — nothing to download"
@@ -270,27 +305,51 @@ if [ "$INSTALL" -eq 1 ]; then
     bad "--install needs a project directory: bin/doctor.sh --install <project-dir>"
     note "The download runs through that project's own ./mxcli, which reads the model's"
     note "Mendix version and fetches the matching toolchain."
+  elif [ -f "$PROJECT_DIR/mxcli" ] && [ ! -x "$PROJECT_DIR/mxcli" ]; then
+    bad "--install: mxcli in $PROJECT_DIR is present but not executable — chmod +x mxcli, re-run."
   elif [ ! -x "$PROJECT_DIR/mxcli" ]; then
-    bad "--install: no executable mxcli in $PROJECT_DIR — cannot download the toolchain."
-    note "Get the mxcli build for this OS into the project root first (chmod +x mxcli)."
-  else
-    INSTALL_MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
-    if [ -z "$INSTALL_MPR" ]; then
-      bad "--install: no .mpr in $PROJECT_DIR — setup mxbuild needs the model to pick a version."
+    # No mxcli either — fetch that too. The release assets follow one naming scheme
+    # (verified against the published releases, 2026-08-31): mxcli-{darwin|linux}-{amd64|arm64},
+    # mxcli-windows-amd64.exe. Windows gets the .exe name so Git Bash's transparent
+    # foo -> foo.exe mapping serves the project convention ./mxcli unchanged.
+    MXCLI_ARCH="$(uname -m 2>/dev/null || echo unknown)"
+    case "$MXCLI_ARCH" in
+      x86_64|amd64) MXCLI_ARCH=amd64 ;;
+      arm64|aarch64) MXCLI_ARCH=arm64 ;;
+    esac
+    case "$PLATFORM-$MXCLI_ARCH" in
+      macos-amd64)   MXCLI_ASSET="mxcli-darwin-amd64";      MXCLI_DEST="mxcli" ;;
+      macos-arm64)   MXCLI_ASSET="mxcli-darwin-arm64";      MXCLI_DEST="mxcli" ;;
+      linux-amd64|wsl-amd64) MXCLI_ASSET="mxcli-linux-amd64"; MXCLI_DEST="mxcli" ;;
+      linux-arm64|wsl-arm64) MXCLI_ASSET="mxcli-linux-arm64"; MXCLI_DEST="mxcli" ;;
+      gitbash-amd64) MXCLI_ASSET="mxcli-windows-amd64.exe"; MXCLI_DEST="mxcli.exe" ;;
+      *)             MXCLI_ASSET=""; MXCLI_DEST="" ;;
+    esac
+    MXCLI_URL="https://github.com/mendixlabs/mxcli/releases/latest/download/${MXCLI_ASSET:-<asset>}"
+    if command -v curl >/dev/null 2>&1; then MXCLI_FETCH="curl -fsSL -o"
+    elif command -v wget >/dev/null 2>&1; then MXCLI_FETCH="wget -q -O"
+    else MXCLI_FETCH=""; fi
+    if [ -z "$MXCLI_ASSET" ] || [ -z "$MXCLI_FETCH" ]; then
+      bad "--install: no mxcli in $PROJECT_DIR and cannot auto-fetch one here"
+      [ -z "$MXCLI_ASSET" ] && note "(no published mxcli build for $PLATFORM/$MXCLI_ARCH)"
+      [ -z "$MXCLI_FETCH" ] && note "(neither curl nor wget on this machine)"
+      note "Download it yourself into the project root, then re-run:"
+      note "  $MXCLI_URL"
+      note "  chmod +x mxcli"
     else
-      note "downloading the mxbuild toolchain (./mxcli setup mxbuild — same as the container build)..."
-      if (cd "$PROJECT_DIR" && ./mxcli setup mxbuild -p "$(basename "$INSTALL_MPR")"); then
-        # Re-run the discovery: the cache did not exist the first time around.
-        SP_APP="$(find_sp_app 2>/dev/null || true)"
-        MXBUILD="$(find_mxbuild 2>/dev/null || true)"
-        JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
-        JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
-        ok "toolchain downloaded to ~/.mxcli/mxbuild/ (shared cache, reused by every project)"
+      note "no mxcli in the project — fetching $MXCLI_ASSET from the mxcli releases..."
+      if $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && chmod +x "$PROJECT_DIR/$MXCLI_DEST" \
+         && probe_runs "$PROJECT_DIR/$MXCLI_DEST"; then
+        ok "mxcli fetched into the project root: $(probe_line)"
+        install_toolchain
       else
-        bad "'./mxcli setup mxbuild' failed — see its output above."
-        note "A blocked network/proxy is the usual cause; the download comes from the Mendix CDN."
+        rm -f "$PROJECT_DIR/$MXCLI_DEST" 2>/dev/null
+        bad "--install: fetching mxcli failed (network/proxy, or the binary would not run here)."
+        note "Download it yourself into the project root, then re-run:  $MXCLI_URL"
       fi
     fi
+  else
+    install_toolchain
   fi
 fi
 
@@ -328,7 +387,7 @@ if [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ]; then
   MXB_EXIT=0
   probe_runs "$MXBUILD" || MXB_EXIT=$?
   if [ "$MXB_EXIT" -eq 0 ]; then
-    ok "mxbuild runs ($PROBE_HOW): $(printf '%s' "$PROBE_OUT" | head -1)"
+    ok "mxbuild runs ($PROBE_HOW): $(probe_line)"
     note "at: $MXBUILD"
   else
     GATE_OK=0
@@ -362,10 +421,13 @@ else
   GATE_OK=0
   if [ "$PLATFORM" = linux ] && [ -z "$SP_APP" ]; then
     warn "java not found (looked for JAVA_HOME, Studio Pro's bundled JRE, then PATH)."
+    note "The downloaded mxbuild toolchain needs a system Java: apt install openjdk-21-jre"
+    note "(or your distro's equivalent), or set JAVA_HOME=<jdk/jre root>."
   else
     bad "java not found/executable: ${JAVA_EXE:-<none>}"
     note "Studio Pro ships its own JRE and that is the preferred one; if discovery missed it,"
-    note "set JAVA_HOME=<jdk/jre root> explicitly."
+    note "set JAVA_HOME=<jdk/jre root> explicitly. No Studio Pro? Install a JDK/JRE 21:"
+    note "macOS: brew install --cask temurin@21   Windows: winget install EclipseAdoptium.Temurin.21.JRE"
   fi
 fi
 
@@ -398,7 +460,8 @@ if [ -n "$NODE_V" ]; then
 else
   warn "node is missing. Needed by the extraction pipelines (npm install per pipeline),"
   note "project-bin/page-fidelity.js, and Playwright e2e (project-bin/test-stack-up.sh)."
-  note "Not needed for a pure MDL-writing session."
+  note "Not needed for a pure MDL-writing session. To install: an LTS from nodejs.org,"
+  note "or brew install node / winget install OpenJS.NodeJS.LTS / apt install nodejs npm."
 fi
 note "e2e additionally needs a Playwright browser in the project: npx playwright install chromium"
 
@@ -491,13 +554,16 @@ if [ -n "$PROJECT_DIR" ]; then
     [ -f "$PROJECT_DIR/CLAUDE.local.md" ] && ok "CLAUDE.local.md (toolkit wiring) present" \
       || warn "no CLAUDE.local.md — run bin/init-project.sh '$PROJECT_DIR'"
     MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
-    [ -n "$MPR" ] && ok "model: $(basename "$MPR")" || warn "no .mpr found in the project root"
+    [ -n "$MPR" ] && ok "model: $(basename "$MPR")" || {
+      warn "no .mpr found in the project root"
+      note "If the model lives elsewhere, point doctor at the folder that contains it;"
+      note "a brand-new project gets its .mpr from 'mxcli init' or a Studio Pro export."; }
     if [ -x "$PROJECT_DIR/mxcli" ]; then
       # Present is not enough — a wrong-platform binary is present, executable, and exits 126.
       MXCLI_EXIT=0
       probe_runs "$PROJECT_DIR/mxcli" || MXCLI_EXIT=$?
       if [ "$MXCLI_EXIT" -eq 0 ]; then
-        ok "mxcli runs ($PROBE_HOW): $(printf '%s' "$PROBE_OUT" | head -1)"
+        ok "mxcli runs ($PROBE_HOW): $(probe_line)"
       else
         bad "mxcli exists but cannot run (exit $MXCLI_EXIT)"
         printf '%s\n' "$PROBE_OUT" | grep -v '^[[:space:]]*$' | head -3 | while IFS= read -r l; do note "  $l"; done
@@ -505,7 +571,11 @@ if [ -n "$PROJECT_DIR" ]; then
         note "re-download the mxcli build for this OS."
       fi
     elif [ -f "$PROJECT_DIR/mxcli" ]; then bad "mxcli is present but not executable — chmod +x mxcli"
-    else warn "no mxcli in the project root"; fi
+    else
+      warn "no mxcli in the project root"
+      note "bin/doctor.sh --install $PROJECT_DIR fetches the right build for this OS/arch"
+      note "(from github.com/mendixlabs/mxcli/releases) and then the mxbuild toolchain with it."
+    fi
   fi
 fi
 

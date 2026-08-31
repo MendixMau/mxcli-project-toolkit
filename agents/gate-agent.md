@@ -65,6 +65,7 @@ own bug log before running anything you have not run here before.
 | `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first |
 | `skills/gate-check-file-locations.md` | gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script |
 | `skills/finding-disposition.md` | Any report from a test/review run is about to be published — no report ends without a disposition for every finding |
+| `skills/wizard-walkthrough.md` | Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet |
 <!-- ROUTING:END -->
 
 ## Gates to run (in order)

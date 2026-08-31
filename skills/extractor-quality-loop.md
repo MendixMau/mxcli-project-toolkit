@@ -161,6 +161,20 @@ Noting these as "BRD-only" in the quality report is correct and expected.
 }
 ```
 
+### A score without a second mechanism is self-graded — label it, never let it pass alone
+
+When the "ground truth" side of the comparison is a manual read with no independent second
+mechanism, the score measures fidelity to the reader, not to the source. Field case (a
+PLM-workflow migration project, 2026-08): a Stage 1 extraction scored **100%** against a
+hand read that was itself the only method — a Stage 2 re-read then found two live defects,
+one recorded as the *inverse* of what the source said. So: if any dimension's expected
+values came from a single hand read, write `"selfGraded": true` at the top level of
+`extraction-quality.json` and name the dimensions; a self-graded report **cannot pass the
+95% gate** — it is an inventory awaiting verification, and the gate verdict stays open
+until a second mechanism (a different parser, a runtime probe, an SME confirmation pass)
+has scored those dimensions. This is the same rule as the Suspicious-Zero Gate, applied to
+suspicious perfection.
+
 ## Validator Requirements
 
 The validator for a stack must:

@@ -193,6 +193,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work — or you are unsure which harness skill applies; this one routes you | `skills/full-harness-audit.md` | test,review | 5,6 | ondemand |
 | End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition | `skills/test-result-audit.md` | test,review | 5,6 | ondemand |
 | Any report from a test/review run is about to be published — no report ends without a disposition for every finding | `skills/finding-disposition.md` | test,review,gate | 5,6 | ondemand |
+| Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet | `skills/wizard-walkthrough.md` | gate,review | P,7 | experimental |
 
 #### Diagnose — something is broken and it may be the tooling
 

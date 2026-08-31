@@ -75,6 +75,7 @@ protects: you have no Write or Edit tool, and you never run `mxcli exec`.
 | `skills/full-harness-audit.md` | The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work — or you are unsure which harness skill applies; this one routes you |
 | `skills/test-result-audit.md` | End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition |
 | `skills/finding-disposition.md` | Any report from a test/review run is about to be published — no report ends without a disposition for every finding |
+| `skills/wizard-walkthrough.md` | Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet |
 <!-- ROUTING:END -->
 
 `mxbuild` and the UI/OTel e2e suite both verify that what was built *works*. Neither verifies that

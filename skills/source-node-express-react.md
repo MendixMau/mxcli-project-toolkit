@@ -34,7 +34,7 @@ entity** — the schema is authoritative for constraints, the TS type for the at
 developer actually wrote — with each attribute tagged `sql+ts` / `sql-only` / `ts-only`. A
 `ts-only` attribute is a finding, not noise: it is a field with no column behind it.
 
-**The failure this replaced (2026-08-31, T-WF-migration).** The paths above were hardcoded. A
+**The failure this replaced (2026-08-31, a dashboard-publishing migration project).** The paths above were hardcoded. A
 second real source on the same stack kept its types in `api/src/shared/db/types.ts` and its
 routes in `api/src/api/routes/*.ts`; the extractor matched nothing, and said so only as
 "models directory not found" — which reads as a broken run rather than a wrong assumption.

@@ -296,7 +296,7 @@ NORMALISED=$(printf '%s\n' "$RECORDS" | awk -F'\t' '
       # two rules above. Both block, so a gate never wrongly opened; what broke is the
       # feedback to the author (a correctly authored status read as unparseable) and the
       # counts (UNRAISED=0 beside a genuinely unraised question). Found 2026-08-31 on a
-      # hand-authored BRD in T-WF-migration. (No apostrophes here: single-quoted awk.)
+      # hand-authored BRD in a migration project. (No apostrophes here: single-quoted awk.)
       state = "UNRAISED"; reason = "explicitly unraised — never put to the user (rule 5b)"
     }
     else if (L ~ /^raised/ || L ~ /^awaiting/) {

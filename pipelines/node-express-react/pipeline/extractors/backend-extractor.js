@@ -14,7 +14,7 @@
  *
  * LAYOUT IS CONFIGURED, NOT ASSUMED (2026-08-31). The directories below used to be
  * hardcoded to the Cypress-RWA shape (`src/models`, `backend/*-routes.ts`). A second real
- * source (Puffin: `api/src/shared/db/types.ts` + `api/src/api/routes/*.ts`) matched the
+ * source (`api/src/shared/db/types.ts` + `api/src/api/routes/*.ts`) matched the
  * stack and not the layout, so the extractor found nothing and said so only as a directory
  * -not-found error — the silent-miss failure this pipeline's README warns about. Layout now
  * comes from config.json's `layout` block; the defaults ARE the RWA shape, so an existing
@@ -132,7 +132,7 @@ for (const rel of layout.modelFiles) {
 
     // Extract interfaces AND type aliases → entity.
     // `export type X = { … }` is as common as `export interface X { … }` in Express/TS
-    // sources and used to be invisible here: Puffin declares all four of its entities that
+    // sources and used to be invisible here: the second source declares all four entities that
     // way, so the extractor read its types module and produced zero entities.
     const ifaceRegex = /export\s+(?:interface\s+(\w+)\s*(?:extends[^{]*)?|type\s+(\w+)\s*=\s*)\{([^}]+)\}/gs;
     let im;
@@ -186,7 +186,7 @@ for (const rel of layout.modelFiles) {
 }
 
 // ── 2a. Router mount prefixes (layout.serverFiles) ───────────────────────────
-// A router file's own paths are relative to where the app mounts it. Puffin's viewers
+// A router file's own paths are relative to where the app mounts it. One source's viewers
 // router declares '/' and '/:viewerId'; mounted at '/api/dashboards/:dashboardId/viewers'
 // those are two real endpoints, and without the prefix they extract as a nameless '/'.
 // Maps the exported router identifier → its mount path.

@@ -79,8 +79,9 @@ if (fs.existsSync(apolloFile)) { readFile(apolloFile); fileCount++; } // just co
 // A React app that centralises its calls in a typed client module (`api.listDashboards(id)`
 // → `request('/api/users/${id}/dashboards')`) has NO axios call anywhere in a screen, so the
 // axios pass below reports every screen as `no-api-calls-found` and the linker cannot join a
-// single screen to an endpoint. Field case: Puffin, 10 of 10 screens with zero API calls
-// while the client module held all 13. This pass maps client method → {method, path}; the
+// single screen to an endpoint. Field case: a dashboard-publishing app — 10 of 10 screens
+// reported zero calls while the client module held all 13. This pass maps client method →
+// {method, path}; the
 // screen pass then resolves `client.method(` usages through it, exactly as it already does
 // for GraphQL operations.
 const clientApiCalls = new Map();   // methodName → { method, path }
@@ -103,8 +104,8 @@ for (const rel of (feLayout.apiClientFiles || [])) {
   // methodName: (args) => request<T>(`/api/...`, { method: 'POST' })  — and fetch(`${base}/api/...`)
   // The body window is generous on purpose: a one-line `=> request('/path')` and a
   // block-bodied `async () => { … 40 lines of status handling … }` are both normal in a
-  // hand-written client, and a short window silently drops the second kind (Puffin's
-  // fetchMe and fetchVersionContent, the two methods with their own error handling).
+  // hand-written client, and a short window silently drops the second kind — in the field
+  // case, exactly the two methods that carried their own error handling.
   const methodRegex = /(\w+)\s*:\s*(?:async\s*)?\([^)]*\)\s*(?::[^=]+)?=>\s*([\s\S]{0,2000}?)(?=\n\s{2}(?:\/\*|\w+\s*:)|\n\};)/g;
   let mm;
   while ((mm = methodRegex.exec(content)) !== null) {

@@ -9,7 +9,7 @@ and the per-session loop that keeps work durable when the container is not. Comp
 `personal-toolkit/prompts/full-e2e-cloud-run.prompt.md` is the field-run variant of the same
 setup with a sealed persona and a frozen toolkit; this skill is the plain development version.
 
-**Field run:** T-WF-migration, 2026-08-31 — empty private repo to pushed scaffold (mxcli
+**Field run:** a dashboard-publishing migration project, 2026-08-31 — empty private repo to pushed scaffold (mxcli
 v0.20.0, toolkit @ `94f4037`) in one session, following exactly the steps below.
 
 ## The two facts that shape everything here

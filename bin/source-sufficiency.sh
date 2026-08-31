@@ -160,7 +160,7 @@ if [ "$CMD" = "init" ]; then
   # else — becomes unreadable.
   #
   # Code extensions joined 2026-08-31 — the same miss as the .yaml one above, one family
-  # further: a live Stage 0 on a Node/Express + React migration source (T-WF-migration)
+  # further: a live Stage 0 on a Node/Express + React migration source
   # produced a 26-row inventory containing package.json and sample data but not one of the
   # ~40 .ts/.tsx files that ARE the application. In migration mode the code is usually the
   # best-specified source in the corpus; an inventory without it grades the graders' guesses.

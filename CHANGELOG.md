@@ -8,6 +8,7 @@ Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templat
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
 ## 2026-08-31
+- process(leak-guard): CI leak-guard step no longer hard-fails without a denylist — generic probes (emails, GUIDs, local paths) still gate every PR; the client-name check is the maintainer's personal local hook (`bin/install-hooks.sh` + gitignored `.leakguard-deny`), not a contributor requirement
 - process(contrib): contribution pipeline — `contrib/inbox/` low-friction lane, `CONTRIBUTING.md`, PR template, CI checks on every PR, `bin/harvest-learnings.sh` to auto-draft inbox entries from a project's stored learnings; wired into `checkpoint-cutover.md` as the closing action so every project's wrap-up harvests
 - process(leak-guard): init-project.sh ends with a three-line denylist nudge — new client at kickoff → add the name to .leakguard-deny and the LEAKGUARD_DENY secret; advisory only, never blocks
 - process(changelog): this file, seeded from the last month; append rule added to `CLAUDE.md`

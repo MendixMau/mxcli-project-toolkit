@@ -23,12 +23,14 @@ jobs:
       - name: No macOS-only assumptions reintroduced (check-portability.sh)
         run: bin/check-portability.sh
 
-      # The name denylist is deliberately NOT in the repo (publishing it would leak exactly
-      # what it suppresses — see the script header). The script HARD-FAILS with no denylist —
-      # a guard that scans nothing must not report clean — so this step is red until the
-      # LEAKGUARD_DENY repo secret is set (Settings → Secrets → Actions): the patterns from
-      # your local .leakguard-deny joined with '|', e.g. '\bName1\b|\bName2\b'.
-      - name: Leak guard (check-no-client-data.sh)
+      # The client-NAME denylist is personal and local by design: it lives in the maintainer's
+      # gitignored .leakguard-deny and runs in their pre-commit/pre-push hooks
+      # (bin/install-hooks.sh) — never in the repo, never required of contributors. In CI the
+      # guard runs in allow-no-denylist mode: the generic probes (emails, GUIDs, absolute
+      # local paths) still gate every PR, but a missing name list is a warning, not a red X.
+      # If the LEAKGUARD_DENY repo secret is ever set, name matching activates here too.
+      - name: Leak guard, generic probes only (check-no-client-data.sh)
         env:
           LEAKGUARD_DENY: ${{ secrets.LEAKGUARD_DENY }}
+          LEAKGUARD_ALLOW_NO_DENYLIST: "1"
         run: bin/check-no-client-data.sh

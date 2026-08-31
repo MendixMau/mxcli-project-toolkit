@@ -168,6 +168,31 @@ check-scripts, render-routing --check, check-portability and the leak guard on e
 ## Adding new skills
 Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcli project | requirements-driven`, `**Purpose:**`, and a step-by-step guide. Add it to `README.md`'s "When to use which skill" table. **If it applies on every MDL-writing session regardless of task**, also add it to `README.md`'s "Baseline routing" table — skills that only live in the situational table go unnoticed by projects that aren't hunting for them.
 
+**Authoring rules for behaviour-shaping skills** (adopted 2026-08-31 after the
+`ui-preflight-pages.md` A/B baseline, `process/preflight-skill-baseline-2026-08-31.md`):
+
+1. **Routing rows are trigger conditions, not summaries.** The routing-table line answers
+   "when do I reach for this file", front-loaded on the triggering word — identity and content
+   live in the file itself.
+2. **Baseline-test like an instrument.** Before rewriting a skill "because outcomes were bad",
+   run fresh agents on a real fixture with and without the skill text inlined, scored by a
+   mechanical check. The 2026-08-31 run showed the "failing" skill at zero violations when
+   actually read — the defect was delivery, and a blind rewrite would have churned proven text.
+   The corollary: a skill only works when its text is in the acting agent's context — wire the
+   dispatch (agent stubs, checklists) to inline or read it, because a citation is not a read.
+3. **Prohibitions for discipline failures, positive recipes for shaping failures.** "Never
+   `git add -A`" guards a known temptation; but where agents produce the wrong *shape* (wrong
+   layout, missing H1), state the target behaviour and the evidence for it — a ban alone keeps
+   the wrong pattern in view.
+4. **Completion criteria carry denominators.** A step ends on a checkable bound ("all N
+   gallery files listed", "0 violations from the shell check", "NOT RUN is legal, silence is
+   not") — a step ending in prose nobody can fail is the unfalsifiable-checklist defect the
+   obligation check exists to prevent.
+5. **No caches of another project's environment.** A class table, file inventory, or path list
+   copied into a skill goes stale the day the next project scaffolds differently; instruct
+   "list/grep the actual file" instead (both stale tables in `ui-preflight-pages.md` were
+   flagged mid-run by the very agents following them).
+
 ## Committing in this clone — never `git add -A`
 
 Several Claude sessions routinely have this clone open at once, in **one working tree and

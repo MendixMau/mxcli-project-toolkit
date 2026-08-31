@@ -16,6 +16,16 @@ the page-header scaffold every page starts with), `oneshot-page-structure-patter
 **When to use:** Every time the mdl-agent (or main session) is about to draft a page or snippet.
 Not needed for pure microflow/domain/security scripts.
 
+**This file works only when its full text is in the drafting context.** Measured (A/B, 5 reps
+per arm on the same page, 2026-08-31, `process/preflight-skill-baseline-2026-08-31.md`): with
+this file inlined in the drafting agent's context, 5/5 reps chose the correct layout shell,
+5/5 opened with an H1, 0/5 wrote an inline style or invented a class; without it, 0/5, 2/5 and
+3/5+1/5 respectively — the exact ToeicBuddy field defects. The failed field run *cited this
+file by name* while producing the without-arm's numbers: a citation is not a read. So when
+page-drafting is dispatched to a subagent, the dispatch prompt must include this file's text
+(or the subagent must read it as its first action) — a one-line "follow ui-preflight-pages.md"
+reproduces the baseline.
+
 ---
 
 ## The Five Steps (all mandatory, in order)
@@ -54,41 +64,39 @@ Find the project's design-system CSS file. Typical paths (project may use one or
 - `design/design-system.html` — annotated gallery: same tokens plus Atlas mapping table, usage notes
 - `themesource/<gallery-module>/web/main.scss` — Mendix-compiled port of `ds.css`. **This is the only stylesheet that ships**; a CSS change landed only in `ds.css` is a no-op in-app (`learned-stylegallery.md`, the ⛔ rule)
 
-From the relevant component sections, extract the **exact class names** you will need for this page.
-Common component classes:
-
-| Component | Class pattern |
-|-----------|---------------|
-| KPI / stat tile | `.kpi`, `.k-label`, `.k-value`, `.k-delta.k-up/.k-down` |
-| Badge / chip | `.kt-badge`, `.kt-badge-cta`, `.kt-badge-success`, `.kt-badge-warning`, `.kt-badge-danger`, `.kt-badge-neutral`, `.kt-badge-info`, `.kt-badge-dark` |
-| Form card | `.form-card`, `.form-section` |
-| Process stepper | `.stepper`, `.step.done`, `.step.active`, `.step.todo`, `.node`, `.circle`, `.line`, `.s-title`, `.s-meta` |
-| Chart container | `.chart-container` |
-| Activity feed | `.activity-feed` |
-| Scan UI | `.scan-tile`, `.scan-view`, `.reticle`, `.scan-counter`, `.scan-list` |
-| Button variants | Check design-system.html — do not invent; use `.btn-primary`, `.btn-default`, or whatever is documented |
+From the relevant component sections, extract the **exact class names** you will need for this
+page — read them out of the project's own `ds.css` / `design-system.html` / `main.scss`, never
+from memory or from another project's palette. Every design system names its components
+differently (one project's KPI tile is `.kpi` + `.kpi-value`, another's is `.k-value`); the
+authoritative list is the stylesheet in front of you, and a class table cached in a skill goes
+stale the day the next project is scaffolded. `grep -o '^\.[a-z-]*' design/ds.css | sort -u`
+is a fine first pass; then read the rules you plan to lean on, because a selector's shape
+matters (`.kpi b` styles a `<b>` inside the tile — it is not a class you can put on a widget).
 
 **Hard rule (B1):** every `class:` value on a page widget must match a token in the project's
 design-system file. Do not invent class names, do not use bare-Atlas class names as the only
 class on a design-system-styled widget, do not write inline styles.
 
+**Page column (the 0/10 defect):** if the wireframe caps its `main` (e.g. `main{max-width:900px}`)
+and the design system has **no reusable page-column class** — only an element-level `main` rule,
+which Mendix page markup never matches — the cap is unbuildable from the page author's seat and
+silence ships every page full-bleed. Promote a page-column class into `main.scss` (e.g.
+`.page-column { max-width: <wireframe px>; margin-inline: auto; }`), carry it on the page's
+body container, and record the promotion in the report block. If you cannot touch `main.scss`
+in this session, flag the gap in the report block instead — measured 2026-08-31: 10/10 drafts
+shipped full-bleed against a 900px wireframe and only 1 rep even noticed the class was missing.
+
 ---
 
 ### Step 3 — Find the closest StyleGallery example
 
-Browse `mdlsource/gallery/` (or wherever the project's in-app design gallery lives). Find the file
-whose component matches what you are building:
-
-| Building… | Read this gallery file |
-|-----------|----------------------|
-| KPI row / stat tiles | `14-kpi-tiles.mdl` |
-| Data grid / list overview | `15-data-grid.mdl` |
-| Process stepper | `16-process-stepper.mdl` |
-| Dialog / toast | `17-dialog-toast.mdl` |
-| Buttons | `11-buttons.mdl` |
-| Form controls | `12-form-controls.mdl` |
-| Badges / chips | `13-badges-chips.mdl` |
-| AI copilot / sidebar | `19-ai-copilot.mdl` — the gallery snippet is the *frame* only; for the working chat surface read `skills/mendix-agent-ui.md` |
+List `mdlsource/gallery/` (or wherever the project's in-app design gallery lives) — actually
+list it; do not trust a remembered file inventory, because each project's gallery holds the
+components *its* design system has, under its own numbering. From the real listing, pick the
+file(s) whose component matches what you are building (a KPI-tile file for stat tiles, a grid
+file for list overviews, the home/scaffold page for page structure) and note in your report
+which files you read and which you rejected. (If the gallery has an AI copilot / chat frame
+snippet, it is the *frame* only; for the working chat surface read `skills/mendix-agent-ui.md`.)
 
 Read the **full file** and use it as the canonical MDL pattern to copy container nesting, widget
 naming conventions, and `class:` values from. If no gallery file matches, note this and fall back to
@@ -107,7 +115,7 @@ component; a single aggregate metric → the KPI tile (not a record list).
 
 ### Step 4 — Cross-check before writing a single widget
 
-For each widget group in your planned MDL, verify all four:
+For each widget group in your planned MDL, verify every row:
 
 | Check | Verify |
 |-------|--------|
@@ -116,6 +124,7 @@ For each widget group in your planned MDL, verify all four:
 | **Widget nesting** | Container depth mirrors the StyleGallery example |
 | **Component reuse** | Every pattern with an existing gallery component (badge, stepper, empty-state, KPI, card) uses that component — not plain text or a bare container |
 | **Block separation** | Every distinct content block the wireframe draws as its own section gets a `card` wrapper (project's design-system card component if one exists, else Atlas stock `card` design property) — not just a spaced, borderless container (`oneshot-page-structure-patterns.md` §6) |
+| **Page column** | If the wireframe caps its `main` width, the page body carries the project's page-column class (promoted per Step 2 if it didn't exist) — an uncapped page renders full-bleed at 1360px against a 900px design |
 | **Page scaffold** | The page starts with the header block — crumb + one `RenderMode: H1` title (+ subtitle/actions where the wireframe has them) — per `design-spacing.md` §3. A full page with no H1 is a defect, not a layout choice |
 | **Spacing rhythm** | Every top-level section container carries `spacing-outer-bottom-large`; sibling groups use `-medium`; no gap between sections is 0; no spacing via inline pixel styles (`design-spacing.md` §2 — all gaps on the 8/16/24/32/48 scale) |
 | **Empty state** | Every grid/gallery has an empty-state message for the zero-result case — never renders nothing |
@@ -178,6 +187,12 @@ wireframes declared a 900px page column and **0 of 10** pages capped their width
 wholesale at script 67, fifty-five scripts later, after rendering at 1360px. All 10 were
 built on a sidebar layout against wireframes drawing a top bar — repaired at script 20.
 The script's header carries the full evidence for each check.
+
+**Measured again, controlled A/B, 2026-08-31** (`process/preflight-skill-baseline-2026-08-31.md`):
+5 fresh drafting agents with this file inlined produced **zero** judgement-step violations
+(layout, H1, inline styles, invented classes) across all 5 reps; 5 without it reproduced every
+field defect. The content works when read — the failure mode is dispatching a page build with
+a *reference* to this file instead of its text (see the delivery rule at the top).
 
 The build script that produced those pages **cited this file's Step 3 by name**. That is
 the point: the pre-flight was run, and its output was a paragraph nobody could fail. A

@@ -9,6 +9,7 @@ Credit the person or project that surfaced the change — the credit line is the
 
 ## 2026-08-31
 - process(contrib): contribution pipeline — `contrib/inbox/` low-friction lane, `CONTRIBUTING.md`, PR template, CI checks on every PR, `bin/harvest-learnings.sh` to auto-draft inbox entries from a project's stored learnings; wired into `checkpoint-cutover.md` as the closing action so every project's wrap-up harvests
+- process(leak-guard): init-project.sh ends with a three-line denylist nudge — new client at kickoff → add the name to .leakguard-deny and the LEAKGUARD_DENY secret; advisory only, never blocks
 - process(changelog): this file, seeded from the last month; append rule added to `CLAUDE.md`
 - fix(portability): `fixture-manifest.sh` and `report-disposition-check.sh` invoked a bare Python name — now resolve through `_common.sh` `require_py` (surfaced by promoting `check-portability.sh` to CI)
 

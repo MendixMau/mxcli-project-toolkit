@@ -643,4 +643,19 @@ echo ""
 echo "Machine preflight (bin/doctor.sh):"
 "$SCRIPT_DIR/doctor.sh" "$PROJECT_DIR" || true
 
+# Leak-guard nudge, at the one moment a new client name enters the world. Advisory only —
+# three lines, never a prompt, never a failure: the denylist protects the TOOLKIT repo, and
+# a project scaffold must not block on it (kickoff is just the cheapest moment to remember).
+echo ""
+if [ -f "$TOOLKIT_ROOT/.leakguard-deny" ]; then
+  echo "Leak guard: if this project is for a new client, add their name (and codename) to"
+  echo "  $TOOLKIT_ROOT/.leakguard-deny — one regex per line — and update the toolkit repo's"
+  echo "  LEAKGUARD_DENY GitHub Actions secret to match. 30 seconds now beats a scrub later."
+else
+  echo "Leak guard: no $TOOLKIT_ROOT/.leakguard-deny found on this machine. Create it (one"
+  echo "  client-name regex per line, gitignored) so check-no-client-data.sh can catch client"
+  echo "  names before they reach the public toolkit repo — see that script's header."
+fi
+
+echo ""
 echo "Done. index.html dashboard rendered at $PROJECT_DIR/index.html"

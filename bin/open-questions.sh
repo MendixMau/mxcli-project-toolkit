@@ -289,6 +289,16 @@ NORMALISED=$(printf '%s\n' "$RECORDS" | awk -F'\t' '
         state = "UNRAISED"; reason = "ASSUMED with no consentBy/consentAt — a position taken the user never saw (rule 5)"
       }
     }
+    else if (L ~ /^unraised/) {
+      # The canonical vocabulary word for "never put to the user", and the DEFAULT the
+      # header of this file tells authors to write. It was falling through to rule 11 and
+      # reporting UNRECOGNISED — the identical defect fixed for ANSWERED on 2026-08-12,
+      # two rules above. Both block, so a gate never wrongly opened; what broke is the
+      # feedback to the author (a correctly authored status read as unparseable) and the
+      # counts (UNRAISED=0 beside a genuinely unraised question). Found 2026-08-31 on a
+      # hand-authored BRD in T-WF-migration. (No apostrophes here: single-quoted awk.)
+      state = "UNRAISED"; reason = "explicitly unraised — never put to the user (rule 5b)"
+    }
     else if (L ~ /^raised/ || L ~ /^awaiting/) {
       state = "RAISED"; reason = "raised, awaiting the user (rule 6)"
     }

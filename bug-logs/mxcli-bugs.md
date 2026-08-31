@@ -4729,3 +4729,154 @@ manual save and update this entry.
   incident's one full backup turned out to carry a pre-existing fatal loader crash (BUG-96's
   class) that had never been load-verified.
 
+
+---
+
+## BUG-98: `calculated by` on an attribute is silently dropped at write time — the attribute is stored as a plain stored value, BSON-verified
+
+**Severity:** High — silent write-path data loss; every check is green while the feature simply does not exist in the model
+**Reproducible:** Yes — isolated scratch-project repro plus three real project attributes
+**mxcli / Mendix version:** mxcli v0.17.0 / Mendix 11.12.0 (isolated repro); first seen on Mendix 11.13.0, mxcli as of 2026-08-13
+**Discovered:** 2026-08-13, a product-provisioning PoC project; confirmed and upgraded 2026-08-18
+
+### Trigger
+
+`alter entity ... add|modify attribute X: <type> calculated by Module.Microflow [default V];`
+— and equally the CREATE-time form. **Both forms fail identically; there is no working form.**
+
+### What every check says vs. what is stored
+
+`mxcli check --references`: 0 errors. `mxcli exec`: "Added attribute"/"Modified attribute".
+Native `mx check`: 0 errors. But BSON decode of the domain-model unit shows the attribute
+stored as `DomainModels$StoredValue` with **no** calculated value type and **no reference to
+the microflow**. `SHOW CALLERS OF <the microflow>` reports zero callers post-wiring. At
+runtime every retrieve of the attribute returns empty/null, never the microflow's value —
+indistinguishable from a stored attribute nobody set.
+
+The confound (a mis-signed calculation microflow) was explicitly ruled out: the isolated
+repro used a correctly-signed microflow (entity-typed parameter, returns the attribute's
+type) and the clause was still dropped. This reclassifies the finding from "runtime never
+computes" to **write-path data loss, BSON-verified** — a stronger and narrower claim.
+
+Note: `CATALOG.ATTRIBUTES.IsCalculated` read `0` for all 355 attributes project-wide,
+including known-broken ones — the catalog builder may never populate that column, so it is
+not evidence in either direction.
+
+### Detection
+
+The only reliable check found: create a row, then read the attribute back through the live
+runtime (`mx.data.get({xpath, callback})` in-browser, or an OQL/API round-trip). A genuinely
+calculated attribute recomputes on every retrieve; a victim of this bug returns `""`.
+
+### Workaround
+
+Drop `calculated by` entirely: plain stored attribute + actively compute-`change`-`commit`
+at the points where the underlying data changes, reusing the same (already-correct)
+microflows called explicitly. For derived counts on a detail page, wrap the opening button's
+`show_page` in a refresh-then-show microflow rather than changing the page's DataSource.
+
+**Rule until fixed upstream:** never trust `mxcli check`, `mxcli exec` success, or native
+`mx check` as evidence a `calculated by` wiring took effect — verify with a live retrieve
+before any UI condition, downstream logic, or test assertion depends on it.
+
+---
+
+## BUG-99: `create import mapping` array-to-child-entity binding — child association observed empty at runtime ⚠️ SEVERITY NOT ESTABLISHED
+
+> **⚠️ Do not file upstream yet — two known non-defect causes were never ruled out.** Either
+> fully explains an empty child list with no mxcli defect: (1) the `import from mapping`
+> *activity* silently not running — documented behaviour, invisible to `DESCRIBE`, BSON,
+> `check --references` and mxbuild, and specifically triggered by dropping and recreating a
+> mapping by script while its callers are left untouched, which the discovering session
+> records doing; (2) the entity-name-must-equal-JSON-element-name rule, which the repro's
+> scratch entity is not stated to satisfy. The decisive observation — whether the *root
+> scalar* fields populated — was never recorded; it is what separates "the activity didn't
+> run" from "the array binding is broken." Kept here because the *symptom* is real and
+> expensive; the classification is not settled.
+
+**Severity:** unclassified (see hold above); if real, High — the array binding is mxcli's only supported way to turn a JSON array field into child objects
+**Reproducible:** symptom yes (three independent flows); root cause not isolated
+**mxcli / Mendix version:** Mendix 11.13.0, mxcli as of 2026-08-13/14
+**Discovered:** 2026-08-14, a product-provisioning PoC project
+
+### Symptom
+
+The `create <Association>/<ChildEntity> = <JsonArrayField> { ... }` sub-clause nested in a
+`create <RootEntity> { ... }` block passes `mxcli check --references`, `mxcli exec`, and
+native `mx check` with 0 errors, and `DESCRIBE IMPORT MAPPING` looks structurally correct —
+but every `retrieve $Items from $Root/<ChildAssoc>` after an `import from mapping` returned
+an empty list. Seen on: a live flow with `LOG INFO`-confirmed valid 3-item JSON immediately
+before the import; a structurally identical mapping in an unrelated module whose target
+entity had 0 rows for its entire history despite logged successful calls; and a from-scratch
+scratch-entity repro invoked via `mx.data.action` against a fresh container (`count=0`).
+Re-issuing via `create or modify import mapping` did not change the symptom.
+
+### Operating rule regardless of classification
+
+Treat any `create import mapping` that binds a JSON array to a child entity as **unverified
+until proven with a live runtime retrieve** after an actual `import from mapping` call —
+static checks validate the mapping's structure, never its runtime behaviour (same rule and
+same reason as BUG-98). Workarounds if it bites: a JavaScript action that `JSON.parse`s the
+array field and returns a list, or manual parsing in the microflow; the mapping can still
+handle the root object's scalar fields.
+
+### To settle it
+
+Run the discriminating test: one importing microflow, untouched callers (no drop/recreate),
+entity names exactly matching JSON element names at every level, and record whether the root
+scalars populate while the child list stays empty. Root scalars populated + empty children =
+real array-binding defect; nothing populated = the activity never ran (cause 1).
+
+---
+
+## BUG-100: every mxcli-scaffolded project resolves to Compose project name `docker` — unrelated projects share containers and one Postgres volume ⚠️ mechanism secondhand
+
+> **Mechanism trusted-but-unverified:** the root cause was reported by a peer session on the
+> same machine and matches observed behaviour; it was not independently verified against
+> Compose's own docs/source. The FIX below was confirmed to resolve the symptoms.
+
+**Severity:** High — cross-project data loss: whichever project's runtime syncs its schema last can silently alter/wipe tables belonging to a different app's domain model
+**Reproducible:** Yes (symptoms; see repro)
+**mxcli version:** any that ships `mxcli docker init` writing `.docker/` without `COMPOSE_PROJECT_NAME`
+**Discovered:** 2026-08-14, a product-provisioning PoC project, via a cross-session tip from a WMS demo project on the same machine
+
+### Mechanism
+
+`mxcli docker init` writes compose files into `<project-root>/.docker/`. Compose derives its
+project name from the containing directory when `COMPOSE_PROJECT_NAME` is unset — and every
+mxcli project names that directory `.docker`, so **every project on the machine resolves to
+the same Compose project `docker`**: identical container names (`docker-mendix-1`,
+`docker-db-1`), one shared named volume (`docker_postgres-data`), one default network.
+Starting project B's stack tears down project A's containers as "stale" and B's schema sync
+runs against A's data.
+
+### Symptoms (none look like a naming collision at first)
+
+App container silently "replaced" mid-session with someone else's domain model; a
+previously-green e2e suite failing basic persistence assertions ("0 rows where there should
+be 3"); containers gone from `docker ps` without being stopped; manually-started sidecars
+(`docker run --network container:<old-id>`) silently orphaned — they keep running but proxy
+into a dead network namespace. If more than one mxcli project exists on the machine, check
+this FIRST before chasing an application-code theory.
+
+### Diagnosis
+
+```bash
+docker ps -a --format '{{.Names}}: {{.Label "com.docker.compose.project.working_dir"}}'
+# a docker-mendix-1 whose working_dir points at a DIFFERENT project's .docker = this bug
+docker volume ls   # one docker_postgres-data doing double duty confirms it
+```
+
+### Fix
+
+`COMPOSE_PROJECT_NAME=<short-project-slug>` in `<project>/.docker/.env`, then tear down and
+redeploy. Caveats: `compose down` after the env change resolves to the NEW name and won't see
+the old containers — stop/remove them explicitly; and the rename creates a **brand-new empty
+volume** (`<slug>_postgres-data`) — dump first (`pg_dump`) if the current data matters.
+Re-verify every manually-managed sidecar against the new container afterwards.
+
+### Recommended upstream fix
+
+`mxcli docker init` should set `COMPOSE_PROJECT_NAME` at scaffold time (prompt for a slug or
+derive one from the `.mpr` filename) — this is a scaffolding-template gap, not a per-project
+judgment call.

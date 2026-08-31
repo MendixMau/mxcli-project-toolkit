@@ -70,6 +70,14 @@ stops at the data.** Its implementation guidance targets CSS frameworks (React, 
 not Mendix — the chosen direction lands as `ds.css` tokens, the Atlas mapping table, and
 StyleGallery choices per `learned-stylegallery.md`, never as its CSS or component code.
 
+**Ask the navigation layout in the same interview.** Top-bar nav vs side-nav (and similar
+high-level layout defaults) is a first-class design input, not a background rule: include it
+as an explicit question in this gate's batch, with a recommendation and evidence like any
+other option pair. If a build reaches wireframing and this question was never asked, that is
+the gap to flag — a missing interview step — not a silent default to apply retroactively.
+(Adopted 2026-08-31 after a project discovered its layout had been assumed both ways across
+sessions.)
+
 ---
 
 ## Step 1: Build the Design System FIRST (two versioned files)

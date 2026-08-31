@@ -149,6 +149,15 @@ the assumptions. So, before a new or materially changed instrument under `bin/`,
    and never ran for an entire build. If no mandatory step produces it, wire one before
    shipping the consumer.
 
+For an instrument that **blocks** (a guard, a refusing gate), two extra rules — learned when
+a context guard blocked a session that had done everything right except use the guard's own
+checkpoint script, and an expert user's reaction was "I can't even compact?":
+
+6. **A blocking guard must accept evidence it did not itself create** — a recent commit, a
+   recently modified handoff doc — never only its own stamp file.
+7. **A guard must never block the action that resolves it.** Blocking the remedy is
+   perverse: warn once, then let it through.
+
 ## Changelog and contributions
 
 **Every user-visible change appends its `CHANGELOG.md` line in the same commit.** That is the

@@ -280,6 +280,7 @@ is the part worth stating twice.
 | `mxbuild` exit ≠ 0 **with no errors file** is a distinct failure — bad args, JVM crash, missing Java home | Treating it as "no file ⇒ clean" lets an unverified model through |
 | `mxcli exec`'s status is **captured**, never allowed to trip `set -e` | mxcli is not transactional across statements; aborting skips the gate, the restore and the log while partial changes are already live |
 | The pre-exec `mxcli check … --references` runs **before** the snapshot | The only gate that can reject a script before it mutates the `.mpr` |
+| On mxcli ≥ v0.19.0, `exec` **also** runs its own pre-flight and refuses a script whose checks report an error — "Refusing to execute … Nothing was written." — including **MDL-ORDER01** (a statement referencing a document a *later* statement creates) | Read that refusal as the gate working, not a regression; the fix for ORDER01 is reordering the create above its first reference, and it matters because exec is not transactional — pre-v0.19 the same script half-applied before dying |
 | Every outcome writes exactly one build-log row, carrying an ISO-8601 stamp and an explicit gate verdict | A clean build that logs nothing makes "no row" mean nothing at all — see the build log section below |
 | `last-mxbuild-errors.json` is cleared at the **start** of a run, not on success | An interrupted run must not leave a previous failure's file looking like its own report |
 | Studio Pro is never auto-killed; the reopen is offered, then done on a yes | See the SP Lifecycle Rule above |

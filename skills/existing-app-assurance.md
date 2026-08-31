@@ -32,6 +32,7 @@ Not for building anything new — that's `conversion-runbook.md` (pick an entry 
 | Does it violate best practices / architecture boundaries? | `mxcli lint` + Starlark rules — `write-lint-rules.md` (bundled) for custom rules (naming, security, cross-module data) |
 | Is it secure? | `manage-security.md` (bundled) as the reference; lint's `sec_*` rules; grep access rules via `DESCRIBE` |
 | Overall quality scan | `assess-quality.md` (bundled) |
+| Have installed marketplace modules been locally edited? What would an upgrade overwrite? | `mxcli marketplace diff <content-id> -p app.mpr [--to VERSION] [--json]` (≥ v0.18; content-id via the module's AppStoreGuid) — reports per-element local edits and upgrade collisions; an element it cannot describe is reported **unknown, never unchanged**, and `verified:false` in the JSON means "no modifications found" is not a conclusion |
 
 **Deliverable:** a findings report (markdown or HTML — reuse `toolkit-guide.html`'s tokens), each finding with evidence (the query/lint output) and a proposed disposition: fix now / log / accept. Triage the list *with the user* — dispositions are their call.
 

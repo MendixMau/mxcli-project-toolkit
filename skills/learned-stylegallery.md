@@ -179,9 +179,12 @@ Creating the module via MDL (`create module StyleGallery`) automatically creates
 `themesource/stylegallery/` directory tree. Write the SCSS file there after the module MDL has
 been exec'd.
 
-**Layout:** Use `Atlas_Core.Atlas_Default` (or equivalent) as the page layout for the Gallery
-home page. This renders the gallery inside the real app shell — components are tested in their
-actual rendering context, not an isolated iframe.
+**Layout:** Use the app's real layout as the page layout for the Gallery home page — on a
+project scaffolded by mxcli ≥ v0.20.0 that is the project-owned `<Module>.App_Default`
+(`mxcli new` no longer binds pages to Atlas's); on older scaffolds, `Atlas_Core.Atlas_Default`
+or whatever the app's pages actually use. The point is unchanged: the gallery renders inside
+the real app shell, so components are tested in their actual rendering context, not an
+isolated iframe.
 
 ---
 

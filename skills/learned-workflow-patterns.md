@@ -357,17 +357,18 @@ button also commits the form and closes the page; the statement does neither, so
 means rebuilding both by hand. Use `SET TASK OUTCOME` only when you must validate or mutate
 first in a flow that has no page.
 
-**`DESCRIBE MICROFLOW` cannot read `call workflow` back — do not trust it.** The round trip
-is broken in one direction: `CALL WORKFLOW` *writes* correctly and builds and runs, but
-`DESCRIBE MICROFLOW` renders the activity as `-- Empty action`, and it appears in neither
-`SHOW CALLEES` nor `CATALOG.REFS`. A microflow that genuinely starts a workflow therefore
-reads back as though the start is missing — which reads convincingly as "this must have
-been hand-built in Studio Pro." It wasn't. **Audit your MDL source, not `DESCRIBE` output,**
-when checking whether a workflow gets started, or confirm at runtime that the back-reference
-association is populated. This is the [[tool-output-is-not-ground-truth]] pattern again, in
-its nastiest form: the tool doesn't error, it silently renders a comment where a real
-activity lives. Leave an `@annotation` on that microflow activity saying so, for whoever
-reads it next.
+**`DESCRIBE MICROFLOW` reads `call workflow` back since v0.20.0 — but the catalog still
+does not see it.** The describe half of this warning is retired: on mxcli v0.20.0 the round
+trip closes — `DESCRIBE` emits `call workflow Mod.WF ($Var);` (the positional form, added to
+the grammar precisely so describe output parses back), and that output checks, execs, and
+survives a re-describe (verified 2026-08-31 on a scratch 11.13 project). On pre-v0.20
+binaries the old failure stands: the activity rendered as `-- Empty action` and re-executing
+a description deleted the workflow start. What is **still true on v0.20.0, measured the same
+day**: the call appears in neither `SHOW CALLEES` nor `CATALOG.REFS` even after
+`refresh catalog full` — so a microflow that starts a workflow still reads as making no
+calls, and dead-asset sweeps (`GRAPH_DEAD_ASSETS`, QUAL004-style rules) can still misreport
+around it. **Audit MDL source, not the catalog,** when checking whether a workflow gets
+started.
 
 ### Starting an instance — two gotchas
 
@@ -382,9 +383,11 @@ COMMIT $Request;
   Assign straight from the call; the assignment creates the variable. The same restriction
   applies to lists: use `$L = CREATE LIST OF Mod."Entity";`, not
   `DECLARE $L List of ... = empty;` (MDL040 / CE0053).
-- **The parameter mapping must be named.** `(WorkflowContext = $Request)`. A bare `($Request)`
-  fails with `mismatched input ')' expecting '='`, despite mxcli's own internal deparse
-  template reading `call workflow %s ($%s);`.
+- **The parameter mapping: named on old binaries, positional accepted since v0.20.0.**
+  `(WorkflowContext = $Request)` works everywhere. On pre-v0.20 mxcli a bare `($Request)`
+  fails with `mismatched input ')' expecting '='`; v0.20.0 added the positional form (a
+  workflow has exactly one context parameter, so it is unambiguous) and it is what
+  `DESCRIBE` emits — verified parse + exec 2026-08-31.
 
 Then **wire the back-reference** on the very next line, as above — see §3 for why.
 

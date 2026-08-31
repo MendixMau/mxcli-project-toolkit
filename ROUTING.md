@@ -190,6 +190,9 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` | mdl,gate | 5,6 | ondemand |
 | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence | `skills/lint-that-actually-runs.md` | gate,review | 5,6 | ondemand |
 | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before | `skills/wiring-sweep.md` | mdl,test,review | 5,6 | ondemand |
+| The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work — or you are unsure which harness skill applies; this one routes you | `skills/full-harness-audit.md` | test,review | 5,6 | ondemand |
+| End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition | `skills/test-result-audit.md` | test,review | 5,6 | ondemand |
+| Any report from a test/review run is about to be published — no report ends without a disposition for every finding | `skills/finding-disposition.md` | test,review,gate | 5,6 | ondemand |
 
 #### Diagnose — something is broken and it may be the tooling
 

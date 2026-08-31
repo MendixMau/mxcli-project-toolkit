@@ -320,3 +320,68 @@ routing_missing_paths() {
     [ -e "$root/$path" ] || echo "$path"
   done
 }
+
+# ── Coverage audit: every skill on disk is routed or exempted ─────────────────────────────
+#
+# A skill file with no routing row is unreachable by anything that scans the tables — it can
+# only be found by a human happening to `ls skills/`. First run of this audit (2026-08-31)
+# found 6 such files; two had zero inbound references anywhere in the repo. The exempt file
+# (`routing-exempt.tsv` beside the table) records the deliberate exceptions: tombstones, and
+# directories reached by their own mechanism. Format documented in that file's header.
+MXTK_ROUTING_EXEMPT="${MXTK_ROUTING_EXEMPT:-$_routing_lib_dir/routing-exempt.tsv}"
+
+_routing_exempt_rows() {
+  [ -f "$MXTK_ROUTING_EXEMPT" ] || return 0
+  grep -v '^[[:space:]]*#' "$MXTK_ROUTING_EXEMPT" | grep -v '^[[:space:]]*$'
+}
+
+# Is $1 covered by an exemption? Exact path match, or a directory exemption (path ending /)
+# that prefixes it.
+_routing_is_exempt() {
+  local p ex
+  while IFS=$'\t' read -r ex _reason; do
+    [ "$ex" = "$1" ] && return 0
+    case "$ex" in
+      */) case "$1" in "$ex"*) return 0 ;; esac ;;
+    esac
+  done <<EOF
+$(_routing_exempt_rows)
+EOF
+  return 1
+}
+
+# Every skills/**/*.md that has neither a routing row nor an exemption, one per line.
+# Empty output == full coverage.
+routing_unrouted_skills() {
+  local root="${1:-$(cd "$_routing_lib_dir/../.." && pwd)}" f rel routed
+  routed="$(routing_rows | cut -f2)"
+  find "$root/skills" -name '*.md' -type f | LC_ALL=C sort | while IFS= read -r f; do
+    rel="${f#"$root"/}"
+    # Exact line match — a substring test would let skills/foo.md hide behind a routed
+    # skills/x-foo.md.
+    printf '%s\n' "$routed" | grep -qxF "$rel" && continue
+    _routing_is_exempt "$rel" || echo "$rel"
+  done
+}
+
+# Exemptions that no longer exempt anything: the file is gone, or it now HAS a routing row.
+# One line per finding, human-readable. A dead exemption is a hole the audit cannot see —
+# if the file is ever re-created unrouted, the stale line silently swallows it.
+routing_stale_exemptions() {
+  local root="${1:-$(cd "$_routing_lib_dir/../../" && pwd)}" ex _reason routed
+  routed="$(routing_rows | cut -f2)"
+  _routing_exempt_rows | while IFS=$'\t' read -r ex _reason; do
+    case "$ex" in
+      */)
+        [ -d "$root/$ex" ] || echo "$ex — exempted directory no longer exists"
+        ;;
+      *)
+        if [ ! -e "$root/$ex" ]; then
+          echo "$ex — exempted file no longer exists"
+        elif printf '%s\n' "$routed" | grep -qxF "$ex"; then
+          echo "$ex — exempted AND routed; drop the exemption"
+        fi
+        ;;
+    esac
+  done
+}

@@ -149,6 +149,22 @@ the assumptions. So, before a new or materially changed instrument under `bin/`,
    and never ran for an entire build. If no mandatory step produces it, wire one before
    shipping the consumer.
 
+## Changelog and contributions
+
+**Every user-visible change appends its `CHANGELOG.md` line in the same commit.** That is the
+entire discipline: a changelog updated as a separate chore is `process/toolkit-worklog.md`,
+which rotted within weeks while 25 commits landed. Format is at the top of `CHANGELOG.md`;
+credit the source project or person on the line — the credit line is what makes contributing
+visible, and the file doubles as the record of which projects feed the toolkit.
+
+Contributions arrive through three lanes (`CONTRIBUTING.md`): the `contrib/inbox/` drop
+(no quality bar — triage promotes into `skills/`/`bug-logs/`/`bin/` and deletes the inbox file
+in the same commit; inbox files are unreviewed and nothing may cite them),
+`bin/harvest-learnings.sh <project-root>` (drafts inbox files from a project's bug logs,
+register promotion tables, and locally-patched installed scripts — run it at project wrap-up),
+and direct PRs held to the full field-proof bar. CI (`.github/workflows/checks.yml`) runs
+check-scripts, render-routing --check, check-portability and the leak guard on every PR.
+
 ## Adding new skills
 Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcli project | requirements-driven`, `**Purpose:**`, and a step-by-step guide. Add it to `README.md`'s "When to use which skill" table. **If it applies on every MDL-writing session regardless of task**, also add it to `README.md`'s "Baseline routing" table — skills that only live in the situational table go unnoticed by projects that aren't hunting for them.
 

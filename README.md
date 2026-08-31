@@ -629,6 +629,13 @@ For validated patterns from a live project, add a file `skills/learned-{topic}.m
 
 For bugs, append to `bug-logs/mxcli-bugs.md` or create a project-specific log.
 
+**Lower-friction path — use it liberally:** drop what you have (a bug-log entry, a diff, three
+sentences) into `contrib/inbox/` and open a PR — no quality bar, triage does the polishing. Or
+let it be drafted for you: `bin/harvest-learnings.sh <project-root>` scans a project's bug
+logs, register promotion tables and locally-patched toolkit scripts and writes ready-to-PR
+inbox files. Full picture, lanes and review process: `CONTRIBUTING.md`. Merged contributions
+get a `CHANGELOG.md` credit line naming you or your project.
+
 ---
 
 ## Consuming this toolkit

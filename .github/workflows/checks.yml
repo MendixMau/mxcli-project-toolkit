@@ -1,0 +1,34 @@
+# Mechanical gates on every PR and push. These are the toolkit's own local checks, promoted to
+# CI so a contribution from any machine gets the same floor: scripts parse, routing renders,
+# no macOS-only regressions, no client data. Judgement stays in review; this is only the floor.
+name: toolkit checks
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scripts parse under bash and node (check-scripts.sh)
+        run: bin/check-scripts.sh
+
+      - name: Routing tables in sync with skill-routing.tsv (render-routing.sh --check)
+        run: bin/render-routing.sh --check
+
+      - name: No macOS-only assumptions reintroduced (check-portability.sh)
+        run: bin/check-portability.sh
+
+      # The name denylist is deliberately NOT in the repo (publishing it would leak exactly
+      # what it suppresses — see the script header). The script HARD-FAILS with no denylist —
+      # a guard that scans nothing must not report clean — so this step is red until the
+      # LEAKGUARD_DENY repo secret is set (Settings → Secrets → Actions): the patterns from
+      # your local .leakguard-deny joined with '|', e.g. '\bName1\b|\bName2\b'.
+      - name: Leak guard (check-no-client-data.sh)
+        env:
+          LEAKGUARD_DENY: ${{ secrets.LEAKGUARD_DENY }}
+        run: bin/check-no-client-data.sh

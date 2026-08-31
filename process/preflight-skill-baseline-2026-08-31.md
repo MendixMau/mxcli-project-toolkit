@@ -51,6 +51,26 @@ table rows are read, not skimmed, when the text is present.
 4. **The tuned content stays.** Arm B's clean sweep is the eval evidence that the Step 4
    table, hard rule B1 and the field-data paragraph work as written.
 
+## Verification (arm C — 5 fresh reps with the revised skill, same day)
+
+Same method, the revised text inlined. Shell violations {2,1,1,1,1} (the constant 1 is the
+by-construction column-cap check; the project still has no matching class to carry).
+
+- **The new page-column material works: 4/5 reps explicitly flagged the 900px column gap in
+  their report block** (vs 1/10 pre-revision), one of them writing the promotion recipe into
+  the script header. The fifth is the rep below.
+- **No wholesale regression, but arm C was not arm B's clean sweep**: one rep chose
+  `Atlas_Default` (the layout defect arm B had at 0/5), and one wrote a single inline
+  `Style: 'text-align:start'` — reproducing the wireframe's *own* inline override while its
+  report claimed B1 compliance. H1 5/5, invented classes 0/5, empty states 5/5, fidelity
+  66% across the board.
+
+Two defects across 5 reps against 0 in arm B is within n=5 noise, but the revision also grew
+the file by ~800 words; if later field runs show the same dilution pattern, the delivery-rule
+and column paragraphs are the ones to keep and the repeated "measured" citations the ones to
+trim. The C2 self-report mismatch (inline style shipped, compliance claimed) is one more data
+point for the denominator rows: only the mechanical checks caught it.
+
 **Caveats.** n=5 per arm, one page, one model. The harness auto-injected the project's
 CLAUDE.md into subagent contexts as system reminders; all reps reported ignoring it, and
 arm A's uniform failures argue against contamination in the skill's favour. Raw drafts,

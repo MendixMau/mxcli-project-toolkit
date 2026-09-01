@@ -46,11 +46,20 @@ mendixlabs/mxcli`, not read off any log's prose.
 3. **BUG-11 (`ALTER PAGE` cannot change a DataView's datasource type)** — carries an explicit
    `Status: Open — no fix in mxcli` note and a documented MCP workaround, but was never
    drafted or filed. **Submission-ready, not filed.**
-4. **BUG-22 vs `BUG-LOCAL-05`** — `BUG-22` (`alter settings configuration/model` corrupts the
-   Settings unit) has no retest annotation in the toolkit log itself, but `BUG-LOCAL-05` retested
-   the identical trigger on 2026-08-04 and got **PASS on both RnD and Wengao** — i.e. independent
-   evidence this may already be fixed, that the toolkit log was never updated to reflect. Not
-   re-verified by this report beyond that one data point — flagged, not resolved.
+4. **BUG-22 vs `BUG-LOCAL-05`** — ~~flagged, not resolved~~ **RESOLVED 2026-09-01.** This item
+   was right to be suspicious. `BUG-LOCAL-05` retested the identical trigger on 2026-08-04 and
+   got PASS on both forks; nobody reconciled it, and preflight STOP rule 2 went on sending every
+   project to the Studio Pro GUI for a statement mxcli implements correctly. Re-verified on
+   mxcli v0.20.0 / Mendix 11.12.1 across **18 executions with 0 errors**, including ten
+   consecutive toggles on a content-bearing model and a full deploy build — and the test is now
+   a committed script (`tests/retests/retest-bug22-settings-writes.sh`) rather than a memory, so
+   the next person can re-run it in a minute instead of re-flagging it in a year.
+
+   **The generalisable lesson is the flag itself.** A "may already be fixed, unreconciled" note
+   is a claim with no owner: it is not strong enough to change behaviour and not weak enough to
+   ignore, so it survives. What resolved this one was not more analysis — it was ten minutes of
+   running the bug report's own stated detector. **Every STOP row should name the command that
+   would falsify it**, and every "possibly stale" flag should come with that command attached.
 5. **`BUG-LOCAL-04`** (short-form cross-module nav-through, no target-entity qualifier, CE0117)
    looks like it may be the same defect as **BUG-33 / #829** (cross-module nav requiring a
    fully-qualified target entity) — both are CE0117 on an unqualified segment after crossing a
@@ -95,7 +104,7 @@ ROOT-CAUSE-UNDIAGNOSED / **SUBMISSION-READY**.
 | `ALTER PAGE REPLACE` wraps widget in CONTAINER → DivContainer/WidgetObject cast crash | BUG-19 | — | — | STALE (poss. same class as BUG-LOCAL-17, flagged) |
 | Cross-module assoc traversal as widget datasource → null `DestinationEntityId` | BUG-20, BUG-LOCAL-07 | — | — | **SUBMISSION-READY** |
 | Inline assoc-set in CHANGE/CREATE, incl. ReferenceSets, → invalid `AttributeIdentifier` BSON | BUG-21, BUG-LOCAL-01 | **#838** | OPEN | — |
-| `ALTER SETTINGS CONFIGURATION/MODEL`/`ALTER PROJECT SECURITY LEVEL` corrupt Settings unit | BUG-22 (BUG-LOCAL-05 retest: PASS both forks 2026-08-04, unreconciled) | — | — | STALE |
+| `ALTER SETTINGS CONFIGURATION/MODEL`/`ALTER PROJECT SECURITY LEVEL` corrupt Settings unit | BUG-22 — **RECONCILED 2026-09-01: does not reproduce on v0.20.0/11.12.1.** BUG-LOCAL-05's 2026-08-04 PASS was right; re-run it with `tests/retests/retest-bug22-settings-writes.sh` | — | — | **RESOLVED** |
 | `ContentParams` with explicit `$currentObject/` prefix → literal broken path, CE1613 | BUG-23 | — | — | STALE |
 | `ANNOTATION` in workflow body → BSON constructor crash | BUG-WF01 | — | — | STALE |
 | Workflow `WITH` param mapping → null `ParameterId` (11.12.1, silent) | BUG-WF02 (folds into WF05) | see WF05 | — | — |

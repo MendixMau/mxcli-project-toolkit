@@ -106,7 +106,7 @@ function contentOf(html) {
   //                     shell; the sidebar is layout chrome, but div.main holds the
   //                     page title (VB-USI titles pages from the top bar), so it is
   //                     the boundary and the user chip is stripped below
-  //   div.wf-screen     DealIQ shape — the wireframe is an annotated DOCUMENT, and the
+  //   div.wf-screen     a deal-management PoC shape — the wireframe is an annotated DOCUMENT, and the
   //   div.wf-shell      screen is one labelled block inside it, with the annotation
   //   div.mockup-frame  apparatus (meta header, binding tables, scope crosschecks) as
   //                     siblings. A wireframe that names its own screen has told us
@@ -128,11 +128,35 @@ function contentOf(html) {
     || innerBalanced(html, /<(div)[^>]*class="[^"]*\bcontent\b[^"]*"/i)
     || (html.match(/<body[^>]*>([\s\S]*)<\/body>/i) || [, html])[1];
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*\buserchip\b[^"]*"/i);
-  // wf-note is a <p> at least as often as a <div> ("Header binding note: ...", "Six rows,
-  // MEDPIC SortOrder 1-6"). Prose ABOUT the page is not page copy whichever tag carries it;
-  // scoring it as page copy is why an annotation-heavy wireframe reads as a content miss.
-  s = dropBalanced(s, /<(div|p)[^>]*class="[^"]*wf-(?:bar|note|annot|meta|head)[^"]*"/i);
-  s = dropBalanced(s, /<(div)[^>]*class="[^"]*wf-section[^"]*"/i);
+  // The top bar is layout chrome and `chromeSet` below already drops the class `topbar`
+  // itself from the denominator — but only that one NAME, so everything the bar CONTAINS
+  // (brand, logo, right, lang, the signed-in email) stayed in, scored as page content the
+  // page had failed to declare. Field case, 2026-08-31: 4 of 22 classes and 1 of 3 content
+  // blocks marked missing on a correct page, all of them children of a bar the scorer had
+  // already decided not to score.
+  //
+  // GUARDED, because the comment on chromeSet is right that some designs title the page
+  // FROM the top bar (VB-USI does): the subtree is dropped only when it contains no h1/h2,
+  // so a wireframe whose page title lives in the bar keeps it and keeps being scored on it.
+  {
+    const bar = innerBalanced(s, /<(div|header)[^>]*class="[^"]*\btopbar\b[^"]*"/i);
+    if (bar && !/<h[12][\s>]/i.test(bar))
+      s = dropBalanced(s, /<(div|header)[^>]*class="[^"]*\btopbar\b[^"]*"/i);
+  }
+  // ANY `wf-*` div is annotation chrome, not page content. This used to name three
+  // specific ones (wf-bar, wf-note, wf-section) and missed `wf-bind` — the class a
+  // dashboard-publishing migration's wireframes put their binding tables in. The tables'
+  // own headings and cells then scored as page content the page had failed to reproduce:
+  // "heading: Binding annotations — the build checklist" and "content: Mendix widget"
+  // counted against a page whose job is emphatically NOT to render the build checklist.
+  // Measured 2026-08-31: 39% before, 71% after, on an unchanged page script. A scorer that
+  // marks documentation as missing content does not measure fidelity, it measures how much
+  // annotation the wireframe carries — and the ≥80% target is read off this number.
+  // The prefix rule matches the class convention itself (`wf-` = wireframe annotation),
+  // so a wireframe that invents `wf-legend` tomorrow is handled without another edit.
+  s = dropBalanced(s, /<(div|p)[^>]*class="[^"]*\bwf-[a-z-]*[^"]*"/i);
+  s = dropBalanced(s, /<(div|p)[^>]*class="[^"]*\bwf-[a-z-]*[^"]*"/i);
+  s = dropBalanced(s, /<(div|p)[^>]*class="[^"]*\bwf-[a-z-]*[^"]*"/i);
   // Annotation apparatus that does not carry the wf- prefix: section captions, the
   // binding/scope-crosscheck table wrappers, and "out of scope for this wireframe"
   // callouts. Vocabulary, like .userchip and table.bind above — extend as shapes arrive.
@@ -163,7 +187,7 @@ const words = s => norm(s).split(' ').filter(w => w.length > 3);
 // wireframe's outer wrapper as a mock DELETES THE ENTIRE PAGE, and every dimension
 // then reports 0-of-0, which normalizes to a null score rather than to a low one.
 //
-// Measured (DealIQ, 2026-08-28): wireframes shaped .wf-wrap > .wf-screen scored `null%`
+// Measured (a deal-management PoC, 2026-08-28): wireframes shaped .wf-wrap > .wf-screen scored `null%`
 // on all seven pages. Nothing failed and nothing said "unmeasured" — the run printed a
 // clean report over an empty corpus. That is the failure mode worth fixing: the
 // instrument is the score of record, and it was silently scoring nothing.
@@ -337,14 +361,52 @@ if (STUB) console.log('  stub — forward-reference target, exempt from the 80% 
 if (!NOLOG) {
   try {
     // Project root = nearest directory containing a .mpr, walking up from the wireframe.
+    // On a TWO-TREE checkout (repo at the root, `mxcli new` app under app/) no ancestor of
+    // design/wireframes/ contains a .mpr, so this walk found nothing and the run went
+    // unlogged — "score NOT logged", on the very project the score was for. Since the TSV is
+    // what makes a first-build score of record exist at all, a silent non-log is the whole
+    // instrument failing. Same layout class as the snapshot/exec/restore fix of the same day.
+    // Resolution order: MPR_FILE (what the shell tools already honour), then an ancestor
+    // holding a .mpr, then an ancestor holding a subdirectory that holds one.
     let root = null, d = path.resolve(path.dirname(WF));
-    for (let i = 0; i < 12; i++) {
+    if (process.env.MPR_FILE) {
+      const cand = path.resolve(process.env.MPR_FILE);
+      if (fs.existsSync(cand)) {
+        // The project root is above the model dir on a two-tree layout; prefer the ancestor
+        // of the model dir that is also an ancestor of the wireframe, so docs/ lands once.
+        let m = path.dirname(cand);
+        while (m !== path.dirname(m)) {
+          if (d === m || d.startsWith(m + path.sep)) { root = m; break; }
+          m = path.dirname(m);
+        }
+      }
+    }
+    for (let i = 0; !root && i < 12; i++) {
       let entries = [];
       try { entries = fs.readdirSync(d); } catch (e) { break; }
       if (entries.some(f => f.endsWith('.mpr'))) { root = d; break; }
       const up = path.dirname(d);
       if (up === d) break;
       d = up;
+    }
+    if (!root) {
+      let e = path.resolve(path.dirname(WF));
+      for (let i = 0; i < 12 && !root; i++) {
+        let subs = [];
+        try {
+          subs = fs.readdirSync(e, { withFileTypes: true })
+                   .filter(x => x.isDirectory() && !x.name.startsWith('.'))
+                   .map(x => path.join(e, x.name));
+        } catch (err) { break; }
+        for (const sub of subs) {
+          let inner = [];
+          try { inner = fs.readdirSync(sub); } catch (err) { continue; }
+          if (inner.some(f => f.endsWith('.mpr'))) { root = e; break; }
+        }
+        const up = path.dirname(e);
+        if (up === e) break;
+        e = up;
+      }
     }
     if (!root) {
       console.error('page-fidelity: score NOT logged — no .mpr found above ' + WF +

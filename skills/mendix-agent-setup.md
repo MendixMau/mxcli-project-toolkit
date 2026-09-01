@@ -57,7 +57,7 @@ Configuration_ModelDetails_GET(Configuration)          -> List of ModelDetails
   Configuration_UpdateIsCreatedInStudioPro(Configuration, MxCloudDeployedModel)
 ```
 
-Measured 2026-08-31 (DealIQ): three keys registered from environment variables at startup
+Measured 2026-08-31 (a deal-management PoC): three keys registered from environment variables at startup
 produced 4 `Configuration` rows and **0** `DeployedModel` rows until that sequence was added;
 with it, 9 deployed models — eight text plus one embeddings — read back by OQL.
 
@@ -176,7 +176,7 @@ container behind a mandatory proxy). Skip it on a normal workstation.
   export RUNTIME_PARAMS_HTTP_PROXYPORT=39493      # parse from $HTTPS_PROXY, never hardcode
   ```
 
-  Measured 2026-08-31 (DealIQ): two exported variables, worked on the first boot — the model
+  Measured 2026-08-31 (a deal-management PoC): two exported variables, worked on the first boot — the model
   list came back and nine `DeployedModel` rows landed. No shim, no `/etc/hosts`.
 
 - **The loopback shim is the fallback, not the default.** Where the runtime settings are not

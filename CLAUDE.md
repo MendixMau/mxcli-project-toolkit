@@ -149,8 +149,76 @@ the assumptions. So, before a new or materially changed instrument under `bin/`,
    and never ran for an entire build. If no mandatory step produces it, wire one before
    shipping the consumer.
 
+For an instrument that **blocks** (a guard, a refusing gate), two extra rules — learned when
+a context guard blocked a session that had done everything right except use the guard's own
+checkpoint script, and an expert user's reaction was "I can't even compact?":
+
+6. **A blocking guard must accept evidence it did not itself create** — a recent commit, a
+   recently modified handoff doc — never only its own stamp file.
+7. **A guard must never block the action that resolves it.** Blocking the remedy is
+   perverse: warn once, then let it through.
+
+## Changelog and contributions
+
+**Every user-visible change appends its `CHANGELOG.md` line in the same commit.** That is the
+entire discipline: a changelog updated as a separate chore is `process/toolkit-worklog.md`,
+which rotted within weeks while 25 commits landed. Format is at the top of `CHANGELOG.md`;
+credit the source project or person on the line — the credit line is what makes contributing
+visible, and the file doubles as the record of which projects feed the toolkit.
+
+Contributions arrive through three lanes (`CONTRIBUTING.md`): the `contrib/inbox/` drop
+(no quality bar — triage promotes into `skills/`/`bug-logs/`/`bin/` and deletes the inbox file
+in the same commit; inbox files are unreviewed and nothing may cite them),
+`bin/harvest-learnings.sh <project-root>` (drafts inbox files from a project's bug logs,
+register promotion tables, and locally-patched installed scripts — run it at project wrap-up),
+and direct PRs held to the full field-proof bar. CI (`.github/workflows/checks.yml`) runs
+check-scripts, render-routing --check, check-portability and the leak guard on every PR.
+
 ## Adding new skills
 Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcli project | requirements-driven`, `**Purpose:**`, and a step-by-step guide. Add it to `README.md`'s "When to use which skill" table. **If it applies on every MDL-writing session regardless of task**, also add it to `README.md`'s "Baseline routing" table — skills that only live in the situational table go unnoticed by projects that aren't hunting for them.
+
+**Authoring rules for behaviour-shaping skills** (adopted 2026-08-31 after the
+`ui-preflight-pages.md` A/B baseline, `process/preflight-skill-baseline-2026-08-31.md`):
+
+1. **Routing rows are trigger conditions, not summaries.** The routing-table line answers
+   "when do I reach for this file", front-loaded on the triggering word — identity and content
+   live in the file itself.
+2. **Baseline-test like an instrument.** Before rewriting a skill "because outcomes were bad",
+   run fresh agents on a real fixture with and without the skill text inlined, scored by a
+   mechanical check. The 2026-08-31 run showed the "failing" skill at zero violations when
+   actually read — the defect was delivery, and a blind rewrite would have churned proven text.
+   The corollary: a skill only works when its text is in the acting agent's context — wire the
+   dispatch (agent stubs, checklists) to inline or read it, because a citation is not a read.
+3. **Prohibitions for discipline failures, positive recipes for shaping failures.** "Never
+   `git add -A`" guards a known temptation; but where agents produce the wrong *shape* (wrong
+   layout, missing H1), state the target behaviour and the evidence for it — a ban alone keeps
+   the wrong pattern in view.
+4. **Completion criteria carry denominators.** A step ends on a checkable bound ("all N
+   gallery files listed", "0 violations from the shell check", "NOT RUN is legal, silence is
+   not") — a step ending in prose nobody can fail is the unfalsifiable-checklist defect the
+   obligation check exists to prevent.
+5. **No caches of another project's environment.** A class table, file inventory, or path list
+   copied into a skill goes stale the day the next project scaffolds differently; instruct
+   "list/grep the actual file" instead (both stale tables in `ui-preflight-pages.md` were
+   flagged mid-run by the very agents following them).
+6. **Write for the trigger, then stop.** A skill is retrieved mid-task by an agent with a
+   specific trigger; everything not needed at that moment is dilution — one skill, one
+   situation. (The arm-C verification of the 2026-08-31 baseline saw a possible dilution
+   effect from ~800 words of growth in a single revision.)
+7. **Show the failure, not just the rule.** Pair each rule with the concrete bad output it
+   prevents — a before/after or a verbatim wrong answer. This repo does it consistently in
+   `CLAUDE.md` incident notes and inconsistently inside `skills/*.md`; the skills are where
+   the acting agent reads.
+8. **Test retrieval, not just content.** A skill can be perfect and unreachable: periodically
+   check that its routing line actually fires for the phrasings users and agents really
+   produce (rule 1 makes the row a trigger condition; this rule is the check that the trigger
+   works). The coverage audit in `render-routing.sh --check` catches the unrouted case
+   mechanically; wrong-trigger routing it cannot see.
+
+(Rules 6–8 adapted 2026-08-31 from public skill-authoring guidance in obra/superpowers
+`writing-skills` and Matt Pocock's `writing-for-agents` — patterns only. Their fourth
+point, "degrade to a pointer", is already this repo's "single source of the rule; every
+other mention defers here" convention plus rule 5 — one principle, stated there.)
 
 ## Committing in this clone — never `git add -A`
 

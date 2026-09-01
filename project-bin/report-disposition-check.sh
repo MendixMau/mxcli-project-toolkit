@@ -49,6 +49,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/_common.sh"
+require_py   # "$PY", never a bare interpreter name — a name on PATH is not an interpreter on Windows
 
 case "${1:-}" in
   -h|--help) sed -n '2,46p' "$0"; exit 0 ;;
@@ -143,7 +144,7 @@ fi
 report_date=""
 date_source=""
 if [ "$structured" -eq 1 ]; then
-  report_date="$(python3 -c "
+  report_date="$("$PY" -c "
 import json
 try:
     d = json.load(open('$REPORT_JSON'))
@@ -189,7 +190,7 @@ if [ "$structured" -eq 1 ]; then
   # conformance rungs never come back clean here") and judging which is which is exactly the
   # per-project judgement skills-over-scripts.md keeps out of this script.
   read -r next_steps checks_fail checks_fault inst_fault inst_fail <<EOF_PY
-$(python3 -c "
+$("$PY" -c "
 import json
 try:
     d = json.load(open('$REPORT_JSON'))

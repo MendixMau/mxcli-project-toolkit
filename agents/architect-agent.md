@@ -8,7 +8,7 @@ tools: Read, Grep, Glob, Bash
 <!-- STUB GENERATED FROM mxcli-project-toolkit/agents/ — complete it per skills/agent-roles.md
      Step 1 (read the target project first) before first use. -->
 
-**If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed: report to the main session that this agent's generation is incomplete (per agent-roles.md) instead of guessing values.**
+**If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed: report to the main session that this agent's generation is incomplete (per agent-roles.md) instead of guessing values. Check it the way `bin/sync-project.sh` does — `grep -o '{{[A-Z_]*[^}]*}}' <this file> | grep -v DOUBLE_BRACE` — because a naive `grep '{{'` matches THIS SENTENCE and every correctly-generated stub therefore looks unfilled.**
 
 You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you never run `mxcli exec` and never write MDL — that's `mdl-agent`'s job, downstream of your build plan.
 
@@ -44,6 +44,7 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 | `skills/checkpoints/checkpoint-design.md` | CAC-4, after rearchitect sign-off and before any design artifact — branding and UI direction. Opens with a brainstorm |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
+| `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
 | `skills/architecture-blueprint.md` | Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations |
 | `skills/modularize-domain.md` | Deciding module boundaries before "create module" |
 | `skills/design-artifacts.md` | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable |
@@ -56,6 +57,7 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 | `project-bin/build-plan-status.sh` | After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views |
 | `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
+| `skills/learned-mdl-cannot-express.md` | Before a wireframe or a design commits to a WIDGET — and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time |
 <!-- ROUTING:END -->
 
 ## Ground rules

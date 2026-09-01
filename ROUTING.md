@@ -49,6 +49,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" | `skills/agent-roles.md` | all | P,4,5 | baseline |
 | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` | ba | 1,2,3 | baseline |
 | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts | `skills/bootstrap-project.md` | ba | P | ondemand |
+| Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim | `skills/cloud-dev-environment.md` | all | P | ondemand |
 | Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` | all | 7 | ondemand |
 | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited | `skills/measured-claims.md` | all | - | ondemand |
 | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend | `skills/improvement-register.md` | mdl,gate,test,review | 5,6 | ondemand |
@@ -108,6 +109,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later | `project-bin/check-page-shell.sh` | mdl,gate,review | 5 | baseline |
 | After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it. Every run is appended to the project's docs/PAGE-FIDELITY.tsv — first non-stub row per page = first-build score of record vs the ≥80% target (forward-reference stubs score with --stub, exempt) | `project-bin/page-fidelity.js` | mdl,gate,review | 5 | baseline |
 | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` | architect | 3 | ondemand |
+| Before a wireframe or a design commits to a WIDGET — and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time | `skills/learned-mdl-cannot-express.md` | architect,design,mdl | 3,5 | ondemand |
 
 #### Build — the loop itself
 
@@ -117,6 +119,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Building a module with mxcli — verified, iterative, coverage-checklist gated | `skills/iterative-build-loop.md` | mdl,gate | 5 | ondemand |
 | After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views | `project-bin/build-plan-status.sh` | architect,gate,review | 4,5,6 | ondemand |
 | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets | `skills/anonymize-client-app-for-demo.md` | mdl,review | 6 | ondemand |
+| Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step | `skills/handoff-to-studio-pro.md` | test,review | 6,7 | ondemand |
 
 #### Build · MDL — the language and tool reference
 
@@ -138,6 +141,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Building and auditing Mendix pages — widget patterns, datasource shapes | `skills/learned-page-patterns.md` | mdl | 5 | ondemand |
 | Generating a whole page tree in one script — the structure patterns that survive it | `skills/oneshot-page-structure-patterns.md` | mdl | 5 | ondemand |
 | Building or auditing a collapsible sidebar nav — Atlas Core's collapsed state needs icons assigned per menu item or it silently clips label text | `skills/learned-sidebar-collapse-icons.md` | mdl | 5 | ondemand |
+| Building or altering any data grid — native DATAGRID vs pluggable DG2 decision rule, the ALTER PAGE INSERT corruption, sort-by and filter-binding traps | `skills/learned-dg2-patterns.md` | mdl | 5 | ondemand |
 
 #### Build · Agents — Mendix AI agents, tools, knowledge bases, chat UI
 
@@ -158,6 +162,12 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
 |---|---|---|---|---|
 | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call | `skills/rest-integration-first-time-right.md` | mdl | 4,5 | ondemand |
+
+#### Build · Security
+
+| Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
+|---|---|---|---|---|
+| Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` | mdl,gate,review | 5 | baseline |
 
 #### Verify — does it work
 
@@ -181,9 +191,14 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss | `skills/process-coherence-pass.md` | review | 5,6 | ondemand |
 | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory | `project-bin/coherence-cadence.sh` | mdl,gate,review | 5,6 | ondemand |
 | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything | `skills/e2e-evidence-report.md` | test,review | 6 | ondemand |
+| Recording a narrated screen-capture demo of a running app for a human to watch — opening on the app instead of a blank frame, and keeping captions synced to the pixels | `skills/record-demo-video.md` | test | 6 | ondemand |
 | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` | mdl,gate | 5,6 | ondemand |
 | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence | `skills/lint-that-actually-runs.md` | gate,review | 5,6 | ondemand |
 | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before | `skills/wiring-sweep.md` | mdl,test,review | 5,6 | ondemand |
+| The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work — or you are unsure which harness skill applies; this one routes you | `skills/full-harness-audit.md` | test,review | 5,6 | ondemand |
+| End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition | `skills/test-result-audit.md` | test,review | 5,6 | ondemand |
+| Any report from a test/review run is about to be published — no report ends without a disposition for every finding | `skills/finding-disposition.md` | test,review,gate | 5,6 | ondemand |
+| Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet | `skills/wizard-walkthrough.md` | gate,review | P,7 | experimental |
 
 #### Diagnose — something is broken and it may be the tooling
 
@@ -197,6 +212,10 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary — proving it's version-specific without risking the real model | `skills/sandbox-ab-tool-defect-probe.md` | mdl,gate | - | ondemand |
 | Restarting Studio Pro on macOS — the reopen bug, the port bug, and detecting a real hang vs a slow load | `skills/restart-sp-reopen-and-hang-detection.md` | mdl,gate | - | ondemand |
 | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds | `skills/field-run.md` | all | - | ondemand |
+| Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` | mdl,gate,review | 5,6 | baseline |
+| Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle | `skills/scriptable-sp-verification.md` | mdl,gate | - | ondemand |
+| A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first | `skills/learned-local-db-confusion.md` | mdl,test,gate | 5,6 | ondemand |
+| gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script | `skills/gate-check-file-locations.md` | ba,gate | 0 | ondemand |
 
 #### Reference — lookup tables, not method
 

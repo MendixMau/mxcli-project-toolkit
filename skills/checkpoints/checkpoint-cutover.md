@@ -65,6 +65,22 @@ Plain text — this is exactly the class of knowledge only the human has. Record
 
 ---
 
+## Closing action — harvest the learnings (mechanical, no question)
+
+This is the last checkpoint, so it is the last chance for what the project learned to travel.
+After the questions above are recorded, run:
+
+```
+<toolkit>/bin/harvest-learnings.sh <project-root>
+```
+
+It drafts `contrib/inbox/` entries from the project's bug logs, register promotion tables, and
+locally patched toolkit scripts. Review the drafts for client data, then commit and PR them per
+`CONTRIBUTING.md`. If it finds nothing but the project *did* learn things, they are stored
+somewhere the script does not look — write an inbox entry by hand. Record the outcome in
+`PROJECT.md` → `## Decisions` → `Cutover — learnings harvested:` (the PR link, or "nothing to
+harvest" with a sentence on why).
+
 ## Skip Rule
 
 Per `checkpoint-template.md`: this checkpoint may only be skipped if all three answers are already recorded `CONFIRMED` in `PROJECT.md`. Being a `✋` gate, it never auto-skips on `ASSUMED` values.

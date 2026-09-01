@@ -48,7 +48,7 @@ Two things belong in the project's run-book, not in someone's memory:
 - model changes are made with `exec.sh`, which keeps the split form and therefore keeps the
   diff reviewable.
 
-Measured on DealIQ (2026-09-01): 2049 units → one 43 MB file, twice, because the first
+Measured on a deal-management PoC (2026-09-01): 2049 units → one 43 MB file, twice, because the first
 restore was undone by the next build. Whoever picks the project up will hit it on day one.
 
 ## 3. Put the demo identities on the login screen
@@ -114,7 +114,7 @@ database row, per environment, and the only supported place to set it is inside 
 import dialog. A fresh deploy therefore comes up with a fully-configured agent that answers
 nothing, and the sole visible symptom is a red banner on a page nobody opens.
 
-Measured on DealIQ: 1 agent, 2 versions, 9 available models, **zero bindings**.
+Measured on a deal-management PoC: 1 agent, 2 versions, 9 available models, **zero bindings**.
 
 So the run-book must name, for each such value: what it is, that it does **not** travel, and
 the exact UI path to re-establish it. Then put it on the admin surface as a live check —
@@ -131,7 +131,7 @@ built-in one.
 That genuinely works, and it is the fastest route to a demo-ready app. Two conditions, and the
 first one is silent when you get it wrong.
 
-**The dump alone is not enough — secrets are encrypted at rest.** Measured on DealIQ
+**The dump alone is not enough — secrets are encrypted at rest.** Measured on a deal-management PoC
 (2026-09-01): `mxgenaiconnector$configuration.accesstoken` reads
 
     {AES3}<base64 ciphertext>    (111 chars)

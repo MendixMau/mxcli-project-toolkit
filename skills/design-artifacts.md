@@ -61,6 +61,23 @@ Branding is an input, not an afterthought — and not a checkbox to tick silentl
 
 For a faithful rebuild POC, **Atlas defaults** are usually right — the wireframes then look like what Mendix will actually render, so coverage comparison is like-for-like. Record the choice; it cascades into every token below.
 
+**No brand and no opinion? Borrow the ideation database.** When the client has neither guidelines
+nor a preference, the public [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill)
+repo (MIT) is a good input for this interview: clone it read-only and search its
+`src/ui-ux-pro-max/data/` CSVs (styles, color palettes, font pairings, UX guidelines) for 2–3
+directions that fit the client's domain, then present those as the interview options. **Reuse
+stops at the data.** Its implementation guidance targets CSS frameworks (React, Tailwind, etc.),
+not Mendix — the chosen direction lands as `ds.css` tokens, the Atlas mapping table, and
+StyleGallery choices per `learned-stylegallery.md`, never as its CSS or component code.
+
+**Ask the navigation layout in the same interview.** Top-bar nav vs side-nav (and similar
+high-level layout defaults) is a first-class design input, not a background rule: include it
+as an explicit question in this gate's batch, with a recommendation and evidence like any
+other option pair. If a build reaches wireframing and this question was never asked, that is
+the gap to flag — a missing interview step — not a silent default to apply retroactively.
+(Adopted 2026-08-31 after a project discovered its layout had been assumed both ways across
+sessions.)
+
 ---
 
 ## Step 1: Build the Design System FIRST (two versioned files)

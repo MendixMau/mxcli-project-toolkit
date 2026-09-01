@@ -6,7 +6,10 @@ const path      = require('path');
 const fs        = require('fs');
 
 const ROOT   = __dirname;
-const CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8'));
+// PIPELINE_CONFIG points at a project-local config (with its real source/KB paths), so this
+// clone's committed config.json stays free of them — see the note in backend-extractor.js.
+const CONFIG_PATH = process.env.PIPELINE_CONFIG || path.join(ROOT, 'config.json');
+const CONFIG = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
 // Per-project analysis folder — see migration-pipeline.md "Project Workspace Convention".
 // Falls back to local knowledge-base/ (gitignored) only for standalone testing.
 const KB_DIR = CONFIG.knowledgeBaseDir || path.join(ROOT, 'knowledge-base');

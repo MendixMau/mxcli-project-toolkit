@@ -82,6 +82,32 @@ find_mpr() {
 }
 
 # ---------------------------------------------------------------------------
+# find_model_dir — echo the directory that holds the .mpr AND its mprcontents/.
+#
+# WHY THIS EXISTS (2026-08-31, field-found on a dashboard-publishing migration).
+# A Mendix model is two things in ONE directory: `Project.mpr` and `mprcontents/`.
+# On a single-tree checkout that directory happens to equal $PROJECT_ROOT, so every
+# script here simply said $PROJECT_ROOT and was right by accident. On a two-tree
+# checkout — repo at the root, `mxcli new` app under `app/` — it is not, and
+# $PROJECT_ROOT points at a directory containing neither file.
+#
+# The failure was silent and total. snapshot-mpr.sh globbed `$PROJECT_ROOT/*.mpr`,
+# matched nothing, copied nothing, printed "mpr snapshot ok", and pruned the older
+# (equally empty) snapshots. exec.sh then ran twelve execs behind a crash-net that
+# held zero bytes; the first gate failure tried to auto-restore, found a snapshot
+# with no mprcontents/, and left the broken model on disk while reporting the
+# restore path. The same wrong root also drove exec.sh's "PROJECT IS IN v1
+# SINGLE-FILE FORMAT — Studio Pro WILL crash" warning, which fired after every
+# successful exec on a perfectly healthy v2 model.
+#
+# Resolve from the .mpr itself (which honours MPR_FILE) instead of from the repo.
+find_model_dir() {
+  local mpr
+  mpr=$(find_mpr) || return 1
+  (cd "$(dirname "$mpr")" && pwd)
+}
+
+# ---------------------------------------------------------------------------
 # mxtk_platform — "macos" | "windows" | "linux".
 #
 # WHY THIS EXISTS (2026-08-25). Everything below used to assume macOS: Studio Pro
@@ -173,15 +199,54 @@ find_sp_app() {
   fi
 }
 
-# find_mxbuild — the mxbuild binary inside the chosen SP install. $MXBUILD_PATH overrides.
+# ---------------------------------------------------------------------------
+# find_mxcli_cache — newest version dir in the mxcli download cache
+# (~/.mxcli/mxbuild/<version>/), or fail.
+#
+# This is the SAME standalone toolchain the headless container build downloads:
+# `./mxcli setup mxbuild -p <app>.mpr` fetches the mxbuild matching the model's
+# Mendix version from the Mendix CDN and caches it here, shared across projects.
+# It is how a machine WITHOUT Studio Pro (Linux, a container, a colleague's
+# laptop mid-onboarding) still gets a working mxbuild gate — bin/doctor.sh
+# --install runs the download. Version-sorted for the same 11.9-vs-11.13 reason
+# as find_sp_app. $MXCLI_HOME overrides the cache root.
+# ---------------------------------------------------------------------------
+find_mxcli_cache() {
+  local root="${MXCLI_HOME:-$HOME/.mxcli}/mxbuild" list
+  [ -d "$root" ] || return 1
+  list=$(ls -d "$root"/*/ 2>/dev/null | sed 's:/*$::' | grep -v '^$') || true
+  [ -z "$list" ] && return 1
+  if printf '1.10\n1.9\n' | sort -V >/dev/null 2>&1; then
+    printf '%s\n' "$list" | sort -V | tail -1
+  else
+    printf '%s\n' "$list" | sort | tail -1
+  fi
+}
+
+# find_mxbuild — the mxbuild binary: $MXBUILD_PATH override, then the chosen SP
+# install, then the mxcli download cache (see find_mxcli_cache). The SP-derived
+# path is still echoed when nothing is executable anywhere, so callers' error
+# messages name the path that was expected rather than "<none>".
 find_mxbuild() {
   if [ -n "${MXBUILD_PATH:-}" ]; then echo "$MXBUILD_PATH"; return 0; fi
-  local app
-  app=$(find_sp_app) || return 1
-  case "$(mxtk_platform)" in
-    windows) echo "$app/modeler/mxbuild.exe" ;;
-    *)       echo "$app/Contents/modeler/mxbuild" ;;
-  esac
+  local app cand="" cache
+  if app=$(find_sp_app 2>/dev/null); then
+    case "$(mxtk_platform)" in
+      windows) cand="$app/modeler/mxbuild.exe" ;;
+      *)       cand="$app/Contents/modeler/mxbuild" ;;
+    esac
+    [ -x "$cand" ] && { echo "$cand"; return 0; }
+  fi
+  if cache=$(find_mxcli_cache); then
+    local cmxb
+    case "$(mxtk_platform)" in
+      windows) cmxb="$cache/modeler/mxbuild.exe" ;;
+      *)       cmxb="$cache/modeler/mxbuild" ;;
+    esac
+    [ -x "$cmxb" ] && { echo "$cmxb"; return 0; }
+  fi
+  [ -n "$cand" ] && { echo "$cand"; return 0; }
+  return 1
 }
 
 # find_java — JAVA_HOME for the mxbuild invocation. $JAVA_HOME wins if already set.
@@ -199,6 +264,15 @@ find_java() {
   # Studio Pro's bundled JRE.
   if app=$(find_sp_app 2>/dev/null); then
     for jh in "$app/jre" "$app/Contents/jre" "$app/runtime/jre"; do
+      [ -d "$jh" ] && { echo "$jh"; return 0; }
+    done
+  fi
+  # A JRE/JDK shipped inside the mxcli download cache, next to its mxbuild.
+  # Layout is probed rather than assumed (it has shifted between mxcli versions);
+  # when none of these exist the system-Java fallback below still applies.
+  local cache
+  if cache=$(find_mxcli_cache 2>/dev/null); then
+    for jh in "$cache/jre" "$cache/modeler/jre" "$cache/runtime/jre" "$cache/jdk"; do
       [ -d "$jh" ] && { echo "$jh"; return 0; }
     done
   fi

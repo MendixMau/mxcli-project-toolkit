@@ -29,6 +29,12 @@ cd "$PROJECT_ROOT"
 # The .mpr must have exactly ONE writer. Two mxcli/SP writers on the same file
 # silently clobber each other and have caused near-total module loss.
 # Override (at your own risk): FORCE_EXEC=1 ./bin/exec.sh <script>
+# The model tree (.mpr + mprcontents/) is NOT always $PROJECT_ROOT — on a two-tree
+# checkout the app lives under app/. Every mprcontents/ path below goes through
+# MODEL_DIR; see the find_model_dir header in _common.sh for what silently broke
+# when they did not.
+MODEL_DIR="$(find_model_dir 2>/dev/null || echo "$PROJECT_ROOT")"
+
 LOCK="$PROJECT_ROOT/.mpr-snapshots/.exec.lock"
 mkdir -p "$(dirname "$LOCK")"
 FORCE="${FORCE_EXEC:-0}"
@@ -67,13 +73,13 @@ fi
 # 4. Uncommitted model changes. The snapshot taken below would not cover them,
 #    so a failed gate would auto-restore to a state pre-dating those changes and
 #    silently lose work.
-MPR_DIRTY=$(git status --porcelain "$MPR_BASE" mprcontents/ 2>/dev/null | grep -v "^$" || true)
+MPR_DIRTY=$(git status --porcelain "$MPR" "$MODEL_DIR/mprcontents" 2>/dev/null | grep -v "^$" || true)
 if [ -n "$MPR_DIRTY" ]; then
   echo "✗ Uncommitted model changes — refusing exec to prevent snapshot regression."
   echo ""
   echo "$MPR_DIRTY" | sed 's/^/    /'
   echo ""
-  echo "  → git add $MPR_BASE mprcontents/ && git commit -m 'Commit model changes before exec'"
+  echo "  → git add $MPR $MODEL_DIR/mprcontents && git commit -m 'Commit model changes before exec'"
   echo "  Override (accepts silent-loss risk): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
   [ "$FORCE" = "1" ] || exit 1
   echo "  (FORCE_EXEC set — proceeding despite uncommitted changes)"
@@ -443,13 +449,13 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
           # Stage then swap — see restore-mpr.sh for why deleting first is fatal.
           SNAP_UNITS=$(find "$NEWEST_SNAP/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
           if [ "$SNAP_UNITS" -gt 0 ]; then
-            TMP_MC="$PROJECT_ROOT/.mprcontents.restore.$$"
+            TMP_MC="$MODEL_DIR/.mprcontents.restore.$$"
             rm -rf "$TMP_MC"
             if cp -r "$NEWEST_SNAP/mprcontents" "$TMP_MC"; then
-              rm -rf "$PROJECT_ROOT/mprcontents"
-              mv "$TMP_MC" "$PROJECT_ROOT/mprcontents"
+              rm -rf "$MODEL_DIR/mprcontents"
+              mv "$TMP_MC" "$MODEL_DIR/mprcontents"
               cp "$NEWEST_SNAP/$MPR_BASE" "$MPR"
-              LIVE_UNITS=$(find "$PROJECT_ROOT/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
+              LIVE_UNITS=$(find "$MODEL_DIR/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
               if [ "$LIVE_UNITS" -eq "$SNAP_UNITS" ]; then
                 echo "  → Auto-restored from: $NEWEST_SNAP ($LIVE_UNITS units verified)"
               else
@@ -535,7 +541,7 @@ fi
 #     that no longer exist on disk
 # mxbuild validates the model, not the on-disk format, so the gate passes and
 # nothing looks wrong until git or SP is touched.
-if [ ! -d "$PROJECT_ROOT/mprcontents" ]; then
+if [ ! -d "$MODEL_DIR/mprcontents" ]; then
   MPR_BYTES=$(wc -c < "$MPR" | tr -d ' ')
   echo ""
   echo "  ⚠️  PROJECT IS IN v1 SINGLE-FILE FORMAT — DO NOT COMMIT AS-IS."

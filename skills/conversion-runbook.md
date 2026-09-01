@@ -36,12 +36,16 @@ table; a skill missing here is a skill no agent will find.
 | Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires | `skills/design-spacing.md` |
 | After every page-building script, and any time the UI looks wrong — the cheap repeatable look during the build: one page, one screenshot, three questions. Feeds Gate: UI, never replaces it | `skills/ui-loop.md` |
 | Building or using the in-app design gallery | `skills/learned-stylegallery.md` |
+| Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later | `project-bin/check-page-shell.sh` |
+| After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it. Every run is appended to the project's docs/PAGE-FIDELITY.tsv — first non-stub row per page = first-build score of record vs the ≥80% target (forward-reference stubs score with --stub, exempt) | `project-bin/page-fidelity.js` |
 | Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only | `skills/learned-mcp-patterns.md` |
 | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated | `skills/module-review.md` |
 | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` |
 | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` |
 | A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake | `bug-logs/mxcli-bugs.md` |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
+| Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` |
+| Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` |
 <!-- ROUTING:END -->
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
 **Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.
@@ -191,6 +195,25 @@ Note the ruling this encodes, from the user, 2026-08-12: *"At each gate, also gi
 A proposal beats a questionnaire because it asks the user to **correct** something rather than supply it cold — and by the time each gate arrives, the agent has read the source and has evidence to put behind its recommendation.
 
 **Unattended mode is opt-in, never inferred.** The "default + record + proceed" behavior (skipping the wait, not the question — questions still get logged in `PROJECT.md` open-questions) is only legal when the user explicitly said to run unattended, recorded at Stage P in `PROJECT.md` (`Interview mode: unattended`). Default is **attended**: every gate question is asked in chat and the turn ends there. (Real incident, 2026-07-14: an attended run produced architecture diagrams and a design system through Stage 3 without a single question reaching the user — "a solo run never stalls" was read as "never ask." It means "an *authorized* solo run doesn't deadlock," nothing more.)
+
+**Unattended runs keep a Ruling ledger.** Nobody can be asked, so the register alone is not
+enough: an `ASSUMED` line records the decision and sometimes the reason, never the blast
+radius — and it only exists at gate/checkpoint moments, while an unattended session makes
+dozens of smaller consequential calls (naming, module placement, which workaround to apply)
+that would otherwise land nowhere. So in unattended mode `PROJECT.md` gains a
+`## Rulings (unattended)` section, and every self-made decision of consequence — every
+`ASSUMED` register line *and* every consequential non-gate call — appends one line there:
+
+```
+Ruling: <what was decided> — <why> — <cost if wrong>
+```
+
+The "cost if wrong" field is the point: "cost if wrong: Stage 5 rework of one page" vs
+"cost if wrong: domain model rebuild" is what lets the returning human prioritise which
+rulings to review first. Their re-entry ritual is reading that section top to bottom — a
+compact decision ledger instead of reconstructing choices from the diff. (Pattern credit:
+obra/superpowers, adapted; the ledger is the compensating control for the fact that
+`ASSUMED` is normally earned by asking.)
 
 **Reused decisions must be shown, not silently applied.** A question may only be skipped because "it was already decided upstream" if (a) that decision was itself answered by the user in chat — an agent-recorded `CONFIRMED` the user never saw is a protocol violation, not a decision — and (b) the agent **quotes the prior decision back in chat** when skipping ("skipping acceptance criteria — you confirmed at Stage 3: *'happy path + validation rules per module'*, PROJECT.md row 12"). If the user doesn't recognize the quoted decision, it wasn't theirs: re-ask it. (Real incident, 2026-07-14: Stage 4's ✋ questions were skipped citing Stage-3 decisions that had themselves been self-recorded without an interview — laundering one silent decision into a skip-license for the next gate.)
 
@@ -666,5 +689,5 @@ An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units
 - [ ] Every decision is written to both the stage HTML surface and `PROJECT.md`, marked `CONFIRMED` or `ASSUMED` (never silently defaulted with no record).
 - [ ] `✋` gates have an explicit `CONFIRMED` decision — no `ASSUMED` allowed to pass a hard stop.
 - [ ] `query-the-model.md` was followed before any question was asked (nothing asked that a query or a read could have answered).
-- [ ] The stage's surface HTML is linked from `index.html`.
+- [ ] The stage's surface HTML exists at its stage path and is linked from `PROJECT.md`. **Not from `index.html`** — `gate-check.sh` regenerates the dashboard from scratch on every run, so a hand-added link there is silently wiped by the next gate check (field finding: a Stage 2 surface ended up reachable only through `PROJECT.md`, which is exactly why `PROJECT.md` is the required home for the link).
 - [ ] Any point where the pipeline was silent and forced an improvised decision is logged as a runbook defect, not just patched locally.

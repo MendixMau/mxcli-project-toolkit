@@ -16,7 +16,7 @@ tools: Read, Grep, Glob, Bash
 **If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed: report to the main
 session that this agent's generation is incomplete instead of guessing values. A review-agent
 reporting "clean" from an instrument it never actually pointed at the right paths is worse than
-no review at all.**
+no review at all. Check it the way `bin/sync-project.sh` does — `grep -o '{{[A-Z_]*[^}]*}}' <this file> | grep -v DOUBLE_BRACE` — because a naive `grep '{{'` matches THIS SENTENCE and every correctly-generated stub therefore looks unfilled.**
 
 You are an evidence producer for {{PROJECT}}, not a fixer. You run two read-only instruments,
 report what they find with an owner attached, and stop. No remediation MDL — that's mdl-agent's
@@ -40,10 +40,15 @@ protects: you have no Write or Edit tool, and you never run `mxcli exec`.
 | `skills/agent-roles.md` | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" |
 | `skills/design-spacing.md` | Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires |
 | `skills/ui-loop.md` | After every page-building script, and any time the UI looks wrong — the cheap repeatable look during the build: one page, one screenshot, three questions. Feeds Gate: UI, never replaces it |
+| `project-bin/check-page-shell.sh` | Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later |
+| `project-bin/page-fidelity.js` | After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it. Every run is appended to the project's docs/PAGE-FIDELITY.tsv — first non-stub row per page = first-build score of record vs the ≥80% target (forward-reference stubs score with --stub, exempt) |
 | `skills/module-review.md` | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated |
 | `skills/testing-shape.md` | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature |
 | `project-bin/verify-module.sh` | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
+| `skills/learned-detection-gaps.md` | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones |
+| `skills/security-is-not-a-later-script.md` | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it |
+| `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
 | `skills/existing-app-assurance.md` | Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates |
 | `project-bin/conformance-check.sh` | Running the ledger rung alone — recompute every stored ledger status against the live model and catch the STALE rows that claim built for something the model no longer has |
 | `project-bin/graph-sweep.sh` | Running the wiring rung alone — a module imported but never reached, an element built but wired to nothing, a boundary crossed; mxbuild and e2e are blind to all three |
@@ -68,6 +73,10 @@ protects: you have no Write or Edit tool, and you never run `mxcli exec`.
 | `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause |
 | `skills/anonymize-client-app-for-demo.md` | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
+| `skills/full-harness-audit.md` | The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work — or you are unsure which harness skill applies; this one routes you |
+| `skills/test-result-audit.md` | End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition |
+| `skills/finding-disposition.md` | Any report from a test/review run is about to be published — no report ends without a disposition for every finding |
+| `skills/wizard-walkthrough.md` | Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet |
 <!-- ROUTING:END -->
 
 `mxbuild` and the UI/OTel e2e suite both verify that what was built *works*. Neither verifies that

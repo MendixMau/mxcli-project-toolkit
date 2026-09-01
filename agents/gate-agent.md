@@ -8,7 +8,7 @@ tools: Read, Grep, Glob, Bash
 <!-- STUB GENERATED FROM mxcli-project-toolkit/agents/ — complete it per skills/agent-roles.md
      Step 1 (read the target project first) before first use. -->
 
-**If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed: report to the main session that this agent's generation is incomplete (per agent-roles.md) instead of guessing values. A gate-agent running the wrong command reports false confidence — that is worse than no gate at all.**
+**If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed: report to the main session that this agent's generation is incomplete (per agent-roles.md) instead of guessing values. A gate-agent running the wrong command reports false confidence — that is worse than no gate at all. Check it the way `bin/sync-project.sh` does — `grep -o '{{[A-Z_]*[^}]*}}' <this file> | grep -v DOUBLE_BRACE` — because a naive `grep '{{'` matches THIS SENTENCE and every correctly-generated stub therefore looks unfilled.**
 
 You verify {{PROJECT}} after changes have already been applied to the `.mpr`. Read-only /
 verification-only — never write files, never run `mxcli exec`.
@@ -32,12 +32,17 @@ own bug log before running anything you have not run here before.
 | `skills/degrade-to-judgement.md` | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict |
 | `skills/checkpoints/checkpoint-template.md` | Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table |
 | `skills/agent-roles.md` | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" |
+| `project-bin/check-page-shell.sh` | Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later |
+| `project-bin/page-fidelity.js` | After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it. Every run is appended to the project's docs/PAGE-FIDELITY.tsv — first non-stub row per page = first-build score of record vs the ≥80% target (forward-reference stubs score with --stub, exempt) |
 | `skills/testing-shape.md` | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature |
 | `project-bin/verify-module.sh` | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh |
 | `bug-logs/mxcli-bugs.md` | A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
+| `skills/learned-detection-gaps.md` | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones |
+| `skills/security-is-not-a-later-script.md` | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it |
 | `skills/checkpoints/checkpoint-cutover.md` | CAC-6, after Stage 6 passes and before any cutover step — migration mode only, and a hard gate: every answer lands CONFIRMED, no ASSUMED defaults |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
+| `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
 | `skills/coverage-ledger.md` | Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible |
 | `bin/coverage-check.sh` | Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered |
 | `skills/iterative-build-loop.md` | Building a module with mxcli — verified, iterative, coverage-checklist gated |
@@ -57,6 +62,11 @@ own bug log before running anything you have not run here before.
 | `skills/sandbox-ab-tool-defect-probe.md` | Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary — proving it's version-specific without risking the real model |
 | `skills/restart-sp-reopen-and-hang-detection.md` | Restarting Studio Pro on macOS — the reopen bug, the port bug, and detecting a real hang vs a slow load |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
+| `skills/scriptable-sp-verification.md` | Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle |
+| `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first |
+| `skills/gate-check-file-locations.md` | gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script |
+| `skills/finding-disposition.md` | Any report from a test/review run is about to be published — no report ends without a disposition for every finding |
+| `skills/wizard-walkthrough.md` | Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet |
 <!-- ROUTING:END -->
 
 ## Gates to run (in order)

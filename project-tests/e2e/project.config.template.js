@@ -40,14 +40,31 @@ const path = require('path');
 // exactly two levels below the root", which is a project layout assumption like
 // any other. The two-levels-up answer is kept only as the last resort, so a
 // project with no .mpr on disk yet still gets a usable root instead of a crash.
+// F-042 (MarkUseCase, 2026-08-28): a two-tree layout — tests/e2e at the repo root, the
+// model under a sibling app/ — defeats a pure ancestor walk, because app/ is never an
+// ancestor of tests/e2e. The walk therefore probes each ancestor's app/ child too, and
+// two explicit overrides win over any walking: PROJECT_ROOT names the root outright,
+// and an MPR_FILE that resolves as-given pins the root to the model's own directory.
+function hasMpr(dir) {
+  try { return fs.readdirSync(dir).some((f) => f.endsWith('.mpr')); } catch { return false; }
+}
 function findRoot(startDir) {
+  if (process.env.PROJECT_ROOT) {
+    return { root: path.resolve(process.env.PROJECT_ROOT), source: 'PROJECT_ROOT env' };
+  }
+  if (process.env.MPR_FILE && fs.existsSync(process.env.MPR_FILE)) {
+    return { root: path.dirname(path.resolve(process.env.MPR_FILE)),
+             source: 'directory of MPR_FILE env' };
+  }
   let dir = startDir;
   for (;;) {
-    try {
-      if (fs.readdirSync(dir).some((f) => f.endsWith('.mpr'))) {
-        return { root: dir, source: 'walked up to the directory containing the .mpr' };
-      }
-    } catch { /* unreadable directory — keep walking */ }
+    if (hasMpr(dir)) {
+      return { root: dir, source: 'walked up to the directory containing the .mpr' };
+    }
+    const sibling = path.join(dir, 'app');
+    if (hasMpr(sibling)) {
+      return { root: sibling, source: 'walked up to an app/ directory containing the .mpr' };
+    }
     const up = path.dirname(dir);
     if (up === dir) break;
     dir = up;
@@ -180,7 +197,15 @@ const READY_SELECTORS = [
 // Read by helpers.parseTokens() to pull the :root custom properties.
 // (`dsHtml`, the design-system showcase page, used to live beside this and had
 // no reader anywhere in the repo — deleted 2026-08-18 rather than carried.)
-const DS_CSS = path.join(ROOT, 'design', 'ds.css');
+// In a two-tree layout ROOT is app/ while design/ sits beside it at the repo
+// root, so probe ROOT first and fall back to ROOT's parent (F-042).
+function designPath(...parts) {
+  const inRoot = path.join(ROOT, ...parts);
+  if (fs.existsSync(inRoot)) return inRoot;
+  const beside = path.join(path.dirname(ROOT), ...parts);
+  return fs.existsSync(beside) ? beside : inRoot;
+}
+const DS_CSS = designPath('design', 'ds.css');
 
 // ── CONFIGURED: navigation captions ──────────────────────────────────────────
 // navClick() clicks the real <a title="..."> in the Mendix nav tree, so these

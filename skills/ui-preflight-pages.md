@@ -16,9 +16,21 @@ the page-header scaffold every page starts with), `oneshot-page-structure-patter
 **When to use:** Every time the mdl-agent (or main session) is about to draft a page or snippet.
 Not needed for pure microflow/domain/security scripts.
 
+**This file works only when its full text is in the drafting context.** Measured (A/B, 5 reps
+per arm on the same page, 2026-08-31, `process/preflight-skill-baseline-2026-08-31.md`): with
+this file inlined in the drafting agent's context, 5/5 reps chose the correct layout shell,
+5/5 opened with an H1, 0/5 wrote an inline style or invented a class; without it, 0/5, 2/5 and
+3/5+1/5 respectively — the exact ToeicBuddy field defects. The failed field run *cited this
+file by name* while producing the without-arm's numbers: a citation is not a read. So when
+page-drafting is dispatched to a subagent, the dispatch prompt must include this file's text
+(or the subagent must read it as its first action) — a one-line "follow ui-preflight-pages.md"
+reproduces the baseline.
+
 ---
 
-## The Four Steps (all mandatory, in order)
+## The Five Steps (all mandatory, in order)
+
+Steps 1–4 are judgement; Step 5 is the mechanical check that judgement alone was measured to miss.
 
 ### Step 1 — Read the wireframe
 
@@ -52,41 +64,39 @@ Find the project's design-system CSS file. Typical paths (project may use one or
 - `design/design-system.html` — annotated gallery: same tokens plus Atlas mapping table, usage notes
 - `themesource/<gallery-module>/web/main.scss` — Mendix-compiled port of `ds.css`. **This is the only stylesheet that ships**; a CSS change landed only in `ds.css` is a no-op in-app (`learned-stylegallery.md`, the ⛔ rule)
 
-From the relevant component sections, extract the **exact class names** you will need for this page.
-Common component classes:
-
-| Component | Class pattern |
-|-----------|---------------|
-| KPI / stat tile | `.kpi`, `.k-label`, `.k-value`, `.k-delta.k-up/.k-down` |
-| Badge / chip | `.kt-badge`, `.kt-badge-cta`, `.kt-badge-success`, `.kt-badge-warning`, `.kt-badge-danger`, `.kt-badge-neutral`, `.kt-badge-info`, `.kt-badge-dark` |
-| Form card | `.form-card`, `.form-section` |
-| Process stepper | `.stepper`, `.step.done`, `.step.active`, `.step.todo`, `.node`, `.circle`, `.line`, `.s-title`, `.s-meta` |
-| Chart container | `.chart-container` |
-| Activity feed | `.activity-feed` |
-| Scan UI | `.scan-tile`, `.scan-view`, `.reticle`, `.scan-counter`, `.scan-list` |
-| Button variants | Check design-system.html — do not invent; use `.btn-primary`, `.btn-default`, or whatever is documented |
+From the relevant component sections, extract the **exact class names** you will need for this
+page — read them out of the project's own `ds.css` / `design-system.html` / `main.scss`, never
+from memory or from another project's palette. Every design system names its components
+differently (one project's KPI tile is `.kpi` + `.kpi-value`, another's is `.k-value`); the
+authoritative list is the stylesheet in front of you, and a class table cached in a skill goes
+stale the day the next project is scaffolded. `grep -o '^\.[a-z-]*' design/ds.css | sort -u`
+is a fine first pass; then read the rules you plan to lean on, because a selector's shape
+matters (`.kpi b` styles a `<b>` inside the tile — it is not a class you can put on a widget).
 
 **Hard rule (B1):** every `class:` value on a page widget must match a token in the project's
 design-system file. Do not invent class names, do not use bare-Atlas class names as the only
 class on a design-system-styled widget, do not write inline styles.
 
+**Page column (the 0/10 defect):** if the wireframe caps its `main` (e.g. `main{max-width:900px}`)
+and the design system has **no reusable page-column class** — only an element-level `main` rule,
+which Mendix page markup never matches — the cap is unbuildable from the page author's seat and
+silence ships every page full-bleed. Promote a page-column class into `main.scss` (e.g.
+`.page-column { max-width: <wireframe px>; margin-inline: auto; }`), carry it on the page's
+body container, and record the promotion in the report block. If you cannot touch `main.scss`
+in this session, flag the gap in the report block instead — measured 2026-08-31: 10/10 drafts
+shipped full-bleed against a 900px wireframe and only 1 rep even noticed the class was missing.
+
 ---
 
 ### Step 3 — Find the closest StyleGallery example
 
-Browse `mdlsource/gallery/` (or wherever the project's in-app design gallery lives). Find the file
-whose component matches what you are building:
-
-| Building… | Read this gallery file |
-|-----------|----------------------|
-| KPI row / stat tiles | `14-kpi-tiles.mdl` |
-| Data grid / list overview | `15-data-grid.mdl` |
-| Process stepper | `16-process-stepper.mdl` |
-| Dialog / toast | `17-dialog-toast.mdl` |
-| Buttons | `11-buttons.mdl` |
-| Form controls | `12-form-controls.mdl` |
-| Badges / chips | `13-badges-chips.mdl` |
-| AI copilot / sidebar | `19-ai-copilot.mdl` — the gallery snippet is the *frame* only; for the working chat surface read `skills/mendix-agent-ui.md` |
+List `mdlsource/gallery/` (or wherever the project's in-app design gallery lives) — actually
+list it; do not trust a remembered file inventory, because each project's gallery holds the
+components *its* design system has, under its own numbering. From the real listing, pick the
+file(s) whose component matches what you are building (a KPI-tile file for stat tiles, a grid
+file for list overviews, the home/scaffold page for page structure) and note in your report
+which files you read and which you rejected. (If the gallery has an AI copilot / chat frame
+snippet, it is the *frame* only; for the working chat surface read `skills/mendix-agent-ui.md`.)
 
 Read the **full file** and use it as the canonical MDL pattern to copy container nesting, widget
 naming conventions, and `class:` values from. If no gallery file matches, note this and fall back to
@@ -105,7 +115,7 @@ component; a single aggregate metric → the KPI tile (not a record list).
 
 ### Step 4 — Cross-check before writing a single widget
 
-For each widget group in your planned MDL, verify all four:
+For each widget group in your planned MDL, verify every row:
 
 | Check | Verify |
 |-------|--------|
@@ -114,6 +124,7 @@ For each widget group in your planned MDL, verify all four:
 | **Widget nesting** | Container depth mirrors the StyleGallery example |
 | **Component reuse** | Every pattern with an existing gallery component (badge, stepper, empty-state, KPI, card) uses that component — not plain text or a bare container |
 | **Block separation** | Every distinct content block the wireframe draws as its own section gets a `card` wrapper (project's design-system card component if one exists, else Atlas stock `card` design property) — not just a spaced, borderless container (`oneshot-page-structure-patterns.md` §6) |
+| **Page column** | If the wireframe caps its `main` width, the page body carries the project's page-column class (promoted per Step 2 if it didn't exist) — an uncapped page renders full-bleed at 1360px against a 900px design |
 | **Page scaffold** | The page starts with the header block — crumb + one `RenderMode: H1` title (+ subtitle/actions where the wireframe has them) — per `design-spacing.md` §3. A full page with no H1 is a defect, not a layout choice |
 | **Spacing rhythm** | Every top-level section container carries `spacing-outer-bottom-large`; sibling groups use `-medium`; no gap between sections is 0; no spacing via inline pixel styles (`design-spacing.md` §2 — all gaps on the 8/16/24/32/48 scale) |
 | **Empty state** | Every grid/gallery has an empty-state message for the zero-result case — never renders nothing |
@@ -125,6 +136,69 @@ For each widget group in your planned MDL, verify all four:
 If a wireframe element cannot be expressed in MDL at all (e.g. association-mode COMBOBOX, cross-module
 widget datasource, `DatagridDropdownFilter` in ref mode), flag it before drafting — note which STOP
 rule applies and that MCP will handle it as a follow-up.
+
+---
+
+### Step 5 — Run the shell check before you exec (mechanical, seconds)
+
+Steps 1–4 are judgement and they are the substance. This step is the part a script can
+settle, and it exists because **judgement performed correctly still shipped the wrong
+shell on ten pages out of ten**:
+
+```
+bin/check-page-shell.sh mdlsource/<your-page-script>.mdl
+```
+
+It compares the drafted MDL against the wireframe on the three things the wireframe
+states unambiguously — the page column, the layout/nav shell, one `RenderMode: H1` —
+and exits non-zero on a mismatch. Run it **before** `bin/exec.sh`, alongside
+`mxcli check`; it reads files only, so it needs no app, no Studio Pro, and no
+screenshot, and it runs in a cloud/mobile session where the rest of Gate: UI cannot.
+
+Then run the scored companion on the same draft:
+
+```
+node <toolkit>/project-bin/page-fidelity.js design/wireframes/<Page>.html <Page> mdlsource/<script>.mdl
+```
+
+**Every run is stored.** The scorer appends its result to the project's
+`docs/PAGE-FIDELITY.tsv` — the first row for a page is that page's **first-build score
+of record**, the number the ≥80% target judges; later rows for the same page show the
+rework curve. This is not optional bookkeeping the session may skip: the log is written
+by the instrument itself, so a page with no row in the TSV is a page that was never
+scored — visible at gate time, not reconstructed afterwards (the MarkUseCase field run,
+2026-08-27, built its first pages with no fidelity trace at all, and "what went wrong"
+had to be reconstructed from a session status line). Run it again after `exec` against
+`DESCRIBE` output (`-` for stdin) to record what actually landed in the model.
+
+**Stub pages are exempt — by flag, never by inference.** A forward-reference stub
+(`iterative-build-loop.md` § "Forward references": a page created only so a later
+script's references resolve, replaced by its real script) is deliberately not the
+build, so it must not become the first-build score of record. Score it with
+`--stub`: the row lands marked `stub` and the target skips it — the **first
+non-stub row** is the score of record. The flag is a declaration, exactly like a
+gate waiver: if you didn't declare it a stub at scoring time, it scores as what
+it is. "It was meant as a stub" after a bad score is not a category — it is the
+bad score.
+
+**Measured, ToeicBuddy field run 2026-08-25/26** (`process/first-build-page-fidelity-2026-08-27.md`):
+first-build fidelity across 10 pages was **32% median** against a target of 80%. All 14
+wireframes declared a 900px page column and **0 of 10** pages capped their width — repaired
+wholesale at script 67, fifty-five scripts later, after rendering at 1360px. All 10 were
+built on a sidebar layout against wireframes drawing a top bar — repaired at script 20.
+The script's header carries the full evidence for each check.
+
+**Measured again, controlled A/B, 2026-08-31** (`process/preflight-skill-baseline-2026-08-31.md`):
+5 fresh drafting agents with this file inlined produced **zero** judgement-step violations
+(layout, H1, inline styles, invented classes) across all 5 reps; 5 without it reproduced every
+field defect. The content works when read — the failure mode is dispatching a page build with
+a *reference* to this file instead of its text (see the delivery rule at the top).
+
+The build script that produced those pages **cited this file's Step 3 by name**. That is
+the point: the pre-flight was run, and its output was a paragraph nobody could fail. A
+shell defect is uniform across every page built the same way, so no page stands out as a
+diff and per-page review does not surface it — which is exactly what a mechanical check
+is for, and exactly what human judgement is worst at.
 
 ---
 
@@ -141,7 +215,18 @@ UI cross-reference:
   Reuse skipped:    <any existing gallery component deliberately NOT used, with reason — or "none">
   Empty states:     <every grid/gallery on the page has a zero-result message: yes/no>
   Gaps / MCP fallbacks: <any element flagged as STOP, or "none">
+  Shell check:      bin/check-page-shell.sh — <N page(s), N violation(s)> [or: NOT RUN, and why]
+  Fidelity score:   page-fidelity.js — <NN% (headings a/b, actions c/d, …)>, logged to docs/PAGE-FIDELITY.tsv [or: NOT RUN, and why]
+  Class promotion:  self-audit diff (learned-stylegallery.md § "Keep the two files self-auditing") — <N never-promoted class(es), expect 0> [or: NOT RUN, and why]
 ```
+
+The class-promotion row exists because a page can be perfect and still render unstyled: every
+class it uses lives in `ds.css`, and `ds.css` never ships — only the `main.scss` port does.
+`mxcli theme apply` does **not** do that port (it moves palette tokens only — the trap that
+cost the MarkUseCase build every styled element on every page, 2026-08-28). One `diff`
+command answers it.
+
+**The shell-check, fidelity-score and class-promotion lines are the rows in this block with a denominator, and they are not optional.** Every other line is a claim the author grades themselves; that is what made this block unfalsifiable, and a block nobody can fail is not a check. `NOT RUN` is a legal value — silence is not. A fidelity score below 80% on a first build is not a failure to hide — it is the number that tells the next step (fix before the next page, per `ui-loop.md`), and the TSV row is already written either way.
 
 If no wireframe existed, say so explicitly here. Never silently skip this block.
 
@@ -162,6 +247,7 @@ If no wireframe existed, say so explicitly here. Never silently skip this block.
 | Grid/gallery renders nothing on zero results | Step 4 empty-state cross-check |
 | Required/unique field save fails with no visible message (silent 4xx/5xx) | Step 4 validation-feedback cross-check |
 | Page's distinct blocks read as one undifferentiated wall of text | Step 4 block-separation cross-check |
+| Page built full-bleed against a wireframe that draws a fixed page column; a sidebar layout against a wireframe drawing a top bar — uniform across every page, so no page reads as the odd one out | Step 5 shell check (`0/10` on the run that produced this row) |
 | Page built with no title/header block; sections starting flush at 0px; per-page inline pixel spacing | Step 4 page-scaffold + spacing-rhythm cross-checks (`design-spacing.md`) |
 | Design-system class on an ACTIONBUTTON, half-overridden by Atlas — reads on screen as a layout bug in the component, not as a CSS problem | Step 4 class-carrier cross-check |
 | `DynamicClasses` names a class that does not exist; the element falls back to nothing and the page shows an empty bar/badge next to a caption claiming a value | Step 4 computed-class-name cross-check |

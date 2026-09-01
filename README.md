@@ -27,6 +27,25 @@ sqlite3, line endings, Studio Pro — and exits non-zero if something will break
 It takes a second and it replaces every "the toolkit is broken" that is really a missing
 prerequisite. **Windows and Linux users: do not skip it.** See *Platform support* below.
 
+When the mxbuild toolchain is what's missing, doctor can also fix it instead of only reporting it:
+
+```bash
+~/Mendix/mxcli-project-toolkit/bin/doctor.sh --install <project-dir>
+```
+
+first fetches a missing project `./mxcli` (right OS/arch build from the mendixlabs/mxcli
+releases; `MXCLI_VERSION=vX.Y.Z` pins it), then runs `./mxcli setup mxbuild` — the same download
+the headless container build uses — caching the version-matched mxbuild under `~/.mxcli/mxbuild/`.
+Discovery (and therefore `exec.sh`'s mxbuild gate) finds that cache automatically, so a machine
+without Studio Pro still verifies every model write.
+
+It never downloads silently: it prints the plan first — what, from where, how big (~90 MB +
+~800 MB one-time), why, and the OS/arch it detected — then asks `[y/N]` at the terminal.
+Unattended runs (agents, CI) must pass `--yes` explicitly; without it nothing is downloaded and
+the report simply shows what is missing. Declining leaves you the URLs to fetch by hand — the
+right move on a wrong OS/arch guess or when company policy routes binaries through an approved
+channel.
+
 This clone stays clean — project output never lands inside it. **Everything else lives inside one project folder** (usually one git repo — it is the session root, the workspace root, and the mxcli target all at once):
 
 ```
@@ -469,6 +488,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm | `skills/checkpoints/checkpoint-build.md` |
 | CAC-6, after Stage 6 passes and before any cutover step — migration mode only, and a hard gate: every answer lands CONFIRMED, no ASSUMED defaults | `skills/checkpoints/checkpoint-cutover.md` |
 | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts | `skills/bootstrap-project.md` |
+| Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim | `skills/cloud-dev-environment.md` |
 | Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` |
 | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited | `skills/measured-claims.md` |
 | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend | `skills/improvement-register.md` |
@@ -517,6 +537,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 |---|---|
 | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS | `project-bin/check-design-portability.sh` |
 | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` |
+| Before a wireframe or a design commits to a WIDGET — and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time | `skills/learned-mdl-cannot-express.md` |
 
 **Build — the loop itself**
 
@@ -543,6 +564,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Building and auditing Mendix pages — widget patterns, datasource shapes | `skills/learned-page-patterns.md` |
 | Generating a whole page tree in one script — the structure patterns that survive it | `skills/oneshot-page-structure-patterns.md` |
 | Building or auditing a collapsible sidebar nav — Atlas Core's collapsed state needs icons assigned per menu item or it silently clips label text | `skills/learned-sidebar-collapse-icons.md` |
+| Building or altering any data grid — native DATAGRID vs pluggable DG2 decision rule, the ALTER PAGE INSERT corruption, sort-by and filter-binding traps | `skills/learned-dg2-patterns.md` |
 
 **Build · Agents — Mendix AI agents, tools, knowledge bases, chat UI**
 
@@ -584,9 +606,13 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss | `skills/process-coherence-pass.md` |
 | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory | `project-bin/coherence-cadence.sh` |
 | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything | `skills/e2e-evidence-report.md` |
+| Recording a narrated screen-capture demo of a running app for a human to watch — opening on the app instead of a blank frame, and keeping captions synced to the pixels | `skills/record-demo-video.md` |
 | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` |
 | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence | `skills/lint-that-actually-runs.md` |
 | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before | `skills/wiring-sweep.md` |
+| The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work — or you are unsure which harness skill applies; this one routes you | `skills/full-harness-audit.md` |
+| End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition | `skills/test-result-audit.md` |
+| Any report from a test/review run is about to be published — no report ends without a disposition for every finding | `skills/finding-disposition.md` |
 
 **Diagnose — something is broken and it may be the tooling**
 
@@ -598,6 +624,9 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary — proving it's version-specific without risking the real model | `skills/sandbox-ab-tool-defect-probe.md` |
 | Restarting Studio Pro on macOS — the reopen bug, the port bug, and detecting a real hang vs a slow load | `skills/restart-sp-reopen-and-hang-detection.md` |
 | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds | `skills/field-run.md` |
+| Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle | `skills/scriptable-sp-verification.md` |
+| A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first | `skills/learned-local-db-confusion.md` |
+| gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script | `skills/gate-check-file-locations.md` |
 
 **Reference — lookup tables, not method**
 
@@ -629,6 +658,13 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 For validated patterns from a live project, add a file `skills/learned-{topic}.md`. These get loaded by Claude when relevant and accumulate into cross-project knowledge. If the pattern is universal enough to belong in "Baseline routing" (most `learned-microflow-patterns.md`-style discipline is), add it there too — don't leave it purely situational.
 
 For bugs, append to `bug-logs/mxcli-bugs.md` or create a project-specific log.
+
+**Lower-friction path — use it liberally:** drop what you have (a bug-log entry, a diff, three
+sentences) into `contrib/inbox/` and open a PR — no quality bar, triage does the polishing. Or
+let it be drafted for you: `bin/harvest-learnings.sh <project-root>` scans a project's bug
+logs, register promotion tables and locally-patched toolkit scripts and writes ready-to-PR
+inbox files. Full picture, lanes and review process: `CONTRIBUTING.md`. Merged contributions
+get a `CHANGELOG.md` credit line naming you or your project.
 
 ---
 
@@ -669,12 +705,16 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires | `skills/design-spacing.md` |
 | After every page-building script, and any time the UI looks wrong — the cheap repeatable look during the build: one page, one screenshot, three questions. Feeds Gate: UI, never replaces it | `skills/ui-loop.md` |
 | Building or using the in-app design gallery | `skills/learned-stylegallery.md` |
+| Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later | `project-bin/check-page-shell.sh` |
+| After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it. Every run is appended to the project's docs/PAGE-FIDELITY.tsv — first non-stub row per page = first-build score of record vs the ≥80% target (forward-reference stubs score with --stub, exempt) | `project-bin/page-fidelity.js` |
 | Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only | `skills/learned-mcp-patterns.md` |
 | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated | `skills/module-review.md` |
 | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` |
 | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` |
 | A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake | `bug-logs/mxcli-bugs.md` |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
+| Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` |
+| Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` |
 <!-- ROUTING:END -->
 
 **Why this has to be explicit instead of implicit:** a project's own skill files are usually written before a given toolkit learning exists, or before a new one is added later — they never grow a cross-reference to it on their own. When you `git pull` this toolkit and it brings in a new baseline-worthy skill (most often a new `learned-*.md`), update every consuming project's routing to match — don't assume the next session will find it by chance.

@@ -29,6 +29,11 @@
 
 set -uo pipefail
 
+# require_py, not bare python3: a name on PATH is not an interpreter on Windows (the Store
+# stub) — the same resolution every other project-bin instrument uses via _common.sh.
+. "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
+require_py
+
 JOURNEY_DIR="journeys"
 AS_JSON=0
 while [ $# -gt 0 ]; do
@@ -81,7 +86,7 @@ fi
 # ── Derive, probe, classify ──────────────────────────────────────────────────
 MXCLI="$MXCLI" ADMIN_HOST="$ADMIN_HOST" ADMIN_PORT="$ADMIN_PORT" \
 M2EE_ADMIN_PASS="$M2EE_ADMIN_PASS" JOURNEY_DIR="$JOURNEY_DIR" AS_JSON="$AS_JSON" \
-python3 <<'PY'
+"$PY" <<'PY'
 import json, os, re, subprocess, sys, glob
 
 MXCLI = os.environ["MXCLI"]; HOST = os.environ["ADMIN_HOST"]

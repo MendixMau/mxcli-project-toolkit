@@ -184,10 +184,40 @@ _ob_find() {
     [ -s "$root/$resolved" ] && printf '%s\n' "$root/$resolved"
     return 0
   fi
-  # match=names: any non-empty file matching the glob that MENTIONS the unit.
-  for f in $root/$pattern; do
-    [ -s "$f" ] || continue
-    if [ "$unit" = "-" ] || grep -qF -- "$unit" "$f" 2>/dev/null; then printf '%s\n' "$f"; return 0; fi
+  # match=names: any non-empty file matching the glob that MENTIONS the unit — NEWEST FIRST.
+  #
+  # Glob order is alphabetical, which for `ui-review-<date>.html` means OLDEST first, and this
+  # returned the first match. So a project that reviewed its module again — properly, with
+  # PROOF-OF-LOOK citations and committed screenshots — still reported
+  # `look FAULT: NO PROOF-OF-LOOK`, because a superseded report from an earlier date sorted
+  # ahead of it and was the only one ever read. The remedy the message names (add the proof)
+  # therefore could not clear the finding, which is the worst shape a guard can take: it points
+  # at a fix that does not work.
+  #
+  # Newest-first is right for every obligation here, not just LOOK. These ask "has this pass
+  # been performed on the model as it stands", and the newest evidence is the evidence;
+  # `_ob_stale` already refuses a mark the model has been built past, so recency cannot smuggle
+  # in a stale one. Sort by the filename's date when it has one (the modern schema names it),
+  # falling back to mtime — a dateless file should not outrank a dated one by accident.
+  #
+  # Found 2026-09-01 on a dashboard-publishing migration: three review reports, the newest with
+  # five citations and five committed captures, the oldest with none. The oldest won.
+  local sorted f d mt
+  sorted="$(for f in $root/$pattern; do
+              [ -s "$f" ] || continue
+              d="$(basename "$f" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)"
+              [ -n "$d" ] || d="0000-00-00"
+              # SUB-SECOND mtime, GNU first then BSD — on GNU `stat -f` succeeds with the wrong
+              # meaning, so GNU-first is mandatory here (bin/check-portability.sh enforces it).
+              # Whole seconds are not enough: two reports written by the same session land in
+              # the same second, tie, and fall through to the alphabetical last resort — which
+              # is how a same-date pair was decided by a hyphen in the 2026-09-01 field case.
+              mt="$(stat -c %.9Y "$f" 2>/dev/null || stat -f %Fm "$f" 2>/dev/null \
+                    || stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)"
+              printf '%s\t%s\t%s\n' "$d" "${mt:-0}" "$f"
+            done | LC_ALL=C sort -k1,1r -k2,2nr -k3,3r | cut -f3)"
+  for f in $sorted; do
+    if [ "$unit" = "-" ] || grep -qF -- "$unit" "$f" 2>/dev/null; then printf '%s\n' "$f"; fi
   done
   return 0
 }
@@ -313,6 +343,10 @@ _ob_look_proof_broken() {
 mxtk_obligations_report() {
   local root="$1" reg="${2:-$1/PROJECT.md}"
   MXTK_OB_STATUS="PASS"; MXTK_OB_LINES=""
+  # Counts for the run summary. The verdict lines are printed here, far above the
+  # summary a reader actually quotes; without these the summary said "0 need
+  # attention" over three passes nobody had performed.
+  MXTK_OB_N_PENDING=0; MXTK_OB_N_FAULT=0
 
   if [ ! -f "$OBLIGATIONS_TSV" ]; then
     # The table is the thing this check IS. Missing table is a fault in the check, and it says so
@@ -358,7 +392,7 @@ mxtk_obligations_report() {
       continue
     fi
 
-    local total=0 done_n=0 waived_n=0 pending="" faulted="" stale="" noproof="" u hit reason stale_at proof_why
+    local total=0 done_n=0 waived_n=0 pending="" faulted="" stale="" noproof="" u hit reason stale_at proof_why candidates c newest
     while IFS= read -r u; do
       [ -n "$u" ] || continue
       total=$((total+1))
@@ -371,19 +405,45 @@ mxtk_obligations_report() {
       else
         hit="$(_ob_find "$root" "$match" "$artifact" "-")"
       fi
-      if [ -z "$hit" ]; then
+      # Walk the candidates NEWEST FIRST and take the first that satisfies every rule.
+      #
+      # Not "judge the newest and stop". The three disqualifiers below (no denominator, broken
+      # LOOK proof, stale) each turn one report into no-report, and if only the newest is ever
+      # examined then a perfectly good earlier report — one whose denominator IS stated, whose
+      # screenshots ARE on disk — is invisible behind it. Trying them in order is also what
+      # makes the ordering safe: ties between same-date reports stop mattering, because a tie
+      # no longer discards anyone. And an OLD report can only win here if `_ob_stale` clears
+      # it, which means the model has not been built past it — in which case it is current
+      # evidence whatever its filename says. Nothing is gamed by keeping old reports around.
+      candidates="$hit"
+      hit=""; newest=""
+      while IFS= read -r c; do
+        [ -n "$c" ] || continue
+        [ -n "$newest" ] || newest="$c"
+        if [ "$denom" = "yes" ] && ! _ob_has_denominator "$c"; then continue; fi
+        if [ "$ob" = "look" ] && _ob_look_proof_broken "$root" "$c" >/dev/null; then continue; fi
+        if _ob_stale "$root" "$c" >/dev/null; then continue; fi
+        hit="$c"; break
+      done <<< "$candidates"
+
+      if [ -n "$hit" ]; then
+        done_n=$((done_n+1))
+      elif [ -z "$newest" ]; then
         pending="$pending $u"
-      elif [ "$denom" = "yes" ] && ! _ob_has_denominator "$hit"; then
+      # Nothing qualified: report why the NEWEST one failed. It is the report the author most
+      # recently wrote and the one they will go and fix, so naming an older file's problem
+      # would send them to the wrong place.
+      elif [ "$denom" = "yes" ] && ! _ob_has_denominator "$newest"; then
         faulted="$faulted $u"
-      elif [ "$ob" = "look" ] && proof_why="$(_ob_look_proof_broken "$root" "$hit")"; then
+      elif [ "$ob" = "look" ] && proof_why="$(_ob_look_proof_broken "$root" "$newest")"; then
         # A LOOK whose screenshots cannot be verified is a CSS review — treated as no report.
         noproof="$noproof $u($proof_why)"
-      elif stale_at="$(_ob_stale "$root" "$hit")"; then
+      elif stale_at="$(_ob_stale "$root" "$newest")"; then
         # A stamped mark the model has been built past is not a mark — the pass is owed again.
         pending="$pending $u"
         stale="$stale $u(valid-at ${stale_at%%+*}, ${stale_at##*+} model commit(s) since)"
       else
-        done_n=$((done_n+1))
+        pending="$pending $u"
       fi
     done <<< "$units"
 
@@ -395,10 +455,11 @@ mxtk_obligations_report() {
       [ -n "$noproof" ] && why_bits="${why_bits:+$why_bits; }NO PROOF-OF-LOOK — a visual verdict with no verifiable screenshot is a CSS review, treated as no report"
       printf 'Obligation %-10s FAULT — %d of %d discharged%s; %s (%s)\n' \
         "$ob" "$done_n" "$scoped" "$tail" "$why_bits" "$skill"
-      MXTK_OB_STATUS="FAULT"
+      MXTK_OB_STATUS="FAULT"; MXTK_OB_N_FAULT=$((MXTK_OB_N_FAULT+1))
     elif [ -n "$pending" ]; then
       printf 'Obligation %-10s PENDING — %d of %d discharged%s; NOT DONE:%s — owner: %s-agent, governed by %s\n' \
         "$ob" "$done_n" "$scoped" "$tail" "$pending" "$performer" "$skill"
+      MXTK_OB_N_PENDING=$((MXTK_OB_N_PENDING+1))
       [ "$MXTK_OB_STATUS" = "PASS" ] && MXTK_OB_STATUS="PENDING"
     else
       printf 'Obligation %-10s PASS — %d of %d discharged%s (%s)\n' "$ob" "$done_n" "$scoped" "$tail" "$skill"

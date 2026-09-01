@@ -128,6 +128,24 @@ result is visible on the page the user stays on or returns to.
 **Position:** `refresh` goes at the **end** of the statement, after `with events` —
 `commit $X with events refresh;` (never `commit refresh $X`).
 
+**`delete` needs it too, and a microflow DATASOURCE makes the rule sharper.** Measured on a
+dashboard-publishing migration, 2026-08-31, where the same omission produced two symptoms in
+opposite directions on one screen:
+
+| Action | What the screen said | What OQL said |
+|---|---|---|
+| Create a dashboard | "No dashboards yet", form still filled | the row was there, correct in every field |
+| Revoke a viewer | the email still listed | `0 rows` |
+
+Both were bare `commit`/`delete`. The list in each case read a **microflow** datasource, which
+the client re-evaluates only when something tells it to — so the write landed and the screen
+never heard. `delete $X refresh;` is legal and is the fix for the second row.
+
+The reason this is worth the table: **a browser test alone would have called both features
+broken, and a database assertion alone would have called both working.** Neither instrument is
+the check; the pair is. It is the argument for keeping the journey rung and the OQL rung as two
+separate rungs rather than trusting whichever one is cheaper to run.
+
 ---
 
 ## Every Required Attribute Is Set BEFORE the Commit — One COMMIT, as Late as Possible

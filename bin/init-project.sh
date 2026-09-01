@@ -620,6 +620,9 @@ if [ -f "$GUIDE" ] && [ -z "${MXTK_NO_GUIDE:-}" ] && [ ! -e "$GUIDE_SENTINEL" ];
 fi
 echo ""
 echo "Next steps (not done by this script):"
+echo "  - Machine preflight runs below (bin/doctor.sh). Re-run it on every OTHER machine that"
+echo "    will touch this project, BEFORE its first model write: without a working mxbuild/java"
+echo "    every exec is silently unverified (gate=skipped) and consistency errors are never captured."
 echo "  - Complete each agent stub's {{PLACEHOLDER}}s per skills/agent-roles.md when its stage"
 echo "    starts (ba/architect at Stage P kickoff, mdl/gate/test at Stage 5). Stubs refuse to"
 echo "    run until completed, so a half-setup fails loudly instead of silently."
@@ -632,4 +635,27 @@ echo ""
 
 "$SCRIPT_DIR/gate-check.sh" "$PROJECT_DIR" || true
 
+# Machine preflight, at the one moment everyone passes through. Setup is where "this script
+# does not run on this machine" must surface — mid-stage it reads as "the toolkit is broken"
+# (the F-042 / CRLF lesson). Never fails the scaffold: doctor's verdict is advice, and it
+# leaves .claude/.doctor-receipt either way.
+echo ""
+echo "Machine preflight (bin/doctor.sh):"
+"$SCRIPT_DIR/doctor.sh" "$PROJECT_DIR" || true
+
+# Leak-guard nudge, at the one moment a new client name enters the world. Advisory only —
+# three lines, never a prompt, never a failure: the denylist protects the TOOLKIT repo, and
+# a project scaffold must not block on it (kickoff is just the cheapest moment to remember).
+echo ""
+if [ -f "$TOOLKIT_ROOT/.leakguard-deny" ]; then
+  echo "Leak guard: if this project is for a new client, add their name (and codename) to"
+  echo "  $TOOLKIT_ROOT/.leakguard-deny — one regex per line — and update the toolkit repo's"
+  echo "  LEAKGUARD_DENY GitHub Actions secret to match. 30 seconds now beats a scrub later."
+else
+  echo "Leak guard: no $TOOLKIT_ROOT/.leakguard-deny found on this machine. Create it (one"
+  echo "  client-name regex per line, gitignored) so check-no-client-data.sh can catch client"
+  echo "  names before they reach the public toolkit repo — see that script's header."
+fi
+
+echo ""
 echo "Done. index.html dashboard rendered at $PROJECT_DIR/index.html"

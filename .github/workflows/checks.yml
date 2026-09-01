@@ -1,0 +1,36 @@
+# Mechanical gates on every PR and push. These are the toolkit's own local checks, promoted to
+# CI so a contribution from any machine gets the same floor: scripts parse, routing renders,
+# no macOS-only regressions, no client data. Judgement stays in review; this is only the floor.
+name: toolkit checks
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scripts parse under bash and node (check-scripts.sh)
+        run: bin/check-scripts.sh
+
+      - name: Routing tables in sync with skill-routing.tsv (render-routing.sh --check)
+        run: bin/render-routing.sh --check
+
+      - name: No macOS-only assumptions reintroduced (check-portability.sh)
+        run: bin/check-portability.sh
+
+      # The client-NAME denylist is personal and local by design: it lives in the maintainer's
+      # gitignored .leakguard-deny and runs in their pre-commit/pre-push hooks
+      # (bin/install-hooks.sh) — never in the repo, never required of contributors. In CI the
+      # guard runs in allow-no-denylist mode: the generic probes (emails, GUIDs, absolute
+      # local paths) still gate every PR, but a missing name list is a warning, not a red X.
+      # If the LEAKGUARD_DENY repo secret is ever set, name matching activates here too.
+      - name: Leak guard, generic probes only (check-no-client-data.sh)
+        env:
+          LEAKGUARD_DENY: ${{ secrets.LEAKGUARD_DENY }}
+          LEAKGUARD_ALLOW_NO_DENYLIST: "1"
+        run: bin/check-no-client-data.sh

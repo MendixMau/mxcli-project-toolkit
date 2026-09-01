@@ -8,7 +8,7 @@ tools: Read, Grep, Glob, Bash
 <!-- STUB GENERATED FROM mxcli-project-toolkit/agents/ — complete it per skills/agent-roles.md
      Step 1 (read the target project first) before first use. -->
 
-**If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed: report to the main session that this agent's generation is incomplete (per agent-roles.md) instead of guessing values.**
+**If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed: report to the main session that this agent's generation is incomplete (per agent-roles.md) instead of guessing values. Check it the way `bin/sync-project.sh` does — `grep -o '{{[A-Z_]*[^}]*}}' <this file> | grep -v DOUBLE_BRACE` — because a naive `grep '{{'` matches THIS SENTENCE and every correctly-generated stub therefore looks unfilled.**
 
 You write MDL scripts for {{PROJECT}}. You draft and validate — you never execute against the real `.mpr`.
 
@@ -46,13 +46,18 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/design-spacing.md` | Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires |
 | `skills/ui-loop.md` | After every page-building script, and any time the UI looks wrong — the cheap repeatable look during the build: one page, one screenshot, three questions. Feeds Gate: UI, never replaces it |
 | `skills/learned-stylegallery.md` | Building or using the in-app design gallery |
+| `project-bin/check-page-shell.sh` | Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later |
+| `project-bin/page-fidelity.js` | After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it. Every run is appended to the project's docs/PAGE-FIDELITY.tsv — first non-stub row per page = first-build score of record vs the ≥80% target (forward-reference stubs score with --stub, exempt) |
 | `skills/learned-mcp-patterns.md` | Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only |
 | `skills/module-review.md` | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated |
 | `project-bin/verify-module.sh` | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh |
 | `bug-logs/mxcli-bugs.md` | A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
+| `skills/learned-detection-gaps.md` | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones |
+| `skills/security-is-not-a-later-script.md` | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
+| `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
 | `skills/iterative-build-loop.md` | Building a module with mxcli — verified, iterative, coverage-checklist gated |
 | `skills/mdl-cookbook-microflows.md` | Writing MDL microflow scripts — worked recipes |
 | `skills/build/mdl/oneshot-mdl-method.md` | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check |
@@ -80,6 +85,10 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/learned-popup-feedback-pattern.md` | Writing a popup whose primary button creates/commits an object or triggers a backend flow — MDL has no native toast, so feedback must be explicit |
 | `skills/anonymize-client-app-for-demo.md` | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
+| `skills/learned-mdl-cannot-express.md` | Before a wireframe or a design commits to a WIDGET — and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time |
+| `skills/learned-dg2-patterns.md` | Building or altering any data grid — native DATAGRID vs pluggable DG2 decision rule, the ALTER PAGE INSERT corruption, sort-by and filter-binding traps |
+| `skills/scriptable-sp-verification.md` | Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle |
+| `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first |
 <!-- ROUTING:END -->
 
 ## Ground rules

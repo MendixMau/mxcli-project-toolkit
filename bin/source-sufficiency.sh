@@ -158,6 +158,12 @@ if [ "$CMD" = "init" ]; then
   # into it: without them a single node_modules turns a 4-file corpus into 40,000 .json files
   # and the rubric's `sources` list — the thing that makes the verdict checkable by someone
   # else — becomes unreadable.
+  #
+  # Code extensions joined 2026-08-31 — the same miss as the .yaml one above, one family
+  # further: a live Stage 0 on a Node/Express + React migration source
+  # produced a 26-row inventory containing package.json and sample data but not one of the
+  # ~40 .ts/.tsx files that ARE the application. In migration mode the code is usually the
+  # best-specified source in the corpus; an inventory without it grades the graders' guesses.
   SRC_ROOT="${SOURCES_DIR:-$PROJECT_DIR/analysis}"
   FILES=""
   if [ -d "$SRC_ROOT" ]; then
@@ -168,7 +174,11 @@ if [ "$CMD" = "init" ]; then
               \( -name '*.pdf' -o -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \
                  -o -name '*.docx' -o -name '*.md' -o -name '*.txt' -o -name '*.html' \
                  -o -name '*.yaml' -o -name '*.yml' -o -name '*.json' -o -name '*.sql' \
-                 -o -name '*.xml' -o -name '*.csv' -o -name '*.xlsx' \) \
+                 -o -name '*.xml' -o -name '*.csv' -o -name '*.xlsx' \
+                 -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' \
+                 -o -name '*.mjs' -o -name '*.cjs' -o -name '*.vue' -o -name '*.svelte' \
+                 -o -name '*.java' -o -name '*.kt' -o -name '*.cs' -o -name '*.py' \
+                 -o -name '*.go' -o -name '*.rb' -o -name '*.php' \) \
               ! -path '*/knowledge-base/*' ! -name 'source-sufficiency.*' -print 2>/dev/null | sort)
   fi
 

@@ -154,6 +154,20 @@ _art_register_rank() {
 # Does any file match this row's paths? Sets ART_HIT (first non-empty match) and ART_EMPTY
 # (a match exists but every match is empty). Patterns are |-separated project-relative globs,
 # tried under the project root and under analysis/<name>/ — the two bases gate-check.sh's
+# _art_newer <a> <b> — is a newer than b? Filename date first (the modern artifact schema
+# names it), mtime as the fallback for dateless names. Returns 0 for yes.
+_art_newer() {
+  local ad bd am bm
+  ad="$(basename "$1" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)"; ad="${ad:-0000-00-00}"
+  bd="$(basename "$2" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)"; bd="${bd:-0000-00-00}"
+  [[ "$ad" > "$bd" ]] && return 0
+  [[ "$ad" < "$bd" ]] && return 1
+  # GNU first, BSD second — on GNU `stat -f` succeeds with the wrong meaning.
+  am="$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null || echo 0)"
+  bm="$(stat -c %Y "$2" 2>/dev/null || stat -f %m "$2" 2>/dev/null || echo 0)"
+  [ "${am:-0}" -gt "${bm:-0}" ]
+}
+
 # resolve_artifact() already serves.
 _art_find() {
   local root="$1" paths="$2" pat base f rest
@@ -163,15 +177,29 @@ _art_find() {
     pat="${rest%%|*}"
     case "$rest" in *\|*) rest="${rest#*|}" ;; *) rest="" ;; esac
     [ -n "$pat" ] || continue
+    # Within one pattern, prefer the NEWEST match; across patterns, the earlier pattern still
+    # wins, because the `|` list is a preference order the manifest author wrote deliberately.
+    #
+    # Glob order is alphabetical, and the review-report schema is `ui-review-<YYYY-MM-DD>*.html`,
+    # so first-match meant OLDEST. That never changed a verdict here — this check is file
+    # presence only — but it named a superseded file as the artifact satisfying the row, and a
+    # reader who opens it to see what the stage produced is reading last month's work. Same
+    # defect, same day, as the one fixed in obligation-check.sh's `_ob_find`, where it DID
+    # change the verdict.
+    local newest_hit=""
     for base in "$root" "$root"/analysis/*; do
       [ -d "$base" ] || continue
       # base quoted, pattern not: the base must survive spaces, the pattern must glob.
       for f in "$base"/$pat; do
         [ -e "$f" ] || continue
-        if [ -s "$f" ]; then ART_HIT="$f"; return 0; fi
-        ART_EMPTY="$f"
+        if [ -s "$f" ]; then
+          if [ -z "$newest_hit" ] || _art_newer "$f" "$newest_hit"; then newest_hit="$f"; fi
+        else
+          ART_EMPTY="$f"
+        fi
       done
     done
+    if [ -n "$newest_hit" ]; then ART_HIT="$newest_hit"; return 0; fi
   done
   return 0
 }
@@ -182,6 +210,7 @@ _art_find() {
 mxtk_artifacts_report() {
   local root="$1" reg="${2:-$1/PROJECT.md}"
   MXTK_ART_STATUS="PASS"
+  MXTK_ART_N_PENDING=0; MXTK_ART_N_FAULT=0
 
   if [ ! -f "$ARTIFACT_TSV" ]; then
     # The table is the thing this check IS. A missing table says so rather than printing a
@@ -240,7 +269,7 @@ mxtk_artifacts_report() {
     r="$(_art_rank "$stage")"
     if [ "$r" -ge 99 ]; then
       printf 'Artifact %-24s FAULT — unknown stage "%s" in %s\n' "$id" "$stage" "$ARTIFACT_TSV"
-      MXTK_ART_STATUS="FAULT"; continue
+      MXTK_ART_STATUS="FAULT"; MXTK_ART_N_FAULT=$((MXTK_ART_N_FAULT+1)); continue
     fi
 
     # Entry mode: excused stages are said out loud, never skipped silently. An unknown mode
@@ -287,6 +316,8 @@ mxtk_artifacts_report() {
       printf 'Artifact %-24s PENDING — owed at stage %s (position: %s) and absent; produce it: %s. Read by: %s%s\n' \
         "$id" "$stage" "$pos_src" "$producer" "$consumers" \
         "$( [ "$absence" = "gate" ] && printf ' [absence holds a mechanical gate shut]' || printf ' [report-only]' )"
+      # Only the LOUD case is counted for the run summary — a stage not begun owes nothing yet.
+      MXTK_ART_N_PENDING=$((MXTK_ART_N_PENDING+1))
       [ "$MXTK_ART_STATUS" = "PASS" ] && MXTK_ART_STATUS="PENDING"
     else
       # Not begun. Still printed — silence is the failure mode — but quietly, and it never

@@ -59,12 +59,37 @@ follow `README.md` → "How to add a new skill" including the routing-table row.
 
 - CI runs the mechanical gates: every script parses (`bin/check-scripts.sh`), routing renders
   clean (`bin/render-routing.sh --check`), no macOS-only regressions
-  (`bin/check-portability.sh`), leak guard (`bin/check-no-client-data.sh`).
+  (`bin/check-portability.sh`), leak guard (`bin/check-no-client-data.sh`), and — on PRs —
+  the merge-queue discipline (`bin/check-pr-discipline.sh`: your CHANGELOG line rides in the
+  same PR, and any new bug number is still free on `master`).
 - A maintainer (human or a toolkit Claude session) reviews; inbox items get triaged into their
   real home, tested, and released by merge to `master` — consuming projects pick the change up
   on their next `git pull` + `bin/sync-project.sh`.
 - The merge commit appends a `CHANGELOG.md` line **crediting you or your project by name**.
   That line is the record of which projects feed the toolkit.
+
+## The merge queue (adopted 2026-09-01, after the first five-PR day)
+
+One day of five parallel sessions produced: two different bug clusters both numbered
+BUG-96..100, three PRs with no changelog line, two PRs whose CI never ran because their
+conflicted state blocked it, and one half-redacted secret that a plain merge would have
+carried into public history. None of the content was bad — the coordination was. Hence:
+
+1. **Small and fast.** A PR should merge within ~48h; every day it waits, master moves and
+   the conflict/collision surface grows. A conflicted PR gets its base merged in *before*
+   review — a PR whose CI cannot run has no signal at all, and "green" silence is not green.
+2. **Bug numbers are assigned at merge, not at write.** In a PR, head the entry
+   `## BUG-DRAFT-<slug>:`; whoever merges gives it the next free number. If you do claim a
+   number, CI now rejects one that is already taken on `master`.
+3. **Changelog rides in the same PR.** Was always the rule; now CI checks it instead of
+   trusting it.
+4. **Squash-merge is the default.** This repo is public: intermediate commits (with their
+   pre-redaction blobs, wrong paths, half-genericized names) must not reach `master`'s
+   history. A merge commit is fine for a branch whose every commit is already clean.
+5. **A claim ships with its probe.** A new skill rule or STOP row names the command that
+   would falsify it (see the BUG-22 retirement for the worked example); a new or changed
+   instrument ships its retest fixture. "It happened to me" gets it in the door — what keeps
+   it true later is that the next person can re-check it in a minute.
 
 ## Good worked examples already in the wild
 

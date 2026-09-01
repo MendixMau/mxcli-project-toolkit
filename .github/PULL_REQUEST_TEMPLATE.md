@@ -17,4 +17,6 @@ or fixed there (CLAUDE.md → "Shipping an instrument", rule 4; required for any
 - [ ] For a new/changed instrument: golden input captured (not hand-written), both layouts
       (single-tree and `.mpr`-under-`app/`), both platforms (macOS + Git Bash/Windows) considered
 - [ ] For a new skill: routing row added (`bin/lib/skill-routing.tsv` + `bin/render-routing.sh`)
-- [ ] `CHANGELOG.md` line appended in this PR, crediting the source project or person
+- [ ] `CHANGELOG.md` line appended in this PR, crediting the source project or person (CI-checked)
+- [ ] New bug entries headed `## BUG-DRAFT-<slug>:` — numbers are assigned at merge; a number
+      already taken on `master` fails CI (`bin/check-pr-discipline.sh`)

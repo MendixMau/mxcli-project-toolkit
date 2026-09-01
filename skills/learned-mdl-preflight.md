@@ -61,6 +61,7 @@ Once you've picked a mode per operation, run the STOP table below against every 
 **Default to mxcli for:** entities/attributes/enums, associations (after SHOW ASSOCIATIONS check), microflows (without inline assoc-sets), demo users, module roles/grants, navigation.
 
 ---
+| 23 | Name any document or entity that **might already exist** — `create or modify` on an entity, or any `create or replace` on a page, layout or microflow | **STOP → run `mxcli diff -p <app>.mpr <script>.mdl --format struct` FIRST.** It is read-only, it takes a second, and it prints exactly what the script would add and what it would REMOVE. Read the `-` lines before you exec, every time. Rules 21 and 22 tell you to write `create or modify` and to give each document one owner; this is the check that the name you chose is actually free. | Confirmed 2026-09-01 (a dashboard-publishing migration, mxcli v0.20.0). A new script declared `create or modify non-persistent entity DashboardPublishing."ViewerContext"` with one attribute, believing the name unused. The entity already existed, owned by an earlier page script, carrying four attributes — `VersionLabel`, `HasContent`, `Html`, `DashboardTitle` — which are the entire datasource of the app's viewing page. `diff --format struct` reported `+ Attribute SharedCount` and **four `- Attribute` lines**, i.e. `create or modify` on an entity does not merge into the attribute set, it **replaces** it. Renaming the new entity took ten seconds; the alternative was a page that renders nothing, on a model that would have passed `mx check` and mxbuild clean, since an entity losing four attributes is a perfectly valid model. **This is the cheapest guard in the file — the whole rule is `diff` before `exec`.** |
 
 ## MDL gotchas (quick reference — common traps)
 
@@ -104,6 +105,8 @@ These don't require a STOP, but will cause silent failures or check errors if mi
 ## Final self-check (mandatory before reporting back)
 
 After drafting a script, re-read it line by line against the table above — not just the mental pre-check you did before writing. Inline assoc-sets, conditional visibility inside datagrid customContent columns, and cross-module association traversals as widget datasources can creep in during drafting without intent. `mxcli check --references` will not catch them. This re-read is the actual corruption-prevention step.
+
+**Then diff it before you exec it** (rule 23): `mxcli diff -p <app>.mpr <script>.mdl --format struct` is read-only and prints what the script would add *and remove*. The re-read above catches what you wrote; the diff catches what you did not know was already there — a name you believed free, an entity whose attribute set your `create or modify` would replace rather than extend. Read every `-` line.
 
 **And check the size before you execute:** could you diagnose a failure of this script from the
 error output alone, or would you be re-reading the whole file to find which unit broke? If the

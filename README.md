@@ -605,6 +605,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Checking whether the whole journey hangs together rather than each piece — finds correctly-built components nothing reaches, which per-element conformance and UI tests both miss | `skills/process-coherence-pass.md` |
 | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory | `project-bin/coherence-cadence.sh` |
 | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything | `skills/e2e-evidence-report.md` |
+| Recording a narrated screen-capture demo of a running app for a human to watch — opening on the app instead of a blank frame, and keeping captions synced to the pixels | `skills/record-demo-video.md` |
 | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` |
 | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence | `skills/lint-that-actually-runs.md` |
 | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before | `skills/wiring-sweep.md` |

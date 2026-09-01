@@ -178,3 +178,64 @@ full-harness-audit	skills/full-harness-audit.md	The user asks for a full end-to-
 test-result-audit	skills/test-result-audit.md	End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition	test,review	5,6	ondemand	verify
 finding-disposition	skills/finding-disposition.md	Any report from a test/review run is about to be published — no report ends without a disposition for every finding	test,review,gate	5,6	ondemand	verify
 wizard-walkthrough	skills/wizard-walkthrough.md	Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet	gate,review	P,7	experimental	verify
+# THE skill-routing table — the single source of truth for every routing surface.
+#
+# Routing a skill used to take six coordinated edits (README's two tables, the runbook row,
+# init-project.sh's CLAUDE.local.md heredoc, gate-check.sh's stage map, the agent templates)
+# plus a seventh copy inside every project's CLAUDE.local.md that no script could update.
+# Measured on 2026-08-18, before this file existed: 17 of 43 skills were routed by NOTHING a
+# project agent reads; facts-lock.sh reached 1 of 6 wired projects; agent-roles.md and
+# source-triage.md reached 1 each. Every skill added since had silently become the eighteenth.
+#
+# Edit THIS file, then run:  bin/render-routing.sh
+# CI / gate:                 bin/render-routing.sh --check   (exit 2 == a surface has drifted)
+#
+# Format: TAB-separated, seven columns. Blank lines and #-comments ignored.
+#   1 name    stable id (basename without .md/.sh)
+#   2 path    repo-relative path of the thing to load
+#   3 when    one line: "always relevant for ..." — the trigger, not a description
+#   4 agents  comma list of ba|architect|mdl|gate|test|review, or "all"
+#   5 stages  comma list of P,0,1,2,3,4,5,6,7 (conversion-runbook stages), or "-" for none
+#   6 tier    baseline     (always-on: goes into every project's CLAUDE.local.md)
+#             ondemand     (situational: load when the task calls for it)
+#             experimental (under trial: routed and discoverable, but _routing_stage_arm skips
+#                          it on purpose, so a skill nobody has proven yet can never be the
+#                          reason a gate fails)
+#   7 group   which question the skill answers, NOT what kind of thing it is. One of:
+#               spine         what am I doing, who decides, how do I ask
+#               source        reading a legacy system (migration entry mode only)
+#               requirements  what must be built
+#               architecture  how it is shaped
+#               design        how it looks, before any MDL
+#               build         authoring the model — the loop itself
+#               build/mdl     the MDL language and tool reference
+#               build/pages   page-building patterns
+#               build/agents  Mendix AI agents — the agent document, tools, KBs, chat UI
+#               build/workflow / build/integration / build/security   (declared, still empty)
+#               verify        does it work
+#               diagnose      something is broken and it may be the tooling
+#               reference     lookup tables, not method
+#             The set is CLOSED — routing_validate_groups() rejects anything else, because a
+#             typo would otherwise render as a real fourteenth group nobody notices.
+#
+#             Added 2026-08-20. Several build/* groups started empty on purpose: a flat list of
+#             62 skills hid the fact that this toolkit said nothing at all about workflows,
+#             REST, agents, grids or build-time security. The empty group is the finding — and
+#             it works: build/workflow, build/integration and build/agents were each filled by
+#             a skill written because the empty heading made the hole visible.
+#
+#             Groups order the RENDERED tables (ROUTING.md, README's situational table). They
+#             deliberately do NOT group the baseline views: baseline is a read-all-of-these set,
+#             where sub-headings would imply a selectivity that does not exist, and that view is
+#             copied into every project's CLAUDE.local.md — regrouping it churns every project
+#             for no gain.
+#
+# TSV rather than a markdown ROUTING.md because a renderer has to parse this in bash 3.2 on
+# macOS, and several "when" strings contain the "|" that a markdown table uses as its column
+# separator. ROUTING.md at the repo root is the human-readable view — rendered FROM here, so
+# it can never disagree with what the scripts install. Kept in bin/lib/ next to
+# install-manifest.sh (the same one-manifest-N-readers precedent) and deliberately NOT in
+# skills/, which gate-check.sh treats as PROTOCOL_PATHS: a data file there would trip a
+# protocol-staleness ack on every routing edit.
+#
+handoff-to-studio-pro	skills/handoff-to-studio-pro.md	Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step	test,review	6,7	ondemand	build

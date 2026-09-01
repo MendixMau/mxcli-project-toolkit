@@ -343,6 +343,10 @@ _ob_look_proof_broken() {
 mxtk_obligations_report() {
   local root="$1" reg="${2:-$1/PROJECT.md}"
   MXTK_OB_STATUS="PASS"; MXTK_OB_LINES=""
+  # Counts for the run summary. The verdict lines are printed here, far above the
+  # summary a reader actually quotes; without these the summary said "0 need
+  # attention" over three passes nobody had performed.
+  MXTK_OB_N_PENDING=0; MXTK_OB_N_FAULT=0
 
   if [ ! -f "$OBLIGATIONS_TSV" ]; then
     # The table is the thing this check IS. Missing table is a fault in the check, and it says so
@@ -451,10 +455,11 @@ mxtk_obligations_report() {
       [ -n "$noproof" ] && why_bits="${why_bits:+$why_bits; }NO PROOF-OF-LOOK — a visual verdict with no verifiable screenshot is a CSS review, treated as no report"
       printf 'Obligation %-10s FAULT — %d of %d discharged%s; %s (%s)\n' \
         "$ob" "$done_n" "$scoped" "$tail" "$why_bits" "$skill"
-      MXTK_OB_STATUS="FAULT"
+      MXTK_OB_STATUS="FAULT"; MXTK_OB_N_FAULT=$((MXTK_OB_N_FAULT+1))
     elif [ -n "$pending" ]; then
       printf 'Obligation %-10s PENDING — %d of %d discharged%s; NOT DONE:%s — owner: %s-agent, governed by %s\n' \
         "$ob" "$done_n" "$scoped" "$tail" "$pending" "$performer" "$skill"
+      MXTK_OB_N_PENDING=$((MXTK_OB_N_PENDING+1))
       [ "$MXTK_OB_STATUS" = "PASS" ] && MXTK_OB_STATUS="PENDING"
     else
       printf 'Obligation %-10s PASS — %d of %d discharged%s (%s)\n' "$ob" "$done_n" "$scoped" "$tail" "$skill"

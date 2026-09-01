@@ -537,6 +537,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 |---|---|
 | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS | `project-bin/check-design-portability.sh` |
 | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` |
+| Before a wireframe or a design commits to a WIDGET — and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time | `skills/learned-mdl-cannot-express.md` |
 
 **Build — the loop itself**
 

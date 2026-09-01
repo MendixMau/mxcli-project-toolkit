@@ -57,6 +57,7 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 | `project-bin/build-plan-status.sh` | After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views |
 | `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
+| `skills/learned-mdl-cannot-express.md` | Before a wireframe or a design commits to a WIDGET — and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time |
 <!-- ROUTING:END -->
 
 ## Ground rules

@@ -1221,6 +1221,109 @@ The entire toolkit workflow assumes split format: mxcli's own MDL exec writes *i
 
 ---
 
+## 🚨 CRITICAL: `mxcli run --local` also collapses split-model `.mpr` to monolithic — second trigger, same failure as marketplace install
+
+**Discovered:** 2026-09-01, a dashboard-publishing migration project, mxcli run --local via
+`project-tests/app.sh start` (`./mxcli run --local -p PuffinDashboards.mpr --ensure-db`),
+Mendix 11.12.1, split-model project (219 tracked `mprcontents/*.mxunit`, ~78 KB `.mpr`).
+
+This is the SAME failure as the `marketplace install` entry above (collapse to monolithic
+`.mpr`, `mprcontents/` deleted from disk) but from a **different, much more commonly used
+trigger**: simply running the app locally. `.mpr` went 77,824 bytes → 15,446,016 bytes;
+`git status` showed 438 `D` + 2 `M` after a single `app.sh start` / `app.sh restart`. Caught
+before commit only because this project's own build discipline runs `git status` before any
+commit — a session that trusts `git add -A` blindly would have committed the collapse and lost
+git's ability to diff every future model change file-by-file.
+
+**Why it matters more than the marketplace-install trigger:** `mxcli marketplace install` is a
+rare, occasional operation a session is likely to pause before. Running the app locally to
+verify a fix on screen is routine — the toolkit's own field-proof discipline in this repo's
+`CLAUDE.md` (§ "Shipping an instrument") requires it ("one field run, cited"). A workflow that
+requires routine local runs and silently corrupts the git-friendly format on every one of them
+is a landmine directly on the path the toolkit itself mandates.
+
+**Prevention (the rule, until upstream fixes it or a flag is found):** `project-bin`/
+`project-tests` start scripts for a split-model project MUST snapshot (`bin/snapshot-mpr.sh` or
+equivalent) before every `mxcli run --local` / `mxcli run --local --watch`, and the session MUST
+run `git status` — never a blind `git add -A` — before any commit that follows a local app run.
+Restore split format after verifying on screen, before committing anything else:
+```bash
+git checkout HEAD -- <project>.mpr mprcontents/   # or bin/restore-mpr.sh <pre-run-snapshot>
+```
+Not yet confirmed whether a `run --local` flag avoids the collapse, or whether it is specific to
+`--ensure-db` / a particular mxbuild version — retest and update this entry if found.
+
+### Toolkit-fix candidate
+`project-tests/app.sh`'s `start` action should call `bin/snapshot-mpr.sh` unconditionally before
+launching `mxcli run --local`, the same way `bin/exec.sh` already does before an MDL exec — this
+trigger is not covered by that existing guard because it is a different code path.
+
+---
+
+## BUG-101: mxcli-authored Gallery widget fails mxbuild CE0463 even after full regeneration ⚠️ NOT YET FILED — `add_repo` denied access to `mendixlabs/mxcli`
+
+**NOT YET FILED.** The filing session already had `mxcli-project-toolkit` (owner `mendixmau`)
+attached and `add_repo` refused a cross-owner attach: `cross-tier adds are not supported in v1:
+requested "mendixlabs/mxcli" but session already has repos from owner(s) [mendixmau]`. A session
+started fresh with `mendixlabs/mxcli` as its initial source should be able to file this
+directly. Full repro and suggested fix:
+`bug-logs/pending-github-issues/gallery-widget-ce0463-survives-regeneration.md`.
+
+**Severity:** High — a Gallery page authored entirely through mxcli passes every mxcli-side
+check yet permanently fails headless `mxbuild`, and no mxcli command (`check`, `widget sync`,
+full page regeneration, or single-widget regeneration with a fresh element ID) repairs it.
+**Discovered:** 2026-09-01, a dashboard-publishing migration project, mxcli v0.20.0
+(2026-08-28T13:22:53Z), Mendix 11.12.1, Gallery pluggable widget package 3.4.0
+(`com.mendix.widget.web.gallery.Gallery`), split-model project.
+**Reproducible:** Yes, consistently — retested same day, identical `elementId`/`unitId` and
+message.
+
+### What happens
+Any Gallery widget mxcli authors via `CREATE PAGE` (or `ALTER PAGE ... REPLACE` with a brand-new
+instance/element ID) fails headless `mxbuild` on that specific instance with:
+```
+CE0463: "The definition of this widget has changed. Update this widget by right-clicking it
+and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app."
+```
+It is the only error in the build — everything else is Warning/Deprecation. Repro:
+```bash
+./mxcli docker check -p <project>.mpr        # 0 errors — looks fine
+timeout 60 ./mxcli run --local -p <project>.mpr --ensure-db 2>&1   # mxbuild --serve; CE0463 fires
+```
+
+### Why it is not stale/corrupted instance data
+1. `mxcli check <script>.mdl -p <project>.mpr --references` passes clean.
+2. `mx check` (Studio Pro's own headless modeler) reports **0 errors** on the same `.mpr` — it
+   appears to tolerate/auto-normalize the mismatch in-memory rather than surface it.
+3. `mxcli widget sync -p <project>.mpr` reports "nothing to do", or fixes unrelated widgets
+   (Image widgets elsewhere in the project) — it never detects or fixes this Gallery instance.
+4. Regenerating the **entire containing page** from scratch does **not** fix it — identical
+   error persists.
+5. Regenerating **just the one widget instance** (fresh element ID) via `ALTER PAGE ... REPLACE`
+   **still** produces the identical CE0463 error, on the new element ID.
+
+(4) and (5) rule out stale data: a fresh element, freshly written, in a freshly regenerated
+page, fails the same way. The defect is in what mxcli serializes for a Gallery widget's stored
+configuration — likely a missing/mismatched property or version stamp that headless `mxbuild`'s
+stricter widget-definition check enforces but `mx check` does not.
+
+### Prevention
+Treat `Gallery` (and other pluggable widgets with template/child-slot bodies) as risky
+`CREATE PAGE` targets: verify with a real `mxcli run --local` / headless `mxbuild` pass, not
+just `mxcli check` or `mx check` — both of those report clean on this exact defect.
+
+### Recovery
+No mxcli-side fix found. Workaround is to place/repair the Gallery widget in Studio Pro's GUI
+("Update widget"), which resolves CE0463 directly, then re-export/keep working in split format.
+
+### Toolkit-fix candidate
+`learned-mdl-preflight.md` / `learned-detection-gaps.md` STOP or WARN row: "Gallery (and other
+child-slot pluggable widgets) placed via CREATE/ALTER PAGE must be verified with a real
+`mxcli run --local` pass before being trusted — `mxcli check` and `mx check` both pass CE0463
+clean."
+
+---
+
 ## Studio Pro Git integration crashes on project open (Team Server repo) — detach .git to open
 
 **Discovered:** 2026-07-22 (a PLM parts-flow project, Studio Pro 11.12.1 Beta, Mendix Team Server Git repo, working branch `pipeline-artifacts`).

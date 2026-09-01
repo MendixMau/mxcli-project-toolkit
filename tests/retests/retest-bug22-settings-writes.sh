@@ -77,7 +77,15 @@ if [ -n "$CONTENT_MPR" ] && [ -f "$CONTENT_MPR" ]; then
     if [ -x "$MXBUILD" ]; then
       JE="$(command -v java || true)"
       if [ -n "$JE" ]; then
-        JH="$(dirname "$(dirname "$(readlink -f "$JE")")")"
+        # Resolve the java symlink without `readlink -f` (GNU-only; macOS has no -f).
+        JR="$JE"; _hops=0
+        while [ -L "$JR" ] && [ "$_hops" -lt 16 ]; do
+          _t="$(ls -ld "$JR" | sed 's/.* -> //')"
+          case "$_t" in /*) JR="$_t" ;; *) JR="$(cd "$(dirname "$JR")" && pwd)/$_t" ;; esac
+          _hops=$((_hops+1))
+        done
+        JR="$(cd "$(dirname "$JR")" && pwd)/$(basename "$JR")"
+        JH="$(dirname "$(dirname "$JR")")"
         if "$MXBUILD" --java-home="$JH" --java-exe-path="$JE" --target=deploy "$CM" 2>&1 | grep -q "BUILD SUCCEEDED"; then
           printf '  %-46s %s\n' "full deploy build afterwards" "BUILD SUCCEEDED"
         else

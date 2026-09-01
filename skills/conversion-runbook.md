@@ -651,7 +651,7 @@ Before writing any MDL, check the STOP table in `learned-mdl-preflight.md`:
 Write MDL  →  check the STOP table
                 ├─ clean            → mxcli exec (SP closed)
                 ├─ STOP → MCP       → mxcli --mcp exec (SP open) — bypasses the BSON serializer
-                ├─ STOP → GUI       → Studio Pro by hand (settings, security-bearing drops)
+                ├─ STOP → GUI       → Studio Pro by hand (security-bearing drops; settings too on mxcli < v0.20)
                 └─ no MDL syntax    → hand-rolled MCP (pg_patch_page)
 Crashed anyway? → bin/restore-mpr.sh  (restores .mpr AND mprcontents/ — either alone is useless)
                 → log it in bug-logs/mxcli-bugs.md

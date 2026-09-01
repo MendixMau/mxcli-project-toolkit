@@ -59,12 +59,13 @@ retest.
 | BUG-70/95 `show_page` args on a page-level button | **STILL OPEN** | — v0.19's MDL-PAGEARG01 refusal does not cover a CREATE PAGE page-level button; args rebound to `$currentObject` | yes (CE1571 ×2 + CE0117) |
 | BUG-84 `SET DataSource = DATABASE` on a DataView wipes it | **STILL OPEN** | — silent "Altered page", DataSource gone, CE7007 downstream | yes (CE7007) |
 | BUG-67 snippet primitive param `{ $X: String }` | **STILL OPEN** | — `entity not found: String` | n/a (exec error) |
+| BUG-22 settings/security-level writes → Settings-unit BSON desync | **FIXED** (follow-up probe, same day) | ≤v0.20.0 — `security level production`, `demo users`, `guest access` (v0.19 surface), `settings model`, `settings configuration` all land + read back | yes (cold load, 0 errors) |
 | BUG-63 write-lint-rules.md fictional API values | **STILL OPEN** | — | n/a (inspection: same `action_type` row, now line 318 of `write-lint-rules/SKILL.md`) |
 | BUG-87 DESCRIBE JAVA ACTION drops type-param name | **STILL OPEN** | — | n/a (describe: `entity <>`) |
 
 Not retested this round (no changelog claim, or needs fixtures/Studio Pro this container lacks):
-BUG-93/96/92/94/68/77 (page/widget fixtures not built), BUG-14/15/16/17/18/22/23/25/WF01
-(pre-v0.17 backlog), the marketplace-install split-model collapse (#879 — needs marketplace
+BUG-93/96/92/94/68/77 (page/widget fixtures not built), BUG-14/15/16/17/18/23/25/WF01
+(pre-v0.17 backlog; BUG-22 was retested in a same-day follow-up probe — FIXED, see table), the marketplace-install split-model collapse (#879 — needs marketplace
 auth; **no fix in either changelog, STOP rule stays**), and the whole `--mcp` family
 (BUG-26 residual/32/34/54/72 — needs a live Studio Pro).
 

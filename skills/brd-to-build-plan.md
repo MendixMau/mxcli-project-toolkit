@@ -245,6 +245,32 @@ See `design-artifacts.md` and `learned-stylegallery.md` for full process.
 
 ## Step 5: Produce the Numbered Script Sequence
 
+### Script 00 — the project scaffold row (mxcli ≥ v0.20.0)
+
+The sequence opens with one `BUILD` row that sets the project frame **before any module
+script runs**, because everything in it became scriptable in v0.19/v0.20 and every item was
+previously either an end-of-build Studio Pro chore or silently deferred until it bit:
+
+- **Layout** — `mxcli new` (≥ v0.20) already scaffolds a project-owned `<Module>.App_Default`;
+  on an app that predates it, `create layout` + `alter pages set layout = X [map (Old as New)]`
+  moves every page off Atlas in one statement. Deciding the shell here is what makes the
+  wireframes' top-bar/sidebar choice binding instead of a script-20 repair
+  (`ui-preflight-pages.md`).
+- **Theme** — `mxcli theme apply <name>` or `theme create --from <design-file>` once
+  `design-artifacts.md` has produced the `--mxt-*` token block.
+- **Project security** — `alter project security level production;`, `demo users on|off`,
+  `guest access on|off [on role <UserRole>]` (guest access is new v0.19 surface). Setting
+  PRODUCTION on day one means every module build runs against real access-rule pressure —
+  a grant the plan forgot fails a PROVE row now, not user acceptance later. On mxcli
+  < v0.20.0 this whole bullet is preflight STOP rule 2 (Settings-unit corruption): leave it
+  to Studio Pro there.
+- **Navigation profiles** — `create or replace navigation Phone|Tablet…` where the wireframes
+  demand device-specific pages (v0.20 can create profiles, not only replace them; creating an
+  *offline* profile names the pages it just invalidated — read that output).
+
+One script, exec'd once, read back with `show project security` / `describe settings` —
+then the module sequence starts from row 01 against a frame that no longer moves.
+
 ### Row schema — five kinds, one number sequence
 
 Every row is one of five kinds, sharing one numbering and one dependency graph. **A row may say

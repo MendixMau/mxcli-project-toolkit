@@ -1591,3 +1591,30 @@ the official release hits this. Draft prepared at
 > MICROFLOW activities can then be authored from MDL again instead of hand-dragged in Studio Pro.
 
 
+
+---
+
+## BUG-22: `alter settings configuration` / `alter settings model` / `alter project security level` — deterministic BSON stream-desync on the Settings unit
+
+> **RESOLVED (FIXED in ≤v0.20.0) — retested 2026-08-31 on a fresh 11.13.0 scratch app: `alter project security level production`, `alter project security demo users on`, `alter project security guest access off` (new v0.19 surface), `alter settings model FirstDayOfWeek = Monday` and `alter settings configuration … HttpPortNumber = 8080` all land, read back via `describe settings`/`show project security`, and the project cold-loads at 0 errors — no stream-desync, no `Expected '$ID'` load failure. Preflight rule 2 retired for ≥v0.20; STOP stands for older binaries.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
+
+**Severity:** Critical — deterministic corruption, confirmed across multiple retry attempts  
+**Reproducible:** Yes, 100% — not flaky  
+**Confirmed:** Mendix 11.12.0 Beta, 2026-07-06  
+**mxcli version when found:** v0.13.0 (confirmed on codec engine)  
+**Retested on v0.13.0:** Yes — still corrupts. Preflight rule 2 STOP (SP GUI only) remains valid.
+
+### Symptom
+The statement executes and reports success ("Updated configuration 'Default'"). On the next SP open or `mx check`, the project fails to load with `AggregateException` / "Expected '$ID' as the first property..." in the Settings unit. The *field* where corruption manifests varies between attempts (seen on `EnableMicroflowReachabilityAnalysis`, `EnableNewWidgetGeneration`, `UrlPrefix`) — this shift is the signature of a BSON stream-desync: once one object is written malformed, the next object in the same write batch inherits the corruption, appearing as an unrelated field error.
+
+### Affected statements
+- `alter settings configuration 'Name' DatabaseType = ..., DatabaseUrl = ...`
+- `alter settings model ...`
+- `alter project security level ...`
+
+### Workaround
+**Change these settings via Studio Pro's GUI only** — App menu → Settings/Configurations. Neither mxcli nor MCP has a safe path for these operations (MCP's `ped_read_document` and `ped_get_schema` reject every known Settings document type name).
+
+### Recovery
+`git checkout` the two tracked `mprcontents/*.mxunit` files for the Settings unit back to the last clean commit. No full project revert needed — only those unit files are corrupted.
+

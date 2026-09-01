@@ -864,27 +864,7 @@ Then restart SP.
 
 ## BUG-22: `alter settings configuration` / `alter settings model` / `alter project security level` — deterministic BSON stream-desync on the Settings unit
 
-**Severity:** Critical — deterministic corruption, confirmed across multiple retry attempts  
-**Reproducible:** Yes, 100% — not flaky  
-**Confirmed:** Mendix 11.12.0 Beta, 2026-07-06  
-**mxcli version when found:** v0.13.0 (confirmed on codec engine)  
-**Retested on v0.13.0:** Yes — still corrupts. Preflight rule 2 STOP (SP GUI only) remains valid.
-
-### Symptom
-The statement executes and reports success ("Updated configuration 'Default'"). On the next SP open or `mx check`, the project fails to load with `AggregateException` / "Expected '$ID' as the first property..." in the Settings unit. The *field* where corruption manifests varies between attempts (seen on `EnableMicroflowReachabilityAnalysis`, `EnableNewWidgetGeneration`, `UrlPrefix`) — this shift is the signature of a BSON stream-desync: once one object is written malformed, the next object in the same write batch inherits the corruption, appearing as an unrelated field error.
-
-### Affected statements
-- `alter settings configuration 'Name' DatabaseType = ..., DatabaseUrl = ...`
-- `alter settings model ...`
-- `alter project security level ...`
-
-### Workaround
-**Change these settings via Studio Pro's GUI only** — App menu → Settings/Configurations. Neither mxcli nor MCP has a safe path for these operations (MCP's `ped_read_document` and `ped_get_schema` reject every known Settings document type name).
-
-### Recovery
-`git checkout` the two tracked `mprcontents/*.mxunit` files for the Settings unit back to the last clean commit. No full project revert needed — only those unit files are corrupted.
-
----
+**RESOLVED (FIXED in ≤v0.20.0; guest access newly scriptable in v0.19.0) — retested and archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md) and [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).**
 
 ## BUG-23: `ContentParams` with an explicit `$currentObject/` prefix resolves as a literal (broken) attribute path → CE1613
 

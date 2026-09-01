@@ -5009,3 +5009,148 @@ Re-verify every manually-managed sidecar against the new container afterwards.
 `mxcli docker init` should set `COMPOSE_PROJECT_NAME` at scaffold time (prompt for a slug or
 derive one from the `.mpr` filename) — this is a scaffolding-template gap, not a per-project
 judgment call.
+
+## BUG-102: `ALTER PAGE … SET DataSource = … ON widget` silently no-ops on a native DataGrid — reports success, passes the mxbuild gate, XPath never changes
+
+**Severity:** High — silent success, stale runtime behavior, surfaces only by testing the running app
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08-26, TFC-TCXGraphPOC-main, fixing a live security/behavior defect in a
+task-inbox page's DataGrid XPath
+**Reproducible:** yes, deterministic — reproduced twice in a row against the same page
+
+```
+ALTER PAGE TFC.TFC_MyTasks {
+  SET DataSource = DATABASE FROM System.WorkflowUserTask
+    WHERE [System.WorkflowUserTask_Assignees = '[%CurrentUser%]' or System.WorkflowUserTask_TargetUsers = '[%CurrentUser%]']
+          [State = 'InProgress']
+    SORT BY StartTime ASC
+} ON "dgMyTasks";
+→ "Altered page TFC.TFC_MyTasks"     (no error, exit 0)
+→ mxbuild: 0 errors                  (gate passes)
+```
+
+The DataGrid's actual persisted `DataSource` XPath **never changes**. `DESCRIBE PAGE` immediately
+after this exec still showed the pre-exec XPath verbatim. Confirmed twice, independently:
+
+1. Ran once to add a `TargetUsers` clause the grid was missing (it had `Assignees` only). Exec
+   reported success, gate passed. `DESCRIBE PAGE` on the resulting commit — via a scratch copy of
+   the `.mpr` extracted with `git show <commit>:TFC-TCXGraphPOC.mpr` into an isolated temp
+   directory, bypassing any running process, catalog cache, or working-tree state — showed the
+   `TargetUsers` clause **absent**.
+2. Ran again immediately after, this time to *remove* a different clause
+   (`.../WorkflowDefinition/Name = '...'`) that a live `SecurityRuntimeException` had traced to.
+   Same result: "Altered page", gate passed, and the same isolated-extraction check on that commit
+   showed the clause **still present**.
+
+Two consecutive silent no-ops on the identical widget, in the identical page, back to back — not a
+one-off. The live running app kept throwing the exact same `SecurityRuntimeException:
+No access rights for System$WorkflowDefinition/Name` after the "fix" that was supposed to remove
+that XPath clause, because the clause was never actually removed.
+
+**Distinct from [[BUG-84]]** (`SET DataSource = DATABASE Module.Entity` on a *DataView* silently
+**wipes** the datasource to nothing). This is a native **DataGrid**, the datasource *type* was
+never changing (`DATABASE System.WorkflowUserTask` before and after — only the WHERE clause
+differed), and the property **kept its old value** rather than being wiped. A different failure
+shape from the same family: `SET DataSource` on a widget's `WHERE` constraint appears to be a
+write that mxcli accepts syntactically, reports as applied, and passes structurally through
+mxbuild — but never actually reaches the persisted unit for at least the DataGrid case.
+
+**Workaround:** `CREATE OR REPLACE PAGE` for the whole page instead of `ALTER PAGE … SET
+DataSource` on a DataGrid. Verified reliable: the same page, entirely recreated with the corrected
+XPath, showed the correct value in `DESCRIBE PAGE` immediately after exec.
+
+**Process note:** this defect would have shipped silently if the fix hadn't been tested against
+the *running app* — `mx check`/mxbuild's "0 errors" and mxcli's own "Altered page" success message
+were both wrong signals, agreeing with each other and both wrong. Only clicking through the actual
+UI (twice, since the first re-test still showed the bug because the exec before it had *also*
+silently no-op'd) surfaced it. Recorded per this project's own `tool-output-is-not-ground-truth.md`
+discipline.
+
+## BUG-103: `DESCRIBE MICROFLOW` emits `log` strings with embedded doubled quotes that `mxcli check` then rejects — round-trip asymmetry
+
+**Severity:** Medium — breaks the describe→edit→exec loop for any microflow whose log message quotes a name
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08-28, TFC-TCXGraphPOC-main, rebuilding `TFC.WF_ACT_GraphAgent_RiskFlag` from its own `DESCRIBE` output
+**Reproducible:** yes, deterministic — isolated with a two-probe bisection
+
+`DESCRIBE MICROFLOW` round-trips a log activity whose message contains a quoted name as:
+
+```
+log warning node 'WF_GraphAgent' 'No agent titled ''Graph Agent'' configured';
+```
+
+Feeding that exact output back through `mxcli check` fails with
+**"Unexpected token after expression"** (reported as glued keywords at the doubled quotes).
+The identical `''…''` escape inside a `@caption` annotation in the same script parses fine —
+the escape is only rejected in `log` message strings. So a microflow that `DESCRIBE` prints
+cannot be re-executed unmodified: the CLI's own output is not valid input to its own parser.
+
+Bisection (probe scripts, one construct each): `@caption` with `''X''` → passes;
+`replaceAll` with a bracketed regex → passes; `log … '…''X''…'` → **fails**;
+the same `change`/`commit` body with the log line reworded → passes.
+
+**Workaround:** reword log message strings to avoid embedded quotes entirely
+(e.g. `…no AgentCommons.Agent titled Graph Agent configured…`). Purely cosmetic loss.
+
+**Related:** same describe→check round-trip family as [[BUG-84]]/[[BUG-96]] in spirit (tool
+output disagreeing with tool input), but this one is a parser gap, not a silent write no-op.
+
+## BUG-104: quoting a microflow parameter as `"$Name"` silently keeps the `$` in the parameter name — CE1613 at mxbuild while `check --references` passes
+
+**Severity:** High — the always-quote-identifiers house rule, applied to a parameter, produces a corrupt parameter name that only surfaces at the mxbuild gate
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08-31, TFC-TCXGraphPOC-main, writing a microflow taking a `TFC.TFCStub`
+**Reproducible:** yes
+
+The documented quoting rule ("always quote identifiers; quotes are stripped automatically")
+does not extend to the `$` sigil on a microflow parameter. Declaring
+
+```
+create microflow M.Flow ("$TFCStub": TFC.TFCStub) ...
+```
+
+strips the quotes but keeps the `$` **inside** the stored parameter name, so the model holds a
+parameter literally named `$TFCStub` whose body references `$TFCStub` — which now resolves as
+`$` + name `TFCStub` and matches nothing. `mxcli check --references` passes; the failure is
+CE1613 at mxbuild. Correct form: `$TFCStub: TFC.TFCStub` (sigil unquoted; quote only the
+bare-name identifiers).
+
+**Workaround:** never wrap the `$`-prefixed form in quotes. If already written, regenerate the
+microflow with the unquoted sigil.
+
+## BUG-105: `ALTER PAGE … REPLACE`/multi-root `INSERT` can register the same widget name twice, then fail every later edit with duplicate-name errors
+
+**Severity:** Medium — page becomes uneditable through mxcli for the affected names
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08 (TFC-TCXGraphPOC-main, iterating on agent-panel page edits)
+**Reproducible:** intermittent but recurred across sessions
+
+A `REPLACE widget WITH { … }` (and an `INSERT` whose block carries more than one root widget)
+can leave the page holding two registrations of one widget name. Later `ALTER PAGE`
+operations naming any widget on that page then fail with a duplicate-name error even though
+`DESCRIBE PAGE` renders a single occurrence.
+
+**Workaround:** `CREATE OR REPLACE PAGE` from a clean `DESCRIBE` dump under fresh names, or
+edit via MCP `pg_patch_page`. Prefer single-root blocks in `REPLACE`/`INSERT`.
+
+## BUG-106: widget names stay burned after a rolled-back exec — a restore of the `.mpr` does not free names the failed script had claimed
+
+**Severity:** Medium — retrying a failed page script verbatim fails on names that no longer exist in the model
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08 (TFC-TCXGraphPOC-main, exec.sh auto-restore path)
+**Reproducible:** yes within a session
+
+After an exec fails mxbuild and the snapshot is restored, re-running the corrected script can
+still be rejected with duplicate-widget-name errors for names that only ever existed in the
+rolled-back attempt — the name registry appears to survive the restore (cache keyed on the
+project path, not the file contents). `DESCRIBE PAGE` on the restored model shows the names
+absent.
+
+**Workaround:** bump the widget names (suffix `2`), or clear/refresh the mxcli catalog cache
+before retrying. Renaming is the reliable path; it is why several TFC pages carry `_v2`
+widget names.

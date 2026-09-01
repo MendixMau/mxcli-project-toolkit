@@ -575,6 +575,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Standing up or extending the Playwright e2e harness | `skills/e2e-harness-base.md` |
 | Writing DB assertion tests that cross-check UI state against the database | `skills/learned-db-assertions.md` |
 | Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness | `skills/fixture-seeding.md` |
+| Handing a headlessly-built model to a HUMAN to open, run and demo — Studio Pro, a sandbox, a colleague. The model travels; the data and the runtime configuration do not, and that gap is silent | `skills/handoff-to-studio-pro.md` |
 | Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red | `skills/journey-proof.md` |
 | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works | `skills/monkey-test.md` |
 | UX audit and screenshot-loop discipline | `skills/learned-skill-ux-audit.md` |

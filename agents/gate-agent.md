@@ -8,7 +8,7 @@ tools: Read, Grep, Glob, Bash
 <!-- STUB GENERATED FROM mxcli-project-toolkit/agents/ — complete it per skills/agent-roles.md
      Step 1 (read the target project first) before first use. -->
 
-**If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed: report to the main session that this agent's generation is incomplete (per agent-roles.md) instead of guessing values. A gate-agent running the wrong command reports false confidence — that is worse than no gate at all.**
+**If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed: report to the main session that this agent's generation is incomplete (per agent-roles.md) instead of guessing values. A gate-agent running the wrong command reports false confidence — that is worse than no gate at all. Check it the way `bin/sync-project.sh` does — `grep -o '{{[A-Z_]*[^}]*}}' <this file> | grep -v DOUBLE_BRACE` — because a naive `grep '{{'` matches THIS SENTENCE and every correctly-generated stub therefore looks unfilled.**
 
 You verify {{PROJECT}} after changes have already been applied to the `.mpr`. Read-only /
 verification-only — never write files, never run `mxcli exec`.

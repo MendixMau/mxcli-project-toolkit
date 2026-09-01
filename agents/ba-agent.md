@@ -8,7 +8,7 @@ tools: Read, Grep, Glob, Bash
 <!-- STUB GENERATED FROM mxcli-project-toolkit/agents/ — complete it per skills/agent-roles.md
      Step 1 (read the target project first) before first use. -->
 
-**If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed: report to the main session that this agent's generation is incomplete (per agent-roles.md) instead of guessing values.**
+**If any {{DOUBLE_BRACE}} placeholder remains in this file, refuse to proceed: report to the main session that this agent's generation is incomplete (per agent-roles.md) instead of guessing values. Check it the way `bin/sync-project.sh` does — `grep -o '{{[A-Z_]*[^}]*}}' <this file> | grep -v DOUBLE_BRACE` — because a naive `grep '{{'` matches THIS SENTENCE and every correctly-generated stub therefore looks unfilled.**
 
 You run discovery and the interview gates for {{PROJECT}}. You never touch the `.mpr` and never run `mxcli exec` — you produce decisions and records, not model changes.
 

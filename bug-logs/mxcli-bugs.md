@@ -1260,6 +1260,70 @@ trigger is not covered by that existing guard because it is a different code pat
 
 ---
 
+## BUG-101: mxcli-authored Gallery widget fails mxbuild CE0463 even after full regeneration ⚠️ NOT YET FILED — `add_repo` denied access to `mendixlabs/mxcli`
+
+**NOT YET FILED.** The filing session already had `mxcli-project-toolkit` (owner `mendixmau`)
+attached and `add_repo` refused a cross-owner attach: `cross-tier adds are not supported in v1:
+requested "mendixlabs/mxcli" but session already has repos from owner(s) [mendixmau]`. A session
+started fresh with `mendixlabs/mxcli` as its initial source should be able to file this
+directly. Full repro and suggested fix:
+`bug-logs/pending-github-issues/gallery-widget-ce0463-survives-regeneration.md`.
+
+**Severity:** High — a Gallery page authored entirely through mxcli passes every mxcli-side
+check yet permanently fails headless `mxbuild`, and no mxcli command (`check`, `widget sync`,
+full page regeneration, or single-widget regeneration with a fresh element ID) repairs it.
+**Discovered:** 2026-09-01, a dashboard-publishing migration project, mxcli v0.20.0
+(2026-08-28T13:22:53Z), Mendix 11.12.1, Gallery pluggable widget package 3.4.0
+(`com.mendix.widget.web.gallery.Gallery`), split-model project.
+**Reproducible:** Yes, consistently — retested same day, identical `elementId`/`unitId` and
+message.
+
+### What happens
+Any Gallery widget mxcli authors via `CREATE PAGE` (or `ALTER PAGE ... REPLACE` with a brand-new
+instance/element ID) fails headless `mxbuild` on that specific instance with:
+```
+CE0463: "The definition of this widget has changed. Update this widget by right-clicking it
+and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app."
+```
+It is the only error in the build — everything else is Warning/Deprecation. Repro:
+```bash
+./mxcli docker check -p <project>.mpr        # 0 errors — looks fine
+timeout 60 ./mxcli run --local -p <project>.mpr --ensure-db 2>&1   # mxbuild --serve; CE0463 fires
+```
+
+### Why it is not stale/corrupted instance data
+1. `mxcli check <script>.mdl -p <project>.mpr --references` passes clean.
+2. `mx check` (Studio Pro's own headless modeler) reports **0 errors** on the same `.mpr` — it
+   appears to tolerate/auto-normalize the mismatch in-memory rather than surface it.
+3. `mxcli widget sync -p <project>.mpr` reports "nothing to do", or fixes unrelated widgets
+   (Image widgets elsewhere in the project) — it never detects or fixes this Gallery instance.
+4. Regenerating the **entire containing page** from scratch does **not** fix it — identical
+   error persists.
+5. Regenerating **just the one widget instance** (fresh element ID) via `ALTER PAGE ... REPLACE`
+   **still** produces the identical CE0463 error, on the new element ID.
+
+(4) and (5) rule out stale data: a fresh element, freshly written, in a freshly regenerated
+page, fails the same way. The defect is in what mxcli serializes for a Gallery widget's stored
+configuration — likely a missing/mismatched property or version stamp that headless `mxbuild`'s
+stricter widget-definition check enforces but `mx check` does not.
+
+### Prevention
+Treat `Gallery` (and other pluggable widgets with template/child-slot bodies) as risky
+`CREATE PAGE` targets: verify with a real `mxcli run --local` / headless `mxbuild` pass, not
+just `mxcli check` or `mx check` — both of those report clean on this exact defect.
+
+### Recovery
+No mxcli-side fix found. Workaround is to place/repair the Gallery widget in Studio Pro's GUI
+("Update widget"), which resolves CE0463 directly, then re-export/keep working in split format.
+
+### Toolkit-fix candidate
+`learned-mdl-preflight.md` / `learned-detection-gaps.md` STOP or WARN row: "Gallery (and other
+child-slot pluggable widgets) placed via CREATE/ALTER PAGE must be verified with a real
+`mxcli run --local` pass before being trusted — `mxcli check` and `mx check` both pass CE0463
+clean."
+
+---
+
 ## Studio Pro Git integration crashes on project open (Team Server repo) — detach .git to open
 
 **Discovered:** 2026-07-22 (a PLM parts-flow project, Studio Pro 11.12.1 Beta, Mendix Team Server Git repo, working branch `pipeline-artifacts`).

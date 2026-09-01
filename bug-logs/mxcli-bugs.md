@@ -1031,7 +1031,33 @@ Restore from the `.mpr-snapshots/` snapshot taken by exec.sh before the failing 
 **Reproducible:** Yes, 100% — not flaky  
 **Confirmed:** Mendix 11.12.0 Beta, 2026-07-06  
 **mxcli version when found:** v0.13.0 (confirmed on codec engine)  
-**Retested on v0.13.0:** Yes — still corrupts. Preflight rule 2 STOP (SP GUI only) remains valid.
+**Retested on v0.13.0:** Yes — still corrupted at the time.
+**RESOLVED — retested on mxcli v0.20.0 / Mendix 11.12.1, 2026-09-01: DOES NOT REPRODUCE.**
+Preflight STOP rule 2 is **retired**; use mxcli directly, no GUI fallback.
+
+> Re-run the test yourself: `tests/retests/retest-bug22-settings-writes.sh <mxcli> [content.mpr]`
+>
+> **18 executions, 0 errors on every one.** Six security-level toggles through all three levels
+> on an empty model; both sibling statements (`alter settings configuration`, `alter settings
+> model`); then ten consecutive toggles on a model carrying 23 scripts' worth of content; then a
+> full `mxbuild --target=deploy` — `BUILD SUCCEEDED`. Values round-trip: `SHOW PROJECT SECURITY`
+> reports `Production`, `DESCRIBE SETTINGS` reports the DatabaseType/Url written. A clean check
+> over a *lost* write would not be a pass, so the round-trip is asserted separately.
+>
+> **The test is the bug report's own detector.** The Symptom section below says the project fails
+> to load "on the next SP open **or `mx check`**". `mx check` runs headlessly, so this rule was
+> falsifiable without Studio Pro the whole time. **Honest limit:** no Studio Pro exists in a Linux
+> container, so the SP-open path is not independently exercised — but the rule's own stated
+> detector is, and it is clean.
+>
+> **This confirms a retest the toolkit already had.**
+> `all-bugs-consolidated-2026-08-06.md` item 4 recorded `BUG-LOCAL-05` passing on both forks on
+> 2026-08-04 and flagged the rule as possibly stale and unreconciled. It sat that way for a month
+> while every project was sent to the GUI for a statement mxcli implements correctly.
+>
+> Found by a dashboard-publishing migration, which had already run the statement for real (its
+> `PROJECT.md` ruling R8 recorded the deviation and the retest scope); its model still checks
+> clean after dozens of exec cycles and a live `mxcli run`.
 
 ### Symptom
 The statement executes and reports success ("Updated configuration 'Default'"). On the next SP open or `mx check`, the project fails to load with `AggregateException` / "Expected '$ID' as the first property..." in the Settings unit. The *field* where corruption manifests varies between attempts (seen on `EnableMicroflowReachabilityAnalysis`, `EnableNewWidgetGeneration`, `UrlPrefix`) — this shift is the signature of a BSON stream-desync: once one object is written malformed, the next object in the same write batch inherits the corruption, appearing as an unrelated field error.

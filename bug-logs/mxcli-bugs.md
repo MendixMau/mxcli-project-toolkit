@@ -1221,6 +1221,45 @@ The entire toolkit workflow assumes split format: mxcli's own MDL exec writes *i
 
 ---
 
+## 🚨 CRITICAL: `mxcli run --local` also collapses split-model `.mpr` to monolithic — second trigger, same failure as marketplace install
+
+**Discovered:** 2026-09-01, a dashboard-publishing migration project, mxcli run --local via
+`project-tests/app.sh start` (`./mxcli run --local -p PuffinDashboards.mpr --ensure-db`),
+Mendix 11.12.1, split-model project (219 tracked `mprcontents/*.mxunit`, ~78 KB `.mpr`).
+
+This is the SAME failure as the `marketplace install` entry above (collapse to monolithic
+`.mpr`, `mprcontents/` deleted from disk) but from a **different, much more commonly used
+trigger**: simply running the app locally. `.mpr` went 77,824 bytes → 15,446,016 bytes;
+`git status` showed 438 `D` + 2 `M` after a single `app.sh start` / `app.sh restart`. Caught
+before commit only because this project's own build discipline runs `git status` before any
+commit — a session that trusts `git add -A` blindly would have committed the collapse and lost
+git's ability to diff every future model change file-by-file.
+
+**Why it matters more than the marketplace-install trigger:** `mxcli marketplace install` is a
+rare, occasional operation a session is likely to pause before. Running the app locally to
+verify a fix on screen is routine — the toolkit's own field-proof discipline in this repo's
+`CLAUDE.md` (§ "Shipping an instrument") requires it ("one field run, cited"). A workflow that
+requires routine local runs and silently corrupts the git-friendly format on every one of them
+is a landmine directly on the path the toolkit itself mandates.
+
+**Prevention (the rule, until upstream fixes it or a flag is found):** `project-bin`/
+`project-tests` start scripts for a split-model project MUST snapshot (`bin/snapshot-mpr.sh` or
+equivalent) before every `mxcli run --local` / `mxcli run --local --watch`, and the session MUST
+run `git status` — never a blind `git add -A` — before any commit that follows a local app run.
+Restore split format after verifying on screen, before committing anything else:
+```bash
+git checkout HEAD -- <project>.mpr mprcontents/   # or bin/restore-mpr.sh <pre-run-snapshot>
+```
+Not yet confirmed whether a `run --local` flag avoids the collapse, or whether it is specific to
+`--ensure-db` / a particular mxbuild version — retest and update this entry if found.
+
+### Toolkit-fix candidate
+`project-tests/app.sh`'s `start` action should call `bin/snapshot-mpr.sh` unconditionally before
+launching `mxcli run --local`, the same way `bin/exec.sh` already does before an MDL exec — this
+trigger is not covered by that existing guard because it is a different code path.
+
+---
+
 ## Studio Pro Git integration crashes on project open (Team Server repo) — detach .git to open
 
 **Discovered:** 2026-07-22 (a PLM parts-flow project, Studio Pro 11.12.1 Beta, Mendix Team Server Git repo, working branch `pipeline-artifacts`).

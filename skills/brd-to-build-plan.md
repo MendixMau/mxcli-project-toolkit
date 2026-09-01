@@ -290,6 +290,14 @@ Every row is one of five kinds, sharing one numbering and one dependency graph. 
   phase's rows; create it if absent, extend it if thin.* Exactly one per phase, always first.
 - **`BUILD`** — writes model. One entity, one microflow group (≤6), or one page section.
 - **`PROVE`** — headless and mechanical, mid-phase. `mxcli test`, a `curl`, a `DESCRIBE` read-back.
+  On mxcli ≥ v0.19.0, `.test.mdl` suites are a first-class PROVE instrument: `@setup` really
+  runs its microflow, `@verify` really evaluates its OQL (holds / fails-with-the-value /
+  cannot-evaluate = ERROR), and `@cleanup rollback` really rolls back — **before v0.19 all
+  three were parsed and ignored, so no `@verify` could ever fail**. Two consequences: prefer a
+  `.test.mdl` PROVE row over a journey when the assertion is data-shaped (far cheaper, and
+  `--watch` gives a ~2s edit-to-verdict loop); and a pre-v0.19 suite re-run on a new binary
+  that suddenly fails is surfacing real findings its vacuous `@verify`s never asserted — treat
+  those as bugs found, not regressions introduced.
 - **`RUN`** — deploy, reopen Studio Pro, walk the happy path as a demo user.
 - **`HARNESS`** — invoke a named harness or skill (`journey-runner.js`, `design-audit.js`, …).
 

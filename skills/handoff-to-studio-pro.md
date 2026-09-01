@@ -134,7 +134,7 @@ first one is silent when you get it wrong.
 **The dump alone is not enough — secrets are encrypted at rest.** Measured on DealIQ
 (2026-09-01): `mxgenaiconnector$configuration.accesstoken` reads
 
-    {AES3}naU56KhLA8WU…      (111 chars)
+    {AES3}<base64 ciphertext>    (111 chars)
 
 That is the Encryption module's ciphertext, keyed on the `Encryption.EncryptionKey` constant.
 On this project that constant lives in `app/.mxcli/constants.json`, which is **gitignored** —

@@ -20,7 +20,7 @@ would have taken four minutes to find at Stage 3, when the design was still chea
 | The design says | MDL offers | Status |
 |---|---|---|
 | A **file upload** control | nothing. `mxcli syntax page.widgets` prints the complete keyword set and there is no `filemanager`/`fileuploader`/`imageuploader` in it — `filemanager fm (…)` is a parse error, not an unknown property | ⛔ **not buildable** |
-| A **pluggable widget with a list-valued property** (an HTML element's `attributes`, a chart's `series`, a datagrid's `columns` written by hand) | nothing. `attribute a (…)` and `attributes { … }` are both parse errors inside a `pluggablewidget` block, and `item a (…)` **parses, passes `check --references`, and fails at exec** with `item must be a direct child of navigationlist` — the one keyword that parses belongs to another widget | ⛔ **not buildable** |
+| A **pluggable widget with a list-valued property** (an HTML element's `attributes`, a chart's `series`, a datagrid's `columns` written by hand) | nothing. On v0.20.0 a pluggable widget takes **scalar properties in parens and no body at all**: `pluggablewidget '<id>' <name> ( tagName: 'div' )` parses, and *every* body form is rejected with `mismatched input '<keyword>' expecting '}'` — the object-list keywords (`attribute`, `event`) and the child-slot keywords (`tagcontentcontainer`) alike | ⛔ **not buildable** |
 | A page-level **boolean a button toggles** (a collapsible section, a show/hide) | page `variables:` exist and can be READ by `visible:`, but nothing in MDL writes one — that needs a nanoflow | ⛔ **not buildable** |
 | A **gallery empty-placeholder** | no `emptyState`/`emptyplaceholder` block on `gallery` (`datagrid` DOES have `emptyplaceholder`) | ⚠️ **workaround**: a one-attribute non-persistent entity the page switches on |
 | An **aggregate over an association** inside a gallery/listview template | client expressions have no `count()`; XPath does, but a template expression is not XPath | ⚠️ **workaround**: denormalise, with ONE writer that recomputes rather than increments |
@@ -53,6 +53,24 @@ properties, MDL cannot configure it.
 The temptation is a workaround that renders something. Resist it where the workaround changes a
 property the design chose deliberately — that is how a security decision gets undone by a
 convenience.
+
+> **The generated widget docs will tell you the opposite. Do not believe them — probe.**
+> `mxcli widget init` writes `app/.ai-context/skills/widgets/<widget>.md` for every widget the
+> project has, explicitly for an agent to read, and for a pluggable widget those files carry an
+> **MDL Example**, a **Child Slots (curly-brace blocks)** table and an **Object Lists (repeating
+> child entries)** table — all showing `PLUGGABLEWIDGET '<id>' widget1 { attribute item1 … }`.
+> On v0.20.0 not one of those keywords parses. The doc is authoritative-looking, written for you,
+> and on disk from the first `widget init`.
+>
+> This cost two sessions on one build: the first concluded "not buildable" from guessed syntax
+> (and a wrong widget id — `...widget.custom.htmlelement...` for `...widget.web.htmlelement...`,
+> which makes mxcli answer `no definition for widget`, which reads as "not available"); the
+> second read `htmlelement.md`, believed the feature was available, announced it, and had to
+> retract after four probes. **The right conclusion was reached twice by the wrong route.**
+>
+> So: the four-minute probe below is not optional when a generated doc disagrees with you, and
+> `mxcli diff -p <app>.mpr <probe>.mdl` is how to run it — read-only, no exec, no snapshot risk.
+> Filed upstream as `bug-logs/pending-github-issues/widget-init-docs-do-not-parse.md`.
 
 The field case: a sandboxed HTML frame (`iframe` + `sandbox="allow-scripts"`, deliberately no
 `allow-same-origin`) was unbuildable because the widget's `attributes` is an object list. But

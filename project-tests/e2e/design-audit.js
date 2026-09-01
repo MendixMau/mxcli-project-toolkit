@@ -1018,6 +1018,15 @@ async function main() {
     }));
     instruments.push({ name: 'design-audit', verdict: 'fault', reason: scopeErr || 'no pages in scope' });
     write({ startedAt, checks, instruments, pages: [], perPage: [], stats: null });
+    // EXIT 2, not a bare return. verify-module.sh reads the process exit code, not the JSON:
+    // its contract is `kind=gate -> exit 1 = finding, exit 2 = instrument fault`. A bare return
+    // exits 0, which that script's `*:0) verdict=PASS` arm stamps as PASS, and the PASS then
+    // propagates into summary.tsv, coherence-cadence.sh and build-plan-status.sh. A real field
+    // run recorded `mode=static-only pages=0 fault=2` as PASS: the audit resolved no pages at
+    // all and reported success. An instrument that cannot express its own failure is not a
+    // check, and this is the same class of defect as the mxbuild gate that silently skipped on
+    // Windows -- it says a word that looks like verification without having verified anything.
+    process.exitCode = 2;
     return;
   }
   checks.push(row({
@@ -1122,6 +1131,18 @@ function write({ startedAt, checks, instruments, pages, perPage, stats, controlR
     console.log('\nfindings:');
     for (const f of failing.slice(0, 60)) console.log(`  [fail] ${f.id}\n         ${f.detail}`);
     if (failing.length > 60) console.log(`  … ${failing.length - 60} more`);
+  }
+
+  // The exit code IS the verdict, for every caller that is not reading the JSON. Faults outrank
+  // findings: "the instrument did not run" and "the instrument ran and found problems" are
+  // different facts and must not collapse into one code. See the note at the scope-fault return.
+  const faulted = checks.filter((c) => c.verdict === 'fault')
+    .concat(instruments.filter((i) => i.verdict === 'fault'));
+  if (faulted.length) {
+    console.log(`\ndesign-audit: INSTRUMENT FAULT (${faulted.length}) — this run measured nothing reliable.`);
+    process.exitCode = 2;
+  } else if (failing.length) {
+    process.exitCode = 1;
   }
 }
 

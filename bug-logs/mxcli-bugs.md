@@ -4624,3 +4624,215 @@ None found via MDL. Either:
 action button to open a related detail page with the current run passed as a parameter,
 outside any dataview), confirmed via `DESCRIBE PAGE` round-trip and two independent rewrite
 attempts before reverting the widget to restore a green build.
+
+## BUG-96: full page regeneration never wires a parameterized microflow datasource on a top-level `dataview` — only implicit binding through nesting works
+
+### Summary
+
+A `dataview` whose `DataSource: microflow X` requires **any** parameter cannot have that
+parameter wired by a full `create or modify page` regeneration, when the dataview is a direct
+child of the page body (not nested inside another dataview/snippet). Confirmed even when the
+page is reproduced **byte-for-byte identical to its own pre-existing, working original** — no
+edits at all — native `mx check` still throws `CE1571 "No argument has been selected for
+parameter '...' and no default is available."` for every such parameter. `mxcli check
+--references` and the exec's own "Created page ..." success message both stay silent; this is
+caught only by a real native `mx check` (or Studio Pro's own error pane).
+
+### What does NOT fix it
+
+- Adding an explicit `Params: { Param: $value }` clause on the dataview: `mxcli check` accepts
+  this syntactically (no error), but the writer still drops the mapping — native check still
+  fails identically.
+- Using an enum literal as a `Params:` value (e.g. `Params: { StationKey:
+  Approval.StationKey.WFST010 }`): rejected outright by `mxcli check` itself
+  (`mismatched input 'Approval' expecting VARIABLE`) — `Params:` accepts only `$variable`
+  references, never literals, on any binding.
+- Reducing the microflow to a single parameter, while keeping the dataview a direct child of
+  the page body: still fails. Parameter *count* is not the variable — nesting is.
+
+### What does fix it — implicit binding through nesting
+
+The writer *can* wire a microflow-datasource dataview's parameter, but only when the dataview
+is nested one level inside another dataview/snippet whose own current-object type exactly
+matches the microflow's sole parameter type, and the inner dataview has **no** `Params:` clause
+at all:
+
+```
+dataview dvOuter (DataSource: $PageParam) {
+  dataview dvInner (DataSource: microflow Module.SingleParamMicroflow) {
+    -- $currentObject here is whatever SingleParamMicroflow returns
+  }
+}
+```
+
+`SingleParamMicroflow` must take exactly one parameter, of the same type as `$PageParam`
+(or whatever the outer dataview's current-object type is). If the real business logic needs
+more inputs than that one type provides (e.g. an enum literal that varies per page instance),
+write a thin single-parameter wrapper microflow that hardcodes the rest internally via a normal
+`call microflow` expression — enum literals *are* valid inside a microflow body, just never
+inside a page's `Params:` clause.
+
+Verify the mechanism on a disposable throwaway page first (create it, native `mx check`, then
+`DROP PAGE` it) before rolling out to real pages — a clean throwaway page next to N still-broken
+real ones in the same `mx check` run isolates the fix from everything else in flight.
+
+### Relationship to other bugs
+
+Same failure signature and root category as BUG-95 (`show_page` action ignoring the named
+variable, defaulting to `$currentObject`) and the already-documented "snippetcall doesn't
+auto-infer Params on full regen" / "`ALTER PAGE REPLACE` silently unbinds `Attribute:`
+shorthand" findings in `skills/datagrid-customcontent-text-binding.md` — all are instances of
+mxcli's writer silently failing to wire a parameter/argument mapping that Studio Pro's own GUI
+always forces the user to complete, while `mxcli check` has no way to see the gap. Distinct from
+BUG-56 (DataGrid2 datasource parameterized-microflow binding, resolved v0.17.0) — this is a
+plain `dataview`, not a DataGrid2 grid, and remains open as of v0.18.0.
+
+### Workaround
+
+Use the nested-nesting pattern above. Do not attempt a third variation of the `Params:` clause
+on a non-nested dataview — the defect is structural (missing implicit-binding pass for
+top-level dataviews), not a syntax problem.
+
+**Discovered:** 2026-08-21, a client project (15 native-Workflow "station task" pages, each
+needing a dataview scoped to a lookup microflow keyed by the page's `WorkflowUserTask`
+parameter plus a per-page enum literal), confirmed via a disposable throwaway test page that
+isolated the nesting mechanism as the actual fix, after a full 15-page rebuild attempt without
+nesting produced `CE1571` on all 15 despite `mxcli check --references` passing clean throughout.
+
+---
+
+## BUG-97: `ALTER PAGE REPLACE` cannot reliably bind a multi-entry `ContentParams` array on a gallery/listview-template `dynamictext`, even with a distinct widget name and bare attribute names
+
+**Severity:** Medium — silent failure (`mxcli check --references` passes, `mxcli exec` reports success, only native `mx check` catches it via CE0402)
+**Reproducible:** Yes
+**Mendix version:** 11.13.0
+**mxcli version when found:** v0.18.0
+
+### Steps to reproduce
+
+1. On a page with a `gallery`/`listview` template containing a working `dynamictext` with a
+   single-entry `ContentParams` (e.g. the pre-existing `txtChainLabel (Content: '{1}', ContentParams:
+   [{1} = StationKey])` sibling widget) — confirming the bare-attribute-name convention already
+   works in this exact template context.
+2. Add a *new* `dynamictext` in the same template via
+   `ALTER PAGE Module.Page { REPLACE "oldWidget" WITH { DYNAMICTEXT "newDistinctName" (Content: '{1} · {2}', ContentParams: [{1} = Attr1, {2} = Attr2], Class: 'hint') } }`,
+   using a placeholder/unbound `oldWidget` as the anchor, a genuinely distinct replacement name
+   (ruling out BUG-08's duplicate-name case), and bare (unqualified) attribute names for both
+   `ContentParams` entries (ruling out BUG-23's `$currentObject/` prefix case).
+3. Run `mxcli check <script> -p Project.mpr --references` — passes clean, "All references valid".
+4. Run `mxcli exec <script> -p Project.mpr` — reports `Altered page Module.Page` with no error.
+5. Run `DESCRIBE PAGE Module.Page` — the new widget shows `ContentParams: [{1} = <unbound>, {2} = <unbound>]`.
+6. Run native `./mxcli docker check -p Project.mpr` (or `mx check` directly) — fails with
+   `[CE0402] "No value specified." at Text 'newDistinctName'` (x2, once per entry point).
+
+### Root cause (inferred)
+
+Same underlying defect family as the already-documented "`ALTER PAGE REPLACE` silently unbinds
+`Attribute:` shorthand" and BUG-07/BUG-08 (dynamictext-with-ContentParams uses a pluggable
+widget storage format that `REPLACE`'s widget-construction path does not fully serialize).
+This confirms the defect is **not limited to** duplicate names (BUG-08), `$currentObject/`
+prefixes (BUG-23), or single-entry `ContentParams` — a distinct name and bare attribute names
+in a **2-entry** array still fails to bind via `REPLACE`, even in a template context where the
+identical bare-attribute-name pattern already works for a sibling widget created at original
+page-authoring time (not via `ALTER PAGE`).
+
+### Workaround
+
+Do not use `ALTER PAGE REPLACE` to introduce any new `ContentParams`-bearing `dynamictext`,
+regardless of entry count, name distinctness, or attribute-path form. Instead: fetch the full
+current page via `DESCRIBE PAGE`, patch only the target widget block in that output, and
+re-apply the whole page via `create or replace page` (swap the `create or modify page` keyword
+`DESCRIBE PAGE` emits for `create or replace page`). Verify with native `mx check`, not
+`mxcli check --references` alone — the latter cannot see this class of defect at all.
+
+### Relationship to other bugs
+
+Generalizes BUG-07/BUG-08/BUG-23 and the "`ALTER PAGE REPLACE` silently unbinds `Attribute:`
+shorthand" rule already in `docs/BUILD-LOG.md` on this project: the safe rule is now **never
+use `ALTER PAGE REPLACE` to introduce any new bound widget** (Attribute: shorthand, single- or
+multi-entry ContentParams) — always rebuild via `create or replace page` and verify with native
+`mx check`.
+
+**Discovered:** 2026-08-21, a client project, fixing a missing actor/timestamp display on
+`Approval.Approval_FlowDiagram`'s per-station flow-chain gallery template.
+
+---
+
+## BUG-98: a dangling `jump to` target in a workflow body is silently stored as a self-referencing jump — `check --references` and `exec` both pass, native `mx check` reports the wrong error
+
+**Filed:** [mxcli#1005](https://github.com/mendixlabs/mxcli/issues/1005) — 2026-08-31.
+**Binaries:** reproduced on **v0.20.0** (`2026-08-28T13:22:53Z`), darwin-arm64, tagged release.
+**Mendix:** model 11.13.0; gate `mx` from Studio Pro 11.13.0 Beta via `mxcli docker check`.
+
+`jump to X` where `X` matches no activity in the workflow passes `mxcli check --references`
+and `mxcli exec` without complaint. mxcli then writes the `JumpToActivity` with **its own
+`Name` set to `X`** and `TargetActivity` set to `X` — the jump targets itself. Native
+`mx check` fails with `CE6681 "It is not possible to jump to end activities or jump-to
+activities."`, which names a different fault (jump legality) than the real one (unresolved
+reference), and sends the reader looking in the wrong place.
+
+**Write-path, not read-back** — confirmed by `strings -n 3` on the stored `.mxunit`, not by
+`DESCRIBE` (Gate 1, [[bug-submission-checklist]]). The gate was proved sensitive: native
+`mx check` goes red on the broken arm and clean on the fixed one.
+
+| `jump to <target>` | `check --references` | `exec` | native `mx check` |
+|---|---|---|---|
+| a real activity name | pass | pass | **0 errors** |
+| any name matching nothing | pass | pass | **CE6681** |
+
+**The name to target is the called microflow's name.** mxcli names a call-microflow activity
+after the microflow it calls (`SUB_CheckPackageAvailability`), and the grammar offers no way
+to name an activity explicitly — `CALL MICROFLOW` accepts only `COMMENT` and `OUTCOMES`.
+
+**Why it is easy to hit:** `DESCRIBE WORKFLOW` emits jump targets using the *source* model's
+activity names, so `describe → exec` reliably produces a dangling target. See
+[[learned-workflow-patterns]] §21.
+
+**Workaround:** repoint every `jump to` at a real activity name before exec, and gate on
+native `mx check` — no mxcli command detects this.
+
+---
+
+## BUG-99: `DESCRIBE WORKFLOW` output is not re-executable — two independent emitter defects
+
+**Filed as two issues, 2026-08-31**, because the fixes live in different places (Gate 3,
+[[bug-submission-checklist]]):
+
+- [mxcli#1006](https://github.com/mendixlabs/mxcli/issues/1006) — **targeting XPath inner
+  quotes are not doubled.** Input `'[System.UserRoles = ''[%UserRole_Banker%]'']'` reads back
+  as `'[System.UserRoles = '[%UserRole_Banker%]']'`, so the string terminates early and
+  `mxcli check` fails with `mismatched input '[%UserRole_Banker%]' expecting ';'`. Every
+  later statement cascades. Read-back only — the stored XPath is correct.
+- [mxcli#1007](https://github.com/mendixlabs/mxcli/issues/1007) — **`annotation` statements
+  are emitted that mxcli's own checker rejects** with `MDL-WF04`. A real 23-activity workflow
+  produced 13 of them from unmodified describe output. Requested fix: emit canvas annotations
+  as MDL comments, which is MDL-WF04's own remediation advice.
+
+**Binaries:** both on **v0.20.0** (`2026-08-28T13:22:53Z`), Mendix 11.13.0.
+
+Same family as #619 (unquoted reserved-word identifiers) and #978 (DESCRIBE PAGE rejected by
+mxcli's own check) — the emitter is not held to the parser's grammar by any test.
+
+**Practical consequence:** `describe → exec` needs three hand fixes before it will run — double
+the XPath quotes, strip the annotations, repoint the jumps (BUG-98).
+
+---
+
+## Cleared on v0.20.0 — three workflow defects re-probed and confirmed fixed
+
+**Probed 2026-08-31** on v0.20.0 against a real 23-activity conversion workflow rebuilt from
+pure MDL in a throwaway clone, gated with native `mx check`. Result: **0 errors**.
+
+| Defect | Entry | Status on v0.20.0 |
+|---|---|---|
+| `DECISION` corrupts the `.mpr` | BUG-76 | **Fixed.** `ExclusiveSplitActivity` stored and natively loaded. |
+| MDL-written `BOUNDARY EVENT … TIMER` always malformed (`CE0105`) | project TL-04(d) | **Fixed.** Timer wrote and loaded, reading a context attribute. |
+| pre-11.9 `Workflows$CallMicroflowTask` `$Type` | BUG-WF06 | **Fixed.** 14/14 stored as `CallMicroflowActivity`. |
+
+Also new in v0.20.0: `create or replace workflow` now **refuses** when the target contains an
+Event Sub-Process ("MDL cannot express one — rewriting the workflow would delete it"), instead
+of silently destroying it. Do not read that guard's absence as safety on an older binary.
+
+Still unfixed: no branch-ending vocabulary — `end workflow activity`, `end activity`, `end`,
+`terminate`, `stop`, `end workflow instance` all fail to parse, so End activities on
+fall-through outcome arms remain a permanent hand edit.

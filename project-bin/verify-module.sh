@@ -173,10 +173,17 @@ _report_result() {
   [ "$rc" -eq 2 ] && [ "$secs" -ge "$tmo" ] && \
     echo "TIMED OUT after ${tmo}s — did not finish, so nothing was measured." >> "$log"
   local verdict
+  # ORDER IS THE LOGIC HERE. `*:0)` used to come first, which made the two arms below it
+  # unreachable for a clean exit: every rc=0 stamped PASS, and `kind=info` could never produce
+  # INFO at all. Harmless while instruments exited nonzero on failure -- and actively dangerous
+  # once one didn't. design-audit.js returned 0 on an instrument fault, so a run that resolved
+  # zero pages and measured nothing was written into summary.tsv as PASS, and from there into
+  # coherence-cadence.sh and build-plan-status.sh. Fault is checked FIRST because "did not run"
+  # must never be readable as "ran and was clean".
   case "$kind:$rc" in
-    *:0)      verdict=PASS ;;
     *:2)      verdict=FAULT ;;
     info:*)   verdict=INFO ;;
+    *:0)      verdict=PASS ;;
     *)        verdict=FINDING ;;
   esac
   case "$verdict" in

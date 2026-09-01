@@ -13,7 +13,14 @@
 - Before a Mendix version upgrade or a big refactor: record what the app does *today* so you can prove it still does it afterwards.
 - You inherited an app and need to understand it before touching it.
 
-Not for building anything new — that's `conversion-runbook.md` (pick an entry mode there).
+Not for building anything new. Two different places to go, depending on what "new" means:
+
+- **Changing the app you just audited** — adding a feature, altering a flow, restructuring a module →
+  `existing-app-change.md`. That skill starts where this one ends: Track B's baseline is its
+  precondition, not an optional extra, because an app with no specification has nothing else to be
+  checked against.
+- **Building a different app** — a migration from a non-Mendix source, or a new app →
+  `conversion-runbook.md` (pick an entry mode there).
 
 ## Ground rules
 

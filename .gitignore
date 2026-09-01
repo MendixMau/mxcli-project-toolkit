@@ -42,3 +42,8 @@ wip/
 # OS noise
 .DS_Store
 .session-notes.md
+
+# Claude Code session state (park notes, checkpoints, pending-write ledgers) —
+# machine-local by nature, and park notes routinely name real clients, which
+# the leak guard (bin/check-no-client-data.sh) must never see published.
+.claude/

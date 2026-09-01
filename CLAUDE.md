@@ -153,6 +153,13 @@ changed `bin/gate-check.sh` → also run `test-bug03-gates.sh`, `test-source-suf
 whatever else targets it). Grep `tests/wave2/` for the filename you changed if you're unsure
 which fixtures cover it.
 
+There are two separate suites. `tests/run-tests.sh [-v]` is self-contained (guard-script
+fixtures with no external argument). Each `tests/wave2/test-*.sh` fixture instead takes its
+subject-under-test as `$1` — read its own `usage:` comment rather than assuming a fixed target;
+several take something other than `gate-check.sh` (`exec.sh`, `sync-project.sh`,
+`check-docs-numbering.sh`, a skill file). Once you have permission for a single fixture (see
+below), run it as e.g. `bash tests/wave2/test-bug02-register.sh bin/gate-check.sh`.
+
 **Why:** this repo is routinely edited by more than one agent session at once (real incident,
 2026-08-19 — a peer session mid-edit reported known, unrelated failures already present in the
 shared working tree). A full-suite run over a moving target mixes someone else's in-flight

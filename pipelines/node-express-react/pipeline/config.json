@@ -1,5 +1,32 @@
 {
-  "_comment": "Set these paths after cloning — they point at YOUR local source workspace (never commit real paths). knowledgeBaseDir should point at analysis/<project>/knowledge-base per conversion-runbook.md's workspace convention, not inside the source checkout.",
+  "_comment": "Set these paths after cloning — they point at YOUR local source workspace (never commit real paths). knowledgeBaseDir should point at analysis/<project>/knowledge-base per conversion-runbook.md's workspace convention, not inside the source checkout. Better still: keep a project-local copy of this file and pass it as PIPELINE_CONFIG=/path/to/pipeline-config.json, so this committed file never holds a real path at all.",
   "sourceDir":        "<path-to-cloned-source-repo-root>",
-  "knowledgeBaseDir": "<project-root>/analysis/<source-name>/knowledge-base"
+  "knowledgeBaseDir": "<project-root>/analysis/<source-name>/knowledge-base",
+
+  "_layout_comment": "Where this source keeps its models, routes, schema and screens. The values below are the DEFAULTS the extractors use when `layout` is absent — the Cypress-RWA shape this pipeline was first built against. A source on the same stack with a different layout sets its own paths here instead of forking the extractors; that is the supported way to reuse this pipeline. Paths are relative to sourceDir.",
+  "layout": {
+    "modelDirs":         ["src/models"],
+    "modelFiles":        [],
+    "routeDirs":         ["backend"],
+    "routeFilePattern":  "-routes\\.ts$",
+    "routeModuleStrip":  "-routes",
+    "sqlDirs":           [],
+    "serverFiles":       [],
+    "screenDirs":        ["src/containers"],
+    "apiClientFiles":    [],
+    "skipEntityPattern": "Payload|Response|Query|Scenario|Pagination|Range|Value|Piece"
+  },
+
+  "_layout_keys": {
+    "modelDirs":         "dirs whose every .ts holds interfaces/type aliases/enums (index.ts skipped)",
+    "modelFiles":        "explicit files, for a source with one shared types module",
+    "routeDirs":         "dirs holding Express router files",
+    "routeFilePattern":  "regex matched against a filename in routeDirs",
+    "routeModuleStrip":  "removed from the basename to name the module",
+    "sqlDirs":           "CREATE TABLE / ALTER TABLE migrations — the most reliable domain source; DROP TABLE is honoured, migrations apply in filename order",
+    "serverFiles":       "files whose app.use('<prefix>', xRouter) calls give a router its mount prefix — without them a router declaring '/' extracts as a pathless endpoint",
+    "screenDirs":        "React page/component dirs, walked recursively",
+    "apiClientFiles":    "typed API-client modules (api.listThings() -> fetch('/api/things')) — without them a client-based app links zero screens to endpoints",
+    "skipEntityPattern": "regex of type names that are payloads/utilities, not persistent entities"
+  }
 }

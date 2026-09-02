@@ -174,15 +174,54 @@ fi
 GHOSTS="$(routing_missing_paths "$ROOT" | tr '\n' ' ')"
 [ -n "${GHOSTS// /}" ] && echo "NOTE: routed but not on disk yet:$( echo " $GHOSTS" | sed 's/ *$//')"
 
+# Coverage audit: every skills/**/*.md is routed or exempted (bin/lib/routing-exempt.tsv).
+# Fails --check — an unrouted skill is unreachable by anything that scans the tables, and the
+# first run of this audit found 6 such files, two with zero inbound references anywhere.
+# In render mode it warns but still renders: rendering the surfaces you CAN reach is the
+# remedy path, and a guard must never block the action that resolves it.
+ORPHANS="$(routing_unrouted_skills "$ROOT")"
+if [ -n "$ORPHANS" ]; then
+  echo "UNROUTED: skill(s) on disk with no routing row and no exemption:"
+  printf '%s\n' "$ORPHANS" | sed 's/^/    /'
+  echo "    → add a row to bin/lib/skill-routing.tsv (then re-render), or an exemption with a reason to bin/lib/routing-exempt.tsv"
+fi
+# Tier audit: a row whose `tier` is not one this renderer knows is routed NOWHERE, silently.
+# The coverage audit above cannot see it — the skill HAS a row, so it is not an orphan — and
+# every surface renders "in sync" because none of them was ever asked to include it. That is
+# the "a skill can be perfect and unreachable" failure this repo's own authoring rule 8 names,
+# reached by a single typo in one column.
+#
+# Found 2026-09-01, contributing a skill from a dashboard-publishing migration: the row said
+# `situational` where the renderer reads `ondemand`. `--check` printed "all skills routed or
+# exempted" over a skill that appeared in zero tables. One word of validation retires it.
+BAD_TIER="$(awk -F'\t' '
+  /^#/ || NF < 6 { next }
+  $6 != "baseline" && $6 != "ondemand" && $6 != "experimental" { printf "%s (tier: %s)\n", $1, $6 }
+' "$MXTK_ROUTING_TSV")"
+if [ -n "$BAD_TIER" ]; then
+  echo "UNKNOWN TIER: routing row(s) whose tier no surface renders — the skill is routed nowhere:"
+  printf '%s\n' "$BAD_TIER" | sed 's/^/    /'
+  echo "    → tier must be one of: baseline | ondemand | experimental"
+fi
+
+STALE_EXEMPT="$(routing_stale_exemptions "$ROOT")"
+if [ -n "$STALE_EXEMPT" ]; then
+  echo "STALE EXEMPTION(s) in bin/lib/routing-exempt.tsv (a dead exemption can silently swallow a future orphan):"
+  printf '%s\n' "$STALE_EXEMPT" | sed 's/^/    /'
+fi
+
 if [ "$MODE" = "check" ]; then
-  if [ -n "$DRIFTED" ] || [ -n "$UNWIRED" ]; then
+  if [ -n "$DRIFTED" ] || [ -n "$UNWIRED" ] || [ -n "$ORPHANS" ] || [ -n "$STALE_EXEMPT" ] || [ -n "$BAD_TIER" ]; then
     echo ""
     [ -n "$DRIFTED" ] && echo "drifted:$DRIFTED — hand-edited inside the markers, or the table moved."
     [ -n "$UNWIRED" ] && echo "unwired:$UNWIRED — add a <!-- ROUTING:BEGIN <view> --> block."
+    [ -n "$ORPHANS" ] && echo "unrouted skill(s) — see UNROUTED above."
+    [ -n "$STALE_EXEMPT" ] && echo "stale exemption(s) — see above."
+    [ -n "$BAD_TIER" ] && echo "unknown tier(s) — see UNKNOWN TIER above; the skill renders into no surface at all."
     echo "Fix the TABLE, then run: $0    (never hand-edit inside the markers)"
     exit 2
   fi
-  echo "Routing surfaces in sync with the table."
+  echo "Routing surfaces in sync with the table; all skills routed or exempted."
   exit 0
 fi
 

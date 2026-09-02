@@ -13,9 +13,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # check-pr-discipline.sh needs the merge base with the PR's target branch.
+          fetch-depth: 0
 
       - name: Scripts parse under bash and node (check-scripts.sh)
         run: bin/check-scripts.sh
+
+      # PRs only: the two merge-queue rules that broke by hand on 2026-09-01 (three of five
+      # queued PRs missing their CHANGELOG line; BUG-96..100 assigned twice in one day by
+      # sessions forked from stale masters). Push-to-master runs skip it: the diff basis is
+      # the PR relationship, and master itself is where the numbers become taken.
+      - name: PR discipline — changelog rides along, BUG numbers collision-free
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          bin/check-pr-discipline.sh "origin/${{ github.base_ref }}"
 
       - name: Routing tables in sync with skill-routing.tsv (render-routing.sh --check)
         run: bin/render-routing.sh --check

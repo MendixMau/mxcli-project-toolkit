@@ -150,7 +150,15 @@ for f in $TARGETS; do
     # draws neither.
     lvl="$(grep -oiE '<h[12][^>]*>' "$wf" | head -1 | grep -oiE 'h[12]' | tr 'a-z' 'A-Z')"
     [ -n "$lvl" ] || lvl="H1"
-    n="$(printf '%s' "$body" | grep -cE "RenderMode:[[:space:]]*$lvl\b")"
+    # -i, for the same reason the declaration grep above is -i: MDL is case-insensitive, so
+    # `rendermode: H2` and `RenderMode: H2` are one statement. Matching the property name
+    # case-sensitively reported "page has no RenderMode: H2 title block" against a page whose
+    # very next line was `dynamictext txtTitle (content: 'Dashboards', rendermode: H2)`
+    # (field-found on a dashboard-publishing migration, 2026-08-31). That is the identical
+    # defect the CREATE/PAGE note below records having already been fixed once in this file —
+    # a false POSITIVE this time rather than a silent skip, which is the louder half of the
+    # same bug and just as fast a way to get a guard switched off.
+    n="$(printf '%s' "$body" | grep -ciE "RenderMode:[[:space:]]*$lvl\b")"
     if [ "$n" -eq 0 ]; then
       report "$f:$ln" "page $page has no RenderMode: $lvl title block (its wireframe titles with <${lvl}>)" \
         "design-spacing.md §3: a full page opens with crumb + one page title at the wireframe's level (+ subtitle/actions where the wireframe has them). A full page with no title is a defect, not a layout choice."

@@ -947,7 +947,19 @@ has_confirmed_decision() {
       for (i = 3; i <= NF; i++) {
         f = toupper($i)
         gsub(/^[ \t]+|[ \t]+$/, "", f)
-        if (f == "CONFIRMED") found = 1
+        # Word-anchored, not string-exact. Projects routinely write the status as
+        # "CONFIRMED 2026-07-21" — status plus an inline date in one cell — and the
+        # string-exact test reported "no Stage-3/Stage-4 CONFIRMED decision" over a
+        # register holding eight of them (TFC-TCXGraphPOC, logged there as TD-07).
+        # That project logged the response as treating a real gate FAIL as known-false and
+        # stop reading it, which is precisely the habit gates exist to prevent.
+        #
+        # Still anchored at the START of the FIELD, so what d8117be bought is kept:
+        # a Notes cell that merely mentions the word ("groundwork, not confirmed
+        # yet") does not qualify, and neither does "NOT CONFIRMED". What this newly
+        # admits is a field that BEGINS with CONFIRMED and then continues — which is
+        # the convention it exists to accept.
+        if (f ~ /^CONFIRMED([ \t]|$)/) found = 1
       }
     }
     END { exit !found }
@@ -1412,15 +1424,15 @@ stage_protocol_paths() {
   # every stage as "(unmapped)" — noisy by design, but only after someone hits it.
   case "$1" in
 # <!-- ROUTING:BEGIN stage-map -->
-    P)  echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/bootstrap-project.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md" ;;
-    0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-scope.md skills/source-triage.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md" ;;
+    P)  echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/bootstrap-project.md skills/cloud-dev-environment.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md" ;;
+    0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-scope.md skills/source-triage.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/gate-check-file-locations.md" ;;
     1)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-extraction.md skills/migration-pipeline.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md skills/corpus-extraction-integrity.md" ;;
     2)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-brd.md skills/checkpoints/checkpoint-architecture.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
-    3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md" ;;
+    3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md skills/learned-mdl-cannot-express.md" ;;
     4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/rest-integration-first-time-right.md" ;;
-    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/design-spacing.md skills/ui-loop.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md" ;;
-    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md" ;;
-    7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md" ;;
+    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/design-spacing.md skills/ui-loop.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md" ;;
+    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md" ;;
+    7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md skills/handoff-to-studio-pro.md" ;;
     *)  echo "" ;;
 # <!-- ROUTING:END -->
   esac
@@ -2275,6 +2287,38 @@ echo "not a gate failure and does not affect the exit code — it is a stage nob
 echo ""
 printf "Summary: %d passed · %d not started · %d waived · %d need attention · %d manual\n" \
   "$N_PASS" "$N_PENDING" "$N_WAIVED" "$N_FAIL" "$N_MANUAL"
+
+# The stage counts above are about STAGES. They say nothing about the per-module passes and the
+# per-stage artifacts checked further up, and for a long time nothing down here did either — so
+# the last line of a run read "8 passed · 0 need attention" while three passes nobody had
+# performed sat reporting PENDING two screens above, and an obligation reported FAULT for days
+# without once appearing in anything anyone quoted.
+#
+# The rows remain the evidence and this remains a claim, so it stays a POINTER, not a verdict:
+# it names the counts and where to look, and it never touches the exit code. Obligations and
+# artifacts are informational by deliberate decision (see the blocks above); what was broken was
+# not that they failed to block, it was that they could be true and invisible at the same time.
+# The two halves are reported independently. A checker that did not run must read as "not
+# checked", never as a count of zero — "0 pending" over a check nobody performed is the exact
+# green-by-absence this whole block exists to retire.
+_roll=""; _owed=0
+if [ -n "${MXTK_OB_N_PENDING:-}" ]; then
+  _roll="Obligations: ${MXTK_OB_N_PENDING} pending · ${MXTK_OB_N_FAULT:-0} fault"
+  _owed=$(( _owed + MXTK_OB_N_PENDING + ${MXTK_OB_N_FAULT:-0} ))
+else
+  _roll="Obligations: NOT CHECKED"
+fi
+if [ -n "${MXTK_ART_N_PENDING:-}" ]; then
+  _roll="$_roll    Artifacts: ${MXTK_ART_N_PENDING} owed and absent · ${MXTK_ART_N_FAULT:-0} fault"
+  _owed=$(( _owed + MXTK_ART_N_PENDING + ${MXTK_ART_N_FAULT:-0} ))
+else
+  _roll="$_roll    Artifacts: NOT CHECKED"
+fi
+printf "         %s\n" "$_roll"
+if [ "$_owed" -gt 0 ]; then
+  echo "         These do not affect the exit code and never have. They are passes and files"
+  echo "         the project still owes — scroll up to the Obligation/Artifact lines for which."
+fi
 if [ "$N_FAIL" -gt 0 ]; then
   echo "Needs attention — something is there and it is wrong:$ATTENTION"
 fi

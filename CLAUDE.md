@@ -149,6 +149,15 @@ the assumptions. So, before a new or materially changed instrument under `bin/`,
    and never ran for an entire build. If no mandatory step produces it, wire one before
    shipping the consumer.
 
+For an instrument that **blocks** (a guard, a refusing gate), two extra rules — learned when
+a context guard blocked a session that had done everything right except use the guard's own
+checkpoint script, and an expert user's reaction was "I can't even compact?":
+
+6. **A blocking guard must accept evidence it did not itself create** — a recent commit, a
+   recently modified handoff doc — never only its own stamp file.
+7. **A guard must never block the action that resolves it.** Blocking the remedy is
+   perverse: warn once, then let it through.
+
 ## Changelog and contributions
 
 **Every user-visible change appends its `CHANGELOG.md` line in the same commit.** That is the
@@ -192,6 +201,24 @@ Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcl
    copied into a skill goes stale the day the next project scaffolds differently; instruct
    "list/grep the actual file" instead (both stale tables in `ui-preflight-pages.md` were
    flagged mid-run by the very agents following them).
+6. **Write for the trigger, then stop.** A skill is retrieved mid-task by an agent with a
+   specific trigger; everything not needed at that moment is dilution — one skill, one
+   situation. (The arm-C verification of the 2026-08-31 baseline saw a possible dilution
+   effect from ~800 words of growth in a single revision.)
+7. **Show the failure, not just the rule.** Pair each rule with the concrete bad output it
+   prevents — a before/after or a verbatim wrong answer. This repo does it consistently in
+   `CLAUDE.md` incident notes and inconsistently inside `skills/*.md`; the skills are where
+   the acting agent reads.
+8. **Test retrieval, not just content.** A skill can be perfect and unreachable: periodically
+   check that its routing line actually fires for the phrasings users and agents really
+   produce (rule 1 makes the row a trigger condition; this rule is the check that the trigger
+   works). The coverage audit in `render-routing.sh --check` catches the unrouted case
+   mechanically; wrong-trigger routing it cannot see.
+
+(Rules 6–8 adapted 2026-08-31 from public skill-authoring guidance in obra/superpowers
+`writing-skills` and Matt Pocock's `writing-for-agents` — patterns only. Their fourth
+point, "degrade to a pointer", is already this repo's "single source of the rule; every
+other mention defers here" convention plus rule 5 — one principle, stated there.)
 
 ## Committing in this clone — never `git add -A`
 

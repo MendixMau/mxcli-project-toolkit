@@ -865,6 +865,8 @@ Then restart SP.
 ## BUG-22: `alter settings configuration` / `alter settings model` / `alter project security level` — deterministic BSON stream-desync on the Settings unit
 
 **RESOLVED (FIXED in ≤v0.20.0; guest access newly scriptable in v0.19.0) — retested and archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md) and [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).**
+**Independently re-confirmed 2026-09-01 by a second retest, different method** — 18 executions via `tests/retests/retest-bug22-settings-writes.sh` (re-runnable), values round-tripped, full deploy build clean; preflight STOP rule 2 retired for ≥ v0.20.0 (old binaries keep it). That retest's full text is preserved in the archive alongside this entry's.
+
 
 ## BUG-23: `ContentParams` with an explicit `$currentObject/` prefix resolves as a literal (broken) attribute path → CE1613
 
@@ -1009,6 +1011,109 @@ The entire toolkit workflow assumes split format: mxcli's own MDL exec writes *i
 
 ### Toolkit-fix candidate
 `exec.sh`-style guard: before/after `marketplace install`, assert `mprcontents/` file count is non-decreasing and `.mpr` size stays in KB range; abort+restore otherwise. Better: `learned-mdl-preflight.md` STOP row — "marketplace install on a split-model project → use Studio Pro, not mxcli."
+
+---
+
+## 🚨 CRITICAL: `mxcli run --local` also collapses split-model `.mpr` to monolithic — second trigger, same failure as marketplace install
+
+**Discovered:** 2026-09-01, a dashboard-publishing migration project, mxcli run --local via
+`project-tests/app.sh start` (`./mxcli run --local -p PuffinDashboards.mpr --ensure-db`),
+Mendix 11.12.1, split-model project (219 tracked `mprcontents/*.mxunit`, ~78 KB `.mpr`).
+
+This is the SAME failure as the `marketplace install` entry above (collapse to monolithic
+`.mpr`, `mprcontents/` deleted from disk) but from a **different, much more commonly used
+trigger**: simply running the app locally. `.mpr` went 77,824 bytes → 15,446,016 bytes;
+`git status` showed 438 `D` + 2 `M` after a single `app.sh start` / `app.sh restart`. Caught
+before commit only because this project's own build discipline runs `git status` before any
+commit — a session that trusts `git add -A` blindly would have committed the collapse and lost
+git's ability to diff every future model change file-by-file.
+
+**Why it matters more than the marketplace-install trigger:** `mxcli marketplace install` is a
+rare, occasional operation a session is likely to pause before. Running the app locally to
+verify a fix on screen is routine — the toolkit's own field-proof discipline in this repo's
+`CLAUDE.md` (§ "Shipping an instrument") requires it ("one field run, cited"). A workflow that
+requires routine local runs and silently corrupts the git-friendly format on every one of them
+is a landmine directly on the path the toolkit itself mandates.
+
+**Prevention (the rule, until upstream fixes it or a flag is found):** `project-bin`/
+`project-tests` start scripts for a split-model project MUST snapshot (`bin/snapshot-mpr.sh` or
+equivalent) before every `mxcli run --local` / `mxcli run --local --watch`, and the session MUST
+run `git status` — never a blind `git add -A` — before any commit that follows a local app run.
+Restore split format after verifying on screen, before committing anything else:
+```bash
+git checkout HEAD -- <project>.mpr mprcontents/   # or bin/restore-mpr.sh <pre-run-snapshot>
+```
+Not yet confirmed whether a `run --local` flag avoids the collapse, or whether it is specific to
+`--ensure-db` / a particular mxbuild version — retest and update this entry if found.
+
+### Toolkit-fix candidate
+`project-tests/app.sh`'s `start` action should call `bin/snapshot-mpr.sh` unconditionally before
+launching `mxcli run --local`, the same way `bin/exec.sh` already does before an MDL exec — this
+trigger is not covered by that existing guard because it is a different code path.
+
+---
+
+## BUG-101: mxcli-authored Gallery widget fails mxbuild CE0463 even after full regeneration ⚠️ NOT YET FILED — `add_repo` denied access to `mendixlabs/mxcli`
+
+**NOT YET FILED.** The filing session already had `mxcli-project-toolkit` (owner `mendixmau`)
+attached and `add_repo` refused a cross-owner attach: `cross-tier adds are not supported in v1:
+requested "mendixlabs/mxcli" but session already has repos from owner(s) [mendixmau]`. A session
+started fresh with `mendixlabs/mxcli` as its initial source should be able to file this
+directly. Full repro and suggested fix:
+`bug-logs/pending-github-issues/gallery-widget-ce0463-survives-regeneration.md`.
+
+**Severity:** High — a Gallery page authored entirely through mxcli passes every mxcli-side
+check yet permanently fails headless `mxbuild`, and no mxcli command (`check`, `widget sync`,
+full page regeneration, or single-widget regeneration with a fresh element ID) repairs it.
+**Discovered:** 2026-09-01, a dashboard-publishing migration project, mxcli v0.20.0
+(2026-08-28T13:22:53Z), Mendix 11.12.1, Gallery pluggable widget package 3.4.0
+(`com.mendix.widget.web.gallery.Gallery`), split-model project.
+**Reproducible:** Yes, consistently — retested same day, identical `elementId`/`unitId` and
+message.
+
+### What happens
+Any Gallery widget mxcli authors via `CREATE PAGE` (or `ALTER PAGE ... REPLACE` with a brand-new
+instance/element ID) fails headless `mxbuild` on that specific instance with:
+```
+CE0463: "The definition of this widget has changed. Update this widget by right-clicking it
+and selecting 'Update widget', or select 'Update all widgets' to update all widgets in the app."
+```
+It is the only error in the build — everything else is Warning/Deprecation. Repro:
+```bash
+./mxcli docker check -p <project>.mpr        # 0 errors — looks fine
+timeout 60 ./mxcli run --local -p <project>.mpr --ensure-db 2>&1   # mxbuild --serve; CE0463 fires
+```
+
+### Why it is not stale/corrupted instance data
+1. `mxcli check <script>.mdl -p <project>.mpr --references` passes clean.
+2. `mx check` (Studio Pro's own headless modeler) reports **0 errors** on the same `.mpr` — it
+   appears to tolerate/auto-normalize the mismatch in-memory rather than surface it.
+3. `mxcli widget sync -p <project>.mpr` reports "nothing to do", or fixes unrelated widgets
+   (Image widgets elsewhere in the project) — it never detects or fixes this Gallery instance.
+4. Regenerating the **entire containing page** from scratch does **not** fix it — identical
+   error persists.
+5. Regenerating **just the one widget instance** (fresh element ID) via `ALTER PAGE ... REPLACE`
+   **still** produces the identical CE0463 error, on the new element ID.
+
+(4) and (5) rule out stale data: a fresh element, freshly written, in a freshly regenerated
+page, fails the same way. The defect is in what mxcli serializes for a Gallery widget's stored
+configuration — likely a missing/mismatched property or version stamp that headless `mxbuild`'s
+stricter widget-definition check enforces but `mx check` does not.
+
+### Prevention
+Treat `Gallery` (and other pluggable widgets with template/child-slot bodies) as risky
+`CREATE PAGE` targets: verify with a real `mxcli run --local` / headless `mxbuild` pass, not
+just `mxcli check` or `mx check` — both of those report clean on this exact defect.
+
+### Recovery
+No mxcli-side fix found. Workaround is to place/repair the Gallery widget in Studio Pro's GUI
+("Update widget"), which resolves CE0463 directly, then re-export/keep working in split format.
+
+### Toolkit-fix candidate
+`learned-mdl-preflight.md` / `learned-detection-gaps.md` STOP or WARN row: "Gallery (and other
+child-slot pluggable widgets) placed via CREATE/ALTER PAGE must be verified with a real
+`mxcli run --local` pass before being trusted — `mxcli check` and `mx check` both pass CE0463
+clean."
 
 ---
 
@@ -3323,3 +3428,299 @@ before trusting any session that used this construct.
 
 **NOT REPRODUCED on v0.20.0 (16 sequential mixed writes, native mx check clean at cumulative writes 14/15/16; write-count cap downgraded to snapshot-plus-read-back — recovery lessons preserved in the archive) — retested and archived 2026-08-31, see [archive-resolved-2026-08-31.md](archive-resolved-2026-08-31.md) and [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).**
 
+
+---
+
+## BUG-98: `calculated by` on an attribute is silently dropped at write time — the attribute is stored as a plain stored value, BSON-verified
+
+**Severity:** High — silent write-path data loss; every check is green while the feature simply does not exist in the model
+**Reproducible:** Yes — isolated scratch-project repro plus three real project attributes
+**mxcli / Mendix version:** mxcli v0.17.0 / Mendix 11.12.0 (isolated repro); first seen on Mendix 11.13.0, mxcli as of 2026-08-13
+**Discovered:** 2026-08-13, a product-provisioning PoC project; confirmed and upgraded 2026-08-18
+
+### Trigger
+
+`alter entity ... add|modify attribute X: <type> calculated by Module.Microflow [default V];`
+— and equally the CREATE-time form. **Both forms fail identically; there is no working form.**
+
+### What every check says vs. what is stored
+
+`mxcli check --references`: 0 errors. `mxcli exec`: "Added attribute"/"Modified attribute".
+Native `mx check`: 0 errors. But BSON decode of the domain-model unit shows the attribute
+stored as `DomainModels$StoredValue` with **no** calculated value type and **no reference to
+the microflow**. `SHOW CALLERS OF <the microflow>` reports zero callers post-wiring. At
+runtime every retrieve of the attribute returns empty/null, never the microflow's value —
+indistinguishable from a stored attribute nobody set.
+
+The confound (a mis-signed calculation microflow) was explicitly ruled out: the isolated
+repro used a correctly-signed microflow (entity-typed parameter, returns the attribute's
+type) and the clause was still dropped. This reclassifies the finding from "runtime never
+computes" to **write-path data loss, BSON-verified** — a stronger and narrower claim.
+
+Note: `CATALOG.ATTRIBUTES.IsCalculated` read `0` for all 355 attributes project-wide,
+including known-broken ones — the catalog builder may never populate that column, so it is
+not evidence in either direction.
+
+### Detection
+
+The only reliable check found: create a row, then read the attribute back through the live
+runtime (`mx.data.get({xpath, callback})` in-browser, or an OQL/API round-trip). A genuinely
+calculated attribute recomputes on every retrieve; a victim of this bug returns `""`.
+
+### Workaround
+
+Drop `calculated by` entirely: plain stored attribute + actively compute-`change`-`commit`
+at the points where the underlying data changes, reusing the same (already-correct)
+microflows called explicitly. For derived counts on a detail page, wrap the opening button's
+`show_page` in a refresh-then-show microflow rather than changing the page's DataSource.
+
+**Rule until fixed upstream:** never trust `mxcli check`, `mxcli exec` success, or native
+`mx check` as evidence a `calculated by` wiring took effect — verify with a live retrieve
+before any UI condition, downstream logic, or test assertion depends on it.
+
+---
+
+## BUG-99: `create import mapping` array-to-child-entity binding — child association observed empty at runtime ⚠️ SEVERITY NOT ESTABLISHED
+
+> **⚠️ Do not file upstream yet — two known non-defect causes were never ruled out.** Either
+> fully explains an empty child list with no mxcli defect: (1) the `import from mapping`
+> *activity* silently not running — documented behaviour, invisible to `DESCRIBE`, BSON,
+> `check --references` and mxbuild, and specifically triggered by dropping and recreating a
+> mapping by script while its callers are left untouched, which the discovering session
+> records doing; (2) the entity-name-must-equal-JSON-element-name rule, which the repro's
+> scratch entity is not stated to satisfy. The decisive observation — whether the *root
+> scalar* fields populated — was never recorded; it is what separates "the activity didn't
+> run" from "the array binding is broken." Kept here because the *symptom* is real and
+> expensive; the classification is not settled.
+
+**Severity:** unclassified (see hold above); if real, High — the array binding is mxcli's only supported way to turn a JSON array field into child objects
+**Reproducible:** symptom yes (three independent flows); root cause not isolated
+**mxcli / Mendix version:** Mendix 11.13.0, mxcli as of 2026-08-13/14
+**Discovered:** 2026-08-14, a product-provisioning PoC project
+
+### Symptom
+
+The `create <Association>/<ChildEntity> = <JsonArrayField> { ... }` sub-clause nested in a
+`create <RootEntity> { ... }` block passes `mxcli check --references`, `mxcli exec`, and
+native `mx check` with 0 errors, and `DESCRIBE IMPORT MAPPING` looks structurally correct —
+but every `retrieve $Items from $Root/<ChildAssoc>` after an `import from mapping` returned
+an empty list. Seen on: a live flow with `LOG INFO`-confirmed valid 3-item JSON immediately
+before the import; a structurally identical mapping in an unrelated module whose target
+entity had 0 rows for its entire history despite logged successful calls; and a from-scratch
+scratch-entity repro invoked via `mx.data.action` against a fresh container (`count=0`).
+Re-issuing via `create or modify import mapping` did not change the symptom.
+
+### Operating rule regardless of classification
+
+Treat any `create import mapping` that binds a JSON array to a child entity as **unverified
+until proven with a live runtime retrieve** after an actual `import from mapping` call —
+static checks validate the mapping's structure, never its runtime behaviour (same rule and
+same reason as BUG-98). Workarounds if it bites: a JavaScript action that `JSON.parse`s the
+array field and returns a list, or manual parsing in the microflow; the mapping can still
+handle the root object's scalar fields.
+
+### To settle it
+
+Run the discriminating test: one importing microflow, untouched callers (no drop/recreate),
+entity names exactly matching JSON element names at every level, and record whether the root
+scalars populate while the child list stays empty. Root scalars populated + empty children =
+real array-binding defect; nothing populated = the activity never ran (cause 1).
+
+---
+
+## BUG-100: every mxcli-scaffolded project resolves to Compose project name `docker` — unrelated projects share containers and one Postgres volume ⚠️ mechanism secondhand
+
+> **Mechanism trusted-but-unverified:** the root cause was reported by a peer session on the
+> same machine and matches observed behaviour; it was not independently verified against
+> Compose's own docs/source. The FIX below was confirmed to resolve the symptoms.
+
+**Severity:** High — cross-project data loss: whichever project's runtime syncs its schema last can silently alter/wipe tables belonging to a different app's domain model
+**Reproducible:** Yes (symptoms; see repro)
+**mxcli version:** any that ships `mxcli docker init` writing `.docker/` without `COMPOSE_PROJECT_NAME`
+**Discovered:** 2026-08-14, a product-provisioning PoC project, via a cross-session tip from a WMS demo project on the same machine
+
+### Mechanism
+
+`mxcli docker init` writes compose files into `<project-root>/.docker/`. Compose derives its
+project name from the containing directory when `COMPOSE_PROJECT_NAME` is unset — and every
+mxcli project names that directory `.docker`, so **every project on the machine resolves to
+the same Compose project `docker`**: identical container names (`docker-mendix-1`,
+`docker-db-1`), one shared named volume (`docker_postgres-data`), one default network.
+Starting project B's stack tears down project A's containers as "stale" and B's schema sync
+runs against A's data.
+
+### Symptoms (none look like a naming collision at first)
+
+App container silently "replaced" mid-session with someone else's domain model; a
+previously-green e2e suite failing basic persistence assertions ("0 rows where there should
+be 3"); containers gone from `docker ps` without being stopped; manually-started sidecars
+(`docker run --network container:<old-id>`) silently orphaned — they keep running but proxy
+into a dead network namespace. If more than one mxcli project exists on the machine, check
+this FIRST before chasing an application-code theory.
+
+### Diagnosis
+
+```bash
+docker ps -a --format '{{.Names}}: {{.Label "com.docker.compose.project.working_dir"}}'
+# a docker-mendix-1 whose working_dir points at a DIFFERENT project's .docker = this bug
+docker volume ls   # one docker_postgres-data doing double duty confirms it
+```
+
+### Fix
+
+`COMPOSE_PROJECT_NAME=<short-project-slug>` in `<project>/.docker/.env`, then tear down and
+redeploy. Caveats: `compose down` after the env change resolves to the NEW name and won't see
+the old containers — stop/remove them explicitly; and the rename creates a **brand-new empty
+volume** (`<slug>_postgres-data`) — dump first (`pg_dump`) if the current data matters.
+Re-verify every manually-managed sidecar against the new container afterwards.
+
+### Recommended upstream fix
+
+`mxcli docker init` should set `COMPOSE_PROJECT_NAME` at scaffold time (prompt for a slug or
+derive one from the `.mpr` filename) — this is a scaffolding-template gap, not a per-project
+judgment call.
+
+## BUG-102: `ALTER PAGE … SET DataSource = … ON widget` silently no-ops on a native DataGrid — reports success, passes the mxbuild gate, XPath never changes
+
+**Severity:** High — silent success, stale runtime behavior, surfaces only by testing the running app
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08-26, TFC-TCXGraphPOC-main, fixing a live security/behavior defect in a
+task-inbox page's DataGrid XPath
+**Reproducible:** yes, deterministic — reproduced twice in a row against the same page
+
+```
+ALTER PAGE TFC.TFC_MyTasks {
+  SET DataSource = DATABASE FROM System.WorkflowUserTask
+    WHERE [System.WorkflowUserTask_Assignees = '[%CurrentUser%]' or System.WorkflowUserTask_TargetUsers = '[%CurrentUser%]']
+          [State = 'InProgress']
+    SORT BY StartTime ASC
+} ON "dgMyTasks";
+→ "Altered page TFC.TFC_MyTasks"     (no error, exit 0)
+→ mxbuild: 0 errors                  (gate passes)
+```
+
+The DataGrid's actual persisted `DataSource` XPath **never changes**. `DESCRIBE PAGE` immediately
+after this exec still showed the pre-exec XPath verbatim. Confirmed twice, independently:
+
+1. Ran once to add a `TargetUsers` clause the grid was missing (it had `Assignees` only). Exec
+   reported success, gate passed. `DESCRIBE PAGE` on the resulting commit — via a scratch copy of
+   the `.mpr` extracted with `git show <commit>:TFC-TCXGraphPOC.mpr` into an isolated temp
+   directory, bypassing any running process, catalog cache, or working-tree state — showed the
+   `TargetUsers` clause **absent**.
+2. Ran again immediately after, this time to *remove* a different clause
+   (`.../WorkflowDefinition/Name = '...'`) that a live `SecurityRuntimeException` had traced to.
+   Same result: "Altered page", gate passed, and the same isolated-extraction check on that commit
+   showed the clause **still present**.
+
+Two consecutive silent no-ops on the identical widget, in the identical page, back to back — not a
+one-off. The live running app kept throwing the exact same `SecurityRuntimeException:
+No access rights for System$WorkflowDefinition/Name` after the "fix" that was supposed to remove
+that XPath clause, because the clause was never actually removed.
+
+**Distinct from [[BUG-84]]** (`SET DataSource = DATABASE Module.Entity` on a *DataView* silently
+**wipes** the datasource to nothing). This is a native **DataGrid**, the datasource *type* was
+never changing (`DATABASE System.WorkflowUserTask` before and after — only the WHERE clause
+differed), and the property **kept its old value** rather than being wiped. A different failure
+shape from the same family: `SET DataSource` on a widget's `WHERE` constraint appears to be a
+write that mxcli accepts syntactically, reports as applied, and passes structurally through
+mxbuild — but never actually reaches the persisted unit for at least the DataGrid case.
+
+**Workaround:** `CREATE OR REPLACE PAGE` for the whole page instead of `ALTER PAGE … SET
+DataSource` on a DataGrid. Verified reliable: the same page, entirely recreated with the corrected
+XPath, showed the correct value in `DESCRIBE PAGE` immediately after exec.
+
+**Process note:** this defect would have shipped silently if the fix hadn't been tested against
+the *running app* — `mx check`/mxbuild's "0 errors" and mxcli's own "Altered page" success message
+were both wrong signals, agreeing with each other and both wrong. Only clicking through the actual
+UI (twice, since the first re-test still showed the bug because the exec before it had *also*
+silently no-op'd) surfaced it. Recorded per this project's own `tool-output-is-not-ground-truth.md`
+discipline.
+
+## BUG-103: `DESCRIBE MICROFLOW` emits `log` strings with embedded doubled quotes that `mxcli check` then rejects — round-trip asymmetry
+
+**Severity:** Medium — breaks the describe→edit→exec loop for any microflow whose log message quotes a name
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08-28, TFC-TCXGraphPOC-main, rebuilding `TFC.WF_ACT_GraphAgent_RiskFlag` from its own `DESCRIBE` output
+**Reproducible:** yes, deterministic — isolated with a two-probe bisection
+
+`DESCRIBE MICROFLOW` round-trips a log activity whose message contains a quoted name as:
+
+```
+log warning node 'WF_GraphAgent' 'No agent titled ''Graph Agent'' configured';
+```
+
+Feeding that exact output back through `mxcli check` fails with
+**"Unexpected token after expression"** (reported as glued keywords at the doubled quotes).
+The identical `''…''` escape inside a `@caption` annotation in the same script parses fine —
+the escape is only rejected in `log` message strings. So a microflow that `DESCRIBE` prints
+cannot be re-executed unmodified: the CLI's own output is not valid input to its own parser.
+
+Bisection (probe scripts, one construct each): `@caption` with `''X''` → passes;
+`replaceAll` with a bracketed regex → passes; `log … '…''X''…'` → **fails**;
+the same `change`/`commit` body with the log line reworded → passes.
+
+**Workaround:** reword log message strings to avoid embedded quotes entirely
+(e.g. `…no AgentCommons.Agent titled Graph Agent configured…`). Purely cosmetic loss.
+
+**Related:** same describe→check round-trip family as [[BUG-84]]/[[BUG-96]] in spirit (tool
+output disagreeing with tool input), but this one is a parser gap, not a silent write no-op.
+
+## BUG-104: quoting a microflow parameter as `"$Name"` silently keeps the `$` in the parameter name — CE1613 at mxbuild while `check --references` passes
+
+**Severity:** High — the always-quote-identifiers house rule, applied to a parameter, produces a corrupt parameter name that only surfaces at the mxbuild gate
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08-31, TFC-TCXGraphPOC-main, writing a microflow taking a `TFC.TFCStub`
+**Reproducible:** yes
+
+The documented quoting rule ("always quote identifiers; quotes are stripped automatically")
+does not extend to the `$` sigil on a microflow parameter. Declaring
+
+```
+create microflow M.Flow ("$TFCStub": TFC.TFCStub) ...
+```
+
+strips the quotes but keeps the `$` **inside** the stored parameter name, so the model holds a
+parameter literally named `$TFCStub` whose body references `$TFCStub` — which now resolves as
+`$` + name `TFCStub` and matches nothing. `mxcli check --references` passes; the failure is
+CE1613 at mxbuild. Correct form: `$TFCStub: TFC.TFCStub` (sigil unquoted; quote only the
+bare-name identifiers).
+
+**Workaround:** never wrap the `$`-prefixed form in quotes. If already written, regenerate the
+microflow with the unquoted sigil.
+
+## BUG-105: `ALTER PAGE … REPLACE`/multi-root `INSERT` can register the same widget name twice, then fail every later edit with duplicate-name errors
+
+**Severity:** Medium — page becomes uneditable through mxcli for the affected names
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08 (TFC-TCXGraphPOC-main, iterating on agent-panel page edits)
+**Reproducible:** intermittent but recurred across sessions
+
+A `REPLACE widget WITH { … }` (and an `INSERT` whose block carries more than one root widget)
+can leave the page holding two registrations of one widget name. Later `ALTER PAGE`
+operations naming any widget on that page then fail with a duplicate-name error even though
+`DESCRIBE PAGE` renders a single occurrence.
+
+**Workaround:** `CREATE OR REPLACE PAGE` from a clean `DESCRIBE` dump under fresh names, or
+edit via MCP `pg_patch_page`. Prefer single-root blocks in `REPLACE`/`INSERT`.
+
+## BUG-106: widget names stay burned after a rolled-back exec — a restore of the `.mpr` does not free names the failed script had claimed
+
+**Severity:** Medium — retrying a failed page script verbatim fails on names that no longer exist in the model
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08 (TFC-TCXGraphPOC-main, exec.sh auto-restore path)
+**Reproducible:** yes within a session
+
+After an exec fails mxbuild and the snapshot is restored, re-running the corrected script can
+still be rejected with duplicate-widget-name errors for names that only ever existed in the
+rolled-back attempt — the name registry appears to survive the restore (cache keyed on the
+project path, not the file contents). `DESCRIBE PAGE` on the restored model shows the names
+absent.
+
+**Workaround:** bump the widget names (suffix `2`), or clear/refresh the mxcli catalog cache
+before retrying. Renaming is the reliable path; it is why several TFC pages carry `_v2`
+widget names.

@@ -316,6 +316,32 @@ so no one did, and a day's work went unverified on machines where the mxbuild ga
 silently skipping. Give verification a row and it can be numbered, depended on, counted, and
 rendered in `build-plan.html` like anything else.
 
+### A module carrying a workflow gets a construct row
+
+**Read `workflow-structure-rules.md` §11 and §12 before writing the phase.** Any module whose
+build includes a `CREATE WORKFLOW` gets one extra `BRIEF`-adjacent line listing **every construct
+the Stage-3 workflow diagram asks for**, each marked from §11:
+
+| Construct (from the diagram) | §11 status | Where it gets built |
+|---|---|---|
+| single user task + outcomes + role XPath targeting | proven | script NN |
+| parallel split, 7 paths | proven | script NN |
+| non-interrupting timer event sub-process | **hand-add in Studio Pro** | checklist row NN-h |
+
+A construct marked *hand-add in Studio Pro* becomes its **own numbered row** — `Kind: RUN`, Step
+"open in Studio Pro, add <construct> on <activity>, save", with the same `Depends on` and `State`
+cells as any other row. It is never a footnote, never a sentence in the brief, and never left out
+because MDL cannot express it.
+
+The failure this prevents, in full: MDL cannot write the construct → the build script omits it →
+`mxcli check` passes, `mx check` passes, the module reports **done** → and the escalation the
+requirements asked for does not exist in the product. Every gate in the chain is green, because
+every gate checks what was written, and nothing checks what was *supposed* to be written. The
+construct row is the only place that comparison happens.
+
+Row 10 of `workflow-structure-rules.md` §12 is the denominator: N constructs in the diagram, N
+rows in the plan. If those two numbers differ, the plan is not finished.
+
 ### The first row of every phase is a `BRIEF` row
 
 Every phase opens with a numbered `BRIEF` row, and it is written as a **check-then-create**, not as

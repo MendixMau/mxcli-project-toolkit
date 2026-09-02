@@ -61,6 +61,8 @@ and `"DESCRIBE ..."` reads are always fine, and are how you ground every name yo
 | `skills/test-result-audit.md` | End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition |
 | `skills/finding-disposition.md` | Any report from a test/review run is about to be published — no report ends without a disposition for every finding |
 | `skills/handoff-to-studio-pro.md` | Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step |
+| `skills/preview-over-hub-tunnel.md` | Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection |
+| `bin/run-hub.sh` | Starting a hub-tunnelled preview with the flags outbound calls actually need — wraps mxcli run --hub with db-name and the runtime proxy settings from preview-over-hub-tunnel.md |
 <!-- ROUTING:END -->
 
 ## Before you start

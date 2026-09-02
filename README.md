@@ -614,6 +614,8 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work — or you are unsure which harness skill applies; this one routes you | `skills/full-harness-audit.md` |
 | End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition | `skills/test-result-audit.md` |
 | Any report from a test/review run is about to be published — no report ends without a disposition for every finding | `skills/finding-disposition.md` |
+| Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection | `skills/preview-over-hub-tunnel.md` |
+| Starting a hub-tunnelled preview with the flags outbound calls actually need — wraps mxcli run --hub with db-name and the runtime proxy settings from preview-over-hub-tunnel.md | `bin/run-hub.sh` |
 
 **Diagnose — something is broken and it may be the tooling**
 

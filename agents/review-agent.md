@@ -77,6 +77,7 @@ protects: you have no Write or Edit tool, and you never run `mxcli exec`.
 | `skills/test-result-audit.md` | End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition |
 | `skills/finding-disposition.md` | Any report from a test/review run is about to be published — no report ends without a disposition for every finding |
 | `skills/handoff-to-studio-pro.md` | Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step |
+| `skills/preview-over-hub-tunnel.md` | Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection |
 | `skills/wizard-walkthrough.md` | Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet |
 <!-- ROUTING:END -->
 

@@ -239,3 +239,4 @@ wizard-walkthrough	skills/wizard-walkthrough.md	Handing the human a batch of ste
 # protocol-staleness ack on every routing edit.
 #
 handoff-to-studio-pro	skills/handoff-to-studio-pro.md	Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step	test,review	6,7	ondemand	build
+ts-sync	project-bin/ts-sync.sh	Sharing the project with a colleague on Mendix Team Server while the build loop stays on GitHub — content-transplant snapshots between the two clones (status/push/pull); UNPROVEN against a real Team Server, first field run owed	mdl,gate	6,7	experimental	build

@@ -22,6 +22,20 @@ Everything below follows from that table. The failures it prevents all have the 
 the recipient opens the app, it builds, it runs, it renders — and it is empty, or mute, or
 they cannot get past the login screen. Nothing errors. There is nothing to search for.
 
+## 0. First: the recipient's MACHINE, before the model
+
+The fastest way to lose a handoff is environment failure dressed up as project failure.
+Before anything else, the recipient runs:
+
+    <toolkit>/bin/doctor.sh <project-dir>            # what is missing, in plain language
+    <toolkit>/bin/doctor.sh --install <project-dir>  # and offer to download it (mxcli +
+                                                     # mxbuild toolchain; asks before fetching)
+
+A machine with no Studio Pro can still verify every model write this way — the gate runs on
+the downloaded toolchain. (Field case, 2026-08-31: a colleague's first hours on a handed-over
+project went to a probe defect doctor now fixes — the report read "mxbuild cannot run" on a
+healthy install.)
+
 ## 1. Pin the Studio Pro version, in writing
 
 The model's version is in the `.mpr` and Studio Pro must match it **exactly** — not "the
@@ -50,6 +64,12 @@ Two things belong in the project's run-book, not in someone's memory:
 
 Measured on a deal-management PoC (2026-09-01): 2049 units → one 43 MB file, twice, because the first
 restore was undone by the next build. Whoever picks the project up will hit it on day one.
+
+**And it is not only `docker build`.** Plain `mxcli run --local` collapses the split model the
+same way (bug log, CRITICAL entry, 2026-09-01: 78 KB `.mpr` → 15 MB, 438 units deleted, on one
+app start). Running the app locally is the FIRST thing a recipient does, so the run-book rule
+is: snapshot before any local run, `git status` before any commit that follows one, and
+restore split form before committing anything else.
 
 ## 3. Put the demo identities on the login screen
 
@@ -167,7 +187,61 @@ Note also that Studio Pro defaults to its own built-in database, so this route i
 configuration change on the recipient's side, not just a file transfer — the app's database
 settings have to name the Postgres host, port and credentials before any of it applies.
 
-## 8. A verification checklist short enough that people run it
+## 8. Demo data as committed Excel fixtures — the seed path that ages well
+
+Hand-coded seed microflows (per-entity creates, association wiring) are the part of §4 that
+never quite works and nobody enjoys maintaining. The alternative that keeps §4's buttons and
+drops the pain: **the demo data lives in `.xlsx` files committed next to the model**, and the
+Seed button's microflow shrinks to "run the Excel Importer template per file".
+
+- The data travels in git with the model — the one seed route where that is true.
+- Humans edit demo content in Excel; an agent can generate or extend the same files.
+- Needs the Excel Importer + Mx Model Reflection Marketplace modules and a one-time mapping
+  per entity — pay that once, then the seed content changes without touching a microflow.
+
+The Wipe button and the "count on the card, not a dialog" rule from §4 stay exactly as they
+are. Reusing Studio Pro's built-in database instead ("the data is already there") only works
+when the WHOLE project folder is copied — the built-in DB lives in gitignored `deployment/`,
+so it never survives a clone, and it is version-locked to the Mendix runtime that wrote it.
+
+## 9. The round-trip — a colleague's commits coming back
+
+Sharing is not one-way. The loop that keeps both sides safe:
+
+1. Colleague clones, opens the `.mpr` in the pinned Studio Pro. If SP crashes at open from
+   the version-control layer, that is a known Studio Pro defect, not corruption — see the
+   bug log: "Studio Pro Git integration crashes on project open — detach .git to open".
+2. **One model writer at a time, between commits as much as within them**: while the
+   colleague works in SP, the headless session makes no model writes (docs, tests, pipeline
+   work are fine), and vice versa. Model units do not text-merge; serialize or lose.
+3. Colleague saves, commits, pushes on a branch.
+4. The headless side pulls and **runs the mxbuild gate before building on it** — a Studio
+   Pro save is exactly as unverified as an exec until mxbuild says otherwise.
+
+## 10. Git topology — GitHub is the workshop, Team Server the showroom
+
+The Claude build loop needs a GitHub remote (that is what a Claude session can attach).
+Colleagues and the Mendix platform — Sprintr membership, sandbox Publish, the SP
+version-control UI — live on Team Server, which is plain git underneath but with its own
+platform-created history. Both can coexist under one rule:
+
+> **Sync CONTENT between them, never histories.** The two repos' histories are unrelated by
+> construction; do not merge or force-push one into the other. A snapshot commit carries the
+> model tree across and names its source revision — two histories, one content flow.
+
+`project-bin/ts-sync.sh` implements it (`status` / `push` / `pull`, `TS_CLONE=` points at the
+local Team Server clone). It refuses a consolidated source (§2's trap), refuses dirty trees
+on either side, commits the snapshot with provenance, and never pushes for you.
+**⚠️ UNPROVEN against a real Team Server as of 2026-09-01** — transplant logic is
+fixture-tested only; the script's header carries the status and the first field run updates it.
+The model-token rule from §9 applies doubly here: if both sides edited between syncs, pick a
+winner and re-transplant — never merge.
+
+The free-sandbox route rides on this: Publish from Studio Pro works from the Team Server
+side, so "demo on a sandbox" = `ts-sync.sh push`, colleague publishes from SP. (Also not yet
+field-run; same status note.)
+
+## 11. A verification checklist short enough that people run it
 
 Five lines, in the project's run-book, in order:
 

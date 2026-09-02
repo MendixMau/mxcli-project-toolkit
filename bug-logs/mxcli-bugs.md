@@ -5009,3 +5009,50 @@ Re-verify every manually-managed sidecar against the new container afterwards.
 `mxcli docker init` should set `COMPOSE_PROJECT_NAME` at scaffold time (prompt for a slug or
 derive one from the `.mpr` filename) — this is a scaffolding-template gap, not a per-project
 judgment call.
+
+## BUG-102: OQL `!= NULL` against a reference association is unreliable — `= NULL` returns 0 even with live orphans, `!= NULL` returns a number that happens to be right for the wrong reason
+
+**Severity:** Medium — silently wrong result from a query that looks like it works
+**Discovered:** 2026-09-02, a dashboard-publishing migration project
+**Reproducible:** Yes, on the live project's data — see below
+**Mendix version:** 11.12.1
+**mxcli version when found:** v0.20.0
+
+### Steps to reproduce
+On a persistent entity `Child` with a `Reference` association `Child_Parent` to `Parent`
+(delete_behavior on the association does not matter — this reproduces even when it is
+correctly configured and the cascade genuinely works), where the database holds a mix of rows
+with a live parent and rows whose parent has been deleted:
+
+```
+mxcli oql -p project.mpr "SELECT id FROM Module.Child WHERE Module.Child_Parent = NULL"
+mxcli oql -p project.mpr "SELECT id FROM Module.Child WHERE Module.Child_Parent != NULL"
+mxcli oql -p project.mpr "SELECT id FROM Module.Child"
+```
+
+### Expected behavior
+`= NULL` count + `!= NULL` count = total count, and `= NULL` count is the true number of
+orphaned rows (no live parent).
+
+### Actual behavior
+On the reproducing project: total 72, `!= NULL` 66, `= NULL` **0**. 0 + 66 ≠ 72 — six rows are
+counted by neither comparison. `= NULL` against the reference returned zero even though six
+genuinely orphaned rows existed (independently confirmed: the entity's own denormalised rollup
+attribute, maintained by a separate microflow on every write, summed to exactly 66 — a second,
+unrelated code path agreeing with the `!= NULL` figure and disagreeing with the total). A live
+probe (create a child, delete its parent through the app's own delete microflow, recount)
+confirmed the cascade genuinely removes the row — so the six pre-existing orphans are real, and
+`= NULL` simply fails to find them.
+
+### Root cause (inferred)
+`!= NULL` against a reference association appears to be translated as something closer to an
+inner join ("the association resolves to a real row") rather than a true `IS NOT NULL`, and
+`= NULL` against the same association does not translate to `IS NULL` at all — it silently
+matches nothing, for a reference, regardless of how many rows are genuinely unset. Untested
+whether this holds for other association types (Reference-Set) or only single Reference.
+
+### Workaround
+Do not compare a reference association to `NULL` in OQL for either presence or absence.
+Cross-check via an independent, already-maintained aggregate instead (a denormalised
+count/rollup attribute on the parent side, or an application-level accounting) rather than
+trusting either comparison's row count on its own.

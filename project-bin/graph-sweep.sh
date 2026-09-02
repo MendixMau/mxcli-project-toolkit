@@ -33,8 +33,21 @@ set -uo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
 cd "$PROJECT_ROOT" || exit 2
 
-DB=".mxcli/catalog.db"
 MPR="$(find_mpr)" || exit 2
+
+# THE CATALOG LIVES BESIDE THE .mpr, NOT ALWAYS AT THE PROJECT ROOT (fixed 2026-09-02).
+# `mxcli ... REFRESH CATALOG` writes <dir-of-mpr>/.mxcli/catalog.db. On a single-tree checkout
+# that is the project root and the old hardcoded ".mxcli/catalog.db" was right; on a TWO-TREE
+# checkout, where the model sits under app/, the catalog lands in app/.mxcli/ and this script
+# reported "catalog.db not found -- run REFRESH CATALOG" at a project that had just run exactly
+# that. Found on t-wf-migration, where the operator's fix was a hand-made symlink.
+#
+# This is the third time the same both-layouts assumption has been shipped in this directory
+# (F-020, F-042, now this one), which is why field-proof rule 2 says to probe BOTH layouts
+# before merging an instrument. Derive the path from the .mpr that find_mpr already resolved,
+# and keep the root as a fallback so a project that puts it there still works.
+DB="$(dirname "$MPR")/.mxcli/catalog.db"
+[ -f "$DB" ] || [ ! -f ".mxcli/catalog.db" ] || DB=".mxcli/catalog.db"
 MODULE=""
 MIN_ELEMENTS=20
 TSV=0

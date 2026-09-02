@@ -884,6 +884,12 @@ only a real `mx check` run did.
 
 ## Notes on scope
 
+**Structure rules for every construct below — path termination, boundary-event type vs
+terminator, event sub-processes, parallel-split limits, multi-user decision methods, versioning
+against running instances — are in `workflow-structure-rules.md` (platform semantics from the
+Mendix MCP team, 2026-09-02, with an MDL proven/unprobed table). This file stays the syntax and
+defect record.**
+
 Workflow **timer** and **wait-for-notification** activities are referenced by
 `NOTIFY WORKFLOW` above but their `CREATE WORKFLOW` body syntax has **not been verified**
 here; likewise **boundary events** and **sub-workflow** invocation from inside a workflow

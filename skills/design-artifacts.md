@@ -40,6 +40,16 @@ that will drive the design system. These are versioned project artifacts, not sc
   inversions confuse every future maintainer.
 - Atlas variable mapping table: `--primary → $brand-primary`, `--surface → $background-color`, etc.
   This is the bridge from your token decisions to `theme/web/custom-variables.scss`.
+- **On mxcli ≥ v0.20.0, also emit the tokens as an `--mxt-*` block** (in the design-system CSS or a
+  dedicated `design/mxt-tokens.css`): `mxcli theme create <name> --from <that-file> -p app.mpr`
+  scaffolds a project-owned theme directly from `--mxt-*` declarations — light palette from bare
+  declarations, dark palette from ones inside a `prefers-color-scheme: dark` / `.theme-dark` /
+  `[data-theme="dark"]` block — replacing the hand-edit of `custom-variables.scss` entirely.
+  The contract is strict and helpful: a `--mxt-*` name the base theme does not declare is
+  **refused, not silently written** (nothing would read it), and `mxcli theme show <base>` prints
+  the exact vocabulary to target. Tokens the design does not name keep the base theme's value, so
+  a three-colour brand still yields a complete theme. Keep the Atlas mapping table for pre-v0.20
+  projects and for tokens outside the `--mxt-*` vocabulary.
 
 **`design/target-ui.md`** — UX pattern inventory from the client mockup or source app. For each
 pattern found in the source (filter bar, detail form, barcode scan flow, status badge, etc.),
@@ -96,7 +106,7 @@ architecture, three-tier token naming, and SCSS porting rules.
 **`design/design-system.html`** — annotated showcase that `<link>`s `ds.css` and renders:
 
 Contents of `ds.css` + what `design-system.html` renders:
-- **Tokens as CSS custom properties:** brand ramp, accent, status (reserved), spacing, radius, type scale, shadow, motion — plus a full **light + dark** set. Dark mode is *selected* (its own steps), never an automatic flip. In Mendix, use `[data-theme="dark"]` not `prefers-color-scheme` — Atlas has its own theme-toggle mechanism and media-query dark mode conflicts with it.
+- **Tokens as CSS custom properties:** brand ramp, accent, status (reserved), spacing, radius, type scale, shadow, motion — plus a full **light + dark** set. Dark mode is *selected* (its own steps), never an automatic flip. The selector depends on the theme machinery: on a project using **mxcli's theme system (≥ v0.20.0)**, the dark palette lives at `:root.theme-dark` (Atlas ships that class slot on `<html>`; mxcli's `--variant auto` follows `prefers-color-scheme` before first paint AND honours the class, and `theme switcher install` provides the user toggle) — declare dark *after* Mendix's own `_theme-dark.scss` or the app reverts to stock blue when the class lands. On a hand-themed Atlas project, use `[data-theme="dark"]` and avoid bare `prefers-color-scheme` — Atlas's own toggle conflicts with media-query-only dark mode. Either way the design system's *steps* stay selected, not auto-flipped.
 - **Data colors** come from the `dataviz` skill's validated palette — do not hand-pick chart/KPI colors; run its validator if you swap any.
 - **Components the app actually needs** (derive from the source screens, not a generic kit): buttons, inputs + validation, table/data grid with row actions, KPI/stat tiles, badges/status pills, dialog, toast, nav shell, plus any product-specific pieces.
 - **An Atlas mapping table:** each token → its Atlas SCSS variable (`$brand-primary`, `$background-color`, `$font-color`, `$border-radius-*`, `$spacing-*`, `$font-family-base`, success/warning/danger). This table is what the build phase turns into `theme/web/custom-variables.scss` + design properties.

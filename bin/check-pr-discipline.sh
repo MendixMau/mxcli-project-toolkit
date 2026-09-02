@@ -52,8 +52,18 @@ if [ -n "$NEW_BUGS" ]; then
   # Collisions are checked against the base TIP, not the merge base: the whole failure mode
   # is a branch forked BEFORE the base took the number — at the merge base the number is
   # always still free, which is exactly why the author picked it in good faith.
+  #
+  # But a heading that already existed AT the merge base is not a collision: the author is
+  # RESTAMPING a bug both sides know (a retest verdict, an archive restructure rewrites the
+  # heading line, so it shows as added in the diff). First field case, 2026-09-02: the
+  # v0.20.0 retest PR re-stamped existing entries and this check flagged BUG-97 as "taken".
+  # A collision is only: absent at the merge base AND present on the tip — two sessions
+  # invented the same number for different bugs in parallel.
   while IFS= read -r b; do
     [ -n "$b" ] || continue
+    if git show "$MB:bug-logs/mxcli-bugs.md" 2>/dev/null | grep -qE "^## $b:"; then
+      continue   # existed when the author branched — a restamp, not an invention
+    fi
     if git show "$BASE:bug-logs/mxcli-bugs.md" 2>/dev/null | grep -qE "^## $b:"; then
       FAIL=1
       echo "FAIL  $b is already taken on $BASE — a parallel PR got there first."

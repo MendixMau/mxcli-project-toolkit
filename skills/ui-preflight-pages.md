@@ -157,6 +157,17 @@ and exits non-zero on a mismatch. Run it **before** `bin/exec.sh`, alongside
 `mxcli check`; it reads files only, so it needs no app, no Studio Pro, and no
 screenshot, and it runs in a cloud/mobile session where the rest of Gate: UI cannot.
 
+A **shell mismatch is scriptable to fix on mxcli ≥ v0.20.0** — layouts are authorable
+(`CREATE [OR REPLACE] LAYOUT`, `ALTER LAYOUT` with the full ALTER PAGE vocabulary), and
+`ALTER PAGES [IN <mod>] SET LAYOUT = X [WHERE LAYOUT = Y] [MAP (Old AS New)]` migrates
+every page in one statement, refusing a repoint that would strand a placeholder binding
+(the CE1613 the build would otherwise report page-by-page). `mxcli new` (≥ v0.20) also
+scaffolds a **project-owned** `<Module>.App_Default` layout rather than binding pages to
+Atlas's — so "the wireframe draws a top bar but the app renders a sidebar" is a one-script
+repair now, not the 20-script incident this file records. Editing `Atlas_Core` layouts is
+refused by mxcli (marketplace-owned); copy via `describe layout` → rename → exec instead,
+knowing the copy loses widgets MDL cannot spell (`Forms$SidebarToggleButton`, images).
+
 Then run the scored companion on the same draft:
 
 ```

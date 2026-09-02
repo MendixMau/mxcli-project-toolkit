@@ -134,6 +134,30 @@ with any `doc-confirmed`/`doc-conflict` use case (or a resolved `openQuestions` 
 be clobbered by a later `node run.js 3` — the fresh scaffold goes to
 `{module}.brd.scaffold.json` instead.
 
+### 7. Negative claims and unearned numbers
+
+Two claim shapes that read as findings and are not, from the 2026-09-02 post-mortem
+(`process/post-mortem-inverted-evidence-2026-09-02.md`), where each one was hit at least twice:
+
+- **A negative claim** — `notImplemented`, "unrecoverable", "does not exist", "enforces nothing",
+  "no row for station X". Accept it only when it names **what was searched** (which files, which
+  tables, which query) and **when** — a negative finding expires the moment a new source lands
+  (`bin/source-sufficiency.sh init --refresh` adds one; `bin/open-questions.sh` then lists the
+  questions to re-check). Real misses: a routine declared an "unrecoverable missing dependency"
+  was called on line 313 of a file in the repository; two stations "absent from the config" were
+  *retired* and carried status on 692 and 691 of 926 runs; two lookup values marked *inactive*
+  were referenced by 20 of 60 live rules. **Retired is not absent.** A negative claim without a
+  search scope is a finding of severity `error`, not a fact.
+- **A number without provenance** — any count, percentage or duration in a BRD either carries
+  the query or file it came from, or is written as an estimate ("~", "roughly", "order of"). One
+  briefing stated "~130 production runs"; measured, 19. Flag a bare number as `warning`; the fix
+  is the query, not a softer adjective.
+
+Both are checked by reading, not by regex — the validator can find the words, only a person can
+confirm the search scope is real. Record each accepted negative claim in the BRD's
+`openQuestions` with status `ANSWERED`, the search scope as the answer, and the date; that is
+what the re-check reads.
+
 ---
 
 ## Procedure

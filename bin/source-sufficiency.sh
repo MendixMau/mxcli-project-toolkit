@@ -233,6 +233,7 @@ readme = [
     "by bin/source-ledger.sh, which blocks the Stage 1 and 2 gates while any row has none:",
     "  {\"path\": \"<rel>\" | \"pattern\": \"<glob over rel>\", \"state\": \"extracted\",",
     "   \"artifact\": \"<project-relative file or dir that carries what was extracted>\",",
+    "   \"evidence\": \"<one specific finding that came OUT of the file, and where it landed>\",",
     "   \"media\": <images described, must equal the row's media count, or \"mediaWaived\": \"why\">,",
     "   \"by\": \"who\", \"date\": \"YYYY-MM-DD\"}",
     "  The artifact must exist, be non-empty, and NAME the source file — a disposition that",

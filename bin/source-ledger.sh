@@ -21,7 +21,11 @@
 # (analysis/source-sufficiency.json, EVERY file under the source root — see
 # bin/lib/source-inventory.py) it wants a DISPOSITION:
 #
-#   extracted   → an artifact path that exists, is non-empty, and NAMES the source file.
+#   extracted   → an artifact path that exists, is non-empty, and NAMES the source file, plus
+#                 EVIDENCE: one specific finding that came out of the file and where it landed.
+#                 A mention is not a reading (post-mortem 2026-09-02, Failure 3: two mechanical
+#                 coverage counts, 45/47 and 47/47, both junk). The grep is the floor that
+#                 catches "never opened"; the evidence line is the hand-assigned verdict.
 #                 "The triage already used it" is checked by grepping the triage for the
 #                 file's name. Zero hits is a FAULT, not a pass. For a container with
 #                 embedded media (a deck's 22 diagrams) the disposition must also say how
@@ -52,6 +56,7 @@
 #   source-ledger.sh check  <project-dir> [--register PATH] [--json] [--quiet]
 #   source-ledger.sh report <project-dir> [--register PATH] [--html PATH]
 #   source-ledger.sh mark   <project-dir> <rel-path-or-glob> --artifact <project-relative path>
+#                           --evidence "<one finding that came out of the file, and where it landed>"
 #                           [--media N | --media-waived "why"] [--pages N | --pages-waived "why"]
 #                           [--by WHO] [--state extracted|sensitive|superseded]
 #                           [--superseded-by <rel>]
@@ -68,9 +73,10 @@
 #     "never names the deck".
 #   - the first extraction pass as it was actually made (--pages 25 --media 3): FAULT,
 #     "22 embedded image(s) inside, 3 accounted for" — the second pass (all 22) passes.
-#   - the 95 .cls under a pattern disposition against knowledge-base/: 62 name-verified, 33
-#     modules named in NO analysis file — a real coverage question the pattern form surfaces
-#     and, honestly, cannot answer. Stage 1 gate on the real project: PASS after the marks.
+#   - the 95 .cls under a pattern disposition against knowledge-base/: 63 name-verified, 33
+#     modules named in NO analysis file. First shipped as EXTRACTED-unverified; after the
+#     post-mortem (process/post-mortem-inverted-evidence-2026-09-02.md, Failure 3) those 33
+#     report FAULT and the Stage 1 gate on the real project is BLOCKED — the honest verdict.
 # Fixture: tests/wave2/test-source-ledger.sh (the same shape, 32 assertions).
 
 set -u
@@ -88,7 +94,7 @@ usage: source-ledger.sh <check|report|mark> <project-dir> [options]
 
   check   [--register PATH] [--json] [--quiet]   one verdict per inventory row + drift
   report  [--register PATH] [--html PATH]        same, rendered to analysis/source-ledger.html
-  mark    <rel-path-or-glob> --artifact <path> [--media N | --media-waived "why"]
+  mark    <rel-path-or-glob> --artifact <path> --evidence "<finding → where>" [--media N | --media-waived "why"]
           [--pages N | --pages-waived "why"] [--by WHO] [--state extracted|sensitive|superseded] [--superseded-by <rel>]
 
   To waive a file (deliberately not extracted), write the decision where every other waiver
@@ -104,7 +110,7 @@ case "$CMD" in check|report|mark) ;; *) usage ;; esac
 [ -d "$PROJECT_DIR" ] || { echo "source-ledger: not a directory: $PROJECT_DIR" >&2; exit 2; }
 
 REGISTER=""; HTML_OUT=""; AS_JSON=0; QUIET=0
-MARK_TARGET=""; MARK_ARTIFACT=""; MARK_MEDIA=""; MARK_MEDIA_WAIVED=""; MARK_PAGES=""; MARK_PAGES_WAIVED=""; MARK_BY=""; MARK_STATE="extracted"; MARK_SUPER=""
+MARK_TARGET=""; MARK_ARTIFACT=""; MARK_MEDIA=""; MARK_MEDIA_WAIVED=""; MARK_PAGES=""; MARK_PAGES_WAIVED=""; MARK_BY=""; MARK_STATE="extracted"; MARK_SUPER=""; MARK_EVIDENCE=""
 if [ "$CMD" = "mark" ]; then
   MARK_TARGET="${1:-}"; shift || true
   [ -n "$MARK_TARGET" ] || usage
@@ -120,6 +126,7 @@ while [ $# -gt 0 ]; do
     --media-waived)  MARK_MEDIA_WAIVED="${2:-}"; shift 2 ;;
     --pages)         MARK_PAGES="${2:-}"; shift 2 ;;
     --pages-waived)  MARK_PAGES_WAIVED="${2:-}"; shift 2 ;;
+    --evidence)      MARK_EVIDENCE="${2:-}"; shift 2 ;;
     --by)            MARK_BY="${2:-}"; shift 2 ;;
     --state)         MARK_STATE="${2:-}"; shift 2 ;;
     --superseded-by) MARK_SUPER="${2:-}"; shift 2 ;;
@@ -151,10 +158,18 @@ if [ "$CMD" = "mark" ]; then
   if [ "$MARK_STATE" = "extracted" ] && [ -z "$MARK_ARTIFACT" ]; then
     echo "source-ledger: mark ... --artifact <path> is required: which artifact carries what was extracted?" >&2; exit 2
   fi
+  if [ "$MARK_STATE" = "extracted" ] && [ -z "$MARK_EVIDENCE" ]; then
+    echo "source-ledger: mark ... --evidence \"<a specific finding this file yielded, with where it landed>\" is required." >&2
+    echo "  A mention is not a reading (post-mortem 2026-09-02, Failure 3). Name one thing that came OUT of the file:" >&2
+    echo "    --evidence \"slides 18-20: WFAM X/M/E semantics → KB.md §Forwarding\"" >&2
+    echo "    --evidence \"WorkflowWeiterLeiten + PflichtfelderPrüfen → procedures.json rows 41-58\"" >&2
+    echo "  For a glob covering an extractor's whole input: --evidence \"modules.json lists each file by name\"" >&2
+    exit 2
+  fi
   if [ "$MARK_STATE" = "superseded" ] && [ -z "$MARK_SUPER" ]; then
     echo "source-ledger: --state superseded needs --superseded-by <rel> (the newer file, which must be in the inventory)" >&2; exit 2
   fi
-  RUBRIC="$RUBRIC" T="$MARK_TARGET" A="$MARK_ARTIFACT" M="$MARK_MEDIA" MW="$MARK_MEDIA_WAIVED" PG="$MARK_PAGES" PW="$MARK_PAGES_WAIVED" \
+  RUBRIC="$RUBRIC" T="$MARK_TARGET" A="$MARK_ARTIFACT" M="$MARK_MEDIA" MW="$MARK_MEDIA_WAIVED" PG="$MARK_PAGES" PW="$MARK_PAGES_WAIVED" EV="$MARK_EVIDENCE" \
   BY="$MARK_BY" ST="$MARK_STATE" SUP="$MARK_SUPER" "$PY" <<'PY'
 import json, os, sys, datetime, fnmatch
 rubric = os.environ['RUBRIC']
@@ -173,6 +188,7 @@ if not hits:
 d = {('pattern' if is_glob else 'path'): t, 'state': os.environ['ST'],
      'by': os.environ['BY'] or None, 'date': datetime.date.today().isoformat()}
 if os.environ['A']: d['artifact'] = os.environ['A']
+if os.environ['EV']: d['evidence'] = os.environ['EV']
 if os.environ['M']:
     try: d['media'] = int(os.environ['M'])
     except ValueError: print("source-ledger: --media takes a count", file=sys.stderr); sys.exit(2)
@@ -386,15 +402,28 @@ for r in inv:
     art = d.get('artifact') or ''
     if not art:
         row.update(verdict='FAULT', note='extracted, but no artifact named — extracted INTO what?'); rows.append(row); continue
+    # EVIDENCE (2026-09-02 post-mortem, Failure 3): being mentioned is not being mined. A
+    # disposition says what came OUT of the file — one specific finding and where it landed —
+    # or it is a claim of the "already handled" kind this instrument exists to refuse.
+    if not (d.get('evidence') or '').strip():
+        row.update(verdict='FAULT', note='no evidence — what finding came out of this file, and where did it land? '
+                   '(mark ... --evidence "..."; a mention in a summary is not a reading)')
+        rows.append(row); continue
     exists, nonempty, hits = artifact_names(art, os.path.basename(rel))
     mentions = hits > 0
     if not exists:
         row.update(verdict='FAULT', note=f'artifact {art} does not exist'); rows.append(row); continue
     if not nonempty:
         row.update(verdict='FAULT', note=f'artifact {art} is empty'); rows.append(row); continue
-    if not mentions and not by_pattern:
-        row.update(verdict='FAULT', note=f'artifact {art} never names {os.path.basename(rel)} — '
-                   'the claim that it consumed this file does not hold up; extract it, or point at the artifact that did')
+    if not mentions:
+        # Pattern or not: an artifact that never names the file did not consume it. Under a
+        # pattern this used to report EXTRACTED-unverified; field measurement on the motivating
+        # project put 33 of 95 modules in that bucket, and the post-mortem counted the same 39
+        # by hand — "named in no analysis document at all" after Stage 1 was marked complete.
+        # An extractor output lists its inputs by name; a summary that does not is a summary.
+        row.update(verdict='FAULT', note=f'artifact {art} never names {os.path.basename(rel)}'
+                   + (' (pattern-covered)' if by_pattern else '')
+                   + ' — the claim that it consumed this file does not hold up; extract it, or point at the artifact that did')
         rows.append(row); continue
     # pages accounting: a paged container (slides, sheets, PDF pages) is consumed page by page,
     # and the disposition states how many — the denominator a reviewer holds the reader to.
@@ -423,8 +452,8 @@ for r in inv:
         elif int(handled) < media:
             row.update(verdict='FAULT', note=f'{media} embedded image(s) inside, {handled} accounted for')
             rows.append(row); continue
-    note = f'→ {art}' + (f' (named on {hits} line{"s" if hits != 1 else ""}' + ('' if hits != 1 else ' — one mention is an inventory line, not a reading; check') + ')'
-                          if mentions else ' (pattern-covered; artifact does not name this file)') + f' — {who}'
+    note = f'→ {art}' + f' (named on {hits} line{"s" if hits != 1 else ""}' + ('' if hits != 1 else ' — one mention is an inventory line, not a reading; check') + ')' + f' — {who}'
+    note += f' · evidence: {d.get("evidence")}'
     if pages: note += f' · {pages} page(s) ' + ('waived: ' + d['pagesWaived'] if d.get('pagesWaived') else 'read')
     if media: note += f' · {media} image(s) ' + ('waived: ' + d['mediaWaived'] if d.get('mediaWaived') else 'accounted for')
     row.update(verdict='EXTRACTED', note=note, nameVerified=mentions, nameHits=hits)

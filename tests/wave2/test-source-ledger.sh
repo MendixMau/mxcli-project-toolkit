@@ -91,7 +91,7 @@ has "blocked by the source ledger" "$OUT" "Gate BLOCKED by the source ledger"
 has "names the deck as pending" "$OUT" "PENDING   legacy/Functional-Description-draft.pptx"
 
 echo "== T3: 'the triage already used it' — artifact never names the deck → FAULT =="
-"$SL" mark "$P" legacy/Functional-Description-draft.pptx --artifact analysis/legacy/legacy-triage.md --by test >/dev/null 2>&1
+"$SL" mark "$P" legacy/Functional-Description-draft.pptx --artifact analysis/legacy/legacy-triage.md --evidence "used as triage input (the intake claim)" --by test >/dev/null 2>&1
 OUT="$("$SL" check "$P" 2>&1)"; RC=$?
 [ "$RC" -eq 1 ] && ok "check exits 1" || bad "check exits 1" "rc=$RC"
 has "the claim is called out" "$OUT" "never names Functional-Description-draft.pptx"
@@ -99,25 +99,42 @@ has "verdict is FAULT not pass" "$OUT" "FAULT     legacy/Functional-Description-
 
 echo "== T4: text-only extraction that names the deck → still FAULT on 25 slides / 22 images =="
 printf '# Deck extraction\n\nSource: Functional-Description-draft.pptx — WFAM X M E semantics.\n' > "$P/analysis/legacy/pptx-extraction.md"
-"$SL" mark "$P" legacy/Functional-Description-draft.pptx --artifact analysis/legacy/pptx-extraction.md --by test >/dev/null 2>&1
+"$SL" mark "$P" legacy/Functional-Description-draft.pptx --artifact analysis/legacy/pptx-extraction.md --evidence "WFAM X/M/E semantics -> pptx-extraction.md" --by test >/dev/null 2>&1
 OUT="$("$SL" check "$P" 2>&1)"
 has "pages unaccounted is a fault" "$OUT" "25 page(s)/slide(s)/sheet(s) inside"
-"$SL" mark "$P" legacy/Functional-Description-draft.pptx --artifact analysis/legacy/pptx-extraction.md --pages 25 --by test >/dev/null 2>&1
+"$SL" mark "$P" legacy/Functional-Description-draft.pptx --artifact analysis/legacy/pptx-extraction.md --evidence "WFAM X/M/E semantics -> pptx-extraction.md" --pages 25 --by test >/dev/null 2>&1
 OUT="$("$SL" check "$P" 2>&1)"
 has "images unaccounted is a fault" "$OUT" "22 embedded image(s) inside"
-"$SL" mark "$P" legacy/Functional-Description-draft.pptx --artifact analysis/legacy/pptx-extraction.md --pages 25 --media 3 --by test >/dev/null 2>&1
+"$SL" mark "$P" legacy/Functional-Description-draft.pptx --artifact analysis/legacy/pptx-extraction.md --evidence "WFAM X/M/E semantics -> pptx-extraction.md" --pages 25 --media 3 --by test >/dev/null 2>&1
 OUT="$("$SL" check "$P" 2>&1)"
 has "3 of 22 images read is a fault" "$OUT" "22 embedded image(s) inside, 3 accounted for"
 
 echo "== T5: everything accounted for → ledger PASS, Stage 1 not blocked by it =="
-"$SL" mark "$P" legacy/Functional-Description-draft.pptx --artifact analysis/legacy/pptx-extraction.md --pages 25 --media 22 --by test >/dev/null 2>&1
-"$SL" mark "$P" 'legacy/*.cls' --artifact analysis/legacy/legacy-triage.md --by test >/dev/null 2>&1
+"$SL" mark "$P" legacy/Functional-Description-draft.pptx --artifact analysis/legacy/pptx-extraction.md --evidence "WFAM X/M/E semantics -> pptx-extraction.md" --pages 25 --media 22 --by test >/dev/null 2>&1
+"$SL" mark "$P" 'legacy/*.cls' --artifact analysis/legacy/legacy-triage.md --evidence "groups A-D name each module" --by test >/dev/null 2>&1
 OUT="$("$SL" check "$P" 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && ok "check exits 0" || bad "check exits 0" "rc=$RC $OUT"
 has "4 extracted" "$OUT" "4 extracted"
 OUT="$(stage "$P" 1)"
 hasnt "stage 1 no longer blocked by the ledger" "$OUT" "Gate BLOCKED by the source ledger"
 has "gate line reads PASS" "$OUT" "Source ledger (every file consumed?): PASS"
+
+echo "== T11: no evidence is a FAULT; a pattern-covered file the artifact never names is a FAULT =="
+P11="$(mkproj t11)"; "$SS" init "$P11" >/dev/null 2>&1
+OUT="$("$SL" mark "$P11" legacy/Functional-Description-draft.pptx --artifact analysis/legacy/legacy-triage.md --by test 2>&1)"; RC=$?
+[ "$RC" -eq 2 ] && ok "mark refuses an extracted disposition without --evidence" || bad "mark refuses without --evidence" "rc=$RC"
+has "says why" "$OUT" "A mention is not a reading"
+"$PY" - "$P11/analysis/source-sufficiency.json" <<'PYIN'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+d['dispositions'] = [{"pattern": "legacy/*.cls", "state": "extracted", "artifact": "analysis/legacy/legacy-triage.md", "evidence": "x", "by": "test", "date": "2026-09-02"},
+                     {"path": "legacy/Functional-Description-draft.pptx", "state": "extracted", "artifact": "analysis/legacy/legacy-triage.md", "evidence": "x", "pages": 25, "media": 22, "by": "test", "date": "2026-09-02"}]
+json.dump(d, open(p, 'w'), indent=2)
+PYIN
+printf '# Triage\n\nGroups derived from Archive-Detail-Subform and Workflow only.\n' > "$P11/analysis/legacy/legacy-triage.md"
+OUT="$("$SL" check "$P11" 2>&1)"
+has "pattern-covered files the artifact does name are EXTRACTED" "$OUT" "2 extracted"
+has "pattern-covered file the artifact never names is a FAULT" "$OUT" "never names Form_Release03.cls (pattern-covered)"
 
 echo "== T10: Form_-prefixed module matched when the artifact says the bare name =="
 J="$("$SL" check "$P" --json 2>/dev/null)"

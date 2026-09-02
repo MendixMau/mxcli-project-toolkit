@@ -47,6 +47,7 @@ html|htm|xhtml	docs	text + tables + form fields (screens exported as HTML are UI
 xml|xsd|wsdl	contract	parse; schema and element names are structure	no	A .xml can be anything (OutSystems export, config, data). Reclassify by content.
 json|yaml|yml|toml	contract	parse; an OpenAPI/GraphQL contract grades as structure	no
 sql|ddl	schema	tables, columns, keys, constraints → domain model input	no	Frequently the best-specified thing in the corpus.
+bak|mdf|ldf|bacpac|dmp|dump	data	RESTORE into a container (SQL Server / Oracle / Postgres image), then query: schema, row counts per table, and every configuration table the code reads. Highest-ranked source in the corpus when present (skills/query-the-model.md → evidence hierarchy)	no	A production backup is production data: it outranks the code, the documents and every earlier conclusion. "Unrecoverable" is a claim to retest, not a finding — one project carried it for five months while a .bak sat in the folder; restored in an afternoon, it overturned five architecture decisions.
 mdb|accdb	schema	schema + data via mdbtools / ODBC; forms, queries, macros and VBA modules are code	no	An Access file is a whole app: schema, data, UI and logic in one container. The disposition names all four.
 dbf|db|sqlite|sqlite3	schema	schema + data	no
 cls|bas|frm|vb|vbs|vba	code	Path A code extraction (VBA/VB6): modules, procedures, form controls, event handlers	no	.frm carries form layout (UI) as well as code; .cls with WORKBOOK/SHEET headers is Excel-hosted.

@@ -191,3 +191,16 @@ Confirmed by: [user] on [date] — required before Phase 2/3 proceed.
 - **Inventorying by extension allowlist.** Three incidents (`.yaml`, then code, then `.pptx`)
   each added one extension after the miss. The inventory is now every file minus a denylist; do
   not reintroduce a "supported formats" list anywhere upstream of it.
+- **Reading the interpreter as the specification.** In a config-driven legacy system the code
+  loops over what a table says; the topology, the rules and the station list live in the rows.
+  Read every table the code reads before drawing a process. Tell: an admin screen for editing
+  something means that something is data, and its current values are the requirement. (A
+  15-step sequential chain was built from a `for` loop over station numbers; the predecessor
+  column in the config table said 7 parallel legs. Post-mortem 2026-09-02, Failure 6.)
+- **Conformance for correctness.** A gate that checks an artifact exists and is well-formed has
+  checked nothing about whether it is true. Where a claim is checkable against a source, the gate
+  checks the claim (the ledger greps the artifact for the file; the drift check walks the disk).
+  Where it is not, say so — `MANUAL` — instead of letting the paragraph pass for the fact.
+- **Skipping the backup.** A `.bak`, `.mdf` or dump in the corpus is production data and outranks
+  everything else in the folder (`query-the-model.md` → evidence hierarchy). "Unrecoverable"
+  written once is retested, not cited: the one that cost five months restored in an afternoon.

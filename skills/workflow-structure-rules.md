@@ -17,6 +17,19 @@ rule in this file is a constraint on the *model*, never evidence that a given MD
 Probe with `mxcli check` before relying on an unproven form (`learned-workflow-patterns.md` §11
 is the methodology); where it fails, flatten to the happy path and hand-add in Studio Pro.
 
+**Where this file deliberately differs from that source** (a conflict is resolved toward what a
+probe or a field run proved, never toward whichever text is newer):
+
+- *Due dates.* The source lists "missing due dates" as an anti-pattern. This toolkit does not add
+  a due date or a timer to a task with no SLA in the requirements — `learned-workflow-patterns.md`
+  §19, a field finding from a 15-task approval module where a full-text search of the BRDs turned
+  up no deadline language at all. Absence of an SLA is a legitimate "no timer" finding.
+- *Targeting XPath form.* The source writes role filters with the token
+  `System.UserRoles = '[%UserRole_X%]'`. The form field-proven through mxcli is the three-segment
+  path — §6.
+- *Empty-outcome scope.* Extended here to call-microflow-returning-enum and AI agent task, and
+  separated from the dead-branch smell it was being confused with — §5.
+
 ---
 
 ## 1. Every path ends exactly once
@@ -110,12 +123,25 @@ cancellation as an interrupting event sub-process (§3). Before flagging a missi
   belong after the activity in the parent flow, not nested inside the outcome. That is the rule
   behind the CE1876 inconsistency noted in `learned-workflow-patterns.md` §6: the single-outcome
   form that passes is the empty block.
-- **Enumeration decisions always include the Empty path**, routed somewhere sensible (typically
-  a user task to supply the missing value). An unassigned enum with no Empty outcome stalls the
-  instance. Enum outcome values are fully qualified: `Module.Enumeration.Value`.
+- **Every enumeration-branching activity carries one outcome per value *plus* an Empty path.**
+  This holds for all three: the *decision* activity, a *call microflow* returning an enum, and
+  the *AI agent task*. Enum outcome values are fully qualified: `Module.Enumeration.Value`; the
+  Empty outcome carries no value. Route Empty somewhere sensible — usually a user task that
+  supplies the missing value.
+
+  The failure: an entity attribute left unassigned reaches a decision with no Empty branch and
+  the instance **stalls with no error** — it is not an exception, the token simply has nowhere
+  to go, so it surfaces days later as "the workflow is stuck" with a green model behind it.
+
+  Do not confuse *outcomes* with *outcome bodies*. `learned-workflow-patterns.md` §16's
+  dead-branch smell is about an outcome whose **body** is empty and pointless; it is not
+  licence to omit the outcome. Declare every value, leave the bodies you do not act on empty.
 - A *call microflow* branches on what the microflow returns: void → no outcomes; boolean → two;
-  enumeration → one per value acted on (`learned-workflow-patterns.md` §16 for the dead-branch
-  smell).
+  enumeration → per the rule above.
+- An **AI agent task** may only carry `BooleanConditionOutcome`, `EnumerationValueConditionOutcome`
+  or `VoidConditionOutcome`, its outcomes must mirror the companion microflow's return values
+  exactly, and it may have outcomes at all only once that microflow is assigned. Re-generate the
+  outcomes whenever the microflow's return type changes.
 
 ## 6. User targeting — derive it from the sentence, then confirm
 
@@ -126,6 +152,7 @@ cancellation as an interrupting event sub-process (§3). Before flagging a missi
 | "HR **or** manager can approve" | **one** task, one XPath with `or` — never two tasks |
 | a workflow *group* is named ("the Finance group") | XPath over `System.WorkflowUserGroup` |
 | conditional logic ("the employee's direct manager") | targeting microflow returning `List of System.User` (or of groups) |
+| the assignee is **data on the record**, not a rule ("the person nominated on the request", "whoever the requester picked") | **no targeting** + an *On created* workflow event handler that sets the task's user association from the context object. See "Assignment carried in data" below |
 | nothing is said | **ask** — `interview-protocol.md`. The MCP team's default is "no targeting, never guess"; in this toolkit the silence is a gate question, and *no targeting* is the recorded `ASSUMED` answer only when the user says "you decide" |
 
 Two rules that do not depend on the mechanism:
@@ -138,6 +165,19 @@ Two rules that do not depend on the mechanism:
 - Prefer **group** targeting for team work: membership is evaluated live, user targeting is
   snapshotted at task creation. Turn on *auto-assign when targeting yields one user* where the
   logic guarantees exactly one.
+
+**Assignment carried in data.** Where the legacy system stores *who* on the record rather than
+deriving it from a role, the four mechanisms above all fit badly — XPath and targeting microflows
+answer "which users match this rule", and the answer here is "the one this row names". The
+supported shape is: targeting = **none**, plus an *On created* handler on the workflow (the
+`onWorkflowEvent` slot, a sibling of the flow — not an activity in it) running a microflow that
+reads the nominee off `$WorkflowContext` and writes the task's user association. Roles do not
+disappear in that model, they become **eligibility**: keep the role check as a validation on
+nomination, not as the targeting expression.
+
+The failure this avoids: modelling a nominated assignee as an XPath over a role delivers the task
+to *everyone* holding that role. On a 15-station process with ~700 nominations per station that is
+not a near miss, it is a different application.
 
 An unfamiliar role name ("vendor", "inspector") is still a role: target it and tell the user to
 confirm the role exists — do not downgrade to no targeting because the word is unusual.
@@ -163,6 +203,17 @@ delay, name/description parameters `{1}`, `{2}`) see exactly `$WorkflowContext` 
 entity) and `$WorkflowInstance` (`System.Workflow`). `$currentUser`, `$currentSession` and any
 microflow variable are **not** available — anything that needs them goes in a called microflow.
 Non-string values are converted (`toString`, `formatDateTime`) before use in captions.
+
+The failure, verbatim — these are the two forms agents actually write, and both are rejected:
+
+```
+$currentUser/Name                 ← WRONG. Not available in a workflow expression.
+$Order/Amount                     ← WRONG. A microflow-style object variable; there is none here.
+$WorkflowContext/Order/Amount     ← right: everything hangs off the context entity
+$WorkflowInstance/DueDate         ← right: instance metadata
+```
+
+Anything genuinely needing `$currentUser` is a *call microflow*, which has it.
 `learned-workflow-patterns.md` §15 adds the mxcli-side limit: no bracketed association filter in
 a decision expression — that is a microflow with a `RETRIEVE`.
 
@@ -179,6 +230,16 @@ a *Jump to* based migration or accept the manual resolution, and rehearse agains
 in-flight instances before touching production. `learned-workflow-patterns.md` §14's recovery
 note carries the same warning for a full regeneration.
 
+An operator acting on a running instance also acts on its event sub-processes (§3), which is
+easy to miss when writing the runbook for cutover:
+
+| Operation on the workflow | Effect on each active event sub-process |
+|---|---|
+| Abort | stops permanently — it cannot be re-triggered |
+| Restart | aborted and reset to waiting |
+| Pause | halted, resumes when the workflow is unpaused |
+| Error in the main flow | stops; resumes once the error is corrected |
+
 ## 10. Studio Pro error codes this file explains
 
 | Code | Meaning | Section |
@@ -187,7 +248,7 @@ note carries the same warning for a full regeneration.
 | CE1844 | *End workflow* inside a non-linear path (parallel branch) | §4 |
 | CE1845 | parallel split with fewer than two paths | §4 |
 | MW0012 | *Jump to* inside a parallel branch | §4 |
-| CE1834 | user task has no page | task page rules, `learned-workflow-patterns.md` §4 |
+| CE1834 | user task has no page | task page rules, `learned-workflow-patterns.md` §4. The page's parameter must be **`System.WorkflowUserTask`** — `System.UserTask` does not exist, and a page built against it never satisfies the check no matter how many times it is re-set |
 | CE1876 | single-outcome shape | §5 |
 | CE0161 | targeting XPath malformed | §6 |
 
@@ -195,17 +256,60 @@ note carries the same warning for a full regeneration.
 
 ## 11. MDL coverage — proven versus unprobed
 
-| Construct | MDL status (as of 2026-09-02) |
+**Do not trust the date on this table — check the binary.** Every row was established against a
+specific mxcli build, and "proven" means proven *on or after* the version named in the row. Run
+`mxcli --version` and `mxcli syntax workflow` before relying on a row; absence from `syntax` /
+`HELP` is not evidence of non-support (`learned-workflow-patterns.md` §7), but a version below a
+row's stated floor is evidence against it.
+
+| Construct | MDL status — probed on **mxcli v0.20.0 / Mendix 11.14.0, 2026-09-03** |
 |---|---|
-| user task, outcomes, targeting XPath / microflow, call microflow, call workflow from a microflow, notify workflow, parallel split | **proven** — `build/workflow-example.mdl`, `learned-workflow-patterns.md` §6–§7 |
-| decision | proven on mxcli ≥ v0.18.0, corrupts the `.mpr` below that — `learned-workflow-patterns.md` §8 Warning 1 |
-| boundary event timer | proven body syntax, §19 there |
-| jump to, end of parallel split path, end of boundary event path as explicit statements | **unprobed** — the example builds branch termination by nesting, never by an explicit end |
-| multi-user task, decision method, completion timing | **unprobed** |
-| event sub-process (all four start kinds), recurrence | **unprobed** |
-| wait for notification, wait for timer, boundary event on notification | **unprobed** — `learned-workflow-patterns.md` "Notes on scope" |
-| AI agent task activity | **unprobed** — the MCP team's rules (companion microflow first, outcomes mirror its return values) are model rules and hold whichever tool writes it |
+| user task, outcomes, targeting XPath (**both** the three-segment path form and the `[%UserRole_X%]` token form), targeting microflow, call workflow, notify workflow, parallel split (branches terminated **by nesting**) | **proven** |
+| **multi-user task** — the activity itself | **proven**. Undocumented in `mxcli syntax workflow`; works anyway |
+| **`JUMP TO <activity>`** inside a user-task outcome | **proven** |
+| **`WAIT FOR TIMER '<expression>'`** and **`WAIT FOR NOTIFICATION;`** | **proven**. Both undocumented; the notification takes **no name** — that is a Studio Pro property |
+| **boundary event timer, non-interrupting** | **proven**, with an **expression**, not an ISO period |
+| decision on a **boolean or free-text** outcome | proven on mxcli ≥ v0.18.0 — `learned-workflow-patterns.md` §8 Warning 1 |
+| call microflow, with or without parameters | **proven** — but the `WITH` clause's **value must be quoted**: `WITH ("Ctx" = '$WorkflowContext')`. Unquoted (`= $WorkflowContext`) segfaults the binary, BUG-107 |
+| — | — |
+| **decision on an enumeration** | **CORRUPTING — BUG-108.** The only form mxcli accepts writes an `.mpr` that cannot be loaded. Hand-add in Studio Pro; never script it |
+| **boundary event timer, interrupting** | **hand-add in Studio Pro.** Its path must end in *End* or *Jump* (CE0105); `END WORKFLOW` does not parse and `JUMP TO` is BUG-109 |
+| **boundary event on notification** | **hand-add** — the grammar admits `{TIMER, INTERRUPTING, NON}` only |
+| **event sub-process** (all four start kinds), recurrence | **hand-add** — no construct in the grammar, in any position |
+| **multi-user decision method / completion timing** | **hand-add** — the activity is scriptable, its decision rule is not |
+| **explicit `END WORKFLOW`, end-of-parallel-split-path, end-of-boundary-event-path** | **not expressible, and not needed.** MDL terminates by nesting, which `mx check` accepts. A consequence worth knowing: **CE1844 cannot be triggered from MDL** — §4 governs the diagram and anything hand-added, not the script |
+| **AI agent task activity** | **unprobed** — its model rules (companion microflow first, outcomes mirror its return values, Boolean/Enum/Void only) hold whichever tool writes it |
+
+**The one thing to take from this table.** `mxcli check` was **wrong on 5 of the 12 constructs
+probed**. Three of them passed `mxcli check --references`, passed `exec`, and read back
+correctly from `DESCRIBE WORKFLOW` — and were still broken under `mx check`, one of them
+leaving the project unopenable. For workflows specifically, **a clean `mxcli check` is not
+evidence of anything.** Run native `mx check` after every workflow write, before you believe it.
 
 Probe result → update this table and `learned-workflow-patterns.md` in the same commit. A row
 that stays *unprobed* is a legitimate "hand-add in Studio Pro" at build time, never a silent
 omission from the module's checklist.
+
+## 12. Before you call a workflow designed — count it
+
+Run this against the drawn diagram (Stage 3) and again against the written MDL (Stage 5). Every
+line ends on a number, and the number has a denominator taken from the workflow itself. Write the
+counts down; "checked" with no count is the unfalsifiable-checklist failure this list exists to
+prevent.
+
+| # | Check | Bound |
+|---|---|---|
+| 1 | Paths that end exactly once (§1) | N of N paths; 0 activities after a terminal |
+| 2 | Boundary events whose type is named **and** whose terminator matches that type (§2) | N of N boundary events |
+| 3 | Parallel splits with ≥ 2 paths, and 0 *End workflow* / 0 *Jump to* at **any** depth inside a branch (§4) | N of N splits |
+| 4 | Enum-branching activities carrying every value **plus** Empty (§5) | N of N decisions + call-microflows-returning-enum + AI agent tasks |
+| 5 | User tasks whose targeting mechanism is named, with the sentence it came from quoted (§6) | N of N user tasks — `ASSUMED: no targeting` is a legal entry, blank is not |
+| 6 | User tasks that either have an error handler for empty targeting, or a targeting expression that provably cannot be empty (§6) | N of N user tasks |
+| 7 | Multi-user tasks with decision method **and** completion timing stated, sourced to a business rule (§7) | N of N multi-user tasks |
+| 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` (§8) | N of N expressions |
+| 9 | Event sub-processes with exactly one start event, correct family, and recurrence within bounds (§3) | N of N sub-processes |
+| 10 | Constructs checked against §11 and marked *proven* or *hand-add in Studio Pro* | N of N constructs used; every hand-add is a build-plan checklist row |
+
+A workflow going into a build plan with row 10 unfilled is the omission this file exists to stop:
+the model builds, `mx check` is green, and a construct the requirements asked for is simply not
+there.

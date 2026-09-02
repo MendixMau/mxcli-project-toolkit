@@ -7,7 +7,7 @@
 # than anything else this toolkit installs. A bad skill wastes tokens; a bad
 # global hook blocks work everywhere.
 #
-# Why any of this exists — see README.md "Context cost". Short version: a 1M
+# Why any of this exists — see process/context-cost.md. Short version: a 1M
 # context window removed the cost governor that a 200k window was providing for
 # free. On one measured project, 89% of cache-read spend came from context above
 # 200k — territory that was structurally impossible on the older model.

@@ -629,7 +629,7 @@ echo "    run until completed, so a half-setup fails loudly instead of silently.
 echo "  - Stage 0 triage: choose/reuse an extraction pipeline (needs triage first, see source-triage.md)."
 echo "  - Optional, NOT installed by this script: the context-cost hooks. They are user-global —"
 echo "    they fire in every repo on this machine — so installing them is your explicit choice."
-echo "    Read README.md \"Context cost\" first (the numbers are the point), then:"
+echo "    Read process/context-cost.md first (the numbers are the point), then:"
 echo "      bin/install-claude-hooks.sh          # prints the tier table, installs nothing"
 echo ""
 

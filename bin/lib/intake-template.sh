@@ -109,6 +109,26 @@ earlier stages report WAIVED instead of a red row nobody can ever clear. Answer 
 scratch here" and nothing is waived, which is the right answer for most projects. Do NOT infer
 this from what happens to be on disk: a missing artifact and an artifact produced elsewhere look
 identical, and guessing wrong either nags forever or waives a stage that genuinely still matters.
+
+## 11. Where does the model get built — cloud container, or a laptop with Studio Pro?
+
+_Not yet asked._ Pick one now; **you can change along the way** — the choice only bites at
+Stage 5, everything before it is markdown and JSON, and a project routinely builds headless
+and hands off to Studio Pro for the demo (`skills/handoff-to-studio-pro.md`). Record the
+answer as a Stage-P decision in `PROJECT.md` and re-record it if it changes. What each one
+means, in one line each (full table: toolkit `README.md` → "Choose your environment"):
+
+- **Cloud container** — Claude Code on the web or in the app, a Codespace, or the same
+  `.devcontainer/` image from `mxcli init` on your own laptop. The build gate is a plain
+  `mxbuild` binary (`doctor.sh --install`), the one write mode is the CLI (`bin/exec.sh`),
+  the run loop is `mxcli run --local` with `--hub` for a phone-clickable URL. Ephemeral:
+  push at every gate. Owning skill: `skills/cloud-dev-environment.md`.
+- **Laptop + Studio Pro** — macOS or Windows with Studio Pro installed beside the agent.
+  Same CLI mode, plus the two MCP write modes for live UI iteration and for widget shapes
+  MDL cannot express yet. Studio Pro automation is macOS-only; Windows drives it by hand.
+
+If you don't know: the container is the simpler of the two, not the lesser — nothing on the
+critical path needs a GUI. Choose Studio Pro when a human will co-edit the model.
 MXTK_INTAKE_EOF
 }
 

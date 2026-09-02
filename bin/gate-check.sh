@@ -25,6 +25,13 @@
 #   - --waive <stage> --reason "..." does the same for one stage — for work a project already
 #     did its own way. Both write a line into the decision register and docs/BUILD-LOG.md;
 #     --reason is required, because an unexplained skip is the thing gates exist to prevent.
+#   - --closeout <project-dir> <stage> runs the full evaluation and prints ONLY the stage
+#     close-out / next-stage-open block (bin/lib/closeout.sh): artifacts produced, decisions
+#     made in that stage, what is carried forward, this stage's verdict line verbatim, and
+#     what the next stage does, how, under which skills, with which optional artifacts on
+#     offer. Chat-ready markdown, meant to be pasted as-is at the gate (conversion-runbook.md
+#     §1b rule 7). Always exits 0 and writes nothing: it is a recap, not a verdict — the
+#     verdict is the line it quotes.
 #   - --waive <obligation>[/<module>] --reason "..." waives a PASS rather than a stage — the
 #     rows in bin/lib/obligations.tsv (look, sweep, journeys, coherence). `look/Orders` waives
 #     one module; bare `look` waives every module. Same flag and same mandatory reason on
@@ -52,6 +59,7 @@ FORCE_STALE="${MXTK_ACK_STALE:-0}"
 STRICT_PROTOCOL="${MXTK_STRICT_PROTOCOL:-0}"
 ADOPT_STAGE=""
 WAIVE_STAGE=""
+CLOSEOUT=0
 WAIVER_REASON=""
 declare -a GC_ARGS
 GC_ARGS=()
@@ -63,6 +71,7 @@ while [ $# -gt 0 ]; do
     --approved-in-chat) APPROVED_IN_CHAT=1 ;;
     --verbose)         PROTOCOL_VERBOSE=1 ;;
     --adopt)           shift; ADOPT_STAGE="${1:-}" ;;
+    --closeout)        CLOSEOUT=1; HTML_MODE="never" ;;
     --waive)           shift; WAIVE_STAGE="${1:-}" ;;
     --reason)          shift; WAIVER_REASON="${1:-}" ;;
     --force-stale)     FORCE_STALE=1 ;;
@@ -122,6 +131,20 @@ case "$REQUESTED_STAGE" in
     exit 2
     ;;
 esac
+
+# --closeout: the run below is evidence for ONE quoted line; everything else it prints would
+# bury the block the user is meant to read. Capture stdout and stderr, restore them at the
+# emit point, and never write the dashboard (HTML_MODE was forced to never above).
+CLOSEOUT_LOG=""
+if [ "$CLOSEOUT" = "1" ]; then
+  case "$REQUESTED_STAGE" in
+    P|p|[0-7]) ;;
+    *) echo "Error: --closeout needs a stage (P or 0-7): bin/gate-check.sh --closeout <project-dir> <stage>" >&2; exit 2 ;;
+  esac
+  CLOSEOUT_LOG="$(mktemp "${TMPDIR:-/tmp}/gate-closeout.XXXXXX")"
+  exec 3>&1 4>&2
+  exec >"$CLOSEOUT_LOG" 2>&1
+fi
 
 # Machine preflight receipt — informational only, on full runs only (stage queries run inside
 # agent loops and hooks and must stay quiet). bin/doctor.sh writes the receipt; a missing one
@@ -2480,6 +2503,33 @@ HTML_TAIL
   fi
 fi
 
+# ---------------------------------------------------------------------------
+# --closeout — emit the block and stop. Placed AFTER every evaluation (the verdict line must
+# be the real one) and BEFORE every blocking exit below (a recap never blocks; the gate does,
+# on its own invocation).
+if [ "$CLOSEOUT" = "1" ]; then
+  exec 1>&3 2>&4
+  _co_verdict=""
+  if [ "$REQUESTED_STAGE" = "P" ] || [ "$REQUESTED_STAGE" = "p" ]; then
+    _co_verdict="Stage P: ${P_STATUS:-?} — ${P_NOTE:-}"
+  elif tbl_get "$REQUESTED_STAGE" "$RESULTS_TBL"; then
+    _co_verdict="Stage $REQUESTED_STAGE: $TBL_VALUE"
+    tbl_get "$REQUESTED_STAGE" "$NOTES_TBL" && _co_verdict="$_co_verdict — $TBL_VALUE"
+  fi
+  if [ "$DRIFT_STATUS" = "FAIL" ]; then
+    _co_verdict="$_co_verdict · BLOCKED by unsynced BRD drift: $DRIFT_NOTE"
+  fi
+  if [ -r "$TOOLKIT_DIR/bin/lib/closeout.sh" ]; then
+    # shellcheck source=lib/closeout.sh
+    . "$TOOLKIT_DIR/bin/lib/closeout.sh"
+    MXTK_CLOSEOUT_VERDICT="$_co_verdict" mxtk_closeout_report "$PROJECT_DIR" "$REQUESTED_STAGE" "$REGISTER"
+  else
+    echo "closeout: FAULT — bin/lib/closeout.sh missing from $TOOLKIT_DIR; nothing was emitted (this is the checker failing, not the project)" >&2
+  fi
+  rm -f "$CLOSEOUT_LOG"
+  exit 0
+fi
+
 if [ -n "$REQUESTED_STAGE" ]; then
   # Protocol staleness does NOT gate anything unless --strict-protocol was asked for. The
   # notice has already been printed above, with its lettered options; the stage verdict below
@@ -2495,6 +2545,9 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "" >&2
     echo "Gate BLOCKED by unsynced BRD drift: $DRIFT_NOTE" >&2
     printf '%s\n' "$UNSYNCED_ROWS" >&2
+    echo "In plain words: a decision changed a requirement and the requirements document (BRD or" >&2
+    echo "wireframe) has not been updated to match. ba-agent brings it in line and flips the marker" >&2
+    echo "to 'synced <date>'; then this gate can be judged on its own merits." >&2
     exit 1
   fi
   # Stage 0 does not pass while the source was never characterised. Scoped to Stage 0 only —
@@ -2654,6 +2707,17 @@ if [ -n "$REQUESTED_STAGE" ]; then
       fi
       ;;
   esac
+  # Every outcome below gets its plain-words paragraph (bin/lib/closeout.sh) — asked for on
+  # 2026-09-02: "for every gate we have, explain why it is blocked or what is pending, in
+  # human-understandable, not too technical language". The technical line stays; this is
+  # printed under it, on the same stream, and never changes the exit code.
+  plain_words() {
+    [ -r "$TOOLKIT_DIR/bin/lib/closeout.sh" ] || return 0
+    # shellcheck source=lib/closeout.sh
+    . "$TOOLKIT_DIR/bin/lib/closeout.sh"
+    mxtk_plain_verdict "$REQUESTED_STAGE" "Stage $REQUESTED_STAGE: $requested_status — $requested_note" "$PROJECT_DIR" "$REGISTER" \
+      | sed 's/\*\*//g'
+  }
   # NOT STARTED gets its own exit code, and the wording is not a telling-off. The stage you
   # ASKED about still does not pass — you asked, and the honest answer is no — but a caller can
   # now tell "nothing has been done here" (3) from "something is wrong here" (1), which is the
@@ -2664,11 +2728,13 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "Nothing is wrong — there is just nothing here yet. If this project is never going to" >&2
     echo "produce it, say so once and it stops being counted:" >&2
     echo "  $0 --waive $REQUESTED_STAGE --reason \"...\" $PROJECT_DIR" >&2
+    plain_words >&2
     exit 3
   fi
   if [ "$requested_status" = "FAIL" ]; then
     echo "" >&2
     echo "Stage $REQUESTED_STAGE gate FAILED: $requested_note" >&2
+    plain_words >&2
     exit 1
   fi
   # MANUAL is not PASS. Only FAIL used to exit non-zero, so every manual stage —
@@ -2680,11 +2746,14 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "Stage $REQUESTED_STAGE is NOT machine-checkable: $requested_note" >&2
     echo "This is not a pass. Paste the stage's own evidence (for Stage 5: the" >&2
     echo "per-module coverage checklists and each script's gate result)." >&2
+    plain_words >&2
     exit 2
   fi
   # The stage passes on its own evidence. Last question: was anything decided behind the
   # user's back? This is the project's own state, so unlike protocol staleness it BLOCKS.
   enforce_open_questions "$REQUESTED_STAGE"
+  echo ""
+  plain_words
 fi
 
 exit 0

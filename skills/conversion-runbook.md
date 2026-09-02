@@ -264,8 +264,26 @@ Rules — these apply to every stage and every per-module build loop:
    checklists remain the durable record; the chat checklist is a view of them. If they
    disagree, the file is wrong or stale — fix it immediately.
 
+7. **Close out with the generated block, then open the next stage with it.** At every stage
+   gate — and at the Stage 2, 3 and 4 gates without exception — paste the output of
+   `bin/gate-check.sh --closeout <project-root> <stage>` as-is. It is generated from the
+   records the gates read, never composed from memory, and it tells the person in the chat
+   the four things the checklist and the verdict line do not: what the stage produced
+   (artifact by artifact), what was decided in it, what is carried forward (open questions
+   with the status word that keeps them open, ASSUMED decisions, drift markers), and what the
+   next stage will do, how it is worked and tested, under which skills, with which optional
+   artifacts on offer — followed by the gate line **in plain words**, for a reader who does
+   not know the toolkit. Where a checkpoint fires at the close (CAC-3 at Stage 2, CAC-5 at
+   Stage 4), the checkpoint message opens with the block (`checkpoint-template.md` → "Stage
+   close-out and stage open"); Stage 3 has no closing checkpoint, so its block is pasted at
+   the gate, before the ✋ decision is asked. This rule is the single source; the checkpoint
+   template and the gate rows below defer here. (Why, 2026-09-02: three transitions that
+   asked well and proved well and closed nothing — see the template section for the measured
+   register.)
+
 The final full-checklist repost before a gate doubles as the gate's evidence: the user should
-be able to approve the gate by reading that one message.
+be able to approve the gate by reading that one message. The close-out block is what the
+reader approves the *transition* on — checklist for the work, block for the hand-over.
 
 ---
 
@@ -489,7 +507,7 @@ is better input than the triage map ever was.
 | **User defines** | Confirms business rules the code implies. Answers `openQuestions` (via SME). Narrative is never invented. |
 | **Agent produces** | BRD scaffolds → enrichment from `KB.md` → validation to clean. `F{NNN}.brd.json`. |
 | **Surface** | `analysis/brd-report.html` — `bin/brd-report.sh <project-root>`. One renderer for every entry mode: it reads BRDs, not source, so a requirements-driven or greenfield project gets the same surface as a migration, and so does a BRD no extractor produced. Each section carries a `report-schema.md` verdict, so a section that is empty because this kind of BRD has nothing to put there reads differently from one that is empty because something broke. Until 2026-08-19 this was `enrichment-summary.html`, built three times inside three pipelines against three different BRD key shapes — each copy rendered blanks for the other two’s output, and non-migration projects got no surface at all despite this row promising one. |
-| **Gate** | Every BRD validation-clean; `validation-report.md` has 0 issues; **every `openQuestions` entry raised in chat** — `bin/open-questions.sh <root> --stage 2` reports 0 blocking, which `gate-check.sh` enforces. "Chased to closure" was the old wording and it was unenforceable: a question logged with a self-answer read as closed. |
+| **Gate** | Every BRD validation-clean; `validation-report.md` has 0 issues; **every `openQuestions` entry raised in chat** — `bin/open-questions.sh <root> --stage 2` reports 0 blocking, which `gate-check.sh` enforces. Close-out block pasted (§1b rule 7) — CAC-3 opens with it. "Chased to closure" was the old wording and it was unenforceable: a question logged with a self-answer read as closed. |
 | **Owner** | `ba-agent` |
 
 ### Stage 3 — Architecture & Design ✋
@@ -501,7 +519,7 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | **User defines** | ① One Mendix app or several (if flagged at Stage 0). ② **Module boundaries** (agent proposes with `modularize-domain.md` criteria). ③ **Buy vs build vs stub, per fit-gap item** — the confirming step `brd-to-build-plan.md` assumed already happened. ④ **Target security / role model** — not just whether auth existed in the source, but what the target should be. ⑤ **Data volumes, concurrency, NFRs** — these decide indexing, pagination, datagrid-vs-paged-gallery, loop batch sizes. ⑥ **Integration contracts** — real or stub, endpoint, credentials, owner, test environment. ⑦ **Branding inputs** — logo, palette, type, spacing, per `design-artifacts.md`. |
 | **Agent produces** | `.mx-brd.json`, `architecture/` (module defs, layer diagram, wiring diagram, `fit-gap.md`, `blueprint.html` checkpoint render — plus a workflow diagram and/or agent-wiring diagram in `blueprint.md`/`blueprint.html` when CAC-3's Q3 flags real scope for either, plus cross-persona journey diagrams + journey list — `architecture-blueprint.md` Step 3d — whenever the BRDs carry more than one persona; single-persona skip recorded as a one-line note, never silent), `design/` per `design-artifacts.md`'s full output list: `ds.css` + `design-system.html` + **`wireframes/*.html`, one annotated wireframe per screen** — the design system without the wireframes is half the deliverable and fails the gate. |
 | **Surface** | `module-design.html` · `architecture/blueprint.html` (generated render of `blueprint.md` — architecture-blueprint.md Step 7, never hand-edited) · `design-system.html` + `wireframes/*.html` |
-| **Gate ✋** | Boundaries approved. Marketplace calls made. Role model, volumes, integrations and branding **each asked and answered**: `CONFIRMED`, or explicitly delegated by the user ("you decide" → `ASSUMED` with risk). Never `ASSUMED` without the question having reached the user. **No architecture/design artifact is produced before its checkpoint ran.** |
+| **Gate ✋** | Boundaries approved. Marketplace calls made. Role model, volumes, integrations and branding **each asked and answered**: `CONFIRMED`, or explicitly delegated by the user ("you decide" → `ASSUMED` with risk). Never `ASSUMED` without the question having reached the user. Close-out block pasted before the ✋ decision is asked (§1b rule 7) — this stage has no closing checkpoint, so the gate is where the Stage-4 open (its approach, skills and optional artifacts) is shown. **No architecture/design artifact is produced before its checkpoint ran.** |
 | **Owner** | `architect-agent` (interviews run by `ba-agent`) |
 
 ### Stage 4 — Build Plan ✋
@@ -511,7 +529,7 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | **User defines** | **Acceptance criteria per module** — what "done" means beyond CE-error-free. **Environment / DTAP / deployment target.** Iteration granularity. |
 | **Agent produces** | `architecture/build-plan.md` — numbered, dependency-ordered (marketplace imports → module roles → entities + entity grants → associations → microflows + execute grants → pages + view grants → demo users), grants **co-located** with the element they protect (never a deferred security script), the role-to-access table for every element, with pending decisions promoted to the top. Plus the first module's **module brief** (`architecture/modules/<Module>/module-brief.md`, per `module-brief.md`) — subsequent briefs are produced just-in-time as each module's build begins. Plus the **coverage ledger** (`architecture/modules/<Module>/coverage-ledger.md` per module; `architecture/coverage-ledger.md` for a single-BRD project — `coverage-ledger.md` §"Where the ledger lives"), generated per `coverage-ledger.md` from the BRDs and the plan's `claims:` blocks. `claims` is authored *here*, row by row, as the plan is written (`brd-to-build-plan.md` Step 5b) — required on new rows only; a plan written before the convention existed is an accepted state that reports coverage NOT MEASURED, not a defect. |
 | **Surface** | `build-plan.html` |
-| **Gate ✋** | Pending-decisions list empty or fully answered. Role-to-access table complete for every element. **Coverage check run** (procedure in `coverage-ledger.md`): UNCLAIMED, PHANTOM and DOUBLE-CLAIMED all empty, and the leaf counts **pasted in chat** — like `gate-check.sh` output, never attested. Every ledger entry carries a category and a reason; every `open-question` entry appears in the pending-decisions list and some row's `blockedBy`. **Every CONFIRMED decision from Stages 0–3 maps to a build-plan row id or a ledger `descoped` entry** — a confirmed decision with no build disposition is how scoped work silently vanishes (a real WMS incident: the CONFIRMED Phone-Web nav profile, wireframe and all, was never built and nothing flagged it). User approves — the coverage verdict is signed off alongside the plan. |
+| **Gate ✋** | Close-out block pasted (§1b rule 7) — CAC-5 opens with it. Pending-decisions list empty or fully answered. Role-to-access table complete for every element. **Coverage check run** (procedure in `coverage-ledger.md`): UNCLAIMED, PHANTOM and DOUBLE-CLAIMED all empty, and the leaf counts **pasted in chat** — like `gate-check.sh` output, never attested. Every ledger entry carries a category and a reason; every `open-question` entry appears in the pending-decisions list and some row's `blockedBy`. **Every CONFIRMED decision from Stages 0–3 maps to a build-plan row id or a ledger `descoped` entry** — a confirmed decision with no build disposition is how scoped work silently vanishes (a real WMS incident: the CONFIRMED Phone-Web nav profile, wireframe and all, was never built and nothing flagged it). User approves — the coverage verdict is signed off alongside the plan. |
 | **Owner** | `architect-agent` for the build plan; `ba-agent` drives each module brief (pulling `architect-agent` for the technical layer). |
 
 > **Before Stage 5 starts — run the build-ready check:** `bin/gate-check.sh <project-dir> build-ready`.

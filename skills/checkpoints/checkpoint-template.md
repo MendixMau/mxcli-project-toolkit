@@ -15,9 +15,16 @@ only allowed at soft gates.
 
 ## What Every Checkpoint Does
 
+0. **Close out** — the stage close-out block, generated, pasted first (see "Stage close-out
+   and stage open" below): artifacts produced, decisions made in the stage, what is carried
+   forward, the gate line with its plain-words reading, then what the next stage does, how,
+   under which skills, and which optional artifacts are on offer.
 1. **Surface** — Digest of what was just produced (counts, key findings, gaps named)
 2. **Project** — What the next stage will do and what it needs from the user
 3. **Steer** — 2 predefined questions (inferred from KB/BRD findings) + 1 open question (can't be inferred from code)
+4. **Offer** — the optional-artifacts question: anything else the user wants defined before
+   the next stage starts (workflow design, swimlanes, sequence diagrams, ERD, NFR sheet,
+   integration contracts, test plan, acceptance criteria, demo script — or their own).
 
 Checkpoints are **decision gates, not artifact producers**. They never generate files —
 they produce decisions that propagate into the next stage's inputs via `PROJECT.md`.
@@ -31,6 +38,58 @@ cannot be installed; see `interview-protocol.md` §3 "Asking on a non-Claude age
 stopping is what makes a checkpoint a checkpoint, and it is the half a non-Claude session drops
 first. Source evidence powers the recommended option; it never substitutes for asking. `ASSUMED` may only be recorded after
 the user was actually asked and delegated ("you decide").
+
+---
+
+## Stage close-out and stage open (added 2026-09-02)
+
+**The defect this fixes.** At the Stage 2, 3 and 4 transitions the toolkit asked well (2+1,
+brainstorms, the hard stop) and proved well (gate-check pasted, live checklist reposted) and
+closed nothing: nobody was told in one message what the stage had produced, what had been
+decided in it, what was still open going into the next one, what that next stage would do
+and how, and which skills would govern it. Measured on a real register (TFC-TCXGraphPOC,
+2026-09-02): 77 CONFIRMED/ASSUMED rows and no reader-facing recap at any gate; an open-questions
+table mixing ANSWERED, Deferred, PARKED and REVERSED rows so "what is still open entering
+Stage 5" could not be read off it; a hand-written `architecture/workflow-definition.md` that
+nothing tracked. "What we found" (below) is built to drive the next questions, not to
+inventory the stage — so it stayed, and this was added in front of it.
+
+**The rule.** When a checkpoint fires at the close of a stage (CAC-1, CAC-1b, CAC-3, CAC-5,
+CAC-6), the checkpoint message **opens with the generated close-out block, pasted as-is**:
+
+```
+bin/gate-check.sh --closeout <project-root> <stage>
+```
+
+It prints only the block (chat-ready markdown, exit 0, writes nothing) and it is generated
+from the same records the gates read — never composed from memory:
+
+| Section | Read from | What the reader learns |
+|---|---|---|
+| Artifacts produced | `bin/lib/artifact-manifest.tsv` rows for the stage | ✅ present · ⬜ pending (with the producer to run) · ⏭ waived · opted-in artifacts included |
+| Decisions made this stage | `PROJECT.md` → Decisions, rows of that stage | counts of CONFIRMED / ASSUMED / other status words; first 15 listed, every non-CONFIRMED row always listed |
+| Carried forward | `PROJECT.md` open questions + ASSUMED rows + `UNSYNCED` markers | every open question whose status word is outside the closed set (answered / resolved / confirmed / moot / closed / done / withdrawn / decided), shown with that word; every ASSUMED decision from any stage; drift markers |
+| Gate | gate-check's own verdict line, verbatim, then **In plain words** | status in one plain sentence, what the gate needs, and why specifically — for a reader who does not know the toolkit |
+| Next: Stage N+1 | static toolkit lines + `bin/lib/skill-routing.tsv` + manifest `optin` rows | what it does, how it is worked (build and test approach), the checkpoints inside it, the top-5 governing skills and instruments, and the optional artifacts on offer |
+
+Then the checkpoint continues as before ("What we found", the questions). The **Offer**
+step closes it: ask, as one more predefined question (multi-select on Claude Code, numbered
+list elsewhere), which of the offered optional artifacts the user wants, plus "something
+else". Each accepted one is recorded as a register line — `Opt-in artifact <id>: <why>` in
+`PROJECT.md` — after which the artifact check tracks it like any mandatory one, and a
+declined menu is recorded once as a decision (`Optional artifacts: none for Stage N`) so the
+next session does not re-offer. The list is `bin/lib/artifact-manifest.tsv` rows with
+`optin` in the absence column; adding an offer is adding a row there, with its consumer.
+
+Stage 3 has no closing checkpoint of its own (CAC-4 fires mid-stage, before the design
+system), so its close-out is pasted at the Stage-3 gate itself — `conversion-runbook.md`
+§1b rule 7 is the single source of that rule; this section defers to it.
+
+**What the block is not.** Not a second register (the register is the record, the block is
+the view — if they disagree, fix the register), not a stakeholder report (the audience is the
+person in the chat; a rendered report was offered and declined on 2026-09-02), and not a
+verdict (the verdict is the gate line it quotes). If a plain-words reason is missing for a
+verdict the block says so; add the translation to `bin/lib/closeout.sh`, not prose here.
 
 ---
 
@@ -83,6 +142,9 @@ Present in this order:
 
 ```
 ---
+[Close-out block — `bin/gate-check.sh --closeout <root> <stage>`, pasted as-is, when this
+ checkpoint fires at a stage close]
+
 ## [Stage Name] Checkpoint
 
 ### What we found
@@ -97,6 +159,10 @@ Present in this order:
 [Predefined Q2 — AskUserQuestion on Claude Code, numbered options otherwise]
 
 [Open Q — plain text]
+
+[Offer — "Anything else you want defined before Stage N+1 starts?" — the optional artifacts
+ the close-out block listed, multi-select, plus "something else"; record each taken one as
+ `Opt-in artifact <id>: <why>` in PROJECT.md]
 
 ---
 ```

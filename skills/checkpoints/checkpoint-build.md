@@ -6,6 +6,18 @@
 
 ---
 
+## Close out Stage 4 first
+
+This checkpoint fires at the close of Stage 4. Open the message with the generated block —
+`bin/gate-check.sh --closeout <project-root> 4` — pasted as-is (`checkpoint-template.md`
+→ "Stage close-out and stage open"). It carries the plan, brief and ledger as produced (or
+PENDING), every Stage-4 decision, everything still open going into the build, the Stage-4
+gate line in plain words, and the Stage-5 open: what the build does and how it is worked
+and tested (snapshot → exec → mxbuild gate → happy path per script; build, gate, prove, LOOK
+per module with the denominator stated; live checklist in chat throughout), the governing
+skills and instruments, and the optional artifacts on offer. The brainstorm below then
+starts from a reader who knows where the project stands.
+
 ## What to Surface
 
 Pull from all `.mx-brd.json` files and design decisions:
@@ -75,6 +87,22 @@ all scripts upfront. See `brd-to-build-plan.md` ("The build plan contains no MDL
 
 ---
 
+## Optional artifacts for Stage 5 (the Offer — ask after Q2, before the open question)
+
+> "Before the first script: anything else you want written down?"
+> - Demo script — the narrated walk-through a human will give: beats, pages, fixtures on
+>   screen, what the audience must see happen *(recommended whenever the open question below
+>   names a demo — the build then front-loads what the demo needs)*
+> - Test plan (if not taken at the Stage-4 open) — per module: journeys to prove, fixtures,
+>   DB assertions, edge cases
+> - Acceptance criteria per module (if not taken at the Stage-4 open) — what "done" means
+>   beyond CE-error-free
+> - Something else — name it
+
+**Record as:** `Opt-in artifact <id>: <why>` lines in `PROJECT.md` (`demo-script`,
+`test-plan`, `acceptance-criteria`), or `Optional artifacts: none for Stage 5` as a Stage-4
+decision.
+
 ## Open Question
 
 > "Is there a deadline, a demo milestone, or a specific feature that must be working first?
@@ -97,4 +125,5 @@ PROJECT.md → ## Decisions:
   Security setup timing: [layer1 / last / per-feature]
   Deadline: [date or 'none']
   Priority feature: [name or 'none']
+  Optional artifacts: [none for Stage 5 | one "Opt-in artifact <id>: <why>" line per artifact taken]
 ```

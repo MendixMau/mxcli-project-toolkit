@@ -32,6 +32,12 @@
 #   N/A      the entry mode does not run this stage, or the project is not running the
 #            pipeline at all (à-la-carte; existing-app-assurance.md) — said out loud either
 #            way, because silence is the failure mode this file exists to remove
+#   OFFERED  an OPT-IN row (manifest absence column `optin`) nobody opted into and nobody
+#            produced — optional artifacts (swimlanes, workflow design, sequence diagrams,
+#            test plan …) offered at the stage open by bin/lib/closeout.sh. Summarised on ONE
+#            line per run, never per row: not owed is not the same as missing. A register line
+#            `Opt-in artifact <id>: <why>` turns the row into an ordinary report-only one; a
+#            file that simply exists at the path is PRESENT and tracked from then on.
 #
 # POSITION IS READ, NEVER INFERRED (CLAUDE.md: "Never infer a project's position — read the
 # register line, or ask"). The project's position is derived from exactly the records
@@ -71,17 +77,28 @@ _art_register_lines() {
 }
 
 # _art_field <register> <lowercased label> — value of the first "Label: value" line.
+#
+# One awk pass, not a bash loop. The loop form spawned `tr` and `sed` per register line, and
+# this function is called two or three times per manifest row — on a real register (TFC,
+# ~300 lines, cells running to 2,000 characters) that was ~60,000 subprocesses per gate-check
+# run, i.e. the "Stage 2 hangs" report of 2026-09-02 that was not a hang but a ninety-second
+# lookup. Same contract: first match wins, label compared lower-cased and trimmed, empty
+# values skipped, HTML comments ignored (as _art_register_lines does).
 _art_field() {
-  local reg="$1" want="$2" line key val
-  while IFS= read -r line; do
-    key="${line%%:*}"; val="${line#*:}"
-    [ "$key" = "$line" ] && continue
-    key="$(printf '%s' "$key" | tr '[:upper:]' '[:lower:]' | sed 's/^[ \t]*//;s/[ \t]*$//')"
-    val="$(printf '%s' "$val" | sed 's/^[ \t]*//;s/[ \t]*$//')"
-    [ -n "$val" ] || continue
-    if [ "$key" = "$want" ]; then printf '%s\n' "$val"; return 0; fi
-  done < <(_art_register_lines "$reg")
-  return 1
+  local reg="$1" want="$2" out
+  [ -f "$reg" ] || return 1
+  out="$(awk -v want="$want" '
+    /<!--/ { c = 1 } c { if ($0 ~ /-->/) c = 0; next }
+    {
+      l = $0; gsub(/^[ \t>*_-]+/, "", l); gsub(/\*/, "", l)
+      i = index(l, ":"); if (i == 0) next
+      key = tolower(substr(l, 1, i - 1)); gsub(/^[ \t]+|[ \t]+$/, "", key)
+      val = substr(l, i + 1);              gsub(/^[ \t]+|[ \t]+$/, "", val)
+      if (val == "") next
+      if (key == want) { print val; exit }
+    }' "$reg")"
+  [ -n "$out" ] || return 1
+  printf '%s\n' "$out"
 }
 
 # _art_waiver <register> <artifact-id> <stage> — prints the reason, exits 0 if waived.
@@ -254,6 +271,9 @@ mxtk_artifacts_report() {
     case "$id" in ''|'#'*|artifact) continue ;; esac
     r="$(_art_rank "$stage")"; [ "$r" -lt 99 ] || continue
     [ "$r" -le "$present_rank" ] && continue
+    # An optional artifact is never position evidence: a swimlane sketched early must not
+    # make a whole stage's mandatory artifacts owed.
+    [ "$absence" = "optin" ] && continue
     _art_find "$root" "$paths"
     [ -n "$ART_HIT" ] && present_rank="$r"
   done < "$ARTIFACT_TSV"
@@ -263,6 +283,7 @@ mxtk_artifacts_report() {
   fi
 
   # Second pass: the report.
+  local _art_offered=""
   while IFS=$'\t' read -r id stage paths producer consumers modes absence; do
     case "$id" in ''|'#'*|artifact) continue ;; esac
 
@@ -281,6 +302,18 @@ mxtk_artifacts_report() {
              "$id" "$mode" "$modes"
            continue ;;
       esac
+    fi
+
+    # Opt-in rows: offered, not owed. Opted in (register line) or already produced → fall
+    # through and be tracked like any report-only row. Neither → one summary line at the end.
+    if [ "$absence" = "optin" ]; then
+      _art_find "$root" "$paths"
+      if [ -z "$ART_HIT" ] && [ -z "$ART_EMPTY" ] \
+         && ! _art_field "$reg" "opt-in artifact $id" >/dev/null 2>&1; then
+        _art_offered="$_art_offered${_art_offered:+, }$id (stage $stage)"
+        continue
+      fi
+      absence="report"
     fi
 
     # Adoption never covers Stage P — same exception, same reason, as gate-check.sh's
@@ -326,6 +359,12 @@ mxtk_artifacts_report() {
         "$id" "$stage" "$pos_src" "$producer"
     fi
   done < "$ARTIFACT_TSV"
+
+  # The one line for everything on offer and untaken — said once so it is not silent, said
+  # once so eight optional rows do not read as eight things missing.
+  if [ -n "$_art_offered" ]; then
+    printf 'Artifacts optional, not opted in: %s — offered at each stage open by gate-check.sh --closeout; opt in with a register line "Opt-in artifact <id>: <why>"\n' "$_art_offered"
+  fi
 
   return 0
 }

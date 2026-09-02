@@ -6,6 +6,16 @@
 
 ---
 
+## Close out Stage 2 first
+
+This checkpoint fires at the close of Stage 2. Open the message with the generated block —
+`bin/gate-check.sh --closeout <project-root> 2` — pasted as-is (`checkpoint-template.md`
+→ "Stage close-out and stage open"). It carries the BRDs produced, the Stage-2 decisions,
+every question still open (with the status word that keeps it open), the Stage-2 gate line
+in plain words, and the Stage-3 open: what architecture and design will do, how (propose
+with evidence, you confirm at the ✋ gate, nothing touches the .mpr), its checkpoints (CAC-4
+before any design system), the governing skills, and the optional artifacts on offer.
+
 ## What to Surface
 
 Pull from validated `F{NNN}.brd.json` files:
@@ -109,6 +119,35 @@ listing which BRDs/features triggered it and the chosen option.
 
 ---
 
+## Optional artifacts for Stage 3 (the Offer — ask after Q3, before the open question)
+
+Stage 3 is where the pictures get drawn, so this is the checkpoint where people most often
+wish afterwards that they had asked for one more. The close-out block lists what is on offer
+(the `optin` rows of `bin/lib/artifact-manifest.tsv` for stage 3); ask it as one multi-select
+question, recommended options first, derived from the BRDs the same way Q3's signals are:
+
+> "Beyond the blueprint, fit-gap, design system and wireframes, which of these do you want
+> defined before we build?"
+> - Workflow design — one state diagram per process: states, transitions, who moves it, SLA
+>   *(recommended whenever Q3's workflow half found signals — under option B it is the only
+>   picture of the lifecycle anywhere)*
+> - Swimlanes — who does what per process, one lane per role *(recommended when the BRDs
+>   carry more than one persona)*
+> - Sequence diagrams — per integration or agent call: caller, microflow, external system,
+>   sync/async, timeout, fallback *(recommended whenever Q3's agent-wiring half found signals)*
+> - Entity diagram across modules (ERD) *(recommended when Q2 fired — shared entities)*
+> - NFR sheet — target, how measured, where enforced *(recommended when the open question
+>   below comes back non-empty)*
+> - Integration contracts — endpoint, auth, payload, errors, test double, per integration
+> - Something else — name it
+
+**Record as:** one `Opt-in artifact <id>: <why>` line in `PROJECT.md` per artifact taken
+(ids: `workflow-design`, `swimlanes`, `sequence-diagrams`, `erd`, `nfr-sheet`,
+`integration-contracts`), and `Optional artifacts: none for Stage 3` as a Stage-2 decision
+when nothing is taken — so the next session does not re-offer. A taken artifact is then
+owed like any other: `architecture-blueprint.md` produces it alongside the blueprint, and
+the artifact check reports it PENDING until it exists.
+
 ## Open Question
 
 > "Are there non-functional requirements we should design around? (e.g. 'this must handle 10k
@@ -131,4 +170,5 @@ PROJECT.md → ## Decisions:
   Workflow scope: [BRDs/features triggered + chosen option, or 'none detected']
   Agent-wiring scope: [BRDs/features triggered + chosen option, or 'none detected']
   NFRs: [list or 'none for POC']
+  Optional artifacts: [none for Stage 3 | one "Opt-in artifact <id>: <why>" line per artifact taken]
 ```

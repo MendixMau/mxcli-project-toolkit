@@ -404,16 +404,35 @@ elif [ -z "$BRD" ]; then
     "the ledger names no reachable *.brd.json" \
     "Refusing to substitute another module's BRD — that would report its leaves as this module's."
 else
-  if [ "${BRD_N:-1}" -gt 1 ]; then
-    printf '  \033[33m! coverage measures ONE BRD per run; this ledger names %s\033[0m\n' "$BRD_N"
-    printf '    measuring %s — the other %s are NOT covered by this verdict.\n' \
-      "$BRD_REL" "$((BRD_N - 1))"
-    printf '    Run coverage-check.sh per BRD, or split the ledger one-per-BRD.\n'
+  # MULTI-LEDGER MODE (added 2026-09-02, field-proven on t-wf-migration's five BRDs going
+  # from "coverage · 1 of 5 BRDs" to all five clean). A module split one-ledger-per-BRD keeps
+  # its files at architecture/modules/<Module>/coverage-ledger/<BRDID>.md — a DIRECTORY beside
+  # where the single-file convention would put coverage-ledger.md, named after that same base.
+  # If it exists, every BRD the ledger set names gets its own coverage-check.sh run, via
+  # coverage-check-all.sh so this reuses the same `run()` verdict machinery (PASS/FINDING/FAULT
+  # from a real exit code) every other rung here already goes through, rather than a bespoke
+  # ad-hoc pass/fail path.
+  LEDGER_DIR="$(dirname "$LEDGER")/coverage-ledger"
+  if [ -d "$LEDGER_DIR" ]; then
+    ALL="$(_tool coverage-check-all.sh)"
+    BRD_GLOB="$(dirname "$BRD")/*.brd.json"
+    run "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE · all BRDs, one ledger each)" coverage \
+      "$OUTDIR/coverage.txt" gate 300 -- \
+      "$ALL" "$LEDGER_DIR" "$BRD_GLOB"
+  else
+    if [ "${BRD_N:-1}" -gt 1 ]; then
+      printf '  \033[33m! coverage measures ONE BRD per run; this ledger names %s\033[0m\n' "$BRD_N"
+      printf '    measuring %s — the other %s are NOT covered by this verdict.\n' \
+        "$BRD_REL" "$((BRD_N - 1))"
+      printf '    Run coverage-check.sh per BRD, or split the ledger one-per-BRD (see t-wf-migration for a worked example).\n'
+    fi
+    run "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE${BRD_N:+ · 1 of $BRD_N BRDs})" coverage \
+      "$OUTDIR/coverage.txt" gate 300 -- \
+      "$COV" --summary "$BRD" "$LEDGER"
   fi
-  run "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE${BRD_N:+ · 1 of $BRD_N BRDs})" coverage \
-    "$OUTDIR/coverage.txt" gate 300 -- \
-    "$COV" --summary "$BRD" "$LEDGER"
 fi
+
+# ── 4. Journeysfi
 
 # ── 4. Journeys: NOT run here, and the report must say so ───────────────────
 # Stated in the terminal as well as the report, because a reader who sees three clean

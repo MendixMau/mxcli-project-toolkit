@@ -22,7 +22,9 @@
 #   T8  Stage 0 never blocks on the ledger (the inventory is Stage 0's own output)
 #   T9  a project with files under sources/ and NO inventory at all blocks Stage 1; a project
 #       with neither does not (legacy fixtures keep passing)
-#   T10 an export-prefixed module name (Form_X.cls) is matched when the artifact says X
+#   T10 an export-prefixed module name (Form_X.cls) is matched when the artifact says X, and an
+#       umlaut filename matches too (bytes.lower() is ASCII-only — the unattended rerun on the real
+#       corpus reported 18 of 96 rows unverified, every one an Ä/Ü/ü name; casefold on text)
 #
 # Runs the real gate-check.sh end to end, like test-source-sufficiency-gate.sh.
 #
@@ -60,14 +62,14 @@ with zipfile.ZipFile(os.path.join(S, 'Functional-Description-draft.pptx'), 'w') 
         z.writestr(f'ppt/slides/slide{i}.xml', f'<p:sld><a:t>Slide {i}: WFAM X M E</a:t></p:sld>')
     for i in range(1, 23):
         z.writestr(f'ppt/media/image{i}.png', b'\x89PNG fake')
-for n in ('Form_Archive-Detail-Subform', 'Form_Workflow', 'Form_Release03'):
+for n in ('Form_Archive-Detail-Subform', 'Form_Workflow', 'Form_Release03', 'Form_Änderung-Übersicht'):
     open(os.path.join(S, n + '.cls'), 'w').write(f'Attribute VB_Name = "{n}"\n')
 os.makedirs(os.path.join(S, 'node_modules', 'x'), exist_ok=True)
 open(os.path.join(S, 'node_modules', 'x', 'i.js'), 'w').write('')
 PY
   # The triage names the .cls modules the way humans do — without the Form_ prefix — and never
   # names the deck. That is the artifact the false claim pointed at.
-  printf '# Triage\n\nGroups A-D derived from Archive-Detail-Subform, Workflow, Release03.\n' \
+  printf '# Triage\n\nGroups A-D derived from Archive-Detail-Subform, Workflow, Release03, Änderung-Übersicht.\n' \
     > "$d/analysis/legacy/legacy-triage.md"
   printf '# Triage\n\n## Sign-off\n\nConfirmed by: Test User on 2026-09-02\n' > "$d/triage.md"
   printf '# PROJECT\n\n## Decisions\n' > "$d/PROJECT.md"
@@ -79,7 +81,7 @@ stage() { "$GATE" --no-html "$1" "$2" 2>&1; }
 echo "== T1: inventory sees every file and counts the deck's images =="
 P="$(mkproj t1)"
 OUT="$("$SS" init "$P" 2>&1)"
-has "init lists 4 files (deck + 3 .cls), node_modules pruned" "$OUT" "corpus: 4 file(s)"
+has "init lists 5 files (deck + 4 .cls), node_modules pruned" "$OUT" "corpus: 5 file(s)"
 has "init reports the embedded images" "$OUT" "carries 22 image(s)"
 MEDIA="$("$PY" -c "import json,sys; d=json.load(open(sys.argv[1])); r=[x for x in d['inventory'] if x['ext']=='pptx'][0]; print(r['media'], r['pages'], r['format'])" "$P/analysis/source-sufficiency.json")"
 [ "$MEDIA" = "22 25 docs" ] && ok "row carries media=22 pages=25 format=docs" || bad "row carries media=22 pages=25 format=docs" "got '$MEDIA'"
@@ -114,7 +116,7 @@ echo "== T5: everything accounted for → ledger PASS, Stage 1 not blocked by it
 "$SL" mark "$P" 'legacy/*.cls' --artifact analysis/legacy/legacy-triage.md --evidence "groups A-D name each module" --by test >/dev/null 2>&1
 OUT="$("$SL" check "$P" 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && ok "check exits 0" || bad "check exits 0" "rc=$RC $OUT"
-has "4 extracted" "$OUT" "4 extracted"
+has "5 extracted" "$OUT" "5 extracted"
 OUT="$(stage "$P" 1)"
 hasnt "stage 1 no longer blocked by the ledger" "$OUT" "Gate BLOCKED by the source ledger"
 has "gate line reads PASS" "$OUT" "Source ledger (every file consumed?): PASS"
@@ -139,7 +141,7 @@ has "pattern-covered file the artifact never names is a FAULT" "$OUT" "never nam
 echo "== T10: Form_-prefixed module matched when the artifact says the bare name =="
 J="$("$SL" check "$P" --json 2>/dev/null)"
 NV="$("$PY" -c "import json,sys; d=json.loads(sys.stdin.read()); print(d['counts']['nameVerified'])" <<<"$J")"
-[ "$NV" = "4" ] && ok "all 4 rows name-verified (3 .cls via bare name, deck via its own)" || bad "all 4 rows name-verified" "nameVerified=$NV"
+[ "$NV" = "5" ] && ok "all 5 rows name-verified (4 .cls via bare name incl. the umlaut one, deck via its own)" || bad "all 5 rows name-verified (umlaut filename must match — bytes.lower() is ASCII-only)" "nameVerified=$NV"
 
 echo "== T6: a file dropped in later blocks Stage 1 by name =="
 echo x > "$P/source/legacy/late-arrival.pdf"
@@ -148,7 +150,7 @@ OUT="$(stage "$P" 1)"; RC=$?
 has "drift row names the file" "$OUT" "DRIFT     legacy/late-arrival.pdf"
 OUT="$("$SS" init "$P" --refresh 2>&1)"
 has "refresh appends it as unopened" "$OUT" "NEW (unopened): legacy/late-arrival.pdf"
-has "refresh keeps the filled rows" "$OUT" "4 kept as filled"
+has "refresh keeps the filled rows" "$OUT" "5 kept as filled"
 
 echo "== T7: --waive source/<rel> records the decision and the row reads WAIVED =="
 OUT="$("$GATE" "$P" --waive source/legacy/late-arrival.pdf --reason "arrived after cutover, out of scope per user" 2>&1)"

@@ -73,11 +73,13 @@
 #     "never names the deck".
 #   - the first extraction pass as it was actually made (--pages 25 --media 3): FAULT,
 #     "22 embedded image(s) inside, 3 accounted for" — the second pass (all 22) passes.
-#   - the 95 .cls under a pattern disposition against knowledge-base/: 63 name-verified, 33
-#     modules named in NO analysis file. First shipped as EXTRACTED-unverified; after the
-#     post-mortem (process/post-mortem-inverted-evidence-2026-09-02.md, Failure 3) those 33
-#     report FAULT and the Stage 1 gate on the real project is BLOCKED — the honest verdict.
-# Fixture: tests/wave2/test-source-ledger.sh (the same shape, 32 assertions).
+#   - the 95 .cls under a pattern disposition against knowledge-base/: first measured as 33
+#     modules "named in NO analysis file". 18 of those were THIS instrument's bug — bytes.lower()
+#     is ASCII-only, so every Ä/Ü/ü filename never matched (found by the unattended rerun, which
+#     reported the same 18 against its own KB). After casefolding text: 81 name-verified, 15
+#     modules genuinely named nowhere, and those 15 report FAULT — the Stage 1 gate on the real
+#     project is BLOCKED on them, which is the honest verdict (post-mortem Failure 3).
+# Fixture: tests/wave2/test-source-ledger.sh (the same shape, 36 assertions).
 
 set -u
 
@@ -214,7 +216,7 @@ fi
 
 RUBRIC="$RUBRIC" PROJECT_DIR="$PROJECT_DIR" REGISTER="$REGISTER" HTML_OUT="$HTML_OUT" \
 AS_JSON="$AS_JSON" QUIET="$QUIET" INVENTORY_PY="$INVENTORY_PY" "$PY" <<'PY'
-import json, os, sys, re, fnmatch, subprocess, html, datetime
+import json, os, sys, re, fnmatch, subprocess, html, datetime, unicodedata
 
 rubric   = os.environ['RUBRIC']
 project  = os.path.abspath(os.environ['PROJECT_DIR'])
@@ -327,8 +329,15 @@ def artifact_names(artifact_rel, needle):
     art = artifact_rel if os.path.isabs(artifact_rel) else os.path.join(project, artifact_rel)
     if not os.path.exists(art):
         return False, False, False
-    stem = os.path.splitext(needle)[0].lower()
-    pats = [needle.lower(), stem] if len(stem) >= 4 else [needle.lower()]
+    # casefold on TEXT, never lower() on bytes: bytes.lower() is ASCII-only, so a needle with
+    # Ä/Ü/ü never matched an artifact that plainly named the file. Found by the unattended rerun
+    # on the motivating corpus (18 of 96 rows "unverified", every one an umlaut filename) — a
+    # false FAULT the instrument raised against its own field project. Both sides are decoded
+    # as UTF-8 (errors replaced) and casefolded, and NFC-normalised so a macOS-composed name
+    # matches a Windows-decomposed one.
+    needle = unicodedata.normalize('NFC', needle).casefold()
+    stem = os.path.splitext(needle)[0]
+    pats = [needle, stem] if len(stem) >= 4 else [needle]
     # Export tooling prefixes the file with what it is — Form_X.cls, Report_X.cls, Module_X.bas —
     # and the humans writing the analysis call it X. Field measurement 2026-09-02: the triage
     # named "<Module>" four times and "Form_<Module>" never. Strip ONE leading <Word>_ when what remains is still distinctive (>= 8 chars).
@@ -352,12 +361,12 @@ def artifact_names(artifact_rel, needle):
         if f not in NAME_CACHE:
             try:
                 with open(f, 'rb') as fh:
-                    NAME_CACHE[f] = fh.read().lower()
+                    NAME_CACHE[f] = unicodedata.normalize('NFC', fh.read().decode('utf-8', 'replace')).casefold()
             except OSError:
-                NAME_CACHE[f] = b''
+                NAME_CACHE[f] = ''
         blob = NAME_CACHE[f]
-        for line in blob.split(b'\n'):
-            if any(p.encode('utf-8', 'replace') in line for p in pats):
+        for line in blob.split('\n'):
+            if any(p in line for p in pats):
                 hits += 1
     return True, True, hits
 

@@ -110,8 +110,17 @@ was supposedly built from.
 
 ## A launcher worth keeping
 
-Put this in `bin/run-hub.sh` so the flags are not retyped, and so the reasoning travels with them.
-**The hub key is a secret: it belongs in the environment, never in the file.**
+**This toolkit ships one: `bin/run-hub.sh`.** It finds the `.mpr` (root or `app/`, refusing to guess
+between two), applies the database and proxy settings below, and prints the reminder to exercise an
+outbound call before sharing the URL. Run it from any project:
+
+```bash
+MXCLI_HUB_KEY=<key> /path/to/mxcli-project-toolkit/bin/run-hub.sh <project-root>
+```
+
+Override with `MXCLI_HUB_URL`, `MXCLI_HUB_PROJECT`, `DB_NAME`/`DB_USER`/`DB_PASSWORD`, or pass
+anything else straight through after `--`. **The hub key is a secret: it belongs in the
+environment, never in the file.** If you would rather inline it, this is the shape:
 
 ```bash
 #!/usr/bin/env bash

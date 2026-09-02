@@ -668,6 +668,16 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
   mkdir -p "$PROJECT_DIR/.claude" 2>/dev/null || true
   printf '%s %s fail=%s warn=%s\n' "$(date '+%Y-%m-%d %H:%M')" "$RECEIPT_VERDICT" "$FAIL" "$WARN" \
     > "$PROJECT_DIR/.claude/.doctor-receipt" 2>/dev/null || true
+  # The receipt is MACHINE-LOCAL by design (like .guide-shown): committing one machine's
+  # receipt would satisfy gate-check's doctor-ran probe on every other machine. Since this
+  # script creates the file, it also keeps it out of git — otherwise every wired project
+  # trips clean-tree hooks on an untracked file doctor itself wrote (field case: a stop
+  # hook demanding it be committed, 2026-09-02).
+  if [ -d "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q .claude/.doctor-receipt 2>/dev/null; then
+    printf '\n# Machine-local toolkit marker (doctor.sh preflight receipt)\n/.claude/.doctor-receipt\n' \
+      >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
+    note "(added /.claude/.doctor-receipt to the project's .gitignore — the receipt is machine-local)"
+  fi
 fi
 
 if [ "$FAIL" -gt 0 ]; then

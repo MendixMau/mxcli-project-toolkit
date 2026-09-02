@@ -3782,7 +3782,17 @@ segfault.
 
 **Workaround:** quote the value — `WITH ("Ctx" = '$WorkflowContext')`.
 
-## BUG-108 (DRAFT): enumeration `DECISION` outcomes — mxcli accepts only the form that writes an unloadable `.mpr`, and rejects both forms Mendix accepts (CRITICAL)
+## BUG-108 (DRAFT, **SUPERSEDED BY BUG-76** — keep as an addendum, do not file separately): enumeration `DECISION` outcomes — mxcli accepts only the form that writes an unloadable `.mpr`, and rejects both forms Mendix accepts (CRITICAL)
+
+> **Filed in ignorance of BUG-76, found immediately after.** BUG-76 (2026-08-13, re-confirmed
+> on v0.18.0 and v0.20.0) already states the general defect: mxcli writes every `DECISION`
+> outcome label as a raw string into a field that must hold an `EnumerationValueIdentifier`, so
+> **every** decision corrupts — a `1 = 1` condition as surely as an enum attribute. This entry
+> stands only as an addendum contributing two facts BUG-76 does not carry: (a) the enum-valued
+> case has *no* writable spelling, because mxcli rejects both fully-qualified forms and accepts
+> only the bare value that corrupts, so the defect is unavoidable rather than merely unguarded;
+> (b) recovery is `DROP WORKFLOW` — mxcli can still read what mxbuild cannot load, verified back
+> to a 0-error `mx check`. Merge both into the BUG-76 GitHub issue; do not open a second one.
 
 **Severity:** Critical — silent project corruption; the `.mpr` cannot be opened afterwards
 **mxcli version:** v0.20.0 (2026-08-28)

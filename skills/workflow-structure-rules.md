@@ -272,7 +272,7 @@ row's stated floor is evidence against it.
 | decision on a **boolean or free-text** outcome | proven on mxcli ≥ v0.18.0 — `learned-workflow-patterns.md` §8 Warning 1 |
 | call microflow, with or without parameters | **proven** — but the `WITH` clause's **value must be quoted**: `WITH ("Ctx" = '$WorkflowContext')`. Unquoted (`= $WorkflowContext`) segfaults the binary, BUG-107 |
 | — | — |
-| **decision on an enumeration** | **CORRUPTING — BUG-108.** The only form mxcli accepts writes an `.mpr` that cannot be loaded. Hand-add in Studio Pro; never script it |
+| **decision on an enumeration** | **CORRUPTING — BUG-76**, of which this probe is a re-confirmation on 11.14 (first logged as BUG-108 before the older entry was found). BUG-76 is the general case: *every* `DECISION` with outcomes corrupts, whatever its condition reads. The enum case is the worse one — it has no writable spelling at all, since mxcli rejects both fully-qualified forms and accepts only the bare value that corrupts. Hand-add every decision in Studio Pro; never script one. Recovery: `DROP WORKFLOW` |
 | **boundary event timer, interrupting** | **hand-add in Studio Pro.** Its path must end in *End* or *Jump* (CE0105); `END WORKFLOW` does not parse and `JUMP TO` is BUG-109 |
 | **boundary event on notification** | **hand-add** — the grammar admits `{TIMER, INTERRUPTING, NON}` only |
 | **event sub-process** (all four start kinds), recurrence | **hand-add** — no construct in the grammar, in any position |

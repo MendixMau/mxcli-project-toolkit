@@ -307,11 +307,20 @@ WAIT FOR NOTIFICATION;
 `WITH (Ctx = $WorkflowContext)` **segfaults the binary** — and the "parameter is not mapped"
 hint `--references` prints talks you straight into the crashing spelling. BUG-107.
 
-**Never script a decision on an enumeration.** `mxcli check` rejects both fully-qualified
-forms and accepts the bare value `'Draft'`, which writes an `.mpr` the Mendix loader cannot
-open at all (`StorageLoadException`, not a validation error). Boolean and free-text decisions
-are fine. BUG-108 — hand-add enum decisions in Studio Pro. Recovery from an already-corrupted
-model is `DROP WORKFLOW`, which still works because mxcli can read what mxbuild cannot load.
+**Never script a `DECISION` at all — not on an enumeration, not on a boolean.** This is
+**BUG-76**, open since 2026-08-13 and re-confirmed on v0.20.0 twice: mxcli writes every
+outcome label as a raw string into a field Mendix requires to hold an
+`EnumerationValueIdentifier`, so *any* `DECISION` with outcomes writes an `.mpr` the Mendix
+loader cannot open (`StorageLoadException`, not a validation error). It does not matter what
+the condition reads — `1 = 1` corrupts as surely as an enum attribute does.
+
+The 2026-09-03 probe adds two things to that entry and nothing else. First, the enum-valued
+case is worse than the boolean case, because the enum form has **no writable spelling at all**:
+`mxcli check` rejects `'Probe.StatusEnum.Draft'` and `'StatusEnum.Draft'` — the two forms
+Mendix requires — and accepts only the bare `'Draft'` that corrupts. Second, recovery from an
+already-corrupted model is `DROP WORKFLOW`, which still works because mxcli can read what
+mxbuild cannot load — verified back to a 0-error `mx check`. Hand-add every decision in
+Studio Pro.
 
 **Outcome block semantics** — this is the mechanism you branch with. The behaviour below
 was established by probing (build a two-outcome task, run it, see where each path lands);

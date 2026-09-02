@@ -447,7 +447,9 @@ END;
 --  ---------------------------------------------------------------------------
 --   * A DECISION on an ENUMERATION. mxcli rejects both fully-qualified forms
 --     and accepts the bare value, which writes an .mpr the Mendix loader
---     cannot open (StorageLoadException). Hand-add. BUG-108.
+--     cannot open (StorageLoadException). Hand-add. BUG-76 (BUG-108 is the same
+--     defect re-found on 11.14) — and BUG-76 is broader: EVERY decision corrupts,
+--     boolean conditions included. Never script a DECISION.
 --     Recovery if it already happened: DROP WORKFLOW -- mxcli can still read
 --     what mxbuild can no longer load.
 --

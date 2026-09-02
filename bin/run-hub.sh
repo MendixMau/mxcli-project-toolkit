@@ -47,10 +47,23 @@ cd "$ROOT"
 # model under app/ so that root-relative tooling works; find reports both, and
 # refusing to choose between two names for one file is a false alarm that stops
 # the launcher for no reason. Ambiguity means two DIFFERENT models.
-mapfile -t MPRS < <(find . -maxdepth 3 -name '*.mpr' -not -path '*/.mpr-snapshots/*' \
-                      -not -path '*/.docker/*' -not -path '*/node_modules/*' 2>/dev/null \
-                    | while read -r f; do printf '%s\t%s\n' "$(readlink -f "$f")" "$f"; done \
-                    | sort -u -k1,1 | cut -f2- | sort)
+# Portable resolve (macOS system bash is 3.2: no mapfile; readlink -f is GNU-only).
+# Bounded symlink walk, same pattern as tests/retests/retest-bug22-settings-writes.sh.
+_resolve() {
+  local t="$1" hops=0
+  while [ -L "$t" ] && [ "$hops" -lt 16 ]; do
+    local dest; dest="$(ls -ld "$t" | sed 's/.* -> //')"
+    case "$dest" in /*) t="$dest" ;; *) t="$(cd "$(dirname "$t")" && pwd)/$dest" ;; esac
+    hops=$((hops+1))
+  done
+  printf '%s/%s\n' "$(cd "$(dirname "$t")" && pwd)" "$(basename "$t")"
+}
+MPRS=()
+while IFS= read -r f; do MPRS+=("$f"); done < <(
+  find . -maxdepth 3 -name '*.mpr' -not -path '*/.mpr-snapshots/*' \
+       -not -path '*/.docker/*' -not -path '*/node_modules/*' 2>/dev/null \
+  | while read -r f; do printf '%s\t%s\n' "$(_resolve "$f")" "$f"; done \
+  | sort -u -k1,1 | cut -f2- | sort)
 case "${#MPRS[@]}" in
   0) echo "run-hub: no .mpr found under $ROOT" >&2; exit 2 ;;
   1) MPR="${MPRS[0]}" ;;
@@ -62,9 +75,14 @@ esac
 
 # Database: the mxcli default is derived from the .mpr name and is usually not
 # the database a project actually populated.
+# Credentials come from the environment or the project's own generated .docker/.env —
+# never from a literal here (the leak guard refuses a hard-coded password, rightly).
+if [ -z "${DB_PASSWORD:-}" ] && [ -f "$ROOT/.docker/.env" ]; then
+  DB_PASSWORD="$(sed -n 's/^RUNTIME_PARAMS_DATABASEPASSWORD=//p' "$ROOT/.docker/.env" | head -1)"
+fi
 DB_NAME="${DB_NAME:-mendix}"
 DB_USER="${DB_USER:-mendix}"
-DB_PASSWORD="${DB_PASSWORD:-mendix}"
+: "${DB_PASSWORD:?run-hub: set DB_PASSWORD (or let .docker/.env provide RUNTIME_PARAMS_DATABASEPASSWORD — mxcli docker init writes it)}"
 
 ARGS=(run --hub "$HUB_URL" -p "$MPR"
       --db-name "$DB_NAME" --db-user "$DB_USER" --db-password "$DB_PASSWORD")

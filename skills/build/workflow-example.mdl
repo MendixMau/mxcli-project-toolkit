@@ -396,3 +396,70 @@ END;
 --    3. Wiring the context -> System.Workflow back-reference at start (§5).
 --       Skipping it is silent, and fatal to (2).
 --    4. Role-composition XPath targeting instead of a name-matching microflow.
+
+-- ============================================================================
+--  APPENDIX — constructs proven 2026-09-03 (mxcli v0.20.0 / Mendix 11.14.0)
+--  Each ran: mxcli check --references -> exec -> native `mx check` (0 errors)
+--  -> DESCRIBE round-trip. None of them appear in `mxcli syntax workflow`.
+--  Full probe: process/workflow-probe-plan-2026-09-03.md
+-- ============================================================================
+
+--  1. MULTI USER TASK. The activity is scriptable; DECISION METHOD and
+--     COMPLETION TIMING have no grammar -- hand-add in Studio Pro, and put
+--     that hand-add in the build plan as its own numbered row.
+--
+--       MULTI USER TASK "Board" 'Board review'
+--         PAGE MyModule."WF_Task_ApproveReject"
+--         OUTCOMES 'Approve' { } 'Reject' { };
+
+--  2. JUMP TO, inside a user-task outcome. Last statement of its path.
+--     WARNING: inside a BOUNDARY EVENT body it writes a Jump with no Target,
+--     named after its own target -> CE0495 + CE6680. BUG-109.
+--
+--       USER TASK "Review" 'Review'
+--         PAGE MyModule."WF_Task_ApproveReject"
+--         OUTCOMES 'Ok' { } 'Redo' { JUMP TO "Review"; };
+
+--  3. NON-INTERRUPTING boundary timer. The duration is a Mendix EXPRESSION.
+--     'P3D' passes mxcli check and FAILS mx check with CE0117.
+--     The INTERRUPTING form is not expressible from MDL at all.
+--
+--       USER TASK "Review" 'Review'
+--         PAGE MyModule."WF_Task_SingleOutcome"
+--         OUTCOMES 'Complete' { }
+--         BOUNDARY EVENT NON INTERRUPTING TIMER 'addDays([%CurrentDateTime%], 3)' {
+--           CALL MICROFLOW MyModule."SUB_Remind" WITH ("Request" = '$WorkflowContext');
+--         };
+
+--  4. WAIT FOR TIMER / WAIT FOR NOTIFICATION.
+--     WAIT FOR NOTIFICATION takes NO name -- the name is a Studio Pro property.
+--
+--       WAIT FOR TIMER 'addDays([%CurrentDateTime%], 1)';
+--       WAIT FOR NOTIFICATION;
+
+--  5. TARGETING XPATH, token form -- now proven alongside the three-segment
+--     path form. Double the inner quotes.
+--
+--       TARGETING XPATH '[System.UserRoles = ''[%UserRole_Manager%]'']'
+
+--  ---------------------------------------------------------------------------
+--  TWO THINGS NEVER TO SCRIPT ON THIS BINARY
+--  ---------------------------------------------------------------------------
+--   * A DECISION on an ENUMERATION. mxcli rejects both fully-qualified forms
+--     and accepts the bare value, which writes an .mpr the Mendix loader
+--     cannot open (StorageLoadException). Hand-add. BUG-108.
+--     Recovery if it already happened: DROP WORKFLOW -- mxcli can still read
+--     what mxbuild can no longer load.
+--
+--   * An UNQUOTED value in a WITH clause. `WITH (Ctx = $WorkflowContext)`
+--     segfaults the binary; `WITH ("Ctx" = '$WorkflowContext')` is correct.
+--     The "parameter is not mapped" hint printed by --references tells you to
+--     write the crashing form. BUG-107.
+--
+--  NOT EXPRESSIBLE FROM MDL AT ALL (hand-add in Studio Pro, as a plan row):
+--    event sub-processes (all four start kinds) and their recurrence;
+--    notification boundary events; interrupting boundary events;
+--    multi-user decision method / completion timing;
+--    explicit END WORKFLOW / end-of-parallel-split-path /
+--    end-of-boundary-event-path -- termination is by nesting, which is correct
+--    and passes mx check. One consequence: CE1844 cannot be triggered from MDL.

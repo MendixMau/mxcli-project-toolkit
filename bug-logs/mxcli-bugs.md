@@ -5056,3 +5056,73 @@ Do not compare a reference association to `NULL` in OQL for either presence or a
 Cross-check via an independent, already-maintained aggregate instead (a denormalised
 count/rollup attribute on the parent side, or an application-level accounting) rather than
 trusting either comparison's row count on its own.
+
+## BUG-103: `ALTER PAGE ... REPLACE widget WITH {...}` re-scopes an inherited `ContentParams` reference to the page's OUTER data context — reproduced twice, independently, same project
+
+**Severity:** High — silent CE1613 build failure, and the app is DOWN until reverted
+**Discovered:** 2026-09-01, re-confirmed independently 2026-09-02, both on the same
+dashboard-publishing migration project
+**Reproducible:** Yes, twice, on two different widgets on two different pages
+**Mendix version:** 11.12.1
+**mxcli version when found:** v0.20.0
+
+### Steps to reproduce
+On a page with nested data-source scopes — an outer data view over entity `A`, containing a
+selection-driven inner data view (or a gallery template) over entity `B` — where a
+`dynamictext` widget inside the INNER scope binds `ContentParams` to an attribute of `B`:
+
+```
+ALTER PAGE Module.Page {
+  REPLACE txtInner WITH {
+    DYNAMICTEXT txtInner (Content: '{1} · {2}', ContentParams: [{1} = SomeAttrOfB, {2} = OtherAttrOfB])
+  }
+}
+```
+
+### Expected behavior
+The replacement widget's `ContentParams` resolve against `B` (the enclosing data view's
+context), same as the original widget it replaces — `DESCRIBE PAGE` prints exactly this.
+
+### Actual behavior
+`mxbuild` refuses to deploy: `CE1613 "The selected attribute 'Module.A.SomeAttrOfB' no longer
+exists."` — the reference was silently re-scoped to `A`, the PAGE's outermost data context, not
+`B`, the widget's actual enclosing context. `mxcli check --references` and the exec itself both
+report success; `DESCRIBE PAGE` immediately afterward prints the MDL back correctly, with the
+right attribute names in the right position — the corruption is invisible to every mxcli-side
+read. It surfaces only at `mxbuild`/Studio Pro load time, by which point the running app is down
+(the previous build's `app/deployment/` gets overwritten by a build that then fails).
+
+**Both confirmed occurrences, for corroboration:**
+1. `txtPreviewPeriod` on a `Version_View`-style page, inside a selection data view over
+   `DashboardVersion` nested in a page-level data view over `Dashboard`. `ContentParams: [{1} =
+   PeriodLabel]` re-resolved to `Dashboard.PeriodLabel` (does not exist) instead of
+   `DashboardVersion.PeriodLabel`.
+2. `txtVersionMeta` on a `Dashboard_Detail`-style page, same shape: a gallery template's
+   dynamictext, `ContentParams: [{1} = SizeLabel, {2} = UploadedAt]`, re-resolved to
+   `Dashboard.SizeLabel`/`Dashboard.UploadedAt` (neither exists on `Dashboard`) instead of the
+   gallery's own row entity.
+
+### Root cause (inferred)
+`REPLACE`'s attribute-reference resolution appears to walk up to the page's outermost bound
+entity rather than the widget's own immediate enclosing data-source scope — plausible if the
+replace operation reconstructs the widget against the PAGE's top-level binding context rather
+than diffing it in at its actual tree position.
+
+### Workaround
+Never `REPLACE` a widget that carries `ContentParams` referencing anything below the page's
+outermost data view. Two narrower routes both work:
+- If only the surrounding text/template needs to change and the SAME attribute stays bound,
+  `SET Content = '...'` alone (leaving the existing `ContentParams` untouched) is unaffected by
+  this bug — confirmed working, occurrence 1's actual fix.
+- If the attribute reference itself must change (a genuine rebind, not just rewording), no
+  narrower ALTER PAGE form exists today — `SET ContentParams = [...]` is rejected at parse
+  entirely (not a MDL044/CE0117 case — a hard syntax error, no such settable property), and
+  per-index forms (`ContentParams[0] = ...`, `ContentParams.0 = ...`) are rejected the same way.
+  This needs Studio Pro.
+
+### Recommended upstream fix
+`REPLACE`'s attribute-reference resolver should bind against the widget's actual position in the
+page tree (its nearest enclosing data source), not the page's outermost one — and `mxcli check`
+should catch this class of mis-scope BEFORE exec, the same way it already catches other
+reference errors, rather than deferring entirely to `mxbuild`/Studio Pro after the write has
+already landed and the running app has already gone down.

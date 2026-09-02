@@ -26,6 +26,7 @@ table; a skill missing here is a skill no agent will find.
 | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" | `skills/agent-roles.md` |
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
 | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source | `bin/source-sufficiency.sh` |
+| Closing Stage 1, or adding files to a source folder — every inventoried file must name the artifact that consumed it (text AND embedded diagrams), or carry a waiver; blocks Stages 1–2 until it does | `bin/source-ledger.sh` |
 | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` |
 | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done | `bin/facts-lock.sh` |
 | Building any module — before the first script. The mdl-agent's single per-module input | `skills/module-brief.md` |
@@ -382,7 +383,14 @@ were largely a silent source, not a decision backlog.
 The rubric has an `inventory` section and a `dimensions` section, and `report` refuses to score
 until the inventory is filled.
 
-- **Pass 1 — inventory: what is this source even about?** One row per file, filled by *opening* it:
+- **Pass 1 — inventory: what is this source even about?** One row per file — **every file under
+  the source root, no format skipped** (`bin/lib/source-inventory.py` walks it with a short
+  denylist; an extension the toolkit does not know is a row marked `unknown`, still opened, still
+  owed a disposition at Stage 1). Office and PDF rows carry the count of embedded images and
+  pages, because a text-only read of a 25-slide deck with 22 diagrams is not the deck (real miss,
+  2026-09-02). Files that arrive later: `bin/source-sufficiency.sh init <root> --refresh` appends
+  them as unopened rows and touches nothing already filled; the ledger reports them as drift until
+  then. Filled by *opening* it:
   what kind of thing it is, which rubric dimensions it can speak to, any boundary the source states
   about *itself* (quote it verbatim — a source that says what it does not cover is the cheapest
   scope signal you will ever get), and the components it names. The report prints this as a source
@@ -478,8 +486,8 @@ is better input than the triage map ever was.
 |---|---|
 | **User defines** | Do documents exist that aren't in the folder (specs, manuals, field-label sheets, screenshots)? DB schema? Sample data? Who has them? SME access for what neither code nor docs answer. **Then, at CAC-1b: does the extraction output match the intended scope — accept, narrow, or re-extract.** |
 | **Agent produces** | **Path A — code → AST extractors** (always runs *in migration mode*; N/A with attribution otherwise). **Path B — documents → LLM extraction** (`kb-generation.md`). **Path C — SME interview** (closes `openQuestions` that neither code nor docs answer). Plus CAC-1b's scope-out surface — the delta table when CAC-1 recorded a slice to diff against, otherwise the one-line statement of what extraction covers (a single app dropped in a folder needs stating, not interrogating). |
-| **Surface** | `<kb>/extraction-report.html` — `bin/extraction-report.sh <project-root>`. One renderer for every entry mode: it reads the knowledge base, not the source, so a Path B document corpus gets the same surface as a Path A extraction, one page per knowledge base at the path the gate looks for. Each section carries a `report-schema.md` verdict, and no zero is printed unless a second record (the pre-merge `extracted/*.json`, or `reports/summary.md`) agrees with it — one method returning zero renders `manual`, not a green. Until 2026-08-20 this was `node generate-report.js` inside each pipeline, so requirements-driven and greenfield projects could not produce the file their own Stage 1 gate requires, despite this row promising it. |
-| **Gate** | 4 extraction quality checks pass with evidence. Paths B and C are done or declared-unavailable, with attribution (who declared it, when). Advisory — `bin/gate-check.sh <project> 1` reports and exits 0. Record CAC-1b's outcome as a Stage-1 `Extraction scope:` decision naming what is in and what is out, so the next session isn't guessing. |
+| **Surface** | `analysis/source-ledger.html` — `bin/source-ledger.sh report <project-root>`: every inventoried file, its verdict, and what consumed it. `<kb>/extraction-report.html` — `bin/extraction-report.sh <project-root>`. One renderer for every entry mode: it reads the knowledge base, not the source, so a Path B document corpus gets the same surface as a Path A extraction, one page per knowledge base at the path the gate looks for. Each section carries a `report-schema.md` verdict, and no zero is printed unless a second record (the pre-merge `extracted/*.json`, or `reports/summary.md`) agrees with it — one method returning zero renders `manual`, not a green. Until 2026-08-20 this was `node generate-report.js` inside each pipeline, so requirements-driven and greenfield projects could not produce the file their own Stage 1 gate requires, despite this row promising it. |
+| **Gate** | 4 extraction quality checks pass with evidence. Paths B and C are done or declared-unavailable, with attribution (who declared it, when). **Every row of the Stage 0 inventory has a disposition that holds up** — `bin/source-ledger.sh check <project>`: an artifact that exists, is non-empty and *names* the file (for a container, with its images and pages accounted for: `mark <rel> --artifact <path> --pages N --media N --by <who>`), or a person's waiver (`bin/gate-check.sh <project> --waive source/<rel> --reason "..."`), and no file on disk without an inventory row. This part **blocks** — `bin/gate-check.sh <project> 1` exits 1 on it, and so does Stage 2 — because it is a file test, not a conversation test: "the triage already used the deck" is grepped, not believed (the 2026-09-02 miss). The rest stays advisory. Record CAC-1b's outcome as a Stage-1 `Extraction scope:` decision naming what is in and what is out, so the next session isn't guessing. |
 | **Owner** | `ba-agent` |
 
 ### Stage 2 — Requirements

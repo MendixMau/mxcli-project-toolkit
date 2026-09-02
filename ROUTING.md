@@ -60,6 +60,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 |---|---|---|---|---|
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` | ba | 0 | baseline |
 | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source | `bin/source-sufficiency.sh` | ba | 0,1 | baseline |
+| Closing Stage 1, or adding files to a source folder — every inventoried file must name the artifact that consumed it (text AND embedded diagrams), or carry a waiver; blocks Stages 1–2 until it does | `bin/source-ledger.sh` | ba | 0,1,2 | baseline |
 | Rendering a filled triage.md for review — the triage.html surface Stage 0 names. Renders only; the Stage 0 verdict stays with gate-check and the judgement with source-triage.md | `bin/triage-report.sh` | ba | 0 | ondemand |
 | Reviewing what the extraction actually produced — the Stage 1 surface, and the file the Stage 1 gate looks for. Renders a code-extracted and a document knowledge base alike, so a requirements-driven project gets the surface too; prints no zero that a second record does not agree with | `bin/extraction-report.sh` | ba | 1 | ondemand |
 | Assessing or planning a migration up front, before any pipeline is chosen | `skills/assess-migration.md` | ba | 0 | ondemand |

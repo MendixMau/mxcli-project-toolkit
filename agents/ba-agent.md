@@ -43,6 +43,7 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 | `skills/agent-roles.md` | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" |
 | `skills/source-triage.md` | Deciding whether to extract at all, before any BRD gets generated |
 | `bin/source-sufficiency.sh` | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source |
+| `bin/source-ledger.sh` | Closing Stage 1, or adding files to a source folder — every inventoried file must name the artifact that consumed it (text AND embedded diagrams), or carry a waiver; blocks Stages 1–2 until it does |
 | `bin/question-kinds.sh` | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 |
 | `bin/facts-lock.sh` | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done |
 | `skills/module-brief.md` | Building any module — before the first script. The mdl-agent's single per-module input |

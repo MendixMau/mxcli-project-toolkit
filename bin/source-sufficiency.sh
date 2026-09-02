@@ -40,7 +40,7 @@
 # is exit 3 (nothing assessed) — never a pass.
 #
 # Usage:
-#   source-sufficiency.sh init   <project-dir> [--sources DIR]
+#   source-sufficiency.sh init   <project-dir> [--sources DIR] [--refresh]
 #   source-sufficiency.sh report <project-dir> [--html PATH] [--json] [--quiet]
 #   source-sufficiency.sh show   <project-dir>
 #
@@ -64,7 +64,10 @@ usage() {
 usage: source-sufficiency.sh <init|report|show> <project-dir> [options]
 
   init    [--sources DIR]   write analysis/source-sufficiency.json skeleton (never overwrites)
-                            two passes: fill `inventory` first, then `dimensions`
+                            two passes: fill `inventory` first, then `dimensions`.
+                            EVERY file under the root is a row (bin/lib/source-inventory.py)
+          --refresh         add files that appeared since init as unopened rows; keep
+                            every filled row; mark vanished ones `missing`
   report  [--html PATH] [--json] [--quiet]
   show                      print the current rubric's verdict without re-rendering
 
@@ -81,9 +84,11 @@ SOURCES_DIR=""
 HTML_OUT=""
 AS_JSON=0
 QUIET=0
+REFRESH=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --sources) SOURCES_DIR="${2:-}"; shift 2 ;;
+    --refresh) REFRESH=1; shift ;;
     --html)    HTML_OUT="${2:-}";    shift 2 ;;
     --json)    AS_JSON=1; shift ;;
     --quiet)   QUIET=1; shift ;;
@@ -137,97 +142,180 @@ DIMS
 
 if [ "$CMD" = "init" ]; then
   mkdir -p "$PROJECT_DIR/analysis"
-  if [ -f "$RUBRIC" ]; then
+  if [ -f "$RUBRIC" ] && [ "$REFRESH" = "0" ]; then
     echo "source-sufficiency: $RUBRIC already exists; refusing to overwrite an assessment." >&2
     echo "  edit it, or delete it first if you mean to start over." >&2
+    echo "  New files dropped into the source folder since? Run: $0 init $PROJECT_DIR --refresh" >&2
+    echo "  (appends the new files as unopened rows; never touches a row already filled in)" >&2
     exit 2
   fi
+  [ -f "$RUBRIC" ] || REFRESH=0   # a refresh over nothing is an init
 
   # Enumerate what is actually there, so the assessment names its own corpus and a later
   # reader can tell whether a file was added after the grading.
   #
-  # The extension list was documents-only (.pdf/.png/.jpg/.docx/.md/.txt/.html) until
-  # 2026-08-19, when a live Stage 0 run on a four-file corpus silently skipped the OpenAPI
-  # .yaml contract — one of the four. A COVERAGE instrument that cannot see a source does not
-  # under-report it, it reports a corpus that never contained it, and the integrations row
-  # gets graded `absent` against a contract sitting on disk. Machine-readable sources
-  # (.yaml/.yml/.json/.sql/.xml/.csv) are first-class here: a DB schema and an API contract
-  # are frequently the two BEST-specified things a client hands over.
+  # EVERY FILE IS A ROW (2026-09-02). This block listed files by an extension allowlist, and
+  # the allowlist grew one incident at a time: .yaml on 08-19 (an OpenAPI contract went
+  # unlisted), code extensions on 08-31 (a Node app's ~40 .ts files went unlisted), and then
+  # a .pptx — the only functional description of a workflow engine, 25 slides, 22 diagrams —
+  # went unlisted for two months on a VBA migration while every downstream artifact was
+  # derived from the .cls exports alone. A COVERAGE instrument that cannot see a source does
+  # not under-report it; it reports a corpus that never contained it. An allowlist is only
+  # ever as complete as the last incident, so the enumeration is now a denylist: everything
+  # under the root minus VCS/dependency/build trees and the project's own generated outputs.
+  # The prune list and the walk live in bin/lib/source-inventory.py, shared with
+  # bin/source-ledger.sh so the two can never disagree about what "on disk" means.
   #
-  # The prunes matter now that init-project.sh scaffolds sources/ and people drop real repos
-  # into it: without them a single node_modules turns a 4-file corpus into 40,000 .json files
-  # and the rubric's `sources` list — the thing that makes the verdict checkable by someone
-  # else — becomes unreadable.
+  # Each row is stamped with what bin/lib/source-formats.tsv knows about its extension —
+  # `format`, the extraction `route` that consumes it whole, and for Office/PDF containers
+  # the count of embedded `media` (diagrams a text-only extraction leaves behind) and `pages`.
+  # An extension the table does not know is `format: unknown`, still a row, still opened.
   #
-  # Code extensions joined 2026-08-31 — the same miss as the .yaml one above, one family
-  # further: a live Stage 0 on a Node/Express + React migration source
-  # produced a 26-row inventory containing package.json and sample data but not one of the
-  # ~40 .ts/.tsx files that ARE the application. In migration mode the code is usually the
-  # best-specified source in the corpus; an inventory without it grades the graders' guesses.
-  SRC_ROOT="${SOURCES_DIR:-$PROJECT_DIR/analysis}"
-  FILES=""
-  if [ -d "$SRC_ROOT" ]; then
-    FILES=$(find "$SRC_ROOT" \
-              \( -name node_modules -o -name .git -o -name dist -o -name build \
-                 -o -name vendor -o -name .venv -o -name __pycache__ \) -prune -o \
-              -type f \
-              \( -name '*.pdf' -o -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \
-                 -o -name '*.docx' -o -name '*.md' -o -name '*.txt' -o -name '*.html' \
-                 -o -name '*.yaml' -o -name '*.yml' -o -name '*.json' -o -name '*.sql' \
-                 -o -name '*.xml' -o -name '*.csv' -o -name '*.xlsx' \
-                 -o -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' \
-                 -o -name '*.mjs' -o -name '*.cjs' -o -name '*.vue' -o -name '*.svelte' \
-                 -o -name '*.java' -o -name '*.kt' -o -name '*.cs' -o -name '*.py' \
-                 -o -name '*.go' -o -name '*.rb' -o -name '*.php' \) \
-              ! -path '*/knowledge-base/*' ! -name 'source-sufficiency.*' -print 2>/dev/null | sort)
+  # ROOT. --sources wins; on --refresh the rubric's own sourceRoot wins next (a refresh must
+  # walk the same tree the inventory was built from); then the drop folders init-project.sh
+  # scaffolds (sources/, or source/ — both spellings are in the field); then analysis/, the
+  # pre-2026-09-02 default, kept so older projects re-init identically.
+  SRC_ROOT="$SOURCES_DIR"
+  if [ -z "$SRC_ROOT" ] && [ "$REFRESH" = "1" ]; then
+    SRC_ROOT="$("$PY" -c 'import json,sys; print((json.load(open(sys.argv[1])).get("sourceRoot") or ""))' "$RUBRIC" 2>/dev/null || true)"
   fi
+  if [ -z "$SRC_ROOT" ]; then
+    if   [ -d "$PROJECT_DIR/sources" ]; then SRC_ROOT="$PROJECT_DIR/sources"
+    elif [ -d "$PROJECT_DIR/source"  ]; then SRC_ROOT="$PROJECT_DIR/source"
+    else SRC_ROOT="$PROJECT_DIR/analysis"; fi
+  fi
+  INVENTORY_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/source-inventory.py"
+  [ -f "$INVENTORY_PY" ] || { echo "source-sufficiency: $INVENTORY_PY missing — cannot enumerate the corpus" >&2; exit 2; }
 
-  DIMENSIONS="$DIMENSIONS" FILES="$FILES" SRC_ROOT="$SRC_ROOT" RUBRIC="$RUBRIC" "$PY" <<'PY'
-import json, os, datetime
+  DIMENSIONS="$DIMENSIONS" SRC_ROOT="$SRC_ROOT" RUBRIC="$RUBRIC" REFRESH="$REFRESH" \
+  INVENTORY_PY="$INVENTORY_PY" "$PY" <<'PY'
+import json, os, sys, datetime, subprocess
 
 dims = [l.split('|', 1) for l in os.environ['DIMENSIONS'].strip().splitlines() if l.strip()]
-files = [f for f in os.environ['FILES'].splitlines() if f.strip()]
 root = os.environ['SRC_ROOT']
+rubric = os.environ['RUBRIC']
+refresh = os.environ['REFRESH'] == '1'
+today = datetime.datetime.now().strftime("%Y-%m-%d")
+
+# The walk is the shared enumerator's, not a second copy of its prune rules.
+raw = subprocess.run([sys.executable, os.environ['INVENTORY_PY'], 'enumerate', root],
+                     capture_output=True, text=True)
+if raw.returncode != 0:
+    print(raw.stderr, file=sys.stderr); sys.exit(2)
+disk = [json.loads(l) for l in raw.stdout.splitlines() if l.strip()]
+
+def fresh_row(e):
+    return {"path": e['path'], "rel": e['rel'], "bytes": e.get('bytes'),
+            "ext": e.get('ext'), "format": e.get('format'), "route": e.get('route'),
+            "media": e.get('media'), "pages": e.get('pages'),
+            "kind": None, "answers": None, "statedScope": "", "components": []}
+
+readme = [
+    "TWO PASSES, IN ORDER. Pass 1 is `inventory` — what is this source even about.",
+    "Pass 2 is `dimensions` — is it good enough to build from. Do not start pass 2 until",
+    "every inventory row is filled: a grade over a corpus you have not identified is a",
+    "grade of your own assumptions.",
+    "",
+    "INVENTORY (pass 1), one row per file — EVERY file under sourceRoot, no format skipped —",
+    "filled by OPENING it:",
+    "  kind:        docs | code | data | ui | contract | unknown",
+    "  answers:     which dimension keys this source can speak to, e.g. [\"domain\",\"rules\"].",
+    "               Empty list is a real answer — say so rather than leaving it null.",
+    "  statedScope: if the source declares its own boundary, quote it VERBATIM. Sources",
+    "               that say what they do not cover are the cheapest scope signal there is.",
+    "  components:  named modules/components/aggregates this source defines, one string each.",
+    "  format/route/media/pages are stamped by init from bin/lib/source-formats.tsv — what the",
+    "               file is by extension, the extraction route that consumes it whole, and how",
+    "               many embedded images/diagrams a text-only read would leave behind. A row",
+    "               with media > 0 is not consumed until its disposition accounts for them.",
+    "",
+    "DISPOSITIONS (Stage 1) — one entry per inventory row (or a glob covering several), read",
+    "by bin/source-ledger.sh, which blocks the Stage 1 and 2 gates while any row has none:",
+    "  {\"path\": \"<rel>\" | \"pattern\": \"<glob over rel>\", \"state\": \"extracted\",",
+    "   \"artifact\": \"<project-relative file or dir that carries what was extracted>\",",
+    "   \"media\": <images described, must equal the row's media count, or \"mediaWaived\": \"why\">,",
+    "   \"by\": \"who\", \"date\": \"YYYY-MM-DD\"}",
+    "  The artifact must exist, be non-empty, and NAME the source file — a disposition that",
+    "  says 'the triage already used it' is checked by grepping the triage for the file, and",
+    "  fails if it never mentions it. Write them with: bin/source-ledger.sh mark ...",
+    "  A file deliberately not extracted is a register line, not a disposition:",
+    "     bin/gate-check.sh <project> --waive source/<rel> --reason \"...\"",
+    "",
+    "DIMENSIONS (pass 2). Fill in every dimension by READING the sources. Do not infer a",
+    "rating from file size.",
+    "  rating: absent | named | specified | verified",
+    "  evidence: where you saw it (page, section, screen) — or why you concluded absent.",
+    "  consequence: what the BUILD has to invent if this stays as-is. Be concrete.",
+    "Leave rating null for any dimension you did not actually check; the report will",
+    "refuse to score rather than treat unchecked as absent.",
+]
+
+if refresh:
+    with open(rubric) as f:
+        doc = json.load(f)
+    inv = doc.get('inventory')
+    if inv is None:
+        print("source-sufficiency: this rubric predates the inventory pass; --refresh cannot", file=sys.stderr)
+        print("  add rows to an inventory that does not exist. Delete it and re-init.", file=sys.stderr)
+        sys.exit(4)
+    def norm(p): return os.path.normpath(p)
+    by_path = {norm(r.get('path') or ''): r for r in inv}
+    by_rel  = {r.get('rel'): r for r in inv if r.get('rel')}
+    added, restamped = [], 0
+    seen = set()
+    for e in disk:
+        r = by_path.get(norm(e['path'])) or by_rel.get(e['rel'])
+        if r is None:
+            row = fresh_row(e); row['addedAt'] = today
+            inv.append(row); added.append(e['rel']); seen.add(id(row))
+            continue
+        seen.add(id(r))
+        r.pop('missing', None)
+        # Older rows carry no format stamp; give them one without touching what was filled in.
+        if 'format' not in r:
+            for k in ('rel', 'ext', 'format', 'route', 'media', 'pages'):
+                r[k] = e.get(k)
+            restamped += 1
+    gone = []
+    for r in inv:
+        if id(r) not in seen:
+            r['missing'] = True; gone.append(r.get('rel') or r.get('path'))
+    doc['inventory'] = inv
+    doc['sources'] = [e['path'] for e in disk]
+    doc['sourceCount'] = len(disk)
+    doc['sourceRoot'] = root
+    doc['refreshedAt'] = today
+    doc['_readme'] = readme
+    doc.setdefault('dispositions', [])
+    with open(rubric, 'w') as f:
+        json.dump(doc, f, indent=2); f.write("\n")
+    print(f"source-sufficiency: refreshed {rubric}")
+    print(f"  corpus: {len(disk)} file(s) under {root} — {len(added)} new, {len(gone)} gone, "
+          f"{len(inv) - len(added)} kept as filled")
+    for a in added: print(f"    NEW (unopened): {a}")
+    for g in gone:  print(f"    GONE (row kept, marked missing): {g}")
+    if added:
+        print("  next: open each NEW file and fill its inventory row, then re-run report; the")
+        print("        ledger (bin/source-ledger.sh) will want a disposition for each at Stage 1.")
+    sys.exit(0)
 
 doc = {
-    "_readme": [
-        "TWO PASSES, IN ORDER. Pass 1 is `inventory` — what is this source even about.",
-        "Pass 2 is `dimensions` — is it good enough to build from. Do not start pass 2 until",
-        "every inventory row is filled: a grade over a corpus you have not identified is a",
-        "grade of your own assumptions.",
-        "",
-        "INVENTORY (pass 1), one row per file, filled by OPENING it:",
-        "  kind:        docs | code | data | ui | contract | unknown",
-        "  answers:     which dimension keys this source can speak to, e.g. [\"domain\",\"rules\"].",
-        "               Empty list is a real answer — say so rather than leaving it null.",
-        "  statedScope: if the source declares its own boundary, quote it VERBATIM. Sources",
-        "               that say what they do not cover are the cheapest scope signal there is.",
-        "  components:  named modules/components/aggregates this source defines, one string each.",
-        "",
-        "DIMENSIONS (pass 2). Fill in every dimension by READING the sources. Do not infer a",
-        "rating from file size.",
-        "  rating: absent | named | specified | verified",
-        "  evidence: where you saw it (page, section, screen) — or why you concluded absent.",
-        "  consequence: what the BUILD has to invent if this stays as-is. Be concrete.",
-        "Leave rating null for any dimension you did not actually check; the report will",
-        "refuse to score rather than treat unchecked as absent."
-    ],
-    "assessedAt": datetime.datetime.now().strftime("%Y-%m-%d"),
+    "_readme": readme,
+    "assessedAt": today,
     "sourceRoot": root,
-    "sources": files,
-    "sourceCount": len(files),
-    # INVENTORY — pass 1. Pre-populated with path and size because those are the only two
-    # facts a script can know; every other field is left null so an unopened file is visibly
-    # unopened. This section exists because conversion-runbook.md Stage 0 already instructs
-    # the agent to "present the source/requirements map... discuss openly", and nothing
-    # produced that map — so the agent skipped to the rubric and asked rubric-shaped closed
-    # questions about a corpus nobody had characterised. (Live run, 2026-08-19.)
-    "inventory": [
-        {"path": f,
-         "bytes": (os.path.getsize(f) if os.path.exists(f) else None),
-         "kind": None, "answers": None, "statedScope": "", "components": []}
-        for f in files
-    ],
+    "sources": [e['path'] for e in disk],
+    "sourceCount": len(disk),
+    # INVENTORY — pass 1. Pre-populated with what a script can know (path, size, format by
+    # extension, embedded media count); every judgement field is left null so an unopened
+    # file is visibly unopened. This section exists because conversion-runbook.md Stage 0
+    # already instructs the agent to "present the source/requirements map... discuss openly",
+    # and nothing produced that map — so the agent skipped to the rubric and asked
+    # rubric-shaped closed questions about a corpus nobody had characterised. (Live run,
+    # 2026-08-19.)
+    "inventory": [fresh_row(e) for e in disk],
+    # DISPOSITIONS — Stage 1. What consumed each row. Empty at init on purpose: the ledger
+    # reports every row PENDING until somebody says which artifact carries it.
+    "dispositions": [],
     "dimensions": {
         k: {"demands": v, "rating": None, "evidence": "", "consequence": ""}
         for k, v in dims
@@ -242,30 +330,36 @@ doc = {
     "notes": ""
 }
 
-with open(os.environ['RUBRIC'], 'w') as f:
+with open(rubric, 'w') as f:
     json.dump(doc, f, indent=2)
     f.write("\n")
-PY
 
-  # NOT `grep -c . || echo 0`: grep prints 0 AND exits 1 on no match, so the fallback fires too
-  # and N becomes "0\n0", which compares equal to nothing. The empty-corpus warning below could
-  # never fire. Caught by test 'empty corpus is called out'; kept as a comment because the
-  # broken form is the one that reads correct.
-  N=0
-  [ -n "$FILES" ] && N=$(printf '%s\n' "$FILES" | grep -c .)
-  N=$(printf '%s' "$N" | tr -d '[:space:]')
-  echo "source-sufficiency: wrote $RUBRIC"
-  echo "  corpus: $N file(s) under $SRC_ROOT"
-  if [ "$N" = "0" ]; then
-    echo "  NOTE: zero source files found. Either --sources points elsewhere, or the sources"
-    echo "        are not on disk yet. An empty corpus is not a thin source; it is no source." >&2
-  fi
-  echo "  next, IN ORDER:"
-  echo "    pass 1 — open each file and fill its inventory row (kind, answers, statedScope,"
-  echo "             components). What is this source about, before whether it is any good."
-  echo "    pass 2 — fill in every dimension rating."
-  echo "    then: $0 report $PROJECT_DIR"
-  exit 0
+n = len(disk)
+unknown = [e['rel'] for e in disk if e.get('format') == 'unknown']
+with_media = [(e['rel'], e['media']) for e in disk if (e.get('media') or 0) > 0]
+print(f"source-sufficiency: wrote {rubric}")
+print(f"  corpus: {n} file(s) under {root}")
+if n == 0:
+    print("  NOTE: zero source files found. Either --sources points elsewhere, or the sources")
+    print("        are not on disk yet. An empty corpus is not a thin source; it is no source.", file=sys.stderr)
+kinds = {}
+for e in disk:
+    kinds[e.get('format') or 'unknown'] = kinds.get(e.get('format') or 'unknown', 0) + 1
+if n:
+    print("  by format: " + ', '.join(f"{v} {k}" for k, v in sorted(kinds.items())))
+for rel, m in with_media:
+    print(f"  embedded media: {rel} carries {m} image(s) — a text-only read is not the file")
+if unknown:
+    print(f"  unknown format ({len(unknown)}): " + ', '.join(unknown[:10]) + (' ...' if len(unknown) > 10 else ''))
+    print("    not skipped — open each, set kind, and route it (custom extractor or a waiver)")
+print("  next, IN ORDER:")
+print("    pass 1 — open each file and fill its inventory row (kind, answers, statedScope,")
+print("             components). What is this source about, before whether it is any good.")
+print("    pass 2 — fill in every dimension rating.")
+print("    then: bin/source-sufficiency.sh report <project>")
+print("    at Stage 1: a disposition per row — bin/source-ledger.sh mark ... — before the gate")
+PY
+  exit $?
 fi
 
 # --- report / show ------------------------------------------------------------------------

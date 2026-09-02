@@ -274,6 +274,28 @@ from `raisedAt` and the collector reads both.
 
 ---
 
+## An answer that points at another document is a claim, not an answer
+
+The one form of answer that reads as settled and cannot be trusted: *"X already covers this."*
+Verbatim, from a real intake (2026-09-02, Q4 "documents not yet accounted for?"):
+
+> the `.pptx` is already inside `source/<track>/` and was already used as triage input by the
+> Group A–D triage pass (see `<track>-triage.md`) — nothing additional exists outside the folder.
+
+The triage never named the deck. Two months of downstream artifacts inherited the gap, because
+once Q4 read "answered" nothing had a reason to look again. The answer *cited a document*, which
+is exactly why it was believed.
+
+**Rule.** Before recording an answer of the form "X already handled Y": open X and find Y in it —
+`grep -il "<Y's name>" X`. Zero hits means the answer is "not yet accounted for", whatever the
+session remembers. Then record the disposition where the gate reads it, not in prose:
+`bin/source-ledger.sh mark <project> <Y> --artifact X --by <who>` — the Stage 1 gate performs
+the same grep and refuses a claim that does not hold up. For a source file the register line
+`Waived source <Y>: <reason>` (written by `gate-check.sh --waive source/<Y>`) is the only
+"we are deliberately not reading this" that counts. The same discipline applies one layer up:
+an intake answer that says the source cross-checks a schema claim is verified against the
+source, not against the memory of having checked.
+
 ## The report
 
 ```bash

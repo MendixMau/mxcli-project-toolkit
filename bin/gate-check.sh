@@ -8,7 +8,7 @@
 #
 # Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol [--approved-in-chat]|--force-stale] [--verbose]
 #                          [--adopt <stage> --reason "..."]
-#                          [--waive <stage|obligation[/module]> --reason "..."]
+#                          [--waive <stage|obligation[/module]|source/<file>> --reason "..."]
 #                          <project-dir> [stage]
 #   - With a stage-number, additionally exits non-zero if that specific stage's check fails.
 #   - Without one, evaluates and reports all stages, exits 0 regardless (informational run).
@@ -30,6 +30,9 @@
 #     one module; bare `look` waives every module. Same flag and same mandatory reason on
 #     purpose: a second waiver vocabulary is a second place to look and a second thing to keep
 #     in step. A waived pass reports WAIVED with its reason — never PASS.
+#   - --waive source/<rel-or-basename> --reason "..." waives one SOURCE FILE of the Stage 0
+#     inventory (bin/source-ledger.sh): deliberately not extracted, says who and why. The
+#     ledger otherwise BLOCKS Stages 1 and 2 while any file has no disposition that holds up.
 #
 # VERDICT VOCABULARY (four, and the difference between the first two is the whole point):
 #   PASS    — checked, and it holds.
@@ -157,12 +160,18 @@ for opt_pair in "--adopt:$ADOPT_STAGE" "--waive:$WAIVE_STAGE"; do
     P|p|[0-7]) continue ;;
   esac
   if [ "$opt_name" = "--waive" ] && _gc_is_obligation "$opt_val"; then continue; fi
+  # A SOURCE FILE is the third waivable thing: `--waive source/<rel-path-or-basename>` records
+  # that a file in the Stage 0 inventory is deliberately not extracted (bin/source-ledger.sh
+  # reads the line). Same flag, same mandatory reason, same register — the user's "if I agree
+  # to skip it, skip it" is exactly a waiver with a name on it, never a silent gap.
+  case "$opt_val" in source/?*) [ "$opt_name" = "--waive" ] && continue ;; esac
   if [ "$opt_name" = "--waive" ]; then
-    echo "Error: --waive takes a stage (P or 0-7) or an obligation target, got '$opt_val'." >&2
+    echo "Error: --waive takes a stage (P or 0-7), an obligation target, or source/<file>, got '$opt_val'." >&2
     echo "Obligations (bin/lib/obligations.tsv): $(awk -F'\t' '!/^#/ && NF>=9 && $1!="obligation"{printf "%s ", $1}' \
       "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/obligations.tsv" 2>/dev/null)" >&2
     echo "  per module:  --waive look/Orders  --reason \"...\"" >&2
     echo "  every module: --waive look        --reason \"...\"" >&2
+    echo "  source file:  --waive source/legacy/deck.pptx --reason \"...\"   (a row of the Stage 0 inventory)" >&2
     exit 2
   fi
   echo "Error: $opt_name takes a stage (P or 0-7), got '$opt_val'." >&2; exit 2
@@ -1728,6 +1737,18 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
     #     --waive look/Orders --reason "integration module, no pages"   (one module)
     #     --waive sweep       --reason "QA runs in the client's own suite"  (every module)
     # The obligation form is recognised by the target naming a row in obligations.tsv.
+    case "$WAIVE_STAGE" in
+      source/?*)
+        SRC_REL="${WAIVE_STAGE#source/}"
+        register_set_line "Waived source $SRC_REL" "$WAIVER_REASON" \
+          || { echo "Could not write to $REGISTER" >&2; exit 1; }
+        build_log_append "SOURCE-WAIVED $SRC_REL reason: $WAIVER_REASON"
+        echo "Recorded in $REGISTER:  Waived source $SRC_REL: $WAIVER_REASON"
+        echo "That file now reports WAIVED in the source ledger (bin/source-ledger.sh) instead of"
+        echo "PENDING. It does NOT report EXTRACTED — a waived file is one nobody read, and the"
+        echo "register says who decided that. Match is by relative path or basename, case-insensitive."
+        exit 0 ;;
+    esac
     OB_TSV="$TOOLKIT_DIR/bin/lib/obligations.tsv"
     WAIVE_OB="${WAIVE_STAGE%%/*}"
     if [ -f "$OB_TSV" ] && awk -F'\t' -v w="$(printf '%s' "$WAIVE_OB" | tr '[:upper:]' '[:lower:]')" \
@@ -2114,6 +2135,61 @@ fi
 printf "Source sufficiency (assessed?): %s — %s\n" "$SUFF_STATUS" "$SUFF_NOTE"
 
 # ---------------------------------------------------------------------------
+# Source ledger — was every inventoried file actually consumed, and by what?
+#
+# bin/source-ledger.sh reads the Stage 0 inventory (every file under the source root) and
+# wants a disposition per row: an artifact that exists, is non-empty and NAMES the file; or a
+# register waiver; or sensitive/superseded. It also reports drift — files on disk with no
+# inventory row, the state of a project someone just dropped new sources into.
+#
+# WHY IT BLOCKS where source-sufficiency only advises (2026-09-02). On a VBA migration the
+# intake closed "documents not yet accounted for?" with "the .pptx was already used by the
+# triage pass" — a claim about another document, made without reading it, and false. Nothing
+# checked it, so the only functional description of the workflow engine (25 slides, 22
+# diagrams) went unread for two months of BRDs, blueprint and build plan. The check here is
+# a file test, not a conversation test: does the named artifact mention the named file. That
+# passes skills-over-scripts.md's bar for a blocking check (an agent cannot satisfy it by
+# typing a row), which the removed Stage-1 scope gate did not.
+#
+# Blocks Stage 1 and Stage 2 (enforced below, where the requested stage is known); Stage 0
+# only advises, because the inventory is Stage 0's output and a guard must never block the
+# action that resolves it. A user who agrees to skip a file records that with
+# `--waive source/<rel> --reason "..."` and the row reports WAIVED — the skip is never silent.
+LEDGER_STATUS="PASS"
+LEDGER_NOTE="every inventoried source file has a disposition"
+LEDGER_SCRIPT="$TOOLKIT_DIR/bin/source-ledger.sh"
+LEDGER_OWED=""
+if [ ! -x "$LEDGER_SCRIPT" ]; then
+  LEDGER_STATUS="MANUAL"
+  LEDGER_NOTE="bin/source-ledger.sh not found or not executable at $LEDGER_SCRIPT — cannot evaluate, which is not a pass"
+elif ! command -v jq >/dev/null 2>&1; then
+  LEDGER_STATUS="MANUAL"
+  LEDGER_NOTE="jq not installed — cannot read the source ledger; cannot evaluate, which is not a pass"
+else
+  LEDGER_OUT="$("$LEDGER_SCRIPT" check "$PROJECT_DIR" ${REGISTER:+--register "$REGISTER"} --json --quiet 2>&1)"; LEDGER_RC=$?
+  case "$LEDGER_RC" in
+    0)
+      LEDGER_NOTE="$(printf '%s' "$LEDGER_OUT" | jq -r '.note // "accounted for"' 2>/dev/null || echo 'accounted for')"
+      LEDGER_OWED=0
+      ;;
+    1)
+      LEDGER_STATUS="FAIL"
+      LEDGER_NOTE="$(printf '%s' "$LEDGER_OUT" | jq -r '.note // "source files owed"' 2>/dev/null || echo 'source files owed')"
+      LEDGER_OWED="$(printf '%s' "$LEDGER_OUT" | jq -r '(.counts.pending // 0) + (.counts.fault // 0) + (.counts.missing // 0) + (.counts.drift // 0)' 2>/dev/null || echo '?')"
+      ;;
+    3)
+      LEDGER_STATUS="MANUAL"
+      LEDGER_NOTE="$(printf '%s' "$LEDGER_OUT" | jq -r '.note // "nothing to check"' 2>/dev/null || echo 'nothing to check')"
+      ;;
+    *)
+      LEDGER_STATUS="MANUAL"
+      LEDGER_NOTE="source-ledger.sh check exited $LEDGER_RC — cannot evaluate, which is not a pass: $(printf '%s' "$LEDGER_OUT" | tail -2 | tr '\n' ' ')"
+      ;;
+  esac
+fi
+printf "Source ledger (every file consumed?): %s — %s\n" "$LEDGER_STATUS" "$LEDGER_NOTE"
+
+# ---------------------------------------------------------------------------
 # Skill routing — do the rendered surfaces still match the table?
 #
 # Every routing surface (README's two tables, the runbook's baseline block, each agent
@@ -2314,6 +2390,15 @@ if [ -n "${MXTK_ART_N_PENDING:-}" ]; then
 else
   _roll="$_roll    Artifacts: NOT CHECKED"
 fi
+# Source files are the third thing a project can silently owe. Unlike the two above this one
+# DOES touch the exit code at Stages 1 and 2 (see the LEDGER block); it is repeated here for
+# the same reason they are — the summary is the line people quote.
+case "${LEDGER_OWED:-}" in
+  ""|*[!0-9]*)  _roll="$_roll    Source files: NOT CHECKED" ;;
+  0)   _roll="$_roll    Source files: 0 owed" ;;
+  *)   _roll="$_roll    Source files: ${LEDGER_OWED} owed (pending/fault/missing/not inventoried)"
+       _owed=$(( _owed + ${LEDGER_OWED:-0} )) ;;
+esac
 printf "         %s\n" "$_roll"
 if [ "$_owed" -gt 0 ]; then
   echo "         These do not affect the exit code and never have. They are passes and files"
@@ -2437,6 +2522,8 @@ HTML_HEAD
     "$OQ_STATUS" "$OQ_STATUS" "$(printf '%s' "$OQ_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
   printf '<tr><td>~</td><td>Source sufficiency assessed</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$SUFF_STATUS" "$SUFF_STATUS" "$(printf '%s' "$SUFF_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
+  printf '<tr><td>≡</td><td>Source ledger (every file consumed?)</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
+    "$LEDGER_STATUS" "$LEDGER_STATUS" "$(printf '%s' "$LEDGER_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
   printf '<tr><td>⚑</td><td>Report disposition (Stage 5/6)</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$DISP_STATUS" "$DISP_STATUS" "$(printf '%s' "$DISP_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
   printf '<tr><td>P</td><td>Kickoff</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
@@ -2507,6 +2594,26 @@ if [ -n "$REQUESTED_STAGE" ]; then
   # Same shape as the drift gate two blocks up, loosened the same day and for the same reason.
   if [ "$REQUESTED_STAGE" = "0" ] && [ "$SUFF_STATUS" = "FAIL" ]; then
     advise "source-sufficiency" "Source sufficiency not established: $SUFF_NOTE"
+  fi
+  # Source ledger: advisory at Stage 0 (the inventory is that stage's own output), BLOCKING at
+  # Stages 1 and 2 — no extraction is complete, and no BRD is written, while a source file has
+  # no disposition that holds up or sits on disk un-inventoried. See the LEDGER block above.
+  if [ "$REQUESTED_STAGE" = "0" ] && [ "$LEDGER_STATUS" = "FAIL" ]; then
+    advise "source-ledger" "Source files not yet accounted for (blocks Stage 1): $LEDGER_NOTE"
+  fi
+  if { [ "$REQUESTED_STAGE" = "1" ] || [ "$REQUESTED_STAGE" = "2" ]; } && [ "$LEDGER_STATUS" = "FAIL" ]; then
+    echo "" >&2
+    echo "Gate BLOCKED by the source ledger: $LEDGER_NOTE" >&2
+    echo "" >&2
+    "$LEDGER_SCRIPT" check "$PROJECT_DIR" ${REGISTER:+--register "$REGISTER"} 2>/dev/null | sed -n '2,25p' >&2
+    echo "" >&2
+    echo "  Every file in the Stage 0 inventory needs one of:" >&2
+    echo "    extracted  bin/source-ledger.sh mark $PROJECT_DIR <rel-or-glob> --artifact <path> [--media N] --by <who>" >&2
+    echo "               (the artifact must exist, be non-empty and NAME the file — a claim is checked, not believed)" >&2
+    echo "    waived     $0 $PROJECT_DIR --waive source/<rel> --reason \"...\"   (a person's decision, in the register)" >&2
+    echo "  Files on disk with no inventory row: bin/source-sufficiency.sh init $PROJECT_DIR --refresh, then open them." >&2
+    echo "  Full table: bin/source-ledger.sh report $PROJECT_DIR" >&2
+    exit 1
   fi
   # No Stage-5/6 gate passes while the newest test/review report has un-filed findings.
   # finding-disposition.md and existing-app-assurance.md both apply at exactly these two

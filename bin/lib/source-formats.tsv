@@ -1,0 +1,63 @@
+# THE source-format route table — what kind of thing each file extension is, and which
+# extraction route consumes it whole.
+#
+# WHY THIS EXISTS (2026-09-02, a VBA-to-Mendix migration). The Stage 0 inventory in
+# bin/source-sufficiency.sh listed source files by an extension ALLOWLIST. It had no .pptx,
+# no .cls, no .bas. A 25-slide functional description with 22 diagrams sat in source/ for
+# two months while BRDs, blueprint, build plan and module briefs were derived from the VBA
+# exports alone — and the intake answer that closed the question said the deck "was already
+# used by the triage pass", which nothing checked. The script's own comments record the same
+# allowlist bug twice before (.yaml on 08-19, code on 08-31). Three misses, one shape: a
+# coverage instrument that cannot see a file reports a corpus that never contained it.
+#
+# So the inventory is now EVERY file under the source root minus a short prune list, and this
+# table says what each one is. An extension not listed here is NOT skipped — it is inventoried
+# as `kind: unknown` and needs a disposition at Stage 1 like everything else. "Anything could
+# be a source" (the user's words); the pipeline's answer to an unknown shape is a custom
+# extractor per skills/extractor-quality-loop.md, or a waiver with a reason — never silence.
+#
+# Read by bin/source-sufficiency.sh (init: stamps `format`/`route` on each inventory row) and
+# bin/source-ledger.sh (check: knows which formats carry embedded media that a text-only
+# extraction leaves behind).
+#
+# Format: TAB-separated, five columns. Blank lines and #-comments ignored. Extensions are
+# lowercase without the dot; several per row, |-separated.
+#   1 ext       extension(s)
+#   2 kind      docs | code | data | ui | contract | schema | media | archive | mail | diagram
+#               — the same vocabulary the inventory's `kind` field takes (plus schema/media/
+#               archive/mail/diagram, which the rubric readme lists as sub-kinds of the first six)
+#   3 route     the extraction route that consumes it whole
+#   4 media     yes if the container can hold embedded images/diagrams that text extraction
+#               drops (Office/OpenDocument zips, PDFs). The ledger requires such a file's
+#               disposition to account for its media count, not only its text.
+#   5 notes     what "consumed" means for this format — the bar a disposition has to clear
+
+ext	kind	route	media	notes
+pptx|potx|ppsx	docs	text per slide (skills/pptx or python-pptx) PLUS every embedded image read or described	yes	A deck's diagrams are usually where the process shape is drawn; slide text alone is not the deck. Count from ppt/media/ inside the zip.
+ppt|pps	docs	convert to .pptx first (LibreOffice --headless), then as pptx	yes	Legacy binary; no direct reader in the toolkit. Conversion is part of the disposition.
+docx|dotx	docs	text + tables (skills/docx, mammoth, or python-docx) PLUS embedded images	yes	word/media/ inside the zip. Screenshots in a spec are often the only UI evidence.
+doc|rtf	docs	convert to .docx first (LibreOffice --headless), then as docx	yes	Legacy binary.
+odt|odp|ods	docs	convert with LibreOffice --headless to the Office equivalent, then as that	yes	OpenDocument zips carry Pictures/.
+xlsx|xlsm|xltx	data	every sheet, including hidden ones, as rows (skills/xlsx, openpyxl) — schema-like sheets grade as structure	yes	xl/media/ rarely matters; hidden sheets and named ranges do. State the sheet count in the disposition.
+xls	data	convert to .xlsx first, then as xlsx	no	Legacy binary.
+csv|tsv	data	rows; header row is the schema	no	One file, one table. Encoding and delimiter stated.
+pdf	docs	text per page (skills/pdf) PLUS OCR when the text layer is empty PLUS embedded images	yes	A scanned PDF has no text layer; a text-only extraction returns nothing and reads as "empty document".
+md|txt|adoc|rst	docs	read whole	no
+html|htm|xhtml	docs	text + tables + form fields (screens exported as HTML are UI evidence, not prose)	no	An HTML export of a legacy screen is `ui`, not `docs` — reclassify by content.
+xml|xsd|wsdl	contract	parse; schema and element names are structure	no	A .xml can be anything (OutSystems export, config, data). Reclassify by content.
+json|yaml|yml|toml	contract	parse; an OpenAPI/GraphQL contract grades as structure	no
+sql|ddl	schema	tables, columns, keys, constraints → domain model input	no	Frequently the best-specified thing in the corpus.
+mdb|accdb	schema	schema + data via mdbtools / ODBC; forms, queries, macros and VBA modules are code	no	An Access file is a whole app: schema, data, UI and logic in one container. The disposition names all four.
+dbf|db|sqlite|sqlite3	schema	schema + data	no
+cls|bas|frm|vb|vbs|vba	code	Path A code extraction (VBA/VB6): modules, procedures, form controls, event handlers	no	.frm carries form layout (UI) as well as code; .cls with WORKBOOK/SHEET headers is Excel-hosted.
+ts|tsx|js|jsx|mjs|cjs|vue|svelte	code	Path A code extraction (pipelines/node-express-react or new)	no
+java|kt	code	Path A code extraction (pipelines/java-angular or new)	no
+cs|vbproj|csproj|aspx|ascx|cshtml	code	Path A code extraction (.NET — new extractor)	no
+py|go|rb|php|pl	code	Path A code extraction (new extractor)	no
+oml|xif	code	Path A (pipelines/outsystems)	no	OutSystems module exports.
+png|jpg|jpeg|gif|bmp|webp|tif|tiff|svg	media	vision read: describe what the image shows; screenshots are UI evidence	no	One row each. "Looked at" is a disposition; "it's just an image" is not.
+vsd|vsdx|drawio|bpmn	diagram	shapes + connectors + labels (vsdx is a zip: visio/pages/*.xml; drawio is XML; bpmn is XML)	yes	Process diagrams are process specifications. Export to PNG as well and read both.
+msg|eml|mbox|pst	mail	headers + body + attachments (each attachment becomes its own inventory row)	yes	Decisions live in threads. A .pst is an archive: expand it.
+zip|7z|rar|tar|gz|tgz	archive	expand in place; every member becomes its own inventory row (re-run init --refresh)	no	An archive is never a source; its contents are.
+mpr|mpk	code	Mendix model — SHOW/DESCRIBE via mxcli, or the migration is already Mendix	no
+exe|dll|jar|class|pyc	code	binary — not extractable; waive with the reason, or find the source it was built from	no	A binary in the corpus usually means the source exists somewhere. Ask.

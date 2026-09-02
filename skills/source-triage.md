@@ -20,6 +20,27 @@
 
 **Do not generate BRDs, let alone start the Mendix build, until this triage produces three things:** an extraction-approach decision, a coverage/gap list, and — if the source is large — a bounded scope recommendation. Running Phase 3 before this is settled produces BRDs for a scope nobody agreed to, from a pipeline nobody confirmed is reliable for this stack.
 
+**Every file in the source folder is a row, and every row ends with a named consumer.** Run
+`bin/source-sufficiency.sh init <root>` before anything else: it lists *every* file under the
+source root (no format is skipped — an extension the toolkit does not know is a row marked
+`unknown`, not an omission) and, for Office and PDF containers, counts the embedded images and
+pages a text-only read leaves behind. At Stage 1 every row gets a disposition in
+`bin/source-ledger.sh`: the artifact that carries it (which must exist, be non-empty, and *name*
+the file), or a person's waiver (`bin/gate-check.sh <project> --waive source/<rel> --reason "..."`).
+`gate-check.sh` blocks Stages 1 and 2 until every row has one and no file sits on disk
+un-inventoried. Added files re-enter through `init --refresh` — never through memory.
+
+> **A claim that another document already handled a file is a claim to verify, not an
+> answer.** Real incident, 2026-09-02, a VBA migration: intake Q4 ("documents not yet accounted
+> for?") was closed with *"the .pptx is already inside `source/` and was already used as triage
+> input by the Group A–D triage pass"*. The triage was derived from the `.cls` exports and never
+> named the deck; its 22 diagrams — the only place the workflow engine's X/M/E semantics were
+> written down — went unread for two months of BRDs, blueprint and build plan, and a `CONFIRMED`
+> architecture decision had to be reversed. The wrong answer *reads* right because it cites a
+> document. The right form is the ledger's: **name the artifact, and let the gate grep it.** A
+> text read of a deck is not the deck either — a 25-slide, 22-image container is consumed when
+> the disposition says `--pages 25 --media 22`, not when its title appears in a summary.
+
 **Always stand up an extractor — reuse where one already covers this stack, build new otherwise.** Field finding: reading source without an extractor missed information even on small, cleanly structured apps — manual reading is not a substitute for the coverage an extractor gives you, it's a different (weaker) tool. The extractor *is* the coverage gate: it's what lets Step 3 below actually answer "is this reliable enough to trust," instead of relying on how thorough a manual read happened to be. There is no manual-only path anymore.
 
 ---
@@ -160,3 +181,13 @@ Confirmed by: [user] on [date] — required before Phase 2/3 proceed.
 - **Deciding module boundaries (`modularize-domain.md`) before asking whether this should be multiple apps.** The app-count question is upstream of the module-count question — answering them in the wrong order means redrawing module boundaries after discovering they should've been app boundaries.
 - **Routing a mixed corpus wholesale to the document path because it "looks like requirements."** A folder of specs *with a schema in it* is not a documents-only source. Path B narrates the schema into markdown, the entities read as authoritative because they are written down, and the structure that could have been extracted is re-derived by hand at Stage 2. Decide per artifact (Step 1), on what is in the folder, not on the entry mode.
 - **Treating "extracts cleanly" as equivalent to "high priority."** The easiest capability to automate is not automatically the right one to migrate first.
+
+- **"Already handled by X" as a closure.** An intake or triage answer that discharges a file by
+  pointing at another document is only as true as that document's contents. The ledger greps X
+  for the file's name; zero hits is a FAULT. Point at the artifact that actually consumed it.
+- **Text-only reads of containers.** Slides, spreadsheets and PDFs carry diagrams, screenshots
+  and hidden sheets that text extraction drops silently. The inventory counts them; the
+  disposition has to account for every one, or waive them with a reason.
+- **Inventorying by extension allowlist.** Three incidents (`.yaml`, then code, then `.pptx`)
+  each added one extension after the miss. The inventory is now every file minus a denylist; do
+  not reintroduce a "supported formats" list anywhere upstream of it.

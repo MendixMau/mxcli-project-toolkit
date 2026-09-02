@@ -43,8 +43,14 @@ cd "$ROOT"
 # The .mpr, wherever this project keeps it: repo root, or under app/ in a
 # two-tree checkout. Refuse to guess between two -- picking the wrong model is
 # worse than stopping.
+# Dedupe by RESOLVED path. A project may keep a root-level symlink to the real
+# model under app/ so that root-relative tooling works; find reports both, and
+# refusing to choose between two names for one file is a false alarm that stops
+# the launcher for no reason. Ambiguity means two DIFFERENT models.
 mapfile -t MPRS < <(find . -maxdepth 3 -name '*.mpr' -not -path '*/.mpr-snapshots/*' \
-                      -not -path '*/.docker/*' -not -path '*/node_modules/*' 2>/dev/null | sort)
+                      -not -path '*/.docker/*' -not -path '*/node_modules/*' 2>/dev/null \
+                    | while read -r f; do printf '%s\t%s\n' "$(readlink -f "$f")" "$f"; done \
+                    | sort -u -k1,1 | cut -f2- | sort)
 case "${#MPRS[@]}" in
   0) echo "run-hub: no .mpr found under $ROOT" >&2; exit 2 ;;
   1) MPR="${MPRS[0]}" ;;

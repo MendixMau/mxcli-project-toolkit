@@ -3724,3 +3724,220 @@ absent.
 **Workaround:** bump the widget names (suffix `2`), or clear/refresh the mxcli catalog cache
 before retrying. Renaming is the reliable path; it is why several TFC pages carry `_v2`
 widget names.
+
+---
+
+## BUG-107 (DRAFT): an **unquoted** value in a workflow `CALL MICROFLOW … WITH (…)` segfaults the binary instead of erroring
+
+**Severity:** High — SIGSEGV with no diagnostic, on the natural spelling of the most common workflow activity; a one-character workaround exists but is undiscoverable
+**mxcli version:** v0.20.0 (2026-08-28)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-03, workflow construct probe on a blank scratch app (a PLM approval-migration project's toolkit probe)
+**Reproducible:** yes, 100%, minimal repro below
+
+The `WITH` clause's **value** must be a quoted string. Give it a bare variable — which is how
+the same expression is written everywhere else in MDL — and the process dies:
+
+```sql
+CREATE WORKFLOW Probe.T PARAMETER $Context: Probe.Request
+BEGIN
+  CALL MICROFLOW Probe.ACT_Noop WITH (Ctx = $WorkflowContext);   -- SIGSEGV
+END WORKFLOW;
+```
+
+```
+panic: runtime error: invalid memory address or nil pointer dereference
+[signal SIGSEGV: segmentation violation code=0x2 addr=0x58 pc=0x1059e618c]
+github.com/mendixlabs/mxcli/mdl/visitor.buildWorkflowCallMicroflow(...)
+	github.com/mendixlabs/mxcli/mdl/visitor/visitor_workflow.go:565 +0x5ec
+```
+
+**The discriminator is the quoting of the value, nothing else.** Probed four spellings:
+
+| Written | Result |
+|---|---|
+| `WITH (Ctx = $WorkflowContext)` | **PANIC** |
+| `WITH (Probe.ACT_Noop.Ctx = $WorkflowContext)` | **PANIC** |
+| `WITH ("Ctx" = '$WorkflowContext')` | works |
+| `WITH (Probe."ACT_Noop"."Ctx" = '$Context')` | works |
+
+Verified end-to-end on the quoted form: `exec` writes it, native `mx check` reports **0
+errors**, and `DESCRIBE WORKFLOW` reads it back as
+`call microflow Probe.ACT_Noop with (Ctx = '$WorkflowContext')`.
+
+The panic fires on plain `check`, on `check --references`, and on `exec`. It happens before
+any write, so the `.mpr` is left intact (confirmed by a native `mx check` afterwards).
+
+**What makes this worth fixing rather than documenting.** The error path that *should* catch
+this is already there and already correct — omit the clause entirely and `--references` says:
+
+```
+- call microflow 'Probe.ACT_Noop': parameter 'Ctx' is not mapped — Mendix requires every
+  parameter of a workflow call-microflow to be mapped (add `with (Ctx = ...)`)
+```
+
+That hint tells the author to write `with (Ctx = ...)`, i.e. an unquoted left side and an
+unquoted right side, which is the spelling that crashes. The tool talks the user into the
+segfault.
+
+**Workaround:** quote the value — `WITH ("Ctx" = '$WorkflowContext')`.
+
+## BUG-108 (DRAFT): enumeration `DECISION` outcomes — mxcli accepts only the form that writes an unloadable `.mpr`, and rejects both forms Mendix accepts (CRITICAL)
+
+**Severity:** Critical — silent project corruption; the `.mpr` cannot be opened afterwards
+**mxcli version:** v0.20.0 (2026-08-28)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-03, workflow construct probe on a blank scratch app
+**Reproducible:** yes, 100%
+
+The validator is inverted. Given `Probe.StatusEnum` with values `Draft`/`Sent`:
+
+| Outcome value written | `mxcli check --references` | Result |
+|---|---|---|
+| `'Probe.StatusEnum.Draft'` (the form Mendix requires) | **rejected** — "is not a valid enumeration value identifier — MxBuild rejects outcome names with spaces or punctuation" | cannot be written |
+| `'StatusEnum.Draft'` | **rejected**, same message | cannot be written |
+| `'Draft'` (bare) | **Check passed!** | **corrupts the project** |
+
+The bare form execs cleanly and `DESCRIBE WORKFLOW` reads it back happily. The native
+toolchain then cannot load the file at all — this is a load failure, not a validation error,
+so every downstream tool and Studio Pro itself is locked out:
+
+```
+ERROR: Mendix.Modeler.Storage.StorageLoadException: One or more invalid values were detected
+while loading the project:
+ - Enumeration value condition outcome in  has an invalid value '' for property Value.
+   The text 'Draft' is not a valid EnumerationValueIdentifier.
+   at Mendix.Modeler.Enumerations.EnumerationValueIdentifier.FromString(String text)
+```
+
+**Consequence:** an enumeration-based `DECISION` cannot be expressed in MDL at all on this
+binary. Every available path either fails at check time or produces an unopenable project.
+
+**Recovery:** `mxcli` can still *read* the corrupt model, so `DROP WORKFLOW <the workflow>`
+repairs it in place — verified, the project returned to 0 errors. Do not restore from a
+snapshot before trying the drop.
+
+**Note for the fix:** the message "MxBuild rejects outcome names with spaces or punctuation"
+is treating a fully-qualified enumeration value as a free-text outcome caption. Boolean and
+free-text outcomes are unaffected; only the enumeration path is wrong.
+
+---
+
+## BUG-109 (DRAFT): `JUMP TO` inside a boundary-event body writes a Jump with no Target, named after its own target
+
+**Severity:** High — the only legal terminator for an interrupting boundary event is unusable
+**mxcli version:** v0.20.0 (2026-08-28)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-03, workflow construct probe on a blank scratch app
+**Reproducible:** yes, 100%
+
+```sql
+USER TASK A 'A' PAGE Probe.WF_TaskPage OUTCOMES 'Done' { }
+  BOUNDARY EVENT INTERRUPTING TIMER 'addDays([%CurrentDateTime%], 3)' { JUMP TO A; };
+```
+
+`mxcli check --references` passes, `exec` writes, `DESCRIBE WORKFLOW` reads it back as
+`jump to A;`. Native `mx check`:
+
+```
+[error] [CE0495] "Duplicate name 'A'." at User task 'A', Jump 'A'
+[error] [CE6680] "The 'Target' property is required." at Jump 'A'
+```
+
+The generated Jump activity is *named* after its target instead of *pointing* at it, so it
+collides with the target and carries no `Target`.
+
+**Scope — the same statement is fine elsewhere.** `JUMP TO A;` inside a **user-task outcome**
+writes correctly and passes `mx check` with 0 errors (verified in isolation). The defect is
+specific to a boundary-event body.
+
+**Consequence, combined with the grammar:** an **interrupting** boundary event cannot be
+expressed correctly in MDL. Mendix requires its path to end in *End workflow* or *Jump to*
+(CE0105 otherwise, which fires on an empty body); `END WORKFLOW`, `END`, `END FLOW` and
+`END OF BOUNDARY EVENT PATH` are all parse errors as statements, and `JUMP TO` is this bug.
+Non-interrupting boundary events are unaffected and work correctly.
+
+---
+
+## BUG-110 (DRAFT): `DESCRIBE WORKFLOW` emits MDL it cannot re-parse when a targeting XPath contains quotes
+
+**Severity:** Medium — breaks the documented round-trip; an agent using DESCRIBE as ground truth gets un-executable output
+**mxcli version:** v0.20.0 (2026-08-28)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-03, workflow construct probe on a blank scratch app
+**Reproducible:** yes, 100%
+
+Written (correctly, with doubled quotes):
+
+```sql
+TARGETING XPATH '[System.UserRoles = ''[%UserRole_User%]'']'
+```
+
+`DESCRIBE WORKFLOW` emits it with the inner escaping dropped:
+
+```
+targeting users xpath '[System.UserRoles = '[%UserRole_User%]']'
+```
+
+Feeding that back to `mxcli check` fails:
+
+```
+- line 9:48 mismatched input '[%UserRole_User%]' expecting ';'
+```
+
+`DESCRIBE` is documented as round-trippable and is the toolkit's recommended way to read
+current state before editing (`query-the-model.md`), so this silently produces a script that
+looks authoritative and cannot run.
+
+---
+
+## BUG-111 (DRAFT): `mxcli syntax` drill-down rejects the example printed in its own help text
+
+**Severity:** Low — costs a discovery round-trip; pushes agents to guess grammar
+**mxcli version:** v0.20.0 (2026-08-28)
+**Discovered:** 2026-09-03
+**Reproducible:** yes, 100%
+
+`mxcli syntax` prints, under Examples:
+
+```
+mxcli syntax workflow user-task targeting     # Drill down to targeting
+```
+
+Running it returns `Unknown topic: workflow user-task targeting`. So do
+`mxcli syntax workflow user-task` and `mxcli syntax workflow parallel-split`, although
+`mxcli syntax workflow` lists all of those as sub-topics. Only `mxcli syntax workflow --json`
+returns the per-construct syntax and examples.
+
+---
+
+## BUG-112 (DRAFT): `mxcli new` warns that the path is too long, then hangs forever instead of failing
+
+**Severity:** Medium — an unattended run loses the whole session with no error
+**mxcli version:** v0.20.0 (2026-08-28)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-02/03
+**Reproducible:** yes, on any output path over the limit
+
+`mxcli new` correctly detects and reports the condition at step 2:
+
+```
+Warning: this project's path is 49 characters longer than Mendix tooling allows.
+  Total 308 exceeds the 259-character limit MxToolset enforces.
+  ... `mx` commands against it can fail with PathTooLongException.
+```
+
+It then proceeds to *"Step 6/7: Running the first build"* and **never returns** — observed
+hung for ~10 hours, no output, no timeout, no non-zero exit. The project itself is created
+and usable; only the settle-build hangs.
+
+**Consequence for unattended work:** a background `mxcli new` in a deep scratch directory
+(Claude Code session scratchpads are ~126 chars before the project name) consumes the entire
+run silently.
+
+**Fix shape:** having detected the over-length path, either refuse before step 6 or bound the
+build with a timeout. A warning followed by an unbounded blocking call is the worst of both.
+
+**Workaround:** create in a short path (`/tmp/<short>/`), or pass `--skip-build` — the project
+`mxcli new` produces without step 6 is fully usable for MDL work (verified: `SHOW MODULES`,
+`exec`, and native `mx check` all work against it).

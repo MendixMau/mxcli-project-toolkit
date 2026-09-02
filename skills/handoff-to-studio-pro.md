@@ -218,28 +218,47 @@ Sharing is not one-way. The loop that keeps both sides safe:
 4. The headless side pulls and **runs the mxbuild gate before building on it** — a Studio
    Pro save is exactly as unverified as an exec until mxbuild says otherwise.
 
-## 10. Git topology — GitHub is the workshop, Team Server the showroom
+## 10. Git topology — start on Team Server, mirror to GitHub, ONE history
 
-The Claude build loop needs a GitHub remote (that is what a Claude session can attach).
-Colleagues and the Mendix platform — Sprintr membership, sandbox Publish, the SP
-version-control UI — live on Team Server, which is plain git underneath but with its own
-platform-created history. Both can coexist under one rule:
+The Claude build loop needs a GitHub remote (that is what a Claude session can attach);
+colleagues and the Mendix platform — Sprintr membership, sandbox Publish, the SP
+version-control UI — live on Team Server. The decision that makes both trivial is made at
+project birth:
 
-> **Sync CONTENT between them, never histories.** The two repos' histories are unrelated by
-> construction; do not merge or force-push one into the other. A snapshot commit carries the
-> model tree across and names its source revision — two histories, one content flow.
+> **Create the app on the platform FIRST, then mirror its Team Server repo to GitHub by
+> cloning and pushing. The two remotes now share one history, and every sync from then on is
+> ordinary git** — branch, merge, push. No tooling.
 
-`project-bin/ts-sync.sh` implements it (`status` / `push` / `pull`, `TS_CLONE=` points at the
-local Team Server clone). It refuses a consolidated source (§2's trap), refuses dirty trees
-on either side, commits the snapshot with provenance, and never pushes for you.
-**⚠️ UNPROVEN against a real Team Server as of 2026-09-01** — transplant logic is
-fixture-tested only; the script's header carries the status and the first field run updates it.
-The model-token rule from §9 applies doubly here: if both sides edited between syncs, pick a
-winner and re-transplant — never merge.
+The lifecycle, in plain words:
 
-The free-sandbox route rides on this: Publish from Studio Pro works from the Team Server
-side, so "demo on a sandbox" = `ts-sync.sh push`, colleague publishes from SP. (Also not yet
-field-run; same status note.)
+1. **Birth**: create the app in the Mendix Portal (Team Server repo comes with it — as of
+   mxcli v0.20.0 there is no CLI for this step; `mxcli new` creates local-only projects).
+   Clone it, add GitHub as a second remote, push. One history, two homes.
+2. **Build loop**: Claude sessions attach the GitHub repo and work on `claude/*` branches
+   exactly as always — PRs, gates, CI.
+3. **Every now and then**: on any machine that sees both remotes, ordinary git carries work
+   across — fetch from one, merge (usually fast-forward), push to the other. Before a Claude
+   work period: bring Team Server's commits over. After one: bring the merged result back.
+4. **Colleagues**: clone from Team Server, open in the pinned Studio Pro, commit as normal.
+
+What stays true even with one history — and this is the skill content, not the commands:
+**model units do not text-merge.** The model token from §9 still governs: one side edits the
+model between syncs, and a merge where both sides touched model files resolves by taking one
+side whole, never by merging hunks. Shared history makes the merge *possible*; the token
+makes it *safe*.
+
+**Fallback — the project was born on GitHub** (no platform app, unrelated histories): first
+probe whether Team Server accepts your GitHub history pushed onto a fresh branch — if it
+does, adopt the project into a new platform app once and rejoin the one-history world above.
+Only if that push is refused does the content-transplant route apply:
+`project-bin/ts-sync.sh` (`status`/`push`/`pull`) copies the model tree across and commits it
+with source-revision provenance — refusing consolidated sources and dirty trees, never
+pushing for you, never merging histories. **⚠️ UNPROVEN against a real Team Server as of
+2026-09-01**; the script's header carries the status and the first field run updates it.
+
+The free-sandbox route rides on the Team Server side either way: Publish from Studio Pro
+works there, so "demo on a sandbox" = sync to Team Server, colleague publishes from SP.
+(Not yet field-run; same status note.)
 
 ## 11. A verification checklist short enough that people run it
 

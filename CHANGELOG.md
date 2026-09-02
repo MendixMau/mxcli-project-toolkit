@@ -7,6 +7,9 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-02
+- learn(cloud-dev-environment): two gaps found on the first Claude Code web scaffold — the no-Docker build-gate route (`doctor.sh --install --yes`, which doctor prints but the skill never named) and the CRITICAL `mxcli run --local` split-model collapse (logged 2026-09-01, never cross-referenced from the one skill that mandates that command): snapshot before every local run, restore split format and `git status` before the next commit — a MOC/PSSR rebuild POC
+
 ## 2026-09-01
 - new(skills): `preview-over-hub-tunnel.md` — the three traps between `mxcli run --hub` and a working public preview, each from a live debugging round: `--db-name` defaults to the .mpr name (boots against a database that does not exist), the Mendix runtime's REST client ignores JVM proxy properties so a GenAI call 403s with "Host not in allowlist" while the host was reachable the whole time (fix: `--runtime-setting http.proxyHost/Port`), and a leftover runtime on :8080 serves a stale build at a fresh URL — a deal-management PoC
 - new(bin): `run-hub.sh` — wraps `mxcli run --hub` with the db-name and runtime proxy settings the skill documents; routing row + changelog added at merge (the branch shipped it README-only, the same routing miss the coverage audit exists for) — a deal-management PoC, merged by the toolkit queue

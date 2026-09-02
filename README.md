@@ -595,6 +595,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Running the ledger rung alone — recompute every stored ledger status against the live model and catch the STALE rows that claim built for something the model no longer has | `project-bin/conformance-check.sh` |
 | Running the wiring rung alone — a module imported but never reached, an element built but wired to nothing, a boundary crossed; mxbuild and e2e are blind to all three | `project-bin/graph-sweep.sh` |
 | Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only | `project-bin/test-stack-up.sh` |
+| Exposing a running app at a public URL for a demo or stakeholder review — the hub tunnel, plus the three things that break it: the database default, the runtime's REST client ignoring JVM proxy properties, and a preview that quietly serves a stale build | `skills/preview-over-hub-tunnel.md` |
 | Standing up or extending the Playwright e2e harness | `skills/e2e-harness-base.md` |
 | Writing DB assertion tests that cross-check UI state against the database | `skills/learned-db-assertions.md` |
 | Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness | `skills/fixture-seeding.md` |

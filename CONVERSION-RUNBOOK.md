@@ -23,6 +23,31 @@ Then open your agent (Claude Code or equivalent) in the workspace and say what y
 | Requirements/specs only, no code | Requirements-driven | P, 1–6 |
 | Just an idea / existing plan | Greenfield | P (light), 5–6 |
 
+## Where you run this — detected, not asked
+
+You do not pick an environment; `bin/doctor.sh` detects it from where the session started, and
+the agent records it once in `PROJECT.md` (`Environment: cloud | devcontainer | local |
+local-linux`). Every stage runs **headless** — the build gate is `mxbuild`, `mxcli new` creates
+the app, `mxcli run --local` serves it, Playwright and OQL test it — so Studio Pro is never on
+the critical path and the lane only changes *how you see the app* and *which write modes exist*:
+
+| Where the chat started | Detected lane | What that means for you |
+|---|---|---|
+| **Claude Code on the web / mobile** | `cloud` — the default when you have nothing installed | Nothing to install. The container is ephemeral, so the agent commits and pushes at every gate. You see the app through a preview URL (`mxcli run --hub`). Setup order: `skills/cloud-dev-environment.md`. Network policy must allow `cdn.mendix.com`; GitHub Releases too, or build `mxcli` from source when Releases 403s (the skill has the recipe) — `hub.mxcli.org` for the preview. |
+| **Terminal Claude Code in a VS Code devcontainer / Codespaces** | `devcontainer` | Same headless lane as cloud, on your own disk — nothing ephemeral, no network policy to negotiate. |
+| **Terminal Claude Code on your Mac or Windows machine** | `local` | Everything above, plus the two write modes that need Studio Pro open (`--mcp`, hand-rolled MCP) and the Studio-Pro-only operations (`ALTER SETTINGS`, security level). Windows: Git Bash — `README.md` → *Platform support*. |
+
+**The default is simply where you are.** Start there; the lanes are not exclusive. A model built
+in the cloud opens in any Studio Pro later (`skills/handoff-to-studio-pro.md`), and a local
+project can be pushed and continued from the web. The agent may mention the other lanes when one
+would help (a preview link for a stakeholder, a Studio Pro session for UI polish) — it does not
+ask you to choose up front.
+
+**Agents:** never conclude "this cannot be built here" from the absence of Studio Pro — run
+`bin/doctor.sh` and let the detected lane decide (real misfire, 2026-09-03: a cloud session read
+the then local-first front door and announced Stages 5–7 impossible in the container, before
+`mxcli run --local` was even probed).
+
 ## What to expect
 
 - The pipeline **interviews you** at every gate: the agent proposes 2–4 options with evidence from your actual source, states its assumptions, and asks you to correct it — it never asks what it can derive itself.

@@ -56,6 +56,11 @@ table; a skill missing here is a skill no agent will find.
 
 ## Prerequisites — run this once on a new machine
 
+`bin/doctor.sh` also detects *which kind* of machine — cloud container, devcontainer, or local
+with Studio Pro — and prints what that lane changes (`CONVERSION-RUNBOOK.md` → *Where you run
+this*). Record it in `PROJECT.md` as `Environment: <lane>`; a cloud container then follows
+`cloud-dev-environment.md` for its setup order. Nobody is asked to choose.
+
 This runbook drives shell scripts. They need **bash** and a **Python 3**, and on Windows neither
 is guaranteed. Do not discover that partway into a stage; find out now:
 

@@ -24,9 +24,11 @@ probe or a field run proved, never toward whichever text is newer):
   a due date or a timer to a task with no SLA in the requirements — `learned-workflow-patterns.md`
   §19, a field finding from a 15-task approval module where a full-text search of the BRDs turned
   up no deadline language at all. Absence of an SLA is a legitimate "no timer" finding.
-- *Targeting XPath form.* The source writes role filters with the token
-  `System.UserRoles = '[%UserRole_X%]'`. The form field-proven through mxcli is the three-segment
-  path — §6.
+- *Targeting XPath form.* ~~The source writes role filters with the token
+  `System.UserRoles = '[%UserRole_X%]'`; the form field-proven through mxcli is the three-segment
+  path.~~ **Conflict withdrawn, 2026-09-03:** the token form was probed on mxcli v0.20.0 /
+  Mendix 11.14.0 and passes `check`, `exec` and native `mx check`. Both forms are proven; the
+  source was not wrong. §6.
 - *Empty-outcome scope.* Extended here to call-microflow-returning-enum and AI agent task, and
   separated from the dead-branch smell it was being confused with — §5.
 
@@ -182,10 +184,11 @@ not a near miss, it is a different application.
 An unfamiliar role name ("vendor", "inspector") is still a role: target it and tell the user to
 confirm the role exists — do not downgrade to no targeting because the word is unusual.
 
-XPath syntax note: the MCP team writes role filters as `System.UserRoles = '[%UserRole_X%]'`;
-the form field-proven from MDL is `System.UserRoles/System.UserRole/Name = 'X'` (three
-segments, CE0161 below that — `learned-workflow-patterns.md` §5). Both are legal Mendix XPath;
-the token form has not been probed through mxcli's single-quoted string, so use the proven one.
+XPath syntax note: **both role-filter forms are proven from MDL** on mxcli v0.20.0 /
+Mendix 11.14.0 (§11) — the MCP team's token `System.UserRoles = '[%UserRole_X%]'` and this
+toolkit's three-segment path `System.UserRoles/System.UserRole/Name = 'X'`. The earlier "use the
+three-segment form, the token is unprobed" instruction is withdrawn. Do not write a *two*-segment
+path: that is the CE0161 this rule was built around (`learned-workflow-patterns.md` §5).
 
 ## 7. Multi-user tasks
 

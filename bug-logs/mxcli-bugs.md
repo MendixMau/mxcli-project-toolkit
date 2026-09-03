@@ -3727,7 +3727,7 @@ widget names.
 
 ---
 
-## BUG-107 (DRAFT): an **unquoted** value in a workflow `CALL MICROFLOW … WITH (…)` segfaults the binary instead of erroring
+## BUG-107: an **unquoted** value in a workflow `CALL MICROFLOW … WITH (…)` segfaults the binary instead of erroring
 
 **Severity:** High — SIGSEGV with no diagnostic, on the natural spelling of the most common workflow activity; a one-character workaround exists but is undiscoverable
 **mxcli version:** v0.20.0 (2026-08-28)
@@ -3782,7 +3782,7 @@ segfault.
 
 **Workaround:** quote the value — `WITH ("Ctx" = '$WorkflowContext')`.
 
-## BUG-108 (DRAFT, **SUPERSEDED BY BUG-76** — keep as an addendum, do not file separately): enumeration `DECISION` outcomes — mxcli accepts only the form that writes an unloadable `.mpr`, and rejects both forms Mendix accepts (CRITICAL)
+## BUG-108 (**SUPERSEDED BY BUG-76** — keep as an addendum, do not file separately): enumeration `DECISION` outcomes — mxcli accepts only the form that writes an unloadable `.mpr`, and rejects both forms Mendix accepts (CRITICAL)
 
 > **Filed in ignorance of BUG-76, found immediately after.** BUG-76 (2026-08-13, re-confirmed
 > on v0.18.0 and v0.20.0) already states the general defect: mxcli writes every `DECISION`
@@ -3833,7 +3833,7 @@ free-text outcomes are unaffected; only the enumeration path is wrong.
 
 ---
 
-## BUG-109 (DRAFT): `JUMP TO` inside a boundary-event body writes a Jump with no Target, named after its own target
+## BUG-109: `JUMP TO` inside a boundary-event body writes a Jump with no Target, named after its own target
 
 **Severity:** High — the only legal terminator for an interrupting boundary event is unusable
 **mxcli version:** v0.20.0 (2026-08-28)
@@ -3869,7 +3869,7 @@ Non-interrupting boundary events are unaffected and work correctly.
 
 ---
 
-## BUG-110 (DRAFT): `DESCRIBE WORKFLOW` emits MDL it cannot re-parse when a targeting XPath contains quotes
+## BUG-110: `DESCRIBE WORKFLOW` emits MDL it cannot re-parse when a targeting XPath contains quotes
 
 **Severity:** Medium — breaks the documented round-trip; an agent using DESCRIBE as ground truth gets un-executable output
 **mxcli version:** v0.20.0 (2026-08-28)
@@ -3901,7 +3901,7 @@ looks authoritative and cannot run.
 
 ---
 
-## BUG-111 (DRAFT): `mxcli syntax` drill-down rejects the example printed in its own help text
+## BUG-111: `mxcli syntax` drill-down rejects the example printed in its own help text
 
 **Severity:** Low — costs a discovery round-trip; pushes agents to guess grammar
 **mxcli version:** v0.20.0 (2026-08-28)
@@ -3921,7 +3921,7 @@ returns the per-construct syntax and examples.
 
 ---
 
-## BUG-112 (DRAFT): `mxcli new` warns that the path is too long, then hangs forever instead of failing
+## BUG-112: `mxcli new` warns that the path is too long, then hangs forever instead of failing
 
 **Severity:** Medium — an unattended run loses the whole session with no error
 **mxcli version:** v0.20.0 (2026-08-28)

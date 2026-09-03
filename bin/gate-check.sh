@@ -1394,7 +1394,24 @@ stage_surface_status() {
   fi
   for pat in $pats; do
     hit=0
-    for base in "$PROJECT_DIR" "$ANALYSIS_BASE"; do
+    # SURFACE_BASES, not just the project root. §2's Surface cells are inconsistent about
+    # paths: some carry one ("architecture/blueprint.html", "docs/report.json") and some name
+    # the file bare ("design-system.html", "build-plan.html", "test-report.html"). A bare cell
+    # was only ever globbed against the project root, so a surface sitting exactly where its
+    # own skill puts it — design/design-system.html, architecture/build-plan.html — reported
+    # MISSING while the file was right there.
+    #
+    # That is the worst possible direction for this check to fail in. The Surface column exists
+    # because "gate PASS" was being read as "stage done" when the artifact a human reviews had
+    # never been generated; a checker that cries missing on present files trains the reader to
+    # ignore the line, which costs us the signal the column was added for. Found 2026-09-03 on
+    # a project whose Stage 3 and Stage 4 surfaces were both present and both reported missing.
+    #
+    # Fixed here rather than in the runbook cells: the cells are prose a human reads, several
+    # are legitimately bare (index.html at the root), and rewriting them all to carry paths
+    # would re-home the convention in the spec to work around a limitation of the reader.
+    for base in "$PROJECT_DIR" "$ANALYSIS_BASE" \
+                "$PROJECT_DIR/design" "$PROJECT_DIR/architecture" "$PROJECT_DIR/docs"; do
       # Unmatched globs stay literal with nullglob off, so -e is the whole test.
       # "$base"/$pat, not $base/$pat: the base must be quoted (a project path with a space in
       # it word-splits otherwise and every surface reports MISSING), the pattern must not be

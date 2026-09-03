@@ -8,6 +8,7 @@ Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templat
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
 ## 2026-09-03
+- fix(privacy): genericised a client project code that had survived on master in two `project-bin/` headers and two changelog credit lines — surfaced by two contributors (PRs #8 and #9) whose local leak-guard denylist refused to commit beside it, so both had to `--no-verify`; a denylist hit on content you did not write is a report about master, not about your PR — the toolkit merge queue
 - **Skills — `workflow-structure-rules.md` §11 + §6.** Probed the user-task *On created* handler (`onCreatedEvent`), the one construct §6 recommended while §11 had no row for it: **not expressible in MDL**, and grammar-level rather than a docs gap — after `PARAMETER` the parser accepts only `{BEGIN, EXPORT, DUE, OVERVIEW, DESCRIPTION, DISPLAY}` and four candidate spellings were rejected at parse. It **is** on the MCP write path (`json:"onCreatedEvent"` on the user-task payload, beside `taskPage`/`outcomes`/`boundaryEvents`, no `omitempty`), so it is a **per-task** property, not one workflow-level handler; end-to-end MCP write unverified, needing a live Studio Pro. Also **retracted the "decision on a boolean or free-text outcome is proven" row** — BUG-76's v0.20.0 retest corrupts on a literal `1 = 1`, so the condition never mattered; left struck through rather than deleted, because "a boolean decision is the safe kind" is the belief the table has to kill. From the PLM approval-migration probe project.
 - **Skills — `workflow-structure-rules.md` §6.** Added the *targeting microflow returning a one-element list* shape for assignment-carried-in-data, alongside the Mendix MCP team's *On created* handler and marked as the usual preference: it is proven in MDL (§11) where the `onWorkflowEvent` slot has no §11 row at all — neither proven nor refused, because nobody has probed it. A fallback chain (nominee → eligibility list → logged backstop) also satisfies §6's empty-targeting rule structurally, without a separate error handler, and logs when it degrades where an XPath cannot. Fed back from the PLM approval-migration probe project, which hit this on a 19-station process with per-station nominations and two stations holding fewer than ten eligible users.
 - fix(skills/workflow-structure-rules): withdraw the targeting-XPath conflict — §11 recorded the `[%UserRole_X%]` token form as proven while the header bullet and §6's tail note still told the reader it was unprobed and to prefer the three-segment path. Both forms are proven on v0.20.0 / 11.14.0; the MCP team's spelling was not wrong. Found by reading the file as a build input on a live approval rebuild — the exact use it is written for — a PLM approval-migration project
@@ -121,11 +122,11 @@ Credit the person or project that surfaced the change — the credit line is the
 
 ## 2026-08-27
 - new(doctor): build-toolchain verification — mxbuild/java executed not just found (exit 126 = wrong-platform binary), Docker recommended for the self-verification stack
-- new(page-fidelity): `project-bin/page-fidelity.js` — scored wireframe-fidelity instrument (headings/actions/content/classes, weighted), routed and installable; measured 32% median first-build on a real field corpus without it, 90% first-draft with it — VB-USI field runs
+- new(page-fidelity): `project-bin/page-fidelity.js` — scored wireframe-fidelity instrument (headings/actions/content/classes, weighted), routed and installable; measured 32% median first-build on a real field corpus without it, 90% first-draft with it — a topbar-titled portal project's field runs
 - new(check-page-shell): `project-bin/check-page-shell.sh` gates the drafted page shell (column, layout/nav, one H1) against the wireframe before exec — measured 0/10 on a real first build
 
 ## 2026-08-26
-- learn(css): DROP MODULE removes no CSS — a model reset is not a styling reset — VB-USI
+- learn(css): DROP MODULE removes no CSS — a model reset is not a styling reset — a topbar-titled portal project
 - fix(design-audit): expresses its own failure instead of being stamped PASS by the caller
 - fix(sync): `--upgrade-bin` accumulates instead of keeping only the last entry
 - process(exec): module brief bound to the write as a build-plan row; `exec.sh` advises, never refuses

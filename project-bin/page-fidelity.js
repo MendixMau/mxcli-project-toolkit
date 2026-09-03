@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 // page-fidelity.js — score one drafted/built page's MDL against its wireframe, model-side.
 //
-// Promoted from process/prototypes/first-build-fidelity.proto.js after the VB-USI-main
+// Promoted from process/prototypes/first-build-fidelity.proto.js after the topbar-portal
 // field run (2026-08-27). The prototype assumed ToeicBuddy's wireframe shape on two axes
 // that do not travel:
 //
-//   * content boundary — ToeicBuddy wireframes wrap page content in <main>; VB-USI's
+//   * content boundary — ToeicBuddy wireframes wrap page content in <main>; the topbar portal's
 //     wrap popup content in .dialog and full-page content in bare divs, with annotation
 //     chrome (wf-bar, wf-note, wf-section, the .bind table, DESCOPED banners) as
 //     siblings. Scoring the whole body counts the annotation against the page.
-//   * MDL case — the prototype matched CREATE...PAGE uppercase only; VB-USI's scripts
+//   * MDL case — the prototype matched CREATE...PAGE uppercase only; the topbar portal's scripts
 //     write it lowercase (same bug fixed in check-page-shell.sh, commit e0588e3).
 //
 // Usage:
@@ -102,9 +102,9 @@ function innerBalanced(html, openRe) {
 function contentOf(html) {
   // Boundary preference, most-specific first:
   //   <main>            ToeicBuddy shape — content-only wireframes
-  //   div.main          VB-USI full-page shape — the wireframe mocks the WHOLE app
+  //   div.main          the topbar portal full-page shape — the wireframe mocks the WHOLE app
   //                     shell; the sidebar is layout chrome, but div.main holds the
-  //                     page title (VB-USI titles pages from the top bar), so it is
+  //                     page title (the topbar portal titles pages from the top bar), so it is
   //                     the boundary and the user chip is stripped below
   //   div.wf-screen     a deal-management PoC shape — the wireframe is an annotated DOCUMENT, and the
   //   div.wf-shell      screen is one labelled block inside it, with the annotation
@@ -136,7 +136,7 @@ function contentOf(html) {
   // already decided not to score.
   //
   // GUARDED, because the comment on chromeSet is right that some designs title the page
-  // FROM the top bar (VB-USI does): the subtree is dropped only when it contains no h1/h2,
+  // FROM the top bar (the topbar portal does): the subtree is dropped only when it contains no h1/h2,
   // so a wireframe whose page title lives in the bar keeps it and keeps being scored on it.
   {
     const bar = innerBalanced(s, /<(div|header)[^>]*class="[^"]*\btopbar\b[^"]*"/i);

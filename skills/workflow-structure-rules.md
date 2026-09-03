@@ -181,8 +181,10 @@ nomination, not as the targeting expression.
 one-element list.** "Which users match this rule" and "the one this row names" are not different
 questions to a targeting microflow — a microflow that reads the nominee off the context object and
 returns `[that user]` is a faithful expression of assignment-by-data, and it is **proven in MDL**
-(§11, targeting-microflow row) where the `onWorkflowEvent` slot is not — that slot has no row in
-§11 at all, being neither proven nor refused because nobody has probed it. Prefer the microflow
+(§11, targeting-microflow row) where the *On created* handler is **not writable from MDL at all** —
+probed 2026-09-03, rejected at parse by a grammar that enumerates its own alternatives (§11). It is
+reachable over MCP, as a per-task property rather than one workflow-level handler, but that needs a
+live Studio Pro. Prefer the microflow
 unless something specifically needs the handler. Two things fall out of it for free:
 
 - **The empty-result rule above is satisfied structurally**, without a separate error handler. Write
@@ -292,7 +294,7 @@ row's stated floor is evidence against it.
 | **`JUMP TO <activity>`** inside a user-task outcome | **proven** |
 | **`WAIT FOR TIMER '<expression>'`** and **`WAIT FOR NOTIFICATION;`** | **proven**. Both undocumented; the notification takes **no name** — that is a Studio Pro property |
 | **boundary event timer, non-interrupting** | **proven**, with an **expression**, not an ISO period |
-| decision on a **boolean or free-text** outcome | proven on mxcli ≥ v0.18.0 — `learned-workflow-patterns.md` §8 Warning 1 |
+| ~~decision on a **boolean or free-text** outcome~~ | **RETRACTED 2026-09-03 — see the CORRUPTING row below.** This row read "proven on mxcli ≥ v0.18.0" and it was wrong: BUG-76's v0.20.0 retest corrupts on a condition of literal `1 = 1`. The condition never mattered; the defect is in how the *outcome label* is written. Left visible with a strikethrough rather than deleted, because "a boolean decision is the safe kind" is the belief this table has to actively kill |
 | call microflow, with or without parameters | **proven** — but the `WITH` clause's **value must be quoted**: `WITH ("Ctx" = '$WorkflowContext')`. Unquoted (`= $WorkflowContext`) segfaults the binary, BUG-107 |
 | — | — |
 | **decision on an enumeration** | **CORRUPTING — BUG-76**, of which this probe is a re-confirmation on 11.14 (first logged as BUG-108 before the older entry was found). BUG-76 is the general case: *every* `DECISION` with outcomes corrupts, whatever its condition reads. The enum case is the worse one — it has no writable spelling at all, since mxcli rejects both fully-qualified forms and accepts only the bare value that corrupts. Hand-add every decision in Studio Pro; never script one. Recovery: `DROP WORKFLOW` |
@@ -301,6 +303,7 @@ row's stated floor is evidence against it.
 | **event sub-process** (all four start kinds), recurrence | **hand-add** — no construct in the grammar, in any position |
 | **multi-user decision method / completion timing** | **hand-add** — the activity is scriptable, its decision rule is not |
 | **explicit `END WORKFLOW`, end-of-parallel-split-path, end-of-boundary-event-path** | **not expressible, and not needed.** MDL terminates by nesting, which `mx check` accepts. A consequence worth knowing: **CE1844 cannot be triggered from MDL** — §4 governs the diagram and anything hand-added, not the script |
+| **user-task `onCreatedEvent`** (the *On created* handler — the mechanism §6 names for assignment carried in data) | **not expressible in MDL, and this is grammar-level, not a docs gap.** The parser enumerates its own alternatives: after `PARAMETER` it accepts only `{BEGIN, EXPORT, DUE, OVERVIEW, DESCRIPTION, DISPLAY}`, and after a user task's `PAGE` only `;`. Four spellings probed (`ON CREATED CALL MICROFLOW`, `ON WORKFLOW EVENT`, task-level `ON CREATED`, `ONCREATEDEVENT`), all rejected at parse. **But it IS on the MCP write path** — `mxcli`'s `CreateWorkflow`/`UpdateWorkflow` payload carries `json:"onCreatedEvent"` on the *user-task* struct, beside `taskPage`, `outcomes` and `boundaryEvents`, and without `omitempty`. So it is a **per-task** property, not one workflow-level handler. End-to-end MCP write **not verified** — that needs a live Studio Pro. Treat as: hand-add, or MCP if you have Studio Pro up (`learned-mcp-patterns.md`) |
 | **AI agent task activity** | **unprobed** — its model rules (companion microflow first, outcomes mirror its return values, Boolean/Enum/Void only) hold whichever tool writes it |
 
 **The one thing to take from this table.** `mxcli check` was **wrong on 5 of the 12 constructs

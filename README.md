@@ -65,10 +65,10 @@ Do **not** create `analysis/<project>/` as a sibling of the project — analysis
 
 **New here? Open `toolkit-guide.html` in a browser first** — the whole journey as a visual page: entry modes, the 9 stages, what each gate asks of you, and the don't-panic section. *Agents:* open it for the user only when `<project-root>/.claude/.guide-shown` is absent, then `touch` it — see the first-touch rule in `CLAUDE.md`. Never once per session.
 
-**Where does this run?** A cloud container (Claude Code on the web — the default, nothing to
-install), a devcontainer, or a local machine with Studio Pro. Every stage runs headless in all
-three; the one-table comparison and the recommended default are in `CONVERSION-RUNBOOK.md` →
-*Where you run this*. Do not assume "no Studio Pro = no build".
+**Where does this run? Wherever you started the chat.** `doctor.sh` detects the lane — Claude
+Code on the web (cloud container), a devcontainer, or your own machine with Studio Pro — and the
+agent records it; nobody is asked. Every stage runs headless in all three; what each lane changes
+is in `CONVERSION-RUNBOOK.md` → *Where you run this*. Do not assume "no Studio Pro = no build".
 
 **Install is one command per project:**
 

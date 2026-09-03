@@ -111,6 +111,42 @@ case "${BASH_VERSION:-0}" in
   3.*) note "bash 3.2 (the macOS system bash). Scripts here are written for it; nothing to do." ;;
 esac
 
+# --- environment lane -------------------------------------------------------------------------
+# Where this session runs decides the write modes available (CONVERSION-RUNBOOK.md → "Where you
+# run this"). It is DETECTED, never asked: the agent records the answer in PROJECT.md and moves on.
+#   cloud        Claude Code on the web/mobile: CLAUDE_CODE_REMOTE=true. Ephemeral — push at
+#                every gate. Headless lane: CLI write mode only, mxcli run --local(--hub) to see it.
+#   devcontainer VS Code devcontainer / Codespaces / any Docker container on Linux. Same headless
+#                lane as cloud, on your own disk.
+#   local        macOS or Windows with Studio Pro reachable: all three write modes.
+#   local-linux  native Linux, no container markers: headless lane, nothing ephemeral.
+
+head_ "Environment lane (detected)"
+
+if [ "${CLAUDE_CODE_REMOTE:-}" = "true" ]; then
+  ENV_LANE=cloud
+elif [ -n "${REMOTE_CONTAINERS:-}${CODESPACES:-}${DEVCONTAINER:-}" ] || [ -f /.dockerenv ]; then
+  ENV_LANE=devcontainer
+else
+  case "$PLATFORM" in
+    macos|gitbash|wsl) ENV_LANE=local ;;
+    *)                 ENV_LANE=local-linux ;;
+  esac
+fi
+ok "$ENV_LANE"
+case "$ENV_LANE" in
+  cloud)
+    note "Ephemeral container: the git remote is the workspace — commit and push at every gate."
+    note "Headless: CLI write mode (exec.sh + mxbuild gate); see the app with mxcli run --local --hub."
+    note "Setup order for a new project: skills/cloud-dev-environment.md." ;;
+  devcontainer|local-linux)
+    note "Headless lane: CLI write mode (exec.sh + mxbuild gate); mxcli run --local to see the app."
+    note "Nothing is ephemeral here; Studio Pro modes (--mcp) are not available." ;;
+  local)
+    note "Studio Pro lane: all three write modes (CLI, --mcp, hand-rolled MCP) when SP is installed." ;;
+esac
+note "Agents: record this once in PROJECT.md as 'Environment: $ENV_LANE' — do not ask the user."
+
 # --- python ---------------------------------------------------------------------------------
 
 head_ "Python 3"

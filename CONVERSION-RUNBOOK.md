@@ -23,31 +23,30 @@ Then open your agent (Claude Code or equivalent) in the workspace and say what y
 | Requirements/specs only, no code | Requirements-driven | P, 1–6 |
 | Just an idea / existing plan | Greenfield | P (light), 5–6 |
 
-## Where you run this — pick one, or take the default
+## Where you run this — detected, not asked
 
-Every stage of this pipeline runs **headless**: the build gate is `mxbuild` (a plain binary),
-`mxcli new` creates the app, `mxcli run --local` serves it, Playwright and OQL test it. Studio Pro
-is never on the critical path. So the only question is *which machine*:
+You do not pick an environment; `bin/doctor.sh` detects it from where the session started, and
+the agent records it once in `PROJECT.md` (`Environment: cloud | devcontainer | local |
+local-linux`). Every stage runs **headless** — the build gate is `mxbuild`, `mxcli new` creates
+the app, `mxcli run --local` serves it, Playwright and OQL test it — so Studio Pro is never on
+the critical path and the lane only changes *how you see the app* and *which write modes exist*:
 
-| Option | What you need | What you get | Pick it when |
-|---|---|---|---|
-| **A — Cloud container** (Claude Code on the web / mobile) — **the default** | An empty GitHub repo; a Claude Code environment on it whose network policy allows `cdn.mendix.com` and GitHub Releases (`hub.mxcli.org` too, for a preview link) | Zero install, works from a managed laptop or an iPad, every stage P–7 end to end, a public preview URL via `mxcli run --hub` | You have no machine you may install on, or you want the pipeline to run while you are not at a desk |
-| **B — Devcontainer** (VS Code, local Docker) | Docker Desktop + VS Code; `mxcli init` writes the `.devcontainer/` | The same Linux lane as A on your own disk: nothing is ephemeral, no network policy to negotiate | You have a machine you may install on and want it local |
-| **C — Local machine with Studio Pro** (macOS/Windows) | Studio Pro + mxcli installed; on Windows, Git Bash | The two write modes that need Studio Pro open (`--mcp`, hand-rolled MCP) and the SP-only operations (`ALTER SETTINGS`, security level) | Your day job is in Studio Pro anyway, or you are polishing UI live |
+| Where the chat started | Detected lane | What that means for you |
+|---|---|---|
+| **Claude Code on the web / mobile** | `cloud` — the default when you have nothing installed | Nothing to install. The container is ephemeral, so the agent commits and pushes at every gate. You see the app through a preview URL (`mxcli run --hub`). Setup order: `skills/cloud-dev-environment.md`. Network policy must allow `cdn.mendix.com` and GitHub Releases (`hub.mxcli.org` for the preview). |
+| **Terminal Claude Code in a VS Code devcontainer / Codespaces** | `devcontainer` | Same headless lane as cloud, on your own disk — nothing ephemeral, no network policy to negotiate. |
+| **Terminal Claude Code on your Mac or Windows machine** | `local` | Everything above, plus the two write modes that need Studio Pro open (`--mcp`, hand-rolled MCP) and the Studio-Pro-only operations (`ALTER SETTINGS`, security level). Windows: Git Bash — `README.md` → *Platform support*. |
 
-**If you have no preference: take A.** It needs nothing installed, it is where this toolkit is
-field-proven end to end (`skills/cloud-dev-environment.md` — the setup order and the
-commit-and-push loop, which is the one rule the cloud adds), and the model it produces travels
-to any Studio Pro afterwards (`skills/handoff-to-studio-pro.md`). B is A without the
-ephemerality; choose it when you would rather not push at every gate. C is not "the real one" —
-it is the option that adds Studio Pro's two extra write modes, at the cost of one platform-specific
-setup (`README.md` → *Platform support*).
+**The default is simply where you are.** Start there; the lanes are not exclusive. A model built
+in the cloud opens in any Studio Pro later (`skills/handoff-to-studio-pro.md`), and a local
+project can be pushed and continued from the web. The agent may mention the other lanes when one
+would help (a preview link for a stakeholder, a Studio Pro session for UI polish) — it does not
+ask you to choose up front.
 
-**Agents:** the lane is a Stage-P fact, recorded once in `PROJECT.md` (`Environment: cloud |
-devcontainer | local`). Never conclude "this cannot be built here" from the absence of Studio Pro —
-probe `./mxcli --version` and `bin/doctor.sh` and let the result decide (real misfire, 2026-09-03:
-a cloud session read the local-first front door and announced Stages 5–7 impossible in the container,
-before `mxcli run --local` was even probed).
+**Agents:** never conclude "this cannot be built here" from the absence of Studio Pro — run
+`bin/doctor.sh` and let the detected lane decide (real misfire, 2026-09-03: a cloud session read
+the then local-first front door and announced Stages 5–7 impossible in the container, before
+`mxcli run --local` was even probed).
 
 ## What to expect
 

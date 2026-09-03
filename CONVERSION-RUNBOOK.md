@@ -23,6 +23,32 @@ Then open your agent (Claude Code or equivalent) in the workspace and say what y
 | Requirements/specs only, no code | Requirements-driven | P, 1–6 |
 | Just an idea / existing plan | Greenfield | P (light), 5–6 |
 
+## Where you run this — pick one, or take the default
+
+Every stage of this pipeline runs **headless**: the build gate is `mxbuild` (a plain binary),
+`mxcli new` creates the app, `mxcli run --local` serves it, Playwright and OQL test it. Studio Pro
+is never on the critical path. So the only question is *which machine*:
+
+| Option | What you need | What you get | Pick it when |
+|---|---|---|---|
+| **A — Cloud container** (Claude Code on the web / mobile) — **the default** | An empty GitHub repo; a Claude Code environment on it whose network policy allows `cdn.mendix.com` and GitHub Releases (`hub.mxcli.org` too, for a preview link) | Zero install, works from a managed laptop or an iPad, every stage P–7 end to end, a public preview URL via `mxcli run --hub` | You have no machine you may install on, or you want the pipeline to run while you are not at a desk |
+| **B — Devcontainer** (VS Code, local Docker) | Docker Desktop + VS Code; `mxcli init` writes the `.devcontainer/` | The same Linux lane as A on your own disk: nothing is ephemeral, no network policy to negotiate | You have a machine you may install on and want it local |
+| **C — Local machine with Studio Pro** (macOS/Windows) | Studio Pro + mxcli installed; on Windows, Git Bash | The two write modes that need Studio Pro open (`--mcp`, hand-rolled MCP) and the SP-only operations (`ALTER SETTINGS`, security level) | Your day job is in Studio Pro anyway, or you are polishing UI live |
+
+**If you have no preference: take A.** It needs nothing installed, it is where this toolkit is
+field-proven end to end (`skills/cloud-dev-environment.md` — the setup order and the
+commit-and-push loop, which is the one rule the cloud adds), and the model it produces travels
+to any Studio Pro afterwards (`skills/handoff-to-studio-pro.md`). B is A without the
+ephemerality; choose it when you would rather not push at every gate. C is not "the real one" —
+it is the option that adds Studio Pro's two extra write modes, at the cost of one platform-specific
+setup (`README.md` → *Platform support*).
+
+**Agents:** the lane is a Stage-P fact, recorded once in `PROJECT.md` (`Environment: cloud |
+devcontainer | local`). Never conclude "this cannot be built here" from the absence of Studio Pro —
+probe `./mxcli --version` and `bin/doctor.sh` and let the result decide (real misfire, 2026-09-03:
+a cloud session read the local-first front door and announced Stages 5–7 impossible in the container,
+before `mxcli run --local` was even probed).
+
 ## What to expect
 
 - The pipeline **interviews you** at every gate: the agent proposes 2–4 options with evidence from your actual source, states its assumptions, and asks you to correct it — it never asks what it can derive itself.

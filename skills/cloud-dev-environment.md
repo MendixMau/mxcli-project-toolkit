@@ -42,6 +42,19 @@ never re-run `mxcli init` afterwards.
    chmod +x ./mxcli && ./mxcli --version
    ```
 
+   **If that download returns 403** — some cloud network policies proxy `github.com` page and
+   release URLs while still serving `git clone` — build it from source instead; the default
+   Claude Code web image has everything the build needs (Go, a JDK, pip). Field-verified
+   2026-09-03 on a Claude Code web container where Releases was 403 and `cdn.mendix.com` was
+   reachable (the two are independent — check both):
+
+   ```bash
+   git clone --depth 1 https://github.com/mendixlabs/mxcli /tmp/mxcli-src && cd /tmp/mxcli-src
+   make -C mdl/grammar bootstrap && export ANTLR4_TOOLS_ANTLR_VERSION=4.13.2
+   make -C mdl/grammar generate && make sync-all
+   CGO_ENABLED=0 go build -o <project-root>/mxcli ./cmd/mxcli     # ~2 min; prints its version
+   ```
+
    The binary (~90MB) is gitignored by `mxcli init`'s own `.gitignore`, on purpose — the
    devcontainer's `postCreateCommand` re-downloads it, and every later session does the same
    (step 1 of the loop below). Do not commit it.

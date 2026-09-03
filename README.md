@@ -65,6 +65,11 @@ Do **not** create `analysis/<project>/` as a sibling of the project — analysis
 
 **New here? Open `toolkit-guide.html` in a browser first** — the whole journey as a visual page: entry modes, the 9 stages, what each gate asks of you, and the don't-panic section. *Agents:* open it for the user only when `<project-root>/.claude/.guide-shown` is absent, then `touch` it — see the first-touch rule in `CLAUDE.md`. Never once per session.
 
+**Where does this run? Wherever you started the chat.** `doctor.sh` detects the lane — Claude
+Code on the web (cloud container), a devcontainer, or your own machine with Studio Pro — and the
+agent records it; nobody is asked. Every stage runs headless in all three; what each lane changes
+is in `CONVERSION-RUNBOOK.md` → *Where you run this*. Do not assume "no Studio Pro = no build".
+
 **Install is one command per project:**
 
 ```bash
@@ -238,7 +243,7 @@ Triage, analysis, BRD generation, architecture, and design are entirely model-dr
 
 ### Stage 5+: three write modes
 
-Once you have a reviewed build plan, you have three tools to write to the `.mpr`. Pick by what you're building:
+Once you have a reviewed build plan, you have three tools to write to the `.mpr`. Pick by what you're building. Only the first exists in a cloud container or devcontainer (no Studio Pro there — `CONVERSION-RUNBOOK.md` → *Where you run this*); the CLI mode covers the whole build, and the model travels to Studio Pro afterwards for anything that needs the other two.
 
 | Mode | When to use it | Why |
 |---|---|---|

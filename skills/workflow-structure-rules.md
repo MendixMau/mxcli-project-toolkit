@@ -154,7 +154,7 @@ cancellation as an interrupting event sub-process (§3). Before flagging a missi
 | "HR **or** manager can approve" | **one** task, one XPath with `or` — never two tasks |
 | a workflow *group* is named ("the Finance group") | XPath over `System.WorkflowUserGroup` |
 | conditional logic ("the employee's direct manager") | targeting microflow returning `List of System.User` (or of groups) |
-| the assignee is **data on the record**, not a rule ("the person nominated on the request", "whoever the requester picked") | **no targeting** + an *On created* workflow event handler that sets the task's user association from the context object. See "Assignment carried in data" below |
+| the assignee is **data on the record**, not a rule ("the person nominated on the request", "whoever the requester picked") | **either** a targeting microflow returning the nominee as a one-element list (proven, §11), **or** no targeting + an *On created* workflow event handler. See "Assignment carried in data" below |
 | nothing is said | **ask** — `interview-protocol.md`. The MCP team's default is "no targeting, never guess"; in this toolkit the silence is a gate question, and *no targeting* is the recorded `ASSUMED` answer only when the user says "you decide" |
 
 Two rules that do not depend on the mechanism:
@@ -176,6 +176,26 @@ supported shape is: targeting = **none**, plus an *On created* handler on the wo
 reads the nominee off `$WorkflowContext` and writes the task's user association. Roles do not
 disappear in that model, they become **eligibility**: keep the role check as a validation on
 nomination, not as the targeting expression.
+
+**The other supported shape, and usually the better one: a targeting microflow returning a
+one-element list.** "Which users match this rule" and "the one this row names" are not different
+questions to a targeting microflow — a microflow that reads the nominee off the context object and
+returns `[that user]` is a faithful expression of assignment-by-data, and it is **proven in MDL**
+(§11, targeting-microflow row) where the `onWorkflowEvent` slot is not — that slot has no row in
+§11 at all, being neither proven nor refused because nobody has probed it. Prefer the microflow
+unless something specifically needs the handler. Two things fall out of it for free:
+
+- **The empty-result rule above is satisfied structurally**, without a separate error handler. Write
+  the resolver as a fallback chain — nominee if set, else the eligibility list, else a wide backstop
+  with a `LOG WARNING` — and it cannot return zero users while any backstop user exists. It also
+  tells you in the log when it degraded, which an XPath cannot.
+- **One shared resolver, N thin wrappers.** Give the shared microflow a station/step key parameter
+  and let each task call a one-line wrapper passing its own literal. Adding a station is then one
+  wrapper, not a new rule.
+
+The handler shape stays correct and stays documented — take it when the assignment must be written
+onto the task *as a side effect* rather than merely computed, or when a probe shows the slot writes
+cleanly from MDL. Recording either choice needs the sentence it came from, per this section's rule.
 
 The failure this avoids: modelling a nominated assignee as an XPath over a role delivers the task
 to *everyone* holding that role. On a 15-station process with ~700 nominations per station that is

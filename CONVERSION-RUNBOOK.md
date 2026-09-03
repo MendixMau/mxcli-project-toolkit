@@ -33,7 +33,7 @@ the critical path and the lane only changes *how you see the app* and *which wri
 
 | Where the chat started | Detected lane | What that means for you |
 |---|---|---|
-| **Claude Code on the web / mobile** | `cloud` — the default when you have nothing installed | Nothing to install. The container is ephemeral, so the agent commits and pushes at every gate. You see the app through a preview URL (`mxcli run --hub`). Setup order: `skills/cloud-dev-environment.md`. Network policy must allow `cdn.mendix.com` and GitHub Releases (`hub.mxcli.org` for the preview). |
+| **Claude Code on the web / mobile** | `cloud` — the default when you have nothing installed | Nothing to install. The container is ephemeral, so the agent commits and pushes at every gate. You see the app through a preview URL (`mxcli run --hub`). Setup order: `skills/cloud-dev-environment.md`. Network policy must allow `cdn.mendix.com`; GitHub Releases too, or build `mxcli` from source when Releases 403s (the skill has the recipe) — `hub.mxcli.org` for the preview. |
 | **Terminal Claude Code in a VS Code devcontainer / Codespaces** | `devcontainer` | Same headless lane as cloud, on your own disk — nothing ephemeral, no network policy to negotiate. |
 | **Terminal Claude Code on your Mac or Windows machine** | `local` | Everything above, plus the two write modes that need Studio Pro open (`--mcp`, hand-rolled MCP) and the Studio-Pro-only operations (`ALTER SETTINGS`, security level). Windows: Git Bash — `README.md` → *Platform support*. |
 

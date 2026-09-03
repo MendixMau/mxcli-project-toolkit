@@ -138,6 +138,7 @@ case "$ENV_LANE" in
   cloud)
     note "Ephemeral container: the git remote is the workspace — commit and push at every gate."
     note "Headless: CLI write mode (exec.sh + mxbuild gate); see the app with mxcli run --local --hub."
+    note "mxcli run --local CONSOLIDATES a split-model .mpr (CRITICAL, bug-logs): snapshot first, git status after."
     note "Setup order for a new project: skills/cloud-dev-environment.md." ;;
   devcontainer|local-linux)
     note "Headless lane: CLI write mode (exec.sh + mxbuild gate); mxcli run --local to see the app."

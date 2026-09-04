@@ -8,6 +8,7 @@ Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templat
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
 ## 2026-09-04
+- fix(privacy): genericised a personal project code on CONTRIBUTING.md:97 that the local denylist flags but CI's did not, and gitignored `.claude/park/` — parked cycle notes name the live engagement and local paths by nature, and the leak guard scans untracked files, so they blocked every commit on the author's machine (the batch above had to land with `--no-verify`) — Maurits Visser, via the toolkit merge queue
 - process(bug-logs): filed the pending upstream batch on mendixlabs/mxcli — 14 bugs + 1 feature request as #1023–#1037 (BUG-107, 109, 111, 112, 63, 67, 70/95, 73, 76, 84, 86, 87, Gallery CE0463, `widget init` docs, `mxcli new` Team Server app), bodies verbatim from `pending-github-issues/`, each draft's Status set to FILED. Dedupe before filing caught two drafts already up from an earlier session and never marked — BUG-82 is #917, BUG-110 is #1006 — marked, not re-filed; `create-association-corrupts-mpr` held back (unfilled version placeholder, open same-module question). BUG-107's PR waits on issue #1023 being approved — Maurits Visser, via the toolkit merge queue
 
 ## 2026-09-03

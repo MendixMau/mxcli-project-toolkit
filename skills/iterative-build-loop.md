@@ -340,6 +340,8 @@ Step 3 is required — exec.sh refuses if SP has the project open.
 
 ## The Build Loop
 
+**Before the first module, once per app: the walking skeleton** (`walking-skeleton.md`) — one thin slice through every layer below, proven in the running app with a journey that can fail and a screenshot that was looked at. Do not start step 1 of the first module until its register line exists; a loop whose gate cannot execute (a wrong-arch mxbuild, a test runner nobody wired) passes every step below and proves nothing.
+
 Repeat for each module. **This is a list, not a code block** — it was fenced for most of its life,
 which is why nobody saw that its steps and its gates had drifted out of order. Gates are named, not
 numbered: a gate inserted in the middle used to leave every ordinal behind it wrong, silently.

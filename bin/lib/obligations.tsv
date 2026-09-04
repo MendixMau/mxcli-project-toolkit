@@ -48,3 +48,4 @@ look	review	module	names	design/ui-reviews/ui-review-*.html	yes	yes	5	skills/mod
 sweep	test	module	path	.claude/loop/sweep/<Module>/sweep.md	yes	yes	5	skills/wiring-sweep.md
 journeys	test	module	path	.claude/loop/verify/<Module>/summary.tsv	no	no	5	skills/journey-proof.md
 coherence	architect	cluster	path	.claude/loop/coherence/last-cluster-pass.tsv	no	yes	5	skills/process-coherence-pass.md
+skeleton	mdl	project	path	docs/skeleton-proof.md	yes	no	5	skills/walking-skeleton.md

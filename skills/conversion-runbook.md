@@ -46,6 +46,7 @@ table; a skill missing here is a skill no agent will find.
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
 | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` |
+| Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them | `skills/walking-skeleton.md` |
 <!-- ROUTING:END -->
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
 **Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.
@@ -527,6 +528,8 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 > wired but is UI-blind (a real WMS-class miss).
 
 ### Stage 5 — Build
+
+**Stage 5 opens with the walking skeleton — every entry mode, before the first module** (`walking-skeleton.md`): one entity, one microflow, one page, one nav item, one demo user, one journey, one screenshot, proven in the running app. It is the proof that exec, mxbuild, run, look and test all work on this machine and this app; the register line `Skeleton proven <date>: …` is what `gate-check.sh` reads. A build that skipped it once ran 27 scripts against a build gate that could not execute and never ran a test.
 
 **Not migration-specific.** This is the standard Mendix build discipline — greenfield builds start here. Already well codified: layer1 (entities/associations/enums, `security-setup.mdl` last) → layer2 (microflows) → layer3 (pages); the guard chain (uncommitted → SP-open → concurrent-writer → snapshot → exec → mxbuild gate → auto-restore → manual SP reopen); the stale-build protocol; the STOP conditions in `learned-mdl-preflight.md`.
 

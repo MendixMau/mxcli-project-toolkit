@@ -472,7 +472,24 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
             echo "     Recover with: git checkout HEAD -- $MPR_BASE mprcontents/"
           fi
         fi
-        [ -n "$PY" ] && "$PY" -c "import json; d=json.load(open('$ERRORS_FILE')); [print('  ', e.get('errorCode','?'), e.get('message','')) for e in d.get('problems',[]) if e.get('severity')=='Error']" 2>/dev/null || true
+        # Print WHERE, not just WHAT: mxbuild's problems[] carries module/document/element and,
+        # for CE0117, the expression parser's own message under metadata.expressionErrors. The
+        # old one-liner printed "CE0117 Error(s) in expression." and nothing else, so the reader
+        # had to re-run mxbuild by hand on a scratch copy to learn which activity (greenfield
+        # pilot, 2026-09-04: an unqualified enum value in a CHANGE, found only that way).
+        [ -n "$PY" ] && "$PY" - "$ERRORS_FILE" <<'PYEOF' 2>/dev/null || true
+import json, sys
+d = json.load(open(sys.argv[1]))
+for e in d.get('problems', []):
+    if e.get('severity') != 'Error':
+        continue
+    print('  ', e.get('errorCode', '?'), e.get('message', ''))
+    for loc in e.get('locations', []) or []:
+        print('      at', loc.get('module', '-'), '/', loc.get('document', '-'), '/', loc.get('element', '-'))
+    md = e.get('metadata') or {}
+    if md.get('expressionErrors'):
+        print('      expression:', md['expressionErrors'])
+PYEOF
         cp "$ERRORS_FILE" "$LAST_ERRS"
         echo "  → Full error detail: .mpr-snapshots/last-mxbuild-errors.json"
 

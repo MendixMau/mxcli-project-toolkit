@@ -10,6 +10,7 @@
 #            mxcli check), SKIP_BASELINE=1 (skip pre-flight mxbuild),
 #            MXBUILD_PATH=..., MENDIX_APP=..., MPR_FILE=...
 set -e
+_T0=$(date +%s)
 
 . "$(dirname "$0")/_common.sh"
 
@@ -346,6 +347,33 @@ err_set() {
   "$PY" -c "import json;d=json.load(open('$1'));print('|'.join(sorted(x.get('message','') for x in d.get('problems',[]) if x.get('severity')=='Error')))" 2>/dev/null || echo ""
 }
 
+# ── Doctor freshness (warn-only) ─────────────────────────────────────────────
+# doctor.sh used to run once, at install, and never again. A machine that drifts mid-project
+# (new mxcli, a wrong-arch mxbuild, an endpoint agent slowing every fork) then reads as "the
+# toolkit is broken" — the pilot of 2026-09-04 found a build gate that had reported 0 errors
+# for several commits with an mxbuild that could not execute. So: if the receipt is missing,
+# older than a day, or its fingerprint (mxcli version | mxbuild | arch) no longer matches, run
+# `doctor.sh --quick` here. It NEVER blocks (guard rules 6 and 7): it prints, and the exec goes on.
+_DR="$PROJECT_ROOT/.claude/.doctor-receipt"
+_DOCTOR=""
+for _c in "${MXTK_ROOT:-}/bin/doctor.sh" "$(sed -nE 's/^\| *Toolkit root *\| *`([^`]+)`.*/\1/p' "$PROJECT_ROOT/CLAUDE.local.md" 2>/dev/null | head -1)/bin/doctor.sh"; do
+  [ -x "$_c" ] && { _DOCTOR="$_c"; break; }
+done
+if [ -n "$_DOCTOR" ] && [ "${SKIP_DOCTOR:-0}" != "1" ]; then
+  _why=""
+  if [ ! -f "$_DR" ]; then _why="no doctor receipt in this project"
+  elif [ -n "$(find "$_DR" -mmin +1440 2>/dev/null)" ]; then _why="doctor receipt is older than a day"
+  else
+    _fp_now="$( [ -x "$PROJECT_ROOT/mxcli" ] && "$PROJECT_ROOT/mxcli" --version 2>/dev/null | head -1 || echo none) | ${MXBUILD:-no-mxbuild} | $(uname -sm)"
+    _fp_old="$(sed -n '2s/^fingerprint: //p' "$_DR")"
+    [ "$_fp_now" = "$_fp_old" ] || _why="environment changed since doctor last ran ($_fp_old → $_fp_now)"
+  fi
+  if [ -n "$_why" ]; then
+    echo "→ $_why — running doctor --quick (warn-only, SKIP_DOCTOR=1 to skip)"
+    "$_DOCTOR" --quick "$PROJECT_ROOT" 2>&1 | grep -E '^\s+(WARN|FAIL)|^\s+Ready|^\s+NOT ready' | sed 's/^/    /' || true
+  fi
+fi
+
 # ── Pre-flight baseline ──────────────────────────────────────────────────────
 # Capture the CURRENT error set before touching anything, so the gate can tell
 # "this script broke it" from "it was already broken". Costs one extra mxbuild;
@@ -624,6 +652,12 @@ fi
 echo ""
 echo "✓ Script applied to $MPR_BASE."
 echo ""
+_EL=$(( $(date +%s) - _T0 ))
+echo "  elapsed: ${_EL}s (check + snapshot + exec + mxbuild gate)"
+# A budget, not a gate: a normal run is 30-90 s on a healthy machine. Past 4 minutes the
+# usual cause is the machine (Defender scanning every fork, OneDrive, a slow disk), and
+# doctor --quick names which — the reader should not have to guess "is it me or the toolkit".
+[ "$_EL" -gt 240 ] && echo "  ⚠  slower than a healthy run — run doctor.sh --quick $PROJECT_ROOT to see why (spawn speed, path, OneDrive)"
 echo "  Gate passed (mxbuild-clean). If the happy path / coverage checklist is ALSO"
 echo "  verified for this script, rename it now: git mv <path> <path>/done-<name>"
 echo "  (skills/iterative-build-loop.md — a clean gate is necessary, not sufficient)"

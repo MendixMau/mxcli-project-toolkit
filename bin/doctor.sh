@@ -20,6 +20,14 @@
 #                                           # (same download the headless container build
 #                                           # uses; cached at ~/.mxcli/mxbuild/).
 #   bin/doctor.sh --install --yes <dir>     # skip the confirmation (unattended/agent runs)
+#   bin/doctor.sh --quick [<project-dir>]   # ~2 s: platform, mxcli/mxbuild/java EXECUTE, spawn
+#                                           # speed, path hygiene, model layout. Skips the
+#                                           # once-per-machine sections (python, CRLF, script
+#                                           # parse, node, docker). exec.sh runs this itself
+#                                           # when the receipt is stale — doctor used to run
+#                                           # once and never again, so a machine that drifted
+#                                           # mid-project (new binary, wrong-arch mxbuild, a
+#                                           # Defender policy) read as "the toolkit is broken".
 #
 # --install never downloads silently: it prints the plan first — what, from where, how big,
 # why, and the detected OS/arch — then asks [y/N] at a terminal, or requires --yes when there
@@ -38,10 +46,12 @@ TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR=""
 INSTALL=0
 ASSUME_YES=0
+QUICK=0
 for _arg in "$@"; do
   case "$_arg" in
     --install) INSTALL=1 ;;
     --yes|-y)  ASSUME_YES=1 ;;
+    --quick)   QUICK=1 ;;
     *)         PROJECT_DIR="$_arg" ;;
   esac
 done
@@ -73,6 +83,17 @@ probe_line() { printf '%s\n' "$PROBE_OUT" | grep -v '^[[:space:]]*$' | head -1; 
 probe_runs() {
   PROBE_OUT=""; PROBE_HOW=""
   _pr_exit=0
+  # --quick: the question is only "does it START" (exit 126/127 is the wrong-platform binary,
+  # and that answer arrives in milliseconds). A healthy mxbuild spends ~5-9 s in .NET start-up
+  # per flag, which made "quick" take 14 s; bound it and read a timeout as "started".
+  if [ "$QUICK" = 1 ] && command -v timeout >/dev/null 2>&1; then
+    PROBE_OUT="$(timeout 2 "$1" --help 2>&1)" || _pr_exit=$?
+    case "$_pr_exit" in
+      0|124) PROBE_HOW="started (quick probe, 2 s bound)"; [ -n "$PROBE_OUT" ] || PROBE_OUT="(started)"; return 0 ;;
+      126|127) return "$_pr_exit" ;;
+    esac
+    _pr_exit=0
+  fi
   PROBE_OUT="$("$1" --version 2>&1)" || _pr_exit=$?
   if [ "$_pr_exit" -eq 0 ]; then PROBE_HOW="--version"; return 0; fi
   case "$_pr_exit" in 126|127) return "$_pr_exit" ;; esac
@@ -148,6 +169,7 @@ case "$ENV_LANE" in
 esac
 note "Agents: record this once in PROJECT.md as 'Environment: $ENV_LANE' — do not ask the user."
 
+if [ "$QUICK" != 1 ]; then
 # --- python ---------------------------------------------------------------------------------
 
 head_ "Python 3"
@@ -246,6 +268,8 @@ else
   note "git pull inside the toolkit clone restores it (or re-clone the toolkit)."
 fi
 
+fi
+
 # --- command line tools ---------------------------------------------------------------------
 
 head_ "Command line tools"
@@ -266,6 +290,7 @@ command -v sqlite3 >/dev/null 2>&1 && ok "sqlite3" || {
 command -v shellcheck >/dev/null 2>&1 && ok "shellcheck (optional, for editing toolkit scripts)" \
   || note "shellcheck not installed — only needed if you edit toolkit scripts"
 
+if [ "$QUICK" != 1 ]; then
 # --- studio pro -------------------------------------------------------------------------
 
 head_ "Studio Pro automation"
@@ -287,6 +312,8 @@ case "$PLATFORM" in
     note "Everything else in the toolkit works here. Drive Studio Pro by hand on this platform."
     ;;
 esac
+
+fi
 
 # --- build toolchain -----------------------------------------------------------------------
 
@@ -562,6 +589,7 @@ else
   note "toolchain locally through the project's ./mxcli, exactly like the container build."
 fi
 
+if [ "$QUICK" != 1 ]; then
 # --- node -----------------------------------------------------------------------------------
 
 head_ "Node.js (pipelines, page fidelity, e2e)"
@@ -607,6 +635,8 @@ else
   note "Desktop or Podman (docker-CLI compatible) and colima (macOS) are common substitutes."
 fi
 
+fi
+
 # --- spawn speed (git bash) -----------------------------------------------------------------
 
 # gate-check.sh + the obligation check fork over a thousand subprocesses per run. On a healthy
@@ -614,7 +644,9 @@ fi
 # 152 ms per fork, which turns the same run into a 5-15 minute "hang" (see the header of
 # bin/lib/obligation-check.sh). Measure it once here so slow reads as "this machine", not
 # "the toolkit is broken".
-if [ "$PLATFORM" = gitbash ]; then
+# In --quick mode measure on every platform: a corporate endpoint agent on macOS, or an
+# overloaded container, shows the same symptom, and the number is what makes "slow" actionable.
+if [ "$PLATFORM" = gitbash ] || [ "$QUICK" = 1 ]; then
   head_ "Process spawn speed"
   T0="$(date +%s%N 2>/dev/null || echo x)"
   case "$T0" in
@@ -666,7 +698,10 @@ if [ -n "$PROJECT_DIR" ]; then
     [ -f "$PROJECT_DIR/CLAUDE.local.md" ] && ok "CLAUDE.local.md (toolkit wiring) present" \
       || warn "no CLAUDE.local.md — run bin/init-project.sh '$PROJECT_DIR'"
     MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
-    [ -n "$MPR" ] && ok "model: $(basename "$MPR")" || {
+    # Two-tree checkout (cloud-dev-environment.md: `mxcli new --output-dir ./app`) — the app
+    # lives under app/. Reported "no .mpr found" on a healthy pilot, 2026-09-04.
+    [ -n "$MPR" ] || MPR="$(ls "$PROJECT_DIR"/app/*.mpr 2>/dev/null | head -1)"
+    [ -n "$MPR" ] && ok "model: ${MPR#$PROJECT_DIR/}" || {
       warn "no .mpr found in the project root"
       note "If the model lives elsewhere, point doctor at the folder that contains it;"
       note "a brand-new project gets its .mpr from 'mxcli init' or a Studio Pro export."; }
@@ -703,8 +738,12 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
   elif [ "$WARN" -gt 0 ]; then RECEIPT_VERDICT=warn
   else RECEIPT_VERDICT=ok; fi
   mkdir -p "$PROJECT_DIR/.claude" 2>/dev/null || true
-  printf '%s %s fail=%s warn=%s\n' "$(date '+%Y-%m-%d %H:%M')" "$RECEIPT_VERDICT" "$FAIL" "$WARN" \
-    > "$PROJECT_DIR/.claude/.doctor-receipt" 2>/dev/null || true
+  # Line 2 is the environment fingerprint: mxcli version, mxbuild path, arch. exec.sh re-runs
+  # `doctor.sh --quick` when it changes or the receipt is over a day old (warn-only).
+  FP_MXCLI="$( [ -x "$PROJECT_DIR/mxcli" ] && "$PROJECT_DIR/mxcli" --version 2>/dev/null | head -1 || echo none)"
+  { printf '%s %s fail=%s warn=%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$RECEIPT_VERDICT" "$FAIL" "$WARN" "$( [ "$QUICK" = 1 ] && echo ' quick')"
+    printf 'fingerprint: %s | %s | %s\n' "$FP_MXCLI" "${MXBUILD:-no-mxbuild}" "$(uname -sm)"
+  } > "$PROJECT_DIR/.claude/.doctor-receipt" 2>/dev/null || true
   # The receipt is MACHINE-LOCAL by design (like .guide-shown): committing one machine's
   # receipt would satisfy gate-check's doctor-ran probe on every other machine. Since this
   # script creates the file, it also keeps it out of git — otherwise every wired project

@@ -204,6 +204,26 @@ if [ -n "$BAD_TIER" ]; then
   echo "    → tier must be one of: baseline | ondemand | experimental"
 fi
 
+# Baseline budget: the baseline tier is read by EVERY session of EVERY project before it
+# writes anything, so its size is a cost paid thousands of times. Measured 2026-09-04: 29 rows,
+# 118,783 words, a third of it the bug ledger — against ROUTING.md's own "keep baseline short".
+# Nothing enforced it. This does: the sum of `wc -w` over baseline paths must stay under
+# MXTK_BASELINE_BUDGET_WORDS. The budget is a RATCHET — set just above the current total and
+# lowered as rows move to on-demand or shrink — never raised to admit growth. To add a
+# baseline row, take words out elsewhere. Scripts count too: an agent told to read a script
+# reads it.
+BASELINE_BUDGET="${MXTK_BASELINE_BUDGET_WORDS:-90000}"
+BASELINE_WORDS="$(awk -F'\t' '/^#/ || NF < 6 { next } $6 == "baseline" { print $2 }' "$MXTK_ROUTING_TSV" \
+  | while IFS= read -r f; do [ -f "$ROOT/$f" ] && wc -w < "$ROOT/$f"; done | awk '{ s += $1 } END { print s + 0 }')"
+OVER_BUDGET=""
+if [ "$BASELINE_WORDS" -gt "$BASELINE_BUDGET" ]; then
+  OVER_BUDGET="$BASELINE_WORDS words in the baseline tier, budget $BASELINE_BUDGET"
+  echo "BASELINE OVER BUDGET: $OVER_BUDGET"
+  echo "    → move a row to ondemand, shorten a baseline file, or point the row at a lookup script (bin/bug-lookup.sh is the pattern)"
+  awk -F'\t' '/^#/ || NF < 6 { next } $6 == "baseline" { print $2 }' "$MXTK_ROUTING_TSV" \
+    | while IFS= read -r f; do [ -f "$ROOT/$f" ] && printf '%8d  %s\n' "$(wc -w < "$ROOT/$f")" "$f"; done | sort -rn | head -5 | sed 's/^/    /'
+fi
+
 STALE_EXEMPT="$(routing_stale_exemptions "$ROOT")"
 if [ -n "$STALE_EXEMPT" ]; then
   echo "STALE EXEMPTION(s) in bin/lib/routing-exempt.tsv (a dead exemption can silently swallow a future orphan):"
@@ -211,17 +231,18 @@ if [ -n "$STALE_EXEMPT" ]; then
 fi
 
 if [ "$MODE" = "check" ]; then
-  if [ -n "$DRIFTED" ] || [ -n "$UNWIRED" ] || [ -n "$ORPHANS" ] || [ -n "$STALE_EXEMPT" ] || [ -n "$BAD_TIER" ]; then
+  if [ -n "$DRIFTED" ] || [ -n "$UNWIRED" ] || [ -n "$ORPHANS" ] || [ -n "$STALE_EXEMPT" ] || [ -n "$BAD_TIER" ] || [ -n "$OVER_BUDGET" ]; then
     echo ""
     [ -n "$DRIFTED" ] && echo "drifted:$DRIFTED — hand-edited inside the markers, or the table moved."
     [ -n "$UNWIRED" ] && echo "unwired:$UNWIRED — add a <!-- ROUTING:BEGIN <view> --> block."
     [ -n "$ORPHANS" ] && echo "unrouted skill(s) — see UNROUTED above."
     [ -n "$STALE_EXEMPT" ] && echo "stale exemption(s) — see above."
     [ -n "$BAD_TIER" ] && echo "unknown tier(s) — see UNKNOWN TIER above; the skill renders into no surface at all."
+    [ -n "$OVER_BUDGET" ] && echo "baseline over budget — $OVER_BUDGET; see BASELINE OVER BUDGET above."
     echo "Fix the TABLE, then run: $0    (never hand-edit inside the markers)"
     exit 2
   fi
-  echo "Routing surfaces in sync with the table; all skills routed or exempted."
+  echo "Routing surfaces in sync with the table; all skills routed or exempted. Baseline: $BASELINE_WORDS words (budget $BASELINE_BUDGET)."
   exit 0
 fi
 

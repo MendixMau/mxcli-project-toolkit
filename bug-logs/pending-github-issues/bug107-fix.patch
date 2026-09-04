@@ -1,0 +1,157 @@
+From 8899b4e1cfed5a1ac16086328d22a8be88a8e321 Mon Sep 17 00:00:00 2001
+From: Maurits Visser <mauritscgvisser@gmail.com>
+Date: Fri, 4 Sep 2026 05:33:43 +0000
+Subject: [PATCH] fix: report an unquoted workflow `with` value as a syntax
+ error instead of segfaulting (closes #<issue>)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The grammar admits only a STRING_LITERAL as the value of a workflow
+`call microflow … with (Param = value)` / `call workflow … with (…)`
+mapping. On a bare value — `with (Ctx = $WorkflowContext)`, the spelling
+every other MDL expression uses — the parser reported the syntax error,
+recovered with a nil token, and both mapping builders dereferenced it:
+SIGSEGV in buildWorkflowCallMicroflow on `check`, `check --references`
+and `exec` alike, with no diagnostic beyond the Go panic.
+
+Worse, the `--references` hint for an unmapped parameter suggested exactly
+that spelling (`add with (Ctx = ...)`), so the tool talked authors into
+the crash.
+
+- visitor: one nil-safe accessor for the mapping expression, used by both
+  builders; the already-reported syntax error is the diagnostic.
+- executor: the not-mapped hint now shows the quoted form
+  (`with (Ctx = '...')`) and says the value is a quoted expression string.
+- test: both statements with a bare value must yield an error and never
+  panic; the quoted form must keep parsing clean.
+
+Verified on mxcli v0.20.0 / Mendix 11.14.0: before, `mxcli check` on the
+repro panicked; after, it prints
+  line 3:44 mismatched input '$WorkflowContext' expecting STRING_LITERAL
+The quoted form was already verified end-to-end (exec, native mx check
+0 errors, DESCRIBE round-trip) and is unchanged.
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01VJgWP5vEoAsNsJYqCDMGNw
+---
+ mdl/executor/validate_workflow_refs.go        |  2 +-
+ mdl/visitor/visitor_workflow.go               | 19 +++++++-
+ .../visitor_workflow_with_unquoted_test.go    | 48 +++++++++++++++++++
+ 3 files changed, 66 insertions(+), 3 deletions(-)
+ create mode 100644 mdl/visitor/visitor_workflow_with_unquoted_test.go
+
+diff --git a/mdl/executor/validate_workflow_refs.go b/mdl/executor/validate_workflow_refs.go
+index ab6f5ff..50ea238 100644
+--- a/mdl/executor/validate_workflow_refs.go
++++ b/mdl/executor/validate_workflow_refs.go
+@@ -59,7 +59,7 @@ func validateWorkflowParameterMappings(ctx *ExecContext, s *ast.CreateWorkflowSt
+ 		for _, name := range want {
+ 			if !mapped[name] {
+ 				errs = append(errs, fmt.Sprintf(
+-					"call microflow '%s': parameter '%s' is not mapped — Mendix requires every parameter of a workflow call-microflow to be mapped (add `with (%s = ...)`)",
++					"call microflow '%s': parameter '%s' is not mapped — Mendix requires every parameter of a workflow call-microflow to be mapped (add `with (%s = '...')` — the value is a quoted expression string)",
+ 					mfQN, name, name))
+ 			}
+ 		}
+diff --git a/mdl/visitor/visitor_workflow.go b/mdl/visitor/visitor_workflow.go
+index fcccebd..8abaac7 100644
+--- a/mdl/visitor/visitor_workflow.go
++++ b/mdl/visitor/visitor_workflow.go
+@@ -562,7 +562,7 @@ func buildWorkflowCallMicroflow(ctx parser.IWorkflowCallMicroflowStmtContext) *a
+ 		pmCtx2 := pmCtx.(*parser.WorkflowParameterMappingContext)
+ 		mapping := ast.WorkflowParameterMappingNode{
+ 			Parameter:  bareWorkflowParameterName(pmCtx2.QualifiedName().GetText()),
+-			Expression: unquoteString(pmCtx2.STRING_LITERAL().GetText()),
++			Expression: workflowMappingExpression(pmCtx2),
+ 		}
+ 		node.ParameterMappings = append(node.ParameterMappings, mapping)
+ 	}
+@@ -575,6 +575,21 @@ func buildWorkflowCallMicroflow(ctx parser.IWorkflowCallMicroflowStmtContext) *a
+ 	return node
+ }
+ 
++// workflowMappingExpression returns the mapped value of a workflow
++// `with (Name = '<expression>')` clause. The grammar admits only a STRING_LITERAL
++// there; on a bare value (`with (Ctx = $WorkflowContext)` — the spelling the
++// "parameter is not mapped" hint used to suggest) the parser has already reported
++// the syntax error and recovered with a nil token. Dereferencing that token was a
++// SIGSEGV on `check`, `check --references` and `exec` alike; the reported syntax
++// error is the diagnostic, so an empty expression is returned and the statement
++// stays inspectable.
++func workflowMappingExpression(pmCtx *parser.WorkflowParameterMappingContext) string {
++	if tok := pmCtx.STRING_LITERAL(); tok != nil {
++		return unquoteString(tok.GetText())
++	}
++	return ""
++}
++
+ // bareWorkflowParameterName normalizes the name in a workflow `with (Name = ...)`
+ // mapping to the bare, unquoted last segment. A workflow call-microflow/call-workflow
+ // maps to the target's parameter by BARE name: a fully-qualified name
+@@ -605,7 +620,7 @@ func buildWorkflowCallWorkflow(ctx parser.IWorkflowCallWorkflowStmtContext) *ast
+ 		pmCtx2 := pmCtx.(*parser.WorkflowParameterMappingContext)
+ 		mapping := ast.WorkflowParameterMappingNode{
+ 			Parameter:  bareWorkflowParameterName(pmCtx2.QualifiedName().GetText()),
+-			Expression: unquoteString(pmCtx2.STRING_LITERAL().GetText()),
++			Expression: workflowMappingExpression(pmCtx2),
+ 		}
+ 		node.ParameterMappings = append(node.ParameterMappings, mapping)
+ 	}
+diff --git a/mdl/visitor/visitor_workflow_with_unquoted_test.go b/mdl/visitor/visitor_workflow_with_unquoted_test.go
+new file mode 100644
+index 0000000..6fadd1a
+--- /dev/null
++++ b/mdl/visitor/visitor_workflow_with_unquoted_test.go
+@@ -0,0 +1,48 @@
++// SPDX-License-Identifier: Apache-2.0
++
++package visitor
++
++import "testing"
++
++// A bare (unquoted) value in a workflow `with (Param = value)` mapping is a
++// syntax error — the grammar admits only a STRING_LITERAL there — but it must
++// be REPORTED as one, never dereferenced. Before the fix, ANTLR's error
++// recovery left the STRING_LITERAL token nil and both mapping builders
++// (call microflow, call workflow) segfaulted on it. The quoted form is the
++// control: it must keep parsing clean.
++func TestWorkflowVisitor_ParameterMapping_UnquotedValueIsAnErrorNotAPanic(t *testing.T) {
++	cases := map[string]string{
++		"call microflow": `CREATE WORKFLOW M.WF
++BEGIN
++  CALL MICROFLOW M.ACT_Noop WITH (Ctx = $WorkflowContext);
++END WORKFLOW;`,
++		"call workflow": `CREATE WORKFLOW M.WF
++BEGIN
++  CALL WORKFLOW M.Sub WITH (Ctx = $WorkflowContext);
++END WORKFLOW;`,
++	}
++	for name, input := range cases {
++		t.Run(name, func(t *testing.T) {
++			defer func() {
++				if r := recover(); r != nil {
++					t.Fatalf("Build panicked on an unquoted mapping value: %v", r)
++				}
++			}()
++			_, errs := Build(input)
++			if len(errs) == 0 {
++				t.Fatal("expected a syntax error for the unquoted mapping value, got none")
++			}
++		})
++	}
++}
++
++func TestWorkflowVisitor_ParameterMapping_QuotedValueParses(t *testing.T) {
++	input := `CREATE WORKFLOW M.WF
++BEGIN
++  CALL MICROFLOW M.ACT_Noop WITH (Ctx = '$WorkflowContext');
++END WORKFLOW;`
++	_, errs := Build(input)
++	if len(errs) != 0 {
++		t.Fatalf("quoted mapping value must parse clean, got: %v", errs)
++	}
++}
+-- 
+2.43.0
+

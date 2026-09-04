@@ -4,7 +4,7 @@ build-track project, Stage 5) and `## BUG-95` (same defect, isolated further 202
 different client project — the two entries were merged as one issue per the log's own
 cross-reference); retested and confirmed still open 2026-08-31 on v0.20.0 — see
 `bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1029 (2026-09-04)
 **Suggested labels:** bug, page, action-button
 
 ---
@@ -153,7 +153,7 @@ only by native mxbuild.
 
 ---
 
-**Status: DRAFTED 2026-08-31, not yet filed.**
+**Status: FILED — https://github.com/mendixlabs/mxcli/issues/1029 (2026-09-04).**
 Duplicate-check: searched `mendixlabs/mxcli` issues (open and closed) for "show_page argument
 dropped currentObject CE1571" and "CE1571 show_page currentObject" — no existing issue found as
 of 2026-08-31. One superficially similar open issue, #122 ("SHOW_PAGE with parameter binding

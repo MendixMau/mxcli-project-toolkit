@@ -3,7 +3,7 @@
 Module.Entity on a DataView silently wipes the datasource and reports success` (originally
 discovered 2026-08-20 on a scratch page project, mxcli v0.18.0, while retesting BUG-11; retested
 and confirmed still open 2026-08-31 on v0.20.0 — see `bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`)
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1032 (2026-09-04)
 **Suggested labels:** bug, page, alter-page, data-loss
 
 ---
@@ -129,7 +129,7 @@ datasource at all.
 
 ---
 
-**Status: DRAFTED 2026-08-31, not yet filed.**
+**Status: FILED — https://github.com/mendixlabs/mxcli/issues/1032 (2026-09-04).**
 Duplicate-check: searched `mendixlabs/mxcli` issues (open and closed) for "DataView DataSource
 DATABASE silently wipes CE7007" and "DataView DATABASE datasource wipe" — no existing issue found
 as of 2026-08-31. Closed issue #855 (already filed from this toolkit, BUG-11) covers the related

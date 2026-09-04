@@ -2,7 +2,7 @@
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-107` — found 2026-09-03 during a workflow
 construct probe on a blank scratch app (mxcli v0.20.0 / Mendix 11.14.0), while validating
 `skills/workflow-structure-rules.md` §11
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1023 (2026-09-04)
 **Suggested labels:** bug, workflow, crash
 
 ---

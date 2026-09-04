@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-111` — found 2026-09-03 (mxcli v0.20.0)
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1025 (2026-09-04)
 **Suggested labels:** bug, cli, docs
 
 ---

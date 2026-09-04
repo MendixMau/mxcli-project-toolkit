@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** field build on mxcli **v0.20.0** (2026-08-28 build), Mendix 11.12.1, Linux container
-**Status:** DRAFT — not yet filed (the filing session had no access to `mendixlabs/*`)
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1036 (2026-09-04)
 **Severity:** Medium — no corruption, no data loss; it costs a feature and a lot of time, and it
 sends the reader to a labelled gap by way of a document that told them the opposite.
 

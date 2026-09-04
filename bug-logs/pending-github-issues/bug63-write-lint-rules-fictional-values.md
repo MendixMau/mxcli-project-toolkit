@@ -4,7 +4,7 @@ not exist — every action_type example is wrong, and source_type case is wrong 
 from the guide silently match nothing` (originally discovered 2026-08-11 on a WMS demo project
 while writing a lint rule; retested and confirmed still open 2026-08-31 on v0.20.0 by direct
 inspection of the shipped skill file — see `bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`)
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1027 (2026-09-04)
 **Suggested labels:** bug, documentation, lint
 
 ---
@@ -118,7 +118,7 @@ sqlite3 .mxcli/catalog.db "SELECT DISTINCT SourceType FROM refs;"
 
 ---
 
-**Status: DRAFTED 2026-08-31, not yet filed.**
+**Status: FILED — https://github.com/mendixlabs/mxcli/issues/1027 (2026-09-04).**
 Duplicate-check: searched `mendixlabs/mxcli` issues (open and closed) for "write-lint-rules
 action_type" and "write-lint-rules skill action_type values" — no existing issue found as of
 2026-08-31.

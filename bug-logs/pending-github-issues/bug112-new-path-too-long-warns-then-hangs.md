@@ -1,7 +1,7 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-112` — observed 2026-09-02/03 on a Claude Code
 web container (mxcli v0.20.0 / Mendix 11.14.0)
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1026 (2026-09-04)
 **Suggested labels:** bug, cli, new, hang
 
 ---

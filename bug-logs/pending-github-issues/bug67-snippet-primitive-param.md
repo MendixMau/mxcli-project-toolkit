@@ -4,7 +4,7 @@ primitive-typed snippet parameter, documented in mxcli syntax snippet.create's o
 at exec time with "entity not found"` (originally sighted 2026-08-12 on a main build-track
 project, Stage 5 Phase 11; retested and confirmed still open 2026-08-31 on v0.20.0 — see
 `bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`)
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1028 (2026-09-04)
 **Suggested labels:** bug, snippet, documentation
 
 ---
@@ -122,7 +122,7 @@ step per call site; no data-loss/security implications since the holder is never
 
 ---
 
-**Status: DRAFTED 2026-08-31, not yet filed.**
+**Status: FILED — https://github.com/mendixlabs/mxcli/issues/1028 (2026-09-04).**
 Duplicate-check: searched `mendixlabs/mxcli` issues (open and closed) for "CREATE SNIPPET
 primitive parameter entity not found String" and "snippet primitive parameter String" — no
 existing issue found as of 2026-08-31. Several closed snippet-related issues were inspected

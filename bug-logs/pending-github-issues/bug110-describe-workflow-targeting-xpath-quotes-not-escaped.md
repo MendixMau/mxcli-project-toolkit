@@ -1,7 +1,7 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-110` — found 2026-09-03 during a workflow
 construct probe on a blank scratch app (mxcli v0.20.0 / Mendix 11.14.0)
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1006 (2026-08-31) — duplicate of an issue filed earlier from another session; not re-filed
 **Suggested labels:** bug, workflow, describe, round-trip
 
 ---

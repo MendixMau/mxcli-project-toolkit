@@ -4,7 +4,7 @@ the identical expression in a create nanoflow passes check, is written, and fail
 CE0117` (originally discovered 2026-08-20 on a scratch project, mxcli v0.18.0, while retesting
 BUG-30; retested and confirmed still open 2026-08-31 on v0.20.0 — see
 `bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`)
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1033 (2026-09-04)
 **Suggested labels:** bug, nanoflow, validation
 
 ---
@@ -117,7 +117,7 @@ nanoflows.
 
 ---
 
-**Status: DRAFTED 2026-08-31, not yet filed.**
+**Status: FILED — https://github.com/mendixlabs/mxcli/issues/1033 (2026-09-04).**
 Duplicate-check: searched `mendixlabs/mxcli` issues (open and closed) for "currentDeviceType
 nanoflow CE0117" and "currentDeviceType" — found closed issue #828 (the microflow-side
 predecessor, confirmed scoped exclusively to microflows, no mention of nanoflows) but no existing

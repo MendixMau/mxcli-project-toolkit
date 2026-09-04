@@ -3,7 +3,7 @@
 **Source:** probed on mxcli **v0.20.0** (2026-08-28T13:22:53Z build) while designing a
 Team-Server-first git topology for agent-driven projects (toolkit
 `skills/handoff-to-studio-pro.md` §10)
-**Status:** DRAFT — not yet filed
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1037 (2026-09-04)
 
 ---
 

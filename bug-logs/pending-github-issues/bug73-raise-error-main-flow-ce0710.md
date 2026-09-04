@@ -3,7 +3,7 @@
 fails mxbuild with CE0710` (project/date of original discovery not recorded in the source log;
 pinned mxcli build used for the surrounding BUG-70–BUG-77 cluster; retested and confirmed still
 open 2026-08-31 on v0.20.0 — see `bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`)
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1030 (2026-09-04)
 **Suggested labels:** bug, microflow, codegen
 
 ---
@@ -139,7 +139,7 @@ treat one ending in `ReturnStmt`.
 
 ---
 
-**Status: DRAFTED 2026-08-31, not yet filed.**
+**Status: FILED — https://github.com/mendixlabs/mxcli/issues/1030 (2026-09-04).**
 Duplicate-check: searched `mendixlabs/mxcli` issues (open and closed) for "CE0710 raise error
 main flow" and "CE0710 error event outgoing sequence flow main flow" — no existing issue found as
 of 2026-08-31. Semantic search on "CE0710 raise error" surfaced only unrelated issues (#622 —

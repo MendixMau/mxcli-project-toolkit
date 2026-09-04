@@ -3,7 +3,7 @@
 unconditionally storage-corrupted` (originally discovered 2026-08-13 on a client project, mxcli
 v0.17.0; retested and confirmed still open 2026-08-20 on v0.18.0 and again 2026-08-31 on v0.20.0
 — see `bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`)
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1031 (2026-09-04)
 **Suggested labels:** bug, critical, workflow, data-corruption
 
 ---
@@ -127,7 +127,7 @@ alongside it.
 
 ---
 
-**Status: DRAFTED 2026-08-31, not yet filed.**
+**Status: FILED — https://github.com/mendixlabs/mxcli/issues/1031 (2026-09-04).**
 Duplicate-check: searched `mendixlabs/mxcli` issues (open and closed) for "EnumerationValueIdentifier",
 "workflow decision EnumerationValueIdentifier", and "workflow DECISION EnumerationValueIdentifier
 StorageLoadException" — no existing issue found as of 2026-08-31.

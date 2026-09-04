@@ -1,5 +1,5 @@
 **Companion to:** `bug107-workflow-call-microflow-with-unquoted-value-segfault.md`
-**Patch:** `bug107-fix.patch` (git format-patch, authored as Maurits Visser)
+**Patch:** `bug107-fix.patch` (git format-patch; author e-mail is a placeholder — `git commit --amend --reset-author` after `git am`)
 **Status:** patch verified 2026-09-03 against `mendixlabs/mxcli` HEAD `191a0c9`; NOT YET submitted — mxcli's
 CONTRIBUTING requires the issue to be filed and approved before a PR
 
@@ -26,11 +26,11 @@ baseline test captured the nil-pointer panic at both sites; after the fix `go te
 1. File the issue from the companion draft. Wait for the maintainer's "let's do it", assign yourself.
 2. Fork `mendixlabs/mxcli`, then:
    ```bash
-   git clone git@github.com:<you>/mxcli && cd mxcli
+   git clone https://github.com/<you>/mxcli && cd mxcli
    git checkout -b fix/<issue>-workflow-with-unquoted-segfault
    git am ~/Mendix/mxcli-project-toolkit/bug-logs/pending-github-issues/bug107-fix.patch
    # replace the "#<issue>" placeholder in the commit subject:
-   git commit --amend   # edit "(closes #<issue>)" → "(closes #NNN)"; drop trailers you do not want upstream
+   git commit --amend --reset-author   # author becomes YOUR git identity; edit "(closes #<issue>)" → "(closes #NNN)"; drop trailers you do not want upstream
    pip install 'antlr4-tools==0.2.2' && export ANTLR4_TOOLS_ANTLR_VERSION=4.13.2
    make build && make test && make lint
    ./bin/mxcli check <the repro .mdl from the issue>      # syntax error, no panic

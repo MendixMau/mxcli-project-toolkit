@@ -1,5 +1,5 @@
 From 8899b4e1cfed5a1ac16086328d22a8be88a8e321 Mon Sep 17 00:00:00 2001
-From: Maurits Visser <mauritscgvisser@gmail.com>
+From: Maurits Visser <set-by-reset-author@example.invalid>
 Date: Fri, 4 Sep 2026 05:33:43 +0000
 Subject: [PATCH] fix: report an unquoted workflow `with` value as a syntax
  error instead of segfaulting (closes #<issue>)

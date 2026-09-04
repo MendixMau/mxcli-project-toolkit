@@ -5154,3 +5154,44 @@ absent.
 **Workaround:** bump the widget names (suffix `2`), or clear/refresh the mxcli catalog cache
 before retrying. Renaming is the reliable path; it is why several TFC pages carry `_v2`
 widget names.
+
+## BUG-107: the bundled `write-nanoflows.md` skill teaches a `SHOW MESSAGE` grammar the shipped binary rejects, and `mxcli syntax` documents the activity nowhere
+
+**Severity:** Medium — an agent that finds the skill and follows it gets a parse error and reasonably concludes the activity does not exist. That conclusion made it into this toolkit and stood for three weeks.
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-09-04 (a Mendix workflow-and-agents POC project)
+**Reproducible:** yes, deterministic
+
+Three separate defects, one activity:
+
+1. **The bundled skill is wrong.** `.ai-context/skills/write-nanoflows.md` (installed by
+   `mxcli init`, so it cannot be fixed downstream) uses the level-first form
+   `SHOW MESSAGE WARNING 'text';` **seven times** — lines 104, 224, 276, 278, 299, 401, 513.
+   None of them parse:
+
+   ```
+   line 3:23 extraneous input ''nanoflow level-first form'' expecting ';'
+   ```
+
+   Confirmed in nanoflows *and* microflows. The shipped grammar is
+   `show message <string-expr> [type Information|Warning|Error];` — severity **after** the text.
+   `type Success` parses but is silently stored as `Information` (pre-existing finding, still
+   true). There is no `blocking` modifier.
+
+2. **The binary embeds examples of the same rejected grammar.** `strings ./mxcli` yields
+   `SHOW MESSAGE ERROR 'Incorrect username or password.'` and `SHOW MESSAGE SUCCESS '…'`.
+   Anyone probing the binary for evidence finds the wrong form first.
+
+3. **`mxcli syntax` documents the activity in neither form.** Checked `microflow`,
+   `microflow.show-page`, `microflow.logging`. `HELP` mentions `ShowMessageAction (show message)`
+   in a list of action types, with no grammar. So documentation cannot answer the question and
+   the parser has to be probed — which is the general lesson written up as
+   `skills/retesting-learned-rules.md`.
+
+**Fix wanted:** correct the seven lines in the bundled skill to the `type <Level>` suffix form,
+or accept the level-first form in the grammar; and add `show message` to `mxcli syntax microflow`.
+
+**Related, and now retired here:** the CE0720 rule (`show message` in a *microflow* corrupts and
+must be wrapped in a nanoflow) **does not reproduce** on this binary — see
+`skills/learned-microflow-patterns.md` §show message for the retest and its evidence.

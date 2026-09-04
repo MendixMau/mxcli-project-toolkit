@@ -1,4 +1,4 @@
-# Pattern: every popup that creates/commits an object must close and/or show a result — MDL has no native "show message" toast
+# Pattern: every popup that creates/commits an object must close and/or show a result
 
 **Applies to:** any mxcli project.
 
@@ -11,18 +11,40 @@ change** — that reads as "did nothing" even when the backend fully succeeded.
 This is a standard Mendix UX convention — native Studio Pro has a dedicated "Show message"
 microflow activity (a growl/toast) for exactly this case.
 
-## The mxcli/MDL gap
+## RETIRED 2026-09-04 — MDL *does* have `show message`
 
-Confirmed (mxcli as of 2026-08-14): there is **no MDL syntax for a "show message"/toast
-microflow activity anywhere** — checked `write-microflows.md`'s full supported-statement list
-(only `LOG INFO/WARNING/ERROR` for server logs, `VALIDATION FEEDBACK` for NewEdit attribute
-errors, nothing generic) and `create-page.md`'s `ACTIONBUTTON` action vocabulary (`save_changes`,
-`close_page`, `microflow`, `nanoflow`, `show_page`, `create_object ... then show_page` — no
-`show_message`). Any project scripted via mxcli MDL genuinely cannot produce a native toast
-notification. This is a tooling gap worth raising as an mxcli feature request once it recurs on
-another project — a "Show message" activity is one of the most basic, commonly-used microflow
-activities in real Mendix development, and its total absence from the DSL is a significant
-practical limitation, not a one-off oversight.
+**This file previously stated: "Confirmed (mxcli as of 2026-08-14): there is no MDL syntax for a
+'show message'/toast microflow activity anywhere."** That is wrong, and it was wrong by method:
+it was concluded from reading two *skill files*' supported-statement lists, not from probing the
+binary. `mxcli syntax` documents the activity nowhere, so a documentation sweep will always
+return "absent" — the grammar has to be probed.
+
+**Retested 2026-09-04 on mxcli `4b58b89` (2026-08-26) / Mendix 11.13.0**, on a live workflow
+project, by `mxcli check` plus an executed probe microflow gated by a real mxbuild:
+
+| Form | Verdict |
+|---|---|
+| `show message 'literal text';` | parses, execs, **mxbuild 0 errors** |
+| `show message 'a ' + $Obj/Attr + ' b';` | parses, execs, mxbuild 0 errors |
+| `show message 'text' type Information \| Warning \| Error;` | all three parse and exec |
+| `show message 'text' type Success;` | parses — but see [[learned-microflow-patterns]] §"show message": silently stored as `Information` |
+| `SHOW MESSAGE WARNING 'text';` (level BEFORE the text) | **does not parse**, in microflows *or* nanoflows |
+| `show message 'text' type Warning blocking;` | **does not parse** — no blocking form |
+
+Two traps worth carrying, because both actively mislead:
+
+1. **The binary embeds examples of a grammar it rejects.** `strings ./mxcli` yields
+   `SHOW MESSAGE ERROR 'Incorrect username or password.'` and friends, and mxcli's own bundled
+   `.ai-context/skills/write-nanoflows.md` uses that level-first form **seven times**. Every one
+   of them fails `mxcli check` on the shipped binary. An agent that finds the skill and follows
+   it gets a parse error and concludes the activity does not exist — which is very nearly how
+   this file came to say what it said.
+2. **The severity keyword goes AFTER the text**, as `type <Level>`, matching how mxcli
+   round-trips it: `show message '{1}' type Warning objects ['...'];`.
+
+The toast is therefore **Option C** below, not a gap. The rest of this file — when a popup must
+close, when it should stay open and show detail — is unchanged and still governs; a toast alone
+is not a substitute for the popup doing the right thing.
 
 ## The two working substitutes (both proven live)
 
@@ -53,6 +75,13 @@ gap under language implying it was a deliberate final decision.
 **Watch for this failure mode generally**: a bug-log/BUILD-LOG entry that says "no working
 pattern found, deferred" is an open item, not a decision — don't let a later test-script comment
 or checkpoint restate it as intentional without re-confirming that with the user first.
+
+**Option C — a toast, now that MDL has one.** `show message 'text' type Warning;` inside the
+microflow the button calls. Use it for the case Options A and B do not cover: a flow that
+**refuses** and returns without navigating anywhere. Proven live 2026-09-04 on a task-ownership
+guard — the guard logged a warning and returned, so the button appeared to do nothing; the toast
+is what turns "broken button" into "refused, and here is why". A toast is *not* a substitute for
+closing the popup (A) or showing the result inline (B) when the flow actually succeeded.
 
 ## Applying this rule to a new project
 

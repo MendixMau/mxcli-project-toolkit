@@ -3951,3 +3951,67 @@ build with a timeout. A warning followed by an unbounded blocking call is the wo
 **Workaround:** create in a short path (`/tmp/<short>/`), or pass `--skip-build` — the project
 `mxcli new` produces without step 6 is fully usable for MDL work (verified: `SHOW MODULES`,
 `exec`, and native `mx check` all work against it).
+## BUG-113: `ALTER PAGE … REPLACE` of a pluggable widget silently drops properties you omit — a Combobox comes back with no `Attribute` and still renders
+
+**Severity:** High — the widget draws normally and binds to nothing; only `DESCRIBE PAGE` shows it
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09 (a sales-coaching build, adding an OnChange to an existing filter control)
+**Reproducible:** yes
+
+`REPLACE cbStageFilter WITH { combobox cbStageFilter (Label: …, Attribute: "StageFilter",
+OnChange: MICROFLOW …) }` emitted a pluggable Combobox carrying `Label` and `OnChange` and
+**no `Attribute`** — with the attribute name written both quoted and unquoted. `mxcli check
+--references` passed, mxbuild reported 0 errors, and the page rendered a normal-looking
+dropdown that was bound to nothing and could not filter anything.
+
+This is not "REPLACE rebuilds from what you write" behaving as documented: the property WAS
+written and was dropped. It appears specific to pluggable widgets, where an unset required
+property is not a model error.
+
+**Workaround:** use a built-in widget where one will do (`RADIOBUTTONS` for a short enum), or
+`DESCRIBE PAGE` after every `REPLACE` of a pluggable widget and compare property-by-property.
+Do not trust the render — an unbound combobox looks identical to a bound one.
+
+## BUG-114: `CREATE MODULE ROLE` is not idempotent, and the abort silently discards every statement after it
+
+**Severity:** High — a re-run of a mixed script logs nothing about the statements it skipped
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09 (a sales-coaching build, re-applying a script after a failed first run)
+**Reproducible:** yes
+
+Every other creating statement in MDL has a `CREATE OR MODIFY` / `CREATE OR REPLACE` form.
+`CREATE MODULE ROLE` has neither and no `IF NOT EXISTS`, so re-running a script that creates a
+role fails with `Error: module role already exists: <Module>.<Role>` and **everything after
+that statement does not run**. The exit is 1 and the message names the role, so the failure
+itself is visible — what is not visible is the list of documents that were therefore never
+created. A script whose role statement sits at the top loses all of its real work on a re-run.
+
+**Workaround:** keep non-idempotent statements (`CREATE MODULE ROLE`, `CREATE ASSOCIATION`) in
+their own script, applied once, separate from the documents that get edited and re-applied.
+
+## BUG-115: `exec` can log `Created microflow: …` for documents that are not in the model afterwards, and still exit 0
+
+**Severity:** High — the tool's own success output is not evidence the work landed
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09 (a sales-coaching build)
+**Reproducible:** NOT reproduced on demand — observed once, root cause not established
+
+An `exec` of a mixed security-plus-documents script logged `Created module role: …`,
+`Granted access on …` (×6), `Created microflow: …` (×7) and `Created page …`, ran the mxbuild
+gate clean and exited 0. Afterwards the module role and all six grants were in the model and
+**none of the seven microflows or the page were**. `SHOW MICROFLOWS IN <Module>` returned the
+pre-run count.
+
+Cause not established. The plausible candidate is that `mxbuild` was run directly against the
+same `.mpr` shortly afterwards, which is the split-`mprcontents` consolidation hazard this
+toolkit already warns about — but that was not proven, and it does not obviously explain why
+the security changes survived and the documents did not. Logged as observed rather than
+diagnosed, because the practice it forces is worth having either way.
+
+**Workaround, and it should be the default practice regardless of this bug:** after every
+`exec`, read the model back (`SHOW MICROFLOWS IN <Module>`, `SHOW PAGES IN <Module>`) and
+count. Exit 0 plus a log of `Created …` lines is a claim about what the tool tried to do, not
+a fact about the model.

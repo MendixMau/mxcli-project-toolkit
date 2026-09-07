@@ -16,6 +16,19 @@ This file is the layer on top: once you have a defect, what has to be true befor
 
 ---
 
+
+## 0. Take the number from this repo, not from your project
+
+`mxcli-project-toolkit/bug-logs/mxcli-bugs.md` is the **number authority**. A project keeping its
+own `bug-logs/mxcli-bugs.md` will happily continue from the highest number *on its own page*, and
+the two sequences then name different defects with the same number — which is exactly what
+happened to VB-USI-main, whose local BUG-109/110/111 collided with this repo's BUG-109/110/111
+while the same project's `blueprint.md` was already citing *this* repo's numbers in prose.
+
+Before opening an entry anywhere: `grep -o "BUG-[0-9]*" <toolkit>/bug-logs/mxcli-bugs.md | sort
+-t- -k2 -n | tail -1`, and take the next one.
+
+
 ## The three failure modes this exists to stop
 
 1. **Bundling.** Two defects with different root causes and different fixes get described as one

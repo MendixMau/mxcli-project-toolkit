@@ -238,7 +238,7 @@ $WorkflowContext/Order/Amount     ← right: everything hangs off the context en
 $WorkflowInstance/DueDate         ← right: instance metadata
 ```
 
-Anything genuinely needing `$currentUser` is a *call microflow*, which has it.
+Anything genuinely needing `$currentUser` is a *call microflow*, which has it — **but a call microflow does not have `$WorkflowUserTask`.** Its scope is `$currentUser` plus whatever you pass in `WITH`, and what you can pass is `$WorkflowContext` / `$WorkflowInstance` only. See the *call microflow* row in §11.
 `learned-workflow-patterns.md` §15 adds the mxcli-side limit: no bracketed association filter in
 a decision expression — that is a microflow with a `RETRIEVE`.
 
@@ -289,15 +289,17 @@ row's stated floor is evidence against it.
 
 | Construct | MDL status — probed on **mxcli v0.20.0 / Mendix 11.14.0, 2026-09-03** |
 |---|---|
-| user task, outcomes, targeting XPath (**both** the three-segment path form and the `[%UserRole_X%]` token form), targeting microflow, call workflow, notify workflow, parallel split (branches terminated **by nesting**) | **proven** |
+| user task, outcomes, targeting XPath (**both** the three-segment path form and the `[%UserRole_X%]` token form), targeting microflow, call workflow, notify workflow | **proven** |
 | **multi-user task** — the activity itself | **proven**. Undocumented in `mxcli syntax workflow`; works anyway |
 | **`JUMP TO <activity>`** inside a user-task outcome | **proven** |
 | **`WAIT FOR TIMER '<expression>'`** and **`WAIT FOR NOTIFICATION;`** | **proven**. Both undocumented; the notification takes **no name** — that is a Studio Pro property |
 | **boundary event timer, non-interrupting** | **proven**, with an **expression**, not an ISO period |
 | ~~decision on a **boolean or free-text** outcome~~ | **RETRACTED 2026-09-03 — see the CORRUPTING row below.** This row read "proven on mxcli ≥ v0.18.0" and it was wrong: BUG-76's v0.20.0 retest corrupts on a condition of literal `1 = 1`. The condition never mattered; the defect is in how the *outcome label* is written. Left visible with a strikethrough rather than deleted, because "a boolean decision is the safe kind" is the belief this table has to actively kill |
-| call microflow, with or without parameters | **proven** — but the `WITH` clause's **value must be quoted**: `WITH ("Ctx" = '$WorkflowContext')`. Unquoted (`= $WorkflowContext`) segfaults the binary, BUG-107 |
+| call microflow, with or without parameters | **proven** — with two limits. (1) The `WITH` clause's **value must be quoted**: `WITH ("Ctx" = '$WorkflowContext')`. Unquoted (`= $WorkflowContext`) segfaults the binary, BUG-107. (2) **`$WorkflowUserTask` is NOT in scope here** — only `$WorkflowContext` and `$WorkflowInstance` are. Passing it is a **CE0117** that `mxcli check --references` passes completely clean; only mxbuild catches it. A microflow that needs the task looks it up by name off `$WorkflowInstance` through `System.WorkflowEndedUserTask`. Proven by sandbox A/B on a full project copy, 2026-09-04 — this corrects an earlier reading of §8 that treated *call microflow* as having the task |
 | — | — |
 | **decision on an enumeration** | **CORRUPTING — BUG-76**, of which this probe is a re-confirmation on 11.14 (first logged as BUG-108 before the older entry was found). BUG-76 is the general case: *every* `DECISION` with outcomes corrupts, whatever its condition reads. The enum case is the worse one — it has no writable spelling at all, since mxcli rejects both fully-qualified forms and accepts only the bare value that corrupts. Hand-add every decision in Studio Pro; never script one. Recovery: `DROP WORKFLOW` |
+| ~~**parallel split** (branches terminated by nesting)~~ | **RETRACTED 2026-09-07 — BUG-114.** This read *proven* in the row above and it was wrong. `PARALLEL SPLIT` writes the correct number of paths and **drops their contents**: every path comes out empty. The workflow then loads in Studio Pro, passes `mxbuild` and `mx check` with zero errors, and **deadlocks at run time** — it reaches the split and never leaves, because no path holds the user task that would complete it. Worse than BUG-76, which at least fails loudly at load. Found by walking the workflow in the running app, after every gate in the pipeline had passed it. **Hand-add the split in Studio Pro; build the definition sequentially in MDL and comment the deviation** |
+| **forward `JUMP TO`** (target later in the flow than the outcome jumping to it) | **CE6681.** A *backward* `jump to` builds clean; a forward one is *"not possible to jump to end activities or jump-to activities"* — mxcli resolves a forward target to the end/jump activity rather than the task. Isolated with a two-task probe workflow: same statement, backward clean, forward CE6681. Restructure so the jump goes backwards, or hand-add |
 | **boundary event timer, interrupting** | **hand-add in Studio Pro.** Its path must end in *End* or *Jump* (CE0105); `END WORKFLOW` does not parse and `JUMP TO` is BUG-109 |
 | **boundary event on notification** | **hand-add** — the grammar admits `{TIMER, INTERRUPTING, NON}` only |
 | **event sub-process** (all four start kinds), recurrence | **hand-add** — no construct in the grammar, in any position |

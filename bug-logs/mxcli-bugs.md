@@ -3951,3 +3951,522 @@ build with a timeout. A warning followed by an unbounded blocking call is the wo
 **Workaround:** create in a short path (`/tmp/<short>/`), or pass `--skip-build` — the project
 `mxcli new` produces without step 6 is fully usable for MDL work (verified: `SHOW MODULES`,
 `exec`, and native `mx check` all work against it).
+
+---
+
+<!-- Harvested from VB-USI-main 2026-09-07. Renumbered from that project's local
+     109/110/111 into this sequence; see the numbering note in that project's log. -->
+
+## BUG-113 — three write-path asymmetries found building scripts 78 and 79 (2026-09-03)
+
+All three share a shape: `mxcli check --references` passes, and in two of the three cases
+`mxbuild` also passes, so nothing warns you. mxcli v0.20.0, Mendix 11.13.0.
+
+**(a) `grant` needs the module qualifier on the ROLE, but the checker does not.**
+
+```
+grant Administrator on Approval."ApprovalArchiveRun" (read *);        -- check: PASSES. exec: FAILS
+grant Approval.Administrator on Approval."ApprovalArchiveRun" (read *); -- correct
+```
+
+The exec error reads `failed to module not found for role .Administrator: module name is
+required` — it names the empty module rather than the fix. Cost: a partial application, because
+mxcli is not transactional across statements.
+
+**(b) `create association` is not idempotent, in a script where everything else is.**
+
+`create or modify entity` and `create or modify enumeration` re-run cleanly; `create association`
+errors with *"already exists — use 'create or modify association'"*. In a domain script that is
+otherwise fully re-runnable this is the one statement that turns a re-run into a partial
+application. Write `create or modify association` from the start.
+
+**(c) `ALTER ENTITY … ADD ATTRIBUTE` reconciles SOME access rules, not all. This one is silent.**
+
+`Administration.Account` had three rules. After adding `Department`:
+
+```
+Administration.User          -> read (FullName, Email, Department)    <- reconciled
+Administration.Administrator -> read (IsLocalUser, FullName, Email)   <- NOT reconciled
+```
+
+The rule that gained the member is the one with the wider member list; the narrower rule is left
+behind. mxbuild reports 0 errors. The failure only shows at runtime, as a blank field for the role
+that is supposed to maintain it — which reads as a UI bug, not a security one.
+
+**Rule that follows from (c):** after ANY `alter entity … add attribute` on an entity with more than
+one access rule, `DESCRIBE ENTITY` it and read every rule. A green build proves nothing here.
+
+## Platform behaviours (not tool defects — Mendix/DataGrid2 behaviour that cost us a build each)
+
+
+### The first button press after typing into a field is consumed by the on-leave update
+
+A Mendix input sends its change to the server when it loses focus. Clicking a
+button straight from the field does blur it — but the resulting round-trip and
+re-render swallow that same click. The change lands; the button's microflow
+never runs; nothing on screen says so. Press again and it works.
+
+It is worst right after a validation message, because there the swallowed press
+also clears the message, so the screen visibly changes and the user reasonably
+concludes something happened.
+
+Measured on Approval station WFST010, with the sampling phase left empty:
+
+| press | field | result |
+|---|---|---|
+| 1 | empty | gate fires, "Enter the sampling phase (0-4)…" — correct |
+| 2 | typed 2, not blurred | message clears, task does NOT advance, no message |
+| 3 | same | task advances |
+
+Insert a blur and the same walk needs one press:
+
+| press | field | result |
+|---|---|---|
+| 1 | typed 2, then Tab (message clears on blur) | task advances |
+
+This cost a whole night-sweep round. It read as nine separate "the outcome was
+blocked but nothing on screen says why" findings and one blocker, "the run is
+not advancing" — and it was neither. Two things were tangled together: this,
+and a genuinely missing `close page` on every station completion microflow
+(fixed in `mdlsource/51-station-close-page`), which left the completed station's
+own form on screen so a successful press looked like a failed one.
+
+For e2e harnesses: always `Tab` out of a field before clicking the button that
+consumes it, and never infer "blocked" from the form still being on screen —
+compare an identifier that changes, such as the station code in the title.
+
+### A. An enumeration sorts by the alphabetical order of its value NAMES, not by declaration order
+
+`ProductNumberWorkflow.RunStatus` is declared InProgress, InCirculation,
+Released, Archived — the lifecycle order. `sort by RunStatus asc` orders the
+grid **Archived, InCirculation, InProgress, Released**: dead runs first, which
+is worse than the unsorted grid it replaced. Caption text is irrelevant; only
+the value name counts.
+
+Combined with 5h above (no reachable `desc`), an enum column effectively cannot
+be given a meaningful default order from MDL. Pick a different sort key.
+
+### B. WITHDRAWN — "a multi-key datasource sort produces blank placeholder rows"
+
+This entry originally claimed that `sort by WorkflowKind asc, SequenceIndex
+asc, RunStatus asc` made DataGrid2 render four of twenty rows with every cell
+empty, on the evidence that reducing to a single sort key reduced the blanks
+from four to three.
+
+That was wrong, and the reasoning behind it is worth keeping as a warning. The
+blank rows were the six rows carrying a stale entity `short_id` (D below).
+They are blank under every sort, and after their ids were repaired the same
+grid renders all 41 rows with no blanks at all. Changing the sort key only
+changed which page those six landed on, so the count on screen moved from four
+to three — and a count that moves when you change a variable looks exactly
+like causation. It was correlation with the page boundary.
+
+(The multi-key sort itself has not been re-tested since the repair, so treat
+"multi-key sorts are fine" as untested rather than established. What is
+established is that the blanks had nothing to do with it.)
+
+What does survive from the original entry: sorting on an attribute that is not
+a displayed column (`sort by IsArchived asc`) is silently ignored. It does not
+cause blank rows.
+
+The methodology lesson is the real finding. Two ways to have caught this
+sooner, both cheap: check whether the *same* rows go blank each time (they
+did — same six, identifiable by their classification values), and check the
+blank count against the whole result set rather than the current page.
+
+### C. `sort by createdDate` fails CE1613 when system date storage is off
+
+    CE1613 The selected attribute 'createdDate' no longer exists
+
+is not a stale-reference error — the entity genuinely has no `createddate`
+column, because "Store 'createdDate'" is off on it. Check the physical table
+(`\d <schema>$<entity>` in psql) before assuming the system attributes exist.
+
+### D. A stale entity `short_id` in a row's object id renders it as a blank grid row
+
+The client resolves an object's ENTITY TYPE from the top 16 bits of its id
+(`(short_id << 48) | (sequence << 7) | rand7`), not from the table the row was
+read out of. A row whose id carries a short_id that no longer belongs to its
+entity is therefore retrieved, counted by the pager, and matched by
+server-side filters — and then painted as a row with every cell empty, because
+the client is looking for the wrong entity's attributes on it.
+
+This is bug #11 below (hardcoded `short_id` in seed SQL) seen from the other
+end. #11 predicted an opaque runtime `WebUIException` naming the wrong entity;
+in a DataGrid2 it can also fail completely silently, as blank rows that look
+like a loading artifact.
+
+Diagnosis, in order — nothing above step 3 will find it:
+
+1. Check the data. `select count(*) ... where <col> is null` on every displayed
+   attribute. Ours came back 0 nulls across all 41 rows.
+2. Dump the blank row's DOM. Full widget structure, empty values — so the
+   client built the row and had nothing to put in it.
+3. **Compare `id >> 48` across the table.** A healthy table has exactly one
+   value. Ours had two: 53 on the 35 app-created rows, 103 on the 6 blank ones.
+4. Sweep every id-shaped column in the schema, not just the one table — the
+   same seed run usually poisoned several. Ours had three tables affected
+   (6 + 120 + 4 rows), so the run detail pages were broken too, not just the
+   grid.
+
+`mendixsystem$entityidentifier` is the authority: a short_id that is not in it
+is dead. A short_id that IS in it may belong to a different entity now — the
+one the running app mints for the entity is the one to trust.
+
+Repair: re-mint the ids onto the correct short_id using the `demo-data.md`
+formula and the live `object_sequence`, repoint children, advance the sequences
+in the same transaction. Where a FK has no ON UPDATE CASCADE (Mendix generates
+none), copy the parent to its new id, repoint children, then delete the old
+parent, so every statement leaves the constraint satisfied.
+See `mdlsource/49-blank-rows/01-remint-stale-entity-ids.sql`.
+
+### E. `ON DELETE SET NULL` on Mendix association FKs silently strips associations across a deploy
+
+Every Mendix association FK is generated `ON DELETE SET NULL`. So when a deploy
+replaces the rows on one side of an association — reference/config data being
+the usual case — the rows on the other side survive with the association
+quietly blanked. No error, no log line, no failed constraint.
+
+Ours: 120 WorkflowStationProgress rows lost their WorkflowStationConfig link
+this way, and the station checklist rendered 20 rows per run with Code,
+Station and Responsible dept. all empty. It was invisible for as long as the
+parent runs were themselves invisible (D above), which is how two separate
+defects hid behind one symptom.
+
+Detection: `count(*)` vs `count(<association column>)` on any table whose
+association points at seeded reference data. They should be equal.
+Repair pattern in `mdlsource/49-blank-rows/03-relink-station-configs.sql` —
+derive the mapping from how the *healthy* rows are linked, never from a guess.
+
+## Harness gaps (not bugs — process holes the toolkit doesn't currently close)
+
+### 6. `verify-module.sh` never runs the mechanical design-audit (stage 4b) at all
+Confirmed by grep: `design-audit.js` is invoked nowhere in `project-bin/verify-module.sh`.
+Class-hygiene, a11y, structure, and overflow checks only ever happen if someone remembers to run
+`design-audit.js` by hand. Combined with #4/#5 above, this is why it's never been part of the
+routine sweep on this project. Once #4/#5 are fixed, add it as a new `run()` rung, `kind=gate`,
+after the existing "review" rung.
+
+### 7. Stage 4d (the human/agent "does it look right" LOOK pass) has no gate at all — it just
+silently never happens
+This is the sharpest finding of this session. `module-review.md` itself already tells this exact
+story in its own preamble (the merge-note describing a module that shipped 31/31 green with a
+broken grid and a fully unstyled page, because journeys only click what a test author wrote and
+4d got skipped). **That story repeated on this project, twice, within the same week:**
+- ProductNumbers/PackagingNumbers/ThroughputReporting got a real 4d pass on 2026-08-19 (fixed a
+  frozen-overlay Cancel bug and an unstyled-segmented-filter bug that no functional/journey/monkey
+  instrument had ever caught).
+- SketchNumbers, Approval, and ProductNumberWorkflow had **never** had a 4d pass at all — despite
+  ProductNumberWorkflow specifically having full golden-path journey coverage and a positive
+  control proving that instrument wasn't vacuous. The 2026-08-20 catch-up pass on those three
+  found, same day: 4 objects with corrupted/null data on SketchNumbers' grid (a real data defect,
+  not styling), a page with **zero live entry point** on ProductNumberWorkflow despite the app's
+  own on-screen copy promising one, and an entire "archived runs" feature that was speced in the
+  wireframe and never wired up. None of that is a padding/color nitpick — these are P1
+  functional-equivalent defects that only a human-eyes wireframe-vs-live pass surfaces, and the
+  module had "verified" journey/monkey coverage the whole time it sat broken.
+**The lesson, concretely:** treat 4d the same way `verify-module.sh` already treats a missing
+`coverage-ledger.md` — as a named **FAULT**, not a silent absence. Concretely: add a rung that
+checks for a `design/ui-reviews/*-stage4-look.html`-shaped report newer than the module's last
+build script for that module, and FAULTs with "Stage-4 LOOK pass UNMEASURED for `<Module>` — see
+`module-review.md` §4d" if none exists. It can't automate the judgment itself (that's inherent —
+4d is deliberately manual), but its *absence* is exactly the kind of thing this harness's whole
+design philosophy says should never be allowed to read as silent green.
+
+### 8. Trial-license concurrent-session cap recurs on every multi-module sweep
+Not fixable in the app itself, but worth a documented workaround in the toolkit rather than
+rediscovering it every session: `journey-runner.js`/`monkey.js` open 2+ browser sessions per
+module (golden path + positive control) and nothing reclaims them fast enough for back-to-back
+module runs under a trial license. Recurred 3+ times this session; fix each time was the same
+manual dance (`ps aux` → `kill` the `runtimelauncher.jar` java process → `./mxcli run --local`
+restart in background → poll `curl` until 200, typically 80-90s). Worth either: (a) an explicit
+logout/session-teardown step at the end of `journey-runner.js`'s run, or (b) a documented
+`bin/restart-app.sh` helper in the toolkit so this isn't hand-rolled from scratch each time.
+
+### 9. Neither Postgres nor the mxcli-run app process survives a container/session restart, and
+nothing detects or recovers this automatically
+Found 2026-08-20 after a container restart mid-session: `./mxcli run --local` failed with
+`database not reachable at 127.0.0.1:5432: connection refused` because Postgres itself had also
+been killed, not just the app. Recovery was two manual steps (`pg_ctlcluster 16 main start`, then
+re-run `./mxcli run --local`) that a session picking this up cold would not know to check for in
+that order — the app's own error message names the DB but doesn't suggest checking whether
+Postgres the *service* is even running. Worth a `bin/test-stack-up.sh --check` enhancement (or a
+new preflight) that checks Postgres liveness (`pg_lsclusters`/`pg_isready`) as a distinct,
+separately-named fault from "app not responding," so the error points at the actual layer that's
+down instead of just the symptom.
+
+---
+
+## Methodology lessons worth promoting into skill files
+
+### 10. DataGrid2 sources need an explicit `sort by`, or the runtime silently returns empty
+`attributes:{}` for every row but the first
+**Found:** 2026-08-19/20, root-causing the ProductNumbers/PackagingNumbers/ProductNumberWorkflow
+"blank grid" cluster via live `/xas/` traffic capture (not visible to `mx check`, static MDL
+inspection, or access-grant review — all of which were tried first and all looked clean). A
+control grid with an identical widget shape but an explicit `sort by` rendered correctly; the
+broken ones didn't have one. This reproduced identically across three separate modules built at
+different times, which argues it's a systemic DataGrid2 behavior, not a one-off page bug.
+**Suggested fix:** promote this to `~/Mendix/personal-toolkit/skills/dg2-grid-pattern.md` (or the
+toolkit's own DataGrid2 skill if `dg2-grid-pattern.md` isn't the canonical one) as a hard rule:
+**every DataGrid2 `DataSource: database from ...` must carry an explicit `sort by`clause**, and
+consider a Starlark lint rule (`.claude/lint-rules/`) that flags any `datagrid` MDL block whose
+`DataSource` lacks one — this is exactly the class of defect `mx check`/`mxcli check --references`
+structurally cannot see, so a project-level lint rule is the only mechanical net available.
+**Still open, not yet re-confirmed:** whether this same root cause explains
+ProductNumberWorkflow's Overview grid (6/10 rows blank, found 2026-08-20) and/or SketchNumbers'
+Overview grid (4/8 rows blank, found 2026-08-19) — SketchNumbers' case was specifically
+root-caused to corrupted/null underlying data instead, which is a reminder that "looks like the
+same blank-grid shape" is not proof of "same root cause" — each occurrence still needs its own
+live-traffic confirmation before assuming the sort-by fix applies.
+
+### 11. A hardcoded entity `short_id` in seed SQL breaks silently the next time a marketplace
+module gets imported
+**Found:** 2026-08-19, root-causing the ProductNumberWorkflow "Save & Start" 500 error.
+`demo-data.md` already documents the correct pattern (resolve `short_id` dynamically via a
+`mendixsystem$entityidentifier` join, never hardcode the literal), but the seed script that
+caused this bug didn't follow its own skill's guidance — it hardcoded `105` with a comment noting
+it was "confirmed live" *at the time the script was written*, which stopped being true the moment
+a later script imported WorkflowCommons and Approval.ApprovalWorkflow and the deploy reassigned
+short_ids project-wide. The failure mode is nasty: SQL executes cleanly, rows insert fine, and the
+defect only surfaces later as an opaque runtime `WebUIException` naming the *wrong* entity type,
+with no obvious link back to "a seed script ran before an import that came after it."
+**Suggested fix:** a Starlark/shell lint rule that greps `mdlsource/**/*.sql` for a bare integer
+literal bit-shifted into an `id`/object-ID column (pattern: `<< 48` or similar) and flags it,
+since `demo-data.md` already says not to do this — the gap is enforcement, not documentation.
+
+
+### 12. `mxcli check --references` passes a widget property that `exec` then rejects
+**Found:** 2026-09-01, trying to give the app's seven date pickers an explicit `dd-MM-yyyy`.
+
+A classic `datepicker` renders its date in the project language's locale format, which here is
+`en_US`, so every picker shows `8/19/2026` while three dynamic-text renderings elsewhere in the
+app (the approval flow diagram, the product-number archive detail, the remarks feed) already
+override the format and read `dd-MM-yyyy`. The obvious fix is the picker's own date-format
+property.
+
+```
+alter page ProductNumbers."ProductNumber_NewEdit" {
+  set (dateFormat = Custom, customDateFormat = 'dd-MM-yyyy') on dpIssueDate
+}
+```
+
+`./mxcli check <script> -p VB-USI.mpr --references` reports **"Check passed! / All references
+valid"** on that script. `./bin/exec.sh` on the same script then fails on the first statement:
+
+```
+Error: failed to set: failed to set customDateFormat on dpTargetDate1_010b:
+       property "customDateFormat" not found (widget has no pluggable Object)
+```
+
+Two separate problems, and the first is the worse one:
+
+1. **The checker does not validate widget property names on `alter page ... set`.** It validated
+   the module, the page and the widget name, said the script was good, and the property name --
+   the only thing the statement actually changes -- went unchecked. A script can therefore be
+   fully green and still be guaranteed to fail, which is exactly the case the pre-flight check
+   exists to catch. Worth noting that `exec.sh` warns "PARTIAL APPLICATION LIKELY" on any non-zero
+   exit; here nothing had landed (`mx check` clean, no `.mpr` diff), so the warning is
+   conservative rather than wrong, but it does mean every failed exec needs its own verification.
+
+2. **There is no route to a date picker's format through mxcli at all.** Not via `alter` (above),
+   and not at creation either -- the grammar rejects it before reference checking begins:
+
+```
+datepicker dpProbe (Label: 'Issue date', Attribute: IssueDate,
+                    dateFormat: Custom, customDateFormat: 'dd-MM-yyyy')
+-- line 6:71 extraneous input ',' expecting the start of a statement
+```
+
+   The `format (dateFormat: Custom, customDateFormat: '...')` block documented in
+   `create-page.md` works only on a `dynamictext`/column `ContentParams` binding, never on an
+   input widget. So date-picker formatting is Studio Pro only today.
+
+**Consequence for this project:** the seven pickers (three WFST010 target dates, requester date,
+valid from/to, issue date) stay `M/D/YYYY` until either mxcli grows the property or someone opens
+Studio Pro. The ten date *columns* in the grids are a separate and deliberate non-fix: a
+DataGrid2 attribute column has no format override by design, and forcing one means switching the
+cell to dynamic text, which removes the attribute behind it and takes the column's header sort
+and its date filter with it.
+
+**Suggested fix:** teach the reference checker the widget property vocabulary it already needs at
+exec time -- the failing lookup ("property not found") clearly exists in the writer, so the
+checker is simply not consulting it -- and add `dateFormat` / `customDateFormat` to the
+`datepicker` grammar.
+
+---
+
+## What worked well (worth keeping, not just fixing what's broken)
+
+- **Empirical verification over trusting a prior session's stated conclusion**, repeatedly, is
+  what actually found #10 and #11 above — every earlier "root cause" theory in this project's own
+  history (`docs/progress/open-findings.md`) turned out to be wrong when someone actually captured
+  live traffic or tested as an unrestricted role instead of reasoning from the MDL/static model.
+  Worth stating explicitly in `module-review.md` or wherever root-cause methodology is documented:
+  a root-cause claim that hasn't been confirmed against live runtime behavior (traffic capture,
+  DOM inspection, actual query results) is a hypothesis, not a finding, no matter how plausible the
+  static-analysis story sounds.
+- **Parallel background-agent fan-out** (draft-and-validate-only MDL fixes in one agent, a
+  read-only monkey-test sweep in another, running concurrently against the same live app) worked
+  cleanly with no `.mpr` writer collisions, because the drafting agents were explicitly instructed
+  never to execute — only the orchestrating session ever touched `exec.sh`. Worth writing up as the
+  standard pattern for `iterative-build-loop.md`'s parallel-fixing guidance: fan out *drafting*
+  freely, keep *execution* serialized through one thread.
+
+---
+
+## BUG-114 — `PARALLEL SPLIT` writes the paths but not their contents (2026-09-04)
+
+**This is the most expensive class of defect this project has hit: a write mxcli itself reads
+back correctly and the Mendix runtime reads as empty.** mxcli v0.20.0, Mendix 11.13.0.
+It silently voids the entire parallel design of Phase 19.
+
+Script `84` writes exactly the documented shape (`mxcli syntax workflow.parallel-split`):
+
+```
+parallel split
+  path 1 { user task WFST110 'Station WFST110' page … outcomes 'Complete' { … }; }
+  path 2 { user task WFST100 … }
+  …
+  path 7 { … };
+```
+
+Everything that can pass, passes:
+
+- `mxcli check --references` — clean.
+- **`mxbuild` (11.13.0, `--target=deploy`) — 0 errors**, on a full project copy.
+- **`DESCRIBE WORKFLOW` round-trips the tasks nested inside `path 1 { … }`** — mxcli's own
+  reader reproduces what the script asked for.
+
+The Mendix runtime, reading the same `.mpr`, disagrees. From `system$workflowactivity` on a
+real run (article `SPL-…`, 2026-09-04 12:10):
+
+```
+Station WFST040             | Finished | Continue | 12:09:45.907
+SUB_ApprovalStationData_Project | Finished | true | 12:10:02.822
+Parallel split              | Finished |          | 12:10:02.932
+End of parallel split path  | Finished |          | 12:10:02.935   ← ×7, same millisecond
+Merge of Parallel split     | Finished |          | 12:10:02.935
+Station WFST120             | Suspended|          | 12:10:02.960
+```
+
+Seven paths, all ended in the same millisecond, no task created in any of them. The twelve band
+stations (WFST060/070/080/090/100/110/160/170/180 and the nested pair) never open, never appear
+in anyone's inbox, and the run walks straight from the sampling gate to the quality gate. **No
+error is raised anywhere** — not at build, not at run, not in the log.
+
+### Why it matters here
+
+Blueprint §27's whole point is that these stations run concurrently. A scripted split produces
+a workflow that *looks* right in every tool and silently omits 12 of its 16 stations at runtime.
+A reviewer reading `DESCRIBE WORKFLOW` cannot see it. Only a live run can.
+
+### How to detect it
+
+Start a run, walk to the split, and read `system$workflowactivity` for the instance. Seven
+consecutive `End of parallel split path` rows with no task between them is the signature.
+`tests/e2e/split-verify-84.js` automates this — it counts the tasks the engine actually opens
+rather than the ones the model claims.
+
+### Status
+
+Open. No scripted workaround found. The split must be built in Studio Pro by hand, or through
+an MCP write session (`learned-mcp-patterns.md` — untested for this activity), until mxcli's
+parallel-split writer attaches path contents.
+
+**Related:** BUG-76 (scripted `DECISION` corrupts the `.mpr` on load). Both are workflow
+*structure* writers producing models the runtime will not execute as written; BUG-76 fails loudly
+at load, BUG-114 fails silently at run, which makes it the worse of the two.
+
+---
+
+## BUG-115 — `ALTER PAGE … SET PageSize` fails on a DataGrid 2 that `CREATE` accepted
+
+**Found:** 2026-09-07, script `87b`, mxcli against Mendix 11.13.0.
+
+`create or modify page` accepts `PageSize: 20` on a `datagrid` widget and writes it — the grid
+demonstrably paginates at 20 in the running app. The `ALTER PAGE` path rejects the same property
+name on the same widget:
+
+```
+alter page Common.RunRegister { set PageSize = 10 on dgApprovalRuns };
+→ Error: failed to set: failed to set PageSize on dgApprovalRuns:
+  pluggable property "PageSize" not found
+```
+
+So the two write paths resolve pluggable-property names from different tables. `mxcli check
+--references` passes the script clean — the failure only appears at exec.
+
+**Aggravating:** mxcli is not transactional across statements, so the failing `set` aborted the
+script with the *second*, unrelated statement (a `dynamictext` `Content` change on another page)
+never applied. A one-line property tweak therefore leaves a two-page script half-done.
+
+**Also note:** `DESCRIBE PAGE` does not round-trip `PageSize` at all — the property is absent from
+the dump — so you cannot read the current value back out of the model to confirm what you set.
+
+**Workaround:** re-emit the whole page with `create or modify page`, changing only the one value.
+That is what `87b` does, and why a two-value edit is a 190-line script.
+
+**Related:** MDL-WIDGET16 (DataGrid 2 stores no column names). Same underlying cause: the DG2
+pluggable-widget property surface that mxcli exposes on create is not the surface it exposes on
+alter.
+
+---
+
+## BUG-116 — `SHOW CALLERS OF` indexes neither page button actions nor `show page` targets
+
+**Found:** 2026-09-03 (noted), confirmed and measured 2026-09-07 clearing script `87`'s drop set.
+
+`SHOW CALLERS OF Module.Microflow` reports **no callers** for a microflow that a page button
+calls. `Approval.ACT_ApprovalRun_ShowFlow` is wired to the *View flow* button on the running
+overview and has been since script `68`; the index says nothing references it. The same blind
+spot covers pages: nothing reports which microflows `show page Module.SomePage`, so a page cannot
+be cleared for deletion from the index either.
+
+**Why it matters more than it sounds.** `SHOW CALLERS` and `SHOW REFERENCES` are the documented
+way to answer "is it safe to drop this?" — `SHOW IMPACT OF` is built on the same index. A drop
+cleared that way is not cleared at all. Script `87` retired three register pages and their
+microflows; clearing them honestly took a **22,836-line** `DESCRIBE` dump of every microflow and
+page in the project plus a word-boundary grep, and that turned up **four microflows and three
+Home tiles** the index had not mentioned. mxbuild does catch a dangling reference afterwards, so
+this is a lost hour rather than a corrupted model — but the tool answers a safety question
+confidently and wrongly.
+
+**Repro:**
+```
+mxcli -p <project>.mpr -c "SHOW CALLERS OF Approval.ACT_ApprovalRun_ShowFlow"
+→ (no callers)
+mxcli -p <project>.mpr -c "DESCRIBE PAGE Approval.Approval_RunningOverview" | grep ShowFlow
+→ actionbutton btnViewFlow (Action: MICROFLOW Approval.ACT_ApprovalRun_ShowFlow(...))
+```
+
+**Ask:** index widget `Action:` targets and microflow `show page` targets into the same
+cross-reference table, or — if that is a larger job — have `SHOW CALLERS` state which reference
+kinds it covers, so its silence is readable as "not indexed" rather than "not referenced".
+
+---
+
+## BUG-117 — `DESCRIBE MICROFLOW` omits `without events`, so a DESCRIBE → exec round-trip silently turns event handlers back on
+
+**Found:** 2026-09-07, re-emitting four start microflows in script `87`.
+
+mxcli's bare `commit $X;` now defaults to **WITH EVENTS**, matching Studio Pro. It previously
+meant events OFF. That change is defensible on its own; the defect is that `DESCRIBE MICROFLOW`
+prints a **bare `commit $X;` for both settings**. The events flag is not round-tripped.
+
+So the standard repoint workflow — `DESCRIBE` a microflow, change one activity, re-exec it —
+**silently flips the commit semantics of every commit in the flow that had events off**. Nothing
+in the pipeline reports it: `mxcli check --references` passes, mxbuild passes, and the model is
+structurally valid. The behaviour change only shows up at runtime, in whatever the handlers do.
+
+On this project it happened to be inert — no entity in any of the seven modules declares an event
+handler, checked — which is exactly why it would have shipped unnoticed on a project where one
+does. mxcli's own `MDL067` info message is what flagged it, and only because the re-emitted flow
+was large enough to trip the check.
+
+**Ask:** emit `commit $X without events;` from `DESCRIBE` whenever the stored activity has events
+off. A round-trip must not change behaviour. Failing that, `MDL067` should fire on **every** bare
+commit in a script that also contains a `create or modify microflow`, not on a heuristic.
+
+**Related:** BUG-103 (`DESCRIBE MICROFLOW` emits `log` strings that `mxcli check` then rejects) —
+same class: `DESCRIBE` output that is not a faithful, re-executable representation of the model.

@@ -208,6 +208,36 @@ git merge-base --is-ancestor "$TSMAIN" ts-export      # MUST pass: fast-forward
 Both assertions must hold **before** pushing, and `git push --dry-run` must show `a..b` with **no
 `+`** (a `+` is a forced update). Never force-push Team Server.
 
+**Single-tree repo — the same adoption without the subtree.** When the `.mpr` already sits at
+the repo root there is nothing to split; a side branch and an `ours` merge give the same
+fast-forward property, and the GitHub history is never touched:
+
+```bash
+git checkout -b ts-align main
+git merge --allow-unrelated-histories -X ours --no-edit teamserver/main
+git diff --stat main ts-align                          # MUST print nothing: the tree is still ours
+git merge-base --is-ancestor teamserver/main ts-align  # MUST pass: fast-forward
+git push teamserver ts-align:main                      # no --force; then confirm with ls-remote (trap 5)
+```
+
+`-X ours` resolves every overlapping path to your history; the template commit survives as a
+second parent. The `git diff --stat` line is the gate — output means the merge changed the model
+and must not be pushed. (Checking out `ts-align` swaps the working tree like any checkout; on a
+machine running the app, use the plumbing form above instead.)
+
+**Before choosing between this and a force-push at all, count what the remote holds that you do
+not.** Divergence alone (`git log` in both directions) says the histories differ; the decisive
+number is how many *paths* exist on Team Server and nowhere locally:
+
+```bash
+comm -23 <(git ls-tree -r --name-only teamserver/main | sort) \
+         <(git ls-tree -r --name-only main | sort) | wc -l
+```
+
+`0` means a force-push would destroy commit objects only, never file content — measured on a
+fresh `Initial app upload.` (1042 paths, all also present locally). It is still not a licence to
+force: the merge above costs one commit and destroys nothing.
+
 **Every later sync repeats the merge.** `subtree split` is deterministic — the previous split tip
 is an ancestor of the next — but its output never contains the merge commits made on your side, so
 a bare `git subtree push` is rejected as non-fast-forward. Re-merge each time.

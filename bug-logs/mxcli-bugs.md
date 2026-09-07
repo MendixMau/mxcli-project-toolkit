@@ -4122,3 +4122,71 @@ establish the real verdict. Do not conclude from the FAILED line that the instal
 check the model instead.
 **Fix:** skip and report the offending unit rather than aborting, so the pass is partial-but-useful;
 name the module so the finding is actionable upstream.
+
+## BUG-120: MDL cannot author a microflow that applies entity access, so no MDL-authored flow can call one that does (CE0114) — and a marketplace module's own `_USE_ME` startup flow is unreachable
+
+**Severity:** High — it is not a workaround-able gap: no MDL script can call an entity-access-applying microflow from anywhere, so whole marketplace features become unreachable headlessly
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07, wiring Excel Importer 11.2.2's recommended startup check into a sales-coaching build
+**Reproducible:** yes, against any module microflow with "Apply entity access" ticked
+
+Mendix rule **CE0114**: *"A microflow that does not apply entity access can only call microflows
+that also do not apply entity access."* Every microflow MDL creates does **not** apply entity
+access, and `create or modify microflow` has no syntax to change that — `DESCRIBE MICROFLOW` does
+not render the property either, so it is invisible in both directions.
+
+The consequence is stronger than "one flag is missing". Because the restriction is on the
+*caller*, and MDL can only produce non-applying callers, **an entity-access-applying microflow
+cannot be called from anything MDL can write.** Not from a startup flow, not from a button
+handler, not from a wrapper.
+
+Field case. `ExcelImporter.ASu_CheckModelAndTemplates` lives in a folder named `_USE_ME`, is
+documented as *"the actions which should be executed when the application is being started"*, and
+re-syncs Model Reflection then validates every import template against the current model. It
+applies entity access. So:
+
+```
+SE_Startup_Runtime (MDL, non-applying)
+  └─> SE_Startup_ExcelImportGuard (MDL, non-applying)
+        └─> ExcelImporter.ASu_CheckModelAndTemplates (module, APPLYING)   ✗ CE0114
+```
+
+Moving it behind a button did not help — the button's handler is also MDL-authored and also
+non-applying. Two apply-and-restore cycles to establish that, because the first failure looks
+like a wiring mistake rather than a wall.
+
+(Arguably the module is also at fault: an after-startup microflow that applies entity access
+cannot run at startup, where there is no user. But mxcli's gap is what makes it unfixable
+headlessly.)
+
+**Workaround:** none within MDL. Call whatever the module flow calls, if those are non-applying —
+here `MxModelReflection.ASu_CheckMetamodel()` was reachable, which recovered the reflection
+re-sync and left only the template validation stranded. Otherwise it is a Studio Pro job.
+**Fix:** a microflow property in the grammar — `create microflow X () applies entity access ...` —
+and render it in `DESCRIBE MICROFLOW` so the round trip does not silently flip it. Failing that,
+`check --references` should raise CE0114 itself rather than letting it reach mxbuild, since the
+callee's flag is readable in the model.
+
+## BUG-118 — fourth and fifth field cases: the snapshot restore is partial *across document types*
+
+Same bug as BUG-118, but the new information is worth recording: on 2026-09-07 two consecutive
+failed applies were auto-restored, and afterwards the model contained
+
+- the **page** edits from the failed script (two action buttons), and
+- the **startup microflow** edit from the failed script (a call to a new microflow),
+
+while **none of the three microflows the same script created** survived. So the restore left a
+page button and a startup call both pointing at microflows that no longer existed — a model that
+is *more* broken than either the before or the after state, and which the next run reported as
+`Model ALREADY has 2 error(s) [CE1613]` and blamed on nobody.
+
+The practical rule this forces, beyond BUG-115's "read the model back after every exec": **read
+it back after every failed exec too, and specifically across all the document types the script
+touched.** The restore's own line (`2122 units verified`) counts units, which is exactly the
+measure that cannot see this.
+
+Any script that might be re-applied after a failed restore must therefore be written
+`REPLACE`-shaped for widgets it may or may not have already created — and `REPLACE` cannot
+re-declare a container's children (see the note in BUG-113's family), so each leftover widget
+needs its own `replace` clause.

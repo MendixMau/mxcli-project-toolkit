@@ -119,6 +119,29 @@ the same `.mpr` in Studio Pro from Git Bash for the MCP write modes and UI polis
 The only rule is one writer at a time: do not have the container building or writing the `.mpr`
 while Studio Pro holds it open (`skills/handoff-to-studio-pro.md`).
 
+```mermaid
+flowchart TB
+    C["☁︎ Cloud<br/>Claude Code web/mobile<br/>nothing to install · headless · ephemeral, push at every gate"]
+    D["▣ Dev Container<br/>VS Code + Docker Desktop / Codespaces<br/>toolchain pinned · headless · on your disk"]
+    L["⌂ Local + Studio Pro<br/>Mac terminal or Git Bash on Windows<br/>everything above + MCP live edits + SP-only ops"]
+    S["ONE project folder · one git repo · one .mpr<br/>PROJECT.md, gates, dashboard identical in every lane"]
+    C <--> S
+    D <--> S
+    L <--> S
+    W["Windows: Docker Desktop's WSL2 backend ✓ (say Yes)<br/>a WSL prompt as your shell next to Studio Pro ✗ (use Git Bash)"]
+    W -.- D
+    W -.- L
+    R["Rhythm: build headless (☁︎/▣) → open the same .mpr in Studio Pro (⌂) → back.<br/>One writer at a time: never build in the container while SP holds the .mpr."]
+    S --- R
+```
+
+**"Why a Dev Container instead of just working locally?"** The container is where the build is
+*reproducible* — a colleague clones and gets the identical Java, Node and mxcli from
+`.devcontainer/`, nothing to align by hand. Local is where the build is *visible* — Studio Pro
+open, MCP live, UI polish with the app in front of you. Cloud is local's opposite: nothing
+installed, a preview link for stakeholders, but ephemeral. Most projects use two of the three;
+`toolkit-guide.html` → *Where you run this* has the side-by-side table.
+
 **Windows: install Python 3 from python.org with "Add python.exe to PATH" ticked.** If typing
 `python3` opens the Microsoft Store, that is the Store *alias stub*, not an interpreter. The
 toolkit detects and skips it, but turn it off anyway: Settings → Apps → Advanced app settings →

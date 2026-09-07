@@ -271,6 +271,57 @@ BEGIN
 END WORKFLOW;
 ```
 
+**Five more activity forms, all proven on mxcli v0.20.0 / Mendix 11.14.0 (2026-09-03).**
+None of them appear in `mxcli syntax workflow`; absence there is not evidence (§7). Each was
+run through `mxcli check --references` → `exec` → native `mx check` (0 errors) → `DESCRIBE`
+round-trip:
+
+```sql
+-- multi-user task. The ACTIVITY is scriptable; its decision method and completion timing
+-- are NOT (no grammar for them) — those are a Studio Pro hand-add, and a build-plan row.
+MULTI USER TASK "Board" 'Board review'
+  PAGE MyModule."WF_Task_ApproveReject"
+  OUTCOMES 'Approve' { } 'Reject' { };
+
+-- jump to, inside a user-task outcome. Must be the last statement of its path.
+-- Inside a BOUNDARY EVENT body it writes a targetless, name-colliding Jump — BUG-109.
+USER TASK "Review" 'Review'
+  PAGE MyModule."WF_Task_ApproveReject"
+  OUTCOMES 'Ok' { } 'Redo' { JUMP TO "Review"; };
+
+-- non-interrupting boundary timer. The duration is a Mendix EXPRESSION, not an ISO period.
+USER TASK "Review" 'Review'
+  PAGE MyModule."WF_Task_SingleOutcome"
+  OUTCOMES 'Complete' { }
+  BOUNDARY EVENT NON INTERRUPTING TIMER 'addDays([%CurrentDateTime%], 3)' {
+    CALL MICROFLOW MyModule."SUB_Remind" WITH ("Request" = '$WorkflowContext');
+  };
+
+-- wait for timer / wait for notification. WAIT FOR NOTIFICATION takes NO name --
+-- 'WAIT FOR NOTIFICATION ''Ping'';' is a parse error; the name is a Studio Pro property.
+WAIT FOR TIMER 'addDays([%CurrentDateTime%], 1)';
+WAIT FOR NOTIFICATION;
+```
+
+**The `WITH` clause's value must be quoted.** `WITH ("Ctx" = '$WorkflowContext')` works;
+`WITH (Ctx = $WorkflowContext)` **segfaults the binary** — and the "parameter is not mapped"
+hint `--references` prints talks you straight into the crashing spelling. BUG-107.
+
+**Never script a `DECISION` at all — not on an enumeration, not on a boolean.** This is
+**BUG-76**, open since 2026-08-13 and re-confirmed on v0.20.0 twice: mxcli writes every
+outcome label as a raw string into a field Mendix requires to hold an
+`EnumerationValueIdentifier`, so *any* `DECISION` with outcomes writes an `.mpr` the Mendix
+loader cannot open (`StorageLoadException`, not a validation error). It does not matter what
+the condition reads — `1 = 1` corrupts as surely as an enum attribute does.
+
+The 2026-09-03 probe adds two things to that entry and nothing else. First, the enum-valued
+case is worse than the boolean case, because the enum form has **no writable spelling at all**:
+`mxcli check` rejects `'Probe.StatusEnum.Draft'` and `'StatusEnum.Draft'` — the two forms
+Mendix requires — and accepts only the bare `'Draft'` that corrupts. Second, recovery from an
+already-corrupted model is `DROP WORKFLOW`, which still works because mxcli can read what
+mxbuild cannot load — verified back to a 0-error `mx check`. Hand-add every decision in
+Studio Pro.
+
 **Outcome block semantics** — this is the mechanism you branch with. The behaviour below
 was established by probing (build a two-outcome task, run it, see where each path lands);
 it is *not* stated in any tool's documentation, so re-probe if your Mendix version differs:
@@ -357,17 +408,18 @@ button also commits the form and closes the page; the statement does neither, so
 means rebuilding both by hand. Use `SET TASK OUTCOME` only when you must validate or mutate
 first in a flow that has no page.
 
-**`DESCRIBE MICROFLOW` cannot read `call workflow` back — do not trust it.** The round trip
-is broken in one direction: `CALL WORKFLOW` *writes* correctly and builds and runs, but
-`DESCRIBE MICROFLOW` renders the activity as `-- Empty action`, and it appears in neither
-`SHOW CALLEES` nor `CATALOG.REFS`. A microflow that genuinely starts a workflow therefore
-reads back as though the start is missing — which reads convincingly as "this must have
-been hand-built in Studio Pro." It wasn't. **Audit your MDL source, not `DESCRIBE` output,**
-when checking whether a workflow gets started, or confirm at runtime that the back-reference
-association is populated. This is the [[tool-output-is-not-ground-truth]] pattern again, in
-its nastiest form: the tool doesn't error, it silently renders a comment where a real
-activity lives. Leave an `@annotation` on that microflow activity saying so, for whoever
-reads it next.
+**`DESCRIBE MICROFLOW` reads `call workflow` back since v0.20.0 — but the catalog still
+does not see it.** The describe half of this warning is retired: on mxcli v0.20.0 the round
+trip closes — `DESCRIBE` emits `call workflow Mod.WF ($Var);` (the positional form, added to
+the grammar precisely so describe output parses back), and that output checks, execs, and
+survives a re-describe (verified 2026-08-31 on a scratch 11.13 project). On pre-v0.20
+binaries the old failure stands: the activity rendered as `-- Empty action` and re-executing
+a description deleted the workflow start. What is **still true on v0.20.0, measured the same
+day**: the call appears in neither `SHOW CALLEES` nor `CATALOG.REFS` even after
+`refresh catalog full` — so a microflow that starts a workflow still reads as making no
+calls, and dead-asset sweeps (`GRAPH_DEAD_ASSETS`, QUAL004-style rules) can still misreport
+around it. **Audit MDL source, not the catalog,** when checking whether a workflow gets
+started.
 
 ### Starting an instance — two gotchas
 
@@ -382,9 +434,11 @@ COMMIT $Request;
   Assign straight from the call; the assignment creates the variable. The same restriction
   applies to lists: use `$L = CREATE LIST OF Mod."Entity";`, not
   `DECLARE $L List of ... = empty;` (MDL040 / CE0053).
-- **The parameter mapping must be named.** `(WorkflowContext = $Request)`. A bare `($Request)`
-  fails with `mismatched input ')' expecting '='`, despite mxcli's own internal deparse
-  template reading `call workflow %s ($%s);`.
+- **The parameter mapping: named on old binaries, positional accepted since v0.20.0.**
+  `(WorkflowContext = $Request)` works everywhere. On pre-v0.20 mxcli a bare `($Request)`
+  fails with `mismatched input ')' expecting '='`; v0.20.0 added the positional form (a
+  workflow has exactly one context parameter, so it is unambiguous) and it is what
+  `DESCRIBE` emits — verified parse + exec 2026-08-31.
 
 Then **wire the back-reference** on the very next line, as above — see §3 for why.
 
@@ -830,13 +884,25 @@ already exists.
 
 ## 19. `BOUNDARY EVENT TIMER` — don't add one without a documented business trigger
 
+> **CORRECTION, 2026-09-03 (probed, mxcli v0.20.0 / Mendix 11.14.0).** The `'P3D'` form below
+> is **wrong** and was recorded here as proven on a `mxcli check` alone. The timer takes a
+> Mendix **expression**, not an ISO 8601 period: `'P3D'` passes `mxcli check` and `exec`, then
+> fails native `mx check` with **CE0117 "Error(s) in expression"**. Write
+> `'addDays([%CurrentDateTime%], 3)'`. Two further limits found in the same probe: only the
+> **non-interrupting** form is usable from MDL (the interrupting one needs an *End* or *Jump*
+> terminator, CE0105 — and neither is expressible, see §11 of `workflow-structure-rules.md`),
+> and there is **no notification boundary event** in the grammar at all.
+>
+> This entry is the reason the rule exists: a construct "used in a real build" was verified by
+> the tool that cannot see the defect. `mxcli check` is not evidence for workflows.
+
 `BOUNDARY EVENT TIMER` (Mendix 10.6.0+) is available and syntactically simple:
 
 ```
 user task ReviewTask 'Review'
   outcomes 'Done' { }
-  boundary event timer 'P3D' {
-    call microflow Module.WF_Escalate;
+  boundary event non interrupting timer 'addDays([%CurrentDateTime%], 3)' {
+    call microflow Module.WF_Escalate with ("Request" = '$WorkflowContext');
   };
 ```
 
@@ -880,6 +946,12 @@ only a real `mx check` run did.
 ---
 
 ## Notes on scope
+
+**Structure rules for every construct below — path termination, boundary-event type vs
+terminator, event sub-processes, parallel-split limits, multi-user decision methods, versioning
+against running instances — are in `workflow-structure-rules.md` (platform semantics from the
+Mendix MCP team, 2026-09-02, with an MDL proven/unprobed table). This file stays the syntax and
+defect record.**
 
 Workflow **timer** and **wait-for-notification** activities are referenced by
 `NOTIFY WORKFLOW` above but their `CREATE WORKFLOW` body syntax has **not been verified**

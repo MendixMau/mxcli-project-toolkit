@@ -28,6 +28,12 @@ knowledge-base/
 # WIP skills + the improvement backlog — machine-local drafts, not ready to publish
 wip/
 
+# Parked cycle notes (/park) — machine-local session state. They name the live
+# engagement and local paths by nature, so the leak guard, which scans untracked
+# files too, blocked every commit on this machine until they were ignored
+# (2026-09-04). The two park notes tracked before this rule stay tracked.
+.claude/park/
+
 # Throwaway sandbox runs (tool-defect A/B probes, skill-wiring proof runs) — see
 # test-assessments/README.md. Machine-local by nature: rsynced project copies, agent
 # transcripts. Re-include the README the same way skills/build/ is re-included above.

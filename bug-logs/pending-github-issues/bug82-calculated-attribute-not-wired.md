@@ -1,7 +1,6 @@
 # Pending GitHub issue — mendixlabs/mxcli
 
-**Status:** drafted, NOT yet filed. File to https://github.com/mendixlabs/mxcli/issues after a
-final wording pass.
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/917 (2026-08-18) — filed earlier from another session; draft was never marked
 
 ---
 

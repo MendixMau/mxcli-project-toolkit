@@ -216,13 +216,13 @@ run_guarded() {
   tmp="$(mktemp)"
   "$MXCLI" -p "$MPR" -c "$cmd" >"$tmp" 2>&1 </dev/null &
   pid=$!
-  # THE WATCHDOG POLLS INSTEAD OF SLEEPING ONCE (fixed 2026-09-02, found on t-wf-migration).
+  # THE WATCHDOG POLLS INSTEAD OF SLEEPING ONCE (fixed 2026-09-02, found on a workflow-migration project).
   # It used to be `( sleep "$TIMEOUT_S"; kill -9 "$pid" )`, cancelled afterwards with
   # `kill "$killer"; wait "$killer"`. That cancellation does not work: a bash subshell blocked
   # inside `sleep` does not act on SIGTERM until the sleep RETURNS, so `wait "$killer"` sat for
   # the whole timeout window on EVERY probe -- whatever the command did, however fast.
   #
-  # Field measurement (t-wf-migration, 61-row ledger, 30 measurable rows): each mxcli DESCRIBE
+  # Field measurement (a workflow-migration project, 61-row ledger, 30 measurable rows): each mxcli DESCRIBE
   # took 0.144s and each probe took 24s with TIMEOUT_S=25. Conformance needed ~12 minutes to do
   # ~5 seconds of work and was killed by every reasonable outer timeout before it printed a
   # verdict. The instrument looked hung; it was only ever waiting on its own guard. Nobody had

@@ -3,7 +3,7 @@
 # exit clean only when every one is.
 #
 # WHY THIS EXISTS. coverage-check.sh measures exactly one (BRD, ledger) pair per invocation.
-# A module with several BRDs — real on t-wf-migration, five of them — either measures one and
+# A module with several BRDs — real on a workflow-migration project, five of them — either measures one and
 # silently reports it as the module's coverage, or needs a human to remember to run it N times.
 # review-module.sh's own denominator fix (2026-09-02) stopped the FIRST failure mode by stating
 # "coverage · 1 of 5 BRDs" instead of staying silent about the other four. This script is the
@@ -16,21 +16,25 @@
 # this at all — the single-file convention (coverage-ledger.md, coverage-check.sh directly) is
 # simpler and stays correct.
 #
-# Usage: coverage-check-all.sh <ledger-dir> <brd-glob>
+# Usage: coverage-check-all.sh <ledger-dir> <brd-path-or-glob>...
 #   coverage-check-all.sh architecture/modules/DashboardPublishing/coverage-ledger \
 #                         'analysis/*/knowledge-base/brd/*.brd.json'
+#   coverage-check-all.sh <ledger-dir> analysis/x/brd/F001.brd.json analysis/x/brd/F003.brd.json
+# review-module.sh passes the explicit list the module's ledgers name — a glob over a BRD
+# directory shared by several modules would demand ledgers here for the other modules' BRDs.
 #
 # Exit 0: every BRD clean. Exit 1: at least one has findings (UNCLAIMED/PHANTOM/etc). Exit 2:
 # a BRD has no matching ledger file, or coverage-check.sh itself is not reachable.
 set -uo pipefail
 
-LEDGER_DIR="${1:?usage: coverage-check-all.sh <ledger-dir> <brd-glob>}"
-BRD_GLOB="${2:?usage: coverage-check-all.sh <ledger-dir> <brd-glob>}"
+LEDGER_DIR="${1:?usage: coverage-check-all.sh <ledger-dir> <brd-path-or-glob>...}"
+shift
+[ "$#" -ge 1 ] || { echo "usage: coverage-check-all.sh <ledger-dir> <brd-path-or-glob>..." >&2; exit 2; }
 
 # Same resolution order review-module.sh's own _tool() uses: beside this script (the
 # installed-in-project-bin case), then $MXTK_ROOT/bin (coverage-check.sh lives in the
 # toolkit's bin/, not project-bin/, on a project that only installed project-bin/ scripts --
-# exactly t-wf-migration's layout, which is what caught this), then PATH.
+# exactly a workflow-migration project's layout, which is what caught this), then PATH.
 COV="$(dirname "${BASH_SOURCE[0]}")/coverage-check.sh"
 [ -x "$COV" ] || COV="${MXTK_ROOT:-}/bin/coverage-check.sh"
 [ -x "$COV" ] || COV="${MXTK_ROOT:-}/project-bin/coverage-check.sh"
@@ -41,10 +45,13 @@ if [ -z "$COV" ] || [ ! -x "$COV" ]; then
 fi
 
 shopt -s nullglob
-brds=($BRD_GLOB)
+brds=()
+for arg in "$@"; do
+  for f in $arg; do brds+=("$f"); done      # each argument is a path or a glob
+done
 shopt -u nullglob
 if [ "${#brds[@]}" -eq 0 ]; then
-  echo "coverage-check-all: no BRDs matched $BRD_GLOB" >&2
+  echo "coverage-check-all: no BRDs matched: $*" >&2
   exit 2
 fi
 

@@ -40,7 +40,7 @@ MPR="$(find_mpr)" || exit 2
 # that is the project root and the old hardcoded ".mxcli/catalog.db" was right; on a TWO-TREE
 # checkout, where the model sits under app/, the catalog lands in app/.mxcli/ and this script
 # reported "catalog.db not found -- run REFRESH CATALOG" at a project that had just run exactly
-# that. Found on t-wf-migration, where the operator's fix was a hand-made symlink.
+# that. Found on a workflow-migration project, where the operator's fix was a hand-made symlink.
 #
 # This is the third time the same both-layouts assumption has been shipped in this directory
 # (F-020, F-042, now this one), which is why field-proof rule 2 says to probe BOTH layouts

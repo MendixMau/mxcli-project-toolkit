@@ -4015,3 +4015,37 @@ diagnosed, because the practice it forces is worth having either way.
 `exec`, read the model back (`SHOW MICROFLOWS IN <Module>`, `SHOW PAGES IN <Module>`) and
 count. Exit 0 plus a log of `Created …` lines is a claim about what the tool tried to do, not
 a fact about the model.
+
+## BUG-116: MDL cannot author a File Manager widget, and the describe → replace round trip drops an existing one with `check` reporting clean
+
+**Severity:** High — a core Mendix control is unreachable from MDL, and the documented page-edit loop deletes one silently
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09 (a sales-coaching build, "attach a document to a deal")
+**Reproducible:** yes, 100%
+**Upstream draft:** `pending-github-issues/bug116-file-manager-widget-not-authorable.md`
+
+`Forms$FileManager` is a Studio Pro built-in. mxcli reads it — `SHOW WIDGETS` lists it and
+`DESCRIBE PAGE` reaches it — but there is no production to write one. Six spellings
+(`filemanager`, `fileuploader`, `fileupload`, `filedropzone`, `filedocument`, `fileinput`) all
+fail identically at the parser: `mismatched input '<spelling>' expecting '}'`.
+
+The costly half is the round trip. `DESCRIBE PAGE` of a page containing one emits
+
+```
+-- Forms$FileManager (fileManager1)  -- NOT re-executable: mxcli cannot author this widget, so re-running this script would drop it
+```
+
+and **that script passes `mxcli check --references` clean**, so describe → edit →
+`CREATE OR REPLACE PAGE` removes the widget with no error at any gate. Verified on
+`AgentCommons.AgentImportExportFile_NewEdit` (AgentCommons v4.2.0), which ships one.
+
+The comment itself is good behaviour and should be kept — it names the widget and says what
+would be lost. The gap is that it is addressed to a human, while `check` is what a pipeline
+asks, and `check` says clean.
+
+**Workaround:** place the File Manager in Studio Pro, or through the MCP write path with Studio
+Pro on the same machine. Build everything else (entity, association, validation, list, form)
+from MDL, and never regenerate that page with `CREATE OR REPLACE PAGE` afterwards — use
+`ALTER PAGE` so the widget is never in the rewritten region. Grep a generated script for
+`NOT re-executable` before executing it; that string is the only signal there is.

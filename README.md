@@ -106,6 +106,19 @@ network hop with path translation on every file argument. The toolkit does none 
 Git Bash runs where Studio Pro, `mxcli` and your model already live, and ships with Git for
 Windows. `doctor.sh` detects WSL and warns.
 
+**This is about the shell you type in, not about Docker.** Docker Desktop on Windows runs its
+engine on a WSL2 backend, and VS Code will offer to "install Docker on WSL" the first time you
+reopen an `mxcli new` project in its Dev Container — say yes. That is the `devcontainer` lane
+(`CONVERSION-RUNBOOK.md` → *Where you run this*), headless and fully supported; `doctor.sh`
+detects it and records it. The warning above applies only when you run the toolkit's scripts
+*yourself* from a WSL prompt against a Studio Pro on the Windows side. Real question, 2026-09-07:
+"the toolkit says not WSL, but `mxcli new`'s Dev Container wants Docker on WSL — yes or no?" Yes.
+
+**The lanes mix freely on one project.** Do the headless stages in the Dev Container, then open
+the same `.mpr` in Studio Pro from Git Bash for the MCP write modes and UI polish, and go back.
+The only rule is one writer at a time: do not have the container building or writing the `.mpr`
+while Studio Pro holds it open (`skills/handoff-to-studio-pro.md`).
+
 **Windows: install Python 3 from python.org with "Add python.exe to PATH" ticked.** If typing
 `python3` opens the Microsoft Store, that is the Store *alias stub*, not an interpreter. The
 toolkit detects and skips it, but turn it off anyway: Settings → Apps → Advanced app settings →

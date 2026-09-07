@@ -119,21 +119,9 @@ the same `.mpr` in Studio Pro from Git Bash for the MCP write modes and UI polis
 The only rule is one writer at a time: do not have the container building or writing the `.mpr`
 while Studio Pro holds it open (`skills/handoff-to-studio-pro.md`).
 
-```mermaid
-flowchart TB
-    C["☁︎ Cloud<br/>Claude Code web/mobile<br/>nothing to install · headless · ephemeral, push at every gate"]
-    D["▣ Dev Container<br/>VS Code + Docker Desktop / Codespaces<br/>toolchain pinned · headless · on your disk"]
-    L["⌂ Local + Studio Pro<br/>Mac terminal or Git Bash on Windows<br/>everything above + MCP live edits + SP-only ops"]
-    S["ONE project folder · one git repo · one .mpr<br/>PROJECT.md, gates, dashboard identical in every lane"]
-    C <--> S
-    D <--> S
-    L <--> S
-    W["Windows: Docker Desktop's WSL2 backend ✓ (say Yes)<br/>a WSL prompt as your shell next to Studio Pro ✗ (use Git Bash)"]
-    W -.- D
-    W -.- L
-    R["Rhythm: build headless (☁︎/▣) → open the same .mpr in Studio Pro (⌂) → back.<br/>One writer at a time: never build in the container while SP holds the .mpr."]
-    S --- R
-```
+![Where you run this: cloud, Dev Container and local + Studio Pro all work on one project folder, one git repo, one .mpr; Windows: Docker Desktop's WSL2 backend is fine, a WSL prompt as your shell next to Studio Pro is not; build headless, polish in Studio Pro, one writer at a time](docs/where-you-run-this.svg)
+
+*Source: `toolkit-guide.html` → section 5, which also has the side-by-side table.*
 
 **"Why a Dev Container instead of just working locally?"** The container is where the build is
 *reproducible* — a colleague clones and gets the identical Java, Node and mxcli from

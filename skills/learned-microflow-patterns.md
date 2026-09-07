@@ -471,3 +471,29 @@ change $Order ("ProblemMessage" = empty) refresh;
 ```
 
 Using `''` in IF conditions and RETRIEVE WHERE clauses is fine. The restriction is specific to CHANGE/CREATE activity value assignments. Confirmed Mendix 11.12.0 Beta, 2026-07-17.
+
+## Per-row isolation in a loop: three Mendix facts, one afternoon (2026-09-07, a sales-coaching build)
+
+The pattern "loop over rows, one bad row must not sink the file" costs three failed runs if you
+do not know these; each was learned from the runtime log of an import of 222 Salesforce rows.
+
+1. **No custom error handling inside a loop body — CE0644.** `on error continue` and
+   `on error { ... }` on a call inside `loop ... end loop` both fail mxbuild. Move the guarded
+   call into a wrapper microflow (`SUB_X_Safe` that calls `SUB_X on error ...`) and have the
+   loop call the wrapper. `mxcli check` warns MDL006 for this; the warning is right.
+2. **`on error { ... }` is custom WITH rollback, and the rollback is the whole outer
+   transaction.** With it in the wrapper, the last row of the file failing undid 158
+   successfully created deals while the run's own counters (changed in the outer flow after the
+   fact) said "Succeeded, 158 created". Use `on error without rollback { ... }`: the failing
+   call's changes are discarded, everything before it stays.
+3. **`substring($s, 0, 200)` throws when `$s` is shorter than 200** ("Range [0, 200) out of
+   bounds for length 53"). Guard it: `if length($s) > 200 then substring($s, 0, 200) else $s`.
+   A truncation added for one long row broke every short one.
+
+And the diagnostic that made 2 and 3 visible: a custom handler swallows the exception, so log
+`$latestError/Message` inside it. Sixty-four rows failed with no message anywhere until then.
+
+Count a "rejected" outcome from the rows after the loop (`retrieve ... where State = Rejected`
++ aggregate), not by incrementing in the loop: a row whose sub-transaction rolled back is both
+"returned Rejected" and "still Pending", and gets counted twice.
+

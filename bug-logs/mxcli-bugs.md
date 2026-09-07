@@ -4049,3 +4049,47 @@ Pro on the same machine. Build everything else (entity, association, validation,
 from MDL, and never regenerate that page with `CREATE OR REPLACE PAGE` afterwards — use
 `ALTER PAGE` so the widget is never in the rewritten region. Grep a generated script for
 `NOT re-executable` before executing it; that string is the only signal there is.
+
+## BUG-117 (toolkit `bin/exec.sh`, not mxcli): the mxbuild gate passes relative to a broken BASELINE — "Gate passed (mxbuild-clean)" printed while the model carries an error
+
+**Severity:** High — the gate's whole purpose is "the model deploys after this script"; it can say yes when the answer is no
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27) · toolkit `exec.sh` as of 2026-09-07
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07 (a sales-coaching build, third apply of one microflow script)
+**Reproducible:** yes, given a model that already has an error
+
+`exec.sh` runs a pre-flight ("Model ALREADY has 1 error(s) [CE0644] before this script runs") and
+then judges the script by the DELTA: if the post-apply error set is no worse than the baseline,
+it prints `✓ Script applied` and `Gate passed (mxbuild-clean)`. The model still has the error.
+Two lines earlier it even says "The model still will not deploy until those are cleared in
+Studio Pro" — and then passes the gate. The app would not have started.
+
+How the baseline got broken is BUG-118. But the gate must not depend on that: a script is not
+safe to build on if the model does not build, whoever broke it.
+
+**Workaround:** read `.mpr-snapshots/last-mxbuild-errors.json` yourself after every apply; an
+absent file is clean, a present one is not, regardless of what the gate printed.
+**Fix:** the gate should FAIL (or at least refuse the "mxbuild-clean" wording) whenever the
+post-apply error count is non-zero, and say "pre-existing" separately.
+
+## BUG-118: `exec.sh` snapshot restore after a failed apply leaves page edits in place — second field case of BUG-106's family
+
+**Severity:** High — the next apply then fails on its own widget names, and a baseline error can survive (BUG-117)
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27) · toolkit `exec.sh` as of 2026-09-07
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07 (a sales-coaching build)
+**Reproducible:** twice in one afternoon
+
+A script with microflows followed by `ALTER PAGE ... INSERT` failed mxbuild (CE0161/CE0079 in a
+microflow). `exec.sh` reported "restoring snapshot". Afterwards `SHOW MICROFLOWS` showed the
+microflows gone — but `DESCRIBE PAGE` showed the inserted card still present, and `git status`
+showed one modified `.mxunit` plus two new unit directories. The next apply of the corrected
+script created the microflows and then failed with `duplicate widget name 'pnlImport'`; the
+model was left in the intended state by accident. Later the same afternoon a restore left a
+microflow with CE0644 behind, which is how BUG-117's baseline came to be broken.
+
+**Workaround:** after any restore, `git status app/` and `git checkout HEAD -- app/DealIQ.mpr
+app/mprcontents/ && git clean -fdq app/mprcontents/` (the project's documented full restore) —
+which requires having committed before the apply. Commit before every apply.
+**Fix:** the restore should be the git restore, or at least verify the unit set matches the
+snapshot's.

@@ -4341,3 +4341,172 @@ Also: the SDK's real endpoints are `projectservice.mendix.com`, `repository.api.
 `git.api.mendix.com` and `deploy.mendix.com`. `api.mendix.com` is **not** on the create/push/deploy
 path, so an allowlist built around it will not help; only `model.api.mendix.com` (Model Server
 working copies) is additionally needed, and only for SDK-driven model edits.
+
+## BUG-117: Widget-property writer silently drops any unsupported property name, on any widget type, with no MDL-WIDGET07 warning
+
+### Symptom
+
+Writing a property name that the target widget's real schema does not support round-trips
+clean through every mxcli-side check and gives no indication anything was lost:
+`mxcli check --references` reports "Check passed!" with zero warnings (specifically, no
+MDL-WIDGET07 — the exact warning `create-page/SKILL.md` documents as existing for this class of
+problem), `mxcli exec` reports success ("Replaced"/"Altered page"), and even the real,
+flagless `mx check` reports 0 errors. The property is simply absent from the persisted `.mpr` —
+confirmed via `DESCRIBE PAGE` after the write.
+
+Confirmed in two independent instances against the same page (`Practice.Vocab_Flashcards`,
+paging a flashcard deck one item at a time):
+
+1. **LISTVIEW**: `listview lvTerms (PageSize: 1, Pagination: buttons, PagingPosition: bottom)`
+   — after exec, `DESCRIBE PAGE` shows only `PageSize: 1` persisted; `Pagination` and
+   `PagingPosition` are entirely absent from the output, not merely defaulted. The running app
+   rendered a plain "Load more..." button, not Prev/Next paging, confirmed by screenshot.
+   `create-page/reference/widgets.md`'s "Paging Properties" table (which documents
+   `PageSize`/`Pagination`/`PagingPosition`/`ShowPagingButtons`) sits only under
+   `### DATAGRID Widget` — LISTVIEW has no such paging-mode properties in its real schema at
+   all, yet mxcli's shorthand grammar accepts all three names on a `listview (...)` block
+   without complaint.
+
+2. **GALLERY shorthand**: rebuilt the same flashcard as
+   `gallery galTerms (DesktopColumns: 1, TabletColumns: 1, PhoneColumns: 1, PageSize: 1,
+   Pagination: buttons, PagingPosition: bottom)`. Same result — `DESCRIBE PAGE` showed none of
+   `PageSize`/`Pagination`/`PagingPosition` (nor, this time, `DesktopColumns`/`TabletColumns`/
+   `PhoneColumns`, which `widgets.md`'s `### GALLERY Widget` section *does* document). Root-caused
+   via `mxcli widget describe gallery -p ToeicBuddy.mpr`: the widget's real pluggable-widget
+   schema property keys are `pageSize`/`pagination`/`pagingPosition`/`desktopItems`/
+   `tabletItems`/`phoneItems` — different names entirely from the shorthand grammar's own
+   documented property names. The shorthand silently accepts the wrong (shorthand-documented)
+   names and drops them on write, rather than either accepting them and mapping them to the
+   real schema keys, or rejecting them with MDL-WIDGET07.
+
+### What was tried, and ruled out
+
+- Re-reading `create-page/reference/widgets.md` for each widget type before writing — the
+  properties used were exactly as documented for GALLERY; the doc itself is the source of the
+  wrong names for GALLERY (case 2), and for LISTVIEW the doc never listed the properties at all
+  (case 1's mistake was assuming DATAGRID-only properties would still no-op safely; instead
+  they silently "succeeded" while doing nothing).
+- Isolating each case in a single-widget test file with no other page content, to rule out any
+  cross-widget interference — same silent-drop result each time.
+- Checking `mxcli check --references` output specifically for MDL-WIDGET07 (the warning
+  `create-page/SKILL.md` documents as existing for "a built-in widget carr[ying] an unrecognized
+  property") — never emitted in either case, despite both being exactly the scenario that
+  warning is documented to catch.
+
+### Root cause (inferred)
+
+mxcli's widget-property writer validates/warns for *some* unrecognized property names (per
+`create-page/SKILL.md`'s documented MDL-WIDGET07 behavior) but not consistently across all
+widget types and all property names — LISTVIEW accepting DATAGRID-only paging properties, and
+the GALLERY shorthand accepting property names that don't match its own underlying
+pluggable-widget schema, both slip through with zero warning at any check stage. This suggests
+MDL-WIDGET07's unsupported-property detection is scoped to a subset of widgets/properties
+rather than validating every written property against the target widget's actual schema.
+
+### Workaround
+
+For a pluggable widget (GALLERY, DATAGRID2, etc.), bypass the shorthand grammar entirely and
+write directly against the widget's real internal schema property name using the bulk
+`update widgets` command:
+
+```
+./mxcli -p ToeicBuddy.mpr -c "update widgets set 'pageSize' = 1 where name = 'galTerms' in Practice;"
+```
+
+(`mxcli widget describe <type> -p <project>.mpr` reveals the real schema key names first; the
+`update widgets` catalog column for widget-name filtering is `Name`, capitalized.) This has no
+equivalent for a genuinely native (non-pluggable) widget like LISTVIEW that simply doesn't
+support the property at all — there, the only fix is choosing a widget type whose real schema
+supports the desired behavior (in this case, rebuilding as a GALLERY).
+
+### How to fix (suggested)
+
+Validate every property name written to every widget type — shorthand or pluggable — against
+that widget's actual resolved schema (the same data `mxcli widget describe` already reads) at
+write time, and emit MDL-WIDGET07 (or fail outright) for any name that doesn't match, rather
+than scoping that check to a subset of widgets. Additionally, `create-page/reference/
+widgets.md`'s "Paging Properties" table should state explicitly that it applies to DATAGRID
+only, and the GALLERY section should document the real schema key names since they differ from
+the shorthand property names shown in its own example.
+
+**Discovered:** 2026-08-25, ToeicBuddy-conversion field run (a Vocab_Flashcards page needing
+one-card-at-a-time paging), confirmed via `DESCRIBE PAGE` round-trip, `mxcli widget describe`,
+and a running-app screenshot before/after the `update widgets` workaround.
+
+## BUG-118: `ALTER PAGE ... REPLACE` targeting a widget nested inside a GALLERY template's child slot drops the new widget's ContentParams/attribute binding
+
+> **Almost certainly the same defect as BUG-114**, found five weeks earlier on a different
+> project and logged here at its original discovery date rather than folded in, because the
+> symptom differs and the difference may be diagnostic. BUG-114: the binding is **re-scoped** to
+> the page's outer data context, so it names a real-but-wrong entity and fails at `mxbuild` with
+> CE1613. Here: the binding is **dropped outright** — `DESCRIBE PAGE` prints a literal
+> `<unbound>` — and fails the real `mx check` with CE0402. Same write path (`ALTER PAGE REPLACE`
+> + `ContentParams` + a widget nested in a template), two different wrong outcomes. Whoever fixes
+> BUG-114 should check this case falls out of the same fix; if it does, merge the two.
+
+### Symptom
+
+`alter page Module.Page { replace <widgetInsideGalleryTemplate> with { container c { dynamictext
+d (Content: '{1}', ContentParams: [{1} = SomeAttr]) } } }` — replacing a single dynamictext
+nested inside a GALLERY widget's template with a new wrapping container + dynamictext, with an
+explicit `ContentParams` binding to an entity attribute — builds and executes with no error
+(`mxcli check --references`: clean; `mxcli exec`: "Altered page Practice.Vocab_Flashcards", no
+warning), but the real, flagless `mx check` gate fails:
+
+```
+[error] [CE0402] "No value specified." at Text 'flashTermG2'
+```
+
+`DESCRIBE PAGE` after the exec shows the binding was dropped outright, not merely
+mis-resolved: `ContentParams: [{1} = <unbound>]`. Reproduced with both documented forms of the
+attribute reference — bare (`Term`) and explicitly qualified (`$currentObject/Term`) — same
+result both times.
+
+The equivalent operation at the *top level* of a page (replacing a widget that is a direct
+child of the page body, not nested inside a pluggable widget's template) does correctly carry
+bindings through — confirmed working in the same project, same session, replacing a top-level
+LISTVIEW with a GALLERY (see BUG-117's case 1 fix) — so this appears specific to a REPLACE
+target being nested inside a pluggable widget's template/child-slot, not a general REPLACE
+defect.
+
+### What was tried, and ruled out
+
+1. Bare attribute reference in `ContentParams: [{1} = Term]` — dropped.
+2. Explicitly qualified `ContentParams: [{1} = $currentObject/Term]` — also dropped, ruling out
+   an attribute-rooting/context-resolution guess as the cause.
+3. Confirmed the top-level (non-nested) REPLACE case works correctly in the same project, in the
+   same session, immediately prior — ruling out a general REPLACE-and-ContentParams
+   incompatibility; the defect is specific to the nested-inside-a-template case.
+
+### Root cause (inferred)
+
+mxcli's `alter page ... replace` writer resolves a new widget's attribute/ContentParams
+bindings correctly when the target is a direct child of the page's own widget tree, but does
+not correctly thread that binding through when the REPLACE target is nested one level inside a
+pluggable widget's template/child-slot (as GALLERY's per-item template is). The binding is
+dropped entirely rather than mis-scoped, suggesting the binding-resolution code path for
+nested-template REPLACE either doesn't run or resolves against the wrong (or no) data context.
+
+### Workaround
+
+Avoid REPLACE for any widget nested inside a pluggable widget's template if the replacement
+carries a data binding (ContentParams, Attribute, etc.). Use `alter page ... { set Class = '...'
+on <existingWidgetName>; }` (or other SET-based property changes) against the *already-existing,
+already-bound* widget instead of replacing it with a newly-constructed one — this correctly
+preserves the binding since the widget itself, not its data reference, is what's being modified.
+
+### How to fix (suggested)
+
+When resolving bindings for a REPLACE inside `alter page`, the binding-resolution logic should
+use the same code path regardless of nesting depth or whether the target sits inside a
+pluggable widget's template — most likely the fix is in how the target widget's ambient data
+context (`$currentObject` and friends) is determined for a REPLACE, so it correctly recognizes a
+target nested inside a GALLERY/LISTVIEW/DATAGRID template as inheriting that widget's item-level
+context, the same way an INSERT into that same template already does (confirmed: the original
+GALLERY template in the same script, built via a top-level REPLACE that ADDED this whole
+template fresh, has correctly-bound ContentParams on its siblings — only a REPLACE targeting an
+*existing* widget already inside that template loses the binding on the new widget it writes).
+
+**Discovered:** 2026-08-25, ToeicBuddy-conversion field run (styling a flashcard's term inside a
+GALLERY template), confirmed via a real `mx check` CE0402 build error (not a silent drop — the
+gate caught it) plus `DESCRIBE PAGE`'s literal `<unbound>` output.

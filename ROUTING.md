@@ -203,6 +203,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet | `skills/wizard-walkthrough.md` | gate,review | P,7 | experimental |
 | Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection | `skills/preview-over-hub-tunnel.md` | test,review | 5,6 | ondemand |
 | Starting a hub-tunnelled preview with the flags outbound calls actually need — wraps mxcli run --hub with db-name and the runtime proxy settings from preview-over-hub-tunnel.md | `bin/run-hub.sh` | test | 5,6 | ondemand |
+| Linking a project to the Mendix platform — creating a Team Server app, pushing an existing model into it, or deploying to a cloud environment; also when the Platform SDK returns 403, git rejects the PAT, or a deploy cannot be triggered from a PAT | `skills/platform-link.md` | all | 7 | ondemand |
 
 #### Diagnose — something is broken and it may be the tooling
 

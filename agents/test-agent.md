@@ -63,6 +63,7 @@ and `"DESCRIBE ..."` reads are always fine, and are how you ground every name yo
 | `skills/handoff-to-studio-pro.md` | Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step |
 | `skills/preview-over-hub-tunnel.md` | Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection |
 | `bin/run-hub.sh` | Starting a hub-tunnelled preview with the flags outbound calls actually need — wraps mxcli run --hub with db-name and the runtime proxy settings from preview-over-hub-tunnel.md |
+| `skills/platform-link.md` | Linking a project to the Mendix platform — creating a Team Server app, pushing an existing model into it, or deploying to a cloud environment; also when the Platform SDK returns 403, git rejects the PAT, or a deploy cannot be triggered from a PAT |
 <!-- ROUTING:END -->
 
 ## Before you start

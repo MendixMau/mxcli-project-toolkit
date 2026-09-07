@@ -59,6 +59,7 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 | `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
 | `skills/learned-mdl-cannot-express.md` | Before a wireframe or a design commits to a WIDGET — and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time |
+| `skills/platform-link.md` | Linking a project to the Mendix platform — creating a Team Server app, pushing an existing model into it, or deploying to a cloud environment; also when the Platform SDK returns 403, git rejects the PAT, or a deploy cannot be triggered from a PAT |
 <!-- ROUTING:END -->
 
 ## Ground rules

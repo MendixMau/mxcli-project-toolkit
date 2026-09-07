@@ -3951,3 +3951,393 @@ build with a timeout. A warning followed by an unbounded blocking call is the wo
 **Workaround:** create in a short path (`/tmp/<short>/`), or pass `--skip-build` — the project
 `mxcli new` produces without step 6 is fully usable for MDL work (verified: `SHOW MODULES`,
 `exec`, and native `mx check` all work against it).
+
+## BUG-113: OQL `!= NULL` against a reference association is unreliable — `= NULL` returns 0 even with live orphans, `!= NULL` returns a number that happens to be right for the wrong reason
+
+**Severity:** Medium — silently wrong result from a query that looks like it works
+**Discovered:** 2026-09-02, a dashboard-publishing migration project
+**Reproducible:** Yes, on the live project's data — see below
+**Mendix version:** 11.12.1
+**mxcli version when found:** v0.20.0
+
+### Steps to reproduce
+On a persistent entity `Child` with a `Reference` association `Child_Parent` to `Parent`
+(delete_behavior on the association does not matter — this reproduces even when it is
+correctly configured and the cascade genuinely works), where the database holds a mix of rows
+with a live parent and rows whose parent has been deleted:
+
+```
+mxcli oql -p project.mpr "SELECT id FROM Module.Child WHERE Module.Child_Parent = NULL"
+mxcli oql -p project.mpr "SELECT id FROM Module.Child WHERE Module.Child_Parent != NULL"
+mxcli oql -p project.mpr "SELECT id FROM Module.Child"
+```
+
+### Expected behavior
+`= NULL` count + `!= NULL` count = total count, and `= NULL` count is the true number of
+orphaned rows (no live parent).
+
+### Actual behavior
+On the reproducing project: total 72, `!= NULL` 66, `= NULL` **0**. 0 + 66 ≠ 72 — six rows are
+counted by neither comparison. `= NULL` against the reference returned zero even though six
+genuinely orphaned rows existed (independently confirmed: the entity's own denormalised rollup
+attribute, maintained by a separate microflow on every write, summed to exactly 66 — a second,
+unrelated code path agreeing with the `!= NULL` figure and disagreeing with the total). A live
+probe (create a child, delete its parent through the app's own delete microflow, recount)
+confirmed the cascade genuinely removes the row — so the six pre-existing orphans are real, and
+`= NULL` simply fails to find them.
+
+### Root cause (inferred)
+`!= NULL` against a reference association appears to be translated as something closer to an
+inner join ("the association resolves to a real row") rather than a true `IS NOT NULL`, and
+`= NULL` against the same association does not translate to `IS NULL` at all — it silently
+matches nothing, for a reference, regardless of how many rows are genuinely unset. Untested
+whether this holds for other association types (Reference-Set) or only single Reference.
+
+### Workaround
+Do not compare a reference association to `NULL` in OQL for either presence or absence.
+Cross-check via an independent, already-maintained aggregate instead (a denormalised
+count/rollup attribute on the parent side, or an application-level accounting) rather than
+trusting either comparison's row count on its own.
+
+## BUG-114: `ALTER PAGE ... REPLACE widget WITH {...}` re-scopes an inherited `ContentParams` reference to the page's OUTER data context — reproduced twice, independently, same project
+
+**Severity:** High — silent CE1613 build failure, and the app is DOWN until reverted
+**Discovered:** 2026-09-01, re-confirmed independently 2026-09-02, both on the same
+dashboard-publishing migration project
+**Reproducible:** Yes, twice, on two different widgets on two different pages
+**Mendix version:** 11.12.1
+**mxcli version when found:** v0.20.0
+
+### Steps to reproduce
+On a page with nested data-source scopes — an outer data view over entity `A`, containing a
+selection-driven inner data view (or a gallery template) over entity `B` — where a
+`dynamictext` widget inside the INNER scope binds `ContentParams` to an attribute of `B`:
+
+```
+ALTER PAGE Module.Page {
+  REPLACE txtInner WITH {
+    DYNAMICTEXT txtInner (Content: '{1} · {2}', ContentParams: [{1} = SomeAttrOfB, {2} = OtherAttrOfB])
+  }
+}
+```
+
+### Expected behavior
+The replacement widget's `ContentParams` resolve against `B` (the enclosing data view's
+context), same as the original widget it replaces — `DESCRIBE PAGE` prints exactly this.
+
+### Actual behavior
+`mxbuild` refuses to deploy: `CE1613 "The selected attribute 'Module.A.SomeAttrOfB' no longer
+exists."` — the reference was silently re-scoped to `A`, the PAGE's outermost data context, not
+`B`, the widget's actual enclosing context. `mxcli check --references` and the exec itself both
+report success; `DESCRIBE PAGE` immediately afterward prints the MDL back correctly, with the
+right attribute names in the right position — the corruption is invisible to every mxcli-side
+read. It surfaces only at `mxbuild`/Studio Pro load time, by which point the running app is down
+(the previous build's `app/deployment/` gets overwritten by a build that then fails).
+
+**Both confirmed occurrences, for corroboration:**
+1. `txtPreviewPeriod` on a `Version_View`-style page, inside a selection data view over
+   `DashboardVersion` nested in a page-level data view over `Dashboard`. `ContentParams: [{1} =
+   PeriodLabel]` re-resolved to `Dashboard.PeriodLabel` (does not exist) instead of
+   `DashboardVersion.PeriodLabel`.
+2. `txtVersionMeta` on a `Dashboard_Detail`-style page, same shape: a gallery template's
+   dynamictext, `ContentParams: [{1} = SizeLabel, {2} = UploadedAt]`, re-resolved to
+   `Dashboard.SizeLabel`/`Dashboard.UploadedAt` (neither exists on `Dashboard`) instead of the
+   gallery's own row entity.
+
+### Root cause (inferred)
+`REPLACE`'s attribute-reference resolution appears to walk up to the page's outermost bound
+entity rather than the widget's own immediate enclosing data-source scope — plausible if the
+replace operation reconstructs the widget against the PAGE's top-level binding context rather
+than diffing it in at its actual tree position.
+
+### Workaround
+Never `REPLACE` a widget that carries `ContentParams` referencing anything below the page's
+outermost data view. Two narrower routes both work:
+- If only the surrounding text/template needs to change and the SAME attribute stays bound,
+  `SET Content = '...'` alone (leaving the existing `ContentParams` untouched) is unaffected by
+  this bug — confirmed working, occurrence 1's actual fix.
+- If the attribute reference itself must change (a genuine rebind, not just rewording), no
+  narrower ALTER PAGE form exists today — `SET ContentParams = [...]` is rejected at parse
+  entirely (not a MDL044/CE0117 case — a hard syntax error, no such settable property), and
+  per-index forms (`ContentParams[0] = ...`, `ContentParams.0 = ...`) are rejected the same way.
+  This needs Studio Pro.
+
+### Recommended upstream fix
+`REPLACE`'s attribute-reference resolver should bind against the widget's actual position in the
+page tree (its nearest enclosing data source), not the page's outermost one — and `mxcli check`
+should catch this class of mis-scope BEFORE exec, the same way it already catches other
+reference errors, rather than deferring entirely to `mxbuild`/Studio Pro after the write has
+already landed and the running app has already gone down.
+
+---
+
+## BUG-115: the file-upload widget cannot be authored in MDL at all, and a page carrying one is permanently non-round-trippable
+
+**Severity:** High — blocks the primary journey of any app that accepts a file, and forces Studio Pro into an otherwise headless pipeline
+**Reproducible:** Yes, consistently
+**Mendix version:** 11.12.1
+**mxcli version:** v0.20.0 (2026-08-28) — re-verified on this version, not carried forward from an earlier note
+
+### Symptom
+
+There is no way to place a file-upload control on a page from MDL. Both available spellings fail,
+for two different reasons:
+
+**1. The built-in `Forms$FileManager` has no MDL keyword.**
+
+```mdl
+create or replace page Mod."ProbeFM" (Title: 'p') {
+  filemanager fm1 (Attribute: Contents)
+}
+```
+```
+line 2:2 missing '}' at 'filemanager'
+```
+
+That is a *parse* error, not an unknown-property error — the grammar has no such widget, so there
+is nothing to misconfigure. `mxcli syntax page.widgets` lists the full keyword set and contains no
+file-shaped entry.
+
+**2. The pluggable `com.mendix.widget.web.fileuploader.FileUploader` parses but fails at exec:**
+
+```
+no definition for widget com.mendix.widget.web.fileuploader.FileUploader
+```
+
+`mxcli widget init` extracts widget definitions from the project's own `widgets/*.mpk` and found 42;
+FileUploader is not among them, because it is **Studio-Pro-bundled rather than shipped as an
+`.mpk`** — it appears in that command's `9 skipped (built-in)` count, and its only trace anywhere
+in the project tree is an Atlas locale file. So the definition mxcli needs to serialise it does not
+exist on disk to be extracted.
+
+### Consequence: the page is permanently un-round-trippable
+
+Once a human adds the widget in Studio Pro (which is the only way to unblock the app), `DESCRIBE
+PAGE` emits this in its place:
+
+```
+container ctnFileGap (Class: 'field') {
+  -- Forms$FileManager (fileManager1)  -- NOT re-executable: mxcli cannot author this widget, so re-running this script would drop it
+}
+```
+
+**Credit where it is due: mxcli warns loudly rather than dropping it silently**, which is the right
+behaviour and much better than the alternative. But the effect is that `DESCRIBE PAGE` output for
+this page is no longer round-trippable, which is the property the command is otherwise relied on
+for, and any `create or replace page` regenerated from it deletes a widget a human added by hand.
+
+On the project where this was found that forced a standing house rule — *ALTER PAGE only, never
+`create or replace page`, on the page carrying the file widget* — which then has to be remembered
+by every future session and every agent, forever, with silent data loss as the failure mode if it
+is not. That rule is the actual cost of this bug, more than the initial block.
+
+### Impact measured
+
+Uploading a version was the app's central action, so this blocked the primary end-to-end journey in
+the browser until a human opened Studio Pro. Everything behind the widget — the upload action, the
+validation microflow including a content sniff, the version-number allocator, the parent rollup, and
+the write grant on `Contents` — was built and gate-clean the whole time. A headless build reached
+100% of the feature except the one control that lets a user reach it.
+
+### Ask
+
+Author support for `Forms$FileManager` in MDL, and more generally for the Studio-Pro-bundled
+built-in widget family that `widget init` currently reports as `skipped (built-in)`. These widgets
+cannot be supplied by the project (there is no `.mpk` to add), so unlike a marketplace widget there
+is no user-side workaround at all — the definition has to come from mxcli or from Studio Pro.
+
+### One loose end, NOT verified
+
+`ALTER PAGE ... SET Caption = 'x' ON fileManager1` **passes** `mxcli check -p ... --references`,
+including `Expression types OK`, against the real model. It was not executed, so whether an
+`ALTER PAGE SET` against a widget mxcli cannot author actually works, silently no-ops, or corrupts
+the unit is **unknown**. Worth establishing, because a check that passes on an unauthorable widget
+is the `learned-detection-gaps` shape.
+
+---
+
+## BUG-116: deploying from a PAT means the Pipelines API, and nothing points you there — the Deploy API is a dead end that looks like the answer
+
+**Severity:** Medium — not a defect in mxcli, a gap that stops an otherwise fully automatable pipeline one step from the end
+**Reproducible:** Yes
+**Mendix version:** 11.12.1 (app), 11.14.0 (template the platform created)
+**mxcli version:** v0.20.0
+**Status:** part platform-API gap, part mxcli feature request — written up together because neither half is actionable alone
+
+### What works, end to end, with only a PAT
+
+Creating an app and populating its Team Server repository is fully automatable and was done
+headlessly from a cloud container:
+
+1. `mendixplatformsdk@5.2.0` `createNewApp` → `POST /rest/projectservice/v1/projects` → app ID
+2. `GET /v1/repositories/<appId>/info` → `{"type":"git","url":"https://git.api.mendix.com/<appId>.git"}`
+3. `git push` to that URL — username is the literal string **`pat`**, password is the PAT
+   (an email address as the username is rejected: `remote: Invalid username or password`)
+
+### Where it stops
+
+The app now has a repository and **no deployment target**, and there is no PAT-authenticated way to
+create one:
+
+| call | with PAT | meaning |
+|---|---|---|
+| `GET /api/v4/apps` | `200`, full app list | the PAT's deploy scopes are fine |
+| `GET /api/v4/apps/<newAppId>/environments` | `404 Application not found` | Deploy API does not know an app that has no environment |
+| `POST /api/v4/apps` | `405 Method not allowed` | v4 manages environments, it does not provision them |
+| anything on `/api/1/...` | `400 INVALID_CREDENTIALS` | Deploy API v1 wants legacy `Mendix-Username` + `Mendix-ApiKey`, not `Authorization: MxToken` |
+
+So the first deploy is a **human action in the Developer Portal or Studio Pro**, in the middle of a
+pipeline that is otherwise scriptable from a container with no GUI. For AI-assisted or CI-driven
+work that is the one unautomatable step, and it lands at exactly the point where the work becomes
+demonstrable to anyone else.
+
+### Is it automatable? Partly — and the missing piece is small
+
+Deploy API **v1 is believed to carry a "create sandbox application" endpoint** taking an existing
+`ProjectId` (`POST /api/1/apps/`), which is precisely the operation needed. **NOT VERIFIED** — no
+legacy API key was available in this environment to test with, and `docs.mendix.com` was unreachable
+through the network policy, so this is recalled rather than measured. What *was* measured is that
+v1 returns `INVALID_CREDENTIALS` (a 400 that parsed the request and rejected the auth) rather than
+`404`, which is consistent with the endpoint existing.
+
+### CORRECTION, same day: this is wider than the first deploy
+
+The entry above was written believing only the *initial* provisioning needed a human. Measured
+after the environment existed: **every deploy does.** With the Free App sandbox created and
+`running`, v4 still has no build or deploy surface —
+
+| call | with PAT |
+|---|---|
+| `GET /api/v4/apps/<id>/environments/<env>/deployments` | `404` |
+| `POST /api/v4/apps/<id>/environments/<env>/deployments` | `404` |
+| `GET /api/v4/apps/<id>/environments/<env>/packages` | `404` |
+| `POST /api/v4/apps/<id>/packages` | `404` |
+
+— so v4 is effectively read-only: it lists apps and environments and nothing else. The whole
+build/deploy surface is v1, which rejects PATs:
+
+| call | with PAT | what it tells us |
+|---|---|---|
+| `GET /api/1/apps/<id>/environments/Sandbox` | `400 INVALID_CREDENTIALS` | endpoint exists, auth refused |
+| `GET /api/1/apps/<id>/packages` | `400 INVALID_CREDENTIALS` | endpoint exists, auth refused |
+| `GET /api/1/apps/<id>/environments/Sandbox/start` | **`405 Method not allowed 'GET'`** | **routing resolved BEFORE auth** — the endpoint is real and takes a POST |
+
+That last row is the strongest evidence in this entry: a `405` naming the method, rather than a
+`400` about credentials, means the path exists and is waiting for the right verb. The capability
+is there; a PAT simply cannot reach it.
+
+**So the practical shape of the gap is:** push a model change to Team Server headlessly — fine,
+fully automatable, done repeatedly. Get it running — a human opens the portal, every single time.
+For CI or agent-driven work that is not a one-off setup cost, it is a permanent manual step in the
+middle of every iteration.
+
+### SECOND CORRECTION — the first correction was also wrong, and this is the resolution
+
+The correction above concluded "no PAT can deploy at all". **That is false.** It was reasoned from
+the Deploy API alone, which is the API every search result and every instinct points at, and which
+genuinely cannot do it. The mistake was treating one API's dead end as the platform's answer.
+
+The scope list on a Mendix PAT settings page names the surfaces that actually exist:
+`mx:deployment:read` / `mx:deployment:write` under "Deployment Mendix Cloud", and
+`mx:pipelines:read` / `mx:pipelines:write` under "Pipelines". Those scopes are meaningless if no
+PAT-accepting endpoint consumes them — so the endpoint had to exist, and the Deploy API was simply
+the wrong place to look.
+
+**It is the Pipelines API**, and the docs are machine-readable:
+`https://docs.mendix.com/openapi-spec/pipelines.yaml`
+
+```
+servers:  https://pipeline-portal.home.mendix.com/api/v1
+POST /apps/{appId}/runs      startRun     scope mx:pipelines:write
+GET  /apps/{appId}/runs/{runId}/status    scope mx:pipelines:read
+```
+
+Verified live against a real app with a PAT:
+
+| call | result | reading |
+|---|---|---|
+| `POST /api/v1/apps/<appId>/runs` with a zeros UUID | `404 Not Found` | **auth PASSED** — a scope failure would be 401/403 |
+| `GET /api/v1/apps/<appId>/runs` | `405 Method not allowed 'GET'` | the POST route is live for this app |
+
+So a PAT **can** trigger a build-and-deploy. What it cannot do is create the thing it triggers:
+`startRun` needs the `pipelineId` of a **saved and activated pipeline design**, the spec has no
+endpoint to create or even LIST pipelines, and there is no way to discover the UUID from the API
+(`/apps/{id}/pipelines` → 404). So the human step shrinks from *every deploy* to *one pipeline
+setup*, and the UUID then has to be carried in project config.
+
+### THIRD CORRECTION — and the one that changes who this bug applies to
+
+Everything above assumes a **licensed** app. On a **Free App** none of it is automatable, and the
+`mxcli cloud deploy` ask below cannot help there at all.
+
+Mendix's own Free App limitations table: **Deployment — "Can only be deployed to the cloud from
+Mendix Studio Pro"**, against "Studio Pro, the Mendix Portal, or an API" for licensed apps. The
+Deploy API documentation agrees independently: *"Only Retrieve apps, Create Free App environment,
+and Retrieve app API calls are supported for Free Apps."*
+
+So on a Free App there is **no pipeline to trigger**. `startRun` needs a `pipelineId`, and there is
+nothing to create one from. The correction above ("a PAT CAN deploy, via the Pipelines API")
+stands for licensed apps and is **false for Free Apps** — which is the environment most people
+reach for first when trying this out, and therefore the environment in which the advice is most
+likely to be read.
+
+Two neighbouring limits found at the same time, because they bite anyone who reaches for a Free
+App to demo platform capabilities:
+
+- **Runtime settings: not available. Constants: Studio Pro only.** Which makes **OpenTelemetry
+  impossible on a Free App** — OTel is a runtime feature driven by `OTEL_*` env vars and runtime
+  settings, so it works anywhere the runtime runs *except* where those cannot be set.
+- **Metrics, alerts and log levels: not available. Historic app logs: not available — live logs
+  only.**
+
+None of this is an mxcli defect. It is recorded here because the entry above would otherwise send
+a reader to build automation against an environment that structurally cannot accept it.
+
+### What is actually worth reporting, after two wrong turns
+
+The bug is **discoverability**, and it is a real cost rather than a grumble. Three separate APIs
+serve overlapping concerns with no cross-reference between them:
+
+| API | host | auth | can it deploy? |
+|---|---|---|---|
+| Deploy API v4 | `deploy.mendix.com/api/v4` | PAT ✅ | **no** — read-only; lists apps and environments, 404 on every sub-resource tried (deployments, packages, backups, snapshots, deploy, transport, status, metrics) |
+| Deploy API v1 | `deploy.mendix.com/api/1` | `Mendix-ApiKey` only | yes, but no PAT reaches it |
+| **Pipelines API** | `pipeline-portal.home.mendix.com/api/v1` | **PAT ✅** | **yes** — the answer |
+
+The one that accepts a PAT and has "deploy" in its name cannot deploy. The one that can deploy is
+named "pipelines" and lives on an unrelated host. Two wrong conclusions were reached here before
+the PAT scope list — read off a settings page, not any API — pointed at the third.
+
+**The measurement that would have short-circuited all of it:** a `405` naming the method, rather
+than a `401` about credentials, means the path exists and auth passed. That single distinction
+separates "wrong credential" from "wrong URL", and it is what finally resolved this.
+
+### Two asks, in order of value
+
+1. **Platform (docs, not code):** cross-reference the three APIs. The Deploy API pages should say,
+   at the top, that PAT-authenticated deployment lives in the Pipelines API — and the Pipelines
+   pages should say that `startRun` requires a pipeline created in the portal first. Also worth an
+   endpoint to LIST an app's pipelines, since the UUID `startRun` requires is currently obtainable
+   only by reading it out of the portal UI by hand.
+2. **mxcli:** there is no cloud command at all today. `mxcli auth` stores a PAT and reaches only the
+   marketplace and catalog. If mxcli grew support for the legacy `Mendix-Username` + `Mendix-ApiKey`
+   scheme alongside PAT, it could wrap the v1 endpoint and close this without waiting on ask 1.
+   A `mxcli cloud deploy -p <project>` wrapping `POST /apps/{appId}/runs` on the Pipelines API,
+   with the `pipelineId` stored in project config beside the app ID, would make the whole
+   create → push → deploy chain scriptable with nothing but a PAT. mxcli is also the right place
+   to encode the routing lesson above, so the next person does not spend an afternoon in the
+   Deploy API concluding it cannot be done.
+
+### Trap worth documenting regardless of the above
+
+**The Platform SDK returns `403 Forbidden` on every call from a proxied container, and it is not a
+scope problem.** Node does not read `HTTPS_PROXY`, so the SDK bypasses the proxy and is refused at
+the network edge; `curl` with the same token on the same endpoint returns `200`. The fix is
+`NODE_USE_ENV_PROXY=1` (Node ≥ 22.21). This reads exactly like a missing PAT scope and cost a wrong
+diagnosis before the `curl` comparison exposed it — worth a line in any mxcli docs that tell people
+to use the Platform SDK from a container.
+
+Also: the SDK's real endpoints are `projectservice.mendix.com`, `repository.api.mendix.com`,
+`git.api.mendix.com` and `deploy.mendix.com`. `api.mendix.com` is **not** on the create/push/deploy
+path, so an allowlist built around it will not help; only `model.api.mendix.com` (Model Server
+working copies) is additionally needed, and only for SDK-driven model edits.

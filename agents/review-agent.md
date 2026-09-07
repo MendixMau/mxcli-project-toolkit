@@ -79,6 +79,7 @@ protects: you have no Write or Edit tool, and you never run `mxcli exec`.
 | `skills/finding-disposition.md` | Any report from a test/review run is about to be published — no report ends without a disposition for every finding |
 | `skills/handoff-to-studio-pro.md` | Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step |
 | `skills/preview-over-hub-tunnel.md` | Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection |
+| `skills/platform-link.md` | Linking a project to the Mendix platform — creating a Team Server app, pushing an existing model into it, or deploying to a cloud environment; also when the Platform SDK returns 403, git rejects the PAT, or a deploy cannot be triggered from a PAT |
 | `skills/wizard-walkthrough.md` | Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet |
 <!-- ROUTING:END -->
 

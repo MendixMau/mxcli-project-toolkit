@@ -622,6 +622,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Any report from a test/review run is about to be published — no report ends without a disposition for every finding | `skills/finding-disposition.md` |
 | Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection | `skills/preview-over-hub-tunnel.md` |
 | Starting a hub-tunnelled preview with the flags outbound calls actually need — wraps mxcli run --hub with db-name and the runtime proxy settings from preview-over-hub-tunnel.md | `bin/run-hub.sh` |
+| Linking a project to the Mendix platform — creating a Team Server app, pushing an existing model into it, or deploying to a cloud environment; also when the Platform SDK returns 403, git rejects the PAT, or a deploy cannot be triggered from a PAT | `skills/platform-link.md` |
 
 **Diagnose — something is broken and it may be the tooling**
 

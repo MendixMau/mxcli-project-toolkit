@@ -2,7 +2,7 @@
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-117: Widget-property writer silently drops any
 unsupported property name, on any widget type, with no MDL-WIDGET07 warning` (discovered
 2026-08-25, ToeicBuddy-conversion field run)
-**Status:** _not yet filed — staged for review before submission_
+**Status:** NOT YET FILED — retest on v0.20.0 first (found on a pre-v0.20.0 build, 2026-08-25); when filing, cite mendixlabs/mxcli#928, whose 0.19.0 release note names the widget-type-agnostic `isBuiltinPropName` allow-list as the root cause and fixed only `editable`/`contentparams`
 **Note:** discovered and confirmed live during an active field run of the mxcli conversion
 pipeline (not a synthetic repro built after the fact). Both cases below were hit while trying to
 fix the same real page, one after the other, which is what made the pattern (not an isolated

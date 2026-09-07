@@ -4069,6 +4069,18 @@ should catch this class of mis-scope BEFORE exec, the same way it already catche
 reference errors, rather than deferring entirely to `mxbuild`/Studio Pro after the write has
 already landed and the running app has already gone down.
 
+### Root cause located (merge review 2026-09-07, mxcli source at v0.20.0 and HEAD `191a0c9`)
+`ALTER PAGE REPLACE` (and INSERT BEFORE/AFTER) resolves the new widgets against
+`mutator.EnclosingEntity(target)`, whose walk takes an entity only from a `DataSource` doc with
+an `EntityRef`. A selection-driven data view is written as `Forms$ListenTargetSource` with **no
+`EntityRef`** (occurrence 1), and a gallery/DataGrid 2 over a microflow, nanoflow or
+`EntityRef`-less association contributes nothing either (occurrence 2) — so the walk skips the
+target's real scope and keeps the page-level data view's entity. Confirmed against the code, not
+inferred from symptoms. **BUG-118 is the same defect on a page with no outer data view** (the
+context comes back empty instead of wrong: `<unbound>`, CE0402) and travels with this entry as
+its second reproduction. Still unfixed at HEAD; the release notes through 0.19.0 carry nothing
+for it.
+
 ---
 
 ## BUG-115: the file-upload widget cannot be authored in MDL at all, and a page carrying one is permanently non-round-trippable
@@ -4344,6 +4356,22 @@ working copies) is additionally needed, and only for SDK-driven model edits.
 
 ## BUG-117: Widget-property writer silently drops any unsupported property name, on any widget type, with no MDL-WIDGET07 warning
 
+**Severity:** High — a silent drop that passes `check --references`, `exec` AND native `mx check`; only the running app shows it
+**mxcli version:** a pre-v0.20.0 build (discovered 2026-08-25; v0.20.0 shipped 2026-08-28) — **NOT RETESTED on v0.20.0; retest before filing**
+**Discovered:** 2026-08-25, an exam-prep app project
+**Reproducible:** yes, two widget types, isolated single-widget files
+
+> **Upstream already names this root cause** (merge review 2026-09-07): mxcli's 0.19.0 release
+> notes, under `MDL-WIDGET20`/`MDL-WIDGET21` (mendixlabs/mxcli#928), say *"the allow-lists
+> behind MDL-WIDGET01 and MDL-WIDGET07 are widget-type agnostic. `isBuiltinPropName` is a single
+> flat list … both validators read it as 'is this valid on this widget'"* — and then fix only
+> the two properties reported (`editable`, `contentparams`). This entry is the general case:
+> any property name on the flat list is accepted on any widget. File it citing #928 as the
+> acknowledged root cause and ask for per-widget-schema validation (the data `widget describe`
+> already reads), plus the two doc defects (paging table is DATAGRID-only; GALLERY shorthand
+> names differ from its schema keys).
+
+
 ### Symptom
 
 Writing a property name that the target widget's real schema does not support round-trips
@@ -4435,14 +4463,26 @@ and a running-app screenshot before/after the `update widgets` workaround.
 
 ## BUG-118: `ALTER PAGE ... REPLACE` targeting a widget nested inside a GALLERY template's child slot drops the new widget's ContentParams/attribute binding
 
-> **Almost certainly the same defect as BUG-114**, found five weeks earlier on a different
-> project and logged here at its original discovery date rather than folded in, because the
-> symptom differs and the difference may be diagnostic. BUG-114: the binding is **re-scoped** to
-> the page's outer data context, so it names a real-but-wrong entity and fails at `mxbuild` with
-> CE1613. Here: the binding is **dropped outright** — `DESCRIBE PAGE` prints a literal
-> `<unbound>` — and fails the real `mx check` with CE0402. Same write path (`ALTER PAGE REPLACE`
-> + `ContentParams` + a widget nested in a template), two different wrong outcomes. Whoever fixes
-> BUG-114 should check this case falls out of the same fix; if it does, merge the two.
+> **SAME DEFECT AS BUG-114 — do not file separately.** Merge-review verdict 2026-09-07, from the
+> mxcli source (`mdl/backend/pagemutator/mutator.go`, identical at v0.20.0 and HEAD `191a0c9`):
+> `applyReplaceWidgetMutator` builds the replacement widgets in
+> `mutator.EnclosingEntity(target)`, and that walker (`findEnclosingEntityContext` →
+> `findEntityContextInWidgets` → `widgetOwnEntity`) only ever takes an entity from a
+> `DataSource` doc that carries an `EntityRef`. Two data containers never provide one: a
+> **listen-to-widget (selection) data view** — `serializeDataSourceBson` writes
+> `Forms$ListenTargetSource` with only `ListenTarget`, no `EntityRef` — and a **pluggable list
+> (gallery, DataGrid 2) whose datasource is a microflow/nanoflow or an association without an
+> `EntityRef`** (`extractPluggableDataSourceEntity` returns "" for those; the flow fallback
+> `findNearestDSInWidgets` reads widget-level `DataSource` only and never looks inside
+> `Object.Properties`). So the target's nearest scope is skipped and the walk keeps whatever is
+> above it: an outer data view's entity → **re-scoped**, CE1613 at mxbuild (BUG-114, both
+> occurrences); no outer data view at all → **empty context**, the attribute cannot resolve,
+> `<unbound>`, CE0402 (this entry). Same walker, same skipped scope; the only difference is
+> whether the page has an outer data view. This case is the diagnostic one — `<unbound>` is
+> visible in `DESCRIBE PAGE`, the re-scope is not — so it goes into BUG-114's upstream issue as
+> the second reproduction. Fix shape for both: resolve a `ListenTargetSource` through its
+> target widget's entity, and a flow-sourced pluggable list through the flow's return type
+> (the REPLACE path already has `resolveDataSourceFlowEntity`; the walker does not use it).
 
 ### Symptom
 

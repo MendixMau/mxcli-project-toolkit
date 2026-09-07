@@ -507,6 +507,7 @@ if [ -f "$CL" ] && ! grep -q "Session-start ritual" "$CL"; then
 ## Session-start ritual (mandatory, before any pipeline work)
 
 1. \`git -C $TOOLKIT_ROOT pull --ff-only\` then \`git -C $TOOLKIT_ROOT rev-parse --short HEAD\`
+1b. \`$TOOLKIT_ROOT/bin/status.sh <project-root> --brief\` — where, done/overdue, next action; post it.
 2. If the commit differs from \`PROJECT.md\`'s \`Toolkit commit:\` line: re-read
    \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` in full, then update that line.
 3. State in chat which commit you're working from. gate-check blocks all gates on a mismatch.

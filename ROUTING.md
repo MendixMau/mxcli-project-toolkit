@@ -53,6 +53,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` | all | 7 | ondemand |
 | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited | `skills/measured-claims.md` | all | - | ondemand |
 | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend | `skills/improvement-register.md` | mdl,gate,test,review | 5,6 | ondemand |
+| The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory | `bin/status.sh` | all | P,0,1,2,3,4,5,6,7 | baseline |
 
 #### Source — reading a legacy system (migration entry mode)
 

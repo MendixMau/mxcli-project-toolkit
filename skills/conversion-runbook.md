@@ -47,6 +47,7 @@ table; a skill missing here is a skill no agent will find.
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` |
 | Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them | `skills/walking-skeleton.md` |
 | A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" prints the matching ledger entries, so the session reads one entry, not the 32k-word ledger | `bin/bug-lookup.sh` |
+| The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory | `bin/status.sh` |
 <!-- ROUTING:END -->
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
 **Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.
@@ -242,6 +243,12 @@ stopping at two questions.
 ---
 
 ## 1b. The Live Checklist Protocol — Progress Is Shown in the Chat
+
+**Every session opens with `bin/status.sh <project-root> --brief`** — three lines (WHERE / STATE /
+NEXT) posted before anything else. It condenses gate-check, the obligation check, the coherence
+cadence, the doctor receipt, the build log and the register into the position of record; a
+session that states its position from memory has been wrong twice in one day on a real project.
+The live checklist below is the *within-stage* view; status is the *between-sessions* one.
 
 Gates inform the user at stage *transitions*; this protocol informs them *during* a stage.
 The failure it fixes (reported by a live user, 2026-07-14): the agent works silently against

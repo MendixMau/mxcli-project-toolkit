@@ -5126,3 +5126,159 @@ page tree (its nearest enclosing data source), not the page's outermost one — 
 should catch this class of mis-scope BEFORE exec, the same way it already catches other
 reference errors, rather than deferring entirely to `mxbuild`/Studio Pro after the write has
 already landed and the running app has already gone down.
+
+---
+
+## BUG-104: the file-upload widget cannot be authored in MDL at all, and a page carrying one is permanently non-round-trippable
+
+**Severity:** High — blocks the primary journey of any app that accepts a file, and forces Studio Pro into an otherwise headless pipeline
+**Reproducible:** Yes, consistently
+**Mendix version:** 11.12.1
+**mxcli version:** v0.20.0 (2026-08-28) — re-verified on this version, not carried forward from an earlier note
+
+### Symptom
+
+There is no way to place a file-upload control on a page from MDL. Both available spellings fail,
+for two different reasons:
+
+**1. The built-in `Forms$FileManager` has no MDL keyword.**
+
+```mdl
+create or replace page Mod."ProbeFM" (Title: 'p') {
+  filemanager fm1 (Attribute: Contents)
+}
+```
+```
+line 2:2 missing '}' at 'filemanager'
+```
+
+That is a *parse* error, not an unknown-property error — the grammar has no such widget, so there
+is nothing to misconfigure. `mxcli syntax page.widgets` lists the full keyword set and contains no
+file-shaped entry.
+
+**2. The pluggable `com.mendix.widget.web.fileuploader.FileUploader` parses but fails at exec:**
+
+```
+no definition for widget com.mendix.widget.web.fileuploader.FileUploader
+```
+
+`mxcli widget init` extracts widget definitions from the project's own `widgets/*.mpk` and found 42;
+FileUploader is not among them, because it is **Studio-Pro-bundled rather than shipped as an
+`.mpk`** — it appears in that command's `9 skipped (built-in)` count, and its only trace anywhere
+in the project tree is an Atlas locale file. So the definition mxcli needs to serialise it does not
+exist on disk to be extracted.
+
+### Consequence: the page is permanently un-round-trippable
+
+Once a human adds the widget in Studio Pro (which is the only way to unblock the app), `DESCRIBE
+PAGE` emits this in its place:
+
+```
+container ctnFileGap (Class: 'field') {
+  -- Forms$FileManager (fileManager1)  -- NOT re-executable: mxcli cannot author this widget, so re-running this script would drop it
+}
+```
+
+**Credit where it is due: mxcli warns loudly rather than dropping it silently**, which is the right
+behaviour and much better than the alternative. But the effect is that `DESCRIBE PAGE` output for
+this page is no longer round-trippable, which is the property the command is otherwise relied on
+for, and any `create or replace page` regenerated from it deletes a widget a human added by hand.
+
+On the project where this was found that forced a standing house rule — *ALTER PAGE only, never
+`create or replace page`, on the page carrying the file widget* — which then has to be remembered
+by every future session and every agent, forever, with silent data loss as the failure mode if it
+is not. That rule is the actual cost of this bug, more than the initial block.
+
+### Impact measured
+
+Uploading a version was the app's central action, so this blocked the primary end-to-end journey in
+the browser until a human opened Studio Pro. Everything behind the widget — the upload action, the
+validation microflow including a content sniff, the version-number allocator, the parent rollup, and
+the write grant on `Contents` — was built and gate-clean the whole time. A headless build reached
+100% of the feature except the one control that lets a user reach it.
+
+### Ask
+
+Author support for `Forms$FileManager` in MDL, and more generally for the Studio-Pro-bundled
+built-in widget family that `widget init` currently reports as `skipped (built-in)`. These widgets
+cannot be supplied by the project (there is no `.mpk` to add), so unlike a marketplace widget there
+is no user-side workaround at all — the definition has to come from mxcli or from Studio Pro.
+
+### One loose end, NOT verified
+
+`ALTER PAGE ... SET Caption = 'x' ON fileManager1` **passes** `mxcli check -p ... --references`,
+including `Expression types OK`, against the real model. It was not executed, so whether an
+`ALTER PAGE SET` against a widget mxcli cannot author actually works, silently no-ops, or corrupts
+the unit is **unknown**. Worth establishing, because a check that passes on an unauthorable widget
+is the `learned-detection-gaps` shape.
+
+---
+
+## BUG-105: an app created through the platform API cannot be deployed — no PAT-authenticated way to provision its first environment
+
+**Severity:** Medium — not a defect in mxcli, a gap that stops an otherwise fully automatable pipeline one step from the end
+**Reproducible:** Yes
+**Mendix version:** 11.12.1 (app), 11.14.0 (template the platform created)
+**mxcli version:** v0.20.0
+**Status:** part platform-API gap, part mxcli feature request — written up together because neither half is actionable alone
+
+### What works, end to end, with only a PAT
+
+Creating an app and populating its Team Server repository is fully automatable and was done
+headlessly from a cloud container:
+
+1. `mendixplatformsdk@5.2.0` `createNewApp` → `POST /rest/projectservice/v1/projects` → app ID
+2. `GET /v1/repositories/<appId>/info` → `{"type":"git","url":"https://git.api.mendix.com/<appId>.git"}`
+3. `git push` to that URL — username is the literal string **`pat`**, password is the PAT
+   (an email address as the username is rejected: `remote: Invalid username or password`)
+
+### Where it stops
+
+The app now has a repository and **no deployment target**, and there is no PAT-authenticated way to
+create one:
+
+| call | with PAT | meaning |
+|---|---|---|
+| `GET /api/v4/apps` | `200`, full app list | the PAT's deploy scopes are fine |
+| `GET /api/v4/apps/<newAppId>/environments` | `404 Application not found` | Deploy API does not know an app that has no environment |
+| `POST /api/v4/apps` | `405 Method not allowed` | v4 manages environments, it does not provision them |
+| anything on `/api/1/...` | `400 INVALID_CREDENTIALS` | Deploy API v1 wants legacy `Mendix-Username` + `Mendix-ApiKey`, not `Authorization: MxToken` |
+
+So the first deploy is a **human action in the Developer Portal or Studio Pro**, in the middle of a
+pipeline that is otherwise scriptable from a container with no GUI. For AI-assisted or CI-driven
+work that is the one unautomatable step, and it lands at exactly the point where the work becomes
+demonstrable to anyone else.
+
+### Is it automatable? Partly — and the missing piece is small
+
+Deploy API **v1 is believed to carry a "create sandbox application" endpoint** taking an existing
+`ProjectId` (`POST /api/1/apps/`), which is precisely the operation needed. **NOT VERIFIED** — no
+legacy API key was available in this environment to test with, and `docs.mendix.com` was unreachable
+through the network policy, so this is recalled rather than measured. What *was* measured is that
+v1 returns `INVALID_CREDENTIALS` (a 400 that parsed the request and rejected the auth) rather than
+`404`, which is consistent with the endpoint existing.
+
+### Two asks, in order of value
+
+1. **Platform:** let a PAT provision a first environment — either `POST /api/v4/apps`, or PAT auth on
+   the v1 endpoint that already does this. Today a PAT can create an app and fill its repository but
+   cannot deploy it, which is an odd place to draw the line.
+2. **mxcli:** there is no cloud command at all today. `mxcli auth` stores a PAT and reaches only the
+   marketplace and catalog. If mxcli grew support for the legacy `Mendix-Username` + `Mendix-ApiKey`
+   scheme alongside PAT, it could wrap the v1 endpoint and close this without waiting on ask 1.
+   A `mxcli cloud create-sandbox -p <project>` / `mxcli cloud deploy` pair would make the whole
+   create → push → deploy chain scriptable.
+
+### Trap worth documenting regardless of the above
+
+**The Platform SDK returns `403 Forbidden` on every call from a proxied container, and it is not a
+scope problem.** Node does not read `HTTPS_PROXY`, so the SDK bypasses the proxy and is refused at
+the network edge; `curl` with the same token on the same endpoint returns `200`. The fix is
+`NODE_USE_ENV_PROXY=1` (Node ≥ 22.21). This reads exactly like a missing PAT scope and cost a wrong
+diagnosis before the `curl` comparison exposed it — worth a line in any mxcli docs that tell people
+to use the Platform SDK from a container.
+
+Also: the SDK's real endpoints are `projectservice.mendix.com`, `repository.api.mendix.com`,
+`git.api.mendix.com` and `deploy.mendix.com`. `api.mendix.com` is **not** on the create/push/deploy
+path, so an allowlist built around it will not help; only `model.api.mendix.com` (Model Server
+working copies) is additionally needed, and only for SDK-driven model edits.

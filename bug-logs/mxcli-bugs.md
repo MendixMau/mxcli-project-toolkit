@@ -4265,6 +4265,34 @@ endpoint to create or even LIST pipelines, and there is no way to discover the U
 (`/apps/{id}/pipelines` → 404). So the human step shrinks from *every deploy* to *one pipeline
 setup*, and the UUID then has to be carried in project config.
 
+### THIRD CORRECTION — and the one that changes who this bug applies to
+
+Everything above assumes a **licensed** app. On a **Free App** none of it is automatable, and the
+`mxcli cloud deploy` ask below cannot help there at all.
+
+Mendix's own Free App limitations table: **Deployment — "Can only be deployed to the cloud from
+Mendix Studio Pro"**, against "Studio Pro, the Mendix Portal, or an API" for licensed apps. The
+Deploy API documentation agrees independently: *"Only Retrieve apps, Create Free App environment,
+and Retrieve app API calls are supported for Free Apps."*
+
+So on a Free App there is **no pipeline to trigger**. `startRun` needs a `pipelineId`, and there is
+nothing to create one from. The correction above ("a PAT CAN deploy, via the Pipelines API")
+stands for licensed apps and is **false for Free Apps** — which is the environment most people
+reach for first when trying this out, and therefore the environment in which the advice is most
+likely to be read.
+
+Two neighbouring limits found at the same time, because they bite anyone who reaches for a Free
+App to demo platform capabilities:
+
+- **Runtime settings: not available. Constants: Studio Pro only.** Which makes **OpenTelemetry
+  impossible on a Free App** — OTel is a runtime feature driven by `OTEL_*` env vars and runtime
+  settings, so it works anywhere the runtime runs *except* where those cannot be set.
+- **Metrics, alerts and log levels: not available. Historic app logs: not available — live logs
+  only.**
+
+None of this is an mxcli defect. It is recorded here because the entry above would otherwise send
+a reader to build automation against an environment that structurally cannot accept it.
+
 ### What is actually worth reporting, after two wrong turns
 
 The bug is **discoverability**, and it is a real cost rather than a grumble. Three separate APIs

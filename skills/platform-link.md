@@ -157,7 +157,50 @@ a bare `git subtree push` is rejected as non-fast-forward. Re-merge each time.
 
 ### 4. Deploy
 
-First time: a human, in the portal. After that: create a pipeline once, then `POST /apps/{appId}/runs`.
+**It depends entirely on whether the app is a Free App**, and that is not a detail — it decides
+whether any of this is automatable at all.
+
+### On a licensed app
+
+First time: a human, in the portal (see trap 3). After that: create a pipeline once in the portal,
+then `POST /apps/{appId}/runs` with its `pipelineId` on every change.
+
+### On a Free App — none of it is automatable, and the limits go further than deploy
+
+Mendix's Free App limitations table is explicit, and it invalidates the obvious plan:
+
+| | Free App | Licensed |
+|---|---|---|
+| **Deployment** | **Studio Pro only** | Studio Pro, portal, **or API** |
+| Runtime settings | **Not available** | Configurable in the portal |
+| Constants | Studio Pro only | Environment variables in the portal |
+| Metrics, alerts, **log levels** | **Not available** | Available |
+| **Historic app logs** | **Not available — live logs only** | Available |
+| Scheduled events | **Not run** | Run |
+| Start/stop manually | Not available | Available in the portal |
+
+The Deploy API agrees: *"Only Retrieve apps, Create Free App environment, and Retrieve app API
+calls are supported for Free Apps."* So on a Free App there is **no pipeline to trigger**, and a
+`pipelineId` you cannot obtain is not a blocker you can engineer around.
+
+**Three consequences worth knowing before you promise any of them:**
+
+1. **Deploy stays manual.** Do not plan CI around a Free App sandbox.
+2. **OpenTelemetry is impossible there.** OTel is a *runtime* feature — it is driven by `OTEL_*`
+   environment variables and runtime settings, and works anywhere the runtime runs (local, Docker,
+   licensed cloud, self-hosted). It is **not** Studio-Pro-dependent. But a Free App forbids exactly
+   the thing it needs: runtime settings and env-var constants. The blocker is the plan, not the
+   tooling.
+3. **Logging demos are thin.** Live logs only, no history, no log-level control, no API. A local
+   run is a far stronger logging demo: full log stream, `mxcli log list` / `mxcli log set` to change
+   levels on a running app, Prometheus at `:8090/prometheus`, and real OTel traces via
+   `mxcli run --local --trace-otlp <collector>`.
+
+**A caution about tracing that costs a demo if you learn it live:** unfiltered per-activity tracing
+is roughly **10× slower** and produces ~110k spans for one busy transaction, which is why default
+span filters ship enabled — it is a flow-*shape* mode, not a timing mode. And the console exporter
+drops start/end timestamps and parent span IDs, so flame charts require exporting to a real
+collector, not the console.
 
 ---
 

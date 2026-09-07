@@ -84,6 +84,37 @@ The read then has a spine to work through and a bound to be held to — "all 35 
 which is the completion-criteria rule in `CLAUDE.md`'s authoring section applied to a read rather
 than to a checklist.
 
+### Both, not either: document discovery over the corpus, extractors per structure inside it
+
+For a **requirements-driven** project the two are not alternatives and the sequence is fixed:
+
+1. **`document-discovery.md` runs over the whole corpus, always.** It is the inventory — what is
+   in the folder, what kind of thing each file is, what it can and cannot answer. Nothing else
+   tells you that, and every decision below depends on it.
+2. **Then the extraction call, once per extractable structure the inventory found.** Code, a DB
+   schema or table dump, an ORM model, an OpenAPI/GraphQL contract, a platform data export,
+   entity/field tables inside a spec — each gets its own Coverage Matrix row and its own
+   reuse-or-build verdict. A corpus of genuine prose and nothing else yields no rows, and *that*
+   is when the extraction rows are `N/A`.
+3. **Prose is read, per the table above** — into BRDs via `kb-generation.md` Path B, never by a
+   classifier.
+
+So: **document discovery is unconditional; extractors are conditional on there being structure;
+`N/A` is a finding about the folder, never a property of the entry mode.**
+
+**Why this is spelled out (2026-09-07).** `conversion-runbook.md`'s Stage-0 applicability table
+said the extraction call was **`N/A` for requirements-driven**, flatly — while this skill and the
+shipped `triage.md` header said `N/A` only where the corpus holds no extractable structure, "on
+evidence, never on the entry-mode label". The runbook is the file every session is required to
+read first, so the unconditional version was the one that got followed. On the project that
+surfaced it — requirements-driven, corpus of one spec, one workflow inventory and **one platform
+data export** — following the runbook literally would have marked extraction `N/A` and left the
+export unparsed. That parser went on to correct the very documents written about the app: 53
+stored columns against 128–175 documented, four spellings of one foreign key across four sheets,
+15 sheets where the spec said 17. Same shape as the `toolkit-guide.html` first-touch incident in
+`CLAUDE.md`: a rule stated conditionally in its owning file and unconditionally in the front
+door, where the front door wins. The runbook now defers here.
+
 | Signal | Lean toward |
 |---|---|
 | Source platform already covered by `pipelines/outsystems/`, `pipelines/java-angular/`, or `pipelines/node-express-react/` **and its layout assumptions actually match this source** (check the pipeline's own README/companion skill — e.g. `source-node-express-react.md`'s layout table — before assuming "same stack name" means "reuse cleanly") | **Reuse existing pipeline** — run Phase 2 as documented. |

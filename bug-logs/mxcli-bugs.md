@@ -4156,7 +4156,7 @@ is the `learned-detection-gaps` shape.
 
 ---
 
-## BUG-116: an app created through the platform API cannot be deployed — no PAT-authenticated way to provision its first environment
+## BUG-116: no PAT-authenticated way to deploy at all — not the first environment, and not any later redeploy either
 
 **Severity:** Medium — not a defect in mxcli, a gap that stops an otherwise fully automatable pipeline one step from the end
 **Reproducible:** Yes
@@ -4200,6 +4200,37 @@ through the network policy, so this is recalled rather than measured. What *was*
 v1 returns `INVALID_CREDENTIALS` (a 400 that parsed the request and rejected the auth) rather than
 `404`, which is consistent with the endpoint existing.
 
+### CORRECTION, same day: this is wider than the first deploy
+
+The entry above was written believing only the *initial* provisioning needed a human. Measured
+after the environment existed: **every deploy does.** With the Free App sandbox created and
+`running`, v4 still has no build or deploy surface —
+
+| call | with PAT |
+|---|---|
+| `GET /api/v4/apps/<id>/environments/<env>/deployments` | `404` |
+| `POST /api/v4/apps/<id>/environments/<env>/deployments` | `404` |
+| `GET /api/v4/apps/<id>/environments/<env>/packages` | `404` |
+| `POST /api/v4/apps/<id>/packages` | `404` |
+
+— so v4 is effectively read-only: it lists apps and environments and nothing else. The whole
+build/deploy surface is v1, which rejects PATs:
+
+| call | with PAT | what it tells us |
+|---|---|---|
+| `GET /api/1/apps/<id>/environments/Sandbox` | `400 INVALID_CREDENTIALS` | endpoint exists, auth refused |
+| `GET /api/1/apps/<id>/packages` | `400 INVALID_CREDENTIALS` | endpoint exists, auth refused |
+| `GET /api/1/apps/<id>/environments/Sandbox/start` | **`405 Method not allowed 'GET'`** | **routing resolved BEFORE auth** — the endpoint is real and takes a POST |
+
+That last row is the strongest evidence in this entry: a `405` naming the method, rather than a
+`400` about credentials, means the path exists and is waiting for the right verb. The capability
+is there; a PAT simply cannot reach it.
+
+**So the practical shape of the gap is:** push a model change to Team Server headlessly — fine,
+fully automatable, done repeatedly. Get it running — a human opens the portal, every single time.
+For CI or agent-driven work that is not a one-off setup cost, it is a permanent manual step in the
+middle of every iteration.
+
 ### Two asks, in order of value
 
 1. **Platform:** let a PAT provision a first environment — either `POST /api/v4/apps`, or PAT auth on
@@ -4209,7 +4240,9 @@ v1 returns `INVALID_CREDENTIALS` (a 400 that parsed the request and rejected the
    marketplace and catalog. If mxcli grew support for the legacy `Mendix-Username` + `Mendix-ApiKey`
    scheme alongside PAT, it could wrap the v1 endpoint and close this without waiting on ask 1.
    A `mxcli cloud create-sandbox -p <project>` / `mxcli cloud deploy` pair would make the whole
-   create → push → deploy chain scriptable.
+   create → push → deploy chain scriptable — and per the correction above this is worth more than
+   it first appeared, because it closes a step that recurs on EVERY iteration rather than once at
+   setup.
 
 ### Trap worth documenting regardless of the above
 

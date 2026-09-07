@@ -29,7 +29,7 @@ remote URL, never let it reach `.git/config`.
 
 ---
 
-## STOP — four traps, each of which reads as something it is not
+## STOP — five traps, each of which reads as something it is not
 
 Read these before debugging anything. Each cost real time on the field run, and each produces a
 symptom that points at the wrong cause.
@@ -95,6 +95,45 @@ you know it is not your app. Passing an explicit `proxy:` to `chromium.launch()`
 
 Assert over HTTP instead. You can still prove a great deal (see "Smoke-test what you deployed").
 
+### 5. `Bad file descriptor` on the first push is the transport, not the pack
+
+A first import is a big push — the whole model, `theme/`, and every widget `.mpk` in one pack. At
+around 40 MB it can die like this:
+
+```
+remote: fatal: write error: Bad file descriptor
+remote: fatal: index-pack abnormal exit
+! [remote rejected] ts-export -> main (unpacker error)
+```
+
+Every word of that accuses the payload. It is not the payload. On the measured run the largest
+blob was a 4.9 MB widget `.mpk` — nothing pathological — and the agent proxy reported
+`recentRelayFailures: []`, so nothing upstream saw a cut either. The **same pack, same branch,
+same credential** landed on the first retry once the HTTP layer was tuned:
+
+```bash
+git -c http.postBuffer=524288000 \
+    -c http.version=HTTP/1.1 \
+    -c http.lowSpeedLimit=0 \
+    -c http.lowSpeedTime=999999 \
+    push --no-progress teamserver ts-export:main
+```
+
+Buffer the pack instead of streaming it, drop to HTTP/1.1, and disable git's low-speed abort. Set
+them on the first push of a new app rather than waiting for the failure.
+
+**Do not respond to this symptom by shrinking the payload, repacking, or force-pushing.** Each of
+those looks reasonable given the wording, each costs a rebuild, and none addresses the cause — and
+the force-push variant is the one that can leave Team Server in a state nobody wanted.
+
+**Confirm the push against the remote, not against the exit status.** In this failure git has been
+seen to report success on the client side while the ref never moved. One `ls-remote` settles it:
+
+```bash
+WANT=$(git rev-parse ts-export)
+git ls-remote teamserver main | grep -q "$WANT" || echo "not landed - investigate, do NOT force"
+```
+
 ---
 
 ## The sequence
@@ -111,8 +150,26 @@ SDK-driven model edits, which this path does not use.
 
 ### 2. Authenticate git
 
-**The username is the literal string `pat`.** An email address is rejected with
-`remote: Invalid username or password` — which reads like a bad token and is not.
+**The username is the literal string `pat`, and it is case-sensitive.** The password is the PAT.
+
+`PAT` in uppercase returns exactly the same `401` as a wrong credential, so a sweep of candidate
+usernames that happens to try the uppercase form concludes the token is bad and stops one keystroke
+from the answer. That is how a field run lost a day. Measured against
+`https://git.api.mendix.com/<AppID>.git/info/refs?service=git-receive-pack`:
+
+| username | result |
+|---|---|
+| `pat` | **200** |
+| the owning account's email | **200** |
+| `PAT`, `token`, `oauth2`, `mx`, `apikey`, empty | `401` |
+| a non-owning address on the same account | `401` |
+
+Standardise on `pat`: it does not depend on which of an account's addresses owns the app. Use
+`service=git-receive-pack`, not `git-upload-pack` — a `200` on upload-pack only proves fetch.
+
+The endpoint challenges with `www-authenticate: Basic realm="Git Service"`, so it is **Basic auth
+only**; `Authorization: MxToken …` and `Bearer …` both `401`. It is not app-specific — two
+unrelated apps on the same account behave identically.
 
 ```bash
 git -c credential.helper='!f(){ echo "username=pat"; echo "password=$MX_PAT"; }; f' \

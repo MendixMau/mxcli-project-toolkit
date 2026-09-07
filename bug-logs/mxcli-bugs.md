@@ -4156,7 +4156,7 @@ is the `learned-detection-gaps` shape.
 
 ---
 
-## BUG-116: no PAT-authenticated way to deploy at all — not the first environment, and not any later redeploy either
+## BUG-116: deploying from a PAT means the Pipelines API, and nothing points you there — the Deploy API is a dead end that looks like the answer
 
 **Severity:** Medium — not a defect in mxcli, a gap that stops an otherwise fully automatable pipeline one step from the end
 **Reproducible:** Yes
@@ -4231,18 +4231,74 @@ fully automatable, done repeatedly. Get it running — a human opens the portal,
 For CI or agent-driven work that is not a one-off setup cost, it is a permanent manual step in the
 middle of every iteration.
 
+### SECOND CORRECTION — the first correction was also wrong, and this is the resolution
+
+The correction above concluded "no PAT can deploy at all". **That is false.** It was reasoned from
+the Deploy API alone, which is the API every search result and every instinct points at, and which
+genuinely cannot do it. The mistake was treating one API's dead end as the platform's answer.
+
+The scope list on a Mendix PAT settings page names the surfaces that actually exist:
+`mx:deployment:read` / `mx:deployment:write` under "Deployment Mendix Cloud", and
+`mx:pipelines:read` / `mx:pipelines:write` under "Pipelines". Those scopes are meaningless if no
+PAT-accepting endpoint consumes them — so the endpoint had to exist, and the Deploy API was simply
+the wrong place to look.
+
+**It is the Pipelines API**, and the docs are machine-readable:
+`https://docs.mendix.com/openapi-spec/pipelines.yaml`
+
+```
+servers:  https://pipeline-portal.home.mendix.com/api/v1
+POST /apps/{appId}/runs      startRun     scope mx:pipelines:write
+GET  /apps/{appId}/runs/{runId}/status    scope mx:pipelines:read
+```
+
+Verified live against a real app with a PAT:
+
+| call | result | reading |
+|---|---|---|
+| `POST /api/v1/apps/<appId>/runs` with a zeros UUID | `404 Not Found` | **auth PASSED** — a scope failure would be 401/403 |
+| `GET /api/v1/apps/<appId>/runs` | `405 Method not allowed 'GET'` | the POST route is live for this app |
+
+So a PAT **can** trigger a build-and-deploy. What it cannot do is create the thing it triggers:
+`startRun` needs the `pipelineId` of a **saved and activated pipeline design**, the spec has no
+endpoint to create or even LIST pipelines, and there is no way to discover the UUID from the API
+(`/apps/{id}/pipelines` → 404). So the human step shrinks from *every deploy* to *one pipeline
+setup*, and the UUID then has to be carried in project config.
+
+### What is actually worth reporting, after two wrong turns
+
+The bug is **discoverability**, and it is a real cost rather than a grumble. Three separate APIs
+serve overlapping concerns with no cross-reference between them:
+
+| API | host | auth | can it deploy? |
+|---|---|---|---|
+| Deploy API v4 | `deploy.mendix.com/api/v4` | PAT ✅ | **no** — read-only; lists apps and environments, 404 on every sub-resource tried (deployments, packages, backups, snapshots, deploy, transport, status, metrics) |
+| Deploy API v1 | `deploy.mendix.com/api/1` | `Mendix-ApiKey` only | yes, but no PAT reaches it |
+| **Pipelines API** | `pipeline-portal.home.mendix.com/api/v1` | **PAT ✅** | **yes** — the answer |
+
+The one that accepts a PAT and has "deploy" in its name cannot deploy. The one that can deploy is
+named "pipelines" and lives on an unrelated host. Two wrong conclusions were reached here before
+the PAT scope list — read off a settings page, not any API — pointed at the third.
+
+**The measurement that would have short-circuited all of it:** a `405` naming the method, rather
+than a `401` about credentials, means the path exists and auth passed. That single distinction
+separates "wrong credential" from "wrong URL", and it is what finally resolved this.
+
 ### Two asks, in order of value
 
-1. **Platform:** let a PAT provision a first environment — either `POST /api/v4/apps`, or PAT auth on
-   the v1 endpoint that already does this. Today a PAT can create an app and fill its repository but
-   cannot deploy it, which is an odd place to draw the line.
+1. **Platform (docs, not code):** cross-reference the three APIs. The Deploy API pages should say,
+   at the top, that PAT-authenticated deployment lives in the Pipelines API — and the Pipelines
+   pages should say that `startRun` requires a pipeline created in the portal first. Also worth an
+   endpoint to LIST an app's pipelines, since the UUID `startRun` requires is currently obtainable
+   only by reading it out of the portal UI by hand.
 2. **mxcli:** there is no cloud command at all today. `mxcli auth` stores a PAT and reaches only the
    marketplace and catalog. If mxcli grew support for the legacy `Mendix-Username` + `Mendix-ApiKey`
    scheme alongside PAT, it could wrap the v1 endpoint and close this without waiting on ask 1.
-   A `mxcli cloud create-sandbox -p <project>` / `mxcli cloud deploy` pair would make the whole
-   create → push → deploy chain scriptable — and per the correction above this is worth more than
-   it first appeared, because it closes a step that recurs on EVERY iteration rather than once at
-   setup.
+   A `mxcli cloud deploy -p <project>` wrapping `POST /apps/{appId}/runs` on the Pipelines API,
+   with the `pipelineId` stored in project config beside the app ID, would make the whole
+   create → push → deploy chain scriptable with nothing but a PAT. mxcli is also the right place
+   to encode the routing lesson above, so the next person does not spend an afternoon in the
+   Deploy API concluding it cannot be done.
 
 ### Trap worth documenting regardless of the above
 

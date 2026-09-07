@@ -4093,3 +4093,32 @@ app/mprcontents/ && git clean -fdq app/mprcontents/` (the project's documented f
 which requires having committed before the apply. Commit before every apply.
 **Fix:** the restore should be the git restore, or at least verify the unit set matches the
 snapshot's.
+
+## BUG-119: `mxcli fix design-properties` aborts on a duplicate GUID shipped inside a marketplace package — the install ritual's required step cannot run
+
+**Severity:** Medium — the step is mandatory in `download-marketplace-content` step 4, and it fails hard rather than skipping the offending unit
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07, installing Excel Importer 11.2.2 (content 72) + Mx Model Reflection 9.1.0 (content 69) into a 2,219-unit split-MPR project
+**Reproducible:** yes, on any project carrying Mx Model Reflection 9.1.0
+
+```
+FAILED: Duplicate Guid in unit snippet 'MxModelReflection.Microflow' …
+        Mendix.Modeler.Texts.Translation
+```
+
+The duplicate is inside the **published package**, not something the install created — so this is
+a module defect that mxcli surfaces. But mxcli's handling makes it worse than it needs to be: one
+bad unit aborts the whole pass, so the design-property renames that *would* have applied to the
+other 2,467 units do not.
+
+The important half of the finding is that this is **not** a reason to stop. `mxbuild` reports 0
+errors on the same model, because mxbuild reads the units and never re-saves them; only the
+rename pass walks them for writing. The app built and ran, and the native Excel import path was
+proven end to end against it afterwards.
+
+**Workaround:** run `mxcli fix widgets` (which succeeds), then `mxcli docker check` / mxbuild to
+establish the real verdict. Do not conclude from the FAILED line that the install is broken —
+check the model instead.
+**Fix:** skip and report the offending unit rather than aborting, so the pass is partial-but-useful;
+name the module so the finding is actionable upstream.

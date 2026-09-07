@@ -65,6 +65,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/oneshot-page-structure-patterns.md` | Generating a whole page tree in one script — the structure patterns that survive it |
 | `skills/mendix-agents.md` | Building a Mendix AI agent — the agent is runtime data not a model document, so JSON import, tool microflows, knowledge base chunk loading and the runtime wiring all sit outside MDL, and mxbuild stays green when they are wrong |
 | `skills/mendix-agent-ui.md` | Embedding a copilot chat panel — the frame is yours, ConversationalUI owns the conversation; wireframe to tokens to snippet to page placement |
+| `skills/mendix-agent-setup.md` | Standing up a project's GenAI agents in any environment — MxCloud key import, model-to-agent binding, KB indexing and the agent-answers-a-question proof are all UI-only (no MDL/SQL path), driven with Playwright; you need the resource keys handed to you as env vars first |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
 | `project-bin/coherence-cadence.sh` | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory |
@@ -73,6 +74,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/improvement-register.md` | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend |
 | `skills/wiring-sweep.md` | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before |
 | `skills/learned-workflow-patterns.md` | Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) — syntax, the 11 workflow microflow statements, DECISION vs CALL MICROFLOW, and the two corruption classes (binary-version $Type, and create-before-reference) |
+| `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL — where a path may end, boundary event vs event sub-process, parallel-split limits, outcome minimums, targeting from the sentence, multi-user decision methods, which edits break running instances; and any CE6689/CE1844/CE1845/MW0012 after a clean mxcli check |
 | `skills/rest-integration-first-time-right.md` | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call |
 | `skills/bug-submission-checklist.md` | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable |
 | `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause |
@@ -88,6 +90,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/learned-dg2-patterns.md` | Building or altering any data grid — native DATAGRID vs pluggable DG2 decision rule, the ALTER PAGE INSERT corruption, sort-by and filter-binding traps |
 | `skills/scriptable-sp-verification.md` | Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle |
 | `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first |
+| `project-bin/ts-sync.sh` | Sharing the project with a colleague on Mendix Team Server while the build loop stays on GitHub — content-transplant snapshots between the two clones (status/push/pull); UNPROVEN against a real Team Server, first field run owed |
 <!-- ROUTING:END -->
 
 ## Ground rules
@@ -160,6 +163,7 @@ treat it as full-discipline.
 4. Read the necessary skill file(s) and existing MDL for exact names (the brief points to them).
 5. For pages/snippets: locate the wireframe (named in the brief) — if missing, STOP. Then complete `ui-preflight-pages.md` in full.
 6. For complex microflows: confirm alignment against the brief + architecture blueprint.
+6a. **For any `CREATE WORKFLOW` / `ALTER WORKFLOW`: read `skills/workflow-structure-rules.md` in full before the first line of the body** — both files, not one: `learned-workflow-patterns.md` is the syntax, `workflow-structure-rules.md` is the shape the model must have, and `mxcli check` sees neither. Then, in the same step: check every construct the brief's diagram asks for against its §11 table, write the ones marked *proven*, and report the ones marked *hand-add in Studio Pro* as named rows in your report-back — never quietly flatten a construct to the happy path because MDL would not take it. Run §12 over the finished body and put the counts in your report.
 7. Write the script to the requested path (under the mdlsource dir from Wiring) — grants co-located, and a `folder` on every created document (from the brief's folder plan).
 8. Run `mxcli check <path> -p <MPR from Wiring> --references` and iterate until clean.
 9. Do NOT run `mxcli exec` — that stays in the main session under the user's confirmation.

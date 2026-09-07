@@ -126,6 +126,7 @@ learned-page-patterns	skills/learned-page-patterns.md	Building and auditing Mend
 oneshot-page-structure-patterns	skills/oneshot-page-structure-patterns.md	Generating a whole page tree in one script — the structure patterns that survive it	mdl	5	ondemand	build/pages
 mendix-agents	skills/mendix-agents.md	Building a Mendix AI agent — the agent is runtime data not a model document, so JSON import, tool microflows, knowledge base chunk loading and the runtime wiring all sit outside MDL, and mxbuild stays green when they are wrong	mdl,architect	5	ondemand	build/agents
 mendix-agent-ui	skills/mendix-agent-ui.md	Embedding a copilot chat panel — the frame is yours, ConversationalUI owns the conversation; wireframe to tokens to snippet to page placement	mdl	5	ondemand	build/agents
+mendix-agent-setup	skills/mendix-agent-setup.md	Standing up a project's GenAI agents in any environment — MxCloud key import, model-to-agent binding, KB indexing and the agent-answers-a-question proof are all UI-only (no MDL/SQL path), driven with Playwright; you need the resource keys handed to you as env vars first	mdl,test	5,6	ondemand	build/agents
 conformance-check	project-bin/conformance-check.sh	Running the ledger rung alone — recompute every stored ledger status against the live model and catch the STALE rows that claim built for something the model no longer has	gate,review	5,6	ondemand	verify
 graph-sweep	project-bin/graph-sweep.sh	Running the wiring rung alone — a module imported but never reached, an element built but wired to nothing, a boundary crossed; mxbuild and e2e are blind to all three	review,gate	5,6	ondemand	verify
 test-stack-up	project-bin/test-stack-up.sh	Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only	test,gate	5,6	ondemand	verify
@@ -153,6 +154,7 @@ improvement-register	skills/improvement-register.md	Any review pass that runs mo
 journey-examples	skills/journey-examples.md	Writing an actual .journey.json — the worked field-by-field reference for the contract journey-proof.md argues for	test,review	5,6	ondemand	requirements
 wiring-sweep	skills/wiring-sweep.md	Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before	mdl,test,review	5,6	ondemand	verify
 learned-workflow-patterns	skills/learned-workflow-patterns.md	Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) — syntax, the 11 workflow microflow statements, DECISION vs CALL MICROFLOW, and the two corruption classes (binary-version $Type, and create-before-reference)	mdl	5	ondemand	build/workflow
+workflow-structure-rules	skills/workflow-structure-rules.md	Designing or reviewing a Workflow's SHAPE before or after the MDL — where a path may end, boundary event vs event sub-process, parallel-split limits, outcome minimums, targeting from the sentence, multi-user decision methods, which edits break running instances; and any CE6689/CE1844/CE1845/MW0012 after a clean mxcli check	architect,mdl,review	3,4,5,6	ondemand	build/workflow
 rest-integration-first-time-right	skills/rest-integration-first-time-right.md	Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call	mdl	4,5	ondemand	build/integration
 mendix-epics-api	skills/mendix-epics-api.md	Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal	ba,architect	P,0	ondemand	reference
 bug-submission-checklist	skills/bug-submission-checklist.md	Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable	mdl,gate,review	5,6	ondemand	diagnose
@@ -177,3 +179,67 @@ full-harness-audit	skills/full-harness-audit.md	The user asks for a full end-to-
 test-result-audit	skills/test-result-audit.md	End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition	test,review	5,6	ondemand	verify
 finding-disposition	skills/finding-disposition.md	Any report from a test/review run is about to be published — no report ends without a disposition for every finding	test,review,gate	5,6	ondemand	verify
 wizard-walkthrough	skills/wizard-walkthrough.md	Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet	gate,review	P,7	experimental	verify
+# THE skill-routing table — the single source of truth for every routing surface.
+#
+# Routing a skill used to take six coordinated edits (README's two tables, the runbook row,
+# init-project.sh's CLAUDE.local.md heredoc, gate-check.sh's stage map, the agent templates)
+# plus a seventh copy inside every project's CLAUDE.local.md that no script could update.
+# Measured on 2026-08-18, before this file existed: 17 of 43 skills were routed by NOTHING a
+# project agent reads; facts-lock.sh reached 1 of 6 wired projects; agent-roles.md and
+# source-triage.md reached 1 each. Every skill added since had silently become the eighteenth.
+#
+# Edit THIS file, then run:  bin/render-routing.sh
+# CI / gate:                 bin/render-routing.sh --check   (exit 2 == a surface has drifted)
+#
+# Format: TAB-separated, seven columns. Blank lines and #-comments ignored.
+#   1 name    stable id (basename without .md/.sh)
+#   2 path    repo-relative path of the thing to load
+#   3 when    one line: "always relevant for ..." — the trigger, not a description
+#   4 agents  comma list of ba|architect|mdl|gate|test|review, or "all"
+#   5 stages  comma list of P,0,1,2,3,4,5,6,7 (conversion-runbook stages), or "-" for none
+#   6 tier    baseline     (always-on: goes into every project's CLAUDE.local.md)
+#             ondemand     (situational: load when the task calls for it)
+#             experimental (under trial: routed and discoverable, but _routing_stage_arm skips
+#                          it on purpose, so a skill nobody has proven yet can never be the
+#                          reason a gate fails)
+#   7 group   which question the skill answers, NOT what kind of thing it is. One of:
+#               spine         what am I doing, who decides, how do I ask
+#               source        reading a legacy system (migration entry mode only)
+#               requirements  what must be built
+#               architecture  how it is shaped
+#               design        how it looks, before any MDL
+#               build         authoring the model — the loop itself
+#               build/mdl     the MDL language and tool reference
+#               build/pages   page-building patterns
+#               build/agents  Mendix AI agents — the agent document, tools, KBs, chat UI
+#               build/workflow / build/integration / build/security   (declared, still empty)
+#               verify        does it work
+#               diagnose      something is broken and it may be the tooling
+#               reference     lookup tables, not method
+#             The set is CLOSED — routing_validate_groups() rejects anything else, because a
+#             typo would otherwise render as a real fourteenth group nobody notices.
+#
+#             Added 2026-08-20. Several build/* groups started empty on purpose: a flat list of
+#             62 skills hid the fact that this toolkit said nothing at all about workflows,
+#             REST, agents, grids or build-time security. The empty group is the finding — and
+#             it works: build/workflow, build/integration and build/agents were each filled by
+#             a skill written because the empty heading made the hole visible.
+#
+#             Groups order the RENDERED tables (ROUTING.md, README's situational table). They
+#             deliberately do NOT group the baseline views: baseline is a read-all-of-these set,
+#             where sub-headings would imply a selectivity that does not exist, and that view is
+#             copied into every project's CLAUDE.local.md — regrouping it churns every project
+#             for no gain.
+#
+# TSV rather than a markdown ROUTING.md because a renderer has to parse this in bash 3.2 on
+# macOS, and several "when" strings contain the "|" that a markdown table uses as its column
+# separator. ROUTING.md at the repo root is the human-readable view — rendered FROM here, so
+# it can never disagree with what the scripts install. Kept in bin/lib/ next to
+# install-manifest.sh (the same one-manifest-N-readers precedent) and deliberately NOT in
+# skills/, which gate-check.sh treats as PROTOCOL_PATHS: a data file there would trip a
+# protocol-staleness ack on every routing edit.
+#
+handoff-to-studio-pro	skills/handoff-to-studio-pro.md	Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step	test,review	6,7	ondemand	build
+ts-sync	project-bin/ts-sync.sh	Sharing the project with a colleague on Mendix Team Server while the build loop stays on GitHub — content-transplant snapshots between the two clones (status/push/pull); UNPROVEN against a real Team Server, first field run owed	mdl,gate	6,7	experimental	build
+preview-over-hub-tunnel	skills/preview-over-hub-tunnel.md	Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection	test,review	5,6	ondemand	verify
+run-hub	bin/run-hub.sh	Starting a hub-tunnelled preview with the flags outbound calls actually need — wraps mxcli run --hub with db-name and the runtime proxy settings from preview-over-hub-tunnel.md	test	5,6	ondemand	verify

@@ -42,6 +42,19 @@ never re-run `mxcli init` afterwards.
    chmod +x ./mxcli && ./mxcli --version
    ```
 
+   **If that download returns 403** — some cloud network policies proxy `github.com` page and
+   release URLs while still serving `git clone` — build it from source instead; the default
+   Claude Code web image has everything the build needs (Go, a JDK, pip). Field-verified
+   2026-09-03 on a Claude Code web container where Releases was 403 and `cdn.mendix.com` was
+   reachable (the two are independent — check both):
+
+   ```bash
+   git clone --depth 1 https://github.com/mendixlabs/mxcli /tmp/mxcli-src && cd /tmp/mxcli-src
+   make -C mdl/grammar bootstrap && export ANTLR4_TOOLS_ANTLR_VERSION=4.13.2
+   make -C mdl/grammar generate && make sync-all
+   CGO_ENABLED=0 go build -o <project-root>/mxcli ./cmd/mxcli     # ~2 min; prints its version
+   ```
+
    The binary (~90MB) is gitignored by `mxcli init`'s own `.gitignore`, on purpose — the
    devcontainer's `postCreateCommand` re-downloads it, and every later session does the same
    (step 1 of the loop below). Do not commit it.
@@ -95,7 +108,31 @@ never re-run `mxcli init` afterwards.
 - `mxcli run --local --hub --test-endpoint` serves the app and `--hub` yields a public URL —
   post it in chat so the user can click through from a phone. Verify "up" from the boot log
   or `mxcli docker status`, never from the absence of an error.
-- Docker may be absent or its daemon stopped. Then `exec.sh`'s mxbuild gate reports
-  `gate=skipped` and every exec is **UNVERIFIED** — say so in the checklist and treat the
-  first working build gate as the point where those scripts get re-verified. Never report
-  green on a gate that was skipped.
+- **Get the build gate working before the first exec — no Docker needed.** A bare container
+  has no Studio Pro and usually no Docker daemon, so `exec.sh`'s mxbuild gate reports
+  `gate=skipped` and every exec is **UNVERIFIED**. The fix is one command:
+
+  ```bash
+  <toolkit>/bin/doctor.sh --install <project-root> --yes   # ./mxcli if missing, then mxbuild → ~/.mxcli/mxbuild/<ver>/
+  ```
+
+  It downloads the version-matched mxbuild (~800 MB, one-time) exactly as `mxcli new` /
+  the container build would; `exec.sh` discovers that cache automatically. Run it right
+  after `mxcli new` (the app's Mendix version decides which mxbuild) and before any
+  `exec.sh`. Until it has run, say `UNVERIFIED` in the checklist and treat the first
+  working build gate as the point where earlier scripts get re-verified. Never report
+  green on a gate that was skipped. (Field-proven 2026-09-02: `init-project.sh`'s doctor
+  report on a fresh Claude Code web container lists this route; it was not in this skill.)
+- **`mxcli run --local` collapses a split-model `.mpr` — snapshot before every run.**
+  `bug-logs/mxcli-bugs.md` → "CRITICAL: `mxcli run --local` also collapses split-model
+  `.mpr`" (2026-09-01): one app start turned a 78 KB `.mpr` + 438 tracked `mprcontents/`
+  units into a 15 MB monolith, `git status` showing 438 `D`. This skill tells you to run
+  exactly that command, so the rule travels with it:
+
+  ```bash
+  project-bin/snapshot-mpr.sh                 # before EVERY run --local / --watch
+  ./mxcli run --local --hub --test-endpoint -p <App>.mpr --ensure-db
+  # ...verify on screen, then restore the split format BEFORE committing anything else:
+  git checkout HEAD -- <App>.mpr mprcontents/   # or bin/restore-mpr.sh <pre-run-snapshot>
+  git status                                    # never a blind `git add -A` after a local run
+  ```

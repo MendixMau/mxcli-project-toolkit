@@ -947,7 +947,19 @@ has_confirmed_decision() {
       for (i = 3; i <= NF; i++) {
         f = toupper($i)
         gsub(/^[ \t]+|[ \t]+$/, "", f)
-        if (f == "CONFIRMED") found = 1
+        # Word-anchored, not string-exact. Projects routinely write the status as
+        # "CONFIRMED 2026-07-21" — status plus an inline date in one cell — and the
+        # string-exact test reported "no Stage-3/Stage-4 CONFIRMED decision" over a
+        # register holding eight of them (TFC-TCXGraphPOC, logged there as TD-07).
+        # That project logged the response as treating a real gate FAIL as known-false and
+        # stop reading it, which is precisely the habit gates exist to prevent.
+        #
+        # Still anchored at the START of the FIELD, so what d8117be bought is kept:
+        # a Notes cell that merely mentions the word ("groundwork, not confirmed
+        # yet") does not qualify, and neither does "NOT CONFIRMED". What this newly
+        # admits is a field that BEGINS with CONFIRMED and then continues — which is
+        # the convention it exists to accept.
+        if (f ~ /^CONFIRMED([ \t]|$)/) found = 1
       }
     }
     END { exit !found }
@@ -1382,7 +1394,24 @@ stage_surface_status() {
   fi
   for pat in $pats; do
     hit=0
-    for base in "$PROJECT_DIR" "$ANALYSIS_BASE"; do
+    # SURFACE_BASES, not just the project root. §2's Surface cells are inconsistent about
+    # paths: some carry one ("architecture/blueprint.html", "docs/report.json") and some name
+    # the file bare ("design-system.html", "build-plan.html", "test-report.html"). A bare cell
+    # was only ever globbed against the project root, so a surface sitting exactly where its
+    # own skill puts it — design/design-system.html, architecture/build-plan.html — reported
+    # MISSING while the file was right there.
+    #
+    # That is the worst possible direction for this check to fail in. The Surface column exists
+    # because "gate PASS" was being read as "stage done" when the artifact a human reviews had
+    # never been generated; a checker that cries missing on present files trains the reader to
+    # ignore the line, which costs us the signal the column was added for. Found 2026-09-03 on
+    # a project whose Stage 3 and Stage 4 surfaces were both present and both reported missing.
+    #
+    # Fixed here rather than in the runbook cells: the cells are prose a human reads, several
+    # are legitimately bare (index.html at the root), and rewriting them all to carry paths
+    # would re-home the convention in the spec to work around a limitation of the reader.
+    for base in "$PROJECT_DIR" "$ANALYSIS_BASE" \
+                "$PROJECT_DIR/design" "$PROJECT_DIR/architecture" "$PROJECT_DIR/docs"; do
       # Unmatched globs stay literal with nullglob off, so -e is the whole test.
       # "$base"/$pat, not $base/$pat: the base must be quoted (a project path with a space in
       # it word-splits otherwise and every surface reports MISSING), the pattern must not be
@@ -1416,11 +1445,11 @@ stage_protocol_paths() {
     0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-scope.md skills/source-triage.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/gate-check-file-locations.md" ;;
     1)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-extraction.md skills/migration-pipeline.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md skills/corpus-extraction-integrity.md" ;;
     2)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-brd.md skills/checkpoints/checkpoint-architecture.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
-    3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md skills/learned-mdl-cannot-express.md" ;;
-    4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/rest-integration-first-time-right.md" ;;
-    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/design-spacing.md skills/ui-loop.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md" ;;
-    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md" ;;
-    7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md" ;;
+    3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md skills/workflow-structure-rules.md skills/learned-mdl-cannot-express.md" ;;
+    4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md" ;;
+    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/design-spacing.md skills/ui-loop.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md" ;;
+    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md" ;;
+    7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md skills/handoff-to-studio-pro.md" ;;
     *)  echo "" ;;
 # <!-- ROUTING:END -->
   esac

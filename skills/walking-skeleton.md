@@ -50,8 +50,11 @@ The skeleton is done when the following are pasted in chat, each with its artifa
 4. The data assertion names the row: `1 Request where Title = '<value the journey typed>'`.
 5. The screenshot exists and the three `ui-loop.md` answers are written under it.
 6. The register line in `PROJECT.md`: `Skeleton proven <date>: exec pass, journey pass/fail-control,
-   look done` — `gate-check.sh <project> 5` reports `PENDING` on the `skeleton` obligation until
-   that line exists.
+   look done` — `status.sh` reads it. **And the same line, with its denominator (`5 of 5 rows`,
+   or `4 of 5 — <row> NOT RUN`), written to `docs/skeleton-proof.md`** — that file is what the
+   `skeleton` obligation row in `bin/lib/obligations.tsv` reads, so `gate-check.sh <project> 5`
+   reports `PENDING` on the obligation until it exists. Two lines, two readers; the file is the
+   one that holds the gate.
 
 `NOT RUN` is a legal answer for any row and is written as such. Silence is not.
 

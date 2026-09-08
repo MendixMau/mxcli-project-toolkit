@@ -32,7 +32,7 @@ All gate decisions land in the consuming project's `PROJECT.md`, marked `CONFIRM
 
 ## Key skills and when to load them
 
-Load skill files **on demand when the task calls for it** — not all upfront. Full routing table: `README.md` → "When to use which skill". The always-on set (`README.md` → "Baseline routing"): `query-the-model.md`, `learned-mdl-preflight.md`, `learned-microflow-patterns.md`, `learned-mcp-patterns.md`, `bug-logs/mxcli-bugs.md`.
+Load skill files **on demand when the task calls for it** — not all upfront. Full routing table: `README.md` → "When to use which skill". The always-on set (`README.md` → "Baseline routing"): `query-the-model.md`, `learned-mdl-preflight.md`, `learned-microflow-patterns.md`, `learned-mcp-patterns.md`, and `bin/bug-lookup.sh` (a CE code, BUG-n or keyword → the matching ledger entries; `bug-logs/mxcli-bugs.md` itself is read on demand — it outgrew the always-on budget).
 
 | Task | Read this file |
 |------|---------------|

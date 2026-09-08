@@ -28,7 +28,8 @@ index() {
 if [ "$Q" = "--index" ]; then index; exit 0; fi
 
 # Entry boundaries: line numbers of every `## ` header.
-mapfile -t HDR < <(grep -n '^## ' "$LOG" | cut -d: -f1)
+HDR=()   # no mapfile: macOS ships bash 3.2 (bin/lib/portable.sh)
+while IFS= read -r _n; do HDR+=("$_n"); done < <(grep -n '^## ' "$LOG" | cut -d: -f1)
 TOTAL=$(wc -l < "$LOG")
 entry_range() { # $1 = header line no → prints "start end"
   local i n=${#HDR[@]} start=$1 end=$TOTAL

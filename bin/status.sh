@@ -70,7 +70,9 @@ else
 fi
 
 # --- instruments: gate-check (once), coherence cadence --------------------------------------
-GC="$("$TOOLKIT_ROOT/bin/gate-check.sh" "$PROJECT_DIR" 2>/dev/null)"
+# --no-html: a status READ must not rewrite the project dashboard (merge review 2026-09-08 — a
+# probe on a wired project left index.html modified, the same clean-tree trip as doctor receipts).
+GC="$("$TOOLKIT_ROOT/bin/gate-check.sh" --no-html "$PROJECT_DIR" 2>/dev/null)"
 NEED_ATTN="$(printf '%s\n' "$GC" | awk '/^Needs attention/{f=1;next} /^Next up:/{f=0} f' | sed -E 's/^ +//' | cut -c1-140)"
 N_ATTN="$(printf '%s\n' "$GC" | grep -oE '[0-9]+ need attention' | grep -oE '^[0-9]+' || echo 0)"
 OB_PENDING="$(printf '%s\n' "$GC" | grep -E '^Obligation ' | grep -E ' (PENDING|FAULT) ' | awk '{print $2": "$3}' | tr '\n' ',' | sed 's/,$//; s/,/, /g')"

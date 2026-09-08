@@ -1,5 +1,5 @@
 **Repo:** `mendixlabs/mxcli`
-**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-119` — found 2026-09-07 when script `88c` of a
+**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-126` — found 2026-09-07 when script `88c` of a
 Phase-19 conversion project shipped entirely inert (Mendix 11.13.0)
 **Status:** DRAFT — not yet filed
 **Suggested labels:** bug, alter-page, silent-failure, safety
@@ -44,7 +44,7 @@ The only way to find out is to open the page in a browser and read it.
 On this project the affected script existed *solely* to add a required-field marker to a label. It
 was committed, gated and reported as done, and the marker was never there. A reviewer trusting the
 exec output — which is the normal thing to do — would not look. This is materially worse than
-BUG-115, where the equivalent `ALTER PAGE` property mismatch at least fails loudly.
+BUG-122, where the equivalent `ALTER PAGE` property mismatch at least fails loudly.
 
 ## Workaround
 
@@ -64,6 +64,6 @@ without writing is the one failure mode a validation pipeline cannot catch.
 
 ## Related
 
-BUG-115 (`ALTER PAGE … SET PageSize` rejected on a widget `CREATE` accepts). Same underlying theme
+BUG-122 (`ALTER PAGE … SET PageSize` rejected on a widget `CREATE` accepts). Same underlying theme
 — the `ALTER PAGE` property surface disagrees with the `CREATE` one — opposite and much more
 dangerous failure mode.

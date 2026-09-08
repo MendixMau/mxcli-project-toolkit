@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
-**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-113` — observed 2026-09-03 building scripts `78`
-and `79` of VB-USI-main (Mendix 11.13.0)
+**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-120` — observed 2026-09-03 building scripts `78`
+and `79` of a topbar-titled portal project (Mendix 11.13.0)
 **Status:** DRAFT — not yet filed
 **Suggested labels:** bug, mdl, check, grant, association, alter-entity
 

@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
-**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-114` — observed 2026-09-04 building script `84`
-of VB-USI-main (Mendix 11.13.0)
+**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-121` — observed 2026-09-04 building script `84`
+of a topbar-titled portal project (Mendix 11.13.0)
 **Status:** DRAFT — not yet filed
 **Suggested labels:** bug, workflow, mdl, silent-corruption
 

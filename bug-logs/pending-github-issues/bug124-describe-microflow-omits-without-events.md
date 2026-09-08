@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
-**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-117` — observed 2026-09-07 re-emitting four start
-microflows in script `87` of VB-USI-main (Mendix 11.13.0)
+**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-124` — observed 2026-09-07 re-emitting four start
+microflows in script `87` of a topbar-titled portal project (Mendix 11.13.0)
 **Status:** DRAFT — not yet filed
 **Suggested labels:** bug, describe, round-trip, microflows, silent-behaviour-change
 

@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
-**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-116` — noted 2026-09-03, measured 2026-09-07
-clearing script `87`'s drop set on VB-USI-main (Mendix 11.13.0)
+**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-123` — noted 2026-09-03, measured 2026-09-07
+clearing script `87`'s drop set on a topbar-titled portal project (Mendix 11.13.0)
 **Status:** DRAFT — not yet filed
 **Suggested labels:** bug, cross-references, show-callers, safety
 

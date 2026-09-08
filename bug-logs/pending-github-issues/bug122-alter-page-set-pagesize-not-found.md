@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
-**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-115` — observed 2026-09-07 building script `87b`
-of VB-USI-main (Mendix 11.13.0)
+**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-122` — observed 2026-09-07 building script `87b`
+of a topbar-titled portal project (Mendix 11.13.0)
 **Status:** DRAFT — not yet filed
 **Suggested labels:** bug, mdl, alter-page, pluggable-widgets, datagrid2
 

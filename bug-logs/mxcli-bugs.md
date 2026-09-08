@@ -3954,10 +3954,12 @@ build with a timeout. A warning followed by an unbounded blocking call is the wo
 
 ---
 
-<!-- Harvested from VB-USI-main 2026-09-07. Renumbered from that project's local
+<!-- Harvested from a topbar-titled portal project 2026-09-07. Renumbered AGAIN at merge (2026-09-07) to
+     BUG-120..126: the branch took 113..119 from a master that had since taken them itself — the
+     merge-queue rule (write BUG-DRAFT-<slug>, the merger numbers) exists for exactly this. Renumbered from that project's local
      109/110/111 into this sequence; see the numbering note in that project's log. -->
 
-## BUG-113 — three write-path asymmetries found building scripts 78 and 79 (2026-09-03)
+## BUG-120: three write-path asymmetries found building scripts 78 and 79 (2026-09-03)
 
 All three share a shape: `mxcli check --references` passes, and in two of the three cases
 `mxbuild` also passes, so nothing warns you. mxcli v0.20.0, Mendix 11.13.0.
@@ -4251,7 +4253,7 @@ alter page ProductNumbers."ProductNumber_NewEdit" {
 }
 ```
 
-`./mxcli check <script> -p VB-USI.mpr --references` reports **"Check passed! / All references
+`./mxcli check <script> -p <App>.mpr --references` reports **"Check passed! / All references
 valid"** on that script. `./bin/exec.sh` on the same script then fails on the first statement:
 
 ```
@@ -4315,7 +4317,7 @@ checker is simply not consulting it -- and add `dateFormat` / `customDateFormat`
 
 ---
 
-## BUG-114 — `PARALLEL SPLIT` writes the paths but not their contents (2026-09-04)
+## BUG-121: `PARALLEL SPLIT` writes the paths but not their contents (2026-09-04)
 
 **This is the most expensive class of defect this project has hit: a write mxcli itself reads
 back correctly and the Mendix runtime reads as empty.** mxcli v0.20.0, Mendix 11.13.0.
@@ -4376,11 +4378,11 @@ parallel-split writer attaches path contents.
 
 **Related:** BUG-76 (scripted `DECISION` corrupts the `.mpr` on load). Both are workflow
 *structure* writers producing models the runtime will not execute as written; BUG-76 fails loudly
-at load, BUG-114 fails silently at run, which makes it the worse of the two.
+at load, BUG-121 fails silently at run, which makes it the worse of the two.
 
 ---
 
-## BUG-115 — `ALTER PAGE … SET PageSize` fails on a DataGrid 2 that `CREATE` accepted
+## BUG-122: `ALTER PAGE … SET PageSize` fails on a DataGrid 2 that `CREATE` accepted
 
 **Found:** 2026-09-07, script `87b`, mxcli against Mendix 11.13.0.
 
@@ -4413,7 +4415,7 @@ alter.
 
 ---
 
-## BUG-116 — `SHOW CALLERS OF` indexes neither page button actions nor `show page` targets
+## BUG-123: `SHOW CALLERS OF` indexes neither page button actions nor `show page` targets
 
 **Found:** 2026-09-03 (noted), confirmed and measured 2026-09-07 clearing script `87`'s drop set.
 
@@ -4446,7 +4448,7 @@ kinds it covers, so its silence is readable as "not indexed" rather than "not re
 
 ---
 
-## BUG-117 — `DESCRIBE MICROFLOW` omits `without events`, so a DESCRIBE → exec round-trip silently turns event handlers back on
+## BUG-124: `DESCRIBE MICROFLOW` omits `without events`, so a DESCRIBE → exec round-trip silently turns event handlers back on
 
 **Found:** 2026-09-07, re-emitting four start microflows in script `87`.
 
@@ -4473,7 +4475,7 @@ same class: `DESCRIBE` output that is not a faithful, re-executable representati
 
 ---
 
-## BUG-118 — `mxcli check --references` cannot resolve ANY enumeration in an attribute declaration
+## BUG-125: `mxcli check --references` cannot resolve ANY enumeration in an attribute declaration
 
 **Found:** 2026-09-07, a Phase-19 conversion project script `88`, mxcli against Mendix 11.13.0.
 
@@ -4520,7 +4522,7 @@ false negative.
 
 ---
 
-## BUG-119 — `ALTER PAGE … SET Label` reports success and discards the value
+## BUG-126: `ALTER PAGE … SET Label` reports success and discards the value
 
 **Found:** 2026-09-07, script `88c`, mxcli against Mendix 11.13.0.
 
@@ -4542,7 +4544,7 @@ The `Caption` result is what makes this a bug rather than an unsupported propert
 **does** resolve the widget and **does** know its property list — it rejects `Caption` by name.
 It accepts `Label`, reports success, and drops it on the floor.
 
-This is worse than BUG-115, which at least fails loudly. Here every gate in the pipeline passes:
+This is worse than BUG-122, which at least fails loudly. Here every gate in the pipeline passes:
 `mxcli check --references` passes, exec prints success, `mxbuild` returns 0 errors, and the only
 way to find out is to open the page in a browser and read it. A script whose whole purpose is a
 label change is silently inert, and a UI review that trusts the exec output will not look.
@@ -4551,6 +4553,6 @@ label change is silently inert, and a UI review that trusts the exec output will
 applies correctly. Re-declare every property from `DESCRIBE PAGE` verbatim so the replace cannot
 quietly drop one.
 
-**Related:** BUG-115 (`SET PageSize` rejected on a widget `CREATE` accepts). Same underlying
+**Related:** BUG-122 (`SET PageSize` rejected on a widget `CREATE` accepts). Same underlying
 theme — the `ALTER PAGE` property surface disagrees with the `CREATE` one — but the failure mode
 is the opposite and much more dangerous.

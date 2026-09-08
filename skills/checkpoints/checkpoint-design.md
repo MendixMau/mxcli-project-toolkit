@@ -82,7 +82,7 @@ or desktop-first. Use that to set the recommended option.
 
 | Answer type | Action |
 |---|---|
-| Figma link | Add to `project-profile.md` → External References. Note which flows are designed vs wireframe-only. |
+| Figma link | Add to `PROJECT.md` → `## Decisions` → `Design assets:`. Note which flows are designed vs wireframe-only. |
 | Brand doc / PDF | Same as above. Extract: primary color, font family, logo usage rules. |
 | Verbal description | Record key decisions (primary color, font, tone) in `design-artifacts.md` inputs. |
 | "Atlas defaults" | Note it. No custom tokens needed. Skip Atlas customization in MDL layer. |
@@ -97,9 +97,4 @@ PROJECT.md → ## Decisions:
   Atlas layout: [chosen layout]
   Platform target: [web / responsive / native / both]
   Design assets: [Figma URL / brand doc link / 'Atlas defaults' / description]
-```
-
-```
-project-profile.md → ## External References:
-  Design: [link or 'Atlas defaults']
 ```

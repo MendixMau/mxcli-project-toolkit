@@ -155,7 +155,7 @@ the artifact check reports it PENDING until it exists.
 > 'must be certified for [standard]'). Drop them here or say 'none for POC.'"
 
 **What to do with the answer:**
-- Add to `project-profile.md` under `## Non-Functional Requirements`
+- Record them in `PROJECT.md` under `## Decisions` as `NFRs:` — one line each, `CONFIRMED`
 - Flag any that directly affect module structure (e.g. multi-tenancy → affects all XPath constraints)
 - Note deferred NFRs in `PROJECT.md` so they aren't lost
 

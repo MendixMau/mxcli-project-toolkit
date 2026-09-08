@@ -163,7 +163,8 @@ case "$ENV_LANE" in
     note "Setup order for a new project: skills/cloud-dev-environment.md." ;;
   devcontainer|local-linux)
     note "Headless lane: CLI write mode (exec.sh + mxbuild gate); mxcli run --local to see the app."
-    note "Nothing is ephemeral here; Studio Pro modes (--mcp) are not available." ;;
+    note "Nothing is ephemeral here. Studio Pro modes (--mcp) are not available HERE — open the same"
+    note ".mpr from a Mac terminal / Git Bash when you need them; lanes mix, one .mpr writer at a time." ;;
   local)
     note "Studio Pro lane: all three write modes (CLI, --mcp, hand-rolled MCP) when SP is installed." ;;
 esac

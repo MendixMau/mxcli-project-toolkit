@@ -185,7 +185,117 @@
   </div>
   <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;"><strong>In practice:</strong> CLI to build, MCP to refine. A typical module: one CLI exec scaffolds the domain model and logic → MCP+MDL polishes the pages → hand-rolled MCP only for the exceptions. Two operations never go through any of these — project settings and dropping secured attributes go to <strong>you, in the Studio Pro GUI</strong>, because they corrupt on every automated route. The agent will tell you when, with the exact click path.</p>
 
-  <h2>5 · Where everything lands</h2>
+  <h2>5 · Where you run this — detected, never asked, and you can move</h2>
+  <p class="lede">There is no "which setup do you want?" question. <code>bin/doctor.sh</code> looks at where your chat started and records it once in <code>PROJECT.md</code>. All three places work on the <em>same</em> project folder, git repo and <code>.mpr</code> — you switch between them whenever one is more convenient. The only rule: one writer on the <code>.mpr</code> at a time.</p>
+
+  <svg viewBox="0 0 840 540" width="100%" role="img" aria-labelledby="lanes-title" style="display:block; margin:16px 0; font-family:var(--font);">
+    <title id="lanes-title">Three places to run the toolkit, all working on one shared project</title>
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-faint)"/>
+      </marker>
+      <marker id="arr-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+      </marker>
+    </defs>
+
+    <!-- lane: cloud -->
+    <rect x="15" y="16" width="250" height="150" rx="10" fill="var(--surface)" stroke="var(--line)"/>
+    <text x="30" y="42" font-size="15" font-weight="700" fill="var(--ink)">☁︎ Cloud</text>
+    <text x="30" y="60" font-size="11.5" fill="var(--ink-soft)">Claude Code on the web / mobile</text>
+    <text x="30" y="84" font-size="12" fill="var(--ink)">• nothing to install</text>
+    <text x="30" y="102" font-size="12" fill="var(--ink)">• headless: CLI writes, mxbuild gate</text>
+    <text x="30" y="120" font-size="12" fill="var(--ink)">• see the app via a preview URL</text>
+    <text x="30" y="138" font-size="12" fill="var(--warn-ink)">• ephemeral → push at every gate</text>
+    <text x="30" y="156" font-size="11" font-family="var(--mono)" fill="var(--accent)">Environment: cloud</text>
+
+    <!-- lane: devcontainer -->
+    <rect x="295" y="16" width="250" height="150" rx="10" fill="var(--surface)" stroke="var(--line)"/>
+    <text x="310" y="42" font-size="15" font-weight="700" fill="var(--ink)">▣ Dev Container</text>
+    <text x="310" y="60" font-size="11.5" fill="var(--ink-soft)">VS Code + Docker Desktop, or Codespaces</text>
+    <text x="310" y="84" font-size="12" fill="var(--ink)">• toolchain pinned in the container</text>
+    <text x="310" y="102" font-size="12" fill="var(--ink)">• headless: CLI writes, mxbuild gate</text>
+    <text x="310" y="120" font-size="12" fill="var(--ink)">• see the app on localhost</text>
+    <text x="310" y="138" font-size="12" fill="var(--pass-ink)">• on your disk, nothing ephemeral</text>
+    <text x="310" y="156" font-size="11" font-family="var(--mono)" fill="var(--accent)">Environment: devcontainer</text>
+
+    <!-- lane: local -->
+    <rect x="575" y="16" width="250" height="150" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="590" y="42" font-size="15" font-weight="700" fill="var(--ink)">⌂ Local + Studio Pro</text>
+    <text x="590" y="60" font-size="11.5" fill="var(--ink-soft)">Mac terminal, or Git Bash on Windows</text>
+    <text x="590" y="84" font-size="12" fill="var(--ink)">• everything the other two do, plus:</text>
+    <text x="590" y="102" font-size="12" fill="var(--ink)">• MCP + MDL live edits, hand-rolled MCP</text>
+    <text x="590" y="120" font-size="12" fill="var(--ink)">• Studio-Pro-only ops (settings, security)</text>
+    <text x="590" y="138" font-size="12" fill="var(--ink)">• UI polish with the app in front of you</text>
+    <text x="590" y="156" font-size="11" font-family="var(--mono)" fill="var(--accent)">Environment: local</text>
+
+    <!-- arrows to shared -->
+    <path d="M140,166 L140,205 Q140,215 150,215 L400,215" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" marker-start="url(#arr)"/>
+    <path d="M420,166 L420,225" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <path d="M700,166 L700,205 Q700,215 690,215 L440,215" fill="none" stroke="var(--ink-faint)" stroke-width="1.5" marker-start="url(#arr)"/>
+    <text x="420" y="205" font-size="11" fill="var(--ink-faint)" text-anchor="middle">switch any time — same files</text>
+
+    <!-- shared -->
+    <rect x="190" y="228" width="460" height="64" rx="10" fill="var(--ink)"/>
+    <text x="420" y="254" font-size="14" font-weight="700" fill="#e2e8f0" text-anchor="middle">ONE project folder · one git repo · one .mpr</text>
+    <text x="420" y="276" font-size="11.5" fill="#cbd5e1" text-anchor="middle">PROJECT.md, gates, dashboard and toolkit clone are identical in every lane</text>
+
+    <!-- windows inset -->
+    <rect x="15" y="320" width="400" height="204" rx="10" fill="var(--surface)" stroke="var(--line)"/>
+    <text x="30" y="346" font-size="14" font-weight="700" fill="var(--ink)">Windows, specifically</text>
+    <text x="30" y="364" font-size="11.5" fill="var(--ink-soft)">Two different things both say "WSL". They don't conflict.</text>
+
+    <rect x="30" y="378" width="370" height="58" rx="6" fill="var(--pass-bg)"/>
+    <text x="42" y="397" font-size="12" font-weight="700" fill="var(--pass-ink)">✓ Docker Desktop runs on a WSL2 backend</text>
+    <text x="42" y="413" font-size="11.5" fill="var(--pass-ink)">VS Code asks "install Docker on WSL?" when you reopen an</text>
+    <text x="42" y="428" font-size="11.5" fill="var(--pass-ink)">mxcli new project in its Dev Container → say Yes. That's the ▣ lane.</text>
+
+    <rect x="30" y="444" width="370" height="66" rx="6" fill="var(--fail-bg)"/>
+    <text x="42" y="463" font-size="12" font-weight="700" fill="var(--fail-ink)">✗ A WSL prompt as YOUR shell, next to Studio Pro</text>
+    <text x="42" y="479" font-size="11.5" fill="var(--fail-ink)">WSL is a separate Linux machine: it can't see Studio Pro or the</text>
+    <text x="42" y="494" font-size="11.5" fill="var(--fail-ink)">process holding your .mpr. For the ⌂ lane, type in Git Bash —</text>
+    <text x="42" y="507" font-size="11.5" fill="var(--fail-ink)">same filesystem and process space as Studio Pro and mxcli.</text>
+
+    <!-- rhythm inset -->
+    <rect x="435" y="320" width="390" height="204" rx="10" fill="var(--surface)" stroke="var(--line)"/>
+    <text x="450" y="346" font-size="14" font-weight="700" fill="var(--ink)">A typical rhythm</text>
+    <text x="450" y="364" font-size="11.5" fill="var(--ink-soft)">Build where it's reproducible, polish where you can see it.</text>
+
+    <rect x="450" y="380" width="150" height="54" rx="6" fill="var(--bg)" stroke="var(--line)"/>
+    <text x="525" y="400" font-size="12" font-weight="700" fill="var(--ink)" text-anchor="middle">☁︎ / ▣  build</text>
+    <text x="525" y="416" font-size="11" fill="var(--ink-soft)" text-anchor="middle">stages 1–6, CLI scaffolds,</text>
+    <text x="525" y="428" font-size="11" fill="var(--ink-soft)" text-anchor="middle">mxbuild gate, commit</text>
+
+    <rect x="660" y="380" width="150" height="54" rx="6" fill="var(--bg)" stroke="var(--accent)"/>
+    <text x="735" y="400" font-size="12" font-weight="700" fill="var(--ink)" text-anchor="middle">⌂  polish</text>
+    <text x="735" y="416" font-size="11" fill="var(--ink-soft)" text-anchor="middle">open the same .mpr in SP,</text>
+    <text x="735" y="428" font-size="11" fill="var(--ink-soft)" text-anchor="middle">MCP edits, settings, UI</text>
+
+    <path d="M600,392 L660,392" fill="none" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr-accent)"/>
+    <path d="M660,424 L600,424" fill="none" stroke="var(--accent)" stroke-width="1.5" marker-end="url(#arr-accent)"/>
+    <text x="630" y="375" font-size="10" fill="var(--accent)" text-anchor="middle">push, then open</text>
+    <text x="630" y="446" font-size="10" fill="var(--accent)" text-anchor="middle">close SP, then pull</text>
+
+    <rect x="450" y="456" width="360" height="38" rx="8" fill="var(--warn-bg)"/>
+    <text x="630" y="472" font-size="11.5" font-weight="700" fill="var(--warn-ink)" text-anchor="middle">ONE WRITER AT A TIME</text>
+    <text x="630" y="487" font-size="11" fill="var(--warn-ink)" text-anchor="middle">never build in the container while Studio Pro holds the .mpr</text>
+    <text x="450" y="510" font-size="11" fill="var(--ink-soft)">Switching lanes: skills/handoff-to-studio-pro.md (warns before an .mpr upgrade).</text>
+  </svg>
+
+  <h3>"Why a Dev Container instead of just working locally?"</h3>
+  <table>
+    <tr><th></th><th>☁︎ Cloud</th><th>▣ Dev Container</th><th>⌂ Local + Studio Pro</th></tr>
+    <tr><td><strong>You install</strong></td><td>nothing</td><td>Docker Desktop + VS Code (Windows: Docker's WSL2 backend — say Yes)</td><td>Java, mxcli, Studio Pro (Windows: Git for Windows too)</td></tr>
+    <tr><td><strong>Toolchain</strong></td><td>pinned per session</td><td>pinned in <code>.devcontainer/</code> — same Java, Node, mxcli for everyone on the team</td><td>whatever is on your machine; you keep it aligned</td></tr>
+    <tr><td><strong>Write modes</strong></td><td>CLI</td><td>CLI</td><td>CLI + MCP + hand-rolled MCP</td></tr>
+    <tr><td><strong>Studio Pro</strong></td><td>no</td><td>no — open the same <code>.mpr</code> locally when you need it</td><td>yes</td></tr>
+    <tr><td><strong>See the app</strong></td><td>preview URL (<code>--hub</code>)</td><td>localhost</td><td>localhost, or from Studio Pro</td></tr>
+    <tr><td><strong>Survives a closed laptop</strong></td><td>only what you pushed</td><td>yes, it's your disk</td><td>yes</td></tr>
+    <tr><td><strong>Reach for it when</strong></td><td>you have nothing set up, or want a stakeholder preview link</td><td>you want a reproducible headless build, a clean machine, or a Mac/Linux without Studio Pro</td><td>UI polish, live MCP edits, Studio-Pro-only settings, the final look</td></tr>
+  </table>
+  <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;"><strong>Short answer:</strong> the Dev Container is where the build is <em>reproducible</em> — a colleague clones and gets the identical toolchain. Local is where the build is <em>visible</em> — Studio Pro open, MCP live. Most projects use both, and nothing about the project changes when you switch.</p>
+
+  <h2>6 · Where everything lands</h2>
   <pre class="tree">&lt;project-root&gt;/               <span class="c">← ONE folder per project — everything lives inside it</span>
   PROJECT.md                  <span class="c">← every decision, assumption, and open question</span>
   intake.md · assessment.md · triage.md
@@ -201,7 +311,7 @@ nothing of yours ever lands in it. And analysis/ is INSIDE your project folder,
 never a sibling next to it.</span></pre>
   <p style="font-size:13.5px; color:var(--ink-soft);">The dashboard regenerates from real project files every time a gate check runs (<code>bin/gate-check.sh</code>) — it can't drift from reality, because it's derived from it.</p>
 
-  <h2>6 · Something looks broken? Don't panic — it's designed for this</h2>
+  <h2>7 · Something looks broken? Don't panic — it's designed for this</h2>
   <div class="cards">
     <div class="card panic">
       <h3>“Studio Pro won't open / the project fails to load”</h3>
@@ -214,7 +324,7 @@ never a sibling next to it.</span></pre>
   </div>
   <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;">Nothing here requires reinstalling anything or starting over. Git commits at every phase gate are the real safety history.</p>
 
-  <h2>7 · For agents: this page is also the shared HTML shell</h2>
+  <h2>8 · For agents: this page is also the shared HTML shell</h2>
   <p style="font-size:14px;">Every stage HTML surface (<code>triage.html</code>, <code>architecture/blueprint.html</code>, <code>build-plan.html</code>, <code>test-report.html</code>, …) copies this file's <code>:root</code> token block and base styles, so all project artifacts look like one system. Once Stage 3 produces <code>design/design-system.html</code>, that file's tokens supersede these for artifacts generated afterwards. Copying the tokens does <em>not</em> mean opening this page: opening is governed by the first-touch rule in <code>CLAUDE.md</code> — only when <code>&lt;project-root&gt;/.claude/.guide-shown</code> is absent, and <code>touch</code> it immediately after.</p>
 
   <div class="footer">mxcli-project-toolkit · toolkit-guide.html · The detailed, executable version of this page is <code>skills/conversion-runbook.md</code>; the thin text pointer is <code>CONVERSION-RUNBOOK.md</code>.</div>

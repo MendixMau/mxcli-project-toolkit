@@ -54,20 +54,29 @@ rubric() {
 
 stage0_out() { "$GATE" --no-html "$1" 0 2>&1; }
 
-echo "== T1: no rubric at all -> Stage 0 gate FAILS on source sufficiency =="
+# T1/T2 asserted a non-zero exit until 2026-09-02. gate-check.sh loosened this to ADVISORY on
+# 2026-08-20 ("WARNS, does not block" — see the source-sufficiency block near the exit logic:
+# Stage 0's own verdict already fails on an unsigned triage.md, so blocking here added no
+# safety and made a Stage 0 query print a refusal on exactly the projects least able to read
+# one). The fixture kept the old assertion and failed on master for two weeks unnoticed; found
+# when the source-ledger work ran it. What IS pinned now: the sufficiency line reads FAIL and
+# the advisory names it — a missing rubric is never reported as assessed.
+echo "== T1: no rubric at all -> sufficiency line FAILS, Stage 0 advises (does not block) =="
 P="$(mkproj t1-no-rubric)"
 OUT="$(stage0_out "$P")"; RC=$?
-if [ "$RC" -ne 0 ]; then ok "exits non-zero"; else bad "exits non-zero" "got rc=0"; fi
+if [ "$RC" -eq 0 ]; then ok "exits zero (advisory, 2026-08-20 decision)"; else bad "exits zero (advisory)" "got rc=$RC"; fi
+case "$OUT" in *"Source sufficiency (assessed?): FAIL"*) ok "sufficiency line reads FAIL" ;; *) bad "sufficiency line reads FAIL" "$OUT" ;; esac
 case "$OUT" in
   *"source sufficiency"*|*"Source sufficiency"*) ok "mentions source sufficiency" ;;
   *) bad "mentions source sufficiency" "$OUT" ;;
 esac
 
-echo "== T2: rubric initialised but never rated -> Stage 0 gate FAILS =="
+echo "== T2: rubric initialised but never rated -> sufficiency line FAILS, Stage 0 advises =="
 P="$(mkproj t2-unrated)"
 [ -x "$SS" ] && "$SS" init "$P" --sources "$P/sources" >/dev/null 2>&1
 OUT="$(stage0_out "$P")"; RC=$?
-if [ "$RC" -ne 0 ]; then ok "exits non-zero on unrated rubric"; else bad "exits non-zero on unrated rubric" "got rc=0"; fi
+if [ "$RC" -eq 0 ]; then ok "exits zero on unrated rubric (advisory)"; else bad "exits zero on unrated rubric (advisory)" "got rc=$RC"; fi
+case "$OUT" in *"Source sufficiency (assessed?): FAIL"*) ok "unrated rubric reads FAIL, never assessed" ;; *) bad "unrated rubric reads FAIL" "$OUT" ;; esac
 
 echo "== T3: rubric fully rated, even thin (absent everywhere) -> Stage 0 does NOT block on this =="
 P="$(mkproj t3-thin)"

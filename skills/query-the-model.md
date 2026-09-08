@@ -30,6 +30,39 @@
 | Blast radius of a change | `SHOW CALLERS / CALLEES / IMPACT OF` | Reading files and hoping |
 | A decision (boundaries, buy-vs-build, roles, volumes) | **The user** — via a proposal with evidence | Yourself, silently |
 
+## The evidence hierarchy — when two sources disagree, or when one is silent
+
+When the table above gives two answers, or when the only answer you have is one you wrote
+earlier, rank them. Higher wins; a lower tier never overrules a higher one, it only fills in
+where the higher is silent.
+
+1. **Production data** — a restored backup, a live query, row counts. What the system *did*.
+2. **Declared configuration tables** — station lists, rule tables, lookups the code *reads*.
+   In a config-driven system the code is the interpreter and these tables are the specification.
+   Tell: anything with an admin screen is data, and its current rows are the requirement.
+3. **Client statements** — SME answers, the functional-description deck, the intake.
+4. **Source code** — what the code *appears* to do. A loop over stations in ascending order is
+   not a sequential process; it is an interpreter that happens to iterate.
+5. **Our own earlier conclusions** — BRDs, blueprint, triage, anything this pipeline produced.
+   The weakest tier, and the one most often treated as a peer of tier 1.
+
+Written down because of the 2026-09-02 post-mortem
+(`process/post-mortem-inverted-evidence-2026-09-02.md`): a project's data request recorded the
+production database as "unrecoverable"; a `.bak` sat in the source folder the whole time and
+restored in an afternoon. Queried, it overturned five architecture decisions — a 15-step
+sequential chain was a 7-leg parallel split, a table said to "enforce nothing" held 175 live
+rules, two "non-existent" stations carried status on ~690 of 926 runs. Every correction came
+from tier 1; every wrong answer had been derived from tiers 4 and 5 and cited tier 5 as support.
+
+Two corollaries the same post-mortem paid for:
+
+- **A negative finding needs stronger evidence than a positive one.** "Not implemented",
+  "unrecoverable", "does not exist" name *what was searched* and carry an expiry — re-test when a
+  new source lands. "Retired is not absent": a row missing from the *current* configuration can
+  still carry history on most records. (`brd-validation.md` check 7 enforces the form.)
+- **A number carries its query or is marked an estimate.** "~130 runs" with no provenance was
+  measured at 19. Not a weaker fact — not a fact.
+
 Read is always safe; write goes through the STOP table (`learned-mdl-preflight.md`). Queries (`SHOW`, `DESCRIBE`, `SEARCH`, catalog OQL) never corrupt anything and can run on any path — that asymmetry is why "query first" costs nothing and is worth making a habit, not just a rule you remember under pressure.
 
 ---
@@ -57,3 +90,6 @@ These are already true today; this skill is where they become a discipline inste
 - [ ] If about to write `CREATE ASSOCIATION` — ran `SHOW ASSOCIATIONS` first, confirmed the name doesn't already exist.
 - [ ] If about to reference a marketplace module — ran `SHOW ENTITIES IN <module>` first.
 - [ ] If the question is a genuine decision (boundaries, buy/build, roles, volumes, integrations) — that's the one class of question that *does* go to the user, via a proposal with evidence, not a silent default.
+- [ ] If the corpus holds a database backup or dump (`.bak`, `.mdf`, `.bacpac`, `.dmp`) — restored it and queried it before deriving anything from code. It is tier 1; nothing else in the folder outranks it.
+- [ ] If two sources disagree — ranked them by the hierarchy above, and did not let an earlier conclusion of our own overrule a table or a query.
+- [ ] If about to write "does not exist / not implemented / unrecoverable" — named what was searched, and dated it.

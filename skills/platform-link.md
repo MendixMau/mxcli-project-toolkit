@@ -121,7 +121,20 @@ git -c credential.helper='!f(){ echo "username=pat"; echo "password=$MX_PAT"; };
 
 ### 3. Put an existing model in — without rewriting history
 
-**Team Server expects the Mendix project at the repository ROOT.** Verify by looking at the
+**Rule for a NEW project — one repository, model at the root, from the first commit.** Team
+Server expects the Mendix project at the repository root, and Studio Pro ignores any extra
+directory beside it. So put `docs/`, `mdlsource/`, `project-tests/`, `architecture/` and the rest
+*next to* the `.mpr`, make Team Server the origin the day the app is created, and mirror to
+GitHub if you want a second remote. There is then nothing to sync, no subtree, no
+"which repo is authoritative" question, and the person who clones the Team Server repo finds
+the tests and the decisions where they expect them. The field run that produced everything
+below started two-tree (`app/` under an engineering root) because the app had no platform
+identity for its first 144 commits; the owner's verdict on discovering that the Team Server
+clone held none of the artefacts was "*let's do that from the start next time*". Do.
+`bin/init-project.sh` scaffolds beside whatever `.mpr` it finds — point it at the root.
+
+**Everything from here to the end of this step is the retrofit path** for a project that
+already grew up two-tree. **Team Server expects the Mendix project at the repository ROOT.** Verify by looking at the
 template repo the platform just created: it holds `App.mpr`, `mprcontents/`, `theme/`,
 `javasource/` all top-level.
 
@@ -228,7 +241,8 @@ cause, in the same output. A smoke test that quietly omits them reads as full co
 
 ## Which repository is authoritative
 
-Decide once and write it down. With a subtree the two repos hold different trees, so they are not
+Decide once and write it down. (A project laid out per step 3's day-one rule never faces this —
+the question only exists because of the subtree.) With a subtree the two repos hold different trees, so they are not
 mirrors and cannot be: Team Server is authoritative for the **model**, the engineering repo is
 authoritative for everything that is not the Mendix project, and `app/` is a synced working copy.
 Two remotes on one branch is fine; two remotes that diverge is how a split-model `.mpr` gets

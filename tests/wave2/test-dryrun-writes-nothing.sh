@@ -11,6 +11,11 @@
 # The lesson is about the shape of the test, not the bug: a promise of "no writes" can only be
 # tested by hashing everything before and after. Any assertion narrower than that is a list of
 # the places you already remembered, which is exactly the set that was never broken.
+# Scaffolding through the real init-project.sh registers the throwaway project name in the
+# toolkit leak-guard denylist; send that to scratch, never to the developer's real list.
+export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-fixture-denylist.$$"
+trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"' EXIT
+
 set -uo pipefail
 
 SYNC="${1:?usage: test-dryrun-writes-nothing.sh /path/to/sync-project.sh}"

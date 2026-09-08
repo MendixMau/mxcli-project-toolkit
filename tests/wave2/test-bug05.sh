@@ -7,8 +7,16 @@
 set -uo pipefail
 
 GATE="${1:?usage: test-bug05.sh /path/to/gate-check.sh}"
-PREFIX_GATE="${2:-/tmp/wave2/gate-check-PREFIX.sh}"
 WORK="$(mktemp -d /tmp/bug05.XXXXXX)"
+# T7 needs the PRE-fix script (the one that wrote index.html without a sentinel). It used to
+# default to a file that existed only on the author's machine; now it is materialised from
+# history — 778c3ff is the fix, so its parent is the last pre-fix gate-check.sh.
+PREFIX_GATE="${2:-}"
+if [ -z "$PREFIX_GATE" ]; then
+  mkdir -p "$WORK/prefix/bin"
+  git -C "$(dirname "$GATE")" show '778c3ff^:bin/gate-check.sh' > "$WORK/prefix/bin/gate-check.sh" 2>/dev/null \
+    && chmod +x "$WORK/prefix/bin/gate-check.sh" && PREFIX_GATE="$WORK/prefix/bin/gate-check.sh"
+fi
 PASS=0; FAIL=0
 
 ok()   { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }

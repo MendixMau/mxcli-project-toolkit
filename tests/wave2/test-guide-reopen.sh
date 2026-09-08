@@ -13,6 +13,11 @@
 # Usage: bash test-guide-reopen.sh [path-to-init-project.sh]
 # Verified to FAIL against the pre-fix init-project.sh (git show HEAD:bin/init-project.sh).
 
+# Scaffolding through the real init-project.sh registers the throwaway project name in the
+# toolkit leak-guard denylist; send that to scratch, never to the developer's real list.
+export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-fixture-denylist.$$"
+trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"' EXIT
+
 SUBJECT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../../bin" && pwd)/init-project.sh}"
 TOOLKIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PASS=0; FAIL=0

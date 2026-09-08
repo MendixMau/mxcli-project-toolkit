@@ -8,6 +8,11 @@
 # that it discriminates.
 #
 # Every fixture is built by the REAL bin/init-project.sh, under /tmp. No real project is touched.
+# Scaffolding through the real init-project.sh registers the throwaway project name in the
+# toolkit leak-guard denylist; send that to scratch, never to the developer's real list.
+export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-fixture-denylist.$$"
+trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"' EXIT
+
 set -uo pipefail
 
 SYNC="${1:?usage: test-bug12-sync.sh /path/to/sync-project.sh}"

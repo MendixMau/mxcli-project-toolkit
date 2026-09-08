@@ -127,11 +127,13 @@ chk() {
   local got; got="$(rc "$1")"
   [ "$got" = "$2" ] && ok "stage '$1' -> exit $2" || bad "stage '$1' expected exit $2, got $got"
 }
-chk 0 1            # FAIL
-chk 3 1            # FAIL
-chk 7 1            # FAIL
+# Exit codes are the gate's CURRENT contract (gate-check.sh header): PASS 0, FAIL 1, MANUAL 2,
+# PENDING 3 (40c63ac) — and Stages 0/1 are advisory, exit 0 whatever they say (cec7a1e).
+chk 0 0            # PENDING, but Stage 0 is advisory
+chk 3 3            # PENDING — nothing there yet
+chk 7 3            # PENDING — no cutover row
 chk 5 2            # MANUAL is not a pass
-chk P 1            # no intake.md
+chk P 3            # PENDING — no intake.md
 chk 05 2           # whitelist still rejects the aliases (defence in depth)
 chk 1+1 2
 chk xyz 2
@@ -139,10 +141,14 @@ chk 0.5 2          # still rejected by the untouched whitelist, end to end
 chk "" 0           # informational run never blocks
 # The PASS path must still be reachable — a table that returned "" for everything would
 # satisfy every FAIL assertion above and look green.
+# Stage 0 exits 0 either way (advisory), so discriminate on the verdict word it prints.
+verdict0() { "$GATE" --no-html "$P" 0 2>&1 | sed -n 's/^Stage 0 (Triage): \([A-Z]*\).*/\1/p'; }
 printf '## Sign-off\n\nConfirmed by: A Tester on 2026-08-12\n' > "$P/triage.md"
 chk 0 0
+[ "$(verdict0)" = "PASS" ] && ok "signed triage.md -> Stage 0 PASS" || bad "signed triage.md did not PASS Stage 0 (got '$(verdict0)')"
 : > "$P/triage.md"
-chk 0 1
+chk 0 0
+[ "$(verdict0)" = "FAIL" ] && ok "empty triage.md -> Stage 0 FAIL (advisory exit 0)" || bad "empty triage.md did not FAIL Stage 0 (got '$(verdict0)')"
 
 echo "== T5: a non-integer stage id does not truncate the evaluation loop =="
 # Under the indexed array, a 0.5 in STAGE_NAMES killed the whole `for` loop, so index.html was

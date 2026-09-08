@@ -122,6 +122,12 @@ while IFS= read -r f; do
     esac
 
     case "$txt" in
+      *'mapfile '*|*'readarray '*)
+        report "$f" "$ln" "mapfile/readarray need bash 4 (macOS ships 3.2)" \
+          'Use: arr=(); while IFS= read -r x; do arr+=("$x"); done < <(cmd)' ;;
+    esac
+
+    case "$txt" in
       *'grep -P'*|*'grep -qP'*|*'grep -oP'*)
         report "$f" "$ln" "grep -P is GNU-only" \
           'BSD grep has no -P and errors out — silently, if stderr is discarded. Use perl -CSD or POSIX ERE.' ;;

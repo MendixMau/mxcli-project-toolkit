@@ -283,8 +283,11 @@ The toolkit's rules change; your memory of them is stale by default. At the star
 session that will touch the pipeline:
 
 1. \`git -C $TOOLKIT_ROOT pull --ff-only\`
-2. \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root>\` — it reports protocol freshness and
-   tells you whether anything you depend on moved.
+2. \`$TOOLKIT_ROOT/bin/status.sh <project-root> --brief\` — three lines: where the project is,
+   what is done and overdue, and the ONE next action. Post them in chat as the session's first
+   message; they are the position of record, never your memory of last session. It runs
+   \`gate-check.sh\` underneath, which reports protocol freshness — run gate-check itself when
+   you need the per-stage detail.
 3. If it says an update is available, **you (the agent) handle it — never ask the user to type
    a command.** Run \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> --ack-protocol --verbose\`,
    which shows what changed and **records nothing**. Re-read the named files. Then tell the user

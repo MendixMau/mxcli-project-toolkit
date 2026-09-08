@@ -67,6 +67,16 @@ find_mpr() {
     count=$((count + 1))
     found="$f"
   done
+  # Two-tree checkout: repo at the root, the `mxcli new --output-dir ./app` app under app/.
+  # cloud-dev-environment.md prescribes exactly that layout, and every script here refused it
+  # with "no .mpr found" (field run, greenfield pilot, 2026-09-04). Same probe, one level down.
+  if [ "$count" -eq 0 ] && [ -d "$PROJECT_ROOT/app" ]; then
+    for f in "$PROJECT_ROOT"/app/*.mpr; do
+      [ -e "$f" ] || continue
+      count=$((count + 1))
+      found="$f"
+    done
+  fi
 
   if [ "$count" -eq 0 ]; then
     echo "ERROR: no .mpr found in $PROJECT_ROOT" >&2

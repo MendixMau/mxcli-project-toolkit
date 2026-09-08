@@ -7,6 +7,9 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-08
+- fix(gate-check): the stage Surface check now also looks in `<project>/analysis/` — `source-sufficiency.sh report` and `triage-report.sh` write there by default, but the check only probed the project root and the knowledge-base parent, so every fresh project reported both Stage 0 surfaces MISSING while they existed (seen on the first Stage 0 gate of a MOC/PSSR rebuild POC, 2026-09-08; verified `Surface present` after the fix) — a MOC/PSSR rebuild POC
+
 ## 2026-09-04
 - learn(mdl-preflight): STOP row 24 — `DesignProperties` on widgets in a `mxcli new` app: grep the theme's design-properties.json first; the scaffolded theme lacks Atlas's FormBase entries, so the property passes `check` and fails mxbuild CE6083 — greenfield pilot 2026-09-04
 - new(bin): `status.sh <project-root> [--brief]` — one screen (or three lines): where the project is, what is done, what is overdue, and the ONE next action, condensed from gate-check, the obligation check, coherence-cadence, the doctor receipt, docs/BUILD-LOG.md and PROJECT.md. The NEXT line is an ordered lookup over instrument facts (each rule names its owning skill), never a new verdict. Wired as the session-start ritual's first read (init-project, sync-project, runbook §1b) and routed baseline. Motivation: gate-check answers "may stage N close?" in ~75 lines and, on a greenfield pilot at Stage 5, asked for source-sufficiency and a cutover row; nobody could answer "where am I" in one place. Field-run on the pilot (2 s) and on a stale workflow-PoC checkout (55 s — gate-check's cost, not status's; its NEXT correctly pointed at a stale blueprint render) — toolkit field review 2026-09-04

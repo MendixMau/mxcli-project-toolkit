@@ -46,8 +46,9 @@ while [ $# -gt 0 ]; do
 done
 
 # ── Resolve the project and the admin API ────────────────────────────────────
-_mxcli_default=./mxcli
-case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) [ -x ./mxcli.exe ] && _mxcli_default=./mxcli.exe ;; esac
+# Resolve the binary the same way every other script does (mxcli.exe on Git Bash, never an
+# ELF mxcli left by a Dev Container) — one resolver in _common.sh, not a pasted uname case.
+_mxcli_default="$(find_project_mxcli 2>/dev/null || echo ./mxcli)"
 MXCLI="${MXCLI:-$_mxcli_default}"
 [ -x "$MXCLI" ] || { echo "FAULT: $MXCLI not executable — run from the project root" >&2; exit 2; }
 

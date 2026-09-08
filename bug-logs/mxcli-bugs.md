@@ -4166,6 +4166,32 @@ including `Expression types OK`, against the real model. It was not executed, so
 the unit is **unknown**. Worth establishing, because a check that passes on an unauthorable widget
 is the `learned-detection-gaps` shape.
 
+### Addendum (2026-09-05, a sales-coaching build, mxcli v0.19.0-nightly.c836f01 / Mendix 11.14.0): the describe → replace round trip drops an existing File Manager, and `check` reports clean
+
+Re-found independently on a second project, with two additions to the entry above. Upstream
+draft: `pending-github-issues/bug115-file-manager-widget-not-authorable.md`.
+
+**Six spellings, one parser error.** `filemanager`, `fileuploader`, `fileupload`, `filedropzone`,
+`filedocument` and `fileinput` all fail identically: `mismatched input '<spelling>' expecting '}'`.
+`SHOW WIDGETS` lists `Forms$FileManager` and `DESCRIBE PAGE` reaches it — the gap is purely the
+absence of a production to write one.
+
+**The costly half is the round trip, and it passes every gate.** `DESCRIBE PAGE` of a page
+containing one emits the `-- NOT re-executable` comment shown above — and **that script passes
+`mxcli check --references` clean**, so describe → edit → `CREATE OR REPLACE PAGE` removes the
+widget with no error at any gate. Verified on `AgentCommons.AgentImportExportFile_NewEdit`
+(AgentCommons v4.2.0), which ships one. The comment itself is good behaviour and should be kept —
+it names the widget and says what would be lost. The gap is that it is addressed to a human,
+while `check` is what a pipeline asks, and `check` says clean.
+
+**Workaround (restated for the pipeline case):** place the File Manager in Studio Pro, or through
+the MCP write path with Studio Pro on the same machine. Build everything else (entity,
+association, validation, list, form) from MDL, and never regenerate that page with `CREATE OR
+REPLACE PAGE` afterwards — use `ALTER PAGE` so the widget is never in the rewritten region. Grep a
+generated script for `NOT re-executable` before executing it; that string is the only signal
+there is. The draft's secondary ask — a `check` warning on the marker — would turn the silent drop
+into a caught one independently of whether the grammar production is ever added.
+
 ---
 
 ## BUG-116: deploying from a PAT means the Pipelines API, and nothing points you there — the Deploy API is a dead end that looks like the answer
@@ -5197,3 +5223,212 @@ quietly drop one.
 **Related:** BUG-122 (`SET PageSize` rejected on a widget `CREATE` accepts). Same underlying
 theme — the `ALTER PAGE` property surface disagrees with the `CREATE` one — but the failure mode
 is the opposite and much more dangerous.
+
+## BUG-127: `ALTER PAGE … REPLACE` of a pluggable widget silently drops properties you wrote — a Combobox comes back with no `Attribute` and still renders
+
+**Severity:** High — the widget draws normally and binds to nothing; only `DESCRIBE PAGE` shows it
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09 (a sales-coaching build, adding an OnChange to an existing filter control)
+**Reproducible:** yes
+
+`REPLACE cbStageFilter WITH { combobox cbStageFilter (Label: …, Attribute: "StageFilter",
+OnChange: MICROFLOW …) }` emitted a pluggable Combobox carrying `Label` and `OnChange` and
+**no `Attribute`** — with the attribute name written both quoted and unquoted. `mxcli check
+--references` passed, mxbuild reported 0 errors, and the page rendered a normal-looking
+dropdown that was bound to nothing and could not filter anything.
+
+This is not "REPLACE rebuilds from what you write" behaving as documented: the property WAS
+written and was dropped. It appears specific to pluggable widgets, where an unset required
+property is not a model error.
+
+**Workaround:** use a built-in widget where one will do (`RADIOBUTTONS` for a short enum), or
+`DESCRIBE PAGE` after every `REPLACE` of a pluggable widget and compare property-by-property.
+Do not trust the render — an unbound combobox looks identical to a bound one.
+
+**Related:** BUG-117 (the widget-property writer silently drops property names the target
+widget's schema lacks) — same silent-drop shape; whether it is the same code path is not established.
+
+## BUG-128: `CREATE MODULE ROLE` is not idempotent, and the abort silently discards every statement after it
+
+**Severity:** High — a re-run of a mixed script logs nothing about the statements it skipped
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09 (a sales-coaching build, re-applying a script after a failed first run)
+**Reproducible:** yes
+
+Every other creating statement in MDL has a `CREATE OR MODIFY` / `CREATE OR REPLACE` form.
+`CREATE MODULE ROLE` has neither and no `IF NOT EXISTS`, so re-running a script that creates a
+role fails with `Error: module role already exists: <Module>.<Role>` and **everything after
+that statement does not run**. The exit is 1 and the message names the role, so the failure
+itself is visible — what is not visible is the list of documents that were therefore never
+created. A script whose role statement sits at the top loses all of its real work on a re-run.
+
+**Workaround:** keep non-idempotent statements (`CREATE MODULE ROLE`, `CREATE ASSOCIATION`) in
+their own script, applied once, separate from the documents that get edited and re-applied.
+
+## BUG-129: `exec` can log `Created microflow: …` for documents that are not in the model afterwards, and still exit 0
+
+**Severity:** High — the tool's own success output is not evidence the work landed
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09 (a sales-coaching build)
+**Reproducible:** NOT reproduced on demand — observed once, root cause not established
+
+An `exec` of a mixed security-plus-documents script logged `Created module role: …`,
+`Granted access on …` (×6), `Created microflow: …` (×7) and `Created page …`, ran the mxbuild
+gate clean and exited 0. Afterwards the module role and all six grants were in the model and
+**none of the seven microflows or the page were**. `SHOW MICROFLOWS IN <Module>` returned the
+pre-run count.
+
+Cause not established. The plausible candidate is that `mxbuild` was run directly against the
+same `.mpr` shortly afterwards, which is the split-`mprcontents` consolidation hazard this
+toolkit already warns about — but that was not proven, and it does not obviously explain why
+the security changes survived and the documents did not. Logged as observed rather than
+diagnosed, because the practice it forces is worth having either way.
+
+**Workaround, and it should be the default practice regardless of this bug:** after every
+`exec`, read the model back (`SHOW MICROFLOWS IN <Module>`, `SHOW PAGES IN <Module>`) and
+count. Exit 0 plus a log of `Created …` lines is a claim about what the tool tried to do, not
+a fact about the model.
+
+## BUG-130: (toolkit `bin/exec.sh`, not mxcli) the mxbuild gate passes relative to a broken BASELINE — "Gate passed (mxbuild-clean)" printed while the model carries an error
+
+**Severity:** High — the gate's whole purpose is "the model deploys after this script"; it can say yes when the answer is no
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27) · toolkit `exec.sh` as of 2026-09-07
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07 (a sales-coaching build, third apply of one microflow script)
+**Reproducible:** yes, given a model that already has an error
+
+`exec.sh` runs a pre-flight ("Model ALREADY has 1 error(s) [CE0644] before this script runs") and
+then judges the script by the DELTA: if the post-apply error set is no worse than the baseline,
+it prints `✓ Script applied` and `Gate passed (mxbuild-clean)`. The model still has the error.
+Two lines earlier it even says "The model still will not deploy until those are cleared in
+Studio Pro" — and then passes the gate. The app would not have started.
+
+How the baseline got broken is BUG-131. But the gate must not depend on that: a script is not
+safe to build on if the model does not build, whoever broke it.
+
+**Workaround:** read `.mpr-snapshots/last-mxbuild-errors.json` yourself after every apply; an
+absent file is clean, a present one is not, regardless of what the gate printed.
+**Fix:** the gate should FAIL (or at least refuse the "mxbuild-clean" wording) whenever the
+post-apply error count is non-zero, and say "pre-existing" separately.
+
+## BUG-131: `exec.sh` snapshot restore after a failed apply leaves page edits in place — further field cases of BUG-106's family
+
+**Severity:** High — the next apply then fails on its own widget names, and a baseline error can survive (BUG-130)
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27) · toolkit `exec.sh` as of 2026-09-07
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07 (a sales-coaching build)
+**Reproducible:** twice in one afternoon, then twice more the same day (addendum below)
+
+A script with microflows followed by `ALTER PAGE ... INSERT` failed mxbuild (CE0161/CE0079 in a
+microflow). `exec.sh` reported "restoring snapshot". Afterwards `SHOW MICROFLOWS` showed the
+microflows gone — but `DESCRIBE PAGE` showed the inserted card still present, and `git status`
+showed one modified `.mxunit` plus two new unit directories. The next apply of the corrected
+script created the microflows and then failed with `duplicate widget name 'pnlImport'`; the
+model was left in the intended state by accident. Later the same afternoon a restore left a
+microflow with CE0644 behind, which is how BUG-130's baseline came to be broken.
+
+**Workaround:** after any restore, `git status app/` and `git checkout HEAD -- app/<Project>.mpr
+app/mprcontents/ && git clean -fdq app/mprcontents/` (the project's documented full restore) —
+which requires having committed before the apply. Commit before every apply.
+**Fix:** the restore should be the git restore, or at least verify the unit set matches the
+snapshot's.
+
+### BUG-131 — fourth and fifth field cases: the snapshot restore is partial *across document types*
+
+Same bug, but the new information is worth recording: on 2026-09-07 two consecutive failed
+applies were auto-restored, and afterwards the model contained
+
+- the **page** edits from the failed script (two action buttons), and
+- the **startup microflow** edit from the failed script (a call to a new microflow),
+
+while **none of the three microflows the same script created** survived. So the restore left a
+page button and a startup call both pointing at microflows that no longer existed — a model that
+is *more* broken than either the before or the after state, and which the next run reported as
+`Model ALREADY has 2 error(s) [CE1613]` and blamed on nobody.
+
+The practical rule this forces, beyond BUG-129's "read the model back after every exec": **read
+it back after every failed exec too, and specifically across all the document types the script
+touched.** The restore's own line (`2122 units verified`) counts units, which is exactly the
+measure that cannot see this.
+
+Any script that might be re-applied after a failed restore must therefore be written
+`REPLACE`-shaped for widgets it may or may not have already created — and `REPLACE` cannot
+re-declare a container's children (see BUG-127's family), so each leftover widget needs its own
+`replace` clause.
+
+## BUG-132: `mxcli fix design-properties` aborts on a duplicate GUID shipped inside a marketplace package — the install ritual's required step cannot run
+
+**Severity:** Medium — the step is mandatory in `download-marketplace-content` step 4, and it fails hard rather than skipping the offending unit
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07, installing Excel Importer 11.2.2 (content 72) + Mx Model Reflection 9.1.0 (content 69) into a 2,219-unit split-MPR project (a sales-coaching build)
+**Reproducible:** yes, on any project carrying Mx Model Reflection 9.1.0
+
+```
+FAILED: Duplicate Guid in unit snippet 'MxModelReflection.Microflow' …
+        Mendix.Modeler.Texts.Translation
+```
+
+The duplicate is inside the **published package**, not something the install created — so this is
+a module defect that mxcli surfaces. But mxcli's handling makes it worse than it needs to be: one
+bad unit aborts the whole pass, so the design-property renames that *would* have applied to the
+other 2,467 units do not.
+
+The important half of the finding is that this is **not** a reason to stop. `mxbuild` reports 0
+errors on the same model, because mxbuild reads the units and never re-saves them; only the
+rename pass walks them for writing. The app built and ran, and the native Excel import path was
+proven end to end against it afterwards.
+
+**Workaround:** run `mxcli fix widgets` (which succeeds), then `mxcli docker check` / mxbuild to
+establish the real verdict. Do not conclude from the FAILED line that the install is broken —
+check the model instead.
+**Fix:** skip and report the offending unit rather than aborting, so the pass is partial-but-useful;
+name the module so the finding is actionable upstream.
+
+## BUG-133: MDL cannot author a microflow that applies entity access, so no MDL-authored flow can call one that does (CE0114) — and a marketplace module's own `_USE_ME` startup flow is unreachable
+
+**Severity:** High — it is not a workaround-able gap: no MDL script can call an entity-access-applying microflow from anywhere, so whole marketplace features become unreachable headlessly
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07, wiring Excel Importer 11.2.2's recommended startup check into a sales-coaching build
+**Reproducible:** yes, against any module microflow with "Apply entity access" ticked
+
+Mendix rule **CE0114**: *"A microflow that does not apply entity access can only call microflows
+that also do not apply entity access."* Every microflow MDL creates does **not** apply entity
+access, and `create or modify microflow` has no syntax to change that — `DESCRIBE MICROFLOW` does
+not render the property either, so it is invisible in both directions.
+
+The consequence is stronger than "one flag is missing". Because the restriction is on the
+*caller*, and MDL can only produce non-applying callers, **an entity-access-applying microflow
+cannot be called from anything MDL can write.** Not from a startup flow, not from a button
+handler, not from a wrapper.
+
+Field case. `ExcelImporter.ASu_CheckModelAndTemplates` lives in a folder named `_USE_ME`, is
+documented as *"the actions which should be executed when the application is being started"*, and
+re-syncs Model Reflection then validates every import template against the current model. It
+applies entity access. So:
+
+```
+SE_Startup_Runtime (MDL, non-applying)
+  └─> SE_Startup_ExcelImportGuard (MDL, non-applying)
+        └─> ExcelImporter.ASu_CheckModelAndTemplates (module, APPLYING)   ✗ CE0114
+```
+
+Moving it behind a button did not help — the button's handler is also MDL-authored and also
+non-applying. Two apply-and-restore cycles to establish that, because the first failure looks
+like a wiring mistake rather than a wall.
+
+(Arguably the module is also at fault: an after-startup microflow that applies entity access
+cannot run at startup, where there is no user. But mxcli's gap is what makes it unfixable
+headlessly.)
+
+**Workaround:** none within MDL. Call whatever the module flow calls, if those are non-applying —
+here `MxModelReflection.ASu_CheckMetamodel()` was reachable, which recovered the reflection
+re-sync and left only the template validation stranded. Otherwise it is a Studio Pro job.
+**Fix:** a microflow property in the grammar — `create microflow X () applies entity access ...` —
+and render it in `DESCRIBE MICROFLOW` so the round trip does not silently flip it. Failing that,
+`check --references` should raise CE0114 itself rather than letting it reach mxbuild, since the
+callee's flag is readable in the model.

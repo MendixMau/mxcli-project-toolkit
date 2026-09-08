@@ -110,7 +110,7 @@ The stages are the same for everyone; what differs is where you enter and which 
 | You're starting from… | Mode | Stages that run | What changes |
 |---|---|---|---|
 | **Legacy source code** (± docs, ± SME) | **Migration** | P, 0–7 (all) | The default everything below describes. Path A (code extractors) always runs. |
-| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs, and its *extraction* rows are marked N/A — see "Stage 0 runs in every entry mode" below. Use `document-discovery.md` over the requirements corpus for the inventory. Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
+| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs. `document-discovery.md` runs over the whole corpus for the inventory, **and** the extraction call runs per extractable structure inside it — a schema, a table dump, a data export or entity tables in a spec each get one; `N/A` is earned on evidence, never on the mode label (`source-triage.md` owns that rule — see "Stage 0 runs in every entry mode" below). Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
 | **Just an idea / a running start on the model** | **Greenfield** | P (light), 0 (scope only), 5–6 | Stages 1–4 collapse to whatever plan the user already has. Stage 0 does **not** collapse: with no corpus there is nothing to grade, but the scope conversation is exactly as load-bearing as it is anywhere else, so Stage 0 reduces to CAC-1's brainstorm and its sign-off. If you find yourself inventing requirements mid-build, you're actually in requirements-driven mode — back up to Stage 2. |
 
 ### Stage 0 runs in every entry mode
@@ -134,8 +134,9 @@ inferred:
 | Stage 0 component | Migration | Requirements-driven | Greenfield |
 |---|---|---|---|
 | Source inventory + sufficiency grade (`bin/source-sufficiency.sh`) | runs | runs — over the requirements corpus | N/A (no corpus) |
-| Reuse-vs-build-new extraction call (`source-triage.md`) | runs | **N/A** — record the reason, don't delete `triage.md` | **N/A** — record the reason |
-| Business capability map + coverage matrix | runs | capability map runs; coverage matrix N/A | N/A |
+| Reuse-vs-build-new extraction call (`source-triage.md`) | runs | **runs per extractable structure in the corpus** — `N/A` only when there is none, on evidence. `source-triage.md` owns this rule; don't decide it from the mode label | **N/A** — record the reason |
+| Document inventory (`document-discovery.md`) | runs if the corpus holds documents alongside code | **runs — over the whole corpus** | N/A (no corpus) |
+| Business capability map + coverage matrix | runs | capability map runs; coverage matrix carries one row per extractable structure, `N/A` only if there is none | N/A |
 | **Scope brainstorm + slice ordering (CAC-1)** | **runs** | **runs** | **runs** |
 | Sign-off (`## Sign-off` in `triage.md`) | required | required | required |
 

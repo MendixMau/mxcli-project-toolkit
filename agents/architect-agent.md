@@ -71,10 +71,46 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 - Query the live model (`query-the-model.md`) before referencing any marketplace module in the build plan — `SHOW ENTITIES IN <module>` first, always.
 - **Every build-plan row you author carries a `claims` field** naming the BRD leaves it discharges, written in the same edit as the row — `brd-to-build-plan.md` Step 5b has the format and the incident. New rows only: a plan that predates the convention is an accepted state, so don't retrofit it, don't report it as incomplete, and don't block on it — the most you do is offer.
 
+## If any process in this app has a workflow — run the count, do not merely cite it
+
+**A citation is not a read.** `workflow-structure-rules.md` §12 is a ten-row count with a
+denominator on every line, and it is the only place in the pipeline where a workflow's *design* is
+checked against the requirement it came from. It fires only if someone runs it, so the rows are
+here rather than behind a link. Write the numbers into
+**`architecture/workflow-count.md`** — the `workflow-count` obligation
+(`bin/lib/obligations.tsv`, from-stage 3) expects a denominator on its first line, and a project
+with no workflow discharges it with *"0 workflows, nothing to count"*.
+
+Run it at Stage 3 against the **drawn** diagram, and again at Stage 5 against the written MDL.
+
+| # | Check | Bound |
+|---|---|---|
+| 1 | Paths that end exactly once | N of N paths; 0 activities after a terminal |
+| 2 | Boundary events whose type is named **and** whose terminator matches that type | N of N boundary events |
+| 3 | Parallel splits with ≥2 paths and 0 *End workflow* / 0 *Jump to* at **any** depth in a branch | N of N splits |
+| 4 | Enum-branching activities carrying every value **plus Empty** | N of N decisions + call-microflows-returning-enum + AI agent tasks |
+| 5 | User tasks whose targeting mechanism is named, **with the sentence it came from quoted** | N of N user tasks — `ASSUMED: no targeting` is legal, blank is not |
+| 6 | User tasks with an error handler for empty targeting, or an expression that provably cannot be empty | N of N user tasks |
+| 7 | Multi-user tasks with decision method **and** completion timing stated, sourced to a business rule | N of N multi-user tasks |
+| 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` | N of N expressions |
+| 9 | Event sub-processes with one start event, correct family, recurrence in bounds | N of N sub-processes |
+| 10 | Constructs checked against §11 and marked *proven* or *hand-add in Studio Pro* | N of N constructs; every hand-add is its own numbered build-plan row |
+
+**Row 5 is the one that bites, so read §6 before you fill it.** If the assignee is *data on the
+record* ("the reviewer named on the request"), a role XPath is not a near miss — it delivers the
+task to **everyone** holding that role. Use a targeting microflow returning the nominee as a
+one-element list; §6 prefers it over the *On created* handler, which cannot be written from MDL at
+all. Row 6 then comes free if you write the resolver as a fallback chain.
+
+**Row 10 is a denominator, not a formality:** N constructs in the diagram, N rows in the plan. If
+those two numbers differ, the plan is not finished — and a construct MDL cannot express is a
+numbered `RUN` row, never a footnote and never omitted.
+
 ## Workflow
 1. Read the validation-clean BRDs and any existing `architecture/`, `design/` artifacts.
 2. Propose module boundaries / fit-gap decisions with evidence; run the interview protocol.
 3. Write `.mx-brd.json`, `architecture/` (blueprint, wiring diagrams, fit-gap.md), and once approved, `architecture/build-plan.md` — numbered, dependency-ordered, every new row with its `claims` block.
+3b. **If any process has a workflow: `architecture/workflow-count.md`, all ten rows with numbers** — see the section above. Owed at Stage 3, before the build plan names a workflow row.
 4. Record every decision in `PROJECT.md`.
 
 ## Report back

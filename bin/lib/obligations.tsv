@@ -49,3 +49,25 @@ sweep	test	module	path	.claude/loop/sweep/<Module>/sweep.md	yes	yes	5	skills/wir
 journeys	test	module	path	.claude/loop/verify/<Module>/summary.tsv	no	no	5	skills/journey-proof.md
 coherence	architect	cluster	path	.claude/loop/coherence/last-cluster-pass.tsv	no	yes	5	skills/process-coherence-pass.md
 skeleton	mdl	project	path	docs/skeleton-proof.md	yes	no	5	skills/walking-skeleton.md
+
+# workflow-count is the FIRST obligation below stage 5, and that gap is why it exists. Every row
+# above is from-stage 5: look, sweep, journeys, coherence, skeleton. So this table — the only
+# mechanism here for "a judgement pass owes a mark" — did not reach the DESIGN stages at all,
+# and workflow-structure-rules.md §12 is a ten-row count with a denominator on every line that
+# fired only if someone happened to run it.
+#
+# Measured, 2026-09-08, on a requirements-driven app replacement: the agent read §11 (what MDL
+# can write) because it had a construct question, filled §12 row 10, and never ran rows 1-9. Row
+# 5 — "user tasks whose targeting mechanism is named, with the sentence it came from quoted" —
+# would have caught a build plan that specified a role XPath for four user tasks whose assignees
+# are data on the record. §6 calls that "not a near miss, it is a different application": one
+# Approver role covered five populations, so every stage of every project would have landed in
+# every approver's inbox. It was found by a human asking whether the workflow skills were being
+# used, at Stage 4, with the plan already written. No gate in the pipeline compares a targeting
+# mechanism against the sentence it came from; §12 row 5 is that check.
+#
+# A project with no workflow discharges this in one line — "0 workflows, nothing to count" is a
+# legal mark and a real statement, and §12's own rows 2/3/4/9 are written the same way ("0 of 0").
+# That is deliberately NOT an optin row: an artifact a project must think of in order to owe is
+# an artifact nobody owes, which is the disease this whole table was built for.
+workflow-count	architect	project	path	architecture/workflow-count.md	yes	yes	3	skills/workflow-structure-rules.md

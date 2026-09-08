@@ -1223,7 +1223,7 @@ check_build_ready() {
   # single-module project, 2026-09-08; exec.sh's advisory already recognised the merged form.
   if find_artifact -path '*/architecture/modules/*-brief.md' | grep -q .; then
     echo "  ✓ at least one module brief exists (architecture/modules/)"
-  elif grep -qE '^## +Module brief +[—-] +' "$PROJECT_DIR/architecture/build-plan.md" 2>/dev/null; then
+  elif grep -qE '^## +Module brief +(—|-) +' "$PROJECT_DIR/architecture/build-plan.md" 2>/dev/null; then
     echo "  ✓ module brief merged into architecture/build-plan.md (single-module form, brd-to-build-plan.md)"
   else
     echo "  ✗ no module brief — either architecture/modules/<Module>/module-brief.md, or a '## Module brief — <Module>' section in architecture/build-plan.md (module-brief.md)"

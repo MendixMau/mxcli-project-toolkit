@@ -98,7 +98,7 @@ if [ -d "$MODULES_DIR" ]; then
     if [ -f "$d/module-brief.md" ]; then
       briefed="yes"
     elif [ -f "$BUILD_PLAN" ] \
-         && grep -qE "^## +Module brief +[—-] +$module\b" "$BUILD_PLAN"; then
+         && grep -qE "^## +Module brief +(—|-) +$module\b" "$BUILD_PLAN"; then
       # The MERGED form. brd-to-build-plan.md prescribes it for single-module projects —
       # "Single-module projects: merge it. The brief's sections become sections of the build plan
       # under a `## Module brief — <Module>` heading (the form exec.sh's advisory also
@@ -108,7 +108,12 @@ if [ -d "$MODULES_DIR" ]; then
       # followed that instruction, with no way to satisfy the column except by writing the
       # duplicate the skill warns against. Found on a real single-module project, 2026-09-08.
       # exec.sh already recognised this shape; this makes the progress board agree with it.
-      # Em dash or hyphen, because both get typed.
+      # Em dash or hyphen, because both get typed — as an ALTERNATION, never a bracket class.
+      # `[—-]` looks equivalent and is not: a bracket expression matches one CHARACTER, the em
+      # dash is 3 bytes in UTF-8, and under a C/POSIX locale grep compares bytes — so the class
+      # cannot match it and the check silently reports "no brief" on a file that has one. Caught
+      # on the first real project to run this code, minutes after it shipped; an alternation is
+      # matched as a byte sequence and works in either locale.
       briefed="merged"
     fi
 

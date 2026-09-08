@@ -16,6 +16,29 @@ This file is the layer on top: once you have a defect, what has to be true befor
 
 ---
 
+
+## 0. Numbers: `BUG-DRAFT-<slug>` in a PR; the merger assigns the real one
+
+`mxcli-project-toolkit/bug-logs/mxcli-bugs.md` is the **number authority** — a project keeping
+its own `bug-logs/mxcli-bugs.md` continues from the highest number *on its own page*, and the two
+sequences then name different defects with the same number (a topbar-titled portal project's
+local BUG-109/110/111 collided with this repo's while its own `blueprint.md` was already citing
+this repo's numbers in prose).
+
+But reading the authority is not enough either: **master moves while you write.** The harvest
+branch that added this section grepped the toolkit for the next free number, took 113–119, and by
+the time it was reviewed master had taken 113–119 itself (two other PRs merged in between) — all
+seven collided and were renumbered at merge. So, per `CONTRIBUTING.md` → merge-queue rules:
+
+- In a **PR to this repo**: write `## BUG-DRAFT-<slug>:` and reference the slug in prose; whoever
+  merges assigns the next free number in the same commit (one queue, one numberer).
+- In a **project's local log**: take the number from the toolkit *at write time* and mark it
+  `(provisional)` — it is a placeholder until promoted through a PR, where the merger numbers it.
+
+The grep for the current high-water mark, when you need it:
+`grep -o "^## BUG-[0-9]*" <toolkit>/bug-logs/mxcli-bugs.md | sort -t- -k2 -n | tail -1`.
+
+
 ## The three failure modes this exists to stop
 
 1. **Bundling.** Two defects with different root causes and different fixes get described as one

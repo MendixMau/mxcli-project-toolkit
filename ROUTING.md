@@ -135,7 +135,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check | `skills/build/mdl/oneshot-mdl-method.md` | mdl | 5 | ondemand |
 | Writing a popup page's microflow with a retry/validation-failure branch that re-shows the same popup — missing close page stacks duplicate dialogs | `skills/learned-popup-navigation.md` | mdl | 5 | ondemand |
 | Writing MDL for a datagrid column with ShowContentAs customContent that needs to display a bound value | `skills/learned-datagrid-customcontent-binding.md` | mdl | 5 | ondemand |
-| Writing a popup whose primary button creates/commits an object or triggers a backend flow — MDL has no native toast, so feedback must be explicit | `skills/learned-popup-feedback-pattern.md` | mdl | 5 | ondemand |
+| Writing ANY microflow behind a button that commits, completes a workflow task, or triggers a backend flow — popup or full page: it owes the user a message, a close, and a control that stops offering the action once done | `skills/learned-popup-feedback-pattern.md` | mdl | 5 | ondemand |
 
 #### Build · Pages — page-building patterns
 

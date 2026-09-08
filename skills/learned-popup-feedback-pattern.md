@@ -1,12 +1,26 @@
-# Pattern: every popup that creates/commits an object must close and/or show a result
+# Pattern: every microflow that completes a unit of work must tell the user it did
 
 **Applies to:** any mxcli project.
 
-**General rule:** any popup page whose primary button creates and commits a domain object (or
-triggers a backend flow that will) must leave the user with unambiguous feedback: either the
-popup closes and the result is visible on the page behind it, or the popup stays open and shows
-the result directly. **Never leave the user staring at an unchanged popup with no visible state
-change** — that reads as "did nothing" even when the backend fully succeeded.
+**File name says "popup" for routing-stability reasons only — the rule is not popup-scoped.**
+It was learned on a popup, written down as a popup rule, and therefore never reached the
+full-page workflow task buttons it also governs. See "The scope defect" below; that miss is
+the reason this heading now reads "microflow", not "popup".
+
+**General rule:** any microflow reached from a button that creates, commits, completes a task,
+or triggers a backend flow that will, must leave the user with unambiguous feedback: the page
+closes and the result is visible behind it, the page stays open and shows the result directly,
+or a toast says what happened — and once the work is done, **the control that did it stops
+offering to do it again**. **Never leave the user staring at an unchanged screen with no visible
+state change** — that reads as "did nothing" even when the backend fully succeeded.
+
+Three legs, and a flow needs all of the ones that apply to it:
+
+| Leg | What it answers | MDL |
+|---|---|---|
+| **Say it** | "Did that work?" | `show message 'text' type Information;` |
+| **Move on** | "What now?" | `close page;` (or the page behind it visibly changes) |
+| **Stop offering** | "Can I click it again?" | the button/container's `Visible` keys on the state the action just changed |
 
 This is a standard Mendix UX convention — native Studio Pro has a dedicated "Show message"
 microflow activity (a growl/toast) for exactly this case.
@@ -82,6 +96,69 @@ microflow the button calls. Use it for the case Options A and B do not cover: a 
 guard — the guard logged a warning and returned, so the button appeared to do nothing; the toast
 is what turns "broken button" into "refused, and here is why". A toast is *not* a substitute for
 closing the popup (A) or showing the result inline (B) when the flow actually succeeded.
+
+## The scope defect — how a correct rule missed four buttons (2026-09-08)
+
+This file has said "never leave the user with no visible state change" since 2026-08-14, and it
+was right. It was also written entirely in the vocabulary of popups — title, applies-to, every
+worked example — so on a workflow project it never reached the **full-page** workflow user-task
+screens, which are not popups and were never searched for under that word.
+
+Measured on a live Mendix Workflow app by `DESCRIBE MICROFLOW` on all five task-decision buttons:
+
+| Task button | show message | close page | hides after |
+|---|---|---|---|
+| `WF_BTN_VendorFeasibility_Page` | yes | yes | no |
+| `WF_BTN_NPDGate_Required` | **no** | **no** | **no** |
+| `WF_BTN_NPDGate_WaveOff` | **no** | **no** | **no** |
+| `WF_BTN_DieGo_Page` | **no** | **no** | **no** |
+| `WF_BTN_DieGoHold_Page` | **no** | **no** | **no** |
+
+One of five followed the convention, and none of the five had the third leg. The user's report
+was verbatim: *"after a button click in WF, it doesn't close page, or doesn't make the buttons
+disappear. and no confirmation message to user. So it was for me unclear to see that the flow was
+completed."* The workflow had in fact advanced every time — `set task outcome` fired, the state
+moved in the database. The defect was entirely in what the screen said about it, which is exactly
+the failure this file exists to prevent.
+
+**Two rules follow.**
+
+1. **Write the trigger, not the surface.** A rule about a *popup* is retrieved by an agent
+   thinking about popups. If the underlying principle is about a class of microflow, name the
+   microflow class. (Toolkit `CLAUDE.md` → authoring rule 1: routing rows are trigger conditions.)
+2. **The third leg is specific to task/state screens and is easy to forget**, because the first
+   two are enough for a *popup* — a popup that closes cannot be clicked again. A full page can be
+   re-opened from a deep link, a grid row, or the browser back button, and will happily offer a
+   decision that can no longer be taken. Key the control's visibility on the state the action
+   changed. For a Mendix workflow task that is the task's own state, not a domain attribute:
+
+   ```
+   alter page Mod."WF_Task_Whatever" {
+     SET Visible = [$WorkflowUserTask/State = System.WorkflowUserTaskState.InProgress] ON ctnDecisionRow
+   }
+   ```
+
+   Keying it on a domain attribute instead is a trap where the domain object has no attribute for
+   the outcome — on the project above, `TFCStub` records the NPD and Vendor decisions but not the
+   Die Go one, so two of the three pages had nothing to key on. The task's state always exists.
+
+3. **On the failure branch, do not complete the task.** Where the button calls a validating
+   sub-microflow, `set task outcome` and `close page` belong inside the success branch only; the
+   else branch shows `type Error` and leaves the task `InProgress` so the user can correct and
+   retry. A flow that refuses silently is the same defect wearing different clothes.
+
+## The e2e assertion this owes
+
+The e2e side of this rule is the harder half, because the standard workflow assertion —
+*the state moved in the database* — passes over the whole defect. It passed over all four
+buttons above for weeks. After clicking any completing control, a journey must assert:
+
+- a message/toast is present in the DOM (`.mx-message, .alert, [role=alert]`), **or** the page
+  navigated away; and
+- the control that was clicked is no longer offered.
+
+Assert on the DOM after the click, not on the database — the database was never the thing that
+was broken.
 
 ## Applying this rule to a new project
 

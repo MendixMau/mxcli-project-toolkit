@@ -95,7 +95,22 @@ if [ -d "$MODULES_DIR" ]; then
     [ -d "$d" ] || continue
     module="$(basename "$d")"
     briefed="no"
-    [ -f "$d/module-brief.md" ] && briefed="yes"
+    if [ -f "$d/module-brief.md" ]; then
+      briefed="yes"
+    elif [ -f "$BUILD_PLAN" ] \
+         && grep -qE "^## +Module brief +[—-] +$module\b" "$BUILD_PLAN"; then
+      # The MERGED form. brd-to-build-plan.md prescribes it for single-module projects —
+      # "Single-module projects: merge it. The brief's sections become sections of the build plan
+      # under a `## Module brief — <Module>` heading (the form exec.sh's advisory also
+      # recognises)… two documents at ~70% overlap is how one of them ends up unwritten."
+      #
+      # Reading only the per-module file reported `briefed: no` forever on a project that had
+      # followed that instruction, with no way to satisfy the column except by writing the
+      # duplicate the skill warns against. Found on a real single-module project, 2026-09-08.
+      # exec.sh already recognised this shape; this makes the progress board agree with it.
+      # Em dash or hyphen, because both get typed.
+      briefed="merged"
+    fi
 
     summary="$ROOT/.claude/loop/verify/$module/summary.tsv"
     reviewed="not yet"

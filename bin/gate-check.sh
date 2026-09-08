@@ -1214,10 +1214,19 @@ check_build_ready() {
   fi
 
   # 4. At least one module brief exists (JIT — the first module's brief must be ready)
+  #
+  # Two shapes are accepted, because brd-to-build-plan.md prescribes both: the per-module file,
+  # and the MERGED form for single-module projects ("Single-module projects: merge it… two
+  # documents at ~70% overlap is how one of them ends up unwritten"). Accepting only the first
+  # held build-ready shut on a project that had followed the skill's own instruction, and the
+  # only way out was to write the duplicate document the skill warns against. Found on a real
+  # single-module project, 2026-09-08; exec.sh's advisory already recognised the merged form.
   if find_artifact -path '*/architecture/modules/*-brief.md' | grep -q .; then
     echo "  ✓ at least one module brief exists (architecture/modules/)"
+  elif grep -qE '^## +Module brief +[—-] +' "$PROJECT_DIR/architecture/build-plan.md" 2>/dev/null; then
+    echo "  ✓ module brief merged into architecture/build-plan.md (single-module form, brd-to-build-plan.md)"
   else
-    echo "  ✗ no module brief (architecture/modules/<Module>/module-brief.md) — ba-agent translation mode (module-brief.md)"
+    echo "  ✗ no module brief — either architecture/modules/<Module>/module-brief.md, or a '## Module brief — <Module>' section in architecture/build-plan.md (module-brief.md)"
     fails=$((fails+1))
   fi
 

@@ -57,6 +57,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/walking-skeleton.md` | Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them |
 | `bin/bug-lookup.sh` | A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" prints the matching ledger entries, so the session reads one entry, not the 32k-word ledger |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
+| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words |
@@ -93,7 +94,8 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/learned-dg2-patterns.md` | Building or altering any data grid — native DATAGRID vs pluggable DG2 decision rule, the ALTER PAGE INSERT corruption, sort-by and filter-binding traps |
 | `skills/scriptable-sp-verification.md` | Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle |
 | `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first |
-| `project-bin/ts-sync.sh` | Sharing the project with a colleague on Mendix Team Server while the build loop stays on GitHub — content-transplant snapshots between the two clones (status/push/pull); UNPROVEN against a real Team Server, first field run owed |
+| `skills/platform-link.md` | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App |
+| `project-bin/ts-sync.sh` | Sharing the project with a colleague on Mendix Team Server while the build loop stays on GitHub — content-transplant snapshots between the two clones (status/push/pull); SUPERSEDED by platform-link.md §3 (adopt without rewriting history, field-proven) — only if that path fails; UNPROVEN against a real Team Server |
 <!-- ROUTING:END -->
 
 ## Ground rules

@@ -3,7 +3,7 @@
 name, printing entity <>` (originally discovered 2026-08-20 on a scratch project, mxcli v0.17.0
 and v0.18.0, while retesting BUG-61; retested and confirmed still open 2026-08-31 on v0.20.0 —
 see `bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`)
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1034 (2026-09-04)
 **Suggested labels:** bug, java-action, describe, round-trip
 
 ---
@@ -95,7 +95,7 @@ build, matching the `CE0163` that mxbuild already raises.
 
 ---
 
-**Status: DRAFTED 2026-08-31, not yet filed.**
+**Status: FILED — https://github.com/mendixlabs/mxcli/issues/1034 (2026-09-04).**
 Duplicate-check: searched `mendixlabs/mxcli` issues (open and closed) for "DESCRIBE JAVA ACTION
 drops type-parameter name entity" and "DESCRIBE JAVA ACTION type parameter round trip" — no
 existing issue found as of 2026-08-31. The closest hit, closed issue #282 ("change with qualified

@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** field build on mxcli **v0.20.0** (2026-08-28T13:22:53Z build), Mendix 11.12.1, Linux container
-**Status:** DRAFT — not yet filed (`add_repo` refused `mendixlabs/mxcli` in the filing session — see "Why not filed" below)
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1035 (2026-09-04)
 **Severity:** High — a class of pluggable-widget page (Gallery) authored entirely through mxcli
 passes every mxcli-side check yet permanently fails headless `mxbuild`, and no mxcli command
 (`check`, `widget sync`, full page regeneration, or single-widget regeneration with a fresh

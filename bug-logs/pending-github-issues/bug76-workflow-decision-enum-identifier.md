@@ -131,3 +131,29 @@ alongside it.
 Duplicate-check: searched `mendixlabs/mxcli` issues (open and closed) for "EnumerationValueIdentifier",
 "workflow decision EnumerationValueIdentifier", and "workflow DECISION EnumerationValueIdentifier
 StorageLoadException" — no existing issue found as of 2026-08-31.
+
+---
+
+## Follow-up to post as a comment on issue #1031 (prepared 2026-09-08)
+
+Re-probed on **mxcli v0.21.0** (released 2026-09-06), Mendix 11.13.0, on a throwaway full project
+copy. **Still open**, and the original report's framing needs one correction.
+
+This is not unconditional corruption — it is a pincer between two spellings, and both jaws are
+still closed:
+
+| Outcome spelling | `mxcli check` | Native `mx check` | Net |
+|---|---|---|---|
+| Bare — `'Yes'` | passes | fails to load: `StorageLoadException` — *"Enumeration value condition outcome in  has an invalid value '' for property Value. The text 'Yes' is not a valid EnumerationValueIdentifier."* | unloadable model |
+| Qualified — `'MyModule.MyEnum.MyValue'` | rejected by rule `MDL-WF03` | loads clean, 1 x `CE0117` at the decision | works, via `exec --no-check` |
+
+mxcli's own `MDL-WF03` mandates the spelling the loader rejects and rejects the spelling the loader
+accepts, so following the tool's guidance guarantees the unloadable model. `bson dump` shows the
+mechanism: the bare string is written verbatim into
+`Workflows$EnumerationValueConditionOutcome.Value`.
+
+That suggests two independent fixes rather than one: resolve the outcome to an
+`EnumerationValueIdentifier` on write (or at minimum stop `MDL-WF03` mandating the unloadable
+spelling), and give `DECISION` an expression clause — `ON`, `EXPRESSION`, `CONDITION` and `RULE`
+were all probed and none parse, which is why the qualified form still lands one `CE0117` for an
+empty condition.

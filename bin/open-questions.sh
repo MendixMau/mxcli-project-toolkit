@@ -448,10 +448,38 @@ N_BLOCKING=$((N_UNRAISED + N_UNRECOGNISED))
 NOTHING_EXAMINED=0
 if [ "$BRD_COUNT" -eq 0 ] && [ "$SME_COUNT" -eq 0 ]; then NOTHING_EXAMINED=1; fi
 
+# ---------------------------------------------------------------------------
+# RE-CHECK: a new source arrived after these questions were answered.
+#
+# Post-mortem 2026-09-02, fix 5: "re-running every open question against each newly-read
+# source, as standing procedure rather than when someone remembers." A question closed as
+# ANSWERED or ASSUMED against the corpus-as-it-was is not closed against the corpus-as-it-is,
+# and a negative answer ("no source describes the classification matrix") is the one most
+# likely to be overturned by the file that just landed. The inventory
+# (analysis/source-sufficiency.json) stamps `addedAt` on every row `init --refresh` appended;
+# a row with `addedAt` and no disposition yet is a source nobody has read against anything.
+# Advisory — the ledger blocks on the missing disposition; this names the questions to re-open.
+# ---------------------------------------------------------------------------
+RECHECK_SOURCES=""
+RUBRIC_PATH=""
+for cand in "$PROJECT_DIR/analysis/source-sufficiency.json"; do [ -f "$cand" ] && RUBRIC_PATH="$cand"; done
+if [ -n "$RUBRIC_PATH" ] && command -v jq >/dev/null 2>&1; then
+  RECHECK_SOURCES="$(jq -r '
+    (.dispositions // []) as $d
+    | [ (.inventory // [])[]
+        | select(.addedAt != null)
+        | . as $r
+        | select( ([$d[] | (.path // .pattern)] | index($r.rel)) == null )
+        | "\(.rel) (added \(.addedAt))" ]
+    | .[]' "$RUBRIC_PATH" 2>/dev/null)"
+fi
+N_RECHECK_SOURCES=0
+[ -n "$RECHECK_SOURCES" ] && N_RECHECK_SOURCES=$(printf '%s\n' "$RECHECK_SOURCES" | grep -c .)
+
 if [ "$JSON" = "1" ]; then
   printf '%s\n' "$FILTERED" | awk -F'\t' 'NF>=9' | jq -R -s --argjson brds "$BRD_COUNT" \
     --argjson smes "$SME_COUNT" --argjson nothing "$NOTHING_EXAMINED" \
-    --argjson dupes "${DUPES_COLLAPSED:-0}" --arg stage "$STAGE" '
+    --argjson dupes "${DUPES_COLLAPSED:-0}" --arg stage "$STAGE" --arg newsrc "$RECHECK_SOURCES" '
     split("\n") | map(select(length>0) | split("\t")) |
     map({state:.[0], id:.[1], origin:.[2], stage:(.[3]|tonumber), question:.[4],
          assumption:.[5], reason:.[6], rawStatus:.[8]}) as $qs |
@@ -466,6 +494,8 @@ if [ "$JSON" = "1" ]; then
                 MOOT:         ($qs|map(select(.state=="MOOT"))|length),
                 UNRECOGNISED: ($qs|map(select(.state=="UNRECOGNISED"))|length) },
       blocking: ($qs|map(select(.state=="UNRAISED" or .state=="UNRECOGNISED"))|length),
+      recheck: { newSources: ($newsrc | split("\n") | map(select(length>0))),
+                 questionsToRecheck: (if ($newsrc|length) > 0 then ($qs|map(select(.state=="ANSWERED" or .state=="ASSUMED" or .state=="RAISED"))|length) else 0 end) },
       questions: $qs }'
 else
   echo "OPEN QUESTIONS — $PROJECT_DIR${STAGE:+ (stage <= $STAGE)}"
@@ -481,6 +511,14 @@ else
   fi
   echo "Counts: UNRAISED=$N_UNRAISED  RAISED=$N_RAISED  ANSWERED=$N_ANSWERED  ASSUMED=$N_ASSUMED  MOOT=$N_MOOT  UNRECOGNISED=$N_UNRECOGNISED  (total $N_TOTAL)"
   echo "Blocking (UNRAISED + UNRECOGNISED): $N_BLOCKING"
+  if [ "$N_RECHECK_SOURCES" -gt 0 ]; then
+    N_RC_Q=$(( N_ANSWERED + N_ASSUMED + N_RAISED ))
+    echo ""
+    echo "RE-CHECK: $N_RECHECK_SOURCES source file(s) arrived after these questions were answered and have"
+    echo "  no disposition yet. Every ANSWERED/ASSUMED/RAISED question ($N_RC_Q) is open against them —"
+    echo "  negative answers first (\"no source describes X\"). Read, then bin/source-ledger.sh mark:"
+    printf '%s\n' "$RECHECK_SOURCES" | sed 's/^/    /'
+  fi
   echo ""
   if [ "$N_BLOCKING" -eq 0 ]; then
     echo "Nothing to raise. Every question here has been put to the user."

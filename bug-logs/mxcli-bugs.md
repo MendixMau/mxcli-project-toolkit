@@ -2835,6 +2835,41 @@ DECISION"` returns no help text at all. Neither the wrong docs nor the missing h
 this specific corruption (the corruption reproduces with correct arrow syntax too), but both should
 be fixed alongside it.
 
+### Re-diagnosed 2026-09-02, and re-probed on mxcli v0.21.0 (2026-09-08) — still open
+
+**The "unconditional storage corruption" characterisation in this entry's title is wrong.** It was
+corrected on a client project on 2026-09-02 (v0.20.0) but never promoted here until now. The defect
+is narrower than the title claims, and it has a workaround.
+
+It is a **pincer between two spellings**, both jaws of which are still closed on v0.21.0
+(re-probed 2026-09-08, Mendix 11.13.0, on a throwaway full project copy):
+
+| Outcome spelling | `mxcli check` | Native `mx check` | Net |
+|---|---|---|---|
+| Bare — `'Yes'` | **passes** | **fails to load** — `Mendix.Modeler.Storage.StorageLoadException`: *"Enumeration value condition outcome in  has an invalid value '' for property Value. The text 'Yes' is not a valid EnumerationValueIdentifier."* | unloadable model |
+| Qualified — `'MyModule.MyEnum.MyValue'` | **rejected**, rule `MDL-WF03` | **loads clean**, 1 x `CE0117` at the decision | works, via `exec --no-check` |
+
+So mxcli's own `MDL-WF03` mandates the one spelling the loader rejects and rejects the one spelling
+the loader accepts. Following the tool's guidance guarantees the unloadable model — which is
+exactly why this read as unconditional corruption when it was first filed.
+
+`bson dump` confirms the mechanism directly: the bare outcome string is written verbatim into
+`Workflows$EnumerationValueConditionOutcome.Value`, a slot the loader parses as an
+`EnumerationValueIdentifier`.
+
+**The residual real gap** is separate and smaller: MDL's `DECISION` has no expression clause (`ON`,
+`EXPRESSION`, `CONDITION` and `RULE` were all probed and none parse), so a decision written from
+MDL lands with an empty condition and the model reports exactly one `CE0117` — an ordinary,
+visible modelling error a human fixes by picking the expression in the Studio Pro canvas.
+
+Incidental confirmation that the qualified form really binds rather than merely being tolerated: a
+deliberately non-existent value produced `CE1613` *"The selected enumeration value ... no longer
+exists"* while the valid sibling in the same decision resolved silently.
+
+**Two fixes are needed, and they are independent**: (1) resolve the outcome string to an
+`EnumerationValueIdentifier` on write, or at minimum stop `MDL-WF03` mandating the unloadable
+spelling; (2) give `DECISION` an expression clause.
+
 ## BUG-77: BUG-75's "create/change attribute values are safe" scope claim is wrong — quoted attribute segments (`$Var/"Attr"`) DO cause CE0117 in create/change statements too, just not consistently
 
 **Project:** PROJECT-A, script 64 (`Approval.ACT_ApprovalRun_CreateVersion`, part of the same
@@ -4375,6 +4410,26 @@ rather than the ones the model claims.
 Open. No scripted workaround found. The split must be built in Studio Pro by hand, or through
 an MCP write session (`learned-mcp-patterns.md` — untested for this activity), until mxcli's
 parallel-split writer attaches path contents.
+
+### Re-probed on mxcli v0.21.0 (2026-09-08) — NOT fixed
+
+The same two-path probe script was executed through v0.20.0 and v0.21.0 on two separate throwaway
+copies of the same project, and the stored workflow unit dumped from each with
+`mxcli bson dump --type workflow`.
+
+**The two versions write a byte-identical workflow unit** — zero diff lines after blanking the
+`$ID` GUIDs. So v0.21.0 produces the identical runtime deadlock, and no live run was needed to
+settle the version question.
+
+Worth recording for whoever fixes this: the path contents *are* present in the BSON, on both
+versions — `Workflows$ParallelSplitActivity` -> `Workflows$ParallelSplitOutcome` ->
+`Workflows$Flow` -> `Workflows$SingleUserTaskActivity`. That is why `DESCRIBE` round-trips and why
+no gate objects. Whatever the runtime reads as empty, **it is not the activity nesting**, so this
+entry's title describes the symptom rather than the mechanism. The mechanism is still
+unidentified; a maintainer diffing this unit against a Studio-Pro-authored split would likely
+find it in one field.
+
+The v0.21.0 changelog names no parallel-split fix.
 
 **Related:** BUG-76 (scripted `DECISION` corrupts the `.mpr` on load). Both are workflow
 *structure* writers producing models the runtime will not execute as written; BUG-76 fails loudly

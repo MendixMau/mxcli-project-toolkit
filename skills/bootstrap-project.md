@@ -12,7 +12,7 @@
 - Auditing an existing project's `CLAUDE.md` against the toolkit's current Baseline routing (run this whenever the toolkit's `git pull` brings in a newly-baseline-worthy skill)
 - Someone says "review the toolkit and build the CLAUDE.md" — that instruction alone is not enough; this skill is what makes it repeatable instead of improvised
 
-**⚠️ Ordering rule with `mxcli init`: init first, bootstrap second — and never re-run init on an initialized project.** `mxcli init` **overwrites** an existing `CLAUDE.md` and `.claude/settings.json` without merging (confirmed on v0.16.0 — it clobbered a live project's files). So: run `mxcli init` on the fresh project to get `.ai-context/` and the generated baseline, *then* run this skill, which merges the toolkit's Baseline routing and project facts into the init-generated `CLAUDE.md` rather than replacing it. If someone needs to re-init later (e.g. after an mxcli upgrade to refresh `.ai-context/`), commit `CLAUDE.md` + `.claude/` first and restore/re-merge them afterwards.
+**⚠️ Ordering rule with `mxcli init`: init first, bootstrap second — and never re-run init on an initialized project without the commit-first ritual.** `mxcli init` **overwrites** an existing `CLAUDE.md` and `.claude/settings.json` without merging (confirmed on v0.16.0 — it clobbered a live project's files). So: run `mxcli init` on the fresh project to get `.ai-context/` and the generated baseline, *then* run this skill, which merges the toolkit's Baseline routing and project facts into the init-generated `CLAUDE.md` rather than replacing it. If someone needs to re-init later, commit `CLAUDE.md` + `.claude/` first and restore/re-merge them afterwards. **A re-init IS worth doing once a project's mxcli reaches v0.20.0:** the bundled skills became directory-shaped (`<name>/SKILL.md`, Agent Skills standard) and init retires the flat `<name>.md` files older versions wrote — without touching skills the user added — so an upgraded project otherwise carries a stale flat copy beside nothing.
 
 ---
 
@@ -51,8 +51,8 @@ From the toolkit's `README.md` "When to use which skill" table, include only the
 
 - **OutSystems source** → `source-os11.md`, `os-xml-schema.md`, `migrate-outsystems.md`, `pipelines/outsystems/`
 - **Java/Spring + Angular source** → `pipelines/java-angular/` and its `README.md` (there is no `source-java-spring-angular.md` skill — the pipeline is the documentation)
-- **Oracle Forms source** → mxcli's bundled `.ai-context/skills/migrate-oracle-forms.md` (the toolkit owns no Forms extractor; the bundled skill is canonical)
-- **K2 / Nintex workflow source** → mxcli's bundled `.ai-context/skills/migrate-k2-nintex.md` (server/database-stored, not file-based — extraction means the K2 DB or SmartObject APIs, so expect no XML-style extractor)
+- **Oracle Forms source** → mxcli's bundled `.ai-context/skills/migrate-oracle-forms/SKILL.md` — directory-shaped since mxcli v0.20.0, flat `migrate-oracle-forms.md` on older installs (the toolkit owns no Forms extractor; the bundled skill is canonical)
+- **K2 / Nintex workflow source** → mxcli's bundled `.ai-context/skills/migrate-k2-nintex/SKILL.md`, same shape note (server/database-stored, not file-based — extraction means the K2 DB or SmartObject APIs, so expect no XML-style extractor)
 - **Any migration, regardless of source** → `migration-pipeline.md`, `source-triage.md` (also Baseline, but worth restating in context), `brd-generation.md`, `brd-validation.md`, `modularize-domain.md`, `architecture-blueprint.md`, `design-artifacts.md`, `brd-to-build-plan.md`, `iterative-build-loop.md`
 - **Greenfield (no source migration at all)** → likely none of the migration-pipeline rows; the project probably only needs Baseline plus mxcli's own bundled `.ai-context/skills/` (which this toolkit doesn't own or duplicate)
 

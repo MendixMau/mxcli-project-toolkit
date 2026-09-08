@@ -4,6 +4,11 @@
 # loop stays on GitHub, and "every now and then" a model snapshot crosses to Team Server for
 # colleagues in Studio Pro — or a colleague's Team Server commit crosses back.
 #
+# ⚠️  SUPERSEDED for its main case (2026-09-07): skills/platform-link.md §3 adopts a GitHub-born
+#     model into Team Server WITHOUT rewriting history (subtree split + commit-tree merge with
+#     the platform's template commit as second parent → fast-forward push; field run, 144
+#     commits). Use that. This transplant remains only for a repository whose template commit
+#     cannot be made an ancestor — a case nobody has met yet.
 # ⚠️  STATUS: UNPROVEN AGAINST A REAL TEAM SERVER (2026-09-01). The transplant logic is
 #     selftested on local fixture repos only; nothing here has touched git.api.mendix.com.
 #     First field run owed from a machine holding both clones. Until that run is recorded in

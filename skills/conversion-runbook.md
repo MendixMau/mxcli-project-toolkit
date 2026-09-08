@@ -46,6 +46,7 @@ table; a skill missing here is a skill no agent will find.
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
 | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` |
+| Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule | `skills/retesting-learned-rules.md` |
 <!-- ROUTING:END -->
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
 **Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.
@@ -55,6 +56,11 @@ table; a skill missing here is a skill no agent will find.
 ---
 
 ## Prerequisites — run this once on a new machine
+
+`bin/doctor.sh` also detects *which kind* of machine — cloud container, devcontainer, or local
+with Studio Pro — and prints what that lane changes (`CONVERSION-RUNBOOK.md` → *Where you run
+this*). Record it in `PROJECT.md` as `Environment: <lane>`; a cloud container then follows
+`cloud-dev-environment.md` for its setup order. Nobody is asked to choose.
 
 This runbook drives shell scripts. They need **bash** and a **Python 3**, and on Windows neither
 is guaranteed. Do not discover that partway into a stage; find out now:
@@ -690,7 +696,7 @@ Before writing any MDL, check the STOP table in `learned-mdl-preflight.md`:
 Write MDL  →  check the STOP table
                 ├─ clean            → mxcli exec (SP closed)
                 ├─ STOP → MCP       → mxcli --mcp exec (SP open) — bypasses the BSON serializer
-                ├─ STOP → GUI       → Studio Pro by hand (settings, security-bearing drops)
+                ├─ STOP → GUI       → Studio Pro by hand (security-bearing drops; settings too on mxcli < v0.20)
                 └─ no MDL syntax    → hand-rolled MCP (pg_patch_page)
 Crashed anyway? → bin/restore-mpr.sh  (restores .mpr AND mprcontents/ — either alone is useless)
                 → log it in bug-logs/mxcli-bugs.md

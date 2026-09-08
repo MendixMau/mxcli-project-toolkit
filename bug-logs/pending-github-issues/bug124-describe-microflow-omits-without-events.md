@@ -1,7 +1,7 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-124` — observed 2026-09-07 re-emitting four start
 microflows in script `87` of a topbar-titled portal project (Mendix 11.13.0)
-**Status:** DRAFT — not yet filed
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1070 (2026-09-08)
 **Suggested labels:** bug, describe, round-trip, microflows, silent-behaviour-change
 
 ---
@@ -19,6 +19,12 @@ MICROFLOW` prints a bare `commit $X;` for both settings**. The events flag is no
 
 So the standard repoint workflow — `DESCRIBE` a microflow, change one activity, re-exec it —
 silently flips the commit semantics of every commit in the flow that had events off.
+
+## Environment
+
+- mxcli **v0.20.0**
+- Mendix **11.13.0**
+- Linux container
 
 ## Why nothing catches it
 

@@ -20,6 +20,11 @@
 #   3. THE RENDERER RENDERS, AND REFUSES WHAT IT CANNOT DESCRIBE. Two differing triage.md files
 #      is not a page it can honestly draw; a missing one is not an empty page.
 
+# Scaffolding through the real init-project.sh registers the throwaway project name in the
+# toolkit leak-guard denylist; send that to scratch, never to the developer's real list.
+export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-fixture-denylist.$$"
+trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"' EXIT
+
 set -u
 
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"

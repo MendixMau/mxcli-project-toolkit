@@ -8,6 +8,11 @@
 # truth and costs fragility: reword a cell and the parse can quietly return nothing. So the
 # assertions below pin the two prose shapes that actually bit during development, not just the
 # happy path.
+# Scaffolding through the real init-project.sh registers the throwaway project name in the
+# toolkit leak-guard denylist; send that to scratch, never to the developer's real list.
+export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-fixture-denylist.$$"
+trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"' EXIT
+
 set -uo pipefail
 GATE="${1:-$(cd "$(dirname "$0")/../.." && pwd)/bin/gate-check.sh}"
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"

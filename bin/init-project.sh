@@ -573,7 +573,12 @@ fi
 # .leakguard-deny is gitignored by design (a tracked denylist publishes exactly
 # the names it exists to suppress — the 2026-08-03 finding), so this writes to
 # the toolkit CLONE, never to the project, and never to anything committed.
-DENYFILE="$TOOLKIT_ROOT/.leakguard-deny"
+# MXTK_LEAKGUARD_DENYFILE overrides the target. Test fixtures set it to a scratch path: the
+# wave2 fixtures scaffold throwaway projects named t0..t10 through this very script, and each
+# run appended \bt0\b … \bt10\b to the developer's REAL denylist (and created one in CI),
+# after which the leak guard flagged every file containing "t1" — found 2026-09-08 when the
+# suites were first wired into CI and the guard went red on 200 files.
+DENYFILE="${MXTK_LEAKGUARD_DENYFILE:-$TOOLKIT_ROOT/.leakguard-deny}"
 if [ -w "$TOOLKIT_ROOT" ]; then
   # Dedupe with a FIXED-STRING search, not a regex one. The obvious version —
   # matching the name with `[^A-Za-z0-9]` boundaries — never fires, because the

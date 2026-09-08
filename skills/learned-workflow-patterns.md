@@ -17,8 +17,8 @@ than on a re-run verification — they are flagged inline where that matters. Tr
 **If you are on v0.20.0 or later, read §21 first.** A full re-probe on 2026-08-31 rebuilt a
 23-activity workflow — a decision, a non-interrupting boundary timer, a wait-for-timer, two jumps
 and two user tasks — from pure MDL at **0 native errors**, cleared the `CE0105` boundary-timer and
-`$Type` claims, records the one result that is *disputed* (`DECISION`, against BUG-76's same-day
-retest), lists the four gaps that remain, and carries the `JUMP TO` trap that every
+`$Type` claims, records the `DECISION` result that was *disputed* until 2026-09-08 (resolved: a
+spelling pincer, not a shape — see BUG-76), lists the four gaps that remain, and carries the `JUMP TO` trap that every
 `DESCRIBE → exec` round-trip walks into. Sections written against older binaries are kept as-is,
 because the version gate is the point; §21 says which of their claims are now historical.
 
@@ -466,7 +466,7 @@ mxcli **v0.18.0**, where `DECISION` writes correctly.
 | `v0.16.0` | **corrupts the `.mpr`** — do not emit |
 | `v0.17.0` | **corrupts the `.mpr`** — confirmed, BUG-76 (binary `2026-08-10T05:12:17Z`) |
 | `v0.18.0`+ | writes correctly; verify what was stored anyway |
-| `v0.20.0` | **disputed, 2026-08-31** — one probe stored and natively loaded an `ExclusiveSplitActivity` inside a 23-activity workflow (§21); the same-day toolkit retest reproduced the byte-exact corruption with `decision '1 = 1' outcomes 'OutcomeA' -> { } 'OutcomeB' -> { }` (BUG-76, `mxlabs-v0.20.0-retest-2026-08-31.md`). Shape-dependent until someone isolates the shape — verify what was stored, every time |
+| `v0.20.0` / `v0.21.0` | **resolved 2026-09-08 — a spelling pincer, not a shape.** The two 2026-08-31 probes disagreed because one used bare outcomes and one used qualified ones: bare `'Yes'` passes `mxcli check` and produces the byte-exact `StorageLoadException`; qualified `Module.Enum.Value` is rejected by `MDL-WF03` but loads natively via `exec --no-check` with one `CE0117` (the empty condition). Re-probed on v0.21.0: unchanged. Workaround: qualified spelling + `--no-check`, then pick the expression in Studio Pro (BUG-76, mendixlabs/mxcli#1031) |
 
 Two half-right versions of this warning coexisted for four days from 2026-08-21. One said
 "absolute prohibition, confirmed on v0.17.0" and never learned about the v0.18.0 fix — follow
@@ -965,14 +965,14 @@ non-interrupting boundary timer, one `WAIT FOR TIMER`, two `JUMP TO`, two user t
 XPath targeting and a due date, hand-built in Studio Pro over several sittings. It was
 rebuilt from pure MDL in a throwaway clone and validated natively.
 
-**Result: 0 errors.** Everything in that list is scriptable on v0.20.0 — with one verdict
-disputed (the `DECISION`, below).
+**Result: 0 errors.** Everything in that list is scriptable on v0.20.0 — with one verdict that
+was disputed until 2026-09-08 (the `DECISION`, below — now resolved as a spelling pincer).
 
 ### Cleared — claims elsewhere in this document that are now historical
 
 | Claim, and where it still appears | Status on v0.20.0 |
 |---|---|
-| `DECISION` corrupts the `.mpr` (§8 Warning 1, BUG-76) | **Disputed.** This probe's `ExclusiveSplitActivity` was stored and natively loaded. The toolkit's own retest the same day (`bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`) reproduced the byte-exact `StorageLoadException` with `decision '1 = 1' outcomes 'OutcomeA' -> { } 'OutcomeB' -> { }`. Two v0.20.0 probes, two verdicts, and the loading one did not record its decision's shape — so the defect is **shape-dependent and not yet isolated**. Keep BUG-76's STOP rule at full strength until someone bisects the shape; §8's table carries the row. |
+| `DECISION` corrupts the `.mpr` (§8 Warning 1, BUG-76) | **Resolved 2026-09-08 — spelling, not shape.** This probe's `ExclusiveSplitActivity` loaded because its outcomes were qualified (`Module.Enum.Value`, forced through `--no-check` past `MDL-WF03`); the same-day retest (`bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`) corrupted because its outcomes were bare, which `mxcli check` accepts and the loader rejects as an invalid `EnumerationValueIdentifier`. Re-probed on v0.21.0 (2026-09-08): both jaws unchanged. Keep BUG-76's STOP rule until upstream fixes either jaw (mendixlabs/mxcli#1031); the workaround is qualified spelling + `exec --no-check` + one `CE0117` to fix in the canvas. |
 | An MDL-written `BOUNDARY EVENT … TIMER` is always malformed — `CE0105` | **Cleared for the non-interrupting form.** The timer wrote correctly, reading `$WorkflowContext/<DeadlineAttribute>`. The *interrupting* form still fails `CE0105` because its terminator is inexpressible (§19, BUG-109). |
 | `CALL MICROFLOW` stores the pre-11.9 `$Type` (§13, BUG-WF06) | **Cleared.** 14/14 landed as `CallMicroflowActivity` — re-confirming the v0.17.0 fix. |
 | `DESCRIBE WORKFLOW` is blind to boundary events, decisions, jumps and waits | **Largely cleared.** All four now read back. The Event Sub-Process still does not — see below. |

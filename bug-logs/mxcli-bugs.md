@@ -5422,7 +5422,7 @@ row the two disagree.
 
 | Defect | Entry | Status on v0.20.0 |
 |---|---|---|
-| `DECISION` corrupts the `.mpr` | BUG-76 | **Disputed.** This probe's `ExclusiveSplitActivity` stored and natively loaded; the same-day retest reproduced the byte-exact corruption with `decision '1 = 1'`. Shape not isolated — STOP rule stays (note under BUG-76). |
+| `DECISION` corrupts the `.mpr` | BUG-76 | **Resolved 2026-09-08 — not shape-dependent, spelling-dependent.** The two v0.20.0 probes differed in outcome spelling, not shape: a bare outcome (`'Yes'`) passes `mxcli check` and makes the model unloadable; a qualified one (`Module.Enum.Value`) is rejected by `MDL-WF03` yet loads clean via `exec --no-check` with one `CE0117`. Re-probed on v0.21.0: both jaws still closed. See "Re-diagnosed 2026-09-02" under BUG-76; STOP rule stays until upstream (mendixlabs/mxcli#1031) fixes either jaw. |
 | MDL-written non-interrupting `BOUNDARY EVENT … TIMER` always malformed (`CE0105`) | a project-local finding, no toolkit entry | **Fixed for the non-interrupting form.** Timer wrote and loaded, reading a context attribute. The interrupting form is still unusable — BUG-109 and `learned-workflow-patterns.md` §19. |
 | pre-11.9 `Workflows$CallMicroflowTask` `$Type` | BUG-WF06 (archived, fixed v0.17.0) | **Re-confirmed fixed.** 14/14 stored as `CallMicroflowActivity`. |
 

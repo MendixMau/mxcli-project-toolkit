@@ -86,7 +86,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/learned-sidebar-collapse-icons.md` | Building or auditing a collapsible sidebar nav — Atlas Core's collapsed state needs icons assigned per menu item or it silently clips label text |
 | `skills/learned-popup-navigation.md` | Writing a popup page's microflow with a retry/validation-failure branch that re-shows the same popup — missing close page stacks duplicate dialogs |
 | `skills/learned-datagrid-customcontent-binding.md` | Writing MDL for a datagrid column with ShowContentAs customContent that needs to display a bound value |
-| `skills/learned-popup-feedback-pattern.md` | Writing a popup whose primary button creates/commits an object or triggers a backend flow — MDL has no native toast, so feedback must be explicit |
+| `skills/learned-popup-feedback-pattern.md` | Writing ANY microflow behind a button that commits, completes a workflow task, or triggers a backend flow — popup or full page: it owes the user a message, a close, and a control that stops offering the action once done |
 | `skills/anonymize-client-app-for-demo.md` | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
 | `skills/learned-mdl-cannot-express.md` | Before a wireframe or a design commits to a WIDGET — and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time |

@@ -212,31 +212,33 @@ fi
 # lowered as rows move to on-demand or shrink — never raised to admit growth. To add a
 # baseline row, take words out elsewhere. Scripts count too: an agent told to read a script
 # reads it.
-# 95000 since 2026-09-08. The ratchet was set at 90000 with ~400 words of headroom, and the first
-# two PRs that touched baseline files after it (each a few hundred words into conversion-runbook,
-# learned-mdl-preflight, module-review) went red in CI on a merge commit — a ceiling that close to
-# the total blocks ordinary edits, not growth. Now ~2.5% above the total measured at merge (92,647);
-# re-ratchet down at a quiet moment, and pay for a NEW baseline row with a demotion, never by
-# raising this.
-BASELINE_BUDGET="${MXTK_BASELINE_BUDGET_WORDS:-95000}"
-BASELINE_WORDS="$(awk -F'\t' '/^#/ || NF < 6 { next } $6 == "baseline" { print $2 }' "$MXTK_ROUTING_TSV" \
+# 80000 since 2026-09-08: the tier measured 73,026 words of DOCUMENTS once scripts stopped counting
+# (see _baseline_docs). Ratchet: lower it as rows move to on-demand; pay for a new baseline row
+# with a demotion, never by raising this.
+BASELINE_BUDGET="${MXTK_BASELINE_BUDGET_WORDS:-80000}"
+# COUNT WHAT IS READ, NOT WHAT IS RUN (curated 2026-09-08). The tier held ~98k words, of which
+# ~21k were scripts (verify-module.sh, source-sufficiency.sh, source-ledger.sh, status.sh …) and a
+# 3.5k-word .js — files an agent executes by their usage line and never loads into context. The
+# budget is a context cost, so it counts skill documents only. Scripts stay routed baseline so
+# agents find them; they just do not spend the reading budget.
+_baseline_docs() {
+  awk -F'\t' '/^#/ || NF < 6 { next } $6 == "baseline" && $2 ~ /\.md$/ { print $2 }' "$MXTK_ROUTING_TSV"
+}
+BASELINE_WORDS="$(_baseline_docs \
   | while IFS= read -r f; do [ -f "$ROOT/$f" ] && wc -w < "$ROOT/$f"; done | awk '{ s += $1 } END { print s + 0 }')"
-# ADVISORY BY DEFAULT (merge review, 2026-09-08). Three consecutive merge commits went red on
-# this check while every one of them was an ordinary edit: the tier's total moves with every
-# PR that touches conversion-runbook.md or learned-mdl-preflight.md, and two of the five
-# largest baseline "files" are scripts (source-sufficiency.sh, verify-module.sh) an agent runs
-# rather than reads. Until the tier is curated — scripts routed by their usage line, not their
-# source — the report prints and the check passes; MXTK_BASELINE_BUDGET_STRICT=1 restores the
-# hard fail (use it in a deliberate re-ratcheting pass, not in CI).
+# STRICT AGAIN (2026-09-08, same day it went advisory): the advisory detour existed because the
+# count included scripts; with documents-only counting the number is a real context cost and a
+# hard fail is honest. MXTK_BASELINE_BUDGET_ADVISORY=1 reports without failing, for a
+# deliberate re-ratcheting pass — not for CI.
 OVER_BUDGET=""
 if [ "$BASELINE_WORDS" -gt "$BASELINE_BUDGET" ]; then
   OVER_BUDGET="$BASELINE_WORDS words in the baseline tier, budget $BASELINE_BUDGET"
   echo "BASELINE OVER BUDGET: $OVER_BUDGET"
   echo "    → move a row to ondemand, shorten a baseline file, or point the row at a lookup script (bin/bug-lookup.sh is the pattern)"
-  awk -F'\t' '/^#/ || NF < 6 { next } $6 == "baseline" { print $2 }' "$MXTK_ROUTING_TSV" \
+  _baseline_docs \
     | while IFS= read -r f; do [ -f "$ROOT/$f" ] && printf '%8d  %s\n' "$(wc -w < "$ROOT/$f")" "$f"; done | sort -rn | head -5 | sed 's/^/    /'
-  if [ "${MXTK_BASELINE_BUDGET_STRICT:-0}" != "1" ]; then
-    echo "    (advisory: does not fail --check; MXTK_BASELINE_BUDGET_STRICT=1 makes it fail)"
+  if [ "${MXTK_BASELINE_BUDGET_ADVISORY:-0}" = "1" ]; then
+    echo "    (advisory run: MXTK_BASELINE_BUDGET_ADVISORY=1 — reported, not failing)"
     OVER_BUDGET=""
   fi
 fi

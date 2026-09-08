@@ -588,7 +588,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check | `skills/build/mdl/oneshot-mdl-method.md` |
 | Writing a popup page's microflow with a retry/validation-failure branch that re-shows the same popup — missing close page stacks duplicate dialogs | `skills/learned-popup-navigation.md` |
 | Writing MDL for a datagrid column with ShowContentAs customContent that needs to display a bound value | `skills/learned-datagrid-customcontent-binding.md` |
-| Writing a popup whose primary button creates/commits an object or triggers a backend flow — MDL has no native toast, so feedback must be explicit | `skills/learned-popup-feedback-pattern.md` |
+| Writing ANY microflow behind a button that commits, completes a workflow task, or triggers a backend flow — popup or full page: it owes the user a message, a close, and a control that stops offering the action once done | `skills/learned-popup-feedback-pattern.md` |
 
 **Build · Pages — page-building patterns**
 

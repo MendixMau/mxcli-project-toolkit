@@ -212,7 +212,7 @@ fi
 # lowered as rows move to on-demand or shrink — never raised to admit growth. To add a
 # baseline row, take words out elsewhere. Scripts count too: an agent told to read a script
 # reads it.
-# 80000 since 2026-09-08: the tier measured 76,553 words of DOCUMENTS once scripts stopped counting
+# 80000 since 2026-09-08: the tier measured 73,026 words of DOCUMENTS once scripts stopped counting
 # (see _baseline_docs). Ratchet: lower it as rows move to on-demand; pay for a new baseline row
 # with a demotion, never by raising this.
 BASELINE_BUDGET="${MXTK_BASELINE_BUDGET_WORDS:-80000}"

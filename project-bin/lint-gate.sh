@@ -79,7 +79,12 @@ for a in "$@"; do
   esac
 done
 
-[ -x ./mxcli ] || { echo "lint-gate: ./mxcli not found in $ROOT" >&2; exit 2; }
+# This script does not source _common.sh (see header); resolve the binary the same way it
+# does — mxcli.exe first on Git Bash, since the Dev Container may have left a Linux `mxcli`.
+MXCLI=""
+case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) [ -x ./mxcli.exe ] && MXCLI=./mxcli.exe ;; esac
+[ -n "$MXCLI" ] || { [ -x ./mxcli ] && MXCLI=./mxcli; }
+[ -n "$MXCLI" ] || { echo "lint-gate: no runnable mxcli in $ROOT (Windows: mxcli.exe) — bin/doctor.sh --install" >&2; exit 2; }
 [ -e "$MPR" ]  || { echo "lint-gate: $MPR not found" >&2; exit 2; }
 
 # Build the --exclude list from the vendor file (comments and blanks stripped).
@@ -100,9 +105,9 @@ else
   # First run on a cold catalog can take MINUTES (measured: 717s on PROJECT-A, 2s warm) --
   # the catalog rebuild dominates, not the lint. Do not treat a slow first run as a hang.
   if [ -n "$EXCLUDE" ]; then
-    ./mxcli lint -p "$MPR" -e "$EXCLUDE" --format json > "$OUT" 2>/dev/null
+    "$MXCLI" lint -p "$MPR" -e "$EXCLUDE" --format json > "$OUT" 2>/dev/null
   else
-    ./mxcli lint -p "$MPR" --format json > "$OUT" 2>/dev/null
+    "$MXCLI" lint -p "$MPR" --format json > "$OUT" 2>/dev/null
   fi
 fi
 [ -s "$OUT" ] || { echo "lint-gate: lint produced no output" >&2; exit 2; }

@@ -250,9 +250,10 @@ HDR2
 # enforced nowhere — the pipeline went snapshot → exec → mxbuild. Costs ~2s on
 # a passing build. SKIP_CHECK=1 for the rare script mxcli's parser rejects but
 # the model accepts (log why, in the script).
-if [ "${SKIP_CHECK:-0}" != "1" ] && [ -x "$PROJECT_ROOT/mxcli" ]; then
+PMXCLI="$(find_project_mxcli 2>/dev/null || true)"
+if [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
   echo "→ Pre-exec check: mxcli check (grammar + references)..."
-  if ! ./mxcli check "$SCRIPT" -p "$MPR" --references; then
+  if ! "$PMXCLI" check "$SCRIPT" -p "$MPR" --references; then
     echo ""
     echo "  ✗ mxcli check failed — refusing to exec. NOTHING was written to the model."
     echo "    Fix the script, or re-run with SKIP_CHECK=1 if you know why the parser is wrong."
@@ -379,7 +380,7 @@ fi
 # it. A failed exec is precisely when the gate matters most.
 echo "→ Executing $SCRIPT..."
 EXEC_STATUS=0
-./mxcli exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
+"${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
 
 if [ "$EXEC_STATUS" -ne 0 ]; then
   echo ""

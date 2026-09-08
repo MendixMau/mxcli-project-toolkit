@@ -48,3 +48,6 @@ wip/
 # OS noise
 .DS_Store
 .session-notes.md
+
+# Machine-local tool locations read by project-bin/_common.sh — never commit paths
+.claude/toolkit.env

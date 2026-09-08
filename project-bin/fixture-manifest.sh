@@ -46,7 +46,9 @@ while [ $# -gt 0 ]; do
 done
 
 # ── Resolve the project and the admin API ────────────────────────────────────
-MXCLI="${MXCLI:-./mxcli}"
+_mxcli_default=./mxcli
+case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) [ -x ./mxcli.exe ] && _mxcli_default=./mxcli.exe ;; esac
+MXCLI="${MXCLI:-$_mxcli_default}"
 [ -x "$MXCLI" ] || { echo "FAULT: $MXCLI not executable — run from the project root" >&2; exit 2; }
 
 if [ -z "${PROJECT_MPR:-}" ]; then

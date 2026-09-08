@@ -261,7 +261,7 @@ if [ -f "$ROOT/.mxcli/catalog.db" ] && command -v sqlite3 >/dev/null 2>&1; then
   [ "${n:-0}" -gt 0 ] 2>/dev/null && MODULE_KNOWN=1
 fi
 if [ "$MODULE_KNOWN" -eq 0 ]; then
-  MODLIST="$(with_timeout 60 ./mxcli -p "$MPR" -c "SHOW MODULES" 2>/dev/null)"
+  MODLIST="$(with_timeout 60 "$(find_project_mxcli 2>/dev/null || echo ./mxcli)" -p "$MPR" -c "SHOW MODULES" 2>/dev/null)"
   printf '%s\n' "$MODLIST" | grep -qE "^\| *$MODULE +\|" && MODULE_KNOWN=1
 fi
 

@@ -2618,7 +2618,12 @@ if [ -n "$REQUESTED_STAGE" ]; then
   if [ "$REQUESTED_STAGE" = "0" ] && [ "$LEDGER_STATUS" = "FAIL" ]; then
     advise "source-ledger" "Source files not yet accounted for (blocks Stage 1): $LEDGER_NOTE"
   fi
-  if { [ "$REQUESTED_STAGE" = "1" ] || [ "$REQUESTED_STAGE" = "2" ]; } && [ "$LEDGER_STATUS" = "FAIL" ]; then
+  # …unless the stage itself is declared not required here — `--adopt` at a later stage,
+  # `Waived stage N`, or an entry mode that skips it: the obligation and artifact checks respect
+  # that declaration and this block must too (merge review, 2026-09-08: it fired on adopted
+  # projects because it ran before the verdict table was consulted).
+  if { [ "$REQUESTED_STAGE" = "1" ] || [ "$REQUESTED_STAGE" = "2" ]; } && [ "$LEDGER_STATUS" = "FAIL" ] \
+     && ! stage_waiver "$REQUESTED_STAGE" >/dev/null; then
     echo "" >&2
     echo "Gate BLOCKED by the source ledger: $LEDGER_NOTE" >&2
     echo "" >&2

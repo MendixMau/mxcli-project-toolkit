@@ -4470,3 +4470,87 @@ commit in a script that also contains a `create or modify microflow`, not on a h
 
 **Related:** BUG-103 (`DESCRIBE MICROFLOW` emits `log` strings that `mxcli check` then rejects) —
 same class: `DESCRIBE` output that is not a faithful, re-executable representation of the model.
+
+---
+
+## BUG-118 — `mxcli check --references` cannot resolve ANY enumeration in an attribute declaration
+
+**Found:** 2026-09-07, a Phase-19 conversion project script `88`, mxcli against Mendix 11.13.0.
+
+**Symptom.** Declaring an enumerated attribute makes `--references` report the enumeration missing:
+
+```
+alter entity Approval."ApprovalRun"
+  add attribute if not exists "CriticalPathStation": Enumeration(Approval.StationKey);
+```
+```
+Reference errors:
+  statement 4: attribute 'CriticalPathStation': enumeration not found: Approval.StationKey
+```
+
+**The enumeration exists.** `DESCRIBE ENUMERATION Approval.StationKey` returns all 19 values, and
+`SHOW ENUMERATIONS IN Approval` lists it.
+
+**A/B probe — the fault is not the enum, the statement form, or the folder.** Four variants, one
+result each:
+
+| Probe | Result |
+|---|---|
+| `alter entity … add attribute … Enumeration(Approval.StationKey)` | not found |
+| same, with the enum name quoted — `Approval."StationKey"` | not found |
+| `create or modify non-persistent entity … ("K": Enumeration(Approval.StationKey))` | not found |
+| same, with `Approval.RunStatus` — an enum a dozen live attributes already use | **not found** |
+
+The last row is the one that settles it. `Approval.RunStatus` is referenced by
+`ApprovalRun.RunStatus` in the shipped model; if the checker could resolve enumerations at all it
+would resolve that one. It resolves entities, associations, microflows and pages in the same
+script correctly — enumerations alone fall through.
+
+**Impact.** Any script that declares an enumerated attribute — which is most domain-model scripts —
+cannot reach a clean `--references` run. That trains the reader to skim past reference errors,
+which is exactly how a real CE1613 gets shipped. On this project the same command is the pre-flight
+gate for every script, so the noise is not incidental.
+
+**Workaround.** None for the checker. Treat `enumeration not found` as noise and let mxbuild be the
+gate: it validates the same declaration correctly and reports 0 errors on the applied script.
+
+**Expected.** `--references` resolves an enumeration the same way it resolves an entity, or — if the
+checker genuinely cannot see enumerations — it stays silent about them rather than reporting a
+false negative.
+
+---
+
+## BUG-119 — `ALTER PAGE … SET Label` reports success and discards the value
+
+**Found:** 2026-09-07, script `88c`, mxcli against Mendix 11.13.0.
+
+`88c` added a required-field marker to one combobox label. mxcli printed `Altered page
+Approval.Approval_StationTask`, `mxbuild` returned 0 errors, the commit went in — and the
+rendered page still showed the old label. `DESCRIBE PAGE` confirmed the model was unchanged.
+
+Probed on a throwaway copy of the `.mpr`, same page, same session:
+
+```
+set Label   = '…' on cb100Ind     (combobox)  → "Altered page", model unchanged
+set Label   = '…' on tb010Phase   (textbox)   → "Altered page", model unchanged
+set Class   = 'probe-class' on cb100Ind       → applied correctly
+set Caption = '…' on cb100Ind                 → Error: failed to set Caption on cb100Ind:
+                                                widget has no Caption property
+```
+
+The `Caption` result is what makes this a bug rather than an unsupported property: the setter
+**does** resolve the widget and **does** know its property list — it rejects `Caption` by name.
+It accepts `Label`, reports success, and drops it on the floor.
+
+This is worse than BUG-115, which at least fails loudly. Here every gate in the pipeline passes:
+`mxcli check --references` passes, exec prints success, `mxbuild` returns 0 errors, and the only
+way to find out is to open the page in a browser and read it. A script whose whole purpose is a
+label change is silently inert, and a UI review that trusts the exec output will not look.
+
+**Workaround:** `replace <widget> with { <the widget re-declared with the new label> }`, which
+applies correctly. Re-declare every property from `DESCRIBE PAGE` verbatim so the replace cannot
+quietly drop one.
+
+**Related:** BUG-115 (`SET PageSize` rejected on a widget `CREATE` accepts). Same underlying
+theme — the `ALTER PAGE` property surface disagrees with the `CREATE` one — but the failure mode
+is the opposite and much more dangerous.

@@ -462,6 +462,24 @@ elif [ ! -f "$TRIAGE" ]; then
   mxtk_triage_template | w_to "$TRIAGE"
   echo "${DRY:-}Created: triage.md (Stage 0 scaffold — new since this project was scaffolded)"
   CHANGES=$((CHANGES + 1))
+elif git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1 \
+     && [ -n "$(git -C "$PROJECT_DIR" status --porcelain -- "$TRIAGE" 2>/dev/null)" ]; then
+  # Belt to the predicate's braces, and deliberately NOT a fourth condition inside it.
+  #
+  # mxtk_triage_is_pristine() infers "has a human touched this?" from template scaffolding the
+  # template itself tells the filler to KEEP. That inference has now been wrong three times, each
+  # fix narrowing the guess rather than replacing it: the {{DOUBLE_BRACE}} false positive
+  # (~33 KB of finished agent files), the unstripped one-line header (2026-08-20), and the
+  # two-line header plus the swallowed -FILLED suffix (2026-09-08, which destroyed 73 lines of a
+  # signed-off Stage 0 and was recovered only because the project had committed it).
+  #
+  # Git knows the answer without parsing anything. A file with uncommitted local changes has been
+  # worked on, whatever the placeholder syntax says, so refuse before the predicate is consulted.
+  # Cheap, and it fails in the safe direction: the cost of a false KEEP is one stale scaffold the
+  # next line tells you how to refresh; the cost of a false REFRESH is a destroyed gate artifact.
+  echo "Kept: triage.md has uncommitted local changes — not overwritten, whatever the scaffold"
+  echo "      markers say. Commit or stash them if you do want the new template:"
+  echo "      git -C \"$PROJECT_DIR\" checkout -- triage.md   # discard local work, then re-run sync"
 elif mxtk_triage_is_pristine "$TRIAGE"; then
   if ! mxtk_triage_template | cmp -s - "$TRIAGE"; then
     mxtk_triage_template | w_to "$TRIAGE"

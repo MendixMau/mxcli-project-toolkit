@@ -63,7 +63,7 @@ mxtk_posix_path() {
 # remembers between sessions, and which an agent's subshell never sees. So the same overrides
 # can live in a file, KEY=VALUE, one per line, # comments:
 #
-#     <project>/.claude/toolkit.env     this project on this machine (gitignored by init-project)
+#     <project>/.claude/toolkit.env     this project on this machine (doctor.sh appends it to .gitignore on its first run — commit that line)
 #     ~/.mxcli-toolkit.env               every project on this machine
 #
 # Precedence: a variable already set in the environment wins; then the project file; then

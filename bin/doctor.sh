@@ -408,7 +408,6 @@ if [ "$INSTALL" -eq 1 ]; then
     note "--install: $PROJECT_DIR/mxcli is the Linux build (the Dev Container's) — fine, leave it."
     note "Git Bash needs mxcli.exe next to it; fetching that now, the two coexist."
     NEED_MXCLI=1; PMXCLI=""
-    MXCLI_LINUX_SEEN=1
   elif [ -f "$PROJECT_DIR/mxcli" ] && [ ! -x "$PROJECT_DIR/mxcli" ] && [ "$PLATFORM" != gitbash ]; then
     bad "--install: mxcli in $PROJECT_DIR is present but not executable — chmod +x mxcli, re-run."
   else
@@ -811,7 +810,7 @@ if [ "$FAIL" -gt 0 ]; then
   printf '  Analysis and planning stages run fine meanwhile; each FAIL line says what fixes it.\n'
   exit 2
 elif [ "$WARN" -gt 0 ]; then
-  printf '  Ready. %s warning(s) above — each names something optional that is not set up.\n' "$WARN"
+  printf '  Ready. %s warning(s) above — read each one: some are optional, a missing .mpr or CLAUDE.local.md is not.\n' "$WARN"
   exit 1
 else
   printf '  Ready.\n'

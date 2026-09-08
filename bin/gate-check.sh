@@ -144,6 +144,11 @@ if [ "$CLOSEOUT" = "1" ]; then
   CLOSEOUT_LOG="$(mktemp "${TMPDIR:-/tmp}/gate-closeout.XXXXXX")"
   exec 3>&1 4>&2
   exec >"$CLOSEOUT_LOG" 2>&1
+  # An early exit between here and the emit point (nonexistent project dir, ambiguous or
+  # missing register, --adopt/--waive misuse, --ack-protocol paths) must not vanish into the
+  # log: restore the fds, show what was captured, remove the file, keep the exit code. The
+  # emit point clears this trap before its own cleanup (merge review, 2026-09-08).
+  trap 'rc=$?; if [ -n "$CLOSEOUT_LOG" ] && [ -f "$CLOSEOUT_LOG" ]; then exec 1>&3 2>&4; cat "$CLOSEOUT_LOG" >&2; rm -f "$CLOSEOUT_LOG"; fi; exit $rc' EXIT
 fi
 
 # Machine preflight receipt — informational only, on full runs only (stage queries run inside
@@ -2543,6 +2548,7 @@ if [ "$CLOSEOUT" = "1" ]; then
   else
     echo "closeout: FAULT — bin/lib/closeout.sh missing from $TOOLKIT_DIR; nothing was emitted (this is the checker failing, not the project)" >&2
   fi
+  trap - EXIT
   rm -f "$CLOSEOUT_LOG"
   exit 0
 fi

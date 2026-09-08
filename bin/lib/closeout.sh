@@ -52,7 +52,7 @@ _co_title() {
   esac
 }
 # ✋ stages per conversion-runbook.md §2 — the ones whose gate needs a CONFIRMED row.
-_co_hard() { case "$1" in 0|3|4|7) printf ' ✋' ;; *) printf '' ;; esac; }
+_co_hard() { case "$1" in 0|3|4) printf ' ✋' ;; *) printf '' ;; esac; }   # matches the runbook headers: Stage 7 carries no hard-gate mark
 _co_next() { case "$1" in P|p) echo 0 ;; [0-6]) echo $(( $1 + 1 )) ;; *) echo "" ;; esac; }
 
 # One line each: what the stage is for, and how it is worked. Owning skill named so the reader

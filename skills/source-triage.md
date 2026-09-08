@@ -46,6 +46,75 @@ how it looks at a glance is the failure it exists to prevent.
 correct method for genuine prose. For every *extractable structure* the answer is still
 reuse-or-build. What widens here is what gets triaged, not how many answers are on offer.
 
+### Two questions, not one: can the agent read it, and is it prose or structure?
+
+The paragraph above sorts a corpus by **content type**. Sort it by **medium** first, because an
+agent cannot apply a reading method to a file it cannot open. The two axes are independent, and
+the combination decides what gets built:
+
+| | Prose content | Structured content (schema, tables, column lists, contracts) |
+|---|---|---|
+| **Text-native medium** — `.md`, `.html`, `.txt`, `.json`, `.yaml`, `.csv` | **Read it. Build nothing.** The agent already has the file; a classifier over text it can read is the judgement-in-a-script failure `skills-over-scripts.md` names | **Parse it.** Small and deterministic — the tables are facts, and their counts become denominators later |
+| **Opaque medium** — `.pptx`, `.docx`, `.xlsx`/`.ods`, `.pdf`, images, screenshots, zip/DB dumps | **Extraction is mandatory, and it is a converter, not a classifier.** Get the text out — or, for images, a vision read written down — into something the agent can read, then read it. The alternative here is not a weaker method, it is not reading the source at all | **Parse it**, and expect the highest return in the corpus: opaque structure is exactly what no amount of reading can reach |
+
+**This is not a third option and the Core Principle is untouched.** "Read the prose in a Markdown
+file" was never the manual-only path it forbids — that rule is about *structure* (code, schemas,
+exports), where a human skim demonstrably drops the tail. Nothing here lets a codebase, a schema
+or a data export past without an extractor.
+
+**Field evidence, 2026-09-07** — a no-code app replacement whose corpus was one data export
+(`.ods`), one 3.5 MB reverse-engineering spec (`.html`) and one workflow inventory (`.md`):
+
+- The **export parser corrected the documents written about it**: 53 stored columns against
+  128–175 documented (~120 are computed in the platform — neither attributes to model nor data to
+  migrate), four different spellings of one foreign key across four sheets, 15 sheets where the
+  spec documented 17, plus per-sheet volumes. No reading of any document produces one of those.
+- A **regex classifier over the spec's prose scored ~50% precision and ~50% recall** against a
+  user-confirmed sample, and was deleted the same day. It read the spec's "what the recording
+  covered" bullets as requirements, truncated sentences at inline HTML tags, and matched none of
+  the negative-form statements ("there is no role model", "no reminders, no escalation") that
+  carried some of the sharpest requirements in the document. The same agent's plain read of the
+  same file, at intake, was better in one pass.
+- The user's question is the rule in one line: *"do we need an extractor for html & md files?
+  Can't we just analyse and conclude what it should be? But when it's ppt and images better yes?"*
+
+**Large text-native files still need a denominator.** A 3.5 MB HTML spec is legible but not
+readable in one pass, so the parser that takes its tables should also emit its **section list**.
+The read then has a spine to work through and a bound to be held to — "all 35 sections covered" —
+which is the completion-criteria rule in `CLAUDE.md`'s authoring section applied to a read rather
+than to a checklist.
+
+### Both, not either: document discovery over the corpus, extractors per structure inside it
+
+For a **requirements-driven** project the two are not alternatives and the sequence is fixed:
+
+1. **`document-discovery.md` runs over the whole corpus, always.** It is the inventory — what is
+   in the folder, what kind of thing each file is, what it can and cannot answer. Nothing else
+   tells you that, and every decision below depends on it.
+2. **Then the extraction call, once per extractable structure the inventory found.** Code, a DB
+   schema or table dump, an ORM model, an OpenAPI/GraphQL contract, a platform data export,
+   entity/field tables inside a spec — each gets its own Coverage Matrix row and its own
+   reuse-or-build verdict. A corpus of genuine prose and nothing else yields no rows, and *that*
+   is when the extraction rows are `N/A`.
+3. **Prose is read, per the table above** — into BRDs via `kb-generation.md` Path B, never by a
+   classifier.
+
+So: **document discovery is unconditional; extractors are conditional on there being structure;
+`N/A` is a finding about the folder, never a property of the entry mode.**
+
+**Why this is spelled out (2026-09-07).** `conversion-runbook.md`'s Stage-0 applicability table
+said the extraction call was **`N/A` for requirements-driven**, flatly — while this skill and the
+shipped `triage.md` header said `N/A` only where the corpus holds no extractable structure, "on
+evidence, never on the entry-mode label". The runbook is the file every session is required to
+read first, so the unconditional version was the one that got followed. On the project that
+surfaced it — requirements-driven, corpus of one spec, one workflow inventory and **one platform
+data export** — following the runbook literally would have marked extraction `N/A` and left the
+export unparsed. That parser went on to correct the very documents written about the app: 53
+stored columns against 128–175 documented, four spellings of one foreign key across four sheets,
+15 sheets where the spec said 17. Same shape as the `toolkit-guide.html` first-touch incident in
+`CLAUDE.md`: a rule stated conditionally in its owning file and unconditionally in the front
+door, where the front door wins. The runbook now defers here.
+
 | Signal | Lean toward |
 |---|---|
 | Source platform already covered by `pipelines/outsystems/`, `pipelines/java-angular/`, or `pipelines/node-express-react/` **and its layout assumptions actually match this source** (check the pipeline's own README/companion skill — e.g. `source-node-express-react.md`'s layout table — before assuming "same stack name" means "reuse cleanly") | **Reuse existing pipeline** — run Phase 2 as documented. |

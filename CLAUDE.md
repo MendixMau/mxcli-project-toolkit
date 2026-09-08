@@ -172,7 +172,8 @@ in the same commit; inbox files are unreviewed and nothing may cite them),
 `bin/harvest-learnings.sh <project-root>` (drafts inbox files from a project's bug logs,
 register promotion tables, and locally-patched installed scripts — run it at project wrap-up),
 and direct PRs held to the full field-proof bar. CI (`.github/workflows/checks.yml`) runs
-check-scripts, render-routing --check, check-portability and the leak guard on every PR.
+check-scripts, render-routing --check, check-portability, the leak guard, and both fixture
+suites (`tests/run-tests.sh`, `tests/wave2/run-all.sh`) on every PR.
 
 ## Adding new skills
 Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcli project | requirements-driven`, `**Purpose:**`, and a step-by-step guide. Add it to `README.md`'s "When to use which skill" table. **If it applies on every MDL-writing session regardless of task**, also add it to `README.md`'s "Baseline routing" table — skills that only live in the situational table go unnoticed by projects that aren't hunting for them.

@@ -61,8 +61,10 @@ PRISTINE="$TMP/pristine"; cp -R "$P" "$PRISTINE"
 [ -f "$P/triage.md" ] && ok "init writes triage.md" || bad "init writes triage.md"
 
 OUT=$("$GATE" "$P" 0 2>&1); RC=$?
-check "a freshly scaffolded triage.md FAILS Stage 0" "$RC" "1"
-has "  and the reason is the unsigned sign-off" "$OUT" "still holds template placeholders"
+# Stage 0 is advisory since cec7a1e: the VERDICT is FAIL, the exit code is 0. Pin both.
+check "a freshly scaffolded triage.md is advisory at the exit code" "$RC" "0"
+has "  but the verdict is FAIL" "$OUT" "Stage 0 (Triage): FAIL"
+has "  and the reason is the unsigned sign-off" "$OUT" "still holds the shipped placeholder"
 hasnt "  it is not reported as a pass" "$OUT" "Stage 0 (Triage): PASS"
 
 # The five verdict words and the two-way call live IN the file, because that is where the author
@@ -95,6 +97,7 @@ sed 's/^Confirmed by: \[user\] on \[date\].*/Confirmed by: M. Visser on 2026-08-
   "$P2/triage.md" > "$P2/triage.md.new" && mv "$P2/triage.md.new" "$P2/triage.md"
 OUT=$("$GATE" "$P2" 0 2>&1); RC=$?
 check "signing it off passes Stage 0" "$RC" "0"
+has "  with a PASS verdict" "$OUT" "Stage 0 (Triage): PASS"
 has "  and the signer is named back" "$OUT" "M. Visser"
 
 echo "== sync refreshes an untouched scaffold, and only an untouched one =="

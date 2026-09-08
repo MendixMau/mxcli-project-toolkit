@@ -36,6 +36,18 @@ jobs:
       - name: No macOS-only assumptions reintroduced (check-portability.sh)
         run: bin/check-portability.sh
 
+      # The two fixture suites. Added 2026-09-08 after a bisect found both red since 2026-08-20:
+      # two deliberate exit-code changes (PENDING → exit 3, Stage 0 advisory → exit 0) updated
+      # only the fixtures their authors ran, and nothing here ran the rest — so five stale
+      # fixtures and one Mac-only dependency sat red for nineteen days while every PR was green.
+      # run-tests.sh is self-contained (~20 s); run-all.sh drives every wave2 fixture with its
+      # own declared subject (~5 min). Slow is fine; silent is not.
+      - name: Guard-script fixtures (tests/run-tests.sh)
+        run: bash tests/run-tests.sh
+
+      - name: Gate and instrument fixtures (tests/wave2/run-all.sh)
+        run: bash tests/wave2/run-all.sh
+
       # The client-NAME denylist is personal and local by design: it lives in the maintainer's
       # gitignored .leakguard-deny and runs in their pre-commit/pre-push hooks
       # (bin/install-hooks.sh) — never in the repo, never required of contributors. In CI the

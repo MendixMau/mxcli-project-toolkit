@@ -52,14 +52,18 @@ has "index.html counts as present after init"      "$OUT" "Stage P (Kickoff): FA
 echo "== reported, never enforced =="
 # The whole contract: this must not be able to change a verdict or the exit code.
 BEFORE_RC=$RC
+# The verdict word is whatever the gate says today (PENDING since 40c63ac; FAIL before). What
+# is pinned is that it is the SAME word before and after the surface appears.
+V4_BEFORE="$(printf '%s' "$OUT" | sed -n 's/^Stage 4 (Build Plan): \([A-Z]*\).*/\1/p')"
 touch "$P/test-report.html" "$P/build-plan.html"
 OUT2="$("$GATE" "$P" 2>&1)"; RC2=$?
 [ "$RC2" = "$BEFORE_RC" ] && ok "adding surfaces did not change the exit code" \
   || bad "exit code moved $BEFORE_RC -> $RC2 — a surface must not be a gate"
-has "the now-present surface flips to present" "$OUT2" "Stage 4 (Build Plan): FAIL · Surface present"
-printf '%s' "$OUT2" | grep -q 'Stage 4 (Build Plan): FAIL' \
-  && ok "and the GATE verdict is untouched by it" \
-  || bad "the gate verdict changed when only a surface appeared"
+has "the now-present surface flips to present" "$OUT2" "Stage 4 (Build Plan): $V4_BEFORE · Surface present"
+V4_AFTER="$(printf '%s' "$OUT2" | sed -n 's/^Stage 4 (Build Plan): \([A-Z]*\).*/\1/p')"
+[ -n "$V4_BEFORE" ] && [ "$V4_AFTER" = "$V4_BEFORE" ] \
+  && ok "and the GATE verdict ($V4_BEFORE) is untouched by it" \
+  || bad "the gate verdict changed ($V4_BEFORE -> $V4_AFTER) when only a surface appeared"
 
 echo ""
 echo "$(basename "$0"): $OK ok, $BAD FAIL"

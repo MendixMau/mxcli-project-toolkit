@@ -1456,7 +1456,11 @@ stage_surface_status() {
     # Fixed here rather than in the runbook cells: the cells are prose a human reads, several
     # are legitimately bare (index.html at the root), and rewriting them all to carry paths
     # would re-home the convention in the spec to work around a limitation of the reader.
-    for base in "$PROJECT_DIR" "$ANALYSIS_BASE" \
+    #
+    # "$PROJECT_DIR"/analysis added 2026-09-08: source-sufficiency.sh and triage-report.sh write
+    # there by default, and before Stage 1 ANALYSIS_BASE is still the project root — so both
+    # Stage 0 surfaces reported MISSING on every fresh project (a MOC/PSSR rebuild POC).
+    for base in "$PROJECT_DIR" "$ANALYSIS_BASE" "$PROJECT_DIR/analysis" \
                 "$PROJECT_DIR/design" "$PROJECT_DIR/architecture" "$PROJECT_DIR/docs"; do
       # Unmatched globs stay literal with nullglob off, so -e is the whole test.
       # "$base"/$pat, not $base/$pat: the base must be quoted (a project path with a space in

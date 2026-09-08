@@ -61,7 +61,9 @@ while [ $# -gt 0 ]; do
 done
 
 MPR="$(find_mpr)" || exit 2
-MXCLI="${MXCLI_BIN:-./mxcli}"
+_mxcli_default=./mxcli
+case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) [ -x ./mxcli.exe ] && _mxcli_default=./mxcli.exe ;; esac
+MXCLI="${MXCLI_BIN:-$_mxcli_default}"
 [ -x "$MXCLI" ] || { echo "FAULT: $MXCLI not found or not executable — the scope cannot be read from the model, and guessing it would be worse than not writing it" >&2; exit 2; }
 
 # JSON assembly and table parsing are done in Python; require_py (exit 2 with a fix per OS)

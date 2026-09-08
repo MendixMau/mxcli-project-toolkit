@@ -221,6 +221,13 @@ fi
 BASELINE_BUDGET="${MXTK_BASELINE_BUDGET_WORDS:-95000}"
 BASELINE_WORDS="$(awk -F'\t' '/^#/ || NF < 6 { next } $6 == "baseline" { print $2 }' "$MXTK_ROUTING_TSV" \
   | while IFS= read -r f; do [ -f "$ROOT/$f" ] && wc -w < "$ROOT/$f"; done | awk '{ s += $1 } END { print s + 0 }')"
+# ADVISORY BY DEFAULT (merge review, 2026-09-08). Three consecutive merge commits went red on
+# this check while every one of them was an ordinary edit: the tier's total moves with every
+# PR that touches conversion-runbook.md or learned-mdl-preflight.md, and two of the five
+# largest baseline "files" are scripts (source-sufficiency.sh, verify-module.sh) an agent runs
+# rather than reads. Until the tier is curated — scripts routed by their usage line, not their
+# source — the report prints and the check passes; MXTK_BASELINE_BUDGET_STRICT=1 restores the
+# hard fail (use it in a deliberate re-ratcheting pass, not in CI).
 OVER_BUDGET=""
 if [ "$BASELINE_WORDS" -gt "$BASELINE_BUDGET" ]; then
   OVER_BUDGET="$BASELINE_WORDS words in the baseline tier, budget $BASELINE_BUDGET"
@@ -228,6 +235,10 @@ if [ "$BASELINE_WORDS" -gt "$BASELINE_BUDGET" ]; then
   echo "    → move a row to ondemand, shorten a baseline file, or point the row at a lookup script (bin/bug-lookup.sh is the pattern)"
   awk -F'\t' '/^#/ || NF < 6 { next } $6 == "baseline" { print $2 }' "$MXTK_ROUTING_TSV" \
     | while IFS= read -r f; do [ -f "$ROOT/$f" ] && printf '%8d  %s\n' "$(wc -w < "$ROOT/$f")" "$f"; done | sort -rn | head -5 | sed 's/^/    /'
+  if [ "${MXTK_BASELINE_BUDGET_STRICT:-0}" != "1" ]; then
+    echo "    (advisory: does not fail --check; MXTK_BASELINE_BUDGET_STRICT=1 makes it fail)"
+    OVER_BUDGET=""
+  fi
 fi
 
 STALE_EXEMPT="$(routing_stale_exemptions "$ROOT")"

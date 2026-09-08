@@ -147,6 +147,26 @@ while an enum-driven lifecycle is drawn nowhere by anything, so option B needs t
 not less. Never draw it before that answer is `CONFIRMED` — same rule as every other
 architecture/design artifact (`conversion-runbook.md` §"Stages are sequential").
 
+**Before drawing, read `workflow-structure-rules.md` §1–§7 and §9 — read it, not cite it.** The
+diagram is where a workflow's shape is decided, and four of the constructs that decide it are
+invisible in a plain state diagram, so they get drawn out of existence and are never missed again:
+
+- **Boundary events** — draw them, and label each *interrupting* or *non-interrupting* (§2). The
+  type dictates the terminator, so a diagram that omits the word forces the build to guess.
+- **Event sub-processes** — draw each as its own state block beside the main flow, never as a
+  state inside it, with its start event's family named (§3). Cancellation and override logic
+  belongs here; drawn into the main flow it becomes CE6689 at build time.
+- **Parallel splits** — draw the split and every branch's local end. No branch may end the
+  workflow (§4); if the requirement says "end everything from this branch", that is an
+  interrupting event sub-process and the diagram must show it as one.
+- **Targeting, per user task** — name the mechanism next to each task (role XPath / group XPath /
+  targeting microflow / none-plus-*On created* handler) **and quote the requirement sentence it
+  came from** (§6). "Assign to the approver" is not a mechanism.
+
+Then run `workflow-structure-rules.md` §12 against the drawn diagram and record the counts in
+`blueprint.md` under the diagram. A workflow diagram with §12 row 5 blank is not finished — the
+build will pick a targeting mechanism by default and nobody will know it happened.
+
 One Mermaid `stateDiagram-v2` per lifecycle. Under option A, states are the Workflow's user/system
 tasks and transitions are its `OUTCOMES`; under option B, states are the status enum's values and
 transitions are the microflows that move between them, each labeled with the role allowed to fire it.

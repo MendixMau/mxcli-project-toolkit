@@ -94,7 +94,7 @@ carried into public history. None of the content was bad — the coordination wa
 ## Good worked examples already in the wild
 
 - An honest negative result filed against the filer's own theory
-  (poctibor `bug-004-write-count-threshold-corruption`).
+  (a personal POC project, `bug-004-write-count-threshold-corruption`).
 - A deliberate *don't-file* after searching upstream and finding the bug already logged
   (pattern-b overlap note → BUG-75/77, now 8 confirmations across 3 projects).
 - A per-project promotion queue naming exact toolkit target files

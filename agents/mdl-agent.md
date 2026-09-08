@@ -55,6 +55,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `skills/learned-detection-gaps.md` | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones |
 | `skills/security-is-not-a-later-script.md` | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it |
+| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
@@ -74,6 +75,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/improvement-register.md` | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend |
 | `skills/wiring-sweep.md` | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before |
 | `skills/learned-workflow-patterns.md` | Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) — syntax, the 11 workflow microflow statements, DECISION vs CALL MICROFLOW, and the two corruption classes (binary-version $Type, and create-before-reference) |
+| `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL — where a path may end, boundary event vs event sub-process, parallel-split limits, outcome minimums, targeting from the sentence, multi-user decision methods, which edits break running instances; and any CE6689/CE1844/CE1845/MW0012 after a clean mxcli check |
 | `skills/rest-integration-first-time-right.md` | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call |
 | `skills/bug-submission-checklist.md` | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable |
 | `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause |
@@ -89,7 +91,8 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/learned-dg2-patterns.md` | Building or altering any data grid — native DATAGRID vs pluggable DG2 decision rule, the ALTER PAGE INSERT corruption, sort-by and filter-binding traps |
 | `skills/scriptable-sp-verification.md` | Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle |
 | `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first |
-| `project-bin/ts-sync.sh` | Sharing the project with a colleague on Mendix Team Server while the build loop stays on GitHub — content-transplant snapshots between the two clones (status/push/pull); UNPROVEN against a real Team Server, first field run owed |
+| `skills/platform-link.md` | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App |
+| `project-bin/ts-sync.sh` | Sharing the project with a colleague on Mendix Team Server while the build loop stays on GitHub — content-transplant snapshots between the two clones (status/push/pull); SUPERSEDED by platform-link.md §3 (adopt without rewriting history, field-proven) — only if that path fails; UNPROVEN against a real Team Server |
 <!-- ROUTING:END -->
 
 ## Ground rules
@@ -162,6 +165,7 @@ treat it as full-discipline.
 4. Read the necessary skill file(s) and existing MDL for exact names (the brief points to them).
 5. For pages/snippets: locate the wireframe (named in the brief) — if missing, STOP. Then complete `ui-preflight-pages.md` in full.
 6. For complex microflows: confirm alignment against the brief + architecture blueprint.
+6a. **For any `CREATE WORKFLOW` / `ALTER WORKFLOW`: read `skills/workflow-structure-rules.md` in full before the first line of the body** — both files, not one: `learned-workflow-patterns.md` is the syntax, `workflow-structure-rules.md` is the shape the model must have, and `mxcli check` sees neither. Then, in the same step: check every construct the brief's diagram asks for against its §11 table, write the ones marked *proven*, and report the ones marked *hand-add in Studio Pro* as named rows in your report-back — never quietly flatten a construct to the happy path because MDL would not take it. Run §12 over the finished body and put the counts in your report.
 7. Write the script to the requested path (under the mdlsource dir from Wiring) — grants co-located, and a `folder` on every created document (from the brief's folder plan).
 8. Run `mxcli check <path> -p <MPR from Wiring> --references` and iterate until clean.
 9. Do NOT run `mxcli exec` — that stays in the main session under the user's confirmation.

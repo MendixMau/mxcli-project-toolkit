@@ -144,8 +144,8 @@ for f in $TARGETS; do
     # review with no page title at all, because the rubric only interrogated the content region.
     #
     # The title LEVEL is the wireframe's to state, not this script's: ToeicBuddy titles
-    # pages with <h1>, VB-USI with <h2> (its topbar design), and hardcoding H1 here flagged
-    # every correct VB-USI page as defective (field run 2026-08-27). The first h1/h2 in the
+    # pages with <h1>, the topbar portal with <h2> (its topbar design), and hardcoding H1 here flagged
+    # every correct topbar-portal page as defective (field run 2026-08-27). The first h1/h2 in the
     # wireframe is the design's page-title level; H1 is only the fallback when the wireframe
     # draws neither.
     lvl="$(grep -oiE '<h[12][^>]*>' "$wf" | head -1 | grep -oiE 'h[12]' | tr 'a-z' 'A-Z')"

@@ -47,6 +47,7 @@ table; a skill missing here is a skill no agent will find.
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
 | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` |
+| Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule | `skills/retesting-learned-rules.md` |
 <!-- ROUTING:END -->
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
 **Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.
@@ -56,6 +57,11 @@ table; a skill missing here is a skill no agent will find.
 ---
 
 ## Prerequisites — run this once on a new machine
+
+`bin/doctor.sh` also detects *which kind* of machine — cloud container, devcontainer, or local
+with Studio Pro — and prints what that lane changes (`CONVERSION-RUNBOOK.md` → *Where you run
+this*). Record it in `PROJECT.md` as `Environment: <lane>`; a cloud container then follows
+`cloud-dev-environment.md` for its setup order. Nobody is asked to choose.
 
 This runbook drives shell scripts. They need **bash** and a **Python 3**, and on Windows neither
 is guaranteed. Do not discover that partway into a stage; find out now:
@@ -105,7 +111,7 @@ The stages are the same for everyone; what differs is where you enter and which 
 | You're starting from… | Mode | Stages that run | What changes |
 |---|---|---|---|
 | **Legacy source code** (± docs, ± SME) | **Migration** | P, 0–7 (all) | The default everything below describes. Path A (code extractors) always runs. |
-| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs, and its *extraction* rows are marked N/A — see "Stage 0 runs in every entry mode" below. Use `document-discovery.md` over the requirements corpus for the inventory. Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
+| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs. `document-discovery.md` runs over the whole corpus for the inventory, **and** the extraction call runs per extractable structure inside it — a schema, a table dump, a data export or entity tables in a spec each get one; `N/A` is earned on evidence, never on the mode label (`source-triage.md` owns that rule — see "Stage 0 runs in every entry mode" below). Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
 | **Just an idea / a running start on the model** | **Greenfield** | P (light), 0 (scope only), 5–6 | Stages 1–4 collapse to whatever plan the user already has. Stage 0 does **not** collapse: with no corpus there is nothing to grade, but the scope conversation is exactly as load-bearing as it is anywhere else, so Stage 0 reduces to CAC-1's brainstorm and its sign-off. If you find yourself inventing requirements mid-build, you're actually in requirements-driven mode — back up to Stage 2. |
 
 ### Stage 0 runs in every entry mode
@@ -129,8 +135,9 @@ inferred:
 | Stage 0 component | Migration | Requirements-driven | Greenfield |
 |---|---|---|---|
 | Source inventory + sufficiency grade (`bin/source-sufficiency.sh`) | runs | runs — over the requirements corpus | N/A (no corpus) |
-| Reuse-vs-build-new extraction call (`source-triage.md`) | runs | **N/A** — record the reason, don't delete `triage.md` | **N/A** — record the reason |
-| Business capability map + coverage matrix | runs | capability map runs; coverage matrix N/A | N/A |
+| Reuse-vs-build-new extraction call (`source-triage.md`) | runs | **runs per extractable structure in the corpus** — `N/A` only when there is none, on evidence. `source-triage.md` owns this rule; don't decide it from the mode label | **N/A** — record the reason |
+| Document inventory (`document-discovery.md`) | runs if the corpus holds documents alongside code | **runs — over the whole corpus** | N/A (no corpus) |
+| Business capability map + coverage matrix | runs | capability map runs; coverage matrix carries one row per extractable structure, `N/A` only if there is none | N/A |
 | **Scope brainstorm + slice ordering (CAC-1)** | **runs** | **runs** | **runs** |
 | Sign-off (`## Sign-off` in `triage.md`) | required | required | required |
 
@@ -680,7 +687,7 @@ Before writing any MDL, check the STOP table in `learned-mdl-preflight.md`:
 Write MDL  →  check the STOP table
                 ├─ clean            → mxcli exec (SP closed)
                 ├─ STOP → MCP       → mxcli --mcp exec (SP open) — bypasses the BSON serializer
-                ├─ STOP → GUI       → Studio Pro by hand (settings, security-bearing drops)
+                ├─ STOP → GUI       → Studio Pro by hand (security-bearing drops; settings too on mxcli < v0.20)
                 └─ no MDL syntax    → hand-rolled MCP (pg_patch_page)
 Crashed anyway? → bin/restore-mpr.sh  (restores .mpr AND mprcontents/ — either alone is useless)
                 → log it in bug-logs/mxcli-bugs.md

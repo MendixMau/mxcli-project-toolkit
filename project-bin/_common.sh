@@ -44,6 +44,59 @@ _mxtk_resolve_root() {
 }
 PROJECT_ROOT="${PROJECT_ROOT:-$(_mxtk_resolve_root)}"
 
+# mxtk_posix_path — a Windows-form path (C:\Program Files\Mendix) as Git Bash addresses it
+# (/c/Program Files/Mendix). Anything already POSIX passes through untouched. Used for every
+# path that arrives from the environment or toolkit.env, because people copy paths out of
+# Explorer, and `[ -d "C:\..." ]` is false in bash even when the folder exists.
+mxtk_posix_path() {
+  local p="$1"
+  case "$p" in
+    [A-Za-z]:*) p="/$(printf '%s' "${p%%:*}" | tr '[:upper:]' '[:lower:]')${p#*:}"
+                p=$(printf '%s' "$p" | tr '\\' '/') ;;
+  esac
+  printf '%s\n' "$p"
+}
+
+# --- toolkit.env: where the tools live on THIS machine -------------------------------------
+# Discovery below guesses (Program Files\Mendix, /Applications, JAVA_HOME, PATH). When the
+# guess is wrong the fix used to be "export MENDIX_APP=... in every shell" — which nobody
+# remembers between sessions, and which an agent's subshell never sees. So the same overrides
+# can live in a file, KEY=VALUE, one per line, # comments:
+#
+#     <project>/.claude/toolkit.env     this project on this machine (gitignored by init-project)
+#     ~/.mxcli-toolkit.env               every project on this machine
+#
+# Precedence: a variable already set in the environment wins; then the project file; then
+# the user file. Windows paths may be pasted as-is (C:\Program Files\Mendix\11.11.0).
+# Keys the toolkit reads: MENDIX_APP, MXBUILD_PATH, JAVA_HOME, MXCLI_VERSION, MXCLI_HOME,
+# PYTHON. Unknown keys are exported too, harmlessly. bin/doctor.sh prints which files loaded.
+# Field origin: a Windows onboarding (2026-09-08) with Studio Pro 10.24 + 11.8 + 11.11 side by
+# side and a JDK that was not the JRE on PATH — four overrides, none of them discoverable.
+MXTK_ENV_LOADED=""
+mxtk_load_env() {
+  local f line key val
+  for f in "$PROJECT_ROOT/.claude/toolkit.env" "${HOME:-/nonexistent}/.mxcli-toolkit.env"; do
+    [ -f "$f" ] || continue
+    MXTK_ENV_LOADED="${MXTK_ENV_LOADED:+$MXTK_ENV_LOADED }$f"
+    while IFS= read -r line || [ -n "$line" ]; do
+      line=${line%$'\r'}
+      case "$line" in ''|'#'*) continue ;; esac
+      case "$line" in *=*) ;; *) continue ;; esac
+      key=$(printf '%s' "${line%%=*}" | tr -d '[:space:]'); val=${line#*=}
+      case "$key" in [A-Za-z_]*) ;; *) continue ;; esac
+      case "$key" in *[!A-Za-z0-9_]*) continue ;; esac
+      # export KEY=value and "KEY = value" both work; surrounding quotes are stripped.
+      case "$val" in \"*\") val=${val#\"}; val=${val%\"} ;; \'*\') val=${val#\'}; val=${val%\'} ;; esac
+      val=$(printf '%s' "$val" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+      val=$(mxtk_posix_path "$val")
+      # Already set (by the shell, or by the project file on the previous pass) — keep it.
+      eval "[ -n \"\${$key:-}\" ]" && continue
+      export "$key=$val"
+    done < "$f"
+  done
+}
+mxtk_load_env
+
 # ---------------------------------------------------------------------------
 # find_mpr — echo the project's single .mpr, or fail loudly.
 #
@@ -159,8 +212,8 @@ mxtk_platform() {
 # than quietly return a wrong answer. $MENDIX_APP overrides.
 # ---------------------------------------------------------------------------
 find_sp_app() {
-  if [ -n "${MENDIX_APP:-}" ]; then echo "$MENDIX_APP"; return 0; fi
-  local list="" root
+  if [ -n "${MENDIX_APP:-}" ]; then mxtk_posix_path "$MENDIX_APP"; return 0; fi
+  local list="" root seen=""
   case "$(mxtk_platform)" in
     macos)
       list=$(ls -d /Applications/Mendix\ Studio\ Pro*.app 2>/dev/null) || true
@@ -180,15 +233,22 @@ find_sp_app() {
                   "/d/Program Files" "/d/Mendix" "/c/Mendix"; do
         [ -n "$root" ] || continue
         # Env vars arrive in Windows form (C:\Program Files); make them POSIX.
-        case "$root" in
-          [A-Za-z]:*) root="/$(printf '%s' "${root%%:*}" | tr '[:upper:]' '[:lower:]')${root#*:}"
-                      root=$(printf '%s' "$root" | tr '\\' '/') ;;
-        esac
+        root=$(mxtk_posix_path "$root")
         [ -d "$root/Mendix" ] && root="$root/Mendix"
         [ -d "$root" ] || continue
-        list="$list$(ls -d "$root"/*/ 2>/dev/null)"
+        # ProgramW6432, PROGRAMFILES and the literal /c/Program Files are usually the SAME
+        # folder — list it once. And join with a newline: `$(ls)` strips the trailing one, so
+        # appending two listings glued the last entry of one onto the first of the next.
+        # Real output (Windows, 2026-09-08): ".../Mendix/gradle-8.5//c/Program Files/Mendix/
+        # 10.24.14.90436" — a path that exists nowhere, ranked highest by sort -V.
+        case "$seen" in *"|$root|"*) continue ;; esac
+        seen="$seen|$root|"
+        list="$list$(ls -d "$root"/*/ 2>/dev/null)
+"
       done
-      list=$(printf '%s\n' "$list" | sed 's:/*$::' | grep -v '^$') || true
+      # Only version-shaped directories are Studio Pro installs. Mendix also drops gradle-8.5,
+      # a shared-tools folder, and the like under the same root, and none of them has a modeler/.
+      list=$(printf '%s\n' "$list" | sed 's:/*$::' | grep -v '^$' | grep -E '/[0-9]+\.[0-9]+(\.[0-9]+)*(\.[0-9]+)?$') || true
       [ -z "$list" ] && {
         echo "ERROR: no Mendix Studio Pro install found under Program Files\\Mendix." >&2
         echo "       Set MENDIX_APP=<path to the version dir> or MXBUILD_PATH=<path to mxbuild.exe>." >&2
@@ -210,6 +270,33 @@ find_sp_app() {
 }
 
 # ---------------------------------------------------------------------------
+# mxtk_is_elf <file> — true when the file is a Linux (ELF) binary. On Git Bash that is the
+# one thing a project's ./mxcli can be that no chmod will ever fix.
+mxtk_is_elf() { [ -f "$1" ] && [ "$(head -c 4 "$1" 2>/dev/null | tr -d '\177')" = "ELF" ]; }
+
+# find_project_mxcli — the project's own mxcli binary, or fail.
+#
+# A project folder is shared between lanes (a Dev Container and Git Bash on the same disk),
+# and each lane needs its own build of mxcli: the container's is a Linux ELF binary named
+# `mxcli`, Windows' is `mxcli.exe`. Git Bash maps `mxcli` -> `mxcli.exe` transparently ONLY
+# when no file called `mxcli` exists; once the container has put its binary there, every
+# `./mxcli` and `[ -x mxcli ]` on the Windows side hits the ELF file instead and fails with
+# exit 126 — and `chmod +x` appears to "revert", because MSYS derives the executable bit
+# from the extension/header, not from mode bits. Real report, Windows, 2026-09-08.
+# So on Windows, mxcli.exe is looked for first, explicitly.
+find_project_mxcli() {
+  local c
+  if [ "$(mxtk_platform)" = windows ]; then
+    for c in "$PROJECT_ROOT/mxcli.exe" "$PROJECT_ROOT/mxcli"; do
+      [ -x "$c" ] && ! mxtk_is_elf "$c" && { echo "$c"; return 0; }
+    done
+    return 1
+  fi
+  c="$PROJECT_ROOT/mxcli"
+  [ -x "$c" ] && { echo "$c"; return 0; }
+  return 1
+}
+
 # find_mxcli_cache — newest version dir in the mxcli download cache
 # (~/.mxcli/mxbuild/<version>/), or fail.
 #

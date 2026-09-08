@@ -46,7 +46,7 @@ set -uo pipefail
 cd "$PROJECT_ROOT" || exit 2
 
 MPR="$(find_mpr)" || exit 2
-MXCLI="./mxcli"
+MXCLI="$(find_project_mxcli 2>/dev/null || echo ./mxcli)"
 OUTDIR="docs/conformance"
 BASELINE="$OUTDIR/baseline.tsv"
 MODULE=""

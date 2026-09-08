@@ -2744,6 +2744,15 @@ before touching the live one.
 
 > **CONFIRMED STILL OPEN on v0.20.0 — CRITICAL, verified 2026-08-31 with the byte-exact original signature: `StorageLoadException … The text 'OutcomeA' is not a valid EnumerationValueIdentifier`, project unloadable by mxbuild. Keep the STOP rule: no DECISION activities in CREATE WORKFLOW via mxcli.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
 
+> **Contradicting evidence, same day (2026-08-31, v0.20.0, Mendix 11.13.0):** a separate probe rebuilt a
+> real 23-activity workflow containing one `DECISION` from pure MDL and it **loaded natively at 0
+> errors** (`ExclusiveSplitActivity` stored, `learned-workflow-patterns.md` §21). That probe did not
+> record the decision's expression/outcome shape, while the retest above used `decision '1 = 1'` with
+> fresh outcome labels. Two v0.20.0 probes, opposite verdicts → the defect is **shape-dependent and
+> not isolated**. The STOP rule stays; the next person with a v0.20.0 binary should bisect the shape
+> (typed-attribute expression vs literal; outcome labels that match an enumeration vs invented ones).
+> See "Cleared on v0.20.0" at the end of this file.
+
 **Project:** PROJECT-A, Phase 15 (Approval native Workflow build), script 65
 (`Approval.ApprovalWorkflow`). **mxcli version:** v0.17.0 (`2026-08-10T05:12:17Z`).
 
@@ -3902,6 +3911,23 @@ expressed correctly in MDL. Mendix requires its path to end in *End workflow* or
 `END OF BOUNDARY EVENT PATH` are all parse errors as statements, and `JUMP TO` is this bug.
 Non-interrupting boundary events are unaffected and work correctly.
 
+**Also observed — the general case, 2026-08-31, v0.20.0 (`2026-08-28T13:22:53Z`), Mendix
+11.13.0, filed as [mxcli#1005](https://github.com/mendixlabs/mxcli/issues/1005):** a
+`jump to X` whose `X` matches **no activity at all** — anywhere in the body, not only inside a
+boundary event — passes `check --references` and `exec`, and is stored as a `JumpToActivity`
+whose own `Name` is `X` with `TargetActivity` also `X`: a jump targeting itself. Native
+`mx check` then reports `CE6681 "It is not possible to jump to end activities or jump-to
+activities."` — the wrong fault (jump legality) for the real one (unresolved reference); the
+same code is Mendix's genuine verdict on a *forward* jump (`workflow-structure-rules.md`), so
+check the target exists before reasoning about direction. Write-path, confirmed by `strings -n 3`
+on the stored `.mxunit`, not by `DESCRIBE`. It is easy to hit because **mxcli names a
+call-microflow activity after the microflow it calls** (`SUB_CheckPackageAvailability`, never
+`callMicroflow6`), the grammar cannot name one explicitly, and `DESCRIBE WORKFLOW` emits jump
+targets using the *source* model's names — so `describe → exec` reliably produces a dangling
+target. Workaround: repoint every `jump to` at a real activity name before exec and gate on
+native `mx check`; `learned-mdl-preflight.md` STOP #24. Same entry, two shapes — do not file
+the general case separately from #1005.
+
 ---
 
 ## BUG-110: `DESCRIBE WORKFLOW` emits MDL it cannot re-parse when a targeting XPath contains quotes
@@ -3933,6 +3959,19 @@ Feeding that back to `mxcli check` fails:
 `DESCRIBE` is documented as round-trippable and is the toolkit's recommended way to read
 current state before editing (`query-the-model.md`), so this silently produces a script that
 looks authoritative and cannot run.
+
+**Filed:** [mxcli#1006](https://github.com/mendixlabs/mxcli/issues/1006) (2026-08-31, from an
+earlier v0.20.0 / Mendix 11.13.0 observation of the same emitter defect — the draft in
+`pending-github-issues/` already records the dedupe). **Also observed, same probe, second
+emitter defect filed separately as [mxcli#1007](https://github.com/mendixlabs/mxcli/issues/1007)
+because the fix lives elsewhere:** `DESCRIBE WORKFLOW` emits canvas annotations as `annotation`
+statements that mxcli's own checker rejects with `MDL-WF04` — a real 23-activity workflow
+produced 13 of them from unmodified describe output. Requested fix: emit them as MDL comments,
+which is MDL-WF04's own remediation advice. Same family as #619 (unquoted reserved-word
+identifiers) and #978 (`DESCRIBE PAGE` rejected by mxcli's own check) — the emitter is not held
+to the parser's grammar by any test. Practical consequence: `describe → exec` needs three hand
+fixes before it runs — double the XPath quotes, strip the annotations, repoint the jumps
+(BUG-109 / #1005). The ritual is `learned-workflow-patterns.md` §21.
 
 ---
 
@@ -3987,6 +4026,686 @@ build with a timeout. A warning followed by an unbounded blocking call is the wo
 `mxcli new` produces without step 6 is fully usable for MDL work (verified: `SHOW MODULES`,
 `exec`, and native `mx check` all work against it).
 
+## BUG-113: OQL `!= NULL` against a reference association is unreliable — `= NULL` returns 0 even with live orphans, `!= NULL` returns a number that happens to be right for the wrong reason
+
+**Severity:** Medium — silently wrong result from a query that looks like it works
+**Discovered:** 2026-09-02, a dashboard-publishing migration project
+**Reproducible:** Yes, on the live project's data — see below
+**Mendix version:** 11.12.1
+**mxcli version when found:** v0.20.0
+
+### Steps to reproduce
+On a persistent entity `Child` with a `Reference` association `Child_Parent` to `Parent`
+(delete_behavior on the association does not matter — this reproduces even when it is
+correctly configured and the cascade genuinely works), where the database holds a mix of rows
+with a live parent and rows whose parent has been deleted:
+
+```
+mxcli oql -p project.mpr "SELECT id FROM Module.Child WHERE Module.Child_Parent = NULL"
+mxcli oql -p project.mpr "SELECT id FROM Module.Child WHERE Module.Child_Parent != NULL"
+mxcli oql -p project.mpr "SELECT id FROM Module.Child"
+```
+
+### Expected behavior
+`= NULL` count + `!= NULL` count = total count, and `= NULL` count is the true number of
+orphaned rows (no live parent).
+
+### Actual behavior
+On the reproducing project: total 72, `!= NULL` 66, `= NULL` **0**. 0 + 66 ≠ 72 — six rows are
+counted by neither comparison. `= NULL` against the reference returned zero even though six
+genuinely orphaned rows existed (independently confirmed: the entity's own denormalised rollup
+attribute, maintained by a separate microflow on every write, summed to exactly 66 — a second,
+unrelated code path agreeing with the `!= NULL` figure and disagreeing with the total). A live
+probe (create a child, delete its parent through the app's own delete microflow, recount)
+confirmed the cascade genuinely removes the row — so the six pre-existing orphans are real, and
+`= NULL` simply fails to find them.
+
+### Root cause (inferred)
+`!= NULL` against a reference association appears to be translated as something closer to an
+inner join ("the association resolves to a real row") rather than a true `IS NOT NULL`, and
+`= NULL` against the same association does not translate to `IS NULL` at all — it silently
+matches nothing, for a reference, regardless of how many rows are genuinely unset. Untested
+whether this holds for other association types (Reference-Set) or only single Reference.
+
+### Workaround
+Do not compare a reference association to `NULL` in OQL for either presence or absence.
+Cross-check via an independent, already-maintained aggregate instead (a denormalised
+count/rollup attribute on the parent side, or an application-level accounting) rather than
+trusting either comparison's row count on its own.
+
+## BUG-114: `ALTER PAGE ... REPLACE widget WITH {...}` re-scopes an inherited `ContentParams` reference to the page's OUTER data context — reproduced twice, independently, same project
+
+**Severity:** High — silent CE1613 build failure, and the app is DOWN until reverted
+**Discovered:** 2026-09-01, re-confirmed independently 2026-09-02, both on the same
+dashboard-publishing migration project
+**Reproducible:** Yes, twice, on two different widgets on two different pages
+**Mendix version:** 11.12.1
+**mxcli version when found:** v0.20.0
+
+### Steps to reproduce
+On a page with nested data-source scopes — an outer data view over entity `A`, containing a
+selection-driven inner data view (or a gallery template) over entity `B` — where a
+`dynamictext` widget inside the INNER scope binds `ContentParams` to an attribute of `B`:
+
+```
+ALTER PAGE Module.Page {
+  REPLACE txtInner WITH {
+    DYNAMICTEXT txtInner (Content: '{1} · {2}', ContentParams: [{1} = SomeAttrOfB, {2} = OtherAttrOfB])
+  }
+}
+```
+
+### Expected behavior
+The replacement widget's `ContentParams` resolve against `B` (the enclosing data view's
+context), same as the original widget it replaces — `DESCRIBE PAGE` prints exactly this.
+
+### Actual behavior
+`mxbuild` refuses to deploy: `CE1613 "The selected attribute 'Module.A.SomeAttrOfB' no longer
+exists."` — the reference was silently re-scoped to `A`, the PAGE's outermost data context, not
+`B`, the widget's actual enclosing context. `mxcli check --references` and the exec itself both
+report success; `DESCRIBE PAGE` immediately afterward prints the MDL back correctly, with the
+right attribute names in the right position — the corruption is invisible to every mxcli-side
+read. It surfaces only at `mxbuild`/Studio Pro load time, by which point the running app is down
+(the previous build's `app/deployment/` gets overwritten by a build that then fails).
+
+**Both confirmed occurrences, for corroboration:**
+1. `txtPreviewPeriod` on a `Version_View`-style page, inside a selection data view over
+   `DashboardVersion` nested in a page-level data view over `Dashboard`. `ContentParams: [{1} =
+   PeriodLabel]` re-resolved to `Dashboard.PeriodLabel` (does not exist) instead of
+   `DashboardVersion.PeriodLabel`.
+2. `txtVersionMeta` on a `Dashboard_Detail`-style page, same shape: a gallery template's
+   dynamictext, `ContentParams: [{1} = SizeLabel, {2} = UploadedAt]`, re-resolved to
+   `Dashboard.SizeLabel`/`Dashboard.UploadedAt` (neither exists on `Dashboard`) instead of the
+   gallery's own row entity.
+
+### Root cause (inferred)
+`REPLACE`'s attribute-reference resolution appears to walk up to the page's outermost bound
+entity rather than the widget's own immediate enclosing data-source scope — plausible if the
+replace operation reconstructs the widget against the PAGE's top-level binding context rather
+than diffing it in at its actual tree position.
+
+### Workaround
+Never `REPLACE` a widget that carries `ContentParams` referencing anything below the page's
+outermost data view. Two narrower routes both work:
+- If only the surrounding text/template needs to change and the SAME attribute stays bound,
+  `SET Content = '...'` alone (leaving the existing `ContentParams` untouched) is unaffected by
+  this bug — confirmed working, occurrence 1's actual fix.
+- If the attribute reference itself must change (a genuine rebind, not just rewording), no
+  narrower ALTER PAGE form exists today — `SET ContentParams = [...]` is rejected at parse
+  entirely (not a MDL044/CE0117 case — a hard syntax error, no such settable property), and
+  per-index forms (`ContentParams[0] = ...`, `ContentParams.0 = ...`) are rejected the same way.
+  This needs Studio Pro.
+
+### Recommended upstream fix
+`REPLACE`'s attribute-reference resolver should bind against the widget's actual position in the
+page tree (its nearest enclosing data source), not the page's outermost one — and `mxcli check`
+should catch this class of mis-scope BEFORE exec, the same way it already catches other
+reference errors, rather than deferring entirely to `mxbuild`/Studio Pro after the write has
+already landed and the running app has already gone down.
+
+### Root cause located (merge review 2026-09-07, mxcli source at v0.20.0 and HEAD `191a0c9`)
+`ALTER PAGE REPLACE` (and INSERT BEFORE/AFTER) resolves the new widgets against
+`mutator.EnclosingEntity(target)`, whose walk takes an entity only from a `DataSource` doc with
+an `EntityRef`. A selection-driven data view is written as `Forms$ListenTargetSource` with **no
+`EntityRef`** (occurrence 1), and a gallery/DataGrid 2 over a microflow, nanoflow or
+`EntityRef`-less association contributes nothing either (occurrence 2) — so the walk skips the
+target's real scope and keeps the page-level data view's entity. Confirmed against the code, not
+inferred from symptoms. **BUG-118 is the same defect on a page with no outer data view** (the
+context comes back empty instead of wrong: `<unbound>`, CE0402) and travels with this entry as
+its second reproduction. Still unfixed at HEAD; the release notes through 0.19.0 carry nothing
+for it.
+
+---
+
+## BUG-115: the file-upload widget cannot be authored in MDL at all, and a page carrying one is permanently non-round-trippable
+
+**Severity:** High — blocks the primary journey of any app that accepts a file, and forces Studio Pro into an otherwise headless pipeline
+**Reproducible:** Yes, consistently
+**Mendix version:** 11.12.1
+**mxcli version:** v0.20.0 (2026-08-28) — re-verified on this version, not carried forward from an earlier note
+
+### Symptom
+
+There is no way to place a file-upload control on a page from MDL. Both available spellings fail,
+for two different reasons:
+
+**1. The built-in `Forms$FileManager` has no MDL keyword.**
+
+```mdl
+create or replace page Mod."ProbeFM" (Title: 'p') {
+  filemanager fm1 (Attribute: Contents)
+}
+```
+```
+line 2:2 missing '}' at 'filemanager'
+```
+
+That is a *parse* error, not an unknown-property error — the grammar has no such widget, so there
+is nothing to misconfigure. `mxcli syntax page.widgets` lists the full keyword set and contains no
+file-shaped entry.
+
+**2. The pluggable `com.mendix.widget.web.fileuploader.FileUploader` parses but fails at exec:**
+
+```
+no definition for widget com.mendix.widget.web.fileuploader.FileUploader
+```
+
+`mxcli widget init` extracts widget definitions from the project's own `widgets/*.mpk` and found 42;
+FileUploader is not among them, because it is **Studio-Pro-bundled rather than shipped as an
+`.mpk`** — it appears in that command's `9 skipped (built-in)` count, and its only trace anywhere
+in the project tree is an Atlas locale file. So the definition mxcli needs to serialise it does not
+exist on disk to be extracted.
+
+### Consequence: the page is permanently un-round-trippable
+
+Once a human adds the widget in Studio Pro (which is the only way to unblock the app), `DESCRIBE
+PAGE` emits this in its place:
+
+```
+container ctnFileGap (Class: 'field') {
+  -- Forms$FileManager (fileManager1)  -- NOT re-executable: mxcli cannot author this widget, so re-running this script would drop it
+}
+```
+
+**Credit where it is due: mxcli warns loudly rather than dropping it silently**, which is the right
+behaviour and much better than the alternative. But the effect is that `DESCRIBE PAGE` output for
+this page is no longer round-trippable, which is the property the command is otherwise relied on
+for, and any `create or replace page` regenerated from it deletes a widget a human added by hand.
+
+On the project where this was found that forced a standing house rule — *ALTER PAGE only, never
+`create or replace page`, on the page carrying the file widget* — which then has to be remembered
+by every future session and every agent, forever, with silent data loss as the failure mode if it
+is not. That rule is the actual cost of this bug, more than the initial block.
+
+### Impact measured
+
+Uploading a version was the app's central action, so this blocked the primary end-to-end journey in
+the browser until a human opened Studio Pro. Everything behind the widget — the upload action, the
+validation microflow including a content sniff, the version-number allocator, the parent rollup, and
+the write grant on `Contents` — was built and gate-clean the whole time. A headless build reached
+100% of the feature except the one control that lets a user reach it.
+
+### Ask
+
+Author support for `Forms$FileManager` in MDL, and more generally for the Studio-Pro-bundled
+built-in widget family that `widget init` currently reports as `skipped (built-in)`. These widgets
+cannot be supplied by the project (there is no `.mpk` to add), so unlike a marketplace widget there
+is no user-side workaround at all — the definition has to come from mxcli or from Studio Pro.
+
+### One loose end, NOT verified
+
+`ALTER PAGE ... SET Caption = 'x' ON fileManager1` **passes** `mxcli check -p ... --references`,
+including `Expression types OK`, against the real model. It was not executed, so whether an
+`ALTER PAGE SET` against a widget mxcli cannot author actually works, silently no-ops, or corrupts
+the unit is **unknown**. Worth establishing, because a check that passes on an unauthorable widget
+is the `learned-detection-gaps` shape.
+
+### Addendum (2026-09-05, a sales-coaching build, mxcli v0.19.0-nightly.c836f01 / Mendix 11.14.0): the describe → replace round trip drops an existing File Manager, and `check` reports clean
+
+Re-found independently on a second project, with two additions to the entry above. Upstream
+draft: `pending-github-issues/bug115-file-manager-widget-not-authorable.md`.
+
+**Six spellings, one parser error.** `filemanager`, `fileuploader`, `fileupload`, `filedropzone`,
+`filedocument` and `fileinput` all fail identically: `mismatched input '<spelling>' expecting '}'`.
+`SHOW WIDGETS` lists `Forms$FileManager` and `DESCRIBE PAGE` reaches it — the gap is purely the
+absence of a production to write one.
+
+**The costly half is the round trip, and it passes every gate.** `DESCRIBE PAGE` of a page
+containing one emits the `-- NOT re-executable` comment shown above — and **that script passes
+`mxcli check --references` clean**, so describe → edit → `CREATE OR REPLACE PAGE` removes the
+widget with no error at any gate. Verified on `AgentCommons.AgentImportExportFile_NewEdit`
+(AgentCommons v4.2.0), which ships one. The comment itself is good behaviour and should be kept —
+it names the widget and says what would be lost. The gap is that it is addressed to a human,
+while `check` is what a pipeline asks, and `check` says clean.
+
+**Workaround (restated for the pipeline case):** place the File Manager in Studio Pro, or through
+the MCP write path with Studio Pro on the same machine. Build everything else (entity,
+association, validation, list, form) from MDL, and never regenerate that page with `CREATE OR
+REPLACE PAGE` afterwards — use `ALTER PAGE` so the widget is never in the rewritten region. Grep a
+generated script for `NOT re-executable` before executing it; that string is the only signal
+there is. The draft's secondary ask — a `check` warning on the marker — would turn the silent drop
+into a caught one independently of whether the grammar production is ever added.
+
+---
+
+## BUG-116: deploying from a PAT means the Pipelines API, and nothing points you there — the Deploy API is a dead end that looks like the answer
+
+**Severity:** Medium — not a defect in mxcli, a gap that stops an otherwise fully automatable pipeline one step from the end
+**Reproducible:** Yes
+**Mendix version:** 11.12.1 (app), 11.14.0 (template the platform created)
+**mxcli version:** v0.20.0
+**Status:** part platform-API gap, part mxcli feature request — written up together because neither half is actionable alone
+
+### What works, end to end, with only a PAT
+
+Creating an app and populating its Team Server repository is fully automatable and was done
+headlessly from a cloud container:
+
+1. `mendixplatformsdk@5.2.0` `createNewApp` → `POST /rest/projectservice/v1/projects` → app ID
+2. `GET /v1/repositories/<appId>/info` → `{"type":"git","url":"https://git.api.mendix.com/<appId>.git"}`
+3. `git push` to that URL — username is the literal string **`pat`**, password is the PAT
+   (an email address as the username is rejected: `remote: Invalid username or password`)
+
+### Where it stops
+
+The app now has a repository and **no deployment target**, and there is no PAT-authenticated way to
+create one:
+
+| call | with PAT | meaning |
+|---|---|---|
+| `GET /api/v4/apps` | `200`, full app list | the PAT's deploy scopes are fine |
+| `GET /api/v4/apps/<newAppId>/environments` | `404 Application not found` | Deploy API does not know an app that has no environment |
+| `POST /api/v4/apps` | `405 Method not allowed` | v4 manages environments, it does not provision them |
+| anything on `/api/1/...` | `400 INVALID_CREDENTIALS` | Deploy API v1 wants legacy `Mendix-Username` + `Mendix-ApiKey`, not `Authorization: MxToken` |
+
+So the first deploy is a **human action in the Developer Portal or Studio Pro**, in the middle of a
+pipeline that is otherwise scriptable from a container with no GUI. For AI-assisted or CI-driven
+work that is the one unautomatable step, and it lands at exactly the point where the work becomes
+demonstrable to anyone else.
+
+### Is it automatable? Partly — and the missing piece is small
+
+Deploy API **v1 is believed to carry a "create sandbox application" endpoint** taking an existing
+`ProjectId` (`POST /api/1/apps/`), which is precisely the operation needed. **NOT VERIFIED** — no
+legacy API key was available in this environment to test with, and `docs.mendix.com` was unreachable
+through the network policy, so this is recalled rather than measured. What *was* measured is that
+v1 returns `INVALID_CREDENTIALS` (a 400 that parsed the request and rejected the auth) rather than
+`404`, which is consistent with the endpoint existing.
+
+### CORRECTION, same day: this is wider than the first deploy
+
+The entry above was written believing only the *initial* provisioning needed a human. Measured
+after the environment existed: **every deploy does.** With the Free App sandbox created and
+`running`, v4 still has no build or deploy surface —
+
+| call | with PAT |
+|---|---|
+| `GET /api/v4/apps/<id>/environments/<env>/deployments` | `404` |
+| `POST /api/v4/apps/<id>/environments/<env>/deployments` | `404` |
+| `GET /api/v4/apps/<id>/environments/<env>/packages` | `404` |
+| `POST /api/v4/apps/<id>/packages` | `404` |
+
+— so v4 is effectively read-only: it lists apps and environments and nothing else. The whole
+build/deploy surface is v1, which rejects PATs:
+
+| call | with PAT | what it tells us |
+|---|---|---|
+| `GET /api/1/apps/<id>/environments/Sandbox` | `400 INVALID_CREDENTIALS` | endpoint exists, auth refused |
+| `GET /api/1/apps/<id>/packages` | `400 INVALID_CREDENTIALS` | endpoint exists, auth refused |
+| `GET /api/1/apps/<id>/environments/Sandbox/start` | **`405 Method not allowed 'GET'`** | **routing resolved BEFORE auth** — the endpoint is real and takes a POST |
+
+That last row is the strongest evidence in this entry: a `405` naming the method, rather than a
+`400` about credentials, means the path exists and is waiting for the right verb. The capability
+is there; a PAT simply cannot reach it.
+
+**So the practical shape of the gap is:** push a model change to Team Server headlessly — fine,
+fully automatable, done repeatedly. Get it running — a human opens the portal, every single time.
+For CI or agent-driven work that is not a one-off setup cost, it is a permanent manual step in the
+middle of every iteration.
+
+### SECOND CORRECTION — the first correction was also wrong, and this is the resolution
+
+The correction above concluded "no PAT can deploy at all". **That is false.** It was reasoned from
+the Deploy API alone, which is the API every search result and every instinct points at, and which
+genuinely cannot do it. The mistake was treating one API's dead end as the platform's answer.
+
+The scope list on a Mendix PAT settings page names the surfaces that actually exist:
+`mx:deployment:read` / `mx:deployment:write` under "Deployment Mendix Cloud", and
+`mx:pipelines:read` / `mx:pipelines:write` under "Pipelines". Those scopes are meaningless if no
+PAT-accepting endpoint consumes them — so the endpoint had to exist, and the Deploy API was simply
+the wrong place to look.
+
+**It is the Pipelines API**, and the docs are machine-readable:
+`https://docs.mendix.com/openapi-spec/pipelines.yaml`
+
+```
+servers:  https://pipeline-portal.home.mendix.com/api/v1
+POST /apps/{appId}/runs      startRun     scope mx:pipelines:write
+GET  /apps/{appId}/runs/{runId}/status    scope mx:pipelines:read
+```
+
+Verified live against a real app with a PAT:
+
+| call | result | reading |
+|---|---|---|
+| `POST /api/v1/apps/<appId>/runs` with a zeros UUID | `404 Not Found` | **auth PASSED** — a scope failure would be 401/403 |
+| `GET /api/v1/apps/<appId>/runs` | `405 Method not allowed 'GET'` | the POST route is live for this app |
+
+So a PAT **can** trigger a build-and-deploy. What it cannot do is create the thing it triggers:
+`startRun` needs the `pipelineId` of a **saved and activated pipeline design**, the spec has no
+endpoint to create or even LIST pipelines, and there is no way to discover the UUID from the API
+(`/apps/{id}/pipelines` → 404). So the human step shrinks from *every deploy* to *one pipeline
+setup*, and the UUID then has to be carried in project config.
+
+### THIRD CORRECTION — and the one that changes who this bug applies to
+
+Everything above assumes a **licensed** app. On a **Free App** none of it is automatable, and the
+`mxcli cloud deploy` ask below cannot help there at all.
+
+Mendix's own Free App limitations table: **Deployment — "Can only be deployed to the cloud from
+Mendix Studio Pro"**, against "Studio Pro, the Mendix Portal, or an API" for licensed apps. The
+Deploy API documentation agrees independently: *"Only Retrieve apps, Create Free App environment,
+and Retrieve app API calls are supported for Free Apps."*
+
+So on a Free App there is **no pipeline to trigger**. `startRun` needs a `pipelineId`, and there is
+nothing to create one from. The correction above ("a PAT CAN deploy, via the Pipelines API")
+stands for licensed apps and is **false for Free Apps** — which is the environment most people
+reach for first when trying this out, and therefore the environment in which the advice is most
+likely to be read.
+
+Two neighbouring limits found at the same time, because they bite anyone who reaches for a Free
+App to demo platform capabilities:
+
+- **Runtime settings: not available. Constants: Studio Pro only.** Which makes **OpenTelemetry
+  impossible on a Free App** — OTel is a runtime feature driven by `OTEL_*` env vars and runtime
+  settings, so it works anywhere the runtime runs *except* where those cannot be set.
+- **Metrics, alerts and log levels: not available. Historic app logs: not available — live logs
+  only.**
+
+None of this is an mxcli defect. It is recorded here because the entry above would otherwise send
+a reader to build automation against an environment that structurally cannot accept it.
+
+### What is actually worth reporting, after two wrong turns
+
+The bug is **discoverability**, and it is a real cost rather than a grumble. Three separate APIs
+serve overlapping concerns with no cross-reference between them:
+
+| API | host | auth | can it deploy? |
+|---|---|---|---|
+| Deploy API v4 | `deploy.mendix.com/api/v4` | PAT ✅ | **no** — read-only; lists apps and environments, 404 on every sub-resource tried (deployments, packages, backups, snapshots, deploy, transport, status, metrics) |
+| Deploy API v1 | `deploy.mendix.com/api/1` | `Mendix-ApiKey` only | yes, but no PAT reaches it |
+| **Pipelines API** | `pipeline-portal.home.mendix.com/api/v1` | **PAT ✅** | **yes** — the answer |
+
+The one that accepts a PAT and has "deploy" in its name cannot deploy. The one that can deploy is
+named "pipelines" and lives on an unrelated host. Two wrong conclusions were reached here before
+the PAT scope list — read off a settings page, not any API — pointed at the third.
+
+**The measurement that would have short-circuited all of it:** a `405` naming the method, rather
+than a `401` about credentials, means the path exists and auth passed. That single distinction
+separates "wrong credential" from "wrong URL", and it is what finally resolved this.
+
+### Two asks, in order of value
+
+1. **Platform (docs, not code):** cross-reference the three APIs. The Deploy API pages should say,
+   at the top, that PAT-authenticated deployment lives in the Pipelines API — and the Pipelines
+   pages should say that `startRun` requires a pipeline created in the portal first. Also worth an
+   endpoint to LIST an app's pipelines, since the UUID `startRun` requires is currently obtainable
+   only by reading it out of the portal UI by hand.
+2. **mxcli:** there is no cloud command at all today. `mxcli auth` stores a PAT and reaches only the
+   marketplace and catalog. If mxcli grew support for the legacy `Mendix-Username` + `Mendix-ApiKey`
+   scheme alongside PAT, it could wrap the v1 endpoint and close this without waiting on ask 1.
+   A `mxcli cloud deploy -p <project>` wrapping `POST /apps/{appId}/runs` on the Pipelines API,
+   with the `pipelineId` stored in project config beside the app ID, would make the whole
+   create → push → deploy chain scriptable with nothing but a PAT. mxcli is also the right place
+   to encode the routing lesson above, so the next person does not spend an afternoon in the
+   Deploy API concluding it cannot be done.
+
+### Trap worth documenting regardless of the above
+
+**The Platform SDK returns `403 Forbidden` on every call from a proxied container, and it is not a
+scope problem.** Node does not read `HTTPS_PROXY`, so the SDK bypasses the proxy and is refused at
+the network edge; `curl` with the same token on the same endpoint returns `200`. The fix is
+`NODE_USE_ENV_PROXY=1` (Node ≥ 22.21). This reads exactly like a missing PAT scope and cost a wrong
+diagnosis before the `curl` comparison exposed it — worth a line in any mxcli docs that tell people
+to use the Platform SDK from a container.
+
+Also: the SDK's real endpoints are `projectservice.mendix.com`, `repository.api.mendix.com`,
+`git.api.mendix.com` and `deploy.mendix.com`. `api.mendix.com` is **not** on the create/push/deploy
+path, so an allowlist built around it will not help; only `model.api.mendix.com` (Model Server
+working copies) is additionally needed, and only for SDK-driven model edits.
+
+## BUG-117: Widget-property writer silently drops any unsupported property name, on any widget type, with no MDL-WIDGET07 warning
+
+**Severity:** High — a silent drop that passes `check --references`, `exec` AND native `mx check`; only the running app shows it
+**mxcli version:** a pre-v0.20.0 build (discovered 2026-08-25; v0.20.0 shipped 2026-08-28) — **NOT RETESTED on v0.20.0; retest before filing**
+**Discovered:** 2026-08-25, an exam-prep app project
+**Reproducible:** yes, two widget types, isolated single-widget files
+
+> **Upstream already names this root cause** (merge review 2026-09-07): mxcli's 0.19.0 release
+> notes, under `MDL-WIDGET20`/`MDL-WIDGET21` (mendixlabs/mxcli#928), say *"the allow-lists
+> behind MDL-WIDGET01 and MDL-WIDGET07 are widget-type agnostic. `isBuiltinPropName` is a single
+> flat list … both validators read it as 'is this valid on this widget'"* — and then fix only
+> the two properties reported (`editable`, `contentparams`). This entry is the general case:
+> any property name on the flat list is accepted on any widget. File it citing #928 as the
+> acknowledged root cause and ask for per-widget-schema validation (the data `widget describe`
+> already reads), plus the two doc defects (paging table is DATAGRID-only; GALLERY shorthand
+> names differ from its schema keys).
+
+
+### Symptom
+
+Writing a property name that the target widget's real schema does not support round-trips
+clean through every mxcli-side check and gives no indication anything was lost:
+`mxcli check --references` reports "Check passed!" with zero warnings (specifically, no
+MDL-WIDGET07 — the exact warning `create-page/SKILL.md` documents as existing for this class of
+problem), `mxcli exec` reports success ("Replaced"/"Altered page"), and even the real,
+flagless `mx check` reports 0 errors. The property is simply absent from the persisted `.mpr` —
+confirmed via `DESCRIBE PAGE` after the write.
+
+Confirmed in two independent instances against the same page (`Practice.Vocab_Flashcards`,
+paging a flashcard deck one item at a time):
+
+1. **LISTVIEW**: `listview lvTerms (PageSize: 1, Pagination: buttons, PagingPosition: bottom)`
+   — after exec, `DESCRIBE PAGE` shows only `PageSize: 1` persisted; `Pagination` and
+   `PagingPosition` are entirely absent from the output, not merely defaulted. The running app
+   rendered a plain "Load more..." button, not Prev/Next paging, confirmed by screenshot.
+   `create-page/reference/widgets.md`'s "Paging Properties" table (which documents
+   `PageSize`/`Pagination`/`PagingPosition`/`ShowPagingButtons`) sits only under
+   `### DATAGRID Widget` — LISTVIEW has no such paging-mode properties in its real schema at
+   all, yet mxcli's shorthand grammar accepts all three names on a `listview (...)` block
+   without complaint.
+
+2. **GALLERY shorthand**: rebuilt the same flashcard as
+   `gallery galTerms (DesktopColumns: 1, TabletColumns: 1, PhoneColumns: 1, PageSize: 1,
+   Pagination: buttons, PagingPosition: bottom)`. Same result — `DESCRIBE PAGE` showed none of
+   `PageSize`/`Pagination`/`PagingPosition` (nor, this time, `DesktopColumns`/`TabletColumns`/
+   `PhoneColumns`, which `widgets.md`'s `### GALLERY Widget` section *does* document). Root-caused
+   via `mxcli widget describe gallery -p ToeicBuddy.mpr`: the widget's real pluggable-widget
+   schema property keys are `pageSize`/`pagination`/`pagingPosition`/`desktopItems`/
+   `tabletItems`/`phoneItems` — different names entirely from the shorthand grammar's own
+   documented property names. The shorthand silently accepts the wrong (shorthand-documented)
+   names and drops them on write, rather than either accepting them and mapping them to the
+   real schema keys, or rejecting them with MDL-WIDGET07.
+
+### What was tried, and ruled out
+
+- Re-reading `create-page/reference/widgets.md` for each widget type before writing — the
+  properties used were exactly as documented for GALLERY; the doc itself is the source of the
+  wrong names for GALLERY (case 2), and for LISTVIEW the doc never listed the properties at all
+  (case 1's mistake was assuming DATAGRID-only properties would still no-op safely; instead
+  they silently "succeeded" while doing nothing).
+- Isolating each case in a single-widget test file with no other page content, to rule out any
+  cross-widget interference — same silent-drop result each time.
+- Checking `mxcli check --references` output specifically for MDL-WIDGET07 (the warning
+  `create-page/SKILL.md` documents as existing for "a built-in widget carr[ying] an unrecognized
+  property") — never emitted in either case, despite both being exactly the scenario that
+  warning is documented to catch.
+
+### Root cause (inferred)
+
+mxcli's widget-property writer validates/warns for *some* unrecognized property names (per
+`create-page/SKILL.md`'s documented MDL-WIDGET07 behavior) but not consistently across all
+widget types and all property names — LISTVIEW accepting DATAGRID-only paging properties, and
+the GALLERY shorthand accepting property names that don't match its own underlying
+pluggable-widget schema, both slip through with zero warning at any check stage. This suggests
+MDL-WIDGET07's unsupported-property detection is scoped to a subset of widgets/properties
+rather than validating every written property against the target widget's actual schema.
+
+### Workaround
+
+For a pluggable widget (GALLERY, DATAGRID2, etc.), bypass the shorthand grammar entirely and
+write directly against the widget's real internal schema property name using the bulk
+`update widgets` command:
+
+```
+./mxcli -p ToeicBuddy.mpr -c "update widgets set 'pageSize' = 1 where name = 'galTerms' in Practice;"
+```
+
+(`mxcli widget describe <type> -p <project>.mpr` reveals the real schema key names first; the
+`update widgets` catalog column for widget-name filtering is `Name`, capitalized.) This has no
+equivalent for a genuinely native (non-pluggable) widget like LISTVIEW that simply doesn't
+support the property at all — there, the only fix is choosing a widget type whose real schema
+supports the desired behavior (in this case, rebuilding as a GALLERY).
+
+### How to fix (suggested)
+
+Validate every property name written to every widget type — shorthand or pluggable — against
+that widget's actual resolved schema (the same data `mxcli widget describe` already reads) at
+write time, and emit MDL-WIDGET07 (or fail outright) for any name that doesn't match, rather
+than scoping that check to a subset of widgets. Additionally, `create-page/reference/
+widgets.md`'s "Paging Properties" table should state explicitly that it applies to DATAGRID
+only, and the GALLERY section should document the real schema key names since they differ from
+the shorthand property names shown in its own example.
+
+**Discovered:** 2026-08-25, ToeicBuddy-conversion field run (a Vocab_Flashcards page needing
+one-card-at-a-time paging), confirmed via `DESCRIBE PAGE` round-trip, `mxcli widget describe`,
+and a running-app screenshot before/after the `update widgets` workaround.
+
+## BUG-118: `ALTER PAGE ... REPLACE` targeting a widget nested inside a GALLERY template's child slot drops the new widget's ContentParams/attribute binding
+
+> **SAME DEFECT AS BUG-114 — do not file separately.** Merge-review verdict 2026-09-07, from the
+> mxcli source (`mdl/backend/pagemutator/mutator.go`, identical at v0.20.0 and HEAD `191a0c9`):
+> `applyReplaceWidgetMutator` builds the replacement widgets in
+> `mutator.EnclosingEntity(target)`, and that walker (`findEnclosingEntityContext` →
+> `findEntityContextInWidgets` → `widgetOwnEntity`) only ever takes an entity from a
+> `DataSource` doc that carries an `EntityRef`. Two data containers never provide one: a
+> **listen-to-widget (selection) data view** — `serializeDataSourceBson` writes
+> `Forms$ListenTargetSource` with only `ListenTarget`, no `EntityRef` — and a **pluggable list
+> (gallery, DataGrid 2) whose datasource is a microflow/nanoflow or an association without an
+> `EntityRef`** (`extractPluggableDataSourceEntity` returns "" for those; the flow fallback
+> `findNearestDSInWidgets` reads widget-level `DataSource` only and never looks inside
+> `Object.Properties`). So the target's nearest scope is skipped and the walk keeps whatever is
+> above it: an outer data view's entity → **re-scoped**, CE1613 at mxbuild (BUG-114, both
+> occurrences); no outer data view at all → **empty context**, the attribute cannot resolve,
+> `<unbound>`, CE0402 (this entry). Same walker, same skipped scope; the only difference is
+> whether the page has an outer data view. This case is the diagnostic one — `<unbound>` is
+> visible in `DESCRIBE PAGE`, the re-scope is not — so it goes into BUG-114's upstream issue as
+> the second reproduction. Fix shape for both: resolve a `ListenTargetSource` through its
+> target widget's entity, and a flow-sourced pluggable list through the flow's return type
+> (the REPLACE path already has `resolveDataSourceFlowEntity`; the walker does not use it).
+
+### Symptom
+
+`alter page Module.Page { replace <widgetInsideGalleryTemplate> with { container c { dynamictext
+d (Content: '{1}', ContentParams: [{1} = SomeAttr]) } } }` — replacing a single dynamictext
+nested inside a GALLERY widget's template with a new wrapping container + dynamictext, with an
+explicit `ContentParams` binding to an entity attribute — builds and executes with no error
+(`mxcli check --references`: clean; `mxcli exec`: "Altered page Practice.Vocab_Flashcards", no
+warning), but the real, flagless `mx check` gate fails:
+
+```
+[error] [CE0402] "No value specified." at Text 'flashTermG2'
+```
+
+`DESCRIBE PAGE` after the exec shows the binding was dropped outright, not merely
+mis-resolved: `ContentParams: [{1} = <unbound>]`. Reproduced with both documented forms of the
+attribute reference — bare (`Term`) and explicitly qualified (`$currentObject/Term`) — same
+result both times.
+
+The equivalent operation at the *top level* of a page (replacing a widget that is a direct
+child of the page body, not nested inside a pluggable widget's template) does correctly carry
+bindings through — confirmed working in the same project, same session, replacing a top-level
+LISTVIEW with a GALLERY (see BUG-117's case 1 fix) — so this appears specific to a REPLACE
+target being nested inside a pluggable widget's template/child-slot, not a general REPLACE
+defect.
+
+### What was tried, and ruled out
+
+1. Bare attribute reference in `ContentParams: [{1} = Term]` — dropped.
+2. Explicitly qualified `ContentParams: [{1} = $currentObject/Term]` — also dropped, ruling out
+   an attribute-rooting/context-resolution guess as the cause.
+3. Confirmed the top-level (non-nested) REPLACE case works correctly in the same project, in the
+   same session, immediately prior — ruling out a general REPLACE-and-ContentParams
+   incompatibility; the defect is specific to the nested-inside-a-template case.
+
+### Root cause (inferred)
+
+mxcli's `alter page ... replace` writer resolves a new widget's attribute/ContentParams
+bindings correctly when the target is a direct child of the page's own widget tree, but does
+not correctly thread that binding through when the REPLACE target is nested one level inside a
+pluggable widget's template/child-slot (as GALLERY's per-item template is). The binding is
+dropped entirely rather than mis-scoped, suggesting the binding-resolution code path for
+nested-template REPLACE either doesn't run or resolves against the wrong (or no) data context.
+
+### Workaround
+
+Avoid REPLACE for any widget nested inside a pluggable widget's template if the replacement
+carries a data binding (ContentParams, Attribute, etc.). Use `alter page ... { set Class = '...'
+on <existingWidgetName>; }` (or other SET-based property changes) against the *already-existing,
+already-bound* widget instead of replacing it with a newly-constructed one — this correctly
+preserves the binding since the widget itself, not its data reference, is what's being modified.
+
+### How to fix (suggested)
+
+When resolving bindings for a REPLACE inside `alter page`, the binding-resolution logic should
+use the same code path regardless of nesting depth or whether the target sits inside a
+pluggable widget's template — most likely the fix is in how the target widget's ambient data
+context (`$currentObject` and friends) is determined for a REPLACE, so it correctly recognizes a
+target nested inside a GALLERY/LISTVIEW/DATAGRID template as inheriting that widget's item-level
+context, the same way an INSERT into that same template already does (confirmed: the original
+GALLERY template in the same script, built via a top-level REPLACE that ADDED this whole
+template fresh, has correctly-bound ContentParams on its siblings — only a REPLACE targeting an
+*existing* widget already inside that template loses the binding on the new widget it writes).
+
+**Discovered:** 2026-08-25, ToeicBuddy-conversion field run (styling a flashcard's term inside a
+GALLERY template), confirmed via a real `mx check` CE0402 build error (not a silent drop — the
+gate caught it) plus `DESCRIBE PAGE`'s literal `<unbound>` output.
+
+**Earlier observation of the same defect, 2026-08-21, mxcli v0.18.0, Mendix 11.13.0, an
+approval-workflow conversion project (a second project — corroboration, not a duplicate):** a
+`REPLACE` inside a gallery template introducing a `dynamictext` with a **two-entry**
+`ContentParams: [{1} = Attr1, {2} = Attr2]`, a genuinely distinct widget name (ruling out
+BUG-08's duplicate-name case) and bare attribute names (ruling out BUG-23's `$currentObject/`
+case) — `check --references` clean, exec "Altered page", `DESCRIBE PAGE` shows both entries
+`<unbound>`, native `mx check` CE0402 once per entry. So the defect is not limited to single-entry
+arrays, and it predates v0.20.0. Second workaround, for when there is no already-bound widget to
+`SET` on: `DESCRIBE PAGE` the whole page, patch only the target widget block, and re-apply it as
+`create or replace page` (swap the `create or modify page` keyword describe emits), then gate on
+native `mx check` — the full-page writer binds template-scoped `ContentParams` correctly; only the
+`REPLACE` path does not.
+
+---
+
+## BUG-119: the bundled `write-nanoflows.md` skill teaches a `SHOW MESSAGE` grammar the shipped binary rejects, and `mxcli syntax` documents the activity nowhere
+
+**Severity:** Medium — an agent that finds the skill and follows it gets a parse error and reasonably concludes the activity does not exist. That conclusion made it into this toolkit and stood for three weeks.
+**mxcli version:** built from source at `4b58b89` (2026-08-26)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-09-04 (a Mendix workflow-and-agents POC project)
+**Reproducible:** yes, deterministic
+
+Three separate defects, one activity:
+
+1. **The bundled skill is wrong.** `.ai-context/skills/write-nanoflows.md` (installed by
+   `mxcli init`, so it cannot be fixed downstream) uses the level-first form
+   `SHOW MESSAGE WARNING 'text';` **seven times** — lines 104, 224, 276, 278, 299, 401, 513.
+   None of them parse:
+
+   ```
+   line 3:23 extraneous input ''nanoflow level-first form'' expecting ';'
+   ```
+
+   Confirmed in nanoflows *and* microflows. The shipped grammar is
+   `show message <string-expr> [type Information|Warning|Error];` — severity **after** the text.
+   `type Success` parses but is silently stored as `Information` (pre-existing finding, still
+   true). There is no `blocking` modifier.
+
+2. **The binary embeds examples of the same rejected grammar.** `strings ./mxcli` yields
+   `SHOW MESSAGE ERROR 'Incorrect username or password.'` and `SHOW MESSAGE SUCCESS '…'`.
+   Anyone probing the binary for evidence finds the wrong form first.
+
+3. **`mxcli syntax` documents the activity in neither form.** Checked `microflow`,
+   `microflow.show-page`, `microflow.logging`. `HELP` mentions `ShowMessageAction (show message)`
+   in a list of action types, with no grammar. So documentation cannot answer the question and
+   the parser has to be probed — which is the general lesson written up as
+   `skills/retesting-learned-rules.md`.
+
+**Fix wanted:** correct the seven lines in the bundled skill to the `type <Level>` suffix form,
+or accept the level-first form in the grammar; and add `show message` to `mxcli syntax microflow`.
+
+**Related, and now retired here:** the CE0720 rule (`show message` in a *microflow* corrupts and
+must be wrapped in a nanoflow) **does not reproduce** on this binary — see
+`skills/learned-microflow-patterns.md` §show message for the retest and its evidence.
 ---
 
 <!-- Harvested from a topbar-titled portal project 2026-09-07. Renumbered AGAIN at merge (2026-09-07) to
@@ -4611,3 +5330,316 @@ quietly drop one.
 **Related:** BUG-122 (`SET PageSize` rejected on a widget `CREATE` accepts). Same underlying
 theme — the `ALTER PAGE` property surface disagrees with the `CREATE` one — but the failure mode
 is the opposite and much more dangerous.
+
+---
+
+## BUG-140: full page regeneration never wires a parameterized microflow datasource on a top-level `dataview` — only implicit binding through nesting works
+
+*(number assigned at merge — 140 taken deliberately, clear of the 127+ block another branch was
+numbering the same day)*
+
+**Severity:** High — silent; `mxcli check --references` and the exec's own "Created page" both pass, only native `mx check` (CE1571) catches it
+**mxcli version when found:** v0.18.0 (open as of v0.18.0; not yet retested on v0.20.0)
+**Mendix version:** 11.13.0
+**Discovered:** 2026-08-21, an approval-workflow conversion project — 15 native-Workflow "station task" pages, each needing a dataview scoped to a lookup microflow keyed by the page's `WorkflowUserTask` parameter plus a per-page enum literal
+**Reproducible:** yes — a full 15-page rebuild without nesting produced `CE1571` on all 15; a disposable throwaway page isolated nesting as the fix
+
+### Summary
+
+A `dataview` whose `DataSource: microflow X` requires **any** parameter cannot have that
+parameter wired by a full `create or modify page` regeneration, when the dataview is a direct
+child of the page body (not nested inside another dataview/snippet). Confirmed even when the
+page is reproduced **byte-for-byte identical to its own pre-existing, working original** — no
+edits at all — native `mx check` still throws `CE1571 "No argument has been selected for
+parameter '...' and no default is available."` for every such parameter. `mxcli check
+--references` and the exec's own "Created page ..." success message both stay silent; this is
+caught only by a real native `mx check` (or Studio Pro's own error pane).
+
+### What does NOT fix it
+
+- Adding an explicit `Params: { Param: $value }` clause on the dataview: `mxcli check` accepts
+  this syntactically (no error), but the writer still drops the mapping — native check still
+  fails identically.
+- Using an enum literal as a `Params:` value (e.g. `Params: { StationKey:
+  Approval.StationKey.WFST010 }`): rejected outright by `mxcli check` itself
+  (`mismatched input 'Approval' expecting VARIABLE`) — `Params:` accepts only `$variable`
+  references, never literals, on any binding.
+- Reducing the microflow to a single parameter, while keeping the dataview a direct child of
+  the page body: still fails. Parameter *count* is not the variable — nesting is.
+
+### What does fix it — implicit binding through nesting
+
+The writer *can* wire a microflow-datasource dataview's parameter, but only when the dataview
+is nested one level inside another dataview/snippet whose own current-object type exactly
+matches the microflow's sole parameter type, and the inner dataview has **no** `Params:` clause
+at all:
+
+```
+dataview dvOuter (DataSource: $PageParam) {
+  dataview dvInner (DataSource: microflow Module.SingleParamMicroflow) {
+    -- $currentObject here is whatever SingleParamMicroflow returns
+  }
+}
+```
+
+`SingleParamMicroflow` must take exactly one parameter, of the same type as `$PageParam`
+(or whatever the outer dataview's current-object type is). If the real business logic needs
+more inputs than that one type provides (e.g. an enum literal that varies per page instance),
+write a thin single-parameter wrapper microflow that hardcodes the rest internally via a normal
+`call microflow` expression — enum literals *are* valid inside a microflow body, just never
+inside a page's `Params:` clause.
+
+Verify the mechanism on a disposable throwaway page first (create it, native `mx check`, then
+`DROP PAGE` it) before rolling out to real pages — a clean throwaway page next to N still-broken
+real ones in the same `mx check` run isolates the fix from everything else in flight.
+
+### Relationship to other bugs
+
+Same failure signature and root category as BUG-95 (`show_page` action ignoring the named
+variable, defaulting to `$currentObject`) and the "snippetcall doesn't auto-infer Params on
+full regen" / "`ALTER PAGE REPLACE` silently unbinds `Attribute:` shorthand" findings in
+`skills/learned-datagrid-customcontent-binding.md` — all are instances of mxcli's writer
+silently failing to wire a parameter/argument mapping that Studio Pro's own GUI always forces
+the user to complete, while `mxcli check` has no way to see the gap. Distinct from BUG-56
+(DataGrid2 *datasource* parameterized-microflow binding, resolved v0.17.0, archived) — this is a
+plain `dataview`, not a DataGrid2 grid.
+
+### Workaround
+
+Use the nesting pattern above. Do not attempt a third variation of the `Params:` clause on a
+non-nested dataview — the defect is structural (a missing implicit-binding pass for top-level
+dataviews), not a syntax problem.
+
+---
+
+## Cleared on v0.20.0 — a workflow re-probe, 2026-08-31
+
+**Probed 2026-08-31** on mxcli v0.20.0 (`2026-08-28T13:22:53Z`), Mendix 11.13.0, against a real
+23-activity conversion workflow rebuilt from pure MDL in a throwaway clone, gated with native
+`mx check` via `mxcli docker check`. Result: **0 errors**. Full write-up: `learned-workflow-patterns.md`
+§21. This is a second v0.20.0 data point beside `mxlabs-v0.20.0-retest-2026-08-31.md`, and on one
+row the two disagree.
+
+| Defect | Entry | Status on v0.20.0 |
+|---|---|---|
+| `DECISION` corrupts the `.mpr` | BUG-76 | **Disputed.** This probe's `ExclusiveSplitActivity` stored and natively loaded; the same-day retest reproduced the byte-exact corruption with `decision '1 = 1'`. Shape not isolated — STOP rule stays (note under BUG-76). |
+| MDL-written non-interrupting `BOUNDARY EVENT … TIMER` always malformed (`CE0105`) | a project-local finding, no toolkit entry | **Fixed for the non-interrupting form.** Timer wrote and loaded, reading a context attribute. The interrupting form is still unusable — BUG-109 and `learned-workflow-patterns.md` §19. |
+| pre-11.9 `Workflows$CallMicroflowTask` `$Type` | BUG-WF06 (archived, fixed v0.17.0) | **Re-confirmed fixed.** 14/14 stored as `CallMicroflowActivity`. |
+
+Also new in v0.20.0: `create or replace workflow` now **refuses** when the target contains an
+Event Sub-Process ("MDL cannot express one — rewriting the workflow would delete it"), instead
+of silently destroying it. Do not read that guard's absence as safety on an older binary.
+
+Still unfixed: no branch-ending vocabulary — `end workflow activity`, `end activity`, `end`,
+`terminate`, `stop`, `end workflow instance` all fail to parse, so End activities on
+fall-through outcome arms remain a permanent hand edit (`workflow-structure-rules.md` §11).
+Found in the same probe and filed: BUG-109's general dangling-`jump to` case (#1005) and
+BUG-110's two emitter defects (#1006, #1007).
+## BUG-127: `ALTER PAGE … REPLACE` of a pluggable widget silently drops properties you wrote — a Combobox comes back with no `Attribute` and still renders
+
+**Severity:** High — the widget draws normally and binds to nothing; only `DESCRIBE PAGE` shows it
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09 (a sales-coaching build, adding an OnChange to an existing filter control)
+**Reproducible:** yes
+
+`REPLACE cbStageFilter WITH { combobox cbStageFilter (Label: …, Attribute: "StageFilter",
+OnChange: MICROFLOW …) }` emitted a pluggable Combobox carrying `Label` and `OnChange` and
+**no `Attribute`** — with the attribute name written both quoted and unquoted. `mxcli check
+--references` passed, mxbuild reported 0 errors, and the page rendered a normal-looking
+dropdown that was bound to nothing and could not filter anything.
+
+This is not "REPLACE rebuilds from what you write" behaving as documented: the property WAS
+written and was dropped. It appears specific to pluggable widgets, where an unset required
+property is not a model error.
+
+**Workaround:** use a built-in widget where one will do (`RADIOBUTTONS` for a short enum), or
+`DESCRIBE PAGE` after every `REPLACE` of a pluggable widget and compare property-by-property.
+Do not trust the render — an unbound combobox looks identical to a bound one.
+
+**Related:** BUG-117 (the widget-property writer silently drops property names the target
+widget's schema lacks) — same silent-drop shape; whether it is the same code path is not established.
+
+## BUG-128: `CREATE MODULE ROLE` is not idempotent, and the abort silently discards every statement after it
+
+**Severity:** High — a re-run of a mixed script logs nothing about the statements it skipped
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09 (a sales-coaching build, re-applying a script after a failed first run)
+**Reproducible:** yes
+
+Every other creating statement in MDL has a `CREATE OR MODIFY` / `CREATE OR REPLACE` form.
+`CREATE MODULE ROLE` has neither and no `IF NOT EXISTS`, so re-running a script that creates a
+role fails with `Error: module role already exists: <Module>.<Role>` and **everything after
+that statement does not run**. The exit is 1 and the message names the role, so the failure
+itself is visible — what is not visible is the list of documents that were therefore never
+created. A script whose role statement sits at the top loses all of its real work on a re-run.
+
+**Workaround:** keep non-idempotent statements (`CREATE MODULE ROLE`, `CREATE ASSOCIATION`) in
+their own script, applied once, separate from the documents that get edited and re-applied.
+
+## BUG-129: `exec` can log `Created microflow: …` for documents that are not in the model afterwards, and still exit 0
+
+**Severity:** High — the tool's own success output is not evidence the work landed
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09 (a sales-coaching build)
+**Reproducible:** NOT reproduced on demand — observed once, root cause not established
+
+An `exec` of a mixed security-plus-documents script logged `Created module role: …`,
+`Granted access on …` (×6), `Created microflow: …` (×7) and `Created page …`, ran the mxbuild
+gate clean and exited 0. Afterwards the module role and all six grants were in the model and
+**none of the seven microflows or the page were**. `SHOW MICROFLOWS IN <Module>` returned the
+pre-run count.
+
+Cause not established. The plausible candidate is that `mxbuild` was run directly against the
+same `.mpr` shortly afterwards, which is the split-`mprcontents` consolidation hazard this
+toolkit already warns about — but that was not proven, and it does not obviously explain why
+the security changes survived and the documents did not. Logged as observed rather than
+diagnosed, because the practice it forces is worth having either way.
+
+**Workaround, and it should be the default practice regardless of this bug:** after every
+`exec`, read the model back (`SHOW MICROFLOWS IN <Module>`, `SHOW PAGES IN <Module>`) and
+count. Exit 0 plus a log of `Created …` lines is a claim about what the tool tried to do, not
+a fact about the model.
+
+## BUG-130: (toolkit `bin/exec.sh`, not mxcli) the mxbuild gate passes relative to a broken BASELINE — "Gate passed (mxbuild-clean)" printed while the model carries an error
+
+**Severity:** High — the gate's whole purpose is "the model deploys after this script"; it can say yes when the answer is no
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27) · toolkit `exec.sh` as of 2026-09-07
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07 (a sales-coaching build, third apply of one microflow script)
+**Reproducible:** yes, given a model that already has an error
+
+`exec.sh` runs a pre-flight ("Model ALREADY has 1 error(s) [CE0644] before this script runs") and
+then judges the script by the DELTA: if the post-apply error set is no worse than the baseline,
+it prints `✓ Script applied` and `Gate passed (mxbuild-clean)`. The model still has the error.
+Two lines earlier it even says "The model still will not deploy until those are cleared in
+Studio Pro" — and then passes the gate. The app would not have started.
+
+How the baseline got broken is BUG-131. But the gate must not depend on that: a script is not
+safe to build on if the model does not build, whoever broke it.
+
+**Workaround:** read `.mpr-snapshots/last-mxbuild-errors.json` yourself after every apply; an
+absent file is clean, a present one is not, regardless of what the gate printed.
+**Fix:** the gate should FAIL (or at least refuse the "mxbuild-clean" wording) whenever the
+post-apply error count is non-zero, and say "pre-existing" separately.
+
+## BUG-131: `exec.sh` snapshot restore after a failed apply leaves page edits in place — further field cases of BUG-106's family
+
+**Severity:** High — the next apply then fails on its own widget names, and a baseline error can survive (BUG-130)
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27) · toolkit `exec.sh` as of 2026-09-07
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07 (a sales-coaching build)
+**Reproducible:** twice in one afternoon, then twice more the same day (addendum below)
+
+A script with microflows followed by `ALTER PAGE ... INSERT` failed mxbuild (CE0161/CE0079 in a
+microflow). `exec.sh` reported "restoring snapshot". Afterwards `SHOW MICROFLOWS` showed the
+microflows gone — but `DESCRIBE PAGE` showed the inserted card still present, and `git status`
+showed one modified `.mxunit` plus two new unit directories. The next apply of the corrected
+script created the microflows and then failed with `duplicate widget name 'pnlImport'`; the
+model was left in the intended state by accident. Later the same afternoon a restore left a
+microflow with CE0644 behind, which is how BUG-130's baseline came to be broken.
+
+**Workaround:** after any restore, `git status app/` and `git checkout HEAD -- app/<Project>.mpr
+app/mprcontents/ && git clean -fdq app/mprcontents/` (the project's documented full restore) —
+which requires having committed before the apply. Commit before every apply.
+**Fix:** the restore should be the git restore, or at least verify the unit set matches the
+snapshot's.
+
+### BUG-131 — fourth and fifth field cases: the snapshot restore is partial *across document types*
+
+Same bug, but the new information is worth recording: on 2026-09-07 two consecutive failed
+applies were auto-restored, and afterwards the model contained
+
+- the **page** edits from the failed script (two action buttons), and
+- the **startup microflow** edit from the failed script (a call to a new microflow),
+
+while **none of the three microflows the same script created** survived. So the restore left a
+page button and a startup call both pointing at microflows that no longer existed — a model that
+is *more* broken than either the before or the after state, and which the next run reported as
+`Model ALREADY has 2 error(s) [CE1613]` and blamed on nobody.
+
+The practical rule this forces, beyond BUG-129's "read the model back after every exec": **read
+it back after every failed exec too, and specifically across all the document types the script
+touched.** The restore's own line (`2122 units verified`) counts units, which is exactly the
+measure that cannot see this.
+
+Any script that might be re-applied after a failed restore must therefore be written
+`REPLACE`-shaped for widgets it may or may not have already created — and `REPLACE` cannot
+re-declare a container's children (see BUG-127's family), so each leftover widget needs its own
+`replace` clause.
+
+## BUG-132: `mxcli fix design-properties` aborts on a duplicate GUID shipped inside a marketplace package — the install ritual's required step cannot run
+
+**Severity:** Medium — the step is mandatory in `download-marketplace-content` step 4, and it fails hard rather than skipping the offending unit
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07, installing Excel Importer 11.2.2 (content 72) + Mx Model Reflection 9.1.0 (content 69) into a 2,219-unit split-MPR project (a sales-coaching build)
+**Reproducible:** yes, on any project carrying Mx Model Reflection 9.1.0
+
+```
+FAILED: Duplicate Guid in unit snippet 'MxModelReflection.Microflow' …
+        Mendix.Modeler.Texts.Translation
+```
+
+The duplicate is inside the **published package**, not something the install created — so this is
+a module defect that mxcli surfaces. But mxcli's handling makes it worse than it needs to be: one
+bad unit aborts the whole pass, so the design-property renames that *would* have applied to the
+other 2,467 units do not.
+
+The important half of the finding is that this is **not** a reason to stop. `mxbuild` reports 0
+errors on the same model, because mxbuild reads the units and never re-saves them; only the
+rename pass walks them for writing. The app built and ran, and the native Excel import path was
+proven end to end against it afterwards.
+
+**Workaround:** run `mxcli fix widgets` (which succeeds), then `mxcli docker check` / mxbuild to
+establish the real verdict. Do not conclude from the FAILED line that the install is broken —
+check the model instead.
+**Fix:** skip and report the offending unit rather than aborting, so the pass is partial-but-useful;
+name the module so the finding is actionable upstream.
+
+## BUG-133: MDL cannot author a microflow that applies entity access, so no MDL-authored flow can call one that does (CE0114) — and a marketplace module's own `_USE_ME` startup flow is unreachable
+
+**Severity:** High — it is not a workaround-able gap: no MDL script can call an entity-access-applying microflow from anywhere, so whole marketplace features become unreachable headlessly
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-07, wiring Excel Importer 11.2.2's recommended startup check into a sales-coaching build
+**Reproducible:** yes, against any module microflow with "Apply entity access" ticked
+
+Mendix rule **CE0114**: *"A microflow that does not apply entity access can only call microflows
+that also do not apply entity access."* Every microflow MDL creates does **not** apply entity
+access, and `create or modify microflow` has no syntax to change that — `DESCRIBE MICROFLOW` does
+not render the property either, so it is invisible in both directions.
+
+The consequence is stronger than "one flag is missing". Because the restriction is on the
+*caller*, and MDL can only produce non-applying callers, **an entity-access-applying microflow
+cannot be called from anything MDL can write.** Not from a startup flow, not from a button
+handler, not from a wrapper.
+
+Field case. `ExcelImporter.ASu_CheckModelAndTemplates` lives in a folder named `_USE_ME`, is
+documented as *"the actions which should be executed when the application is being started"*, and
+re-syncs Model Reflection then validates every import template against the current model. It
+applies entity access. So:
+
+```
+SE_Startup_Runtime (MDL, non-applying)
+  └─> SE_Startup_ExcelImportGuard (MDL, non-applying)
+        └─> ExcelImporter.ASu_CheckModelAndTemplates (module, APPLYING)   ✗ CE0114
+```
+
+Moving it behind a button did not help — the button's handler is also MDL-authored and also
+non-applying. Two apply-and-restore cycles to establish that, because the first failure looks
+like a wiring mistake rather than a wall.
+
+(Arguably the module is also at fault: an after-startup microflow that applies entity access
+cannot run at startup, where there is no user. But mxcli's gap is what makes it unfixable
+headlessly.)
+
+**Workaround:** none within MDL. Call whatever the module flow calls, if those are non-applying —
+here `MxModelReflection.ASu_CheckMetamodel()` was reachable, which recovered the reflection
+re-sync and left only the template validation stranded. Otherwise it is a Studio Pro job.
+**Fix:** a microflow property in the grammar — `create microflow X () applies entity access ...` —
+and render it in `DESCRIBE MICROFLOW` so the round trip does not silently flip it. Failing that,
+`check --references` should raise CE0114 itself rather than letting it reach mxbuild, since the
+callee's flag is readable in the model.

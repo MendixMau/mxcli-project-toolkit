@@ -1,8 +1,9 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-121` — observed 2026-09-04 building script `84`
 of a topbar-titled portal project (Mendix 11.13.0)
-**Status:** DRAFT — not yet filed. **Re-probed 2026-09-08 on v0.21.0: still open** (see the
-re-probe section at the end of this file — include it when filing).
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1068 (2026-09-08).
+**Re-probed 2026-09-08 on v0.21.0: still open** — post the re-probe section at the end of this
+file as a comment on #1068.
 **Suggested labels:** bug, workflow, mdl, silent-corruption
 
 ---
@@ -44,7 +45,7 @@ produces a valid-looking, non-executing model is the worst of the three outcomes
 
 ## Environment
 
-mxcli against Mendix 11.13.0, native workflow engine, Linux container.
+mxcli **v0.20.0** against Mendix 11.13.0, native workflow engine, Linux container.
 
 ## Related
 

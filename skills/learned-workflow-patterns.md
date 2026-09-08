@@ -7,11 +7,20 @@ Studio Pro, because emitting it from MDL corrupts the `.mpr` (§8 Warning 1 — 
 version gate, not an absolute prohibition). A visual check in Studio Pro is never optional
 (§8, Warning 3).
 
-**Verified on:** Mendix 11.13.0, mxcli v0.17.0/v0.18.0. Every MDL form that appears in
-`build/workflow-example.mdl` was confirmed with `mxcli check`. Forms discussed only in
-this document, and every *runtime* and *Studio-Pro-load* claim, rest on build experience
-rather than on a re-run verification — they are flagged inline where that matters. Treat
+**Verified on:** Mendix 11.13.0, mxcli v0.17.0/v0.18.0, with §21's full re-probe on **v0.20.0**
+(2026-08-31) and §6's five extra forms on v0.20.0 / Mendix 11.14.0 (2026-09-03). Every MDL form
+that appears in `build/workflow-example.mdl` was confirmed with `mxcli check`. Forms discussed only
+in this document, and every *runtime* and *Studio-Pro-load* claim, rest on build experience rather
+than on a re-run verification — they are flagged inline where that matters. Treat
 `build/workflow-example.mdl` as the syntax authority; treat this document as reasoning.
+
+**If you are on v0.20.0 or later, read §21 first.** A full re-probe on 2026-08-31 rebuilt a
+23-activity workflow — a decision, a non-interrupting boundary timer, a wait-for-timer, two jumps
+and two user tasks — from pure MDL at **0 native errors**, cleared the `CE0105` boundary-timer and
+`$Type` claims, records the one result that is *disputed* (`DECISION`, against BUG-76's same-day
+retest), lists the four gaps that remain, and carries the `JUMP TO` trap that every
+`DESCRIBE → exec` round-trip walks into. Sections written against older binaries are kept as-is,
+because the version gate is the point; §21 says which of their claims are now historical.
 
 **Older mxcli binaries are not safe for this.** On builds predating the Mendix 11.9
 `CallMicroflowActivity` rename (notably tagged `v0.16.0`), a `CALL MICROFLOW` inside a
@@ -457,6 +466,7 @@ mxcli **v0.18.0**, where `DECISION` writes correctly.
 | `v0.16.0` | **corrupts the `.mpr`** — do not emit |
 | `v0.17.0` | **corrupts the `.mpr`** — confirmed, BUG-76 (binary `2026-08-10T05:12:17Z`) |
 | `v0.18.0`+ | writes correctly; verify what was stored anyway |
+| `v0.20.0` | **disputed, 2026-08-31** — one probe stored and natively loaded an `ExclusiveSplitActivity` inside a 23-activity workflow (§21); the same-day toolkit retest reproduced the byte-exact corruption with `decision '1 = 1' outcomes 'OutcomeA' -> { } 'OutcomeB' -> { }` (BUG-76, `mxlabs-v0.20.0-retest-2026-08-31.md`). Shape-dependent until someone isolates the shape — verify what was stored, every time |
 
 Two half-right versions of this warning coexisted for four days from 2026-08-21. One said
 "absolute prohibition, confirmed on v0.17.0" and never learned about the v0.18.0 fix — follow
@@ -589,8 +599,9 @@ varying **only** the suspected cause — see [[sandbox-ab-tool-defect-probe]].
    `$WorkflowUserTask/Name`.
 3. **Task pages** — one per outcome shape, not one per step.
 4. **Workflow-callable microflows** — Boolean/enum/void returns only, headless.
-5. **Workflow definition** — user tasks, outcomes, targeting XPath, parallel splits. No
-   `DECISION`.
+5. **Workflow definition** — user tasks, outcomes, targeting XPath, parallel splits, and —
+   on v0.18.0+ only, per §8's version table — `DECISION`, `WAIT FOR TIMER`, boundary events
+   and `JUMP TO`. Point every jump at a real activity name (§21); nothing in mxcli checks it.
 6. **Starting microflow** — create the step rows, `CALL WORKFLOW`, wire the back-reference,
    commit.
 7. **Native `mx check` + open in Studio Pro** and inspect the activity icons.
@@ -945,6 +956,125 @@ only a real `mx check` run did.
 
 ---
 
+## 21. v0.20.0 — what a full re-probe cleared, and the four gaps that remain
+
+**Probed 2026-08-31 on mxcli v0.20.0 (`2026-08-28T13:22:53Z`), Mendix 11.13.0, gated with
+native `mx check` via `mxcli docker check`.** The subject was a real 23-activity conversion
+workflow (a BPM-engine origination process): 14 `CALL MICROFLOW`, one `DECISION`, one
+non-interrupting boundary timer, one `WAIT FOR TIMER`, two `JUMP TO`, two user tasks with
+XPath targeting and a due date, hand-built in Studio Pro over several sittings. It was
+rebuilt from pure MDL in a throwaway clone and validated natively.
+
+**Result: 0 errors.** Everything in that list is scriptable on v0.20.0 — with one verdict
+disputed (the `DECISION`, below).
+
+### Cleared — claims elsewhere in this document that are now historical
+
+| Claim, and where it still appears | Status on v0.20.0 |
+|---|---|
+| `DECISION` corrupts the `.mpr` (§8 Warning 1, BUG-76) | **Disputed.** This probe's `ExclusiveSplitActivity` was stored and natively loaded. The toolkit's own retest the same day (`bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`) reproduced the byte-exact `StorageLoadException` with `decision '1 = 1' outcomes 'OutcomeA' -> { } 'OutcomeB' -> { }`. Two v0.20.0 probes, two verdicts, and the loading one did not record its decision's shape — so the defect is **shape-dependent and not yet isolated**. Keep BUG-76's STOP rule at full strength until someone bisects the shape; §8's table carries the row. |
+| An MDL-written `BOUNDARY EVENT … TIMER` is always malformed — `CE0105` | **Cleared for the non-interrupting form.** The timer wrote correctly, reading `$WorkflowContext/<DeadlineAttribute>`. The *interrupting* form still fails `CE0105` because its terminator is inexpressible (§19, BUG-109). |
+| `CALL MICROFLOW` stores the pre-11.9 `$Type` (§13, BUG-WF06) | **Cleared.** 14/14 landed as `CallMicroflowActivity` — re-confirming the v0.17.0 fix. |
+| `DESCRIBE WORKFLOW` is blind to boundary events, decisions, jumps and waits | **Largely cleared.** All four now read back. The Event Sub-Process still does not — see below. |
+| §10 step 5's bare "No `DECISION`" | **Historical.** Read it as "no `DECISION` before v0.18.0, and verify what was stored on any binary"; §15 governs whether to use one at all. |
+
+Two forms are worth stating positively, because earlier sections list them as unverified:
+`wait for timer '<expression>' comment '<caption>'` and
+`boundary event non interrupting timer '<expression>' { … }` both write and load correctly.
+Note the fixed clause order on a call — `call microflow M comment '…' with (…) outcomes …;`
+— `comment` after `with` is a parse error.
+
+### v0.20.0 also gained a guard worth relying on
+
+`create or replace workflow` against a workflow containing an Event Sub-Process now
+**refuses**, naming the reason:
+
+```
+Error: workflow X has 2 event sub-process(es), and MDL cannot express one —
+rewriting the workflow would delete it.
+  Edit the workflow in Studio Pro, or use ALTER WORKFLOW to change one activity at a time.
+```
+
+That is the silent destruction older binaries performed. On v0.20.0 the tool stops you. Do
+not, however, read the guard's absence as safety on an older binary.
+
+### The four gaps that remain — the manual half, in full
+
+1. **Event Sub-Process.** Inexpressible in MDL, and still silently absent from
+   `DESCRIBE WORKFLOW` output — the deparse looks complete. Guarded on write (above), so the
+   failure mode is now a refusal rather than data loss. Studio Pro only.
+2. **End activities.** Re-probed on v0.20.0: `end workflow activity;`, `end activity;`,
+   `end;`, `terminate;`, `stop;` and `end workflow instance;` **all fail to parse**, and
+   `mxcli syntax workflow --json` still lists no branch-ending activity. §6's empty-block
+   semantics therefore still bite — an empty outcome block *rejoins the enclosing flow*, so a
+   `false -> { }` arm meant to stop the instance falls through instead. Silent at check time,
+   wrong at runtime. Drop the End activities by hand (`workflow-structure-rules.md` §11 has the
+   platform rule).
+3. **Workflow-body annotations.** Still unwritable (`MDL-WF04`), and now emitted by
+   `DESCRIBE WORKFLOW` as `annotation` statements that mxcli's own checker rejects — so
+   describe output must be stripped of them before it will exec. Filed as
+   [mxcli#1007](https://github.com/mendixlabs/mxcli/issues/1007).
+4. **The `describe → exec` loop is not clean out of the box**, for two further reasons, both
+   filed: targeting XPath is emitted without doubling its inner quotes, so the line is a syntax
+   error (BUG-110, [mxcli#1006](https://github.com/mendixlabs/mxcli/issues/1006)); and jump
+   targets are emitted using the *source* model's activity names — see below.
+
+### `JUMP TO`: target the real activity name, never the describe output's
+
+This one cost the most time in the probe and is the trap most likely to catch the next person.
+
+**Activity names are not what you might assume.** mxcli names a call-microflow activity
+**after the microflow it calls** — `SUB_CheckPackageAvailability`, not `callMicroflow6`. The
+grammar offers no way to name an activity explicitly (`CALL MICROFLOW` takes only `COMMENT`
+and `OUTCOMES`), so the microflow name *is* the handle.
+
+**A dangling jump target is accepted silently and stored as a self-reference.** If
+`jump to X` names no existing activity, `mxcli check --references` passes, `exec` reports
+success, and mxcli writes the `JumpToActivity` with **its own `Name` set to `X`** and
+`TargetActivity` pointing at that same string — a jump targeting itself. Native `mx check`
+then reports `CE6681 "It is not possible to jump to end activities or jump-to activities."`,
+which describes the wrong fault and sends you looking at jump legality rather than at a typo.
+Filed as [mxcli#1005](https://github.com/mendixlabs/mxcli/issues/1005); the boundary-event-body
+sibling (a *valid* target, still name-collided and targetless, CE0495 + CE6680) is BUG-109.
+
+| `jump to <target>` | `check --references` | `exec` | native `mx check` |
+|---|---|---|---|
+| a real activity name, earlier in the flow | pass | pass | **0 errors** |
+| a real activity name, later in the flow | pass | pass | **CE6681** — a genuine platform rule, `workflow-structure-rules.md` (forward jumps), not this defect |
+| any name that matches nothing | pass | pass | **CE6681** — this defect: the self-referencing jump |
+
+So `CE6681` has two causes and the message names neither. Check the target exists *before*
+you reason about direction.
+
+**Why `DESCRIBE` walks you straight into it:** describe emits the *source* model's activity
+names, but a rebuild derives names from the called microflow. So `jump to callMicroflow6`
+round-trips into a workflow where no `callMicroflow6` exists. Rewrite every jump target by
+hand against the rebuilt model's names before exec — and remember that mxcli will not tell you.
+[[learned-mdl-preflight]] STOP #24 is the pre-flight form of this rule.
+
+### The rebuild ritual, in order
+
+1. `mxcli --version`. Everything above is a version gate, not a folk rule.
+2. `DESCRIBE WORKFLOW` to a file. Treat it as a **draft**, not as output.
+3. Fix the three known round-trip defects: double the XPath inner quotes, strip every
+   `annotation` statement, repoint every `jump to` at a real activity name.
+4. `mxcli check --references` — necessary, not sufficient. It is blind to jump targets, to
+   fall-through branches, and to anything the Event Sub-Process guard does not cover.
+5. `exec`, then **census the stored bytes** (§13):
+   `strings -n 4 <unit>.mxunit | grep -oE 'Workflows\$[A-Za-z]+' | sort | uniq -c`.
+   Diff it against the pre-write census. That table is what caught the historical `$Type`
+   defect and it is still the only cheap proof of what actually landed — and, for a
+   `DECISION`, the only way to know which side of BUG-76's dispute your shape fell on.
+6. Native `mx check` (`mxcli docker check`), then open it in Studio Pro and look at the icons.
+7. Hand-place the End activities and the Event Sub-Process, and re-run steps 5–6.
+
+**A probe like this belongs in a throwaway clone**, not the project: `git clone` the repo,
+build against the copy, `git checkout -- .` between arms. Every finding above came from a
+sandbox that was reverted to baseline afterwards, which is what made it safe to execute
+known-dangerous forms deliberately. See [[sandbox-ab-tool-defect-probe]].
+
+---
+
 ## Notes on scope
 
 **Structure rules for every construct below — path termination, boundary-event type vs
@@ -953,10 +1083,11 @@ against running instances — are in `workflow-structure-rules.md` (platform sem
 Mendix MCP team, 2026-09-02, with an MDL proven/unprobed table). This file stays the syntax and
 defect record.**
 
-Workflow **timer** and **wait-for-notification** activities are referenced by
-`NOTIFY WORKFLOW` above but their `CREATE WORKFLOW` body syntax has **not been verified**
-here; likewise **boundary events** and **sub-workflow** invocation from inside a workflow
-body. Probe with `mxcli check` before relying on any form for these.
+Workflow **wait-for-notification** activities are referenced by `NOTIFY WORKFLOW` above but
+their `CREATE WORKFLOW` body syntax has **not been verified** here; likewise **sub-workflow**
+invocation from inside a workflow body. Probe with `mxcli check` before relying on either.
+`wait for timer` and **non-interrupting boundary events** *were* verified on v0.20.0 — see §21
+and §19.
 
 Access rules: a workflow definition itself carries no access rule. Reachability comes from
 the user-task targeting plus the view grants on the task pages.

@@ -1,7 +1,7 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-123` — noted 2026-09-03, measured 2026-09-07
 clearing script `87`'s drop set on a topbar-titled portal project (Mendix 11.13.0)
-**Status:** DRAFT — not yet filed
+**Status:** REPORTED ON https://github.com/mendixlabs/mxcli/issues/773 (2026-09-08) — not filed separately: #773 is the same defect, closed as completed 2026-08-12; posted as a still-reproduces comment there (v0.20.0 / 11.13.0), noting the `show page` direction the original missed
 **Suggested labels:** bug, cross-references, show-callers, safety
 
 ---
@@ -19,6 +19,12 @@ overview since it was built; the index says nothing references it.
 
 The same blind spot covers pages in the other direction: nothing reports which microflows
 `show page Module.SomePage`, so a page cannot be cleared for deletion from the index either.
+
+## Environment
+
+- mxcli **v0.20.0**
+- Mendix **11.13.0**
+- Linux container
 
 ## Repro
 

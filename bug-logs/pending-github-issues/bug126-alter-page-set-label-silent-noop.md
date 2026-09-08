@@ -1,7 +1,7 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-126` — found 2026-09-07 when script `88c` of a
 Phase-19 conversion project shipped entirely inert (Mendix 11.13.0)
-**Status:** DRAFT — not yet filed
+**Status:** REPORTED ON https://github.com/mendixlabs/mxcli/issues/292 (2026-09-08) — not filed separately: #292 (open since 2026-04-24) is the same bug; posted as a second reproduction with impact evidence on v0.20.0 / 11.13.0
 **Suggested labels:** bug, alter-page, silent-failure, safety
 
 ---
@@ -18,6 +18,12 @@ change the model**. `DESCRIBE PAGE` afterwards shows the old label.
 This is a silent no-op, not an unsupported property: the setter resolves the widget and knows its
 property list — it rejects `Caption` **by name** on the same widget — and it applies `Class` on
 that same widget correctly. It accepts `Label`, reports success, and drops the value.
+
+## Environment
+
+- mxcli **v0.20.0**
+- Mendix **11.13.0**
+- Linux container
 
 ## Repro
 

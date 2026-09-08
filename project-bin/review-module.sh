@@ -371,8 +371,25 @@ cand="$(_tool coverage-check.sh)"
 # module's BRD and reports its leaves as this module's coverage.
 BRD=""
 if [ -f "$LEDGER" ]; then
-  BRD_REL="$(grep -oE '[A-Za-z0-9_/.-]*\.brd\.json' "$LEDGER" 2>/dev/null | head -1)"
-  [ -n "$BRD_REL" ] && [ -f "$ROOT/$BRD_REL" ] && BRD="$ROOT/$BRD_REL"
+  # ALL the BRDs the ledger names, not just the first — and the COUNT is reported, because
+  # coverage-check.sh measures one BRD per run and a module with five of them was silently
+  # having one fifth of its requirements measured and printed as the module's coverage
+  # (a workflow-migration project, 2026-09-02: five BRDs, F001 measured, F002-F005 never looked at, output
+  # indistinguishable from full coverage). That is the exact shape of false green this repo's
+  # own rule against unstated denominators exists to prevent.
+  #
+  # The first RESOLVABLE path wins rather than the first match: a ledger that mentions the
+  # filename pattern in prose above its list hands `head -1` a string that is not a file, and
+  # the instrument then reports "names no reachable BRD" over a ledger that names five.
+  BRD_ALL=""
+  while IFS= read -r cand; do
+    [ -n "$cand" ] && [ -f "$ROOT/$cand" ] && BRD_ALL="$BRD_ALL$cand"$'\n'
+  done <<EOF
+$(grep -oE '[A-Za-z0-9_/.-]*\.brd\.json' "$LEDGER" 2>/dev/null | sort -u)
+EOF
+  BRD_N=$(printf '%s' "$BRD_ALL" | grep -c . || true)
+  BRD_REL="$(printf '%s' "$BRD_ALL" | head -1)"
+  [ -n "$BRD_REL" ] && BRD="$ROOT/$BRD_REL"
 fi
 if [ -z "$COV" ]; then
   fault_instrument "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" coverage \
@@ -387,9 +404,41 @@ elif [ -z "$BRD" ]; then
     "the ledger names no reachable *.brd.json" \
     "Refusing to substitute another module's BRD — that would report its leaves as this module's."
 else
-  run "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" coverage \
-    "$OUTDIR/coverage.txt" gate 300 -- \
-    "$COV" --summary "$BRD" "$LEDGER"
+  # MULTI-LEDGER MODE (added 2026-09-02, field-proven on a workflow-migration project's five BRDs going
+  # from "coverage · 1 of 5 BRDs" to all five clean). A module split one-ledger-per-BRD keeps
+  # its files at architecture/modules/<Module>/coverage-ledger/<BRDID>.md — a DIRECTORY beside
+  # where the single-file convention would put coverage-ledger.md, named after that same base.
+  # If it exists, every BRD the ledger set names gets its own coverage-check.sh run, via
+  # coverage-check-all.sh so this reuses the same `run()` verdict machinery (PASS/FINDING/FAULT
+  # from a real exit code) every other rung here already goes through, rather than a bespoke
+  # ad-hoc pass/fail path.
+  LEDGER_DIR="$(dirname "$LEDGER")/coverage-ledger"
+  if [ -d "$LEDGER_DIR" ]; then
+    ALL="$(_tool coverage-check-all.sh)"
+    # Pass the BRDs THIS ledger set names, not a glob over the BRD directory: on a
+    # multi-module project every module's BRDs share analysis/.../brd/, so a directory glob
+    # would demand a ledger here for other modules' BRDs and FAULT on each (merge review,
+    # 2026-09-07; the field run was a single-module project where the two sets coincide).
+    BRD_ARGS=""
+    while IFS= read -r c; do
+      [ -n "$c" ] && BRD_ARGS="$BRD_ARGS $ROOT/$c"
+    done <<EOF2
+$BRD_ALL
+EOF2
+    run "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE · all $BRD_N BRDs, one ledger each)" coverage \
+      "$OUTDIR/coverage.txt" gate 300 -- \
+      "$ALL" "$LEDGER_DIR" $BRD_ARGS
+  else
+    if [ "${BRD_N:-1}" -gt 1 ]; then
+      printf '  \033[33m! coverage measures ONE BRD per run; this ledger names %s\033[0m\n' "$BRD_N"
+      printf '    measuring %s — the other %s are NOT covered by this verdict.\n' \
+        "$BRD_REL" "$((BRD_N - 1))"
+      printf '    Run coverage-check.sh per BRD, or split the ledger one-per-BRD (a worked example exists on a workflow-migration project).\n'
+    fi
+    run "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE${BRD_N:+ · 1 of $BRD_N BRDs})" coverage \
+      "$OUTDIR/coverage.txt" gate 300 -- \
+      "$COV" --summary "$BRD" "$LEDGER"
+  fi
 fi
 
 # ── 4. Journeys: NOT run here, and the report must say so ───────────────────

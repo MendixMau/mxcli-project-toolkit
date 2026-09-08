@@ -19,6 +19,12 @@ VERBOSE=0
 
 FAILED=0; RAN=0; SKIPPED=0
 
+# Belt for the denylist pollution (2026-09-08): fixtures scaffold through init-project.sh, which
+# registers the project name in the toolkit's gitignored denylist unless told otherwise. Send it
+# to scratch here for every fixture, and refuse at the end if the real one appeared anyway.
+export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-runall-denylist.$$"
+ROOT_DENY="$TOOLKIT/.leakguard-deny"; ROOT_DENY_BEFORE=0; [ -f "$ROOT_DENY" ] && ROOT_DENY_BEFORE=1
+
 echo "### SYNTAX — every shell script in the toolkit"
 syn=0
 for f in "$TOOLKIT"/bin/*.sh "$TOOLKIT"/tests/wave2/*.sh "$TOOLKIT"/project-bin/*.sh; do
@@ -77,4 +83,9 @@ done
 
 echo ""
 echo "ran $RAN fixture(s), skipped $SKIPPED, failing $FAILED"
+rm -f "$MXTK_LEAKGUARD_DENYFILE"
+if [ "$ROOT_DENY_BEFORE" -eq 0 ] && [ -f "$ROOT_DENY" ]; then
+  echo "FAIL  a fixture wrote $ROOT_DENY — the real toolkit denylist (the pollution MXTK_LEAKGUARD_DENYFILE exists to stop)"
+  FAILED=$((FAILED+1))
+fi
 [ "$FAILED" -eq 0 ]

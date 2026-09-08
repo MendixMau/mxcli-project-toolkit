@@ -8,7 +8,7 @@
 #
 # Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol [--approved-in-chat]|--force-stale] [--verbose]
 #                          [--adopt <stage> --reason "..."]
-#                          [--waive <stage|obligation[/module]> --reason "..."]
+#                          [--waive <stage|obligation[/module]|source/<file>> --reason "..."]
 #                          <project-dir> [stage]
 #   - With a stage-number, additionally exits non-zero if that specific stage's check fails.
 #   - Without one, evaluates and reports all stages, exits 0 regardless (informational run).
@@ -25,11 +25,21 @@
 #   - --waive <stage> --reason "..." does the same for one stage — for work a project already
 #     did its own way. Both write a line into the decision register and docs/BUILD-LOG.md;
 #     --reason is required, because an unexplained skip is the thing gates exist to prevent.
+#   - --closeout <project-dir> <stage> runs the full evaluation and prints ONLY the stage
+#     close-out / next-stage-open block (bin/lib/closeout.sh): artifacts produced, decisions
+#     made in that stage, what is carried forward, this stage's verdict line verbatim, and
+#     what the next stage does, how, under which skills, with which optional artifacts on
+#     offer. Chat-ready markdown, meant to be pasted as-is at the gate (conversion-runbook.md
+#     §1b rule 7). Always exits 0 and writes nothing: it is a recap, not a verdict — the
+#     verdict is the line it quotes.
 #   - --waive <obligation>[/<module>] --reason "..." waives a PASS rather than a stage — the
 #     rows in bin/lib/obligations.tsv (look, sweep, journeys, coherence). `look/Orders` waives
 #     one module; bare `look` waives every module. Same flag and same mandatory reason on
 #     purpose: a second waiver vocabulary is a second place to look and a second thing to keep
 #     in step. A waived pass reports WAIVED with its reason — never PASS.
+#   - --waive source/<rel-or-basename> --reason "..." waives one SOURCE FILE of the Stage 0
+#     inventory (bin/source-ledger.sh): deliberately not extracted, says who and why. The
+#     ledger otherwise BLOCKS Stages 1 and 2 while any file has no disposition that holds up.
 #
 # VERDICT VOCABULARY (four, and the difference between the first two is the whole point):
 #   PASS    — checked, and it holds.
@@ -52,6 +62,7 @@ FORCE_STALE="${MXTK_ACK_STALE:-0}"
 STRICT_PROTOCOL="${MXTK_STRICT_PROTOCOL:-0}"
 ADOPT_STAGE=""
 WAIVE_STAGE=""
+CLOSEOUT=0
 WAIVER_REASON=""
 declare -a GC_ARGS
 GC_ARGS=()
@@ -63,6 +74,7 @@ while [ $# -gt 0 ]; do
     --approved-in-chat) APPROVED_IN_CHAT=1 ;;
     --verbose)         PROTOCOL_VERBOSE=1 ;;
     --adopt)           shift; ADOPT_STAGE="${1:-}" ;;
+    --closeout)        CLOSEOUT=1; HTML_MODE="never" ;;
     --waive)           shift; WAIVE_STAGE="${1:-}" ;;
     --reason)          shift; WAIVER_REASON="${1:-}" ;;
     --force-stale)     FORCE_STALE=1 ;;
@@ -123,6 +135,25 @@ case "$REQUESTED_STAGE" in
     ;;
 esac
 
+# --closeout: the run below is evidence for ONE quoted line; everything else it prints would
+# bury the block the user is meant to read. Capture stdout and stderr, restore them at the
+# emit point, and never write the dashboard (HTML_MODE was forced to never above).
+CLOSEOUT_LOG=""
+if [ "$CLOSEOUT" = "1" ]; then
+  case "$REQUESTED_STAGE" in
+    P|p|[0-7]) ;;
+    *) echo "Error: --closeout needs a stage (P or 0-7): bin/gate-check.sh --closeout <project-dir> <stage>" >&2; exit 2 ;;
+  esac
+  CLOSEOUT_LOG="$(mktemp "${TMPDIR:-/tmp}/gate-closeout.XXXXXX")"
+  exec 3>&1 4>&2
+  exec >"$CLOSEOUT_LOG" 2>&1
+  # An early exit between here and the emit point (nonexistent project dir, ambiguous or
+  # missing register, --adopt/--waive misuse, --ack-protocol paths) must not vanish into the
+  # log: restore the fds, show what was captured, remove the file, keep the exit code. The
+  # emit point clears this trap before its own cleanup (merge review, 2026-09-08).
+  trap 'rc=$?; if [ -n "$CLOSEOUT_LOG" ] && [ -f "$CLOSEOUT_LOG" ]; then exec 1>&3 2>&4; cat "$CLOSEOUT_LOG" >&2; rm -f "$CLOSEOUT_LOG"; fi; exit $rc' EXIT
+fi
+
 # Machine preflight receipt — informational only, on full runs only (stage queries run inside
 # agent loops and hooks and must stay quiet). bin/doctor.sh writes the receipt; a missing one
 # means nobody ever checked whether the mxbuild gate can even run on this machine, which is
@@ -157,12 +188,18 @@ for opt_pair in "--adopt:$ADOPT_STAGE" "--waive:$WAIVE_STAGE"; do
     P|p|[0-7]) continue ;;
   esac
   if [ "$opt_name" = "--waive" ] && _gc_is_obligation "$opt_val"; then continue; fi
+  # A SOURCE FILE is the third waivable thing: `--waive source/<rel-path-or-basename>` records
+  # that a file in the Stage 0 inventory is deliberately not extracted (bin/source-ledger.sh
+  # reads the line). Same flag, same mandatory reason, same register — the user's "if I agree
+  # to skip it, skip it" is exactly a waiver with a name on it, never a silent gap.
+  case "$opt_val" in source/?*) [ "$opt_name" = "--waive" ] && continue ;; esac
   if [ "$opt_name" = "--waive" ]; then
-    echo "Error: --waive takes a stage (P or 0-7) or an obligation target, got '$opt_val'." >&2
+    echo "Error: --waive takes a stage (P or 0-7), an obligation target, or source/<file>, got '$opt_val'." >&2
     echo "Obligations (bin/lib/obligations.tsv): $(awk -F'\t' '!/^#/ && NF>=9 && $1!="obligation"{printf "%s ", $1}' \
       "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/obligations.tsv" 2>/dev/null)" >&2
     echo "  per module:  --waive look/Orders  --reason \"...\"" >&2
     echo "  every module: --waive look        --reason \"...\"" >&2
+    echo "  source file:  --waive source/legacy/deck.pptx --reason \"...\"   (a row of the Stage 0 inventory)" >&2
     exit 2
   fi
   echo "Error: $opt_name takes a stage (P or 0-7), got '$opt_val'." >&2; exit 2
@@ -1177,10 +1214,19 @@ check_build_ready() {
   fi
 
   # 4. At least one module brief exists (JIT — the first module's brief must be ready)
+  #
+  # Two shapes are accepted, because brd-to-build-plan.md prescribes both: the per-module file,
+  # and the MERGED form for single-module projects ("Single-module projects: merge it… two
+  # documents at ~70% overlap is how one of them ends up unwritten"). Accepting only the first
+  # held build-ready shut on a project that had followed the skill's own instruction, and the
+  # only way out was to write the duplicate document the skill warns against. Found on a real
+  # single-module project, 2026-09-08; exec.sh's advisory already recognised the merged form.
   if find_artifact -path '*/architecture/modules/*-brief.md' | grep -q .; then
     echo "  ✓ at least one module brief exists (architecture/modules/)"
+  elif grep -qE '^## +Module brief +(—|-) +' "$PROJECT_DIR/architecture/build-plan.md" 2>/dev/null; then
+    echo "  ✓ module brief merged into architecture/build-plan.md (single-module form, brd-to-build-plan.md)"
   else
-    echo "  ✗ no module brief (architecture/modules/<Module>/module-brief.md) — ba-agent translation mode (module-brief.md)"
+    echo "  ✗ no module brief — either architecture/modules/<Module>/module-brief.md, or a '## Module brief — <Module>' section in architecture/build-plan.md (module-brief.md)"
     fails=$((fails+1))
   fi
 
@@ -1441,15 +1487,15 @@ stage_protocol_paths() {
   # every stage as "(unmapped)" — noisy by design, but only after someone hits it.
   case "$1" in
 # <!-- ROUTING:BEGIN stage-map -->
-    P)  echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/bootstrap-project.md skills/cloud-dev-environment.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md" ;;
-    0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-scope.md skills/source-triage.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/gate-check-file-locations.md" ;;
+    P)  echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/bootstrap-project.md skills/cloud-dev-environment.md skills/existing-app-change.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/platform-link.md" ;;
+    0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-scope.md skills/source-triage.md skills/existing-app-change.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/gate-check-file-locations.md" ;;
     1)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-extraction.md skills/migration-pipeline.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md skills/corpus-extraction-integrity.md" ;;
     2)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-brd.md skills/checkpoints/checkpoint-architecture.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
     3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md skills/workflow-structure-rules.md skills/learned-mdl-cannot-express.md" ;;
     4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md" ;;
-    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/design-spacing.md skills/ui-loop.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md" ;;
-    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md" ;;
-    7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md skills/handoff-to-studio-pro.md" ;;
+    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/design-spacing.md skills/ui-loop.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md skills/walking-skeleton.md skills/platform-link.md" ;;
+    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md skills/platform-link.md" ;;
+    7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md skills/handoff-to-studio-pro.md skills/platform-link.md" ;;
     *)  echo "" ;;
 # <!-- ROUTING:END -->
   esac
@@ -1745,6 +1791,18 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
     #     --waive look/Orders --reason "integration module, no pages"   (one module)
     #     --waive sweep       --reason "QA runs in the client's own suite"  (every module)
     # The obligation form is recognised by the target naming a row in obligations.tsv.
+    case "$WAIVE_STAGE" in
+      source/?*)
+        SRC_REL="${WAIVE_STAGE#source/}"
+        register_set_line "Waived source $SRC_REL" "$WAIVER_REASON" \
+          || { echo "Could not write to $REGISTER" >&2; exit 1; }
+        build_log_append "SOURCE-WAIVED $SRC_REL reason: $WAIVER_REASON"
+        echo "Recorded in $REGISTER:  Waived source $SRC_REL: $WAIVER_REASON"
+        echo "That file now reports WAIVED in the source ledger (bin/source-ledger.sh) instead of"
+        echo "PENDING. It does NOT report EXTRACTED — a waived file is one nobody read, and the"
+        echo "register says who decided that. Match is by relative path or basename, case-insensitive."
+        exit 0 ;;
+    esac
     OB_TSV="$TOOLKIT_DIR/bin/lib/obligations.tsv"
     WAIVE_OB="${WAIVE_STAGE%%/*}"
     if [ -f "$OB_TSV" ] && awk -F'\t' -v w="$(printf '%s' "$WAIVE_OB" | tr '[:upper:]' '[:lower:]')" \
@@ -2131,6 +2189,61 @@ fi
 printf "Source sufficiency (assessed?): %s — %s\n" "$SUFF_STATUS" "$SUFF_NOTE"
 
 # ---------------------------------------------------------------------------
+# Source ledger — was every inventoried file actually consumed, and by what?
+#
+# bin/source-ledger.sh reads the Stage 0 inventory (every file under the source root) and
+# wants a disposition per row: an artifact that exists, is non-empty and NAMES the file; or a
+# register waiver; or sensitive/superseded. It also reports drift — files on disk with no
+# inventory row, the state of a project someone just dropped new sources into.
+#
+# WHY IT BLOCKS where source-sufficiency only advises (2026-09-02). On a VBA migration the
+# intake closed "documents not yet accounted for?" with "the .pptx was already used by the
+# triage pass" — a claim about another document, made without reading it, and false. Nothing
+# checked it, so the only functional description of the workflow engine (25 slides, 22
+# diagrams) went unread for two months of BRDs, blueprint and build plan. The check here is
+# a file test, not a conversation test: does the named artifact mention the named file. That
+# passes skills-over-scripts.md's bar for a blocking check (an agent cannot satisfy it by
+# typing a row), which the removed Stage-1 scope gate did not.
+#
+# Blocks Stage 1 and Stage 2 (enforced below, where the requested stage is known); Stage 0
+# only advises, because the inventory is Stage 0's output and a guard must never block the
+# action that resolves it. A user who agrees to skip a file records that with
+# `--waive source/<rel> --reason "..."` and the row reports WAIVED — the skip is never silent.
+LEDGER_STATUS="PASS"
+LEDGER_NOTE="every inventoried source file has a disposition"
+LEDGER_SCRIPT="$TOOLKIT_DIR/bin/source-ledger.sh"
+LEDGER_OWED=""
+if [ ! -x "$LEDGER_SCRIPT" ]; then
+  LEDGER_STATUS="MANUAL"
+  LEDGER_NOTE="bin/source-ledger.sh not found or not executable at $LEDGER_SCRIPT — cannot evaluate, which is not a pass"
+elif ! command -v jq >/dev/null 2>&1; then
+  LEDGER_STATUS="MANUAL"
+  LEDGER_NOTE="jq not installed — cannot read the source ledger; cannot evaluate, which is not a pass"
+else
+  LEDGER_OUT="$("$LEDGER_SCRIPT" check "$PROJECT_DIR" ${REGISTER:+--register "$REGISTER"} --json --quiet 2>&1)"; LEDGER_RC=$?
+  case "$LEDGER_RC" in
+    0)
+      LEDGER_NOTE="$(printf '%s' "$LEDGER_OUT" | jq -r '.note // "accounted for"' 2>/dev/null || echo 'accounted for')"
+      LEDGER_OWED=0
+      ;;
+    1)
+      LEDGER_STATUS="FAIL"
+      LEDGER_NOTE="$(printf '%s' "$LEDGER_OUT" | jq -r '.note // "source files owed"' 2>/dev/null || echo 'source files owed')"
+      LEDGER_OWED="$(printf '%s' "$LEDGER_OUT" | jq -r '(.counts.pending // 0) + (.counts.fault // 0) + (.counts.missing // 0) + (.counts.drift // 0)' 2>/dev/null || echo '?')"
+      ;;
+    3)
+      LEDGER_STATUS="MANUAL"
+      LEDGER_NOTE="$(printf '%s' "$LEDGER_OUT" | jq -r '.note // "nothing to check"' 2>/dev/null || echo 'nothing to check')"
+      ;;
+    *)
+      LEDGER_STATUS="MANUAL"
+      LEDGER_NOTE="source-ledger.sh check exited $LEDGER_RC — cannot evaluate, which is not a pass: $(printf '%s' "$LEDGER_OUT" | tail -2 | tr '\n' ' ')"
+      ;;
+  esac
+fi
+printf "Source ledger (every file consumed?): %s — %s\n" "$LEDGER_STATUS" "$LEDGER_NOTE"
+
+# ---------------------------------------------------------------------------
 # Skill routing — do the rendered surfaces still match the table?
 #
 # Every routing surface (README's two tables, the runbook's baseline block, each agent
@@ -2331,6 +2444,15 @@ if [ -n "${MXTK_ART_N_PENDING:-}" ]; then
 else
   _roll="$_roll    Artifacts: NOT CHECKED"
 fi
+# Source files are the third thing a project can silently owe. Unlike the two above this one
+# DOES touch the exit code at Stages 1 and 2 (see the LEDGER block); it is repeated here for
+# the same reason they are — the summary is the line people quote.
+case "${LEDGER_OWED:-}" in
+  ""|*[!0-9]*)  _roll="$_roll    Source files: NOT CHECKED" ;;
+  0)   _roll="$_roll    Source files: 0 owed" ;;
+  *)   _roll="$_roll    Source files: ${LEDGER_OWED} owed (pending/fault/missing/not inventoried)"
+       _owed=$(( _owed + ${LEDGER_OWED:-0} )) ;;
+esac
 printf "         %s\n" "$_roll"
 if [ "$_owed" -gt 0 ]; then
   echo "         These do not affect the exit code and never have. They are passes and files"
@@ -2454,6 +2576,8 @@ HTML_HEAD
     "$OQ_STATUS" "$OQ_STATUS" "$(printf '%s' "$OQ_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
   printf '<tr><td>~</td><td>Source sufficiency assessed</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$SUFF_STATUS" "$SUFF_STATUS" "$(printf '%s' "$SUFF_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
+  printf '<tr><td>≡</td><td>Source ledger (every file consumed?)</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
+    "$LEDGER_STATUS" "$LEDGER_STATUS" "$(printf '%s' "$LEDGER_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
   printf '<tr><td>⚑</td><td>Report disposition (Stage 5/6)</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
     "$DISP_STATUS" "$DISP_STATUS" "$(printf '%s' "$DISP_NOTE" | sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g')"
   printf '<tr><td>P</td><td>Kickoff</td><td><span class="status %s">%s</span></td><td>%s</td></tr>\n' \
@@ -2497,6 +2621,34 @@ HTML_TAIL
   fi
 fi
 
+# ---------------------------------------------------------------------------
+# --closeout — emit the block and stop. Placed AFTER every evaluation (the verdict line must
+# be the real one) and BEFORE every blocking exit below (a recap never blocks; the gate does,
+# on its own invocation).
+if [ "$CLOSEOUT" = "1" ]; then
+  exec 1>&3 2>&4
+  _co_verdict=""
+  if [ "$REQUESTED_STAGE" = "P" ] || [ "$REQUESTED_STAGE" = "p" ]; then
+    _co_verdict="Stage P: ${P_STATUS:-?} — ${P_NOTE:-}"
+  elif tbl_get "$REQUESTED_STAGE" "$RESULTS_TBL"; then
+    _co_verdict="Stage $REQUESTED_STAGE: $TBL_VALUE"
+    tbl_get "$REQUESTED_STAGE" "$NOTES_TBL" && _co_verdict="$_co_verdict — $TBL_VALUE"
+  fi
+  if [ "$DRIFT_STATUS" = "FAIL" ]; then
+    _co_verdict="$_co_verdict · BLOCKED by unsynced BRD drift: $DRIFT_NOTE"
+  fi
+  if [ -r "$TOOLKIT_DIR/bin/lib/closeout.sh" ]; then
+    # shellcheck source=lib/closeout.sh
+    . "$TOOLKIT_DIR/bin/lib/closeout.sh"
+    MXTK_CLOSEOUT_VERDICT="$_co_verdict" mxtk_closeout_report "$PROJECT_DIR" "$REQUESTED_STAGE" "$REGISTER"
+  else
+    echo "closeout: FAULT — bin/lib/closeout.sh missing from $TOOLKIT_DIR; nothing was emitted (this is the checker failing, not the project)" >&2
+  fi
+  trap - EXIT
+  rm -f "$CLOSEOUT_LOG"
+  exit 0
+fi
+
 if [ -n "$REQUESTED_STAGE" ]; then
   # Protocol staleness does NOT gate anything unless --strict-protocol was asked for. The
   # notice has already been printed above, with its lettered options; the stage verdict below
@@ -2512,6 +2664,9 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "" >&2
     echo "Gate BLOCKED by unsynced BRD drift: $DRIFT_NOTE" >&2
     printf '%s\n' "$UNSYNCED_ROWS" >&2
+    echo "In plain words: a decision changed a requirement and the requirements document (BRD or" >&2
+    echo "wireframe) has not been updated to match. ba-agent brings it in line and flips the marker" >&2
+    echo "to 'synced <date>'; then this gate can be judged on its own merits." >&2
     exit 1
   fi
   # Stage 0 does not pass while the source was never characterised. Scoped to Stage 0 only —
@@ -2524,6 +2679,31 @@ if [ -n "$REQUESTED_STAGE" ]; then
   # Same shape as the drift gate two blocks up, loosened the same day and for the same reason.
   if [ "$REQUESTED_STAGE" = "0" ] && [ "$SUFF_STATUS" = "FAIL" ]; then
     advise "source-sufficiency" "Source sufficiency not established: $SUFF_NOTE"
+  fi
+  # Source ledger: advisory at Stage 0 (the inventory is that stage's own output), BLOCKING at
+  # Stages 1 and 2 — no extraction is complete, and no BRD is written, while a source file has
+  # no disposition that holds up or sits on disk un-inventoried. See the LEDGER block above.
+  if [ "$REQUESTED_STAGE" = "0" ] && [ "$LEDGER_STATUS" = "FAIL" ]; then
+    advise "source-ledger" "Source files not yet accounted for (blocks Stage 1): $LEDGER_NOTE"
+  fi
+  # …unless the stage itself is declared not required here — `--adopt` at a later stage,
+  # `Waived stage N`, or an entry mode that skips it: the obligation and artifact checks respect
+  # that declaration and this block must too (merge review, 2026-09-08: it fired on adopted
+  # projects because it ran before the verdict table was consulted).
+  if { [ "$REQUESTED_STAGE" = "1" ] || [ "$REQUESTED_STAGE" = "2" ]; } && [ "$LEDGER_STATUS" = "FAIL" ] \
+     && ! stage_waiver "$REQUESTED_STAGE" >/dev/null; then
+    echo "" >&2
+    echo "Gate BLOCKED by the source ledger: $LEDGER_NOTE" >&2
+    echo "" >&2
+    "$LEDGER_SCRIPT" check "$PROJECT_DIR" ${REGISTER:+--register "$REGISTER"} 2>/dev/null | sed -n '2,25p' >&2
+    echo "" >&2
+    echo "  Every file in the Stage 0 inventory needs one of:" >&2
+    echo "    extracted  bin/source-ledger.sh mark $PROJECT_DIR <rel-or-glob> --artifact <path> [--media N] --by <who>" >&2
+    echo "               (the artifact must exist, be non-empty and NAME the file — a claim is checked, not believed)" >&2
+    echo "    waived     $0 $PROJECT_DIR --waive source/<rel> --reason \"...\"   (a person's decision, in the register)" >&2
+    echo "  Files on disk with no inventory row: bin/source-sufficiency.sh init $PROJECT_DIR --refresh, then open them." >&2
+    echo "  Full table: bin/source-ledger.sh report $PROJECT_DIR" >&2
+    exit 1
   fi
   # No Stage-5/6 gate passes while the newest test/review report has un-filed findings.
   # finding-disposition.md and existing-app-assurance.md both apply at exactly these two
@@ -2671,6 +2851,17 @@ if [ -n "$REQUESTED_STAGE" ]; then
       fi
       ;;
   esac
+  # Every outcome below gets its plain-words paragraph (bin/lib/closeout.sh) — asked for on
+  # 2026-09-02: "for every gate we have, explain why it is blocked or what is pending, in
+  # human-understandable, not too technical language". The technical line stays; this is
+  # printed under it, on the same stream, and never changes the exit code.
+  plain_words() {
+    [ -r "$TOOLKIT_DIR/bin/lib/closeout.sh" ] || return 0
+    # shellcheck source=lib/closeout.sh
+    . "$TOOLKIT_DIR/bin/lib/closeout.sh"
+    mxtk_plain_verdict "$REQUESTED_STAGE" "Stage $REQUESTED_STAGE: $requested_status — $requested_note" "$PROJECT_DIR" "$REGISTER" \
+      | sed 's/\*\*//g'
+  }
   # NOT STARTED gets its own exit code, and the wording is not a telling-off. The stage you
   # ASKED about still does not pass — you asked, and the honest answer is no — but a caller can
   # now tell "nothing has been done here" (3) from "something is wrong here" (1), which is the
@@ -2681,11 +2872,13 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "Nothing is wrong — there is just nothing here yet. If this project is never going to" >&2
     echo "produce it, say so once and it stops being counted:" >&2
     echo "  $0 --waive $REQUESTED_STAGE --reason \"...\" $PROJECT_DIR" >&2
+    plain_words >&2
     exit 3
   fi
   if [ "$requested_status" = "FAIL" ]; then
     echo "" >&2
     echo "Stage $REQUESTED_STAGE gate FAILED: $requested_note" >&2
+    plain_words >&2
     exit 1
   fi
   # MANUAL is not PASS. Only FAIL used to exit non-zero, so every manual stage —
@@ -2697,11 +2890,14 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "Stage $REQUESTED_STAGE is NOT machine-checkable: $requested_note" >&2
     echo "This is not a pass. Paste the stage's own evidence (for Stage 5: the" >&2
     echo "per-module coverage checklists and each script's gate result)." >&2
+    plain_words >&2
     exit 2
   fi
   # The stage passes on its own evidence. Last question: was anything decided behind the
   # user's back? This is the project's own state, so unlike protocol staleness it BLOCKS.
   enforce_open_questions "$REQUESTED_STAGE"
+  echo ""
+  plain_words
 fi
 
 exit 0

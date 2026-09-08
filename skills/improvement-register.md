@@ -119,6 +119,26 @@ made visible, with the raw disposition text alongside it.
    disposition, not just observed and left as a comment. An observed-but-unfiled trend is exactly
    the failure this register exists to prevent.
 
+## Corrections — a superseded claim gets a row, or it comes back
+
+The register also carries **corrections**: a claim an earlier artifact made that a later
+measurement overturned. Without a row, the old claim resurfaces — it is still in the BRD, the
+blueprint cites the BRD, the brief cites the blueprint, and the next session reads whichever it
+opens first. On the 2026-09-02 post-mortem project several superseded claims did exactly that,
+in documents that cited each other.
+
+One row per correction, appended, never edited:
+
+| # | Date | Claim (verbatim, with where it lives) | Measurement that overturned it (query or file, with the number) | Where the old claim still stands, and who flushes it |
+|---|---|---|---|---|
+| C-01 | 2026-09-02 | "Approval is a 15-step sequential chain" — blueprint §21.1, F007 | `Workflowtabelle` rows for the current WFVersion: 7 legs, predecessor column; 21 populated rows | blueprint §21.1–21.2, scripts 80/82/84 → architect, before Stage 4 re-gate |
+
+The fifth column is the point: a correction is not done when it is true, it is done when every
+document that carried the old claim has been re-synced (`conversion-runbook.md` §3b drift-sync
+uses the same `[sync: … UNSYNCED]` marker; a correction row is what puts the marker there).
+Numbers in the fourth column carry their query — a correction stated without its measurement is
+the same defect it is correcting.
+
 ## Related
 
 - `skills/close-the-loop.md` — the append-and-drain shape and the routing-by-lifespan rule this

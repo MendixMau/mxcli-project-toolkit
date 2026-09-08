@@ -48,3 +48,6 @@ wip/
 # OS noise
 .DS_Store
 .session-notes.md
+
+# rendered by bug-logs/pending-github-issues/render-paste-ready.sh — regenerate, never commit
+bug-logs/pending-github-issues/paste-ready/

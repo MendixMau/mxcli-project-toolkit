@@ -390,7 +390,8 @@ end;
 - **Cross-module association `change`:** always `change` from the MANY/Parent side (FK owner). Setting from the ONE/Child side causes CE0854.
 - **NPE RETRIEVE from DB (CE0056):** `retrieve $Var from NPE.Entity` is invalid — NPEs have no database table. Pass NPE as parameter instead (see rule above).
 - **contentparams cross-module NPE traversal (CE0402):** `[{1} = Module.Assoc/Attribute]` fails when the target entity is an NPE in another module. Denormalize the field onto the source entity instead.
-- **`show message` in microflows → CE0720 (mxcli bug):** `show message 'literal text'` generates `show message '{1}' objects ['literal text']`. Mendix rejects string literals in the objects list (only variable refs allowed) → CE0720. Even `show message '{1}' objects [$Var]` is broken: mxcli inserts a rogue `'{1}'` literal as the first objects item. **Workaround, confirmed working 2026-07-20 (PROJECT-D):** don't fight this in the microflow at all — wrap the microflow in a NANOFLOW that calls it via `CALL MICROFLOW`, then does `show message` in the nanoflow (works correctly there, real `mx check`/docker check passed 0 errors). Rewire the page button's `Action` to call the nanoflow instead of the microflow directly (`ALTER PAGE` can't `SET Action = ...` — must `REPLACE` the whole actionbutton). This is a clean, fully-CLI-doable fix, not just a "go do it manually in Studio Pro" fallback.
+- **`show message` in microflows → CE0720 — ⚠️ DOES NOT REPRODUCE on mxcli `4b58b89` (2026-08-26) / Mendix 11.13.0. Retested 2026-09-04; treat the nanoflow workaround below as history, not instruction.** The serialization the old rule described is still exactly what mxcli writes — `show message 'x'` round-trips as `show message '{1}' type Information objects ['x']` — but Mendix now accepts it. Evidence: a probe microflow carrying a bare literal, a concatenation (`'a ' + toString(1) + ' b'`) and all three severity levels was executed against a real model and passed a **real mxbuild with 0 errors**; a second, production microflow with a concatenated message shipped the same day, same result. Both the literal case and the `objects [$Var]` case are covered. **The old rule, retained because a project pinned to an older binary still needs it:** on mxcli ~v0.13.0, `show message 'literal text'` generated `show message '{1}' objects ['literal text']`; Mendix rejected string literals in the objects list (only variable refs allowed) → CE0720, and even `show message '{1}' objects [$Var]` was broken by a rogue `'{1}'` inserted as the first objects item. Workaround, confirmed 2026-07-20 (PROJECT-D): wrap the microflow in a NANOFLOW that calls it via `CALL MICROFLOW` and does the `show message` there, then rewire the page button's `Action` to the nanoflow (`ALTER PAGE` cannot `SET Action` — `REPLACE` the whole actionbutton). **Before applying that workaround, spend one `mxcli check` + one exec on the probe above; on any binary from 2026-08-26 onward it is unnecessary complexity.**
+- **Severity goes AFTER the text: `show message 'text' type Warning;`.** The level-first form `SHOW MESSAGE WARNING 'text';` **does not parse** — not in microflows, not in nanoflows — even though mxcli's own bundled `.ai-context/skills/write-nanoflows.md` uses it seven times and the binary embeds examples of it in its strings. `mxcli syntax` documents the activity nowhere, in either form. There is no `blocking` modifier. Confirmed 2026-09-04 on `4b58b89`.
 - **`show message ... type Success` silently becomes `type Information` (no error, no warning):** Mendix's nanoflow Show Message action only has three severities — `Information`, `Warning`, `Error`. There is no `Success` level. Writing `show message '...' type Success;` passes `mxcli check` AND a real `mx check`/docker check with 0 errors, because mxcli silently remaps `Success` → `Information` rather than rejecting it — confirmed via `describe nanoflow` showing the persisted BSON as `type Information` after requesting `type Success`. Functionally harmless (message still shows) but visually wrong (blue "info" toast instead of a green "success" toast) and easy to miss since nothing errors. **Use `type Information` for a "success" message from the start** — don't write `type Success` expecting it to work or to at least fail loudly.
 - **`validation feedback $Dto/Attr message '...'` → CE0639 (mxcli bug):** mxcli stores the attribute path string but does NOT wire the Variable property in the underlying BSON → CE0639 "No variable selected". **Workaround:** use `log error` + configure Validation Feedback manually in Studio Pro (open the activity, set Variable = $OrderDetail_Dto, Member = AttributeName, Message = 'text').
 - **`not expr` → CE0117:** Mendix requires parentheses: `not(expr)`. `not $IsValid` is rejected. Always write `not($IsValid)`.
@@ -471,3 +472,28 @@ change $Order ("ProblemMessage" = empty) refresh;
 ```
 
 Using `''` in IF conditions and RETRIEVE WHERE clauses is fine. The restriction is specific to CHANGE/CREATE activity value assignments. Confirmed Mendix 11.12.0 Beta, 2026-07-17.
+
+## Per-row isolation in a loop: three Mendix facts, one afternoon (2026-09-07, a sales-coaching build)
+
+The pattern "loop over rows, one bad row must not sink the file" costs three failed runs if you
+do not know these; each was learned from the runtime log of an import of 222 Salesforce rows.
+
+1. **No custom error handling inside a loop body — CE0644.** `on error continue` and
+   `on error { ... }` on a call inside `loop ... end loop` both fail mxbuild. Move the guarded
+   call into a wrapper microflow (`SUB_X_Safe` that calls `SUB_X on error ...`) and have the
+   loop call the wrapper. `mxcli check` warns MDL006 for this; the warning is right.
+2. **`on error { ... }` is custom WITH rollback, and the rollback is the whole outer
+   transaction.** With it in the wrapper, the last row of the file failing undid 158
+   successfully created deals while the run's own counters (changed in the outer flow after the
+   fact) said "Succeeded, 158 created". Use `on error without rollback { ... }`: the failing
+   call's changes are discarded, everything before it stays.
+3. **`substring($s, 0, 200)` throws when `$s` is shorter than 200** ("Range [0, 200) out of
+   bounds for length 53"). Guard it: `if length($s) > 200 then substring($s, 0, 200) else $s`.
+   A truncation added for one long row broke every short one.
+
+And the diagnostic that made 2 and 3 visible: a custom handler swallows the exception, so log
+`$latestError/Message` inside it. Sixty-four rows failed with no message anywhere until then.
+
+Count a "rejected" outcome from the rows after the loop (`retrieve ... where State = Rejected`
++ aggregate), not by incrementing in the loop: a row whose sub-transaction rolled back is both
+"returned Rejected" and "still Pending", and gets counted twice.

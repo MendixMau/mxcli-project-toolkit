@@ -23,6 +23,11 @@
 # derives TOOLKIT_DIR from BASH_SOURCE, and a synthetic toolkit — bare origin plus a working
 # clone, so `git fetch` runs for real — is the only way to author the protocol history each case
 # needs. Real toolkit history cannot be made to contain a two-word typo fix on demand.
+# Scaffolding through the real init-project.sh registers the throwaway project name in the
+# toolkit leak-guard denylist; send that to scratch, never to the developer's real list.
+export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-fixture-denylist.$$"
+trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"' EXIT
+
 set -uo pipefail
 
 GATE="${1:?usage: test-bug06-freshness.sh /path/to/gate-check.sh}"

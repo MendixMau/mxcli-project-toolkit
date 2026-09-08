@@ -1,7 +1,7 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-120` — observed 2026-09-03 building scripts `78`
 and `79` of a topbar-titled portal project (Mendix 11.13.0)
-**Status:** DRAFT — not yet filed
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1067 (2026-09-08)
 **Suggested labels:** bug, mdl, check, grant, association, alter-entity
 
 ---
@@ -58,4 +58,4 @@ security**, discoverable only by opening the app as the affected role. Every gat
 
 ## Environment
 
-mxcli against Mendix 11.13.0, Linux container, project with security level PRODUCTION.
+mxcli **v0.20.0** against Mendix 11.13.0, Linux container, project with security level PRODUCTION.

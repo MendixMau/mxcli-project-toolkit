@@ -106,6 +106,30 @@ network hop with path translation on every file argument. The toolkit does none 
 Git Bash runs where Studio Pro, `mxcli` and your model already live, and ships with Git for
 Windows. `doctor.sh` detects WSL and warns.
 
+**This is about the shell you type in, not about Docker.** Docker Desktop on Windows runs its
+engine on a WSL2 backend, and VS Code will offer to "install Docker on WSL" the first time you
+reopen an `mxcli new` project in its Dev Container — say yes. That is the `devcontainer` lane
+(`CONVERSION-RUNBOOK.md` → *Where you run this*), headless and fully supported; `doctor.sh`
+detects it and records it. The warning above applies only when you run the toolkit's scripts
+*yourself* from a WSL prompt against a Studio Pro on the Windows side. Real question, 2026-09-07:
+"the toolkit says not WSL, but `mxcli new`'s Dev Container wants Docker on WSL — yes or no?" Yes.
+
+**The lanes mix freely on one project.** Do the headless stages in the Dev Container, then open
+the same `.mpr` in Studio Pro from Git Bash for the MCP write modes and UI polish, and go back.
+The only rule is one writer at a time: do not have the container building or writing the `.mpr`
+while Studio Pro holds it open (`skills/handoff-to-studio-pro.md`).
+
+![Where you run this: cloud, Dev Container and local + Studio Pro all work on one project folder, one git repo, one .mpr; Windows: Docker Desktop's WSL2 backend is fine, a WSL prompt as your shell next to Studio Pro is not; build headless, polish in Studio Pro, one writer at a time](docs/where-you-run-this.svg)
+
+*Source: `toolkit-guide.html` → section 5, which also has the side-by-side table.*
+
+**"Why a Dev Container instead of just working locally?"** The container is where the build is
+*reproducible* — a colleague clones and gets the identical Java, Node and mxcli from
+`.devcontainer/`, nothing to align by hand. Local is where the build is *visible* — Studio Pro
+open, MCP live, UI polish with the app in front of you. Cloud is local's opposite: nothing
+installed, a preview link for stakeholders, but ephemeral. Most projects use two of the three;
+`toolkit-guide.html` → *Where you run this* has the side-by-side table.
+
 **Windows: install Python 3 from python.org with "Add python.exe to PATH" ticked.** If typing
 `python3` opens the Microsoft Store, that is the Store *alias stub*, not an interpreter. The
 toolkit detects and skips it, but turn it off anyway: Settings → Apps → Advanced app settings →
@@ -494,6 +518,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | CAC-6, after Stage 6 passes and before any cutover step — migration mode only, and a hard gate: every answer lands CONFIRMED, no ASSUMED defaults | `skills/checkpoints/checkpoint-cutover.md` |
 | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts | `skills/bootstrap-project.md` |
 | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim | `skills/cloud-dev-environment.md` |
+| Changing an EXISTING Mendix app — adding a feature, altering a flow, restructuring a module — when it has no BRDs, no architecture doc and no wireframes: the knowledge base comes from the live model (Path D), stages 2–4 run over the changed slice plus its blast radius only, and the Track B regression baseline is the precondition; audit-only stays in existing-app-assurance | `skills/existing-app-change.md` |
 | Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` |
 | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited | `skills/measured-claims.md` |
 | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend | `skills/improvement-register.md` |
@@ -552,6 +577,8 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views | `project-bin/build-plan-status.sh` |
 | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets | `skills/anonymize-client-app-for-demo.md` |
 | Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step | `skills/handoff-to-studio-pro.md` |
+| Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them | `skills/walking-skeleton.md` |
+| At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App | `skills/platform-link.md` |
 
 **Build · MDL — the language and tool reference**
 
@@ -627,6 +654,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
+| Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words | `bug-logs/mxcli-bugs.md` |
 | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` |
 | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable | `skills/bug-submission-checklist.md` |
 | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause | `skills/empty-widget-triage.md` |
@@ -704,6 +732,7 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" | `skills/agent-roles.md` |
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
 | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source | `bin/source-sufficiency.sh` |
+| Closing Stage 1, or adding files to a source folder — every inventoried file must name the artifact that consumed it (text AND embedded diagrams), or carry a waiver; blocks Stages 1–2 until it does | `bin/source-ledger.sh` |
 | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` |
 | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done | `bin/facts-lock.sh` |
 | Building any module — before the first script. The mdl-agent's single per-module input | `skills/module-brief.md` |
@@ -720,10 +749,12 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated | `skills/module-review.md` |
 | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` |
 | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` |
-| A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake | `bug-logs/mxcli-bugs.md` |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
 | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` |
+| A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" prints the matching ledger entries, so the session reads one entry, not the 32k-word ledger | `bin/bug-lookup.sh` |
+| The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory | `bin/status.sh` |
+| Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule | `skills/retesting-learned-rules.md` |
 <!-- ROUTING:END -->
 
 **Why this has to be explicit instead of implicit:** a project's own skill files are usually written before a given toolkit learning exists, or before a new one is added later — they never grow a cross-reference to it on their own. When you `git pull` this toolkit and it brings in a new baseline-worthy skill (most often a new `learned-*.md`), update every consuming project's routing to match — don't assume the next session will find it by chance.

@@ -200,7 +200,18 @@ MXTK_TRIAGE_EOF
 mxtk_triage_is_pristine() {
   local f="$1"
   [ -f "$f" ] || return 1
-  grep -q 'MXTK-TRIAGE-STUB' "$f" || return 1
+
+  # An explicit completion marker ends the question. Checked FIRST, before any inference.
+  #
+  # `MXTK-TRIAGE-STUB-FILLED` is what a filled-in triage.md carries, and until 2026-09-08 the
+  # substring test below matched it — so the suffix that exists to say "done" said nothing, and
+  # a signed-off Stage 0 tested pristine. Anchoring the marker test is what makes the suffix
+  # mean something. A positive completion signal cannot be got wrong by a placeholder regex,
+  # which is why it goes first and everything else is a fallback.
+  grep -q 'MXTK-TRIAGE-STUB-FILLED' "$f" && return 1
+
+  grep -q 'MXTK-TRIAGE-STUB\([^-]\|$\)' "$f" || return 1
+
   # The placeholder test must skip the MXTK-TRIAGE-STUB header itself. That comment explains the
   # mechanism using a literal {{PLACEHOLDER}}, and nothing tells the filler to delete the header —
   # the file says the opposite. So counting it made EVERY correctly-completed triage.md test
@@ -208,7 +219,16 @@ mxtk_triage_is_pristine() {
   # artifact. (Found by a field run against 3680559, 2026-08-20; same bug class as the
   # {{DOUBLE_BRACE}} false positive that is_pure_stub() already strips in sync-project.sh:81, and
   # that gate-check.sh:1340 records as having cost the agent templates their refusal sentence.)
+  #
+  # The skip is triggered by the MARKER ALONE, not by `<!-- MXTK-TRIAGE-STUB` on one line.
+  # Requiring both on one line was the second half of the 2026-09-08 field loss: a project whose
+  # header opened `<!--` on line 1 and carried the marker on line 2 never turned the skip on, so
+  # the header's own explanatory {{PLACEHOLDER}} counted as a live unfilled slot and the file
+  # tested pristine forever — the exact outcome the paragraph above says must never happen.
+  # The marker appears nowhere but that header, so matching it alone is sufficient and strictly
+  # more robust than pairing it with the comment opener.
+  #
   # awk rather than `sed '/a/,/b/d'`: sed's range would not close on a one-line header.
-  awk '/<!-- MXTK-TRIAGE-STUB/{skip=1} skip{if(/-->/){skip=0}; next} {print}' "$f" \
+  awk '/MXTK-TRIAGE-STUB/{skip=1} skip{if(/-->/){skip=0}; next} {print}' "$f" \
     | grep -q '{{[^}]*}}'
 }

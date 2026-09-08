@@ -97,7 +97,7 @@ If found: option A = reuse it. If not found: offer build-new vs manual-only.
 > the target? Drop a link or paste the key constraints — or say 'none' if this is code-only."
 
 **What to do with the answer:**
-- If a link is provided: add it to `project-profile.md` under `## External References`
+- If a link is provided: add it to `PROJECT.md` under `## Decisions` as `External refs:`
 - If constraints are pasted: record them in `PROJECT.md` under `## Decisions`
 - If 'none': note it and proceed
 

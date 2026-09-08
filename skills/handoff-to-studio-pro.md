@@ -241,6 +241,14 @@ The lifecycle, in plain words:
    work period: bring Team Server's commits over. After one: bring the merged result back.
 4. **Colleagues**: clone from Team Server, open in the pinned Studio Pro, commit as normal.
 
+**Born on GitHub instead?** You can still get to one history without rewriting it:
+`platform-link.md` §3 adopts an existing model into the platform's fresh Team Server repo
+(subtree split for a two-tree layout, then a merge commit whose second parent is the platform's
+template commit, so the push is a plain fast-forward — field run: 144 GitHub-born commits). That
+supersedes the content transplant `ts-sync.sh` was written for; §3's two assertions and the
+`git push --dry-run` with no `+` are the whole safety net. Deploy caveats live there too — in
+particular a Free App can only be deployed from Studio Pro, whatever the API docs suggest.
+
 What stays true even with one history — and this is the skill content, not the commands:
 **model units do not text-merge.** The model token from §9 still governs: one side edits the
 model between syncs, and a merge where both sides touched model files resolves by taking one

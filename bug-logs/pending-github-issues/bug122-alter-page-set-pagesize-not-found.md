@@ -1,7 +1,7 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-122` — observed 2026-09-07 building script `87b`
 of a topbar-titled portal project (Mendix 11.13.0)
-**Status:** DRAFT — not yet filed
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1069 (2026-09-08)
 **Suggested labels:** bug, mdl, alter-page, pluggable-widgets, datagrid2
 
 ---
@@ -27,6 +27,12 @@ alter page Common.RunRegister { set PageSize = 10 on dgApprovalRuns };
 ```
 
 `mxcli check --references` passes the script clean. The failure appears only at exec.
+
+## Environment
+
+- mxcli **v0.20.0**
+- Mendix **11.13.0**
+- Linux container
 
 ## Aggravating factors
 

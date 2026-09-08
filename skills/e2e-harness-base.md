@@ -18,7 +18,8 @@ Build after completing a module build phase:
   set of idempotent seed SQL scripts run directly against Postgres. See "Seed-data bootstrap"
   below — the DB smoke check is now expected to self-heal a missing/fresh case rather than just
   fault the harness on it.
-- App running locally (`mxcli docker run -p App.mpr --wait`)
+- App running locally (`mxcli docker run -p App.mpr --wait`, or `mxcli run --local` for a
+  Docker-free warm loop — see `testing-shape.md` for the flag table)
 
 ---
 
@@ -27,7 +28,9 @@ Build after completing a module build phase:
 - Node.js available
 - Playwright installed: `npm init -y && npm i -D playwright`
 - `npx playwright install chromium`
-- App running at `http://localhost:8080`
+- App running at `http://localhost:8080` — or, when this session cannot reach that host (a
+  cloud container, a devcontainer, a phone), at the public URL from `mxcli run --local --hub`.
+  Point the harness `BASE_URL` at whichever one actually answers; never assume `localhost:8080`.
 - A working data-assertion instrument. **Prefer the M2EE admin API** (`mxcli oql --direct`,
   `adminPort = runtime port + 10`, token from the project's own m2ee config) — see
   `learned-db-assertions.md`. The `psql.exe` config further down is the Windows-only

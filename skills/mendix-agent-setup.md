@@ -103,6 +103,13 @@ and exists to *reach that dialog*.
   reached it perfectly. **Default the answer timeout to 300s**, and before trusting any
   SILENT verdict, check `conversationalui$message` for an assistant row that landed after the
   window — `Success` late means only your timeout was wrong.
+- **A fluent answer is not a passing answer.** An agent wired to a page can answer every
+  question smoothly and still know nothing about the record on screen — it will simply ask
+  which one you mean, or invent a plausible one. Judge the reply's *content* against the
+  page's context; a bubble count, or a human skim of "it responded", passes over exactly
+  the defect worth finding. The wiring rules behind this are in `mendix-agent-ui.md` §5
+  (page context goes in the chat's ProviderConfig system prompt, never in an uncommitted or
+  `system`-role message, and only some ActionMicroflows read it).
 - **Poll on message STATUS, not on the text settling.** ConversationalUI writes the assistant
   row immediately with `Status = Loading` and fills the content in when the model returns, so
   "an assistant row exists" is true long before there is anything to read. Waiting for

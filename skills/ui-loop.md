@@ -84,6 +84,25 @@ things and they find those two and stop, and whatever else is wrong with *this* 
 
 ---
 
+## What the loop costs — measured
+
+Greenfield pilot, cloud container, mxcli v0.20.0 `run --local --watch` kept warm, 2026-09-04,
+one page script (`create or replace page`, one class changed):
+
+| Step | Time |
+|---|---|
+| `bin/exec.sh` (doctor-quick + check + snapshot + exec + mxbuild gate) | 44 s |
+| watch rebuild + hot-apply (runs *inside* the 44 s — it reacts to the write, not the gate) | 18 s, overlapped |
+| journey to the page + screenshot, warm browser | 3 s |
+| **edit → screenshot in hand** | **~47 s** |
+
+So the look costs under a minute per page script, and the watch surfaced a real error
+(CE6083, a design property the theme does not support) in its own log **before** exec.sh's
+gate reported it — two independent readings of the same build. What the look then showed:
+the "fix" (`Class: 'form-vertical'`) landed in the model, passed the gate, and changed
+nothing on screen, because the theme, not the page, decides the form orientation — the
+first row of the table below, met on the first attempt.
+
 ## When it finds something — which side is actually wrong
 
 The symptom is easy to see. **Where the fix goes is not, and the instinct is usually wrong.**

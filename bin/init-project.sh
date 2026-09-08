@@ -283,8 +283,11 @@ The toolkit's rules change; your memory of them is stale by default. At the star
 session that will touch the pipeline:
 
 1. \`git -C $TOOLKIT_ROOT pull --ff-only\`
-2. \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root>\` — it reports protocol freshness and
-   tells you whether anything you depend on moved.
+2. \`$TOOLKIT_ROOT/bin/status.sh <project-root> --brief\` — three lines: where the project is,
+   what is done and overdue, and the ONE next action. Post them in chat as the session's first
+   message; they are the position of record, never your memory of last session. It runs
+   \`gate-check.sh\` underneath, which reports protocol freshness — run gate-check itself when
+   you need the per-stage detail.
 3. If it says an update is available, **you (the agent) handle it — never ask the user to type
    a command.** Run \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> --ack-protocol --verbose\`,
    which shows what changed and **records nothing**. Re-read the named files. Then tell the user
@@ -570,7 +573,12 @@ fi
 # .leakguard-deny is gitignored by design (a tracked denylist publishes exactly
 # the names it exists to suppress — the 2026-08-03 finding), so this writes to
 # the toolkit CLONE, never to the project, and never to anything committed.
-DENYFILE="$TOOLKIT_ROOT/.leakguard-deny"
+# MXTK_LEAKGUARD_DENYFILE overrides the target. Test fixtures set it to a scratch path: the
+# wave2 fixtures scaffold throwaway projects named t0..t10 through this very script, and each
+# run appended \bt0\b … \bt10\b to the developer's REAL denylist (and created one in CI),
+# after which the leak guard flagged every file containing "t1" — found 2026-09-08 when the
+# suites were first wired into CI and the guard went red on 200 files.
+DENYFILE="${MXTK_LEAKGUARD_DENYFILE:-$TOOLKIT_ROOT/.leakguard-deny}"
 if [ -w "$TOOLKIT_ROOT" ]; then
   # Dedupe with a FIXED-STRING search, not a regex one. The obvious version —
   # matching the name with `[^A-Za-z0-9]` boundaries — never fires, because the

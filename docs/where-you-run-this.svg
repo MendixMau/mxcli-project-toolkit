@@ -1,0 +1,94 @@
+<!-- Rendered from toolkit-guide.html §5 "Where you run this" — edit there, then re-export. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 540" width="100%" role="img" aria-labelledby="lanes-title" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+    <title id="lanes-title">Three places to run the toolkit, all working on one shared project</title>
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+      </marker>
+      <marker id="arr-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#0f4c81"/>
+      </marker>
+    </defs>
+
+    <!-- lane: cloud -->
+    <rect x="15" y="16" width="250" height="150" rx="10" fill="#ffffff" stroke="#e2e8f0"/>
+    <text x="30" y="42" font-size="15" font-weight="700" fill="#1e293b">☁︎ Cloud</text>
+    <text x="30" y="60" font-size="11.5" fill="#64748b">Claude Code on the web / mobile</text>
+    <text x="30" y="84" font-size="12" fill="#1e293b">• nothing to install</text>
+    <text x="30" y="102" font-size="12" fill="#1e293b">• headless: CLI writes, mxbuild gate</text>
+    <text x="30" y="120" font-size="12" fill="#1e293b">• see the app via a preview URL</text>
+    <text x="30" y="138" font-size="12" fill="#92400e">• ephemeral → push at every gate</text>
+    <text x="30" y="156" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#0f4c81">Environment: cloud</text>
+
+    <!-- lane: devcontainer -->
+    <rect x="295" y="16" width="250" height="150" rx="10" fill="#ffffff" stroke="#e2e8f0"/>
+    <text x="310" y="42" font-size="15" font-weight="700" fill="#1e293b">▣ Dev Container</text>
+    <text x="310" y="60" font-size="11.5" fill="#64748b">VS Code + Docker Desktop, or Codespaces</text>
+    <text x="310" y="84" font-size="12" fill="#1e293b">• toolchain pinned in the container</text>
+    <text x="310" y="102" font-size="12" fill="#1e293b">• headless: CLI writes, mxbuild gate</text>
+    <text x="310" y="120" font-size="12" fill="#1e293b">• see the app on localhost</text>
+    <text x="310" y="138" font-size="12" fill="#166534">• on your disk, nothing ephemeral</text>
+    <text x="310" y="156" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#0f4c81">Environment: devcontainer</text>
+
+    <!-- lane: local -->
+    <rect x="575" y="16" width="250" height="150" rx="10" fill="#ffffff" stroke="#0f4c81" stroke-width="1.5"/>
+    <text x="590" y="42" font-size="15" font-weight="700" fill="#1e293b">⌂ Local + Studio Pro</text>
+    <text x="590" y="60" font-size="11.5" fill="#64748b">Mac terminal, or Git Bash on Windows</text>
+    <text x="590" y="84" font-size="12" fill="#1e293b">• everything the other two do, plus:</text>
+    <text x="590" y="102" font-size="12" fill="#1e293b">• MCP + MDL live edits, hand-rolled MCP</text>
+    <text x="590" y="120" font-size="12" fill="#1e293b">• Studio-Pro-only ops (settings, security)</text>
+    <text x="590" y="138" font-size="12" fill="#1e293b">• UI polish with the app in front of you</text>
+    <text x="590" y="156" font-size="11" font-family="ui-monospace, Menlo, monospace" fill="#0f4c81">Environment: local</text>
+
+    <!-- arrows to shared -->
+    <path d="M140,166 L140,205 Q140,215 150,215 L400,215" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-start="url(#arr)"/>
+    <path d="M420,166 L420,225" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <path d="M700,166 L700,205 Q700,215 690,215 L440,215" fill="none" stroke="#94a3b8" stroke-width="1.5" marker-start="url(#arr)"/>
+    <text x="420" y="205" font-size="11" fill="#94a3b8" text-anchor="middle">switch any time — same files</text>
+
+    <!-- shared -->
+    <rect x="190" y="228" width="460" height="64" rx="10" fill="#1e293b"/>
+    <text x="420" y="254" font-size="14" font-weight="700" fill="#e2e8f0" text-anchor="middle">ONE project folder · one git repo · one .mpr</text>
+    <text x="420" y="276" font-size="11.5" fill="#cbd5e1" text-anchor="middle">PROJECT.md, gates, dashboard and toolkit clone are identical in every lane</text>
+
+    <!-- windows inset -->
+    <rect x="15" y="320" width="400" height="204" rx="10" fill="#ffffff" stroke="#e2e8f0"/>
+    <text x="30" y="346" font-size="14" font-weight="700" fill="#1e293b">Windows, specifically</text>
+    <text x="30" y="364" font-size="11.5" fill="#64748b">Two different things both say "WSL". They don't conflict.</text>
+
+    <rect x="30" y="378" width="370" height="58" rx="6" fill="#dcfce7"/>
+    <text x="42" y="397" font-size="12" font-weight="700" fill="#166534">✓ Docker Desktop runs on a WSL2 backend</text>
+    <text x="42" y="413" font-size="11.5" fill="#166534">VS Code asks "install Docker on WSL?" when you reopen an</text>
+    <text x="42" y="428" font-size="11.5" fill="#166534">mxcli new project in its Dev Container → say Yes. That's the ▣ lane.</text>
+
+    <rect x="30" y="444" width="370" height="66" rx="6" fill="#fee2e2"/>
+    <text x="42" y="463" font-size="12" font-weight="700" fill="#991b1b">✗ A WSL prompt as YOUR shell, next to Studio Pro</text>
+    <text x="42" y="479" font-size="11.5" fill="#991b1b">WSL is a separate Linux machine: it can't see Studio Pro or the</text>
+    <text x="42" y="494" font-size="11.5" fill="#991b1b">process holding your .mpr. For the ⌂ lane, type in Git Bash —</text>
+    <text x="42" y="507" font-size="11.5" fill="#991b1b">same filesystem and process space as Studio Pro and mxcli.</text>
+
+    <!-- rhythm inset -->
+    <rect x="435" y="320" width="390" height="204" rx="10" fill="#ffffff" stroke="#e2e8f0"/>
+    <text x="450" y="346" font-size="14" font-weight="700" fill="#1e293b">A typical rhythm</text>
+    <text x="450" y="364" font-size="11.5" fill="#64748b">Build where it's reproducible, polish where you can see it.</text>
+
+    <rect x="450" y="380" width="150" height="54" rx="6" fill="#f8fafc" stroke="#e2e8f0"/>
+    <text x="525" y="400" font-size="12" font-weight="700" fill="#1e293b" text-anchor="middle">☁︎ / ▣  build</text>
+    <text x="525" y="416" font-size="11" fill="#64748b" text-anchor="middle">stages 1–6, CLI scaffolds,</text>
+    <text x="525" y="428" font-size="11" fill="#64748b" text-anchor="middle">mxbuild gate, commit</text>
+
+    <rect x="660" y="380" width="150" height="54" rx="6" fill="#f8fafc" stroke="#0f4c81"/>
+    <text x="735" y="400" font-size="12" font-weight="700" fill="#1e293b" text-anchor="middle">⌂  polish</text>
+    <text x="735" y="416" font-size="11" fill="#64748b" text-anchor="middle">open the same .mpr in SP,</text>
+    <text x="735" y="428" font-size="11" fill="#64748b" text-anchor="middle">MCP edits, settings, UI</text>
+
+    <path d="M600,392 L660,392" fill="none" stroke="#0f4c81" stroke-width="1.5" marker-end="url(#arr-accent)"/>
+    <path d="M660,424 L600,424" fill="none" stroke="#0f4c81" stroke-width="1.5" marker-end="url(#arr-accent)"/>
+    <text x="630" y="375" font-size="10" fill="#0f4c81" text-anchor="middle">push, then open</text>
+    <text x="630" y="446" font-size="10" fill="#0f4c81" text-anchor="middle">close SP, then pull</text>
+
+    <rect x="450" y="456" width="360" height="38" rx="8" fill="#fef3c7"/>
+    <text x="630" y="472" font-size="11.5" font-weight="700" fill="#92400e" text-anchor="middle">ONE WRITER AT A TIME</text>
+    <text x="630" y="487" font-size="11" fill="#92400e" text-anchor="middle">never build in the container while Studio Pro holds the .mpr</text>
+    <text x="450" y="510" font-size="11" fill="#64748b">Switching lanes: skills/handoff-to-studio-pro.md (warns before an .mpr upgrade).</text>
+  </svg>

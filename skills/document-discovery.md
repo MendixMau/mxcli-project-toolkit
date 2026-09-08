@@ -143,6 +143,14 @@ Once every approved file has a `KB_*.md`, run a synthesis pass producing one `KB
 If the source folder changes later (new files added), re-run discovery — it should only surface
 the delta, not reclassify everything from scratch.
 
+**The mechanical form of both rules is `bin/source-ledger.sh`** (read from the Stage 0 inventory
+that `bin/source-sufficiency.sh init` writes — every file under the root, every format). "Nothing
+is ever silently dropped" is checked as: every inventory row has a disposition naming the artifact
+that consumed it (or a register waiver), and the artifact names the file; `init --refresh` is the
+re-scan that surfaces only the delta. `gate-check.sh` blocks Stage 1 and 2 until both hold. The
+`discovery-manifest.json` this skill produces is one valid artifact for a row to point at; the
+`KB_*.md` that actually carries the document's content is the better one.
+
 ---
 
 ## Output structure

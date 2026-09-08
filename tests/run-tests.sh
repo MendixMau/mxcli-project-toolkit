@@ -59,6 +59,10 @@ TOOLKIT_SHA="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown
 mkproject() {
   local d="$WORK/$1"
   mkdir -p "$d/analysis/alpha/knowledge-base"
+  # Since 9233a91 a passing gate at Stage 2+ is refused (exit 2) when NOTHING was examined for
+  # open questions — no BRD and no sme-questions.md. An empty question table is "examined,
+  # zero unraised", which is the state these stage-7 cases are about.
+  printf '# SME questions\n\n| ID | Question | Status |\n|---|---|---|\n' > "$d/analysis/sme-questions.md"
   {
     echo "# Project"
     echo

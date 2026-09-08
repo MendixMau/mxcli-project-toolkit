@@ -1,7 +1,7 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-125` — found 2026-09-07 writing script `88` of a
 Phase-19 conversion project (Mendix 11.13.0)
-**Status:** DRAFT — not yet filed
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1071 (2026-09-08)
 **Suggested labels:** bug, check, references, false-positive
 
 ---
@@ -16,6 +16,12 @@ including ones the shipped model already uses
 `mxcli check <script> -p <project>.mpr --references` cannot resolve **any** enumeration named in an
 attribute declaration. It resolves entities, associations, microflows and pages in the same script
 correctly; enumerations alone fall through and are reported missing.
+
+## Environment
+
+- mxcli **v0.20.0**
+- Mendix **11.13.0**
+- Linux container
 
 ## Repro
 

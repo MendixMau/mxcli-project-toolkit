@@ -293,3 +293,42 @@ navigationitem navItems (
 ```
 
 For custom SVG icons, apply a CSS class and leave Caption empty. Never populate Caption with a human-readable label on sidebar profiles.
+
+---
+
+## Control-bar buttons: bind the microflow parameter to the grid, not to `$currentObject`
+
+A button in a data grid's **control bar** sits outside the row context, so the object the
+operator selected is exposed as the **grid's own variable** — the widget name of the grid —
+and not as `$currentObject`. Getting this wrong fails in two different ways, neither of which
+names the real problem:
+
+```
+-- inside the row (a column's custom content): $currentObject is the row
+actionbutton btnEdit (Action: show_page Mod.Thing_NewEdit(Thing: $currentObject))
+
+-- inside the control bar: $currentObject does NOT resolve
+actionbutton btnGo (Action: microflow Mod.ACT_Go(Thing: $currentObject))   -- CE0117
+actionbutton btnGo (Action: microflow Mod.ACT_Go)                          -- CE1571
+actionbutton btnGo (Action: microflow Mod.ACT_Go(Thing: $grid1))           -- correct
+```
+
+- **CE0117** "Error(s) in expression" — `$currentObject` is not in scope there.
+- **CE1571** "No argument has been selected for parameter 'X' and no default is available" —
+  omitting the argument does not fall back to the selection.
+
+**Read the context off `DESCRIBE PAGE` rather than guessing the name.** mxcli emits it as a
+comment on the data grid, and it names both variables:
+
+```
+datagrid grid1 (DataSource: database from Mod.Thing, Selection: Single) {
+  -- Context: $currentObject (Mod.Thing), $grid1 (selection)
+```
+
+**Why this is worth a rule.** A module's own control-bar button describes as
+`actionbutton actionButton4 (Caption: 'Import file', Action: microflow X.IVK_Import)` — no
+argument at all — even though `IVK_Import` takes a parameter. Copying that shape is the natural
+move and it is exactly the shape that raises CE1571: the stored model carries an argument that
+`DESCRIBE` does not render. So the module's button is not the example to follow here; the
+`-- Context:` comment is. (Field-found 2026-09-07 wiring an "Import and process" button onto
+`ExcelImporter.Import_Overview` in a sales-coaching build, after two failed applies.)

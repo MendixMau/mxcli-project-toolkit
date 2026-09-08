@@ -26,6 +26,7 @@ table; a skill missing here is a skill no agent will find.
 | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" | `skills/agent-roles.md` |
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
 | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source | `bin/source-sufficiency.sh` |
+| Closing Stage 1, or adding files to a source folder — every inventoried file must name the artifact that consumed it (text AND embedded diagrams), or carry a waiver; blocks Stages 1–2 until it does | `bin/source-ledger.sh` |
 | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` |
 | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done | `bin/facts-lock.sh` |
 | Building any module — before the first script. The mdl-agent's single per-module input | `skills/module-brief.md` |
@@ -42,10 +43,12 @@ table; a skill missing here is a skill no agent will find.
 | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated | `skills/module-review.md` |
 | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` |
 | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` |
-| A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake | `bug-logs/mxcli-bugs.md` |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
 | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` |
+| A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" prints the matching ledger entries, so the session reads one entry, not the 32k-word ledger | `bin/bug-lookup.sh` |
+| The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory | `bin/status.sh` |
+| Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule | `skills/retesting-learned-rules.md` |
 <!-- ROUTING:END -->
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
 **Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.
@@ -109,7 +112,7 @@ The stages are the same for everyone; what differs is where you enter and which 
 | You're starting from… | Mode | Stages that run | What changes |
 |---|---|---|---|
 | **Legacy source code** (± docs, ± SME) | **Migration** | P, 0–7 (all) | The default everything below describes. Path A (code extractors) always runs. |
-| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs, and its *extraction* rows are marked N/A — see "Stage 0 runs in every entry mode" below. Use `document-discovery.md` over the requirements corpus for the inventory. Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
+| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs. `document-discovery.md` runs over the whole corpus for the inventory, **and** the extraction call runs per extractable structure inside it — a schema, a table dump, a data export or entity tables in a spec each get one; `N/A` is earned on evidence, never on the mode label (`source-triage.md` owns that rule — see "Stage 0 runs in every entry mode" below). Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
 | **Just an idea / a running start on the model** | **Greenfield** | P (light), 0 (scope only), 5–6 | Stages 1–4 collapse to whatever plan the user already has. Stage 0 does **not** collapse: with no corpus there is nothing to grade, but the scope conversation is exactly as load-bearing as it is anywhere else, so Stage 0 reduces to CAC-1's brainstorm and its sign-off. If you find yourself inventing requirements mid-build, you're actually in requirements-driven mode — back up to Stage 2. |
 
 ### Stage 0 runs in every entry mode
@@ -133,8 +136,9 @@ inferred:
 | Stage 0 component | Migration | Requirements-driven | Greenfield |
 |---|---|---|---|
 | Source inventory + sufficiency grade (`bin/source-sufficiency.sh`) | runs | runs — over the requirements corpus | N/A (no corpus) |
-| Reuse-vs-build-new extraction call (`source-triage.md`) | runs | **N/A** — record the reason, don't delete `triage.md` | **N/A** — record the reason |
-| Business capability map + coverage matrix | runs | capability map runs; coverage matrix N/A | N/A |
+| Reuse-vs-build-new extraction call (`source-triage.md`) | runs | **runs per extractable structure in the corpus** — `N/A` only when there is none, on evidence. `source-triage.md` owns this rule; don't decide it from the mode label | **N/A** — record the reason |
+| Document inventory (`document-discovery.md`) | runs if the corpus holds documents alongside code | **runs — over the whole corpus** | N/A (no corpus) |
+| Business capability map + coverage matrix | runs | capability map runs; coverage matrix carries one row per extractable structure, `N/A` only if there is none | N/A |
 | **Scope brainstorm + slice ordering (CAC-1)** | **runs** | **runs** | **runs** |
 | Sign-off (`## Sign-off` in `triage.md`) | required | required | required |
 
@@ -242,6 +246,12 @@ stopping at two questions.
 
 ## 1b. The Live Checklist Protocol — Progress Is Shown in the Chat
 
+**Every session opens with `bin/status.sh <project-root> --brief`** — three lines (WHERE / STATE /
+NEXT) posted before anything else. It condenses gate-check, the obligation check, the coherence
+cadence, the doctor receipt, the build log and the register into the position of record; a
+session that states its position from memory has been wrong twice in one day on a real project.
+The live checklist below is the *within-stage* view; status is the *between-sessions* one.
+
 Gates inform the user at stage *transitions*; this protocol informs them *during* a stage.
 The failure it fixes (reported by a live user, 2026-07-14): the agent works silently against
 file-based checklists for a whole stage, and the user has no idea what is being done until
@@ -269,8 +279,26 @@ Rules — these apply to every stage and every per-module build loop:
    checklists remain the durable record; the chat checklist is a view of them. If they
    disagree, the file is wrong or stale — fix it immediately.
 
+7. **Close out with the generated block, then open the next stage with it.** At every stage
+   gate — and at the Stage 2, 3 and 4 gates without exception — paste the output of
+   `bin/gate-check.sh --closeout <project-root> <stage>` as-is. It is generated from the
+   records the gates read, never composed from memory, and it tells the person in the chat
+   the four things the checklist and the verdict line do not: what the stage produced
+   (artifact by artifact), what was decided in it, what is carried forward (open questions
+   with the status word that keeps them open, ASSUMED decisions, drift markers), and what the
+   next stage will do, how it is worked and tested, under which skills, with which optional
+   artifacts on offer — followed by the gate line **in plain words**, for a reader who does
+   not know the toolkit. Where a checkpoint fires at the close (CAC-3 at Stage 2, CAC-5 at
+   Stage 4), the checkpoint message opens with the block (`checkpoint-template.md` → "Stage
+   close-out and stage open"); Stage 3 has no closing checkpoint, so its block is pasted at
+   the gate, before the ✋ decision is asked. This rule is the single source; the checkpoint
+   template and the gate rows below defer here. (Why, 2026-09-02: three transitions that
+   asked well and proved well and closed nothing — see the template section for the measured
+   register.)
+
 The final full-checklist repost before a gate doubles as the gate's evidence: the user should
-be able to approve the gate by reading that one message.
+be able to approve the gate by reading that one message. The close-out block is what the
+reader approves the *transition* on — checklist for the work, block for the hand-over.
 
 ---
 
@@ -387,7 +415,14 @@ were largely a silent source, not a decision backlog.
 The rubric has an `inventory` section and a `dimensions` section, and `report` refuses to score
 until the inventory is filled.
 
-- **Pass 1 — inventory: what is this source even about?** One row per file, filled by *opening* it:
+- **Pass 1 — inventory: what is this source even about?** One row per file — **every file under
+  the source root, no format skipped** (`bin/lib/source-inventory.py` walks it with a short
+  denylist; an extension the toolkit does not know is a row marked `unknown`, still opened, still
+  owed a disposition at Stage 1). Office and PDF rows carry the count of embedded images and
+  pages, because a text-only read of a 25-slide deck with 22 diagrams is not the deck (real miss,
+  2026-09-02). Files that arrive later: `bin/source-sufficiency.sh init <root> --refresh` appends
+  them as unopened rows and touches nothing already filled; the ledger reports them as drift until
+  then. Filled by *opening* it:
   what kind of thing it is, which rubric dimensions it can speak to, any boundary the source states
   about *itself* (quote it verbatim — a source that says what it does not cover is the cheapest
   scope signal you will ever get), and the components it names. The report prints this as a source
@@ -483,8 +518,8 @@ is better input than the triage map ever was.
 |---|---|
 | **User defines** | Do documents exist that aren't in the folder (specs, manuals, field-label sheets, screenshots)? DB schema? Sample data? Who has them? SME access for what neither code nor docs answer. **Then, at CAC-1b: does the extraction output match the intended scope — accept, narrow, or re-extract.** |
 | **Agent produces** | **Path A — code → AST extractors** (always runs *in migration mode*; N/A with attribution otherwise). **Path B — documents → LLM extraction** (`kb-generation.md`). **Path C — SME interview** (closes `openQuestions` that neither code nor docs answer). Plus CAC-1b's scope-out surface — the delta table when CAC-1 recorded a slice to diff against, otherwise the one-line statement of what extraction covers (a single app dropped in a folder needs stating, not interrogating). |
-| **Surface** | `<kb>/extraction-report.html` — `bin/extraction-report.sh <project-root>`. One renderer for every entry mode: it reads the knowledge base, not the source, so a Path B document corpus gets the same surface as a Path A extraction, one page per knowledge base at the path the gate looks for. Each section carries a `report-schema.md` verdict, and no zero is printed unless a second record (the pre-merge `extracted/*.json`, or `reports/summary.md`) agrees with it — one method returning zero renders `manual`, not a green. Until 2026-08-20 this was `node generate-report.js` inside each pipeline, so requirements-driven and greenfield projects could not produce the file their own Stage 1 gate requires, despite this row promising it. |
-| **Gate** | 4 extraction quality checks pass with evidence. Paths B and C are done or declared-unavailable, with attribution (who declared it, when). Advisory — `bin/gate-check.sh <project> 1` reports and exits 0. Record CAC-1b's outcome as a Stage-1 `Extraction scope:` decision naming what is in and what is out, so the next session isn't guessing. |
+| **Surface** | `analysis/source-ledger.html` — `bin/source-ledger.sh report <project-root>`: every inventoried file, its verdict, and what consumed it. `<kb>/extraction-report.html` — `bin/extraction-report.sh <project-root>`. One renderer for every entry mode: it reads the knowledge base, not the source, so a Path B document corpus gets the same surface as a Path A extraction, one page per knowledge base at the path the gate looks for. Each section carries a `report-schema.md` verdict, and no zero is printed unless a second record (the pre-merge `extracted/*.json`, or `reports/summary.md`) agrees with it — one method returning zero renders `manual`, not a green. Until 2026-08-20 this was `node generate-report.js` inside each pipeline, so requirements-driven and greenfield projects could not produce the file their own Stage 1 gate requires, despite this row promising it. |
+| **Gate** | 4 extraction quality checks pass with evidence. Paths B and C are done or declared-unavailable, with attribution (who declared it, when). **Every row of the Stage 0 inventory has a disposition that holds up** — `bin/source-ledger.sh check <project>`: an artifact that exists, is non-empty and *names* the file (with one specific finding as evidence, and for a container its images and pages accounted for: `mark <rel> --artifact <path> --evidence "<finding → where>" --pages N --media N --by <who>`; a mention is not a reading, post-mortem 2026-09-02 F3), or a person's waiver (`bin/gate-check.sh <project> --waive source/<rel> --reason "..."`), and no file on disk without an inventory row. This part **blocks** — `bin/gate-check.sh <project> 1` exits 1 on it, and so does Stage 2 — because it is a file test, not a conversation test: "the triage already used the deck" is grepped, not believed (the 2026-09-02 miss). The rest stays advisory. Record CAC-1b's outcome as a Stage-1 `Extraction scope:` decision naming what is in and what is out, so the next session isn't guessing. |
 | **Owner** | `ba-agent` |
 
 ### Stage 2 — Requirements
@@ -494,7 +529,7 @@ is better input than the triage map ever was.
 | **User defines** | Confirms business rules the code implies. Answers `openQuestions` (via SME). Narrative is never invented. |
 | **Agent produces** | BRD scaffolds → enrichment from `KB.md` → validation to clean. `F{NNN}.brd.json`. |
 | **Surface** | `analysis/brd-report.html` — `bin/brd-report.sh <project-root>`. One renderer for every entry mode: it reads BRDs, not source, so a requirements-driven or greenfield project gets the same surface as a migration, and so does a BRD no extractor produced. Each section carries a `report-schema.md` verdict, so a section that is empty because this kind of BRD has nothing to put there reads differently from one that is empty because something broke. Until 2026-08-19 this was `enrichment-summary.html`, built three times inside three pipelines against three different BRD key shapes — each copy rendered blanks for the other two’s output, and non-migration projects got no surface at all despite this row promising one. |
-| **Gate** | Every BRD validation-clean; `validation-report.md` has 0 issues; **every `openQuestions` entry raised in chat** — `bin/open-questions.sh <root> --stage 2` reports 0 blocking, which `gate-check.sh` enforces. "Chased to closure" was the old wording and it was unenforceable: a question logged with a self-answer read as closed. |
+| **Gate** | Every BRD validation-clean; `validation-report.md` has 0 issues; **every `openQuestions` entry raised in chat** — `bin/open-questions.sh <root> --stage 2` reports 0 blocking, which `gate-check.sh` enforces. Close-out block pasted (§1b rule 7) — CAC-3 opens with it. "Chased to closure" was the old wording and it was unenforceable: a question logged with a self-answer read as closed. |
 | **Owner** | `ba-agent` |
 
 ### Stage 3 — Architecture & Design ✋
@@ -506,7 +541,7 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | **User defines** | ① One Mendix app or several (if flagged at Stage 0). ② **Module boundaries** (agent proposes with `modularize-domain.md` criteria). ③ **Buy vs build vs stub, per fit-gap item** — the confirming step `brd-to-build-plan.md` assumed already happened. ④ **Target security / role model** — not just whether auth existed in the source, but what the target should be. ⑤ **Data volumes, concurrency, NFRs** — these decide indexing, pagination, datagrid-vs-paged-gallery, loop batch sizes. ⑥ **Integration contracts** — real or stub, endpoint, credentials, owner, test environment. ⑦ **Branding inputs** — logo, palette, type, spacing, per `design-artifacts.md`. |
 | **Agent produces** | `.mx-brd.json`, `architecture/` (module defs, layer diagram, wiring diagram, `fit-gap.md`, `blueprint.html` checkpoint render — plus a workflow diagram and/or agent-wiring diagram in `blueprint.md`/`blueprint.html` when CAC-3's Q3 flags real scope for either, plus cross-persona journey diagrams + journey list — `architecture-blueprint.md` Step 3d — whenever the BRDs carry more than one persona; single-persona skip recorded as a one-line note, never silent), `design/` per `design-artifacts.md`'s full output list: `ds.css` + `design-system.html` + **`wireframes/*.html`, one annotated wireframe per screen** — the design system without the wireframes is half the deliverable and fails the gate. |
 | **Surface** | `module-design.html` · `architecture/blueprint.html` (generated render of `blueprint.md` — architecture-blueprint.md Step 7, never hand-edited) · `design-system.html` + `wireframes/*.html` |
-| **Gate ✋** | Boundaries approved. Marketplace calls made. Role model, volumes, integrations and branding **each asked and answered**: `CONFIRMED`, or explicitly delegated by the user ("you decide" → `ASSUMED` with risk). Never `ASSUMED` without the question having reached the user. **No architecture/design artifact is produced before its checkpoint ran.** |
+| **Gate ✋** | Boundaries approved. Marketplace calls made. Role model, volumes, integrations and branding **each asked and answered**: `CONFIRMED`, or explicitly delegated by the user ("you decide" → `ASSUMED` with risk). Never `ASSUMED` without the question having reached the user. Close-out block pasted before the ✋ decision is asked (§1b rule 7) — this stage has no closing checkpoint, so the gate is where the Stage-4 open (its approach, skills and optional artifacts) is shown. **No architecture/design artifact is produced before its checkpoint ran.** |
 | **Owner** | `architect-agent` (interviews run by `ba-agent`) |
 
 ### Stage 4 — Build Plan ✋
@@ -516,7 +551,7 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | **User defines** | **Acceptance criteria per module** — what "done" means beyond CE-error-free. **Environment / DTAP / deployment target.** Iteration granularity. |
 | **Agent produces** | `architecture/build-plan.md` — numbered, dependency-ordered (marketplace imports → module roles → entities + entity grants → associations → microflows + execute grants → pages + view grants → demo users), grants **co-located** with the element they protect (never a deferred security script), the role-to-access table for every element, with pending decisions promoted to the top. Plus the first module's **module brief** (`architecture/modules/<Module>/module-brief.md`, per `module-brief.md`) — subsequent briefs are produced just-in-time as each module's build begins. Plus the **coverage ledger** (`architecture/modules/<Module>/coverage-ledger.md` per module; `architecture/coverage-ledger.md` for a single-BRD project — `coverage-ledger.md` §"Where the ledger lives"), generated per `coverage-ledger.md` from the BRDs and the plan's `claims:` blocks. `claims` is authored *here*, row by row, as the plan is written (`brd-to-build-plan.md` Step 5b) — required on new rows only; a plan written before the convention existed is an accepted state that reports coverage NOT MEASURED, not a defect. |
 | **Surface** | `build-plan.html` |
-| **Gate ✋** | Pending-decisions list empty or fully answered. Role-to-access table complete for every element. **Coverage check run** (procedure in `coverage-ledger.md`): UNCLAIMED, PHANTOM and DOUBLE-CLAIMED all empty, and the leaf counts **pasted in chat** — like `gate-check.sh` output, never attested. Every ledger entry carries a category and a reason; every `open-question` entry appears in the pending-decisions list and some row's `blockedBy`. **Every CONFIRMED decision from Stages 0–3 maps to a build-plan row id or a ledger `descoped` entry** — a confirmed decision with no build disposition is how scoped work silently vanishes (a real WMS incident: the CONFIRMED Phone-Web nav profile, wireframe and all, was never built and nothing flagged it). User approves — the coverage verdict is signed off alongside the plan. |
+| **Gate ✋** | Close-out block pasted (§1b rule 7) — CAC-5 opens with it. Pending-decisions list empty or fully answered. Role-to-access table complete for every element. **Coverage check run** (procedure in `coverage-ledger.md`): UNCLAIMED, PHANTOM and DOUBLE-CLAIMED all empty, and the leaf counts **pasted in chat** — like `gate-check.sh` output, never attested. Every ledger entry carries a category and a reason; every `open-question` entry appears in the pending-decisions list and some row's `blockedBy`. **Every CONFIRMED decision from Stages 0–3 maps to a build-plan row id or a ledger `descoped` entry** — a confirmed decision with no build disposition is how scoped work silently vanishes (a real WMS incident: the CONFIRMED Phone-Web nav profile, wireframe and all, was never built and nothing flagged it). User approves — the coverage verdict is signed off alongside the plan. |
 | **Owner** | `architect-agent` for the build plan; `ba-agent` drives each module brief (pulling `architect-agent` for the technical layer). |
 
 > **Before Stage 5 starts — run the build-ready check:** `bin/gate-check.sh <project-dir> build-ready`.
@@ -527,6 +562,8 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 > wired but is UI-blind (a real WMS-class miss).
 
 ### Stage 5 — Build
+
+**Stage 5 opens with the walking skeleton — every entry mode, before the first module** (`walking-skeleton.md`): one entity, one microflow, one page, one nav item, one demo user, one journey, one screenshot, proven in the running app. It is the proof that exec, mxbuild, run, look and test all work on this machine and this app; the register line `Skeleton proven <date>: …` is what `gate-check.sh` reads. A build that skipped it once ran 27 scripts against a build gate that could not execute and never ran a test.
 
 **Not migration-specific.** This is the standard Mendix build discipline — greenfield builds start here. Already well codified: layer1 (entities/associations/enums, `security-setup.mdl` last) → layer2 (microflows) → layer3 (pages); the guard chain (uncommitted → SP-open → concurrent-writer → snapshot → exec → mxbuild gate → auto-restore → manual SP reopen); the stale-build protocol; the STOP conditions in `learned-mdl-preflight.md`.
 

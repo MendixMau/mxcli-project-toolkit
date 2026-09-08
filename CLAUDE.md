@@ -19,7 +19,7 @@ Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"):
   It's also the shared CSS shell/tokens for every stage HTML surface — that use has nothing to do with opening it.
 - `skills/conversion-runbook.md` — **the spine**: 9-stage matrix, interview protocol, gates, entry modes. Start here when unsure what stage anything is in.
 - `bin/init-project.sh <project-root>` — **the one-command install**: `intake.md`, `PROJECT.md`, `CLAUDE.local.md` (runbook wiring), all six agent stubs, `index.html` dashboard; opens the guide. Idempotent.
-- `bin/gate-check.sh <project-dir> [stage]` — mechanical stage gates; regenerates the project dashboard from real files. Verdicts are `PASS` / `PENDING` (nothing there yet) / `FAIL` (there and wrong) / `WAIVED` (declared out of scope in the register, with a reason, via `--adopt` / `--waive`) / `MANUAL`. Never infer a project's position — read the register line, or ask. It also runs the **obligation check** (`bin/lib/obligations.tsv` + `bin/lib/obligation-check.sh`): per-module *passes* that owe a mark — LOOK, wiring sweep, journeys, coherence — each with the artifact that proves it and the denominator that artifact must state. A pass nobody performed reports `PENDING`/`FAULT`, never green-by-absence; `--waive look/<Module> --reason "..."` records a pass deliberately not performed, and obligations below an `--adopt` point report `ADOPTED`. Alongside it runs the **artifact check** (`bin/lib/artifact-manifest.tsv` + `bin/lib/artifact-check.sh`): the producer-side mirror — one row per artifact a stage's "Agent produces" row promises, each row citing the consumer that reads it, so a stage that never emitted its artifact reports `PENDING` out loud instead of being found by a human reading a failed project. File presence only, never content quality; waivers are register lines (`Waived artifact <id>: reason`, or the stage-level waiver covering its artifacts wholesale).
+- `bin/gate-check.sh <project-dir> [stage]` — mechanical stage gates; regenerates the project dashboard from real files. Verdicts are `PASS` / `PENDING` (nothing there yet) / `FAIL` (there and wrong) / `WAIVED` (declared out of scope in the register, with a reason, via `--adopt` / `--waive`) / `MANUAL`. Never infer a project's position — read the register line, or ask. It also runs the **obligation check** (`bin/lib/obligations.tsv` + `bin/lib/obligation-check.sh`): per-module *passes* that owe a mark — LOOK, wiring sweep, journeys, coherence — each with the artifact that proves it and the denominator that artifact must state. A pass nobody performed reports `PENDING`/`FAULT`, never green-by-absence; `--waive look/<Module> --reason "..."` records a pass deliberately not performed, and obligations below an `--adopt` point report `ADOPTED`. Alongside it runs the **artifact check** (`bin/lib/artifact-manifest.tsv` + `bin/lib/artifact-check.sh`): the producer-side mirror — one row per artifact a stage's "Agent produces" row promises, each row citing the consumer that reads it, so a stage that never emitted its artifact reports `PENDING` out loud instead of being found by a human reading a failed project. File presence only, never content quality; waivers are register lines (`Waived artifact <id>: reason`, or the stage-level waiver covering its artifacts wholesale). Third, the **source ledger** (`bin/source-ledger.sh`, over the every-file inventory `bin/source-sufficiency.sh init` writes): each source file must name the artifact that consumed it — text *and* embedded images/pages — or carry a `--waive source/<file>` register line; this one **blocks Stages 1–2**, because "the triage already used the deck" is a grep, not a conversation (real incident, 2026-09-02).
 - `bin/sync-project.sh <project-root>` — run after every toolkit `git pull`: refreshes the artifacts that were *copied* into the project (new intake questions, untouched agent stubs) and flags stale baseline routing. Referenced skills need no sync — they update with the pull.
 
 ## Live checklist — every stage, in the chat
@@ -32,7 +32,7 @@ All gate decisions land in the consuming project's `PROJECT.md`, marked `CONFIRM
 
 ## Key skills and when to load them
 
-Load skill files **on demand when the task calls for it** — not all upfront. Full routing table: `README.md` → "When to use which skill". The always-on set (`README.md` → "Baseline routing"): `query-the-model.md`, `learned-mdl-preflight.md`, `learned-microflow-patterns.md`, `learned-mcp-patterns.md`, `bug-logs/mxcli-bugs.md`.
+Load skill files **on demand when the task calls for it** — not all upfront. Full routing table: `README.md` → "When to use which skill". The always-on set (`README.md` → "Baseline routing"): `query-the-model.md`, `learned-mdl-preflight.md`, `learned-microflow-patterns.md`, `learned-mcp-patterns.md`, and `bin/bug-lookup.sh` (a CE code, BUG-n or keyword → the matching ledger entries; `bug-logs/mxcli-bugs.md` itself is read on demand — it outgrew the always-on budget).
 
 | Task | Read this file |
 |------|---------------|
@@ -172,7 +172,8 @@ in the same commit; inbox files are unreviewed and nothing may cite them),
 `bin/harvest-learnings.sh <project-root>` (drafts inbox files from a project's bug logs,
 register promotion tables, and locally-patched installed scripts — run it at project wrap-up),
 and direct PRs held to the full field-proof bar. CI (`.github/workflows/checks.yml`) runs
-check-scripts, render-routing --check, check-portability and the leak guard on every PR.
+check-scripts, render-routing --check, check-portability, the leak guard, and both fixture
+suites (`tests/run-tests.sh`, `tests/wave2/run-all.sh`) on every PR.
 
 ## Adding new skills
 Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcli project | requirements-driven`, `**Purpose:**`, and a step-by-step guide. Add it to `README.md`'s "When to use which skill" table. **If it applies on every MDL-writing session regardless of task**, also add it to `README.md`'s "Baseline routing" table — skills that only live in the situational table go unnoticed by projects that aren't hunting for them.
@@ -246,9 +247,16 @@ it and do not narrow the denylist.
 `tests/wave2/run-all.sh` runs every fixture in the suite. **Do not run it as a reflex "did I
 break anything" check after a normal edit.** Run only the fixture(s) that exercise the file(s)
 you actually touched (e.g. changed `bin/open-questions.sh` → run `test-open-questions.sh`;
-changed `bin/gate-check.sh` → also run `test-bug03-gates.sh`, `test-source-sufficiency-gate.sh`,
+changed `bin/gate-check.sh` → also run `test-bug03-gates.sh`, `test-source-sufficiency-gate.sh`, `test-source-ledger.sh`,
 whatever else targets it). Grep `tests/wave2/` for the filename you changed if you're unsure
 which fixtures cover it.
+
+There are two separate suites. `tests/run-tests.sh [-v]` is self-contained (guard-script
+fixtures with no external argument). Each `tests/wave2/test-*.sh` fixture instead takes its
+subject-under-test as `$1` — read its own `usage:` comment rather than assuming a fixed target;
+several take something other than `gate-check.sh` (`exec.sh`, `sync-project.sh`,
+`check-docs-numbering.sh`, a skill file). Once you have permission for a single fixture (see
+below), run it as e.g. `bash tests/wave2/test-bug02-register.sh bin/gate-check.sh`.
 
 **Why:** this repo is routinely edited by more than one agent session at once (real incident,
 2026-08-19 — a peer session mid-edit reported known, unrelated failures already present in the

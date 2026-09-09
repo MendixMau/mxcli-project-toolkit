@@ -73,6 +73,28 @@ stale the day the next project is scaffolded. `grep -o '^\.[a-z-]*' design/ds.cs
 is a fine first pass; then read the rules you plan to lean on, because a selector's shape
 matters (`.kpi b` styles a `<b>` inside the tile — it is not a class you can put on a widget).
 
+**Hard rule (B0) — before the FIRST page of the project, prove the design system reached the
+app.** A stylesheet that shipped is not a stylesheet the app is wearing. Run
+`project-bin/check-design-reaches-app.sh` against the built stylesheet and read the three
+denominators: framework knobs bound, tokens arrived, classes arrived. `0 of N` on any of them
+means every class you are about to write resolves to nothing, and every later page inherits it.
+Write the report block to **`docs/design-reaches-app.md`**, first line carrying the denominators
+(`N of M framework knobs bound · tokens N of M · classes N of M`, build date, `theme.compiled.css`
+path) — that file is the mark that discharges the `design-reaches-app` obligation in
+`bin/lib/obligations.tsv`; without it the pass reads as never performed.
+
+Measured 2026-09-09: 55 tokens were ported into the right file at the right stage, 0 of 35
+framework knobs were bound, 0 of 20 component classes existed in the built stylesheet, and two
+build phases of pages were written on top of it. The pages were structurally correct. `mx
+check`, `mxcli lint`, the MDL suite and two e2e journeys were all green, because none of them
+reads a stylesheet. It was found by a human opening a screenshot and asking why the UI was
+poor. The three failures were a bridge written against the wrong layer (SCSS variables where
+the theme runs `$use-css-variables: true`), component classes never ported at all, and a theme
+module whose `:root` loses the cascade to the framework's own customization file.
+
+If there is no build yet, say so in the report block — "binding UNPROVEN, no build" is a legal
+answer and silence is not.
+
 **Hard rule (B1):** every `class:` value on a page widget must match a token in the project's
 design-system file. Do not invent class names, do not use bare-Atlas class names as the only
 class on a design-system-styled widget, do not write inline styles.

@@ -1,0 +1,19 @@
+-- Binds the list; contains none of the three sample rows' literal text.
+CREATE OR REPLACE PAGE Demo.Demo_List
+  (
+    Title: 'Approvals',
+    Layout: Demo.App_Default
+  )
+  {
+    HEADER hdrList {
+      DYNAMICTEXT h1List (Content: 'Approvals', RenderMode: H1)
+    }
+    LAYOUTGRID lg {
+      ROW r1 { COLUMN c1 (DesktopWidth: 12) {
+        LISTVIEW lvTasks (DataSource: DATABASE FROM Demo.Task) {
+          DYNAMICTEXT txtTask (Content: '{1}', ContentParams: [{1} = TaskName])
+          DYNAMICTEXT txtWho (Content: '{1}', ContentParams: [{1} = AssignedTo], Class: 'ds-muted')
+        }
+      } }
+    }
+  }

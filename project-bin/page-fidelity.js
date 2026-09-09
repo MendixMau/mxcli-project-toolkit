@@ -164,6 +164,12 @@ function contentOf(html) {
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*\banno-wrap\b[^"]*"/i);
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*\brail-note\b[^"]*"/i);
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*\bannot\b[^"]*"/i);
+  // `.anno` — NOT reached by the `annot` pattern above, because \b after "anno" needs a
+  // non-word character and "t" is one. Measured 2026-09-09 on a MOC/PSSR app
+  // replacement, whose annotation block is `div.anno`: every page scored its own
+  // annotation as missing page content, reporting "heading: Annotation" as the first
+  // miss on a page whose real H1 is correct. Two faithful pages at 9%.
+  s = dropBalanced(s, /<(div)[^>]*class="[^"]*\banno\b[^"]*"/i);
   s = dropBalanced(s, /<(table)[^>]*class="[^"]*\bbind\b[^"]*"/i);
   // A "this screen is descoped/annotation-only" banner is chrome, not page copy.
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*alert[^"]*"(?=[\s\S]{0,400}?DESCOPED)/i);
@@ -247,14 +253,30 @@ function wfFacts(file) {
     const re = new RegExp('<(div|button|span|p)[^>]*class="[^"]*\\b' + c + '\\b[^"]*"', 'i');
     if (!re.test(main)) continue;
     const after = dropBalanced(main, re);
-    // STRUCTURE IS NOT A MOCK. A bound-data mock is a repeated REGION of the page —
-    // .passage/.qcard occur once per list item, which is what makes their sample text
-    // bound data. A class that occurs ONCE and whose subtree is most of the page is the
-    // wireframe's own wrapper (.wf-wrap, .mockup-frame), and dropping it deletes the page.
-    // Both tests must hold, so a genuinely dominant repeated mock still scores as a mock.
+    // STRUCTURE IS NOT A MOCK, AND THE TEST IS REPETITION ALONE. A bound-data mock is a
+    // repeated REGION of the page — .passage/.qcard occur once per list item, which is
+    // what makes their sample text bound data. A class used ONCE is the wireframe's own
+    // scaffolding: a wrapper, a page header, a toolbar. It is not a sample of anything,
+    // because there is nothing for it to be one of.
+    //
+    // This test used to be `uses === 1 && kept < 0.4` — once-used AND dominant — which
+    // contradicted the paragraph above it: a once-used class whose subtree was SMALL fell
+    // through and was dropped as a mock. Measured 2026-09-09 on a MOC/PSSR app
+    // replacement's project overview, whose `.page-head` is used once and measures
+    // kept=0.513: the header subtree was deleted, taking the page's only <h1> with it, and
+    // every dimension reported 0 of 0. That normalizes to `null%`, so the run printed a
+    // clean report over an empty corpus — the exact failure the note further down this
+    // file says was worth fixing, arriving a second time through the other conjunct.
+    //
+    // `.toolbar` (uses=1, kept=0.825) went the same way in the same run. Both are page
+    // furniture the page script must declare, and both were scored as sample data.
+    //
+    // The 0.4 threshold is gone rather than retuned: it was a guess, and any value for it
+    // splits once-used wrappers into two classes on a measurement that has nothing to do
+    // with whether their content is bound data. A repeated region is still a mock at any
+    // size, which is the half that was always right.
     const uses = (main.match(new RegExp(re.source, 'gi')) || []).length;
-    const kept = strip(after).length / Math.max(1, strip(main).length);
-    if (uses === 1 && kept < 0.4) { structural.push(c); continue; }
+    if (uses === 1) { structural.push(c); continue; }
     mockUsed.push(c); main = after;
   }
   const grab = re => [...main.matchAll(re)].map(x => strip(x[1])).filter(Boolean);
@@ -292,12 +314,42 @@ function pageMdl() {
   let out = '';
   for (const f of MDLS) {
     const src = f === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(f, 'utf8');
-    // Case-insensitive; page name quoted or bare; body up to a closing brace at col 0.
     const re = new RegExp(
-      'CREATE(\\s+OR\\s+(MODIFY|REPLACE))?\\s+PAGE\\s+"?[A-Za-z0-9_]+"?\\."?' + PAGE + '"?\\b[\\s\\S]*?\\n\\}', 'gi');
-    for (const m of src.matchAll(re)) out += m[0] + '\n';
+      'CREATE(\\s+OR\\s+(MODIFY|REPLACE))?\\s+PAGE\\s+"?[A-Za-z0-9_]+"?\\."?' + PAGE + '"?\\b', 'gi');
+    for (const m of src.matchAll(re)) out += pageBody(src, m.index) + '\n';
   }
   return out;
+}
+
+// Known limit: the counter does not skip quoted strings, so an UNBALANCED brace inside a
+// string literal truncates the body early (balanced placeholders like '{1} of {2}' are fine).
+// The page body, from its declaration to the brace that MATCHES the body's opening
+// one, counted per character with parens tracked.
+//
+// It used to be a regex ending at '\n\}' — a closing brace at COLUMN 0 — which finds
+// nothing at all for an indented page. Measured 2026-09-09 on a MOC/PSSR app
+// replacement: two wizard pages whose bodies are wrapped in a LAYOUTGRID (which
+// mxcli's own MPR010 advises for any DataView holding inputs) close at two spaces of
+// indent, so the scan matched nothing and the tool exited 2 with 'no declaration of
+// page "X" found in input' for a page that is plainly there. A project that follows
+// that advice could not score any page.
+//
+// The parens matter because a multi-line declaration carries
+// `Params: { $X: Mod.Entity }`, which opens and closes a brace before the body does —
+// the identical pair of cases that took two wrong attempts in check-page-shell.sh,
+// whose header records them.
+function pageBody(src, from) {
+  let pd = 0, bd = 0, started = false;
+  for (let i = from; i < src.length; i++) {
+    const c = src[i];
+    if (!started) {
+      if (c === '(') pd++;
+      else if (c === ')') { if (pd > 0) pd--; }
+      else if (c === '{' && pd === 0) { started = true; bd = 1; }
+    } else if (c === '{') bd++;
+    else if (c === '}') { bd--; if (bd <= 0) return src.slice(from, i + 1); }
+  }
+  return src.slice(from);
 }
 
 function score(wf, mdl) {

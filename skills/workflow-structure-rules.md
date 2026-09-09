@@ -287,9 +287,11 @@ specific mxcli build, and "proven" means proven *on or after* the version named 
 `HELP` is not evidence of non-support (`learned-workflow-patterns.md` §7), but a version below a
 row's stated floor is evidence against it.
 
-| Construct | MDL status — probed on **mxcli v0.20.0 / Mendix 11.14.0, 2026-09-03** |
+| Construct | MDL status — probed on **mxcli v0.20.0 / Mendix 11.14.0, 2026-09-03**; the rows Phase-7-shaped builds depend on were re-probed on **v0.21.0, 2026-09-09** and are marked |
 |---|---|
-| user task, outcomes, targeting XPath (**both** the three-segment path form and the `[%UserRole_X%]` token form), targeting microflow, call workflow, notify workflow | **proven** |
+| user task, outcomes, targeting XPath (**both** the three-segment path form and the `[%UserRole_X%]` token form), targeting microflow, call workflow, notify workflow | **proven**. Re-probed on **v0.21.0 / Mendix 11.14.0, 2026-09-09** — but see the two SIGNATURE rows immediately below, which are not about whether the construct writes and are how a clean `mxcli check` still yields a project that will not build |
+| **a user task's `PAGE`** | **the page must take a `System.WorkflowUserTask` parameter — in addition to `$WorkflowContext` (`learned-workflow-patterns.md` §4 rule 1, CE7412 when either is missing) — never the context entity alone.** A page parameterised on the context entity only passes `mxcli check --references` completely clean, execs, and reads back from `DESCRIBE`; the native build then says *"The selected page 'X' should accept a parameter of type 'WorkflowUserTask', but expects parameters of types 'MOCProject' instead"*. Measured v0.21.0, 2026-09-09, on three tasks at once. The consequence for a plan: **the task pages are a prerequisite of the workflow row, not a later UI row** — build them first, or the workflow row cannot go green |
+| **a targeting microflow's signature** | **it must accept TWO parameters — `System.Workflow` AND the context entity — in that order.** One parameter is the natural thing to write and it is wrong: *"should accept parameters of type 'System.Workflow' and 'MOC.MOCProject'. Instead the selected microflow expects 'MOC.MOCProject'"*. Again clean through `mxcli check`, caught only by the native build. Neither this signature nor the page's appears in `mxcli syntax workflow.user-task.targeting`, whose own example is `TARGETING MICROFLOW HR.GetApprovers` with no signature stated. Measured v0.21.0, 2026-09-09 |
 | **multi-user task** — the activity itself | **proven**. Undocumented in `mxcli syntax workflow`; works anyway |
 | **`JUMP TO <activity>`** inside a user-task outcome | **proven** |
 | **`WAIT FOR TIMER '<expression>'`** and **`WAIT FOR NOTIFICATION;`** | **proven**. Both undocumented; the notification takes **no name** — that is a Studio Pro property |
@@ -307,6 +309,19 @@ row's stated floor is evidence against it.
 | **explicit `END WORKFLOW`, end-of-parallel-split-path, end-of-boundary-event-path** | **not expressible, and not needed.** MDL terminates by nesting, which `mx check` accepts. A consequence worth knowing: **CE1844 cannot be triggered from MDL** — §4 governs the diagram and anything hand-added, not the script |
 | **user-task `onCreatedEvent`** (the *On created* handler — the mechanism §6 names for assignment carried in data) | **not expressible in MDL, and this is grammar-level, not a docs gap.** The parser enumerates its own alternatives: after `PARAMETER` it accepts only `{BEGIN, EXPORT, DUE, OVERVIEW, DESCRIPTION, DISPLAY}`, and after a user task's `PAGE` only `;`. Four spellings probed (`ON CREATED CALL MICROFLOW`, `ON WORKFLOW EVENT`, task-level `ON CREATED`, `ONCREATEDEVENT`), all rejected at parse. **But it IS on the MCP write path** — `mxcli`'s `CreateWorkflow`/`UpdateWorkflow` payload carries `json:"onCreatedEvent"` on the *user-task* struct, beside `taskPage`, `outcomes` and `boundaryEvents`, and without `omitempty`. So it is a **per-task** property, not one workflow-level handler. End-to-end MCP write **not verified** — that needs a live Studio Pro. Treat as: hand-add, or MCP if you have Studio Pro up (`learned-mcp-patterns.md`) |
 | **AI agent task activity** | **unprobed** — its model rules (companion microflow first, outcomes mirror its return values, Boolean/Enum/Void only) hold whichever tool writes it |
+
+**Re-probed on v0.21.0, 2026-09-09, WITH A KNOWN-BAD CONTROL.** Four constructs a real approval
+chain needs — user task with a targeting microflow, multi-user task, `CALL MICROFLOW` with a quoted
+`WITH`, and a backward `JUMP TO` inside an outcome — all build clean on v0.21.0 once the two
+signature rows above are respected. That result is only worth having because the same run included
+the construct known to be broken: a scripted `DECISION` passed `mxcli check`, reported
+`Created workflow`, and left the project **unopenable** —
+`Mendix.Modeler.Storage.StorageLoadException: One or more invalid values were detected while
+loading the project`, then `BUILD FAILED`. So BUG-76 is open on v0.21.0, and the probe can
+distinguish a working construct from a broken one. **A probe with no known-bad control cannot tell
+"it works" from "the probe is blind"** — this repo has already published one wrong conclusion for
+exactly that reason (BUG-121, where a sequentially-built control only showed that a task looks like
+a task).
 
 **The one thing to take from this table.** `mxcli check` was **wrong on 5 of the 12 constructs
 probed**. Three of them passed `mxcli check --references`, passed `exec`, and read back

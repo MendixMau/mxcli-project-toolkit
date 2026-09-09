@@ -78,6 +78,11 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # .claude/loop/page-scope.json, and the producer existed nowhere, so the LOOK rung ran
 # --static-only (reduced evidence) in every project by construction.
 #
+# check-design-reaches-app.sh joined on 2026-09-09, from the field run where the same design
+# system was ported correctly and reached nothing: 0 of 35 framework knobs bound, 0 of 20
+# component classes in the built stylesheet, two build phases shipped in the default blue.
+# It needs a BUILD to answer, which is exactly why nothing answered it before.
+#
 # check-design-portability.sh joined on 2026-08-26, from a field run that found five real design
 # -system defects none of which any existing instrument could see: mx check validates the model and
 # CSS is not in the model; a class name is an opaque string to `mxcli check --references`; and
@@ -90,7 +95,7 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # point is the across-runs trend — the stakeholder-visibility story that "we are finding bugs
 # and improving" — and every other stage artifact gets an HTML surface while the register had
 # none; the trend view lived only as a grep in the skill.
-MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-page-shell.sh page-fidelity.js"
+MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. The reverse check
 # below flags anything named by NEITHER list, so a new file in project-bin/ has to be either

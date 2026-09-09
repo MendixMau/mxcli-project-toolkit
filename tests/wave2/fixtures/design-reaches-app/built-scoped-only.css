@@ -1,0 +1,71 @@
+.mx-page {
+  display: flex;
+}
+
+:root {
+  /* Brand Colors */
+  --brand-primary: #264ae5;
+  --brand-success: #16aa16;
+  --brand-warning: #cd8501;
+  --brand-danger: #EA3337;
+  --brand-default: color-mix(in srgb, var(--brand-primary) 10%, #e7e7e9);
+  --gray: #B8BABF;
+  --font-family-base: "Poppins", sans-serif;
+  --font-size-default: 14px;
+  --border-radius-default: 4px;
+}
+
+:root {
+  --brand-primary-600: color-mix(in srgb, var(--brand-primary), var(--color-contrast) 20%);
+  --brand-primary-700: color-mix(in srgb, var(--brand-primary), var(--color-contrast) 30%);
+}
+
+:root {
+  --brand: #AA1122;
+  --brand-hover: #99101F;
+  --brand-active: #880E1B;
+  --brand-ink: #770C18;
+  --brand-wash: #FDEEEE;
+  --on-brand: #FFFFFF;
+  --bg: #FAFAFA;
+  --surface: #FFFFFF;
+  --line: #E6E6E8;
+  --ink: #1B1B1F;
+  --ink-body: #2E2E33;
+  --ink-soft: #6B6B73;
+  --ink-faint: #9A9AA2;
+  --font: "Open Sans", sans-serif;
+  --fs-body: 15px;
+  --radius: 6px;
+  --sp-3: 16px;
+  --sp-4: 24px;
+}
+
+.ds-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--sp-4) var(--sp-3);
+}
+.ds-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.ds-muted {
+  color: var(--ink-soft);
+}
+.ds-btn {
+  height: 40px;
+  border-radius: var(--radius);
+}
+.ds-btn--primary {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+
+:root.theme-neutral {
+  --brand-primary: var(--brand);
+  --font-family-base: var(--font);
+  --font-size-default: var(--fs-body);
+  --border-radius-default: var(--radius);
+}

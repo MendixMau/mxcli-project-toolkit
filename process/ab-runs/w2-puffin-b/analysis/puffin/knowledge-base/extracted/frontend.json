@@ -1,0 +1,35 @@
+{
+  "source": "frontend",
+  "items": [
+    {
+      "type": "screen",
+      "name": "DashboardList",
+      "module": "frontend",
+      "linkId": "screen:frontend:dashboardlist",
+      "screenKind": "page",
+      "boundEntity": "Dashboard",
+      "apiCalls": [],
+      "composesComponents": [
+        "Response",
+        "Props",
+        "Button",
+        "Card"
+      ],
+      "widgetSummary": {
+        "dataSources": [
+          "DashboardList"
+        ],
+        "boundEntities": [
+          "Dashboard"
+        ]
+      },
+      "description": "React container extracted from DashboardList.tsx",
+      "_gaps": []
+    }
+  ],
+  "errors": [],
+  "meta": {
+    "fileCount": 1,
+    "duration": 1
+  }
+}

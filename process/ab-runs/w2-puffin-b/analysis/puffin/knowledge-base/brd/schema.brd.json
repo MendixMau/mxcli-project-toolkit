@@ -1,0 +1,175 @@
+{
+  "modules": [
+    "schema"
+  ],
+  "generatedAt": "2026-09-09T16:33:31.707Z",
+  "confidence": "high",
+  "appType": {
+    "label": "Mixed",
+    "confidence": "low",
+    "signals": [
+      "0 pages, 0 logic items, 0 integrations — no dominant pattern"
+    ]
+  },
+  "summary": {
+    "entityCount": 4,
+    "enumerationCount": 0,
+    "microflowCount": 0,
+    "nanoflowCount": 0,
+    "bptProcessCount": 0,
+    "pageCount": 0,
+    "webBlockCount": 0,
+    "useCaseCount": 0,
+    "integrationCount": 0,
+    "timerCount": 0,
+    "openGapCount": 0
+  },
+  "domainEntities": [
+    {
+      "name": "User",
+      "mendixType": "PersistentEntity",
+      "isPublic": true,
+      "description": "Persistent entity extracted from SQL table \"users\" (schema.sql)",
+      "attributeCount": 4,
+      "keyAttributes": [
+        {
+          "name": "email",
+          "type": "String(unlimited)",
+          "isMandatory": true,
+          "isForeignKey": false,
+          "referencedEntity": "",
+          "deleteRule": ""
+        },
+        {
+          "name": "password_hash",
+          "type": "String(unlimited)",
+          "isMandatory": true,
+          "isForeignKey": false,
+          "referencedEntity": "",
+          "deleteRule": ""
+        }
+      ],
+      "associations": [],
+      "indexes": [],
+      "gaps": []
+    },
+    {
+      "name": "Dashboard",
+      "mendixType": "PersistentEntity",
+      "isPublic": true,
+      "description": "Persistent entity extracted from SQL table \"dashboards\" (schema.sql)",
+      "attributeCount": 5,
+      "keyAttributes": [
+        {
+          "name": "owner_id",
+          "type": "Enumeration /* Integer */",
+          "isMandatory": true,
+          "isForeignKey": true,
+          "referencedEntity": "User",
+          "deleteRule": "SetNone"
+        },
+        {
+          "name": "name",
+          "type": "String(unlimited)",
+          "isMandatory": true,
+          "isForeignKey": false,
+          "referencedEntity": "",
+          "deleteRule": ""
+        }
+      ],
+      "associations": [
+        {
+          "to": "User",
+          "deleteRule": "SetNone"
+        }
+      ],
+      "indexes": [],
+      "gaps": []
+    },
+    {
+      "name": "Widget",
+      "mendixType": "PersistentEntity",
+      "isPublic": true,
+      "description": "Persistent entity extracted from SQL table \"widgets\" (schema.sql)",
+      "attributeCount": 5,
+      "keyAttributes": [
+        {
+          "name": "dashboard_id",
+          "type": "Enumeration /* Integer */",
+          "isMandatory": true,
+          "isForeignKey": true,
+          "referencedEntity": "Dashboard",
+          "deleteRule": "DeleteMeAndReferences"
+        },
+        {
+          "name": "widget_type",
+          "type": "String(unlimited)",
+          "isMandatory": true,
+          "isForeignKey": false,
+          "referencedEntity": "",
+          "deleteRule": ""
+        },
+        {
+          "name": "config",
+          "type": "String(unlimited)",
+          "isMandatory": true,
+          "isForeignKey": false,
+          "referencedEntity": "",
+          "deleteRule": ""
+        }
+      ],
+      "associations": [
+        {
+          "to": "Dashboard",
+          "deleteRule": "DeleteMeAndReferences"
+        }
+      ],
+      "indexes": [],
+      "gaps": []
+    },
+    {
+      "name": "DashboardShare",
+      "mendixType": "PersistentEntity",
+      "isPublic": true,
+      "description": "Persistent entity extracted from SQL table \"dashboard_shares\" (schema.sql)",
+      "attributeCount": 2,
+      "keyAttributes": [
+        {
+          "name": "dashboard_id",
+          "type": "Enumeration /* Integer */",
+          "isMandatory": true,
+          "isForeignKey": true,
+          "referencedEntity": "Dashboard",
+          "deleteRule": "DeleteMeAndReferences"
+        },
+        {
+          "name": "user_id",
+          "type": "Enumeration /* Integer */",
+          "isMandatory": true,
+          "isForeignKey": true,
+          "referencedEntity": "User",
+          "deleteRule": "SetNone"
+        }
+      ],
+      "associations": [
+        {
+          "to": "Dashboard",
+          "deleteRule": "DeleteMeAndReferences"
+        },
+        {
+          "to": "User",
+          "deleteRule": "SetNone"
+        }
+      ],
+      "indexes": [],
+      "gaps": []
+    }
+  ],
+  "microflows": [],
+  "pages": [],
+  "webBlocks": [],
+  "useCases": [],
+  "integrations": [],
+  "timers": [],
+  "openGaps": []
+}

@@ -1,0 +1,79 @@
+{
+  "modules": [
+    "frontend"
+  ],
+  "generatedAt": "2026-09-09T16:33:31.709Z",
+  "confidence": "high",
+  "appType": {
+    "label": "Mixed",
+    "confidence": "low",
+    "signals": [
+      "1 pages, 0 logic items, 0 integrations — no dominant pattern"
+    ]
+  },
+  "summary": {
+    "entityCount": 0,
+    "enumerationCount": 0,
+    "microflowCount": 0,
+    "nanoflowCount": 0,
+    "bptProcessCount": 0,
+    "pageCount": 1,
+    "webBlockCount": 0,
+    "useCaseCount": 1,
+    "integrationCount": 0,
+    "timerCount": 0,
+    "openGapCount": 0
+  },
+  "domainEntities": [],
+  "microflows": [],
+  "pages": [
+    {
+      "name": "DashboardList",
+      "title": "DashboardList",
+      "isPublic": false,
+      "uiPattern": "detail",
+      "description": "React container extracted from DashboardList.tsx",
+      "inputParameters": [],
+      "clientActions": [],
+      "widgetTypes": [],
+      "dataSources": [
+        "DashboardList"
+      ],
+      "hasConditionalStyling": false,
+      "linkedLogics": [],
+      "gaps": []
+    }
+  ],
+  "webBlocks": [],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "DashboardList",
+      "screen": "DashboardList",
+      "uiPattern": "detail",
+      "linkedLogics": [],
+      "inputParameters": [],
+      "actors": [
+        "TODO: identify actors"
+      ],
+      "preconditions": [
+        "TODO: define preconditions"
+      ],
+      "mainFlow": [
+        "TODO: describe user interaction steps"
+      ],
+      "postconditions": [
+        "TODO: define postconditions"
+      ],
+      "openQuestions": [
+        "No API call or component composition detected on this screen — confirm this is a display-only / read-only page"
+      ],
+      "gaps": [],
+      "status": "code-inferred",
+      "reviewStatus": "pending"
+    }
+  ],
+  "integrations": [],
+  "timers": [],
+  "openGaps": []
+}

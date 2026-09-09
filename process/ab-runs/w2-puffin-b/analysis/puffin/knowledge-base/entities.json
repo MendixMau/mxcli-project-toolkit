@@ -1,0 +1,333 @@
+[
+  {
+    "type": "entity",
+    "name": "User",
+    "module": "schema",
+    "linkId": "entity:schema:User",
+    "isPersistent": true,
+    "isPublic": true,
+    "description": "Persistent entity extracted from SQL table \"users\" (schema.sql)",
+    "sourceTable": "users",
+    "extractedFrom": "sql",
+    "attributes": [
+      {
+        "name": "email",
+        "type": "String",
+        "sqlType": "varchar",
+        "isMandatory": true,
+        "isUnique": true,
+        "hasDefault": false,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "password_hash",
+        "type": "String",
+        "sqlType": "varchar",
+        "isMandatory": true,
+        "isUnique": false,
+        "hasDefault": false,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "role",
+        "type": "String",
+        "sqlType": "varchar",
+        "isMandatory": false,
+        "isUnique": false,
+        "hasDefault": true,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "created_at",
+        "type": "DateTime",
+        "sqlType": "timestamp",
+        "isMandatory": false,
+        "isUnique": false,
+        "hasDefault": true,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      }
+    ],
+    "indexes": [],
+    "_gaps": [],
+    "_links": []
+  },
+  {
+    "type": "entity",
+    "name": "Dashboard",
+    "module": "schema",
+    "linkId": "entity:schema:Dashboard",
+    "isPersistent": true,
+    "isPublic": true,
+    "description": "Persistent entity extracted from SQL table \"dashboards\" (schema.sql)",
+    "sourceTable": "dashboards",
+    "extractedFrom": "sql",
+    "attributes": [
+      {
+        "name": "owner_id",
+        "type": "Integer",
+        "sqlType": "integer",
+        "isMandatory": true,
+        "isUnique": false,
+        "hasDefault": false,
+        "isForeignKey": true,
+        "referencedEntity": "User",
+        "isAutoNumber": false,
+        "deleteRule": "SetNone"
+      },
+      {
+        "name": "name",
+        "type": "String",
+        "sqlType": "varchar",
+        "isMandatory": true,
+        "isUnique": false,
+        "hasDefault": false,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "description",
+        "type": "String",
+        "sqlType": "text",
+        "isMandatory": false,
+        "isUnique": false,
+        "hasDefault": false,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "status",
+        "type": "String",
+        "sqlType": "varchar",
+        "isMandatory": false,
+        "isUnique": false,
+        "hasDefault": true,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "created_at",
+        "type": "DateTime",
+        "sqlType": "timestamp",
+        "isMandatory": false,
+        "isUnique": false,
+        "hasDefault": true,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "DateTime",
+        "sqlType": "timestamp",
+        "isMandatory": false,
+        "isUnique": false,
+        "hasDefault": true,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      }
+    ],
+    "indexes": [],
+    "_gaps": [],
+    "_links": [
+      {
+        "id": "entity:schema:User",
+        "confidence": "high",
+        "matchedBy": "fk-ref-name",
+        "via": "owner_id"
+      }
+    ]
+  },
+  {
+    "type": "entity",
+    "name": "Widget",
+    "module": "schema",
+    "linkId": "entity:schema:Widget",
+    "isPersistent": true,
+    "isPublic": true,
+    "description": "Persistent entity extracted from SQL table \"widgets\" (schema.sql)",
+    "sourceTable": "widgets",
+    "extractedFrom": "sql",
+    "attributes": [
+      {
+        "name": "dashboard_id",
+        "type": "Integer",
+        "sqlType": "integer",
+        "isMandatory": true,
+        "isUnique": false,
+        "hasDefault": false,
+        "isForeignKey": true,
+        "referencedEntity": "Dashboard",
+        "isAutoNumber": false,
+        "deleteRule": "DeleteMeAndReferences"
+      },
+      {
+        "name": "widget_type",
+        "type": "String",
+        "sqlType": "varchar",
+        "isMandatory": true,
+        "isUnique": false,
+        "hasDefault": false,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "config",
+        "type": "String",
+        "sqlType": "jsonb",
+        "isMandatory": true,
+        "isUnique": false,
+        "hasDefault": false,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "position_x",
+        "type": "Integer",
+        "sqlType": "int",
+        "isMandatory": false,
+        "isUnique": false,
+        "hasDefault": false,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "position_y",
+        "type": "Integer",
+        "sqlType": "int",
+        "isMandatory": false,
+        "isUnique": false,
+        "hasDefault": false,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "created_at",
+        "type": "DateTime",
+        "sqlType": "timestamp",
+        "isMandatory": false,
+        "isUnique": false,
+        "hasDefault": true,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      }
+    ],
+    "indexes": [],
+    "_gaps": [],
+    "_links": [
+      {
+        "id": "entity:schema:Dashboard",
+        "confidence": "high",
+        "matchedBy": "fk-ref-name",
+        "via": "dashboard_id"
+      }
+    ]
+  },
+  {
+    "type": "entity",
+    "name": "DashboardShare",
+    "module": "schema",
+    "linkId": "entity:schema:DashboardShare",
+    "isPersistent": true,
+    "isPublic": true,
+    "description": "Persistent entity extracted from SQL table \"dashboard_shares\" (schema.sql)",
+    "sourceTable": "dashboard_shares",
+    "extractedFrom": "sql",
+    "attributes": [
+      {
+        "name": "dashboard_id",
+        "type": "Integer",
+        "sqlType": "integer",
+        "isMandatory": true,
+        "isUnique": false,
+        "hasDefault": false,
+        "isForeignKey": true,
+        "referencedEntity": "Dashboard",
+        "isAutoNumber": false,
+        "deleteRule": "DeleteMeAndReferences"
+      },
+      {
+        "name": "user_id",
+        "type": "Integer",
+        "sqlType": "integer",
+        "isMandatory": true,
+        "isUnique": false,
+        "hasDefault": false,
+        "isForeignKey": true,
+        "referencedEntity": "User",
+        "isAutoNumber": false,
+        "deleteRule": "SetNone"
+      },
+      {
+        "name": "permission",
+        "type": "String",
+        "sqlType": "varchar",
+        "isMandatory": false,
+        "isUnique": false,
+        "hasDefault": true,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      },
+      {
+        "name": "created_at",
+        "type": "DateTime",
+        "sqlType": "timestamp",
+        "isMandatory": false,
+        "isUnique": false,
+        "hasDefault": true,
+        "isForeignKey": false,
+        "referencedEntity": null,
+        "isAutoNumber": false,
+        "deleteRule": ""
+      }
+    ],
+    "indexes": [],
+    "_gaps": [],
+    "_links": [
+      {
+        "id": "entity:schema:Dashboard",
+        "confidence": "high",
+        "matchedBy": "fk-ref-name",
+        "via": "dashboard_id"
+      },
+      {
+        "id": "entity:schema:User",
+        "confidence": "high",
+        "matchedBy": "fk-ref-name",
+        "via": "user_id"
+      }
+    ]
+  }
+]

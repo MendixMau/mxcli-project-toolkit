@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head><title>Dashboard List Screen</title><style>
+body { font-family: sans-serif; margin: 0; padding: 20px; background: #fafafa; }
+.screen { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border: 1px solid #e0e0e0; }
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #1976d2; padding-bottom: 16px; }
+.header h1 { margin: 0; font-size: 32px; color: #212121; }
+.btn-create { background: #1976d2; color: white; border: none; padding: 10px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.btn-create:hover { background: #1565c0; }
+.dashboard-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+.card { border: 1px solid #e0e0e0; border-radius: 4px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.card h3 { margin: 0 0 8px 0; color: #212121; }
+.card p { margin: 0 0 12px 0; color: #666; font-size: 14px; }
+.card-status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+.status-draft { background: #ffccbc; color: #d84315; }
+.status-published { background: #c8e6c9; color: #2e7d32; }
+.card-actions { display: flex; gap: 8px; margin-top: 12px; }
+.btn-sm { padding: 6px 12px; border-radius: 4px; border: 1px solid #e0e0e0; background: white; cursor: pointer; font-size: 12px; }
+.btn-sm:hover { background: #f5f5f5; }
+.btn-sm.primary { background: #1976d2; color: white; border-color: #1976d2; }
+</style></head>
+<body>
+<div class="screen">
+  <div class="header">
+    <h1>My Dashboards</h1>
+    <button class="btn-create">+ Create Dashboard</button>
+  </div>
+  <div class="dashboard-list">
+    <div class="card">
+      <h3>Sales Dashboard</h3>
+      <p>Overview of monthly sales metrics and trends</p>
+      <div><span class="card-status status-published">Published</span></div>
+      <div class="card-actions">
+        <button class="btn-sm primary">Edit</button>
+        <button class="btn-sm">Share</button>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Performance Tracker</h3>
+      <p>Team KPI and quarterly performance review</p>
+      <div><span class="card-status status-draft">Draft</span></div>
+      <div class="card-actions">
+        <button class="btn-sm primary">Edit</button>
+        <button class="btn-sm">Publish</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

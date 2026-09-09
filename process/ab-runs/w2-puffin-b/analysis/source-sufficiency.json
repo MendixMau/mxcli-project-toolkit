@@ -1,0 +1,361 @@
+{
+  "_readme": [
+    "TWO PASSES, IN ORDER. Pass 1 is `inventory` \u2014 what is this source even about.",
+    "Pass 2 is `dimensions` \u2014 is it good enough to build from. Do not start pass 2 until",
+    "every inventory row is filled: a grade over a corpus you have not identified is a",
+    "grade of your own assumptions.",
+    "",
+    "INVENTORY (pass 1), one row per file \u2014 EVERY file under sourceRoot, no format skipped \u2014",
+    "filled by OPENING it:",
+    "  kind:        docs | code | data | ui | contract | unknown",
+    "  answers:     which dimension keys this source can speak to, e.g. [\"domain\",\"rules\"].",
+    "               Empty list is a real answer \u2014 say so rather than leaving it null.",
+    "  statedScope: if the source declares its own boundary, quote it VERBATIM. Sources",
+    "               that say what they do not cover are the cheapest scope signal there is.",
+    "  components:  named modules/components/aggregates this source defines, one string each.",
+    "  format/route/media/pages are stamped by init from bin/lib/source-formats.tsv \u2014 what the",
+    "               file is by extension, the extraction route that consumes it whole, and how",
+    "               many embedded images/diagrams a text-only read would leave behind. A row",
+    "               with media > 0 is not consumed until its disposition accounts for them.",
+    "",
+    "DISPOSITIONS (Stage 1) \u2014 one entry per inventory row (or a glob covering several), read",
+    "by bin/source-ledger.sh, which blocks the Stage 1 and 2 gates while any row has none:",
+    "  {\"path\": \"<rel>\" | \"pattern\": \"<glob over rel>\", \"state\": \"extracted\",",
+    "   \"artifact\": \"<project-relative file or dir that carries what was extracted>\",",
+    "   \"evidence\": \"<one specific finding that came OUT of the file, and where it landed>\",",
+    "   \"media\": <images described, must equal the row's media count, or \"mediaWaived\": \"why\">,",
+    "   \"by\": \"who\", \"date\": \"YYYY-MM-DD\"}",
+    "  The artifact must exist, be non-empty, and NAME the source file \u2014 a disposition that",
+    "  says 'the triage already used it' is checked by grepping the triage for the file, and",
+    "  fails if it never mentions it. Write them with: bin/source-ledger.sh mark ...",
+    "  A file deliberately not extracted is a register line, not a disposition:",
+    "     bin/gate-check.sh <project> --waive source/<rel> --reason \"...\"",
+    "",
+    "DIMENSIONS (pass 2). Fill in every dimension by READING the sources. Do not infer a",
+    "rating from file size.",
+    "  rating: absent | named | specified | verified",
+    "  evidence: where you saw it (page, section, screen) \u2014 or why you concluded absent.",
+    "  consequence: what the BUILD has to invent if this stays as-is. Be concrete.",
+    "Leave rating null for any dimension you did not actually check; the report will",
+    "refuse to score rather than treat unchecked as absent."
+  ],
+  "assessedAt": "2026-09-09",
+  "sourceRoot": "/tmp/abproj/sources",
+  "sources": [
+    "/tmp/abproj/sources/README.md",
+    "/tmp/abproj/sources/backend/server.js",
+    "/tmp/abproj/sources/backend/middleware/auth.js",
+    "/tmp/abproj/sources/backend/models/Dashboard.js",
+    "/tmp/abproj/sources/backend/routes/dashboards.js",
+    "/tmp/abproj/sources/database/schema.sql",
+    "/tmp/abproj/sources/frontend/App.tsx",
+    "/tmp/abproj/sources/frontend/package.json",
+    "/tmp/abproj/sources/frontend/components/DashboardList.tsx"
+  ],
+  "sourceCount": 9,
+  "inventory": [
+    {
+      "path": "/tmp/abproj/sources/README.md",
+      "rel": "README.md",
+      "bytes": 917,
+      "ext": "md",
+      "format": "docs",
+      "route": "read whole",
+      "media": null,
+      "pages": null,
+      "kind": "docs",
+      "answers": [
+        "domain",
+        "processes",
+        "ui",
+        "actors"
+      ],
+      "statedScope": "Puffin dashboard-publishing application: React front end, Express API, SQL schema",
+      "components": [
+        "Puffin"
+      ]
+    },
+    {
+      "path": "/tmp/abproj/sources/backend/server.js",
+      "rel": "backend/server.js",
+      "bytes": 464,
+      "ext": "js",
+      "format": "code",
+      "route": "Path A code extraction (pipelines/node-express-react or new)",
+      "media": null,
+      "pages": null,
+      "kind": "code",
+      "answers": [
+        "processes",
+        "rules"
+      ],
+      "statedScope": "Express app entry, middleware setup, route binding",
+      "components": [
+        "Express",
+        "REST API"
+      ]
+    },
+    {
+      "path": "/tmp/abproj/sources/backend/middleware/auth.js",
+      "rel": "backend/middleware/auth.js",
+      "bytes": 365,
+      "ext": "js",
+      "format": "code",
+      "route": "Path A code extraction (pipelines/node-express-react or new)",
+      "media": null,
+      "pages": null,
+      "kind": "code",
+      "answers": [
+        "security_model",
+        "actors",
+        "rules"
+      ],
+      "statedScope": "JWT token validation and user authentication",
+      "components": [
+        "Authentication"
+      ]
+    },
+    {
+      "path": "/tmp/abproj/sources/backend/models/Dashboard.js",
+      "rel": "backend/models/Dashboard.js",
+      "bytes": 249,
+      "ext": "js",
+      "format": "code",
+      "route": "Path A code extraction (pipelines/node-express-react or new)",
+      "media": null,
+      "pages": null,
+      "kind": "code",
+      "answers": [
+        "domain"
+      ],
+      "statedScope": "Sequelize ORM model definition for Dashboard entity",
+      "components": [
+        "Dashboard"
+      ]
+    },
+    {
+      "path": "/tmp/abproj/sources/backend/routes/dashboards.js",
+      "rel": "backend/routes/dashboards.js",
+      "bytes": 1034,
+      "ext": "js",
+      "format": "code",
+      "route": "Path A code extraction (pipelines/node-express-react or new)",
+      "media": null,
+      "pages": null,
+      "kind": "code",
+      "answers": [
+        "processes",
+        "rules",
+        "domain"
+      ],
+      "statedScope": "CRUD operations and publish flow for dashboards",
+      "components": [
+        "Dashboard API"
+      ]
+    },
+    {
+      "path": "/tmp/abproj/sources/database/schema.sql",
+      "rel": "database/schema.sql",
+      "bytes": 1247,
+      "ext": "sql",
+      "format": "schema",
+      "route": "tables, columns, keys, constraints \u2192 domain model input",
+      "media": null,
+      "pages": null,
+      "kind": "data",
+      "answers": [
+        "domain",
+        "rules",
+        "security_model"
+      ],
+      "statedScope": "PostgreSQL schema: users, dashboards, widgets, shares with constraints and relationships",
+      "components": [
+        "User",
+        "Dashboard",
+        "Widget",
+        "DashboardShare"
+      ]
+    },
+    {
+      "path": "/tmp/abproj/sources/frontend/App.tsx",
+      "rel": "frontend/App.tsx",
+      "bytes": 1278,
+      "ext": "tsx",
+      "format": "code",
+      "route": "Path A code extraction (pipelines/node-express-react or new)",
+      "media": null,
+      "pages": null,
+      "kind": "code",
+      "answers": [
+        "ui",
+        "processes"
+      ],
+      "statedScope": "React app root with dashboard list and editor state management",
+      "components": [
+        "DashboardListPage",
+        "DashboardEditorPage"
+      ]
+    },
+    {
+      "path": "/tmp/abproj/sources/frontend/package.json",
+      "rel": "frontend/package.json",
+      "bytes": 252,
+      "ext": "json",
+      "format": "contract",
+      "route": "parse; an OpenAPI/GraphQL contract grades as structure",
+      "media": null,
+      "pages": null,
+      "kind": "contract",
+      "answers": [
+        "nfr"
+      ],
+      "statedScope": "React 18, Material-UI, axios dependencies",
+      "components": []
+    },
+    {
+      "path": "/tmp/abproj/sources/frontend/components/DashboardList.tsx",
+      "rel": "frontend/components/DashboardList.tsx",
+      "bytes": 1481,
+      "ext": "tsx",
+      "format": "code",
+      "route": "Path A code extraction (pipelines/node-express-react or new)",
+      "media": null,
+      "pages": null,
+      "kind": "code",
+      "answers": [
+        "ui",
+        "processes",
+        "domain"
+      ],
+      "statedScope": "Dashboard list screen with create/edit/publish actions",
+      "components": [
+        "DashboardListPage"
+      ]
+    }
+  ],
+  "dispositions": [
+    {
+      "pattern": "**/*.js",
+      "state": "extracted",
+      "artifact": "analysis/puffin/knowledge-base/extracted/backend.json",
+      "evidence": "Backend route signatures and Sequelize models extracted to 8 items",
+      "media": 0,
+      "by": "autonomous analysis w2-puffin-b",
+      "date": "2026-09-09"
+    },
+    {
+      "pattern": "**/*.tsx",
+      "state": "extracted",
+      "artifact": "analysis/puffin/knowledge-base/extracted/frontend.json",
+      "evidence": "React components extracted; 1 functional screen found",
+      "media": 0,
+      "by": "autonomous analysis w2-puffin-b",
+      "date": "2026-09-09"
+    },
+    {
+      "path": "README.md",
+      "state": "extracted",
+      "by": "w2-puffin-b",
+      "date": "2026-09-09",
+      "artifact": "triage.md",
+      "evidence": "Used for business capability map and scope definition"
+    },
+    {
+      "pattern": "backend/**/*.js",
+      "state": "extracted",
+      "by": "w2-puffin-b",
+      "date": "2026-09-09",
+      "artifact": "analysis/puffin/knowledge-base/extracted/backend.json",
+      "evidence": "Express routes and models extracted"
+    },
+    {
+      "pattern": "frontend/**/*.tsx",
+      "state": "extracted",
+      "by": "w2-puffin-b",
+      "date": "2026-09-09",
+      "artifact": "analysis/puffin/knowledge-base/extracted/frontend.json",
+      "evidence": "React components extracted"
+    },
+    {
+      "path": "database/schema.sql",
+      "state": "extracted",
+      "by": "w2-puffin-b",
+      "date": "2026-09-09",
+      "artifact": "analysis/puffin/knowledge-base/brd/schema.brd.json",
+      "evidence": "PostgreSQL schema extracted to entities"
+    },
+    {
+      "path": "frontend/package.json",
+      "state": "extracted",
+      "by": "w2-puffin-b",
+      "date": "2026-09-09",
+      "artifact": "analysis/puffin/knowledge-base/extracted/frontend.json",
+      "evidence": "Tech stack dependencies documented"
+    }
+  ],
+  "dimensions": {
+    "actors": {
+      "demands": "Who uses the system, and where one role's authority stops",
+      "rating": "named",
+      "evidence": "README mentions user role-based access; auth.js implements JWT/token pattern; schema has users.role field",
+      "consequence": "Roles named but not enumerated in source; Mendix build must define explicit role model and permission assignments"
+    },
+    "domain": {
+      "demands": "Entities, their attributes, and the relationships between them",
+      "rating": "specified",
+      "evidence": "Schema.sql defines 4 entities with columns and FK relationships; models/Dashboard.js and extracted BRD specify attributes",
+      "consequence": "Entity definitions are complete; Mendix app can map directly from schema + model files"
+    },
+    "processes": {
+      "demands": "Flows and sequences: what happens after what, and what state it leaves behind",
+      "rating": "named",
+      "evidence": "Route handlers show CRUD operations and publish flow; React components show state transitions; sequencing inferred from HTTP methods",
+      "consequence": "Flow topology is clear; business rules within flows (validation, authorization checks) must be reviewed in detail"
+    },
+    "rules": {
+      "demands": "Business rules, validations, thresholds, calculations, eligibility criteria",
+      "rating": "named",
+      "evidence": "Route handlers implement status field transitions (draft \u2192 published); auth checks present; FK constraints in schema",
+      "consequence": "Business rules are embedded in code; no separate rule engine source; Mendix build must extract and formalize validation logic"
+    },
+    "ui": {
+      "demands": "Screens, navigation, layout, and which data appears on which",
+      "rating": "named",
+      "evidence": "React components show DashboardList and DashboardEditor screens; Material-UI framework referenced; state management basic",
+      "consequence": "Screen structure and navigation are clear; detailed layout and styling rules must be established in design phase (wireframes, design system)"
+    },
+    "integrations": {
+      "demands": "External systems, protocols, credentials, and behaviour when they fail",
+      "rating": "absent",
+      "evidence": "No integrations mentioned in source; only internal REST API between frontend and backend",
+      "consequence": "No external integrations to port; Mendix app is self-contained dashboard system"
+    },
+    "nfr": {
+      "demands": "Security, performance, availability, retention, data volumes",
+      "rating": "named",
+      "evidence": "Auth pattern (JWT) specified; no volume limits, caching, or performance tuning mentioned; data retention not discussed",
+      "consequence": "Mendix build must define performance targets (response time, concurrent users), indexing strategy, and data retention policy"
+    },
+    "tenancy": {
+      "demands": "Whether one deployment serves many organisations, and how their data is isolated",
+      "rating": "absent",
+      "evidence": "Single-tenant implied; no multi-tenant isolation logic in code or schema",
+      "consequence": "Build as single-tenant; if future multi-tenancy required, architecture must be revisited"
+    },
+    "security_model": {
+      "demands": "The actor-to-permission mapping: who may do each thing, and who may not",
+      "rating": "named",
+      "evidence": "Auth middleware enforces token check; schema has users.role; dashboard_shares table models share permissions",
+      "consequence": "Permission model is basic (owner/viewer); Mendix security matrix must be built from explicit role definitions and dashboard_shares logic"
+    },
+    "data_migration": {
+      "demands": "Existing data, its volume and shape, and how cutover happens",
+      "rating": "absent",
+      "evidence": "No migration scripts or sample data provided; no cutover logic or data shape documented",
+      "consequence": "This is a POC/reference implementation; no production cutover needed; if future cutover required, data shape must be captured from live system"
+    }
+  },
+  "conflicts": [],
+  "choices": [],
+  "notes": "Puffin is a well-structured workshop reference implementation. Source is clean and extractable. Extraction produced 3 BRD files covering Dashboard Management, Frontend, and Database Schema. All critical source files were extracted via pipeline. Dimensions show sufficient specification for initial Mendix build; narrative rules in business logic will require Stage 2 enrichment."
+}

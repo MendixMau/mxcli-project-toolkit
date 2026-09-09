@@ -1,0 +1,65 @@
+{
+  "logic:dashboards.js:GET:-": {
+    "linkedTo": [],
+    "gaps": []
+  },
+  "logic:dashboards.js:POST:-": {
+    "linkedTo": [],
+    "gaps": []
+  },
+  "logic:dashboards.js:PUT:--id": {
+    "linkedTo": [],
+    "gaps": []
+  },
+  "logic:dashboards.js:POST:--id-publish": {
+    "linkedTo": [],
+    "gaps": []
+  },
+  "entity:schema:User": {
+    "linkedTo": [],
+    "gaps": []
+  },
+  "entity:schema:Dashboard": {
+    "linkedTo": [
+      {
+        "id": "entity:schema:User",
+        "confidence": "high",
+        "matchedBy": "fk-ref-name",
+        "via": "owner_id"
+      }
+    ],
+    "gaps": []
+  },
+  "entity:schema:Widget": {
+    "linkedTo": [
+      {
+        "id": "entity:schema:Dashboard",
+        "confidence": "high",
+        "matchedBy": "fk-ref-name",
+        "via": "dashboard_id"
+      }
+    ],
+    "gaps": []
+  },
+  "entity:schema:DashboardShare": {
+    "linkedTo": [
+      {
+        "id": "entity:schema:Dashboard",
+        "confidence": "high",
+        "matchedBy": "fk-ref-name",
+        "via": "dashboard_id"
+      },
+      {
+        "id": "entity:schema:User",
+        "confidence": "high",
+        "matchedBy": "fk-ref-name",
+        "via": "user_id"
+      }
+    ],
+    "gaps": []
+  },
+  "screen:frontend:dashboardlist": {
+    "linkedTo": [],
+    "gaps": []
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "modules": [
+    "dashboards.js"
+  ],
+  "generatedAt": "2026-09-09T16:33:31.708Z",
+  "confidence": "high",
+  "appType": {
+    "label": "Mixed",
+    "confidence": "low",
+    "signals": [
+      "0 pages, 4 logic items, 0 integrations — no dominant pattern"
+    ]
+  },
+  "summary": {
+    "entityCount": 0,
+    "enumerationCount": 0,
+    "microflowCount": 4,
+    "nanoflowCount": 0,
+    "bptProcessCount": 0,
+    "pageCount": 0,
+    "webBlockCount": 0,
+    "useCaseCount": 0,
+    "integrationCount": 0,
+    "timerCount": 0,
+    "openGapCount": 0
+  },
+  "domainEntities": [],
+  "microflows": [
+    {
+      "name": "get_dashboards_js_",
+      "kind": "Microflow",
+      "isPublic": false,
+      "purpose": "GET /",
+      "httpEndpoint": {
+        "method": "GET",
+        "path": "/"
+      },
+      "parameters": {
+        "in": [],
+        "out": []
+      },
+      "callCount": 0,
+      "aggregateCount": 0,
+      "calledActions": [],
+      "isBPTProcess": false,
+      "hiddenRules": [],
+      "gaps": []
+    },
+    {
+      "name": "create_dashboards_js_",
+      "kind": "Microflow",
+      "isPublic": false,
+      "purpose": "POST /",
+      "httpEndpoint": {
+        "method": "POST",
+        "path": "/"
+      },
+      "parameters": {
+        "in": [],
+        "out": []
+      },
+      "callCount": 0,
+      "aggregateCount": 0,
+      "calledActions": [],
+      "isBPTProcess": false,
+      "hiddenRules": [],
+      "gaps": []
+    },
+    {
+      "name": "update_dashboards_js_",
+      "kind": "Microflow",
+      "isPublic": false,
+      "purpose": "PUT /:id",
+      "httpEndpoint": {
+        "method": "PUT",
+        "path": "/:id"
+      },
+      "parameters": {
+        "in": [],
+        "out": []
+      },
+      "callCount": 0,
+      "aggregateCount": 0,
+      "calledActions": [],
+      "isBPTProcess": false,
+      "hiddenRules": [],
+      "gaps": []
+    },
+    {
+      "name": "create_dashboards_js_publish",
+      "kind": "Microflow",
+      "isPublic": false,
+      "purpose": "POST /:id/publish",
+      "httpEndpoint": {
+        "method": "POST",
+        "path": "/:id/publish"
+      },
+      "parameters": {
+        "in": [],
+        "out": []
+      },
+      "callCount": 0,
+      "aggregateCount": 0,
+      "calledActions": [],
+      "isBPTProcess": false,
+      "hiddenRules": [],
+      "gaps": []
+    }
+  ],
+  "pages": [],
+  "webBlocks": [],
+  "useCases": [],
+  "integrations": [],
+  "timers": [],
+  "openGaps": []
+}

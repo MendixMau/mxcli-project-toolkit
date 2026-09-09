@@ -1,0 +1,66 @@
+[
+  {
+    "type": "logic",
+    "name": "get_dashboards_js_",
+    "module": "dashboards.js",
+    "linkId": "logic:dashboards.js:GET:-",
+    "logicKind": "action",
+    "description": "GET /",
+    "httpEndpoint": {
+      "method": "GET",
+      "path": "/"
+    },
+    "referencedModels": [],
+    "calls": [],
+    "_gaps": [],
+    "_links": []
+  },
+  {
+    "type": "logic",
+    "name": "create_dashboards_js_",
+    "module": "dashboards.js",
+    "linkId": "logic:dashboards.js:POST:-",
+    "logicKind": "action",
+    "description": "POST /",
+    "httpEndpoint": {
+      "method": "POST",
+      "path": "/"
+    },
+    "referencedModels": [],
+    "calls": [],
+    "_gaps": [],
+    "_links": []
+  },
+  {
+    "type": "logic",
+    "name": "update_dashboards_js_",
+    "module": "dashboards.js",
+    "linkId": "logic:dashboards.js:PUT:--id",
+    "logicKind": "action",
+    "description": "PUT /:id",
+    "httpEndpoint": {
+      "method": "PUT",
+      "path": "/:id"
+    },
+    "referencedModels": [],
+    "calls": [],
+    "_gaps": [],
+    "_links": []
+  },
+  {
+    "type": "logic",
+    "name": "create_dashboards_js_publish",
+    "module": "dashboards.js",
+    "linkId": "logic:dashboards.js:POST:--id-publish",
+    "logicKind": "action",
+    "description": "POST /:id/publish",
+    "httpEndpoint": {
+      "method": "POST",
+      "path": "/:id/publish"
+    },
+    "referencedModels": [],
+    "calls": [],
+    "_gaps": [],
+    "_links": []
+  }
+]

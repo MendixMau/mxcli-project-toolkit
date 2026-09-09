@@ -1,0 +1,72 @@
+{
+  "id": "F004",
+  "name": "Tariff & Charges",
+  "module": "Tariff",
+  "summary": "Manage tariff rates, service charges, discounts, and tariff calculation",
+  "entities": [
+    {
+      "name": "TariffRate",
+      "attributes": [
+        {"name": "RateID", "type": "Integer", "mandatory": true},
+        {"name": "EffectiveFrom", "type": "Date", "mandatory": true},
+        {"name": "EffectiveTo", "type": "Date", "mandatory": false},
+        {"name": "VesselTypeCategory", "type": "String", "mandatory": true, "length": 50},
+        {"name": "BasisUnit", "type": "Enumeration", "mandatory": true, "values": ["PerDay", "PerTon", "PerTEU"]},
+        {"name": "BaseRate", "type": "Decimal", "mandatory": true, "description": "Currency amount"},
+        {"name": "SizeModifier", "type": "Decimal", "mandatory": false, "default": "0.0"}
+      ],
+      "constraints": ["RateID primary key"]
+    },
+    {
+      "name": "ServiceCharge",
+      "attributes": [
+        {"name": "ChargeID", "type": "Integer", "mandatory": true},
+        {"name": "ChargeType", "type": "String", "mandatory": true, "length": 50},
+        {"name": "Amount", "type": "Decimal", "mandatory": true},
+        {"name": "Unit", "type": "Enumeration", "mandatory": true, "values": ["PerDay", "PerOccurrence"]},
+        {"name": "AppliesTo", "type": "String", "mandatory": false, "description": "Vessel/cargo type filter"}
+      ],
+      "constraints": ["ChargeID primary key"]
+    },
+    {
+      "name": "TariffCalculation",
+      "attributes": [
+        {"name": "CalculationID", "type": "Integer", "mandatory": true},
+        {"name": "BookingID", "type": "String", "mandatory": true},
+        {"name": "HarbourDues", "type": "Decimal", "mandatory": true},
+        {"name": "ServiceCharges", "type": "Decimal", "mandatory": true},
+        {"name": "Discount", "type": "Decimal", "mandatory": true, "default": "0.0"},
+        {"name": "TotalAmount", "type": "Decimal", "mandatory": true},
+        {"name": "CalculatedAt", "type": "DateTime", "mandatory": true},
+        {"name": "Status", "type": "Enumeration", "mandatory": true, "values": ["Draft", "Locked", "Invoiced"]}
+      ],
+      "constraints": ["CalculationID primary key", "BookingID foreign key"]
+    }
+  ],
+  "screens": [
+    {
+      "name": "Tariff Estimation",
+      "purpose": "Show estimated charges before booking confirmation",
+      "fields": ["Base rate", "Vessel size modifier", "Service charges", "Discount", "Total"],
+      "calculations": ["Harbour dues formula", "Service charge summation", "Volume discount application"]
+    },
+    {
+      "name": "Tariff Administration",
+      "purpose": "Maintain rates, charges, and discounts",
+      "sections": ["TariffRate CRUD", "ServiceCharge CRUD", "DiscountRule CRUD"],
+      "validations": ["Effective date range integrity", "Rate versioning (no overlaps for same category)"]
+    },
+    {
+      "name": "Tariff History & Lookup",
+      "purpose": "View historical rates applicable to a specific booking date",
+      "actions": ["Date-based rate lookup", "Version comparison"]
+    }
+  ],
+  "businessRules": [
+    {"id": "TR01", "rule": "Harbour dues = BaseRate × StayDays × (1 + SizeModifier) × (1 - VolumeDiscount)"},
+    {"id": "TR02", "rule": "Tariff recalculated nightly; booked charges locked at submission"},
+    {"id": "TR03", "rule": "Exempt vessels (gov't, scheduled ferry) require certification/registration flag"},
+    {"id": "TR04", "rule": "Service charges cumulative; apply if cargo type or vessel type matches"}
+  ],
+  "estimatedSize": {"entities": 3, "screens": 3, "microflows": 8, "pages": 4}
+}

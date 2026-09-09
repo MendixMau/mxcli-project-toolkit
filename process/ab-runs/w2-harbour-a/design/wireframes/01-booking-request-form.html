@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head><title>Wireframe: Booking Request Form</title>
+<style>body{font-family:Arial;margin:20px;} .wireframe{border:2px solid #999;padding:20px;width:600px;} .field{margin:15px 0;} label{display:block;margin-bottom:5px;font-weight:bold;} input,select,textarea{width:100%;padding:8px;border:1px solid #ccc;} button{padding:10px 20px;background:#003d7a;color:white;border:none;margin-top:10px;}</style>
+</head>
+<body>
+<div class="wireframe">
+<h2>Booking Request Form</h2>
+<div class="field">
+<label>Vessel (IMO)</label>
+<input type="text" placeholder="Enter IMO number">
+<button style="width:auto;margin-top:5px;">Search AIS</button>
+</div>
+<div class="field">
+<label>Requested Arrival</label>
+<input type="datetime-local">
+</div>
+<div class="field">
+<label>Requested Departure</label>
+<input type="datetime-local">
+</div>
+<div class="field">
+<label>Special Requirements</label>
+<textarea rows="3" placeholder="Cargo type, equipment, notes..."></textarea>
+</div>
+<button>Submit Request</button>
+<button style="background:#999;">Cancel</button>
+</div>
+</body>
+</html>

@@ -1,0 +1,66 @@
+{
+  "id": "F001",
+  "name": "Vessel Registry",
+  "module": "VesselRegistry",
+  "summary": "Manage vessel master data, types, and AIS feed integration",
+  "entities": [
+    {
+      "name": "Vessel",
+      "description": "Core vessel record with IMO as unique identifier",
+      "attributes": [
+        {"name": "VesselID", "type": "Integer", "mandatory": true, "description": "Primary key"},
+        {"name": "IMONumber", "type": "String", "mandatory": true, "length": 7, "description": "Unique IMO identifier"},
+        {"name": "Name", "type": "String", "mandatory": true, "length": 255, "description": "Vessel name"},
+        {"name": "VesselTypeID", "type": "Integer", "mandatory": true, "description": "Reference to VesselType"},
+        {"name": "Length", "type": "Decimal", "mandatory": false, "description": "Length in meters"},
+        {"name": "Beam", "type": "Decimal", "mandatory": false, "description": "Beam in meters"},
+        {"name": "Draft", "type": "Decimal", "mandatory": false, "description": "Draft in meters"},
+        {"name": "Capacity", "type": "String", "mandatory": false, "description": "TEU or tonnage"},
+        {"name": "FlagState", "type": "String", "mandatory": false, "length": 2, "description": "ISO country code"},
+        {"name": "OwnerAgent", "type": "String", "mandatory": false, "length": 255, "description": "Primary booking contact"},
+        {"name": "AISFeedActive", "type": "Boolean", "mandatory": true, "default": "true"},
+        {"name": "LastAISUpdate", "type": "DateTime", "mandatory": false}
+      ],
+      "constraints": ["IMO unique", "VesselID primary key"]
+    },
+    {
+      "name": "VesselType",
+      "description": "Classification and handling rules for vessel categories",
+      "attributes": [
+        {"name": "VesselTypeID", "type": "Integer", "mandatory": true},
+        {"name": "Code", "type": "String", "mandatory": true, "length": 10},
+        {"name": "Name", "type": "String", "mandatory": true, "length": 100},
+        {"name": "TariffCategory", "type": "String", "mandatory": true, "length": 50},
+        {"name": "Description", "type": "String", "mandatory": false}
+      ],
+      "constraints": ["VesselTypeID primary key", "Code unique"]
+    }
+  ],
+  "screens": [
+    {
+      "name": "Vessel Search & Details",
+      "purpose": "Lookup and view vessel master data; primary data entry for AIS unmapped vessels",
+      "fields": ["VesselID", "IMONumber", "Name", "VesselType", "Dimensions", "FlagState", "OwnerAgent"],
+      "actions": ["Search by IMO", "Edit (admin only)", "View AIS history"]
+    },
+    {
+      "name": "Vessel Type Maintenance",
+      "purpose": "Admin screen to manage vessel categories and tariff assignment",
+      "fields": ["Code", "Name", "TariffCategory", "Description"],
+      "actions": ["Create", "Edit", "Delete (if no vessels assigned)"]
+    }
+  ],
+  "businessRules": [
+    {"id": "VR01", "rule": "Vessel uniqueness", "description": "IMO number is unique; no duplicates allowed"},
+    {"id": "VR02", "rule": "AIS auto-populate", "description": "AIS feed update triggers Vessel record creation or update if IMO matches"},
+    {"id": "VR03", "rule": "Deletion constraint", "description": "Vessel cannot be deleted if it has active bookings"}
+  ],
+  "openQuestions": [
+    {"id": "Q001", "question": "Should historical vessel data be soft-deleted or archived?", "status": "Open"},
+    {"id": "Q002", "question": "What is the AIS feed API response format (JSON/XML)?", "status": "Deferred"}
+  ],
+  "integrations": [
+    {"name": "AIS Feed", "type": "Inbound REST", "frequency": "Hourly", "status": "Stubbed in MVP"}
+  ],
+  "estimatedSize": {"entities": 2, "screens": 2, "microflows": 8, "pages": 4}
+}

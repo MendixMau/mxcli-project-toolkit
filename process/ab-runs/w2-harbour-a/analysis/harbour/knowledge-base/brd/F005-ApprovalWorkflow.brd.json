@@ -1,0 +1,63 @@
+{
+  "id": "F005",
+  "name": "Officer Review & Approval",
+  "module": "Approvals",
+  "summary": "Booking approval workflow with staged reviews (Triage, Safety, Environment, Finance)",
+  "entities": [
+    {
+      "name": "ApprovalStep",
+      "attributes": [
+        {"name": "StepID", "type": "String", "mandatory": true},
+        {"name": "BookingID", "type": "String", "mandatory": true},
+        {"name": "Stage", "type": "Enumeration", "mandatory": true, "values": ["InitialTriage", "SafetyReview", "EnvironmentCheck", "FinanceReview"]},
+        {"name": "Status", "type": "Enumeration", "mandatory": true, "values": ["Pending", "Approved", "Rejected", "OnHold"]},
+        {"name": "AssignedTo", "type": "String", "mandatory": true},
+        {"name": "CreatedAt", "type": "DateTime", "mandatory": true},
+        {"name": "ResolvedAt", "type": "DateTime", "mandatory": false}
+      ],
+      "constraints": ["StepID primary key", "BookingID foreign key", "(BookingID, Stage) unique"]
+    },
+    {
+      "name": "ApprovalDecision",
+      "attributes": [
+        {"name": "DecisionID", "type": "String", "mandatory": true},
+        {"name": "StepID", "type": "String", "mandatory": true},
+        {"name": "Verdict", "type": "Enumeration", "mandatory": true, "values": ["Approve", "Reject", "Defer", "RequestMoreInfo"]},
+        {"name": "Notes", "type": "String", "mandatory": false, "length": 1000},
+        {"name": "DecidedBy", "type": "String", "mandatory": true},
+        {"name": "DecidedAt", "type": "DateTime", "mandatory": true}
+      ],
+      "constraints": ["DecisionID primary key", "StepID foreign key"]
+    }
+  ],
+  "screens": [
+    {
+      "name": "Officer Review Queue",
+      "purpose": "List of pending approvals by stage; primary workflow screen",
+      "sections": [
+        {"name": "Queue filters", "fields": ["Stage", "Date range", "Officer assignment"]},
+        {"name": "Booking summary", "fields": ["Vessel", "Berth assignment", "Dates", "Tariff", "Cargo type"]},
+        {"name": "Review checklist", "fields": ["Checklist items specific to stage", "Notes field", "Approve/Reject/Defer buttons"]}
+      ]
+    },
+    {
+      "name": "Review History",
+      "purpose": "View all past approval decisions and audit trail for a booking",
+      "views": ["Timeline of all approval steps and decisions", "Decision notes"]
+    },
+    {
+      "name": "Approval Configuration",
+      "purpose": "Admin screen to manage which stages are required for different scenarios",
+      "fields": ["Hazardous cargo → Safety review required", "Discharge planned → Environment review required", "High charges → Finance review required"]
+    }
+  ],
+  "businessRules": [
+    {"id": "AP01", "rule": "Booking enters InitialTriage automatically on submission"},
+    {"id": "AP02", "rule": "SafetyReview required if cargo is flagged hazardous"},
+    {"id": "AP03", "rule": "EnvironmentReview required if discharge or waste handling planned"},
+    {"id": "AP04", "rule": "FinanceReview required if charges exceed threshold (e.g., >50K)"},
+    {"id": "AP05", "rule": "All required approval stages must Approve before Booking.Status = ConfirmedSchedule"},
+    {"id": "AP06", "rule": "Rejection at any stage returns Booking to Draft; agent must resubmit"}
+  ],
+  "estimatedSize": {"entities": 2, "screens": 3, "microflows": 10, "pages": 5}
+}

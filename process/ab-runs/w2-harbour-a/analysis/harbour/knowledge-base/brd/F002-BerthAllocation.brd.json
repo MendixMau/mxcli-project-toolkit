@@ -1,0 +1,72 @@
+{
+  "id": "F002",
+  "name": "Berth Allocation",
+  "module": "BerthAllocation",
+  "summary": "Manage berth master data, slot allocation, and allocation rules",
+  "entities": [
+    {
+      "name": "Berth",
+      "attributes": [
+        {"name": "BerthID", "type": "String", "mandatory": true, "length": 10},
+        {"name": "Name", "type": "String", "mandatory": true, "length": 100},
+        {"name": "Location", "type": "String", "mandatory": false, "length": 100},
+        {"name": "Length", "type": "Decimal", "mandatory": true},
+        {"name": "Depth", "type": "Decimal", "mandatory": true},
+        {"name": "Equipment", "type": "String", "mandatory": false},
+        {"name": "Status", "type": "Enumeration", "mandatory": true, "values": ["Available", "Reserved", "Maintenance", "Blocked"]},
+        {"name": "DailyCost", "type": "Decimal", "mandatory": true}
+      ],
+      "constraints": ["BerthID primary key and unique"]
+    },
+    {
+      "name": "BerthSlot",
+      "attributes": [
+        {"name": "SlotID", "type": "Integer", "mandatory": true},
+        {"name": "BerthID", "type": "String", "mandatory": true},
+        {"name": "AvailableFrom", "type": "DateTime", "mandatory": true},
+        {"name": "AvailableTo", "type": "DateTime", "mandatory": true},
+        {"name": "AllocatedTo", "type": "String", "mandatory": false, "description": "BookingID or maintenance code"},
+        {"name": "Status", "type": "Enumeration", "mandatory": true, "values": ["Open", "Allocated", "Hold"]}
+      ],
+      "constraints": ["SlotID primary key", "(BerthID, AvailableFrom, AvailableTo) unique", "AvailableFrom < AvailableTo"]
+    },
+    {
+      "name": "AllocationRule",
+      "attributes": [
+        {"name": "RuleID", "type": "Integer", "mandatory": true},
+        {"name": "Priority", "type": "Integer", "mandatory": true, "description": "Evaluation order"},
+        {"name": "VesselTypeCode", "type": "String", "mandatory": false},
+        {"name": "BerthPreference", "type": "String", "mandatory": false, "length": 10},
+        {"name": "MaxLengthMeters", "type": "Decimal", "mandatory": false},
+        {"name": "MaxDraftMeters", "type": "Decimal", "mandatory": false},
+        {"name": "TariffModifier", "type": "Decimal", "mandatory": false, "description": "Multiplier for tariff"}
+      ],
+      "constraints": ["RuleID primary key"]
+    }
+  ],
+  "screens": [
+    {
+      "name": "Berth Utilization Dashboard",
+      "purpose": "View berth allocation over time; gantt chart of bookings",
+      "views": ["Day view", "Week view", "Month view"]
+    },
+    {
+      "name": "Manual Allocation",
+      "purpose": "Admin screen to manually reallocate bookings to berths",
+      "actions": ["Drag-drop reallocation", "Force allocation override", "Conflict detection"]
+    },
+    {
+      "name": "Berth Master Data",
+      "purpose": "Maintenance of berth properties and rules",
+      "actions": ["Create berth", "Edit dimensions/equipment", "Block for maintenance"]
+    }
+  ],
+  "businessRules": [
+    {"id": "BA01", "rule": "Allocation engine runs nightly; prefers earliest available berth matching vessel type"},
+    {"id": "BA02", "rule": "No double-booking: slot allocation blocks overlapping bookings"},
+    {"id": "BA03", "rule": "Berth unavailability enforced during maintenance windows"},
+    {"id": "BA04", "rule": "Vessel dimensions must not exceed berth capacity (length, draft)"}
+  ],
+  "integrations": [],
+  "estimatedSize": {"entities": 3, "screens": 3, "microflows": 12, "pages": 5}
+}

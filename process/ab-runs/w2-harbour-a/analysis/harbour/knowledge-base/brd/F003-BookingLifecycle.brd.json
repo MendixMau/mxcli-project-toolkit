@@ -1,0 +1,67 @@
+{
+  "id": "F003",
+  "name": "Booking Lifecycle",
+  "module": "BookingLifecycle",
+  "summary": "Booking request submission, allocation, confirmation, and cancellation",
+  "entities": [
+    {
+      "name": "Booking",
+      "attributes": [
+        {"name": "BookingID", "type": "String", "mandatory": true, "length": 20},
+        {"name": "VesselIMO", "type": "String", "mandatory": true, "length": 7},
+        {"name": "RequestedFromDate", "type": "DateTime", "mandatory": true},
+        {"name": "RequestedToDate", "type": "DateTime", "mandatory": true},
+        {"name": "BerthID", "type": "String", "mandatory": false},
+        {"name": "Status", "type": "Enumeration", "mandatory": true, "values": ["Draft", "Submitted", "Allocated", "ConfirmedSchedule", "Arrived", "Completed", "Cancelled"]},
+        {"name": "AgentID", "type": "String", "mandatory": true},
+        {"name": "CreatedAt", "type": "DateTime", "mandatory": true},
+        {"name": "SubmittedAt", "type": "DateTime", "mandatory": false},
+        {"name": "AllocatedAt", "type": "DateTime", "mandatory": false},
+        {"name": "ConfirmedAt", "type": "DateTime", "mandatory": false},
+        {"name": "CancelledAt", "type": "DateTime", "mandatory": false},
+        {"name": "CancellationReason", "type": "String", "mandatory": false}
+      ],
+      "constraints": ["BookingID primary key and unique"]
+    },
+    {
+      "name": "BookingRequest",
+      "attributes": [
+        {"name": "RequestID", "type": "String", "mandatory": true},
+        {"name": "BookingID", "type": "String", "mandatory": true},
+        {"name": "RequestType", "type": "Enumeration", "mandatory": true, "values": ["New", "Modification", "Cancellation", "Extension"]},
+        {"name": "Status", "type": "Enumeration", "mandatory": true, "values": ["Open", "Accepted", "Rejected", "Superseded"]},
+        {"name": "Reason", "type": "String", "mandatory": false},
+        {"name": "CreatedAt", "type": "DateTime", "mandatory": true}
+      ],
+      "constraints": ["RequestID primary key and unique", "BookingID foreign key"]
+    }
+  ],
+  "screens": [
+    {
+      "name": "Booking Request Form",
+      "purpose": "Agent submission of new booking requests",
+      "fields": ["Vessel (IMO lookup)", "Arrival date/time", "Departure date/time", "Special requirements", "Cargo type"],
+      "validations": ["Window ≥6 hours and ≤30 days in advance", "No conflicting bookings"]
+    },
+    {
+      "name": "Booking Status View",
+      "purpose": "Agent view of their bookings and allocation status",
+      "fields": ["BookingID", "Vessel", "Requested dates", "Allocated berth", "Tariff estimate", "Status"],
+      "actions": ["View details", "Cancel (if permitted)", "Request modification"]
+    },
+    {
+      "name": "Booking List (Operations)",
+      "purpose": "Operations team view of all bookings with filtering/sorting",
+      "filters": ["Status", "Date range", "Vessel type", "Berth"],
+      "actions": ["View details", "Manual reallocation", "Approve cancellation"]
+    }
+  ],
+  "businessRules": [
+    {"id": "BK01", "rule": "Request window ≥6 hours, ≤30 days in advance"},
+    {"id": "BK02", "rule": "Cancellation within 24 hours of ET Assignment incurs 25% penalty"},
+    {"id": "BK03", "rule": "Booking submitted → automatic allocation attempt within 30 minutes"},
+    {"id": "BK04", "rule": "Double-booking prevention: overlapping windows reject automatically"},
+    {"id": "BK05", "rule": "Hold Request (crew change, fuel stop) has separate queue for priority"}
+  ],
+  "estimatedSize": {"entities": 2, "screens": 3, "microflows": 15, "pages": 6}
+}

@@ -79,6 +79,56 @@ if [ ! -d "$WF_DIR" ]; then
   exit 2
 fi
 
+# --- Resolving a page's wireframe ------------------------------------------------------
+# The default is `design/wireframes/<PageName>.html`, and for one whole project shape that
+# is simply wrong: wireframes drawn from a LEGACY system are named after the source's own
+# screens (`moc-project-detail.html`, `notification-templates.html`) while the target pages
+# are named in Mendix convention (`MOCProject_Detail`, `NotificationTemplate_Overview`).
+#
+# Measured on a MOC/PSSR app replacement, 2026-09-09: 15 wireframes, 8 built pages, and
+# this check reported "no wireframe" for EVERY page and exited 2 — so it had never passed
+# once, on a project that had already shipped a phase of pages carrying the exact
+# inline-H1 defect it exists to catch. A check that cannot resolve its own input across a
+# whole class of project is a check that gets switched off, which is the failure this
+# script's header warns about for a different reason.
+#
+# So: an optional two-column TAB-separated map, `design/wireframes/PAGE-MAP.tsv` —
+#
+#     MOCProject_Detail<TAB>moc-project-detail.html
+#
+# Blank lines and #-comments ignored. Absent map, behaviour is unchanged. A page the map
+# does NOT name is still a miss and is reported naming the map, so the map cannot hide a
+# page by omission. And a map row pointing at a wireframe that does not exist is reported
+# too: a stale row is how a wireframe rename turns into a page nobody checks.
+WF_MAP="${WF_MAP:-$WF_DIR/PAGE-MAP.tsv}"
+
+wf_for() {
+  if [ -f "$WF_MAP" ]; then
+    mapped="$(awk -F'\t' -v p="$1" '
+      /^[[:space:]]*#/ { next }
+      NF < 2           { next }
+      { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2) }
+      $1 == p          { print $2; exit }
+    ' "$WF_MAP")"
+    if [ -n "$mapped" ]; then printf '%s/%s' "$WF_DIR" "$mapped"; return; fi
+  fi
+  printf '%s/%s.html' "$WF_DIR" "$1"
+}
+
+if [ -f "$WF_MAP" ]; then
+  MAP_ROWS=0
+  while IFS="$(printf '\t')" read -r mpage mwf _rest; do
+    case "$mpage" in ''|\#*) continue ;; esac
+    [ -n "${mwf:-}" ] || continue
+    MAP_ROWS=$((MAP_ROWS + 1))
+    if [ ! -f "$WF_DIR/$mwf" ]; then
+      report "$WF_MAP" "$mpage" "maps to $mwf, which does not exist in $WF_DIR" \
+        'A stale map row is how a wireframe rename turns into a page nobody checks. Fix the row or delete it.'
+    fi
+  done < "$WF_MAP"
+  printf 'check-page-shell: PAGE-MAP.tsv in use - %s row(s)\n\n' "$MAP_ROWS"
+fi
+
 for f in $TARGETS; do
   [ -f "$f" ] || continue
   SCANNED=$((SCANNED + 1))
@@ -94,16 +144,77 @@ for f in $TARGETS; do
     page="$(printf '%s' "$txt" | sed -E 's/.*[Pp][Aa][Gg][Ee][[:space:]]+"?[A-Za-z0-9_]+"?\."?([A-Za-z0-9_]+)"?.*/\1/')"
     [ -n "$page" ] || continue
 
-    wf="$WF_DIR/$page.html"
+    wf="$(wf_for "$page")"
     if [ ! -f "$wf" ]; then
-      report "$f:$ln" "page $page has no wireframe at $wf" \
-        'ui-preflight-pages.md Step 1: no wireframe is a STOP. Draw it (design-artifacts.md) or map it; do not build the page against a guess.'
+      if [ -f "$WF_MAP" ]; then
+        report "$f:$ln" "page $page has no wireframe: not at $WF_DIR/$page.html and not named in $WF_MAP" \
+        'ui-preflight-pages.md Step 1: no wireframe is a STOP. Add a <PageName> TAB <wireframe.html> row to PAGE-MAP.tsv, or draw it (design-artifacts.md); do not build the page against a guess.'
+      else
+        report "$f:$ln" "page $page has no wireframe at $wf" \
+        'ui-preflight-pages.md Step 1: no wireframe is a STOP. Draw it (design-artifacts.md), or map it in design/wireframes/PAGE-MAP.tsv when your wireframes are named after the SOURCE screens rather than the target pages; do not build the page against a guess.'
+      fi
       continue
     fi
     PAGES=$((PAGES + 1))
 
-    # The page body: from this declaration to the closing brace at column 0.
-    body="$(awk -v start="$ln" 'NR>=start{print} NR>start && /^\}/{exit}' "$f")"
+    # The page body: from this declaration to the brace that MATCHES the body's opening
+    # one, counted by depth.
+    #
+    # It used to be "to the closing brace at column 0", and that reads the whole rest of the
+    # file for a page whose body is on ONE line — `{ HEADER hdr { DYNAMICTEXT h1 (...) } }`
+    # has no column-0 close, so the scan ran on to the NEXT page's. Measured on a MOC/PSSR
+    # app replacement, 2026-09-09: a nav-shell script declaring five such stubs reported
+    # "page MOCProject_Overview declares 5 H1 titles; its wireframe draws one", and the
+    # notification script reported 2 for a page that has exactly 1. Every number was the
+    # count for the whole FILE.
+    #
+    # That is the worse kind of false positive: it fires on correct code, it names a real
+    # rule, and the fix it asks for (delete four H1s) would have broken four pages. A check
+    # that cannot bound its own input tells you nothing about the input.
+    # Known limit: the counter does not skip quoted strings, so an UNBALANCED brace inside a
+    # string literal truncates the body early. Balanced placeholders ({1} of {2}) are fine.
+    body="$(awk -v start="$ln" '
+      # The page body: from the declaration to the brace that MATCHES the body opening
+      # one, counted per CHARACTER, with parens tracked so a brace inside the
+      # declaration cannot be mistaken for the body.
+      #
+      # It used to be "to the closing brace at column 0", and that reads the rest of the
+      # file for a page whose body is on ONE line: `{ HEADER hdr { DYNAMICTEXT h1 (...) } }`
+      # has no column-0 close, so the scan ran on into the NEXT page. Measured on a
+      # MOC/PSSR app replacement, 2026-09-09 — a nav-shell script declaring five such
+      # stubs reported "page MOCProject_Overview declares 5 H1 titles; its wireframe draws
+      # one", and every number was the count for the whole FILE. That is the worse kind of
+      # false positive: it fires on correct code, it names a real rule, and the fix it asks
+      # for (delete four H1s) would have broken four pages.
+      #
+      # Two line-based repairs were tried first and each broke the other case, which is why
+      # this counts characters. A per-line "started on any brace" reading exits on a
+      # BALANCED one-line construct — a multi-line declaration carrying
+      # `Params: { $X: Mod.Entity }` closes on its own line — and reported a page with a
+      # correct RenderMode: H1 as having none. A per-line "started only when depth > 0"
+      # reading never starts on a one-line body, where the braces balance within the line.
+      # Only the paren state separates the two, so the paren state is tracked.
+      NR < start { next }
+      { print $0 }
+      done { exit }
+      {
+        line = $0
+        sub(/--.*$/, "", line)          # a trailing -- note must not move the depth
+        n = length(line)
+        for (i = 1; i <= n; i++) {
+          c = substr(line, i, 1)
+          if (!started) {
+            if (c == "(") pd++
+            else if (c == ")") { if (pd > 0) pd-- }
+            else if (c == "{" && pd == 0) { started = 1; bd = 1 }
+          } else {
+            if (c == "{") bd++
+            else if (c == "}") { bd--; if (bd <= 0) { done = 1; break } }
+          }
+        }
+      }
+      done { exit }
+    ' "$f")"
 
     # A popup owns neither the app column nor a page title — the popup chrome supplies
     # both, and restating the title in the body is its own documented defect

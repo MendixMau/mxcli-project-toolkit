@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>Demo list — Wireframe</title>
+<style>
+  /* The other direction: .x-item is a genuine bound-data mock — one per list row — and
+     must still be dropped, at any subtree size. .x-card is the once-used wrapper around
+     the whole list and must not be. */
+  .page-head{display:flex}
+  .x-card{background:#fff;border:1px solid #ddd;padding:24px}
+  .x-item{display:flex;gap:16px;padding:16px;border-bottom:1px solid #eee}
+  .x-item .who{color:#666}
+  .anno{margin-top:32px}
+</style>
+<div class="wf-wrap">
+<div class="wf-screen">
+<div class="page-head"><h1>Approvals</h1></div>
+<div class="x-card">
+  <div class="x-item"><span>864 · Environmental system improvement</span><span class="who">A. Reviewer</span></div>
+  <div class="x-item"><span>861 · Reclaimer refurbishment</span><span class="who">B. Approver</span></div>
+  <div class="x-item"><span>860 · Screw conveyor replacement</span><span class="who">C. Director</span></div>
+</div>
+</div>
+<div class="anno"><h2>Annotation</h2><p><b>Purpose.</b> The approver's queue.</p></div>
+</div>

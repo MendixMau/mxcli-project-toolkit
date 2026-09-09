@@ -1,0 +1,35 @@
+/* Synthetic design system for the fixture. Same SHAPE as a real one: a token block
+   under :root, a dark-theme redefinition that must be ignored, and component classes. */
+:root {
+  --brand:            #AA1122;
+  --brand-hover:      #99101F;
+  --brand-active:     #880E1B;
+  --brand-ink:        #770C18;
+  --brand-wash:       #FDEEEE;
+  --on-brand:         #FFFFFF;
+  --bg:               #FAFAFA;
+  --surface:          #FFFFFF;
+  --line:             #E6E6E8;
+  --ink:              #1B1B1F;
+  --ink-body:         #2E2E33;
+  --ink-soft:         #6B6B73;
+  --ink-faint:        #9A9AA2;
+  --font:             "Open Sans", sans-serif;
+  --fs-body:          15px;
+  --radius:           6px;
+  --sp-3:             16px;
+  --sp-4:             24px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand-ink:      #FF7A6E;
+    --bg:             #121214;
+  }
+}
+
+.ds-page { max-width: 1200px; margin: 0 auto; padding: var(--sp-4) var(--sp-3); }
+.ds-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.ds-muted { color: var(--ink-soft); }
+.ds-btn { height: 40px; border-radius: var(--radius); }
+.ds-btn--primary { background: var(--brand); color: var(--on-brand); }

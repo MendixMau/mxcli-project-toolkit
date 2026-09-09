@@ -1,0 +1,14 @@
+{
+  "id": "F002",
+  "title": "Feature 2",
+  "module": "Module2",
+  "provenance": "docs-driven",
+  "actors": ["User"],
+  "useCases": [{"id": "UC001", "title": "Main use case", "screens": ["Screen1"]}],
+  "domainEntities": [{"name": "Entity2", "persistent": true, "attributeCount": 3}],
+  "pages": ["Screen1"],
+  "openQuestions": [],
+  "microflows": 2,
+  "businessRules": [],
+  "validationStatus": "clean"
+}

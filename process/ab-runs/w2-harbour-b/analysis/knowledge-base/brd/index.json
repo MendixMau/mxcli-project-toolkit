@@ -1,0 +1,12 @@
+{
+  "brds": [
+    {"id": "F001", "file": "F001-booking-lifecycle.brd.json", "title": "Booking Lifecycle Management"},
+    {"id": "F002", "file": "F002-officer-review.brd.json", "title": "Officer Review & Approval"},
+    {"id": "F003", "file": "F003-master-data.brd.json", "title": "Berth & Vessel Master Data"},
+    {"id": "F004", "file": "F004-tariffs.brd.json", "title": "Tariffs & Invoicing"},
+    {"id": "F005", "file": "F005-inspection.brd.json", "title": "Inspection Workflow"},
+    {"id": "F006", "file": "F006-reporting.brd.json", "title": "Reporting & Compliance"},
+    {"id": "F007", "file": "F007-security.brd.json", "title": "User & Security Management"},
+    {"id": "F008", "file": "F008-integrations.brd.json", "title": "External Integrations"}
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "F001",
+  "title": "Booking Lifecycle Management",
+  "module": "BookingMgmt",
+  "provenance": "docs-driven",
+  "sourceRef": "analysis/knowledge-base/text/08-booking-lifecycle.md",
+  "actors": ["BookingAgent"],
+  "useCases": [
+    {"id": "UC001", "title": "Submit booking request", "actors": ["BookingAgent"], "screens": ["BookingRequest_Form"]},
+    {"id": "UC002", "title": "View bookings", "actors": ["BookingAgent"], "screens": ["BookingBoard_Screen"]},
+    {"id": "UC003", "title": "Cancel booking", "actors": ["BookingAgent"], "screens": ["BookingDetail_Edit"]}
+  ],
+  "domainEntities": [
+    {"name": "BookingRequest", "persistent": true, "attributeCount": 6},
+    {"name": "BookingHistory", "persistent": true, "attributeCount": 4}
+  ],
+  "pages": ["BookingRequest_Form", "BookingBoard_Screen", "BookingDetail_Edit"],
+  "openQuestions": [],
+  "microflows": 5,
+  "businessRules": [],
+  "validationStatus": "clean"
+}

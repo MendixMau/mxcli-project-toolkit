@@ -6,7 +6,7 @@ separately.
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-118: ALTER PAGE ... REPLACE targeting a widget
 nested inside a GALLERY template's child slot drops the new widget's ContentParams/attribute
 binding` (discovered 2026-08-25, ToeicBuddy-conversion field run)
-**Status:** DO NOT FILE SEPARATELY — same defect as BUG-114 (root cause located in `mdl/backend/pagemutator/mutator.go`, merge review 2026-09-07); attach this body as the second reproduction to BUG-114's issue — it is the diagnostic one, because `<unbound>` is visible in `DESCRIBE PAGE` and the re-scope is not
+**Status:** FILED as reproduction 2 of BUG-114's issue — https://github.com/mendixlabs/mxcli/issues/1076 (2026-09-09). DO NOT FILE SEPARATELY — same defect as BUG-114 (root cause located in `mdl/backend/pagemutator/mutator.go`, merge review 2026-09-07); attach this body as the second reproduction to BUG-114's issue — it is the diagnostic one, because `<unbound>` is visible in `DESCRIBE PAGE` and the re-scope is not
 **Note:** unlike most entries in this folder, this defect WAS caught by the real `mx check`
 gate (CE0402), not left silent — filing it anyway because the two mxcli-side checks
 (`mxcli check --references`, `mxcli exec`) both reported success, so a project relying on those

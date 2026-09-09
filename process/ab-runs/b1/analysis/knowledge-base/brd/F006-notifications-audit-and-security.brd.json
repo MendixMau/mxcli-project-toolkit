@@ -1,0 +1,209 @@
+{
+  "id": "F006",
+  "title": "Notifications, Audit & Security",
+  "modules": [
+    "HBB_Platform"
+  ],
+  "actors": [
+    "ShippingAgent",
+    "BerthOfficer",
+    "HarbourMaster",
+    "Inspector"
+  ],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Notify an agent of a status change",
+      "actors": [],
+      "preconditions": [
+        "BookingRequest.Status changes"
+      ],
+      "postconditions": [
+        "E-mail sent to the agent, including the booking reference"
+      ],
+      "mainFlow": [
+        "1. The agent receives an e-mail whenever the status of their booking request changes.",
+        "2. E-mail notifications should include the reference."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Platform"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/17-notifications.md#L20"
+    },
+    {
+      "id": "UC002",
+      "title": "Send the officer daily digest",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Digest e-mail sent at 06:00"
+      ],
+      "mainFlow": [
+        "1. Officers receive a daily digest at 06:00 listing requests with an ETA within the next 48 hours."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Platform"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/17-notifications.md#L24"
+    },
+    {
+      "id": "UC003",
+      "title": "Record an audit entry",
+      "actors": [],
+      "preconditions": [
+        "Status change on a booking, decision, invoice or inspection"
+      ],
+      "postconditions": [
+        "AuditEntry written with actor, timestamp, action"
+      ],
+      "mainFlow": [
+        "1. Every status change on a booking, decision, invoice or inspection is written to an audit trail with actor, timestamp and action."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Platform"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/26-audit-and-compliance.md#L20"
+    },
+    {
+      "id": "UC004",
+      "title": "Enforce agent data isolation",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Agent sees only their own company's data"
+      ],
+      "mainFlow": [
+        "1. Agents can only see bookings, invoices and inspections that belong to their own company."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Platform"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/35-security-and-access.md#L19"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "AuditEntry",
+      "module": "HBB_Platform",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "OccurredOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "Actor",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "Action",
+          "type": "String",
+          "length": 100,
+          "mandatory": true
+        },
+        {
+          "name": "EntityName",
+          "type": "String",
+          "length": 60,
+          "mandatory": true
+        },
+        {
+          "name": "Detail",
+          "type": "String",
+          "length": 1000,
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "AuditEntry_BookingRequest",
+          "target": "BookingRequest",
+          "type": "ManyToOne",
+          "owner": "AuditEntry"
+        }
+      ]
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_Notification_Send",
+      "module": "HBB_Platform",
+      "purpose": "E-mails the agent on any BookingRequest status change, including the reference.",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "Void",
+      "pattern": "domain-event",
+      "calls": [],
+      "validations": [
+        "Sent on every status change.",
+        "Includes the booking reference."
+      ]
+    },
+    {
+      "name": "SUB_OfficerDigest_Send",
+      "module": "HBB_Platform",
+      "purpose": "Scheduled daily at 06:00: e-mails officers the requests with ETA within 48 hours.",
+      "params": [],
+      "returns": "Void",
+      "pattern": "scheduled-event",
+      "calls": [],
+      "validations": [
+        "Runs daily at 06:00."
+      ]
+    },
+    {
+      "name": "SUB_AuditEntry_Record",
+      "module": "HBB_Platform",
+      "purpose": "Writes an AuditEntry for any status change on booking/decision/invoice/inspection.",
+      "params": [
+        {
+          "name": "EntityName",
+          "type": "String"
+        },
+        {
+          "name": "Action",
+          "type": "String"
+        }
+      ],
+      "returns": "Void",
+      "pattern": "domain-event",
+      "calls": [],
+      "validations": []
+    }
+  ],
+  "pages": [],
+  "integrations": [],
+  "openQuestions": [
+    {
+      "id": "F006-OQ1",
+      "question": "Cargo manifest PDF attachment on a booking request (workshop-notes session 2) \u2014 build it?",
+      "status": "ASSUMED",
+      "answer": "Deferred out of Stage 2 scope. See PROJECT.md Ruling.",
+      "consentBy": "unattended run b1",
+      "consentAt": "2026-09-09"
+    }
+  ],
+  "sourceKB": [
+    "analysis/knowledge-base/text/17-notifications.md#L1",
+    "analysis/knowledge-base/text/26-audit-and-compliance.md#L1",
+    "analysis/knowledge-base/text/35-security-and-access.md#L1",
+    "sources/roles.md",
+    "sources/workshop-notes.md"
+  ],
+  "provenance": "documents"
+}

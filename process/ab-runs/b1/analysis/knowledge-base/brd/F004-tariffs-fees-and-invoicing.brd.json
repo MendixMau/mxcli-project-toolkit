@@ -1,0 +1,371 @@
+{
+  "id": "F004",
+  "title": "Tariffs, Fees & Invoicing",
+  "modules": [
+    "HBB_Billing"
+  ],
+  "actors": [
+    "HarbourMaster",
+    "BerthOfficer"
+  ],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Maintain a terminal tariff",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Tariff record active for its validity period"
+      ],
+      "mainFlow": [
+        "1. Tariffs are defined per terminal with a rate per metre of vessel length per day, a currency and a validity period."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Billing"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/18-tariff-structure.md#L22"
+    },
+    {
+      "id": "UC002",
+      "title": "Calculate the berth fee for a completed stay",
+      "actors": [],
+      "preconditions": [
+        "Booking Status = Completed"
+      ],
+      "postconditions": [
+        "Fee computed and available for invoicing"
+      ],
+      "mainFlow": [
+        "1. Berth fee = vessel length x days-alongside x tariff rate, days rounded up to whole days, minimum 1 day.",
+        "2. VAT of 21% is added to all berth fees.",
+        "3. Shore power is billed at a flat 250/day when the berth offers it and the agent requested it.",
+        "4. A vessel arriving more than 2 hours after its ETA incurs a late-arrival surcharge of 15% of the berth fee (waivable by a Berth Officer for vessels shorter than 80m).",
+        "5. A cancellation made within 72 hours of ETA is charged 50% of the berth fee."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Billing"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/18-tariff-structure.md#L26"
+    },
+    {
+      "id": "UC003",
+      "title": "Generate an invoice on booking completion",
+      "actors": [],
+      "preconditions": [
+        "Booking Status changes to Completed"
+      ],
+      "postconditions": [
+        "Invoice created, Status = Draft or Issued, DueOn = IssuedOn + 30 days"
+      ],
+      "mainFlow": [
+        "1. An invoice is generated automatically when a booking is marked Completed."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Billing"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/20-invoicing.md#L20"
+    },
+    {
+      "id": "UC004",
+      "title": "Mark an invoice Paid or Void",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [
+        "Invoice.Status != Paid"
+      ],
+      "postconditions": [
+        "Invoice.Status updated",
+        "A Paid invoice can no longer be edited"
+      ],
+      "mainFlow": [
+        "1. A Harbour Master can mark an invoice as Paid or Void; a Paid invoice cannot be edited."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Billing"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/20-invoicing.md#L24"
+    },
+    {
+      "id": "UC005",
+      "title": "Age an invoice to Overdue",
+      "actors": [],
+      "preconditions": [
+        "Invoice.Status = Issued",
+        "current date > DueOn"
+      ],
+      "postconditions": [
+        "Invoice.Status = Overdue"
+      ],
+      "mainFlow": [
+        "1. Invoices are due 30 days after the issue date and become Overdue on the day after the due date."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Billing"
+      ],
+      "sourceRef": "sources/decisions-log.md (ADR-006)"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "Tariff",
+      "module": "HBB_Billing",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Code",
+          "type": "String",
+          "length": 10,
+          "mandatory": true
+        },
+        {
+          "name": "Description",
+          "type": "String",
+          "length": 120,
+          "mandatory": true
+        },
+        {
+          "name": "RatePerMetrePerDay",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "Currency",
+          "type": "String",
+          "length": 3,
+          "mandatory": true
+        },
+        {
+          "name": "ValidFrom",
+          "type": "Date",
+          "mandatory": true
+        },
+        {
+          "name": "ValidTo",
+          "type": "Date",
+          "mandatory": false
+        },
+        {
+          "name": "SurchargePercent",
+          "type": "Decimal",
+          "mandatory": false
+        },
+        {
+          "name": "IsActive",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "ModifiedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "ModifiedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "Tariff_Terminal",
+          "target": "Terminal",
+          "type": "ManyToOne",
+          "owner": "Tariff"
+        }
+      ]
+    },
+    {
+      "name": "Invoice",
+      "module": "HBB_Billing",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "InvoiceNumber",
+          "type": "String",
+          "length": 16,
+          "mandatory": true
+        },
+        {
+          "name": "IssuedOn",
+          "type": "Date",
+          "mandatory": true
+        },
+        {
+          "name": "DueOn",
+          "type": "Date",
+          "mandatory": true
+        },
+        {
+          "name": "TotalAmount",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "VatPercent",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "Status",
+          "type": "Enumeration",
+          "values": [
+            "Draft",
+            "Issued",
+            "Paid",
+            "Overdue",
+            "Void"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "IsActive",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "ModifiedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "ModifiedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "Invoice_BookingRequest",
+          "target": "BookingRequest",
+          "type": "OneToOne",
+          "owner": "Invoice"
+        },
+        {
+          "name": "Invoice_ShippingAgent",
+          "target": "ShippingAgent",
+          "type": "ManyToOne",
+          "owner": "Invoice"
+        },
+        {
+          "name": "Invoice_Tariff",
+          "target": "Tariff",
+          "type": "ManyToOne",
+          "owner": "Invoice"
+        }
+      ]
+    }
+  ],
+  "microflows": [
+    {
+      "name": "CAL_BookingRequest_BerthFee",
+      "module": "HBB_Billing",
+      "purpose": "Computes the berth fee for a booking: length x days-alongside x rate, VAT, shore power, surcharges.",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "Decimal",
+      "pattern": "calculation",
+      "calls": [],
+      "validations": [
+        "Days-alongside rounded up to whole days, minimum 1 day.",
+        "VAT 21% added to all berth fees.",
+        "Shore power flat 250/day when offered and requested.",
+        "Late arrival (>2h after ETA): +15% surcharge, waivable for vessels <80m by a Berth Officer.",
+        "Late cancellation (within 72h of ETA): 50% of the berth fee."
+      ]
+    },
+    {
+      "name": "ACT_Invoice_GenerateOnCompletion",
+      "module": "HBB_Billing",
+      "purpose": "Fires when a booking's Status changes to Completed; creates the Invoice.",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "Invoice",
+      "pattern": "domain-event",
+      "calls": [
+        "CAL_BookingRequest_BerthFee"
+      ],
+      "validations": [
+        "DueOn = IssuedOn + 30 days."
+      ]
+    },
+    {
+      "name": "ACT_Invoice_MarkPaidOrVoid",
+      "module": "HBB_Billing",
+      "purpose": "Harbour-Master-only status change.",
+      "params": [
+        {
+          "name": "Invoice",
+          "type": "Invoice"
+        }
+      ],
+      "returns": "Void",
+      "pattern": "guarded-action",
+      "calls": [],
+      "validations": [
+        "Only callable by role HarbourMaster.",
+        "A Paid invoice cannot be edited."
+      ]
+    },
+    {
+      "name": "SUB_Invoice_AgeToOverdue",
+      "module": "HBB_Billing",
+      "purpose": "Scheduled daily: flips Issued invoices past DueOn to Overdue.",
+      "params": [],
+      "returns": "Void",
+      "pattern": "scheduled-event",
+      "calls": [],
+      "validations": []
+    }
+  ],
+  "pages": [],
+  "integrations": [],
+  "openQuestions": [],
+  "sourceKB": [
+    "analysis/knowledge-base/text/18-tariff-structure.md#L1",
+    "analysis/knowledge-base/text/19-tariffs-cancellation-fees.md#L1",
+    "analysis/knowledge-base/text/20-invoicing.md#L1",
+    "analysis/knowledge-base/text/36-appendix-data-dictionary.md#L1",
+    "sources/decisions-log.md"
+  ],
+  "provenance": "documents"
+}

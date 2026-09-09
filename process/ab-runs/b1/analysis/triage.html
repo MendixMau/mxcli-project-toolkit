@@ -1,0 +1,92 @@
+<title>Source triage — abproj</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --panel:#ffffff; --fg:#11141a; --muted:#5b6472; --line:#e0e4ea;
+    --accent:#3b5bdb; --todo-bg:#fdf0d5; --todo-fg:#7a4b00; --todo-line:#d9a441;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#101319; --panel:#171b22; --fg:#e6e9ef; --muted:#939cab; --line:#272d37;
+      --accent:#7b95f0; --todo-bg:#3a2c12; --todo-fg:#e7c07a; --todo-line:#8a6a2a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#101319; --panel:#171b22; --fg:#e6e9ef; --muted:#939cab; --line:#272d37;
+    --accent:#7b95f0; --todo-bg:#3a2c12; --todo-fg:#e7c07a; --todo-line:#8a6a2a;
+  }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--fg); margin:0; padding:3rem 1.25rem 4rem;
+         font:15px/1.6 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         font-variant-numeric:tabular-nums; }
+  main { max-width:62rem; margin:0 auto; }
+  .eyebrow { font-size:.7rem; text-transform:uppercase; letter-spacing:.14em; font-weight:700;
+              color:var(--muted); margin:0 0 .5rem; }
+  h1 { font-size:1.75rem; line-height:1.15; letter-spacing:-.02em; margin:0 0 .4rem;
+        text-wrap:balance; }
+  h2 { font-size:.78rem; text-transform:uppercase; letter-spacing:.12em; font-weight:700;
+        margin:2.75rem 0 .75rem; color:var(--muted); }
+  h3 { font-size:1rem; margin:1.75rem 0 .5rem; }
+  h4 { font-size:.92rem; margin:1.25rem 0 .4rem; color:var(--muted); }
+  p { margin:0 0 .9rem; max-width:52rem; }
+  ul { margin:0 0 1rem; padding-left:1.15rem; max-width:52rem; }
+  li { margin:.25rem 0; }
+  hr { border:0; border-top:1px solid var(--line); margin:2.25rem 0; }
+  table { width:100%; border-collapse:collapse; font-size:.88rem; margin:0 0 1rem;
+           background:var(--panel); }
+  .scroll { overflow-x:auto; }
+  th { text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.1em;
+        font-weight:700; color:var(--muted); border-bottom:1px solid var(--line);
+        padding:.5rem .7rem; white-space:nowrap; }
+  td { border-bottom:1px solid var(--line); padding:.7rem; vertical-align:top; }
+  code { font-size:.85em; background:var(--panel); border:1px solid var(--line);
+          border-radius:3px; padding:.05rem .3rem; }
+  .todo { background:var(--todo-bg); color:var(--todo-fg); border:1px dashed var(--todo-line);
+           border-radius:3px; padding:.05rem .35rem; font-size:.85em; }
+  .banner { border-left:3px solid var(--accent); background:var(--panel); border-radius:0 3px 3px 0;
+             padding:.9rem 1.1rem; margin:0 0 2rem; color:var(--muted); font-size:.88rem; }
+  .banner p { margin:0; }
+  footer { margin-top:3rem; padding-top:1.1rem; border-top:1px solid var(--line);
+            color:var(--muted); font-size:.8rem; max-width:46rem; }
+</style>
+<main>
+  <p class="eyebrow">Stage 0 · source triage</p>
+  <div class="banner">
+    <p>Rendered 2026-09-09 from <code>/tmp/abproj/triage.md</code>. This page is a view of that file and
+       nothing else — it does not check, score or approve anything in it. The verdict on Stage 0
+       comes from <code>bin/gate-check.sh abproj 0</code>, which asks one question: has a
+       human signed this off. Dashed boxes are placeholders still in the source.</p>
+  </div>
+  <h1>Source Triage: Harbour Berth Booking</h1>
+  <p><strong>Stage 0 — every entry mode.</strong> Entry mode: requirements-driven, docs-ready-corpus fast path (conversion-runbook.md → &quot;Requirements-driven, docs-ready corpus&quot;). Run: A/B evaluation b1 (arm B), unattended — no SME available; every open call below is recorded ASSUMED with a Ruling in PROJECT.md.</p>
+  <hr>
+  <h2>Extraction Approach</h2>
+  <p><strong>N/A (text-native corpus).</strong> The corpus (<code>sources/</code>) is a documentation-portal HTML export (36 pages) plus <code>glossary.md</code>, <code>roles.md</code>, <code>decisions-log.md</code>, <code>workshop-notes.md</code> — no legacy application code, no database schema, no ORM model, no OpenAPI/GraphQL contract, and no entity/field tables presented as a machine-extractable structure (the domain-overview and appendix &quot;Data:&quot; tables are prose-embedded documentation of the intended model, not a schema dump — nothing to run an AST/schema extractor against). Per <code>conversion-runbook.md</code>&#x27;s docs-ready-corpus row, the corpus was converted once with <code>bin/html-to-md.sh</code> instead (<code>analysis/knowledge-base/text/*.md</code> + <code>documents-index.md</code>), and the Extraction Approach / Coverage Matrix rows are marked N/A on that evidence, not on the entry-mode label.</p>
+  <div class="scroll"><table><thead><tr><th>Decision</th><th>Chosen?</th><th>Which pipeline / what has to be built</th></tr></thead><tbody><tr><td>Reuse existing pipeline</td><td>N/A</td><td>no code/schema pipeline applies — text-native corpus</td></tr><tr><td>Build new pipeline</td><td>N/A</td><td><code>bin/html-to-md.sh</code> (already in the toolkit) is the only conversion this corpus needs</td></tr></tbody></table></div>
+  <p>Reasoning: 200 source files, all HTML/Markdown/CSS/JS/font/image; zero schema-shaped files (confirmed by opening every file — see <code>analysis/source-sufficiency.json</code> inventory, pass 1).</p>
+  <p>Who chose it, and when: unattended run b1, 2026-09-09 (ASSUMED, PROJECT.md).</p>
+  <hr>
+  <h2>Business Capability Map</h2>
+  <div class="scroll"><table><thead><tr><th>Business capability</th><th>Source components</th><th>Rough size (entities/screens)</th><th>Owner / team (if known)</th></tr></thead><tbody><tr><td>Vessel &amp; agent registry</td><td>Vessel, ShippingAgent (ch07, 11, 14, 36)</td><td>2 entities, 0 dedicated screens (embedded in booking form)</td><td>Documentation team, port operations</td></tr><tr><td>Berth &amp; terminal master data</td><td>Berth, Terminal, Tariff (ch12, 18, 36)</td><td>3 entities, 0 dedicated screens (admin-only, not shown in nav)</td><td>Documentation team, port operations</td></tr><tr><td>Booking lifecycle &amp; request form</td><td>BookingRequest (ch08, 09, 10, 13)</td><td>1 entity, 2 screens (Booking Request Form, My Bookings)</td><td>Documentation team, port operations</td></tr><tr><td>Officer review &amp; approval</td><td>ApprovalDecision (ch15, 16, 21)</td><td>1 entity, 2 screens (Booking Board, Officer Review Screen)</td><td>Documentation team, port operations</td></tr><tr><td>Tariffs, fees &amp; invoicing</td><td>Tariff, Invoice (ch18, 19, 20)</td><td>2 entities, 0 dedicated screens described</td><td>Documentation team, port operations, finance</td></tr><tr><td>Inspections &amp; departure clearance</td><td>Inspection, InspectionItem (ch22-25)</td><td>2 entities, 1 screen (Inspection Calendar)</td><td>Documentation team, port operations</td></tr><tr><td>Notifications</td><td>(cross-cutting, ch17)</td><td>0 entities, 0 screens (email only)</td><td>Documentation team, port operations</td></tr><tr><td>Reporting</td><td>(ch32)</td><td>0 new entities, 0 dedicated screen described beyond nav mention</td><td>Documentation team, port operations</td></tr><tr><td>Audit &amp; compliance</td><td>AuditEntry (ch26)</td><td>1 entity, 0 dedicated screen described</td><td>Documentation team, port operations</td></tr><tr><td>Security &amp; access</td><td>(roles.md, ch35)</td><td>0 entities, cross-cutting role/tenancy model</td><td>Documentation team, port operations</td></tr><tr><td>AIS integration</td><td>(ch33)</td><td>0 entities, external feed only</td><td>Documentation team, port operations</td></tr></tbody></table></div>
+  <hr>
+  <h2>Coverage Matrix</h2>
+  <p>N/A — no extractable structure in this corpus (see Extraction Approach above); every capability above is written by hand from the converted document text at Stage 2, not extracted/mapped.</p>
+  <div class="scroll"><table><thead><tr><th>Capability</th><th>Extractable?</th><th>Mapper -&gt; BRD?</th><th>Reliable?</th><th>Verdict</th></tr></thead><tbody><tr><td>All capabilities above</td><td>No — prose/HTML only</td><td>N/A</td><td>N/A</td><td><strong>Manual</strong></td></tr></tbody></table></div>
+  <hr>
+  <h2>Recommended Scope Subset</h2>
+  <p>A slice is an ordering, not an exclusion — the whole documented application is in scope for this project. Recommended build order (by dependency: master data before the things that reference it, booking before review, review before money/inspection):</p>
+  <p>1. Vessel &amp; agent registry, Berth &amp; terminal master data -&gt; <strong>Ready-equivalent (Manual/first)</strong> -&gt; yes -&gt; everything else references these 2. Booking lifecycle &amp; request form -&gt; <strong>Manual</strong> -&gt; yes -&gt; the core transaction; blocks review 3. Officer review &amp; approval -&gt; <strong>Manual</strong> -&gt; yes -&gt; depends on (2) 4. Inspections &amp; departure clearance -&gt; <strong>Manual</strong> -&gt; yes -&gt; depends on (3) for Approved bookings, and the fit/DG rules 5. Tariffs, fees &amp; invoicing -&gt; <strong>Manual</strong> -&gt; yes -&gt; depends on (2)+(3) for a Completed booking to invoice 6. Notifications, Audit &amp; compliance -&gt; <strong>Manual</strong> -&gt; yes -&gt; cross-cutting, wired alongside the above as each is built 7. Reporting -&gt; <strong>Manual</strong> -&gt; deferred within this run&#x27;s Stage 2 scope -&gt; low detail in the source (one bullet: monthly CSV export), lowest business risk to sequence last 8. Security &amp; access -&gt; <strong>Manual</strong> -&gt; yes -&gt; the row-level tenancy rule is simple and should be modelled from the start, not bolted on 9. AIS integration -&gt; <strong>Manual</strong> -&gt; deferred/stub -&gt; no protocol/endpoint/credentials named anywhere in the corpus (see <code>analysis/source-sufficiency.json</code> — <code>integrations</code> dimension rated <code>named</code>, not <code>specified</code>); a real integration cannot be built from this source alone</p>
+  <p>This run&#x27;s task boundary stops at the Stage 2 BRD gate — sequencing above informs Stage 2 capability grouping and is the input Stage 4&#x27;s build-plan will re-use, not itself a build decision.</p>
+  <hr>
+  <h2>Architecture Scale Flag</h2>
+  <div class="scroll"><table><thead><tr><th>Trigger</th><th>Fired?</th><th>Evidence</th></tr></thead><tbody><tr><td>Capabilities with clearly independent release cadences, ownership, or security/regulatory domains</td><td>No</td><td>Single documentation team/port-operations owner named throughout; no separate release cadence, ownership or regulatory domain distinguishes any capability from another.</td></tr><tr><td>In-scope entity/screen count large enough that modularize-domain.md would still land on 8-10+ modules after its own merge criteria</td><td>No</td><td>11 entities, ~6 named screens total — well within a single-app, multi-module Mendix build; not a multi-app scale signal.</td></tr></tbody></table></div>
+  <p>Verdict: <strong>No concern.</strong> One Mendix app, standard multi-module decomposition at Stage 3.</p>
+  <hr>
+  <h2>Sign-off</h2>
+  <p>Confirmed by: unattended run b1 (arm B), 2026-09-09 — no SME/human available this session; sign-off recorded per the run&#x27;s explicit unattended-mode authorization (PROJECT.md <code>Interview mode: unattended</code>), CAC-1 scope brainstorm conducted as a self-proposed recommendation with a Ruling logged in <code>PROJECT.md</code>, not a skipped question. Two contradictions and two shape-changing gaps were found (see <code>analysis/source-sufficiency.json</code> <code>conflicts</code>/ <code>choices</code> and <code>analysis/rules-extract.md</code>) and each resolved ASSUMED with its own Ruling, recorded in <code>PROJECT.md</code>, rather than silently picked.</p>
+  <footer>
+    The reasoning behind every section here lives in <code>skills/source-triage.md</code>; the
+    fill-in-me source is scaffolded by <code>bin/init-project.sh</code> from
+    <code>bin/lib/triage-template.sh</code>. Edit <code>triage.md</code> and re-run
+    <code>bin/triage-report.sh</code> — never edit this page.
+  </footer>
+</main>

@@ -1,0 +1,6 @@
+# md5 of each toolkit lint rule AS INSTALLED. Written by bin/lib/install-lint-rules.sh.
+# Do not edit. Deleting this file makes a revert-to-stock look like a first install.
+conv010_act_microflow_content.star  cef7a07d07413867ba3b6e993e382ec2
+data_change_microflows.star  a65c2598e784088fc778c237b7e58c73
+entity_business_key.star  33eac40e97e9eb1111ebcbb75f62a942
+conv020_action_user_feedback.star  d7734ec8922edf2e136316c09b7bb9cf

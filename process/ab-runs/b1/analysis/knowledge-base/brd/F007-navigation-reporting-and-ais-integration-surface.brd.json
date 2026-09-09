@@ -1,0 +1,109 @@
+{
+  "id": "F007",
+  "title": "Navigation, Reporting & AIS Integration Surface",
+  "modules": [
+    "HBB_Reporting"
+  ],
+  "actors": [
+    "ShippingAgent",
+    "BerthOfficer",
+    "HarbourMaster",
+    "Inspector"
+  ],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Navigate the application",
+      "actors": [
+        "ShippingAgent",
+        "BerthOfficer",
+        "HarbourMaster",
+        "Inspector"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. The navigation offers three screens: Booking Board, My Bookings and Inspection Calendar.",
+        "2. Role names are shown in the header of every screen."
+      ],
+      "screens": [
+        "BookingBoard_Overview",
+        "MyBookings_Overview",
+        "InspectionCalendar_Screen"
+      ],
+      "mdlRefs": [
+        "HBB_Reporting"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/28-navigation-and-screens.md#L19"
+    },
+    {
+      "id": "UC002",
+      "title": "Export the monthly berth occupancy report",
+      "actors": [
+        "BerthOfficer",
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "CSV file produced, one per terminal per month"
+      ],
+      "mainFlow": [
+        "1. A monthly berth occupancy report per terminal can be exported as CSV."
+      ],
+      "screens": [
+        "Reporting_Overview"
+      ],
+      "mdlRefs": [
+        "HBB_Reporting"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/32-reporting.md#L19"
+    }
+  ],
+  "domainEntities": [],
+  "microflows": [
+    {
+      "name": "ACT_Report_ExportBerthOccupancyCSV",
+      "module": "HBB_Reporting",
+      "purpose": "Builds a monthly per-terminal berth occupancy CSV export.",
+      "params": [
+        {
+          "name": "Terminal",
+          "type": "Terminal"
+        },
+        {
+          "name": "Month",
+          "type": "Date"
+        }
+      ],
+      "returns": "FileDocument",
+      "pattern": "export",
+      "calls": [],
+      "validations": []
+    }
+  ],
+  "pages": [
+    {
+      "name": "Reporting_Overview",
+      "module": "HBB_Reporting",
+      "layout": "Atlas_Default",
+      "purpose": "Monthly berth occupancy report per terminal, CSV export.",
+      "dataContext": "BookingRequest aggregate",
+      "sections": [
+        "Filters",
+        "Export"
+      ],
+      "actions": [
+        "ACT_Report_ExportBerthOccupancyCSV"
+      ]
+    }
+  ],
+  "integrations": [],
+  "openQuestions": [],
+  "sourceKB": [
+    "analysis/knowledge-base/text/28-navigation-and-screens.md#L1",
+    "analysis/knowledge-base/text/29-booking-board-screen.md#L1",
+    "analysis/knowledge-base/text/30-my-bookings-screen.md#L1",
+    "analysis/knowledge-base/text/32-reporting.md#L1"
+  ],
+  "provenance": "documents"
+}

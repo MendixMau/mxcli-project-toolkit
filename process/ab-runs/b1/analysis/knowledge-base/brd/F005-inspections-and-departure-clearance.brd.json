@@ -1,0 +1,372 @@
+{
+  "id": "F005",
+  "title": "Inspections & Departure Clearance",
+  "modules": [
+    "HBB_Inspection"
+  ],
+  "actors": [
+    "Inspector",
+    "BerthOfficer"
+  ],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Schedule an inspection",
+      "actors": [
+        "Inspector"
+      ],
+      "preconditions": [
+        "Booking is Approved, OR (CargoClass = DangerousGoods AND Booking is UnderReview \u2014 the approval-gate carve-out, see PROJECT.md Ruling)"
+      ],
+      "postconditions": [
+        "Inspection created, Outcome = Pending",
+        "Agent notified of the time slot"
+      ],
+      "mainFlow": [
+        "1. An inspector schedules an inspection against an Approved booking and the agent is notified of the time slot.",
+        "2. A booking with cargo class Dangerous Goods cannot be Approved until an inspection has been scheduled."
+      ],
+      "screens": [
+        "InspectionCalendar_Screen"
+      ],
+      "mdlRefs": [
+        "HBB_Inspection"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/22-inspection-scheduling.md#L20"
+    },
+    {
+      "id": "UC002",
+      "title": "Reschedule an inspection",
+      "actors": [
+        "Inspector"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Inspection.ScheduledFor updated"
+      ],
+      "mainFlow": [
+        "1. The Inspection Calendar shows inspections per day and per inspector and allows drag-and-drop rescheduling."
+      ],
+      "screens": [
+        "InspectionCalendar_Screen"
+      ],
+      "mdlRefs": [
+        "HBB_Inspection"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/31-inspection-calendar-screen.md#L19"
+    },
+    {
+      "id": "UC003",
+      "title": "Record checklist results",
+      "actors": [
+        "Inspector"
+      ],
+      "preconditions": [
+        "Inspection.Outcome = Pending"
+      ],
+      "postconditions": [
+        "InspectionItem rows recorded",
+        "Inspection.Outcome set to Passed or Failed"
+      ],
+      "mainFlow": [
+        "1. An inspection consists of checklist items in the categories Safety, Environmental, Documentation and Security.",
+        "2. For each checklist item the inspector records compliant or not compliant, a severity of Low, Medium or High, and an optional note.",
+        "3. An inspection whose checklist contains any non-compliant item of High severity has the outcome Failed."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Inspection"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/23-inspection-checklist.md#L21"
+    },
+    {
+      "id": "UC004",
+      "title": "Handle a failed inspection",
+      "actors": [
+        "Inspector"
+      ],
+      "preconditions": [
+        "Inspection.Outcome = Failed"
+      ],
+      "postconditions": [
+        "Departure clearance blocked until a follow-up inspection Passes"
+      ],
+      "mainFlow": [
+        "1. A Failed inspection blocks departure clearance until a follow-up inspection has Passed."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Inspection"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/24-inspection-outcomes.md#L20"
+    },
+    {
+      "id": "UC005",
+      "title": "Grant departure clearance",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [
+        "Every Inspection on the booking has Outcome Passed or Deferred"
+      ],
+      "postconditions": [
+        "Departure clearance granted"
+      ],
+      "mainFlow": [
+        "1. Departure clearance is granted by a Berth Officer and requires every inspection on the booking to be Passed or Deferred."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Inspection"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/25-departure-clearance.md#L19"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "Inspection",
+      "module": "HBB_Inspection",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "ScheduledFor",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "CompletedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "Outcome",
+          "type": "Enumeration",
+          "values": [
+            "Pending",
+            "Passed",
+            "Failed",
+            "Deferred"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "InspectorName",
+          "type": "String",
+          "length": 100,
+          "mandatory": true
+        },
+        {
+          "name": "Findings",
+          "type": "String",
+          "length": 1000,
+          "mandatory": false
+        },
+        {
+          "name": "FollowUpRequired",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "IsActive",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "ModifiedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "ModifiedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "Inspection_BookingRequest",
+          "target": "BookingRequest",
+          "type": "ManyToOne",
+          "owner": "Inspection"
+        }
+      ]
+    },
+    {
+      "name": "InspectionItem",
+      "module": "HBB_Inspection",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Category",
+          "type": "Enumeration",
+          "values": [
+            "Safety",
+            "Environmental",
+            "Documentation",
+            "Security"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "Description",
+          "type": "String",
+          "length": 300,
+          "mandatory": true
+        },
+        {
+          "name": "IsCompliant",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "Severity",
+          "type": "Enumeration",
+          "values": [
+            "Low",
+            "Medium",
+            "High"
+          ],
+          "mandatory": false
+        },
+        {
+          "name": "Note",
+          "type": "String",
+          "length": 300,
+          "mandatory": false
+        },
+        {
+          "name": "IsActive",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "ModifiedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "ModifiedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "InspectionItem_Inspection",
+          "target": "Inspection",
+          "type": "ManyToOne",
+          "owner": "InspectionItem"
+        }
+      ]
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_Inspection_Schedule",
+      "module": "HBB_Inspection",
+      "purpose": "Creates an Inspection against a booking and notifies the agent.",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        },
+        {
+          "name": "ScheduledFor",
+          "type": "DateTime"
+        }
+      ],
+      "returns": "Inspection",
+      "pattern": "validate-then-save",
+      "calls": [
+        "ACT_Notification_Send"
+      ],
+      "validations": [
+        "Booking must be Approved, or UnderReview with CargoClass = DangerousGoods."
+      ]
+    },
+    {
+      "name": "ACT_Inspection_RecordOutcome",
+      "module": "HBB_Inspection",
+      "purpose": "Persists checklist items and derives the inspection Outcome.",
+      "params": [
+        {
+          "name": "Inspection",
+          "type": "Inspection"
+        }
+      ],
+      "returns": "Void",
+      "pattern": "validate-then-save",
+      "calls": [],
+      "validations": [
+        "Any non-compliant High-severity item forces Outcome = Failed."
+      ]
+    },
+    {
+      "name": "ACT_BookingRequest_GrantDepartureClearance",
+      "module": "HBB_Inspection",
+      "purpose": "Berth-Officer-only clearance grant.",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "Void",
+      "pattern": "guarded-action",
+      "calls": [],
+      "validations": [
+        "Every Inspection on the booking must be Passed or Deferred."
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "InspectionCalendar_Screen",
+      "module": "HBB_Inspection",
+      "layout": "Atlas_Default",
+      "purpose": "Inspections per day/inspector, drag-and-drop reschedule.",
+      "dataContext": "Inspection list",
+      "sections": [
+        "Calendar"
+      ],
+      "actions": [
+        "ACT_Inspection_Schedule"
+      ]
+    }
+  ],
+  "integrations": [],
+  "openQuestions": [],
+  "sourceKB": [
+    "analysis/knowledge-base/text/22-inspection-scheduling.md#L1",
+    "analysis/knowledge-base/text/23-inspection-checklist.md#L1",
+    "analysis/knowledge-base/text/24-inspection-outcomes.md#L1",
+    "analysis/knowledge-base/text/25-departure-clearance.md#L1",
+    "analysis/knowledge-base/text/31-inspection-calendar-screen.md#L1",
+    "analysis/knowledge-base/text/36-appendix-data-dictionary.md#L1"
+  ],
+  "provenance": "documents"
+}

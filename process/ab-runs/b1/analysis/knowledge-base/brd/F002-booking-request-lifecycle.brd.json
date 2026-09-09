@@ -1,0 +1,384 @@
+{
+  "id": "F002",
+  "title": "Booking Request Lifecycle",
+  "modules": [
+    "HBB_Booking"
+  ],
+  "actors": [
+    "ShippingAgent",
+    "BerthOfficer"
+  ],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Draft a booking request",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Agent is not suspended"
+      ],
+      "postconditions": [
+        "BookingRequest exists with Status = Draft, invisible to officers"
+      ],
+      "mainFlow": [
+        "1. Agent saves a booking request as Draft and completes it later; drafts are invisible to officers."
+      ],
+      "screens": [
+        "MyBookings_Overview",
+        "BookingRequest_NewEdit"
+      ],
+      "mdlRefs": [
+        "HBB_Booking"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/08-booking-lifecycle.md#L28"
+    },
+    {
+      "id": "UC002",
+      "title": "Submit a booking request",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Vessel, berth, ETA, ETD and cargo class are filled",
+        "ETD is later than ETA and the stay is 30 days or less",
+        "Submission is between 48 hours and 90 days before ETA",
+        "IMO number is exactly 7 digits"
+      ],
+      "postconditions": [
+        "Status = Submitted",
+        "A unique reference in format HB-YYYY-NNNNN is assigned and never reused, even if the request is later cancelled"
+      ],
+      "mainFlow": [
+        "1. Agent completes the mandatory fields: vessel, berth, ETA, ETD, cargo class.",
+        "2. System validates ETD > ETA, stay <= 30 days, IMO number format, submission timing window.",
+        "3. On submission the system assigns a unique booking reference in the format HB-YYYY-NNNNN."
+      ],
+      "screens": [
+        "BookingRequest_NewEdit"
+      ],
+      "mdlRefs": [
+        "HBB_Booking"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/09-booking-request-form.md#L20"
+    },
+    {
+      "id": "UC003",
+      "title": "Edit a submitted request before review",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Status = Submitted",
+        "No officer has opened it for review yet"
+      ],
+      "postconditions": [
+        "Updated field values saved"
+      ],
+      "mainFlow": [
+        "1. Agent may edit a Submitted request until an officer opens it for review, after which it is locked."
+      ],
+      "screens": [
+        "BookingRequest_NewEdit"
+      ],
+      "mdlRefs": [
+        "HBB_Booking"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/10-cancellation-and-changes.md#L20"
+    },
+    {
+      "id": "UC004",
+      "title": "Cancel a booking request",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Status is not Completed"
+      ],
+      "postconditions": [
+        "Status = Cancelled",
+        "Reference is retained for the audit trail, never reused",
+        "A late-cancellation fee of 50% of the berth fee applies if within 72 hours of ETA"
+      ],
+      "mainFlow": [
+        "1. Agent cancels an Approved or earlier-stage booking; a Completed booking cannot be cancelled.",
+        "2. Cancellation is free of charge until 24 hours before ETA.",
+        "3. Cancellations made within 72 hours of ETA are charged 50% of the berth fee."
+      ],
+      "screens": [
+        "MyBookings_Overview"
+      ],
+      "mdlRefs": [
+        "HBB_Booking"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/10-cancellation-and-changes.md#L24"
+    },
+    {
+      "id": "UC005",
+      "title": "AIS feed marks a booking Arrived",
+      "actors": [],
+      "preconditions": [
+        "Booking is Approved",
+        "AIS feed reports the vessel inside the port geofence"
+      ],
+      "postconditions": [
+        "Booking flagged Arrived"
+      ],
+      "mainFlow": [
+        "1. System imports vessel positions from the AIS feed every 5 minutes and flags a booking as Arrived when the vessel enters the port geofence."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_Booking"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/33-integration-ais-feed.md#L19"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "BookingRequest",
+      "module": "HBB_Booking",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Reference",
+          "type": "String",
+          "length": 13,
+          "mandatory": true,
+          "note": "format HB-YYYY-NNNNN, never reused (decisions-log ADR-004)"
+        },
+        {
+          "name": "ETA",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "ETD",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "Status",
+          "type": "Enumeration",
+          "values": [
+            "Draft",
+            "Submitted",
+            "UnderReview",
+            "Approved",
+            "Rejected",
+            "Cancelled",
+            "Completed"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "CargoClass",
+          "type": "Enumeration",
+          "values": [
+            "General",
+            "Perishable",
+            "DangerousGoods",
+            "Empty"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "ShorePowerRequested",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "SubmittedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "Remarks",
+          "type": "String",
+          "length": 500,
+          "mandatory": false
+        },
+        {
+          "name": "IsArrived",
+          "type": "Boolean",
+          "mandatory": true,
+          "note": "set by the AIS integration, UC005"
+        },
+        {
+          "name": "IsActive",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "ModifiedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "ModifiedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "BookingRequest_Vessel",
+          "target": "Vessel",
+          "type": "ManyToOne",
+          "owner": "BookingRequest"
+        },
+        {
+          "name": "BookingRequest_ShippingAgent",
+          "target": "ShippingAgent",
+          "type": "ManyToOne",
+          "owner": "BookingRequest"
+        },
+        {
+          "name": "BookingRequest_Berth",
+          "target": "Berth",
+          "type": "ManyToOne",
+          "owner": "BookingRequest"
+        }
+      ]
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_BookingRequest_Submit",
+      "module": "HBB_Booking",
+      "purpose": "Validates mandatory fields and timing, assigns a permanent reference, sets Status = Submitted.",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "BookingRequest",
+      "pattern": "validate-then-save",
+      "calls": [
+        "ACT_BookingRequest_AssignReference"
+      ],
+      "validations": [
+        "Vessel, berth, ETA, ETD and cargo class are required.",
+        "ETD must be later than ETA.",
+        "Stay longer than 30 days is rejected.",
+        "IMO number must be exactly 7 digits.",
+        "Cannot submit more than 90 days before ETA.",
+        "Must submit at least 48 hours before ETA."
+      ]
+    },
+    {
+      "name": "ACT_BookingRequest_Cancel",
+      "module": "HBB_Booking",
+      "purpose": "Cancels a booking, computing the late-cancellation fee where applicable.",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "Void",
+      "pattern": "guarded-action",
+      "calls": [],
+      "validations": [
+        "Completed bookings cannot be cancelled.",
+        "Free of charge until 24 hours before ETA.",
+        "Within 72 hours of ETA: 50% of the berth fee charged."
+      ]
+    },
+    {
+      "name": "SUB_AIS_ImportPositions",
+      "module": "HBB_Booking",
+      "purpose": "Scheduled every 5 minutes: imports AIS vessel positions and flags matching bookings Arrived on geofence entry.",
+      "params": [],
+      "returns": "Void",
+      "pattern": "scheduled-event",
+      "calls": [],
+      "validations": [
+        "Runs every 5 minutes."
+      ],
+      "hiddenRules": [
+        "No AIS protocol/endpoint/auth is named in the source \u2014 stub the integration until Stage 3 gets a real contract (PROJECT.md 'integrations' dimension: named, not specified)."
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "BookingRequest_NewEdit",
+      "module": "HBB_Booking",
+      "layout": "Atlas_Default",
+      "purpose": "Agent data-entry form for a booking request.",
+      "dataContext": "BookingRequest",
+      "sections": [
+        "Vessel",
+        "Berth",
+        "Timing",
+        "CargoClass"
+      ],
+      "actions": [
+        "ACT_BookingRequest_Submit"
+      ]
+    },
+    {
+      "name": "MyBookings_Overview",
+      "module": "HBB_Booking",
+      "layout": "Atlas_Default",
+      "purpose": "Agent's own requests only, Draft listed first.",
+      "dataContext": "BookingRequest list",
+      "sections": [
+        "List"
+      ],
+      "actions": [
+        "ACT_BookingRequest_Cancel"
+      ]
+    }
+  ],
+  "integrations": [
+    {
+      "name": "AIS position feed",
+      "type": "unspecified (polled every 5 min)",
+      "stubName": "STUB_SUB_AIS_ImportPositions",
+      "stubBehaviour": "Returns a fixed set of demo vessel positions on each run.",
+      "realTarget": "Not named in the source \u2014 open question F002-OQ1.",
+      "apiDoc": null
+    }
+  ],
+  "openQuestions": [
+    {
+      "id": "F002-OQ1",
+      "question": "What protocol/endpoint/credentials does the real AIS feed use, and what happens when it is unavailable?",
+      "status": "ASSUMED",
+      "answer": "Stub the integration for this build; no real contract is named anywhere in the corpus (source-sufficiency.json: integrations dimension rated 'named', not 'specified').",
+      "consentBy": "unattended run b1",
+      "consentAt": "2026-09-09"
+    },
+    {
+      "id": "F002-OQ2",
+      "question": "Fast-track auto-approval (ch08 \u00a74.4) vs. manual-review-only (ch15 \u00a711.4) \u2014 which governs?",
+      "status": "ASSUMED",
+      "answer": "Manual-review-only governs (ch15 \u00a711.4); fast-track treated as superseded. See PROJECT.md Rulings.",
+      "consentBy": "unattended run b1",
+      "consentAt": "2026-09-09"
+    }
+  ],
+  "sourceKB": [
+    "analysis/knowledge-base/text/08-booking-lifecycle.md#L1",
+    "analysis/knowledge-base/text/09-booking-request-form.md#L1",
+    "analysis/knowledge-base/text/10-cancellation-and-changes.md#L1",
+    "analysis/knowledge-base/text/33-integration-ais-feed.md#L1",
+    "sources/decisions-log.md"
+  ],
+  "provenance": "documents"
+}

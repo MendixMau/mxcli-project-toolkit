@@ -1,0 +1,351 @@
+{
+  "id": "F003",
+  "title": "Officer Review & Approval",
+  "modules": [
+    "HBB_Review"
+  ],
+  "actors": [
+    "BerthOfficer",
+    "HarbourMaster"
+  ],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Work the review queue",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. Officers work from a Booking Board that lists Submitted and Under Review requests ordered by ETA.",
+        "2. Booking Board can be filtered by terminal, status and ETA date range."
+      ],
+      "screens": [
+        "BookingBoard_Overview"
+      ],
+      "mdlRefs": [
+        "HBB_Review"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/15-officer-review-process.md#L21"
+    },
+    {
+      "id": "UC002",
+      "title": "Open a request for review",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [
+        "Status = Submitted"
+      ],
+      "postconditions": [
+        "Status = UnderReview",
+        "Reviewing officer recorded",
+        "Request is locked for agent edits"
+      ],
+      "mainFlow": [
+        "1. Opening a request for review moves it to Under Review and records the reviewing officer."
+      ],
+      "screens": [
+        "OfficerReview_Screen"
+      ],
+      "mdlRefs": [
+        "HBB_Review"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/15-officer-review-process.md#L25"
+    },
+    {
+      "id": "UC003",
+      "title": "Record an approval decision",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [
+        "Status = UnderReview",
+        "For CargoClass = DangerousGoods: an inspection has been scheduled (see F005)"
+      ],
+      "postconditions": [
+        "ApprovalDecision recorded with Outcome, OfficerName, DecidedOn",
+        "Reason is required when Outcome = Rejected",
+        "BookingRequest.Status updated to Approved / Rejected accordingly"
+      ],
+      "mainFlow": [
+        "1. Review screen shows the vessel's dimensions next to the berth's limits and highlights any exceedance in red.",
+        "2. Officer records one of three outcomes: Approved, Rejected or Returned for Information.",
+        "3. Rejection reason is required when outcome is Rejected.",
+        "4. There is no automatic approval; every booking request is reviewed by a berth officer before it can become Approved."
+      ],
+      "screens": [
+        "OfficerReview_Screen"
+      ],
+      "mdlRefs": [
+        "HBB_Review"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/16-approval-decisions.md#L21"
+    },
+    {
+      "id": "UC004",
+      "title": "Return a request for information",
+      "actors": [
+        "BerthOfficer",
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Outcome = ReturnedForInformation"
+      ],
+      "postconditions": [
+        "Request goes back to the agent",
+        "Agent may amend and resubmit once"
+      ],
+      "mainFlow": [
+        "1. A request Returned for Information goes back to the agent, who may amend and resubmit it once."
+      ],
+      "screens": [
+        "OfficerReview_Screen",
+        "BookingRequest_NewEdit"
+      ],
+      "mdlRefs": [
+        "HBB_Review"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/16-approval-decisions.md#L25"
+    },
+    {
+      "id": "UC005",
+      "title": "Override a rejected decision",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [
+        "Latest ApprovalDecision.Outcome = Rejected"
+      ],
+      "postconditions": [
+        "New ApprovalDecision recorded with IsOverride = Yes and a reason"
+      ],
+      "mainFlow": [
+        "1. Only the Harbour Master may override a Rejected decision, and the override is recorded with a reason."
+      ],
+      "screens": [
+        "OfficerReview_Screen"
+      ],
+      "mdlRefs": [
+        "HBB_Review"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/16-approval-decisions.md#L39"
+    },
+    {
+      "id": "UC006",
+      "title": "Waive a berth-fit surcharge",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Surcharge waived on the booking's eventual invoice"
+      ],
+      "mainFlow": [
+        "1. Only the Harbour Master may waive a tariff surcharge."
+      ],
+      "screens": [
+        "OfficerReview_Screen"
+      ],
+      "mdlRefs": [
+        "HBB_Review"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/13-berth-allocation-rules.md#L24"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "ApprovalDecision",
+      "module": "HBB_Review",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "DecidedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "Outcome",
+          "type": "Enumeration",
+          "values": [
+            "Approved",
+            "Rejected",
+            "ReturnedForInformation"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "Reason",
+          "type": "String",
+          "length": 400,
+          "mandatory": false,
+          "note": "required when Outcome = Rejected \u2014 conditional, enforced in the microflow, not the domain model"
+        },
+        {
+          "name": "OfficerName",
+          "type": "String",
+          "length": 100,
+          "mandatory": true
+        },
+        {
+          "name": "IsOverride",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "IsActive",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "ModifiedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "ModifiedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "ApprovalDecision_BookingRequest",
+          "target": "BookingRequest",
+          "type": "ManyToOne",
+          "owner": "ApprovalDecision"
+        }
+      ]
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_BookingRequest_OpenForReview",
+      "module": "HBB_Review",
+      "purpose": "Moves a Submitted booking to UnderReview and records the reviewing officer.",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "Void",
+      "pattern": "guarded-action",
+      "calls": [],
+      "validations": [
+        "Status must be Submitted."
+      ]
+    },
+    {
+      "name": "ACT_ApprovalDecision_Record",
+      "module": "HBB_Review",
+      "purpose": "Records Approved/Rejected/ReturnedForInformation and updates the booking status.",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        },
+        {
+          "name": "Outcome",
+          "type": "Enumeration"
+        },
+        {
+          "name": "Reason",
+          "type": "String"
+        }
+      ],
+      "returns": "ApprovalDecision",
+      "pattern": "validate-then-save",
+      "calls": [],
+      "validations": [
+        "Reason is required when Outcome = Rejected.",
+        "DangerousGoods bookings require an inspection already scheduled before Outcome can be Approved (see F005 UC001)."
+      ]
+    },
+    {
+      "name": "ACT_ApprovalDecision_Override",
+      "module": "HBB_Review",
+      "purpose": "Harbour-Master-only override of a Rejected decision.",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        },
+        {
+          "name": "Reason",
+          "type": "String"
+        }
+      ],
+      "returns": "ApprovalDecision",
+      "pattern": "guarded-action",
+      "calls": [],
+      "validations": [
+        "Only callable by role HarbourMaster.",
+        "Reason is required."
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "BookingBoard_Overview",
+      "module": "HBB_Review",
+      "layout": "Atlas_Default",
+      "purpose": "Submitted + UnderReview requests ordered by ETA, filterable by terminal/status/ETA range.",
+      "dataContext": "BookingRequest list",
+      "sections": [
+        "Filters",
+        "List"
+      ],
+      "actions": [
+        "ACT_BookingRequest_OpenForReview"
+      ]
+    },
+    {
+      "name": "OfficerReview_Screen",
+      "module": "HBB_Review",
+      "layout": "Atlas_Default",
+      "purpose": "Decision panel: vessel dims vs berth limits (exceedance highlighted red), Outcome, Reason.",
+      "dataContext": "BookingRequest + ApprovalDecision",
+      "sections": [
+        "Comparison",
+        "Decision"
+      ],
+      "actions": [
+        "ACT_ApprovalDecision_Record",
+        "ACT_ApprovalDecision_Override"
+      ]
+    }
+  ],
+  "integrations": [],
+  "openQuestions": [
+    {
+      "id": "F003-OQ1",
+      "question": "Workshop notes (session 3) ask for the last five bookings of the same vessel on the review screen \u2014 never promoted to a chapter. Build it?",
+      "status": "ASSUMED",
+      "answer": "Deferred out of this BRD's scope. See PROJECT.md Ruling.",
+      "consentBy": "unattended run b1",
+      "consentAt": "2026-09-09"
+    }
+  ],
+  "sourceKB": [
+    "analysis/knowledge-base/text/13-berth-allocation-rules.md#L1",
+    "analysis/knowledge-base/text/15-officer-review-process.md#L1",
+    "analysis/knowledge-base/text/16-approval-decisions.md#L1",
+    "analysis/knowledge-base/text/21-officer-review-screen.md#L1",
+    "sources/workshop-notes.md"
+  ],
+  "provenance": "documents"
+}

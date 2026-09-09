@@ -1,0 +1,475 @@
+{
+  "id": "F001",
+  "title": "Vessel, Agent & Port Master Data",
+  "modules": [
+    "HBB_MasterData"
+  ],
+  "actors": [
+    "ShippingAgent",
+    "BerthOfficer",
+    "HarbourMaster"
+  ],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Register a shipping agent",
+      "actors": [
+        "ShippingAgent",
+        "BerthOfficer"
+      ],
+      "preconditions": [
+        "Agency is licensed to operate at the port"
+      ],
+      "postconditions": [
+        "A ShippingAgent record exists, IsSuspended = No, awaiting activation"
+      ],
+      "mainFlow": [
+        "1. A shipping agent registers with a company name, port licence number and a contact e-mail address.",
+        "2. A Berth Officer activates the registration."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_MasterData"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/11-agent-onboarding.md#L20"
+    },
+    {
+      "id": "UC002",
+      "title": "Suspend an agent automatically on overdue invoices",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Agent has 3 or more Overdue invoices"
+      ],
+      "postconditions": [
+        "ShippingAgent.IsSuspended = Yes",
+        "Agent cannot submit new booking requests",
+        "Existing Approved bookings remain valid"
+      ],
+      "mainFlow": [
+        "1. System counts the agent's Overdue invoices.",
+        "2. On reaching 3, the system sets IsSuspended = Yes."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_MasterData"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/11-agent-onboarding.md#L20"
+    },
+    {
+      "id": "UC003",
+      "title": "Reactivate a suspended agent",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [
+        "Agent is suspended"
+      ],
+      "postconditions": [
+        "ShippingAgent.IsSuspended = No"
+      ],
+      "mainFlow": [
+        "1. Harbour Master reactivates the agent.",
+        "2. There is no self-service reactivation path for the agent."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_MasterData"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/11-agent-onboarding.md#L20"
+    },
+    {
+      "id": "UC004",
+      "title": "Maintain berth and terminal master data",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Berth/Terminal records reflect current physical port configuration"
+      ],
+      "mainFlow": [
+        "1. Each berth records a code, a name, a maximum vessel length, a maximum draught, shore power availability and a status of Available, Closed or Maintenance.",
+        "2. Each berth belongs to exactly one terminal."
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "HBB_MasterData"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/12-berth-master-data.md#L24"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "Vessel",
+      "module": "HBB_MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "IMONumber",
+          "type": "String",
+          "length": 7,
+          "mandatory": true,
+          "note": "exactly 7 digits \u2014 see PROJECT.md field-level-conflict Ruling; unique across the registry"
+        },
+        {
+          "name": "Name",
+          "type": "String",
+          "length": 100,
+          "mandatory": true
+        },
+        {
+          "name": "LengthOverall",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "Beam",
+          "type": "Decimal",
+          "mandatory": false
+        },
+        {
+          "name": "Draught",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "FlagState",
+          "type": "String",
+          "length": 2,
+          "mandatory": false
+        },
+        {
+          "name": "VesselType",
+          "type": "Enumeration",
+          "values": [
+            "Container",
+            "Bulk",
+            "Tanker",
+            "RoRo",
+            "Cruise",
+            "GeneralCargo"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "GrossTonnage",
+          "type": "Integer",
+          "mandatory": false
+        },
+        {
+          "name": "IsActive",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "ModifiedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "ModifiedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "Vessel_ShippingAgent",
+          "target": "ShippingAgent",
+          "type": "ManyToMany",
+          "owner": "Vessel"
+        }
+      ]
+    },
+    {
+      "name": "ShippingAgent",
+      "module": "HBB_MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "CompanyName",
+          "type": "String",
+          "length": 120,
+          "mandatory": true
+        },
+        {
+          "name": "LicenceNumber",
+          "type": "String",
+          "length": 20,
+          "mandatory": true
+        },
+        {
+          "name": "ContactEmail",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "Phone",
+          "type": "String",
+          "length": 30,
+          "mandatory": false
+        },
+        {
+          "name": "IsSuspended",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreditLimit",
+          "type": "Decimal",
+          "mandatory": false
+        },
+        {
+          "name": "IsActive",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "ModifiedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "ModifiedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": false
+        }
+      ],
+      "associations": []
+    },
+    {
+      "name": "Terminal",
+      "module": "HBB_MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Code",
+          "type": "String",
+          "length": 6,
+          "mandatory": true
+        },
+        {
+          "name": "Name",
+          "type": "String",
+          "length": 80,
+          "mandatory": true
+        },
+        {
+          "name": "OperatingHoursStart",
+          "type": "String",
+          "length": 5,
+          "mandatory": false
+        },
+        {
+          "name": "OperatingHoursEnd",
+          "type": "String",
+          "length": 5,
+          "mandatory": false
+        },
+        {
+          "name": "HasCustomsOffice",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "IsActive",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "ModifiedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "ModifiedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": false
+        }
+      ],
+      "associations": []
+    },
+    {
+      "name": "Berth",
+      "module": "HBB_MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Code",
+          "type": "String",
+          "length": 10,
+          "mandatory": true
+        },
+        {
+          "name": "Name",
+          "type": "String",
+          "length": 80,
+          "mandatory": true
+        },
+        {
+          "name": "MaxLength",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "MaxDraught",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "HasShorePower",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "Status",
+          "type": "Enumeration",
+          "values": [
+            "Available",
+            "Closed",
+            "Maintenance"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "Notes",
+          "type": "String",
+          "length": 500,
+          "mandatory": false
+        },
+        {
+          "name": "IsActive",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "CreatedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "ModifiedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "ModifiedBy",
+          "type": "String",
+          "length": 200,
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "Berth_Terminal",
+          "target": "Terminal",
+          "type": "ManyToOne",
+          "owner": "Berth"
+        }
+      ]
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_ShippingAgent_Suspend",
+      "module": "HBB_MasterData",
+      "purpose": "Sets IsSuspended = Yes when an agent's Overdue-invoice count reaches 3.",
+      "params": [
+        {
+          "name": "Agent",
+          "type": "ShippingAgent"
+        }
+      ],
+      "returns": "Void",
+      "pattern": "domain-event",
+      "calls": [],
+      "validations": [
+        "An agent with three or more overdue invoices is automatically suspended."
+      ]
+    },
+    {
+      "name": "ACT_ShippingAgent_Reactivate",
+      "module": "HBB_MasterData",
+      "purpose": "Harbour-Master-only reactivation of a suspended agent.",
+      "params": [
+        {
+          "name": "Agent",
+          "type": "ShippingAgent"
+        }
+      ],
+      "returns": "Void",
+      "pattern": "guarded-action",
+      "calls": [],
+      "validations": [
+        "Only callable by role HarbourMaster.",
+        "There is no self-service reactivation."
+      ]
+    }
+  ],
+  "pages": [],
+  "integrations": [],
+  "openQuestions": [
+    {
+      "id": "F001-OQ1",
+      "question": "Is IMONumber exactly 7 digits (validation screenshot) or up to 7 characters (data dictionary)?",
+      "status": "ASSUMED",
+      "answer": "Exactly 7 digits \u2014 adopted the screenshot's stricter, more specific rule.",
+      "consentBy": "unattended run b1",
+      "consentAt": "2026-09-09"
+    }
+  ],
+  "sourceKB": [
+    "analysis/knowledge-base/text/07-domain-overview.md#L1",
+    "analysis/knowledge-base/text/11-agent-onboarding.md#L1",
+    "analysis/knowledge-base/text/12-berth-master-data.md#L1",
+    "analysis/knowledge-base/text/14-vessel-registry.md#L1",
+    "analysis/knowledge-base/text/36-appendix-data-dictionary.md#L1",
+    "sources/glossary.md"
+  ],
+  "provenance": "documents"
+}

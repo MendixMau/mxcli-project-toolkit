@@ -312,6 +312,35 @@ WAIT FOR TIMER 'addDays([%CurrentDateTime%], 1)';
 WAIT FOR NOTIFICATION;
 ```
 
+**The two signatures a workflow's own gates check and `mxcli check` does not** (v0.21.0,
+2026-09-09). Both were found by running the native build on a probe whose `mxcli check` was
+completely clean, and neither is stated anywhere in `mxcli syntax workflow`:
+
+```sql
+-- A USER TASK's page takes the TASK, never the workflow's context entity.
+CREATE OR MODIFY PAGE MyModule.WF_Task_ApproveReject
+  ( Title: 'Task', Layout: MyModule.App_Default,
+    Params: { $Task: System.WorkflowUserTask } )   -- <- this, not the context entity
+  { ... }
+
+-- A TARGETING MICROFLOW takes TWO parameters, in this order.
+CREATE OR MODIFY MICROFLOW MyModule.SUB_ResolveAssignee (
+  $Workflow: System.Workflow,          -- <- easy to omit; omitting it is the failure
+  $Context:  MyModule.Request
+)
+RETURNS List of System.User AS $Users
+BEGIN ... END;
+```
+
+Write them the natural way instead and `mxcli check --references` passes, `exec` prints
+`Created workflow`, `DESCRIBE` round-trips — and the native build says *"The selected page 'X'
+should accept a parameter of type 'WorkflowUserTask', but expects parameters of types 'Request'
+instead"* and *"should accept parameters of type 'System.Workflow' and 'MyModule.Request'"*.
+
+**The planning consequence, which is the expensive half:** the task pages are a **prerequisite of
+the workflow**, not a later UI row. A plan that builds the workflow at row 41 and its pages at row
+45 cannot make row 41 green.
+
 **The `WITH` clause's value must be quoted.** `WITH ("Ctx" = '$WorkflowContext')` works;
 `WITH (Ctx = $WorkflowContext)` **segfaults the binary** — and the "parameter is not mapped"
 hint `--references` prints talks you straight into the crashing spelling. BUG-107.

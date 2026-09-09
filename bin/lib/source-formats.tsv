@@ -23,7 +23,7 @@
 # Format: TAB-separated, five columns. Blank lines and #-comments ignored. Extensions are
 # lowercase without the dot; several per row, |-separated.
 #   1 ext       extension(s)
-#   2 kind      docs | code | data | ui | contract | schema | media | archive | mail | diagram
+#   2 kind      docs | code | data | ui | contract | schema | media | archive | mail | diagram | chrome
 #               — the same vocabulary the inventory's `kind` field takes (plus schema/media/
 #               archive/mail/diagram, which the rubric readme lists as sub-kinds of the first six)
 #   3 route     the extraction route that consumes it whole
@@ -44,6 +44,7 @@ csv|tsv	data	rows; header row is the schema	no	One file, one table. Encoding and
 pdf	docs	text per page (skills/pdf) PLUS OCR when the text layer is empty PLUS embedded images	yes	A scanned PDF has no text layer; a text-only extraction returns nothing and reads as "empty document".
 md|txt|adoc|rst	docs	read whole	no
 html|htm|xhtml	docs	text + tables + form fields (screens exported as HTML are UI evidence, not prose)	no	An HTML export of a legacy screen is `ui`, not `docs` — reclassify by content.
+css|map|woff|woff2|ttf|otf|eot|ico	chrome	web export chrome — listed, never content; the page it belongs to carries the disposition (bin/html-to-md.sh's documents-index.md names each one as `chrome of <page>`)	no	A browser's "save page as (complete)" writes the page's stylesheets, scripts, fonts and favicon into `<page>_files/`. They are the page's furniture: one row each so nothing is silently absent, but a disposition is never owed for them separately — the index that lists them is what the ledger mark points at. NOTE: .js is deliberately NOT here — it stays on the code route below (one extension, one route, and a .js in a migration corpus is application source for pipelines/node-express-react); a saved page's sidecar .js is still named `chrome of <page>` by the index, which is the disposition that counts.
 xml|xsd|wsdl	contract	parse; schema and element names are structure	no	A .xml can be anything (OutSystems export, config, data). Reclassify by content.
 json|yaml|yml|toml	contract	parse; an OpenAPI/GraphQL contract grades as structure	no
 sql|ddl	schema	tables, columns, keys, constraints → domain model input	no	Frequently the best-specified thing in the corpus.

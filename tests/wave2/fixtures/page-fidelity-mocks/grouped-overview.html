@@ -1,0 +1,46 @@
+<!doctype html><meta charset="utf-8"><title>Demo overview — Wireframe</title>
+<style>
+  /* The class vocabulary is what this fixture is about. Every one of these is defined in
+     the wireframe's OWN <style>, which is what makes page-fidelity.js consider it a
+     candidate mock; the classifier then has to tell furniture from sample data. */
+  .page-head{display:flex;justify-content:space-between;align-items:flex-start}
+  .page-head .sub{color:#666;font-size:13px;margin:2px 0 0}
+  .page-actions{display:flex;gap:8px}
+  .toolbar{display:flex;gap:8px;margin:16px 0}
+  .grow{flex:1}
+  .x-card{background:#fff;border:1px solid #e6e6e8;border-radius:10px;padding:24px}
+  .x-btn{padding:8px 16px;border-radius:6px}
+  .x-group-head{font-weight:700;margin:24px 0 8px}
+  .x-tablewrap{overflow-x:auto;border:1px solid #e6e6e8;border-radius:10px}
+  .x-chip{display:inline-block;padding:2px 10px;border-radius:20px;background:#eee}
+  .pager{display:flex;gap:4px;justify-content:flex-end;margin:8px 0}
+  .anno{margin-top:32px;border-top:2px dashed #ccc;padding-top:16px}
+</style>
+<div class="wf-wrap">
+<div class="wf-screen">
+
+<div class="page-head"><div><h1>Demo</h1><p class="sub">Records across all sites</p></div>
+  <div class="page-actions"><button class="x-btn">+ New record</button></div></div>
+<div class="toolbar">
+  <span class="grow"><input placeholder="Search records"></span>
+  <select><option>Filter</option></select>
+</div>
+<div class="x-group-head">SITE-1</div>
+<div class="x-tablewrap"><table>
+<tr><th>Record (start – end)</th><th>Department</th><th>Track A</th><th>Track B</th><th></th></tr>
+<tr><td>864 · Environmental system improvement</td><td>Sustainability</td><td><span class="x-chip">Awaiting assessment</span></td><td><span class="x-chip">Not started</span></td><td>…</td></tr>
+<tr><td>861 · Reclaimer refurbishment</td><td>Maintenance</td><td><span class="x-chip">Approved</span></td><td><span class="x-chip">In review</span></td><td>…</td></tr>
+</table></div>
+<div class="pager"><span>‹</span><span aria-current="page">1</span><span>2</span><span>›</span></div>
+<div class="x-group-head">SITE-2</div>
+<div class="x-tablewrap"><table>
+<tr><th>Record (start – end)</th><th>Department</th><th>Track A</th><th>Track B</th><th></th></tr>
+<tr><td>863 · Environmental management update</td><td>Sustainability</td><td><span class="x-chip">Awaiting assessment</span></td><td><span class="x-chip">Not started</span></td><td>…</td></tr>
+</table></div>
+<div class="pager"><span>‹</span><span aria-current="page">1</span><span>2</span><span>›</span></div>
+</div>
+<div class="anno">
+<h2>Annotation</h2>
+<p><b>Purpose.</b> Every record the user may see, grouped by site, each group paged independently.</p>
+</div>
+</div>

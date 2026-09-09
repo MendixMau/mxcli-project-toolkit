@@ -253,14 +253,30 @@ function wfFacts(file) {
     const re = new RegExp('<(div|button|span|p)[^>]*class="[^"]*\\b' + c + '\\b[^"]*"', 'i');
     if (!re.test(main)) continue;
     const after = dropBalanced(main, re);
-    // STRUCTURE IS NOT A MOCK. A bound-data mock is a repeated REGION of the page —
-    // .passage/.qcard occur once per list item, which is what makes their sample text
-    // bound data. A class that occurs ONCE and whose subtree is most of the page is the
-    // wireframe's own wrapper (.wf-wrap, .mockup-frame), and dropping it deletes the page.
-    // Both tests must hold, so a genuinely dominant repeated mock still scores as a mock.
+    // STRUCTURE IS NOT A MOCK, AND THE TEST IS REPETITION ALONE. A bound-data mock is a
+    // repeated REGION of the page — .passage/.qcard occur once per list item, which is
+    // what makes their sample text bound data. A class used ONCE is the wireframe's own
+    // scaffolding: a wrapper, a page header, a toolbar. It is not a sample of anything,
+    // because there is nothing for it to be one of.
+    //
+    // This test used to be `uses === 1 && kept < 0.4` — once-used AND dominant — which
+    // contradicted the paragraph above it: a once-used class whose subtree was SMALL fell
+    // through and was dropped as a mock. Measured 2026-09-09 on a MOC/PSSR app
+    // replacement's project overview, whose `.page-head` is used once and measures
+    // kept=0.513: the header subtree was deleted, taking the page's only <h1> with it, and
+    // every dimension reported 0 of 0. That normalizes to `null%`, so the run printed a
+    // clean report over an empty corpus — the exact failure the note further down this
+    // file says was worth fixing, arriving a second time through the other conjunct.
+    //
+    // `.toolbar` (uses=1, kept=0.825) went the same way in the same run. Both are page
+    // furniture the page script must declare, and both were scored as sample data.
+    //
+    // The 0.4 threshold is gone rather than retuned: it was a guess, and any value for it
+    // splits once-used wrappers into two classes on a measurement that has nothing to do
+    // with whether their content is bound data. A repeated region is still a mock at any
+    // size, which is the half that was always right.
     const uses = (main.match(new RegExp(re.source, 'gi')) || []).length;
-    const kept = strip(after).length / Math.max(1, strip(main).length);
-    if (uses === 1 && kept < 0.4) { structural.push(c); continue; }
+    if (uses === 1) { structural.push(c); continue; }
     mockUsed.push(c); main = after;
   }
   const grab = re => [...main.matchAll(re)].map(x => strip(x[1])).filter(Boolean);

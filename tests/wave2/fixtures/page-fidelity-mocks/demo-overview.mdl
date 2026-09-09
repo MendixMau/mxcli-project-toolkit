@@ -1,0 +1,37 @@
+-- A page that BINDS the wireframe's sample rows rather than reproducing their text.
+-- It declares the furniture (h1, sub, the new-record action) and no sample data at all,
+-- which is what a correct page looks like and why the mock subtrees must not be scored.
+CREATE OR REPLACE PAGE Demo.Demo_Overview
+  (
+    Title: 'Records',
+    Layout: Demo.App_Default
+  )
+  {
+    HEADER hdrOverview {
+      DYNAMICTEXT h1Overview (Content: 'Demo', RenderMode: H1)
+      DYNAMICTEXT subOverview (Content: 'Records across all sites', Class: 'ds-muted')
+    }
+    CONTAINER cntToolbar (Class: 'page-actions') {
+      ACTIONBUTTON btnNew (Caption: '+ New record', Action: MICROFLOW Demo.ACT_New, ButtonStyle: Primary)
+    }
+    LAYOUTGRID lg {
+      ROW r1 { COLUMN c1 (DesktopWidth: 12) {
+        DYNAMICTEXT hdSite1 (Content: 'SITE-1', Class: 'ds-group-head')
+        DATAGRID gridSite1 (DataSource: DATABASE FROM Demo.Record WHERE [Site = 'S1']) {
+          COLUMN colRecord (Attribute: RecordName, Caption: 'Record (start – end)')
+          COLUMN colDept (Attribute: Record_Department/DepartmentName, Caption: 'Department')
+          COLUMN colA (Attribute: "TrackA", Caption: 'Track A')
+          COLUMN colB (Attribute: "TrackB", Caption: 'Track B')
+        }
+      } }
+      ROW r2 { COLUMN c2 (DesktopWidth: 12) {
+        DYNAMICTEXT hdSite2 (Content: 'SITE-2', Class: 'ds-group-head')
+        DATAGRID gridSite2 (DataSource: DATABASE FROM Demo.Record WHERE [Site = 'S2']) {
+          COLUMN colRecord2 (Attribute: RecordName, Caption: 'Record (start – end)')
+          COLUMN colDept2 (Attribute: Record_Department/DepartmentName, Caption: 'Department')
+          COLUMN colA2 (Attribute: "TrackA", Caption: 'Track A')
+          COLUMN colB2 (Attribute: "TrackB", Caption: 'Track B')
+        }
+      } }
+    }
+  }

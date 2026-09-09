@@ -1,0 +1,65 @@
+{
+  "id": "F006",
+  "title": "Invoicing",
+  "modules": ["HarbourBerthBooking"],
+  "actors": ["HarbourMaster"],
+  "provenance": "documents",
+
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Auto-generate invoice on Completed booking",
+      "actors": ["HarbourMaster"],
+      "mainFlow": ["An invoice is generated automatically when a booking is marked Completed."],
+      "sourceRef": "analysis/knowledge-base/text/20-invoicing.md#L24",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002",
+      "title": "Mark invoice Paid or Void",
+      "actors": ["HarbourMaster"],
+      "mainFlow": ["A Harbour Master can mark an invoice as Paid or Void; a Paid invoice cannot be edited."],
+      "sourceRef": "analysis/knowledge-base/text/20-invoicing.md#L32",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003",
+      "title": "Invoice due date and Overdue transition",
+      "actors": ["HarbourMaster"],
+      "mainFlow": ["Invoices are due 30 days after the issue date and become Overdue on the day after the due date."],
+      "sourceRef": "sources/decisions-log.md#L45",
+      "notes": "ADR-006, agreed with finance in workshop 3. Not restated in 20-invoicing.md — cross-referenced from the decisions log per the site's own convention (ADR-006 §Consequences: 'For the history of this chapter see the release notes page').",
+      "status": "doc-confirmed"
+    }
+  ],
+
+  "domainEntities": [
+    {
+      "name": "Invoice",
+      "module": "HarbourBerthBooking",
+      "persistent": true,
+      "attributes": [
+        { "name": "InvoiceNumber", "type": "String", "length": 16, "mandatory": true },
+        { "name": "IssuedOn", "type": "Date", "mandatory": true },
+        { "name": "DueOn", "type": "Date", "mandatory": true },
+        { "name": "TotalAmount", "type": "Decimal", "mandatory": true },
+        { "name": "VatPercent", "type": "Decimal", "mandatory": true },
+        { "name": "Status", "type": "Enum", "enumValues": ["Draft","Issued","Paid","Overdue","Void"], "mandatory": true }
+      ],
+      "associations": [
+        { "name": "Invoice_BookingRequest", "target": "BookingRequest", "type": "OneToOne" },
+        { "name": "Invoice_ShippingAgent", "target": "ShippingAgent", "type": "ManyToOne" },
+        { "name": "Invoice_Tariff", "target": "Tariff", "type": "ManyToOne" }
+      ],
+      "sourceRef": "analysis/knowledge-base/text/36-appendix-data-dictionary.md#L79"
+    }
+  ],
+
+  "openQuestions": [],
+
+  "sourceKB": [
+    "analysis/knowledge-base/text/20-invoicing.md",
+    "analysis/knowledge-base/text/36-appendix-data-dictionary.md",
+    "sources/decisions-log.md"
+  ]
+}

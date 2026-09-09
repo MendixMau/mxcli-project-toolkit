@@ -1,0 +1,102 @@
+{
+  "id": "F003",
+  "title": "Berth, terminal and vessel master data",
+  "modules": ["HarbourBerthBooking"],
+  "actors": ["BerthOfficer", "HarbourMaster"],
+  "provenance": "documents",
+
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Record berth attributes",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["Each berth records a code, a name, a maximum vessel length, a maximum draught, shore power availability and a status of Available, Closed or Maintenance."],
+      "sourceRef": "analysis/knowledge-base/text/12-berth-master-data.md#L28",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002",
+      "title": "Berth fit check",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["A berth can be assigned only if the vessel's length does not exceed the berth's maximum length and the vessel's draught is at least 0.5 metres below the berth's maximum draught."],
+      "sourceRef": "analysis/knowledge-base/text/13-berth-allocation-rules.md#L32",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003",
+      "title": "Surcharge waiver authority (PARTIALLY CONTRADICTED — see OQ-3, F007)",
+      "actors": ["HarbourMaster"],
+      "mainFlow": ["Only the Harbour Master may waive a tariff surcharge."],
+      "sourceRef": "analysis/knowledge-base/text/13-berth-allocation-rules.md#L40",
+      "notes": "24-inspection-outcomes.md#L1557 gives Berth Officers a narrower waiver power for the late-arrival surcharge specifically. See openQuestions OQ-3 in F007-inspections-departure.brd.json (the entity that rule attaches to) for the drafting position taken.",
+      "status": "doc-conflict"
+    },
+    {
+      "id": "UC004",
+      "title": "Vessel is uniquely identified by IMO number",
+      "actors": ["ShippingAgent"],
+      "mainFlow": ["A vessel is identified by its IMO number, which is unique across the vessel registry.", "Vessel type is one of Container, Bulk, Tanker, RoRo, Cruise or General Cargo."],
+      "sourceRef": "analysis/knowledge-base/text/14-vessel-registry.md#L27",
+      "status": "doc-confirmed"
+    }
+  ],
+
+  "domainEntities": [
+    {
+      "name": "Berth",
+      "module": "HarbourBerthBooking",
+      "persistent": true,
+      "attributes": [
+        { "name": "Code", "type": "String", "length": 10, "mandatory": true },
+        { "name": "Name", "type": "String", "length": 80, "mandatory": true },
+        { "name": "MaxLength", "type": "Decimal", "mandatory": true },
+        { "name": "MaxDraught", "type": "Decimal", "mandatory": true },
+        { "name": "HasShorePower", "type": "Boolean", "mandatory": true },
+        { "name": "Status", "type": "Enum", "enumValues": ["Available","Closed","Maintenance"], "mandatory": true },
+        { "name": "Notes", "type": "String", "length": 500, "mandatory": false }
+      ],
+      "associations": [ { "name": "Berth_Terminal", "target": "Terminal", "type": "ManyToOne" } ],
+      "sourceRef": "analysis/knowledge-base/text/12-berth-master-data.md#L58"
+    },
+    {
+      "name": "Terminal",
+      "module": "HarbourBerthBooking",
+      "persistent": true,
+      "attributes": [
+        { "name": "Code", "type": "String", "length": 6, "mandatory": true },
+        { "name": "Name", "type": "String", "length": 80, "mandatory": true },
+        { "name": "OperatingHoursStart", "type": "String", "length": 5, "mandatory": false },
+        { "name": "OperatingHoursEnd", "type": "String", "length": 5, "mandatory": false },
+        { "name": "HasCustomsOffice", "type": "Boolean", "mandatory": true }
+      ],
+      "sourceRef": "analysis/knowledge-base/text/12-berth-master-data.md#L74"
+    },
+    {
+      "name": "Vessel",
+      "module": "HarbourBerthBooking",
+      "persistent": true,
+      "attributes": [
+        { "name": "IMONumber", "type": "String", "length": 7, "mandatory": true },
+        { "name": "Name", "type": "String", "length": 100, "mandatory": true },
+        { "name": "LengthOverall", "type": "Decimal", "mandatory": true },
+        { "name": "Beam", "type": "Decimal", "mandatory": false },
+        { "name": "Draught", "type": "Decimal", "mandatory": true },
+        { "name": "FlagState", "type": "String", "length": 2, "mandatory": false },
+        { "name": "VesselType", "type": "Enum", "enumValues": ["Container","Bulk","Tanker","RoRo","Cruise","GeneralCargo"], "mandatory": true },
+        { "name": "GrossTonnage", "type": "Integer", "mandatory": false }
+      ],
+      "associations": [ { "name": "Vessel_ShippingAgent", "target": "ShippingAgent", "type": "ManyToMany" } ],
+      "sourceRef": "analysis/knowledge-base/text/07-domain-overview.md#L54",
+      "notes": "IMONumber validation 'must be exactly 7 digits' comes from the screenshot fig-booking-form-validation.png (09-booking-request-form_files/), not the prose."
+    }
+  ],
+
+  "openQuestions": [],
+
+  "sourceKB": [
+    "analysis/knowledge-base/text/12-berth-master-data.md",
+    "analysis/knowledge-base/text/13-berth-allocation-rules.md",
+    "analysis/knowledge-base/text/14-vessel-registry.md",
+    "analysis/knowledge-base/text/07-domain-overview.md"
+  ]
+}

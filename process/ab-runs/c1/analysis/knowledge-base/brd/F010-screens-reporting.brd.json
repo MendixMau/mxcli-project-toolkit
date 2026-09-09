@@ -1,0 +1,66 @@
+{
+  "id": "F010",
+  "title": "Navigation, screens and reporting",
+  "modules": ["HarbourBerthBooking"],
+  "actors": ["ShippingAgent", "BerthOfficer", "Inspector"],
+  "provenance": "documents",
+
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Three navigation screens",
+      "actors": ["ShippingAgent", "BerthOfficer", "Inspector"],
+      "mainFlow": ["The navigation offers three screens: Booking Board, My Bookings and Inspection Calendar."],
+      "sourceRef": "analysis/knowledge-base/text/28-navigation-and-screens.md#L23",
+      "screens": ["Booking Board", "My Bookings", "Inspection Calendar"],
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002",
+      "title": "Booking Board filters",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["The Booking Board can be filtered by terminal, status and ETA date range."],
+      "sourceRef": "analysis/knowledge-base/text/29-booking-board-screen.md#L23",
+      "screens": ["Booking Board"],
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003",
+      "title": "My Bookings shows the agent's own requests, Drafts first",
+      "actors": ["ShippingAgent"],
+      "mainFlow": ["My Bookings shows the agent's own requests only, with Draft requests listed first."],
+      "sourceRef": "analysis/knowledge-base/text/30-my-bookings-screen.md#L23",
+      "screens": ["My Bookings"],
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC004",
+      "title": "Inspection Calendar with drag-and-drop rescheduling",
+      "actors": ["Inspector"],
+      "mainFlow": ["The Inspection Calendar shows inspections per day and per inspector and allows drag-and-drop rescheduling."],
+      "sourceRef": "analysis/knowledge-base/text/31-inspection-calendar-screen.md#L23",
+      "screens": ["Inspection Calendar"],
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005",
+      "title": "Monthly berth-occupancy CSV export",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["A monthly berth occupancy report per terminal can be exported as CSV."],
+      "sourceRef": "analysis/knowledge-base/text/32-reporting.md#L23",
+      "screens": ["Reporting"],
+      "status": "doc-confirmed"
+    }
+  ],
+
+  "domainEntities": [],
+  "openQuestions": [],
+
+  "sourceKB": [
+    "analysis/knowledge-base/text/28-navigation-and-screens.md",
+    "analysis/knowledge-base/text/29-booking-board-screen.md",
+    "analysis/knowledge-base/text/30-my-bookings-screen.md",
+    "analysis/knowledge-base/text/31-inspection-calendar-screen.md",
+    "analysis/knowledge-base/text/32-reporting.md"
+  ]
+}

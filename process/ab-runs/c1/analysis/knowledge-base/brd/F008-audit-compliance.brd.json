@@ -1,0 +1,51 @@
+{
+  "id": "F008",
+  "title": "Audit and compliance",
+  "modules": ["HarbourBerthBooking"],
+  "actors": ["HarbourMaster"],
+  "provenance": "documents",
+
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Write every status change to an audit trail",
+      "actors": ["HarbourMaster"],
+      "mainFlow": ["Every status change on a booking, decision, invoice or inspection is written to an audit trail with actor, timestamp and action."],
+      "sourceRef": "analysis/knowledge-base/text/26-audit-and-compliance.md#L26",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002",
+      "title": "Booking references are never reused",
+      "actors": ["HarbourMaster"],
+      "mainFlow": ["Booking references are never reused, even after a request is cancelled or deleted. A cancelled request keeps its reference for the audit trail."],
+      "sourceRef": "sources/decisions-log.md#L29",
+      "notes": "ADR-004.",
+      "status": "doc-confirmed"
+    }
+  ],
+
+  "domainEntities": [
+    {
+      "name": "AuditEntry",
+      "module": "HarbourBerthBooking",
+      "persistent": true,
+      "attributes": [
+        { "name": "OccurredOn", "type": "DateTime", "mandatory": true },
+        { "name": "Actor", "type": "String", "length": 200, "mandatory": true },
+        { "name": "Action", "type": "String", "length": 100, "mandatory": true },
+        { "name": "EntityName", "type": "String", "length": 60, "mandatory": true },
+        { "name": "Detail", "type": "String", "length": 1000, "mandatory": false }
+      ],
+      "associations": [ { "name": "AuditEntry_BookingRequest", "target": "BookingRequest", "type": "ManyToOne" } ],
+      "sourceRef": "analysis/knowledge-base/text/26-audit-and-compliance.md#L46"
+    }
+  ],
+
+  "openQuestions": [],
+
+  "sourceKB": [
+    "analysis/knowledge-base/text/26-audit-and-compliance.md",
+    "sources/decisions-log.md"
+  ]
+}

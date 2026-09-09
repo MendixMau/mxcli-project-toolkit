@@ -1,0 +1,164 @@
+{
+  "id": "F001",
+  "title": "Booking lifecycle",
+  "modules": ["HarbourBerthBooking"],
+  "actors": ["ShippingAgent", "BerthOfficer", "HarbourMaster"],
+  "provenance": "documents",
+
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Save a booking request as Draft",
+      "actors": ["ShippingAgent"],
+      "mainFlow": ["An agent can save a booking request as Draft and complete it later; drafts are invisible to officers."],
+      "sourceRef": "analysis/knowledge-base/text/08-booking-lifecycle.md#L28",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002",
+      "title": "Fill mandatory fields before submission",
+      "actors": ["ShippingAgent"],
+      "mainFlow": ["The booking form requires vessel, berth, ETA, ETD and cargo class before it can be submitted."],
+      "sourceRef": "analysis/knowledge-base/text/09-booking-request-form.md#L24",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003",
+      "title": "Submit a booking request",
+      "actors": ["ShippingAgent"],
+      "preconditions": ["ETD must be later than ETA", "Stay (ETD - ETA) must not exceed 30 days", "IMO Number must be exactly 7 digits (screenshot-only rule, not in prose: fig-booking-form-validation.png)"],
+      "mainFlow": [
+        "On submission the system assigns a unique booking reference in the format HB-YYYY-NNNNN.",
+        "A booking request cannot be submitted more than 90 days before the ETA.",
+        "A booking request must be submitted at least 48 hours before the ETA."
+      ],
+      "sourceRef": "analysis/knowledge-base/text/08-booking-lifecycle.md#L42",
+      "notes": "Validation rule 'ETD must be later than ETA, and the system rejects a stay longer than 30 days' is in 09-booking-request-form.md#L37; the IMO-digit rule exists ONLY in the screenshot fig-booking-form-validation.png (read via vision, not stated in any page's prose).",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC004",
+      "title": "Booking status model",
+      "actors": ["ShippingAgent", "BerthOfficer"],
+      "mainFlow": ["A booking request moves through the states Draft, Submitted, Under Review, Approved, Rejected, Cancelled and Completed."],
+      "sourceRef": "analysis/knowledge-base/text/08-booking-lifecycle.md#L51",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005",
+      "title": "Fast-track auto-approval (CONTRADICTED — see OQ-1)",
+      "actors": ["ShippingAgent"],
+      "mainFlow": ["A booking request is automatically approved when the requested berth is free for the whole stay and the vessel is shorter than 120 metres."],
+      "sourceRef": "analysis/knowledge-base/text/08-booking-lifecycle.md#L62",
+      "notes": "Directly contradicted by 15-officer-review-process.md#L41 ('There is no automatic approval; every booking request is reviewed by a berth officer'). See openQuestions OQ-1. Drafting position taken (ASSUMED, PROJECT.md Ruling): this use case is NOT built as literal auto-approval; ch15 governs. Kept here for traceability of the source statement.",
+      "status": "doc-conflict"
+    },
+    {
+      "id": "UC006",
+      "title": "Berth officers review every booking and record a reasoned decision",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["Berth officers review every booking request and record an approval decision with a reason."],
+      "sourceRef": "analysis/knowledge-base/text/04-vision-and-scope.md#L37",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC007",
+      "title": "Edit a Submitted booking request",
+      "actors": ["ShippingAgent"],
+      "mainFlow": ["An agent may edit a Submitted request until an officer opens it for review, after which it is locked."],
+      "sourceRef": "analysis/knowledge-base/text/10-cancellation-and-changes.md#L24",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC008",
+      "title": "Cancel a booking request",
+      "actors": ["ShippingAgent"],
+      "mainFlow": [
+        "An Approved booking may be cancelled by the agent; a Completed booking cannot be cancelled.",
+        "Cancellation is free of charge until 24 hours before ETA (10-cancellation-and-changes.md#L32) — CONTRADICTS the 72-hour fee window below; see OQ-2.",
+        "Cancellations made within 72 hours of ETA are charged 50% of the berth fee (19-tariffs-cancellation-fees.md#L37)."
+      ],
+      "sourceRef": "analysis/knowledge-base/text/10-cancellation-and-changes.md#L32",
+      "notes": "Drafting position taken (ASSUMED, PROJECT.md Ruling): the specific fee schedule (ch19) governs the 24-72h overlap — free only when cancelled more than 72h before ETA, 50% charged from 72h down to ETA.",
+      "status": "doc-conflict"
+    },
+    {
+      "id": "UC009",
+      "title": "Late-arrival surcharge",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["A vessel arriving more than 2 hours after its ETA incurs a late-arrival surcharge of 15% of the berth fee."],
+      "sourceRef": "analysis/knowledge-base/text/19-tariffs-cancellation-fees.md#L24",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC010",
+      "title": "Attach cargo manifest to a booking request (workshop-only, not in any chapter)",
+      "actors": ["ShippingAgent"],
+      "mainFlow": ["Agents must be able to attach the cargo manifest as a PDF to a booking request."],
+      "sourceRef": "sources/workshop-notes.md#L15",
+      "notes": "Raised only in workshop-notes.md Session 2, never promoted into a numbered chapter (ADR-007: workshop notes kept verbatim, clean-up happens in chapters — clean-up evidently never happened for this item). Attachment size limit explicitly 'not decided' in the same notes. See openQuestions OQ-4.",
+      "status": "pending"
+    }
+  ],
+
+  "domainEntities": [
+    {
+      "name": "BookingRequest",
+      "module": "HarbourBerthBooking",
+      "persistent": true,
+      "attributes": [
+        { "name": "Reference", "type": "String", "length": 13, "mandatory": true },
+        { "name": "ETA", "type": "DateTime", "mandatory": true },
+        { "name": "ETD", "type": "DateTime", "mandatory": true },
+        { "name": "Status", "type": "Enum", "enumValues": ["Draft","Submitted","UnderReview","Approved","Rejected","Cancelled","Completed"], "mandatory": true },
+        { "name": "CargoClass", "type": "Enum", "enumValues": ["General","Perishable","DangerousGoods","Empty"], "mandatory": true },
+        { "name": "ShorePowerRequested", "type": "Boolean", "mandatory": true },
+        { "name": "SubmittedOn", "type": "DateTime", "mandatory": false },
+        { "name": "Remarks", "type": "String", "length": 500, "mandatory": false }
+      ],
+      "associations": [
+        { "name": "BookingRequest_Vessel", "target": "Vessel", "type": "ManyToOne" },
+        { "name": "BookingRequest_ShippingAgent", "target": "ShippingAgent", "type": "ManyToOne" },
+        { "name": "BookingRequest_Berth", "target": "Berth", "type": "ManyToOne" }
+      ],
+      "sourceRef": "analysis/knowledge-base/text/07-domain-overview.md#L102"
+    }
+  ],
+
+  "openQuestions": [
+    {
+      "id": "OQ-1",
+      "question": "Fast-track auto-approval (08 §4.4) directly contradicts 'no automatic approval, manual review only' (15 §11.4). Which governs?",
+      "status": "ASSUMED",
+      "assumption": "Manual review governs; ch8's Fast-track section is read as expedited queue priority, not a bypass of officer review.",
+      "consentBy": "unattended run (PROJECT.md Interview mode: unattended)",
+      "consentAt": "2026-09-09"
+    },
+    {
+      "id": "OQ-2",
+      "question": "Cancellation fee: 'free until 24h before ETA' (10 §6.2) vs '50% charge within 72h of ETA' (19 §15.2) overlap in the 24-72h window. Which governs?",
+      "status": "ASSUMED",
+      "assumption": "The specific fee schedule (ch19) governs the overlap: free only when cancelled more than 72h before ETA, 50% charged from 72h down to ETA.",
+      "consentBy": "unattended run (PROJECT.md Interview mode: unattended)",
+      "consentAt": "2026-09-09"
+    },
+    {
+      "id": "OQ-4",
+      "question": "Cargo manifest PDF attachment (workshop-notes.md Session 2) — build it, and if so what is the size limit?",
+      "status": "ASSUMED",
+      "assumption": "Build the attachment capability (agents explicitly asked for it in workshop); size limit left as an implementation default (10 MB) since the workshop notes record it as undecided.",
+      "consentBy": "unattended run (PROJECT.md Interview mode: unattended)",
+      "consentAt": "2026-09-09"
+    }
+  ],
+
+  "sourceKB": [
+    "analysis/knowledge-base/text/04-vision-and-scope.md",
+    "analysis/knowledge-base/text/08-booking-lifecycle.md",
+    "analysis/knowledge-base/text/09-booking-request-form.md",
+    "analysis/knowledge-base/text/10-cancellation-and-changes.md",
+    "analysis/knowledge-base/text/19-tariffs-cancellation-fees.md",
+    "analysis/knowledge-base/text/07-domain-overview.md",
+    "sources/workshop-notes.md"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "brds": [
+    { "id": "F001", "title": "Booking lifecycle", "file": "F001-booking-lifecycle.brd.json" },
+    { "id": "F002", "title": "Agent onboarding, roles and access security", "file": "F002-agent-onboarding-security.brd.json" },
+    { "id": "F003", "title": "Berth, terminal and vessel master data", "file": "F003-berth-vessel-master-data.brd.json" },
+    { "id": "F004", "title": "Officer review and approval decisions", "file": "F004-officer-review-approval.brd.json" },
+    { "id": "F005", "title": "Tariff structure and fee calculation", "file": "F005-tariffs.brd.json" },
+    { "id": "F006", "title": "Invoicing", "file": "F006-invoicing.brd.json" },
+    { "id": "F007", "title": "Inspections and departure clearance", "file": "F007-inspections-departure.brd.json" },
+    { "id": "F008", "title": "Audit and compliance", "file": "F008-audit-compliance.brd.json" },
+    { "id": "F009", "title": "Notifications", "file": "F009-notifications.brd.json" },
+    { "id": "F010", "title": "Navigation, screens and reporting", "file": "F010-screens-reporting.brd.json" },
+    { "id": "F011", "title": "Integration: AIS position feed", "file": "F011-integration-ais-feed.brd.json" }
+  ],
+  "excluded": [
+    { "pages": ["01-home.html","02-about-the-port-authority.html","03-release-notes.html","06-news-and-events.html","27-privacy-and-cookies.html","34-contact-and-support.html"],
+      "reason": "Documentation-portal-about-itself chrome (home page, port-authority blurb, release notes, news items, cookie/privacy notice, contact/office-hours) — read in full; carries no Harbour Berth Booking application requirement." }
+  ],
+  "notes": "Every page's 'X.0 Introduction' / 'X.9 Notes' / 'Gallery' sections were read across all 36 pages and found to be recycled documentation-portal boilerplate (e.g. 'Diagrams are provided for orientation only.', 'Screenshots on this page are taken from the clickable prototype...') with no requirement content in any of them — folded rather than given one useCase each. Every substantive section (a stated rule, flow, screen behaviour, or data table) is captured above with a sourceRef line number."
+}

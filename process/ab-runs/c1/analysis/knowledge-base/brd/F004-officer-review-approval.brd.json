@@ -1,0 +1,123 @@
+{
+  "id": "F004",
+  "title": "Officer review and approval decisions",
+  "modules": ["HarbourBerthBooking"],
+  "actors": ["BerthOfficer", "HarbourMaster"],
+  "provenance": "documents",
+
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Review queue ordered by ETA",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["Officers work from a Booking Board that lists Submitted and Under Review requests ordered by ETA."],
+      "sourceRef": "analysis/knowledge-base/text/15-officer-review-process.md#L25",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002",
+      "title": "Open a request for review",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["Opening a request for review moves it to Under Review and records the reviewing officer."],
+      "sourceRef": "analysis/knowledge-base/text/15-officer-review-process.md#L31",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003",
+      "title": "Manual review only — no automatic approval (see OQ-1 in F001)",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["There is no automatic approval; every booking request is reviewed by a berth officer before it can become Approved."],
+      "sourceRef": "analysis/knowledge-base/text/15-officer-review-process.md#L41",
+      "notes": "Directly contradicts 08-booking-lifecycle.md#L62 (fast-track auto-approval). This use case is the governing one per the ASSUMED position recorded in F001 OQ-1.",
+      "status": "doc-conflict"
+    },
+    {
+      "id": "UC004",
+      "title": "Record an approval decision with an outcome",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["An approval decision has one of three outcomes: Approved, Rejected or Returned for Information."],
+      "sourceRef": "analysis/knowledge-base/text/16-approval-decisions.md#L25",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005",
+      "title": "Rejection requires a reason",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["When Outcome is Rejected, a reason is required before the decision can be submitted."],
+      "sourceRef": "sources/21-officer-review-screen_files/img-02.png",
+      "notes": "Screenshot-only rule (validation error 'REJECTION REASON IS REQUIRED WHEN OUTCOME IS REJECTED'), not stated in any page's prose — read via vision.",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC006",
+      "title": "Return for Information — one resubmission",
+      "actors": ["ShippingAgent", "BerthOfficer"],
+      "mainFlow": ["A request Returned for Information goes back to the agent, who may amend and resubmit it once."],
+      "sourceRef": "analysis/knowledge-base/text/16-approval-decisions.md#L39",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC007",
+      "title": "Harbour Master override",
+      "actors": ["HarbourMaster"],
+      "mainFlow": ["Only the Harbour Master may override a Rejected decision, and the override is recorded with a reason."],
+      "sourceRef": "analysis/knowledge-base/text/16-approval-decisions.md#L45",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC008",
+      "title": "Review screen highlights berth-limit exceedance",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["The review screen shows the vessel's dimensions next to the berth's limits and highlights any exceedance in red."],
+      "sourceRef": "analysis/knowledge-base/text/21-officer-review-screen.md#L24",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC009",
+      "title": "Review screen shows the vessel's last five bookings (workshop-only, not in any chapter)",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["The review screen must show the last five bookings of the same vessel."],
+      "sourceRef": "sources/workshop-notes.md#L22",
+      "notes": "Raised only in workshop-notes.md Session 3, never promoted into 21-officer-review-screen.html. See openQuestions OQ-5.",
+      "status": "pending"
+    }
+  ],
+
+  "domainEntities": [
+    {
+      "name": "ApprovalDecision",
+      "module": "HarbourBerthBooking",
+      "persistent": true,
+      "attributes": [
+        { "name": "DecidedOn", "type": "DateTime", "mandatory": true },
+        { "name": "Outcome", "type": "Enum", "enumValues": ["Approved","Rejected","ReturnedForInformation"], "mandatory": true },
+        { "name": "Reason", "type": "String", "length": 400, "mandatory": false },
+        { "name": "OfficerName", "type": "String", "length": 100, "mandatory": true },
+        { "name": "IsOverride", "type": "Boolean", "mandatory": true }
+      ],
+      "associations": [ { "name": "ApprovalDecision_BookingRequest", "target": "BookingRequest", "type": "ManyToOne" } ],
+      "sourceRef": "analysis/knowledge-base/text/36-appendix-data-dictionary.md#L49",
+      "notes": "Reason is documented Optional in the data dictionary table, but the officer-review-screen validation screenshot shows it becomes REQUIRED when Outcome = Rejected — the dictionary table states the column's nullability, not this conditional rule."
+    }
+  ],
+
+  "openQuestions": [
+    {
+      "id": "OQ-5",
+      "question": "Officer review screen must show the vessel's last five bookings (workshop-notes.md Session 3) — build it?",
+      "status": "ASSUMED",
+      "assumption": "Build it: a small, well-specified addition (list of 5 most recent BookingRequest rows for the same Vessel) explicitly requested by officers in the workshop.",
+      "consentBy": "unattended run (PROJECT.md Interview mode: unattended)",
+      "consentAt": "2026-09-09"
+    }
+  ],
+
+  "sourceKB": [
+    "analysis/knowledge-base/text/15-officer-review-process.md",
+    "analysis/knowledge-base/text/16-approval-decisions.md",
+    "analysis/knowledge-base/text/21-officer-review-screen.md",
+    "analysis/knowledge-base/text/36-appendix-data-dictionary.md",
+    "sources/workshop-notes.md",
+    "sources/21-officer-review-screen_files/img-02.png"
+  ]
+}

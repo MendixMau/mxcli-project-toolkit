@@ -1,0 +1,127 @@
+{
+  "id": "F007",
+  "title": "Inspections and departure clearance",
+  "modules": ["HarbourBerthBooking"],
+  "actors": ["Inspector", "BerthOfficer", "HarbourMaster"],
+  "provenance": "documents",
+
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Schedule an inspection against an Approved booking",
+      "actors": ["Inspector"],
+      "mainFlow": ["An inspector schedules an inspection against an Approved booking and the agent is notified of the time slot."],
+      "sourceRef": "analysis/knowledge-base/text/22-inspection-scheduling.md#L24",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002",
+      "title": "Dangerous goods require inspection before approval",
+      "actors": ["Inspector", "BerthOfficer"],
+      "mainFlow": ["A booking with cargo class Dangerous Goods cannot be Approved until an inspection has been scheduled."],
+      "sourceRef": "analysis/knowledge-base/text/22-inspection-scheduling.md#L32",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003",
+      "title": "Inspection checklist categories",
+      "actors": ["Inspector"],
+      "mainFlow": ["An inspection consists of checklist items in the categories Safety, Environmental, Documentation and Security."],
+      "sourceRef": "analysis/knowledge-base/text/23-inspection-checklist.md#L25",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC004",
+      "title": "Record checklist item outcome",
+      "actors": ["Inspector"],
+      "mainFlow": ["For each checklist item the inspector records compliant or not compliant, a severity of Low, Medium or High, and an optional note."],
+      "sourceRef": "analysis/knowledge-base/text/23-inspection-checklist.md#L39",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005",
+      "title": "Inspection Failed on any High-severity non-compliance",
+      "actors": ["Inspector"],
+      "mainFlow": ["An inspection whose checklist contains any non-compliant item of High severity has the outcome Failed."],
+      "sourceRef": "analysis/knowledge-base/text/23-inspection-checklist.md#L51",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC006",
+      "title": "Failed inspection blocks departure until follow-up Passed",
+      "actors": ["Inspector", "BerthOfficer"],
+      "mainFlow": ["A Failed inspection blocks departure clearance until a follow-up inspection has Passed."],
+      "sourceRef": "analysis/knowledge-base/text/24-inspection-outcomes.md#L24",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC007",
+      "title": "Berth Officer surcharge relief for short vessels (PARTIAL CONTRADICTION — see OQ-3)",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["A berth officer may waive the late-arrival surcharge for vessels shorter than 80 metres."],
+      "sourceRef": "analysis/knowledge-base/text/24-inspection-outcomes.md#L30",
+      "notes": "Contradicts 13-berth-allocation-rules.md#L40 ('Only the Harbour Master may waive a tariff surcharge'). See openQuestions OQ-3.",
+      "status": "doc-conflict"
+    },
+    {
+      "id": "UC008",
+      "title": "Departure clearance requires every inspection Passed or Deferred",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["Departure clearance is granted by a Berth Officer and requires every inspection on the booking to be Passed or Deferred."],
+      "sourceRef": "analysis/knowledge-base/text/25-departure-clearance.md#L23",
+      "status": "doc-confirmed"
+    }
+  ],
+
+  "domainEntities": [
+    {
+      "name": "Inspection",
+      "module": "HarbourBerthBooking",
+      "persistent": true,
+      "attributes": [
+        { "name": "ScheduledFor", "type": "DateTime", "mandatory": true },
+        { "name": "CompletedOn", "type": "DateTime", "mandatory": false },
+        { "name": "Outcome", "type": "Enum", "enumValues": ["Pending","Passed","Failed","Deferred"], "mandatory": true },
+        { "name": "InspectorName", "type": "String", "length": 100, "mandatory": true },
+        { "name": "Findings", "type": "String", "length": 1000, "mandatory": false },
+        { "name": "FollowUpRequired", "type": "Boolean", "mandatory": true }
+      ],
+      "associations": [ { "name": "Inspection_BookingRequest", "target": "BookingRequest", "type": "ManyToOne" } ],
+      "sourceRef": "analysis/knowledge-base/text/36-appendix-data-dictionary.md#L94"
+    },
+    {
+      "name": "InspectionItem",
+      "module": "HarbourBerthBooking",
+      "persistent": true,
+      "attributes": [
+        { "name": "Category", "type": "Enum", "enumValues": ["Safety","Environmental","Documentation","Security"], "mandatory": true },
+        { "name": "Description", "type": "String", "length": 300, "mandatory": true },
+        { "name": "IsCompliant", "type": "Boolean", "mandatory": true },
+        { "name": "Severity", "type": "Enum", "enumValues": ["Low","Medium","High"], "mandatory": false },
+        { "name": "Note", "type": "String", "length": 300, "mandatory": false }
+      ],
+      "associations": [ { "name": "InspectionItem_Inspection", "target": "Inspection", "type": "ManyToOne" } ],
+      "sourceRef": "analysis/knowledge-base/text/36-appendix-data-dictionary.md#L109"
+    }
+  ],
+
+  "openQuestions": [
+    {
+      "id": "OQ-3",
+      "question": "Surcharge waiver authority: 'only the Harbour Master' (13 §9.3) vs 'a berth officer may waive the late-arrival surcharge for vessels <80m' (24 §20.3). Which governs?",
+      "status": "ASSUMED",
+      "assumption": "The specific rule (ch24) is a scoped exception to the general one (ch13): Berth Officers may waive only the late-arrival surcharge, only for vessels under 80 metres; every other surcharge still requires the Harbour Master.",
+      "consentBy": "unattended run (PROJECT.md Interview mode: unattended)",
+      "consentAt": "2026-09-09"
+    }
+  ],
+
+  "sourceKB": [
+    "analysis/knowledge-base/text/22-inspection-scheduling.md",
+    "analysis/knowledge-base/text/23-inspection-checklist.md",
+    "analysis/knowledge-base/text/24-inspection-outcomes.md",
+    "analysis/knowledge-base/text/25-departure-clearance.md",
+    "analysis/knowledge-base/text/13-berth-allocation-rules.md",
+    "analysis/knowledge-base/text/36-appendix-data-dictionary.md"
+  ]
+}

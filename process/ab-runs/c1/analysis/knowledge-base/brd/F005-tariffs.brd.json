@@ -1,0 +1,68 @@
+{
+  "id": "F005",
+  "title": "Tariff structure and fee calculation",
+  "modules": ["HarbourBerthBooking"],
+  "actors": ["HarbourMaster", "BerthOfficer"],
+  "provenance": "documents",
+
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Rate cards per terminal",
+      "actors": ["HarbourMaster"],
+      "mainFlow": ["Tariffs are defined per terminal with a rate per metre of vessel length per day, a currency and a validity period."],
+      "sourceRef": "analysis/knowledge-base/text/18-tariff-structure.md#L26",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002",
+      "title": "Berth fee calculation",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["The berth fee is vessel length times days alongside times the tariff rate, with days alongside rounded up to whole days and a minimum of one day."],
+      "sourceRef": "analysis/knowledge-base/text/18-tariff-structure.md#L34",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003",
+      "title": "VAT applied to all berth fees",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["VAT of 21% is added to all berth fees."],
+      "sourceRef": "analysis/knowledge-base/text/18-tariff-structure.md#L45",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC004",
+      "title": "Shore power flat fee",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["Shore power is billed at a flat 250 per day when the berth offers it and the agent requested it."],
+      "sourceRef": "analysis/knowledge-base/text/18-tariff-structure.md#L53",
+      "status": "doc-confirmed"
+    }
+  ],
+
+  "domainEntities": [
+    {
+      "name": "Tariff",
+      "module": "HarbourBerthBooking",
+      "persistent": true,
+      "attributes": [
+        { "name": "Code", "type": "String", "length": 10, "mandatory": true },
+        { "name": "Description", "type": "String", "length": 120, "mandatory": true },
+        { "name": "RatePerMetrePerDay", "type": "Decimal", "mandatory": true },
+        { "name": "Currency", "type": "String", "length": 3, "mandatory": true },
+        { "name": "ValidFrom", "type": "Date", "mandatory": true },
+        { "name": "ValidTo", "type": "Date", "mandatory": false },
+        { "name": "SurchargePercent", "type": "Decimal", "mandatory": false }
+      ],
+      "associations": [ { "name": "Tariff_Terminal", "target": "Terminal", "type": "ManyToOne" } ],
+      "sourceRef": "analysis/knowledge-base/text/36-appendix-data-dictionary.md#L63"
+    }
+  ],
+
+  "openQuestions": [],
+
+  "sourceKB": [
+    "analysis/knowledge-base/text/18-tariff-structure.md",
+    "analysis/knowledge-base/text/36-appendix-data-dictionary.md"
+  ]
+}

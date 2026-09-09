@@ -1,0 +1,53 @@
+{
+  "id": "F009",
+  "title": "Notifications",
+  "modules": ["HarbourBerthBooking"],
+  "actors": ["ShippingAgent", "BerthOfficer"],
+  "provenance": "documents",
+
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Agent notified of status changes",
+      "actors": ["ShippingAgent"],
+      "mainFlow": ["The agent receives an e-mail whenever the status of their booking request changes."],
+      "sourceRef": "analysis/knowledge-base/text/17-notifications.md#L24",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002",
+      "title": "E-mail notification includes the booking reference (workshop-only, not in the chapter)",
+      "actors": ["ShippingAgent"],
+      "mainFlow": ["Agents want the e-mail notifications to include the reference."],
+      "sourceRef": "sources/workshop-notes.md#L17",
+      "notes": "Raised in workshop-notes.md Session 2, not stated in 17-notifications.md's own prose. Treated as a detail of UC001, not a separate feature. See openQuestions OQ-6.",
+      "status": "pending"
+    },
+    {
+      "id": "UC003",
+      "title": "Officer daily digest",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["Officers receive a daily digest at 06:00 listing requests with an ETA within the next 48 hours."],
+      "sourceRef": "analysis/knowledge-base/text/17-notifications.md#L32",
+      "status": "doc-confirmed"
+    }
+  ],
+
+  "domainEntities": [],
+
+  "openQuestions": [
+    {
+      "id": "OQ-6",
+      "question": "Should the agent status-change e-mail include the booking reference in its body/subject (workshop-notes.md Session 2)?",
+      "status": "ASSUMED",
+      "assumption": "Yes — include the Reference in the notification; it is a small, unambiguous addition agents explicitly asked for and does not conflict with anything in the numbered chapters.",
+      "consentBy": "unattended run (PROJECT.md Interview mode: unattended)",
+      "consentAt": "2026-09-09"
+    }
+  ],
+
+  "sourceKB": [
+    "analysis/knowledge-base/text/17-notifications.md",
+    "sources/workshop-notes.md"
+  ]
+}

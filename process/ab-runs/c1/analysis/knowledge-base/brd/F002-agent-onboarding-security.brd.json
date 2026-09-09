@@ -1,0 +1,77 @@
+{
+  "id": "F002",
+  "title": "Agent onboarding, roles and access security",
+  "modules": ["HarbourBerthBooking"],
+  "actors": ["ShippingAgent", "BerthOfficer", "HarbourMaster", "Inspector"],
+  "provenance": "documents",
+
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Register as a shipping agent",
+      "actors": ["ShippingAgent", "BerthOfficer"],
+      "mainFlow": ["A shipping agent registers with a company name, port licence number and a contact e-mail address, and is activated by a Berth Officer."],
+      "sourceRef": "analysis/knowledge-base/text/11-agent-onboarding.md#L24",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002",
+      "title": "Automatic suspension on overdue invoices",
+      "actors": ["ShippingAgent"],
+      "mainFlow": [
+        "An agent with three or more overdue invoices is automatically suspended.",
+        "A suspended agent cannot submit booking requests; bookings that are already Approved remain valid.",
+        "There is no self-service reactivation; a suspended agent is reactivated only by the Harbour Master."
+      ],
+      "sourceRef": "analysis/knowledge-base/text/11-agent-onboarding.md#L30",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003",
+      "title": "Four user roles with layered authority",
+      "actors": ["ShippingAgent", "BerthOfficer", "HarbourMaster", "Inspector"],
+      "mainFlow": [
+        "Four user roles exist: Shipping Agent, Berth Officer, Harbour Master and Inspector.",
+        "The Harbour Master can perform every action a Berth Officer can, plus decision overrides, agent reactivation and tariff maintenance.",
+        "Every user has exactly one role."
+      ],
+      "sourceRef": "sources/roles.md#L5",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC004",
+      "title": "Company-scoped data visibility",
+      "actors": ["ShippingAgent"],
+      "mainFlow": ["Agents can only see bookings, invoices and inspections that belong to their own company."],
+      "sourceRef": "analysis/knowledge-base/text/35-security-and-access.md#L23",
+      "status": "doc-confirmed"
+    }
+  ],
+
+  "domainEntities": [
+    {
+      "name": "ShippingAgent",
+      "module": "HarbourBerthBooking",
+      "persistent": true,
+      "attributes": [
+        { "name": "CompanyName", "type": "String", "length": 120, "mandatory": true },
+        { "name": "LicenceNumber", "type": "String", "length": 20, "mandatory": true },
+        { "name": "ContactEmail", "type": "String", "length": 200, "mandatory": true },
+        { "name": "Phone", "type": "String", "length": 30, "mandatory": false },
+        { "name": "IsSuspended", "type": "Boolean", "mandatory": true },
+        { "name": "CreditLimit", "type": "Decimal", "mandatory": false }
+      ],
+      "sourceRef": "analysis/knowledge-base/text/07-domain-overview.md#L67"
+    }
+  ],
+
+  "openQuestions": [],
+
+  "sourceKB": [
+    "analysis/knowledge-base/text/11-agent-onboarding.md",
+    "analysis/knowledge-base/text/35-security-and-access.md",
+    "analysis/knowledge-base/text/05-stakeholders-and-roles.md",
+    "sources/roles.md",
+    "sources/glossary.md"
+  ]
+}

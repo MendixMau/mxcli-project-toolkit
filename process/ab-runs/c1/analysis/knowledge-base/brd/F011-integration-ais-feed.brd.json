@@ -1,0 +1,42 @@
+{
+  "id": "F011",
+  "title": "Integration: AIS position feed",
+  "modules": ["HarbourBerthBooking"],
+  "actors": ["BerthOfficer"],
+  "provenance": "documents",
+
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Import vessel positions and flag Arrived on geofence entry",
+      "actors": ["BerthOfficer"],
+      "mainFlow": ["The system imports vessel positions from the AIS feed every 5 minutes and flags a booking as Arrived when the vessel enters the port geofence."],
+      "sourceRef": "analysis/knowledge-base/text/33-integration-ais-feed.md#L1",
+      "status": "doc-confirmed"
+    }
+  ],
+
+  "domainEntities": [],
+  "openQuestions": [
+    {
+      "id": "OQ-7",
+      "question": "The AIS feed integration is named with a 5-minute poll interval and a geofence-arrival behaviour, but no protocol, authentication, payload shape, or failure-mode is stated anywhere in the corpus (source-sufficiency: integrations rated 'named', not 'specified'). What is the actual integration contract?",
+      "status": "RAISED",
+      "consentBy": "",
+      "consentAt": ""
+    }
+  ],
+
+  "integrations": [
+    {
+      "name": "AIS position feed",
+      "type": "unknown — not stated (protocol/auth/payload absent from the corpus)",
+      "stubBehaviour": "Poll every 5 minutes; on a position inside the port geofence, set the matching BookingRequest to Arrived.",
+      "realTarget": "AIS position feed (external, name only)"
+    }
+  ],
+
+  "sourceKB": [
+    "analysis/knowledge-base/text/33-integration-ais-feed.md"
+  ]
+}

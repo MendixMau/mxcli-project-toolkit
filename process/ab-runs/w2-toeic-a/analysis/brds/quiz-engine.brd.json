@@ -1,0 +1,234 @@
+{
+  "brd_id": "quiz-engine",
+  "module_name": "Quiz Engine & Scoring",
+  "description": "Core quiz mechanics: question presentation, answer validation, and score calculation.",
+  "domain_model": {
+    "entities": [
+      {
+        "name": "Question",
+        "description": "A single TOEIC quiz question",
+        "attributes": [
+          {
+            "name": "questionId",
+            "type": "String",
+            "key": true
+          },
+          {
+            "name": "lessonId",
+            "type": "String",
+            "reference": "Lesson.lessonId"
+          },
+          {
+            "name": "text",
+            "type": "Text",
+            "description": "Question text or prompt"
+          },
+          {
+            "name": "questionType",
+            "type": "String",
+            "enum": ["MultipleChoice", "FillBlank", "Matching", "TrueFalse"],
+            "description": "Type of question"
+          },
+          {
+            "name": "imageUrl",
+            "type": "String",
+            "description": "Optional image reference"
+          },
+          {
+            "name": "audioUrl",
+            "type": "String",
+            "description": "Optional audio file reference"
+          },
+          {
+            "name": "orderInLesson",
+            "type": "Integer"
+          }
+        ]
+      },
+      {
+        "name": "Answer",
+        "description": "Possible answer for a multiple-choice question",
+        "attributes": [
+          {
+            "name": "answerId",
+            "type": "String",
+            "key": true
+          },
+          {
+            "name": "questionId",
+            "type": "String",
+            "reference": "Question.questionId"
+          },
+          {
+            "name": "text",
+            "type": "String",
+            "description": "Answer text"
+          },
+          {
+            "name": "isCorrect",
+            "type": "Boolean",
+            "description": "Whether this answer is the correct answer"
+          },
+          {
+            "name": "explanation",
+            "type": "Text",
+            "description": "Why this answer is correct or incorrect"
+          },
+          {
+            "name": "order",
+            "type": "Integer",
+            "description": "Display order of answer options"
+          }
+        ]
+      },
+      {
+        "name": "UserAnswer",
+        "description": "User's response to a question in a quiz session",
+        "attributes": [
+          {
+            "name": "userAnswerId",
+            "type": "String",
+            "key": true
+          },
+          {
+            "name": "sessionId",
+            "type": "String",
+            "reference": "QuizSession.sessionId"
+          },
+          {
+            "name": "questionId",
+            "type": "String",
+            "reference": "Question.questionId"
+          },
+          {
+            "name": "selectedAnswerId",
+            "type": "String",
+            "reference": "Answer.answerId"
+          },
+          {
+            "name": "isCorrect",
+            "type": "Boolean"
+          },
+          {
+            "name": "timeSpent",
+            "type": "Integer",
+            "description": "Seconds spent on this question"
+          },
+          {
+            "name": "timestamp",
+            "type": "DateTime"
+          }
+        ]
+      },
+      {
+        "name": "QuizSession",
+        "description": "A user's quiz attempt for a lesson",
+        "attributes": [
+          {
+            "name": "sessionId",
+            "type": "String",
+            "key": true
+          },
+          {
+            "name": "lessonId",
+            "type": "String",
+            "reference": "Lesson.lessonId"
+          },
+          {
+            "name": "startTime",
+            "type": "DateTime"
+          },
+          {
+            "name": "endTime",
+            "type": "DateTime"
+          },
+          {
+            "name": "totalScore",
+            "type": "Integer",
+            "description": "Score out of 100"
+          },
+          {
+            "name": "correctCount",
+            "type": "Integer"
+          },
+          {
+            "name": "totalQuestions",
+            "type": "Integer"
+          },
+          {
+            "name": "status",
+            "type": "String",
+            "enum": ["InProgress", "Completed", "Abandoned"],
+            "description": "Current state of the quiz session"
+          }
+        ]
+      }
+    ]
+  },
+  "use_cases": [
+    {
+      "name": "Display Question",
+      "description": "Show current question with all answer options",
+      "actors": ["Student"],
+      "flow": [
+        "Retrieve question and answer options",
+        "Display question text and any media (image/audio)",
+        "Show multiple-choice options or input field based on question type",
+        "Start timer for question"
+      ]
+    },
+    {
+      "name": "Submit Answer",
+      "description": "User selects an answer and advances",
+      "actors": ["Student"],
+      "flow": [
+        "Capture user's selected answer",
+        "Validate against correct answer",
+        "Record answer with timestamp",
+        "Mark as correct or incorrect",
+        "Advance to next question"
+      ]
+    },
+    {
+      "name": "Calculate Score",
+      "description": "At end of quiz, compute total score and metrics",
+      "actors": ["App"],
+      "flow": [
+        "Count correct answers",
+        "Calculate percentage score",
+        "Compute section-level scores if multi-section",
+        "Generate performance summary",
+        "Store session result"
+      ]
+    },
+    {
+      "name": "Show Results",
+      "description": "Display quiz results and performance breakdown",
+      "actors": ["Student"],
+      "flow": [
+        "Show total score, percentage, correct/total counts",
+        "Display time taken",
+        "Show breakdown by difficulty or section",
+        "Option to review answers and explanations"
+      ]
+    }
+  ],
+  "business_rules": [
+    {
+      "rule": "Score Calculation",
+      "description": "Score = (Correct Answers / Total Questions) × 100",
+      "riskLevel": "Critical"
+    },
+    {
+      "rule": "Pass Threshold",
+      "description": "User passes if score >= 70 (configurable per lesson)",
+      "riskLevel": "High"
+    },
+    {
+      "rule": "Answer Validation",
+      "description": "Selected answer is validated against isCorrect flag immediately",
+      "riskLevel": "Critical"
+    }
+  ],
+  "integrations": []
+}

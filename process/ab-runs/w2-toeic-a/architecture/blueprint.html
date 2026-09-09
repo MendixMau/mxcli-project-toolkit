@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Architecture Blueprint</title>
+<style>
+body { font-family: sans-serif; margin: 20px; background: #f5f5f5; }
+.container { background: white; padding: 20px; border-radius: 4px; }
+h1 { color: #2563eb; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background: #2563eb; color: white; }
+.module { background: #f0f0f0; padding: 15px; margin: 10px 0; border-radius: 4px; border-left: 4px solid #2563eb; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Architecture Blueprint: TOEIC Buddy → Mendix</h1>
+
+<h2>1. Module Definitions</h2>
+<div class="module">
+  <h3>LessonEngine</h3>
+  <p><b>Purpose:</b> Lesson catalog, storage, navigation</p>
+  <p><b>Entities:</b> Lesson (200 lessons), LessonContent</p>
+  <p><b>Dependencies:</b> None</p>
+</div>
+
+<div class="module">
+  <h3>QuizEngine</h3>
+  <p><b>Purpose:</b> Quiz delivery, validation, scoring</p>
+  <p><b>Entities:</b> Question (800+), Answer (2000+), UserAnswer, QuizSession</p>
+  <p><b>Dependencies:</b> LessonEngine</p>
+</div>
+
+<div class="module">
+  <h3>ProgressTracking</h3>
+  <p><b>Purpose:</b> Progress metrics, achievements, dashboards</p>
+  <p><b>Entities:</b> UserProgress, LessonProgress, PerformanceMetric, Achievement</p>
+  <p><b>Dependencies:</b> QuizEngine (async event listener)</p>
+</div>
+
+<h2>2. Fit-Gap Analysis</h2>
+<table>
+<tr><th>Feature</th><th>Mendix Support</th><th>Gap?</th></tr>
+<tr><td>Media (images/audio)</td><td>Native support</td><td>No</td></tr>
+<tr><td>Scoring logic</td><td>Microflows</td><td>No</td></tr>
+<tr><td>Progress tracking</td><td>Native queries</td><td>No</td></tr>
+<tr><td>Persistence (localStorage→DB)</td><td>Mendix database</td><td>No</td></tr>
+</table>
+<p><b>Verdict:</b> No material gaps. Direct port feasible.</p>
+
+<h2>3. Security Model</h2>
+<p>Single-tenant, session-based authentication. Entity-level access:</p>
+<ul>
+<li>Questions/Answers: Public (read-only)</li>
+<li>UserAnswers: User (own only)</li>
+<li>UserProgress: User (own only)</li>
+<li>Achievements: User (own only)</li>
+</ul>
+
+<h2>4. Scalability</h2>
+<p>Target: 100+ concurrent users. No special requirements. Standard Mendix horizontal scaling.</p>
+</div>
+</body>
+</html>

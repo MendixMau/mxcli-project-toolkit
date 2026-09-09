@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Build Plan</title>
+<style>
+body { font-family: sans-serif; margin: 20px; background: #f5f5f5; }
+.container { background: white; padding: 20px; border-radius: 4px; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+th { background: #2563eb; color: white; }
+.phase { background: #f0f0f0; padding: 15px; margin: 10px 0; border-radius: 4px; border-left: 4px solid #2563eb; }
+.phase h3 { margin-top: 0; }
+.stat { display: inline-block; width: 30%; margin: 10px; padding: 10px; background: #f9f9f9; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Build Plan: TOEIC Buddy → Mendix</h1>
+
+<div>
+  <div class="stat"><b>3</b><br/>Modules</div>
+  <div class="stat"><b>10</b><br/>Entities</div>
+  <div class="stat"><b>3–4 weeks</b><br/>Effort</div>
+</div>
+
+<h2>Build Phases</h2>
+
+<div class="phase">
+  <h3>Phase 1: Foundation (Week 1) — 13 SP</h3>
+  <p><b>Goal:</b> Establish data model and lesson navigation</p>
+  <table>
+    <tr><th>Module</th><th>Task</th><th>SP</th></tr>
+    <tr><td>LessonEngine</td><td>Create Lesson entity; Seed 200 lessons</td><td>8</td></tr>
+    <tr><td>LessonEngine</td><td>Build LessonList & LessonDetail pages</td><td>5</td></tr>
+  </table>
+  <p><b>Gate:</b> Users can select lessons to start quizzes</p>
+</div>
+
+<div class="phase">
+  <h3>Phase 2: Quiz Core (Week 2) — 34 SP</h3>
+  <p><b>Goal:</b> Quiz delivery and scoring</p>
+  <table>
+    <tr><th>Module</th><th>Task</th><th>SP</th></tr>
+    <tr><td>QuizEngine</td><td>Create Question, Answer, QuizSession entities</td><td>8</td></tr>
+    <tr><td>QuizEngine</td><td>Seed 800+ questions; Build QuizView page</td><td>8</td></tr>
+    <tr><td>QuizEngine</td><td>Implement submit & scoring logic</td><td>8</td></tr>
+    <tr><td>QuizEngine</td><td>Build ResultsView page</td><td>5</td></tr>
+    <tr><td>QuizEngine</td><td>Testing & bug fixes</td><td>5</td></tr>
+  </table>
+  <p><b>Gate:</b> User completes 1 quiz start-to-finish; score calculated correctly</p>
+</div>
+
+<div class="phase">
+  <h3>Phase 3: Progress & Polish (Weeks 3–4) — 34 SP</h3>
+  <p><b>Goal:</b> Progress tracking, metrics, gamification</p>
+  <table>
+    <tr><th>Module</th><th>Task</th><th>SP</th></tr>
+    <tr><td>ProgressTracking</td><td>Create UserProgress, LessonProgress entities</td><td>8</td></tr>
+    <tr><td>ProgressTracking</td><td>Build Dashboard page</td><td>8</td></tr>
+    <tr><td>ProgressTracking</td><td>Implement progress update microflows</td><td>8</td></tr>
+    <tr><td>ProgressTracking</td><td>Achievement badge logic & AchievementsView page</td><td>5</td></tr>
+    <tr><td>ProgressTracking</td><td>Metric calculation & testing</td><td>5</td></tr>
+  </table>
+  <p><b>Gate:</b> 3+ quizzes tracked; dashboard shows accurate aggregated stats</p>
+</div>
+
+<h2>Coverage: BRD → Build Plan</h2>
+<table>
+  <tr><th>BRD</th><th>Leaves in BRD</th><th>Claimed in Plan</th><th>Coverage</th></tr>
+  <tr><td>Lesson Navigation</td><td>5</td><td>5</td><td>100%</td></tr>
+  <tr><td>Quiz Engine</td><td>10</td><td>10</td><td>100%</td></tr>
+  <tr><td>User Progress</td><td>8</td><td>8</td><td>100%</td></tr>
+  <tr><td><b>TOTAL</b></td><td><b>23</b></td><td><b>23</b></td><td><b>100%</b></td></tr>
+</table>
+
+</div>
+</body>
+</html>

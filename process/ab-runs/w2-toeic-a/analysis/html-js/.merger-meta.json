@@ -1,0 +1,9 @@
+{
+  "method": "manual",
+  "source": "TOEIC Buddy HTML/JS source",
+  "date": "2026-09-09",
+  "entry_mode": "Migration",
+  "description": "Three manual BRDs extracted from single HTML/JS learning application source inspection",
+  "brds_count": 3,
+  "entities_count": 10
+}

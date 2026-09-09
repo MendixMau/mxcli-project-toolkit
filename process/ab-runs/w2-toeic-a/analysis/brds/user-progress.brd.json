@@ -1,0 +1,222 @@
+{
+  "brd_id": "user-progress",
+  "module_name": "User Progress Tracking",
+  "description": "Track user's overall learning progress, lesson completion status, and performance history.",
+  "domain_model": {
+    "entities": [
+      {
+        "name": "UserProgress",
+        "description": "Overall user progress across all lessons",
+        "attributes": [
+          {
+            "name": "userId",
+            "type": "String",
+            "key": true,
+            "description": "Unique user identifier (session-based or anonymous)"
+          },
+          {
+            "name": "totalLessonsCompleted",
+            "type": "Integer"
+          },
+          {
+            "name": "totalQuestionsAnswered",
+            "type": "Integer"
+          },
+          {
+            "name": "overallAccuracy",
+            "type": "Decimal",
+            "description": "Percentage accuracy across all attempts"
+          },
+          {
+            "name": "totalTimeSpent",
+            "type": "Integer",
+            "description": "Total minutes spent in the app"
+          },
+          {
+            "name": "lastActivityTime",
+            "type": "DateTime"
+          },
+          {
+            "name": "currentStreak",
+            "type": "Integer",
+            "description": "Number of consecutive days with activity"
+          }
+        ]
+      },
+      {
+        "name": "LessonProgress",
+        "description": "User's progress on a specific lesson",
+        "attributes": [
+          {
+            "name": "progressId",
+            "type": "String",
+            "key": true
+          },
+          {
+            "name": "userId",
+            "type": "String",
+            "reference": "UserProgress.userId"
+          },
+          {
+            "name": "lessonId",
+            "type": "String",
+            "reference": "Lesson.lessonId"
+          },
+          {
+            "name": "status",
+            "type": "String",
+            "enum": ["NotStarted", "InProgress", "Completed"],
+            "description": "Completion status of lesson"
+          },
+          {
+            "name": "bestScore",
+            "type": "Integer",
+            "description": "Highest score achieved on this lesson"
+          },
+          {
+            "name": "attemptCount",
+            "type": "Integer",
+            "description": "Number of times user attempted the lesson"
+          },
+          {
+            "name": "lastAttemptDate",
+            "type": "DateTime"
+          },
+          {
+            "name": "currentPosition",
+            "type": "Integer",
+            "description": "Question index for resume functionality"
+          }
+        ]
+      },
+      {
+        "name": "PerformanceMetric",
+        "description": "Detailed performance metric for tracking improvement",
+        "attributes": [
+          {
+            "name": "metricId",
+            "type": "String",
+            "key": true
+          },
+          {
+            "name": "userId",
+            "type": "String",
+            "reference": "UserProgress.userId"
+          },
+          {
+            "name": "metricType",
+            "type": "String",
+            "enum": ["SectionAccuracy", "SkillMastery", "SpeedTrend"],
+            "description": "Type of performance metric"
+          },
+          {
+            "name": "categoryName",
+            "type": "String",
+            "description": "Section, skill, or category being measured"
+          },
+          {
+            "name": "value",
+            "type": "Decimal",
+            "description": "Metric value (percentage, average, etc.)"
+          },
+          {
+            "name": "timestamp",
+            "type": "DateTime"
+          },
+          {
+            "name": "trend",
+            "type": "String",
+            "enum": ["Improving", "Stable", "Declining"],
+            "description": "Trend compared to previous period"
+          }
+        ]
+      },
+      {
+        "name": "Achievement",
+        "description": "Badges and rewards for user milestones",
+        "attributes": [
+          {
+            "name": "achievementId",
+            "type": "String",
+            "key": true
+          },
+          {
+            "name": "userId",
+            "type": "String",
+            "reference": "UserProgress.userId"
+          },
+          {
+            "name": "achievementType",
+            "type": "String",
+            "enum": ["LessonsCompleted", "AccuracyMilestone", "StreakBonus", "SectionMastery"],
+            "description": "Type of achievement"
+          },
+          {
+            "name": "title",
+            "type": "String",
+            "description": "Display name of achievement"
+          },
+          {
+            "name": "unlockedDate",
+            "type": "DateTime"
+          }
+        ]
+      }
+    ]
+  },
+  "use_cases": [
+    {
+      "name": "View Dashboard",
+      "description": "User sees summary of progress on app home screen",
+      "actors": ["Student"],
+      "flow": [
+        "Load UserProgress record",
+        "Display total lessons completed, overall accuracy",
+        "Show current streak and total time spent",
+        "Highlight achievements unlocked",
+        "Show recommended next lesson based on progress"
+      ]
+    },
+    {
+      "name": "View Lesson Progress",
+      "description": "User sees progress details for a specific lesson",
+      "actors": ["Student"],
+      "flow": [
+        "Load LessonProgress record",
+        "Show best score, number of attempts",
+        "Display current position (resume point)",
+        "Show performance trend for this lesson"
+      ]
+    },
+    {
+      "name": "Update Progress After Quiz",
+      "description": "After completing a quiz, update all progress metrics",
+      "actors": ["App"],
+      "flow": [
+        "Update LessonProgress (status, bestScore, attemptCount, lastAttemptDate)",
+        "Recalculate UserProgress metrics (totalQuestionsAnswered, overallAccuracy)",
+        "Check for achievement milestones",
+        "Update or unlock achievements",
+        "Persist changes to localStorage"
+      ]
+    },
+    {
+      "name": "Track Learning Trend",
+      "description": "Analyze performance over time to show improvement",
+      "actors": ["App"],
+      "flow": [
+        "Calculate PerformanceMetric entries by section and date",
+        "Compare current metrics to previous period",
+        "Determine trend (Improving, Stable, Declining)",
+        "Store metrics for dashboard visualization"
+      ]
+    }
+  ],
+  "data_persistence": {
+    "storage_type": "localStorage",
+    "scope": "Browser local storage (per device)",
+    "data_format": "JSON",
+    "lifecycle": "Persist across sessions"
+  },
+  "integrations": []
+}

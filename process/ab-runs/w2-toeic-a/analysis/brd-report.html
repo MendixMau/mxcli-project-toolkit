@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head><title>BRD Report</title></head>
+<body>
+<h1>Business Requirements — TOEIC Buddy Mendix Migration</h1>
+<h2>BRD Summary</h2>
+<p>Three core BRDs, all validation-clean and ready for architecture:</p>
+
+<h3>1. Lesson Navigation & Storage</h3>
+<ul>
+<li>Entities: Lesson, LessonContent (2 entities)</li>
+<li>Use Cases: Load Lesson List, Select & Load, Persist State</li>
+<li>Storage: localStorage persistence</li>
+<li>Status: CLEAN ✓</li>
+</ul>
+
+<h3>2. Quiz Engine & Scoring</h3>
+<ul>
+<li>Entities: Question, Answer, UserAnswer, QuizSession (4 entities)</li>
+<li>Use Cases: Display Question, Submit Answer, Calculate Score, Show Results</li>
+<li>Business Rules: Score = Correct/Total × 100; Pass if ≥70%</li>
+<li>Status: CLEAN ✓</li>
+</ul>
+
+<h3>3. User Progress Tracking</h3>
+<ul>
+<li>Entities: UserProgress, LessonProgress, PerformanceMetric, Achievement (4 entities)</li>
+<li>Use Cases: View Dashboard, View Lesson Progress, Update Progress, Track Trends</li>
+<li>Data: Calculated metrics and achievement badges</li>
+<li>Status: CLEAN ✓</li>
+</ul>
+
+<p><strong>Total Entities: 10 | Total Use Cases: 11 | Entry Mode: Migration | Validation: CLEAN</strong></p>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>TOEIC Buddy Wireframes</title>
+<style>
+body { font-family: sans-serif; background: #f5f5f5; margin: 20px; }
+.wireframe { background: white; margin: 20px 0; padding: 20px; border-radius: 4px; }
+.screen { display: inline-block; width: 45%; margin: 10px; vertical-align: top; }
+h2 { color: #333; }
+.box { background: #e0e0e0; padding: 20px; margin: 10px 0; min-height: 30px; }
+.title { background: #2563eb; color: white; padding: 10px; font-weight: bold; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+</style>
+</head>
+<body>
+
+<div class="wireframe">
+<h2>Screen 1: Lesson List</h2>
+<div class="screen">
+  <div class="title">TOEIC Buddy</div>
+  <div class="box">Navigation: Home | Lessons | Progress | Achievements</div>
+  
+  <h3>Reading (8 lessons)</h3>
+  <div class="grid">
+    <div class="box">Lesson: Vocabulary<br/>5 questions | 5 min</div>
+    <div class="box">Lesson: Grammar<br/>10 questions | 10 min</div>
+  </div>
+  
+  <h3>Listening (6 lessons)</h3>
+  <div class="grid">
+    <div class="box">Lesson: Conversations<br/>8 questions | 8 min</div>
+    <div class="box">Lesson: Passages<br/>12 questions | 15 min</div>
+  </div>
+</div>
+</div>
+
+<div class="wireframe">
+<h2>Screen 2: Quiz View</h2>
+<div class="screen">
+  <div class="title">Reading: Vocabulary — Question 3 of 5</div>
+  
+  <div class="box">Progress: ⬜⬜⬛⬜⬜ (60%)</div>
+  
+  <div class="box"><b>Question:</b> Which word best completes the sentence?</div>
+  
+  <div class="box">A) __ option 1</div>
+  <div class="box">B) __ option 2</div>
+  <div class="box">C) __ option 3</div>
+  <div class="box">D) __ option 4</div>
+  
+  <div class="box"><button>Submit</button> <button>Back</button></div>
+</div>
+</div>
+
+<div class="wireframe">
+<h2>Screen 3: Results</h2>
+<div class="screen">
+  <div class="title">Quiz Complete!</div>
+  
+  <div class="box" style="text-align:center; font-size: 2em; color: green;"><b>Score: 80%</b></div>
+  
+  <div class="box">4 of 5 correct | Time: 5 minutes</div>
+  
+  <div class="box">
+    <b>Question Breakdown:</b><br/>
+    Q1: ✓ Correct<br/>
+    Q2: ✓ Correct<br/>
+    Q3: ✗ Incorrect (explanation...)<br/>
+    Q4: ✓ Correct<br/>
+    Q5: ✓ Correct
+  </div>
+  
+  <div class="box">
+    <button>Review Answers</button>
+    <button>Back to Lessons</button>
+  </div>
+</div>
+</div>
+
+<div class="wireframe">
+<h2>Screen 4: Dashboard</h2>
+<div class="screen">
+  <div class="title">My Progress</div>
+  
+  <div class="box">
+    <b>Overall:</b> 45 lessons completed | 78% average accuracy<br/>
+    Current streak: 5 days
+  </div>
+  
+  <h3>By Section</h3>
+  <div class="box">Reading: 68% accuracy (12 lessons)</div>
+  <div class="box">Listening: 82% accuracy (10 lessons)</div>
+  <div class="box">Grammar: 75% accuracy (8 lessons)</div>
+  
+  <h3>Recent Achievements</h3>
+  <div class="box">🏆 Lesson Master (10 lessons completed)</div>
+  <div class="box">🔥 5-Day Streak</div>
+</div>
+</div>
+
+</body>
+</html>

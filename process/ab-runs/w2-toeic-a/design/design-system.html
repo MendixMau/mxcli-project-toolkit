@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>TOEIC Buddy Design System</title>
+<link rel="stylesheet" href="ds.css">
+<style>
+body { padding: 20px; }
+.showcase { margin: 20px 0; }
+.color-swatch { display: inline-block; width: 100px; height: 100px; margin: 10px; border-radius: 4px; border: 1px solid #ddd; vertical-align: top; }
+.color-label { text-align: center; font-size: 12px; }
+.component-demo { margin: 20px 0; padding: 20px; background: white; border-radius: 4px; border: 1px solid #ddd; }
+</style>
+</head>
+<body>
+<h1>TOEIC Buddy Design System</h1>
+
+<div class="showcase">
+<h2>Color Palette</h2>
+<div class="color-swatch" style="background: #2563eb;"><div class="color-label">Primary</div></div>
+<div class="color-swatch" style="background: #7c3aed;"><div class="color-label">Secondary</div></div>
+<div class="color-swatch" style="background: #16a34a;"><div class="color-label">Success</div></div>
+<div class="color-swatch" style="background: #ea580c;"><div class="color-label">Warning</div></div>
+<div class="color-swatch" style="background: #dc2626;"><div class="color-label">Error</div></div>
+</div>
+
+<div class="showcase">
+<h2>Typography</h2>
+<p style="font-size: 24px;"><b>Heading 2XL (24px)</b></p>
+<p style="font-size: 20px;"><b>Heading XL (20px)</b></p>
+<p style="font-size: 16px;"><b>Heading LG (16px)</b></p>
+<p style="font-size: 14px;">Body text (14px) - Regular line height</p>
+<p style="font-size: 12px;">Small text (12px) - Captions and metadata</p>
+</div>
+
+<div class="showcase">
+<h2>Spacing Scale</h2>
+<p>xs: 4px | sm: 8px | md: 16px | lg: 24px | xl: 32px</p>
+</div>
+
+<div class="showcase">
+<h2>Components</h2>
+
+<div class="component-demo">
+  <div class="page-header"><h1>Page Header Example</h1></div>
+</div>
+
+<div class="component-demo">
+  <div class="lesson-card">
+    <h3>Lesson Card</h3>
+    <p>Reading: Vocabulary | 5 questions | 5 min</p>
+  </div>
+</div>
+
+<div class="component-demo">
+  <button class="button">Primary Button</button>
+  <button class="button secondary">Secondary Button</button>
+</div>
+
+<div class="component-demo">
+  <div class="progress-bar"><div class="progress-bar-fill" style="width: 60%;"></div></div>
+  <p>Progress: 60% (3 of 5 questions)</p>
+</div>
+
+<div class="component-demo">
+  <div class="answer-option">A) This is answer option 1</div>
+  <div class="answer-option">B) This is answer option 2</div>
+  <div class="answer-option selected">C) This is answer option 3 (selected)</div>
+  <div class="answer-option">D) This is answer option 4</div>
+</div>
+
+<div class="component-demo">
+  <div class="score-display">Score: 80%</div>
+</div>
+
+</div>
+
+</body>
+</html>

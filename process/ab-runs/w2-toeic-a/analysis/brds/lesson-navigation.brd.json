@@ -1,0 +1,124 @@
+{
+  "brd_id": "lesson-navigation",
+  "module_name": "Lesson Navigation & Storage",
+  "description": "Lesson catalog, navigation state, and persistent lesson storage using browser localStorage.",
+  "domain_model": {
+    "entities": [
+      {
+        "name": "Lesson",
+        "description": "A TOEIC lesson unit (e.g. Reading, Listening by topic)",
+        "attributes": [
+          {
+            "name": "lessonId",
+            "type": "String",
+            "key": true,
+            "description": "Unique identifier for the lesson"
+          },
+          {
+            "name": "title",
+            "type": "String",
+            "description": "Lesson title (e.g. 'Reading: Vocabulary - Technology')"
+          },
+          {
+            "name": "description",
+            "type": "String",
+            "description": "Short description of lesson content"
+          },
+          {
+            "name": "section",
+            "type": "String",
+            "enum": ["Reading", "Listening", "Grammar", "Vocabulary"],
+            "description": "TOEIC section this lesson belongs to"
+          },
+          {
+            "name": "difficulty",
+            "type": "String",
+            "enum": ["Beginner", "Intermediate", "Advanced"],
+            "description": "Lesson difficulty level"
+          },
+          {
+            "name": "questionCount",
+            "type": "Integer",
+            "description": "Number of questions in the lesson"
+          },
+          {
+            "name": "estimatedDuration",
+            "type": "Integer",
+            "description": "Estimated completion time in minutes"
+          },
+          {
+            "name": "order",
+            "type": "Integer",
+            "description": "Display order within section"
+          }
+        ]
+      },
+      {
+        "name": "LessonContent",
+        "description": "Detailed content of a lesson (persisted with lesson)",
+        "attributes": [
+          {
+            "name": "contentId",
+            "type": "String",
+            "key": true
+          },
+          {
+            "name": "lessonId",
+            "type": "String",
+            "reference": "Lesson.lessonId"
+          },
+          {
+            "name": "content",
+            "type": "Text",
+            "description": "Serialized lesson data (questions, explanations, media references)"
+          }
+        ]
+      }
+    ]
+  },
+  "use_cases": [
+    {
+      "name": "Load Lesson List",
+      "description": "User opens the app and sees the list of available lessons grouped by TOEIC section",
+      "actors": ["Student"],
+      "flow": [
+        "App loads lesson index from localStorage or bundled data",
+        "Display lessons organized by section (Reading, Listening, Grammar, Vocabulary)",
+        "Show lesson difficulty and estimated duration",
+        "Highlight user's previous progress where available"
+      ]
+    },
+    {
+      "name": "Select and Load Lesson",
+      "description": "User selects a lesson to start or resume",
+      "actors": ["Student"],
+      "flow": [
+        "App retrieves lesson content from localStorage or bundled data",
+        "Load first unattempted question or resume from last position",
+        "Display lesson title, progress bar, and navigation controls"
+      ]
+    },
+    {
+      "name": "Persist Lesson State",
+      "description": "As user progresses, lesson state is saved to localStorage",
+      "actors": ["App"],
+      "flow": [
+        "After each question answered, update lesson progress",
+        "Store current position and user answers",
+        "Sync to localStorage"
+      ]
+    }
+  ],
+  "data_persistence": {
+    "storage_type": "localStorage",
+    "scope": "Browser local storage (per device/browser)",
+    "data_format": "JSON",
+    "lifecycle": "Persist across sessions until cleared by user"
+  },
+  "integrations": [],
+  "assumptions": [
+    "Lesson content is bundled with the app (no remote API)",
+    "localStorage is the sole persistence mechanism",
+    "No multi-device sync"
+  ]
+}

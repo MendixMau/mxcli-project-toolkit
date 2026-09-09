@@ -20,6 +20,11 @@
 #                                           # (same download the headless container build
 #                                           # uses; cached at ~/.mxcli/mxbuild/).
 #   bin/doctor.sh --install --yes <dir>     # skip the confirmation (unattended/agent runs)
+#   bin/doctor.sh --no-docker [<project-dir>] # skip the docker probe (or MXTK_DOCTOR_SKIP_DOCKER=1).
+#                                           # The probe is bounded anyway: MXTK_DOCKER_PROBE_SECS
+#                                           # (default 8) — a stopped Docker Desktop can make
+#                                           # 'docker info' sit silent for minutes, which read
+#                                           # as "the setup hangs" (field report, 2026-09-09).
 #   bin/doctor.sh --quick [<project-dir>]   # ~2 s: platform, mxcli/mxbuild/java EXECUTE, spawn
 #                                           # speed, path hygiene, model layout. Skips the
 #                                           # once-per-machine sections (python, CRLF, script
@@ -47,11 +52,14 @@ PROJECT_DIR=""
 INSTALL=0
 ASSUME_YES=0
 QUICK=0
+NO_DOCKER="${MXTK_DOCTOR_SKIP_DOCKER:-0}"
+DOCKER_PROBE_SECS="${MXTK_DOCKER_PROBE_SECS:-8}"
 for _arg in "$@"; do
   case "$_arg" in
     --install) INSTALL=1 ;;
     --yes|-y)  ASSUME_YES=1 ;;
     --quick)   QUICK=1 ;;
+    --no-docker) NO_DOCKER=1 ;;
     *)         PROJECT_DIR="$_arg" ;;
   esac
 done
@@ -616,13 +624,69 @@ head_ "Self-verification stack (Docker — recommended)"
 # Pro to find out whether a page renders. Without Docker the mxbuild gate still verifies the
 # MODEL, but nothing verifies the RUNNING APP unless a human does. Recommended, never
 # required — hence WARN, not FAIL.
-if command -v docker >/dev/null 2>&1; then
-  if docker info >/dev/null 2>&1; then
-    ok "docker daemon responding — mxcli docker check + test-stack-up.sh (app up, e2e, screenshots) available"
-  else
-    warn "docker is installed but the daemon is not responding."
-    note "Start Docker Desktop (or colima / Rancher Desktop). Until it runs: no app container,"
-    note "no throwaway Postgres, no agent-driven e2e/screenshots."
+# docker_daemon_up — `docker info`, bounded. When Docker Desktop is installed but not running,
+# the CLI can sit on its socket/named pipe with no output for minutes (macOS and Git Bash both
+# reported, 2026-09-09) — and since init-project.sh runs doctor last, the whole scaffold read as
+# hung. No `timeout` on stock macOS, so: background the probe, poll once a second, kill it at
+# the bound. Returns 0 up · 1 down (answered quickly) · 2 no answer within the bound.
+docker_daemon_up() {
+  docker info >/dev/null 2>&1 &
+  _dd_pid=$!
+  _dd_waited=0
+  while kill -0 "$_dd_pid" 2>/dev/null; do
+    if [ "$_dd_waited" -ge "$DOCKER_PROBE_SECS" ]; then
+      kill "$_dd_pid" 2>/dev/null; wait "$_dd_pid" 2>/dev/null
+      return 2
+    fi
+    sleep 1; _dd_waited=$((_dd_waited + 1))
+  done
+  wait "$_dd_pid"
+}
+
+# docker_start_hint — the one command that starts the daemon on this platform, or the closest
+# thing to it. Printed instead of "start Docker", which sent people to look for a button.
+docker_start_hint() {
+  case "$PLATFORM" in
+    macos)
+      if [ -d /Applications/Docker.app ]; then note "  open -a Docker          # Docker Desktop; the daemon needs ~30-90 s after launch"
+      elif command -v colima >/dev/null 2>&1; then note "  colima start"
+      else note "  open -a Docker (Docker Desktop) or colima start — whichever is installed"; fi ;;
+    gitbash)
+      note '  start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"   # then wait ~30-90 s'
+      note "  (or Rancher Desktop / Podman Desktop from the Start menu)" ;;
+    linux|wsl)
+      note "  sudo systemctl start docker     # or, on WSL, start Docker Desktop on the Windows side" ;;
+    *) note "  start Docker Desktop / the docker service, then re-run this script" ;;
+  esac
+  note "Then re-run: bin/doctor.sh${PROJECT_DIR:+ $PROJECT_DIR}   (this section is skipped by --quick)"
+}
+
+if [ "$NO_DOCKER" = 1 ]; then
+  note "docker probe skipped (--no-docker / MXTK_DOCTOR_SKIP_DOCKER=1). Self-verification stack not checked."
+elif command -v docker >/dev/null 2>&1; then
+  note "probing the docker daemon (bounded: ${DOCKER_PROBE_SECS} s — a stopped Docker Desktop can otherwise hang here)..."
+  DOCKER_STATE=0
+  docker_daemon_up || DOCKER_STATE=$?
+  case "$DOCKER_STATE" in
+    0)
+      ok "docker daemon responding — mxcli docker check + test-stack-up.sh (app up, e2e, screenshots) available" ;;
+    2)
+      warn "docker is installed but 'docker info' gave no answer within ${DOCKER_PROBE_SECS} s — treated as not running."
+      note "That silent wait is what makes a setup look hung. Raise the bound with"
+      note "MXTK_DOCKER_PROBE_SECS=30 if the daemon is merely slow to answer here. To start it:"
+      docker_start_hint ;;
+    *)
+      warn "docker is installed but the daemon is not responding."
+      note "Until it runs: no app container, no throwaway Postgres, no agent-driven e2e/screenshots."
+      note "To start it:"
+      docker_start_hint ;;
+  esac
+  # --install is the "do it for me" mode: on macOS with Docker Desktop present, launch it.
+  # Never elsewhere — Windows launch paths vary and Linux needs sudo.
+  if [ "$DOCKER_STATE" != 0 ] && [ "$INSTALL" = 1 ] && [ "$PLATFORM" = macos ] && [ -d /Applications/Docker.app ]; then
+    if open -a Docker 2>/dev/null; then
+      note "--install: launched Docker Desktop (open -a Docker). Give it ~30-90 s, then re-run doctor."
+    fi
   fi
 else
   warn "docker is not installed — recommended for new builders."

@@ -1,0 +1,328 @@
+{
+  "id": "F002",
+  "title": "Booking Lifecycle & Request",
+  "modules": [
+    "BookingManagement"
+  ],
+  "actors": [
+    "ShippingAgent",
+    "BerthOfficer"
+  ],
+  "useCases": [
+    {
+      "id": "UC101",
+      "title": "Save a booking request as Draft",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "BookingRequest.Status = Draft; invisible to officers"
+      ],
+      "mainFlow": [
+        "1. Agent fills vessel, berth, ETA, ETD, cargo class",
+        "2. Agent saves without submitting (ch08 SS4.1)"
+      ],
+      "screens": [
+        "BookingRequest_NewEdit"
+      ],
+      "mdlRefs": [
+        "BookingManagement"
+      ]
+    },
+    {
+      "id": "UC102",
+      "title": "Submit a booking request",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Agent is not suspended",
+        "48h <= (ETA - now) <= 90 days (ch08 SS4.5)"
+      ],
+      "postconditions": [
+        "Reference assigned in format HB-YYYY-NNNNN (ch08 SS4.2), Status = Submitted"
+      ],
+      "mainFlow": [
+        "1. Agent completes mandatory fields (vessel, berth, ETA, ETD, cargo class)",
+        "2. System validates ETD > ETA and stay <= 30 days (ch09 SS5.2)",
+        "3. System validates IMO number is exactly 7 digits (image-only rule)",
+        "3b. System validates the berth allocation fit-check (vessel length <= berth max length; vessel draught >= 0.5m below berth max draught) \u2014 ch13 SS9.1",
+        "4. System assigns a permanent reference (never reused, ADR-004) and sets Status = Submitted"
+      ],
+      "screens": [
+        "BookingRequest_NewEdit"
+      ],
+      "mdlRefs": [
+        "BookingManagement"
+      ]
+    },
+    {
+      "id": "UC103",
+      "title": "Fast-track auto-approval",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Requested berth free for the whole stay",
+        "Vessel LOA < 120m"
+      ],
+      "postconditions": [
+        "Status = Approved without officer review (ch08 SS4.4)"
+      ],
+      "mainFlow": [
+        "1. On submission the system checks the fast-track condition",
+        "2. If met, Status transitions directly to Approved"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "BookingManagement"
+      ]
+    },
+    {
+      "id": "UC104",
+      "title": "Edit a submitted request",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Status = Submitted and not yet opened for review"
+      ],
+      "postconditions": [
+        "Request updated; locked once an officer opens it (ch10 SS6.1)"
+      ],
+      "mainFlow": [
+        "1. Agent edits mandatory fields",
+        "2. System re-validates all rules"
+      ],
+      "screens": [
+        "BookingRequest_NewEdit"
+      ],
+      "mdlRefs": [
+        "BookingManagement"
+      ]
+    },
+    {
+      "id": "UC105",
+      "title": "Cancel a booking request",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Status != Completed"
+      ],
+      "postconditions": [
+        "Status = Cancelled; reference retained for audit (ADR-004)"
+      ],
+      "mainFlow": [
+        "1. Agent cancels",
+        "2. Free of charge if >=24h before ETA; 50% berth fee if within 72h of ETA (ch10 SS6.2, ch19 SS15.2)"
+      ],
+      "screens": [
+        "BookingRequest_NewEdit"
+      ],
+      "mdlRefs": [
+        "BookingManagement"
+      ]
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "BookingRequest",
+      "module": "BookingManagement",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Reference",
+          "mandatory": true,
+          "type": "String",
+          "length": 13
+        },
+        {
+          "name": "ETA",
+          "mandatory": true,
+          "type": "DateTime"
+        },
+        {
+          "name": "ETD",
+          "mandatory": true,
+          "type": "DateTime"
+        },
+        {
+          "name": "Status",
+          "mandatory": true,
+          "type": "Enumeration",
+          "values": [
+            "Draft",
+            "Submitted",
+            "UnderReview",
+            "Approved",
+            "Rejected",
+            "Cancelled",
+            "Completed"
+          ]
+        },
+        {
+          "name": "CargoClass",
+          "mandatory": true,
+          "type": "Enumeration",
+          "values": [
+            "General",
+            "Perishable",
+            "DangerousGoods",
+            "Empty"
+          ]
+        },
+        {
+          "name": "ShorePowerRequested",
+          "mandatory": true,
+          "type": "Boolean"
+        },
+        {
+          "name": "SubmittedOn",
+          "mandatory": false,
+          "type": "DateTime"
+        },
+        {
+          "name": "Remarks",
+          "mandatory": false,
+          "type": "String",
+          "length": 500
+        }
+      ],
+      "auditFields": [
+        "CreatedOn",
+        "CreatedBy",
+        "ModifiedOn",
+        "ModifiedBy"
+      ],
+      "associations": [
+        {
+          "name": "BookingRequest_Vessel",
+          "target": "Vessel",
+          "cardinality": "many-to-one",
+          "owner": "BookingRequest"
+        },
+        {
+          "name": "BookingRequest_ShippingAgent",
+          "target": "ShippingAgent",
+          "cardinality": "many-to-one",
+          "owner": "BookingRequest"
+        },
+        {
+          "name": "BookingRequest_Berth",
+          "target": "Berth",
+          "cardinality": "many-to-one",
+          "owner": "BookingRequest"
+        }
+      ]
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_BookingRequest_SaveDraft",
+      "module": "BookingManagement",
+      "purpose": "Saves a request as Draft.",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "BookingRequest"
+    },
+    {
+      "name": "ACT_BookingRequest_Submit",
+      "module": "BookingManagement",
+      "purpose": "Validates and submits a booking request, assigning its reference.",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "BookingRequest",
+      "calls": [
+        "GEN_BookingRequest_Reference",
+        "VAL_BookingRequest_Timing",
+        "SUB_BookingRequest_FastTrackCheck"
+      ],
+      "validations": [
+        "ETD > ETA",
+        "stay <= 30 days",
+        "48h <= ETA-now <= 90 days",
+        "Vessel.IMONumber matches ^[0-9]{7}$",
+        "berth fit-check: Vessel.LengthOverall <= Berth.MaxLength AND Vessel.Draught <= Berth.MaxDraught - 0.5 (ch13 SS9.1) \u2014 cross-module read of F001's Berth/Vessel"
+      ]
+    },
+    {
+      "name": "GEN_BookingRequest_Reference",
+      "module": "BookingManagement",
+      "purpose": "Generates the permanent HB-YYYY-NNNNN reference.",
+      "pattern": "sub-routine",
+      "params": [],
+      "returns": "String"
+    },
+    {
+      "name": "SUB_BookingRequest_FastTrackCheck",
+      "module": "BookingManagement",
+      "purpose": "Checks berth-free + vessel<120m fast-track condition.",
+      "pattern": "sub-routine",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "Boolean"
+    },
+    {
+      "name": "ACT_BookingRequest_Cancel",
+      "module": "BookingManagement",
+      "purpose": "Cancels a request and applies the late-cancellation fee where applicable.",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "BookingRequest",
+      "validations": [
+        "Status != Completed"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "BookingRequest_NewEdit",
+      "module": "BookingManagement",
+      "purpose": "Booking request form (mandatory fields + validation, incl. IMO digit check)",
+      "dataContext": "BookingRequest",
+      "sections": [
+        "VesselAndBerth",
+        "Dates",
+        "CargoAndOptions"
+      ],
+      "actions": [
+        "ACT_BookingRequest_SaveDraft",
+        "ACT_BookingRequest_Submit"
+      ]
+    }
+  ],
+  "integrations": [],
+  "openQuestions": [
+    {
+      "id": "D1",
+      "question": "Cargo-manifest PDF attachment size limit",
+      "status": "RAISED",
+      "raisedAt": "Stage 2 gate, 2026-09-09, unattended run \u2014 batch posted in chat via bin/open-questions.sh; no human present to reply"
+    }
+  ],
+  "sourceKB": [
+    "KB_HarbourBerthBooking_Functional.md"
+  ],
+  "provenance": "documents"
+}

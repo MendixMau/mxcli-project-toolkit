@@ -1,0 +1,41 @@
+{
+  "generated": "2026-09-09",
+  "brds": [
+    {
+      "id": "F001",
+      "title": "Master Data: Terminals, Berths, Vessels & Shipping Agents",
+      "file": "F001-master-data-terminals-berths-vessels-shipping-agents.brd.json",
+      "status": "complete"
+    },
+    {
+      "id": "F002",
+      "title": "Booking Lifecycle & Request",
+      "file": "F002-booking-lifecycle-request.brd.json",
+      "status": "complete"
+    },
+    {
+      "id": "F003",
+      "title": "Officer Review, Approval & Security",
+      "file": "F003-officer-review-approval-security.brd.json",
+      "status": "complete"
+    },
+    {
+      "id": "F004",
+      "title": "Tariffs & Invoicing",
+      "file": "F004-tariffs-invoicing.brd.json",
+      "status": "complete"
+    },
+    {
+      "id": "F005",
+      "title": "Inspections & Departure Clearance",
+      "file": "F005-inspections-departure-clearance.brd.json",
+      "status": "complete"
+    },
+    {
+      "id": "F006",
+      "title": "Audit, Notifications, Screens, Reporting & AIS Integration",
+      "file": "F006-audit-notifications-screens-reporting-ais-integration.brd.json",
+      "status": "complete"
+    }
+  ]
+}

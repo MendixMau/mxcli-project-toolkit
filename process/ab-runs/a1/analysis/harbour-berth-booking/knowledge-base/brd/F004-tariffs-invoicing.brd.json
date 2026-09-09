@@ -1,0 +1,319 @@
+{
+  "id": "F004",
+  "title": "Tariffs & Invoicing",
+  "modules": [
+    "TariffsInvoicing"
+  ],
+  "actors": [
+    "HarbourMaster",
+    "BerthOfficer",
+    "ShippingAgent"
+  ],
+  "useCases": [
+    {
+      "id": "UC301",
+      "title": "Maintain a tariff rate card",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. Harbour Master defines rate per metre per day, currency, validity period, surcharge percent, per terminal (ch18 SS14.1)"
+      ],
+      "screens": [
+        "Tariff_NewEdit"
+      ],
+      "mdlRefs": [
+        "TariffsInvoicing"
+      ]
+    },
+    {
+      "id": "UC302",
+      "title": "Calculate a berth fee",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [
+        "Booking Completed"
+      ],
+      "postconditions": [
+        "Fee computed"
+      ],
+      "mainFlow": [
+        "1. Fee = vessel length x days-alongside x tariff rate; days round up, min 1 (ch18 SS14.2)",
+        "2. VAT 21% added (ch18 SS14.3)",
+        "3. Shore power flat 250/day added if offered and requested (ch18 SS14.4)",
+        "4. Late-arrival surcharge 15% if >2h after ETA (ch19 SS15.1), waivable by officer for vessels <80m (ch24 SS20.3), or by Harbour Master otherwise (ch13 SS9.3)"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "TariffsInvoicing"
+      ]
+    },
+    {
+      "id": "UC303",
+      "title": "Generate an invoice",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "BookingRequest.Status = Completed"
+      ],
+      "postconditions": [
+        "Invoice created automatically (ch20 SS16.1); DueOn = IssuedOn + 30 days (ADR-006)"
+      ],
+      "mainFlow": [
+        "1. System generates the invoice on Completed",
+        "2. Status becomes Overdue the day after DueOn if unpaid (ADR-006)"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "TariffsInvoicing"
+      ]
+    },
+    {
+      "id": "UC304",
+      "title": "Mark an invoice Paid or Void",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [
+        "Invoice.Status != Paid"
+      ],
+      "postconditions": [
+        "Invoice.Status updated; a Paid invoice cannot be edited (ch20 SS16.3)"
+      ],
+      "mainFlow": [
+        "1. Harbour Master marks the invoice Paid or Void"
+      ],
+      "screens": [
+        "Invoice_Overview"
+      ],
+      "mdlRefs": [
+        "TariffsInvoicing"
+      ]
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "Tariff",
+      "module": "TariffsInvoicing",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Code",
+          "mandatory": true,
+          "type": "String",
+          "length": 10
+        },
+        {
+          "name": "Description",
+          "mandatory": true,
+          "type": "String",
+          "length": 120
+        },
+        {
+          "name": "RatePerMetrePerDay",
+          "mandatory": true,
+          "type": "Decimal"
+        },
+        {
+          "name": "Currency",
+          "mandatory": true,
+          "type": "String",
+          "length": 3
+        },
+        {
+          "name": "ValidFrom",
+          "mandatory": true,
+          "type": "Date"
+        },
+        {
+          "name": "ValidTo",
+          "mandatory": false,
+          "type": "Date"
+        },
+        {
+          "name": "SurchargePercent",
+          "mandatory": false,
+          "type": "Decimal"
+        }
+      ],
+      "auditFields": [
+        "CreatedOn",
+        "CreatedBy",
+        "ModifiedOn",
+        "ModifiedBy"
+      ],
+      "associations": [
+        {
+          "name": "Tariff_Terminal",
+          "target": "Terminal",
+          "cardinality": "many-to-one",
+          "owner": "Tariff"
+        }
+      ]
+    },
+    {
+      "name": "Invoice",
+      "module": "TariffsInvoicing",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "InvoiceNumber",
+          "mandatory": true,
+          "type": "String",
+          "length": 16
+        },
+        {
+          "name": "IssuedOn",
+          "mandatory": true,
+          "type": "Date"
+        },
+        {
+          "name": "DueOn",
+          "mandatory": true,
+          "type": "Date"
+        },
+        {
+          "name": "TotalAmount",
+          "mandatory": true,
+          "type": "Decimal"
+        },
+        {
+          "name": "VatPercent",
+          "mandatory": true,
+          "type": "Decimal"
+        },
+        {
+          "name": "Status",
+          "mandatory": true,
+          "type": "Enumeration",
+          "values": [
+            "Draft",
+            "Issued",
+            "Paid",
+            "Overdue",
+            "Void"
+          ]
+        }
+      ],
+      "auditFields": [
+        "CreatedOn",
+        "CreatedBy",
+        "ModifiedOn",
+        "ModifiedBy"
+      ],
+      "associations": [
+        {
+          "name": "Invoice_BookingRequest",
+          "target": "BookingRequest",
+          "cardinality": "one-to-one",
+          "owner": "Invoice"
+        },
+        {
+          "name": "Invoice_ShippingAgent",
+          "target": "ShippingAgent",
+          "cardinality": "many-to-one",
+          "owner": "Invoice"
+        },
+        {
+          "name": "Invoice_Tariff",
+          "target": "Tariff",
+          "cardinality": "many-to-one",
+          "owner": "Invoice"
+        }
+      ]
+    }
+  ],
+  "microflows": [
+    {
+      "name": "CAL_BookingRequest_BerthFee",
+      "module": "TariffsInvoicing",
+      "purpose": "Computes the berth fee (length x days x rate, VAT, shore power, surcharges).",
+      "pattern": "calculation",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "Decimal"
+    },
+    {
+      "name": "ACT_Invoice_GenerateOnCompleted",
+      "module": "TariffsInvoicing",
+      "purpose": "Auto-creates an invoice when a booking is marked Completed.",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "Invoice",
+      "calls": [
+        "CAL_BookingRequest_BerthFee"
+      ]
+    },
+    {
+      "name": "ACT_Invoice_SetStatus",
+      "module": "TariffsInvoicing",
+      "purpose": "Harbour Master-only Paid/Void transition; blocks edits once Paid.",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Invoice",
+          "type": "Invoice"
+        },
+        {
+          "name": "NewStatus",
+          "type": "String"
+        }
+      ],
+      "returns": "Invoice",
+      "validations": [
+        "current Status != Paid before editing"
+      ]
+    },
+    {
+      "name": "SUB_Invoice_MarkOverdue",
+      "module": "TariffsInvoicing",
+      "purpose": "Scheduled: flips Issued invoices to Overdue the day after DueOn.",
+      "pattern": "scheduled",
+      "params": [],
+      "returns": "Integer"
+    }
+  ],
+  "pages": [
+    {
+      "name": "Tariff_NewEdit",
+      "module": "TariffsInvoicing",
+      "purpose": "Maintain a tariff rate card",
+      "dataContext": "Tariff",
+      "sections": [
+        "RateDetails"
+      ],
+      "actions": []
+    },
+    {
+      "name": "Invoice_Overview",
+      "module": "TariffsInvoicing",
+      "purpose": "List/manage invoices",
+      "dataContext": "Invoice (list)",
+      "sections": [
+        "InvoiceList"
+      ],
+      "actions": [
+        "ACT_Invoice_SetStatus"
+      ]
+    }
+  ],
+  "integrations": [],
+  "openQuestions": [],
+  "sourceKB": [
+    "KB_HarbourBerthBooking_Functional.md"
+  ],
+  "provenance": "documents"
+}

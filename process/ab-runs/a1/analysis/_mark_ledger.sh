@@ -1,0 +1,56 @@
+#!/bin/bash
+set -euo pipefail
+export MXTK_LEAKGUARD_DENYFILE=/tmp/ab-denylist MXTK_DOCTOR_SKIP_DOCKER=1 MXTK_NO_FETCH=1
+TK=/home/user/mxcli-project-toolkit
+PROJ=/tmp/abproj
+ART="analysis/harbour-berth-booking/knowledge-base/share/KB_HarbourBerthBooking_Functional.md"
+BY="agent (unattended run)"
+
+mark() {
+  local rel="$1" evidence="$2"
+  bash "$TK/bin/source-ledger.sh" mark "$PROJ" "$rel" --artifact "$ART" --evidence "$evidence" --by "$BY"
+}
+
+mark "01-home.html" "KB SS2 Business Overview: 'replaces a spreadsheet-based booking process' -> Open Question D5"
+mark "02-about-the-port-authority.html" "KB SS2: three terminals, container/bulk/cruise traffic -> Business Overview context"
+mark "03-release-notes.html" "revision history read for provenance only; no functional content -> not cited in KB (informational chapter)"
+mark "04-vision-and-scope.html" "KB SS2: purpose statement + out-of-scope quote (pilotage/tug scheduling) -> Business Overview"
+mark "05-stakeholders-and-roles.html" "KB SS5: four roles + Harbour Master authority statement -> Roles and Permissions"
+mark "06-news-and-events.html" "read in full; filler content only, no functional statements -> not cited in KB"
+mark "07-domain-overview.html" "KB SS7 + entities.json: full entity/attribute/relationship tables for 9 of 11 entities -> Entities"
+mark "08-booking-lifecycle.html" "KB SS4 rules 1-5: draft/submission/status-model/fast-track/timing -> Business Rules"
+mark "09-booking-request-form.html" "KB SS3 + SS4 rule 6: mandatory fields table + ETD>ETA/30-day validation -> Screens, Business Rules"
+mark "10-cancellation-and-changes.html" "KB SS4 rules 7-8: edit lock, cancellation fee schedule -> Business Rules"
+mark "11-agent-onboarding.html" "KB SS4 rule 9: registration + auto-suspend-at-3-overdue-invoices -> Business Rules"
+mark "12-berth-master-data.html" "KB SS7 + entities.json: Berth/Terminal attribute tables -> Entities"
+mark "13-berth-allocation-rules.html" "KB SS4 rules 10-11: fit-check formula + surcharge-waiver authority -> Business Rules"
+mark "14-vessel-registry.html" "KB SS7 + entities.json: Vessel attribute table, IMO uniqueness -> Entities"
+mark "15-officer-review-process.html" "KB SS4 rule 12 + SS3: Booking Board queue ordering, manual-review-only rule -> Business Rules, Screens"
+mark "16-approval-decisions.html" "KB SS4 rules 13-14: 3 outcomes, return-for-info, override authority -> Business Rules"
+mark "17-notifications.html" "KB SS4 rules 15-16: agent email trigger, officer 06:00 digest -> Business Rules"
+mark "18-tariff-structure.html" "KB SS4 rules 17-19: fee formula, VAT 21%, shore power flat fee -> Business Rules"
+mark "19-tariffs-cancellation-fees.html" "KB SS4 rules 8,20: late-cancellation 50%, late-arrival 15% surcharge -> Business Rules"
+mark "20-invoicing.html" "KB SS4 rules 21-22: auto-invoice-on-Completed, Paid/Void immutability -> Business Rules"
+mark "21-officer-review-screen.html" "KB SS3: exceedance-highlighted-red decision panel -> Screens (plus D2 open question re: last-5-bookings)"
+mark "22-inspection-scheduling.html" "KB SS4 rule 23: dangerous-goods approval gate -> Business Rules"
+mark "23-inspection-checklist.html" "KB SS4 rules 24-25: checklist categories, Failed-on-High-severity rule -> Business Rules"
+mark "24-inspection-outcomes.html" "KB SS4 rules 20,26: departure block on Failed, surcharge relief waiver -> Business Rules"
+mark "25-departure-clearance.html" "KB SS4 rule 27: clearance requires all inspections Passed/Deferred -> Business Rules"
+mark "26-audit-and-compliance.html" "KB SS4 rule 28 + SS7: audit trail requirement + AuditEntry table -> Business Rules, Entities"
+mark "27-privacy-and-cookies.html" "read in full; documentation-portal's own cookie policy, not application NFR -> not cited in KB (portal-only content)"
+mark "28-navigation-and-screens.html" "KB SS3: three named screens -> Screens"
+mark "29-booking-board-screen.html" "KB SS3: Booking Board filter behaviour -> Screens"
+mark "30-my-bookings-screen.html" "KB SS3: My Bookings agent-scoped, Draft-first ordering -> Screens"
+mark "31-inspection-calendar-screen.html" "KB SS3: Inspection Calendar drag-and-drop reschedule -> Screens"
+mark "32-reporting.html" "KB SS4 rule 31: monthly CSV berth-occupancy report -> Business Rules"
+mark "33-integration-ais-feed.html" "KB SS4 rule 30 + SS6: AIS 5-min import, Arrived-on-geofence trigger, no contract detail -> Business Rules, Integration Points, D3"
+mark "34-contact-and-support.html" "read in full; fixture note 'nobody to contact', office hours only -> not cited in KB"
+mark "35-security-and-access.html" "KB SS4 rule 29 + SS5: own-company visibility scoping -> Business Rules, Roles and Permissions"
+mark "36-appendix-data-dictionary.html" "KB SS7 + entities.json: remaining 6 entity attribute tables + relationships -> Entities"
+mark "glossary.md" "cross-check ground truth for entities.json (11/11 entities, all attribute counts match) -> Entities"
+mark "roles.md" "KB SS5: 'every user has exactly one role' -> Roles and Permissions"
+mark "decisions-log.md" "KB SS4 rules 2,22: ADR-004 (reference permanence), ADR-006 (invoice due-date math) -> Business Rules"
+mark "workshop-notes.md" "KB SS8: D1 (attachment size undecided), D2 (last-5-bookings requirement) -> Open Questions"
+mark "09-booking-request-form_files/fig-booking-form-validation.png" "KB SS3 Screens table: 'IMO NUMBER MUST BE EXACTLY 7 DIGITS' — visible only in this image, stated nowhere in any text chapter -> Screens (image-only rule)"
+
+echo "done"

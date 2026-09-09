@@ -1,0 +1,528 @@
+{
+  "entities": [
+    {
+      "entity": "Vessel",
+      "attributes": [
+        {
+          "name": "IMONumber",
+          "type": "Text, up to 7 characters",
+          "required": true
+        },
+        {
+          "name": "Name",
+          "type": "Text, up to 100 characters",
+          "required": true
+        },
+        {
+          "name": "LengthOverall",
+          "type": "Decimal number",
+          "required": true
+        },
+        {
+          "name": "Beam",
+          "type": "Decimal number",
+          "required": false
+        },
+        {
+          "name": "Draught",
+          "type": "Decimal number",
+          "required": true
+        },
+        {
+          "name": "FlagState",
+          "type": "Text, up to 2 characters",
+          "required": false
+        },
+        {
+          "name": "VesselType",
+          "type": "One of: Container, Bulk, Tanker, RoRo, Cruise, GeneralCargo",
+          "required": true
+        },
+        {
+          "name": "GrossTonnage",
+          "type": "Whole number",
+          "required": false
+        }
+      ],
+      "sources": [
+        "07-domain-overview.html",
+        "14-vessel-registry.html"
+      ]
+    },
+    {
+      "entity": "ShippingAgent",
+      "attributes": [
+        {
+          "name": "CompanyName",
+          "type": "Text, up to 120 characters",
+          "required": true
+        },
+        {
+          "name": "LicenceNumber",
+          "type": "Text, up to 20 characters",
+          "required": true
+        },
+        {
+          "name": "ContactEmail",
+          "type": "Text, up to 200 characters",
+          "required": true
+        },
+        {
+          "name": "Phone",
+          "type": "Text, up to 30 characters",
+          "required": false
+        },
+        {
+          "name": "IsSuspended",
+          "type": "Yes/No",
+          "required": true
+        },
+        {
+          "name": "CreditLimit",
+          "type": "Decimal number",
+          "required": false
+        }
+      ],
+      "sources": [
+        "07-domain-overview.html"
+      ]
+    },
+    {
+      "entity": "Berth",
+      "attributes": [
+        {
+          "name": "Code",
+          "type": "Text, up to 10 characters",
+          "required": true
+        },
+        {
+          "name": "Name",
+          "type": "Text, up to 80 characters",
+          "required": true
+        },
+        {
+          "name": "MaxLength",
+          "type": "Decimal number",
+          "required": true
+        },
+        {
+          "name": "MaxDraught",
+          "type": "Decimal number",
+          "required": true
+        },
+        {
+          "name": "HasShorePower",
+          "type": "Yes/No",
+          "required": true
+        },
+        {
+          "name": "Status",
+          "type": "One of: Available, Closed, Maintenance",
+          "required": true
+        },
+        {
+          "name": "Notes",
+          "type": "Text, up to 500 characters",
+          "required": false
+        }
+      ],
+      "sources": [
+        "07-domain-overview.html",
+        "12-berth-master-data.html"
+      ]
+    },
+    {
+      "entity": "BookingRequest",
+      "attributes": [
+        {
+          "name": "Reference",
+          "type": "Text, up to 13 characters",
+          "required": true
+        },
+        {
+          "name": "ETA",
+          "type": "Date and time",
+          "required": true
+        },
+        {
+          "name": "ETD",
+          "type": "Date and time",
+          "required": true
+        },
+        {
+          "name": "Status",
+          "type": "One of: Draft, Submitted, UnderReview, Approved, Rejected, Cancelled, Completed",
+          "required": true
+        },
+        {
+          "name": "CargoClass",
+          "type": "One of: General, Perishable, DangerousGoods, Empty",
+          "required": true
+        },
+        {
+          "name": "ShorePowerRequested",
+          "type": "Yes/No",
+          "required": true
+        },
+        {
+          "name": "SubmittedOn",
+          "type": "Date and time",
+          "required": false
+        },
+        {
+          "name": "Remarks",
+          "type": "Text, up to 500 characters",
+          "required": false
+        }
+      ],
+      "sources": [
+        "07-domain-overview.html"
+      ]
+    },
+    {
+      "entity": "Terminal",
+      "attributes": [
+        {
+          "name": "Code",
+          "type": "Text, up to 6 characters",
+          "required": true
+        },
+        {
+          "name": "Name",
+          "type": "Text, up to 80 characters",
+          "required": true
+        },
+        {
+          "name": "OperatingHoursStart",
+          "type": "Text, up to 5 characters",
+          "required": false
+        },
+        {
+          "name": "OperatingHoursEnd",
+          "type": "Text, up to 5 characters",
+          "required": false
+        },
+        {
+          "name": "HasCustomsOffice",
+          "type": "Yes/No",
+          "required": true
+        }
+      ],
+      "sources": [
+        "12-berth-master-data.html"
+      ]
+    },
+    {
+      "entity": "AuditEntry",
+      "attributes": [
+        {
+          "name": "OccurredOn",
+          "type": "Date and time",
+          "required": true
+        },
+        {
+          "name": "Actor",
+          "type": "Text, up to 200 characters",
+          "required": true
+        },
+        {
+          "name": "Action",
+          "type": "Text, up to 100 characters",
+          "required": true
+        },
+        {
+          "name": "EntityName",
+          "type": "Text, up to 60 characters",
+          "required": true
+        },
+        {
+          "name": "Detail",
+          "type": "Text, up to 1000 characters",
+          "required": false
+        }
+      ],
+      "sources": [
+        "26-audit-and-compliance.html",
+        "36-appendix-data-dictionary.html"
+      ]
+    },
+    {
+      "entity": "ApprovalDecision",
+      "attributes": [
+        {
+          "name": "DecidedOn",
+          "type": "Date and time",
+          "required": true
+        },
+        {
+          "name": "Outcome",
+          "type": "One of: Approved, Rejected, ReturnedForInformation",
+          "required": true
+        },
+        {
+          "name": "Reason",
+          "type": "Text, up to 400 characters",
+          "required": false
+        },
+        {
+          "name": "OfficerName",
+          "type": "Text, up to 100 characters",
+          "required": true
+        },
+        {
+          "name": "IsOverride",
+          "type": "Yes/No",
+          "required": true
+        }
+      ],
+      "sources": [
+        "36-appendix-data-dictionary.html"
+      ]
+    },
+    {
+      "entity": "Tariff",
+      "attributes": [
+        {
+          "name": "Code",
+          "type": "Text, up to 10 characters",
+          "required": true
+        },
+        {
+          "name": "Description",
+          "type": "Text, up to 120 characters",
+          "required": true
+        },
+        {
+          "name": "RatePerMetrePerDay",
+          "type": "Decimal number",
+          "required": true
+        },
+        {
+          "name": "Currency",
+          "type": "Text, up to 3 characters",
+          "required": true
+        },
+        {
+          "name": "ValidFrom",
+          "type": "Date",
+          "required": true
+        },
+        {
+          "name": "ValidTo",
+          "type": "Date",
+          "required": false
+        },
+        {
+          "name": "SurchargePercent",
+          "type": "Decimal number",
+          "required": false
+        }
+      ],
+      "sources": [
+        "36-appendix-data-dictionary.html"
+      ]
+    },
+    {
+      "entity": "Invoice",
+      "attributes": [
+        {
+          "name": "InvoiceNumber",
+          "type": "Text, up to 16 characters",
+          "required": true
+        },
+        {
+          "name": "IssuedOn",
+          "type": "Date",
+          "required": true
+        },
+        {
+          "name": "DueOn",
+          "type": "Date",
+          "required": true
+        },
+        {
+          "name": "TotalAmount",
+          "type": "Decimal number",
+          "required": true
+        },
+        {
+          "name": "VatPercent",
+          "type": "Decimal number",
+          "required": true
+        },
+        {
+          "name": "Status",
+          "type": "One of: Draft, Issued, Paid, Overdue, Void",
+          "required": true
+        }
+      ],
+      "sources": [
+        "36-appendix-data-dictionary.html"
+      ]
+    },
+    {
+      "entity": "Inspection",
+      "attributes": [
+        {
+          "name": "ScheduledFor",
+          "type": "Date and time",
+          "required": true
+        },
+        {
+          "name": "CompletedOn",
+          "type": "Date and time",
+          "required": false
+        },
+        {
+          "name": "Outcome",
+          "type": "One of: Pending, Passed, Failed, Deferred",
+          "required": true
+        },
+        {
+          "name": "InspectorName",
+          "type": "Text, up to 100 characters",
+          "required": true
+        },
+        {
+          "name": "Findings",
+          "type": "Text, up to 1000 characters",
+          "required": false
+        },
+        {
+          "name": "FollowUpRequired",
+          "type": "Yes/No",
+          "required": true
+        }
+      ],
+      "sources": [
+        "36-appendix-data-dictionary.html"
+      ]
+    },
+    {
+      "entity": "InspectionItem",
+      "attributes": [
+        {
+          "name": "Category",
+          "type": "One of: Safety, Environmental, Documentation, Security",
+          "required": true
+        },
+        {
+          "name": "Description",
+          "type": "Text, up to 300 characters",
+          "required": true
+        },
+        {
+          "name": "IsCompliant",
+          "type": "Yes/No",
+          "required": true
+        },
+        {
+          "name": "Severity",
+          "type": "One of: Low, Medium, High",
+          "required": false
+        },
+        {
+          "name": "Note",
+          "type": "Text, up to 300 characters",
+          "required": false
+        }
+      ],
+      "sources": [
+        "36-appendix-data-dictionary.html"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "from": "BookingRequest",
+      "to": "Vessel",
+      "name": "BookingRequest_Vessel",
+      "cardinality": "many-to-one",
+      "source": "07-domain-overview.html"
+    },
+    {
+      "from": "BookingRequest",
+      "to": "ShippingAgent",
+      "name": "BookingRequest_ShippingAgent",
+      "cardinality": "many-to-one",
+      "source": "07-domain-overview.html"
+    },
+    {
+      "from": "BookingRequest",
+      "to": "Berth",
+      "name": "BookingRequest_Berth",
+      "cardinality": "many-to-one",
+      "source": "07-domain-overview.html"
+    },
+    {
+      "from": "ApprovalDecision",
+      "to": "BookingRequest",
+      "name": "ApprovalDecision_BookingRequest",
+      "cardinality": "many-to-one",
+      "source": "07-domain-overview.html"
+    },
+    {
+      "from": "Invoice",
+      "to": "BookingRequest",
+      "name": "Invoice_BookingRequest",
+      "cardinality": "one-to-one",
+      "source": "07-domain-overview.html"
+    },
+    {
+      "from": "Invoice",
+      "to": "ShippingAgent",
+      "name": "Invoice_ShippingAgent",
+      "cardinality": "many-to-one",
+      "source": "07-domain-overview.html"
+    },
+    {
+      "from": "Inspection",
+      "to": "BookingRequest",
+      "name": "Inspection_BookingRequest",
+      "cardinality": "many-to-one",
+      "source": "07-domain-overview.html"
+    },
+    {
+      "from": "Berth",
+      "to": "Terminal",
+      "name": "Berth_Terminal",
+      "cardinality": "many-to-one",
+      "source": "07-domain-overview.html"
+    },
+    {
+      "from": "AuditEntry",
+      "to": "BookingRequest",
+      "name": "AuditEntry_BookingRequest",
+      "cardinality": "many-to-one",
+      "source": "07-domain-overview.html"
+    },
+    {
+      "from": "Vessel",
+      "to": "ShippingAgent",
+      "name": "Vessel_ShippingAgent",
+      "cardinality": "many-to-many",
+      "source": "07-domain-overview.html"
+    },
+    {
+      "from": "Tariff",
+      "to": "Terminal",
+      "name": "Tariff_Terminal",
+      "cardinality": "many-to-one",
+      "source": "12-berth-master-data.html"
+    },
+    {
+      "from": "Invoice",
+      "to": "Tariff",
+      "name": "Invoice_Tariff",
+      "cardinality": "many-to-one",
+      "source": "36-appendix-data-dictionary.html"
+    },
+    {
+      "from": "InspectionItem",
+      "to": "Inspection",
+      "name": "InspectionItem_Inspection",
+      "cardinality": "many-to-one",
+      "source": "36-appendix-data-dictionary.html"
+    }
+  ]
+}

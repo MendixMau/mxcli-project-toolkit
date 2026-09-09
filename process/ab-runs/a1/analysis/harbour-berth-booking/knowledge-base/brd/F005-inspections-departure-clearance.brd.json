@@ -1,0 +1,276 @@
+{
+  "id": "F005",
+  "title": "Inspections & Departure Clearance",
+  "modules": [
+    "Inspections"
+  ],
+  "actors": [
+    "Inspector",
+    "BerthOfficer"
+  ],
+  "useCases": [
+    {
+      "id": "UC401",
+      "title": "Schedule an inspection",
+      "actors": [
+        "Inspector"
+      ],
+      "preconditions": [
+        "BookingRequest.Status = Approved"
+      ],
+      "postconditions": [
+        "Inspection created; agent notified of the time slot (ch22 SS18.1)"
+      ],
+      "mainFlow": [
+        "1. Inspector schedules against an Approved booking",
+        "2. If CargoClass = DangerousGoods, this is required before approval can be granted (ch22 SS18.2)"
+      ],
+      "screens": [
+        "InspectionCalendar_Screen"
+      ],
+      "mdlRefs": [
+        "Inspections"
+      ]
+    },
+    {
+      "id": "UC402",
+      "title": "Record a checklist outcome",
+      "actors": [
+        "Inspector"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Each item has compliant flag, severity, optional note (ch23 SS19.2)"
+      ],
+      "mainFlow": [
+        "1. Inspector records each checklist item across Safety/Environmental/Documentation/Security (ch23 SS19.1)",
+        "2. Inspection.Outcome = Failed if any High-severity item is non-compliant (ch23 SS19.3)"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "Inspections"
+      ]
+    },
+    {
+      "id": "UC403",
+      "title": "Grant departure clearance",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [
+        "Every inspection on the booking is Passed or Deferred (ch25 SS21.1)"
+      ],
+      "postconditions": [
+        "Clearance granted"
+      ],
+      "mainFlow": [
+        "1. A Failed inspection blocks clearance until a follow-up inspection Passes (ch24 SS20.1)",
+        "2. Officer grants clearance once all inspections are Passed/Deferred"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "Inspections"
+      ]
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "Inspection",
+      "module": "Inspections",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "ScheduledFor",
+          "mandatory": true,
+          "type": "DateTime"
+        },
+        {
+          "name": "CompletedOn",
+          "mandatory": false,
+          "type": "DateTime"
+        },
+        {
+          "name": "Outcome",
+          "mandatory": true,
+          "type": "Enumeration",
+          "values": [
+            "Pending",
+            "Passed",
+            "Failed",
+            "Deferred"
+          ]
+        },
+        {
+          "name": "InspectorName",
+          "mandatory": true,
+          "type": "String",
+          "length": 100
+        },
+        {
+          "name": "Findings",
+          "mandatory": false,
+          "type": "String",
+          "length": 1000
+        },
+        {
+          "name": "FollowUpRequired",
+          "mandatory": true,
+          "type": "Boolean"
+        }
+      ],
+      "auditFields": [
+        "CreatedOn",
+        "CreatedBy",
+        "ModifiedOn",
+        "ModifiedBy"
+      ],
+      "associations": [
+        {
+          "name": "Inspection_BookingRequest",
+          "target": "BookingRequest",
+          "cardinality": "many-to-one",
+          "owner": "Inspection"
+        }
+      ]
+    },
+    {
+      "name": "InspectionItem",
+      "module": "Inspections",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Category",
+          "mandatory": true,
+          "type": "Enumeration",
+          "values": [
+            "Safety",
+            "Environmental",
+            "Documentation",
+            "Security"
+          ]
+        },
+        {
+          "name": "Description",
+          "mandatory": true,
+          "type": "String",
+          "length": 300
+        },
+        {
+          "name": "IsCompliant",
+          "mandatory": true,
+          "type": "Boolean"
+        },
+        {
+          "name": "Severity",
+          "mandatory": false,
+          "type": "Enumeration",
+          "values": [
+            "Low",
+            "Medium",
+            "High"
+          ]
+        },
+        {
+          "name": "Note",
+          "mandatory": false,
+          "type": "String",
+          "length": 300
+        }
+      ],
+      "auditFields": [
+        "CreatedOn",
+        "CreatedBy",
+        "ModifiedOn",
+        "ModifiedBy"
+      ],
+      "associations": [
+        {
+          "name": "InspectionItem_Inspection",
+          "target": "Inspection",
+          "cardinality": "many-to-one",
+          "owner": "InspectionItem"
+        }
+      ]
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_Inspection_Schedule",
+      "module": "Inspections",
+      "purpose": "Schedules an inspection against an Approved booking; notifies the agent.",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "Inspection",
+      "validations": [
+        "Booking.Status = Approved"
+      ]
+    },
+    {
+      "name": "ACT_InspectionItem_Record",
+      "module": "Inspections",
+      "purpose": "Records one checklist item's compliance/severity/note.",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Item",
+          "type": "InspectionItem"
+        }
+      ],
+      "returns": "InspectionItem"
+    },
+    {
+      "name": "SUB_Inspection_DeriveOutcome",
+      "module": "Inspections",
+      "purpose": "Sets Outcome = Failed if any High-severity item is non-compliant.",
+      "pattern": "sub-routine",
+      "params": [
+        {
+          "name": "Inspection",
+          "type": "Inspection"
+        }
+      ],
+      "returns": "String"
+    },
+    {
+      "name": "ACT_BookingRequest_GrantClearance",
+      "module": "Inspections",
+      "purpose": "Grants departure clearance once every inspection is Passed or Deferred.",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "BookingRequest",
+      "validations": [
+        "all Inspections for Booking have Outcome in {Passed, Deferred}"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "InspectionCalendar_Screen",
+      "module": "Inspections",
+      "purpose": "Inspections per day/inspector, drag-and-drop reschedule (ch31 SS26.1)",
+      "dataContext": "Inspection (list)",
+      "sections": [
+        "Calendar"
+      ],
+      "actions": [
+        "ACT_Inspection_Schedule"
+      ]
+    }
+  ],
+  "integrations": [],
+  "openQuestions": [],
+  "sourceKB": [
+    "KB_HarbourBerthBooking_Functional.md"
+  ],
+  "provenance": "documents"
+}

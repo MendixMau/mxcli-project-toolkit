@@ -1,0 +1,448 @@
+===== 01-home.html =====
+Home - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Home
+Revision 7 - chapter 01 - reference only
+Welcome Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. The portal collects the functional description, the workshop notes and the decision log in one place. Figure 1: Container terminal at dawn (stock illustration)
+How to read this documentation Use the sidebar to move between chapters; every page shares the same navigation. This portal is a documentation export. Interactive features of the original site are not available offline.
+Latest revision Our documentation team publishes a new revision roughly every fortnight. The application described here replaces a spreadsheet-based booking process.
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 02-about-the-port-authority.html =====
+About the Port Authority - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+About the Port Authority
+Revision 7 - chapter 02 - reference only
+Who we are Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. The portal collects the functional description, the workshop notes and the decision log in one place. Use the sidebar to move between chapters; every page shares the same navigation.
+The port The port handles a fictional mix of container, bulk and cruise traffic across three terminals. Our documentation team publishes a new revision roughly every fortnight.
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. The port handles a fictional mix of container, bulk and cruise traffic across three terminals. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 03-release-notes.html =====
+Release notes - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Release notes
+Revision 7 - chapter 03 - reference only
+Revision 7 Corrected the caption of the review screen figure. Sidebar now lists the appendix. Fixed a broken link in the tariff chapter.
+Revision 6 Added the AIS integration chapter. Renumbered headings after the inspection chapters were split. Typo fixes throughout.
+Revision 5 Added the data dictionary appendix. Workshop notes moved to a separate file.
+Revision 4 Added screenshots from the prototype. Glossary extended with inspection terms.
+Revision 3 First complete draft for review.
+Revision 2 Restructured into chapters.
+Revision 1 Initial outline.
+Berth occupancy heatmap (prototype data)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. This portal is a documentation export. Interactive features of the original site are not available offline. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 04-vision-and-scope.html =====
+Vision and scope - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Vision and scope
+Revision 7 - chapter 04 - functional description
+1.0 Introduction
+1.1 Purpose The system lets licensed shipping agents request berths online for vessels they represent.
+1.2 Goals Berth officers review every booking request and record an approval decision with a reason.
+1.3 Out of scope Pilotage and tug scheduling are out of scope and remain in the existing marine operations system.
+1.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 05-stakeholders-and-roles.html =====
+Stakeholders and roles - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Stakeholders and roles
+Revision 7 - chapter 05 - functional description
+2.0 Introduction
+2.1 Actors Aspect Statement Owner Documentation team, port operations Requirement Four user roles exist: Shipping Agent, Berth Officer, Harbour Master and Inspector. Status Agreed
+2.3 Harbour Master The Harbour Master can perform every action a Berth Officer can, plus decision overrides, agent reactivation and tariff maintenance.
+2.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Our documentation team publishes a new revision roughly every fortnight. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 06-news-and-events.html =====
+News and events - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+News and events
+Revision 7 - chapter 06 - reference only
+News item 1 Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. This portal is a documentation export. Interactive features of the original site are not available offline. Figure 1: Container terminal at dawn (stock illustration)
+News item 2 The port handles a fictional mix of container, bulk and cruise traffic across three terminals. The portal collects the functional description, the workshop notes and the decision log in one place.
+News item 3 The portal collects the functional description, the workshop notes and the decision log in one place. The port handles a fictional mix of container, bulk and cruise traffic across three terminals.
+News item 4 Our documentation team publishes a new revision roughly every fortnight. This portal is a documentation export. Interactive features of the original site are not available offline.
+News item 5 Thank you for reading. Feedback is welcome through the support page. Our documentation team publishes a new revision roughly every fortnight.
+News item 6 Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. The port handles a fictional mix of container, bulk and cruise traffic across three terminals.
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. The portal collects the functional description, the workshop notes and the decision log in one place. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 07-domain-overview.html =====
+Domain overview - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Domain overview
+Revision 7 - chapter 07 - functional description
+3.1 Core concepts A booking request always refers to exactly one vessel, one shipping agent and one berth.
+4.0 Introduction
+4.9 Notes
+Data: Vessel Vessel Attribute Type Required IMONumber Text, up to 7 characters Required Name Text, up to 100 characters Required LengthOverall Decimal number Required Beam Decimal number Optional Draught Decimal number Required FlagState Text, up to 2 characters Optional VesselType One of: Container, Bulk, Tanker, RoRo, Cruise, GeneralCargo Required GrossTonnage Whole number Optional
+Data: ShippingAgent ShippingAgent Attribute Type Required CompanyName Text, up to 120 characters Required LicenceNumber Text, up to 20 characters Required ContactEmail Text, up to 200 characters Required Phone Text, up to 30 characters Optional IsSuspended Yes/No Required CreditLimit Decimal number Optional
+Data: Berth Berth Attribute Type Required Code Text, up to 10 characters Required Name Text, up to 80 characters Required MaxLength Decimal number Required MaxDraught Decimal number Required HasShorePower Yes/No Required Status One of: Available, Closed, Maintenance Required Notes Text, up to 500 characters Optional
+Data: BookingRequest BookingRequest Attribute Type Required Reference Text, up to 13 characters Required ETA Date and time Required ETD Date and time Required Status One of: Draft, Submitted, UnderReview, Approved, Rejected, Cancelled, Completed Required CargoClass One of: General, Perishable, DangerousGoods, Empty Required ShorePowerRequested Yes/No Required SubmittedOn Date and time Optional Remarks Text, up to 500 characters Optional
+Relationships BookingRequest refers to Vessel (BookingRequest_Vessel, many-to-one). BookingRequest refers to ShippingAgent (BookingRequest_ShippingAgent, many-to-one). BookingRequest refers to Berth (BookingRequest_Berth, many-to-one). ApprovalDecision refers to BookingRequest (ApprovalDecision_BookingRequest, many-to-one). Invoice refers to BookingRequest (Invoice_BookingRequest, one-to-one). Invoice refers to ShippingAgent (Invoice_ShippingAgent, many-to-one). Inspection refers to BookingRequest (Inspection_BookingRequest, many-to-one). Berth refers to Terminal (Berth_Terminal, many-to-one). AuditEntry refers to BookingRequest (AuditEntry_BookingRequest, many-to-one). Vessel refers to ShippingAgent (Vessel_ShippingAgent, many-to-many).
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Use the sidebar to move between chapters; every page shares the same navigation. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 08-booking-lifecycle.html =====
+Booking lifecycle - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Booking lifecycle
+Revision 7 - chapter 08 - functional description
+4.1 Draft An agent can save a booking request as Draft and complete it later; drafts are invisible to officers.
+Prototype screens Figure: prototype mock-up of the booking lifecycle screen.
+4.2 Submission On submission the system assigns a unique booking reference in the format HB-YYYY-NNNNN.
+4.3 Status model Aspect Statement Related chapter See the navigation sidebar Illustration Figure on this page Requirement A booking request moves through the states Draft, Submitted, Under Review, Approved, Rejected, Cancelled and Completed. Status Agreed
+4.4 Fast-track Aspect Statement Illustration Figure on this page Requirement A booking request is automatically approved when the requested berth is free for the whole stay and the vessel is shorter than 120 metres. Owner Documentation team, port operations
+4.5 Timing A booking request cannot be submitted more than 90 days before the ETA. A booking request must be submitted at least 48 hours before the ETA. Cross-referenced from the glossary.
+5.0 Introduction
+5.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. The portal collects the functional description, the workshop notes and the decision log in one place. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 09-booking-request-form.html =====
+Booking request form - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Booking request form
+Revision 7 - chapter 09 - functional description
+5.1 Mandatory fields The booking form requires vessel, berth, ETA, ETD and cargo class before it can be submitted. Figure 1: Container terminal at dawn (stock illustration)
+5.2 Validation ETD must be later than ETA, and the system rejects a stay longer than 30 days.
+6.0 Introduction
+6.9 Notes
+Figure: booking form validation Figure 2: the booking request form in the prototype.
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Thank you for reading. Feedback is welcome through the support page. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 10-cancellation-and-changes.html =====
+Cancellation and changes - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Cancellation and changes
+Revision 7 - chapter 10 - functional description
+6.1 Changing a request An agent may edit a Submitted request until an officer opens it for review, after which it is locked.
+6.2 Cancellation Cancellation is free of charge until 24 hours before ETA. An Approved booking may be cancelled by the agent; a Completed booking cannot be cancelled.
+7.0 Introduction
+7.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. This portal is a documentation export. Interactive features of the original site are not available offline. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 11-agent-onboarding.html =====
+Agent onboarding - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Agent onboarding
+Revision 7 - chapter 11 - functional description
+7.1 Registration A shipping agent registers with a company name, port licence number and a contact e-mail address, and is activated by a Berth Officer.
+7.2 Suspension There is no self-service reactivation; a suspended agent is reactivated only by the Harbour Master. An agent with three or more overdue invoices is automatically suspended. A suspended agent cannot submit booking requests; bookings that are already Approved remain valid.
+8.0 Introduction
+8.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Berth occupancy heatmap (prototype data)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 12-berth-master-data.html =====
+Berth master data - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Berth master data
+Revision 7 - chapter 12 - functional description
+8.1 Berth attributes Aspect Statement Related chapter See the navigation sidebar Guidance Explanatory text, no obligations added Status Agreed Illustration Figure on this page Requirement Each berth records a code, a name, a maximum vessel length, a maximum draught, shore power availability and a status of Available, Closed or Maintenance.
+9.0 Introduction
+9.9 Notes
+Data: Berth Berth Attribute Type Required Code Text, up to 10 characters Required Name Text, up to 80 characters Required MaxLength Decimal number Required MaxDraught Decimal number Required HasShorePower Yes/No Required Status One of: Available, Closed, Maintenance Required Notes Text, up to 500 characters Optional
+Data: Terminal Terminal Attribute Type Required Code Text, up to 6 characters Required Name Text, up to 80 characters Required OperatingHoursStart Text, up to 5 characters Optional OperatingHoursEnd Text, up to 5 characters Optional HasCustomsOffice Yes/No Required
+Relationships BookingRequest refers to Berth (BookingRequest_Berth, many-to-one). Berth refers to Terminal (Berth_Terminal, many-to-one). Tariff refers to Terminal (Tariff_Terminal, many-to-one).
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. This portal is a documentation export. Interactive features of the original site are not available offline. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 13-berth-allocation-rules.html =====
+Berth allocation rules - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Berth allocation rules
+Revision 7 - chapter 13 - functional description
+9.1 Fit check A berth can be assigned only if the vessel's length does not exceed the berth's maximum length and the vessel's draught is at least 0.5 metres below the berth's maximum draught.
+9.3 Surcharge waivers Only the Harbour Master may waive a tariff surcharge.
+10.0 Introduction
+10.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. This portal is a documentation export. Interactive features of the original site are not available offline. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 14-vessel-registry.html =====
+Vessel registry - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Vessel registry
+Revision 7 - chapter 14 - functional description
+10.1 Vessel record A vessel is identified by its IMO number, which is unique across the vessel registry.
+10.2 Vessel types Vessel type is one of Container, Bulk, Tanker, RoRo, Cruise or General Cargo. Cross-referenced from the glossary.
+11.0 Introduction
+11.9 Notes
+Data: Vessel Vessel Attribute Type Required IMONumber Text, up to 7 characters Required Name Text, up to 100 characters Required LengthOverall Decimal number Required Beam Decimal number Optional Draught Decimal number Required FlagState Text, up to 2 characters Optional VesselType One of: Container, Bulk, Tanker, RoRo, Cruise, GeneralCargo Required GrossTonnage Whole number Optional
+Relationships BookingRequest refers to Vessel (BookingRequest_Vessel, many-to-one). Vessel refers to ShippingAgent (Vessel_ShippingAgent, many-to-many).
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Use the sidebar to move between chapters; every page shares the same navigation. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 15-officer-review-process.html =====
+Officer review process - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Officer review process
+Revision 7 - chapter 15 - functional description
+11.1 Queue Officers work from a Booking Board that lists Submitted and Under Review requests ordered by ETA.
+11.2 Review Cross-referenced from the glossary. Opening a request for review moves it to Under Review and records the reviewing officer.
+11.4 Manual review only There is no automatic approval; every booking request is reviewed by a berth officer before it can become Approved.
+12.0 Introduction
+12.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Berth occupancy heatmap (prototype data)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. The portal collects the functional description, the workshop notes and the decision log in one place. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 16-approval-decisions.html =====
+Approval decisions - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Approval decisions
+Revision 7 - chapter 16 - functional description
+12.1 Outcomes Aspect Statement Last reviewed Revision 7 Status Agreed Illustration Figure on this page Requirement An approval decision has one of three outcomes: Approved, Rejected or Returned for Information. Owner Documentation team, port operations
+12.2 Return for information A request Returned for Information goes back to the agent, who may amend and resubmit it once.
+12.3 Overrides Only the Harbour Master may override a Rejected decision, and the override is recorded with a reason.
+13.0 Introduction
+13.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Our documentation team publishes a new revision roughly every fortnight. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 17-notifications.html =====
+Notifications - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Notifications
+Revision 7 - chapter 17 - functional description
+13.1 Agent notifications The agent receives an e-mail whenever the status of their booking request changes.
+13.2 Officer digest Officers receive a daily digest at 06:00 listing requests with an ETA within the next 48 hours.
+14.0 Introduction
+14.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 18-tariff-structure.html =====
+Tariff structure - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Tariff structure
+Revision 7 - chapter 18 - functional description
+14.1 Rate cards Tariffs are defined per terminal with a rate per metre of vessel length per day, a currency and a validity period.
+14.2 Fee calculation Aspect Statement Requirement The berth fee is vessel length times days alongside times the tariff rate, with days alongside rounded up to whole days and a minimum of one day. Status Agreed Last reviewed Revision 7 Owner Documentation team, port operations
+14.3 VAT VAT of 21% is added to all berth fees.
+14.4 Shore power
+15.0 Introduction
+15.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Berth occupancy heatmap (prototype data) Shore power is billed at a flat 250 per day when the berth offers it and the agent requested it.
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. The port handles a fictional mix of container, bulk and cruise traffic across three terminals. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 19-tariffs-cancellation-fees.html =====
+Tariffs: late arrival and cancellation fees - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Tariffs: late arrival and cancellation fees
+Revision 7 - chapter 19 - functional description
+15.1 Late arrival Aspect Statement Guidance Explanatory text, no obligations added Status Agreed Requirement A vessel arriving more than 2 hours after its ETA incurs a late-arrival surcharge of 15% of the berth fee. Related chapter See the navigation sidebar
+15.2 Late cancellation Aspect Statement Guidance Explanatory text, no obligations added Requirement Cancellations made within 72 hours of ETA are charged 50% of the berth fee. Owner Documentation team, port operations Status Agreed
+16.0 Introduction
+16.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Thank you for reading. Feedback is welcome through the support page. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 20-invoicing.html =====
+Invoicing - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Invoicing
+Revision 7 - chapter 20 - functional description
+16.1 Invoice creation An invoice is generated automatically when a booking is marked Completed.
+16.3 Payment status A Harbour Master can mark an invoice as Paid or Void; a Paid invoice cannot be edited.
+17.0 Introduction
+17.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. This portal is a documentation export. Interactive features of the original site are not available offline. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 21-officer-review-screen.html =====
+Officer review screen - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Officer review screen
+Revision 7 - chapter 21 - functional description
+17.1 Review screen The review screen shows the vessel's dimensions next to the berth's limits and highlights any exceedance in red.
+Prototype screens Figure: the decision panel of the officer review screen (prototype).
+18.0 Introduction Figure 1: Container terminal at dawn (stock illustration)
+18.9 Notes
+Gallery Figure 2: Quay wall and mooring bollards
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. The port handles a fictional mix of container, bulk and cruise traffic across three terminals. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 22-inspection-scheduling.html =====
+Inspection scheduling - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Inspection scheduling
+Revision 7 - chapter 22 - functional description
+18.1 Scheduling An inspector schedules an inspection against an Approved booking and the agent is notified of the time slot.
+18.2 Dangerous goods A booking with cargo class Dangerous Goods cannot be Approved until an inspection has been scheduled.
+19.0 Introduction
+19.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Our documentation team publishes a new revision roughly every fortnight. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 23-inspection-checklist.html =====
+Inspection checklist - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Inspection checklist
+Revision 7 - chapter 23 - functional description
+19.1 Checklist Aspect Statement Related chapter See the navigation sidebar Guidance Explanatory text, no obligations added Requirement An inspection consists of checklist items in the categories Safety, Environmental, Documentation and Security. Last reviewed Revision 7 Status Agreed
+19.2 Recording For each checklist item the inspector records compliant or not compliant, a severity of Low, Medium or High, and an optional note.
+19.3 Outcome An inspection whose checklist contains any non-compliant item of High severity has the outcome Failed.
+20.0 Introduction
+20.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Our documentation team publishes a new revision roughly every fortnight. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 24-inspection-outcomes.html =====
+Inspection outcomes - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Inspection outcomes
+Revision 7 - chapter 24 - functional description
+20.1 Consequences A Failed inspection blocks departure clearance until a follow-up inspection has Passed.
+20.3 Surcharge relief A berth officer may waive the late-arrival surcharge for vessels shorter than 80 metres.
+21.0 Introduction
+21.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Berth occupancy heatmap (prototype data)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 25-departure-clearance.html =====
+Departure clearance - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Departure clearance
+Revision 7 - chapter 25 - functional description
+21.1 Clearance Departure clearance is granted by a Berth Officer and requires every inspection on the booking to be Passed or Deferred.
+22.0 Introduction
+22.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. This portal is a documentation export. Interactive features of the original site are not available offline. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 26-audit-and-compliance.html =====
+Audit and compliance - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Audit and compliance
+Revision 7 - chapter 26 - functional description
+22.1 Audit trail Every status change on a booking, decision, invoice or inspection is written to an audit trail with actor, timestamp and action.
+23.0 Introduction
+23.9 Notes
+Data: AuditEntry AuditEntry Attribute Type Required OccurredOn Date and time Required Actor Text, up to 200 characters Required Action Text, up to 100 characters Required EntityName Text, up to 60 characters Required Detail Text, up to 1000 characters Optional
+Relationships AuditEntry refers to BookingRequest (AuditEntry_BookingRequest, many-to-one).
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 27-privacy-and-cookies.html =====
+Privacy and cookies - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Privacy and cookies
+Revision 7 - chapter 27 - reference only
+Cookies The portal stores one preference cookie for the sidebar state. No analytics or advertising cookies are used. Cookies can be cleared through the browser at any time.
+Personal data The documentation export contains no personal data. Names of people appearing in examples are invented.
+Berth occupancy heatmap (prototype data)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Thank you for reading. Feedback is welcome through the support page. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 28-navigation-and-screens.html =====
+Navigation and screens - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Navigation and screens
+Revision 7 - chapter 28 - functional description
+23.1 Screens Aspect Statement Illustration Figure on this page Last reviewed Revision 7 Status Agreed Requirement The navigation offers three screens: Booking Board, My Bookings and Inspection Calendar.
+25.0 Introduction
+25.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Use the sidebar to move between chapters; every page shares the same navigation. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 29-booking-board-screen.html =====
+Booking Board screen - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Booking Board screen
+Revision 7 - chapter 29 - functional description
+24.1 Booking Board The Booking Board can be filtered by terminal, status and ETA date range. Cross-referenced from the glossary.
+26.0 Introduction
+26.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 30-my-bookings-screen.html =====
+My Bookings screen - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+My Bookings screen
+Revision 7 - chapter 30 - functional description
+25.1 My Bookings My Bookings shows the agent's own requests only, with Draft requests listed first.
+27.0 Introduction
+27.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. This portal is a documentation export. Interactive features of the original site are not available offline. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 31-inspection-calendar-screen.html =====
+Inspection Calendar screen - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Inspection Calendar screen
+Revision 7 - chapter 31 - functional description
+26.1 Calendar The Inspection Calendar shows inspections per day and per inspector and allows drag-and-drop rescheduling.
+28.0 Introduction
+28.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Use the sidebar to move between chapters; every page shares the same navigation. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 32-reporting.html =====
+Reporting - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Reporting
+Revision 7 - chapter 32 - functional description
+27.1 Reports A monthly berth occupancy report per terminal can be exported as CSV. Cross-referenced from the glossary.
+29.0 Introduction
+29.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. Welcome to the documentation portal for Harbour Berth Booking, the fictional port authority's berth request application. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 33-integration-ais-feed.html =====
+Integration: AIS feed - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Integration: AIS feed
+Revision 7 - chapter 33 - functional description
+28.2 AIS position feed
+30.0 Introduction
+30.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Berth occupancy heatmap (prototype data) The system imports vessel positions from the AIS feed every 5 minutes and flags a booking as Arrived when the vessel enters the port geofence.
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. The portal collects the functional description, the workshop notes and the decision log in one place. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 34-contact-and-support.html =====
+Contact and support - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Contact and support
+Revision 7 - chapter 34 - reference only
+Support Documentation feedback is collected through the feedback form of the original portal, which is not available in this offline export. For the purposes of this fixture there is nobody to contact.
+Office hours Day Hours Monday 09:00 - 17:00 Tuesday 09:00 - 17:00 Wednesday 09:00 - 17:00 Thursday 09:00 - 17:00 Friday 09:00 - 17:00
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. The application described here replaces a spreadsheet-based booking process. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 35-security-and-access.html =====
+Security and access - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Security and access
+Revision 7 - chapter 35 - functional description
+29.1 Access Agents can only see bookings, invoices and inspections that belong to their own company.
+32.0 Introduction
+32.9 Notes
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. The application described here replaces a spreadsheet-based booking process. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.
+===== 36-appendix-data-dictionary.html =====
+Appendix: data dictionary - Harbour Berth Booking documentation
+Home Documentation Search Signed in as documentation reader This documentation portal stores a single preference cookie so that the sidebar remembers whether it is collapsed. No analytics cookies are set. Read the privacy notice . OK
+Harbour Berth Booking Documentation portal Files glossary.md roles.md decisions-log.md workshop-notes.md Revision 7 - exported for offline reading
+Appendix: data dictionary
+Revision 7 - chapter 36 - functional description
+33.0 Introduction
+33.9 Notes
+Data: ApprovalDecision ApprovalDecision Attribute Type Required DecidedOn Date and time Required Outcome One of: Approved, Rejected, ReturnedForInformation Required Reason Text, up to 400 characters Optional OfficerName Text, up to 100 characters Required IsOverride Yes/No Required
+Data: Tariff Tariff Attribute Type Required Code Text, up to 10 characters Required Description Text, up to 120 characters Required RatePerMetrePerDay Decimal number Required Currency Text, up to 3 characters Required ValidFrom Date Required ValidTo Date Optional SurchargePercent Decimal number Optional
+Data: Invoice Invoice Attribute Type Required InvoiceNumber Text, up to 16 characters Required IssuedOn Date Required DueOn Date Required TotalAmount Decimal number Required VatPercent Decimal number Required Status One of: Draft, Issued, Paid, Overdue, Void Required
+Data: Inspection Inspection Attribute Type Required ScheduledFor Date and time Required CompletedOn Date and time Optional Outcome One of: Pending, Passed, Failed, Deferred Required InspectorName Text, up to 100 characters Required Findings Text, up to 1000 characters Optional FollowUpRequired Yes/No Required
+Data: InspectionItem InspectionItem Attribute Type Required Category One of: Safety, Environmental, Documentation, Security Required Description Text, up to 300 characters Required IsCompliant Yes/No Required Severity One of: Low, Medium, High Optional Note Text, up to 300 characters Optional
+Data: AuditEntry AuditEntry Attribute Type Required OccurredOn Date and time Required Actor Text, up to 200 characters Required Action Text, up to 100 characters Required EntityName Text, up to 60 characters Required Detail Text, up to 1000 characters Optional
+Relationships ApprovalDecision refers to BookingRequest (ApprovalDecision_BookingRequest, many-to-one). Invoice refers to BookingRequest (Invoice_BookingRequest, one-to-one). Invoice refers to Tariff (Invoice_Tariff, many-to-one). Invoice refers to ShippingAgent (Invoice_ShippingAgent, many-to-one). Inspection refers to BookingRequest (Inspection_BookingRequest, many-to-one). InspectionItem refers to Inspection (InspectionItem_Inspection, many-to-one). Tariff refers to Terminal (Tariff_Terminal, many-to-one). AuditEntry refers to BookingRequest (AuditEntry_BookingRequest, many-to-one).
+Gallery Figure 1: Container terminal at dawn (stock illustration)
+Berth occupancy heatmap (prototype data)
+Documentation Home Release notes Contact and support Legal Privacy and cookies Fictional Port Authority - a made-up organisation used for documentation examples Export Saved as "Webpage, complete". Linked stylesheets, scripts, fonts and images are in the _files folder next to this page. The application described here replaces a spreadsheet-based booking process. All vessel names, agents, terminals and people mentioned anywhere on this site are invented.

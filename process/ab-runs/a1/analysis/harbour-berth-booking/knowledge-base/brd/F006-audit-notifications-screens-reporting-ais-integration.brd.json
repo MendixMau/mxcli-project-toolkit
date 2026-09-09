@@ -1,0 +1,285 @@
+{
+  "id": "F006",
+  "title": "Audit, Notifications, Screens, Reporting & AIS Integration",
+  "modules": [
+    "AuditNotifications"
+  ],
+  "actors": [
+    "ShippingAgent",
+    "BerthOfficer",
+    "HarbourMaster",
+    "Inspector"
+  ],
+  "useCases": [
+    {
+      "id": "UC501",
+      "title": "Write an audit entry on every status change",
+      "actors": [],
+      "preconditions": [],
+      "postconditions": [
+        "AuditEntry created with actor/timestamp/action (ch26 SS22.1)"
+      ],
+      "mainFlow": [
+        "1. Every status-changing microflow across F002-F005 also creates an AuditEntry, co-located with the change rather than a later script"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "AuditNotifications"
+      ]
+    },
+    {
+      "id": "UC502",
+      "title": "Notify an agent of a status change",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "E-mail sent including the booking reference (ch17 SS13.1, workshop-notes.md)"
+      ],
+      "mainFlow": [
+        "1. On any BookingRequest.Status change, e-mail the owning agent"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "AuditNotifications"
+      ]
+    },
+    {
+      "id": "UC503",
+      "title": "Send the officer daily digest",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Digest sent at 06:00 (ch17 SS13.2)"
+      ],
+      "mainFlow": [
+        "1. Scheduled event at 06:00 lists requests with ETA within the next 48 hours"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "AuditNotifications"
+      ]
+    },
+    {
+      "id": "UC504",
+      "title": "View My Bookings",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. Agent sees own requests only, Drafts listed first (ch30 SS25.1)"
+      ],
+      "screens": [
+        "MyBookings_Screen"
+      ],
+      "mdlRefs": [
+        "AuditNotifications"
+      ]
+    },
+    {
+      "id": "UC505",
+      "title": "Export the monthly berth-occupancy report",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "CSV produced per terminal (ch32 SS27.1)"
+      ],
+      "mainFlow": [
+        "1. Harbour Master exports the report as CSV"
+      ],
+      "screens": [
+        "Reporting_Screen"
+      ],
+      "mdlRefs": [
+        "AuditNotifications"
+      ]
+    },
+    {
+      "id": "UC506",
+      "title": "Auto-flag a booking Arrived from the AIS feed",
+      "actors": [],
+      "preconditions": [],
+      "postconditions": [
+        "BookingRequest flagged Arrived (ch33 SS28.2)"
+      ],
+      "mainFlow": [
+        "1. AIS feed polled every 5 minutes",
+        "2. Vessel entering the port geofence flags the matching booking Arrived",
+        "3. No endpoint/auth/failure-mode is specified anywhere in the corpus \u2014 stub with a manual 'mark Arrived' fallback, per triage.md's missing-dependency policy (D3)"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "AuditNotifications"
+      ]
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "AuditEntry",
+      "module": "AuditNotifications",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "OccurredOn",
+          "mandatory": true,
+          "type": "DateTime"
+        },
+        {
+          "name": "Actor",
+          "mandatory": true,
+          "type": "String",
+          "length": 200
+        },
+        {
+          "name": "Action",
+          "mandatory": true,
+          "type": "String",
+          "length": 100
+        },
+        {
+          "name": "EntityName",
+          "mandatory": true,
+          "type": "String",
+          "length": 60
+        },
+        {
+          "name": "Detail",
+          "mandatory": false,
+          "type": "String",
+          "length": 1000
+        }
+      ],
+      "auditFields": [
+        "CreatedOn",
+        "CreatedBy",
+        "ModifiedOn",
+        "ModifiedBy"
+      ],
+      "associations": [
+        {
+          "name": "AuditEntry_BookingRequest",
+          "target": "BookingRequest",
+          "cardinality": "many-to-one",
+          "owner": "AuditEntry"
+        }
+      ]
+    }
+  ],
+  "microflows": [
+    {
+      "name": "SUB_AuditEntry_Write",
+      "module": "AuditNotifications",
+      "purpose": "Co-located audit-trail write, called from every status-change microflow.",
+      "pattern": "sub-routine",
+      "params": [
+        {
+          "name": "Entity",
+          "type": "Object"
+        },
+        {
+          "name": "Action",
+          "type": "String"
+        }
+      ],
+      "returns": "AuditEntry"
+    },
+    {
+      "name": "ACT_BookingRequest_NotifyAgent",
+      "module": "AuditNotifications",
+      "purpose": "Sends the status-change e-mail including the booking reference.",
+      "pattern": "notify",
+      "params": [
+        {
+          "name": "Booking",
+          "type": "BookingRequest"
+        }
+      ],
+      "returns": "Boolean"
+    },
+    {
+      "name": "SUB_BerthOfficer_DailyDigest",
+      "module": "AuditNotifications",
+      "purpose": "Scheduled 06:00 digest of requests with ETA within 48h.",
+      "pattern": "scheduled",
+      "params": [],
+      "returns": "Integer"
+    },
+    {
+      "name": "STUB_AISFeed_PollPositions",
+      "module": "AuditNotifications",
+      "purpose": "Stub for the AIS feed poll; real contract unspecified in the corpus (D3).",
+      "pattern": "integration-stub",
+      "params": [],
+      "returns": "Integer"
+    },
+    {
+      "name": "GEN_Reporting_BerthOccupancyCsv",
+      "module": "AuditNotifications",
+      "purpose": "Generates the monthly per-terminal berth-occupancy CSV.",
+      "pattern": "retrieve",
+      "params": [],
+      "returns": "FileDocument"
+    }
+  ],
+  "pages": [
+    {
+      "name": "MyBookings_Screen",
+      "module": "AuditNotifications",
+      "purpose": "Agent's own requests, Draft first (ch30)",
+      "dataContext": "BookingRequest (list)",
+      "sections": [
+        "OwnBookings"
+      ],
+      "actions": []
+    },
+    {
+      "name": "Reporting_Screen",
+      "module": "AuditNotifications",
+      "purpose": "Monthly berth-occupancy CSV export (ch32)",
+      "dataContext": "n/a",
+      "sections": [
+        "ReportFilters"
+      ],
+      "actions": [
+        "GEN_Reporting_BerthOccupancyCsv"
+      ]
+    }
+  ],
+  "integrations": [
+    {
+      "name": "AIS position feed",
+      "type": "REST/unspecified",
+      "stubName": "STUB_AISFeed_PollPositions",
+      "stubBehaviour": "Poll returns no positions; a manual 'mark Arrived' action on the booking is the fallback until the real feed contract is confirmed.",
+      "realTarget": "AIS feed (external, port authority infrastructure \u2014 endpoint/auth not documented)",
+      "apiDoc": "KB_HarbourBerthBooking_Functional.md"
+    }
+  ],
+  "openQuestions": [
+    {
+      "id": "D3",
+      "question": "AIS feed integration contract (endpoint, auth, failure/retry behaviour)",
+      "status": "RAISED",
+      "searchScope": "Searched: full text read of all 36 chapters (noise-stripped dump) plus both unique prototype images. ch33 integration-ais-feed.html is the only chapter naming the AIS feed at all; no endpoint, auth mechanism, payload schema, or failure/retry behaviour appears anywhere in the corpus. \u2014 agent, 2026-09-09",
+      "raisedAt": "Stage 2 gate, 2026-09-09, unattended run \u2014 batch posted in chat via bin/open-questions.sh; no human present to reply"
+    },
+    {
+      "id": "D5",
+      "question": "Data-migration source (the spreadsheet process being replaced) \u2014 no schema/sample/volume given",
+      "status": "RAISED",
+      "searchScope": "Searched: full text read of all 36 chapters plus glossary/roles/decisions-log/workshop-notes.md. Only the repeated footer sentence ('replaces a spreadsheet-based booking process', ch01/34/35) mentions the prior process; no schema, export sample, or volume for it appears anywhere. \u2014 agent, 2026-09-09",
+      "raisedAt": "Stage 2 gate, 2026-09-09, unattended run \u2014 batch posted in chat via bin/open-questions.sh; no human present to reply"
+    }
+  ],
+  "sourceKB": [
+    "KB_HarbourBerthBooking_Functional.md"
+  ],
+  "provenance": "documents"
+}

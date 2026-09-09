@@ -1,0 +1,457 @@
+{
+  "id": "F001",
+  "title": "Master Data: Terminals, Berths, Vessels & Shipping Agents",
+  "modules": [
+    "MasterData"
+  ],
+  "actors": [
+    "ShippingAgent",
+    "BerthOfficer",
+    "HarbourMaster"
+  ],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Register a shipping agent",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [
+        "Officer is logged in"
+      ],
+      "postconditions": [
+        "Agent record exists with IsSuspended = No"
+      ],
+      "mainFlow": [
+        "1. Officer enters company name, licence number, contact e-mail",
+        "2. System activates the agent (ch11 SS7.1)"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "MasterData"
+      ]
+    },
+    {
+      "id": "UC002",
+      "title": "Auto-suspend an agent with overdue invoices",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Agent has 3 or more Overdue invoices"
+      ],
+      "postconditions": [
+        "Agent.IsSuspended = Yes; agent cannot submit new requests"
+      ],
+      "mainFlow": [
+        "1. Scheduled/triggered check counts the agent's Overdue invoices",
+        "2. On reaching 3, system sets IsSuspended = Yes (ch11 SS7.2)",
+        "3. Already-Approved bookings remain valid"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "MasterData"
+      ]
+    },
+    {
+      "id": "UC003",
+      "title": "Reactivate a suspended agent",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [
+        "Agent.IsSuspended = Yes"
+      ],
+      "postconditions": [
+        "Agent.IsSuspended = No"
+      ],
+      "mainFlow": [
+        "1. Harbour Master reactivates the agent \u2014 no self-service reactivation exists (ch11 SS7.2)"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "MasterData"
+      ]
+    },
+    {
+      "id": "UC004",
+      "title": "Maintain berth and terminal master data",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Berth/Terminal records reflect current capacity"
+      ],
+      "mainFlow": [
+        "1. Harbour Master records each berth's code, name, max length, max draught, shore power flag and status (ch12 SS8.1)"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "MasterData"
+      ]
+    },
+    {
+      "id": "UC005",
+      "title": "Register a vessel",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Vessel exists, unique by IMONumber"
+      ],
+      "mainFlow": [
+        "1. Agent (or officer) records IMO number, name, dimensions, type",
+        "2. IMO number must be unique across the registry (ch14 SS10.1) and exactly 7 digits (image-only rule, fig-booking-form-validation.png \u2014 not stated in any text chapter)"
+      ],
+      "screens": [],
+      "mdlRefs": [
+        "MasterData"
+      ]
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "Terminal",
+      "module": "MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Code",
+          "mandatory": true,
+          "type": "String",
+          "length": 6
+        },
+        {
+          "name": "Name",
+          "mandatory": true,
+          "type": "String",
+          "length": 80
+        },
+        {
+          "name": "OperatingHoursStart",
+          "mandatory": false,
+          "type": "String",
+          "length": 5
+        },
+        {
+          "name": "OperatingHoursEnd",
+          "mandatory": false,
+          "type": "String",
+          "length": 5
+        },
+        {
+          "name": "HasCustomsOffice",
+          "mandatory": true,
+          "type": "Boolean"
+        }
+      ],
+      "auditFields": [
+        "CreatedOn",
+        "CreatedBy",
+        "ModifiedOn",
+        "ModifiedBy"
+      ],
+      "associations": []
+    },
+    {
+      "name": "Berth",
+      "module": "MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Code",
+          "mandatory": true,
+          "type": "String",
+          "length": 10
+        },
+        {
+          "name": "Name",
+          "mandatory": true,
+          "type": "String",
+          "length": 80
+        },
+        {
+          "name": "MaxLength",
+          "mandatory": true,
+          "type": "Decimal"
+        },
+        {
+          "name": "MaxDraught",
+          "mandatory": true,
+          "type": "Decimal"
+        },
+        {
+          "name": "HasShorePower",
+          "mandatory": true,
+          "type": "Boolean"
+        },
+        {
+          "name": "Status",
+          "mandatory": true,
+          "type": "Enumeration",
+          "values": [
+            "Available",
+            "Closed",
+            "Maintenance"
+          ]
+        },
+        {
+          "name": "Notes",
+          "mandatory": false,
+          "type": "String",
+          "length": 500
+        }
+      ],
+      "auditFields": [
+        "CreatedOn",
+        "CreatedBy",
+        "ModifiedOn",
+        "ModifiedBy"
+      ],
+      "associations": [
+        {
+          "name": "Berth_Terminal",
+          "target": "Terminal",
+          "cardinality": "many-to-one",
+          "owner": "Berth"
+        }
+      ]
+    },
+    {
+      "name": "Vessel",
+      "module": "MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "IMONumber",
+          "mandatory": true,
+          "type": "String",
+          "length": 7
+        },
+        {
+          "name": "Name",
+          "mandatory": true,
+          "type": "String",
+          "length": 100
+        },
+        {
+          "name": "LengthOverall",
+          "mandatory": true,
+          "type": "Decimal"
+        },
+        {
+          "name": "Beam",
+          "mandatory": false,
+          "type": "Decimal"
+        },
+        {
+          "name": "Draught",
+          "mandatory": true,
+          "type": "Decimal"
+        },
+        {
+          "name": "FlagState",
+          "mandatory": false,
+          "type": "String",
+          "length": 2
+        },
+        {
+          "name": "VesselType",
+          "mandatory": true,
+          "type": "Enumeration",
+          "values": [
+            "Container",
+            "Bulk",
+            "Tanker",
+            "RoRo",
+            "Cruise",
+            "GeneralCargo"
+          ]
+        },
+        {
+          "name": "GrossTonnage",
+          "mandatory": false,
+          "type": "Integer"
+        }
+      ],
+      "auditFields": [
+        "CreatedOn",
+        "CreatedBy",
+        "ModifiedOn",
+        "ModifiedBy"
+      ],
+      "associations": [
+        {
+          "name": "Vessel_ShippingAgent",
+          "target": "ShippingAgent",
+          "cardinality": "many-to-many",
+          "owner": "Vessel"
+        }
+      ]
+    },
+    {
+      "name": "ShippingAgent",
+      "module": "MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "CompanyName",
+          "mandatory": true,
+          "type": "String",
+          "length": 120
+        },
+        {
+          "name": "LicenceNumber",
+          "mandatory": true,
+          "type": "String",
+          "length": 20
+        },
+        {
+          "name": "ContactEmail",
+          "mandatory": true,
+          "type": "String",
+          "length": 200
+        },
+        {
+          "name": "Phone",
+          "mandatory": false,
+          "type": "String",
+          "length": 30
+        },
+        {
+          "name": "IsSuspended",
+          "mandatory": true,
+          "type": "Boolean"
+        },
+        {
+          "name": "CreditLimit",
+          "mandatory": false,
+          "type": "Decimal"
+        }
+      ],
+      "auditFields": [
+        "CreatedOn",
+        "CreatedBy",
+        "ModifiedOn",
+        "ModifiedBy"
+      ],
+      "associations": []
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_ShippingAgent_Activate",
+      "module": "MasterData",
+      "purpose": "Activates a newly registered agent.",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Agent",
+          "type": "ShippingAgent"
+        }
+      ],
+      "returns": "ShippingAgent",
+      "validations": [
+        "CompanyName not blank",
+        "LicenceNumber not blank"
+      ]
+    },
+    {
+      "name": "SUB_ShippingAgent_CheckOverdueInvoices",
+      "module": "MasterData",
+      "purpose": "Counts an agent's Overdue invoices and suspends at 3+.",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Agent",
+          "type": "ShippingAgent"
+        }
+      ],
+      "returns": "Boolean",
+      "calls": [
+        "ACT_ShippingAgent_Suspend"
+      ]
+    },
+    {
+      "name": "ACT_ShippingAgent_Reactivate",
+      "module": "MasterData",
+      "purpose": "Harbour Master-only reactivation of a suspended agent.",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Agent",
+          "type": "ShippingAgent"
+        }
+      ],
+      "returns": "ShippingAgent"
+    },
+    {
+      "name": "VAL_Vessel_IMONumber",
+      "module": "MasterData",
+      "purpose": "Validates IMO number is exactly 7 digits and unique (image-only rule).",
+      "pattern": "validate-then-save",
+      "params": [
+        {
+          "name": "Vessel",
+          "type": "Vessel"
+        }
+      ],
+      "returns": "Boolean",
+      "validations": [
+        "IMONumber matches ^[0-9]{7}$",
+        "IMONumber unique across Vessel"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "ShippingAgent_NewEdit",
+      "module": "MasterData",
+      "purpose": "Register/edit an agent",
+      "dataContext": "ShippingAgent",
+      "sections": [
+        "AgentDetails"
+      ],
+      "actions": [
+        "ACT_ShippingAgent_Activate"
+      ]
+    },
+    {
+      "name": "Berth_NewEdit",
+      "module": "MasterData",
+      "purpose": "Maintain berth master data",
+      "dataContext": "Berth",
+      "sections": [
+        "BerthDetails"
+      ],
+      "actions": []
+    },
+    {
+      "name": "Vessel_NewEdit",
+      "module": "MasterData",
+      "purpose": "Register/edit a vessel",
+      "dataContext": "Vessel",
+      "sections": [
+        "VesselDetails"
+      ],
+      "actions": [
+        "VAL_Vessel_IMONumber"
+      ]
+    }
+  ],
+  "integrations": [],
+  "openQuestions": [
+    {
+      "id": "D4",
+      "question": "Licence/security constraints on storing this source, and SME availability",
+      "status": "RAISED",
+      "raisedAt": "Stage 2 gate, 2026-09-09, unattended run \u2014 batch posted in chat via bin/open-questions.sh; no human present to reply"
+    }
+  ],
+  "sourceKB": [
+    "KB_HarbourBerthBooking_Functional.md"
+  ],
+  "provenance": "documents"
+}

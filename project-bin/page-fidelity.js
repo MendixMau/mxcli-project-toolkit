@@ -164,6 +164,12 @@ function contentOf(html) {
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*\banno-wrap\b[^"]*"/i);
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*\brail-note\b[^"]*"/i);
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*\bannot\b[^"]*"/i);
+  // `.anno` — NOT reached by the `annot` pattern above, because \b after "anno" needs a
+  // non-word character and "t" is one. Measured 2026-09-09 on a MOC/PSSR app
+  // replacement, whose annotation block is `div.anno`: every page scored its own
+  // annotation as missing page content, reporting "heading: Annotation" as the first
+  // miss on a page whose real H1 is correct. Two faithful pages at 9%.
+  s = dropBalanced(s, /<(div)[^>]*class="[^"]*\banno\b[^"]*"/i);
   s = dropBalanced(s, /<(table)[^>]*class="[^"]*\bbind\b[^"]*"/i);
   // A "this screen is descoped/annotation-only" banner is chrome, not page copy.
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*alert[^"]*"(?=[\s\S]{0,400}?DESCOPED)/i);
@@ -292,12 +298,40 @@ function pageMdl() {
   let out = '';
   for (const f of MDLS) {
     const src = f === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(f, 'utf8');
-    // Case-insensitive; page name quoted or bare; body up to a closing brace at col 0.
     const re = new RegExp(
-      'CREATE(\\s+OR\\s+(MODIFY|REPLACE))?\\s+PAGE\\s+"?[A-Za-z0-9_]+"?\\."?' + PAGE + '"?\\b[\\s\\S]*?\\n\\}', 'gi');
-    for (const m of src.matchAll(re)) out += m[0] + '\n';
+      'CREATE(\\s+OR\\s+(MODIFY|REPLACE))?\\s+PAGE\\s+"?[A-Za-z0-9_]+"?\\."?' + PAGE + '"?\\b', 'gi');
+    for (const m of src.matchAll(re)) out += pageBody(src, m.index) + '\n';
   }
   return out;
+}
+
+// The page body, from its declaration to the brace that MATCHES the body's opening
+// one, counted per character with parens tracked.
+//
+// It used to be a regex ending at '\n\}' — a closing brace at COLUMN 0 — which finds
+// nothing at all for an indented page. Measured 2026-09-09 on a MOC/PSSR app
+// replacement: two wizard pages whose bodies are wrapped in a LAYOUTGRID (which
+// mxcli's own MPR010 advises for any DataView holding inputs) close at two spaces of
+// indent, so the scan matched nothing and the tool exited 2 with 'no declaration of
+// page "X" found in input' for a page that is plainly there. A project that follows
+// that advice could not score any page.
+//
+// The parens matter because a multi-line declaration carries
+// `Params: { $X: Mod.Entity }`, which opens and closes a brace before the body does —
+// the identical pair of cases that took two wrong attempts in check-page-shell.sh,
+// whose header records them.
+function pageBody(src, from) {
+  let pd = 0, bd = 0, started = false;
+  for (let i = from; i < src.length; i++) {
+    const c = src[i];
+    if (!started) {
+      if (c === '(') pd++;
+      else if (c === ')') { if (pd > 0) pd--; }
+      else if (c === '{' && pd === 0) { started = true; bd = 1; }
+    } else if (c === '{') bd++;
+    else if (c === '}') { bd--; if (bd <= 0) return src.slice(from, i + 1); }
+  }
+  return src.slice(from);
 }
 
 function score(wf, mdl) {

@@ -365,6 +365,72 @@ case "$O" in *"predates the current kickoff question set"*)
       bad "  a second sync finds nothing left to append" ;;
   *)  ok "  a second sync finds nothing left to append" ;; esac
 
+echo "== T11: the retired always-on ledger row (bug-logs/mxcli-bugs.md) becomes bin/bug-lookup.sh =="
+# Master retired the 47,500-word ledger from the baseline tier on 2026-09-08 (bin/bug-lookup.sh
+# reads one entry instead). A project scaffolded before that still routes the ledger as
+# always-on. Three shapes: a MARKED block (2d rewrites it — the retirement must be SAID, not
+# silent), a hand-written UNMARKED table (2d refuses the whole table, so the ONE row is rewritten
+# in place with its own path prefix kept), and CLAUDE.md's bootstrap-authored block (reported
+# with the exact replacement, never edited — no script produced it).
+P="$(mkproj t11)"
+awk '/^\| A CE error.*bin\/bug-lookup\.sh` \|$/ { print "| A CE error or behavior that looks like a known mxcli quirk | `bug-logs/mxcli-bugs.md` |"; next } { print }' \
+  "$P/CLAUDE.local.md" > "$P/CLAUDE.local.md.t" && mv "$P/CLAUDE.local.md.t" "$P/CLAUDE.local.md"
+grep -q 'bug-logs/mxcli-bugs.md' "$P/CLAUDE.local.md" && ok "control: marked block carries the retired row" || bad "control: fixture did not plant the row"
+OUT="$("$SYNC" "$P" 2>&1)"
+case "$OUT" in *"retired the 47k-word ledger row → bin/bug-lookup.sh"*) ok "marked block: the retirement is said on stdout" ;; *) bad "marked block: retirement not announced" "$OUT" ;; esac
+grep -q 'bug-logs/mxcli-bugs.md' "$P/CLAUDE.local.md" && bad "marked block: ledger row survived" || ok "marked block: ledger row gone"
+grep -q '`bin/bug-lookup.sh`' "$P/CLAUDE.local.md" && ok "marked block: bug-lookup row present" || bad "marked block: no bug-lookup row"
+OUT="$("$SYNC" "$P" 2>&1)"
+case "$OUT" in *"Retired"*) bad "marked block: second run retires again (not idempotent)" ;; *) ok "marked block: second run says nothing about it" ;; esac
+
+# Unmarked, hand-written, with full toolkit paths on every row — the pre-2026-08-18 shape.
+P="$WORK/t11b"; mkdir -p "$P"
+cat > "$P/CLAUDE.local.md" <<'EOF'
+# CLAUDE.local.md — toolkit wiring
+
+## Baseline routing (always-on — from the toolkit README, keep in sync via bin/sync-project.sh)
+
+| Always relevant for | Reference this |
+|---|---|
+| Any pipeline work, every session | `~/Mendix/mxcli-project-toolkit/skills/conversion-runbook.md` |
+| A CE error that looks like a tool quirk | `~/Mendix/mxcli-project-toolkit/bug-logs/mxcli-bugs.md` |
+| Any MCP write session | `~/Mendix/mxcli-project-toolkit/skills/learned-mcp-patterns.md` |
+
+## Session-start ritual
+
+1. pull the toolkit.
+EOF
+cat > "$P/CLAUDE.md" <<'EOF'
+# Project
+
+## mxcli-project-toolkit Integration
+
+| Always relevant for | Read this file |
+|---|---|
+| A CE error or behavior that looks like a known mxcli quirk | `~/Mendix/mxcli-project-toolkit/bug-logs/mxcli-bugs.md` |
+EOF
+B="$(fingerprint "$P")"
+OUT="$("$SYNC" "$P" --dry-run 2>&1)"
+A="$(fingerprint "$P")"
+[ "$B" = "$A" ] && ok "unmarked: --dry-run wrote nothing" || bad "unmarked: --dry-run WROTE"
+case "$OUT" in *"would be — Retired"*"retired the 47k-word ledger row"*) ok "unmarked: --dry-run announces the retirement" ;; *) bad "unmarked: --dry-run silent" "$OUT" ;; esac
+OUT="$("$SYNC" "$P" 2>&1)"
+case "$OUT" in *"retired the 47k-word ledger row → ~/Mendix/mxcli-project-toolkit/bin/bug-lookup.sh"*) ok "unmarked: retirement said, with the row's own path prefix" ;; *) bad "unmarked: retirement not announced with prefix" "$OUT" ;; esac
+case "$OUT" in *"hand-written '## Baseline routing' section"*) ok "unmarked: the whole-table refusal still stands (only the one row moved)" ;; *) bad "unmarked: 2d refusal missing" ;; esac
+grep -q 'bug-logs/mxcli-bugs.md' "$P/CLAUDE.local.md" && bad "unmarked: ledger row survived" || ok "unmarked: ledger row gone"
+grep -q '| `~/Mendix/mxcli-project-toolkit/bin/bug-lookup.sh` |' "$P/CLAUDE.local.md" && ok "unmarked: new row carries the table's path prefix" || bad "unmarked: new row prefix wrong" "$(grep bug-lookup "$P/CLAUDE.local.md")"
+grep -q '^| Any pipeline work, every session | `~/Mendix/mxcli-project-toolkit/skills/conversion-runbook.md` |$' "$P/CLAUDE.local.md" \
+  && grep -q '^| Any MCP write session | `~/Mendix/mxcli-project-toolkit/skills/learned-mcp-patterns.md` |$' "$P/CLAUDE.local.md" \
+  && [ "$(awk '/^## .*[Bb]aseline routing/{insec=1; next} insec && /^## /{insec=0} insec && /^\|/{n++} END{print n+0}' "$P/CLAUDE.local.md")" -eq 5 ] \
+  && ok "unmarked: neighbouring rows byte-identical, no row added or lost (header + separator + 3 rows)" || bad "unmarked: table disturbed"
+[ "$(grep -c 'ROUTING:BEGIN' "$P/CLAUDE.local.md")" -eq 0 ] && ok "unmarked: no generated block appended" || bad "unmarked: a second table was appended"
+case "$OUT" in *"CLAUDE.md still routes bug-logs/mxcli-bugs.md"*"bootstrap-project.md"*'`~/Mendix/mxcli-project-toolkit/bin/bug-lookup.sh`'*) ok "CLAUDE.md: reported with the exact replacement row, and why it is not edited" ;; *) bad "CLAUDE.md: report missing" "$OUT" ;; esac
+grep -q 'bug-logs/mxcli-bugs.md' "$P/CLAUDE.md" && ok "CLAUDE.md: left alone (bootstrap-authored, no script produced it)" || bad "CLAUDE.md was EDITED"
+B="$(fingerprint "$P/CLAUDE.local.md")"
+OUT="$("$SYNC" "$P" 2>&1)"
+[ "$B" = "$(fingerprint "$P/CLAUDE.local.md")" ] && ok "unmarked: second run leaves CLAUDE.local.md alone" || bad "unmarked: second run rewrote CLAUDE.local.md"
+case "$OUT" in *"Retired"*) bad "unmarked: second run retires again" ;; *) ok "unmarked: second run says nothing about retiring" ;; esac
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"
 [ "$FAIL" -eq 0 ]

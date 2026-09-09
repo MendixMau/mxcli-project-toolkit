@@ -3994,10 +3994,12 @@ their own script, applied once, separate from the documents that get edited and 
 ## BUG-115: `exec` can log `Created microflow: …` for documents that are not in the model afterwards, and still exit 0
 
 **Severity:** High — the tool's own success output is not evidence the work landed
-**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27) → confirmed still present at
++jdk25patch+distpatch (2026-08-27)
 **Mendix version:** 11.14.0
 **Discovered:** 2026-09 (a sales-coaching build)
-**Reproducible:** NOT reproduced on demand — observed once, root cause not established
+**Reproducible:** was "NOT reproduced on demand" — **now reproduced 3 times in a row, root
+cause narrowed** (2026-09-09, same sales-coaching build, continuing session)
 
 An `exec` of a mixed security-plus-documents script logged `Created module role: …`,
 `Granted access on …` (×6), `Created microflow: …` (×7) and `Created page …`, ran the mxbuild
@@ -4005,16 +4007,50 @@ gate clean and exited 0. Afterwards the module role and all six grants were in t
 **none of the seven microflows or the page were**. `SHOW MICROFLOWS IN <Module>` returned the
 pre-run count.
 
-Cause not established. The plausible candidate is that `mxbuild` was run directly against the
-same `.mpr` shortly afterwards, which is the split-`mprcontents` consolidation hazard this
-toolkit already warns about — but that was not proven, and it does not obviously explain why
-the security changes survived and the documents did not. Logged as observed rather than
-diagnosed, because the practice it forces is worth having either way.
+**2026-09-09 update — reproduced and localized.** A larger batch (17 microflows + 3 pages in
+one `exec`, two of them referencing each other so they had to run in the same script) crashed
+`bin/exec.sh`'s own mxbuild gate three separate times, each run against a fresh `mxcli exec`
+of the identical script:
+
+```
+System.InvalidOperationException: An error occurred when trying to set the 'Attribute' property
+of a Attribute in a Microflow with ID <guid>.
+ ---> System.ArgumentNullException: Value cannot be null. (Parameter 'value')
+   at Mendix.Modeler.DomainModels.Refs.AttributeRef.set_AttributeId(AttributeIdentifier value)
+```
+
+— a **different microflow GUID each time**, all three newly created by the same script, none
+of them special-cased in the MDL (ordinary `change`/`create`/`validation feedback` activities
+already proven elsewhere in the same project). Querying the `.mpr`'s own `Unit` SQLite table
+directly (`UnitID` as a **`bytes_le`**-encoded GUID — .NET's mixed-endian form, not Python
+`uuid.bytes`) showed the crashing unit's **index row existed** (`ContainmentName: 'Documents'`)
+but **`grep -rl <guid> app/mprcontents/` found no content file for it anywhere** — confirmed a
+second and third time with `mx check` (the separate `Mendix.MxToolset` checker binary,
+`modeler/mx`) independently crashing on two more, again-different missing-content GUIDs from
+re-runs of the exact same script. So: `mxcli exec` sometimes registers a new document's index
+row without ever writing its `mprcontents/xx/yy/<guid>.mxunit` content file, `exec` still logs
+`Created microflow: …` for it and exits 0, and only a tool that actually *reads* the unit's
+content back (mxbuild, or `mx check`) discovers the gap — as a crash, not a clean error list,
+so `exec.sh`'s auto-restore (which only fires on a clean mxbuild error count) does not trigger;
+the broken `.mpr` has to be restored by hand (`git checkout -- <mpr>` against the last good
+commit, or the pre-run snapshot).
+
+Not proven: whether this is frequency-correlated with the number of documents created in one
+`exec`, but all three reproductions were on the same 20-document batch and a same-session
+10-document batch (`01-domain.mdl`, ~10 statements) applied clean on the first try — consistent
+with, not proof of, a size/ordering-related race in content flushing.
 
 **Workaround, and it should be the default practice regardless of this bug:** after every
 `exec`, read the model back (`SHOW MICROFLOWS IN <Module>`, `SHOW PAGES IN <Module>`) and
 count. Exit 0 plus a log of `Created …` lines is a claim about what the tool tried to do, not
-a fact about the model.
+a fact about the model. When a script creates many documents at once and depends on
+mxbuild for verification (which it should), **split it into smaller batches** — one feature's
+worth of documents at a time — both to reduce whatever is racing and to keep the blast radius
+of a crash-instead-of-clean-restore small enough to diagnose by hand.
+**Fix:** `mxcli exec` should not report a document as `Created` (nor let the transaction
+proceed) until its content has actually been durably written; ideally the write and the index
+row land in the same fsync'd operation, or `exec` re-reads each created unit's content
+immediately after writing it and fails loudly if that read comes back empty.
 
 ## BUG-116: MDL cannot author a File Manager widget, and the describe → replace round trip drops an existing one with `check` reporting clean
 

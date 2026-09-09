@@ -4249,3 +4249,76 @@ function you are about to use, rather than trusting `mxcli check` to catch an in
 **Fix:** `mxcli check`'s expression checker should reject calls to functions that are not in
 Mendix's actual expression-function set, the same way it already catches other classes of
 expression error.
+
+## BUG-123: two stacked `/** ... */` block comments immediately before a non-CREATE statement break the parser
+
+**Severity:** Low — cosmetic script-authoring trap, not a modeling-correctness issue; easy workaround
+**mxcli version:** v0.19.0-nightly.c836f01+jdk25patch+distpatch (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-09, DealIQ-conversion, drafting `12-refinements/01-domain.mdl`
+
+A file-level header comment immediately followed by a second `/** ... */` block comment on the
+first real statement, with a blank line between them:
+
+```
+/**
+ * File-level header.
+ */
+
+/**
+ * R4: dispute a mark.
+ */
+alter entity DealQualification."QualificationItem" add attribute if not exists "IsDisputed": Boolean default false;
+```
+
+fails `mxcli check` with `mismatched input 'alter' expecting {CREATE, '@'}`, positioned at the
+statement following the *second* comment. Reproduced minimally with an 8-line file; removing the
+blank line between the two comments made no difference (still fails). A **single** comment
+immediately before the same statement parses fine, and merging the two comments' text into one
+`/** ... */` block also parses fine. The parser appears to only tolerate one leading block
+comment per statement when that statement is not itself a `CREATE`; something about `CREATE`
+statements accepts (or is preceded by) a comment differently, since two-stacked-comments-before-
+`CREATE` was not observed to fail (only tested before `alter entity`, `alter page`, and grant
+statements, all of which failed with two comments; not exhaustively tested against every
+statement type).
+
+**Workaround:** never stack two `/** ... */` blocks back-to-back in a script. If a file wants
+both a file-level header and a section header for its first statement, merge them into one
+comment block, or put the file-level header as a `--` line comment instead of `/** */`.
+**Fix:** the grammar should accept multiple consecutive block comments before any statement, the
+same way most C-like parsers treat comments as insignificant whitespace regardless of how many
+appear in a row.
+
+## BUG-124: `mxcli check --references` validates cross-module role grants on microflows/pages but not on entity access rules — mxbuild rejects the same mistake as CE0007
+
+**Severity:** Medium — the exact class of error MDL-GRANT01 exists to catch passes clean when the target is an entity
+**mxcli version:** v0.19.0-nightly.c836f01+jdk25patch+distpatch (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-09, DealIQ-conversion, same session as BUG-121/122/123
+
+```
+grant ManagerCoaching.SalesManager on DealQualification."ReadinessMark" (
+  read (...)
+) where '[...]';
+```
+
+`ReadinessMark` is a `DealQualification` entity; `ManagerCoaching.SalesManager` is a module role
+from a different module. `mxcli check --references` reported this clean (`✓ All references
+valid`, 0 errors) both standalone and combined with the rest of the batch. mxbuild rejected it
+as **CE0007 "Please re-select module roles"** on the entity's access rule, and `bin/exec.sh`'s
+post-apply gate correctly caught it and auto-restored the snapshot -- so nothing was lost, but
+the fast local check gave false confidence.
+
+The same session's own `MDL-GRANT01` diagnostic (already implemented in `mxcli check`) fires
+correctly for the identical mistake on `grant execute on microflow ...` and `grant ... on ...
+(read *)` document-role statements -- e.g. it caught `grant execute on microflow
+ManagerCoaching.GET_GateVerdict_Dto to DealQualification.SalesRep;` earlier in this same batch
+with a clear, actionable message. It simply does not run the same check for `grant <ModuleRole>
+on <Module.Entity> (...)` access-rule statements.
+
+**Workaround:** for every entity access-rule grant, manually confirm the granted module role's
+module matches the entity's own module (or is genuinely cross-module by design, which Mendix
+does not allow for either microflows/pages or entities) before applying. Grep the project for an
+already-working `grant <Role> on <Module.Entity>` on that same entity or module as a sanity check.
+**Fix:** extend the `MDL-GRANT01` check to also run against entity access-rule grant statements,
+not only microflow/page-role grant statements.

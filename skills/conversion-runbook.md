@@ -54,6 +54,8 @@ table; a skill missing here is a skill no agent will find.
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
 **Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.
 
+**How to read this file: not whole.** A session reads **§1b** (the Live Checklist Protocol — it applies to every stage) **plus its own stage's section under §2**, and nothing else until a question sends it elsewhere. `bin/gate-check.sh <project> <stage>` prints the exact spans at the top of its output — `Read for this gate: skills/conversion-runbook.md §"Stage N — …" (lines A–B) + §1b Live Checklist (lines C–D)` — derived from the headings on every run, so they are never stale. "Read the runbook first, every session" in a project's `CLAUDE.local.md` means *those* lines, not the ~11,700 words: the whole-file read was measured cause three of a requirements-driven project's slow Stages 1–4 (2026-09-09). The baseline table above is rendered here so this file is complete, not so it is re-read.
+
 **Do not open `toolkit-guide.html` because you read this line.** Opening is governed by the first-touch rule in the toolkit's `CLAUDE.md` — open only if `<project-root>/.claude/.guide-shown` is absent, then `touch` it. You are reading this file *every session*; an unconditional "open it at kickoff" here means a browser tab every session, which is exactly the bug this wording replaced.
 
 ---

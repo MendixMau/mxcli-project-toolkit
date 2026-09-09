@@ -2041,6 +2041,45 @@ else
     DRIFT_NOTE="$DRIFT_COUNT decision(s) touch a BRD/wireframe not yet re-synced (see '[sync: … UNSYNCED]' in $REGISTER) — ba-agent must update the BRD/wireframe, then flip the marker to 'synced <date>', before this gate passes"
   fi
 fi
+# ---------------------------------------------------------------------------
+# Read for this gate — the runbook lines this stage actually needs.
+#
+# WHY (2026-09-09, a Markdown+HTML requirements project). skills/conversion-runbook.md is
+# ~11,700 words and every project's CLAUDE.local.md says "read it FIRST — every session", so
+# every session read all of it — measured cause three of that project's slow Stages 1–4. What a
+# stage session needs is §1b (the Live Checklist Protocol, which applies to every stage) plus
+# its own stage's section under §2; the rest is other stages' business until a question sends
+# the reader there. So a stage-specific run names those two spans by line number, derived by
+# grepping the runbook's actual headings ("### Stage N — …", "## 1b. …") on every run — never
+# a hard-coded number, which would be wrong after the next edit. The runbook's own "how to
+# read this" paragraph states the same rule; this line is what makes it actionable.
+runbook_span() { # runbook_span <file> <start-regex> <end-regex> — "A–B" (1-based, inclusive) or ""
+  awk -v h="$2" -v e="$3" '
+    !start && $0 ~ h { start = NR; next }
+    start && $0 ~ e   { end = NR - 1; exit }
+    END { if (start) { if (!end) end = NR; printf "%d–%d", start, end } }' "$1" 2>/dev/null
+}
+if [ -n "$REQUESTED_STAGE" ]; then
+  RB_FILE="$TOOLKIT_DIR/skills/conversion-runbook.md"
+  case "$REQUESTED_STAGE" in
+    build-ready) RB_STAGE="5" ;;   # build-ready is Stage 5's readiness check; it reads Stage 5's section
+    *)           RB_STAGE="$(printf '%s' "$REQUESTED_STAGE" | tr '[:lower:]' '[:upper:]')" ;;
+  esac
+  if [ -f "$RB_FILE" ]; then
+    # Keyed on the " — " every stage heading carries: "### Stage 0 runs in every entry mode"
+    # (under Entry Modes) also starts with "### Stage 0", and matched first without it.
+    RB_HEAD="$(grep -m1 "^### Stage $RB_STAGE — " "$RB_FILE" | sed 's/^### //; s/[[:space:]]*$//')"
+    RB_SPAN="$(runbook_span "$RB_FILE" "^### Stage $RB_STAGE — " "^###? ")"
+    RB_1B="$(runbook_span "$RB_FILE" "^## 1b\\." "^## ")"
+    if [ -n "$RB_HEAD" ] && [ -n "$RB_SPAN" ] && [ -n "$RB_1B" ]; then
+      printf 'Read for this gate: skills/conversion-runbook.md §"%s" (lines %s) + §1b Live Checklist (lines %s) — not the whole file\n' \
+        "$RB_HEAD" "$RB_SPAN" "$RB_1B"
+    else
+      echo "Read for this gate: skills/conversion-runbook.md — could not locate '### Stage $RB_STAGE — ' or '## 1b.' by heading; read §1b and your stage's §2 section"
+    fi
+  fi
+fi
+
 printf "Drift (BRD sync): %s — %s\n" "$DRIFT_STATUS" "$DRIFT_NOTE"
 
 # ---------------------------------------------------------------------------

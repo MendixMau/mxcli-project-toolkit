@@ -120,6 +120,32 @@ V="$(verdict "$P" 7)"
 case "$V" in *'no cutover decision row'*) ok "empty table reports the absent row, not a bad status" ;;
              *) bad "wrong diagnosis for an empty Decisions table: $V" ;; esac
 
+echo "== T10: a stage run names the runbook lines to read — derived from the headings, not hard-coded =="
+# Added 2026-09-09: the 11,700-word runbook was read whole every session. A stage run must say
+# which span is the stage's own section and which is §1b, and the numbers must be the file's.
+RB="$(cd "$(dirname "$GATE")/.." && pwd)/skills/conversion-runbook.md"
+P="$(mkproj t10)"
+printf '# Validation\n\n## Stop condition\n\nClean.\n' > "$P/knowledge-base/reports/validation-report.md"
+L="$("$GATE" --no-html "$P" 2 2>&1 | grep '^Read for this gate:' | head -1)"
+S2="$(grep -n '^### Stage 2 ' "$RB" | head -1 | cut -d: -f1)"
+S1B="$(grep -n '^## 1b\.' "$RB" | head -1 | cut -d: -f1)"
+case "$L" in
+  'Read for this gate: skills/conversion-runbook.md §"Stage 2 — Requirements" (lines '"$S2"'–'*') + §1b Live Checklist (lines '"$S1B"'–'*)
+    ok "names the Stage 2 section and §1b, each starting at its real heading line ($S2, $S1B)" ;;
+  '') bad "no 'Read for this gate:' line in a stage-2 run" ;;
+  *)  bad "wrong shape or wrong lines: $L" ;;
+esac
+# The span ends where the next heading starts: the line after B must be a ## or ### heading.
+B="$(printf '%s' "$L" | sed -n 's/.*§"Stage 2 — Requirements" (lines [0-9]*–\([0-9]*\)).*/\1/p')"
+NEXT="$(sed -n "$((B + 1))p" "$RB" 2>/dev/null)"
+case "$NEXT" in '## '*|'### '*) ok "the stage span ends right before the next heading ('${NEXT%% —*}')" ;; *) bad "span end $B is not followed by a heading: '$NEXT'" ;; esac
+# build-ready reads Stage 5's section.
+L="$("$GATE" --no-html "$P" build-ready 2>&1 | grep '^Read for this gate:' | head -1)"
+case "$L" in *'§"Stage 5 — Build"'*) ok "build-ready points at Stage 5's section" ;; *) bad "build-ready line: $L" ;; esac
+# A full (no-stage) run prints no such line — there is no single stage to read for.
+N="$("$GATE" --no-html "$P" 2>&1 | grep -c '^Read for this gate:')"
+[ "$N" -eq 0 ] && ok "a whole-project run names no single span" || bad "whole-project run printed a stage span"
+
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"
 [ "$FAIL" -eq 0 ]

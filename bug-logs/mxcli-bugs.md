@@ -4358,3 +4358,54 @@ does not allow for either microflows/pages or entities) before applying. Grep th
 already-working `grant <Role> on <Module.Entity>` on that same entity or module as a sanity check.
 **Fix:** extend the `MDL-GRANT01` check to also run against entity access-rule grant statements,
 not only microflow/page-role grant statements.
+
+## BUG-126: sorting or reading a persistable entity's implicit `System.createdDate` (and by extension `System.changedDate`) inside a microflow breaks mxbuild content serialization — deterministic, not the BUG-115 race
+
+**Severity:** High — a working, common pattern (find the newest row of an entity with no own timestamp) is unusable, and the failure mode is a crash, not a clear error
+**mxcli version:** v0.19.0-nightly.c836f01+jdk25patch+distpatch (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-09, DealIQ-conversion, same session as BUG-115's update
+
+`System.createdDate` / `System.changedDate` are valid implicit XPath/expression paths on any
+persistable entity in real Mendix (Studio Pro exposes them under "System" in every attribute
+picker), even though `DESCRIBE ENTITY` does not list them. A microflow using either —
+
+```
+retrieve $Newest from Module."SomeEntity"
+  sort by System.createdDate desc
+  limit 1;
+```
+
+— passes `mxcli check --references` and `mxcli exec` clean (`Created microflow: …`, exit 0),
+then crashes `bin/exec.sh`'s mxbuild gate on **every single application** (3/3 reproductions,
+one with the `sort by` clause alone, no later read of the value):
+
+```
+System.InvalidOperationException: An error occurred when trying to set the 'Attribute' property
+of a Attribute in a Microflow with ID <guid>.
+ ---> System.ArgumentNullException: Value cannot be null. (Parameter 'value')
+   at Mendix.Modeler.DomainModels.Refs.AttributeRef.set_AttributeId(AttributeIdentifier value)
+```
+
+This looked identical to BUG-115 at first (missing `mprcontents/.../<guid>.mxunit` content
+file for the crashing unit) and was initially misdiagnosed as that bug's race, since BUG-115
+was already known from the same session. The distinguishing fact: BUG-115's crashes were
+non-reproducible on retry (different microflow each time, sometimes clean on a second try);
+this one reproduced **every time**, on the *same* one-statement microflow, isolated down to the
+`sort by System.createdDate` clause alone. That determinism is what separates a genuine
+modeling-construct bug from BUG-115's flush race — treat a crash as BUG-126 rather than BUG-115
+if it survives 2+ retries of the *identical* script unchanged.
+
+No other file in this project's `mdlsource/` uses `System.createdDate` or `System.changedDate`
+anywhere — the one prior claim of this pattern being "confirmed working" was never actually
+mxbuild-verified, only `mxcli check`-clean, which is exactly BUG-121/122/124's class of false
+confidence extended to a fourth case.
+
+**Workaround:** do not sort or read by `System.createdDate`/`System.changedDate` in MDL. If an
+entity needs "when was this last created/changed", give it its own real `DateTime` attribute
+set explicitly on create/change — the pattern every other entity in this project already uses
+(`CreatedOn`, `ReceivedOn`, `MarkedOn`, etc.), never the implicit system field.
+**Fix:** `mxcli`'s microflow-authoring path should either reject `System.createdDate`/
+`System.changedDate` as unsupported (with a clear message) or actually support them —
+mxbuild's crash means whatever `mxcli` is emitting for this attribute reference does not
+resolve to a valid `AttributeIdentifier`.

@@ -317,10 +317,11 @@ WAIT FOR NOTIFICATION;
 completely clean, and neither is stated anywhere in `mxcli syntax workflow`:
 
 ```sql
--- A USER TASK's page takes the TASK, never the workflow's context entity.
+-- A USER TASK's page takes the TASK (plus the context, §4 rule 1) — never the context entity alone.
 CREATE OR MODIFY PAGE MyModule.WF_Task_ApproveReject
   ( Title: 'Task', Layout: MyModule.App_Default,
-    Params: { $Task: System.WorkflowUserTask } )   -- <- this, not the context entity
+    Params: { $WorkflowUserTask: System.WorkflowUserTask,   -- <- the task: this is what the build checks
+              $WorkflowContext: MyModule.Request } )        -- <- and the context; both, or CE7412
   { ... }
 
 -- A TARGETING MICROFLOW takes TWO parameters, in this order.

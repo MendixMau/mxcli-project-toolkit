@@ -33,6 +33,7 @@ set -u
 
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
 SUT="${1:-$TOOLKIT/project-bin/check-design-reaches-app.sh}"
+SUT="$(cd "$(dirname "$SUT")" && pwd)/$(basename "$SUT")"   # fixtures cd away; a relative $1 must survive
 FIX="$TOOLKIT/tests/wave2/fixtures/design-reaches-app"
 
 PASS=0; FAIL=0

@@ -78,6 +78,10 @@ app.** A stylesheet that shipped is not a stylesheet the app is wearing. Run
 `project-bin/check-design-reaches-app.sh` against the built stylesheet and read the three
 denominators: framework knobs bound, tokens arrived, classes arrived. `0 of N` on any of them
 means every class you are about to write resolves to nothing, and every later page inherits it.
+Write the report block to **`docs/design-reaches-app.md`**, first line carrying the denominators
+(`N of M framework knobs bound · tokens N of M · classes N of M`, build date, `theme.compiled.css`
+path) — that file is the mark that discharges the `design-reaches-app` obligation in
+`bin/lib/obligations.tsv`; without it the pass reads as never performed.
 
 Measured 2026-09-09: 55 tokens were ported into the right file at the right stage, 0 of 35
 framework knobs were bound, 0 of 20 component classes existed in the built stylesheet, and two

@@ -171,6 +171,8 @@ for f in $TARGETS; do
     # That is the worse kind of false positive: it fires on correct code, it names a real
     # rule, and the fix it asks for (delete four H1s) would have broken four pages. A check
     # that cannot bound its own input tells you nothing about the input.
+    # Known limit: the counter does not skip quoted strings, so an UNBALANCED brace inside a
+    # string literal truncates the body early. Balanced placeholders ({1} of {2}) are fine.
     body="$(awk -v start="$ln" '
       # The page body: from the declaration to the brace that MATCHES the body opening
       # one, counted per CHARACTER, with parens tracked so a brace inside the

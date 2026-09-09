@@ -321,6 +321,8 @@ function pageMdl() {
   return out;
 }
 
+// Known limit: the counter does not skip quoted strings, so an UNBALANCED brace inside a
+// string literal truncates the body early (balanced placeholders like '{1} of {2}' are fine).
 // The page body, from its declaration to the brace that MATCHES the body's opening
 // one, counted per character with parens tracked.
 //

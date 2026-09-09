@@ -1,0 +1,746 @@
+{
+  "id": "toeic-app",
+  "name": "TOEIC Buddy Learning Platform",
+  "description": "Single-page web application for TOEIC test preparation with lessons, vocabulary drills, practice quizzes, and progress tracking",
+  "version": "1.2.0",
+  "entry_mode": "requirements-driven",
+  "source": "KB_TOEIC_ApplicationRequirements.md",
+  "modules": [
+    {
+      "id": "app-shell",
+      "name": "Application Shell & Navigation",
+      "description": "Top-level container with tab-based navigation, page routing, and responsive layout",
+      "type": "module",
+      "entities": [
+        {
+          "id": "e_app_shell",
+          "name": "AppShell",
+          "description": "Root application component",
+          "attributes": [
+            {
+              "name": "currentTab",
+              "type": "string",
+              "enum": ["home", "lessons", "quiz", "vocabulary", "progress"],
+              "mandatory": true,
+              "description": "Active tab identifier"
+            },
+            {
+              "name": "isQuizActive",
+              "type": "boolean",
+              "mandatory": true,
+              "default": false,
+              "description": "Whether quiz is in progress"
+            }
+          ]
+        }
+      ],
+      "screens": [
+        {
+          "id": "scr_nav",
+          "name": "Navigation Bar",
+          "type": "nav",
+          "elements": [
+            {
+              "name": "navButtons",
+              "type": "button_group",
+              "options": ["Home", "Lessons", "Practice Quiz", "Vocabulary", "My Progress"],
+              "description": "Tab navigation buttons"
+            }
+          ]
+        }
+      ],
+      "estimated_complexity": 2,
+      "dependencies": []
+    },
+    {
+      "id": "home-page",
+      "name": "Home Dashboard",
+      "description": "Landing page with statistics, welcome message, and navigation entry points",
+      "type": "module",
+      "entities": [
+        {
+          "id": "e_app_stats",
+          "name": "AppStatistics",
+          "description": "Application-level statistics (not user-specific in Phase 1)",
+          "attributes": [
+            {
+              "name": "totalLessons",
+              "type": "integer",
+              "value": 15,
+              "mandatory": true
+            },
+            {
+              "name": "totalVocabulary",
+              "type": "integer",
+              "value": 500,
+              "mandatory": true
+            },
+            {
+              "name": "totalQuestions",
+              "type": "integer",
+              "value": 200,
+              "mandatory": true
+            },
+            {
+              "name": "quizModules",
+              "type": "integer",
+              "value": 8,
+              "mandatory": true
+            }
+          ]
+        }
+      ],
+      "screens": [
+        {
+          "id": "scr_home",
+          "name": "Home Screen",
+          "description": "Welcome screen with statistics and CTA",
+          "type": "screen",
+          "elements": [
+            {
+              "name": "headerTitle",
+              "type": "text",
+              "value": "TOEIC Buddy"
+            },
+            {
+              "name": "headerSubtitle",
+              "type": "text",
+              "value": "Master TOEIC English - Your Personal Test Preparation Tool"
+            },
+            {
+              "name": "statsGrid",
+              "type": "grid",
+              "columns": 4,
+              "items": ["Lessons (15)", "Vocabulary (500+)", "Questions (200+)", "Quiz Modules (8)"]
+            },
+            {
+              "name": "guidanceList",
+              "type": "ordered_list",
+              "items": [
+                "Start with Lessons to learn grammar and comprehension strategies",
+                "Build your skills in the Vocabulary section with flashcards",
+                "Test your knowledge with our Practice Quiz module",
+                "Track your progress in My Progress to identify weak areas"
+              ]
+            },
+            {
+              "name": "ctaButton",
+              "type": "button",
+              "label": "Start Learning →",
+              "action": "navigate_to_lessons"
+            }
+          ]
+        }
+      ],
+      "estimated_complexity": 1,
+      "dependencies": []
+    },
+    {
+      "id": "lessons-module",
+      "name": "Lesson Content Management",
+      "description": "Browseable collection of structured grammar and business English lessons",
+      "type": "module",
+      "entities": [
+        {
+          "id": "e_lesson",
+          "name": "Lesson",
+          "description": "Individual lesson with content, examples, and teaching material",
+          "attributes": [
+            {
+              "name": "lessonID",
+              "type": "integer",
+              "mandatory": true,
+              "is_key": true
+            },
+            {
+              "name": "lessonNumber",
+              "type": "integer",
+              "mandatory": true,
+              "description": "Display order 1-15"
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "length": 100,
+              "mandatory": true,
+              "example": "Present Perfect Tense"
+            },
+            {
+              "name": "description",
+              "type": "text",
+              "length": 5000,
+              "mandatory": true,
+              "description": "Full lesson content (prose + examples)"
+            },
+            {
+              "name": "category",
+              "type": "string",
+              "enum": ["Grammar", "Business", "Email", "Listening", "Reading"],
+              "mandatory": true
+            },
+            {
+              "name": "difficultyLevel",
+              "type": "string",
+              "enum": ["Beginner", "Intermediate", "Advanced"],
+              "mandatory": false
+            }
+          ]
+        }
+      ],
+      "screens": [
+        {
+          "id": "scr_lessons",
+          "name": "Lessons Screen",
+          "description": "Scrollable list of all 15 lessons",
+          "type": "screen",
+          "elements": [
+            {
+              "name": "lessonList",
+              "type": "list",
+              "item_entity": "Lesson",
+              "display": "lessonNumber, title, description",
+              "scrollable": true
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "id": "rule_lesson_content_immutable",
+          "name": "Lesson Content Immutable",
+          "description": "Lessons are read-only in Phase 1 (no user edits)"
+        }
+      ],
+      "estimated_complexity": 1,
+      "dependencies": []
+    },
+    {
+      "id": "vocabulary-module",
+      "name": "Vocabulary Management",
+      "description": "Flashcard-style vocabulary collection for TOEIC business and academic words",
+      "type": "module",
+      "entities": [
+        {
+          "id": "e_vocab",
+          "name": "VocabularyItem",
+          "description": "Single vocabulary entry with definition and example",
+          "attributes": [
+            {
+              "name": "vocabID",
+              "type": "integer",
+              "mandatory": true,
+              "is_key": true
+            },
+            {
+              "name": "word",
+              "type": "string",
+              "length": 50,
+              "mandatory": true,
+              "example": "Accommodate"
+            },
+            {
+              "name": "partOfSpeech",
+              "type": "string",
+              "enum": ["Noun", "Verb", "Adjective", "Adverb", "Preposition"],
+              "mandatory": false
+            },
+            {
+              "name": "definition",
+              "type": "string",
+              "length": 200,
+              "mandatory": true,
+              "example": "To provide lodging or sufficient space"
+            },
+            {
+              "name": "exampleSentence",
+              "type": "string",
+              "length": 300,
+              "mandatory": true,
+              "example": "The hotel can accommodate up to 500 guests."
+            },
+            {
+              "name": "difficultyLevel",
+              "type": "string",
+              "enum": ["Beginner", "Intermediate", "Advanced"],
+              "mandatory": true
+            },
+            {
+              "name": "category",
+              "type": "string",
+              "enum": ["Business", "Academic", "Daily Life"],
+              "mandatory": false
+            }
+          ]
+        }
+      ],
+      "screens": [
+        {
+          "id": "scr_vocab",
+          "name": "Vocabulary Screen",
+          "description": "Responsive grid of vocabulary flashcards (1 col mobile → 3+ desktop)",
+          "type": "screen",
+          "elements": [
+            {
+              "name": "vocabGrid",
+              "type": "grid",
+              "responsive": true,
+              "min_columns": 1,
+              "max_columns": 4,
+              "item_entity": "VocabularyItem",
+              "display": "word, definition, exampleSentence"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "id": "rule_vocab_immutable",
+          "name": "Vocabulary Immutable",
+          "description": "Vocabulary items are read-only in Phase 1"
+        }
+      ],
+      "estimated_complexity": 1,
+      "dependencies": []
+    },
+    {
+      "id": "quiz-module",
+      "name": "Quiz Practice Engine",
+      "description": "Interactive multiple-choice quiz with scoring, progress tracking, and results display",
+      "type": "module",
+      "entities": [
+        {
+          "id": "e_question",
+          "name": "Question",
+          "description": "Single quiz question with 4 multiple-choice options",
+          "attributes": [
+            {
+              "name": "questionID",
+              "type": "integer",
+              "mandatory": true,
+              "is_key": true
+            },
+            {
+              "name": "questionText",
+              "type": "string",
+              "length": 500,
+              "mandatory": true
+            },
+            {
+              "name": "optionA",
+              "type": "string",
+              "length": 200,
+              "mandatory": true
+            },
+            {
+              "name": "optionB",
+              "type": "string",
+              "length": 200,
+              "mandatory": true
+            },
+            {
+              "name": "optionC",
+              "type": "string",
+              "length": 200,
+              "mandatory": true
+            },
+            {
+              "name": "optionD",
+              "type": "string",
+              "length": 200,
+              "mandatory": true
+            },
+            {
+              "name": "correctOptionIndex",
+              "type": "integer",
+              "enum": [0, 1, 2, 3],
+              "mandatory": true,
+              "description": "0=A, 1=B, 2=C, 3=D"
+            },
+            {
+              "name": "explanation",
+              "type": "string",
+              "length": 300,
+              "mandatory": false
+            },
+            {
+              "name": "category",
+              "type": "string",
+              "enum": ["Grammar", "Vocabulary", "Listening", "Reading", "Mixed"],
+              "mandatory": true
+            },
+            {
+              "name": "difficultyLevel",
+              "type": "string",
+              "enum": ["Easy", "Medium", "Hard"],
+              "mandatory": true
+            }
+          ]
+        },
+        {
+          "id": "e_quiz_attempt",
+          "name": "QuizAttempt",
+          "description": "Single quiz session with answers and score (Phase 2 with persistence)",
+          "attributes": [
+            {
+              "name": "attemptID",
+              "type": "uuid",
+              "mandatory": true,
+              "is_key": true
+            },
+            {
+              "name": "userID",
+              "type": "uuid",
+              "mandatory": false,
+              "description": "Phase 2 user reference"
+            },
+            {
+              "name": "questionsAttempted",
+              "type": "integer",
+              "mandatory": true
+            },
+            {
+              "name": "questionsCorrect",
+              "type": "integer",
+              "mandatory": true
+            },
+            {
+              "name": "scorePercent",
+              "type": "decimal",
+              "mandatory": true,
+              "range": "0-100"
+            },
+            {
+              "name": "answers",
+              "type": "json",
+              "mandatory": false,
+              "description": "[{Q:1, Selected:0, Correct:true}, ...]"
+            },
+            {
+              "name": "attemptDate",
+              "type": "datetime",
+              "mandatory": false
+            }
+          ]
+        }
+      ],
+      "screens": [
+        {
+          "id": "scr_quiz_start",
+          "name": "Quiz Start Screen",
+          "type": "screen",
+          "elements": [
+            {
+              "name": "startButton",
+              "type": "button",
+              "label": "Start Practice Quiz",
+              "action": "start_quiz"
+            },
+            {
+              "name": "typeSelector",
+              "type": "button",
+              "label": "Select Quiz Type",
+              "action": "show_quiz_types"
+            }
+          ]
+        },
+        {
+          "id": "scr_quiz_question",
+          "name": "Question Screen",
+          "type": "screen",
+          "elements": [
+            {
+              "name": "progressBar",
+              "type": "progress",
+              "value": "currentQuestion / totalQuestions"
+            },
+            {
+              "name": "questionCounter",
+              "type": "text",
+              "value": "Question N of 10"
+            },
+            {
+              "name": "questionText",
+              "type": "text",
+              "entity_field": "Question.questionText"
+            },
+            {
+              "name": "optionsGroup",
+              "type": "radio_group",
+              "options": ["Question.optionA", "Question.optionB", "Question.optionC", "Question.optionD"],
+              "description": "User selects one option"
+            },
+            {
+              "name": "submitButton",
+              "type": "button",
+              "label": "Submit Quiz",
+              "visible_when": "currentQuestion == totalQuestions AND answerSelected",
+              "action": "submit_quiz"
+            }
+          ]
+        },
+        {
+          "id": "scr_quiz_results",
+          "name": "Results Screen",
+          "type": "screen",
+          "elements": [
+            {
+              "name": "resultTitle",
+              "type": "text",
+              "value": "Quiz Complete!"
+            },
+            {
+              "name": "scoreDisplay",
+              "type": "text",
+              "value": "correctCount / totalQuestions"
+            },
+            {
+              "name": "percentDisplay",
+              "type": "text",
+              "value": "(correctCount / totalQuestions) * 100 + '%'"
+            },
+            {
+              "name": "retryButton",
+              "type": "button",
+              "label": "Try Again",
+              "action": "reset_quiz"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "id": "rule_quiz_answer_required",
+          "name": "Answer Required Before Submit",
+          "description": "Submit button disabled until final question answered",
+          "triggers": ["User selects option Q10"],
+          "enforces": "Submit button enabled",
+          "violation": "No action (button remains disabled)"
+        },
+        {
+          "id": "rule_scoring_calculation",
+          "name": "Scoring Algorithm",
+          "description": "Score = correct answers / total questions × 100%",
+          "triggers": ["User clicks Submit"],
+          "enforces": "Score calculated immediately",
+          "violation": "System error (should never occur)"
+        },
+        {
+          "id": "rule_single_answer_per_question",
+          "name": "Single Answer Selection",
+          "description": "Only one option selected per question (radio button behavior)",
+          "triggers": ["User clicks option"],
+          "enforces": "Previous selection deselected",
+          "violation": "Previous option remains selected (handled by UI)"
+        },
+        {
+          "id": "rule_no_edit_after_submit",
+          "name": "No Edit After Submit",
+          "description": "Results final once submitted",
+          "triggers": ["Quiz submitted"],
+          "enforces": "Quiz locked",
+          "violation": "N/A (UI prevents further interaction)"
+        }
+      ],
+      "microflows": [
+        {
+          "id": "mf_start_quiz",
+          "name": "Start Quiz",
+          "description": "Initialize quiz, load questions, display Q1",
+          "steps": [
+            "Load quizData array",
+            "Set currentQuestion = 0",
+            "Set selectedAnswers = []",
+            "Display Question 0",
+            "Update progress bar (0/10)"
+          ]
+        },
+        {
+          "id": "mf_load_question",
+          "name": "Load Question",
+          "description": "Display next question",
+          "steps": [
+            "Get Question[currentQuestion]",
+            "Display question text",
+            "Display 4 options",
+            "Update progress"
+          ]
+        },
+        {
+          "id": "mf_select_option",
+          "name": "Select Option",
+          "description": "Record user selection",
+          "steps": [
+            "Deselect previous option (if any)",
+            "Highlight selected option",
+            "Store selectedAnswers[currentQuestion] = optionIndex"
+          ]
+        },
+        {
+          "id": "mf_submit_quiz",
+          "name": "Submit Quiz",
+          "description": "Calculate score and display results",
+          "steps": [
+            "Loop through selectedAnswers[]",
+            "Compare each to correctAnswerIndex",
+            "Count correct answers",
+            "Calculate percentage: correct / total * 100",
+            "Display results screen",
+            "Enable 'Try Again' button"
+          ]
+        },
+        {
+          "id": "mf_reset_quiz",
+          "name": "Reset Quiz",
+          "description": "Return to start state",
+          "steps": [
+            "Clear selectedAnswers[]",
+            "Reset currentQuestion = 0",
+            "Hide results screen",
+            "Display start screen"
+          ]
+        }
+      ],
+      "estimated_complexity": 4,
+      "dependencies": []
+    },
+    {
+      "id": "progress-module",
+      "name": "Progress Tracking",
+      "description": "User progress metrics, performance analytics, and weak area identification (Phase 1: static display)",
+      "type": "module",
+      "entities": [
+        {
+          "id": "e_user_progress",
+          "name": "UserProgress",
+          "description": "Aggregated learner statistics (Phase 2 with persistence)",
+          "attributes": [
+            {
+              "name": "progressID",
+              "type": "uuid",
+              "mandatory": true,
+              "is_key": true
+            },
+            {
+              "name": "userID",
+              "type": "uuid",
+              "mandatory": false,
+              "description": "Phase 2 user reference"
+            },
+            {
+              "name": "studyHours",
+              "type": "decimal",
+              "mandatory": true,
+              "default": 0,
+              "example": 42.5
+            },
+            {
+              "name": "totalQuestionsAnswered",
+              "type": "integer",
+              "mandatory": true,
+              "default": 0,
+              "example": 285
+            },
+            {
+              "name": "averageScorePercent",
+              "type": "decimal",
+              "mandatory": true,
+              "default": 0,
+              "range": "0-100",
+              "example": 76.3
+            },
+            {
+              "name": "currentDayStreak",
+              "type": "integer",
+              "mandatory": true,
+              "default": 0,
+              "example": 15
+            },
+            {
+              "name": "lastSessionDate",
+              "type": "date",
+              "mandatory": false
+            },
+            {
+              "name": "weakAreas",
+              "type": "json",
+              "mandatory": false,
+              "description": "{Category: ScorePercent, ...}"
+            }
+          ]
+        }
+      ],
+      "screens": [
+        {
+          "id": "scr_progress",
+          "name": "Progress Dashboard",
+          "description": "Display aggregated metrics and identify weak areas",
+          "type": "screen",
+          "elements": [
+            {
+              "name": "metricsGrid",
+              "type": "grid",
+              "columns": 4,
+              "items": [
+                "Study Hours: 42",
+                "Questions Answered: 285",
+                "Average Score: 76%",
+                "Current Streak: 15 days"
+              ]
+            },
+            {
+              "name": "weakAreasList",
+              "type": "unordered_list",
+              "items": [
+                "Listening Comprehension — 68%",
+                "Idioms and Phrases — 71%",
+                "Reading Comprehension — 78%",
+                "Grammar — 82% ✓"
+              ],
+              "description": "Categories scoring <75% flagged as weak"
+            }
+          ]
+        }
+      ],
+      "rules": [
+        {
+          "id": "rule_weak_area_threshold",
+          "name": "Weak Area Threshold",
+          "description": "Any category scoring <75% flagged as weak",
+          "triggers": ["Quiz completion or progress view"],
+          "enforces": "Category added to weak areas list",
+          "violation": "Recalculation occurs on next update"
+        },
+        {
+          "id": "rule_average_score_calculation",
+          "name": "Average Score Calculation",
+          "description": "Running mean of all quiz scores",
+          "triggers": ["Quiz completion"],
+          "enforces": "averageScorePercent = sum(scores) / count(quizzes)",
+          "violation": "Previous average retained"
+        },
+        {
+          "id": "rule_streak_calculation",
+          "name": "Streak Calculation",
+          "description": "Consecutive calendar days with activity",
+          "triggers": ["Daily activity"],
+          "enforces": "currentDayStreak increments if date = lastDate + 1 day; resets if gap > 1 day",
+          "violation": "Streak remains unchanged"
+        }
+      ],
+      "estimated_complexity": 2,
+      "dependencies": ["quiz-module"]
+    }
+  ],
+  "screens_total": 8,
+  "entities_total": 6,
+  "estimated_build_hours": 80,
+  "confidence": "high",
+  "notes": [
+    "Phase 1 focuses on feature parity with original HTML/JS app (no persistence)",
+    "Phase 2 adds user authentication, progress persistence (database), audio features",
+    "All 200+ questions and 500+ vocabulary items must be seeded in database or configuration",
+    "Responsive design required (mobile-first)",
+    "No external API calls or integrations",
+    "Quiz questions hardcoded in Phase 1; consider content management system for Phase 2"
+  ]
+}

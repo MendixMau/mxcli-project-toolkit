@@ -1,0 +1,41 @@
+<title>Source ledger — abproj</title>
+<style>
+  :root { --bg:#faf9f6; --panel:#fff; --line:#e6e2da; --ink:#1d1c1a; --muted:#6e6a62; --accent:#2f5d8a;
+           --fault:#b3261e; --pending:#b26a00; --ok:#2e7d4f; --waived:#6e6a62; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#15161a; --panel:#1d1f25; --line:#2c2f37; --ink:#ebe9e4; --muted:#9a978f; } }
+  :root[data-theme="dark"] { --bg:#15161a; --panel:#1d1f25; --line:#2c2f37; --ink:#ebe9e4; --muted:#9a978f; }
+  body { background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; margin:0; }
+  main { max-width:70rem; margin:0 auto; padding:2.5rem 1.5rem 4rem; }
+  .eyebrow { color:var(--muted); font-size:.75rem; text-transform:uppercase; letter-spacing:.14em; margin:0 0 .4rem; }
+  h1 { font-size:1.7rem; margin:0 0 .5rem; letter-spacing:-.02em; }
+  .sub { color:var(--muted); max-width:46rem; margin:0 0 1.5rem; }
+  .verdict { background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:1.2rem 1.4rem; margin-bottom:2rem; }
+  .status { font-size:1.6rem; font-weight:700; } .status.PASS{color:var(--ok)} .status.FAIL{color:var(--fault)} .status.MANUAL{color:var(--pending)}
+  h2 { font-size:.78rem; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin:2rem 0 .6rem; }
+  table { width:100%; border-collapse:collapse; font-size:.88rem; } .scroll { overflow-x:auto; }
+  th { text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); border-bottom:1px solid var(--line); padding:.5rem .6rem; }
+  td { border-bottom:1px solid var(--line); padding:.6rem; vertical-align:top; } .num { text-align:right; }
+  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.84em; }
+  .pill { display:inline-block; padding:.12rem .5rem; border-radius:3px; font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#fff; white-space:nowrap; }
+  .p-fault{background:var(--fault)} .p-pending{background:var(--pending)} .p-missing{background:var(--fault)}
+  .p-extracted{background:var(--ok)} .p-superseded{background:var(--accent)} .p-sensitive{background:var(--accent)} .p-waived{background:var(--waived)}
+  ul { margin:0; padding-left:1.2rem; } .none { color:var(--muted); list-style:none; margin-left:-1.2rem; }
+  footer { margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.8rem; max-width:46rem; }
+</style>
+<main>
+  <p class="eyebrow">Stage 1 · extraction</p>
+  <h1>Which source files were actually consumed, and by what</h1>
+  <p class="sub">One row per file in the Stage 0 inventory. A row is consumed when an artifact exists,
+     is non-empty and <em>names</em> the file — a claim that another document "already used it" is
+     checked, not believed. Files with embedded diagrams are not consumed by their text alone.</p>
+  <div class="verdict"><div class="status PASS">PASS</div><div>2 inventoried — 2 extracted (2 name-verified) · 0 waived · 0 sensitive · 0 superseded · 0 pending · 0 fault · 0 missing · 0 on disk and NOT inventoried</div>
+    <div style="color:var(--muted);font-size:.85rem;margin-top:.4rem">source root: <span class="mono">/tmp/abproj/sources</span> · register: <span class="mono">/tmp/abproj/PROJECT.md</span> · checked 2026-09-09</div></div>
+  <h2>Inventory rows</h2>
+  <div class="scroll"><table><thead><tr><th>File</th><th>Format</th><th>Images inside</th><th>Verdict</th><th>Disposition</th></tr></thead><tbody><tr class="v-extracted"><td class="mono">TOEIC-BUDDY-GUIDE.md</td><td>docs</td><td class="num"></td><td><span class="pill p-extracted">EXTRACTED</span></td><td>→ analysis/source-sufficiency.json (named on 5 lines) — agent · evidence: Technical guide: 15 lessons, 500+ vocabulary, quiz logic, performance specs</td></tr><tr class="v-extracted"><td class="mono">toeic-buddy.html</td><td>docs</td><td class="num"></td><td><span class="pill p-extracted">EXTRACTED</span></td><td>→ analysis/source-sufficiency.json (named on 13 lines) — agent · evidence: Application source: 5 UI sections, quiz scoring algorithm, progress tracking</td></tr></tbody></table></div>
+  <h2>On disk, not in the inventory</h2>
+  <ul><li class="none">none — the inventory matches the disk</li></ul>
+  <footer>Verdicts: <strong>EXTRACTED</strong> an artifact carries it · <strong>WAIVED</strong> a person said no, with a reason, in the register
+    · <strong>SENSITIVE</strong> logged, never read · <strong>SUPERSEDED</strong> a newer version is inventoried · <strong>PENDING</strong> nobody has said
+    · <strong>FAULT</strong> somebody said, and it does not hold up · <strong>MISSING</strong> inventoried, gone from disk.
+    This page decides nothing about extraction quality — that is the extractor-quality-loop's job. It only notices absence.</footer>
+</main>

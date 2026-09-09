@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stage 1 — extraction report — toeic</title>
+<style>
+  /* Shared shell tokens, copied from toolkit-guide.html — every stage surface uses these so
+     project artifacts read as one system. Once Stage 3 produces design/design-system.html,
+     THAT file's tokens supersede these for anything generated afterwards. */
+  :root {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --ink: #1e293b;
+    --ink-soft: #64748b;
+    --ink-faint: #94a3b8;
+    --line: #e2e8f0;
+    --accent: #0f4c81;
+    --pass-bg: #dcfce7;  --pass-ink: #166534;
+    --fail-bg: #fee2e2;  --fail-ink: #991b1b;
+    --warn-bg: #fef3c7;  --warn-ink: #92400e;
+    --radius: 10px;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--ink); line-height: 1.55;
+         padding: 40px 20px 80px; }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 28px; letter-spacing: -0.02em; }
+  h2 { font-size: 19px; margin: 48px 0 14px; letter-spacing: -0.01em; }
+  h3 { font-size: 17px; margin: 0 0 8px; }
+  h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-soft);
+        margin: 24px 0 8px; display: flex; align-items: center; gap: 8px; }
+  p { margin: 8px 0; }
+  .lede { color: var(--ink-soft); font-size: 15px; max-width: 680px; margin-top: 10px; }
+  code { font-family: var(--mono); font-size: 0.88em; background: #eef2f7;
+          border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+  .mono { font-family: var(--mono); font-size: 12.5px; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  table { border-collapse: collapse; width: 100%; background: var(--surface);
+           border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+           font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line);
+            vertical-align: top; }
+  th { background: var(--ink); color: #e2e8f0; font-weight: 600; font-size: 12px; }
+  tr:last-child td { border-bottom: none; }
+  .scroll { overflow-x: auto; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 12px; margin: 22px 0 8px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--line);
+                border-radius: var(--radius); padding: 14px; text-align: center; }
+  .stat-card .val { font-size: 24px; font-weight: 700; color: var(--accent); }
+  .stat-card .lbl { font-size: 12px; color: var(--ink-soft); }
+  .brd { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+          padding: 22px 24px; margin-bottom: 22px; }
+  .v { display: inline-block; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: .06em; padding: 1px 8px; border-radius: 999px; }
+  .v-pass { background: var(--pass-bg); color: var(--pass-ink); }
+  .v-fault { background: var(--fail-bg); color: var(--fail-ink); }
+  .v-skipped { background: #eef2f7; color: var(--ink-soft); }
+  .v-manual { background: var(--warn-bg); color: var(--warn-ink); }
+  .cnt { margin-left: auto; font-family: var(--mono); color: var(--ink-faint); }
+  .why { font-size: 13.5px; border-left: 3px solid var(--line); padding: 6px 12px;
+          color: var(--ink-soft); background: #fbfcfe; }
+  .why-fault { border-left-color: var(--fail-ink); color: var(--fail-ink); background: var(--fail-bg); }
+  .why-manual { border-left-color: var(--warn-ink); color: var(--warn-ink); background: var(--warn-bg); }
+  .prov { font-size: 13px; border: 1px solid var(--line); border-left: 4px solid var(--accent);
+           border-radius: 0 var(--radius) var(--radius) 0; padding: 8px 12px; margin-bottom: 12px; }
+  .prov span { display: block; color: var(--ink-soft); }
+  .prov .pk { display: inline; color: var(--ink-faint); }
+  .prov-unknown { border-left-color: var(--warn-ink); background: var(--warn-bg); }
+  .quality { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+              gap: 10px; margin-bottom: 6px; }
+  .qs { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+  .ql { display: block; font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em;
+         color: var(--ink-faint); }
+  .qv { display: inline-block; font-weight: 700; font-size: 14px; margin: 2px 0 4px; }
+  .r-unranked { color: var(--ink-faint); }
+  .qn { display: block; font-size: 12px; color: var(--ink-soft); }
+  .unread { background: var(--fail-bg); border: 1px solid var(--fail-ink);
+             border-radius: var(--radius); padding: 10px 14px; margin: 12px 0; font-size: 13px;
+             color: var(--fail-ink); }
+  .unread ul { margin: 6px 0 0 18px; }
+  .unread p { margin-top: 8px; }
+  .unknown { font-weight: 700; color: var(--fail-ink); }
+  .oq { margin-left: 20px; font-size: 13.5px; }
+  .note { font-size: 12.5px; color: var(--ink-faint); }
+  .src { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin-top: 16px; }
+  .footer { margin-top: 56px; font-size: 12px; color: var(--ink-faint);
+             border-top: 1px solid var(--line); padding-top: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Stage 1 — what the extraction actually produced</h1>
+  <p class="lede">Rendered 2026-09-09 from
+     <span class="mono">/tmp/abproj/analysis/toeic/knowledge-base</span> — whatever built it. Every section carries a
+     verdict, so a section that is empty because this kind of source has nothing to put there
+     reads differently from one that is empty because something broke. No zero on this page is
+     printed unless a second record agrees with it.</p>
+
+  <div class="prov prov-documents"><strong>Provenance: documents</strong> <span class="pk">(read from the artifacts on disk)</span><span>1 document artifact(s) under share/, no merger output</span></div>
+
+  <div class="stat-grid">
+    <div class="stat-card"><div class="val" style="color:var(--ink-faint)" title="this knowledge base was built from documents; no merger ran, so there is nothing here to measure.">n/a</div><div class="lbl">Extracted items</div></div>
+    <div class="stat-card"><div class="val" style="color:var(--ink-faint)" title="this knowledge base was built from documents; no merger ran, so there is nothing here to measure.">n/a</div><div class="lbl">Modules seen</div></div>
+    <div class="stat-card"><div class="val">1</div><div class="lbl">Document KB files</div></div>
+    <div class="stat-card"><div class="val">0</div><div class="lbl">BRDs (Stage 2)</div></div>
+    <div class="stat-card"><div class="val">1</div><div class="lbl">pass</div></div>
+    <div class="stat-card"><div class="val">1</div><div class="lbl">fault</div></div>
+    <div class="stat-card"><div class="val">0</div><div class="lbl">manual</div></div>
+    <div class="stat-card"><div class="val">18</div><div class="lbl">skipped</div></div>
+  </div>
+
+  
+
+  <h2>Measured dimensions</h2>
+  <p class="lede">Ratios, each with its denominator printed. Where the denominator is missing the
+     figure reads <em>not measured</em> — it is never rounded up to a full bar.</p>
+  <div class="quality"><div class="qs"><span class="ql">Merger files readable</span><span class="qv r-unranked">n/a</span><span class="qn">this knowledge base was built from documents; no merger ran, so there is nothing here to measure.</span></div><div class="qs"><span class="ql">Cross-reference coverage</span><span class="qv r-unranked">n/a</span><span class="qn">this knowledge base was built from documents; no merger ran, so there is nothing here to measure.</span></div><div class="qs"><span class="ql">Module attribution</span><span class="qv r-unranked">n/a</span><span class="qn">this knowledge base was built from documents; no merger ran, so there is nothing here to measure.</span></div><div class="qs"><span class="ql">Corroborated zeros</span><span class="qv r-unranked">n/a</span><span class="qn">this knowledge base was built from documents; no merger ran, so there is nothing here to measure.</span></div><div class="qs"><span class="ql">Documents extracted</span><span class="qv">1</span><span class="qn">No discovery-manifest.json, so there is no expected count to divide by — the number on the left is a count, not a coverage.</span></div><div class="qs"><span class="ql">Overall score</span><span class="qv r-unranked">not computed</span><span class="qn">Deliberately. The six scored dimensions and the &ge;95% threshold are <code>skills/extractor-quality-loop.md</code>&rsquo;s judgement; a composite invented here would be a number with no skill behind it.</span></div></div>
+
+  <h2>Extracted constructs</h2>
+  <h4>Domain entities <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Logic (microflow candidates) <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Screens <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Static entities <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Structures <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Reusable blocks <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Flows <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Workflows <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Screen data actions <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Service APIs <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>External entities <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Exception handlers <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Timers <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Roles <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p><h4>Documents read by the extractor <span class="v v-skipped">skipped</span><span class="cnt">?</span></h4><p class="why why-skipped">this knowledge base holds no extracted code — there is no merger output to read, and Stage 1 for a documents source is a document corpus, not a construct inventory.</p>
+
+  <h2>Document knowledge base</h2>
+  <h4>Document KB files <span class="v v-pass">pass</span><span class="cnt">1</span></h4><p class="why">1 KB_*.md under share/</p><ul class="oq"><li class="mono">KB_TOEIC_ApplicationRequirements.md</li></ul><h4>Canonical KB.md <span class="v v-fault">fault</span><span class="cnt">0</span></h4><p class="why why-fault">absent or empty, and a documents knowledge base is expected to carry it. The canonical merge across all KB_*.md. brd-validation.md consumes THIS file, not the individual ones. This is a finding.</p><h4>Discovery manifest <span class="v v-skipped">skipped</span><span class="cnt">0</span></h4><p class="why why-skipped">optional for a documents knowledge base — absence here is not a finding.</p><h4>Deferred files <span class="v v-skipped">skipped</span><span class="cnt">0</span></h4><p class="why why-skipped">optional for a documents knowledge base — absence here is not a finding.</p><h4>Extraction log <span class="v v-skipped">skipped</span><span class="cnt">0</span></h4><p class="why why-skipped">optional for a documents knowledge base — absence here is not a finding.</p>
+
+  <h2>Items by module</h2>
+  <p class="lede">Where Stage 3 will have to place things. <code>(unattributed)</code> is the
+     bucket that has to be resolved by hand before <code>modularize-domain.md</code> can run.</p>
+  <p class="why why-skipped">No extracted items carry a module, because this knowledge base has no extracted items. Not a zero — a different shape of input.</p>
+
+  <div class="footer">
+    Verdicts follow <code>skills/report-schema.md</code>:
+    <strong>pass</strong> present and read, or a zero two records agree on &middot;
+    <strong>fault</strong> expected here and absent, unreadable, or contradicted &middot;
+    <strong>skipped</strong> not applicable to this provenance, reason given &middot;
+    <strong>manual</strong> nothing on disk can settle it.
+    <code>fail</code> is not expressible here on purpose — this surface reports what the
+    knowledge base contains, never whether the content is correct. That judgement is
+    <code>skills/extractor-quality-loop.md</code>'s, and the Stage 1 gate is
+    <code>bin/gate-check.sh</code>'s.
+    <br>Generated by <code>bin/extraction-report.sh</code> — one renderer for every entry mode.
+    Knowledge bases are located by <code>bin/lib/discover-brds.sh</code>, which reads every one
+    of them, not the first.
+  </div>
+</div>
+</body>
+</html>

@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-114` (discovered 2026-09-01, re-confirmed independently 2026-09-02, dashboard-publishing migration project, Mendix 11.12.1, mxcli v0.20.0) and `## BUG-118` (discovered 2026-08-25, a language-learning app conversion, Mendix 11.13.0, mxcli `39c7d94`) — root cause located in the mxcli source at the 2026-09-07 merge review (`mdl/backend/pagemutator/mutator.go`, HEAD `191a0c9`). One issue for both: same walker, two symptoms.
-**Status:** DRAFT — not yet filed. File this one; `bug118-replace-in-gallery-template-drops-binding.md` is folded in below as reproduction 2 and must NOT be filed separately.
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1076 (2026-09-09). `bug118-replace-in-gallery-template-drops-binding.md` is folded in below as reproduction 2; do not file it separately.
 **Suggested labels:** bug, mdl, pages, alter-page, silent-corruption
 
 ---

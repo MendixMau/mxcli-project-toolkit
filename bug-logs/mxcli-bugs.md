@@ -4076,7 +4076,7 @@ trusting either comparison's row count on its own.
 ## BUG-114: `ALTER PAGE ... REPLACE widget WITH {...}` re-scopes an inherited `ContentParams` reference to the page's OUTER data context — reproduced twice, independently, same project
 
 **Severity:** High — silent CE1613 build failure, and the app is DOWN until reverted
-**Upstream draft:** `bug-logs/pending-github-issues/bug114-alter-page-replace-rescopes-to-outer-context.md` (2026-09-09; carries BUG-118 as reproduction 2 — file once, not twice)
+**Upstream:** FILED — https://github.com/mendixlabs/mxcli/issues/1076 (2026-09-09), from `bug-logs/pending-github-issues/bug114-alter-page-replace-rescopes-to-outer-context.md`; carries BUG-118 as reproduction 2
 **Discovered:** 2026-09-01, re-confirmed independently 2026-09-02, both on the same
 dashboard-publishing migration project
 **Reproducible:** Yes, twice, on two different widgets on two different pages

@@ -2,9 +2,23 @@
 # check-design-portability.sh — fail the design-system gate when a stylesheet rule cannot
 # match the HTML Mendix actually emits.
 #
-# WHY THIS EXISTS. A design system's *tokens* port into Mendix perfectly — colours, radii and
-# spacing variables survive the SCSS port intact. Its *rules* may not, because they were
-# authored against a DOM the app does not have. Measured on a field run (2026-08-26): 10 of a
+# WHY THIS EXISTS. A design system's *rules* may not survive the SCSS port, because they were
+# authored against a DOM the app does not have.
+#
+# CORRECTION, 2026-09-09. This header used to open: "A design system's *tokens* port into
+# Mendix perfectly — colours, radii and spacing variables survive the SCSS port intact." That
+# is FALSE, it was the sentence that made everyone comfortable, and it cost two build phases on
+# a real project. Tokens survive the port into a FILE. Nothing about landing in the file makes
+# the framework READ them: on that run 55 correctly ported tokens sat in the right file while
+# every screen rendered in Atlas's default blue, because the bridge assigned SCSS variables to
+# a theme running $use-css-variables: true and compiled to nothing. Separately, the 20
+# component classes were never ported at all — 0 of them existed in the built stylesheet.
+# This script could not have seen either: it lints the AUTHORED stylesheet, and both defects
+# live between the authored stylesheet and the built one.
+#
+# That gap is now project-bin/check-design-reaches-app.sh, which reads the BUILT stylesheet and
+# reports how many framework knobs point at a design token, with a denominator. Run BOTH: this
+# one asks whether the rules can match, that one asks whether any of it arrived. Measured on a field run (2026-08-26): 10 of a
 # 70-line ds.css styled through child HTML tags Mendix never emits, and every rem in the file
 # rendered at 62.5% of intent. Nothing warned. `mx check` returned 0 errors, `mxcli check` and
 # `mxcli lint` were green, the app built, and the pages rendered — small, and grey.

@@ -71,3 +71,32 @@ skeleton	mdl	project	path	docs/skeleton-proof.md	yes	no	5	skills/walking-skeleto
 # That is deliberately NOT an optin row: an artifact a project must think of in order to owe is
 # an artifact nobody owes, which is the disease this whole table was built for.
 workflow-count	architect	project	path	architecture/workflow-count.md	yes	yes	3	skills/workflow-structure-rules.md
+
+# design-reaches-app is the SECOND obligation below stage 5, and it is here because the design
+# stages owe a mark for something no other pass can see: whether the design system arrived in
+# the built app at all.
+#
+# Measured 2026-09-09, on the same requirements-driven app replacement. 55 design tokens,
+# sampled from the customer's own screenshots, were ported into the project's theme module
+# correctly and at the stage that owed them. The app then rendered every screen in the
+# framework's default blue for two more phases of build, because:
+#   - the bridge assigned SCSS variables while the theme ran $use-css-variables: true, so it
+#     compiled to nothing at all (--brand present, --brand-primary untouched, 0 references);
+#   - the 20 component classes were never ported, so `ds-muted` on 12 live widgets resolved to
+#     the body colour;
+#   - the theme module's :root is emitted BEFORE the framework's customization file, so even
+#     what it did set lost the cascade.
+# `mx check` 0 errors. `mxcli lint` 0 errors. MDL suite green. Both e2e journeys green.
+# check-design-portability.sh had nothing to say, and its header opens by asserting the premise
+# that failed: "tokens port into Mendix perfectly". Found by a human opening a screenshot.
+#
+# WHY A MARK AND NOT ONLY A SCRIPT: the script existed in one form already, and the reason this
+# escaped is not that the check was hard, it is that nobody was owed an answer. Every gate this
+# ran through was green-by-absence. The artifact is a verdict with a denominator — "N of M
+# framework knobs bound, N of M classes arrived" — and a project with no build yet discharges
+# it by SAYING SO ("no build yet, binding UNPROVEN, proven at the first build"), which is why
+# this row is degradable. Silence is not.
+#
+# It is owed by mdl rather than review deliberately: the agent that performed the port is the
+# one that must show it landed. A producer for every consumer, in the same hands.
+design-reaches-app	mdl	project	path	docs/design-reaches-app.md	yes	yes	3	project-bin/check-design-reaches-app.sh

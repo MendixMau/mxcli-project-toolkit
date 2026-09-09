@@ -4190,3 +4190,62 @@ Any script that might be re-applied after a failed restore must therefore be wri
 `REPLACE`-shaped for widgets it may or may not have already created — and `REPLACE` cannot
 re-declare a container's children (see the note in BUG-113's family), so each leftover widget
 needs its own `replace` clause.
+
+## BUG-121: `mxcli check --references` catches `= empty` on an association (MDL047) but not `!= empty` on the same association — mxbuild's CE0161 is the only thing that catches the negated form
+
+**Severity:** Medium — the exact class of mistake MDL047 exists to catch reaches mxbuild anyway, once the developer writes `!=` instead of `=`
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-09, writing a scheduled-import poller for a sales-coaching build
+**Reproducible:** yes — `retrieve $X from Mod.Entity where Mod.Assoc/Mod.Target != empty;`
+
+The `xpath-constraints` skill in this toolkit already documents the underlying Mendix rule
+correctly: `= empty` tests attribute nullability only, and testing whether an object has an
+associated object needs existence syntax instead — `[not(Mod.Assoc/Mod.Target)]` for "has none",
+bare `[Mod.Assoc/Mod.Target]` for "has one". The skill also states `mxcli check` flags the
+`= empty` form as **MDL047** before the build does. True, but only for `=`. The `!=` spelling of
+the identical mistake —
+
+```
+retrieve $Candidates from ExcelImporter.TemplateDocument
+  where HasContents = true
+    and ExcelImporter.TemplateDocument_Template != empty;
+```
+
+— passed `mxcli check --references` clean (no warning, no MDL047) and reached mxbuild as
+**CE0161 "Error(s) in XPath constraint"**, on a retrieve statement whose only purpose was to
+find documents that had a template chosen. Since `!=` reads as the more natural spelling for
+"has a template" than `= empty`'s negation, this is arguably the MORE likely form a developer
+reaches for first, not an edge case of the `=` rule.
+
+**Workaround:** write the existence test directly — `Mod.Assoc/Mod.Target` (has one) or
+`not(Mod.Assoc/Mod.Target)` (has none) — never `= empty` / `!= empty` on an association in
+either direction.
+**Fix:** MDL047 should fire on `!= empty` the same way it fires on `= empty`; both are the same
+attribute-nullability-does-not-apply-to-associations mistake.
+
+## BUG-122: `mxcli check --references`'s expression type-checker accepts `string(...)` as a cast function; mxbuild rejects it as CE0117 — the real function is `toString(...)`
+
+**Severity:** Low-Medium — a plausible, common-sense function name passes the fast local check and only fails at the slow mxbuild gate
+**mxcli version:** v0.19.0-nightly.c836f01 (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-09, same session as BUG-121
+
+```
+log info node 'DealPortfolio' '{1}' with ({1} = 'poll: ' + string($Queued) + ' found');
+```
+
+`mxcli check --references` reported `✓ Expression types OK` for this line. mxbuild reported
+**CE0117 "Error(s) in expression"** on the log activity. The correct function, confirmed against
+several already-applied, working microflows in this exact project (e.g.
+`05-excel-template-seed.mdl`: `'...column ' + toString($ColNumber) + ' on the template...'`), is
+`toString(...)`, not `string(...)`. Mendix's expression language has no function named `string`;
+`mxcli check`'s type checker apparently does not validate that a called function actually
+exists, only that the surrounding expression is well-typed given some assumed signature for it.
+
+**Workaround:** grep this project's own already-applied microflows for a working example of the
+function you are about to use, rather than trusting `mxcli check` to catch an invalid name.
+`toString`, not `string`, is the numeric-to-string cast.
+**Fix:** `mxcli check`'s expression checker should reject calls to functions that are not in
+Mendix's actual expression-function set, the same way it already catches other classes of
+expression error.

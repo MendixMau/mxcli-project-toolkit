@@ -24,6 +24,27 @@ set -euo pipefail
 
 MODEL_DIR="$(find_model_dir)" || exit 1
 
+# A producer guarantees its own output is ignored. This writes a FULL copy of the .mpr and
+# every mprcontents unit, five deep — so a project that does not gitignore it commits the
+# client's whole model several times over, and then reports thousands of phantom deletions
+# the next time the rotation below prunes one.
+#
+# Measured on a MOC/PSSR app replacement, 2026-09-09: 2,089 snapshot files tracked, and
+# `mxcli exec` then REFUSED to run, because exec.sh read the pruned snapshot as uncommitted
+# model changes — this script's output blocking this script's own guard. It is written here
+# rather than in init-project.sh on purpose: here it also reaches every project that already
+# exists, on its next exec, instead of only the ones scaffolded after today.
+if [ -d "$PROJECT_ROOT/.git" ] || [ -f "$PROJECT_ROOT/.git" ]; then
+  GI="$PROJECT_ROOT/.gitignore"
+  if ! { [ -f "$GI" ] && grep -qE '^/?\.mpr-snapshots/?$' "$GI"; }; then
+    if [ -f "$GI" ] && [ -s "$GI" ] && [ -n "$(tail -c 1 "$GI")" ]; then printf '\n' >> "$GI"; fi
+    printf '# Pre-exec model snapshots (project-bin/snapshot-mpr.sh). A full .mpr + mprcontents\n' >> "$GI"
+    printf '# copy per exec, five kept. Never committed: it is the client model, several times over.\n' >> "$GI"
+    printf '/.mpr-snapshots/\n' >> "$GI"
+    printf 'snapshot-mpr: added /.mpr-snapshots/ to .gitignore (it was not ignored).\n' >&2
+  fi
+fi
+
 mkdir -p "$PROJECT_ROOT/.mpr-snapshots"
 DEST="$PROJECT_ROOT/.mpr-snapshots/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$DEST"

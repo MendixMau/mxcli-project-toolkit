@@ -203,6 +203,22 @@ const prop = (node, key) => {
 const unquote = (v) => (v == null ? null : String(v).replace(/^['"]|['"]$/g, ''));
 const classesOf = (node) => String(unquote(prop(node, 'Class')) || '').split(/\s+/).filter(Boolean);
 
+// A popup/modal page is not a full page, and two of the rules below are written for
+// full pages only. A popup's heading IS its `Title:`, rendered by the layout in the
+// modal's own title bar -- adding an H1 inside the body duplicates it on screen and in
+// the accessibility tree. A popup is also already visually separated from the page
+// behind it, so the card wrapper that keeps blocks apart on a full page has nothing to
+// separate.
+//
+// MEASURED on this project (2026-09-11): ManagerCoaching.ManagerRequest_New and
+// DealQualification.ClarificationQuestion_Answer are both
+// `Layout: Atlas_Core.PopupLayout, PopupWidth: 560`, both correctly built, and both
+// were reported twice over -- "0 H1 heading widget(s)" and "no card class". Four
+// findings, none of them a defect, on two of the eleven pages in scope. A rule that
+// cannot be satisfied without making the page worse trains the reader to skip it.
+const isPopupPage = (ctx) => /Layout:\s*[A-Za-z0-9_.]*(Popup|Modal)/i.test(String(ctx.mdl || ''))
+  || /\bPopupWidth\s*:/i.test(String(ctx.mdl || ''));
+
 // ── widget vocabularies (lowercased MDL keywords, as used in mdlsource/) ─────
 const INPUT_WIDGETS = ['textbox', 'textarea', 'checkbox', 'radiobuttons', 'datepicker',
   'combobox', 'referenceselector', 'inputreferencesetselector', 'dropdown'];
@@ -530,6 +546,7 @@ const RULES = [
     cite: 'module-review.md §4b (one h1 per page); .ai-context/skills/create-page.md RenderMode',
     exemplar: "mdlsource/project-a/done-03-page-routelist.mdl — dynamictext pageHeading (RenderMode: H1, Class: 'page-head')",
     evaluate(ctx) {
+      if (isPopupPage(ctx)) return { ok: true, findings: [], detail: 'popup/modal page \u2014 the heading is the layout\u0027s title bar', notApplicable: true };
       const h1s = ctx.mdlNodes.filter((n) => /^H1$/i.test(String(unquote(prop(n, 'RenderMode')) || '')));
       return {
         ok: h1s.length === 1,
@@ -581,6 +598,7 @@ const RULES = [
     cite: 'ui-preflight-pages.md Step 4 "Block separation"; oneshot-page-structure-patterns.md §6',
     exemplar: `${EX.listPage} — dataview dataView1 (Class: 'card spacing-outer-bottom-medium')`,
     evaluate(ctx) {
+      if (isPopupPage(ctx)) return { ok: true, findings: [], detail: 'popup/modal page \u2014 the modal frame already separates it', notApplicable: true };
       const dataish = ctx.mdlNodes.some((n) => LIST_WIDGETS.includes(n.type) || n.type === 'dataview');
       if (!dataish) return { ok: true, findings: [], detail: 'page has no data block to separate', notApplicable: true };
       // Accept the design-system `card`, its parts (`card-body`), and Atlas's own

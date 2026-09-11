@@ -65,8 +65,22 @@ CAT_MTIME="$(q "SELECT value FROM catalog_meta WHERE key='mpr_mod_time';" | cut 
 # still matters most: if NEITHER works, MPR_MTIME is empty and the freshness guard below
 # reports "catalog is stale" against a blank mtime — a real fault reported as the wrong
 # fault. Fail on the read instead of comparing against nothing.
-MPR_MTIME="$(stat -c "%y" "$MPR" 2>/dev/null | cut -c1-19 | tr ' ' 'T')"
-[ -n "$MPR_MTIME" ] || MPR_MTIME="$(stat -f "%Sm" -t "%Y-%m-%dT%H:%M:%S" "$MPR" 2>/dev/null)"
+# Two things this must get right, both found in the field on 2026-09-11 (Linux, a project
+# whose root .mpr is a SYMLINK into app/):
+#   1. Probe order is not enough. GNU `stat -f` is --file-system: it PRINTS filesystem stats
+#      to stdout and THEN exits 1, so a `bsd || gnu` chain captures both outputs concatenated
+#      and the guard compares the catalog against "DealIQ.mpr 0 255 ef53 ... 2026-09-09T16:50:23".
+#      Each branch is therefore shape-checked, and only a real ISO timestamp is accepted.
+#   2. Dereference the link. `stat -c %y` on a symlink reports the LINK's mtime, which never
+#      changes, so every sweep on a two-tree checkout reported "catalog is stale" forever.
+_mtime_iso() {
+  _v="$(stat -Lc "%y" "$1" 2>/dev/null | cut -c1-19 | tr ' ' 'T')"
+  case "$_v" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*) printf '%s' "$_v"; return 0 ;; esac
+  _v="$(stat -Lf "%Sm" -t "%Y-%m-%dT%H:%M:%S" "$1" 2>/dev/null)"
+  case "$_v" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T*) printf '%s' "$_v"; return 0 ;; esac
+  return 1
+}
+MPR_MTIME="$(_mtime_iso "$MPR")"
 [ -n "$MPR_MTIME" ] || {
   echo "FAULT: cannot read the modification time of $MPR." >&2
   echo "       Neither 'stat -f' (BSD/macOS) nor 'stat -c' (GNU/Linux/Git Bash) worked here." >&2

@@ -548,10 +548,26 @@ const RULES = [
     evaluate(ctx) {
       if (isPopupPage(ctx)) return { ok: true, findings: [], detail: 'popup/modal page \u2014 the heading is the layout\u0027s title bar', notApplicable: true };
       const h1s = ctx.mdlNodes.filter((n) => /^H1$/i.test(String(unquote(prop(n, 'RenderMode')) || '')));
+      // Count what the READER sees, not what the MDL declares. A page that swaps its
+      // hero between mutually exclusive branches declares one H1 per branch and renders
+      // exactly one. MEASURED on a sales-qualification build: DealPortfolio.Deal_Overview
+      // carries lblHeroActive and lblHeroClarify, each inside its own `Visible:`-guarded
+      // container, and was reported "2 H1 heading widget(s)" -- a defect that does not
+      // exist on screen, and whose only "fix" would be to delete one branch's heading.
+      // So every H1 under a Visible-guarded ancestor collapses into ONE conditional
+      // heading slot; unconditional H1s still each count, which is what catches the real
+      // case (AdminHome's two big metric numbers marked up as page headings).
+      const conditional = (n) => ancestors(n).concat([n]).some((a) => prop(a, 'Visible') != null);
+      const unconditional = h1s.filter((n) => !conditional(n));
+      const guarded = h1s.filter(conditional);
+      const effective = unconditional.length + (guarded.length ? 1 : 0);
+      const detail = guarded.length
+        ? `${effective} effective H1 (${unconditional.length} always-visible + ${guarded.length} in Visible-guarded branches, counted as one slot)`
+        : `${h1s.length} H1 heading widget(s)`;
       return {
-        ok: h1s.length === 1,
-        findings: h1s.length === 1 ? [] : [finding({ where: ctx.qn, what: h1s.length === 0 ? 'no widget declares RenderMode: H1' : `${h1s.length} H1 widgets: ${h1s.map((n) => n.name).join(', ')}` })],
-        detail: `${h1s.length} H1 heading widget(s)`,
+        ok: effective === 1,
+        findings: effective === 1 ? [] : [finding({ where: ctx.qn, what: effective === 0 ? 'no widget declares RenderMode: H1' : `${effective} effective H1 widgets: ${unconditional.map((n) => n.name).concat(guarded.length ? [`(branch group: ${guarded.map((n) => n.name).join('/')})`] : []).join(', ')}` })],
+        detail,
       };
     },
     remediate: (f, ctx) => `In ${ctx.qn}'s mdlsource/ script give the page one and only one heading widget: `

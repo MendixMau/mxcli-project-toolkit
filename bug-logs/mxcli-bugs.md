@@ -4409,3 +4409,142 @@ set explicitly on create/change — the pattern every other entity in this proje
 `System.changedDate` as unsupported (with a clear message) or actually support them —
 mxbuild's crash means whatever `mxcli` is emitting for this attribute reference does not
 resolve to a valid `AttributeIdentifier`.
+
+---
+
+## BUG-127: `GRANT` on an entity that already has a rule for that role ADDS a second, unconstrained rule instead of merging — the new rule carries no `WHERE`, so row-level security silently disappears
+
+**Severity:** Critical — the failure mode is a silent, total loss of row-level security on the granted attributes, and nothing in `mxcli check` or mxbuild reports it
+**mxcli version:** v0.19.0-nightly.c836f01+jdk25patch+distpatch (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-11, a sales-qualification greenfield project, while adding two derived count attributes to an entity that was already organisation- and owner-scoped
+**Reproducible:** yes, 1/1 on a disposable copy of the model; caught before it reached the real one
+
+An entity had exactly one rule for its `SalesRep` module role, scoped by XPath to the current
+user's organisation *and* ownership:
+
+```
+grant Portfolio.SalesRep on Portfolio.Deal (read (Name, Amount, ...), write (Archived, ...))
+  where '[Portfolio.Deal_Organisation/Identity.Organisation/Identity.Account_Organisation = ''[%CurrentUser%]''][Portfolio.Deal_Owner = ''[%CurrentUser%]'']';
+```
+
+Adding read access to two new attributes the obvious way —
+
+```
+GRANT Portfolio.SalesRep ON Portfolio.Deal (READ (PillarsGreen, PillarsExpected));
+```
+
+— leaves the original rule untouched and **appends a second rule**:
+
+```
+grant Portfolio.SalesRep on Portfolio.Deal (read (PillarsGreen, PillarsExpected));
+```
+
+with no `where` clause at all. Mendix evaluates access rules as a union, so every `SalesRep`
+in the database can now read those two attributes on **every** row of the entity, across
+every organisation. The model builds clean; `mx check` reports 0 errors. Nothing says the
+scope was dropped.
+
+The syntax reference (`mxcli syntax security entity-access`) documents only
+`GRANT ... (rights) [WHERE ...]` and `REVOKE ... [(rights)]`. There is no "add these members
+to the existing rule" form, and the `GRANT` form reads exactly like one.
+
+**Workaround:** never extend an existing rule with a bare `GRANT`. `REVOKE` the role on the
+entity first, then re-state the complete rule — every original right, plus the new members,
+plus the original XPath verbatim:
+
+```
+REVOKE Portfolio.SalesRep ON Portfolio.Deal;
+GRANT Portfolio.SalesRep ON Portfolio.Deal (READ (Name, Amount, ..., PillarsGreen, PillarsExpected), WRITE (Archived, ...))
+  WHERE '<the original XPath, character for character>';
+```
+
+Then verify: `DESCRIBE ENTITY` must show exactly one rule for the role, carrying both the
+`where` and the new members. Copy the original rule out of `DESCRIBE ENTITY` before revoking
+it — it is the only record of the XPath, and `REVOKE` destroys it.
+
+**Fix:** `GRANT` on a (role, entity) pair that already has a rule should merge into it, or
+refuse and name the existing rule. Appending an unscoped twin of a scoped rule is the one
+outcome a caller can never want.
+
+---
+
+## BUG-128: `ALTER PAGE` binds a bare attribute reference to the nearest `DATAVIEW` and skips an intervening `LISTVIEW` whose datasource is a microflow **with arguments** — CE1613 on the wrong entity
+
+**Severity:** High — the widget is written against an entity that has no such attribute, and only mxbuild catches it
+**mxcli version:** v0.19.0-nightly.c836f01+jdk25patch+distpatch (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-11, a sales-qualification greenfield project, replacing a metric widget inside a deal-list row
+**Reproducible:** yes, 3/3 — via `REPLACE`, via `INSERT INTO`, and again after a full catalog refresh
+
+The page's shape:
+
+```
+dataview dvHero (DataSource: $Filter)            -- $Filter: Portfolio.DealFilter_Dto
+  listview lvDeals (DataSource: microflow Portfolio.GET_Deal_Overview(Filter: $currentObject))
+    -- Context: $currentObject (Portfolio.Deal)
+    container pnlMetric { ... }
+```
+
+Widgets already inside that listview, authored by the original `CREATE PAGE`, bind correctly
+to `Portfolio.Deal` (`ContentParams: [{1} = Name]`, `[{1} = StatusLine]`, `[{1} = Risk]`).
+But any widget added later through `ALTER PAGE` binds its bare `ContentParams` members to
+`DealFilter_Dto` — the outer dataview's entity — and mxbuild reports:
+
+```
+[error] [CE1613] "The selected attribute 'Portfolio.DealFilter_Dto.PillarsGreen' no longer exists." at Text 'lblPillarsValue'
+```
+
+Notably the sibling `Visible: [$currentObject/PillarsExpected > 0]` expressions on the same
+inserted containers resolve fine — it is the bare `ContentParams` attribute reference alone
+that mis-binds.
+
+Three things ruled out: it is not a stale catalog (`REFRESH CATALOG FULL` then re-insert,
+identical error); it is not `REPLACE` specifically (`DROP WIDGET` + `INSERT INTO` the surviving
+parent fails the same way); and it is not listviews generally — the same edit on a listview
+whose datasource is a microflow taking **no** arguments (`DataSource: microflow Module.GetQueue`)
+binds to the right entity. The argument list is what the resolver appears to choke on.
+
+There is no qualified escape hatch: `ContentParams: [{1} = $currentObject.Attr]` is a parse
+error, and `SET ContentParams = ...` is not in the `ALTER PAGE` grammar.
+
+**Workaround:** edit that page as a whole-page replay instead of in place — `DESCRIBE PAGE`,
+patch the text, re-run it as `create or modify page`. Context resolution during a full page
+create is correct. Budget for BUG-129 when you do.
+
+**Fix:** `ALTER PAGE`'s context resolution should walk to the nearest enclosing *data* widget
+of any kind and resolve a microflow datasource's return entity regardless of its parameters —
+the same resolution `CREATE PAGE` already performs correctly.
+
+---
+
+## BUG-129: `DESCRIBE PAGE` emits duplicate structural widget names that `mxcli check` then rejects as CE0495 — describe→exec does not round-trip
+
+**Severity:** Medium — the documented recovery from BUG-128 is blocked by the pre-flight check, and the only listed override is `SKIP_CHECK`
+**mxcli version:** v0.19.0-nightly.c836f01+jdk25patch+distpatch (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-11, a sales-qualification greenfield project
+**Reproducible:** yes, 1/1
+
+A page carrying four `layoutgrid`s, each with its own `row row1 { column col1 ... }`, describes
+verbatim — `row1` four times, `col1` four times. Feeding that output straight back in fails
+the reference check before anything is written:
+
+```
+statement 1: page 'Portfolio.Deal_Overview' has context errors:
+- duplicate widget name 'row1' (used 4 times) — Mendix requires unique widget names per page (CE0495)
+```
+
+Whichever side is right, the two disagree: mxbuild's own `mx check` reports **0 errors** on the
+model that contains those duplicates, so the check is stricter than the platform it is gating.
+And because `DESCRIBE PAGE` is the only way to get a page's definition back out, the round trip
+that every non-trivial page edit depends on is broken by default.
+
+**Workaround:** rename the duplicates in the dumped text before replaying — suffix the second
+and later occurrence of each structural name (`row1_2`, `col2_3`). Structural container names
+are not addressed from microflows or CSS, so the rename is safe; check the project's e2e
+selectors first if any address widgets by name.
+
+**Fix:** either `DESCRIBE PAGE` should emit unique names, or the check should scope the
+uniqueness rule the way Mendix evidently does. A pre-flight check that rejects the tool's own
+output is the more serious half of this.

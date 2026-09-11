@@ -77,6 +77,25 @@ MPR="$(find_mpr)" || exit 2
 #   3. $MXTK_ROOT/bin and $MXTK_ROOT/project-bin — the shared toolkit
 # Echoes the first hit; echoes <project>/bin/NAME when there is none, so the
 # caller's own "not found" message names the place a reader would look first.
+# Step 3 needs $MXTK_ROOT, and nothing exports it — so the toolkit half of the
+# lookup is dead on every run where the caller did not set it by hand. That
+# includes the installed-toolkit case this function exists to serve: run the
+# toolkit's own copy and $BIN is project-bin/, while coverage-check.sh lives in
+# the sibling bin/ — reported "not reachable" with the clone underfoot (measured
+# on a project 2026-09-11). Resolve it the way close-task.sh already does, and
+# never by hardcoding a clone path: that is how a routing row ends up valid on
+# exactly one laptop.
+#   a. the "Toolkit root" row of the project's CLAUDE.local.md Wiring block
+#   b. the directory this script was installed from, if it still looks like a clone
+if [ -z "${MXTK_ROOT:-}" ] && [ -f "$ROOT/CLAUDE.local.md" ]; then
+  MXTK_ROOT=$(sed -n 's/^|[[:space:]]*Toolkit root[[:space:]]*|[[:space:]]*`\([^`]*\)`.*/\1/p' \
+              "$ROOT/CLAUDE.local.md" | head -1)
+fi
+if [ -z "${MXTK_ROOT:-}" ]; then
+  _self=$(cd "$BIN/.." 2>/dev/null && pwd)
+  [ -d "${_self:-/nonexistent}/skills" ] && MXTK_ROOT="$_self"
+fi
+
 _tool() {
   local n="$1" d
   for d in "$ROOT/bin" "$BIN" "${MXTK_ROOT:-}/bin" "${MXTK_ROOT:-}/project-bin"; do

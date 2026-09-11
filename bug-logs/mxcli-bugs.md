@@ -4594,3 +4594,49 @@ replacement inherits nothing, so copy every property out of `DESCRIBE PAGE` firs
 lookup `exec` performs, and fail the pre-flight instead of the write. Failing that, make
 `ALTER PAGE` apply atomically per statement so a mid-script failure cannot leave a page in a
 state neither the script nor the model describes.
+
+## BUG-131: mxcli's own `SHOW MESSAGE` examples do not parse — the statement is `show message <expr> type <level>`, and every documented sample has it backwards
+
+**Severity:** Low — pure documentation, but it costs a full discovery cycle because the only two authorities on the syntax both say the wrong thing
+**mxcli version:** v0.19.0-nightly.c836f01+jdk25patch+distpatch (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-11, a sales-qualification greenfield project
+**Reproducible:** yes
+
+Every `SHOW MESSAGE` example carried in the binary puts the level before the message:
+
+```
+SHOW MESSAGE SUCCESS 'Order submitted successfully.';
+SHOW MESSAGE ERROR 'Incorrect username or password.';
+SHOW MESSAGE WARNING 'You are offline. Changes will sync when reconnected.';
+```
+
+None of the three parses:
+
+```
+line 3:23 extraneous input ''Order submitted successfully.'' expecting ';'
+```
+
+The parser accepts a bare `show message 'text';` and then stops, which is why the error points
+at the string rather than at the level keyword — the level is being read as the message and the
+message as junk. Lowercase, uppercase and parenthesised forms all fail the same way.
+
+The working form is the one the serializer emits, visible as the format string `show message %s
+type %s` in the binary:
+
+```
+show message 'Shared with your manager.' type information;
+show message $Result type warning;
+```
+
+`mxcli syntax microflow` has no `show-message` topic at all, so the bundled examples are the
+only documentation of this statement, and they are the thing that is wrong. Note also that the
+parser accepts any identifier after `type` — `success`, `info`, `blocking` and `information` all
+pass `check` — so a wrong level is not caught until mxbuild.
+
+**Workaround:** write `show message <expression> type <level>;` and use Mendix's own level
+names (`information`, `warning`, `error`).
+
+**Fix:** correct the three bundled examples, and add a `microflow.show-message` topic to `mxcli
+syntax` so the statement has a first-class source. Constraining the `type` argument to the real
+enum would turn a silent mxbuild failure into a pre-flight one.

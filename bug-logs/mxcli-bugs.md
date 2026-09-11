@@ -4548,3 +4548,49 @@ selectors first if any address widgets by name.
 **Fix:** either `DESCRIBE PAGE` should emit unique names, or the check should scope the
 uniqueness rule the way Mendix evidently does. A pre-flight check that rejects the tool's own
 output is the more serious half of this.
+
+## BUG-130: `ALTER PAGE … SET <property> ON <widget>` passes `mxcli check` and then fails at exec for any property the widget does not expose — the check never asks whether SET can reach it
+
+**Severity:** Medium — the failure lands mid-script, after earlier statements have already been written, and `mxcli exec` is not transactional across statements
+**mxcli version:** v0.19.0-nightly.c836f01+jdk25patch+distpatch (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-11, a sales-qualification greenfield project
+**Reproducible:** yes, 2/2
+
+Demoting two `dynamictext` widgets from `RenderMode: H1` to plain text:
+
+```
+ALTER PAGE IdentityAccess.AdminHome {
+  SET RenderMode = Text ON lblAIMetric;
+  SET Class = 'metric' ON lblAIMetric;
+  ...
+};
+```
+
+`mxcli check` reports **Syntax OK · All references valid · Expression types OK · Check passed!**
+Then `mxcli exec` on the same file, same model, seconds later:
+
+```
+Error: failed to set: failed to set RenderMode on lblAIMetric: property "RenderMode" not found (widget has no pluggable Object)
+```
+
+`RenderMode` is a real property of `dynamictext` — `DESCRIBE PAGE` emits it on that very widget
+— so this is not a typo the check could reasonably be expected to know about. The check
+validates that the page and the widget exist and that expressions type; it never asks the
+question SET will ask, which is whether the property is reachable on that widget's backing
+object.
+
+The cost is not the failed statement. It is that the script had four more statements after it,
+and `mxcli exec` writes as it goes: a longer `ALTER PAGE` would have left the page half-edited
+with a clean pre-flight behind it. Here the failing statement happened to be first, so nothing
+landed and mxbuild reported 0 errors.
+
+**Workaround:** do not use `SET` for a property you have not seen another `SET` carry. `REPLACE
+<widget> WITH { … }` re-states the whole widget and applies cleanly for the same change — the
+replacement inherits nothing, so copy every property out of `DESCRIBE PAGE` first. `SET` on
+`Class`, `Content` and `Visible` works.
+
+**Fix:** resolve the property against the widget's backing object during `check`, the same
+lookup `exec` performs, and fail the pre-flight instead of the write. Failing that, make
+`ALTER PAGE` apply atomically per statement so a mid-script failure cannot leave a page in a
+state neither the script nor the model describes.

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Harbour Berth Booking — Design System</title>
+<link rel="stylesheet" href="ds.css">
+<style>
+  body { font-family: var(--hb-font-ui); }
+  .showcase { max-width: 960px; margin: 0 auto; padding: 32px; }
+  .showcase h1 { font-family: var(--hb-font); color: var(--hb-navy); }
+  .swatch-row { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+  .swatch { width: 120px; }
+  .swatch .box { height: 56px; border-radius: 4px; border: 1px solid var(--hb-border); }
+  .swatch code { font-size: 0.72rem; }
+  section { margin-bottom: 40px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+</style>
+</head>
+<body>
+<div class="showcase">
+  <h1>Harbour Berth Booking — Design System</h1>
+  <p>Tokens and components lifted directly from the three prototype screenshots in the source
+  corpus (ch08 booking lifecycle, ch09 booking request form, ch21 officer review screen) — a
+  dark-navy header/nav, light blue-grey sidebar, monospace/terminal-style field labels, green
+  primary action, red inline validation. Source: <code>design/ds.css</code>.</p>
+
+  <section>
+    <h2>Palette</h2>
+    <div class="swatch-row">
+      <div class="swatch"><div class="box" style="background:var(--hb-navy)"></div><code>--hb-navy</code></div>
+      <div class="swatch"><div class="box" style="background:var(--hb-sidebar-bg)"></div><code>--hb-sidebar-bg</code></div>
+      <div class="swatch"><div class="box" style="background:var(--hb-bg)"></div><code>--hb-bg</code></div>
+      <div class="swatch"><div class="box" style="background:var(--hb-surface);border-width:1px"></div><code>--hb-surface</code></div>
+      <div class="swatch"><div class="box" style="background:var(--hb-accent-green)"></div><code>--hb-accent-green</code></div>
+      <div class="swatch"><div class="box" style="background:var(--hb-error-red)"></div><code>--hb-error-red</code></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Header + sidebar nav</h2>
+    <p class="hb-callout">Nav item set follows the 5-item prototype nav (Ruling R4, resolves
+      conflict C2) rather than ch28's 3-screen prose.</p>
+    <div class="hb-app" style="border:1px solid var(--hb-border)">
+      <div class="hb-header">HARBOUR BERTH BOOKING <span class="hb-role">Signed in as Berth Officer</span></div>
+      <div class="hb-body">
+        <div class="hb-sidebar">
+          <a class="active">BOOKING BOARD</a>
+          <a>MY BOOKINGS</a>
+          <a>INSPECTIONS</a>
+          <a>TARIFFS</a>
+          <a>REPORTS</a>
+        </div>
+        <div class="hb-main"><div class="hb-panel"><em>page content area</em></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Form fields + validation</h2>
+    <div class="grid-2">
+      <div class="hb-panel">
+        <h2>Normal field</h2>
+        <div class="hb-field"><label>VESSEL</label><input value="MV NORTHERN GANNET" readonly></div>
+      </div>
+      <div class="hb-panel">
+        <h2>Invalid field (image-only rule, F002-Q1)</h2>
+        <div class="hb-field invalid"><label>IMO NUMBER *</label><input value="123456" readonly></div>
+        <div class="hb-error-msg">IMO NUMBER MUST BE EXACTLY 7 DIGITS</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Status badges (BookingRequest.Status)</h2>
+    <span class="hb-badge hb-badge-draft">Draft</span>
+    <span class="hb-badge hb-badge-submitted">Submitted</span>
+    <span class="hb-badge hb-badge-review">Under Review</span>
+    <span class="hb-badge hb-badge-approved">Approved</span>
+    <span class="hb-badge hb-badge-rejected">Rejected</span>
+    <span class="hb-badge hb-badge-cancelled">Cancelled</span>
+    <span class="hb-badge hb-badge-completed">Completed</span>
+  </section>
+
+  <section>
+    <h2>Buttons</h2>
+    <button class="hb-btn hb-btn-primary">SUBMIT</button>
+    <button class="hb-btn hb-btn-secondary">CANCEL</button>
+  </section>
+
+  <section>
+    <h2>Dimension-exceedance highlight</h2>
+    <p>ch21 §17.1: "the review screen shows the vessel's dimensions next to the berth's limits
+    and highlights any exceedance in red."</p>
+    <table class="hb-table">
+      <tr><th></th><th>Vessel</th><th>Berth limit</th></tr>
+      <tr><td>Length</td><td class="hb-exceed">210 m</td><td>190 m</td></tr>
+      <tr><td>Draught</td><td>9.2 m</td><td>11.0 m</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>Annotation callouts (used on every wireframe)</h2>
+    <div class="hb-callout">Plain source citation — a stated requirement, chapter + line.</div>
+    <div class="hb-callout gap">Shape-changing gap — from workshop notes, not a formal chapter (Rulings R7/R8).</div>
+    <div class="hb-callout conflict">Resolved conflict — two source statements disagreed; the adopted reading is stated (Rulings R3-R6).</div>
+  </section>
+</div>
+</body>
+</html>

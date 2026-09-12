@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Harbour Berth Booking — Build Plan</title>
+<link rel="stylesheet" href="../design/ds.css">
+<style>
+  body{font-family:var(--hb-font-ui);background:var(--hb-bg)}
+  .wrap{max-width:1000px;margin:0 auto;padding:32px}
+  .wrap h1,.wrap h2{font-family:var(--hb-font);color:var(--hb-navy)}
+  .card{background:var(--hb-surface);border:1px solid var(--hb-border);border-radius:6px;padding:20px 24px;margin-bottom:24px}
+  .pill{display:inline-block;padding:2px 10px;border-radius:10px;font-size:0.72rem;font-weight:700}
+  .pill-notbuilt{background:#e3e7ea;color:#445}
+  table.hb-table td, table.hb-table th{font-size:0.8rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Build Plan — Progress Tracker</h1>
+<p>Generated from <code>architecture/build-plan.md</code> — do not edit; regenerate after the
+markdown changes or a phase's status flips (<code>project-bin/build-plan-status.sh --html</code>
+in a wired project; produced by hand here since Stage 5 has not started). Generated 2026-09-12.</p>
+
+<div class="card">
+<h2>Overview</h2>
+<table class="hb-table">
+<tr><th>Phase</th><th>Modules</th><th>Rows</th><th>Status</th></tr>
+<tr><td>00 — Project scaffold</td><td>—</td><td>1</td><td><span class="pill pill-notbuilt">not built</span></td></tr>
+<tr><td>1 — App scaffold (domain)</td><td>all 5</td><td>16</td><td><span class="pill pill-notbuilt">not built</span></td></tr>
+<tr><td>2 — UI scaffold (StyleGallery)</td><td>—</td><td>5</td><td><span class="pill pill-notbuilt">not built</span></td></tr>
+<tr><td>3 — HB_Booking</td><td>HB_Booking</td><td>6</td><td><span class="pill pill-notbuilt">not built</span></td></tr>
+<tr><td>3 — HB_Finance</td><td>HB_Finance</td><td>3</td><td><span class="pill pill-notbuilt">not built</span></td></tr>
+<tr><td>3 — HB_Inspection</td><td>HB_Inspection</td><td>3</td><td><span class="pill pill-notbuilt">not built</span></td></tr>
+<tr><td>3 — HB_Reporting</td><td>HB_Reporting</td><td>3</td><td><span class="pill pill-notbuilt">not built</span></td></tr>
+<tr><td>Demo data + coherence</td><td>all</td><td>3</td><td><span class="pill pill-notbuilt">not built</span></td></tr>
+</table>
+<p><strong>39 rows total, 0 built</strong> — Stage 5 has not started (out of scope for this run;
+see hand-in report).</p>
+</div>
+
+<div class="card">
+<h2>Coverage ledger summary</h2>
+<p>Mechanically verified this run (<code>bin/coverage-check.sh</code> against each of the 7 BRDs
+and its module's <code>coverage-ledger.md</code>): <strong>0 UNCLAIMED · 0 PHANTOM ·
+0 DOUBLE-CLAIMED · 0 COUNT-MISMATCH</strong> across all 7 BRDs (1189 total BRD leaves — 894
+CLAIMED buildable, 115 LEDGERED provenance/open-question).</p>
+<table class="hb-table">
+<tr><th>Module</th><th>BRD(s)</th><th>Leaves</th><th>Claimed</th><th>Ledgered</th><th>Verdict</th></tr>
+<tr><td>HB_MasterData</td><td>F001, F002</td><td>41 + 197 = 238</td><td>34 + 181 = 215</td><td>7 + 16 = 23</td><td>clean</td></tr>
+<tr><td>HB_Booking</td><td>F003, F004</td><td>251 + 126 = 377</td><td>219 + 105 = 324</td><td>32 + 21 = 53</td><td>clean</td></tr>
+<tr><td>HB_Finance</td><td>F005</td><td>179</td><td>163</td><td>16</td><td>clean</td></tr>
+<tr><td>HB_Inspection</td><td>F006</td><td>149</td><td>139</td><td>10</td><td>clean</td></tr>
+<tr><td>HB_Reporting</td><td>F007</td><td>66</td><td>53</td><td>13</td><td>clean</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>Pending decisions</h2>
+<ul>
+<li>F002-Q1, F003-Q2, F004-Q2, F007-Q1 — resolved as unattended Rulings (R5/R4/R6/architecture
+decision), flagged for a returning human to confirm before Stage 5.</li>
+<li>F003-Q3 — still open (cargo-manifest attachment size limit) — RAISED, not yet answered by
+anyone; blocks nothing at Stage 4 but must be answered before script 24 builds the attachment
+field for real (currently disabled in the wireframe).</li>
+<li>Marketplace "Buy" (inspection-calendar widget) — build-plan row 0.1, not yet resolved to a
+specific content id (requires a live mxcli session).</li>
+</ul>
+</div>
+</div>
+</body>
+</html>

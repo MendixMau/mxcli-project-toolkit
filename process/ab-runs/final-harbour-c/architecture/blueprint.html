@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Harbour Berth Booking — Architecture Blueprint</title>
+<link rel="stylesheet" href="../design/ds.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js"></script>
+<style>
+  body{font-family:var(--hb-font-ui);background:var(--hb-bg)}
+  .wrap{max-width:1000px;margin:0 auto;padding:32px}
+  .wrap h1,.wrap h2{font-family:var(--hb-font);color:var(--hb-navy)}
+  .banner{background:#fff8e6;border:1px solid #e0c266;border-radius:4px;padding:10px 16px;font-size:0.85rem;margin-bottom:24px}
+  .card{background:var(--hb-surface);border:1px solid var(--hb-border);border-radius:6px;padding:20px 24px;margin-bottom:24px}
+  pre.mermaid{background:#fff}
+  table.hb-table{margin-top:10px}
+  .chk{color:var(--hb-accent-green);font-weight:700}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="banner">Generated from <code>architecture/blueprint.md</code> — do not edit; regenerate after changing the markdown. Generated 2026-09-12.</div>
+<h1>Architecture Blueprint — Harbour Berth Booking</h1>
+<p>Single Mendix app (Stage 0 Architecture Scale Flag: <strong>No concern</strong>). Five modules.</p>
+
+<div class="card">
+<h2>Module summary</h2>
+<table class="hb-table">
+<tr><th>Module</th><th>Layer</th><th>Entities</th><th>Definition</th></tr>
+<tr><td>HB_MasterData</td><td>Common</td><td>Vessel, ShippingAgent, Terminal, Berth</td><td><a href="modules/HB_MasterData/definition.md">definition.md</a></td></tr>
+<tr><td>HB_Booking</td><td>Domain+Logic</td><td>BookingRequest, ApprovalDecision</td><td><a href="modules/HB_Booking/definition.md">definition.md</a></td></tr>
+<tr><td>HB_Finance</td><td>Domain+Logic</td><td>Tariff, Invoice</td><td><a href="modules/HB_Finance/definition.md">definition.md</a></td></tr>
+<tr><td>HB_Inspection</td><td>Domain+Logic</td><td>Inspection, InspectionItem</td><td><a href="modules/HB_Inspection/definition.md">definition.md</a></td></tr>
+<tr><td>HB_Reporting</td><td>Common</td><td>AuditEntry</td><td><a href="modules/HB_Reporting/definition.md">definition.md</a></td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>Step 2 — Layer diagram</h2>
+<pre class="mermaid">
+flowchart TD
+  subgraph UI[UI layer]
+    U1[BookingBoard / MyBookings / OfficerReview]
+    U2[Tariffs / Invoices]
+    U3[InspectionCalendar / Checklist]
+    U4[Reports]
+  end
+  subgraph DL[Domain + Logic]
+    D1[HB_Booking]
+    D2[HB_Finance]
+    D3[HB_Inspection]
+  end
+  subgraph CM[Common]
+    C1[HB_MasterData]
+    C2[HB_Reporting]
+  end
+  U1 --> D1
+  U2 --> D2
+  U3 --> D3
+  U4 --> C2
+  D1 --> C1
+  D1 --> C2
+  D2 --> C1
+  D2 --> C2
+  D2 -.peer assoc: Invoice_BookingRequest.-> D1
+  D3 --> C2
+  D3 -.peer assoc: Inspection_BookingRequest.-> D1
+</pre>
+<p>No arrow points up the tiers — <code>HB_Reporting</code> owns no association into a feature module (architecture decision F007-Q1).</p>
+</div>
+
+<div class="card">
+<h2>Step 3 — Wiring / build-order diagram</h2>
+<pre class="mermaid">
+flowchart LR
+  MasterData[HB_MasterData] --> Booking[HB_Booking]
+  MasterData --> Finance[HB_Finance]
+  Reporting[HB_Reporting] -->|SUB_AuditEntry_Log| Booking
+  Reporting -->|SUB_AuditEntry_Log| Finance
+  Reporting -->|SUB_AuditEntry_Log| Inspection[HB_Inspection]
+  Booking -. assoc: Invoice_BookingRequest .-> Finance
+  Booking -. assoc: Inspection_BookingRequest .-> Inspection
+  MasterData --> Inspection
+</pre>
+<p><strong>Build order:</strong> HB_MasterData + HB_Reporting first → HB_Booking → HB_Finance + HB_Inspection.</p>
+</div>
+
+<div class="card">
+<h2>Step 3b — Workflow diagram: BookingRequest lifecycle</h2>
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Draft : agent creates
+  Draft --> Submitted : ACT_BookingRequest_Submit (agent)
+  Submitted --> UnderReview : ACT_BookingRequest_OpenForReview (officer)
+  Submitted --> Approved : fast-track (berth free + LOA<120m)
+  UnderReview --> Approved : Decide, Outcome=Approved (officer)
+  UnderReview --> Rejected : Decide, Outcome=Rejected + Reason (officer)
+  UnderReview --> Submitted : Outcome=ReturnedForInformation
+  Rejected --> Approved : override (Harbour Master only)
+  Approved --> Cancelled : agent cancels
+  Approved --> Completed : stay ends
+  Completed --> [*]
+  Cancelled --> [*]
+</pre>
+</div>
+
+<div class="card">
+<h2>Step 3c — Agent-wiring diagram</h2>
+<p>N/A — no AI/LLM/agent call site anywhere in the corpus.</p>
+</div>
+
+<div class="card">
+<h2>Step 3d — Cross-persona journeys</h2>
+<p>Four personas (Shipping Agent, Berth Officer, Harbour Master, Inspector) — produced, not skipped.</p>
+<h3>J-01 — Booking through invoicing</h3>
+<pre class="mermaid">
+sequenceDiagram
+  participant Agt as Shipping Agent
+  participant Off as Berth Officer
+  participant Ins as Inspector
+  participant HM as Harbour Master
+  Agt->>Agt: create Draft, submit
+  Off->>Off: open for review, decide
+  Off-->>Agt: Approved / Rejected / Returned for Information
+  HM->>HM: override a Rejected decision
+  Ins->>Ins: schedule + complete inspection
+  Off->>Off: grant departure clearance
+  Agt->>Agt: booking marked Completed
+  HM->>HM: invoice auto-generated, mark Paid/Void
+</pre>
+<h3>J-02 — Suspension and reactivation</h3>
+<pre class="mermaid">
+sequenceDiagram
+  participant Agt as Shipping Agent
+  participant Sys as System
+  participant HM as Harbour Master
+  Sys->>Sys: 3+ Invoice Overdue detected
+  Sys->>Agt: IsSuspended = true
+  HM->>HM: reactivate agent
+</pre>
+<table class="hb-table">
+<tr><th>Journey id</th><th>Name</th><th>Personas</th><th>Modules touched</th></tr>
+<tr><td>J-01</td><td>Draft → Review → Approve/Override → Inspect → Clear → Invoice</td><td>Agent, Officer, Inspector, Harbour Master</td><td>HB_Booking, HB_Inspection, HB_Finance</td></tr>
+<tr><td>J-02</td><td>Auto-suspend → Harbour-Master reactivation</td><td>Agent, Harbour Master</td><td>HB_Finance, HB_MasterData</td></tr>
+</table>
+</div>
+
+<div class="card">
+<h2>Step 4 — Fit-gap</h2>
+<p>See <a href="fit-gap.md">fit-gap.md</a>. One "Buy" row (inspection-calendar drag-drop widget); everything else Native/Config/Build.</p>
+</div>
+
+<div class="card">
+<h2>Step 5 — Dependencies & open issues (PROJECT.md)</h2>
+<ul>
+<li>Unresolved BRD <code>openQuestions</code>: F002-Q1, F003-Q2, F003-Q3 (still open), F004-Q2, F007-Q1</li>
+<li>Marketplace "Buy": inspection-calendar widget — confirm the specific module at Stage 4 Step 0</li>
+<li>AIS-feed integration: stub only, no protocol/auth/failure-mode documented</li>
+</ul>
+</div>
+
+<div class="card">
+<h2>Step 6 — The three decisions the source can't answer</h2>
+<p><span class="chk">✓</span> 6a Security/role model — 4 roles map 1:1, no anonymous access, no extra PII segregation.</p>
+<p><span class="chk">✓</span> 6b Data volumes/NFRs — no numbers in source; assumed small/medium port-authority scale.</p>
+<p><span class="chk">✓</span> 6c Integration contracts — AIS feed built as a stub.</p>
+<p>All three recorded <code>CONFIRMED</code> in <code>PROJECT.md</code> (unattended default position, cost-if-wrong stated in the Rulings ledger).</p>
+</div>
+
+<div class="card">
+<h2>Architecture review (Step 7b, one pass — unattended)</h2>
+<p><span class="chk">✓</span> Single app confirmed &nbsp; <span class="chk">✓</span> 0 dangling association targets &nbsp; <span class="chk">✓</span> no upward-tier arrows &nbsp; <span class="chk">✓</span> cross-module associations owned &nbsp; <span class="chk">✓</span> cross-persona journeys drawn. No P1 findings.</p>
+</div>
+
+</div>
+<script>mermaid.initialize({startOnLoad:true, theme:"default"});</script>
+</body>
+</html>

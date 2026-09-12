@@ -1,0 +1,262 @@
+{
+  "id": "F004",
+  "title": "Officer Review & Approval",
+  "modules": [
+    "HB_Booking"
+  ],
+  "actors": [
+    "BerthOfficer",
+    "HarbourMaster",
+    "ShippingAgent"
+  ],
+  "provenance": "documents",
+  "useCases": [
+    {
+      "id": "UC004-1",
+      "title": "Open for review",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [
+        "BookingRequest.Status = Submitted"
+      ],
+      "postconditions": [
+        "BookingRequest.Status = UnderReview; reviewing officer recorded"
+      ],
+      "mainFlow": [
+        "1. Opening a request for review moves it to Under Review and records the reviewing officer."
+      ],
+      "screens": [
+        "Officer Review"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/15-officer-review-process.md#L36",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC004-2",
+      "title": "No automatic approval outside fast-track",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. There is no automatic approval; every booking request is reviewed by a berth officer before it can become Approved (except the fast-track rule in F003)."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/15-officer-review-process.md#L45",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC004-3",
+      "title": "Review screen highlights dimension exceedance",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. The review screen shows the vessel's dimensions next to the berth's limits and highlights any exceedance in red."
+      ],
+      "screens": [
+        "Officer Review"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/21-officer-review-screen.md#L28",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC004-4",
+      "title": "Last five bookings of the same vessel (SHAPE-CHANGING GAP \u2014 see F004-Q1)",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. workshop-notes.md session 3: the review screen must show the last five bookings of the same vessel.",
+        "2. ADOPTED (Ruling R8): added as a read-only sub-list, most recent first, on the officer review screen wireframe."
+      ],
+      "screens": [
+        "Officer Review"
+      ],
+      "sourceRef": "sources/workshop-notes.md#L21",
+      "status": "code-inferred"
+    },
+    {
+      "id": "UC004-5",
+      "title": "Three decision outcomes",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. An approval decision has one of three outcomes: Approved, Rejected or Returned for Information."
+      ],
+      "screens": [
+        "Officer Review"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/16-approval-decisions.md#L34",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC004-6",
+      "title": "Rejection reason is conditionally required (IMAGE-ONLY RULE \u2014 see F004-Q2)",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [
+        "Outcome = Rejected"
+      ],
+      "postconditions": [],
+      "mainFlow": [
+        "1. The data dictionary (ch36) marks ApprovalDecision.Reason as Optional.",
+        "2. The officer-review-screen prototype screenshot shows a validation message: 'REJECTION REASON IS REQUIRED WHEN OUTCOME IS REJECTED' \u2014 this rule exists ONLY in the image.",
+        "3. ADOPTED (Ruling R6): keep Reason Optional at the field level; add an explicit microflow validation requiring it when Outcome = Rejected."
+      ],
+      "validations": [
+        "Reason required when Outcome = Rejected"
+      ],
+      "screens": [
+        "Officer Review"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/21-officer-review-screen.md#L58",
+      "status": "doc-conflict"
+    },
+    {
+      "id": "UC004-7",
+      "title": "Return for information \u2014 one resubmission",
+      "actors": [
+        "ShippingAgent",
+        "BerthOfficer"
+      ],
+      "preconditions": [
+        "Outcome = ReturnedForInformation"
+      ],
+      "postconditions": [],
+      "mainFlow": [
+        "1. A request Returned for Information goes back to the agent, who may amend and resubmit it once."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/16-approval-decisions.md#L43",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC004-8",
+      "title": "Harbour Master override of a Rejected decision",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [
+        "Outcome = Rejected"
+      ],
+      "postconditions": [
+        "Override recorded with a reason"
+      ],
+      "mainFlow": [
+        "1. Only the Harbour Master may override a Rejected decision, and the override is recorded with a reason."
+      ],
+      "validations": [
+        "Override action restricted to HarbourMaster role",
+        "Override requires a reason"
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/16-approval-decisions.md#L49",
+      "status": "doc-confirmed"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "ApprovalDecision",
+      "module": "HB_Booking",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "DecidedOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "Outcome",
+          "type": "Enumeration",
+          "enum": [
+            "Approved",
+            "Rejected",
+            "ReturnedForInformation"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "Reason",
+          "type": "String",
+          "length": 400,
+          "mandatory": false
+        },
+        {
+          "name": "OfficerName",
+          "type": "String",
+          "length": 100,
+          "mandatory": true
+        },
+        {
+          "name": "IsOverride",
+          "type": "Boolean",
+          "mandatory": true
+        }
+      ],
+      "associations": [
+        {
+          "name": "ApprovalDecision_BookingRequest",
+          "target": "BookingRequest",
+          "type": "ManyToOne",
+          "owner": "ApprovalDecision"
+        }
+      ],
+      "sourceRef": "analysis/knowledge-base/text/36-appendix-data-dictionary.md#L49"
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_ApprovalDecision_Decide",
+      "module": "HB_Booking",
+      "purpose": "Records outcome; enforces Reason-required-on-Reject and Harbour-Master-only override.",
+      "validations": [
+        "Reason required when Outcome=Rejected",
+        "override requires HarbourMaster role + reason"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "OfficerReview_Decide",
+      "module": "HB_Booking",
+      "purpose": "Review screen: dimension check, last-5-bookings panel, decide"
+    }
+  ],
+  "integrations": [],
+  "openQuestions": [
+    {
+      "id": "F004-Q1",
+      "question": "Last-five-bookings panel (workshop-notes S2) not in any formal chapter.",
+      "status": "ASSUMED",
+      "answer": "Added to the review screen wireframe (Ruling R8).",
+      "consentBy": "agent (unattended run final-harbour-c)",
+      "consentAt": "2026-09-12"
+    },
+    {
+      "id": "F004-Q2",
+      "question": "Conflict C4 \u2014 Reason Optional (ch36) vs conditionally-required-on-Reject (ch21 screenshot).",
+      "status": "ASSUMED",
+      "answer": "Field stays Optional; conditional microflow validation added (Ruling R6).",
+      "consentBy": "agent (unattended run final-harbour-c)",
+      "consentAt": "2026-09-12"
+    }
+  ],
+  "sourceKB": [
+    "15-officer-review-process.html",
+    "16-approval-decisions.html",
+    "21-officer-review-screen.html",
+    "36-appendix-data-dictionary.html",
+    "workshop-notes.md"
+  ]
+}

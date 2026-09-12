@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Wireframe — Officer Review</title>
+<link rel="stylesheet" href="../ds.css">
+<style>.wf-note{max-width:900px;margin:16px auto 0;font-size:0.85rem;color:var(--hb-text-muted)}</style>
+</head><body>
+<div class="hb-app">
+  <div class="hb-header">HARBOUR BERTH BOOKING <span class="hb-role">Signed in as Berth Officer</span></div>
+  <div class="hb-body">
+    <div class="hb-sidebar">
+      <a class="active">BOOKING BOARD</a><a>MY BOOKINGS</a><a>INSPECTIONS</a><a>TARIFFS</a><a>REPORTS</a>
+    </div>
+    <div class="hb-main">
+      <div class="hb-panel">
+        <h1>Officer Review — HB-2031-00417</h1>
+        <div class="hb-callout">"the review screen shows the vessel's dimensions next to the
+          berth's limits and highlights any exceedance in red." <span class="hb-source-tag">ch21 §17.1</span></div>
+        <table class="hb-table">
+          <tr><th></th><th>Vessel</th><th>Berth limit</th></tr>
+          <tr><td>Length</td><td class="hb-exceed">210 m</td><td>190 m</td></tr>
+          <tr><td>Draught</td><td>9.2 m</td><td>11.0 m (min clearance 0.5 m)</td></tr>
+        </table>
+
+        <h2 style="margin-top:24px">Last 5 bookings of this vessel</h2>
+        <div class="hb-callout gap">"The review screen must show the last five bookings of the
+          same vessel." — workshop-notes.md session 3, not in ch15/ch21's formal text.
+          <span class="hb-source-tag">Ruling R8, F004-Q1</span></div>
+        <table class="hb-table">
+          <tr><th>Reference</th><th>ETA</th><th>Status</th></tr>
+          <tr><td>HB-2031-00201</td><td>02-02</td><td><span class="hb-badge hb-badge-completed">Completed</span></td></tr>
+          <tr><td>HB-2030-00988</td><td>19-11</td><td><span class="hb-badge hb-badge-completed">Completed</span></td></tr>
+          <tr><td>HB-2030-00754</td><td>03-09</td><td><span class="hb-badge hb-badge-cancelled">Cancelled</span></td></tr>
+        </table>
+
+        <h2 style="margin-top:24px">Decision</h2>
+        <div class="hb-field"><label>OUTCOME</label><select><option>Approved</option><option selected>Rejected</option><option>Returned for Information</option></select></div>
+        <div class="hb-field invalid"><label>REASON *</label><input></div>
+        <div class="hb-error-msg">REJECTION REASON IS REQUIRED WHEN OUTCOME IS REJECTED</div>
+        <div class="hb-callout conflict">Image-only rule (ch21 screenshot) — the data dictionary
+          (ch36) marks Reason as Optional. Field stays Optional at the attribute level; this is
+          a conditional microflow validation on Reject. <span class="hb-source-tag">F004-Q2, conflict C4, Ruling R6</span></div>
+        <button class="hb-btn hb-btn-primary">SUBMIT DECISION</button>
+        <button class="hb-btn hb-btn-secondary" title="Harbour Master only">OVERRIDE (Harbour Master)</button>
+      </div>
+    </div>
+  </div>
+</div>
+<table class="hb-table" style="max-width:900px;margin:16px auto">
+<tr><th>Source field/element</th><th>Mendix widget</th><th>Datasource</th><th>Required</th><th>Read-only</th><th>Conditional</th></tr>
+<tr><td>Dimension comparison table</td><td>Static text / template grid</td><td>BookingRequest.Vessel + BookingRequest.Berth</td><td>—</td><td>Yes</td><td>Row highlighted red when Vessel.LengthOverall&gt;Berth.MaxLength or draught within 0.5m of Berth.MaxDraught</td></tr>
+<tr><td>Last-5-bookings sub-list</td><td>Data Grid 2 (nested)</td><td>BookingRequest (XPath: same Vessel), sort ETA desc, limit 5</td><td>—</td><td>Yes</td><td>F004-Q1 / Ruling R8 — no formal-chapter source</td></tr>
+<tr><td>Outcome</td><td>Enumeration selector</td><td>ApprovalDecision.Outcome</td><td>Yes</td><td>No</td><td>—</td></tr>
+<tr><td>Reason</td><td>Text area</td><td>ApprovalDecision.Reason</td><td>No (attribute) / Yes when Outcome=Rejected (microflow)</td><td>No</td><td>F004-Q2 conditional validation</td></tr>
+<tr><td>Submit Decision button</td><td>Action button → microflow</td><td>ACT_ApprovalDecision_Decide</td><td>—</td><td>—</td><td>Role BerthOfficer/HarbourMaster</td></tr>
+<tr><td>Override button</td><td>Action button → microflow</td><td>ACT_ApprovalDecision_Decide (IsOverride=true)</td><td>—</td><td>—</td><td>Visible only role=HarbourMaster and Outcome=Rejected</td></tr>
+</table>
+<p class="wf-note">Screen: <code>OfficerReview_Decide</code> — module <code>HB_Booking</code>.</p>
+</body></html>

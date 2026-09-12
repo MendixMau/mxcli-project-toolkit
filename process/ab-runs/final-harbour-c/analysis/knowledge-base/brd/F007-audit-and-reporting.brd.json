@@ -1,0 +1,129 @@
+{
+  "id": "F007",
+  "title": "Audit Trail & Reporting",
+  "modules": [
+    "HB_Reporting"
+  ],
+  "actors": [
+    "HarbourMaster",
+    "BerthOfficer"
+  ],
+  "provenance": "documents",
+  "useCases": [
+    {
+      "id": "UC007-1",
+      "title": "Every status change is audited",
+      "actors": [],
+      "preconditions": [],
+      "postconditions": [
+        "AuditEntry created"
+      ],
+      "mainFlow": [
+        "1. Every status change on a booking, decision, invoice or inspection is written to an audit trail with actor, timestamp and action."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/26-audit-and-compliance.md#L30",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC007-2",
+      "title": "Monthly berth occupancy report, CSV export",
+      "actors": [
+        "HarbourMaster",
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. A monthly berth occupancy report per terminal can be exported as CSV."
+      ],
+      "screens": [
+        "Reports"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/32-reporting.md#L28",
+      "status": "doc-confirmed"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "AuditEntry",
+      "module": "HB_Reporting",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "OccurredOn",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "Actor",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "Action",
+          "type": "String",
+          "length": 100,
+          "mandatory": true
+        },
+        {
+          "name": "EntityName",
+          "type": "String",
+          "length": 60,
+          "mandatory": true
+        },
+        {
+          "name": "Detail",
+          "type": "String",
+          "length": 1000,
+          "mandatory": false
+        },
+        {
+          "name": "RelatedReference",
+          "type": "String",
+          "length": 20,
+          "mandatory": false,
+          "note": "Natural-key text reference to the audited record (e.g. a BookingRequest.Reference) -- see F007-Q1"
+        }
+      ],
+      "associations": [],
+      "sourceRef": "analysis/knowledge-base/text/26-audit-and-compliance.md#L46"
+    }
+  ],
+  "microflows": [
+    {
+      "name": "SUB_AuditEntry_Log",
+      "module": "HB_Reporting",
+      "purpose": "Called from every status-changing microflow across all modules; writes one AuditEntry."
+    },
+    {
+      "name": "ACT_Report_BerthOccupancy_ExportCsv",
+      "module": "HB_Reporting",
+      "purpose": "Monthly berth occupancy per terminal, CSV export."
+    }
+  ],
+  "pages": [
+    {
+      "name": "Reports_Overview",
+      "module": "HB_Reporting",
+      "purpose": "Monthly berth occupancy report + CSV export"
+    }
+  ],
+  "integrations": [],
+  "openQuestions": [
+    {
+      "id": "F007-Q1",
+      "question": "The source's relationships list (ch07/26/36) gives AuditEntry only ONE association, to BookingRequest, even though ch26 says audit entries cover booking, decision, invoice AND inspection events -- one FK cannot cover four audited entity types, and a hard association from a shared Common-layer audit module back into feature modules would also be a layer-direction violation (architecture-blueprint.md Step 2/7b).",
+      "status": "ASSUMED",
+      "answer": "Architecture decision (Stage 3): dropped the literal AuditEntry_BookingRequest association; AuditEntry stays a generic Common-layer log keyed by EntityName (already in the source's own attribute table) plus a new RelatedReference text attribute holding the audited record's natural key. Every module's status-changing microflow calls the shared SUB_AuditEntry_Log with these values -- no cross-module association, no upward-pointing arrow from Common.",
+      "consentBy": "agent (unattended run final-harbour-c) -- architect-agent role",
+      "consentAt": "2026-09-12"
+    }
+  ],
+  "sourceKB": [
+    "26-audit-and-compliance.html",
+    "32-reporting.html",
+    "36-appendix-data-dictionary.html"
+  ]
+}

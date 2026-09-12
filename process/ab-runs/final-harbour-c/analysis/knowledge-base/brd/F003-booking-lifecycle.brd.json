@@ -1,0 +1,479 @@
+{
+  "id": "F003",
+  "title": "Booking Request Lifecycle",
+  "modules": [
+    "HB_Booking"
+  ],
+  "actors": [
+    "ShippingAgent",
+    "BerthOfficer"
+  ],
+  "provenance": "documents",
+  "useCases": [
+    {
+      "id": "UC003-1",
+      "title": "Save booking as Draft",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "BookingRequest.Status = Draft"
+      ],
+      "mainFlow": [
+        "1. An agent can save a booking request as Draft and complete it later.",
+        "2. Drafts are invisible to officers."
+      ],
+      "screens": [
+        "Booking request form"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/08-booking-lifecycle.md#L32",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003-2",
+      "title": "Mandatory fields to submit",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. The booking form requires vessel, berth, ETA, ETD and cargo class before it can be submitted."
+      ],
+      "validations": [
+        "Vessel required",
+        "Berth required",
+        "ETA required",
+        "ETD required",
+        "CargoClass required"
+      ],
+      "screens": [
+        "Booking request form"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/09-booking-request-form.md#L30",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003-3",
+      "title": "Submission validation",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. ETD must be later than ETA.",
+        "2. The system rejects a stay longer than 30 days.",
+        "3. A booking request cannot be submitted more than 90 days before the ETA.",
+        "4. A booking request must be submitted at least 48 hours before the ETA."
+      ],
+      "validations": [
+        "ETD > ETA",
+        "(ETD-ETA) <= 30 days",
+        "ETA <= today+90d",
+        "ETA >= now+48h"
+      ],
+      "screens": [
+        "Booking request form"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/09-booking-request-form.md#L41",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003-4",
+      "title": "Unique, permanent booking reference on submission",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "BookingRequest.Status = Draft"
+      ],
+      "postconditions": [
+        "BookingRequest.Reference assigned in format HB-YYYY-NNNNN; Status = Submitted"
+      ],
+      "mainFlow": [
+        "1. On submission the system assigns a unique booking reference in the format HB-YYYY-NNNNN.",
+        "2. The reference is never reused, even after a request is cancelled or deleted \u2014 a cancelled request keeps its reference for the audit trail."
+      ],
+      "validations": [
+        "Reference format HB-YYYY-NNNNN",
+        "Reference globally unique and permanent"
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/08-booking-lifecycle.md#L48",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003-5",
+      "title": "Status model",
+      "actors": [
+        "ShippingAgent",
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. A booking request moves through: Draft, Submitted, Under Review, Approved, Rejected, Cancelled, Completed."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/08-booking-lifecycle.md#L59",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003-6",
+      "title": "Fast-track automatic approval",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "Berth free for the whole requested stay",
+        "Vessel.LengthOverall < 120m"
+      ],
+      "postconditions": [
+        "BookingRequest.Status = Approved, no officer review"
+      ],
+      "mainFlow": [
+        "1. A booking request is automatically approved when the requested berth is free for the whole stay and the vessel is shorter than 120 metres."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/08-booking-lifecycle.md#L69",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003-7",
+      "title": "Edit a Submitted request until review starts",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "BookingRequest.Status = Submitted",
+        "not yet opened for review"
+      ],
+      "postconditions": [],
+      "mainFlow": [
+        "1. An agent may edit a Submitted request until an officer opens it for review, after which it is locked."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/10-cancellation-and-changes.md#L28",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003-8",
+      "title": "Cancellation and its fee (CONFLICT \u2014 see F003-Q1)",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. An Approved booking may be cancelled by the agent; a Completed booking cannot be cancelled.",
+        "2. ch10 states cancellation is free of charge until 24 hours before ETA.",
+        "3. ch19 states cancellations made within 72 hours of ETA are charged 50% of the berth fee.",
+        "4. ADOPTED (Ruling R3, PROJECT.md): the 72-hour/50% rule (ch19) governs; ch10's 24-hour wording is treated as superseded prose, flagged for a human to confirm or overturn."
+      ],
+      "validations": [
+        "Cancellation within 72h of ETA -> 50% berth fee charged",
+        "Completed booking cannot be cancelled"
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/10-cancellation-and-changes.md#L41",
+      "status": "doc-conflict"
+    },
+    {
+      "id": "UC003-9",
+      "title": "Status-change e-mail to agent",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. The agent receives an e-mail whenever the status of their booking request changes.",
+        "2. ADOPTED (Ruling R9): the e-mail includes the booking Reference, per workshop-notes.md session 2."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/17-notifications.md#L29",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003-10",
+      "title": "Officer daily digest",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. Officers receive a daily digest at 06:00 listing requests with an ETA within the next 48 hours."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/17-notifications.md#L36",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003-11",
+      "title": "Navigation screen set (CONFLICT \u2014 see F003-Q2)",
+      "actors": [
+        "ShippingAgent",
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. ch28 states the navigation offers three screens: Booking Board, My Bookings and Inspection Calendar.",
+        "2. The prototype screenshots (ch08, ch09, ch21) show five nav items: Booking Board, My Bookings, Inspections, Tariffs, Reports.",
+        "3. ADOPTED (Ruling R4): built to the 5-item prototype nav \u2014 direct UI evidence outranks ch28's prose."
+      ],
+      "screens": [
+        "Booking Board",
+        "My Bookings",
+        "Inspections",
+        "Tariffs",
+        "Reports"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/28-navigation-and-screens.md#L32",
+      "status": "doc-conflict"
+    },
+    {
+      "id": "UC003-12",
+      "title": "Booking Board filters and ordering",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. The Booking Board can be filtered by terminal, status and ETA date range.",
+        "2. Officers work from a Booking Board that lists Submitted and Under Review requests ordered by ETA."
+      ],
+      "screens": [
+        "Booking Board"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/29-booking-board-screen.md#L28",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003-13",
+      "title": "My Bookings \u2014 agent's own requests, Drafts first",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. My Bookings shows the agent's own requests only, with Draft requests listed first."
+      ],
+      "screens": [
+        "My Bookings"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/30-my-bookings-screen.md#L27",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC003-14",
+      "title": "Cargo manifest attachment (SHAPE-CHANGING GAP \u2014 see F003-Q3)",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. workshop-notes.md session 2: agents must be able to attach the cargo manifest as a PDF to a booking request.",
+        "2. Attachment size limit explicitly 'not decided' in the same note.",
+        "3. Not modelled in any formal chapter (ch07 domain overview has no file relation for BookingRequest)."
+      ],
+      "screens": [
+        "Booking request form"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/../../../sources/workshop-notes.md#L15",
+      "status": "code-inferred"
+    },
+    {
+      "id": "UC003-15",
+      "title": "AIS position feed flags a booking Arrived",
+      "actors": [],
+      "preconditions": [],
+      "postconditions": [
+        "BookingRequest.Status/flag = Arrived"
+      ],
+      "mainFlow": [
+        "1. The system imports vessel positions from the AIS feed every 5 minutes.",
+        "2. A booking is flagged Arrived when the vessel enters the port geofence."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/33-integration-ais-feed.md#L45",
+      "status": "doc-confirmed"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "BookingRequest",
+      "module": "HB_Booking",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Reference",
+          "type": "String",
+          "length": 13,
+          "mandatory": true
+        },
+        {
+          "name": "ETA",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "ETD",
+          "type": "DateTime",
+          "mandatory": true
+        },
+        {
+          "name": "Status",
+          "type": "Enumeration",
+          "enum": [
+            "Draft",
+            "Submitted",
+            "UnderReview",
+            "Approved",
+            "Rejected",
+            "Cancelled",
+            "Completed"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "CargoClass",
+          "type": "Enumeration",
+          "enum": [
+            "General",
+            "Perishable",
+            "DangerousGoods",
+            "Empty"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "ShorePowerRequested",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "SubmittedOn",
+          "type": "DateTime",
+          "mandatory": false
+        },
+        {
+          "name": "Remarks",
+          "type": "String",
+          "length": 500,
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "BookingRequest_Vessel",
+          "target": "Vessel",
+          "type": "ManyToOne",
+          "owner": "BookingRequest"
+        },
+        {
+          "name": "BookingRequest_ShippingAgent",
+          "target": "ShippingAgent",
+          "type": "ManyToOne",
+          "owner": "BookingRequest"
+        },
+        {
+          "name": "BookingRequest_Berth",
+          "target": "Berth",
+          "type": "ManyToOne",
+          "owner": "BookingRequest"
+        }
+      ],
+      "sourceRef": "analysis/knowledge-base/text/07-domain-overview.md#L102"
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_BookingRequest_Submit",
+      "module": "HB_Booking",
+      "purpose": "Validates timing/length rules, assigns the permanent Reference, sets Status=Submitted or Approved (fast-track).",
+      "pattern": "validate-then-save",
+      "validations": [
+        "ETD > ETA",
+        "stay <= 30 days",
+        "ETA within [now+48h, now+90d]"
+      ]
+    },
+    {
+      "name": "SUB_BookingRequest_AssignReference",
+      "module": "HB_Booking",
+      "purpose": "Generates the next HB-YYYY-NNNNN reference, never reused.",
+      "pattern": "sub-microflow"
+    }
+  ],
+  "pages": [
+    {
+      "name": "BookingBoard_Overview",
+      "module": "HB_Booking",
+      "purpose": "Officer queue: Submitted+UnderReview, filter by terminal/status/ETA, ordered by ETA"
+    },
+    {
+      "name": "MyBookings_Overview",
+      "module": "HB_Booking",
+      "purpose": "Agent's own requests, Draft first"
+    },
+    {
+      "name": "BookingRequest_NewEdit",
+      "module": "HB_Booking",
+      "purpose": "Booking request form"
+    }
+  ],
+  "integrations": [
+    {
+      "name": "AIS position feed",
+      "type": "unspecified (named only, not specified per source-sufficiency)",
+      "stubName": "STUB_AIS_PollPositions",
+      "stubBehaviour": "Poll every 5 minutes; flag booking Arrived on geofence entry (behaviour only; no protocol/auth/failure-mode documented).",
+      "realTarget": "AIS feed (no contract in the source)"
+    }
+  ],
+  "openQuestions": [
+    {
+      "id": "F003-Q1",
+      "question": "Cancellation-fee window conflict C1 (ch10 24h-free vs ch19 72h/50%).",
+      "status": "ASSUMED",
+      "answer": "ch19's 72h/50% rule adopted as authoritative (Ruling R3).",
+      "consentBy": "agent (unattended run final-harbour-c)",
+      "consentAt": "2026-09-12"
+    },
+    {
+      "id": "F003-Q2",
+      "question": "Navigation count conflict C2 (ch28 says 3 screens; prototype shows 5).",
+      "status": "ASSUMED",
+      "answer": "Built to the 5-item prototype nav (Ruling R4).",
+      "consentBy": "agent (unattended run final-harbour-c)",
+      "consentAt": "2026-09-12"
+    },
+    {
+      "id": "F003-Q3",
+      "question": "Cargo-manifest PDF attachment (workshop-notes S1) \u2014 size limit not decided.",
+      "status": "RAISED",
+      "answer": ""
+    }
+  ],
+  "sourceKB": [
+    "04-vision-and-scope.html",
+    "08-booking-lifecycle.html",
+    "09-booking-request-form.html",
+    "10-cancellation-and-changes.html",
+    "13-berth-allocation-rules.html",
+    "17-notifications.html",
+    "28-navigation-and-screens.html",
+    "29-booking-board-screen.html",
+    "30-my-bookings-screen.html",
+    "33-integration-ais-feed.html",
+    "workshop-notes.md",
+    "decisions-log.md"
+  ]
+}

@@ -1,0 +1,131 @@
+<title>Source triage — harbourproj</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --panel:#ffffff; --fg:#11141a; --muted:#5b6472; --line:#e0e4ea;
+    --accent:#3b5bdb; --todo-bg:#fdf0d5; --todo-fg:#7a4b00; --todo-line:#d9a441;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#101319; --panel:#171b22; --fg:#e6e9ef; --muted:#939cab; --line:#272d37;
+      --accent:#7b95f0; --todo-bg:#3a2c12; --todo-fg:#e7c07a; --todo-line:#8a6a2a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#101319; --panel:#171b22; --fg:#e6e9ef; --muted:#939cab; --line:#272d37;
+    --accent:#7b95f0; --todo-bg:#3a2c12; --todo-fg:#e7c07a; --todo-line:#8a6a2a;
+  }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--fg); margin:0; padding:3rem 1.25rem 4rem;
+         font:15px/1.6 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         font-variant-numeric:tabular-nums; }
+  main { max-width:62rem; margin:0 auto; }
+  .eyebrow { font-size:.7rem; text-transform:uppercase; letter-spacing:.14em; font-weight:700;
+              color:var(--muted); margin:0 0 .5rem; }
+  h1 { font-size:1.75rem; line-height:1.15; letter-spacing:-.02em; margin:0 0 .4rem;
+        text-wrap:balance; }
+  h2 { font-size:.78rem; text-transform:uppercase; letter-spacing:.12em; font-weight:700;
+        margin:2.75rem 0 .75rem; color:var(--muted); }
+  h3 { font-size:1rem; margin:1.75rem 0 .5rem; }
+  h4 { font-size:.92rem; margin:1.25rem 0 .4rem; color:var(--muted); }
+  p { margin:0 0 .9rem; max-width:52rem; }
+  ul { margin:0 0 1rem; padding-left:1.15rem; max-width:52rem; }
+  li { margin:.25rem 0; }
+  hr { border:0; border-top:1px solid var(--line); margin:2.25rem 0; }
+  table { width:100%; border-collapse:collapse; font-size:.88rem; margin:0 0 1rem;
+           background:var(--panel); }
+  .scroll { overflow-x:auto; }
+  th { text-align:left; font-size:.68rem; text-transform:uppercase; letter-spacing:.1em;
+        font-weight:700; color:var(--muted); border-bottom:1px solid var(--line);
+        padding:.5rem .7rem; white-space:nowrap; }
+  td { border-bottom:1px solid var(--line); padding:.7rem; vertical-align:top; }
+  code { font-size:.85em; background:var(--panel); border:1px solid var(--line);
+          border-radius:3px; padding:.05rem .3rem; }
+  .todo { background:var(--todo-bg); color:var(--todo-fg); border:1px dashed var(--todo-line);
+           border-radius:3px; padding:.05rem .35rem; font-size:.85em; }
+  .banner { border-left:3px solid var(--accent); background:var(--panel); border-radius:0 3px 3px 0;
+             padding:.9rem 1.1rem; margin:0 0 2rem; color:var(--muted); font-size:.88rem; }
+  .banner p { margin:0; }
+  footer { margin-top:3rem; padding-top:1.1rem; border-top:1px solid var(--line);
+            color:var(--muted); font-size:.8rem; max-width:46rem; }
+</style>
+<main>
+  <p class="eyebrow">Stage 0 · source triage</p>
+  <div class="banner">
+    <p>Rendered 2026-09-12 from <code>/tmp/harbourproj/triage.md</code>. This page is a view of that file and
+       nothing else — it does not check, score or approve anything in it. The verdict on Stage 0
+       comes from <code>bin/gate-check.sh harbourproj 0</code>, which asks one question: has a
+       human signed this off. Dashed boxes are placeholders still in the source.</p>
+  </div>
+  <h1>Source Triage: Harbour Berth Booking</h1>
+  <p><strong>Stage 0 — every entry mode.</strong> This file is the Stage 0 deliverable named by <code>skills/conversion-runbook.md</code> and gated by <code>bin/gate-check.sh &lt;project&gt; 0</code>. Fill it in by following <code>skills/source-triage.md</code> — that skill is the reasoning, this file is only where the answers land. Render it for review with <code>bin/triage-report.sh &lt;project&gt;</code> → <code>analysis/triage.html</code>.</p>
+  <p><strong>Never delete this file.</strong> Whatever your entry mode, <code>gate-check.sh</code> would then report *&quot;triage.md not found&quot;* — an unanswered gate rather than a settled one, and telling those two apart is the only reason the gate exists. Until 2026-08-20 this header said the opposite (*&quot;requirements-driven or greenfield — delete this file&quot;*) while the gate required it unconditionally. Real sessions found the contradiction, correctly guessed that keeping the file and marking rows <code>N/A</code> was the intent, and had to stop and ask. The instruction is now the one they reverse-engineered.</p>
+  <p><strong>Stage 0 is the scope stage, not the extractor stage.</strong> Only the *extraction* parts below need a codebase. What varies by mode:</p>
+  <ul>
+  <li><strong>Migration</strong> — everything applies.</li>
+  <li><strong>Requirements-driven</strong> — the Extraction Approach and Coverage Matrix rows are <code>N/A</code> **only if the corpus holds no extractable structure at all**. Open the folder before deciding: a DB schema or table dump, an ORM model, an OpenAPI/GraphQL contract, or entity/field tables inside a spec are extractable structure, and each gets a Coverage Matrix row and the two-way call above, exactly as a codebase would. Mark <code>N/A</code> on evidence (*&quot;prose only — no schema anywhere in the corpus&quot;*), never on the entry-mode label: &quot;requirements-driven&quot; says where the project came from, not what is in the folder. The Business Capability Map and the Recommended Scope Subset <strong>still apply and still matter</strong> — a document corpus has capabilities and a slice order exactly like a codebase does. Run <code>bin/source-sufficiency.sh</code> over the corpus.</li>
+  <li><strong>Greenfield</strong> — mark the extraction rows *and* the coverage matrix <code>N/A</code>. The scope subset is still the deliverable.</li>
+  </ul>
+  <p><strong>Documents plus a database schema is not a documents-only source.</strong> A table schema, an ORM model or an OpenAPI contract is extractable structure and grades as such, whatever the markdown around it looks like.</p>
+  <hr>
+  <h2>Extraction Approach</h2>
+  <p><strong>This is a two-way call, not three-way, and it is the user&#x27;s call, not the agent&#x27;s.</strong> Tick one row. There is no third option and no manual-only path: field finding, recorded in <code>source-triage.md</code>&#x27;s Core Principle, is that reading source without an extractor missed information even on small, cleanly structured apps. A small app still gets an extractor; it just means the extractor is small too. Inventing a third row here — &quot;direct read&quot;, &quot;no extractor needed&quot; — is the specific drift this scaffold exists to prevent (PROJECT-A, 2026).</p>
+  <div class="scroll"><table><thead><tr><th>Decision</th><th>Chosen?</th><th>Which pipeline / what has to be built</th></tr></thead><tbody><tr><td><strong>Reuse existing pipeline</strong></td><td>N/A</td><td>—</td></tr><tr><td><strong>Build new pipeline</strong></td><td>N/A</td><td>—</td></tr></tbody></table></div>
+  <p><strong>N/A (text-native corpus) — conversion-runbook.md → Entry Modes → &quot;Requirements-driven, docs-ready corpus&quot;.</strong> The corpus is 36 saved-webpage HTML pages (each with a <code>_files/</code> sidecar of css/js/font/photo) plus 4 Markdown files — no legacy application code, no DB schema/ORM model/ OpenAPI contract, no Office or PDF container anywhere under <code>sources/</code>. The entity/attribute tables inside chapters 07, 12, 14, 18, 20, 26 and 36 are Markdown tables inside prose pages, not a separate structured export — <code>bin/html-to-md.sh</code> already renders every one of them verbatim as a Markdown table with no information loss, so there is no bespoke parser to reuse or build; the &quot;extraction&quot; for this shape *is* the one-time html-to-md conversion, which already ran (see Stage 1 below). This is the fast path&#x27;s explicit rule, not a per-structure judgement call.</p>
+  <p>Reasoning: text-native medium (HTML/Markdown) + the converter already renders every table found → nothing left for a reuse-or-build decision to apply to.</p>
+  <p>Who chose it, and when: agent, unattended run <code>final-harbour-c</code>, 2026-09-12 — ASSUMED, logged in PROJECT.md Rulings ledger (cost if wrong: would mean re-deciding this row per entity table, which only matters if a future revision of the corpus adds a real schema/export file).</p>
+  <hr>
+  <h2>Business Capability Map</h2>
+  <p>Business capabilities, not source file or class names. Step 2 of <code>source-triage.md</code>. Both the scope section below and <code>modularize-domain.md</code> read this table later, so it is built once, here.</p>
+  <div class="scroll"><table><thead><tr><th>Business capability</th><th>Source components</th><th>Rough size (entities/screens)</th><th>Owner / team (if known)</th></tr></thead><tbody><tr><td>Vessel &amp; agent registry</td><td>ch07, ch11, ch14, glossary.md</td><td>2 entities (Vessel, ShippingAgent), 0 dedicated screens (managed inline)</td><td>Documentation team, port operations</td></tr><tr><td>Berth &amp; terminal master data</td><td>ch02, ch12</td><td>2 entities (Berth, Terminal), 0 dedicated screens</td><td>Port operations</td></tr><tr><td>Booking request lifecycle</td><td>ch04, ch08, ch09, ch10, ch13, ch28, ch29, ch30, workshop-notes.md</td><td>1 entity (BookingRequest), 3 screens (Booking Board, My Bookings, + form)</td><td>Documentation team, port operations, shipping agents</td></tr><tr><td>Officer review &amp; approval</td><td>ch15, ch16, ch21</td><td>1 entity (ApprovalDecision), 1 screen (Officer Review)</td><td>Berth Officer / Harbour Master</td></tr><tr><td>Tariffs &amp; invoicing</td><td>ch18, ch19, ch20, ch36</td><td>2 entities (Tariff, Invoice)</td><td>Finance / Harbour Master</td></tr><tr><td>Inspections &amp; departure clearance</td><td>ch22, ch23, ch24, ch25, ch31</td><td>2 entities (Inspection, InspectionItem), 1 screen (Inspection Calendar)</td><td>Inspector</td></tr><tr><td>Notifications</td><td>ch17</td><td>0 entities (cross-cutting behaviour on BookingRequest), 0 screens</td><td>Documentation team</td></tr><tr><td>Audit &amp; compliance</td><td>ch26, ch36</td><td>1 entity (AuditEntry), 0 dedicated screens</td><td>Port operations</td></tr><tr><td>Reporting</td><td>ch32</td><td>0 new entities (reads BookingRequest/Berth), 0 dedicated screens (CSV export)</td><td>Port operations</td></tr><tr><td>AIS integration</td><td>ch33</td><td>0 new entities (feeds BookingRequest.Status), external feed</td><td>Port operations</td></tr><tr><td>Security &amp; access</td><td>ch05, ch35, roles.md</td><td>4 roles, cross-cutting</td><td>Port operations</td></tr></tbody></table></div>
+  <hr>
+  <h2>Coverage Matrix</h2>
+  <p>Step 3 of <code>source-triage.md</code>. One row per capability above. Answer, per capability: can it be extracted automatically, does a mapper exist to turn that extraction into a BRD, and is the output reliable enough to trust without heavy rework.</p>
+  <div class="scroll"><table><thead><tr><th>Capability</th><th>Extractable?</th><th>Mapper -&gt; BRD?</th><th>Reliable?</th><th>Verdict</th></tr></thead><tbody><tr><td>All 11 capabilities above</td><td>N/A</td><td>N/A</td><td>N/A</td><td><strong>N/A (text-native corpus)</strong></td></tr></tbody></table></div>
+  <p><strong>N/A for every row, on evidence, not on the entry-mode label</strong> — same reasoning as the Extraction Approach section: no capability above is backed by a DB schema, ORM model, OpenAPI contract, or data export; every one of them is read directly out of the converted Markdown pages and workshop notes via the docs-ready fast path&#x27;s thin BRD transform (Stage 2), not extracted by a mapper. Each capability nonetheless has its BRD source pages named above, which is what the thin transform (one BRD per section) will cite as <code>sourceRef</code>.</p>
+  <p><strong>The five verdicts. Use these words; do not invent a sixth.</strong> They mirror <code>architecture-blueprint.md</code>&#x27;s fit-gap vocabulary on purpose, so the two documents stay legible side by side.</p>
+  <ul>
+  <li><strong>Ready</strong> — extract and map today, and trust the output.</li>
+  <li><strong>Extract-only</strong> — the JSON extracts fine, but no mapper exists for this shape yet.</li>
+  <li><strong>Manual</strong> — skip automation; this capability&#x27;s BRD is written by hand.</li>
+  <li><strong>Defer</strong> — out of scope for this phase; revisit later.</li>
+  <li><strong>Unknown</strong> — cannot be assessed yet; needs a spike.</li>
+  </ul>
+  <hr>
+  <h2>Recommended Scope Subset</h2>
+  <p>Step 4 of <code>source-triage.md</code>. <strong>A slice is an ordering, not an exclusion.</strong> The whole source is always in scope; this section decides sequencing, not what gets dropped. Do not force POC framing onto a project committed to a full migration — the decision (which capabilities go first) is the same either way.</p>
+  <p>Two things this recommendation must NOT rest on alone: extraction cleanliness (the easiest capability to automate is not automatically the right one to migrate first — ask the user about business priority), and &quot;everything is Ready, so do it all at once&quot; (a large first slice needs the same dependency and priority reasoning as a small one).</p>
+  <p>Format: capability -&gt; verdict -&gt; recommended for this slice (yes/no/deferred) -&gt; why.</p>
+  <p>Whole documented scope is in (per intake Q4), ordered as one slice covering everything except pilotage/tug scheduling (explicitly out of scope, ch04). Ordering below is what CAC-1 (scope brainstorm) confirmed and what Stage 4&#x27;s build plan sequences:</p>
+  <ul>
+  <li>Vessel &amp; agent registry -&gt; N/A (text-native) -&gt; <strong>yes, first</strong> -&gt; every other capability references Vessel/ShippingAgent; no dependencies of its own.</li>
+  <li>Berth &amp; terminal master data -&gt; N/A -&gt; <strong>yes, first</strong> -&gt; same reasoning; BookingRequest and Tariff both depend on Berth/Terminal.</li>
+  <li>Booking request lifecycle -&gt; N/A -&gt; <strong>yes, second</strong> -&gt; the core transaction; depends only on the two master-data capabilities above.</li>
+  <li>Officer review &amp; approval -&gt; N/A -&gt; <strong>yes, third</strong> -&gt; depends on BookingRequest existing.</li>
+  <li>Tariffs &amp; invoicing -&gt; N/A -&gt; <strong>yes, third (parallel with review)</strong> -&gt; depends on Terminal + BookingRequest, not on the review outcome itself (fee calc is independent of approval).</li>
+  <li>Inspections &amp; departure clearance -&gt; N/A -&gt; <strong>yes, fourth</strong> -&gt; depends on BookingRequest being Approved (dangerous-goods gate) and interacts with Tariff (surcharge relief).</li>
+  <li>Notifications -&gt; N/A -&gt; <strong>yes, cross-cutting, built alongside booking lifecycle</strong> -&gt; low effort, high visibility to agents from day one.</li>
+  <li>Audit &amp; compliance -&gt; N/A -&gt; <strong>yes, cross-cutting, built alongside each entity</strong> -&gt; the audit row must exist before any status-changing microflow does, not bolted on after.</li>
+  <li>Security &amp; access -&gt; N/A -&gt; <strong>yes, first (with master data)</strong> -&gt; per <code>security-is-not-a-later-script.md</code>, entity + grants land together, so role scoping has to be in place before any entity that needs it is built.</li>
+  <li>Reporting -&gt; N/A -&gt; <strong>yes, last</strong> -&gt; read-only over data the other capabilities produce; no value until they exist.</li>
+  <li>AIS integration -&gt; N/A -&gt; <strong>deferred</strong> -&gt; integrations dimension rated <code>named</code> not <code>specified</code> (no protocol/auth/failure-mode in the source); recommend building a stub first and wiring the real feed once a contract exists (see Open questions / Stage 3 fit-gap).</li>
+  </ul>
+  <p>Nothing above is dropped — this is an ordering, not an exclusion, per source-triage.md Step 4.</p>
+  <hr>
+  <h2>Architecture Scale Flag</h2>
+  <p>Step 5 of <code>source-triage.md</code>. Does this need multiple Mendix <strong>apps</strong> — separate runtimes and databases integrated over REST/OData/Business Events — rather than multiple modules inside one?</p>
+  <p><strong>Flag it, do not answer it unilaterally.</strong> This toolkit has not validated multi-app decomposition criteria against a real large migration. Raise it as an open question in <code>PROJECT.md</code> when BOTH triggers fire, and resolve &quot;one app or several&quot; BEFORE <code>modularize-domain.md</code> draws module boundaries — the app-count question is upstream of the module-count question.</p>
+  <div class="scroll"><table><thead><tr><th>Trigger</th><th>Fired?</th><th>Evidence</th></tr></thead><tbody><tr><td>Capabilities with clearly independent release cadences, ownership, or security/regulatory domains</td><td>No</td><td>One port authority, one documentation set, no separately-owned subsystem beyond pilotage/tug (already out of scope).</td></tr><tr><td>In-scope entity/screen count large enough that <code>modularize-domain.md</code> would still land on 8–10+ modules after its own merge criteria</td><td>No</td><td>11 entities, ~8 named screens (3 with a prototype screenshot) across 11 capabilities — well within a single-app, few-module build.</td></tr></tbody></table></div>
+  <p>Verdict: <strong>No concern.</strong> One Mendix app; <code>modularize-domain.md</code> decides module boundaries within it at Stage 3 from the Business Capability Map above.</p>
+  <hr>
+  <h2>Sign-off</h2>
+  <p>Confirmed by: agent, unattended run <code>final-harbour-c</code>, ASSUMED per PROJECT.md Rulings ledger — 2026-09-12. No human was available to sign off (Interview mode: unattended); the extraction decision, the N/A coverage verdicts, and the slice ordering above were all put through CAC-1&#x27;s scope brainstorm shape in the session transcript before being recorded. Cost if wrong: a returning human disagreeing with the slice order edits <code>architecture/build-plan.md</code>&#x27;s row order — cheap to correct, nothing is built yet.</p>
+  <p>Sign-off means a human saw the scope and said go — the extraction decision, the coverage verdicts and the slice ordering — not that this file is filled in.</p>
+  <p><strong>This is a low bar on purpose, and it is not a signature.</strong> &quot;Confirmed in chat, 2026-08-20&quot; is a complete answer. So is &quot;user said move to the next stage&quot;. A full name is *not* required and must not be chased: the gate is checking that somebody was asked, not maintaining an audit trail, and a session that interrogates a colleague for their legal name before it will proceed has turned a five-second confirmation into an obstacle. Do not block on it, do not ask twice, and never invent a name to get past it.</p>
+  <p>The one thing <code>gate-check.sh &lt;project&gt; 0</code> refuses is this file signing *itself* off — the shipped bracketed placeholder, and an empty value. Record the same decision in <code>PROJECT.md</code> as <code>CONFIRMED</code> (or <code>ASSUMED</code>, if the user answered &quot;you decide&quot; — never if the question went unasked).</p>
+  <footer>
+    The reasoning behind every section here lives in <code>skills/source-triage.md</code>; the
+    fill-in-me source is scaffolded by <code>bin/init-project.sh</code> from
+    <code>bin/lib/triage-template.sh</code>. Edit <code>triage.md</code> and re-run
+    <code>bin/triage-report.sh</code> — never edit this page.
+  </footer>
+</main>

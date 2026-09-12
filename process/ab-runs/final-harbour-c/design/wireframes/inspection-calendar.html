@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Wireframe — Inspection Calendar</title>
+<link rel="stylesheet" href="../ds.css">
+<style>
+.wf-note{max-width:900px;margin:16px auto 0;font-size:0.85rem;color:var(--hb-text-muted)}
+.cal{display:grid;grid-template-columns:80px repeat(5,1fr);gap:1px;background:var(--hb-border);border:1px solid var(--hb-border)}
+.cal div{background:#fff;padding:8px;font-size:0.78rem;min-height:40px}
+.cal .hd{background:var(--hb-sidebar-bg);font-weight:700;text-align:center}
+</style>
+</head><body>
+<div class="hb-app">
+  <div class="hb-header">HARBOUR BERTH BOOKING <span class="hb-role">Signed in as Inspector</span></div>
+  <div class="hb-body">
+    <div class="hb-sidebar">
+      <a>BOOKING BOARD</a><a>MY BOOKINGS</a><a class="active">INSPECTIONS</a><a>TARIFFS</a><a>REPORTS</a>
+    </div>
+    <div class="hb-main">
+      <div class="hb-panel" style="max-width:900px">
+        <h1>Inspection Calendar</h1>
+        <div class="hb-callout">"shows inspections per day and per inspector and allows
+          drag-and-drop rescheduling." <span class="hb-source-tag">ch31 §26.1</span></div>
+        <div class="hb-callout">Fit-gap: no native Mendix drag-drop calendar widget — a
+          marketplace calendar module is the recommended "Buy" (see <code>architecture/fit-gap.md</code>).</div>
+        <div class="cal">
+          <div class="hd">Inspector</div><div class="hd">Mon</div><div class="hd">Tue</div><div class="hd">Wed</div><div class="hd">Thu</div><div class="hd">Fri</div>
+          <div>J. Okonkwo</div><div>MV RED KNOT<br>09:00 Safety</div><div></div><div>MV GREY PETREL<br>11:00 Full</div><div></div><div></div>
+          <div>L. Meijer</div><div></div><div>MV BLUE HERON<br>14:00 Follow-up</div><div></div><div></div><div>MV OLD PETREL<br>08:00 Environmental</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<table class="hb-table" style="max-width:900px;margin:16px auto">
+<tr><th>Source field/element</th><th>Mendix widget</th><th>Datasource</th><th>Required</th><th>Read-only</th><th>Conditional</th></tr>
+<tr><td>Calendar grid</td><td>Marketplace calendar widget (fit-gap "Buy")</td><td>Inspection (grouped by InspectorName, day)</td><td>—</td><td>No</td><td>Drag-drop reschedule → updates Inspection.ScheduledFor</td></tr>
+</table>
+<p class="wf-note">Screen: <code>InspectionCalendar_Overview</code> — module <code>HB_Inspection</code>.</p>
+</body></html>

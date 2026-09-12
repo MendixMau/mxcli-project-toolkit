@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Wireframe — Booking Request Form</title>
+<link rel="stylesheet" href="../ds.css">
+<style>.wf-note{max-width:900px;margin:16px auto 0;font-size:0.85rem;color:var(--hb-text-muted)}</style>
+</head><body>
+<div class="hb-app">
+  <div class="hb-header">HARBOUR BERTH BOOKING <span class="hb-role">Signed in as Shipping Agent</span></div>
+  <div class="hb-body">
+    <div class="hb-sidebar">
+      <a>BOOKING BOARD</a><a class="active">MY BOOKINGS</a><a>INSPECTIONS</a><a>TARIFFS</a><a>REPORTS</a>
+    </div>
+    <div class="hb-main">
+      <div class="hb-panel">
+        <h1>Booking Request Form</h1>
+        <div class="hb-field"><label>VESSEL</label><input value="MV NORTHERN GANNET"></div>
+        <div class="hb-field invalid">
+          <label>IMO NUMBER *</label><input value="123456">
+        </div>
+        <div class="hb-error-msg">IMO NUMBER MUST BE EXACTLY 7 DIGITS</div>
+        <div class="hb-callout conflict">Image-only rule (fig-booking-form-validation.png) — the
+          domain tables (ch07/14) say only "Text, up to 7 characters". Modelled as length-7 +
+          exact-7-digit microflow validation (F002-Q1, conflict C3, Ruling R5).</div>
+        <div class="hb-field"><label>BERTH</label><input value="B07 North Terminal"></div>
+        <div class="hb-field"><label>ETA</label><input value="14-03 08:00"></div>
+        <div class="hb-field"><label>ETD</label><input value="16-03 18:00"></div>
+        <div class="hb-callout">"ETD must be later than ETA, and the system rejects a stay
+          longer than 30 days." / "submitted at least 48 hours before, no more than 90 days
+          before, the ETA." <span class="hb-source-tag">ch09 §5.2, ch08 §4.5</span></div>
+        <div class="hb-field"><label>CARGO CLASS</label><select><option>General</option><option>Perishable</option><option>Dangerous Goods</option><option>Empty</option></select></div>
+        <div class="hb-callout gap">Cargo-manifest PDF attachment — workshop-notes.md session 2;
+          size limit explicitly "not decided". Field shown below, disabled pending F003-Q3.
+          <span class="hb-source-tag">Ruling R7</span></div>
+        <div class="hb-field"><label>CARGO MANIFEST (PDF)</label><input type="file" disabled></div>
+        <button class="hb-btn hb-btn-primary">SUBMIT</button>
+        <button class="hb-btn hb-btn-secondary">SAVE AS DRAFT</button>
+      </div>
+    </div>
+  </div>
+</div>
+<table class="hb-table" style="max-width:900px;margin:16px auto">
+<tr><th>Source field/element</th><th>Mendix widget</th><th>Datasource</th><th>Required</th><th>Read-only</th><th>Conditional</th></tr>
+<tr><td>Vessel</td><td>Reference selector</td><td>BookingRequest_Vessel</td><td>Yes</td><td>No</td><td>—</td></tr>
+<tr><td>IMO number</td><td>Text box + regex validation</td><td>Vessel.IMONumber</td><td>Yes</td><td>No</td><td>Exactly 7 digits (F002-Q1)</td></tr>
+<tr><td>Berth</td><td>Reference selector</td><td>BookingRequest_Berth</td><td>Yes</td><td>No</td><td>Fit-check VAL_BerthAllocation_FitCheck</td></tr>
+<tr><td>ETA / ETD</td><td>Date-time picker (2)</td><td>BookingRequest.ETA/ETD</td><td>Yes</td><td>No</td><td>ETD&gt;ETA, ≤30d stay, submit window 48h-90d</td></tr>
+<tr><td>Cargo class</td><td>Enumeration selector</td><td>BookingRequest.CargoClass</td><td>Yes</td><td>No</td><td>DangerousGoods gates approval on Inspection existing</td></tr>
+<tr><td>Cargo manifest (PDF)</td><td>File Manager widget</td><td>new FileDocument association</td><td>No</td><td>No</td><td><strong>Disabled — F003-Q3 open, size limit not decided</strong></td></tr>
+<tr><td>Submit / Save Draft buttons</td><td>Action buttons → microflow</td><td>ACT_BookingRequest_Submit / save-as-Draft</td><td>—</td><td>—</td><td>Editable only while Status=Draft/Submitted and not yet opened for review</td></tr>
+</table>
+<p class="wf-note">Screen: <code>BookingRequest_NewEdit</code> — module <code>HB_Booking</code>.</p>
+</body></html>

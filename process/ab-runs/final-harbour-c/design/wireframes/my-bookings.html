@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Wireframe — My Bookings</title>
+<link rel="stylesheet" href="../ds.css">
+<style>.wf-note{max-width:900px;margin:16px auto 0;font-size:0.85rem;color:var(--hb-text-muted)}</style>
+</head><body>
+<div class="hb-app">
+  <div class="hb-header">HARBOUR BERTH BOOKING <span class="hb-role">Signed in as Shipping Agent</span></div>
+  <div class="hb-body">
+    <div class="hb-sidebar">
+      <a>BOOKING BOARD</a><a class="active">MY BOOKINGS</a><a>INSPECTIONS</a><a>TARIFFS</a><a>REPORTS</a>
+    </div>
+    <div class="hb-main">
+      <div class="hb-panel" style="max-width:820px">
+        <h1>My Bookings</h1>
+        <div class="hb-callout">"My Bookings shows the agent's own requests only, with Draft
+          requests listed first." <span class="hb-source-tag">ch30 §25.1</span></div>
+        <div class="hb-callout">Agent row-security: only own company's bookings visible.
+          <span class="hb-source-tag">ch35 §29.1</span></div>
+        <table class="hb-table">
+          <tr><th>Reference</th><th>Vessel</th><th>Status</th><th></th></tr>
+          <tr><td>(draft)</td><td>MV BLUE HERON</td><td><span class="hb-badge hb-badge-draft">Draft</span></td><td><button class="hb-btn hb-btn-secondary">Continue</button></td></tr>
+          <tr><td>HB-2031-00349</td><td>MV RED KNOT</td><td><span class="hb-badge hb-badge-submitted">Submitted</span></td><td></td></tr>
+          <tr><td>HB-2031-00201</td><td>MV OLD PETREL</td><td><span class="hb-badge hb-badge-completed">Completed</span></td><td></td></tr>
+        </table>
+        <button class="hb-btn hb-btn-primary" style="margin-top:16px">+ New booking request</button>
+      </div>
+    </div>
+  </div>
+</div>
+<table class="hb-table" style="max-width:820px;margin:16px auto">
+<tr><th>Source field/element</th><th>Mendix widget</th><th>Datasource</th><th>Required</th><th>Read-only</th><th>Conditional</th></tr>
+<tr><td>Bookings grid</td><td>Data Grid 2</td><td>BookingRequest (XPath: ShippingAgent = current agent's company), sort Status=Draft first then ETA</td><td>—</td><td>Yes</td><td>Row-security XPath, F001</td></tr>
+<tr><td>"+ New booking request" button</td><td>Action button → page</td><td>navigates to BookingRequest_NewEdit</td><td>—</td><td>—</td><td>Hidden when ShippingAgent.IsSuspended = true</td></tr>
+</table>
+<p class="wf-note">Screen: <code>MyBookings_Overview</code> — module <code>HB_Booking</code>.</p>
+</body></html>

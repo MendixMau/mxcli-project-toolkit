@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Wireframe — Booking Board</title>
+<link rel="stylesheet" href="../ds.css">
+<style>.wf-note{max-width:900px;margin:16px auto 0;font-size:0.85rem;color:var(--hb-text-muted)}</style>
+</head><body>
+<div class="hb-app">
+  <div class="hb-header">HARBOUR BERTH BOOKING <span class="hb-role">Signed in as Berth Officer</span></div>
+  <div class="hb-body">
+    <div class="hb-sidebar">
+      <a class="active">BOOKING BOARD</a><a>MY BOOKINGS</a><a>INSPECTIONS</a><a>TARIFFS</a><a>REPORTS</a>
+    </div>
+    <div class="hb-main">
+      <div class="hb-panel" style="max-width:920px">
+        <h1>Booking Board</h1>
+        <div class="hb-callout">"Officers work from a Booking Board that lists Submitted and
+          Under Review requests ordered by ETA." <span class="hb-source-tag">ch15 §11.1</span></div>
+        <div class="hb-callout">"The Booking Board can be filtered by terminal, status and ETA
+          date range." <span class="hb-source-tag">ch29 §24.1</span></div>
+        <div style="display:flex;gap:12px;margin-bottom:16px">
+          <div class="hb-field" style="margin:0;flex:1"><label>TERMINAL</label><select><option>All</option></select></div>
+          <div class="hb-field" style="margin:0;flex:1"><label>STATUS</label><select><option>Submitted + Under Review</option></select></div>
+          <div class="hb-field" style="margin:0;flex:1"><label>ETA RANGE</label><input placeholder="from - to"></div>
+        </div>
+        <table class="hb-table">
+          <tr><th>Reference</th><th>Vessel</th><th>Berth</th><th>ETA</th><th>Status</th><th></th></tr>
+          <tr><td>HB-2031-00349</td><td>MV RED KNOT</td><td>B07 South</td><td>14-03 08:00</td>
+              <td><span class="hb-badge hb-badge-submitted">Submitted</span></td><td><button class="hb-btn hb-btn-secondary">Open for review</button></td></tr>
+          <tr><td>HB-2031-00417</td><td>MV GREY PETREL</td><td>B12 North</td><td>15-03 06:00</td>
+              <td><span class="hb-badge hb-badge-review">Under Review</span></td><td><button class="hb-btn hb-btn-secondary">Review</button></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<table class="hb-table" style="max-width:900px;margin:16px auto">
+<tr><th>Source field/element</th><th>Mendix widget</th><th>Datasource</th><th>Required</th><th>Read-only</th><th>Conditional</th></tr>
+<tr><td>Terminal filter</td><td>Reference selector (combobox)</td><td>Terminal</td><td>No</td><td>No</td><td>—</td></tr>
+<tr><td>Status filter</td><td>Enumeration selector</td><td>BookingRequest.Status</td><td>No (defaults Submitted+UnderReview)</td><td>No</td><td>—</td></tr>
+<tr><td>ETA range filter</td><td>Date range picker</td><td>BookingRequest.ETA</td><td>No</td><td>No</td><td>—</td></tr>
+<tr><td>Board grid</td><td>Data Grid 2</td><td>BookingRequest (XPath: Status in Submitted/UnderReview), sort ETA asc</td><td>—</td><td>Yes</td><td>—</td></tr>
+<tr><td>"Open for review" button</td><td>Action button → microflow</td><td>ACT_BookingRequest_OpenForReview</td><td>—</td><td>—</td><td>Visible only when Status=Submitted, role=BerthOfficer/HarbourMaster</td></tr>
+</table>
+<p class="wf-note">Screen: <code>BookingBoard_Overview</code> — module <code>HB_Booking</code>. Nav
+set per Ruling R4 (5-item prototype nav, not ch28's 3-screen prose — conflict C2).</p>
+</body></html>

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Wireframe — Reports</title>
+<link rel="stylesheet" href="../ds.css">
+<style>.wf-note{max-width:900px;margin:16px auto 0;font-size:0.85rem;color:var(--hb-text-muted)}</style>
+</head><body>
+<div class="hb-app">
+  <div class="hb-header">HARBOUR BERTH BOOKING <span class="hb-role">Signed in as Harbour Master</span></div>
+  <div class="hb-body">
+    <div class="hb-sidebar">
+      <a>BOOKING BOARD</a><a>MY BOOKINGS</a><a>INSPECTIONS</a><a>TARIFFS</a><a class="active">REPORTS</a>
+    </div>
+    <div class="hb-main">
+      <div class="hb-panel" style="max-width:760px">
+        <h1>Reports</h1>
+        <div class="hb-callout">"A monthly berth occupancy report per terminal can be exported
+          as CSV." <span class="hb-source-tag">ch32 §27.1</span></div>
+        <div class="hb-field"><label>MONTH</label><input value="2026-03"></div>
+        <div class="hb-field"><label>TERMINAL</label><select><option>All</option><option>South</option><option>North</option></select></div>
+        <button class="hb-btn hb-btn-primary">EXPORT CSV</button>
+      </div>
+    </div>
+  </div>
+</div>
+<table class="hb-table" style="max-width:760px;margin:16px auto">
+<tr><th>Source field/element</th><th>Mendix widget</th><th>Datasource</th><th>Required</th><th>Read-only</th><th>Conditional</th></tr>
+<tr><td>Month</td><td>Date picker (month precision)</td><td>parameter</td><td>Yes</td><td>No</td><td>—</td></tr>
+<tr><td>Terminal</td><td>Reference selector</td><td>Terminal (+ "All")</td><td>No</td><td>No</td><td>—</td></tr>
+<tr><td>Export CSV button</td><td>Action button → microflow</td><td>ACT_Report_BerthOccupancy_ExportCsv</td><td>—</td><td>—</td><td>Role HarbourMaster/BerthOfficer</td></tr>
+</table>
+<p class="wf-note">Screen: <code>Reports_Overview</code> — module <code>HB_Reporting</code>.</p>
+</body></html>

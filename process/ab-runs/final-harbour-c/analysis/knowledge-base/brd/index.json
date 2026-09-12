@@ -1,0 +1,72 @@
+[
+  {
+    "id": "F001",
+    "title": "Actors & Access",
+    "modules": [
+      "HB_MasterData"
+    ],
+    "file": "F001-actors-and-access.brd.json",
+    "useCases": 3,
+    "domainEntities": 0
+  },
+  {
+    "id": "F002",
+    "title": "Master Data \u2014 Vessels, Agents, Terminals & Berths",
+    "modules": [
+      "HB_MasterData"
+    ],
+    "file": "F002-master-data.brd.json",
+    "useCases": 7,
+    "domainEntities": 4
+  },
+  {
+    "id": "F003",
+    "title": "Booking Request Lifecycle",
+    "modules": [
+      "HB_Booking"
+    ],
+    "file": "F003-booking-lifecycle.brd.json",
+    "useCases": 15,
+    "domainEntities": 1
+  },
+  {
+    "id": "F004",
+    "title": "Officer Review & Approval",
+    "modules": [
+      "HB_Booking"
+    ],
+    "file": "F004-officer-review-and-approval.brd.json",
+    "useCases": 8,
+    "domainEntities": 1
+  },
+  {
+    "id": "F005",
+    "title": "Tariffs & Invoicing",
+    "modules": [
+      "HB_Finance"
+    ],
+    "file": "F005-tariffs-and-invoicing.brd.json",
+    "useCases": 11,
+    "domainEntities": 2
+  },
+  {
+    "id": "F006",
+    "title": "Inspections & Departure Clearance",
+    "modules": [
+      "HB_Inspection"
+    ],
+    "file": "F006-inspections-and-departure-clearance.brd.json",
+    "useCases": 8,
+    "domainEntities": 2
+  },
+  {
+    "id": "F007",
+    "title": "Audit Trail & Reporting",
+    "modules": [
+      "HB_Reporting"
+    ],
+    "file": "F007-audit-and-reporting.brd.json",
+    "useCases": 2,
+    "domainEntities": 1
+  }
+]

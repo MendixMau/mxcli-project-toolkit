@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Harbour Berth Booking — Module Design Rationale</title>
+<link rel="stylesheet" href="../design/ds.css">
+<style>
+  body{font-family:var(--hb-font-ui);background:var(--hb-bg)}
+  .wrap{max-width:960px;margin:0 auto;padding:32px}
+  .wrap h1{font-family:var(--hb-font);color:var(--hb-navy)}
+  .card{background:var(--hb-surface);border:1px solid var(--hb-border);border-radius:6px;padding:20px 24px;margin-bottom:20px}
+  .card h2{font-family:var(--hb-font);color:var(--hb-navy);margin-top:0}
+  .tag{display:inline-block;background:var(--hb-sidebar-bg);color:var(--hb-navy);font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:10px;margin-right:6px}
+  dl{margin:8px 0}
+  dt{font-weight:700;font-size:0.82rem;color:var(--hb-text-muted);margin-top:10px}
+  dd{margin:2px 0 0}
+  .prompt{background:#fff8e6;border:1px solid #e0c266;border-radius:6px;padding:16px 20px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Module Design Rationale</h1>
+<p>Per <code>modularize-domain.md</code>. Five modules, decided on their own merits (never 1:1
+from the source's chapter structure) against the Step 2 boundary criteria. Unattended run
+(<code>final-harbour-c</code>) — this document is the sign-off surface; the four Step 1
+questions below still need a returning human's confirmation (recorded <code>ASSUMED</code> in
+<code>PROJECT.md</code> until then).</p>
+
+<div class="card">
+<h2>HB_MasterData <span class="tag">Common</span></h2>
+<p><strong>Mission:</strong> Reference data — vessels, shipping agents, terminals, berths.</p>
+<dl>
+<dt>Business process / journeys</dt><dd>Agent registration & onboarding (ch11); berth/terminal upkeep by Harbour Master (ch12).</dd>
+<dt>Users / roles</dt><dd>Read by all four roles; write restricted to Berth Officer (activate agent) and Harbour Master (reactivate, berth/terminal maintenance).</dd>
+<dt>Closely-tied data</dt><dd>Vessel, ShippingAgent, Terminal, Berth — Berth_Terminal and Vessel_ShippingAgent associations both intra-module.</dd>
+<dt>Dependencies</dt><dd>Imports nothing (bottom of the graph). Every feature module imports it.</dd>
+<dt>Criterion earned</dt><dd>Bounded context (reference/master data is its own thing) + reuse (every other module reads it).</dd>
+<dt>Rejected alternative</dt><dd>Folding Vessel/ShippingAgent into HB_Booking — rejected because Vessel and ShippingAgent are referenced by three modules (Booking, Finance via Invoice, Inspection indirectly), not one; keeping them Common avoids three copies of the same lookup data.</dd>
+</dl>
+</div>
+
+<div class="card">
+<h2>HB_Booking <span class="tag">Domain + Logic</span></h2>
+<p><strong>Mission:</strong> The booking request lifecycle — creation, submission, officer review, approval/rejection/override, cancellation, AIS arrival flag.</p>
+<dl>
+<dt>Business process / journeys</dt><dd>J-01 (Draft → Review → Approve/Override), most of J-02.</dd>
+<dt>Users / roles</dt><dd>Shipping Agent (create/edit/cancel own), Berth Officer (queue, review, decide), Harbour Master (override).</dd>
+<dt>Closely-tied data</dt><dd>BookingRequest, ApprovalDecision — always used together (every ApprovalDecision belongs to exactly one BookingRequest, and a booking cannot be understood without its decisions).</dd>
+<dt>Dependencies</dt><dd>Imports HB_MasterData (Vessel/ShippingAgent/Berth), HB_Reporting (audit log). Exposed to HB_Finance and HB_Inspection via cross-module associations they own.</dd>
+<dt>Criterion earned</dt><dd>Bounded context (the core transactional capability) + independent lifecycle (this is the module most likely to change release-to-release).</dd>
+<dt>Rejected alternative</dt><dd><strong>Splitting Review into its own module (HB_Review)</strong> — this was the first draft. Rejected: BookingRequest and ApprovalDecision are the textbook "always used together" over-split signal from <code>modularize-domain.md</code>'s own cautionary example (PROJECT-H) — splitting them forces a cross-module association for data that is 1:1 coupled, plus a bespoke cascade concern on delete. Merged back into one module.</dd>
+</dl>
+</div>
+
+<div class="card">
+<h2>HB_Finance <span class="tag">Domain + Logic</span></h2>
+<p><strong>Mission:</strong> Tariffs, fee calculation, invoicing.</p>
+<dl>
+<dt>Business process / journeys</dt><dd>Tail of J-01 (invoice generated on Completed, Paid/Void).</dd>
+<dt>Users / roles</dt><dd>Harbour Master (tariff maintenance, mark Paid/Void, waive surcharges), Berth Officer (waive late-arrival only), Shipping Agent (view own invoices).</dd>
+<dt>Closely-tied data</dt><dd>Tariff, Invoice — Invoice_Tariff intra-module.</dd>
+<dt>Dependencies</dt><dd>Imports HB_MasterData (Terminal, ShippingAgent), HB_Booking (reads BookingRequest for fee inputs; owns Invoice_BookingRequest), HB_Reporting.</dd>
+<dt>Criterion earned</dt><dd>Bounded context (billing is a distinct business capability from booking operations) + security segregation (Harbour-Master-only actions concentrate here).</dd>
+<dt>Rejected alternative</dt><dd>Merging into HB_Booking — rejected: billing rules (VAT, surcharges, invoice due-dates) change on a finance-team cadence independent of the booking workflow, and mixing them would make one module owned by two different concerns.</dd>
+</dl>
+</div>
+
+<div class="card">
+<h2>HB_Inspection <span class="tag">Domain + Logic</span></h2>
+<p><strong>Mission:</strong> Scheduling and recording inspections; gating dangerous-goods approval and departure clearance.</p>
+<dl>
+<dt>Business process / journeys</dt><dd>Middle of J-01 (Inspect → Clear).</dd>
+<dt>Users / roles</dt><dd>Inspector (schedule, record, complete); Berth Officer (grant clearance, reads Outcome).</dd>
+<dt>Closely-tied data</dt><dd>Inspection, InspectionItem — intra-module (InspectionItem_Inspection).</dd>
+<dt>Dependencies</dt><dd>Imports HB_Booking (reads CargoClass/Status; owns Inspection_BookingRequest), HB_Reporting.</dd>
+<dt>Criterion earned</dt><dd>Bounded context (a distinct compliance/safety domain, its own actor — Inspector — touches nothing else) + security segregation.</dd>
+<dt>Rejected alternative</dt><dd>Folding into HB_Booking — rejected: Inspector is a role that touches no other booking data directly, and inspections have their own scheduling/calendar UI unrelated to the booking form.</dd>
+</dl>
+</div>
+
+<div class="card">
+<h2>HB_Reporting <span class="tag">Common</span></h2>
+<p><strong>Mission:</strong> The shared audit-log service every other module calls, plus the monthly CSV report.</p>
+<dl>
+<dt>Business process / journeys</dt><dd>Cross-cutting — not a journey of its own, called from every status-changing microflow in the other three feature modules.</dd>
+<dt>Users / roles</dt><dd>Harbour Master + Berth Officer view reports; AuditEntry has no dedicated end-user screen.</dd>
+<dt>Closely-tied data</dt><dd>AuditEntry only — deliberately generic (EntityName + RelatedReference, not a hard association — see architecture decision F007-Q1).</dd>
+<dt>Dependencies</dt><dd>Imports nothing. Called by HB_Booking, HB_Finance, HB_Inspection.</dd>
+<dt>Criterion earned</dt><dd>Reuse — an audit-logging module is exactly the kind of thing that gets lifted into another app as-is, even though it "owns" only one entity (the over-split signal "~1 entity and nothing reusable" does not apply here — this one entity IS the reusable thing).</dd>
+<dt>Rejected alternative</dt><dd>No shared audit module at all, each feature module keeping its own log — rejected: the source (ch26) explicitly describes ONE audit trail across booking/decision/invoice/inspection events, not four separate logs.</dd>
+</dl>
+</div>
+
+<div class="prompt">
+<h2 style="font-family:var(--hb-font);color:var(--hb-navy);margin-top:0">Does this match how your teams and processes are actually organized?</h2>
+<p>Four questions this document cannot answer from the source alone (<code>modularize-domain.md</code> Step 1) — answered here provisionally (unattended run) and recorded <code>ASSUMED</code> in <code>PROJECT.md</code>, pending a returning human:</p>
+<ol>
+<li><strong>Team ownership</strong> — no team structure is named anywhere in the corpus; assumed one team builds/owns the whole app (small app, no signal otherwise).</li>
+<li><strong>Reuse intent</strong> — HB_Reporting's audit-log pattern is the only module built with an eye to reuse in another app; nothing else is flagged for lift-out.</li>
+<li><strong>Release cadence</strong> — no independent-release signal in the source; assumed one release train for all five modules at this stage.</li>
+<li><strong>Security/regulatory segregation</strong> — the only segregation signal is company-row-security (F001, ch35) and role-gated actions (Harbour Master overrides/waivers) — both already reflected in the module boundaries above, no additional PII/regulatory split needed.</li>
+</ol>
+</div>
+</div>
+</body>
+</html>

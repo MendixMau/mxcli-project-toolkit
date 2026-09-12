@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Wireframe — Tariffs</title>
+<link rel="stylesheet" href="../ds.css">
+<style>.wf-note{max-width:900px;margin:16px auto 0;font-size:0.85rem;color:var(--hb-text-muted)}</style>
+</head><body>
+<div class="hb-app">
+  <div class="hb-header">HARBOUR BERTH BOOKING <span class="hb-role">Signed in as Harbour Master</span></div>
+  <div class="hb-body">
+    <div class="hb-sidebar">
+      <a>BOOKING BOARD</a><a>MY BOOKINGS</a><a>INSPECTIONS</a><a class="active">TARIFFS</a><a>REPORTS</a>
+    </div>
+    <div class="hb-main">
+      <div class="hb-panel" style="max-width:820px">
+        <h1>Tariffs</h1>
+        <div class="hb-callout">"Tariffs are defined per terminal with a rate per metre of
+          vessel length per day, a currency and a validity period." <span class="hb-source-tag">ch18 §14.1</span></div>
+        <table class="hb-table">
+          <tr><th>Code</th><th>Terminal</th><th>Rate/m/day</th><th>Currency</th><th>Valid</th><th>Surcharge %</th></tr>
+          <tr><td>T-STD</td><td>South</td><td>4.20</td><td>EUR</td><td>2026-01-01 –</td><td>—</td></tr>
+        </table>
+        <div class="hb-callout">Berth fee = length × days alongside (round up, min 1) × rate;
+          VAT 21%; shore power 250/day flat when offered + requested. Late-arrival 15% (&gt;2h,
+          waivable &lt;80m LOA — Harbour Master only for a general surcharge waiver, Berth
+          Officer for the late-arrival waiver specifically). Late cancellation 50% within 72h
+          of ETA. <span class="hb-source-tag">ch18 §14.2-14.4, ch19, ch13 §9.3, ch24 §20.3 (Ruling R3 resolves the 24h/72h conflict C1)</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<table class="hb-table" style="max-width:820px;margin:16px auto">
+<tr><th>Source field/element</th><th>Mendix widget</th><th>Datasource</th><th>Required</th><th>Read-only</th><th>Conditional</th></tr>
+<tr><td>Tariff grid</td><td>Data Grid 2 (editable rows)</td><td>Tariff (all)</td><td>—</td><td>Yes unless role=HarbourMaster</td><td>—</td></tr>
+<tr><td>Waive surcharge action</td><td>Action button → microflow</td><td>on Tariff/BookingRequest</td><td>—</td><td>—</td><td>Role HarbourMaster only (general); Berth Officer limited to late-arrival waiver &lt;80m</td></tr>
+</table>
+<p class="wf-note">Screen: <code>Tariffs_Overview</code> — module <code>HB_Finance</code>.</p>
+</body></html>

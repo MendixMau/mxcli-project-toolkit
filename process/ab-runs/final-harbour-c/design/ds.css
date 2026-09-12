@@ -1,0 +1,135 @@
+/* Harbour Berth Booking — design tokens & base components
+   Palette lifted from the prototype screenshots (ch08, ch09, ch21): dark navy header/nav,
+   light blue-grey sidebar, green primary action, red inline validation. */
+:root {
+  --hb-navy: #14283f;
+  --hb-navy-light: #1f3d5c;
+  --hb-sidebar-bg: #dbe4ec;
+  --hb-sidebar-text: #1c2c3a;
+  --hb-bg: #eef2f6;
+  --hb-surface: #ffffff;
+  --hb-border: #b7c2cd;
+  --hb-text: #17232e;
+  --hb-text-muted: #5a6773;
+  --hb-accent-green: #2f7d52;
+  --hb-accent-green-dark: #235f3e;
+  --hb-error-red: #c1272d;
+  --hb-error-bg: #fdecec;
+  --hb-radius: 4px;
+  --hb-font: "Courier New", ui-monospace, monospace; /* the prototype uses a mono/terminal look */
+  --hb-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --hb-space-1: 8px;
+  --hb-space-2: 16px;
+  --hb-space-3: 24px;
+  --hb-space-4: 32px;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--hb-font-ui);
+  background: var(--hb-bg);
+  color: var(--hb-text);
+}
+.hb-app { display: flex; flex-direction: column; min-height: 100vh; }
+.hb-header {
+  background: var(--hb-navy);
+  color: #fff;
+  padding: var(--hb-space-2) var(--hb-space-3);
+  font-family: var(--hb-font);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.hb-header .hb-role { font-size: 0.75rem; font-weight: 400; opacity: 0.85; letter-spacing: 0; }
+.hb-body { display: flex; flex: 1; min-height: 0; }
+.hb-sidebar {
+  background: var(--hb-sidebar-bg);
+  color: var(--hb-sidebar-text);
+  width: 200px;
+  flex-shrink: 0;
+  padding: var(--hb-space-2) 0;
+  font-family: var(--hb-font);
+}
+.hb-sidebar a {
+  display: block;
+  padding: var(--hb-space-1) var(--hb-space-2);
+  color: var(--hb-sidebar-text);
+  text-decoration: none;
+  font-size: 0.85rem;
+  letter-spacing: 0.03em;
+}
+.hb-sidebar a.active { background: var(--hb-surface); font-weight: 700; }
+.hb-main { flex: 1; padding: var(--hb-space-3); overflow-x: auto; }
+.hb-panel {
+  background: var(--hb-surface);
+  border: 1px solid var(--hb-border);
+  border-radius: var(--hb-radius);
+  padding: var(--hb-space-3);
+  max-width: 720px;
+}
+.hb-panel h1, .hb-panel h2 {
+  font-family: var(--hb-font);
+  color: var(--hb-navy);
+  margin-top: 0;
+}
+.hb-field { margin-bottom: var(--hb-space-2); }
+.hb-field label {
+  display: block;
+  font-family: var(--hb-font);
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+  color: var(--hb-text-muted);
+}
+.hb-field input, .hb-field select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--hb-border);
+  border-radius: var(--hb-radius);
+  font-family: var(--hb-font);
+  background: #fafcfd;
+  color: var(--hb-text);
+}
+.hb-field.invalid input, .hb-field.invalid select { border-color: var(--hb-error-red); border-width: 2px; }
+.hb-error-msg {
+  color: var(--hb-error-red);
+  font-family: var(--hb-font);
+  font-weight: 700;
+  font-size: 0.85rem;
+  margin: -8px 0 var(--hb-space-2);
+}
+.hb-btn {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: var(--hb-radius);
+  border: none;
+  font-family: var(--hb-font);
+  font-weight: 700;
+  cursor: pointer;
+}
+.hb-btn-primary { background: var(--hb-accent-green); color: #fff; }
+.hb-btn-primary:hover { background: var(--hb-accent-green-dark); }
+.hb-btn-secondary { background: #fff; border: 1px solid var(--hb-border); color: var(--hb-text); }
+.hb-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.hb-table th, .hb-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--hb-border); }
+.hb-table th { color: var(--hb-text-muted); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; }
+.hb-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.72rem; font-weight: 700; }
+.hb-badge-draft { background: #e3e7ea; color: #445; }
+.hb-badge-submitted { background: #dbeafe; color: #1e4d8f; }
+.hb-badge-review { background: #fef3c7; color: #92620a; }
+.hb-badge-approved { background: #dcfce7; color: #166534; }
+.hb-badge-rejected { background: var(--hb-error-bg); color: var(--hb-error-red); }
+.hb-badge-completed { background: #e0e7ff; color: #3730a3; }
+.hb-badge-cancelled { background: #f1f1f1; color: #666; }
+.hb-exceed { color: var(--hb-error-red); font-weight: 700; }
+.hb-callout {
+  font-size: 0.75rem;
+  color: var(--hb-text-muted);
+  background: #f5f8fa;
+  border-left: 3px solid var(--hb-navy-light);
+  padding: 6px 10px;
+  margin: 6px 0 14px;
+  font-family: var(--hb-font-ui);
+}
+.hb-callout.gap { border-left-color: #b8860b; background: #fff8e6; }
+.hb-callout.conflict { border-left-color: var(--hb-error-red); background: var(--hb-error-bg); }
+.hb-source-tag { font-size: 0.7rem; color: #7a8794; margin-left: 6px; }

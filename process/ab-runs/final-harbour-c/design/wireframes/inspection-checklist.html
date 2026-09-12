@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Wireframe — Inspection Checklist</title>
+<link rel="stylesheet" href="../ds.css">
+<style>.wf-note{max-width:900px;margin:16px auto 0;font-size:0.85rem;color:var(--hb-text-muted)}</style>
+</head><body>
+<div class="hb-app">
+  <div class="hb-header">HARBOUR BERTH BOOKING <span class="hb-role">Signed in as Inspector</span></div>
+  <div class="hb-body">
+    <div class="hb-sidebar">
+      <a>BOOKING BOARD</a><a>MY BOOKINGS</a><a class="active">INSPECTIONS</a><a>TARIFFS</a><a>REPORTS</a>
+    </div>
+    <div class="hb-main">
+      <div class="hb-panel" style="max-width:860px">
+        <h1>Inspection Checklist — HB-2031-00417</h1>
+        <div class="hb-callout">"An inspection consists of checklist items in the categories
+          Safety, Environmental, Documentation and Security." <span class="hb-source-tag">ch23 §19.1</span></div>
+        <table class="hb-table">
+          <tr><th>Category</th><th>Description</th><th>Compliant?</th><th>Severity</th><th>Note</th></tr>
+          <tr><td>Safety</td><td>Fire extinguishers current</td><td>Yes</td><td>—</td><td></td></tr>
+          <tr><td>Environmental</td><td>Bilge water disposal log</td><td style="color:var(--hb-error-red);font-weight:700">No</td><td>High</td><td>Missing entries for 3 days</td></tr>
+          <tr><td>Documentation</td><td>Crew list current</td><td>Yes</td><td>—</td><td></td></tr>
+          <tr><td>Security</td><td>ISPS certificate valid</td><td>Yes</td><td>—</td><td></td></tr>
+        </table>
+        <div class="hb-callout conflict">One non-compliant High-severity item ⇒ Outcome = Failed
+          (shown above). A Failed inspection blocks departure clearance until a follow-up
+          Passes. <span class="hb-source-tag">ch23 §19.3, ch24 §20.1</span></div>
+        <div class="hb-field"><label>OUTCOME</label><select><option selected>Failed</option><option>Passed</option><option>Deferred</option></select></div>
+        <button class="hb-btn hb-btn-primary">SAVE INSPECTION</button>
+      </div>
+    </div>
+  </div>
+</div>
+<table class="hb-table" style="max-width:860px;margin:16px auto">
+<tr><th>Source field/element</th><th>Mendix widget</th><th>Datasource</th><th>Required</th><th>Read-only</th><th>Conditional</th></tr>
+<tr><td>Checklist grid</td><td>Data Grid 2 (editable rows)</td><td>InspectionItem (this Inspection)</td><td>—</td><td>No</td><td>—</td></tr>
+<tr><td>Compliant?</td><td>Boolean toggle</td><td>InspectionItem.IsCompliant</td><td>Yes</td><td>No</td><td>—</td></tr>
+<tr><td>Severity</td><td>Enumeration selector</td><td>InspectionItem.Severity</td><td>No</td><td>No</td><td>Required when IsCompliant=false</td></tr>
+<tr><td>Outcome</td><td>Enumeration selector</td><td>Inspection.Outcome</td><td>Yes</td><td>No</td><td>Auto-set Failed when any item non-compliant+High; else officer/inspector choice</td></tr>
+<tr><td>Save Inspection button</td><td>Action button → microflow</td><td>ACT_Inspection_Complete</td><td>—</td><td>—</td><td>Role Inspector</td></tr>
+</table>
+<p class="wf-note">Screen: <code>Inspection_Checklist</code> — module <code>HB_Inspection</code>.</p>
+</body></html>

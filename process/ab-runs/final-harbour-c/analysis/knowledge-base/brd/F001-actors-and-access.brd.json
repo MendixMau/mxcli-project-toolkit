@@ -1,0 +1,90 @@
+{
+  "id": "F001",
+  "title": "Actors & Access",
+  "modules": [
+    "HB_MasterData"
+  ],
+  "actors": [
+    "ShippingAgent",
+    "BerthOfficer",
+    "HarbourMaster",
+    "Inspector"
+  ],
+  "provenance": "documents",
+  "useCases": [
+    {
+      "id": "UC001-1",
+      "title": "Four user roles, one role per user",
+      "actors": [
+        "ShippingAgent",
+        "BerthOfficer",
+        "HarbourMaster",
+        "Inspector"
+      ],
+      "preconditions": [
+        "User is signed in"
+      ],
+      "postconditions": [
+        "The user's role name is shown in the header of every screen"
+      ],
+      "mainFlow": [
+        "1. Every user is assigned exactly one of: Shipping Agent, Berth Officer, Harbour Master, Inspector.",
+        "2. The role name is displayed in the header on every screen."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/05-stakeholders-and-roles.md#L34",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC001-2",
+      "title": "Harbour Master is a superset of Berth Officer",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [
+        "User has role Harbour Master"
+      ],
+      "postconditions": [
+        "Harbour Master can perform every Berth Officer action plus overrides, agent reactivation and tariff maintenance"
+      ],
+      "mainFlow": [
+        "1. The Harbour Master can perform every action a Berth Officer can.",
+        "2. Additionally: override a Rejected decision (F004), reactivate a suspended agent (F002), and maintain tariffs (F005)."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/05-stakeholders-and-roles.md#L44",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC001-3",
+      "title": "Agents see only their own company's data",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "User has role Shipping Agent"
+      ],
+      "postconditions": [
+        "Agent's booking/invoice/inspection lists are scoped to their own company (ShippingAgent) only"
+      ],
+      "mainFlow": [
+        "1. A Shipping Agent user can only see BookingRequest, Invoice and Inspection records that belong to bookings made by their own ShippingAgent company."
+      ],
+      "screens": [
+        "My Bookings"
+      ],
+      "sourceRef": "analysis/knowledge-base/text/35-security-and-access.md#L27",
+      "status": "doc-confirmed"
+    }
+  ],
+  "domainEntities": [],
+  "microflows": [],
+  "pages": [],
+  "integrations": [],
+  "openQuestions": [],
+  "sourceKB": [
+    "roles.md",
+    "05-stakeholders-and-roles.html",
+    "35-security-and-access.html"
+  ]
+}

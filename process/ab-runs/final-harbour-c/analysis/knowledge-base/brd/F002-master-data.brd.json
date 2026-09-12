@@ -1,0 +1,371 @@
+{
+  "id": "F002",
+  "title": "Master Data \u2014 Vessels, Agents, Terminals & Berths",
+  "modules": [
+    "HB_MasterData"
+  ],
+  "actors": [
+    "ShippingAgent",
+    "BerthOfficer",
+    "HarbourMaster"
+  ],
+  "provenance": "documents",
+  "useCases": [
+    {
+      "id": "UC002-1",
+      "title": "Vessel identified by unique IMO number",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "Vessel record uniquely identified by IMONumber"
+      ],
+      "mainFlow": [
+        "1. A vessel is identified by its IMO number, unique across the vessel registry."
+      ],
+      "validations": [
+        "IMONumber unique across Vessel"
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/14-vessel-registry.md#L31",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002-2",
+      "title": "Vessel type is one of a fixed set",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. VesselType is one of: Container, Bulk, Tanker, RoRo, Cruise, GeneralCargo."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/14-vessel-registry.md#L37",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002-3",
+      "title": "Shipping agent registration",
+      "actors": [
+        "ShippingAgent",
+        "BerthOfficer"
+      ],
+      "preconditions": [],
+      "postconditions": [
+        "ShippingAgent record created, IsSuspended = false, activated by a Berth Officer"
+      ],
+      "mainFlow": [
+        "1. A shipping agent registers with a company name, port licence number and a contact e-mail address.",
+        "2. The registration is activated by a Berth Officer."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/11-agent-onboarding.md#L28",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002-4",
+      "title": "Automatic suspension on overdue invoices",
+      "actors": [
+        "ShippingAgent"
+      ],
+      "preconditions": [
+        "ShippingAgent has 3 or more Invoice records with Status = Overdue"
+      ],
+      "postconditions": [
+        "ShippingAgent.IsSuspended = true"
+      ],
+      "mainFlow": [
+        "1. An agent with three or more overdue invoices is automatically suspended.",
+        "2. A suspended agent cannot submit new booking requests.",
+        "3. Bookings that are already Approved remain valid."
+      ],
+      "validations": [
+        "BookingRequest submission blocked when ShippingAgent.IsSuspended = true"
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/11-agent-onboarding.md#L36",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002-5",
+      "title": "Reactivation is Harbour Master only, no self-service",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [
+        "ShippingAgent.IsSuspended = true"
+      ],
+      "postconditions": [
+        "ShippingAgent.IsSuspended = false"
+      ],
+      "mainFlow": [
+        "1. There is no self-service reactivation; a suspended agent is reactivated only by the Harbour Master."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/11-agent-onboarding.md#L34",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002-6",
+      "title": "Berth attributes and status",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. Each berth records a code, a name, a maximum vessel length, a maximum draught, shore power availability and a status of Available, Closed or Maintenance."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/12-berth-master-data.md#L38",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC002-7",
+      "title": "Terminal master data",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. Each terminal has a code, name, operating hours and whether it has a customs office."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/12-berth-master-data.md#L74",
+      "status": "doc-confirmed"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "Vessel",
+      "module": "HB_MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "IMONumber",
+          "type": "String",
+          "length": 7,
+          "mandatory": true
+        },
+        {
+          "name": "Name",
+          "type": "String",
+          "length": 100,
+          "mandatory": true
+        },
+        {
+          "name": "LengthOverall",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "Beam",
+          "type": "Decimal",
+          "mandatory": false
+        },
+        {
+          "name": "Draught",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "FlagState",
+          "type": "String",
+          "length": 2,
+          "mandatory": false
+        },
+        {
+          "name": "VesselType",
+          "type": "Enumeration",
+          "enum": [
+            "Container",
+            "Bulk",
+            "Tanker",
+            "RoRo",
+            "Cruise",
+            "GeneralCargo"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "GrossTonnage",
+          "type": "Integer",
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "Vessel_ShippingAgent",
+          "target": "ShippingAgent",
+          "type": "ManyToMany"
+        }
+      ],
+      "sourceRef": "analysis/knowledge-base/text/07-domain-overview.md#L54"
+    },
+    {
+      "name": "ShippingAgent",
+      "module": "HB_MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "CompanyName",
+          "type": "String",
+          "length": 120,
+          "mandatory": true
+        },
+        {
+          "name": "LicenceNumber",
+          "type": "String",
+          "length": 20,
+          "mandatory": true
+        },
+        {
+          "name": "ContactEmail",
+          "type": "String",
+          "length": 200,
+          "mandatory": true
+        },
+        {
+          "name": "Phone",
+          "type": "String",
+          "length": 30,
+          "mandatory": false
+        },
+        {
+          "name": "IsSuspended",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "CreditLimit",
+          "type": "Decimal",
+          "mandatory": false
+        }
+      ],
+      "associations": [],
+      "sourceRef": "analysis/knowledge-base/text/07-domain-overview.md#L71"
+    },
+    {
+      "name": "Terminal",
+      "module": "HB_MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Code",
+          "type": "String",
+          "length": 6,
+          "mandatory": true
+        },
+        {
+          "name": "Name",
+          "type": "String",
+          "length": 80,
+          "mandatory": true
+        },
+        {
+          "name": "OperatingHoursStart",
+          "type": "String",
+          "length": 5,
+          "mandatory": false
+        },
+        {
+          "name": "OperatingHoursEnd",
+          "type": "String",
+          "length": 5,
+          "mandatory": false
+        },
+        {
+          "name": "HasCustomsOffice",
+          "type": "Boolean",
+          "mandatory": true
+        }
+      ],
+      "associations": [],
+      "sourceRef": "analysis/knowledge-base/text/12-berth-master-data.md#L74"
+    },
+    {
+      "name": "Berth",
+      "module": "HB_MasterData",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Code",
+          "type": "String",
+          "length": 10,
+          "mandatory": true
+        },
+        {
+          "name": "Name",
+          "type": "String",
+          "length": 80,
+          "mandatory": true
+        },
+        {
+          "name": "MaxLength",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "MaxDraught",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "HasShorePower",
+          "type": "Boolean",
+          "mandatory": true
+        },
+        {
+          "name": "Status",
+          "type": "Enumeration",
+          "enum": [
+            "Available",
+            "Closed",
+            "Maintenance"
+          ],
+          "mandatory": true
+        },
+        {
+          "name": "Notes",
+          "type": "String",
+          "length": 500,
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "Berth_Terminal",
+          "target": "Terminal",
+          "type": "ManyToOne",
+          "owner": "Berth"
+        }
+      ],
+      "sourceRef": "analysis/knowledge-base/text/12-berth-master-data.md#L58"
+    }
+  ],
+  "microflows": [],
+  "pages": [],
+  "integrations": [],
+  "openQuestions": [
+    {
+      "id": "F002-Q1",
+      "question": "IMO number is 'Text, up to 7 characters' in the domain tables (ch07/ch14) but the booking-form validation screenshot (ch09) says 'must be exactly 7 digits'.",
+      "status": "ASSUMED",
+      "answer": "Modelled as String, length 7, plus a microflow validation requiring exactly 7 numeric characters (source-sufficiency conflict C3).",
+      "consentBy": "agent (unattended run final-harbour-c)",
+      "consentAt": "2026-09-12"
+    }
+  ],
+  "sourceKB": [
+    "07-domain-overview.html",
+    "11-agent-onboarding.html",
+    "12-berth-master-data.html",
+    "14-vessel-registry.html",
+    "02-about-the-port-authority.html",
+    "glossary.md"
+  ]
+}

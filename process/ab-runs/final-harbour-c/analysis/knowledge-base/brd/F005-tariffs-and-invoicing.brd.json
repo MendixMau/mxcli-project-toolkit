@@ -1,0 +1,367 @@
+{
+  "id": "F005",
+  "title": "Tariffs & Invoicing",
+  "modules": [
+    "HB_Finance"
+  ],
+  "actors": [
+    "HarbourMaster",
+    "BerthOfficer",
+    "ShippingAgent"
+  ],
+  "provenance": "documents",
+  "useCases": [
+    {
+      "id": "UC005-1",
+      "title": "Rate cards per terminal",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. Tariffs are defined per terminal with a rate per metre of vessel length per day, a currency and a validity period."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/18-tariff-structure.md#L30",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005-2",
+      "title": "Berth fee calculation",
+      "actors": [],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. The berth fee is vessel length times days alongside times the tariff rate.",
+        "2. Days alongside is rounded up to whole days, minimum one day."
+      ],
+      "validations": [
+        "days = ceil(ETD-ETA in days); days >= 1"
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/18-tariff-structure.md#L40",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005-3",
+      "title": "VAT",
+      "actors": [],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. VAT of 21% is added to all berth fees."
+      ],
+      "validations": [
+        "VAT = 21% of berth fee"
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/18-tariff-structure.md#L49",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005-4",
+      "title": "Shore power surcharge",
+      "actors": [],
+      "preconditions": [
+        "Berth.HasShorePower = true",
+        "BookingRequest.ShorePowerRequested = true"
+      ],
+      "postconditions": [],
+      "mainFlow": [
+        "1. Shore power is billed at a flat 250 per day when the berth offers it and the agent requested it."
+      ],
+      "validations": [
+        "shorePowerFee = 250 * days when applicable"
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/18-tariff-structure.md#L75",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005-5",
+      "title": "Late-arrival surcharge",
+      "actors": [],
+      "preconditions": [
+        "Actual arrival > ETA + 2h"
+      ],
+      "postconditions": [],
+      "mainFlow": [
+        "1. A vessel arriving more than 2 hours after its ETA incurs a late-arrival surcharge of 15% of the berth fee."
+      ],
+      "validations": [
+        "lateArrivalSurcharge = 15% of berth fee when arrival > ETA+2h"
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/19-tariffs-cancellation-fees.md#L32",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005-6",
+      "title": "Late-arrival surcharge waiver for small vessels",
+      "actors": [
+        "BerthOfficer"
+      ],
+      "preconditions": [
+        "Vessel.LengthOverall < 80m"
+      ],
+      "postconditions": [],
+      "mainFlow": [
+        "1. A berth officer may waive the late-arrival surcharge for vessels shorter than 80 metres."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/24-inspection-outcomes.md#L34",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005-7",
+      "title": "Late-cancellation fee",
+      "actors": [],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. Cancellations made within 72 hours of ETA are charged 50% of the berth fee (see F003-Q1 for the ch10/ch19 conflict this resolves)."
+      ],
+      "validations": [
+        "cancellationFee = 50% of berth fee when cancelled within 72h of ETA"
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/19-tariffs-cancellation-fees.md#L44",
+      "status": "doc-conflict"
+    },
+    {
+      "id": "UC005-8",
+      "title": "Surcharge waiver restricted to Harbour Master",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. Only the Harbour Master may waive a tariff surcharge."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/13-berth-allocation-rules.md#L36",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005-9",
+      "title": "Invoice generated on Completed",
+      "actors": [],
+      "preconditions": [
+        "BookingRequest.Status = Completed"
+      ],
+      "postconditions": [
+        "Invoice created"
+      ],
+      "mainFlow": [
+        "1. An invoice is generated automatically when a booking is marked Completed."
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/20-invoicing.md#L28",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005-10",
+      "title": "Invoice due date and overdue transition",
+      "actors": [],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. Invoices are due 30 days after the issue date.",
+        "2. An invoice becomes Overdue on the day after the due date."
+      ],
+      "validations": [
+        "DueOn = IssuedOn + 30 days",
+        "Status -> Overdue when today > DueOn and not Paid/Void"
+      ],
+      "screens": [],
+      "sourceRef": "sources/decisions-log.md#L49",
+      "status": "doc-confirmed"
+    },
+    {
+      "id": "UC005-11",
+      "title": "Mark invoice Paid or Void \u2014 Harbour Master only",
+      "actors": [
+        "HarbourMaster"
+      ],
+      "preconditions": [],
+      "postconditions": [],
+      "mainFlow": [
+        "1. A Harbour Master can mark an invoice as Paid or Void; a Paid invoice cannot be edited."
+      ],
+      "validations": [
+        "Paid invoice is read-only"
+      ],
+      "screens": [],
+      "sourceRef": "analysis/knowledge-base/text/20-invoicing.md#L39",
+      "status": "doc-confirmed"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "Tariff",
+      "module": "HB_Finance",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "Code",
+          "type": "String",
+          "length": 10,
+          "mandatory": true
+        },
+        {
+          "name": "Description",
+          "type": "String",
+          "length": 120,
+          "mandatory": true
+        },
+        {
+          "name": "RatePerMetrePerDay",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "Currency",
+          "type": "String",
+          "length": 3,
+          "mandatory": true
+        },
+        {
+          "name": "ValidFrom",
+          "type": "Date",
+          "mandatory": true
+        },
+        {
+          "name": "ValidTo",
+          "type": "Date",
+          "mandatory": false
+        },
+        {
+          "name": "SurchargePercent",
+          "type": "Decimal",
+          "mandatory": false
+        }
+      ],
+      "associations": [
+        {
+          "name": "Tariff_Terminal",
+          "target": "Terminal",
+          "type": "ManyToOne",
+          "owner": "Tariff"
+        }
+      ],
+      "sourceRef": "analysis/knowledge-base/text/36-appendix-data-dictionary.md#L63"
+    },
+    {
+      "name": "Invoice",
+      "module": "HB_Finance",
+      "persistent": true,
+      "attributes": [
+        {
+          "name": "InvoiceNumber",
+          "type": "String",
+          "length": 16,
+          "mandatory": true
+        },
+        {
+          "name": "IssuedOn",
+          "type": "Date",
+          "mandatory": true
+        },
+        {
+          "name": "DueOn",
+          "type": "Date",
+          "mandatory": true
+        },
+        {
+          "name": "TotalAmount",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "VatPercent",
+          "type": "Decimal",
+          "mandatory": true
+        },
+        {
+          "name": "Status",
+          "type": "Enumeration",
+          "enum": [
+            "Draft",
+            "Issued",
+            "Paid",
+            "Overdue",
+            "Void"
+          ],
+          "mandatory": true
+        }
+      ],
+      "associations": [
+        {
+          "name": "Invoice_BookingRequest",
+          "target": "BookingRequest",
+          "type": "OneToOne",
+          "owner": "Invoice"
+        },
+        {
+          "name": "Invoice_ShippingAgent",
+          "target": "ShippingAgent",
+          "type": "ManyToOne",
+          "owner": "Invoice"
+        },
+        {
+          "name": "Invoice_Tariff",
+          "target": "Tariff",
+          "type": "ManyToOne",
+          "owner": "Invoice"
+        }
+      ],
+      "sourceRef": "analysis/knowledge-base/text/36-appendix-data-dictionary.md#L79"
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_Invoice_GenerateOnComplete",
+      "module": "HB_Finance",
+      "purpose": "Computes berth fee + VAT + shore power + surcharges, creates Invoice with DueOn=IssuedOn+30d."
+    },
+    {
+      "name": "SCHED_Invoice_MarkOverdue",
+      "module": "HB_Finance",
+      "purpose": "Scheduled: flips Issued invoices past DueOn to Overdue.",
+      "pattern": "scheduled"
+    }
+  ],
+  "pages": [
+    {
+      "name": "Tariffs_Overview",
+      "module": "HB_Finance",
+      "purpose": "Tariff maintenance (Harbour Master)"
+    },
+    {
+      "name": "Invoices_Overview",
+      "module": "HB_Finance",
+      "purpose": "Invoice list + Paid/Void actions"
+    }
+  ],
+  "integrations": [],
+  "openQuestions": [
+    {
+      "id": "F005-Q1",
+      "question": "Cancellation-fee window conflict C1, restated here for the fee-calc microflow.",
+      "status": "ASSUMED",
+      "answer": "ch19's 72h/50% rule adopted (Ruling R3, same as F003-Q1).",
+      "consentBy": "agent (unattended run final-harbour-c)",
+      "consentAt": "2026-09-12"
+    }
+  ],
+  "sourceKB": [
+    "18-tariff-structure.html",
+    "19-tariffs-cancellation-fees.html",
+    "20-invoicing.html",
+    "36-appendix-data-dictionary.html",
+    "13-berth-allocation-rules.html",
+    "decisions-log.md"
+  ]
+}

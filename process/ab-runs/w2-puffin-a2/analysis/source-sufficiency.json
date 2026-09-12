@@ -1,0 +1,113 @@
+{
+  "_readme": [
+    "TWO PASSES, IN ORDER. Pass 1 is `inventory` \u2014 what is this source even about.",
+    "Pass 2 is `dimensions` \u2014 is it good enough to build from. Do not start pass 2 until",
+    "every inventory row is filled: a grade over a corpus you have not identified is a",
+    "grade of your own assumptions.",
+    "",
+    "INVENTORY (pass 1), one row per file \u2014 EVERY file under sourceRoot, no format skipped \u2014",
+    "filled by OPENING it:",
+    "  kind:        docs | code | data | ui | contract | unknown",
+    "  answers:     which dimension keys this source can speak to, e.g. [\"domain\",\"rules\"].",
+    "               Empty list is a real answer \u2014 say so rather than leaving it null.",
+    "  statedScope: if the source declares its own boundary, quote it VERBATIM. Sources",
+    "               that say what they do not cover are the cheapest scope signal there is.",
+    "  components:  named modules/components/aggregates this source defines, one string each.",
+    "  format/route/media/pages are stamped by init from bin/lib/source-formats.tsv \u2014 what the",
+    "               file is by extension, the extraction route that consumes it whole, and how",
+    "               many embedded images/diagrams a text-only read would leave behind. A row",
+    "               with media > 0 is not consumed until its disposition accounts for them.",
+    "",
+    "DISPOSITIONS (Stage 1) \u2014 one entry per inventory row (or a glob covering several), read",
+    "by bin/source-ledger.sh, which blocks the Stage 1 and 2 gates while any row has none:",
+    "  {\"path\": \"<rel>\" | \"pattern\": \"<glob over rel>\", \"state\": \"extracted\",",
+    "   \"artifact\": \"<project-relative file or dir that carries what was extracted>\",",
+    "   \"evidence\": \"<one specific finding that came OUT of the file, and where it landed>\",",
+    "   \"media\": <images described, must equal the row's media count, or \"mediaWaived\": \"why\">,",
+    "   \"by\": \"who\", \"date\": \"YYYY-MM-DD\"}",
+    "  The artifact must exist, be non-empty, and NAME the source file \u2014 a disposition that",
+    "  says 'the triage already used it' is checked by grepping the triage for the file, and",
+    "  fails if it never mentions it. Write them with: bin/source-ledger.sh mark ...",
+    "  A file deliberately not extracted is a register line, not a disposition:",
+    "     bin/gate-check.sh <project> --waive source/<rel> --reason \"...\"",
+    "",
+    "DIMENSIONS (pass 2). Fill in every dimension by READING the sources. Do not infer a",
+    "rating from file size.",
+    "  rating: absent | named | specified | verified",
+    "  evidence: where you saw it (page, section, screen) \u2014 or why you concluded absent.",
+    "  consequence: what the BUILD has to invent if this stays as-is. Be concrete.",
+    "Leave rating null for any dimension you did not actually check; the report will",
+    "refuse to score rather than treat unchecked as absent."
+  ],
+  "assessedAt": "2026-09-12",
+  "sourceRoot": "/tmp/abproj/sources",
+  "sources": [],
+  "sourceCount": 0,
+  "inventory": [],
+  "dispositions": [],
+  "dimensions": {
+    "actors": {
+      "demands": "Who uses the system, and where one role's authority stops",
+      "rating": null,
+      "evidence": "",
+      "consequence": ""
+    },
+    "domain": {
+      "demands": "Entities, their attributes, and the relationships between them",
+      "rating": null,
+      "evidence": "",
+      "consequence": ""
+    },
+    "processes": {
+      "demands": "Flows and sequences: what happens after what, and what state it leaves behind",
+      "rating": null,
+      "evidence": "",
+      "consequence": ""
+    },
+    "rules": {
+      "demands": "Business rules, validations, thresholds, calculations, eligibility criteria",
+      "rating": null,
+      "evidence": "",
+      "consequence": ""
+    },
+    "ui": {
+      "demands": "Screens, navigation, layout, and which data appears on which",
+      "rating": null,
+      "evidence": "",
+      "consequence": ""
+    },
+    "integrations": {
+      "demands": "External systems, protocols, credentials, and behaviour when they fail",
+      "rating": null,
+      "evidence": "",
+      "consequence": ""
+    },
+    "nfr": {
+      "demands": "Security, performance, availability, retention, data volumes",
+      "rating": null,
+      "evidence": "",
+      "consequence": ""
+    },
+    "tenancy": {
+      "demands": "Whether one deployment serves many organisations, and how their data is isolated",
+      "rating": null,
+      "evidence": "",
+      "consequence": ""
+    },
+    "security_model": {
+      "demands": "The actor-to-permission mapping: who may do each thing, and who may not",
+      "rating": null,
+      "evidence": "",
+      "consequence": ""
+    },
+    "data_migration": {
+      "demands": "Existing data, its volume and shape, and how cutover happens",
+      "rating": null,
+      "evidence": "",
+      "consequence": ""
+    }
+  },
+  "conflicts": [],
+  "choices": [],
+  "notes": ""
+}

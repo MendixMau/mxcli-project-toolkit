@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Build Plan - Puffin</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { color: #0066cc; }
+    .phase { background: #f0f0f0; padding: 10px; margin: 10px 0; border-left: 4px solid #0066cc; }
+    .script { margin: 5px 0 5px 20px; padding: 5px; }
+    table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h1>Build Plan — Puffin Dashboard Publisher</h1>
+  <div class="phase">
+    <h2>Phase 1 (POC)</h2>
+    <p><strong>Status:</strong> Ready to proceed to MDL scripting</p>
+    <p><strong>Build order:</strong> CoreAuth → DashboardMgmt → WidgetLib → DataViz</p>
+  </div>
+  
+  <h2>Script Sequence</h2>
+  <table>
+    <tr>
+      <th>Script ID</th><th>Module</th><th>Purpose</th><th>Status</th>
+    </tr>
+    <tr>
+      <td>1.1.1</td><td>All</td><td>Create entities & enumerations</td><td>Pending</td>
+    </tr>
+    <tr>
+      <td>1.1.2</td><td>All</td><td>Create security roles</td><td>Pending</td>
+    </tr>
+    <tr>
+      <td>1.2.1–1.2.3</td><td>CoreAuth</td><td>Login/logout flows & page</td><td>Pending</td>
+    </tr>
+    <tr>
+      <td>1.3.1–1.3.4</td><td>DashboardMgmt</td><td>Dashboard CRUD & pages</td><td>Pending</td>
+    </tr>
+    <tr>
+      <td>1.4.1–1.4.3</td><td>WidgetLib</td><td>Widget config microflows & pages</td><td>Pending</td>
+    </tr>
+    <tr>
+      <td>1.5.1–1.5.4</td><td>DataViz</td><td>Chart/table/metric rendering</td><td>Pending</td>
+    </tr>
+    <tr>
+      <td>1.6.1–1.6.3</td><td>Common</td><td>Navigation, demo data, verification</td><td>Pending</td>
+    </tr>
+  </table>
+  
+  <h2>Module Dependencies</h2>
+  <p>CoreAuth (foundation) → DashboardMgmt & WidgetLib → DataViz</p>
+  <p>See <a href="build-plan.md">build-plan.md</a> for full script descriptions.</p>
+</body>
+</html>

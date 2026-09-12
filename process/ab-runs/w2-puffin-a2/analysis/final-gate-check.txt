@@ -1,0 +1,69 @@
+Toolkit updates: up to date.
+Drift (BRD sync): PASS — no unsynced BRD-drift markers in /tmp/abproj/PROJECT.md
+Open questions (raised?): PASS — every question has been raised [UNRAISED=0 RAISED=0 ANSWERED=0 ASSUMED=0 MOOT=0 UNRECOGNISED=0; examined 4 BRD file(s), 0 sme-questions file(s), 0 duplicate(s) collapsed]
+Obligation look       PENDING — 0 of 4 discharged; NOT DONE: CoreAuth DashboardMgmt DataViz WidgetLib — owner: review-agent, governed by skills/module-review.md
+Obligation sweep      PENDING — 0 of 4 discharged; NOT DONE: CoreAuth DashboardMgmt DataViz WidgetLib — owner: test-agent, governed by skills/wiring-sweep.md
+Obligation journeys   PENDING — 0 of 4 discharged; NOT DONE: CoreAuth DashboardMgmt DataViz WidgetLib — owner: test-agent, governed by skills/journey-proof.md
+Obligation coherence  PENDING — 0 of 1 discharged; NOT DONE: cluster — owner: architect-agent, governed by skills/process-coherence-pass.md
+Obligation skeleton   PENDING — 0 of 1 discharged; NOT DONE: project — owner: mdl-agent, governed by skills/walking-skeleton.md
+Obligation workflow-count PENDING — 0 of 1 discharged; NOT DONE: project — owner: architect-agent, governed by skills/workflow-structure-rules.md
+Obligation design-reaches-app PENDING — 0 of 1 discharged; NOT DONE: project — owner: mdl-agent, governed by project-bin/check-design-reaches-app.sh
+Artifact intake                   PRESENT — /tmp/abproj/intake.md
+Artifact register                 PRESENT — /tmp/abproj/PROJECT.md
+Artifact triage                   PRESENT — /tmp/abproj/triage.md
+Artifact extraction-report        PRESENT — /tmp/abproj/analysis/puffin/knowledge-base/extraction-report.html
+Artifact source-ledger            PENDING — owed at stage 1 (position: stage-4 artifacts already present) and absent; produce it: bin/source-ledger.sh report <project-root> — every inventoried source file and what consumed it (Stage 1 owes a disposition per row; gate-check blocks 1–2 on the check). Read by: bin/gate-check.sh (LEDGER block — the check; the html is the human-facing table of the same rows) [report-only]
+Artifact brds                     PRESENT — /tmp/abproj/analysis/puffin/knowledge-base/brd/F104-data-visualization.brd.json
+Artifact brd-validation           PRESENT — /tmp/abproj/analysis/puffin/knowledge-base/reports/validation-report.md
+Artifact brd-surface              PRESENT — /tmp/abproj/analysis/brd-report.html
+Artifact module-design            PENDING — owed at stage 3 (position: stage-4 artifacts already present) and absent; produce it: skills/modularize-domain.md:88 (the human-facing sign-off artifact). Read by: skills/modularize-domain.md:109 (gate checklist), conversion-runbook.md:478 Stage-3 Surface row (parsed at bin/gate-check.sh:1284) [report-only]
+Artifact fit-gap                  PRESENT — /tmp/abproj/architecture/fit-gap.md
+Artifact blueprint-md             PRESENT — /tmp/abproj/architecture/blueprint.md
+Artifact blueprint-html           PRESENT — /tmp/abproj/architecture/blueprint.html
+Artifact design-system            PRESENT — /tmp/abproj/design/design-system.html
+Artifact ds-css                   PRESENT — /tmp/abproj/design/ds.css
+Artifact wireframes               PRESENT — /tmp/abproj/design/wireframes/PG001-Login.html
+Artifact module-definition        PRESENT — /tmp/abproj/architecture/modules/DataViz/definition.md
+Artifact build-plan               PRESENT — /tmp/abproj/architecture/build-plan.md
+Artifact build-plan-html          PRESENT — /tmp/abproj/architecture/build-plan.html
+Artifact module-brief             PENDING — owed at stage 4 (position: stage-4 artifacts already present) and absent; produce it: skills/module-brief.md — ba-agent writes the first at Stage 4, the rest just-in-time. Read by: bin/gate-check.sh:1121 (build-ready fails without one), project-bin/build-plan-status.sh:98 [absence holds a mechanical gate shut]
+Artifact coverage-ledger          PENDING — owed at stage 4 (position: stage-4 artifacts already present) and absent; produce it: skills/coverage-ledger.md procedure at Stage 4 (BRD leaves × build-plan claims); the three shapes are §"Where the ledger lives", first canonical. Read by: project-bin/conformance-check.sh:85-93, project-bin/coverage-preflight.sh:134-137, project-bin/verify-module.sh:299-300, project-bin/review-module.sh:289, conversion-runbook.md:487 (Stage-4 produces row) — the eleven-consumers-no-producer artifact of improvement-plan Finding 12 [report-only]
+Artifact ui-reviews               PENDING — stage 5 not begun (position: stage-4 artifacts already present); owed when it starts (skills/module-review.md pass (review-agent), one report per module close-out)
+Artifact journeys                 PENDING — stage 5 not begun (position: stage-4 artifacts already present); owed when it starts (journey authoring per skills/testing-shape.md / skills/journey-proof.md (worked example: project-tests/e2e/example.journey.json))
+Artifact page-scope               PENDING — stage 5 not begun (position: stage-4 artifacts already present); owed when it starts (project-bin/page-scope.sh (the phantom of improvement-plan Finding 15 until 078c7d8 shipped it))
+Artifact improvement-register     PENDING — stage 5 not begun (position: stage-4 artifacts already present); owed when it starts (skills/improvement-register.md:39 (append-only, one row per finding, written during build/verify passes))
+Artifact improvement-register-html PENDING — stage 5 not begun (position: stage-4 artifacts already present); owed when it starts (project-bin/render-improvement-register.sh (landed 2026-08-22; in MXTK_PROJECT_BIN — bin/lib/install-manifest.sh:81-85))
+Artifact report-json              PENDING — stage 6 not begun (position: stage-4 artifacts already present); owed when it starts (project-bin/verify-module.sh:518 (normalize rung → report-normalize.js), run as part of every module verify)
+Artifact verification-html        PENDING — stage 6 not begun (position: stage-4 artifacts already present); owed when it starts (project-bin/verify-module.sh:521 (render rung → report-render.js); the two test-report.html shapes are the legacy names check_stage_6 still accepts)
+Artifacts optional, not opted in: workflow-design (stage 3), swimlanes (stage 3), sequence-diagrams (stage 3), erd (stage 3), nfr-sheet (stage 3), integration-contracts (stage 3), test-plan (stage 4), acceptance-criteria (stage 4), demo-script (stage 5) — offered at each stage open by gate-check.sh --closeout; opt in with a register line "Opt-in artifact <id>: <why>"
+Source sufficiency (assessed?): FAIL — source was never characterised, or the assessment is incomplete — run: /home/user/mxcli-project-toolkit/bin/source-sufficiency.sh init /tmp/abproj (then fill in pass 1/pass 2), then /home/user/mxcli-project-toolkit/bin/source-sufficiency.sh report /tmp/abproj. source-sufficiency: 10 of 10 dimensions unrated (actors, data_migration, domain, integrations, nfr, processes, rules, security_model, tenancy, ui)   nothing scored. Rate every dimension, or state absent with a reason. 
+Source ledger (every file consumed?): MANUAL — inventory holds zero rows and the source root holds zero files — nothing to account for; is sourceRoot right?
+Skill routing (surfaces vs table): SKIPPED — toolkit-authoring check — only runs when gate-check targets the toolkit repo itself
+Report disposition (findings filed?): MANUAL — cannot evaluate, which is not a pass — FAULT: no docs/report.json, no report (docs/progress/*.html, design/ui-reviews/*.html,        .claude/loop/verify/*/summary.tsv), and no /tmp/abproj/docs/improvement-register.md found.        Nothing was measured — this is not a clean run.
+Stage P (Kickoff): PASS · Surface present — all 10 intake questions carry an answer marker [/tmp/abproj/intake.md]
+Stage 0 (Triage): PASS · Surface MISSING: source-sufficiency.html, triage.html — triage.md signed off by "Autonomous run w2-puffin-a2, 2026-09-12 — required before Phase 2/3 proceed." [/tmp/abproj/triage.md]
+Stage 1 (Analysis): PASS · Surface MISSING: analysis/source-ledger.html — extraction-report.html present and non-empty
+Stage 2 (Requirements): FAIL · Surface present — '## Stop condition' section not found or empty in /tmp/abproj/analysis/puffin/knowledge-base/reports/validation-report.md
+Stage 3 (Architecture & Design): FAIL · Surface MISSING: module-design.html — artifacts exist but /tmp/abproj/PROJECT.md has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass
+Stage 4 (Build Plan): FAIL · Surface present — build-plan.md exists but /tmp/abproj/PROJECT.md has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass
+Stage 5 (Build): MANUAL · Surface MISSING: design/ui-reviews/ui-review-*.html — not file-existence-checkable — fill in status manually
+Stage 6 (Test): PENDING · Surface MISSING: test-report.html, design/ui-reviews/ui-review-*.html, docs/report.json — no test surface yet — need test-report.html (project root or reports/), or docs/verification/report.html + docs/report.json (verify-module.sh's render rung)
+Stage 7 (Cutover): PENDING · Surface not declared in runbook §2 — no cutover decision row in /tmp/abproj/PROJECT.md — add a Decisions row whose Stage field is 7 (or whose Decision names the cutover) with Status exactly CONFIRMED
+Surface = the artifact a human READS to judge the stage (runbook §2). A missing one is
+not a gate failure and does not affect the exit code — it is a stage nobody can review.
+
+Summary: 3 passed · 2 not started · 0 waived · 3 need attention · 1 manual
+         Obligations: 7 pending · 0 fault    Artifacts: 4 owed and absent · 0 fault    Source files: NOT CHECKED
+         These do not affect the exit code and never have. They are passes and files
+         the project still owes — scroll up to the Obligation/Artifact lines for which.
+Needs attention — something is there and it is wrong:
+  Stage 2 — '## Stop condition' section not found or empty in /tmp/abproj/analysis/puffin/knowledge-base/reports/validation-report.md
+  Stage 3 — artifacts exist but /tmp/abproj/PROJECT.md has no Stage-3 CONFIRMED decision — ✋ gate: artifacts without an interview don't pass
+  Stage 4 — build-plan.md exists but /tmp/abproj/PROJECT.md has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass
+Next up: Stage 2 (Requirements) — listed under 'needs attention' above.
+
+Already past some of these — build underway, analysis done your own way, artifacts you
+do not intend to produce? Say so once and they stop being counted against you:
+  bin/gate-check.sh --adopt <stage> --reason "..." /tmp/abproj    (every earlier stage → WAIVED)
+  bin/gate-check.sh --waive <stage> --reason "..." /tmp/abproj    (one stage → WAIVED)
+  bin/gate-check.sh --waive look/<Module> --reason "..." /tmp/abproj (one PASS on one module → WAIVED)

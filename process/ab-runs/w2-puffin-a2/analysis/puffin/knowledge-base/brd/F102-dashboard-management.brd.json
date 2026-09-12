@@ -1,0 +1,204 @@
+{
+  "id": "F102",
+  "title": "Dashboard Creation and Management",
+  "modules": ["DashboardMgmt"],
+  "actors": ["Dashboard Creator", "Dashboard Viewer"],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Create a new dashboard",
+      "actors": ["Dashboard Creator"],
+      "preconditions": ["User is authenticated", "User has creator role"],
+      "postconditions": ["Dashboard exists in Draft state", "Dashboard is owned by creator", "Creator navigates to dashboard editor"],
+      "mainFlow": [
+        "1. User navigates to Dashboard List",
+        "2. System renders list of user's dashboards",
+        "3. User clicks Create New Dashboard",
+        "4. System opens Dashboard creation dialog",
+        "5. User enters dashboard title and optional description",
+        "6. User clicks Create",
+        "7. System creates dashboard record, sets owner to current user, sets state to Draft",
+        "8. System opens dashboard in editor mode"
+      ],
+      "alternateFlows": [],
+      "buildPriority": "slice 1"
+    },
+    {
+      "id": "UC002",
+      "title": "Edit dashboard layout and widgets",
+      "actors": ["Dashboard Creator"],
+      "preconditions": ["Dashboard exists", "User is dashboard owner", "Dashboard is in Draft state"],
+      "postconditions": ["Dashboard layout is updated", "Changes are saved"],
+      "mainFlow": [
+        "1. User is in dashboard editor",
+        "2. System displays dashboard layout with empty grid",
+        "3. User clicks Add Widget button",
+        "4. System shows widget picker",
+        "5. User selects widget type (e.g., Chart, Table, Metric)",
+        "6. System adds widget to grid",
+        "7. User configures widget settings",
+        "8. User clicks Save",
+        "9. System persists dashboard and widget changes"
+      ],
+      "alternateFlows": [
+        "3a. User can also drag existing widget to reposition it",
+        "3b. User can resize widget by dragging corner handles"
+      ],
+      "buildPriority": "slice 1"
+    },
+    {
+      "id": "UC003",
+      "title": "Publish dashboard",
+      "actors": ["Dashboard Creator"],
+      "preconditions": ["Dashboard exists in Draft state", "Dashboard has at least one widget"],
+      "postconditions": ["Dashboard state changes to Published", "Dashboard is accessible to viewers"],
+      "mainFlow": [
+        "1. User clicks Publish button",
+        "2. System validates dashboard has widgets",
+        "3. System changes state to Published",
+        "4. System records publication timestamp",
+        "5. System displays success message"
+      ],
+      "alternateFlows": [
+        "2a. Dashboard has no widgets — system shows validation error"
+      ],
+      "buildPriority": "slice 1"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "Dashboard",
+      "module": "DashboardMgmt",
+      "persistent": true,
+      "attributes": ["DashboardId", "Title", "Description", "OwnerId", "State", "CreatedAt", "UpdatedAt", "PublishedAt"]
+    },
+    {
+      "name": "DashboardWidget",
+      "module": "DashboardMgmt",
+      "persistent": true,
+      "attributes": ["WidgetId", "DashboardId", "WidgetType", "Position", "Width", "Height", "Config", "Order"]
+    }
+  ],
+  "associations": [
+    {
+      "name": "DashboardMgmt.Dashboard_Owner",
+      "from": "DashboardMgmt.Dashboard",
+      "to": "CoreAuth.User",
+      "type": "reference"
+    },
+    {
+      "name": "DashboardMgmt.DashboardWidget_Dashboard",
+      "from": "DashboardMgmt.DashboardWidget",
+      "to": "DashboardMgmt.Dashboard",
+      "type": "reference"
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_Dashboard_Create",
+      "module": "DashboardMgmt",
+      "trigger": "Create Dashboard button"
+    },
+    {
+      "name": "ACT_Dashboard_Publish",
+      "module": "DashboardMgmt",
+      "trigger": "Publish button"
+    },
+    {
+      "name": "ACT_Widget_Add",
+      "module": "DashboardMgmt",
+      "trigger": "Add Widget button"
+    },
+    {
+      "name": "ACT_Dashboard_Save",
+      "module": "DashboardMgmt",
+      "trigger": "Save button"
+    }
+  ],
+  "pages": [
+    {
+      "id": "PG-001",
+      "name": "DashboardList",
+      "module": "DashboardMgmt",
+      "pageType": "list",
+      "roles": ["MxRole_Creator", "MxRole_Viewer"],
+      "buildComposition": {
+        "gridColumns": ["Title", "State", "CreatedAt", "Actions"],
+        "actionBar": ["Create New Dashboard", "Refresh"]
+      },
+      "actions": [
+        {
+          "id": "ACT-001",
+          "label": "Create New Dashboard",
+          "type": "Open page"
+        }
+      ]
+    },
+    {
+      "id": "PG-002",
+      "name": "DashboardEditor",
+      "module": "DashboardMgmt",
+      "pageType": "form",
+      "roles": ["MxRole_Creator"],
+      "buildComposition": {
+        "fields": ["Title", "Description"],
+        "canvas": "Grid-based widget canvas",
+        "actionBar": ["Add Widget", "Save", "Publish", "Cancel"]
+      },
+      "actions": [
+        {
+          "id": "ACT-002",
+          "label": "Add Widget",
+          "type": "Open page"
+        },
+        {
+          "id": "ACT-003",
+          "label": "Save",
+          "type": "Command"
+        },
+        {
+          "id": "ACT-004",
+          "label": "Publish",
+          "type": "Command",
+          "confirmation": true
+        }
+      ]
+    },
+    {
+      "id": "PG-003",
+      "name": "DashboardView",
+      "module": "DashboardMgmt",
+      "pageType": "display",
+      "roles": ["MxRole_Viewer"],
+      "buildComposition": {
+        "canvas": "Read-only widget grid"
+      },
+      "actions": []
+    }
+  ],
+  "security": {
+    "model": "Role-based access; only dashboard owner can edit; published dashboards visible to viewers",
+    "rolesToPages": [
+      {
+        "page": "DashboardList",
+        "allow": ["MxRole_Creator", "MxRole_Viewer"],
+        "readOnly": []
+      },
+      {
+        "page": "DashboardEditor",
+        "allow": ["MxRole_Creator"],
+        "readOnly": []
+      },
+      {
+        "page": "DashboardView",
+        "allow": ["MxRole_Viewer"],
+        "readOnly": ["MxRole_Viewer"]
+      }
+    ]
+  },
+  "crossCuttingRequirements": [
+    "Dashboard state transitions must be logged for audit",
+    "Concurrent edits must be prevented or merged",
+    "Dashboard layout must be responsive to screen size"
+  ]
+}

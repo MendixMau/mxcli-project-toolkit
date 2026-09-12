@@ -1,0 +1,123 @@
+{
+  "id": "F101",
+  "title": "User Authentication and Access Control",
+  "modules": ["CoreAuth"],
+  "actors": ["User", "Administrator"],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "User login with email and password",
+      "actors": ["User"],
+      "preconditions": ["User account exists", "User is not already logged in"],
+      "postconditions": ["User is authenticated", "Session token is issued", "User navigates to Dashboard List"],
+      "mainFlow": [
+        "1. User navigates to Login page",
+        "2. System renders login form",
+        "3. User enters email and password",
+        "4. User clicks Login",
+        "5. System validates credentials against users table",
+        "6. System creates session/JWT token",
+        "7. System redirects to Dashboard List"
+      ],
+      "alternateFlows": [
+        "5a. Invalid credentials — system displays error message and remains on login page",
+        "5b. User account is inactive — system displays error and directs to contact administrator"
+      ],
+      "buildPriority": "slice 1"
+    },
+    {
+      "id": "UC002",
+      "title": "User logout",
+      "actors": ["User"],
+      "preconditions": ["User is authenticated and in session"],
+      "postconditions": ["Session is terminated", "User returns to login page"],
+      "mainFlow": [
+        "1. User clicks Logout button",
+        "2. System invalidates session token",
+        "3. System redirects to Login page"
+      ],
+      "alternateFlows": [],
+      "buildPriority": "slice 1"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "User",
+      "module": "CoreAuth",
+      "persistent": true,
+      "attributes": ["UserId", "Email", "PasswordHash", "FullName", "IsActive", "CreatedAt", "UpdatedAt"]
+    },
+    {
+      "name": "Session",
+      "module": "CoreAuth",
+      "persistent": true,
+      "attributes": ["SessionId", "UserId", "Token", "ExpiresAt", "CreatedAt"]
+    }
+  ],
+  "associations": [
+    {
+      "name": "CoreAuth.Session_User",
+      "from": "CoreAuth.Session",
+      "to": "CoreAuth.User",
+      "type": "reference"
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_Login_Validate",
+      "module": "CoreAuth",
+      "trigger": "Login button"
+    },
+    {
+      "name": "ACT_Session_Create",
+      "module": "CoreAuth",
+      "trigger": "After password validation succeeds"
+    },
+    {
+      "name": "ACT_Logout",
+      "module": "CoreAuth",
+      "trigger": "Logout button"
+    }
+  ],
+  "pages": [
+    {
+      "id": "PG-001",
+      "name": "Login",
+      "module": "CoreAuth",
+      "pageType": "form",
+      "roles": ["Anonymous"],
+      "buildComposition": {
+        "fields": ["Email", "Password"],
+        "actionBar": ["Login", "Forgot Password"]
+      },
+      "actions": [
+        {
+          "id": "ACT-001",
+          "label": "Login",
+          "type": "Command"
+        },
+        {
+          "id": "ACT-002",
+          "label": "Forgot Password",
+          "type": "Open page"
+        }
+      ]
+    }
+  ],
+  "security": {
+    "model": "JWT token-based authentication; passwords hashed with bcrypt",
+    "rolesToPages": [
+      {
+        "page": "Login",
+        "allow": ["Anonymous"],
+        "readOnly": []
+      }
+    ]
+  },
+  "crossCuttingRequirements": [
+    "Password hashing must use bcrypt with salt rounds >= 10",
+    "Session tokens must expire after 24 hours",
+    "All authentication attempts must be logged",
+    "HTTPS required for all auth endpoints"
+  ]
+}

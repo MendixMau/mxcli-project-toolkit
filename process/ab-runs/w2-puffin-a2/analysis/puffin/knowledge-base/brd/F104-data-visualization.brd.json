@@ -1,0 +1,159 @@
+{
+  "id": "F104",
+  "title": "Data Visualization and Charting",
+  "modules": ["DataViz"],
+  "actors": ["Dashboard Creator", "Dashboard Viewer"],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Render chart widget from query results",
+      "actors": ["Dashboard Viewer"],
+      "preconditions": ["Dashboard is published", "Chart widget is configured with data source"],
+      "postconditions": ["Chart is rendered with data", "Chart is interactive"],
+      "mainFlow": [
+        "1. System loads dashboard",
+        "2. System executes chart data query",
+        "3. System transforms query results to chart data format",
+        "4. System renders chart (Bar, Line, Pie, or Custom)",
+        "5. Chart displays with legend and axis labels",
+        "6. User can hover over chart elements for details",
+        "7. User can optionally filter or drill down"
+      ],
+      "alternateFlows": [
+        "2a. Query returns no results — system displays empty state message",
+        "2b. Query fails — system displays error message"
+      ],
+      "buildPriority": "slice 1"
+    },
+    {
+      "id": "UC002",
+      "title": "Render table widget from query results",
+      "actors": ["Dashboard Viewer"],
+      "preconditions": ["Dashboard is published", "Table widget is configured with data source"],
+      "postconditions": ["Table is rendered with paginated data"],
+      "mainFlow": [
+        "1. System loads dashboard",
+        "2. System executes table data query",
+        "3. System displays data in table format with columns from query",
+        "4. System applies pagination (20 rows per page)",
+        "5. User can sort by column (ascending/descending)",
+        "6. User can navigate between pages"
+      ],
+      "alternateFlows": [],
+      "buildPriority": "slice 1"
+    },
+    {
+      "id": "UC003",
+      "title": "Render metric widget",
+      "actors": ["Dashboard Viewer"],
+      "preconditions": ["Dashboard is published", "Metric widget is configured"],
+      "postconditions": ["Metric value is displayed with optional sparkline"],
+      "mainFlow": [
+        "1. System loads dashboard",
+        "2. System executes metric query (single value)",
+        "3. System displays value in large prominent format",
+        "4. System optionally displays trend indicator (up/down/neutral)",
+        "5. System optionally displays sparkline of historical values"
+      ],
+      "alternateFlows": [],
+      "buildPriority": "slice 2"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "ChartConfig",
+      "module": "DataViz",
+      "persistent": false,
+      "persistenceRationale": "Configuration is stored as part of widget instance"
+    },
+    {
+      "name": "QueryResult",
+      "module": "DataViz",
+      "persistent": false,
+      "persistenceRationale": "Runtime data, never persisted"
+    }
+  ],
+  "associations": [],
+  "microflows": [
+    {
+      "name": "ACT_Chart_Render",
+      "module": "DataViz",
+      "trigger": "Dashboard page load or widget refresh"
+    },
+    {
+      "name": "ACT_Query_Execute",
+      "module": "DataViz",
+      "trigger": "Chart rendering, table pagination, metric refresh"
+    },
+    {
+      "name": "ACT_DataTransform_ToChart",
+      "module": "DataViz",
+      "trigger": "After query execution for chart widgets"
+    }
+  ],
+  "pages": [
+    {
+      "id": "PG-001",
+      "name": "ChartWidget",
+      "module": "DataViz",
+      "pageType": "display",
+      "roles": ["MxRole_Viewer"],
+      "buildComposition": {
+        "chart": "Bar/Line/Pie/Custom chart with legend and title",
+        "interactivity": "Hover tooltips, optional filtering"
+      },
+      "actions": []
+    },
+    {
+      "id": "PG-002",
+      "name": "TableWidget",
+      "module": "DataViz",
+      "pageType": "display",
+      "roles": ["MxRole_Viewer"],
+      "buildComposition": {
+        "table": "Paginated data table with sortable columns",
+        "pagination": "Page navigation controls"
+      },
+      "actions": []
+    },
+    {
+      "id": "PG-003",
+      "name": "MetricWidget",
+      "module": "DataViz",
+      "pageType": "display",
+      "roles": ["MxRole_Viewer"],
+      "buildComposition": {
+        "metric": "Large value display with optional sparkline and trend",
+        "label": "Metric name and unit"
+      },
+      "actions": []
+    }
+  ],
+  "security": {
+    "model": "Viewers can see charts/tables but cannot modify queries or data sources",
+    "rolesToPages": [
+      {
+        "page": "ChartWidget",
+        "allow": ["MxRole_Viewer"],
+        "readOnly": ["MxRole_Viewer"]
+      },
+      {
+        "page": "TableWidget",
+        "allow": ["MxRole_Viewer"],
+        "readOnly": ["MxRole_Viewer"]
+      },
+      {
+        "page": "MetricWidget",
+        "allow": ["MxRole_Viewer"],
+        "readOnly": ["MxRole_Viewer"]
+      }
+    ]
+  },
+  "crossCuttingRequirements": [
+    "Charts must render within 2 seconds for <10k data points",
+    "Table pagination must work smoothly for large datasets (>100k rows)",
+    "All data queries must sanitize inputs to prevent SQL injection",
+    "Chart colors must be accessible (WCAG AA color contrast)",
+    "Metrics must refresh at configurable intervals (minimum 1 minute)"
+  ]
+}

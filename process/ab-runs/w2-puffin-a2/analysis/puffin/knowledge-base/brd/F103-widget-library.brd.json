@@ -1,0 +1,143 @@
+{
+  "id": "F103",
+  "title": "Widget Library and Management",
+  "modules": ["WidgetLib"],
+  "actors": ["Dashboard Creator", "Widget Administrator"],
+  "useCases": [
+    {
+      "id": "UC001",
+      "title": "Browse available widgets",
+      "actors": ["Dashboard Creator"],
+      "preconditions": ["User is in dashboard editor", "Widget library is initialized"],
+      "postconditions": ["User sees list of available widget types with previews"],
+      "mainFlow": [
+        "1. User clicks Add Widget button",
+        "2. System opens widget picker panel",
+        "3. System displays widget types: Chart, Table, Metric, Custom",
+        "4. Each widget type shows icon and description",
+        "5. User can search or filter by category",
+        "6. User clicks widget type to select and add to dashboard"
+      ],
+      "alternateFlows": [],
+      "buildPriority": "slice 1"
+    },
+    {
+      "id": "UC002",
+      "title": "Configure widget data source",
+      "actors": ["Dashboard Creator"],
+      "preconditions": ["Widget has been added to dashboard"],
+      "postconditions": ["Widget is bound to data source", "Widget displays data"],
+      "mainFlow": [
+        "1. User clicks widget to configure",
+        "2. System opens widget config panel",
+        "3. User selects data source (SQL query, API endpoint, static data)",
+        "4. User configures data transformation if needed",
+        "5. User clicks Apply",
+        "6. System queries data source and renders widget"
+      ],
+      "alternateFlows": [
+        "3a. User can select from saved data source queries",
+        "3b. User can write custom SQL query"
+      ],
+      "buildPriority": "slice 2"
+    }
+  ],
+  "domainEntities": [
+    {
+      "name": "Widget",
+      "module": "WidgetLib",
+      "persistent": false,
+      "persistenceRationale": "Widget definitions are code/configuration, not runtime data"
+    },
+    {
+      "name": "WidgetInstance",
+      "module": "WidgetLib",
+      "persistent": true,
+      "attributes": ["WidgetInstanceId", "WidgetType", "DashboardId", "Configuration", "DataSourceId"]
+    },
+    {
+      "name": "DataSource",
+      "module": "WidgetLib",
+      "persistent": true,
+      "attributes": ["DataSourceId", "Name", "Type", "Query", "ConnectionString", "CreatedAt"]
+    }
+  ],
+  "associations": [
+    {
+      "name": "WidgetLib.WidgetInstance_DataSource",
+      "from": "WidgetLib.WidgetInstance",
+      "to": "WidgetLib.DataSource",
+      "type": "reference"
+    },
+    {
+      "name": "WidgetLib.WidgetInstance_Dashboard",
+      "from": "WidgetLib.WidgetInstance",
+      "to": "DashboardMgmt.Dashboard",
+      "type": "reference"
+    }
+  ],
+  "microflows": [
+    {
+      "name": "ACT_Widget_Configure",
+      "module": "WidgetLib",
+      "trigger": "Widget configuration panel"
+    },
+    {
+      "name": "ACT_Widget_LoadData",
+      "module": "WidgetLib",
+      "trigger": "Page load and on data refresh"
+    }
+  ],
+  "pages": [
+    {
+      "id": "PG-001",
+      "name": "WidgetPicker",
+      "module": "WidgetLib",
+      "pageType": "display",
+      "roles": ["MxRole_Creator"],
+      "buildComposition": {
+        "gridColumns": ["Icon", "WidgetType", "Description"],
+        "search": "Filter by widget type or keyword"
+      },
+      "actions": []
+    },
+    {
+      "id": "PG-002",
+      "name": "WidgetConfigPanel",
+      "module": "WidgetLib",
+      "pageType": "form",
+      "roles": ["MxRole_Creator"],
+      "buildComposition": {
+        "sections": ["Data Source", "Display Options", "Formatting"],
+        "actionBar": ["Apply", "Cancel"]
+      },
+      "actions": [
+        {
+          "id": "ACT-001",
+          "label": "Apply",
+          "type": "Command"
+        }
+      ]
+    }
+  ],
+  "security": {
+    "model": "Widget types are public; data sources may have restricted access based on creator role",
+    "rolesToPages": [
+      {
+        "page": "WidgetPicker",
+        "allow": ["MxRole_Creator"],
+        "readOnly": []
+      },
+      {
+        "page": "WidgetConfigPanel",
+        "allow": ["MxRole_Creator"],
+        "readOnly": []
+      }
+    ]
+  },
+  "crossCuttingRequirements": [
+    "Widget rendering must handle null/empty data gracefully",
+    "Widget data queries must timeout after 30 seconds",
+    "Widget instances must validate data source connectivity"
+  ]
+}

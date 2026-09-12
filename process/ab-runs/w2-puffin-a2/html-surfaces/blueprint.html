@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Architecture Blueprint</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { color: #333; }
+    .note { background: #f0f0f0; padding: 10px; margin: 10px 0; border-left: 4px solid #007acc; }
+  </style>
+</head>
+<body>
+  <h1>Architecture Blueprint — Puffin Dashboard Publisher</h1>
+  <div class="note">
+    <p><strong>Status:</strong> Ready for build plan</p>
+    <p><strong>Modules:</strong> CoreAuth → DashboardMgmt → WidgetLib → DataViz</p>
+    <p><strong>Build-order dependencies:</strong> Linear; no circular dependencies</p>
+  </div>
+  <p>See <a href="blueprint.md">blueprint.md</a> for full architecture documentation.</p>
+  <p>Module definitions:</p>
+  <ul>
+    <li><a href="modules/CoreAuth/definition.md">CoreAuth (Authentication)</a></li>
+    <li><a href="modules/DashboardMgmt/definition.md">DashboardMgmt (Dashboard CRUD)</a></li>
+    <li><a href="modules/WidgetLib/definition.md">WidgetLib (Widget Configuration)</a></li>
+    <li><a href="modules/DataViz/definition.md">DataViz (Data Visualization)</a></li>
+  </ul>
+  <p><a href="fit-gap.md">Fit-Gap Analysis</a></p>
+</body>
+</html>

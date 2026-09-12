@@ -14,6 +14,10 @@ carries the engineering artefacts beside the model, and the three project-file-n
 6 tracked down from a Studio Pro that would not open the project. Every status code, exception name
 and count quoted below was observed on one of those runs.
 
+**Once the app exists, this file is done.** The recurring per-session operation — which remote is
+authoritative, settle-then-push order, and the four checks to run before calling a push blocked —
+is `skills/teamserver-alignment.md`, which is routed baseline for exactly that reason.
+
 ---
 
 ## Before anything: what a PAT can and cannot do

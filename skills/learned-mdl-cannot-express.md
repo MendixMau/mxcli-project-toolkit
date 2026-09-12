@@ -97,8 +97,57 @@ Three rules for the blocked case:
    validation, storage, access checks, the file bytes actually in Mendix's file store. Recording
    "blocked" without that reads as "not started", and the next person rebuilds it.
 
+## When MDL cannot set a class, CSS often can — check before you go looking for the property
+
+Added 2026-09-10 from a change-governance app's UI pass. It is a positive recipe, not a
+prohibition, because the failure it retires is a *shape* failure: the work stops at "MDL has no
+such property" when the requirement was never really about MDL.
+
+A UI spec asked for per-row status tone on three grids and prescribed `DynamicRowClass` on the
+datagrid. **There is no such property** — not in MDL, not in Studio Pro. The item had been
+written months earlier against an imagined API and carried as an `M`-sized MDL task ever since
+(this is the same defect as an instrument built against imagined input; see the toolkit
+`CLAUDE.md` field-proof rules — probe first).
+
+The requirement was still met, with **zero MDL**, because of a fact worth generalising:
+
+> **Whatever class MDL *can* bind is a hook the stylesheet can read from anywhere in that
+> element's subtree.** `:has()` turns a child's class into a parent's selector.
+
+Every one of those grids already bound a per-cell class to its status column —
+`DynamicCellClass: 'ds-statecell ds-statecell--<state>'`, MDL that was in the model and working.
+So the row rule is:
+
+```css
+.ds-grid .table .tr:has(.ds-statecell--rejected) > .td { background: var(--surface-blocked); }
+```
+
+Three pages picked up row tone from MDL already present, with no script, no exec, no gate run.
+The same move fixed a second item in the same pass: a card's header band could not be made to
+bleed to the card edge, because `.ds-card > .ds-cardhead` is unwriteable from a page (a Mendix
+class lands on its own element only) — `.ds-card:has(> .ds-cardhead) { padding: 0 }` says it.
+
+**Before recording an MDL styling task as blocked or M-sized, ask the two questions in order:**
+
+1. Does the property exist at all? (`./mxcli syntax page.widgets`, then the probe above — do not
+   trust a spec that names one.)
+2. Is there **any** class MDL can already bind on, or inside, the element I want to style? If
+   yes, `:has()` / `>` / sibling selectors reach it from CSS and the MDL task disappears.
+
+Two caveats, both cheap:
+
+- **Source order inside your own rule set becomes load-bearing.** An element can match several
+  of these at equal specificity, and the last one written wins. On the field run a row carried
+  two status cells (two tracks), so a rejected project rendered amber until the rules were
+  reordered weakest-claim-first. Order them deliberately and say so in a comment.
+- **Degradation is silent and benign**: where `:has()` is unsupported the selector simply never
+  matches and you get today's appearance. Verify with a computed-style read, not by eye —
+  `learned-css-that-never-applied.md`.
+
 ## Related
 
+- `learned-css-that-never-applied.md` — the companion diagnosis: the rule above is only worth
+  writing if you then confirm it *matched*. Same field run.
 - `learned-detection-gaps.md` — the register of things that pass a rung and fail later; the
   `item …` parse-then-exec-fail case is one of its shapes.
 - `learned-mcp-patterns.md` — CLI, MCP and hand-rolled are **three co-equal write modes**. Every

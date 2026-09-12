@@ -4640,3 +4640,56 @@ names (`information`, `warning`, `error`).
 **Fix:** correct the three bundled examples, and add a `microflow.show-message` topic to `mxcli
 syntax` so the statement has a first-class source. Constraining the `type` argument to the real
 enum would turn a silent mxbuild failure into a pre-flight one.
+
+## BUG-132: `mxcli oql -p <project>` routes through `docker compose exec` unconditionally, so the one read-only command a dockerless environment most needs is the one it cannot run
+
+**Severity:** Medium — no data loss, but it makes OQL verification unavailable in exactly the environment that has no other way to read the running model
+**mxcli version:** v0.19.0-nightly.c836f01+jdk25patch+distpatch (2026-08-27)
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-12, a sales-qualification greenfield build running in a cloud container with no Docker daemon
+**Reproducible:** yes, deterministically
+
+`mxcli run --local` is mxcli's own Docker-free way to run an app: mxbuild plus the bare
+runtime against a local PostgreSQL, with the M2EE admin API on the app port plus ten. It
+works. The app answers, and `.mxcli/run-local.json` records the port and the admin password.
+
+`mxcli oql` cannot see any of that. With `-p` it goes to Docker regardless:
+
+```
+$ ./mxcli oql -p DealIQ.mpr "SELECT COUNT(*) AS n FROM DealPortfolio.Deal"
+Error: docker compose exec failed: Cannot connect to the Docker daemon at
+unix:///var/run/docker.sock. Is the docker daemon running?
+```
+
+The same query against the same app, one flag different, is fine:
+
+```
+$ ./mxcli oql --direct --host 127.0.0.1 --port 8090 --token 'mxcli-local-dev' \
+    "SELECT COUNT(*) AS n FROM DealPortfolio.Deal"
+| n   |
+|-----|
+| 227 |
+```
+
+So nothing is broken except the routing decision. `oql --help` says connection settings
+resolve "flags > environment variables > `.docker/.env` > defaults" — a chain with three
+Docker-shaped links and no fourth. `run --local` writes a receipt with `appPort`,
+`adminPort` and `adminPass` in it, and no command reads it.
+
+The cost is not the failed command; it is what depends on it. Journey runners and gate
+scripts that verify a claim against the live model call `oql -p`, because `-p` is the form
+that needs no secrets in the command line. In a container they all report the app as
+unreachable, and the honest-looking workaround — hardcoding `--direct --host --port
+--token` into each caller — puts the admin password into scripts and into shell history,
+which is precisely what `-p` exists to avoid.
+
+**Workaround:** `--direct --host 127.0.0.1 --port <appPort+10> --token <adminPass>`, reading
+both values out of `.mxcli/run-local.json`. Keep it in one wrapper rather than in every
+caller, so the password has one home.
+
+**Fix:** add `.mxcli/run-local.json` to the resolution chain, below flags and environment
+and above `.docker/.env`, and take the direct route automatically when a live local run
+owns this project. The receipt already carries the host, the port and the password; the
+pid in it says whether the run is still alive. Failing that, make the Docker failure name
+the alternative — the current message tells a user in a container to start a daemon they
+cannot start, and says nothing about `--direct`.

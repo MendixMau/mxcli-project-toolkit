@@ -133,7 +133,9 @@ while IFS= read -r f; do
     # with copies of one row, CI-only, 2026-09-12). Bracket expressions carry no backslash.
     case "$txt" in
       *awk*)
-        if printf '%s' "$txt" | grep -Eq -- '-v [A-Za-z_][A-Za-z_0-9]*="[^"]*\\'; then
+        # A backslash inside a $(...) substitution is the shell's, not the value's (e.g.
+        # -v ok="$(... | tr '\n' ' ')"): strip substitutions before looking.
+        if printf '%s' "$txt" | sed 's/\$([^)]*)//g' | grep -Eq -- '-v [A-Za-z_][A-Za-z_0-9]*="[^"]*\\'; then
           report "$f" "$ln" "backslash inside an awk -v value (gawk rewrites escapes, mawk does not)" \
             'Pass patterns without backslashes: [|] for a literal pipe, [.] for a dot, or read the regex from ENVIRON["re"].'
         fi ;;

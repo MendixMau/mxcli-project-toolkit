@@ -733,6 +733,7 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
 | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source | `bin/source-sufficiency.sh` |
 | Closing Stage 1, or adding files to a source folder — every inventoried file must name the artifact that consumed it (text AND embedded diagrams), or carry a waiver; blocks Stages 1–2 until it does | `bin/source-ledger.sh` |
+| HTML in the source corpus — convert once before anyone reads it: `bin/html-to-md.sh <project>` writes each page as Markdown under analysis/knowledge-base/text/ (3–10× fewer tokens than the raw export; inline images decoded to files; section list with line numbers as the read's denominator) plus documents-index.md over EVERY file, which one ledger glob mark points at. A session that opens a .html itself has skipped this | `bin/html-to-md.sh` |
 | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` |
 | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done | `bin/facts-lock.sh` |
 | Building any module — before the first script. The mdl-agent's single per-module input | `skills/module-brief.md` |

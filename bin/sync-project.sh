@@ -571,6 +571,17 @@ EOF
 fi
 # --- 2d. CLAUDE.local.md: rewrite the baseline routing block from the one routing table ----
 #
+# 2e below depends on knowing whether the file carried the retired ledger row BEFORE this
+# section rewrote the marked block, so the count is taken here.
+LEDGER_ROW_RE='bug-logs/mxcli-bugs\.md'
+# ledger_row_prefix <file> — the path prefix the retired row's cell carried ('' when relative).
+ledger_row_prefix() {
+  grep -m1 "^|.*$LEDGER_ROW_RE" "$1" | sed -n 's/.*[|` ]\([^|` ]*\)bug-logs\/mxcli-bugs\.md.*/\1/p'
+}
+LEDGER_ROWS_BEFORE=0
+[ -f "$CL" ] && LEDGER_ROWS_BEFORE="$(grep -c "^|.*$LEDGER_ROW_RE" "$CL" 2>/dev/null || true)"
+LEDGER_ROWS_BEFORE="${LEDGER_ROWS_BEFORE:-0}"
+#
 # This is the seventh copy — the one inside each project, which no script could update. The
 # previous code here could only WARN ("add them from README.md 'Baseline routing'"), and a
 # warning that costs a human a manual merge is a warning that gets ignored: measured across
@@ -613,6 +624,59 @@ if [ -f "$CL" ]; then
       *)  warn "could not sync CLAUDE.local.md's routing block (routing_sync_claude_local -> $RRC)." ;;
     esac
   fi
+fi
+
+# --- 2e. Retire the always-on ledger row: bug-logs/mxcli-bugs.md -> bin/bug-lookup.sh ----------
+#
+# WHY (2026-09-09, a Markdown+HTML requirements project). Master replaced the baseline routing
+# row for bug-logs/mxcli-bugs.md — 47,500 words, a third of everything a session read before
+# writing a line of MDL — with bin/bug-lookup.sh on 2026-09-08. A project scaffolded before
+# that still lists the ledger as always-on in CLAUDE.local.md, and a marked block gets that
+# fixed by 2d above. A project whose table is HAND-WRITTEN (no markers — every project
+# bootstrapped before 2026-08-18, and every one whose author trimmed the block by hand) gets
+# 2d's refusal instead, which is right for the table as a whole and wrong for this one row:
+# the row is not a project's local wiring, it is a 47k-word read per session that the toolkit
+# already retired. So the ONE row is rewritten in place wherever it sits, with the path prefix
+# the old row used (a hand-written table carries full toolkit paths; the generated one is
+# relative to the header's stated root), and the rest of the table is left byte-for-byte.
+#
+# CLAUDE.md is NOT edited. Its "mxcli-project-toolkit Integration" block is written by
+# skills/bootstrap-project.md — an LLM merge into the file `mxcli init` generates — and not by
+# bin/init-project.sh (which writes CLAUDE.local.md only; wire-agents.sh PRESERVES an existing
+# CLAUDE.md). A file no script produced is a file no script should rewrite (the report-only
+# rule at the top of this script); the row is reported with the exact replacement instead.
+if [ -f "$CL" ]; then
+  LEDGER_ROWS_NOW="$(grep -c "^|.*$LEDGER_ROW_RE" "$CL" 2>/dev/null || true)"; LEDGER_ROWS_NOW="${LEDGER_ROWS_NOW:-0}"
+  if [ "$LEDGER_ROWS_BEFORE" -gt 0 ] && [ "$LEDGER_ROWS_NOW" -eq 0 ]; then
+    # 2d's block rewrite already carried the new row in.
+    echo "${DRY:-}Retired: CLAUDE.local.md's always-on row for bug-logs/mxcli-bugs.md — retired the 47k-word ledger row → bin/bug-lookup.sh (rendered from the routing table)."
+  elif [ "$LEDGER_ROWS_NOW" -gt 0 ]; then
+    # The old row's path cell may carry a prefix (a hand-written table names the toolkit root
+    # on every path). Keep it, so the replacement resolves the way its neighbours do.
+    LEDGER_PREFIX="$(ledger_row_prefix "$CL")"
+    NEW_ROW="$(routing_row bug-lookup "$LEDGER_PREFIX")"
+    if [ -z "$NEW_ROW" ]; then
+      warn "bin/lib/skill-routing.tsv has no 'bug-lookup' row, so the retired ledger row in CLAUDE.local.md could not be rewritten."
+    elif [ "$DRY_RUN" -eq 1 ]; then
+      echo "${DRY:-}Retired: CLAUDE.local.md row(s) pointing at bug-logs/mxcli-bugs.md ($LEDGER_ROWS_NOW) — retired the 47k-word ledger row → bin/bug-lookup.sh"
+      CHANGES=$((CHANGES + 1))
+    else
+      _tmp="$(mktemp "${TMPDIR:-/tmp}/clrow.XXXXXX")"
+      # No backslashes in an awk -v value: gawk (the GitHub runner's awk) processes escapes in -v,
+      # so "^\\|" became "^|" — an alternation that matched EVERY line, and the whole file was
+      # replaced with copies of the row (CI-only failure, 2026-09-12). Bracket expressions instead.
+      awk -v re="^[|].*bug-logs/mxcli-bugs[.]md" -v repl="$NEW_ROW" '$0 ~ re { print repl; next } { print }' "$CL" > "$_tmp" \
+        && cat "$_tmp" > "$CL"; rm -f "$_tmp"
+      echo "Retired: CLAUDE.local.md row(s) pointing at bug-logs/mxcli-bugs.md ($LEDGER_ROWS_NOW) — retired the 47k-word ledger row → ${LEDGER_PREFIX}bin/bug-lookup.sh (the rest of the table untouched)."
+      CHANGES=$((CHANGES + 1))
+    fi
+  fi
+fi
+if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -q "^|.*$LEDGER_ROW_RE" "$PROJECT_DIR/CLAUDE.md"; then
+  warn "CLAUDE.md still routes bug-logs/mxcli-bugs.md (47k words) as always-on. That block is" \
+       "bootstrap-project.md's (an LLM merge), not init-project.sh's, so sync does not edit" \
+       "CLAUDE.md — replace the row by hand with:" \
+       "  $(routing_row bug-lookup "$(ledger_row_prefix "$PROJECT_DIR/CLAUDE.md")")"
 fi
 
 # --- 3. Baseline routing / runbook-first wiring -----------------------------------------

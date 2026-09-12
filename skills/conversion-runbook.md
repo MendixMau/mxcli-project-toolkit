@@ -27,6 +27,7 @@ table; a skill missing here is a skill no agent will find.
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
 | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source | `bin/source-sufficiency.sh` |
 | Closing Stage 1, or adding files to a source folder — every inventoried file must name the artifact that consumed it (text AND embedded diagrams), or carry a waiver; blocks Stages 1–2 until it does | `bin/source-ledger.sh` |
+| HTML in the source corpus — convert once before anyone reads it: `bin/html-to-md.sh <project>` writes each page as Markdown under analysis/knowledge-base/text/ (3–10× fewer tokens than the raw export; inline images decoded to files; section list with line numbers as the read's denominator) plus documents-index.md over EVERY file, which one ledger glob mark points at. A session that opens a .html itself has skipped this | `bin/html-to-md.sh` |
 | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` |
 | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done | `bin/facts-lock.sh` |
 | Building any module — before the first script. The mdl-agent's single per-module input | `skills/module-brief.md` |
@@ -55,6 +56,8 @@ table; a skill missing here is a skill no agent will find.
 <!-- ROUTING:END -->
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
 **Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.
+
+**How to read this file: not whole.** A session reads **§1b** (the Live Checklist Protocol — it applies to every stage) **plus its own stage's section under §2**, and nothing else until a question sends it elsewhere. `bin/gate-check.sh <project> <stage>` prints the exact spans at the top of its output — `Read for this gate: skills/conversion-runbook.md §"Stage N — …" (lines A–B) + §1b Live Checklist (lines C–D)` — derived from the headings on every run, so they are never stale. "Read the runbook first, every session" in a project's `CLAUDE.local.md` means *those* lines, not the ~11,700 words: the whole-file read was measured cause three of a requirements-driven project's slow Stages 1–4 (2026-09-09). The baseline table above is rendered here so this file is complete, not so it is re-read.
 
 **Do not open `toolkit-guide.html` because you read this line.** Opening is governed by the first-touch rule in the toolkit's `CLAUDE.md` — open only if `<project-root>/.claude/.guide-shown` is absent, then `touch` it. You are reading this file *every session*; an unconditional "open it at kickoff" here means a browser tab every session, which is exactly the bug this wording replaced.
 
@@ -115,7 +118,7 @@ The stages are the same for everyone; what differs is where you enter and which 
 | You're starting from… | Mode | Stages that run | What changes |
 |---|---|---|---|
 | **Legacy source code** (± docs, ± SME) | **Migration** | P, 0–7 (all) | The default everything below describes. Path A (code extractors) always runs. |
-| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs. `document-discovery.md` runs over the whole corpus for the inventory, **and** the extraction call runs per extractable structure inside it — a schema, a table dump, a data export or entity tables in a spec each get one; `N/A` is earned on evidence, never on the mode label (`source-triage.md` owns that rule — see "Stage 0 runs in every entry mode" below). Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
+| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs. `document-discovery.md` runs over the whole corpus for the inventory, **and** the extraction call runs per extractable structure inside it — a schema, a table dump, a data export or entity tables in a spec each get one; `N/A` is earned on evidence, never on the mode label (`source-triage.md` owns that rule — see "Stage 0 runs in every entry mode" below). Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. **A text-native corpus — Markdown and HTML pages, no legacy code, no Office/PDF containers — takes the docs-ready fast path below.** |
 | **Just an idea / a running start on the model** | **Greenfield** | P (light), 0 (scope only), 5–6 | Stages 1–4 collapse to whatever plan the user already has. Stage 0 does **not** collapse: with no corpus there is nothing to grade, but the scope conversation is exactly as load-bearing as it is anywhere else, so Stage 0 reduces to CAC-1's brainstorm and its sign-off. If you find yourself inventing requirements mid-build, you're actually in requirements-driven mode — back up to Stage 2. |
 
 ### Stage 0 runs in every entry mode
@@ -149,6 +152,30 @@ inferred:
 and sign the file off. Do not delete `triage.md` to express "this doesn't apply" — `gate-check.sh`
 then reports *"triage.md not found"*, which reads as an unanswered gate rather than a settled one,
 and the difference between those two is the whole point of having a gate.
+
+### Requirements-driven, docs-ready corpus
+
+**Trigger:** the corpus is text-native — Markdown files and HTML pages (saved-webpage exports with
+their `_files/` sidecars), no legacy code, no Office/PDF containers. A corpus with `.pptx`/`.docx`/
+`.pdf` in it takes the ordinary requirements-driven row above, because those containers carry
+embedded images that owe their own accounting (`bin/lib/source-formats.tsv`, `media = yes`).
+
+**Why this path exists (2026-09-09).** A project of exactly this shape was slow and token-hungry
+through Stages 1–4, for measured reasons: every session read the raw HTML (3–10× the tokens of
+its text), and the ledger asked for one disposition per file — every sidecar `.png`, `.css` and
+`.js` included — for a corpus nothing extracts. Nothing below skips a gate; it names the shortest
+honest route through them, and every command here was run against the gates before it was written.
+
+| Stage | Docs-ready form |
+|---|---|
+| **0** | `bin/source-sufficiency.sh init <p>` (the inventory — every file, sidecars included, css/fonts as format `chrome`), the scope interview (**CAC-1**), and the `## Sign-off` in `triage.md`. The triage's extractor-call, capability-coverage and Path-A rows are written **`N/A (text-native corpus)`** — an answer, on the record, never a deleted row. |
+| **1** | Run **`bin/html-to-md.sh <p>`** once. The knowledge base **is** `analysis/knowledge-base/text/` (one `.md` per page, header with the section list) plus **`analysis/knowledge-base/documents-index.md`** (one row per file). No extractor ran, so the Stage 1 gate — which wants `extraction-report.html`, the surface of an extraction — is waived *by name, with the reason*: `bin/gate-check.sh <p> --waive 1 --reason "text-native corpus: converted once with html-to-md, no extractor applies"`. **Not `--adopt 1`:** adoption waives the stages *before* the adoption point — Stage 0, which just ran — and leaves Stage 1 demanding the extraction report (verified 2026-09-09: `--adopt 1` → Stage 0 WAIVED, Stage 1 PENDING). **Ledger: ONE mark** — `bin/source-ledger.sh mark <p> 'sources/**' --artifact analysis/knowledge-base/documents-index.md --evidence "<the one finding that proves the corpus was read, e.g. 'R-list §3 → brd/F002'>" --by <who>` — the index names every basename, so every row reports EXTRACTED, the sidecar png/css/js rows included (an image row is not a container: it owes no `--media`). Then `bin/source-ledger.sh report <p>` for the surface. **The images the index lists still have to be read (vision) before Stage 2 closes** — its "Images to read" line is the denominator; the mark says the text was read, not the screenshots. The Stage 1 waiver means the ledger does not block *that* gate; **Stage 2 still runs it** (verified: hide the index → `gate-check <p> 2` exits 1, "Gate BLOCKED by the source ledger"). |
+| **2** | A thin BRD transform, not a re-analysis: **one use case per section** of the converted text, each with a `sourceRef` (`analysis/knowledge-base/text/<page>.md#L<line>` — the line from the header's section list), entities and rules **lifted as stated**, never inferred; `brd-validation.md` once, to Clean; `bin/brd-report.sh <p>`. Open questions are the ones the documents leave open, raised in chat per the Stage 2 gate. |
+| **3–4** | **Unchanged, and not skippable:** module boundaries, grants and the script order are decided here and nowhere else — a corpus that arrived as text has said nothing about any of them. |
+
+A session on this path reads §1b plus its stage's section — `bin/gate-check.sh <p> <stage>` prints the
+line ranges — and the converted `.md`, never the `.html`. A session that opens a `.html` itself has
+skipped Stage 1.
 
 **No pipeline at all — à-la-carte tool use.** An existing Mendix app that just needs an audit, lint pass, or a regression/e2e test net doesn't enter this pipeline: no intake, no stages, no gates. Route straight to `existing-app-assurance.md` (which points at `query-the-model.md`, `e2e-harness-base.md`, `learned-db-assertions.md`, and the bundled lint/graph/quality skills). The pipeline is for *producing* an app; the tool shelf is for everything else.
 

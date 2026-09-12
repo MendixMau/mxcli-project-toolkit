@@ -126,3 +126,10 @@ The corpus plan (`corpus.pages[]`, `corpus.markdown[]`) lives in the key so the 
 the scorer cannot drift: every requirement/rule/screenshot id is placed exactly once, and each
 item's `section.file` must equal the page that carries it (the generator raises otherwise).
 Change the key, regenerate, re-run the self-test.
+
+## Validation branch `ab/final` (throwaway — never merged)
+
+Merged master (PR #37) plus `corpus/`, the small variant of the synthetic corpus, so one
+Sonnet run can exercise the shipped docs-ready path through Stage 4. The answer key sits in
+this same directory on master; the session under test is told not to open anything under
+`tests/ab/` beyond copying `corpus/`, and the report notes that caveat.

@@ -662,7 +662,10 @@ if [ -f "$CL" ]; then
       CHANGES=$((CHANGES + 1))
     else
       _tmp="$(mktemp "${TMPDIR:-/tmp}/clrow.XXXXXX")"
-      awk -v re="^\\|.*$LEDGER_ROW_RE" -v repl="$NEW_ROW" '$0 ~ re { print repl; next } { print }' "$CL" > "$_tmp" \
+      # No backslashes in an awk -v value: gawk (the GitHub runner's awk) processes escapes in -v,
+      # so "^\\|" became "^|" — an alternation that matched EVERY line, and the whole file was
+      # replaced with copies of the row (CI-only failure, 2026-09-12). Bracket expressions instead.
+      awk -v re="^[|].*bug-logs/mxcli-bugs[.]md" -v repl="$NEW_ROW" '$0 ~ re { print repl; next } { print }' "$CL" > "$_tmp" \
         && cat "$_tmp" > "$CL"; rm -f "$_tmp"
       echo "Retired: CLAUDE.local.md row(s) pointing at bug-logs/mxcli-bugs.md ($LEDGER_ROWS_NOW) — retired the 47k-word ledger row → ${LEDGER_PREFIX}bin/bug-lookup.sh (the rest of the table untouched)."
       CHANGES=$((CHANGES + 1))

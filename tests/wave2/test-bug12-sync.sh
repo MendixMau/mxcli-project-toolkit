@@ -422,13 +422,13 @@ grep -q '| `~/Mendix/mxcli-project-toolkit/bin/bug-lookup.sh` |' "$P/CLAUDE.loca
 grep -q '^| Any pipeline work, every session | `~/Mendix/mxcli-project-toolkit/skills/conversion-runbook.md` |$' "$P/CLAUDE.local.md" \
   && grep -q '^| Any MCP write session | `~/Mendix/mxcli-project-toolkit/skills/learned-mcp-patterns.md` |$' "$P/CLAUDE.local.md" \
   && [ "$(awk '/^## .*[Bb]aseline routing/{insec=1; next} insec && /^## /{insec=0} insec && /^\|/{n++} END{print n+0}' "$P/CLAUDE.local.md")" -eq 5 ] \
-  && ok "unmarked: neighbouring rows byte-identical, no row added or lost (header + separator + 3 rows)" || bad "unmarked: table disturbed"
+  && ok "unmarked: neighbouring rows byte-identical, no row added or lost (header + separator + 3 rows)" || bad "unmarked: table disturbed" "$(printf '%s\n---sync output---\n%s' "$(cat "$P/CLAUDE.local.md")" "$OUT")"
 [ "$(grep -c 'ROUTING:BEGIN' "$P/CLAUDE.local.md")" -eq 0 ] && ok "unmarked: no generated block appended" || bad "unmarked: a second table was appended"
 case "$OUT" in *"CLAUDE.md still routes bug-logs/mxcli-bugs.md"*"bootstrap-project.md"*'`~/Mendix/mxcli-project-toolkit/bin/bug-lookup.sh`'*) ok "CLAUDE.md: reported with the exact replacement row, and why it is not edited" ;; *) bad "CLAUDE.md: report missing" "$OUT" ;; esac
 grep -q 'bug-logs/mxcli-bugs.md' "$P/CLAUDE.md" && ok "CLAUDE.md: left alone (bootstrap-authored, no script produced it)" || bad "CLAUDE.md was EDITED"
 B="$(fingerprint "$P/CLAUDE.local.md")"
 OUT="$("$SYNC" "$P" 2>&1)"
-[ "$B" = "$(fingerprint "$P/CLAUDE.local.md")" ] && ok "unmarked: second run leaves CLAUDE.local.md alone" || bad "unmarked: second run rewrote CLAUDE.local.md"
+[ "$B" = "$(fingerprint "$P/CLAUDE.local.md")" ] && ok "unmarked: second run leaves CLAUDE.local.md alone" || bad "unmarked: second run rewrote CLAUDE.local.md" "$(printf '%s\n---sync output---\n%s' "$(cat "$P/CLAUDE.local.md")" "$OUT")"
 case "$OUT" in *"Retired"*) bad "unmarked: second run retires again" ;; *) ok "unmarked: second run says nothing about retiring" ;; esac
 
 echo ""

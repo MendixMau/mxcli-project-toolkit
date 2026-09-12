@@ -315,10 +315,12 @@ case "$PLATFORM" in
     fi
     ;;
   gitbash|wsl|linux|unknown)
-    warn "The Studio Pro scripts (save-sp.sh, restart-sp.sh, and the SP handling in exec.sh)"
-    note "are macOS-only: they are built on osascript, lsof and 'open -a', and Studio Pro is"
-    note "discovered by looking in /Applications. There is no Windows port yet."
-    note "Everything else in the toolkit works here. Drive Studio Pro by hand on this platform."
+    # Informational only. Nobody needs these scripts to use the toolkit — Studio Pro is
+    # opened and saved by hand at the points where they would run — so on the platforms
+    # they do not exist for, this is not a warning. (It was one; a Windows onboarding
+    # counted it among "6 warnings" and asked what to do about it. Nothing.)
+    note "save-sp.sh / restart-sp.sh (macOS conveniences) are not on this platform — you open"
+    note "and save Studio Pro yourself at those points. Nothing else depends on them."
     ;;
 esac
 
@@ -350,6 +352,18 @@ MXBUILD="$(find_mxbuild 2>/dev/null || true)"
 JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
 JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 
+# toolkit.env — the human-editable answer to "doctor guessed the wrong Studio Pro / Java".
+# _common.sh already loaded it (project file, then ~/.mxcli-toolkit.env; a variable set in
+# the shell wins over both). Say what was read, so a stale value is findable.
+if [ -n "${MXTK_ENV_LOADED:-}" ]; then
+  ok "toolkit.env loaded: $MXTK_ENV_LOADED"
+else
+  note "No toolkit.env — discovery guesses below. To pin tool locations for this machine, create"
+  note "  ${PROJECT_DIR:-<project>}/.claude/toolkit.env  (this project)  or  ~/.mxcli-toolkit.env  (every project)"
+  note "  with lines like:  MENDIX_APP=C:\\Program Files\\Mendix\\11.11.0    JAVA_HOME=C:\\Software\\Java\\jdk-21"
+  note "  (Windows paths can be pasted as-is; MXBUILD_PATH, MXCLI_VERSION and PYTHON work too.)"
+fi
+
 # --install: when no runnable mxbuild was discovered, download the standalone toolchain
 # through the project's own mxcli — `./mxcli setup mxbuild -p <app>.mpr`, the exact download
 # the headless container build runs, cached at ~/.mxcli/mxbuild/<version>/ and shared across
@@ -365,15 +379,15 @@ install_toolchain() {
     bad "--install: no .mpr in $PROJECT_DIR — setup mxbuild needs the model to pick a version."
     return
   fi
-  note "downloading the mxbuild toolchain (./mxcli setup mxbuild — same as the container build)..."
-  if (cd "$PROJECT_DIR" && ./mxcli setup mxbuild -p "$(basename "$INSTALL_MPR")"); then
+  note "downloading the mxbuild toolchain (mxcli setup mxbuild — same as the container build)..."
+  if (cd "$PROJECT_DIR" && "$PMXCLI" setup mxbuild -p "$(basename "$INSTALL_MPR")"); then
     SP_APP="$(find_sp_app 2>/dev/null || true)"
     MXBUILD="$(find_mxbuild 2>/dev/null || true)"
     JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
     JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
     ok "toolchain downloaded to ~/.mxcli/mxbuild/ (shared cache, reused by every project)"
   else
-    bad "'./mxcli setup mxbuild' failed — see its output above."
+    bad "'mxcli setup mxbuild' failed — see its output above."
     note "A blocked network/proxy is the usual cause; the download comes from the Mendix CDN."
   fi
 }
@@ -384,7 +398,8 @@ if [ "$INSTALL" -eq 1 ]; then
   NEED_TOOLCHAIN=1
   if [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ] && probe_runs "$MXBUILD"; then NEED_TOOLCHAIN=0; fi
   NEED_MXCLI=0
-  if [ -n "$PROJECT_DIR" ] && [ ! -x "$PROJECT_DIR/mxcli" ] && [ ! -f "$PROJECT_DIR/mxcli" ]; then
+  PMXCLI="$(find_project_mxcli 2>/dev/null || true)"
+  if [ -n "$PROJECT_DIR" ] && [ -z "$PMXCLI" ]; then
     NEED_MXCLI=1
   fi
 
@@ -394,7 +409,14 @@ if [ "$INSTALL" -eq 1 ]; then
     bad "--install needs a project directory: bin/doctor.sh --install <project-dir>"
     note "The download runs through that project's own ./mxcli, which reads the model's"
     note "Mendix version and fetches the matching toolchain."
-  elif [ -f "$PROJECT_DIR/mxcli" ] && [ ! -x "$PROJECT_DIR/mxcli" ]; then
+  elif [ "$NEED_MXCLI" -eq 1 ] && [ "$PLATFORM" = gitbash ] && mxtk_is_elf "$PROJECT_DIR/mxcli"; then
+    # Not a permissions problem, and chmod cannot fix it (Git Bash derives the executable bit
+    # from the extension/header, so `chmod +x` looks like it "reverts"). The file is the Linux
+    # build the Dev Container uses on this same folder. Windows needs mxcli.exe beside it.
+    note "--install: $PROJECT_DIR/mxcli is the Linux build (the Dev Container's) — fine, leave it."
+    note "Git Bash needs mxcli.exe next to it; fetching that now, the two coexist."
+    NEED_MXCLI=1; PMXCLI=""
+  elif [ -f "$PROJECT_DIR/mxcli" ] && [ ! -x "$PROJECT_DIR/mxcli" ] && [ "$PLATFORM" != gitbash ]; then
     bad "--install: mxcli in $PROJECT_DIR is present but not executable — chmod +x mxcli, re-run."
   else
     # The release assets follow one naming scheme (verified against the published releases,
@@ -453,9 +475,9 @@ if [ "$INSTALL" -eq 1 ]; then
         note "  $_STEP. mxbuild toolchain (~800 MB, one-time) -> ~/.mxcli/mxbuild/<version>/"
         note "     verifies every model write (the exec.sh gate); from cdn.mendix.com, exact"
         note "     version read from the project's .mpr — the same download the container build uses."
-        if [ "$NEED_MXCLI" -eq 0 ] && [ -x "$PROJECT_DIR/mxcli" ]; then
+        if [ "$NEED_MXCLI" -eq 0 ] && [ -n "$PMXCLI" ]; then
           _PLAN_MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
-          [ -n "$_PLAN_MPR" ] && (cd "$PROJECT_DIR" && ./mxcli setup mxbuild -p "$(basename "$_PLAN_MPR")" --dry-run 2>/dev/null) \
+          [ -n "$_PLAN_MPR" ] && (cd "$PROJECT_DIR" && "$PMXCLI" setup mxbuild -p "$(basename "$_PLAN_MPR")" --dry-run 2>/dev/null) \
             | grep -E 'Version:|URL:' | while IFS= read -r l; do note "     $l"; done
         fi
       fi
@@ -486,6 +508,7 @@ if [ "$INSTALL" -eq 1 ]; then
           if $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && chmod +x "$PROJECT_DIR/$MXCLI_DEST" \
              && probe_runs "$PROJECT_DIR/$MXCLI_DEST"; then
             ok "mxcli fetched into the project root: $(probe_line)"
+            PMXCLI="$PROJECT_DIR/$MXCLI_DEST"
           else
             rm -f "$PROJECT_DIR/$MXCLI_DEST" 2>/dev/null
             MXCLI_READY=0
@@ -550,8 +573,9 @@ else
   else
     bad "mxbuild not found/executable: ${MXBUILD:-<none>}"
   fi
-  note "Fix without Studio Pro: bin/doctor.sh --install <project-dir>   (downloads it locally,"
-  note "like the container build). Or set MXBUILD_PATH=/path/to/mxbuild."
+  note "Have Studio Pro? Point at it: MENDIX_APP=<its version folder> in toolkit.env (see above)."
+  note "No Studio Pro: bin/doctor.sh --install <project-dir> downloads a standalone mxbuild,"
+  note "like the container build. MXBUILD_PATH=<path to mxbuild> also works."
 fi
 
 # Java: mxbuild is invoked with an explicit --java-exe-path; if none resolves, the gate skips.
@@ -561,6 +585,15 @@ if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
   JV="$("$JAVA_EXE" -version 2>&1 | grep -i 'version' | head -1)" || JV=""
   if [ -n "$JV" ]; then
     ok "java runs: $JV  ($JAVA_EXE)"
+    # mxbuild compiles the model's Java actions, which takes javac — a JRE has none. Studio
+    # Pro's bundled runtime is a JRE that mxbuild is paired with, so only flag a system Java.
+    case "$JAVA_HOME_FOUND" in
+      "${SP_APP:-<none>}"/*) ;;
+      *) if [ ! -x "$(dirname "$JAVA_EXE")/javac" ] && [ ! -x "$(dirname "$JAVA_EXE")/javac.exe" ]; then
+           note "this Java is a JRE (no javac). Java actions in the model need a JDK to compile:"
+           note "set JAVA_HOME=<a JDK 21 folder> in toolkit.env if a build complains about javac."
+         fi ;;
+    esac
   else
     GATE_OK=0
     bad "java exists but produced no version output: $JAVA_EXE"
@@ -588,14 +621,15 @@ else
   if [ "$PLATFORM" = linux ] && [ -z "$SP_APP" ] && [ -z "${MXBUILD_PATH:-}" ]; then
     warn "exec.sh mxbuild gate WILL BE SKIPPED on this machine."
   else
-    bad "exec.sh mxbuild gate WILL BE SKIPPED on this machine. Fix the FAIL lines above"
-    note "before writing to any model from this machine."
+    bad "the mxbuild gate would be skipped on this machine — sort out the mxbuild/java lines"
+    note "above before the first model write, so every write gets verified."
   fi
-  note "Every MDL exec here will report gate=skipped and go through UNVERIFIED: consistency"
-  note "errors (CE) are never captured, and BSON corruption — which mxbuild is the only"
-  note "reliable detector for — reaches Studio Pro undetected."
-  note "Fastest fix on ANY platform: bin/doctor.sh --install <project-dir> — downloads the"
-  note "toolchain locally through the project's ./mxcli, exactly like the container build."
+  note "Why it matters: without mxbuild, MDL execs report gate=skipped and consistency errors"
+  note "go uncaught until Studio Pro opens the model. Usually one of these fixes it:"
+  note "  - Studio Pro is installed: put its folder in toolkit.env, e.g."
+  note "      MENDIX_APP=C:\\Program Files\\Mendix\\11.11.0   (pick the version your .mpr uses)"
+  note "  - No Studio Pro here: bin/doctor.sh --install <project-dir> downloads a standalone"
+  note "    mxbuild (the same one the container build uses)."
 fi
 
 if [ "$QUICK" != 1 ]; then
@@ -770,18 +804,26 @@ if [ -n "$PROJECT_DIR" ]; then
       warn "no .mpr found in the project root"
       note "If the model lives elsewhere, point doctor at the folder that contains it;"
       note "a brand-new project gets its .mpr from 'mxcli init' or a Studio Pro export."; }
-    if [ -x "$PROJECT_DIR/mxcli" ]; then
+    PMXCLI_PROBE="$(find_project_mxcli 2>/dev/null || true)"
+    if [ -n "$PMXCLI_PROBE" ]; then
       # Present is not enough — a wrong-platform binary is present, executable, and exits 126.
       MXCLI_EXIT=0
-      probe_runs "$PROJECT_DIR/mxcli" || MXCLI_EXIT=$?
+      probe_runs "$PMXCLI_PROBE" || MXCLI_EXIT=$?
       if [ "$MXCLI_EXIT" -eq 0 ]; then
         ok "mxcli runs ($PROBE_HOW): $(probe_line)"
+        note "at: $PMXCLI_PROBE"
       else
-        bad "mxcli exists but cannot run (exit $MXCLI_EXIT)"
+        bad "mxcli exists but cannot run (exit $MXCLI_EXIT): $PMXCLI_PROBE"
         printf '%s\n' "$PROBE_OUT" | grep -v '^[[:space:]]*$' | head -3 | while IFS= read -r l; do note "  $l"; done
         note "Exit 126 usually means a binary built for another platform/architecture —"
         note "re-download the mxcli build for this OS."
       fi
+    elif [ "$PLATFORM" = gitbash ] && mxtk_is_elf "$PROJECT_DIR/mxcli"; then
+      warn "the project's mxcli is the Linux build (the Dev Container's) — Git Bash needs mxcli.exe beside it."
+      note "Not a permissions problem: chmod cannot make a Linux binary run here, which is why it"
+      note "looked like it 'reverted'. Leave the file for the container and add the Windows build:"
+      note "  bin/doctor.sh --install $PROJECT_DIR      (fetches mxcli.exe; the two coexist)"
+      note "  or copy the mxcli.exe you already have on PATH into the project root."
     elif [ -f "$PROJECT_DIR/mxcli" ]; then bad "mxcli is present but not executable — chmod +x mxcli"
     else
       warn "no mxcli in the project root"
@@ -819,14 +861,20 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
       >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
     note "(added /.claude/.doctor-receipt to the project's .gitignore — the receipt is machine-local)"
   fi
+  # toolkit.env holds this machine's paths — never something to commit.
+  if [ -d "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q .claude/toolkit.env 2>/dev/null; then
+    printf '\n# Machine-local tool locations (bin/doctor.sh / project-bin/_common.sh)\n/.claude/toolkit.env\n' \
+      >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
+    note "(added /.claude/toolkit.env to the project's .gitignore — it holds this machine's paths)"
+  fi
 fi
 
 if [ "$FAIL" -gt 0 ]; then
-  printf '  %s problem(s) that will break a pipeline stage, %s warning(s).\n' "$FAIL" "$WARN"
-  printf '  Fix the FAIL lines above before running anything else.\n'
+  printf '  %s thing(s) to sort out before the first model write (FAIL lines), %s note(s) worth reading (WARN).\n' "$FAIL" "$WARN"
+  printf '  Analysis and planning stages run fine meanwhile; each FAIL line says what fixes it.\n'
   exit 2
 elif [ "$WARN" -gt 0 ]; then
-  printf '  Ready, with %s warning(s). Read them — each one names something that will not work.\n' "$WARN"
+  printf '  Ready. %s warning(s) above — read each one: some are optional, a missing .mpr or CLAUDE.local.md is not.\n' "$WARN"
   exit 1
 else
   printf '  Ready.\n'

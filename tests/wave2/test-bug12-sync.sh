@@ -24,7 +24,7 @@ WORK="$(mktemp -d /tmp/bug12.XXXXXX)"
 PASS=0; FAIL=0
 
 ok()  { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
-bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; }
+bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; [ -n "${2:-}" ] && printf '%s\n' "$2" | sed 's/^/  FAIL-detail: /'; }
 
 # A fingerprint of the whole tree: path, size, exec bit, content hash. Anything a run writes
 # shows up here — "wrote nothing" is otherwise unfalsifiable.

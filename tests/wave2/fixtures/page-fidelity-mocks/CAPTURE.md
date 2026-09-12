@@ -26,6 +26,14 @@ class prefix (`ds-` -> `x-` for the design-system-looking names, so the fixture 
 mistaken for a claim about any real design system). No line was reflowed, no block
 reordered, no selector altered, no structure simplified.
 
+**Two `class="bound"` elements were ADDED to `grouped-overview.html`**, and they are the one
+thing here that is not a reduction of the real file: an `<h2 class="bound">` holding a record's
+own title and a `<span class="bound">` holding a filename. They stand in for the real detail
+page's `<h1>` and file chip, which is where the defect was found (54%, all three misses being
+sample values a correctly binding page cannot contain). Reproduced on the overview fixture
+rather than adding a third wireframe, because the marker's behaviour has nothing to do with
+which screen carries it.
+
 **Counts measured on the REAL overview wireframe** (the numbers the defect was found on):
 
 | class | uses | subtree kept when dropped | old verdict | correct verdict |

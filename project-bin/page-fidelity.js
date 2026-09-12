@@ -171,6 +171,27 @@ function contentOf(html) {
   // miss on a page whose real H1 is correct. Two faithful pages at 9%.
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*\banno\b[^"]*"/i);
   s = dropBalanced(s, /<(table)[^>]*class="[^"]*\bbind\b[^"]*"/i);
+  // `.bound` — THE AUTHOR SAYING "this text is a sample of bound data".
+  //
+  // The scorer already has this concept and applies it structurally: `<td>` is excluded
+  // from the text corpus because a wireframe's table cells are sample rows, and a page that
+  // correctly BINDS them contains none of that literal text. The same is true of any bound
+  // value anywhere else on the screen, and there the structure gives nothing away — an
+  // `<h1>` holding a project's number and name looks exactly like an `<h1>` holding page
+  // copy, and a chip holding a filename looks exactly like a chip holding a label.
+  //
+  // Measured 2026-09-09 on a MOC/PSSR app replacement's project detail page: 54%, with all
+  // three misses being sample values a correctly binding page cannot contain — the record's
+  // own title, and a mocked attachment's filename, twice. The page was right; the
+  // denominator was.
+  //
+  // So this is DECLARED, not guessed. A wireframe marks its bound sample values
+  // `class="bound"` and they leave both the text corpus and the class denominator. Guessing
+  // was the alternative and it does not work: a heading is bound or it is not, and only the
+  // person who drew the screen knows which. Any element may carry it — the drop is on the
+  // tag the class sits on, so `<h1 class="bound">` leaves no heading behind and
+  // `<span class="bound">` inside a chip leaves the chip.
+  for (let i = 0; i < 12; i++) s = dropBalanced(s, /<([a-z][a-z0-9]*)[^>]*class="[^"]*\bbound\b[^"]*"/i);
   // A "this screen is descoped/annotation-only" banner is chrome, not page copy.
   s = dropBalanced(s, /<(div)[^>]*class="[^"]*alert[^"]*"(?=[\s\S]{0,400}?DESCOPED)/i);
   return s;
@@ -292,7 +313,7 @@ function wfFacts(file) {
                     ...grab(/<div class="muted"[^>]*>([\s\S]*?)<\/div>/gi)];
   const classes = new Set();
   for (const x of main.matchAll(/class="([^"]+)"/g))
-    x[1].split(/\s+/).forEach(c => { if (c && !/^(wf-|ann|crosscheck|alert-ic|x-btn|req)/.test(c)) classes.add(c); });
+    x[1].split(/\s+/).forEach(c => { if (c && c !== 'bound' && !/^(wf-|ann|crosscheck|alert-ic|x-btn|req)/.test(c)) classes.add(c); });
   // Classes confined to the wireframe's table.grid mock describe markup the
   // DATAGRID widget renders itself (wrapper, filter row, cell emphasis) — a page
   // cannot declare them. Curated: pill/status classes stay scored, because a page

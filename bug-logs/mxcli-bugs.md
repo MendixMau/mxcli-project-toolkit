@@ -960,7 +960,100 @@ Then in Studio Pro: **App → Import module package →** select that `.mpk`. St
 
 ---
 
-## 🚨 CRITICAL: `mxcli marketplace install` collapses a split-model project to monolithic `.mpr` and deletes `mprcontents/` — breaks Studio Pro
+## ✅ RESOLVED v0.21.0 (was CRITICAL): `mxcli marketplace install` collapsed a split-model project to monolithic `.mpr` and deleted `mprcontents/`
+
+> **STATUS: FIXED UPSTREAM — https://github.com/mendixlabs/mxcli/issues/879 closed in v0.21.0.
+> Re-probed and confirmed 2026-09-10 on a real 501-unit split-model project. The STOP in
+> `skills/learned-mdl-preflight.md` is LIFTED.**
+>
+> `marketplace install` no longer shells out to `mx module-import`. It copies the module's units
+> with mxcli's own writer, so MPR v2 survives; the old destructive path is now **opt-in behind
+> `--allow-format-change`**, meaning the corruption below can only be produced deliberately.
+> mxcli's own help states it: *"A module is installed by copying its units with mxcli's own writer
+> rather than by running 'mx module-import'. That preserves the project's storage format."*
+>
+> **Measured on the confirming run** (change-governance app, mxcli v0.21.0, Mendix 11.14.0,
+> four modules installed): 501 → 1075 `.mxunit` files, `.mpr` 84 KB → **156 KB** — an index, not the
+> 35 MB blob this bug used to produce — native mxbuild **0 errors**, app boots, two e2e journeys
+> (33/33 and 12/12) unchanged.
+>
+> **The cost of not re-probing.** v0.21.0 shipped 2026-09-06. The project that found this fix was
+> still routing around the bug on 2026-09-10 and had carried "marketplace install is BLOCKED, needs
+> a human in Studio Pro" in its register for four days after it stopped being true — with both
+> `.mpk` files already downloaded and sitting in the project root the whole time. Nobody ran
+> `skills/retesting-learned-rules.md`, which exists for precisely this. **A STOP is a claim about a
+> binary version, and it expires.** Re-probe every STOP that costs a detour after any version bump.
+>
+> **How to re-probe an install safely, at zero risk** — the pattern that made it reasonable to test
+> a formerly-corrupting operation headlessly on a real project, and worth reusing for any
+> destructive-suspect command:
+>
+> ```bash
+> git clone --depth 1 file://$(pwd) /tmp/probe        # exact copy of the model, ~seconds
+> ./mxcli marketplace install <id> -p /tmp/probe/<app>.mpr
+> find /tmp/probe/mprcontents -name '*.mxunit' | wc -l   # vs the original count
+> ~/.mxcli/mxbuild/<ver>/modeler/mx check /tmp/probe/<app>.mpr
+> ```
+>
+> Measure on the clone, decide from the measurement, then do it for real. This is cheaper than the
+> recovery below and it answers the question the changelog cannot.
+
+---
+
+### THREE NEW TRAPS REPLACED THE OLD ONE (all found 2026-09-10, all still live on v0.21.0)
+
+The format corruption is gone. These are what actually bite now, and none of them announces itself.
+
+**1. Marketplace packages DO NOT carry their dependencies, and the error does not name them as
+missing modules — it names hundreds of individual elements.** Installing Email Connector 6.4.3 +
+SAML 4.2.3 alone produced **406 errors**, every one a `CE1613 "... no longer exists"`. Aggregating
+the referenced prefixes is what turns that wall into a shopping list:
+
+```bash
+mx check <app>.mpr 2>&1 | grep -oE "'[A-Za-z]+\.[A-Za-z_]+" | cut -d"'" -f2 | cut -d. -f1 \
+  | sort | uniq -c | sort -rn
+#  247 MxModelReflection   121 UserCommons   26 Encryption   12 CommunityCommons
+```
+
+Install the dependencies FIRST, then the module. For Email Connector 6.4.3 the closure is
+**MxModelReflection (69), Encryption (1011), CommunityCommons (170)** — that combination checks at
+**0 errors**. SAML 4.2.3 additionally pulls **UserCommons (223053)**.
+
+**2. The two `mxcli fix` repairs the installer prints are MANDATORY, not advisory.** The install
+output ends with *"Next, repair what a headless install leaves for Studio Pro to finish"* and it
+means it — on the confirming run `mxcli fix widgets` changed **128 units** (CE0463) and
+`mxcli fix design-properties` changed **12** (CE6087). Both preserve MPR v2 (they restore the split
+format after running Mendix's own tool, which would otherwise collapse it — that is the whole
+reason these subcommands exist). Skipping them leaves errors that look like the module is broken.
+
+**3. A bundled widget can silently fail to land, and the installer CANNOT self-repair it.** On the
+confirming run `widgets/RichText.mpk` (shipped inside the Email Connector package, 1 040 352 bytes)
+landed on the throwaway probe and **not** on the real project — 33 widgets against the probe's 34 —
+giving 3 × `CE0462 "Could not find widget 'Rich Text' in the 'widgets' directory"` over an otherwise
+clean model. Re-running the install does not fix it: it refuses with *"Module is already installed
+… In-place module updates are not applied automatically"*. The repair is to pull the file out of
+the `.mpk` the installer already downloaded:
+
+```bash
+ls widgets/ | wc -l                                    # BEFORE the install
+unzip -l <Module>.mpk | grep widgets/                  # what it should have written
+unzip -o -j <Module>.mpk "widgets/<Widget>.mpk" -d widgets/
+./mxcli fix widgets -p <app>.mpr
+```
+
+**Count `widgets/` before and after every install.** A missing bundled widget is indistinguishable
+from a broken module if you only read the error.
+
+**4. One thing genuinely still needs Studio Pro.** SAML 4.2.3 + UserCommons install cleanly and
+leave exactly one error: `CE0066 "Entity access is out of date. Please update security by clicking
+the 'Update security' button in the domain model editor"` on the UserCommons domain model. There is
+no `mxcli fix security`, and forcing a recompute with an MDL `GRANT` on a UserCommons entity was
+tried and **does not clear it**. Plan that module for a Studio Pro session; do not install it into a
+project that must stay buildable headlessly in the meantime.
+
+---
+
+### HISTORICAL RECORD (the bug as it was, kept because a ledger entry that vanishes reads as a bug never found)
 
 **FILED — https://github.com/mendixlabs/mxcli/issues/879 (2026-08-13).** Independently
 reconfirmed twice before filing: on PROJECT-F (mxcli v0.17.0, mxbuild/Studio Pro 11.13.0, real
@@ -994,7 +1087,11 @@ Cause: git tracked 369 `mprcontents/*.mxunit` that vanished + a 49 MB binary `.m
 ### Why it matters beyond SP
 The entire toolkit workflow assumes split format: mxcli's own MDL exec writes *into* `mprcontents/`, `exec.sh` commits `mprcontents/`, BUG-19 recovery does `git checkout HEAD -- mprcontents/`. A monolithic `.mpr` is off-workflow. **Normal `mxcli exec` (MDL) preserves the split format; only `marketplace install` / `mx module-import` collapses it.**
 
-### Prevention (the rule)
+### Prevention (the rule) — SUPERSEDED, applies to v0.20.0 and earlier ONLY
+> On v0.21.0+ this rule is retired; see the RESOLVED banner at the top of this entry. It is kept
+> verbatim for projects pinned to an older binary, and because the reasoning is what the fix
+> preserved.
+
 **On a split-model project (has an `mprcontents/` dir), do NOT use `mxcli marketplace install`.** Import marketplace modules through **Studio Pro** (Marketplace panel, or App → Import module package), which preserves `mprcontents/`. Reserve mxcli for MDL exec only.
 - Safe to use `mxcli marketplace download <id>` (writes a `.mpk` to disk, touches nothing in the model) — then GUI-import that `.mpk`.
 - Detection before it bites: if `find mprcontents -name '*.mxunit' | wc -l` drops to 0 and the `.mpr` balloons to MBs after an install, you hit this.

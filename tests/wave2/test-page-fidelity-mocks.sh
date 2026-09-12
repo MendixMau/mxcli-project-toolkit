@@ -90,6 +90,18 @@ echo "  -- the sample text inside a mock is not scored against the page"
 # missed content and the score would fall below 100%.
 hasnt "sample row text is not a missed content block" "$OUT" "Reclaimer refurbishment"
 
+echo "  -- a DECLARED bound value leaves the denominator"
+# grouped-overview.html carries an <h2 class="bound"> holding a record's own title and a
+# <span class="bound"> holding a filename. Both are sample values a correctly BINDING page
+# cannot contain, and the wireframe says so with the class. If either were scored, the page
+# would report them as missed heading/content and fall below 100%.
+hasnt "a bound heading is not a missed heading" "$OUT" "Environmental system improvement"
+hasnt "a bound value is not missed content"     "$OUT" "ISO14001_Transition.pdf"
+has   "the page still scores 100% with bound values present" "$OUT" "fidelity 100%"
+# The h2 must leave the HEADING DENOMINATOR, not merely stop being reported as missed —
+# otherwise the score would be 1 of 2 and still pass the two assertions above.
+has   "the bound heading is out of the denominator" "$OUT" "headings 1/1"
+
 echo "  -- a genuinely mocked list page still reports its mocks"
 OUT2=$(cd "$TMP" && node "$SUT" --no-log "$FIX/mocked-list.html" Demo_List "$FIX/demo-list.mdl" 2>&1)
 echo "$OUT2" | sed 's/^/    | /'

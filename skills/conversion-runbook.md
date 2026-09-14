@@ -333,6 +333,47 @@ reader approves the *transition* on — checklist for the work, block for the ha
 
 ---
 
+## 1c. Dispatch — what leaves the main session, in what batch, on which model
+
+**Why this is written down (2026-09-14).** The six agent stubs have carried model tiers since
+they were generated (`architect-agent` Opus, the other five Sonnet), and §2's Owner rows name
+who is accountable for each stage. Nothing said *when* the main session hands work over — so
+in the token-path A/B (nine runs, Stages P–4) the main session did nearly everything itself,
+at its own model's price, and only two skills (`brd-generation.md`, `image-transcription.md`)
+ever asked for a fan-out. Owner is accountability; this table is the runtime rule. It is the
+single source; `agent-roles.md` (setup) defers here.
+
+**The main session keeps, always:** every question to the user (§1); every gate verdict and
+its `--closeout` block; every `mxcli exec` / MCP write (`agent-roles.md`'s one rule); the
+merge of returned files into `PROJECT.md` and the chat checklist (§1b rule 5). Everything in
+the table leaves. A dispatched unit returns **the file it wrote**, never a summary of it.
+
+| Stage | Unit that fans out | Batch | Model | Fence before → check after |
+|---|---|---|---|---|
+| 1 Analysis | one source document → its KB extract (`kb-generation.md`) | 1 document per agent, ≤ 6 in flight | Sonnet | → `bin/source-ledger.sh check` |
+| 1 Analysis | image descriptions (`image-transcription.md`) | 5–8 images per agent | Haiku | `bin/images-to-md.sh` → `--check` (rule 6 cross-check on any string a rule will hang on) |
+| 2 Requirements | one module → its BRD (`brd-generation.md`) | 1 module per agent, all in parallel | Sonnet | `bin/facts-lock.sh build` → `facts-lock.sh check`, `brd-validation.md` |
+| 3 Architecture & Design | 3a modularize → blueprint → fit-gap ∥ 3b design system + wireframes | 2 agents; wireframes ≤ 8 screens per agent | Opus (3a) / Sonnet (3b) | → `bin/gate-check.sh <p> 3` |
+| 4 Build Plan | one module → its brief (`module-brief.md`) | 1 module per agent | Sonnet | build plan first (sequential, Opus) → `gate-check.sh <p> build-ready` |
+| 5 Build | one script → `mdl-agent` draft; each exec → `gate-agent`; module close → `review-agent` | 1 script per agent, **sequential within a module** (scripts depend); modules in parallel only where the build plan marks them independent | Sonnet | main session runs the exec between draft and gate |
+| 6 Test | one module → `test-agent` spec + run | 1 module per agent | Sonnet | → `gate-check.sh <p> 6` |
+| P, 0, 7 | nothing — intake, triage sign-off and cutover are interviews and decisions | — | main session | — |
+
+Batch sizes are context bounds, not throughput targets: 5–8 images and one BRD per agent are
+measured (`image-transcription.md`, `brd-generation.md` → "Running BRDs in parallel"); the
+rest are judgement and move when a field run says so. **Haiku is for reads whose output is
+mechanically checked or cross-checked** — the 2026-09-14 image run scored 78 % key recall with
+about one string in fifteen misread on small text — never for anything that ends in a verdict,
+a rule, or a question to the user.
+
+**Harnesses without subagents** — the desktop app's plain chat, Cowork, Copilot, Cursor,
+Windsurf: the stubs under `.claude/agents/` do not load. Work the table top to bottom yourself,
+one unit per turn at the batch sizes given, and open a fresh session per batch rather than one
+long one — the bound is about context, not about who holds it. `interview-protocol.md` §3
+"Asking on a non-Claude agent" is the same rule for questions.
+
+---
+
 ## 2. The Stage Matrix
 
 Eight stages (plus Stage P kickoff). For each: what the user co-defines, what the agent produces, the review surface, the gate, and who owns it. `✋` marks a hard stop — the pipeline does not proceed past it without an explicit `CONFIRMED` decision. At non-✋ gates unknowns may resolve to `ASSUMED` — but only per §1 step 6: the question was asked and the user delegated; never because asking was skipped.

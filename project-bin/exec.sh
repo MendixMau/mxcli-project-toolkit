@@ -334,17 +334,22 @@ if [ -z "$PY" ]; then
   echo "     Fix: install Python 3 (macOS: xcode-select --install), or set PYTHON=/path/to/python3"  # portability-ok: names in a diagnostic
 fi
 
+# The path goes through native_path (_common.sh): on Git Bash the mktemp'd
+# /tmp/... spelling is inside a Python -c string, where MSYS does not convert
+# it, and a native Windows Python cannot open it. Before this, every helper
+# below answered "?" on Windows and a real CE degraded to "unverified" with
+# the broken model left in place (field run 2026-09-14, Studio Pro 11.12.4).
 err_count() {  # $1=errors json
   [ -n "$PY" ] || { echo "?"; return; }
-  "$PY" -c "import json;d=json.load(open('$1'));print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null || echo "?"
+  "$PY" -c "import json;d=json.load(open('$(native_path "$1")'));print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null || echo "?"
 }
 err_codes() {
   [ -n "$PY" ] || { echo "?"; return; }
-  "$PY" -c "import json;d=json.load(open('$1'));print(','.join(sorted({x.get('errorCode','?') for x in d.get('problems',[]) if x.get('severity')=='Error'})))" 2>/dev/null || echo "?"
+  "$PY" -c "import json;d=json.load(open('$(native_path "$1")'));print(','.join(sorted({x.get('errorCode','?') for x in d.get('problems',[]) if x.get('severity')=='Error'})))" 2>/dev/null || echo "?"
 }
 err_set() {
   [ -n "$PY" ] || { echo ""; return; }
-  "$PY" -c "import json;d=json.load(open('$1'));print('|'.join(sorted(x.get('message','') for x in d.get('problems',[]) if x.get('severity')=='Error')))" 2>/dev/null || echo ""
+  "$PY" -c "import json;d=json.load(open('$(native_path "$1")'));print('|'.join(sorted(x.get('message','') for x in d.get('problems',[]) if x.get('severity')=='Error')))" 2>/dev/null || echo ""
 }
 
 # ── Doctor freshness (warn-only) ─────────────────────────────────────────────
@@ -382,10 +387,20 @@ BASELINE_SET=""
 if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   echo "→ Pre-flight: checking whether the model already has errors..."
   _BF=$(mktemp /tmp/mxbuild-baseline.XXXXXX)
+  _BEXIT=0
   "$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" \
-             --write-errors="$_BF" --target=deploy "$MPR" >/dev/null 2>&1 || true
-  BASELINE_SET=$(err_set "$_BF")
-  _BC=$(err_count "$_BF"); _BCODES=$(err_codes "$_BF")
+             --write-errors="$_BF" --target=deploy "$MPR" >/dev/null 2>&1 < /dev/null || _BEXIT=$?
+  # Studio Pro 11's mxbuild (its --help says so) writes --write-errors "only if the
+  # project has errors": on a clean model the mktemp'd file stays EMPTY, json.load
+  # fails, and this read "Model ALREADY has ? error(s) [?]" on every clean run
+  # (2026-09-14, 11.12.4). The gate below already treats empty-file + exit 0 as
+  # clean; the baseline does the same rather than reporting "?" as a warning.
+  if [ ! -s "$_BF" ] && [ "$_BEXIT" -eq 0 ]; then
+    BASELINE_SET=""; _BC=0; _BCODES=""
+  else
+    BASELINE_SET=$(err_set "$_BF")
+    _BC=$(err_count "$_BF"); _BCODES=$(err_codes "$_BF")
+  fi
   rm -f "$_BF"
   if [ "$_BC" != "0" ]; then
     echo "  ⚠  Model ALREADY has $_BC error(s) [$_BCODES] before this script runs."
@@ -433,12 +448,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   # where `|| true` had already reset the status to 0, so MXBUILD_EXIT was
   # always 0 and the "mxbuild failed to run" branch below was unreachable.
   MXBUILD_EXIT=0
-  MXBUILD_OUT=$("$MXBUILD" \
-    --java-home="$JAVA_HOME" \
-    --java-exe-path="$JAVA_EXE" \
-    --write-errors="$ERRORS_FILE" \
-    --target=deploy \
-    "$MPR" 2>&1) || MXBUILD_EXIT=$?
+  MXBUILD_OUT=$("$MXBUILD"     --java-home="$JAVA_HOME"     --java-exe-path="$JAVA_EXE"     --write-errors="$ERRORS_FILE"     --target=deploy     "$MPR" 2>&1) || MXBUILD_EXIT=$?
 
   if [ -f "$ERRORS_FILE" ] && [ -s "$ERRORS_FILE" ]; then
     CE_COUNT=$(err_count "$ERRORS_FILE")
@@ -526,9 +536,16 @@ PYEOF
         # error predates this script, which was merely the first thing to hit
         # it. Costs one extra mxbuild, only on the failure path.
         BASE_ERRS=$(mktemp /tmp/mxbuild-base.XXXXXX)
+        _BASE_EXIT=0
         "$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" \
-                   --write-errors="$BASE_ERRS" --target=deploy "$MPR" >/dev/null 2>&1 || true
-        BASE_COUNT=$(err_count "$BASE_ERRS"); BASE_CODES=$(err_codes "$BASE_ERRS")
+                   --write-errors="$BASE_ERRS" --target=deploy "$MPR" >/dev/null 2>&1 < /dev/null || _BASE_EXIT=$?
+        # Same empty-file rule as the pre-flight baseline: SP 11 mxbuild writes no
+        # errors file on a clean build, and that plus exit 0 is a verified 0.
+        if [ ! -s "$BASE_ERRS" ] && [ "$_BASE_EXIT" -eq 0 ]; then
+          BASE_COUNT=0; BASE_CODES=""
+        else
+          BASE_COUNT=$(err_count "$BASE_ERRS"); BASE_CODES=$(err_codes "$BASE_ERRS")
+        fi
         rm -f "$BASE_ERRS"
 
         echo ""

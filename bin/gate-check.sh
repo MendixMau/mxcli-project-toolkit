@@ -2665,6 +2665,71 @@ HTML_TAIL
 fi
 
 # ---------------------------------------------------------------------------
+# "## Current stage" in the register — a readout, never hand-advanced.
+#
+# init-project.sh writes "**Stage P — Kickoff**, in progress." and until 2026-09-14 nothing
+# ever touched it again: in every hand-in of the token-path A/B (nine projects, gates P–4
+# passed) the header still read Stage P, because advancing it was a discipline nobody had.
+# The position is a fact this run already established — the first stage that is neither
+# PASS nor WAIVED — so it is written here, under the dashboard's own conditions: a full
+# informational run or --html, never a stage query (read-only), never a run about to be
+# blocked. Adopt/waive lines stay the human's authority; this line is what they and the
+# artifacts add up to. A MANUAL stage (Build) holds the position until a later stage has
+# something in it — the script cannot certify Build done, and must not skip it on nothing.
+if [ "$WRITE_HTML" = "1" ] && [ -n "$REGISTER" ] && [ -f "$REGISTER" ] \
+   && grep -q '^## Current stage' "$REGISTER"; then
+  _cur=""; _cur_status=""; _passed=""; _manual=""; _prev=""; _prev_status=""
+  for _s in P "${STAGE_NAMES[@]}"; do
+    if [ "$_s" = "P" ]; then _st="${P_STATUS:-PENDING}"
+    else tbl_get "$_s" "$RESULTS_TBL" || TBL_VALUE="PENDING"; _st="$TBL_VALUE"; fi
+    case "$_st" in
+      PASS|WAIVED) _passed="$_passed${_passed:+, }$_s" ;;
+      MANUAL)      _manual="$_manual${_manual:+, }$_s" ;;
+      *) if [ "$_st" != "FAIL" ] && [ "$_prev_status" = "MANUAL" ]; then
+           _cur="$_prev"; _cur_status="MANUAL"
+         else
+           _cur="$_s"; _cur_status="$_st"
+         fi
+         break ;;
+    esac
+    _prev="$_s"; _prev_status="$_st"
+  done
+  if [ -z "$_cur" ] && [ "$_prev_status" = "MANUAL" ]; then _cur="$_prev"; _cur_status="MANUAL"; fi
+  if [ -z "$_cur" ]; then
+    _line="**All gates passed** — through Stage 7 (Cutover)"
+  else
+    if [ "$_cur" = "P" ]; then _title="Kickoff"
+    else tbl_get "$_cur" "$STAGE_TITLES_TBL" || TBL_VALUE="(untitled stage)"; _title="$TBL_VALUE"; fi
+    case "$_cur_status" in
+      FAIL)   _how="needs attention" ;;
+      MANUAL) _how="in progress (manual gate: its verdict is a Decisions row, not a file)" ;;
+      *)      _how="in progress" ;;
+    esac
+    _line="**Stage $_cur — $_title**, $_how"
+  fi
+  _line="$_line — gates passed: ${_passed:-none yet}"
+  [ -n "$_manual" ] && _line="$_line · manual: $_manual"
+  _stamp=" (derived by gate-check on $(date -u +%Y-%m-%d); re-run it rather than editing this line)."
+  # Rewrite only when the position moved — a new date alone is not a change worth a diff.
+  _have="$(awk '/^## Current stage/ { f = 1; next } f && /^\*\*/ { print; exit }' "$REGISTER")"
+  if [ "${_have%% (derived by gate-check*}" != "$_line" ]; then
+    _tmp="$(mktemp "${TMPDIR:-/tmp}/curstage.XXXXXX")"
+    if MXTK_CUR_LINE="$_line$_stamp" awk '
+         /^## Current stage/ { print; insec = 1; next }
+         insec && /^\*\*/ && !done { print ENVIRON["MXTK_CUR_LINE"]; done = 1; next }
+         insec && /^## / && !done { print ENVIRON["MXTK_CUR_LINE"]; print ""; done = 1; insec = 0 }
+         { print }
+         END { if (!done) print ENVIRON["MXTK_CUR_LINE"] }
+       ' "$REGISTER" > "$_tmp"; then
+      cat "$_tmp" > "$REGISTER"
+      echo ""
+      echo "Current stage in $(basename "$REGISTER"): $(printf '%s' "$_line" | sed 's/\*\*//g')"
+    fi
+    rm -f "$_tmp"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # --closeout — emit the block and stop. Placed AFTER every evaluation (the verdict line must
 # be the real one) and BEFORE every blocking exit below (a recap never blocks; the gate does,
 # on its own invocation).

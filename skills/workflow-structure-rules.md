@@ -329,6 +329,39 @@ correctly from `DESCRIBE WORKFLOW` — and were still broken under `mx check`, o
 leaving the project unopenable. For workflows specifically, **a clean `mxcli check` is not
 evidence of anything.** Run native `mx check` after every workflow write, before you believe it.
 
+**Field run, 2026-09-14 — a shipped approval chain, mxcli v0.21.0 / Mendix 11.14.** The rows
+above are probes. This is the first production workflow in this toolkit's record written
+entirely from MDL and shipped: `WF_MOCApproval`, 14 activities over a project entity — Start →
+user task *Initial review* → user task *Initial approval* → **multi-user task** *Expert
+assessment* fanning to eight assessment topics → user task *Director approval* → End. Every
+construct it uses is a *proven* row above, and it needed no hand-add in Studio Pro. Two
+findings from building it that the probe rows do not carry:
+
+**It has zero `DECISION` activities, and that is not a design preference.** BUG-76 is open, so
+a four-stage approval chain with approve/reject at every stage was built with **outcomes on the
+user tasks themselves** and no exclusive split anywhere. That is the shape to copy while BUG-76
+stands: an approval chain does not need a `DECISION`, because a user task's outcomes already
+branch. Reach for a split only where the branch is on *data* rather than on a human's answer —
+and then hand-add it.
+
+**A reject ends the workflow; it does not jump backwards — and `CE6681` describes the wrong
+fault when you try.** The first task has nothing behind it, so a backward `JUMP TO` from its
+reject outcome is a *dangling* jump: no valid target exists. `mxcli check --references` accepts
+it, `exec` reports `Created workflow`, `DESCRIBE WORKFLOW` reads it back — and the native build
+refuses with **CE6681**, *"not possible to jump to end activities or jump-to activities"*. That
+message is about jump **targets**, so it sends you looking at the target's type; the actual
+fault is that there is no target at all. The table's forward-`JUMP TO` row above is the same
+code from a different cause. Read `CE6681` as **"this jump does not resolve"**, then check
+whether a target exists before checking what kind it is. Design the reject path to *End* and
+the question disappears.
+
+**Targeting is a microflow per stage, never a role XPath, whenever roles are collapsed.** This
+project mapped five approver populations onto one `Approver` user role, so
+`[%UserRole_Approver%]` would have put every stage in every approver's inbox — an
+all-green workflow that assigns the wrong people. Each stage got its own targeting microflow,
+and each wrapper carries the platform's **two-parameter** signature (`System.Workflow` **and**
+the context entity): one parameter passes `mxcli check` clean and the native build refuses it.
+
 Probe result → update this table and `learned-workflow-patterns.md` in the same commit. A row
 that stays *unprobed* is a legitimate "hand-add in Studio Pro" at build time, never a silent
 omission from the module's checklist.

@@ -88,6 +88,18 @@ P="$(mkproj t7)"; sed -i.bak 's/^## Current stage/## Position/' "$P/PROJECT.md";
 cp "$P/PROJECT.md" "$WORK/t7.before"; run_full "$P"
 cmp -s "$P/PROJECT.md" "$WORK/t7.before" && ok "untouched without the section" || bad "wrote into a register without the section"
 
+echo "== T8: a hand-written header is never replaced — the disagreement is printed instead =="
+P="$(mkproj t8)"; answered_intake "$P"
+sed -i.bak 's/^\*\*Stage P — Kickoff\*\*, in progress\.$/**Stage 5 verdict: COMPLETE** — all stages pass, signed off by the client./' "$P/PROJECT.md"; rm -f "$P/PROJECT.md.bak"
+OUT="$("$GATE" "$P" 2>&1)"; H="$(header "$P")"
+[ "$H" = "**Stage 5 verdict: COMPLETE** — all stages pass, signed off by the client." ] && ok "hand-written line untouched" || bad "hand-written line was rewritten: $H"
+case "$OUT" in *"hand-written and left alone"*"gates derive: Stage 0"*) ok "disagreement printed with the derived position" ;; *) bad "no disagreement note in output" ;; esac
+
+echo "== T9: the readout's own line keeps advancing (derived → adopt 3) =="
+P="$(mkproj t9)"; answered_intake "$P"; run_full "$P"
+"$GATE" --adopt 3 --reason "joined late" "$P" >/dev/null 2>&1; run_full "$P"; H="$(header "$P")"
+case "$H" in "**Stage 3 — "*"(derived"*) ok "derived line advanced: $H" ;; *) bad "derived line did not advance: $H" ;; esac
+
 rm -rf "$WORK"
 echo ""
 echo "test-stage-header: $PASS ok, $FAIL failed"

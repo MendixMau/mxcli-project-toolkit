@@ -2710,9 +2710,22 @@ if [ "$WRITE_HTML" = "1" ] && [ -n "$REGISTER" ] && [ -f "$REGISTER" ] \
   _line="$_line — gates passed: ${_passed:-none yet}"
   [ -n "$_manual" ] && _line="$_line · manual: $_manual"
   _stamp=" (derived by gate-check on $(date -u +%Y-%m-%d); re-run it rather than editing this line)."
-  # Rewrite only when the position moved — a new date alone is not a change worth a diff.
+  # Rewrite only when the position moved — a new date alone is not a change worth a diff — and
+  # ONLY over a line nobody wrote by hand: the untouched scaffold line, or this readout's own
+  # earlier line. A human's line is never replaced (field run 2026-09-14, twelve real projects:
+  # the first version rewrote "Stage 5 verdict: COMPLETE" as "Stage 3, needs attention" on eight
+  # of them — a correct reading of the gate checks, and still the wrong thing to do to the
+  # register's own words). Where they disagree, say so and leave the line alone.
   _have="$(awk '/^## Current stage/ { f = 1; next } f && /^\*\*/ { print; exit }' "$REGISTER")"
-  if [ "${_have%% (derived by gate-check*}" != "$_line" ]; then
+  _ours=0
+  case "$_have" in
+    ""|"**Stage P — Kickoff**, in progress."|*"(derived by gate-check"*) _ours=1 ;;
+  esac
+  if [ "$_ours" = "0" ]; then
+    echo ""
+    echo "Current stage in $(basename "$REGISTER") is hand-written and left alone: $(printf '%s' "$_have" | cut -c1-70)"
+    echo "  gates derive: $(printf '%s' "$_line" | sed 's/\*\*//g')"
+  elif [ "${_have%% (derived by gate-check*}" != "$_line" ]; then
     _tmp="$(mktemp "${TMPDIR:-/tmp}/curstage.XXXXXX")"
     if MXTK_CUR_LINE="$_line$_stamp" awk '
          /^## Current stage/ { print; insec = 1; next }

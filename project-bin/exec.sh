@@ -447,8 +447,25 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   #     MXBUILD_OUT=$(... ) || true ; MXBUILD_EXIT=${PIPESTATUS[0]:-$?}
   # where `|| true` had already reset the status to 0, so MXBUILD_EXIT was
   # always 0 and the "mxbuild failed to run" branch below was unreachable.
+  #
+  # Output goes to a file, NOT through `$(...)`. Studio Pro 11's mxbuild.exe
+  # (11.12.4, Windows) starts a helper `modeler/tools/deno/win-x64/deno.exe`
+  # that inherits stdout and keeps running after mxbuild has exited — after a
+  # BUILD SUCCEEDED as much as after --version. A command substitution waits
+  # for EOF on the pipe, and the pipe never closes while deno holds it, so the
+  # gate hung forever (>10 min, killed by hand; the moment the stray deno was
+  # killed, the capture completed). A file has no reader waiting on EOF: bash
+  # returns as soon as mxbuild itself exits. stdin is closed for the same
+  # reason — a console-attached child must not be able to wait on it.
   MXBUILD_EXIT=0
-  MXBUILD_OUT=$("$MXBUILD"     --java-home="$JAVA_HOME"     --java-exe-path="$JAVA_EXE"     --write-errors="$ERRORS_FILE"     --target=deploy     "$MPR" 2>&1) || MXBUILD_EXIT=$?
+  _MXOUT=$(mktemp /tmp/mxbuild-out.XXXXXX)
+  "$MXBUILD" \
+    --java-home="$JAVA_HOME" \
+    --java-exe-path="$JAVA_EXE" \
+    --write-errors="$ERRORS_FILE" \
+    --target=deploy \
+    "$MPR" > "$_MXOUT" 2>&1 < /dev/null || MXBUILD_EXIT=$?
+  MXBUILD_OUT=$(cat "$_MXOUT"); rm -f "$_MXOUT"
 
   if [ -f "$ERRORS_FILE" ] && [ -s "$ERRORS_FILE" ]; then
     CE_COUNT=$(err_count "$ERRORS_FILE")

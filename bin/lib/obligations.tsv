@@ -53,7 +53,7 @@ skeleton	mdl	project	path	docs/skeleton-proof.md	yes	no	5	skills/walking-skeleto
 # workflow-count is the FIRST obligation below stage 5, and that gap is why it exists. Every row
 # above is from-stage 5: look, sweep, journeys, coherence, skeleton. So this table — the only
 # mechanism here for "a judgement pass owes a mark" — did not reach the DESIGN stages at all,
-# and workflow-structure-rules.md §12 is a ten-row count with a denominator on every line that
+# and workflow-structure-rules.md §12 is an eleven-row count with a denominator on every line that
 # fired only if someone happened to run it.
 #
 # Measured, 2026-09-08, on a requirements-driven app replacement: the agent read §11 (what MDL

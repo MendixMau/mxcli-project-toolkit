@@ -4915,7 +4915,7 @@ checker is simply not consulting it -- and add `dateFormat` / `customDateFormat`
 
 ---
 
-## BUG-121: `PARALLEL SPLIT` writes the paths but not their contents (2026-09-04)
+## BUG-121: `PARALLEL SPLIT` paths are written without their terminator node, so none of them ever opens a task (2026-09-04)
 
 **This is the most expensive class of defect this project has hit: a write mxcli itself reads
 back correctly and the Mendix runtime reads as empty.** mxcli v0.20.0, Mendix 11.13.0.
@@ -4970,9 +4970,8 @@ rather than the ones the model claims.
 
 ### Status
 
-Open. No scripted workaround found. The split must be built in Studio Pro by hand, or through
-an MCP write session (`learned-mcp-patterns.md` — untested for this activity), until mxcli's
-parallel-split writer attaches path contents.
+Open upstream; a scripted split is usable today with the post-exec repair below. (This block
+read "no scripted workaround found — build the split in Studio Pro by hand" until 2026-09-14.)
 
 ### Re-probed on mxcli v0.21.0 (2026-09-08) — NOT fixed
 
@@ -4993,6 +4992,48 @@ unidentified; a maintainer diffing this unit against a Studio-Pro-authored split
 find it in one field.
 
 The v0.21.0 changelog names no parallel-split fix.
+
+### ROOT CAUSE FOUND, and a repair that works — 2026-09-14, mxcli v0.21.0 / Mendix 11.13.0
+
+*(The finding itself, with its Studio-Pro-control probe and its controlled runtime experiment,
+is written up in `skills/learned-workflow-patterns.md` §18. This is the ledger's record of it,
+because the entry below was wrong and `bin/bug-lookup.sh` reads this file, not the skill.)*
+
+The mechanism this entry called "still unidentified" is **one missing node per path**.
+
+Studio Pro writes a `Workflows$EndOfParallelSplitPathActivity` as the **final element of every
+path's `Flow.Activities`**. mxcli writes none, at any nesting depth, and the MDL grammar has no
+keyword that would ask for one (`mxcli syntax workflow --json` lists no branch-ending activity
+at all — the same gap as END WORKFLOW, `learned-workflow-patterns.md` §21 gap 2). Without that
+node the runtime treats each path as ending immediately: all paths close in the same
+millisecond, no task is created in any of them, and the instance proceeds to the merge. The
+path *contents* are present in the BSON exactly as this entry already noted — which is why
+`DESCRIBE` round-trips and no gate objects. The contents were never the problem.
+
+**The repair.** `project-bin/wf-add-path-terminators.py` (with `project-bin/mxunit_bson.py`)
+walks the stored workflow unit, appends the terminator to every unterminated
+`ParallelSplitOutcome` flow, and leaves already-terminated paths alone. It recurses, so a
+nested split's paths get their own. Idempotent, dry-run by default, writes a `.bak`.
+
+**Proven end to end on the real model** (VB-USI, a 16-station approval workflow, seven-leg
+split with a nested two-leg split inside leg 7):
+
+| | Stations reached | At the split |
+|---|---|---|
+| Scripted split, no terminators | 8 of 16 | one task at a time |
+| Same definition + 9 terminators | **16 of 16** | **6 tasks open concurrently** |
+
+Unit 87236 → 89486 bytes. Native `mx check`: **0 errors on both shapes** — the gate cannot
+tell them apart, in either direction, which is the whole reason this took three weeks to find.
+
+**Still a defect, and the workaround is fragile.** Any later MDL script that rewrites the
+workflow drops the terminators again, so the patcher has to run after every such script. The
+upstream fix is for mxcli to emit the terminator when it writes a path — or for MDL to gain a
+branch-ending keyword, which would also close the END WORKFLOW gap. Filed with that framing.
+
+**Status: open upstream, unblocked in practice.** The earlier advice here — "the split must be
+built in Studio Pro by hand" — is withdrawn: a scripted split plus this pass runs correctly.
+
 
 **Related:** BUG-76 (scripted `DECISION` corrupts the `.mpr` on load). Both are workflow
 *structure* writers producing models the runtime will not execute as written; BUG-76 fails loudly

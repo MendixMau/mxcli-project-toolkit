@@ -4995,6 +4995,10 @@ The v0.21.0 changelog names no parallel-split fix.
 
 ### ROOT CAUSE FOUND, and a repair that works — 2026-09-14, mxcli v0.21.0 / Mendix 11.13.0
 
+*(The finding itself, with its Studio-Pro-control probe and its controlled runtime experiment,
+is written up in `skills/learned-workflow-patterns.md` §18. This is the ledger's record of it,
+because the entry below was wrong and `bin/bug-lookup.sh` reads this file, not the skill.)*
+
 The mechanism this entry called "still unidentified" is **one missing node per path**.
 
 Studio Pro writes a `Workflows$EndOfParallelSplitPathActivity` as the **final element of every

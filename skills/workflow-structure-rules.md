@@ -111,9 +111,7 @@ Naming: `ESP_<Purpose>`.
   nested in the branch (CE1844).
 - No *Jump to* inside a branch (MW0012), and a jump placed under a split may never target
   *End workflow*.
-- Each branch closes with *end of parallel split path*. **This is not decoration and not
-  optional**: a path without it opens no task at runtime, and nothing in the toolchain says so
-  (BUG-121). MDL cannot write it — `bin/wf-add-path-terminators.py` adds it after exec.
+- Each branch closes with *end of parallel split path*.
 
 > **mxcli does not emit that terminator — and nothing in the toolchain tells you.**
 > (Confirmed 2026-09-14 against Studio Pro controls, mxcli v0.21.0 / Mendix 11.13.0.)
@@ -125,7 +123,10 @@ Naming: `ESP_<Purpose>`.
 >
 > The MDL grammar has **no keyword** for the terminator, so this is not a script that can be
 > written correctly. Either add one node per path by hand in Studio Pro (a palette drop; the
-> node has no outbound references), or patch the `.mxunit` BSON directly. **Count paths, not
+> node has no outbound references), or patch the `.mxunit` BSON directly —
+> `bin/wf-add-path-terminators.py` is that pass, and `learned-workflow-patterns.md` §23 is how
+> to operate it, including the part that bites: **any later script that rewrites the workflow
+> drops the terminators again.** **Count paths, not
 > branches** — a nested split needs terminators for its inner paths too.
 >
 > Verify a split with a **live run** and `system$workflowactivity`. Both build gates pass the
@@ -319,7 +320,7 @@ row's stated floor is evidence against it.
 | call microflow, with or without parameters | **proven** — with two limits. (1) The `WITH` clause's **value must be quoted**: `WITH ("Ctx" = '$WorkflowContext')`. Unquoted (`= $WorkflowContext`) segfaults the binary, BUG-107. (2) **`$WorkflowUserTask` is NOT in scope here** — only `$WorkflowContext` and `$WorkflowInstance` are. Passing it is a **CE0117** that `mxcli check --references` passes completely clean; only mxbuild catches it. A microflow that needs the task looks it up by name off `$WorkflowInstance` through `System.WorkflowEndedUserTask`. Proven by sandbox A/B on a full project copy, 2026-09-04 — this corrects an earlier reading of §8 that treated *call microflow* as having the task |
 | — | — |
 | **decision on an enumeration** | **CORRUPTING — BUG-76**, of which this probe is a re-confirmation on 11.14 (first logged as BUG-108 before the older entry was found). BUG-76 is the general case: *every* `DECISION` with outcomes corrupts, whatever its condition reads. The enum case is the worse one — it has no writable spelling at all, since mxcli rejects both fully-qualified forms and accepts only the bare value that corrupts. Hand-add every decision in Studio Pro; never script one. Recovery: `DROP WORKFLOW` |
-| **parallel split**, incl. **nested** | **proven on v0.21.0 — with one mandatory post-exec step.** The structure writes correctly at any depth; what mxcli never writes is the `EndOfParallelSplitPathActivity` that closes each path, and MDL has no keyword for it. Without it every path ends in the same millisecond and **no path ever opens a task**, while `mxcli check`, `mxbuild`, native `mx check` and `DESCRIBE WORKFLOW` all pass — on the broken model and the fixed one alike. Run `bin/wf-add-path-terminators.py <unit.mxunit> --apply` after this script **and after every later script that rewrites the workflow**, then verify with a live run, never a gate. BUG-121; field-proven 8-of-16 → **16-of-16 stations, 6 concurrent** |
+| **parallel split**, incl. **nested** | **proven on v0.21.0 — with one mandatory post-exec step**, which is the whole of §4's warning above and `learned-workflow-patterns.md` §18. The structure writes correctly at any depth; the `EndOfParallelSplitPathActivity` that closes each path does not, and MDL has no keyword for it. Add it with `bin/wf-add-path-terminators.py <unit.mxunit> --apply` after this script **and after every later script that rewrites the workflow** (§23), then verify with a live run, never a gate. BUG-121; field-proven 8-of-16 → **16-of-16 stations, 6 concurrent**. This row read RETRACTED until 2026-09-14 |
 | **forward `JUMP TO`** (target later in the flow than the outcome jumping to it) | **CE6681.** A *backward* `jump to` builds clean; a forward one is *"not possible to jump to end activities or jump-to activities"* — mxcli resolves a forward target to the end/jump activity rather than the task. Isolated with a two-task probe workflow: same statement, backward clean, forward CE6681. Restructure so the jump goes backwards, or hand-add |
 | **boundary event timer, interrupting** | **hand-add in Studio Pro.** Its path must end in *End* or *Jump* (CE0105); `END WORKFLOW` does not parse and `JUMP TO` is BUG-109 |
 | **boundary event on notification** | **hand-add** — the grammar admits `{TIMER, INTERRUPTING, NON}` only |

@@ -1222,68 +1222,40 @@ stands — see §11), no sub-workflow. Their §11 verdicts are unchanged by this
 
 ---
 
-## 23. `PARALLEL SPLIT` — the paths need a terminator MDL cannot write, and nothing tells you
+## 23. Operating the terminator repair — the part that bites is the *second* time
 
-**Root cause of BUG-121, found 2026-09-14 on mxcli v0.21.0 / Mendix 11.13.0, on a shipped
-16-station approval workflow.** §18 says to confirm a split exists before flagging one; this
-section says what to do once it does.
-
-A parallel-split path in Mendix ends with a `Workflows$EndOfParallelSplitPathActivity` — Studio
-Pro writes exactly one per path, as the last element of that path's `Flow.Activities`. **mxcli
-writes none, and MDL has no keyword to ask for one.** At run time:
-
-```
-Parallel split              | Finished |          | 12:10:02.932
-End of parallel split path  | Finished |          | 12:10:02.935   <- x7, same millisecond
-Merge of Parallel split     | Finished |          | 12:10:02.935
-Station WFST120             | Suspended|          | 12:10:02.960
-```
-
-Seven paths, closed together, **no task created in any of them**, and no error anywhere. The
-instance walks from the gate before the split to the gate after it, and twelve stations never
-reach anyone's inbox.
-
-### What each rung says about it
-
-| Rung | Unterminated paths | Terminated paths |
-|---|---|---|
-| `mxcli check --references` | clean | clean |
-| `exec` | `Created workflow` | `Created workflow` |
-| `DESCRIBE WORKFLOW` | round-trips the nested `path N { … }` blocks | identical |
-| `mxbuild --target=deploy` / native `mx check` | **0 errors** | 0 errors |
-| **live run** | **8 of 16 stations, one task at a time** | **16 of 16, six concurrent** |
-
-Same definition, 2250 bytes apart, opposite behaviour. Every gate is blind in **both**
-directions — which is why this ledger entry spent three weeks calling the symptom ("drops the
-path contents") the mechanism. The contents were in the BSON all along.
-
-### The repair
+**§18's correction block is the finding**: mxcli writes no
+`Workflows$EndOfParallelSplitPathActivity`, MDL has no keyword for one, every gate is blind in
+both directions, and a live run is the only oracle. Read it first — none of that is repeated
+here. This section is only how to run the repair and keep it applied.
 
 ```
 bin/wf-add-path-terminators.py <workflow>.mxunit          # dry run: paths found / to add
 bin/wf-add-path-terminators.py <workflow>.mxunit --apply  # patches, leaves a .bak
 ```
 
-One terminator per path, and **count paths, not branches** — a nested split's paths are paths
-too (the field case: seven outer legs plus two inside one of them = 9).
+It walks the unit, appends the terminator to every unterminated `ParallelSplitOutcome` flow, and
+recurses, so a nested split's inner paths get theirs. Already-terminated paths are left alone, so
+the run is safe to repeat. Find the unit by decoding `Name` on the `.mxunit` files under
+`mprcontents/`.
 
-Three rules, each of which cost real stations before it was written down:
+**Three rules, each of which cost real stations before it was written down:**
 
-1. **Re-run it after every later script that touches the workflow.** An MDL rewrite drops the
-   terminators again. The tool is idempotent, so re-running costs nothing and skipping it costs
-   the whole fan-out. Put the invocation in the MDL script's own header.
-2. **Verify with a live run, never a build.** Start an instance, walk it to the split, count the
-   tasks the engine opens (`system$workflowactivity`, or the project's e2e walk). Consecutive
-   *End of parallel split path* rows with no task between them is the unfixed signature.
+1. **Re-run it after every later script that rewrites the workflow.** This is the one nobody
+   anticipates: an MDL rewrite drops the terminators again and the model goes straight back to
+   silently skipping every path. Re-running is idempotent and costs nothing; skipping it costs
+   the whole fan-out. Put the invocation in the MDL script's own header, where the next person
+   to run that script will see it.
+2. **Verify with a live run, never a build** (§18 for why). Consecutive *End of parallel split
+   path* rows with no task between them is the unfixed signature.
 3. **Never patch a model Studio Pro has open, or while the app runs.** Same rule as every other
    `.mxunit` write — `project-bin/snapshot-mpr.sh` first.
 
-### What it means for a build plan
-
-A scripted split is usable, which reverses this entry's earlier advice to hand-build every split
-in Studio Pro. Plan the split as a normal MDL row and the terminator pass as a **named, repeated
-step attached to that workflow** — a row that says "run script 89" and not "then re-run the
-terminator pass" regresses the next time anyone touches it.
+**What it means for a build plan.** A scripted split is usable, so plan it as a normal MDL row —
+and plan the terminator pass as a **named, repeated step attached to that workflow**, not as a
+one-off fix recorded in the build log. A plan row that says "run the workflow script" without
+"then re-run the terminator pass" regresses the next time anyone touches that workflow, silently
+and exactly as before.
 
 ---
 

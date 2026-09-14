@@ -91,6 +91,27 @@ If found: option A = reuse it. If not found: offer build-new vs manual-only.
 
 ---
 
+### Q3 — Size tier (conditional)
+
+**When to ask:** only when the Stage 0 inventory is at or under **1 module / 8 screens / 25 use
+cases** (`small-project-tier.md`). Otherwise skip it and say so in one line, with the count that
+exceeds a bound — a skipped question is stated, never silent.
+
+**How to generate options:** quote the three counts from the inventory as the evidence.
+
+Example:
+> "The inventory reads 1 module, 6 screens, 14 use cases — under every small-tier bound. Run the
+> small-project tier (same gates, bounded artifacts: one BRD, a 600-word blueprint, one brief,
+> three renders waived)?"
+> - A) Yes — small tier *(recommended: all three bounds hold)*
+> - B) No — full artifact set (say why: e.g. a second module is expected, integration scope)
+
+**Record as:** `PROJECT.md` → `## Toolkit position` → `Size tier: small — 1 module, 6 screens,
+14 use cases (CAC-1, CONFIRMED)`, plus the three `Waived artifact …` lines the skill names.
+A "No" is recorded too: `Size tier: full — <reason>`.
+
+---
+
 ## Open Question
 
 > "Is there a project brief, stakeholder document, Confluence page, or Jira epic that defines
@@ -110,4 +131,5 @@ PROJECT.md → ## Decisions:
   Goal: [POC first / Full / Strangler fig] — [capability list]
   Pipeline: [pipeline name or manual-only]
   External refs: [links or 'none']
+  Size tier: [small — <counts> / full — <reason>]   (Q3, only when asked)
 ```

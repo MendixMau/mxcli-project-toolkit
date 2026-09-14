@@ -178,6 +178,13 @@ A session on this path reads §1b plus its stage's section — `bin/gate-check.s
 line ranges — and the converted `.md`, never the `.html`. A session that opens a `.html` itself has
 skipped Stage 1.
 
+**Small project — any entry mode.** When the Stage 0 inventory is at or under 1 module / 8 screens /
+25 use cases, CAC-1 asks (Q3) and the register records `Size tier: small — <counts>`; from there
+`small-project-tier.md` applies: the same gates, bounded artifacts (one BRD, a 600-word blueprint, one
+brief, the single-file coverage ledger) and three renders waived by name. Measured need: a 3-file
+corpus produced 30k words of stage artifacts, a 200-file one 44–58k (`process/token-path-ab-2026-09-09.md`).
+Declared, never inferred from a thin sources folder.
+
 **No pipeline at all — à-la-carte tool use.** An existing Mendix app that just needs an audit, lint pass, or a regression/e2e test net doesn't enter this pipeline: no intake, no stages, no gates. Route straight to `existing-app-assurance.md` (which points at `query-the-model.md`, `e2e-harness-base.md`, `learned-db-assertions.md`, and the bundled lint/graph/quality skills). The pipeline is for *producing* an app; the tool shelf is for everything else.
 
 ## When to Use This Skill

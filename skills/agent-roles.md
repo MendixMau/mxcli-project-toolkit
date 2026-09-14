@@ -28,6 +28,8 @@
 
 ---
 
+**When to dispatch, in what batch, on which model:** `conversion-runbook.md` §1c is the single source. This file is the setup; that table is the runtime rule.
+
 ## Why split into six roles
 
 A single do-everything agent has no natural place to stop before mutating the real `.mpr`, and no natural place to stop before making a decision that's the user's to make. Splitting by role makes both boundaries structural instead of a hope:

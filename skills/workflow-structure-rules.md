@@ -115,6 +115,23 @@ Naming: `ESP_<Purpose>`.
   optional**: a path without it opens no task at runtime, and nothing in the toolchain says so
   (BUG-121). MDL cannot write it — `bin/wf-add-path-terminators.py` adds it after exec.
 
+> **mxcli does not emit that terminator — and nothing in the toolchain tells you.**
+> (Confirmed 2026-09-14 against Studio Pro controls, mxcli v0.21.0 / Mendix 11.13.0.)
+> A scripted `PARALLEL SPLIT` passes `mxcli check --references`, `mxbuild --target=deploy`,
+> native `mx check` **and** a `DESCRIBE WORKFLOW` round-trip with every task correctly nested
+> — and then the runtime skips every path in the same millisecond, because a path with no
+> terminator has no resolvable continuation. On a 16-station approval workflow this silently
+> voided 8 stations with no error anywhere.
+>
+> The MDL grammar has **no keyword** for the terminator, so this is not a script that can be
+> written correctly. Either add one node per path by hand in Studio Pro (a palette drop; the
+> node has no outbound references), or patch the `.mxunit` BSON directly. **Count paths, not
+> branches** — a nested split needs terminators for its inner paths too.
+>
+> Verify a split with a **live run** and `system$workflowactivity`. Both build gates pass the
+> broken model and the fixed model identically, so a green build is not evidence in either
+> direction. See `learned-workflow-patterns.md` §18.
+
 "End the workflow from inside a branch" is not expressible; end the branch and model global
 cancellation as an interrupting event sub-process (§3). Before flagging a missing split, read
 `DESCRIBE WORKFLOW` — `learned-workflow-patterns.md` §18.

@@ -923,6 +923,57 @@ already exists.
 
 ---
 
+> **CORRECTION AND MAJOR FINDING, 2026-09-14 (mxcli v0.21.0 / Mendix 11.13.0).**
+> The advice above — "read `DESCRIBE WORKFLOW` before flagging a missing split" — is still
+> correct about *presence* and is now **actively dangerous as evidence of correctness**.
+> `DESCRIBE WORKFLOW` renders a scripted split perfectly, with every task nested under its
+> `path N`, for a model the runtime will not execute.
+>
+> **mxcli never writes `Workflows$EndOfParallelSplitPathActivity`. Studio Pro writes exactly
+> one per path, always as the final element of that path's `Flow.Activities`.** That single
+> missing node is the whole difference between a working split and a silent no-op.
+>
+> **How it fails.** Every path is skipped in the same millisecond and the workflow carries on
+> down the join as if the branches had completed. No exception, no log line, no failed
+> instance. On a 16-station approval workflow, 8 stations never opened and nothing anywhere
+> reported a problem.
+>
+> **Every gate is blind to it**, in both directions: `mxcli check --references`,
+> `mxbuild --target=deploy`, native `mx check` and the `DESCRIBE` round-trip all report clean
+> on the broken model *and* on the repaired one. **Only a live run plus
+> `system$workflowactivity` can tell them apart.**
+>
+> **Proof (controlled experiment, throwaway model copy + `TEMPLATE` clone of the database).**
+> A 7-leg split with a nested 2-leg inner split — 9 paths — was run twice against identical
+> data, with the terminators as the only variable:
+>
+> | | no terminators | 9 terminators added |
+> |---|---|---|
+> | `mx check` | 0 errors | 0 errors |
+> | tasks open at the split | 1, sequential | **6 concurrent** |
+> | stations reached | **8 of 16** | **16 of 16** |
+>
+> **The repair.** The node is 8 fields with **no outbound references** — `$ID`, `$Type`,
+> `Annotation: null`, `Caption`, `Name`, `PersistentId`, `RelativeMiddlePoint: "0;0"`,
+> `Size: "0;0"` — which is why adding it is safe and why a Studio Pro hand-add is a palette
+> drop with nothing to wire. So a split *can* be scripted after all: script the structure,
+> then add one terminator per path.
+>
+> **Count paths, not branches.** A nested split's inner paths each need their own. The 7-leg
+> shape above needed **9**, and getting that wrong reintroduces the silent skip on exactly
+> the paths you missed.
+>
+> **Rules that follow.**
+> - Never report a scripted `PARALLEL SPLIT` as working on the strength of a build or a
+>   `DESCRIBE`. Run it.
+> - When a workflow's tasks are mysteriously never offered, check terminator count against
+>   path count before looking anywhere else.
+> - This is the second construct (after the `BOUNDARY EVENT TIMER` of §19) where a green
+>   `mxcli check` certified a broken model. Treat that pattern as the default for workflow
+>   structure, not the exception.
+
+---
+
 ## 19. `BOUNDARY EVENT TIMER` — don't add one without a documented business trigger
 
 > **CORRECTION, 2026-09-03 (probed, mxcli v0.20.0 / Mendix 11.14.0).** The `'P3D'` form below

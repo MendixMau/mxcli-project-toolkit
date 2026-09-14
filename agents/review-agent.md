@@ -53,6 +53,7 @@ protects: you have no Write or Edit tool, and you never run `mxcli exec`.
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
 | `skills/teamserver-alignment.md` | Any session that will push a model to Mendix Team Server, and BEFORE telling the user a Team Server push is blocked — which remote is authoritative, settle-then-push order, and the four checks that have to fail first |
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
+| `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index — describe each unique picture once, into its own file, before Stage 2 closes |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
 | `skills/existing-app-assurance.md` | Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates |
 | `project-bin/conformance-check.sh` | Running the ledger rung alone — recompute every stored ledger status against the live model and catch the STALE rows that claim built for something the model no longer has |

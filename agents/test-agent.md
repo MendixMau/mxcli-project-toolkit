@@ -38,6 +38,7 @@ and `"DESCRIBE ..."` reads are always fine, and are how you ground every name yo
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/checkpoints/checkpoint-cutover.md` | CAC-6, after Stage 6 passes and before any cutover step — migration mode only, and a hard gate: every answer lands CONFIRMED, no ASSUMED defaults |
+| `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index — describe each unique picture once, into its own file, before Stage 2 closes |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
 | `skills/existing-app-assurance.md` | Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates |
 | `skills/mendix-agent-setup.md` | Standing up a project's GenAI agents in any environment — MxCloud key import, model-to-agent binding, KB indexing and the agent-answers-a-question proof are all UI-only (no MDL/SQL path), driven with Playwright; you need the resource keys handed to you as env vars first |

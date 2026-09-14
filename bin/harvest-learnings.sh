@@ -23,8 +23,14 @@
 #
 # Heading matching is a heuristic (case-insensitive substring of the heading's distinctive
 # text). It errs toward flagging: a false "candidate" costs triage a minute; a false "known"
-# loses a bug. Drift detection is direction-blind: a diff may mean the project is stale
-# (run sync-project.sh) OR carries a local fix — the file says so and triage decides.
+# loses a bug. Drift direction (installed script differs from the shipped copy) IS determined
+# mechanically: the toolkit's own git history of the shipped file is walked for a byte-identical
+# past version (STALE — a stale install, nothing to harvest) before anything is diffed. Field run
+# 2026-09-14 across 10 projects: 115 differing scripts, 84 STALE (68k of 79k words written were
+# stale diffs nobody needed to read) and 31 genuine LOCAL-FIX. No match anywhere in history means
+# a real local fix — that diff is kept, headed LOCAL-FIX, naming the closest historical base. A
+# toolkit worktree with no .git (no history to walk) falls back to the old undetermined wording
+# for every item rather than guessing or crashing.
 #
 # Usage: bin/harvest-learnings.sh <project-root>
 # Exit: 0 ran (summary says how many files written, possibly zero) · 2 bad invocation
@@ -113,6 +119,16 @@ rm -f "$TMP"
 # ---- 3. Local patches to installed toolkit scripts -----------------------------------------
 PATCH_OUT="$INBOX/$STAMP-$PROJECT_NAME-patches.md"
 TMP="$(mktemp)"
+STALE_N=0
+DIFF_N=0
+
+# Direction check walks the TOOLKIT's own git history (not the project's — the project may not
+# even be a git repo). A worktree with no .git (a tarball drop, an export with no history) has
+# nothing to walk: checked once, up front, so every item can fall back to the old undetermined
+# wording instead of guessing or crashing.
+GIT_OK=0
+git -C "$TOOLKIT_ROOT" rev-parse --git-dir >/dev/null 2>&1 && GIT_OK=1
+
 if [ -d "$PROJECT_DIR/bin" ]; then
   for f in "$PROJECT_DIR"/bin/*.sh "$PROJECT_DIR"/bin/*.js; do
     [ -f "$f" ] || continue
@@ -122,21 +138,76 @@ if [ -d "$PROJECT_DIR/bin" ]; then
       [ -f "$cand" ] && { shipped="$cand"; break; }
     done
     [ -n "$shipped" ] || continue
-    if ! cmp -s "$shipped" "$f"; then
-      {
+    cmp -s "$shipped" "$f" && continue
+
+    # VERDICT stays empty ("") for the no-git case and for the rare item with no history under
+    # either path (a script added to this worktree but never committed) — both render with the
+    # original, direction-blind wording rather than a guess.
+    VERDICT=""
+    MATCH_SHORT=""; MATCH_DATE=""
+    BEST_SHORT=""; BEST_DATE=""; BEST_LINES=""
+    if [ "$GIT_OK" -eq 1 ]; then
+      # Try the current shipped location's history first; project-bin/X may have been bin/X
+      # before the project-bin split, so a file moved there has its earlier history at bin/X.
+      hist_path="project-bin/$base"
+      [ -n "$(git -C "$TOOLKIT_ROOT" log --format=%H -- "$hist_path" 2>/dev/null)" ] || hist_path="bin/$base"
+      COMMITS="$(git -C "$TOOLKIT_ROOT" log --format='%H %h %ad' --date=short -- "$hist_path" 2>/dev/null)"
+      if [ -n "$COMMITS" ]; then
+        HIST_TMP="$(mktemp)"
+        while IFS=' ' read -r c_full c_short c_date; do
+          [ -n "$c_full" ] || continue
+          git -C "$TOOLKIT_ROOT" show "$c_full:$hist_path" > "$HIST_TMP" 2>/dev/null || continue
+          if cmp -s "$HIST_TMP" "$f"; then
+            MATCH_SHORT="$c_short"; MATCH_DATE="$c_date"
+            break
+          fi
+          dl="$(diff "$HIST_TMP" "$f" 2>/dev/null | wc -l | tr -d ' ')"
+          if [ -z "$BEST_LINES" ] || [ "$dl" -lt "$BEST_LINES" ]; then
+            BEST_LINES="$dl"; BEST_SHORT="$c_short"; BEST_DATE="$c_date"
+          fi
+        done <<COMMITSEOF
+$COMMITS
+COMMITSEOF
+        rm -f "$HIST_TMP"
+        if [ -n "$MATCH_SHORT" ]; then VERDICT="STALE"; else VERDICT="LOCAL-FIX"; fi
+      fi
+    fi
+
+    if [ "$VERDICT" = "STALE" ]; then
+      # The harvest IS this one line: "this project never synced." No diff — there is nothing
+      # to read, the project copy is byte-for-byte a past shipped version.
+      STALE_N=$((STALE_N + 1))
+      # <project-root>, never $PROJECT_DIR: the draft is destined for the public inbox and an
+      # absolute path is a home-directory leak the pre-commit guard refuses (caught 2026-09-14).
+      printf -- '- bin/%s — STALE: identical to shipped %s (%s); fix: bin/sync-project.sh <project-root> --upgrade-bin %s\n\n' \
+        "$base" "$MATCH_SHORT" "$MATCH_DATE" "$base" >> "$TMP"
+      continue
+    fi
+
+    DIFF_N=$((DIFF_N + 1))
+    {
+      if [ "$VERDICT" = "LOCAL-FIX" ] && [ -n "$BEST_SHORT" ]; then
+        printf '## bin/%s differs from shipped %s — LOCAL-FIX\n\n' "$base" "${shipped#$TOOLKIT_ROOT/}"
+        printf 'Not byte-identical to any shipped version in toolkit history — a real local fix. Closest historical base: %s (%s), %s diff line(s) from this project'"'"'s copy. Diff (shipped -> project), truncated at 120 lines:\n\n```diff\n' \
+          "$BEST_SHORT" "$BEST_DATE" "$BEST_LINES"
+      else
         printf '## bin/%s differs from shipped %s\n\n' "$base" "${shipped#$TOOLKIT_ROOT/}"
         printf 'Direction is undetermined: stale install (fix: sync-project.sh --upgrade-bin) OR a local fix that never traveled. Diff (shipped -> project), truncated at 120 lines:\n\n```diff\n'
-        # -L labels, not raw paths: the default header embeds absolute local paths, which
-        # must never be committed. -L is supported by GNU and BSD diff alike.
-        diff -u -L "shipped/${shipped#$TOOLKIT_ROOT/}" -L "project/bin/$base" "$shipped" "$f" | head -120
-        printf '```\n\n'
-      } >> "$TMP"
-    fi
+      fi
+      # -L labels, not raw paths: the default header embeds absolute local paths, which
+      # must never be committed. -L is supported by GNU and BSD diff alike.
+      # Home-directory paths inside a project's own edits are masked for the same reason.
+      diff -u -L "shipped/${shipped#$TOOLKIT_ROOT/}" -L "project/bin/$base" "$shipped" "$f" | head -120 \
+        | sed -e 's#/Users/[^/ ]*#/Users/<user>#g' -e 's#/home/[^/ ]*#/home/<user>#g'
+      printf '```\n\n'
+    } >> "$TMP"
   done
 fi
 if [ -s "$TMP" ]; then
   { front_matter "fix" "installed toolkit scripts in $PROJECT_NAME/bin that differ from the shipped copy — a local patch here is a fix that never traveled (how graph-sweep's stat bug got patched twice)"
-    cat "$TMP"; } > "$PATCH_OUT"
+    cat "$TMP"
+    [ "$GIT_OK" -eq 1 ] && printf '%s stale (one line each) · %s local fix(es) (diffs above)\n' "$STALE_N" "$DIFF_N"
+  } > "$PATCH_OUT"
   WROTE=$((WROTE + 1))
   echo "  wrote ${PATCH_OUT#$TOOLKIT_ROOT/}"
 else

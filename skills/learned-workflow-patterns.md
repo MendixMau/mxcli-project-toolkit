@@ -1105,6 +1105,70 @@ known-dangerous forms deliberately. See [[sandbox-ab-tool-defect-probe]].
 
 ---
 
+## 22. v0.21.0 — the first shipped workflow, and what building it taught that a probe cannot
+
+**Field run 2026-09-14, mxcli v0.21.0, Mendix 11.14, native `mx check` clean, running in the
+app.** Everything in §21 came from probes and from a rebuild of a workflow a human had drawn.
+This section comes from a workflow that was **designed in MDL first and shipped** —
+`WF_MOCApproval` on a project entity, 14 activities, four user-facing approval stages:
+
+```
+Start → USER TASK  Initial review
+      → USER TASK  Initial approval
+      → MULTI USER TASK  Expert assessment   (fans to 8 assessment topics)
+      → USER TASK  Director approval
+      → End
+```
+
+Six structural steps for four stages; the multi-user task is one activity that produces eight
+inboxes. Every construct is a §11 *proven* row in `workflow-structure-rules.md`, and nothing
+in it needed hand-adding in Studio Pro.
+
+### Zero `DECISION` activities — by necessity, and it turned out to be the better shape
+
+BUG-76 is open on v0.21.0, so the chain was built with **outcomes on the user tasks** and no
+exclusive split anywhere. The lesson generalises past the bug: an approval chain branches on a
+*human's answer*, and a user task's outcomes already express that. A `DECISION` is for
+branching on *data*. If the first draft of an approval workflow has a split after every task,
+the split is redundant before it is dangerous.
+
+### `CE6681` on a dangling jump describes the wrong fault
+
+The obvious reject path is "jump back to the previous task". The **first** task has nothing
+behind it, so that jump has no valid target at all. What happens:
+
+| Rung | Result |
+|---|---|
+| `mxcli check --references` | clean |
+| `exec` | `Created workflow` |
+| `DESCRIBE WORKFLOW` | reads back with the jump present |
+| native `mx check` | **CE6681** — *"not possible to jump to end activities or jump-to activities"* |
+
+The message is about the **kind** of the target, so it sends you inspecting a target that does
+not exist. Read `CE6681` as *"this jump does not resolve"* and check existence before kind.
+(§11's forward-`JUMP TO` row is the same code from the other cause: a forward target resolves
+to the end/jump activity.) The fix is not a better jump — it is that **a reject ends the
+workflow**. `WF_MOCApproval` therefore contains no `JUMP TO` at all.
+
+This is a fourth entry for the detection-gap register: clean at three rungs, broken at the
+fourth, with a message pointing away from the cause.
+
+### Targeting: a microflow per stage when user roles are collapsed
+
+Five approver populations were mapped onto one `Approver` user role. `[%UserRole_Approver%]`
+would then have put every stage in every approver's inbox — a workflow that builds clean, runs,
+and assigns the wrong people, which no static check can see. Each stage got its own targeting
+microflow instead. The signature rule from §11 is what bites here: each wrapper takes the
+platform's **two** parameters (`System.Workflow` *and* the context entity). A one-parameter
+wrapper passes `mxcli check` and the native build refuses it.
+
+### What this run did not exercise
+
+No boundary events, no `WAIT FOR TIMER`, no event sub-process, no parallel split (BUG-121
+stands — see §11), no sub-workflow. Their §11 verdicts are unchanged by this run.
+
+---
+
 ## Notes on scope
 
 **Structure rules for every construct below — path termination, boundary-event type vs

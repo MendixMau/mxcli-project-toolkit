@@ -405,7 +405,89 @@ prevent.
 | 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` (§8) | N of N expressions |
 | 9 | Event sub-processes with exactly one start event, correct family, and recurrence within bounds (§3) | N of N sub-processes |
 | 10 | Constructs checked against §11 and marked *proven* or *hand-add in Studio Pro* | N of N constructs used; every hand-add is a build-plan checklist row |
+| 11 | **If the source is a BPMN/swimlane diagram:** pools counted, lanes carried into row 5's targeting, and every element screened against §13 | N pools = N workflows; N of N source elements screened; every NOT-SUPPORTED element has a `fit-gap.md` row. *"Source is not a process diagram"* is a legal entry |
 
 A workflow going into a build plan with row 10 unfilled is the omission this file exists to stop:
 the model builds, `mx check` is green, and a construct the requirements asked for is simply not
 there.
+
+---
+
+## 13. Reading a BPMN source — pools, lanes, and the elements Mendix cannot express
+
+**Read this whenever the source of a process is a BPMN diagram, a Visio/drawio process map, or any
+"swimlane" picture** — which is most migrations of a real approval or case process. §11 answers
+*what can mxcli write*; this section answers the question before it, *what can the engine express
+at all*, and it is the one an unsupported source element fails at.
+
+Mendix publishes its own element-by-element verdict:
+[BPMN coverage](https://docs.mendix.com/refguide/bpmn-coverage/). Read the live page rather than
+trusting the table below to stay current — this is a summary as of 2026-09-14, and the platform
+moves. **Two hops, never one:** BPMN element → Mendix construct (this section) → MDL writability
+(§11). A native element that mxcli cannot script is a hand-add, not a gap; a BPMN element Mendix
+does not support is a *redesign*, and it belongs in `fit-gap.md` at Stage 3, not in a build log at
+Stage 5.
+
+### Pools and lanes are implementation, not decoration
+
+This is the mapping most often lost, because a swimlane picture reads as documentation:
+
+- **One pool = one workflow.** The workflow *is* the process boundary. A source diagram with
+  three pools is **three workflows** with messages between them, not one workflow with three
+  regions. Count the pools before you count anything else — a three-pool source collapsed into a
+  single workflow is a different application, and no gate downstream will notice.
+- **A lane = a targeting statement.** Mendix implements lanes as user-task assignment via roles
+  and workflow groups, so every lane boundary a task sits inside is a claim about *who works it*.
+  Carry the lane name into §6's targeting derivation as the requirement sentence, then choose the
+  mechanism by §6's rules — and heed §6's warning: a lane labelled with a role name is **not**
+  evidence that a role XPath is the right mechanism, because a lane often names a *population*
+  whose members are data on the record.
+- **Cross-pool arrows are `CALL WORKFLOW` or `NOTIFY WORKFLOW`**, never a transition. A message
+  flow that crosses a pool boundary in the source is an integration point in the build plan.
+
+`architecture-blueprint.md` Step 3d draws cross-persona journeys as a *documentation* artifact.
+That is a different thing from this, and does not discharge it: a journey diagram shows handoffs
+between people, this decides how many workflows exist and who each task targets.
+
+### The mapping table
+
+| BPMN element | Mendix | Then check §11 for |
+|---|---|---|
+| Exclusive gateway (XOR) | **Native** — Decision | **BUG-76.** Qualified outcome spelling, `exec --no-check`. Often better expressed as outcomes on the preceding user task — §15 |
+| Parallel gateway (AND) | **Native** — Parallel Split | **BUG-121.** Path terminators after every write — `learned-workflow-patterns.md` §18, §23 |
+| **Inclusive gateway (OR)** | **Workaround** — parallel split *with a decision on each path* | Both damaged constructs at once. **Cost this explicitly in `fit-gap.md`**; do not let it enter a build plan as one row |
+| User task | **Native** — User Task | proven. Page takes `System.WorkflowUserTask`; targeting microflow takes two parameters |
+| Multi-instance parallel user task | **Native** — Multi-User Task | proven; decision method + completion timing are a hand-add (§7) |
+| Service / script / business-rule / manual task | **Native or workaround** — Call Microflow | proven; quote the `WITH` value |
+| Send task | **Workaround** — Call Microflow + Notify Workflow | proven |
+| Receive task | **Native** — Wait for Notification | proven; takes no name |
+| Call activity / reusable subprocess | **Native** — Call Workflow | proven |
+| Event sub-process | **Native** | **hand-add** — no MDL construct, in any position (§3, §11) |
+| Timer: intermediate catch, boundary interrupting/non-interrupting | **Native** | non-interrupting proven; **interrupting is a hand-add** (§2, §11) |
+| Message / signal / conditional / escalation / compensation / cancel events | **Workaround** — microflow combinations | per-case; §11 has no row, so probe before promising |
+| Link events (throw/catch) | **Native** | unprobed in MDL |
+| None start / none end | **Native** | end-of-branch is **not expressible** — §4, §11 |
+| Text annotation | **Native** | **not writable** — `MDL-WF04`, mxcli#1007 |
+| Data object / input / output / store | **Workaround** — domain entity + workflow parameter | the context entity, §2 of `learned-workflow-patterns.md` |
+| **Event-based gateway** | **NOT SUPPORTED** | redesign |
+| **Complex gateway** | **NOT SUPPORTED** | redesign |
+| **Embedded / transaction / ad-hoc subprocess** | **NOT SUPPORTED** | redesign |
+| **Terminate end event** | **NOT SUPPORTED** | redesign — and note this is the platform's own statement of the same hole §4 and §11 describe from the MDL side |
+| **Multiple / multiple-parallel events** (all variants) | **NOT SUPPORTED** | redesign |
+| **Group artifact** | **NOT SUPPORTED** | drop; it carries no behaviour |
+
+### What to do with an unsupported element
+
+Never silently drop it and never approximate it in the build. Each one is a `fit-gap.md` row at
+Stage 3 naming the source element, why Mendix cannot express it, and the redesign chosen — and if
+the redesign changes what the business process *does*, that is a `PROJECT.md` decision to confirm
+with a human, not an architecture call (`interview-protocol.md`).
+
+Two that reliably cost more than they look:
+
+- **Event-based gateway** ("whichever happens first: a reply, or the timer") has no construct.
+  The usual redesign is a user task with a non-interrupting boundary timer, which changes the
+  semantics — both branches can run. Say so out loud.
+- **Terminate end event** ("stop the whole instance from here") is unsupported platform-side *and*
+  inexpressible in MDL. Model global cancellation as an interrupting event sub-process (§3) —
+  which is itself a Studio Pro hand-add. One source element, two hand-adds, and a redesign.

@@ -66,7 +66,7 @@ the window edge" — not "some text is unclear").
 there — it has no opinion on whether the description is *good*, only whether it exists
 (skills-over-scripts.md: judgement is this skill's job, never the script's).
 
-## The four rules, and the wrong answer each one prevents
+## The six rules, and the wrong answer each one prevents
 
 1. **Verbatim, in quotes, never translated.** A description that paraphrases "Status: Aktiv |
    Inaktiv" as "the status field has two values" has already lost the exact string a rule might
@@ -83,6 +83,21 @@ there — it has no opinion on whether the description is *good*, only whether i
 4. **Write the file, then run `--check`.** Don't report "described" in chat without it —
    `--check` is the mechanical proof (`described N of M`, denominator included), and it is what
    unlocks the printed `bin/source-ledger.sh mark ... --media N` command for that source file.
+
+5. **Personal data in a screenshot is counted, not copied.** A user-management grid full of
+   real names, logins and e-mail addresses goes into the file as the column headers plus
+   `"<36 rows of user records visible>"` — never the rows. The wrong answer (first field run,
+   2026-09-14) was 36 lines of `"Frau", "<surname>", "<first name>", "<login>"` in a file that
+   lives in the project repo for good. Roles, flags, station codes and menu labels are not
+   personal data; a person's name, login, phone or address is.
+6. **Small text misreads — cross-check any string a rule will hang on.** Same field run, Haiku
+   reads: a 298px-wide menu gave `"Einfall"` for `Entfall`, a dense grid gave `"benöden"` for
+   `beenden`, `"Enfall"`, `"Datensatzgruppung"` for `Datensatzsperrungen`, and one whole column
+   of a detail panel (six labelled fields) was skipped. Roughly one string in fifteen on
+   small or dense images. So before a quoted string becomes an entity name, a status value or a
+   legend meaning in `## Implied requirements and rules`, find it a second time — in the slide
+   text, in another image where the same word recurs, or by re-reading the crop — and put a
+   string you could not confirm under `## Uncertain` with the reading you got.
 
 ## How to dispatch
 

@@ -693,6 +693,9 @@ def main(argv):
           f'{converted} converted, {skipped} skipped (up to date), {tot_img} image(s) ({tot_inline} inline written)')
     print(f'  index: {rel_project(index_abs)} — {len(rows)} row(s): {n_pages} page, {n_md} markdown, {n_img} image, '
           f'{n_chrome} chrome, {n_other} other · images to read (vision): {img_to_read}')
+    if img_to_read:
+        print('  Next: bin/images-to-md.sh <project> — one worklist of every unique picture, '
+              'one description file each, coverage checked (skills/image-transcription.md).')
     return 0
 
 

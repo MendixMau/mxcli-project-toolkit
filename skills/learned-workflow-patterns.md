@@ -1259,6 +1259,68 @@ and exactly as before.
 
 ---
 
+## 24. `EXPOSE AS WORKFLOW ACTION` sets the Toolbox label, not the canvas — captions need a separate retrofit
+
+A microflow that will be dragged onto a workflow as a `Call a microflow` activity can be marked
+
+```
+CREATE MICROFLOW Module.ACT_ApprovalRun_FailProjection (...)
+BEGIN
+  ...
+END EXPOSED AS WORKFLOW ACTION 'Fail projection' IN 'Approval';
+```
+
+and Studio Pro then lists it in the workflow editor's Toolbox under that category, with that
+caption. Read that as scoped to the Toolbox entry, nothing more — it does **not** touch any
+`Workflows$CallMicroflowActivity` already placed on a canvas. Caption is stored **per placed
+activity**, independent of the microflow it calls; exposing the microflow only changes what a
+*future* drag stamps on a *new* activity.
+
+**The gap this produces.** Every activity dragged onto a workflow before its microflow was
+exposed — which in practice means every activity built before the MDL is updated with an
+`EXPOSED AS WORKFLOW ACTION` clause on a later pass — keeps whatever Caption Studio Pro
+originally stamped it with, almost always the microflow's raw technical name:
+`ACT_ApprovalRun_FailProjection` sitting on a canvas meant for the business readers this
+workflow is being built for. `DESCRIBE WORKFLOW` shows nothing wrong here — Caption round-trips
+faithfully, it is just not the caption anyone wanted. `mx check` shows nothing wrong either;
+Caption is cosmetic to the compiler. The only way to see the gap is to open the workflow in
+Studio Pro and read the boxes.
+
+**The fix is `project-bin/wf-set-call-captions.py`**, not more MDL — there is no MDL statement
+that reaches back and relabels a placed activity:
+
+```
+project-bin/wf-set-call-captions.py <workflow>.mxunit \
+    --captions Module.ACT_ApprovalRun_FailProjection='Fail projection' \
+               Module.ACT_ApprovalRun_Approve='Approve'
+project-bin/wf-set-call-captions.py <workflow>.mxunit --captions-file captions.txt --apply
+```
+
+It walks the unit, finds every `Workflows$CallMicroflowActivity` whose `Microflow` matches a
+name you gave it, and replaces only that activity's `Caption` — `Name` (the flow-internal
+identifier every `Flow` element references to reach the activity) is never touched, so nothing
+that points at the activity can break. Defaults to a dry run; `--apply` writes, after a `.bak`.
+
+**Two things worth deciding before scripting a workflow, given this gap:**
+
+1. **Order the two passes correctly if you want new drags to come in captioned.** `EXPOSED AS
+   WORKFLOW ACTION` on the microflow first, workflow-placement MDL second — otherwise the drag
+   still stamps the raw name and you are back to the retrofit for that activity too.
+2. **Treat the retrofit as its own named step, not a one-off.** Same shape as §23's terminator
+   repair: a later MDL rewrite of the workflow does not touch existing Captions (they are not
+   MDL-authored fields to begin with), so this is a one-time backfill once the microflows are
+   exposed — but it is exactly the kind of cosmetic pass a build plan silently drops if it is
+   not written down as a row of its own.
+
+**FIELD RUN.** VB-USI, 2026-09-14, mxcli v0.21.0 / Mendix 11.13.0: 36 call-microflow activities
+across one 16-station approval workflow were still showing raw `ACT_` names on the canvas months
+after the microflows behind them had already been exposed as workflow actions — the exposure MDL
+had been added on a later script, after the activities were placed, and nobody had connected
+"exposed" with "the canvas still says otherwise." One pass of the tool relabelled all 36. Native
+`mx check`: 0 errors before and after.
+
+---
+
 ## Notes on scope
 
 **Structure rules for every construct below — path termination, boundary-event type vs

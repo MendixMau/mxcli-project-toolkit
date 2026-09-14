@@ -146,6 +146,27 @@ mxtk_platform() {
 }
 
 # ---------------------------------------------------------------------------
+# native_path — a path the NATIVE toolchain can open.
+#
+# Git Bash hands POSIX paths (/tmp/x, /c/Users/...) to native .exe arguments
+# and converts them on the way out — but only for arguments. A path that is
+# EMBEDDED in a string, such as `python -c "open('/tmp/x')"`, is not converted,
+# and a native Windows Python (the only kind resolve_py finds on a stock
+# machine) cannot open it: /tmp there means C:\tmp. Every err_* helper in
+# exec.sh returned "?" this way on a real Windows 11 machine (2026-09-14), and
+# a genuine CE0117 sailed through the mxbuild gate as "unverified" instead of
+# fail + restore. Route any path that Python (or Node) will open through here.
+# cygpath -m gives forward slashes (C:/Users/...), which bash, Python and Node
+# all accept and which survives being quoted inside a -c string.
+# ---------------------------------------------------------------------------
+native_path() {
+  case "$(mxtk_platform)" in
+    windows) cygpath -m "$1" 2>/dev/null || printf '%s\n' "$1" ;;
+    *)       printf '%s\n' "$1" ;;
+  esac
+}
+
+# ---------------------------------------------------------------------------
 # find_sp_app — newest installed Studio Pro root.
 #
 # Returns an .app bundle on macOS and a version directory on Windows; callers
@@ -186,7 +207,17 @@ find_sp_app() {
         esac
         [ -d "$root/Mendix" ] && root="$root/Mendix"
         [ -d "$root" ] || continue
-        list="$list$(ls -d "$root"/*/ 2>/dev/null)"
+        # Two things went wrong here on a real Windows 11 machine (2026-09-14, Studio Pro
+        # 9.24 + 10.24 + 11.12 side by side): (1) the roots were concatenated WITHOUT a
+        # separator, so the last dir of one root and the first of the next fused into
+        # ".../gradle-8.5//c/Program Files/Mendix/10.24.21.108016" — a path that does not
+        # exist, reported by doctor as "mxbuild not found". (2) Program Files\Mendix also
+        # holds "gradle-8.5" and "Version Selector", and `sort -V` ranks letters above
+        # digits, so even with the separator the newest "version" was gradle-8.5. Only a
+        # dir that actually carries modeler/mxbuild.exe is a Studio Pro install.
+        for d in "$root"/*/; do
+          [ -x "$d/modeler/mxbuild.exe" ] && list="$list$d"$'\n'
+        done
       done
       list=$(printf '%s\n' "$list" | sed 's:/*$::' | grep -v '^$') || true
       [ -z "$list" ] && {

@@ -1322,6 +1322,130 @@ had been added on a later script, after the activities were placed, and nobody h
 
 ---
 
+## 25. mxcli v0.22.0 — what upstream shipped, and why this section is not a clearance
+
+**The full upstream-delta table is held in PR #52, pending re-verification on `--local`.** This
+section exists so that nobody reading §18, §21, §22 or §23 acts on a workaround upstream has
+removed — and so that nobody treats a changelog as a probe.
+
+**The distinction that matters, and that this document's own briefing blurred.** The parallel-split
+fault and the missing End event were reported together as "one grammar gap behind both runtime
+faults". They are not one gap:
+
+- **The split fault was a writer defect.** Mendix stores an `EndOfParallelSplitPathActivity` as the
+  last activity of every path and executes the path up to that marker; mxcli wrote paths without
+  one, so the runtime synthesised an end *ahead of the path's contents*. Fixed in the **v0.22.0
+  release**. A path can never end the workflow — that is `MDL-WF08` / CE1844 and it confirms
+  `workflow-structure-rules.md` §4 — so `end workflow` would never have fixed this.
+- **The branch-End fault was a grammar gap**, and `end workflow [comment '<caption>'];` closes it
+  on **nightly only**, after the v0.22.0 tag. It is legal in any `{ }` block and deliberately
+  illegal in the top-level body, where those words close the workflow and *are* the main flow's
+  End (CE6671).
+
+**What to do differently at design time, once a probe confirms it.** §22's "zero `DECISION`
+activities, branch on the human" shape was forced by BUG-76, and it turned out to be the better
+shape anyway — keep it. But the two redesigns that cost real work go away: a **reject no longer
+has to be a backward jump or a redesigned "path ends" route** (`end workflow` in the outcome), and
+a **forward `JUMP TO` was never the limitation we recorded** — upstream `825873d6`, already in
+**v0.21.0**, fixed the jump-named-after-its-target defect for which forward order was the broken
+case. §22's CE6681 was a *dangling* jump, which is a different and legitimate fault, now refused
+at check time.
+
+**What did not move, and now fails loudly instead of silently.** Event sub-process, boundary event
+on a notification, multi-user decision rule, user-task *On created*, AI agent task: all still
+absent from the grammar, read directly at HEAD. Hand-add stands. The change is that
+`create or modify` and `REPLACE ACTIVITY` now **refuse** a workflow holding any of them (nightly),
+instead of rebuilding a default over it — an on-created microflow reset to `NoEvent`, event
+handlers to an empty list, a multi-user completion rule to Consensus on its first outcome. That
+removes the ugliest interaction in this file: hand-add something in Studio Pro, then have the next
+scripted rewrite silently undo it.
+
+**A workflow-body `annotation` is now refused, not merely unsupported.** It lands in the activity
+flow, which accepts only flow elements, so the written `.mpr` cannot be **loaded at all**. Keep
+notes as MDL comments (`-- …`), or add them in Studio Pro after the last scripted rewrite.
+
+**UPDATE 2026-09-15: probed, with known-bad controls, on v0.22.0 (tag) and `main` HEAD
+(`7b42100d`).** Every claim above is CONFIRMED except the `create or modify` rewrite guard
+itself (needs a live Studio Pro to set up the hand-added state it protects — read at source,
+not independently probed) and BUG-121's runtime half (build/native-check confirmed, live-run
+oracle still open). Full results are the retest log held in PR #52. **One
+correction from the probe: `end workflow` and the signature checks are on `main` HEAD only —
+NOT on the `nightly` tag**, which is itself a day stale and does not contain them
+(`git merge-base --is-ancestor 598dddc0 nightly` is false). Say the commit, not the tag name.
+
+---
+
+## 26. Exposing a workflow's called microflows as workflow actions
+
+**The clause nobody in this toolkit was using.** Before 2026-09-15 the string
+`EXPOSED AS WORKFLOW ACTION` appeared nowhere in `skills/` or `bin/` — so every workflow this
+toolkit has built left its own actions out of the workflow editor's toolbox. That matters more
+here than it would elsewhere, because `workflow-structure-rules.md` §11 still lists five
+constructs that **must** be hand-added in Studio Pro (event sub-process, boundary event on a
+notification, multi-user completion rule, user-task *On created*, AI agent task). Somebody is
+going to open that canvas. What they find in the toolbox is what they can wire without knowing
+your microflow names.
+
+### The two clauses are different toolboxes
+
+```
+EXPOSED AS MICROFLOW ACTION 'Caption' IN 'Category'   -- the MICROFLOW editor's toolbox
+EXPOSED AS WORKFLOW ACTION  'Caption' IN 'Category'   -- the WORKFLOW editor's toolbox
+NOT EXPOSED AS MICROFLOW|WORKFLOW ACTION              -- removes an entry
+```
+
+Exposure is a **toolbox** feature, not a wiring feature: a `CALL MICROFLOW` activity inside a
+workflow works whether or not the microflow is exposed. Exposing it changes what a *human*
+can find later.
+
+### What was measured (2026-09-15, `v0.22.0-15-g7b42100d`, Mendix 11.13.0)
+
+| Question | Answer |
+|---|---|
+| Does it write and build? | Yes — `check` clean, `exec` writes, native `mx check` **0 errors** |
+| On a microflow the workflow also `CALL`s? | Yes, same batch, 0 errors |
+| Does `DESCRIBE MICROFLOW` emit it? | Yes — `exposed as workflow action 'Notify requester' in 'Approval'` |
+| **Does a later `create or modify` that omits the clause drop it?** | **No — the stored exposure is preserved.** Measured directly: describe → rewrite without the clause → describe again, still there |
+| Can the rule be checked mechanically? | Yes — `mxcli callers <Module.MF>` reports the **workflow** as a caller (depth 1), so the set of microflows a workflow calls is enumerable |
+
+That fourth row is the one that makes this safe to adopt as a convention. Most things in this
+document that a rewrite touches get silently reset; this one does not.
+
+### The rule
+
+> **Every microflow a workflow calls carries `EXPOSED AS WORKFLOW ACTION '<caption>' IN
+> '<one category per project>'` — except single-use plumbing, which this toolkit already names
+> with the `SUB_` prefix (`module-folder-convention.md`).**
+
+**Completion criterion, with a denominator.** For each workflow: `mxcli callers` each called
+microflow to get N, then N-of-N non-`SUB_` microflows carry the clause. Write the count down;
+"exposed the actions" with no number is the unfalsifiable-checklist failure.
+
+**Why `SUB_` is exempt and not just "use judgement".** A toolbox is a discovery surface and its
+cost is clutter — the VB-USI approval workflow calls **25** microflows, most of them one-station
+bookkeeping. Twenty-five single-purpose entries in the workflow toolbox makes the three genuinely
+reusable ones harder to find, which is the opposite of the point. `SUB_` already means "reusable
+sub-logic invoked by name, not an entry point" in this toolkit, and `ACT_` already reads as an
+entry point to `mxcli lint` (QUAL004 exempts it from the orphan rule). Reuse the convention you
+have rather than inventing a second axis.
+
+**One category name per project.** `IN '<category>'` is the toolbox group. Pick the project's
+name or its dominant process (`'Approval'`, `'MOC'`) and use the same string everywhere —
+categories are free-text, so two spellings make two groups and the grouping is the whole value.
+
+**Caption is for the human, not the model.** `'Notify requester'`, not `'ACT_NotifyRequester'`.
+The person dragging it in does not need to know it is a microflow — that is what the clause is
+for.
+
+### Where it goes in the build order
+
+Set it at `CREATE MICROFLOW` time, in the same statement — it is one clause, and adding it later
+means restating the whole microflow (there is no `ALTER MICROFLOW` for a body;
+`learned-mdl-preflight.md` rule 21). §10's build order is unchanged: task pages, then the
+microflows the workflow calls (now carrying their clause), then the workflow.
+
+---
+
 ## Notes on scope
 
 **Structure rules for every construct below — path termination, boundary-event type vs

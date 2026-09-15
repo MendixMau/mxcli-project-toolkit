@@ -20,6 +20,14 @@
 //              its screen's table.bind nor data-cut="<reason>". A link whose href is a live
 //              #/route is bound by that href. data-bind naming a row that does not exist is also
 //              unbound: a stale binding is how a renamed row turns into a control nobody built.
+//   duplicate-id  an id="..." that appears in more than one screen. assemble-prototype.js scopes
+//              each screen's CSS to its section but never touches id attributes or <script>
+//              bodies, so two screens sharing an id (a copy-pasted "global" widget, e.g. a
+//              chat-modal launcher) resolve getElementById() to whichever screen's section is
+//              FIRST in the document, not the one currently visible - the control silently does
+//              nothing on every other screen, with no console error. Field-proven 2026-09-15: a
+//              9-screen prototype where 6 screens shared id="copilot-modal" and the button worked
+//              only on the default route.
 // Warnings (exit unaffected):
 //   unbound-warning  the same, on a screen that has NO table.bind at all. Wireframes drawn before
 //              the data-bind convention have no rows to name, and failing every one of them
@@ -95,10 +103,15 @@ function bindRowKeys(inner) {
 const findings = [];
 const add = (route, kind, detail) => findings.push([route, kind, detail]);
 const inbound = new Map([...routes].map(r => [r, 0]));
+const idRoutes = new Map();   // id -> Set(routes it appears in)
 let links = 0, controls = 0;
 
 for (const s of secs) {
   const inner = s.inner.replace(/<(style|script)\b[\s\S]*?<\/\1\s*>/gi, ' ');
+  for (const m of inner.matchAll(/\bid\s*=\s*["']([^"']+)["']/gi)) {
+    if (!idRoutes.has(m[1])) idRoutes.set(m[1], new Set());
+    idRoutes.get(m[1]).add(s.route);
+  }
   const { tables, keys } = bindRowKeys(inner);
   const body = inner.replace(BIND_TABLE, ' ');
 
@@ -131,6 +144,13 @@ for (const s of secs) {
 }
 
 for (const [r, n] of inbound) if (n === 0 && r !== def) add(r, 'orphan', 'no other screen links to #/' + r);
+
+for (const [id, rset] of idRoutes) {
+  if (rset.size > 1) {
+    const rs = [...rset];
+    for (const r of rs) add(r, 'duplicate-id', '#' + id + ' also used by ' + rs.filter(x => x !== r).join(', '));
+  }
+}
 
 // --- BRD route coverage ---------------------------------------------------------------------
 // A route token ends where the route alphabet does; a trailing . or / is sentence punctuation

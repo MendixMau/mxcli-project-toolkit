@@ -213,6 +213,7 @@ line per finding:
 | `orphan` | a screen no other screen links to (the default route is exempt) | yes |
 | `unbound` | a button, link or submit with no `data-bind` matching a `table.bind` row and no `data-cut` | yes |
 | `unbound-warning` | the same, on a screen with no `table.bind` at all (older wireframes) | no, warns |
+| `duplicate-id` | an `id="..."` shared by more than one screen - the assembler scopes CSS per section but not `id`s or `<script>` bodies, so `getElementById` silently resolves to whichever screen is first in the document | yes |
 
 Exit 0 clean, 1 findings, 2 nothing inspected. With `--brd <file-or-dir>` it also cross-checks the
 routes the BRD's use cases walk against the screens (`brd-unknown-route`, `uncovered`); that half

@@ -1,0 +1,29 @@
+-- ============================================================================
+-- StyleGallery — Buttons (real actionbuttons carrying ds.css .btn classes)
+-- ============================================================================
+-- Purpose:  Button variants + sizes from the design-system .btn family. Real
+--           Mendix ACTIONBUTTONs, not hardcoded divs (learned-stylegallery.md:
+--           "do not use hardcoded containers as a substitute for real
+--           widgets" — a button's enabled/hover/focus state only proves out
+--           through the actual widget). Actions are close_page: a no-op that
+--           needs no helper nanoflow, purely to demonstrate style.
+-- Depends on: 00-module.mdl.
+-- ============================================================================
+
+/** Button variants + sizes (design-system .btn family). */
+create snippet StyleGallery.SNIPPET_Buttons
+{
+  container btnRow1 (class: 'ds-row') {
+    actionbutton btnPrimary   (caption: 'Submit request', action: close_page, class: 'btn btn-primary')
+    actionbutton btnCta       (caption: 'Approve',        action: close_page, class: 'btn btn-cta')
+    actionbutton btnSecondary (caption: 'Save draft',     action: close_page, class: 'btn btn-secondary')
+    actionbutton btnGhost     (caption: 'Cancel',         action: close_page, class: 'btn btn-ghost')
+    actionbutton btnDanger    (caption: 'Reject',         action: close_page, class: 'btn btn-danger')
+  }
+  container btnRow2 (class: 'ds-row') {
+    actionbutton btnSm   (caption: 'Small',       action: close_page, class: 'btn btn-primary btn-sm')
+    actionbutton btnLg   (caption: 'Large',       action: close_page, class: 'btn btn-primary btn-lg')
+    actionbutton btnIcon (caption: '+',           action: close_page, class: 'btn btn-secondary btn-icon')
+    actionbutton btnDis  (caption: 'Unavailable', action: close_page, class: 'btn btn-primary btn-disabled-look')
+  }
+}

@@ -301,6 +301,20 @@ easy to miss when writing the runbook for cutover:
 
 ## 11. MDL coverage — proven versus unprobed
 
+> **An upstream release has landed since every row in this table was probed.** Each row below is
+> measured against **v0.21.0 or earlier**; mxcli **v0.22.0** was tagged 2026-09-14 and `main` has
+> carried further workflow work since. Read
+> [`bug-logs/mxlabs-v0.22.0-upstream-delta-2026-09-15.md`](../bug-logs/mxlabs-v0.22.0-upstream-delta-2026-09-15.md)
+> **before** you plan around a row here. That document is a source reading, not a probe — it
+> flips nothing on its own, and it lists which rows are expected to move and what a real retest
+> must run to prove it. **Four rows below are expected to be stale on v0.22.0**: parallel split
+> (the terminator pass), decision on an enumeration, explicit `END WORKFLOW`, and forward
+> `JUMP TO` — and the last of those was already stale on v0.21.0.
+>
+> **Say which binary, never which release.** Two of the changes (`end workflow`, the signature
+> checks) merged *after* the v0.22.0 tag and are on nightly only, so `mxcli --version` reporting
+> `v0.22.0` does not mean they are present.
+
 **Do not trust the date on this table — check the binary.** Every row was established against a
 specific mxcli build, and "proven" means proven *on or after* the version named in the row. Run
 `mxcli --version` and `mxcli syntax workflow` before relying on a row; absence from `syntax` /

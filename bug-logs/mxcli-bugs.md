@@ -2673,6 +2673,14 @@ before touching the live one.
 
 ## BUG-76: `DECISION` activities in a native `WORKFLOW` are unconditionally storage-corrupted — mxcli writes the outcome label as a raw string into a field that must be a real `EnumerationValueIdentifier`, on every DECISION regardless of the underlying expression's type
 
+> **UPSTREAM FIX SHIPPED IN v0.22.0 — NOT YET VERIFIED HERE (2026-09-15).** `b9bbd6cc` (in the
+> v0.22.0 tag, with mendixlabs/mxcli#1031 and #1065) makes `MDL-WF03` **require** the qualified
+> `Module.Enum.Value` form, so the bare label that produces the unloadable `.mpr` is now a check
+> **error** and `exec` refuses the script — the corrupting write can no longer happen. **The STOP
+> rule stays until a probe on a real binary says otherwise**, with the bare form as its own
+> known-bad control. See [mxlabs-v0.22.0-upstream-delta-2026-09-15.md](mxlabs-v0.22.0-upstream-delta-2026-09-15.md)
+> §2 and §4 probe 3. This is a source reading, not a retest.
+
 > **CONFIRMED STILL OPEN on v0.21.0 — CRITICAL, verified 2026-09-14 with the byte-exact original signature: `StorageLoadException … The text 'OutcomeA' is not a valid EnumerationValueIdentifier`, project unloadable by mxbuild. Keep the STOP rule: no DECISION activities in CREATE WORKFLOW via mxcli.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 > **CONFIRMED STILL OPEN on v0.20.0 — CRITICAL, verified 2026-08-31 with the byte-exact original signature: `StorageLoadException … The text 'OutcomeA' is not a valid EnumerationValueIdentifier`, project unloadable by mxbuild. Keep the STOP rule: no DECISION activities in CREATE WORKFLOW via mxcli.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
@@ -4916,6 +4924,18 @@ checker is simply not consulting it -- and add `dateFormat` / `customDateFormat`
 ---
 
 ## BUG-121: `PARALLEL SPLIT` paths are written without their terminator node, so none of them ever opens a task (2026-09-04)
+
+> **UPSTREAM FIX SHIPPED IN v0.22.0 — NOT YET VERIFIED HERE (2026-09-15).** `be28539b` (in the
+> v0.22.0 tag) writes `EndOfParallelSplitPathActivity` on every path, empty paths included, from
+> the builder and from both `INSERT PATH` mutators; both writers serialize it and the modelsdk
+> reader reads it back typed. Upstream measured it on 11.14.0 against `system$workflowactivity`
+> with the marker as the only variable. **Two things before this can be archived:** a probe with a
+> live run counting concurrent tasks on the binary a project actually runs, and the upstream
+> migration step — **a workflow written by an affected version must be re-run through
+> `create or modify` to pick up the markers; running instances are not changed**. Until then keep
+> `bin/wf-add-path-terminators.py` in the build plan (`skills/learned-workflow-patterns.md` §23).
+> See [mxlabs-v0.22.0-upstream-delta-2026-09-15.md](mxlabs-v0.22.0-upstream-delta-2026-09-15.md)
+> §2 and §4 probes 1–2. This is a source reading, not a retest.
 
 **This is the most expensive class of defect this project has hit: a write mxcli itself reads
 back correctly and the Mendix runtime reads as empty.** mxcli v0.20.0, Mendix 11.13.0.

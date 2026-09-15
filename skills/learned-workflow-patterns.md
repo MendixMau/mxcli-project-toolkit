@@ -497,6 +497,7 @@ mxcli **v0.18.0**, where `DECISION` writes correctly.
 | `v0.17.0` | **corrupts the `.mpr`** — confirmed, BUG-76 (binary `2026-08-10T05:12:17Z`) |
 | `v0.18.0`+ | writes correctly; verify what was stored anyway |
 | `v0.20.0` / `v0.21.0` | **resolved 2026-09-08 — a spelling pincer, not a shape.** The two 2026-08-31 probes disagreed because one used bare outcomes and one used qualified ones: bare `'Yes'` passes `mxcli check` and produces the byte-exact `StorageLoadException`; qualified `Module.Enum.Value` is rejected by `MDL-WF03` but loads natively via `exec --no-check` with one `CE0117` (the empty condition). Re-probed on v0.21.0: unchanged. Workaround: qualified spelling + `--no-check`, then pick the expression in Studio Pro (BUG-76, mendixlabs/mxcli#1031) |
+| `v0.22.0`+ | **the pincer is expected to be closed, and the advice below INVERTS — pending probe.** Upstream `b9bbd6cc` makes `MDL-WF03` *require* the qualified `Module.Enum.Value` form, so the bare label that produced the unloadable `.mpr` is now a check **error** and `exec` refuses it. If that holds, **qualified spelling with a normal `mxcli check` is the shipping form and `--no-check` becomes wrong advice**. Not probed here — see `bug-logs/mxlabs-v0.22.0-upstream-delta-2026-09-15.md` §4 probe 3, which uses the bare form as its own known-bad control |
 
 Two half-right versions of this warning coexisted for four days from 2026-08-21. One said
 "absolute prohibition, confirmed on v0.17.0" and never learned about the v0.18.0 fix — follow
@@ -1224,6 +1225,17 @@ stands — see §11), no sub-workflow. Their §11 verdicts are unchanged by this
 
 ## 23. Operating the terminator repair — the part that bites is the *second* time
 
+> **Version gate, 2026-09-15 — this whole section may be obsolete on your binary.** mxcli
+> **v0.22.0** (2026-09-14) writes `EndOfParallelSplitPathActivity` on every path itself, from the
+> builder and from both `INSERT PATH` mutators. If that holds, the repair below and rule 1's
+> "re-run after every later script" retire, and the standing regression risk with them. **It is
+> not yet proven here** — no probe has been run on v0.22.0 (`bug-logs/mxlabs-v0.22.0-upstream-delta-2026-09-15.md`
+> §4, probes 1 and 2). Until a probe on *the binary your project runs* says otherwise, keep the
+> pass in the build plan: running it on an already-terminated model is idempotent and costs
+> nothing, and skipping it on a v0.21.0 binary costs the whole fan-out. Upstream also states the
+> migration step: **a workflow written by an affected version must be re-run through
+> `create or modify` to pick up the markers, and running instances are not changed.**
+
 **§18's correction block is the finding**: mxcli writes no
 `Workflows$EndOfParallelSplitPathActivity`, MDL has no keyword for one, every gate is blind in
 both directions, and a live run is the only oracle. Read it first — none of that is repeated
@@ -1256,6 +1268,54 @@ and plan the terminator pass as a **named, repeated step attached to that workfl
 one-off fix recorded in the build log. A plan row that says "run the workflow script" without
 "then re-run the terminator pass" regresses the next time anyone touches that workflow, silently
 and exactly as before.
+
+---
+
+## 24. mxcli v0.22.0 — what upstream shipped, and why this section is not a clearance
+
+**Read `bug-logs/mxlabs-v0.22.0-upstream-delta-2026-09-15.md` for the full table.** This section
+exists so that nobody reading §18, §21, §22 or §23 acts on a workaround upstream has removed —
+and so that nobody treats a changelog as a probe.
+
+**The distinction that matters, and that this document's own briefing blurred.** The parallel-split
+fault and the missing End event were reported together as "one grammar gap behind both runtime
+faults". They are not one gap:
+
+- **The split fault was a writer defect.** Mendix stores an `EndOfParallelSplitPathActivity` as the
+  last activity of every path and executes the path up to that marker; mxcli wrote paths without
+  one, so the runtime synthesised an end *ahead of the path's contents*. Fixed in the **v0.22.0
+  release**. A path can never end the workflow — that is `MDL-WF08` / CE1844 and it confirms
+  `workflow-structure-rules.md` §4 — so `end workflow` would never have fixed this.
+- **The branch-End fault was a grammar gap**, and `end workflow [comment '<caption>'];` closes it
+  on **nightly only**, after the v0.22.0 tag. It is legal in any `{ }` block and deliberately
+  illegal in the top-level body, where those words close the workflow and *are* the main flow's
+  End (CE6671).
+
+**What to do differently at design time, once a probe confirms it.** §22's "zero `DECISION`
+activities, branch on the human" shape was forced by BUG-76, and it turned out to be the better
+shape anyway — keep it. But the two redesigns that cost real work go away: a **reject no longer
+has to be a backward jump or a redesigned "path ends" route** (`end workflow` in the outcome), and
+a **forward `JUMP TO` was never the limitation we recorded** — upstream `825873d6`, already in
+**v0.21.0**, fixed the jump-named-after-its-target defect for which forward order was the broken
+case. §22's CE6681 was a *dangling* jump, which is a different and legitimate fault, now refused
+at check time.
+
+**What did not move, and now fails loudly instead of silently.** Event sub-process, boundary event
+on a notification, multi-user decision rule, user-task *On created*, AI agent task: all still
+absent from the grammar, read directly at HEAD. Hand-add stands. The change is that
+`create or modify` and `REPLACE ACTIVITY` now **refuse** a workflow holding any of them (nightly),
+instead of rebuilding a default over it — an on-created microflow reset to `NoEvent`, event
+handlers to an empty list, a multi-user completion rule to Consensus on its first outcome. That
+removes the ugliest interaction in this file: hand-add something in Studio Pro, then have the next
+scripted rewrite silently undo it.
+
+**A workflow-body `annotation` is now refused, not merely unsupported.** It lands in the activity
+flow, which accepts only flow elements, so the written `.mpr` cannot be **loaded at all**. Keep
+notes as MDL comments (`-- …`), or add them in Studio Pro after the last scripted rewrite.
+
+**Nothing in this section is probed.** It is a reading of upstream's tree. The re-probe with a
+known-bad control is §4 of the delta document, and the coverage table in
+`workflow-structure-rules.md` §11 does not change until that runs.
 
 ---
 

@@ -1,0 +1,132 @@
+-- ============================================================================
+-- StyleGallery — Breadcrumbs (hand-rolled; Mendix has no breadcrumb widget)
+-- ============================================================================
+-- Purpose:  Three breadcrumb-trail depths (design-system .crumbs / .crumb-sep
+--           / .btn-link) for a purchase-request app, showing how a crumb's
+--           ACTION depends on how the user got there — not on where the page
+--           sits in the sitemap.
+--
+-- THE PROBLEM
+-- --------------------------------------------------------------------------
+-- There is no BREADCRUMB widget in MDL. A crumb trail is therefore a plain
+-- container of link buttons — and the interesting part is not the markup, it
+-- is picking the right ACTION per crumb. Get that wrong and you ship a trail
+-- that looks navigable and isn't, which is worse than no trail at all.
+--
+-- THE RULE: a crumb's action depends on HOW THE USER GOT HERE, not on where
+-- the page sits in the sitemap.
+--
+--   | Ancestor reached by            | Crumb action           |
+--   |--------------------------------|------------------------|
+--   | Navigation menu / home         | show page (or nav MF)  |
+--   | `show page` from the page below| CLOSE PAGE  (×1)       |
+--   | two `show page` hops below     | CLOSE PAGE ×2          |
+--   | not a page at all (a section)  | NO LINK — plain text   |
+--
+-- Closing is not the same as re-opening. If the parent page is still open
+-- underneath, `show page` stacks a SECOND copy on top of it — the user then
+-- has to dismiss two. Close returns to the live instance with its state
+-- (scroll position, filter values, selection) intact. Reach for `show page`
+-- only when the ancestor is genuinely not on the stack.
+--
+-- THE LAST CRUMB IS NEVER A LINK. It is the page you are on.
+--
+-- A SECTION IS NOT A PAGE. "Purchasing" in `Home › Purchasing › Purchase
+-- Requests` is a grouping, not a destination. Render it as text. A crumb
+-- that navigates nowhere is a lie the user only discovers by clicking.
+--
+-- THE "HOME" ACTION IS A STAND-IN. This is a client-free reference set with
+-- no real home page to link to, so ACT_NavHome below is a no-op that stands
+-- in for whatever the consuming project's actual "go home" microflow or
+-- nanoflow is. Point crumbD*Home's action at the real one when this snippet
+-- is copied into a project.
+--
+-- WHY NOT A SNIPPET PER PAGE? Because the trail differs per page — depth,
+-- captions and close-count all change. A snippet would need a parameter
+-- object carrying the whole trail; for a handful of pages the container
+-- below is cheaper and clearer. Revisit if the app grows past ~15 pages.
+--
+-- MDL GOTCHAS
+--   * Buttons need REPLACE, not SET, when altering an existing page — SET
+--     cannot bind an Action.
+--   * Every container must have a child; empty containers crash at runtime.
+--   * `close page` is a microflow statement. Nanoflows are cheaper (no
+--     server round-trip) but `close page` in a nanoflow is unverified here —
+--     these helpers use microflows deliberately.
+--   * Classes below (`crumbs`, `crumb-sep`, `btn-link`) come from ds.css.
+--     Verify a class exists before using it; a typo'd class is silent.
+-- Depends on: 00-module.mdl.
+-- ============================================================================
+
+/** Stand-in for the consuming project's real "go home" action — replace on copy-in. */
+create or modify microflow StyleGallery.ACT_NavHome ()
+folder 'Helpers'
+begin
+  @position(100, 100)
+  close page;
+end;
+
+/** Return to the page directly beneath this one on the stack. */
+create or modify microflow StyleGallery.ACT_Crumb_Back1 ()
+folder 'Helpers'
+begin
+  @position(100, 100)
+  close page;
+end;
+
+/** Return two levels down the stack (e.g. Detail → Sub-detail → back to List). */
+create or modify microflow StyleGallery.ACT_Crumb_Back2 ()
+folder 'Helpers'
+begin
+  @annotation 'Two closes, not one show-page. Re-opening the ancestor would stack a duplicate on top of the copy already open underneath.'
+  @position(100, 100)
+  close page;
+
+  @position(260, 100)
+  close page;
+end;
+
+-- ── Depth 1 — a list page opened from the navigation menu ───────────────────
+-- Nothing to close: the user arrived from the menu, so Home is a real
+-- navigation target. "Purchasing" is a section, so it stays plain text.
+create snippet StyleGallery.SNIPPET_Crumbs_Depth1
+{
+  container crumbsD1 (class: 'crumbs') {
+    linkbutton  crumbD1Home (caption: 'Home', action: microflow StyleGallery.ACT_NavHome, class: 'btn-link')
+    dynamictext crumbD1Sep1 (content: '  ›  ', class: 'crumb-sep')
+    dynamictext crumbD1Sect (content: 'Purchasing')
+    dynamictext crumbD1Sep2 (content: '  ›  ', class: 'crumb-sep')
+    dynamictext crumbD1Curr (content: 'Purchase Requests')
+  }
+}
+
+-- ── Depth 2 — a detail page opened via `show page` from the list ────────────
+-- The list is STILL OPEN underneath. Close it back, do not re-show it.
+create snippet StyleGallery.SNIPPET_Crumbs_Depth2
+{
+  container crumbsD2 (class: 'crumbs') {
+    linkbutton  crumbD2Home (caption: 'Home', action: microflow StyleGallery.ACT_NavHome, class: 'btn-link')
+    dynamictext crumbD2Sep1 (content: '  ›  ', class: 'crumb-sep')
+    dynamictext crumbD2Sect (content: 'Purchasing')
+    dynamictext crumbD2Sep2 (content: '  ›  ', class: 'crumb-sep')
+    linkbutton  crumbD2Back (caption: 'Purchase Requests', action: microflow StyleGallery.ACT_Crumb_Back1, class: 'btn-link')
+    dynamictext crumbD2Sep3 (content: '  ›  ', class: 'crumb-sep')
+    dynamictext crumbD2Curr (content: 'Request PR-2044')
+  }
+}
+
+-- ── Depth 3 — two hops deep; each ancestor closes a different number ─────────
+-- Note the counts differ per crumb: the list is two closes away, the detail
+-- one. This is the case people get wrong by reusing a single Back action.
+create snippet StyleGallery.SNIPPET_Crumbs_Depth3
+{
+  container crumbsD3 (class: 'crumbs') {
+    linkbutton  crumbD3Home (caption: 'Home', action: microflow StyleGallery.ACT_NavHome, class: 'btn-link')
+    dynamictext crumbD3Sep1 (content: '  ›  ', class: 'crumb-sep')
+    linkbutton  crumbD3List (caption: 'Purchase Requests', action: microflow StyleGallery.ACT_Crumb_Back2, class: 'btn-link')
+    dynamictext crumbD3Sep2 (content: '  ›  ', class: 'crumb-sep')
+    linkbutton  crumbD3Detl (caption: 'Request PR-2044', action: microflow StyleGallery.ACT_Crumb_Back1, class: 'btn-link')
+    dynamictext crumbD3Sep3 (content: '  ›  ', class: 'crumb-sep')
+    dynamictext crumbD3Curr (content: 'Line item: 27" monitor')
+  }
+}

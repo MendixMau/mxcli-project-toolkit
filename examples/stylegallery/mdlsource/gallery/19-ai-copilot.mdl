@@ -1,0 +1,38 @@
+-- ============================================================================
+-- StyleGallery — AI Copilot panel (static containers) — MOCKUP ONLY
+-- ============================================================================
+-- Purpose:  Visual mock of an embedded purchasing assistant (design-system
+--           .copilot). NO AI logic — static bubbles + a mock ask bar. The
+--           .copilot .bubble.ai/.me classes handle left/right alignment. For
+--           a real, wired-up assistant surface see skills/mendix-agent-ui.md
+--           — this snippet is the frame only.
+-- Depends on: 00-module.mdl.
+-- ============================================================================
+
+/** AI copilot side panel (design-system .copilot) — static mockup, no logic. */
+create snippet StyleGallery.SNIPPET_Copilot
+{
+  container cop (class: 'copilot') {
+    container copHead (class: 'c-head') {
+      container copK (class: 'k') { dynamictext copKt (content: 'A') }
+      container copTitle (class: 't') { dynamictext copTt (content: 'Purchasing Assistant') }
+    }
+    container copBody (class: 'c-body') {
+      container copIntro (class: 'c-intro') { dynamictext copIt (content: 'I can draft requests and check budgets for you.') }
+      container copAuto (class: 'autofill') { dynamictext copAt (content: '⚡ Draft a request') }
+      container copChips (class: 'c-chips') {
+        container copCh1 (class: 'chip') { dynamictext copCh1t (content: 'Show my requests') }
+        container copCh2 (class: 'chip') { dynamictext copCh2t (content: 'Check budget status') }
+      }
+      container copB1 (class: 'bubble ai') { dynamictext copB1t (content: 'Show pending requests over budget for Facilities') }
+      container copB2 (class: 'bubble me') { dynamictext copB2t (content: 'Found 3 requests over budget. Flag them for the approver?') }
+      container copB3 (class: 'bubble ai') { dynamictext copB3t (content: 'Yes, flag them') }
+    }
+    container copFoot (class: 'c-foot') {
+      container copAsk (class: 'ask') {
+        container copAskIn { dynamictext copAskt (content: 'Ask about a request or supplier…') }
+        container copSend (class: 'send') { dynamictext copSendt (content: '↑') }
+      }
+    }
+  }
+}

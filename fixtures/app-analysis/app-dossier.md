@@ -28,7 +28,8 @@ Status: pass
 Status: skipped
 
 ## 8. Dispositions
-- LOOP-TQ-01 · fix · team · slice S-03, retrieve once, commit list
+- `LOOP-TQ-01` (Orders.SUB_SyncOrderLines, LOOP_TQ) · fix · team · slice S-03, retrieve once, commit list
+- `LOOP-COMMIT-02` (Orders.SUB_DrainQueue, LOOP_COMMIT_DEFERRED) · later · team · undecided
 
 ## 9. Method
 Thresholds: defaults. Dead elements section deliberately omitted from this fixture dossier.

@@ -43,8 +43,14 @@ carry them all across.
    Dispositions section as it is, then reconcile: a disposition whose finding is gone is
    marked resolved with the date; a new finding gets a new disposition line, even if that
    line says "accepted, no action" with a reason.
-5. **Render.** `bin/app-report.sh` from the project root. Open the HTML once and look at it
-   (`skills/measured-claims.md`: a render you did not look at is not verified).
+5. **Render.** `bin/app-report.sh` from the project root. It writes `analysis/app-report.html`
+   and `analysis/app-report.json` beside it. Open the HTML once and look at it
+   (`skills/measured-claims.md`: a render you did not look at is not verified). Read the
+   executive summary the way a stakeholder will: if the fix-first list does not name the five
+   things you would start on Monday, the scoring inputs are wrong, not the list.
+   **An agent arriving later reads `analysis/app-report.json`, not the page.** It carries the
+   health state, the severity counts, every scored finding with its evidence path and
+   recommended fix, the review progress, and the section verdicts. Do not parse the tables.
 6. **Hand-check two facts** against Studio Pro or `mxcli describe` before you publish, one
    from the dependency section and one from the loop section. The instrument has been
    wrong before (a join bug once zeroed the bidirectional-pair count on 302 edges). If your
@@ -54,6 +60,11 @@ carry them all across.
 
 `architecture/app-dossier.md`, in this order. Headings are fixed so the renderer and the
 next reader find them.
+
+The rendered page does NOT open with this layout. It opens with an executive summary the
+renderer derives: what the app is, the health state, the fix-first five, review progress, and
+what was not measured. Section 1 below is the second thing on the page, not the first, because
+a table of statuses is not what a person opening a report needs to read first.
 
 ```
 # App dossier: <app name>
@@ -87,6 +98,48 @@ A section with zero findings AND zero measured items (zero own modules, zero loo
 with 1,000 microflows) is `fault`, not `pass`. Measure the denominator before you believe
 the numerator.
 
+### Two verdicts, because there are two questions
+
+Those five words judge the REVIEW: how much of this document has been decided. A first dossier
+has no decisions, so every section reads `fail`. That is honest about the document and says
+nothing at all about the app, and a colour that is red on a healthy app and on a sick one
+teaches people to ignore it. So the renderer scores the app separately, from the facts alone.
+
+| axis | question it answers | values | moves when |
+|---|---|---|---|
+| health | how risky is this app today | `ok` · `watch` · `at risk` · `unknown` | the app changes |
+| review progress | how much has been decided | `not started` · `in progress` · `complete` | the dossier changes |
+| section verdict | collected, and dispositioned | the five words above | either changes |
+
+Health is `at risk` with any critical or high finding, `watch` with any medium, `ok` otherwise,
+and `unknown` when inventory, dependencies or loops did not collect. It needs no dossier, so
+it reads the same on a first run and a tenth, and the same way on another app. Never quote one
+axis as the other: "the report says fail" is a statement about the document.
+
+### Severity
+
+A property of a finding, not of a section. Four words, the ones the expert-services reviews
+already use: `critical`, `high`, `medium`, `low`. Score = pattern class + scheduled reach +
+blast radius, and 6 is critical, 4 to 5 high, 2 to 3 medium, 1 and under low.
+
+| input | weight |
+|---|---|
+| `REST_IN_LOOP`, `END_TRANSACTION`, `DEP_TANGLE` | 3 |
+| `LOOP_TQ`, `LOOP_COMMIT_DEFERRED`, `DEP_PAIR` | 2 |
+| `LOOP_NESTED`, `DEP_COHESION`, `DEAD_CANDIDATES` | 1 |
+| reachable from an **enabled** scheduled event | +2 |
+| reachable only from a disabled one | +1 |
+| the module is depended on by `WIDE_BLAST_INBOUND` (6) or more own modules | +1 |
+| a tangle, always +1, and +1 again at `WIDE_BLAST_INBOUND` members or more | +1 or +2 |
+
+Three inputs, all already collected, none of them an opinion: what the statement costs per
+iteration, whether anything runs it unattended, how many modules feel it. `bin/app-report.sh`
+does the arithmetic and prints the derivation under the fix-first table; the weights live in
+this table. Change them in both places or the page stops matching the skill.
+
+A severity is never a decision. A `critical` finding with `accept · owner · reason` is a closed
+line and still critical; that is the point of keeping the two axes apart.
+
 The renderer takes the worse of instrument status and your verdict: a dossier `skipped` always
 stands; an instrument `fault` or `partial` beats a dossier `pass`; a section missing from the
 dossier renders `fault`; no dossier at all renders every section `manual`. You cannot pass a
@@ -108,6 +161,7 @@ Defaults come from four probe projects (62 to 2,700 microflows); starting points
 | `MAX_FANOUT_MODULES` | 6 | dependency: a module depending on more own modules than this is a hub |
 | `LOOP_DB_CALLS_MAX` | 0 | loops: any database retrieve, commit, delete or REST call inside a loop body is a finding |
 | `MAX_PARSE_MISMATCH_PCT` | 5 | loops: above this share of microflows where the parser found fewer loops than the catalog (`parse_mismatch`), section is `fault` |
+| `WIDE_BLAST_INBOUND` | 6 | severity: a module depended on by this many own modules or more adds +1 to every finding inside it |
 
 ## Section rules
 
@@ -147,6 +201,12 @@ asset type, and the top 20 modules by count. Do not list every asset. Always `ma
 dead-element instrument exists: the catalog cannot see Java code, published REST operations
 called by name, or workflow references, so "no inbound reference" is a candidate, not a
 verdict. Confirm each in Studio Pro ("Find usages") before it reaches a change slice.
+
+Every finding table in sections 3 and 4 carries a **severity** column, first, with the score in
+brackets, and is sorted worst first. Write the id in backticks and the target name in brackets
+on the disposition line (`` `LOOP-TQ-07` (Module.SUB_Name, LOOP_TQ) ``): that is how the
+renderer matches a decision to the finding it scored, and an unmatched decision shows as an
+undecided finding on the page.
 
 **8. Dispositions.** One line per finding: `<finding id> · <decision: fix | accept | later> ·
 <owner> · <reason or slice>`. Finding ids come from the companion skills (`DEP-CYCLE-01`,

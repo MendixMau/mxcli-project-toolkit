@@ -98,7 +98,7 @@ PostgreSQL it does not fail, it only holds the connection in a transaction for t
 (`idle in transaction`). Always a finding. Fix: one transaction around the batch, or a task
 queue per item, never per-iteration transaction control.
 
-### Scheduled-event reachability (severity multiplier, not a pattern)
+### Scheduled-event reachability (a severity input, not a pattern)
 `reachable_from_scheduled_events_enabled` non-empty. The same loop in a page action is bounded
 by a user's patience; from a live scheduled event it runs on the full table at 03:00 with
 nobody watching, and two overlapping runs are how a nightly job becomes a permanent one. Any
@@ -107,10 +107,12 @@ finding on an enabled-reachable microflow is written first and sized first. Reac
 
 ## How to write the section
 
-One table, sorted: enabled-scheduled-reachable first, then by pattern severity (REST_IN_LOOP,
-END_TRANSACTION, LOOP_TQ, LOOP_COMMIT_DEFERRED, LOOP_NESTED, LOOP_CALL). Columns: finding id,
-microflow, module, pattern, evidence (`mdl/<qn>.mdl:<line>`), scheduled events, disposition
-ref. Below the table, one paragraph on the shape: how many loop microflows, how many with
+One table, sorted worst first by the severity score in `skills/app-analysis.md` (pattern class
++ scheduled reach + blast radius), which puts an enabled-scheduled row above the same pattern
+in a quiet module. Columns: severity, finding id, microflow, module, pattern, evidence
+(`mdl/<qn>.mdl:<line>`), scheduled events, disposition ref. `bin/app-report.sh` scores the same
+findings independently from the facts and prints its own list above yours; where the two
+disagree, one of you read something the other did not, so reconcile before publishing. Below the table, one paragraph on the shape: how many loop microflows, how many with
 findings, `with_microflow_call_only` (the renderer's count: `in_loop` holds `MICROFLOW_CALL`
 and no other key, and no nested loop), the parse mismatches and the `catalog_undercount`.
 

@@ -48,6 +48,12 @@ One paragraph of shape, then five tables. Numbers come straight from `dependenci
    marketplace modules. Context only, no finding id. It becomes a finding in the upgrade
    skill, not here.
 
+Severity for each of these comes from the table in `skills/app-analysis.md`: a tangle scores
+higher than a bidirectional pair, which scores higher than low cohesion, and any of them gains
++1 when the module is depended on by `WIDE_BLAST_INBOUND` (6) or more own modules. `inbound` in
+the cohesion table IS that blast radius, which is why it is worth reading before the cohesion
+percentage. Carry the severity as the first column of each finding table.
+
 ## How to judge
 
 | observation | default reading | before you write it, check |

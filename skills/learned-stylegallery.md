@@ -418,6 +418,8 @@ mdlsource/gallery/
   90-gallery-home.mdl             ← assembles everything; exec last
 ```
 
+A client-free reference set lives in `examples/stylegallery/`.
+
 ---
 
 ## Anti-Patterns This Skill Prevents

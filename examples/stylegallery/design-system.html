@@ -1,0 +1,207 @@
+<!doctype html>
+<!--
+  StyleGallery — design-system.html (client-free reference showcase)
+  ============================================================================
+  Static twin of the in-app Gallery_Home page (mdlsource/gallery/90-gallery
+  -home.mdl). Same class names, same purchase-request demo content, so a
+  designer or reviewer can see every component family without a running
+  Mendix app. Self-contained: loads only ds.css (same folder), no CDN, no
+  web fonts, no JS framework. See README.md for how the two stay in sync.
+  ============================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>StyleGallery — design system</title>
+<link rel="stylesheet" href="ds.css">
+<style>
+  .showcase-section { margin-bottom: 32px; }
+  .showcase-section > h2 { border-bottom: 1px solid var(--c-border); padding-bottom: 8px; }
+  .swatch-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .swatch { width: 72px; text-align: center; font-size: 11px; color: var(--c-text-muted); }
+  .swatch-chip { height: 40px; border-radius: 6px; border: 1px solid var(--c-border); margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div class="spacing-inner-horizontal-large spacing-inner-vertical-large">
+
+  <div class="page-head spacing-outer-bottom-large">
+    <h1>Style Gallery</h1>
+    <p>In-app twin of mdlsource/gallery/90-gallery-home.mdl — static specimens of every
+    design-system component, same class names, same purchase-request demo domain.</p>
+  </div>
+
+  <div class="card card-pad spacing-outer-bottom-large showcase-section">
+    <h2>Palette</h2>
+    <div class="swatch-row">
+      <div class="swatch"><div class="swatch-chip" style="background:var(--c-primary)"></div>Primary</div>
+      <div class="swatch"><div class="swatch-chip" style="background:var(--c-cta)"></div>CTA (accent)</div>
+      <div class="swatch"><div class="swatch-chip" style="background:var(--c-danger)"></div>Danger</div>
+      <div class="swatch"><div class="swatch-chip" style="background:var(--c-surface-sunken)"></div>Surface (sunken)</div>
+      <div class="swatch"><div class="swatch-chip" style="background:var(--c-border)"></div>Border</div>
+      <div class="swatch"><div class="swatch-chip" style="background:var(--c-success-bg)"></div>Success bg</div>
+      <div class="swatch"><div class="swatch-chip" style="background:var(--c-warning-bg)"></div>Warning bg</div>
+      <div class="swatch"><div class="swatch-chip" style="background:var(--c-danger-bg)"></div>Danger bg</div>
+    </div>
+  </div>
+
+  <div class="card card-pad spacing-outer-bottom-large showcase-section">
+    <h2>Buttons</h2>
+    <div class="ds-row" style="margin-bottom:12px">
+      <button class="btn btn-primary">Submit request</button>
+      <button class="btn btn-cta">Approve</button>
+      <button class="btn btn-secondary">Save draft</button>
+      <button class="btn btn-ghost">Cancel</button>
+      <button class="btn btn-danger">Reject</button>
+    </div>
+    <div class="ds-row">
+      <button class="btn btn-primary btn-sm">Small</button>
+      <button class="btn btn-primary btn-lg">Large</button>
+      <button class="btn btn-secondary btn-icon">+</button>
+      <button class="btn btn-primary btn-disabled-look" disabled>Unavailable</button>
+    </div>
+  </div>
+
+  <div class="card card-pad spacing-outer-bottom-large showcase-section">
+    <h2>Form controls</h2>
+    <div class="grid-2">
+      <div class="field"><label>Item description</label><div class="input"><input value="27&quot; monitor, height-adjustable stand"></div></div>
+      <div class="field"><label>Preferred supplier</label><div class="input"><input value="Northwind Office Supplies"></div></div>
+      <div class="field"><label>Cost centre (invalid example)</label><div class="input invalid"><input value=""></div></div>
+      <div class="field"><label>Justification</label><div class="input"><textarea rows="2">Replacing a unit reported faulty by IT.</textarea></div></div>
+    </div>
+    <div class="ds-row" style="margin-top:12px">
+      <label class="checkline"><input type="checkbox"> Mark as urgent</label>
+      <label class="checkline"><input type="checkbox" checked> Preferred supplier only</label>
+    </div>
+  </div>
+
+  <div class="card card-pad spacing-outer-bottom-large showcase-section">
+    <h2>Badges &amp; chips</h2>
+    <div class="ds-row" style="margin-bottom:12px">
+      <span class="badge badge-neutral">Draft</span>
+      <span class="badge badge-success">Approved</span>
+      <span class="badge badge-info">Submitted</span>
+      <span class="badge badge-warning">Pending approval</span>
+      <span class="badge badge-danger">Rejected</span>
+    </div>
+    <div class="ds-row">
+      <span class="chip">Facilities</span>
+      <span class="chip">IT Equipment</span>
+      <span class="chip">Northwind Office Supplies ✕</span>
+    </div>
+  </div>
+
+  <div class="card card-pad spacing-outer-bottom-large showcase-section">
+    <h2>KPI / stat tiles</h2>
+    <div class="grid-4">
+      <div class="kpi"><div class="k-label">Open requests</div><div class="k-value">128</div><div class="k-delta k-up">▲ 6% vs last month</div></div>
+      <div class="kpi"><div class="k-label">Pending approval</div><div class="k-value">19</div><div class="k-delta k-up">▲ 3 since yesterday</div></div>
+      <div class="kpi"><div class="k-label">Approved this month</div><div class="k-value">94</div><div class="k-delta">— stable</div></div>
+      <div class="kpi"><div class="k-label">Avg. approval time</div><div class="k-value">1.6 days</div><div class="k-delta k-down">▼ needs attention</div></div>
+    </div>
+  </div>
+
+  <div class="card card-pad spacing-outer-bottom-large showcase-section">
+    <h2>Data grid</h2>
+    <div class="grid-toolbar">
+      <div class="search-placeholder">Search item or supplier…</div>
+      <div class="spacer"></div>
+      <button class="btn btn-primary btn-sm">+ Add item</button>
+      <button class="btn btn-secondary btn-sm">Export</button>
+    </div>
+    <div class="dg-row dg-head">
+      <div class="dg-cell col-code">Item code</div>
+      <div class="dg-cell col-desc">Description</div>
+      <div class="dg-cell col-supplier">Supplier</div>
+      <div class="dg-cell col-category">Category</div>
+      <div class="dg-cell col-status">Status</div>
+    </div>
+    <div class="dg-row">
+      <div class="dg-cell col-code">CAT-1001</div>
+      <div class="dg-cell col-desc">27" monitor, height-adjustable stand</div>
+      <div class="dg-cell col-supplier">Northwind Office Supplies</div>
+      <div class="dg-cell col-category">IT Equipment</div>
+      <div class="dg-cell col-status">Active</div>
+    </div>
+    <div class="dg-row">
+      <div class="dg-cell col-code">CAT-1004</div>
+      <div class="dg-cell col-desc">12-pack A4 recycled paper</div>
+      <div class="dg-cell col-supplier">Meridian Business Supplies</div>
+      <div class="dg-cell col-category">Office Supplies</div>
+      <div class="dg-cell col-status">Discontinued</div>
+    </div>
+    <div class="dg-footer">6 rows · page 1 of 1</div>
+  </div>
+
+  <div class="card card-pad spacing-outer-bottom-large showcase-section">
+    <h2>Cards &amp; list rows</h2>
+    <h3>Cards</h3>
+    <div class="card" style="padding:16px; margin-bottom:16px; max-width:320px">
+      <h4>Request PR-2044</h4>
+      <div class="card-sub">Awaiting approval · Facilities</div>
+    </div>
+    <h4>Catalogue item cards</h4>
+    <div class="catalogue-grid" style="margin-bottom:16px">
+      <div class="catalogue-card"><div class="thumb"><span class="thumb-icon">🖥</span></div><div class="meta"><div class="name">27" monitor, height-adjustable stand</div></div></div>
+      <div class="catalogue-card"><div class="thumb"><span class="thumb-icon">🪑</span></div><div class="meta"><div class="name">Ergonomic mesh office chair</div></div></div>
+    </div>
+    <h4>List rows</h4>
+    <div class="list-row unread"><div class="icon-chip">✔</div><div>New approval needed for PR-2044</div></div>
+    <div class="list-row"><div class="icon-chip">🚚</div><div>Order shipped for PR-2031</div></div>
+  </div>
+
+  <div class="card card-pad spacing-outer-bottom-large showcase-section">
+    <h2>Process stepper</h2>
+    <div class="stepper">
+      <div class="step done"><div class="node"><div class="circle">✓</div><div class="line"></div></div><div class="s-title">Request submitted</div><div class="s-meta">Mar 3, completed</div></div>
+      <div class="step done"><div class="node"><div class="circle">✓</div><div class="line"></div></div><div class="s-title">Cost centre check</div><div class="s-meta">Mar 4, approved</div></div>
+      <div class="step active"><div class="node"><div class="circle">3</div><div class="line"></div></div><div class="s-title">Manager approval</div><div class="s-meta">In progress</div></div>
+      <div class="step todo"><div class="node"><div class="circle">4</div></div><div class="s-title">Purchase order sent</div><div class="s-meta">Not started</div></div>
+    </div>
+  </div>
+
+  <div class="card card-pad spacing-outer-bottom-large showcase-section">
+    <h2>Dialog &amp; toast</h2>
+    <div class="ds-row" style="align-items:flex-start">
+      <div class="dialog">
+        <div class="d-head"><h3 style="margin:0">Edit catalogue item</h3><span class="btn btn-ghost btn-icon">✕</span></div>
+        <div class="d-body">Dialog body — form fields go here.</div>
+        <div class="d-foot"><button class="btn btn-secondary">Cancel</button><button class="btn btn-cta">Save</button></div>
+      </div>
+      <div>
+        <div class="toast"><div class="t-ico">✓</div><div><div class="t-title">Request submitted</div><div class="t-msg">PR-2044 sent for approval.</div></div></div>
+        <div class="toast err"><div class="t-ico">!</div><div><div class="t-title">Submission failed</div><div class="t-msg">Cost centre budget exceeded.</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card-pad spacing-outer-bottom-large showcase-section">
+    <h2>Breadcrumbs</h2>
+    <h4>Depth 1 — opened from the menu</h4>
+    <div class="crumbs"><a class="btn-link" href="#">Home</a><span class="crumb-sep"> › </span><span>Purchasing</span><span class="crumb-sep"> › </span><span>Purchase Requests</span></div>
+    <h4>Depth 2 — opened via show page from the list</h4>
+    <div class="crumbs"><a class="btn-link" href="#">Home</a><span class="crumb-sep"> › </span><span>Purchasing</span><span class="crumb-sep"> › </span><a class="btn-link" href="#">Purchase Requests</a><span class="crumb-sep"> › </span><span>Request PR-2044</span></div>
+    <h4>Depth 3 — two show-page hops deep</h4>
+    <div class="crumbs"><a class="btn-link" href="#">Home</a><span class="crumb-sep"> › </span><a class="btn-link" href="#">Purchase Requests</a><span class="crumb-sep"> › </span><a class="btn-link" href="#">Request PR-2044</a><span class="crumb-sep"> › </span><span>Line item: 27" monitor</span></div>
+  </div>
+
+  <div class="card card-pad spacing-outer-bottom-large showcase-section">
+    <h2>AI copilot (mockup)</h2>
+    <div class="copilot">
+      <div class="c-head"><div class="k">A</div><div class="t">Purchasing Assistant</div></div>
+      <div class="c-body">
+        <div class="c-intro">I can draft requests and check budgets for you.</div>
+        <div class="autofill">⚡ Draft a request</div>
+        <div class="c-chips"><span class="chip">Show my requests</span><span class="chip">Check budget status</span></div>
+        <div class="bubble ai">Show pending requests over budget for Facilities</div>
+        <div class="bubble me">Found 3 requests over budget. Flag them for the approver?</div>
+        <div class="bubble ai">Yes, flag them</div>
+      </div>
+      <div class="c-foot"><div class="ask"><div>Ask about a request or supplier…</div><div class="send">↑</div></div></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

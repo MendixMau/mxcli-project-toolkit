@@ -1,0 +1,130 @@
+-- ============================================================================
+-- StyleGallery — demo data (NON-PERSISTENT entities + datasource microflows)
+-- ============================================================================
+-- Purpose:  Fictional, in-memory demo data so real data-rendering widgets
+--           (ListView, DataView) can be styled with real widgets instead of
+--           hardcoded divs — see learned-stylegallery.md's "Static vs
+--           Real-Widget Components" table. Non-persistent = never stored,
+--           never touches the DB.
+--
+--           Each datasource microflow below CREATES its objects fresh, in
+--           memory, on every call — it does not retrieve a previously-saved
+--           NPE. That is what makes an NPE-backed ListView safe to use here:
+--           the anti-pattern the skill warns about ("NPE objects are
+--           ephemeral — vanish on reload") is retrieving a stored reference
+--           to one across requests, not recreating the list each render.
+--
+--           A persistent-entity DataGrid2 was deliberately NOT used for the
+--           catalogue grid (15-data-grid.mdl) — see that file's header for
+--           why (BUG-16 in bug-logs/mxcli-bugs.md).
+-- Depends on: 00-module.mdl (module must exist first).
+-- ============================================================================
+
+-- MARK: NON-PERSISTENT ENTITIES
+
+/** One supplier-catalogue row for the data-grid gallery section (fictional). */
+create non-persistent entity StyleGallery.DemoCatalogueRow (
+  Code: string(20),
+  Description: string(150),
+  Supplier: string(100),
+  Category: string(60),
+  Active: boolean default true,
+  StatusText: string(30)
+);
+
+/** One KPI tile for the KPI/stat gallery section (fictional). */
+create non-persistent entity StyleGallery.DemoKpi (
+  Caption: string(100),
+  KpiValue: string(30),
+  Trend: string(60),
+  TrendDir: string(10)
+);
+
+/** One chat turn for the AI-copilot gallery section (fictional). */
+create non-persistent entity StyleGallery.DemoMessage (
+  Body: string(500),
+  FromUser: boolean default false,
+  Sender: string(50)
+);
+
+/** Context object for the form-controls gallery section — needs an attribute
+    to bind each input to, but has no meaningful domain data of its own. */
+create non-persistent entity StyleGallery.DemoFormItem (
+  ItemDescription: string(200) default 'Sample value',
+  SupplierName: string(100) default 'Sample value',
+  CostCentre: string(100) default 'Sample value',
+  Justification: string(500) default 'Sample multi-line note text.',
+  IsUrgent: boolean default false,
+  PreferredSupplierOnly: boolean default false
+);
+
+-- MARK: DATASOURCE MICROFLOWS (in-memory, no commit)
+
+/** Fabricates catalogue rows for the data-grid gallery section. */
+create microflow StyleGallery.DS_DemoCatalogueRows ()
+returns list of StyleGallery.DemoCatalogueRow
+folder 'DataSources'
+begin
+  $Result = create list of StyleGallery.DemoCatalogueRow;
+  $r1 = create StyleGallery.DemoCatalogueRow (Code = 'CAT-1001', Description = '27" monitor, height-adjustable stand', Supplier = 'Northwind Office Supplies', Category = 'IT Equipment', Active = true, StatusText = 'Active');
+  add $r1 to $Result;
+  $r2 = create StyleGallery.DemoCatalogueRow (Code = 'CAT-1002', Description = 'Ergonomic mesh office chair', Supplier = 'Northwind Office Supplies', Category = 'Furniture', Active = true, StatusText = 'Active');
+  add $r2 to $Result;
+  $r3 = create StyleGallery.DemoCatalogueRow (Code = 'CAT-1003', Description = 'Laptop docking station, dual HDMI', Supplier = 'Atlas Hardware Group', Category = 'IT Equipment', Active = true, StatusText = 'Active');
+  add $r3 to $Result;
+  $r4 = create StyleGallery.DemoCatalogueRow (Code = 'CAT-1004', Description = '12-pack A4 recycled paper', Supplier = 'Meridian Business Supplies', Category = 'Office Supplies', Active = false, StatusText = 'Discontinued');
+  add $r4 to $Result;
+  $r5 = create StyleGallery.DemoCatalogueRow (Code = 'CAT-1005', Description = 'Wireless presenter remote', Supplier = 'Atlas Hardware Group', Category = 'IT Equipment', Active = true, StatusText = 'Active');
+  add $r5 to $Result;
+  $r6 = create StyleGallery.DemoCatalogueRow (Code = 'CAT-1006', Description = 'Standing desk converter', Supplier = 'Meridian Business Supplies', Category = 'Furniture', Active = false, StatusText = 'Pending review');
+  add $r6 to $Result;
+  return $Result;
+end;
+
+/** Fabricates KPI tiles for the KPI/stat gallery section. */
+create microflow StyleGallery.DS_DemoKpis ()
+returns list of StyleGallery.DemoKpi
+folder 'DataSources'
+begin
+  $Result = create list of StyleGallery.DemoKpi;
+  $k1 = create StyleGallery.DemoKpi (Caption = 'Open requests', KpiValue = '128', Trend = '▲ 6% vs last month', TrendDir = 'up');
+  add $k1 to $Result;
+  $k2 = create StyleGallery.DemoKpi (Caption = 'Pending approval', KpiValue = '19', Trend = '▲ 3 since yesterday', TrendDir = 'up');
+  add $k2 to $Result;
+  $k3 = create StyleGallery.DemoKpi (Caption = 'Approved this month', KpiValue = '94', Trend = '— stable', TrendDir = 'flat');
+  add $k3 to $Result;
+  $k4 = create StyleGallery.DemoKpi (Caption = 'Avg. approval time', KpiValue = '1.6 days', Trend = '▼ needs attention', TrendDir = 'down');
+  add $k4 to $Result;
+  return $Result;
+end;
+
+/** Fabricates a short chat exchange for the AI-copilot gallery section. */
+create microflow StyleGallery.DS_DemoMessages ()
+returns list of StyleGallery.DemoMessage
+folder 'DataSources'
+begin
+  $Result = create list of StyleGallery.DemoMessage;
+  $m1 = create StyleGallery.DemoMessage (FromUser = true, Sender = 'You', Body = 'Show pending requests over budget for Facilities');
+  add $m1 to $Result;
+  $m2 = create StyleGallery.DemoMessage (FromUser = false, Sender = 'Assistant', Body = 'Found 3 requests over the Facilities budget. Want to flag them for the approver?');
+  add $m2 to $Result;
+  $m3 = create StyleGallery.DemoMessage (FromUser = true, Sender = 'You', Body = 'Yes, and draft a request for 10 monitors from Northwind Office Supplies');
+  add $m3 to $Result;
+  $m4 = create StyleGallery.DemoMessage (FromUser = false, Sender = 'Assistant', Body = 'Draft ready — 10x CAT-1001 at $189 each, cost centre Facilities. Review and submit?');
+  add $m4 to $Result;
+  return $Result;
+end;
+
+/** Fabricates one context object for the form-controls gallery section. */
+create microflow StyleGallery.DS_DemoFormItem ()
+returns StyleGallery.DemoFormItem
+folder 'DataSources'
+begin
+  $o = create StyleGallery.DemoFormItem (ItemDescription = '27" monitor, height-adjustable stand', SupplierName = 'Northwind Office Supplies', CostCentre = '', Justification = 'Replacing a unit reported faulty by IT.', IsUrgent = false, PreferredSupplierOnly = true);
+  return $o;
+end;
+
+grant execute on microflow StyleGallery.DS_DemoCatalogueRows to StyleGallery.Viewer;
+grant execute on microflow StyleGallery.DS_DemoKpis to StyleGallery.Viewer;
+grant execute on microflow StyleGallery.DS_DemoMessages to StyleGallery.Viewer;
+grant execute on microflow StyleGallery.DS_DemoFormItem to StyleGallery.Viewer;

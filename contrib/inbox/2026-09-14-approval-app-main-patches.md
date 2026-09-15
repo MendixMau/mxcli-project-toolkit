@@ -1,7 +1,7 @@
-**From:** vb-usi-main
+**From:** approval-app-main
 **Date:** 2026-09-14
 **Kind:** fix
-**Field evidence:** installed toolkit scripts in vb-usi-main/bin that differ from the shipped copy — a local patch here is a fix that never traveled (how graph-sweep's stat bug got patched twice)
+**Field evidence:** installed toolkit scripts in approval-app-main/bin that differ from the shipped copy — a local patch here is a fix that never traveled (how graph-sweep's stat bug got patched twice)
 **Proposed target:** see per-item notes below
 
 ---
@@ -354,7 +354,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
  # overwriting it — deliberately, since projects harden their crash net. So every project that
  # has already tuned _common.sh would receive this script and have it die on line 1 with
 -# "require_py: command not found". Measured on PROJECT-C before this fallback existed.
-+# "require_py: command not found". Measured on WMS-Demo-main before this fallback existed.
++# "require_py: command not found". Measured on App-main before this fallback existed.
  if [ -f "$(dirname "${BASH_SOURCE[0]}")/_common.sh" ]; then
    . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
  fi
@@ -377,7 +377,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
  
  # The .mpr is discovered, not hardcoded. A per-project default here is how this script
 -# was previously un-promotable: it named PROJECT-C.mpr and silently linted nothing anywhere
-+# was previously un-promotable: it named WMS-Demo.mpr and silently linted nothing anywhere
++# was previously un-promotable: it named App.mpr and silently linted nothing anywhere
  # else (mxcli exits 0 on a missing project, so the gate reported a clean PASS).
  if [ -z "${MPR:-}" ]; then
    MPR="$(ls "$ROOT"/*.mpr 2>/dev/null | head -1)"
@@ -401,7 +401,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
  else
    echo "==> linting $MPR${EXCLUDE:+ (excluding vendor modules)}"
 -  # First run on a cold catalog can take MINUTES (measured: 717s on PROJECT-A, 2s warm) --
-+  # First run on a cold catalog can take MINUTES (measured: 717s on VB-USI, 2s warm) --
++  # First run on a cold catalog can take MINUTES (measured: 717s on the approval app, 2s warm) --
    # the catalog rebuild dominates, not the lint. Do not treat a slow first run as a hang.
    if [ -n "$EXCLUDE" ]; then
 -    ./mxcli lint -p "$MPR" -e "$EXCLUDE" --format json > "$OUT" 2>/dev/null

@@ -1,7 +1,7 @@
-**From:** PlantOps
+**From:** factory-app
 **Date:** 2026-09-14
 **Kind:** bug
-**Field evidence:** bug-log entries in PlantOps not found (by heading) in bug-logs/mxcli-bugs.md — verify each against the toolkit log before filing; heading match is a heuristic
+**Field evidence:** bug-log entries in factory-app not found (by heading) in bug-logs/mxcli-bugs.md — verify each against the toolkit log before filing; heading match is a heuristic
 **Proposed target:** see per-item notes below
 
 ---
@@ -155,7 +155,7 @@ create module ZZB;
 /
 
 create rest client ZZB."MESC01Api" (
-  OpenAPI: '<project-root>/source/USI scope/API-contract/MES_2.0_C01_Artifact10_OpenAPI_Contract-v1.15.yaml',
+  OpenAPI: '<project-root>/source/client scope/API-contract/MES_2.0_C01_Artifact10_OpenAPI_Contract-v1.15.yaml',
   BaseUrl: 'http://localhost:3001/api/mes/core/v1'
 );
 /
@@ -566,12 +566,12 @@ microflows.
 **Recovery procedure that actually worked:** Reverting just the 1-2 suspected corrupted tracked
 `mprcontents/*.mxunit` files via `git checkout` was **not sufficient** — each retry corrupted a
 *different* file, and partial reverts left the project in an inconsistent state relative to new
-untracked units. What worked: full `git checkout -- WMS-Demo.mpr mprcontents/` + `git clean -fd
+untracked units. What worked: full `git checkout -- App.mpr mprcontents/` + `git clean -fd
 mprcontents/` back to the last clean commit, then replay every subsequent statement **one at a
-time**, running `./mxcli docker check -p WMS-Demo.mpr --no-update-widgets` (the real `mx` binary,
+time**, running `./mxcli docker check -p App.mpr --no-update-widgets` (the real `mx` binary,
 not `mxcli check`) after each single statement before proceeding to the next.
 
-**Discovered:** 2026-07-06, PlantOps project, Mendix 11.12.0 Beta, during Equipment build.
+**Discovered:** 2026-07-06, factory-app project, Mendix 11.12.0 Beta, during Equipment build.
 
 **Retested 2026-07-13 on mxcli v0.16.0 — still reproduces, no change.** Ran the exact Variant A
 statement (`change $NewAccount (System.User_UserRoles = $Role);`) inside a disposable scratch
@@ -1503,7 +1503,7 @@ outcome below; none of the three addressing schemes reach the nested `actionbutt
 
 Three contexts were tested for both quoted (`"Module"."Target"(Param: value)`) and unquoted
 (`Module.Target(Param: value)`) forms, since the original report's comment
-(`mdlsource/05-inventory-pages.mdl:8-9` in IVM-MxCLI-main) generalizes to "action/datasource/
+(`mdlsource/05-inventory-pages.mdl:8-9` in inventory-app-main) generalizes to "action/datasource/
 snippet bindings":
 
 **1. `show_page` action target (page-to-page navigation with a parameter):**
@@ -1603,7 +1603,7 @@ initially miscounted as "fixed" on Wengao purely because the repro failed to par
 were corrected and re-run.
 
 
-## [candidate — from bug-logs/uncentralized-findings-2026-07-31.md] KT-POC (1146version + main, deduplicated) — 12
+## [candidate — from bug-logs/uncentralized-findings-2026-07-31.md] poc-app (1146version + main, deduplicated) — 12
 
 1. Cross-module `grant execute` → CE0148, distinct trigger from existing central BUG-04.
 2. `reset layout` — invalid MDL that passes `mxcli check` but fails at exec.
@@ -1629,7 +1629,7 @@ were corrected and re-run.
 13. XPath filters cannot use an association-traversal expression as the comparand — must
     retrieve the target first, then filter.
 
-(13 listed — #8 above is the one confirmed duplicate between the two KT-POC agent reports;
+(13 listed — #8 above is the one confirmed duplicate between the two poc-app agent reports;
 counted once in the total of 12.)
 
 Sources: `MIGRATION-PROGRESS.md`, project-local `bug-logs/mxcli-bugs.md` (BUG-LOCAL-04,

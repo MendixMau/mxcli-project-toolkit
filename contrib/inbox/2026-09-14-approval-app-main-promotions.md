@@ -1,7 +1,7 @@
-**From:** vb-usi-main
+**From:** approval-app-main
 **Date:** 2026-09-14
 **Kind:** learning
-**Field evidence:** promotion/defect sections found in vb-usi-main's decision registers — each row was already reviewed in-project; triage into the named target files
+**Field evidence:** promotion/defect sections found in approval-app-main's decision registers — each row was already reviewed in-project; triage into the named target files
 **Proposed target:** see per-item notes below
 
 ---

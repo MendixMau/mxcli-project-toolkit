@@ -65,6 +65,7 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 | `skills/bootstrap-project.md` | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
 | `skills/existing-app-change.md` | Changing an EXISTING Mendix app — adding a feature, altering a flow, restructuring a module — when it has no BRDs, no architecture doc and no wireframes: the knowledge base comes from the live model (Path D), stages 2–4 run over the changed slice plus its blast radius only, and the Track B regression baseline is the precondition; audit-only stays in existing-app-assurance |
+| `skills/app-analysis.md` | Building or refreshing the standing dossier of an EXISTING app before changing it: inventory, module dependency shape, loop risk patterns, each section with a verdict and a fault where nothing was measured; the map existing-app-change and existing-app-assurance read first |
 | `skills/assess-migration.md` | Assessing or planning a migration up front, before any pipeline is chosen |
 | `skills/migration-pipeline.md` | Running the extraction pipeline |
 | `skills/migrate-general.md` | Migrating from a stack that has no dedicated pipeline |

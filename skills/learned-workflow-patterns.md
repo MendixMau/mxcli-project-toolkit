@@ -1265,9 +1265,10 @@ A microflow that will be dragged onto a workflow as a `Call a microflow` activit
 
 ```
 CREATE MICROFLOW Module.ACT_ApprovalRun_FailProjection (...)
+  EXPOSED AS WORKFLOW ACTION 'Fail projection' IN 'Approval'
 BEGIN
   ...
-END EXPOSED AS WORKFLOW ACTION 'Fail projection' IN 'Approval';
+END;
 ```
 
 and Studio Pro then lists it in the workflow editor's Toolbox under that category, with that

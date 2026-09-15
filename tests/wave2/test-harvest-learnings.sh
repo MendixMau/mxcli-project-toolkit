@@ -63,7 +63,7 @@ else
   # The toolkit's own oldest shipped snapshot-mpr.sh, pulled from real git history — golden input,
   # not hand-written. Any project whose bin/snapshot-mpr.sh is byte-identical to this has simply
   # never synced since scaffold day; this is the exact "never-synced" signature the field run
-  # found for tfc-tcxgraphpoc, PlantOps and vb-usi-main.
+  # found for tfc-tcxgraphpoc, factory-app and approval-app-main.
   OLD_SHA="$(git -C "$CLONE" log --format=%H -- project-bin/snapshot-mpr.sh | tail -1)"
   if [ -z "$OLD_SHA" ]; then
     bad "control: clone has no history for project-bin/snapshot-mpr.sh — fixture cannot run"

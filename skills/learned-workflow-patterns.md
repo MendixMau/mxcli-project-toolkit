@@ -497,7 +497,7 @@ mxcli **v0.18.0**, where `DECISION` writes correctly.
 | `v0.17.0` | **corrupts the `.mpr`** — confirmed, BUG-76 (binary `2026-08-10T05:12:17Z`) |
 | `v0.18.0`+ | writes correctly; verify what was stored anyway |
 | `v0.20.0` / `v0.21.0` | **resolved 2026-09-08 — a spelling pincer, not a shape.** The two 2026-08-31 probes disagreed because one used bare outcomes and one used qualified ones: bare `'Yes'` passes `mxcli check` and produces the byte-exact `StorageLoadException`; qualified `Module.Enum.Value` is rejected by `MDL-WF03` but loads natively via `exec --no-check` with one `CE0117` (the empty condition). Re-probed on v0.21.0: unchanged. Workaround: qualified spelling + `--no-check`, then pick the expression in Studio Pro (BUG-76, mendixlabs/mxcli#1031) |
-| `v0.22.0`+ | **the pincer is expected to be closed, and the advice below INVERTS — pending probe.** Upstream `b9bbd6cc` makes `MDL-WF03` *require* the qualified `Module.Enum.Value` form, so the bare label that produced the unloadable `.mpr` is now a check **error** and `exec` refuses it. If that holds, **qualified spelling with a normal `mxcli check` is the shipping form and `--no-check` becomes wrong advice**. Not probed here — see `bug-logs/mxlabs-v0.22.0-upstream-delta-2026-09-15.md` §4 probe 3, which uses the bare form as its own known-bad control |
+| `v0.22.0`+ | **CONFIRMED 2026-09-15 — the advice below INVERTS.** `MDL-WF03` requires the qualified `Module.Enumeration.Value` form: probed with a bare-outcome control (refused, both bad outcomes named) against a qualified pair with its required empty `''` outcome (passes, execs, round-trips through `describe`). **Qualified spelling with a plain `mxcli check` is now the shipping form; `--no-check` is no longer needed and should not be used.** See `bug-logs/mxlabs-v0.22.0-retest-2026-09-15.md` |
 
 Two half-right versions of this warning coexisted for four days from 2026-08-21. One said
 "absolute prohibition, confirmed on v0.17.0" and never learned about the v0.18.0 fix — follow
@@ -1225,16 +1225,16 @@ stands — see §11), no sub-workflow. Their §11 verdicts are unchanged by this
 
 ## 23. Operating the terminator repair — the part that bites is the *second* time
 
-> **Version gate, 2026-09-15 — this whole section may be obsolete on your binary.** mxcli
-> **v0.22.0** (2026-09-14) writes `EndOfParallelSplitPathActivity` on every path itself, from the
-> builder and from both `INSERT PATH` mutators. If that holds, the repair below and rule 1's
-> "re-run after every later script" retire, and the standing regression risk with them. **It is
-> not yet proven here** — no probe has been run on v0.22.0 (`bug-logs/mxlabs-v0.22.0-upstream-delta-2026-09-15.md`
-> §4, probes 1 and 2). Until a probe on *the binary your project runs* says otherwise, keep the
-> pass in the build plan: running it on an already-terminated model is idempotent and costs
-> nothing, and skipping it on a v0.21.0 binary costs the whole fan-out. Upstream also states the
-> migration step: **a workflow written by an affected version must be re-run through
-> `create or modify` to pick up the markers, and running instances are not changed.**
+> **Version gate, CONFIRMED 2026-09-15.** mxcli **v0.22.0** writes
+> `Workflows$EndOfParallelSplitPathActivity` on every path itself — probed with a 2-leg split, no
+> patcher run: the marker is present in the raw `.mxunit` and native `mx check` reports 0 errors
+> (`bug-logs/mxlabs-v0.22.0-retest-2026-09-15.md`). **On v0.22.0+, the repair below and rule 1's
+> "re-run after every later script" retire — do not run the patcher on a workflow written by
+> v0.22.0+.** What is NOT yet confirmed is the runtime half: BUG-121's own history is that a
+> clean build was not sufficient before, so keep this section as the **procedure for any
+> pre-v0.22.0 binary**, and as the reference for the one-time migration step upstream states —
+> **a workflow already written by an affected version must be re-run through `create or modify`
+> to pick up the markers; running instances are not changed by that.**
 
 **§18's correction block is the finding**: mxcli writes no
 `Workflows$EndOfParallelSplitPathActivity`, MDL has no keyword for one, every gate is blind in
@@ -1313,9 +1313,14 @@ scripted rewrite silently undo it.
 flow, which accepts only flow elements, so the written `.mpr` cannot be **loaded at all**. Keep
 notes as MDL comments (`-- …`), or add them in Studio Pro after the last scripted rewrite.
 
-**Nothing in this section is probed.** It is a reading of upstream's tree. The re-probe with a
-known-bad control is §4 of the delta document, and the coverage table in
-`workflow-structure-rules.md` §11 does not change until that runs.
+**UPDATE 2026-09-15: probed, with known-bad controls, on v0.22.0 (tag) and `main` HEAD
+(`7b42100d`).** Every claim above is CONFIRMED except the `create or modify` rewrite guard
+itself (needs a live Studio Pro to set up the hand-added state it protects — read at source,
+not independently probed) and BUG-121's runtime half (build/native-check confirmed, live-run
+oracle still open). Full results: `bug-logs/mxlabs-v0.22.0-retest-2026-09-15.md`. **One
+correction from the probe: `end workflow` and the signature checks are on `main` HEAD only —
+NOT on the `nightly` tag**, which is itself a day stale and does not contain them
+(`git merge-base --is-ancestor 598dddc0 nightly` is false). Say the commit, not the tag name.
 
 ---
 

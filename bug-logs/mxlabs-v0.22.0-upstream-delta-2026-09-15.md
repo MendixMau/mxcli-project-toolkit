@@ -10,9 +10,13 @@ was run, no live instance was started. There is **no known-bad control** in anyt
 is the one thing this toolkit requires before a coverage row changes
 (`skills/workflow-structure-rules.md` §11). So:
 
-> **Nothing here flips a STOP rule, archives a bug, or turns a `hand-add` row green.** Every
-> verdict is `EXPECTED CLEARED — PENDING PROBE`. The probe plan is §4; run it before editing a
-> coverage row, and put the result in a normal `mxlabs-v0.22.0-retest-*.md`.
+> **UPDATE 2026-09-15, same day: §4's probe plan has now been RUN**, with known-bad controls,
+> against v0.22.0 (tag) and `main` HEAD (`7b42100d`). Six of the seven rows below moved from
+> `EXPECTED CLEARED — PENDING PROBE` to `CONFIRMED`; BUG-121 confirmed at build/native-check
+> level with the live-run oracle still open. See
+> [`mxlabs-v0.22.0-retest-2026-09-15.md`](mxlabs-v0.22.0-retest-2026-09-15.md) for the full
+> results and `mxcli-bugs.md`'s BUG-76/BUG-121 banners for the archival status. The table below
+> is left as originally written — the predictions — for anyone comparing prediction to result.
 
 The value of a desk delta is that it tells the probe **what to aim at** and stops a project
 carrying a workaround upstream has already removed. It is not evidence.
@@ -23,6 +27,11 @@ carrying a workaround upstream has already removed. It is not evidence.
 
 `v0.22.0` was tagged (`e771f490`, 2026-09-14) and then **more workflow work merged to `main`
 after the tag**. Two of the three things this toolkit most wanted are on the wrong side of it.
+**Correction, confirmed by probe 2026-09-15: the `nightly` tag (`9905dd7c`, 2026-09-14) is
+ALSO on the wrong side** — it is a day stale relative to `main` and does not contain `end
+workflow` either (`git merge-base --is-ancestor 598dddc0 nightly` is false; confirmed by a
+parse failure on a binary built from that tag). Say `main` HEAD by commit, not "nightly" by
+tag name.
 
 | Ships in the `v0.22.0` **release binary** | On `main` / `nightly` **only** |
 |---|---|

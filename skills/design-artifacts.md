@@ -191,6 +191,29 @@ Before moving to Step 4, walk each wireframe and list every interactive or struc
 
 Record the call — cut or spec'd — next to the element; a wireframe with unresolved chrome does not pass to the build loop. This is a cheap gate here versus a silent "why doesn't this button do anything" discovery mid-build.
 
+### Step 3c: Click-through check (the mechanical half of 3b)
+
+Record each call in the markup (`data-bind="<row>"` or `data-cut="<reason>"`, Step 3 convention 3),
+re-assemble, and run:
+
+```
+node bin/check-prototype-links.js            # reads design/prototype.html
+```
+
+It parses the prototype statically (no browser needed) and prints one `route<TAB>kind<TAB>detail`
+line per finding:
+
+| Kind | Meaning | Fails? |
+|---|---|---|
+| `dead-link` | an `href="#/x"` whose route no screen has | yes |
+| `orphan` | a screen no other screen links to (the default route is exempt) | yes |
+| `unbound` | a button, link or submit with no `data-bind` matching a `table.bind` row and no `data-cut` | yes |
+| `unbound-warning` | the same, on a screen with no `table.bind` at all (older wireframes) | no, warns |
+
+Exit 0 clean, 1 findings, 2 nothing inspected. The judgement stays with Step 3b: the script finds
+the control with nothing behind it, a person decides whether to cut it or spec it. A wireframe set
+with failures here does not pass to the build loop.
+
 ---
 
 ## Step 4: Tooling — Own HTML Leads

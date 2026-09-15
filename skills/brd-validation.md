@@ -176,7 +176,7 @@ and the BRD names routes (`brd-generation.md`, `useCases[].routes`). Two directi
 The mechanical half is a script:
 
 ```
-node bin/check-prototype-links.js design/prototype.html --brd knowledge-base/brd/
+node project-bin/check-prototype-links.js design/prototype.html --brd knowledge-base/brd/
 ```
 
 It runs the click-through checks of `design-artifacts.md` Step 3c and adds `brd-unknown-route`

@@ -294,7 +294,7 @@ For a use case with `"routes": ["#/order-list", "#/order-detail", "#/order-edit"
    prototype rather than guessing it:
 
    ```
-   node bin/prototype-route.js 'design/prototype.html#/order-list' | grep -o '<a[^>]*href="#/order-detail"[^>]*>[^<]*'
+   node project-bin/prototype-route.js 'design/prototype.html#/order-list' | grep -o '<a[^>]*href="#/order-detail"[^>]*>[^<]*'
    ```
 
    Click the control with that label (or the widget its `data-bind` row names) in the live app.

@@ -170,7 +170,7 @@ A screen that no BRD use case walks by design (login, a settings shell, an error
 Then assemble:
 
 ```
-node bin/assemble-prototype.js            # reads design/wireframes/*.html + design/ds.css
+node project-bin/assemble-prototype.js            # reads design/wireframes/*.html + design/ds.css
                                           # writes design/prototype.html
 ```
 
@@ -201,7 +201,7 @@ Record each call in the markup (`data-bind="<row>"` or `data-cut="<reason>"`, St
 re-assemble, and run:
 
 ```
-node bin/check-prototype-links.js            # reads design/prototype.html
+node project-bin/check-prototype-links.js            # reads design/prototype.html
 ```
 
 It parses the prototype statically (no browser needed) and prints one `route<TAB>kind<TAB>detail`
@@ -299,7 +299,7 @@ design/
   design-system.html           ← annotated showcase (links ds.css; not the token source)
   wireframes/
     <Screen>.html              ← one per surface, with binding-annotation table, data-route, #/route links (the SOURCE)
-  prototype.html               ← assembled by bin/assemble-prototype.js from wireframes/ + ds.css; clickable, never hand-edited
+  prototype.html               ← assembled by project-bin/assemble-prototype.js from wireframes/ + ds.css; clickable, never hand-edited
   screenshots/                 ← source screenshots copied in (tier-1 ground truth)
 
 themesource/<gallery>/web/

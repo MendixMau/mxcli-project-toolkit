@@ -148,8 +148,18 @@ not less. Never draw it before that answer is `CONFIRMED` — same rule as every
 architecture/design artifact (`conversion-runbook.md` §"Stages are sequential").
 
 **Before drawing, read `workflow-structure-rules.md` §1–§7 and §9 — read it, not cite it.** The
-diagram is where a workflow's shape is decided, and four of the constructs that decide it are
+diagram is where a workflow's shape is decided, and five of the constructs that decide it are
 invisible in a plain state diagram, so they get drawn out of existence and are never missed again:
+
+- **Pools and lanes, when the source is a BPMN or swimlane diagram** — settle this *before* you
+  draw anything, because it decides how many diagrams there are (§13). **One pool is one
+  workflow**: a three-pool source is three lifecycles with `CALL WORKFLOW` / `NOTIFY WORKFLOW`
+  between them, and collapsing them into one is a different application that no later gate
+  catches. **A lane is a targeting statement, not a region** — carry the lane's name into the
+  targeting bullet below as the requirement sentence it came from, then pick the mechanism by §6.
+  A lane labelled with a role name is not evidence for a role XPath; lanes routinely name a
+  population whose members are data on the record. Step 3d's cross-persona journeys are a
+  *documentation* artifact and do not discharge this.
 
 - **Boundary events** — draw them, and label each *interrupting* or *non-interrupting* (§2). The
   type dictates the terminator, so a diagram that omits the word forces the build to guess.
@@ -292,6 +302,14 @@ The build-vs-buy-vs-workaround decision, one row per source capability. **This i
 | e.g. charts/dashboard | Charts (marketplace, Mendix-supported) | **Buy** — decide if needed | maybe |
 | e.g. signed-quantity convention | Explicit enum + sign-deriving microflow | **Build (changed behavior)** | resolved decision |
 | e.g. feature never built in source | new page over existing logic | **Build (new)** | design from BRD |
+
+**If any source process arrives as a BPMN / swimlane / Visio process diagram, every element in it is screened here — one row each.** Read `workflow-structure-rules.md` §13 (which carries the [Mendix BPMN coverage](https://docs.mendix.com/refguide/bpmn-coverage/) mapping) and work two hops, never one: BPMN element → Mendix construct → §11 MDL writability. The three verdicts that matter are different problems and must not be blurred into one row:
+
+- **Native, scriptable** — a normal row, nothing special.
+- **Native, hand-add** (event sub-process, interrupting boundary timer, text annotation) — a build-plan checklist row, not a gap. §11 owns the list.
+- **NOT SUPPORTED by Mendix** (event-based gateway, complex gateway, embedded/transaction/ad-hoc subprocess, terminate end event, multiple events, group artifact) — a **redesign**, and the row must name the redesign chosen. If the redesign changes what the business process *does* — and for an event-based gateway it does, because the usual substitute lets both branches run — it is a `PROJECT.md` decision to confirm with a human, never an architecture call (`interview-protocol.md`).
+
+Cost the **inclusive gateway (OR)** explicitly rather than letting it pass as one row: Mendix models it as a parallel split with a decision on every path, which is the two most defect-prone constructs at once (BUG-76 and BUG-121). And count the **pools** before anything else — one pool is one workflow, so a three-pool source is three workflows plus the messages between them. §13 has the rule; `workflow-structure-rules.md` §12 row 11 is the denominator that proves it was run.
 
 Verdict vocabulary: **Native** (ships with Mendix/Atlas) · **Config** (native, needs setup) · **Buy** (marketplace) · **Build** (we script it) · **Workaround** (mxcli limitation → Studio Pro or manual) · **Gap** (unresolved — goes to Step 5's register rows in `PROJECT.md`).
 

@@ -1084,7 +1084,9 @@ not, however, read the guard's absence as safety on an older binary.
 1. **Event Sub-Process.** Inexpressible in MDL, and still silently absent from
    `DESCRIBE WORKFLOW` output — the deparse looks complete. Guarded on write (above), so the
    failure mode is now a refusal rather than data loss. Studio Pro only.
-2. **End activities.** Re-probed on v0.20.0: `end workflow activity;`, `end activity;`,
+2. **End activities.** (§23 is the same grammar gap seen from the other side — the
+   end-of-parallel-split-path node — and it has a post-exec repair.) Re-probed on v0.20.0:
+   `end workflow activity;`, `end activity;`,
    `end;`, `terminate;`, `stop;` and `end workflow instance;` **all fail to parse**, and
    `mxcli syntax workflow --json` still lists no branch-ending activity. §6's empty-block
    semantics therefore still bite — an empty outcome block *rejoins the enclosing flow*, so a
@@ -1217,6 +1219,43 @@ wrapper passes `mxcli check` and the native build refuses it.
 
 No boundary events, no `WAIT FOR TIMER`, no event sub-process, no parallel split (BUG-121
 stands — see §11), no sub-workflow. Their §11 verdicts are unchanged by this run.
+
+---
+
+## 23. Operating the terminator repair — the part that bites is the *second* time
+
+**§18's correction block is the finding**: mxcli writes no
+`Workflows$EndOfParallelSplitPathActivity`, MDL has no keyword for one, every gate is blind in
+both directions, and a live run is the only oracle. Read it first — none of that is repeated
+here. This section is only how to run the repair and keep it applied.
+
+```
+bin/wf-add-path-terminators.py <workflow>.mxunit          # dry run: paths found / to add
+bin/wf-add-path-terminators.py <workflow>.mxunit --apply  # patches, leaves a .bak
+```
+
+It walks the unit, appends the terminator to every unterminated `ParallelSplitOutcome` flow, and
+recurses, so a nested split's inner paths get theirs. Already-terminated paths are left alone, so
+the run is safe to repeat. Find the unit by decoding `Name` on the `.mxunit` files under
+`mprcontents/`.
+
+**Three rules, each of which cost real stations before it was written down:**
+
+1. **Re-run it after every later script that rewrites the workflow.** This is the one nobody
+   anticipates: an MDL rewrite drops the terminators again and the model goes straight back to
+   silently skipping every path. Re-running is idempotent and costs nothing; skipping it costs
+   the whole fan-out. Put the invocation in the MDL script's own header, where the next person
+   to run that script will see it.
+2. **Verify with a live run, never a build** (§18 for why). Consecutive *End of parallel split
+   path* rows with no task between them is the unfixed signature.
+3. **Never patch a model Studio Pro has open, or while the app runs.** Same rule as every other
+   `.mxunit` write — `project-bin/snapshot-mpr.sh` first.
+
+**What it means for a build plan.** A scripted split is usable, so plan it as a normal MDL row —
+and plan the terminator pass as a **named, repeated step attached to that workflow**, not as a
+one-off fix recorded in the build log. A plan row that says "run the workflow script" without
+"then re-run the terminator pass" regresses the next time anyone touches that workflow, silently
+and exactly as before.
 
 ---
 

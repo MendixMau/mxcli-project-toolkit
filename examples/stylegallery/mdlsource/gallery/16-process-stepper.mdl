@@ -1,0 +1,48 @@
+-- ============================================================================
+-- StyleGallery — Process stepper (static containers; purely decorative)
+-- ============================================================================
+-- Purpose:  Horizontal process stepper (design-system .stepper / .step
+--           done|active|todo) showing a purchase request moving through its
+--           approval stages. Static: a stepper's state is a fixed snapshot
+--           read from process data, not an interactive widget in itself —
+--           see learned-stylegallery.md's "Static container" case.
+-- Depends on: 00-module.mdl.
+-- ============================================================================
+
+/** Horizontal process stepper (design-system .stepper), purchase request flow. */
+create snippet StyleGallery.SNIPPET_Stepper
+{
+  container stp (class: 'stepper') {
+    container st1 (class: 'step done') {
+      container st1n (class: 'node') {
+        container st1c (class: 'circle') { dynamictext st1ct (content: '✓') }
+        container st1ln (class: 'line') { }
+      }
+      container st1t (class: 's-title') { dynamictext st1tt (content: 'Request submitted') }
+      container st1m (class: 's-meta')  { dynamictext st1mt (content: 'Mar 3, completed') }
+    }
+    container st2 (class: 'step done') {
+      container st2n (class: 'node') {
+        container st2c (class: 'circle') { dynamictext st2ct (content: '✓') }
+        container st2ln (class: 'line') { }
+      }
+      container st2t (class: 's-title') { dynamictext st2tt (content: 'Cost centre check') }
+      container st2m (class: 's-meta')  { dynamictext st2mt (content: 'Mar 4, approved') }
+    }
+    container st3 (class: 'step active') {
+      container st3n (class: 'node') {
+        container st3c (class: 'circle') { dynamictext st3ct (content: '3') }
+        container st3ln (class: 'line') { }
+      }
+      container st3t (class: 's-title') { dynamictext st3tt (content: 'Manager approval') }
+      container st3m (class: 's-meta')  { dynamictext st3mt (content: 'In progress') }
+    }
+    container st4 (class: 'step todo') {
+      container st4n (class: 'node') {
+        container st4c (class: 'circle') { dynamictext st4ct (content: '4') }
+      }
+      container st4t (class: 's-title') { dynamictext st4tt (content: 'Purchase order sent') }
+      container st4m (class: 's-meta')  { dynamictext st4mt (content: 'Not started') }
+    }
+  }
+}

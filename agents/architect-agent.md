@@ -76,7 +76,7 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 
 ## If any process in this app has a workflow — run the count, do not merely cite it
 
-**A citation is not a read.** `workflow-structure-rules.md` §12 is a ten-row count with a
+**A citation is not a read.** `workflow-structure-rules.md` §12 is an eleven-row count with a
 denominator on every line, and it is the only place in the pipeline where a workflow's *design* is
 checked against the requirement it came from. It fires only if someone runs it, so the rows are
 here rather than behind a link. Write the numbers into
@@ -98,6 +98,14 @@ Run it at Stage 3 against the **drawn** diagram, and again at Stage 5 against th
 | 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` | N of N expressions |
 | 9 | Event sub-processes with one start event, correct family, recurrence in bounds | N of N sub-processes |
 | 10 | Constructs checked against §11 and marked *proven* or *hand-add in Studio Pro* | N of N constructs; every hand-add is its own numbered build-plan row |
+| 11 | **If the source is a BPMN/swimlane diagram:** pools counted, lanes carried into row 5, every element screened against §13 | N pools = N workflows; N of N elements screened; every NOT-SUPPORTED one has a `fit-gap.md` row. *"Source is not a process diagram"* is legal |
+
+**Row 11 decides how many workflows exist, so do it first.** One pool is one workflow — a
+three-pool source built as one workflow is a different application. A lane is a targeting
+statement, not a picture: carry its name into row 5 as the requirement sentence. Elements Mendix
+cannot express at all (event-based and complex gateways, embedded/transaction/ad-hoc subprocesses,
+terminate end, multiple events) are `fit-gap.md` redesigns at Stage 3, never approximations at
+build time — §13 has the table and the two that cost most.
 
 **Row 5 is the one that bites, so read §6 before you fill it.** If the assignee is *data on the
 record* ("the reviewer named on the request"), a role XPath is not a near miss — it delivers the

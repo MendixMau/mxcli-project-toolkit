@@ -1,0 +1,37 @@
+-- ============================================================================
+-- StyleGallery — Form controls (real widgets in a DataView on an NPE context)
+-- ============================================================================
+-- Purpose:  Real Mendix inputs bound to the non-persistent DemoFormItem
+--           (DS_DemoFormItem, 05-demo-data.mdl), carrying ds.css .field /
+--           .input classes, including an .invalid example. Real widgets, not
+--           hardcoded divs — form controls need an object context to render
+--           and mean nothing without one.
+-- Depends on: 00-module.mdl, 05-demo-data.mdl (DS_DemoFormItem).
+-- ============================================================================
+
+/** Form controls (design-system .field / .input) on a non-persistent demo object. */
+create snippet StyleGallery.SNIPPET_FormControls
+{
+  layoutgrid fcLayout { row fcRow { column fcCol (desktopwidth: 12) {
+    dataview fcView (datasource: microflow StyleGallery.DS_DemoFormItem) {
+      container fcGrid (class: 'grid-2') {
+        container fcF1 (class: 'field') {
+          textbox fcItem (label: 'Item description', attribute: ItemDescription, class: 'input')
+        }
+        container fcF2 (class: 'field') {
+          textbox fcSupplier (label: 'Preferred supplier', attribute: SupplierName, class: 'input')
+        }
+        container fcF3 (class: 'field') {
+          textbox fcCostCentre (label: 'Cost centre (invalid example)', attribute: CostCentre, class: 'input invalid')
+        }
+        container fcF4 (class: 'field') {
+          textarea fcJust (label: 'Justification', attribute: Justification, class: 'input')
+        }
+      }
+      container fcChecks (class: 'ds-row') {
+        container fcC1 (class: 'checkline') { checkbox fcUrgent (label: 'Mark as urgent', attribute: IsUrgent) }
+        container fcC2 (class: 'checkline') { checkbox fcPreferred (label: 'Preferred supplier only', attribute: PreferredSupplierOnly) }
+      }
+    }
+  }}}
+}

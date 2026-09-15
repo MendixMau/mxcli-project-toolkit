@@ -11,6 +11,7 @@ project's names.
 | `journeys/no-seed.journey.json` | a REST/mock-fed screen: empty `seeds[]` with the `_seedNote` pattern | `skills/journey-examples.md` |
 | `brd/F101-purchase-requests.brd.json` | a trimmed BRD so the requirement pointers resolve | `skills/journey-examples.md` |
 | `validate-journeys.js` | static contract checks, no app required | `skills/journey-examples.md` |
+| `stylegallery/` | a full copy-in StyleGallery module + matching `ds.css`/`design-system.html` | `skills/learned-stylegallery.md` |
 
 ```bash
 node examples/validate-journeys.js --selftest

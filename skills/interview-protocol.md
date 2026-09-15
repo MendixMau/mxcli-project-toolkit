@@ -58,6 +58,17 @@ permission. Every position taken under `auto` records four things:
 this — and it is machine-readable, so the report can lead with *"assumed while you were away,
 overturn any of these"* instead of burying them among questions that were genuinely answered.
 
+### Exec approval is a separate knob
+
+`bin/exec-approval.sh <project-dir>` resolves `ask` or `auto` — whether the agent asks before
+every `./mxcli exec`, `./bin/exec.sh`, `mxcli test`, `mxcli docker check`, or `--mcp` write. It
+is not the interview-mode switch: unset, it *derives* from interview mode (`auto` → `auto`,
+anything else → `ask`), but the user can override it independently — `--set ask`/`--set auto`,
+`<project>/.claude/.exec-approval`, or an `Exec approval:` line in `PROJECT.md`. The user flips
+it, in either direction, by saying so. **Do not set it yourself to get past a block** — the same
+rule as the mode above. Under `auto`, nothing asks; the BUILD-LOG row `exec.sh` already writes
+is the safety net, moved from asking to recording, marked `approval: auto (<source>)`.
+
 ---
 
 ## Who can answer this? — gap, conflict, choice, user-only

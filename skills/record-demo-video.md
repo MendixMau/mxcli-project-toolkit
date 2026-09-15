@@ -21,7 +21,7 @@ For assertion-style browser testing use `e2e-harness-base.md` instead. A demo
 video **is not a test**: it must never fail a build, and its job is to be
 legible to a person who has never seen the app.
 
-## The nine rules
+## The twelve rules
 
 ### 1. Open on the app, never on a blank frame
 
@@ -282,6 +282,107 @@ recording.
 
 ---
 
+### 10. Mark what is being chosen, not just where the cursor is
+
+Rule 5 puts a visible pointer on the screen. That is not enough on the two
+interactions a viewer most needs to follow: **picking an option out of a
+dropdown, and picking one radio button out of a group.** The pointer lands on
+the *control* — the combo box, the radio group — fires, and the value has
+changed by the time anyone reads it. The viewer sees the answer, never the
+choosing.
+
+Move the marker onto the element actually being chosen, hold it there long
+enough to read, click, then release:
+
+```js
+// dropdown: mark the OPTION, not the combo box
+await pointAt(page, option);
+await option.hover().catch(() => {});
+await pause(page, 650);          // long enough to read the option text
+await option.click();
+await pause(page, 450);          // let the closed combo show the new value
+await unpoint(page);
+
+// radio group: mark the individual label, fall back to the input
+const radio  = group.locator('input[type=radio]').nth(index);
+const marker = group.locator('label, .radio, .form-check').nth(index);
+await pointAt(page, (await marker.count()) ? marker : radio);
+await pause(page, 600);
+await radio.click({ force: true });   // the label often covers the input
+await pause(page, 450);
+await unpoint(page);
+```
+
+The marker itself is one absolutely-positioned `#demo-spot` div whose box is
+set from `boundingBox()` and whose `.on` class fades it in — the same element
+for every widget, so nothing needs per-page styling.
+
+Two details that are easy to get wrong: mark **before** the click and hold
+after it, because a marker that appears and disappears inside one animation
+frame is not in the film at all; and click the `input` while marking the
+`label`, because in most CSS frameworks the label sits on top and swallows the
+click.
+
+The wart this retires: a viewer watching the request form saw eight fields
+fill themselves in with no visible act of choosing, and read the whole beat as
+a canned playback rather than someone using the app.
+
+### 11. Take the external dependencies down or up **on purpose**, before rolling
+
+A demo runs the real app, so every outbound dependency the app has — a mail
+relay, a REST endpoint, a licence server — is in the film whether you thought
+about it or not. When one is not there, the runtime does not fail quietly: it
+paints its own modal over the page, and it does it at the worst moment, right
+after the user commits something.
+
+Measured, 2026-09-12: the relay constant pointed at `127.0.0.1:1025` with
+nothing listening, so an **Error / Connection refused / OK** dialog sat over
+the screen at 2:08 of a delivered film, immediately after the registration
+hand-off — the one beat in the tour that is supposed to feel like success.
+Nobody had configured a failure; nobody had configured anything.
+
+So, before the take: **list every dependency the path touches, and decide for
+each one whether it is up or down in this film.** Then make it so, and prove
+it.
+
+```bash
+python3 -m aiosmtpd -n -l 127.0.0.1:1025 &   # a catcher, so the send succeeds
+python3 -c "import smtplib;print(smtplib.SMTP('127.0.0.1',1025).noop())"   # (250, b'OK')
+```
+
+Down on purpose is a legitimate choice — rule 8 says record the warts — but
+then caption it. An unplanned dependency failure is neither, and it is
+invisible to the run log: the recorder exits 0 either way.
+
+Afterwards, check the frames around every commit-shaped beat, not only the
+head of the film:
+
+```bash
+ffmpeg -v error -ss 125 -to 165 -i out.mp4 -vf "fps=1/4,scale=720:-1" f_%02d.png
+```
+
+### 12. Fit the running time afterwards; never race the app to hit it
+
+A length target ("under eight minutes") is a cutting-room problem, not a
+recording problem. Cutting the hold times to hit it destroys exactly what
+rule 5 buys, and the app's own response times do not shrink anyway, so the
+pacing knob moves the total far less than it looks like it should — a pace
+multiplier of 0.45 on a script with a 1.7s floor per beat moved a nine-minute
+film by well under a minute.
+
+Record at human pace, then re-time the finished file uniformly:
+
+```bash
+F=$(python3 -c "print(round($IN_SECONDS/$TARGET_SECONDS,3))")
+ffmpeg -i in.mp4 -vf "setpts=PTS/$F" -an out.mp4
+```
+
+Cap the factor and refuse rather than ship past it — **1.6× is the readability
+ceiling**; above it captions outrun the reader and cursor moves turn into
+jumps. 1.10–1.20× is invisible to a viewer and is usually all a tour needs.
+If the film is still too long at the cap, cut a whole act (a tour of a screen
+the story does not need) and re-record — never shave the holds.
+
 ## Structure of a good tour
 
 Aim for **90–150 seconds** per role, 25–35 narrated beats. Longer and it stops
@@ -351,4 +452,7 @@ be sorted.
 | Bottom tab bar invisible all video | Caption strip pinned over the app's bottom chrome | Rule 3 — lift the app chrome by the strip's measured height |
 | Video reads as static | No scrolling, no state changes, captions never visibly change | Rules 4, 6, 7 |
 | A step is missing from the recording | `isVisible()` used instead of `waitFor`, or leftover state from the last run | Instrumentation + Rule 9 |
+| A dropdown or radio beat reads as "it filled itself in" | The marker sits on the control, not on the option being chosen | Rule 10 — mark the option/label, hold, click, release |
+| An "Error / Connection refused" dialog over the app mid-film | An outbound dependency (mail relay, REST endpoint) was simply not there; the recorder still exits 0 | Rule 11 — decide up or down per dependency before rolling, and check frames around every commit beat |
+| Captions unreadable / cursor teleports after a speed-up | Re-timed past the 1.6× readability ceiling to hit a length target | Rule 12 — cap the factor, cut an act instead |
 | An embedded YouTube video's frame is black | Sandbox egress opened only the page-shell domain, not the CDN host that serves media (`*.googlevideo.com`), and/or the headless browser has no H.264 decoder | Not an app defect — caption it (Rule 8); confirm which domains are actually open before assuming egress alone will fix it |

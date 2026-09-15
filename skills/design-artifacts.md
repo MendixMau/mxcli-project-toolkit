@@ -163,6 +163,10 @@ Three conventions make a screen assemble:
    navigation target is the spec. Step 3b below is where the calls get made; this is where they
    get written down so a script can read them.
 
+A screen that no BRD use case walks by design (login, a settings shell, an error page) carries
+`data-chrome="<reason>"` on its `<body>`. The assembler keeps it on the section, and
+`brd-validation.md` check 8 exempts it from route coverage.
+
 Then assemble:
 
 ```
@@ -210,7 +214,9 @@ line per finding:
 | `unbound` | a button, link or submit with no `data-bind` matching a `table.bind` row and no `data-cut` | yes |
 | `unbound-warning` | the same, on a screen with no `table.bind` at all (older wireframes) | no, warns |
 
-Exit 0 clean, 1 findings, 2 nothing inspected. The judgement stays with Step 3b: the script finds
+Exit 0 clean, 1 findings, 2 nothing inspected. With `--brd <file-or-dir>` it also cross-checks the
+routes the BRD's use cases walk against the screens (`brd-unknown-route`, `uncovered`); that half
+belongs to `brd-validation.md` check 8. The judgement stays with Step 3b: the script finds
 the control with nothing behind it, a person decides whether to cut it or spec it. A wireframe set
 with failures here does not pass to the build loop.
 

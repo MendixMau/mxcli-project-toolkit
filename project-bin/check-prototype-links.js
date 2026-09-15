@@ -25,10 +25,25 @@
 //              the data-bind convention have no rows to name, and failing every one of them
 //              would get this check switched off on exactly the projects that predate it.
 //
+// With --brd (brd-validation.md check 8), two more failures (exit 1), both between the prototype
+// and the BRD that is supposed to describe it:
+//   brd-unknown-route  a #/route the BRD names that no screen has. A stakeholder signed off a
+//              use case that walks a screen the prototype does not draw, so nobody clicked it.
+//   uncovered  a screen no use case walks, and not marked data-chrome="<reason>" (a login page,
+//              a settings shell). A screen with no use case behind it is scope nobody asked for,
+//              the same defect as an unbound button, one level up.
+// A BRD is read as JSON when it parses: routes named anywhere inside a useCases[] entry cover a
+// screen, routes named elsewhere (pages[].route) are checked for existence only, because a page
+// listing says what gets built, not that anyone walks it. Anything else (markdown, the HTML
+// report) is scanned as text and every #/route in it counts as covering. A BRD set that names no
+// route at all exits 2: it predates the convention, and failing every screen as uncovered would
+// report the convention missing, not the BRD wrong.
+//
 // Output: one line per finding, `route<TAB>kind<TAB>detail`, then a summary line.
 //
 // Usage:
-//   check-prototype-links.js [design/prototype.html]
+//   check-prototype-links.js [design/prototype.html] [--brd <file-or-dir>]...
+//   (a directory means every *.brd.json directly in it; --brd may repeat)
 // Exit 0 clean, 1 failures, 2 usage/input error (missing file, no screens: NOT a pass).
 'use strict';
 const fs = require('fs');
@@ -39,9 +54,11 @@ const fail2 = msg => { console.error('check-prototype-links: ' + msg); process.e
 
 const args = process.argv.slice(2);
 let file = 'design/prototype.html';
+const brdArgs = [];
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
-  if (a === '-h' || a === '--help') { console.log('usage: check-prototype-links.js [prototype.html]'); process.exit(0); }
+  if (a === '-h' || a === '--help') { console.log('usage: check-prototype-links.js [prototype.html] [--brd <file-or-dir>]...'); process.exit(0); }
+  else if (a === '--brd') { if (i + 1 >= args.length) fail2('--brd needs a file or directory'); brdArgs.push(args[++i]); }
   else if (a.startsWith('-')) fail2('unknown option ' + a);
   else file = a;
 }
@@ -115,9 +132,51 @@ for (const s of secs) {
 
 for (const [r, n] of inbound) if (n === 0 && r !== def) add(r, 'orphan', 'no other screen links to #/' + r);
 
+// --- BRD route coverage ---------------------------------------------------------------------
+// A route token ends where the route alphabet does; a trailing . or / is sentence punctuation
+// ("walks #/order-list."), not part of the route.
+const routeTokens = s => [...String(s).matchAll(/#\/([A-Za-z0-9][A-Za-z0-9._\/-]*)/g)].map(m => m[1].replace(/[./]+$/, ''));
+let brdRoutes = 0;
+if (brdArgs.length) {
+  const files = [];
+  for (const b of brdArgs) {
+    if (!fs.existsSync(b)) fail2('no BRD at ' + b);
+    if (fs.statSync(b).isDirectory()) {
+      const found = fs.readdirSync(b).filter(f => f.endsWith('.brd.json')).sort().map(f => path.join(b, f));
+      if (!found.length) fail2(b + ' has no *.brd.json');
+      files.push(...found);
+    } else files.push(b);
+  }
+  const named = new Map();   // route -> first place that names it
+  const covered = new Set();
+  const name = (r, where) => { if (!named.has(r)) named.set(r, where); };
+  for (const f of files) {
+    const base = path.basename(f);
+    const raw = fs.readFileSync(f, 'utf8');
+    let json = null;
+    try { json = JSON.parse(raw); } catch (e) { json = null; }
+    if (json && Array.isArray(json.useCases)) {
+      json.useCases.forEach((uc, i) => {
+        const where = (uc && uc.id ? uc.id : 'useCases[' + i + ']') + ' (' + base + ')';
+        for (const r of routeTokens(JSON.stringify(uc))) { name(r, where); covered.add(r); }
+      });
+      for (const r of routeTokens(JSON.stringify(Object.assign({}, json, { useCases: [] })))) name(r, base);
+    } else {
+      for (const r of routeTokens(raw)) { name(r, base); covered.add(r); }
+    }
+  }
+  if (!named.size) fail2(files.join(', ') + ' name(s) no #/route - nothing to cross-check, NOT a pass (brd-generation.md: useCases[].routes)');
+  brdRoutes = named.size;
+  for (const [r, where] of named) if (!routes.has(r)) add(r, 'brd-unknown-route', 'named by ' + where + '; no screen has it');
+  for (const s of secs) {
+    if (covered.has(s.route) || (s.chrome && s.chrome.trim())) continue;
+    add(s.route, 'uncovered', 'no BRD use case walks #/' + s.route + '; name it in a use case, or mark the screen data-chrome="<reason>"');
+  }
+}
+
 for (const f of findings) console.log(f.join('\t'));
 const failures = findings.filter(f => !/-warning$/.test(f[1])).length;
 const warnings = findings.length - failures;
 console.log('check-prototype-links: ' + secs.length + ' screen(s), ' + links + ' route link(s), ' + controls +
-  ' control(s); ' + failures + ' failure(s), ' + warnings + ' warning(s).');
+  ' control(s)' + (brdArgs.length ? ', ' + brdRoutes + ' BRD route(s)' : '') + '; ' + failures + ' failure(s), ' + warnings + ' warning(s).');
 process.exit(failures ? 1 : 0);

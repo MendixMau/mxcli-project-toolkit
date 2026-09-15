@@ -1,8 +1,9 @@
 #!/bin/bash
 # test-prototype-links.sh: pin what check-prototype-links.js fails on, and what it only warns on.
 #
-# The check is the mechanical half of design-artifacts.md Step 3b. Each failure kind gets its own
-# fixture that differs from a clean prototype in exactly one place, so a pass here means that one
+# The check is the mechanical half of design-artifacts.md Step 3b (and, with --brd, of
+# brd-validation.md check 8). Each failure kind gets its own fixture that differs from a clean
+# prototype (or a clean BRD) in exactly one place, so a pass here means that one
 # defect was seen, not that something else happened to trip the exit code. The lenient case
 # (a screen with no table.bind warns instead of failing) is pinned too, because breaking it would
 # fail every wireframe drawn before the data-bind convention existed.
@@ -124,6 +125,60 @@ d="$TMP/none"; mkdir -p "$d/design"
 check "missing prototype exits 2"                 "$(code "$d")" "2"
 printf '<html><body><p>not assembled</p></body></html>\n' > "$d/design/prototype.html"
 check "a page with no screens exits 2"            "$(code "$d")" "2"
+
+brd() { ( cd "$1" && shift && node "$SUT" "$@" 2>&1 ); }
+brdcode() { ( cd "$1" && shift && node "$SUT" "$@" >/dev/null 2>&1; printf '%s' "$?" ); }
+
+# A BRD whose use cases walk every screen of the clean prototype. The route sits in `routes` for
+# UC1 and only in mainFlow prose for UC2, because both are how people write it.
+brdfile() {
+  cat > "$1" <<'EOF'
+{ "id": "F001",
+  "useCases": [
+    { "id": "UC1", "title": "Open an order", "routes": ["#/home", "#/order-list", "#/order-detail"] },
+    { "id": "UC2", "title": "Start an order", "mainFlow": ["1. User opens #/order-list."] }
+  ],
+  "pages": [ { "name": "Order_Overview", "route": "#/order-list" } ] }
+EOF
+}
+
+echo "  -- --brd: every screen walked by a use case passes"
+d="$TMP/clean"; mkdir -p "$d/brd"; brdfile "$d/brd/F001.brd.json"
+out="$(brd "$d" --brd brd/F001.brd.json)"
+check "exit 0"                                    "$(brdcode "$d" --brd brd/F001.brd.json)" "0"
+has   "summary counts BRD routes"                 "$out" "3 BRD route(s)"
+check "a directory reads its *.brd.json"          "$(brdcode "$d" --brd brd)" "0"
+
+echo "  -- --brd: a route the BRD names that no screen has"
+d="$TMP/brdunknown"; clean "$d"; assemble "$d"; mkdir -p "$d/brd"; brdfile "$d/brd/F001.brd.json"
+sed -i.bak 's|"#/order-detail"\]|"#/order-detail", "#/order-edit"]|' "$d/brd/F001.brd.json"
+out="$(brd "$d" --brd brd/F001.brd.json)"
+check "exit 1"                                    "$(brdcode "$d" --brd brd/F001.brd.json)" "1"
+has   "names the route and the use case"          "$out" "order-edit${TAB}brd-unknown-route${TAB}named by UC1 (F001.brd.json)"
+
+echo "  -- --brd: a screen no use case walks"
+sed -i.bak 's|, "#/order-detail", "#/order-edit"\]|]|' "$d/brd/F001.brd.json"
+out="$(brd "$d" --brd brd/F001.brd.json)"
+check "exit 1"                                    "$(brdcode "$d" --brd brd/F001.brd.json)" "1"
+has   "names the uncovered screen"                "$out" "order-detail${TAB}uncovered"
+hasnt "a walked screen is not reported"           "$out" "order-list${TAB}uncovered"
+
+echo "  -- --brd: data-chrome exempts a screen, and a page listing alone does not cover"
+sed -i.bak 's|<html><body>|<html><body data-chrome="shared footer target">|' "$d/design/wireframes/OrderDetail.html"
+assemble "$d"
+check "chrome screen is exempt: exit 0"           "$(brdcode "$d" --brd brd/F001.brd.json)" "0"
+sed -i.bak 's|"mainFlow": \["1. User opens #/order-list."\]|"mainFlow": []|; s|"#/home", "#/order-list"\]|"#/home"]|' "$d/brd/F001.brd.json"
+out="$(brd "$d" --brd brd/F001.brd.json)"
+has   "order-list only in pages[] is uncovered"   "$out" "order-list${TAB}uncovered"
+
+echo "  -- --brd: markdown is scanned as text"
+printf '# F001\n\nUC1 walks `#/home -> #/order-list -> #/order-detail`.\n' > "$d/brd/F001.md"
+check "exit 0"                                    "$(brdcode "$d" --brd brd/F001.md)" "0"
+
+echo "  -- --brd: a BRD that names no route is not a pass"
+printf '{"id":"F002","useCases":[{"id":"UC1","mainFlow":["1. User opens the list"]}]}\n' > "$d/brd/F002.brd.json"
+check "exit 2"                                    "$(brdcode "$d" --brd brd/F002.brd.json)" "2"
+check "a missing BRD exits 2"                     "$(brdcode "$d" --brd brd/nope.json)" "2"
 
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

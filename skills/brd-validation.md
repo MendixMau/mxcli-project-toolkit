@@ -158,6 +158,36 @@ confirm the search scope is real. Record each accepted negative claim in the BRD
 `openQuestions` with status `ANSWERED`, the search scope as the answer, and the date; that is
 what the re-check reads.
 
+### 8. Flows that do not walk the prototype
+
+Only when a clickable prototype exists (`design/prototype.html`, `design-artifacts.md` Step 3)
+and the BRD names routes (`brd-generation.md`, `useCases[].routes`). Two directions, both errors:
+
+- **A route the BRD names that no screen has.** The use case was approved against a screen the
+  prototype does not draw, usually because a wireframe was renamed or merged after the BRD was
+  written. Fix whichever side is stale; if the screen was never drawn, that is a missing
+  wireframe, and `ui-preflight-pages.md` Step 1 stops on it later anyway.
+- **A screen no use case walks.** Either a use case is missing its `routes` (fix the BRD), or the
+  screen is scope nobody asked for, which is Step 3b of `design-artifacts.md` one level up: cut
+  the screen, or write the use case. Screens that belong to no flow by design (login, a settings
+  shell, an error page) are marked `data-chrome="<reason>"` on the wireframe's `<body>`; the
+  reason is the record that the call was made.
+
+The mechanical half is a script:
+
+```
+node bin/check-prototype-links.js design/prototype.html --brd knowledge-base/brd/
+```
+
+It runs the click-through checks of `design-artifacts.md` Step 3c and adds `brd-unknown-route`
+and `uncovered` lines for the two directions above. Routes named inside a `useCases[]` entry
+cover a screen; a `pages[].route` alone is checked for existence but covers nothing, because a
+page listing says what gets built, not that a user walks it. A BRD set that names no route at all
+exits 2 rather than failing every screen: that BRD predates the convention, and the finding is
+"add routes", not forty `uncovered` lines.
+
+Record the result under this check's section in `validation-report.md` like any other finding.
+
 ---
 
 ## Procedure

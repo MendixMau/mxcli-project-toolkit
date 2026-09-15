@@ -166,7 +166,7 @@ Not every BRD leaf is a buildable requirement. The ledger categories are closed 
 
 | Category | Example | Why not a row |
 |----------|---------|---------------|
-| `provenance` | `/provenance/*`, `/sourceKB/*` | Metadata about where the BRD came from, not a app requirement. |
+| `provenance` | `/provenance/*`, `/sourceKB/*`, `/useCases/*/routes/*`, `/pages/*/route` | Metadata about where the BRD came from, not a app requirement. A route records which prototype screen a flow was reviewed on; the page and navigation rows that build it claim the requirement. |
 | `interpretation` | `/criticalFinding/*` (e.g., MBR-05 = "union of three coverage paths") | A reading of the corpus. It *shapes* rows; it is not one itself. Entry must name which rows it shaped. |
 | `metric` | `/pages[0]/specFieldUniverse/total` (count: 85) | Measures the source universe. Not a target to build. |
 | `deferred(slice-N)` | `/pages/2/*` (entire Order_Transaction page) | Real scope, scheduled for a later slice. Must name the slice. |

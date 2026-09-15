@@ -135,6 +135,55 @@ order"). `mxcli syntax workflow.multi-user-task` topic confirmed present.
 called out ("a green CLI check is not evidence for workflows") no longer applies to these two
 specific shapes on `main`.
 
+### Hand-add group — all five PROBED for the first time, not inferred from the grammar
+
+An earlier pass of this document rated these rows from a **read of
+`mdl/grammar/domains/MDLWorkflow.g4`**, and the coverage board briefly labelled two of them as
+control-verified. That was overclaiming: reading a grammar file is not running a probe. Re-done
+properly, one statement per construct, with a passing control in the same batch:
+
+| Construct | Statement probed | Result |
+|---|---|---|
+| Boundary event on a **notification** | `BOUNDARY EVENT NOTIFICATION 'note' { }` | `mismatched input 'NOTIFICATION' expecting {TIMER, INTERRUPTING, NON}` |
+| **Control** | `BOUNDARY EVENT NON INTERRUPTING TIMER '<expr>' { }` on the same task | **parses, `Check passed!`** |
+| **Event sub-process** | `EVENT SUBPROCESS es1 ON WORKFLOW ABORTED { … }` | `mismatched input 'EVENT' expecting END` |
+| User-task **On created**, spelling A | `ON CREATED CALL MICROFLOW Probe.SUB_LegA` | `mismatched input 'ON' expecting ';'` |
+| User-task **On created**, spelling B | `ONCREATEDEVENT Probe.SUB_LegA` | `mismatched input 'ONCREATEDEVENT' expecting ';'` |
+| **Multi-user completion rule** | `COMPLETION RULE CONSENSUS` | `mismatched input 'COMPLETION' expecting ';'` |
+| **AI agent task** | `AI AGENT TASK a1 'Assess' OUTCOMES 'Done' { };` | `mismatched input 'AI' expecting END` |
+
+**Verdict: all five confirmed hand-add, now on evidence rather than inference.** The control
+passing in the same batch is what makes the six refusals mean something.
+
+**The AI agent task is the one that actually changed.** It had read **"unprobed — not broken"**
+since July, and "unprobed" on a coverage board is read as *might work*: it kept the construct out
+of every hand-add checklist without ever claiming it worked. It is now a known hand-add, and the
+briefing's "Not expressible (2)" count was carrying it on the wrong grounds.
+
+**A trap found while writing the control.** The first attempt at the passing control *also*
+failed, with `mismatched input 'OUTCOMES' expecting ';'` — because the clause order is fixed:
+`OUTCOMES` comes **before** `BOUNDARY EVENT` on a user task. Written the other way round, a
+perfectly supported boundary event reads as unsupported. Worth knowing before anyone concludes a
+construct is missing from a single parse error.
+
+### `EXPOSED AS WORKFLOW ACTION` — proven, and it survives a rewrite
+
+Not in the briefing's board at all, and the string appeared nowhere in this toolkit's `skills/`
+or `bin/` before today — so every workflow built here has left its own actions out of the
+workflow editor's toolbox.
+
+| Question | Result |
+|---|---|
+| Writes and builds? | `check` clean → `exec` → native `mx check` **0 errors** |
+| On a microflow the workflow also `CALL`s? | Same, 0 errors |
+| `DESCRIBE MICROFLOW` round-trip? | Yes — `exposed as workflow action 'Notify requester' in 'Approval'` |
+| **Dropped by a later `create or modify` that omits the clause?** | **No — preserved.** describe → rewrite without it → describe again, still stored |
+| Mechanically enumerable? | Yes — `mxcli callers <MF>` reports the **workflow** as a caller at depth 1 |
+
+**Verdict: PROVEN.** Written up as a convention with a denominator in
+`learned-workflow-patterns.md` §25. The preserved-on-rewrite result is what makes it safe to
+adopt — most things a rewrite touches in this document get silently reset.
+
 ### NOT run — needs a live Studio Pro / MCP, out of scope for a container probe
 
 The `create or modify` rewrite guard (refuses to reset a hand-added *On created* handler, event

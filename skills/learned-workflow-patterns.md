@@ -1325,6 +1325,77 @@ NOT on the `nightly` tag**, which is itself a day stale and does not contain the
 
 ---
 
+## 25. Exposing a workflow's called microflows as workflow actions
+
+**The clause nobody in this toolkit was using.** Before 2026-09-15 the string
+`EXPOSED AS WORKFLOW ACTION` appeared nowhere in `skills/` or `bin/` — so every workflow this
+toolkit has built left its own actions out of the workflow editor's toolbox. That matters more
+here than it would elsewhere, because `workflow-structure-rules.md` §11 still lists five
+constructs that **must** be hand-added in Studio Pro (event sub-process, boundary event on a
+notification, multi-user completion rule, user-task *On created*, AI agent task). Somebody is
+going to open that canvas. What they find in the toolbox is what they can wire without knowing
+your microflow names.
+
+### The two clauses are different toolboxes
+
+```
+EXPOSED AS MICROFLOW ACTION 'Caption' IN 'Category'   -- the MICROFLOW editor's toolbox
+EXPOSED AS WORKFLOW ACTION  'Caption' IN 'Category'   -- the WORKFLOW editor's toolbox
+NOT EXPOSED AS MICROFLOW|WORKFLOW ACTION              -- removes an entry
+```
+
+Exposure is a **toolbox** feature, not a wiring feature: a `CALL MICROFLOW` activity inside a
+workflow works whether or not the microflow is exposed. Exposing it changes what a *human*
+can find later.
+
+### What was measured (2026-09-15, `v0.22.0-15-g7b42100d`, Mendix 11.13.0)
+
+| Question | Answer |
+|---|---|
+| Does it write and build? | Yes — `check` clean, `exec` writes, native `mx check` **0 errors** |
+| On a microflow the workflow also `CALL`s? | Yes, same batch, 0 errors |
+| Does `DESCRIBE MICROFLOW` emit it? | Yes — `exposed as workflow action 'Notify requester' in 'Approval'` |
+| **Does a later `create or modify` that omits the clause drop it?** | **No — the stored exposure is preserved.** Measured directly: describe → rewrite without the clause → describe again, still there |
+| Can the rule be checked mechanically? | Yes — `mxcli callers <Module.MF>` reports the **workflow** as a caller (depth 1), so the set of microflows a workflow calls is enumerable |
+
+That fourth row is the one that makes this safe to adopt as a convention. Most things in this
+document that a rewrite touches get silently reset; this one does not.
+
+### The rule
+
+> **Every microflow a workflow calls carries `EXPOSED AS WORKFLOW ACTION '<caption>' IN
+> '<one category per project>'` — except single-use plumbing, which this toolkit already names
+> with the `SUB_` prefix (`module-folder-convention.md`).**
+
+**Completion criterion, with a denominator.** For each workflow: `mxcli callers` each called
+microflow to get N, then N-of-N non-`SUB_` microflows carry the clause. Write the count down;
+"exposed the actions" with no number is the unfalsifiable-checklist failure.
+
+**Why `SUB_` is exempt and not just "use judgement".** A toolbox is a discovery surface and its
+cost is clutter — the VB-USI approval workflow calls **25** microflows, most of them one-station
+bookkeeping. Twenty-five single-purpose entries in the workflow toolbox makes the three genuinely
+reusable ones harder to find, which is the opposite of the point. `SUB_` already means "reusable
+sub-logic invoked by name, not an entry point" in this toolkit, and `ACT_` already reads as an
+entry point to `mxcli lint` (QUAL004 exempts it from the orphan rule). Reuse the convention you
+have rather than inventing a second axis.
+
+**One category name per project.** `IN '<category>'` is the toolbox group. Pick the project's
+name or its dominant process (`'Approval'`, `'MOC'`) and use the same string everywhere —
+categories are free-text, so two spellings make two groups and the grouping is the whole value.
+
+**Caption is for the human, not the model.** `'Notify requester'`, not `'ACT_NotifyRequester'`.
+The person dragging it in does not need to know it is a microflow — that is what the clause is
+for.
+
+### Where it goes in the build order
+
+Set it at `CREATE MICROFLOW` time, in the same statement — it is one clause, and adding it later
+means restating the whole microflow (there is no `ALTER MICROFLOW` for a body;
+`learned-mdl-preflight.md` rule 21). §10's build order is unchanged: task pages, then the
+microflows the workflow calls (now carrying their clause), then the workflow.
+
+---
+
 ## Notes on scope
 
 **Structure rules for every construct below — path termination, boundary-event type vs

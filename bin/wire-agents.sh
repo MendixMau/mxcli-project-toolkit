@@ -43,6 +43,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+. "$SCRIPT_DIR/lib/wiring-item3.sh"
 
 DEFAULT_TOOLS="claude copilot cursor continue windsurf aider"
 OPTIN_TOOLS="opencode vibe"
@@ -99,9 +100,7 @@ emit_stamp() {
    say in chat that you did — never from \`PROJECT.md\`.
 2. **\`CLAUDE.md\` is the canonical project instruction file** regardless of which agent you
    are. Every other instruction file in this repo, including this one, is a pointer to it.
-3. **Never run \`./mxcli exec\`, \`./bin/exec.sh\`, \`mxcli test\`, \`mxcli docker check\`, or any
-   \`--mcp\` write against the real \`.mpr\` without asking the user first — every time.** All of
-   those mutate the model; the last two mutate it despite sounding read-only.
+$(wiring_item3_md "$TOOLKIT_ROOT")
 4. **$MXCLI_HINT
 5. **No new \`.md\`/\`.html\` in the project root.** Use docs/ architecture/ analysis/ design/.
    \`bin/check-root-clean.sh\` fails the build on strays.

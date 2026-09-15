@@ -1,7 +1,7 @@
-**From:** vb-usi-main
+**From:** approval-app-main
 **Date:** 2026-09-14
 **Kind:** bug
-**Field evidence:** bug-log entries in vb-usi-main not found (by heading) in bug-logs/mxcli-bugs.md — verify each against the toolkit log before filing; heading match is a heuristic
+**Field evidence:** bug-log entries in approval-app-main not found (by heading) in bug-logs/mxcli-bugs.md — verify each against the toolkit log before filing; heading match is a heuristic
 **Proposed target:** see per-item notes below
 
 ---
@@ -307,7 +307,7 @@ Studio Pro **was** installed at the exact matching version. So the second half o
 the one to follow — except:
 
 ```
-$ ./mxcli run --local -p VB-USI.mpr --mxbuild-path "/Applications/Mendix Studio Pro 11.13.0 Beta.app/Contents/modeler/mxbuild"
+$ ./mxcli run --local -p App.mpr --mxbuild-path "/Applications/Mendix Studio Pro 11.13.0 Beta.app/Contents/modeler/mxbuild"
 unknown flag: --mxbuild-path
 ```
 
@@ -335,7 +335,7 @@ Then boot with a **JDK 21** `JAVA_HOME` — Mendix 11.13 requires 21, and this m
 25, which the runtime rejects:
 
 ```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 21) ./mxcli run --local -p VB-USI.mpr --db-name vb_usi
+JAVA_HOME=$(/usr/libexec/java_home -v 21) ./mxcli run --local -p App.mpr --db-name approval_app
 ```
 
 Cold boot ~70s (24s of that is the web-client bundle), then `http://127.0.0.1:8080/`.
@@ -396,7 +396,7 @@ except a version number in a parenthetical nobody reads.
 
 ## [candidate — from bug-logs/toolkit-bugs.md] source-ledger.sh name-verification produces FALSE FAULTS on non-ASCII filenames
 
-**Found** 2026-09-02, VB-USI-main, toolkit branch `claude/vb-usi-intake-gates-ngy1w3` @ `1f654f7`.
+**Found** 2026-09-02, approval-app-main, toolkit branch `claude/approval-app-intake-gates-ngy1w3` @ `1f654f7`.
 **Severity: material on this corpus** — every DafNe/CCS source filename with an umlaut is affected,
 and the whole corpus is German.
 

@@ -301,36 +301,49 @@ easy to miss when writing the runbook for cutover:
 
 ## 11. MDL coverage — proven versus unprobed
 
+> **Current as of 2026-09-15**, rewritten against mxcli **v0.22.0** (tag `e771f490`) and **`main` HEAD**
+> (`7b42100d`) — `bug-logs/mxlabs-v0.22.0-retest-2026-09-15.md` carries the probe log. **Say the exact
+> binary, never a release or branch name:** `end workflow` and the two signature checks merged *after* the
+> v0.22.0 tag and are on `main` only — the `nightly` tag is itself a day stale and has neither, so a binary
+> built from it fails to parse `end workflow`. Since the 14 September briefing: **BUG-76 and BUG-121 are
+> closed** (decision spelling; split terminators, live-run verified), **forward `JUMP TO`** was never broken
+> after v0.21.0, a workflow-body **`annotation` is refused** rather than hand-added, and the five hand-add
+> rows were probed rather than inferred — including the **AI agent task**, unprobed since July.
+
 **Do not trust the date on this table — check the binary.** Every row was established against a
 specific mxcli build, and "proven" means proven *on or after* the version named in the row. Run
 `mxcli --version` and `mxcli syntax workflow` before relying on a row; absence from `syntax` /
 `HELP` is not evidence of non-support (`learned-workflow-patterns.md` §7), but a version below a
 row's stated floor is evidence against it.
 
-| Construct | MDL status — probed on **mxcli v0.20.0 / Mendix 11.14.0, 2026-09-03**; the rows Phase-7-shaped builds depend on were re-probed on **v0.21.0, 2026-09-09** and are marked |
+| Construct | MDL status. **Rewritten 2026-09-15 against mxcli v0.22.0 (tag `e771f490`) and `main` HEAD (`7b42100d`)** — see `bug-logs/mxlabs-v0.22.0-retest-2026-09-15.md`. Rows marked **CTRL** were probed that day with a known-bad control in the same batch; **UPSTREAM** means upstream's own mxbuild measurement, not re-run here. Older rows carry the binary they were proven on |
 |---|---|
 | user task, outcomes, targeting XPath (**both** the three-segment path form and the `[%UserRole_X%]` token form), targeting microflow, call workflow, notify workflow | **proven**. Re-probed on **v0.21.0 / Mendix 11.14.0, 2026-09-09** — but see the two SIGNATURE rows immediately below, which are not about whether the construct writes and are how a clean `mxcli check` still yields a project that will not build |
-| **a user task's `PAGE`** | **the page must take a `System.WorkflowUserTask` parameter — in addition to `$WorkflowContext` (`learned-workflow-patterns.md` §4 rule 1, CE7412 when either is missing) — never the context entity alone.** A page parameterised on the context entity only passes `mxcli check --references` completely clean, execs, and reads back from `DESCRIBE`; the native build then says *"The selected page 'X' should accept a parameter of type 'WorkflowUserTask', but expects parameters of types 'MOCProject' instead"*. Measured v0.21.0, 2026-09-09, on three tasks at once. The consequence for a plan: **the task pages are a prerequisite of the workflow row, not a later UI row** — build them first, or the workflow row cannot go green |
-| **a targeting microflow's signature** | **it must accept TWO parameters — `System.Workflow` AND the context entity — in that order.** One parameter is the natural thing to write and it is wrong: *"should accept parameters of type 'System.Workflow' and 'MOC.MOCProject'. Instead the selected microflow expects 'MOC.MOCProject'"*. Again clean through `mxcli check`, caught only by the native build. Neither this signature nor the page's appears in `mxcli syntax workflow.user-task.targeting`, whose own example is `TARGETING MICROFLOW HR.GetApprovers` with no signature stated. Measured v0.21.0, 2026-09-09 |
+| **a user task's `PAGE`** | **proven, and since `main` HEAD the wrong shape is refused BEFORE it is written — CTRL 2026-09-15.** The page must take `System.WorkflowUserTask`; a page parameterised on the context entity only used to pass `mxcli check --references` clean and fail the native build with CE7412. On `main` it is refused at `check --references`, naming CE7412 and the fix. Upstream's measured shapes: no parameters → CE7410; context entity only (multi-user task too) → CE7412; **`WorkflowUserTask` plus an extra parameter → 0 errors** — extra parameters are legal. Build order consequence stands: **task pages are a prerequisite of the workflow row**, not a later UI row |
+| **a targeting microflow's signature** | **exactly TWO parameters — `System.Workflow` and the context entity — and CORRECTION 2026-09-15: the ORDER IS FREE.** This row previously said "in that order"; upstream's mxbuild measurement shows `(System.Workflow, Ctx)` and `(Ctx, System.Workflow)` both at 0 errors, and a **generalization** of the context entity is also accepted (a *specialization* is CE6677). One parameter, none, or a third is CE6677. On `main` HEAD this is refused at `check --references` before anything is written — CTRL 2026-09-15, with a correct pair as the passing control. `mxcli syntax workflow.user-task.targeting` now documents the signature |
+| **a called microflow `EXPOSED AS WORKFLOW ACTION`** | **proven 2026-09-15 on `v0.22.0-15-g7b42100d`.** `EXPOSED AS WORKFLOW ACTION '<caption>' IN '<category>'` puts the microflow in the **workflow editor's** toolbox — a different clause from `EXPOSED AS MICROFLOW ACTION`, which fills the *microflow* editor's. Probed end to end: writes, native `mx check` 0 errors on a microflow the workflow also `CALL`s, and `DESCRIBE MICROFLOW` emits the clause back. **It survives a rewrite that omits it** — a later `create or modify` without the clause preserved the stored exposure (measured), so this is not the drop-on-rewrite hazard that bites elsewhere. See `learned-workflow-patterns.md` §25 for when to set it |
 | **multi-user task** — the activity itself | **proven**. Undocumented in `mxcli syntax workflow`; works anyway |
 | **`JUMP TO <activity>`** inside a user-task outcome | **proven** |
 | **`WAIT FOR TIMER '<expression>'`** and **`WAIT FOR NOTIFICATION;`** | **proven**. Both undocumented; the notification takes **no name** — that is a Studio Pro property |
 | **boundary event timer, non-interrupting** | **proven**, with an **expression**, not an ISO period |
-| ~~decision on a **boolean or free-text** outcome~~ | **RETRACTED 2026-09-03 — see the CORRUPTING row below.** This row read "proven on mxcli ≥ v0.18.0" and it was wrong: BUG-76's v0.20.0 retest corrupts on a condition of literal `1 = 1`. The condition never mattered; the defect is in how the *outcome label* is written. Left visible with a strikethrough rather than deleted, because "a boolean decision is the safe kind" is the belief this table has to actively kill |
+| decision on a **boolean** outcome | **proven on v0.22.0+.** `OUTCOMES TRUE -> { } FALSE -> { }`; a boolean decision needs **no** empty outcome (that requirement is enumeration-only — `MDL-WF06`). This row was retracted on 2026-09-03 while BUG-76 was open and every DECISION was suspect; BUG-76 is fixed in v0.22.0, so decisions are writable again — see the enumeration row |
 | call microflow, with or without parameters | **proven** — with two limits. (1) The `WITH` clause's **value must be quoted**: `WITH ("Ctx" = '$WorkflowContext')`. Unquoted (`= $WorkflowContext`) segfaults the binary, BUG-107. (2) **`$WorkflowUserTask` is NOT in scope here** — only `$WorkflowContext` and `$WorkflowInstance` are. Passing it is a **CE0117** that `mxcli check --references` passes completely clean; only mxbuild catches it. A microflow that needs the task looks it up by name off `$WorkflowInstance` through `System.WorkflowEndedUserTask`. Proven by sandbox A/B on a full project copy, 2026-09-04 — this corrects an earlier reading of §8 that treated *call microflow* as having the task |
 | — | — |
-| **decision on an enumeration** | **CORRUPTING — BUG-76**, of which this probe is a re-confirmation on 11.14 (first logged as BUG-108 before the older entry was found). BUG-76 is the general case: *every* `DECISION` with outcomes corrupts, whatever its condition reads. The enum case is the worse one — it has no writable spelling at all, since mxcli rejects both fully-qualified forms and accepts only the bare value that corrupts. Hand-add every decision in Studio Pro; never script one. Recovery: `DROP WORKFLOW` |
-| **parallel split**, incl. **nested** | **proven on v0.21.0 — with one mandatory post-exec step**, which is the whole of §4's warning above and `learned-workflow-patterns.md` §18. The structure writes correctly at any depth; the `EndOfParallelSplitPathActivity` that closes each path does not, and MDL has no keyword for it. Add it with `bin/wf-add-path-terminators.py <unit.mxunit> --apply` after this script **and after every later script that rewrites the workflow** (§23), then verify with a live run, never a gate. BUG-121; field-proven 8-of-16 → **16-of-16 stations, 6 concurrent**. This row read RETRACTED until 2026-09-14 |
-| **forward `JUMP TO`** (target later in the flow than the outcome jumping to it) | **CE6681.** A *backward* `jump to` builds clean; a forward one is *"not possible to jump to end activities or jump-to activities"* — mxcli resolves a forward target to the end/jump activity rather than the task. Isolated with a two-task probe workflow: same statement, backward clean, forward CE6681. Restructure so the jump goes backwards, or hand-add |
-| **boundary event timer, interrupting** | **hand-add in Studio Pro.** Its path must end in *End* or *Jump* (CE0105); `END WORKFLOW` does not parse and `JUMP TO` is BUG-109 |
-| **boundary event on notification** | **hand-add** — the grammar admits `{TIMER, INTERRUPTING, NON}` only |
-| **event sub-process** (all four start kinds), recurrence | **hand-add** — no construct in the grammar, in any position |
-| **multi-user decision method / completion timing** | **hand-add** — the activity is scriptable, its decision rule is not |
-| **explicit `END WORKFLOW`, end-of-parallel-split-path, end-of-boundary-event-path** | **not expressible — and the "not needed" half of this row was wrong, corrected 2026-09-14.** MDL terminates by nesting and `mx check` accepts it, so the gap is invisible to every gate; the **runtime is not indifferent**. A parallel-split path with no terminator opens no task at all (BUG-121, repaired post-exec by `bin/wf-add-path-terminators.py`), and an empty outcome block meant to stop the instance rejoins the enclosing flow instead (§21 gap 2). One grammar gap, two silent runtime faults. Still true: **CE1844 cannot be triggered from MDL** — §4 governs the diagram and anything hand-added, not the script |
-| **user-task `onCreatedEvent`** (the *On created* handler — the mechanism §6 names for assignment carried in data) | **not expressible in MDL, and this is grammar-level, not a docs gap.** The parser enumerates its own alternatives: after `PARAMETER` it accepts only `{BEGIN, EXPORT, DUE, OVERVIEW, DESCRIPTION, DISPLAY}`, and after a user task's `PAGE` only `;`. Four spellings probed (`ON CREATED CALL MICROFLOW`, `ON WORKFLOW EVENT`, task-level `ON CREATED`, `ONCREATEDEVENT`), all rejected at parse. **But it IS on the MCP write path** — `mxcli`'s `CreateWorkflow`/`UpdateWorkflow` payload carries `json:"onCreatedEvent"` on the *user-task* struct, beside `taskPage`, `outcomes` and `boundaryEvents`, and without `omitempty`. So it is a **per-task** property, not one workflow-level handler. End-to-end MCP write **not verified** — that needs a live Studio Pro. Treat as: hand-add, or MCP if you have Studio Pro up (`learned-mcp-patterns.md`) |
-| **AI agent task activity** | **unprobed** — its model rules (companion microflow first, outcomes mirror its return values, Boolean/Enum/Void only) hold whichever tool writes it |
+| **decision on an enumeration** | **FIXED in v0.22.0 — BUG-76 closed, STOP rule lifted. CTRL 2026-09-15 with two known-bad controls.** Two rules now bind, both enforced at `check`: the outcome must be **fully qualified** `Module.Enumeration.Value` (`MDL-WF03` — the bare label is what made the project unloadable, and it is now refused rather than written), **and** the set must carry an empty `'' -> { }` outcome (`MDL-WF06`/CE6686) — required **even when the attribute is `NOT NULL`**, which is the counter-intuitive half. Both controls fired: bare spelling refused, missing-empty refused; the correct form writes, execs and round-trips through `describe`. **No `--no-check` anywhere** — that workaround is now wrong advice |
+| **parallel split**, incl. **nested** | **FIXED in v0.22.0 — BUG-121 closed. No patcher. CTRL 2026-09-15, including a live run.** The builder now writes `Workflows$EndOfParallelSplitPathActivity` on every path itself (verified in the raw `.mxunit`), native `mx check` is clean, and — the part a clean build was never sufficient to prove — **a live instance executed both legs**: `mxcli run --local --ensure-db --test-endpoint`, instance started via `mxcli test --attach`, result read back externally with `mxcli oql`, one completion row per leg from a cold boot. **`bin/wf-add-path-terminators.py` is retired for v0.22.0+** and stays only as the procedure for pre-v0.22.0 binaries (`learned-workflow-patterns.md` §23). One migration step remains unexercised: a split **definition written by a pre-v0.22.0 binary** needs one `create or modify` pass to gain its markers; running **instances** are not migrated by that |
+| **forward `JUMP TO`** (target later in the flow than the outcome jumping to it) | **proven — and this row was stale from 2026-09-06 to 2026-09-15.** Upstream `825873d6`, already in **v0.21.0**, fixed the real cause: the jump activity took its *target's* name, and because deduplication renames the second activity with a given name, **forward order was the broken case** while backward accidentally worked. Jumps are now named `JumpTo`/`JumpTo2`. CTRL 2026-09-15: forward jump to a real activity → 0 native errors; the known-bad control, a **dangling** jump, is refused at `check` as `MDL-WF05` naming the real fault. Our v0.21.0 field CE6681 was that dangling case, not direction |
+| **boundary event timer, interrupting** | **expected cleared on v0.22.0 — UPSTREAM, NOT PROBED HERE.** The old blocker was that its path must end and MDL had no end-activity: interrupting was CE0105 at build, non-interrupting built at 0 errors and then the **runtime refused to start the app**. v0.22.0 writes `EndOfBoundaryEventPathActivity` on every boundary-event path, and on `main` HEAD `end workflow` is legal inside an interrupting path at any depth. We did not build one — treat as hand-add until somebody does |
+| **boundary event on notification** | **hand-add — PROBED 2026-09-15.** `BOUNDARY EVENT NOTIFICATION 'note' { }` on a user task is `mismatched input 'NOTIFICATION' expecting {TIMER, INTERRUPTING, NON}`. **Control in the same batch:** the identical activity with `BOUNDARY EVENT NON INTERRUPTING TIMER '<expr>' { }` parses and checks clean — so the refusal is the clause, not the shape. Note the clause **order**: `OUTCOMES` comes before `BOUNDARY EVENT`, and the reverse is a parse error that looks like the boundary event is unsupported |
+| **event sub-process** (all four start kinds), recurrence | **hand-add — PROBED 2026-09-15.** `EVENT SUBPROCESS es1 ON WORKFLOW ABORTED { … }` is `mismatched input 'EVENT' expecting END` — the parser will not begin the statement in any position |
+| **multi-user decision method / completion timing** | **hand-add — PROBED 2026-09-15.** `COMPLETION RULE CONSENSUS` on a `MULTI USER TASK` is `mismatched input 'COMPLETION' expecting ';'` — the task statement simply ends where the rule would go. The activity is scriptable; its rule is not |
+| **ending a branch — `end workflow`** | **EXPRESSIBLE on `main` HEAD ONLY (`7b42100d`), NOT in the v0.22.0 tag and NOT in the `nightly` tag. CTRL 2026-09-15 with two known-bad controls.** `end workflow [comment '<caption>'];` is legal in any `{ }` block and round-trips through `describe`. Placement is measured: an outcome, a decision branch, a call-microflow outcome or an **interrupting** boundary path → 0 errors; **under a parallel split, at any depth → CE1844 `MDL-WF08`** (control fired); an activity after it in the same block → CE6671 `MDL-WF09` (control fired); `return;` → refused, `MDL-WF11`. **Correction to the 2026-09-14 briefing:** the split fault and this were reported as one grammar gap. They are two — a split path ends *locally and can never end the instance*, which is §4 confirmed independently, so the split was a **writer** defect (fixed in the release) and only this was grammar. The end-of-path markers are no longer an MDL concern at all: the builder writes them |
+| **user-task `onCreatedEvent`** (the *On created* handler — the mechanism §6 names for assignment carried in data) | **hand-add — re-probed 2026-09-15 on `main` HEAD, CTRL.** Two spellings tried again: `ON CREATED CALL MICROFLOW …` and `ONCREATEDEVENT …`, both `mismatched input … expecting ';'` — the user-task statement simply ends where the handler would go, so this is grammar-level, not a docs gap. **It IS on the MCP write path** (`onCreatedEvent` on the user-task struct) — end-to-end MCP write still unverified, needs a live Studio Pro. **New on `main`: a rewrite can no longer silently destroy it** — `create or modify` and `REPLACE ACTIVITY` refuse a workflow holding an on-created microflow rather than resetting it to `NoEvent` |
+| **`ANNOTATION` in a workflow body** | **REFUSED, and the direction of this row was wrong until 2026-09-15. CTRL.** It was carried as "hand-add"; in fact the annotation lands in the activity flow, which accepts only flow elements, so the written `.mpr` **cannot be LOADED at all** — Studio Pro will not open the project and `mx check` dies before validating anything. `MDL-WF04` now refuses it at `check` **and** at `exec` (probed: both refuse, nothing written). Keep the note as an MDL comment (`-- …`), or add a real annotation in Studio Pro after the last scripted rewrite |
+| **AI agent task activity** | **hand-add — PROBED 2026-09-15 on `v0.22.0-15-g7b42100d`, and this row is no longer "unprobed".** `AI AGENT TASK a1 'Assess' OUTCOMES 'Done' { };` inside a `CREATE WORKFLOW` body fails at parse: `mismatched input 'AI' expecting END` — the parser will not begin the statement, so this is grammar-level, not a spelling question. It had carried "unprobed, not broken" since July, which reads as *might work* and quietly kept it out of every hand-add checklist; it is now a known hand-add. Its **model** rules (companion microflow first, outcomes mirror its return values, Boolean/Enum/Void only) still hold whichever tool writes it — §5 |
 
-**Re-probed on v0.21.0, 2026-09-09, WITH A KNOWN-BAD CONTROL.** Four constructs a real approval
+**HISTORICAL — the v0.21.0 round, 2026-09-09, WITH A KNOWN-BAD CONTROL.** Kept because it is the
+method this file asks for, and because the control is why the round was worth having. Its BUG-76
+verdict is superseded: fixed in v0.22.0. Four constructs a real approval
 chain needs — user task with a targeting microflow, multi-user task, `CALL MICROFLOW` with a quoted
 `WITH`, and a backward `JUMP TO` inside an outcome — all build clean on v0.21.0 once the two
 signature rows above are respected. That result is only worth having because the same run included
@@ -343,11 +356,20 @@ distinguish a working construct from a broken one. **A probe with no known-bad c
 exactly that reason (BUG-121, where a sequentially-built control only showed that a task looks like
 a task).
 
-**The one thing to take from this table.** `mxcli check` was **wrong on 5 of the 12 constructs
-probed**. Three of them passed `mxcli check --references`, passed `exec`, and read back
-correctly from `DESCRIBE WORKFLOW` — and were still broken under `mx check`, one of them
-leaving the project unopenable. For workflows specifically, **a clean `mxcli check` is not
-evidence of anything.** Run native `mx check` after every workflow write, before you believe it.
+**The one thing to take from this table — and how much it changed on 2026-09-15.** On v0.21.0
+`mxcli check` was **wrong on 5 of the 12 constructs probed**: three passed `check --references`,
+passed `exec`, read back correctly from `DESCRIBE WORKFLOW`, and were still broken under
+`mx check`, one of them leaving the project unopenable. **On v0.22.0 / `main` HEAD that specific
+list is largely closed** — the decision spelling, the split terminators, the task-page and
+targeting signatures and the dangling jump are all now refused *before* anything is written.
+
+**Do not read that as "the checker can be trusted now."** Two things keep the rule alive. The
+checker still has real holes — the `LOOP`-body gap found the same day (`E004` fires on a
+parameter and is silent on a loop variable, reaching mxbuild as CE0117) is the same disease one
+layer down, in the microflows a workflow calls. And a *clean build was never sufficient for a
+parallel split anyway*: BUG-121 shipped green through every gate including `mx check`, and only a
+live run found it. So: **native `mx check` after every workflow write, and for a split, a live run
+counting what actually executed.**
 
 **Field run, 2026-09-14 — a shipped approval chain, mxcli v0.21.0 / Mendix 11.14.** The rows
 above are probes. This is the first production workflow in this toolkit's record written
@@ -357,23 +379,25 @@ assessment* fanning to eight assessment topics → user task *Director approval*
 construct it uses is a *proven* row above, and it needed no hand-add in Studio Pro. Two
 findings from building it that the probe rows do not carry:
 
-**It has zero `DECISION` activities, and that is not a design preference.** BUG-76 is open, so
-a four-stage approval chain with approve/reject at every stage was built with **outcomes on the
-user tasks themselves** and no exclusive split anywhere. That is the shape to copy while BUG-76
-stands: an approval chain does not need a `DECISION`, because a user task's outcomes already
-branch. Reach for a split only where the branch is on *data* rather than on a human's answer —
-and then hand-add it.
+**It has zero `DECISION` activities — forced by BUG-76 at the time, and still the better shape.**
+A four-stage approval chain with approve/reject at every stage was built with **outcomes on the
+user tasks themselves** and no exclusive split anywhere, because on v0.21.0 every scripted
+`DECISION` corrupted the model. **BUG-76 is fixed in v0.22.0**, so that constraint is gone — but
+keep the shape by choice, not by necessity: a user task's outcomes already branch, so an approval
+chain does not need a `DECISION`. Reach for one where the branch is on **data** rather than on a
+human's answer, and on v0.22.0+ you can now script it (qualified outcome + the empty `''`
+outcome).
 
-**A reject ends the workflow; it does not jump backwards — and `CE6681` describes the wrong
-fault when you try.** The first task has nothing behind it, so a backward `JUMP TO` from its
-reject outcome is a *dangling* jump: no valid target exists. `mxcli check --references` accepts
-it, `exec` reports `Created workflow`, `DESCRIBE WORKFLOW` reads it back — and the native build
-refuses with **CE6681**, *"not possible to jump to end activities or jump-to activities"*. That
-message is about jump **targets**, so it sends you looking at the target's type; the actual
-fault is that there is no target at all. The table's forward-`JUMP TO` row above is the same
-code from a different cause. Read `CE6681` as **"this jump does not resolve"**, then check
-whether a target exists before checking what kind it is. Design the reject path to *End* and
-the question disappears.
+**A reject ends the workflow — and on `main` HEAD you can finally say so.** The first task has
+nothing behind it, so a backward `JUMP TO` from its reject outcome is a *dangling* jump: no valid
+target exists. On v0.21.0 that passed `check --references` and `exec`, read back through
+`DESCRIBE WORKFLOW`, and the native build refused it with **CE6681**, *"not possible to jump to
+end activities or jump-to activities"* — a message about jump **targets**, which sends you looking
+at the target's type when the actual fault is that there is no target at all. **Two things changed
+on 2026-09-15.** A dangling jump is now refused at `check` as `MDL-WF05`, naming the real fault and
+listing the valid targets. And `end workflow` exists on `main` HEAD, so "reject ends the instance"
+is now something MDL can state directly instead of being redesigned into a jump. Read `CE6681` as
+**"this jump does not resolve"** on any older binary.
 
 **Targeting is a microflow per stage, never a role XPath, whenever roles are collapsed.** This
 project mapped five approver populations onto one `Approver` user role, so
@@ -405,6 +429,7 @@ prevent.
 | 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` (§8) | N of N expressions |
 | 9 | Event sub-processes with exactly one start event, correct family, and recurrence within bounds (§3) | N of N sub-processes |
 | 10 | Constructs checked against §11 and marked *proven* or *hand-add in Studio Pro* | N of N constructs used; every hand-add is a build-plan checklist row |
+| 12 | Called microflows carrying `EXPOSED AS WORKFLOW ACTION` — the workflow editor's toolbox, so a human hand-adding a row-10 construct can find them (`learned-workflow-patterns.md` §25) | N of N called microflows that are **not** `SUB_` prefixed; get N from `mxcli callers <Module.MF>`, which reports the workflow at depth 1 |
 | 11 | **If the source is a BPMN/swimlane diagram:** pools counted, lanes carried into row 5's targeting, and every element screened against §13 | N pools = N workflows; N of N source elements screened; every NOT-SUPPORTED element has a `fit-gap.md` row. *"Source is not a process diagram"* is a legal entry |
 
 A workflow going into a build plan with row 10 unfilled is the omission this file exists to stop:

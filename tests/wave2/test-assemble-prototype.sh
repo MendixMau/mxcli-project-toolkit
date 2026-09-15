@@ -139,5 +139,32 @@ rm "$P/design/wireframes/Dup.html"
 mkdir -p "$TMP/empty/design/wireframes"
 check "no wireframes exits 2"                   "$( cd "$TMP/empty" && node "$SUT" >/dev/null 2>&1; printf '%s' "$?" )" "2"
 
+echo "  -- shared id across screens is namespaced per screen"
+IDNS="$TMP/idns"
+mkdir -p "$IDNS/design/wireframes"
+cat > "$IDNS/design/wireframes/ScreenA.html" <<'EOF'
+<html><head><title>A</title></head>
+<body>
+<main><button id="toggle-btn">Open</button>
+<div id="shared-modal">A's modal</div></main>
+<script>function toggleModal(){document.getElementById('shared-modal').classList.toggle('open');}</script>
+</body></html>
+EOF
+cat > "$IDNS/design/wireframes/ScreenB.html" <<'EOF'
+<html><head><title>B</title></head>
+<body>
+<main><button id="toggle-btn">Open</button>
+<div id="shared-modal">B's modal</div></main>
+<script>function toggleModal(){document.getElementById('shared-modal').classList.toggle('open');}</script>
+</body></html>
+EOF
+( cd "$IDNS" && node "$SUT" >/dev/null 2>&1 )
+IH="$(cat "$IDNS/design/prototype.html" 2>/dev/null)"
+has   "screen A's id is namespaced"             "$IH" 'id="screen-a--shared-modal"'
+has   "screen B's id is namespaced"             "$IH" 'id="screen-b--shared-modal"'
+hasnt "the bare shared id no longer appears"    "$IH" 'id="shared-modal"'
+has   "screen A's getElementById is rewritten"  "$IH" "getElementById('screen-a--shared-modal')"
+has   "screen B's getElementById is rewritten"  "$IH" "getElementById('screen-b--shared-modal')"
+
 printf '\ntest-assemble-prototype: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

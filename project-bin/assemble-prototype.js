@@ -114,12 +114,45 @@ function rewriteLinks(body) {
     (all, q, name) => (routeOfFile[name] ? 'href=' + q + '#/' + routeOfFile[name] + q : all));
 }
 
+// Namespace one screen's ids so twenty screens' ids cannot collide either. WHY: a 9-screen PoC,
+// 2026-09-15: 6 of 9 screens shared id="copilot-modal" (a copy-pasted "global" widget); assembled
+// together, ids are never scoped (only CSS is), so getElementById() always resolved to the FIRST
+// screen's element in the document - the button opened screen 1's hidden modal on every other
+// screen, with no console error. Ids are unique per HTML *file*, never per assembled *document*,
+// so id="X" here becomes id="<route>--X", along with every same-screen reference: href="#X",
+// for=, aria-controls/aria-labelledby/aria-describedby=, "#X" inside this screen's own <style>,
+// and getElementById('X') / querySelector[All]('#X') string literals inside its <script>.
+// href="#/route" navigation (a different namespace: routes, not element ids) is left alone.
+const reEsc = v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function idsIn(body) {
+  const markupOnly = body.replace(/<(style|script)\b[\s\S]*?<\/\1\s*>/gi, ' ');
+  return new Set([...markupOnly.matchAll(/\bid\s*=\s*["']([^"']+)["']/gi)].map(m => m[1]));
+}
+function namespaceIds(body, ids, ns) {
+  body = body.replace(/\bid\s*=\s*(["'])([^"']+)\1/gi, (all, q, v) => ids.has(v) ? 'id=' + q + ns(v) + q : all);
+  body = body.replace(/\bhref\s*=\s*(["'])#([^\/"][^"']*)\1/gi, (all, q, v) => ids.has(v) ? 'href=' + q + '#' + ns(v) + q : all);
+  body = body.replace(/\b(for|aria-controls|aria-labelledby|aria-describedby)\s*=\s*(["'])([^"']+)\2/gi,
+    (all, attr, q, v) => attr + '=' + q + v.split(/\s+/).map(t => ids.has(t) ? ns(t) : t).join(' ') + q);
+  return body.replace(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi, (all, attrs, code) => {
+    code = code.replace(/\bgetElementById\s*\(\s*(["'])([^"']+)\1\s*\)/g,
+      (m2, q, v) => ids.has(v) ? 'getElementById(' + q + ns(v) + q + ')' : m2);
+    code = code.replace(/\b(querySelectorAll|querySelector)\s*\(\s*(["'])#([^"']+)\2\s*\)/g,
+      (m2, fn, q, v) => ids.has(v) ? fn + '(' + q + '#' + ns(v) + q + ')' : m2);
+    return '<script' + attrs + '>' + code + '</script>';
+  });
+}
+
 function screenSection(s) {
-  const css = s.headCss.map(c => proto.scopeCss(c, s.route)).join('\n');
   let body = rewriteLinks(s.body);
+  const ids = idsIn(body);
+  const ns = id => s.route + '--' + id;
+  if (ids.size) body = namespaceIds(body, ids, ns);
+  const idRef = ids.size ? new RegExp('#(' + [...ids].map(reEsc).join('|') + ')\\b', 'g') : null;
+  const scopeCssIds = c => idRef ? c.replace(idRef, (all, v) => '#' + ns(v)) : c;
+  const css = s.headCss.map(c => proto.scopeCss(scopeCssIds(c), s.route)).join('\n');
   // Styles drawn inside the body are scoped in place, for the same reason as head styles.
   body = body.replace(/<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi,
-    (all, attrs, c) => '<style data-proto-screen-css' + attrs + '>' + proto.scopeCss(c, s.route) + '</style>');
+    (all, attrs, c) => '<style data-proto-screen-css' + attrs + '>' + proto.scopeCss(scopeCssIds(c), s.route) + '</style>');
   return '<section data-route="' + esc(s.route) + '" data-source="' + esc(s.file) + '" data-title="' + esc(s.title) + '"' +
     (s.chrome ? ' data-chrome="' + esc(s.chrome) + '"' : '') + '>\n' +
     (css.trim() ? '<style data-proto-screen-css>' + css + '</style>\n' : '') +

@@ -101,7 +101,7 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # runs them, against that project's own model unit, after every MDL script that rewrites a
 # workflow carrying a PARALLEL SPLIT. Until MDL has a branch-ending keyword there is no other
 # way to make a scripted split fan out, and every gate is blind to its absence.
-MXTK_PROJECT_BIN="wf-add-path-terminators.py mxunit_bson.py _common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js"
+MXTK_PROJECT_BIN="wf-add-path-terminators.py wf-set-call-captions.py mxunit_bson.py _common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. The reverse check
 # below flags anything named by NEITHER list, so a new file in project-bin/ has to be either

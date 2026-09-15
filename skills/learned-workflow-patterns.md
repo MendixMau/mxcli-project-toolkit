@@ -1225,16 +1225,17 @@ stands — see §11), no sub-workflow. Their §11 verdicts are unchanged by this
 
 ## 23. Operating the terminator repair — the part that bites is the *second* time
 
-> **Version gate, CONFIRMED 2026-09-15.** mxcli **v0.22.0** writes
-> `Workflows$EndOfParallelSplitPathActivity` on every path itself — probed with a 2-leg split, no
-> patcher run: the marker is present in the raw `.mxunit` and native `mx check` reports 0 errors
-> (`bug-logs/mxlabs-v0.22.0-retest-2026-09-15.md`). **On v0.22.0+, the repair below and rule 1's
-> "re-run after every later script" retire — do not run the patcher on a workflow written by
-> v0.22.0+.** What is NOT yet confirmed is the runtime half: BUG-121's own history is that a
-> clean build was not sufficient before, so keep this section as the **procedure for any
-> pre-v0.22.0 binary**, and as the reference for the one-time migration step upstream states —
-> **a workflow already written by an affected version must be re-run through `create or modify`
-> to pick up the markers; running instances are not changed by that.**
+> **Version gate, CONFIRMED including the live-run oracle, 2026-09-15.** mxcli **v0.22.0** writes
+> `Workflows$EndOfParallelSplitPathActivity` on every path itself, with no patcher run — and,
+> the part this section used to hold out for, **a live instance actually finishes both legs**:
+> `mxcli run --local` + `mxcli test --attach` started a 2-leg split and `mxcli oql` read back one
+> completion row per leg, cold boot, no patcher (`bug-logs/mxlabs-v0.22.0-retest-2026-09-15.md`).
+> **On v0.22.0+, the repair below and rule 1's "re-run after every later script" retire — do not
+> run the patcher on a workflow written by v0.22.0+.** Keep this section as the **procedure for
+> any pre-v0.22.0 binary**, and as the reference for the one-time migration step upstream
+> states — **a workflow already written by an affected version must be re-run through
+> `create or modify` to pick up the markers; running instances are not changed by that** (that
+> migration step itself is not yet exercised — only fresh v0.22.0+ writes were probed).
 
 **§18's correction block is the finding**: mxcli writes no
 `Workflows$EndOfParallelSplitPathActivity`, MDL has no keyword for one, every gate is blind in

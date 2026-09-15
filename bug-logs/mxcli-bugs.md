@@ -4925,15 +4925,18 @@ checker is simply not consulting it -- and add `dateFormat` / `customDateFormat`
 
 ## BUG-121: `PARALLEL SPLIT` paths are written without their terminator node, so none of them ever opens a task (2026-09-04)
 
-> **FIXED at build-storage and native-check level on mxcli v0.22.0 — CONFIRMED 2026-09-15.**
-> A 2-leg split written with no manual terminator step now stores
-> `Workflows$EndOfParallelSplitPathActivity` on every path (verified in the raw `.mxunit`), and
-> native `mx check` reports 0 errors. **STILL OPEN pending the live-run oracle** — BUG-121's own
-> lesson is that a clean build was never sufficient by itself for this exact defect, so the STOP
-> rule stays until a running instance confirms every leg opens its own task (hand-off written up
-> in the retest doc). Existing workflow **definitions** written by a pre-v0.22.0 binary need one
-> `create or modify` pass to gain the markers; running **instances** are not migrated by that.
-> See [mxlabs-v0.22.0-retest-2026-09-15.md](mxlabs-v0.22.0-retest-2026-09-15.md).
+> **FIXED on mxcli v0.22.0 — CONFIRMED 2026-09-15, including the live-run oracle. STOP RULE
+> LIFTED for v0.22.0+.** A 2-leg split written with no manual terminator step stores
+> `Workflows$EndOfParallelSplitPathActivity` on every path, native `mx check` reports 0 errors,
+> and — the part BUG-121's own history said a clean build was never sufficient to prove — a
+> live instance run via `mxcli run --local --ensure-db --test-endpoint` actually finished **both
+> legs**: `mxcli test --attach` started the split, `mxcli oql` read back one row per leg from a
+> fresh boot with no patcher run. Two things a real project should still check before fully
+> retiring the workaround: a multi-**user-task** split (this run used call-microflow legs, the
+> scriptable oracle; the original defect was about tasks in an inbox specifically), and the
+> `create or modify` migration step for a workflow **definition** written by a pre-v0.22.0
+> binary (existing **instances** are not migrated by that — not exercised here). See
+> [mxlabs-v0.22.0-retest-2026-09-15.md](mxlabs-v0.22.0-retest-2026-09-15.md).
 
 **This is the most expensive class of defect this project has hit: a write mxcli itself reads
 back correctly and the Mendix runtime reads as empty.** mxcli v0.20.0, Mendix 11.13.0.

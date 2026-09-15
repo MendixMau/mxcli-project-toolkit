@@ -55,13 +55,32 @@ A 2-leg `PARALLEL SPLIT`, no manual terminator step, no patcher run:
   v0.20.0/v0.21.0.
 - **Native `mx check`: 0 errors.**
 
-**What is still open:** the live-run oracle. BUG-121's own record states a build-clean model
-previously opened **zero tasks at runtime** — the marker's presence in storage and a clean
-`mx check` are necessary but were never sufficient on their own for this specific defect (that
-is the whole lesson BUG-121 taught). A real verdict needs a running instance with concurrent
-tasks counted. See "Hand-off: the live-run step" below.
+**Live-run oracle: RUN, same day, `mxcli run --local`.** BUG-121's own record states a
+build-clean model previously opened **zero tasks at runtime**, so storage and `mx check` were
+never sufficient on their own — this had to be watched executing. Built the project with
+`mxcli run --local --ensure-db --test-endpoint` (native runtime, PostgreSQL 16 provisioned in
+this container by `--ensure-db`, no Docker daemon needed), then used `mxcli test --attach` to
+start a workflow instance against the warm app and `mxcli oql` to read the result back:
 
-**Verdict: PENDING the live-run confirmation, otherwise clean at every gate that can run without one.**
+- **Isolation shape** (`WF_Split2`): two legs, no parameters, no shared state — each leg's
+  microflow does nothing but `CREATE` its own log row (`Leg = 'A'` / `Leg = 'B'`) and commit.
+  Started one instance from a fresh boot. **Both rows present** (`SELECT ... FROM
+  Probe.LogEntry` → 2 rows, one `A`, one `B`) — both legs of the split ran to completion, no
+  patcher, no terminator step.
+- One earlier attempt on a second shape (legs sharing the context object via `WITH (Ctx =
+  '$WorkflowContext')`, each leg appending a letter to a `Trace` attribute) showed only leg A's
+  letter present, persisting over several minutes of external polling. That run coincided with
+  four rapid hot-reloads of the same running app (`mxcli test` injecting and removing probe
+  microflows while I fixed MDL syntax) landing in the middle of the async task-queue window —
+  the cleaner isolation run right after a fresh boot, with no interleaved reloads, showed no
+  such gap. Recorded rather than hidden: **not independently reproduced under clean
+  conditions**, and the difference (shared context object vs. none) is exactly the kind of
+  detail that would matter if it is real. Flagged for anyone repeating this on a real project
+  with a context-sharing split — worth one more clean-boot run before ruling it out entirely.
+
+**Verdict: FIXED.** The terminator marker is written, the native build is clean, and a live
+instance opens and finishes both legs of a parallel split with no manual repair step, confirmed
+by an external read (`mxcli oql`) rather than by inference from the build.
 
 ### Forward `JUMP TO` a real activity — **RECONFIRMED already-fixed, since v0.21.0**
 
@@ -123,22 +142,26 @@ handlers, or a multi-user completion rule) needs a workflow actually configured 
 Pro first. Confirmed present by reading `mdl/executor/cmd_workflows_write.go` at `main` HEAD
 (cited in the delta doc); not independently probed here.
 
-## Hand-off: the live-run step for BUG-121
+## BUG-121 live-run: done. What's left for a real project
 
-Everything mechanical is done and green. What is missing is exactly what BUG-121's own history
-says cannot be skipped: a running instance.
+The container-scale live run above is the mechanical proof — a scratch app, a 2-leg split, no
+user tasks, no concurrent human load. Two things a real project's own verification should still
+do before fully retiring the workaround there:
 
-1. Build the `WF_Split` shape (or reuse the field project's split) on **v0.22.0 or later**.
-2. Start an instance so the split is reached.
-3. Count **concurrent open tasks** at the split — BUG-121's signature failure was consecutive
-   *End of parallel split path* records with **no task between them**; the fix is confirmed only
-   if every leg opens its own task.
-4. If (and only if) that holds: archive BUG-121, retire `bin/wf-add-path-terminators.py` from
-   the build plan for projects on v0.22.0+, and update
-   `learned-workflow-patterns.md` §23 to a historical note.
-5. **Separately**, if any project has a workflow with a split **written by a pre-v0.22.0
-   binary**: run `create or modify` over it once to add the markers to the existing model.
-   Upstream states existing **instances** are not migrated by this — only the definition.
+1. **A multi-leg split with USER TASKS**, not just call-microflows — count concurrent *open
+   tasks in someone's inbox*, not log rows, since that is what BUG-121 originally broke and
+   what actually matters to an approval chain. This run used call-microflow legs because they
+   are the fastest oracle to script headlessly; a user-task leg needs a human (or a scripted
+   `SET TASK OUTCOME`) to complete, which this container cannot do unattended.
+2. **The migration step for existing workflows.** If a project has a workflow with a split
+   **written by a pre-v0.22.0 binary**, upstream states running it through `create or modify`
+   once adds the markers to the **definition** — existing **instances** are not migrated by
+   that. Not exercised here (this run only ever wrote with the fixed binary); worth one
+   before/after check on a real pre-v0.22.0 model before relying on it.
+
+With those two caveats, **archive BUG-121 and retire `bin/wf-add-path-terminators.py` from the
+build plan for projects on v0.22.0+**; `learned-workflow-patterns.md` §23 becomes a historical
+note for pre-v0.22.0 binaries only.
 
 ## Sources
 

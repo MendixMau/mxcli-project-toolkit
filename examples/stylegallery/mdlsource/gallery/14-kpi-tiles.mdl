@@ -25,7 +25,7 @@ create snippet StyleGallery.SNIPPET_KpiTiles
       container kL (class: 'k-label') { dynamictext kLt (Attribute: Caption) }
       container kV (class: 'k-value') { dynamictext kVt (Attribute: KpiValue) }
       -- Output set: 'k-delta k-up' | 'k-delta k-down' | 'k-delta' (flat) — all 3 defined in ds.css
-      container kD (class: 'k-delta', DynamicClasses: 'if TrendDir = ''up'' then ''k-up'' else if TrendDir = ''down'' then ''k-down'' else ''''') { dynamictext kDt (Attribute: Trend) }
+      container kD (class: 'k-delta', DynamicClasses: 'if $currentObject/TrendDir = ''up'' then ''k-up'' else if $currentObject/TrendDir = ''down'' then ''k-down'' else ''''') { dynamictext kDt (Attribute: Trend) }
     }
   }
 }

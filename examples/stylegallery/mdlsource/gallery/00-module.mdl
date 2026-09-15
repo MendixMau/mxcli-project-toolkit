@@ -1,0 +1,16 @@
+-- ============================================================================
+-- StyleGallery — module + role (exec order: 1st of 12)
+-- ============================================================================
+-- Purpose:  Creates the StyleGallery module namespace and its one module role.
+--           Every later gallery file (05, 11-19, 90) lives in this module and
+--           grants to this role — nothing outside this module is touched.
+-- Depends on: nothing. This is the first file in the set.
+-- Domain:   purchase-request app with a supplier catalogue (see examples/README.md)
+--           — every caption in this gallery belongs to that invented domain.
+-- ============================================================================
+
+/** UI component gallery module — the in-app twin of design/design-system.html. */
+create module StyleGallery;
+
+/** Everyone who may see the gallery home page and use its live-widget demos. */
+create module role StyleGallery.Viewer;

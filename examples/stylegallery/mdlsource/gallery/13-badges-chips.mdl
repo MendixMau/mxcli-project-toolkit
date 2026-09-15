@@ -1,0 +1,27 @@
+-- ============================================================================
+-- StyleGallery — Badges & Chips (static containers; purely decorative)
+-- ============================================================================
+-- Purpose:  Status badges + filter chips (design-system .badge-* and .chip).
+--           Static per learned-stylegallery.md's "Static container" case:
+--           purely decorative, no widget behaviour (hover/focus/enabled) to
+--           prove out, so a plain CONTAINER is the right carrier — see the
+--           skill's DOM-contract table, "Default to CONTAINER."
+-- Depends on: 00-module.mdl.
+-- ============================================================================
+
+/** Status badges + filter chips (design-system .badge-* and .chip). */
+create snippet StyleGallery.SNIPPET_BadgesChips
+{
+  container badgeRow (class: 'ds-row') {
+    container bgN (class: 'badge badge-neutral') { dynamictext bgNt (content: 'Draft') }
+    container bgS (class: 'badge badge-success') { dynamictext bgSt (content: 'Approved') }
+    container bgI (class: 'badge badge-info')    { dynamictext bgIt (content: 'Submitted') }
+    container bgW (class: 'badge badge-warning') { dynamictext bgWt (content: 'Pending approval') }
+    container bgD (class: 'badge badge-danger')  { dynamictext bgDt (content: 'Rejected') }
+  }
+  container chipRow (class: 'ds-row') {
+    container chp1 (class: 'chip') { dynamictext chp1t (content: 'Facilities') }
+    container chp2 (class: 'chip') { dynamictext chp2t (content: 'IT Equipment') }
+    container chp3 (class: 'chip') { dynamictext chp3t (content: 'Northwind Office Supplies ✕') }
+  }
+}

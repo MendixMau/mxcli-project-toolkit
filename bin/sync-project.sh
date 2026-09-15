@@ -64,6 +64,10 @@ AGENTS="$MXTK_AGENTS"
 # arrangement; see bin/lib/resume-template.sh's header for what was broken.
 . "$SCRIPT_DIR/lib/resume-template.sh"
 
+# Item 3 of wire-agents.sh's stamped block, the one text shared with the in-place repair step
+# below (5c) — see that file's header for why it is not typed twice.
+. "$SCRIPT_DIR/lib/wiring-item3.sh"
+
 # Is this agent file an UNTOUCHED stub (safe to overwrite), or completed work?
 # Two conditions, both required: it still carries the STUB GENERATED banner AND it still
 # has at least one genuinely unfilled {{PLACEHOLDER}}.
@@ -960,6 +964,71 @@ if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/wire-agents.sh" ]; then
   elif ! "$SCRIPT_DIR/wire-agents.sh" "$PROJECT_DIR"; then
     warn "Agent wiring did not complete. Everything else in this sync stands; re-run:"
     warn "  $SCRIPT_DIR/wire-agents.sh $PROJECT_DIR"
+  fi
+fi
+
+# ── Exec approval knob: repair item 3 in place where wiring already exists ────────────────
+#
+# WHY (2026-09-15, user complaint: "I'm going a bit insane of claude keeping to asking me if
+# they can run an exec mdl"). bin/exec-approval.sh gives item 3 above a switch (ask|auto), but
+# the block just above only re-runs wire-agents.sh when a stamped file is MISSING its marker —
+# `wire-agents.sh --check` tests has_mark(), never the CONTENT inside it — so a project wired
+# before this fix carries the old "without asking the user first — every time" sentence
+# through every future sync, forever, even though wire-agents.sh's own comment says the block
+# "is replaced wholesale on every re-run" (true only if something re-runs it, which nothing
+# did for a project already past the has_mark check).
+#
+# Does NOT call wire-agents.sh: that runs `mxcli init` and gives up silently ("mxcli not
+# found ... Skipping generation") on a machine where the binary is not yet installed — exactly
+# the kind of machine most likely to be mid-sync right after a fresh clone, which would make
+# this fix depend on the one thing it must not depend on. A plain text rewrite has no such
+# dependency, so it fixes the wording whether or not mxcli is on this machine.
+#
+# Same shape as 2e above: match the OLD item 3's boundary by literal PREFIX (index(), never a
+# backslashed regex through an awk -v value — a `-v` value passed through gawk's escape
+# processing is what turned "^\\|" into "^|" and clobbered a whole file in CI, 2026-09-12;
+# bin/check-portability.sh's rule. The replacement text has no backslashes in it either way).
+# Bounded by the line that starts item 4, so items 1, 2, 5 and everything outside the range
+# are untouched. Runs over every file wire-agents.sh itself stamps, in both its formats — the
+# item-3 text itself is shared with wire-agents.sh via bin/lib/wiring-item3.sh, sourced above.
+_ea_rewrite_item3() {   # $1=file  $2=start-prefix  $3=end-prefix  $4=replacement text
+  f="$1"; start="$2"; endp="$3"; repl="$4"
+  grep -q "mxtk:wiring:start" "$f" 2>/dev/null || return 1
+  grep -qF "$start" "$f" 2>/dev/null || return 1
+  [ "$DRY_RUN" -eq 1 ] && return 0
+  _tmp="$(mktemp "${TMPDIR:-/tmp}/eaitem3.XXXXXX")" || return 1
+  awk -v start="$start" -v endp="$endp" -v repl="$repl" '
+    BEGIN { skip = 0 }
+    { if (skip) { if (index($0, endp) == 1) { skip = 0 } else { next } }
+      if (!skip && index($0, start) == 1) { print repl; skip = 1; next }
+      print }
+  ' "$f" > "$_tmp" && cat "$_tmp" > "$f"
+  rm -f "$_tmp"
+  return 0
+}
+if [ "$WIRED" -eq 1 ]; then
+  _EA_NEW3_MD="$(wiring_item3_md "$TOOLKIT_ROOT")"
+  _EA_NEW3_HASH="$(wiring_item3_hash "$TOOLKIT_ROOT")"
+  for rel in AGENTS.md CLAUDE.md .github/copilot-instructions.md .cursorrules .windsurfrules; do
+    f="$PROJECT_DIR/$rel"
+    [ -f "$f" ] || continue
+    if _ea_rewrite_item3 "$f" "3. **Never run" "4. **" "$_EA_NEW3_MD"; then
+      if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would rewrite: $rel item 3 — carries the old \"without asking the user first — every time\" wording"
+      else
+        echo "Rewrote: $rel item 3 — the old \"without asking the user first — every time\" wording is now the exec-approval knob (bin/exec-approval.sh)."
+      fi
+      CHANGES=$((CHANGES + 1))
+    fi
+  done
+  f="$PROJECT_DIR/.aider.conf.yml"
+  if [ -f "$f" ] && _ea_rewrite_item3 "$f" "# 3. **Never run" "# 4. **" "$_EA_NEW3_HASH"; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      echo "Would rewrite: .aider.conf.yml item 3 — carries the old \"without asking the user first — every time\" wording"
+    else
+      echo "Rewrote: .aider.conf.yml item 3 — the old \"without asking the user first — every time\" wording is now the exec-approval knob (bin/exec-approval.sh)."
+    fi
+    CHANGES=$((CHANGES + 1))
   fi
 fi
 

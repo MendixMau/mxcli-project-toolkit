@@ -208,6 +208,26 @@ BUILD_LOG="$PROJECT_ROOT/docs/BUILD-LOG.md"
 # carry a gate verdict even when the gate block below is never reached.
 GATE_STATE="not-run"   # not-run | skipped | unverified | pass | fail
 
+# ── Exec approval (auto records itself) ──────────────────────────────────────
+# bin/exec-approval.sh decides ask vs auto; the ASKING happens before exec.sh ever runs (in
+# chat), so this script does not ask either way. What it must do is tell the truth about which
+# mode ran, because under `auto` this BUILD-LOG row IS the safety net that used to be a
+# question — see interview-protocol.md's "Exec approval is a separate knob". Resolved the same
+# way exec.sh already resolves the toolkit for doctor.sh: $MXTK_ROOT, else the "Toolkit root"
+# row this project's CLAUDE.local.md was wired with. bin/exec-approval.sh is not copied
+# per-project (same as bin/interview-mode.sh), so it has to be found in the toolkit, not here.
+# Never fatal: if it cannot be found, or errors, the row is written exactly as it always was.
+_EXEC_APPROVAL_SUFFIX=""
+for _ea in "${MXTK_ROOT:-}/bin/exec-approval.sh" \
+           "$(sed -nE 's/^\| *Toolkit root *\| *`([^`]+)`.*/\1/p' "$PROJECT_ROOT/CLAUDE.local.md" 2>/dev/null | head -1)/bin/exec-approval.sh"; do
+  [ -x "$_ea" ] || continue
+  _ea_out="$("$_ea" "$PROJECT_ROOT" --explain 2>/dev/null)" || continue
+  _ea_mode="$(printf '%s\n' "$_ea_out" | sed -n 's/^mode: //p')"
+  _ea_from="$(printf '%s\n' "$_ea_out" | sed -n 's/^from: //p')"
+  [ "$_ea_mode" = "auto" ] && _EXEC_APPROVAL_SUFFIX=" · approval: auto ($_ea_from)"
+  break
+done
+
 log_build() {   # $1=status  $2=detail
   mkdir -p "$(dirname "$BUILD_LOG")"
   [ -f "$BUILD_LOG" ] || cat > "$BUILD_LOG" <<'HDR'
@@ -239,9 +259,10 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
+  _detail="$2$_EXEC_APPROVAL_SUFFIX"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$(basename "$SCRIPT")" \
-    "${GATE_STATE:-not-run}" "$1" "$2" >> "$BUILD_LOG"
+    "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
 }
 
 # ── Pre-exec syntax gate ─────────────────────────────────────────────────────

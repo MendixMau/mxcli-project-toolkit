@@ -1,7 +1,7 @@
-**From:** POCTibor-BJJ-app
+**From:** demo-app
 **Date:** 2026-09-14
 **Kind:** bug
-**Field evidence:** bug-log entries in POCTibor-BJJ-app not found (by heading) in bug-logs/mxcli-bugs.md — verify each against the toolkit log before filing; heading match is a heuristic
+**Field evidence:** bug-log entries in demo-app not found (by heading) in bug-logs/mxcli-bugs.md — verify each against the toolkit log before filing; heading match is a heuristic
 **Proposed target:** see per-item notes below
 
 ---
@@ -54,7 +54,7 @@ performed the alter.
 ### Reproduction
 Any full-project load via Studio Pro's own tooling crashes:
 ```
-"<Studio Pro path>/Contents/modeler/mx" check POCTibor-BJJ-app.mpr
+"<Studio Pro path>/Contents/modeler/mx" check demo-app.mpr
 ```
 ```
 System.InvalidCastException: Unable to cast object of type

@@ -1,7 +1,7 @@
-**From:** emoc-mendix-rebuild
+**From:** rebuild-app
 **Date:** 2026-09-14
 **Kind:** fix
-**Field evidence:** installed toolkit scripts in emoc-mendix-rebuild/bin that differ from the shipped copy — a local patch here is a fix that never traveled (how graph-sweep's stat bug got patched twice)
+**Field evidence:** installed toolkit scripts in rebuild-app/bin that differ from the shipped copy — a local patch here is a fix that never traveled (how graph-sweep's stat bug got patched twice)
 **Proposed target:** see per-item notes below
 
 ---

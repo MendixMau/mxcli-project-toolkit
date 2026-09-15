@@ -5015,7 +5015,7 @@ walks the stored workflow unit, appends the terminator to every unterminated
 `ParallelSplitOutcome` flow, and leaves already-terminated paths alone. It recurses, so a
 nested split's paths get their own. Idempotent, dry-run by default, writes a `.bak`.
 
-**Proven end to end on the real model** (VB-USI, a 16-station approval workflow, seven-leg
+**Proven end to end on the real model** (the approval app, a 16-station approval workflow, seven-leg
 split with a nested two-leg split inside leg 7):
 
 | | Stations reached | At the split |

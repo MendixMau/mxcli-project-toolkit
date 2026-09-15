@@ -271,6 +271,61 @@ const { chromium, login, navigateToOverview, dbQuery, makeReporter } = require('
 })();
 ```
 
+### Scenario skeletons come from the BRD route paths
+
+When the BRD's use cases name their prototype routes (`brd-generation.md`, `useCases[].routes`),
+do not invent the happy-path and demo scenarios. Write one scenario per use case, and let its
+route path be the skeleton: one step per route, one click per arrow.
+
+WHY. The route path is the flow a stakeholder clicked through on `design/prototype.html` and
+signed off. A scenario written from memory of the BRD prose tests the flow the test author
+imagined, and the two drift in exactly the places that matter (the extra confirm screen, the
+edit that opens from the list and not from the detail). Replaying the approved clicks makes a
+failing scenario mean "the app does not do what was approved", which is a finding, instead of
+"the test and the review disagree", which is an argument.
+
+For a use case with `"routes": ["#/order-list", "#/order-detail", "#/order-edit"]`:
+
+1. **Each route is a checkpoint.** Map it to the Mendix page it was built as through
+   `design/wireframes/PAGE-MAP.tsv` (`brd-to-build-plan.md` Step 7, Navigation Wiring), and
+   assert that page is showing: a widget name or the page title, never a sleep.
+2. **Each arrow is a click.** The control that moves the prototype from one route to the next is
+   the link in the first screen whose `href` is the second route. Read its label from the
+   prototype rather than guessing it:
+
+   ```
+   node bin/prototype-route.js 'design/prototype.html#/order-list' | grep -o '<a[^>]*href="#/order-detail"[^>]*>[^<]*'
+   ```
+
+   Click the control with that label (or the widget its `data-bind` row names) in the live app.
+3. **Everything between the clicks is the test author's.** Field fills, DB assertions and error
+   cases are not in the route path and are written as in the pattern above. The path fixes the
+   order of screens, not what happens on them.
+
+```js
+// UC001 Open an order: #/order-list -> #/order-detail -> #/order-edit   (F001.brd.json)
+// One checkpoint per route. The selector is the page's own widget, from PAGE-MAP.tsv's page.
+async function onPage(id, route, selector) {
+  const ok = await page.locator(selector).first().isVisible({ timeout: 5000 }).catch(() => false);
+  if (ok) R.pass(id, route); else R.fail(id, route, selector + ' not visible');
+  return ok;
+}
+await navigateToOverview(page);
+if (await onPage('UC001-1', '#/order-list', '.mx-name-gridOrders')) {          // Order_Overview
+  await page.click('text=Open');                                                // the #/order-detail link
+  if (await onPage('UC001-2', '#/order-detail', '.mx-name-panelOrder')) {       // Order_View
+    await page.click('text=Edit');                                              // the #/order-edit link
+    await onPage('UC001-3', '#/order-edit', '.mx-name-btnSave');                // Order_NewEdit
+  }
+}
+```
+
+Name the step ids after the use case (`UC001-2` is the second route of UC001), so a failure in
+the run report points at the arrow of the approved flow that broke. A use case with no `routes`
+gets a scenario written the old way and an `openQuestions` note on the BRD; a route path the
+prototype can no longer walk is `brd-validation.md` check 8's finding, and is fixed there before
+the scenario is written.
+
 ---
 
 ## Step 5 — Bug report format

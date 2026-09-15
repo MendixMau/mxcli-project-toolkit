@@ -80,6 +80,7 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
         "2. System retrieves and displays all OrderApplicationHeader records"
       ],
       "screens": ["OrderRegistration_Overview"],
+      "routes": ["#/order-list", "#/order-detail"],
       "mdlRefs": ["ACME01_OrderRegist"]
     }
   ],
@@ -125,6 +126,7 @@ Also maintain: `extraction/knowledge-base/brd/index.json` (list of all BRDs)
     {
       "name": "OrderDetail_NewEdit",
       "module": "OrderRegistration",
+      "route": "#/order-edit",
       "layout": "Atlas_Core.Atlas_Default",
       "purpose": "Data entry form for new order registration",
       "dataContext": "OrderDetail_Dto",
@@ -172,6 +174,36 @@ BRD has no KB files to name.
 
 `coverage-ledger.md` already ledgers `/provenance/*` and `/sourceKB/*` as BRD metadata rather
 than buildable requirements, so neither key needs a build-plan row.
+
+### `routes` and `pages[].route`: the path through the prototype
+
+Once a clickable prototype exists (`design-artifacts.md` Step 3, `design/prototype.html`), every
+use case names the screens it walks, in order, as prototype routes:
+
+```json
+"routes": ["#/order-list", "#/order-detail", "#/order-edit"]
+```
+
+In prose (a markdown BRD, a `mainFlow` step, a review comment) write the same path inline as
+`#/order-list -> #/order-detail -> #/order-edit`. Either form is read the same way.
+
+WHY. A use case in words is signed off by someone imagining the screens; the same use case with
+routes is signed off by someone who clicked them. A reviewer opens `prototype.html#/order-list`
+and follows the path, and a step the prototype cannot take (no link from detail to edit) shows up
+as a dead end in the review, not as a missing navigation action in the build. The path also
+becomes the skeleton of that use case's e2e scenario (`e2e-harness-base.md` Step 4), so the test
+replays the clicks that were approved.
+
+`routes` is not `screens`. `screens` names Mendix pages (what gets built); `routes` names
+prototype screens (what was reviewed), and one route can stand for a page in several states.
+`pages[].route` is the join between the two: the prototype screen each target page is built
+against. `brd-to-build-plan.md` Step 7 (Navigation Wiring) carries it into the plan and `PAGE-MAP.tsv`.
+
+Both keys are optional on a BRD written before the prototype, and a scaffolded BRD never has
+them: the scaffolders read source code, and source code has no prototype. Add them in the
+enrichment pass. `brd-validation.md` check 8 checks them against the prototype in both
+directions. `coverage-ledger.md` ledgers them with `/provenance/*` as review metadata, so they
+need no build-plan row of their own.
 
 ### Keys the scaffolders add that the block above does not show
 
@@ -279,6 +311,7 @@ Write F[NNN]-[topic].brd.json following this structure:
 - domainEntities — map from OS ENxxx to Mendix entity names, with all attributes and their Mendix types
 - microflows — list each action to implement with purpose, params, returns, pattern, calls, validations
 - pages — list each screen to implement with layout, dataContext, sections, actions
+- when a clickable prototype exists: routes on each use case and route on each page, as #/route strings
 - integrations — external calls with stub plan
 - openQuestions — anything still unclear
 - sourceKB — list of KB files used

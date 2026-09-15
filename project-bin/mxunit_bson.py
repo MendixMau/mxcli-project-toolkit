@@ -8,7 +8,7 @@
 # -- it bypasses every validation mxcli and mxbuild perform.
 #
 # COVERAGE, measured rather than assumed: 1068 of the 1069 units in a real 16-module project
-# re-encode byte-identically (VB-USI, 2026-09-14). The one miss carries BSON type 0x09
+# re-encode byte-identically (the approval app, 2026-09-14). The one miss carries BSON type 0x09
 # (UTC datetime), which no workflow unit uses; the codec raises on it rather than guessing.
 # Extend enc_val/dec_val together, and re-measure against a real project, before relying on
 # it for a unit type outside workflows.

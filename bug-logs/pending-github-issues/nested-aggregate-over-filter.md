@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-DRAFT-nested-aggregate-over-filter` — found 2026-09-15
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1101 (2026-09-15)
 **Suggested labels:** bug, microflows, codegen
 
 ---

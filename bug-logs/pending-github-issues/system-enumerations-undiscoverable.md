@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-DRAFT-system-enumerations-undiscoverable` — found 2026-09-15
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1102 (2026-09-15)
 **Suggested labels:** enhancement, cli, discoverability
 
 ---

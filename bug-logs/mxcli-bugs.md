@@ -5498,6 +5498,8 @@ callee's flag is readable in the model.
 
 ## BUG-DRAFT-loop-var-expression-typecheck: the expression type checker is skipped inside a `LOOP` body — the identical expression is caught on a parameter and missed on a loop variable (2026-09-15)
 
+> **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1100**
+
 **Discovered:** 2026-09-15, building diagnostic microflows during the v0.22.0 workflow retest
 ([mxlabs-v0.22.0-retest-2026-09-15.md](mxlabs-v0.22.0-retest-2026-09-15.md)).
 **Reproducible:** yes, minimal A/B with control, on a disposable `mxcli new` scaffold.
@@ -5552,6 +5554,8 @@ over `LOOP` bodies. Worth auditing whether other block-scoped variables (`FILTER
 
 ## BUG-DRAFT-nested-aggregate-over-filter: `COUNT(FILTER(...))` writes an Aggregate activity with no List, passing `check` and failing the build with CE0012 (2026-09-15)
 
+> **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1101**
+
 **Discovered:** 2026-09-15, same session and scaffold as the entry above.
 **Reproducible:** yes, minimal A/B with a working control.
 **mxcli version:** `v0.22.0-15-g7b42100d`. **Mendix:** 11.13.0.
@@ -5590,6 +5594,8 @@ a build error that names a BSON property the author never wrote is not diagnosab
 ---
 
 ## BUG-DRAFT-test-block-retrieve-limit: inside a `.test.mdl` block, `RETRIEVE … WHERE … LIMIT n` is parsed by the OQL grammar and rejected (2026-09-15)
+
+> **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1103**
 
 **Discovered:** 2026-09-15, writing `mxcli test` probes for the v0.22.0 workflow retest.
 **Reproducible:** yes, with both controls.
@@ -5633,6 +5639,8 @@ found by hand.
 ---
 
 ## BUG-DRAFT-test-injection-failure-opaque-and-sticky: `mxcli test` hides mxbuild's error and leaves the project broken for every later run (2026-09-15)
+
+> **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1104**
 
 **Discovered:** 2026-09-15, repeatedly, during the v0.22.0 workflow retest.
 **Reproducible:** yes — any test file whose generated microflow does not build.
@@ -5679,6 +5687,8 @@ already captured; (b) on cleanup failure, name the leftover documents explicitly
 ---
 
 ## BUG-DRAFT-system-enumerations-undiscoverable: `System` enumerations are invisible to `show` and `describe`, so their valid values cannot be found before the build rejects them (2026-09-15)
+
+> **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1102**
 
 **Discovered:** 2026-09-15, during the v0.22.0 workflow retest.
 **Reproducible:** yes, on any scaffold.

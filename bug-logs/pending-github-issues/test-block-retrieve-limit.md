@@ -1,6 +1,6 @@
 **Repo:** `mendixlabs/mxcli`
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-DRAFT-test-block-retrieve-limit` — found 2026-09-15
-**Status:** NOT YET FILED
+**Status:** FILED — https://github.com/mendixlabs/mxcli/issues/1103 (2026-09-15)
 **Suggested labels:** bug, test, grammar
 
 ---

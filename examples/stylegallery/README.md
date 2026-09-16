@@ -85,15 +85,22 @@ by being authored fresh against its own final MDL, not copied from a prior proje
 Bring the same palette into the Mendix side by mirroring the Tier 1 values into
 Atlas_Core's own design properties / `styles/web/` variables, per `design-artifacts.md`.
 
-## Honesty note
+## Field run
 
-This set has been syntax-checked file-by-file with `mxcli check` (every `.mdl` here passes
-clean or with informational-only notices — no errors, no warnings) but **has never been
-executed against a live Mendix project**. `mxcli check --references` needs a `.mpr` to
-resolve cross-file references (module, entity, and microflow names), and none was run here.
-Before trusting this set on a real build: exec it against a scratch project in the order
-above, open `Gallery_Home`, and visually compare it to `design-system.html` — that
-side-by-side is exactly what Step 5b's fourth gate item ("someone visually verified") means.
+Executed end to end on 2026-09-15 against a blank `mxcli new` scaffold (Mendix 11.13.0,
+mxcli v0.21.0): all 13 files, in the order above, each passing `mxcli check --references`
+against the `.mpr` as it stood after the previous file, then `exec`. Native validation
+(`mx check -w -d -b` from `mxcli setup mxbuild`) reported **0 errors in `StyleGallery`**
+after one fix — the KPI tile's `DynamicClasses` expression used a bare attribute name
+(`if TrendDir = ...`), which `mxcli check` accepts and `mx check` rejects with CE0117; the
+`$currentObject/` prefix rule is `learned-mdl-preflight.md` STOP item 12, and that run is
+exactly why the rule exists. Result: 1 page (`Gallery_Home`) whose 12 snippet calls all
+resolve, 12 snippets, 4 entities, 7 microflows. The remaining warnings in that run were all
+scaffold noise (Atlas templates, NanoflowCommons version), none in `StyleGallery`.
+
+Not yet done: nobody has opened `Gallery_Home` in a running app and compared it to
+`design-system.html`. That side-by-side is Step 5b's fourth gate item ("someone visually
+verified") and is still owed by whoever copies this set into a real build.
 
 ## Where the material came from
 

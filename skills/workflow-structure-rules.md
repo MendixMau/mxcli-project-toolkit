@@ -405,6 +405,7 @@ prevent.
 | 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` (§8) | N of N expressions |
 | 9 | Event sub-processes with exactly one start event, correct family, and recurrence within bounds (§3) | N of N sub-processes |
 | 10 | Constructs checked against §11 and marked *proven* or *hand-add in Studio Pro* | N of N constructs used; every hand-add is a build-plan checklist row |
+| 12 | Called microflows carrying `EXPOSED AS WORKFLOW ACTION` — the workflow editor's toolbox, so a human hand-adding a row-10 construct can find them (`learned-workflow-patterns.md` §26) | N of N called microflows that are **not** `SUB_` prefixed; get N from `mxcli callers <Module.MF>`, which reports the workflow at depth 1 |
 | 11 | **If the source is a BPMN/swimlane diagram:** pools counted, lanes carried into row 5's targeting, and every element screened against §13 | N pools = N workflows; N of N source elements screened; every NOT-SUPPORTED element has a `fit-gap.md` row. *"Source is not a process diagram"* is a legal entry |
 
 A workflow going into a build plan with row 10 unfilled is the omission this file exists to stop:

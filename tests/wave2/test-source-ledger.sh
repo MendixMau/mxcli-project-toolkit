@@ -204,6 +204,64 @@ has "the container is what remains owed" "$OUT" "page(s)/slide(s)/sheet(s) insid
 VERD="$("$SL" check "$P" --json --quiet 2>/dev/null | "$PY" -c "import json,sys; d=json.load(sys.stdin); print(' '.join(r['verdict'] for r in d['rows'] if r['rel'].startswith('legacy/Spec_files/')))")"
 [ "$VERD" = "EXTRACTED EXTRACTED" ] && ok "css and woff2 rows are EXTRACTED by the index alone — chrome owes no --media, no separate disposition" || bad "sidecar verdicts" "got '$VERD'"
 
+echo "== T13: a directory waiver glob survives the parser, and markdown bold never widens a waiver =="
+# The bug (2026-09-16, a workshop corpus of ~1,800 unrelated example files): the register
+# parser stripped every literal '*' from the line before matching, so 'legacy/examples/*' became
+# 'legacy/examples/' and fnmatch matched nothing. Directory-level waivers, the documented use of
+# the vocabulary --waive shares, were silently non-functional. The fix removes bold markers
+# precisely instead of stripping every star, so both halves are asserted here: the glob must
+# match, and the three bold spellings must resolve to exactly the path the author wrote.
+P13="$(mkproj t13)"
+mkdir -p "$P13/source/legacy/examples"
+for f in a.pdf b.pdf c.pdf; do echo x > "$P13/source/legacy/examples/$f"; done
+echo x > "$P13/source/legacy/odd.pdf"
+echo x > "$P13/source/legacy/one.pdf"
+echo x > "$P13/source/legacy/one.pdf.bak"
+"$SS" init "$P13" >/dev/null 2>&1
+{
+  printf 'Waived source legacy/examples/*: workshop examples, not this project\n'
+  printf '**Waived source** legacy/odd.pdf: bold on the label only\n'
+  printf 'Waived source **legacy/one.pdf**: bold around the key\n'
+} >> "$P13/PROJECT.md"
+WV="$("$SL" check "$P13" --json --quiet 2>/dev/null | "$PY" -c "import json,sys; d=json.load(sys.stdin); print(' '.join(sorted(r['rel'] for r in d['rows'] if r['verdict']=='WAIVED')))")"
+EXP="legacy/examples/a.pdf legacy/examples/b.pdf legacy/examples/c.pdf legacy/odd.pdf legacy/one.pdf"
+[ "$WV" = "$EXP" ] && ok "the directory glob waives all 3, both bold spellings waive exactly their own file, and one.pdf.bak is untouched" || bad "waiver keys" "got '$WV' want '$EXP'"
+
+echo "== T14: single-* emphasis around a key no longer widens a waiver, and a bare glob is still recursive =="
+# F1 (found in review of the T13 fix): the leading-marker strip ate an OPENING single '*' as a
+# list bullet while only '**' was handled on the CLOSING side, so a single-asterisk emphasis
+# spelling left one wildcard behind and silently widened the waiver onto the neighbouring .bak —
+# the exact failure T13's own fix intended to close, one marker narrower.
+P14A="$(mkproj t14a)"
+mkdir -p "$P14A/source/legacy"
+echo x > "$P14A/source/legacy/one.pdf"
+echo x > "$P14A/source/legacy/one.pdf.bak"
+"$SS" init "$P14A" >/dev/null 2>&1
+{
+  printf -- '- *Waived source legacy/one.pdf*: emphasis opened on the phrase\n'
+  printf -- '- Waived source *legacy/one.pdf*: emphasis wrapping the key\n'
+} >> "$P14A/PROJECT.md"
+WV14A="$("$SL" check "$P14A" --json --quiet 2>/dev/null | "$PY" -c "import json,sys; d=json.load(sys.stdin); print(' '.join(sorted(r['rel'] for r in d['rows'] if r['verdict']=='WAIVED')))")"
+[ "$WV14A" = "legacy/one.pdf" ] && ok "both single-* emphasis spellings waive exactly legacy/one.pdf, not the neighbouring .bak" || bad "single-* emphasis waiver keys" "got '$WV14A' want 'legacy/one.pdf'"
+
+# fnmatch's '*' crosses '/', so a bare directory glob is already recursive — 'dir/*' and 'dir/**'
+# name the same set. Proven separately so neither spelling's match masks the other's.
+P14B="$(mkproj t14b)"
+mkdir -p "$P14B/source/legacy/sub"
+echo x > "$P14B/source/legacy/sub/two.pdf"
+"$SS" init "$P14B" >/dev/null 2>&1
+printf 'Waived source legacy/*: whole folder out of scope\n' >> "$P14B/PROJECT.md"
+WV14B="$("$SL" check "$P14B" --json --quiet 2>/dev/null | "$PY" -c "import json,sys; d=json.load(sys.stdin); print('legacy/sub/two.pdf' in [r['rel'] for r in d['rows'] if r['verdict']=='WAIVED'])")"
+[ "$WV14B" = "True" ] && ok "'legacy/*' covers the nested legacy/sub/two.pdf" || bad "'legacy/*' nested coverage" "got '$WV14B'"
+
+P14C="$(mkproj t14c)"
+mkdir -p "$P14C/source/legacy/sub"
+echo x > "$P14C/source/legacy/sub/two.pdf"
+"$SS" init "$P14C" >/dev/null 2>&1
+printf 'Waived source legacy/**: whole folder out of scope\n' >> "$P14C/PROJECT.md"
+WV14C="$("$SL" check "$P14C" --json --quiet 2>/dev/null | "$PY" -c "import json,sys; d=json.load(sys.stdin); print('legacy/sub/two.pdf' in [r['rel'] for r in d['rows'] if r['verdict']=='WAIVED'])")"
+[ "$WV14C" = "True" ] && ok "'legacy/**' covers the nested legacy/sub/two.pdf, same as 'legacy/*'" || bad "'legacy/**' nested coverage" "got '$WV14C'"
+
 echo ""
 echo "== $PASS passed, $FAIL failed =="
 [ "$FAIL" -eq 0 ]

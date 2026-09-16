@@ -1804,7 +1804,8 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
         echo "Recorded in $REGISTER:  Waived source $SRC_REL: $WAIVER_REASON"
         echo "That file now reports WAIVED in the source ledger (bin/source-ledger.sh) instead of"
         echo "PENDING. It does NOT report EXTRACTED — a waived file is one nobody read, and the"
-        echo "register says who decided that. Match is by relative path or basename, case-insensitive."
+        echo "register says who decided that. Match is by relative path or basename, case-insensitive,"
+        echo "and a glob is accepted — '*' matches across '/', so dir/* and dir/** cover the same files."
         exit 0 ;;
     esac
     OB_TSV="$TOOLKIT_DIR/bin/lib/obligations.tsv"

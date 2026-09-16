@@ -294,10 +294,35 @@ if register and os.path.exists(register):
         if incomment:
             if '-->' in line: incomment = False
             continue
-        l = re.sub(r'^[ \t>*_-]+', '', line.rstrip('\n')).replace('*', '')
-        m = re.match(r'(?i)^waived source\s+(.+?)\s*:\s*(.*)$', l)
+        # BUG-fix 2026-09-16: a blanket .replace('*', '') here used to strip markdown bold,
+        # but it also silently destroyed glob wildcards in "Waived source <glob>: ..." lines
+        # (e.g. "legacy/examples/*" -> "legacy/examples/", which then matches nothing). Only
+        # strip the leading list-marker run, then remove bold/emphasis markers precisely rather
+        # than every '*' in the line. A '*' that belongs to a glob and a '*' that belongs to
+        # markdown emphasis sit in different places: emphasis hugs a path character, a glob
+        # sits next to '/' or is the whole segment, so the lookarounds below keep "dir/**" and
+        # "**/*.bak" intact. Getting this wrong in the other direction is the worse failure: a
+        # waiver means "out of scope", so a widened key silently waives files nobody named.
+        raw = line.rstrip('\n')
+        # A leading '*' is a list bullet when a space follows it ("* Waived") and single-asterisk
+        # emphasis when the phrase follows it directly ("*Waived"). The leading-marker strip below
+        # eats it either way, so remember how many emphasis markers opened on the phrase itself:
+        # their partner closes on the KEY, where an unstripped single '*' becomes a wildcard and
+        # silently widens the waiver (e.g. "- *Waived source legacy/one.pdf*: r" must not also
+        # waive legacy/one.pdf.bak).
+        opened = re.match(r'^[ \t>_-]*(\*{1,2})[Ww]aived\s', raw)
+        nopen = len(opened.group(1)) if opened else 0
+        l = re.sub(r'^[ \t>*_-]+', '', raw)
+        m = re.match(r'(?i)^waived source\**\s+(.+?)\s*:\s*(.*)$', l)
         if m:
-            waivers[m.group(1).strip().replace(os.sep, '/').lower()] = m.group(2).strip()
+            key = m.group(1).strip()
+            key = re.sub(r'^\*\*(?=[^*/\s])', '', key)   # opening bold, before a path character
+            key = re.sub(r'(?<=[^*/\s])\*\*$', '', key)  # closing bold, after a path character
+            if nopen == 1:
+                key = re.sub(r'(?<=[^*/\s])\*$', '', key)  # single emphasis opened on the phrase
+            elif re.match(r'^\*[^*/\s]', key) and re.search(r'[^*/\s]\*$', key):
+                key = key[1:-1]                              # single emphasis wrapping the key itself
+            waivers[key.replace(os.sep, '/').lower()] = m.group(2).strip()
 
 def waiver_for(rel):
     rel_l = rel.lower()
@@ -393,7 +418,13 @@ for r in inv:
            'opened': r.get('kind') is not None and r.get('answers') is not None}
     reason = waiver_for(rel)
     if reason is not None:
-        row.update(verdict='WAIVED', note=reason); rows.append(row); continue
+        # A waived file stays WAIVED even when it has since left the folder — the register
+        # said it is out of scope, and a deliberate waiver must not turn the ledger red.
+        # But say so: without this the only two facts about the row (waived, gone) collapse
+        # into one and corpus drift under a directory glob is invisible.
+        gone = '' if (not r.get('missing') and (not path or on_disk)) else \
+               ' — and no longer on disk'
+        row.update(verdict='WAIVED', note=reason + gone); rows.append(row); continue
     if r.get('missing') or (path and not on_disk):
         row.update(verdict='MISSING', note='inventoried, no longer on disk — re-run init --refresh, or restore it')
         rows.append(row); continue

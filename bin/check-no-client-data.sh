@@ -25,6 +25,7 @@
 # Usage:
 #   bin/check-no-client-data.sh            # scan tracked files, exit 1 on any hit
 #   LEAKGUARD_DENY='Foo|Bar' bin/check-no-client-data.sh   # override for CI
+#   LEAKGUARD_BASE=origin/master bin/check-no-client-data.sh  # + warn-only new-words report (step 7)
 #   runs automatically as a git pre-commit and pre-push hook (bin/install-hooks.sh)
 
 set -u
@@ -51,10 +52,13 @@ report() { echo "❌ $1"; fail=1; }
 # Keep this bash-3.2 compatible; do not reintroduce mapfile or `readarray`.
 LIST=$(mktemp "${TMPDIR:-/tmp}/leakguard.XXXXXX") || exit 2
 trap 'rm -f "$LIST"' EXIT
-git ls-files -z --cached --others --exclude-standard -- \
-  '*.md' '*.html' '*.json' '*.js' '*.ts' '*.txt' '*.mdl' '*.star' '*.sh' \
-  '*.yml' '*.yaml' '*.css' '*.py' \
-  ':!:*/node_modules/*' > "$LIST"
+
+# The pathspec, held in the positional parameters (not an array — none of those either
+# on bash 3.2) so step 7 can reuse it via "$@" without unquoted expansion re-globbing
+# these patterns against files that happen to exist in the cwd.
+set -- '*.md' '*.html' '*.json' '*.js' '*.ts' '*.txt' '*.mdl' '*.star' '*.sh' \
+        '*.yml' '*.yaml' '*.css' '*.py' ':!:*/node_modules/*'
+git ls-files -z --cached --others --exclude-standard -- "$@" > "$LIST"
 
 # Count is reported with the final verdict: a pass over 0 files looks identical
 # to a pass over 400 unless you print it.
@@ -141,6 +145,51 @@ hits=$(scan grep -IinE "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}" -- \
 hits=$(scan grep -IinE "(api[_-]?key|secret|password|passwd|token)\s*[:=]\s*['\"][^'\"]{12,}" -- \
        | grep -v '^bin/check-no-client-data.sh:' || true)
 [ -n "$hits" ] && { report "possible hard-coded credential in:"; echo "$hits"; }
+
+# 7) New capitalised words vs a base ref — reviewer aid, not a gate, warn-only.
+#    Opt-in: set LEAKGUARD_BASE=<ref> (CI sets it to the PR's base branch). This
+#    toolkit's own vocabulary is full of legitimate new PascalCase identifiers
+#    (entity/module/microflow names), so gating on them would just get silenced
+#    — a human eyeballing the flagged list for client/app names is the point.
+#    The blocking name check stays the denylist in section 1 above; this only
+#    narrows what a reviewer has to look at. Never sets $fail.
+if [ -n "${LEAKGUARD_BASE:-}" ]; then
+  newwords_probe() { grep -oE '\b[A-Z][a-z]+[A-Z][A-Za-z0-9]+\b|\b[A-Z]{2,}[a-z]+[A-Za-z]*\b'; }
+  printf 'AcmeCorp\n' | newwords_probe | grep -q . || selftest_failed "new-names"
+
+  DIFF=$(git diff "${LEAKGUARD_BASE}"...HEAD -- "$@" 2>/dev/null)
+  if [ $? -ne 0 ]; then
+    echo "⚠️ LEAKGUARD_BASE '${LEAKGUARD_BASE}' not resolvable — new-name report skipped"
+  else
+    # Both greps use -E: BRE's default treats a backslash-escaped + as a GNU
+    # "one or more" quantifier (not a literal +), so an unescaped-flag `grep -v
+    # '^\+\+\+'` silently drops every added line, not just the `+++ b/file`
+    # diff header, on GNU grep — caught by this section's own field run.
+    CANDS=$(printf '%s\n' "$DIFF" | grep -E '^\+' | grep -vE '^\+\+\+' | newwords_probe | sort -u)
+    if [ -n "$CANDS" ]; then
+      CAPNOTE=""
+      NCAND=$(printf '%s\n' "$CANDS" | grep -c .)
+      if [ "$NCAND" -gt 200 ]; then
+        CANDS=$(printf '%s\n' "$CANDS" | head -200)
+        CAPNOTE=" (candidate list capped at 200 words)"
+      fi
+      # Drop any word that already existed somewhere in the base tree — only genuinely
+      # new words are worth a reviewer's attention.
+      SURVIVORS=""
+      for w in $CANDS; do
+        git grep -qlF -- "$w" "${LEAKGUARD_BASE}" >/dev/null 2>&1 && continue
+        SURVIVORS="$SURVIVORS $w"
+      done
+      if [ -n "$SURVIVORS" ]; then
+        echo "⚠️ new capitalised words in this diff (review for client/app names; warn-only):$SURVIVORS$CAPNOTE"
+      else
+        echo "✅ no new capitalised words vs ${LEAKGUARD_BASE}"
+      fi
+    else
+      echo "✅ no new capitalised words vs ${LEAKGUARD_BASE}"
+    fi
+  fi
+fi
 
 if [ "$fail" -eq 0 ]; then
   echo "✅ no client data detected in $NFILES tracked files"

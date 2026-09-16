@@ -244,8 +244,7 @@ Only (1)'s rendering is tool-specific:
 | Harness | How the batch is rendered |
 |---|---|
 | Claude Code | `AskUserQuestion` — clickable options, structured answers. Preferred; also paste the batch as chat text so it survives compaction. |
-| Copilot, Cursor, Windsurf, Continue, Aider, anything else | Plain numbered markdown in the chat — `1.` / `2.` / `3. Something else — tell me`. Then stop. |
-| Kiro | Same plain numbered markdown. Its own blocking `userInput` tool is fine to use when the harness offers it, but is not required — the turn still ends either way. |
+| Copilot, Cursor, Windsurf, Continue, Aider, Kiro, anything else | Plain numbered markdown in the chat — `1.` / `2.` / `3. Something else — tell me`. Then stop. |
 
 Both satisfy the protocol. **Neither is optional**, and the *end-the-turn* half is not
 tool-specific at all — it is the half that actually enforces the gate, and the half a harness

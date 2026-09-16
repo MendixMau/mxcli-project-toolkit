@@ -1,0 +1,1704 @@
+{
+ "app": "Harbour Berth Booking",
+ "version": "1-small",
+ "description": "Synthetic ground truth for an A/B experiment on the mxcli-project-toolkit Stage 0-2 pipeline. A fictional port authority lets shipping agents book berths; berth officers approve; tariffs are invoiced; inspectors run checklists. Nothing here refers to a real organisation, product or person. [small variant: sidecar images trimmed to 1-2/page and inline screenshots to 2, so an unattended run finishes inside session limits; every requirement, rule, contradiction and screenshot-only item is unchanged from the full key.]",
+ "roles": [
+  {
+   "name": "ShippingAgent",
+   "label": "Shipping Agent",
+   "description": "Employee of a licensed shipping agency; creates and manages booking requests for the vessels the agency represents."
+  },
+  {
+   "name": "BerthOfficer",
+   "label": "Berth Officer",
+   "description": "Port authority officer who reviews booking requests, records decisions and grants departure clearance."
+  },
+  {
+   "name": "HarbourMaster",
+   "label": "Harbour Master",
+   "description": "Senior officer; everything a Berth Officer can do plus overrides, agent reactivation and tariff maintenance."
+  },
+  {
+   "name": "Inspector",
+   "label": "Inspector",
+   "description": "Schedules and performs inspections and records checklist outcomes."
+  }
+ ],
+ "screens": [
+  {
+   "name": "BookingBoard",
+   "label": "Booking Board",
+   "role": "BerthOfficer"
+  },
+  {
+   "name": "MyBookings",
+   "label": "My Bookings",
+   "role": "ShippingAgent"
+  },
+  {
+   "name": "InspectionCalendar",
+   "label": "Inspection Calendar",
+   "role": "Inspector"
+  }
+ ],
+ "entities": [
+  {
+   "name": "Vessel",
+   "attributes": [
+    {
+     "name": "IMONumber",
+     "type": "String(7)",
+     "required": true
+    },
+    {
+     "name": "Name",
+     "type": "String(100)",
+     "required": true
+    },
+    {
+     "name": "LengthOverall",
+     "type": "Decimal",
+     "required": true
+    },
+    {
+     "name": "Beam",
+     "type": "Decimal",
+     "required": false
+    },
+    {
+     "name": "Draught",
+     "type": "Decimal",
+     "required": true
+    },
+    {
+     "name": "FlagState",
+     "type": "String(2)",
+     "required": false
+    },
+    {
+     "name": "VesselType",
+     "type": "Enum(Container,Bulk,Tanker,RoRo,Cruise,GeneralCargo)",
+     "required": true
+    },
+    {
+     "name": "GrossTonnage",
+     "type": "Integer",
+     "required": false
+    }
+   ]
+  },
+  {
+   "name": "ShippingAgent",
+   "attributes": [
+    {
+     "name": "CompanyName",
+     "type": "String(120)",
+     "required": true
+    },
+    {
+     "name": "LicenceNumber",
+     "type": "String(20)",
+     "required": true
+    },
+    {
+     "name": "ContactEmail",
+     "type": "String(200)",
+     "required": true
+    },
+    {
+     "name": "Phone",
+     "type": "String(30)",
+     "required": false
+    },
+    {
+     "name": "IsSuspended",
+     "type": "Boolean",
+     "required": true
+    },
+    {
+     "name": "CreditLimit",
+     "type": "Decimal",
+     "required": false
+    }
+   ]
+  },
+  {
+   "name": "Terminal",
+   "attributes": [
+    {
+     "name": "Code",
+     "type": "String(6)",
+     "required": true
+    },
+    {
+     "name": "Name",
+     "type": "String(80)",
+     "required": true
+    },
+    {
+     "name": "OperatingHoursStart",
+     "type": "String(5)",
+     "required": false
+    },
+    {
+     "name": "OperatingHoursEnd",
+     "type": "String(5)",
+     "required": false
+    },
+    {
+     "name": "HasCustomsOffice",
+     "type": "Boolean",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "Berth",
+   "attributes": [
+    {
+     "name": "Code",
+     "type": "String(10)",
+     "required": true
+    },
+    {
+     "name": "Name",
+     "type": "String(80)",
+     "required": true
+    },
+    {
+     "name": "MaxLength",
+     "type": "Decimal",
+     "required": true
+    },
+    {
+     "name": "MaxDraught",
+     "type": "Decimal",
+     "required": true
+    },
+    {
+     "name": "HasShorePower",
+     "type": "Boolean",
+     "required": true
+    },
+    {
+     "name": "Status",
+     "type": "Enum(Available,Closed,Maintenance)",
+     "required": true
+    },
+    {
+     "name": "Notes",
+     "type": "String(500)",
+     "required": false
+    }
+   ]
+  },
+  {
+   "name": "BookingRequest",
+   "attributes": [
+    {
+     "name": "Reference",
+     "type": "String(13)",
+     "required": true
+    },
+    {
+     "name": "ETA",
+     "type": "DateTime",
+     "required": true
+    },
+    {
+     "name": "ETD",
+     "type": "DateTime",
+     "required": true
+    },
+    {
+     "name": "Status",
+     "type": "Enum(Draft,Submitted,UnderReview,Approved,Rejected,Cancelled,Completed)",
+     "required": true
+    },
+    {
+     "name": "CargoClass",
+     "type": "Enum(General,Perishable,DangerousGoods,Empty)",
+     "required": true
+    },
+    {
+     "name": "ShorePowerRequested",
+     "type": "Boolean",
+     "required": true
+    },
+    {
+     "name": "SubmittedOn",
+     "type": "DateTime",
+     "required": false
+    },
+    {
+     "name": "Remarks",
+     "type": "String(500)",
+     "required": false
+    }
+   ]
+  },
+  {
+   "name": "ApprovalDecision",
+   "attributes": [
+    {
+     "name": "DecidedOn",
+     "type": "DateTime",
+     "required": true
+    },
+    {
+     "name": "Outcome",
+     "type": "Enum(Approved,Rejected,ReturnedForInformation)",
+     "required": true
+    },
+    {
+     "name": "Reason",
+     "type": "String(400)",
+     "required": false
+    },
+    {
+     "name": "OfficerName",
+     "type": "String(100)",
+     "required": true
+    },
+    {
+     "name": "IsOverride",
+     "type": "Boolean",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "Tariff",
+   "attributes": [
+    {
+     "name": "Code",
+     "type": "String(10)",
+     "required": true
+    },
+    {
+     "name": "Description",
+     "type": "String(120)",
+     "required": true
+    },
+    {
+     "name": "RatePerMetrePerDay",
+     "type": "Decimal",
+     "required": true
+    },
+    {
+     "name": "Currency",
+     "type": "String(3)",
+     "required": true
+    },
+    {
+     "name": "ValidFrom",
+     "type": "Date",
+     "required": true
+    },
+    {
+     "name": "ValidTo",
+     "type": "Date",
+     "required": false
+    },
+    {
+     "name": "SurchargePercent",
+     "type": "Decimal",
+     "required": false
+    }
+   ]
+  },
+  {
+   "name": "Invoice",
+   "attributes": [
+    {
+     "name": "InvoiceNumber",
+     "type": "String(16)",
+     "required": true
+    },
+    {
+     "name": "IssuedOn",
+     "type": "Date",
+     "required": true
+    },
+    {
+     "name": "DueOn",
+     "type": "Date",
+     "required": true
+    },
+    {
+     "name": "TotalAmount",
+     "type": "Decimal",
+     "required": true
+    },
+    {
+     "name": "VatPercent",
+     "type": "Decimal",
+     "required": true
+    },
+    {
+     "name": "Status",
+     "type": "Enum(Draft,Issued,Paid,Overdue,Void)",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "Inspection",
+   "attributes": [
+    {
+     "name": "ScheduledFor",
+     "type": "DateTime",
+     "required": true
+    },
+    {
+     "name": "CompletedOn",
+     "type": "DateTime",
+     "required": false
+    },
+    {
+     "name": "Outcome",
+     "type": "Enum(Pending,Passed,Failed,Deferred)",
+     "required": true
+    },
+    {
+     "name": "InspectorName",
+     "type": "String(100)",
+     "required": true
+    },
+    {
+     "name": "Findings",
+     "type": "String(1000)",
+     "required": false
+    },
+    {
+     "name": "FollowUpRequired",
+     "type": "Boolean",
+     "required": true
+    }
+   ]
+  },
+  {
+   "name": "InspectionItem",
+   "attributes": [
+    {
+     "name": "Category",
+     "type": "Enum(Safety,Environmental,Documentation,Security)",
+     "required": true
+    },
+    {
+     "name": "Description",
+     "type": "String(300)",
+     "required": true
+    },
+    {
+     "name": "IsCompliant",
+     "type": "Boolean",
+     "required": true
+    },
+    {
+     "name": "Severity",
+     "type": "Enum(Low,Medium,High)",
+     "required": false
+    },
+    {
+     "name": "Note",
+     "type": "String(300)",
+     "required": false
+    }
+   ]
+  },
+  {
+   "name": "AuditEntry",
+   "attributes": [
+    {
+     "name": "OccurredOn",
+     "type": "DateTime",
+     "required": true
+    },
+    {
+     "name": "Actor",
+     "type": "String(200)",
+     "required": true
+    },
+    {
+     "name": "Action",
+     "type": "String(100)",
+     "required": true
+    },
+    {
+     "name": "EntityName",
+     "type": "String(60)",
+     "required": true
+    },
+    {
+     "name": "Detail",
+     "type": "String(1000)",
+     "required": false
+    }
+   ]
+  }
+ ],
+ "associations": [
+  {
+   "name": "BookingRequest_Vessel",
+   "from": "BookingRequest",
+   "to": "Vessel",
+   "type": "ManyToOne"
+  },
+  {
+   "name": "BookingRequest_ShippingAgent",
+   "from": "BookingRequest",
+   "to": "ShippingAgent",
+   "type": "ManyToOne"
+  },
+  {
+   "name": "BookingRequest_Berth",
+   "from": "BookingRequest",
+   "to": "Berth",
+   "type": "ManyToOne"
+  },
+  {
+   "name": "ApprovalDecision_BookingRequest",
+   "from": "ApprovalDecision",
+   "to": "BookingRequest",
+   "type": "ManyToOne"
+  },
+  {
+   "name": "Invoice_BookingRequest",
+   "from": "Invoice",
+   "to": "BookingRequest",
+   "type": "OneToOne"
+  },
+  {
+   "name": "Invoice_Tariff",
+   "from": "Invoice",
+   "to": "Tariff",
+   "type": "ManyToOne"
+  },
+  {
+   "name": "Invoice_ShippingAgent",
+   "from": "Invoice",
+   "to": "ShippingAgent",
+   "type": "ManyToOne"
+  },
+  {
+   "name": "Inspection_BookingRequest",
+   "from": "Inspection",
+   "to": "BookingRequest",
+   "type": "ManyToOne"
+  },
+  {
+   "name": "InspectionItem_Inspection",
+   "from": "InspectionItem",
+   "to": "Inspection",
+   "type": "ManyToOne"
+  },
+  {
+   "name": "Berth_Terminal",
+   "from": "Berth",
+   "to": "Terminal",
+   "type": "ManyToOne"
+  },
+  {
+   "name": "Tariff_Terminal",
+   "from": "Tariff",
+   "to": "Terminal",
+   "type": "ManyToOne"
+  },
+  {
+   "name": "AuditEntry_BookingRequest",
+   "from": "AuditEntry",
+   "to": "BookingRequest",
+   "type": "ManyToOne"
+  },
+  {
+   "name": "Vessel_ShippingAgent",
+   "from": "Vessel",
+   "to": "ShippingAgent",
+   "type": "ManyToMany"
+  }
+ ],
+ "requirements": [
+  {
+   "id": "R001",
+   "text": "The system lets licensed shipping agents request berths online for vessels they represent.",
+   "section": {
+    "file": "04-vision-and-scope.html",
+    "heading": "1.1 Purpose"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R002",
+   "text": "Berth officers review every booking request and record an approval decision with a reason.",
+   "section": {
+    "file": "04-vision-and-scope.html",
+    "heading": "1.2 Goals"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R003",
+   "text": "Pilotage and tug scheduling are out of scope and remain in the existing marine operations system.",
+   "section": {
+    "file": "04-vision-and-scope.html",
+    "heading": "1.3 Out of scope"
+   },
+   "form": "prose",
+   "negative": true
+  },
+  {
+   "id": "R004",
+   "text": "Four user roles exist: Shipping Agent, Berth Officer, Harbour Master and Inspector.",
+   "section": {
+    "file": "05-stakeholders-and-roles.html",
+    "heading": "2.1 Actors"
+   },
+   "form": "table"
+  },
+  {
+   "id": "R005",
+   "text": "The Harbour Master can perform every action a Berth Officer can, plus decision overrides, agent reactivation and tariff maintenance.",
+   "section": {
+    "file": "05-stakeholders-and-roles.html",
+    "heading": "2.3 Harbour Master"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R006",
+   "text": "A booking request always refers to exactly one vessel, one shipping agent and one berth.",
+   "section": {
+    "file": "07-domain-overview.html",
+    "heading": "3.1 Core concepts"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R007",
+   "text": "An agent can save a booking request as Draft and complete it later; drafts are invisible to officers.",
+   "section": {
+    "file": "08-booking-lifecycle.html",
+    "heading": "4.1 Draft"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R008",
+   "text": "On submission the system assigns a unique booking reference in the format HB-YYYY-NNNNN.",
+   "section": {
+    "file": "08-booking-lifecycle.html",
+    "heading": "4.2 Submission"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R009",
+   "text": "A booking request moves through the states Draft, Submitted, Under Review, Approved, Rejected, Cancelled and Completed.",
+   "section": {
+    "file": "08-booking-lifecycle.html",
+    "heading": "4.3 Status model"
+   },
+   "form": "table"
+  },
+  {
+   "id": "R010",
+   "text": "A booking request is automatically approved when the requested berth is free for the whole stay and the vessel is shorter than 120 metres.",
+   "section": {
+    "file": "08-booking-lifecycle.html",
+    "heading": "4.4 Fast-track"
+   },
+   "form": "table"
+  },
+  {
+   "id": "R011",
+   "text": "The booking form requires vessel, berth, ETA, ETD and cargo class before it can be submitted.",
+   "section": {
+    "file": "09-booking-request-form.html",
+    "heading": "5.1 Mandatory fields"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R012",
+   "text": "ETD must be later than ETA, and the system rejects a stay longer than 30 days.",
+   "section": {
+    "file": "09-booking-request-form.html",
+    "heading": "5.2 Validation"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R013",
+   "text": "An agent may edit a Submitted request until an officer opens it for review, after which it is locked.",
+   "section": {
+    "file": "10-cancellation-and-changes.html",
+    "heading": "6.1 Changing a request"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R014",
+   "text": "Cancellation is free of charge until 24 hours before ETA.",
+   "section": {
+    "file": "10-cancellation-and-changes.html",
+    "heading": "6.2 Cancellation"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R015",
+   "text": "A shipping agent registers with a company name, port licence number and a contact e-mail address, and is activated by a Berth Officer.",
+   "section": {
+    "file": "11-agent-onboarding.html",
+    "heading": "7.1 Registration"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R016",
+   "text": "There is no self-service reactivation; a suspended agent is reactivated only by the Harbour Master.",
+   "section": {
+    "file": "11-agent-onboarding.html",
+    "heading": "7.2 Suspension"
+   },
+   "form": "prose",
+   "negative": true
+  },
+  {
+   "id": "R017",
+   "text": "Each berth records a code, a name, a maximum vessel length, a maximum draught, shore power availability and a status of Available, Closed or Maintenance.",
+   "section": {
+    "file": "12-berth-master-data.html",
+    "heading": "8.1 Berth attributes"
+   },
+   "form": "table"
+  },
+  {
+   "id": "R018",
+   "text": "Only the Harbour Master may waive a tariff surcharge.",
+   "section": {
+    "file": "13-berth-allocation-rules.html",
+    "heading": "9.3 Surcharge waivers"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R019",
+   "text": "A vessel is identified by its IMO number, which is unique across the vessel registry.",
+   "section": {
+    "file": "14-vessel-registry.html",
+    "heading": "10.1 Vessel record"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R020",
+   "text": "Vessel type is one of Container, Bulk, Tanker, RoRo, Cruise or General Cargo.",
+   "section": {
+    "file": "14-vessel-registry.html",
+    "heading": "10.2 Vessel types"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R021",
+   "text": "Officers work from a Booking Board that lists Submitted and Under Review requests ordered by ETA.",
+   "section": {
+    "file": "15-officer-review-process.html",
+    "heading": "11.1 Queue"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R022",
+   "text": "Opening a request for review moves it to Under Review and records the reviewing officer.",
+   "section": {
+    "file": "15-officer-review-process.html",
+    "heading": "11.2 Review"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R023",
+   "text": "An approval decision has one of three outcomes: Approved, Rejected or Returned for Information.",
+   "section": {
+    "file": "16-approval-decisions.html",
+    "heading": "12.1 Outcomes"
+   },
+   "form": "table"
+  },
+  {
+   "id": "R024",
+   "text": "A request Returned for Information goes back to the agent, who may amend and resubmit it once.",
+   "section": {
+    "file": "16-approval-decisions.html",
+    "heading": "12.2 Return for information"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R025",
+   "text": "There is no automatic approval; every booking request is reviewed by a berth officer before it can become Approved.",
+   "section": {
+    "file": "15-officer-review-process.html",
+    "heading": "11.4 Manual review only"
+   },
+   "form": "prose",
+   "negative": true
+  },
+  {
+   "id": "R026",
+   "text": "The agent receives an e-mail whenever the status of their booking request changes.",
+   "section": {
+    "file": "17-notifications.html",
+    "heading": "13.1 Agent notifications"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R027",
+   "text": "Officers receive a daily digest at 06:00 listing requests with an ETA within the next 48 hours.",
+   "section": {
+    "file": "17-notifications.html",
+    "heading": "13.2 Officer digest"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R028",
+   "text": "Tariffs are defined per terminal with a rate per metre of vessel length per day, a currency and a validity period.",
+   "section": {
+    "file": "18-tariff-structure.html",
+    "heading": "14.1 Rate cards"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R029",
+   "text": "An invoice is generated automatically when a booking is marked Completed.",
+   "section": {
+    "file": "20-invoicing.html",
+    "heading": "16.1 Invoice creation"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R030",
+   "text": "A Harbour Master can mark an invoice as Paid or Void; a Paid invoice cannot be edited.",
+   "section": {
+    "file": "20-invoicing.html",
+    "heading": "16.3 Payment status"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R031",
+   "text": "Cancellations made within 72 hours of ETA are charged 50% of the berth fee.",
+   "section": {
+    "file": "19-tariffs-cancellation-fees.html",
+    "heading": "15.2 Late cancellation"
+   },
+   "form": "table"
+  },
+  {
+   "id": "R032",
+   "text": "The review screen shows the vessel's dimensions next to the berth's limits and highlights any exceedance in red.",
+   "section": {
+    "file": "21-officer-review-screen.html",
+    "heading": "17.1 Review screen"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R033",
+   "text": "An inspector schedules an inspection against an Approved booking and the agent is notified of the time slot.",
+   "section": {
+    "file": "22-inspection-scheduling.html",
+    "heading": "18.1 Scheduling"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R034",
+   "text": "An inspection consists of checklist items in the categories Safety, Environmental, Documentation and Security.",
+   "section": {
+    "file": "23-inspection-checklist.html",
+    "heading": "19.1 Checklist"
+   },
+   "form": "table"
+  },
+  {
+   "id": "R035",
+   "text": "For each checklist item the inspector records compliant or not compliant, a severity of Low, Medium or High, and an optional note.",
+   "section": {
+    "file": "23-inspection-checklist.html",
+    "heading": "19.2 Recording"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R036",
+   "text": "A berth officer may waive the late-arrival surcharge for vessels shorter than 80 metres.",
+   "section": {
+    "file": "24-inspection-outcomes.html",
+    "heading": "20.3 Surcharge relief"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R037",
+   "text": "Departure clearance is granted by a Berth Officer and requires every inspection on the booking to be Passed or Deferred.",
+   "section": {
+    "file": "25-departure-clearance.html",
+    "heading": "21.1 Clearance"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R038",
+   "text": "Every status change on a booking, decision, invoice or inspection is written to an audit trail with actor, timestamp and action.",
+   "section": {
+    "file": "26-audit-and-compliance.html",
+    "heading": "22.1 Audit trail"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R039",
+   "text": "The navigation offers three screens: Booking Board, My Bookings and Inspection Calendar.",
+   "section": {
+    "file": "28-navigation-and-screens.html",
+    "heading": "23.1 Screens"
+   },
+   "form": "table"
+  },
+  {
+   "id": "R040",
+   "text": "The Booking Board can be filtered by terminal, status and ETA date range.",
+   "section": {
+    "file": "29-booking-board-screen.html",
+    "heading": "24.1 Booking Board"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R041",
+   "text": "My Bookings shows the agent's own requests only, with Draft requests listed first.",
+   "section": {
+    "file": "30-my-bookings-screen.html",
+    "heading": "25.1 My Bookings"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R042",
+   "text": "The Inspection Calendar shows inspections per day and per inspector and allows drag-and-drop rescheduling.",
+   "section": {
+    "file": "31-inspection-calendar-screen.html",
+    "heading": "26.1 Calendar"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R043",
+   "text": "A monthly berth occupancy report per terminal can be exported as CSV.",
+   "section": {
+    "file": "32-reporting.html",
+    "heading": "27.1 Reports"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R044",
+   "text": "The system imports vessel positions from the AIS feed every 5 minutes and flags a booking as Arrived when the vessel enters the port geofence.",
+   "section": {
+    "file": "33-integration-ais-feed.html",
+    "heading": "28.2 AIS position feed"
+   },
+   "form": "minified"
+  },
+  {
+   "id": "R045",
+   "text": "Agents can only see bookings, invoices and inspections that belong to their own company.",
+   "section": {
+    "file": "35-security-and-access.html",
+    "heading": "29.1 Access"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "R046",
+   "text": "Agents must be able to attach the cargo manifest as a PDF to a booking request.",
+   "section": {
+    "file": "workshop-notes.md",
+    "heading": "Session 2 \u2014 agents"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R047",
+   "text": "The review screen must show the last five bookings of the same vessel.",
+   "section": {
+    "file": "workshop-notes.md",
+    "heading": "Session 3 \u2014 officers"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "R048",
+   "text": "Booking references are never reused, even after a request is cancelled or deleted.",
+   "section": {
+    "file": "decisions-log.md",
+    "heading": "ADR-004"
+   },
+   "form": "prose",
+   "negative": true
+  }
+ ],
+ "business_rules": [
+  {
+   "id": "B001",
+   "text": "A booking request cannot be submitted more than 90 days before the ETA.",
+   "must_contain": [
+    "90",
+    "day"
+   ],
+   "section": {
+    "file": "08-booking-lifecycle.html",
+    "heading": "4.5 Timing"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "B002",
+   "text": "A booking request must be submitted at least 48 hours before the ETA.",
+   "must_contain": [
+    "48",
+    "hour"
+   ],
+   "section": {
+    "file": "08-booking-lifecycle.html",
+    "heading": "4.5 Timing"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "B003",
+   "text": "A berth can be assigned only if the vessel's length does not exceed the berth's maximum length and the vessel's draught is at least 0.5 metres below the berth's maximum draught.",
+   "must_contain": [
+    "0.5",
+    "draught|draft"
+   ],
+   "section": {
+    "file": "13-berth-allocation-rules.html",
+    "heading": "9.1 Fit check"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "B004",
+   "text": "An agent with three or more overdue invoices is automatically suspended.",
+   "must_contain": [
+    "three|3",
+    "overdue"
+   ],
+   "section": {
+    "file": "11-agent-onboarding.html",
+    "heading": "7.2 Suspension"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "B005",
+   "text": "A suspended agent cannot submit booking requests; bookings that are already Approved remain valid.",
+   "must_contain": [
+    "suspend",
+    "approved"
+   ],
+   "section": {
+    "file": "11-agent-onboarding.html",
+    "heading": "7.2 Suspension"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "B006",
+   "text": "Only the Harbour Master may override a Rejected decision, and the override is recorded with a reason.",
+   "must_contain": [
+    "harbour master|harbourmaster",
+    "reject"
+   ],
+   "section": {
+    "file": "16-approval-decisions.html",
+    "heading": "12.3 Overrides"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "B007",
+   "text": "A booking with cargo class Dangerous Goods cannot be Approved until an inspection has been scheduled.",
+   "must_contain": [
+    "dangerous",
+    "inspection"
+   ],
+   "section": {
+    "file": "22-inspection-scheduling.html",
+    "heading": "18.2 Dangerous goods"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "B008",
+   "text": "A vessel arriving more than 2 hours after its ETA incurs a late-arrival surcharge of 15% of the berth fee.",
+   "must_contain": [
+    "2 hour|two hour|2h",
+    "15"
+   ],
+   "section": {
+    "file": "19-tariffs-cancellation-fees.html",
+    "heading": "15.1 Late arrival"
+   },
+   "form": "table"
+  },
+  {
+   "id": "B009",
+   "text": "Invoices are due 30 days after the issue date and become Overdue on the day after the due date.",
+   "must_contain": [
+    "30",
+    "overdue"
+   ],
+   "section": {
+    "file": "decisions-log.md",
+    "heading": "ADR-006"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "B010",
+   "text": "VAT of 21% is added to all berth fees.",
+   "must_contain": [
+    "21"
+   ],
+   "section": {
+    "file": "18-tariff-structure.html",
+    "heading": "14.3 VAT"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "B011",
+   "text": "An Approved booking may be cancelled by the agent; a Completed booking cannot be cancelled.",
+   "must_contain": [
+    "approved",
+    "completed"
+   ],
+   "section": {
+    "file": "10-cancellation-and-changes.html",
+    "heading": "6.2 Cancellation"
+   },
+   "form": "bullet"
+  },
+  {
+   "id": "B012",
+   "text": "An inspection whose checklist contains any non-compliant item of High severity has the outcome Failed.",
+   "must_contain": [
+    "high",
+    "fail"
+   ],
+   "section": {
+    "file": "23-inspection-checklist.html",
+    "heading": "19.3 Outcome"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "B013",
+   "text": "A Failed inspection blocks departure clearance until a follow-up inspection has Passed.",
+   "must_contain": [
+    "fail",
+    "follow"
+   ],
+   "section": {
+    "file": "24-inspection-outcomes.html",
+    "heading": "20.1 Consequences"
+   },
+   "form": "prose"
+  },
+  {
+   "id": "B014",
+   "text": "The berth fee is vessel length times days alongside times the tariff rate, with days alongside rounded up to whole days and a minimum of one day.",
+   "must_contain": [
+    "round",
+    "minimum|one day|1 day"
+   ],
+   "section": {
+    "file": "18-tariff-structure.html",
+    "heading": "14.2 Fee calculation"
+   },
+   "form": "table"
+  },
+  {
+   "id": "B015",
+   "text": "Shore power is billed at a flat 250 per day when the berth offers it and the agent requested it.",
+   "must_contain": [
+    "250"
+   ],
+   "section": {
+    "file": "18-tariff-structure.html",
+    "heading": "14.4 Shore power"
+   },
+   "form": "minified"
+  }
+ ],
+ "contradictions": [
+  {
+   "id": "C001",
+   "requirements": [
+    "R010",
+    "R025"
+   ],
+   "pages": [
+    "08-booking-lifecycle.html",
+    "15-officer-review-process.html"
+   ],
+   "summary": "Fast-track auto-approval under 120 m versus 'there is no automatic approval'.",
+   "detect_terms": [
+    [
+     "approv"
+    ],
+    [
+     "automatic",
+     "auto",
+     "fast-track",
+     "fast track"
+    ],
+    [
+     "no automatic",
+     "manual",
+     "every",
+     "all requests",
+     "every request",
+     "contradict",
+     "conflict",
+     "inconsisten",
+     "reviewed by"
+    ]
+   ]
+  },
+  {
+   "id": "C002",
+   "requirements": [
+    "R014",
+    "R031"
+   ],
+   "pages": [
+    "10-cancellation-and-changes.html",
+    "19-tariffs-cancellation-fees.html"
+   ],
+   "summary": "Free cancellation until 24 h before ETA versus 50% fee within 72 h of ETA.",
+   "detect_terms": [
+    [
+     "cancel"
+    ],
+    [
+     "24"
+    ],
+    [
+     "72"
+    ]
+   ]
+  },
+  {
+   "id": "C003",
+   "requirements": [
+    "R018",
+    "R036"
+   ],
+   "pages": [
+    "13-berth-allocation-rules.html",
+    "24-inspection-outcomes.html"
+   ],
+   "summary": "Only the Harbour Master may waive surcharges versus a Berth Officer may waive the late-arrival surcharge under 80 m.",
+   "detect_terms": [
+    [
+     "waiv"
+    ],
+    [
+     "surcharge"
+    ],
+    [
+     "harbour master",
+     "harbourmaster",
+     "berth officer",
+     "80",
+     "contradict",
+     "conflict",
+     "inconsisten"
+    ]
+   ]
+  }
+ ],
+ "screenshot_only": [
+  {
+   "id": "S001",
+   "text": "IMO number must be exactly 7 digits",
+   "must_contain": [
+    "7|seven",
+    "digit"
+   ],
+   "page": "09-booking-request-form.html",
+   "mode": "sidecar",
+   "image": "09-booking-request-form_files/fig-booking-form-validation.png",
+   "screen": "Booking request form"
+  },
+  {
+   "id": "S002",
+   "text": "Rejection reason is required when outcome is Rejected",
+   "must_contain": [
+    "reason",
+    "reject"
+   ],
+   "page": "21-officer-review-screen.html",
+   "mode": "inline",
+   "image": "(inline base64 <img> on 21-officer-review-screen.html, id=fig-review-decision)",
+   "screen": "Officer review screen"
+  }
+ ],
+ "corpus": {
+  "markdown": [
+   {
+    "file": "glossary.md",
+    "carries": [
+     "entities"
+    ]
+   },
+   {
+    "file": "roles.md",
+    "carries": [
+     "roles"
+    ]
+   },
+   {
+    "file": "decisions-log.md",
+    "carries": [
+     "R048",
+     "B009"
+    ]
+   },
+   {
+    "file": "workshop-notes.md",
+    "carries": [
+     "R046",
+     "R047"
+    ]
+   }
+  ],
+  "pages": [
+   {
+    "file": "01-home.html",
+    "title": "Home",
+    "chrome": true,
+    "sidecar_images": 1,
+    "inline_screenshots": 0
+   },
+   {
+    "file": "02-about-the-port-authority.html",
+    "title": "About the Port Authority",
+    "chrome": true,
+    "sidecar_images": 1,
+    "inline_screenshots": 0
+   },
+   {
+    "file": "03-release-notes.html",
+    "title": "Release notes",
+    "chrome": true,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "minified": true
+   },
+   {
+    "file": "04-vision-and-scope.html",
+    "title": "Vision and scope",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R001",
+     "R002",
+     "R003"
+    ]
+   },
+   {
+    "file": "05-stakeholders-and-roles.html",
+    "title": "Stakeholders and roles",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R004",
+     "R005"
+    ]
+   },
+   {
+    "file": "06-news-and-events.html",
+    "title": "News and events",
+    "chrome": true,
+    "sidecar_images": 1,
+    "inline_screenshots": 0
+   },
+   {
+    "file": "07-domain-overview.html",
+    "title": "Domain overview",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R006"
+    ],
+    "entities": [
+     "Vessel",
+     "ShippingAgent",
+     "Berth",
+     "BookingRequest"
+    ]
+   },
+   {
+    "file": "08-booking-lifecycle.html",
+    "title": "Booking lifecycle",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 1,
+    "carries": [
+     "R007",
+     "R008",
+     "R009",
+     "R010",
+     "B001",
+     "B002"
+    ]
+   },
+   {
+    "file": "09-booking-request-form.html",
+    "title": "Booking request form",
+    "chrome": false,
+    "sidecar_images": 2,
+    "inline_screenshots": 0,
+    "carries": [
+     "R011",
+     "R012",
+     "S001"
+    ]
+   },
+   {
+    "file": "10-cancellation-and-changes.html",
+    "title": "Cancellation and changes",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R013",
+     "R014",
+     "B011"
+    ]
+   },
+   {
+    "file": "11-agent-onboarding.html",
+    "title": "Agent onboarding",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R015",
+     "R016",
+     "B004",
+     "B005"
+    ],
+    "minified": true
+   },
+   {
+    "file": "12-berth-master-data.html",
+    "title": "Berth master data",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R017"
+    ],
+    "entities": [
+     "Berth",
+     "Terminal"
+    ]
+   },
+   {
+    "file": "13-berth-allocation-rules.html",
+    "title": "Berth allocation rules",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "B003",
+     "R018"
+    ]
+   },
+   {
+    "file": "14-vessel-registry.html",
+    "title": "Vessel registry",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R019",
+     "R020"
+    ],
+    "entities": [
+     "Vessel"
+    ]
+   },
+   {
+    "file": "15-officer-review-process.html",
+    "title": "Officer review process",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R021",
+     "R022",
+     "R025"
+    ],
+    "minified": true
+   },
+   {
+    "file": "16-approval-decisions.html",
+    "title": "Approval decisions",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R023",
+     "R024",
+     "B006"
+    ]
+   },
+   {
+    "file": "17-notifications.html",
+    "title": "Notifications",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R026",
+     "R027"
+    ]
+   },
+   {
+    "file": "18-tariff-structure.html",
+    "title": "Tariff structure",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R028",
+     "B010",
+     "B014",
+     "B015"
+    ],
+    "minified": true
+   },
+   {
+    "file": "19-tariffs-cancellation-fees.html",
+    "title": "Tariffs: late arrival and cancellation fees",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R031",
+     "B008"
+    ]
+   },
+   {
+    "file": "20-invoicing.html",
+    "title": "Invoicing",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R029",
+     "R030"
+    ]
+   },
+   {
+    "file": "21-officer-review-screen.html",
+    "title": "Officer review screen",
+    "chrome": false,
+    "sidecar_images": 2,
+    "inline_screenshots": 1,
+    "carries": [
+     "R032",
+     "S002"
+    ]
+   },
+   {
+    "file": "22-inspection-scheduling.html",
+    "title": "Inspection scheduling",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R033",
+     "B007"
+    ]
+   },
+   {
+    "file": "23-inspection-checklist.html",
+    "title": "Inspection checklist",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R034",
+     "R035",
+     "B012"
+    ]
+   },
+   {
+    "file": "24-inspection-outcomes.html",
+    "title": "Inspection outcomes",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "B013",
+     "R036"
+    ],
+    "minified": true
+   },
+   {
+    "file": "25-departure-clearance.html",
+    "title": "Departure clearance",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R037"
+    ]
+   },
+   {
+    "file": "26-audit-and-compliance.html",
+    "title": "Audit and compliance",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R038"
+    ],
+    "entities": [
+     "AuditEntry"
+    ]
+   },
+   {
+    "file": "27-privacy-and-cookies.html",
+    "title": "Privacy and cookies",
+    "chrome": true,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "minified": true
+   },
+   {
+    "file": "28-navigation-and-screens.html",
+    "title": "Navigation and screens",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R039"
+    ]
+   },
+   {
+    "file": "29-booking-board-screen.html",
+    "title": "Booking Board screen",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R040"
+    ]
+   },
+   {
+    "file": "30-my-bookings-screen.html",
+    "title": "My Bookings screen",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R041"
+    ]
+   },
+   {
+    "file": "31-inspection-calendar-screen.html",
+    "title": "Inspection Calendar screen",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R042"
+    ]
+   },
+   {
+    "file": "32-reporting.html",
+    "title": "Reporting",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R043"
+    ]
+   },
+   {
+    "file": "33-integration-ais-feed.html",
+    "title": "Integration: AIS feed",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R044"
+    ],
+    "minified": true
+   },
+   {
+    "file": "34-contact-and-support.html",
+    "title": "Contact and support",
+    "chrome": true,
+    "sidecar_images": 1,
+    "inline_screenshots": 0
+   },
+   {
+    "file": "35-security-and-access.html",
+    "title": "Security and access",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "carries": [
+     "R045"
+    ]
+   },
+   {
+    "file": "36-appendix-data-dictionary.html",
+    "title": "Appendix: data dictionary",
+    "chrome": false,
+    "sidecar_images": 1,
+    "inline_screenshots": 0,
+    "entities": [
+     "ApprovalDecision",
+     "Tariff",
+     "Invoice",
+     "Inspection",
+     "InspectionItem",
+     "AuditEntry"
+    ],
+    "minified": true
+   }
+  ]
+ },
+ "_detect_terms_note": "A question/decision text 'surfaces' a contradiction when it cites both requirement ids, or when it contains at least one term from EVERY group in detect_terms (case-insensitive substring)."
+}

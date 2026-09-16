@@ -113,6 +113,26 @@ Naming: `ESP_<Purpose>`.
   *End workflow*.
 - Each branch closes with *end of parallel split path*.
 
+> **mxcli does not emit that terminator — and nothing in the toolchain tells you.**
+> (Confirmed 2026-09-14 against Studio Pro controls, mxcli v0.21.0 / Mendix 11.13.0.)
+> A scripted `PARALLEL SPLIT` passes `mxcli check --references`, `mxbuild --target=deploy`,
+> native `mx check` **and** a `DESCRIBE WORKFLOW` round-trip with every task correctly nested
+> — and then the runtime skips every path in the same millisecond, because a path with no
+> terminator has no resolvable continuation. On a 16-station approval workflow this silently
+> voided 8 stations with no error anywhere.
+>
+> The MDL grammar has **no keyword** for the terminator, so this is not a script that can be
+> written correctly. Either add one node per path by hand in Studio Pro (a palette drop; the
+> node has no outbound references), or patch the `.mxunit` BSON directly —
+> `bin/wf-add-path-terminators.py` is that pass, and `learned-workflow-patterns.md` §23 is how
+> to operate it, including the part that bites: **any later script that rewrites the workflow
+> drops the terminators again.** **Count paths, not
+> branches** — a nested split needs terminators for its inner paths too.
+>
+> Verify a split with a **live run** and `system$workflowactivity`. Both build gates pass the
+> broken model and the fixed model identically, so a green build is not evidence in either
+> direction. See `learned-workflow-patterns.md` §18.
+
 "End the workflow from inside a branch" is not expressible; end the branch and model global
 cancellation as an interrupting event sub-process (§3). Before flagging a missing split, read
 `DESCRIBE WORKFLOW` — `learned-workflow-patterns.md` §18.
@@ -300,13 +320,13 @@ row's stated floor is evidence against it.
 | call microflow, with or without parameters | **proven** — with two limits. (1) The `WITH` clause's **value must be quoted**: `WITH ("Ctx" = '$WorkflowContext')`. Unquoted (`= $WorkflowContext`) segfaults the binary, BUG-107. (2) **`$WorkflowUserTask` is NOT in scope here** — only `$WorkflowContext` and `$WorkflowInstance` are. Passing it is a **CE0117** that `mxcli check --references` passes completely clean; only mxbuild catches it. A microflow that needs the task looks it up by name off `$WorkflowInstance` through `System.WorkflowEndedUserTask`. Proven by sandbox A/B on a full project copy, 2026-09-04 — this corrects an earlier reading of §8 that treated *call microflow* as having the task |
 | — | — |
 | **decision on an enumeration** | **CORRUPTING — BUG-76**, of which this probe is a re-confirmation on 11.14 (first logged as BUG-108 before the older entry was found). BUG-76 is the general case: *every* `DECISION` with outcomes corrupts, whatever its condition reads. The enum case is the worse one — it has no writable spelling at all, since mxcli rejects both fully-qualified forms and accepts only the bare value that corrupts. Hand-add every decision in Studio Pro; never script one. Recovery: `DROP WORKFLOW` |
-| ~~**parallel split** (branches terminated by nesting)~~ | **RETRACTED 2026-09-07 — BUG-121.** This read *proven* in the row above and it was wrong. `PARALLEL SPLIT` writes the correct number of paths and **drops their contents**: every path comes out empty. The workflow then loads in Studio Pro, passes `mxbuild` and `mx check` with zero errors, and **deadlocks at run time** — it reaches the split and never leaves, because no path holds the user task that would complete it. Worse than BUG-76, which at least fails loudly at load. Found by walking the workflow in the running app, after every gate in the pipeline had passed it. **Hand-add the split in Studio Pro; build the definition sequentially in MDL and comment the deviation** |
+| **parallel split**, incl. **nested** | **proven on v0.21.0 — with one mandatory post-exec step**, which is the whole of §4's warning above and `learned-workflow-patterns.md` §18. The structure writes correctly at any depth; the `EndOfParallelSplitPathActivity` that closes each path does not, and MDL has no keyword for it. Add it with `bin/wf-add-path-terminators.py <unit.mxunit> --apply` after this script **and after every later script that rewrites the workflow** (§23), then verify with a live run, never a gate. BUG-121; field-proven 8-of-16 → **16-of-16 stations, 6 concurrent**. This row read RETRACTED until 2026-09-14 |
 | **forward `JUMP TO`** (target later in the flow than the outcome jumping to it) | **CE6681.** A *backward* `jump to` builds clean; a forward one is *"not possible to jump to end activities or jump-to activities"* — mxcli resolves a forward target to the end/jump activity rather than the task. Isolated with a two-task probe workflow: same statement, backward clean, forward CE6681. Restructure so the jump goes backwards, or hand-add |
 | **boundary event timer, interrupting** | **hand-add in Studio Pro.** Its path must end in *End* or *Jump* (CE0105); `END WORKFLOW` does not parse and `JUMP TO` is BUG-109 |
 | **boundary event on notification** | **hand-add** — the grammar admits `{TIMER, INTERRUPTING, NON}` only |
 | **event sub-process** (all four start kinds), recurrence | **hand-add** — no construct in the grammar, in any position |
 | **multi-user decision method / completion timing** | **hand-add** — the activity is scriptable, its decision rule is not |
-| **explicit `END WORKFLOW`, end-of-parallel-split-path, end-of-boundary-event-path** | **not expressible, and not needed.** MDL terminates by nesting, which `mx check` accepts. A consequence worth knowing: **CE1844 cannot be triggered from MDL** — §4 governs the diagram and anything hand-added, not the script |
+| **explicit `END WORKFLOW`, end-of-parallel-split-path, end-of-boundary-event-path** | **not expressible — and the "not needed" half of this row was wrong, corrected 2026-09-14.** MDL terminates by nesting and `mx check` accepts it, so the gap is invisible to every gate; the **runtime is not indifferent**. A parallel-split path with no terminator opens no task at all (BUG-121, repaired post-exec by `bin/wf-add-path-terminators.py`), and an empty outcome block meant to stop the instance rejoins the enclosing flow instead (§21 gap 2). One grammar gap, two silent runtime faults. Still true: **CE1844 cannot be triggered from MDL** — §4 governs the diagram and anything hand-added, not the script |
 | **user-task `onCreatedEvent`** (the *On created* handler — the mechanism §6 names for assignment carried in data) | **not expressible in MDL, and this is grammar-level, not a docs gap.** The parser enumerates its own alternatives: after `PARAMETER` it accepts only `{BEGIN, EXPORT, DUE, OVERVIEW, DESCRIPTION, DISPLAY}`, and after a user task's `PAGE` only `;`. Four spellings probed (`ON CREATED CALL MICROFLOW`, `ON WORKFLOW EVENT`, task-level `ON CREATED`, `ONCREATEDEVENT`), all rejected at parse. **But it IS on the MCP write path** — `mxcli`'s `CreateWorkflow`/`UpdateWorkflow` payload carries `json:"onCreatedEvent"` on the *user-task* struct, beside `taskPage`, `outcomes` and `boundaryEvents`, and without `omitempty`. So it is a **per-task** property, not one workflow-level handler. End-to-end MCP write **not verified** — that needs a live Studio Pro. Treat as: hand-add, or MCP if you have Studio Pro up (`learned-mcp-patterns.md`) |
 | **AI agent task activity** | **unprobed** — its model rules (companion microflow first, outcomes mirror its return values, Boolean/Enum/Void only) hold whichever tool writes it |
 
@@ -328,6 +348,39 @@ probed**. Three of them passed `mxcli check --references`, passed `exec`, and re
 correctly from `DESCRIBE WORKFLOW` — and were still broken under `mx check`, one of them
 leaving the project unopenable. For workflows specifically, **a clean `mxcli check` is not
 evidence of anything.** Run native `mx check` after every workflow write, before you believe it.
+
+**Field run, 2026-09-14 — a shipped approval chain, mxcli v0.21.0 / Mendix 11.14.** The rows
+above are probes. This is the first production workflow in this toolkit's record written
+entirely from MDL and shipped: `WF_MOCApproval`, 14 activities over a project entity — Start →
+user task *Initial review* → user task *Initial approval* → **multi-user task** *Expert
+assessment* fanning to eight assessment topics → user task *Director approval* → End. Every
+construct it uses is a *proven* row above, and it needed no hand-add in Studio Pro. Two
+findings from building it that the probe rows do not carry:
+
+**It has zero `DECISION` activities, and that is not a design preference.** BUG-76 is open, so
+a four-stage approval chain with approve/reject at every stage was built with **outcomes on the
+user tasks themselves** and no exclusive split anywhere. That is the shape to copy while BUG-76
+stands: an approval chain does not need a `DECISION`, because a user task's outcomes already
+branch. Reach for a split only where the branch is on *data* rather than on a human's answer —
+and then hand-add it.
+
+**A reject ends the workflow; it does not jump backwards — and `CE6681` describes the wrong
+fault when you try.** The first task has nothing behind it, so a backward `JUMP TO` from its
+reject outcome is a *dangling* jump: no valid target exists. `mxcli check --references` accepts
+it, `exec` reports `Created workflow`, `DESCRIBE WORKFLOW` reads it back — and the native build
+refuses with **CE6681**, *"not possible to jump to end activities or jump-to activities"*. That
+message is about jump **targets**, so it sends you looking at the target's type; the actual
+fault is that there is no target at all. The table's forward-`JUMP TO` row above is the same
+code from a different cause. Read `CE6681` as **"this jump does not resolve"**, then check
+whether a target exists before checking what kind it is. Design the reject path to *End* and
+the question disappears.
+
+**Targeting is a microflow per stage, never a role XPath, whenever roles are collapsed.** This
+project mapped five approver populations onto one `Approver` user role, so
+`[%UserRole_Approver%]` would have put every stage in every approver's inbox — an
+all-green workflow that assigns the wrong people. Each stage got its own targeting microflow,
+and each wrapper carries the platform's **two-parameter** signature (`System.Workflow` **and**
+the context entity): one parameter passes `mxcli check` clean and the native build refuses it.
 
 Probe result → update this table and `learned-workflow-patterns.md` in the same commit. A row
 that stays *unprobed* is a legitimate "hand-add in Studio Pro" at build time, never a silent
@@ -352,7 +405,90 @@ prevent.
 | 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` (§8) | N of N expressions |
 | 9 | Event sub-processes with exactly one start event, correct family, and recurrence within bounds (§3) | N of N sub-processes |
 | 10 | Constructs checked against §11 and marked *proven* or *hand-add in Studio Pro* | N of N constructs used; every hand-add is a build-plan checklist row |
+| 12 | Called microflows carrying `EXPOSED AS WORKFLOW ACTION` — the workflow editor's toolbox, so a human hand-adding a row-10 construct can find them (`learned-workflow-patterns.md` §26) | N of N called microflows that are **not** `SUB_` prefixed; get N from `mxcli callers <Module.MF>`, which reports the workflow at depth 1 |
+| 11 | **If the source is a BPMN/swimlane diagram:** pools counted, lanes carried into row 5's targeting, and every element screened against §13 | N pools = N workflows; N of N source elements screened; every NOT-SUPPORTED element has a `fit-gap.md` row. *"Source is not a process diagram"* is a legal entry |
 
 A workflow going into a build plan with row 10 unfilled is the omission this file exists to stop:
 the model builds, `mx check` is green, and a construct the requirements asked for is simply not
 there.
+
+---
+
+## 13. Reading a BPMN source — pools, lanes, and the elements Mendix cannot express
+
+**Read this whenever the source of a process is a BPMN diagram, a Visio/drawio process map, or any
+"swimlane" picture** — which is most migrations of a real approval or case process. §11 answers
+*what can mxcli write*; this section answers the question before it, *what can the engine express
+at all*, and it is the one an unsupported source element fails at.
+
+Mendix publishes its own element-by-element verdict:
+[BPMN coverage](https://docs.mendix.com/refguide/bpmn-coverage/). Read the live page rather than
+trusting the table below to stay current — this is a summary as of 2026-09-14, and the platform
+moves. **Two hops, never one:** BPMN element → Mendix construct (this section) → MDL writability
+(§11). A native element that mxcli cannot script is a hand-add, not a gap; a BPMN element Mendix
+does not support is a *redesign*, and it belongs in `fit-gap.md` at Stage 3, not in a build log at
+Stage 5.
+
+### Pools and lanes are implementation, not decoration
+
+This is the mapping most often lost, because a swimlane picture reads as documentation:
+
+- **One pool = one workflow.** The workflow *is* the process boundary. A source diagram with
+  three pools is **three workflows** with messages between them, not one workflow with three
+  regions. Count the pools before you count anything else — a three-pool source collapsed into a
+  single workflow is a different application, and no gate downstream will notice.
+- **A lane = a targeting statement.** Mendix implements lanes as user-task assignment via roles
+  and workflow groups, so every lane boundary a task sits inside is a claim about *who works it*.
+  Carry the lane name into §6's targeting derivation as the requirement sentence, then choose the
+  mechanism by §6's rules — and heed §6's warning: a lane labelled with a role name is **not**
+  evidence that a role XPath is the right mechanism, because a lane often names a *population*
+  whose members are data on the record.
+- **Cross-pool arrows are `CALL WORKFLOW` or `NOTIFY WORKFLOW`**, never a transition. A message
+  flow that crosses a pool boundary in the source is an integration point in the build plan.
+
+`architecture-blueprint.md` Step 3d draws cross-persona journeys as a *documentation* artifact.
+That is a different thing from this, and does not discharge it: a journey diagram shows handoffs
+between people, this decides how many workflows exist and who each task targets.
+
+### The mapping table
+
+| BPMN element | Mendix | Then check §11 for |
+|---|---|---|
+| Exclusive gateway (XOR) | **Native** — Decision | **BUG-76.** Qualified outcome spelling, `exec --no-check`. Often better expressed as outcomes on the preceding user task — §15 |
+| Parallel gateway (AND) | **Native** — Parallel Split | **BUG-121.** Path terminators after every write — `learned-workflow-patterns.md` §18, §23 |
+| **Inclusive gateway (OR)** | **Workaround** — parallel split *with a decision on each path* | Both damaged constructs at once. **Cost this explicitly in `fit-gap.md`**; do not let it enter a build plan as one row |
+| User task | **Native** — User Task | proven. Page takes `System.WorkflowUserTask`; targeting microflow takes two parameters |
+| Multi-instance parallel user task | **Native** — Multi-User Task | proven; decision method + completion timing are a hand-add (§7) |
+| Service / script / business-rule / manual task | **Native or workaround** — Call Microflow | proven; quote the `WITH` value |
+| Send task | **Workaround** — Call Microflow + Notify Workflow | proven |
+| Receive task | **Native** — Wait for Notification | proven; takes no name |
+| Call activity / reusable subprocess | **Native** — Call Workflow | proven |
+| Event sub-process | **Native** | **hand-add** — no MDL construct, in any position (§3, §11) |
+| Timer: intermediate catch, boundary interrupting/non-interrupting | **Native** | non-interrupting proven; **interrupting is a hand-add** (§2, §11) |
+| Message / signal / conditional / escalation / compensation / cancel events | **Workaround** — microflow combinations | per-case; §11 has no row, so probe before promising |
+| Link events (throw/catch) | **Native** | unprobed in MDL |
+| None start / none end | **Native** | end-of-branch is **not expressible** — §4, §11 |
+| Text annotation | **Native** | **not writable** — `MDL-WF04`, mxcli#1007 |
+| Data object / input / output / store | **Workaround** — domain entity + workflow parameter | the context entity, §2 of `learned-workflow-patterns.md` |
+| **Event-based gateway** | **NOT SUPPORTED** | redesign |
+| **Complex gateway** | **NOT SUPPORTED** | redesign |
+| **Embedded / transaction / ad-hoc subprocess** | **NOT SUPPORTED** | redesign |
+| **Terminate end event** | **NOT SUPPORTED** | redesign — and note this is the platform's own statement of the same hole §4 and §11 describe from the MDL side |
+| **Multiple / multiple-parallel events** (all variants) | **NOT SUPPORTED** | redesign |
+| **Group artifact** | **NOT SUPPORTED** | drop; it carries no behaviour |
+
+### What to do with an unsupported element
+
+Never silently drop it and never approximate it in the build. Each one is a `fit-gap.md` row at
+Stage 3 naming the source element, why Mendix cannot express it, and the redesign chosen — and if
+the redesign changes what the business process *does*, that is a `PROJECT.md` decision to confirm
+with a human, not an architecture call (`interview-protocol.md`).
+
+Two that reliably cost more than they look:
+
+- **Event-based gateway** ("whichever happens first: a reply, or the timer") has no construct.
+  The usual redesign is a user task with a non-interrupting boundary timer, which changes the
+  semantics — both branches can run. Say so out loud.
+- **Terminate end event** ("stop the whole instance from here") is unsupported platform-side *and*
+  inexpressible in MDL. Model global cancellation as an interrupting event sub-process (§3) —
+  which is itself a Studio Pro hand-add. One source element, two hand-adds, and a redesign.

@@ -1,0 +1,48 @@
+-- ============================================================================
+-- StyleGallery — Cards & list rows (static containers; purely decorative)
+-- ============================================================================
+-- Purpose:  A generic card, a small grid of supplier-catalogue item cards,
+--           and notification-style list rows (design-system .card,
+--           .catalogue-card, .list-row). Static per learned-stylegallery.md's
+--           "Static container" case — these are layout/typography specimens
+--           with no widget behaviour to prove out, so plain CONTAINERs are
+--           the right carrier. If a real catalogue/notification entity with
+--           seeded rows exists in the consuming project, swap this for a
+--           GALLERY/LISTVIEW over it (see 15-data-grid.mdl for that pattern)
+--           rather than leaving these as permanent stand-ins.
+-- Depends on: 00-module.mdl.
+-- ============================================================================
+
+/** Cards + list rows (design-system .card / .catalogue-card / .list-row). */
+create snippet StyleGallery.SNIPPET_CardsLists
+{
+  layoutgrid clLayout { row clRow { column clCol (desktopwidth: 12) {
+    dynamictext cardHeading (content: 'Cards', rendermode: H3)
+    container card1 (class: 'card') {
+      dynamictext cardTitle (content: 'Request PR-2044', rendermode: H4)
+      dynamictext cardSub (content: 'Awaiting approval · Facilities', class: 'card-sub')
+    }
+
+    dynamictext catHeading (content: 'Catalogue item cards', rendermode: H4)
+    container catalogueGrid (class: 'catalogue-grid') {
+      container cat1 (class: 'catalogue-card') {
+        container cat1Thumb (class: 'thumb') { dynamictext cat1Icon (content: '🖥', class: 'thumb-icon') }
+        container cat1Meta (class: 'meta') { dynamictext cat1Name (content: '27" monitor, height-adjustable stand', class: 'name') }
+      }
+      container cat2 (class: 'catalogue-card') {
+        container cat2Thumb (class: 'thumb') { dynamictext cat2Icon (content: '🪑', class: 'thumb-icon') }
+        container cat2Meta (class: 'meta') { dynamictext cat2Name (content: 'Ergonomic mesh office chair', class: 'name') }
+      }
+    }
+
+    dynamictext listHeading (content: 'List rows', rendermode: H4)
+    container listRow1 (class: 'list-row unread') {
+      container listIcon1 (class: 'icon-chip') { dynamictext listIconText1 (content: '✔') }
+      dynamictext listText1 (content: 'New approval needed for PR-2044')
+    }
+    container listRow2 (class: 'list-row') {
+      container listIcon2 (class: 'icon-chip') { dynamictext listIconText2 (content: '🚚') }
+      dynamictext listText2 (content: 'Order shipped for PR-2031')
+    }
+  }}}
+}

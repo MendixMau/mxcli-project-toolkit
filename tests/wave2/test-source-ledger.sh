@@ -22,6 +22,9 @@
 #   T8  Stage 0 never blocks on the ledger (the inventory is Stage 0's own output)
 #   T9  a project with files under sources/ and NO inventory at all blocks Stage 1; a project
 #       with neither does not (legacy fixtures keep passing)
+#   T12 (2026-09-09) 'source/**' — the project-root spelling of "the whole corpus" — is accepted
+#       by mark (the root segment is stripped), and a saved page's css/woff2 sidecars inventory as
+#       format `chrome`, not unknown; the deck's pages/images stay owed under a glob mark
 #   T10 an export-prefixed module name (Form_X.cls) is matched when the artifact says X, and an
 #       umlaut filename matches too (bytes.lower() is ASCII-only — the unattended rerun on the real
 #       corpus reported 18 of 96 rows unverified, every one an Ä/Ü/ü name; casefold on text)
@@ -177,6 +180,29 @@ P9b="$WORK/t9b"; mkdir -p "$P9b"; printf '# P\n' > "$P9b/PROJECT.md"
 OUT="$(stage "$P9b" 1)"
 hasnt "no sources and no inventory does not block (legacy fixtures)" "$OUT" "Gate BLOCKED by the source ledger"
 has "reads NOT CHECKED, never a pass" "$OUT" "Source ledger (every file consumed?): MANUAL"
+
+echo "== T12: a mark spelled from the project root ('source/**') covers the corpus; a saved page's css is 'chrome', not unknown =="
+# The docs-ready path (2026-09-09): ONE glob mark over the whole corpus, pointing at an index that
+# names every file. Inventory rels are relative to the source root, so 'source/**' — the natural
+# spelling — matched no row and the mark was refused. Now the root segment is stripped.
+P="$(mkproj t12)"
+mkdir -p "$P/source/legacy/Spec_files"
+printf '.x{}\n' > "$P/source/legacy/Spec_files/site.css"
+printf 'x\n' > "$P/source/legacy/Spec_files/f.woff2"
+"$SS" init "$P" >/dev/null 2>&1
+FMT="$("$PY" -c "import json,sys; d=json.load(open(sys.argv[1])); print(' '.join(sorted(set(r['format'] for r in d['inventory'] if r['ext'] in ('css','woff2')))))" "$P/analysis/source-sufficiency.json")"
+[ "$FMT" = "chrome" ] && ok "css and woff2 inventoried as format 'chrome' (route: listed, never content)" || bad "css/woff2 format" "got '$FMT'"
+printf '# Index\n\n| path |\n|---|\n| Functional-Description-draft.pptx |\n| Form_Archive-Detail-Subform.cls |\n| Form_Workflow.cls |\n| Form_Release03.cls |\n| Form_Änderung-Übersicht.cls |\n| site.css |\n| f.woff2 |\n' > "$P/analysis/legacy/documents-index.md"
+OUT="$("$SL" mark "$P" 'source/**' --artifact analysis/legacy/documents-index.md --evidence "index lists each file by name" --by test 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && ok "'source/**' (project-root spelling) is accepted" || bad "'source/**' refused" "$OUT"
+has "the mark covers every row" "$OUT" "marked 7 row(s) extracted"
+OUT="$("$SL" check "$P" 2>&1)"; RC=$?
+# The pptx still owes its pages and images — a glob mark does not waive a container's media.
+[ "$RC" -eq 1 ] && ok "check still exits 1: the deck's 25 slides / 22 images are not covered by an index row" || bad "check exit" "rc=$RC"
+has "the container is what remains owed" "$OUT" "page(s)/slide(s)/sheet(s) inside"
+# The text output lists only non-green rows; per-row verdicts come from --json.
+VERD="$("$SL" check "$P" --json --quiet 2>/dev/null | "$PY" -c "import json,sys; d=json.load(sys.stdin); print(' '.join(r['verdict'] for r in d['rows'] if r['rel'].startswith('legacy/Spec_files/')))")"
+[ "$VERD" = "EXTRACTED EXTRACTED" ] && ok "css and woff2 rows are EXTRACTED by the index alone — chrome owes no --media, no separate disposition" || bad "sidecar verdicts" "got '$VERD'"
 
 echo ""
 echo "== $PASS passed, $FAIL failed =="

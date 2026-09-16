@@ -138,6 +138,48 @@ Each wireframe is assembled from Step 1's components — never restyled from scr
 
 This table *is* the build checklist `iterative-build-loop.md` Step 3 extracts. Getting widget type right here (combobox vs textbox, enum vs string) saves an `ALTER PAGE REPLACE` later.
 
+### Screens link to each other, and assemble into one clickable prototype
+
+The per-screen files stay the **source**: two agents can draw two screens in parallel without a
+merge conflict, and every check (`check-page-shell.sh`, `page-fidelity.js`) reads one screen at a
+time. What a stakeholder reviews is the **assembled output**, `design/prototype.html`: every
+screen in one page, switched by hash route, so a flow can be clicked instead of read. A project
+that hand-built such a page found the review markedly better than twenty separate files, and
+twenty screens of static HTML is well under 1 MB, so there is no size reason not to.
+
+Three conventions make a screen assemble:
+
+1. **A route.** Put `data-route="order-list"` on the screen's `<body>`. Without it the route is
+   the kebab-cased filename (`OrderList.html` becomes `order-list`). The screen named `index` or
+   `home` is where the prototype opens; otherwise the first file by name.
+2. **Real navigation.** Every link or button that goes to another screen is an
+   `<a href="#/detail">` (or `href="OrderDetail.html"`, which the assembler rewrites to the
+   route). A button that navigates nowhere is exactly the dead end Step 3b exists to catch, and a
+   link makes it clickable, so draw it as one.
+3. **A binding or a cut on every control.** Each `<button>`, `<a>` and `<input type="submit">`
+   carries either `data-bind="<row>"` naming a row of that screen's `table.bind` (the row's `id`,
+   its `data-row`, or the text of its first cell) or `data-cut="<reason>"` recording that it was
+   removed from scope. A link whose `href` is a live `#/route` is bound by that href: its
+   navigation target is the spec. Step 3b below is where the calls get made; this is where they
+   get written down so a script can read them.
+
+A screen that no BRD use case walks by design (login, a settings shell, an error page) carries
+`data-chrome="<reason>"` on its `<body>`. The assembler keeps it on the section, and
+`brd-validation.md` check 8 exempts it from route coverage.
+
+Then assemble:
+
+```
+node project-bin/assemble-prototype.js            # reads design/wireframes/*.html + design/ds.css
+                                          # writes design/prototype.html
+```
+
+Re-run it after every wireframe edit; never edit `prototype.html` by hand (the next run
+overwrites it). The output is deterministic, so a diff of it shows exactly which screens changed.
+It inlines `ds.css` once, lists every route in a small screen index, and hides the annotation
+apparatus (`wf-*` blocks, `table.bind`) behind a **Show bindings** toggle so a reviewer sees the
+screen, and a builder can still see the checklist.
+
 ---
 
 ## Step 3b: Scope Crosscheck — Every Wireframed Element Needs a Requirement
@@ -153,6 +195,32 @@ Before moving to Step 4, walk each wireframe and list every interactive or struc
 
 Record the call — cut or spec'd — next to the element; a wireframe with unresolved chrome does not pass to the build loop. This is a cheap gate here versus a silent "why doesn't this button do anything" discovery mid-build.
 
+### Step 3c: Click-through check (the mechanical half of 3b)
+
+Record each call in the markup (`data-bind="<row>"` or `data-cut="<reason>"`, Step 3 convention 3),
+re-assemble, and run:
+
+```
+node project-bin/check-prototype-links.js            # reads design/prototype.html
+```
+
+It parses the prototype statically (no browser needed) and prints one `route<TAB>kind<TAB>detail`
+line per finding:
+
+| Kind | Meaning | Fails? |
+|---|---|---|
+| `dead-link` | an `href="#/x"` whose route no screen has | yes |
+| `orphan` | a screen no other screen links to (the default route is exempt) | yes |
+| `unbound` | a button, link or submit with no `data-bind` matching a `table.bind` row and no `data-cut` | yes |
+| `unbound-warning` | the same, on a screen with no `table.bind` at all (older wireframes) | no, warns |
+| `duplicate-id` | an `id="..."` shared by more than one screen - the assembler scopes CSS per section but not `id`s or `<script>` bodies, so `getElementById` silently resolves to whichever screen is first in the document | yes |
+
+Exit 0 clean, 1 findings, 2 nothing inspected. With `--brd <file-or-dir>` it also cross-checks the
+routes the BRD's use cases walk against the screens (`brd-unknown-route`, `uncovered`); that half
+belongs to `brd-validation.md` check 8. The judgement stays with Step 3b: the script finds
+the control with nothing behind it, a person decides whether to cut it or spec it. A wireframe set
+with failures here does not pass to the build loop.
+
 ---
 
 ## Step 4: Tooling — Own HTML Leads
@@ -160,7 +228,7 @@ Record the call — cut or spec'd — next to the element; a wireframe with unre
 | Tool | Role | Use for |
 |---|---|---|
 | **Hand-written HTML/CSS in-repo** | Source of truth | The design system + all faithful wireframes. Versioned; the build loop checks against it. |
-| **Claude Artifacts** | Optional, clickable | A stakeholder walkthrough of the flow before building — generated from the same HTML, never the spec. |
+| **`design/prototype.html`** | Assembled, clickable | The stakeholder walkthrough of the flow before building. Generated from the same HTML by `assemble-prototype.js` (Step 3), never edited, never the spec. Publish it as a Claude Artifact when a reviewer cannot open a local file. |
 | **Generative design tools** (Stitch / Figma AI / v0) | Narrow | *Only* tier-3 screens (new/improved features with no source screenshot). |
 
 **Skip generative tools for faithful rebuilds.** They shine when you don't know what the UI should be; in a migration you do — the screenshots are ground truth, and any divergence a generator invents is rework that fights the faithful-rebuild goal.
@@ -231,7 +299,8 @@ design/
   ds.css                       ← token + component CSS (linked by showcase + all wireframes)
   design-system.html           ← annotated showcase (links ds.css; not the token source)
   wireframes/
-    <Screen>.html              ← one per surface, with binding-annotation table
+    <Screen>.html              ← one per surface, with binding-annotation table, data-route, #/route links (the SOURCE)
+  prototype.html               ← assembled by project-bin/assemble-prototype.js from wireframes/ + ds.css; clickable, never hand-edited
   screenshots/                 ← source screenshots copied in (tier-1 ground truth)
 
 themesource/<gallery>/web/

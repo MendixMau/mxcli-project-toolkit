@@ -98,8 +98,38 @@ Lives at `<field-run-project>/friction-log.md`. Append-only. One row per event.
 ```markdown
 | # | Stage | Class | What happened | What I did | Where it should have been written |
 |---|---|---|---|---|---|
-| 1 | 0 | undocumented | Coverage Matrix wants a row per extractable structure; nothing says whether a seed-data SQL file is one structure or two | Treated DDL and seed as one row | source-triage.md, Coverage Matrix section |
+| 1 | 0 | undocumented | Coverage Matrix wants a row per extractable structure; nothing says whether a seed-data SQL file is one structure or two | Treated DDL and seed as one row | `skills/source-triage.md:118` — Coverage Matrix section |
 ```
+
+### The last column is a `file:line` citation, not prose
+
+**A row that asserts something about the toolkit must cite the frozen file and line the assertion
+rests on — a line the driver actually opened.** "`source-triage.md`, Coverage Matrix section" is not
+good enough; `skills/source-triage.md:118` is. Where the claim is that something is *absent*, cite
+the search that came back empty, verbatim, including its scope:
+`grep -rn "confirmedZeros" bin/ pipelines/ tests/ → no matches`.
+
+Run #1 shipped 100 rows. An independent audit re-checked 58 of them and found **13 that got the
+symptom right and the mechanism wrong**, plus **6 that a frozen-clone-only reader could not have
+written at all** — the driver reasoning from memory, from a sibling working tree, or from a file it
+had not opened. Two of those six were claims about `open-questions.sh` made without ever running its
+`--help`. All of it is one instrument error, and the citation requirement is the single control that
+catches most of it: you cannot cite a line you did not read.
+
+This costs the driver a few seconds per row and it is the difference between a finding an owner can
+act on and one they have to re-derive. A row that cannot produce a citation is still worth logging —
+log it, and write `UNVERIFIED` in the column. That is an honest row. An uncited assertion dressed as
+a fact is not.
+
+### The driver brief is written from the frozen clone only
+
+Whoever writes the driver's instructions is subject to the same rule as the driver, and in run #1
+the run owner broke it twice — once naming a script that did not exist at the pinned commit, once
+directing the driver to use a `gate-check.sh --waive` flag that a *peer session* was mid-way through
+adding to the live tree. Both cost a driver real time chasing a mechanism that was not there.
+
+Before briefing: `grep` the frozen clone for every path, flag and command name the brief mentions.
+If it is not in the clone, it does not exist for the duration of the run.
 
 ### Closed class vocabulary — do not invent a class per row
 

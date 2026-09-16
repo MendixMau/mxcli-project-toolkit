@@ -60,6 +60,12 @@ Find the HTML wireframe for the page you are building. Project convention is a `
 folder. Match by page or feature name (e.g. `item-management.html`, `location-detail.html`,
 `mobile-scan.html`).
 
+If the project has assembled the clickable prototype (`design/prototype.html`, `design-artifacts.md`
+Step 3), a screen can also be named by its route: `design/prototype.html#/item-management`. The
+per-screen file stays the source to read and edit; the route form is for tools and map rows. Print
+one screen on its own with `node <toolkit>/project-bin/prototype-route.js design/prototype.html#/<route>`
+and `--list` the routes. A `PAGE-MAP.tsv` row may name a route instead of a file.
+
 Read the full wireframe file and extract:
 
 | Extract | Where to look in the HTML |
@@ -216,7 +222,11 @@ Then run the scored companion on the same draft:
 
 ```
 node <toolkit>/project-bin/page-fidelity.js design/wireframes/<Page>.html <Page> mdlsource/<script>.mdl
+node <toolkit>/project-bin/page-fidelity.js 'design/prototype.html#/<route>' <Page> mdlsource/<script>.mdl
 ```
+
+Both lines score the same screen identically; quote the route form, since `#` starts a comment in
+some shells. An unknown route exits 2 and names the routes the prototype has.
 
 **Every run is stored.** The scorer appends its result to the project's
 `docs/PAGE-FIDELITY.tsv` — the first row for a page is that page's **first-build score

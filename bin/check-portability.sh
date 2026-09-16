@@ -127,6 +127,20 @@ while IFS= read -r f; do
           'Use: arr=(); while IFS= read -r x; do arr+=("$x"); done < <(cmd)' ;;
     esac
 
+    # awk -v processes escape sequences in the VALUE (gawk warns and rewrites, mawk keeps the
+    # backslash): a regex passed as -v re="^\\|..." became "^|..." under gawk — the GitHub
+    # runner's awk — and matched every line (sync-project 2e rewrote a whole CLAUDE.local.md
+    # with copies of one row, CI-only, 2026-09-12). Bracket expressions carry no backslash.
+    case "$txt" in
+      *awk*)
+        # A backslash inside a $(...) substitution is the shell's, not the value's (e.g.
+        # -v ok="$(... | tr '\n' ' ')"): strip substitutions before looking.
+        if printf '%s' "$txt" | sed 's/\$([^)]*)//g' | grep -Eq -- '-v [A-Za-z_][A-Za-z_0-9]*="[^"]*\\'; then
+          report "$f" "$ln" "backslash inside an awk -v value (gawk rewrites escapes, mawk does not)" \
+            'Pass patterns without backslashes: [|] for a literal pipe, [.] for a dot, or read the regex from ENVIRON["re"].'
+        fi ;;
+    esac
+
     case "$txt" in
       *'grep -P'*|*'grep -qP'*|*'grep -oP'*)
         report "$f" "$ln" "grep -P is GNU-only" \

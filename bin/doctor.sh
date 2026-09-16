@@ -85,9 +85,27 @@ head_() { printf '\n%s\n' "$*"; }
 # On success: PROBE_OUT holds the first probe's output, PROBE_HOW names the flag that worked.
 # (Show PROBE_OUT via probe_line — real mxbuild's --help opens with a blank-lined ASCII
 # banner, so a naive head -1 prints nothing.)
+# Every probe runs the binary with its output on a FILE, never inside `$(...)`. Studio Pro
+# 11's mxbuild.exe (11.12.4, Windows, 2026-09-14) starts modeler/tools/deno/win-x64/deno.exe,
+# which inherits stdout and outlives mxbuild — on --version and --help as much as on a real
+# build. A command substitution waits for EOF on the pipe, deno never closes it, and doctor
+# sat in "Build toolchain" for over ten minutes on the one machine it was meant to diagnose
+# (it finished the instant the stray deno was killed). Writing to a file has no reader
+# waiting on EOF, so bash returns when mxbuild itself exits. stdin is closed so a console-
+# attached child cannot wait on that either. probe_capture <var> <cmd...> sets <var> to the
+# combined output and returns the command's exit status.
 PROBE_OUT=""
 PROBE_HOW=""
 probe_line() { printf '%s\n' "$PROBE_OUT" | grep -v '^[[:space:]]*$' | head -1; }
+probe_capture() {
+  _pc_var="$1"; shift
+  _pc_file=$(mktemp "${TMPDIR:-/tmp}/doctor-probe.XXXXXX")
+  _pc_exit=0
+  "$@" > "$_pc_file" 2>&1 < /dev/null || _pc_exit=$?
+  eval "$_pc_var=\$(cat \"\$_pc_file\")"
+  rm -f "$_pc_file"
+  return "$_pc_exit"
+}
 probe_runs() {
   PROBE_OUT=""; PROBE_HOW=""
   _pr_exit=0
@@ -95,17 +113,17 @@ probe_runs() {
   # and that answer arrives in milliseconds). A healthy mxbuild spends ~5-9 s in .NET start-up
   # per flag, which made "quick" take 14 s; bound it and read a timeout as "started".
   if [ "$QUICK" = 1 ] && command -v timeout >/dev/null 2>&1; then
-    PROBE_OUT="$(timeout 2 "$1" --help 2>&1)" || _pr_exit=$?
+    probe_capture PROBE_OUT timeout 2 "$1" --help || _pr_exit=$?
     case "$_pr_exit" in
       0|124) PROBE_HOW="started (quick probe, 2 s bound)"; [ -n "$PROBE_OUT" ] || PROBE_OUT="(started)"; return 0 ;;
       126|127) return "$_pr_exit" ;;
     esac
     _pr_exit=0
   fi
-  PROBE_OUT="$("$1" --version 2>&1)" || _pr_exit=$?
+  probe_capture PROBE_OUT "$1" --version || _pr_exit=$?
   if [ "$_pr_exit" -eq 0 ]; then PROBE_HOW="--version"; return 0; fi
   case "$_pr_exit" in 126|127) return "$_pr_exit" ;; esac
-  if _pr_out2="$("$1" --help 2>&1)"; then
+  if probe_capture _pr_out2 "$1" --help; then
     PROBE_OUT="$_pr_out2"; PROBE_HOW="--help; this build has no --version"
     return 0
   fi

@@ -184,7 +184,9 @@ Every gate decision lands here as \`CONFIRMED\` or \`ASSUMED\`, never silently d
 
 ${TOOLKIT_COMMIT_LINE}
 
-<!-- Where this project joins the pipeline: nothing recorded, so it starts at Stage P — the
+<!-- The bold line above is a READOUT: bin/gate-check.sh rewrites it on every full run from the
+     verdicts it just produced (first stage neither PASS nor WAIVED). Do not edit it by hand.
+     Where this project joins the pipeline: nothing recorded, so it starts at Stage P — the
      usual case. If work was already done outside the toolkit, record it once and the earlier
      stages report WAIVED instead of a red row nobody can clear:
        bin/gate-check.sh <project> --adopt 5 --reason "..."     every stage before 5

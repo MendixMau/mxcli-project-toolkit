@@ -215,6 +215,17 @@ routing_render() {
   esac
 }
 
+# routing_row <name> [path-prefix] — ONE baseline-view row for a named table entry, path
+# prefixed as given. Used by sync-project.sh to rewrite a single stale row inside a table it
+# must not regenerate wholesale (a hand-written, unmarked one). Empty output = no such name.
+routing_row() {
+  local want="$1" prefix="${2:-}"
+  routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
+    [ "$name" = "$want" ] || continue
+    printf '| %s | `%s%s` |\n' "$(_routing_md_escape "$when")" "$prefix" "$path"
+  done
+}
+
 # ── The project-side surface: <project>/CLAUDE.local.md ────────────────────────────────────
 #
 # This is the copy no script could reach. It lives inside each project, it is the ONLY routing

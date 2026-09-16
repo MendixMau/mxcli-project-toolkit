@@ -180,6 +180,13 @@ inv = doc.get('inventory')
 if inv is None:
     print("source-ledger: this rubric predates the inventory pass; delete it and re-init", file=sys.stderr); sys.exit(4)
 t = os.environ['T'].replace(os.sep, '/')
+# Inventory rels are relative to the SOURCE ROOT, so a target spelled from the project root
+# ('sources/**', 'source/legacy/*.cls') is stripped of that one leading segment. Found on the
+# docs-ready path (2026-09-09): 'sources/**' — the natural spelling for "the whole corpus" —
+# matched no row and the mark was refused with the corpus listed right under the refusal.
+root_name = os.path.basename(os.path.normpath(doc.get('sourceRoot') or ''))
+if root_name and t.startswith(root_name + '/') and len(t) > len(root_name) + 1:
+    t = t[len(root_name) + 1:]
 is_glob = any(c in t for c in '*?[')
 rels = [r.get('rel') or os.path.basename(r.get('path') or '') for r in inv]
 hits = [r for r in rels if (fnmatch.fnmatch(r, t) if is_glob else (r == t or os.path.basename(r) == t))]

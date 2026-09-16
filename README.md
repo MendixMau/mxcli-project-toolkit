@@ -516,6 +516,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | CAC-4, after rearchitect sign-off and before any design artifact — branding and UI direction. Opens with a brainstorm | `skills/checkpoints/checkpoint-design.md` |
 | CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm | `skills/checkpoints/checkpoint-build.md` |
 | CAC-6, after Stage 6 passes and before any cutover step — migration mode only, and a hard gate: every answer lands CONFIRMED, no ASSUMED defaults | `skills/checkpoints/checkpoint-cutover.md` |
+| Stage 0 sign-off when the inventory is at or under 1 module / 8 screens / 25 use cases, or the user says the app is small — declare the tier, then apply its per-stage caps and the three artifact waivers | `skills/small-project-tier.md` |
 | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts | `skills/bootstrap-project.md` |
 | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim | `skills/cloud-dev-environment.md` |
 | Changing an EXISTING Mendix app — adding a feature, altering a flow, restructuring a module — when it has no BRDs, no architecture doc and no wireframes: the knowledge base comes from the live model (Path D), stages 2–4 run over the changed slice plus its blast radius only, and the Track B regression baseline is the precondition; audit-only stays in existing-app-assurance | `skills/existing-app-change.md` |
@@ -527,6 +528,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
+| Images to read listed by images-to-md or the documents index — describe each unique picture once, into its own file, before Stage 2 closes | `skills/image-transcription.md` |
 | Rendering a filled triage.md for review — the triage.html surface Stage 0 names. Renders only; the Stage 0 verdict stays with gate-check and the judgement with source-triage.md | `bin/triage-report.sh` |
 | Reviewing what the extraction actually produced — the Stage 1 surface, and the file the Stage 1 gate looks for. Renders a code-extracted and a document knowledge base alike, so a requirements-driven project gets the surface too; prints no zero that a second record does not agree with | `bin/extraction-report.sh` |
 | Assessing or planning a migration up front, before any pipeline is chosen | `skills/assess-migration.md` |
@@ -566,6 +568,8 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Task | Skill to load |
 |---|---|
 | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS | `project-bin/check-design-portability.sh` |
+| After every wireframe edit: assembles design/wireframes/*.html into design/prototype.html, one hash-routed page a stakeholder can click through instead of twenty separate files. Generated, never edited (design-artifacts.md Step 3) | `project-bin/assemble-prototype.js` |
+| Before wireframes pass to the build loop, and with --brd before a BRD is signed off: dead #/route links, orphan screens, controls with no data-bind and no data-cut, BRD routes no screen has, screens no use case walks (design-artifacts.md Step 3c, brd-validation.md check 8) | `project-bin/check-prototype-links.js` |
 | Designing the brand and ONE ANNOTATED WIREFRAME PER SCREEN before building pages — the design system alone is half the deliverable | `skills/design-artifacts.md` |
 | Before a wireframe or a design commits to a WIDGET — and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time | `skills/learned-mdl-cannot-express.md` |
 
@@ -733,6 +737,8 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
 | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source | `bin/source-sufficiency.sh` |
 | Closing Stage 1, or adding files to a source folder — every inventoried file must name the artifact that consumed it (text AND embedded diagrams), or carry a waiver; blocks Stages 1–2 until it does | `bin/source-ledger.sh` |
+| HTML in the source corpus — convert once before anyone reads it: `bin/html-to-md.sh <project>` writes each page as Markdown under analysis/knowledge-base/text/ (3–10× fewer tokens than the raw export; inline images decoded to files; section list with line numbers as the read's denominator) plus documents-index.md over EVERY file, which one ledger glob mark points at. A session that opens a .html itself has skipped this | `bin/html-to-md.sh` |
+| Pictures in the source corpus — decks, Word files, PDFs, screenshots: one worklist of unique images with context, one description file each, coverage checked | `bin/images-to-md.sh` |
 | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` |
 | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done | `bin/facts-lock.sh` |
 | Building any module — before the first script. The mdl-agent's single per-module input | `skills/module-brief.md` |
@@ -748,10 +754,10 @@ The "When to use which skill" table above is *situational* — load a skill when
 | After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it. Every run is appended to the project's docs/PAGE-FIDELITY.tsv — first non-stub row per page = first-build score of record vs the ≥80% target (forward-reference stubs score with --stub, exempt) | `project-bin/page-fidelity.js` |
 | Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only | `skills/learned-mcp-patterns.md` |
 | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated | `skills/module-review.md` |
+| Before any mxcli exec / exec.sh / --mcp write — ask or run? the knob decides | `bin/exec-approval.sh` |
 | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` |
 | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
-| Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing | `skills/agent-permission-friction.md` |
 | A style change that appears to have done nothing, or an app still grey after a design port every instrument called green — the three ways a correct rule paints nothing (matches nothing / matches chrome / loses the cascade), the two reads that tell them apart, and the class that arrived in the stylesheet and is bound to no widget | `skills/learned-css-that-never-applied.md` |
 | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` |

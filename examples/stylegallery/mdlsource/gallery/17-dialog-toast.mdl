@@ -1,0 +1,48 @@
+-- ============================================================================
+-- StyleGallery — Dialog & Toast (static previews; inline, no overlay/logic)
+-- ============================================================================
+-- Purpose:  Static previews of the dialog + toast components (design-system
+--           .dialog / .toast). Rendered inline here for the showcase; real
+--           usage is inside Atlas's own popup/overlay mechanism on a real
+--           popup page, and inline vs. overlay is a page-composition
+--           decision that belongs to the page calling this snippet, not to
+--           the gallery.
+-- Depends on: 00-module.mdl.
+-- ============================================================================
+
+/** Dialog + toast previews (design-system .dialog / .toast). */
+create snippet StyleGallery.SNIPPET_DialogToast
+{
+  -- Dialog (rendered inline for preview; real usage is inside .overlay via a popup page)
+  container dlg (class: 'dialog') {
+    container dlgHead (class: 'd-head') {
+      dynamictext dlgTitle (content: 'Edit catalogue item', rendermode: H3)
+      container dlgX (class: 'btn btn-ghost btn-icon') { dynamictext dlgXt (content: '✕') }
+    }
+    container dlgBody (class: 'd-body') {
+      dynamictext dlgBt (content: 'Dialog body — form fields go here.')
+    }
+    container dlgFoot (class: 'd-foot') {
+      actionbutton dlgCancel (caption: 'Cancel', action: close_page, class: 'btn btn-secondary')
+      actionbutton dlgSave   (caption: 'Save',   action: close_page, class: 'btn btn-cta')
+    }
+  }
+
+  -- Success toast
+  container tstOk (class: 'toast') {
+    container tstOkIco (class: 't-ico') { dynamictext tstOkIcot (content: '✓') }
+    container tstOkBody {
+      container tstOkTitle (class: 't-title') { dynamictext tstOkTt (content: 'Request submitted') }
+      container tstOkMsg (class: 't-msg')     { dynamictext tstOkMt (content: 'PR-2044 sent for approval.') }
+    }
+  }
+
+  -- Error toast
+  container tstErr (class: 'toast err') {
+    container tstErrIco (class: 't-ico') { dynamictext tstErrIcot (content: '!') }
+    container tstErrBody {
+      container tstErrTitle (class: 't-title') { dynamictext tstErrTt (content: 'Submission failed') }
+      container tstErrMsg (class: 't-msg')     { dynamictext tstErrMt (content: 'Cost centre budget exceeded.') }
+    }
+  }
+}

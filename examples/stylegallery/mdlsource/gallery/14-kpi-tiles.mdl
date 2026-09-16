@@ -1,0 +1,31 @@
+-- ============================================================================
+-- StyleGallery — KPI / Stat tiles (real ListView on DemoKpi NPE)
+-- ============================================================================
+-- Purpose:  KPI tiles (design-system .kpi / .k-label / .k-value / .k-delta /
+--           .k-up / .k-down) as a real ListView on the DemoKpi datasource
+--           (05-demo-data.mdl) rather than 4 hand-copied static containers —
+--           so a future project can seed real KPI rows and reuse this
+--           snippet unchanged. A fixed dashboard row of exactly 4 tiles is
+--           still a reasonable ListView use (small, bounded list).
+--
+--           The delta container's class is runtime-computed from TrendDir —
+--           per learned-stylegallery.md's "Enumerate every DynamicClasses
+--           output": the full 3-value output set (k-up / k-down / '') is
+--           enumerated below AND every one of those classes is defined in
+--           ds.css. An un-enumerated DynamicClasses expression is an
+--           unreviewed contract — this is the worked counter-example.
+-- Depends on: 00-module.mdl, 05-demo-data.mdl (DS_DemoKpis).
+-- ============================================================================
+
+/** KPI / stat tiles row (design-system .kpi), real widget over DS_DemoKpis. */
+create snippet StyleGallery.SNIPPET_KpiTiles
+{
+  listview kpiList (datasource: microflow StyleGallery.DS_DemoKpis, class: 'grid-4') {
+    container kpiTile (class: 'kpi') {
+      container kL (class: 'k-label') { dynamictext kLt (Attribute: Caption) }
+      container kV (class: 'k-value') { dynamictext kVt (Attribute: KpiValue) }
+      -- Output set: 'k-delta k-up' | 'k-delta k-down' | 'k-delta' (flat) — all 3 defined in ds.css
+      container kD (class: 'k-delta', DynamicClasses: 'if $currentObject/TrendDir = ''up'' then ''k-up'' else if $currentObject/TrendDir = ''down'' then ''k-down'' else ''''') { dynamictext kDt (Attribute: Trend) }
+    }
+  }
+}

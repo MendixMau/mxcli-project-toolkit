@@ -48,17 +48,36 @@
 // scores as what it is. --no-log suppresses logging entirely (for scoring fixtures or
 // another project's files); an unloggable run says so on stderr rather than logging
 // silently nowhere.
+//
+// A SCREEN IN THE CLICKABLE PROTOTYPE. The wireframe argument may also be a route into the
+// assembled prototype, `design/prototype.html#/order-list` (assemble-prototype.js). The one
+// section is read back out through prototype-route.js, which undoes the only transform that
+// matters to this scorer (scoped screen CSS, where localMockClasses looks), so a screen scores
+// the same as a file and as a route. test-prototype-route.sh pins that. An unknown route exits
+// 2 and names the routes the prototype does have.
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const proto = require(path.join(__dirname, 'prototype-route.js'));
 
 const argv = process.argv.slice(2);
 const NOLOG = argv.includes('--no-log');
 const STUB = argv.includes('--stub');
 const [WF, PAGE, ...MDLS] = argv.filter(a => a !== '--no-log' && a !== '--stub');
 if (!WF || !PAGE || !MDLS.length) {
-  console.error('usage: page-fidelity.js [--no-log] [--stub] <wireframe.html> <page-name> <mdl-file...|->');
+  console.error('usage: page-fidelity.js [--no-log] [--stub] <wireframe.html | prototype.html#/route> <page-name> <mdl-file...|->');
   process.exit(2);
+}
+const WF_REF = proto.parseRef(WF);
+const WF_FILE = WF_REF ? WF_REF.file : WF;
+
+function readWireframe() {
+  if (!fs.existsSync(WF_FILE)) { console.error('page-fidelity: no such wireframe: ' + WF_FILE); process.exit(2); }
+  const html = fs.readFileSync(WF_FILE, 'utf8');
+  if (!WF_REF) return html;
+  const doc = proto.standalone(html, WF_REF.route);
+  if (doc === null) { console.error('page-fidelity: ' + proto.unknownRouteMessage(WF_FILE, WF_REF.route, html)); process.exit(2); }
+  return doc;
 }
 
 // ---- wireframe side -------------------------------------------------------------------
@@ -263,8 +282,7 @@ function bindRows(html) {
   return rows;
 }
 
-function wfFacts(file) {
-  const html = fs.readFileSync(file, 'utf8');
+function wfFacts(html) {
   const mock = localMockClasses(html);
   let main = contentOf(html);
   const mockUsed = [];
@@ -412,7 +430,7 @@ function score(wf, mdl) {
   return { pct: den ? Math.round(100 * num / den) : null, h, b, k, c, bd };
 }
 
-const wf = wfFacts(WF);
+const wf = wfFacts(readWireframe());
 const mdl = pageMdl();
 if (!mdl.trim()) { console.error('page-fidelity: no declaration of page "' + PAGE + '" found in input'); process.exit(2); }
 const s = score(wf, mdl);
@@ -441,7 +459,8 @@ if (!NOLOG) {
     // instrument failing. Same layout class as the snapshot/exec/restore fix of the same day.
     // Resolution order: MPR_FILE (what the shell tools already honour), then an ancestor
     // holding a .mpr, then an ancestor holding a subdirectory that holds one.
-    let root = null, d = path.resolve(path.dirname(WF));
+    // WF_FILE, not WF: a route's `#/a/b` would otherwise be walked as two directories.
+    let root = null, d = path.resolve(path.dirname(WF_FILE));
     if (process.env.MPR_FILE) {
       const cand = path.resolve(process.env.MPR_FILE);
       if (fs.existsSync(cand)) {
@@ -463,7 +482,7 @@ if (!NOLOG) {
       d = up;
     }
     if (!root) {
-      let e = path.resolve(path.dirname(WF));
+      let e = path.resolve(path.dirname(WF_FILE));
       for (let i = 0; i < 12 && !root; i++) {
         let subs = [];
         try {
@@ -502,7 +521,7 @@ if (!NOLOG) {
         PAGE, s.pct === null ? '-' : s.pct + '%',
         frac(s.h), frac(s.b), frac(s.k), frac(s.c), frac(s.bd),
         STUB ? 'stub' : MDLS[0] === '-' ? 'describe' : 'draft',
-        path.relative(root, path.resolve(WF)),
+        path.relative(root, path.resolve(WF_FILE)) + (WF_REF ? '#/' + WF_REF.route : ''),
       ].join('\t');
       fs.appendFileSync(tsv, row + '\n');
       console.log('  logged: ' + path.relative(process.cwd(), tsv));

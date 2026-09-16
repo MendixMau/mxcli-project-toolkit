@@ -1492,11 +1492,11 @@ stage_protocol_paths() {
   case "$1" in
 # <!-- ROUTING:BEGIN stage-map -->
     P)  echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/bootstrap-project.md skills/cloud-dev-environment.md skills/existing-app-change.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/platform-link.md" ;;
-    0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-scope.md skills/source-triage.md skills/existing-app-change.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/gate-check-file-locations.md" ;;
-    1)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-extraction.md skills/migration-pipeline.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md skills/corpus-extraction-integrity.md" ;;
-    2)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-brd.md skills/checkpoints/checkpoint-architecture.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
-    3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md skills/workflow-structure-rules.md skills/learned-mdl-cannot-express.md" ;;
-    4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md" ;;
+    0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-scope.md skills/source-triage.md skills/image-transcription.md skills/small-project-tier.md skills/existing-app-change.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/gate-check-file-locations.md" ;;
+    1)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-extraction.md skills/image-transcription.md skills/small-project-tier.md skills/migration-pipeline.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md skills/corpus-extraction-integrity.md" ;;
+    2)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-brd.md skills/checkpoints/checkpoint-architecture.md skills/image-transcription.md skills/small-project-tier.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
+    3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/small-project-tier.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md skills/workflow-structure-rules.md skills/learned-mdl-cannot-express.md" ;;
+    4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/small-project-tier.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md" ;;
     5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/design-spacing.md skills/ui-loop.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md skills/walking-skeleton.md skills/platform-link.md skills/teamserver-alignment.md" ;;
     6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md skills/platform-link.md skills/teamserver-alignment.md" ;;
     7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md skills/handoff-to-studio-pro.md skills/platform-link.md skills/teamserver-alignment.md" ;;
@@ -2041,6 +2041,45 @@ else
     DRIFT_NOTE="$DRIFT_COUNT decision(s) touch a BRD/wireframe not yet re-synced (see '[sync: … UNSYNCED]' in $REGISTER) — ba-agent must update the BRD/wireframe, then flip the marker to 'synced <date>', before this gate passes"
   fi
 fi
+# ---------------------------------------------------------------------------
+# Read for this gate — the runbook lines this stage actually needs.
+#
+# WHY (2026-09-09, a Markdown+HTML requirements project). skills/conversion-runbook.md is
+# ~11,700 words and every project's CLAUDE.local.md says "read it FIRST — every session", so
+# every session read all of it — measured cause three of that project's slow Stages 1–4. What a
+# stage session needs is §1b (the Live Checklist Protocol, which applies to every stage) plus
+# its own stage's section under §2; the rest is other stages' business until a question sends
+# the reader there. So a stage-specific run names those two spans by line number, derived by
+# grepping the runbook's actual headings ("### Stage N — …", "## 1b. …") on every run — never
+# a hard-coded number, which would be wrong after the next edit. The runbook's own "how to
+# read this" paragraph states the same rule; this line is what makes it actionable.
+runbook_span() { # runbook_span <file> <start-regex> <end-regex> — "A–B" (1-based, inclusive) or ""
+  awk -v h="$2" -v e="$3" '
+    !start && $0 ~ h { start = NR; next }
+    start && $0 ~ e   { end = NR - 1; exit }
+    END { if (start) { if (!end) end = NR; printf "%d–%d", start, end } }' "$1" 2>/dev/null
+}
+if [ -n "$REQUESTED_STAGE" ]; then
+  RB_FILE="$TOOLKIT_DIR/skills/conversion-runbook.md"
+  case "$REQUESTED_STAGE" in
+    build-ready) RB_STAGE="5" ;;   # build-ready is Stage 5's readiness check; it reads Stage 5's section
+    *)           RB_STAGE="$(printf '%s' "$REQUESTED_STAGE" | tr '[:lower:]' '[:upper:]')" ;;
+  esac
+  if [ -f "$RB_FILE" ]; then
+    # Keyed on the " — " every stage heading carries: "### Stage 0 runs in every entry mode"
+    # (under Entry Modes) also starts with "### Stage 0", and matched first without it.
+    RB_HEAD="$(grep -m1 "^### Stage $RB_STAGE — " "$RB_FILE" | sed 's/^### //; s/[[:space:]]*$//')"
+    RB_SPAN="$(runbook_span "$RB_FILE" "^### Stage $RB_STAGE — " "^###? ")"
+    RB_1B="$(runbook_span "$RB_FILE" "^## 1b\\." "^## ")"
+    if [ -n "$RB_HEAD" ] && [ -n "$RB_SPAN" ] && [ -n "$RB_1B" ]; then
+      printf 'Read for this gate: skills/conversion-runbook.md §"%s" (lines %s) + §1b Live Checklist (lines %s) — not the whole file\n' \
+        "$RB_HEAD" "$RB_SPAN" "$RB_1B"
+    else
+      echo "Read for this gate: skills/conversion-runbook.md — could not locate '### Stage $RB_STAGE — ' or '## 1b.' by heading; read §1b and your stage's §2 section"
+    fi
+  fi
+fi
+
 printf "Drift (BRD sync): %s — %s\n" "$DRIFT_STATUS" "$DRIFT_NOTE"
 
 # ---------------------------------------------------------------------------
@@ -2622,6 +2661,84 @@ HTML_TAIL
     mv -f "$INDEX.tmp.$$" "$INDEX"
     echo ""
     echo "index.html updated at $INDEX"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
+# "## Current stage" in the register — a readout, never hand-advanced.
+#
+# init-project.sh writes "**Stage P — Kickoff**, in progress." and until 2026-09-14 nothing
+# ever touched it again: in every hand-in of the token-path A/B (nine projects, gates P–4
+# passed) the header still read Stage P, because advancing it was a discipline nobody had.
+# The position is a fact this run already established — the first stage that is neither
+# PASS nor WAIVED — so it is written here, under the dashboard's own conditions: a full
+# informational run or --html, never a stage query (read-only), never a run about to be
+# blocked. Adopt/waive lines stay the human's authority; this line is what they and the
+# artifacts add up to. A MANUAL stage (Build) holds the position until a later stage has
+# something in it — the script cannot certify Build done, and must not skip it on nothing.
+if [ "$WRITE_HTML" = "1" ] && [ -n "$REGISTER" ] && [ -f "$REGISTER" ] \
+   && grep -q '^## Current stage' "$REGISTER"; then
+  _cur=""; _cur_status=""; _passed=""; _manual=""; _prev=""; _prev_status=""
+  for _s in P "${STAGE_NAMES[@]}"; do
+    if [ "$_s" = "P" ]; then _st="${P_STATUS:-PENDING}"
+    else tbl_get "$_s" "$RESULTS_TBL" || TBL_VALUE="PENDING"; _st="$TBL_VALUE"; fi
+    case "$_st" in
+      PASS|WAIVED) _passed="$_passed${_passed:+, }$_s" ;;
+      MANUAL)      _manual="$_manual${_manual:+, }$_s" ;;
+      *) if [ "$_st" != "FAIL" ] && [ "$_prev_status" = "MANUAL" ]; then
+           _cur="$_prev"; _cur_status="MANUAL"
+         else
+           _cur="$_s"; _cur_status="$_st"
+         fi
+         break ;;
+    esac
+    _prev="$_s"; _prev_status="$_st"
+  done
+  if [ -z "$_cur" ] && [ "$_prev_status" = "MANUAL" ]; then _cur="$_prev"; _cur_status="MANUAL"; fi
+  if [ -z "$_cur" ]; then
+    _line="**All gates passed** — through Stage 7 (Cutover)"
+  else
+    if [ "$_cur" = "P" ]; then _title="Kickoff"
+    else tbl_get "$_cur" "$STAGE_TITLES_TBL" || TBL_VALUE="(untitled stage)"; _title="$TBL_VALUE"; fi
+    case "$_cur_status" in
+      FAIL)   _how="needs attention" ;;
+      MANUAL) _how="in progress (manual gate: its verdict is a Decisions row, not a file)" ;;
+      *)      _how="in progress" ;;
+    esac
+    _line="**Stage $_cur — $_title**, $_how"
+  fi
+  _line="$_line — gates passed: ${_passed:-none yet}"
+  [ -n "$_manual" ] && _line="$_line · manual: $_manual"
+  _stamp=" (derived by gate-check on $(date -u +%Y-%m-%d); re-run it rather than editing this line)."
+  # Rewrite only when the position moved — a new date alone is not a change worth a diff — and
+  # ONLY over a line nobody wrote by hand: the untouched scaffold line, or this readout's own
+  # earlier line. A human's line is never replaced (field run 2026-09-14, twelve real projects:
+  # the first version rewrote "Stage 5 verdict: COMPLETE" as "Stage 3, needs attention" on eight
+  # of them — a correct reading of the gate checks, and still the wrong thing to do to the
+  # register's own words). Where they disagree, say so and leave the line alone.
+  _have="$(awk '/^## Current stage/ { f = 1; next } f && /^\*\*/ { print; exit }' "$REGISTER")"
+  _ours=0
+  case "$_have" in
+    ""|"**Stage P — Kickoff**, in progress."|*"(derived by gate-check"*) _ours=1 ;;
+  esac
+  if [ "$_ours" = "0" ]; then
+    echo ""
+    echo "Current stage in $(basename "$REGISTER") is hand-written and left alone: $(printf '%s' "$_have" | cut -c1-70)"
+    echo "  gates derive: $(printf '%s' "$_line" | sed 's/\*\*//g')"
+  elif [ "${_have%% (derived by gate-check*}" != "$_line" ]; then
+    _tmp="$(mktemp "${TMPDIR:-/tmp}/curstage.XXXXXX")"
+    if MXTK_CUR_LINE="$_line$_stamp" awk '
+         /^## Current stage/ { print; insec = 1; next }
+         insec && /^\*\*/ && !done { print ENVIRON["MXTK_CUR_LINE"]; done = 1; next }
+         insec && /^## / && !done { print ENVIRON["MXTK_CUR_LINE"]; print ""; done = 1; insec = 0 }
+         { print }
+         END { if (!done) print ENVIRON["MXTK_CUR_LINE"] }
+       ' "$REGISTER" > "$_tmp"; then
+      cat "$_tmp" > "$REGISTER"
+      echo ""
+      echo "Current stage in $(basename "$REGISTER"): $(printf '%s' "$_line" | sed 's/\*\*//g')"
+    fi
+    rm -f "$_tmp"
   fi
 fi
 

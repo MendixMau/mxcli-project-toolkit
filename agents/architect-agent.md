@@ -47,7 +47,11 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 | `skills/checkpoints/checkpoint-architecture.md` | CAC-3, after BRD validation and before architecture locks — the hidden business rules that are expensive to discover later |
 | `skills/checkpoints/checkpoint-design.md` | CAC-4, after rearchitect sign-off and before any design artifact — branding and UI direction. Opens with a brainstorm |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm |
+| `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index — describe each unique picture once, into its own file, before Stage 2 closes |
+| `skills/small-project-tier.md` | Stage 0 sign-off when the inventory is at or under 1 module / 8 screens / 25 use cases, or the user says the app is small — declare the tier, then apply its per-stage caps and the three artifact waivers |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
+| `project-bin/assemble-prototype.js` | After every wireframe edit: assembles design/wireframes/*.html into design/prototype.html, one hash-routed page a stakeholder can click through instead of twenty separate files. Generated, never edited (design-artifacts.md Step 3) |
+| `project-bin/check-prototype-links.js` | Before wireframes pass to the build loop, and with --brd before a BRD is signed off: dead #/route links, orphan screens, controls with no data-bind and no data-cut, BRD routes no screen has, screens no use case walks (design-artifacts.md Step 3c, brd-validation.md check 8) |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
 | `skills/existing-app-change.md` | Changing an EXISTING Mendix app — adding a feature, altering a flow, restructuring a module — when it has no BRDs, no architecture doc and no wireframes: the knowledge base comes from the live model (Path D), stages 2–4 run over the changed slice plus its blast radius only, and the Track B regression baseline is the precondition; audit-only stays in existing-app-assurance |
 | `skills/architecture-blueprint.md` | Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations |
@@ -75,7 +79,7 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 
 ## If any process in this app has a workflow — run the count, do not merely cite it
 
-**A citation is not a read.** `workflow-structure-rules.md` §12 is a ten-row count with a
+**A citation is not a read.** `workflow-structure-rules.md` §12 is an eleven-row count with a
 denominator on every line, and it is the only place in the pipeline where a workflow's *design* is
 checked against the requirement it came from. It fires only if someone runs it, so the rows are
 here rather than behind a link. Write the numbers into
@@ -97,6 +101,14 @@ Run it at Stage 3 against the **drawn** diagram, and again at Stage 5 against th
 | 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` | N of N expressions |
 | 9 | Event sub-processes with one start event, correct family, recurrence in bounds | N of N sub-processes |
 | 10 | Constructs checked against §11 and marked *proven* or *hand-add in Studio Pro* | N of N constructs; every hand-add is its own numbered build-plan row |
+| 11 | **If the source is a BPMN/swimlane diagram:** pools counted, lanes carried into row 5, every element screened against §13 | N pools = N workflows; N of N elements screened; every NOT-SUPPORTED one has a `fit-gap.md` row. *"Source is not a process diagram"* is legal |
+
+**Row 11 decides how many workflows exist, so do it first.** One pool is one workflow — a
+three-pool source built as one workflow is a different application. A lane is a targeting
+statement, not a picture: carry its name into row 5 as the requirement sentence. Elements Mendix
+cannot express at all (event-based and complex gateways, embedded/transaction/ad-hoc subprocesses,
+terminate end, multiple events) are `fit-gap.md` redesigns at Stage 3, never approximations at
+build time — §13 has the table and the two that cost most.
 
 **Row 5 is the one that bites, so read §6 before you fill it.** If the assignee is *data on the
 record* ("the reviewer named on the request"), a role XPath is not a near miss — it delivers the

@@ -923,6 +923,57 @@ already exists.
 
 ---
 
+> **CORRECTION AND MAJOR FINDING, 2026-09-14 (mxcli v0.21.0 / Mendix 11.13.0).**
+> The advice above — "read `DESCRIBE WORKFLOW` before flagging a missing split" — is still
+> correct about *presence* and is now **actively dangerous as evidence of correctness**.
+> `DESCRIBE WORKFLOW` renders a scripted split perfectly, with every task nested under its
+> `path N`, for a model the runtime will not execute.
+>
+> **mxcli never writes `Workflows$EndOfParallelSplitPathActivity`. Studio Pro writes exactly
+> one per path, always as the final element of that path's `Flow.Activities`.** That single
+> missing node is the whole difference between a working split and a silent no-op.
+>
+> **How it fails.** Every path is skipped in the same millisecond and the workflow carries on
+> down the join as if the branches had completed. No exception, no log line, no failed
+> instance. On a 16-station approval workflow, 8 stations never opened and nothing anywhere
+> reported a problem.
+>
+> **Every gate is blind to it**, in both directions: `mxcli check --references`,
+> `mxbuild --target=deploy`, native `mx check` and the `DESCRIBE` round-trip all report clean
+> on the broken model *and* on the repaired one. **Only a live run plus
+> `system$workflowactivity` can tell them apart.**
+>
+> **Proof (controlled experiment, throwaway model copy + `TEMPLATE` clone of the database).**
+> A 7-leg split with a nested 2-leg inner split — 9 paths — was run twice against identical
+> data, with the terminators as the only variable:
+>
+> | | no terminators | 9 terminators added |
+> |---|---|---|
+> | `mx check` | 0 errors | 0 errors |
+> | tasks open at the split | 1, sequential | **6 concurrent** |
+> | stations reached | **8 of 16** | **16 of 16** |
+>
+> **The repair.** The node is 8 fields with **no outbound references** — `$ID`, `$Type`,
+> `Annotation: null`, `Caption`, `Name`, `PersistentId`, `RelativeMiddlePoint: "0;0"`,
+> `Size: "0;0"` — which is why adding it is safe and why a Studio Pro hand-add is a palette
+> drop with nothing to wire. So a split *can* be scripted after all: script the structure,
+> then add one terminator per path.
+>
+> **Count paths, not branches.** A nested split's inner paths each need their own. The 7-leg
+> shape above needed **9**, and getting that wrong reintroduces the silent skip on exactly
+> the paths you missed.
+>
+> **Rules that follow.**
+> - Never report a scripted `PARALLEL SPLIT` as working on the strength of a build or a
+>   `DESCRIBE`. Run it.
+> - When a workflow's tasks are mysteriously never offered, check terminator count against
+>   path count before looking anywhere else.
+> - This is the second construct (after the `BOUNDARY EVENT TIMER` of §19) where a green
+>   `mxcli check` certified a broken model. Treat that pattern as the default for workflow
+>   structure, not the exception.
+
+---
+
 ## 19. `BOUNDARY EVENT TIMER` — don't add one without a documented business trigger
 
 > **CORRECTION, 2026-09-03 (probed, mxcli v0.20.0 / Mendix 11.14.0).** The `'P3D'` form below
@@ -1033,7 +1084,9 @@ not, however, read the guard's absence as safety on an older binary.
 1. **Event Sub-Process.** Inexpressible in MDL, and still silently absent from
    `DESCRIBE WORKFLOW` output — the deparse looks complete. Guarded on write (above), so the
    failure mode is now a refusal rather than data loss. Studio Pro only.
-2. **End activities.** Re-probed on v0.20.0: `end workflow activity;`, `end activity;`,
+2. **End activities.** (§23 is the same grammar gap seen from the other side — the
+   end-of-parallel-split-path node — and it has a post-exec repair.) Re-probed on v0.20.0:
+   `end workflow activity;`, `end activity;`,
    `end;`, `terminate;`, `stop;` and `end workflow instance;` **all fail to parse**, and
    `mxcli syntax workflow --json` still lists no branch-ending activity. §6's empty-block
    semantics therefore still bite — an empty outcome block *rejoins the enclosing flow*, so a
@@ -1102,6 +1155,294 @@ hand against the rebuilt model's names before exec — and remember that mxcli w
 build against the copy, `git checkout -- .` between arms. Every finding above came from a
 sandbox that was reverted to baseline afterwards, which is what made it safe to execute
 known-dangerous forms deliberately. See [[sandbox-ab-tool-defect-probe]].
+
+---
+
+## 22. v0.21.0 — the first shipped workflow, and what building it taught that a probe cannot
+
+**Field run 2026-09-14, mxcli v0.21.0, Mendix 11.14, native `mx check` clean, running in the
+app.** Everything in §21 came from probes and from a rebuild of a workflow a human had drawn.
+This section comes from a workflow that was **designed in MDL first and shipped** —
+`WF_MOCApproval` on a project entity, 14 activities, four user-facing approval stages:
+
+```
+Start → USER TASK  Initial review
+      → USER TASK  Initial approval
+      → MULTI USER TASK  Expert assessment   (fans to 8 assessment topics)
+      → USER TASK  Director approval
+      → End
+```
+
+Six structural steps for four stages; the multi-user task is one activity that produces eight
+inboxes. Every construct is a §11 *proven* row in `workflow-structure-rules.md`, and nothing
+in it needed hand-adding in Studio Pro.
+
+### Zero `DECISION` activities — by necessity, and it turned out to be the better shape
+
+BUG-76 is open on v0.21.0, so the chain was built with **outcomes on the user tasks** and no
+exclusive split anywhere. The lesson generalises past the bug: an approval chain branches on a
+*human's answer*, and a user task's outcomes already express that. A `DECISION` is for
+branching on *data*. If the first draft of an approval workflow has a split after every task,
+the split is redundant before it is dangerous.
+
+### `CE6681` on a dangling jump describes the wrong fault
+
+The obvious reject path is "jump back to the previous task". The **first** task has nothing
+behind it, so that jump has no valid target at all. What happens:
+
+| Rung | Result |
+|---|---|
+| `mxcli check --references` | clean |
+| `exec` | `Created workflow` |
+| `DESCRIBE WORKFLOW` | reads back with the jump present |
+| native `mx check` | **CE6681** — *"not possible to jump to end activities or jump-to activities"* |
+
+The message is about the **kind** of the target, so it sends you inspecting a target that does
+not exist. Read `CE6681` as *"this jump does not resolve"* and check existence before kind.
+(§11's forward-`JUMP TO` row is the same code from the other cause: a forward target resolves
+to the end/jump activity.) The fix is not a better jump — it is that **a reject ends the
+workflow**. `WF_MOCApproval` therefore contains no `JUMP TO` at all.
+
+This is a fourth entry for the detection-gap register: clean at three rungs, broken at the
+fourth, with a message pointing away from the cause.
+
+### Targeting: a microflow per stage when user roles are collapsed
+
+Five approver populations were mapped onto one `Approver` user role. `[%UserRole_Approver%]`
+would then have put every stage in every approver's inbox — a workflow that builds clean, runs,
+and assigns the wrong people, which no static check can see. Each stage got its own targeting
+microflow instead. The signature rule from §11 is what bites here: each wrapper takes the
+platform's **two** parameters (`System.Workflow` *and* the context entity). A one-parameter
+wrapper passes `mxcli check` and the native build refuses it.
+
+### What this run did not exercise
+
+No boundary events, no `WAIT FOR TIMER`, no event sub-process, no parallel split (BUG-121
+stands — see §11), no sub-workflow. Their §11 verdicts are unchanged by this run.
+
+---
+
+## 23. Operating the terminator repair — the part that bites is the *second* time
+
+**§18's correction block is the finding**: mxcli writes no
+`Workflows$EndOfParallelSplitPathActivity`, MDL has no keyword for one, every gate is blind in
+both directions, and a live run is the only oracle. Read it first — none of that is repeated
+here. This section is only how to run the repair and keep it applied.
+
+```
+bin/wf-add-path-terminators.py <workflow>.mxunit          # dry run: paths found / to add
+bin/wf-add-path-terminators.py <workflow>.mxunit --apply  # patches, leaves a .bak
+```
+
+It walks the unit, appends the terminator to every unterminated `ParallelSplitOutcome` flow, and
+recurses, so a nested split's inner paths get theirs. Already-terminated paths are left alone, so
+the run is safe to repeat. Find the unit by decoding `Name` on the `.mxunit` files under
+`mprcontents/`.
+
+**Three rules, each of which cost real stations before it was written down:**
+
+1. **Re-run it after every later script that rewrites the workflow.** This is the one nobody
+   anticipates: an MDL rewrite drops the terminators again and the model goes straight back to
+   silently skipping every path. Re-running is idempotent and costs nothing; skipping it costs
+   the whole fan-out. Put the invocation in the MDL script's own header, where the next person
+   to run that script will see it.
+2. **Verify with a live run, never a build** (§18 for why). Consecutive *End of parallel split
+   path* rows with no task between them is the unfixed signature.
+3. **Never patch a model Studio Pro has open, or while the app runs.** Same rule as every other
+   `.mxunit` write — `project-bin/snapshot-mpr.sh` first.
+
+**What it means for a build plan.** A scripted split is usable, so plan it as a normal MDL row —
+and plan the terminator pass as a **named, repeated step attached to that workflow**, not as a
+one-off fix recorded in the build log. A plan row that says "run the workflow script" without
+"then re-run the terminator pass" regresses the next time anyone touches that workflow, silently
+and exactly as before.
+
+---
+
+## 24. `EXPOSE AS WORKFLOW ACTION` sets the Toolbox label, not the canvas — captions need a separate retrofit
+
+A microflow that will be dragged onto a workflow as a `Call a microflow` activity can be marked
+
+```
+CREATE MICROFLOW Module.ACT_ApprovalRun_FailProjection (...)
+  EXPOSED AS WORKFLOW ACTION 'Fail projection' IN 'Approval'
+BEGIN
+  ...
+END;
+```
+
+and Studio Pro then lists it in the workflow editor's Toolbox under that category, with that
+caption. Read that as scoped to the Toolbox entry, nothing more — it does **not** touch any
+`Workflows$CallMicroflowActivity` already placed on a canvas. Caption is stored **per placed
+activity**, independent of the microflow it calls; exposing the microflow only changes what a
+*future* drag stamps on a *new* activity.
+
+**The gap this produces.** Every activity dragged onto a workflow before its microflow was
+exposed — which in practice means every activity built before the MDL is updated with an
+`EXPOSED AS WORKFLOW ACTION` clause on a later pass — keeps whatever Caption Studio Pro
+originally stamped it with, almost always the microflow's raw technical name:
+`ACT_ApprovalRun_FailProjection` sitting on a canvas meant for the business readers this
+workflow is being built for. `DESCRIBE WORKFLOW` shows nothing wrong here — Caption round-trips
+faithfully, it is just not the caption anyone wanted. `mx check` shows nothing wrong either;
+Caption is cosmetic to the compiler. The only way to see the gap is to open the workflow in
+Studio Pro and read the boxes.
+
+**The fix is `project-bin/wf-set-call-captions.py`**, not more MDL — there is no MDL statement
+that reaches back and relabels a placed activity:
+
+```
+project-bin/wf-set-call-captions.py <workflow>.mxunit \
+    --captions Module.ACT_ApprovalRun_FailProjection='Fail projection' \
+               Module.ACT_ApprovalRun_Approve='Approve'
+project-bin/wf-set-call-captions.py <workflow>.mxunit --captions-file captions.txt --apply
+```
+
+It walks the unit, finds every `Workflows$CallMicroflowActivity` whose `Microflow` matches a
+name you gave it, and replaces only that activity's `Caption` — `Name` (the flow-internal
+identifier every `Flow` element references to reach the activity) is never touched, so nothing
+that points at the activity can break. Defaults to a dry run; `--apply` writes, after a `.bak`.
+
+**Two things worth deciding before scripting a workflow, given this gap:**
+
+1. **Order the two passes correctly if you want new drags to come in captioned.** `EXPOSED AS
+   WORKFLOW ACTION` on the microflow first, workflow-placement MDL second — otherwise the drag
+   still stamps the raw name and you are back to the retrofit for that activity too.
+2. **Treat the retrofit as its own named step, not a one-off.** Same shape as §23's terminator
+   repair: a later MDL rewrite of the workflow does not touch existing Captions (they are not
+   MDL-authored fields to begin with), so this is a one-time backfill once the microflows are
+   exposed — but it is exactly the kind of cosmetic pass a build plan silently drops if it is
+   not written down as a row of its own.
+
+**FIELD RUN.** VB-USI, 2026-09-14, mxcli v0.21.0 / Mendix 11.13.0: 36 call-microflow activities
+across one 16-station approval workflow were still showing raw `ACT_` names on the canvas months
+after the microflows behind them had already been exposed as workflow actions — the exposure MDL
+had been added on a later script, after the activities were placed, and nobody had connected
+"exposed" with "the canvas still says otherwise." One pass of the tool relabelled all 36. Native
+`mx check`: 0 errors before and after.
+
+---
+
+## 25. mxcli v0.22.0 — what upstream shipped, and why this section is not a clearance
+
+**The full upstream-delta table is held in PR #52, pending re-verification on `--local`.** This
+section exists so that nobody reading §18, §21, §22 or §23 acts on a workaround upstream has
+removed — and so that nobody treats a changelog as a probe.
+
+**The distinction that matters, and that this document's own briefing blurred.** The parallel-split
+fault and the missing End event were reported together as "one grammar gap behind both runtime
+faults". They are not one gap:
+
+- **The split fault was a writer defect.** Mendix stores an `EndOfParallelSplitPathActivity` as the
+  last activity of every path and executes the path up to that marker; mxcli wrote paths without
+  one, so the runtime synthesised an end *ahead of the path's contents*. Fixed in the **v0.22.0
+  release**. A path can never end the workflow — that is `MDL-WF08` / CE1844 and it confirms
+  `workflow-structure-rules.md` §4 — so `end workflow` would never have fixed this.
+- **The branch-End fault was a grammar gap**, and `end workflow [comment '<caption>'];` closes it
+  on **nightly only**, after the v0.22.0 tag. It is legal in any `{ }` block and deliberately
+  illegal in the top-level body, where those words close the workflow and *are* the main flow's
+  End (CE6671).
+
+**What to do differently at design time, once a probe confirms it.** §22's "zero `DECISION`
+activities, branch on the human" shape was forced by BUG-76, and it turned out to be the better
+shape anyway — keep it. But the two redesigns that cost real work go away: a **reject no longer
+has to be a backward jump or a redesigned "path ends" route** (`end workflow` in the outcome), and
+a **forward `JUMP TO` was never the limitation we recorded** — upstream `825873d6`, already in
+**v0.21.0**, fixed the jump-named-after-its-target defect for which forward order was the broken
+case. §22's CE6681 was a *dangling* jump, which is a different and legitimate fault, now refused
+at check time.
+
+**What did not move, and now fails loudly instead of silently.** Event sub-process, boundary event
+on a notification, multi-user decision rule, user-task *On created*, AI agent task: all still
+absent from the grammar, read directly at HEAD. Hand-add stands. The change is that
+`create or modify` and `REPLACE ACTIVITY` now **refuse** a workflow holding any of them (nightly),
+instead of rebuilding a default over it — an on-created microflow reset to `NoEvent`, event
+handlers to an empty list, a multi-user completion rule to Consensus on its first outcome. That
+removes the ugliest interaction in this file: hand-add something in Studio Pro, then have the next
+scripted rewrite silently undo it.
+
+**A workflow-body `annotation` is now refused, not merely unsupported.** It lands in the activity
+flow, which accepts only flow elements, so the written `.mpr` cannot be **loaded at all**. Keep
+notes as MDL comments (`-- …`), or add them in Studio Pro after the last scripted rewrite.
+
+**UPDATE 2026-09-15: probed, with known-bad controls, on v0.22.0 (tag) and `main` HEAD
+(`7b42100d`).** Every claim above is CONFIRMED except the `create or modify` rewrite guard
+itself (needs a live Studio Pro to set up the hand-added state it protects — read at source,
+not independently probed) and BUG-121's runtime half (build/native-check confirmed, live-run
+oracle still open). Full results are the retest log held in PR #52. **One
+correction from the probe: `end workflow` and the signature checks are on `main` HEAD only —
+NOT on the `nightly` tag**, which is itself a day stale and does not contain them
+(`git merge-base --is-ancestor 598dddc0 nightly` is false). Say the commit, not the tag name.
+
+---
+
+## 26. Exposing a workflow's called microflows as workflow actions
+
+**The clause nobody in this toolkit was using.** Before 2026-09-15 the string
+`EXPOSED AS WORKFLOW ACTION` appeared nowhere in `skills/` or `bin/` — so every workflow this
+toolkit has built left its own actions out of the workflow editor's toolbox. That matters more
+here than it would elsewhere, because `workflow-structure-rules.md` §11 still lists five
+constructs that **must** be hand-added in Studio Pro (event sub-process, boundary event on a
+notification, multi-user completion rule, user-task *On created*, AI agent task). Somebody is
+going to open that canvas. What they find in the toolbox is what they can wire without knowing
+your microflow names.
+
+### The two clauses are different toolboxes
+
+```
+EXPOSED AS MICROFLOW ACTION 'Caption' IN 'Category'   -- the MICROFLOW editor's toolbox
+EXPOSED AS WORKFLOW ACTION  'Caption' IN 'Category'   -- the WORKFLOW editor's toolbox
+NOT EXPOSED AS MICROFLOW|WORKFLOW ACTION              -- removes an entry
+```
+
+Exposure is a **toolbox** feature, not a wiring feature: a `CALL MICROFLOW` activity inside a
+workflow works whether or not the microflow is exposed. Exposing it changes what a *human*
+can find later.
+
+### What was measured (2026-09-15, `v0.22.0-15-g7b42100d`, Mendix 11.13.0)
+
+| Question | Answer |
+|---|---|
+| Does it write and build? | Yes — `check` clean, `exec` writes, native `mx check` **0 errors** |
+| On a microflow the workflow also `CALL`s? | Yes, same batch, 0 errors |
+| Does `DESCRIBE MICROFLOW` emit it? | Yes — `exposed as workflow action 'Notify requester' in 'Approval'` |
+| **Does a later `create or modify` that omits the clause drop it?** | **No — the stored exposure is preserved.** Measured directly: describe → rewrite without the clause → describe again, still there |
+| Can the rule be checked mechanically? | Yes — `mxcli callers <Module.MF>` reports the **workflow** as a caller (depth 1), so the set of microflows a workflow calls is enumerable |
+
+That fourth row is the one that makes this safe to adopt as a convention. Most things in this
+document that a rewrite touches get silently reset; this one does not.
+
+### The rule
+
+> **Every microflow a workflow calls carries `EXPOSED AS WORKFLOW ACTION '<caption>' IN
+> '<one category per project>'` — except single-use plumbing, which this toolkit already names
+> with the `SUB_` prefix (`module-folder-convention.md`).**
+
+**Completion criterion, with a denominator.** For each workflow: `mxcli callers` each called
+microflow to get N, then N-of-N non-`SUB_` microflows carry the clause. Write the count down;
+"exposed the actions" with no number is the unfalsifiable-checklist failure.
+
+**Why `SUB_` is exempt and not just "use judgement".** A toolbox is a discovery surface and its
+cost is clutter — the VB-USI approval workflow calls **25** microflows, most of them one-station
+bookkeeping. Twenty-five single-purpose entries in the workflow toolbox makes the three genuinely
+reusable ones harder to find, which is the opposite of the point. `SUB_` already means "reusable
+sub-logic invoked by name, not an entry point" in this toolkit, and `ACT_` already reads as an
+entry point to `mxcli lint` (QUAL004 exempts it from the orphan rule). Reuse the convention you
+have rather than inventing a second axis.
+
+**One category name per project.** `IN '<category>'` is the toolbox group. Pick the project's
+name or its dominant process (`'Approval'`, `'MOC'`) and use the same string everywhere —
+categories are free-text, so two spellings make two groups and the grouping is the whole value.
+
+**Caption is for the human, not the model.** `'Notify requester'`, not `'ACT_NotifyRequester'`.
+The person dragging it in does not need to know it is a microflow — that is what the clause is
+for.
+
+### Where it goes in the build order
+
+Set it at `CREATE MICROFLOW` time, in the same statement — it is one clause, and adding it later
+means restating the whole microflow (there is no `ALTER MICROFLOW` for a body;
+`learned-mdl-preflight.md` rule 21). §10's build order is unchanged: task pages, then the
+microflows the workflow calls (now carrying their clause), then the workflow.
 
 ---
 

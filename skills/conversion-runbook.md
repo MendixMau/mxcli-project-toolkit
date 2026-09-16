@@ -27,6 +27,8 @@ table; a skill missing here is a skill no agent will find.
 | Deciding whether to extract at all, before any BRD gets generated | `skills/source-triage.md` |
 | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source | `bin/source-sufficiency.sh` |
 | Closing Stage 1, or adding files to a source folder — every inventoried file must name the artifact that consumed it (text AND embedded diagrams), or carry a waiver; blocks Stages 1–2 until it does | `bin/source-ledger.sh` |
+| HTML in the source corpus — convert once before anyone reads it: `bin/html-to-md.sh <project>` writes each page as Markdown under analysis/knowledge-base/text/ (3–10× fewer tokens than the raw export; inline images decoded to files; section list with line numbers as the read's denominator) plus documents-index.md over EVERY file, which one ledger glob mark points at. A session that opens a .html itself has skipped this | `bin/html-to-md.sh` |
+| Pictures in the source corpus — decks, Word files, PDFs, screenshots: one worklist of unique images with context, one description file each, coverage checked | `bin/images-to-md.sh` |
 | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 | `bin/question-kinds.sh` |
 | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done | `bin/facts-lock.sh` |
 | Building any module — before the first script. The mdl-agent's single per-module input | `skills/module-brief.md` |
@@ -42,10 +44,10 @@ table; a skill missing here is a skill no agent will find.
 | After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it. Every run is appended to the project's docs/PAGE-FIDELITY.tsv — first non-stub row per page = first-build score of record vs the ≥80% target (forward-reference stubs score with --stub, exempt) | `project-bin/page-fidelity.js` |
 | Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only | `skills/learned-mcp-patterns.md` |
 | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated | `skills/module-review.md` |
+| Before any mxcli exec / exec.sh / --mcp write — ask or run? the knob decides | `bin/exec-approval.sh` |
 | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` |
 | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
-| Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing | `skills/agent-permission-friction.md` |
 | A style change that appears to have done nothing, or an app still grey after a design port every instrument called green — the three ways a correct rule paints nothing (matches nothing / matches chrome / loses the cascade), the two reads that tell them apart, and the class that arrived in the stylesheet and is bound to no widget | `skills/learned-css-that-never-applied.md` |
 | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` |
@@ -56,6 +58,8 @@ table; a skill missing here is a skill no agent will find.
 <!-- ROUTING:END -->
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
 **Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.
+
+**How to read this file: not whole.** A session reads **§1b** (the Live Checklist Protocol — it applies to every stage) **plus its own stage's section under §2**, and nothing else until a question sends it elsewhere. `bin/gate-check.sh <project> <stage>` prints the exact spans at the top of its output — `Read for this gate: skills/conversion-runbook.md §"Stage N — …" (lines A–B) + §1b Live Checklist (lines C–D)` — derived from the headings on every run, so they are never stale. "Read the runbook first, every session" in a project's `CLAUDE.local.md` means *those* lines, not the ~11,700 words: the whole-file read was measured cause three of a requirements-driven project's slow Stages 1–4 (2026-09-09). The baseline table above is rendered here so this file is complete, not so it is re-read.
 
 **Do not open `toolkit-guide.html` because you read this line.** Opening is governed by the first-touch rule in the toolkit's `CLAUDE.md` — open only if `<project-root>/.claude/.guide-shown` is absent, then `touch` it. You are reading this file *every session*; an unconditional "open it at kickoff" here means a browser tab every session, which is exactly the bug this wording replaced.
 
@@ -116,7 +120,7 @@ The stages are the same for everyone; what differs is where you enter and which 
 | You're starting from… | Mode | Stages that run | What changes |
 |---|---|---|---|
 | **Legacy source code** (± docs, ± SME) | **Migration** | P, 0–7 (all) | The default everything below describes. Path A (code extractors) always runs. |
-| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs. `document-discovery.md` runs over the whole corpus for the inventory, **and** the extraction call runs per extractable structure inside it — a schema, a table dump, a data export or entity tables in a spec each get one; `N/A` is earned on evidence, never on the mode label (`source-triage.md` owns that rule — see "Stage 0 runs in every entry mode" below). Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. |
+| **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs. `document-discovery.md` runs over the whole corpus for the inventory, **and** the extraction call runs per extractable structure inside it — a schema, a table dump, a data export or entity tables in a spec each get one; `N/A` is earned on evidence, never on the mode label (`source-triage.md` owns that rule — see "Stage 0 runs in every entry mode" below). Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. **A text-native corpus — Markdown and HTML pages, no legacy code, no Office/PDF containers — takes the docs-ready fast path below.** |
 | **Just an idea / a running start on the model** | **Greenfield** | P (light), 0 (scope only), 5–6 | Stages 1–4 collapse to whatever plan the user already has. Stage 0 does **not** collapse: with no corpus there is nothing to grade, but the scope conversation is exactly as load-bearing as it is anywhere else, so Stage 0 reduces to CAC-1's brainstorm and its sign-off. If you find yourself inventing requirements mid-build, you're actually in requirements-driven mode — back up to Stage 2. |
 
 ### Stage 0 runs in every entry mode
@@ -150,6 +154,37 @@ inferred:
 and sign the file off. Do not delete `triage.md` to express "this doesn't apply" — `gate-check.sh`
 then reports *"triage.md not found"*, which reads as an unanswered gate rather than a settled one,
 and the difference between those two is the whole point of having a gate.
+
+### Requirements-driven, docs-ready corpus
+
+**Trigger:** the corpus is text-native — Markdown files and HTML pages (saved-webpage exports with
+their `_files/` sidecars), no legacy code, no Office/PDF containers. A corpus with `.pptx`/`.docx`/
+`.pdf` in it takes the ordinary requirements-driven row above, because those containers carry
+embedded images that owe their own accounting (`bin/lib/source-formats.tsv`, `media = yes`).
+
+**Why this path exists (2026-09-09).** A project of exactly this shape was slow and token-hungry
+through Stages 1–4, for measured reasons: every session read the raw HTML (3–10× the tokens of
+its text), and the ledger asked for one disposition per file — every sidecar `.png`, `.css` and
+`.js` included — for a corpus nothing extracts. Nothing below skips a gate; it names the shortest
+honest route through them, and every command here was run against the gates before it was written.
+
+| Stage | Docs-ready form |
+|---|---|
+| **0** | `bin/source-sufficiency.sh init <p>` (the inventory — every file, sidecars included, css/fonts as format `chrome`), the scope interview (**CAC-1**), and the `## Sign-off` in `triage.md`. The triage's extractor-call, capability-coverage and Path-A rows are written **`N/A (text-native corpus)`** — an answer, on the record, never a deleted row. |
+| **1** | Run **`bin/html-to-md.sh <p>`** once. The knowledge base **is** `analysis/knowledge-base/text/` (one `.md` per page, header with the section list) plus **`analysis/knowledge-base/documents-index.md`** (one row per file). No extractor ran, so the Stage 1 gate — which wants `extraction-report.html`, the surface of an extraction — is waived *by name, with the reason*: `bin/gate-check.sh <p> --waive 1 --reason "text-native corpus: converted once with html-to-md, no extractor applies"`. **Not `--adopt 1`:** adoption waives the stages *before* the adoption point — Stage 0, which just ran — and leaves Stage 1 demanding the extraction report (verified 2026-09-09: `--adopt 1` → Stage 0 WAIVED, Stage 1 PENDING). **Ledger: ONE mark** — `bin/source-ledger.sh mark <p> 'sources/**' --artifact analysis/knowledge-base/documents-index.md --evidence "<the one finding that proves the corpus was read, e.g. 'R-list §3 → brd/F002'>" --by <who>` — the index names every basename, so every row reports EXTRACTED, the sidecar png/css/js rows included (an image row is not a container: it owes no `--media`). Then `bin/source-ledger.sh report <p>` for the surface. **The images the index lists still have to be read (vision) before Stage 2 closes** — its "Images to read" line is the denominator; the mark says the text was read, not the screenshots. Run **`bin/images-to-md.sh <p>`** right after html-to-md: it turns that denominator into a worklist (one entry per unique picture, deduped, with every location and its context) instead of a number nobody tracks. Describe each per `skills/image-transcription.md`, then `bin/images-to-md.sh <p> --check` — it must report `described N of N` before Stage 2 closes, and the `--media` counts the per-container ledger marks below need come straight from its printed `bin/source-ledger.sh mark` commands (run those too, one per pptx/docx/PDF/page that owned a described image). The Stage 1 waiver means the ledger does not block *that* gate; **Stage 2 still runs it** (verified: hide the index → `gate-check <p> 2` exits 1, "Gate BLOCKED by the source ledger"). |
+| **2** | A thin BRD transform, not a re-analysis: **one use case per section** of the converted text, each with a `sourceRef` (`analysis/knowledge-base/text/<page>.md#L<line>` — the line from the header's section list), entities and rules **lifted as stated**, never inferred; `brd-validation.md` once, to Clean; `bin/brd-report.sh <p>`. Open questions are the ones the documents leave open, raised in chat per the Stage 2 gate. |
+| **3–4** | **Unchanged, and not skippable:** module boundaries, grants and the script order are decided here and nowhere else — a corpus that arrived as text has said nothing about any of them. |
+
+A session on this path reads §1b plus its stage's section — `bin/gate-check.sh <p> <stage>` prints the
+line ranges — and the converted `.md`, never the `.html`. A session that opens a `.html` itself has
+skipped Stage 1.
+
+**Small project — any entry mode.** When the Stage 0 inventory is at or under 1 module / 8 screens /
+25 use cases, CAC-1 asks (Q3) and the register records `Size tier: small — <counts>`; from there
+`small-project-tier.md` applies: the same gates, bounded artifacts (one BRD, a 600-word blueprint, one
+brief, the single-file coverage ledger) and three renders waived by name. Measured need: a 3-file
+corpus produced 30k words of stage artifacts, a 200-file one 44–58k (`process/token-path-ab-2026-09-09.md`).
+Declared, never inferred from a thin sources folder.
 
 **No pipeline at all — à-la-carte tool use.** An existing Mendix app that just needs an audit, lint pass, or a regression/e2e test net doesn't enter this pipeline: no intake, no stages, no gates. Route straight to `existing-app-assurance.md` (which points at `query-the-model.md`, `e2e-harness-base.md`, `learned-db-assertions.md`, and the bundled lint/graph/quality skills). The pipeline is for *producing* an app; the tool shelf is for everything else.
 
@@ -303,6 +338,47 @@ Rules — these apply to every stage and every per-module build loop:
 The final full-checklist repost before a gate doubles as the gate's evidence: the user should
 be able to approve the gate by reading that one message. The close-out block is what the
 reader approves the *transition* on — checklist for the work, block for the hand-over.
+
+---
+
+## 1c. Dispatch — what leaves the main session, in what batch, on which model
+
+**Why this is written down (2026-09-14).** The six agent stubs have carried model tiers since
+they were generated (`architect-agent` Opus, the other five Sonnet), and §2's Owner rows name
+who is accountable for each stage. Nothing said *when* the main session hands work over — so
+in the token-path A/B (nine runs, Stages P–4) the main session did nearly everything itself,
+at its own model's price, and only two skills (`brd-generation.md`, `image-transcription.md`)
+ever asked for a fan-out. Owner is accountability; this table is the runtime rule. It is the
+single source; `agent-roles.md` (setup) defers here.
+
+**The main session keeps, always:** every question to the user (§1); every gate verdict and
+its `--closeout` block; every `mxcli exec` / MCP write (`agent-roles.md`'s one rule); the
+merge of returned files into `PROJECT.md` and the chat checklist (§1b rule 5). Everything in
+the table leaves. A dispatched unit returns **the file it wrote**, never a summary of it.
+
+| Stage | Unit that fans out | Batch | Model | Fence before → check after |
+|---|---|---|---|---|
+| 1 Analysis | one source document → its KB extract (`kb-generation.md`) | 1 document per agent, ≤ 6 in flight | Sonnet | → `bin/source-ledger.sh check` |
+| 1 Analysis | image descriptions (`image-transcription.md`) | 5–8 images per agent | Haiku | `bin/images-to-md.sh` → `--check` (rule 6 cross-check on any string a rule will hang on) |
+| 2 Requirements | one module → its BRD (`brd-generation.md`) | 1 module per agent, all in parallel | Sonnet | `bin/facts-lock.sh build` → `facts-lock.sh check`, `brd-validation.md` |
+| 3 Architecture & Design | 3a modularize → blueprint → fit-gap ∥ 3b design system + wireframes | 2 agents; wireframes ≤ 8 screens per agent | Opus (3a) / Sonnet (3b) | → `bin/gate-check.sh <p> 3` |
+| 4 Build Plan | one module → its brief (`module-brief.md`) | 1 module per agent | Sonnet | build plan first (sequential, Opus) → `gate-check.sh <p> build-ready` |
+| 5 Build | one script → `mdl-agent` draft; each exec → `gate-agent`; module close → `review-agent` | 1 script per agent, **sequential within a module** (scripts depend); modules in parallel only where the build plan marks them independent | Sonnet | main session runs the exec between draft and gate |
+| 6 Test | one module → `test-agent` spec + run | 1 module per agent | Sonnet | → `gate-check.sh <p> 6` |
+| P, 0, 7 | nothing — intake, triage sign-off and cutover are interviews and decisions | — | main session | — |
+
+Batch sizes are context bounds, not throughput targets: 5–8 images and one BRD per agent are
+measured (`image-transcription.md`, `brd-generation.md` → "Running BRDs in parallel"); the
+rest are judgement and move when a field run says so. **Haiku is for reads whose output is
+mechanically checked or cross-checked** — the 2026-09-14 image run scored 78 % key recall with
+about one string in fifteen misread on small text — never for anything that ends in a verdict,
+a rule, or a question to the user.
+
+**Harnesses without subagents** — the desktop app's plain chat, Cowork, Copilot, Cursor,
+Windsurf: the stubs under `.claude/agents/` do not load. Work the table top to bottom yourself,
+one unit per turn at the batch sizes given, and open a fresh session per batch rather than one
+long one — the bound is about context, not about who holds it. `interview-protocol.md` §3
+"Asking on a non-Claude agent" is the same rule for questions.
 
 ---
 

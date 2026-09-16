@@ -95,7 +95,18 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # point is the across-runs trend — the stakeholder-visibility story that "we are finding bugs
 # and improving" — and every other stage artifact gets an HTML surface while the register had
 # none; the trend view lived only as a grep in the skill.
-MXTK_PROJECT_BIN="_common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js"
+# wf-add-path-terminators.py + mxunit_bson.py are the BUG-121 repair, and they install as a
+# PAIR — the patcher imports the codec from its own directory, so shipping one without the
+# other is an ImportError on first use. They are here rather than in bin/ because a PROJECT
+# runs them, against that project's own model unit, after every MDL script that rewrites a
+# workflow carrying a PARALLEL SPLIT. Until MDL has a branch-ending keyword there is no other
+# way to make a scripted split fan out, and every gate is blind to its absence.
+# assemble-prototype.js + prototype-route.js joined on 2026-09-15 and install as a PAIR for the
+# same reason as the BUG-121 pair below: the assembler requires the route module from its own
+# directory. prototype-route.js is the one reader and writer of design/prototype.html's section
+# format, so page-fidelity.js, check-page-shell.sh and check-prototype-links.js resolve it as a
+# sibling too.
+MXTK_PROJECT_BIN="assemble-prototype.js prototype-route.js check-prototype-links.js wf-add-path-terminators.py wf-set-call-captions.py mxunit_bson.py _common.sh snapshot-mpr.sh restore-mpr.sh exec.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. The reverse check
 # below flags anything named by NEITHER list, so a new file in project-bin/ has to be either

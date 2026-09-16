@@ -1,0 +1,100 @@
+-- ============================================================================
+-- StyleGallery — Gallery_Home page (assembles all component snippets)
+-- ============================================================================
+-- Purpose:  The gallery home page — a card per component family, each a
+--           `snippetcall` into 11-19/15b. Follows learned-stylegallery.md's
+--           mandated shell scaffold verbatim: one top-level wrapper with
+--           horizontal+vertical inner padding (sections never sit flush at
+--           page root), every section a card carrying
+--           spacing-outer-bottom-large (never an inline margin — off-scale
+--           per design-spacing.md), exactly one RenderMode: H1 on the page
+--           head. See that skill's "Measured consequence (2026-08-23)" note
+--           for the bug this scaffold exists to prevent.
+--
+--           EXEC LAST — every snippetcall below depends on a snippet created
+--           by 11-19/15b, and 05's datasource microflows. Exec 00 → 05 →
+--           11-19/15b → this file, in that order, or the snippet/microflow
+--           references fail to resolve.
+--
+--           Not wired into navigation here on purpose: this is a portable
+--           reference set with no app of its own, and `create or replace
+--           navigation` would overwrite whatever navigation profile the
+--           consuming project already has. Wire this page into your own
+--           project's navigation profile and grant StyleGallery.Viewer to a
+--           role a real demo user holds — see this file set's README and
+--           learned-stylegallery.md's Step 5b gate (items 3 and 4).
+-- Depends on: 00-module.mdl, 05-demo-data.mdl, 11-19/15b component snippets.
+-- ============================================================================
+
+/** UI component gallery home — the purchase-request-themed kitchen sink. */
+create page StyleGallery.Gallery_Home
+(
+  title: 'Style Gallery',
+  layout: Atlas_Core.Atlas_Default,
+  folder: 'Gallery'
+)
+{
+  container galleryShell (class: 'spacing-inner-horizontal-large spacing-inner-vertical-large') {
+    container pageHead (class: 'page-head spacing-outer-bottom-large') {
+      dynamictext gTitle (content: 'Style Gallery', rendermode: H1)
+      dynamictext gSub (content: 'In-app twin of design/design-system.html — static + NPE-backed real-widget demos.')
+    }
+
+    container secButtons (class: 'card card-pad spacing-outer-bottom-large') {
+      dynamictext titleButtons (content: 'Buttons', rendermode: H2)
+      snippetcall scButtons (snippet: StyleGallery.SNIPPET_Buttons)
+    }
+
+    container secFormControls (class: 'card card-pad spacing-outer-bottom-large') {
+      dynamictext titleFormControls (content: 'Form controls', rendermode: H2)
+      snippetcall scFormControls (snippet: StyleGallery.SNIPPET_FormControls)
+    }
+
+    container secBadgesChips (class: 'card card-pad spacing-outer-bottom-large') {
+      dynamictext titleBadgesChips (content: 'Badges & chips', rendermode: H2)
+      snippetcall scBadgesChips (snippet: StyleGallery.SNIPPET_BadgesChips)
+    }
+
+    container secKpiTiles (class: 'card card-pad spacing-outer-bottom-large') {
+      dynamictext titleKpiTiles (content: 'KPI / stat tiles', rendermode: H2)
+      snippetcall scKpiTiles (snippet: StyleGallery.SNIPPET_KpiTiles)
+    }
+
+    container secDataGrid (class: 'card card-pad spacing-outer-bottom-large') {
+      dynamictext titleDataGrid (content: 'Data grid', rendermode: H2)
+      snippetcall scDataGrid (snippet: StyleGallery.SNIPPET_DataGrid)
+    }
+
+    container secCardsLists (class: 'card card-pad spacing-outer-bottom-large') {
+      dynamictext titleCardsLists (content: 'Cards & list rows', rendermode: H2)
+      snippetcall scCardsLists (snippet: StyleGallery.SNIPPET_CardsLists)
+    }
+
+    container secStepper (class: 'card card-pad spacing-outer-bottom-large') {
+      dynamictext titleStepper (content: 'Process stepper', rendermode: H2)
+      snippetcall scStepper (snippet: StyleGallery.SNIPPET_Stepper)
+    }
+
+    container secDialogToast (class: 'card card-pad spacing-outer-bottom-large') {
+      dynamictext titleDialogToast (content: 'Dialog & toast', rendermode: H2)
+      snippetcall scDialogToast (snippet: StyleGallery.SNIPPET_DialogToast)
+    }
+
+    container secBreadcrumbs (class: 'card card-pad spacing-outer-bottom-large') {
+      dynamictext titleBreadcrumbs (content: 'Breadcrumbs', rendermode: H2)
+      dynamictext subBreadcrumbsD1 (content: 'Depth 1 — opened from the menu', rendermode: H4)
+      snippetcall scCrumbsD1 (snippet: StyleGallery.SNIPPET_Crumbs_Depth1)
+      dynamictext subBreadcrumbsD2 (content: 'Depth 2 — opened via show page from the list', rendermode: H4)
+      snippetcall scCrumbsD2 (snippet: StyleGallery.SNIPPET_Crumbs_Depth2)
+      dynamictext subBreadcrumbsD3 (content: 'Depth 3 — two show-page hops deep', rendermode: H4)
+      snippetcall scCrumbsD3 (snippet: StyleGallery.SNIPPET_Crumbs_Depth3)
+    }
+
+    container secCopilot (class: 'card card-pad spacing-outer-bottom-large') {
+      dynamictext titleCopilot (content: 'AI copilot (mockup)', rendermode: H2)
+      snippetcall scCopilot (snippet: StyleGallery.SNIPPET_Copilot)
+    }
+  }
+}
+
+grant view on page StyleGallery.Gallery_Home to StyleGallery.Viewer;

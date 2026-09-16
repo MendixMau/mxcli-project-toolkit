@@ -1,0 +1,50 @@
+-- ============================================================================
+-- StyleGallery — Data grid (ListView on DemoCatalogueRow NPE + grid chrome)
+-- ============================================================================
+-- Purpose:  Supplier-catalogue grid look via ds.css .dg-row / .dg-cell / etc
+--           over a real ListView bound to DS_DemoCatalogueRows
+--           (05-demo-data.mdl) — a real widget, not hardcoded rows.
+--
+--           A real DataGrid2 on a persistent entity was deliberately NOT
+--           used here: mxcli's DataGrid2 customContent-column writer has a
+--           known BSON-corruption defect (BUG-16, bug-logs/mxcli-bugs.md —
+--           "customContent columns corrupts pluggable widget BSON"). The
+--           design-system grid look is achieved instead via ds.css
+--           .data-grid / .dg-row / .dg-cell classes on a ListView plus
+--           DivContainer headers/toolbar, which sidesteps that widget
+--           entirely. If a later mxcli release fixes BUG-16, this can move
+--           to a real DataGrid2 with the same class names — the column
+--           classes below are written to make that swap a rename, not a
+--           redesign.
+-- Depends on: 00-module.mdl, 05-demo-data.mdl (DS_DemoCatalogueRows).
+-- ============================================================================
+
+/** Data grid section: grid-chrome + ListView on DemoCatalogueRow (NPE, no DB). */
+create snippet StyleGallery.SNIPPET_DataGrid
+{
+  container dgTools (class: 'grid-toolbar') {
+    dynamictext dgSearch (content: 'Search item or supplier…', class: 'search-placeholder')
+    container dgSpacer (class: 'spacer') { }
+    actionbutton dgNew   (caption: '+ Add item', action: close_page, class: 'btn btn-primary btn-sm')
+    actionbutton dgExcel (caption: 'Export',     action: close_page, class: 'btn btn-secondary btn-sm')
+  }
+  container dgHead (class: 'dg-row dg-head') {
+    dynamictext dgHCode   (content: 'Item code', class: 'dg-cell col-code')
+    dynamictext dgHDesc   (content: 'Description', class: 'dg-cell col-desc')
+    dynamictext dgHSup    (content: 'Supplier', class: 'dg-cell col-supplier')
+    dynamictext dgHCat    (content: 'Category', class: 'dg-cell col-category')
+    dynamictext dgHStatus (content: 'Status', class: 'dg-cell col-status')
+  }
+  listview dgList (datasource: microflow StyleGallery.DS_DemoCatalogueRows) {
+    container dgRow (class: 'dg-row') {
+      dynamictext dgCode   (Attribute: Code,        class: 'dg-cell col-code')
+      dynamictext dgDesc   (Attribute: Description, class: 'dg-cell col-desc')
+      dynamictext dgSup    (Attribute: Supplier,    class: 'dg-cell col-supplier')
+      dynamictext dgCat    (Attribute: Category,    class: 'dg-cell col-category')
+      dynamictext dgStatus (Attribute: StatusText,  class: 'dg-cell col-status')
+    }
+  }
+  container dgFoot (class: 'dg-footer') {
+    dynamictext dgCount (content: '6 rows · page 1 of 1')
+  }
+}

@@ -99,9 +99,10 @@ emit_stamp() {
    say in chat that you did — never from \`PROJECT.md\`.
 2. **\`CLAUDE.md\` is the canonical project instruction file** regardless of which agent you
    are. Every other instruction file in this repo, including this one, is a pointer to it.
-3. **Never run \`./mxcli exec\`, \`./bin/exec.sh\`, \`mxcli test\`, \`mxcli docker check\`, or any
-   \`--mcp\` write against the real \`.mpr\` without asking the user first — every time.** All of
-   those mutate the model; the last two mutate it despite sounding read-only.
+3. **\`./mxcli exec\`, \`./bin/exec.sh\`, \`mxcli test\`, \`mxcli docker check\` and any \`--mcp\`
+   write all mutate the real \`.mpr\`** — the last two despite sounding read-only. Validate with
+   \`mxcli check <script> -p <mpr> --references\` first, and have the model committed before a
+   batch of writes; git is the only rollback.
 4. **$MXCLI_HINT
 5. **No new \`.md\`/\`.html\` in the project root.** Use docs/ architecture/ analysis/ design/.
    \`bin/check-root-clean.sh\` fails the build on strays.

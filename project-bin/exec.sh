@@ -418,7 +418,7 @@ if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; 
   # can drift apart. Its own printed count is discarded here: this call site
   # already has err_set/err_count/err_codes on hand and needs BASELINE_SET
   # (the message set, not just a count) for the delta-gate comparison below.
-  mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-300}" "$_BF" >/dev/null || true
+  mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$_BF" >/dev/null || true
   # Studio Pro 11's mxbuild (its --help says so) writes --write-errors "only if the
   # project has errors": on a clean model the mktemp'd file stays EMPTY, json.load
   # fails, and this read "Model ALREADY has ? error(s) [?]" on every clean run
@@ -485,7 +485,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   # discarded here: this call site keeps its own file-presence/exit-code
   # branching below unchanged, computing CE_COUNT via err_count once it knows
   # which branch applies.
-  mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-300}" "$ERRORS_FILE" >/dev/null || true
+  mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$ERRORS_FILE" >/dev/null || true
   MXBUILD_EXIT="$MXTK_MXBUILD_EXIT"
   MXBUILD_OUT="$MXTK_MXBUILD_OUT"
 
@@ -577,7 +577,7 @@ PYEOF
         BASE_ERRS=$(mktemp /tmp/mxbuild-base.XXXXXX)
         # Same shared run+capture as the pre-flight baseline and the main gate
         # above (mxtk_mxbuild_error_count, _common.sh) — one implementation.
-        mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-300}" "$BASE_ERRS" >/dev/null || true
+        mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$BASE_ERRS" >/dev/null || true
         # Same empty-file rule as the pre-flight baseline: SP 11 mxbuild writes no
         # errors file on a clean build, and that plus exit 0 is a verified 0.
         if [ ! -s "$BASE_ERRS" ] && [ "$MXTK_MXBUILD_EXIT" -eq 0 ]; then

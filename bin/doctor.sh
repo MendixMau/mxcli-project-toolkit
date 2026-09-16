@@ -878,8 +878,9 @@ fi
 #
 # Skipped under --quick (two extra mxbuild runs); force it with `bin/doctor.sh --gate-selftest
 # [project-dir]`, which also works stood alone without waiting through the rest of doctor.
-# Bounded by DOCTOR_GATE_TIMEOUT (default 300s) via mxtk_mxbuild_error_count — the same bound
-# exec.sh's own gate uses.
+# Bounded by DOCTOR_GATE_TIMEOUT (default 300s) via mxtk_mxbuild_error_count. exec.sh's own
+# gate is unbounded by default (MXTK_GATE_TIMEOUT) — a slow real build must never be mistaken
+# for a failed one and restored; only this throwaway copy gets a clock.
 
 GATE_SELFTEST_LINE=""
 
@@ -952,7 +953,14 @@ BEGIN
   SET $Bad = 'not-a-number';
 END;
 MDL
-  "$PMXCLI_PROBE" exec "$mdl" -p "$scratch/model.mpr" >/dev/null 2>&1
+  # If mxcli refuses the injection (syntax rejected by a newer grammar, model locked, ...),
+  # the copy is still clean and a 0 below would be a FALSE "blind" verdict — say NOT RUN.
+  if ! "$PMXCLI_PROBE" exec "$mdl" -p "$scratch/model.mpr" >"$scratch/inject.out" 2>&1; then
+    warn "gate self-test: NOT RUN — the project's mxcli refused the known-bad injection:"
+    sed 's/^/      /' "$scratch/inject.out" | head -5
+    GATE_SELFTEST_LINE="not-run (injection refused)"
+    return 0
+  fi
 
   bad_count=$(mxtk_mxbuild_error_count "$scratch/model.mpr" "$timeout_s")
   rc=$?

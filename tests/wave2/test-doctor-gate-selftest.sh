@@ -39,6 +39,7 @@ cat > "$P/mxcli" <<'MXCLI'
 case "${1:-}" in
   --version) echo "mxcli-stub 0.0.0"; exit 0 ;;
   exec)
+    if [ "${MODE_MXCLI_STUB:-}" = refuse ]; then echo "error: parse error at line 4: unexpected token" >&2; exit 1; fi
     mdl="$2"; mpr=""; prev=""
     for a in "$@"; do
       [ "$prev" = "-p" ] && mpr="$a"
@@ -160,6 +161,16 @@ echo "== 7: a full run includes the section without --gate-selftest =="
 MXBUILD_PATH="$T/mxbuild" MODE_GATE_STUB=healthy \
   bash "$DOCTOR" --no-docker "$P" > "$T/out.full" 2>&1
 assert_contains "$T/out.full" "Gate self-test" "full run: section present without the flag"
+rm -f "$P/.gate-selftest-bad-applied"
+
+# ── 8: mxcli refuses the injection -> NOT RUN, never a false "blind" FAIL ──────
+echo "== 8: project mxcli refuses the known-bad injection -> NOT RUN, not FAIL =="
+MXBUILD_PATH="$T/mxbuild" MODE_GATE_STUB=always-clean MODE_MXCLI_STUB=refuse \
+  bash "$DOCTOR" --quick --gate-selftest --no-docker "$P" > "$T/out.refuse" 2>&1
+assert_contains "$T/out.refuse" "injection" "refuse: says the injection was refused"
+assert_contains "$T/out.refuse" "parse error at line 4" "refuse: echoes mxcli's own reason"
+assert_missing  "$T/out.refuse" "gate is blind" "refuse: a clean copy is not reported as a blind gate"
+assert_contains "$P/.claude/.doctor-receipt" "gate-selftest: not-run (injection refused)" "refuse: receipt records not-run"
 rm -f "$P/.gate-selftest-bad-applied"
 
 echo; echo "$PASS passed, $FAIL failed   ($T)"

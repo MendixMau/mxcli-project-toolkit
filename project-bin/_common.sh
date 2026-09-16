@@ -489,8 +489,12 @@ mxtk_mxbuild_error_count() {
          --write-errors="$_ef" --target=deploy "$_mpr" \
          > "$_out" 2>&1 < /dev/null &
   _pid=$!
+  # _timeout 0 = unbounded: exec.sh's real gate passes 0 unless MXTK_GATE_TIMEOUT is set,
+  # because a large model's deploy build legitimately runs past any fixed default, and a
+  # timed-out gate reads as "non-zero exit, no errors file" = FAIL = auto-restore of work
+  # that was fine. doctor's self-test is the one caller that wants a bound (300s default).
   while kill -0 "$_pid" 2>/dev/null; do
-    if [ "$_waited" -ge "$_timeout" ]; then
+    if [ "$_timeout" -gt 0 ] && [ "$_waited" -ge "$_timeout" ]; then
       kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null
       MXTK_MXBUILD_OUT=$(cat "$_out" 2>/dev/null); rm -f "$_out"
       MXTK_MXBUILD_EXIT=124

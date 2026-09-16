@@ -8,6 +8,27 @@ Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templat
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
 ## 2026-09-16
+- fix(coverage-preflight.sh): **a build plan's `claims:` blocks inside a fence, with a `(note)`
+  suffix, or indented, were silently ignored — only the plainest shape was ever read.**
+  `project-bin/coverage-preflight.sh`'s own inline `extract_claims` handled exactly one of five
+  real shapes; a plan using any other (most commonly a bare ``` ``` ``` fence wrapping the whole
+  block with `claims:` as its first line inside — the shape `skills/brd-to-build-plan.md` Step
+  5b's own worked example uses) measured as zero claims and reported "the build plan predates the
+  `claims` convention," which was false. New shared reader `project-bin/_claims.sh`
+  (`mxtk_extract_claims_tsv`, awk, no Python, bash 3.2 compatible) replaces it, sourced the same
+  way as `_common.sh`; `coverage-preflight.sh`'s LEVEL 3 message now distinguishes "no claims
+  blocks at all" from "claims blocks present but zero usable pointers," with the unparsed-line
+  diagnostics named. `skills/brd-to-build-plan.md` Step 5b now documents all five accepted forms;
+  `skills/coverage-ledger.md`'s Step 2 recipe (a `grep -A20` that missed fenced/indented blocks
+  and stripped the `(N)` count off anything it did find) now points at the shared reader instead.
+  Field run: a workflow-migration project's build plan (MendixMau) — the old extractor returned 0
+  of 33 real claim pointers on it; the new one returns all 33, with the 4 lines that are genuinely
+  prose (not pointers) reported as `claims-line-unparsed` rather than silently dropped or folded
+  into a neighbouring row. `tests/wave2/test-claims-extract.sh` asserts both counts against that
+  real capture (a golden fixture dropped in separately, not hand-written) plus a small labelled
+  synthetic section for shapes the capture does not happen to use. Closes #74; supersedes the
+  parser part of #73, whose competing Python parser read fewer of the five shapes and needed
+  Python, which `coverage-preflight.sh` deliberately does not require. — MendixMau
 - process(privacy): scrubbed two client identifiers (a project codename, an engagement code) that survived the 2026-09-02 anonymisation in CHANGELOG.md, bin/gate-check.sh, contrib/inbox/, project-bin/wf-set-call-captions.py and skills/learned-workflow-patterns.md — wording matches PR #63's privacy commit so both merge clean. Found by the 2026-09-16 triage; the name check runs only where `.leakguard-deny` exists, so CI never saw them. (MendixMau)
 - fix(assemble-prototype.js): **a screen's inline `<script>` is namespaced per route too, not just its ids.** Concatenating twenty screens into one document put every screen's top-level `function name(){}` on the same global object; the last screen's declaration silently won, so another screen's `onclick="toggleCopilot()"` ran the wrong screen's code against the wrong screen's (hidden) elements, with no console error — the same disease `ade3851` fixed for ids, one layer up. Each inline script is now wrapped in an IIFE that exports its functions onto `window.__proto['<route>']`, and `on*=` handler attributes are rewritten to call through it; the selftest (`tests/wave2/test-assemble-prototype.sh`) grew 8 asserts (48/48) covering a same-name collision, an `onclick` with an argument, and a script-less screen. Field run: assembled the 9-screen TCX graph PoC prototype (56 handler/export sites namespaced across 9 routes) and, with Playwright/Chromium, opened it at a non-default route (`#/tfc-npd-gate`) and clicked its `toggleCopilot` button — the effect landed on that route's own `id="tfc-npd-gate--copilot-modal"` only, the default route's modal stayed shut, zero console errors. Also: `data-bind="X"` now follows the `<tr id="X">` it names when that id is namespaced — the first id-namespacing pass renamed the row and left the reference behind, so `check-prototype-links.js` reported every bound control as `unbound` (`tests/wave2/test-prototype-links.sh` went 32/32 → 24/32 and CI caught it on #62; back to 32/32, `test-assemble-prototype.sh` 50/50). — MendixMau (#53)
 

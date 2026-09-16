@@ -28,11 +28,17 @@
 #   bin/doctor.sh --quick [<project-dir>]   # ~2 s: platform, mxcli/mxbuild/java EXECUTE, spawn
 #                                           # speed, path hygiene, model layout. Skips the
 #                                           # once-per-machine sections (python, CRLF, script
-#                                           # parse, node, docker). exec.sh runs this itself
-#                                           # when the receipt is stale — doctor used to run
-#                                           # once and never again, so a machine that drifted
-#                                           # mid-project (new binary, wrong-arch mxbuild, a
-#                                           # Defender policy) read as "the toolkit is broken".
+#                                           # parse, node, docker, gate self-test). exec.sh runs
+#                                           # this itself when the receipt is stale — doctor
+#                                           # used to run once and never again, so a machine
+#                                           # that drifted mid-project (new binary, wrong-arch
+#                                           # mxbuild, a Defender policy) read as "the toolkit
+#                                           # is broken".
+#   bin/doctor.sh --gate-selftest [<dir>]   # force the gate self-test section to run even
+#                                           # under --quick, or on its own. See its own header
+#                                           # (search "Gate self-test") for what it proves and
+#                                           # why: mxbuild/java being PRESENT does not mean the
+#                                           # mxbuild gate can actually SEE an error.
 #
 # --install never downloads silently: it prints the plan first — what, from where, how big,
 # why, and the detected OS/arch — then asks [y/N] at a terminal, or requires --yes when there
@@ -52,6 +58,7 @@ PROJECT_DIR=""
 INSTALL=0
 ASSUME_YES=0
 QUICK=0
+GATE_SELFTEST=0
 NO_DOCKER="${MXTK_DOCTOR_SKIP_DOCKER:-0}"
 DOCKER_PROBE_SECS="${MXTK_DOCKER_PROBE_SECS:-8}"
 for _arg in "$@"; do
@@ -59,6 +66,7 @@ for _arg in "$@"; do
     --install) INSTALL=1 ;;
     --yes|-y)  ASSUME_YES=1 ;;
     --quick)   QUICK=1 ;;
+    --gate-selftest) GATE_SELFTEST=1 ;;
     --no-docker) NO_DOCKER=1 ;;
     *)         PROJECT_DIR="$_arg" ;;
   esac
@@ -851,6 +859,129 @@ if [ -n "$PROJECT_DIR" ]; then
   fi
 fi
 
+# --- gate self-test ---------------------------------------------------------------------------
+#
+# WHY THIS SECTION EXISTS. exec.sh's mxbuild gate has, in the field, silently reported "?" and
+# applied real errors with exit 0 — a wrong-architecture mxbuild once reported 0 errors for
+# several commits before anyone noticed (merge desk, after Marco Keijsers' #59 and the July
+# wrong-arch mxbuild incident). Every section above this one answers "is mxbuild present and
+# does it run" — none of them answers "if the model actually had an error, would the gate SEE
+# it". This one does: it runs the exact function exec.sh's gate and pre-flight baseline both
+# trust (mxtk_mxbuild_error_count, project-bin/_common.sh — the mandatory chain step producing
+# every count this section reads) against a SCRATCH COPY of the real project model, first
+# clean, then with a deliberately-broken microflow injected via the project's own mxcli, and
+# requires the count to go from a real 0 to a real >=1. A gate that cannot tell those two states
+# apart is worse than no gate at all: it reports green on a broken build.
+#
+# The project's own .mpr/mprcontents are never touched — this runs entirely inside a scratch
+# directory, removed on every exit path via a RETURN trap (bash), not just the happy path.
+#
+# Skipped under --quick (two extra mxbuild runs); force it with `bin/doctor.sh --gate-selftest
+# [project-dir]`, which also works stood alone without waiting through the rest of doctor.
+# Bounded by DOCTOR_GATE_TIMEOUT (default 300s) via mxtk_mxbuild_error_count — the same bound
+# exec.sh's own gate uses.
+
+GATE_SELFTEST_LINE=""
+
+if [ "$QUICK" != 1 ] || [ "$GATE_SELFTEST" = 1 ]; then
+
+head_ "Gate self-test (can the mxbuild gate actually see an error?)"
+
+gate_selftest() {
+  local scratch t0 t1 elapsed mdl model_dir base_count bad_count rc timeout_s
+  timeout_s="${DOCTOR_GATE_TIMEOUT:-300}"
+  t0=$(date +%s)
+
+  if [ -z "$PROJECT_DIR" ] || [ -z "${MPR:-}" ]; then
+    note "NOT RUN — no project / no .mpr given (pass a project dir to doctor.sh to enable this)"
+    GATE_SELFTEST_LINE="not-run (no project/.mpr)"
+    return 0
+  fi
+  if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
+    note "NOT RUN — mxbuild/java not resolved (see 'Build toolchain' above)"
+    GATE_SELFTEST_LINE="not-run (no mxbuild)"
+    return 0
+  fi
+  if [ -z "${PMXCLI_PROBE:-}" ]; then
+    note "NOT RUN — no project mxcli resolved (see 'Project' above)"
+    GATE_SELFTEST_LINE="not-run (no mxcli)"
+    return 0
+  fi
+
+  scratch="$(mktemp -d /tmp/doctor-gate-selftest.XXXXXX)" || {
+    bad "gate self-test: could not create a scratch directory"
+    GATE_SELFTEST_LINE="fail (no scratch dir)"
+    return 0
+  }
+  trap 'rm -rf "$scratch" 2>/dev/null' RETURN
+
+  if ! cp "$MPR" "$scratch/model.mpr" 2>/dev/null; then
+    bad "gate self-test: could not copy the model into the scratch dir"
+    GATE_SELFTEST_LINE="fail (copy failed)"
+    return 0
+  fi
+  model_dir="$(dirname "$MPR")"
+  [ -d "$model_dir/mprcontents" ] && cp -r "$model_dir/mprcontents" "$scratch/mprcontents" 2>/dev/null
+
+  # (a) Baseline: the gate must resolve SOME integer off this model, clean or not — "?" here
+  # means the gate cannot read mxbuild's own output, which is the original F-042-class defect.
+  base_count=$(mxtk_mxbuild_error_count "$scratch/model.mpr" "$timeout_s")
+  rc=$?
+  if [ "$rc" -eq 3 ]; then
+    bad "gate self-test: mxbuild did not return within ${timeout_s}s (baseline run)"
+    GATE_SELFTEST_LINE="fail (timeout)"
+    return 0
+  fi
+  if [ "$base_count" = "?" ]; then
+    bad "gate self-test: gate cannot read mxbuild's error file (baseline run) — a real error would go unseen"
+    GATE_SELFTEST_LINE="fail (unreadable error file)"
+    return 0
+  fi
+  ok "baseline: gate read $base_count error(s) off the scratch copy"
+
+  # (b) Known-bad control: inject a deliberate type mismatch (CE0117 shape — assigning a String
+  # literal to an Integer) via the project's OWN mxcli, throwaway module/microflow name, quoted
+  # identifiers per this toolkit's MDL convention, and require the gate to see >=1 error. Zero
+  # here means the gate is blind: it would report a genuinely broken model as clean.
+  mdl="$scratch/gate-selftest.mdl"
+  cat > "$mdl" <<'MDL'
+CREATE MODULE "DrGateSelftest";
+CREATE MICROFLOW "DrGateSelftest"."MF_GateSelftest" ()
+BEGIN
+  DECLARE $Bad Integer = 0;
+  SET $Bad = 'not-a-number';
+END;
+MDL
+  "$PMXCLI_PROBE" exec "$mdl" -p "$scratch/model.mpr" >/dev/null 2>&1
+
+  bad_count=$(mxtk_mxbuild_error_count "$scratch/model.mpr" "$timeout_s")
+  rc=$?
+  if [ "$rc" -eq 3 ]; then
+    bad "gate self-test: mxbuild did not return within ${timeout_s}s (known-bad run)"
+    GATE_SELFTEST_LINE="fail (timeout)"
+    return 0
+  fi
+  if [ "$bad_count" = "?" ]; then
+    bad "gate self-test: gate cannot read mxbuild's error file (known-bad run) — a real error would go unseen"
+    GATE_SELFTEST_LINE="fail (unreadable error file)"
+    return 0
+  fi
+  if [ "$bad_count" -eq 0 ] 2>/dev/null; then
+    bad "gate self-test: gate is blind — a known-bad model (CE0117 type mismatch) reports clean"
+    GATE_SELFTEST_LINE="fail (blind)"
+    return 0
+  fi
+
+  t1=$(date +%s); elapsed=$(( t1 - t0 ))
+  ok "known-bad control: gate read $bad_count error(s) off the deliberately-broken copy (${elapsed}s)"
+  GATE_SELFTEST_LINE="pass (baseline=$base_count known-bad=$bad_count ${elapsed}s)"
+  return 0
+}
+
+gate_selftest
+
+fi
+
 # --- verdict ---------------------------------------------------------------------------------
 
 head_ "Verdict"
@@ -868,6 +999,7 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
   FP_MXCLI="$( [ -x "$PROJECT_DIR/mxcli" ] && "$PROJECT_DIR/mxcli" --version 2>/dev/null | head -1 || echo none)"
   { printf '%s %s fail=%s warn=%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$RECEIPT_VERDICT" "$FAIL" "$WARN" "$( [ "$QUICK" = 1 ] && echo ' quick')"
     printf 'fingerprint: %s | %s | %s\n' "$FP_MXCLI" "${MXBUILD:-no-mxbuild}" "$(uname -sm)"
+    [ -n "$GATE_SELFTEST_LINE" ] && printf 'gate-selftest: %s\n' "$GATE_SELFTEST_LINE"
   } > "$PROJECT_DIR/.claude/.doctor-receipt" 2>/dev/null || true
   # The receipt is MACHINE-LOCAL by design (like .guide-shown): committing one machine's
   # receipt would satisfy gate-check's doctor-ran probe on every other machine. Since this

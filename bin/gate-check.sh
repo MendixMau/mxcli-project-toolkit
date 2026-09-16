@@ -359,7 +359,7 @@ REG_COUNT=0
 REG_FIRST=""
 REG_DIFFER=0
 # PROJECT-*.md siblings are candidates too (bug65). A project running two tracks against one
-# directory keeps a second register next to the first — PROJECT.md + PROJECT-DAFNE.md. Without
+# directory keeps a second register next to the first — PROJECT.md + PROJECT-<TRACK>.md. Without
 # this term the sibling was never a CANDIDATE, so REG_COUNT stayed 1, REG_DIFFER stayed 0, the
 # ambiguity path below never fired, and the run graded the primary track in silence. That is
 # the failure this whole block exists to prevent, arriving through the one door left open.

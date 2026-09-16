@@ -294,10 +294,23 @@ if register and os.path.exists(register):
         if incomment:
             if '-->' in line: incomment = False
             continue
-        l = re.sub(r'^[ \t>*_-]+', '', line.rstrip('\n')).replace('*', '')
-        m = re.match(r'(?i)^waived source\s+(.+?)\s*:\s*(.*)$', l)
+        # BUG-fix 2026-09-16: a blanket .replace('*', '') here used to strip markdown bold,
+        # but it also silently destroyed glob wildcards in "Waived source <glob>: ..." lines
+        # (e.g. "InputCodeExamples/DafneSourceCode/*" -> "InputCodeExamples/DafneSourceCode/",
+        # which then matches nothing). Only strip the leading list-marker run, then remove bold
+        # markers precisely rather than every '*' in the line. A '*' that belongs to a glob and
+        # a '*' that belongs to markdown bold sit in different places: bold hugs a path
+        # character, a glob sits next to '/' or is the whole segment, so the lookarounds below
+        # keep "dir/**" and "**/*.bak" intact. Getting this wrong in the other direction is the
+        # worse failure: a waiver means "out of scope", so a widened key silently waives files
+        # nobody named.
+        l = re.sub(r'^[ \t>*_-]+', '', line.rstrip('\n'))
+        m = re.match(r'(?i)^waived source\**\s+(.+?)\s*:\s*(.*)$', l)
         if m:
-            waivers[m.group(1).strip().replace(os.sep, '/').lower()] = m.group(2).strip()
+            key = m.group(1).strip()
+            key = re.sub(r'^\*\*(?=[^*/\s])', '', key)   # opening bold, before a path character
+            key = re.sub(r'(?<=[^*/\s])\*\*$', '', key)  # closing bold, after a path character
+            waivers[key.replace(os.sep, '/').lower()] = m.group(2).strip()
 
 def waiver_for(rel):
     rel_l = rel.lower()

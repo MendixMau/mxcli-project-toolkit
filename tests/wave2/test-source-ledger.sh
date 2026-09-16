@@ -204,6 +204,29 @@ has "the container is what remains owed" "$OUT" "page(s)/slide(s)/sheet(s) insid
 VERD="$("$SL" check "$P" --json --quiet 2>/dev/null | "$PY" -c "import json,sys; d=json.load(sys.stdin); print(' '.join(r['verdict'] for r in d['rows'] if r['rel'].startswith('legacy/Spec_files/')))")"
 [ "$VERD" = "EXTRACTED EXTRACTED" ] && ok "css and woff2 rows are EXTRACTED by the index alone — chrome owes no --media, no separate disposition" || bad "sidecar verdicts" "got '$VERD'"
 
+echo "== T13: a directory waiver glob survives the parser, and markdown bold never widens a waiver =="
+# The bug (2026-09-16, an SCG workshop corpus of ~1,800 unrelated example files): the register
+# parser stripped every literal '*' from the line before matching, so 'legacy/examples/*' became
+# 'legacy/examples/' and fnmatch matched nothing. Directory-level waivers, the documented use of
+# the vocabulary --waive shares, were silently non-functional. The fix removes bold markers
+# precisely instead of stripping every star, so both halves are asserted here: the glob must
+# match, and the three bold spellings must resolve to exactly the path the author wrote.
+P13="$(mkproj t13)"
+mkdir -p "$P13/source/legacy/examples"
+for f in a.pdf b.pdf c.pdf; do echo x > "$P13/source/legacy/examples/$f"; done
+echo x > "$P13/source/legacy/odd.pdf"
+echo x > "$P13/source/legacy/one.pdf"
+echo x > "$P13/source/legacy/one.pdf.bak"
+"$SS" init "$P13" >/dev/null 2>&1
+{
+  printf 'Waived source legacy/examples/*: workshop examples, not this project\n'
+  printf '**Waived source** legacy/odd.pdf: bold on the label only\n'
+  printf 'Waived source **legacy/one.pdf**: bold around the key\n'
+} >> "$P13/PROJECT.md"
+WV="$("$SL" check "$P13" --json --quiet 2>/dev/null | "$PY" -c "import json,sys; d=json.load(sys.stdin); print(' '.join(sorted(r['rel'] for r in d['rows'] if r['verdict']=='WAIVED')))")"
+EXP="legacy/examples/a.pdf legacy/examples/b.pdf legacy/examples/c.pdf legacy/odd.pdf legacy/one.pdf"
+[ "$WV" = "$EXP" ] && ok "the directory glob waives all 3, both bold spellings waive exactly their own file, and one.pdf.bak is untouched" || bad "waiver keys" "got '$WV' want '$EXP'"
+
 echo ""
 echo "== $PASS passed, $FAIL failed =="
 [ "$FAIL" -eq 0 ]

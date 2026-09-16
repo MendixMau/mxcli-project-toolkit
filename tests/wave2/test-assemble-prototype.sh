@@ -154,7 +154,12 @@ cat > "$IDNS/design/wireframes/ScreenB.html" <<'EOF'
 <html><head><title>B</title></head>
 <body>
 <main><button id="toggle-btn">Open</button>
-<div id="shared-modal">B's modal</div></main>
+<button data-bind="export-row">Export</button>
+<button data-bind="New order">New order</button>
+<div id="shared-modal">B's modal</div>
+<table class="bind"><tr><th>Element</th><th>Widget</th></tr>
+<tr id="export-row"><td>Export button</td><td>button</td></tr>
+<tr><td>New order</td><td>button</td></tr></table></main>
 <script>function toggleModal(){document.getElementById('shared-modal').classList.toggle('open');}</script>
 </body></html>
 EOF
@@ -165,6 +170,8 @@ has   "screen B's id is namespaced"             "$IH" 'id="screen-b--shared-moda
 hasnt "the bare shared id no longer appears"    "$IH" 'id="shared-modal"'
 has   "screen A's getElementById is rewritten"  "$IH" "getElementById('screen-a--shared-modal')"
 has   "screen B's getElementById is rewritten"  "$IH" "getElementById('screen-b--shared-modal')"
+has   "data-bind naming a row id follows the row" "$IH" 'data-bind="screen-b--export-row"'
+has   "data-bind naming a row label is left alone" "$IH" 'data-bind="New order"'
 
 echo "  -- shared function name across screens is namespaced per screen (onclick, with args, no-script screen)"
 FNNS="$TMP/fnns"

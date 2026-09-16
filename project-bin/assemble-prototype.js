@@ -125,7 +125,7 @@ function rewriteLinks(body) {
 // screen's element in the document - the button opened screen 1's hidden modal on every other
 // screen, with no console error. Ids are unique per HTML *file*, never per assembled *document*,
 // so id="X" here becomes id="<route>--X", along with every same-screen reference: href="#X",
-// for=, aria-controls/aria-labelledby/aria-describedby=, "#X" inside this screen's own <style>,
+// for=, aria-controls/aria-labelledby/aria-describedby=, data-bind= naming a row id, "#X" inside this screen's own <style>,
 // and getElementById('X') / querySelector[All]('#X') string literals inside its <script>.
 // href="#/route" navigation (a different namespace: routes, not element ids) is left alone.
 const reEsc = v => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -138,6 +138,10 @@ function namespaceIds(body, ids, ns) {
   body = body.replace(/\bhref\s*=\s*(["'])#([^\/"][^"']*)\1/gi, (all, q, v) => ids.has(v) ? 'href=' + q + '#' + ns(v) + q : all);
   body = body.replace(/\b(for|aria-controls|aria-labelledby|aria-describedby)\s*=\s*(["'])([^"']+)\2/gi,
     (all, attr, q, v) => attr + '=' + q + v.split(/\s+/).map(t => ids.has(t) ? ns(t) : t).join(' ') + q);
+  // data-bind="X" names a row of this screen's table.bind by its id (check-prototype-links.js
+  // resolves it against the <tr id=>); a data-bind that names a row by label is not an id and
+  // is left alone, so the checker's label match keeps working.
+  body = body.replace(/\bdata-bind\s*=\s*(["'])([^"']+)\1/gi, (all, q, v) => ids.has(v) ? 'data-bind=' + q + ns(v) + q : all);
   return body.replace(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi, (all, attrs, code) => {
     code = code.replace(/\bgetElementById\s*\(\s*(["'])([^"']+)\1\s*\)/g,
       (m2, q, v) => ids.has(v) ? 'getElementById(' + q + ns(v) + q + ')' : m2);

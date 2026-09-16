@@ -166,5 +166,49 @@ hasnt "the bare shared id no longer appears"    "$IH" 'id="shared-modal"'
 has   "screen A's getElementById is rewritten"  "$IH" "getElementById('screen-a--shared-modal')"
 has   "screen B's getElementById is rewritten"  "$IH" "getElementById('screen-b--shared-modal')"
 
+echo "  -- shared function name across screens is namespaced per screen (onclick, with args, no-script screen)"
+FNNS="$TMP/fnns"
+mkdir -p "$FNNS/design/wireframes"
+cat > "$FNNS/design/wireframes/ScreenA.html" <<'EOF'
+<html><head><title>A</title></head>
+<body>
+<main>
+<button id="toggle-btn" onclick="toggleCopilot()">Open</button>
+<button id="kebab-btn" onclick="toggleKebab(this)">More</button>
+<div id="copilot-modal">A's modal</div>
+</main>
+<script>
+function toggleCopilot() { document.getElementById('copilot-modal').classList.toggle('open'); }
+function toggleKebab(btn) { btn.closest('.wrap').classList.add('open'); }
+</script>
+</body></html>
+EOF
+cat > "$FNNS/design/wireframes/ScreenB.html" <<'EOF'
+<html><head><title>B</title></head>
+<body>
+<main><button id="toggle-btn" onclick="toggleCopilot()">Open</button>
+<div id="copilot-modal">B's modal</div></main>
+<script>
+function toggleCopilot() { document.getElementById('copilot-modal').classList.toggle('open'); }
+</script>
+</body></html>
+EOF
+cat > "$FNNS/design/wireframes/ScreenC.html" <<'EOF'
+<html><head><title>C</title></head>
+<body><main><h1>No scripts here</h1></main></body></html>
+EOF
+( cd "$FNNS" && node "$SUT" >/dev/null 2>&1 )
+FH="$(cat "$FNNS/design/prototype.html" 2>/dev/null)"
+has   "screen A's onclick calls through A's namespace"      "$FH" "onclick=\"window.__proto['screen-a'].toggleCopilot()\""
+has   "screen B's onclick calls through B's namespace (same fn name)" "$FH" "onclick=\"window.__proto['screen-b'].toggleCopilot()\""
+has   "an onclick with an argument keeps its argument"      "$FH" "onclick=\"window.__proto['screen-a'].toggleKebab(this)\""
+has   "screen A's IIFE exports its own toggleCopilot"       "$FH" "window.__proto['screen-a'].toggleCopilot = toggleCopilot;"
+has   "screen B's IIFE exports its own toggleCopilot"       "$FH" "window.__proto['screen-b'].toggleCopilot = toggleCopilot;"
+check "each screen's function is declared exactly once (own IIFE, not merged)" \
+      "$(count "$FH" 'function toggleCopilot')" "2"
+has   "a screen with no <script> at all is left alone"      "$FH" '<section data-route="screen-c"'
+hasnt "no <script> tag is introduced for a script-less screen" \
+      "$(printf '%s' "$FH" | sed -n '/data-route="screen-c"/,/proto-end:screen-c/p')" '<script'
+
 printf '\ntest-assemble-prototype: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -28,6 +28,11 @@
 //   * "Show bindings" toggles the annotation apparatus (wf-* blocks, table.bind/.bt, .anno),
 //     hidden by default so the reviewer sees the screen and not the build checklist
 //   * a screen index lists every route; ds.css is inlined once, not per screen
+//   * a screen's id="X" is namespaced to id="<route>--X" (see namespaceIds below); a screen's
+//     inline <script>'s top-level `function name(){}` is namespaced onto
+//     `window.__proto['<route>'].name` and its `on*="name(...)"` handler attributes are rewritten
+//     to call through that namespace (see scopeScripts below) - both because twenty screens
+//     concatenated into one document is one shared global scope, ids and function names alike
 //   * no libraries, no network, and DETERMINISTIC: the same input gives the same bytes (no
 //     timestamps, files sorted by byte order not locale), so the output diffs cleanly in git
 // Exit 0 written, 2 usage/input error (no wireframes, duplicate or malformed route).
@@ -142,6 +147,74 @@ function namespaceIds(body, ids, ns) {
   });
 }
 
+// Namespace each screen's inline <script> so twenty screens' *function names* cannot collide
+// either - the same disease as the id collision above but worse: two screens each declaring
+// `function toggleCopilot(){...}` concatenate into one document and the SECOND declaration
+// silently wins for every screen's onclick, because a plain top-level `function` is a property
+// of the global object, not scoped to its <script> tag. Field-proven on the same 9-screen PoC as
+// the id fix, 2026-09-16: 6 screens each declared their own `toggleCopilot`/`toggleKebab`, and
+// clicking the button on any screen but the last-in-document one opened or closed nothing (no
+// console error - it silently ran the LAST screen's version against ITS OWN, hidden, elements).
+// Each inline script (no `src=`) is wrapped in an IIFE and every top-level `function name(...)`
+// found in it is exported onto `window.__proto['<route>'].name` from inside that IIFE; every
+// `on<event>="name(...)"` handler attribute anywhere on the screen that calls one of those names
+// is rewritten to call through the namespace instead, so screen B's button reaches screen B's
+// function even though screen A's declaration of the same name executed earlier in the document.
+// LIMITS (regex-simple, same posture as the id rewrite above - documented, not silently wrong):
+//  - only `function name(...) {...}` top-level declarations are recognised. A handler backed by
+//    a top-level `var`/`let`/`const` function expression (`const toggleCopilot = () => {}`) is
+//    NOT exported or rewritten - there is no cheap way to tell a handler-bound const from an
+//    unrelated one without a real parser. Prefer `function` declarations for anything an inline
+//    handler attribute calls.
+//  - code that reaches its own elements via `addEventListener` (not an inline `on*=` attribute)
+//    already scopes fine as-is: it runs inside that screen's own IIFE and closes over that
+//    screen's own bindings, so there is nothing to rewrite there.
+//  - a name is exported only from the script tag that declares it, so a bare call to another
+//    <script> tag's function *from inside a script's own code* (as opposed to an `on*=`
+//    attribute) is not rewritten - only known to matter if a screen splits helpers and callers
+//    across two separate <script> tags, which none of this toolkit's own wireframes do.
+//  - `<script src="...">` (external) is left alone.
+const topLevelFunctionNames = code => {
+  const names = new Set();
+  const re = /^[ \t]*function\s+([A-Za-z_$][\w$]*)\s*\(/gm;
+  let m;
+  while ((m = re.exec(code))) names.add(m[1]);
+  return names;
+};
+function scopeScripts(body, route) {
+  const scriptRe = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+  const allNames = new Set();
+  let hasInline = false;
+  for (const m of body.matchAll(scriptRe)) {
+    if (/\bsrc\s*=/i.test(m[1])) continue;
+    hasInline = true;
+    topLevelFunctionNames(m[2]).forEach(n => allNames.add(n));
+  }
+  if (!hasInline) return body;
+  // A single-quoted literal, not JSON.stringify (double-quoted): this key lands inside HTML
+  // `on*="..."` attributes that are themselves double-quoted, and a route is already validated
+  // against ROUTE_RE (letters, digits, `. _ - /` only - no quote or backslash can occur in it).
+  const nsKey = "'" + route + "'";
+  body = body.replace(scriptRe, (all, attrs, code) => {
+    if (/\bsrc\s*=/i.test(attrs)) return all;
+    const names = topLevelFunctionNames(code);
+    const exportsCode = [...names].map(n => 'window.__proto[' + nsKey + '].' + n + ' = ' + n + ';').join('\n');
+    return '<script' + attrs + '>\n' +
+      'window.__proto = window.__proto || {};\n' +
+      'window.__proto[' + nsKey + '] = window.__proto[' + nsKey + '] || {};\n' +
+      '(function () {\n' + code + '\n' + exportsCode + '\n})();\n' +
+      '</script>';
+  });
+  if (allNames.size) {
+    const callRe = new RegExp('\\b(' + [...allNames].map(reEsc).join('|') + ')\\s*\\(', 'g');
+    body = body.replace(/(\bon[a-z]+\s*=\s*)(["'])([\s\S]*?)\2/gi, (all, prefix, q, val) => {
+      const rewritten = val.replace(callRe, (mm, name) => 'window.__proto[' + nsKey + '].' + name + '(');
+      return prefix + q + rewritten + q;
+    });
+  }
+  return body;
+}
+
 function screenSection(s) {
   let body = rewriteLinks(s.body);
   const ids = idsIn(body);
@@ -153,6 +226,7 @@ function screenSection(s) {
   // Styles drawn inside the body are scoped in place, for the same reason as head styles.
   body = body.replace(/<style\b([^>]*)>([\s\S]*?)<\/style\s*>/gi,
     (all, attrs, c) => '<style data-proto-screen-css' + attrs + '>' + proto.scopeCss(scopeCssIds(c), s.route) + '</style>');
+  body = scopeScripts(body, s.route);
   return '<section data-route="' + esc(s.route) + '" data-source="' + esc(s.file) + '" data-title="' + esc(s.title) + '"' +
     (s.chrome ? ' data-chrome="' + esc(s.chrome) + '"' : '') + '>\n' +
     (css.trim() ? '<style data-proto-screen-css>' + css + '</style>\n' : '') +

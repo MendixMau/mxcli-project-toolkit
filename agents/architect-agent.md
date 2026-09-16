@@ -59,6 +59,8 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 | `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
 | `skills/learned-mdl-cannot-express.md` | Before a wireframe or a design commits to a WIDGET — and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time |
+| `skills/learned-constants-and-secrets.md` | Adding a constant, installing a marketplace module, or deploying to a new environment — where an encryption key, API credential or endpoint gets its value, and why a free node has only one channel |
+| `project-bin/constants-audit.sh` | Before any first deploy to a new environment, and after installing or updating any marketplace module — which constants would be blank where nobody can set them, and which now carry a secret in the model. Never prints a value |
 <!-- ROUTING:END -->
 
 ## Ground rules

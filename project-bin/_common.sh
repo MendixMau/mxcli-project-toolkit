@@ -419,6 +419,106 @@ find_java_exe() {
   esac
 }
 
+# ---------------------------------------------------------------------------
+# mxtk_mxbuild_error_count — run mxbuild once, print its Error-severity count.
+#
+# Pulled out of project-bin/exec.sh, where this exact sequence (run mxbuild with
+# --write-errors, read the result through native_path, treat an empty file + exit 0
+# as a verified 0) was hand-written three times — the pre-flight baseline, the main
+# gate, and the "whose error is it" restore-rebuild check — so that bin/doctor.sh's
+# gate self-test can call the SAME code a real exec run trusts, not a second
+# implementation that could quietly drift from it. Both layouts are covered because
+# it takes an .mpr path, not a project directory: pass whatever find_mpr() returned
+# (root or app/, per find_mpr's own two-tree probe).
+#
+# mxtk_mxbuild_error_count <mpr> <timeout-seconds> [errors-file]
+#
+# Resolves mxbuild/java via find_mxbuild/find_java/find_java_exe (so $MXBUILD_PATH,
+# $MENDIX_APP and $JAVA_HOME overrides all apply here too) and runs
+#     mxbuild --write-errors=<errors-file> --target=deploy <mpr>
+# with output captured to a temp file, NEVER through `$(...)`: Studio Pro 11's
+# mxbuild.exe starts modeler/tools/deno/*/deno.exe, which inherits stdout and keeps
+# it open after mxbuild itself has exited — a command substitution then waits
+# forever for EOF that never comes (field run, Windows 11, Studio Pro 11.12.4,
+# 368cd2e). A file has no reader waiting on EOF: bash returns as soon as mxbuild
+# itself exits. stdin is closed for the same reason — a console-attached child must
+# not be able to wait on it.
+#
+# Bounded by <timeout-seconds>: no `timeout(1)` is assumed (macOS ships none) — the
+# same background/poll/kill pattern as bin/doctor.sh's docker_daemon_up. This is a
+# genuine behaviour addition versus the exec.sh code it replaces, which had no bound
+# at all; the default callers use is generous (300s) specifically so a real build is
+# never cut short by it, only a truly stuck one.
+#
+# Sets on return (bash 3.2 has no namerefs, so these globals ARE the contract):
+#   MXTK_MXBUILD_OUT    captured stdout+stderr from the mxbuild invocation
+#   MXTK_MXBUILD_EXIT   mxbuild's own exit code, or 124 if it was killed for timing out
+#
+# [errors-file], if given, is left on disk afterward (whatever mxbuild wrote, even
+# nothing) for a caller that also wants err_codes/err_set/the raw JSON off the same
+# run — e.g. exec.sh's failure-path detail dump. Omit it and a temp file is used and
+# removed before this returns.
+#
+# Prints the integer Error-severity count on stdout, or "?" if it could not be
+# determined. Empty errors file + exit 0 is 0, not "?": Studio Pro 11's mxbuild only
+# writes --write-errors when the project already has errors, so an empty file after
+# a clean exit is a verified-clean build (2026-09-14 field run), not a parse
+# failure. Returns 0 (count printed, 0 or more) · 1 (mxbuild ran, file unreadable —
+# no Python 3, or the JSON did not parse) · 2 (mxbuild or java not found/executable,
+# nothing was run) · 3 (timed out and was killed after <timeout-seconds>).
+# ---------------------------------------------------------------------------
+mxtk_mxbuild_error_count() {
+  local _mpr="$1" _timeout="${2:-300}" _ef="${3:-}" _own_ef=0
+  local _mb _jh _je _out _pid _waited=0 _exit=0 _py _count
+
+  MXTK_MXBUILD_OUT=""; MXTK_MXBUILD_EXIT=""
+  _mb="$(find_mxbuild 2>/dev/null || true)"
+  _jh="$(find_java 2>/dev/null || true)"
+  _je="$(find_java_exe 2>/dev/null || true)"
+  if [ ! -x "$_mb" ] || [ ! -x "$_je" ]; then
+    echo "?"; return 2
+  fi
+
+  if [ -z "$_ef" ]; then
+    _ef=$(mktemp /tmp/mxbuild-errors.XXXXXX) || { echo "?"; return 2; }
+    _own_ef=1
+  fi
+  _out=$(mktemp /tmp/mxbuild-out.XXXXXX) || { [ "$_own_ef" -eq 1 ] && rm -f "$_ef"; echo "?"; return 2; }
+
+  "$_mb" --java-home="$_jh" --java-exe-path="$_je" \
+         --write-errors="$_ef" --target=deploy "$_mpr" \
+         > "$_out" 2>&1 < /dev/null &
+  _pid=$!
+  while kill -0 "$_pid" 2>/dev/null; do
+    if [ "$_waited" -ge "$_timeout" ]; then
+      kill "$_pid" 2>/dev/null; wait "$_pid" 2>/dev/null
+      MXTK_MXBUILD_OUT=$(cat "$_out" 2>/dev/null); rm -f "$_out"
+      MXTK_MXBUILD_EXIT=124
+      [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
+      echo "?"; return 3
+    fi
+    sleep 1; _waited=$((_waited + 1))
+  done
+  wait "$_pid" || _exit=$?
+  MXTK_MXBUILD_OUT=$(cat "$_out" 2>/dev/null); rm -f "$_out"
+  MXTK_MXBUILD_EXIT="$_exit"
+
+  if [ ! -s "$_ef" ] && [ "$_exit" -eq 0 ]; then
+    [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
+    echo 0; return 0
+  fi
+
+  _py="${PY:-$(resolve_py 2>/dev/null || true)}"
+  if [ -z "$_py" ]; then
+    [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
+    echo "?"; return 1
+  fi
+  _count=$("$_py" -c "import json;d=json.load(open('$(native_path "$_ef")'));print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null)
+  [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
+  if [ -z "$_count" ]; then echo "?"; return 1; fi
+  echo "$_count"; return 0
+}
+
 # project_name — the .mpr basename without extension, for user-facing messages.
 project_name() {
   local mpr

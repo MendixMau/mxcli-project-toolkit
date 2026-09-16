@@ -28,6 +28,15 @@
 #   T10 an export-prefixed module name (Form_X.cls) is matched when the artifact says X, and an
 #       umlaut filename matches too (bytes.lower() is ASCII-only — the unattended rerun on the real
 #       corpus reported 18 of 96 rows unverified, every one an Ä/Ü/ü name; casefold on text)
+#   T15 (2026-09-16) gate-check --waive with a glob key ('source/x/*') writes ONE register line
+#       and ONE '## Toolkit position' heading no matter how many times it is repeated, and the
+#       surviving reason is the latest one — register_set_line()/reg_field() blanket-stripped
+#       every '*' before comparing labels, so a glob waiver's own label never matched itself and
+#       every repeat appended a duplicate. A non-glob key is checked too, as a regression control.
+#   T16 (2026-09-16) a waived file that is later deleted from disk stays WAIVED (never MISSING,
+#       never a changed exit code) but its note says so — the WAIVED branch used to return before
+#       the on-disk check ran, so a waived-and-deleted file was indistinguishable from one still
+#       sitting in the corpus
 #
 # Runs the real gate-check.sh end to end, like test-source-sufficiency-gate.sh.
 #
@@ -261,6 +270,67 @@ echo x > "$P14C/source/legacy/sub/two.pdf"
 printf 'Waived source legacy/**: whole folder out of scope\n' >> "$P14C/PROJECT.md"
 WV14C="$("$SL" check "$P14C" --json --quiet 2>/dev/null | "$PY" -c "import json,sys; d=json.load(sys.stdin); print('legacy/sub/two.pdf' in [r['rel'] for r in d['rows'] if r['verdict']=='WAIVED'])")"
 [ "$WV14C" = "True" ] && ok "'legacy/**' covers the nested legacy/sub/two.pdf, same as 'legacy/*'" || bad "'legacy/**' nested coverage" "got '$WV14C'"
+
+echo "== T15: a glob waiver written via --waive is set ONCE, not appended on every repeat =="
+# The bug (2026-09-16): register_set_line()/reg_field() in gate-check.sh blanket-stripped every
+# '*' before comparing labels, so a glob waiver's own label ("waived source x/*") never matched
+# itself on the second run — 'legacy/*' became 'legacy/' in the comparison — and --waive appended
+# a SECOND "Waived source x/*: ..." line (and a second "## Toolkit position" heading) instead of
+# replacing the first, leaving reg_field() returning the FIRST (stale) reason.
+P15="$(mkproj t15)"
+"$GATE" "$P15" --waive 'source/x/*' --reason "first" >/dev/null 2>&1
+"$GATE" "$P15" --waive 'source/x/*' --reason "second" >/dev/null 2>&1
+N="$(grep -c '^Waived source x/\*:' "$P15/PROJECT.md")"
+[ "$N" = "1" ] && ok "exactly one glob waiver line survives two --waive runs" || bad "glob waiver line count" "got $N"
+H="$(grep -c '^## Toolkit position$' "$P15/PROJECT.md")"
+[ "$H" = "1" ] && ok "exactly one '## Toolkit position' heading" || bad "Toolkit position heading count" "got $H"
+grep -q '^Waived source x/\*: second$' "$P15/PROJECT.md" \
+  && ok "surviving reason is the second (latest) one" \
+  || bad "surviving reason" "$(grep '^Waived source x/\*:' "$P15/PROJECT.md")"
+
+# Non-glob control: the same repeat-waive discipline already held for a plain path key before
+# this fix — proves the fix did not change that behaviour.
+P15B="$(mkproj t15b)"
+"$GATE" "$P15B" --waive source/legacy/one.pdf --reason "first-plain" >/dev/null 2>&1
+"$GATE" "$P15B" --waive source/legacy/one.pdf --reason "second-plain" >/dev/null 2>&1
+NP="$(grep -c '^Waived source legacy/one.pdf:' "$P15B/PROJECT.md")"
+[ "$NP" = "1" ] && ok "non-glob key: still exactly one line" || bad "non-glob waiver line count" "got $NP"
+grep -q '^Waived source legacy/one.pdf: second-plain$' "$P15B/PROJECT.md" \
+  && ok "non-glob: surviving reason is the second (latest)" \
+  || bad "non-glob surviving reason" "$(grep '^Waived source legacy/one.pdf:' "$P15B/PROJECT.md")"
+
+echo "== T16: a waived file that is no longer on disk stays WAIVED, not MISSING, but says so =="
+# The bug (2026-09-16): source-ledger.sh's WAIVED branch returned before the on-disk check ran,
+# so once a waived file left the folder its row read plain WAIVED — indistinguishable from a
+# waived file still sitting in the corpus. A deliberate waiver must never turn the ledger red, so
+# the verdict, the counts, and the exit code all stay exactly what they were; only the note gains
+# a fact.
+P16="$WORK/t16"; mkdir -p "$P16/source/legacy" "$P16/analysis/legacy"
+echo x > "$P16/source/legacy/one.pdf"
+echo x > "$P16/source/legacy/two.pdf"
+printf '# Index\n\none.pdf, two.pdf\n' > "$P16/analysis/legacy/index.md"
+printf '# PROJECT\n\n## Decisions\n' > "$P16/PROJECT.md"
+"$SS" init "$P16" >/dev/null 2>&1
+"$SL" mark "$P16" legacy/two.pdf --artifact analysis/legacy/index.md --evidence "index names two.pdf" --by test >/dev/null 2>&1
+printf 'Waived source legacy/one.pdf: out of scope\n' >> "$P16/PROJECT.md"
+
+J16A="$("$SL" check "$P16" --json --quiet 2>/dev/null)"
+"$SL" check "$P16" >/dev/null 2>&1; RC_BEFORE=$?
+ROW_BEFORE="$("$PY" -c "import json,sys; d=json.loads(sys.argv[1]); r=[x for x in d['rows'] if x['rel']=='legacy/one.pdf'][0]; print(r['verdict']+'|'+r['note'])" "$J16A")"
+[ "$ROW_BEFORE" = "WAIVED|out of scope" ] && ok "before deletion: plain WAIVED note" || bad "before-deletion row" "got '$ROW_BEFORE'"
+
+rm -f "$P16/source/legacy/one.pdf"
+J16B="$("$SL" check "$P16" --json --quiet 2>/dev/null)"
+"$SL" check "$P16" >/dev/null 2>&1; RC_AFTER=$?
+ROW_AFTER="$("$PY" -c "import json,sys; d=json.loads(sys.argv[1]); r=[x for x in d['rows'] if x['rel']=='legacy/one.pdf'][0]; print(r['verdict']+'|'+r['note'])" "$J16B")"
+[ "$ROW_AFTER" = "WAIVED|out of scope — and no longer on disk" ] \
+  && ok "after deletion: still WAIVED, note says it left the folder" \
+  || bad "after-deletion row" "got '$ROW_AFTER'"
+CNT16="$("$PY" -c "import json,sys; d=json.loads(sys.argv[1]); print(d['counts']['waived'], d['counts']['missing'])" "$J16B")"
+[ "$CNT16" = "1 0" ] && ok "counts unaffected by the deletion: 1 waived, 0 missing" || bad "counts after deletion" "got '$CNT16'"
+[ "$RC_BEFORE" = "$RC_AFTER" ] \
+  && ok "exit code unchanged by the deletion (both $RC_BEFORE)" \
+  || bad "exit code changed by the deletion" "before=$RC_BEFORE after=$RC_AFTER"
 
 echo ""
 echo "== $PASS passed, $FAIL failed =="

@@ -418,7 +418,13 @@ for r in inv:
            'opened': r.get('kind') is not None and r.get('answers') is not None}
     reason = waiver_for(rel)
     if reason is not None:
-        row.update(verdict='WAIVED', note=reason); rows.append(row); continue
+        # A waived file stays WAIVED even when it has since left the folder — the register
+        # said it is out of scope, and a deliberate waiver must not turn the ledger red.
+        # But say so: without this the only two facts about the row (waived, gone) collapse
+        # into one and corpus drift under a directory glob is invisible.
+        gone = '' if (not r.get('missing') and (not path or on_disk)) else \
+               ' — and no longer on disk'
+        row.update(verdict='WAIVED', note=reason + gone); rows.append(row); continue
     if r.get('missing') or (path and not on_disk):
         row.update(verdict='MISSING', note='inventoried, no longer on disk — re-run init --refresh, or restore it')
         rows.append(row); continue

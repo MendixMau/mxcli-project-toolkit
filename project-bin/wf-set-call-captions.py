@@ -27,7 +27,7 @@ Defaults to a dry run. Nothing is written without --apply.
 --captions takes repeated Qualified.Name='Caption' pairs. --captions-file reads the
 same thing one per line, # for comments.
 
-FIELD RUN. VB-USI, 2026-09-14, mxcli v0.21.0 / Mendix 11.13.0: 36 call-microflow
+FIELD RUN. An approval-workflow app replacement, 2026-09-14, mxcli v0.21.0 / Mendix 11.13.0: 36 call-microflow
 activities across one 16-station approval workflow, all still showing their raw
 ACT_ names months after the microflows themselves had been exposed as workflow
 actions. All 36 relabelled in one pass. Native `mx check`: 0 errors after.

@@ -1313,7 +1313,7 @@ that points at the activity can break. Defaults to a dry run; `--apply` writes, 
    exposed — but it is exactly the kind of cosmetic pass a build plan silently drops if it is
    not written down as a row of its own.
 
-**FIELD RUN.** VB-USI, 2026-09-14, mxcli v0.21.0 / Mendix 11.13.0: 36 call-microflow activities
+**FIELD RUN.** An approval-workflow app replacement, 2026-09-14, mxcli v0.21.0 / Mendix 11.13.0: 36 call-microflow activities
 across one 16-station approval workflow were still showing raw `ACT_` names on the canvas months
 after the microflows behind them had already been exposed as workflow actions — the exposure MDL
 had been added on a later script, after the activities were placed, and nobody had connected
@@ -1422,7 +1422,7 @@ microflow to get N, then N-of-N non-`SUB_` microflows carry the clause. Write th
 "exposed the actions" with no number is the unfalsifiable-checklist failure.
 
 **Why `SUB_` is exempt and not just "use judgement".** A toolbox is a discovery surface and its
-cost is clutter — the VB-USI approval workflow calls **25** microflows, most of them one-station
+cost is clutter — that approval workflow calls **25** microflows, most of them one-station
 bookkeeping. Twenty-five single-purpose entries in the workflow toolbox makes the three genuinely
 reusable ones harder to find, which is the opposite of the point. `SUB_` already means "reusable
 sub-logic invoked by name, not an entry point" in this toolkit, and `ACT_` already reads as an

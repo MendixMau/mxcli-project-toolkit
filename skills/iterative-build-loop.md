@@ -466,7 +466,7 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
       - **Every nav item, breadcrumb, and button actually reaches working logic** — a wired affordance with no microflow behind it, or one that dead-ends, is a P1, not a cosmetic finding.
       - **Required-field validation surfaces a visible message** — a silent 4xx/5xx save is a P1.
       - **Built StyleGallery components are actually used** on this page (badges/steppers/empty-states), not reimplemented as plain text.
-      - **Wireframe-vs-live** compare where a wireframe exists; degrade loudly (log it) where one doesn't — see `module-review.md`'s degradation table.
+      - **Wireframe-vs-live** compare where a wireframe exists; degrade loudly (log it) where one doesn't — see `module-review.md`'s degradation table. The wireframe may be a per-screen file or a route into the clickable prototype (`design/prototype.html#/<route>`, `design-artifacts.md` Step 3); `page-fidelity.js`, `check-page-shell.sh` and a `PAGE-MAP.tsv` row all accept either form and give the same verdict for the same screen.
 
       Diagnostic only: findings go to the punch-list, fixes are a separate approved pass.
 15. **Gate: COVERAGE — business-rule coverage checklist (mandatory, never skip):** `gate-agent` walks the confirmed checklist from the Pre-Module Checklist step — every mandatory/read-only/conditional/validation item — against the built module, item by item. A module with 0 CE errors and a working happy path but an unchecked validation rule is **not done**. Document any gap as an explicit sub-task; don't mark the module done with open items on this list.

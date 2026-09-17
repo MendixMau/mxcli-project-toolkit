@@ -1,7 +1,7 @@
-**From:** DealApp
+**From:** deal-app
 **Date:** 2026-09-14
 **Kind:** fix
-**Field evidence:** installed toolkit scripts in DealApp/bin that differ from the shipped copy — a local patch here is a fix that never traveled (how graph-sweep's stat bug got patched twice)
+**Field evidence:** installed toolkit scripts in deal-app/bin that differ from the shipped copy — a local patch here is a fix that never traveled (how graph-sweep's stat bug got patched twice)
 **Proposed target:** see per-item notes below
 
 ---
@@ -33,7 +33,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
  # Column labels that are table furniture, never a page or module name.
 +# `SHOW PAGES IN <Module>` gained columns over time and this set did not keep up:
 +# "excluded", "folder" and "params" are real column labels, so every module
-+# contributed a phantom "<Module>.Excluded" page. Measured on DealIQ 2026-08-28:
++# contributed a phantom "<Module>.Excluded" page. Measured on MarkUseCase 2026-08-28:
 +# 6 real pages became 13, and design-audit.js then reported
 +# "INSTRUMENT FAULT (94) — this run measured nothing reliable" because 92 of its
 +# 132 checks were against pages that do not exist. The 12 genuine findings
@@ -118,7 +118,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 -for f in "$MODEL_DIR"/*.mpr; do
 +# DEREFERENCE, and then PROVE the copy. Measured 2026-09-01, and it cost a full
 +# model restore: this project root holds compatibility symlinks
-+#   DealIQ.mpr  -> app/DealIQ.mpr
++#   Project.mpr  -> app/Project.mpr
 +#   mprcontents -> app/mprcontents
 +# `cp` on a symlinked FILE follows it, so the .mpr half was always a real copy.
 +# `cp -r` on a symlinked DIRECTORY copies the LINK, not the tree -- so every
@@ -195,17 +195,17 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
  // page-fidelity.js — score one drafted/built page's MDL against its wireframe, model-side.
  //
 -// Promoted from process/prototypes/first-build-fidelity.proto.js after the topbar-portal
-+// Promoted from process/prototypes/first-build-fidelity.proto.js after the VB-USI-main
++// Promoted from process/prototypes/first-build-fidelity.proto.js after the approval-app-main
  // field run (2026-08-27). The prototype assumed ToeicBuddy's wireframe shape on two axes
  // that do not travel:
  //
 -//   * content boundary — ToeicBuddy wireframes wrap page content in <main>; the topbar portal's
-+//   * content boundary — ToeicBuddy wireframes wrap page content in <main>; VB-USI's
++//   * content boundary — ToeicBuddy wireframes wrap page content in <main>; the approval app's
  //     wrap popup content in .dialog and full-page content in bare divs, with annotation
  //     chrome (wf-bar, wf-note, wf-section, the .bind table, DESCOPED banners) as
  //     siblings. Scoring the whole body counts the annotation against the page.
 -//   * MDL case — the prototype matched CREATE...PAGE uppercase only; the topbar portal's scripts
-+//   * MDL case — the prototype matched CREATE...PAGE uppercase only; VB-USI's scripts
++//   * MDL case — the prototype matched CREATE...PAGE uppercase only; the approval app's scripts
  //     write it lowercase (same bug fixed in check-page-shell.sh, commit e0588e3).
  //
  // Usage:
@@ -214,13 +214,13 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
    // Boundary preference, most-specific first:
    //   <main>            ToeicBuddy shape — content-only wireframes
 -  //   div.main          the topbar portal full-page shape — the wireframe mocks the WHOLE app
-+  //   div.main          VB-USI full-page shape — the wireframe mocks the WHOLE app
++  //   div.main          the approval app full-page shape — the wireframe mocks the WHOLE app
    //                     shell; the sidebar is layout chrome, but div.main holds the
 -  //                     page title (the topbar portal titles pages from the top bar), so it is
-+  //                     page title (VB-USI titles pages from the top bar), so it is
++  //                     page title (the approval app titles pages from the top bar), so it is
    //                     the boundary and the user chip is stripped below
 -  //   div.wf-screen     a deal-management PoC shape — the wireframe is an annotated DOCUMENT, and the
-+  //   div.wf-screen     DealIQ shape — the wireframe is an annotated DOCUMENT, and the
++  //   div.wf-screen     a deal-management PoC shape — the wireframe is an annotated DOCUMENT, and the
    //   div.wf-shell      screen is one labelled block inside it, with the annotation
    //   div.mockup-frame  apparatus (meta header, binding tables, scope crosschecks) as
    //                     siblings. A wireframe that names its own screen has told us
@@ -305,7 +305,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
  // then reports 0-of-0, which normalizes to a null score rather than to a low one.
  //
 -// Measured (a deal-management PoC, 2026-08-28): wireframes shaped .wf-wrap > .wf-screen scored `null%`
-+// Measured (DealIQ, 2026-08-28): wireframes shaped .wf-wrap > .wf-screen scored `null%`
++// Measured (a deal-management PoC, 2026-08-28): wireframes shaped .wf-wrap > .wf-screen scored `null%`
  // on all seven pages. Nothing failed and nothing said "unmeasured" — the run printed a
  // clean report over an empty corpus. That is the failure mode worth fixing: the
 ```

@@ -31,7 +31,7 @@ Start an instance, walk it to the split, and count the tasks the engine actually
 (`system$workflowactivity`, or the project's own e2e walk). Consecutive "End of parallel
 split path" rows with no task between them is the unfixed signature.
 
-FIELD RUN. VB-USI, 2026-09-14, mxcli v0.21.0 / Mendix 11.13.0: a 16-station approval
+FIELD RUN. the approval app, 2026-09-14, mxcli v0.21.0 / Mendix 11.13.0: a 16-station approval
 workflow with a seven-leg split and a nested two-leg split inside it. 9 paths found, 9
 terminators added, unit 87236 -> 89486 bytes. The same definition reached 8 of 16 stations
 before the patch and 16 of 16 after, six of them open concurrently at the split. Native

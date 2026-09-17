@@ -1,7 +1,7 @@
-**From:** PlantOps
+**From:** factory-app
 **Date:** 2026-09-14
 **Kind:** fix
-**Field evidence:** installed toolkit scripts in PlantOps/bin that differ from the shipped copy — a local patch here is a fix that never traveled (how graph-sweep's stat bug got patched twice)
+**Field evidence:** installed toolkit scripts in factory-app/bin that differ from the shipped copy — a local patch here is a fix that never traveled (how graph-sweep's stat bug got patched twice)
 **Proposed target:** see per-item notes below
 
 ---
@@ -113,7 +113,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 +cd "$ROOT" || exit 2
  
 -MPR="$(find_mpr)" || exit 2
-+MPR="WMS-Demo.mpr"
++MPR="App.mpr"
  MXCLI="./mxcli"
  OUTDIR="docs/conformance"
  BASELINE="$OUTDIR/baseline.tsv"
@@ -252,7 +252,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
  
 -. "$(dirname "$0")/_common.sh"
 +PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-+MPR="$PROJECT_ROOT/WMS-Demo.mpr"
++MPR="$PROJECT_ROOT/App.mpr"
 +SCRIPT="$1"
  
 -MPR="$(find_mpr)" || exit 1
@@ -286,15 +286,15 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 -# 1. Studio Pro must not hold the project open (SP's in-memory model vs a direct
 -#    file write = split-brain).
 -if [ -f "$MPR.lock" ]; then
-+# 1. Studio Pro must not have WMS-Demo open (SP in-memory model vs direct file write = split-brain).
++# 1. Studio Pro must not have App open (SP in-memory model vs direct file write = split-brain).
 +if [[ -f "$MPR.lock" ]]; then
    SP_PID=$(grep -oE '"ProcessId":[0-9]+' "$MPR.lock" 2>/dev/null | grep -oE '[0-9]+' || true)
 -  if [ -n "$SP_PID" ] && kill -0 "$SP_PID" 2>/dev/null; then
 -    echo "✗ Studio Pro has $NAME open (lock PID $SP_PID alive) — refusing exec (split-brain corruption risk)."
 -    echo "  → Close the project in Studio Pro (or quit SP), then re-run."
 +  if [[ -n "$SP_PID" ]] && kill -0 "$SP_PID" 2>/dev/null; then
-+    echo "✗ Studio Pro has WMS-Demo open (lock PID $SP_PID alive) — refusing exec (split-brain corruption risk)."
-+    echo "  → Close the PlantOps project in Studio Pro (or quit SP), then re-run this script."
++    echo "✗ Studio Pro has App open (lock PID $SP_PID alive) — refusing exec (split-brain corruption risk)."
++    echo "  → Close the factory-app project in Studio Pro (or quit SP), then re-run this script."
      echo "    Override (NOT recommended): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
 -    [ "$FORCE" = "1" ] || exit 1
 +    [[ "$FORCE" == "1" ]] || exit 1
@@ -302,7 +302,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 -  elif [ -n "$SP_PID" ]; then
 -    echo "  (stale $MPR_BASE.lock from dead PID $SP_PID — SP not actually open, proceeding)"
 +  elif [[ -n "$SP_PID" ]]; then
-+    echo "  (stale WMS-Demo.mpr.lock from dead PID $SP_PID — SP not actually open, proceeding)"
++    echo "  (stale App.mpr.lock from dead PID $SP_PID — SP not actually open, proceeding)"
    fi
  fi
  
@@ -335,11 +335,11 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 -if [ -n "$MPR_DIRTY" ]; then
 -  echo "✗ Uncommitted model changes — refusing exec to prevent snapshot regression."
 +# 4. Uncommitted MPR changes guard — prevents silent snapshot regression.
-+#    If WMS-Demo.mpr or mprcontents/ have uncommitted changes, the snapshot this
++#    If App.mpr or mprcontents/ have uncommitted changes, the snapshot this
 +#    exec.sh is about to take will not cover them. A mxbuild failure would then
 +#    auto-restore to a snapshot that pre-dates those MCP changes — silently losing
 +#    work. Override with FORCE_EXEC=1 only if you accept the restore-regression risk.
-+MPR_DIRTY=$(git status --porcelain WMS-Demo.mpr mprcontents/ 2>/dev/null | grep -v "^$" || true)
++MPR_DIRTY=$(git status --porcelain App.mpr mprcontents/ 2>/dev/null | grep -v "^$" || true)
 +if [[ -n "$MPR_DIRTY" ]]; then
 +  echo "✗ Uncommitted MPR changes detected — refusing exec to prevent snapshot regression."
    echo ""
@@ -403,7 +403,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 -DB="$(dirname "$MPR")/.mxcli/catalog.db"
 -[ -f "$DB" ] || [ ! -f ".mxcli/catalog.db" ] || DB=".mxcli/catalog.db"
 +DB=".mxcli/catalog.db"
-+MPR="WMS-Demo.mpr"
++MPR="App.mpr"
  MODULE=""
  MIN_ELEMENTS=20
  TSV=0
@@ -474,7 +474,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 @@ -1,150 +1,129 @@
  #!/usr/bin/env bash
 -# restart-sp.sh — kill this project's Studio Pro instance + runtime, reopen cleanly.
-+# restart-sp.sh (macOS) — kill PlantOps SP instance + runtime, then reopen cleanly
++# restart-sp.sh (macOS) — kill factory-app SP instance + runtime, then reopen cleanly
  #
 -# Targets ONLY the SP process holding this project's .mpr, found via lsof — not
 -# every SP on the machine. Two projects open at once is normal; killing the
@@ -512,7 +512,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 +# session or silently loop retries without them noticing.
 +set -e
 +
-+MPR="$(cd "$(dirname "$0")/.." && pwd)/WMS-Demo.mpr"
++MPR="$(cd "$(dirname "$0")/.." && pwd)/App.mpr"
 +DEPLOYMENT="$(cd "$(dirname "$0")/.." && pwd)/deployment"
 +SP_APP="/Applications/Mendix Studio Pro 11.13.0 Beta.app"
 +SP_BIN="Mendix Studio Pro 11.13.0 Beta.app/Contents/MacOS/studiopro"
@@ -550,7 +550,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 +lsof -ti :8080,:8081 2>/dev/null | xargs kill -9 2>/dev/null || true
 +lsof -t "$DEPLOYMENT" 2>/dev/null | xargs kill -9 2>/dev/null || true
 +
-+echo "→ Killing PlantOps SP instance..."
++echo "→ Killing factory-app SP instance..."
 +# Gracefully quit only the SP process holding our MPR; poll for exit instead of a blind sleep
  SP_PID=$(lsof -t "$MPR" 2>/dev/null || true)
 -if [ -n "$SP_PID" ]; then
@@ -603,7 +603,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 -# restore-mpr.sh — restore the .mpr + mprcontents/ from a snapshot-mpr.sh snapshot.
 -#
 -# Usage: ./bin/restore-mpr.sh [timestamp]    (defaults to the newest snapshot)
-+# Restore WMS-Demo.mpr + mprcontents/ from a snapshot taken by snapshot-mpr.sh.
++# Restore App.mpr + mprcontents/ from a snapshot taken by snapshot-mpr.sh.
 +# Usage: ./bin/restore-mpr.sh [timestamp]   (defaults to newest snapshot)
  set -euo pipefail
 -. "$(dirname "$0")/_common.sh"
@@ -617,7 +617,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 -
 -MPR_PATH="$(find_mpr)"
 -MPR="$(basename "$MPR_PATH")"
-+MPR="WMS-Demo.mpr"
++MPR="App.mpr"
 +SNAP_DIR=".mpr-snapshots"
  
  SNAP="${1:-$(ls -dt "$SNAP_DIR"/*/ 2>/dev/null | head -1)}"
@@ -722,19 +722,19 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
  fi
  if [ "$MODULE_KNOWN" -eq 0 ]; then
 -  MODLIST="$(with_timeout 60 ./mxcli -p "$MPR" -c "SHOW MODULES" 2>/dev/null)"
-+  MODLIST="$(with_timeout 60 ./mxcli -p WMS-Demo.mpr -c "SHOW MODULES" 2>/dev/null)"
++  MODLIST="$(with_timeout 60 ./mxcli -p App.mpr -c "SHOW MODULES" 2>/dev/null)"
    printf '%s\n' "$MODLIST" | grep -qE "^\| *$MODULE +\|" && MODULE_KNOWN=1
  fi
  
  if [ "$MODULE_KNOWN" -eq 0 ]; then
    printf '\n'
 -  c_warn "  ! INSTRUMENT FAULT"; echo " — no module named '$MODULE' in $(basename "$MPR")"
-+  c_warn "  ! INSTRUMENT FAULT"; echo " — no module named '$MODULE' in WMS-Demo.mpr"
++  c_warn "  ! INSTRUMENT FAULT"; echo " — no module named '$MODULE' in App.mpr"
    echo "      Nothing was measured. This is not a clean review of an empty module:"
    echo "      every instrument below would have returned an empty result set, which is"
    echo "      indistinguishable from a clean one. Check the spelling against:"
 -  echo "        ./mxcli -p $(basename "$MPR") -c 'SHOW MODULES'"
-+  echo "        ./mxcli -p WMS-Demo.mpr -c 'SHOW MODULES'"
++  echo "        ./mxcli -p App.mpr -c 'SHOW MODULES'"
    printf 'module exists\tFAULT\t2\t-\t(no such module)\n' >> "$SUMMARY"
    for i in conformance graph-sweep coverage; do
      note_instrument "$i" fault 2 "" "" "not run — no module named '$MODULE' in the model"
@@ -1032,7 +1032,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 +ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 +cd "$ROOT" || { echo "cannot cd to project root" >&2; exit 2; }
  
-+MPR="${MPR:-WMS-Demo.mpr}"
++MPR="${MPR:-App.mpr}"
  APP_PORTS="${APP_PORTS:-8080 8081 8084}"
  JAEGER_PORT="${JAEGER_PORT:-16686}"
 -MOCK_HEALTH_URL="${MOCK_HEALTH_URL:-}"
@@ -1040,7 +1040,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 -MOCK_DIR="${MOCK_DIR:-}"
 -MOCK_START="${MOCK_START:-node server.js}"
 +MOCK_PORT="${MOCK_PORT:-3001}"
-+MOCK_DIR="${MOCK_DIR:-source/USI scope/mock-api}"
++MOCK_DIR="${MOCK_DIR:-source/client scope/mock-api}"
  BOOT_TIMEOUT="${BOOT_TIMEOUT:-240}"
 -LOGDIR="${LOGDIR:-${TMPDIR:-/tmp}}"
 -MOCK_LOG="$LOGDIR/${PROJ}-mock.log"

@@ -5015,7 +5015,7 @@ walks the stored workflow unit, appends the terminator to every unterminated
 `ParallelSplitOutcome` flow, and leaves already-terminated paths alone. It recurses, so a
 nested split's paths get their own. Idempotent, dry-run by default, writes a `.bak`.
 
-**Proven end to end on the real model** (VB-USI, a 16-station approval workflow, seven-leg
+**Proven end to end on the real model** (the approval app, a 16-station approval workflow, seven-leg
 split with a nested two-leg split inside leg 7):
 
 | | Stations reached | At the split |
@@ -5472,3 +5472,146 @@ re-sync and left only the template validation stranded. Otherwise it is a Studio
 and render it in `DESCRIBE MICROFLOW` so the round trip does not silently flip it. Failing that,
 `check --references` should raise CE0114 itself rather than letting it reach mxbuild, since the
 callee's flag is readable in the model.
+---
+
+## BUG-DRAFT-loop-var-expression-typecheck: the expression type checker is skipped inside a `LOOP` body — the identical expression is caught on a parameter and missed on a loop variable (2026-09-15)
+
+> **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1100**
+
+**Discovered:** 2026-09-15, building diagnostic microflows during the v0.22.0 workflow retest
+(retest log held in PR #52).
+**Reproducible:** yes, minimal A/B with control, on a disposable `mxcli new` scaffold.
+**mxcli version:** `v0.22.0-15-g7b42100d` (`main` HEAD, 2026-09-15). **Mendix:** 11.13.0.
+
+**mxcli already has the rule and states it well** — concatenating an `Enumeration` into a `String`
+is refused at `check` time with `E004` and a named fix:
+
+```
+✗ The '+' operator concatenates Strings. The other operand is Enumeration, which cannot be
+  concatenated with a String directly.  [E004]
+    → Wrap the non-String operand in toString().
+```
+
+**The same expression one line deeper, inside a `LOOP`, is not checked at all.** Measured on a
+blank 11.13.0 app with `Probe.Request(Status: Enumeration(Probe.ENUM_Status))`:
+
+| Shape | `mxcli check` | native `mx check` |
+|---|---|---|
+| `$Req/Status` on a **parameter**: `$out = 'status=' + $Req/Status;` | **refused, E004** | — (never written) |
+| `$r/Status` on a **loop variable** over the same entity | **Check passed!** | **CE0117** "Error(s) in expression." |
+
+```
+-- passes mxcli check, execs, and fails the native build
+CREATE OR MODIFY MICROFLOW Probe.SUB_LoopNormal () RETURNS String
+BEGIN
+  DECLARE $out String = '';
+  RETRIEVE $reqs FROM Probe.Request;
+  LOOP $r IN $reqs BEGIN
+    $out = $out + $r/Status;      -- Enumeration into a String
+  END LOOP;
+  RETURN $out;
+END;
+```
+
+`mxcli check` → `Check passed!`; `exec` → `Created microflow: Probe.SUB_LoopNormal`; native
+`mx check` → `[error] [CE0117] "Error(s) in expression." at Change variable activity 'Change
+variable out'`. Dropping the microflow returns the project to 0 errors.
+
+**Why it matters beyond this one rule.** The gap is not "enum concatenation" — that rule works.
+It is that **loop-variable member access appears to be untyped for the whole expression checker**,
+so every rule the checker enforces is silently off inside the construct where list processing
+actually happens. This is the `a green mxcli check is not evidence` class again, and it is worse
+than a missing rule because the rule visibly exists and fires correctly three lines earlier.
+
+**Fix:** type the loop variable from the list it iterates (the list's entity is already resolved —
+`RETRIEVE $reqs FROM Probe.Request` is in the same flow) and run the existing expression checks
+over `LOOP` bodies. Worth auditing whether other block-scoped variables (`FILTER`'s
+`$currentObject`, `on error` handlers) have the same hole.
+
+---
+
+## BUG-DRAFT-nested-aggregate-over-filter: `COUNT(FILTER(...))` writes an Aggregate activity with no List, passing `check` and failing the build with CE0012 (2026-09-15)
+
+> **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1101**
+
+**Discovered:** 2026-09-15, same session and scaffold as the entry above.
+**Reproducible:** yes, minimal A/B with a working control.
+**mxcli version:** `v0.22.0-15-g7b42100d`. **Mendix:** 11.13.0.
+
+An aggregate applied directly to a list-operation result is accepted by the grammar and by
+`check`, written by `exec`, and rejected by mxbuild because the inner list never gets wired into
+the Aggregate activity's `List` property:
+
+```
+-- check: passed.  exec: "Created microflow".  native: CE0012.
+$n = COUNT(FILTER($reqs, $currentObject/Status = Probe.ENUM_Status.Approved));
+```
+
+→ `[error] [CE0012] "The ‘List’ property is required." at Aggregate list activity 'Count'`
+
+**Control — the same logic split across two variables builds at 0 errors:**
+
+```
+$approved = FILTER($reqs, $currentObject/Status = Probe.ENUM_Status.Approved);
+$n = COUNT($approved);
+```
+
+One error per nested aggregate: a microflow with three such expressions produced exactly three
+CE0012s, one per `Count` activity, all naming the same missing property.
+
+**Impact.** `FILTER`/`COUNT` is the ordinary way to answer "how many of these match", and the
+nested spelling is the one an author (or an LLM) writes first because it reads like every other
+language. It is silently unbuildable. **Workaround: never nest an aggregate over a list
+operation — assign the list operation to its own variable first.**
+
+**Fix:** either lower the nested form correctly (materialise the inner list into an implicit
+variable and point the Aggregate's `List` at it), or refuse it at `check` time with a rule that
+names the two-variable rewrite. Refusing is acceptable and far better than the current silence;
+a build error that names a BSON property the author never wrote is not diagnosable from the MDL.
+
+---
+
+## BUG-DRAFT-system-enumerations-undiscoverable: `System` enumerations are invisible to `show` and `describe`, so their valid values cannot be found before the build rejects them (2026-09-15)
+
+> **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1102**
+
+**Discovered:** 2026-09-15, during the v0.22.0 workflow retest.
+**Reproducible:** yes, on any scaffold.
+**mxcli version:** `v0.22.0-15-g7b42100d`. **Mendix:** 11.13.0.
+
+`describe entity System.WorkflowActivityRecord` happily prints attributes typed against System
+enumerations:
+
+```
+ActivityType: Enumeration(System.WorkflowActivityType),
+State:        Enumeration(System.WorkflowActivityExecutionState),
+```
+
+But neither enumeration can be inspected:
+
+```
+$ mxcli -p app.mpr describe enumeration System.WorkflowActivityType
+Error: enumeration not found: System.WorkflowActivityType
+
+$ mxcli -p app.mpr show enumerations          # 8 listed, none from System
+$ mxcli -p app.mpr search "WorkflowActivityType"
+No matches found.
+```
+
+So there is **no way through mxcli to learn the valid values**, and a reasonable guess is only
+caught by the native build:
+
+```
+[error] [CE1613] "The selected enumeration value
+  'System.WorkflowActivityExecutionState.Finished' no longer exists."
+```
+
+**Impact.** Any MDL that branches on a System enumeration — workflow activity state, user-task
+completion type, and anything else the platform models as an enum — has to be written by
+guess-and-build. This is the same "mxcli can read the model but will not tell you" gap as
+BUG-125 (`check --references` cannot resolve enumerations in an attribute declaration), from the
+other direction.
+
+**Fix:** include System-module enumerations in `show enumerations` / `describe enumeration`
+(read-only is fine — nobody needs to write them), and let `search` index them. Failing that, have
+CE1613's MDL-side rule list the values that do exist.

@@ -434,6 +434,9 @@ mxcli-project-toolkit/
     sync-project.sh             ← after toolkit git pull: refresh the artifacts copied into a project
     split-claude-md.sh          ← move MDL/lint reference out of CLAUDE.md into load-on-demand files
     install-claude-hooks.sh     ← tiered context-cost hooks → ~/.claude (see "Context cost" above)
+    install-claude-permissions.sh ← allow-lists the safe wrappers (bin/exec.sh & friends, mx)
+                                   in <project>/.claude/settings.json so Manual mode stops
+                                   prompting on them; run at scaffold time, --check'd on sync
     install-hooks.sh            ← unrelated: the git pre-commit client-data guard for THIS repo
   claude-hooks/                 ← sources for the above: hooks/ (5) + bin/ (checkpoint, close-task)
   agents/                       ← the six agent stub templates (ba/architect/mdl/gate/test/review)

@@ -403,6 +403,20 @@ fi
   echo "  $SCRIPT_DIR/wire-agents.sh $PROJECT_DIR"
 }
 
+# ── Claude Code permission allow-list ────────────────────────────────────────────────────
+# `mxcli init` (just run above, inside wire-agents.sh) writes .claude/settings.json allowing
+# `Bash(./mxcli:*)` but none of the safe wrappers this toolkit tells every agent to use
+# instead (bin/exec.sh, the other installed bin/*.sh scripts, mx under ~/.mxcli/mxbuild/).
+# Without this, Claude Code's default permission mode prompts on every exec through the safe
+# wrapper — which defeats bin/exec-approval.sh --set auto. Non-fatal, same style as the
+# wiring call above: the scaffold is fine either way, and re-running it is always safe.
+if [ -x "$SCRIPT_DIR/install-claude-permissions.sh" ]; then
+  "$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" || {
+    echo "Permission allow-list did not install. The scaffold is otherwise fine; re-run:"
+    echo "  $SCRIPT_DIR/install-claude-permissions.sh $PROJECT_DIR"
+  }
+fi
+
 # ── Starlark lint rules ──────────────────────────────────────────────────────────────────
 # mxcli seeds .claude/lint-rules/ with its own copies; three of them are broken as shipped
 # (two match no entity at all and report a clean pass forever). Install the toolkit's fixed

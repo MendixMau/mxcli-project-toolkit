@@ -740,8 +740,14 @@ known_fix_note() {
     page-scope.sh)
       echo "bin/page-scope.sh predates the HEADER_WORDS fix (F-042, 2026-08-28): SHOW PAGES header columns Excluded/Folder/Params were parsed as page rows, inflating the page denominator (measured: 6 real pages counted as 13), so every consumer of page-scope.json graded against furniture. One-line fix — recommended upgrade." ;;
     _common.sh)
+      if ! grep -q 'mxtk_ensure_mxbuild' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null; then
+        echo "bin/_common.sh predates the GATE-MUST-RUN fix (toolkit, 2026-09-17): mxtk_ensure_mxbuild downloads a missing mxbuild through ./mxcli, on any machine or cloud container, so exec.sh can refuse to write when the gate cannot run instead of writing unverified. Also missing native_path (Windows errors-file fix, 2026-09-15) if this copy is older still. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
+      fi
       echo "bin/_common.sh predates the WINDOWS MXBUILD GATE fix (toolkit, 2026-08-25). This is where find_sp_app/find_mxbuild, JAVA_HOME resolution and mxtk_platform actually live — exec.sh only calls them. So upgrading exec.sh ALONE does not deliver the fix, and grepping exec.sh for mxtk_platform reports 0 even on a fully patched project: grep _common.sh instead. Without this file the mxbuild gate is skipped on every Windows exec and nothing checks your builds. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh." ;;
     exec.sh)
+      if ! grep -q 'model-stamp' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
+        echo "bin/exec.sh predates the GATE-MUST-RUN fix (toolkit, 2026-09-17): a missing mxbuild is downloaded, a gate that still cannot run REFUSES the write (ALLOW_UNVERIFIED=1 to override), and a passing gate writes the verification stamp the pre-commit hook checks. Without it every exec on a machine with no mxbuild is applied unverified — on any OS, cloud containers included. Needs the matching _common.sh (mxtk_ensure_mxbuild): --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
+      fi
       echo "bin/exec.sh predates two fixes worth naming. (1) The WINDOWS MXBUILD GATE (toolkit, 2026-08-25): find_sp_app/find_mxbuild and JAVA_HOME resolution were macOS-only, so under Git Bash the gate block was skipped entirely and every exec on a Windows machine went UNVERIFIED — it reported 'skipped', not a false pass, but a skip nobody acts on is the same outcome. (2) The MODULE-BRIEF GUARD (toolkit, 2026-08-25): refuses a write to a module with no module-brief.md (or no '## Module brief — <M>' section in the build plan), overridable with FORCE_EXEC=1. Strongly recommended upgrade on Windows — without (1) nothing checks your builds. NOTE: (1) mostly lives in _common.sh, so upgrade that too or the fix is incomplete." ;;
   esac
 }
@@ -828,6 +834,22 @@ elif [ -d "$CRASHNET_SRC" ]; then
   fi
 else
   warn "Toolkit has no project-bin/ — cannot check this project's crash net."
+fi
+
+# --- 4c. Commit-time backstop: the model-verification pre-commit hook ---------------------
+# Same contract as the crash net: missing -> install, present -> leave alone. The hook is a
+# git-local file, so a fresh clone on another machine has no hook until something installs
+# it — this is that something, on the sync every clone is told to run after a toolkit pull.
+if [ "$WIRED" -eq 1 ] && [ -x "$PROJECT_DIR/bin/install-project-hooks.sh" ] \
+   && git -C "$PROJECT_DIR" rev-parse --show-toplevel >/dev/null 2>&1; then
+  if ! "$PROJECT_DIR/bin/install-project-hooks.sh" --check >/dev/null 2>&1; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      echo "Would install: the model-verification pre-commit hook (bin/install-project-hooks.sh)"
+    else
+      "$PROJECT_DIR/bin/install-project-hooks.sh" | sed 's/^/   /' || warn "bin/install-project-hooks.sh failed — see above"
+    fi
+    CHANGES=$((CHANGES + 1))
+  fi
 fi
 
 # --- 4a. docs/progress/RESUME.md backfill -------------------------------------------------

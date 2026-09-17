@@ -8,7 +8,10 @@
 #
 # Overrides: FORCE_EXEC=1 (skip refusals), SKIP_CHECK=1 (skip the pre-exec
 #            mxcli check), SKIP_BASELINE=1 (skip pre-flight mxbuild),
-#            MXBUILD_PATH=..., MENDIX_APP=..., MPR_FILE=...
+#            MXBUILD_PATH=..., MENDIX_APP=..., MPR_FILE=...,
+#            ALLOW_UNVERIFIED=1 (write even though the mxbuild gate cannot run —
+#            the write is then refused by default, see "Gate must be able to run"),
+#            MXTK_NO_INSTALL=1 (never download mxbuild; offline CI)
 set -e
 _T0=$(date +%s)
 
@@ -284,10 +287,18 @@ if [ "${SKIP_CHECK:-0}" != "1" ] && [ -x "$PROJECT_ROOT/mxcli" ]; then
   echo "  ✓ check clean"
 fi
 
-echo "→ Snapshotting model..."
-./bin/snapshot-mpr.sh
-
-MXBUILD="$(find_mxbuild)" || true
+# ── Gate must be able to run ─────────────────────────────────────────────────
+# Discovery happens BEFORE the snapshot and the write, because the answer decides whether
+# there is a write at all. Until 2026-09-17 a missing mxbuild produced a warning and the
+# script was applied anyway, "gate=skipped". Nobody acts on a skip: on DealIQ every exec.sh
+# run in a cloud container skipped, a CE0117 that only mxbuild can see went in, and it
+# reached the Team Server. So now: (1) a missing mxbuild is DOWNLOADED, right here, through
+# the project's own ./mxcli (the same download doctor --install runs; mxtk_ensure_mxbuild);
+# (2) if the gate still cannot run, the write is REFUSED, before anything is touched. Guard
+# rules 6/7 hold — the remedy is performed, not blocked, and ALLOW_UNVERIFIED=1 says out
+# loud "write anyway"; that write then carries no verification stamp, so the pre-commit
+# hook refuses it until ./bin/verify-model.sh has seen it.
+MXBUILD="$(mxtk_ensure_mxbuild "$MPR" || true)"
 # Was: JAVA_HOME=$(/usr/libexec/java_home ...) — a macOS-only binary, so on Windows
 # JAVA_HOME came back empty, JAVA_EXE was the literal "/bin/java", the gate guard
 # below failed its -x test and the entire mxbuild block was skipped on every run.
@@ -301,10 +312,25 @@ JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 # nobody can explain is a skip nobody acts on — which is how Windows machines ran
 # unverified execs for an entire training round.
 if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
-  echo "⚠ mxbuild gate will be SKIPPED — this exec will NOT be model-verified." >&2
-  [ -x "$MXBUILD" ]  || echo "    mxbuild not found/executable: ${MXBUILD:-<none>}   (set MXBUILD_PATH=)" >&2
-  [ -x "$JAVA_EXE" ] || echo "    java not found/executable:    ${JAVA_EXE:-<none>}  (set JAVA_HOME=)" >&2
+  if [ "${ALLOW_UNVERIFIED:-0}" = "1" ]; then
+    echo "⚠ ALLOW_UNVERIFIED=1: mxbuild gate will be SKIPPED — this exec will NOT be model-verified." >&2
+    [ -x "$MXBUILD" ]  || echo "    mxbuild not found/executable: ${MXBUILD:-<none>}   (set MXBUILD_PATH=)" >&2
+    [ -x "$JAVA_EXE" ] || echo "    java not found/executable:    ${JAVA_EXE:-<none>}  (set JAVA_HOME=)" >&2
+  else
+    echo "" >&2
+    echo "✗ REFUSING to exec: the mxbuild gate cannot run on this machine, so nothing could verify the write." >&2
+    [ -x "$MXBUILD" ]  || echo "    mxbuild not found/executable: ${MXBUILD:-<none>}   (MXBUILD_PATH= overrides; bin/doctor.sh --install <project> downloads it)" >&2
+    [ -x "$JAVA_EXE" ] || echo "    java not found/executable:    ${JAVA_EXE:-<none>}  (JAVA_HOME= overrides; install a JDK)" >&2
+    echo "  NOTHING was written to the model. Fix the gate (bin/doctor.sh --install <project>), then re-run." >&2
+    echo "  To write anyway, unverified: ALLOW_UNVERIFIED=1 ./bin/exec.sh $SCRIPT  — the commit hook will then" >&2
+    echo "  refuse the result until ./bin/verify-model.sh has run the gate over it." >&2
+    log_build "✗ refused" "mxbuild gate cannot run (mxbuild: $([ -x "$MXBUILD" ] && echo ok || echo missing), java: $([ -x "$JAVA_EXE" ] && echo ok || echo missing)); nothing written"
+    exit 1
+  fi
 fi
+
+echo "→ Snapshotting model..."
+./bin/snapshot-mpr.sh
 
 # ── JSON reader ──────────────────────────────────────────────────────────────
 # The mxbuild gate reads its verdict out of a JSON errors file, so it needs a
@@ -689,7 +715,22 @@ if [ "$EXEC_STATUS" -ne 0 ]; then
       log_build "⚠️ PARTIAL, UNVERIFIED" "mxcli exec exit $EXEC_STATUS; gate $GATE_STATE; model not verified"
       ;;
   esac
+  # A partial application is never a verified model state, whatever the gate said.
+  [ -x ./bin/model-stamp.sh ] && ./bin/model-stamp.sh clear >/dev/null 2>&1
   exit "$EXEC_STATUS"
+fi
+
+# ── Verification stamp ───────────────────────────────────────────────────────
+# bin/model-stamp.sh records "this exact model state passed the gate"; the pre-commit hook
+# (bin/install-project-hooks.sh) refuses model commits without it. Written ONLY on a clean
+# pass of a fully applied script; every other outcome clears it, because the model on disk
+# is no longer the one anything verified.
+if [ -x ./bin/model-stamp.sh ]; then
+  if [ "$GATE_STATE" = "pass" ] && [ "$EXEC_STATUS" -eq 0 ]; then
+    ./bin/model-stamp.sh write pass "exec.sh $(basename "$SCRIPT")" || true
+  else
+    ./bin/model-stamp.sh clear >/dev/null 2>&1 || true
+  fi
 fi
 
 if [ "$GATE_STATE" = "fail" ]; then
@@ -699,7 +740,8 @@ fi
 if [ "$GATE_STATE" != "pass" ]; then
   echo ""
   echo "⚠️  Script applied to $MPR_BASE, but THE GATE DID NOT RUN ($GATE_STATE)."
-  echo "    Nothing has verified the model. Verify in Studio Pro before continuing."
+  echo "    Nothing has verified the model, and it carries no verification stamp: the commit"
+  echo "    hook will refuse it until ./bin/verify-model.sh has run the gate over it."
   log_build "⚠️ applied, UNVERIFIED" "gate $GATE_STATE — model not verified"
   exit 0
 fi

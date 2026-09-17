@@ -7,6 +7,41 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-17
+- new(gate-must-run): **the mxbuild gate could silently not run and the model still got written,
+  committed and pushed — on any machine, cloud or session.** `project-bin/exec.sh` treated
+  `GATE_STATE=skipped`/`unverified` as exit 0, so a `count()`-as-expression microflow (CE0117,
+  invisible to `mxcli check`, visible only to mxbuild) reached a customer's `master` from a
+  cloud session where mxbuild had never been downloaded. PR #49's Windows fixes repaired the
+  gate's *symptoms* (path mapping, errors-file location, output capture) but left the class
+  intact: an unverifiable gate still wrote. Four layers, each mechanical, none of them a
+  convention: (1) write time — `mxtk_ensure_mxbuild` in `_common.sh` runs
+  `./mxcli setup mxbuild -p` when discovery fails, and `exec.sh` **refuses to write** when the
+  gate still cannot run (`ALLOW_UNVERIFIED=1` to override, `MXTK_NO_INSTALL=1` to skip the
+  download); (2) commit time — new `project-bin/model-stamp.sh` fingerprints the `.mpr` +
+  `mprcontents/` (git blob hashes, working tree and staged), `exec.sh` writes a pass stamp on
+  a green gate and clears it otherwise, new `project-bin/verify-model.sh` is the standalone
+  gate that also stamps, and `project-bin/install-project-hooks.sh` installs a pre-commit
+  hook that refuses a commit touching the model unless the **staged** model is stamped
+  (`MODEL_UNVERIFIED_OK=1` overrides once; the hook chains any pre-existing hook and never
+  blocks the remedy — rules 6/7); (3) session start — new `project-bin/session-check.sh`
+  (stamp state, doctor-receipt freshness, stale installed scripts, hook presence) wired as a
+  Claude Code `SessionStart` hook by `bin/install-claude-permissions.sh`, which now also adds
+  the one `permissions.deny` for bare `mxcli exec`; `sync-project.sh` installs the hook and
+  reports the stale-script class platform-neutrally; (4) discipline — the generated
+  `CLAUDE.local.md` wiring block says every model write goes through `./bin/exec.sh`, and
+  `gate-check.sh` notes an unverified model on disk. `init-project.sh` installs the hook at
+  scaffold. Field run: DealIQ (two-tree layout, `.mpr` under `app/`, root symlinks): the stamp
+  fingerprints `app/DealIQ.mpr` + `app/mprcontents` identically from the working tree and the
+  index; `verify-model.sh` ran mxbuild in 63 s, 0 errors, stamp written and self-gitignored;
+  the hook refused a staged unit change and let the same commit through with the override; with
+  an empty `$HOME` the gate downloaded the 818 MB 11.14.0 toolchain itself and then ran clean;
+  `exec.sh` with mxbuild unreachable refused before the snapshot, wrote nothing, and logged a
+  `refused` BUILD-LOG row. `tests/wave2/test-model-stamp.sh` (27 assertions: fingerprint
+  equality across working tree/staged/symlinked paths, hook refusal and override, foreign-hook
+  chaining, idempotence, settings deny + SessionStart install/uninstall). Overlaps draft #76
+  (doctor `--gate-selftest`) in intent, not in code paths. — DealIQ / Maurits Visser
+
 ## 2026-09-16
 - fix(coverage-preflight.sh): **a build plan's `claims:` blocks inside a fence, with a `(note)`
   suffix, or indented, were silently ignored — only the plainest shape was ever read.**

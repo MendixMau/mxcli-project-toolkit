@@ -27,7 +27,10 @@
 #
 # TS_CLONE can also live in <project>/.ts-sync.env (gitignored; a real local path).
 # The script COMMITS on the receiving side but never pushes — review the snapshot commit,
-# then push it yourself (Team Server auth is a Mendix PAT on the https remote).
+# then push it yourself (Team Server auth is a Mendix PAT on the https remote: the username is
+# the literal string "pat" and the token is the password, fed through GIT_ASKPASS — never in the
+# remote URL, never in argv). Where the token comes from, and what to do when it is not in the
+# environment, is skills/learned-constants-and-secrets.md -> "The Mendix PAT".
 #
 # Guards (each one is a lesson this toolkit already paid for elsewhere):
 #   - source mprcontents/ must hold >0 .mxunit — a consolidated (docker build / run --local)

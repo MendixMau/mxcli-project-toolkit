@@ -7,7 +7,7 @@
 #   ./bin/model-stamp.sh clear                    # forget the stamp (the model changed unverified)
 #   ./bin/model-stamp.sh paths                    # the repo-relative model paths this covers
 #
-# WHY (2026-09-17, DealIQ). exec.sh's mxbuild gate is the only thing that can see a
+# WHY (2026-09-17, field project). exec.sh's mxbuild gate is the only thing that can see a
 # consistency error like CE0117 (`mxcli check` cannot), and exec.sh is the only thing
 # that runs it. Nothing sat between "the model changed" and "the model was committed":
 # a bare `./mxcli exec` wrote nine scripts with no gate at all, exec.sh itself wrote

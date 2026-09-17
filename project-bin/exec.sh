@@ -290,7 +290,7 @@ fi
 # ── Gate must be able to run ─────────────────────────────────────────────────
 # Discovery happens BEFORE the snapshot and the write, because the answer decides whether
 # there is a write at all. Until 2026-09-17 a missing mxbuild produced a warning and the
-# script was applied anyway, "gate=skipped". Nobody acts on a skip: on DealIQ every exec.sh
+# script was applied anyway, "gate=skipped". Nobody acts on a skip: on one field project every exec.sh
 # run in a cloud container skipped, a CE0117 that only mxbuild can see went in, and it
 # reached the Team Server. So now: (1) a missing mxbuild is DOWNLOADED, right here, through
 # the project's own ./mxcli (the same download doctor --install runs; mxtk_ensure_mxbuild);

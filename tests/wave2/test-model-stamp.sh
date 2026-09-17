@@ -6,7 +6,7 @@
 # mxbuild gate. This proves the commit-time backstop discriminates.
 #
 # Runs in a throwaway git repo under /tmp with a two-tree layout (app/App.mpr + symlink at
-# the root, like DealIQ). No mxbuild is needed: the stamp is written by hand here, exactly
+# the root, like the two-tree field project this was proven on). No mxbuild is needed: the stamp is written by hand here, exactly
 # as exec.sh / verify-model.sh write it. What mxbuild sees is verify-model.sh's job and is
 # field-run, not fixtured.
 set -uo pipefail

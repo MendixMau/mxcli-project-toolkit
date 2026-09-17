@@ -163,7 +163,7 @@ RC=$(MODE_BUILD=nofile MODE_BUILD_EXIT=9 run G)
 # ── H: mxbuild absent -> the write is REFUSED before the snapshot ────────────
 # Until 2026-09-17 this case expected exit 0 and an UNVERIFIED row: the script
 # applied the MDL anyway and merely noted that nobody had checked it. That is the
-# path a CE0117 took to the Team Server (DealIQ). Now the gate must be able to
+# path a CE0117 took to the Team Server on a field project. Now the gate must be able to
 # run, or nothing is written — and the refusal is itself a logged row.
 echo "== H: mxbuild missing -> REFUSED, exit 1, nothing written =="
 BEFORE=$(rows)

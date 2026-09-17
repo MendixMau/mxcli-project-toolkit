@@ -4,7 +4,7 @@
 #   ./bin/install-project-hooks.sh           # install/refresh the pre-commit hook
 #   ./bin/install-project-hooks.sh --check   # exit 1 if it is missing or stale
 #
-# WHY (2026-09-17, DealIQ). A model can change without the mxbuild gate ever running — a
+# WHY (2026-09-17, field project). A model can change without the mxbuild gate ever running — a
 # bare `./mxcli exec`, an exec.sh run on a machine with no mxbuild, a Studio Pro save —
 # and until now every such change committed and pushed like any other. The hook refuses
 # a commit that stages model files (the .mpr and mprcontents/) unless bin/model-stamp.sh

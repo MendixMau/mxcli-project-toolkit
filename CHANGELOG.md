@@ -54,8 +54,8 @@ Credit the person or project that surfaced the change — the credit line is the
   reports the stale-script class platform-neutrally; (4) discipline — the generated
   `CLAUDE.local.md` wiring block says every model write goes through `./bin/exec.sh`, and
   `gate-check.sh` notes an unverified model on disk. `init-project.sh` installs the hook at
-  scaffold. Field run: DealIQ (two-tree layout, `.mpr` under `app/`, root symlinks): the stamp
-  fingerprints `app/DealIQ.mpr` + `app/mprcontents` identically from the working tree and the
+  scaffold. Field run on a two-tree field project (`.mpr` under `app/`, root symlinks): the stamp
+  fingerprints that `app/*.mpr` + `app/mprcontents` identically from the working tree and the
   index; `verify-model.sh` ran mxbuild in 63 s, 0 errors, stamp written and self-gitignored;
   the hook refused a staged unit change and let the same commit through with the override; with
   an empty `$HOME` the gate downloaded the 818 MB 11.14.0 toolchain itself and then ran clean;
@@ -66,7 +66,7 @@ Credit the person or project that surfaced the change — the credit line is the
   case H flipped from "mxbuild missing → UNVERIFIED, exit 0" (the very contract that let the
   CE0117 through) to "→ refused, exit 1, no snapshot", with the old expectation kept as case H2
   behind `ALLOW_UNVERIFIED=1`. Overlaps draft #76 (doctor `--gate-selftest`) in intent, not in
-  code paths. — DealIQ / Maurits Visser
+  code paths. — Maurits Visser
 
 ## 2026-09-16
 - fix(coverage-preflight.sh): **a build plan's `claims:` blocks inside a fence, with a `(note)`

@@ -31,7 +31,7 @@
 #
 # THE ONE DENY (2026-09-17): a bare `./mxcli exec` / `mxcli exec`. It is the single command the
 # whole guard chain exists to wrap — no snapshot, no mxbuild gate, no BUILD-LOG row, no
-# verification stamp — and on DealIQ nine scripts went in that way in one week, one carrying a
+# verification stamp — and on one field project nine scripts went in that way in one week, one carrying a
 # CE0117 that only mxbuild can see. Deny beats allow in Claude Code, so the harness itself now
 # refuses the bare form on every machine and every session; `./bin/exec.sh` stays allowed and
 # runs the same mxcli underneath. A skill that genuinely needs the bare form runs it from a

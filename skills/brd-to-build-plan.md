@@ -490,6 +490,40 @@ authoring a row:
   requirement added to the BRD after the plan was written, which is the same failure again.
 - Claiming a container is not a claim. Leaves and counted wildcards only.
 
+### Accepted forms
+
+The `claims:` header and the pointer lines under it may be written any of these ways —
+`project-bin/_claims.sh` (the single reader, wired into `coverage-preflight.sh`) accepts all five.
+Prefer plain; the others exist because real plans use them, most often because an agent copied this
+skill's own worked example above, which is itself inside a fence:
+
+- **plain** — `claims:` on its own line, pointers indented underneath, no fence. The form shown
+  above and the one to write for a new row.
+- **fenced** — a bare ``` ``` ``` fence wraps the whole block and `claims:` is the first line
+  inside it. This is what copy-pasting the worked example above produces.
+- **fenced-under** — `claims:` on its own line, then a ``` ``` ``` fence opens on the next line
+  around the pointers. Older convention, still read.
+- **fenced with a language tag** — ```` ```claims ```` opens the fence directly, with no separate
+  `claims:` line at all.
+- **note** — `claims: (some prose)` — the header line itself carries a parenthetical note;
+  pointers still follow indented underneath, same as plain.
+
+Whichever form is used, one pointer per line, and a pointer is either:
+
+- **leading-slash**: `/pages/0/buildComposition/rowClick` (the form used above), or
+- **BRD-prefixed, no leading slash**: `F001/domainEntities/Dashboard/attributes/Name` — useful
+  when a row claims leaves from more than one BRD and the pointer needs to say which.
+
+A pointer may carry one trailing annotation, always in parentheses:
+
+- a count, digits only — `/a/b/* (7)` — this is the wildcard-count contract above; `expand_claims`
+  in `bin/coverage-check.sh` is the sole authority on what a count expands to, unchanged by this.
+- or a free-text note — `F005/domainEntities/Account (Administration, not created here)` — kept
+  off the pointer and discarded, not treated as a count.
+
+A range, `F001/businessRules/BR001..BR004`, counts as **one** literal pointer — it is not expanded
+into four here; `expand_claims` stays the one place that expansion happens.
+
 A leaf that is real but deliberately not built by any row — deferred to a later slice, descoped,
 blocked on an open question — is not omitted. It goes in the coverage ledger with a category and a
 reason (`coverage-ledger.md` §"Ledger Categories"). Omission is the thing this step exists to stop;

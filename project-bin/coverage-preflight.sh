@@ -87,6 +87,7 @@
 set -uo pipefail
 
 . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/_claims.sh"
 cd "$PROJECT_ROOT" || exit 2
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
@@ -169,34 +170,33 @@ find_plans() {
 }
 
 # ---------------------------------------------------------------------------
-# Claim extraction — the `claims:` block form defined by skills/brd-to-build-plan.md Step 5b:
-#
-#     5 · 05-orders-pages.mdl | Order_List page + supporting microflows
-#     claims:
-#       /pages/0/buildComposition/gridColumns/* (7)
-#       /pages/0/buildComposition/rowClick
-#
-# One pointer cell per line, block ends at the first line that is not a pointer. The row's
-# identity is the nearest preceding non-blank line, which is all a derived ledger needs to say
-# WHICH row claimed a leaf.
+# Claim extraction — the `claims:` block forms defined by skills/brd-to-build-plan.md Step 5b
+# (plain, fenced, fenced-under, fenced-tag, note; see project-bin/_claims.sh for all five).
+# Reading them is project-bin/_claims.sh's job, not this script's: issue #74 was exactly this
+# inline awk only ever handling the plain form, so a plan using any other real-world shape
+# (most commonly: a bare ``` fence wrapping the whole block, `claims:` as its first line —
+# skills/brd-to-build-plan.md's own worked example is written that way) silently measured as
+# zero claims. This wrapper only reshapes _claims.sh's 8-column TSV back down to the 2-column
+# (row, pointer) contract the rest of this script — the derived-ledger writer below — expects,
+# restoring a parsed `(N)` count into the pointer cell so bin/coverage-check.sh's expand_claims
+# still sees exactly what the build plan wrote. Diagnostics (claims-line-unparsed /
+# claims-block-empty) land in $CLAIMS_DIAG_FILE so the caller can tell "no claims blocks were
+# ever opened" apart from "claims blocks opened, nothing usable came out of them."
 # ---------------------------------------------------------------------------
 extract_claims() {
-  awk '
-    function trim(s) { gsub(/^[ \t]+|[ \t]+$/, "", s); return s }
-    /^[ \t]*claims:[ \t]*$/ { inblock = 1; next }
-    /^[ \t]*claims:[ \t]*\// {
-      line = $0; sub(/^[ \t]*claims:[ \t]*/, "", line)
-      print row "\t" trim(line); inblock = 1; next
-    }
-    {
-      if (inblock) {
-        if ($0 ~ /^[ \t]+\//) { print row "\t" trim($0); next }
-        inblock = 0
-      }
-      if (trim($0) != "") { row = trim($0) }
-    }
-  ' "$@"
+  mxtk_extract_claims_tsv "$@" 2>"$CLAIMS_DIAG_FILE" | awk -F'\t' '
+    { ptr = ($6 != "-") ? $5 " (" $6 ")" : $5; print $4 "\t" ptr }
+  '
 }
+
+# ---------------------------------------------------------------------------
+# Scratch dir for this run — created here, before claim extraction, so the claims-block
+# diagnostics (and, later, the LEVEL 2/3 working files that already used $TMPD) share one
+# cleanup trap regardless of which level the run turns out to be.
+# ---------------------------------------------------------------------------
+TMPD="$(mktemp -d "${TMPDIR:-/tmp}/coverage-front.XXXXXX")" || exit 2
+trap 'rm -rf "$TMPD"' EXIT
+CLAIMS_DIAG_FILE="$TMPD/claims-diag.tsv"
 
 # ---------------------------------------------------------------------------
 # Level decision
@@ -206,8 +206,16 @@ BRDS="$(find_brds)"
 PLANS="$(find_plans)"
 NBRD=0; [ -n "$BRDS" ] && NBRD=$(printf '%s\n' "$BRDS" | grep -c .)
 CLAIMS=""
-[ -n "$PLANS" ] && CLAIMS="$(extract_claims $PLANS 2>/dev/null || true)"
+: > "$CLAIMS_DIAG_FILE"
+[ -n "$PLANS" ] && CLAIMS="$(extract_claims $PLANS || true)"
 NCLAIMS=0; [ -n "$CLAIMS" ] && NCLAIMS=$(printf '%s\n' "$CLAIMS" | grep -c .)
+# Did any `claims:`/fence block get opened at all, independent of whether it yielded a usable
+# pointer? This is what separates "the plan predates the claims convention" (nothing to fix but
+# add claims blocks) from "the plan has claims blocks that produced zero pointers" (a parsing
+# problem inside the plan itself — issue #74's LEVEL 3 message used to conflate the two).
+NBLOCKDIAG=0; [ -s "$CLAIMS_DIAG_FILE" ] && NBLOCKDIAG=$(grep -c . "$CLAIMS_DIAG_FILE")
+HAS_CLAIMS_BLOCKS=0
+if [ "$NCLAIMS" -gt 0 ] || [ "$NBLOCKDIAG" -gt 0 ]; then HAS_CLAIMS_BLOCKS=1; fi
 
 if   [ -n "$LEDGER" ];                              then LEVEL=1
 elif [ "$NBRD" -gt 0 ] && [ "$NCLAIMS" -gt 0 ];     then LEVEL=2
@@ -242,11 +250,23 @@ print_assessment() {
        ;;
     3) echo "coverage · LEVEL 3 · NOT MEASURED — a denominator exists, traceability does not"
        print_paths_tried
-       echo "  found instead: $NBRD BRD(s), and ZERO \`claims:\` blocks in:"
-       if [ -n "$PLANS" ]; then printf '    %s\n' $PLANS; else echo "    (no build plan found)"; fi
-       echo "  The build plan predates the \`claims\` convention (skills/brd-to-build-plan.md Step 5b),"
-       echo "  so no requirement leaf can be traced to a row. This is not a pass and not a crash:"
-       echo "  the leaf count below is real, the coverage over it is unknown."
+       if [ "$HAS_CLAIMS_BLOCKS" -eq 1 ]; then
+         echo "  found instead: $NBRD BRD(s), and \`claims:\` block(s) in:"
+         if [ -n "$PLANS" ]; then printf '    %s\n' $PLANS; else echo "    (no build plan found)"; fi
+         echo "  but they parsed to ZERO usable pointers ($NBLOCKDIAG diagnostic record(s))."
+         echo "  This build plan does not predate the \`claims\` convention (skills/brd-to-build-plan.md"
+         echo "  Step 5b) — it has claims blocks that failed to parse. Inspect them directly:"
+         echo "    . project-bin/_claims.sh; mxtk_extract_claims_tsv <plan> >/dev/null"
+         echo "  (stderr prints claims-line-unparsed / claims-block-empty records naming the bad lines)."
+         echo "  This is not a pass and not a crash: the leaf count below is real, the coverage over"
+         echo "  it is unknown until those blocks are fixed."
+       else
+         echo "  found instead: $NBRD BRD(s), and ZERO \`claims:\` blocks in:"
+         if [ -n "$PLANS" ]; then printf '    %s\n' $PLANS; else echo "    (no build plan found)"; fi
+         echo "  The build plan predates the \`claims\` convention (skills/brd-to-build-plan.md Step 5b),"
+         echo "  so no requirement leaf can be traced to a row. This is not a pass and not a crash:"
+         echo "  the leaf count below is real, the coverage over it is unknown."
+       fi
        echo "  To upgrade to LEVEL 2: add a \`claims:\` block under each build-plan row."
        ;;
     4) echo "coverage · LEVEL 4 · NOT APPLICABLE — no pipeline produced a spec for $WHERE"
@@ -283,8 +303,6 @@ if [ -z "$ENGINE" ]; then
 fi
 
 DERIVED_DIR="docs/coverage"
-TMPD="$(mktemp -d "${TMPDIR:-/tmp}/coverage-front.XXXXXX")" || exit 2
-trap 'rm -rf "$TMPD"' EXIT
 
 # ---------------------------------------------------------------------------
 # LEVEL 3 — denominator only.

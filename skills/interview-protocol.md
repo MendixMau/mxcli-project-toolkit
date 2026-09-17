@@ -305,7 +305,8 @@ session remembers. Then record the disposition where the gate reads it, not in p
 `bin/source-ledger.sh mark <project> <Y> --artifact X --by <who>` — the Stage 1 gate performs
 the same grep and refuses a claim that does not hold up. For a source file the register line
 `Waived source <Y>: <reason>` (written by `gate-check.sh --waive source/<Y>`) is the only
-"we are deliberately not reading this" that counts. The same discipline applies one layer up:
+"we are deliberately not reading this" that counts — `<Y>` may be a glob (`*` matches across
+`/`, so `dir/*` and `dir/**` cover the same files). The same discipline applies one layer up:
 an intake answer that says the source cross-checks a schema claim is verified against the
 source, not against the memory of having checked.
 

@@ -40,11 +40,14 @@ the first reason).
 | Non-Claude-agent row | `skills/interview-protocol.md` §3 | same branch |
 | Fit assessment (should we?) | `process/kiro-fit-2026-09-17.html` | merged to the branch |
 | Loop visualisation (how would it work?) | `process/kiro-in-the-loop-2026-09-17.html` | merged to the branch |
+| Developer view (what changes on Monday?) | `process/kiro-same-repo-two-editors-2026-09-17.html` | merged to the branch |
 
-The two HTML pages carry the argument as figures rather than prose: the layer stack,
+The three HTML pages carry the argument as figures rather than prose: the layer stack,
 where each harness's run-permission actually lives, the stage overlap, a three-lane
 swimlane of one build step, the five hook points against the toolkit rules they could
-enforce, and the three postures side by side. Read those before touching this entry —
+enforce, the three postures side by side, and — for the developer who just wants to know
+what changes — the two-editor view, where one line below the editor everything is the
+same clone, the same scripts and the same `.mpr`. Read those before touching this entry —
 they are the design, not a summary of it.
 
 ### Phase A — Kiro as a fifth supported seat

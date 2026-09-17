@@ -74,6 +74,7 @@ protects: you have no Write or Edit tool, and you never run `mxcli exec`.
 | `project-bin/coherence-cadence.sh` | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory |
 | `project-bin/build-plan-status.sh` | After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views |
 | `skills/e2e-evidence-report.md` | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything |
+| `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo — to a customer, prospect or reviewer: relative image paths and "the name shown above" both break the moment the file travels alone, and the usernames a login panel displays are not the ones it accepts |
 | `skills/lint-that-actually-runs.md` | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence |
 | `skills/improvement-register.md` | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend |
 | `skills/journey-examples.md` | Writing an actual .journey.json — the worked field-by-field reference for the contract journey-proof.md argues for |

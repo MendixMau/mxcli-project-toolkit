@@ -55,6 +55,7 @@ and `"DESCRIBE ..."` reads are always fine, and are how you ground every name yo
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
 | `skills/e2e-evidence-report.md` | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything |
 | `skills/record-demo-video.md` | Recording a narrated screen-capture demo of a running app for a human to watch — opening on the app instead of a blank frame, and keeping captions synced to the pixels |
+| `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo — to a customer, prospect or reviewer: relative image paths and "the name shown above" both break the moment the file travels alone, and the usernames a login panel displays are not the ones it accepts |
 | `skills/improvement-register.md` | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend |
 | `skills/journey-examples.md` | Writing an actual .journey.json — the worked field-by-field reference for the contract journey-proof.md argues for |
 | `skills/wiring-sweep.md` | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before |

@@ -14,13 +14,20 @@
 #
 # Never blocks, never exits non-zero: it is a hook, and a hook that fails at session
 # start reads as "the toolkit is broken". It prints, and the session goes on.
+#
+# BOTH LAYOUTS (probed 2026-09-17, toolkit CLAUDE.md rule 2): single-tree (the `.mpr` at the
+# project root) and two-tree (the `.mpr` under `app/`). The model probe below therefore goes
+# through find_mpr from _common.sh, which knows both, instead of globbing for them here.
 . "$(dirname "$0")/_common.sh" 2>/dev/null || exit 0
 cd "$PROJECT_ROOT" 2>/dev/null || exit 0
 
 echo "mxcli-project-toolkit session check ($(basename "$PROJECT_ROOT")):"
 
 # 1. model verification stamp
-if [ -x ./bin/model-stamp.sh ] && ls ./*.mpr ./app/*.mpr >/dev/null 2>&1; then
+# find_mpr resolves the .mpr on either layout and honours MPR_FILE. The probe used to be
+# `ls ./*.mpr ./app/*.mpr`, which exits 2 on a single-tree checkout — there is no ./app/ to
+# glob — so on every single-tree project the stamp check below silently never ran at all.
+if [ -x ./bin/model-stamp.sh ] && find_mpr >/dev/null 2>&1; then
   ./bin/model-stamp.sh check 2>/dev/null || echo "    → model writes go through ./bin/exec.sh; any other change needs ./bin/verify-model.sh before it can be committed"
 fi
 

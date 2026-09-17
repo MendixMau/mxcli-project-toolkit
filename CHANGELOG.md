@@ -48,7 +48,8 @@ Credit the person or project that surfaced the change — the credit line is the
   hook that refuses a commit touching the model unless the **staged** model is stamped
   (`MODEL_UNVERIFIED_OK=1` overrides once; the hook chains any pre-existing hook and never
   blocks the remedy — rules 6/7); (3) session start — new `project-bin/session-check.sh`
-  (stamp state, doctor-receipt freshness, stale installed scripts, hook presence) wired as a
+  (stamp state via `find_mpr` so single-tree and two-tree checkouts are both probed,
+  doctor-receipt freshness, stale installed scripts, hook presence) wired as a
   Claude Code `SessionStart` hook by `bin/install-claude-permissions.sh`, which now also adds
   the one `permissions.deny` for bare `mxcli exec`; `sync-project.sh` installs the hook and
   reports the stale-script class platform-neutrally; (4) discipline — the generated

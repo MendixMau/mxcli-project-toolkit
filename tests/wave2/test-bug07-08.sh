@@ -16,8 +16,9 @@
 #
 # Run it against the PRE-fix script and cases C, E, F, I, J and the #7 block
 # must FAIL — that is the positive control. A suite that has only ever seen the
-# fix cannot show that it discriminates. Cases A, B, D, G, H pass on both; they
-# are regression guards, not discriminators, and are labelled [guard].
+# fix cannot show that it discriminates. Cases A, B, D, G, H2 pass on both; they
+# are regression guards, not discriminators, and are labelled [guard]. Case H
+# (gate cannot run -> refuse) discriminates against every script before 2026-09-17.
 #
 # NOTHING here touches a real .mpr, a real mxcli or a real mxbuild. The fixture
 # is a throwaway git repo in /tmp with stubs for all three.
@@ -94,7 +95,7 @@ ERRS="$P/.mpr-snapshots/last-mxbuild-errors.json"
 
 # run <case-label> — everything else comes from the exported MODE_* vars.
 run() {
-  ( cd "$P" && SKIP_BASELINE=1 SP_RESTART=0 MXBUILD_PATH="${MXB_OVERRIDE:-$WORK/mxbuild}" \
+  ( cd "$P" && SKIP_BASELINE=1 SP_RESTART=0 MXTK_NO_INSTALL=1 MXBUILD_PATH="${MXB_OVERRIDE:-$WORK/mxbuild}" \
       ./bin/exec.sh mdlsource/test.mdl ) >"$WORK/out.$1" 2>&1
   echo $?
 }
@@ -159,12 +160,27 @@ RC=$(MODE_BUILD=nofile MODE_BUILD_EXIT=9 run G)
 [ "$RC" -eq 1 ] && ok "[guard] exit 1" || bad "[guard] exit $RC, expected 1"
 [ "$(rows)" -gt "$BEFORE" ] && ok "[guard] row logged" || bad "no row logged"
 
-# ── H: mxbuild absent -> gate skipped, but the run still succeeds ────────────
-echo "== H: mxbuild missing -> UNVERIFIED, exit 0 =="
+# ── H: mxbuild absent -> the write is REFUSED before the snapshot ────────────
+# Until 2026-09-17 this case expected exit 0 and an UNVERIFIED row: the script
+# applied the MDL anyway and merely noted that nobody had checked it. That is the
+# path a CE0117 took to the Team Server (DealIQ). Now the gate must be able to
+# run, or nothing is written — and the refusal is itself a logged row.
+echo "== H: mxbuild missing -> REFUSED, exit 1, nothing written =="
 BEFORE=$(rows)
 RC=$(MXB_OVERRIDE="$WORK/no-such-mxbuild" run H)
+[ "$RC" -eq 1 ] && ok "exit 1 (refused)" || bad "exit $RC, expected 1 — a missing gate must refuse the write"
+[ "$(rows)" -gt "$BEFORE" ] && ok "refused row logged" || bad "no row logged"
+grep -q 'refused' "$LOG" 2>/dev/null && ok "row says refused" || bad "no 'refused' row in the log"
+grep -q 'REFUSING' "$WORK/out.H" && ok "refusal named on screen" || bad "no REFUSING line on screen"
+grep -q 'Snapshot saved' "$WORK/out.H" && bad "snapshot taken despite refusal" || ok "no snapshot taken"
+
+# ── H2: ALLOW_UNVERIFIED=1 is the explicit "write anyway" — exit 0, UNVERIFIED row
+echo "== H2: mxbuild missing + ALLOW_UNVERIFIED=1 -> UNVERIFIED, exit 0 =="
+BEFORE=$(rows)
+RC=$(ALLOW_UNVERIFIED=1 MXB_OVERRIDE="$WORK/no-such-mxbuild" run H2)
 [ "$RC" -eq 0 ] && ok "[guard] exit 0" || bad "[guard] exit $RC, expected 0"
 [ "$(rows)" -gt "$BEFORE" ] && ok "[guard] UNVERIFIED row logged" || bad "no row logged"
+grep -q 'UNVERIFIED' "$LOG" 2>/dev/null && ok "row says UNVERIFIED" || bad "no UNVERIFIED row"
 
 # ── #7: every row is orderable and carries an explicit gate verdict ──────────
 echo "== #7: ISO-8601 stamps and a gate column that is never blank =="

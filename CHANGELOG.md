@@ -39,8 +39,11 @@ Credit the person or project that surfaced the change — the credit line is the
   `exec.sh` with mxbuild unreachable refused before the snapshot, wrote nothing, and logged a
   `refused` BUILD-LOG row. `tests/wave2/test-model-stamp.sh` (27 assertions: fingerprint
   equality across working tree/staged/symlinked paths, hook refusal and override, foreign-hook
-  chaining, idempotence, settings deny + SessionStart install/uninstall). Overlaps draft #76
-  (doctor `--gate-selftest`) in intent, not in code paths. — DealIQ / Maurits Visser
+  chaining, idempotence, settings deny + SessionStart install/uninstall). `test-bug07-08.sh`
+  case H flipped from "mxbuild missing → UNVERIFIED, exit 0" (the very contract that let the
+  CE0117 through) to "→ refused, exit 1, no snapshot", with the old expectation kept as case H2
+  behind `ALLOW_UNVERIFIED=1`. Overlaps draft #76 (doctor `--gate-selftest`) in intent, not in
+  code paths. — DealIQ / Maurits Visser
 
 ## 2026-09-16
 - fix(coverage-preflight.sh): **a build plan's `claims:` blocks inside a fence, with a `(note)`

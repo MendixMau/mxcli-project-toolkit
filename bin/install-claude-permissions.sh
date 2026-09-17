@@ -166,9 +166,11 @@ if mode == "check":
     if missing or missing_deny or not hook_present(d):
         print("Missing entries in %s:" % settings_path)
         for m in missing:
-            print("  allow: " + m)
-        for m in missing_deny:
-            print("  deny:  " + m)
+            print("  " + m)
+        if missing_deny:
+            print("Missing deny entries (permissions.deny):")
+            for m in missing_deny:
+                print("  " + m)
         if not hook_present(d):
             print("  hooks.SessionStart: " + hook_cmd)
         sys.exit(1)

@@ -1032,6 +1032,22 @@ if [ "$WIRED" -eq 1 ]; then
   fi
 fi
 
+# ── Claude Code permission allow-list: report only, never write ──────────────────────────
+# install-claude-permissions.sh merges the safe-wrapper allow-list into .claude/settings.json
+# at scaffold time (init-project.sh). A project scaffolded before that call existed, or one
+# whose settings.json was hand-edited since, can silently fall out of sync — and unlike the
+# exec-approval item-3 rewrite above, there is no safe way to REPAIR this from sync-project.sh
+# itself: writing to .claude/settings.json here would race a live Claude Code session reading
+# the same file. So this only runs --check and reports what's missing, same as the wire-agents
+# --check probe above; the fix is the one-line re-run this prints.
+if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-claude-permissions.sh" ]; then
+  if ! _PERM_OUT="$("$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" --check 2>&1)"; then
+    warn "$PROJECT_DIR/.claude/settings.json is missing permission entries for the toolkit's safe wrappers (bin/exec.sh and friends) — Claude Code will prompt on every one of those Bash calls, which defeats bin/exec-approval.sh --set auto. Re-run:" \
+         "$SCRIPT_DIR/install-claude-permissions.sh $PROJECT_DIR"
+    echo "$_PERM_OUT" | sed 's/^/   /'
+  fi
+fi
+
 # ── Starlark lint rules ──────────────────────────────────────────────────────────────────
 # Gated on WIRED for the same reason as the crash net: a mistyped path must not scatter
 # .star files into an unrelated directory. Unlike the crash net this is also a REPAIR path,

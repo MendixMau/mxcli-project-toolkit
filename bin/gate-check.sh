@@ -595,6 +595,7 @@ if [ -z "$ENTRY_RAW" ]; then
   fi
 fi
 case "$(printf '%s' "$ENTRY_RAW" | tr '[:upper:]' '[:lower:]')" in
+  *existing*)      ENTRY_MODE="existing-app-change" ;;
   *greenfield*)    ENTRY_MODE="greenfield" ;;
   *requirement*)   ENTRY_MODE="requirements-driven" ;;
   *migration*)     ENTRY_MODE="migration" ;;
@@ -636,6 +637,10 @@ stage_waiver() {
     requirements-driven)
       case "$st" in
         7) printf 'mode|requirements-driven entry mode — no legacy system to cut over from; if legacy data turns up, record a Stage-7 decision and this goes back to being checked (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
+      esac ;;
+    existing-app-change)
+      case "$st" in
+        7) printf 'mode|existing-app entry mode — the app is live and stays live; there is no cutover (existing-app-change.md → Deliverables)\n'; return 0 ;;
       esac ;;
   esac
   return 1

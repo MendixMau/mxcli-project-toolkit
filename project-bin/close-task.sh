@@ -127,7 +127,8 @@ cat <<'TABLE'
 |---|---|
 | A script was executed against the .mpr | `docs/BUILD-LOG.md` (append-only, one entry per exec) |
 | A build-plan step done / blocked / descoped | `architecture/build-plan.md` + the module plan |
-| A decision that constrains future decisions | `PROJECT.md` (with the why) |
+| A gate answer — stage, entry mode, CONFIRMED/ASSUMED, waiver | `PROJECT.md` |
+| A decision a session learned — pattern + why, disposition, open question, slice requirement | `mxcli brain capture … -a @Module.Element`, then `promote` |
 | A lesson true in a *different* project | the shared toolkit's `skills/` (path below) |
 | A confirmed reproducible tool defect | `bug-logs/mxcli-bugs.md` |
 | How the user wants me to work / project context not in code | memory dir + one line in `MEMORY.md` |
@@ -142,6 +143,8 @@ an executed script.
     OVERWRITE docs/progress/RESUME.md   # <= 60 lines: where we are, next actions,
                                         #    do-not-lose, and which file to read for what.
                                         #    This is the ONLY file read after /clear.
+    mxcli brain check -p <app.mpr>      # capture/promote never validate anchors; exit 1 =
+                                        #    a dead anchor. Fix or `brain drop` before commit.
     git commit
     close-task.sh --done      # empties the pending-writes file; PreCompact unblocks
 

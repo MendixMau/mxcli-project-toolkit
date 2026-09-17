@@ -63,12 +63,16 @@ separate from LOOP_TQ because it multiplies event handlers
 in `entities_data` before judging severity: with handlers, this is where the runtime spends
 its minutes.
 
-### LOOP_NESTED: loop in a loop
-`nested_loop_lines` non-empty. Quadratic by construction. Always a finding row, because the
-facts cannot tell which loop a body statement belongs to. The reading decides the
-disposition: an inner loop that only compares in-memory values is `accept` with that reason;
-one that retrieves or calls is the classic N×M and gets a fix slice. Check the outer list
-source first.
+### LOOP_NESTED: loop in a loop. An amplifier, not a finding
+`nested_loop_lines` non-empty. Quadratic by construction **when the bodies do something**, and
+free when they do not, which is why `bin/app-report.sh` no longer scores it as a row of its
+own: it adds +1 to the query or the save in the same microflow instead. Scoring it alone was
+one of the three reasons the first version of the page put 187 of 229 findings in one band.
+
+Write it the same way. A nested loop with nothing scored in either body gets a count under
+Method, not a disposition line. A nested loop around a retrieve or a call is the classic N×M
+and gets a fix slice, on the LOOP_TQ row, with the nesting named as what makes it urgent.
+Check the outer list source first.
 
 ### REST_IN_LOOP: an HTTP call per iteration
 `REST_CALL` inside the loop. Latency per iteration is now the remote system's, and its rate
@@ -103,13 +107,30 @@ queue per item, never per-iteration transaction control.
 by a user's patience; from a live scheduled event it runs on the full table at 03:00 with
 nobody watching, and two overlapping runs are how a nightly job becomes a permanent one. Any
 finding on an enabled-reachable microflow is written first and sized first. Reach only through
-`_disabled` events is dormant: note it in the row, do not raise severity for it.
+`_disabled` events is a loaded gun, not a fire: it scores +1 and can reach `medium`, and it can
+never on its own make a finding `high`, because nothing is running it today. Note the event by
+name in the row, so that switching it on is a decision somebody makes with this in front of them.
+
+## Say what a loop body is, in the section, in words
+
+The reader of section 4 is a Mendix developer who has never seen this tool, or a manager who
+reads the first screen. The first real reader of the rendered page got as far as `LOOP_TQ` and
+asked what a loop body was. Open the section with the sentence and then use the codes:
+
+> A loop repeats a set of actions once for each item in a list. The loop body is the actions
+> inside it, so anything there runs once per item: with 10,000 items it runs 10,000 times.
+
+Then never print a code without its plain name beside it. `LOOP_TQ` is "a database query inside
+a loop". `LOOP_COMMIT_DEFERRED` is "a save inside a loop". `catalog_undercount` is "loops the
+catalog cannot see, which is expected". The renderer holds all of them in its `TERMS` table and
+its test fails if a code can reach the page without a sentence; a hand-written section owes the
+reader the same.
 
 ## How to write the section
 
 One table, sorted worst first by the severity score in `skills/app-analysis.md` (pattern class
-+ scheduled reach + blast radius), which puts an enabled-scheduled row above the same pattern
-in a quiet module. Columns: severity, finding id, microflow, module, pattern, evidence
++ scheduled reach + amplifiers, under the amplifier ceiling), which puts an enabled-scheduled
+row above the same pattern in a quiet module. Columns: severity, finding id, microflow, module, pattern, evidence
 (`mdl/<qn>.mdl:<line>`), scheduled events, disposition ref. `bin/app-report.sh` scores the same
 findings independently from the facts and prints its own list above yours; where the two
 disagree, one of you read something the other did not, so reconcile before publishing. Below the table, one paragraph on the shape: how many loop microflows, how many with
@@ -118,6 +139,13 @@ and no other key, and no nested loop), the parse mismatches and the `catalog_und
 
 State every pattern that scored zero as a checked fact with its method, never by leaving the
 row out: "parser found REST calls in 9 microflows, none inside a loop body: REST_IN_LOOP = 0".
+
+**And say what the absence means.** REST_IN_LOOP and END_TRANSACTION are the two patterns that
+take a Mendix runtime down. On the R&D app both were zero, and the section still read as an
+emergency because 229 findings sat above them. Write the proportion in the first paragraph:
+how many loop microflows there are, how many loop bodies do nothing worth scoring, how many
+findings an enabled timer actually reaches, and that the two worst patterns were looked for and
+not found. A count without a denominator overstates every time.
 
 Loops inside marketplace modules are accepted, not dispositioned as own work. Give the count
 one line under Method; the third column of `loops-candidates.tsv` is the module kind.
@@ -133,8 +161,8 @@ Keep the reading honest:
 
 ## Verdict for the section
 
-- `fail`: any LOOP_TQ, LOOP_COMMIT_DEFERRED, REST_IN_LOOP, END_TRANSACTION or LOOP_NESTED
-  without a decision (`later, undecided` is not one).
+- `fail`: any LOOP_TQ, LOOP_COMMIT_DEFERRED, REST_IN_LOOP or END_TRANSACTION without a
+  decision (`later, undecided` is not one). LOOP_NESTED on its own is not one of these.
 - `manual`: no open finding, but LOOP_CALL rows remain unread. Say how many under Method.
   `fail` wins over `manual` when both hold.
 - `pass`: none, or all decided, and every LOOP_CALL row read or closed.

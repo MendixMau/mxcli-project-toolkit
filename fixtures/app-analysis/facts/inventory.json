@@ -1,10 +1,301 @@
-{"project": {"mpr": "PurchaseRequests.mpr", "name": "PurchaseRequests", "mendix_version": "11.12.0", "mxcli": "mxcli version v0.21.0 (fixture)"},
- "totals": {"modules": 6, "modules_own": 3, "modules_marketplace": 2, "entities": 24, "microflows": 40, "nanoflows": 5, "pages": 18, "activities": 900, "refs": 400, "scheduled_events": 1},
+{
+ "project": {
+  "mpr": "PurchaseRequests.mpr",
+  "name": "PurchaseRequests",
+  "mendix_version": "11.12.0",
+  "mxcli": "mxcli version v0.21.0 (fixture)"
+ },
+ "totals": {
+  "modules": 16,
+  "modules_own": 13,
+  "modules_marketplace": 2,
+  "entities": 54,
+  "microflows": 90,
+  "nanoflows": 5,
+  "pages": 38,
+  "activities": 900,
+  "refs": 400,
+  "scheduled_events": 1
+ },
  "modules": [
-  {"name": "Orders", "kind": "own", "source": "", "marketplace_version": "", "marketplace_guid": "", "entities": {"PERSISTENT": 12, "NON_PERSISTENT": 2}, "entities_total": 14, "microflows": 22, "nanoflows": 2, "pages": 9, "loop_activities": 4, "microflows_25plus_activities": 1, "entities_20plus_attributes": 1},
-  {"name": "Suppliers", "kind": "own", "source": "", "marketplace_version": "", "marketplace_guid": "", "entities": {"PERSISTENT": 6}, "entities_total": 6, "microflows": 10, "nanoflows": 1, "pages": 5, "loop_activities": 0, "microflows_25plus_activities": 0, "entities_20plus_attributes": 0},
-  {"name": "Approvals", "kind": "own", "source": "", "marketplace_version": "", "marketplace_guid": "", "entities": {"PERSISTENT": 4}, "entities_total": 4, "microflows": 8, "nanoflows": 2, "pages": 4, "loop_activities": 0, "microflows_25plus_activities": 0, "entities_20plus_attributes": 0},
-  {"name": "CommunityCommons", "kind": "marketplace", "source": "Marketplace v11.0.0", "marketplace_version": "11.0.0", "marketplace_guid": "", "entities": {}, "entities_total": 0, "microflows": 0, "nanoflows": 0, "pages": 0, "loop_activities": 0, "microflows_25plus_activities": 0, "entities_20plus_attributes": 0},
-  {"name": "Atlas_Core", "kind": "framework", "source": "Marketplace v3.0.0", "marketplace_version": "3.0.0", "marketplace_guid": "", "entities": {}, "entities_total": 0, "microflows": 0, "nanoflows": 0, "pages": 0, "loop_activities": 0, "microflows_25plus_activities": 0, "entities_20plus_attributes": 0},
-  {"name": "System", "kind": "framework", "source": "", "marketplace_version": "", "marketplace_guid": "", "entities": {"PERSISTENT": 8}, "entities_total": 8, "microflows": 0, "nanoflows": 0, "pages": 0, "loop_activities": 0, "microflows_25plus_activities": 0, "entities_20plus_attributes": 0}],
- "scheduled_events": [{"QualifiedName": "Orders.SE_NightlySync", "ModuleName": "Orders", "Microflow": "Orders.SUB_SyncOrderLines", "Enabled": 1, "IntervalSeconds": 86400, "RepeatDescription": "daily"}]}
+  {
+   "name": "Orders",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 12,
+    "NON_PERSISTENT": 2
+   },
+   "entities_total": 14,
+   "microflows": 22,
+   "nanoflows": 2,
+   "pages": 9,
+   "loop_activities": 4,
+   "microflows_25plus_activities": 1,
+   "entities_20plus_attributes": 1
+  },
+  {
+   "name": "Suppliers",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 6
+   },
+   "entities_total": 6,
+   "microflows": 10,
+   "nanoflows": 1,
+   "pages": 5,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Approvals",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 4
+   },
+   "entities_total": 4,
+   "microflows": 8,
+   "nanoflows": 2,
+   "pages": 4,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Billing",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 3
+   },
+   "entities_total": 3,
+   "microflows": 5,
+   "nanoflows": 0,
+   "pages": 2,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Catalog",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 3
+   },
+   "entities_total": 3,
+   "microflows": 5,
+   "nanoflows": 0,
+   "pages": 2,
+   "loop_activities": 1,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Invoicing",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 3
+   },
+   "entities_total": 3,
+   "microflows": 5,
+   "nanoflows": 0,
+   "pages": 2,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Notifications",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 3
+   },
+   "entities_total": 3,
+   "microflows": 5,
+   "nanoflows": 0,
+   "pages": 2,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Pricing",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 3
+   },
+   "entities_total": 3,
+   "microflows": 5,
+   "nanoflows": 0,
+   "pages": 2,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Reporting",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 3
+   },
+   "entities_total": 3,
+   "microflows": 5,
+   "nanoflows": 0,
+   "pages": 2,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Shipping",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 3
+   },
+   "entities_total": 3,
+   "microflows": 5,
+   "nanoflows": 0,
+   "pages": 2,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Tax",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 3
+   },
+   "entities_total": 3,
+   "microflows": 5,
+   "nanoflows": 0,
+   "pages": 2,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Users",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 3
+   },
+   "entities_total": 3,
+   "microflows": 5,
+   "nanoflows": 0,
+   "pages": 2,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Warehouse",
+   "kind": "own",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 3
+   },
+   "entities_total": 3,
+   "microflows": 5,
+   "nanoflows": 0,
+   "pages": 2,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "CommunityCommons",
+   "kind": "marketplace",
+   "source": "Marketplace v11.0.0",
+   "marketplace_version": "11.0.0",
+   "marketplace_guid": "",
+   "entities": {},
+   "entities_total": 0,
+   "microflows": 0,
+   "nanoflows": 0,
+   "pages": 0,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "Atlas_Core",
+   "kind": "framework",
+   "source": "Marketplace v3.0.0",
+   "marketplace_version": "3.0.0",
+   "marketplace_guid": "",
+   "entities": {},
+   "entities_total": 0,
+   "microflows": 0,
+   "nanoflows": 0,
+   "pages": 0,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  },
+  {
+   "name": "System",
+   "kind": "framework",
+   "source": "",
+   "marketplace_version": "",
+   "marketplace_guid": "",
+   "entities": {
+    "PERSISTENT": 8
+   },
+   "entities_total": 8,
+   "microflows": 0,
+   "nanoflows": 0,
+   "pages": 0,
+   "loop_activities": 0,
+   "microflows_25plus_activities": 0,
+   "entities_20plus_attributes": 0
+  }
+ ],
+ "scheduled_events": [
+  {
+   "QualifiedName": "Orders.SE_NightlySync",
+   "ModuleName": "Orders",
+   "Microflow": "Orders.SUB_SyncOrderLines",
+   "Enabled": 1,
+   "IntervalSeconds": 86400,
+   "RepeatDescription": "daily"
+  }
+ ]
+}

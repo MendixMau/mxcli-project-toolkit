@@ -1,11 +1,50 @@
-{"schema": "app-facts/1", "generated": "2026-09-15T12:00:00+02:00", "mpr": "PurchaseRequests.mpr", "mpr_sha256_16": "0000000000000000",
+{
+ "catalog": {
+  "activities": 900,
+  "build_mode": "full",
+  "modules": 16,
+  "refs": 400
+ },
+ "generated": "2026-09-15T12:00:00+02:00",
+ "mpr": "PurchaseRequests.mpr",
+ "mpr_sha256_16": "0000000000000000",
  "mxcli": "mxcli version v0.21.0 (fixture)",
- "catalog": {"modules": 6, "refs": 400, "activities": 900, "build_mode": "full"},
- "timings_s": {"catalog_and_graph_report": 8, "inventory_and_dependencies": 1, "loops": 6, "total": 15},
- "options": {"workers": 4, "max_loops": 0},
+ "options": {
+  "max_loops": 0,
+  "workers": 4
+ },
+ "schema": "app-facts/1",
  "sections": {
-  "inventory": {"status": "pass", "file": "inventory.json"},
-  "dependencies": {"status": "pass", "file": "dependencies.json"},
-  "loops": {"status": "pass", "file": "loops.json", "reason": "described 4 of 4; 0 failed", "candidates": 4, "described": 4, "failed": 0, "parse_mismatch": 1},
-  "security": {"status": "fault", "reason": "not collected by this version of app-facts.sh"},
-  "lint_baseline": {"status": "fault", "reason": "run project-bin/lint-gate.sh separately; not folded in yet"}}}
+  "dependencies": {
+   "file": "dependencies.json",
+   "status": "pass"
+  },
+  "inventory": {
+   "file": "inventory.json",
+   "status": "pass"
+  },
+  "lint_baseline": {
+   "reason": "run project-bin/lint-gate.sh separately; not folded in yet",
+   "status": "fault"
+  },
+  "loops": {
+   "candidates": 6,
+   "described": 6,
+   "failed": 0,
+   "file": "loops.json",
+   "parse_mismatch": 1,
+   "reason": "described 6 of 6; 0 failed",
+   "status": "pass"
+  },
+  "security": {
+   "reason": "not collected by this version of app-facts.sh",
+   "status": "fault"
+  }
+ },
+ "timings_s": {
+  "catalog_and_graph_report": 8,
+  "inventory_and_dependencies": 1,
+  "loops": 6,
+  "total": 15
+ }
+}

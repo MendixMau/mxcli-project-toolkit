@@ -120,25 +120,72 @@ axis as the other: "the report says fail" is a statement about the document.
 
 A property of a finding, not of a section. Four words, the ones the expert-services reviews
 already use: `critical`, `high`, `medium`, `low`. Score = pattern class + scheduled reach +
-blast radius, and 6 is critical, 4 to 5 high, 2 to 3 medium, 1 and under low.
+amplifiers, and 6 or more is critical, 4 to 5 high, 2 to 3 medium, 1 and under low.
 
 | input | weight |
 |---|---|
-| `REST_IN_LOOP`, `END_TRANSACTION`, `DEP_TANGLE` | 3 |
-| `LOOP_TQ`, `LOOP_COMMIT_DEFERRED`, `DEP_PAIR` | 2 |
-| `LOOP_NESTED`, `DEP_COHESION`, `DEAD_CANDIDATES` | 1 |
-| reachable from an **enabled** scheduled event | +2 |
+| `REST_IN_LOOP`, `END_TRANSACTION` | 4 |
+| `DEP_TANGLE` | 3 |
+| `DEP_PAIR` | 2 |
+| `LOOP_TQ`, `LOOP_COMMIT_DEFERRED`, `DEP_COHESION`, `DEAD_CANDIDATES` | 1 |
+| reachable from an **enabled** scheduled event | +3 |
 | reachable only from a disabled one | +1 |
-| the module is depended on by `WIDE_BLAST_INBOUND` (6) or more own modules | +1 |
-| a tangle, always +1, and +1 again at `WIDE_BLAST_INBOUND` members or more | +1 or +2 |
+| amplifier: the loop sits inside another loop | +1 |
+| amplifier: the same statement `REPEAT_IN_BODY` (3) or more times in one loop body | +1 |
+| amplifier: `WIDE_BLAST_MODULES` (10) or more distinct own modules reference this module | +1 |
+| a tangle, always +1, +1 again at `WIDE_BLAST_MODULES` members, +1 again at `BIG_TANGLE_PCT` of own modules | +1 to +3 |
 
-Three inputs, all already collected, none of them an opinion: what the statement costs per
-iteration, whether anything runs it unattended, how many modules feel it. `bin/app-report.sh`
-does the arithmetic and prints the derivation under the fix-first table; the weights live in
-this table. Change them in both places or the page stops matching the skill.
+**And one ceiling, which is what makes the bands mean anything.** Amplifiers alone never reach
+`high`: a finding caps at `AMPLIFIER_CEILING` (3, the top of the medium band) unless an
+**enabled** scheduled event runs it today, or every turn of the loop costs a network round trip
+or a transaction. A switched-off timer is a loaded gun and scores a medium; nothing is running
+it. Without that ceiling the model puts almost everything in one band, which is what the first
+version of this page did on a 107-module app: 0 critical, 14 high, 187 medium, 28 low.
+
+**`LOOP_NESTED` is not a finding.** A loop inside a loop with nothing in either body costs
+nothing. It multiplies whatever the bodies do, so it is an amplifier of the query or the save
+in the same microflow, and it is reported as a count, never as its own row.
+
+**Blast radius counts MODULES, not references.** `cohesion.inbound_edges` in the facts is a
+reference weight and runs into the thousands; the number that matters is how many distinct own
+modules reference this one, which cannot exceed the own-module count. Reading the first as the
+second is how an early version of the page claimed a module was "depended on by 1707 others"
+in an app with 73 own modules. `bin/app-report.sh` derives the module count from
+`dependencies.json` `edges`.
+
+None of these inputs is an opinion: what the statement costs per turn of the loop, whether
+anything runs it unattended today, and what multiplies it. `bin/app-report.sh` does the
+arithmetic and prints the derivation under the fix-first table; the weights live in this table.
+Change them in both places or the page stops matching the skill.
 
 A severity is never a decision. A `critical` finding with `accept · owner · reason` is a closed
 line and still critical; that is the point of keeping the two axes apart.
+
+### Zero is a result, and it has to be on the page
+
+The two patterns that actually take a Mendix runtime down, a web service call inside a loop and
+transaction control inside a loop, were both **absent** on the R&D app, and the first version of
+the page rendered each of them as an unlabelled `0` tile among fourteen others. A reader counting
+229 findings concluded the app was on fire. It was not.
+
+So every check the renderer runs appears as a row whether it found something or nothing, with
+the count, what the number means, and the method that produced it. Write the dossier the same
+way: a section that found nothing says what it looked for, over how many documents, and that it
+found none. An absent row reads as "not checked" to everyone who did not run the tool.
+
+State proportionality in the same breath as the count. "229 findings" is not a finding;
+"eight things to read, one structural decision, and a backlog of 106" is.
+
+### Plain language is not optional
+
+Assume a competent Mendix developer who has never seen this tool, and a manager who reads the
+first screen and stops. Every code the page can print carries its own sentence, in the page,
+where the reader meets it: `bin/app-report.sh` holds them in `TERMS` and renders them as a
+glossary section plus a plain name next to every code in every finding table. The word the whole
+loop section rests on is **loop body**, and the page defines it before it uses it. A reader of
+the first version got as far as `LOOP_TQ` and had to ask what a loop body was. That is a defect
+in the report, not in the reader. The test `tests/wave2/test-app-report.sh` fails if a code can
+reach the page without a sentence.
 
 The renderer takes the worse of instrument status and your verdict: a dossier `skipped` always
 stands; an instrument `fault` or `partial` beats a dossier `pass`; a section missing from the
@@ -161,7 +208,10 @@ Defaults come from four probe projects (62 to 2,700 microflows); starting points
 | `MAX_FANOUT_MODULES` | 6 | dependency: a module depending on more own modules than this is a hub |
 | `LOOP_DB_CALLS_MAX` | 0 | loops: any database retrieve, commit, delete or REST call inside a loop body is a finding |
 | `MAX_PARSE_MISMATCH_PCT` | 5 | loops: above this share of microflows where the parser found fewer loops than the catalog (`parse_mismatch`), section is `fault` |
-| `WIDE_BLAST_INBOUND` | 6 | severity: a module depended on by this many own modules or more adds +1 to every finding inside it |
+| `WIDE_BLAST_MODULES` | 10 | severity: this many DISTINCT own modules referencing a module or more adds +1 to every finding inside it |
+| `REPEAT_IN_BODY` | 3 | severity: the same statement this many times in one loop body adds +1 |
+| `BIG_TANGLE_PCT` | 25 | severity: a tangle covering this share of own modules adds a further +1 and becomes the page's structural finding |
+| `AMPLIFIER_CEILING` | 3 | severity: the highest score amplifiers alone may produce, so nesting, repetition and blast radius never make a finding `high` on their own |
 
 ## Section rules
 
@@ -249,6 +299,12 @@ decided otherwise.
 
 - `skills/module-dependency-review.md`, `skills/microflow-loop-antipatterns.md` (the judgement)
 - `skills/existing-app-assurance.md` (the à-la-carte audit this dossier is the map for)
-- `skills/existing-app-change.md` (the change slice that reads the dossier first)
+- `skills/existing-app-change.md` (the change slice, whose Stage 0 blast radius covers the same
+  ground this dossier already measured). **Not yet wired, as of 2026-09-16.** Neither of those two
+  files mentions the dossier, the facts or this skill, so nothing reads what this produces except
+  `bin/app-report.sh`. The change slice still recomputes its blast radius by hand. Until that is
+  joined, a dossier finding reaches a change slice only because a person carried it, and this
+  section describes an intended relationship, not an implemented one. Do not write a skill
+  description that claims otherwise.
 - `skills/lint-that-actually-runs.md`, `skills/report-schema.md`, `skills/measured-claims.md`
 - `skills/skills-over-scripts.md`: the instrument fetches, this file judges; keep it that way

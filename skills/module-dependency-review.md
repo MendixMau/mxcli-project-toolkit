@@ -50,9 +50,24 @@ One paragraph of shape, then five tables. Numbers come straight from `dependenci
 
 Severity for each of these comes from the table in `skills/app-analysis.md`: a tangle scores
 higher than a bidirectional pair, which scores higher than low cohesion, and any of them gains
-+1 when the module is depended on by `WIDE_BLAST_INBOUND` (6) or more own modules. `inbound` in
-the cohesion table IS that blast radius, which is why it is worth reading before the cohesion
-percentage. Carry the severity as the first column of each finding table.
++1 when `WIDE_BLAST_MODULES` (10) or more **distinct own modules** reference it. Carry the
+severity as the first column of each finding table.
+
+**`inbound_edges` in the cohesion table is NOT that count.** It is a reference weight: how many
+individual references point at the module, which on a real app runs into the thousands. The
+blast radius is how many distinct own modules those references come from, which cannot exceed
+the own-module count, and you derive it by counting rows in `edges` with that module as `to`.
+Reading the first as the second is how the rendered page once told a reader that a module in a
+73-module app was "depended on by 1707 others". Say "1707 references from 33 modules" and the
+sentence is both true and useful.
+
+**A tangle that covers a quarter or more of the own modules is not a row like the other rows.**
+`BIG_TANGLE_PCT` (25) is where it stops being a defect somebody forgot to fix and becomes a
+decision about how the app is built: none of those modules can be tested, versioned, reused or
+handed to another team on its own, and no amount of loop fixing changes it. Write it first, in
+words, with the share of the app it covers, before any loop finding. On the R&D app it was 52
+of 73 own modules, 71 percent, and it rendered as one row among 229, which is how a structural
+decision gets read as a backlog item.
 
 ## How to judge
 

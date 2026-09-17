@@ -1,1 +1,1 @@
-{"Orders.SUB_SyncOrderLines": 1, "Orders.SUB_MarkSent": 1, "Orders.SUB_Truncated": 2, "Orders.SUB_TxPerItem": 1, "Orders.SUB_DrainQueue": 1}
+{"Catalog.SUB_Reprice": 1, "Orders.SUB_DrainQueue": 1, "Orders.SUB_MarkSent": 1, "Orders.SUB_SyncOrderLines": 1, "Orders.SUB_Truncated": 2, "Orders.SUB_TxPerItem": 1}

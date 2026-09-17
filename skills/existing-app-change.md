@@ -153,13 +153,25 @@ end — a regression found three modules later costs the same to fix and much mo
 
 ## Coverage in this mode
 
-`coverage-ledger.md`'s denominator is **the slice's BRD leaves**, never the app's. This is the one
-number most likely to be read as more than it is.
+The ledger in this mode is `mxcli brain plan`, not a hand-kept `coverage-ledger.md`. Each BRD leaf
+is captured as a requirement of the slice with a **forward** anchor at the element that will
+satisfy it:
 
-State it in the ledger header, in these terms: *"N leaves across M BRDs, covering the click-and-collect
-change and its blast radius. The remaining 14 modules of this app have no BRD and are not claimed by
-this ledger."* A ledger that says `100% covered` without that sentence is telling the reader the app is
-fully specified, and it is not.
+```bash
+mxcli brain capture "Admins can archive a user group from the overview" \
+  --slice 03-usergroups-archive -a @UserGroups.ACT_UserGroup_Archive -p app.mpr
+```
+
+`brain plan` then reports `BUILT n · PLANNED m` per slice, derived by resolving those anchors
+against the model. There is no status column to update and none to go stale; building the thing
+is what moves the number. The denominator is the slice by construction, because the slice *is*
+the shard.
+
+That does not remove the duty to say what is **not** claimed. Put it in the slice's first entry,
+in these terms: *"N requirements covering the click-and-collect change and its blast radius. The
+remaining 14 modules of this app have no requirements here and are not claimed by this plan."*
+`BUILT 12 · PLANNED 0` without that sentence tells the reader the app is fully specified, and it
+is not.
 
 `existing-app-assurance.md` documents four fallback levels for a missing ledger and calls **Level 4 ·
 NOT APPLICABLE** the normal state for an audited app. In this mode the changed modules move up to a
@@ -170,7 +182,8 @@ it is the only entry mode where that is true.
 
 ## Deliverables
 
-- `PROJECT.md` — decision register, entry mode `CONFIRMED`, blast radius confirmed, Stage 7 marked N/A with its reason.
+- `PROJECT.md` — gate register: entry mode `Change an existing app` `CONFIRMED`, blast radius confirmed, Stage 7 marked N/A with its reason.
+- `docs/brain/` — `mxcli brain init` run once; the slice under `plan/`, and the as-is facts nobody wrote down captured as decisions anchored to the modules they are about. `brain check` green at every commit.
 - `triage.md` — slice + blast radius, signed off.
 - Knowledge base — Path D, scoped, with counts recorded: modules, and per in-scope module the entity, page and microflow totals `SHOW …` returned, so a reader can see the slice against the app.
 - BRDs for the changed slice, each with as-is and to-be — and one line saying how many capabilities were *not* BRD'd and why.

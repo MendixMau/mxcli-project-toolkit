@@ -6,10 +6,16 @@ previews what's next, asks 2 intelligence-driven questions + 1 open question per
 
 **Relationship to `conversion-runbook.md`:** checkpoints are the *mechanism* that implements the
 runbook's interview protocol (§1) at each gate — the 2+1 question structure is how "propose with
-evidence, then ask" runs in practice. There is **one** decision register: `PROJECT.md` (the
-runbook's, scaffolded by `bin/init-project.sh`). Checkpoints write to it; they do not keep a
-separate state file. At a `✋` gate, answers must land as `CONFIRMED` — `ASSUMED` defaults are
-only allowed at soft gates.
+evidence, then ask" runs in practice. There are **two** registers, split by who asked.
+`PROJECT.md` (the runbook's, scaffolded by `bin/init-project.sh`) holds what a **gate** asked:
+stage, entry mode, every `CONFIRMED`/`ASSUMED` answer, waivers, opt-in artifacts, toolkit commit —
+the process state `gate-check.sh` and `checkpoint.sh` read. `docs/brain/` (`mxcli brain`) holds
+what a **session** learned: a pattern chosen and why, a disposition, an open question outside a
+gate, a slice requirement — each anchored into the model so `mxcli brain check` fails when the
+anchor dies, and sharded per module so a session loads only the modules it touches. The test:
+*if a gate asked it, `PROJECT.md`; if a session learned it, brain.* Checkpoints write to
+`PROJECT.md`; they do not keep a separate state file. At a `✋` gate, answers must land as
+`CONFIRMED` — `ASSUMED` defaults are only allowed at soft gates.
 
 ---
 
@@ -117,6 +123,12 @@ After the user answers, record every decision in `PROJECT.md` under `## Decision
 per `conversion-runbook.md` §1 step 6). Unanswered open questions go to `PROJECT.md` →
 `## Open questions`, not silently dropped. If a BRD or mx-brd file is already open, propagate
 relevant answers into `mendixNotes` or `openQuestions[].answer` fields.
+
+A gate answer that is also a modelling decision — "orders are committed by Finance, not Sales" —
+is captured in brain as well, anchored: `mxcli brain capture "…" -a @Finance.ACT_Post -p app.mpr`,
+then promoted. The `PROJECT.md` row carries the brain id. That is a link, not a copy: the status
+word lives in `PROJECT.md`, the why lives in brain, and `brain check` will say when the anchor is
+gone.
 
 Never re-ask a resolved decision in a later stage — **but skipping has two conditions**:
 (1) the recorded decision was answered by the user in chat (an agent-recorded `CONFIRMED` the

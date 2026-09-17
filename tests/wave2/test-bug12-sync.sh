@@ -13,6 +13,11 @@
 export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-fixture-denylist.$$"
 trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"' EXIT
 
+# This fixture runs sync-project.sh FROM a feature-branch checkout of the toolkit itself, so
+# the 2026-09-16 stale-clone check would warn on every run here — true of the checkout, never
+# of the PROJECT under test. Skip that check; real users never set this.
+export MXTK_SYNC_SKIP_CLONE_CHECK=1
+
 set -uo pipefail
 
 SYNC="${1:?usage: test-bug12-sync.sh /path/to/sync-project.sh}"
@@ -72,9 +77,9 @@ OUT="$("$SYNC" "$P" --strict 2>&1)"; RC=$?
 A="$(fingerprint "$P")"
 [ "$B" = "$A" ] && ok "pristine project unmodified" || bad "pristine project was WRITTEN to"
 if [ "$RC" -eq 0 ] && ! printf '%s' "$OUT" | grep -q '⚠️'; then
-  ok "no false alarm on a pristine project (exit 0)"
+  ok "no false alarm on a pristine project (exit 0, no warnings)"
 else
-  bad "false alarm on a pristine project (exit $RC)"
+  bad "false alarm on a pristine project (exit $RC)" "$OUT"
 fi
 
 echo "== T1: a MISSING crash-net script is installed =="

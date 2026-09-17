@@ -183,6 +183,7 @@ Every gate decision lands here as \`CONFIRMED\` or \`ASSUMED\`, never silently d
 **Stage P — Kickoff**, in progress.
 
 ${TOOLKIT_COMMIT_LINE}
+Exec approval: auto
 
 <!-- The bold line above is a READOUT: bin/gate-check.sh rewrites it on every full run from the
      verdicts it just produced (first stage neither PASS nor WAIVED). Do not edit it by hand.
@@ -285,12 +286,16 @@ The toolkit's rules change; your memory of them is stale by default. At the star
 session that will touch the pipeline:
 
 1. \`git -C $TOOLKIT_ROOT pull --ff-only\`
-2. \`$TOOLKIT_ROOT/bin/status.sh <project-root> --brief\` — three lines: where the project is,
+2. If \`git -C $TOOLKIT_ROOT branch --show-current\` isn't \`master\`, or the pull above could not
+   fast-forward, say so before trusting anything you read from the clone — a session on a stale
+   or non-master toolkit branch can re-stamp a rule master already replaced (real incident,
+   2026-09-16). \`bin/sync-project.sh\` reports the same check on every sync.
+3. \`$TOOLKIT_ROOT/bin/status.sh <project-root> --brief\` — three lines: where the project is,
    what is done and overdue, and the ONE next action. Post them in chat as the session's first
    message; they are the position of record, never your memory of last session. It runs
    \`gate-check.sh\` underneath, which reports protocol freshness — run gate-check itself when
    you need the per-stage detail.
-3. If it says an update is available, **you (the agent) handle it — never ask the user to type
+4. If it says an update is available, **you (the agent) handle it — never ask the user to type
    a command.** Run \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> --ack-protocol --verbose\`,
    which shows what changed and **records nothing**. Re-read the named files. Then tell the user
    in plain language what changed and what it means for what they are building, and ask whether
@@ -298,7 +303,7 @@ session that will touch the pipeline:
    \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> --ack-protocol --approved-in-chat\` — that
    rewrites the \`Toolkit commit:\` line in \`PROJECT.md\` and records which files, how many
    lines, and that it was approved in chat, in \`docs/BUILD-LOG.md\`.
-4. State in chat which commit you're working from.
+5. State in chat which commit you're working from.
 
 An ack asserts a human was told what changed, so it cannot happen unattended: without a TTY and
 without \`--approved-in-chat\` it refuses and names the routes out. \`--approved-in-chat\` is a
@@ -403,17 +408,20 @@ fi
   echo "  $SCRIPT_DIR/wire-agents.sh $PROJECT_DIR"
 }
 
-# ── Claude Code permission allow-list ────────────────────────────────────────────────────
+# ── Per-harness auto-run allow-list ──────────────────────────────────────────────────────
 # `mxcli init` (just run above, inside wire-agents.sh) writes .claude/settings.json allowing
 # `Bash(./mxcli:*)` but none of the safe wrappers this toolkit tells every agent to use
-# instead (bin/exec.sh, the other installed bin/*.sh scripts, mx under ~/.mxcli/mxbuild/).
-# Without this, Claude Code's default permission mode prompts on every exec through the safe
-# wrapper — which defeats bin/exec-approval.sh --set auto. Non-fatal, same style as the
-# wiring call above: the scaffold is fine either way, and re-running it is always safe.
-if [ -x "$SCRIPT_DIR/install-claude-permissions.sh" ]; then
-  "$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" || {
-    echo "Permission allow-list did not install. The scaffold is otherwise fine; re-run:"
-    echo "  $SCRIPT_DIR/install-claude-permissions.sh $PROJECT_DIR"
+# instead (bin/exec.sh, the other installed bin/*.sh scripts, mx under ~/.mxcli/mxbuild/) —
+# and every OTHER harness wire-agents.sh wires (Copilot, Aider) has its own, differently-shaped
+# version of the same gap. Without this, the HARNESS itself prompts on every exec through the
+# safe wrapper — which defeats bin/exec-approval.sh --set auto, a knob that only decides
+# whether the AGENT asks. One entry point, bin/install-harness-permissions.sh, covers all of
+# them; see its header for what it does per harness. Non-fatal, same style as the wiring call
+# above: the scaffold is fine either way, and re-running it is always safe.
+if [ -x "$SCRIPT_DIR/install-harness-permissions.sh" ]; then
+  "$SCRIPT_DIR/install-harness-permissions.sh" "$PROJECT_DIR" || {
+    echo "Harness permission allow-lists did not fully install. The scaffold is otherwise fine; re-run:"
+    echo "  $SCRIPT_DIR/install-harness-permissions.sh $PROJECT_DIR"
   }
 fi
 
@@ -568,6 +576,34 @@ else
   else
     echo "sources/ will be tracked by git — not added to .gitignore."
   fi
+fi
+
+# .mxtk/ holds per-machine session state (exec-approval.sh's mode file and friends) — same
+# per-machine, never-shared shape as the old .claude/.exec-approval sentinel it replaces, so it
+# is always ignored, unconditionally, with no ask/track choice (there is nothing here a
+# teammate should ever pull down from another machine's git history).
+if [ -f "$GITIGNORE" ] && grep -qE '^/?\.mxtk/?$' "$GITIGNORE"; then
+  echo "Skip: .mxtk/ already listed in .gitignore."
+else
+  if [ -f "$GITIGNORE" ] && [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
+    printf '\n' >> "$GITIGNORE"
+  fi
+  printf '# Per-machine session state (exec-approval.sh and friends) — never shared\n.mxtk/\n' >> "$GITIGNORE"
+  echo "Created/updated: .gitignore (.mxtk/ ignored)"
+fi
+
+# .claude/settings.local.json (Claude Code's own "project local" precedence tier — see
+# https://code.claude.com/docs/en/settings) holds the two install-claude-permissions.sh allow
+# entries that embed $TOOLKIT_ROOT, an absolute path under this machine's home directory.
+# Same reasoning as .mxtk/ above: never shared, so never tracked.
+if [ -f "$GITIGNORE" ] && grep -qE '^/?\.claude/settings\.local\.json$' "$GITIGNORE"; then
+  echo "Skip: .claude/settings.local.json already listed in .gitignore."
+else
+  if [ -f "$GITIGNORE" ] && [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
+    printf '\n' >> "$GITIGNORE"
+  fi
+  printf '# Per-machine Claude Code permissions (absolute toolkit-root paths) — never shared\n.claude/settings.local.json\n' >> "$GITIGNORE"
+  echo "Created/updated: .gitignore (.claude/settings.local.json ignored)"
 fi
 
 # ---------------------------------------------------------------------------

@@ -35,6 +35,17 @@
 # removes only those, never an identical entry that was already present before this script
 # ever ran (e.g. `mxcli init` already seeds `Bash(./mxcli:*)` and `Bash(mxcli:*)`).
 #
+# TWO FILES, SPLIT BY WHAT THE ENTRY LEAKS (2026-09-16). Two of the eleven entries embed
+# $TOOLKIT_ROOT — an absolute path under the operator's home directory (a username, routinely).
+# `.claude/settings.json` is the SHARED project file, meant to be committed so every teammate
+# gets the same allow-list; committing someone's home-directory path into it is exactly the
+# per-machine leak this toolkit's leak guard exists to catch elsewhere. So those two entries
+# alone go into `.claude/settings.local.json` — precedence level 3 in
+# https://code.claude.com/docs/en/settings ("Settings files and precedence"), "You, this
+# project", i.e. per-machine and never shared — and init-project.sh's .gitignore template
+# ignores it the same way it ignores `.mxtk/`. The other nine entries are all relative (no
+# machine-specific path) and stay in the shared `.claude/settings.json`, same as before.
+#
 # Usage:
 #   bin/install-claude-permissions.sh <project-root>              # merge, write, back up first
 #   bin/install-claude-permissions.sh <project-root> --check       # report only; exits 1 if any
@@ -42,10 +53,11 @@
 #   bin/install-claude-permissions.sh <project-root> --uninstall   # remove only entries this
 #                                                                   # script added; back up first
 #
-# Idempotent: re-running --install after everything is already present changes nothing (the
-# file is rewritten byte-for-byte the same). Called from bin/init-project.sh at scaffold time
-# and from bin/sync-project.sh in --check mode (both non-fatal). Bash 3.2 + Python (resolved
-# the same way as install-claude-hooks.sh) — no bash-4 constructs.
+# Idempotent: re-running --install after everything is already present changes nothing (both
+# files are rewritten byte-for-byte the same). Called from bin/init-project.sh at scaffold time
+# and from bin/sync-project.sh in --check mode (both non-fatal), via the shared entry point
+# bin/install-harness-permissions.sh. Bash 3.2 + Python (resolved the same way as
+# install-claude-hooks.sh) — no bash-4 constructs.
 set -euo pipefail
 
 # shellcheck disable=SC1091
@@ -80,27 +92,40 @@ PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
 
 SETTINGS="$PROJECT_DIR/.claude/settings.json"
 SIDECAR="$PROJECT_DIR/.claude/.mxtk-permissions-added.json"
+SETTINGS_LOCAL="$PROJECT_DIR/.claude/settings.local.json"
+SIDECAR_LOCAL="$PROJECT_DIR/.claude/.mxtk-permissions-added-local.json"
 
 # The fixed allow-list. Do NOT widen this to Bash(*) or anything broader — see this repo's
 # CLAUDE.md "Shipping an instrument" rules; a permission allow-list is exactly the kind of
 # instrument a field-proof bar exists for.
-ENTRIES=(
+#
+# SHARED: relative invocations only, safe to commit — everyone on the project gets the same
+# allow-list regardless of where they cloned the toolkit.
+ENTRIES_SHARED=(
   "Bash(./bin/exec.sh:*)"
   "Bash(bin/exec.sh:*)"
   "Bash(bash bin/exec.sh:*)"
   "Bash(./bin/*.sh:*)"
   "Bash(bin/*.sh:*)"
   "Bash(bash bin/*.sh:*)"
-  "Bash($TOOLKIT_ROOT/bin/*.sh:*)"
-  "Bash(bash $TOOLKIT_ROOT/bin/*.sh:*)"
   "Bash(~/.mxcli/mxbuild/*/modeler/mx:*)"
   "Bash(./mxcli:*)"
   "Bash(mxcli:*)"
 )
+# LOCAL: embeds $TOOLKIT_ROOT, an absolute path under this machine's home directory — per-machine
+# only, never committed. See the header note above.
+ENTRIES_LOCAL=(
+  "Bash($TOOLKIT_ROOT/bin/*.sh:*)"
+  "Bash(bash $TOOLKIT_ROOT/bin/*.sh:*)"
+)
 
 require_py
 
-"$PY" - "$SETTINGS" "$SIDECAR" "$MODE" "${ENTRIES[@]}" <<'PY'
+# One process, one JSON file, one entry group — called twice (shared, local) so a single
+# implementation stays correct for both instead of two near-identical copies.
+_merge_group() {
+  local settings_path="$1" sidecar_path="$2" mode="$3"; shift 3
+  "$PY" - "$settings_path" "$sidecar_path" "$mode" "$@" <<'PY'
 import json, os, shutil, sys
 
 settings_path, sidecar_path, mode, *entries = sys.argv[1:]
@@ -188,3 +213,12 @@ if newly_added:
 else:
     print("All permission entries already present in %s -- nothing to do" % settings_path)
 PY
+}
+
+RC=0
+_merge_group "$SETTINGS" "$SIDECAR" "$MODE" "${ENTRIES_SHARED[@]}" || RC=$?
+_merge_group "$SETTINGS_LOCAL" "$SIDECAR_LOCAL" "$MODE" "${ENTRIES_LOCAL[@]}" || {
+  RC2=$?
+  [ "$RC2" -gt "$RC" ] && RC=$RC2
+}
+exit "$RC"

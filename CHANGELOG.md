@@ -7,6 +7,9 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-17
+- learn(skills/learned-constants-and-secrets.md): the Mendix PAT gets a resolution ladder, starting one rung lower than sessions start it — **rung 0 is `env | grep -i '^PAT='`, and no session may report a token unavailable without having run it**. Field failure: a session mid-push to Team Server grepped `.docker/.env`, `.docker/.env.example` and `stack.env`, found nothing, and told the user the token was gone and would have to be re-provided; it had been in the session environment the whole time. Absence from the files you happened to grep is not absence. Only when rung 0 is empty does the session ask, in one batch: export it, `mxcli auth login --token` it, or point at the file that holds it — and pointing is half a step, so rung 3 ends by wiring the path into the project's gitignored env file and naming it (the path, never the value) in the constants register, or the next session asks again. Plus the git half, which cost an hour of suspecting a healthy token: Team Server takes the **literal string `pat` as the username** and the token as the password, so an askpass that echoes `$PAT` for every prompt sends it as the username and fails with `Invalid username or password`. Never in argv, never in the remote URL, never in a credential helper — and never printed to "check it". `project-bin/ts-sync.sh`'s header stops naming the credential without saying where it comes from and points here — DealIQ
+
 ## 2026-09-16
 - fix(coverage-preflight.sh): **a build plan's `claims:` blocks inside a fence, with a `(note)`
   suffix, or indented, were silently ignored — only the plainest shape was ever read.**

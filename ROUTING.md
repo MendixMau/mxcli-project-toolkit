@@ -180,7 +180,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
 |---|---|---|---|---|
 | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call | `skills/rest-integration-first-time-right.md` | mdl | 4,5 | ondemand |
-| Adding a constant, installing a marketplace module, or deploying to a new environment — where an encryption key, API credential or endpoint gets its value, and why a free node has only one channel | `skills/learned-constants-and-secrets.md` | mdl,architect,gate | 4,5,6 | ondemand |
+| Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT — where an encryption key, API credential, endpoint or access token gets its value, why a free node has only one channel, and why a token missing from the files you grepped is not missing | `skills/learned-constants-and-secrets.md` | mdl,architect,gate | 4,5,6 | ondemand |
 
 #### Build · Security
 

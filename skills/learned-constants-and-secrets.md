@@ -83,6 +83,64 @@ discover it later.
 
 ---
 
+## The Mendix PAT — resolve it before you report it missing
+
+The Personal Access Token is the one secret the *agent* needs rather than the app: marketplace
+installs (`mxcli auth login`), the Deploy API, and Team Server push all take it. It is not a
+constant and it has no channel table — it has a resolution ladder, and the ladder starts one rung
+lower than most sessions start it.
+
+> **Rung 0 — look in the environment. `env | grep -i '^PAT='` (and `MENDIX_PAT`). Never tell the
+> user a token is unavailable without having run that.**
+
+Only if rung 0 comes back empty, ask — one batch, per `interview-protocol.md`, then stop:
+
+| Rung | Ask the user to | Then |
+|---|---|---|
+| 1 | export it into the session environment (`PAT=…`) | nothing further — scripts that read `$PAT` now work |
+| 2 | configure it in Studio Pro / `mxcli auth login --token <PAT>` | it lands in `~/.mxcli/auth.json` (mode 0600); marketplace commands find it, platform scripts still need rung 1 or 3 |
+| 3 | point at the file that already holds it | **wire it in** — see below |
+
+**Rung 3 is only half done when they point.** A path named in chat is gone by the next session, so
+the pointing is followed immediately by wiring: record the path in the project's gitignored env
+file (`.ts-sync.env`, `.docker/.env`, or whatever that project already sources), have the project's
+platform wrapper source it, and say in the constants register which file holds it — the *path*,
+never the value. A session that has to ask again has not finished this step.
+
+**The failure this rung 0 exists to prevent (DealIQ, 2026-09-17).** Mid-task, a session needed to
+push a fix to Team Server, grepped `.docker/.env`, `.docker/.env.example` and `stack.env`, found
+nothing, and told the user the token was gone and would have to be re-provided. The token was in
+the session environment the whole time; one `env | grep` would have returned it. The user's
+correction was four words long. **Absence from the files you happened to grep is not absence.**
+
+### Feeding it to git — `pat` is the username, the token is the password
+
+Team Server (`https://git.api.mendix.com/<appId>.git`) authenticates with the **literal string
+`pat` as the username** and the token as the password. An askpass helper that echoes `$PAT` for
+every prompt sends the token as the *username* and fails with `Invalid username or password` —
+which reads exactly like an expired token, and sends the next hour into re-issuing a perfectly
+good one. The working helper answers the two prompts differently:
+
+```bash
+#!/usr/bin/env bash
+case "$1" in
+  *[Uu]sername*) echo "pat" ;;
+  *[Pp]assword*) echo "$PAT" ;;
+esac
+```
+
+Three rules hold wherever the token is used, and they are why a project keeps **one** wrapper
+script (DealIQ: `bin/platform/mx-platform.sh`) rather than an ad-hoc helper per session:
+
+1. **Never in argv** — `ps` shows it to every process on the machine.
+2. **Never in the remote URL** — git writes that verbatim into `.git/config` and every reflog entry.
+3. **Never in a credential helper or any committed file** — that is the token on disk, permanently.
+
+Do not print, echo or truncate the token to "check it" either: a permission classifier will refuse
+it, and it should. Verify by *using* it; debug by reading the wrapper.
+
+---
+
 ## Step 3 — Give every constant a default that tells the truth
 
 Three defaults, three meanings. Pick on purpose:

@@ -3766,7 +3766,7 @@ call-microflow activity after the microflow it calls** (`SUB_CheckPackageAvailab
 `callMicroflow6`), the grammar cannot name one explicitly, and `DESCRIBE WORKFLOW` emits jump
 targets using the *source* model's names — so `describe → exec` reliably produces a dangling
 target. Workaround: repoint every `jump to` at a real activity name before exec and gate on
-native `mx check`; `learned-mdl-preflight.md` STOP #24. Same entry, two shapes — do not file
+native `mx check`; `learned-mdl-preflight.md` STOP #18. Same entry, two shapes — do not file
 the general case separately from #1005.
 
 ---

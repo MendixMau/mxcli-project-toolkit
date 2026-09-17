@@ -8,6 +8,29 @@ Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templat
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
 ## 2026-09-17
+- process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
+  `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two
+  instruction sets over two registers and nothing said which won. Split by who asked:
+  `PROJECT.md` keeps gate answers (stage, entry mode, CONFIRMED/ASSUMED, waivers, opt-ins) because
+  `gate-check.sh` and `checkpoint.sh` read it; `docs/brain/` takes what a session learned — a
+  pattern and its why, a disposition, an open question outside a gate, a slice requirement —
+  anchored into the model so `mxcli brain check` fails when an anchor dies, which a `PROJECT.md`
+  row never does. Rule stated in `skills/checkpoints/checkpoint-template.md`,
+  `skills/close-the-loop.md`, `project-bin/close-task.sh` and one baseline row in
+  `bin/lib/skill-routing.tsv`. `skills/existing-app-change.md` now uses `brain plan` as the
+  coverage ledger (forward anchors, derived BUILT/PLANNED, denominator is the slice by
+  construction) instead of a hand-kept `coverage-ledger.md`. Probed on a 107-module app before
+  adopting: init/capture/promote/check/plan/drop all as documented, check and plan 1.5 s each —
+  the one weakness found, that `capture` and `promote` accept dead anchors and only `check`
+  catches them, is why `brain check` now sits in close-the-loop before every commit. — MendixMau
+- fix(gate-check.sh): **`Change an existing app` parsed as an empty entry mode, so Stage 7
+  (cutover) was demanded of a live app that never cuts over.** `skills/existing-app-change.md` has
+  told projects to record that string since 2026-08-20; the parser only knew
+  greenfield/requirement/migration. Added as a fourth mode, Stage 7 waived, with rule 0 and a
+  fourth row in `conversion-runbook.md`'s Entry Modes table. Two fixture tests in
+  `tests/run-tests.sh` discriminate: on the same fixture master exits 3, the fix exits 0 with
+  `Stage 7: WAIVED`, and an unknown mode string still exits 3. Field evidence: Marketplace-RnD,
+  whose Stage P had been blocked on exactly this since 2026-09-16. — MendixMau
 - new(gate-must-run): **the mxbuild gate could silently not run and the model still got written,
   committed and pushed — on any machine, cloud or session.** `project-bin/exec.sh` treated
   `GATE_STATE=skipped`/`unverified` as exit 0, so a `count()`-as-expression microflow (CE0117,

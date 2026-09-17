@@ -397,7 +397,7 @@ except a version number in a parenthetical nobody reads.
 ## [candidate — from bug-logs/toolkit-bugs.md] source-ledger.sh name-verification produces FALSE FAULTS on non-ASCII filenames
 
 **Found** 2026-09-02, approval-app-main, toolkit branch `claude/approval-app-intake-gates-ngy1w3` @ `1f654f7`.
-**Severity: material on this corpus** — every DafNe/CCS source filename with an umlaut is affected,
+**Severity: material on this corpus** — every source filename with an umlaut is affected,
 and the whole corpus is German.
 
 `bin/source-ledger.sh check` reports

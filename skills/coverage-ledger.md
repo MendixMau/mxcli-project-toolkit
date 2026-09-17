@@ -166,7 +166,7 @@ Not every BRD leaf is a buildable requirement. The ledger categories are closed 
 
 | Category | Example | Why not a row |
 |----------|---------|---------------|
-| `provenance` | `/provenance/*`, `/sourceKB/*` | Metadata about where the BRD came from, not a app requirement. |
+| `provenance` | `/provenance/*`, `/sourceKB/*`, `/useCases/*/routes/*`, `/pages/*/route` | Metadata about where the BRD came from, not a app requirement. A route records which prototype screen a flow was reviewed on; the page and navigation rows that build it claim the requirement. |
 | `interpretation` | `/criticalFinding/*` (e.g., MBR-05 = "union of three coverage paths") | A reading of the corpus. It *shapes* rows; it is not one itself. Entry must name which rows it shaped. |
 | `metric` | `/pages[0]/specFieldUniverse/total` (count: 85) | Measures the source universe. Not a target to build. |
 | `deferred(slice-N)` | `/pages/2/*` (entire Order_Transaction page) | Real scope, scheduled for a later slice. Must name the slice. |
@@ -192,8 +192,19 @@ wc -l /tmp/leaves.txt  # e.g., "535 /tmp/leaves.txt"
 ### Step 2: Extract Claims from Build Plan
 
 ```bash
-grep -A20 '^claims:' architecture/build-plan.md | grep -oE '^\s+/[^ ]+' | tr -d ' ' | sort > /tmp/claims.txt
+. project-bin/_claims.sh
+mxtk_extract_claims_tsv architecture/build-plan.md 2>/tmp/claims-diag.tsv \
+  | awk -F'\t' '{ print ($6 != "-") ? $5 " (" $6 ")" : $5 }' | sort -u > /tmp/claims.txt
 ```
+
+`project-bin/_claims.sh` is the single reader of `claims:` blocks — `skills/brd-to-build-plan.md`
+Step 5b "Accepted forms" documents every shape it reads (plain, fenced, fenced-under, fenced-tag,
+note). A lossy `grep -A20 '^claims:' | grep -oE '^\s+/[^ ]+'` recipe used to live here: the fixed
+`-A20` window missed indented and fenced blocks it did not happen to fall inside, and even when it
+matched it stripped the `(N)` count off every pointer, producing bare wildcards that Step 5b's own
+rules reject as malformed. Diagnostics land in `/tmp/claims-diag.tsv`: a `claims-line-unparsed` or
+`claims-block-empty` record there means a `claims:` block existed but failed to parse, which is a
+different, more actionable finding than no `claims:` block existing at all (issue #74).
 
 **Expansion rules:**
 - A bare pointer claims exactly that leaf: `/pages/0/buildComposition/rowClick`

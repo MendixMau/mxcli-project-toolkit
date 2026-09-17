@@ -102,6 +102,43 @@ fi
 # too: a stale row is how a wireframe rename turns into a page nobody checks.
 WF_MAP="${WF_MAP:-$WF_DIR/PAGE-MAP.tsv}"
 
+# --- A screen in the clickable prototype ------------------------------------------------
+# A map row may also name a route into the assembled prototype (assemble-prototype.js):
+#
+#     Order_Overview<TAB>../prototype.html#/order-list
+#
+# The file half resolves against $WF_DIR like every other row, then against the project root,
+# so `design/prototype.html#/order-list` works too. The one section is extracted by
+# prototype-route.js, the same reader page-fidelity.js uses, into a scratch file that the
+# checks below grep exactly as they grep a per-screen wireframe. One parser, not two: a second
+# reader of the section format would drift the first time the format changes, and a shell
+# check reading one byte too many grades a different screen without saying so.
+# An unknown route is an input error (exit 2), and the message names the routes that exist.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+ROUTE_TMP=""
+cleanup_routes() { [ -n "$ROUTE_TMP" ] && rm -rf "$ROUTE_TMP"; }
+trap cleanup_routes EXIT
+
+# route_file <ref>: sets WF_RESOLVED to a readable file for a map target. Plain paths come back
+# unchanged (existence is the caller's check); a route that cannot be read exits 2.
+route_file() {
+  WF_RESOLVED="$1"
+  case "$1" in *'#/'*) ;; *) return 0 ;; esac
+  rel="${1%%#/*}"; rroute="${1#*#/}"
+  if [ -f "$WF_DIR/$rel" ]; then rfile="$WF_DIR/$rel"; else rfile="$rel"; fi
+  if [ ! -f "$rfile" ]; then WF_RESOLVED="$rfile"; return 0; fi
+  command -v node >/dev/null 2>&1 || {
+    printf 'check-page-shell: %s names a prototype route, and reading one needs node, which is not on PATH\n' "$1"; exit 2; }
+  [ -n "$ROUTE_TMP" ] || ROUTE_TMP="$(mktemp -d "${TMPDIR:-/tmp}/page-shell.XXXXXX")"
+  out="$ROUTE_TMP/$(printf '%s' "$rroute" | tr '/' '_').html"
+  if ! node "$HERE/prototype-route.js" "$rfile#/$rroute" > "$out" 2> "$ROUTE_TMP/err"; then
+    printf 'check-page-shell: '; sed 's/^prototype-route: //' "$ROUTE_TMP/err"; exit 2
+  fi
+  WF_RESOLVED="$out"
+}
+
+# wf_for <page>: sets `wf` (not printed: route_file must be able to exit the script, and a
+# command substitution would only exit its own subshell).
 wf_for() {
   if [ -f "$WF_MAP" ]; then
     mapped="$(awk -F'\t' -v p="$1" '
@@ -110,9 +147,15 @@ wf_for() {
       { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2) }
       $1 == p          { print $2; exit }
     ' "$WF_MAP")"
-    if [ -n "$mapped" ]; then printf '%s/%s' "$WF_DIR" "$mapped"; return; fi
+    if [ -n "$mapped" ]; then
+      case "$mapped" in
+        *'#/'*) route_file "$mapped"; wf="$WF_RESOLVED" ;;
+        *)      wf="$WF_DIR/$mapped" ;;
+      esac
+      return
+    fi
   fi
-  printf '%s/%s.html' "$WF_DIR" "$1"
+  wf="$WF_DIR/$1.html"
 }
 
 if [ -f "$WF_MAP" ]; then
@@ -121,7 +164,12 @@ if [ -f "$WF_MAP" ]; then
     case "$mpage" in ''|\#*) continue ;; esac
     [ -n "${mwf:-}" ] || continue
     MAP_ROWS=$((MAP_ROWS + 1))
-    if [ ! -f "$WF_DIR/$mwf" ]; then
+    mwf="$(printf '%s' "$mwf" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+    case "$mwf" in
+      *'#/'*) route_file "$mwf"; mcheck="$WF_RESOLVED" ;;
+      *)      mcheck="$WF_DIR/$mwf" ;;
+    esac
+    if [ ! -f "$mcheck" ]; then
       report "$WF_MAP" "$mpage" "maps to $mwf, which does not exist in $WF_DIR" \
         'A stale map row is how a wireframe rename turns into a page nobody checks. Fix the row or delete it.'
     fi
@@ -144,7 +192,7 @@ for f in $TARGETS; do
     page="$(printf '%s' "$txt" | sed -E 's/.*[Pp][Aa][Gg][Ee][[:space:]]+"?[A-Za-z0-9_]+"?\."?([A-Za-z0-9_]+)"?.*/\1/')"
     [ -n "$page" ] || continue
 
-    wf="$(wf_for "$page")"
+    wf_for "$page"
     if [ ! -f "$wf" ]; then
       if [ -f "$WF_MAP" ]; then
         report "$f:$ln" "page $page has no wireframe: not at $WF_DIR/$page.html and not named in $WF_MAP" \

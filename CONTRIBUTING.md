@@ -91,6 +91,21 @@ carried into public history. None of the content was bad — the coordination wa
    instrument ships its retest fixture. "It happened to me" gets it in the door — what keeps
    it true later is that the next person can re-check it in a minute.
 
+## Future scope — things we want but are not building yet
+
+Not every good idea is a PR. When the work is real but the trigger hasn't arrived — a
+dependency we don't have, a tool nobody here runs yet, a design that needs a field run
+first — it goes in [`process/roadmap.md`](process/roadmap.md) as an `RM-NN` entry rather
+than into a draft PR that goes stale or a chat log nobody can find.
+
+An entry needs three things to be worth parking: the **assets** that already exist (by
+path), the concrete **trigger** that unparks it, and a checkable **exit bar**. Without a
+trigger it never starts; without an exit bar it never finishes. If you have an idea but
+none of those, the inbox (Lane 1) is the right place — the roadmap is for work that is
+designed and waiting, not for work that is imagined.
+
+---
+
 ## Good worked examples already in the wild
 
 - An honest negative result filed against the filer's own theory

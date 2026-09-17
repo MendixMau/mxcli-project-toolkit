@@ -479,6 +479,7 @@ mxcli-project-toolkit/
     mxcli-bugs.md               ← Known mxcli CLI bugs and workarounds (shared)
   process/
     process-learnings.md        ← Cross-project process improvements
+    roadmap.md                  ← Future scope, parked deliberately (RM-NN entries, one per goal)
 ```
 
 `[any project]` vs `[migration]` above mirrors each skill's own `Applies to:` header line — greenfield mxcli builds only need the `[any project]` set, starting at Stage 5. The stage 1–4 skills (document discovery, KB/BRD generation and validation, modularization, architecture, design, build plan) also apply to **requirements-driven builds** with no legacy source — their headers say so explicitly.

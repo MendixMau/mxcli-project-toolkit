@@ -7,6 +7,21 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-18
+- chore(skills): **`ui-preflight-pages.md`'s "Common failure modes" section cut (3,727 -> 3,377
+  words); "Report-back format" kept.** `process/skill-freshness-2026-09-17.md`'s A/B/C experiment
+  found arm C (both sections removed) indistinguishable from the full skill and recommended
+  cutting both — but `skills/learned-stylegallery.md` names the report-back block's
+  class-promotion row directly ("every page script's report-back ... the class-promotion row"),
+  so only the failure-modes table was removed; the report-back format stays live and depended-on.
+  — MendixMau
+- chore(bug-logs): **BUG-107 (workflow `CALL MICROFLOW ... WITH (...)` segfault on an unquoted
+  value) fixed upstream in mxcli v0.22.0, mendixlabs/mxcli#1023 — pending report dropped.**
+  Deleted the three drafted `bug-logs/pending-github-issues/bug107-*` files (README, patch,
+  issue draft) and the stale, already-mismatched `bug107-workflow-call-with-unquoted-value-segfault`
+  entry in `render-paste-ready.sh`'s `ORDER` list; added a RESOLVED status line under the BUG-107
+  heading in `bug-logs/mxcli-bugs.md`, keeping the rest of the entry intact. — MendixMau
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

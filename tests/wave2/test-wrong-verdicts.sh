@@ -103,6 +103,13 @@ if [ -f "$TK/bin/lib/entry-mode.sh" ]; then
   check "Greenfield"                 "greenfield"
   check "requirements"               "requirements-driven"
   check "existing-app-change"        "existing-app-change"
+  # The runbook's own label for the fourth mode. Its first word is "change", so a
+  # first-word-only tokeniser resolves it to "" and the mode silently disappears — the
+  # same class of bug as the unanchored glob, failing safe instead of loud but still wrong.
+  check "Change an existing app"     "existing-app-change"
+  check "change an existing app (CONFIRMED)" "existing-app-change"
+  # ...and the phrase arm must not swallow a migration that merely mentions "existing".
+  check "Migration from an existing Oracle Forms system" "migration"
   check "banana"                     ""
   if entry_mode_token "banana" 2>&1 >/dev/null | grep -q 'not recognised'; then
     ok "V4 an unrecognised mode says so on stderr instead of failing silently"

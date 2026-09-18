@@ -252,8 +252,50 @@ without its guard.
 | 3 | interview, gate | 3a Opus sequential ∥ 3b Sonnet ≤8 screens | 25.5k + 23.1k | run 3a and 3b concurrently — they are independent until fit-gap |
 | 4 | gate, register | briefs (Sonnet, parallel) after build plan (Opus) | 34.2k + 18.4k | P5 collapses briefs on small projects |
 
-A worker is mapping the stage sections against §1c for units the table misses; that map
-folds into this section when it lands and is marked as such.
+### 6.1 Fan-out units and barriers, as the process text already states them
+
+Folded in from a cited stage map (2026-09-18) of the P–4 skills, checkpoints and
+`gate-check.sh`. The finding is the same as §2: every fan-out below is **already written
+down**; nothing here is a new design, and G4 (unenforced) is the whole gap.
+
+**Fan-out units, ranked by how safe they are today:**
+
+| # | Unit | Where it is written | Fence / barrier | Named risk |
+|---|---|---|---|---|
+| 1 | Stage 1 doc → KB, 1 doc/agent, ≤6 in flight, Sonnet | §1c row; `kb-generation.md` Step 1 | parent merges, then `bin/source-ledger.sh check` (blocks Stages 1–2) | a doc a worker consumed but did not log fails the ledger |
+| 2 | Stage 1 images, 5–8/agent, Haiku | §1c row + Haiku rule (`conversion-runbook.md:369-374`) | `bin/images-to-md.sh --check` before use | 78% key recall, ~1 string in 15 misread; never for a verdict, rule or question |
+| 3 | Extractors, one per source type | `migration-pipeline.md:241` | merger runs **exactly once**, after every extractor for every source (`:246-272`) | merger re-run per extractor, or before the last source lands |
+| 4 | Stage 2 BRDs, 1 module/agent, all in parallel, Sonnet | §1c row | `bin/facts-lock.sh build` → `check`, then `brd-validation.md` | 20 parallel BRDs → 10 identifier/acronym-casing conflicts on one project (`brd-generation.md:357-391`); rule: freeze first, then fan out |
+| 5 | Stage 3b wireframes, ≤8 screens/agent, Sonnet | `design-artifacts.md:144`; §1c row | one deterministic merge (`assemble-prototype.js`), cross-checked against BRD `routes` (`brd-validation.md` check 8) | a screen with no owning use case is scope nobody asked for |
+| 6 | Stage 3a per-module `definition.md`, 1 module/agent | `architecture-blueprint.md:58-88` | wiring diagram waits for **all** module docs (`:121-136`) | one late doc silently drops that module from the diagram |
+| 7 | Stage 4 briefs, 1 module/agent, Sonnet | §1c row | build plan first, sequential, Opus, gated `build-ready` | a brief drafted before the plan is final contradicts "plan fully, generate incrementally" (`brd-to-build-plan.md` ~51-56) |
+
+**Sequential by necessity — do not fan these out:** every question to the user, gate verdict
+and `exec`/MCP write (`conversion-runbook.md:353-356`, `agent-roles.md:46`); the multi-source
+merger; module boundaries (`modularize-domain.md` needs one holistic view); the wiring diagram;
+build-plan authorship; BRD validation checks 2, 6, 7, which are read not regexed
+(`brd-validation.md:156-157`); and the gate logic itself (`gate-check.sh:906-1073`), which the
+§1c table names only as a fence *after* dispatched work returns.
+
+**Interview stops per stage** (the G6 / P6 target): P = one marker per intake section; Stage 0
+CAC-1 = 3 stop-and-wait turns; Stage 1 CAC-1b ≈ 3; Stage 2 CAC-2 ≈ 3 (its option C already asks
+"enrich all in parallel — fastest if scope < 4 BRDs"); **Stage 3 = CAC-3 + CAC-4 ≈ 6**; Stage 4
+CAC-5 ≈ 3. Stage 3 is where P6 batching pays most.
+
+**Where the words are judgement vs lookup** (supports the §5 matrix): of the ten largest files a
+P–4 session loads, `conversion-runbook.md` (13.4k), `migration-pipeline.md` (4.4k) and
+`agents/review-agent.md` (4.1k) are mixed; `brd-to-build-plan.md` (7.1k), `architecture-blueprint.md`
+(4.8k), `source-triage.md` (3.8k), `design-artifacts.md` (3.6k) and `interview-protocol.md` (3.4k)
+are judgement text that needs the strong model that reads them; `bin/lib/skill-routing.tsv` (5.5k,
+rendered, never read directly) and `agent-roles.md` (4.3k) are lookup. So P2's span reads target
+the mixed files, and the lookup files are the ones a Haiku unit can carry.
+
+**Denominator note.** The map's "always-on" figure is 24,671 words: the eight files routed to
+every stage (runbook, interview-protocol, query-the-model, status.sh, skills-over-scripts,
+degrade-to-judgement, tool-output-is-not-ground-truth, retesting-learned-rules). That is a
+subset of the 78,124-word `render-routing.sh --check` baseline in §1.2, which counts every
+baseline-tier row. Per-stage totals on the narrower denominator: P 28.9k · 0 33.5k · 1 32.1k ·
+2 31.1k · 3 34.4k · 4 34.7k.
 
 ---
 

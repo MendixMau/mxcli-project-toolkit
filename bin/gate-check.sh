@@ -595,7 +595,10 @@ if [ -z "$ENTRY_RAW" ]; then
   fi
 fi
 case "$(printf '%s' "$ENTRY_RAW" | tr '[:upper:]' '[:lower:]')" in
-  *existing*)      ENTRY_MODE="existing-app-change" ;;
+  # Match the documented phrase, never the bare word: roadmap 1.9 is that these arms are
+  # substring matches, and `*existing*` alone classifies "Migration from an existing Oracle
+  # Forms system" as an existing-app change, waiving the cutover gate of a real migration.
+  *"change an existing app"*) ENTRY_MODE="existing-app-change" ;;
   *greenfield*)    ENTRY_MODE="greenfield" ;;
   *requirement*)   ENTRY_MODE="requirements-driven" ;;
   *migration*)     ENTRY_MODE="migration" ;;

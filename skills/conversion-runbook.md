@@ -58,7 +58,6 @@ Read a row when its Stage(s) cell says *every stage* or names the stage the regi
 | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory | `bin/status.sh` | P,0,1,2,3,4,5,6,7 |
 | Any session that will push a model to Mendix Team Server, and BEFORE telling the user a Team Server push is blocked — which remote is authoritative, settle-then-push order, and the four checks that have to fail first | `skills/teamserver-alignment.md` | 5,6,7 |
 <!-- ROUTING:END -->
-**Read your stage's rows only.** The baseline table above is stage-sliced: read a row when its Stage(s) cell says *every stage*, or names the stage the register (PROJECT.md) says this session is in — rows naming other stages are not this session's reading, the same rule as the "not whole file" note below applied to the baseline set instead of to this file.
 
 **Downstream:** every stage skill listed in §2 — this runbook sequences them, it does not replace their content.
 **Root pointer:** `CONVERSION-RUNBOOK.md` at the repo root is a thin pointer to this skill plus "how to start"; this file is the executable detail. `toolkit-guide.html` at the repo root is the same journey as a visual page, and doubles as the shared CSS shell/token source for every stage HTML surface.

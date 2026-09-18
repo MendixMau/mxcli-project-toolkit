@@ -134,7 +134,7 @@ routing_baseline_pack() {
     fi
     p="$root/$path"
     [ -f "$p" ] || continue
-    wc_out="$(wc -w < "$p" 2>/dev/null | tr -d '[:space:]')"
+    wc_out="$(LC_ALL=C wc -w < "$p" 2>/dev/null | tr -d '[:space:]')"   # LC_ALL=C: see BASELINE_BUDGET in render-routing.sh
     [ -n "$wc_out" ] || wc_out=0
     words=$((words + wc_out))
     files=$((files + 1))

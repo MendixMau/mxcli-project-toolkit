@@ -7,6 +7,16 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-18
+- fix(gate-check.sh): **a migration project whose entry-mode line merely contained the word
+  "existing" had its cutover gate waived.** #88 added the fourth mode as `*existing*`, and the
+  mode arms are substring matches (roadmap 1.9) — on `Entry mode: Migration from an existing
+  Oracle Forms system` that reported `Stage 7 (Cutover): WAIVED`, excusing a real migration from
+  the gate that exists to catch it. The arm now matches the documented phrase `change an existing
+  app`; `tests/run-tests.sh` covers it (22 tests). `bin/lib/artifact-check.sh` and `bin/status.sh`
+  carry their own substring-matching parsers and are still exposed — fix with roadmap 1.2b.
+  Found by writing the roadmap entry for #88, not by the tests it shipped with. — MendixMau
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

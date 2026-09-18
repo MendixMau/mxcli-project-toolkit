@@ -118,6 +118,11 @@ mkmode() {
 assert "existing-app mode waives stage 7"     0 "$GATE" "$(mkmode existing 'Change an existing app')" 7
 assert "unknown mode leaves stage 7 pending"  3 "$GATE" "$(mkmode unknownmode 'Something else')" 7
 
+# Roadmap 1.9: the mode arms are substring matches. A bare `*existing*` arm classified
+# "Migration from an existing Oracle Forms system" as an existing-app change and waived the
+# cutover gate of a real migration. The arm matches the documented phrase, so this must stay 3.
+assert "migration naming 'existing' still pends" 3 "$GATE" "$(mkmode migexisting 'Migration from an existing Oracle Forms system')" 7
+
 # bash evaluates array subscripts arithmetically, so a non-numeric stage used to
 # abort the script under set -u and was observed exiting 0.
 assert "typo'd stage argument is rejected"   2 "$GATE" "$(mkproject typo 'CONFIRMED')" Stage3

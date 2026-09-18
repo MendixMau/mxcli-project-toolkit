@@ -7,6 +7,9 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-18
+- process(efficiency): **Stages P–4 efficiency proposal.** Measured reading load, A/B cost, the undelivered `model: inherit` tiering, and a cheapest-first plan (deliver tiers, span reads, §1c dispatch ledger at the gate, `bin/token-burn.sh`, small-project artifact tier) — `process/stage-0-4-efficiency-proposal-2026-09-18.md` — MendixMau
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

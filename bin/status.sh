@@ -4,7 +4,8 @@
 # obligation check, coherence-cadence.sh, the doctor receipt, docs/BUILD-LOG.md, PROJECT.md).
 #
 #   bin/status.sh <project-root>          # the screen
-#   bin/status.sh <project-root> --brief  # the three lines an agent posts in chat
+#   bin/status.sh <project-root> --brief  # the three lines an agent posts in chat, plus
+#                                         # "Tokens this stage:" from bin/token-burn.sh
 #
 # WHY. gate-check.sh answers "may stage N close?" in ~75 lines, and on a greenfield project at
 # Stage 5 it asked for source-sufficiency and a cutover row (greenfield pilot, 2026-09-04).
@@ -108,6 +109,7 @@ if [ "$BRIEF" = 1 ]; then
   echo "WHERE   $NAME · $STAGE_LINE${ENTRY:+ · $ENTRY}${ADOPTED:+ · joined at $ADOPTED}"
   echo "STATE   scripts $N_SCRIPTS written / $N_PASS gate-pass / $N_DONE done- · modules opened $MOD_OPENED${SKELETON:+ · skeleton $SKELETON} · UNSYNCED $UNSYNCED · open questions $OPEN_Q"
   echo "NEXT    $NEXT"
+  "$TOOLKIT_ROOT/bin/token-burn.sh" "$PROJECT_DIR" --brief 2>/dev/null
   exit 0
 fi
 printf '\n%s — %s%s%s\n' "$NAME" "$STAGE_LINE" "${ENTRY:+ · $ENTRY}" "${ADOPTED:+ · joined at stage $ADOPTED}"

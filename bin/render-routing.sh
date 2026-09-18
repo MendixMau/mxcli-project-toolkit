@@ -215,6 +215,13 @@ fi
 # 80000 since 2026-09-08: the tier measured 73,026 words of DOCUMENTS once scripts stopped counting
 # (see _baseline_docs). Ratchet: lower it as rows move to on-demand; pay for a new baseline row
 # with a demotion, never by raising this.
+# COUNTED UNDER LC_ALL=C, everywhere (2026-09-18). The 73,026 above only reproduces in the C
+# locale; under a UTF-8 locale `wc -w` also splits on non-breaking and other Unicode spaces and
+# the same tier counts ~1,900 words more. GitHub Actions runs C.UTF-8, a Claude container and
+# `LC_ALL=C` count the other way, so CI failed a PR at 80,238 that every local run put at 78,367
+# (master: 79,993 vs 78,124). One pinned locale makes the number the same on every machine and
+# the same as the one the budget was calibrated with. routing_baseline_pack in skill-routing.sh
+# pins it too, so gate-check's ADVISORY line and the per-stage lines below agree.
 BASELINE_BUDGET="${MXTK_BASELINE_BUDGET_WORDS:-80000}"
 # COUNT WHAT IS READ, NOT WHAT IS RUN (curated 2026-09-08). The tier held ~98k words, of which
 # ~21k were scripts (verify-module.sh, source-sufficiency.sh, source-ledger.sh, status.sh …) and a
@@ -225,7 +232,7 @@ _baseline_docs() {
   awk -F'\t' '/^#/ || NF < 6 { next } $6 == "baseline" && $2 ~ /\.md$/ { print $2 }' "$MXTK_ROUTING_TSV"
 }
 BASELINE_WORDS="$(_baseline_docs \
-  | while IFS= read -r f; do [ -f "$ROOT/$f" ] && wc -w < "$ROOT/$f"; done | awk '{ s += $1 } END { print s + 0 }')"
+  | while IFS= read -r f; do [ -f "$ROOT/$f" ] && LC_ALL=C wc -w < "$ROOT/$f"; done | awk '{ s += $1 } END { print s + 0 }')"
 # STRICT AGAIN (2026-09-08, same day it went advisory): the advisory detour existed because the
 # count included scripts; with documents-only counting the number is a real context cost and a
 # hard fail is honest. MXTK_BASELINE_BUDGET_ADVISORY=1 reports without failing, for a
@@ -236,7 +243,7 @@ if [ "$BASELINE_WORDS" -gt "$BASELINE_BUDGET" ]; then
   echo "BASELINE OVER BUDGET: $OVER_BUDGET"
   echo "    → move a row to ondemand, shorten a baseline file, or point the row at a lookup script (bin/bug-lookup.sh is the pattern)"
   _baseline_docs \
-    | while IFS= read -r f; do [ -f "$ROOT/$f" ] && printf '%8d  %s\n' "$(wc -w < "$ROOT/$f")" "$f"; done | sort -rn | head -5 | sed 's/^/    /'
+    | while IFS= read -r f; do [ -f "$ROOT/$f" ] && printf '%8d  %s\n' "$(LC_ALL=C wc -w < "$ROOT/$f")" "$f"; done | sort -rn | head -5 | sed 's/^/    /'
   if [ "${MXTK_BASELINE_BUDGET_ADVISORY:-0}" = "1" ]; then
     echo "    (advisory run: MXTK_BASELINE_BUDGET_ADVISORY=1 — reported, not failing)"
     OVER_BUDGET=""
@@ -262,6 +269,13 @@ if [ "$MODE" = "check" ]; then
     exit 2
   fi
   echo "Routing surfaces in sync with the table; all skills routed or exempted. Baseline: $BASELINE_WORDS words (budget $BASELINE_BUDGET)."
+  # Per-stage breakdown: what a session actually reads at each stage is the every-stage rows
+  # plus that stage's own rows, not the whole baseline tier at once (routing_baseline_pack,
+  # shared with bin/gate-check.sh's ADVISORY line so both report the same number).
+  for _stage in P 0 1 2 3 4 5 6 7; do
+    IFS=$'\t' read -r _sw _sf _sp <<< "$(routing_baseline_pack "$_stage" "$ROOT")"
+    printf '  stage %s: %s words / %s files\n' "$_stage" "$_sw" "$_sf"
+  done
   exit 0
 fi
 

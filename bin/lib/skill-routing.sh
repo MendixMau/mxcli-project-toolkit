@@ -114,9 +114,41 @@ _routing_stage_arm() {
   printf '%s' "${out% }"
 }
 
+# routing_baseline_pack <stage> <root>
+#   Prints "words<TAB>files<TAB>paths" (space-separated paths) for the baseline-tier .md files
+#   a session at <stage> is expected to have read: rows whose stages column is "-" (every
+#   stage) or whose comma list contains <stage>. Paths are resolved under <root> (the toolkit
+#   root). Only .md baseline rows count — a script row (e.g. bin/bug-lookup.sh) is routed but
+#   is not prose to read, so it is skipped from the word count same as BASELINE_BUDGET already
+#   does in render-routing.sh. Shared by bin/gate-check.sh's per-gate ADVISORY line and
+#   bin/render-routing.sh --check's per-stage summary so both compute the same number from one
+#   place. A missing file is skipped rather than erroring — advisories never block.
+routing_baseline_pack() {
+  local stage="$1" root="$2" words=0 files=0 paths="" p wc_out
+  local name path when agents stages tier group
+  while IFS=$'\t' read -r name path when agents stages tier group; do
+    [ "$tier" = "baseline" ] || continue
+    case "$path" in *.md) : ;; *) continue ;; esac
+    if [ "$stages" != "-" ]; then
+      _routing_has "$stages" "$stage" || continue
+    fi
+    p="$root/$path"
+    [ -f "$p" ] || continue
+    wc_out="$(LC_ALL=C wc -w < "$p" 2>/dev/null | tr -d '[:space:]')"   # LC_ALL=C: see BASELINE_BUDGET in render-routing.sh
+    [ -n "$wc_out" ] || wc_out=0
+    words=$((words + wc_out))
+    files=$((files + 1))
+    paths="$paths $path"
+  done < <(routing_rows)
+  printf '%s\t%s\t%s\n' "$words" "$files" "${paths# }"
+}
+
 # routing_render <view> [prefix]
 #   full               | When | Load this | Agents | Stage | Tier |
-#   readme-baseline    | Always relevant for | Reference this |          (tier=baseline)
+#   readme-baseline    | Always relevant for | Reference this | Stage(s) | (tier=baseline, stage-sliced:
+#                        every-stage rows (stages "-") first in TSV order, then stage-specific rows in
+#                        TSV order; a rule line precedes the table telling a session to read only its
+#                        own stage's rows plus the every-stage ones)
 #   readme-situational | Task | Skill to load |                          (tier=ondemand)
 #   readme-experimental| Under trial | Skill |                            (tier=experimental)
 #   baseline <prefix>  same as readme-baseline, paths shown under <prefix>/ (for CLAUDE.local.md)
@@ -142,15 +174,23 @@ routing_render() {
       done
       ;;
     readme-baseline|baseline)
+      echo "Read a row when its Stage(s) cell says *every stage* or names the stage the register (PROJECT.md) says you are in. Rows for other stages are not this session's reading."
+      echo ""
       if [ "$view" = "baseline" ]; then
-        echo "| Always relevant for | Reference this (under \`${prefix%/}/\`) |"
+        echo "| Always relevant for | Reference this (under \`${prefix%/}/\`) | Stage(s) |"
       else
-        echo "| Always relevant for | Reference this |"
+        echo "| Always relevant for | Reference this | Stage(s) |"
       fi
-      echo "|---|---|"
+      echo "|---|---|---|"
+      # Every-stage rows first (TSV order), then stage-specific rows (TSV order) — see the
+      # routing_render docstring above.
       routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
-        [ "$tier" = "baseline" ] || continue
-        printf '| %s | `%s` |\n' "$(_routing_md_escape "$when")" "$path"
+        [ "$tier" = "baseline" ] && [ "$stages" = "-" ] || continue
+        printf '| %s | `%s` | every stage |\n' "$(_routing_md_escape "$when")" "$path"
+      done
+      routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
+        [ "$tier" = "baseline" ] && [ "$stages" != "-" ] || continue
+        printf '| %s | `%s` | %s |\n' "$(_routing_md_escape "$when")" "$path" "$stages"
       done
       ;;
     readme-experimental)

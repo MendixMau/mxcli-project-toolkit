@@ -2097,6 +2097,29 @@ if [ -n "$REQUESTED_STAGE" ]; then
   fi
 fi
 
+# ---------------------------------------------------------------------------
+# Baseline pack advisory — how much reading this stage's baseline tier actually costs, so a
+# session (or a human reviewing one) can see the number instead of discovering it by how slow
+# the stage felt. ADVISORY ONLY: this never touches a verdict or the exit code — see
+# routing_baseline_pack's header in bin/lib/skill-routing.sh, which bin/render-routing.sh
+# --check also calls so the two report the same number from one place.
+if [ -n "$REQUESTED_STAGE" ]; then
+  if [ -r "$TOOLKIT_DIR/bin/lib/skill-routing.sh" ]; then
+    # shellcheck source=lib/skill-routing.sh
+    . "$TOOLKIT_DIR/bin/lib/skill-routing.sh"
+    _ADV_PACK="$(routing_baseline_pack "$RB_STAGE" "$TOOLKIT_DIR" 2>/dev/null || true)"
+    if [ -n "$_ADV_PACK" ]; then
+      IFS=$'\t' read -r _ADV_WORDS _ADV_FILES _ADV_PATHS <<< "$_ADV_PACK"
+      printf 'ADVISORY baseline pack for stage %s: %s words across %s files (budget %s)\n' \
+        "$RB_STAGE" "$_ADV_WORDS" "$_ADV_FILES" "${BASELINE_BUDGET:-80000}"
+    else
+      echo "ADVISORY baseline pack: stage unknown, skipped"
+    fi
+  fi
+else
+  echo "ADVISORY baseline pack: stage unknown, skipped"
+fi
+
 printf "Drift (BRD sync): %s — %s\n" "$DRIFT_STATUS" "$DRIFT_NOTE"
 
 # ---------------------------------------------------------------------------

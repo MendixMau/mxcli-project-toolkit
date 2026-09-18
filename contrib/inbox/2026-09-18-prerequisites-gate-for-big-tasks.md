@@ -82,8 +82,18 @@ Two halves:
 1. Which task families get a card in v1? Proposal: **e2e test run**, **UI review loop**,
    **existing-app assurance (audit/lint/regression)**, **full migration assessment**. Others
    later.
-2. Where does the "I already checked this on this project" memory live for a no-pipeline app —
-   `docs/brain/` (mxcli 0.21+) or a small `.claude/task-prereqs.json`?
+2. ~~Where does the "I already checked this on this project" memory live?~~ **Resolved 2026-09-18
+   (Maurits): `mxcli brain`.** Rationale: the 2026-09-17 split already sends "what a session
+   learned" to brain and only gate answers to `PROJECT.md`; riding the CLI's own concept avoids a
+   parallel register that rots; anchors make a prerequisite self-invalidating (`brain check` goes
+   red when the demo user's module role is dropped). Three constraints:
+   - **Anchor what has a model element** — persona → module role / demo user, seed data → entity,
+     journey start → page. **Environment facts** (app URL, Docker, db name, mxbuild path) have no
+     anchor and live in `stack.env` via `test-stack-up` — the card reads both, there is no third
+     store.
+   - **Never a credential in brain** — `docs/brain/` is committed. Demo user name and role only.
+   - **Degrade on an older mxcli** — brain is 0.21+; probe first (capability-probe rule), fall back
+     to `PROJECT.md` rows rather than block.
 3. Does `bin/preflight-task.sh` earn its keep in v1, or is the skill + Live Checklist enough
    until one field run shows which rows are actually re-checked every time?
 4. Interaction with unattended mode: in unattended runs a red mechanical row must **stop**, not

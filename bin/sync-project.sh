@@ -699,6 +699,25 @@ fi
 # inherit the obligation. Found 2026-08-19.
 if [ -f "$PROJECT_DIR/CLAUDE.local.md" ]; then
   _routing_owner="$PROJECT_DIR/CLAUDE.local.md"
+  # Report-only: CLAUDE.local.md owns the Baseline routing block (this file, above), but
+  # bootstrap-project.md's old Step 2 told the merge to ALSO paste it into CLAUDE.md — a
+  # project can end up with BOTH, and every session then loads the same table twice. Detected
+  # by a Baseline row surviving in CLAUDE.md (bootstrap's own "## mxcli-project-toolkit
+  # Integration" section carries `skills/learned-mdl-preflight.md` / `skills/query-the-model.md`
+  # rows). Same rule as the ledger-row warn above: CLAUDE.md is bootstrap-project.md's (an LLM
+  # merge), not this script's, so sync never edits it — only names the fix.
+  if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -qE '^\|.*skills/(learned-mdl-preflight|query-the-model)\.md' "$PROJECT_DIR/CLAUDE.md"; then
+    _dup_from_line="$(grep -n 'mxcli-project-toolkit Integration' "$PROJECT_DIR/CLAUDE.md" | head -1 | cut -d: -f1)"
+    if [ -n "$_dup_from_line" ]; then
+      _dup_words="$(tail -n "+$_dup_from_line" "$PROJECT_DIR/CLAUDE.md" | wc -w | tr -d ' ')"
+    else
+      _dup_words="$(wc -w < "$PROJECT_DIR/CLAUDE.md" | tr -d ' ')"
+    fi
+    warn "The Baseline routing block is duplicated in CLAUDE.md AND CLAUDE.local.md — every" \
+         "session loads it twice (~$_dup_words word(s) in CLAUDE.md's copy)." \
+         "sync never edits CLAUDE.md; replace that block by hand with the pointer per" \
+         "bootstrap-project.md Step 2."
+  fi
 else
   _routing_owner="$PROJECT_DIR/CLAUDE.md"
 fi

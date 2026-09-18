@@ -7,6 +7,29 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-18
+- fix(bootstrap-project.md): **`CLAUDE.md` is a pointer when `CLAUDE.local.md` exists, never a
+  second copy.** Step 2 told the merge to paste the Baseline routing table into `CLAUDE.md` even
+  on a project `bin/init-project.sh` had already scaffolded — where it writes that same table into
+  `CLAUDE.local.md`, refreshed by `bin/sync-project.sh` — so every session loaded the identical
+  block twice, and the `CLAUDE.md` copy had no sync to keep it current. Step 2 now branches on
+  whether `CLAUDE.local.md` exists: if it does, `CLAUDE.md` gets a 3–5 line pointer and nothing
+  else; if it doesn't, the old verbatim-copy behavior stands. Step 3 and the Anti-Patterns list
+  route the same way. Field-run: scaffolded a fresh project with `bin/init-project.sh`, wrote a
+  `CLAUDE.md` carrying a duplicated Baseline block, then replaced it with the new pointer text
+  per the rewritten Step 2. — MendixMau
+- fix(sync-project.sh): **warn when the Baseline routing block is duplicated in `CLAUDE.md` and
+  `CLAUDE.local.md`.** Nothing previously caught the case bootstrap-project.md's old Step 2 could
+  produce — a project with both copies, drifting apart the moment `CLAUDE.md`'s went unsynced.
+  Section 3 now detects a Baseline row (`skills/learned-mdl-preflight.md` or
+  `skills/query-the-model.md`) surviving in `CLAUDE.md` while `CLAUDE.local.md` exists, and warns
+  with the approximate word count of the duplicated block; sync never edits `CLAUDE.md` itself, so
+  the warning points at the bootstrap-project.md Step 2 fix above as the by-hand remedy.
+  Report-only, same as the existing ledger-row warn beside it. Field-run: on the same scaffolded
+  project, the warn fired with a word count on the duplicated `CLAUDE.md`, went silent once
+  replaced with the pointer block, and `sync-project.sh --strict` exited 0 on the fixed version.
+  — MendixMau
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

@@ -186,11 +186,11 @@ routing_render() {
       # routing_render docstring above.
       routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
         [ "$tier" = "baseline" ] && [ "$stages" = "-" ] || continue
-        printf '| %s | `%s%s` | every stage |\n' "$(_routing_md_escape "$when")" "$prefix" "$path"
+        printf '| %s | `%s` | every stage |\n' "$(_routing_md_escape "$when")" "$path"
       done
       routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
         [ "$tier" = "baseline" ] && [ "$stages" != "-" ] || continue
-        printf '| %s | `%s%s` | %s |\n' "$(_routing_md_escape "$when")" "$prefix" "$path" "$stages"
+        printf '| %s | `%s` | %s |\n' "$(_routing_md_escape "$when")" "$path" "$stages"
       done
       ;;
     readme-experimental)

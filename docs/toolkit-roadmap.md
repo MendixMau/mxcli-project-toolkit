@@ -85,13 +85,14 @@ clean run. So the manifest goes first. No test covers that column, which is the 
 |---|---|---|---|---|
 | 1.0 | Revise the design note: four factual corrections, two disagreements | `docs/existing-app-mode-design.md` | 4 h | needed |
 | 1.1 | Artifact manifest mode column, all rows, plus unknown token hardening | `bin/lib/artifact-manifest.tsv`, `bin/lib/artifact-check.sh` | 0.5 d | designed |
-| 1.2 | Both mode parsers and the stage waiver arm | `bin/gate-check.sh`, `bin/lib/artifact-check.sh` | 0.5 d | designed |
-| 1.3 | Classification rule ahead of the current first rule | `skills/conversion-runbook.md` | 2 h | designed |
+| 1.2a | `gate-check.sh` mode parser and stage waiver arm | `bin/gate-check.sh` | done | **shipped** (#88, #89, #92) |
+| 1.2b | `artifact-check.sh` and `status.sh` mode parsers — **still owed; 1.1 first, and they still substring-match** | `bin/lib/artifact-check.sh`, `bin/status.sh` | 0.5 d | designed |
+| 1.3 | Classification rule ahead of the current first rule | `skills/conversion-runbook.md` | 2 h | **blocked on #90** — written and reverted: +167 words against a baseline tier with one word of headroom |
 | 1.4 | Slice table and blast radius rows in the triage template | `bin/lib/triage-template.sh` | 0.5 d | designed |
 | 1.5a | Architecture stage reports not started when an upstream artifact is missing | `bin/gate-check.sh` | 30 m | confirmed |
 | 1.5b | Architecture stage passes zero byte artifacts | `bin/gate-check.sh` | 2 h | confirmed |
 | 1.5c | Resolve the architecture stage when a slice has no screens | `bin/gate-check.sh` | 0.5 d | designed |
-| **1.9** | **Mode parsers substring match, so a mode line can waive the wrong stages** | `bin/gate-check.sh`, `bin/lib/artifact-check.sh`, `bin/status.sh` | 2 h | **confirmed** |
+| **1.9** | **Mode parsers substring match, so a mode line can waive the wrong stages** | `bin/gate-check.sh`, `bin/lib/artifact-check.sh`, `bin/status.sh` | 2 h | **half fixed** (#92) — `gate-check.sh` matches the documented phrase, regression test added; the other two unfixed |
 | 1.6 | Slice shape field, values change and addition, and its three rules | `skills/existing-app-change.md` | 4 h | proposed |
 | 1.7 | Live model provenance in both report renderers | `bin/extraction-report.sh`, `bin/brd-report.sh` | 4 h | designed |
 | 1.8 | An evaluation scenario for the existing app path | `evals/scenarios/` | 1 d | needed |
@@ -168,6 +169,60 @@ from one declared field.
    what is written. Without this, the rule that a module inside a dependency cycle makes the blast
    radius the whole cycle gives a read only screen a fifty module regression net.
 3. The walking skeleton is owed on an addition and waived on a change, per the reasoning in 1.0.
+
+---
+
+### Field run 2026-09-17: what shipping 1.2a taught, and the hazard it proved real
+
+A live 107-module app recorded the fourth mode and ran the gate. Three findings that were not in
+the design note.
+
+**The ordering rule on this page is right, for a second reason.** 1.2a shipped before 1.1, which
+this page warns against. It did *not* turn the project's artifacts green — `artifact-check.sh`
+carries its own parser, was untouched, and kept owing all 20 manifest rows, failing closed as
+designed. So the lesson is sharper than "do 1.1 first": **the two parsers are what makes partial
+delivery survivable.** Ship 1.2b before 1.1 and the hazard is real; 1.2a alone it is not. Keep
+them separable deliberately.
+
+**1.9 is not theoretical, and adding a mode is how you trigger it.** The arm first written was
+`*existing*`. On `Entry mode: Migration from an existing Oracle Forms system` it classified a
+genuine migration as an existing-app change and reported `Stage 7 (Cutover): WAIVED` — a real
+migration excused from its cutover gate by one word in a prose sentence. Fixed in #92 to match the
+documented phrase, with a regression test. **`artifact-check.sh` and `status.sh` still substring-
+match and are still exposed** — do them with 1.2b. Note it was found writing this entry, not by
+the tests 1.2a shipped with.
+
+**`mxcli brain` overlaps the register and the coverage ledger, and nothing here had noticed.** The
+binary ships a decision store (`docs/brain/`, anchored into the model, sharded per module, `brain
+check` failing on a dead anchor) and `brain plan`, whose BUILT/PLANNED is *derived* by resolving
+anchors rather than read from a status column. mxcli writes "read `docs/brain/project.md` first"
+into every project's CLAUDE.md; this toolkit mentioned it nowhere, so a wired project ran two
+instruction sets over two registers with nothing saying which won.
+
+Probed before adopting, on the same app: `init`/`capture`/`staged`/`promote`/`check`/`plan`/`drop`
+all as documented, `check` and `plan` 1.5 s each, a bogus anchor reported `NOT FOUND` exit 1, and a
+two-requirement slice with one built anchor reported `BUILT 1 PLANNED 1`. One weakness: `capture`
+and `promote` do not validate anchors, so a typo reaches a shard and only `check` catches it —
+`close-the-loop.md` now runs `brain check` before every commit.
+
+What this opens, as research rather than tasks:
+
+- **Does `brain plan` replace `coverage-ledger.md` here, or only shadow it?** A derived denominator
+  beats a hand-kept status column, and `existing-app-change.md` now says so. But the ledger carries
+  claim pointers and evidence paths a brain requirement does not, and nobody has tested whether
+  that gap bites on a real slice. **1.6's slice-shape work should be designed against `brain plan`,
+  not against a fresh ledger format.**
+- **Should the dossier's Dispositions become anchored brain entries?** `app-analysis.md` asks a
+  human to reconcile dispositions by hand at every refresh — which is `brain check`'s job.
+- **Is a toolkit-owned decision register still justified?** `PROJECT.md` wins on process state the
+  gates parse; it loses on staleness, sharding and derivation. The split now in `close-the-loop.md`
+  — *if a gate asked it, `PROJECT.md`; if a session learned it, brain* — is a first cut from one
+  field run, not a designed boundary.
+
+**The cost of not routing it.** The split lives in `close-the-loop.md` and `existing-app-change.md`,
+both `ondemand`; the baseline row that would route sessions to it was removed to clear the word
+budget (#90). On the field-run project `CLAUDE.local.md` mentions brain zero times. Written down and
+reaching nobody is the state this page exists to prevent — #90 gates this being real.
 
 ---
 
@@ -280,4 +335,10 @@ Ideas with a reason and no design. Listed so they are not rediscovered.
   All predate this branch. Clean them so the guard passes honestly instead of being bypassed.
 - Two design notes, a script and a skill are untracked in the worktree. Commit them.
 - Two disposition stores now exist, the dossier's own section and an improvement register, which
-  violates the toolkit's nothing in two places rule. Pick one.
+  violates the toolkit's nothing in two places rule. Pick one. **`mxcli brain` is now a third
+  candidate and the only one whose entries self-invalidate — decide across all three.**
+- `intake.md` question 1 still reads "migration, requirements-driven, or greenfield?" — three
+  options for a four-mode runbook, so the question cannot be answered correctly. 30 m, and it
+  blocks Stage P on every existing-app project.
+- The baseline routing tier is saturated at 79,999 of 80,000 words (#90). Until that is settled no
+  skill can be routed baseline, which silently caps everything here that needs routing.

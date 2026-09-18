@@ -14,6 +14,8 @@
 
 **⚠️ Ordering rule with `mxcli init`: init first, bootstrap second — and never re-run init on an initialized project without the commit-first ritual.** `mxcli init` **overwrites** an existing `CLAUDE.md` and `.claude/settings.json` without merging (confirmed on v0.16.0 — it clobbered a live project's files). So: run `mxcli init` on the fresh project to get `.ai-context/` and the generated baseline, *then* run this skill, which merges the toolkit's Baseline routing and project facts into the init-generated `CLAUDE.md` rather than replacing it. If someone needs to re-init later, commit `CLAUDE.md` + `.claude/` first and restore/re-merge them afterwards. **A re-init IS worth doing once a project's mxcli reaches v0.20.0:** the bundled skills became directory-shaped (`<name>/SKILL.md`, Agent Skills standard) and init retires the flat `<name>.md` files older versions wrote — without touching skills the user added — so an upgraded project otherwise carries a stale flat copy beside nothing.
 
+**Strip the stale `DECLARE $Var Module.Entity;` row on merge.** An init older than v0.22 can leave an "Entity declaration" row (`DECLARE $Var Module.Entity;`) in the "Microflows - Supported Statements" table — v0.22 `check` rejects that form (MDL043/CE0053). If the `CLAUDE.md` being merged still carries it, drop the row and note that a re-init is due (commit first, per the ordering rule above). See `BUG-DRAFT-stale-init-claude-md-declare-object` in `bug-logs/mxcli-bugs.md`. `bin/sync-project.sh` only reports this row — the strip happens here, at merge time.
+
 ---
 
 ## Core Principle
@@ -35,7 +37,7 @@ None of these live in the toolkit. Ask the user or check the project directly; d
 | **Migration-input location** (migrations only) | Where BRDs/architecture docs from an upstream analysis project live | Ask the user; this is almost never the toolkit's own `pipelines/` output location |
 | **Project/`.mpr` filename** | Every example command in the routing tables needs the real filename, not a placeholder | Check the project directory |
 
-**If this is an audit of an existing project rather than a fresh bootstrap**, also diff its current `CLAUDE.md` against what Step 1 would produce today — stale facts (like a wrong mxcli invocation style) are exactly the kind of drift this step exists to catch.
+**If this is an audit of an existing project rather than a fresh bootstrap**, also diff its current `CLAUDE.md` against what Step 1 would produce today — stale facts (like a wrong mxcli invocation style) are exactly the kind of drift this step exists to catch. Check for the stale `DECLARE $Var Module.Entity;` row too (see the ordering-rule note above) — the same audit pass that catches a wrong invocation style should catch this.
 
 ---
 

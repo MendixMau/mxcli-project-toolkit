@@ -683,6 +683,22 @@ if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -q "^|.*$LEDGER_ROW_RE" "$PROJECT_DIR
        "  $(routing_row bug-lookup "$(ledger_row_prefix "$PROJECT_DIR/CLAUDE.md")")"
 fi
 
+# A CLAUDE.md written by an mxcli init older than v0.22 can still teach
+# `DECLARE $Var Module.Entity;` (an "entity declaration" row in the "Microflows - Supported
+# Statements" table). v0.22 `check` rejects that form (MDL043/CE0053) — see
+# BUG-DRAFT-stale-init-claude-md-declare-object in bug-logs/mxcli-bugs.md for the golden
+# capture. The generated file carries no version stamp, so nothing else flags the drift.
+# Report-only for the same reason as the ledger-row warning above: CLAUDE.md is init's file
+# and bootstrap-project.md's merge, never sync's to edit.
+DECLARE_OBJECT_RE='DECLARE \$[A-Za-z_]+ [A-Za-z_]+\.[A-Za-z_]+;'
+if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -Eq "$DECLARE_OBJECT_RE" "$PROJECT_DIR/CLAUDE.md"; then
+  warn "CLAUDE.md teaches \`DECLARE \$Var Module.Entity;\` — that row came from an mxcli init" \
+       "older than v0.22; v0.22 \`check\` rejects it (MDL043/CE0053, an object variable" \
+       "declaration). Fix: commit first, re-run \`mxcli init\` with the current binary, then" \
+       "re-run the bootstrap-project.md merge. sync does not edit CLAUDE.md — see" \
+       "BUG-DRAFT-stale-init-claude-md-declare-object in bug-logs/mxcli-bugs.md."
+fi
+
 # --- 3. Baseline routing / runbook-first wiring -----------------------------------------
 if [ ! -f "$PROJECT_DIR/CLAUDE.local.md" ] && { [ ! -f "$PROJECT_DIR/CLAUDE.md" ] || ! grep -q "conversion-runbook" "$PROJECT_DIR/CLAUDE.md"; }; then
   warn "No runbook-first wiring found (no CLAUDE.local.md, and CLAUDE.md doesn't reference" \

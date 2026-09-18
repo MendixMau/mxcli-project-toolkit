@@ -44,11 +44,14 @@
 #             it works: build/workflow, build/integration and build/agents were each filled by
 #             a skill written because the empty heading made the hole visible.
 #
-#             Groups order the RENDERED tables (ROUTING.md, README's situational table). They
-#             deliberately do NOT group the baseline views: baseline is a read-all-of-these set,
-#             where sub-headings would imply a selectivity that does not exist, and that view is
-#             copied into every project's CLAUDE.local.md — regrouping it churns every project
-#             for no gain.
+#             Groups order the RENDERED tables (ROUTING.md, README's situational table). The
+#             baseline views are NOT grouped by this column — sub-headings would imply a
+#             selectivity the group column does not carry for baseline rows. They ARE sliced by
+#             column 5 (stages): the rendered baseline table carries a Stage(s) column, and a
+#             session reads a row only when its stage cell says "every stage" (column 5 was "-")
+#             or names the stage the project's register says it is in. That slicing comes from
+#             the stages column already on every row, so adding it did not require touching a
+#             single baseline row — only the renderer.
 #
 # TSV rather than a markdown ROUTING.md because a renderer has to parse this in bash 3.2 on
 # macOS, and several "when" strings contain the "|" that a markdown table uses as its column
@@ -236,11 +239,14 @@ wizard-walkthrough	skills/wizard-walkthrough.md	Handing the human a batch of ste
 #             it works: build/workflow, build/integration and build/agents were each filled by
 #             a skill written because the empty heading made the hole visible.
 #
-#             Groups order the RENDERED tables (ROUTING.md, README's situational table). They
-#             deliberately do NOT group the baseline views: baseline is a read-all-of-these set,
-#             where sub-headings would imply a selectivity that does not exist, and that view is
-#             copied into every project's CLAUDE.local.md — regrouping it churns every project
-#             for no gain.
+#             Groups order the RENDERED tables (ROUTING.md, README's situational table). The
+#             baseline views are NOT grouped by this column — sub-headings would imply a
+#             selectivity the group column does not carry for baseline rows. They ARE sliced by
+#             column 5 (stages): the rendered baseline table carries a Stage(s) column, and a
+#             session reads a row only when its stage cell says "every stage" (column 5 was "-")
+#             or names the stage the project's register says it is in. That slicing comes from
+#             the stages column already on every row, so adding it did not require touching a
+#             single baseline row — only the renderer.
 #
 # TSV rather than a markdown ROUTING.md because a renderer has to parse this in bash 3.2 on
 # macOS, and several "when" strings contain the "|" that a markdown table uses as its column

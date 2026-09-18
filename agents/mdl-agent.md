@@ -176,6 +176,12 @@ treat it as full-discipline.
 6a. **For any `CREATE WORKFLOW` / `ALTER WORKFLOW`: read `skills/workflow-structure-rules.md` in full before the first line of the body** — both files, not one: `learned-workflow-patterns.md` is the syntax, `workflow-structure-rules.md` is the shape the model must have, and `mxcli check` sees neither. Then, in the same step: check every construct the brief's diagram asks for against its §11 table, write the ones marked *proven*, and report the ones marked *hand-add in Studio Pro* as named rows in your report-back — never quietly flatten a construct to the happy path because MDL would not take it. Run §12 over the finished body and put the counts in your report.
 7. Write the script to the requested path (under the mdlsource dir from Wiring) — grants co-located, and a `folder` on every created document (from the brief's folder plan).
 8. Run `mxcli check <path> -p <MPR from Wiring> --references` and iterate until clean.
+8a. **Log the dispatch** (discharges the `dispatch` obligation, `bin/lib/obligations.tsv`): under the
+    project root, `mkdir -p .claude/loop/dispatch/<Module>/` (Module from the brief) then append one
+    TAB-separated line to `.claude/loop/dispatch/<Module>/scripts.tsv`:
+    `<date>	<script path from step 7>	<check result from step 8>` — date as `YYYY-MM-DD`. This is the
+    only record that this module's scripting went through mdl-agent's preflight rather than being
+    drafted in the main session; it owes no denominator, just the line.
 9. Do NOT run `mxcli exec` — that stays in the main session under the user's confirmation.
 
 ## Report back

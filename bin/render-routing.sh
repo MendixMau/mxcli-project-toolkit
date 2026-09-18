@@ -262,6 +262,13 @@ if [ "$MODE" = "check" ]; then
     exit 2
   fi
   echo "Routing surfaces in sync with the table; all skills routed or exempted. Baseline: $BASELINE_WORDS words (budget $BASELINE_BUDGET)."
+  # Per-stage breakdown: what a session actually reads at each stage is the every-stage rows
+  # plus that stage's own rows, not the whole baseline tier at once (routing_baseline_pack,
+  # shared with bin/gate-check.sh's ADVISORY line so both report the same number).
+  for _stage in P 0 1 2 3 4 5 6 7; do
+    IFS=$'\t' read -r _sw _sf _sp <<< "$(routing_baseline_pack "$_stage" "$ROOT")"
+    printf '  stage %s: %s words / %s files\n' "$_stage" "$_sw" "$_sf"
+  done
   exit 0
 fi
 

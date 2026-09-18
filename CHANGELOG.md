@@ -7,6 +7,24 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-18
+- new(routing): **baseline routing is now stage-sliced.** `bin/lib/skill-routing.tsv` gained a
+  `stages` column (a comma list over `P,0-7`, or `-` for stage-independent); the
+  `readme-baseline`/`baseline` render now prints a `Stage(s)` column, every-stage rows first then
+  stage-specific rows in TSV order, so a project at Stage 5 can see at a glance which baseline
+  files actually apply there instead of reading all of them every session. — MendixMau
+- new(gate-check): **`gate-check.sh` now prints a baseline-pack-size advisory** — total word count
+  of the baseline `.md` files that apply at the requested/current stage, against the existing
+  budget — never affecting exit code or verdicts. `render-routing.sh --check` gained the matching
+  per-stage breakdown (`stage S: N words / F files`), both sharing one new
+  `routing_baseline_pack()` function so the two surfaces can't drift apart. — MendixMau
+- new(obligations): **added the `dispatch` obligation** (`bin/lib/obligations.tsv` +
+  `agents/mdl-agent.md` step 8a, mirrored in `skills/agent-roles.md`'s mdl-agent template): a
+  per-module `.claude/loop/dispatch/<Module>/scripts.tsv` log line proving a module's MDL scripting
+  went through mdl-agent's preflight rather than being drafted ad hoc in the main session, where
+  `learned-mdl-preflight.md`'s STOP checks never ran. PENDING when the log is absent, PASS once it
+  exists — no changes needed to `obligation-check.sh`'s generic path-match logic. — MendixMau
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

@@ -10,7 +10,7 @@ rots; `sync-project.sh` exists because copies rot). Own skills, naming conventio
 MDL snippets, design systems and approved MPKs have no home. Related: PR #93's open question
 "is a toolkit-owned decision register still justified", PR #88 (mxcli brain adopted per project),
 issue #90 (baseline budget saturated).
-**Proposed target:** `templates/company-overlay/` (new) + `--company <path>` on
+**Proposed target:** `templates/company-brain/` (new) + `--company <path>` on
 `bin/init-project.sh` / `bin/sync-project.sh` + one ~40-word baseline pointer row in
 `bin/lib/skill-routing.tsv`.
 
@@ -57,7 +57,7 @@ re-merged by hand. An overlay is `git pull` on both and one sync.
 
 ## What the toolkit ships (v1, small)
 
-- `templates/company-overlay/` — skeleton: `README.md` (the wiring recipe), empty
+- `templates/company-brain/` — skeleton: `README.md` (the wiring recipe), empty
   `skills/ lint-rules/ examples/mdl/ catalog/mpk/ inbox/`, a `skill-routing.tsv` header,
   `catalog/mpk/TEMPLATE.md` (the manifest fields above), `inbox/TEMPLATE.md` (copy of the
   toolkit's).
@@ -75,8 +75,14 @@ re-merged by hand. An overlay is `git pull` on both and one sync.
 - MPK install automation — capability-probe the binary first (the "marketplace is manual"
   misfire is on record in this toolkit).
 
-## Open
+## Resolved 2026-09-18 (Maurits)
 
-- Does the leak guard run in the overlay? It should, with the company's *own* denylist
-  (clients they serve), since the overlay is where client-named learnings are allowed to live.
-- Name: "company brain" is the user's term; "overlay" is the mechanism. Pick one for the docs.
+- **Leak guard.** `check-no-client-data.sh` guards the *public toolkit* — that is its stated
+  purpose. It has two halves: a gitignored **denylist of names** (optional) and **generic probes**
+  for real data (strings copied from a live app, typed GUIDs, local filesystem paths, contact
+  details). In the company brain, names — the company's own, its clients', its apps' — are the
+  company's call and need no denylist. What the company brain keeps is the **probes half only**:
+  no personal data, no credentials, no record contents, no local paths. One reuse of the existing
+  script with the denylist off (CI already runs it that way).
+- **Name: "company brain".** The overlay is the mechanism; the docs and the template directory say
+  company brain (`templates/company-brain/`).

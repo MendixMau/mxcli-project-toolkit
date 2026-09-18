@@ -373,7 +373,10 @@ echo "== T11: the retired always-on ledger row (bug-logs/mxcli-bugs.md) becomes 
 # in place with its own path prefix kept), and CLAUDE.md's bootstrap-authored block (reported
 # with the exact replacement, never edited — no script produced it).
 P="$(mkproj t11)"
-awk '/^\| A CE error.*bin\/bug-lookup\.sh` \|$/ { print "| A CE error or behavior that looks like a known mxcli quirk | `bug-logs/mxcli-bugs.md` |"; next } { print }' \
+# The plant swaps the path cell only, so it fits the two-column (pre-2026-09-18) and the
+# three-column stage-sliced baseline row alike — anchoring on end-of-line broke when a
+# `| Stage(s) |` cell was appended after the path (CI, PR #99).
+awk '/^\| A CE error.*`bin\/bug-lookup\.sh` \|/ { sub(/`bin\/bug-lookup\.sh`/, "`bug-logs/mxcli-bugs.md`"); print; next } { print }' \
   "$P/CLAUDE.local.md" > "$P/CLAUDE.local.md.t" && mv "$P/CLAUDE.local.md.t" "$P/CLAUDE.local.md"
 grep -q 'bug-logs/mxcli-bugs.md' "$P/CLAUDE.local.md" && ok "control: marked block carries the retired row" || bad "control: fixture did not plant the row"
 OUT="$("$SYNC" "$P" 2>&1)"

@@ -8,6 +8,10 @@ Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templat
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
 ## 2026-09-18
+- test(sync): **`test-bug12-sync.sh` plants the retired ledger row shape-agnostically.** Its T11
+  setup anchored the always-on bug-lookup row on end-of-line, so the stage-sliced three-column
+  table (a `Stage(s)` cell after the path) never got the row planted and two assertions failed in
+  CI; the plant now swaps only the path cell. Assertions untouched. — MendixMau
 - new(routing): **baseline routing is now stage-sliced.** `bin/lib/skill-routing.tsv` gained a
   `stages` column (a comma list over `P,0-7`, or `-` for stage-independent); the
   `readme-baseline`/`baseline` render now prints a `Stage(s)` column, every-stage rows first then

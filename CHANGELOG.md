@@ -7,6 +7,17 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-18
+- fix(sync): **`bin/sync-project.sh` now warns (report-only) when a project's `CLAUDE.md` still
+  teaches `DECLARE $Var Module.Entity;`** — a row a pre-v0.22 `mxcli init` wrote and v0.22 `check`
+  rejects (MDL043/CE0053), with no version stamp in the generated file to flag the drift. See
+  `BUG-DRAFT-stale-init-claude-md-declare-object` in `bug-logs/mxcli-bugs.md`. Same convention as
+  the neighbouring ledger-row warning: sync never edits `CLAUDE.md` (init's file, bootstrap's
+  merge), it only reports and names the fix. `skills/bootstrap-project.md` now strips the row on
+  merge. Field run: scaffolded a scratch project via `bin/init-project.sh`, wrote a `CLAUDE.md`
+  with the stale row in a markdown table — warn fired; removed the row — warn did not fire.
+  — MendixMau
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

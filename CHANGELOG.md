@@ -7,6 +7,9 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-18
+- process(contrib/inbox): idea queued — **a prerequisites + success-criteria gate before any "full X" task** (full app analysis, full e2e, full UI loop, assessment). Big à-la-carte asks start executing and discover mid-run that the app is not up, no persona has credentials, no seed data or baseline exists, or "done" was never defined — tokens spent before the discovery are lost. Proposal: a per-task-family card (prerequisites split into mechanically-checked vs ask-the-user, plus a pass bar with a denominator) posted as the first Live Checklist item, answers recorded per project so the next run reuses them. `contrib/inbox/2026-09-18-prerequisites-gate-for-big-tasks.md` — Maurits Visser
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

@@ -3,7 +3,7 @@
 **From:** lowcode-vs-highcode benchmark, Mendix arm run 1 (orchestrator session)
 **Date:** 2026-09-19
 **Kind:** process
-**Field evidence:** A 3-module, 7-screen requirements-driven build (Mendix 11.14, mxcli 0.22.0, toolkit @ 2d9a0a2) closed with `design/ui-reviews/` empty, no `docs/PAGE-FIDELITY.tsv`, no `.claude/loop/`, `project-bin/` never populated, and `PROJECT.md` still reading "gates passed: none yet (derived by gate-check on <scaffold date>)". The human noticed by looking at the screenshots. Same chain as `contrib/inbox/2026-09-09-ui-loop-never-runs-page-fidelity.md`, which was still unpromoted.
+**Field evidence:** A 3-module, 7-screen requirements-driven build (Mendix 11.14, mxcli 0.22.0, toolkit @ 2d9a0a2) closed with `design/ui-reviews/` empty, no `docs/PAGE-FIDELITY.tsv`, no `.claude/loop/`, `bin/page-fidelity.js` present but never run, and `PROJECT.md` still reading "gates passed: none yet (derived by gate-check on <scaffold date>)". The human noticed by looking at the screenshots. Same chain as `contrib/inbox/2026-09-09-ui-loop-never-runs-page-fidelity.md`, which was still unpromoted.
 **Proposed target:** `skills/conversion-runbook.md` §1b (definition of done), `bin/init-project.sh` (install instruments), agent-stub dispatch / `iterative-build-loop.md`, and triage of the 2026-09-09 note together with this one.
 
 ---
@@ -32,8 +32,8 @@
    lead's own always-on block (mxtk wiring: RESUME.md, exec-approval, no strays) has no LOOK line,
    no fidelity step, no gate-check-before-done. Workers got briefs, not skills. So the text was
    in nobody's context at page-writing time.
-3. **Instruments not installed.** `init-project.sh` does not copy `project-bin/page-fidelity.js`
-   or `check-page-shell.sh`; the skill says "run it", the project has nothing to run.
+3. **Instruments installed, never run.** `init-project.sh` copied `page-fidelity.js`
+   and `check-page-shell.sh` into the project `bin/`; nothing in the loop required executing them.
 4. **Inbox not drained.** The 2026-09-09 note predicted this exactly. Ten days in the queue.
 
 ## Should these be part of the pipeline? (position, not hypothesis)
@@ -43,8 +43,8 @@ They are. The gap is enforcement, not content. Proposals, smallest first:
 - **A.** In the runbook's Live Checklist Protocol (§1b), make the last item of every Stage-5
   module checklist literally: `gate-check.sh <root> 5` ran, output pasted, zero PENDING
   obligations for this module. A stage reposted without it is not done.
-- **B.** `init-project.sh` installs `project-bin/page-fidelity.js` and `check-page-shell.sh`
-  and writes the `docs/PAGE-FIDELITY.tsv` header, so the artifact check sees a stub and the
+- **B.** `init-project.sh` (already installs both instruments) additionally writes the `docs/PAGE-FIDELITY.tsv` header
+  so the artifact check sees a stub and the
   human sees zeros instead of nothing.
 - **C.** Put a 6-line "before any page MDL / after any page MDL" block into the *always-on*
   section of the generated `CLAUDE.local.md` (not the situational table): read

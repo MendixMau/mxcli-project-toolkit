@@ -9,12 +9,23 @@ Credit the person or project that surfaced the change — the credit line is the
 
 ## 2026-09-19
 - learn(conversion-runbook §1c): **the dispatch table names tiers, not Claude models — cheap / mid / strong — with a per-harness mapping and a longer cheap-tier list.** The table was written in Claude Code's vocabulary (Haiku/Sonnet/Opus), so a session in the desktop app, Cowork, Copilot, Cursor, Windsurf or Aider had no way to follow it, and the cheap tier held one job (image descriptions) although Stage 1 inventory lines, table/figure transcription and Stage 5 `SHOW` dumps meet the same test: a mechanical check follows. New sub-section defines each tier by the check after it (cheap never ends in a verdict, rule, or question — the 78 %-recall evidence stays), maps the tiers to Claude Code aliases, to a vendor's small/standard/largest tier read from the tool's own picker (names churn, the file does not chase them), and admits local/open-weight models for the cheap tier only; names effort level and batch size as the levers below the tier (README's 1.67× vs 3.4×), and rules that a failed unit is re-run at the same tier. Stubs keep their Claude aliases because the frontmatter accepts nothing else — Maurits Visser
+- fix(agent-roles, sync-project): **`agent-roles.md` said `model: inherit` for all six agents
+  while `agents/*.md` pins opus/sonnet; the prose now matches the stubs, and `sync-project.sh`
+  warns when a completed project agent's `model:` line drifted from the template and re-pins it
+  on `--pin-models`.** Inherit was wrong because a project running the whole pipeline under Opus
+  paid Opus prices for the gate/test/mdl work §1c assigns to Sonnet. Field-run on a scaffolded
+  project: a completed ba-agent left at `model: inherit` reported `Kept` + a drift warning against
+  the template's `model: sonnet`, `--dry-run --pin-models` printed the pin without touching the
+  file, and `--pin-models` rewrote only that one line. — Maurits Visser
 - fix(render-routing.sh): **the baseline word count depended on the caller's locale.** GNU
   `wc -w` splits on locale whitespace, so one tree measured 79,539 words under `LC_ALL=C` and
   81,427 under the runner's `C.UTF-8` — a PR that passed `--check` locally failed it in CI by
   words no file contained (master itself sat 7 words under budget on the runner). Both counts
   now pin `LC_ALL=C`, so the ratchet reads the same number on every machine. Budget unchanged;
   it is now measured in C-locale words — Maurits Visser
+
+## 2026-09-18
+- new(bin): **`bin/token-burn.sh` — tokens per model / day / stage from the Claude Code transcripts on this machine; `status.sh --brief` gains a "Tokens this stage:" line.** Sums `message.usage` once per `message.id` (the harness writes one record per streamed block — 4,336 records for 1,989 messages in the captured session, a ~2× overcount if summed raw), skips `<synthetic>` records, attributes by each record's own `cwd` (a session launched in `~` that works in `~/proj`), headline = input + cache-write + output with cache-read shown apart, stage by the dated Decisions rows in PROJECT.md; prints NOT AVAILABLE and exits 0 where no transcript tree exists (claude.ai chat, Cowork, Copilot, Cursor). Fixture is a captured-then-scrubbed transcript with sums computed independently (`tests/wave2/fixtures/token-burn/CAPTURE.md`). Field runs: a requirements-driven PoC at Stage 4 — 358k headline / 19.2M cache-read over 5 days, 76% sonnet; this toolkit's own clone — 14.5M headline / 491M cache-read, 64% of it in Agent-tool subagents — MendixMau
 
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read

@@ -166,6 +166,39 @@ assert "missing denylist can be opted out"   0 bash -c "cd '$WORK/nodeny' && LEA
 ( cd "$(mkrepo clean)" && printf 'entirely generic content\n' > a.md )
 assert "clean repo passes"                   0 bash -c "cd '$WORK/clean' && '$LEAK'"
 
+# LEAKGUARD_BASE step 7 — warn-only new-capitalised-words report, added 2026-09-16.
+# "Can we just scan customer names from each PR and remove them?" — the guard can only
+# block on a name it was told (the denylist above); this report is the reviewer prompt,
+# never a gate, so all three cases below must exit 0 regardless of what they find.
+NW="$(mkrepo newwords)"
+( cd "$NW" && printf 'base content WidgetCo here\n' > a.md && git add a.md && git commit -q -m base )
+NWBASE="$(cd "$NW" && git rev-parse HEAD)"
+( cd "$NW" && printf 'second commit adds NovaMetrics\n' >> a.md && git add a.md && git commit -q -m second )
+
+OUT="$(cd "$NW" && LEAKGUARD_ALLOW_NO_DENYLIST=1 LEAKGUARD_BASE="$NWBASE" "$LEAK" 2>&1)"; RC=$?
+if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "NovaMetrics" && ! printf '%s' "$OUT" | grep -q "WidgetCo"; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "new-words report flags only the new word" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "new-words report flags only the new word" "$RC"
+  printf '%s\n' "$OUT" | sed 's/^/          /'
+fi
+
+OUT="$(cd "$NW" && LEAKGUARD_ALLOW_NO_DENYLIST=1 LEAKGUARD_BASE=nope "$LEAK" 2>&1)"; RC=$?
+if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "not resolvable"; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "unresolvable LEAKGUARD_BASE warns, does not fail" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "unresolvable LEAKGUARD_BASE warns, does not fail" "$RC"
+  printf '%s\n' "$OUT" | sed 's/^/          /'
+fi
+
+OUT="$(cd "$NW" && LEAKGUARD_ALLOW_NO_DENYLIST=1 "$LEAK" 2>&1)"; RC=$?
+if [ "$RC" -eq 0 ] && ! printf '%s' "$OUT" | grep -q "new capitalised"; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "no LEAKGUARD_BASE means no new-words line" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "no LEAKGUARD_BASE means no new-words line" "$RC"
+  printf '%s\n' "$OUT" | sed 's/^/          /'
+fi
+
 echo
 
 # ---------------------------------------------------------------------------

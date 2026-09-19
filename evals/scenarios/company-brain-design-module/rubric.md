@@ -2,7 +2,10 @@
 
 **Scenario ID:** `cb-design-module`
 **Mode:** any entry mode, Stage 5 (a page is about to be built)
-**Grader:** human (first run), assertions in `expected/` where mechanical
+**Grader:** `runs/grade.sh` for Part A (mechanical); human for Part B.
+**Split (after run 1, 2026-09-19):** **Part A — retrieval** = Dimension 1, runnable anywhere, no
+binary needed. **Part B — install and registers** = Dimensions 2 and 3, needs a machine with
+mxcli. Run 1 did Part A only: 3/3 retrieved vs 0/3 control (`runs/2026-09-19/RESULT.md`).
 
 **Question this eval answers:** when a project is wired to a company brain that holds an approved
 design-system MPK, does a build session *find and use it* — instead of building its own design
@@ -18,7 +21,7 @@ system, and instead of guessing the install step — with the pointer block as t
    `.mpr` in place (`mxcli new` or a copy of a scaffold).
 4. Open a session in `$WORK/acme-app` with `input/prompt.md`.
 
-## Dimension 1 — Retrieval (40 pts)
+## Part A · Dimension 1 — Retrieval (40 pts) — RUN 2026-09-19: 3/3 vs 0/3 control
 
 | Check | Points | Result | Notes |
 |---|---|---|---|
@@ -27,7 +30,7 @@ system, and instead of guessing the install step — with the pointer block as t
 | It does NOT propose building a design system from scratch (`design-artifacts.md` path) | 10 | | the toolkit's default would; the company brain must win |
 | It cites the manifest's Mendix version range against the project's version | 5 | | |
 
-## Dimension 2 — Install discipline (30 pts)
+## Part B · Dimension 2 — Install discipline (30 pts) — NOT RUN (needs mxcli)
 
 | Check | Points | Result | Notes |
 |---|---|---|---|
@@ -35,7 +38,7 @@ system, and instead of guessing the install step — with the pointer block as t
 | Uses the manifest's recorded install step when it matches the probe, and says so when it does not | 10 | | |
 | Asks the user only what neither manifest nor probe can answer, then stops | 5 | | |
 
-## Dimension 3 — Registers (20 pts)
+## Part B · Dimension 3 — Registers (20 pts) — NOT RUN (needs mxcli)
 
 | Check | Points | Result | Notes |
 |---|---|---|---|

@@ -42,8 +42,8 @@ cp "$FIX/PROJECT.md" "$P/PROJECT.md"
 install_tree() {   # $1 = config dir, $2 = slug dir name
   local d="$1/projects/$2"
   mkdir -p "$d/s-1/subagents"
-  sed "s#/home/example/proj#$P#g" "$FIX/transcripts/s-1.jsonl" > "$d/s-1.jsonl"
-  sed "s#/home/example/proj#$P#g" "$FIX/transcripts/s-1/subagents/agent-1.jsonl" > "$d/s-1/subagents/agent-1.jsonl"
+  sed "s#/srv/example/proj#$P#g" "$FIX/transcripts/s-1.jsonl" > "$d/s-1.jsonl"
+  sed "s#/srv/example/proj#$P#g" "$FIX/transcripts/s-1/subagents/agent-1.jsonl" > "$d/s-1/subagents/agent-1.jsonl"
 }
 
 CFG="$WORK/claude"; install_tree "$CFG" "$(slug "$P")"
@@ -72,8 +72,8 @@ has "T2 current stage"   "$J" '"current_stage": "2"'
 
 # --- T3: two-tree cwd counts ----------------------------------------------------------------
 CFG3="$WORK/claude3"; d3="$CFG3/projects/$(slug "$P")"; mkdir -p "$d3/s-1/subagents"
-sed "s#/home/example/proj/app#$WORK/elsewhere#g; s#/home/example/proj#$P#g" "$FIX/transcripts/s-1.jsonl" > "$d3/s-1.jsonl"
-sed "s#/home/example/proj#$P#g" "$FIX/transcripts/s-1/subagents/agent-1.jsonl" > "$d3/s-1/subagents/agent-1.jsonl"
+sed "s#/srv/example/proj/app#$WORK/elsewhere#g; s#/srv/example/proj#$P#g" "$FIX/transcripts/s-1.jsonl" > "$d3/s-1.jsonl"
+sed "s#/srv/example/proj#$P#g" "$FIX/transcripts/s-1/subagents/agent-1.jsonl" > "$d3/s-1/subagents/agent-1.jsonl"
 J3="$(CLAUDE_CONFIG_DIR="$CFG3" bash "$SUT" "$P" --json 2>&1)"
 has "T3 app/ records counted (22 -> 21 once moved out of the root)" "$J3" '"messages": 21'
 
@@ -95,8 +95,8 @@ echo "$S" | grep -Eq '^ *1 +1 +39k +2168k +5 ' && ok "T5 stage-1 row" || bad "T5
 # --- T6: no PROJECT.md ----------------------------------------------------------------------
 P6="$WORK/proj6"; mkdir -p "$P6/app"
 CFG6="$WORK/claude6"; d="$CFG6/projects/$(slug "$P6")"; mkdir -p "$d/s-1/subagents"
-sed "s#/home/example/proj#$P6#g" "$FIX/transcripts/s-1.jsonl" > "$d/s-1.jsonl"
-sed "s#/home/example/proj#$P6#g" "$FIX/transcripts/s-1/subagents/agent-1.jsonl" > "$d/s-1/subagents/agent-1.jsonl"
+sed "s#/srv/example/proj#$P6#g" "$FIX/transcripts/s-1.jsonl" > "$d/s-1.jsonl"
+sed "s#/srv/example/proj#$P6#g" "$FIX/transcripts/s-1/subagents/agent-1.jsonl" > "$d/s-1/subagents/agent-1.jsonl"
 S6="$(CLAUDE_CONFIG_DIR="$CFG6" bash "$SUT" "$P6" 2>&1)"
 has "T6 screen UNMAPPED" "$S6" "UNMAPPED"
 B6="$(CLAUDE_CONFIG_DIR="$CFG6" bash "$SUT" "$P6" --brief 2>&1)"

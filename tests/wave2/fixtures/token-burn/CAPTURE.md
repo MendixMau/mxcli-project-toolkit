@@ -26,7 +26,7 @@ assistant `message.id`s per day **with all their duplicate records kept**, at mo
 `user`/`queue-operation`/`system` records per day, and one `<synthetic>` record. From the
 subagent transcript: the first 25 assistant records and their user turns (one day, 2026-09-17).
 All records of the first in-project message id (`msg_14`) were rewritten to
-`cwd: /home/example/proj/app` to stand in for the two-tree (`.mpr` under `app/`) layout.
+`cwd: /srv/example/proj/app` to stand in for the two-tree (`.mpr` under `app/`) layout.
 
 ## Scrubbing
 
@@ -35,7 +35,7 @@ All records of the first in-project message id (`msg_14`) were rewritten to
 | `uuid` / `parentUuid` | `u-<n>` (one consistent map) |
 | `message.id` | `msg_<n>` (one consistent map — duplicates stay duplicates) |
 | `sessionId` | `s-1`; `agentId` → `agent-1` |
-| `cwd` | home → `/home/example`; the toolkit clone → `/home/example/proj`; anything else → `/home/example/other` |
+| `cwd` | home → `/srv/example`; the toolkit clone → `/srv/example/proj`; anything else → `/srv/example/other` |
 | `message.content` | the string `"[scrubbed]"` |
 | dropped | `gitBranch`, `slug`, `requestId`, and every other key not listed under "kept" |
 
@@ -48,7 +48,7 @@ publish.
 ## Expected numbers (computed independently of the instrument)
 
 One Python one-liner over both files: unique `message.id`, `type == assistant`, model not
-`<synthetic>`, `cwd` at or under `/home/example/proj`. Columns are
+`<synthetic>`, `cwd` at or under `/srv/example/proj`. Columns are
 input · cache-write · cache-read · output · messages; headline = input + cache-write + output.
 
 | | input | cache-write | cache-read | output | msgs | headline |
@@ -58,7 +58,7 @@ input · cache-write · cache-read · output · messages; headline = input + cac
 | **total** | 314 | 91137 | 3606257 | 15584 | 22 | 107035 |
 
 Records: 52 in-project assistant records collapse to 22 messages; 76 records at
-`/home/example` are excluded; 6 records of `msg_14` are at `/home/example/proj/app` and count.
+`/srv/example` are excluded; 6 records of `msg_14` are at `/srv/example/proj/app` and count.
 
 Per day (headline): 2026-09-08 → 38527 (5 msgs) · 2026-09-17 → 59858 (13) · 2026-09-18 → 8650 (4).
 With `PROJECT.md` beside: stage 1 = 2026-09-08 = 38527 (`39k`); stage 2 = 09-17 + 09-18 =

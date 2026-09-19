@@ -59,7 +59,9 @@ OUT="$(CLAUDE_CONFIG_DIR="$WORK/nowhere" bash "$SUT" "$P" --json 2>&1)"
 has "T1 json available:false" "$OUT" '"available": false'
 
 # --- T2: json, exact sums ------------------------------------------------------------------
-J="$(CLAUDE_CONFIG_DIR="$CFG" bash "$SUT" "$P" --json 2>&1)"
+# the instrument pretty-prints (indent=1, one list element per line); fold the whitespace so a
+# per-model array can be pinned as one literal (no python here — check-portability)
+J="$(CLAUDE_CONFIG_DIR="$CFG" bash "$SUT" "$P" --json 2>&1 | tr -d '\n' | tr -s ' ' | sed 's/\[ /[/g; s/ \]/]/g')"
 has "T2 fable-5-1 array" "$J" '"claude-fable-5-1": [288, 31365, 2607781, 15524, 9]'
 has "T2 sonnet-5 array"  "$J" '"claude-sonnet-5": [26, 59772, 998476, 60, 13]'
 has "T2 22 messages"     "$J" '"messages": 22'
@@ -88,7 +90,8 @@ has "T5 synthetic skipped" "$S" "1 synthetic skipped"
 has "T5 22 messages from 52 records" "$S" "22 messages (from 52 records"
 has "T5 current stage line" "$S" "register says current stage 2"
 has "T5 subagent share" "$S" "subagents (Agent tool): 60k of headline (56%)"
-hasnt "T5 no UNMAPPED" "$S" "UNMAPPED"
+# the caveat line legitimately explains what UNMAPPED means; no day or stage row may carry it
+hasnt "T5 no UNMAPPED row" "$(echo "$S" | grep -v '^  caveat:')" "UNMAPPED"
 echo "$S" | grep -Eq '^ *2 +2 +69k +1438k +17 ' && ok "T5 stage-2 row" || bad "T5 stage-2 row" "$(echo "$S" | grep -E '^ *2 ' | head -3)"
 echo "$S" | grep -Eq '^ *1 +1 +39k +2168k +5 ' && ok "T5 stage-1 row" || bad "T5 stage-1 row" "$(echo "$S" | grep -E '^ *1 ' | head -3)"
 

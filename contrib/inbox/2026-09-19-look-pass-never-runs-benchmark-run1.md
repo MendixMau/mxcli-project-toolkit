@@ -62,3 +62,40 @@ Re-running the UI pass on both benchmark arms under a spec amendment: element-ch
 alignment per wireframe (present / placed / behaves), ≥95% target, header/topbar mandatory,
 platform-default theme retained. Fidelity measured mechanically, LOOK pass with screenshots,
 `gate-check.sh` before close. Outcome will be filed as a follow-up to this note.
+
+## Follow-up (same day, same author) — proposal D is field-refuted; A/C landed
+
+Run 1b closed on both arms and the outcome is filed at
+`lowcode-vs-highcode-benchmark/results/mendix-run1b/` and `results/highcode-run1b/`.
+
+**D is withdrawn, not deferred.** It proposed that the `look` obligation accept a fidelity row
+≥ threshold plus a screenshot instead of a review artifact. Scoring the same commit both ways
+shows the score cannot stand in for the pass in either direction:
+
+| Screen | Fidelity (text match) | Element checklist (present / placed / behaves) |
+|---|---:|---:|
+| S1 Requests overview | 100% | 58% |
+| S4 Approval queue | 100% | 40% |
+| S3 Request detail | 55% | 69% |
+
+`page-fidelity.js` greps identifiers out of the page MDL and matches them against the
+wireframe's text; it cannot see nesting or placement. S1 and S4 named every element and laid
+them out wrongly. S3 fails the grep on formatting the instrument has no expression for. A
+threshold over this number would have passed the two worst screens in the run.
+
+**A and C landed instead**, as commit `e466e4c` in this repo:
+- `skills/conversion-runbook.md` §1b **rule 8** — the last checklist item of every stage and
+  every module build is `bin/gate-check.sh`, run and pasted, zero `PENDING` or each one named
+  and waived (proposal A).
+- `bin/init-project.sh` — a before/after page-MDL item in the generated `CLAUDE.local.md`, so
+  the pre-flight text reaches the agent that writes pages (proposal C).
+- `skills/ui-preflight-pages.md` — "a fidelity score is not a LOOK pass", carrying the table
+  above. This is what replaced D.
+
+**B is moot**: `project-bin/page-fidelity.js` already writes the `PAGE-FIDELITY.tsv` header when
+it creates the file, so a missing score is not a missing table. **E is untouched** — still a
+hypothesis, still possibly too noisy.
+
+Non-Mendix control, so this reads as a pipeline gap rather than a platform one: Arm B's
+high-code baseline was 43% (approvals) and 56% (admin) against the same wireframes, and reached
+100% only after the same deliberate LOOK loop.

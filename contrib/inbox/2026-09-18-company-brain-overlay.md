@@ -86,3 +86,35 @@ re-merged by hand. An overlay is `git pull` on both and one sync.
   script with the denylist off (CI already runs it that way).
 - **Name: "company brain".** The overlay is the mechanism; the docs and the template directory say
   company brain (`templates/company-brain/`).
+
+## Prior art found 2026-09-19 — this already exists as a running prototype
+
+- **`personal-toolkit` (private repo) IS the company brain, one person wide.** Its README rule is
+  the whole governance model: *"Reviewed weekly — promoted to mxcli-project-toolkit only by explicit
+  decision."* It has every directory this idea proposed and two it did not: `skills/`,
+  `skills/bugs/`, `skills/agents/`, `proposals/` (patches against the shared toolkit, awaiting a
+  go), `widgets/` (own MPKs: RichMarkdown, GraphTraversalViewer), `InputCodeExamples/`,
+  `field-runs/`, `handoffs/` (cross-session briefings), `prompts/`, `claude/hooks/` + `install.sh`.
+  `skills/PROMOTED.md` (2026-09-14) is the up-direction done right: after promotion the private file
+  becomes a pointer stub so project routing rows keep resolving. **v1 of this idea is therefore
+  "extract personal-toolkit's shape into `templates/company-brain/`", not a design from scratch.**
+- **The failure mode is documented, from the other side.** USI workshop research
+  (`ai-presales-notes/customers/USI/workshop/research/gap-repo-truth.md` §5c, 2026-08): five skills
+  cited by the *public* toolkit existed only in the *private* one — "a USI engineer following the
+  pointer gets nothing." Master still carries three such pointers today (`commands/mobile-dev-loop-
+  prompt.md`, two bug-log lines). **Rule for the template: the public tier never cites the company
+  tier; the company tier may cite public. Add the grep to `check-scripts`/CI.**
+- **At org level the same idea is a leadership ask, unresolved.** `ai-presales-notes/projects/
+  AI-Engineering-Leadership.md` recommendation 2: *"Sponsor one central, shared repository for
+  skills and MDL templates, RnD and Presales contributing to the same place instead of parallel
+  forks."* Open question there and in `TODO.md` (Workstream 9): does the central repo ask point at
+  the harness repo or a new org-owned repo — "it's Maurits' personal-toolkit-derived work, not yet an
+  org asset." The company-brain template is the answer that makes both true: the toolkit stays the
+  public harness, an org-owned company brain is one `templates/company-brain/` instantiation.
+- **The deck already teaches the first half.** USI deck slide "A skill in the project folder does
+  not survive the project" (ch. 56) — where a skill lives — and "How the next session knows what
+  already happened" — the wiring page, now `toolkit-guide.html` §9.
+- **Cross-project direction, seeds only.** `personal-toolkit/field-runs/` and `handoffs/` are the
+  across-projects material in practice; toolkit issue #64 ("ask 9: cross project open questions
+  rollup") is the one formal ask. No index exists; a derived `company-index.sh` over a `projects.tsv`
+  registry is still the proposal.

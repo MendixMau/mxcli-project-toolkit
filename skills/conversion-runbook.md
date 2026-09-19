@@ -335,6 +335,23 @@ Rules — these apply to every stage and every per-module build loop:
    asked well and proved well and closed nothing — see the template section for the measured
    register.)
 
+8. **The last checklist item of every stage and every module build is the gate script,
+   run and pasted.** `bin/gate-check.sh <project-root> <stage>` — and for a module build the
+   obligation lines for that module — go in the chat as output, with zero `PENDING`, or with
+   each remaining `PENDING` named and waived (`--waive <obligation> --reason "..."`). A stage
+   whose gate script never ran is not done, however complete its checklist looks. This is the
+   item that makes the obligation check bite: it reports a pass nobody performed, but only on
+   a run, and nothing before this rule required one.
+
+   **Why (measured, 2026-09-19, `lowcode-vs-highcode-benchmark` runs `mendix-run1` and
+   `mendix-run1b`).** A full Stage-5 build closed with all seven screens built, a green mxbuild
+   gate, and 11 of 37 acceptance rows confirmed. `gate-check.sh` had run exactly once, at
+   scaffold time. The `look` obligation, the wiring sweep, journeys and coherence were all
+   `PENDING` and nobody saw it, because nothing asked. When the gate was finally run as a
+   deliberate second pass, the seven screens scored 0, 18, 40, 40, 58, 58 and 69 percent against
+   their own wireframes on an element checklist — one screen matched none of its wireframe's
+   elements at all. Every one of those defects was visible to a gate that never ran.
+
 The final full-checklist repost before a gate doubles as the gate's evidence: the user should
 be able to approve the gate by reading that one message. The close-out block is what the
 reader approves the *transition* on — checklist for the work, block for the hand-over.

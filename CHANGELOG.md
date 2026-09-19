@@ -7,6 +7,27 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-19
+- process(runbook, ui-preflight, init-project): **a full Stage-5 build closed with seven screens,
+  a green mxbuild gate, and a `look` obligation nobody had ever discharged — because nothing in
+  the Live Checklist Protocol required the gate script to run.** `gate-check.sh` had executed once,
+  at scaffold time; the obligation check reports a pass nobody performed, but only on a run.
+  Three changes, all from the same field runs: `conversion-runbook.md` §1b gains **rule 8** — the
+  last checklist item of every stage and every module build is `bin/gate-check.sh` run and pasted,
+  zero `PENDING` or each one named and waived; `ui-preflight-pages.md` gains **"a fidelity score is
+  not a LOOK pass"**, because `page-fidelity.js` matches identifiers in page MDL against wireframe
+  text and cannot see placement — measured on the same commit, two screens scored 100% fidelity
+  while an element checklist put them at 58% and 40%, and a third ran the other way (55% fidelity,
+  69% checklist); `init-project.sh` writes a **before/after page-MDL item** into the generated
+  `CLAUDE.local.md`, so the pre-flight text reaches the agent that actually writes pages (a citation
+  is not a read). Field evidence: `lowcode-vs-highcode-benchmark` runs `results/mendix-run1/`
+  (the build that closed blind) and `results/mendix-run1b/` (the deliberate LOOK pass that scored
+  the seven screens at 0/18/40/40/58/58/69% baseline, five iterations and 75 screenshots later at
+  90-100%), plus `results/highcode-run1b/` as the non-Mendix control — the high-code arm's baseline
+  was 43% and 56% on two screens, so this is a pipeline gap, not a platform one. Withdraws
+  proposal D of `contrib/inbox/2026-09-19-look-pass-never-runs-benchmark-run1.md` (accept a fidelity
+  row as LOOK evidence) as field-refuted. — MendixMau, PRD benchmark
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

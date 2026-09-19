@@ -327,6 +327,15 @@ This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 3. **Every gate question is asked in chat, then the turn ends and waits** (runbook §1).
    \`ASSUMED\` is earned by asking — the user said "you decide" — never by skipping.
 4. **Before calling a stage done:** \`$TOOLKIT_ROOT/bin/gate-check.sh <project-root> <stage>\`.
+5. **Before any page MDL:** read \`$TOOLKIT_ROOT/skills/ui-preflight-pages.md\` in full —
+   its *text*, not a reference to it. If page drafting is delegated, the dispatch prompt
+   carries the text or the subagent reads the file as its first action.
+   **After any page MDL:** \`bash bin/check-page-shell.sh\`, then
+   \`node $TOOLKIT_ROOT/project-bin/page-fidelity.js <wireframe> <Page> <script>\`, then open
+   the rendered page at 1280px and 390px and write what you saw to
+   \`design/ui-reviews/ui-review-<date>.html\`. The fidelity score does not discharge the
+   look obligation — it scored 100% on two screens that matched under half their wireframe
+   (benchmark run \`mendix-run1b\`, 2026-09-19).
 
 EOF
   echo "Created: CLAUDE.local.md (runbook-first wiring + baseline routing)"

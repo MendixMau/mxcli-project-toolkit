@@ -16,6 +16,12 @@ Credit the person or project that surfaced the change — the credit line is the
   project: a completed ba-agent left at `model: inherit` reported `Kept` + a drift warning against
   the template's `model: sonnet`, `--dry-run --pin-models` printed the pin without touching the
   file, and `--pin-models` rewrote only that one line. — Maurits Visser
+- fix(render-routing.sh): **the baseline word count depended on the caller's locale.** GNU
+  `wc -w` splits on locale whitespace, so one tree measured 79,539 words under `LC_ALL=C` and
+  81,427 under the runner's `C.UTF-8` — a PR that passed `--check` locally failed it in CI by
+  words no file contained (master itself sat 7 words under budget on the runner). Both counts
+  now pin `LC_ALL=C`, so the ratchet reads the same number on every machine. Budget unchanged;
+  it is now measured in C-locale words — Maurits Visser
 
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read

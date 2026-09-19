@@ -227,8 +227,8 @@ it survives in the transcript.
 points here rather than restating it.**
 
 `AskUserQuestion` is a Claude Code **built-in harness tool**. It is not a package, not an MCP
-server, not a skill, and there is nothing to install. Copilot, Cursor, Windsurf, Continue and
-Aider — all of them wired by `bin/wire-agents.sh`, all of them first-class consumers of this
+server, not a skill, and there is nothing to install. Copilot, Cursor, Windsurf, Continue, Aider
+and Kiro — all of them wired by `bin/wire-agents.sh`, all of them first-class consumers of this
 toolkit — have no equivalent and no way to add one.
 
 So separate the *invariant* from its *rendering*. Three things hold on every agent:
@@ -244,7 +244,7 @@ Only (1)'s rendering is tool-specific:
 | Harness | How the batch is rendered |
 |---|---|
 | Claude Code | `AskUserQuestion` — clickable options, structured answers. Preferred; also paste the batch as chat text so it survives compaction. |
-| Copilot, Cursor, Windsurf, Continue, Aider, anything else | Plain numbered markdown in the chat — `1.` / `2.` / `3. Something else — tell me`. Then stop. |
+| Copilot, Cursor, Windsurf, Continue, Aider, Kiro, anything else | Plain numbered markdown in the chat — `1.` / `2.` / `3. Something else — tell me`. Then stop. |
 
 Both satisfy the protocol. **Neither is optional**, and the *end-the-turn* half is not
 tool-specific at all — it is the half that actually enforces the gate, and the half a harness

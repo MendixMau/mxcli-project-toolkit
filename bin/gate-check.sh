@@ -359,7 +359,7 @@ REG_COUNT=0
 REG_FIRST=""
 REG_DIFFER=0
 # PROJECT-*.md siblings are candidates too (bug65). A project running two tracks against one
-# directory keeps a second register next to the first — PROJECT.md + PROJECT-DAFNE.md. Without
+# directory keeps a second register next to the first — PROJECT.md + PROJECT-<TRACK>.md. Without
 # this term the sibling was never a CANDIDATE, so REG_COUNT stayed 1, REG_DIFFER stayed 0, the
 # ambiguity path below never fired, and the run graded the primary track in silence. That is
 # the failure this whole block exists to prevent, arriving through the one door left open.
@@ -475,11 +475,17 @@ reg_field() {
     /<!--/ { incomment = 1 }
     incomment { if ($0 ~ /-->/) incomment = 0; next }
     { line = $0
-      gsub(/^[ \t>*_-]+/, "", line); gsub(/\*/, "", line)
+      gsub(/^[ \t>*_-]+/, "", line)
       i = index(line, ":"); if (i == 0) next
       key = tolower(substr(line, 1, i - 1)); gsub(/^[ \t]+|[ \t]+$/, "", key)
+      # Bold markers only, never every asterisk: a label can end in a glob
+      # ("Waived source dir/*"), and the old blanket gsub turned that key into
+      # "waived source dir/" so the line never matched itself. Same rule as the
+      # source-ledger.sh parser — bold hugs a path character, a glob does not.
+      if (key ~ /^\*\*[^*\/ \t]/) key = substr(key, 3)
+      if (key ~ /[^*\/ \t]\*\*$/) key = substr(key, 1, length(key) - 2)
       if (key != want) next
-      v = substr(line, i + 1); gsub(/^[ \t]+|[ \t]+$/, "", v)
+      v = substr(line, i + 1); gsub(/\*/, "", v); gsub(/^[ \t]+|[ \t]+$/, "", v)
       if (v != "") { print v; exit }
     }' "$REGISTER"
 }
@@ -589,6 +595,7 @@ if [ -z "$ENTRY_RAW" ]; then
   fi
 fi
 case "$(printf '%s' "$ENTRY_RAW" | tr '[:upper:]' '[:lower:]')" in
+  *existing*)      ENTRY_MODE="existing-app-change" ;;
   *greenfield*)    ENTRY_MODE="greenfield" ;;
   *requirement*)   ENTRY_MODE="requirements-driven" ;;
   *migration*)     ENTRY_MODE="migration" ;;
@@ -630,6 +637,10 @@ stage_waiver() {
     requirements-driven)
       case "$st" in
         7) printf 'mode|requirements-driven entry mode — no legacy system to cut over from; if legacy data turns up, record a Stage-7 decision and this goes back to being checked (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
+      esac ;;
+    existing-app-change)
+      case "$st" in
+        7) printf 'mode|existing-app entry mode — the app is live and stays live; there is no cutover (existing-app-change.md → Deliverables)\n'; return 0 ;;
       esac ;;
   esac
   return 1
@@ -1758,10 +1769,15 @@ register_set_line() { # register_set_line <Label> <value> — replace the line, 
        /<!--/ { incomment = 1 }
        incomment { print; if ($0 ~ /-->/) incomment = 0; next }
        !done {
-         line = $0; gsub(/^[ \t>*_-]+/, "", line); gsub(/\*/, "", line)
+         line = $0; gsub(/^[ \t>*_-]+/, "", line)
          i = index(line, ":")
          if (i > 0) {
            k = tolower(substr(line, 1, i - 1)); gsub(/^[ \t]+|[ \t]+$/, "", k)
+           # Bold markers only — see reg_field(). The blanket asterisk strip here made
+           # --waive source/dir/* append a second line (and a second "## Toolkit
+           # position" heading) every time it ran, instead of replacing the first.
+           if (k ~ /^\*\*[^*\/ \t]/) k = substr(k, 3)
+           if (k ~ /[^*\/ \t]\*\*$/) k = substr(k, 1, length(k) - 2)
            if (k == key) { print lab ": " val; done = 1; next }
          }
        }
@@ -1804,7 +1820,8 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
         echo "Recorded in $REGISTER:  Waived source $SRC_REL: $WAIVER_REASON"
         echo "That file now reports WAIVED in the source ledger (bin/source-ledger.sh) instead of"
         echo "PENDING. It does NOT report EXTRACTED — a waived file is one nobody read, and the"
-        echo "register says who decided that. Match is by relative path or basename, case-insensitive."
+        echo "register says who decided that. Match is by relative path or basename, case-insensitive,"
+        echo "and a glob is accepted — '*' matches across '/', so dir/* and dir/** cover the same files."
         exit 0 ;;
     esac
     OB_TSV="$TOOLKIT_DIR/bin/lib/obligations.tsv"

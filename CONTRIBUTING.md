@@ -90,6 +90,9 @@ carried into public history. None of the content was bad — the coordination wa
    would falsify it (see the BUG-22 retirement for the worked example); a new or changed
    instrument ships its retest fixture. "It happened to me" gets it in the door — what keeps
    it true later is that the next person can re-check it in a minute.
+6. **Lines land under `## Unreleased`; releases are cut every few days.** The maintainer runs
+   `bin/cut-release.sh`, which dates the section and tags master; a project sees the release it
+   is on in `bin/sync-project.sh`. The cycle itself is defined at the top of `CHANGELOG.md`.
 
 ## Future scope — things we want but are not building yet
 

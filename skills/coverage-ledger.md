@@ -192,8 +192,19 @@ wc -l /tmp/leaves.txt  # e.g., "535 /tmp/leaves.txt"
 ### Step 2: Extract Claims from Build Plan
 
 ```bash
-grep -A20 '^claims:' architecture/build-plan.md | grep -oE '^\s+/[^ ]+' | tr -d ' ' | sort > /tmp/claims.txt
+. project-bin/_claims.sh
+mxtk_extract_claims_tsv architecture/build-plan.md 2>/tmp/claims-diag.tsv \
+  | awk -F'\t' '{ print ($6 != "-") ? $5 " (" $6 ")" : $5 }' | sort -u > /tmp/claims.txt
 ```
+
+`project-bin/_claims.sh` is the single reader of `claims:` blocks — `skills/brd-to-build-plan.md`
+Step 5b "Accepted forms" documents every shape it reads (plain, fenced, fenced-under, fenced-tag,
+note). A lossy `grep -A20 '^claims:' | grep -oE '^\s+/[^ ]+'` recipe used to live here: the fixed
+`-A20` window missed indented and fenced blocks it did not happen to fall inside, and even when it
+matched it stripped the `(N)` count off every pointer, producing bare wildcards that Step 5b's own
+rules reject as malformed. Diagnostics land in `/tmp/claims-diag.tsv`: a `claims-line-unparsed` or
+`claims-block-empty` record there means a `claims:` block existed but failed to parse, which is a
+different, more actionable finding than no `claims:` block existing at all (issue #74).
 
 **Expansion rules:**
 - A bare pointer claims exactly that leaf: `/pages/0/buildComposition/rowClick`

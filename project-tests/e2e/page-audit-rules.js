@@ -550,7 +550,7 @@ const RULES = [
       const h1s = ctx.mdlNodes.filter((n) => /^H1$/i.test(String(unquote(prop(n, 'RenderMode')) || '')));
       // Count what the READER sees, not what the MDL declares. A page that swaps its
       // hero between mutually exclusive branches declares one H1 per branch and renders
-      // exactly one. MEASURED on a sales-qualification build: DealPortfolio.Deal_Overview
+      // exactly one. MEASURED on a sales-qualification build: the deals overview page
       // carries lblHeroActive and lblHeroClarify, each inside its own `Visible:`-guarded
       // container, and was reported "2 H1 heading widget(s)" -- a defect that does not
       // exist on screen, and whose only "fix" would be to delete one branch's heading.

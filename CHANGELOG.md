@@ -7,6 +7,21 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-19
+- fix(project-bin): **`model-stamp.sh` fingerprinted an empty set as a constant hash, and
+  word-split the model paths.** Two bugs in the guard whose whole job is to prevent
+  green-by-absence: a `.mpr` with a space in its name (`My App.mpr` is routine) was split into
+  two pathspecs that matched nothing, so edits to the `.mpr` alone left the fingerprint
+  unchanged; and a clone whose model is gitignored hashed empty stdin — `e3b0c4…`, the SHA-256
+  of nothing — so every stamp matched every model state forever. Paths now travel through an
+  array; an empty path set or an empty file list refuses (`rc=1`) instead of hashing, and `write`
+  computes the fingerprint before touching the stamp file so a refusal never leaves an empty
+  `fingerprint:` field behind. Reproduced on a throwaway repo with a space-named `.mpr`: pre-fix,
+  an `.mpr`-only change kept the same fingerprint and the gitignored tree returned the
+  empty-input hash with `rc=0`; post-fix, the change is detected and both empty cases refuse.
+  `exec.sh` also no longer swallows the exec's real exit code when `model-stamp.sh clear` fails
+  on the failure path (an `[ -x … ] && …` AND-list under `set -e`) — Maurits Visser
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two
@@ -31,6 +46,43 @@ Credit the person or project that surfaced the change — the credit line is the
   `tests/run-tests.sh` discriminate: on the same fixture master exits 3, the fix exits 0 with
   `Stage 7: WAIVED`, and an unknown mode string still exits 3. Field evidence: Marketplace-RnD,
   whose Stage P had been blocked on exactly this since 2026-09-16. — MendixMau
+- new(gate-must-run): **the mxbuild gate could silently not run and the model still got written,
+  committed and pushed — on any machine, cloud or session.** `project-bin/exec.sh` treated
+  `GATE_STATE=skipped`/`unverified` as exit 0, so a `count()`-as-expression microflow (CE0117,
+  invisible to `mxcli check`, visible only to mxbuild) reached a customer's `master` from a
+  cloud session where mxbuild had never been downloaded. PR #49's Windows fixes repaired the
+  gate's *symptoms* (path mapping, errors-file location, output capture) but left the class
+  intact: an unverifiable gate still wrote. Four layers, each mechanical, none of them a
+  convention: (1) write time — `mxtk_ensure_mxbuild` in `_common.sh` runs
+  `./mxcli setup mxbuild -p` when discovery fails, and `exec.sh` **refuses to write** when the
+  gate still cannot run (`ALLOW_UNVERIFIED=1` to override, `MXTK_NO_INSTALL=1` to skip the
+  download); (2) commit time — new `project-bin/model-stamp.sh` fingerprints the `.mpr` +
+  `mprcontents/` (git blob hashes, working tree and staged), `exec.sh` writes a pass stamp on
+  a green gate and clears it otherwise, new `project-bin/verify-model.sh` is the standalone
+  gate that also stamps, and `project-bin/install-project-hooks.sh` installs a pre-commit
+  hook that refuses a commit touching the model unless the **staged** model is stamped
+  (`MODEL_UNVERIFIED_OK=1` overrides once; the hook chains any pre-existing hook and never
+  blocks the remedy — rules 6/7); (3) session start — new `project-bin/session-check.sh`
+  (stamp state via `find_mpr` so single-tree and two-tree checkouts are both probed,
+  doctor-receipt freshness, stale installed scripts, hook presence) wired as a
+  Claude Code `SessionStart` hook by `bin/install-claude-permissions.sh`, which now also adds
+  the one `permissions.deny` for bare `mxcli exec`; `sync-project.sh` installs the hook and
+  reports the stale-script class platform-neutrally; (4) discipline — the generated
+  `CLAUDE.local.md` wiring block says every model write goes through `./bin/exec.sh`, and
+  `gate-check.sh` notes an unverified model on disk. `init-project.sh` installs the hook at
+  scaffold. Field run on a two-tree field project (`.mpr` under `app/`, root symlinks): the stamp
+  fingerprints that `app/*.mpr` + `app/mprcontents` identically from the working tree and the
+  index; `verify-model.sh` ran mxbuild in 63 s, 0 errors, stamp written and self-gitignored;
+  the hook refused a staged unit change and let the same commit through with the override; with
+  an empty `$HOME` the gate downloaded the 818 MB 11.14.0 toolchain itself and then ran clean;
+  `exec.sh` with mxbuild unreachable refused before the snapshot, wrote nothing, and logged a
+  `refused` BUILD-LOG row. `tests/wave2/test-model-stamp.sh` (27 assertions: fingerprint
+  equality across working tree/staged/symlinked paths, hook refusal and override, foreign-hook
+  chaining, idempotence, settings deny + SessionStart install/uninstall). `test-bug07-08.sh`
+  case H flipped from "mxbuild missing → UNVERIFIED, exit 0" (the very contract that let the
+  CE0117 through) to "→ refused, exit 1, no snapshot", with the old expectation kept as case H2
+  behind `ALLOW_UNVERIFIED=1`. Overlaps draft #76 (doctor `--gate-selftest`) in intent, not in
+  code paths. — Maurits Visser
 
 ## 2026-09-16
 - fix(coverage-preflight.sh): **a build plan's `claims:` blocks inside a fence, with a `(note)`

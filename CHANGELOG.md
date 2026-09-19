@@ -7,6 +7,21 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-19
+- fix(project-bin): **`model-stamp.sh` fingerprinted an empty set as a constant hash, and
+  word-split the model paths.** Two bugs in the guard whose whole job is to prevent
+  green-by-absence: a `.mpr` with a space in its name (`My App.mpr` is routine) was split into
+  two pathspecs that matched nothing, so edits to the `.mpr` alone left the fingerprint
+  unchanged; and a clone whose model is gitignored hashed empty stdin — `e3b0c4…`, the SHA-256
+  of nothing — so every stamp matched every model state forever. Paths now travel through an
+  array; an empty path set or an empty file list refuses (`rc=1`) instead of hashing, and `write`
+  computes the fingerprint before touching the stamp file so a refusal never leaves an empty
+  `fingerprint:` field behind. Reproduced on a throwaway repo with a space-named `.mpr`: pre-fix,
+  an `.mpr`-only change kept the same fingerprint and the gitignored tree returned the
+  empty-input hash with `rc=0`; post-fix, the change is detected and both empty cases refuse.
+  `exec.sh` also no longer swallows the exec's real exit code when `model-stamp.sh clear` fails
+  on the failure path (an `[ -x … ] && …` AND-list under `set -e`) — Maurits Visser
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

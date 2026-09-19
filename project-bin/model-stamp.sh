@@ -62,17 +62,56 @@ model_paths() {
   return 0
 }
 
+# _load_model_paths — model_paths into the MODEL_PATHS array, one line per element.
+#
+# WHY (2026-09-17, review of this file). Every consumer used to say
+# `git ls-files … -- $(model_paths)`, unquoted. A Mendix .mpr with a SPACE in its name is
+# routine ("My Project.mpr"), and a glob character is legal too: word splitting then handed
+# git two pathspecs that match nothing, git listed nothing, and the fingerprint silently
+# covered FEWER files than the model has — so a model that changed could still match its own
+# stamp, and the pre-commit hook would wave it through. Green-by-absence, inside the guard
+# whose entire job is to prevent green-by-absence.
+#
+# An empty path set is never a fingerprint: see _fp_worktree/_fp_staged below.
+MODEL_PATHS=()
+_load_model_paths() {
+  local p n=0
+  MODEL_PATHS=()
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    MODEL_PATHS[$n]="$p"; n=$((n + 1))
+  done <<EOF
+$(model_paths)
+EOF
+  if [ "$n" -eq 0 ]; then
+    echo "model-stamp: no model paths resolved for $MPR — refusing to fingerprint (a stamp over" >&2
+    echo "  nothing would match every model state, which is worse than no stamp at all)." >&2
+    return 1
+  fi
+  return 0
+}
+
 _fp_worktree() {
   if in_git; then
     local top lst; top="$(git -C "$MODEL_DIR" rev-parse --show-toplevel)"
+    _load_model_paths || return 1
     lst="$(mktemp "${TMPDIR:-/tmp}/model-stamp.XXXXXX")"
     # Tracked + untracked-not-ignored, minus anything deleted in the working tree. Newline
     # separated: `git hash-object --stdin-paths` has no -z, and unit file names carry none.
-    ( cd "$top" && git ls-files -c -o --exclude-standard -- $(model_paths) 2>/dev/null \
-        | while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done > "$lst"
-      if [ -s "$lst" ]; then
-        paste -d' ' <(git hash-object --stdin-paths < "$lst") "$lst"
-      fi ) | LC_ALL=C sort -k2 | mxtk_sha256
+    ( cd "$top" && git ls-files -c -o --exclude-standard -- "${MODEL_PATHS[@]}" 2>/dev/null \
+        | while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done ) > "$lst"
+    # An EMPTY list is not a fingerprint. It used to fall through to `mxtk_sha256` over empty
+    # stdin, which is a CONSTANT — so a project whose mprcontents/ is gitignored fingerprinted
+    # identically no matter what the model contained, and every stamp matched forever.
+    if [ ! -s "$lst" ]; then
+      rm -f "$lst"
+      echo "model-stamp: git lists no files under $(printf '%s ' "${MODEL_PATHS[@]}")in $top —" >&2
+      echo "  refusing to fingerprint. Most likely the model is gitignored in this clone; a stamp" >&2
+      echo "  over an empty set would match every model state." >&2
+      return 1
+    fi
+    ( cd "$top" && paste -d' ' <(git hash-object --stdin-paths < "$lst") "$lst" ) \
+      | LC_ALL=C sort -k2 | mxtk_sha256
     rm -f "$lst"
   else
     { cksum < "$MPR"; [ -d "$MPRC" ] && find "$MPRC" -type f -exec cksum {} + | LC_ALL=C sort -k3; } | mxtk_sha256
@@ -81,9 +120,19 @@ _fp_worktree() {
 
 _fp_staged() {
   in_git || { echo "model-stamp: not a git repository — --staged has no meaning" >&2; return 1; }
-  local top; top="$(git -C "$MODEL_DIR" rev-parse --show-toplevel)"
-  ( cd "$top" && git ls-files -s -- $(model_paths) \
-      | awk -F'\t' '{ split($1, a, " "); print a[2] " " $2 }' | LC_ALL=C sort -k2 | mxtk_sha256 )
+  local top lst; top="$(git -C "$MODEL_DIR" rev-parse --show-toplevel)"
+  _load_model_paths || return 1
+  lst="$(mktemp "${TMPDIR:-/tmp}/model-stamp.XXXXXX")"
+  ( cd "$top" && git ls-files -s -- "${MODEL_PATHS[@]}" \
+      | awk -F'\t' '{ split($1, a, " "); print a[2] " " $2 }' ) > "$lst"
+  if [ ! -s "$lst" ]; then            # same constant-hash trap as _fp_worktree
+    rm -f "$lst"
+    echo "model-stamp: the index holds no model files under $(printf '%s ' "${MODEL_PATHS[@]}")—" >&2
+    echo "  refusing to fingerprint an empty set." >&2
+    return 1
+  fi
+  LC_ALL=C sort -k2 < "$lst" | mxtk_sha256
+  rm -f "$lst"
 }
 
 fingerprint() { if [ "${1:-}" = "--staged" ]; then _fp_staged; else _fp_worktree; fi; }
@@ -96,8 +145,12 @@ case "$cmd" in
   paths) model_paths ;;
   write)
     state="${1:?usage: model-stamp.sh write <state> <source…>}"; shift
+    # Compute FIRST, so a refusal (empty path set, empty file list) aborts here under `set -e`
+    # instead of writing a stamp with an empty fingerprint field.
+    fp="$(fingerprint)"
+    [ -n "$fp" ] || { echo "model-stamp: empty fingerprint — refusing to write a stamp" >&2; exit 1; }
     mkdir -p "$(dirname "$STAMP")"
-    { printf 'fingerprint: %s\n' "$(fingerprint)"
+    { printf 'fingerprint: %s\n' "$fp"
       printf 'state: %s\n' "$state"
       printf 'source: %s\n' "$*"
       printf 'at: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -117,7 +170,8 @@ case "$cmd" in
     if [ "$staged" = 1 ]; then
       in_git || exit 0
       top="$(git -C "$MODEL_DIR" rev-parse --show-toplevel)"
-      if [ -z "$(cd "$top" && git diff --cached --name-only -- $(model_paths))" ]; then
+      _load_model_paths || exit 1
+      if [ -z "$(cd "$top" && git diff --cached --name-only -- "${MODEL_PATHS[@]}")" ]; then
         say "  no model files staged — nothing to verify"; exit 0
       fi
       fp="$(_fp_staged)"; what="staged model"

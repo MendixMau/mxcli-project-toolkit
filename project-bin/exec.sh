@@ -716,7 +716,13 @@ if [ "$EXEC_STATUS" -ne 0 ]; then
       ;;
   esac
   # A partial application is never a verified model state, whatever the gate said.
-  [ -x ./bin/model-stamp.sh ] && ./bin/model-stamp.sh clear >/dev/null 2>&1
+  # Explicit `if`, not `[ -x … ] && …`: under `set -e` the AND-list's own failure — which is
+  # what a model-stamp.sh that exists but exits non-zero produces — ended the script right
+  # here with exit 1, throwing away $EXEC_STATUS. The exec's real exit code is the one thing
+  # this branch exists to report.
+  if [ -x ./bin/model-stamp.sh ]; then
+    ./bin/model-stamp.sh clear >/dev/null 2>&1 || true
+  fi
   exit "$EXEC_STATUS"
 fi
 

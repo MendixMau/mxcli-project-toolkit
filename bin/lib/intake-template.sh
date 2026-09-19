@@ -109,6 +109,16 @@ earlier stages report WAIVED instead of a red row nobody can ever clear. Answer 
 scratch here" and nothing is waived, which is the right answer for most projects. Do NOT infer
 this from what happens to be on disk: a missing artifact and an artifact produced elsewhere look
 identical, and guessing wrong either nags forever or waives a stage that genuinely still matters.
+
+## 11. Exec approval: `auto` (default) or `ask`?
+
+_Not yet asked._ How to verify: ask the user; default is `auto` — the agent runs model-writing
+scripts through the safe wrapper (`bin/exec.sh`, which snapshots first, mxbuild-validates after,
+and auto-restores on failure) and logs each run instead of asking first. `ask` — the agent asks
+before every one, as it always did before 2026-09-16. Either way the user can switch it at any
+time by saying so; the agent then runs `bin/exec-approval.sh <project-root> --set auto|ask`,
+never on its own judgement. See `bin/exec-approval.sh --explain` for what is currently resolved
+and why.
 MXTK_INTAKE_EOF
 }
 

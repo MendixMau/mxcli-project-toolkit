@@ -253,8 +253,13 @@ BASELINE_BUDGET="${MXTK_BASELINE_BUDGET_WORDS:-80000}"
 _baseline_docs() {
   awk -F'\t' '/^#/ || NF < 6 { next } $6 == "baseline" && $2 ~ /\.md$/ { print $2 }' "$MXTK_ROUTING_TSV"
 }
+# LC_ALL=C ON EVERY COUNT (2026-09-19). GNU `wc -w` splits on locale-defined whitespace, so the
+# same tree counted 79,539 words under LC_ALL=C (a local shell with LANG unset) and 81,427 under
+# C.UTF-8 (the GitHub runner default): a PR passed this check locally and failed it in CI by
+# 1,427 words that no file contained. The budget is a ratchet, so its count must be the same
+# number on every machine — byte-deterministic C splitting on GNU, BSD and Git Bash alike.
 BASELINE_WORDS="$(_baseline_docs \
-  | while IFS= read -r f; do [ -f "$ROOT/$f" ] && wc -w < "$ROOT/$f"; done | awk '{ s += $1 } END { print s + 0 }')"
+  | while IFS= read -r f; do [ -f "$ROOT/$f" ] && LC_ALL=C wc -w < "$ROOT/$f"; done | awk '{ s += $1 } END { print s + 0 }')"
 # STRICT AGAIN (2026-09-08, same day it went advisory): the advisory detour existed because the
 # count included scripts; with documents-only counting the number is a real context cost and a
 # hard fail is honest. MXTK_BASELINE_BUDGET_ADVISORY=1 reports without failing, for a
@@ -265,7 +270,7 @@ if [ "$BASELINE_WORDS" -gt "$BASELINE_BUDGET" ]; then
   echo "BASELINE OVER BUDGET: $OVER_BUDGET"
   echo "    → move a row to ondemand, shorten a baseline file, or point the row at a lookup script (bin/bug-lookup.sh is the pattern)"
   _baseline_docs \
-    | while IFS= read -r f; do [ -f "$ROOT/$f" ] && printf '%8d  %s\n' "$(wc -w < "$ROOT/$f")" "$f"; done | sort -rn | head -5 | sed 's/^/    /'
+    | while IFS= read -r f; do [ -f "$ROOT/$f" ] && printf '%8d  %s\n' "$(LC_ALL=C wc -w < "$ROOT/$f")" "$f"; done | sort -rn | head -5 | sed 's/^/    /'
   if [ "${MXTK_BASELINE_BUDGET_ADVISORY:-0}" = "1" ]; then
     echo "    (advisory run: MXTK_BASELINE_BUDGET_ADVISORY=1 — reported, not failing)"
     OVER_BUDGET=""

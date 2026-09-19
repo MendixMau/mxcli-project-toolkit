@@ -7,6 +7,14 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-19
+- fix(render-routing.sh): **the baseline word count depended on the caller's locale.** GNU
+  `wc -w` splits on locale whitespace, so one tree measured 79,539 words under `LC_ALL=C` and
+  81,427 under the runner's `C.UTF-8` — a PR that passed `--check` locally failed it in CI by
+  words no file contained (master itself sat 7 words under budget on the runner). Both counts
+  now pin `LC_ALL=C`, so the ratchet reads the same number on every machine. Budget unchanged;
+  it is now measured in C-locale words — Maurits Visser
+
 ## 2026-09-17
 - process(contrib/inbox): **triage promotes and deletes in the same commit; two of the three 2026-09-16 drops sat in the inbox after their content had already landed.** `2026-09-16-cd-prefix-defeats-permission-allowlists.md` was fully carried by `skills/agent-permission-friction.md` (the cd-prefix rule, the three sibling refusal shapes, the turn-cost economics, and the "not CLAUDE.md" placement note all present) and is now deleted. `2026-09-16-configuration-surface-is-a-requirement.md` was only **partially** promoted — one bullet in `skills/deploy-to-sandbox.md` Step 1 ("no environment constants / runtime settings UI") — and stays, since the architecture-time NFR question, the "Mendix has no password constant" correction and the `/xas/` driver offer have no home yet. `2026-09-16-secret-ingest-validation-and-guard-strings.md` was never promoted anywhere (checked `skills/testing-shape.md`, its own proposed target) and stays — Maurits Visser
 - fix(skill-routing): **`deploy-to-sandbox`'s row used `any` in the agents column, a token the renderer never reads — the agents column is `all` or a comma-list of real agent names, and `any` failed the `!= "all"` membership test silently, so the skill rendered into 0 of 6 agent stubs while `render-routing.sh --check` stayed green.** The same row also listed stage `8`, which does not exist (`gate-check.sh`'s stage map only loops `P,0..7`); both are now `all` and `7`. To close the class of bug rather than just this instance, `render-routing.sh` gained a `BAD_AGENT` check mirroring the existing `BAD_TIER` one: agent names are read live from `agents/*-agent.md` and any row whose agents column contains a token outside that set (or isn't `all`) now fails `--check` by name instead of rendering into nothing unnoticed. The new check immediately caught a second, pre-existing instance already on `master` (`learned-mdl-cannot-express`'s agents column carries `design`, which is not an agent) — fixed in the same PR (`architect,mdl`; design work is owned by the architect stub, there is no `design` agent) so the check ships green — Maurits Visser

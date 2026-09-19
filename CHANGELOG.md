@@ -8,6 +8,14 @@ Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templat
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
 ## 2026-09-19
+- fix(agent-roles, sync-project): **`agent-roles.md` said `model: inherit` for all six agents
+  while `agents/*.md` pins opus/sonnet; the prose now matches the stubs, and `sync-project.sh`
+  warns when a completed project agent's `model:` line drifted from the template and re-pins it
+  on `--pin-models`.** Inherit was wrong because a project running the whole pipeline under Opus
+  paid Opus prices for the gate/test/mdl work §1c assigns to Sonnet. Field-run on a scaffolded
+  project: a completed ba-agent left at `model: inherit` reported `Kept` + a drift warning against
+  the template's `model: sonnet`, `--dry-run --pin-models` printed the pin without touching the
+  file, and `--pin-models` rewrote only that one line. — Maurits Visser
 - fix(render-routing.sh): **the baseline word count depended on the caller's locale.** GNU
   `wc -w` splits on locale whitespace, so one tree measured 79,539 words under `LC_ALL=C` and
   81,427 under the runner's `C.UTF-8` — a PR that passed `--check` locally failed it in CI by

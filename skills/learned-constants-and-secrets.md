@@ -90,26 +90,35 @@ installs (`mxcli auth login`), the Deploy API, and Team Server push all take it.
 constant and it has no channel table — it has a resolution ladder, and the ladder starts one rung
 lower than most sessions start it.
 
-> **Rung 0 — look in the environment. `env | grep -i '^PAT='` (and `MENDIX_PAT`). Never tell the
-> user a token is unavailable without having run that.**
+> **Rung 0 — look in the environment:
+> `env | grep -iE '^(MX_PAT|PAT|MENDIX_PAT)='`. Never tell the user a token is unavailable
+> without having run that.**
+
+`MX_PAT` is first because it is the name this toolkit's own convention stores the token under —
+`platform-link.md` §"Create the token" says to keep it in `~/Mendix/.env` as `MX_PAT=…`. A ladder
+that only knew `PAT`/`MENDIX_PAT` would miss a token stored exactly the way the toolkit told the
+user to store it, and then report it missing — which is the failure this whole rung exists to
+prevent, one level up.
 
 Only if rung 0 comes back empty, ask — one batch, per `interview-protocol.md`, then stop:
 
 | Rung | Ask the user to | Then |
 |---|---|---|
-| 1 | export it into the session environment (`PAT=…`) | nothing further — scripts that read `$PAT` now work |
+| 1 | export it into the session environment (`MX_PAT=…`, the name `platform-link.md` prescribes) | nothing further — scripts that read `$MX_PAT` now work |
 | 2 | configure it in Studio Pro / `mxcli auth login --token <PAT>` | it lands in `~/.mxcli/auth.json` (mode 0600); marketplace commands find it, platform scripts still need rung 1 or 3 |
 | 3 | point at the file that already holds it | **wire it in** — see below |
 
 **Rung 3 is only half done when they point.** A path named in chat is gone by the next session, so
 the pointing is followed immediately by wiring: record the path in the project's gitignored env
-file (`.ts-sync.env`, `.docker/.env`, or whatever that project already sources), have the project's
+file (`~/Mendix/.env` as `MX_PAT=`, or `.ts-sync.env` / `.docker/.env` — whatever that project
+already sources), have the project's
 platform wrapper source it, and say in the constants register which file holds it — the *path*,
 never the value. A session that has to ask again has not finished this step.
 
 **The failure this rung 0 exists to prevent (DealIQ, 2026-09-17).** Mid-task, a session needed to
 push a fix to Team Server, grepped `.docker/.env`, `.docker/.env.example` and `stack.env`, found
-nothing, and told the user the token was gone and would have to be re-provided. The token was in
+nothing, and told the user the token was gone and would have to be re-provided. It never ran
+`env`, and it never tried `MX_PAT`. The token was in
 the session environment the whole time; one `env | grep` would have returned it. The user's
 correction was four words long. **Absence from the files you happened to grep is not absence.**
 

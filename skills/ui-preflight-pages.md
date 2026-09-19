@@ -28,6 +28,28 @@ reproduces the baseline.
 
 ---
 
+## Step 0 — enumerate what already reaches this capability
+
+Before you build a page, or add a navigation item or button to open one, list the entry points
+that already exist. Reach for the reference tools, not text search:
+
+```
+mxcli impact  MOC.GraphAgent_Chat -p App.mpr     # what breaks if this changes
+mxcli callers <microflow>         -p App.mpr     # who calls it
+mxcli -p App.mpr -c "DESCRIBE PAGE <HomePage>"   # buttons and snippet calls already on it
+```
+
+`SEARCH '<Name>'` is a text grep, not a reference check: it will not surface a `show_page`
+action inside a page's widget tree, and an icon-only floating button has no caption for a
+browser scrape to match either. Two silent instruments agreeing is not confirmation.
+
+Then read the target page's own `Layout:`. A page on a popup layout
+(`ConversationalUI.Layout_FloatingPopup` and its kin) is a **popup, not a destination** — it is
+opened by a button passing a context object, and a navigation menu item cannot pass a page
+parameter. Route it through navigation only where the requirement asks for a dedicated page.
+
+Done when you can name every existing entry point and say why another one is needed.
+
 ## The Five Steps (all mandatory, in order)
 
 Steps 1–4 are judgement; Step 5 is the mechanical check that judgement alone was measured to miss.

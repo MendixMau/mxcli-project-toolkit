@@ -77,6 +77,8 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 ```
 Each project's `CLAUDE.md`/`CLAUDE.local.md` references this clone and copies the **Baseline routing** table from `README.md`. For a self-contained handoff, use a git submodule.
 
+**Company-specific material never lives here either** — own conventions, client-named learnings, house lint rules, approved MPKs go to a *company brain*, a private repo instantiated from `templates/company-brain/` (`skills/company-brain.md`). The public toolkit never cites one: `bin/check-no-private-citations.sh` runs in CI.
+
 **Project output never lives here** — `analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored. A project's build plan, `PROJECT.md`, and session notes live in that project's own repo; promote reusable patterns into `skills/learned-*.md` instead of accumulating project docs here.
 
 ## Writing in this toolkit — generic first

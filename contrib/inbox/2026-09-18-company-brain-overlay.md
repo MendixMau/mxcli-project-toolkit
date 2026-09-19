@@ -10,6 +10,7 @@ rots; `sync-project.sh` exists because copies rot). Own skills, naming conventio
 MDL snippets, design systems and approved MPKs have no home. Related: PR #93's open question
 "is a toolkit-owned decision register still justified", PR #88 (mxcli brain adopted per project),
 issue #90 (baseline budget saturated).
+**Status 2026-09-19:** BUILT on branch `claude/inspiring-darwin-w0p1an` — `templates/company-brain/`, `bin/init-company-brain.sh`, `bin/wire-company-brain.sh`, `init-project.sh --company`, `harvest-learnings.sh --to`, `bin/check-no-private-citations.sh` (CI), `skills/company-brain.md`, fixture `tests/wave2/test-company-brain.sh`, eval `evals/scenarios/company-brain-design-module/`. Triage: promote this file's remaining text into the skill or delete.
 **Proposed target:** `templates/company-brain/` (new) + `--company <path>` on
 `bin/init-project.sh` / `bin/sync-project.sh` + one ~40-word baseline pointer row in
 `bin/lib/skill-routing.tsv`.

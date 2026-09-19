@@ -65,6 +65,7 @@ protects: you have no Write or Edit tool, and you never run `mxcli exec`.
 | `skills/monkey-test.md` | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works |
 | `skills/learned-skill-ux-audit.md` | UX audit and screenshot-loop discipline |
 | `skills/learned-skill-scope-delta.md` | Tracking scope delta between the BRD and the built state |
+| `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN — the private tier between the toolkit and a project for own skills, conventions, lint rules, MDL snippets and approved MPKs; and deciding whether something goes to the toolkit, the company brain or docs/brain/ |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/report-schema.md` | Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer |
 | `skills/harness-architecture.md` | Installing, extending, debugging or porting the verification harness — which part owns what, which parts run standalone, and what a missing part must report |

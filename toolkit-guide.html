@@ -329,7 +329,7 @@ never a sibling next to it.</span></pre>
   <p style="font-size:14px;">Every stage HTML surface (<code>triage.html</code>, <code>architecture/blueprint.html</code>, <code>build-plan.html</code>, <code>test-report.html</code>, …) copies this file's <code>:root</code> token block and base styles, so all project artifacts look like one system. Once Stage 3 produces <code>design/design-system.html</code>, that file's tokens supersede these for artifacts generated afterwards. Copying the tokens does <em>not</em> mean opening this page: opening is governed by the first-touch rule in <code>CLAUDE.md</code> — only when <code>&lt;project-root&gt;/.claude/.guide-shown</code> is absent, and <code>touch</code> it immediately after.</p>
 
   <h2 id="wiring">9 · How the assets wire together — what a session reads, in which order</h2>
-  <p class="lede">Nothing is remembered between sessions. Every fact a session acts on is a file, read in a fixed order, and each file is written by exactly one owner. This is the map of those files. Boxes marked <span class="badge prop">PROPOSED</span> are ideas queued in <code>contrib/inbox/</code> or open PRs — not shipped, do not go looking for them.</p>
+  <p class="lede">Nothing is remembered between sessions. Every fact a session acts on is a file, read in a fixed order, and each file is written by exactly one owner. This is the map of those files. Boxes marked <span class="badge prop">PROPOSED</span> are ideas queued in <code>contrib/inbox/</code> or open PRs — not shipped, do not go looking for them. The company brain shipped as a template on 2026-09-19 (<code>skills/company-brain.md</code>).</p>
 
   <svg viewBox="0 0 880 620" width="100%" style="max-width:880px; display:block; margin:14px 0; font-family:var(--font);" role="img" aria-label="Four layers: toolkit, company brain, project registers, stage chain">
     <defs>
@@ -359,9 +359,9 @@ never a sibling next to it.</span></pre>
 
     <!-- Layer 2: company brain -->
     <text x="0" y="112" font-size="10.5" font-weight="700" fill="var(--ink-faint)" letter-spacing="1">LAYER 2 · THE COMPANY BRAIN — yours, private, same shape as the toolkit</text>
-    <rect x="0" y="120" width="880" height="64" rx="10" fill="var(--surface)" stroke="var(--warn-ink)" stroke-dasharray="5 4"/>
-    <rect x="740" y="126" width="128" height="18" rx="9" fill="var(--warn-bg)"/>
-    <text x="804" y="139" font-size="10" font-weight="700" fill="var(--warn-ink)" text-anchor="middle">PROPOSED · inbox</text>
+    <rect x="0" y="120" width="880" height="64" rx="10" fill="var(--surface)" stroke="var(--pass-ink)"/>
+    <rect x="700" y="126" width="168" height="18" rx="9" fill="var(--pass-bg)"/>
+    <text x="784" y="139" font-size="10" font-weight="700" fill="var(--pass-ink)" text-anchor="middle">TEMPLATE SHIPPED · 2026-09-19</text>
     <text x="14" y="142" font-size="12" font-weight="700" fill="var(--ink)">own skills · naming conventions · lint rules · MDL snippets · design system · approved MPK catalog</text>
     <text x="14" y="158" font-size="11" fill="var(--ink-soft)">Wired by one ~40-word pointer row in CLAUDE.local.md; its own routing table loads on demand. Curated by the company, by hand,</text>
     <text x="14" y="173" font-size="11" fill="var(--ink-soft)">from each project's outbox. Client names are allowed here; personal data, credentials and local paths never.</text>
@@ -470,7 +470,7 @@ never a sibling next to it.</span></pre>
     <tr><td><code>brd/*.brd.json</code></td><td>Stage 2 (extractor, KB, interview or by hand)</td><td>Stage 3, 4, the brief, the ledger</td><td>the build drifts from the requirement — see the drift-sync rule</td></tr>
     <tr><td><code>&lt;Module&gt;-brief.md</code></td><td>ba-agent (roles, screens, rules) + architect (entities, dependencies, stubs)</td><td>the build agent, first, for that module only</td><td>the build agent improvises what nobody wrote down</td></tr>
     <tr><td><code>docs/BUILD-LOG.md</code> · <code>docs/report.json</code></td><td><code>bin/exec.sh</code> and every instrument</td><td><code>status.sh</code>, <code>index.html</code>, the test-result audit</td><td>"done" becomes a claim instead of a record</td></tr>
-    <tr><td><span class="badge prop">PROPOSED</span> company brain</td><td>the company, by hand, from each project's outbox</td><td>ba-agent and architect before writing a brief; any session, on demand</td><td>each project re-invents the convention</td></tr>
+    <tr><td>company brain (<code>templates/company-brain/</code>)</td><td>the company, by hand, from each project's outbox</td><td>ba-agent and architect before writing a brief; any session, on demand</td><td>each project re-invents the convention</td></tr>
   </table>
   <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;"><strong>The rule under all of it:</strong> a session starts by reading, in this order — the toolkit's runbook, then the project registers, then the one stage artifact before it — and starts a new session at each stage boundary instead of running one all day. Memory is never a source; if it isn't on disk, it didn't happen.</p>
 

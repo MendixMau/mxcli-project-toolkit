@@ -1,6 +1,6 @@
 # Three ways an end-to-end test goes green over a feature that is not there
 
-**From:** DealIQ (Mendix build project, ~30 modules of BRD-driven work, 21 Playwright e2e tests)
+**From:** a Mendix build project ( ~30 modules of BRD-driven work, 21 Playwright e2e tests)
 **Date:** 2026-09-13
 **Kind:** learning
 **Field evidence:** All three were found in one day of e2e work against a live `mxcli run --local`

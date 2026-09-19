@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # constants-audit.sh — classify every constant in the model, without ever printing a value.
 #
-# WHY THIS EXISTS (field-found 2026-09-16 on DealIQ, a Mendix free-node sandbox).
+# WHY THIS EXISTS (field-found 2026-09-16 on a Mendix build project deployed to a free-node sandbox).
 # `Encryption.EncryptionKey` shipped as `default ''`. Locally that was invisible: the value
 # came from app/.mxcli/constants.json, which is gitignored and machine-local. In the deployed
 # sandbox it was empty, and MxGenAIConnector — which encrypts a GenAI key's access token while
@@ -45,7 +45,7 @@
 #
 # Exit: 0 clean (or every finding waived) · 1 findings · 2 instrument fault
 #
-# Field run: DealIQ-conversion, 2026-09-16, Mendix 11.14.0 — 30 constants, 3 findings, all three
+# Field run: a Mendix build project (BRD-driven, ~30 modules), 2026-09-16, Mendix 11.14.0 — 30 constants, 3 findings, all three
 # true readings of the model: the EncryptionKey default this incident added (MODEL-SECRET), an
 # empty LegacyEncryptionKey (EMPTY), and FeedbackModule.LocalStorageKey, which the name
 # heuristic calls a secret and is not (CLIENT-SECRET) — waived in that project with a reason.
@@ -151,7 +151,7 @@ while IFS= read -r line; do
   fi
   [ "$verdict" != OK ] && [ "$verdict" != WAIVED ] && FINDINGS=$((FINDINGS + 1))
 
-  # The table shows the first line of the reason only. A waiver is prose — DealIQ's runs to
+  # The table shows the first line of the reason only. A waiver is prose — one real waiver's runs to
   # four sentences — and printing it whole turns a 30-row table into a wall. The register is
   # the place to read it; this column only has to prove a reason exists.
   short=$(printf '%s' "$reason" | cut -c1-58)

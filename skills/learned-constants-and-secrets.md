@@ -13,7 +13,7 @@ It fetches the facts; this file is the judgement.
 
 ## The failure this exists to prevent
 
-DealIQ, 2026-09-16. The coaching agent on the deployed sandbox sat loading forever. The model
+A Mendix build project on a free-node sandbox, 2026-09-16. The coaching agent on the deployed sandbox sat loading forever. The model
 looked right, the three Mendix Cloud GenAI keys were valid, the app started clean. Pasting a
 key by hand into the connector's own **Import key** dialog was refused with:
 
@@ -115,7 +115,7 @@ already sources), have the project's
 platform wrapper source it, and say in the constants register which file holds it — the *path*,
 never the value. A session that has to ask again has not finished this step.
 
-**The failure this rung 0 exists to prevent (DealIQ, 2026-09-17).** Mid-task, a session needed to
+**The failure this rung 0 exists to prevent (same project, 2026-09-17).** Mid-task, a session needed to
 push a fix to Team Server, grepped `.docker/.env`, `.docker/.env.example` and `stack.env`, found
 nothing, and told the user the token was gone and would have to be re-provided. It never ran
 `env`, and it never tried `MX_PAT`. The token was in
@@ -139,7 +139,7 @@ esac
 ```
 
 Three rules hold wherever the token is used, and they are why a project keeps **one** wrapper
-script (DealIQ: `bin/platform/mx-platform.sh`) rather than an ad-hoc helper per session:
+script (that project's `bin/platform/mx-platform.sh`) rather than an ad-hoc helper per session:
 
 1. **Never in argv** — `ps` shows it to every process on the machine.
 2. **Never in the remote URL** — git writes that verbatim into `.git/config` and every reflog entry.
@@ -160,7 +160,7 @@ Three defaults, three meanings. Pick on purpose:
 | `__SET_ME__` (or any obviously-wrong sentinel) | "every environment must override this" | a secret that must never ship — the app fails fast, naming *your* constant |
 | `''` empty | "empty is a valid value here" | genuinely optional values, and nothing else |
 
-**Never leave a required secret at `''`.** That is precisely how the DealIQ incident read as a
+**Never leave a required secret at `''`.** That is precisely how the free-node incident read as a
 GenAI problem: an empty string is a legal value that downstream code accepts and then fails on,
 several layers away, in someone else's error message. A sentinel fails at the first use, with
 your constant's name in the message.
@@ -214,7 +214,7 @@ a clean audit, and `EMPTY` is never green-by-absence.
 
 **The secret test is a name heuristic, and it is a floor.** It matches `…Key`, `Secret`,
 `Password`, `Pwd`, `Token`, `Credential`, `ApiKey`, `Passphrase`, `PrivateKey`. It therefore
-over-reports (DealIQ's `FeedbackModule.LocalStorageKey` is a browser bucket name, waived with
+over-reports (that project's `FeedbackModule.LocalStorageKey` is a browser bucket name, waived with
 that reason) and it will miss a secret named `Foo`. The register, not the regex, is what makes
 a classification real.
 
@@ -225,13 +225,13 @@ a classification real.
 | Moment | Why |
 |---|---|
 | When adding any constant | the channel decision belongs at creation time, not at deploy time |
-| After installing or updating any marketplace module | modules ship their own constants, usually as `default ''` — that is where the DealIQ defect came from |
+| After installing or updating any marketplace module | modules ship their own constants, usually as `default ''` — that is where the free-node defect came from |
 | **Before any first deploy to a new environment**, and always before a free-node deploy | the one moment the free-node rule bites |
 | At the build gate / module review | cheap, mechanical, and the register line is the artifact |
 
 ## Editing a marketplace module's constant
 
-Setting a default on a constant owned by a marketplace module (as DealIQ did to
+Setting a default on a constant owned by a marketplace module (as that project did to
 `Encryption.EncryptionKey`, content 1011) is a **local modification**. `mxcli marketplace
 update <id>` will report it and discard it. That is the desired behaviour, not a problem: it is
 the prompt to re-decide the trade rather than carry it forward silently. Run `mxcli marketplace

@@ -1,11 +1,30 @@
 # Changelog
 
-Newest first, grouped by date. **The entry lands in the same commit as the change** — that is
-the whole discipline, and why this file replaced `process/toolkit-worklog.md` (which rotted the
-moment updating it became a separate chore). One line per change:
+Newest first. **The entry lands in the same commit as the change** — that is the whole
+discipline, and why this file replaced `process/toolkit-worklog.md` (which rotted the moment
+updating it became a separate chore). One line per change:
 `kind(area): what and why (field evidence / bug id) — contributor or source project`.
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
+
+**Release cycle (from 2026-09-19).** New lines land under `## Unreleased`, at the top. Every few
+days the maintainer cuts a release with `bin/cut-release.sh`: the `## Unreleased` heading becomes
+`## vYYYY.MM.DD`, master is tagged `vYYYY.MM.DD`, and a fresh empty `## Unreleased` opens. So the
+top section is always "what changed since the last release", a project reports the release it is
+on (`bin/sync-project.sh` prints `Toolkit release: v2026.09.22` — or `v2026.09.22-3-g<sha>` when
+three commits past it), and a bug report can name a release instead of a sha nobody can place.
+Sections dated before 2026-09-19 predate the cycle and stay as they are.
+
+## Unreleased
+- process(CHANGELOG, bin): **release list — `## Unreleased` collects what lands between
+  releases, `bin/cut-release.sh` turns it into a dated `vYYYY.MM.DD` section plus a tag, and
+  `sync-project.sh` prints the toolkit release a project is on.** Until now the changelog was
+  grouped by commit date only, so "what did I get since last week" meant reading commit shas,
+  and a project could only say which sha it was pinned to. Field-run against a scratch clone:
+  `cut-release.sh` refused (exit 2) off master, with a dirty `CHANGELOG.md`, with a bad name, with
+  an existing tag, and with nothing under `## Unreleased`; the real run renamed the heading,
+  committed only `CHANGELOG.md`, and tagged; `sync-project.sh --dry-run` printed `Toolkit release:
+  none tagged yet (commit …)` before the tag and `v2026.09.19-1-g<sha>` after. — Maurits Visser
 
 ## 2026-09-19
 - learn(conversion-runbook §1c): **the dispatch table names tiers, not Claude models — cheap / mid / strong — with a per-harness mapping and a longer cheap-tier list.** The table was written in Claude Code's vocabulary (Haiku/Sonnet/Opus), so a session in the desktop app, Cowork, Copilot, Cursor, Windsurf or Aider had no way to follow it, and the cheap tier held one job (image descriptions) although Stage 1 inventory lines, table/figure transcription and Stage 5 `SHOW` dumps meet the same test: a mechanical check follows. New sub-section defines each tier by the check after it (cheap never ends in a verdict, rule, or question — the 78 %-recall evidence stays), maps the tiers to Claude Code aliases, to a vendor's small/standard/largest tier read from the tool's own picker (names churn, the file does not chase them), and admits local/open-weight models for the cheap tier only; names effort level and batch size as the levers below the tier (README's 1.67× vs 3.4×), and rules that a failed unit is re-run at the same tier. Stubs keep their Claude aliases because the frontmatter accepts nothing else — Maurits Visser

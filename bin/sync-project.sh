@@ -232,6 +232,13 @@ if [ "$DIFF_COMPLETED" -eq 1 ]; then
 fi
 
 echo "=== Toolkit sync for $PROJECT_DIR ==="
+# Which toolkit release is this clone on? Releases are v-tags on master (CHANGELOG.md, top);
+# a bug report can then say "on v2026.09.22-3" instead of a sha nobody can place.
+if TK_REL="$(git -C "$SCRIPT_DIR/.." describe --tags --match 'v*' 2>/dev/null)"; then
+  echo "Toolkit release: $TK_REL"   # vYYYY.MM.DD exact; vYYYY.MM.DD-N-g<sha> = N commits past it
+else
+  echo "Toolkit release: none tagged yet (commit $(git -C "$SCRIPT_DIR/.." rev-parse --short HEAD 2>/dev/null || echo '?'))"
+fi
 # Prefix every would-be-action line under --dry-run. Without it the run printed "Created: …"
 # in the past tense for files it had not created — indistinguishable from a real sync in a log.
 DRY=""

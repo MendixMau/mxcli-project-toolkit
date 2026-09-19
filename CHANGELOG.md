@@ -15,6 +15,9 @@ Credit the person or project that surfaced the change — the credit line is the
   now pin `LC_ALL=C`, so the ratchet reads the same number on every machine. Budget unchanged;
   it is now measured in C-locale words — Maurits Visser
 
+## 2026-09-18
+- new(bin): **`bin/token-burn.sh` — tokens per model / day / stage from the Claude Code transcripts on this machine; `status.sh --brief` gains a "Tokens this stage:" line.** Sums `message.usage` once per `message.id` (the harness writes one record per streamed block — 4,336 records for 1,989 messages in the captured session, a ~2× overcount if summed raw), skips `<synthetic>` records, attributes by each record's own `cwd` (a session launched in `~` that works in `~/proj`), headline = input + cache-write + output with cache-read shown apart, stage by the dated Decisions rows in PROJECT.md; prints NOT AVAILABLE and exits 0 where no transcript tree exists (claude.ai chat, Cowork, Copilot, Cursor). Fixture is a captured-then-scrubbed transcript with sums computed independently (`tests/wave2/fixtures/token-burn/CAPTURE.md`). Field runs: a requirements-driven PoC at Stage 4 — 358k headline / 19.2M cache-read over 5 days, 76% sonnet; this toolkit's own clone — 14.5M headline / 491M cache-read, 64% of it in Agent-tool subagents — MendixMau
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

@@ -7,6 +7,14 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-19
+- fix(render-routing.sh): **the baseline word count depended on the caller's locale.** GNU
+  `wc -w` splits on locale whitespace, so one tree measured 79,539 words under `LC_ALL=C` and
+  81,427 under the runner's `C.UTF-8` — a PR that passed `--check` locally failed it in CI by
+  words no file contained (master itself sat 7 words under budget on the runner). Both counts
+  now pin `LC_ALL=C`, so the ratchet reads the same number on every machine. Budget unchanged;
+  it is now measured in C-locale words — Maurits Visser
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

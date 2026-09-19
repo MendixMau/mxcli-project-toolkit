@@ -7,6 +7,9 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-19
+- learn(conversion-runbook §1c): **the dispatch table names tiers, not Claude models — cheap / mid / strong — with a per-harness mapping and a longer cheap-tier list.** The table was written in Claude Code's vocabulary (Haiku/Sonnet/Opus), so a session in the desktop app, Cowork, Copilot, Cursor, Windsurf or Aider had no way to follow it, and the cheap tier held one job (image descriptions) although Stage 1 inventory lines, table/figure transcription and Stage 5 `SHOW` dumps meet the same test: a mechanical check follows. New sub-section defines each tier by the check after it (cheap never ends in a verdict, rule, or question — the 78 %-recall evidence stays), maps the tiers to Claude Code aliases, to a vendor's small/standard/largest tier read from the tool's own picker (names churn, the file does not chase them), and admits local/open-weight models for the cheap tier only; names effort level and batch size as the levers below the tier (README's 1.67× vs 3.4×), and rules that a failed unit is re-run at the same tier. Stubs keep their Claude aliases because the frontmatter accepts nothing else — Maurits Visser
+
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
   `docs/brain/project.md` first" into every project's CLAUDE.md** — so a wired project ran two

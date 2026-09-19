@@ -115,10 +115,11 @@ UPGRADE_BIN=""
 UPGRADE_LINT=""
 REPAIR_INTAKE=0
 ADOPT_ROUTING=0
+PIN_MODELS=0
 PROJECT_DIR=""
 USAGE="Usage: $0 <project-root> [--diff-completed] [--dry-run] [--strict]
                           [--upgrade-bin <script.sh|all>] [--upgrade-lint-rules <rule.star|all>]
-                          [--repair-intake] [--adopt-routing]"
+                          [--repair-intake] [--adopt-routing] [--pin-models]"
 while [ $# -gt 0 ]; do
   case "$1" in
     --diff-completed) DIFF_COMPLETED=1; shift ;;
@@ -126,6 +127,7 @@ while [ $# -gt 0 ]; do
     --strict)         STRICT=1; shift ;;
     --repair-intake)  REPAIR_INTAKE=1; shift ;;
     --adopt-routing)  ADOPT_ROUTING=1; shift ;;
+    --pin-models)     PIN_MODELS=1; shift ;;
     --upgrade-bin)
       shift
       [ $# -gt 0 ] || { echo "--upgrade-bin needs a script name or 'all'" >&2; exit 1; }
@@ -160,6 +162,9 @@ while [ $# -gt 0 ]; do
       echo "                     '## Baseline routing' section in CLAUDE.local.md into the"
       echo "                     generated, marked block. The file is backed up first, and"
       echo "                     everything outside that one section is untouched."
+      echo "  --pin-models       for a COMPLETED agent whose model: line has drifted from the"
+      echo "                     template, rewrite only that line to match. Reported first,"
+      echo "                     acted on only with this flag."
       exit 0 ;;
     -*) echo "unknown option: $1" >&2; exit 1 ;;
     *)  PROJECT_DIR="$1"; shift ;;
@@ -514,6 +519,25 @@ if [ -d "$AGENT_DIR" ]; then
       fi
     else
       echo "Kept: .claude/agents/$a is completed — see what diverged with: $0 $PROJECT_DIR --diff-completed"
+      MODEL_DST="$(grep -m1 '^model:' "$dst" 2>/dev/null || true)"
+      MODEL_SRC="$(grep -m1 '^model:' "$src" 2>/dev/null || true)"
+      if [ -n "$MODEL_SRC" ] && [ -n "$MODEL_DST" ] && [ "$MODEL_DST" != "$MODEL_SRC" ]; then
+        if [ "$PIN_MODELS" -eq 1 ]; then
+          OLD_VAL="${MODEL_DST#model: }"
+          NEW_VAL="${MODEL_SRC#model: }"
+          PIN_TMP="$(mktemp "${TMPDIR:-/tmp}/pinmodel.XXXXXX")" || exit 2
+          awk -v newline="$MODEL_SRC" '
+            /^model:/ && !done { print newline; done=1; next }
+            { print }
+          ' "$dst" > "$PIN_TMP"
+          cat "$PIN_TMP" | w_to "$dst"
+          rm -f "$PIN_TMP"
+          echo "${DRY:-}Pinned: .claude/agents/$a model: $OLD_VAL → $NEW_VAL"
+          CHANGES=$((CHANGES + 1))
+        else
+          echo "  Model drift: .claude/agents/$a pins '$MODEL_DST', template pins '$MODEL_SRC' — re-pin with: $0 $PROJECT_DIR --pin-models"
+        fi
+      fi
     fi
   done
 else

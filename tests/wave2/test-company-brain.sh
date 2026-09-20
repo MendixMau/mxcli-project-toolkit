@@ -10,6 +10,10 @@
 #   T1 instantiate: every template file lands, placeholders substituted, re-run keeps edits
 #   T2 wire via init-project.sh --company: exactly one marked block, ≤ 70 words, path resolves,
 #      project registered once in projects.tsv, second wire = still one block
+#   T2b EVERY instruction surface gets the pointer (CLAUDE.md, AGENTS.md, .cursorrules …), one
+#      block each, and a surface the project does not have is not created. Added 2026-09-20
+#      after an eval session read AGENTS.md/CLAUDE.md/PROJECT.md, never opened CLAUDE.local.md,
+#      and so never saw the company brain at all (retrieval 2/3 → 3/3 once this was fixed).
 #   T3 wire refuses an unshaped folder; wire on a project without CLAUDE.local.md refuses
 #   T4 check-no-private-citations: positive control (planted pointer) exits 1, clean tree exits 0,
 #      the toolkit's own templates/company-brain/ path is not a hit
@@ -58,6 +62,26 @@ r=$(grep -c "^$P	" "$B/projects.tsv"); [ "$r" -eq 1 ] && ok "re-wire: still regi
 B2="$WORK/acme-brain-2"; "$INIT" "$B2" >/dev/null 2>&1; "$BIN/wire-company-brain.sh" "$P" "$B2" >/dev/null 2>&1
 grep -qF "$B2/ROUTING.md" "$CL" && ! grep -qF "$B/ROUTING.md" "$CL" && ok "re-point rewrites in place" || bad "re-point left the old path"
 
+echo "== T2b: the pointer reaches every instruction surface that exists =="
+M="$WORK/multi"; mkdir -p "$M"
+"$BIN/init-project.sh" "$M" --ignore-sources >/dev/null 2>&1
+printf '# CLAUDE.md\nproject instructions\n'  > "$M/CLAUDE.md"
+printf '# AGENTS.md\npointer\n'               > "$M/AGENTS.md"
+printf 'cursor rules\n'                        > "$M/.cursorrules"
+# deliberately absent: .windsurfrules and .github/copilot-instructions.md
+"$BIN/wire-company-brain.sh" "$M" "$B" >/dev/null 2>&1
+for f in CLAUDE.local.md CLAUDE.md AGENTS.md .cursorrules; do
+  n=$(grep -c 'COMPANY-BRAIN:BEGIN' "$M/$f" 2>/dev/null || echo 0)
+  [ "$n" -eq 1 ] && ok "$f carries exactly one block" || bad "$f blocks: $n"
+done
+[ -f "$M/.windsurfrules" ] && bad "created .windsurfrules the project did not have" || ok "absent surface not created"
+[ -f "$M/.github/copilot-instructions.md" ] && bad "created copilot-instructions.md" || ok "absent nested surface not created"
+"$BIN/wire-company-brain.sh" "$M" "$B" >/dev/null 2>&1
+for f in CLAUDE.local.md CLAUDE.md AGENTS.md; do
+  n=$(grep -c 'COMPANY-BRAIN:BEGIN' "$M/$f")
+  [ "$n" -eq 1 ] && ok "$f still one block after re-wire" || bad "$f blocks after re-wire: $n"
+done
+
 echo "== T3: refusals =="
 U="$WORK/not-a-brain"; mkdir -p "$U"
 "$BIN/wire-company-brain.sh" "$P" "$U" >/dev/null 2>&1 && bad "wired an unshaped folder" || ok "refuses an unshaped folder"
@@ -74,9 +98,24 @@ printf 'Clone to `~/Mendix/mxcli-project-toolkit/`.\n' > "$C/skills/b.md"
 printf 'Also `~/Mendix/some-company-brain/skills/y.md`.\n' > "$C/skills/c.md"
 "$BIN/check-no-private-citations.sh" "$C" >/dev/null 2>&1 && bad "company-brain path passed" || ok "company-brain path caught"
 
-echo "== T5: leak-check wrapper on the template =="
+echo "== T5: leak-check — filenames, pre-git, unscannable binaries =="
 out="$(MXTK_TOOLKIT_ROOT="$TOOLKIT" bash "$B/bin/leak-check.sh" 2>&1)"; rc=$?
-[ $rc -eq 0 ] && ok "template is leak-clean (probes only)" || bad "leak-check exit $rc: $(echo "$out" | tail -3)"
+[ $rc -eq 0 ] && ok "a fresh brain is clean" || bad "leak-check exit $rc: $(echo "$out" | tail -3)"
+# A person's name on a file is the real 2026-09-20 finding: a brand guide arrived as
+# "<Company> UI Guide -v2.0 <Person Name> 1 (4).pdf" and every text-content scanner missed it.
+printf 'x' > "$B/components/Company Guide v2 Jane Roe 1 (4).pdf"
+out="$(MXTK_TOOLKIT_ROOT="$TOOLKIT" bash "$B/bin/leak-check.sh" 2>&1)"
+grep -q "may contain a person's name" <<<"$out" && ok "flags a person's name in a filename" || bad "missed the person-name filename"
+grep -qE 'binary/document file\(s\) NOT scanned' <<<"$out" && ok "reports unscannable binaries out loud" || bad "silently passed a binary"
+rm -f "$B/components/Company Guide v2 Jane Roe 1 (4).pdf"
+printf 'ident\n' > "$B/components/USI_Theme_Module.md"
+out="$(MXTK_TOOLKIT_ROOT="$TOOLKIT" bash "$B/bin/leak-check.sh" 2>&1)"
+grep -q "USI_Theme_Module.md" <<<"$out" && bad "underscore identifier flagged as a person's name" || ok "underscore identifiers are not person names"
+rm -f "$B/components/USI_Theme_Module.md"
+printf 'mail me at someone@example.com\n' > "$B/skills/leaky.md"
+out="$(MXTK_TOOLKIT_ROOT="$TOOLKIT" bash "$B/bin/leak-check.sh" 2>&1)"; rc=$?
+[ $rc -ne 0 ] && ok "email in a text file fails the check" || bad "email passed (exit $rc)"
+rm -f "$B/skills/leaky.md"
 
 echo "== T6: harvest --to =="
 mkdir -p "$P/bug-logs"; printf '## BUG-LOCAL-1 — something\nrepro\n' > "$P/bug-logs/mxcli-bugs.md"

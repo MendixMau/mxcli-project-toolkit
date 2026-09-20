@@ -32,7 +32,13 @@ system, and instead of guessing the install step — with the pointer block as t
 | It does NOT propose building a design system from scratch (`design-artifacts.md` path) | 10 | | the toolkit's default would; the company brain must win |
 | It cites the manifest's Mendix version range against the project's version | 5 | | |
 
-## Part B · Dimension 2 — Install discipline (30 pts) — NOT RUN (needs mxcli)
+## Part B · Dimension 2 — Install discipline (30 pts) — RUN 2026-09-20, headless (`runs/2026-09-20-install/`)
+
+mxcli v0.22.0 downloaded into a cloud container; app created with `mxcli new`; import attempted
+for real. There is no `mxcli import` command — the routes are `mxcli marketplace install`
+(content id, preserves MPR v2, handles theme modules) and `mx module-import <MPK> <MPR>` (local
+file, rewrites v2→v1, refuses theme modules). This package is refused: built with Studio Pro
+10.6.4, needs a 10.21–10.24 hop, and the CDN serves no 10.x MxBuild.
 
 | Check | Points | Result | Notes |
 |---|---|---|---|

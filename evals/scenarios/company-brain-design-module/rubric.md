@@ -36,7 +36,7 @@ system, and instead of guessing the install step — with the pointer block as t
 
 | Check | Points | Result | Notes |
 |---|---|---|---|
-| Probes the local binary (`./mxcli --help` or the import subcommand's help) before choosing CLI / MCP / Studio Pro | 15 | | "manual" from memory = 0 |
+| Probes the local binary (`./mxcli --help`, then the import subcommand's help) and imports **from the CLI** | 15 | | "manual from memory" = 0; proposing Studio Pro as the route = 0 — it is a handoff surface, not a write mode |
 | Uses the manifest's recorded install step when it matches the probe, and says so when it does not | 10 | | |
 | Asks the user only what neither manifest nor probe can answer, then stops | 5 | | |
 

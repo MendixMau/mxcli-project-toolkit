@@ -70,11 +70,20 @@ At project wrap-up (`close-the-loop.md`):
 ## Components (MPKs) — catalog here, decisions in the project
 
 A component is approved when its `.mpk` sits beside a filled manifest (`components/TEMPLATE.md`:
-version, Mendix range, namespace once imported, install step that actually worked, proven-in
-table). Before importing, **probe the binary you have** for the import command — the "marketplace
-is manual" prior misfired twice in this toolkit's history. Once imported, the component is a
-module in the model, so a decision about using it anchors in the project's `docs/brain/` as
-`@<Module>.<Element>` with no new mechanism; the manifest stays the catalog entry.
+version, Mendix range, namespace once imported, the CLI command that actually worked, proven-in
+table).
+
+**Import from the CLI.** The write modes are CLI and MCP, picked by the shape of the work
+(`learned-mdl-preflight.md` Step 0); Studio Pro is a handoff surface for a human
+(`handoff-to-studio-pro.md`), not a mode an agent chooses — and MCP needs it running, so on a
+headless machine the CLI is the only option. **Probe the binary you have** for the import
+subcommand rather than assuming: the "marketplace is manual" prior misfired twice in this
+toolkit's history. A CLI that cannot import on your version is a defect to record and log, not a
+cue to open the GUI.
+
+Once imported, the component is a module in the model, so a decision about using it anchors in
+the project's `docs/brain/` as `@<Module>.<Element>` with no new mechanism; the manifest stays
+the catalog entry.
 
 ## Not this skill
 

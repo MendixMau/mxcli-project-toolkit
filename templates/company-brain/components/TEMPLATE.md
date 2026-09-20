@@ -12,10 +12,12 @@
 
 <Two sentences: the problem it solves and the situation in which to reach for it.>
 
-## Install
+## Install — the CLI command that actually worked
 
-<The step that actually worked, on which mxcli / Studio Pro version. If it needed the GUI, say so
-and say why (bug id, missing command).>
+<The exact `./mxcli ...` command and the mxcli version it was verified on. CLI first: this
+toolkit builds headlessly. If the CLI could not do it on that version, say so plainly and name
+the defect (bug id, missing subcommand) — a GUI step is a recorded limitation, never the
+recommended path.>
 
 ## After import
 

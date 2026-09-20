@@ -231,6 +231,11 @@ BASELINE_BUDGET="${MXTK_BASELINE_BUDGET_WORDS:-80000}"
 _baseline_docs() {
   awk -F'\t' '/^#/ || NF < 6 { next } $6 == "baseline" && $2 ~ /\.md$/ { print $2 }' "$MXTK_ROUTING_TSV"
 }
+# LC_ALL=C ON EVERY COUNT (2026-09-19). GNU `wc -w` splits on locale-defined whitespace, so the
+# same tree counted 79,539 words under LC_ALL=C (a local shell with LANG unset) and 81,427 under
+# C.UTF-8 (the GitHub runner default): a PR passed this check locally and failed it in CI by
+# 1,427 words that no file contained. The budget is a ratchet, so its count must be the same
+# number on every machine — byte-deterministic C splitting on GNU, BSD and Git Bash alike.
 BASELINE_WORDS="$(_baseline_docs \
   | while IFS= read -r f; do [ -f "$ROOT/$f" ] && LC_ALL=C wc -w < "$ROOT/$f"; done | awk '{ s += $1 } END { print s + 0 }')"
 # STRICT AGAIN (2026-09-08, same day it went advisory): the advisory detour existed because the

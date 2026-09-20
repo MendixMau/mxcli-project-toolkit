@@ -81,6 +81,15 @@ subcommand rather than assuming: the "marketplace is manual" prior misfired twic
 toolkit's history. A CLI that cannot import on your version is a defect to record and log, not a
 cue to open the GUI.
 
+**An old package can be upgraded headlessly, inside a version window.** `mx convert <in>.mpk
+<out>.mpk` is the tool — it takes the package, not the `.mpr` inside it. The window is the
+converter's own: an 11.14 toolset accepts 10.21–10.24 and refuses anything older
+(`The version '10.6.4…' of the mpr file is not supported`). A package further back needs one hop
+per window, and the intermediate `mx` has to be obtainable — the CDN path the tooling uses
+publishes 11.x but 404s on every 10.x, so a hop may have to happen on someone else's machine.
+Record the outcome in the manifest either way: "converted from X with mx Y" or "needs a hop
+through Z, not obtainable here" both save the next project the afternoon.
+
 Once imported, the component is a module in the model, so a decision about using it anchors in
 the project's `docs/brain/` as `@<Module>.<Element>` with no new mechanism; the manifest stays
 the catalog entry.

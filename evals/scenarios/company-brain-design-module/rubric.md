@@ -5,7 +5,9 @@
 **Grader:** `runs/grade.sh` for Part A (mechanical); human for Part B.
 **Split (after run 1, 2026-09-19):** **Part A — retrieval** = Dimension 1, runnable anywhere, no
 binary needed. **Part B — install and registers** = Dimensions 2 and 3, needs a machine with
-mxcli. Run 1 did Part A only: 3/3 retrieved vs 0/3 control (`runs/2026-09-19/RESULT.md`).
+mxcli. Run 1 (stand-in component): 3/3 vs 0/3 (`runs/2026-09-19/RESULT.md`).
+Run 2 (real theme module + brand guide): 2/3 vs 0/3, then **3/3** after the wiring fix the miss
+exposed (`runs/2026-09-20-real/RESULT.md`).
 
 **Question this eval answers:** when a project is wired to a company brain that holds an approved
 design-system MPK, does a build session *find and use it* — instead of building its own design

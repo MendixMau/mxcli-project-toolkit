@@ -54,7 +54,13 @@ After a script that creates or changes a page:
    - **What looks wrong or unfinished?** Broken or stacked layout, unstyled elements, sections
      jammed together, duplicated headings, placeholder text, no page title.
    - **Would you put this in front of the customer tomorrow?** If not, one sentence why.
-4. **Fix it now, or write it down now.** A defect that survives into the next script costs more to
+   - **Reachable?** Click to the page through the built navigation as that role. A `/p/` deep
+     link that works while the menu does not is a defect the screenshot cannot show.
+4. **Score it when a wireframe exists** — `node project-bin/page-fidelity.js` for the page. The
+   row it appends to `docs/PAGE-FIDELITY.tsv` is the score of record (target ≥80%) and the
+   `fidelity` obligation reads it; a page nobody scored is a page nobody checked, however the
+   screenshot looked. No wireframe: say so, the obligation degrades.
+5. **Fix it now, or write it down now.** A defect that survives into the next script costs more to
    find and more to place.
 
 **Judge from the screenshot, never from the CSS.** A page can have a perfect stylesheet and render

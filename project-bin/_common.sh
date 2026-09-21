@@ -574,3 +574,73 @@ require_py() {
   }
   export PY
 }
+
+# ---------------------------------------------------------------------------
+# mxtk_ensure_mxbuild <mpr> — make the mxbuild gate runnable, or say why not.
+#
+# Echoes an executable mxbuild path and returns 0. When find_mxbuild finds
+# nothing runnable, it downloads the standalone toolchain through the project's
+# own ./mxcli (`./mxcli setup mxbuild -p <app>.mpr` — the exact download
+# bin/doctor.sh --install runs and the headless container build runs), then
+# re-discovers. Returns 1 only when there is still nothing to run.
+#
+# WHY. Before this, a machine without Studio Pro and without a cached mxbuild
+# got a one-line warning and an UNVERIFIED model write (2026-09-17: a cloud
+# session applied nine scripts that way; one carried a CE0117 that only mxbuild
+# can see, and it reached the Team Server). The remedy is one command that the
+# toolkit already knows how to run — so run it, at the moment the gate needs
+# it, instead of asking the reader to. MXTK_NO_INSTALL=1 turns the download off
+# (offline CI), in which case this degrades to plain discovery.
+# ---------------------------------------------------------------------------
+mxtk_ensure_mxbuild() {
+  local mpr="$1" found="" root mxcli
+  found="$(find_mxbuild 2>/dev/null || true)"
+  if [ -n "$found" ] && [ -x "$found" ]; then printf '%s\n' "$found"; return 0; fi
+  [ "${MXTK_NO_INSTALL:-0}" = "1" ] && { [ -n "$found" ] && printf '%s\n' "$found"; return 1; }
+  root="$(dirname "$mpr")"
+  mxcli=""
+  for mxcli in "${PROJECT_ROOT:-$root}/mxcli" "${PROJECT_ROOT:-$root}/mxcli.exe" "$root/mxcli" "$root/mxcli.exe"; do
+    [ -x "$mxcli" ] && break
+    mxcli=""
+  done
+  if [ -z "$mxcli" ]; then
+    echo "  mxbuild not found and no project ./mxcli to download it with (bin/doctor.sh --install fetches both)." >&2
+    [ -n "$found" ] && printf '%s\n' "$found"
+    return 1
+  fi
+  echo "→ mxbuild not found — downloading the toolchain for this model's Mendix version" >&2
+  echo "  ($mxcli setup mxbuild — the same download bin/doctor.sh --install runs; cached under ~/.mxcli/mxbuild/)" >&2
+  if (cd "$root" && "$mxcli" setup mxbuild -p "$(basename "$mpr")" >&2); then
+    found="$(find_mxbuild 2>/dev/null || true)"
+    if [ -n "$found" ] && [ -x "$found" ]; then printf '%s\n' "$found"; return 0; fi
+    echo "  download reported success but no runnable mxbuild was found afterwards (looked under ${MXCLI_HOME:-$HOME/.mxcli}/mxbuild/)." >&2
+  else
+    echo "  '$mxcli setup mxbuild' failed — a blocked network or proxy is the usual cause (the download comes from the Mendix CDN)." >&2
+  fi
+  [ -n "$found" ] && printf '%s\n' "$found"
+  return 1
+}
+
+# ---------------------------------------------------------------------------
+# find_toolkit_root — where the mxcli-project-toolkit clone is, for scripts
+# that need bin/doctor.sh or project-bin/ from it. $MXTK_ROOT wins; else the
+# `| Toolkit root | \`path\` |` row wire-agents.sh writes into CLAUDE.local.md.
+# Echoes the directory and returns 0, or returns 1.
+# ---------------------------------------------------------------------------
+find_toolkit_root() {
+  local c
+  for c in "${MXTK_ROOT:-}" \
+           "$(sed -nE 's/^\| *Toolkit root *\| *`([^`]+)`.*/\1/p' "${PROJECT_ROOT:-.}/CLAUDE.local.md" 2>/dev/null | head -1)"; do
+    [ -n "$c" ] && [ -d "$c/project-bin" ] && { printf '%s\n' "$c"; return 0; }
+  done
+  return 1
+}
+
+# mxtk_sha256 — SHA-256 of stdin, whichever tool this machine has (sha256sum on
+# Linux/Git Bash, shasum on macOS, openssl as the last resort).
+mxtk_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum | cut -d' ' -f1
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 | cut -d' ' -f1
+  else openssl dgst -sha256 | sed 's/^.*= //'
+  fi
+}

@@ -26,13 +26,17 @@
 wiring_item3_md() {
   local tk="$1"
   cat <<EOF
-3. **Before any \`./mxcli exec\`, \`./bin/exec.sh\`, \`mxcli test\`, \`mxcli docker check\`, or any
-   \`--mcp\` write against the real \`.mpr\`, run \`$tk/bin/exec-approval.sh <project-root>\`.** All
-   of those mutate the model; the last two mutate it despite sounding read-only. \`ask\` (the
-   default) → ask the user first, every time, as today. \`auto\` → run it without asking and say
-   in chat what ran; the BUILD-LOG row is the record instead. The user turns this on or off at
-   any time by saying so — only then run \`bin/exec-approval.sh <project-root> --set auto\` /
-   \`--set ask\`, never on your own judgement.
+3. **Exec approval defaults to \`auto\` (2026-09-16).** State the resolved mode once, at session
+   start: "Exec approval: auto — I run scripts through bin/exec.sh and log them; say 'ask before
+   exec' to switch." Before any \`./mxcli exec\`, \`./bin/exec.sh\`, \`mxcli test\`, \`mxcli docker
+   check\`, or any \`--mcp\` write against the real \`.mpr\` — all of those mutate the model, the
+   last two despite sounding read-only — check \`$tk/bin/exec-approval.sh <project-root>\`. Under
+   \`auto\`, run it without asking and say in chat what ran; under \`ask\`, ask first, every time.
+   The user switches either way by saying so — only then run
+   \`bin/exec-approval.sh <project-root> --set auto\` / \`--set ask\`, never on your own judgement.
+   Even on \`auto\`, SAY in chat (don't ask) before a STOP-table operation — drops on entities
+   with data, \`ALTER SETTINGS\`, security level changes, cross-module moves — see
+   \`skills/learned-mdl-preflight.md\`'s STOP table.
 EOF
 }
 

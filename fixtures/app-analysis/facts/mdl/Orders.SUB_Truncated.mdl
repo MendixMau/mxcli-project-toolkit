@@ -1,0 +1,9 @@
+create or modify microflow Orders.SUB_Truncated (
+  $OrderList: List of Orders.PurchaseOrder
+)
+begin
+  loop $IteratorOrder in $OrderList
+  begin
+    commit $IteratorOrder;
+  end loop;
+end;

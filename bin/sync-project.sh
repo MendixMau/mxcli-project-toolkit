@@ -551,20 +551,88 @@ else
   echo "Note: no .claude/agents/ here — run bin/init-agents.sh $PROJECT_DIR if sessions run from this directory."
 fi
 
-# --- 2b. CLAUDE.local.md: append the session-start ritual if this project predates it ---
 CL="$PROJECT_DIR/CLAUDE.local.md"
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# --- 2a2. Stale toolkit clone: report only, never fetch on the user's behalf ------------
+# WHY (2026-09-16). A project session running against a toolkit clone that is not on `master`,
+# or is behind origin/master, keeps re-stamping a rule master has already replaced — the real
+# incident: a stale branch kept a pre-2026-09-16 wording alive across synced projects after
+# master had moved past it. This only compares what the clone already has on disk; it never
+# runs `git fetch`, so it costs nothing offline and never surprises anyone with network I/O.
+# MXTK_SYNC_SKIP_CLONE_CHECK=1 skips this block entirely — for this toolkit's own test suite,
+# which runs sync-project.sh FROM a feature-branch checkout of itself (every warning would be
+# a permanent false positive there, never a signal about the PROJECT under test). Real users
+# never set this; leave it unset so the check stays on by default.
+if [ "${MXTK_SYNC_SKIP_CLONE_CHECK:-}" = "1" ]; then
+  :
+else
+  _TK_BRANCH="$(git -C "$TOOLKIT_ROOT" branch --show-current 2>/dev/null || true)"
+  if [ -n "$_TK_BRANCH" ] && [ "$_TK_BRANCH" != "master" ]; then
+    warn "Toolkit clone ($TOOLKIT_ROOT) is on branch '$_TK_BRANCH', not master — this sync may be reading rules master has already replaced."
+  elif [ -n "$_TK_BRANCH" ]; then
+    _TK_BEHIND="$(git -C "$TOOLKIT_ROOT" rev-list --count "HEAD..origin/master" 2>/dev/null || true)"
+    if [ -z "$_TK_BEHIND" ]; then
+      echo "Toolkit clone: on master; could not compare against origin/master (no network / no such ref here)."
+    elif [ "$_TK_BEHIND" != "0" ]; then
+      warn "Toolkit clone ($TOOLKIT_ROOT) is $_TK_BEHIND commit(s) behind origin/master — git pull --ff-only before trusting this sync."
+    fi
+  fi
+fi
+
+# --- 2a3. mxcli-init prose: swap the ask-every-time exec example for the auto default ---
+# WHY (2026-09-16). `mxcli init` stamps a Communication Style section into every project's
+# CLAUDE.md with an instruction to execute "silently" only "after the user approves", and an
+# example ending "> Shall I go ahead?" — both captured verbatim from a real `mxcli init`
+# CLAUDE.md, 2026-09-16 (no project name attached, prose only). That predates this toolkit's
+# exec-approval knob and describes exactly the ask-every-time ritual the knob now defaults
+# away from. Exact full-line match only, via awk (never sed — these lines carry backticks and
+# a leading `>`, exactly the characters sed delimiters collide with), so a project that has
+# already edited either line by hand is left alone rather than half-patched.
+_ci_rewrite_line() {   # $1=file  $2=old-line  $3=new-line
+  f="$1"; old="$2"; new="$3"
+  grep -qF -- "$old" "$f" 2>/dev/null || return 1
+  [ "$DRY_RUN" -eq 1 ] && return 0
+  _tmp="$(mktemp "${TMPDIR:-/tmp}/cirw.XXXXXX")" || return 1
+  awk -v old="$old" -v new="$new" '{ if ($0 == old) { print new } else { print } }' "$f" > "$_tmp" && cat "$_tmp" > "$f"
+  rm -f "$_tmp"
+  return 0
+}
+f="$PROJECT_DIR/CLAUDE.md"
+if [ -f "$f" ]; then
+  _CI_OLD1='- After the user approves, write the MDL to a script file, validate it, and execute it silently.'
+  _CI_NEW1='- Unless exec approval resolves to `ask` (`bin/exec-approval.sh <project-root>`), write the MDL to a script file, validate it, execute it through `bin/exec.sh`, and report what ran — no approval round-trip.'
+  _CI_OLD2='> Shall I go ahead?'
+  _CI_NEW2='> Running it now through bin/exec.sh (exec approval: auto — say "ask before exec" to switch).'
+  _ci_hit=0
+  _ci_rewrite_line "$f" "$_CI_OLD1" "$_CI_NEW1" && _ci_hit=1
+  _ci_rewrite_line "$f" "$_CI_OLD2" "$_CI_NEW2" && _ci_hit=1
+  if [ "$_ci_hit" -eq 1 ]; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      echo "Would rewrite: CLAUDE.md Communication Style — ask-every-time exec example replaced with the exec-approval auto default"
+    else
+      echo "Rewrote: CLAUDE.md Communication Style — ask-every-time exec example replaced with the exec-approval auto default."
+    fi
+    CHANGES=$((CHANGES + 1))
+  fi
+fi
+
+# --- 2b. CLAUDE.local.md: append the session-start ritual if this project predates it ---
 if [ -f "$CL" ] && ! grep -q "Session-start ritual" "$CL"; then
   w_app "$CL" <<EOF
 
 ## Session-start ritual (mandatory, before any pipeline work)
 
 1. \`git -C $TOOLKIT_ROOT pull --ff-only\` then \`git -C $TOOLKIT_ROOT rev-parse --short HEAD\`
-2. \`$TOOLKIT_ROOT/bin/status.sh <project-root> --brief\` — where, done/overdue, next action; post it
-   as the session's first message (same step 2 as init-project writes for new projects).
-3. If the commit differs from \`PROJECT.md\`'s \`Toolkit commit:\` line: re-read
+2. If \`git -C $TOOLKIT_ROOT branch --show-current\` isn't \`master\`, or the pull above could not
+   fast-forward, say so before trusting anything you read from the clone — a session on a stale
+   or non-master toolkit branch can re-stamp a rule master already replaced (real incident,
+   2026-09-16). \`bin/sync-project.sh\` reports the same check on every sync.
+3. \`$TOOLKIT_ROOT/bin/status.sh <project-root> --brief\` — where, done/overdue, next action; post it
+   as the session's first message (same step as init-project writes for new projects).
+4. If the commit differs from \`PROJECT.md\`'s \`Toolkit commit:\` line: re-read
    \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` in full, then update that line.
-4. State in chat which commit you're working from. gate-check blocks all gates on a mismatch.
+5. State in chat which commit you're working from. gate-check blocks all gates on a mismatch.
 EOF
   echo "Updated: CLAUDE.local.md — appended the session-start ritual."
   CHANGES=$((CHANGES + 1))
@@ -730,6 +798,30 @@ fi
 # inherit the obligation. Found 2026-08-19.
 if [ -f "$PROJECT_DIR/CLAUDE.local.md" ]; then
   _routing_owner="$PROJECT_DIR/CLAUDE.local.md"
+  # Report-only: CLAUDE.local.md owns the Baseline routing block (this file, above), but
+  # bootstrap-project.md's old Step 2 told the merge to ALSO paste it into CLAUDE.md — a
+  # project can end up with BOTH, and every session then loads the same table twice. Detected
+  # by a mention of two Baseline-only skills surviving in CLAUDE.md (bootstrap's own "##
+  # mxcli-project-toolkit Integration" section carries `skills/learned-mdl-preflight.md` /
+  # `skills/query-the-model.md`). The anchor is deliberately NOT restricted to a `|`-table
+  # row — a duplicate pasted as a bullet list would otherwise be invisible to this check — so
+  # a CLAUDE.md that cites either skill for an unrelated reason (not a copied Baseline block)
+  # can also trip it; the message below is phrased as "check whether" for that reason, not as
+  # a flat assertion. Same rule as the ledger-row warn above: CLAUDE.md is bootstrap-project.md's
+  # (an LLM merge), not this script's, so sync never edits it — only names the fix.
+  if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -qE 'skills/(learned-mdl-preflight|query-the-model)\.md' "$PROJECT_DIR/CLAUDE.md"; then
+    _dup_from_line="$(grep -n 'mxcli-project-toolkit Integration' "$PROJECT_DIR/CLAUDE.md" | head -1 | cut -d: -f1)"
+    if [ -n "$_dup_from_line" ]; then
+      _dup_words="$(tail -n "+$_dup_from_line" "$PROJECT_DIR/CLAUDE.md" | wc -w | tr -d ' ')"
+    else
+      _dup_words="$(wc -w < "$PROJECT_DIR/CLAUDE.md" | tr -d ' ')"
+    fi
+    warn "CLAUDE.md cites Baseline-only skills also covered by CLAUDE.local.md — check whether" \
+         "its \"mxcli-project-toolkit Integration\" section (~$_dup_words word(s), heading to" \
+         "EOF, not all of it necessarily routing) is a duplicated Baseline routing block." \
+         "sync never edits CLAUDE.md; if it is a duplicate, replace that block by hand with" \
+         "the pointer per bootstrap-project.md Step 2."
+  fi
 else
   _routing_owner="$PROJECT_DIR/CLAUDE.md"
 fi
@@ -771,8 +863,14 @@ known_fix_note() {
     page-scope.sh)
       echo "bin/page-scope.sh predates the HEADER_WORDS fix (F-042, 2026-08-28): SHOW PAGES header columns Excluded/Folder/Params were parsed as page rows, inflating the page denominator (measured: 6 real pages counted as 13), so every consumer of page-scope.json graded against furniture. One-line fix — recommended upgrade." ;;
     _common.sh)
+      if ! grep -q 'mxtk_ensure_mxbuild' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null; then
+        echo "bin/_common.sh predates the GATE-MUST-RUN fix (toolkit, 2026-09-17): mxtk_ensure_mxbuild downloads a missing mxbuild through ./mxcli, on any machine or cloud container, so exec.sh can refuse to write when the gate cannot run instead of writing unverified. Also missing native_path (Windows errors-file fix, 2026-09-15) if this copy is older still. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
+      fi
       echo "bin/_common.sh predates the WINDOWS MXBUILD GATE fix (toolkit, 2026-08-25). This is where find_sp_app/find_mxbuild, JAVA_HOME resolution and mxtk_platform actually live — exec.sh only calls them. So upgrading exec.sh ALONE does not deliver the fix, and grepping exec.sh for mxtk_platform reports 0 even on a fully patched project: grep _common.sh instead. Without this file the mxbuild gate is skipped on every Windows exec and nothing checks your builds. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh." ;;
     exec.sh)
+      if ! grep -q 'model-stamp' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
+        echo "bin/exec.sh predates the GATE-MUST-RUN fix (toolkit, 2026-09-17): a missing mxbuild is downloaded, a gate that still cannot run REFUSES the write (ALLOW_UNVERIFIED=1 to override), and a passing gate writes the verification stamp the pre-commit hook checks. Without it every exec on a machine with no mxbuild is applied unverified — on any OS, cloud containers included. Needs the matching _common.sh (mxtk_ensure_mxbuild): --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
+      fi
       echo "bin/exec.sh predates two fixes worth naming. (1) The WINDOWS MXBUILD GATE (toolkit, 2026-08-25): find_sp_app/find_mxbuild and JAVA_HOME resolution were macOS-only, so under Git Bash the gate block was skipped entirely and every exec on a Windows machine went UNVERIFIED — it reported 'skipped', not a false pass, but a skip nobody acts on is the same outcome. (2) The MODULE-BRIEF GUARD (toolkit, 2026-08-25): refuses a write to a module with no module-brief.md (or no '## Module brief — <M>' section in the build plan), overridable with FORCE_EXEC=1. Strongly recommended upgrade on Windows — without (1) nothing checks your builds. NOTE: (1) mostly lives in _common.sh, so upgrade that too or the fix is incomplete." ;;
   esac
 }
@@ -859,6 +957,22 @@ elif [ -d "$CRASHNET_SRC" ]; then
   fi
 else
   warn "Toolkit has no project-bin/ — cannot check this project's crash net."
+fi
+
+# --- 4c. Commit-time backstop: the model-verification pre-commit hook ---------------------
+# Same contract as the crash net: missing -> install, present -> leave alone. The hook is a
+# git-local file, so a fresh clone on another machine has no hook until something installs
+# it — this is that something, on the sync every clone is told to run after a toolkit pull.
+if [ "$WIRED" -eq 1 ] && [ -x "$PROJECT_DIR/bin/install-project-hooks.sh" ] \
+   && git -C "$PROJECT_DIR" rev-parse --show-toplevel >/dev/null 2>&1; then
+  if ! "$PROJECT_DIR/bin/install-project-hooks.sh" --check >/dev/null 2>&1; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      echo "Would install: the model-verification pre-commit hook (bin/install-project-hooks.sh)"
+    else
+      "$PROJECT_DIR/bin/install-project-hooks.sh" | sed 's/^/   /' || warn "bin/install-project-hooks.sh failed — see above"
+    fi
+    CHANGES=$((CHANGES + 1))
+  fi
 fi
 
 # --- 4a. docs/progress/RESUME.md backfill -------------------------------------------------
@@ -1015,17 +1129,39 @@ fi
 # this fix depend on the one thing it must not depend on. A plain text rewrite has no such
 # dependency, so it fixes the wording whether or not mxcli is on this machine.
 #
-# Same shape as 2e above: match the OLD item 3's boundary by literal PREFIX (index(), never a
+# Same shape as 2e above: match each item 3's boundary by literal PREFIX (index(), never a
 # backslashed regex through an awk -v value — a `-v` value passed through gawk's escape
 # processing is what turned "^\\|" into "^|" and clobbered a whole file in CI, 2026-09-12;
 # bin/check-portability.sh's rule. The replacement text has no backslashes in it either way).
 # Bounded by the line that starts item 4, so items 1, 2, 5 and everything outside the range
 # are untouched. Runs over every file wire-agents.sh itself stamps, in both its formats — the
 # item-3 text itself is shared with wire-agents.sh via bin/lib/wiring-item3.sh, sourced above.
-_ea_rewrite_item3() {   # $1=file  $2=start-prefix  $3=end-prefix  $4=replacement text
-  f="$1"; start="$2"; endp="$3"; repl="$4"
+#
+# TWO WORDINGS TO CATCH (2026-09-16). This block has already had to chase item 3 twice: the
+# pre-2026-09-15 wording ("without asking the user first — every time", prefix "3. **Never
+# run") and the 2026-09-15 wording that introduced the knob but still defaulted it to `ask`
+# ("3. **Before any ...", containing the literal phrase "`ask` (the default)"). The new,
+# 2026-09-16 text also starts "3. **" but with a different, unique prefix ("3. **Exec approval
+# defaults"), so a plain prefix match can no longer tell "still says ask is default" apart from
+# "already rewritten" — hence the optional 5th `needle` arg: when given, the block between
+# start and end must contain it or nothing is rewritten. The needle is exactly the phrase the
+# rewrite removes, so a second sync run is a true no-op.
+_ea_rewrite_item3() {   # $1=file  $2=start-prefix  $3=end-prefix  $4=replacement text  $5=needle (optional)
+  f="$1"; start="$2"; endp="$3"; repl="$4"; needle="${5:-}"
   grep -q "mxtk:wiring:start" "$f" 2>/dev/null || return 1
-  grep -qF "$start" "$f" 2>/dev/null || return 1
+  grep -qF -- "$start" "$f" 2>/dev/null || return 1
+  if [ -n "$needle" ]; then
+    # Word-wrapped prose can split the needle phrase across two lines (this file's own item 3
+    # text does exactly that: "`ask` (the" / "default) ->"), so the block is flattened to a
+    # single space-normalised line before the literal search — a line-by-line grep would miss
+    # a wrapped phrase and silently never repair it.
+    _blk="$(awk -v start="$start" -v endp="$endp" '
+      BEGIN { skip = 0 }
+      { if (skip) { if (index($0, endp) == 1) { exit }; print; next }
+        if (index($0, start) == 1) { print; skip = 1 } }
+    ' "$f" | tr '\n' ' ' | tr -s ' ')"
+    printf '%s' "$_blk" | grep -qF -- "$needle" || return 1
+  fi
   [ "$DRY_RUN" -eq 1 ] && return 0
   _tmp="$(mktemp "${TMPDIR:-/tmp}/eaitem3.XXXXXX")" || return 1
   awk -v start="$start" -v endp="$endp" -v repl="$repl" '
@@ -1050,6 +1186,13 @@ if [ "$WIRED" -eq 1 ]; then
         echo "Rewrote: $rel item 3 — the old \"without asking the user first — every time\" wording is now the exec-approval knob (bin/exec-approval.sh)."
       fi
       CHANGES=$((CHANGES + 1))
+    elif _ea_rewrite_item3 "$f" "3. **Before any" "4. **" "$_EA_NEW3_MD" '`ask` (the default)'; then
+      if [ "$DRY_RUN" -eq 1 ]; then
+        echo "Would rewrite: $rel item 3 — still says \`ask\` is the default; exec approval now defaults to \`auto\`"
+      else
+        echo "Rewrote: $rel item 3 — flipped from \"\`ask\` (the default)\" wording to auto-default (bin/exec-approval.sh)."
+      fi
+      CHANGES=$((CHANGES + 1))
     fi
   done
   f="$PROJECT_DIR/.aider.conf.yml"
@@ -1060,21 +1203,29 @@ if [ "$WIRED" -eq 1 ]; then
       echo "Rewrote: .aider.conf.yml item 3 — the old \"without asking the user first — every time\" wording is now the exec-approval knob (bin/exec-approval.sh)."
     fi
     CHANGES=$((CHANGES + 1))
+  elif [ -f "$f" ] && _ea_rewrite_item3 "$f" "# 3. **Before any" "# 4. **" "$_EA_NEW3_HASH" '`ask` (the default)'; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      echo "Would rewrite: .aider.conf.yml item 3 — still says \`ask\` is the default; exec approval now defaults to \`auto\`"
+    else
+      echo "Rewrote: .aider.conf.yml item 3 — flipped from \"\`ask\` (the default)\" wording to auto-default (bin/exec-approval.sh)."
+    fi
+    CHANGES=$((CHANGES + 1))
   fi
 fi
 
-# ── Claude Code permission allow-list: report only, never write ──────────────────────────
-# install-claude-permissions.sh merges the safe-wrapper allow-list into .claude/settings.json
-# at scaffold time (init-project.sh). A project scaffolded before that call existed, or one
-# whose settings.json was hand-edited since, can silently fall out of sync — and unlike the
-# exec-approval item-3 rewrite above, there is no safe way to REPAIR this from sync-project.sh
-# itself: writing to .claude/settings.json here would race a live Claude Code session reading
-# the same file. So this only runs --check and reports what's missing, same as the wire-agents
-# --check probe above; the fix is the one-line re-run this prints.
-if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-claude-permissions.sh" ]; then
-  if ! _PERM_OUT="$("$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" --check 2>&1)"; then
-    warn "$PROJECT_DIR/.claude/settings.json is missing permission entries for the toolkit's safe wrappers (bin/exec.sh and friends) — Claude Code will prompt on every one of those Bash calls, which defeats bin/exec-approval.sh --set auto. Re-run:" \
-         "$SCRIPT_DIR/install-claude-permissions.sh $PROJECT_DIR"
+# ── Per-harness auto-run allow-list: report only, never write ────────────────────────────
+# install-harness-permissions.sh merges the safe-wrapper allow-list into every harness's own
+# file (Claude's .claude/settings.json + settings.local.json, Copilot's .vscode/settings.json,
+# Aider's .aider.conf.yml) at scaffold time (init-project.sh). A project scaffolded before that
+# call existed, or one whose file was hand-edited since, can silently fall out of sync — and
+# unlike the exec-approval item-3 rewrite above, there is no safe way to REPAIR this from
+# sync-project.sh itself: writing to any of these files here would race a live agent session
+# reading the same file. So this only runs --check and reports what's missing, same as the
+# wire-agents --check probe above; the fix is the one-line re-run this prints.
+if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-harness-permissions.sh" ]; then
+  if ! _PERM_OUT="$("$SCRIPT_DIR/install-harness-permissions.sh" "$PROJECT_DIR" --check 2>&1)"; then
+    warn "$PROJECT_DIR is missing per-harness auto-run allow-list entries for the toolkit's safe wrappers (bin/exec.sh and friends) — those harnesses will prompt on every one of those calls, which defeats bin/exec-approval.sh --set auto. Re-run:" \
+         "$SCRIPT_DIR/install-harness-permissions.sh $PROJECT_DIR"
     echo "$_PERM_OUT" | sed 's/^/   /'
   fi
 fi

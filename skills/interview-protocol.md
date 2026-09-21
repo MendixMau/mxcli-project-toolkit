@@ -60,14 +60,11 @@ overturn any of these"* instead of burying them among questions that were genuin
 
 ### Exec approval is a separate knob
 
-`bin/exec-approval.sh <project-dir>` resolves `ask` or `auto` — whether the agent asks before
-every `./mxcli exec`, `./bin/exec.sh`, `mxcli test`, `mxcli docker check`, or `--mcp` write. It
-is not the interview-mode switch: unset, it *derives* from interview mode (`auto` → `auto`,
-anything else → `ask`), but the user can override it independently — `--set ask`/`--set auto`,
-`<project>/.claude/.exec-approval`, or an `Exec approval:` line in `PROJECT.md`. The user flips
-it, in either direction, by saying so. **Do not set it yourself to get past a block** — the same
-rule as the mode above. Under `auto`, nothing asks; the BUILD-LOG row `exec.sh` already writes
-is the safety net, moved from asking to recording, marked `approval: auto (<source>)`.
+`bin/exec-approval.sh <project-dir>` resolves `ask` or `auto` for exec-style writes — a
+different knob from interview mode, and no longer derived from it. **Single source of the
+rule (text, resolution order, STOP-table carve-out): `bin/lib/wiring-item3.sh`** — every
+agent's Start-here stamp is rendered from it; read it there, do not restate it here.
+**Never set the knob yourself to dodge a block** — only the user flips it.
 
 ---
 

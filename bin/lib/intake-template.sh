@@ -109,6 +109,13 @@ earlier stages report WAIVED instead of a red row nobody can ever clear. Answer 
 scratch here" and nothing is waived, which is the right answer for most projects. Do NOT infer
 this from what happens to be on disk: a missing artifact and an artifact produced elsewhere look
 identical, and guessing wrong either nags forever or waives a stage that genuinely still matters.
+
+## 11. Exec approval: `auto` (default) or `ask`?
+
+_Not yet asked._ How to verify: ask the user; default is `auto`. Full rule text (what it
+gates, the resolution order, the STOP-table carve-out): `bin/lib/wiring-item3.sh` — the same
+text every agent's Start-here stamp carries. See `bin/exec-approval.sh --explain` for what is
+currently resolved and why; the user switches it, never the agent on its own judgement.
 MXTK_INTAKE_EOF
 }
 

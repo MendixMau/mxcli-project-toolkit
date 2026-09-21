@@ -1,0 +1,11 @@
+create or modify microflow Orders.SUB_TxPerItem (
+  $OrderList: List of Orders.PurchaseOrder
+)
+begin
+  loop $IteratorOrder in $OrderList
+  begin
+    call java action CommunityCommons.StartTransaction();
+    change $IteratorOrder (Status = Orders.ENUM_Status.Sent) commit;
+    call java action CommunityCommons.EndTransaction();
+  end loop;
+end;

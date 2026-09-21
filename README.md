@@ -65,6 +65,8 @@ Do **not** create `analysis/<project>/` as a sibling of the project — analysis
 
 **New here? Open `toolkit-guide.html` in a browser first** — the whole journey as a visual page: entry modes, the 9 stages, what each gate asks of you, and the don't-panic section. *Agents:* open it for the user only when `<project-root>/.claude/.guide-shown` is absent, then `touch` it — see the first-touch rule in `CLAUDE.md`. Never once per session.
 
+**First session on a harness other than Claude Code?** `toolkit-guide.html` → section 9 has the one setting per harness (Copilot, Aider, Cursor, Windsurf) that stops it prompting on every `bin/exec.sh` call — `bin/install-harness-permissions.sh` sets what it can automatically; the table covers what's left.
+
 **Where does this run? Wherever you started the chat.** `doctor.sh` detects the lane — Claude
 Code on the web (cloud container), a devcontainer, or your own machine with Studio Pro — and the
 agent records it; nobody is asked. Every stage runs headless in all three; what each lane changes
@@ -435,8 +437,11 @@ mxcli-project-toolkit/
     split-claude-md.sh          ← move MDL/lint reference out of CLAUDE.md into load-on-demand files
     install-claude-hooks.sh     ← tiered context-cost hooks → ~/.claude (see "Context cost" above)
     install-claude-permissions.sh ← allow-lists the safe wrappers (bin/exec.sh & friends, mx)
-                                   in <project>/.claude/settings.json so Manual mode stops
-                                   prompting on them; run at scaffold time, --check'd on sync
+                                   in <project>/.claude/settings.json + settings.local.json
+                                   (absolute-path entries only) so Manual mode stops prompting
+    install-harness-permissions.sh ← ONE entry point: calls install-claude-permissions.sh, plus
+                                   Copilot (.vscode/settings.json), Aider (.aider.conf.yml);
+                                   run at scaffold time, --check'd on sync — see toolkit-guide.html §9
     install-hooks.sh            ← unrelated: the git pre-commit client-data guard for THIS repo
   claude-hooks/                 ← sources for the above: hooks/ (5) + bin/ (checkpoint, close-task)
   agents/                       ← the six agent stub templates (ba/architect/mdl/gate/test/review)
@@ -565,6 +570,10 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
+| Collecting the facts an app dossier is written from: forces a full catalog build, module edges through the real module column, strongly connected components, describes every loop-containing microflow and parses the loop bodies; exit 2 on a stale, fast-mode or schema-incomplete catalog, never a verdict | `project-bin/app-facts.sh` |
+| Building or refreshing the standing dossier of an EXISTING app before changing it: inventory, module dependency shape, loop risk patterns, each section with a verdict and a fault where nothing was measured (a standing document; nothing else in the toolkit reads it yet) | `skills/app-analysis.md` |
+| Checking whether an EXISTING app's module boundaries still hold: the layer map (bin/app-layer-map.sh) computes the order the modules would stack in and draws only the edges that point back up, so one tangle of N mutually reachable modules becomes a named list of edges with a weight and a ref kind; Stage 3 in existing-app-change mode, and the honest blast radius for a slice | `skills/layering-review.md` |
+| Judging module tangles, bidirectional pairs, cohesion and hubs from analysis/app-facts/dependencies.json; stock graph_module_* views split names on the first dot and are not trusted | `skills/module-dependency-review.md` |
 | Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations | `skills/architecture-blueprint.md` |
 | Deciding module boundaries before "create module" | `skills/modularize-domain.md` |
 
@@ -583,16 +592,18 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Task | Skill to load |
 |---|---|
 | Building a module with mxcli — verified, iterative, coverage-checklist gated | `skills/iterative-build-loop.md` |
-| After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views | `project-bin/build-plan-status.sh` |
+| After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views; --json writes architecture/build-plan.json parsed from build-plan.md's Phase headings (a plan with no Phase headings gets no file) | `project-bin/build-plan-status.sh` |
 | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets | `skills/anonymize-client-app-for-demo.md` |
 | Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step | `skills/handoff-to-studio-pro.md` |
 | Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them | `skills/walking-skeleton.md` |
 | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App | `skills/platform-link.md` |
+| Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment — "it works locally" is not evidence about a deployment; also when a test suite fails only against the remote URL | `skills/deploy-to-sandbox.md` |
 
 **Build · MDL — the language and tool reference**
 
 | Task | Skill to load |
 |---|---|
+| Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop | `skills/microflow-loop-antipatterns.md` |
 | Writing MDL microflow scripts — worked recipes | `skills/mdl-cookbook-microflows.md` |
 | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check | `skills/build/mdl/oneshot-mdl-method.md` |
 | Writing a popup page's microflow with a retry/validation-failure branch that re-shows the same popup — missing close page stacks duplicate dialogs | `skills/learned-popup-navigation.md` |
@@ -651,6 +662,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory | `project-bin/coherence-cadence.sh` |
 | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything | `skills/e2e-evidence-report.md` |
 | Recording a narrated screen-capture demo of a running app for a human to watch — opening on the app instead of a blank frame, and keeping captions synced to the pixels | `skills/record-demo-video.md` |
+| Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo — to a customer, prospect or reviewer: relative image paths and "the name shown above" both break the moment the file travels alone, and the usernames a login panel displays are not the ones it accepts | `skills/share-demo-package.md` |
 | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` |
 | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence | `skills/lint-that-actually-runs.md` |
 | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before | `skills/wiring-sweep.md` |
@@ -666,8 +678,10 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Task | Skill to load |
 |---|---|
 | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words | `bug-logs/mxcli-bugs.md` |
+| Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing | `skills/agent-permission-friction.md` |
 | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` |
 | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable | `skills/bug-submission-checklist.md` |
+| About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to | `skills/upstream-feedback.md` |
 | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause | `skills/empty-widget-triage.md` |
 | Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary — proving it's version-specific without risking the real model | `skills/sandbox-ab-tool-defect-probe.md` |
 | Restarting Studio Pro on macOS — the reopen bug, the port bug, and detecting a real hang vs a slow load | `skills/restart-sp-reopen-and-hang-detection.md` |
@@ -722,12 +736,12 @@ get a `CHANGELOG.md` credit line naming you or your project.
 ```
 git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
 ```
-Each project's `CLAUDE.local.md` references `~/Mendix/mxcli-project-toolkit`. Pull updates with `git pull` — **everything referenced (skills, runbook, checkpoints, gate-check) updates instantly for all projects.** The three artifacts that were *copied* into a project (intake.md, agent stubs, the baseline-routing table in its CLAUDE.md) don't: run `bin/sync-project.sh <project-root>` after a pull — it appends new intake questions, refreshes untouched agent stubs (never completed ones), and flags a stale baseline routing. Then tell any already-running session to re-read the runbook.
+Each project's `CLAUDE.local.md` references `~/Mendix/mxcli-project-toolkit`. Pull updates with `git pull` — **everything referenced (skills, runbook, checkpoints, gate-check) updates instantly for all projects.** The artifacts that were *copied* into a project (intake.md, agent stubs, and — only on a project with no `CLAUDE.local.md` — the baseline-routing table in its `CLAUDE.md`) don't: run `bin/sync-project.sh <project-root>` after a pull — it appends new intake questions, refreshes untouched agent stubs (never completed ones), refreshes the Baseline and situational tables in `CLAUDE.local.md` when one exists, and otherwise flags a stale baseline routing table in `CLAUDE.md` for hand update. It also warns (never fetches) when the toolkit clone itself is off `master` or behind `origin/master`; `MXTK_SYNC_SKIP_CLONE_CHECK=1` skips that one check, for the toolkit's own test suite only — real users leave it unset. Then tell any already-running session to re-read the runbook.
 For a self-contained handoff, add it as a git submodule instead. Per pipeline, run `npm install` inside `pipelines/<x>/pipeline` (node_modules is gitignored).
 
-### Baseline routing — copy this into every new project's CLAUDE.md / CLAUDE.local.md
+### Baseline routing — every consuming project needs this table
 
-The "When to use which skill" table above is *situational* — load a skill when a specific task calls for it. A few skills apply on **every** MDL-writing session regardless of task, and situational discovery quietly misses them, because nothing mid-task prompts loading them. Every consuming project's own `CLAUDE.md`/`CLAUDE.local.md` (or wherever it tells agents what to read before writing MDL, e.g. its own `write-microflows.md`) should reference these directly, not rely on stumbling onto them:
+The "When to use which skill" table above is *situational* — load a skill when a specific task calls for it. A few skills apply on **every** MDL-writing session regardless of task, and situational discovery quietly misses them, because nothing mid-task prompts loading them. Every consuming project needs this table somewhere an agent reads it before writing MDL — but "somewhere" is not "copy it into `CLAUDE.md`": a project scaffolded with `bin/init-project.sh` already has it in `CLAUDE.local.md`, refreshed by every `bin/sync-project.sh` run, and `CLAUDE.md` there should carry only a short pointer to it (`skills/bootstrap-project.md` Step 2 has the exact block). Paste the table itself into `CLAUDE.md` only on a project with no `CLAUDE.local.md` convention (a non-Claude harness, or one bootstrapped before `init-project.sh` existed):
 
 <!-- Generated from bin/lib/skill-routing.tsv by bin/render-routing.sh.
      Do not hand-edit between the markers: add or change the ROW, then re-render. -->

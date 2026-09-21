@@ -102,7 +102,12 @@ emit_stamp() {
    are. Every other instruction file in this repo, including this one, is a pointer to it.
 $(wiring_item3_md "$TOOLKIT_ROOT")
 4. **$MXCLI_HINT
-5. **No new \`.md\`/\`.html\` in the project root.** Use docs/ architecture/ analysis/ design/.
+5. **Every model write goes through \`./bin/exec.sh <script.mdl>\` — never a bare \`mxcli exec\`.**
+   exec.sh is the only thing that runs the mxbuild gate (\`mxcli check\` cannot see a consistency
+   error such as CE0117), and it refuses to write when that gate cannot run. A bare exec leaves
+   no gate row and no verification stamp, and the pre-commit hook then refuses the model until
+   \`./bin/verify-model.sh\` has passed it.
+6. **No new \`.md\`/\`.html\` in the project root.** Use docs/ architecture/ analysis/ design/.
    \`bin/check-root-clean.sh\` fails the build on strays.
 
 Skill guides live in \`.ai-context/skills/\` — read the relevant one before writing MDL.

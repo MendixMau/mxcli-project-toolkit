@@ -64,6 +64,7 @@
 set -uo pipefail
 
 _ART_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+. "$_ART_LIB_DIR/entry-mode.sh"
 ARTIFACT_TSV="${ARTIFACT_TSV:-$_ART_LIB_DIR/artifact-manifest.tsv}"
 
 # ── helpers ─────────────────────────────────────────────────────────────────
@@ -131,11 +132,13 @@ _art_stage_of_rank() { case "$1" in 0) echo P ;; [1-8]) echo $(( $1 - 1 )) ;; *)
 _art_entry_mode() {
   local raw
   raw="$(_art_field "$1" "entry mode" 2>/dev/null || true)"
-  case "$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')" in
-    *greenfield*)  echo "greenfield" ;;
-    *requirement*) echo "requirements" ;;
-    *migration*)   echo "migration" ;;
-    *)             echo "" ;;
+  # Shared tokeniser (see bin/lib/entry-mode.sh). This lib's own vocabulary says
+  # "requirements" where the canonical set says "requirements-driven"; translate at
+  # the boundary rather than changing what the manifest rows compare against.
+  local tok; tok="$(entry_mode_token "$raw")"
+  case "$tok" in
+    requirements-driven) echo "requirements" ;;
+    *)                   echo "$tok" ;;
   esac
 }
 

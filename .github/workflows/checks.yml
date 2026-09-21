@@ -48,11 +48,18 @@ jobs:
       # guard runs in allow-no-denylist mode: the generic probes (emails, GUIDs, absolute
       # local paths) still gate every PR, but a missing name list is a warning, not a red X.
       # If the LEAKGUARD_DENY repo secret is ever set, name matching activates here too.
+      # LEAKGUARD_BASE turns on the script's step 7, a WARN-ONLY report of capitalised words
+      # the PR's diff introduces that the base branch didn't have — it never fails this step.
+      # The explicit fetch is belt-and-braces: fetch-depth: 0 above already pulls full history,
+      # but this step must not depend on running after check-pr-discipline.sh's own fetch.
       - name: Leak guard, generic probes only (check-no-client-data.sh)
         env:
           LEAKGUARD_DENY: ${{ secrets.LEAKGUARD_DENY }}
           LEAKGUARD_ALLOW_NO_DENYLIST: "1"
-        run: bin/check-no-client-data.sh
+          LEAKGUARD_BASE: origin/${{ github.base_ref || 'master' }}
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref || 'master' }}"
+          bin/check-no-client-data.sh
 
       # The two fixture suites. Added 2026-09-08 after a bisect found both red since 2026-08-20:
       # two deliberate exit-code changes (PENDING → exit 3, Stage 0 advisory → exit 0) updated

@@ -44,8 +44,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/learned-microflow-patterns.md` | Writing or fixing any microflow — MDL gotchas plus annotation discipline |
 | `skills/ui-preflight-pages.md` | Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP |
 | `skills/design-spacing.md` | Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires |
-| `skills/ui-loop.md` | After every page-building script, and any time the UI looks wrong — the cheap repeatable look during the build: one page, one screenshot, three questions. Feeds Gate: UI, never replaces it |
-| `skills/learned-stylegallery.md` | Building or using the in-app design gallery |
+| `skills/ui-loop.md` | After every page-building script, and any time the UI looks wrong — the cheap repeatable look during the build: one page, one screenshot, four questions, scored when a wireframe exists. Feeds Gate: UI, never replaces it |
 | `project-bin/check-design-reaches-app.sh` | After the FIRST build that follows any design-system port, and before any page is built on it — reads the BUILT stylesheet and reports how many framework knobs point at a design token, how many tokens arrived, how many component classes arrived, each with its denominator. Measured on a real run: 55 tokens ported correctly into the right file, 0 of 35 knobs bound and 0 of 20 classes present, two build phases shipped in the framework's default blue with mx check, mxcli lint, the MDL suite and two e2e journeys all green |
 | `project-bin/check-page-shell.sh` | Before exec'ing ANY page script — compares the drafted MDL's shell against the wireframe's: page column, layout/nav shell, one H1. Measured 0/10 pages on a real first build, repaired wholesale 47 scripts later |
 | `project-bin/page-fidelity.js` | After drafting and again after exec'ing any page script — scores the page MDL (or `mxcli describe` output on stdin) against its wireframe: headings/actions/content/classes, weighted. The scored companion to check-page-shell's binary gate; 32% median measured without it, 90% first-draft with it. Every run is appended to the project's docs/PAGE-FIDELITY.tsv — first non-stub row per page = first-build score of record vs the ≥80% target (forward-reference stubs score with --stub, exempt) |
@@ -63,9 +62,11 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index — describe each unique picture once, into its own file, before Stage 2 closes |
+| `skills/learned-stylegallery.md` | Building or using the in-app design gallery |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
+| `skills/microflow-loop-antipatterns.md` | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop |
 | `skills/iterative-build-loop.md` | Building a module with mxcli — verified, iterative, coverage-checklist gated |
 | `skills/mdl-cookbook-microflows.md` | Writing MDL microflow scripts — worked recipes |
 | `skills/build/mdl/oneshot-mdl-method.md` | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check |
@@ -77,6 +78,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN — the private tier between the toolkit and a project for own skills, conventions, lint rules, MDL snippets and approved MPKs; and deciding whether something goes to the toolkit, the company brain or docs/brain/ |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
+| `skills/agent-permission-friction.md` | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing |
 | `project-bin/coherence-cadence.sh` | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory |
 | `skills/mpr-corruption-and-sp-load-errors.md` | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout |
 | `project-bin/lint-gate.sh` | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing |
@@ -86,6 +88,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL — where a path may end, boundary event vs event sub-process, parallel-split limits, outcome minimums, targeting from the sentence, multi-user decision methods, which edits break running instances; and any CE6689/CE1844/CE1845/MW0012 after a clean mxcli check |
 | `skills/rest-integration-first-time-right.md` | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call |
 | `skills/bug-submission-checklist.md` | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable |
+| `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to |
 | `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause |
 | `skills/sandbox-ab-tool-defect-probe.md` | Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary — proving it's version-specific without risking the real model |
 | `skills/restart-sp-reopen-and-hang-detection.md` | Restarting Studio Pro on macOS — the reopen bug, the port bug, and detecting a real hang vs a slow load |
@@ -101,9 +104,11 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first |
 | `skills/walking-skeleton.md` | Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them |
 | `skills/platform-link.md` | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App |
+| `skills/deploy-to-sandbox.md` | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment — "it works locally" is not evidence about a deployment; also when a test suite fails only against the remote URL |
 | `skills/learned-constants-and-secrets.md` | Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT — where an encryption key, API credential, endpoint or access token gets its value, why a free node has only one channel, and why a token missing from the files you grepped is not missing |
 | `project-bin/constants-audit.sh` | Before any first deploy to a new environment, and after installing or updating any marketplace module — which constants would be blank where nobody can set them, and which now carry a secret in the model. Never prints a value |
 | `project-bin/ts-sync.sh` | Sharing the project with a colleague on Mendix Team Server while the build loop stays on GitHub — content-transplant snapshots between the two clones (status/push/pull); SUPERSEDED by platform-link.md §3 (adopt without rewriting history, field-proven) — only if that path fails; UNPROVEN against a real Team Server |
+| `docs/studio-tools.md` | Before calling any studio_* MCP tool — the family is distinct from pg_*/ped_* (learned-mcp-patterns.md); same hybrid-write hard rules apply, but no field run exists yet and no tool names are enumerated here |
 <!-- ROUTING:END -->
 
 ## Ground rules
@@ -179,6 +184,12 @@ treat it as full-discipline.
 6a. **For any `CREATE WORKFLOW` / `ALTER WORKFLOW`: read `skills/workflow-structure-rules.md` in full before the first line of the body** — both files, not one: `learned-workflow-patterns.md` is the syntax, `workflow-structure-rules.md` is the shape the model must have, and `mxcli check` sees neither. Then, in the same step: check every construct the brief's diagram asks for against its §11 table, write the ones marked *proven*, and report the ones marked *hand-add in Studio Pro* as named rows in your report-back — never quietly flatten a construct to the happy path because MDL would not take it. Run §12 over the finished body and put the counts in your report.
 7. Write the script to the requested path (under the mdlsource dir from Wiring) — grants co-located, and a `folder` on every created document (from the brief's folder plan).
 8. Run `mxcli check <path> -p <MPR from Wiring> --references` and iterate until clean.
+8a. **Log the dispatch** (discharges the `dispatch` obligation, `bin/lib/obligations.tsv`): under the
+    project root, `mkdir -p .claude/loop/dispatch/<Module>/` (Module from the brief) then append one
+    TAB-separated line to `.claude/loop/dispatch/<Module>/scripts.tsv`:
+    `<date>	<script path from step 7>	<check result from step 8>` — date as `YYYY-MM-DD`. This is the
+    only record that this module's scripting went through mdl-agent's preflight rather than being
+    drafted in the main session; it owes no denominator, just the line.
 9. Do NOT run `mxcli exec` — that stays in the main session under the user's confirmation.
 
 ## Report back

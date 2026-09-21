@@ -51,3 +51,5 @@ wip/
 
 # rendered by bug-logs/pending-github-issues/render-paste-ready.sh — regenerate, never commit
 bug-logs/pending-github-issues/paste-ready/
+# Machine-local tool locations read by project-bin/_common.sh — never commit paths
+.claude/toolkit.env

@@ -53,11 +53,14 @@ and `"DESCRIBE ..."` reads are always fine, and are how you ground every name yo
 | `skills/report-schema.md` | Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer |
 | `skills/harness-architecture.md` | Installing, extending, debugging or porting the verification harness — which part owns what, which parts run standalone, and what a missing part must report |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
+| `skills/agent-permission-friction.md` | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing |
 | `skills/e2e-evidence-report.md` | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything |
 | `skills/record-demo-video.md` | Recording a narrated screen-capture demo of a running app for a human to watch — opening on the app instead of a blank frame, and keeping captions synced to the pixels |
+| `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo — to a customer, prospect or reviewer: relative image paths and "the name shown above" both break the moment the file travels alone, and the usernames a login panel displays are not the ones it accepts |
 | `skills/improvement-register.md` | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend |
 | `skills/journey-examples.md` | Writing an actual .journey.json — the worked field-by-field reference for the contract journey-proof.md argues for |
 | `skills/wiring-sweep.md` | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before |
+| `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to |
 | `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
 | `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first |
@@ -69,6 +72,7 @@ and `"DESCRIBE ..."` reads are always fine, and are how you ground every name yo
 | `bin/run-hub.sh` | Starting a hub-tunnelled preview with the flags outbound calls actually need — wraps mxcli run --hub with db-name and the runtime proxy settings from preview-over-hub-tunnel.md |
 | `skills/walking-skeleton.md` | Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them |
 | `skills/platform-link.md` | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App |
+| `skills/deploy-to-sandbox.md` | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment — "it works locally" is not evidence about a deployment; also when a test suite fails only against the remote URL |
 <!-- ROUTING:END -->
 
 ## Before you start

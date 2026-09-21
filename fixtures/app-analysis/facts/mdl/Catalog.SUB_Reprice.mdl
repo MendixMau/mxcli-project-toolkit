@@ -1,0 +1,15 @@
+create or modify microflow Catalog.SUB_Reprice (
+  $ItemList: List of Catalog.Item
+)
+begin
+  loop $IteratorItem in $ItemList
+  begin
+    retrieve $PriceList from Catalog.Price where Item = $IteratorItem;
+    retrieve $TaxList from Catalog.TaxRate where Item = $IteratorItem;
+    retrieve $BandList from Catalog.Band where Item = $IteratorItem;
+    loop $IteratorPrice in $PriceList
+    begin
+      change $IteratorPrice (Amount = $IteratorPrice/Amount);
+    end loop;
+  end loop;
+end;

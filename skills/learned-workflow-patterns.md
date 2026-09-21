@@ -27,7 +27,7 @@ because the version gate is the point; §21 says which of their claims are now h
 `CREATE WORKFLOW` is written under the pre-11.9 storage type name. Studio Pro then shows a
 **red pin** instead of the activity and the app fails to boot — while `mxcli check` and the
 native `mx check` both pass. Check `mxcli --version` before scripting any workflow that
-calls a microflow. See [[learned-mdl-preflight]] STOP #18/#19 for the pre-flight version
+calls a microflow. See [[learned-mdl-preflight]] STOP #18 for the pre-flight version
 of this rule.
 
 **Companion file:** `build/workflow-example.mdl`, in this same repo. It is a complete,
@@ -1133,7 +1133,7 @@ you reason about direction.
 names, but a rebuild derives names from the called microflow. So `jump to callMicroflow6`
 round-trips into a workflow where no `callMicroflow6` exists. Rewrite every jump target by
 hand against the rebuilt model's names before exec — and remember that mxcli will not tell you.
-[[learned-mdl-preflight]] STOP #24 is the pre-flight form of this rule.
+[[learned-mdl-preflight]] STOP #18 is the pre-flight form of this rule.
 
 ### The rebuild ritual, in order
 

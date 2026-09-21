@@ -25,12 +25,14 @@
 #
 # A phase at 100% in view A with no row in view B is exactly the gap this script exists to make
 # visible: built, never proven. DIAGNOSTIC ONLY — reads files, writes nothing but the optional
-# --html output and never touches the .mpr.
+# --html and --json outputs and never touches the .mpr.
 #
 # Usage:
-#   build-plan-status.sh [project-dir] [--html] [--quiet]
+#   build-plan-status.sh [project-dir] [--html] [--json] [--quiet]
 #     --html    also write architecture/build-plan.html (self-contained, no external deps)
-#     --quiet   suppress the stdout table (useful when only --html output is wanted)
+#     --json    also write architecture/build-plan.json, parsed from architecture/build-plan.md's
+#               Step-5 Phase headings, row tables and claims: blocks (see "C." below)
+#     --quiet   suppress the stdout table (useful when only --html/--json output is wanted)
 #
 # Exit: always 0. This is a status view, not a gate — skills-over-scripts.md: a script reports
 # facts, a human or a skill (module-review.md, iterative-build-loop.md) judges them.
@@ -42,10 +44,12 @@ ROOT="${1:-}"
 shift 2>/dev/null || true
 
 WRITE_HTML=0
+WRITE_JSON=0
 QUIET=0
 for a in "$@"; do
   case "$a" in
     --html)  WRITE_HTML=1 ;;
+    --json)  WRITE_JSON=1 ;;
     --quiet) QUIET=1 ;;
     *) echo "unknown arg: $a" >&2; exit 2 ;;
   esac
@@ -223,6 +227,240 @@ th{color:#666;font-weight:600}
     echo '</body></html>'
   } > "$OUT"
   [ "$QUIET" -eq 0 ] && echo "" && echo "  wrote ${OUT#$ROOT/}"
+fi
+
+# ── C. optional JSON render, from build-plan.md itself ───────────────────
+# Views A and B never read the plan's prose, by design (see A's comment). But the prose is
+# where the plan actually lives: brd-to-build-plan.md Step 5 writes one `### Phase N <dash> Name`
+# heading per phase, a row table (`# | Kind | Step | Produces/Proves | Depends on | Skills |
+# State`) and a `claims:` block under each. On a real project (2026-09-16) that file carried
+# 7 fully-tabled phases while mdlsource/ was flat, so A and the HTML were honestly empty and
+# the plan state existed only as text no program could read. --json writes that text out as
+# data so a viewer can build from it. It records what the markdown says and nothing else:
+# every field is a cell, a heading part or a claims line; the one derived value is each
+# phase's `state`, rolled up from its own rows' State cells and `unknown` when a cell does
+# not say built / not built / pending a person. A plan with no Phase headings gets no file.
+#
+# The encoder is Python's json module, never shell concatenation: one real Produces cell
+# contains a double quote, and an invalid file is worse than none, because the viewer shows
+# nothing while the file looks present. resolve_py follows exec.sh: sourced from _common.sh
+# when present, with a guarded fallback for projects whose _common.sh predates it.
+if [ "$WRITE_JSON" -eq 1 ]; then
+  JSON_OUT="$ROOT/architecture/build-plan.json"
+  if [ -f "$(dirname "${BASH_SOURCE[0]}")/_common.sh" ]; then
+    # shellcheck disable=SC1091
+    . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
+  fi
+  if ! type resolve_py >/dev/null 2>&1; then
+    resolve_py() {
+      _c=""
+      for _c in "${PYTHON:-}" python3 python py; do  # portability-ok: this IS the interpreter probe
+        [ -n "$_c" ] || continue
+        case "$(command -v "$_c" 2>/dev/null)" in *[Ww]indows[Aa]pps*) continue ;; esac
+        if "$_c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+          echo "$_c"; return 0
+        fi
+      done
+      return 1
+    }
+  fi
+  PY="$(resolve_py || true)"
+  if [ ! -f "$BUILD_PLAN" ]; then
+    JSON_MSG="no architecture/build-plan.md, so build-plan.json was not written"
+  elif [ -z "$PY" ]; then
+    JSON_MSG="no working Python 3 found (tried python3, python, py), so build-plan.json was not written"  # portability-ok: names in a diagnostic
+  else
+    "$PY" - "$BUILD_PLAN" "$JSON_OUT" "$STAMP" <<'PYEOF'
+import json, re, sys
+
+src, out, stamp = sys.argv[1], sys.argv[2], sys.argv[3]
+lines = open(src, encoding="utf-8", errors="replace").read().replace("\r\n", "\n").split("\n")
+
+# `## Phase 1 <dash> Name *(note)*`, any heading level, em dash / en dash / hyphen / colon / middle
+# dot between number and name (all five get typed). The id starts with a digit, so "Phase gates"
+# and "Phase order at a glance" are prose headings, not phases. The trailing *(...)* is the
+# author's annotation.
+HEADING = re.compile(r"^#{1,6}\s+Phase\s+(\d[0-9A-Za-z.]*)\s*(?:[\u2014\u2013\u00b7:-]\s*|\s+)(.*?)\s*$")
+ANY_HEADING = re.compile(r"^#{1,6}\s")
+NOTE = re.compile(r"^(.*?)\s*\*\((.*)\)\*$")
+TABLE_SEP = re.compile(r"^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$")
+CLAIMS = re.compile(r"^\s*claims:\s*(.*?)\s*$")
+CLAIM = re.compile(r"^\s*(/\S+)(?:\s+\((\d+)\))?\s*(?:\[([^\]]+)\])?\s*$")
+POINTER_LINE = re.compile(r"^\s+/")
+DASHES = {"-", "\u2014", "\u2013"}
+
+def clean(cell):
+    return cell.replace("**", "").strip()
+
+def split_row(line):
+    cells = re.split(r"(?<!\\)\|", line.strip())
+    if cells and cells[0].strip() == "": cells = cells[1:]
+    if cells and cells[-1].strip() == "": cells = cells[:-1]
+    return [c.replace("\\|", "|") for c in cells]
+
+def split_list(cell):
+    return [t.strip() for t in cell.split(",") if t.strip() and t.strip() not in DASHES]
+
+COLUMNS = (("#", "number"), ("kind", "kind"), ("step", "step"), ("produces", "produces"),
+           ("depends", "dependsOn"), ("skill", "skills"), ("state", "state"))
+
+def column_map(headers):
+    m = {}
+    for i, h in enumerate(headers):
+        h = clean(h).strip("`").lower()
+        for prefix, key in COLUMNS:
+            if key not in m and (h == prefix or (prefix != "#" and h.startswith(prefix))):
+                m[key] = i
+    return m if "number" in m and "state" in m else None
+
+def classify(state):
+    s = state.lower()
+    if s.startswith("not built"): return "not built"
+    if s.startswith("built"): return "built"
+    if s.startswith("pending a person"): return "pending a person"
+    return None
+
+def rollup(steps):
+    kinds = [classify(s["state"]) for s in steps]
+    if not kinds or None in kinds: return "unknown"
+    if all(k == "built" for k in kinds): return "built"
+    if all(k == "not built" for k in kinds): return "not built"
+    if all(k in ("built", "pending a person") for k in kinds): return "pending a person"
+    return "in progress"
+
+# Cut the file into phases: a Phase heading opens one, the next heading at the same level or
+# higher closes it. Deeper sub-headings (per-step `####` sections) stay inside the phase.
+phases, warnings = [], []
+i = 0
+while i < len(lines):
+    h = HEADING.match(lines[i])
+    if not h:
+        i += 1; continue
+    level = len(lines[i]) - len(lines[i].lstrip("#"))
+    pid, name = h.group(1), h.group(2)
+    note = None
+    n = NOTE.match(name)
+    if n: name, note = n.group(1).strip(), n.group(2).strip()
+    label = "Phase " + pid
+    body = []
+    i += 1
+    while i < len(lines):
+        a = ANY_HEADING.match(lines[i])
+        if a and len(lines[i]) - len(lines[i].lstrip("#")) <= level: break
+        body.append(lines[i]); i += 1
+
+    steps, claims, claims_note = [], None, None
+    tables_seen = 0
+    j = 0
+    while j < len(body):
+        line = body[j]
+        if line.lstrip().startswith("|") and j + 1 < len(body) and TABLE_SEP.match(body[j + 1]):
+            headers = split_row(line)
+            cmap = column_map(headers)
+            tables_seen += 1
+            j += 2
+            rows = []
+            while j < len(body) and body[j].lstrip().startswith("|"):
+                rows.append(split_row(body[j])); j += 1
+            if cmap is None:
+                warnings.append("%s: table header not recognized (%s), its rows are not in steps"
+                                % (label, " | ".join(clean(c) for c in headers)))
+                continue
+            if any(clean(c).lower() == "claims" for c in headers):
+                warnings.append("%s: table has an inline Claims column, which is not extracted; "
+                                "claims are read from claims: blocks only" % label)
+            for cells in rows:
+                if len(cells) != len(headers):
+                    warnings.append("%s: row starting '%s' has %d cells, header has %d"
+                                    % (label, clean(cells[0]) if cells else "", len(cells), len(headers)))
+                    cells = (cells + [""] * len(headers))[:len(headers)]
+                get = lambda key: clean(cells[cmap[key]]) if key in cmap else None
+                steps.append({
+                    "number": get("number"), "kind": get("kind"), "step": get("step"),
+                    "produces": get("produces"),
+                    "dependsOn": split_list(get("dependsOn") or ""),
+                    "skills": split_list(get("skills") or ""),
+                    "state": get("state"),
+                })
+            continue
+        c = CLAIMS.match(line)
+        if c:
+            if claims is None: claims = []
+            rest = c.group(1)
+            candidates = []
+            if rest.startswith("(") and rest.endswith(")"):
+                claims_note = rest[1:-1].strip()
+            elif rest:
+                candidates.append(rest)
+            j += 1
+            if j < len(body) and body[j].strip().startswith("```"):
+                j += 1
+                while j < len(body) and not body[j].strip().startswith("```"):
+                    candidates.append(body[j]); j += 1
+                j += 1
+            else:
+                # Unfenced: ends at the first non-pointer line, as coverage-preflight.sh's
+                # extract_claims does. Inside a fence every line is a candidate and a
+                # non-pointer line is reported, because the author put it in the block.
+                while j < len(body) and POINTER_LINE.match(body[j]):
+                    candidates.append(body[j]); j += 1
+                if not candidates and j < len(body) and body[j].strip():
+                    warnings.append("%s: claims: is followed by a line that is not a pointer: %s"
+                                    % (label, body[j].strip()))
+            for cand in candidates:
+                if not cand.strip(): continue
+                m = CLAIM.match(cand)
+                if m:
+                    claims.append({"pointer": m.group(1),
+                                   "count": int(m.group(2)) if m.group(2) else None,
+                                   "brd": m.group(3)})
+                else:
+                    warnings.append("%s: claims line not in 'pointer (count) [BRD]' form: %s"
+                                    % (label, cand.strip()))
+            continue
+        j += 1
+
+    if tables_seen == 0:
+        warnings.append("%s: no row table under this heading, steps are empty" % label)
+    phases.append({"id": pid, "name": name, "note": note, "state": rollup(steps),
+                   "steps": steps, "claims": claims, "claimsNote": claims_note})
+
+if not phases:
+    sys.exit(3)
+doc = {"schema": 1, "source": "architecture/build-plan.md", "generatedAt": stamp,
+       "phases": phases, "warnings": warnings}
+with open(out, "w", encoding="utf-8") as f:
+    json.dump(doc, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+PYEOF
+    case $? in
+      0) JSON_MSG="wrote ${JSON_OUT#$ROOT/}"
+         # A producer guarantees its own output is ignored (snapshot-mpr.sh's rule). The JSON
+         # is a build product: regenerated on demand in under a second, derived entirely from
+         # build-plan.md. Committed, it would churn on most commits and, worse, sit stale in
+         # git after the markdown moved on, and a dashboard that is quietly out of date is
+         # what makes people stop trusting it. Written here rather than in init-project.sh so
+         # it reaches projects that already exist, on their first --json run.
+         if [ -d "$ROOT/.git" ] || [ -f "$ROOT/.git" ]; then
+           GI="$ROOT/.gitignore"
+           if ! { [ -f "$GI" ] && grep -qE '^/?architecture/build-plan\.json$' "$GI"; }; then
+             if {
+               if [ -f "$GI" ] && [ -s "$GI" ] && [ -n "$(tail -c 1 "$GI")" ]; then printf '\n'; fi
+               printf '# Build product of project-bin/build-plan-status.sh --json, derived from\n'
+               printf '# architecture/build-plan.md. Regenerate on demand; never commit a stale copy.\n'
+               printf '/architecture/build-plan.json\n'
+             } >> "$GI" 2>/dev/null; then
+               JSON_MSG="$JSON_MSG (added /architecture/build-plan.json to .gitignore: a build product, not committed)"
+             else
+               JSON_MSG="$JSON_MSG (WARN could not write .gitignore; add /architecture/build-plan.json to it yourself)"
+             fi
+           fi
+         fi ;;
+      3) JSON_MSG="no Phase headings in architecture/build-plan.md, so build-plan.json was not written" ;;
+      *) JSON_MSG="could not parse architecture/build-plan.md, so build-plan.json was not written" ;;
+    esac
+  fi
+  [ "$QUIET" -eq 0 ] && echo "" && echo "  $JSON_MSG"
 fi
 
 exit 0

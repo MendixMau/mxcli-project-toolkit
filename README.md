@@ -568,6 +568,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
+| Collecting the facts an app dossier is written from: forces a full catalog build, module edges through the real module column, strongly connected components, describes every loop-containing microflow and parses the loop bodies; exit 2 on a stale, fast-mode or schema-incomplete catalog, never a verdict | `project-bin/app-facts.sh` |
 | Building or refreshing the standing dossier of an EXISTING app before changing it: inventory, module dependency shape, loop risk patterns, each section with a verdict and a fault where nothing was measured (a standing document; nothing else in the toolkit reads it yet) | `skills/app-analysis.md` |
 | Checking whether an EXISTING app's module boundaries still hold: the layer map (bin/app-layer-map.sh) computes the order the modules would stack in and draws only the edges that point back up, so one tangle of N mutually reachable modules becomes a named list of edges with a weight and a ref kind; Stage 3 in existing-app-change mode, and the honest blast radius for a slice | `skills/layering-review.md` |
 | Judging module tangles, bidirectional pairs, cohesion and hubs from analysis/app-facts/dependencies.json; stock graph_module_* views split names on the first dot and are not trusted | `skills/module-dependency-review.md` |

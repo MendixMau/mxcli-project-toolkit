@@ -28,6 +28,11 @@
 #       project adds /architecture/build-plan.json to .gitignore (the snapshot-mpr.sh rule, a
 #       producer guarantees its own output is ignored), a second run adds nothing, and a run
 #       without --json never touches .gitignore.
+#   T9  the "Phase N — Name" labels brd-to-build-plan.md Step 5 shows inside a fenced code
+#       block — a plan-file listing, not a heading — are prose, not Phase headings (HEADING
+#       requires a leading `#`), so a plan carrying only that shape is the same as a plan with
+#       none: no file, exit 0, "no Phase headings" on stdout. Pinned because Step 5's own
+#       worked example used to be exactly this shape until this PR fixed it to real headings.
 #
 # Usage: bash tests/wave2/test-build-plan-json.sh /path/to/build-plan-status.sh
 
@@ -290,6 +295,26 @@ cp "$P1/architecture/build-plan.md" "$P8/architecture/"
 printf 'sources/\n' > "$P8/.gitignore"
 bash "$SCRIPT" "$P8" --quiet >/dev/null 2>&1
 [ "$(cat "$P8/.gitignore")" = "sources/" ] && ok "T8 without --json .gitignore is untouched" || bad "T8 .gitignore changed without --json" "$(cat "$P8/.gitignore")"
+
+# ── T9: fenced plain-text "Phase N — Name" lines are prose, not headings ──
+P9="$(new_project fencedplain)"
+cat > "$P9/architecture/build-plan.md" <<'MD'
+# Build Plan
+
+```
+Phase 1 — App Scaffold
+  01-app-scaffold.mdl            <- module structure, navigation shell, demo users
+
+Phase 2 — UI Scaffold  (if StyleGallery = Yes)
+  design/brand.md                <- brand research
+```
+
+Prose after the fence. No real Phase heading anywhere in this file.
+MD
+OUT9="$(bash "$SCRIPT" "$P9" --json 2>&1)"; RC9=$?
+[ "$RC9" -eq 0 ] && ok "T9 fenced plain-text phases: exit 0" || bad "T9 rc=$RC9" "$OUT9"
+[ ! -f "$P9/architecture/build-plan.json" ] && ok "T9 fenced plain-text phases: no file written" || bad "T9 a file was written for fenced plain-text phase labels" "$(cat "$P9/architecture/build-plan.json")"
+case "$OUT9" in *"no Phase headings"*) ok "T9 stdout says why nothing was written" ;; *) bad "T9 stdout silent about the missing file" "$OUT9" ;; esac
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"

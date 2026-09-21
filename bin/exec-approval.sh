@@ -13,19 +13,32 @@
 # subprocess for tier 4 below — never sourced — so a bug in one script can never corrupt the
 # other's resolution.
 #
+# DEFAULT FLIPPED 2026-09-16 (owner, verbatim). "too much approval clicking; start on auto, ask
+# people in the toolkit attended or unattended, and let them switch" / "not all will have
+# Claude". The ask-before-every-exec rule was a ritual, not a safety net: project-bin/exec.sh
+# already snapshots first, mxbuild-validates after, auto-restores on failure, and writes a
+# BUILD-LOG row — the record `ask` was protecting was already being kept either way. `ask`
+# remains fully supported; nothing about it changed except that it is no longer what an unset
+# project gets by default.
+#
 # THE MODES
 #   ask   the agent asks before every ./mxcli exec, ./bin/exec.sh, mxcli test, mxcli docker
 #         check, or --mcp write against the real .mpr — exactly as before this script existed.
-#   auto  nothing blocks. The BUILD-LOG row project-bin/exec.sh already writes for every exec
-#         is the safety net standing in for the question — see interview-protocol.md's "Exec
-#         approval is a separate knob".
+#   auto  (the default) nothing blocks. The BUILD-LOG row project-bin/exec.sh already writes for
+#         every exec is the safety net standing in for the question — see
+#         interview-protocol.md's "Exec approval is a separate knob".
 #
 # RESOLUTION ORDER (first hit wins)
-#   1. $CLAUDE_EXEC_APPROVAL             one command, one session
-#   2. <project>/.claude/.exec-approval  set by --set, survives the turn
-#   3. PROJECT.md `Exec approval:`       the project's stated default
-#   4. derived from interview mode       bin/interview-mode.sh <dir> says `auto` -> `auto`;
-#                                        anything else (steering, assist, a fallback) -> `ask`
+#   1. $CLAUDE_EXEC_APPROVAL              one command, one session
+#   2. <project>/.mxtk/exec-approval      set by --set, survives the turn
+#      <project>/.claude/.exec-approval   pre-2026-09-16 path, read only when the .mxtk one is
+#                                         absent — never written by --set anymore, which removes
+#                                         it once it writes the new path, so a project converges
+#                                         onto the single new location the first time it's set
+#   3. PROJECT.md `Exec approval:`        the project's stated default
+#   4. default                            `auto`, unconditionally — no longer derived from
+#                                         interview mode; attended and unattended both start
+#                                         on auto, per the owner's request above
 #
 # A typo never resolves quieter. An unrecognised value anywhere falls back to `ask` and says so
 # on stderr — the failure direction of a misspelling must be "asked too much", same rule as
@@ -53,8 +66,10 @@ is_valid() {
   case " $VALID " in *" $1 "*) return 0 ;; *) return 1 ;; esac
 }
 
-STATE_DIR="$PROJECT_DIR/.claude"
-MODE_FILE="$STATE_DIR/.exec-approval"
+STATE_DIR="$PROJECT_DIR/.mxtk"
+MODE_FILE="$STATE_DIR/exec-approval"
+OLD_STATE_DIR="$PROJECT_DIR/.claude"
+OLD_MODE_FILE="$OLD_STATE_DIR/.exec-approval"
 
 # --- writers ---------------------------------------------------------------------------
 case "$ACTION" in
@@ -63,12 +78,13 @@ case "$ACTION" in
     is_valid "$NEW" || { echo "exec-approval: unknown mode '$NEW' (want: $VALID)" >&2; exit 2; }
     mkdir -p "$STATE_DIR" || exit 2
     printf '%s\n' "$NEW" > "$MODE_FILE" || exit 2
+    rm -f "$OLD_MODE_FILE"
     echo "exec approval: $NEW  (session override, $MODE_FILE)"
     exit 0
     ;;
   --clear)
-    rm -f "$MODE_FILE"
-    echo "exec approval: session override cleared; falls back to PROJECT.md or interview mode"
+    rm -f "$MODE_FILE" "$OLD_MODE_FILE"
+    echo "exec approval: session override cleared; falls back to PROJECT.md or default"
     exit 0
     ;;
 esac
@@ -86,13 +102,25 @@ if [ -n "${CLAUDE_EXEC_APPROVAL:-}" ]; then
   fi
 fi
 
-if [ -z "$MODE" ] && [ -f "$MODE_FILE" ]; then
-  FROM_FILE=$(tr -d '[:space:]' < "$MODE_FILE" 2>/dev/null)
-  if is_valid "$FROM_FILE"; then
-    MODE="$FROM_FILE"; SOURCE="$MODE_FILE"
-  else
-    echo "exec-approval: '$MODE_FILE' holds '$FROM_FILE', not a mode; using ask" >&2
-    MODE="ask"; SOURCE="fallback (bad $MODE_FILE)"
+if [ -z "$MODE" ]; then
+  # New path wins when present; the old .claude/.exec-approval path is read only as a
+  # compatibility fallback for a project that hasn't been set (or synced) since 2026-09-16 —
+  # --set always writes the new path and removes the old one, so this branch retires itself
+  # the first time anyone sets this project's mode again.
+  READ_FILE=""
+  if [ -f "$MODE_FILE" ]; then
+    READ_FILE="$MODE_FILE"
+  elif [ -f "$OLD_MODE_FILE" ]; then
+    READ_FILE="$OLD_MODE_FILE"
+  fi
+  if [ -n "$READ_FILE" ]; then
+    FROM_FILE=$(tr -d '[:space:]' < "$READ_FILE" 2>/dev/null)
+    if is_valid "$FROM_FILE"; then
+      MODE="$FROM_FILE"; SOURCE="$READ_FILE"
+    else
+      echo "exec-approval: '$READ_FILE' holds '$FROM_FILE', not a mode; using ask" >&2
+      MODE="ask"; SOURCE="fallback (bad $READ_FILE)"
+    fi
   fi
 fi
 
@@ -114,17 +142,9 @@ if [ -z "$MODE" ] && [ -f "$PROJECT_DIR/PROJECT.md" ]; then
 fi
 
 if [ -z "$MODE" ]; then
-  IM_SCRIPT="$SCRIPT_DIR/interview-mode.sh"
-  if [ -f "$IM_SCRIPT" ]; then
-    IM="$(bash "$IM_SCRIPT" "$PROJECT_DIR" 2>/dev/null)"
-    if [ "$IM" = "auto" ]; then
-      MODE="auto"; SOURCE="derived from interview mode (auto)"
-    else
-      MODE="ask"; SOURCE="derived from interview mode (${IM:-unresolved})"
-    fi
-  else
-    MODE="ask"; SOURCE="default (interview-mode.sh not found)"
-  fi
+  # No longer derived from interview mode (2026-09-16) — attended and unattended both start on
+  # auto now; see the DEFAULT FLIPPED note above.
+  MODE="auto"; SOURCE="default"
 fi
 
 if [ "$ACTION" = "--explain" ]; then

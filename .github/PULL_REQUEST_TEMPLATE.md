@@ -14,6 +14,8 @@ Nothing to fill in — the field-evidence line inside the file is the whole bar.
 or fixed there (CLAUDE.md → "Shipping an instrument", rule 4; required for any instrument change):
 
 - [ ] No client data anywhere in the diff
+- [ ] Size cap: ≤ 10 files changed, ≤ 400 lines changed (excluding fixtures, captures, CHANGELOG.md) — or split/stack per `docs/RELEASE-PROCESS.md` §4
+- [ ] Test tier reached: state which of T0–T3 (`docs/RELEASE-PROCESS.md` §3) this change was verified at, and how
 - [ ] For a new/changed instrument: golden input captured (not hand-written), both layouts
       (single-tree and `.mpr`-under-`app/`), both platforms (macOS + Git Bash/Windows) considered
 - [ ] For a new skill: routing row added (`bin/lib/skill-routing.tsv` + `bin/render-routing.sh`)

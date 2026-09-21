@@ -30,6 +30,8 @@
 
 **When to dispatch, in what batch, on which model:** `conversion-runbook.md` §1c is the single source. This file is the setup; that table is the runtime rule.
 
+The `model:` line in each template below is pinned to match the shipped stub at `agents/<name>-agent.md` — see `conversion-runbook.md` §1c for the why.
+
 ## Why split into six roles
 
 A single do-everything agent has no natural place to stop before mutating the real `.mpr`, and no natural place to stop before making a decision that's the user's to make. Splitting by role makes both boundaries structural instead of a hope:
@@ -105,7 +107,7 @@ works.
 ---
 name: ba-agent
 description: "Owns discovery, interview gates, AND per-module briefs for {{PROJECT}} (conversion-runbook.md Stages P, 0-2, 4, 7). Two modes: EXTRACTION (P-2, no spec yet -> produce BRDs) and TRANSLATION (Stage 4 -> turn validation-clean BRDs into module briefs). Use for intake, triage, requirements, any proposal-with-evidence interview, and authoring module briefs."
-model: inherit
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -146,7 +148,7 @@ Which gate or brief you produced, the decision(s) recorded, which are `CONFIRMED
 ---
 name: architect-agent
 description: "Owns Stage 3 (Architecture & Design) and Stage 4 (Build Plan) for {{PROJECT}} — module boundaries, blueprint, fit-gap, build plan. Use once BRDs are validation-clean. Never touches mxcli."
-model: inherit
+model: opus
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -175,7 +177,7 @@ Boundaries/decisions proposed vs. confirmed, the build plan's pending-decisions 
 ---
 name: mdl-agent
 description: "Drafts and syntax-validates mxcli MDL scripts for {{PROJECT}}. Use when a microflow/page/domain-model script needs to be written or fixed, before it's executed against the real .mpr."
-model: inherit
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -229,6 +231,12 @@ a page, widget, or user-facing microflow is **not** trivial — treat as full-di
 6. For complex microflows: confirm alignment against the brief + architecture blueprint.
 7. Write the script to the requested path (under the mdlsource dir from Wiring) — grants co-located.
 8. Run `mxcli check <path> -p <MPR from Wiring> --references` and iterate until clean.
+8a. **Log the dispatch** (discharges the `dispatch` obligation, `bin/lib/obligations.tsv`): under the
+    project root, `mkdir -p .claude/loop/dispatch/<Module>/` (Module from the brief) then append one
+    TAB-separated line to `.claude/loop/dispatch/<Module>/scripts.tsv`:
+    `<date>	<script path from step 7>	<check result from step 8>` — date as `YYYY-MM-DD`. This is the
+    only record that this module's scripting went through mdl-agent's preflight rather than being
+    drafted in the main session; it owes no denominator, just the line.
 9. Do NOT run `mxcli exec` — that stays in the main session under the user's confirmation.
 
 ## Report back
@@ -240,7 +248,7 @@ Plain-language summary of what the script does, the file path, the check result,
 ---
 name: gate-agent
 description: "Runs {{PROJECT}}'s build/quality gates after a script has been executed against the .mpr, and reports pass/fail with a digested error list. Use after any mxcli exec, not before."
-model: inherit
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -263,7 +271,7 @@ Pass/fail per gate, the exact error list if any, and whether failures match a kn
 ---
 name: test-agent
 description: "Walks happy-path and edge-case UI tests against the running {{PROJECT}} app and reports pass/fail per scenario. Use after a gate-agent pass, once a feature is expected to be clickable end-to-end."
-model: inherit
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -288,7 +296,7 @@ Per-scenario pass/fail, the exact failing step (if any) with expected vs. observ
 ---
 name: review-agent
 description: "Closes a module in {{PROJECT}}: runs the model-side review instruments, then LOOKS at every page in the module and says whether it is logical, whether it looks right, and whether it matches the design. Use when a module's build and gate stages are done. Diagnostic only — never fixes anything."
-model: inherit
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 

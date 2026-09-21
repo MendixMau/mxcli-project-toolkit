@@ -28,6 +28,30 @@ reproduces the baseline.
 
 ---
 
+## Step 0 — enumerate what already reaches this capability
+
+Before you build a page, or add a navigation item or button to open one, list the entry points
+that already exist. Reach for the reference tools, not text search:
+
+```
+mxcli impact  <Module.Microflow-or-Page> -p App.mpr   # what breaks if this changes
+mxcli callers <microflow>         -p App.mpr     # who calls it
+mxcli -p App.mpr -c "DESCRIBE PAGE <HomePage>"   # buttons and snippet calls already on it
+```
+
+`SEARCH '<Name>'` is a text grep, not a reference check: it will not surface a `show_page`
+action inside a page's widget tree, and an icon-only floating button has no caption for a
+browser scrape to match either. Two silent instruments agreeing is not confirmation.
+
+Then read the target page's own `Layout:`. A page on a popup layout
+(`ConversationalUI.Layout_FloatingPopup` and its kin) is a **popup, not a destination** — it is
+opened by a button passing a context object, and a navigation menu item cannot pass a page
+parameter. Route it through navigation only where the requirement asks for a dedicated page.
+
+Done when every caller, impact hit and page reference the commands above actually returned is
+named in your list — not summarized, not "(and others)" — and the new entry point states, in
+one line, which of those named results don't already cover the requirement.
+
 ## The Five Steps (all mandatory, in order)
 
 Steps 1–4 are judgement; Step 5 is the mechanical check that judgement alone was measured to miss.
@@ -293,25 +317,3 @@ command answers it.
 **The shell-check, fidelity-score and class-promotion lines are the rows in this block with a denominator, and they are not optional.** Every other line is a claim the author grades themselves; that is what made this block unfalsifiable, and a block nobody can fail is not a check. `NOT RUN` is a legal value — silence is not. A fidelity score below 80% on a first build is not a failure to hide — it is the number that tells the next step (fix before the next page, per `ui-loop.md`), and the TSV row is already written either way.
 
 If no wireframe existed, say so explicitly here. Never silently skip this block.
-
----
-
-## Common failure modes this pre-flight prevents
-
-| What goes wrong without this step | How this pre-flight catches it |
-|-----------------------------------|-------------------------------|
-| Page looks bare-Atlas (no KT styling) | Step 2 forces you to pick class names from `ds.css` before writing |
-| Widget binds to wrong attribute | Step 1 binding table vs. your planned `contentparams` |
-| Class name invented or misspelled | Step 4 cross-check against token file |
-| Conditional visibility in a datagrid custom-content column (BUG-18) | Step 4 STOP check |
-| Association-mode COMBOBOX drafted in MDL (fails mxcli check) | Step 4 flags it before you write it |
-| Page has no navigation entry point | Step 1 `.origin` annotation surfaced in extract |
-| Widget nesting doesn't match design system | Step 3 StyleGallery example as canonical structure |
-| Built gallery component not reused (plain text instead of the badge/stepper) | Step 3 reuse rule + Step 4 component-reuse cross-check |
-| Grid/gallery renders nothing on zero results | Step 4 empty-state cross-check |
-| Required/unique field save fails with no visible message (silent 4xx/5xx) | Step 4 validation-feedback cross-check |
-| Page's distinct blocks read as one undifferentiated wall of text | Step 4 block-separation cross-check |
-| Page built full-bleed against a wireframe that draws a fixed page column; a sidebar layout against a wireframe drawing a top bar — uniform across every page, so no page reads as the odd one out | Step 5 shell check (`0/10` on the run that produced this row) |
-| Page built with no title/header block; sections starting flush at 0px; per-page inline pixel spacing | Step 4 page-scaffold + spacing-rhythm cross-checks (`design-spacing.md`) |
-| Design-system class on an ACTIONBUTTON, half-overridden by Atlas — reads on screen as a layout bug in the component, not as a CSS problem | Step 4 class-carrier cross-check |
-| `DynamicClasses` names a class that does not exist; the element falls back to nothing and the page shows an empty bar/badge next to a caption claiming a value | Step 4 computed-class-name cross-check |

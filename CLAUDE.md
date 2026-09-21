@@ -75,7 +75,7 @@ Clone once, point projects at it — no copies, no drift:
 ```
 git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
 ```
-Each project's `CLAUDE.md`/`CLAUDE.local.md` references this clone and copies the **Baseline routing** table from `README.md`. For a self-contained handoff, use a git submodule.
+Each project scaffolded with `bin/init-project.sh` gets the **Baseline routing** table rendered into its `CLAUDE.local.md` (kept current by `bin/sync-project.sh`); its `CLAUDE.md` carries only a short pointer to that file, never a copy of the table (`skills/bootstrap-project.md` Step 2). Only a project with no `CLAUDE.local.md` convention copies the table from `README.md` into `CLAUDE.md` directly. For a self-contained handoff, use a git submodule.
 
 **Project output never lives here** — `analysis/`, `sources/`, `knowledge-base/`, `*.mpr` are gitignored. A project's build plan, `PROJECT.md`, and session notes live in that project's own repo; promote reusable patterns into `skills/learned-*.md` instead of accumulating project docs here.
 
@@ -165,6 +165,8 @@ entire discipline: a changelog updated as a separate chore is `process/toolkit-w
 which rotted within weeks while 25 commits landed. Format is at the top of `CHANGELOG.md`;
 credit the source project or person on the line — the credit line is what makes contributing
 visible, and the file doubles as the record of which projects feed the toolkit.
+New lines go under `## Unreleased`; `bin/cut-release.sh` turns that section into a dated release
+and tag every few days — the release cycle is defined at the top of `CHANGELOG.md`, nowhere else.
 
 Contributions arrive through three lanes (`CONTRIBUTING.md`): the `contrib/inbox/` drop
 (no quality bar — triage promotes into `skills/`/`bug-logs/`/`bin/` and deletes the inbox file

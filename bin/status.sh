@@ -4,7 +4,8 @@
 # obligation check, coherence-cadence.sh, the doctor receipt, docs/BUILD-LOG.md, PROJECT.md).
 #
 #   bin/status.sh <project-root>          # the screen
-#   bin/status.sh <project-root> --brief  # the three lines an agent posts in chat
+#   bin/status.sh <project-root> --brief  # the three lines an agent posts in chat, plus
+#                                         # "Tokens this stage:" from bin/token-burn.sh
 #
 # WHY. gate-check.sh answers "may stage N close?" in ~75 lines, and on a greenfield project at
 # Stage 5 it asked for source-sufficiency and a cutover row (greenfield pilot, 2026-09-04).
@@ -21,6 +22,12 @@
 # once (≈5 s on a small project) to get obligations, artifacts and stage verdicts.
 set -u
 TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Shared tokeniser (see bin/lib/entry-mode.sh) — this screen used to run its own
+# anchored regex, which happened to read entry mode correctly while gate-check.sh's
+# old unanchored globs did not: the screen and the verdict disagreed and only the
+# screen was read, which is why the verdict bug went unnoticed for as long as it did.
+# One parser now, so a display fix and a gating fix can never diverge again.
+. "$TOOLKIT_ROOT/bin/lib/entry-mode.sh"
 PROJECT_DIR="${1:-}"; BRIEF=0
 for a in "$@"; do case "$a" in --brief) BRIEF=1 ;; esac; done
 case "$PROJECT_DIR" in ""|--*) echo "usage: bin/status.sh <project-root> [--brief]" >&2; exit 1 ;; esac
@@ -32,7 +39,19 @@ NAME="$(basename "$PROJECT_DIR")"
 # --- register facts -------------------------------------------------------------------------
 STAGE_LINE="$(awk '/^## Current stage/{f=1;next} f && /^\*\*Stage/{print;exit}' "$REG" | sed -E 's/\*\*//g; s/,? *(in progress)?\.?$//')"
 [ -n "$STAGE_LINE" ] || STAGE_LINE="(no Current stage line in PROJECT.md)"
-ENTRY="$(grep -m1 -oE '^Entry mode: *[a-z-]+' "$REG" | sed 's/^Entry mode: *//')"
+ENTRY_RAW="$(awk '
+  { line = $0
+    gsub(/^[ \t>*_-]+/, "", line)
+    i = index(line, ":"); if (i == 0) next
+    key = tolower(substr(line, 1, i - 1)); gsub(/^[ \t]+|[ \t]+$/, "", key)
+    if (key ~ /^\*\*[^*\/ \t]/) key = substr(key, 3)
+    if (key ~ /[^*\/ \t]\*\*$/) key = substr(key, 1, length(key) - 2)
+    if (key != "entry mode") next
+    v = substr(line, i + 1); gsub(/\*/, "", v); gsub(/^[ \t]+|[ \t]+$/, "", v)
+    if (v != "") { print v; exit }
+  }
+' "$REG")"
+ENTRY="$(entry_mode_token "$ENTRY_RAW" 2>/dev/null)"
 ADOPTED="$(grep -m1 -oE '^Adopted at stage: *[0-9P]+' "$REG" | sed 's/^Adopted at stage: *//')"
 SKELETON="$(grep -m1 -oE '^Skeleton proven [0-9-]+' "$REG" | sed 's/^Skeleton proven //')"
 UNSYNCED="$(grep -c 'UNSYNCED' "$REG" 2>/dev/null)"; UNSYNCED="${UNSYNCED:-0}"
@@ -67,6 +86,17 @@ if [ -f "$DR" ]; then
   DOCTOR="doctor $DR_VERDICT, $DR_AGE"
 else
   DOCTOR="doctor never run here"
+fi
+
+# --- lint gate's last recorded run (project-bin/lint-gate.sh writes this every invocation that
+# reaches a verdict; never docs/BUILD-LOG.md's exec table) -----------------------------------
+LINT_LAST="$PROJECT_DIR/.claude/loop/lint-last.json"
+if [ -f "$LINT_LAST" ]; then
+  LINT_VERDICT="$(grep -m1 '"verdict"' "$LINT_LAST" | sed -E 's/.*"verdict": *"([^"]+)".*/\1/')"
+  LINT_TS="$(grep -m1 '"timestamp"' "$LINT_LAST" | sed -E 's/.*"timestamp": *"([^"]+)".*/\1/')"
+  LINT="lint ${LINT_VERDICT:-?} (${LINT_TS:-unknown time})"
+else
+  LINT="lint gate never recorded here"
 fi
 
 # --- instruments: gate-check (once), coherence cadence --------------------------------------
@@ -108,12 +138,13 @@ if [ "$BRIEF" = 1 ]; then
   echo "WHERE   $NAME · $STAGE_LINE${ENTRY:+ · $ENTRY}${ADOPTED:+ · joined at $ADOPTED}"
   echo "STATE   scripts $N_SCRIPTS written / $N_PASS gate-pass / $N_DONE done- · modules opened $MOD_OPENED${SKELETON:+ · skeleton $SKELETON} · UNSYNCED $UNSYNCED · open questions $OPEN_Q"
   echo "NEXT    $NEXT"
+  "$TOOLKIT_ROOT/bin/token-burn.sh" "$PROJECT_DIR" --brief 2>/dev/null
   exit 0
 fi
 printf '\n%s — %s%s%s\n' "$NAME" "$STAGE_LINE" "${ENTRY:+ · $ENTRY}" "${ADOPTED:+ · joined at stage $ADOPTED}"
 printf '%s\n\n' "$TK"
 printf 'DONE      scripts: %s written, %s gate-pass, %s done-  ·  modules opened: %s%s\n' "$N_SCRIPTS" "$N_PASS" "$N_DONE" "$MOD_OPENED" "${SKELETON:+  ·  skeleton proven $SKELETON}"
-printf 'OVERDUE   %s  ·  %s  ·  UNSYNCED markers: %s  ·  open questions: %s\n' "$DOCTOR" "${COH:-coherence: cadence script not installed}" "$UNSYNCED" "$OPEN_Q"
+printf 'OVERDUE   %s  ·  %s  ·  %s  ·  UNSYNCED markers: %s  ·  open questions: %s\n' "$DOCTOR" "$LINT" "${COH:-coherence: cadence script not installed}" "$UNSYNCED" "$OPEN_Q"
 [ -n "$OB_PENDING" ] && printf '          obligations pending: %s\n' "$OB_PENDING"
 [ -n "$LAST_FAIL" ] && printf '          last gate FAILED: %s\n' "$LAST_FAIL"
 if [ "$N_ATTN" -gt 0 ]; then printf 'ATTENTION %s\n' "$(printf '%s\n' "$NEED_ATTN" | head -3 | sed '2,$s/^/          /')"; else printf 'ATTENTION none — gate-check: %s\n' "$(printf '%s\n' "$GC" | grep -m1 '^Summary:' | sed 's/^Summary: *//')"; fi

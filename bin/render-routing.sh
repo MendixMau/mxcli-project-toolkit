@@ -204,6 +204,35 @@ if [ -n "$BAD_TIER" ]; then
   echo "    → tier must be one of: baseline | ondemand | experimental"
 fi
 
+# Agent audit: a row whose `agents` column is not "all" and not a comma-list of names that
+# exist in agents/*.md renders into ZERO agent stubs — same "routed nowhere" failure as
+# BAD_TIER above, one column over. `_routing_group_rows`/`agent:*` only ever tests membership
+# in the real agent set (`_routing_has`), so a bad token is never an error, just silently never
+# a match.
+#
+# Found 2026-09-16, contributing deploy-to-sandbox: the row said `any` where the renderer reads
+# `all` or a real agent name — `--check` printed "all skills routed or exempted" over a skill
+# that rendered into 0 of 6 agent stubs. Same one-word-of-validation fix as BAD_TIER.
+AGENT_NAMES="$(for f in "$ROOT"/agents/*-agent.md; do [ -f "$f" ] || continue; basename "$f" | sed 's/-agent\.md$//'; done | tr '\n' ' ')"
+BAD_AGENT="$(awk -F'\t' -v ok="$AGENT_NAMES" '
+  /^#/ || NF < 6 { next }
+  $4 == "all" { next }
+  {
+    n = split($4, toks, ",")
+    m = split(ok, agents, " ")
+    for (i = 1; i <= n; i++) {
+      hit = 0
+      for (j = 1; j <= m; j++) if (agents[j] == toks[i]) { hit = 1; break }
+      if (!hit) { printf "%s (agents: %s, bad token: %s)\n", $1, $4, toks[i]; next }
+    }
+  }
+' "$MXTK_ROUTING_TSV")"
+if [ -n "$BAD_AGENT" ]; then
+  echo "UNKNOWN AGENT: routing row(s) whose agents column no agent stub renders — the skill is routed into no stub:"
+  printf '%s\n' "$BAD_AGENT" | sed 's/^/    /'
+  echo "    → agents must be \"all\" or a comma-list of: $AGENT_NAMES"
+fi
+
 # Baseline budget: the baseline tier is read by EVERY session of EVERY project before it
 # writes anything, so its size is a cost paid thousands of times. Measured 2026-09-04: 29 rows,
 # 118,783 words, a third of it the bug ledger — against ROUTING.md's own "keep baseline short".
@@ -262,13 +291,14 @@ if [ -n "$STALE_EXEMPT" ]; then
 fi
 
 if [ "$MODE" = "check" ]; then
-  if [ -n "$DRIFTED" ] || [ -n "$UNWIRED" ] || [ -n "$ORPHANS" ] || [ -n "$STALE_EXEMPT" ] || [ -n "$BAD_TIER" ] || [ -n "$OVER_BUDGET" ]; then
+  if [ -n "$DRIFTED" ] || [ -n "$UNWIRED" ] || [ -n "$ORPHANS" ] || [ -n "$STALE_EXEMPT" ] || [ -n "$BAD_TIER" ] || [ -n "$BAD_AGENT" ] || [ -n "$OVER_BUDGET" ]; then
     echo ""
     [ -n "$DRIFTED" ] && echo "drifted:$DRIFTED — hand-edited inside the markers, or the table moved."
     [ -n "$UNWIRED" ] && echo "unwired:$UNWIRED — add a <!-- ROUTING:BEGIN <view> --> block."
     [ -n "$ORPHANS" ] && echo "unrouted skill(s) — see UNROUTED above."
     [ -n "$STALE_EXEMPT" ] && echo "stale exemption(s) — see above."
     [ -n "$BAD_TIER" ] && echo "unknown tier(s) — see UNKNOWN TIER above; the skill renders into no surface at all."
+    [ -n "$BAD_AGENT" ] && echo "unknown agent(s) — see UNKNOWN AGENT above; the skill renders into no agent stub."
     [ -n "$OVER_BUDGET" ] && echo "baseline over budget — $OVER_BUDGET; see BASELINE OVER BUDGET above."
     echo "Fix the TABLE, then run: $0    (never hand-edit inside the markers)"
     exit 2

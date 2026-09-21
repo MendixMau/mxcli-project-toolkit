@@ -29,7 +29,6 @@ INDEX="$OUT/INDEX.md"
 } > "$INDEX"
 # Filing order: explicit, worst first. Anything not listed renders after these, alphabetically.
 ORDER="bug76-workflow-decision-enum-identifier
-bug107-workflow-call-with-unquoted-value-segfault
 bug109-jump-to-in-boundary-event-writes-targetless-jump
 create-association-corrupts-mpr
 bug102-alter-page-set-datasource-datagrid-silent-noop

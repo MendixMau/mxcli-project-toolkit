@@ -100,6 +100,28 @@ P="$(mkproj t9)"; answered_intake "$P"; run_full "$P"
 "$GATE" --adopt 3 --reason "joined late" "$P" >/dev/null 2>&1; run_full "$P"; H="$(header "$P")"
 case "$H" in "**Stage 3 — "*"(derived"*) ok "derived line advanced: $H" ;; *) bad "derived line did not advance: $H" ;; esac
 
+echo "== T10 (issue #108): a stage query for the STAGE THE HEADER ALREADY NAMES, once it passes, advances the header =="
+P="$(mkproj t10)"; answered_intake "$P"
+"$GATE" "$P" P >/dev/null 2>&1; H="$(header "$P")"
+case "$H" in
+  "**Stage 0 — "*"gates passed: P (derived"*) ok "single-stage query for P advanced the header: $H" ;;
+  *) bad "single-stage query for the currently-named, now-passing stage did not advance it: $H" ;;
+esac
+
+echo "== T11 (issue #108): a stage query for the currently-named stage that has NOT resolved PASS/WAIVED yet still leaves the header alone =="
+P="$(mkproj t11)"
+"$GATE" "$P" P >/dev/null 2>&1; H="$(header "$P")"
+[ "$H" = "**Stage P — Kickoff**, in progress." ] && ok "unresolved stage query left the header alone" || bad "unresolved stage query rewrote the header: $H"
+
+echo "== T12 (issue #108): a query for some OTHER stage than the one the header names — even if that other stage passes — still leaves the header alone (T3 covers the still-open case; this covers the passing one) =="
+P="$(mkproj t12)"; answered_intake "$P"; run_full "$P"
+# header now names Stage 0 (P passed). Adopt+waive stage 3 so a query for it resolves WAIVED,
+# then query stage 3 specifically — the header still names Stage 0, not Stage 3.
+"$GATE" --waive 3 --reason "not applicable" "$P" >/dev/null 2>&1
+H_BEFORE="$(header "$P")"
+"$GATE" "$P" 3 >/dev/null 2>&1; H_AFTER="$(header "$P")"
+[ "$H_AFTER" = "$H_BEFORE" ] && ok "query for an unrelated (non-named) stage left the header alone" || bad "query for an unrelated stage changed the header: $H_BEFORE -> $H_AFTER"
+
 rm -rf "$WORK"
 echo ""
 echo "test-stage-header: $PASS ok, $FAIL failed"

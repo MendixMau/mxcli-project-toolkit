@@ -118,6 +118,17 @@ mkmode() {
 assert "existing-app mode waives stage 7"     0 "$GATE" "$(mkmode existing 'Change an existing app')" 7
 assert "unknown mode leaves stage 7 pending"  3 "$GATE" "$(mkmode unknownmode 'Something else')" 7
 
+# Roadmap 1.9: the mode arms are substring matches. A bare `*existing*` arm classified
+# "Migration from an existing Oracle Forms system" as an existing-app change and waived the
+# cutover gate of a real migration. The arm matches the documented phrase, so this must stay 3.
+assert "migration naming 'existing' still pends" 3 "$GATE" "$(mkmode migexisting 'Migration from an existing Oracle Forms system')" 7
+
+# The first draft of the roadmap-1.9 fix matched only the documented phrase and silently dropped
+# the mode's own short token — `existing-app`, what `existing-app-change.md` calls the mode and
+# what bin/status.sh's display-only line greps for. A project that recorded the token, not the
+# full sentence, must still see stage 7 waived.
+assert "existing-app short token also waives stage 7" 0 "$GATE" "$(mkmode existingtoken 'existing-app')" 7
+
 # bash evaluates array subscripts arithmetically, so a non-numeric stage used to
 # abort the script under set -u and was observed exiting 0.
 assert "typo'd stage argument is rejected"   2 "$GATE" "$(mkproject typo 'CONFIRMED')" Stage3
@@ -166,6 +177,56 @@ assert "missing denylist can be opted out"   0 bash -c "cd '$WORK/nodeny' && LEA
 ( cd "$(mkrepo clean)" && printf 'entirely generic content\n' > a.md )
 assert "clean repo passes"                   0 bash -c "cd '$WORK/clean' && '$LEAK'"
 
+# LEAKGUARD_BASE step 7 — warn-only new-capitalised-words report, added 2026-09-16.
+# "Can we just scan customer names from each PR and remove them?" — the guard can only
+# block on a name it was told (the denylist above); this report is the reviewer prompt,
+# never a gate. The one thing that actually matters is that it never fails CI even with
+# survivors printed — asserted on its own below, not folded into another case, so a
+# future edit that turns it into a gate by accident cannot hide behind an unrelated
+# assertion failing.
+#
+# The base commit seeds BOTH shapes the regex matches — a lone capitalised word and a
+# PascalCase word — entirely within this fixture's own scratch tree, so the "already
+# existed, don't flag it" assertion never depends on some unrelated file elsewhere in
+# the repo still containing a particular word. The second commit then introduces one NEW
+# word of each shape, proving the single-word case (the real miss a lone name like
+# "Smith" used to slip through) is now caught, not just PascalCase.
+NW="$(mkrepo newwords)"
+( cd "$NW" && printf 'base mentions Basil and LegacySystem here\n' > a.md && git add a.md && git commit -q -m base )
+NWBASE="$(cd "$NW" && git rev-parse HEAD)"
+( cd "$NW" && printf 'second commit adds Rowan and GlacierTech\n' >> a.md && git add a.md && git commit -q -m second )
+
+OUT="$(cd "$NW" && LEAKGUARD_ALLOW_NO_DENYLIST=1 LEAKGUARD_BASE="$NWBASE" "$LEAK" 2>&1)"; RC=$?
+if printf '%s' "$OUT" | grep -q "Rowan" && printf '%s' "$OUT" | grep -q "GlacierTech" \
+  && ! printf '%s' "$OUT" | grep -q "Basil" && ! printf '%s' "$OUT" | grep -q "LegacySystem"; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "new-words report flags a new single word AND a new PascalCase word, not the base-tree ones" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "new-words report flags a new single word AND a new PascalCase word, not the base-tree ones" "$RC"
+  printf '%s\n' "$OUT" | sed 's/^/          /'
+fi
+
+if [ "$RC" -eq 0 ]; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "new-words report is warn-only: exit 0 with survivors present" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "new-words report is warn-only: exit 0 with survivors present" "$RC"
+fi
+
+OUT="$(cd "$NW" && LEAKGUARD_ALLOW_NO_DENYLIST=1 LEAKGUARD_BASE=nope "$LEAK" 2>&1)"; RC=$?
+if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "not resolvable"; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "unresolvable LEAKGUARD_BASE warns, does not fail" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "unresolvable LEAKGUARD_BASE warns, does not fail" "$RC"
+  printf '%s\n' "$OUT" | sed 's/^/          /'
+fi
+
+OUT="$(cd "$NW" && LEAKGUARD_ALLOW_NO_DENYLIST=1 "$LEAK" 2>&1)"; RC=$?
+if [ "$RC" -eq 0 ] && ! printf '%s' "$OUT" | grep -q "new capitalised"; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "no LEAKGUARD_BASE means no new-words line" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "no LEAKGUARD_BASE means no new-words line" "$RC"
+  printf '%s\n' "$OUT" | sed 's/^/          /'
+fi
+
 echo
 
 # ---------------------------------------------------------------------------
@@ -201,6 +262,63 @@ else
   FAILED=$((FAILED + 1)); printf '  FAIL  %-46s\n' "macOS-only assumptions found"
   sed 's/^/        /' "$WORK/port.out"
 fi
+
+echo
+
+# ---------------------------------------------------------------------------
+echo "check-pr-discipline.sh — a CHANGELOG entry without its credit is not an entry"
+# ---------------------------------------------------------------------------
+# Rule 3 (2026-09-21): every '- kind(area):' line a PR adds must end ' — <credit>'; a wrapped
+# entry may carry the credit on its last 2-space-indented continuation line. A review pass over
+# 18 open PRs found headline-only entries that rule 1 (changelog rides along) waved through.
+# Each case is its own repo: master holds a credited CHANGELOG and bin/tool.sh, the branch
+# under test is one commit on top, and the check runs from inside it against 'master'.
+DISC="$ROOT/bin/check-pr-discipline.sh"
+# mkpr <name> — repo with master committed and a 'pr' branch checked out. Echoes the path.
+mkpr() {
+  local d="$WORK/pr-$1"
+  mkdir -p "$d/bin"
+  ( cd "$d" && git init -q . && git config user.email t@example.com && git config user.name t \
+    && git checkout -q -b master )
+  printf '# Changelog\n\n## Unreleased\n- fix(bin): **old entry.** detail — Someone\n' > "$d/CHANGELOG.md"
+  printf '#!/usr/bin/env bash\necho tool\n' > "$d/bin/tool.sh"
+  ( cd "$d" && git add -- CHANGELOG.md bin/tool.sh && git commit -q -m base && git checkout -q -b pr )
+  echo "$d"
+}
+# addentry <repo> <line...> — insert lines right under '## Unreleased' (portable: awk, no sed -i).
+addentry() {
+  local d="$1"; shift
+  printf '%s\n' "$@" > "$d/.new"
+  awk -v f="$d/.new" '{ print } /^## Unreleased$/ { while ((getline l < f) > 0) print l }' \
+    "$d/CHANGELOG.md" > "$d/.cl" && mv "$d/.cl" "$d/CHANGELOG.md" && rm -f "$d/.new"
+}
+# commitpr <repo> — one commit with whatever changed, explicit paths.
+commitpr() { ( cd "$1" && git add -- CHANGELOG.md bin/tool.sh && git commit -q -m pr ); }
+
+D="$(mkpr credited)"; echo 'echo more' >> "$D/bin/tool.sh"
+addentry "$D" '- new(bin): **credited entry.** detail — A project'; commitpr "$D"
+assert "credited single-line entry passes" 0 bash -c "cd '$D' && bash '$DISC' master"
+
+D="$(mkpr uncredited)"; echo 'echo more' >> "$D/bin/tool.sh"
+addentry "$D" '- new(bin): **headline only.** no credit at the end'; commitpr "$D"
+assert "entry with no credit segment fails" 1 bash -c "cd '$D' && bash '$DISC' master"
+
+D="$(mkpr wrapped)"; echo 'echo more' >> "$D/bin/tool.sh"
+addentry "$D" '- new(bin): **wrapped entry.** the headline runs on and the detail' \
+              '  continues here, and the credit sits on the last line — A project'; commitpr "$D"
+assert "wrapped entry credited on its last line passes" 0 bash -c "cd '$D' && bash '$DISC' master"
+
+D="$(mkpr emptycredit)"; echo 'echo more' >> "$D/bin/tool.sh"
+addentry "$D" '- new(bin): **dash but nobody after it.** detail —'; commitpr "$D"
+assert "trailing dash with empty credit fails" 1 bash -c "cd '$D' && bash '$DISC' master"
+
+D="$(mkpr nolog)"; echo 'echo more' >> "$D/bin/tool.sh"; commitpr "$D"
+assert "bin/ change without a CHANGELOG line fails (rule 1)" 1 bash -c "cd '$D' && bash '$DISC' master"
+
+D="$(mkpr midedit)"
+awk '{ sub(/detail — Someone/, "detail, reworded — Someone"); print }' "$D/CHANGELOG.md" > "$D/.cl" \
+  && mv "$D/.cl" "$D/CHANGELOG.md"; commitpr "$D"
+assert "editing an existing entry is not blamed" 0 bash -c "cd '$D' && bash '$DISC' master"
 
 echo
 

@@ -22,6 +22,12 @@
 # once (≈5 s on a small project) to get obligations, artifacts and stage verdicts.
 set -u
 TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Shared tokeniser (see bin/lib/entry-mode.sh) — this screen used to run its own
+# anchored regex, which happened to read entry mode correctly while gate-check.sh's
+# old unanchored globs did not: the screen and the verdict disagreed and only the
+# screen was read, which is why the verdict bug went unnoticed for as long as it did.
+# One parser now, so a display fix and a gating fix can never diverge again.
+. "$TOOLKIT_ROOT/bin/lib/entry-mode.sh"
 PROJECT_DIR="${1:-}"; BRIEF=0
 for a in "$@"; do case "$a" in --brief) BRIEF=1 ;; esac; done
 case "$PROJECT_DIR" in ""|--*) echo "usage: bin/status.sh <project-root> [--brief]" >&2; exit 1 ;; esac
@@ -33,7 +39,19 @@ NAME="$(basename "$PROJECT_DIR")"
 # --- register facts -------------------------------------------------------------------------
 STAGE_LINE="$(awk '/^## Current stage/{f=1;next} f && /^\*\*Stage/{print;exit}' "$REG" | sed -E 's/\*\*//g; s/,? *(in progress)?\.?$//')"
 [ -n "$STAGE_LINE" ] || STAGE_LINE="(no Current stage line in PROJECT.md)"
-ENTRY="$(grep -m1 -oE '^Entry mode: *[a-z-]+' "$REG" | sed 's/^Entry mode: *//')"
+ENTRY_RAW="$(awk '
+  { line = $0
+    gsub(/^[ \t>*_-]+/, "", line)
+    i = index(line, ":"); if (i == 0) next
+    key = tolower(substr(line, 1, i - 1)); gsub(/^[ \t]+|[ \t]+$/, "", key)
+    if (key ~ /^\*\*[^*\/ \t]/) key = substr(key, 3)
+    if (key ~ /[^*\/ \t]\*\*$/) key = substr(key, 1, length(key) - 2)
+    if (key != "entry mode") next
+    v = substr(line, i + 1); gsub(/\*/, "", v); gsub(/^[ \t]+|[ \t]+$/, "", v)
+    if (v != "") { print v; exit }
+  }
+' "$REG")"
+ENTRY="$(entry_mode_token "$ENTRY_RAW" 2>/dev/null)"
 ADOPTED="$(grep -m1 -oE '^Adopted at stage: *[0-9P]+' "$REG" | sed 's/^Adopted at stage: *//')"
 SKELETON="$(grep -m1 -oE '^Skeleton proven [0-9-]+' "$REG" | sed 's/^Skeleton proven //')"
 UNSYNCED="$(grep -c 'UNSYNCED' "$REG" 2>/dev/null)"; UNSYNCED="${UNSYNCED:-0}"

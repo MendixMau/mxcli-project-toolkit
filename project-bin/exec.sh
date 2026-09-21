@@ -8,7 +8,16 @@
 #
 # Overrides: FORCE_EXEC=1 (skip refusals), SKIP_CHECK=1 (skip the pre-exec
 #            mxcli check), SKIP_BASELINE=1 (skip pre-flight mxbuild),
-#            MXBUILD_PATH=..., MENDIX_APP=..., MPR_FILE=...
+#            MXBUILD_PATH=..., MENDIX_APP=..., MPR_FILE=...,
+#            MXTK_GATE_TIMEOUT=<seconds> (default 0 = UNBOUNDED — each mxbuild
+#            run via _common.sh's mxtk_mxbuild_error_count waits for a real
+#            build to finish, however long that takes; set this to bound it.
+#            bin/doctor.sh's own gate self-test is the one caller that DOES
+#            default to a bound, 300s via DOCTOR_GATE_TIMEOUT, because that
+#            run is a throwaway scratch copy, not a real build worth waiting on)
+#            ALLOW_UNVERIFIED=1 (write even though the mxbuild gate cannot run —
+#            the write is then refused by default, see "Gate must be able to run"),
+#            MXTK_NO_INSTALL=1 (never download mxbuild; offline CI)
 set -e
 _T0=$(date +%s)
 
@@ -272,9 +281,10 @@ HDR2
 # enforced nowhere — the pipeline went snapshot → exec → mxbuild. Costs ~2s on
 # a passing build. SKIP_CHECK=1 for the rare script mxcli's parser rejects but
 # the model accepts (log why, in the script).
-if [ "${SKIP_CHECK:-0}" != "1" ] && [ -x "$PROJECT_ROOT/mxcli" ]; then
+PMXCLI="$(find_project_mxcli 2>/dev/null || true)"
+if [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
   echo "→ Pre-exec check: mxcli check (grammar + references)..."
-  if ! ./mxcli check "$SCRIPT" -p "$MPR" --references; then
+  if ! "$PMXCLI" check "$SCRIPT" -p "$MPR" --references; then
     echo ""
     echo "  ✗ mxcli check failed — refusing to exec. NOTHING was written to the model."
     echo "    Fix the script, or re-run with SKIP_CHECK=1 if you know why the parser is wrong."
@@ -284,10 +294,18 @@ if [ "${SKIP_CHECK:-0}" != "1" ] && [ -x "$PROJECT_ROOT/mxcli" ]; then
   echo "  ✓ check clean"
 fi
 
-echo "→ Snapshotting model..."
-./bin/snapshot-mpr.sh
-
-MXBUILD="$(find_mxbuild)" || true
+# ── Gate must be able to run ─────────────────────────────────────────────────
+# Discovery happens BEFORE the snapshot and the write, because the answer decides whether
+# there is a write at all. Until 2026-09-17 a missing mxbuild produced a warning and the
+# script was applied anyway, "gate=skipped". Nobody acts on a skip: on one field project every exec.sh
+# run in a cloud container skipped, a CE0117 that only mxbuild can see went in, and it
+# reached the Team Server. So now: (1) a missing mxbuild is DOWNLOADED, right here, through
+# the project's own ./mxcli (the same download doctor --install runs; mxtk_ensure_mxbuild);
+# (2) if the gate still cannot run, the write is REFUSED, before anything is touched. Guard
+# rules 6/7 hold — the remedy is performed, not blocked, and ALLOW_UNVERIFIED=1 says out
+# loud "write anyway"; that write then carries no verification stamp, so the pre-commit
+# hook refuses it until ./bin/verify-model.sh has seen it.
+MXBUILD="$(mxtk_ensure_mxbuild "$MPR" || true)"
 # Was: JAVA_HOME=$(/usr/libexec/java_home ...) — a macOS-only binary, so on Windows
 # JAVA_HOME came back empty, JAVA_EXE was the literal "/bin/java", the gate guard
 # below failed its -x test and the entire mxbuild block was skipped on every run.
@@ -301,10 +319,25 @@ JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 # nobody can explain is a skip nobody acts on — which is how Windows machines ran
 # unverified execs for an entire training round.
 if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
-  echo "⚠ mxbuild gate will be SKIPPED — this exec will NOT be model-verified." >&2
-  [ -x "$MXBUILD" ]  || echo "    mxbuild not found/executable: ${MXBUILD:-<none>}   (set MXBUILD_PATH=)" >&2
-  [ -x "$JAVA_EXE" ] || echo "    java not found/executable:    ${JAVA_EXE:-<none>}  (set JAVA_HOME=)" >&2
+  if [ "${ALLOW_UNVERIFIED:-0}" = "1" ]; then
+    echo "⚠ ALLOW_UNVERIFIED=1: mxbuild gate will be SKIPPED — this exec will NOT be model-verified." >&2
+    [ -x "$MXBUILD" ]  || echo "    mxbuild not found/executable: ${MXBUILD:-<none>}   (set MXBUILD_PATH=)" >&2
+    [ -x "$JAVA_EXE" ] || echo "    java not found/executable:    ${JAVA_EXE:-<none>}  (set JAVA_HOME=)" >&2
+  else
+    echo "" >&2
+    echo "✗ REFUSING to exec: the mxbuild gate cannot run on this machine, so nothing could verify the write." >&2
+    [ -x "$MXBUILD" ]  || echo "    mxbuild not found/executable: ${MXBUILD:-<none>}   (MXBUILD_PATH= overrides; bin/doctor.sh --install <project> downloads it)" >&2
+    [ -x "$JAVA_EXE" ] || echo "    java not found/executable:    ${JAVA_EXE:-<none>}  (JAVA_HOME= overrides; install a JDK)" >&2
+    echo "  NOTHING was written to the model. Fix the gate (bin/doctor.sh --install <project>), then re-run." >&2
+    echo "  To write anyway, unverified: ALLOW_UNVERIFIED=1 ./bin/exec.sh $SCRIPT  — the commit hook will then" >&2
+    echo "  refuse the result until ./bin/verify-model.sh has run the gate over it." >&2
+    log_build "✗ refused" "mxbuild gate cannot run (mxbuild: $([ -x "$MXBUILD" ] && echo ok || echo missing), java: $([ -x "$JAVA_EXE" ] && echo ok || echo missing)); nothing written"
+    exit 1
+  fi
 fi
+
+echo "→ Snapshotting model..."
+./bin/snapshot-mpr.sh
 
 # ── JSON reader ──────────────────────────────────────────────────────────────
 # The mxbuild gate reads its verdict out of a JSON errors file, so it needs a
@@ -408,15 +441,19 @@ BASELINE_SET=""
 if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   echo "→ Pre-flight: checking whether the model already has errors..."
   _BF=$(mktemp /tmp/mxbuild-baseline.XXXXXX)
-  _BEXIT=0
-  "$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" \
-             --write-errors="$_BF" --target=deploy "$MPR" >/dev/null 2>&1 < /dev/null || _BEXIT=$?
+  # Run+capture is mxtk_mxbuild_error_count (_common.sh) — the same sequence
+  # used below by the main gate and the restore-rebuild check, so this and
+  # bin/doctor.sh's gate self-test trust identical code, not three copies that
+  # can drift apart. Its own printed count is discarded here: this call site
+  # already has err_set/err_count/err_codes on hand and needs BASELINE_SET
+  # (the message set, not just a count) for the delta-gate comparison below.
+  mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$_BF" >/dev/null || true
   # Studio Pro 11's mxbuild (its --help says so) writes --write-errors "only if the
   # project has errors": on a clean model the mktemp'd file stays EMPTY, json.load
   # fails, and this read "Model ALREADY has ? error(s) [?]" on every clean run
   # (2026-09-14, 11.12.4). The gate below already treats empty-file + exit 0 as
   # clean; the baseline does the same rather than reporting "?" as a warning.
-  if [ ! -s "$_BF" ] && [ "$_BEXIT" -eq 0 ]; then
+  if [ ! -s "$_BF" ] && [ "$MXTK_MXBUILD_EXIT" -eq 0 ]; then
     BASELINE_SET=""; _BC=0; _BCODES=""
   else
     BASELINE_SET=$(err_set "$_BF")
@@ -443,7 +480,7 @@ fi
 # it. A failed exec is precisely when the gate matters most.
 echo "→ Executing $SCRIPT..."
 EXEC_STATUS=0
-./mxcli exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
+"${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
 
 if [ "$EXEC_STATUS" -ne 0 ]; then
   echo ""
@@ -464,29 +501,23 @@ echo "  (mxbuild: $MXBUILD)"
 
 if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   ERRORS_FILE=$(mktemp /tmp/mxbuild-errors.XXXXXX)
-  # Capture status directly. The previous form was
-  #     MXBUILD_OUT=$(... ) || true ; MXBUILD_EXIT=${PIPESTATUS[0]:-$?}
-  # where `|| true` had already reset the status to 0, so MXBUILD_EXIT was
-  # always 0 and the "mxbuild failed to run" branch below was unreachable.
-  #
-  # Output goes to a file, NOT through `$(...)`. Studio Pro 11's mxbuild.exe
-  # (11.12.4, Windows) starts a helper `modeler/tools/deno/win-x64/deno.exe`
-  # that inherits stdout and keeps running after mxbuild has exited — after a
-  # BUILD SUCCEEDED as much as after --version. A command substitution waits
-  # for EOF on the pipe, and the pipe never closes while deno holds it, so the
-  # gate hung forever (>10 min, killed by hand; the moment the stray deno was
-  # killed, the capture completed). A file has no reader waiting on EOF: bash
-  # returns as soon as mxbuild itself exits. stdin is closed for the same
-  # reason — a console-attached child must not be able to wait on it.
-  MXBUILD_EXIT=0
-  _MXOUT=$(mktemp /tmp/mxbuild-out.XXXXXX)
-  "$MXBUILD" \
-    --java-home="$JAVA_HOME" \
-    --java-exe-path="$JAVA_EXE" \
-    --write-errors="$ERRORS_FILE" \
-    --target=deploy \
-    "$MPR" > "$_MXOUT" 2>&1 < /dev/null || MXBUILD_EXIT=$?
-  MXBUILD_OUT=$(cat "$_MXOUT"); rm -f "$_MXOUT"
+  # Run+capture is mxtk_mxbuild_error_count (_common.sh): status captured
+  # directly (never reset to 0 by a stray `|| true`), output through a file
+  # never `$(...)` (Studio Pro 11's mxbuild.exe on Windows starts a helper
+  # deno.exe that inherits stdout and never closes it — a command substitution
+  # then waits forever for EOF that never comes), stdin closed. Unbounded by
+  # default (MXTK_GATE_TIMEOUT=0, i.e. no timeout) so a real build is never
+  # cut short — set MXTK_GATE_TIMEOUT to bound a truly stuck mxbuild instead.
+  # Same function as the baseline above and the restore-rebuild check below —
+  # one implementation, not three that can quietly drift apart — and the one
+  # bin/doctor.sh's gate self-test also calls, so doctor proves the SAME code
+  # the real gate trusts, not a second copy. Its own printed count is
+  # discarded here: this call site keeps its own file-presence/exit-code
+  # branching below unchanged, computing CE_COUNT via err_count once it knows
+  # which branch applies.
+  mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$ERRORS_FILE" >/dev/null || true
+  MXBUILD_EXIT="$MXTK_MXBUILD_EXIT"
+  MXBUILD_OUT="$MXTK_MXBUILD_OUT"
 
   if [ -f "$ERRORS_FILE" ] && [ -s "$ERRORS_FILE" ]; then
     CE_COUNT=$(err_count "$ERRORS_FILE")
@@ -574,12 +605,12 @@ PYEOF
         # error predates this script, which was merely the first thing to hit
         # it. Costs one extra mxbuild, only on the failure path.
         BASE_ERRS=$(mktemp /tmp/mxbuild-base.XXXXXX)
-        _BASE_EXIT=0
-        "$MXBUILD" --java-home="$JAVA_HOME" --java-exe-path="$JAVA_EXE" \
-                   --write-errors="$BASE_ERRS" --target=deploy "$MPR" >/dev/null 2>&1 < /dev/null || _BASE_EXIT=$?
+        # Same shared run+capture as the pre-flight baseline and the main gate
+        # above (mxtk_mxbuild_error_count, _common.sh) — one implementation.
+        mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$BASE_ERRS" >/dev/null || true
         # Same empty-file rule as the pre-flight baseline: SP 11 mxbuild writes no
         # errors file on a clean build, and that plus exit 0 is a verified 0.
-        if [ ! -s "$BASE_ERRS" ] && [ "$_BASE_EXIT" -eq 0 ]; then
+        if [ ! -s "$BASE_ERRS" ] && [ "$MXTK_MXBUILD_EXIT" -eq 0 ]; then
           BASE_COUNT=0; BASE_CODES=""
         else
           BASE_COUNT=$(err_count "$BASE_ERRS"); BASE_CODES=$(err_codes "$BASE_ERRS")
@@ -689,7 +720,28 @@ if [ "$EXEC_STATUS" -ne 0 ]; then
       log_build "⚠️ PARTIAL, UNVERIFIED" "mxcli exec exit $EXEC_STATUS; gate $GATE_STATE; model not verified"
       ;;
   esac
+  # A partial application is never a verified model state, whatever the gate said.
+  # Explicit `if`, not `[ -x … ] && …`: under `set -e` the AND-list's own failure — which is
+  # what a model-stamp.sh that exists but exits non-zero produces — ended the script right
+  # here with exit 1, throwing away $EXEC_STATUS. The exec's real exit code is the one thing
+  # this branch exists to report.
+  if [ -x ./bin/model-stamp.sh ]; then
+    ./bin/model-stamp.sh clear >/dev/null 2>&1 || true
+  fi
   exit "$EXEC_STATUS"
+fi
+
+# ── Verification stamp ───────────────────────────────────────────────────────
+# bin/model-stamp.sh records "this exact model state passed the gate"; the pre-commit hook
+# (bin/install-project-hooks.sh) refuses model commits without it. Written ONLY on a clean
+# pass of a fully applied script; every other outcome clears it, because the model on disk
+# is no longer the one anything verified.
+if [ -x ./bin/model-stamp.sh ]; then
+  if [ "$GATE_STATE" = "pass" ] && [ "$EXEC_STATUS" -eq 0 ]; then
+    ./bin/model-stamp.sh write pass "exec.sh $(basename "$SCRIPT")" || true
+  else
+    ./bin/model-stamp.sh clear >/dev/null 2>&1 || true
+  fi
 fi
 
 if [ "$GATE_STATE" = "fail" ]; then
@@ -699,7 +751,8 @@ fi
 if [ "$GATE_STATE" != "pass" ]; then
   echo ""
   echo "⚠️  Script applied to $MPR_BASE, but THE GATE DID NOT RUN ($GATE_STATE)."
-  echo "    Nothing has verified the model. Verify in Studio Pro before continuing."
+  echo "    Nothing has verified the model, and it carries no verification stamp: the commit"
+  echo "    hook will refuse it until ./bin/verify-model.sh has run the gate over it."
   log_build "⚠️ applied, UNVERIFIED" "gate $GATE_STATE — model not verified"
   exit 0
 fi

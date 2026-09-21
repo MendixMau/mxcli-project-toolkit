@@ -3614,6 +3614,8 @@ widget names.
 
 > **CONFIRMED STILL OPEN (CRASH) on v0.21.0 — verified 2026-09-14: `CALL MICROFLOW Mod.MF WITH (Ctx = $WorkflowContext);` still panics `mxcli check` with the identical SIGSEGV at `mdl/visitor/visitor_workflow.go:565`. Note: the mxcli source clone used to build v0.21.0 was sitting on an unmerged branch named `fix/workflow-with-unquoted-value-segfault` — a fix is visibly in progress upstream, but is not part of the tagged v0.21.0 release, and the crash is confirmed against the actual release binary.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
+**RESOLVED (FIXED in v0.22.0, [mendixlabs/mxcli#1023](https://github.com/mendixlabs/mxcli/issues/1023)) — pending report dropped 2026-09-18.** The v0.21.0 crash above is superseded by this fix; kept for the record since it is the last confirmed-open reading before the upstream patch landed.
+
 **Severity:** High — SIGSEGV with no diagnostic, on the natural spelling of the most common workflow activity; a one-character workaround exists but is undiscoverable
 **mxcli version:** v0.20.0 (2026-08-28)
 **Mendix version:** 11.14.0

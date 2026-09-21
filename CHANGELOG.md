@@ -16,6 +16,27 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+
+- chore(skills): **`ui-preflight-pages.md`'s "Common failure modes" section cut (3,727 -> 3,377
+  words); "Report-back format" kept.** `process/skill-freshness-2026-09-17.md`'s A/B/C experiment
+  found arm C (both sections removed) indistinguishable from the full skill and recommended
+  cutting both — but `skills/learned-stylegallery.md` names the report-back block's
+  class-promotion row directly ("every page script's report-back ... the class-promotion row"),
+  so only the failure-modes table was removed; the report-back format stays live and depended-on.
+  This trades against skill-authoring rule 7 ("show the failure, not just the rule") — each of
+  the 14 rows paired a rule with its concrete bad output, exactly what rule 7 asks for — but rule
+  6 ("write for the trigger, then stop") wins here on the measured evidence: the ablated arm hit
+  the same shell-check and fidelity numbers as the full skill (3/3, 3/3, shell 2,1,2) on the
+  fixture the table exists to guard against, so the table was not changing drafting behaviour it
+  was retained to change. The individual failure modes it covered (BUG-18 conditional visibility,
+  association-mode COMBOBOX, empty-state, validation-feedback) remain covered by name in the
+  Step 4 cross-check rows the table only duplicated in table form. — MendixMau
+- chore(bug-logs): **BUG-107 (workflow `CALL MICROFLOW ... WITH (...)` segfault on an unquoted
+  value) fixed upstream in mxcli v0.22.0, mendixlabs/mxcli#1023 — pending report dropped.**
+  Deleted the three drafted `bug-logs/pending-github-issues/bug107-*` files (README, patch,
+  issue draft) and the stale, already-mismatched `bug107-workflow-call-with-unquoted-value-segfault`
+  entry in `render-paste-ready.sh`'s `ORDER` list; added a RESOLVED status line under the BUG-107
+  heading in `bug-logs/mxcli-bugs.md`, keeping the rest of the entry intact. — MendixMau
 - new(project-bin/build-plan-status.sh, artifact-manifest.tsv): **`--json` writes `architecture/build-plan.json` from what `build-plan.md` actually says, so a viewer can build a plan view from data instead of embedding the HTML.** On a language learning app conversion the plan carried 7 phases with full Step-5 row tables and `claims:` blocks while `mdlsource/` was flat, so view A and the `--html` render were honestly empty and the only record of phase state was prose no program could read. The new flag parses the `### Phase N — Name *(note)*` headings (any heading level; em dash, en dash, hyphen or colon), the `# | Kind | Step | Produces/Proves | Depends on | Skills | State` rows (columns mapped by header name, `Depends on`/`Skills` split on comma, bold markers removed, everything else verbatim) and the `claims:` blocks (`pointer (count) [BRD]`; a bare pointer, the skill's leaf form, has `count: null`, and `brd: null` when the block names no BRD rather than a guess from the heading; an unfenced block ends where `coverage-preflight.sh`'s extractor ends it), and rolls each phase's `state` up from its own rows' State cells: `built` / `not built` / `pending a person` / `in progress`, and `unknown` when a cell says something else. Encoded by Python's json module through `resolve_py`, never shell concatenation: one real Produces cell contains double quotes, and an invalid file is worse than none because the viewer shows nothing while the file looks present. Unrecognized table shapes and unparsable claims lines land in a `warnings` array, never a non-zero exit; a plan with no Phase headings gets no file at all. Views A and B, stdout, `--html` and the always-0 exit are untouched. `build-plan-json` added to the artifact manifest as a report-kind surface. Checked against copies of every build plan on one machine (29 files, 7 heading and table variants): every one either parses or degrades to a warning, none breaks. **The file is a build product, not a committed artifact**: a committed generated file produces a large diff on most commits and, worse, can sit stale in git while `build-plan.md` has already moved on, and a dashboard that is quietly out of date is what makes people stop trusting it; regenerating costs about 0.45 s and zero tokens. So the producer adds `/architecture/build-plan.json` to the project's `.gitignore` on first write (the rule `snapshot-mpr.sh` already follows for its own output, chosen over an `init-project.sh` scaffold change because it reaches existing projects too). Fixture `tests/wave2/test-build-plan-json.sh`, 57 assertions. Closes #65 — Maurits Visser, from MXTK Studio's Plan room
 - fix(skills/brd-to-build-plan.md): Step 5's worked example wrote its three phase labels as plain
   text (`Phase 1 — App Scaffold`) inside a fenced listing, not as the `### Phase N — Name` ATX

@@ -2689,16 +2689,30 @@ fi
 # passed) the header still read Stage P, because advancing it was a discipline nobody had.
 # The position is a fact this run already established — the first stage that is neither
 # PASS nor WAIVED — so it is written here, under the dashboard's own conditions: a full
-# informational run or --html, never a stage query (read-only), never a run about to be
-# blocked. Adopt/waive lines stay the human's authority; this line is what they and the
-# artifacts add up to. A MANUAL stage (Build) holds the position until a later stage has
-# something in it — the script cannot certify Build done, and must not skip it on nothing.
-if [ "$WRITE_HTML" = "1" ] && [ -n "$REGISTER" ] && [ -f "$REGISTER" ] \
+# informational run or --html, never a run about to be blocked.
+#
+# Narrow exception (issue #108, 2026-09-21): a stage QUERY (`gate-check.sh . N`) is read-only
+# for every OTHER stage's position, but when N is exactly the stage the readout currently
+# names, and this query just resolved it PASS or WAIVED, the readout is now stale in a way
+# only this query knows — nobody's normal next move is "run the full gate-check just to move
+# the header." So a query is eligible too, but ONLY when it targets today's named stage; a
+# query about some other, unrelated stage stays read-only, same as before. Adopt/waive lines
+# stay the human's authority; this line is what they and the artifacts add up to. A MANUAL
+# stage (Build) holds the position until a later stage has something in it — the script
+# cannot certify Build done, and must not skip it on nothing.
+_single_query=0
+if [ "$WRITE_HTML" != "1" ] && [ -n "$REQUESTED_STAGE" ] && [ "$CLOSEOUT" != "1" ]; then
+  _single_query=1
+fi
+_req_norm="$REQUESTED_STAGE"
+[ "$_req_norm" = "p" ] && _req_norm="P"
+if { [ "$WRITE_HTML" = "1" ] || [ "$_single_query" = "1" ]; } && [ -n "$REGISTER" ] && [ -f "$REGISTER" ] \
    && grep -q '^## Current stage' "$REGISTER"; then
-  _cur=""; _cur_status=""; _passed=""; _manual=""; _prev=""; _prev_status=""
+  _cur=""; _cur_status=""; _passed=""; _manual=""; _prev=""; _prev_status=""; _req_status=""
   for _s in P "${STAGE_NAMES[@]}"; do
     if [ "$_s" = "P" ]; then _st="${P_STATUS:-PENDING}"
     else tbl_get "$_s" "$RESULTS_TBL" || TBL_VALUE="PENDING"; _st="$TBL_VALUE"; fi
+    [ "$_s" = "$_req_norm" ] && _req_status="$_st"
     case "$_st" in
       PASS|WAIVED) _passed="$_passed${_passed:+, }$_s" ;;
       MANUAL)      _manual="$_manual${_manual:+, }$_s" ;;
@@ -2738,6 +2752,18 @@ if [ "$WRITE_HTML" = "1" ] && [ -n "$REGISTER" ] && [ -f "$REGISTER" ] \
   case "$_have" in
     ""|"**Stage P — Kickoff**, in progress."|*"(derived by gate-check"*) _ours=1 ;;
   esac
+  # A stage query only earns the write when it is exactly the stage the readout names right
+  # now, and it just resolved PASS/WAIVED — otherwise it stays the read-only query it always
+  # was (e.g. `gate-check.sh . 5` while the readout still names Stage 3 touches nothing).
+  if [ "$_single_query" = "1" ]; then
+    case "$_req_status" in
+      PASS|WAIVED) ;;
+      *) _single_query=0 ;;
+    esac
+    _named_stage="$(printf '%s' "$_have" | sed -n 's/^\*\*Stage \([^ ]*\) —.*/\1/p')"
+    [ "$_named_stage" = "$_req_norm" ] || _single_query=0
+  fi
+  if [ "$WRITE_HTML" = "1" ] || [ "$_single_query" = "1" ]; then
   if [ "$_ours" = "0" ]; then
     echo ""
     echo "Current stage in $(basename "$REGISTER") is hand-written and left alone: $(printf '%s' "$_have" | cut -c1-70)"
@@ -2756,6 +2782,7 @@ if [ "$WRITE_HTML" = "1" ] && [ -n "$REGISTER" ] && [ -f "$REGISTER" ] \
       echo "Current stage in $(basename "$REGISTER"): $(printf '%s' "$_line" | sed 's/\*\*//g')"
     fi
     rm -f "$_tmp"
+  fi
   fi
 fi
 

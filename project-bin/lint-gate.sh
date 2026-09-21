@@ -17,6 +17,15 @@
 #   bin/lint-gate.sh --full             # ignore the vendor exclusion (rarely useful)
 #
 # Exit codes: 0 clean or unchanged · 1 a rule increased · 2 could not run
+#
+# PRODUCES .claude/loop/lint-last.json on every run that actually gets as far as computing
+# counts (timestamp, verdict, total, per-rule counts) — the dir is created if absent. This is
+# NOT docs/BUILD-LOG.md (the exec table Studio's parseExecRows / bin/status.sh /
+# project-bin/done-drift-check.sh parse) and must never become another writer of it; it is a
+# separate, additive record of lint's own last verdict. Mandatory producing chain step: the
+# per-module GATE pass (skills/module-review.md stage 2 — "bin/exec.sh; gate-agent confirms
+# 0 mxbuild errors, lint clean", same step named in skills/iterative-build-loop.md's
+# "Gate: BUILD"). Consumed by bin/status.sh.
 
 set -uo pipefail
 
@@ -108,11 +117,32 @@ fi
 [ -s "$OUT" ] || { echo "lint-gate: lint produced no output" >&2; exit 2; }
 
 BASELINE="$BASELINE" OUT="$OUT" UPDATE="$UPDATE" "$PY" - <<'PY'
-import json, os, sys, collections
+import json, os, sys, collections, datetime
 
 out_path  = os.environ["OUT"]
 base_path = os.environ["BASELINE"]
 update    = os.environ["UPDATE"] == "1"
+
+# .claude/loop/ is the existing per-project state/loop-artifact convention (page-scope.json,
+# sweep/, etc.) -- lint-last.json joins it. Written on every run that gets far enough to have
+# counts; never on the earlier exit-2 paths (no mxcli, no .mpr, unparsable output) where there
+# is nothing real to record. Best-effort: a write failure here must never turn a lint PASS/FAIL
+# into a crash, so it is swallowed.
+def write_last(verdict, viol_list, counts_now):
+    try:
+        loop_dir = os.path.join(os.path.dirname(base_path), "loop")
+        os.makedirs(loop_dir, exist_ok=True)
+        last_path = os.path.join(loop_dir, "lint-last.json")
+        json.dump({
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "verdict": verdict,
+            "total": len(viol_list),
+            "rule_count": len(counts_now),
+            "counts": dict(sorted(counts_now.items())),
+        }, open(last_path, "w"), indent=2)
+        open(last_path, "a").write("\n")
+    except OSError as e:
+        print("lint-gate: could not write %s: %s" % (last_path, e), file=sys.stderr)
 
 # mxcli prints a plaintext progress banner before the JSON; slice from the first brace.
 raw = open(out_path).read()
@@ -156,11 +186,13 @@ if update:
     print("==> baseline written: %d findings across %d rules" % (len(viol), len(counts)))
     for r, c in counts.most_common():
         print("      %5d  %-8s %s" % (c, sev[r], r))
+    write_last("BASELINE-UPDATED", viol, counts)
     sys.exit(0)
 
 if not os.path.exists(base_path):
     print("lint-gate: no baseline at %s — run: bin/lint-gate.sh --update-baseline" % base_path,
           file=sys.stderr)
+    write_last("ERROR-NO-BASELINE", viol, counts)
     sys.exit(2)
 
 base = json.load(open(base_path)).get("counts", {})
@@ -201,12 +233,14 @@ if collapsed:
     print("       filter is not excluding everything, before you believe this.")
     print("       Rules zeroed: %s" % ", ".join(zeroed[:12]) + (" ..." if len(zeroed) > 12 else ""))
     print("       If the cleanup is real, re-baseline deliberately: --update-baseline")
+    write_last("FAIL-COLLAPSE", viol, counts)
     sys.exit(1)
 
 if not rose:
     print("\nPASS — nothing got worse.")
     if fell:
         print("       %d rule(s) improved. Run --update-baseline to lock the gain in." % len(fell))
+    write_last("PASS-BLIND" if blind else "PASS", viol, counts)
     sys.exit(1 if blind else 0)
 
 print("\nFAIL — %d rule(s) got worse:\n" % len(rose))
@@ -215,5 +249,6 @@ for r, was, now in rose:
     for v in [x for x in viol if x["ruleId"] == r][:3]:
         print("        %s | %s" % (v.get("module") or "(project)", v["message"][:120]))
     print()
+write_last("FAIL", viol, counts)
 sys.exit(1)
 PY

@@ -120,3 +120,26 @@ design-reaches-app	mdl	project	path	docs/design-reaches-app.md	yes	yes	3	project
 # for the same reason as design-reaches-app: the hands that built the page are the hands that must
 # show it matches.
 fidelity	mdl	module	names	docs/PAGE-FIDELITY.tsv	no	yes	5	skills/ui-loop.md
+# dispatch is the THIRD obligation below stage 5, and it is here because it is the only mark
+# that answers a different question from the others: not "was the pass any good" but "did the
+# work go through the agent that owns it at all".
+#
+# Measured on more than one build: sessions drafted MDL scripts directly in the main session
+# instead of dispatching mdl-agent, so the agent's preflight (learned-mdl-preflight.md's STOP
+# table, quoted-identifier discipline, the snapshot/exec/mxbuild sequence) never ran, and the
+# build burned tokens on avoidable corrections a dispatched agent would have caught before the
+# first write. Nothing recorded which modules were scripted this way or by whom, so the pattern
+# was only visible after the fact, in the corrections themselves.
+#
+# The artifact is not a verdict — dispatch owes no denominator, because "how many scripts" is
+# not the question; the question is "did this module's scripting go through the agent". A
+# one-line-per-script log (date, script path, check result) answers it and doubles as the
+# module's own dispatch history. It is owed by mdl because mdl-agent is the one that knows, at
+# the moment of writing, whether it is the one writing.
+#
+# Column 9 names skills/agent-roles.md, not agents/mdl-agent.md: agent-roles.md's "Workflow"
+# step 8a is what actually specifies the log line, its path and format, and the discharge rule
+# ("owes no denominator, just the line") — that is the governing text this column exists to
+# point at. The agent stub is the performer named in column 2 (mdl); it is not itself a skill
+# and holds no verdict of its own to point to (review of PR #99, 2026-09).
+dispatch	mdl	module	path	.claude/loop/dispatch/<Module>/scripts.tsv	no	yes	5	skills/agent-roles.md

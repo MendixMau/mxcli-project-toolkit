@@ -1,0 +1,249 @@
+<title>Same Repo, Two Editors</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --ground:#eef1f5;--surface:#fff;--surface-2:#e3e8ef;--ink:#161c26;--ink-2:#2f3a4a;
+    --muted:#64718a;--line:#cdd5e0;--line-strong:#9aa7bb;
+    --kiro:#b4632a;--kiro-soft:#f6e8dc;--pipe:#3a5aa8;--pipe-soft:#e0e7f6;--cli:#1f7a5e;--cli-soft:#dcefe8;
+    --shadow:0 1px 2px rgba(22,28,38,.07),0 8px 24px -12px rgba(22,28,38,.18);
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --ground:#11151c;--surface:#191f28;--surface-2:#222a35;--ink:#e8ecf3;--ink-2:#c3ccda;
+    --muted:#8b97ab;--line:#2e3845;--line-strong:#4a5666;
+    --kiro:#e0954f;--kiro-soft:#33251a;--pipe:#8fabe8;--pipe-soft:#1c2436;--cli:#58c9a2;--cli-soft:#142a25;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.7);
+  }}
+  :root[data-theme="dark"]{
+    --ground:#11151c;--surface:#191f28;--surface-2:#222a35;--ink:#e8ecf3;--ink-2:#c3ccda;
+    --muted:#8b97ab;--line:#2e3845;--line-strong:#4a5666;
+    --kiro:#e0954f;--kiro-soft:#33251a;--pipe:#8fabe8;--pipe-soft:#1c2436;--cli:#58c9a2;--cli-soft:#142a25;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);
+    font-family:"Archivo","Helvetica Neue",Arial,sans-serif;font-size:15.5px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding-inline:20px;padding-block:40px 60px;display:flex;flex-direction:column;gap:36px}
+  code,.mono{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace}
+  code{font-size:.86em;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:.08em .34em}
+  .eyebrow{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:0 0 10px}
+  h1{font-size:clamp(28px,6vw,42px);line-height:1.07;letter-spacing:-.022em;margin:0;font-weight:700;text-wrap:balance}
+  h2{font-size:20px;margin:0 0 4px;font-weight:600;letter-spacing:-.01em}
+  p{margin:0 0 12px;max-width:66ch}p:last-child{margin-bottom:0}
+  section{display:flex;flex-direction:column;gap:16px}
+  hr{border:0;border-top:1px solid var(--line);margin:0}
+  .answer{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--kiro);
+    border-radius:3px;padding:18px 20px;box-shadow:var(--shadow)}
+  .answer .q{font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:8px}
+  .answer .a{font-size:18px;font-weight:600;letter-spacing:-.01em;margin:0 0 10px;max-width:none}
+  .answer p{font-size:14.5px;color:var(--ink-2)}
+  figure{margin:0}
+  .scroller{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:3px;box-shadow:var(--shadow);padding:12px}
+  figure svg{display:block;width:100%;height:auto;color:var(--ink)}
+  figure svg.wide{min-width:680px}
+  figcaption{font-size:13px;color:var(--muted);margin-top:10px;max-width:74ch}
+  figcaption b{color:var(--ink-2);font-weight:600}
+  .svg-box{fill:var(--surface);stroke:currentColor;stroke-opacity:.35}
+  .svg-chip{fill:var(--surface-2);stroke:currentColor;stroke-opacity:.2}
+  .svg-line{stroke:currentColor;stroke-opacity:.5;fill:none}
+  svg text{fill:var(--ink);font-family:"Archivo",Arial,sans-serif}
+  svg .lbl{font-size:12px}
+  svg .sml{font-size:10.5px;fill:var(--muted)}
+  svg .mn{font-family:"JetBrains Mono",monospace;font-size:11px}
+  svg .mns{font-family:"JetBrains Mono",monospace;font-size:10px;fill:var(--muted)}
+  svg .b-k{fill:var(--kiro-soft);stroke:var(--kiro)}
+  svg .b-p{fill:var(--pipe-soft);stroke:var(--pipe)}
+  svg .b-c{fill:var(--cli-soft);stroke:var(--cli)}
+  svg .t-k{fill:var(--kiro)}svg .t-p{fill:var(--pipe)}svg .t-c{fill:var(--cli)}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .col{background:var(--surface);border:1px solid var(--line);border-radius:3px;box-shadow:var(--shadow);overflow:hidden}
+  .col h3{margin:0;font-size:13px;font-weight:600;letter-spacing:.03em;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .col.p h3{background:var(--pipe-soft);color:var(--pipe)}
+  .col.k h3{background:var(--kiro-soft);color:var(--kiro)}
+  pre{margin:0;padding:14px;font-family:"JetBrains Mono",monospace;font-size:12.5px;line-height:1.75;
+    overflow-x:auto;color:var(--ink-2);white-space:pre}
+  pre .c{color:var(--muted)}
+  pre .hi{color:var(--kiro);font-weight:500}
+  table{border-collapse:collapse;width:100%;background:var(--surface);border:1px solid var(--line);
+    border-radius:3px;box-shadow:var(--shadow);font-size:14px;overflow:hidden}
+  th,td{text-align:left;padding:10px 14px;border-top:1px solid var(--line);vertical-align:top}
+  th{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600;border-top:0}
+  td:first-child{width:38%;color:var(--ink);font-weight:500}
+  td.same{color:var(--cli)}td.diff{color:var(--kiro)}
+  .tbl-scroll{overflow-x:auto}
+  .caveat{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--line-strong);
+    border-radius:3px;padding:14px 18px}
+  .caveat p{font-size:13.5px;color:var(--ink-2)}
+  .caveat .h{font-weight:600;font-size:14px;margin-bottom:5px}
+  footer{font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+  footer p{max-width:none}
+  @media (max-width:640px){.cols{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Practical note · 17 September 2026</p>
+    <h1>Same Repo, Two Editors</h1>
+  </header>
+
+  <div class="answer">
+    <div class="q">Is Kiro just a plugin in VS Code?</div>
+    <p class="a">No — it's a separate application. But it's built <em>on</em> VS Code, so for a developer
+      on one of our projects the difference is close to nothing.</p>
+    <p>Kiro is a standalone IDE forked from the open-source VS Code codebase. Same window, same file tree,
+      same terminal, same extension model. You still <code>git clone</code> the same repo, you still get the
+      same folders, you still run <code>bin/init-project.sh</code> and <code>./mxcli</code> from the same
+      built-in terminal. Nothing about the project layout changes — the only new thing on disk is one
+      pointer file in a <code>.kiro/</code> folder, sitting next to the <code>CLAUDE.md</code> and
+      <code>.cursorrules</code> that are already there.</p>
+  </div>
+
+  <section>
+    <h2>The whole picture</h2>
+    <figure>
+      <div class="scroller">
+        <svg class="wide" viewBox="0 0 900 400" role="img" aria-label="Diagram: two editors, VS Code with Claude Code on the left and Kiro on the right, each read their own pointer file — CLAUDE.md and AGENTS.md on the left, .kiro/steering/mxtk-toolkit.md on the right. Both pointer files live in the same single git clone of the project, and both lead to the same toolchain: bin/init-project.sh to scaffold, mxcli and bin/exec.sh to write, and bin/gate-check.sh to gate, all producing the same .mpr file.">
+          <defs>
+            <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 1 L9 5 L0 9 z" fill="currentColor" fill-opacity=".5"/>
+            </marker>
+          </defs>
+
+          <rect class="b-p" x="60" y="16" width="330" height="52" rx="4"/>
+          <text class="lbl t-p" x="225" y="40" text-anchor="middle" font-weight="600">VS Code · Claude Code · Cursor</text>
+          <text class="sml" x="225" y="56" text-anchor="middle">what the team uses today</text>
+
+          <rect class="b-k" x="510" y="16" width="330" height="52" rx="4"/>
+          <text class="lbl t-k" x="675" y="40" text-anchor="middle" font-weight="600">Kiro</text>
+          <text class="sml" x="675" y="56" text-anchor="middle">a separate app, forked from VS Code</text>
+
+          <path class="svg-line" marker-end="url(#a1)" d="M225 68 V106"/>
+          <path class="svg-line" marker-end="url(#a1)" d="M675 68 V106"/>
+          <text class="sml" x="235" y="92">reads</text>
+          <text class="sml" x="685" y="92">reads</text>
+
+          <rect class="svg-chip" x="60" y="112" width="330" height="46" rx="4"/>
+          <text class="mn" x="225" y="132" text-anchor="middle">CLAUDE.md · AGENTS.md · .cursorrules</text>
+          <text class="sml" x="225" y="148" text-anchor="middle">pointer files, already in the repo</text>
+
+          <rect class="svg-chip" x="510" y="112" width="330" height="46" rx="4"/>
+          <text class="mn" x="675" y="132" text-anchor="middle">.kiro/steering/mxtk-toolkit.md</text>
+          <text class="sml" x="675" y="148" text-anchor="middle">one extra pointer file — the whole integration</text>
+
+          <path class="svg-line" marker-end="url(#a1)" d="M225 158 V182 H440 V204"/>
+          <path class="svg-line" marker-end="url(#a1)" d="M675 158 V182 H460 V204"/>
+
+          <rect class="svg-box" x="60" y="210" width="780" height="58" rx="4" stroke-width="1.6"/>
+          <text class="mn" x="450" y="234" text-anchor="middle">your-project/</text>
+          <text class="sml" x="450" y="252" text-anchor="middle">ONE git clone · one set of folders · one PROJECT.md · one .mpr</text>
+
+          <path class="svg-line" marker-end="url(#a1)" d="M180 268 V296"/>
+          <path class="svg-line" marker-end="url(#a1)" d="M450 268 V296"/>
+          <path class="svg-line" marker-end="url(#a1)" d="M720 268 V296"/>
+
+          <rect class="b-c" x="60" y="302" width="240" height="50" rx="4"/>
+          <text class="mn t-c" x="180" y="322" text-anchor="middle">bin/init-project.sh</text>
+          <text class="sml" x="180" y="338" text-anchor="middle">scaffold, once</text>
+
+          <rect class="b-c" x="330" y="302" width="240" height="50" rx="4"/>
+          <text class="mn t-c" x="450" y="322" text-anchor="middle">./mxcli · bin/exec.sh</text>
+          <text class="sml" x="450" y="338" text-anchor="middle">the only thing that writes</text>
+
+          <rect class="b-c" x="600" y="302" width="240" height="50" rx="4"/>
+          <text class="mn t-c" x="720" y="322" text-anchor="middle">bin/gate-check.sh</text>
+          <text class="sml" x="720" y="338" text-anchor="middle">the ✋ gates</text>
+
+          <text class="sml" x="450" y="382" text-anchor="middle">Everything below the repo box is shell. It does not know or care which editor is open.</text>
+        </svg>
+      </div>
+      <figcaption>Read it top to bottom. The editors differ; <b>one line down, everything is identical</b> —
+        same clone, same scripts, same model file. That is not luck, it's the reason the toolkit keeps its
+        process in markdown and shell instead of inside any one tool.</figcaption>
+    </figure>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>Day one, side by side</h2>
+    <div class="cols">
+      <div class="col p">
+        <h3>A dev on VS Code / Claude Code</h3>
+<pre><span class="c"># once, anywhere</span>
+git clone …/mxcli-project-toolkit ~/Mendix/…
+
+<span class="c"># per project</span>
+git clone …/my-project &amp;&amp; cd my-project
+~/Mendix/…/bin/init-project.sh .
+~/Mendix/…/bin/wire-agents.sh .
+
+<span class="c"># open it</span>
+code .
+
+<span class="c"># work</span>
+./mxcli -p App.mpr -c "SHOW MODULES"
+./bin/exec.sh mdlsource/01-domain.mdl
+~/Mendix/…/bin/gate-check.sh . 5</pre>
+      </div>
+      <div class="col k">
+        <h3>A dev on Kiro</h3>
+<pre><span class="c"># once, anywhere</span>
+git clone …/mxcli-project-toolkit ~/Mendix/…
+
+<span class="c"># per project</span>
+git clone …/my-project &amp;&amp; cd my-project
+~/Mendix/…/bin/init-project.sh .
+~/Mendix/…/bin/wire-agents.sh . <span class="hi">--with-kiro</span>
+
+<span class="c"># open it</span>
+<span class="hi">kiro .</span>
+
+<span class="c"># work — unchanged</span>
+./mxcli -p App.mpr -c "SHOW MODULES"
+./bin/exec.sh mdlsource/01-domain.mdl
+~/Mendix/…/bin/gate-check.sh . 5</pre>
+      </div>
+    </div>
+    <p>Two differences, both on the highlighted lines: <b>one extra flag</b> when wiring the project, and
+      <b>a different command to open the window</b>. Everything else — the clone, the scaffold, the MDL, the
+      gates — is the same text in the same order.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>What actually changes</h2>
+    <div class="tbl-scroll">
+      <table>
+        <tr><th>Thing</th><th>In Kiro</th></tr>
+        <tr><td>The application</td><td class="diff">A separate download, not a VS Code extension — but a VS Code fork, so it looks and behaves like VS Code</td></tr>
+        <tr><td>Project folders, git, terminal</td><td class="same">Identical. One clone, one layout, one <code>.mpr</code></td></tr>
+        <tr><td><code>init-project.sh</code>, <code>PROJECT.md</code>, the 9 stages, the ✋ gates</td><td class="same">Identical — they're markdown and shell, not editor features</td></tr>
+        <tr><td><code>./mxcli</code>, <code>bin/exec.sh</code>, mxbuild, Studio Pro</td><td class="same">Identical. Kiro never writes to the model any more than Claude Code does</td></tr>
+        <tr><td>The instruction file the agent reads</td><td class="diff">One new file: <code>.kiro/steering/mxtk-toolkit.md</code>. A pointer to <code>CLAUDE.md</code>, not a copy of it</td></tr>
+        <tr><td>Permission to run our scripts</td><td class="diff">Granted per machine, in the user's home folder — it can't be committed, so each dev grants it once by hand</td></tr>
+        <tr><td>Extensions / marketplace</td><td class="diff">Open VSX, not the Microsoft marketplace — most things are there, a few are not</td></tr>
+        <tr><td>Cost</td><td class="diff">Metered per agent run, on top of whatever the team already pays</td></tr>
+      </table>
+    </div>
+    <p>The one row that matters for us is the last-but-two: Kiro's run permissions live outside the
+      repository, so we can ship the instructions but not the allowlist. Every developer clicks through it
+      once on their own machine.</p>
+  </section>
+
+  <div class="caveat">
+    <div class="h">How confident is this</div>
+    <p>The layout, the commands and the toolkit side are certain — they're read from our own scripts. The
+      Kiro side is second-hand: its own site is unreachable from the environment this was written in, so
+      "standalone VS Code fork, Open VSX, home-folder permissions" comes from documentation summaries, not
+      from a session anyone here has run. Fifteen minutes with a real install settles all of it, and that
+      run is what the roadmap entry is waiting on.</p>
+  </div>
+
+  <footer>
+    <p>Third of three: the fit assessment answers <em>should we</em>, the loop visualisation answers
+      <em>how would it work</em>, this one answers <em>what would I actually do differently on Monday</em>.
+      Parked as RM-01 in the toolkit's roadmap.</p>
+  </footer>
+
+</div>

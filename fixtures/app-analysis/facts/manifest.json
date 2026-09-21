@@ -1,0 +1,50 @@
+{
+ "catalog": {
+  "activities": 900,
+  "build_mode": "full",
+  "modules": 16,
+  "refs": 400
+ },
+ "generated": "2026-09-15T12:00:00+02:00",
+ "mpr": "PurchaseRequests.mpr",
+ "mpr_sha256_16": "0000000000000000",
+ "mxcli": "mxcli version v0.21.0 (fixture)",
+ "options": {
+  "max_loops": 0,
+  "workers": 4
+ },
+ "schema": "app-facts/1",
+ "sections": {
+  "dependencies": {
+   "file": "dependencies.json",
+   "status": "pass"
+  },
+  "inventory": {
+   "file": "inventory.json",
+   "status": "pass"
+  },
+  "lint_baseline": {
+   "reason": "run project-bin/lint-gate.sh separately; not folded in yet",
+   "status": "fault"
+  },
+  "loops": {
+   "candidates": 6,
+   "described": 6,
+   "failed": 0,
+   "file": "loops.json",
+   "parse_mismatch": 1,
+   "reason": "described 6 of 6; 0 failed",
+   "status": "pass"
+  },
+  "security": {
+   "reason": "not collected by this version of app-facts.sh",
+   "status": "fault"
+  }
+ },
+ "timings_s": {
+  "catalog_and_graph_report": 8,
+  "inventory_and_dependencies": 1,
+  "loops": 6,
+  "total": 15
+ }
+}

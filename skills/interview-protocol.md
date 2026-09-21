@@ -60,14 +60,11 @@ overturn any of these"* instead of burying them among questions that were genuin
 
 ### Exec approval is a separate knob
 
-`bin/exec-approval.sh <project-dir>` resolves `ask` or `auto` — whether the agent asks before
-every `./mxcli exec`, `./bin/exec.sh`, `mxcli test`, `mxcli docker check`, or `--mcp` write. It
-is not the interview-mode switch: unset, it *derives* from interview mode (`auto` → `auto`,
-anything else → `ask`), but the user can override it independently — `--set ask`/`--set auto`,
-`<project>/.claude/.exec-approval`, or an `Exec approval:` line in `PROJECT.md`. The user flips
-it, in either direction, by saying so. **Do not set it yourself to get past a block** — the same
-rule as the mode above. Under `auto`, nothing asks; the BUILD-LOG row `exec.sh` already writes
-is the safety net, moved from asking to recording, marked `approval: auto (<source>)`.
+`bin/exec-approval.sh <project-dir>` resolves `ask` or `auto` for exec-style writes — a
+different knob from interview mode, and no longer derived from it. **Single source of the
+rule (text, resolution order, STOP-table carve-out): `bin/lib/wiring-item3.sh`** — every
+agent's Start-here stamp is rendered from it; read it there, do not restate it here.
+**Never set the knob yourself to dodge a block** — only the user flips it.
 
 ---
 
@@ -227,8 +224,8 @@ it survives in the transcript.
 points here rather than restating it.**
 
 `AskUserQuestion` is a Claude Code **built-in harness tool**. It is not a package, not an MCP
-server, not a skill, and there is nothing to install. Copilot, Cursor, Windsurf, Continue and
-Aider — all of them wired by `bin/wire-agents.sh`, all of them first-class consumers of this
+server, not a skill, and there is nothing to install. Copilot, Cursor, Windsurf, Continue, Aider
+and Kiro — all of them wired by `bin/wire-agents.sh`, all of them first-class consumers of this
 toolkit — have no equivalent and no way to add one.
 
 So separate the *invariant* from its *rendering*. Three things hold on every agent:
@@ -244,7 +241,7 @@ Only (1)'s rendering is tool-specific:
 | Harness | How the batch is rendered |
 |---|---|
 | Claude Code | `AskUserQuestion` — clickable options, structured answers. Preferred; also paste the batch as chat text so it survives compaction. |
-| Copilot, Cursor, Windsurf, Continue, Aider, anything else | Plain numbered markdown in the chat — `1.` / `2.` / `3. Something else — tell me`. Then stop. |
+| Copilot, Cursor, Windsurf, Continue, Aider, Kiro, anything else | Plain numbered markdown in the chat — `1.` / `2.` / `3. Something else — tell me`. Then stop. |
 
 Both satisfy the protocol. **Neither is optional**, and the *end-the-turn* half is not
 tool-specific at all — it is the half that actually enforces the gate, and the half a harness

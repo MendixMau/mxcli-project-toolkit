@@ -1,0 +1,1 @@
+{"Orders.SUB_SyncOrderLines": {"enabled": ["Orders.SE_NightlySync"], "disabled": []}, "Orders.SUB_TxPerItem": {"enabled": [], "disabled": ["Orders.SE_NightlySync"]}}

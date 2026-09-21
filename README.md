@@ -581,11 +581,12 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Task | Skill to load |
 |---|---|
 | Building a module with mxcli — verified, iterative, coverage-checklist gated | `skills/iterative-build-loop.md` |
-| After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views | `project-bin/build-plan-status.sh` |
+| After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views; --json writes architecture/build-plan.json parsed from build-plan.md's Phase headings (a plan with no Phase headings gets no file) | `project-bin/build-plan-status.sh` |
 | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets | `skills/anonymize-client-app-for-demo.md` |
 | Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step | `skills/handoff-to-studio-pro.md` |
 | Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them | `skills/walking-skeleton.md` |
 | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App | `skills/platform-link.md` |
+| Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment — "it works locally" is not evidence about a deployment; also when a test suite fails only against the remote URL | `skills/deploy-to-sandbox.md` |
 
 **Build · MDL — the language and tool reference**
 
@@ -649,6 +650,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | After every module's CONFIRM stage — counts proven modules since the last cluster/full coherence pass and exits DUE once the threshold is reached, so the cadence isn't left to memory | `project-bin/coherence-cadence.sh` |
 | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything | `skills/e2e-evidence-report.md` |
 | Recording a narrated screen-capture demo of a running app for a human to watch — opening on the app instead of a blank frame, and keeping captions synced to the pixels | `skills/record-demo-video.md` |
+| Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo — to a customer, prospect or reviewer: relative image paths and "the name shown above" both break the moment the file travels alone, and the usernames a login panel displays are not the ones it accepts | `skills/share-demo-package.md` |
 | Running lint as a gate rather than a report — per-rule ratchet against a committed baseline, plus the crash and collapse guards that stop a blind rule passing | `project-bin/lint-gate.sh` |
 | Reading a lint result, or writing/repairing any .star rule — lint's failure mode is a confident clean pass, so 0 findings is a claim needing evidence | `skills/lint-that-actually-runs.md` |
 | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before | `skills/wiring-sweep.md` |
@@ -664,8 +666,10 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Task | Skill to load |
 |---|---|
 | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words | `bug-logs/mxcli-bugs.md` |
+| Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing | `skills/agent-permission-friction.md` |
 | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` |
 | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable | `skills/bug-submission-checklist.md` |
+| About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to | `skills/upstream-feedback.md` |
 | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause | `skills/empty-widget-triage.md` |
 | Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary — proving it's version-specific without risking the real model | `skills/sandbox-ab-tool-defect-probe.md` |
 | Restarting Studio Pro on macOS — the reopen bug, the port bug, and detecting a real hang vs a slow load | `skills/restart-sp-reopen-and-hang-detection.md` |

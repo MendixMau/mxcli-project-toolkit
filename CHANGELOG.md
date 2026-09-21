@@ -16,6 +16,14 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+- fix(bin/gate-check.sh, skills/design-artifacts.md): the Stage-3 wireframe check only confirmed
+  `design/wireframes/*.html` was non-empty, so a 22-screen app with one wireframe read as done —
+  `skills/design-artifacts.md` promises one wireframe per screen. Where `design/target-ui.md`
+  carries the `## Screen Inventory` table that Step 2 now defines, the gate counts it against
+  `design/wireframes/*.html` (a Notes cell recording reuse/same as/shares excuses a row from
+  needing its own file) and reports `MANUAL <built> wireframes for <inventoried> inventoried
+  screens` when the build falls short; absent the table, behaviour is unchanged (presence-only).
+  Verified with `tests/wave2/test-wireframe-count.sh` (5/5) — issue #107
 - process(bin/check-pr-discipline.sh): **a new CHANGELOG entry must end with its credit segment.**
   Third check over the merge-base diff: every added `- kind(area):` entry, joined with its 2-space
   continuation lines, must end ` — <credit>`; rule 1 only saw that CHANGELOG.md was touched, so a

@@ -1029,6 +1029,28 @@ has_confirmed_decision() {
   ' "$f"
 }
 
+# Counts the Screen Inventory table in design/target-ui.md (design-artifacts.md Step 2): a
+# markdown table under a "## Screen Inventory" heading, one row per screen. Prints two numbers
+# separated by a space: total inventoried rows, and how many of those rows record that the
+# screen reuses another screen's wireframe (design-artifacts.md Step 2/3 — a row whose text
+# mentions "reuse", "same as" or "shares" does not need its own design/wireframes/*.html file).
+# Prints "0 0" when the file has no such heading/table (caller keeps today's behaviour then).
+count_screen_inventory() {
+  awk '
+    { line = $0; low = tolower(line) }
+    low ~ /^##+[ \t]*screen inventory/ { insec = 1; seenheader = 0; next }
+    insec && low ~ /^##+/ { insec = 0 }
+    insec && line ~ /^\|/ {
+      if (seenheader == 0) { seenheader = 1; next }             # header row
+      if (line ~ /^\|[ \t]*:?-+:?[ \t]*\|/) next                # separator row
+      n++
+      if (low ~ /reuse|same as|shares/) r++
+      next
+    }
+    END { printf "%d %d\n", n+0, r+0 }
+  ' "$1"
+}
+
 check_stage_3() {
   # Collect ALL FOUR results before reporting. This used to be a chain of first-failure
   # returns, so the message was always about the first gap in source order and never about
@@ -1072,6 +1094,31 @@ check_stage_3() {
     fi
     echo "PENDING|missing:${missing:- none} | present:${present:- none}${note} (design-artifacts.md Step 3 wants one wireframe per screen; architecture-blueprint.md Step 7 the blueprint render)"
     return
+  fi
+  # design-artifacts.md Step 2 promises one wireframe per inventoried screen. Where the
+  # inventory exists (design/target-ui.md's Screen Inventory table), count it against
+  # design/wireframes/*.html rather than only checking non-empty — a 20-screen app with one
+  # wireframe used to read as done here (issue #107). Absent inventory/table: unchanged
+  # behaviour — presence-only, same as before this check existed. Runs only once all four
+  # artifacts are present, so the collect-all-four PENDING above still lists what's missing.
+  local target_ui counts screen_count reuse_count wf_count required
+  target_ui="$(resolve_artifact "design/target-ui.md")"
+  if [ -n "$target_ui" ]; then
+    counts="$(count_screen_inventory "$target_ui")"
+    screen_count="${counts%% *}"
+    reuse_count="${counts##* }"
+    if [ "${screen_count:-0}" -gt 0 ] 2>/dev/null; then
+      wf_count=0
+      if [ -n "$wireframes_dir" ]; then
+        wf_count=$(find "$wireframes_dir" -name '*.html' -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+      fi
+      required=$((screen_count - reuse_count))
+      [ "$required" -lt 0 ] && required=0
+      if [ "$wf_count" -lt "$required" ]; then
+        echo "MANUAL|$wf_count wireframes for $screen_count inventoried screens ($target_ui Screen Inventory vs design/wireframes/*.html) — design-artifacts.md Step 2/3 wants one per screen unless the row records a reuse"
+        return
+      fi
+    fi
   fi
   local arch_base
   arch_base="$(dirname "$blueprint_html")"

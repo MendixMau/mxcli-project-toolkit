@@ -16,6 +16,63 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+
+- test(sync): **`test-bug12-sync.sh` plants the retired ledger row shape-agnostically.** Its T11
+  setup anchored the always-on bug-lookup row on end-of-line, so the stage-sliced three-column
+  table (a `Stage(s)` cell after the path) never got the row planted and two assertions failed in
+  CI; the plant now swaps only the path cell. Assertions untouched. — MendixMau
+- new(routing): **baseline routing is now stage-sliced.** `bin/lib/skill-routing.tsv` gained a
+  `stages` column (a comma list over `P,0-7`, or `-` for stage-independent); the
+  `readme-baseline`/`baseline` render now prints a `Stage(s)` column, every-stage rows first then
+  stage-specific rows in TSV order, so a project at Stage 5 can see at a glance which baseline
+  files actually apply there instead of reading all of them every session. — MendixMau
+- new(gate-check): **`gate-check.sh` now prints a baseline-pack-size advisory** — total word count
+  of the baseline `.md` files that apply at the requested/current stage, against the existing
+  budget — never affecting exit code or verdicts. `render-routing.sh --check` gained the matching
+  per-stage breakdown (`stage S: N words / F files`), both sharing one new
+  `routing_baseline_pack()` function so the two surfaces can't drift apart. Measured against the
+  toolkit's own table: Stage 5 (the heaviest) carries 73,446 words across 23 files against the
+  79,143-word/25-file full tier — 93%, i.e. the advisory mostly does not shrink what a Stage-5
+  session reads; the saving is real but stage-dependent (Stage 3, for example, is 26,042/8). — MendixMau
+- fix(gate-check, routing): **`routing_baseline_pack()` no longer treats an unrecognised stage
+  token as if it were a real one.** Every-stage (`stages = "-"`) rows match regardless of `<stage>`,
+  so a typo'd or stale token used to come back with a small, real-looking total (the every-stage
+  rows only) mislabelled as that stage's whole pack, and `gate-check.sh`'s own "stage unknown,
+  skipped" fallback could never fire because the function never actually returned empty. It now
+  checks `<stage>` against the runbook's real tokens (`P`, `0`-`7`) and, on a miss, returns the
+  FULL baseline pack with an explicit fourth field (`full`); `gate-check.sh` prints "stage unknown
+  — full pack: N words across F files" instead of a mislabelled partial number.
+  `gate-check.sh`'s CLI already rejects an unrecognised `REQUESTED_STAGE` before this code runs, so
+  this is defense-in-depth for `routing_baseline_pack()` as a shared library function — it protects
+  `render-routing.sh --check` and any future direct caller the same way. — MendixMau
+- new(obligations): **added the `dispatch` obligation** (`bin/lib/obligations.tsv` +
+  `agents/mdl-agent.md` step 8a, mirrored in `skills/agent-roles.md`'s mdl-agent template): a
+  per-module `.claude/loop/dispatch/<Module>/scripts.tsv` log line proving a module's MDL scripting
+  went through mdl-agent's preflight rather than being drafted ad hoc in the main session, where
+  `learned-mdl-preflight.md`'s STOP checks never ran. PENDING when the log is absent, PASS once it
+  exists — no changes needed to `obligation-check.sh`'s generic path-match logic. Column 9 (the
+  obligation table's documented "governing skill" column) now names `skills/agent-roles.md`, whose
+  "Workflow" step 8a is the text that actually specifies the log line's path, format and
+  no-denominator discharge rule — not `agents/mdl-agent.md`, an agent stub that holds no verdict of
+  its own. Note for a fresh project: `dispatch` reports PENDING until its `mdl-agent.md` stub is
+  the one `bin/sync-project.sh` refreshes, and `sync-project.sh` only refreshes an UNTOUCHED stub —
+  a project that customised its stub keeps whatever dispatch-logging text it had at customisation
+  time. — MendixMau
+- test(routing): **`tests/wave2/test-baseline-pack.sh`** exercises `routing_baseline_pack()` against
+  a scratch routing table and project tree with known word counts: a stage-3-only row is present in
+  the stage-3 pack and absent from the stage-5 pack (and vice versa), an every-stage row is in both,
+  an `ondemand`-tier row and a non-`.md` baseline row are excluded from every pack, totals are exact,
+  and an unrecognised stage token returns the full pack carrying the new `full` marker while every
+  real runbook stage does not. Also field-runs the real `bin/lib/skill-routing.tsv` at every stage
+  (`P`, `0`-`7`) and asserts a non-empty, non-`full` result. — MendixMau
+- fix(routing): **baseline word count pinned to `LC_ALL=C`** in `render-routing.sh --check` and
+  `routing_baseline_pack()`. CI (C.UTF-8) counted the tier at 80,238 words while every local run
+  (C locale) put it at 78,367 — under a UTF-8 locale `wc -w` also splits on non-breaking and other
+  Unicode spaces, ~1,900 words more on the same files. The 80,000 budget was calibrated on 2026-09-08
+  at 73,026 words, a figure that only reproduces in the C locale, so the pin restores the calibrated
+  measurement; CI's reported number therefore drops by ~1.9k against what it showed before (master
+  79,993 → 78,124), no budget change. Same commit drops a duplicate "read your stage's rows only"
+  paragraph from `conversion-runbook.md` — the rule line already renders inside its ROUTING block. — MendixMau
 - process(bin/lib/skill-routing.tsv, docs/studio-tools.md): one additive skill-routing row for the studio_* MCP tool family, first cut deliberately narrow — `tier: experimental` (never blocks a gate, per `_routing_stage_arm`'s own design comment), `stages: -`, `agents: mdl` only (the sole agent template that references `learned-mcp-patterns.md`'s hybrid-write pattern; a repo-wide grep for the literal string `studio_` returns zero hits anywhere today, so there is no field evidence yet for which agents call these tools — this stays the conservative bound until one exists), and `group: build/mdl` (the MDL tool-reference group `learned-mcp-patterns.md` itself sits in, not `verify`). `docs/studio-tools.md` documents only that the family exists and which hard rules from `learned-mcp-patterns.md` carry over — no tool names, no external home path — because asserting either from imagined input before a real run is the instrument-shipping mistake this repo's own field-proof rule exists to stop. `bin/render-routing.sh` re-rendered `ROUTING.md` and `agents/mdl-agent.md`; `bin/render-routing.sh --check` and `bin/check-skill-routing.sh` both pass clean — this session
 - fix(project-bin/exec.sh): the "Uncommitted model changes" guard refused the exec and exited before any row landed in `docs/BUILD-LOG.md` — every other blocked-exec path in the script (pre-exec `mxcli check` failure, a pre-existing mxbuild CE) writes a `🚫 blocked` row, but this guard, the one refusing to snapshot a dirty model, left the refusal invisible to anyone reading the log afterward. Fixed by relocating the existing `log_build()` helper (and its `BUILD_LOG`/`GATE_STATE`/exec-approval-suffix setup) verbatim to immediately after `cd "$PROJECT_ROOT"`, ahead of the guard chain, so guard #4 can call the same helper every other blocked path already uses — no guard's decision logic changed, no row format changed, only where the shared helper is defined. No `tests/wave2/` fixture exercises this guard (its fixture project commits everything before invoking `exec.sh`), so this was verified by reading `tests/wave2/test-bug07-08.sh` in full and diffing the change against `origin/master`: the diff is exactly the block relocation plus one new `log_build "🚫 blocked" ...` call on the actual-refusal branch, `bash -n` passes, and only one definition each of `log_build()`/`BUILD_LOG` remains — this session
 - fix(project-bin/lint-gate.sh, bin/status.sh, bin/lib/artifact-manifest.tsv): lint-gate wrote its ratchet verdict nowhere lint-gate itself could be asked about later — only `.claude/lint-baseline.json` on `--update-baseline`, never a record of an ordinary PASS/FAIL run. `bin/status.sh`'s one-screen dashboard had no lint line at all, so the only way to know lint's last verdict was to re-run it. lint-gate now writes `.claude/loop/lint-last.json` (timestamp, verdict, total, per-rule counts) on every run that gets as far as computing counts — all five verdict paths (`ERROR-NO-BASELINE`, `BASELINE-UPDATED`, `PASS`/`PASS-BLIND`, `FAIL`, `FAIL-COLLAPSE`), never on the earlier exit-2 paths where there is nothing real to record, and never touching `docs/BUILD-LOG.md`'s exec table. `bin/status.sh`'s OVERDUE line now reads it, falling back to "lint gate never recorded here" when absent, and `bin/lib/artifact-manifest.tsv` gains the matching row (stage 5, consumer `bin/status.sh`). No `tests/wave2/` fixture covers either script, so this was verified by hand against a disposable scratch tree with `LINT_JSON=` standing in for `mxcli lint`: all six verdict branches produced the correctly shaped JSON, and `bin/status.sh`'s read logic was simulated against both a present and an absent file (issue #66) — this session

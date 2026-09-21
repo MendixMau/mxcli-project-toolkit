@@ -88,6 +88,17 @@ else
   DOCTOR="doctor never run here"
 fi
 
+# --- lint gate's last recorded run (project-bin/lint-gate.sh writes this every invocation that
+# reaches a verdict; never docs/BUILD-LOG.md's exec table) -----------------------------------
+LINT_LAST="$PROJECT_DIR/.claude/loop/lint-last.json"
+if [ -f "$LINT_LAST" ]; then
+  LINT_VERDICT="$(grep -m1 '"verdict"' "$LINT_LAST" | sed -E 's/.*"verdict": *"([^"]+)".*/\1/')"
+  LINT_TS="$(grep -m1 '"timestamp"' "$LINT_LAST" | sed -E 's/.*"timestamp": *"([^"]+)".*/\1/')"
+  LINT="lint ${LINT_VERDICT:-?} (${LINT_TS:-unknown time})"
+else
+  LINT="lint gate never recorded here"
+fi
+
 # --- instruments: gate-check (once), coherence cadence --------------------------------------
 # --no-html: a status READ must not rewrite the project dashboard (merge review 2026-09-08 — a
 # probe on a wired project left index.html modified, the same clean-tree trip as doctor receipts).
@@ -133,7 +144,7 @@ fi
 printf '\n%s — %s%s%s\n' "$NAME" "$STAGE_LINE" "${ENTRY:+ · $ENTRY}" "${ADOPTED:+ · joined at stage $ADOPTED}"
 printf '%s\n\n' "$TK"
 printf 'DONE      scripts: %s written, %s gate-pass, %s done-  ·  modules opened: %s%s\n' "$N_SCRIPTS" "$N_PASS" "$N_DONE" "$MOD_OPENED" "${SKELETON:+  ·  skeleton proven $SKELETON}"
-printf 'OVERDUE   %s  ·  %s  ·  UNSYNCED markers: %s  ·  open questions: %s\n' "$DOCTOR" "${COH:-coherence: cadence script not installed}" "$UNSYNCED" "$OPEN_Q"
+printf 'OVERDUE   %s  ·  %s  ·  %s  ·  UNSYNCED markers: %s  ·  open questions: %s\n' "$DOCTOR" "$LINT" "${COH:-coherence: cadence script not installed}" "$UNSYNCED" "$OPEN_Q"
 [ -n "$OB_PENDING" ] && printf '          obligations pending: %s\n' "$OB_PENDING"
 [ -n "$LAST_FAIL" ] && printf '          last gate FAILED: %s\n' "$LAST_FAIL"
 if [ "$N_ATTN" -gt 0 ]; then printf 'ATTENTION %s\n' "$(printf '%s\n' "$NEED_ATTN" | head -3 | sed '2,$s/^/          /')"; else printf 'ATTENTION none — gate-check: %s\n' "$(printf '%s\n' "$GC" | grep -m1 '^Summary:' | sed 's/^Summary: *//')"; fi

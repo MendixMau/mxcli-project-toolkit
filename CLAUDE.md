@@ -167,6 +167,8 @@ entire discipline: a changelog updated as a separate chore is `process/toolkit-w
 which rotted within weeks while 25 commits landed. Format is at the top of `CHANGELOG.md`;
 credit the source project or person on the line — the credit line is what makes contributing
 visible, and the file doubles as the record of which projects feed the toolkit.
+New lines go under `## Unreleased`; `bin/cut-release.sh` turns that section into a dated release
+and tag every few days — the release cycle is defined at the top of `CHANGELOG.md`, nowhere else.
 
 Contributions arrive through three lanes (`CONTRIBUTING.md`): the `contrib/inbox/` drop
 (no quality bar — triage promotes into `skills/`/`bug-logs/`/`bin/` and deletes the inbox file

@@ -181,6 +181,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
 |---|---|---|---|---|
 | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call | `skills/rest-integration-first-time-right.md` | mdl | 4,5 | ondemand |
+| Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT — where an encryption key, API credential, endpoint or access token gets its value, why a free node has only one channel, and why a token missing from the files you grepped is not missing | `skills/learned-constants-and-secrets.md` | mdl,architect,gate | 4,5,6 | ondemand |
 
 #### Build · Security
 
@@ -220,6 +221,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Handing the human a batch of steps only they can perform (Stage 7 cutover, browser-only GitHub settings) — generate a paced confirm-and-verify walkthrough script instead of a prose checklist; hypothesis under trial, no field run yet | `skills/wizard-walkthrough.md` | gate,review | P,7 | experimental |
 | Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection | `skills/preview-over-hub-tunnel.md` | test,review | 5,6 | ondemand |
 | Starting a hub-tunnelled preview with the flags outbound calls actually need — wraps mxcli run --hub with db-name and the runtime proxy settings from preview-over-hub-tunnel.md | `bin/run-hub.sh` | test | 5,6 | ondemand |
+| Before any first deploy to a new environment, and after installing or updating any marketplace module — which constants would be blank where nobody can set them, and which now carry a secret in the model. Never prints a value | `project-bin/constants-audit.sh` | mdl,gate,architect | 5,6 | ondemand |
 
 #### Diagnose — something is broken and it may be the tooling
 

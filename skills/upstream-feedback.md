@@ -1,8 +1,10 @@
-# Upstream Feedback — where a finding goes, and in what form
+# Upstream Feedback
 
-**Applies to:** the moment an agent has learned something worth sending upstream — an mxcli
-command that lied, a gate that let a defect through, a runbook stage that was missing a step —
-and is about to open an issue, a PR or a discussion. Answers one question: **which repo, which
+**Applies to:** any mxcli project — migration, requirements-driven, and greenfield alike.
+
+**Purpose:** Route a finding worth sending upstream — an mxcli command that lied, a gate that
+let a defect through, a runbook stage that was missing a step — to the right repo and the right
+vehicle, in a form that may actually be posted. Answers one question: **which repo, which
 vehicle, and what may be posted.**
 
 **Companions:** `bug-submission-checklist.md` (the full evidence bar for an mxcli defect — this
@@ -127,13 +129,10 @@ discussion, so for those the checklist above **is** the gate.
 ## 7. Close the loop — check the API, not the note
 
 Filed items get checked back. A local note that says "filed" or "open" is a claim about the
-remote; the remote is the truth, and it moves without telling you.
-
-Why this section is here: seven issues were filed to `mendixlabs/mxcli` from one project. The local
-index said "6 filed, 2 toolkit PRs open". Checking the API showed **5 of the first 6 already closed
-COMPLETED within hours** of filing, and the toolkit had **9 open PRs, not 2** — with the PR that the
-project's resume doc pointed at already merged. Every one of those local lines had been true when
-written. None was true when read.
+remote; the remote is the truth, and it moves without telling you — a real check found 5 of 6
+`mendixlabs/mxcli` issues already closed and the toolkit's true open-PR count more than four
+times what the resume doc claimed, every line true when written and stale by the time it was
+read.
 
 ```bash
 gh issue list -R mendixlabs/mxcli --author @me --state all --json number,title,state,stateReason,closedAt

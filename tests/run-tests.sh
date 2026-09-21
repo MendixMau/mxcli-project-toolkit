@@ -205,6 +205,63 @@ fi
 echo
 
 # ---------------------------------------------------------------------------
+echo "check-pr-discipline.sh — a CHANGELOG entry without its credit is not an entry"
+# ---------------------------------------------------------------------------
+# Rule 3 (2026-09-21): every '- kind(area):' line a PR adds must end ' — <credit>'; a wrapped
+# entry may carry the credit on its last 2-space-indented continuation line. A review pass over
+# 18 open PRs found headline-only entries that rule 1 (changelog rides along) waved through.
+# Each case is its own repo: master holds a credited CHANGELOG and bin/tool.sh, the branch
+# under test is one commit on top, and the check runs from inside it against 'master'.
+DISC="$ROOT/bin/check-pr-discipline.sh"
+# mkpr <name> — repo with master committed and a 'pr' branch checked out. Echoes the path.
+mkpr() {
+  local d="$WORK/pr-$1"
+  mkdir -p "$d/bin"
+  ( cd "$d" && git init -q . && git config user.email t@example.com && git config user.name t \
+    && git checkout -q -b master )
+  printf '# Changelog\n\n## Unreleased\n- fix(bin): **old entry.** detail — Someone\n' > "$d/CHANGELOG.md"
+  printf '#!/usr/bin/env bash\necho tool\n' > "$d/bin/tool.sh"
+  ( cd "$d" && git add -- CHANGELOG.md bin/tool.sh && git commit -q -m base && git checkout -q -b pr )
+  echo "$d"
+}
+# addentry <repo> <line...> — insert lines right under '## Unreleased' (portable: awk, no sed -i).
+addentry() {
+  local d="$1"; shift
+  printf '%s\n' "$@" > "$d/.new"
+  awk -v f="$d/.new" '{ print } /^## Unreleased$/ { while ((getline l < f) > 0) print l }' \
+    "$d/CHANGELOG.md" > "$d/.cl" && mv "$d/.cl" "$d/CHANGELOG.md" && rm -f "$d/.new"
+}
+# commitpr <repo> — one commit with whatever changed, explicit paths.
+commitpr() { ( cd "$1" && git add -- CHANGELOG.md bin/tool.sh && git commit -q -m pr ); }
+
+D="$(mkpr credited)"; echo 'echo more' >> "$D/bin/tool.sh"
+addentry "$D" '- new(bin): **credited entry.** detail — A project'; commitpr "$D"
+assert "credited single-line entry passes" 0 bash -c "cd '$D' && bash '$DISC' master"
+
+D="$(mkpr uncredited)"; echo 'echo more' >> "$D/bin/tool.sh"
+addentry "$D" '- new(bin): **headline only.** no credit at the end'; commitpr "$D"
+assert "entry with no credit segment fails" 1 bash -c "cd '$D' && bash '$DISC' master"
+
+D="$(mkpr wrapped)"; echo 'echo more' >> "$D/bin/tool.sh"
+addentry "$D" '- new(bin): **wrapped entry.** the headline runs on and the detail' \
+              '  continues here, and the credit sits on the last line — A project'; commitpr "$D"
+assert "wrapped entry credited on its last line passes" 0 bash -c "cd '$D' && bash '$DISC' master"
+
+D="$(mkpr emptycredit)"; echo 'echo more' >> "$D/bin/tool.sh"
+addentry "$D" '- new(bin): **dash but nobody after it.** detail —'; commitpr "$D"
+assert "trailing dash with empty credit fails" 1 bash -c "cd '$D' && bash '$DISC' master"
+
+D="$(mkpr nolog)"; echo 'echo more' >> "$D/bin/tool.sh"; commitpr "$D"
+assert "bin/ change without a CHANGELOG line fails (rule 1)" 1 bash -c "cd '$D' && bash '$DISC' master"
+
+D="$(mkpr midedit)"
+awk '{ sub(/detail — Someone/, "detail, reworded — Someone"); print }' "$D/CHANGELOG.md" > "$D/.cl" \
+  && mv "$D/.cl" "$D/CHANGELOG.md"; commitpr "$D"
+assert "editing an existing entry is not blamed" 0 bash -c "cd '$D' && bash '$DISC' master"
+
+echo
+
+# ---------------------------------------------------------------------------
 echo "doctor.sh — the environment probe must run on a machine with nothing installed"
 # ---------------------------------------------------------------------------
 # doctor.sh exists to tell a user what they are missing. It is the one script that must survive

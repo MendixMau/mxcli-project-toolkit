@@ -16,6 +16,16 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+- new(docs): three planning docs land — `docs/toolkit-roadmap.md` (the numbered backlog table,
+  its ordering rationale, and a field run recording what shipping the gate-check mode parser
+  (1.2a) actually taught, including a real false-WAIVED hazard from unanchored substring
+  matching); `docs/existing-app-mode-design.md` (the existing-app entry-mode design note);
+  `docs/architecture-views-design-note.md` (a proposal plus one working prototype for
+  architecture-stage report views — explicitly not yet merged into `bin/app-report.sh`).
+  Caveat: the roadmap table originally credited PR #92 as shipped/half-fixing item 1.9; #92 is
+  not yet merged to master as of this split, so the two status cells and the field-run narrative
+  were reworded here to say so explicitly rather than document a fix the repo does not have yet
+  — MendixMau
 - new(bin/exec-approval.sh, bin/install-harness-permissions.sh): `auto` is now the unconditional
   exec-approval default everywhere, not just Claude — **already-wired projects that never set the
   knob silently move from "ask before each exec" to "run it" on their next toolkit pull.** One

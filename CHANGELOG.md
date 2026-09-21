@@ -16,6 +16,43 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+- new(bin/lib/entry-mode.sh): **one shared entry-mode tokeniser replaces three divergent
+  parsers.** `bin/gate-check.sh` and `bin/lib/artifact-check.sh` each carried an unanchored-glob
+  `case` where first-arm-wins meant "migration (not greenfield)" parsed as greenfield and
+  `stage_waiver()` excused stages on the wrong label; `bin/status.sh` had its own third, anchored
+  regex that read the value correctly, so the screen and the gate silently disagreed. The shared
+  tokeniser matches the runbook's own multi-word phrases first ("Change an existing app"), then
+  the first word of the value, and reports an unrecognised mode loudly on stderr instead of
+  resolving to greenfield by accident. Also fixes the gate's own `intake.md` fallback, which
+  passes the whole matched answer line ("answered: migration") rather than the bare register
+  value — a fix aimed only at the register shape would have silently regressed every young
+  project with no register line yet. Verified against a real requirements-driven Mendix build's
+  messy register value with zero side effects. — MendixMau
+- fix(bin/gate-check.sh): **migrated to the shared `bin/lib/entry-mode.sh` tokeniser** (see the
+  entry-mode.sh line above) and stopped `check_stage_3` counting zero-byte artifacts as present
+  (`resolve_artifact()` tested `[ -e ]`, so four empty files could discharge a Stage 3 sign-off),
+  stopped missing a real wireframe nested one folder deeper than a `-maxdepth 1` search looked,
+  and stopped reporting only the first missing artifact instead of the full present/missing set
+  in one line. — MendixMau
+- fix(bin/lib/artifact-check.sh): **migrated to the shared `bin/lib/entry-mode.sh` tokeniser**,
+  dropping its own unanchored-glob entry-mode parser that shared `bin/gate-check.sh`'s
+  first-arm-wins misread. — MendixMau
+- fix(bin/status.sh): **migrated to the shared `bin/lib/entry-mode.sh` tokeniser**, retiring a
+  third, independently-written anchored regex. It happened to read the value correctly, which is
+  exactly why the `gate-check.sh` misread survived as long as it did — the dashboard showed the
+  right mode while the gate acted on the wrong one, and nobody had reason to look twice.
+  — MendixMau
+- fix(project-bin/snapshot-mpr.sh): **a v1 single-file model no longer dies silently.** `find` on
+  a nonexistent `mprcontents/` exited 1, `pipefail` propagated, and `set -e` killed the script
+  before the v1-aware refusal further down — written for exactly this case — could ever run,
+  leaving a half-snapshot on disk that `exec.sh` would treat as a safety net. A v1 model now
+  snapshots and says so ("v1 single-file"); an empty `mprcontents/` is still refused loudly, as a
+  fault rather than a format. — MendixMau
+- fix(project-bin/restore-mpr.sh): **gained the v1 mirror of the fix above, with an assertion.**
+  Restoring into a model with no `mprcontents/` on either side now copies the `.mpr` and checks
+  the copy landed non-empty before reporting success, instead of trusting `cp`'s exit code alone
+  — a truncated or failed copy now fails loudly with the existing `git checkout` recovery line
+  rather than reporting a restore that did not happen. — MendixMau
 - learn(skills/learned-constants-and-secrets.md): the Mendix PAT gets a resolution ladder, starting one rung lower than sessions start it — **rung 0 is `env | grep -i '^PAT='`, and no session may report a token unavailable without having run it**. Field failure: a session mid-push to Team Server grepped `.docker/.env`, `.docker/.env.example` and `stack.env`, found nothing, and told the user the token was gone and would have to be re-provided; it had been in the session environment the whole time. Absence from the files you happened to grep is not absence. Only when rung 0 is empty does the session ask, in one batch: export it, `mxcli auth login --token` it, or point at the file that holds it — and pointing is half a step, so rung 3 ends by wiring the path into the project's gitignored env file and naming it (the path, never the value) in the constants register, or the next session asks again. Plus the git half, which cost an hour of suspecting a healthy token: Team Server takes the **literal string `pat` as the username** and the token as the password, so an askpass that echoes `$PAT` for every prompt sends it as the username and fails with `Invalid username or password`. Never in argv, never in the remote URL, never in a credential helper — and never printed to "check it". `project-bin/ts-sync.sh`'s header stops naming the credential without saying where it comes from and points here — a Mendix build project
 - learn(skills/learned-constants-and-secrets.md) + new(project-bin/constants-audit.sh): where an environment-varying value gets its value, decided before it is written, plus the instrument that checks it. Field-found on a Mendix **free node**: `Encryption.EncryptionKey` shipped by its marketplace module as `default ''`, which locally came from the gitignored `app/.mxcli/constants.json` and in the deployed sandbox came from nowhere. MxGenAIConnector encrypts a GenAI key's access token while storing it, so the empty constant blocked Import key, Create key AND the startup registration at once — with an error naming *Encryption* while the symptom was a coaching agent stuck loading, and half a day went into "the Cloud GenAI resource pack must be missing". A free environment has no Constants tab at all and the Deploy API offers no way in with a PAT (v4 404s on `.../settings/constants` and `.../constants`, v1 rejects a PAT outright, both verified against a live node), so on a free node the model default is the only channel there is. The skill sets the five channels and their reach, the three defaults that tell the truth (`__SET_ME__` over `''` for a required secret — an empty string is a legal value that fails several layers away in someone else's message), and the register that records the decision; the audit reports CLIENT-SECRET / EMPTY / MODEL-SECRET / WAIVED per constant and **never prints a value**. Field run: a Mendix build project, 11.14.0, 30 constants — three findings, all three true readings, cleared to 0 by three register lines. Its secret test is a name heuristic and says so: `FeedbackModule.LocalStorageKey` is a browser bucket name, not a secret — a Mendix build project
 - process(contrib): three e2e false-green mechanisms queued in `contrib/inbox/` — (1) a row-scoping test that only counts passes over a deleted XPath conjunct when the fixture has one organisation and one team, so the test must move a row out of scope and assert exactly that row disappears; (2) a table with rows and no READER is dead data, and a zero-inbound-refs sweep structurally cannot find it because every reference is a write — reference data seeded by eight microflows and shown to nobody survived because a derived integer on the same records was used everywhere; (3) an idempotency guard that returns early on any existing SIBLING row can never backfill an attribute a later build step adds, so the page has rendered a title, a dangling separator and an empty body in every demo since. All three measured against a live runtime, all three reported as `gap` lines so the suite stays green and the defect is read out on every run. Proposed target `skills/testing-shape.md` — a sales-qualification greenfield build

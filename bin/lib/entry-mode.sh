@@ -25,11 +25,23 @@
 # Canonical set: greenfield | requirements-driven | migration | existing-app-change
 entry_mode_token() {
   local raw="${1-}" v full
-  v="$(printf '%s' "$raw" | tr '[:upper:]' '[:lower:]')"
+  v="$(printf '%s' "$raw" | tr -d '\r' | tr '[:upper:]' '[:lower:]')"
+  # gate-check.sh's intake fallback passes the WHOLE answer line, not just the value —
+  # "answered: migration", "decision: requirements-driven", "assumed (2026-09-01):
+  # greenfield" — because that same line is re-parsed downstream for its qualifier.
+  # Strip the question-answer prefix (and the qualifier's OWN parenthetical, e.g. the
+  # date in "assumed (...)") here, before the trailing-parenthetical stripping below —
+  # doing it after would let that stripping treat "(2026-09-01)" as if it opened at the
+  # start of the value and eat everything from "assumed (" onward, value included. The
+  # register's bare value ("migration") has no such prefix and passes through untouched.
+  v="$(printf '%s' "$v" | sed -E 's/^[ \t>*_-]*(answered|answer|a|decision|assumed)[ \t]*(\([^)]*\))?[ \t]*:[ \t]*//')"
   v="${v%%(*}"          # drop a trailing parenthetical: "migration (not greenfield)"
   v="${v%%,*}"          # drop anything after the first comma
   v="${v%%;*}"          # ...or semicolon
-  v="$(printf '%s' "$v" | tr -d '\r' | sed 's/^[ \t>*_-]*//; s/[ \t.]*$//')"
+  # Trim leading/trailing noise, INCLUDING markdown emphasis markers on both ends
+  # ("**migration**", "_greenfield_") — the old trailing trim only stripped spaces,
+  # tabs and a period, so a bolded or italicised value never matched anything.
+  v="$(printf '%s' "$v" | sed 's/^[ \t>*_-]*//; s/[ \t.*_-]*$//')"
   full="$v"
   # Documented multi-word phrases resolve on the WHOLE value, before the first-word
   # truncation below: the runbook's own label for the fourth mode is "Change an existing
@@ -41,7 +53,9 @@ entry_mode_token() {
       echo "existing-app-change"; return ;;
   esac
 
-  v="${v%%[ 	]*}"      # first word only (space or tab)
+  # First word only — space, tab, or "/" as a separator ("migration/brownfield" reads
+  # as migration, its own leading declaration, not as an unrecognised compound value).
+  v="${v%%[ 	/]*}"
 
   case "$v" in
     greenfield)                                   echo "greenfield" ;;

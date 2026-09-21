@@ -118,5 +118,50 @@ else
   bad "V4 bin/lib/entry-mode.sh absent — both parsers still carry their own unanchored globs"
 fi
 
+# ── V5. gate-check.sh's OWN intake fallback, end to end ──────────────────────
+# V4 calls entry_mode_token() directly with bare values ("migration (not greenfield)"),
+# which is what the REGISTER holds. But gate-check.sh's intake.md fallback (no register
+# line yet — the common case for a young project) passes the whole matched answer line,
+# prefix and all: "answered: migration". A tokeniser fix aimed only at the register shape
+# regresses this path silently — entry_mode_token("answered: migration") took "answered:"
+# as its first word, matched nothing, and returned "" with a "not recognised" warning,
+# so a real young project's entry mode silently vanished and every mode-scoped waiver in
+# stage_waiver() went dark. Exercised through gate-check.sh itself, not the library
+# function, because that is the only way to catch a fix that special-cased the wrong caller.
+mkproj5() {
+  local d="$WORK/$1"; mkdir -p "$d/analysis/Live/knowledge-base"
+  printf 'Toolkit commit: none\n' > "$d/PROJECT.md"   # deliberately NO "Entry mode:" line
+  printf '\n## 1. Entry mode\n\nAnswered: migration\n' > "$d/intake.md"
+  echo "$d"
+}
+P="$(mkproj5 v5)"
+V5ERR="$( { "$GC" "$P" 1 >/dev/null; } 2>&1 )"
+if printf '%s' "$V5ERR" | grep -q 'not recognised'; then
+  bad "V5 gate-check.sh's own intake fallback loses 'answered: migration': $V5ERR"
+else
+  ok "V5 intake-prefixed 'answered: migration' resolves without a 'not recognised' warning"
+fi
+
+# Second, cheaper assertion for the same defect cluster (finding 6): the v1-arm restore
+# now asserts a non-empty copy instead of trusting `cp` silently. Regression guard —
+# restoring a genuine v1 single-file snapshot must still succeed.
+mk_restore_model() {
+  local d="$1"; mkdir -p "$d/bin"
+  cp "$TK/project-bin/_common.sh" "$d/bin/_common.sh"
+  cp "$TK/project-bin/snapshot-mpr.sh" "$d/bin/snapshot-mpr.sh"
+  cp "$TK/project-bin/restore-mpr.sh" "$d/bin/restore-mpr.sh"
+  chmod +x "$d/bin/snapshot-mpr.sh" "$d/bin/restore-mpr.sh"
+  printf 'v1 index\n' > "$d/Legacy.mpr"
+}
+R="$WORK/restorev1"; mk_restore_model "$R"
+( cd "$R" && ./bin/snapshot-mpr.sh >/dev/null 2>&1 )
+printf 'CHANGED\n' >> "$R/Legacy.mpr"
+OUT="$( cd "$R" && ./bin/restore-mpr.sh 2>&1 )"; RC=$?
+if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'v1 single-file' && [ -s "$R/Legacy.mpr" ]; then
+  ok "V5 restore-mpr.sh restores a v1 single-file snapshot without error"
+else
+  bad "V5 restore-mpr.sh v1 restore failed (rc=$RC): $OUT"
+fi
+
 printf '\n%s: %d passed, %d failed\n' "$(basename "$0")" "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -169,18 +169,35 @@ assert "clean repo passes"                   0 bash -c "cd '$WORK/clean' && '$LE
 # LEAKGUARD_BASE step 7 — warn-only new-capitalised-words report, added 2026-09-16.
 # "Can we just scan customer names from each PR and remove them?" — the guard can only
 # block on a name it was told (the denylist above); this report is the reviewer prompt,
-# never a gate, so all three cases below must exit 0 regardless of what they find.
+# never a gate. The one thing that actually matters is that it never fails CI even with
+# survivors printed — asserted on its own below, not folded into another case, so a
+# future edit that turns it into a gate by accident cannot hide behind an unrelated
+# assertion failing.
+#
+# The base commit seeds BOTH shapes the regex matches — a lone capitalised word and a
+# PascalCase word — entirely within this fixture's own scratch tree, so the "already
+# existed, don't flag it" assertion never depends on some unrelated file elsewhere in
+# the repo still containing a particular word. The second commit then introduces one NEW
+# word of each shape, proving the single-word case (the real miss a lone name like
+# "Smith" used to slip through) is now caught, not just PascalCase.
 NW="$(mkrepo newwords)"
-( cd "$NW" && printf 'base content WidgetCo here\n' > a.md && git add a.md && git commit -q -m base )
+( cd "$NW" && printf 'base mentions Basil and LegacySystem here\n' > a.md && git add a.md && git commit -q -m base )
 NWBASE="$(cd "$NW" && git rev-parse HEAD)"
-( cd "$NW" && printf 'second commit adds NovaMetrics\n' >> a.md && git add a.md && git commit -q -m second )
+( cd "$NW" && printf 'second commit adds Rowan and GlacierTech\n' >> a.md && git add a.md && git commit -q -m second )
 
 OUT="$(cd "$NW" && LEAKGUARD_ALLOW_NO_DENYLIST=1 LEAKGUARD_BASE="$NWBASE" "$LEAK" 2>&1)"; RC=$?
-if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "NovaMetrics" && ! printf '%s' "$OUT" | grep -q "WidgetCo"; then
-  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "new-words report flags only the new word" "$RC"
+if printf '%s' "$OUT" | grep -q "Rowan" && printf '%s' "$OUT" | grep -q "GlacierTech" \
+  && ! printf '%s' "$OUT" | grep -q "Basil" && ! printf '%s' "$OUT" | grep -q "LegacySystem"; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "new-words report flags a new single word AND a new PascalCase word, not the base-tree ones" "$RC"
 else
-  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "new-words report flags only the new word" "$RC"
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "new-words report flags a new single word AND a new PascalCase word, not the base-tree ones" "$RC"
   printf '%s\n' "$OUT" | sed 's/^/          /'
+fi
+
+if [ "$RC" -eq 0 ]; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "new-words report is warn-only: exit 0 with survivors present" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "new-words report is warn-only: exit 0 with survivors present" "$RC"
 fi
 
 OUT="$(cd "$NW" && LEAKGUARD_ALLOW_NO_DENYLIST=1 LEAKGUARD_BASE=nope "$LEAK" 2>&1)"; RC=$?

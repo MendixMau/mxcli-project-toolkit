@@ -153,9 +153,20 @@ hits=$(scan grep -IinE "(api[_-]?key|secret|password|passwd|token)\s*[:=]\s*['\"
 #    — a human eyeballing the flagged list for client/app names is the point.
 #    The blocking name check stays the denylist in section 1 above; this only
 #    narrows what a reviewer has to look at. Never sets $fail.
+#    Three alternatives, in longest-match order (grep -o takes the leftmost-longest
+#    per position, so "WidgetCo" still reports as one word, not two): PascalCase,
+#    ALLCAPS-with-lowercase-tail, and — added after a real miss where a single-word
+#    client name ("Smith", "Acme") slipped through both — a lone capitalised word of
+#    4+ letters on its own. That third alternative alone would flag every capitalised
+#    sentence-starter in English prose ("This", "Note", "When"); the survivor filter a
+#    few lines down (already-exists-somewhere-in-the-base-tree) is what keeps it usable
+#    — this toolkit's own docs are prose-heavy enough that ordinary words have almost
+#    always appeared somewhere already, so what survives is preponderantly genuine new
+#    names, at the cost of an occasional ordinary word used for the first time ever.
 if [ -n "${LEAKGUARD_BASE:-}" ]; then
-  newwords_probe() { grep -oE '\b[A-Z][a-z]+[A-Z][A-Za-z0-9]+\b|\b[A-Z]{2,}[a-z]+[A-Za-z]*\b'; }
+  newwords_probe() { grep -oE '\b[A-Z][a-z]+[A-Z][A-Za-z0-9]+\b|\b[A-Z]{2,}[a-z]+[A-Za-z]*\b|\b[A-Z][a-z]{3,}\b'; }
   printf 'AcmeCorp\n' | newwords_probe | grep -q . || selftest_failed "new-names"
+  printf 'Smith\n' | newwords_probe | grep -q . || selftest_failed "new-names (single word)"
 
   DIFF=$(git diff "${LEAKGUARD_BASE}"...HEAD -- "$@" 2>/dev/null)
   if [ $? -ne 0 ]; then
@@ -178,6 +189,10 @@ if [ -n "${LEAKGUARD_BASE:-}" ]; then
       SURVIVORS=""
       for w in $CANDS; do
         git grep -qlF -- "$w" "${LEAKGUARD_BASE}" >/dev/null 2>&1 && continue
+        # A renamed widely-used identifier (a whole module or entity name changed in
+        # place) can print dozens of very long occurrences; cap each survivor's own
+        # printed length so one such rename can't turn the report into a wall of text.
+        [ "${#w}" -gt 40 ] && w="$(printf '%s' "$w" | cut -c1-40)…"
         SURVIVORS="$SURVIVORS $w"
       done
       if [ -n "$SURVIVORS" ]; then

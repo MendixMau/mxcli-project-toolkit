@@ -359,7 +359,7 @@ REG_COUNT=0
 REG_FIRST=""
 REG_DIFFER=0
 # PROJECT-*.md siblings are candidates too (bug65). A project running two tracks against one
-# directory keeps a second register next to the first — PROJECT.md + PROJECT-DAFNE.md. Without
+# directory keeps a second register next to the first — PROJECT.md + PROJECT-<TRACK>.md. Without
 # this term the sibling was never a CANDIDATE, so REG_COUNT stayed 1, REG_DIFFER stayed 0, the
 # ambiguity path below never fired, and the run graded the primary track in silence. That is
 # the failure this whole block exists to prevent, arriving through the one door left open.
@@ -475,11 +475,17 @@ reg_field() {
     /<!--/ { incomment = 1 }
     incomment { if ($0 ~ /-->/) incomment = 0; next }
     { line = $0
-      gsub(/^[ \t>*_-]+/, "", line); gsub(/\*/, "", line)
+      gsub(/^[ \t>*_-]+/, "", line)
       i = index(line, ":"); if (i == 0) next
       key = tolower(substr(line, 1, i - 1)); gsub(/^[ \t]+|[ \t]+$/, "", key)
+      # Bold markers only, never every asterisk: a label can end in a glob
+      # ("Waived source dir/*"), and the old blanket gsub turned that key into
+      # "waived source dir/" so the line never matched itself. Same rule as the
+      # source-ledger.sh parser — bold hugs a path character, a glob does not.
+      if (key ~ /^\*\*[^*\/ \t]/) key = substr(key, 3)
+      if (key ~ /[^*\/ \t]\*\*$/) key = substr(key, 1, length(key) - 2)
       if (key != want) next
-      v = substr(line, i + 1); gsub(/^[ \t]+|[ \t]+$/, "", v)
+      v = substr(line, i + 1); gsub(/\*/, "", v); gsub(/^[ \t]+|[ \t]+$/, "", v)
       if (v != "") { print v; exit }
     }' "$REGISTER"
 }
@@ -589,6 +595,7 @@ if [ -z "$ENTRY_RAW" ]; then
   fi
 fi
 case "$(printf '%s' "$ENTRY_RAW" | tr '[:upper:]' '[:lower:]')" in
+  *existing*)      ENTRY_MODE="existing-app-change" ;;
   *greenfield*)    ENTRY_MODE="greenfield" ;;
   *requirement*)   ENTRY_MODE="requirements-driven" ;;
   *migration*)     ENTRY_MODE="migration" ;;
@@ -630,6 +637,10 @@ stage_waiver() {
     requirements-driven)
       case "$st" in
         7) printf 'mode|requirements-driven entry mode — no legacy system to cut over from; if legacy data turns up, record a Stage-7 decision and this goes back to being checked (conversion-runbook.md → Entry Modes)\n'; return 0 ;;
+      esac ;;
+    existing-app-change)
+      case "$st" in
+        7) printf 'mode|existing-app entry mode — the app is live and stays live; there is no cutover (existing-app-change.md → Deliverables)\n'; return 0 ;;
       esac ;;
   esac
   return 1
@@ -1496,9 +1507,9 @@ stage_protocol_paths() {
     1)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-extraction.md skills/image-transcription.md skills/small-project-tier.md skills/migration-pipeline.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md skills/corpus-extraction-integrity.md" ;;
     2)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-brd.md skills/checkpoints/checkpoint-architecture.md skills/image-transcription.md skills/small-project-tier.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
     3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/small-project-tier.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md skills/workflow-structure-rules.md skills/learned-mdl-cannot-express.md" ;;
-    4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/small-project-tier.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md" ;;
-    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/design-spacing.md skills/ui-loop.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md skills/walking-skeleton.md skills/platform-link.md skills/teamserver-alignment.md" ;;
-    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md skills/platform-link.md skills/teamserver-alignment.md" ;;
+    4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/small-project-tier.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/learned-constants-and-secrets.md" ;;
+    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/design-spacing.md skills/ui-loop.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md skills/walking-skeleton.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
+    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
     7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md skills/handoff-to-studio-pro.md skills/platform-link.md skills/teamserver-alignment.md" ;;
     *)  echo "" ;;
 # <!-- ROUTING:END -->
@@ -1758,10 +1769,15 @@ register_set_line() { # register_set_line <Label> <value> — replace the line, 
        /<!--/ { incomment = 1 }
        incomment { print; if ($0 ~ /-->/) incomment = 0; next }
        !done {
-         line = $0; gsub(/^[ \t>*_-]+/, "", line); gsub(/\*/, "", line)
+         line = $0; gsub(/^[ \t>*_-]+/, "", line)
          i = index(line, ":")
          if (i > 0) {
            k = tolower(substr(line, 1, i - 1)); gsub(/^[ \t]+|[ \t]+$/, "", k)
+           # Bold markers only — see reg_field(). The blanket asterisk strip here made
+           # --waive source/dir/* append a second line (and a second "## Toolkit
+           # position" heading) every time it ran, instead of replacing the first.
+           if (k ~ /^\*\*[^*\/ \t]/) k = substr(k, 3)
+           if (k ~ /[^*\/ \t]\*\*$/) k = substr(k, 1, length(k) - 2)
            if (k == key) { print lab ": " val; done = 1; next }
          }
        }
@@ -1804,7 +1820,8 @@ if [ -n "$ADOPT_STAGE" ] || [ -n "$WAIVE_STAGE" ]; then
         echo "Recorded in $REGISTER:  Waived source $SRC_REL: $WAIVER_REASON"
         echo "That file now reports WAIVED in the source ledger (bin/source-ledger.sh) instead of"
         echo "PENDING. It does NOT report EXTRACTED — a waived file is one nobody read, and the"
-        echo "register says who decided that. Match is by relative path or basename, case-insensitive."
+        echo "register says who decided that. Match is by relative path or basename, case-insensitive,"
+        echo "and a glob is accepted — '*' matches across '/', so dir/* and dir/** cover the same files."
         exit 0 ;;
     esac
     OB_TSV="$TOOLKIT_DIR/bin/lib/obligations.tsv"

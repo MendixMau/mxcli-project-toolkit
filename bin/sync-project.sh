@@ -115,10 +115,11 @@ UPGRADE_BIN=""
 UPGRADE_LINT=""
 REPAIR_INTAKE=0
 ADOPT_ROUTING=0
+PIN_MODELS=0
 PROJECT_DIR=""
 USAGE="Usage: $0 <project-root> [--diff-completed] [--dry-run] [--strict]
                           [--upgrade-bin <script.sh|all>] [--upgrade-lint-rules <rule.star|all>]
-                          [--repair-intake] [--adopt-routing]"
+                          [--repair-intake] [--adopt-routing] [--pin-models]"
 while [ $# -gt 0 ]; do
   case "$1" in
     --diff-completed) DIFF_COMPLETED=1; shift ;;
@@ -126,6 +127,7 @@ while [ $# -gt 0 ]; do
     --strict)         STRICT=1; shift ;;
     --repair-intake)  REPAIR_INTAKE=1; shift ;;
     --adopt-routing)  ADOPT_ROUTING=1; shift ;;
+    --pin-models)     PIN_MODELS=1; shift ;;
     --upgrade-bin)
       shift
       [ $# -gt 0 ] || { echo "--upgrade-bin needs a script name or 'all'" >&2; exit 1; }
@@ -160,6 +162,9 @@ while [ $# -gt 0 ]; do
       echo "                     '## Baseline routing' section in CLAUDE.local.md into the"
       echo "                     generated, marked block. The file is backed up first, and"
       echo "                     everything outside that one section is untouched."
+      echo "  --pin-models       for a COMPLETED agent whose model: line has drifted from the"
+      echo "                     template, rewrite only that line to match. Reported first,"
+      echo "                     acted on only with this flag."
       exit 0 ;;
     -*) echo "unknown option: $1" >&2; exit 1 ;;
     *)  PROJECT_DIR="$1"; shift ;;
@@ -227,6 +232,13 @@ if [ "$DIFF_COMPLETED" -eq 1 ]; then
 fi
 
 echo "=== Toolkit sync for $PROJECT_DIR ==="
+# Which toolkit release is this clone on? Releases are v-tags on master (CHANGELOG.md, top);
+# a bug report can then say "on v2026.09.22-3" instead of a sha nobody can place.
+if TK_REL="$(git -C "$SCRIPT_DIR/.." describe --tags --match 'v*' 2>/dev/null)"; then
+  echo "Toolkit release: $TK_REL"   # vYYYY.MM.DD exact; vYYYY.MM.DD-N-g<sha> = N commits past it
+else
+  echo "Toolkit release: none tagged yet (commit $(git -C "$SCRIPT_DIR/.." rev-parse --short HEAD 2>/dev/null || echo '?'))"
+fi
 # Prefix every would-be-action line under --dry-run. Without it the run printed "Created: …"
 # in the past tense for files it had not created — indistinguishable from a real sync in a log.
 DRY=""
@@ -514,6 +526,25 @@ if [ -d "$AGENT_DIR" ]; then
       fi
     else
       echo "Kept: .claude/agents/$a is completed — see what diverged with: $0 $PROJECT_DIR --diff-completed"
+      MODEL_DST="$(grep -m1 '^model:' "$dst" 2>/dev/null || true)"
+      MODEL_SRC="$(grep -m1 '^model:' "$src" 2>/dev/null || true)"
+      if [ -n "$MODEL_SRC" ] && [ -n "$MODEL_DST" ] && [ "$MODEL_DST" != "$MODEL_SRC" ]; then
+        if [ "$PIN_MODELS" -eq 1 ]; then
+          OLD_VAL="${MODEL_DST#model: }"
+          NEW_VAL="${MODEL_SRC#model: }"
+          PIN_TMP="$(mktemp "${TMPDIR:-/tmp}/pinmodel.XXXXXX")" || exit 2
+          awk -v newline="$MODEL_SRC" '
+            /^model:/ && !done { print newline; done=1; next }
+            { print }
+          ' "$dst" > "$PIN_TMP"
+          cat "$PIN_TMP" | w_to "$dst"
+          rm -f "$PIN_TMP"
+          echo "${DRY:-}Pinned: .claude/agents/$a model: $OLD_VAL → $NEW_VAL"
+          CHANGES=$((CHANGES + 1))
+        else
+          echo "  Model drift: .claude/agents/$a pins '$MODEL_DST', template pins '$MODEL_SRC' — re-pin with: $0 $PROJECT_DIR --pin-models"
+        fi
+      fi
     fi
   done
 else
@@ -1029,6 +1060,22 @@ if [ "$WIRED" -eq 1 ]; then
       echo "Rewrote: .aider.conf.yml item 3 — the old \"without asking the user first — every time\" wording is now the exec-approval knob (bin/exec-approval.sh)."
     fi
     CHANGES=$((CHANGES + 1))
+  fi
+fi
+
+# ── Claude Code permission allow-list: report only, never write ──────────────────────────
+# install-claude-permissions.sh merges the safe-wrapper allow-list into .claude/settings.json
+# at scaffold time (init-project.sh). A project scaffolded before that call existed, or one
+# whose settings.json was hand-edited since, can silently fall out of sync — and unlike the
+# exec-approval item-3 rewrite above, there is no safe way to REPAIR this from sync-project.sh
+# itself: writing to .claude/settings.json here would race a live Claude Code session reading
+# the same file. So this only runs --check and reports what's missing, same as the wire-agents
+# --check probe above; the fix is the one-line re-run this prints.
+if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-claude-permissions.sh" ]; then
+  if ! _PERM_OUT="$("$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" --check 2>&1)"; then
+    warn "$PROJECT_DIR/.claude/settings.json is missing permission entries for the toolkit's safe wrappers (bin/exec.sh and friends) — Claude Code will prompt on every one of those Bash calls, which defeats bin/exec-approval.sh --set auto. Re-run:" \
+         "$SCRIPT_DIR/install-claude-permissions.sh $PROJECT_DIR"
+    echo "$_PERM_OUT" | sed 's/^/   /'
   fi
 fi
 

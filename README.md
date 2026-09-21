@@ -434,6 +434,9 @@ mxcli-project-toolkit/
     sync-project.sh             ← after toolkit git pull: refresh the artifacts copied into a project
     split-claude-md.sh          ← move MDL/lint reference out of CLAUDE.md into load-on-demand files
     install-claude-hooks.sh     ← tiered context-cost hooks → ~/.claude (see "Context cost" above)
+    install-claude-permissions.sh ← allow-lists the safe wrappers (bin/exec.sh & friends, mx)
+                                   in <project>/.claude/settings.json so Manual mode stops
+                                   prompting on them; run at scaffold time, --check'd on sync
     install-hooks.sh            ← unrelated: the git pre-commit client-data guard for THIS repo
   claude-hooks/                 ← sources for the above: hooks/ (5) + bin/ (checkpoint, close-task)
   agents/                       ← the six agent stub templates (ba/architect/mdl/gate/test/review)
@@ -623,6 +626,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Task | Skill to load |
 |---|---|
 | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call | `skills/rest-integration-first-time-right.md` |
+| Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT — where an encryption key, API credential, endpoint or access token gets its value, why a free node has only one channel, and why a token missing from the files you grepped is not missing | `skills/learned-constants-and-secrets.md` |
 
 **Verify — does it work**
 
@@ -653,6 +657,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Any report from a test/review run is about to be published — no report ends without a disposition for every finding | `skills/finding-disposition.md` |
 | Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection | `skills/preview-over-hub-tunnel.md` |
 | Starting a hub-tunnelled preview with the flags outbound calls actually need — wraps mxcli run --hub with db-name and the runtime proxy settings from preview-over-hub-tunnel.md | `bin/run-hub.sh` |
+| Before any first deploy to a new environment, and after installing or updating any marketplace module — which constants would be blank where nobody can set them, and which now carry a secret in the model. Never prints a value | `project-bin/constants-audit.sh` |
 
 **Diagnose — something is broken and it may be the tooling**
 

@@ -45,7 +45,8 @@ topics at once.
 |---|---|---|
 | A script was executed against the `.mpr` | `docs/BUILD-LOG.md` | Append-only. One entry per exec: what it did · exec result · mxbuild result · manual SP work after |
 | A build-plan step is now done, blocked, or descoped | `architecture/build-plan.md` (+ the module's own plan) | Someone reading only the plan would otherwise redo it or skip it |
-| A decision that constrains future decisions | `PROJECT.md` | Without the *why*, a future session could reasonably decide the opposite |
+| A gate answer — stage, entry mode, `CONFIRMED`/`ASSUMED`, waiver, opt-in | `PROJECT.md` | `gate-check.sh` and `checkpoint.sh` read it |
+| A decision a session learned — a pattern chosen and why, a disposition, an open question outside a gate, a slice requirement | `mxcli brain capture … -a @Module.Element`, then `promote` | Without the *why*, a future session could reasonably decide the opposite. Anchors into the model; `brain check` fails when they stop resolving, which `PROJECT.md` rows never do |
 | A lesson that transfers to another Mendix project | the shared toolkit's `skills/` | Still true with a different client, different module, different .mpr |
 | A confirmed, reproducible tool defect | `bug-logs/mxcli-bugs.md` | You could hand the repro to the tool's author |
 | A P1/P2 finding from `module-review.md`, `process-coherence-pass.md`, `monkey-test.md`, or `wiring-sweep.md` | `docs/improvement-register.md` (`improvement-register.md`) | You need to know later whether this defect class recurred — a single pass's own report cannot answer that |
@@ -108,12 +109,15 @@ forgotten* — they are on disk, not in working memory.
 3. **Drain the `UNFILED:` lines** from the previous checkpoint — route or delete.
 4. **Checkpoint**: `checkpoint.sh --write`, fill the Narrative, including any new
    `UNFILED:` lines. This file is append-only history.
-5. **Overwrite `docs/progress/RESUME.md`** — see below. Then **commit**, then
+5. **`mxcli brain check -p <app.mpr>`** — `capture` and `promote` do not validate anchors;
+   only `check` does. Exit 1 means a promoted entry points at something the model no longer
+   has: fix the anchor or `brain drop` the entry before anything is committed.
+6. **Overwrite `docs/progress/RESUME.md`** — see below. Then **commit**, then
    `close-task.sh --done` to empty the pending-writes file.
-6. **`/clear`** — cheaper than `/compact` and leaves reviewable text. Safe only because
-   steps 1–5 happened.
+7. **`/clear`** — cheaper than `/compact` and leaves reviewable text. Safe only because
+   steps 1–6 happened.
 
-Step 5 before step 6 is not optional: `precompact-guard.sh` blocks compaction when the
+Step 6 before step 7 is not optional: `precompact-guard.sh` blocks compaction when the
 ledger is non-empty, which is the mechanism that makes this a process rather than a habit.
 
 ---

@@ -224,7 +224,7 @@ rather than wondering whether they missed a file.
      module's build-plan rows (brd-to-build-plan.md "Row schema"). Author at row level, collect
      here. 77 of 101 skills are ondemand — a project only ever meets the ones something names. -->
 - <e.g. "This module builds a native Workflow → read skills/learned-workflow-patterns.md and
-  skills/learned-mdl-preflight.md STOP #18/#19 before scripting.">
+  skills/learned-mdl-preflight.md STOP #18 before scripting.">
 - <e.g. "This module calls an AI agent (see architecture/blueprint.md Step 3c) — no toolkit skill
   exists yet for this pattern. Escalate to ba-agent/architect-agent before scripting; the first
   real build here should produce one.">

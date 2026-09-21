@@ -155,11 +155,16 @@ with it), so twin coverage plus wiring was the whole mechanical signal. No arm C
 
 ## Findings outside the skills
 
-1. **The generated project `CLAUDE.md` teaches two forms v0.22 rejects.** Its quick reference
-   shows `DECLARE $Entity Module.Entity;` for an object and `$Customer: Sales.Customer` (with the
-   sigil) in a parameter list. The first produced the check errors in nine drafts across all
-   arms. This is the bundled scaffold, not the toolkit — file upstream, and until then
-   `skills/bootstrap-project.md` should strip both examples when it merges.
+1. **The generated project `CLAUDE.md` teaches a form v0.22 rejects.** Its quick reference
+   shows `DECLARE $Entity Module.Entity;` for an object; v0.22 `check` rejects it with MDL043
+   (CE0053), and it produced the check errors in nine drafts across all arms. The `$Customer:
+   Sales.Customer` parameter form in the same table is *accepted* by `check` — an earlier
+   version of this finding said otherwise; that form is toolkit rule R2, not a validator rule.
+   This is the bundled scaffold, not the toolkit: a v0.22 `init --tool claude` no longer emits
+   the row, but `init` overwrites rather than refreshes and stamps no version, so older
+   scaffolds keep it. Drafted as `BUG-DRAFT-stale-init-claude-md-declare-object` in
+   `bug-logs/mxcli-bugs.md`; until upstream stamps a version, `sync-project.sh` should warn on
+   the row and `skills/bootstrap-project.md` should strip it when it merges.
 2. **`learned-mdl-preflight.md` has two rows numbered 24** (DesignProperties and `JUMP TO`).
    Renumber when the workflow rows move.
 3. **Bundled skills contradict STOP row 6.** `overlap.md` (91 bundled files tabled) finds

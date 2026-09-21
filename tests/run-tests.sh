@@ -123,6 +123,12 @@ assert "unknown mode leaves stage 7 pending"  3 "$GATE" "$(mkmode unknownmode 'S
 # cutover gate of a real migration. The arm matches the documented phrase, so this must stay 3.
 assert "migration naming 'existing' still pends" 3 "$GATE" "$(mkmode migexisting 'Migration from an existing Oracle Forms system')" 7
 
+# The first draft of the roadmap-1.9 fix matched only the documented phrase and silently dropped
+# the mode's own short token — `existing-app`, what `existing-app-change.md` calls the mode and
+# what bin/status.sh's display-only line greps for. A project that recorded the token, not the
+# full sentence, must still see stage 7 waived.
+assert "existing-app short token also waives stage 7" 0 "$GATE" "$(mkmode existingtoken 'existing-app')" 7
+
 # bash evaluates array subscripts arithmetically, so a non-numeric stage used to
 # abort the script under set -u and was observed exiting 0.
 assert "typo'd stage argument is rejected"   2 "$GATE" "$(mkproject typo 'CONFIRMED')" Stage3

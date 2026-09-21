@@ -35,6 +35,73 @@ fi
 
 cd "$PROJECT_ROOT"
 
+# ── Build log (auto) ─────────────────────────────────────────────────────────
+# One line per exec, written by the script rather than by hand, so it stays true
+# when someone forgets. Added after cross-workstream collisions where a session
+# left the model non-building and it was only found by running something else.
+BUILD_LOG="$PROJECT_ROOT/docs/BUILD-LOG.md"
+
+# Declared HERE, above log_build, not next to the gate: a row must be able to
+# carry a gate verdict even when the gate block below is never reached.
+GATE_STATE="not-run"   # not-run | skipped | unverified | pass | fail
+
+# ── Exec approval (auto records itself) ──────────────────────────────────────
+# bin/exec-approval.sh decides ask vs auto; the ASKING happens before exec.sh ever runs (in
+# chat), so this script does not ask either way. What it must do is tell the truth about which
+# mode ran, because under `auto` this BUILD-LOG row IS the safety net that used to be a
+# question — see interview-protocol.md's "Exec approval is a separate knob". Resolved the same
+# way exec.sh already resolves the toolkit for doctor.sh: $MXTK_ROOT, else the "Toolkit root"
+# row this project's CLAUDE.local.md was wired with. bin/exec-approval.sh is not copied
+# per-project (same as bin/interview-mode.sh), so it has to be found in the toolkit, not here.
+# Never fatal: if it cannot be found, or errors, the row is written exactly as it always was.
+_EXEC_APPROVAL_SUFFIX=""
+for _ea in "${MXTK_ROOT:-}/bin/exec-approval.sh" \
+           "$(sed -nE 's/^\| *Toolkit root *\| *`([^`]+)`.*/\1/p' "$PROJECT_ROOT/CLAUDE.local.md" 2>/dev/null | head -1)/bin/exec-approval.sh"; do
+  [ -x "$_ea" ] || continue
+  _ea_out="$("$_ea" "$PROJECT_ROOT" --explain 2>/dev/null)" || continue
+  _ea_mode="$(printf '%s\n' "$_ea_out" | sed -n 's/^mode: //p')"
+  _ea_from="$(printf '%s\n' "$_ea_out" | sed -n 's/^from: //p')"
+  [ "$_ea_mode" = "auto" ] && _EXEC_APPROVAL_SUFFIX=" · approval: auto ($_ea_from)"
+  break
+done
+
+log_build() {   # $1=status  $2=detail
+  mkdir -p "$(dirname "$BUILD_LOG")"
+  [ -f "$BUILD_LOG" ] || cat > "$BUILD_LOG" <<'HDR'
+# Build log — auto-appended by bin/exec.sh
+
+One line per exec against the model. Written by the script, not by hand, so it is
+true even when someone forgets. Read this before assuming the model builds.
+
+`gate` is the mxbuild verdict, and it is never blank:
+`pass` verified clean · `fail` verified broken · `skipped` mxbuild/java missing ·
+`unverified` errors file unparseable · `not-run` the gate was never reached.
+Only `pass` means anything looked at the model. A zero exit does not.
+
+| when (ISO-8601 local) | script | gate | result | detail |
+|---|---|---|---|---|
+HDR
+  # One-time migration: logs written before the gate column existed keep their
+  # 4-column header, and 5-column rows would render ragged under it. Start a
+  # fresh table rather than rewrite history.
+  if ! grep -q '| when (ISO-8601 local) |' "$BUILD_LOG"; then
+    cat >> "$BUILD_LOG" <<'HDR2'
+
+<!-- gate column added; rows above this line predate it -->
+
+| when (ISO-8601 local) | script | gate | result | detail |
+|---|---|---|---|---|
+HDR2
+  fi
+  # The gate cell is read from GATE_STATE rather than passed in, so no caller
+  # can omit it — a blank cell in this table reads as "fine", which is the exact
+  # false-green the gate exists to prevent.
+  _detail="$2$_EXEC_APPROVAL_SUFFIX"
+  printf '| %s | `%s` | %s | %s | %s |\n' \
+    "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$(basename "$SCRIPT")" \
+    "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
+}
+
 # ── Concurrent-writer guard ──────────────────────────────────────────────────
 # The .mpr must have exactly ONE writer. Two mxcli/SP writers on the same file
 # silently clobber each other and have caused near-total module loss.
@@ -91,7 +158,13 @@ if [ -n "$MPR_DIRTY" ]; then
   echo ""
   echo "  → git add $MPR $MODEL_DIR/mprcontents && git commit -m 'Commit model changes before exec'"
   echo "  Override (accepts silent-loss risk): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
-  [ "$FORCE" = "1" ] || exit 1
+  if [ "$FORCE" != "1" ]; then
+    # A refusal here is otherwise invisible in docs/BUILD-LOG.md — nothing runs
+    # after this exit, so the row has to be written before it, same shape as
+    # every other blocked-exec row this script writes.
+    log_build "🚫 blocked" "uncommitted model changes — refusing exec to prevent snapshot regression"
+    exit 1
+  fi
   echo "  (FORCE_EXEC set — proceeding despite uncommitted changes)"
 fi
 
@@ -207,72 +280,6 @@ if [ -f "$LAST_ERRS" ]; then
   mv -f "$LAST_ERRS" "$LAST_ERRS.prev" 2>/dev/null || rm -f "$LAST_ERRS"
 fi
 
-# ── Build log (auto) ─────────────────────────────────────────────────────────
-# One line per exec, written by the script rather than by hand, so it stays true
-# when someone forgets. Added after cross-workstream collisions where a session
-# left the model non-building and it was only found by running something else.
-BUILD_LOG="$PROJECT_ROOT/docs/BUILD-LOG.md"
-
-# Declared HERE, above log_build, not next to the gate: a row must be able to
-# carry a gate verdict even when the gate block below is never reached.
-GATE_STATE="not-run"   # not-run | skipped | unverified | pass | fail
-
-# ── Exec approval (auto records itself) ──────────────────────────────────────
-# bin/exec-approval.sh decides ask vs auto; the ASKING happens before exec.sh ever runs (in
-# chat), so this script does not ask either way. What it must do is tell the truth about which
-# mode ran, because under `auto` this BUILD-LOG row IS the safety net that used to be a
-# question — see interview-protocol.md's "Exec approval is a separate knob". Resolved the same
-# way exec.sh already resolves the toolkit for doctor.sh: $MXTK_ROOT, else the "Toolkit root"
-# row this project's CLAUDE.local.md was wired with. bin/exec-approval.sh is not copied
-# per-project (same as bin/interview-mode.sh), so it has to be found in the toolkit, not here.
-# Never fatal: if it cannot be found, or errors, the row is written exactly as it always was.
-_EXEC_APPROVAL_SUFFIX=""
-for _ea in "${MXTK_ROOT:-}/bin/exec-approval.sh" \
-           "$(sed -nE 's/^\| *Toolkit root *\| *`([^`]+)`.*/\1/p' "$PROJECT_ROOT/CLAUDE.local.md" 2>/dev/null | head -1)/bin/exec-approval.sh"; do
-  [ -x "$_ea" ] || continue
-  _ea_out="$("$_ea" "$PROJECT_ROOT" --explain 2>/dev/null)" || continue
-  _ea_mode="$(printf '%s\n' "$_ea_out" | sed -n 's/^mode: //p')"
-  _ea_from="$(printf '%s\n' "$_ea_out" | sed -n 's/^from: //p')"
-  [ "$_ea_mode" = "auto" ] && _EXEC_APPROVAL_SUFFIX=" · approval: auto ($_ea_from)"
-  break
-done
-
-log_build() {   # $1=status  $2=detail
-  mkdir -p "$(dirname "$BUILD_LOG")"
-  [ -f "$BUILD_LOG" ] || cat > "$BUILD_LOG" <<'HDR'
-# Build log — auto-appended by bin/exec.sh
-
-One line per exec against the model. Written by the script, not by hand, so it is
-true even when someone forgets. Read this before assuming the model builds.
-
-`gate` is the mxbuild verdict, and it is never blank:
-`pass` verified clean · `fail` verified broken · `skipped` mxbuild/java missing ·
-`unverified` errors file unparseable · `not-run` the gate was never reached.
-Only `pass` means anything looked at the model. A zero exit does not.
-
-| when (ISO-8601 local) | script | gate | result | detail |
-|---|---|---|---|---|
-HDR
-  # One-time migration: logs written before the gate column existed keep their
-  # 4-column header, and 5-column rows would render ragged under it. Start a
-  # fresh table rather than rewrite history.
-  if ! grep -q '| when (ISO-8601 local) |' "$BUILD_LOG"; then
-    cat >> "$BUILD_LOG" <<'HDR2'
-
-<!-- gate column added; rows above this line predate it -->
-
-| when (ISO-8601 local) | script | gate | result | detail |
-|---|---|---|---|---|
-HDR2
-  fi
-  # The gate cell is read from GATE_STATE rather than passed in, so no caller
-  # can omit it — a blank cell in this table reads as "fine", which is the exact
-  # false-green the gate exists to prevent.
-  _detail="$2$_EXEC_APPROVAL_SUFFIX"
-  printf '| %s | `%s` | %s | %s | %s |\n' \
-    "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$(basename "$SCRIPT")" \
-    "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
-}
 
 # ── Pre-exec syntax gate ─────────────────────────────────────────────────────
 # `mxcli check --references` is the ONLY gate that can reject a bad script

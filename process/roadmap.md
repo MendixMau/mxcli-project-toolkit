@@ -29,14 +29,15 @@ the first reason).
 
 ## RM-01 — Kiro supported as a seat, then as an enforcement layer
 
-**Status:** PARKED — assets built, nothing merged to `master`.
+**Status:** PARKED — Phase A has not started (see Start when); the assets below exist on a
+branch pending merge, but this line does not track merge state — check the branch itself.
 
 **Assets (today):**
 
 | Asset | Path | State |
 |---|---|---|
 | Steering pointer generator | `bin/wire-agents.sh --with-kiro` → `.kiro/steering/mxtk-toolkit.md` | branch `claude/kiro-steering-pointer`, draft PR |
-| Fixture | `tests/wave2/test-wire-agents-kiro.sh` | 11/11 asserts, same branch |
+| Fixture | `tests/wave2/test-wire-agents-kiro.sh` | 12/12 asserts, same branch |
 | Non-Claude-agent row | `skills/interview-protocol.md` §3 | same branch |
 | Fit assessment (should we?) | `process/kiro-fit-2026-09-17.html` | merged to the branch |
 | Loop visualisation (how would it work?) | `process/kiro-in-the-loop-2026-09-17.html` | merged to the branch |
@@ -64,12 +65,15 @@ nothing downstream. That is the entire integration.
 1. One module driven end to end in Kiro against a real model, cited in the commit
    that flips the PR to ready — the repo's field-proof rule 4, which this branch has
    owed since 2026-09-16.
-2. The steering preamble's allowlist path corrected. It currently names
-   `.kiro/settings/`; the workspace capability rules live under a hashed directory in
-   the user's home, **outside the checkout**, so a clone cannot ship an allowlist at
-   all. Kiro therefore belongs with Cursor and Windsurf in
-   `install-harness-permissions.sh` (document, never write), not with Claude/Copilot/Aider.
-3. The fixture still 11/11, and `render-routing.sh --check` in sync.
+2. **Done, `bin/wire-agents.sh` 2026-09-21.** The steering preamble no longer names a path —
+   it previously and wrongly claimed `.kiro/settings/`. The workspace capability rules
+   actually live under a hashed directory in the user's home, **outside the checkout**, so a
+   clone cannot ship or point at that allowlist at all; the preamble now says exactly that and
+   tells the user to grant `./mxcli`/`./bin/*.sh` once themselves, in Kiro's own settings UI.
+   A future doc that walks a user through that grant for Cursor, Windsurf and Kiro alike would
+   belong alongside them, tentatively named `install-harness-permissions.sh` — nothing under
+   that name exists in this repo yet; this is a placeholder for future work, not a citation.
+3. The fixture still 12/12, and `render-routing.sh --check` in sync.
 
 ### Phase B — hooks as a mechanical enforcement layer
 

@@ -121,6 +121,24 @@ printf '%s' "$CHECK1" | grep -qi 'kiro' \
   && bad "--check on a non-kiro project mentions .kiro (false alarm)" \
   || ok "--check on a non-kiro project does not mention .kiro"
 
+# --- (f) --with-kiro with NO mxcli reachable at all still writes the steering pointer -------
+# The regression this fixture exists to catch: the Kiro write used to sit structurally after
+# mxcli discovery, which does `exit 0` the moment mxcli can't be found — silently dropping
+# --with-kiro along with the rest of the wiring, though the Kiro pointer never reads mxcli.
+# No mkstub() here (no project-local binary), and PATH is trimmed to the bare system dirs
+# (no dev tool paths, no project bin/) so `command -v mxcli` also fails — this project has no
+# mxcli reachable by either route. A wholly empty PATH would also take `bash`, `mkdir` etc.
+# down with it (the subject re-execs itself and calls ordinary coreutils), so this keeps just
+# /usr/bin and /bin rather than scrubbing to nothing.
+P4="$WORK/nomxcli"; mkdir -p "$P4"; : > "$P4/Fixture.mpr"
+PATH="/usr/bin:/bin" bash "$SUBJECT" "$P4" --with-kiro >/dev/null 2>&1
+F4="$P4/$KFILE"
+if [ -f "$F4" ]; then
+  ok "--with-kiro writes $KFILE even with no mxcli on PATH or in the project"
+else
+  bad "--with-kiro did not write $KFILE when mxcli was unreachable (the exit-0 regression)"
+fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

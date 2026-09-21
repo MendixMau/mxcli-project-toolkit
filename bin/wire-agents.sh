@@ -196,8 +196,10 @@ file. Requirements live in \`PROJECT.md\` and \`analysis/**/*.brd.json\`; stage 
 Gate questions are asked as numbered options in chat and the turn ends; see
 \`skills/interview-protocol.md\` §3 for the full rule.
 
-\`./mxcli\`, \`./bin/*.sh\` and the toolkit's own \`bin/*.sh\` need to be on Kiro's shell
-allowlist — that's \`.kiro/settings/\`, which the human edits, not the agent.
+\`./mxcli\` and \`./bin/*.sh\` need to be runnable from Kiro without a prompt every time. Kiro's
+workspace capability rules live in a hashed directory under your home folder, **outside this
+checkout** — this file cannot ship or point at that allowlist. Grant them yourself, once, in
+Kiro's own settings UI.
 KIRO_EOF
 }
 
@@ -253,6 +255,24 @@ if [ -n "$WITH_COPIES" ]; then
   echo "Including opt-in tools ($OPTIN_TOOLS): adds ~54k lines of duplicated skill copies."
 fi
 
+# Kiro is opt-in (see the header) and not one of mxcli's --tool targets, so it is written here
+# rather than picked up by the STAMP_MD loop below. Written BEFORE mxcli discovery, deliberately:
+# the Kiro pointer does not read or need mxcli at all (write_kiro_preamble/stamp_file are pure
+# shell), unlike the STAMP_MD/STAMP_HASH loop, which stamps files `mxcli init` produced. Placing
+# it after mxcli discovery meant a project with no mxcli on PATH got --with-kiro silently
+# dropped along with everything else, though the file's own header says Kiro is independent of
+# mxcli. Reported in review of this branch, 2026-09-21.
+if [ -n "$WITH_KIRO" ]; then
+  KF="$PROJECT_DIR/$KIRO_REL"
+  if [ -n "$DRY" ]; then
+    if [ -f "$KF" ]; then echo "${DRY}Would stamp: $KF"; else echo "${DRY}Would write: $KF"; fi
+  else
+    mkdir -p "$PROJECT_DIR/.kiro/steering"
+    write_kiro_preamble "$KF"
+    stamp_file "$KF" md
+  fi
+fi
+
 # Find mxcli. A project-local binary wins, because that is what the project's own docs and the
 # guard-chain scripts call — but plenty of developers install it once and put it on PATH, and
 # the first version of this script simply gave up on them: zero files wired, plus a message
@@ -271,6 +291,9 @@ else
   echo "mxcli not found — not in $PROJECT_DIR and not runnable on PATH. Skipping generation."
   echo "Install it, or drop the binary in the project root, then re-run:"
   echo "  bin/wire-agents.sh $PROJECT_DIR"
+  if [ -n "$WITH_KIRO" ]; then
+    echo "(The Kiro steering pointer does not need mxcli and was handled above.)"
+  fi
   exit 0
 fi
 echo "Using mxcli ($MXCLI_HOW): $MXCLI"
@@ -360,19 +383,6 @@ fi
 # --- stamp ------------------------------------------------------------------------------------
 for rel in $STAMP_MD;   do stamp_file "$PROJECT_DIR/$rel" md;   done
 for rel in $STAMP_HASH; do stamp_file "$PROJECT_DIR/$rel" hash; done
-
-# Kiro is opt-in (see the header) and not one of mxcli's --tool targets, so it is written here
-# instead of being picked up by the STAMP_MD loop above.
-if [ -n "$WITH_KIRO" ]; then
-  KF="$PROJECT_DIR/$KIRO_REL"
-  if [ -n "$DRY" ]; then
-    if [ -f "$KF" ]; then echo "${DRY}Would stamp: $KF"; else echo "${DRY}Would write: $KF"; fi
-  else
-    mkdir -p "$PROJECT_DIR/.kiro/steering"
-    write_kiro_preamble "$KF"
-    stamp_file "$KF" md
-  fi
-fi
 
 echo ""
 if [ -n "$DRY" ]; then

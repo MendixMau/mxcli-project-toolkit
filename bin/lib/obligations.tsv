@@ -101,6 +101,25 @@ workflow-count	architect	project	path	architecture/workflow-count.md	yes	yes	3	s
 # one that must show it landed. A producer for every consumer, in the same hands.
 design-reaches-app	mdl	project	path	docs/design-reaches-app.md	yes	yes	3	project-bin/check-design-reaches-app.sh
 
+# fidelity — the third row here, and the second time the same gap was found in the field (#109).
+# On a requirements-driven app replacement, project-bin/page-fidelity.js existed and was cited by
+# skills/ui-loop.md as "the scored companion" — and it ran on 4 of 8 pages. The unscored half went
+# through the loop's screenshot and three subjective questions, which kept answering "fine". The
+# first scored run afterwards found a page at 50% against its wireframe, plus two defects a score
+# cannot see: the landing navigation reached 1 of 5 admin screens (the deep links used during the
+# loop worked; the built menu did not), and snippet classes that no rule in the design system's
+# ds.css defined. A citation in a skill is not a read; a companion nobody must run is not run.
+# So: every module with wireframes owes a fidelity row per page in docs/PAGE-FIDELITY.tsv, and the
+# ui-loop's "Reachable?" question is answered by clicking through the built navigation, not by URL.
+# The TSV is appended by page-fidelity.js itself (never by hand); its first line is a comment, so
+# no denominator is stated there — the check is "a row mentioning the module exists" (page-fidelity.js
+# writes the module into its own `module` column for exactly this grep). There is no automatic
+# degrade path here — `degradable` names a discharge THIS obligation does not have; the check has
+# only the two ordinary outcomes, a matching row (PASS) or none yet (PENDING). A module with no
+# wireframe is waived explicitly: `--waive fidelity/<Module> --reason "no wireframe"`. Owed by mdl
+# for the same reason as design-reaches-app: the hands that built the page are the hands that must
+# show it matches.
+fidelity	mdl	module	names	docs/PAGE-FIDELITY.tsv	no	yes	5	skills/ui-loop.md
 # dispatch is the THIRD obligation below stage 5, and it is here because it is the only mark
 # that answers a different question from the others: not "was the pass any good" but "did the
 # work go through the agent that owns it at all".

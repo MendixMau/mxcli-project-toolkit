@@ -28,11 +28,17 @@
 #   bin/doctor.sh --quick [<project-dir>]   # ~2 s: platform, mxcli/mxbuild/java EXECUTE, spawn
 #                                           # speed, path hygiene, model layout. Skips the
 #                                           # once-per-machine sections (python, CRLF, script
-#                                           # parse, node, docker). exec.sh runs this itself
-#                                           # when the receipt is stale — doctor used to run
-#                                           # once and never again, so a machine that drifted
-#                                           # mid-project (new binary, wrong-arch mxbuild, a
-#                                           # Defender policy) read as "the toolkit is broken".
+#                                           # parse, node, docker, gate self-test). exec.sh runs
+#                                           # this itself when the receipt is stale — doctor
+#                                           # used to run once and never again, so a machine
+#                                           # that drifted mid-project (new binary, wrong-arch
+#                                           # mxbuild, a Defender policy) read as "the toolkit
+#                                           # is broken".
+#   bin/doctor.sh --gate-selftest [<dir>]   # force the gate self-test section to run even
+#                                           # under --quick, or on its own. See its own header
+#                                           # (search "Gate self-test") for what it proves and
+#                                           # why: mxbuild/java being PRESENT does not mean the
+#                                           # mxbuild gate can actually SEE an error.
 #
 # --install never downloads silently: it prints the plan first — what, from where, how big,
 # why, and the detected OS/arch — then asks [y/N] at a terminal, or requires --yes when there
@@ -52,6 +58,7 @@ PROJECT_DIR=""
 INSTALL=0
 ASSUME_YES=0
 QUICK=0
+GATE_SELFTEST=0
 NO_DOCKER="${MXTK_DOCTOR_SKIP_DOCKER:-0}"
 DOCKER_PROBE_SECS="${MXTK_DOCKER_PROBE_SECS:-8}"
 for _arg in "$@"; do
@@ -59,6 +66,7 @@ for _arg in "$@"; do
     --install) INSTALL=1 ;;
     --yes|-y)  ASSUME_YES=1 ;;
     --quick)   QUICK=1 ;;
+    --gate-selftest) GATE_SELFTEST=1 ;;
     --no-docker) NO_DOCKER=1 ;;
     *)         PROJECT_DIR="$_arg" ;;
   esac
@@ -333,10 +341,12 @@ case "$PLATFORM" in
     fi
     ;;
   gitbash|wsl|linux|unknown)
-    warn "The Studio Pro scripts (save-sp.sh, restart-sp.sh, and the SP handling in exec.sh)"
-    note "are macOS-only: they are built on osascript, lsof and 'open -a', and Studio Pro is"
-    note "discovered by looking in /Applications. There is no Windows port yet."
-    note "Everything else in the toolkit works here. Drive Studio Pro by hand on this platform."
+    # Informational only. Nobody needs these scripts to use the toolkit — Studio Pro is
+    # opened and saved by hand at the points where they would run — so on the platforms
+    # they do not exist for, this is not a warning. (It was one; a Windows onboarding
+    # counted it among "6 warnings" and asked what to do about it. Nothing.)
+    note "save-sp.sh / restart-sp.sh (macOS conveniences) are not on this platform — you open"
+    note "and save Studio Pro yourself at those points. Nothing else depends on them."
     ;;
 esac
 
@@ -368,6 +378,18 @@ MXBUILD="$(find_mxbuild 2>/dev/null || true)"
 JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
 JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 
+# toolkit.env — the human-editable answer to "doctor guessed the wrong Studio Pro / Java".
+# _common.sh already loaded it (project file, then ~/.mxcli-toolkit.env; a variable set in
+# the shell wins over both). Say what was read, so a stale value is findable.
+if [ -n "${MXTK_ENV_LOADED:-}" ]; then
+  ok "toolkit.env loaded: $MXTK_ENV_LOADED"
+else
+  note "No toolkit.env — discovery guesses below. To pin tool locations for this machine, create"
+  note "  ${PROJECT_DIR:-<project>}/.claude/toolkit.env  (this project)  or  ~/.mxcli-toolkit.env  (every project)"
+  note "  with lines like:  MENDIX_APP=C:\\Program Files\\Mendix\\11.11.0    JAVA_HOME=C:\\Software\\Java\\jdk-21"
+  note "  (Windows paths can be pasted as-is; MXBUILD_PATH, MXCLI_VERSION and PYTHON work too.)"
+fi
+
 # --install: when no runnable mxbuild was discovered, download the standalone toolchain
 # through the project's own mxcli — `./mxcli setup mxbuild -p <app>.mpr`, the exact download
 # the headless container build runs, cached at ~/.mxcli/mxbuild/<version>/ and shared across
@@ -383,15 +405,15 @@ install_toolchain() {
     bad "--install: no .mpr in $PROJECT_DIR — setup mxbuild needs the model to pick a version."
     return
   fi
-  note "downloading the mxbuild toolchain (./mxcli setup mxbuild — same as the container build)..."
-  if (cd "$PROJECT_DIR" && ./mxcli setup mxbuild -p "$(basename "$INSTALL_MPR")"); then
+  note "downloading the mxbuild toolchain (mxcli setup mxbuild — same as the container build)..."
+  if (cd "$PROJECT_DIR" && "$PMXCLI" setup mxbuild -p "$(basename "$INSTALL_MPR")"); then
     SP_APP="$(find_sp_app 2>/dev/null || true)"
     MXBUILD="$(find_mxbuild 2>/dev/null || true)"
     JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
     JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
     ok "toolchain downloaded to ~/.mxcli/mxbuild/ (shared cache, reused by every project)"
   else
-    bad "'./mxcli setup mxbuild' failed — see its output above."
+    bad "'mxcli setup mxbuild' failed — see its output above."
     note "A blocked network/proxy is the usual cause; the download comes from the Mendix CDN."
   fi
 }
@@ -402,7 +424,8 @@ if [ "$INSTALL" -eq 1 ]; then
   NEED_TOOLCHAIN=1
   if [ -n "$MXBUILD" ] && [ -x "$MXBUILD" ] && probe_runs "$MXBUILD"; then NEED_TOOLCHAIN=0; fi
   NEED_MXCLI=0
-  if [ -n "$PROJECT_DIR" ] && [ ! -x "$PROJECT_DIR/mxcli" ] && [ ! -f "$PROJECT_DIR/mxcli" ]; then
+  PMXCLI="$(find_project_mxcli 2>/dev/null || true)"
+  if [ -n "$PROJECT_DIR" ] && [ -z "$PMXCLI" ]; then
     NEED_MXCLI=1
   fi
 
@@ -412,7 +435,14 @@ if [ "$INSTALL" -eq 1 ]; then
     bad "--install needs a project directory: bin/doctor.sh --install <project-dir>"
     note "The download runs through that project's own ./mxcli, which reads the model's"
     note "Mendix version and fetches the matching toolchain."
-  elif [ -f "$PROJECT_DIR/mxcli" ] && [ ! -x "$PROJECT_DIR/mxcli" ]; then
+  elif [ "$NEED_MXCLI" -eq 1 ] && [ "$PLATFORM" = gitbash ] && mxtk_is_elf "$PROJECT_DIR/mxcli"; then
+    # Not a permissions problem, and chmod cannot fix it (Git Bash derives the executable bit
+    # from the extension/header, so `chmod +x` looks like it "reverts"). The file is the Linux
+    # build the Dev Container uses on this same folder. Windows needs mxcli.exe beside it.
+    note "--install: $PROJECT_DIR/mxcli is the Linux build (the Dev Container's) — fine, leave it."
+    note "Git Bash needs mxcli.exe next to it; fetching that now, the two coexist."
+    NEED_MXCLI=1; PMXCLI=""
+  elif [ -f "$PROJECT_DIR/mxcli" ] && [ ! -x "$PROJECT_DIR/mxcli" ] && [ "$PLATFORM" != gitbash ]; then
     bad "--install: mxcli in $PROJECT_DIR is present but not executable — chmod +x mxcli, re-run."
   else
     # The release assets follow one naming scheme (verified against the published releases,
@@ -471,9 +501,9 @@ if [ "$INSTALL" -eq 1 ]; then
         note "  $_STEP. mxbuild toolchain (~800 MB, one-time) -> ~/.mxcli/mxbuild/<version>/"
         note "     verifies every model write (the exec.sh gate); from cdn.mendix.com, exact"
         note "     version read from the project's .mpr — the same download the container build uses."
-        if [ "$NEED_MXCLI" -eq 0 ] && [ -x "$PROJECT_DIR/mxcli" ]; then
+        if [ "$NEED_MXCLI" -eq 0 ] && [ -n "$PMXCLI" ]; then
           _PLAN_MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
-          [ -n "$_PLAN_MPR" ] && (cd "$PROJECT_DIR" && ./mxcli setup mxbuild -p "$(basename "$_PLAN_MPR")" --dry-run 2>/dev/null) \
+          [ -n "$_PLAN_MPR" ] && (cd "$PROJECT_DIR" && "$PMXCLI" setup mxbuild -p "$(basename "$_PLAN_MPR")" --dry-run 2>/dev/null) \
             | grep -E 'Version:|URL:' | while IFS= read -r l; do note "     $l"; done
         fi
       fi
@@ -504,6 +534,7 @@ if [ "$INSTALL" -eq 1 ]; then
           if $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && chmod +x "$PROJECT_DIR/$MXCLI_DEST" \
              && probe_runs "$PROJECT_DIR/$MXCLI_DEST"; then
             ok "mxcli fetched into the project root: $(probe_line)"
+            PMXCLI="$PROJECT_DIR/$MXCLI_DEST"
           else
             rm -f "$PROJECT_DIR/$MXCLI_DEST" 2>/dev/null
             MXCLI_READY=0
@@ -568,8 +599,9 @@ else
   else
     bad "mxbuild not found/executable: ${MXBUILD:-<none>}"
   fi
-  note "Fix without Studio Pro: bin/doctor.sh --install <project-dir>   (downloads it locally,"
-  note "like the container build). Or set MXBUILD_PATH=/path/to/mxbuild."
+  note "Have Studio Pro? Point at it: MENDIX_APP=<its version folder> in toolkit.env (see above)."
+  note "No Studio Pro: bin/doctor.sh --install <project-dir> downloads a standalone mxbuild,"
+  note "like the container build. MXBUILD_PATH=<path to mxbuild> also works."
 fi
 
 # Java: mxbuild is invoked with an explicit --java-exe-path; if none resolves, the gate skips.
@@ -579,6 +611,15 @@ if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
   JV="$("$JAVA_EXE" -version 2>&1 | grep -i 'version' | head -1)" || JV=""
   if [ -n "$JV" ]; then
     ok "java runs: $JV  ($JAVA_EXE)"
+    # mxbuild compiles the model's Java actions, which takes javac — a JRE has none. Studio
+    # Pro's bundled runtime is a JRE that mxbuild is paired with, so only flag a system Java.
+    case "$JAVA_HOME_FOUND" in
+      "${SP_APP:-<none>}"/*) ;;
+      *) if [ ! -x "$(dirname "$JAVA_EXE")/javac" ] && [ ! -x "$(dirname "$JAVA_EXE")/javac.exe" ]; then
+           note "this Java is a JRE (no javac). Java actions in the model need a JDK to compile:"
+           note "set JAVA_HOME=<a JDK 21 folder> in toolkit.env if a build complains about javac."
+         fi ;;
+    esac
   else
     GATE_OK=0
     bad "java exists but produced no version output: $JAVA_EXE"
@@ -606,14 +647,15 @@ else
   if [ "$PLATFORM" = linux ] && [ -z "$SP_APP" ] && [ -z "${MXBUILD_PATH:-}" ]; then
     warn "exec.sh mxbuild gate WILL BE SKIPPED on this machine."
   else
-    bad "exec.sh mxbuild gate WILL BE SKIPPED on this machine. Fix the FAIL lines above"
-    note "before writing to any model from this machine."
+    bad "the mxbuild gate would be skipped on this machine — sort out the mxbuild/java lines"
+    note "above before the first model write, so every write gets verified."
   fi
-  note "Every MDL exec here will report gate=skipped and go through UNVERIFIED: consistency"
-  note "errors (CE) are never captured, and BSON corruption — which mxbuild is the only"
-  note "reliable detector for — reaches Studio Pro undetected."
-  note "Fastest fix on ANY platform: bin/doctor.sh --install <project-dir> — downloads the"
-  note "toolchain locally through the project's ./mxcli, exactly like the container build."
+  note "Why it matters: without mxbuild, MDL execs report gate=skipped and consistency errors"
+  note "go uncaught until Studio Pro opens the model. Usually one of these fixes it:"
+  note "  - Studio Pro is installed: put its folder in toolkit.env, e.g."
+  note "      MENDIX_APP=C:\\Program Files\\Mendix\\11.11.0   (pick the version your .mpr uses)"
+  note "  - No Studio Pro here: bin/doctor.sh --install <project-dir> downloads a standalone"
+  note "    mxbuild (the same one the container build uses)."
 fi
 
 if [ "$QUICK" != 1 ]; then
@@ -788,18 +830,26 @@ if [ -n "$PROJECT_DIR" ]; then
       warn "no .mpr found in the project root"
       note "If the model lives elsewhere, point doctor at the folder that contains it;"
       note "a brand-new project gets its .mpr from 'mxcli init' or a Studio Pro export."; }
-    if [ -x "$PROJECT_DIR/mxcli" ]; then
+    PMXCLI_PROBE="$(find_project_mxcli 2>/dev/null || true)"
+    if [ -n "$PMXCLI_PROBE" ]; then
       # Present is not enough — a wrong-platform binary is present, executable, and exits 126.
       MXCLI_EXIT=0
-      probe_runs "$PROJECT_DIR/mxcli" || MXCLI_EXIT=$?
+      probe_runs "$PMXCLI_PROBE" || MXCLI_EXIT=$?
       if [ "$MXCLI_EXIT" -eq 0 ]; then
         ok "mxcli runs ($PROBE_HOW): $(probe_line)"
+        note "at: $PMXCLI_PROBE"
       else
-        bad "mxcli exists but cannot run (exit $MXCLI_EXIT)"
+        bad "mxcli exists but cannot run (exit $MXCLI_EXIT): $PMXCLI_PROBE"
         printf '%s\n' "$PROBE_OUT" | grep -v '^[[:space:]]*$' | head -3 | while IFS= read -r l; do note "  $l"; done
         note "Exit 126 usually means a binary built for another platform/architecture —"
         note "re-download the mxcli build for this OS."
       fi
+    elif [ "$PLATFORM" = gitbash ] && mxtk_is_elf "$PROJECT_DIR/mxcli"; then
+      warn "the project's mxcli is the Linux build (the Dev Container's) — Git Bash needs mxcli.exe beside it."
+      note "Not a permissions problem: chmod cannot make a Linux binary run here, which is why it"
+      note "looked like it 'reverted'. Leave the file for the container and add the Windows build:"
+      note "  bin/doctor.sh --install $PROJECT_DIR      (fetches mxcli.exe; the two coexist)"
+      note "  or copy the mxcli.exe you already have on PATH into the project root."
     elif [ -f "$PROJECT_DIR/mxcli" ]; then bad "mxcli is present but not executable — chmod +x mxcli"
     else
       warn "no mxcli in the project root"
@@ -807,6 +857,154 @@ if [ -n "$PROJECT_DIR" ]; then
       note "(from github.com/mendixlabs/mxcli/releases) and then the mxbuild toolchain with it."
     fi
   fi
+fi
+
+# --- gate self-test ---------------------------------------------------------------------------
+#
+# WHY THIS SECTION EXISTS. exec.sh's mxbuild gate has, in the field, silently reported "?" and
+# applied real errors with exit 0 — a wrong-architecture mxbuild once reported 0 errors for
+# several commits before anyone noticed (merge desk, after Marco Keijsers' #59 and the July
+# wrong-arch mxbuild incident). Every section above this one answers "is mxbuild present and
+# does it run" — none of them answers "if the model actually had an error, would the gate SEE
+# it". This one does: it runs the exact function exec.sh's gate and pre-flight baseline both
+# trust (mxtk_mxbuild_error_count, project-bin/_common.sh — the mandatory chain step producing
+# every count this section reads) against a SCRATCH COPY of the real project model, first
+# clean, then with a deliberately-broken microflow injected via the project's own mxcli, and
+# requires the count to go from a real 0 to a real >=1. A gate that cannot tell those two states
+# apart is worse than no gate at all: it reports green on a broken build.
+#
+# The project's own .mpr/mprcontents are never touched — this runs entirely inside a scratch
+# directory, removed on every exit path via a RETURN trap (bash), not just the happy path.
+#
+# Skipped under --quick (two extra mxbuild runs); force it with `bin/doctor.sh --gate-selftest
+# [project-dir]`, which also works stood alone without waiting through the rest of doctor.
+# Bounded by DOCTOR_GATE_TIMEOUT (default 300s) via mxtk_mxbuild_error_count. exec.sh's own
+# gate is unbounded by default (MXTK_GATE_TIMEOUT) — a slow real build must never be mistaken
+# for a failed one and restored; only this throwaway copy gets a clock.
+
+GATE_SELFTEST_LINE=""
+
+if [ "$QUICK" != 1 ] || [ "$GATE_SELFTEST" = 1 ]; then
+
+head_ "Gate self-test (can the mxbuild gate actually see an error?)"
+
+gate_selftest() {
+  local scratch t0 t1 elapsed mdl model_dir base_count bad_count rc timeout_s
+  timeout_s="${DOCTOR_GATE_TIMEOUT:-300}"
+  t0=$(date +%s)
+
+  if [ -z "$PROJECT_DIR" ] || [ -z "${MPR:-}" ]; then
+    note "NOT RUN — no project / no .mpr given (pass a project dir to doctor.sh to enable this)"
+    GATE_SELFTEST_LINE="not-run (no project/.mpr)"
+    return 0
+  fi
+  if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
+    note "NOT RUN — mxbuild/java not resolved (see 'Build toolchain' above)"
+    GATE_SELFTEST_LINE="not-run (no mxbuild)"
+    return 0
+  fi
+  if [ -z "${PMXCLI_PROBE:-}" ]; then
+    note "NOT RUN — no project mxcli resolved (see 'Project' above)"
+    GATE_SELFTEST_LINE="not-run (no mxcli)"
+    return 0
+  fi
+
+  scratch="$(mktemp -d /tmp/doctor-gate-selftest.XXXXXX)" || {
+    bad "gate self-test: could not create a scratch directory"
+    GATE_SELFTEST_LINE="fail (no scratch dir)"
+    return 0
+  }
+  trap 'rm -rf "$scratch" 2>/dev/null' RETURN
+
+  if ! cp "$MPR" "$scratch/model.mpr" 2>/dev/null; then
+    bad "gate self-test: could not copy the model into the scratch dir"
+    GATE_SELFTEST_LINE="fail (copy failed)"
+    return 0
+  fi
+  model_dir="$(dirname "$MPR")"
+  [ -d "$model_dir/mprcontents" ] && cp -r "$model_dir/mprcontents" "$scratch/mprcontents" 2>/dev/null
+
+  # (a) Baseline: the gate must resolve SOME integer off this model, clean or not — "?" here
+  # means the gate cannot read mxbuild's own output, which is the original F-042-class defect.
+  base_count=$(mxtk_mxbuild_error_count "$scratch/model.mpr" "$timeout_s")
+  rc=$?
+  if [ "$rc" -eq 3 ]; then
+    bad "gate self-test: mxbuild did not return within ${timeout_s}s (baseline run)"
+    GATE_SELFTEST_LINE="fail (timeout)"
+    return 0
+  fi
+  if [ "$base_count" = "?" ]; then
+    bad "gate self-test: gate cannot read mxbuild's error file (baseline run) — a real error would go unseen"
+    GATE_SELFTEST_LINE="fail (unreadable error file)"
+    return 0
+  fi
+  ok "baseline: gate read $base_count error(s) off the scratch copy"
+
+  # A dirty baseline makes the known-bad control meaningless: if the untouched copy already
+  # reports errors, a self-test that later sees a HIGHER (but still nonzero) count on the
+  # deliberately-broken copy proves nothing — the delta could be noise, not the injected error.
+  if [ "$base_count" -ne 0 ] 2>/dev/null; then
+    bad "gate self-test: baseline copy already reports $base_count error(s) — dirty model, the known-bad control cannot prove anything against it"
+    GATE_SELFTEST_LINE="fail (dirty baseline: $base_count)"
+    return 0
+  fi
+
+  # (b) Known-bad control: inject a deliberate type mismatch (CE0117 shape — assigning a String
+  # literal to an Integer) via the project's OWN mxcli, throwaway module/microflow name, quoted
+  # identifiers per this toolkit's MDL convention, and require the gate to see >=1 error. Zero
+  # here means the gate is blind: it would report a genuinely broken model as clean.
+  mdl="$scratch/gate-selftest.mdl"
+  cat > "$mdl" <<'MDL'
+CREATE MODULE "DrGateSelftest";
+CREATE MICROFLOW "DrGateSelftest"."MF_GateSelftest" ()
+BEGIN
+  DECLARE $Bad Integer = 0;
+  SET $Bad = 'not-a-number';
+END;
+MDL
+  # If mxcli refuses the injection (syntax rejected by a newer grammar, model locked, ...),
+  # the copy is still clean and a 0 below would be a FALSE "blind" verdict — say NOT RUN.
+  if ! "$PMXCLI_PROBE" exec "$mdl" -p "$scratch/model.mpr" >"$scratch/inject.out" 2>&1; then
+    warn "gate self-test: NOT RUN — the project's mxcli refused the known-bad injection:"
+    sed 's/^/      /' "$scratch/inject.out" | head -5
+    GATE_SELFTEST_LINE="not-run (injection refused)"
+    return 0
+  fi
+
+  bad_count=$(mxtk_mxbuild_error_count "$scratch/model.mpr" "$timeout_s")
+  rc=$?
+  if [ "$rc" -eq 3 ]; then
+    bad "gate self-test: mxbuild did not return within ${timeout_s}s (known-bad run)"
+    GATE_SELFTEST_LINE="fail (timeout)"
+    return 0
+  fi
+  if [ "$bad_count" = "?" ]; then
+    bad "gate self-test: gate cannot read mxbuild's error file (known-bad run) — a real error would go unseen"
+    GATE_SELFTEST_LINE="fail (unreadable error file)"
+    return 0
+  fi
+  if [ "$bad_count" -eq 0 ] 2>/dev/null; then
+    bad "gate self-test: gate is blind — a known-bad model (CE0117 type mismatch) reports clean"
+    GATE_SELFTEST_LINE="fail (blind)"
+    return 0
+  fi
+  # The count must have actually MOVED off the (already-verified-zero) baseline — a gate that
+  # reports the same constant nonzero count on both the clean and the deliberately-broken copy
+  # would pass an `-eq 0` check by luck while never having read the injected error at all.
+  if [ "$bad_count" -le "$base_count" ] 2>/dev/null; then
+    bad "gate self-test: gate is blind — known-bad copy reports $bad_count error(s), no higher than the $base_count baseline"
+    GATE_SELFTEST_LINE="fail (blind: bad=$bad_count base=$base_count)"
+    return 0
+  fi
+
+  t1=$(date +%s); elapsed=$(( t1 - t0 ))
+  ok "known-bad control: gate read $bad_count error(s) off the deliberately-broken copy (${elapsed}s)"
+  GATE_SELFTEST_LINE="pass (baseline=$base_count known-bad=$bad_count ${elapsed}s)"
+  return 0
+}
+
+gate_selftest
+
 fi
 
 # --- verdict ---------------------------------------------------------------------------------
@@ -826,6 +1024,7 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
   FP_MXCLI="$( [ -x "$PROJECT_DIR/mxcli" ] && "$PROJECT_DIR/mxcli" --version 2>/dev/null | head -1 || echo none)"
   { printf '%s %s fail=%s warn=%s%s\n' "$(date '+%Y-%m-%d %H:%M')" "$RECEIPT_VERDICT" "$FAIL" "$WARN" "$( [ "$QUICK" = 1 ] && echo ' quick')"
     printf 'fingerprint: %s | %s | %s\n' "$FP_MXCLI" "${MXBUILD:-no-mxbuild}" "$(uname -sm)"
+    [ -n "$GATE_SELFTEST_LINE" ] && printf 'gate-selftest: %s\n' "$GATE_SELFTEST_LINE"
   } > "$PROJECT_DIR/.claude/.doctor-receipt" 2>/dev/null || true
   # The receipt is MACHINE-LOCAL by design (like .guide-shown): committing one machine's
   # receipt would satisfy gate-check's doctor-ran probe on every other machine. Since this
@@ -837,14 +1036,20 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
       >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
     note "(added /.claude/.doctor-receipt to the project's .gitignore — the receipt is machine-local)"
   fi
+  # toolkit.env holds this machine's paths — never something to commit.
+  if [ -d "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q .claude/toolkit.env 2>/dev/null; then
+    printf '\n# Machine-local tool locations (bin/doctor.sh / project-bin/_common.sh)\n/.claude/toolkit.env\n' \
+      >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
+    note "(added /.claude/toolkit.env to the project's .gitignore — it holds this machine's paths)"
+  fi
 fi
 
 if [ "$FAIL" -gt 0 ]; then
-  printf '  %s problem(s) that will break a pipeline stage, %s warning(s).\n' "$FAIL" "$WARN"
-  printf '  Fix the FAIL lines above before running anything else.\n'
+  printf '  %s thing(s) to sort out before the first model write (FAIL lines), %s note(s) worth reading (WARN).\n' "$FAIL" "$WARN"
+  printf '  Analysis and planning stages run fine meanwhile; each FAIL line says what fixes it.\n'
   exit 2
 elif [ "$WARN" -gt 0 ]; then
-  printf '  Ready, with %s warning(s). Read them — each one names something that will not work.\n' "$WARN"
+  printf '  Ready. %s warning(s) above — read each one: some are optional, a missing .mpr or CLAUDE.local.md is not.\n' "$WARN"
   exit 1
 else
   printf '  Ready.\n'

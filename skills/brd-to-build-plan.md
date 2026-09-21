@@ -399,10 +399,10 @@ as a block between Phase 1 and the first feature module:
 **Folder layout — one subfolder per build-plan phase: `mdlsource/<phase>/`** (e.g. `mdlsource/1-domain/`, `mdlsource/1.5-stylegallery/`, `mdlsource/3b-core-microflows/`). Within a folder, numeric prefix = exec order; a `done-` filename prefix = passed its gate (see `iterative-build-loop.md` Gate step 5). The plain-named scripts in each phase folder are always "what's left in this phase."
 
 ```
-Phase 1 — App Scaffold
+### Phase 1 — App Scaffold
   01-app-scaffold.mdl            ← module structure, navigation shell, demo users
 
-Phase 2 — UI Scaffold  (if StyleGallery = Yes)
+### Phase 2 — UI Scaffold  (if StyleGallery = Yes)
   design/brand.md                ← brand research (not an MDL — written before any CSS)
   design/target-ui.md            ← UX pattern inventory
   design/ds.css                  ← token + component CSS
@@ -413,7 +413,7 @@ Phase 2 — UI Scaffold  (if StyleGallery = Yes)
   mdlsource/gallery/11-19-*.mdl  ← one snippet per component
   mdlsource/gallery/90-home.mdl  ← exec last
 
-Phase 3 — Feature Modules  (granularity: per-layer | per-page-cluster | per-domain)
+### Phase 3 — Feature Modules  (granularity: per-layer | per-page-cluster | per-domain)
   Module: <CommonModuleA>          (dependency order: 1 — no dependencies)
     0N-<module>-roles.mdl          ← module role + user role CREATION only (no grants yet)
     0N-<module>-domain.mdl         ← entities/enums/assocs + entity access grants at the end

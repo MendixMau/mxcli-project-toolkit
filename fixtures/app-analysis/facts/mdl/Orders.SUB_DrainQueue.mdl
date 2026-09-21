@@ -1,0 +1,16 @@
+create or modify microflow Orders.SUB_DrainQueue (
+  $BatchSize: Integer
+)
+folder 'Sync'
+begin
+  @start(-525, 65)
+  declare $Remaining Integer = $BatchSize;
+  while $Remaining > 0
+  begin
+    retrieve $Next from Orders.QueueItem where [Processed = false] limit 1;
+    $Result = call microflow Orders.SUB_ProcessItem(Item = $Next);
+    change $Next (Processed = true) commit yes;
+    $Remaining = $Remaining - 1;
+  end while;
+  @end(1350, 65)
+end;

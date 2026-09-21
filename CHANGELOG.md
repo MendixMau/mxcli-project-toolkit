@@ -16,6 +16,43 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+- new(bin/lib/entry-mode.sh): **one shared entry-mode tokeniser replaces three divergent
+  parsers.** `bin/gate-check.sh` and `bin/lib/artifact-check.sh` each carried an unanchored-glob
+  `case` where first-arm-wins meant "migration (not greenfield)" parsed as greenfield and
+  `stage_waiver()` excused stages on the wrong label; `bin/status.sh` had its own third, anchored
+  regex that read the value correctly, so the screen and the gate silently disagreed. The shared
+  tokeniser matches the runbook's own multi-word phrases first ("Change an existing app"), then
+  the first word of the value, and reports an unrecognised mode loudly on stderr instead of
+  resolving to greenfield by accident. Also fixes the gate's own `intake.md` fallback, which
+  passes the whole matched answer line ("answered: migration") rather than the bare register
+  value — a fix aimed only at the register shape would have silently regressed every young
+  project with no register line yet. Verified against a real requirements-driven Mendix build's
+  messy register value with zero side effects. — MendixMau
+- fix(bin/gate-check.sh): **migrated to the shared `bin/lib/entry-mode.sh` tokeniser** (see the
+  entry-mode.sh line above) and stopped `check_stage_3` counting zero-byte artifacts as present
+  (`resolve_artifact()` tested `[ -e ]`, so four empty files could discharge a Stage 3 sign-off),
+  stopped missing a real wireframe nested one folder deeper than a `-maxdepth 1` search looked,
+  and stopped reporting only the first missing artifact instead of the full present/missing set
+  in one line. — MendixMau
+- fix(bin/lib/artifact-check.sh): **migrated to the shared `bin/lib/entry-mode.sh` tokeniser**,
+  dropping its own unanchored-glob entry-mode parser that shared `bin/gate-check.sh`'s
+  first-arm-wins misread. — MendixMau
+- fix(bin/status.sh): **migrated to the shared `bin/lib/entry-mode.sh` tokeniser**, retiring a
+  third, independently-written anchored regex. It happened to read the value correctly, which is
+  exactly why the `gate-check.sh` misread survived as long as it did — the dashboard showed the
+  right mode while the gate acted on the wrong one, and nobody had reason to look twice.
+  — MendixMau
+- fix(project-bin/snapshot-mpr.sh): **a v1 single-file model no longer dies silently.** `find` on
+  a nonexistent `mprcontents/` exited 1, `pipefail` propagated, and `set -e` killed the script
+  before the v1-aware refusal further down — written for exactly this case — could ever run,
+  leaving a half-snapshot on disk that `exec.sh` would treat as a safety net. A v1 model now
+  snapshots and says so ("v1 single-file"); an empty `mprcontents/` is still refused loudly, as a
+  fault rather than a format. — MendixMau
+- fix(project-bin/restore-mpr.sh): **gained the v1 mirror of the fix above, with an assertion.**
+  Restoring into a model with no `mprcontents/` on either side now copies the `.mpr` and checks
+  the copy landed non-empty before reporting success, instead of trusting `cp`'s exit code alone
+  — a truncated or failed copy now fails loudly with the existing `git checkout` recovery line
+  rather than reporting a restore that did not happen. — MendixMau
 - fix(gate-check.sh): **a migration project whose entry-mode line merely contained the word
   "existing" had its cutover gate waived.** #88 added the fourth mode as `*existing*`, and the
   mode arms are substring matches (roadmap 1.9) — on `Entry mode: Migration from an existing

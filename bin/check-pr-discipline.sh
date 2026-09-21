@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-pr-discipline.sh — the two merge-queue rules that kept breaking by hand, made mechanical.
+# check-pr-discipline.sh — the three merge-queue rules that kept breaking by hand, made mechanical.
 #
 # Born 2026-09-01, draining a five-PR queue: three of five PRs had no CHANGELOG line (the
 # same-commit rule is stated in CLAUDE.md and the PR template, and it was on the honor
@@ -18,6 +18,11 @@
 #   2. BUG numbers. A newly added '## BUG-<N>:' heading must not already exist on the base.
 #      Write '## BUG-DRAFT-<slug>:' in a PR instead; whoever merges assigns the next free
 #      number at merge time (one queue, one numberer, no collisions).
+#   3. CHANGELOG credit. Every '- kind(area): ...' entry a PR adds to CHANGELOG.md must end
+#      with its credit segment ' — <who or which project>' (a wrapped entry's credit may sit
+#      on its last 2-space-indented continuation line). Added 2026-09-21 after a review pass
+#      over 18 open PRs found entries with the headline and no credit — the credit line is
+#      what makes contributing visible (CLAUDE.md → "Changelog and contributions").
 #
 # Exit: 0 clean · 1 violation(s), listed · 2 could not run (say why, never a silent pass).
 set -u
@@ -80,8 +85,34 @@ EOF
   fi
 fi
 
+# --- 3. every added CHANGELOG entry ends with its credit segment ------------------------
+# Walk the added lines of the CHANGELOG diff in order. An entry starts at '- kind(area):' and
+# continues over following added lines indented by two spaces; the joined entry must end in
+# ' — <credit>' (em dash, then non-empty text). Context and removed lines end an entry, so an
+# edit that only touches an existing entry's middle is never blamed for its unchanged tail.
+UNCREDITED="$(git diff "$MB" HEAD -- CHANGELOG.md | awk '
+  function flush() {
+    if (entry != "") {
+      n = split(entry, seg, " — ")
+      if (n < 2 || seg[n] ~ /^[[:space:]]*$/) { print entry }
+      entry = ""
+    }
+  }
+  /^\+\+\+ / || /^--- / { next }
+  /^\+- [a-z]+\([^)]*\): / { flush(); entry = substr($0, 2); next }
+  /^\+  [^ ]/ { if (entry != "") { entry = entry " " substr($0, 4) }; next }
+  { flush() }
+  END { flush() }
+' | cut -c1-110)"
+if [ -n "$UNCREDITED" ]; then
+  FAIL=1
+  echo "FAIL  CHANGELOG entry added without a credit segment (' — <who or which project>' at the end):"
+  printf '      %s\n' "$UNCREDITED"
+  echo "      Fix: end the entry (or its last continuation line) with ' — <credit>'."
+fi
+
 if [ "$FAIL" -eq 0 ]; then
-  echo "check-pr-discipline: clean (changelog rides along; no BUG-number collisions vs $BASE)"
+  echo "check-pr-discipline: clean (changelog rides along, every new entry credited; no BUG-number collisions vs $BASE)"
   exit 0
 fi
 exit 1

@@ -118,6 +118,17 @@ mkmode() {
 assert "existing-app mode waives stage 7"     0 "$GATE" "$(mkmode existing 'Change an existing app')" 7
 assert "unknown mode leaves stage 7 pending"  3 "$GATE" "$(mkmode unknownmode 'Something else')" 7
 
+# Roadmap 1.9: the mode arms are substring matches. A bare `*existing*` arm classified
+# "Migration from an existing Oracle Forms system" as an existing-app change and waived the
+# cutover gate of a real migration. The arm matches the documented phrase, so this must stay 3.
+assert "migration naming 'existing' still pends" 3 "$GATE" "$(mkmode migexisting 'Migration from an existing Oracle Forms system')" 7
+
+# The first draft of the roadmap-1.9 fix matched only the documented phrase and silently dropped
+# the mode's own short token — `existing-app`, what `existing-app-change.md` calls the mode and
+# what bin/status.sh's display-only line greps for. A project that recorded the token, not the
+# full sentence, must still see stage 7 waived.
+assert "existing-app short token also waives stage 7" 0 "$GATE" "$(mkmode existingtoken 'existing-app')" 7
+
 # bash evaluates array subscripts arithmetically, so a non-numeric stage used to
 # abort the script under set -u and was observed exiting 0.
 assert "typo'd stage argument is rejected"   2 "$GATE" "$(mkproject typo 'CONFIRMED')" Stage3
@@ -165,6 +176,56 @@ assert "missing denylist can be opted out"   0 bash -c "cd '$WORK/nodeny' && LEA
 
 ( cd "$(mkrepo clean)" && printf 'entirely generic content\n' > a.md )
 assert "clean repo passes"                   0 bash -c "cd '$WORK/clean' && '$LEAK'"
+
+# LEAKGUARD_BASE step 7 — warn-only new-capitalised-words report, added 2026-09-16.
+# "Can we just scan customer names from each PR and remove them?" — the guard can only
+# block on a name it was told (the denylist above); this report is the reviewer prompt,
+# never a gate. The one thing that actually matters is that it never fails CI even with
+# survivors printed — asserted on its own below, not folded into another case, so a
+# future edit that turns it into a gate by accident cannot hide behind an unrelated
+# assertion failing.
+#
+# The base commit seeds BOTH shapes the regex matches — a lone capitalised word and a
+# PascalCase word — entirely within this fixture's own scratch tree, so the "already
+# existed, don't flag it" assertion never depends on some unrelated file elsewhere in
+# the repo still containing a particular word. The second commit then introduces one NEW
+# word of each shape, proving the single-word case (the real miss a lone name like
+# "Smith" used to slip through) is now caught, not just PascalCase.
+NW="$(mkrepo newwords)"
+( cd "$NW" && printf 'base mentions Basil and LegacySystem here\n' > a.md && git add a.md && git commit -q -m base )
+NWBASE="$(cd "$NW" && git rev-parse HEAD)"
+( cd "$NW" && printf 'second commit adds Rowan and GlacierTech\n' >> a.md && git add a.md && git commit -q -m second )
+
+OUT="$(cd "$NW" && LEAKGUARD_ALLOW_NO_DENYLIST=1 LEAKGUARD_BASE="$NWBASE" "$LEAK" 2>&1)"; RC=$?
+if printf '%s' "$OUT" | grep -q "Rowan" && printf '%s' "$OUT" | grep -q "GlacierTech" \
+  && ! printf '%s' "$OUT" | grep -q "Basil" && ! printf '%s' "$OUT" | grep -q "LegacySystem"; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "new-words report flags a new single word AND a new PascalCase word, not the base-tree ones" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "new-words report flags a new single word AND a new PascalCase word, not the base-tree ones" "$RC"
+  printf '%s\n' "$OUT" | sed 's/^/          /'
+fi
+
+if [ "$RC" -eq 0 ]; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "new-words report is warn-only: exit 0 with survivors present" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "new-words report is warn-only: exit 0 with survivors present" "$RC"
+fi
+
+OUT="$(cd "$NW" && LEAKGUARD_ALLOW_NO_DENYLIST=1 LEAKGUARD_BASE=nope "$LEAK" 2>&1)"; RC=$?
+if [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "not resolvable"; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "unresolvable LEAKGUARD_BASE warns, does not fail" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "unresolvable LEAKGUARD_BASE warns, does not fail" "$RC"
+  printf '%s\n' "$OUT" | sed 's/^/          /'
+fi
+
+OUT="$(cd "$NW" && LEAKGUARD_ALLOW_NO_DENYLIST=1 "$LEAK" 2>&1)"; RC=$?
+if [ "$RC" -eq 0 ] && ! printf '%s' "$OUT" | grep -q "new capitalised"; then
+  PASSED=$((PASSED + 1)); printf '  ok    %-46s exit=%s\n' "no LEAKGUARD_BASE means no new-words line" "$RC"
+else
+  FAILED=$((FAILED + 1)); printf '  FAIL  %-46s exit=%s\n' "no LEAKGUARD_BASE means no new-words line" "$RC"
+  printf '%s\n' "$OUT" | sed 's/^/          /'
+fi
 
 echo
 

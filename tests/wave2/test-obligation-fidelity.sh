@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Usage: bash tests/wave2/test-obligation-fidelity.sh [path-to-gate-check.sh]
+#   (or the bin/lib/obligation-check.sh path directly; run-all.sh passes bin/gate-check.sh and
+#   the fixture derives bin/lib/obligation-check.sh from its directory)
+#
 # test-obligation-fidelity.sh — the fidelity obligation's `names` match against the artifact
 # project-bin/page-fidelity.js actually writes.
 #
@@ -26,7 +30,13 @@
 # not a hand-written TSV row standing in for the producer.
 set -uo pipefail
 
-OBCHECK="${1:?usage: test-obligation-fidelity.sh /path/to/bin/lib/obligation-check.sh}"
+ARG="${1:?usage: test-obligation-fidelity.sh /path/to/bin/gate-check.sh (or /path/to/bin/lib/obligation-check.sh)}"
+# run-all.sh can only hand over a bin/-level subject (its candidate list has no bin/lib/), so a
+# bin/<anything>.sh argument maps to the lib file beside it; a direct lib path is used as-is.
+case "$(basename "$ARG")" in
+  obligation-check.sh) OBCHECK="$ARG" ;;
+  *) OBCHECK="$(cd "$(dirname "$ARG")" && pwd)/lib/obligation-check.sh" ;;
+esac
 [ -r "$OBCHECK" ] || { echo "test-obligation-fidelity: no obligation-check.sh at $OBCHECK"; exit 2; }
 HERE="$(cd "$(dirname "$0")/../.." && pwd)"
 PFJS="$HERE/project-bin/page-fidelity.js"

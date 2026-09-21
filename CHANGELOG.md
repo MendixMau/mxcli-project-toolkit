@@ -16,6 +16,21 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+
+- fix(sync): **`bin/sync-project.sh` now warns (report-only) when a project's `CLAUDE.md` still
+  teaches `DECLARE $Var Module.Entity;`** — a row a pre-v0.22 `mxcli init` wrote and v0.22 `check`
+  rejects (MDL043/CE0053), with no version stamp in the generated file to flag the drift. See
+  `BUG-DRAFT-stale-init-claude-md-declare-object` in `bug-logs/mxcli-bugs.md`. Same convention as
+  the neighbouring ledger-row warning: sync never edits `CLAUDE.md` (init's file, bootstrap's
+  merge), it only reports and names the fix. `skills/bootstrap-project.md` now strips the row on
+  merge. Field run: `bin/sync-project.sh <root> --dry-run` against a real, currently-open
+  requirements-driven greenfield Mendix project scaffolded on mxcli v0.20.0 — its `CLAUDE.md`
+  still carries the pre-v0.22 `DECLARE $Entity Module.Entity;` row and the warning fired exactly
+  as designed, `--dry-run` confirming nothing was written. Also scaffolded a scratch project via
+  `bin/init-project.sh`, wrote a `CLAUDE.md` with the stale row in a markdown table — warn fired;
+  removed the row — warn did not fire; and with a digit in the module/entity names
+  (`DECLARE $O Sales2.Order1;`) — warn still fires, closing the digit gap in the original regex.
+  — MendixMau
 - new(obligations): **added the `fidelity` obligation** — every module with wireframes owes a page-fidelity score row (`docs/PAGE-FIDELITY.tsv`, written by `project-bin/page-fidelity.js`) from stage 5; `skills/ui-loop.md` gains the scored step and a "Reachable?" check (built navigation, not deep links); promoted from the contrib inbox after the second field occurrence (#109) — Maurits Visser
 - fix(project-bin/page-fidelity.js, bin/lib/obligations.tsv): **the `fidelity` obligation's `names` match could never fire — the producer wrote no module name into `docs/PAGE-FIDELITY.tsv` for the consumer to grep.** `page-fidelity.js` matched the module qualifier in `CREATE PAGE Module.Page` with a non-capturing regex group and discarded it, so a project could score every page in a module and the obligation would report `PENDING` forever. The TSV now carries a `module` column (from the page's `CREATE PAGE` statement), and `obligations.tsv`'s comment states plainly where `_ob_find`'s `names` match reads it from. New `tests/wave2/test-obligation-fidelity.sh` (subject: `bin/lib/obligation-check.sh`) proves a row naming module X discharges `fidelity/X` while an unmentioned Y stays `PENDING`, that the pre-fix (no `module` column) shape reproduces the original bug for both modules, and field-runs the real `page-fidelity.js` against the repo's own `Demo.Demo_Overview` fixture — `obligation-check.sh` correctly reads that real output as `PASS — 1 of 1 discharged`. Also carries the "three questions" → "four questions" wording fix through `ui-loop.md`, `walking-skeleton.md`, the tombstoned `ui-review-loop.md`, and every routing surface `render-routing.sh` regenerates from `bin/lib/skill-routing.tsv` — Maurits Visser
 

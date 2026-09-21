@@ -488,6 +488,69 @@ case "$OUT" in
   *) ok "pointer-only CLAUDE.md: sync stays silent" ;;
 esac
 
+echo "== T13: the stale pre-v0.22 DECLARE-object row in CLAUDE.md is warned about, never edited =="
+# mkproj's CLAUDE.md comes from the real `mxcli init` (wire-agents.sh), which this test
+# environment does not carry — mkproj here produces no CLAUDE.md at all, the same gap T11
+# above works around by writing CLAUDE.md by hand. So T13 does the same: a hand-written
+# CLAUDE.md carrying the "Microflows - Supported Statements" table shape a pre-v0.22 `mxcli
+# init` actually wrote, stale "Entity declaration" row included, next to the row that IS
+# still current so the fixture can't accidentally match on the table header alone.
+P="$(mkproj t13)"
+cat > "$P/CLAUDE.md" <<'EOF'
+# Project
+
+## MDL Syntax Quick Reference
+
+### Microflows - Supported Statements
+
+| Statement | Syntax |
+|-----------|--------|
+| Variable declaration | `DECLARE $Var Type = value;` |
+| Entity declaration | `DECLARE $Entity Module.Entity;` |
+| Assignment | `SET $Var = expression;` |
+EOF
+grep -q 'DECLARE \$Entity Module\.Entity;' "$P/CLAUDE.md" && ok "control: fixture planted the stale row" || bad "control: fixture did not plant the stale row"
+OUT="$("$SYNC" "$P" 2>&1)"
+case "$OUT" in *'teaches `DECLARE $Var Module.Entity;`'*'BUG-DRAFT-stale-init-claude-md-declare-object'*) ok "stale row: warning fires and cites the bug entry" ;; *) bad "stale row: warning did not fire" "$OUT" ;; esac
+grep -q 'DECLARE \$Entity Module\.Entity;' "$P/CLAUDE.md" && ok "stale row: CLAUDE.md left alone (sync never edits it)" || bad "stale row: CLAUDE.md was EDITED"
+
+# False-positive guard: a project whose CLAUDE.md never carried the row raises nothing for it —
+# the fixture with only the current, correct rows.
+P="$(mkproj t13b)"
+cat > "$P/CLAUDE.md" <<'EOF'
+# Project
+
+## MDL Syntax Quick Reference
+
+### Microflows - Supported Statements
+
+| Statement | Syntax |
+|-----------|--------|
+| Variable declaration | `DECLARE $Var Type = value;` |
+| Assignment | `SET $Var = expression;` |
+EOF
+OUT="$("$SYNC" "$P" 2>&1)"
+case "$OUT" in *'teaches `DECLARE $Var Module.Entity;`'*) bad "no-row: warning fired with no stale row present" "$OUT" ;; *) ok "no-row: no warning without the stale row (false-positive guard)" ;; esac
+
+# Digit case: the original regex (`[A-Za-z_]+` on both sides of the dot) missed a module or
+# entity name carrying a digit, which is an ordinary name shape, not an edge case.
+P="$(mkproj t13c)"
+cat > "$P/CLAUDE.md" <<'EOF'
+# Project
+
+## MDL Syntax Quick Reference
+
+### Microflows - Supported Statements
+
+| Statement | Syntax |
+|-----------|--------|
+| Variable declaration | `DECLARE $Var Type = value;` |
+| Entity declaration | `DECLARE $O Sales2.Order1;` |
+| Assignment | `SET $Var = expression;` |
+EOF
+OUT="$("$SYNC" "$P" 2>&1)"
+case "$OUT" in *'teaches `DECLARE $Var Module.Entity;`'*) ok "digit case: warning fires on \`DECLARE \$O Sales2.Order1;\`" ;; *) bad "digit case: warning missed a module/entity name with a digit (the regex gap this PR fixes)" "$OUT" ;; esac
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"
 [ "$FAIL" -eq 0 ]

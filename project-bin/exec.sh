@@ -9,9 +9,12 @@
 # Overrides: FORCE_EXEC=1 (skip refusals), SKIP_CHECK=1 (skip the pre-exec
 #            mxcli check), SKIP_BASELINE=1 (skip pre-flight mxbuild),
 #            MXBUILD_PATH=..., MENDIX_APP=..., MPR_FILE=...,
-#            MXTK_GATE_TIMEOUT=<seconds> (default 300 — bounds each mxbuild
-#            run via _common.sh's mxtk_mxbuild_error_count; a genuine new
-#            bound, generous enough that a real build is never cut short)
+#            MXTK_GATE_TIMEOUT=<seconds> (default 0 = UNBOUNDED — each mxbuild
+#            run via _common.sh's mxtk_mxbuild_error_count waits for a real
+#            build to finish, however long that takes; set this to bound it.
+#            bin/doctor.sh's own gate self-test is the one caller that DOES
+#            default to a bound, 300s via DOCTOR_GATE_TIMEOUT, because that
+#            run is a throwaway scratch copy, not a real build worth waiting on)
 set -e
 _T0=$(date +%s)
 
@@ -476,8 +479,9 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   # directly (never reset to 0 by a stray `|| true`), output through a file
   # never `$(...)` (Studio Pro 11's mxbuild.exe on Windows starts a helper
   # deno.exe that inherits stdout and never closes it — a command substitution
-  # then waits forever for EOF that never comes), stdin closed, bounded by
-  # MXTK_GATE_TIMEOUT so a truly stuck mxbuild cannot hang the gate forever.
+  # then waits forever for EOF that never comes), stdin closed. Unbounded by
+  # default (MXTK_GATE_TIMEOUT=0, i.e. no timeout) so a real build is never
+  # cut short — set MXTK_GATE_TIMEOUT to bound a truly stuck mxbuild instead.
   # Same function as the baseline above and the restore-rebuild check below —
   # one implementation, not three that can quietly drift apart — and the one
   # bin/doctor.sh's gate self-test also calls, so doctor proves the SAME code

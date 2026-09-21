@@ -940,6 +940,15 @@ gate_selftest() {
   fi
   ok "baseline: gate read $base_count error(s) off the scratch copy"
 
+  # A dirty baseline makes the known-bad control meaningless: if the untouched copy already
+  # reports errors, a self-test that later sees a HIGHER (but still nonzero) count on the
+  # deliberately-broken copy proves nothing — the delta could be noise, not the injected error.
+  if [ "$base_count" -ne 0 ] 2>/dev/null; then
+    bad "gate self-test: baseline copy already reports $base_count error(s) — dirty model, the known-bad control cannot prove anything against it"
+    GATE_SELFTEST_LINE="fail (dirty baseline: $base_count)"
+    return 0
+  fi
+
   # (b) Known-bad control: inject a deliberate type mismatch (CE0117 shape — assigning a String
   # literal to an Integer) via the project's OWN mxcli, throwaway module/microflow name, quoted
   # identifiers per this toolkit's MDL convention, and require the gate to see >=1 error. Zero
@@ -977,6 +986,14 @@ MDL
   if [ "$bad_count" -eq 0 ] 2>/dev/null; then
     bad "gate self-test: gate is blind — a known-bad model (CE0117 type mismatch) reports clean"
     GATE_SELFTEST_LINE="fail (blind)"
+    return 0
+  fi
+  # The count must have actually MOVED off the (already-verified-zero) baseline — a gate that
+  # reports the same constant nonzero count on both the clean and the deliberately-broken copy
+  # would pass an `-eq 0` check by luck while never having read the injected error at all.
+  if [ "$bad_count" -le "$base_count" ] 2>/dev/null; then
+    bad "gate self-test: gate is blind — known-bad copy reports $bad_count error(s), no higher than the $base_count baseline"
+    GATE_SELFTEST_LINE="fail (blind: bad=$bad_count base=$base_count)"
     return 0
   fi
 

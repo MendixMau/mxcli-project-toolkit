@@ -61,6 +61,11 @@ chmod +x "$P/mxcli"
 #                   "gate cannot tell '?' from a real error" defect.
 #   always-clean  — always writes {"problems":[]}, exit 0, regardless of the marker: the gate
 #                   that cannot see a known-bad model.
+#   constant-nonzero — always writes the SAME single error, regardless of the marker: the gate
+#                   that reports a constant non-zero count on both the clean baseline and the
+#                   deliberately-broken copy. This is the shape defect (1) shipped: a bare
+#                   `bad_count -eq 0` check would call this a PASS since bad_count is 1, though
+#                   the gate never actually saw the injected error move the count at all.
 #   slow          — sleeps past the timeout given to it.
 cat > "$T/mxbuild" <<'MXB'
 #!/usr/bin/env bash
@@ -87,6 +92,9 @@ case "${MODE_GATE_STUB:-healthy}" in
     exit 9 ;;
   always-clean)
     [ -n "$OUT" ] && printf '{"problems":[]}' > "$OUT"
+    exit 0 ;;
+  constant-nonzero)
+    [ -n "$OUT" ] && printf '{"problems":[{"severity":"Error","errorCode":"CE0117","message":"type mismatch"}]}' > "$OUT"
     exit 0 ;;
   slow)
     sleep "${MODE_GATE_STUB_SLEEP:-6}"
@@ -172,6 +180,41 @@ assert_contains "$T/out.refuse" "parse error at line 4" "refuse: echoes mxcli's 
 assert_missing  "$T/out.refuse" "gate is blind" "refuse: a clean copy is not reported as a blind gate"
 assert_contains "$P/.claude/.doctor-receipt" "gate-selftest: not-run (injection refused)" "refuse: receipt records not-run"
 rm -f "$P/.gate-selftest-bad-applied"
+
+# ── 9: constant non-zero stub — same count on baseline AND known-bad -> FAIL, never a silent
+#      PASS. This is the known-bad-shaped input the self-test itself must be proven to catch:
+#      a gate reporting a constant nonzero count off both the untouched and the deliberately-
+#      broken copy has not actually seen the injected error move anything.
+echo "== 9: mxbuild reports the SAME non-zero count on both reads -> FAIL, not a silent PASS =="
+MXBUILD_PATH="$T/mxbuild" MODE_GATE_STUB=constant-nonzero \
+  bash "$DOCTOR" --quick --gate-selftest --no-docker "$P" > "$T/out.constant" 2>&1
+assert_missing  "$T/out.constant" "gate-selftest: pass" "constant: must not report pass"
+assert_contains "$T/out.constant" "dirty model" "constant: FAIL names the dirty baseline"
+assert_contains "$P/.claude/.doctor-receipt" "gate-selftest: fail (dirty baseline: 1)" "constant: receipt records the dirty-baseline reason"
+rm -f "$P/.gate-selftest-bad-applied"
+
+# ── 10: two-tree layout (.mpr under app/, mxcli at the project root) -> PASS ─────────────────
+# CLAUDE.md rule 2 ("both layouts"): the .mpr can live at PROJECT_DIR root (single-tree) or
+# under PROJECT_DIR/app (two-tree — mxcli new --output-dir ./app, cloud-dev-environment.md).
+# gate_selftest() itself never lists .mpr files — it trusts whatever $MPR the "Project" section
+# above it already resolved (single-tree or app/ fallback, doctor.sh:823-828) and derives
+# model_dir from dirname "$MPR", so the two-tree case only needs a project shaped that way to
+# prove the whole chain (MPR discovery -> scratch copy -> mxcli injection -> mxbuild gate)
+# still reaches "pass" when the model is not at the project root.
+P2="$T/proj-twotree"
+mkdir -p "$P2/app/mprcontents"
+printf 'not a real model\n' > "$P2/app/Fixture.mpr"
+printf 'bson\n' > "$P2/app/mprcontents/a.mxunit"
+cp "$P/mxcli" "$P2/mxcli"
+chmod +x "$P2/mxcli"
+echo "== 10: two-tree project (.mpr under app/) -> PASS, same as single-tree =="
+MXBUILD_PATH="$T/mxbuild" MODE_GATE_STUB=healthy \
+  bash "$DOCTOR" --quick --gate-selftest --no-docker "$P2" > "$T/out.twotree" 2>&1
+assert_contains "$T/out.twotree" "model: app/Fixture.mpr" "two-tree: MPR resolved under app/"
+assert_contains "$T/out.twotree" "baseline: gate read 0 error" "two-tree: baseline reads 0"
+assert_contains "$T/out.twotree" "known-bad control: gate read" "two-tree: known-bad control ran"
+assert_missing  "$T/out.twotree" "gate self-test:" "two-tree: no gate-self-test FAIL line"
+assert_contains "$P2/.claude/.doctor-receipt" "gate-selftest: pass" "two-tree: receipt records pass"
 
 echo; echo "$PASS passed, $FAIL failed   ($T)"
 [ "$FAIL" -eq 0 ]

@@ -146,6 +146,34 @@ case "$L" in *'§"Stage 5 — Build"'*) ok "build-ready points at Stage 5's sect
 N="$("$GATE" --no-html "$P" 2>&1 | grep -c '^Read for this gate:')"
 [ "$N" -eq 0 ] && ok "a whole-project run names no single span" || bad "whole-project run printed a stage span"
 
+echo "== T11: Stage 7 entry-mode arm matches the documented phrase and the short token, never the bare substring 'existing' =="
+# bug03's original fix (`*existing*`) waived Stage 7 for ANY entry mode that merely contained the
+# word "existing", including a real migration project. The corrected arm must still waive the
+# gate for the mode's documented phrase and its short token, while a migration project whose
+# entry-mode line happens to contain "existing" keeps its Stage 7 gate PENDING.
+P="$(mkproj t11)"
+printf 'Toolkit commit: none\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n\nEntry mode: Migration from an existing Oracle Forms system\n' \
+  > "$P/PROJECT.md"
+V="$(verdict "$P" 7)"
+case "$V" in
+  *PENDING*) ok "a migration entry mode that merely contains 'existing' still PENDS stage 7" ;;
+  *) bad "migration entry mode false-waived stage 7: $V" ;;
+esac
+
+P="$(mkproj t11-phrase)"
+printf 'Toolkit commit: none\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n\nEntry mode: Change an existing app\n' \
+  > "$P/PROJECT.md"
+V="$(verdict "$P" 7)"
+case "$V" in *WAIVED*) ok "the documented phrase 'Change an existing app' still waives stage 7" ;;
+             *) bad "documented existing-app phrase no longer waives stage 7: $V" ;; esac
+
+P="$(mkproj t11-token)"
+printf 'Toolkit commit: none\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n\nEntry mode: existing-app\n' \
+  > "$P/PROJECT.md"
+V="$(verdict "$P" 7)"
+case "$V" in *WAIVED*) ok "the short token 'existing-app' still waives stage 7" ;;
+             *) bad "existing-app short token no longer waives stage 7: $V" ;; esac
+
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"
 [ "$FAIL" -eq 0 ]

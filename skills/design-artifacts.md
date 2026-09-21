@@ -127,6 +127,21 @@ List every UI surface (from BRD `pages`, the source, and the fit-gap's "Build (n
 
 For each screen also decide its Mendix surface: **top-level page** vs **popup page** vs **snippet**. Most source "dialogs" become popup pages or snippets off a main overview, not routes.
 
+Record the inventory in `design/target-ui.md` under a `## Screen Inventory` heading, one markdown
+table row per screen:
+
+| Screen | Basis | Notes |
+|---|---|---|
+| OrderList | FAITHFUL | |
+| OrderDetail | FAITHFUL | |
+| OrderEditPopup | GENERATIVE | reuses OrderDetail's wireframe |
+
+`design/wireframes/*.html` needs one file per row here — except a row whose Notes cell says the
+screen **reuses**, is the **same as**, or **shares** another screen's wireframe; name which
+screen it reuses so a reviewer can trace it. `bin/gate-check.sh`'s Stage-3 gate counts this
+table against `design/wireframes/*.html` and reports `MANUAL <built> wireframes for
+<inventoried> inventoried screens` when the build falls short of the inventory.
+
 ---
 
 ## Step 3: Build Wireframes FROM the Design System

@@ -11,9 +11,15 @@
 # holds a PASS stamp for exactly that staged content. Commits that touch no model file
 # are untouched. It runs on every machine, cloud or laptop, with no toolkit clone needed.
 #
-# Guard rules: it never blocks the remedy (./bin/verify-model.sh writes the stamp, and
-# is not a commit), it accepts evidence it did not create (verify-model.sh, exec.sh), and
-# MODEL_UNVERIFIED_OK=1 lets one commit through, out loud, when someone decides to.
+# Guard rules (toolkit CLAUDE.md, "Shipping an instrument" rules 6/7):
+#   * rule 7 — it never blocks the remedy: ./bin/verify-model.sh is not itself a commit, so
+#     there is always a way to earn the stamp without going through this hook.
+#   * rule 6 — a missing/stale bin/model-stamp.sh stamp is not the only evidence accepted.
+#     A recent PASS row in docs/BUILD-LOG.md (written by exec.sh on every exec, independently
+#     of the stamp file — the two share no code path) lets the commit through, with a warning
+#     naming which row it trusted. A stale or non-pass row does not count. Absent BOTH the
+#     stamp and a qualifying BUILD-LOG row, MODEL_UNVERIFIED_OK=1 lets one commit through,
+#     out loud, when someone decides to.
 #
 # An existing pre-commit hook that is not ours is kept and chained (moved to
 # pre-commit.pre-mxtk, called first). A repo with core.hooksPath set is reported, not
@@ -56,7 +62,22 @@ if [ ! -x "\$stamp" ]; then
   exit 0
 fi
 if ! "\$stamp" check --staged; then
-  if [ "\${MODEL_UNVERIFIED_OK:-0}" = "1" ]; then
+  alt=""
+  blog="\$top/docs/BUILD-LOG.md"
+  max_age="\${MODEL_EVIDENCE_MAX_AGE:-14400}"
+  if [ -f "\$blog" ]; then
+    bmtime="\$(stat -c %Y "\$blog" 2>/dev/null || stat -f %m "\$blog" 2>/dev/null || echo 0)"
+    case "\$bmtime" in ''|*[!0-9]*) bmtime=0 ;; esac
+    now="\$(date +%s)"
+    lastrow="\$(grep '^| 20' "\$blog" 2>/dev/null | tail -1)"
+    if [ "\$bmtime" -gt 0 ] && [ \$(( now - bmtime )) -le "\$max_age" ] && printf '%s' "\$lastrow" | grep -q '| pass |'; then
+      alt="a recent docs/BUILD-LOG.md row (gate: pass, \$(( (now - bmtime) / 60 )) min ago)"
+    fi
+  fi
+  if [ -n "\$alt" ]; then
+    echo "⚠ no local model-stamp, but accepting \$alt as evidence the model was mxbuild-gated." >&2
+    echo "  (this is NOT a guarantee the staged content matches that row — verify-model.sh is the strong check)" >&2
+  elif [ "\${MODEL_UNVERIFIED_OK:-0}" = "1" ]; then
     echo "⚠ MODEL_UNVERIFIED_OK=1 — committing a model the mxbuild gate has not verified." >&2
   else
     echo "" >&2

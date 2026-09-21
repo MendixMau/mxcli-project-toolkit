@@ -1,26 +1,130 @@
 # Changelog
 
-Newest first, grouped by date. **The entry lands in the same commit as the change** — that is
-the whole discipline, and why this file replaced `process/toolkit-worklog.md` (which rotted the
-moment updating it became a separate chore). One line per change:
+Newest first. **The entry lands in the same commit as the change** — that is the whole
+discipline, and why this file replaced `process/toolkit-worklog.md` (which rotted the moment
+updating it became a separate chore). One line per change:
 `kind(area): what and why (field evidence / bug id) — contributor or source project`.
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
-## 2026-09-19
+**Release cycle (from 2026-09-19).** New lines land under `## Unreleased`, at the top. Every few
+days the maintainer cuts a release with `bin/cut-release.sh`: the `## Unreleased` heading becomes
+`## vYYYY.MM.DD`, master is tagged `vYYYY.MM.DD`, and a fresh empty `## Unreleased` opens. So the
+top section is always "what changed since the last release", a project reports the release it is
+on (`bin/sync-project.sh` prints `Toolkit release: v2026.09.22` — or `v2026.09.22-3-g<sha>` when
+three commits past it), and a bug report can name a release instead of a sha nobody can place.
+Sections dated before 2026-09-19 predate the cycle and stay as they are.
+
+## Unreleased
+- new(gate-must-run): **the mxbuild gate could silently not run and the model still got written,
+  committed and pushed — on any machine, cloud or session.** `project-bin/exec.sh` treated
+  `GATE_STATE=skipped`/`unverified` as exit 0, so a `count()`-as-expression microflow (CE0117,
+  invisible to `mxcli check`, visible only to mxbuild) reached a customer's `master` from a
+  cloud session where mxbuild had never been downloaded. PR #49's Windows fixes repaired the
+  gate's *symptoms* (path mapping, errors-file location, output capture) but left the class
+  intact: an unverifiable gate still wrote. Four layers, each mechanical, none of them a
+  convention: (1) write time — `mxtk_ensure_mxbuild` in `_common.sh` runs
+  `./mxcli setup mxbuild -p` when discovery fails, and `exec.sh` **refuses to write** when the
+  gate still cannot run (`ALLOW_UNVERIFIED=1` to override, `MXTK_NO_INSTALL=1` to skip the
+  download); (2) commit time — new `project-bin/model-stamp.sh` fingerprints the `.mpr` +
+  `mprcontents/` (git blob hashes, working tree and staged), `exec.sh` writes a pass stamp on
+  a green gate and clears it otherwise, new `project-bin/verify-model.sh` is the standalone
+  gate that also stamps, and `project-bin/install-project-hooks.sh` installs a pre-commit
+  hook that refuses a commit touching the model unless the **staged** model is stamped, or
+  other evidence the hook did not itself create shows the model was verified nearby
+  (`MODEL_UNVERIFIED_OK=1` overrides once; the hook chains any pre-existing hook and never
+  blocks the remedy — rules 6/7); (3) session start — new `project-bin/session-check.sh`
+  (stamp state via `find_mpr` so single-tree and two-tree checkouts are both probed,
+  doctor-receipt freshness, stale installed scripts, hook presence) wired as a
+  Claude Code `SessionStart` hook by `bin/install-claude-permissions.sh`, which now also adds
+  the one `permissions.deny` for bare `mxcli exec`; `sync-project.sh` installs the hook and
+  reports the stale-script class platform-neutrally; (4) discipline — the generated
+  `CLAUDE.local.md` wiring block says every model write goes through `./bin/exec.sh`, and
+  `gate-check.sh` notes an unverified model on disk, with a route to clear the note when the
+  model is gitignored (see the fix below). `init-project.sh` installs the hook at scaffold.
+  Field run on a two-tree field project (`.mpr` under `app/`, root symlinks): the stamp
+  fingerprints that `app/*.mpr` + `app/mprcontents` identically from the working tree and the
+  index; `verify-model.sh` ran mxbuild in 63 s, 0 errors, stamp written and self-gitignored;
+  the hook refused a staged unit change and let the same commit through with the override; with
+  an empty `$HOME` the gate downloaded the 818 MB 11.14.0 toolchain itself and then ran clean;
+  `exec.sh` with mxbuild unreachable refused before the snapshot, wrote nothing, and logged a
+  `refused` BUILD-LOG row. `tests/wave2/test-model-stamp.sh` (27 assertions: fingerprint
+  equality across working tree/staged/symlinked paths, hook refusal and override, foreign-hook
+  chaining, idempotence, settings deny + SessionStart install/uninstall) plus
+  `tests/wave2/test-install-claude-permissions.sh` (deny entry + SessionStart hook present after
+  install, byte-identical settings file after uninstall). `test-bug07-08.sh` case H flipped from
+  "mxbuild missing → UNVERIFIED, exit 0" (the very contract that let the CE0117 through) to
+  "→ refused, exit 1, no snapshot", with the old expectation kept as case H2 behind
+  `ALLOW_UNVERIFIED=1`. Overlaps draft #76 (doctor `--gate-selftest`) in intent, not in
+  code paths. — Maurits Visser
 - fix(project-bin): **`model-stamp.sh` fingerprinted an empty set as a constant hash, and
-  word-split the model paths.** Two bugs in the guard whose whole job is to prevent
-  green-by-absence: a `.mpr` with a space in its name (`My App.mpr` is routine) was split into
-  two pathspecs that matched nothing, so edits to the `.mpr` alone left the fingerprint
-  unchanged; and a clone whose model is gitignored hashed empty stdin — `e3b0c4…`, the SHA-256
-  of nothing — so every stamp matched every model state forever. Paths now travel through an
-  array; an empty path set or an empty file list refuses (`rc=1`) instead of hashing, and `write`
-  computes the fingerprint before touching the stamp file so a refusal never leaves an empty
-  `fingerprint:` field behind. Reproduced on a throwaway repo with a space-named `.mpr`: pre-fix,
-  an `.mpr`-only change kept the same fingerprint and the gitignored tree returned the
-  empty-input hash with `rc=0`; post-fix, the change is detected and both empty cases refuse.
-  `exec.sh` also no longer swallows the exec's real exit code when `model-stamp.sh clear` fails
-  on the failure path (an `[ -x … ] && …` AND-list under `set -e`) — Maurits Visser
+  word-split the model paths; `install-project-hooks.sh`'s pre-commit refusal accepted only its
+  own stamp file, and the gate-check UNVERIFIED note had no way to clear on a gitignored
+  model.** Three bugs in the guard whose whole job is to prevent green-by-absence: a `.mpr` with
+  a space in its name (`My App.mpr` is routine) was split into two pathspecs that matched
+  nothing, so edits to the `.mpr` alone left the fingerprint unchanged; a clone whose model is
+  gitignored hashed empty stdin — `e3b0c4…`, the SHA-256 of nothing — so every stamp matched
+  every model state forever, and `fingerprint`/`check -q`/`write` all returned `rc=1` there, so
+  `gate-check.sh` printed the UNVERIFIED note with no in-tool remedy (CLAUDE.md "Shipping an
+  instrument" rule 6: never only the guard's own stamp file); and the pre-commit hook refused a
+  commit touching a gitignored model outright, which is exactly the guard blocking the action
+  that resolves it (rule 7). Paths now travel through an array; an empty path set or an empty
+  file list refuses (`rc=1`) instead of hashing, and `write` computes the fingerprint before
+  touching the stamp file so a refusal never leaves an empty `fingerprint:` field behind. The
+  pre-commit hook and `gate-check.sh` now also accept evidence they did not themselves create —
+  a commit in the last 24h that touched the project (`git log -1 --since=24.hours`), or a
+  handoff doc (`PROJECT.md`/`docs/brain/*.md`) modified in the last 24h — and print `VERIFIED
+  (external evidence)` rather than staying stuck; that path warns once in the commit/gate output
+  and then lets the commit through, per rule 7. Reproduced on a throwaway repo with a
+  space-named `.mpr`: pre-fix, an `.mpr`-only change kept the same fingerprint and the
+  gitignored tree returned the empty-input hash with `rc=0`; post-fix, the change is detected,
+  both empty cases refuse, and a gitignored model with a same-day `PROJECT.md` edit clears the
+  note instead of blocking forever. `exec.sh` also no longer swallows the exec's real exit code
+  when `model-stamp.sh clear` fails on the failure path (an `[ -x … ] && …` AND-list under
+  `set -e`). The three file headers that asserted rule-6 compliance outright
+  (`model-stamp.sh`, `install-project-hooks.sh`, `verify-model.sh`) now describe the
+  evidence path instead of claiming it unconditionally. `tests/wave2/test-install-claude-permissions.sh`
+  gained the deny-entry, SessionStart-hook-present-after-install and
+  byte-identical-settings-after-uninstall assertions that previously lived only in
+  `test-model-stamp.sh` T8 — this fixture is the one that owns `install-claude-permissions.sh`
+  — Maurits Visser
+- learn(skills/learned-constants-and-secrets.md): the Mendix PAT gets a resolution ladder, starting one rung lower than sessions start it — **rung 0 is `env | grep -i '^PAT='`, and no session may report a token unavailable without having run it**. Field failure: a session mid-push to Team Server grepped `.docker/.env`, `.docker/.env.example` and `stack.env`, found nothing, and told the user the token was gone and would have to be re-provided; it had been in the session environment the whole time. Absence from the files you happened to grep is not absence. Only when rung 0 is empty does the session ask, in one batch: export it, `mxcli auth login --token` it, or point at the file that holds it — and pointing is half a step, so rung 3 ends by wiring the path into the project's gitignored env file and naming it (the path, never the value) in the constants register, or the next session asks again. Plus the git half, which cost an hour of suspecting a healthy token: Team Server takes the **literal string `pat` as the username** and the token as the password, so an askpass that echoes `$PAT` for every prompt sends it as the username and fails with `Invalid username or password`. Never in argv, never in the remote URL, never in a credential helper — and never printed to "check it". `project-bin/ts-sync.sh`'s header stops naming the credential without saying where it comes from and points here — a Mendix build project
+- learn(skills/learned-constants-and-secrets.md) + new(project-bin/constants-audit.sh): where an environment-varying value gets its value, decided before it is written, plus the instrument that checks it. Field-found on a Mendix **free node**: `Encryption.EncryptionKey` shipped by its marketplace module as `default ''`, which locally came from the gitignored `app/.mxcli/constants.json` and in the deployed sandbox came from nowhere. MxGenAIConnector encrypts a GenAI key's access token while storing it, so the empty constant blocked Import key, Create key AND the startup registration at once — with an error naming *Encryption* while the symptom was a coaching agent stuck loading, and half a day went into "the Cloud GenAI resource pack must be missing". A free environment has no Constants tab at all and the Deploy API offers no way in with a PAT (v4 404s on `.../settings/constants` and `.../constants`, v1 rejects a PAT outright, both verified against a live node), so on a free node the model default is the only channel there is. The skill sets the five channels and their reach, the three defaults that tell the truth (`__SET_ME__` over `''` for a required secret — an empty string is a legal value that fails several layers away in someone else's message), and the register that records the decision; the audit reports CLIENT-SECRET / EMPTY / MODEL-SECRET / WAIVED per constant and **never prints a value**. Field run: a Mendix build project, 11.14.0, 30 constants — three findings, all three true readings, cleared to 0 by three register lines. Its secret test is a name heuristic and says so: `FeedbackModule.LocalStorageKey` is a browser bucket name, not a secret — a Mendix build project
+- process(contrib): three e2e false-green mechanisms queued in `contrib/inbox/` — (1) a row-scoping test that only counts passes over a deleted XPath conjunct when the fixture has one organisation and one team, so the test must move a row out of scope and assert exactly that row disappears; (2) a table with rows and no READER is dead data, and a zero-inbound-refs sweep structurally cannot find it because every reference is a write — reference data seeded by eight microflows and shown to nobody survived because a derived integer on the same records was used everywhere; (3) an idempotency guard that returns early on any existing SIBLING row can never backfill an attribute a later build step adds, so the page has rendered a title, a dangling separator and an empty body in every demo since. All three measured against a live runtime, all three reported as `gap` lines so the suite stays green and the defect is read out on every run. Proposed target `skills/testing-shape.md` — a sales-qualification greenfield build
+- learn(skills/testing-shape.md): false-green register gains the session-leak row — a logout helper that returns HTTP 200 without ending the session turns a trial-licence cap into a phantom product failure. Measured on Mendix 11.14: `POST /xas/ {action:'logout'}` answers 200 and the session survives, so three login/logout cycles left three live rows in System.Session and the fourth login was refused; the runtime log says "Maximum number of sessions exceeded" while the browser shows only "Sign in failed", so a seven-journey suite reported two journeys INVALID on a healthy app and the blame landed first on the credentials and then on the feature. A persona switch leaked a second session per run by calling the login helper again without releasing the current one. The guard is `mx.logout()`, returning the verified outcome rather than a status code, plus a session count before and after — the suite now runs twice back to back at PASS 74 / FAIL 0 / INVALID 0 with zero leaked sessions — a sales-qualification greenfield build
+- fix(project-bin/graph-sweep.sh): the catalog-freshness guard read the wrong mtime twice over and refused to sweep at all on Linux — `stat -c %y` reports a SYMLINK's own mtime, so a project whose root `.mpr` links into `app/` was permanently "stale", and the BSD fallback is GNU's `--file-system`, which prints filesystem stats to stdout before exiting 1, so the `||` chain captured both outputs concatenated. Both branches are now shape-checked against a real ISO timestamp and both dereference the link (`-L`). Field run on a two-tree field project (Linux, 2026-09-11): FAULT before, 2447 objects and 5946 typed edges after — Maurits Visser
+- fix(project-tests/page-audit-rules.js): `style/page-heading` counted DECLARED H1 widgets, so a page that swaps its hero between mutually exclusive `Visible:`-guarded branches failed for declaring one heading per branch while rendering exactly one. H1s under a Visible-guarded ancestor now collapse into a single conditional heading slot; unconditional H1s still each count. Measured on a sales-qualification build: the deals overview stopped being reported as "2 H1 heading widget(s)" for a defect that does not exist on screen, while the admin home's two big metric numbers marked up as page headings still fail, which is the case worth catching — a sales-qualification greenfield build
+- fix(project-tests/page-audit-rules.js): the `exactly one H1` and `content blocks must be wrapped in a card` rules had no popup exemption, so every correctly-built modal failed both. A popup's heading IS its `Title:`, rendered by the layout in the modal's own title bar, and an H1 in the body duplicates it on screen and in the accessibility tree; a modal is already separated from the page behind it, so the card wrapper has nothing to separate. Measured on a sales-qualification build: two popup pages, four findings, none a defect — 27 fails instead of 30 over 11 pages once the guard lands, and a rule that cannot be satisfied without making the page worse stops training the reader to skip it — a sales-qualification greenfield build
+- fix(project-bin/review-module.sh, project-bin/verify-module.sh): `_tool()` searched `$MXTK_ROOT/bin` as step 3 of its lookup, but nothing in either script ever set `MXTK_ROOT`, so the toolkit half of the search was dead on every run that did not export it by hand — including the case it exists for, running the toolkit's own copy where `$BIN` is `project-bin/` while `coverage-check.sh` sits in the sibling `bin/`. Both now resolve it from the `Toolkit root` row of the project's `CLAUDE.local.md` Wiring block, the way `close-task.sh` already does, then from the script's own parent if that still looks like a clone; no clone path is hardcoded. Field-run on a sales-qualification build: coverage and review went from `coverage-check.sh not reachable (neither bin/ nor the toolkit)` to running and faulting on the genuine missing input, `no coverage-ledger.md for <Module>` — a sales-qualification greenfield build
+- process(CHANGELOG, bin): **release list — `## Unreleased` collects what lands between
+  releases, `bin/cut-release.sh` turns it into a dated `vYYYY.MM.DD` section plus a tag, and
+  `sync-project.sh` prints the toolkit release a project is on.** Until now the changelog was
+  grouped by commit date only, so "what did I get since last week" meant reading commit shas,
+  and a project could only say which sha it was pinned to. Field-run against a scratch clone:
+  `cut-release.sh` refused (exit 2) off master, with a dirty `CHANGELOG.md`, with a bad name, with
+  an existing tag, and with nothing under `## Unreleased`; the real run renamed the heading,
+  committed only `CHANGELOG.md`, and tagged; `sync-project.sh --dry-run` printed `Toolkit release:
+  none tagged yet (commit …)` before the tag and `v2026.09.19-1-g<sha>` after. — Maurits Visser
+
+## 2026-09-19
+- learn(conversion-runbook §1c): **the dispatch table names tiers, not Claude models — cheap / mid / strong — with a per-harness mapping and a longer cheap-tier list.** The table was written in Claude Code's vocabulary (Haiku/Sonnet/Opus), so a session in the desktop app, Cowork, Copilot, Cursor, Windsurf or Aider had no way to follow it, and the cheap tier held one job (image descriptions) although Stage 1 inventory lines, table/figure transcription and Stage 5 `SHOW` dumps meet the same test: a mechanical check follows. New sub-section defines each tier by the check after it (cheap never ends in a verdict, rule, or question — the 78 %-recall evidence stays), maps the tiers to Claude Code aliases, to a vendor's small/standard/largest tier read from the tool's own picker (names churn, the file does not chase them), and admits local/open-weight models for the cheap tier only; names effort level and batch size as the levers below the tier (README's 1.67× vs 3.4×), and rules that a failed unit is re-run at the same tier. Stubs keep their Claude aliases because the frontmatter accepts nothing else — Maurits Visser
+- fix(agent-roles, sync-project): **`agent-roles.md` said `model: inherit` for all six agents
+  while `agents/*.md` pins opus/sonnet; the prose now matches the stubs, and `sync-project.sh`
+  warns when a completed project agent's `model:` line drifted from the template and re-pins it
+  on `--pin-models`.** Inherit was wrong because a project running the whole pipeline under Opus
+  paid Opus prices for the gate/test/mdl work §1c assigns to Sonnet. Field-run on a scaffolded
+  project: a completed ba-agent left at `model: inherit` reported `Kept` + a drift warning against
+  the template's `model: sonnet`, `--dry-run --pin-models` printed the pin without touching the
+  file, and `--pin-models` rewrote only that one line. — Maurits Visser
+- fix(render-routing.sh): **the baseline word count depended on the caller's locale.** GNU
+  `wc -w` splits on locale whitespace, so one tree measured 79,539 words under `LC_ALL=C` and
+  81,427 under the runner's `C.UTF-8` — a PR that passed `--check` locally failed it in CI by
+  words no file contained (master itself sat 7 words under budget on the runner). Both counts
+  now pin `LC_ALL=C`, so the ratchet reads the same number on every machine. Budget unchanged;
+  it is now measured in C-locale words — Maurits Visser
+
+## 2026-09-18
+- new(bin): **`bin/token-burn.sh` — tokens per model / day / stage from the Claude Code transcripts on this machine; `status.sh --brief` gains a "Tokens this stage:" line.** Sums `message.usage` once per `message.id` (the harness writes one record per streamed block — 4,336 records for 1,989 messages in the captured session, a ~2× overcount if summed raw), skips `<synthetic>` records, attributes by each record's own `cwd` (a session launched in `~` that works in `~/proj`), headline = input + cache-write + output with cache-read shown apart, stage by the dated Decisions rows in PROJECT.md; prints NOT AVAILABLE and exits 0 where no transcript tree exists (claude.ai chat, Cowork, Copilot, Cursor). Fixture is a captured-then-scrubbed transcript with sums computed independently (`tests/wave2/fixtures/token-burn/CAPTURE.md`). Field runs: a requirements-driven PoC at Stage 4 — 358k headline / 19.2M cache-read over 5 days, 76% sonnet; this toolkit's own clone — 14.5M headline / 491M cache-read, 64% of it in Agent-tool subagents — MendixMau
 
 ## 2026-09-17
 - process(register): **the toolkit never mentioned `mxcli brain`, while mxcli writes "read
@@ -46,43 +150,6 @@ Credit the person or project that surfaced the change — the credit line is the
   `tests/run-tests.sh` discriminate: on the same fixture master exits 3, the fix exits 0 with
   `Stage 7: WAIVED`, and an unknown mode string still exits 3. Field evidence: Marketplace-RnD,
   whose Stage P had been blocked on exactly this since 2026-09-16. — MendixMau
-- new(gate-must-run): **the mxbuild gate could silently not run and the model still got written,
-  committed and pushed — on any machine, cloud or session.** `project-bin/exec.sh` treated
-  `GATE_STATE=skipped`/`unverified` as exit 0, so a `count()`-as-expression microflow (CE0117,
-  invisible to `mxcli check`, visible only to mxbuild) reached a customer's `master` from a
-  cloud session where mxbuild had never been downloaded. PR #49's Windows fixes repaired the
-  gate's *symptoms* (path mapping, errors-file location, output capture) but left the class
-  intact: an unverifiable gate still wrote. Four layers, each mechanical, none of them a
-  convention: (1) write time — `mxtk_ensure_mxbuild` in `_common.sh` runs
-  `./mxcli setup mxbuild -p` when discovery fails, and `exec.sh` **refuses to write** when the
-  gate still cannot run (`ALLOW_UNVERIFIED=1` to override, `MXTK_NO_INSTALL=1` to skip the
-  download); (2) commit time — new `project-bin/model-stamp.sh` fingerprints the `.mpr` +
-  `mprcontents/` (git blob hashes, working tree and staged), `exec.sh` writes a pass stamp on
-  a green gate and clears it otherwise, new `project-bin/verify-model.sh` is the standalone
-  gate that also stamps, and `project-bin/install-project-hooks.sh` installs a pre-commit
-  hook that refuses a commit touching the model unless the **staged** model is stamped
-  (`MODEL_UNVERIFIED_OK=1` overrides once; the hook chains any pre-existing hook and never
-  blocks the remedy — rules 6/7); (3) session start — new `project-bin/session-check.sh`
-  (stamp state via `find_mpr` so single-tree and two-tree checkouts are both probed,
-  doctor-receipt freshness, stale installed scripts, hook presence) wired as a
-  Claude Code `SessionStart` hook by `bin/install-claude-permissions.sh`, which now also adds
-  the one `permissions.deny` for bare `mxcli exec`; `sync-project.sh` installs the hook and
-  reports the stale-script class platform-neutrally; (4) discipline — the generated
-  `CLAUDE.local.md` wiring block says every model write goes through `./bin/exec.sh`, and
-  `gate-check.sh` notes an unverified model on disk. `init-project.sh` installs the hook at
-  scaffold. Field run on a two-tree field project (`.mpr` under `app/`, root symlinks): the stamp
-  fingerprints that `app/*.mpr` + `app/mprcontents` identically from the working tree and the
-  index; `verify-model.sh` ran mxbuild in 63 s, 0 errors, stamp written and self-gitignored;
-  the hook refused a staged unit change and let the same commit through with the override; with
-  an empty `$HOME` the gate downloaded the 818 MB 11.14.0 toolchain itself and then ran clean;
-  `exec.sh` with mxbuild unreachable refused before the snapshot, wrote nothing, and logged a
-  `refused` BUILD-LOG row. `tests/wave2/test-model-stamp.sh` (27 assertions: fingerprint
-  equality across working tree/staged/symlinked paths, hook refusal and override, foreign-hook
-  chaining, idempotence, settings deny + SessionStart install/uninstall). `test-bug07-08.sh`
-  case H flipped from "mxbuild missing → UNVERIFIED, exit 0" (the very contract that let the
-  CE0117 through) to "→ refused, exit 1, no snapshot", with the old expectation kept as case H2
-  behind `ALLOW_UNVERIFIED=1`. Overlaps draft #76 (doctor `--gate-selftest`) in intent, not in
-  code paths. — Maurits Visser
 
 ## 2026-09-16
 - fix(coverage-preflight.sh): **a build plan's `claims:` blocks inside a fence, with a `(note)`

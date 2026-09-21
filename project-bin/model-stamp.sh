@@ -16,12 +16,14 @@
 #
 # The stamp closes that gap at COMMIT time, on any machine, in any session:
 #   * exec.sh writes it only when its gate reports PASS (bin/exec.sh);
-#   * bin/verify-model.sh writes it after a standalone clean mxbuild — evidence the
-#     hook did not create itself (toolkit guard rule 6), and the remedy the hook
-#     points at (rule 7: a guard never blocks the action that resolves it);
+#   * bin/verify-model.sh writes it after a standalone clean mxbuild — the remedy the
+#     hook points at (rule 7: a guard never blocks the action that resolves it);
 #   * the pre-commit hook (bin/install-project-hooks.sh) refuses to commit model files
-#     whose staged fingerprint does not match a PASS stamp. MODEL_UNVERIFIED_OK=1
-#     overrides once, out loud.
+#     whose staged fingerprint does not match a PASS stamp — UNLESS a recent PASS row
+#     in docs/BUILD-LOG.md (written by exec.sh independently of this stamp file, and
+#     pre-dating this stamp mechanism) stands in as evidence, per rule 6 ("never only
+#     its own stamp file" — see install-project-hooks.sh for that check). Absent both,
+#     MODEL_UNVERIFIED_OK=1 overrides once, out loud.
 #
 # The fingerprint is a SHA-256 over "<git blob hash> <path>" for the .mpr and every
 # file under its mprcontents/ (MPR v2 keeps unit content there, so the .mpr alone is
@@ -100,14 +102,31 @@ _fp_worktree() {
     # separated: `git hash-object --stdin-paths` has no -z, and unit file names carry none.
     ( cd "$top" && git ls-files -c -o --exclude-standard -- "${MODEL_PATHS[@]}" 2>/dev/null \
         | while IFS= read -r f; do [ -f "$f" ] && printf '%s\n' "$f"; done ) > "$lst"
-    # An EMPTY list is not a fingerprint. It used to fall through to `mxtk_sha256` over empty
-    # stdin, which is a CONSTANT — so a project whose mprcontents/ is gitignored fingerprinted
-    # identically no matter what the model contained, and every stamp matched forever.
+    # An EMPTY list is not a fingerprint over nothing — that used to fall through to
+    # `mxtk_sha256` over empty stdin, which is a CONSTANT, so a project whose mprcontents/
+    # is gitignored fingerprinted identically no matter what the model contained, and every
+    # stamp matched forever.
+    #
+    # A gitignored model is not the same failure as a MISSING one, though: the files are
+    # still sitting right there on disk (find_mpr resolved $MPR before we got here), git
+    # just isn't the one who can see them. So when every model path is actually ignored,
+    # fall back to the same direct-file cksum the non-git branch below already uses — it
+    # hashes real bytes, not an empty list, so it carries none of the constant-hash risk
+    # this guard exists to prevent. Only a genuinely unresolvable empty set (paths git
+    # neither tracks NOR ignores — e.g. deleted mid-session) still refuses.
     if [ ! -s "$lst" ]; then
       rm -f "$lst"
+      local ignored=1 p
+      for p in "${MODEL_PATHS[@]}"; do
+        ( cd "$top" && git check-ignore -q -- "$p" ) || { ignored=0; break; }
+      done
+      if [ "$ignored" = 1 ]; then
+        { cksum < "$MPR"; [ -d "$MPRC" ] && find "$MPRC" -type f -exec cksum {} + | LC_ALL=C sort -k3; } | mxtk_sha256
+        return 0
+      fi
       echo "model-stamp: git lists no files under $(printf '%s ' "${MODEL_PATHS[@]}")in $top —" >&2
-      echo "  refusing to fingerprint. Most likely the model is gitignored in this clone; a stamp" >&2
-      echo "  over an empty set would match every model state." >&2
+      echo "  refusing to fingerprint (not gitignored either — the model path may not exist)." >&2
+      echo "  a stamp over an empty set would match every model state." >&2
       return 1
     fi
     ( cd "$top" && paste -d' ' <(git hash-object --stdin-paths < "$lst") "$lst" ) \

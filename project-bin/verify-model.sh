@@ -6,10 +6,14 @@
 #
 # The standalone half of the verification stamp (bin/model-stamp.sh). exec.sh stamps the
 # model after its own gate passes; this stamps it after any OTHER kind of change — a
-# Studio Pro save, a merge, a bare `mxcli exec` someone ran anyway, a fresh clone — so the
-# pre-commit hook (bin/install-project-hooks.sh) accepts evidence it did not create itself
-# (toolkit guard rule 6) and never blocks the action that resolves it (rule 7): when the
-# hook refuses, THIS is the one command it names.
+# Studio Pro save, a merge, a bare `mxcli exec` someone ran anyway, a fresh clone. It is
+# the remedy the pre-commit hook (bin/install-project-hooks.sh) names when it refuses
+# (rule 7: a guard never blocks the action that resolves it). It is NOT, by itself, the
+# rule-6 evidence — model-stamp.sh, verify-model.sh and install-project-hooks.sh all ship
+# in the same change, so a stamp only one of them can write is still "its own stamp
+# file" collectively. The hook's independent evidence is a recent PASS row in
+# docs/BUILD-LOG.md, written by exec.sh (pre-existing, unrelated code path) — see
+# install-project-hooks.sh for that check.
 #
 # Same gate as exec.sh: mxbuild --target=deploy --write-errors, output captured to a file
 # (never $(...) — Studio Pro 11's mxbuild.exe leaves a deno child holding stdout), stdin

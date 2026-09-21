@@ -102,6 +102,22 @@ assert "lowercase confirmed still passes"    0 "$GATE" "$(mkproject lower 'confi
 # checker exited 0" is read as a passed gate — and Stage 5 holds the most work.
 assert "stage 5 MANUAL is not a pass"        2 "$GATE" "$(mkproject manual 'CONFIRMED')" 5
 
+# `existing-app-change.md` told projects to record `Change an existing app`, but the entry-mode
+# parser only knew greenfield/requirement/migration, so that string resolved to an empty mode
+# and Stage 7 (cutover) was demanded of an app that never cuts over. A mode only ever waives a
+# PENDING stage (see waiver_applies), so the fixture has no stage-7 row at all: parsed mode →
+# WAIVED, exit 0; unknown string → PENDING, exit 3, exactly as before the fix.
+mkmode() {
+  local d="$WORK/$1"
+  mkdir -p "$d/analysis/alpha/knowledge-base"
+  printf '# SME questions\n\n| ID | Question | Status |\n|---|---|---|\n' > "$d/analysis/sme-questions.md"
+  printf '# Project\n\nToolkit commit: %s\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n\nEntry mode: %s\n' \
+    "$TOOLKIT_SHA" "$2" > "$d/PROJECT.md"
+  echo "$d"
+}
+assert "existing-app mode waives stage 7"     0 "$GATE" "$(mkmode existing 'Change an existing app')" 7
+assert "unknown mode leaves stage 7 pending"  3 "$GATE" "$(mkmode unknownmode 'Something else')" 7
+
 # bash evaluates array subscripts arithmetically, so a non-numeric stage used to
 # abort the script under set -u and was observed exiting 0.
 assert "typo'd stage argument is rejected"   2 "$GATE" "$(mkproject typo 'CONFIRMED')" Stage3

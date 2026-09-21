@@ -49,17 +49,17 @@ All widget choices are read-only (no CREATE/CHANGE actions) — matching the con
 
 ## Files I read
 
-1. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/AGENTS.md` (diffed identical to CLAUDE.md)
-2. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/CLAUDE.md`
-3. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/PROJECT.md`
-4. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/intake.md`
-5. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop` directory listing (`find analysis -type f`)
+1. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/AGENTS.md` (diffed identical to CLAUDE.md)
+2. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/CLAUDE.md`
+3. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/PROJECT.md`
+4. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/intake.md`
+5. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop` directory listing (`find analysis -type f`)
 6. Grep of `analysis`, `intake.md`, `triage.md`, `widgets-inventory.txt`, `CLAUDE.md` for color/brand/theme/design-system keywords
-7. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/analysis/knowledge-base/share/KB_MES20_FunctionalSpec.md` (grepped)
-8. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/analysis/knowledge-base/share/KB_MES20_APIBehaviorSpec.md` (grepped, multiple passes)
-9. `/home/user/mxcli-project-toolkit/skills/design-artifacts.md` (full read)
-10. `/home/user/mxcli-project-toolkit/skills/` directory listing (ls, to locate design-related skills)
-11. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json` (full + targeted `pages`/`integrations` sections via python)
+7. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/analysis/knowledge-base/share/KB_MES20_FunctionalSpec.md` (grepped)
+8. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/analysis/knowledge-base/share/KB_MES20_APIBehaviorSpec.md` (grepped, multiple passes)
+9. `<home>/mxcli-project-toolkit/skills/design-artifacts.md` (full read)
+10. `<home>/mxcli-project-toolkit/skills/` directory listing (ls, to locate design-related skills)
+11. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json` (full + targeted `pages`/`integrations` sections via python)
 
 (Not opened: `.mpr` file, `triage.md` full body, `widgets-inventory.txt` full body, `AGENTS.md` full body — all confirmed via grep/diff to carry no design/brand content beyond what's captured above. No task instructs modifying the project or the toolkit repos, and none were touched.)
 

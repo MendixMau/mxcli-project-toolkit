@@ -3,7 +3,7 @@
 **`USI_Theme_Module`** — the company-brain-approved Mendix theme module, not a bespoke or Atlas-default theme.
 
 - Source of the rule: this project's `CLAUDE.local.md` wires a USI company brain at
-  `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real`, whose `ROUTING.md` routes
+  `<scratch>/usi-brain-real`, whose `ROUTING.md` routes
   "choosing a design system, theme, brand colour or page shell for a USI app" to
   `components/USI_Theme_Module.md`.
 - That manifest and `skills/house-page-conventions.md` are explicit: **never hand-roll a theme
@@ -78,16 +78,16 @@ treats the two as one flow.
 
 ## Files I read
 
-1. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/CLAUDE.md`
-2. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/CLAUDE.local.md`
-3. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/PROJECT.md`
-4. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/README.md`
-5. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/ROUTING.md`
-6. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/components/USI_Theme_Module.md`
-7. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/skills/house-page-conventions.md`
-8. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/intake.md`
-9. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
-10. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/widgets-inventory.txt`
+1. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/CLAUDE.md`
+2. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/CLAUDE.local.md`
+3. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/PROJECT.md`
+4. `<scratch>/usi-brain-real/README.md`
+5. `<scratch>/usi-brain-real/ROUTING.md`
+6. `<scratch>/usi-brain-real/components/USI_Theme_Module.md`
+7. `<scratch>/usi-brain-real/skills/house-page-conventions.md`
+8. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/intake.md`
+9. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+10. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/widgets-inventory.txt`
 
 (Directory listings of the project root and `analysis/` were also run but are not file reads.)
 

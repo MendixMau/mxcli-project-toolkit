@@ -87,14 +87,14 @@ task's "preparation only" instruction.
 
 ## Files I read
 
-1. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.md`
-2. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/ROUTING.md`
-3. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/components/USI_Theme_Module.md`
-4. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/skills/house-page-conventions.md`
-5. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/PROJECT.md`
-6. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/intake.md`
-7. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/triage.md`
-8. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+1. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.md`
+2. `<scratch>/usi-brain-real/ROUTING.md`
+3. `<scratch>/usi-brain-real/components/USI_Theme_Module.md`
+4. `<scratch>/usi-brain-real/skills/house-page-conventions.md`
+5. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/PROJECT.md`
+6. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/intake.md`
+7. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/triage.md`
+8. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
 
 (`CLAUDE.local.md`, `AGENTS.md`, and `widgets-inventory.txt` exist in the project root but were
 not opened — `CLAUDE.md` states it is the canonical instruction file and the others are pointers

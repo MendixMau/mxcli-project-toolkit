@@ -40,13 +40,13 @@ Both screens are read-only per the confirmed scope; no create/edit/delete afford
 
 ## Files I read
 
-1. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/CLAUDE.md`
-2. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/CLAUDE.local.md`
-3. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/PROJECT.md`
-4. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/triage.md` (partial)
+1. `<scratch>/cb-eval2/control/USI_Routing_Workshop/CLAUDE.md`
+2. `<scratch>/cb-eval2/control/USI_Routing_Workshop/CLAUDE.local.md`
+3. `<scratch>/cb-eval2/control/USI_Routing_Workshop/PROJECT.md`
+4. `<scratch>/cb-eval2/control/USI_Routing_Workshop/triage.md` (partial)
 5. Directory listing of `analysis/` (found `brd-report.html`, `knowledge-base/`, `facts.lock.json`; no `design/`, `architecture/`, or `.css` files anywhere in the project)
-6. `/home/user/mxcli-project-toolkit/skills/design-artifacts.md` (Step 0a/0b/1/2/3, read for the process governing design system + branding decisions)
-7. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json` (UC001 flow, screens, and the `Routing`/`RoutingVersion` entity attributes used for the page plan)
+6. `<home>/mxcli-project-toolkit/skills/design-artifacts.md` (Step 0a/0b/1/2/3, read for the process governing design system + branding decisions)
+7. `<scratch>/cb-eval2/control/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json` (UC001 flow, screens, and the `Routing`/`RoutingVersion` entity attributes used for the page plan)
 
 Not read: `AGENTS.md` and `intake.md`/`widgets-inventory.txt` (redundant with CLAUDE.md / out of scope for a design-only question), and the rest of the BRD/KB files (deferred BRDs are out of the confirmed F001-only scope).
 

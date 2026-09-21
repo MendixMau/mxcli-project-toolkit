@@ -21,8 +21,8 @@ Not built yet — this is a plan only, pending the design-system question below.
 - `intake.md`
 - `triage.md`
 - `analysis/knowledge-base/brd/F001-routing-overview.brd.json`
-- `/home/user/mxcli-project-toolkit/skills/company-brain.md`
-- `/home/user/mxcli-project-toolkit/skills/conversion-runbook.md` (grep on Stage 3/Stage 5/design system)
+- `<home>/mxcli-project-toolkit/skills/company-brain.md`
+- `<home>/mxcli-project-toolkit/skills/conversion-runbook.md` (grep on Stage 3/Stage 5/design system)
 - `widgets-inventory.txt`
 - directory listing (no `design/`, `architecture/`, `mdlsource/`, `mxcli` binary, or `.mpr` file present — only `MPR-PLACEHOLDER.txt`)
 

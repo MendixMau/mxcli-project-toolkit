@@ -43,10 +43,10 @@ I have **not** written any MDL, imported the MPK, or touched the project — thi
 - `/tmp/.../treatment/USI_Routing_Workshop/widgets-inventory.txt`
 - `/tmp/.../treatment/USI_Routing_Workshop/MPR-PLACEHOLDER.txt`
 - `/tmp/.../treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
-- `/home/user/mxcli-project-toolkit/skills/ui-preflight-pages.md`
+- `<home>/mxcli-project-toolkit/skills/ui-preflight-pages.md`
 - (directory listing only, no file content) `/tmp/.../treatment/USI_Routing_Workshop/analysis/knowledge-base/` tree
 
-(Full paths root at `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/`.)
+(Full paths root at `<scratch>/cb-eval/`.)
 
 ## Open questions for the user
 

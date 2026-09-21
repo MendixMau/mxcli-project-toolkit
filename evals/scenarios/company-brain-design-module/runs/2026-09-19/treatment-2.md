@@ -43,20 +43,20 @@ before the first widget is drafted — see Open questions.
 
 ## Files I read
 
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/treatment/USI_Routing_Workshop/CLAUDE.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/treatment/USI_Routing_Workshop/CLAUDE.local.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/treatment/USI_Routing_Workshop/PROJECT.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/treatment/USI_Routing_Workshop/` (directory listing, `find`)
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/usi-brain/` (directory listing, `ls`)
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/usi-brain/ROUTING.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/usi-brain/components/usi.USIDesignSystem.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/usi-brain/skills` (directory listing)
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/usi-brain/skills/house-page-conventions.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/usi-brain/components/README.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/treatment/USI_Routing_Workshop/widgets-inventory.txt`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/treatment/USI_Routing_Workshop/triage.md`
-- `/home/user/mxcli-project-toolkit/skills/ui-preflight-pages.md`
+- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/CLAUDE.md`
+- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/CLAUDE.local.md`
+- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/PROJECT.md`
+- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/` (directory listing, `find`)
+- `<scratch>/cb-eval/usi-brain/` (directory listing, `ls`)
+- `<scratch>/cb-eval/usi-brain/ROUTING.md`
+- `<scratch>/cb-eval/usi-brain/components/usi.USIDesignSystem.md`
+- `<scratch>/cb-eval/usi-brain/skills` (directory listing)
+- `<scratch>/cb-eval/usi-brain/skills/house-page-conventions.md`
+- `<scratch>/cb-eval/usi-brain/components/README.md`
+- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/widgets-inventory.txt`
+- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/triage.md`
+- `<home>/mxcli-project-toolkit/skills/ui-preflight-pages.md`
 
 ## Open questions for the user
 

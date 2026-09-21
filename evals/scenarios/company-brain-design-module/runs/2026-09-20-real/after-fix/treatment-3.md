@@ -1,7 +1,7 @@
 ## Design system
 
 This is a USI app, wired to the USI company brain
-(`/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real`, pointed to from
+(`<scratch>/usi-brain-real`, pointed to from
 `CLAUDE.md`'s Company-brain block). Its routing table says: "Choosing a design system, theme, brand
 colour or page shell for a USI app → `components/USI_Theme_Module.md`", and the house rule is explicit:
 **never hand-roll a theme or a second design system for a USI app.**
@@ -83,18 +83,18 @@ Stage-3 deliverable (not yet produced — `design/` doesn't exist in this projec
 
 ## Files I read
 
-1. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/PROJECT.md`
-2. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/intake.md`
-3. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.md`
-4. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.local.md`
-5. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop` (directory listing — no `docs/progress/RESUME.md` present)
-6. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real` (directory listing)
-7. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/ROUTING.md`
-8. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/README.md`
-9. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/components/USI_Theme_Module.md`
-10. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/components/` and `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/skills/` (directory listings)
-11. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/skills/house-page-conventions.md`
-12. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+1. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/PROJECT.md`
+2. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/intake.md`
+3. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.md`
+4. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.local.md`
+5. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop` (directory listing — no `docs/progress/RESUME.md` present)
+6. `<scratch>/usi-brain-real` (directory listing)
+7. `<scratch>/usi-brain-real/ROUTING.md`
+8. `<scratch>/usi-brain-real/README.md`
+9. `<scratch>/usi-brain-real/components/USI_Theme_Module.md`
+10. `<scratch>/usi-brain-real/components/` and `<scratch>/usi-brain-real/skills/` (directory listings)
+11. `<scratch>/usi-brain-real/skills/house-page-conventions.md`
+12. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
 
 (The corporate brand-guide PDF, `components/USI-UI-UX-Guide-v2.0.pdf`, was not opened directly — the
 `USI_Theme_Module.md` manifest already states the reconciliation between the guide's Corporate blue

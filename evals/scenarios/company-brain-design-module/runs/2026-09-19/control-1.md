@@ -19,22 +19,22 @@ This is read-only (UC001 postcondition: "displayed from governed APIs" — no cr
 
 ## Files I read
 
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop` (directory listing)
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/PROJECT.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/CLAUDE.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/CLAUDE.local.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop` (find for RESUME.md / *.local.md / directory tree — confirmed no `docs/progress/RESUME.md` and no `design/` folder)
-- `/home/user/mxcli-project-toolkit/skills/design-artifacts.md` (listing) + `/home/user/mxcli-project-toolkit/skills/ui-preflight-pages.md` (listing)
-- `/home/user/mxcli-project-toolkit/skills/design-artifacts.md` (full read)
-- `/home/user/mxcli-project-toolkit/skills/ui-preflight-pages.md` (partial read, Steps 1–2)
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/MPR-PLACEHOLDER.txt`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/analysis/knowledge-base/brd/index.json`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json` (domainEntities, then pages)
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json` (top-level keys)
-- `/home/user/mxcli-project-toolkit/skills/company-brain.md` (grep + full head read)
-- `/home/user/mxcli-project-toolkit` (find for `*company-brain*` references)
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/*.md` (grep for company-brain / design system mentions)
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/CLAUDE.local.md` (grep count for `COMPANY-BRAIN:BEGIN`)
+- `<scratch>/cb-eval/control/USI_Routing_Workshop` (directory listing)
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/PROJECT.md`
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/CLAUDE.md`
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/CLAUDE.local.md`
+- `<scratch>/cb-eval/control/USI_Routing_Workshop` (find for RESUME.md / *.local.md / directory tree — confirmed no `docs/progress/RESUME.md` and no `design/` folder)
+- `<home>/mxcli-project-toolkit/skills/design-artifacts.md` (listing) + `<home>/mxcli-project-toolkit/skills/ui-preflight-pages.md` (listing)
+- `<home>/mxcli-project-toolkit/skills/design-artifacts.md` (full read)
+- `<home>/mxcli-project-toolkit/skills/ui-preflight-pages.md` (partial read, Steps 1–2)
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/MPR-PLACEHOLDER.txt`
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/analysis/knowledge-base/brd/index.json`
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json` (domainEntities, then pages)
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json` (top-level keys)
+- `<home>/mxcli-project-toolkit/skills/company-brain.md` (grep + full head read)
+- `<home>/mxcli-project-toolkit` (find for `*company-brain*` references)
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/*.md` (grep for company-brain / design system mentions)
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/CLAUDE.local.md` (grep count for `COMPANY-BRAIN:BEGIN`)
 
 ## Open questions for the user
 

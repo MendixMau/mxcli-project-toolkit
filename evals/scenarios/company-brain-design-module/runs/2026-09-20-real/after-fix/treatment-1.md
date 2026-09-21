@@ -82,23 +82,23 @@ written, and no MDL/pages were created or modified.
 
 ## Files I read
 
-1. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop` (ls)
-2. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.md`
-3. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.local.md`
-4. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/PROJECT.md`
-5. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/AGENTS.md` (diffed against CLAUDE.md — identical)
-6. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/analysis` (find, listing)
-7. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real` (ls) and `ROUTING.md`
-8. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/components/` (ls)
-9. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/components/USI_Theme_Module.md`
-10. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/skills/` (ls)
-11. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/skills/house-page-conventions.md`
-12. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/components/README.md`
-13. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
-14. `/home/user/mxcli-project-toolkit/skills/design-artifacts.md` (read-only, to check the generic branding-interview process this company brain overrides)
-15. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/widgets-inventory.txt`
-16. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval3/treatment/USI_Routing_Workshop/intake.md` and `triage.md` (grepped for brand/design/colour/theme/logo — no hits)
-17. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/projects.tsv`
+1. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop` (ls)
+2. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.md`
+3. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.local.md`
+4. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/PROJECT.md`
+5. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/AGENTS.md` (diffed against CLAUDE.md — identical)
+6. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/analysis` (find, listing)
+7. `<scratch>/usi-brain-real` (ls) and `ROUTING.md`
+8. `<scratch>/usi-brain-real/components/` (ls)
+9. `<scratch>/usi-brain-real/components/USI_Theme_Module.md`
+10. `<scratch>/usi-brain-real/skills/` (ls)
+11. `<scratch>/usi-brain-real/skills/house-page-conventions.md`
+12. `<scratch>/usi-brain-real/components/README.md`
+13. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+14. `<home>/mxcli-project-toolkit/skills/design-artifacts.md` (read-only, to check the generic branding-interview process this company brain overrides)
+15. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/widgets-inventory.txt`
+16. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/intake.md` and `triage.md` (grepped for brand/design/colour/theme/logo — no hits)
+17. `<scratch>/usi-brain-real/projects.tsv`
 
 ## Open questions for the user
 

@@ -41,16 +41,16 @@ Buttons throughout: theme's `usi-blue` for primary actions (Search, row navigati
 
 ## Files I read
 
-1. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/CLAUDE.md`
-2. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/CLAUDE.local.md`
-3. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/ROUTING.md`
-4. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/components/USI_Theme_Module.md`
-5. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/PROJECT.md`
-6. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/analysis` (directory listing)
-7. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
-8. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/usi-brain-real/skills/house-page-conventions.md`
-9. `/home/user/mxcli-project-toolkit/skills/design-artifacts.md` (partial, for wireframe/branding-interview convention — superseded here by the company brain's fixed theme)
-10. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/treatment/USI_Routing_Workshop/widgets-inventory.txt`
+1. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/CLAUDE.md`
+2. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/CLAUDE.local.md`
+3. `<scratch>/usi-brain-real/ROUTING.md`
+4. `<scratch>/usi-brain-real/components/USI_Theme_Module.md`
+5. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/PROJECT.md`
+6. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/analysis` (directory listing)
+7. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+8. `<scratch>/usi-brain-real/skills/house-page-conventions.md`
+9. `<home>/mxcli-project-toolkit/skills/design-artifacts.md` (partial, for wireframe/branding-interview convention — superseded here by the company brain's fixed theme)
+10. `<scratch>/cb-eval2/treatment/USI_Routing_Workshop/widgets-inventory.txt`
 
 (Also listed, not fully read: `usi-brain-real/` top-level directory and `components/` directory for file inventory.)
 

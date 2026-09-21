@@ -77,7 +77,7 @@ before it ships.
 7. `analysis/knowledge-base/brd/index.json`
 8. `CLAUDE.local.md` (this project's)
 9. `CLAUDE.md` (this project's, partial — communication style, mxcli reference sections)
-10. `/home/user/mxcli-project-toolkit/skills/design-artifacts.md`
+10. `<home>/mxcli-project-toolkit/skills/design-artifacts.md`
 11. (directory listings/greps, not single files: `find analysis -type f`, `grep -ril` for brand/colour/theme/design-system/wireframe/logo terms across the project, `find . -iname "*source*"` / `-iname design` / `-iname sources`)
 
 ## Open questions for the user

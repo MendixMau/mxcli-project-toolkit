@@ -88,17 +88,17 @@ not built that file, per this task's "preparation only" scope.
 
 ## Files I read
 
-1. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/CLAUDE.md`
-2. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/CLAUDE.local.md`
-3. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/PROJECT.md`
-4. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/intake.md`
-5. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/triage.md`
-6. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/widgets-inventory.txt`
-7. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/analysis/knowledge-base/share/KB_MES20_APIBehaviorSpec.md` (grep only, then targeted read)
-8. `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval2/control/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
-9. `/home/user/mxcli-project-toolkit/skills/design-artifacts.md`
-10. `/home/user/mxcli-project-toolkit/skills/conversion-runbook.md` (Stage 3 section, via grep)
-11. `/home/user/mxcli-project-toolkit/skills/checkpoints/checkpoint-design.md`
+1. `<scratch>/cb-eval2/control/USI_Routing_Workshop/CLAUDE.md`
+2. `<scratch>/cb-eval2/control/USI_Routing_Workshop/CLAUDE.local.md`
+3. `<scratch>/cb-eval2/control/USI_Routing_Workshop/PROJECT.md`
+4. `<scratch>/cb-eval2/control/USI_Routing_Workshop/intake.md`
+5. `<scratch>/cb-eval2/control/USI_Routing_Workshop/triage.md`
+6. `<scratch>/cb-eval2/control/USI_Routing_Workshop/widgets-inventory.txt`
+7. `<scratch>/cb-eval2/control/USI_Routing_Workshop/analysis/knowledge-base/share/KB_MES20_APIBehaviorSpec.md` (grep only, then targeted read)
+8. `<scratch>/cb-eval2/control/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+9. `<home>/mxcli-project-toolkit/skills/design-artifacts.md`
+10. `<home>/mxcli-project-toolkit/skills/conversion-runbook.md` (Stage 3 section, via grep)
+11. `<home>/mxcli-project-toolkit/skills/checkpoints/checkpoint-design.md`
 
 Also listed (not opened as content, only directory-checked): `analysis/knowledge-base/brd/*.deferred.json` filenames, `analysis/knowledge-base/reports/validation-report.md` filename, `analysis/knowledge-base/share/*.md` filenames (grepped for brand/color/theme keywords, no matches beyond the Atlas layout hit above and an unrelated "styled" match in the API spec).
 

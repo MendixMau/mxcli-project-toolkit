@@ -25,11 +25,11 @@ Target: overview page for the routing catalogue entity, per BRD `F001-routing-ov
 
 ## Files I read
 
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/treatment/USI_Routing_Workshop` (directory listing)
+- `<scratch>/cb-eval/treatment/USI_Routing_Workshop` (directory listing)
 - `.../USI_Routing_Workshop/CLAUDE.md`
 - `.../USI_Routing_Workshop/CLAUDE.local.md`
 - `.../USI_Routing_Workshop` — searched for `docs/progress/RESUME.md` (does not exist)
-- `/tmp/claude-0/.../scratchpad/cb-eval/usi-brain/` (directory listing)
+- `<scratch>/cb-eval/usi-brain/` (directory listing)
 - `usi-brain/ROUTING.md`
 - `usi-brain/README.md`
 - `usi-brain/components/` and `usi-brain/skills/` (directory listing)
@@ -41,8 +41,8 @@ Target: overview page for the routing catalogue entity, per BRD `F001-routing-ov
 - `.../USI_Routing_Workshop/widgets-inventory.txt`
 - `.../USI_Routing_Workshop/analysis/` (recursive file listing)
 - `.../USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
-- `/home/user/mxcli-project-toolkit/skills/ui-preflight-pages.md`
-- `/home/user/mxcli-project-toolkit/skills/conversion-runbook.md` (grepped for stage headings)
+- `<home>/mxcli-project-toolkit/skills/ui-preflight-pages.md`
+- `<home>/mxcli-project-toolkit/skills/conversion-runbook.md` (grepped for stage headings)
 
 ## Open questions for the user
 

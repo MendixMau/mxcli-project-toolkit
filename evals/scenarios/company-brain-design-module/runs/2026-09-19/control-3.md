@@ -27,15 +27,15 @@ This is a plan, not a build — no MDL was written and the project was not modif
 
 ## Files I read
 
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/PROJECT.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/CLAUDE.local.md`
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/intake.md`
-- (directory listing) `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/` — searched for `design`, `wireframe`, `*.css`, `*brd*`
-- `/home/user/mxcli-project-toolkit/skills/design-artifacts.md`
-- `/home/user/mxcli-project-toolkit/skills/company-brain.md`
-- (directory listing) `/home/user`, `/home/user/mxcli-project-toolkit` top-level
-- `/home/user/mxcli-project-toolkit/skills/conversion-runbook.md` (grepped for Stage 3/4/5 sections)
-- `/tmp/claude-0/-home-user/290fe318-2e84-5498-9083-13e06ee724da/scratchpad/cb-eval/control/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/PROJECT.md`
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/CLAUDE.local.md`
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/intake.md`
+- (directory listing) `<scratch>/cb-eval/control/USI_Routing_Workshop/` — searched for `design`, `wireframe`, `*.css`, `*brd*`
+- `<home>/mxcli-project-toolkit/skills/design-artifacts.md`
+- `<home>/mxcli-project-toolkit/skills/company-brain.md`
+- (directory listing) `<home>`, `<home>/mxcli-project-toolkit` top-level
+- `<home>/mxcli-project-toolkit/skills/conversion-runbook.md` (grepped for Stage 3/4/5 sections)
+- `<scratch>/cb-eval/control/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
 
 (Note: `CLAUDE.md` and `AGENTS.md` in the project root were present but not opened directly — their content is identical to the toolkit-generated `CLAUDE.md`/`CLAUDE.local.md` pattern already covered via `CLAUDE.local.md` and the toolkit's own `CLAUDE.md`, which was supplied in the system context rather than re-read from disk.)
 

@@ -429,7 +429,7 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
 
     > **Do not wait until here to look at a page for the first time.** This gate fires per
     > *module*, so on a single-module app it is once, at the very end, after every page already
-    > exists. Run `skills/ui-loop.md` — one page, one screenshot, three questions, minutes — after
+    > exists. Run `skills/ui-loop.md` — one page, one screenshot, four questions, minutes — after
     > **each page-building script**, all through steps 8–13 above. It does not discharge this gate
     > and produces no report; it just stops a visual defect from living four scripts deep before
     > anyone sees it. Measured (2026-08-24): a detail page shipped stacked instead of two-column

@@ -112,7 +112,11 @@ design-reaches-app	mdl	project	path	docs/design-reaches-app.md	yes	yes	3	project
 # So: every module with wireframes owes a fidelity row per page in docs/PAGE-FIDELITY.tsv, and the
 # ui-loop's "Reachable?" question is answered by clicking through the built navigation, not by URL.
 # The TSV is appended by page-fidelity.js itself (never by hand); its first line is a comment, so
-# no denominator is stated there — the check is "a row mentioning the module exists". Degradable:
-# a module with no wireframe discharges by saying so. Owed by mdl for the same reason as
-# design-reaches-app: the hands that built the page are the hands that must show it matches.
+# no denominator is stated there — the check is "a row mentioning the module exists" (page-fidelity.js
+# writes the module into its own `module` column for exactly this grep). There is no automatic
+# degrade path here — `degradable` names a discharge THIS obligation does not have; the check has
+# only the two ordinary outcomes, a matching row (PASS) or none yet (PENDING). A module with no
+# wireframe is waived explicitly: `--waive fidelity/<Module> --reason "no wireframe"`. Owed by mdl
+# for the same reason as design-reaches-app: the hands that built the page are the hands that must
+# show it matches.
 fidelity	mdl	module	names	docs/PAGE-FIDELITY.tsv	no	yes	5	skills/ui-loop.md

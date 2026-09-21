@@ -8,7 +8,7 @@
 
 ## What this is, and what it is NOT
 
-This is the **cheap, repeatable look during the build**. One page, one screenshot, three questions,
+This is the **cheap, repeatable look during the build**. One page, one screenshot, four questions,
 no report. Run it, fix what it finds, keep building.
 
 **It does NOT discharge `Gate: UI`** (`iterative-build-loop.md` step 14), and it does not replace
@@ -48,7 +48,7 @@ After a script that creates or changes a page:
 
 1. **Run it and open the page** — through real navigation, as a real user role, not a direct URL.
 2. **Screenshot it.**
-3. **Ask three questions** against the page's wireframe (or the design system if there is no
+3. **Ask four questions** against the page's wireframe (or the design system if there is no
    wireframe):
    - **What's missing?** A field, button, column or whole section that should be there and isn't.
    - **What looks wrong or unfinished?** Broken or stacked layout, unstyled elements, sections
@@ -59,7 +59,9 @@ After a script that creates or changes a page:
 4. **Score it when a wireframe exists** — `node project-bin/page-fidelity.js` for the page. The
    row it appends to `docs/PAGE-FIDELITY.tsv` is the score of record (target ≥80%) and the
    `fidelity` obligation reads it; a page nobody scored is a page nobody checked, however the
-   screenshot looked. No wireframe: say so, the obligation degrades.
+   screenshot looked. No wireframe: waive it explicitly (`--waive fidelity/<Module> --reason
+   "no wireframe"`) — there is no automatic discharge, and a module the obligation never hears
+   about stays PENDING forever.
 5. **Fix it now, or write it down now.** A defect that survives into the next script costs more to
    find and more to place.
 

@@ -349,13 +349,23 @@ function wfFacts(html) {
 
 // ---- MDL side -------------------------------------------------------------------------
 
+// MODULE is captured alongside the page body so the run can be RECORDED against a module
+// (see below: the fidelity obligation in bin/lib/obligations.tsv is `match=names`, which
+// greps docs/PAGE-FIDELITY.tsv for the literal module name — a row naming only the page
+// can never satisfy it). Set from the first CREATE PAGE match found; a page declared
+// identically in two modules across the MDLS list keeps the first module seen.
+let MODULE = null;
+
 function pageMdl() {
   let out = '';
   for (const f of MDLS) {
     const src = f === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(f, 'utf8');
     const re = new RegExp(
-      'CREATE(\\s+OR\\s+(MODIFY|REPLACE))?\\s+PAGE\\s+"?[A-Za-z0-9_]+"?\\."?' + PAGE + '"?\\b', 'gi');
-    for (const m of src.matchAll(re)) out += pageBody(src, m.index) + '\n';
+      'CREATE(\\s+OR\\s+(MODIFY|REPLACE))?\\s+PAGE\\s+"?([A-Za-z0-9_]+)"?\\."?' + PAGE + '"?\\b', 'gi');
+    for (const m of src.matchAll(re)) {
+      if (!MODULE) MODULE = m[3];
+      out += pageBody(src, m.index) + '\n';
+    }
   }
   return out;
 }
@@ -512,13 +522,16 @@ if (!NOLOG) {
           '# The first NON-STUB row for a page is its first-build score of record (target:\n' +
           '# >=80%); later rows for the same page show the rework curve. Rows with source\n' +
           '# `stub` are forward-reference targets (scored with --stub) and are exempt from\n' +
-          '# the target. Do not edit rows by hand.\n' +
-          'date\tpage\tscore\theadings\tactions\tcontent\tclasses\tbindings\tsource\twireframe\n');
+          '# the target. `module` is the page\'s module as declared in its CREATE PAGE\n' +
+          '# statement — this is what the fidelity obligation (bin/lib/obligations.tsv)\n' +
+          '# greps for; a blank module leaves that module\'s obligation PENDING forever, so\n' +
+          '# never blank it by hand. Do not edit rows by hand.\n' +
+          'date\tpage\tmodule\tscore\theadings\tactions\tcontent\tclasses\tbindings\tsource\twireframe\n');
       }
       const frac = x => x.n ? x.ok + '/' + x.n : '-';
       const row = [
         new Date().toISOString().slice(0, 16).replace('T', ' '),
-        PAGE, s.pct === null ? '-' : s.pct + '%',
+        PAGE, MODULE || '-', s.pct === null ? '-' : s.pct + '%',
         frac(s.h), frac(s.b), frac(s.k), frac(s.c), frac(s.bd),
         STUB ? 'stub' : MDLS[0] === '-' ? 'describe' : 'draft',
         path.relative(root, path.resolve(WF_FILE)) + (WF_REF ? '#/' + WF_REF.route : ''),

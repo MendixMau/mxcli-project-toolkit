@@ -16,6 +16,16 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+- fix(bin/gate-check.sh): a single-stage query (`gate-check.sh . N`) that resolves the stage
+  the `## Current stage` readout currently names to PASS or WAIVED now advances that readout,
+  instead of leaving it stale until the next full run. Before this, `gate-check.sh . 3` passing
+  Stage 3 left the register still reading Stage 3 (or worse, whatever the last full run wrote)
+  until someone remembered to re-run the plain `gate-check.sh .` — nobody's normal next move
+  after a stage query is "now also run the full gate-check just to move the header." The fix
+  reuses the existing readout-rewrite block and its "never overwrite a hand-written line" guard
+  unchanged, adding only a narrow eligibility check: the query must target exactly the stage the
+  readout already names, and it must have just resolved PASS/WAIVED — a query about any other
+  stage, or one that hasn't resolved yet, stays as read-only as it always was (issue #108)
 - fix(bin/gate-check.sh, skills/design-artifacts.md): the Stage-3 wireframe check only confirmed
   `design/wireframes/*.html` was non-empty, so a 22-screen app with one wireframe read as done —
   `skills/design-artifacts.md` promises one wireframe per screen. Where `design/target-ui.md`

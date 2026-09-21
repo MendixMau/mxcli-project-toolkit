@@ -1,0 +1,577 @@
+<title>Kiro in the Loop</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #eef1f5;
+    --surface: #ffffff;
+    --surface-2: #e3e8ef;
+    --ink: #161c26;
+    --ink-2: #2f3a4a;
+    --muted: #64718a;
+    --line: #cdd5e0;
+    --line-strong: #9aa7bb;
+    --kiro: #b4632a;
+    --kiro-soft: #f6e8dc;
+    --pipe: #3a5aa8;
+    --pipe-soft: #e0e7f6;
+    --cli: #1f7a5e;
+    --cli-soft: #dcefe8;
+    --stop: #a3303a;
+    --stop-soft: #f7e0e2;
+    --shadow: 0 1px 2px rgba(22, 28, 38, .07), 0 8px 24px -12px rgba(22, 28, 38, .18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #11151c;
+      --surface: #191f28;
+      --surface-2: #222a35;
+      --ink: #e8ecf3;
+      --ink-2: #c3ccda;
+      --muted: #8b97ab;
+      --line: #2e3845;
+      --line-strong: #4a5666;
+      --kiro: #e0954f;
+      --kiro-soft: #33251a;
+      --pipe: #8fabe8;
+      --pipe-soft: #1c2436;
+      --cli: #58c9a2;
+      --cli-soft: #142a25;
+      --stop: #e8848e;
+      --stop-soft: #2e1a1d;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -12px rgba(0, 0, 0, .7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #11151c;
+    --surface: #191f28;
+    --surface-2: #222a35;
+    --ink: #e8ecf3;
+    --ink-2: #c3ccda;
+    --muted: #8b97ab;
+    --line: #2e3845;
+    --line-strong: #4a5666;
+    --kiro: #e0954f;
+    --kiro-soft: #33251a;
+    --pipe: #8fabe8;
+    --pipe-soft: #1c2436;
+    --cli: #58c9a2;
+    --cli-soft: #142a25;
+    --stop: #e8848e;
+    --stop-soft: #2e1a1d;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -12px rgba(0, 0, 0, .7);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 40px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+  code, .mono { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; }
+  code {
+    font-size: .86em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: .08em .34em;
+  }
+
+  .eyebrow {
+    font-size: 11.5px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: clamp(30px, 6vw, 46px);
+    line-height: 1.06;
+    letter-spacing: -.022em;
+    margin: 0;
+    text-wrap: balance;
+    font-weight: 700;
+  }
+  .lede {
+    margin: 16px 0 0;
+    font-size: 17px;
+    color: var(--ink-2);
+    max-width: 62ch;
+  }
+  h2 {
+    font-size: 21px;
+    letter-spacing: -.01em;
+    margin: 0 0 4px;
+    font-weight: 600;
+    text-wrap: balance;
+  }
+  h3 {
+    font-size: 15.5px;
+    margin: 0 0 4px;
+    font-weight: 600;
+    letter-spacing: -.005em;
+  }
+  p { margin: 0 0 12px; max-width: 68ch; }
+  p:last-child { margin-bottom: 0; }
+  section { display: flex; flex-direction: column; gap: 18px; }
+  .sec-head { display: flex; flex-direction: column; gap: 2px; }
+  .sec-head .kicker { font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; font-weight: 600; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 0; }
+
+  /* party cards */
+  .parties { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .party {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--line-strong);
+    border-radius: 3px;
+    padding: 16px 16px 18px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .party.k { border-top-color: var(--kiro); }
+  .party.p { border-top-color: var(--pipe); }
+  .party.c { border-top-color: var(--cli); }
+  .party .who { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+  .party.k .who { color: var(--kiro); }
+  .party.p .who { color: var(--pipe); }
+  .party.c .who { color: var(--cli); }
+  .party .job { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+  .party p { font-size: 14px; color: var(--ink-2); margin: 0; max-width: none; }
+
+  /* figures */
+  figure { margin: 0; }
+  .scroller { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; box-shadow: var(--shadow); padding: 10px 12px; }
+  figure svg { display: block; width: 100%; height: auto; color: var(--ink); }
+  figure svg.wide { min-width: 820px; }
+  figure svg.mid { min-width: 700px; }
+  figcaption { font-size: 13px; color: var(--muted); margin-top: 10px; max-width: 76ch; }
+  figcaption b { color: var(--ink-2); font-weight: 600; }
+  .svg-box { fill: var(--surface); stroke: currentColor; stroke-opacity: .35; }
+  .svg-chip { fill: var(--surface-2); stroke: currentColor; stroke-opacity: .2; }
+  .svg-band { fill: none; stroke: currentColor; stroke-opacity: .18; }
+  .svg-line { stroke: currentColor; stroke-opacity: .5; fill: none; }
+  svg text { fill: var(--ink); font-family: "Archivo", Arial, sans-serif; }
+  svg .lbl { font-size: 11.5px; }
+  svg .sml { font-size: 10.5px; fill: var(--muted); }
+  svg .lane { font-size: 11px; letter-spacing: .1em; font-weight: 600; }
+  svg .mn { font-family: "JetBrains Mono", monospace; font-size: 10.5px; }
+  svg .t-k { fill: var(--kiro); }
+  svg .t-p { fill: var(--pipe); }
+  svg .t-c { fill: var(--cli); }
+  svg .b-k { fill: var(--kiro-soft); stroke: var(--kiro); stroke-opacity: .85; }
+  svg .b-p { fill: var(--pipe-soft); stroke: var(--pipe); stroke-opacity: .85; }
+  svg .b-c { fill: var(--cli-soft); stroke: var(--cli); stroke-opacity: .85; }
+  svg .s-k { stroke: var(--kiro); fill: none; }
+  svg .dash { stroke-dasharray: 5 4; }
+
+  /* value / issue lists */
+  .stack { display: flex; flex-direction: column; gap: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 3px; box-shadow: var(--shadow); }
+  .item { display: grid; grid-template-columns: 96px 1fr; gap: 16px; padding: 15px 18px; border-top: 1px solid var(--line); }
+  .item:first-child { border-top: 0; }
+  .item .tag {
+    font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; font-weight: 600;
+    padding: 3px 7px; border-radius: 3px; align-self: start; text-align: center;
+    border: 1px solid transparent;
+  }
+  .tag.now { background: var(--cli-soft); color: var(--cli); border-color: var(--cli); }
+  .tag.later { background: var(--pipe-soft); color: var(--pipe); border-color: var(--pipe); }
+  .tag.watch { background: var(--kiro-soft); color: var(--kiro); border-color: var(--kiro); }
+  .tag.block { background: var(--stop-soft); color: var(--stop); border-color: var(--stop); }
+  .item p { font-size: 14px; color: var(--ink-2); margin: 4px 0 0; }
+
+  /* postures */
+  .postures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .posture { background: var(--surface); border: 1px solid var(--line); border-radius: 3px; padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; }
+  .posture .verdict { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; }
+  .posture.a { border-left: 3px solid var(--cli); }
+  .posture.b { border-left: 3px solid var(--pipe); }
+  .posture.c { border-left: 3px solid var(--stop); }
+  .posture.a .verdict { color: var(--cli); }
+  .posture.b .verdict { color: var(--pipe); }
+  .posture.c .verdict { color: var(--stop); }
+  .posture h3 { font-size: 15px; }
+  .posture p { font-size: 14px; color: var(--ink-2); margin: 0; max-width: none; }
+
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--kiro);
+    border-radius: 3px;
+    padding: 16px 18px;
+  }
+  .callout .h { font-weight: 600; margin-bottom: 6px; }
+  .callout p { font-size: 14px; color: var(--ink-2); }
+
+  footer { font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+  footer p { max-width: none; }
+
+  @media (max-width: 720px) {
+    .parties, .postures { grid-template-columns: 1fr; }
+    .item { grid-template-columns: 1fr; gap: 6px; }
+    .item .tag { justify-self: start; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Tooling assessment · 17 September 2026</p>
+    <h1>Kiro in the Loop</h1>
+    <p class="lede">Kiro is an IDE. The runbook is a process. mxcli is the only thing that writes to the
+      <code>.mpr</code>. They occupy three different layers, so they can stack — but Kiro's spec mode wants
+      to own three stages the runbook already owns, and that is where the value and the trouble both sit.</p>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <span class="kicker">The parties</span>
+      <h2>Three parties, three jobs</h2>
+    </div>
+    <div class="parties">
+      <div class="party k">
+        <span class="who">Kiro</span>
+        <span class="job">The seat</span>
+        <p>An agentic IDE. Reads <code>.kiro/steering/*.md</code> at every turn, can fire hooks around tool
+          calls, and drafts. It is a place an agent sits — interchangeable with any other seat, in principle.</p>
+      </div>
+      <div class="party p">
+        <span class="who">The pipeline</span>
+        <span class="job">The authority</span>
+        <p>Nine stages, four ✋ gates, one decision register in <code>PROJECT.md</code>, and the drift-sync rule.
+          Lives in markdown and shell, so it is seat-agnostic by construction — that is the whole point of it.</p>
+      </div>
+      <div class="party c">
+        <span class="who">mxcli</span>
+        <span class="job">The hand</span>
+        <p>The only writer. <code>check</code> validates a script, <code>bin/exec.sh</code> snapshots then
+          executes then runs mxbuild and restores on failure. Nothing else may touch the model.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="sec-head">
+      <span class="kicker">Figure A</span>
+      <h2>One build step, three lanes</h2>
+    </div>
+    <figure>
+      <div class="scroller">
+        <svg class="wide" viewBox="0 0 1040 345" role="img" aria-label="Swimlane diagram of one build step. The pipeline lane issues a build-plan step; Kiro's lane drafts the MDL; mxcli's lane runs check and then bin/exec.sh with snapshot, exec and mxbuild; control returns to the pipeline lane for the PROJECT.md update and the gate-check. A dashed return path shows an mxbuild error sending the work back to Kiro's drafting node.">
+          <defs>
+            <marker id="la" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 1 L9 5 L0 9 z" fill="currentColor" fill-opacity=".55"/>
+            </marker>
+            <marker id="lk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 1 L9 5 L0 9 z" fill="var(--kiro)"/>
+            </marker>
+          </defs>
+
+          <text class="sml" x="16" y="22">ONE STEP OF THE BUILD PLAN, LEFT TO RIGHT</text>
+
+          <rect class="svg-band" x="16" y="70" width="1008" height="70" rx="3"/>
+          <rect class="svg-band" x="16" y="150" width="1008" height="70" rx="3"/>
+          <rect class="svg-band" x="16" y="230" width="1008" height="70" rx="3"/>
+          <text class="lane t-k" x="28" y="109">KIRO</text>
+          <text class="lane t-p" x="28" y="189">PIPELINE</text>
+          <text class="lane t-c" x="28" y="269">MXCLI</text>
+
+          <rect class="b-p" x="168" y="162" width="126" height="46" rx="3"/>
+          <text class="lbl" x="231" y="181" text-anchor="middle">build-plan</text>
+          <text class="lbl" x="231" y="196" text-anchor="middle">step N</text>
+
+          <rect class="b-k" x="314" y="82" width="126" height="46" rx="3"/>
+          <text class="lbl" x="377" y="101" text-anchor="middle">draft the MDL</text>
+          <text class="sml" x="377" y="116" text-anchor="middle">+ read the skills</text>
+
+          <rect class="b-c" x="460" y="242" width="126" height="46" rx="3"/>
+          <text class="mn" x="523" y="264" text-anchor="middle">mxcli check</text>
+          <text class="sml" x="523" y="279" text-anchor="middle">--references</text>
+
+          <rect class="b-c" x="606" y="242" width="126" height="46" rx="3"/>
+          <text class="mn" x="669" y="261" text-anchor="middle">bin/exec.sh</text>
+          <text class="sml" x="669" y="275" text-anchor="middle">snapshot · exec</text>
+          <text class="sml" x="669" y="287" text-anchor="middle">· mxbuild</text>
+
+          <rect class="b-p" x="752" y="162" width="126" height="46" rx="3"/>
+          <text class="lbl" x="815" y="181" text-anchor="middle">PROJECT.md</text>
+          <text class="sml" x="815" y="196" text-anchor="middle">+ drift-sync mark</text>
+
+          <rect class="b-p" x="898" y="162" width="126" height="46" rx="3"/>
+          <text class="lbl" x="961" y="181" text-anchor="middle">✋ gate-check</text>
+          <text class="sml" x="961" y="196" text-anchor="middle">ask, then stop</text>
+
+          <path class="svg-line" marker-end="url(#la)" d="M294 185 H304 V105 H310"/>
+          <path class="svg-line" marker-end="url(#la)" d="M440 105 H450 V265 H456"/>
+          <path class="svg-line" marker-end="url(#la)" d="M586 265 H602"/>
+          <path class="svg-line" marker-end="url(#la)" d="M732 265 H742 V185 H748"/>
+          <path class="svg-line" marker-end="url(#la)" d="M878 185 H894"/>
+
+          <path class="s-k dash" marker-end="url(#lk)" d="M669 238 V56 H377 V78"/>
+          <text class="sml" x="523" y="48" text-anchor="middle">mxbuild CE error → repair, re-check, re-exec</text>
+
+          <text class="sml" x="16" y="325">Colour = who owns the step. Kiro owns exactly one box; it never writes to the model and it never closes a gate.</text>
+        </svg>
+      </div>
+      <figcaption>The honest reading: in the loop we already run, a seat like Kiro owns <b>one</b> node —
+        drafting. Validation, writing and gating are all shell and all seat-agnostic. Swapping seats changes
+        the drafting box and nothing else, which is exactly why the toolkit's process survives a seat change.</figcaption>
+    </figure>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="sec-head">
+      <span class="kicker">Upside</span>
+      <h2>What Kiro could actually buy us</h2>
+    </div>
+    <div class="stack">
+      <div class="item">
+        <span class="tag now">Now</span>
+        <div>
+          <h3>A second seat, for free</h3>
+          <p>The steering file already merged in the open PR points Kiro at the runbook the same way
+            <code>AGENTS.md</code> and <code>.cursorrules</code> do — a pointer, never a copy. That makes Kiro
+            a fifth supported seat at the cost of one generated file, and costs nothing if nobody uses it.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="tag watch">Watch</span>
+        <div>
+          <h3>Hooks could make the discipline mechanical</h3>
+          <p>Every rule in the toolkit that currently depends on an agent choosing to obey — snapshot before
+            exec, never <code>git add -A</code>, ask the gate question and stop — is a rule a
+            <code>preToolUse</code> or <code>stop</code> hook could enforce instead of request. That is the one
+            capability no other seat we support has. See Figure B, and read the caveat under it.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="tag later">Later</span>
+        <div>
+          <h3>The six agent roles have a native home</h3>
+          <p>Kiro's custom agents take the same shape as the roles we already scaffold — ba, architect, mdl,
+            gate, test, review. A generator could emit them from the same source the existing stubs come from.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="tag now">Now</span>
+        <div>
+          <h3>Standard MCP, so mxcli's server just works</h3>
+          <p>Kiro speaks ordinary MCP with per-agent tool scoping, so the MCP write modes the preflight table
+            calls for need no new plumbing — only a config file.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <figure>
+      <div class="scroller">
+        <svg class="mid" viewBox="0 0 980 336" role="img" aria-label="Table of Kiro's five hook points and what each could enforce for the toolkit. agentSpawn could inject the runbook state at session start. userPromptSubmit could stamp the stage and toolkit commit. preToolUse could refuse a bare mxcli exec and force bin/exec.sh, highlighted as the highest-value hook. postToolUse could run the client-data guard after every write. stop could refuse to end a turn on an unsynced drift marker, also highlighted.">
+          <text class="lane t-k" x="20" y="24">KIRO HOOK</text>
+          <text class="lane" x="300" y="24" fill="var(--muted)">WHAT IT COULD CLAMP SHUT</text>
+          <path class="svg-line" d="M20 34 H960"/>
+
+          <rect class="svg-chip" x="20" y="44" width="260" height="46" rx="3"/>
+          <text class="mn" x="34" y="72">agentSpawn</text>
+          <text class="lbl" x="300" y="66">inject the runbook + current stage at session start</text>
+          <text class="sml" x="300" y="81">replaces the "read this first, every session" honour system</text>
+
+          <rect class="svg-chip" x="20" y="98" width="260" height="46" rx="3"/>
+          <text class="mn" x="34" y="126">userPromptSubmit</text>
+          <text class="lbl" x="300" y="120">stamp the stage and the toolkit commit on every prompt</text>
+          <text class="sml" x="300" y="135">the session-start ritual, enforced per turn</text>
+
+          <rect class="b-k" x="20" y="152" width="260" height="46" rx="3"/>
+          <text class="mn t-k" x="34" y="180">preToolUse</text>
+          <text class="lbl" x="300" y="174">refuse a bare mxcli exec — force bin/exec.sh</text>
+          <text class="sml" x="300" y="189">no snapshot, no run: the highest-value hook of the five</text>
+
+          <rect class="svg-chip" x="20" y="206" width="260" height="46" rx="3"/>
+          <text class="mn" x="34" y="234">postToolUse</text>
+          <text class="lbl" x="300" y="228">run the client-data guard after every write</text>
+          <text class="sml" x="300" y="243">a leak caught at the write, not at the commit</text>
+
+          <rect class="b-k" x="20" y="260" width="260" height="46" rx="3"/>
+          <text class="mn t-k" x="34" y="288">stop</text>
+          <text class="lbl" x="300" y="282">refuse to end a turn on an UNSYNCED marker</text>
+          <text class="sml" x="300" y="297">or on a gate question that was never asked</text>
+
+          <text class="sml" x="20" y="328">Every row above is a design sketch. None of it is written, and none of it has been run.</text>
+        </svg>
+      </div>
+      <figcaption><b>This figure is a hypothesis, not a feature.</b> The hook points are real and documented;
+        what they would enforce for us is unbuilt. Treating it as available is the exact defect the toolkit's
+        own field-proof rule exists to stop.</figcaption>
+    </figure>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="sec-head">
+      <span class="kicker">Downside</span>
+      <h2>Where it bites</h2>
+    </div>
+    <div class="stack">
+      <div class="item">
+        <span class="tag block">Conflict</span>
+        <div>
+          <h3>Spec mode competes for Stages 2–4</h3>
+          <p>Kiro's requirements → design → tasks flow lands in <code>.kiro/specs/&lt;feature&gt;/</code> and
+            covers Requirements, Architecture &amp; Design and Build Plan — <b>two of the four ✋ hard
+            gates</b>. Run both and there are two requirement sets, two designs, two plans, and no answer to
+            which one a gate reads. The runbook's "one decision register" rule is not a preference; it is the
+            thing that keeps a build from regressing itself.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="tag block">Blocked</span>
+        <div>
+          <h3>The permission allowlist cannot ship in the repo</h3>
+          <p>Workspace capability rules live under a hashed path in the user's home directory, outside the
+            checkout. So a clone can carry steering files and agent definitions but <b>not</b> its own
+            allowlist — every user re-grants by hand. Any pitch resting on "the repo configures Kiro safely"
+            fails here. (The steering preamble in the open PR still names the wrong directory for this.)</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="tag watch">Cost</span>
+        <div>
+          <h3>Metered, and our stages are not small</h3>
+          <p>Credits per spec run, not per seat. A complex spec run is a double-digit credit charge, and the
+            pipeline's stages are larger than the runs that number was quoted for. The per-build cost is a
+            number nobody here has measured.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="tag watch">Drift</span>
+        <div>
+          <h3>Two copies of six agent roles is a copy, not a pointer</h3>
+          <p>The toolkit's own authoring rule is pointers, never copies — the per-tool instruction files are
+            pointers precisely because copies drift. Native Kiro agents would be a second set of role
+            definitions to keep in step, which is how the three-copy enrichment-report defect happened.</p>
+        </div>
+      </div>
+      <div class="item">
+        <span class="tag block">Gating</span>
+        <div>
+          <h3>Nothing here has been field-run</h3>
+          <p>Every fact on this page is secondary-source; the vendor's own docs are unreachable from this
+            environment. The toolkit's ship bar requires one real run, cited, against real input. Until
+            someone drives one module end to end in Kiro against a real model, everything above is a claim.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="sec-head">
+      <span class="kicker">Figure C</span>
+      <h2>Three postures</h2>
+    </div>
+    <figure>
+      <div class="scroller">
+        <svg class="mid" viewBox="0 0 980 268" role="img" aria-label="Three panels comparing postures. Panel A, second seat: Kiro drafts, the pipeline gates, mxcli writes — adopt now. Panel B, enforcement layer: the same three plus a hook band wrapping them — later, once field-proven. Panel C, spec mode replaces Stages 2 to 4: the pipeline's gating row is struck through and replaced by Kiro specs — refused.">
+          <rect class="svg-box" x="10" y="16" width="300" height="214" rx="3"/>
+          <rect class="svg-box" x="340" y="16" width="300" height="214" rx="3"/>
+          <rect class="svg-box" x="670" y="16" width="300" height="214" rx="3"/>
+
+          <text class="lbl" x="26" y="42" font-weight="600">A · Second seat</text>
+          <rect x="26" y="52" width="74" height="19" rx="3" fill="var(--cli-soft)" stroke="var(--cli)"/>
+          <text class="sml" x="63" y="66" text-anchor="middle" fill="var(--cli)">ADOPT NOW</text>
+          <rect class="b-k" x="26" y="94" width="268" height="30" rx="3"/>
+          <text class="lbl" x="160" y="113" text-anchor="middle">Kiro drafts</text>
+          <rect class="b-p" x="26" y="132" width="268" height="30" rx="3"/>
+          <text class="lbl" x="160" y="151" text-anchor="middle">pipeline gates</text>
+          <rect class="b-c" x="26" y="170" width="268" height="30" rx="3"/>
+          <text class="lbl" x="160" y="189" text-anchor="middle">mxcli writes</text>
+          <text class="sml" x="26" y="219">one generated steering file · already built</text>
+
+          <text class="lbl" x="356" y="42" font-weight="600">B · Enforcement layer</text>
+          <rect x="356" y="52" width="60" height="19" rx="3" fill="var(--pipe-soft)" stroke="var(--pipe)"/>
+          <text class="sml" x="386" y="66" text-anchor="middle" fill="var(--pipe)">LATER</text>
+          <rect class="s-k dash" x="356" y="86" width="268" height="122" rx="3"/>
+          <text class="sml t-k" x="490" y="101" text-anchor="middle">hooks wrap all three</text>
+          <rect class="b-k" x="370" y="108" width="240" height="28" rx="3"/>
+          <text class="lbl" x="490" y="126" text-anchor="middle">Kiro drafts</text>
+          <rect class="b-p" x="370" y="142" width="240" height="28" rx="3"/>
+          <text class="lbl" x="490" y="160" text-anchor="middle">pipeline gates</text>
+          <rect class="b-c" x="370" y="176" width="240" height="28" rx="3"/>
+          <text class="lbl" x="490" y="194" text-anchor="middle">mxcli writes</text>
+          <text class="sml" x="356" y="223">unbuilt · needs one cited field run first</text>
+
+          <text class="lbl" x="686" y="42" font-weight="600">C · Spec mode owns 2–4</text>
+          <rect x="686" y="52" width="66" height="19" rx="3" fill="var(--stop-soft)" stroke="var(--stop)"/>
+          <text class="sml" x="719" y="66" text-anchor="middle" fill="var(--stop)">REFUSE</text>
+          <rect class="b-k" x="686" y="94" width="268" height="30" rx="3"/>
+          <text class="lbl" x="820" y="113" text-anchor="middle">.kiro/specs drafts AND plans</text>
+          <rect class="svg-chip" x="686" y="132" width="268" height="30" rx="3"/>
+          <text class="lbl" x="820" y="151" text-anchor="middle" fill="var(--muted)">pipeline gates</text>
+          <path d="M700 147 H940" stroke="var(--stop)" stroke-width="1.6"/>
+          <rect class="b-c" x="686" y="170" width="268" height="30" rx="3"/>
+          <text class="lbl" x="820" y="189" text-anchor="middle">mxcli writes</text>
+          <text class="sml" x="686" y="219">two registers, two plans · loses the ✋ gates</text>
+        </svg>
+      </div>
+      <figcaption>The only difference between the panels is <b>who owns the middle row</b>. In A and B the
+        pipeline still gates; in C it does not, and that is the whole objection to C.</figcaption>
+    </figure>
+    <div class="postures">
+      <div class="posture a">
+        <span class="verdict">Adopt</span>
+        <h3>A · Kiro as a second seat</h3>
+        <p>Generate the steering pointer, fix the allowlist path it names, drive one real module through it,
+          cite that run. Reversible, cheap, and the work is mostly done.</p>
+      </div>
+      <div class="posture b">
+        <span class="verdict">Park until proven</span>
+        <h3>B · Hooks as an enforcement layer</h3>
+        <p>The genuinely interesting idea — mechanical discipline instead of requested discipline. But it is a
+          blocking instrument, so it has to accept evidence it did not create and must never block its own
+          remedy. Build it after A has run, not instead.</p>
+      </div>
+      <div class="posture c">
+        <span class="verdict">Refuse</span>
+        <h3>C · Spec mode instead of Stages 2–4</h3>
+        <p>Trades four ✋ gates, one decision register and the drift-sync rule for a vendor's spec folder.
+          There is no version of this that does not end in two sources of truth.</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="callout">
+    <div class="h">What would change this page</div>
+    <p>One module built end to end in Kiro against a real model, with the mxbuild result and the credit spend
+      written down. That single run decides A, sizes B, and would be the first primary-source line on the
+      page. Everything here is secondary-source until then — the vendor's documentation is not reachable from
+      this environment, so nothing above was read at the source.</p>
+  </div>
+
+  <footer>
+    <p>Companion to the fit assessment stored in the toolkit's <code>process/</code> folder. Colour encoding is
+      consistent across both: Kiro orange, pipeline indigo, mxcli green. Figures are hand-authored SVG, no
+      libraries.</p>
+  </footer>
+
+</div>

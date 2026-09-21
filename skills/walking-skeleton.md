@@ -35,7 +35,7 @@ project convention splits security out.
 | 3 | The smallest screen set that lets the action happen — usually an overview with a "New" button plus the form it opens | Built through `ui-preflight-pages.md`, on the app's owned layout; passes `project-bin/check-page-shell.sh`. This is the first place the design system is tested. |
 | 4 | One navigation item + one module role + one user role + one demo user | The journey logs in as the demo user and clicks the nav item. Admin-only reachability is a fail. |
 | 5 | One journey | Log in → click nav → fill the form → run the action → assert the row exists (OQL or SQL). Playwright via the project's harness, or `mxcli playwright verify`. |
-| 6 | One screenshot of the page, kept | `docs/looks/00-skeleton.png`, judged with the three `ui-loop.md` questions. |
+| 6 | One screenshot of the page, kept | `docs/looks/00-skeleton.png`, judged with the four `ui-loop.md` questions. |
 
 ## Completion — all six, with the evidence named
 
@@ -48,7 +48,7 @@ The skeleton is done when the following are pasted in chat, each with its artifa
    item in the journey file and re-run). A journey that cannot fail is not evidence
    (`testing-shape.md` §4).
 4. The data assertion names the row: `1 Request where Title = '<value the journey typed>'`.
-5. The screenshot exists and the three `ui-loop.md` answers are written under it.
+5. The screenshot exists and the four `ui-loop.md` answers are written under it.
 6. The register line in `PROJECT.md`: `Skeleton proven <date>: exec pass, journey pass/fail-control,
    look done` — `status.sh` reads it. **And the same line, with its denominator (`5 of 5 rows`,
    or `4 of 5 — <row> NOT RUN`), written to `docs/skeleton-proof.md`** — that file is what the
@@ -74,7 +74,7 @@ first module fixes, known on day one instead of at module close.
 
 - Not the first module. The skeleton entity may be *absorbed* by the first module's script that
   owns that document (`create or modify`), never deleted.
-- Not a design review. One page, three questions. `module-review.md` still runs at module close.
+- Not a design review. One page, four questions. `module-review.md` still runs at module close.
 - Not optional in greenfield. Greenfield is where the machinery is newest and least proven.
 
 ## Related

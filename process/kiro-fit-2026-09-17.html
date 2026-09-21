@@ -1,0 +1,641 @@
+<title>Kiro and the Toolkit</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #f6f8f7;
+    --surface: #ffffff;
+    --surface-2: #eef2f1;
+    --ink: #16211f;
+    --ink-2: #3d4d49;
+    --muted: #64756f;
+    --line: #dce3e1;
+    --line-strong: #c3cecb;
+    --accent: #0e6a5f;
+    --accent-soft: #dcefeb;
+    --warn: #96600b;
+    --warn-soft: #f6ecd8;
+    --stop: #9c3629;
+    --stop-soft: #f7e3df;
+    --shadow: 0 1px 2px rgba(20,33,31,.06), 0 8px 24px -16px rgba(20,33,31,.35);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0e1513;
+      --surface: #161f1d;
+      --surface-2: #1d2825;
+      --ink: #e7eeeb;
+      --ink-2: #c2cfcb;
+      --muted: #8b9c97;
+      --line: #27332f;
+      --line-strong: #37453f;
+      --accent: #4fd0bd;
+      --accent-soft: #14312d;
+      --warn: #e2a852;
+      --warn-soft: #33270f;
+      --stop: #ec8072;
+      --stop-soft: #351b17;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0e1513;
+    --surface: #161f1d;
+    --surface-2: #1d2825;
+    --ink: #e7eeeb;
+    --ink-2: #c2cfcb;
+    --muted: #8b9c97;
+    --line: #27332f;
+    --line-strong: #37453f;
+    --accent: #4fd0bd;
+    --accent-soft: #14312d;
+    --warn: #e2a852;
+    --warn-soft: #33270f;
+    --stop: #ec8072;
+    --stop-soft: #351b17;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 40px 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 44px;
+  }
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace; }
+  code {
+    font-size: .86em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: .08em .34em;
+    word-break: break-word;
+  }
+  h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.22; letter-spacing: -.012em; }
+  h1 { font-size: clamp(1.9rem, 5.4vw, 2.7rem); font-weight: 600; }
+  h2 { font-size: 1.28rem; font-weight: 600; }
+  h3 { font-size: 1rem; font-weight: 600; }
+  p { margin: 0; max-width: 68ch; }
+  a { color: var(--accent); text-underline-offset: 3px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .72rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  header .meta {
+    margin-top: 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .78rem;
+    color: var(--muted);
+  }
+  header p.lede { margin-top: 14px; font-size: 1.06rem; color: var(--ink-2); }
+
+  section { display: flex; flex-direction: column; gap: 18px; }
+  section > .head { display: flex; flex-direction: column; gap: 6px; }
+
+  /* verdict */
+  .verdict {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .verdict h2 { font-size: 1.5rem; }
+  .verdict .qualifier {
+    font-size: .92rem;
+    color: var(--muted);
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+  }
+
+  .callout {
+    background: var(--warn-soft);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .callout.stop { background: var(--stop-soft); }
+  .callout .eyebrow { color: var(--warn); }
+  .callout.stop .eyebrow { color: var(--stop); }
+  .callout p { max-width: 74ch; }
+
+  /* chips */
+  .chip {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .68rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    padding: .18em .5em;
+    border-radius: 3px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+  }
+  .chip.fits { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .chip.friction { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); }
+  .chip.blocked { background: var(--stop-soft); color: var(--stop); border-color: var(--stop); }
+
+  /* table */
+  .scroller { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 680px; font-size: .93rem; }
+  th, td { text-align: left; vertical-align: top; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+  thead th {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .7rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line-strong);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.surface { font-weight: 500; width: 21%; }
+  td.verdict-cell { width: 1%; }
+
+  /* definition rows */
+  .rows { display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }
+  .rows > div { display: grid; grid-template-columns: 170px 1fr; gap: 20px; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+  .rows > div:last-child { border-bottom: none; }
+  .rows dt, .rows .k { font-family: "IBM Plex Mono", monospace; font-size: .8rem; color: var(--muted); }
+  .rows .v { font-size: .95rem; color: var(--ink-2); }
+  .rows .v strong { color: var(--ink); font-weight: 600; }
+  @media (max-width: 560px) {
+    .rows > div { grid-template-columns: 1fr; gap: 4px; }
+  }
+
+  /* numbered plan — genuine sequence */
+  ol.plan { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; counter-reset: step; }
+  ol.plan li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 34px 1fr;
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+  }
+  ol.plan li::before {
+    content: counter(step);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .8rem;
+    color: var(--accent);
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    width: 30px; height: 30px;
+    display: grid; place-items: center;
+  }
+  ol.plan .body { display: flex; flex-direction: column; gap: 5px; }
+  ol.plan .body p { font-size: .94rem; color: var(--ink-2); }
+
+  ul.ticks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  ul.ticks li { position: relative; padding-left: 20px; font-size: .95rem; color: var(--ink-2); max-width: 70ch; }
+  ul.ticks li::before {
+    content: "";
+    position: absolute; left: 2px; top: .62em;
+    width: 7px; height: 7px; border-radius: 1px;
+    background: var(--accent);
+  }
+
+  /* cost */
+  .cost { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .cost div {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .cost .tier { font-size: .78rem; color: var(--muted); font-family: "IBM Plex Mono", monospace; }
+  .cost .price { font-size: 1.2rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .cost .credits { font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  figure {
+    margin: 0;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 20px 18px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .figscroll { overflow-x: auto; }
+  figure svg { display: block; width: 100%; height: auto; color: var(--ink-2); }
+  figure svg.wide { min-width: 720px; }
+  figure svg.mid { min-width: 620px; }
+  figcaption { font-size: .86rem; color: var(--muted); max-width: 74ch; line-height: 1.55; }
+  .svg-box { fill: var(--surface); stroke: currentColor; stroke-opacity: .35; }
+  .svg-band { fill: none; stroke: currentColor; stroke-opacity: .25; stroke-dasharray: 5 5; }
+  .svg-chip { fill: var(--surface-2); stroke: currentColor; stroke-opacity: .2; }
+  .svg-line { stroke: currentColor; stroke-opacity: .5; fill: none; }
+  .svg-t { fill: var(--ink); font-family: "IBM Plex Sans", sans-serif; }
+  .svg-m { fill: var(--muted); font-family: "IBM Plex Mono", monospace; }
+  .svg-lab { fill: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .1em; }
+  svg .k { fill: #cf7a2a; }
+  svg .k-stroke { stroke: #cf7a2a; fill: none; }
+  svg .k-box { fill: none; stroke: #cf7a2a; stroke-dasharray: 5 4; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding-top: 20px;
+    font-size: .84rem;
+    color: var(--muted);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  footer p { max-width: 74ch; }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Harness evaluation · mxcli-project-toolkit</div>
+    <h1>Kiro and the Toolkit</h1>
+    <p class="lede">Does AWS's spec-driven IDE earn a place beside the runbook, the gates and <code>./mxcli</code> — or does it fight them?</p>
+    <div class="meta">
+      <span>17 Sep 2026</span>
+      <span>Evidence: secondary sources only</span>
+      <span>Prior art: PR #75 (draft)</span>
+    </div>
+  </header>
+
+  <section>
+    <div class="verdict">
+      <div class="eyebrow">Verdict</div>
+      <h2>Support it as a consumer. Don't adopt it as the process.</h2>
+      <p>Kiro reads a repo's instructions well enough that the toolkit's existing pointer — the steering file already written in PR #75 — is the whole integration. That's cheap and worth finishing. What it cannot be is the pipeline: Kiro's spec mode wants to own requirements → design → tasks, which is precisely the ground the runbook's nine stages, BRDs and <code>gate-check.sh</code> already hold, and its permission model puts the exec-approval work outside the repository's reach.</p>
+      <p class="qualifier">Confidence is moderate, not high. Nothing below has been run in Kiro. <code>kiro.dev</code> is egress-blocked from this container — the same wall PR #75 hit in August — so every claim here comes from search summaries and third-party write-ups, not first-party docs. Two of them contradict what PR #75 currently says.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <div class="eyebrow">The stack</div>
+      <h2>How the pieces fit</h2>
+    </div>
+    <p>Nothing about the toolkit is tied to one IDE. Every agent reads a committed pointer file, every pointer defers to <code>CLAUDE.md</code>, and from there the process layer decides what gets built and what may run. Kiro slots into the top band like the other five — and then forks.</p>
+    <figure>
+      <div class="figscroll">
+        <svg class="wide" viewBox="0 0 960 620" role="img" aria-label="Layer diagram. Six agents and IDEs including Kiro each read a committed pointer file; all pointers defer to CLAUDE.md, which routes to the toolkit process layer of PROJECT.md, BRD JSON, skills and gate-check.sh; that layer authorises mxcli and Studio Pro, which write the Mendix model. Kiro additionally branches into its own spec mode directory, whose output stops short of the process layer and is never read by the gates.">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="currentColor" fill-opacity=".55"/>
+            </marker>
+          </defs>
+
+          <text class="svg-lab" x="20" y="16">AGENT / IDE LAYER</text>
+          <rect class="svg-box" x="20"  y="28" width="140" height="42" rx="6"/>
+          <rect class="svg-box" x="176" y="28" width="140" height="42" rx="6"/>
+          <rect class="svg-box" x="332" y="28" width="140" height="42" rx="6"/>
+          <rect class="svg-box" x="488" y="28" width="140" height="42" rx="6"/>
+          <rect class="svg-box" x="644" y="28" width="140" height="42" rx="6"/>
+          <rect x="800" y="28" width="140" height="42" rx="6" fill="none" stroke="#cf7a2a" stroke-width="1.6"/>
+          <text class="svg-t" x="90"  y="54" font-size="13.5" text-anchor="middle">Claude Code</text>
+          <text class="svg-t" x="246" y="54" font-size="13.5" text-anchor="middle">Copilot</text>
+          <text class="svg-t" x="402" y="54" font-size="13.5" text-anchor="middle">Cursor</text>
+          <text class="svg-t" x="558" y="54" font-size="13.5" text-anchor="middle">Windsurf</text>
+          <text class="svg-t" x="714" y="54" font-size="13.5" text-anchor="middle">Aider</text>
+          <text class="k"     x="870" y="54" font-size="13.5" text-anchor="middle" font-weight="600">Kiro</text>
+
+          <path class="svg-line" d="M90 70 V92 M246 70 V92 M402 70 V92 M558 70 V92 M714 70 V92 M850 70 V92"/>
+          <path class="svg-line" d="M90 92 H850"/>
+          <path class="svg-line" d="M360 92 V150" marker-end="url(#arr)"/>
+          <text class="svg-m" x="372" y="112" font-size="11.5">reads its pointer file at session start</text>
+
+          <text class="svg-lab" x="80" y="146">COMMITTED POINTER FILES</text>
+          <rect class="svg-box" x="80" y="156" width="560" height="56" rx="6"/>
+          <text class="svg-m" x="360" y="180" font-size="11.5" text-anchor="middle">AGENTS.md · .github/copilot-instructions.md · .cursorrules · .windsurfrules</text>
+          <text class="k"     x="360" y="198" font-size="11.5" text-anchor="middle" font-family="IBM Plex Mono, monospace">.kiro/steering/mxtk-toolkit.md   (inclusion: always)</text>
+
+          <path class="svg-line" d="M360 212 V240" marker-end="url(#arr)"/>
+          <text class="svg-m" x="372" y="230" font-size="11.5">every one of them defers to</text>
+
+          <rect class="svg-box" x="240" y="248" width="240" height="46" rx="6"/>
+          <text class="svg-t" x="360" y="268" font-size="14" text-anchor="middle" font-weight="600">CLAUDE.md</text>
+          <text class="svg-m" x="360" y="285" font-size="10.5" text-anchor="middle">the one canonical instruction file</text>
+
+          <path class="svg-line" d="M360 294 V322" marker-end="url(#arr)"/>
+
+          <text class="svg-lab" x="80" y="340">PROCESS LAYER — THE TOOLKIT OWNS THIS</text>
+          <rect class="svg-band" x="80" y="348" width="560" height="102" rx="8"/>
+          <text class="svg-m" x="96" y="368" font-size="10.5">nine stages, six checkpoint interviews, one decision register</text>
+          <rect class="svg-chip" x="100" y="378" width="124" height="52" rx="5"/>
+          <rect class="svg-chip" x="232" y="378" width="124" height="52" rx="5"/>
+          <rect class="svg-chip" x="364" y="378" width="124" height="52" rx="5"/>
+          <rect class="svg-chip" x="496" y="378" width="124" height="52" rx="5"/>
+          <text class="svg-t" x="162" y="401" font-size="12" text-anchor="middle">PROJECT.md</text>
+          <text class="svg-t" x="294" y="401" font-size="12" text-anchor="middle">BRD JSON</text>
+          <text class="svg-t" x="426" y="401" font-size="12" text-anchor="middle">skills/</text>
+          <text class="svg-t" x="558" y="401" font-size="12" text-anchor="middle">gate-check.sh</text>
+          <text class="svg-m" x="162" y="418" font-size="10" text-anchor="middle">decisions</text>
+          <text class="svg-m" x="294" y="418" font-size="10" text-anchor="middle">requirements</text>
+          <text class="svg-m" x="426" y="418" font-size="10" text-anchor="middle">how to do it</text>
+          <text class="svg-m" x="558" y="418" font-size="10" text-anchor="middle">the verdicts</text>
+
+          <path class="svg-line" d="M360 450 V480" marker-end="url(#arr)"/>
+          <text class="svg-m" x="372" y="470" font-size="11.5">authorises the scripts that touch the model</text>
+
+          <text class="svg-lab" x="80" y="498">TOOL LAYER</text>
+          <rect class="svg-box" x="80"  y="506" width="270" height="52" rx="6"/>
+          <rect class="svg-box" x="370" y="506" width="270" height="52" rx="6"/>
+          <text class="svg-t" x="215" y="529" font-size="13.5" text-anchor="middle">./mxcli</text>
+          <text class="svg-t" x="505" y="529" font-size="13.5" text-anchor="middle">Studio Pro</text>
+          <text class="svg-m" x="215" y="546" font-size="10.5" text-anchor="middle">check · exec · lint · --mcp</text>
+          <text class="svg-m" x="505" y="546" font-size="10.5" text-anchor="middle">ALTER SETTINGS · security level</text>
+
+          <path class="svg-line" d="M215 558 L300 586" marker-end="url(#arr)"/>
+          <path class="svg-line" d="M505 558 L420 586" marker-end="url(#arr)"/>
+          <rect class="svg-box" x="300" y="588" width="120" height="26" rx="5"/>
+          <text class="svg-m" x="360" y="605" font-size="11" text-anchor="middle">the .mpr model</text>
+
+          <path class="k-stroke" stroke-dasharray="5 4" d="M930 70 V356"/>
+          <rect class="k-box" x="740" y="356" width="200" height="66" rx="6"/>
+          <text class="k" x="756" y="378" font-size="11.5" font-family="IBM Plex Mono, monospace">.kiro/specs/&lt;feature&gt;/</text>
+          <text class="k" x="756" y="395" font-size="10.5">requirements → design → tasks</text>
+          <text class="k" x="756" y="411" font-size="10" fill-opacity=".85">spec mode, on by default</text>
+          <text class="k" x="916" y="146" font-size="10.5" text-anchor="end">and also enters</text>
+          <text class="k" x="916" y="160" font-size="10.5" text-anchor="end">its own spec mode</text>
+
+          <path class="k-stroke" stroke-dasharray="5 4" d="M740 389 H692"/>
+          <path class="k-stroke" stroke-width="1.6" d="M672 382 L684 394 M684 382 L672 394"/>
+          <text class="k" x="940" y="444" font-size="10.5" text-anchor="end">a second requirements set —</text>
+          <text class="k" x="940" y="458" font-size="10.5" text-anchor="end">gate-check.sh never reads it</text>
+        </svg>
+      </div>
+      <figcaption>Every band above the model is shared: Kiro reads a pointer like everyone else, and that pointer hands it the same canonical file. The only Kiro-specific edge is the dashed one — spec mode writes a parallel requirements artifact that stops short of the process layer, because nothing in the toolkit reads <code>.kiro/specs/</code>.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <div class="head">
+      <div class="eyebrow">Already built</div>
+      <h2>PR #75 is sitting there, draft, at 11/11</h2>
+    </div>
+    <p>This was researched once before and half-shipped. Branch <code>claude/kiro-steering-pointer</code>, two commits:</p>
+    <div class="rows">
+      <div><span class="k">wire-agents.sh</span><span class="v">Gains <strong>opt-in <code>--with-kiro</code></strong>. Writes <code>.kiro/steering/mxtk-toolkit.md</code> with <code>inclusion: always</code> front-matter, only if absent, then stamps it with the shared "Start here" marker block. <code>--check</code> stays silent about Kiro unless the flag was passed or the file exists.</span></div>
+      <div><span class="k">the steering file</span><span class="v">Says three things: <code>CLAUDE.md</code> is canonical and this is a pointer; requirements live in <code>PROJECT.md</code> and <code>analysis/**/*.brd.json</code> with gates at <code>bin/gate-check.sh</code>, so <strong>do not create <code>.kiro/specs/</code></strong>; and gate questions are asked as numbered options and the turn ends.</span></div>
+      <div><span class="k">interview-protocol.md</span><span class="v">§3 lists Kiro beside Copilot, Cursor, Windsurf, Continue and Aider as a first-class consumer — plain numbered markdown, its blocking <code>userInput</code> tool optional, the turn ends either way.</span></div>
+      <div><span class="k">test fixture</span><span class="v"><code>tests/wave2/test-wire-agents-kiro.sh</code>, 126 lines, 11/11 green.</span></div>
+      <div><span class="k">why still draft</span><span class="v">Its own PR body: <em>"Documented behaviour, not yet field-run in Kiro itself."</em> Someone has to open a wired project in Kiro once and confirm the steering file loads and the allowlist note unblocks <code>./mxcli</code>. That run still hasn't happened.</span></div>
+    </div>
+    <p>So the question isn't "should we build Kiro support" — it's "is the built thing correct, and is it worth the field run to flip it to ready."</p>
+  </section>
+
+  <section>
+    <div class="head">
+      <div class="eyebrow">Surface by surface</div>
+      <h2>Where it meshes and where it grinds</h2>
+    </div>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Surface</th>
+            <th scope="col">Toolkit</th>
+            <th scope="col">Kiro</th>
+            <th scope="col">Verdict</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="surface">Process spine</td>
+            <td>Nine stages, six checkpoint interviews, <code>gate-check.sh</code> verdicts, obligation + artifact + source-ledger checks.</td>
+            <td>Spec mode owns requirements → design → tasks in <code>.kiro/specs/&lt;feature&gt;/</code>, with its own approval beats.</td>
+            <td class="verdict-cell"><span class="chip blocked">Collides</span></td>
+          </tr>
+          <tr>
+            <td class="surface">Project instructions</td>
+            <td><code>CLAUDE.md</code> canonical; per-tool files are pointers, never copies.</td>
+            <td><code>.kiro/steering/*.md</code> with <code>inclusion: always</code> — loads every conversation, exactly the pointer shape the toolkit already uses.</td>
+            <td class="verdict-cell"><span class="chip fits">Fits</span></td>
+          </tr>
+          <tr>
+            <td class="surface">Gate questions</td>
+            <td>Ask in chat, then <em>end the turn and wait</em>. <code>AskUserQuestion</code> where it exists, numbered markdown everywhere else.</td>
+            <td>Plain markdown works; a blocking <code>userInput</code> tool exists as a bonus. Nothing forces a turn to continue.</td>
+            <td class="verdict-cell"><span class="chip fits">Fits</span></td>
+          </tr>
+          <tr>
+            <td class="surface">Exec approval</td>
+            <td><code>install-harness-permissions.sh</code> writes a committed allowlist so <code>./mxcli</code> and <code>bin/*.sh</code> run without a prompt per call.</td>
+            <td>Capability permissions in <code>~/.kiro/settings/permissions.yaml</code>, workspace rules under <code>~/.kiro/workspace-roots/&lt;hash&gt;/</code> — <strong>both outside the repo</strong>.</td>
+            <td class="verdict-cell"><span class="chip blocked">Blocked</span></td>
+          </tr>
+          <tr>
+            <td class="surface">Agent roles</td>
+            <td>Six stubs — ba, architect, mdl, gate, test, review — stamped by <code>wire-agents.sh</code>.</td>
+            <td>Custom agents in <code>.kiro/agents/</code>, JSON or Markdown, same fields, per-agent MCP tool scoping. Committable.</td>
+            <td class="verdict-cell"><span class="chip friction">Portable, at a cost</span></td>
+          </tr>
+          <tr>
+            <td class="surface">MCP</td>
+            <td><code>learned-mcp-patterns.md</code>: save discipline, uncommitted-MPR guard, pre-exec handoff; <code>mxcli --mcp</code> for assoc-set writes.</td>
+            <td>Standard MCP config with <code>autoApprove</code> and <code>disabledTools</code>; <code>@</code>-scoped tools per agent.</td>
+            <td class="verdict-cell"><span class="chip fits">Fits</span></td>
+          </tr>
+          <tr>
+            <td class="surface">Headless / CI</td>
+            <td>Everything that matters is a shell script; CI runs the check scripts and both fixture suites.</td>
+            <td><code>kiro-cli</code> has a headless mode and ACP (JSON-RPC over stdio) with <code>--agent &lt;name&gt;</code>.</td>
+            <td class="verdict-cell"><span class="chip friction">Plausible, untested</span></td>
+          </tr>
+          <tr>
+            <td class="surface">Cost model</td>
+            <td>Zero — the toolkit is scripts and markdown.</td>
+            <td>Credit-metered on top of whatever subscription the user already pays for.</td>
+            <td class="verdict-cell"><span class="chip friction">Additive</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="head">
+      <div class="eyebrow">New finding</div>
+      <h2>Kiro's permissions live outside the repository</h2>
+    </div>
+    <div class="callout stop">
+      <div class="eyebrow">This changes two things already written</div>
+      <p>Kiro 1.0's capability permissions resolve from <code>~/.kiro/settings/permissions.yaml</code> for user rules and <code>~/.kiro/workspace-roots/&lt;hash&gt;/permissions.yaml</code> for workspace rules — the workspace file is keyed by a hash of the path and stored in the home directory, not in the checkout. Effects are allow / ask / deny with deny-overrides; the shipped default allows <code>fs_read</code> on <code>./**</code> plus read-only git and system commands, which does <em>not</em> cover <code>./mxcli exec</code> or <code>bin/*.sh</code>.</p>
+      <p><strong>Consequence 1 —</strong> a cloned project cannot ship a Kiro allowlist. That puts Kiro with Cursor and Windsurf in <code>install-harness-permissions.sh</code>'s table (no write, document it), not with Claude, Copilot and Aider (write a committed file). Worth folding in while PR #85 is still open.</p>
+      <p><strong>Consequence 2 —</strong> PR #75's steering preamble points the human at <code>.kiro/settings/</code> for the allowlist. As far as the sources go, that path is wrong. Fix the line before the PR flips to ready, or it ships a wrong instruction to every wired project.</p>
+    </div>
+      <figure>
+        <div class="figscroll">
+          <svg class="mid" viewBox="0 0 900 330" role="img" aria-label="Two columns. Claude Code, Copilot and Aider take their run-permission from files committed in the repository, which the installer writes. Cursor, Windsurf and Kiro take theirs from user-level files on the machine; Kiro's is under a hashed workspace-roots directory in the home folder, so no committed file can supply it.">
+            <defs>
+              <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0 0 L10 5 L0 10 z" fill="currentColor" fill-opacity=".55"/>
+              </marker>
+            </defs>
+            <rect class="svg-box" x="250" y="16" width="400" height="48" rx="6"/>
+            <text class="svg-m" x="450" y="36" font-size="10.5" text-anchor="middle">before an agent can do any work it must be allowed to run</text>
+            <text class="svg-t" x="450" y="54" font-size="13" text-anchor="middle" font-family="IBM Plex Mono, monospace">./mxcli · bin/*.sh</text>
+            <path class="svg-line" d="M450 64 V80"/>
+            <path class="svg-line" d="M235 80 H665"/>
+            <path class="svg-line" d="M235 80 V124" marker-end="url(#arr2)"/>
+            <path class="svg-line" d="M665 80 V124" marker-end="url(#arr2)"/>
+
+            <text class="svg-lab" x="40"  y="122">COMMITTED IN THE REPO</text>
+            <text class="svg-lab" x="470" y="122">ONLY ON THE MACHINE</text>
+            <rect class="svg-box" x="40"  y="132" width="390" height="180" rx="8"/>
+            <rect class="svg-box" x="470" y="132" width="390" height="180" rx="8"/>
+
+            <text class="svg-t" x="60" y="158" font-size="12.5">Claude Code</text>
+            <text class="svg-m" x="60" y="174" font-size="11">.claude/settings.json</text>
+            <text class="svg-t" x="60" y="208" font-size="12.5">Copilot</text>
+            <text class="svg-m" x="60" y="224" font-size="11">.vscode/settings.json</text>
+            <text class="svg-t" x="60" y="258" font-size="12.5">Aider</text>
+            <text class="svg-m" x="60" y="274" font-size="11">.aider.conf.yml</text>
+            <text class="svg-m" x="60" y="300" font-size="10" fill-opacity=".8">install-harness-permissions.sh writes these — they travel with a clone</text>
+
+            <text class="svg-t" x="490" y="158" font-size="12.5">Cursor</text>
+            <text class="svg-m" x="490" y="174" font-size="11">user-level auto-run list</text>
+            <text class="svg-t" x="490" y="208" font-size="12.5">Windsurf</text>
+            <text class="svg-m" x="490" y="224" font-size="11">user-level auto-run list</text>
+            <text class="k"     x="490" y="258" font-size="12.5" font-weight="600">Kiro</text>
+            <text class="k"     x="490" y="274" font-size="10.5" font-family="IBM Plex Mono, monospace">~/.kiro/workspace-roots/&lt;hash&gt;/permissions.yaml</text>
+            <text class="svg-m" x="490" y="300" font-size="10" fill-opacity=".8">the human sets these once per machine — no installer can</text>
+          </svg>
+        </div>
+        <figcaption>The split is not about which harness is better wired; it is about whether the allow-rule is a file a clone can carry. Kiro's workspace rules are keyed by a hash of the project path and stored in the home directory, which puts it on the right — the same bucket as Cursor and Windsurf, and the reason <code>install-harness-permissions.sh</code> should document rather than write.</figcaption>
+      </figure>
+
+  </section>
+
+  <section>
+    <div class="head">
+      <div class="eyebrow">The real hazard</div>
+      <h2>Two pipelines, one project</h2>
+    </div>
+    <p>Everything else is wiring. This one is structural. Kiro's headline feature is spec-driven development: it turns a prompt into a requirements document, then a design, then a task list, and works the tasks. That is a good idea and it is <em>the same idea the runbook already implements</em> — with stage gates, a decision register in <code>PROJECT.md</code>, obligation checks that refuse to go green by absence, and a source ledger that blocks Stages 1–2 until every source file names the artifact that consumed it.</p>
+    <p>Let both run and a project has two sets of requirements that drift apart, which is the exact failure the drift-sync rule exists to catch — except this drift would be between the toolkit's BRDs and a directory the toolkit never reads. The steering file already forbids it in one sentence. Whether one sentence holds against a mode the IDE actively promotes is the single question a field run would answer, and it's worth more than the rest of the test put together.</p>
+    <figure>
+      <div class="figscroll">
+        <svg class="mid" viewBox="0 0 900 236" role="img" aria-label="The runbook's nine stages, Kickoff through Cutover, drawn as a strip. A bracket over Requirements, Architecture and Build Plan marks the three Kiro's spec mode also wants to own. Hand icons mark the hard gates at Triage and Scope, Architecture, Build Plan and Test; two of the four fall inside the overlap.">
+          <text class="k" x="450" y="42" font-size="12" text-anchor="middle">Kiro spec mode wants these three</text>
+          <text class="k" x="450" y="58" font-size="11" text-anchor="middle" fill-opacity=".85">requirements → design → tasks</text>
+          <path class="k-stroke" stroke-width="1.6" d="M311 82 V70 H589 V82"/>
+
+          <rect class="svg-box" x="23"  y="96" width="86" height="50" rx="5"/>
+          <rect class="svg-box" x="119" y="96" width="86" height="50" rx="5"/>
+          <rect class="svg-box" x="215" y="96" width="86" height="50" rx="5"/>
+          <rect class="svg-chip" x="311" y="96" width="86" height="50" rx="5"/>
+          <rect class="svg-chip" x="407" y="96" width="86" height="50" rx="5"/>
+          <rect class="svg-chip" x="503" y="96" width="86" height="50" rx="5"/>
+          <rect class="svg-box" x="599" y="96" width="86" height="50" rx="5"/>
+          <rect class="svg-box" x="695" y="96" width="86" height="50" rx="5"/>
+          <rect class="svg-box" x="791" y="96" width="86" height="50" rx="5"/>
+
+          <text class="svg-t" x="66"  y="119" font-size="13" text-anchor="middle">P</text>
+          <text class="svg-t" x="162" y="119" font-size="13" text-anchor="middle">0</text>
+          <text class="svg-t" x="258" y="119" font-size="13" text-anchor="middle">1</text>
+          <text class="svg-t" x="354" y="119" font-size="13" text-anchor="middle">2</text>
+          <text class="svg-t" x="450" y="119" font-size="13" text-anchor="middle">3</text>
+          <text class="svg-t" x="546" y="119" font-size="13" text-anchor="middle">4</text>
+          <text class="svg-t" x="642" y="119" font-size="13" text-anchor="middle">5</text>
+          <text class="svg-t" x="738" y="119" font-size="13" text-anchor="middle">6</text>
+          <text class="svg-t" x="834" y="119" font-size="13" text-anchor="middle">7</text>
+
+          <text class="svg-m" x="66"  y="137" font-size="10" text-anchor="middle">Kickoff</text>
+          <text class="svg-m" x="162" y="137" font-size="10" text-anchor="middle">Triage &amp; Scope</text>
+          <text class="svg-m" x="258" y="137" font-size="10" text-anchor="middle">Analysis</text>
+          <text class="svg-m" x="354" y="137" font-size="10" text-anchor="middle">Requirements</text>
+          <text class="svg-m" x="450" y="137" font-size="10" text-anchor="middle">Architecture</text>
+          <text class="svg-m" x="546" y="137" font-size="10" text-anchor="middle">Build Plan</text>
+          <text class="svg-m" x="642" y="137" font-size="10" text-anchor="middle">Build</text>
+          <text class="svg-m" x="738" y="137" font-size="10" text-anchor="middle">Test</text>
+          <text class="svg-m" x="834" y="137" font-size="10" text-anchor="middle">Cutover</text>
+
+          <text x="162" y="166" font-size="13" text-anchor="middle">✋</text>
+          <text x="450" y="166" font-size="13" text-anchor="middle">✋</text>
+          <text x="546" y="166" font-size="13" text-anchor="middle">✋</text>
+          <text x="738" y="166" font-size="13" text-anchor="middle">✋</text>
+
+          <path class="svg-line" d="M23 186 V198 H877 V186"/>
+          <text class="svg-m" x="450" y="218" font-size="10.5" text-anchor="middle">gate-check.sh verdicts · PROJECT.md decision register · obligation, artifact and source-ledger checks</text>
+        </svg>
+      </div>
+      <figcaption>Shaded cells are the overlap. Kiro's spec flow lands on Stages 2–4 of the toolkit's numbering — Requirements, Architecture &amp; Design, Build Plan — running straight through two of the four ✋ hard gates. It is not competing at the edges of the pipeline; it is competing for its middle.</figcaption>
+    </figure>
+
+    <ul class="ticks">
+      <li>Watch for unrequested <code>.kiro/specs/</code> directories appearing during a normal build session.</li>
+      <li>If they appear anyway, the fix is a <code>.gitignore</code> line plus a louder steering sentence — not abandoning the integration.</li>
+      <li>Kiro's hooks (agentSpawn, userPromptSubmit, preToolUse, postToolUse, stop) could enforce it mechanically, but that's a second integration and shouldn't gate the first.</li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="head">
+      <div class="eyebrow">Cost</div>
+      <h2>Credits, on top of what's already paid</h2>
+    </div>
+    <div class="cost">
+      <div><span class="tier">Free</span><span class="price">$0</span><span class="credits">50 credits / mo</span></div>
+      <div><span class="tier">Pro</span><span class="price">$20</span><span class="credits">1,000 credits</span></div>
+      <div><span class="tier">Pro+</span><span class="price">$40</span><span class="credits">2,000 credits</span></div>
+      <div><span class="tier">Pro Max</span><span class="price">$100</span><span class="credits">5,000 credits</span></div>
+      <div><span class="tier">Power</span><span class="price">$200</span><span class="credits">10,000 credits</span></div>
+    </div>
+    <p>A complex spec run reportedly costs 15–25 credits; overflow packs run about $0.04 a credit. Kiro is powered by Claude through Bedrock, so this is a second meter on the same underlying model — relevant given the standing "don't burn too much token" rule. The free tier is enough for the field run and nothing more.</p>
+  </section>
+
+  <section>
+    <div class="head">
+      <div class="eyebrow">Recommendation</div>
+      <h2>What I'd actually do</h2>
+    </div>
+    <ol class="plan">
+      <li><div class="body"><h3>Fix the allowlist path in PR #75 before anything else</h3><p>One line in the steering preamble. It currently points at <code>.kiro/settings/</code>; the workspace permission file appears to live under <code>~/.kiro/workspace-roots/&lt;hash&gt;/</code>. Shipping a wrong path is worse than shipping no path.</p></div></li>
+      <li><div class="body"><h3>Add the Kiro row to <code>install-harness-permissions.sh</code> in PR #85</h3><p>Same treatment as Cursor and Windsurf: no file written, a documented note saying where the human puts the rule. #85 is open and the table is right there.</p></div></li>
+      <li><div class="body"><h3>Do the 30-minute field run, once</h3><p>Open a wired project in Kiro on the free tier. Confirm the steering file loads into the conversation, that a gate question renders and actually stops, that <code>./mxcli -c "SHOW MODULES"</code> can be allowed without per-call prompting, and — the important one — that it does not spawn <code>.kiro/specs/</code> unasked.</p></div></li>
+      <li><div class="body"><h3>Then flip #75 to ready and merge it</h3><p>It's opt-in behind <code>--with-kiro</code>, writes nothing unless asked, and its fixture is green. Post-field-run it costs the toolkit nothing to carry.</p></div></li>
+      <li><div class="body"><h3>Leave custom agents and headless alone for now</h3><p>Porting six agent stubs into <code>.kiro/agents/</code> and wiring <code>kiro-cli</code> into CI are each real projects. Neither pays off until someone is genuinely working in Kiro daily. Revisit if that happens.</p></div></li>
+    </ol>
+  </section>
+
+  <section>
+    <div class="head">
+      <div class="eyebrow">Caveat</div>
+      <h2>What this page is not</h2>
+    </div>
+    <div class="callout">
+      <div class="eyebrow">Held to the toolkit's own bar, this is a claim, not a check</div>
+      <p>The repo's rule for shipping an instrument is that it runs against real input once and the commit names where. Nothing here has run against Kiro. <code>kiro.dev</code> is unreachable from this environment, so the permission paths, the hook names, the credit costs and the CLI flags all come from secondary sources and could be stale — Kiro moved from Amazon Q Developer, went international in May 2026, and hit 1.0 with a permission model that didn't exist in earlier builds.</p>
+      <p>Treat the verdict as a <em>direction</em> — support, don't adopt — and treat every specific path in it as something the field run has to confirm.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Sources: web search summaries and third-party write-ups, September 2026. First-party documentation was not reachable. Prior toolkit work: PR #75 (<code>claude/kiro-steering-pointer</code>, draft), PR #85 (<code>claude/exec-approval-auto-default</code>, open).</p>
+  </footer>
+
+</div>

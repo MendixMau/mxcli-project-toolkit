@@ -3614,6 +3614,8 @@ widget names.
 
 > **CONFIRMED STILL OPEN (CRASH) on v0.21.0 — verified 2026-09-14: `CALL MICROFLOW Mod.MF WITH (Ctx = $WorkflowContext);` still panics `mxcli check` with the identical SIGSEGV at `mdl/visitor/visitor_workflow.go:565`. Note: the mxcli source clone used to build v0.21.0 was sitting on an unmerged branch named `fix/workflow-with-unquoted-value-segfault` — a fix is visibly in progress upstream, but is not part of the tagged v0.21.0 release, and the crash is confirmed against the actual release binary.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
+**RESOLVED (FIXED in v0.22.0, [mendixlabs/mxcli#1023](https://github.com/mendixlabs/mxcli/issues/1023)) — pending report dropped 2026-09-18.** The v0.21.0 crash above is superseded by this fix; kept for the record since it is the last confirmed-open reading before the upstream patch landed.
+
 **Severity:** High — SIGSEGV with no diagnostic, on the natural spelling of the most common workflow activity; a one-character workaround exists but is undiscoverable
 **mxcli version:** v0.20.0 (2026-08-28)
 **Mendix version:** 11.14.0
@@ -5676,8 +5678,8 @@ Probe: `mxcli init --tool claude` (v0.22.0) into an empty directory. The generat
 >
 > Asks, in order of value: (1) stamp the generating version into every generated file (`<!-- mxcli init v0.22.0 -->` is enough); (2) `mxcli init --check` (or a one-line warning from any command) when the binary's template is newer than the stamp; (3) a `--refresh` that rewrites only the generated blocks and leaves user text alone, or failing that a "template rows retired" section in release notes.
 
-### Toolkit side (proposed, not built)
+### Toolkit side (built 2026-09-21)
 
-- `bin/sync-project.sh` already runs a report-only pass over `CLAUDE.md` (the stale ledger-row warning); add a second grep there for the `DECLARE $<var> <Module>.<Entity>;` row and warn "stale `mxcli init` template row, delete it — v0.22 `check` rejects it (MDL043)". Report-only, same reason as the existing warning: `CLAUDE.md` is init's file and bootstrap's merge, never sync's.
-- `skills/bootstrap-project.md`: when merging into an init-generated `CLAUDE.md`, strip the row if present.
-- Until a stamp exists upstream, the toolkit's own scaffold can record `mxcli --version` in `PROJECT.md` at init time so the drift is at least dated.
+- `bin/sync-project.sh` now warns, report-only, when the `DECLARE $<var> <Module>.<Entity>;` row is present in a project's `CLAUDE.md` (stale `mxcli init` row — re-run init or strip it), alongside its existing stale-ledger-row warning.
+- `skills/bootstrap-project.md`: the audit pass strips the row when merging into an init-generated `CLAUDE.md`.
+- Still open: until a stamp exists upstream, record `mxcli --version` in `PROJECT.md` at init time so the drift is at least dated.

@@ -85,6 +85,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL — where a path may end, boundary event vs event sub-process, parallel-split limits, outcome minimums, targeting from the sentence, multi-user decision methods, which edits break running instances; and any CE6689/CE1844/CE1845/MW0012 after a clean mxcli check |
 | `skills/rest-integration-first-time-right.md` | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call |
 | `skills/bug-submission-checklist.md` | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable |
+| `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to |
 | `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause |
 | `skills/sandbox-ab-tool-defect-probe.md` | Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary — proving it's version-specific without risking the real model |
 | `skills/restart-sp-reopen-and-hang-detection.md` | Restarting Studio Pro on macOS — the reopen bug, the port bug, and detecting a real hang vs a slow load |

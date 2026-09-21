@@ -322,6 +322,37 @@ Before running exec.sh after any MCP session:
 
 Step 3 is required — exec.sh refuses if SP has the project open.
 
+### Committing after an exec — enumerate, then name
+
+`mxcli exec` rewrites the `.mpr` **and** every `mprcontents/*.mxunit` it touched. You did not
+name those units, so you do not know their paths. That collides with the rule that keeps a
+shared working tree safe:
+
+- A blind `git add -A` sweeps in whatever a concurrent session has staged, and in a gutted-tree
+  state commits a ~108 MB blob (`mpr-corruption-and-sp-load-errors.md`).
+- So commits pass explicit pathspecs — but **an explicit pathspec cannot name a file you did
+  not know changed.**
+
+Resolve it by enumerating first, then naming:
+
+```
+mxcli exec mdlsource/my-script.mdl -p App.mpr
+git status --short                      # <- the list of what exec actually wrote
+git add App.mpr mprcontents/ mdlsource/my-script.mdl
+git commit -m "..."
+```
+
+`mprcontents/` as a directory pathspec is the right grain: it catches every unit the exec
+rewrote without reaching outside the model. This is still not `add -A` — every path is named.
+
+**Why this is written down (2026-09-16, a MOC/PSSR app replacement).** A commit named
+`App.mpr` and the script, and left the exploded navigation unit behind. Git reported
+`2 files changed` and the working tree looked finished; the `.mpr` and its own contents
+disagreed in the commit, which is an internally inconsistent Team Server checkout. Nothing in
+the exec, the check or the commit said a word — it surfaced only because a stop hook noticed
+the tree was dirty. **Read `git status --short` after every exec, before writing the
+pathspecs.**
+
 ### Per-project setup checklist
 
 - [ ] Run `bin/init-project.sh <project-root>` — it installs `exec.sh`, `_common.sh`,

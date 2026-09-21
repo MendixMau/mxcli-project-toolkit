@@ -370,6 +370,12 @@ if [ -d "$CRASHNET_SRC" ]; then
       echo "Created: bin/$s"
     fi
   done
+  # Commit-time backstop for the mxbuild gate (bin/install-project-hooks.sh, 2026-09-17): a
+  # pre-commit hook that refuses model files with no verification stamp. Only in a git repo;
+  # non-fatal — the scaffold is fine either way, and sync-project.sh installs it later too.
+  if [ -x "$PROJECT_DIR/bin/install-project-hooks.sh" ] && git -C "$PROJECT_DIR" rev-parse --show-toplevel >/dev/null 2>&1; then
+    "$PROJECT_DIR/bin/install-project-hooks.sh" || echo "  (pre-commit hook not installed — re-run $PROJECT_DIR/bin/install-project-hooks.sh once this is a git repository)"
+  fi
 fi
 
 # ── Verification engine (tests/e2e/) ─────────────────────────────────────────
@@ -681,8 +687,9 @@ fi
 echo ""
 echo "Next steps (not done by this script):"
 echo "  - Machine preflight runs below (bin/doctor.sh). Re-run it on every OTHER machine that"
-echo "    will touch this project, BEFORE its first model write: without a working mxbuild/java"
-echo "    every exec is silently unverified (gate=skipped) and consistency errors are never captured."
+echo "    will touch this project, BEFORE its first model write. bin/exec.sh downloads a missing"
+echo "    mxbuild itself and REFUSES to write when the gate still cannot run; the pre-commit hook"
+echo "    refuses model commits that no gate has passed. doctor tells you up front rather than then."
 echo "  - Complete each agent stub's {{PLACEHOLDER}}s per skills/agent-roles.md when its stage"
 echo "    starts (ba/architect at Stage P kickoff, mdl/gate/test at Stage 5). Stubs refuse to"
 echo "    run until completed, so a half-setup fails loudly instead of silently."

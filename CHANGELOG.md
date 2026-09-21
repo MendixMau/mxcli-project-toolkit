@@ -16,6 +16,78 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+- new(gate-must-run): **the mxbuild gate could silently not run and the model still got written,
+  committed and pushed — on any machine, cloud or session.** `project-bin/exec.sh` treated
+  `GATE_STATE=skipped`/`unverified` as exit 0, so a `count()`-as-expression microflow (CE0117,
+  invisible to `mxcli check`, visible only to mxbuild) reached a customer's `master` from a
+  cloud session where mxbuild had never been downloaded. PR #49's Windows fixes repaired the
+  gate's *symptoms* (path mapping, errors-file location, output capture) but left the class
+  intact: an unverifiable gate still wrote. Four layers, each mechanical, none of them a
+  convention: (1) write time — `mxtk_ensure_mxbuild` in `_common.sh` runs
+  `./mxcli setup mxbuild -p` when discovery fails, and `exec.sh` **refuses to write** when the
+  gate still cannot run (`ALLOW_UNVERIFIED=1` to override, `MXTK_NO_INSTALL=1` to skip the
+  download); (2) commit time — new `project-bin/model-stamp.sh` fingerprints the `.mpr` +
+  `mprcontents/` (git blob hashes, working tree and staged), `exec.sh` writes a pass stamp on
+  a green gate and clears it otherwise, new `project-bin/verify-model.sh` is the standalone
+  gate that also stamps, and `project-bin/install-project-hooks.sh` installs a pre-commit
+  hook that refuses a commit touching the model unless the **staged** model is stamped, or
+  other evidence the hook did not itself create shows the model was verified nearby
+  (`MODEL_UNVERIFIED_OK=1` overrides once; the hook chains any pre-existing hook and never
+  blocks the remedy — rules 6/7); (3) session start — new `project-bin/session-check.sh`
+  (stamp state via `find_mpr` so single-tree and two-tree checkouts are both probed,
+  doctor-receipt freshness, stale installed scripts, hook presence) wired as a
+  Claude Code `SessionStart` hook by `bin/install-claude-permissions.sh`, which now also adds
+  the one `permissions.deny` for bare `mxcli exec`; `sync-project.sh` installs the hook and
+  reports the stale-script class platform-neutrally; (4) discipline — the generated
+  `CLAUDE.local.md` wiring block says every model write goes through `./bin/exec.sh`, and
+  `gate-check.sh` notes an unverified model on disk, with a route to clear the note when the
+  model is gitignored (see the fix below). `init-project.sh` installs the hook at scaffold.
+  Field run on a two-tree field project (`.mpr` under `app/`, root symlinks): the stamp
+  fingerprints that `app/*.mpr` + `app/mprcontents` identically from the working tree and the
+  index; `verify-model.sh` ran mxbuild in 63 s, 0 errors, stamp written and self-gitignored;
+  the hook refused a staged unit change and let the same commit through with the override; with
+  an empty `$HOME` the gate downloaded the 818 MB 11.14.0 toolchain itself and then ran clean;
+  `exec.sh` with mxbuild unreachable refused before the snapshot, wrote nothing, and logged a
+  `refused` BUILD-LOG row. `tests/wave2/test-model-stamp.sh` (27 assertions: fingerprint
+  equality across working tree/staged/symlinked paths, hook refusal and override, foreign-hook
+  chaining, idempotence, settings deny + SessionStart install/uninstall) plus
+  `tests/wave2/test-install-claude-permissions.sh` (deny entry + SessionStart hook present after
+  install, byte-identical settings file after uninstall). `test-bug07-08.sh` case H flipped from
+  "mxbuild missing → UNVERIFIED, exit 0" (the very contract that let the CE0117 through) to
+  "→ refused, exit 1, no snapshot", with the old expectation kept as case H2 behind
+  `ALLOW_UNVERIFIED=1`. Overlaps draft #76 (doctor `--gate-selftest`) in intent, not in
+  code paths. — Maurits Visser
+- fix(project-bin): **`model-stamp.sh` fingerprinted an empty set as a constant hash, and
+  word-split the model paths; `install-project-hooks.sh`'s pre-commit refusal accepted only its
+  own stamp file, and the gate-check UNVERIFIED note had no way to clear on a gitignored
+  model.** Three bugs in the guard whose whole job is to prevent green-by-absence: a `.mpr` with
+  a space in its name (`My App.mpr` is routine) was split into two pathspecs that matched
+  nothing, so edits to the `.mpr` alone left the fingerprint unchanged; a clone whose model is
+  gitignored hashed empty stdin — `e3b0c4…`, the SHA-256 of nothing — so every stamp matched
+  every model state forever, and `fingerprint`/`check -q`/`write` all returned `rc=1` there, so
+  `gate-check.sh` printed the UNVERIFIED note with no in-tool remedy (CLAUDE.md "Shipping an
+  instrument" rule 6: never only the guard's own stamp file); and the pre-commit hook refused a
+  commit touching a gitignored model outright, which is exactly the guard blocking the action
+  that resolves it (rule 7). Paths now travel through an array; an empty path set or an empty
+  file list refuses (`rc=1`) instead of hashing, and `write` computes the fingerprint before
+  touching the stamp file so a refusal never leaves an empty `fingerprint:` field behind. The
+  pre-commit hook and `gate-check.sh` now also accept evidence they did not themselves create —
+  a commit in the last 24h that touched the project (`git log -1 --since=24.hours`), or a
+  handoff doc (`PROJECT.md`/`docs/brain/*.md`) modified in the last 24h — and print `VERIFIED
+  (external evidence)` rather than staying stuck; that path warns once in the commit/gate output
+  and then lets the commit through, per rule 7. Reproduced on a throwaway repo with a
+  space-named `.mpr`: pre-fix, an `.mpr`-only change kept the same fingerprint and the
+  gitignored tree returned the empty-input hash with `rc=0`; post-fix, the change is detected,
+  both empty cases refuse, and a gitignored model with a same-day `PROJECT.md` edit clears the
+  note instead of blocking forever. `exec.sh` also no longer swallows the exec's real exit code
+  when `model-stamp.sh clear` fails on the failure path (an `[ -x … ] && …` AND-list under
+  `set -e`). The three file headers that asserted rule-6 compliance outright
+  (`model-stamp.sh`, `install-project-hooks.sh`, `verify-model.sh`) now describe the
+  evidence path instead of claiming it unconditionally. `tests/wave2/test-install-claude-permissions.sh`
+  gained the deny-entry, SessionStart-hook-present-after-install and
+  byte-identical-settings-after-uninstall assertions that previously lived only in
+  `test-model-stamp.sh` T8 — this fixture is the one that owns `install-claude-permissions.sh`
+  — Maurits Visser
 - learn(skills/learned-constants-and-secrets.md): the Mendix PAT gets a resolution ladder, starting one rung lower than sessions start it — **rung 0 is `env | grep -i '^PAT='`, and no session may report a token unavailable without having run it**. Field failure: a session mid-push to Team Server grepped `.docker/.env`, `.docker/.env.example` and `stack.env`, found nothing, and told the user the token was gone and would have to be re-provided; it had been in the session environment the whole time. Absence from the files you happened to grep is not absence. Only when rung 0 is empty does the session ask, in one batch: export it, `mxcli auth login --token` it, or point at the file that holds it — and pointing is half a step, so rung 3 ends by wiring the path into the project's gitignored env file and naming it (the path, never the value) in the constants register, or the next session asks again. Plus the git half, which cost an hour of suspecting a healthy token: Team Server takes the **literal string `pat` as the username** and the token as the password, so an askpass that echoes `$PAT` for every prompt sends it as the username and fails with `Invalid username or password`. Never in argv, never in the remote URL, never in a credential helper — and never printed to "check it". `project-bin/ts-sync.sh`'s header stops naming the credential without saying where it comes from and points here — a Mendix build project
 - learn(skills/learned-constants-and-secrets.md) + new(project-bin/constants-audit.sh): where an environment-varying value gets its value, decided before it is written, plus the instrument that checks it. Field-found on a Mendix **free node**: `Encryption.EncryptionKey` shipped by its marketplace module as `default ''`, which locally came from the gitignored `app/.mxcli/constants.json` and in the deployed sandbox came from nowhere. MxGenAIConnector encrypts a GenAI key's access token while storing it, so the empty constant blocked Import key, Create key AND the startup registration at once — with an error naming *Encryption* while the symptom was a coaching agent stuck loading, and half a day went into "the Cloud GenAI resource pack must be missing". A free environment has no Constants tab at all and the Deploy API offers no way in with a PAT (v4 404s on `.../settings/constants` and `.../constants`, v1 rejects a PAT outright, both verified against a live node), so on a free node the model default is the only channel there is. The skill sets the five channels and their reach, the three defaults that tell the truth (`__SET_ME__` over `''` for a required secret — an empty string is a legal value that fails several layers away in someone else's message), and the register that records the decision; the audit reports CLIENT-SECRET / EMPTY / MODEL-SECRET / WAIVED per constant and **never prints a value**. Field run: a Mendix build project, 11.14.0, 30 constants — three findings, all three true readings, cleared to 0 by three register lines. Its secret test is a name heuristic and says so: `FeedbackModule.LocalStorageKey` is a browser bucket name, not a secret — a Mendix build project
 - process(contrib): three e2e false-green mechanisms queued in `contrib/inbox/` — (1) a row-scoping test that only counts passes over a deleted XPath conjunct when the fixture has one organisation and one team, so the test must move a row out of scope and assert exactly that row disappears; (2) a table with rows and no READER is dead data, and a zero-inbound-refs sweep structurally cannot find it because every reference is a write — reference data seeded by eight microflows and shown to nobody survived because a derived integer on the same records was used everywhere; (3) an idempotency guard that returns early on any existing SIBLING row can never backfill an attribute a later build step adds, so the page has rendered a title, a dangling separator and an empty body in every demo since. All three measured against a live runtime, all three reported as `gap` lines so the suite stays green and the defect is read out on every run. Proposed target `skills/testing-shape.md` — a sales-qualification greenfield build

@@ -169,6 +169,14 @@ if [ -z "$REQUESTED_STAGE" ]; then
     echo "note: bin/doctor.sh has never been run against this project on this machine. Run it once —"
     echo "      it says up front whether mxbuild/java work here (i.e. whether execs get verified at all)."
   fi
+  # Verification stamp (bin/model-stamp.sh): is the model on disk the one the mxbuild gate last
+  # passed? Same footing as the receipt — a note, never a verdict. The pre-commit hook is the
+  # thing that enforces it; this line is so a reader of the dashboard sees it too.
+  if [ -x "$PROJECT_DIR/bin/model-stamp.sh" ] && ! "$PROJECT_DIR/bin/model-stamp.sh" check -q 2>/dev/null; then
+    echo "note: the model on disk is UNVERIFIED — it changed since the mxbuild gate last passed it here"
+    echo "      (or never passed it). ./bin/verify-model.sh runs the gate and stamps it; the pre-commit"
+    echo "      hook refuses to commit model files until then."
+  fi
 fi
 
 # --waive also accepts an OBLIGATION target (bin/lib/obligations.tsv): `look/Orders` for one

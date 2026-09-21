@@ -5,13 +5,16 @@
 #
 # Covers, for install-claude-permissions.sh: fresh project (no settings.json) gets both files
 # + all entries, split by whether the entry embeds the absolute $TOOLKIT_ROOT path — the nine
-# relative entries land in the SHARED, committable `.claude/settings.json`, the two absolute
-# ones land in the per-machine `.claude/settings.local.json` (2026-09-16 split; see that
-# script's header for why); an existing `mxcli init`-written settings.json gets the entries
-# merged in, pre-existing entries kept exactly once, the unrelated `env` block untouched; a
-# second run is byte-identical on both files (idempotent); `--check` on a project missing
-# entries exits non-zero and names them, per file; `--uninstall` removes only the entries this
-# script itself added, from both files, leaving a pre-existing `Bash(./mxcli:*)` in place.
+# relative entries (plus the one deny entry, bare `mxcli exec`, and the SessionStart hook) land
+# in the SHARED, committable `.claude/settings.json`, the two absolute ones land in the
+# per-machine `.claude/settings.local.json` (2026-09-16 split; see that script's header for
+# why — the deny entry and hook carry no absolute path, so they stay shared-only); an existing
+# `mxcli init`-written settings.json gets the entries merged in, pre-existing entries kept
+# exactly once, the unrelated `env` block untouched; a second run is byte-identical on both
+# files (idempotent); `--check` on a project missing entries exits non-zero and names them —
+# allow, deny and the hook — per file; `--uninstall` removes only the entries this script
+# itself added (via the dict-shaped sidecar file, not just the allow list), from both files,
+# leaving a pre-existing `Bash(./mxcli:*)` in place.
 #
 # Covers, for install-harness-permissions.sh: it delegates the Claude part to the script above
 # (spot-checked, not re-covering every case); Copilot gets `chat.tools.terminal.autoApprove`
@@ -69,6 +72,16 @@ EXPECTED_LOCAL=(
   "Bash(bash $TOOLKIT_ROOT/bin/*.sh:*)"
 )
 
+# The one deny entry and the one SessionStart hook the script also installs — same spec,
+# same script, but not exercised anywhere else once test-model-stamp.sh's T8 (which used to
+# be the only place testing them) moves off this script's business.
+EXPECTED_DENY=(
+  "Bash(./mxcli exec:*)"
+  "Bash(mxcli exec:*)"
+  "Bash(./mxcli.exe exec:*)"
+)
+SESSION_HOOK="bash bin/session-check.sh || true"
+
 py_get_allow() {  # $1 = settings.json path -> prints one allow entry per line
   "$PY" - "$1" <<'PY'
 import json, sys, os
@@ -78,6 +91,28 @@ if not os.path.exists(p):
 d = json.load(open(p))
 for e in d.get("permissions", {}).get("allow", []):
     print(e)
+PY
+}
+
+py_get_deny() {  # $1 = settings.json path -> prints one deny entry per line
+  "$PY" - "$1" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for e in d.get("permissions", {}).get("deny", []):
+    print(e)
+PY
+}
+
+py_hook_present() {  # $1 = settings.json path -> exit 0 iff the SessionStart hook is there
+  "$PY" - "$1" "$SESSION_HOOK" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+cmd = sys.argv[2]
+for grp in d.get("hooks", {}).get("SessionStart", []) or []:
+    for h in grp.get("hooks", []) or []:
+        if h.get("command") == cmd:
+            sys.exit(0)
+sys.exit(1)
 PY
 }
 
@@ -122,6 +157,16 @@ for e in "${EXPECTED_LOCAL[@]}"; do
     || ok "T1: absolute-path entry correctly absent from settings.json"
 done
 
+DENY1="$(py_get_deny "$FRESH/.claude/settings.json")"
+MISSING_DENY=0
+for e in "${EXPECTED_DENY[@]}"; do
+  printf '%s\n' "$DENY1" | grep -qxF "$e" || { MISSING_DENY=1; echo "     missing deny: $e"; }
+done
+[ "$MISSING_DENY" -eq 0 ] && ok "T1: all ${#EXPECTED_DENY[@]} deny entries present in the fresh file" \
+                           || bad "T1: some deny entries missing from the fresh file"
+py_hook_present "$FRESH/.claude/settings.json" && ok "T1: SessionStart hook present in the fresh file" \
+                                                 || bad "T1: SessionStart hook missing from the fresh file"
+
 # ── T2: existing mxcli-init settings.json (real capture, 2026-09-16) ───────────────────────
 EXIST="$WORK/existing"
 mkdir -p "$EXIST/.claude"
@@ -164,6 +209,20 @@ NEW_ENV="$(py_get_env_val "$EXIST/.claude/settings.json" MXCLI_QUIET)"
 [ "$NEW_ENV" = "$ORIG_ENV" ] && ok "T2: unrelated 'env' block untouched" \
                               || bad "T2: 'env' block changed (was '$ORIG_ENV', now '$NEW_ENV')"
 
+DENY2="$(py_get_deny "$EXIST/.claude/settings.json")"
+MISSING_DENY2=0
+for e in "${EXPECTED_DENY[@]}"; do
+  printf '%s\n' "$DENY2" | grep -qxF "$e" || { MISSING_DENY2=1; echo "     missing deny: $e"; }
+done
+[ "$MISSING_DENY2" -eq 0 ] && ok "T2: all ${#EXPECTED_DENY[@]} deny entries present after merge" \
+                            || bad "T2: some deny entries missing after merge"
+py_hook_present "$EXIST/.claude/settings.json" && ok "T2: SessionStart hook present after merge" \
+                                                 || bad "T2: SessionStart hook missing after merge"
+[ -f "$EXIST/.claude/.mxtk-permissions-added.json" ] \
+  && "$PY" -c "import json,sys;d=json.load(open('$EXIST/.claude/.mxtk-permissions-added.json'));sys.exit(0 if isinstance(d,dict) and 'allow' in d and 'deny' in d and 'hook' in d else 1)" \
+  && ok "T2: sidecar file is the dict shape ({allow, deny, hook})" \
+  || bad "T2: sidecar file missing or not the dict shape"
+
 # ── T3: idempotent — run again, both files byte-identical ──────────────────────────────────
 SNAP1="$(cat "$EXIST/.claude/settings.json")"
 SNAP1L="$(cat "$EXIST/.claude/settings.local.json")"
@@ -197,6 +256,15 @@ done
 grep -qxF "  Bash(mxcli:*)" "$WORK/t4.out" \
   && bad "T4: --check names an entry that was already present" \
   || ok "T4: --check does not name the already-present entry"
+MISSING_DENY_NAMED=0
+for e in "${EXPECTED_DENY[@]}"; do
+  grep -qxF "  $e" "$WORK/t4.out" || { MISSING_DENY_NAMED=1; echo "     deny not named: $e"; }
+done
+[ "$MISSING_DENY_NAMED" -eq 0 ] && ok "T4: --check names every missing deny entry" \
+                                 || bad "T4: --check did not name every missing deny entry"
+grep -qF "hooks.SessionStart: $SESSION_HOOK" "$WORK/t4.out" \
+  && ok "T4: --check names the missing SessionStart hook" \
+  || bad "T4: --check did not name the missing SessionStart hook"
 SNAP_AFTER="$(cat "$MISS/.claude/settings.json")"
 [ "$SNAP_BEFORE" = "$SNAP_AFTER" ] && ok "T4: --check wrote nothing to settings.json" \
                                     || bad "T4: --check modified settings.json"
@@ -236,6 +304,22 @@ done
 NEW_ENV5="$(py_get_env_val "$EXIST/.claude/settings.json" MXCLI_QUIET)"
 [ "$NEW_ENV5" = "$ORIG_ENV" ] && ok "T5: 'env' block still untouched after uninstall" \
                                 || bad "T5: 'env' block changed by uninstall"
+
+DENY5="$(py_get_deny "$EXIST/.claude/settings.json")"
+STILL_DENY=0
+for e in "${EXPECTED_DENY[@]}"; do
+  printf '%s\n' "$DENY5" | grep -qxF "$e" && { STILL_DENY=1; echo "     deny still present: $e"; }
+done
+[ "$STILL_DENY" -eq 0 ] && ok "T5: every deny entry this script added is gone" \
+                          || bad "T5: a deny entry survived --uninstall"
+
+py_hook_present "$EXIST/.claude/settings.json" \
+  && bad "T5: SessionStart hook survived --uninstall" \
+  || ok "T5: SessionStart hook removed by --uninstall"
+
+[ -e "$EXIST/.claude/.mxtk-permissions-added.json" ] \
+  && bad "T5: sidecar file survived --uninstall (should be removed)" \
+  || ok "T5: sidecar file removed by --uninstall"
 
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # install-harness-permissions.sh — Copilot and Aider (Claude delegated, spot-checked only)

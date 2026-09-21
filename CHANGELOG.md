@@ -7,6 +7,23 @@ moment updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
+## 2026-09-21
+- fix(learned-sidebar-collapse-icons): **the skill told sessions that menu-item icons cannot be
+  scripted — they can, and have been able to for some time.** The file asserted that
+  `navigation.create` "has no menu-item icon token" and that per-item icons "have to be assigned
+  by hand in Studio Pro". `mxcli syntax navigation.create` on **v0.22.0** documents
+  `MENU ITEM 'Label' PAGE Module.Page ICON Atlas_Core.Atlas."name"`, the quoting rule for
+  hyphenated Atlas names, and `SHOW / DESCRIBE ICON COLLECTION` to browse the 366 stock icons.
+  Cost of the stale claim: the PRD low-code-vs-high-code benchmark's Arm A shipped five text-only
+  navigation items through a full build and two UI sweeps, because the skill said icons were not
+  scriptable so nobody re-probed — the user's own verdict on the shipped nav was "lots of text ugly
+  stuff". Corrected in place with the probe command, a worked example, and a note that this is the
+  **capability-probe rule** failing precisely where it hurts most: a general prior written into a
+  skill file is the most convincing general prior there is. Also split the two halves that were
+  conflated — `ICON` places the glyph (MDL), icon-only-when-collapsed is theme CSS (and the class
+  names must be read from your own `themesource/atlas_core/`, never copied from another project).
+  — PRD benchmark, Arm A (Maurits Visser)
+
 ## 2026-09-19
 - process(runbook, ui-preflight, init-project): **a full Stage-5 build closed with seven screens,
   a green mxbuild gate, and a `look` obligation nobody had ever discharged — because nothing in

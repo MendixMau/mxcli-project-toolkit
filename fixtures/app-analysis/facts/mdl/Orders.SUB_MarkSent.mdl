@@ -1,0 +1,15 @@
+create or modify microflow Orders.SUB_MarkSent (
+  $OrderList: List of Orders.PurchaseOrder
+)
+folder 'Sync'
+begin
+  @start(-525, 65)
+  retrieve $All from Orders.PurchaseOrder where [Status = 'Open'];
+  loop $IteratorOrder in $OrderList
+  begin
+    change $IteratorOrder (Status = Orders.ENUM_Status.Sent);
+    $Total = $Total + $IteratorOrder/Amount;
+  end loop;
+  commit $OrderList;
+  @end(1350, 65)
+end;

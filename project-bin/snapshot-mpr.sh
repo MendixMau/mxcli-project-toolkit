@@ -64,7 +64,15 @@ for f in "$MODEL_DIR"/*.mpr; do
 done
 [ -d "$MODEL_DIR/mprcontents" ] && cp -r "$MODEL_DIR/mprcontents" "$DEST/mprcontents"
 
-UNIT_COUNT=$(find "$DEST/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
+# Guard the directory BEFORE the find. On a v1 single-file model $DEST/mprcontents does
+# not exist (the copy above correctly skipped it), find exits 1, `set -o pipefail` makes
+# the pipeline status 1, and a bare assignment inherits it — so `set -e` killed the script
+# HERE, on the exact case the v1-aware refusal below names. That refusal was unreachable.
+if [ -d "$DEST/mprcontents" ]; then
+  UNIT_COUNT=$(find "$DEST/mprcontents" -name '*.mxunit' | wc -l | tr -d ' ')
+else
+  UNIT_COUNT=0
+fi
 
 # An empty snapshot is worse than no snapshot: exec.sh proceeds believing it has a
 # net, and the prune below has already thrown away the older ones. Refuse loudly,
@@ -75,11 +83,19 @@ if [ "$MPR_COUNT" -eq 0 ]; then
   echo "  Set MPR_FILE=<path>.mpr (relative to $PROJECT_ROOT) so the model tree resolves." >&2
   exit 1
 fi
+# "No mprcontents/ at all" is a FORMAT (v1 single-file). "mprcontents/ present but empty"
+# is a FAULT. Conflating them refused every valid v1 model and, before the guard above,
+# never even got here. Say which one happened in the success line so "0 units" is never
+# read as half a snapshot.
+MODEL_FORMAT="v2"
 if [ "$UNIT_COUNT" -eq 0 ]; then
-  rm -rf "$DEST"
-  echo "✗ snapshot FAILED: $MODEL_DIR has no mprcontents/*.mxunit — .mpr alone restores to garbage." >&2
-  echo "  If the model is genuinely v1 single-file, commit it and skip the snapshot net." >&2
-  exit 1
+  if [ -d "$MODEL_DIR/mprcontents" ]; then
+    rm -rf "$DEST"
+    echo "✗ snapshot FAILED: $MODEL_DIR/mprcontents exists but holds no *.mxunit — .mpr alone restores to garbage." >&2
+    echo "  An empty mprcontents/ is a fault, not a format. Check the model tree resolved correctly." >&2
+    exit 1
+  fi
+  MODEL_FORMAT="v1 single-file"
 fi
 
 # Prune: keep the 5 newest timestamped dirs.
@@ -87,4 +103,4 @@ ls -dt "$PROJECT_ROOT"/.mpr-snapshots/*/ 2>/dev/null | tail -n +6 | while read -
   rm -rf "$old"
 done
 
-echo "mpr snapshot ok ($MPR_COUNT .mpr + $UNIT_COUNT units) — $(ls -d "$PROJECT_ROOT"/.mpr-snapshots/*/ 2>/dev/null | wc -l | tr -d ' ') kept in .mpr-snapshots/"
+echo "mpr snapshot ok [$MODEL_FORMAT] ($MPR_COUNT .mpr + $UNIT_COUNT units) — $(ls -d "$PROJECT_ROOT"/.mpr-snapshots/*/ 2>/dev/null | wc -l | tr -d ' ') kept in .mpr-snapshots/"

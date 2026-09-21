@@ -97,7 +97,13 @@ if [ -n "$PROJECT_DIR" ]; then
     # The installed copies. bin/ exists on every wired project; tests/e2e/ only after
     # install-tests.sh — its absence is install-manifest's finding, not a parse failure,
     # so probe it only when present.
-    check_sh "project bin/*.sh" "$PROJECT_DIR"/bin/*.sh
+    if [ -d "$PROJECT_DIR/bin" ]; then
+      check_sh "project bin/*.sh" "$PROJECT_DIR"/bin/*.sh
+    else
+      # Not wired yet is not a parse failure — bin/ arrives with init-project.sh. Reported as
+      # FAIL once (Windows onboarding, 2026-09-08) and read as "something is broken".
+      printf '  WARN  project has no bin/ yet — run bin/init-project.sh %s first; nothing to parse-check until then\n' "$PROJECT_DIR"
+    fi
     if [ -d "$PROJECT_DIR/tests/e2e" ]; then
       check_js "project tests/e2e/*.js" "$PROJECT_DIR"/tests/e2e/*.js
     fi

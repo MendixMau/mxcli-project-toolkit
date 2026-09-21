@@ -1,0 +1,35 @@
+create or modify microflow Orders.SUB_SyncOrderLines (
+  @position(-520, -75)
+  $OrderList: List of Orders.PurchaseOrder
+)
+folder 'Sync'
+begin
+  @start(-525, 65)
+  @position(-370, 65)
+  @caption 'Per order'
+  loop $IteratorOrder in $OrderList
+  begin
+    @position(155, 95)
+    retrieve $LineList from Orders.OrderLine where [Orders.OrderLine_PurchaseOrder = $IteratorOrder];
+    @position(300, 95)
+    $Supplier = retrieve first from $IteratorOrder/Orders.PurchaseOrder_Supplier;
+    @position(450, 95)
+    $Response = rest call post 'https://erp.example.invalid/orders' with (body: $IteratorOrder);
+    @position(600, 95)
+    @caption 'Per line'
+    loop $IteratorLine in $LineList
+    begin
+      @position(620, 150)
+      change $IteratorLine (Synced = true);
+      @position(760, 150)
+      call microflow Orders.SUB_RecalculateLine(Line = $IteratorLine);
+    end loop;
+    @position(900, 95)
+    commit $IteratorOrder without events;
+    @position(1050, 95)
+    delete $Supplier;
+  end loop;
+  @position(1200, 65)
+  commit $OrderList;
+  @end(1350, 65)
+end;

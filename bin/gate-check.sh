@@ -169,6 +169,14 @@ if [ -z "$REQUESTED_STAGE" ]; then
     echo "note: bin/doctor.sh has never been run against this project on this machine. Run it once —"
     echo "      it says up front whether mxbuild/java work here (i.e. whether execs get verified at all)."
   fi
+  # Verification stamp (bin/model-stamp.sh): is the model on disk the one the mxbuild gate last
+  # passed? Same footing as the receipt — a note, never a verdict. The pre-commit hook is the
+  # thing that enforces it; this line is so a reader of the dashboard sees it too.
+  if [ -x "$PROJECT_DIR/bin/model-stamp.sh" ] && ! "$PROJECT_DIR/bin/model-stamp.sh" check -q 2>/dev/null; then
+    echo "note: the model on disk is UNVERIFIED — it changed since the mxbuild gate last passed it here"
+    echo "      (or never passed it). ./bin/verify-model.sh runs the gate and stamps it; the pre-commit"
+    echo "      hook refuses to commit model files until then."
+  fi
 fi
 
 # --waive also accepts an OBLIGATION target (bin/lib/obligations.tsv): `look/Orders` for one
@@ -294,6 +302,22 @@ resolve_artifact() {
   local rel="$1" p
   for p in "$PROJECT_DIR/$rel" "$ANALYSIS_BASE/$rel"; do
     if [ -e "$p" ]; then echo "$p"; return 0; fi
+  done
+  echo ""
+  return 1
+}
+
+# resolve_artifact_nonempty() — resolve_artifact plus a size test.
+#
+# resolve_artifact() tests [ -e ] only, so a zero-byte file discharges a gate. That is a
+# false green at a SIGN-OFF gate: the artifact a human is being asked to approve is empty.
+# artifact-check.sh's _art_find() already tests [ -s ] and records ART_EMPTY; check_stage_3()
+# simply never consulted it, so the two layers disagreed. Deliberately a separate function:
+# changing resolve_artifact() itself affects every stage and wants its own review.
+resolve_artifact_nonempty() {
+  local rel="$1" p
+  for p in "$PROJECT_DIR/$rel" "$ANALYSIS_BASE/$rel"; do
+    if [ -s "$p" ]; then echo "$p"; return 0; fi
   done
   echo ""
   return 1
@@ -594,12 +618,11 @@ if [ -z "$ENTRY_RAW" ]; then
     ' "$ENTRY_SRC")"
   fi
 fi
-case "$(printf '%s' "$ENTRY_RAW" | tr '[:upper:]' '[:lower:]')" in
-  *existing*)      ENTRY_MODE="existing-app-change" ;;
-  *greenfield*)    ENTRY_MODE="greenfield" ;;
-  *requirement*)   ENTRY_MODE="requirements-driven" ;;
-  *migration*)     ENTRY_MODE="migration" ;;
-esac
+# ONE tokeniser, shared with bin/lib/artifact-check.sh. The unanchored globs this
+# replaces read "migration (not greenfield)" as greenfield, and stage_waiver() below
+# then excused stages on that label. See bin/lib/entry-mode.sh for why.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/entry-mode.sh"
+ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
 
 # stage_waiver <stage> — "<scope>|<reason>", or nothing. Most specific source of truth first.
 #
@@ -1014,31 +1037,96 @@ has_confirmed_decision() {
   ' "$f"
 }
 
+# Counts the Screen Inventory table in design/target-ui.md (design-artifacts.md Step 2): a
+# markdown table under a "## Screen Inventory" heading, one row per screen. Prints two numbers
+# separated by a space: total inventoried rows, and how many of those rows record that the
+# screen reuses another screen's wireframe (design-artifacts.md Step 2/3 — a row whose text
+# mentions "reuse", "same as" or "shares" does not need its own design/wireframes/*.html file).
+# Prints "0 0" when the file has no such heading/table (caller keeps today's behaviour then).
+count_screen_inventory() {
+  awk '
+    { line = $0; low = tolower(line) }
+    low ~ /^##+[ \t]*screen inventory/ { insec = 1; seenheader = 0; next }
+    insec && low ~ /^##+/ { insec = 0 }
+    insec && line ~ /^\|/ {
+      if (seenheader == 0) { seenheader = 1; next }             # header row
+      if (line ~ /^\|[ \t]*:?-+:?[ \t]*\|/) next                # separator row
+      n++
+      if (low ~ /reuse|same as|shares/) r++
+      next
+    }
+    END { printf "%d %d\n", n+0, r+0 }
+  ' "$1"
+}
+
 check_stage_3() {
-  local fit_gap design_system
-  fit_gap="$(resolve_artifact "architecture/fit-gap.md")"
-  design_system="$(resolve_artifact "design/design-system.html")"
-  if [ -z "$fit_gap" ] || [ -z "$design_system" ]; then
-    echo "PENDING|not started — missing $( [ -z "$fit_gap" ] && echo "architecture/fit-gap.md ")$( [ -z "$design_system" ] && echo "design/design-system.html")"
-    return
-  fi
-  # Wireframes are load-bearing: ui-preflight-pages.md starts from them and the build
-  # loop verifies built pages against them. A design system without wireframes is half
-  # the Stage-3 deliverable (design-artifacts.md Step 3, one per screen).
-  local wireframes_dir
+  # Collect ALL FOUR results before reporting. This used to be a chain of first-failure
+  # returns, so the message was always about the first gap in source order and never about
+  # the state of the stage: a project with a design system, wireframes and a blueprint but
+  # no fit-gap.md was told "not started". One line, everything missing AND everything
+  # present, so the reader can see how far along they actually are.
+  #
+  # Every test is [ -s ], not [ -e ]: see resolve_artifact_nonempty().
+  local fit_gap design_system wireframes_dir blueprint_html wf_hit
+  fit_gap="$(resolve_artifact_nonempty "architecture/fit-gap.md")"
+  design_system="$(resolve_artifact_nonempty "design/design-system.html")"
+  blueprint_html="$(resolve_artifact_nonempty "architecture/blueprint.html")"
+
+  # Wireframes: recurse, and require a NON-EMPTY file. -maxdepth 1 meant a real wireframe at
+  # design/wireframes/<flow>/list.html was invisible while a zero-byte file at the top level
+  # counted — the same line rejected the real one and accepted the empty one.
   wireframes_dir="$(resolve_artifact "design/wireframes")"
-  if [ -z "$wireframes_dir" ] || [ -z "$(find "$wireframes_dir" -maxdepth 1 -name '*.html' -print -quit 2>/dev/null)" ]; then
-    echo "PENDING|design/wireframes/*.html missing — design system exists but no wireframes (design-artifacts.md Step 3); the mdl-agent's UI pre-flight cannot run without them"
+  wf_hit=""
+  if [ -n "$wireframes_dir" ]; then
+    wf_hit="$(find "$wireframes_dir" -name '*.html' -type f -size +0c -print -quit 2>/dev/null)"
+  fi
+
+  local missing="" present=""
+  [ -z "$fit_gap" ]        && missing="$missing architecture/fit-gap.md"      || present="$present architecture/fit-gap.md"
+  [ -z "$design_system" ]  && missing="$missing design/design-system.html"    || present="$present design/design-system.html"
+  [ -z "$wf_hit" ]         && missing="$missing design/wireframes/*.html"     || present="$present design/wireframes/*.html"
+  [ -z "$blueprint_html" ] && missing="$missing architecture/blueprint.html"  || present="$present architecture/blueprint.html"
+
+  if [ -n "$missing" ]; then
+    local note=""
+    # Distinguish absent from present-but-empty: they need different actions, and the old
+    # "missing" wording sent people looking for a file that was sitting right there.
+    local rel
+    for rel in architecture/fit-gap.md design/design-system.html architecture/blueprint.html; do
+      if [ -z "$(resolve_artifact_nonempty "$rel")" ] && [ -n "$(resolve_artifact "$rel")" ]; then
+        note="$note; $rel exists but is EMPTY (0 bytes)"
+      fi
+    done
+    if [ -z "$wf_hit" ] && [ -n "$wireframes_dir" ] && [ -n "$(find "$wireframes_dir" -name '*.html' -type f -print -quit 2>/dev/null)" ]; then
+      note="$note; design/wireframes holds only zero-byte .html"
+    fi
+    echo "PENDING|missing:${missing:- none} | present:${present:- none}${note} (design-artifacts.md Step 3 wants one wireframe per screen; architecture-blueprint.md Step 7 the blueprint render)"
     return
   fi
-  # The architecture track must arrive at the ✋ gate as HTML too (architecture-blueprint.md
-  # Step 7): blueprint.html is the generated checkpoint render — markdown stays canonical,
-  # but a missing or stale render means the gate reviews raw Mermaid or an outdated picture.
-  local blueprint_html
-  blueprint_html="$(resolve_artifact "architecture/blueprint.html")"
-  if [ -z "$blueprint_html" ]; then
-    echo "PENDING|architecture/blueprint.html missing — the Stage-3 checkpoint render (architecture-blueprint.md Step 7); regenerate it from blueprint.md"
-    return
+  # design-artifacts.md Step 2 promises one wireframe per inventoried screen. Where the
+  # inventory exists (design/target-ui.md's Screen Inventory table), count it against
+  # design/wireframes/*.html rather than only checking non-empty — a 20-screen app with one
+  # wireframe used to read as done here (issue #107). Absent inventory/table: unchanged
+  # behaviour — presence-only, same as before this check existed. Runs only once all four
+  # artifacts are present, so the collect-all-four PENDING above still lists what's missing.
+  local target_ui counts screen_count reuse_count wf_count required
+  target_ui="$(resolve_artifact "design/target-ui.md")"
+  if [ -n "$target_ui" ]; then
+    counts="$(count_screen_inventory "$target_ui")"
+    screen_count="${counts%% *}"
+    reuse_count="${counts##* }"
+    if [ "${screen_count:-0}" -gt 0 ] 2>/dev/null; then
+      wf_count=0
+      if [ -n "$wireframes_dir" ]; then
+        wf_count=$(find "$wireframes_dir" -name '*.html' -type f -size +0c 2>/dev/null | wc -l | tr -d ' ')
+      fi
+      required=$((screen_count - reuse_count))
+      [ "$required" -lt 0 ] && required=0
+      if [ "$wf_count" -lt "$required" ]; then
+        echo "MANUAL|$wf_count wireframes for $screen_count inventoried screens ($target_ui Screen Inventory vs design/wireframes/*.html) — design-artifacts.md Step 2/3 wants one per screen unless the row records a reuse"
+        return
+      fi
+    fi
   fi
   local arch_base
   arch_base="$(dirname "$blueprint_html")"
@@ -1502,15 +1590,15 @@ stage_protocol_paths() {
   # every stage as "(unmapped)" — noisy by design, but only after someone hits it.
   case "$1" in
 # <!-- ROUTING:BEGIN stage-map -->
-    P)  echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/bootstrap-project.md skills/cloud-dev-environment.md skills/existing-app-change.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/platform-link.md" ;;
-    0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-scope.md skills/source-triage.md skills/image-transcription.md skills/small-project-tier.md skills/existing-app-change.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/gate-check-file-locations.md" ;;
+    P)  echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/bootstrap-project.md skills/cloud-dev-environment.md skills/existing-app-change.md skills/app-analysis.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/platform-link.md" ;;
+    0)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-scope.md skills/source-triage.md skills/image-transcription.md skills/small-project-tier.md skills/existing-app-change.md skills/app-analysis.md skills/layering-review.md skills/module-dependency-review.md skills/microflow-loop-antipatterns.md skills/assess-migration.md skills/migration-pipeline.md skills/migrate-general.md skills/migrate-outsystems.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/qa-loop-goal-pattern.md skills/mendix-epics-api.md skills/corpus-extraction-integrity.md skills/gate-check-file-locations.md" ;;
     1)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-extraction.md skills/image-transcription.md skills/small-project-tier.md skills/migration-pipeline.md skills/source-os11.md skills/os-xml-schema.md skills/source-node-express-react.md skills/document-discovery.md skills/extractor-quality-loop.md skills/kb-generation.md skills/corpus-extraction-integrity.md" ;;
     2)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-brd.md skills/checkpoints/checkpoint-architecture.md skills/image-transcription.md skills/small-project-tier.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
-    3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/small-project-tier.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md skills/workflow-structure-rules.md skills/learned-mdl-cannot-express.md" ;;
+    3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/small-project-tier.md skills/layering-review.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md skills/workflow-structure-rules.md skills/learned-mdl-cannot-express.md" ;;
     4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/small-project-tier.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/learned-constants-and-secrets.md" ;;
-    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/design-spacing.md skills/ui-loop.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md skills/walking-skeleton.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
-    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/qa-loop-goal-pattern.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
-    7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md skills/handoff-to-studio-pro.md skills/platform-link.md skills/teamserver-alignment.md" ;;
+    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/ui-preflight-pages.md skills/design-spacing.md skills/ui-loop.md skills/learned-stylegallery.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/microflow-loop-antipatterns.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md skills/walking-skeleton.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
+    6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/app-analysis.md skills/module-dependency-review.md skills/microflow-loop-antipatterns.md skills/qa-loop-goal-pattern.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/share-demo-package.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
+    7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md skills/share-demo-package.md skills/handoff-to-studio-pro.md skills/platform-link.md skills/teamserver-alignment.md skills/deploy-to-sandbox.md" ;;
     *)  echo "" ;;
 # <!-- ROUTING:END -->
   esac
@@ -2095,6 +2183,37 @@ if [ -n "$REQUESTED_STAGE" ]; then
       echo "Read for this gate: skills/conversion-runbook.md — could not locate '### Stage $RB_STAGE — ' or '## 1b.' by heading; read §1b and your stage's §2 section"
     fi
   fi
+fi
+
+# ---------------------------------------------------------------------------
+# Baseline pack advisory — how much reading this stage's baseline tier actually costs, so a
+# session (or a human reviewing one) can see the number instead of discovering it by how slow
+# the stage felt. ADVISORY ONLY: this never touches a verdict or the exit code — see
+# routing_baseline_pack's header in bin/lib/skill-routing.sh, which bin/render-routing.sh
+# --check also calls so the two report the same number from one place.
+if [ -n "$REQUESTED_STAGE" ]; then
+  if [ -r "$TOOLKIT_DIR/bin/lib/skill-routing.sh" ]; then
+    # shellcheck source=lib/skill-routing.sh
+    . "$TOOLKIT_DIR/bin/lib/skill-routing.sh"
+    _ADV_PACK="$(routing_baseline_pack "$RB_STAGE" "$TOOLKIT_DIR" 2>/dev/null || true)"
+    if [ -n "$_ADV_PACK" ]; then
+      IFS=$'\t' read -r _ADV_WORDS _ADV_FILES _ADV_PATHS _ADV_MODE <<< "$_ADV_PACK"
+      if [ "$_ADV_MODE" = "full" ]; then
+        # $RB_STAGE didn't match a known runbook stage token (P, 0-7) — routing_baseline_pack
+        # fell back to the full baseline pack rather than silently reporting just the
+        # every-stage rows as if they were the whole pack for a stage nobody recognised.
+        printf 'ADVISORY baseline pack: stage unknown — full pack: %s words across %s files (budget %s)\n' \
+          "$_ADV_WORDS" "$_ADV_FILES" "${BASELINE_BUDGET:-80000}"
+      else
+        printf 'ADVISORY baseline pack for stage %s: %s words across %s files (budget %s)\n' \
+          "$RB_STAGE" "$_ADV_WORDS" "$_ADV_FILES" "${BASELINE_BUDGET:-80000}"
+      fi
+    else
+      echo "ADVISORY baseline pack: stage unknown, skipped"
+    fi
+  fi
+else
+  echo "ADVISORY baseline pack: stage unknown, skipped"
 fi
 
 printf "Drift (BRD sync): %s — %s\n" "$DRIFT_STATUS" "$DRIFT_NOTE"
@@ -2689,16 +2808,30 @@ fi
 # passed) the header still read Stage P, because advancing it was a discipline nobody had.
 # The position is a fact this run already established — the first stage that is neither
 # PASS nor WAIVED — so it is written here, under the dashboard's own conditions: a full
-# informational run or --html, never a stage query (read-only), never a run about to be
-# blocked. Adopt/waive lines stay the human's authority; this line is what they and the
-# artifacts add up to. A MANUAL stage (Build) holds the position until a later stage has
-# something in it — the script cannot certify Build done, and must not skip it on nothing.
-if [ "$WRITE_HTML" = "1" ] && [ -n "$REGISTER" ] && [ -f "$REGISTER" ] \
+# informational run or --html, never a run about to be blocked.
+#
+# Narrow exception (issue #108, 2026-09-21): a stage QUERY (`gate-check.sh . N`) is read-only
+# for every OTHER stage's position, but when N is exactly the stage the readout currently
+# names, and this query just resolved it PASS or WAIVED, the readout is now stale in a way
+# only this query knows — nobody's normal next move is "run the full gate-check just to move
+# the header." So a query is eligible too, but ONLY when it targets today's named stage; a
+# query about some other, unrelated stage stays read-only, same as before. Adopt/waive lines
+# stay the human's authority; this line is what they and the artifacts add up to. A MANUAL
+# stage (Build) holds the position until a later stage has something in it — the script
+# cannot certify Build done, and must not skip it on nothing.
+_single_query=0
+if [ "$WRITE_HTML" != "1" ] && [ -n "$REQUESTED_STAGE" ] && [ "$CLOSEOUT" != "1" ]; then
+  _single_query=1
+fi
+_req_norm="$REQUESTED_STAGE"
+[ "$_req_norm" = "p" ] && _req_norm="P"
+if { [ "$WRITE_HTML" = "1" ] || [ "$_single_query" = "1" ]; } && [ -n "$REGISTER" ] && [ -f "$REGISTER" ] \
    && grep -q '^## Current stage' "$REGISTER"; then
-  _cur=""; _cur_status=""; _passed=""; _manual=""; _prev=""; _prev_status=""
+  _cur=""; _cur_status=""; _passed=""; _manual=""; _prev=""; _prev_status=""; _req_status=""
   for _s in P "${STAGE_NAMES[@]}"; do
     if [ "$_s" = "P" ]; then _st="${P_STATUS:-PENDING}"
     else tbl_get "$_s" "$RESULTS_TBL" || TBL_VALUE="PENDING"; _st="$TBL_VALUE"; fi
+    [ "$_s" = "$_req_norm" ] && _req_status="$_st"
     case "$_st" in
       PASS|WAIVED) _passed="$_passed${_passed:+, }$_s" ;;
       MANUAL)      _manual="$_manual${_manual:+, }$_s" ;;
@@ -2738,6 +2871,18 @@ if [ "$WRITE_HTML" = "1" ] && [ -n "$REGISTER" ] && [ -f "$REGISTER" ] \
   case "$_have" in
     ""|"**Stage P — Kickoff**, in progress."|*"(derived by gate-check"*) _ours=1 ;;
   esac
+  # A stage query only earns the write when it is exactly the stage the readout names right
+  # now, and it just resolved PASS/WAIVED — otherwise it stays the read-only query it always
+  # was (e.g. `gate-check.sh . 5` while the readout still names Stage 3 touches nothing).
+  if [ "$_single_query" = "1" ]; then
+    case "$_req_status" in
+      PASS|WAIVED) ;;
+      *) _single_query=0 ;;
+    esac
+    _named_stage="$(printf '%s' "$_have" | sed -n 's/^\*\*Stage \([^ ]*\) —.*/\1/p')"
+    [ "$_named_stage" = "$_req_norm" ] || _single_query=0
+  fi
+  if [ "$WRITE_HTML" = "1" ] || [ "$_single_query" = "1" ]; then
   if [ "$_ours" = "0" ]; then
     echo ""
     echo "Current stage in $(basename "$REGISTER") is hand-written and left alone: $(printf '%s' "$_have" | cut -c1-70)"
@@ -2756,6 +2901,7 @@ if [ "$WRITE_HTML" = "1" ] && [ -n "$REGISTER" ] && [ -f "$REGISTER" ] \
       echo "Current stage in $(basename "$REGISTER"): $(printf '%s' "$_line" | sed 's/\*\*//g')"
     fi
     rm -f "$_tmp"
+  fi
   fi
 fi
 

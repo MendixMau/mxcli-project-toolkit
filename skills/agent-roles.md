@@ -231,6 +231,12 @@ a page, widget, or user-facing microflow is **not** trivial — treat as full-di
 6. For complex microflows: confirm alignment against the brief + architecture blueprint.
 7. Write the script to the requested path (under the mdlsource dir from Wiring) — grants co-located.
 8. Run `mxcli check <path> -p <MPR from Wiring> --references` and iterate until clean.
+8a. **Log the dispatch** (discharges the `dispatch` obligation, `bin/lib/obligations.tsv`): under the
+    project root, `mkdir -p .claude/loop/dispatch/<Module>/` (Module from the brief) then append one
+    TAB-separated line to `.claude/loop/dispatch/<Module>/scripts.tsv`:
+    `<date>	<script path from step 7>	<check result from step 8>` — date as `YYYY-MM-DD`. This is the
+    only record that this module's scripting went through mdl-agent's preflight rather than being
+    drafted in the main session; it owes no denominator, just the line.
 9. Do NOT run `mxcli exec` — that stays in the main session under the user's confirmation.
 
 ## Report back

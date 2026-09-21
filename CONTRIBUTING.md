@@ -50,7 +50,9 @@ follow `README.md` → "How to add a new skill" including the routing-table row.
 1. **No client data.** No client or vendor names, engagement codenames, person names, internal
    hostnames, real local paths, NDA'd strings. Genericize before you commit
    (`ClientX`, `/path/to/project`). `bin/check-no-client-data.sh` runs in CI and as a
-   pre-commit hook, but the denylist can't know your client — read your own diff.
+   pre-commit hook, but the denylist can't know your client — read your own diff, and, on
+   PRs, the guard's new-words report lists capitalised words your diff introduces — look at
+   every one.
 2. **Say where it happened.** Every contribution names its field context: which project, what
    you observed, verbatim output for bugs. "I think" is fine to send — but label it as a
    hypothesis, not a finding (`skills/tool-output-is-not-ground-truth.md`).
@@ -67,6 +69,21 @@ follow `README.md` → "How to add a new skill" including the routing-table row.
   on their next `git pull` + `bin/sync-project.sh`.
 - The merge commit appends a `CHANGELOG.md` line **crediting you or your project by name**.
   That line is the record of which projects feed the toolkit.
+
+## What a reviewer does before merging
+
+1. Read the whole diff for proper nouns — client, app, engagement, person, hostname. The guard
+   only knows names it was told (the denylist); the `LEAKGUARD_BASE` new-words report on the PR
+   is the prompt for this step, not the verdict.
+2. Every instrument, example or claim in the PR was executed or field-run — cite where. See
+   `CLAUDE.md` → "Shipping an instrument — field-proof before merge".
+3. A `CHANGELOG.md` line is present and credits the source.
+4. Scoped fixtures for the touched files were run, and named in the PR.
+5. Squash by default; a merge commit only for a branch whose every commit is already clean —
+   see below.
+6. A name found in a PR is rewritten by hand, in the PR, with a placeholder (`ClientX`) —
+   never auto-replaced. Auto-replace breaks paths, fixtures and credit lines, and the real
+   name stays recoverable from history either way.
 
 ## The merge queue (adopted 2026-09-01, after the first five-PR day)
 
@@ -93,6 +110,21 @@ carried into public history. None of the content was bad — the coordination wa
 6. **Lines land under `## Unreleased`; releases are cut every few days.** The maintainer runs
    `bin/cut-release.sh`, which dates the section and tags master; a project sees the release it
    is on in `bin/sync-project.sh`. The cycle itself is defined at the top of `CHANGELOG.md`.
+
+## Future scope — things we want but are not building yet
+
+Not every good idea is a PR. When the work is real but the trigger hasn't arrived — a
+dependency we don't have, a tool nobody here runs yet, a design that needs a field run
+first — it goes in [`process/roadmap.md`](process/roadmap.md) as an `RM-NN` entry rather
+than into a draft PR that goes stale or a chat log nobody can find.
+
+An entry needs three things to be worth parking: the **assets** that already exist (by
+path), the concrete **trigger** that unparks it, and a checkable **exit bar**. Without a
+trigger it never starts; without an exit bar it never finishes. If you have an idea but
+none of those, the inbox (Lane 1) is the right place — the roadmap is for work that is
+designed and waiting, not for work that is imagined.
+
+---
 
 ## Good worked examples already in the wild
 

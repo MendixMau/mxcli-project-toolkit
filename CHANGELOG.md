@@ -16,6 +16,13 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+- process(bin/check-pr-discipline.sh): **a new CHANGELOG entry must end with its credit segment.**
+  Third check over the merge-base diff: every added `- kind(area):` entry, joined with its 2-space
+  continuation lines, must end ` — <credit>`; rule 1 only saw that CHANGELOG.md was touched, so a
+  review pass over 18 open PRs found headline-only entries riding through. Field-run over eight open
+  PR branches (all clean) and a one-shot audit of master (18 of 256 entries uncredited, 4 of them
+  with an ASCII `--` separator; only added entries are checked, nothing is retro-blamed). Six
+  fixture cases in `tests/run-tests.sh` — MendixMau
 
 - fix(bootstrap-project.md): **`CLAUDE.md` is a pointer when `CLAUDE.local.md` exists, never a
   second copy.** Step 2 told the merge to paste the Baseline routing table into `CLAUDE.md` even

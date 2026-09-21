@@ -721,7 +721,7 @@ fi
 # capture. The generated file carries no version stamp, so nothing else flags the drift.
 # Report-only for the same reason as the ledger-row warning above: CLAUDE.md is init's file
 # and bootstrap-project.md's merge, never sync's to edit.
-DECLARE_OBJECT_RE='DECLARE \$[A-Za-z_]+ [A-Za-z_]+\.[A-Za-z_]+;'
+DECLARE_OBJECT_RE='DECLARE \$[A-Za-z0-9_]+ [A-Za-z0-9_]+\.[A-Za-z0-9_]+;'
 if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -Eq "$DECLARE_OBJECT_RE" "$PROJECT_DIR/CLAUDE.md"; then
   warn "CLAUDE.md teaches \`DECLARE \$Var Module.Entity;\` — that row came from an mxcli init" \
        "older than v0.22; v0.22 \`check\` rejects it (MDL043/CE0053, an object variable" \

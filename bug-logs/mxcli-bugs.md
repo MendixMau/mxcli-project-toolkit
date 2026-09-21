@@ -5615,3 +5615,35 @@ other direction.
 **Fix:** include System-module enumerations in `show enumerations` / `describe enumeration`
 (read-only is fine — nobody needs to write them), and let `search` index them. Failing that, have
 CE1613's MDL-side rule list the values that do exist.
+
+## BUG-DRAFT-stale-init-claude-md-declare-object: a CLAUDE.md scaffolded before v0.22 keeps teaching a `DECLARE` form that v0.22 `check` now rejects, with nothing to flag the drift (2026-09-21)
+
+**Discovered:** 2026-09-21, cross-checking `bin/sync-project.sh`'s new stale-init warning against a
+real, currently-open requirements-driven greenfield Mendix project scaffolded on mxcli v0.20.0.
+**Reproducible:** yes, on any project scaffolded before v0.22.
+**mxcli version at scaffold time:** v0.20.0. **Rejected starting:** v0.22.0.
+
+The project's `CLAUDE.md` — generated at scaffold time by `mxcli init` and never hand-edited on
+this row — still carries, in its "Microflows - Supported Statements" table:
+
+```
+| Entity declaration | `DECLARE $Entity Module.Entity;` |
+```
+
+That form is an object-variable declaration. `check` on v0.22+ rejects it with `MDL043`/`CE0053` —
+the row is simply wrong for the binary the project is now running, and a current `mxcli init`'s
+`write-microflows.md` is the source of truth for whatever form is accepted today, not this row.
+The generated `CLAUDE.md` carries no version stamp, so nothing else in the project notices that
+the row it is teaching predates the binary now enforcing against it — an agent reading this file
+drafts a script using the taught form, and the first sign of trouble is a `check`/`check
+--references` failure on a construct the project's own instructions told it was correct.
+
+**Impact.** Every project scaffolded before v0.22 that has not since been re-initialized (see
+`bootstrap-project.md`'s re-init note) carries this stale row silently. `bin/sync-project.sh` never
+inspected `CLAUDE.md`'s prose before this PR — it only ever touched `CLAUDE.local.md` and the
+ledger-routing row — so the gap had no mechanical check at all.
+
+**Fix (this PR):** `bin/sync-project.sh` gains a report-only warning (never edits `CLAUDE.md` —
+that file is `mxcli init`'s and `bootstrap-project.md`'s merge, not sync's) when the row is
+present, and `bootstrap-project.md`'s audit pass strips it on merge. See CHANGELOG entry under
+`## Unreleased`.

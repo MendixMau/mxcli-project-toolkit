@@ -16,6 +16,16 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+- new(bin/exec-approval.sh, bin/install-harness-permissions.sh): `auto` is now the unconditional
+  exec-approval default everywhere, not just Claude — **already-wired projects that never set the
+  knob silently move from "ask before each exec" to "run it" on their next toolkit pull.** One
+  rule text (`bin/lib/wiring-item3.sh`) now backs every mention (interview-protocol.md,
+  toolkit-guide.html, README, intake-template.sh); new `install-harness-permissions.sh` extends
+  the Claude-only allow-lister to Copilot and Aider (Cursor/Continue/Windsurf are user-level
+  IDE/CLI settings, nothing to write); `sync-project.sh` repairs projects wired under either
+  earlier wording. `tests/wave2/test-exec-approval.sh` (43/43), `test-install-claude-permissions.sh`
+  (66/66). Field run: scratch project scaffold — `init-project.sh` → `exec-approval.sh --explain`
+  resolves `auto` from default → `sync-project.sh` idempotent on re-run. (MendixMau)
 - new(gate-must-run): **the mxbuild gate could silently not run and the model still got written,
   committed and pushed — on any machine, cloud or session.** `project-bin/exec.sh` treated
   `GATE_STATE=skipped`/`unverified` as exit 0, so a `count()`-as-expression microflow (CE0117,

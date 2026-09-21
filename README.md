@@ -65,6 +65,8 @@ Do **not** create `analysis/<project>/` as a sibling of the project — analysis
 
 **New here? Open `toolkit-guide.html` in a browser first** — the whole journey as a visual page: entry modes, the 9 stages, what each gate asks of you, and the don't-panic section. *Agents:* open it for the user only when `<project-root>/.claude/.guide-shown` is absent, then `touch` it — see the first-touch rule in `CLAUDE.md`. Never once per session.
 
+**First session on a harness other than Claude Code?** `toolkit-guide.html` → section 9 has the one setting per harness (Copilot, Aider, Cursor, Windsurf) that stops it prompting on every `bin/exec.sh` call — `bin/install-harness-permissions.sh` sets what it can automatically; the table covers what's left.
+
 **Where does this run? Wherever you started the chat.** `doctor.sh` detects the lane — Claude
 Code on the web (cloud container), a devcontainer, or your own machine with Studio Pro — and the
 agent records it; nobody is asked. Every stage runs headless in all three; what each lane changes
@@ -435,8 +437,11 @@ mxcli-project-toolkit/
     split-claude-md.sh          ← move MDL/lint reference out of CLAUDE.md into load-on-demand files
     install-claude-hooks.sh     ← tiered context-cost hooks → ~/.claude (see "Context cost" above)
     install-claude-permissions.sh ← allow-lists the safe wrappers (bin/exec.sh & friends, mx)
-                                   in <project>/.claude/settings.json so Manual mode stops
-                                   prompting on them; run at scaffold time, --check'd on sync
+                                   in <project>/.claude/settings.json + settings.local.json
+                                   (absolute-path entries only) so Manual mode stops prompting
+    install-harness-permissions.sh ← ONE entry point: calls install-claude-permissions.sh, plus
+                                   Copilot (.vscode/settings.json), Aider (.aider.conf.yml);
+                                   run at scaffold time, --check'd on sync — see toolkit-guide.html §9
     install-hooks.sh            ← unrelated: the git pre-commit client-data guard for THIS repo
   claude-hooks/                 ← sources for the above: hooks/ (5) + bin/ (checkpoint, close-task)
   agents/                       ← the six agent stub templates (ba/architect/mdl/gate/test/review)
@@ -724,7 +729,7 @@ get a `CHANGELOG.md` credit line naming you or your project.
 ```
 git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-project-toolkit
 ```
-Each project's `CLAUDE.local.md` references `~/Mendix/mxcli-project-toolkit`. Pull updates with `git pull` — **everything referenced (skills, runbook, checkpoints, gate-check) updates instantly for all projects.** The artifacts that were *copied* into a project (intake.md, agent stubs, and — only on a project with no `CLAUDE.local.md` — the baseline-routing table in its `CLAUDE.md`) don't: run `bin/sync-project.sh <project-root>` after a pull — it appends new intake questions, refreshes untouched agent stubs (never completed ones), refreshes the Baseline and situational tables in `CLAUDE.local.md` when one exists, and otherwise flags a stale baseline routing table in `CLAUDE.md` for hand update. Then tell any already-running session to re-read the runbook.
+Each project's `CLAUDE.local.md` references `~/Mendix/mxcli-project-toolkit`. Pull updates with `git pull` — **everything referenced (skills, runbook, checkpoints, gate-check) updates instantly for all projects.** The artifacts that were *copied* into a project (intake.md, agent stubs, and — only on a project with no `CLAUDE.local.md` — the baseline-routing table in its `CLAUDE.md`) don't: run `bin/sync-project.sh <project-root>` after a pull — it appends new intake questions, refreshes untouched agent stubs (never completed ones), refreshes the Baseline and situational tables in `CLAUDE.local.md` when one exists, and otherwise flags a stale baseline routing table in `CLAUDE.md` for hand update. It also warns (never fetches) when the toolkit clone itself is off `master` or behind `origin/master`; `MXTK_SYNC_SKIP_CLONE_CHECK=1` skips that one check, for the toolkit's own test suite only — real users leave it unset. Then tell any already-running session to re-read the runbook.
 For a self-contained handoff, add it as a git submodule instead. Per pipeline, run `npm install` inside `pipelines/<x>/pipeline` (node_modules is gitignored).
 
 ### Baseline routing — every consuming project needs this table

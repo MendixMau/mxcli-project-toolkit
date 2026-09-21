@@ -563,6 +563,9 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
+| Building or refreshing the standing dossier of an EXISTING app before changing it: inventory, module dependency shape, loop risk patterns, each section with a verdict and a fault where nothing was measured (a standing document; nothing else in the toolkit reads it yet) | `skills/app-analysis.md` |
+| Checking whether an EXISTING app's module boundaries still hold: the layer map (bin/app-layer-map.sh) computes the order the modules would stack in and draws only the edges that point back up, so one tangle of N mutually reachable modules becomes a named list of edges with a weight and a ref kind; Stage 3 in existing-app-change mode, and the honest blast radius for a slice | `skills/layering-review.md` |
+| Judging module tangles, bidirectional pairs, cohesion and hubs from analysis/app-facts/dependencies.json; stock graph_module_* views split names on the first dot and are not trusted | `skills/module-dependency-review.md` |
 | Diagramming target architecture — module defs, wiring, fit-gap, marketplace, security, NFRs, integrations | `skills/architecture-blueprint.md` |
 | Deciding module boundaries before "create module" | `skills/modularize-domain.md` |
 
@@ -591,6 +594,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
+| Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop | `skills/microflow-loop-antipatterns.md` |
 | Writing MDL microflow scripts — worked recipes | `skills/mdl-cookbook-microflows.md` |
 | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check | `skills/build/mdl/oneshot-mdl-method.md` |
 | Writing a popup page's microflow with a retry/validation-failure branch that re-shows the same popup — missing close page stacks duplicate dialogs | `skills/learned-popup-navigation.md` |

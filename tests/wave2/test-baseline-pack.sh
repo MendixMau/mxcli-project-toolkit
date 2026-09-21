@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+# Usage: bash tests/wave2/test-baseline-pack.sh [path-to-render-routing.sh]
+#   (or the bin/lib/skill-routing.sh path directly; run-all.sh passes bin/render-routing.sh and
+#   the fixture derives bin/lib/skill-routing.sh from its directory)
+#
 # routing_baseline_pack (bin/lib/skill-routing.sh) is the ONE place that sizes a stage's
 # baseline reading — shared by bin/gate-check.sh's ADVISORY line and by
 # bin/render-routing.sh --check's per-stage summary. Its whole claim is that a stage-5 row is
@@ -24,14 +28,21 @@ export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-fixture-denylist.$$"
 trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"' EXIT
 
 set -uo pipefail
-SKILL_ROUTING="${1:?usage: test-baseline-pack.sh <path-to-bin/lib/skill-routing.sh>}"
+ARG="${1:?usage: test-baseline-pack.sh /path/to/bin/render-routing.sh (or /path/to/bin/lib/skill-routing.sh)}"
+# run-all.sh can only hand over a bin/-level subject (its candidate list has no bin/lib/), so a
+# bin/<anything>.sh argument maps to the lib file beside it; a direct lib path is used as-is.
+case "$(basename "$ARG")" in
+  skill-routing.sh) SKILL_ROUTING="$ARG" ;;
+  *) SKILL_ROUTING="$(cd "$(dirname "$ARG")" && pwd)/lib/skill-routing.sh" ;;
+esac
+[ -r "$SKILL_ROUTING" ] || { echo "test-baseline-pack: no skill-routing.sh at $SKILL_ROUTING"; exit 2; }
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
 OK=0; BAD=0
 ok(){ echo "  ok   $1"; OK=$((OK+1)); }
 bad(){ echo "  FAIL $1"; BAD=$((BAD+1)); }
 
 W="$(mktemp -d)"
-trap 'rm -rf "$W"' EXIT
+trap 'rm -rf "$W" "$MXTK_LEAKGUARD_DENYFILE"' EXIT
 ROOT="$W/root"
 mkdir -p "$ROOT/skills"
 

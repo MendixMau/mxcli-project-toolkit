@@ -2109,9 +2109,17 @@ if [ -n "$REQUESTED_STAGE" ]; then
     . "$TOOLKIT_DIR/bin/lib/skill-routing.sh"
     _ADV_PACK="$(routing_baseline_pack "$RB_STAGE" "$TOOLKIT_DIR" 2>/dev/null || true)"
     if [ -n "$_ADV_PACK" ]; then
-      IFS=$'\t' read -r _ADV_WORDS _ADV_FILES _ADV_PATHS <<< "$_ADV_PACK"
-      printf 'ADVISORY baseline pack for stage %s: %s words across %s files (budget %s)\n' \
-        "$RB_STAGE" "$_ADV_WORDS" "$_ADV_FILES" "${BASELINE_BUDGET:-80000}"
+      IFS=$'\t' read -r _ADV_WORDS _ADV_FILES _ADV_PATHS _ADV_MODE <<< "$_ADV_PACK"
+      if [ "$_ADV_MODE" = "full" ]; then
+        # $RB_STAGE didn't match a known runbook stage token (P, 0-7) — routing_baseline_pack
+        # fell back to the full baseline pack rather than silently reporting just the
+        # every-stage rows as if they were the whole pack for a stage nobody recognised.
+        printf 'ADVISORY baseline pack: stage unknown — full pack: %s words across %s files (budget %s)\n' \
+          "$_ADV_WORDS" "$_ADV_FILES" "${BASELINE_BUDGET:-80000}"
+      else
+        printf 'ADVISORY baseline pack for stage %s: %s words across %s files (budget %s)\n' \
+          "$RB_STAGE" "$_ADV_WORDS" "$_ADV_FILES" "${BASELINE_BUDGET:-80000}"
+      fi
     else
       echo "ADVISORY baseline pack: stage unknown, skipped"
     fi

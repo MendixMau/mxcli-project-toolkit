@@ -30,13 +30,41 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are.
   of the baseline `.md` files that apply at the requested/current stage, against the existing
   budget — never affecting exit code or verdicts. `render-routing.sh --check` gained the matching
   per-stage breakdown (`stage S: N words / F files`), both sharing one new
-  `routing_baseline_pack()` function so the two surfaces can't drift apart. — MendixMau
+  `routing_baseline_pack()` function so the two surfaces can't drift apart. Measured against the
+  toolkit's own table: Stage 5 (the heaviest) carries 73,446 words across 23 files against the
+  79,143-word/25-file full tier — 93%, i.e. the advisory mostly does not shrink what a Stage-5
+  session reads; the saving is real but stage-dependent (Stage 3, for example, is 26,042/8). — MendixMau
+- fix(gate-check, routing): **`routing_baseline_pack()` no longer treats an unrecognised stage
+  token as if it were a real one.** Every-stage (`stages = "-"`) rows match regardless of `<stage>`,
+  so a typo'd or stale token used to come back with a small, real-looking total (the every-stage
+  rows only) mislabelled as that stage's whole pack, and `gate-check.sh`'s own "stage unknown,
+  skipped" fallback could never fire because the function never actually returned empty. It now
+  checks `<stage>` against the runbook's real tokens (`P`, `0`-`7`) and, on a miss, returns the
+  FULL baseline pack with an explicit fourth field (`full`); `gate-check.sh` prints "stage unknown
+  — full pack: N words across F files" instead of a mislabelled partial number.
+  `gate-check.sh`'s CLI already rejects an unrecognised `REQUESTED_STAGE` before this code runs, so
+  this is defense-in-depth for `routing_baseline_pack()` as a shared library function — it protects
+  `render-routing.sh --check` and any future direct caller the same way. — MendixMau
 - new(obligations): **added the `dispatch` obligation** (`bin/lib/obligations.tsv` +
   `agents/mdl-agent.md` step 8a, mirrored in `skills/agent-roles.md`'s mdl-agent template): a
   per-module `.claude/loop/dispatch/<Module>/scripts.tsv` log line proving a module's MDL scripting
   went through mdl-agent's preflight rather than being drafted ad hoc in the main session, where
   `learned-mdl-preflight.md`'s STOP checks never ran. PENDING when the log is absent, PASS once it
-  exists — no changes needed to `obligation-check.sh`'s generic path-match logic. — MendixMau
+  exists — no changes needed to `obligation-check.sh`'s generic path-match logic. Column 9 (the
+  obligation table's documented "governing skill" column) now names `skills/agent-roles.md`, whose
+  "Workflow" step 8a is the text that actually specifies the log line's path, format and
+  no-denominator discharge rule — not `agents/mdl-agent.md`, an agent stub that holds no verdict of
+  its own. Note for a fresh project: `dispatch` reports PENDING until its `mdl-agent.md` stub is
+  the one `bin/sync-project.sh` refreshes, and `sync-project.sh` only refreshes an UNTOUCHED stub —
+  a project that customised its stub keeps whatever dispatch-logging text it had at customisation
+  time. — MendixMau
+- test(routing): **`tests/wave2/test-baseline-pack.sh`** exercises `routing_baseline_pack()` against
+  a scratch routing table and project tree with known word counts: a stage-3-only row is present in
+  the stage-3 pack and absent from the stage-5 pack (and vice versa), an every-stage row is in both,
+  an `ondemand`-tier row and a non-`.md` baseline row are excluded from every pack, totals are exact,
+  and an unrecognised stage token returns the full pack carrying the new `full` marker while every
+  real runbook stage does not. Also field-runs the real `bin/lib/skill-routing.tsv` at every stage
+  (`P`, `0`-`7`) and asserts a non-empty, non-`full` result. — MendixMau
 - fix(routing): **baseline word count pinned to `LC_ALL=C`** in `render-routing.sh --check` and
   `routing_baseline_pack()`. CI (C.UTF-8) counted the tier at 80,238 words while every local run
   (C locale) put it at 78,367 — under a UTF-8 locale `wc -w` also splits on non-breaking and other

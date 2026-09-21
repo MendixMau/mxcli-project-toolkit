@@ -123,13 +123,27 @@ _routing_stage_arm() {
 #   does in render-routing.sh. Shared by bin/gate-check.sh's per-gate ADVISORY line and
 #   bin/render-routing.sh --check's per-stage summary so both compute the same number from one
 #   place. A missing file is skipped rather than erroring — advisories never block.
+#
+#   <stage> is checked against the runbook's actual stage tokens (P, 0-7 — the same set
+#   bin/render-routing.sh --check iterates). An unrecognised token used to fall through
+#   silently: every-stage ("-") rows still matched regardless of what <stage> was, so a typo'd
+#   or stale stage name reported a small, real-looking number (the every-stage rows only)
+#   mislabelled as if it were that stage's whole pack — and gate-check.sh's "stage unknown,
+#   skipped" fallback could never fire, because this function never actually returned empty.
+#   Fixed 2026-09 (review of PR #99): on an unrecognised <stage>, this now returns the FULL
+#   baseline pack (every baseline .md row, stage filter ignored) with a fourth field, "full",
+#   so a caller can print an explicit "stage unknown — full pack" instead of a mislabelled
+#   partial number. A truly empty return (caller sees "") now means the lookup itself failed
+#   (missing table, sourcing error), not "the stage wasn't recognised".
 routing_baseline_pack() {
   local stage="$1" root="$2" words=0 files=0 paths="" p wc_out
   local name path when agents stages tier group
+  local known_stages=" P 0 1 2 3 4 5 6 7 " full=0
+  case "$known_stages" in *" $stage "*) : ;; *) full=1 ;; esac
   while IFS=$'\t' read -r name path when agents stages tier group; do
     [ "$tier" = "baseline" ] || continue
     case "$path" in *.md) : ;; *) continue ;; esac
-    if [ "$stages" != "-" ]; then
+    if [ "$full" -eq 0 ] && [ "$stages" != "-" ]; then
       _routing_has "$stages" "$stage" || continue
     fi
     p="$root/$path"
@@ -140,7 +154,11 @@ routing_baseline_pack() {
     files=$((files + 1))
     paths="$paths $path"
   done < <(routing_rows)
-  printf '%s\t%s\t%s\n' "$words" "$files" "${paths# }"
+  if [ "$full" -eq 1 ]; then
+    printf '%s\t%s\t%s\tfull\n' "$words" "$files" "${paths# }"
+  else
+    printf '%s\t%s\t%s\n' "$words" "$files" "${paths# }"
+  fi
 }
 
 # routing_render <view> [prefix]

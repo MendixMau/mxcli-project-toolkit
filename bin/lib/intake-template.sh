@@ -112,13 +112,10 @@ identical, and guessing wrong either nags forever or waives a stage that genuine
 
 ## 11. Exec approval: `auto` (default) or `ask`?
 
-_Not yet asked._ How to verify: ask the user; default is `auto` — the agent runs model-writing
-scripts through the safe wrapper (`bin/exec.sh`, which snapshots first, mxbuild-validates after,
-and auto-restores on failure) and logs each run instead of asking first. `ask` — the agent asks
-before every one, as it always did before 2026-09-16. Either way the user can switch it at any
-time by saying so; the agent then runs `bin/exec-approval.sh <project-root> --set auto|ask`,
-never on its own judgement. See `bin/exec-approval.sh --explain` for what is currently resolved
-and why.
+_Not yet asked._ How to verify: ask the user; default is `auto`. Full rule text (what it
+gates, the resolution order, the STOP-table carve-out): `bin/lib/wiring-item3.sh` — the same
+text every agent's Start-here stamp carries. See `bin/exec-approval.sh --explain` for what is
+currently resolved and why; the user switches it, never the agent on its own judgement.
 MXTK_INTAKE_EOF
 }
 

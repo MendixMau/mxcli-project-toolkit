@@ -16,6 +16,16 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+- new(bin/exec-approval.sh, bin/install-harness-permissions.sh): `auto` is now the unconditional
+  exec-approval default everywhere, not just Claude — **already-wired projects that never set the
+  knob silently move from "ask before each exec" to "run it" on their next toolkit pull.** One
+  rule text (`bin/lib/wiring-item3.sh`) now backs every mention (interview-protocol.md,
+  toolkit-guide.html, README, intake-template.sh); new `install-harness-permissions.sh` extends
+  the Claude-only allow-lister to Copilot and Aider (Cursor/Continue/Windsurf are user-level
+  IDE/CLI settings, nothing to write); `sync-project.sh` repairs projects wired under either
+  earlier wording. `tests/wave2/test-exec-approval.sh` (43/43), `test-install-claude-permissions.sh`
+  (66/66). Field run: scratch project scaffold — `init-project.sh` → `exec-approval.sh --explain`
+  resolves `auto` from default → `sync-project.sh` idempotent on re-run. (MendixMau)
 - new(gate-must-run): **the mxbuild gate could silently not run and the model still got written,
   committed and pushed — on any machine, cloud or session.** `project-bin/exec.sh` treated
   `GATE_STATE=skipped`/`unverified` as exit 0, so a `count()`-as-expression microflow (CE0117,
@@ -152,13 +162,6 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are.
   whose Stage P had been blocked on exactly this since 2026-09-16. — MendixMau
 
 ## 2026-09-16
-- new(bin/exec-approval.sh, bin/install-harness-permissions.sh, skills/interview-protocol.md, skills/checkpoints): **`auto` is now the unconditional exec-approval default, and one entry point wires "stop asking before every wrapper command" into every harness, not just Claude.** Per the owner's ask — "too much approval clicking … not all will have Claude" — `exec-approval.sh`'s tier-4 default flips from interview-mode-derived to `auto`; state now lives at `<project>/.mxtk/exec-approval` with the old `.claude/.exec-approval` path read as a compat fallback (`--set` writes new, drops old). New `bin/install-harness-permissions.sh` extends the Claude-only allow-lister to Copilot (`chat.tools.terminal.autoApprove` in `.vscode/settings.json`, key verified against `microsoft/vscode-docs`) and Aider (`yes-always: true` in `.aider.conf.yml`, merged without disturbing `wire-agents.sh`'s stamped block); Cursor/Windsurf are user-level only, so nothing is written for them. `install-claude-permissions.sh` itself now splits its allow-list across `.claude/settings.json` (shared, relative entries) and `.claude/settings.local.json` (the two absolute-`$TOOLKIT_ROOT` entries, gitignored, never committed). `sync-project.sh` repairs projects wired under the old wording (both the pre-2026-09-15 and the 2026-09-15 "`ask` (the default)" text), rewrites the mxcli-init "execute it silently" / "Shall I go ahead?" Communication Style lines, and warns (never fetches, `MXTK_SYNC_SKIP_CLONE_CHECK=1` to skip for the toolkit's own test suite) when the toolkit clone is stale or off `master`. `init-project.sh` writes `Exec approval: auto` into `PROJECT.md`, adds an intake question, and gitignores `.mxtk/` + `.claude/settings.local.json`. `toolkit-guide.html` gains a "First session on your harness" table; `tests/wave2/test-exec-approval.sh` (43/43), the extended `tests/wave2/test-install-claude-permissions.sh` (56/56, six new sections for the harness installer), and `tests/wave2/test-bug12-sync.sh` (51/51) cover it. Field run: a scratch project scaffolded
-  under the scratchpad — `init-project.sh` (exit 0, no browser in the headless environment) →
-  `exec-approval.sh --explain` resolves tier 4 to `auto` from `PROJECT.md` → standalone
-  `install-harness-permissions.sh` finds the Claude/Copilot/Aider entries `init-project.sh`'s own
-  call already wrote, nothing further to do → `sync-project.sh` run twice, both exits 0 with the
-  same single unrelated warning, second run idle (no `Created`/`Refreshed` line, no file changed
-  on disk). (MendixMau)
 - fix(coverage-preflight.sh): **a build plan's `claims:` blocks inside a fence, with a `(note)`
   suffix, or indented, were silently ignored — only the plainest shape was ever read.**
   `project-bin/coverage-preflight.sh`'s own inline `extract_claims` handled exactly one of five

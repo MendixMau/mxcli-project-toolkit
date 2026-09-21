@@ -36,6 +36,12 @@
 #             touches the file if the key is already there under any spacing.
 #   cursor    no write. Cursor's auto-run allow-list lives in the user's own IDE settings, not
 #             a project file this toolkit could commit — see .cursorrules' own pointer role.
+#   continue  no write, same reasoning as cursor/windsurf — VERIFIED against Continue's own docs
+#             (docs.continue.dev/cli/tool-permissions, fetched 2026-09-21): tool-approval state
+#             lives in `~/.continue/permissions.yaml`, a user-level (home-directory) file the CLI
+#             writes when the person picks "don't ask again", not a per-project file this toolkit
+#             could commit. .continue/config.json (which wire-agents.sh does write, unrelated to
+#             this) has no auto-approve key of its own.
 #   windsurf  no write, same reasoning as cursor.
 #
 # Usage:
@@ -236,8 +242,9 @@ case "$MODE" in
     ;;
 esac
 
-echo "=== cursor / windsurf ==="
+echo "=== cursor / continue / windsurf ==="
 echo "No project file written — Cursor and Windsurf's auto-run allow-lists are user-level IDE"
-echo "settings, not something a project checkout can carry. Flip it once per machine in the IDE."
+echo "settings, and Continue's is ~/.continue/permissions.yaml; none is something a project"
+echo "checkout can carry. Flip it once per machine in the IDE/CLI."
 
 exit "$RC"

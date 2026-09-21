@@ -299,6 +299,22 @@ resolve_artifact() {
   return 1
 }
 
+# resolve_artifact_nonempty() — resolve_artifact plus a size test.
+#
+# resolve_artifact() tests [ -e ] only, so a zero-byte file discharges a gate. That is a
+# false green at a SIGN-OFF gate: the artifact a human is being asked to approve is empty.
+# artifact-check.sh's _art_find() already tests [ -s ] and records ART_EMPTY; check_stage_3()
+# simply never consulted it, so the two layers disagreed. Deliberately a separate function:
+# changing resolve_artifact() itself affects every stage and wants its own review.
+resolve_artifact_nonempty() {
+  local rel="$1" p
+  for p in "$PROJECT_DIR/$rel" "$ANALYSIS_BASE/$rel"; do
+    if [ -s "$p" ]; then echo "$p"; return 0; fi
+  done
+  echo ""
+  return 1
+}
+
 # Resolve a per-stage SOURCE file (intake.md, triage.md) rather than a build artifact.
 #
 # resolve_artifact() deliberately prefers the ROOT copy — correct for artifacts, where a root
@@ -594,12 +610,11 @@ if [ -z "$ENTRY_RAW" ]; then
     ' "$ENTRY_SRC")"
   fi
 fi
-case "$(printf '%s' "$ENTRY_RAW" | tr '[:upper:]' '[:lower:]')" in
-  *existing*)      ENTRY_MODE="existing-app-change" ;;
-  *greenfield*)    ENTRY_MODE="greenfield" ;;
-  *requirement*)   ENTRY_MODE="requirements-driven" ;;
-  *migration*)     ENTRY_MODE="migration" ;;
-esac
+# ONE tokeniser, shared with bin/lib/artifact-check.sh. The unanchored globs this
+# replaces read "migration (not greenfield)" as greenfield, and stage_waiver() below
+# then excused stages on that label. See bin/lib/entry-mode.sh for why.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/lib" && pwd)/entry-mode.sh"
+ENTRY_MODE="$(entry_mode_token "$ENTRY_RAW")"
 
 # stage_waiver <stage> — "<scope>|<reason>", or nothing. Most specific source of truth first.
 #
@@ -1015,29 +1030,47 @@ has_confirmed_decision() {
 }
 
 check_stage_3() {
-  local fit_gap design_system
-  fit_gap="$(resolve_artifact "architecture/fit-gap.md")"
-  design_system="$(resolve_artifact "design/design-system.html")"
-  if [ -z "$fit_gap" ] || [ -z "$design_system" ]; then
-    echo "PENDING|not started — missing $( [ -z "$fit_gap" ] && echo "architecture/fit-gap.md ")$( [ -z "$design_system" ] && echo "design/design-system.html")"
-    return
-  fi
-  # Wireframes are load-bearing: ui-preflight-pages.md starts from them and the build
-  # loop verifies built pages against them. A design system without wireframes is half
-  # the Stage-3 deliverable (design-artifacts.md Step 3, one per screen).
-  local wireframes_dir
+  # Collect ALL FOUR results before reporting. This used to be a chain of first-failure
+  # returns, so the message was always about the first gap in source order and never about
+  # the state of the stage: a project with a design system, wireframes and a blueprint but
+  # no fit-gap.md was told "not started". One line, everything missing AND everything
+  # present, so the reader can see how far along they actually are.
+  #
+  # Every test is [ -s ], not [ -e ]: see resolve_artifact_nonempty().
+  local fit_gap design_system wireframes_dir blueprint_html wf_hit
+  fit_gap="$(resolve_artifact_nonempty "architecture/fit-gap.md")"
+  design_system="$(resolve_artifact_nonempty "design/design-system.html")"
+  blueprint_html="$(resolve_artifact_nonempty "architecture/blueprint.html")"
+
+  # Wireframes: recurse, and require a NON-EMPTY file. -maxdepth 1 meant a real wireframe at
+  # design/wireframes/<flow>/list.html was invisible while a zero-byte file at the top level
+  # counted — the same line rejected the real one and accepted the empty one.
   wireframes_dir="$(resolve_artifact "design/wireframes")"
-  if [ -z "$wireframes_dir" ] || [ -z "$(find "$wireframes_dir" -maxdepth 1 -name '*.html' -print -quit 2>/dev/null)" ]; then
-    echo "PENDING|design/wireframes/*.html missing — design system exists but no wireframes (design-artifacts.md Step 3); the mdl-agent's UI pre-flight cannot run without them"
-    return
+  wf_hit=""
+  if [ -n "$wireframes_dir" ]; then
+    wf_hit="$(find "$wireframes_dir" -name '*.html' -type f -size +0c -print -quit 2>/dev/null)"
   fi
-  # The architecture track must arrive at the ✋ gate as HTML too (architecture-blueprint.md
-  # Step 7): blueprint.html is the generated checkpoint render — markdown stays canonical,
-  # but a missing or stale render means the gate reviews raw Mermaid or an outdated picture.
-  local blueprint_html
-  blueprint_html="$(resolve_artifact "architecture/blueprint.html")"
-  if [ -z "$blueprint_html" ]; then
-    echo "PENDING|architecture/blueprint.html missing — the Stage-3 checkpoint render (architecture-blueprint.md Step 7); regenerate it from blueprint.md"
+
+  local missing="" present=""
+  [ -z "$fit_gap" ]        && missing="$missing architecture/fit-gap.md"      || present="$present architecture/fit-gap.md"
+  [ -z "$design_system" ]  && missing="$missing design/design-system.html"    || present="$present design/design-system.html"
+  [ -z "$wf_hit" ]         && missing="$missing design/wireframes/*.html"     || present="$present design/wireframes/*.html"
+  [ -z "$blueprint_html" ] && missing="$missing architecture/blueprint.html"  || present="$present architecture/blueprint.html"
+
+  if [ -n "$missing" ]; then
+    local note=""
+    # Distinguish absent from present-but-empty: they need different actions, and the old
+    # "missing" wording sent people looking for a file that was sitting right there.
+    local rel
+    for rel in architecture/fit-gap.md design/design-system.html architecture/blueprint.html; do
+      if [ -z "$(resolve_artifact_nonempty "$rel")" ] && [ -n "$(resolve_artifact "$rel")" ]; then
+        note="$note; $rel exists but is EMPTY (0 bytes)"
+      fi
+    done
+    if [ -z "$wf_hit" ] && [ -n "$wireframes_dir" ] && [ -n "$(find "$wireframes_dir" -name '*.html' -type f -print -quit 2>/dev/null)" ]; then
+      note="$note; design/wireframes holds only zero-byte .html"
+    fi
+    echo "PENDING|missing:${missing:- none} | present:${present:- none}${note} (design-artifacts.md Step 3 wants one wireframe per screen; architecture-blueprint.md Step 7 the blueprint render)"
     return
   fi
   local arch_base

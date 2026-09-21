@@ -8,6 +8,15 @@ Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templat
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
 ## 2026-09-21
+- fix(module-review): **rubric row 8 judged the nav *bar* but never the nav *menu*.** The row
+  already caught an un-skinned default nav bar and a sidebar design shipped as a top-bar app; it
+  said nothing about the navigation profile's own items. The menu is chrome on every screen and
+  belongs to no page, so a page-by-page LOOK pass structurally never reaches it — Arm A of the PRD
+  benchmark passed a full module review and two UI sweeps with five bare text labels and no icons.
+  Row 8 now names the menu items (labels, icons, order, grouping) as a finding class, says to judge
+  them once explicitly on the first screen opened, and points at `learned-sidebar-collapse-icons.md`
+  so the corrected icon capability is reachable from the review rubric and not only from a build
+  skill. — PRD benchmark, Arm A (Maurits Visser)
 - fix(learned-sidebar-collapse-icons): **the skill told sessions that menu-item icons cannot be
   scripted — they can, and have been able to for some time.** The file asserted that
   `navigation.create` "has no menu-item icon token" and that per-item icons "have to be assigned

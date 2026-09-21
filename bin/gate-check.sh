@@ -595,10 +595,17 @@ if [ -z "$ENTRY_RAW" ]; then
   fi
 fi
 case "$(printf '%s' "$ENTRY_RAW" | tr '[:upper:]' '[:lower:]')" in
-  *existing*)      ENTRY_MODE="existing-app-change" ;;
+  # `*migration*` is checked before the existing-app arm as defence in depth: roadmap 1.9 is
+  # that these arms are substring matches, and a migration entry mode that also happens to
+  # contain the existing-app phrase (unlikely, but cheap to guard) should still read migration.
+  *migration*)     ENTRY_MODE="migration" ;;
+  # Match the documented phrase OR the mode's own short token (what bin/status.sh's display-only
+  # grep and a hand-written register line both use) — never the bare word `existing`: `*existing*`
+  # alone classified "Migration from an existing Oracle Forms system" as an existing-app change,
+  # waiving the cutover gate of a real migration.
+  *"change an existing app"*|*existing-app*) ENTRY_MODE="existing-app-change" ;;
   *greenfield*)    ENTRY_MODE="greenfield" ;;
   *requirement*)   ENTRY_MODE="requirements-driven" ;;
-  *migration*)     ENTRY_MODE="migration" ;;
 esac
 
 # stage_waiver <stage> — "<scope>|<reason>", or nothing. Most specific source of truth first.

@@ -730,6 +730,30 @@ fi
 # inherit the obligation. Found 2026-08-19.
 if [ -f "$PROJECT_DIR/CLAUDE.local.md" ]; then
   _routing_owner="$PROJECT_DIR/CLAUDE.local.md"
+  # Report-only: CLAUDE.local.md owns the Baseline routing block (this file, above), but
+  # bootstrap-project.md's old Step 2 told the merge to ALSO paste it into CLAUDE.md — a
+  # project can end up with BOTH, and every session then loads the same table twice. Detected
+  # by a mention of two Baseline-only skills surviving in CLAUDE.md (bootstrap's own "##
+  # mxcli-project-toolkit Integration" section carries `skills/learned-mdl-preflight.md` /
+  # `skills/query-the-model.md`). The anchor is deliberately NOT restricted to a `|`-table
+  # row — a duplicate pasted as a bullet list would otherwise be invisible to this check — so
+  # a CLAUDE.md that cites either skill for an unrelated reason (not a copied Baseline block)
+  # can also trip it; the message below is phrased as "check whether" for that reason, not as
+  # a flat assertion. Same rule as the ledger-row warn above: CLAUDE.md is bootstrap-project.md's
+  # (an LLM merge), not this script's, so sync never edits it — only names the fix.
+  if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -qE 'skills/(learned-mdl-preflight|query-the-model)\.md' "$PROJECT_DIR/CLAUDE.md"; then
+    _dup_from_line="$(grep -n 'mxcli-project-toolkit Integration' "$PROJECT_DIR/CLAUDE.md" | head -1 | cut -d: -f1)"
+    if [ -n "$_dup_from_line" ]; then
+      _dup_words="$(tail -n "+$_dup_from_line" "$PROJECT_DIR/CLAUDE.md" | wc -w | tr -d ' ')"
+    else
+      _dup_words="$(wc -w < "$PROJECT_DIR/CLAUDE.md" | tr -d ' ')"
+    fi
+    warn "CLAUDE.md cites Baseline-only skills also covered by CLAUDE.local.md — check whether" \
+         "its \"mxcli-project-toolkit Integration\" section (~$_dup_words word(s), heading to" \
+         "EOF, not all of it necessarily routing) is a duplicated Baseline routing block." \
+         "sync never edits CLAUDE.md; if it is a duplicate, replace that block by hand with" \
+         "the pointer per bootstrap-project.md Step 2."
+  fi
 else
   _routing_owner="$PROJECT_DIR/CLAUDE.md"
 fi

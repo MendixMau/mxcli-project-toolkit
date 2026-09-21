@@ -17,6 +17,45 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
 
+- fix(bootstrap-project.md): **`CLAUDE.md` is a pointer when `CLAUDE.local.md` exists, never a
+  second copy.** Step 2 told the merge to paste the Baseline routing table into `CLAUDE.md` even
+  on a project `bin/init-project.sh` had already scaffolded — where it writes that same table into
+  `CLAUDE.local.md`, refreshed by `bin/sync-project.sh` — so every session loaded the identical
+  block twice, and the `CLAUDE.md` copy had no sync to keep it current. Step 2 now branches on
+  whether `CLAUDE.local.md` exists: if it does, `CLAUDE.md` gets a 3–5 line pointer and nothing
+  else; if it doesn't, the old verbatim-copy behavior stands. Step 3 and the Anti-Patterns list
+  route the same way. Field-run: scaffolded a fresh project with `bin/init-project.sh`, wrote a
+  `CLAUDE.md` carrying a duplicated Baseline block, then replaced it with the new pointer text
+  per the rewritten Step 2. — MendixMau
+- fix(sync-project.sh): **warn when the Baseline routing block is duplicated in `CLAUDE.md` and
+  `CLAUDE.local.md`.** Nothing previously caught the case bootstrap-project.md's old Step 2 could
+  produce — a project with both copies, drifting apart the moment `CLAUDE.md`'s went unsynced.
+  Section 3 now detects a Baseline row (`skills/learned-mdl-preflight.md` or
+  `skills/query-the-model.md`) surviving in `CLAUDE.md` while `CLAUDE.local.md` exists, and warns
+  with the approximate word count of the duplicated block; sync never edits `CLAUDE.md` itself, so
+  the warning points at the bootstrap-project.md Step 2 fix above as the by-hand remedy.
+  Report-only, same as the existing ledger-row warn beside it. Field-run: on the same scaffolded
+  project, the warn fired with a word count on the duplicated `CLAUDE.md`, went silent once
+  replaced with the pointer block, and `sync-project.sh --strict` exited 0 on the fixed version.
+  — MendixMau
+- fix(README.md, CLAUDE.md): stop teaching the duplication the two entries above just fixed.
+  **`README.md`'s "Consuming this toolkit" section and Baseline-routing heading, plus this
+  toolkit's own `CLAUDE.md`, still told every project to copy the Baseline table into
+  `CLAUDE.md`** — the exact instruction that produces the duplicate `bin/sync-project.sh` now
+  warns about. Both now route through `bootstrap-project.md` Step 2: `CLAUDE.local.md` owns
+  the table when a project has one (the normal case since `bin/init-project.sh`), `CLAUDE.md`
+  gets only the Step 2 pointer, and the verbatim-copy path is reserved for a project with no
+  `CLAUDE.local.md` convention. — MendixMau
+- test(tests/wave2/test-bug12-sync.sh): T12 — a `CLAUDE.md` duplicating the Baseline table
+  (a `|`-row citing `learned-mdl-preflight.md`/`query-the-model.md`) trips the new
+  `sync-project.sh` warn and is left byte-for-byte alone; replacing it with the Step 2 pointer
+  block silences the warn, also without a write. Closes the gap the PR that added the warn
+  shipped without a fixture. — MendixMau
+- fix(sync-project.sh): loosen the duplication anchor beyond `|`-table rows (a duplicate pasted
+  as a bullet list was invisible to it) and reword the warn to hedge — "check whether" rather
+  than a flat assertion — since the looser anchor can also match a `CLAUDE.md` that cites either
+  skill for an unrelated reason; the `~N word(s)` figure is now labelled a "section" (heading to
+  EOF), not a "copy", since it is not guaranteed to be all routing content. — MendixMau
 - chore(skills): **`ui-preflight-pages.md`'s "Common failure modes" section cut (3,727 -> 3,377
   words); "Report-back format" kept.** `process/skill-freshness-2026-09-17.md`'s A/B/C experiment
   found arm C (both sections removed) indistinguishable from the full skill and recommended

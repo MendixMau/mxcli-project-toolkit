@@ -23,7 +23,14 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are.
   cutting both — but `skills/learned-stylegallery.md` names the report-back block's
   class-promotion row directly ("every page script's report-back ... the class-promotion row"),
   so only the failure-modes table was removed; the report-back format stays live and depended-on.
-  — MendixMau
+  This trades against skill-authoring rule 7 ("show the failure, not just the rule") — each of
+  the 14 rows paired a rule with its concrete bad output, exactly what rule 7 asks for — but rule
+  6 ("write for the trigger, then stop") wins here on the measured evidence: the ablated arm hit
+  the same shell-check and fidelity numbers as the full skill (3/3, 3/3, shell 2,1,2) on the
+  fixture the table exists to guard against, so the table was not changing drafting behaviour it
+  was retained to change. The individual failure modes it covered (BUG-18 conditional visibility,
+  association-mode COMBOBOX, empty-state, validation-feedback) remain covered by name in the
+  Step 4 cross-check rows the table only duplicated in table form. — MendixMau
 - chore(bug-logs): **BUG-107 (workflow `CALL MICROFLOW ... WITH (...)` segfault on an unquoted
   value) fixed upstream in mxcli v0.22.0, mendixlabs/mxcli#1023 — pending report dropped.**
   Deleted the three drafted `bug-logs/pending-github-issues/bug107-*` files (README, patch,

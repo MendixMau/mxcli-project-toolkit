@@ -1,0 +1,88 @@
+# labels.yml — the label taxonomy for intake, triage and release (docs/RELEASE-PROCESS.md).
+#
+# One state per group, Kubernetes-style: an item carries at most one `lane/*`, at most one
+# `kind/*`, at most one `size/*`, and zero-or-one `verdict/*` at a time (`needs/*` labels can
+# stack — a PR can be missing more than one thing at once).
+#
+# Source of truth for the schema this file follows: name, color (6 hex digits, no '#'),
+# description. Applied idempotently by `bin/sync-labels.sh` — edit this file, then run that
+# script; do not create/edit labels by hand in the GitHub UI, or the next sync will not know
+# your change was intentional and will not revert it, but the drift will go unnoticed.
+
+- name: lane/inbox
+  color: c5def5
+  description: Arrived as a contrib/inbox/ drop (docs/RELEASE-PROCESS.md lane 1)
+- name: lane/harvest
+  color: c5def5
+  description: Drafted by bin/harvest-learnings.sh (docs/RELEASE-PROCESS.md lane 2)
+- name: lane/direct
+  color: c5def5
+  description: Direct PR into skills/, bin/, bug-logs/, etc. (docs/RELEASE-PROCESS.md lane 4)
+
+- name: kind/bug
+  color: d73a4a
+  description: Reproducible defect, filed as an issue
+- name: kind/idea
+  color: a2eeef
+  description: Proposed change with no artifact yet, filed as an issue
+- name: kind/learning
+  color: a2eeef
+  description: A pattern or lesson worth capturing, not yet a bug or a concrete idea
+- name: kind/skill-draft
+  color: fbca04
+  description: Proposed or draft skill content
+- name: kind/fix
+  color: d73a4a
+  description: Corrects existing toolkit behavior
+- name: kind/process
+  color: fbca04
+  description: Rules, templates, CI, or release mechanics
+
+- name: needs/triage
+  color: ededed
+  description: Not yet graded against the rubric (docs/RELEASE-PROCESS.md §2)
+- name: needs/info
+  color: ededed
+  description: Cannot be graded from the body as submitted; waiting on the author
+- name: needs/field-run
+  color: ededed
+  description: Missing the cited field run required for an instrument change
+- name: needs/changelog
+  color: ededed
+  description: Missing the CHANGELOG.md line under ## Unreleased
+- name: needs/routing-row
+  color: ededed
+  description: New skill missing its bin/lib/skill-routing.tsv row
+
+- name: verdict/merge-as-is
+  color: 0e8a16
+  description: Every rubric grade >= 4, hygiene = 5, required test tier reached
+- name: verdict/needs-changes
+  color: fbca04
+  description: Close, but missing rows listed as needs/* labels; fixed in the same PR
+- name: verdict/rework
+  color: e99695
+  description: Right idea, wrong artifact; closes to an issue, reopens as a fresh small PR
+- name: verdict/close
+  color: b60205
+  description: Wrong layer, duplicate, project-only, or unsquashable hygiene failure
+- name: verdict/promote-to-issue
+  color: d4c5f9
+  description: Good evidence, nobody to finish it; content moves to an issue, item is deleted
+
+- name: size/xs
+  color: c2e0c6
+  description: 1-2 files changed (excluding fixtures, captures, CHANGELOG.md)
+- name: size/s
+  color: c2e0c6
+  description: 3-5 files changed
+- name: size/m
+  color: fef2c0
+  description: 6-10 files changed, at or near the size cap
+- name: size/l
+  color: f9d0c4
+  description: Over the size cap (>10 files or >400 changed lines) — split or stack it
+
+- name: provenance/agent-authored
+  color: bfd4f2
+  description: Commit(s) carry an agent trailer (docs/RELEASE-PROCESS.md §5, §7)

@@ -50,7 +50,6 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 | `bin/facts-lock.sh` | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done |
 | `skills/module-brief.md` | Building any module — before the first script. The mdl-agent's single per-module input |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
-| `skills/agent-permission-friction.md` | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/grill-mode.md` | Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough |
@@ -81,6 +80,7 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 | `skills/brd-validation.md` | Validating BRDs against the code and document KB |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
+| `skills/agent-permission-friction.md` | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing |
 | `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal |
 | `skills/corpus-extraction-integrity.md` | Extracting structured requirements from a large delivered document corpus into per-scope knowledge-base files |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |

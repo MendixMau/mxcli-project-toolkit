@@ -627,6 +627,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Task | Skill to load |
 |---|---|
 | Building a REST integration (consumed or published) for the first time on a project — the checks that avoid a rebuild after the first live call | `skills/rest-integration-first-time-right.md` |
+| Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT — where an encryption key, API credential, endpoint or access token gets its value, why a free node has only one channel, and why a token missing from the files you grepped is not missing | `skills/learned-constants-and-secrets.md` |
 
 **Verify — does it work**
 
@@ -658,12 +659,14 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Any report from a test/review run is about to be published — no report ends without a disposition for every finding | `skills/finding-disposition.md` |
 | Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection | `skills/preview-over-hub-tunnel.md` |
 | Starting a hub-tunnelled preview with the flags outbound calls actually need — wraps mxcli run --hub with db-name and the runtime proxy settings from preview-over-hub-tunnel.md | `bin/run-hub.sh` |
+| Before any first deploy to a new environment, and after installing or updating any marketplace module — which constants would be blank where nobody can set them, and which now carry a secret in the model. Never prints a value | `project-bin/constants-audit.sh` |
 
 **Diagnose — something is broken and it may be the tooling**
 
 | Task | Skill to load |
 |---|---|
 | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words | `bug-logs/mxcli-bugs.md` |
+| Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing | `skills/agent-permission-friction.md` |
 | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` |
 | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable | `skills/bug-submission-checklist.md` |
 | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause | `skills/empty-widget-triage.md` |
@@ -763,7 +766,6 @@ The "When to use which skill" table above is *situational* — load a skill when
 | Before calling any module tested — what testing a module means, and the false-green register of confirmed ways a test reports green over a broken feature | `skills/testing-shape.md` |
 | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh | `project-bin/verify-module.sh` |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` |
-| Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing | `skills/agent-permission-friction.md` |
 | A style change that appears to have done nothing, or an app still grey after a design port every instrument called green — the three ways a correct rule paints nothing (matches nothing / matches chrome / loses the cascade), the two reads that tell them apart, and the class that arrived in the stylesheet and is bound to no widget | `skills/learned-css-that-never-applied.md` |
 | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones | `skills/learned-detection-gaps.md` |
 | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it | `skills/security-is-not-a-later-script.md` |

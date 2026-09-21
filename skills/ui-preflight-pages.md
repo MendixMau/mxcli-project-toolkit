@@ -34,7 +34,7 @@ Before you build a page, or add a navigation item or button to open one, list th
 that already exist. Reach for the reference tools, not text search:
 
 ```
-mxcli impact  MOC.GraphAgent_Chat -p App.mpr     # what breaks if this changes
+mxcli impact  <Module.Microflow-or-Page> -p App.mpr   # what breaks if this changes
 mxcli callers <microflow>         -p App.mpr     # who calls it
 mxcli -p App.mpr -c "DESCRIBE PAGE <HomePage>"   # buttons and snippet calls already on it
 ```
@@ -48,7 +48,9 @@ Then read the target page's own `Layout:`. A page on a popup layout
 opened by a button passing a context object, and a navigation menu item cannot pass a page
 parameter. Route it through navigation only where the requirement asks for a dedicated page.
 
-Done when you can name every existing entry point and say why another one is needed.
+Done when every caller, impact hit and page reference the commands above actually returned is
+named in your list — not summarized, not "(and others)" — and the new entry point states, in
+one line, which of those named results don't already cover the requirement.
 
 ## The Five Steps (all mandatory, in order)
 

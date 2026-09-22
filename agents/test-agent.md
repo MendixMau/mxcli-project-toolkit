@@ -62,6 +62,7 @@ and `"DESCRIBE ..."` reads are always fine, and are how you ground every name yo
 | `skills/wiring-sweep.md` | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to |
 | `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause |
+| `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them — check what is actually on the machine before naming a fix; a wrong-arch binary, a missing one and a broken self-check all read the same |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
 | `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first |
 | `skills/full-harness-audit.md` | The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work — or you are unsure which harness skill applies; this one routes you |

@@ -88,6 +88,7 @@ protects: you have no Write or Edit tool, and you never run `mxcli exec`.
 | `skills/bug-submission-checklist.md` | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to |
 | `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause |
+| `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them — check what is actually on the machine before naming a fix; a wrong-arch binary, a missing one and a broken self-check all read the same |
 | `skills/anonymize-client-app-for-demo.md` | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
 | `skills/full-harness-audit.md` | The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work — or you are unsure which harness skill applies; this one routes you |

@@ -86,6 +86,7 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 | `skills/agent-permission-friction.md` | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing |
 | `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to |
+| `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them — check what is actually on the machine before naming a fix; a wrong-arch binary, a missing one and a broken self-check all read the same |
 | `skills/corpus-extraction-integrity.md` | Extracting structured requirements from a large delivered document corpus into per-scope knowledge-base files |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
 | `skills/gate-check-file-locations.md` | gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script |

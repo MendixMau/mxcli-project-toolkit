@@ -48,18 +48,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # to push. --track-sources is for the case where the source genuinely belongs in this repo.
 SOURCES_MODE="ask"
 PROJECT_DIR=""
+COMPANY_BRAIN=""   # --company <dir>: wire a company brain (skills/company-brain.md) after scaffolding
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --ignore-sources) SOURCES_MODE="ignore" ;;
     --track-sources)  SOURCES_MODE="track" ;;
+    --company)        COMPANY_BRAIN="${2:-}"; shift ;;
     -h|--help)
-      echo "Usage: $0 <project-dir> [--ignore-sources|--track-sources]"
+      echo "Usage: $0 <project-dir> [--ignore-sources|--track-sources] [--company <company-brain-dir>]"
       exit 0
       ;;
     -*)
       echo "Unknown option: $1" >&2
-      echo "Usage: $0 <project-dir> [--ignore-sources|--track-sources]" >&2
+      echo "Usage: $0 <project-dir> [--ignore-sources|--track-sources] [--company <company-brain-dir>]" >&2
       exit 1
       ;;
     *)
@@ -74,7 +76,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$PROJECT_DIR" ]; then
-  echo "Usage: $0 <project-dir> [--ignore-sources|--track-sources]" >&2
+  echo "Usage: $0 <project-dir> [--ignore-sources|--track-sources] [--company <company-brain-dir>]" >&2
   exit 1
 fi
 
@@ -348,6 +350,13 @@ EOF
   # (bin/lib/skill-routing.tsv), rendered by one function, so a skill added to the table
   # reaches a brand-new project and every existing one (via sync-project.sh) alike.
   routing_sync_claude_local "$CLAUDE_LOCAL" "$TOOLKIT_ROOT" || true
+fi
+
+# Company brain (--company <dir>): one marked pointer block in CLAUDE.local.md, nothing copied.
+# Idempotent in its own right, so running it on a project that already has the block is a
+# rewrite in place, not a second block. See skills/company-brain.md.
+if [ -n "$COMPANY_BRAIN" ]; then
+  "$SCRIPT_DIR/wire-company-brain.sh" "$PROJECT_DIR" "$COMPANY_BRAIN" || echo "WARN: company brain not wired — see message above" >&2
 fi
 
 # One-command install: agents are scaffolded here too, not as a separate step.

@@ -1,0 +1,3 @@
+# Projects wired to this company brain. TAB-separated. One row per project root on the machine
+# that runs the weekly review; the future cross-project index reads only these rows.
+#   path	name	status (active|paused|retired)	wired (YYYY-MM-DD)

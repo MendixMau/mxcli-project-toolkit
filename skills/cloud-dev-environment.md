@@ -6,8 +6,9 @@ a CI runner) instead of a local machine with Studio Pro.
 
 **Purpose:** the one-time sequence that turns an empty git repo into a working cloud workspace,
 and the per-session loop that keeps work durable when the container is not. Companion:
-`personal-toolkit/prompts/full-e2e-cloud-run.prompt.md` is the field-run variant of the same
-setup with a sealed persona and a frozen toolkit; this skill is the plain development version.
+a company brain's `prompts/full-e2e-cloud-run.prompt.md` (see `templates/company-brain/`) is the
+field-run variant of the same setup with a sealed persona and a frozen toolkit; this skill is the
+plain development version.
 
 **Field run:** a dashboard-publishing migration project, 2026-08-31 — empty private repo to pushed scaffold (mxcli
 v0.20.0, toolkit @ `94f4037`) in one session, following exactly the steps below.

@@ -80,6 +80,7 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 | `skills/kb-generation.md` | Extracting Excel/Word/PDF specs into a knowledge base |
 | `skills/brd-generation.md` | Writing or enriching a BRD JSON |
 | `skills/brd-validation.md` | Validating BRDs against the code and document KB |
+| `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN — the private tier between the toolkit and a project for own skills, conventions, lint rules, MDL snippets and approved MPKs; and deciding whether something goes to the toolkit, the company brain or docs/brain/ |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
 | `skills/agent-permission-friction.md` | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing |

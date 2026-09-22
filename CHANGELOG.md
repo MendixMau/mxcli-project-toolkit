@@ -16,6 +16,36 @@ three commits past it), and a bug report can name a release instead of a sha nob
 Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
+- learn(ui-loop, learned-detection-gaps): **the screenshot harness is an instrument, and nobody
+  scores it.** Two harness defects on the PRD benchmark's Arm A produced screenshots that were
+  about to be written up as app defects. (1) The harness loaded each page at 1280 and then called
+  `setViewportSize({width:390})` for the second shot; Atlas's off-canvas sidebar region does not
+  re-collapse on resize, so **all seven** phone-width shots came back with the navigation drawer
+  open over a dimmed page — and an entire review round's verdicts were wrong in both directions,
+  the 1280 shots called broken when they were fine. Re-shot from a context *created* at 390, the
+  same pages render a collapsed hamburger and full-width content. (2) At 390 the overview grid is
+  Atlas `hide-phone`: the desktop control measures 0×0 and the control a user taps lives **outside**
+  the grid container, so a container-scoped selector passes at 1280 and times out silently at 390.
+  `ui-loop.md` gains "The screenshot harness is an instrument too" (one width per run set at
+  context creation, never resize a loaded page; target the visible twin, not the container; and
+  the tell — a defect on 7 of 7 screens at exactly one width is the camera, a real layout defect
+  hits one or two). `learned-detection-gaps.md` gains the matching operating rule: rung 6, which
+  the ladder calls "the only rung that verifies *behaviour*", is only as true as the harness that
+  reads it. The high-code arm of the same benchmark never hit either defect because its harness
+  made a fresh context per screen per width — a harness difference, not a platform difference, and
+  it nearly became a finding about Mendix. — PRD benchmark, Arm A (Maurits Visser)
+- learn(learned-detection-gaps): **two new register rows from the PRD benchmark.** `Title = null`
+  as an XPath retrieve constraint passes `check --references`, passes exec, and is **evaluated by
+  mxcli's own OQL engine**, which returns rows — so even a read-back looks right; real mxbuild
+  rejects it with CE0161. The lesson is sharper than the fix (`not(Title)`): mxcli's query engine
+  is more permissive than the model loader, so "I ran the query and it worked" is not evidence a
+  constraint is legal. Second row: a layout migrated with `ALTER PAGES … WHERE LAYOUT = X` is
+  silently reverted by any later `create or replace page` that hardcodes the old `Layout:`, because
+  that statement rewrites the page wholesale. It is green through **every rung including live
+  runtime** — the app loads, every page renders, every journey passes — and the app ships two
+  navigation shells at once. Found when 4 of 7 screens turned out to have no navigation at all,
+  just a bare hamburger, after a UI fix loop re-ran five older page scripts. The migration is not
+  done until the `Layout:` literal is fixed in the source scripts. — PRD benchmark, Arm A (Maurits Visser)
 - fix(module-review): **rubric row 8 judged the nav *bar* but never the nav *menu*.** The row
   already caught an un-skinned default nav bar and a sidebar design shipped as a top-bar app; it
   said nothing about the navigation profile's own items. The menu is chrome on every screen and

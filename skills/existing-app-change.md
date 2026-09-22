@@ -69,6 +69,41 @@ from git history of a `.mpr`, which is not a readable record.
 
 ---
 
+## Map the app first — before anyone names a slice
+
+**Do not open with "which slice?".** At kickoff most people do not know the change yet, or know it
+vaguely ("the approval flow is slow"), and a slice named before anyone has seen the app is a guess.
+Intake Q2 (*what is driving it?*) is the open question, and a change, if they have one, arrives in
+their own words there or later. Q4 (scope) may legitimately be answered
+`Unverified — how to verify: named when the change request arrives (Stage 0b)`.
+
+**Stage 0a — the map, not asked for, just run.** It is read-only and costs about a minute (field
+run, 2026-09-22: 28 modules, 213 loop microflows, 76 s), so asking "shall I analyse the app?" is a
+question with one sane answer. Run it right after intake, per `app-analysis.md` Procedure:
+
+```bash
+bin/app-facts.sh                                  # in the project root; exit 2 = facts not trustworthy, fix and rerun
+<toolkit>/bin/app-report.sh                       # analysis/app-report.html + app-report.json
+```
+
+**Then ask what to do with the findings — that is the question the human owns.** Read
+`analysis/app-report.json` (`fix_first`, severity counts), show the report, and put the top findings
+to the user, one disposition each: **fix as part of this work / log for later / accept, with a
+reason**. Record the answers in `PROJECT.md`. A finding nobody dispositioned is the same silence the
+gates exist to prevent. What the field run put on that list: one tangle holding 7 of 9 own modules,
+and a transaction started inside a loop in the app's core decision microflow — neither was in anyone's
+change request, and both decide how risky any change there is.
+
+**Then it may park.** A mapped app with no change yet is a normal state, not a failing one — gate-check
+reports Stage 1 `PENDING` with "Waiting on the change is a normal state", and nothing nags. If after
+the map the user never wants a change, only audits or a regression net, the mode was wrong: switch to
+`existing-app-assurance.md`, whose Track A starts from the same report.
+
+**Stage 0b — when the change arrives:** scope the slice, then compute its blast radius *from the facts
+already collected* (below), not from scratch.
+
+---
+
 ## Where the knowledge base comes from — Path D
 
 `conversion-runbook.md` Stage 1 names three paths: **A** code → AST extractors, **B** documents → LLM
@@ -103,7 +138,10 @@ Still record the counts. `SHOW MODULES` returning 6 when the person who asked fo
 In every other mode, Stage 0 asks *what do we build first*. Here it asks a second question that has no
 equivalent elsewhere: **what does this change touch that nobody mentioned?**
 
-Work outward from the entities the change affects:
+Work outward from the entities the change affects. Start from the map (Stage 0a): a module in
+`analysis/app-facts/dependencies.json` → `tangles` puts the whole tangle in the radius, and `edges`
+names who depends on the module you change. The queries below confirm and extend that; they do not
+repeat it.
 
 1. **Associations** — `SHOW ASSOCIATIONS`, then `DESCRIBE ENTITY` each end. An entity you are changing
    that is on the far end of an association from a module nobody mentioned is your blast radius.
@@ -111,8 +149,9 @@ Work outward from the entities the change affects:
    A change to a validation rule lands in every flow that writes the entity, not only the one on the
    screen you were shown.
 3. **Pages bound to them** — `SHOW PAGES IN <Module>`, and check which are bound to the entity.
-4. **Module dependencies** — `mxcli graph-report`. If the module you are changing is in a tangle, the
-   blast radius is the tangle.
+4. **Module dependencies** — already in the map (`dependencies.json`); rerun `bin/app-facts.sh` only
+   if the model changed since. If the module you are changing is in a tangle, the blast radius is the
+   tangle.
 5. **Published and consumed services** — a changed entity behind a published REST service is a
    contract change, and the consumer is not in the `.mpr`.
 
@@ -126,8 +165,8 @@ least able to give you — they know what they want, not what it touches.
 
 | Stage | Runs? | What changes in this mode |
 |---|---|---|
-| **P — Kickoff** | Yes, light | `bin/init-project.sh` as normal. Many intake questions are already answered by the app existing — answer them from the model, not by asking. Record entry mode `Change an existing app` `CONFIRMED` in `PROJECT.md`. |
-| **0 — Triage & Scope ✋** | **Yes, always** | Two questions, not one: which slice, and its blast radius (above). The Coverage Matrix's *extraction* rows are N/A — Path D has no extractor to choose. The Business Capability Map is built from `SHOW MODULES` + the change request. **CAC-1 runs.** |
+| **P — Kickoff** | Yes, light | `bin/init-project.sh` as normal — **with `./mxcli` already in the project root**, because init runs `mxcli init` and skips it when the binary is missing. Many intake questions are already answered by the app existing — answer them from the model, not by asking. The scope question is open: the change may not be known yet. Record entry mode `Change an existing app` `CONFIRMED` in `PROJECT.md`. |
+| **0 — Triage & Scope ✋** | **Yes, always, in two halves** | **0a:** map the app and disposition its findings with the user (above) — owed as the `app-report` artifact. May park here. **0b**, once the change is named: which slice, and its blast radius (above), read from the map. The Coverage Matrix's *extraction* rows are N/A — Path D has no extractor to choose. The Business Capability Map is built from `SHOW MODULES` + the change request. **CAC-1 runs.** |
 | **1 — Analysis** | Yes, **Path D** | Query the model into the knowledge base, scoped to the slice **plus** its blast radius. Path A is declared not-applicable with attribution, not "skipped". Path C (SME) matters more here than anywhere: the model tells you what the app does and nobody wrote down why. **CAC-1b runs** — its scope-out diff is the slice-vs-app statement. |
 | **2 — Requirements** | Yes, **slice only** | One BRD per capability *being changed*, each carrying **as-is** and **to-be**. Do not BRD untouched capabilities; record explicitly that you did not, and why. **CAC-2 and CAC-3 run.** |
 | **3 — Architecture & Design ✋** | **Conditionally** | Run it in full if the change crosses module boundaries, adds an integration, or alters the domain model. Otherwise it collapses to: which existing module owns this, and does that still hold. **Never invent new module boundaries for an app that already has them** — `modularize-domain.md` is being used to *check* a boundary here, not to draw one. Wireframes only for screens that change; the design system is the app's existing styling, captured, not designed. **CAC-4 runs, scoped to what changes.** |
@@ -184,6 +223,7 @@ it is the only entry mode where that is true.
 
 - `PROJECT.md` — gate register: entry mode `Change an existing app` `CONFIRMED`, blast radius confirmed, Stage 7 marked N/A with its reason.
 - `docs/brain/` — `mxcli brain init` run once; the slice under `plan/`, and the as-is facts nobody wrote down captured as decisions anchored to the modules they are about. `brain check` green at every commit.
+- `analysis/app-report.html` + `.json` — the map of the whole app (`app-analysis.md`), with every top finding dispositioned in `PROJECT.md`.
 - `triage.md` — slice + blast radius, signed off.
 - Knowledge base — Path D, scoped, with counts recorded: modules, and per in-scope module the entity, page and microflow totals `SHOW …` returned, so a reader can see the slice against the app.
 - BRDs for the changed slice, each with as-is and to-be — and one line saying how many capabilities were *not* BRD'd and why.

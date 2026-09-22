@@ -43,7 +43,9 @@
 #                 migration,requirements,greenfield,existing-app-change
 #                 (conversion-runbook.md §"Entry Modes", its table; existing-app-change runs
 #                 P–6 per slice, so it owes every row but coverage-ledger — that mode's ledger
-#                 is `mxcli brain plan`, existing-app-change.md §"Coverage in this mode").
+#                 is `mxcli brain plan`, existing-app-change.md §"Coverage in this mode") — plus
+#                 app-report, the one row only it owes: the map of the live app that Stage 0's
+#                 blast radius is read from (existing-app-change.md §"Map the app first").
 #                 À-la-carte projects
 #                 run no stages and are excused wholesale by artifact-check.sh, same test as
 #                 obligation-check.sh.
@@ -70,6 +72,7 @@ artifact	stage	paths	producer	consumers	modes	absence
 intake	P	intake.md	bin/init-project.sh scaffold + the Stage-P kickoff interview (conversion-runbook.md §2 Stage P)	bin/gate-check.sh:596 (check_stage_P), bin/gate-check.sh:497 (entry-mode fallback read)	migration,requirements,greenfield,existing-app-change	gate
 register	P	PROJECT.md	bin/init-project.sh (empty register); every checkpoint writes into it (CLAUDE.md §One decision register)	bin/gate-check.sh:285 (register resolution feeding every ✋ gate), bin/lib/obligation-check.sh:151 (waivers/adoption read from it)	migration,requirements,greenfield,existing-app-change	gate
 triage	0	triage.md	bin/init-project.sh scaffold, filled per skills/source-triage.md; N/A rows recorded, never deleted (conversion-runbook.md:130)	bin/gate-check.sh:684 (check_stage_0 sign-off test)	migration,requirements,greenfield,existing-app-change	gate
+app-report	0	analysis/app-report.json|analysis/app-report.html	project-bin/app-facts.sh (read-only: full catalog build + mxcli graph-report + loop sweep) then bin/app-report.sh — skills/app-analysis.md Procedure steps 1 and 5	skills/existing-app-change.md §"Map the app first" (the findings interview reads analysis/app-report.json) and §"Blast radius" (reads analysis/app-facts/dependencies.json tangles and edges)	existing-app-change	report
 extraction-report	1	analysis/*/knowledge-base/extraction-report.html|analysis/knowledge-base/extraction-report.html|knowledge-base/extraction-report.html	bin/extraction-report.sh <project-root> — one renderer for every entry mode	bin/gate-check.sh:725 (check_stage_1)	migration,requirements,existing-app-change	gate
 source-ledger	1	analysis/source-ledger.html	bin/source-ledger.sh report <project-root> — every inventoried source file and what consumed it (Stage 1 owes a disposition per row; gate-check blocks 1–2 on the check)	bin/gate-check.sh (LEDGER block — the check; the html is the human-facing table of the same rows)	migration,requirements,existing-app-change	report
 brds	2	analysis/*/knowledge-base/brd/*.brd.json|analysis/knowledge-base/brd/*.brd.json|knowledge-base/brd/*.brd.json	pipeline generators (migration), skills/kb-generation.md (documents), skills/brd-generation.md (by hand) — the reader must not care which	bin/lib/discover-brds.sh:43 (the one path authority), bin/gate-check.sh:773 (check_stage_2), bin/brd-report.sh, bin/open-questions.sh	migration,requirements,existing-app-change	gate

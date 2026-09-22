@@ -889,7 +889,7 @@ if [ "$QUICK" != 1 ] || [ "$GATE_SELFTEST" = 1 ]; then
 head_ "Gate self-test (can the mxbuild gate actually see an error?)"
 
 gate_selftest() {
-  local scratch t0 t1 elapsed mdl model_dir base_count bad_count rc timeout_s
+  local scratch scratch_mpr t0 t1 elapsed mdl model_dir base_count bad_count rc timeout_s
   timeout_s="${DOCTOR_GATE_TIMEOUT:-300}"
   t0=$(date +%s)
 
@@ -916,7 +916,12 @@ gate_selftest() {
   }
   trap 'rm -rf "$scratch" 2>/dev/null' RETURN
 
-  if ! cp "$MPR" "$scratch/model.mpr" 2>/dev/null; then
+  # Keep the model's REAL basename in the scratch dir: mprcontents/ (copied verbatim below)
+  # carries an internal record of it, and a renamed copy makes mxbuild bail BEFORE it writes
+  # any error file — which this self-test would then report as "gate cannot read mxbuild's
+  # error file", a false FAIL on a healthy gate. (Reported 2026-09-22 by Yvann.)
+  scratch_mpr="$scratch/$(basename "$MPR")"
+  if ! cp "$MPR" "$scratch_mpr" 2>/dev/null; then
     bad "gate self-test: could not copy the model into the scratch dir"
     GATE_SELFTEST_LINE="fail (copy failed)"
     return 0
@@ -926,7 +931,7 @@ gate_selftest() {
 
   # (a) Baseline: the gate must resolve SOME integer off this model, clean or not — "?" here
   # means the gate cannot read mxbuild's own output, which is the original F-042-class defect.
-  base_count=$(mxtk_mxbuild_error_count "$scratch/model.mpr" "$timeout_s")
+  base_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s")
   rc=$?
   if [ "$rc" -eq 3 ]; then
     bad "gate self-test: mxbuild did not return within ${timeout_s}s (baseline run)"
@@ -964,14 +969,14 @@ END;
 MDL
   # If mxcli refuses the injection (syntax rejected by a newer grammar, model locked, ...),
   # the copy is still clean and a 0 below would be a FALSE "blind" verdict — say NOT RUN.
-  if ! "$PMXCLI_PROBE" exec "$mdl" -p "$scratch/model.mpr" >"$scratch/inject.out" 2>&1; then
+  if ! "$PMXCLI_PROBE" exec "$mdl" -p "$scratch_mpr" >"$scratch/inject.out" 2>&1; then
     warn "gate self-test: NOT RUN — the project's mxcli refused the known-bad injection:"
     sed 's/^/      /' "$scratch/inject.out" | head -5
     GATE_SELFTEST_LINE="not-run (injection refused)"
     return 0
   fi
 
-  bad_count=$(mxtk_mxbuild_error_count "$scratch/model.mpr" "$timeout_s")
+  bad_count=$(mxtk_mxbuild_error_count "$scratch_mpr" "$timeout_s")
   rc=$?
   if [ "$rc" -eq 3 ]; then
     bad "gate self-test: mxbuild did not return within ${timeout_s}s (known-bad run)"

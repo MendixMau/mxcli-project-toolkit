@@ -20,11 +20,14 @@
 #                                           # (same download the headless container build
 #                                           # uses; cached at ~/.mxcli/mxbuild/).
 #   bin/doctor.sh --install --yes <dir>     # skip the confirmation (unattended/agent runs)
-#   bin/doctor.sh --no-docker [<project-dir>] # skip the docker probe (or MXTK_DOCTOR_SKIP_DOCKER=1).
-#                                           # The probe is bounded anyway: MXTK_DOCKER_PROBE_SECS
-#                                           # (default 8) — a stopped Docker Desktop can make
-#                                           # 'docker info' sit silent for minutes, which read
-#                                           # as "the setup hangs" (field report, 2026-09-09).
+#   bin/doctor.sh --no-docker [<project-dir>] # skip the container-runtime probe (or
+#                                           # MXTK_DOCTOR_SKIP_DOCKER=1). The probe is bounded
+#                                           # anyway: MXTK_DOCKER_PROBE_SECS (default 8) — a
+#                                           # stopped Docker Desktop can make 'docker info' sit
+#                                           # silent for minutes, which read as "the setup
+#                                           # hangs" (field report, 2026-09-09). The probe finds
+#                                           # docker OR podman, whichever is present;
+#                                           # MXTK_CONTAINER_RUNTIME=<name> forces one.
 #   bin/doctor.sh --quick [<project-dir>]   # ~2 s: platform, mxcli/mxbuild/java EXECUTE, spawn
 #                                           # speed, path hygiene, model layout. Skips the
 #                                           # once-per-machine sections (python, CRLF, script
@@ -674,23 +677,52 @@ else
 fi
 note "e2e additionally needs a Playwright browser in the project: npx playwright install chromium"
 
-# --- self-verification (docker) -------------------------------------------------------------
+# --- self-verification (container runtime) ---------------------------------------------------
 
-head_ "Self-verification stack (Docker — recommended)"
+head_ "Self-verification stack (container runtime — recommended)"
 
-# With Docker, the loop closes without a human: after a build the agent runs a Linux build of
-# the app, brings up Postgres + the app (project-bin/test-stack-up.sh), drives it with
-# Playwright, screenshots the pages, and verifies its own work — nobody has to open Studio
-# Pro to find out whether a page renders. Without Docker the mxbuild gate still verifies the
-# MODEL, but nothing verifies the RUNNING APP unless a human does. Recommended, never
+# With a container runtime, the loop closes without a human: after a build the agent runs a
+# Linux build of the app, brings up Postgres + the app (project-bin/test-stack-up.sh), drives
+# it with Playwright, screenshots the pages, and verifies its own work — nobody has to open
+# Studio Pro to find out whether a page renders. Without one the mxbuild gate still verifies
+# the MODEL, but nothing verifies the RUNNING APP unless a human does. Recommended, never
 # required — hence WARN, not FAIL.
-# docker_daemon_up — `docker info`, bounded. When Docker Desktop is installed but not running,
-# the CLI can sit on its socket/named pipe with no output for minutes (macOS and Git Bash both
-# reported, 2026-09-09) — and since init-project.sh runs doctor last, the whole scaffold read as
-# hung. No `timeout` on stock macOS, so: background the probe, poll once a second, kill it at
-# the bound. Returns 0 up · 1 down (answered quickly) · 2 no answer within the bound.
-docker_daemon_up() {
-  docker info >/dev/null 2>&1 &
+#
+# DOCKER *OR* PODMAN. This section used to advertise Podman in its advice text while every
+# probe ran `docker` only — so a machine running Podman without the docker shim was told
+# "docker is not installed", and on a team that cannot licence Docker Desktop that reads as
+# "go install software you are not allowed to have". (Field data point: a colleague's
+# machine-ready status carried "Docker not installed" as a known issue; they may well have had
+# Podman all along.) Detection order: docker first when present — including when it IS a Podman
+# shim, which is transparent and correct — then podman.
+CONTAINER_RUNTIME="${MXTK_CONTAINER_RUNTIME:-}"
+if [ -z "$CONTAINER_RUNTIME" ]; then
+  if command -v docker >/dev/null 2>&1; then CONTAINER_RUNTIME=docker
+  elif command -v podman >/dev/null 2>&1; then CONTAINER_RUNTIME=podman
+  fi
+fi
+# What to call it in the report. Docker has a daemon; podman normally does not, so "podman
+# daemon" would be wrong — the label carries that difference, and the runtime is NAMED in the
+# output so a user can tell which one doctor actually found.
+case "$CONTAINER_RUNTIME" in
+  docker)
+    RUNTIME_LABEL="docker daemon"
+    RUNTIME_PROBING="the docker daemon"
+    RUNTIME_DOWN="docker is installed but the docker daemon is not responding." ;;
+  *)
+    RUNTIME_LABEL="$CONTAINER_RUNTIME"
+    RUNTIME_PROBING="$CONTAINER_RUNTIME"
+    RUNTIME_DOWN="$CONTAINER_RUNTIME is installed but not responding." ;;
+esac
+
+# container_daemon_up — `<runtime> info`, bounded. When Docker Desktop is installed but not
+# running, the CLI can sit on its socket/named pipe with no output for minutes (macOS and Git
+# Bash both reported, 2026-09-09) — and since init-project.sh runs doctor last, the whole
+# scaffold read as hung. A stopped `podman machine` stalls the same way, so podman goes through
+# the same bound. No `timeout` on stock macOS, so: background the probe, poll once a second,
+# kill it at the bound. Returns 0 up · 1 down (answered quickly) · 2 no answer within the bound.
+container_daemon_up() {
+  "$CONTAINER_RUNTIME" info >/dev/null 2>&1 &
   _dd_pid=$!
   _dd_waited=0
   while kill -0 "$_dd_pid" 2>/dev/null; do
@@ -703,61 +735,77 @@ docker_daemon_up() {
   wait "$_dd_pid"
 }
 
-# docker_start_hint — the one command that starts the daemon on this platform, or the closest
-# thing to it. Printed instead of "start Docker", which sent people to look for a button.
-docker_start_hint() {
-  case "$PLATFORM" in
-    macos)
-      if [ -d /Applications/Docker.app ]; then note "  open -a Docker          # Docker Desktop; the daemon needs ~30-90 s after launch"
-      elif command -v colima >/dev/null 2>&1; then note "  colima start"
-      else note "  open -a Docker (Docker Desktop) or colima start — whichever is installed"; fi ;;
-    gitbash)
-      note '  start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"   # then wait ~30-90 s'
-      note "  (or Rancher Desktop / Podman Desktop from the Start menu)" ;;
-    linux|wsl)
-      note "  sudo systemctl start docker     # or, on WSL, start Docker Desktop on the Windows side" ;;
-    *) note "  start Docker Desktop / the docker service, then re-run this script" ;;
-  esac
+# container_start_hint — the one command that starts this runtime on this platform, or the
+# closest thing to it. Printed instead of "start Docker", which sent people to look for a
+# button — and a Podman user must never be sent to look for Docker Desktop at all.
+container_start_hint() {
+  if [ "$CONTAINER_RUNTIME" = podman ]; then
+    case "$PLATFORM" in
+      macos|gitbash)
+        note "  podman machine start    # the VM podman runs containers in; ~15-60 s"
+        note "  (podman machine init first, if this machine has never had one)" ;;
+      linux|wsl)
+        note "  systemctl --user start podman.socket   # rootless; or sudo systemctl start podman.socket"
+        note "  (rootless podman often needs no service at all — check 'podman info' by hand)" ;;
+      *) note "  start the podman machine/service, then re-run this script" ;;
+    esac
+  else
+    case "$PLATFORM" in
+      macos)
+        if [ -d /Applications/Docker.app ]; then note "  open -a Docker          # Docker Desktop; the daemon needs ~30-90 s after launch"
+        elif command -v colima >/dev/null 2>&1; then note "  colima start"
+        else note "  open -a Docker (Docker Desktop) or colima start — whichever is installed"; fi ;;
+      gitbash)
+        note '  start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"   # then wait ~30-90 s'
+        note "  (or Rancher Desktop / Podman Desktop from the Start menu)" ;;
+      linux|wsl)
+        note "  sudo systemctl start docker     # or, on WSL, start Docker Desktop on the Windows side" ;;
+      *) note "  start Docker Desktop / the docker service, then re-run this script" ;;
+    esac
+  fi
   note "Then re-run: bin/doctor.sh${PROJECT_DIR:+ $PROJECT_DIR}   (this section is skipped by --quick)"
 }
 
 if [ "$NO_DOCKER" = 1 ]; then
   note "docker probe skipped (--no-docker / MXTK_DOCTOR_SKIP_DOCKER=1). Self-verification stack not checked."
-elif command -v docker >/dev/null 2>&1; then
-  note "probing the docker daemon (bounded: ${DOCKER_PROBE_SECS} s — a stopped Docker Desktop can otherwise hang here)..."
+elif [ -n "$CONTAINER_RUNTIME" ]; then
+  note "probing $RUNTIME_PROBING (bounded: ${DOCKER_PROBE_SECS} s — a stopped runtime can otherwise hang here)..."
   DOCKER_STATE=0
-  docker_daemon_up || DOCKER_STATE=$?
+  container_daemon_up || DOCKER_STATE=$?
   case "$DOCKER_STATE" in
     0)
-      ok "docker daemon responding — mxcli docker check + test-stack-up.sh (app up, e2e, screenshots) available" ;;
+      ok "$RUNTIME_LABEL responding — mxcli docker check + test-stack-up.sh (app up, e2e, screenshots) available" ;;
     2)
-      warn "docker is installed but 'docker info' gave no answer within ${DOCKER_PROBE_SECS} s — treated as not running."
+      warn "$CONTAINER_RUNTIME is installed but '$CONTAINER_RUNTIME info' gave no answer within ${DOCKER_PROBE_SECS} s — treated as not running."
       note "That silent wait is what makes a setup look hung. Raise the bound with"
-      note "MXTK_DOCKER_PROBE_SECS=30 if the daemon is merely slow to answer here. To start it:"
-      docker_start_hint ;;
+      note "MXTK_DOCKER_PROBE_SECS=30 if it is merely slow to answer here. To start it:"
+      container_start_hint ;;
     *)
-      warn "docker is installed but the daemon is not responding."
+      warn "$RUNTIME_DOWN"
       note "Until it runs: no app container, no throwaway Postgres, no agent-driven e2e/screenshots."
       note "To start it:"
-      docker_start_hint ;;
+      container_start_hint ;;
   esac
   # --install is the "do it for me" mode: on macOS with Docker Desktop present, launch it.
-  # Never elsewhere — Windows launch paths vary and Linux needs sudo.
-  if [ "$DOCKER_STATE" != 0 ] && [ "$INSTALL" = 1 ] && [ "$PLATFORM" = macos ] && [ -d /Applications/Docker.app ]; then
+  # Never elsewhere — Windows launch paths vary and Linux needs sudo. Podman is left alone:
+  # `podman machine start` on a machine that has never run `podman machine init` is not a safe
+  # guess to make on someone's behalf.
+  if [ "$DOCKER_STATE" != 0 ] && [ "$INSTALL" = 1 ] && [ "$CONTAINER_RUNTIME" = docker ] && [ "$PLATFORM" = macos ] && [ -d /Applications/Docker.app ]; then
     if open -a Docker 2>/dev/null; then
       note "--install: launched Docker Desktop (open -a Docker). Give it ~30-90 s, then re-run doctor."
     fi
   fi
 else
-  warn "docker is not installed — recommended for new builders."
+  warn "no container runtime found — neither docker nor podman. One is recommended for new builders."
   note "It is what lets the agent verify its own build: 'mxcli docker check' (deep model+build"
   note "verification) and project-bin/test-stack-up.sh (Postgres + the app up, Playwright e2e,"
   note "page screenshots) both need it. Without it, only mxbuild verifies the model and a human"
   note "must open Studio Pro to see whether anything actually renders."
-  note "No-Docker fallback for just running the app: 'mxcli run --local' against a native"
+  note "No-container fallback for just running the app: 'mxcli run --local' against a native"
   note "PostgreSQL (host:PORT)."
-  note "Corporate machines: Docker Desktop needs a paid licence at larger companies — Rancher"
-  note "Desktop or Podman (docker-CLI compatible) and colima (macOS) are common substitutes."
+  note "Docker Desktop needs a paid licence at larger companies, and is NOT required: Podman is"
+  note "the licence-free option (docker-CLI compatible; doctor probes it directly, so no docker"
+  note "shim is needed). Rancher Desktop and colima (macOS) are the other common substitutes."
 fi
 
 fi

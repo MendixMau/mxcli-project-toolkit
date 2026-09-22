@@ -445,7 +445,7 @@ find_java_exe() {
 # not be able to wait on it.
 #
 # Bounded by <timeout-seconds>: no `timeout(1)` is assumed (macOS ships none) — the
-# same background/poll/kill pattern as bin/doctor.sh's docker_daemon_up. This is a
+# same background/poll/kill pattern as bin/doctor.sh's container_daemon_up. This is a
 # genuine behaviour addition versus the exec.sh code it replaces, which had no bound
 # at all; the default callers use is generous (300s) specifically so a real build is
 # never cut short by it, only a truly stuck one.

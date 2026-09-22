@@ -6,7 +6,7 @@ Shared skills, prompt templates, and learnings for **Mendix migration and develo
 
 Serves five ways in — four pipeline entry modes that share the same stages, plus one route with no pipeline at all (see `skills/conversion-runbook.md` "Entry Modes"; the mode is a **confirmed Stage-P decision**, never silently inferred — if source code exists it gets analyzed, if specs exist stages 2–4 run, and greenfield is only for starting from a conversation):
 
-**Which scripts run at each step of each walk:** `docs/pipeline-walks.html` — one process diagram per entry mode (plus the shared spine and the Stage 5 module loop), each with a stage-by-stage table of the commands executed. Open it in a browser.
+**Which scripts run at each step of each walk:** `docs/pipeline-walks.html` — one process diagram per entry mode (plus the shared spine and the Stage 5 module loop), each with a stage-by-stage table of the commands executed. A browser page, like the guide.
 
 - **Migrations** (legacy source code) — all stages.
 - **Requirements-driven builds** (specs/BRDs/SME input, no legacy code) — stages 1–6; document discovery replaces source triage, extraction Path B/C replaces code extractors.

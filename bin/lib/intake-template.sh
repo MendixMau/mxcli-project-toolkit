@@ -43,14 +43,17 @@ present — is the agent's homework, brought back as "I found X, confirm?" rathe
 here. Do that homework FIRST: it is what turns each question below into a recommendation
 with evidence instead of a blank prompt.
 
-## 1. Entry mode: migration, requirements-driven, or greenfield?
+## 1. Entry mode: migration, requirements-driven, greenfield, or change an existing app?
 
 _Not yet asked._ The agent proposes with evidence and the user confirms — never a silent
 inference (conversion-runbook.md "Entry Modes"; classification rules apply in order, first
-match wins: any legacy source → migration; else any specs/BRDs/wireframes →
-requirements-driven; else greenfield). Auditing or regression-testing an app nobody is
-rebuilding is not a mode at all — that routes to existing-app-assurance.md and skips the
-pipeline. Getting this wrong skips whole stages: real misrouting, 2026-07-14.
+match wins: a live Mendix `.mpr` you are adding to or altering, not rebuilding → change an
+existing app (record it verbatim as `Change an existing app`; existing-app-change.md); else
+any legacy source → migration; else any specs/BRDs/wireframes → requirements-driven; else
+greenfield). Auditing or regression-testing an app nobody is changing is not a mode at all —
+that routes to existing-app-assurance.md and skips the pipeline. Getting this wrong skips
+whole stages: real misrouting, 2026-07-14; and until 2026-09-22 this question listed only
+three modes, so a session changing a live app had no option to pick.
 
 ## 2. What is this project, and what is driving it?
 

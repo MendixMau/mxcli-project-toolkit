@@ -65,6 +65,7 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 | `skills/coverage-ledger.md` | Building the Stage 4 coverage ledger — every requirement either claimed by a build-plan row or catalogued with a reason, never invisible |
 | `bin/coverage-check.sh` | Checking a coverage ledger against its BRD — every scalar leaf CLAIMED, LEDGERED, UNCLAIMED, PHANTOM or DOUBLE-CLAIMED, so coverage is measured rather than remembered |
 | `skills/mendix-agents.md` | Building a Mendix AI agent — the agent is runtime data not a model document, so JSON import, tool microflows, knowledge base chunk loading and the runtime wiring all sit outside MDL, and mxbuild stays green when they are wrong |
+| `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN — the private tier between the toolkit and a project for own skills, conventions, lint rules, MDL snippets and approved MPKs; and deciding whether something goes to the toolkit, the company brain or docs/brain/ |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
 | `skills/agent-permission-friction.md` | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing |

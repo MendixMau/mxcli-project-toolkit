@@ -4809,8 +4809,7 @@ inspection, or access-grant review — all of which were tried first and all loo
 control grid with an identical widget shape but an explicit `sort by` rendered correctly; the
 broken ones didn't have one. This reproduced identically across three separate modules built at
 different times, which argues it's a systemic DataGrid2 behavior, not a one-off page bug.
-**Suggested fix:** promote this to `~/Mendix/personal-toolkit/skills/dg2-grid-pattern.md` (or the
-toolkit's own DataGrid2 skill if `dg2-grid-pattern.md` isn't the canonical one) as a hard rule:
+**Suggested fix:** promote this to `skills/learned-dg2-patterns.md` (the toolkit's DataGrid2 skill) as a hard rule:
 **every DataGrid2 `DataSource: database from ...` must carry an explicit `sort by`clause**, and
 consider a Starlark lint rule (`.claude/lint-rules/`) that flags any `datagrid` MDL block whose
 `DataSource` lacks one — this is exactly the class of defect `mx check`/`mxcli check --references`

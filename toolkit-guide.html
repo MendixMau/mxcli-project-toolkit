@@ -81,7 +81,7 @@
   <h1>mxcli Project Toolkit — how this works</h1>
   <p class="lede">You point this toolkit at legacy source code <em>or</em> a stack of requirements, and it interviews you through to a running Mendix app. Every stage produces an artifact you can show a customer, and every decision you make is recorded — nothing is silently decided for you.</p>
 
-  <h2>1 · Four ways in — pick what you're starting from</h2>
+  <h2>1 · Five ways in — pick what you're starting from</h2>
   <div class="cards">
     <div class="card">
       <h3>Migration</h3>
@@ -97,6 +97,11 @@
       <h3>Greenfield</h3>
       <div class="stages">Stages P, 5–6</div>
       <p>You already know what to build. Skip straight to the Mendix build discipline: gated module-by-module construction, then end-to-end testing.</p>
+    </div>
+    <div class="card">
+      <h3>Change an existing app</h3>
+      <div class="stages">Stages P, 0–6 per slice</div>
+      <p>You have a live Mendix app and are adding to or altering one slice of it. The knowledge base is queried from the model itself, a regression net goes under the app before anything changes, stages 2–4 run over the slice only, and every build gate is also a regression gate. No cutover — the app never stops being live.</p>
     </div>
     <div class="card">
       <h3>Just the tools</h3>

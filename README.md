@@ -4,11 +4,12 @@
 
 Shared skills, prompt templates, and learnings for **Mendix migration and development projects**.
 
-Serves four ways in — three pipeline entry modes that share the same stages, plus one route with no pipeline at all (see `skills/conversion-runbook.md` "Entry Modes"; the mode is a **confirmed Stage-P decision**, never silently inferred — if source code exists it gets analyzed, if specs exist stages 2–4 run, and greenfield is only for starting from a conversation):
+Serves five ways in — four pipeline entry modes that share the same stages, plus one route with no pipeline at all (see `skills/conversion-runbook.md` "Entry Modes"; the mode is a **confirmed Stage-P decision**, never silently inferred — if source code exists it gets analyzed, if specs exist stages 2–4 run, and greenfield is only for starting from a conversation):
 
 - **Migrations** (legacy source code) — all stages.
 - **Requirements-driven builds** (specs/BRDs/SME input, no legacy code) — stages 1–6; document discovery replaces source triage, extraction Path B/C replaces code extractors.
 - **Greenfield mxcli builds** — Stage 5 onward; the standard Mendix build discipline is not migration-specific.
+- **Changing an existing app** (a live `.mpr`, a slice being added or altered) — stages P, 0–6 per slice; the knowledge base is queried from the model itself (Path D), a regression net goes under the app first, and Stage 7 is N/A because the app never stops being live. `skills/existing-app-change.md`.
 - **Existing apps — à la carte, no pipeline** — audit, lint, or put a regression/e2e test net under a Mendix app you already have. No intake, no stages, no gates: start at `skills/existing-app-assurance.md` and grab only the tools you need.
 
 Used across all mxcli-powered projects — OS migrations, Java/Angular migrations, Node/Express+React migrations, and other client integration work.

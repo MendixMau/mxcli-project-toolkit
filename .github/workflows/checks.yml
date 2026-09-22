@@ -36,6 +36,12 @@ jobs:
       - name: No macOS-only assumptions reintroduced (check-portability.sh)
         run: bin/check-portability.sh
 
+      # The public toolkit never cites a private tier (a personal repo, a company brain): five
+      # skills once pointed at files only one person had. templates/company-brain/ is the
+      # sanctioned private tier; this is the direction it must never be cited from.
+      - name: No private-tier citations (check-no-private-citations.sh)
+        run: bin/check-no-private-citations.sh
+
       # The client-NAME denylist is personal and local by design: it lives in the maintainer's
       # gitignored .leakguard-deny and runs in their pre-commit/pre-push hooks
       # (bin/install-hooks.sh) — never in the repo, never required of contributors. In CI the

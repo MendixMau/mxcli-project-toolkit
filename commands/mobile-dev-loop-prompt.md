@@ -16,8 +16,8 @@ runtime. That is a scope choice, not a platform limit.
 > where no SP exists. `mxcli new` creates a project headlessly, `mxcli docker run` or
 > `mxcli run --local` runs it, `mxcli run --hub` exposes it at a public URL, and
 > `mxcli playwright` / `mxcli oql` / `mxcli test --local` exercise it. A container can run the
-> whole loop. For the full headless build-and-prove run, use the full-e2e cloud prompt in
-> `personal-toolkit/prompts/` instead of this one.
+> whole loop. For the full headless build-and-prove run, use a full-e2e cloud prompt from your
+> company brain's `prompts/` (`templates/company-brain/`) instead of this one.
 
 ---
 

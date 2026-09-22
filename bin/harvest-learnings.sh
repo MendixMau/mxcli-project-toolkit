@@ -38,13 +38,24 @@
 set -uo pipefail
 
 TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT_DIR="${1:-}"
+PROJECT_DIR=""; INBOX_OVERRIDE=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --to) INBOX_OVERRIDE="${2:-}"; shift ;;   # a company brain's inbox/ instead of the toolkit's
+    -*) echo "usage: bin/harvest-learnings.sh <project-root> [--to <inbox-dir>]" >&2; exit 2 ;;
+    *) PROJECT_DIR="$1" ;;
+  esac
+  shift
+done
 [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] || {
-  echo "usage: bin/harvest-learnings.sh <project-root>" >&2; exit 2; }
+  echo "usage: bin/harvest-learnings.sh <project-root> [--to <inbox-dir>]" >&2; exit 2; }
 PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
 PROJECT_NAME="$(basename "$PROJECT_DIR")"
 STAMP="$(date +%Y-%m-%d)"
-INBOX="$TOOLKIT_ROOT/contrib/inbox"
+# --to <dir>: drafts land in a COMPANY BRAIN's inbox (templates/company-brain/) instead of the
+# toolkit's contrib/inbox/ — the lower-bar destination for learnings that name a client or a
+# house convention (skills/company-brain.md). Same drafts, different triage desk.
+INBOX="${INBOX_OVERRIDE:-$TOOLKIT_ROOT/contrib/inbox}"
 mkdir -p "$INBOX"
 TOOLKIT_BUGLOG="$TOOLKIT_ROOT/bug-logs/mxcli-bugs.md"
 WROTE=0
@@ -217,7 +228,7 @@ rm -f "$TMP"
 
 echo ""
 if [ "$WROTE" -gt 0 ]; then
-  echo "$WROTE inbox file(s) drafted in contrib/inbox/."
+  echo "$WROTE inbox file(s) drafted in $INBOX."
   echo "REVIEW EACH FOR CLIENT DATA (names, codenames, real paths — genericize), then:"
   echo "  cd $TOOLKIT_ROOT && git add contrib/inbox && git commit -- contrib/inbox && open a PR"
 else

@@ -5,7 +5,7 @@ in scratch sandboxes copied from `/private/tmp/mx-baseline/`.
 
 ## Why this report exists
 
-The shareable bakeoff writeup (`~/Mendix/personal-toolkit/share/wengao-mxcli-bakeoff-2026-08-05/README.md`)
+The shareable bakeoff writeup (kept in a private repo outside this toolkit; ask the author)
 Section A lists 6 fork-only defects found on Wengao's **old** build (`26f2866`, 2026-07-31/08-05
 bakeoff). Only 1 of the 6 (ENGALAR-01 / BUG-46+BUG-55b, the security `GRANT EXECUTE ON MICROFLOW`
 crash) has been retested against his **newest** build, `bc3d94ef4-dirty` — confirmed FIXED in

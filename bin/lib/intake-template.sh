@@ -69,17 +69,24 @@ _Not yet asked._ Default inherited from Q2 — (b) implies as-is, (c) licenses r
 put the inherited default to the user and ask what to override. This decides whether every
 Stage 3 fit-gap finding is a gap to close or an opportunity to take.
 
-## 4. Scope boundary: the whole application, or a slice?
+## 4. What are we working on: the whole application, or a part of it — and what else does that touch?
 
-_Not yet asked._ Name what is explicitly OUT, not just what is in — "out" is the half that
+_Not yet asked._ Name the topic in plain words — a feature, a flow, a module, a fix, or the
+whole app. Say what else it touches, and name what is explicitly OUT — "out" is the half that
 gets forgotten and rebuilt anyway. A module-sized source is the common case and is easy to
-mistake for a whole app; if it is a slice, say what the slice must keep working with.
+mistake for a whole app. Also ask whether there are input documents — user stories, tickets,
+a spec: they go in `sources/`, and "none, the app plus my description" is a fine answer. For
+an existing app this is settled at Stage 0b, after the map, so
+`Unverified — how to verify: named when the change request arrives (Stage 0b)` is a legitimate
+kickoff answer.
 
-## 5. What must NOT change?
+## 5. Of what we touch, what must stay exactly as it is?
 
 _Not yet asked._ Integrations, data contracts, external URLs, scheduled jobs, reports other
 systems consume. These are the constraints that invalidate an architecture late and cheaply
-if found now; they are rarely visible in the source, because they live in its consumers.
+if found now; they are rarely visible in the source, because they live in its consumers. For
+an existing app the default is that nothing beyond the ask changes — this question names the
+things the change must not break.
 
 ## 6. Are there licence/security constraints on storing this client's source in this workspace?
 

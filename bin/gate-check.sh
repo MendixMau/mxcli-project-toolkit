@@ -827,9 +827,9 @@ check_stage_0() {
   elif printf '%s' "$signer" | grep -q '\[' && [ "$ENTRY_MODE" = "existing-app-change" ] \
        && [ -s "$PROJECT_DIR/analysis/app-report.json" ]; then
     # Mapped and waiting for a change is a normal state in this mode (existing-app-change.md
-    # §"Map the app first"): there is no slice to sign off yet, so this is not-started, not wrong.
+    # §"Map the app first"): there is nothing to sign off yet, so this is not-started, not wrong.
     # Without it a parked project read "needs attention" forever (existing-app field run, 2026-09-22).
-    echo "PENDING|app mapped (analysis/app-report.html), waiting on the change — triage.md is signed off at Stage 0b, once the user names the slice and its blast radius is written ($f, ## Sign-off)"
+    echo "PENDING|app mapped (analysis/app-report.html), waiting on the change — triage.md is signed off at Stage 0b, once the user says what to work on and what it touches is written ($f, ## Sign-off)"
   elif printf '%s' "$signer" | grep -q '\['; then
     echo "FAIL|'Confirmed by:' still holds the shipped placeholder: \"$signer\" — replace it with whatever the user actually said (\"confirmed in chat 2026-08-20\" is fine; a full name is not required) ($f, ## Sign-off)"
   else

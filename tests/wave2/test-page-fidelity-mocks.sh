@@ -110,6 +110,35 @@ has   "the repeated list-item class is a mock"    "$MOCKLINE2" "x-item"
 hasnt "the once-used card wrapper is not a mock"  "$MOCKLINE2" "x-card"
 hasnt "a mocked list page does not score null"    "$OUT2" "fidelity null%"
 
+echo "  -- bind table: struck/CUT rows are not owed; DESCRIBE's blind ImageUrl; ALTER bodies count"
+# bind-contract.html reproduces rows of a real five-column bind table (marketplace-rnd
+# CatalogView-redesign-v2.html, 2026-09-23); bind-contract-describe.mdl is the shape mxcli
+# v0.23.0 DESCRIBE printed for the built page — two IMAGE widgets whose ImageUrl renders as a
+# bare '{1}' although the model binds an attribute. See CAPTURE.md.
+BD="$FIX/bind-contract-describe.mdl"
+OUT3=$(cd "$TMP" && node "$SUT" --no-log "$FIX/bind-contract.html" Catalog - < "$BD" 2>&1)
+echo "$OUT3" | sed 's/^/    | /'
+hasnt "a struck-through CUT row is not a missed binding" "$OUT3" "DemoUrl"
+has   "the CUT row leaves the binding denominator"       "$OUT3" "bindings 0/2"
+has   "DESCRIBE alone cannot see the image bindings"     "$OUT3" "(LogoUrl)"
+has   "and the scorer says why"                          "$OUT3" "DESCRIBE drops ImageUrl parameters"
+OUT4=$(cd "$TMP" && node "$SUT" --no-log "$FIX/bind-contract.html" Catalog - "$FIX/bind-contract-alter.mdl" < "$BD" 2>&1)
+echo "$OUT4" | sed 's/^/    | /'
+has   "the ALTER script's ImageUrl bindings count"       "$OUT4" "bindings 2/2"
+hasnt "no DESCRIBE note once the bindings are seen"      "$OUT4" "DESCRIBE drops"
+OUT5=$(cd "$TMP" && node "$SUT" --no-log "$FIX/bind-contract.html" Catalog "$FIX/bind-contract-alter.mdl" 2>&1; echo "exit=$?")
+has   "an ALTER with no CREATE is not a page"            "$OUT5" "exit=2"
+if grep -q 'function contractRows' "$SUT"; then
+  # The contract dimension reads the CSS column. "(already a ds.css candidate)" once
+  # harvested `css` as an owed class; "#mxapp.theme-dark" is a compound selector whose class
+  # IS owed — the fix must drop the first and keep the second.
+  hasnt "a file name in the CSS cell is not a class"     "$OUT3" "(.css)"
+  has   "a compound selector's class is still owed"      "$OUT3" "(.theme-dark)"
+  has   "contract counts 4 classes, not 5"               "$OUT3" "contract 2/4"
+else
+  echo "  skip contract assertions: this page-fidelity.js has no contract dimension"
+fi
+
 echo
 printf 'test-page-fidelity-mocks: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

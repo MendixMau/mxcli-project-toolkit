@@ -1,0 +1,34 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Catalog — bind contract</title>
+<style>
+  /* the whole design is wireframe-local, as in the real file */
+  .x-deck { padding: 32px; }
+  .x-canvas { aspect-ratio: 16/9; }
+  .x-ptile { position: absolute; }
+  .x-filter-rail { position: sticky; }
+</style></head>
+<body>
+  <div class="wf-screen">
+    <div class="x-deck"><h1>Catalog</h1></div>
+    <div class="x-filter-rail">filters</div>
+  </div>
+
+    <table class="bind">
+      <tr><th>Component</th><th>Widget</th><th>Binding / datasource</th><th>CSS</th><th>Verdict</th></tr>
+      <tr><td>Filter rail (sticky, left)</td><td>SNIPPETCALL, existing snippet, in <code>x-l-left-main__left</code></td>
+        <td>existing</td><td><code>.x-filter-rail</code> (already a ds.css candidate)</td><td class="v-theme">THEME</td></tr>
+      <tr><td>16:9 image canvas</td><td>IMAGE <code>ImageType: imageUrl</code> in a CONTAINER</td>
+        <td><code>$Item/LogoUrl</code> — <strong>4,829 / 5,174 (93.3%)</strong></td>
+        <td><code>.x-canvas</code>, <code>object-fit:cover</code>, ~14 lines</td><td class="v-theme">THEME</td></tr>
+      <tr><td>Publisher tile (overlapping)</td><td>IMAGE in a CONTAINER</td>
+        <td><code>$Item/PublisherLogoUrl</code> — <strong>4,823 / 5,174 (93.2%)</strong></td>
+        <td><code>.x-ptile</code>, absolute, ~8 lines</td><td class="v-theme">THEME</td></tr>
+      <tr><td><s>Demo chip (curated tiles)</s></td><td><s>LINKBUTTON</s></td>
+        <td><code>DemoUrl</code> is 64.7% corpus-wide but
+        <strong>1 / 16</strong> on Platform rows</td>
+        <td>—</td><td class="v-no">CUT — would be empty on 15 of the 16 tiles it exists for</td></tr>
+      <tr><td>Dark mode</td><td><code>Class: 'theme-dark'</code> on the page container</td>
+        <td>—</td><td><strong>≈12 lines.</strong> The app already defines 419 dark tokens on
+        <code>#mxapp.theme-dark</code></td><td class="v-theme">THEME (small)</td></tr>
+    </table>
+</body></html>

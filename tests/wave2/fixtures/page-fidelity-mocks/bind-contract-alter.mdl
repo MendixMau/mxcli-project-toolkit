@@ -1,0 +1,6 @@
+-- The binding script: mxcli's IMAGE widget takes ImageUrl as a direct attribute-path array.
+alter page Demo.Catalog {
+  set ImageUrl = [LogoUrl] on imgLogo
+  set ImageUrl = [PublisherLogoUrl] on imgPublisherTile
+}
+/

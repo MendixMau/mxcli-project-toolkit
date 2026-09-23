@@ -46,3 +46,24 @@ which screen carries it.
 
 The old rule was `uses === 1 && kept < 0.4` -> structure. Only `ds-card`-sized wrappers
 cleared it; the page header did not, and it is the one holding the heading.
+
+## bind-contract — the five-column bind table and DESCRIBE's blind ImageUrl (2026-09-23)
+
+`bind-contract.html` carries five rows of the real bind table in marketplace-rnd's
+`CatalogView-redesign-v2.html`, **verbatim in markup and prose** — including the struck
+`<s>Demo chip</s>` row with its `CUT —` verdict, the CSS cell "(already a ds.css candidate)",
+and the Dark-mode cell naming `#mxapp.theme-dark`. Changed: the class prefix (`mps-` -> `x-`)
+and the attribute names (`LastPublishedVersionLogo` -> `LogoUrl`,
+`PublisherOrganizationLogo` -> `PublisherLogoUrl`, `LastPublishedVersionDemoUrl` -> `DemoUrl`).
+
+`bind-contract-describe.mdl` is a reduction of `mxcli describe page` (v0.23.0) output for the
+built page: the two `image` widgets are verbatim apart from names, and they show the fact
+nobody would have imagined — `ImageUrl: '{1}'` with **no parameters**, although the `.mpr`
+holds a `Forms$ClientTemplate` whose `Parameters` carry the attribute (read from the unit's
+BSON). The surrounding widgets were cut to what the rows need.
+
+`bind-contract-alter.mdl` is the binding script's shape (`set ImageUrl = [Attr] on <widget>`),
+which is what makes those bindings visible to the scorer.
+
+Measured on the real page: bindings 13/18 -> 14/16 (DemoUrl row no longer owed; the two
+image rows seen through the ALTER script), contract 16/30 -> 16/29 (`.css` gone).

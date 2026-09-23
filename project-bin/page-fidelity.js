@@ -265,19 +265,30 @@ function localMockClasses(html) {
 // page. One row per binding; a row scores when every identifier-looking token
 // in its datasource cell (CamelCase words, Entity.Attr paths) appears in the
 // page MDL. Rows whose cell names no identifier are annotation prose and skip.
+//
+// A row the author struck through (<s>) or whose fifth (Verdict) cell says CUT / NOT
+// BUILDABLE is not owed. bindRows used to skip only header rows, so a wireframe's
+// `<s>Demo chip (curated tiles)</s>` row (verdict "CUT — would be empty on 15 of the 16
+// tiles") was scored as a missed binding on a page that correctly left it out
+// (marketplace-rnd CatalogView_v5, 2026-09-23).
+const notOwed = trInner => {
+  if (/<s>/i.test(trInner)) return true;
+  const raw = [...trInner.matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(c => c[1]);
+  return raw.length >= 5 && /NOT BUILDABLE|\bCUT\b|NOT from the CLI/i.test(strip(raw[4]));
+};
 function bindRows(html) {
   const t = innerBalanced(html, /<(table)[^>]*class="[^"]*\b(?:bind|bt)\b[^"]*"/i);
   if (!t) return [];
   const rows = [];
   for (const tr of t.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)) {
     const cells = [...tr[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(c => strip(c[1]));
-    if (!cells.length || /<th/i.test(tr[1])) continue;
+    if (!cells.length || /<th/i.test(tr[1]) || notOwed(tr[1])) continue;
     const src = cells[2] || '';
     const ids = new Set();
     for (const m of src.matchAll(/\b([A-Z][A-Za-z0-9]*\.[A-Z][A-Za-z0-9_]*)\b/g))
       m[1].split('.').forEach(x => ids.add(x));
     for (const m of src.matchAll(/\b([A-Z][a-z0-9]+(?:[A-Z][A-Za-z0-9]*)+)\b/g)) ids.add(m[1]);
-    if (ids.size) rows.push({ label: (cells[0] || '?').slice(0, 40), ids: [...ids] });
+    if (ids.size) rows.push({ label: (cells[0] || '?').slice(0, 40), ids: [...ids], image: /\bIMAGE\b/.test(cells[1] || '') });
   }
   return rows;
 }
@@ -356,8 +367,19 @@ function wfFacts(html) {
 // identically in two modules across the MDLS list keeps the first module seen.
 let MODULE = null;
 
+// ALTER PAGE bodies for the page are read too, after the declaration(s). mxcli DESCRIBE
+// (v0.23.0) renders an IMAGE widget's ImageUrl as its bare template — `ImageUrl: '{1}'` —
+// and DROPS the template's attribute parameters, although the model holds them
+// (Forms$ClientTemplate.Parameters → DomainModels$AttributeRef, verified in the .mpr BSON).
+// Measured on marketplace-rnd CatalogView_v5, 2026-09-23: a script bound both card images
+// with `set ImageUrl = [Attr] on <widget>`, the app shows the logos, and DESCRIBE still
+// printed `'{1}'` — indistinguishable from the unbound pre-fix page, so the scorer reported
+// two bindings missed. Guessing from `'{1}'` would credit exactly the unbound defect that
+// script fixed, so it does not; instead the binding script is passed as another input
+// (`… - path/to/alter.mdl < describe.mdl`) and its ALTER body counts. An ALTER-only input
+// is not a page: without a CREATE the run still exits 2.
 function pageMdl() {
-  let out = '';
+  let out = '', alters = '';
   for (const f of MDLS) {
     const src = f === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(f, 'utf8');
     const re = new RegExp(
@@ -366,8 +388,10 @@ function pageMdl() {
       if (!MODULE) MODULE = m[3];
       out += pageBody(src, m.index) + '\n';
     }
+    const alt = new RegExp('ALTER\\s+PAGE\\s+"?[A-Za-z0-9_]+"?\\."?' + PAGE + '"?\\b', 'gi');
+    for (const m of src.matchAll(alt)) alters += pageBody(src, m.index) + '\n';
   }
-  return out;
+  return out && out + alters;
 }
 
 // Known limit: the counter does not skip quoted strings, so an UNBALANCED brace inside a
@@ -404,10 +428,11 @@ function pageBody(src, from) {
 function score(wf, mdl) {
   const corpus = norm(mdl);
   const cls = new Set();
-  for (const m of mdl.matchAll(/Class:\s*['"]([^'"]+)['"]/gi)) m[1].split(/\s+/).forEach(c => cls.add(c));
+  // `Class:` in a declaration, `Class =` in an ALTER PAGE SET.
+  for (const m of mdl.matchAll(/\bClass\s*[:=]\s*['"]([^'"]+)['"]/gi)) m[1].split(/\s+/).forEach(c => cls.add(c));
   // DynamicClasses expressions emit class names conditionally — every quoted
   // token that looks like a class name lands in the DOM on some branch.
-  for (const m of mdl.matchAll(/DynamicClasses:\s*'((?:[^']|'')*)'/gi))
+  for (const m of mdl.matchAll(/DynamicClasses\s*[:=]\s*'((?:[^']|'')*)'/gi))
     for (const t of m[1].matchAll(/''([a-z][a-z0-9-]*)''|'([a-z][a-z0-9-]*)'/gi))
       cls.add(t[1] || t[2]);
   const hit = txt => { const w = words(txt); return w.length ? w.filter(x => corpus.includes(x)).length / w.length >= 0.6 : true; };
@@ -452,6 +477,12 @@ const miss = [...s.h.miss.map(x => 'heading: ' + x), ...s.b.miss.map(x => 'actio
               ...(s.c.miss.length ? ['classes: ' + s.c.miss.join(' ')] : []),
               ...s.bd.miss.map(r => 'binding: ' + r.label + ' (' + r.ids.join(' ') + ')')];
 if (miss.length) console.log('  missed:\n  ' + miss.join('\n  '));
+// Say so when a binding miss may be DESCRIBE's blind spot rather than the page's (see pageMdl).
+const bareImg = (mdl.match(/ImageUrl:\s*'\{\d+\}'/g) || []).length;
+if (bareImg && s.bd.miss.some(r => r.image))
+  console.log('  note: ' + bareImg + ' image widget(s) show ImageUrl as a bare \'{n}\' template — DESCRIBE drops' +
+    ' ImageUrl parameters, so their attribute bindings cannot be seen here; pass the script that' +
+    ' set them (ALTER PAGE … set ImageUrl = [Attr]) as another input');
 if (s.c.chrome.length) console.log('  chrome (layout-supplied, not scored): ' + s.c.chrome.join(' '));
 if (wf.mockUsed.length) console.log('  bound-data mocks (wireframe-local, text not scored): ' + wf.mockUsed.join(' '));
 if (wf.structural.length) console.log('  wireframe structure (kept as page content, not a mock): ' + wf.structural.join(' '));
@@ -533,7 +564,7 @@ if (!NOLOG) {
         new Date().toISOString().slice(0, 16).replace('T', ' '),
         PAGE, MODULE || '-', s.pct === null ? '-' : s.pct + '%',
         frac(s.h), frac(s.b), frac(s.k), frac(s.c), frac(s.bd),
-        STUB ? 'stub' : MDLS[0] === '-' ? 'describe' : 'draft',
+        STUB ? 'stub' : MDLS.includes('-') ? (MDLS.length > 1 ? 'describe+script' : 'describe') : 'draft',
         path.relative(root, path.resolve(WF_FILE)) + (WF_REF ? '#/' + WF_REF.route : ''),
       ].join('\t');
       fs.appendFileSync(tsv, row + '\n');

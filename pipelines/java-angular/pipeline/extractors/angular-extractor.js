@@ -38,12 +38,32 @@ function walkDir(dir) {
 }
 
 const allFiles = walkDir(sourceDir);
-// Only components under public/ are real business screens — shared/ holds framework UI
-// (navbar, 404 page, sidenav) that we skip, same "never migrate framework modules" rule
-// migration-pipeline.md applies to OS AppCommon_* modules.
-const componentFiles = allFiles.filter(f => f.endsWith('.component.ts') && !f.endsWith('.spec.ts') && f.includes(`${path.sep}public${path.sep}`));
-const routingFiles = allFiles.filter(f => f.endsWith('routing.module.ts'));
-const serviceFiles = allFiles.filter(f => f.endsWith('.service.ts') && !f.endsWith('.spec.ts'));
+const readSafe = f => { try { return fs.readFileSync(f, 'utf8'); } catch (e) { return ''; } };
+const tsFiles = allFiles.filter(f => f.endsWith('.ts') && !f.endsWith('.spec.ts'));
+// Two file-naming conventions exist in the wild, so discovery is by content, not suffix:
+//  - pre-v17 CLI: foo.component.ts / foo.service.ts / app-routing.module.ts
+//  - Angular 20 style guide: foo.ts (the @Component/@Injectable decorator is the only marker),
+//    standalone routes in app.routes.ts using loadComponent: () => import(...).then(m => m.Foo)
+// (ProcureFlow, 2026-09-23, was the first v20 source: the suffix filter found 0 of 12 screens.)
+const decoratedWith = (f, deco) => new RegExp(`@${deco}\\s*\\(`).test(readSafe(f));
+let componentFiles = tsFiles.filter(f => f.endsWith('.component.ts') || decoratedWith(f, 'Component'));
+// Legacy layout rule: where a public/ folder exists, only components under it are business
+// screens — shared/ holds framework UI (navbar, 404 page, sidenav) that we skip, same "never
+// migrate framework modules" rule migration-pipeline.md applies to OS AppCommon_* modules.
+// Without a public/ folder, the same rule is applied by exclusion: shared/ and the root shell.
+const underPublic = componentFiles.filter(f => f.includes(`${path.sep}public${path.sep}`));
+componentFiles = underPublic.length
+  ? underPublic
+  : componentFiles.filter(f => !f.includes(`${path.sep}shared${path.sep}`) && path.dirname(f) !== path.resolve(sourceDir));
+const routingFiles = tsFiles.filter(f => f.endsWith('routing.module.ts') || f.endsWith('.routes.ts'));
+const serviceFiles = tsFiles.filter(f => f.endsWith('.service.ts') || (decoratedWith(f, 'Injectable') && /this\.http\./.test(readSafe(f))));
+
+// environment.ts values (e.g. apiBaseUrl: '/api/v1') — substituted into service URLs so
+// `${environment.apiBaseUrl}/requisitions` resolves to a path the linker can match to Java.
+const envValues = {};
+for (const f of walkDir(path.join(sourceDir, '..')).filter(f => /environment(\.[a-z]+)?\.ts$/.test(f) && !/\.(prod|production)\.ts$/.test(f))) {
+  for (const m of readSafe(f).matchAll(/(\w+)\s*:\s*['"`]([^'"`]*)['"`]/g)) envValues[m[1]] = m[2];
+}
 
 // ── AST helpers ────────────────────────────────────────────────────────────
 function findChildOfType(node, type) {
@@ -132,11 +152,28 @@ function scanApiPaths(scopeNode) {
 // screen touching a given path shape matching every logic item with that same path shape
 // regardless of GET/PUT/DELETE.
 const HTTP_VERB_METHODS = { get: 'GET', post: 'POST', put: 'PUT', delete: 'DELETE', patch: 'PATCH' };
+// Resolves a service URL expression's source text: this.<field> -> the field's initializer,
+// ${environment.X} -> environment.ts's value, any other ${...} -> '*'.
+function resolveUrlText(text, fields) {
+  let t = text;
+  for (let i = 0; i < 3; i++) t = t.replace(/\$\{this\.(\w+)\}|this\.(\w+)/g, (m, a, b) => (fields[a || b] !== undefined ? fields[a || b] : m));
+  t = t.replace(/\$\{environment\.(\w+)\}|environment\.(\w+)/g, (m, a, b) => envValues[a || b] ?? '*');
+  t = t.replace(/\$\{[^}]*\}/g, '*').replace(/['"`]/g, '').replace(/\s*\+\s*/g, '');
+  return t;
+}
+const serviceCallByKey = {}; // 'RequisitionService.findById' -> { verb, path }
 function buildServiceVerbMap() {
   const verbByMethod = {};
   for (const file of serviceFiles) {
     let tree;
     try { tree = parser.parse(fs.readFileSync(file, 'utf8')); } catch (e) { continue; }
+    const cls = findAllOfType(tree.rootNode, 'class_declaration')[0];
+    const clsName = cls?.childForFieldName('name')?.text;
+    const fields = {};
+    for (const fd of findAllOfType(tree.rootNode, 'public_field_definition')) {
+      const v = fd.childForFieldName('value');
+      if (v && (v.type === 'string' || v.type === 'template_string' || v.type === 'binary_expression')) fields[fd.childForFieldName('name').text] = v.text.replace(/^[`'"]|[`'"]$/g, '');
+    }
     for (const method of findAllOfType(tree.rootNode, 'method_definition')) {
       const name = method.childForFieldName('name')?.text;
       const body = method.childForFieldName('body');
@@ -150,6 +187,10 @@ function buildServiceVerbMap() {
       if (httpCall) {
         const verbMethodName = httpCall.childForFieldName('function').childForFieldName('property').text;
         verbByMethod[name] = HTTP_VERB_METHODS[verbMethodName];
+        const urlArg = httpCall.childForFieldName('arguments')?.namedChildren[0];
+        const resolved = urlArg ? resolveUrlText(urlArg.text, fields) : '';
+        const m = resolved.match(/\/api\/[a-zA-Z0-9\/_*-]*/);
+        if (clsName) serviceCallByKey[`${clsName}.${name}`] = { verb: HTTP_VERB_METHODS[verbMethodName], path: m ? m[0].replace(/\/$/, '') : null };
       }
     }
   }
@@ -161,7 +202,21 @@ const serviceVerbByMethod = buildServiceVerbMap();
 // known service method: `this.itemService.deleteItem(...)`. If exactly one of each appears
 // (true for every method in this codebase — one URL built, one service call made with it),
 // pair them into {path, method}. Otherwise fall back to path-only (no verb determinable).
-function scanApiCallsInMethod(methodBody) {
+function scanApiCallsInMethod(methodBody, fieldTypes = {}) {
+  // Receiver-typed resolution first: this.requisitionService.findById(...) where the field was
+  // declared `= inject(RequisitionService)` (or constructor-injected) -> the service method's
+  // own verb AND path. Bare method names collide across services (six findAll()s in one v20
+  // source), so the untyped name lookup below is only the fallback.
+  const typed = [];
+  for (const c of findAllOfType(methodBody, 'call_expression')) {
+    const fn = c.childForFieldName('function');
+    if (fn?.type !== 'member_expression') continue;
+    const recv = fn.childForFieldName('object');
+    if (recv?.type !== 'member_expression' || recv.childForFieldName('object')?.text !== 'this') continue;
+    const hit = serviceCallByKey[`${fieldTypes[recv.childForFieldName('property').text]}.${fn.childForFieldName('property')?.text}`];
+    if (hit && hit.path) typed.push({ path: hit.path, method: hit.verb });
+  }
+  if (typed.length) return { apiCalls: typed, apiPaths: [] };
   const paths = scanApiPaths(methodBody);
   const verbCalls = findAllOfType(methodBody, 'call_expression')
     .map(c => c.childForFieldName('function'))
@@ -178,7 +233,10 @@ function scanApiCallsInMethod(methodBody) {
 // boundary (one flat app.module.ts), so screens are bucketed by matching the same domain
 // vocabulary the backend modules use ('item' / 'itemAction' / 'itemSummary') — this is what
 // makes a screen and its backend logic land in the same per-module BRD file.
-function moduleForComponent(className) {
+function moduleForComponent(className, file) {
+  // Feature-folder layout (Angular 20 style guide): features/<domain>/... names the domain.
+  const m = file && file.split(path.sep).join('/').match(/\/features\/([^/]+)\//);
+  if (m) return m[1];
   const lower = className.toLowerCase();
   if (lower.includes('summary')) return 'itemSummary';
   if (lower.includes('action')) return 'itemAction';
@@ -195,7 +253,7 @@ function scanTemplate(componentFile, templateUrl) {
   const templatePath = path.join(path.dirname(componentFile), templateUrl.replace(/^\.\//, ''));
   if (!fs.existsSync(templatePath)) return EMPTY_TEMPLATE_INFO;
   const html = fs.readFileSync(templatePath, 'utf8');
-  const hasListUI = /mat-table|\*ngFor/.test(html);
+  const hasListUI = /mat-table|\*ngFor|@for\s*\(|<table[\s>]/.test(html);
   const hasFormUI = /\[formGroup\]|<form[\s>]/.test(html);
   const widgetTypes = [...new Set((html.match(/<(mat-[a-z-]+)/g) || []).map(t => t.slice(1)))];
   // Data-driven styling ([ngClass], [class.x]="condition") is the one styling pattern that can
@@ -220,10 +278,16 @@ for (const file of routingFiles) {
     const pairs = obj.namedChildren.filter(n => n.type === 'pair');
     const pathPair = pairs.find(p => p.childForFieldName('key').text === 'path');
     const compPair = pairs.find(p => p.childForFieldName('key').text === 'component');
-    if (pathPair && compPair) {
-      const compName = compPair.childForFieldName('value').text;
+    const lazyPair = pairs.find(p => p.childForFieldName('key').text === 'loadComponent');
+    // loadComponent: () => import('./x').then((m) => m.Foo)  ->  Foo
+    const lazyName = lazyPair && (lazyPair.childForFieldName('value').text.match(/\.then\(\s*\(?\s*(\w+)\s*\)?\s*=>\s*\1\.(\w+)/) || [])[2];
+    const compName = compPair ? compPair.childForFieldName('value').text : lazyName;
+    if (pathPair && compName) {
       const routePath = pathPair.childForFieldName('value').text.replace(/^['"]|['"]$/g, '');
-      routedComponents[compName] = { path: routePath };
+      const pairText = key => pairs.find(p => p.childForFieldName('key').text === key)?.childForFieldName('value').text || '';
+      const roles = [...pairText('data').matchAll(/['"]([A-Z][A-Z0-9_]+)['"]/g)].map(m => m[1]);
+      const guards = (pairText('canActivate').match(/\w+/g) || []);
+      routedComponents[compName] = { path: routePath, roles, guards };
     }
   }
 }
@@ -291,6 +355,18 @@ for (const file of componentFiles) {
     const apiCalls = [];
     const apiPathsFallback = [];
 
+    const fieldTypes = {};
+    for (const member of classBody.namedChildren) {
+      if (member.type === 'public_field_definition') {
+        const inj = member.childForFieldName('value')?.text.match(/^inject\(\s*(\w+)/);
+        if (inj) fieldTypes[member.childForFieldName('name').text] = inj[1];
+      } else if (member.type === 'method_definition' && member.childForFieldName('name').text === 'constructor') {
+        for (const p of (member.childForFieldName('parameters')?.namedChildren || [])) {
+          const n = p.childForFieldName('pattern')?.text, t = p.childForFieldName('type')?.text.replace(/^:\s*/, '');
+          if (n && t) fieldTypes[n] = t;
+        }
+      }
+    }
     for (const member of classBody.namedChildren) {
       if (member.type === 'public_field_definition') {
         const fieldDecorator = member.childForFieldName('decorator');
@@ -315,7 +391,7 @@ for (const file of componentFiles) {
         }
         const methodBody = member.childForFieldName('body');
         if (methodBody) {
-          const { apiCalls: mCalls, apiPaths: mPaths } = scanApiCallsInMethod(methodBody);
+          const { apiCalls: mCalls, apiPaths: mPaths } = scanApiCallsInMethod(methodBody, fieldTypes);
           apiCalls.push(...mCalls);
           apiPathsFallback.push(...mPaths);
         }
@@ -335,13 +411,13 @@ for (const file of componentFiles) {
       name: className,
       label: className,
       description: '',
-      module: moduleForComponent(className),
+      module: moduleForComponent(className, file),
       isPublic: true,
       title: className.replace(/Component$/, '').replace(/([a-z])([A-Z])/g, '$1 $2'),
       inputParameters,
       localVariables: [],
       clientActions,
-      permissions: [],
+      permissions: routedComponents[className]?.roles || [],
       widgetSummary: {
         widgetTypes: templateInfo.widgetTypes,
         dataSources: [],

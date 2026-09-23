@@ -299,12 +299,12 @@ decided otherwise.
 
 - `skills/module-dependency-review.md`, `skills/microflow-loop-antipatterns.md` (the judgement)
 - `skills/existing-app-assurance.md` (the à-la-carte audit this dossier is the map for)
-- `skills/existing-app-change.md` (the change slice, whose Stage 0 blast radius covers the same
-  ground this dossier already measured). **Not yet wired, as of 2026-09-16.** Neither of those two
-  files mentions the dossier, the facts or this skill, so nothing reads what this produces except
-  `bin/app-report.sh`. The change slice still recomputes its blast radius by hand. Until that is
-  joined, a dossier finding reaches a change slice only because a person carried it, and this
-  section describes an intended relationship, not an implemented one. Do not write a skill
-  description that claims otherwise.
+- `skills/existing-app-change.md` — **wired 2026-09-22.** Its Stage 0a runs this procedure before any
+  slice is named, asks the user to disposition the top findings, and reads the blast radius for Stage
+  0b from `analysis/app-facts/dependencies.json`. In that mode `bin/lib/artifact-manifest.tsv` owes
+  the report (`app-report`, Stage 0), so a map nobody ran reports PENDING. `existing-app-assurance.md`
+  Track A starts from the same report. What is still NOT wired: the dossier itself
+  (`architecture/app-dossier.md`) is not owed by anything, only the rendered report; and nothing
+  re-runs the facts at Stage 6 to show a change left the tangle and loop counts no worse.
 - `skills/lint-that-actually-runs.md`, `skills/report-schema.md`, `skills/measured-claims.md`
 - `skills/skills-over-scripts.md`: the instrument fetches, this file judges; keep it that way

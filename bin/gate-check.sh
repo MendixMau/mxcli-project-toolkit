@@ -824,6 +824,12 @@ check_stage_0() {
     }' "$f")
   if [ -z "$signer" ]; then
     echo "FAIL|no non-empty 'Confirmed by:' line inside the '## Sign-off' section of $f — anything the user actually said is enough (\"confirmed in chat\", \"agreed, move on\"); it only has to not be the shipped placeholder"
+  elif printf '%s' "$signer" | grep -q '\[' && [ "$ENTRY_MODE" = "existing-app-change" ] \
+       && [ -s "$PROJECT_DIR/analysis/app-report.json" ]; then
+    # Mapped and waiting for a change is a normal state in this mode (existing-app-change.md
+    # §"Map the app first"): there is no slice to sign off yet, so this is not-started, not wrong.
+    # Without it a parked project read "needs attention" forever (existing-app field run, 2026-09-22).
+    echo "PENDING|app mapped (analysis/app-report.html), waiting on the change — triage.md is signed off at Stage 0b, once the user names the slice and its blast radius is written ($f, ## Sign-off)"
   elif printf '%s' "$signer" | grep -q '\['; then
     echo "FAIL|'Confirmed by:' still holds the shipped placeholder: \"$signer\" — replace it with whatever the user actually said (\"confirmed in chat 2026-08-20\" is fine; a full name is not required) ($f, ## Sign-off)"
   else
@@ -837,6 +843,13 @@ check_stage_1() {
     # extractor it was never going to run (2026-08-20). "No knowledge-base directory" is true in
     # every mode; what to DO about it is not, and the KB for a document corpus is built by a
     # skill, not a pipeline. Name both routes rather than assuming the migration one.
+    if [ "$ENTRY_MODE" = "existing-app-change" ]; then
+      # Neither route above exists in this mode: there is no source to extract, only the live
+      # model, and Stage 1 cannot be scoped until the user has named the change (existing-app
+      # field run, 2026-09-22 — the generic hint pointed at an extractor the mode never runs).
+      echo "PENDING|no knowledge-base directory yet — existing app: this stage reads the live model (Path D, skills/existing-app-change.md), scoped to the change and its blast radius. Waiting on the change is a normal state: map the app first (analysis/app-report.html, skills/app-analysis.md), then scope when the user names the change"
+      return
+    fi
     echo "PENDING|no knowledge-base directory yet — migration: run the extraction pipeline; requirements-driven: build the KB from the document corpus per skills/kb-generation.md (Path B). Either way it lands at analysis/<source>/knowledge-base/"
     return
   fi

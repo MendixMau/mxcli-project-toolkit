@@ -92,8 +92,14 @@ own bug log before running anything you have not run here before.
 2. **Compile gate** (if applicable): {{COMPILE_GATE_COMMAND}}.
 3. **Coverage checklist** (Gate 3, `iterative-build-loop.md`): walk the module's confirmed
    business-rule coverage checklist item by item — CE-error-free ≠ done.
-4. **Lint** (when the task calls for it): {{LINT_COMMAND}}. Flag *new* violations; don't fail the
-   gate on pre-existing baseline ones unless the task scope includes them.
+4. **Lint** (always): `bin/exec.sh` already ran `bin/lint-gate.sh` after the clean mxbuild and
+   wrote the verdict into the same BUILD-LOG row (`✅ applied … lint unchanged` or
+   `⚠️ applied, LINT ROSE: CONV011 (+3) …`). Read that row first; re-run {{LINT_COMMAND}} only to
+   get the per-document list behind a rise. Name each rule that rose, the documents behind it,
+   and whether the rise belongs to the script under review or to earlier debt. A rise is a FAIL
+   for the script even when mxbuild is clean. Never re-baseline to turn a row green — that is
+   the user's decision, made in chat and recorded in the commit message. If the row says
+   `lint not installed`, say so as a finding: nothing has checked shape in this project.
 
 ## A clean result is not automatically a pass
 

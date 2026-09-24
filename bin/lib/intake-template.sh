@@ -43,14 +43,17 @@ present — is the agent's homework, brought back as "I found X, confirm?" rathe
 here. Do that homework FIRST: it is what turns each question below into a recommendation
 with evidence instead of a blank prompt.
 
-## 1. Entry mode: migration, requirements-driven, or greenfield?
+## 1. Entry mode: migration, requirements-driven, greenfield, or change an existing app?
 
 _Not yet asked._ The agent proposes with evidence and the user confirms — never a silent
 inference (conversion-runbook.md "Entry Modes"; classification rules apply in order, first
-match wins: any legacy source → migration; else any specs/BRDs/wireframes →
-requirements-driven; else greenfield). Auditing or regression-testing an app nobody is
-rebuilding is not a mode at all — that routes to existing-app-assurance.md and skips the
-pipeline. Getting this wrong skips whole stages: real misrouting, 2026-07-14.
+match wins: a live Mendix `.mpr` you are adding to or altering, not rebuilding → change an
+existing app (record it verbatim as `Change an existing app`; existing-app-change.md); else
+any legacy source → migration; else any specs/BRDs/wireframes → requirements-driven; else
+greenfield). Auditing or regression-testing an app nobody is changing is not a mode at all —
+that routes to existing-app-assurance.md and skips the pipeline. Getting this wrong skips
+whole stages: real misrouting, 2026-07-14; and until 2026-09-22 this question listed only
+three modes, so a session changing a live app had no option to pick.
 
 ## 2. What is this project, and what is driving it?
 
@@ -66,17 +69,24 @@ _Not yet asked._ Default inherited from Q2 — (b) implies as-is, (c) licenses r
 put the inherited default to the user and ask what to override. This decides whether every
 Stage 3 fit-gap finding is a gap to close or an opportunity to take.
 
-## 4. Scope boundary: the whole application, or a slice?
+## 4. What are we working on: the whole application, or a part of it — and what else does that touch?
 
-_Not yet asked._ Name what is explicitly OUT, not just what is in — "out" is the half that
+_Not yet asked._ Name the topic in plain words — a feature, a flow, a module, a fix, or the
+whole app. Say what else it touches, and name what is explicitly OUT — "out" is the half that
 gets forgotten and rebuilt anyway. A module-sized source is the common case and is easy to
-mistake for a whole app; if it is a slice, say what the slice must keep working with.
+mistake for a whole app. Also ask whether there are input documents — user stories, tickets,
+a spec: they go in `sources/`, and "none, the app plus my description" is a fine answer. For
+an existing app this is settled at Stage 0b, after the map, so
+`Unverified — how to verify: named when the change request arrives (Stage 0b)` is a legitimate
+kickoff answer.
 
-## 5. What must NOT change?
+## 5. Of what we touch, what must stay exactly as it is?
 
 _Not yet asked._ Integrations, data contracts, external URLs, scheduled jobs, reports other
 systems consume. These are the constraints that invalidate an architecture late and cheaply
-if found now; they are rarely visible in the source, because they live in its consumers.
+if found now; they are rarely visible in the source, because they live in its consumers. For
+an existing app the default is that nothing beyond the ask changes — this question names the
+things the change must not break.
 
 ## 6. Are there licence/security constraints on storing this client's source in this workspace?
 

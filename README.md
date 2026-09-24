@@ -4,11 +4,14 @@
 
 Shared skills, prompt templates, and learnings for **Mendix migration and development projects**.
 
-Serves three audiences — same stages, different entry points (see `skills/conversion-runbook.md` "Entry Modes"; the mode is a **confirmed Stage-P decision**, never silently inferred — if source code exists it gets analyzed, if specs exist stages 2–4 run, and greenfield is only for starting from a conversation):
+Serves five ways in — four pipeline entry modes that share the same stages, plus one route with no pipeline at all (see `skills/conversion-runbook.md` "Entry Modes"; the mode is a **confirmed Stage-P decision**, never silently inferred — if source code exists it gets analyzed, if specs exist stages 2–4 run, and greenfield is only for starting from a conversation):
+
+**Which scripts run at each step of each walk:** `docs/pipeline-walks.html` — one process diagram per entry mode (plus the shared spine and the Stage 5 module loop), each with a stage-by-stage table of the commands executed. A browser page, like the guide.
 
 - **Migrations** (legacy source code) — all stages.
 - **Requirements-driven builds** (specs/BRDs/SME input, no legacy code) — stages 1–6; document discovery replaces source triage, extraction Path B/C replaces code extractors.
 - **Greenfield mxcli builds** — Stage 5 onward; the standard Mendix build discipline is not migration-specific.
+- **Changing an existing app** (a live `.mpr`, a feature or flow being added or altered) — stages P, 0–6 per change; the knowledge base is queried from the model itself (Path D), a regression net goes under the app first, and Stage 7 is N/A because the app never stops being live. `skills/existing-app-change.md`.
 - **Existing apps — à la carte, no pipeline** — audit, lint, or put a regression/e2e test net under a Mendix app you already have. No intake, no stages, no gates: start at `skills/existing-app-assurance.md` and grab only the tools you need.
 
 Used across all mxcli-powered projects — OS migrations, Java/Angular migrations, Node/Express+React migrations, and other client integration work.
@@ -529,7 +532,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Stage 0 sign-off when the inventory is at or under 1 module / 8 screens / 25 use cases, or the user says the app is small — declare the tier, then apply its per-stage caps and the three artifact waivers | `skills/small-project-tier.md` |
 | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts | `skills/bootstrap-project.md` |
 | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim | `skills/cloud-dev-environment.md` |
-| Changing an EXISTING Mendix app — adding a feature, altering a flow, restructuring a module — when it has no BRDs, no architecture doc and no wireframes: the knowledge base comes from the live model (Path D), stages 2–4 run over the changed slice plus its blast radius only, and the Track B regression baseline is the precondition; audit-only stays in existing-app-assurance | `skills/existing-app-change.md` |
+| Changing an EXISTING Mendix app — adding a feature, altering a flow, restructuring a module — when it has no BRDs, no architecture doc and no wireframes: the knowledge base comes from the live model (Path D), stages 2–4 run over what changes plus what it touches, nothing more, and the Track B regression baseline is the precondition; audit-only stays in existing-app-assurance | `skills/existing-app-change.md` |
 | Setting up or wiring a COMPANY BRAIN — the private tier between the toolkit and a project for own skills, conventions, lint rules, MDL snippets and approved MPKs; and deciding whether something goes to the toolkit, the company brain or docs/brain/ | `skills/company-brain.md` |
 | Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` |
 | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited | `skills/measured-claims.md` |
@@ -685,6 +688,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable | `skills/bug-submission-checklist.md` |
 | About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to | `skills/upstream-feedback.md` |
 | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause | `skills/empty-widget-triage.md` |
+| doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them — check what is actually on the machine before naming a fix; a wrong-arch binary, a missing one and a broken self-check all read the same | `skills/doctor-triage.md` |
 | Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary — proving it's version-specific without risking the real model | `skills/sandbox-ab-tool-defect-probe.md` |
 | Restarting Studio Pro on macOS — the reopen bug, the port bug, and detecting a real hang vs a slow load | `skills/restart-sp-reopen-and-hang-detection.md` |
 | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds | `skills/field-run.md` |

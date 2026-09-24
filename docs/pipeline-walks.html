@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline Walks</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f6f4ef; --surface:#ffffff; --surface-2:#eeeae1; --ink:#1d2430; --ink-2:#4b5563; --ink-3:#7c8494;
+  --line:#d9d3c6; --line-2:#c6beae;
+  --accent:#0f6b6e; --accent-ink:#ffffff; --accent-soft:#d8ecec;
+  --mig:#2f5f9e; --req:#8a5a10; --gf:#3f7b3a; --chg:#8a3a5e; --alc:#5b5e69;
+  --mig-soft:#dde8f6; --req-soft:#f6e9cf; --gf-soft:#dfeedc; --chg-soft:#f3dfe8; --alc-soft:#e4e5ea;
+  --code-bg:#ebe7de; --stop:#b3261e; --stop-soft:#f8dedb; --na:#ece9e2; --na-ink:#7c8494;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15181d; --surface:#1d2127; --surface-2:#252a32; --ink:#e8e6e0; --ink-2:#b5b3ad; --ink-3:#848a95;
+    --line:#333a44; --line-2:#444c58;
+    --accent:#5fc4c6; --accent-ink:#0f1a1a; --accent-soft:#183a3b;
+    --mig:#8fb5ec; --req:#e0b46a; --gf:#8fc78a; --chg:#e08fb6; --alc:#b1b5c2;
+    --mig-soft:#1f3350; --req-soft:#3f3115; --gf-soft:#1f3a1d; --chg-soft:#3f1f30; --alc-soft:#2b2e36;
+    --code-bg:#252a32; --stop:#ff8a80; --stop-soft:#4a2320; --na:#252a32; --na-ink:#848a95;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15181d; --surface:#1d2127; --surface-2:#252a32; --ink:#e8e6e0; --ink-2:#b5b3ad; --ink-3:#848a95;
+  --line:#333a44; --line-2:#444c58;
+  --accent:#5fc4c6; --accent-ink:#0f1a1a; --accent-soft:#183a3b;
+  --mig:#8fb5ec; --req:#e0b46a; --gf:#8fc78a; --chg:#e08fb6; --alc:#b1b5c2;
+  --mig-soft:#1f3350; --req-soft:#3f3115; --gf-soft:#1f3a1d; --chg-soft:#3f1f30; --alc-soft:#2b2e36;
+  --code-bg:#252a32; --stop:#ff8a80; --stop-soft:#4a2320; --na:#252a32; --na-ink:#848a95;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:15px;line-height:1.55}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em}
+code{background:var(--code-bg);padding:.1em .35em;border-radius:3px;white-space:nowrap}
+.wrap{max-width:1100px;margin:0 auto;padding-block:32px 64px;padding-inline:16px}
+h1,h2,h3,h4{text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:clamp(28px,4.5vw,40px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:22px;font-weight:600;margin-top:52px;padding-top:20px;border-top:2px solid var(--line-2);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+h3{font-size:16px;font-weight:600;margin-top:28px}
+p{margin:.6em 0;max-width:72ch}
+.lede{font-size:17px;color:var(--ink-2);max-width:70ch}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.sub{color:var(--ink-2);font-size:14px;max-width:80ch}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;vertical-align:middle}
+.mig{background:var(--mig-soft);color:var(--mig)} .req{background:var(--req-soft);color:var(--req)} .gf{background:var(--gf-soft);color:var(--gf)} .chg{background:var(--chg-soft);color:var(--chg)} .alc{background:var(--alc-soft);color:var(--alc)}
+.stop{background:var(--stop-soft);color:var(--stop)}
+.na{background:var(--na);color:var(--na-ink)}
+
+nav.toc{margin-top:22px;display:flex;flex-wrap:wrap;gap:8px}
+nav.toc a{text-decoration:none;color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:13px;background:var(--surface)}
+nav.toc a:hover,nav.toc a:focus-visible{border-color:var(--accent);outline:none}
+
+.diagram{margin-top:16px;border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow-x:auto;padding:12px}
+.diagram pre.mermaid{margin:0;min-width:640px}
+
+table.steps{border-collapse:collapse;width:100%;margin-top:14px;font-size:14px;background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tablewrap{overflow-x:auto;margin-top:14px}
+table.steps th,table.steps td{text-align:left;vertical-align:top;padding:10px 12px;border-top:1px solid var(--line)}
+table.steps th{background:var(--surface-2);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border-top:0}
+table.steps td:first-child{white-space:nowrap;font-weight:600;width:1%}
+table.steps td.scripts{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;line-height:1.7;min-width:280px}
+table.steps td.scripts code{white-space:normal;display:inline-block;margin:1px 0}
+table.steps td.what{min-width:220px;max-width:38ch}
+table.steps .gate{color:var(--ink-3);font-size:12.5px}
+.note{border-left:3px solid var(--accent);padding:8px 14px;margin-top:16px;color:var(--ink-2);font-size:14px;background:var(--surface);border-radius:0 6px 6px 0;max-width:80ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:12px;font-size:13px;color:var(--ink-2)}
+.legend span b{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+footer{margin-top:56px;color:var(--ink-3);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
+@media (max-width:640px){ h2{margin-top:40px} .diagram pre.mermaid{min-width:560px} }
+@media (prefers-reduced-motion: reduce){ *{scroll-behavior:auto} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="eyebrow">mxcli-project-toolkit</div>
+  <h1>Pipeline Walks</h1>
+  <p class="lede">One process diagram per entry mode: which stages run, what each step does, and which scripts the agent executes there. The stages are the same everywhere; the modes differ in where you enter and which steps are declared not applicable in the register.</p>
+  <nav class="toc" aria-label="Sections">
+    <a href="#spine">Shared spine</a>
+    <a href="#mig">Migration</a>
+    <a href="#req">Requirements-driven</a>
+    <a href="#gf">Greenfield</a>
+    <a href="#chg">Change an existing app</a>
+    <a href="#alc">À-la-carte assurance</a>
+    <a href="#build">Stage 5 module loop</a>
+  </nav>
+  <div class="legend">
+    <span><span class="pill stop">✋</span> hard stop, the agent asks in chat and ends its turn</span>
+    <span><span class="pill">CAC-n</span> checkpoint file in <code>skills/checkpoints/</code>, writes to <code>PROJECT.md</code></span>
+    <span><span class="pill na">N/A</span> declared in the register with a reason, never silently skipped</span>
+  </div>
+
+  <!-- ===================== SPINE ===================== -->
+  <h2 id="spine">Shared spine <span class="sub">every mode walks the same stages</span></h2>
+  <p class="sub">Every stage closes with <code>bin/gate-check.sh &lt;project&gt; &lt;stage&gt;</code>, which regenerates the dashboard and runs the obligation check, the artifact-manifest check and the source ledger. Hard-stop stages end the agent's turn until the user answers.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  P["P Kickoff<br/>init-project.sh"] --> S0["0 Triage and Scope ✋<br/>CAC-1"]
+  S0 --> S1["1 Analysis<br/>Path A / B / C / D<br/>CAC-1b"]
+  S1 --> S2["2 Requirements<br/>BRDs, CAC-2, CAC-3"]
+  S2 --> S3["3 Architecture and Design ✋<br/>CAC-4"]
+  S3 --> S4["4 Build Plan ✋<br/>CAC-5"]
+  S4 --> BR{"gate-check<br/>build-ready"}
+  BR --> S5["5 Build<br/>module loop x N"]
+  S5 --> S6["6 Test<br/>app-wide"]
+  S6 --> S7["7 Cutover ✋<br/>CAC-6, migration only"]
+  S7 --> WU["Wrap-up<br/>harvest-learnings.sh"]
+  classDef stop fill:#f8dedb,stroke:#b3261e,color:#1d2430
+  class S0,S3,S4,S7 stop
+  </pre></div>
+  <div class="tablewrap"><table class="steps">
+    <tr><th>Always</th><th>What it does</th><th>Script</th></tr>
+    <tr><td>Once per machine</td><td class="what">Checks prerequisites (Node, Python, git, Bash flavour, mxcli, WSL warning). Windows runs under Git Bash, not WSL.</td><td class="scripts"><code>bin/doctor.sh</code></td></tr>
+    <tr><td>Each session start</td><td class="what">Pull the toolkit, compare the commit with the register's <code>Toolkit commit:</code> line, re-read the runbook on mismatch.</td><td class="scripts"><code>git pull --ff-only</code> in the toolkit clone<br><code>bin/sync-project.sh &lt;project&gt;</code> after any pull</td></tr>
+    <tr><td>Where am I</td><td class="what">Reads the register and the real files; never inferred from memory.</td><td class="scripts"><code>bin/status.sh &lt;project&gt;</code><br><code>bin/gate-check.sh &lt;project&gt;</code></td></tr>
+    <tr><td>Stage close</td><td class="what">Mechanical verdict per stage: PASS / PENDING / FAIL / WAIVED / MANUAL. Blocks on any <code>UNSYNCED</code> drift marker.</td><td class="scripts"><code>bin/gate-check.sh &lt;project&gt; &lt;stage&gt;</code><br><code>--waive look/&lt;Module&gt; --reason "…"</code></td></tr>
+    <tr><td>Wrap-up</td><td class="what">Drafts inbox learnings from the project's bug logs, register promotions and locally patched scripts.</td><td class="scripts"><code>bin/harvest-learnings.sh &lt;project&gt;</code></td></tr>
+  </table></div>
+
+  <!-- ===================== MIGRATION ===================== -->
+  <h2 id="mig"><span class="pill mig">Migration</span> Legacy source code exists</h2>
+  <p class="sub">The full walk, P through 7. Path A extractors always run; Path B and C run when documents or subject-matter experts exist too.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TD
+  P["P Kickoff"] --> P1["init-project.sh<br/>intake.md answered<br/>mode CONFIRMED in PROJECT.md"]
+  P1 --> S0["0 Triage and Scope ✋"]
+  S0 --> S0a["source-sufficiency.sh init<br/>every-file inventory"]
+  S0a --> S0b["fill inventory + dimensions<br/>source-sufficiency.sh report<br/>band + interview mode"]
+  S0b --> S0c["extract-or-not per structure<br/>coverage matrix<br/>document-discovery"]
+  S0c --> S0d["triage-report.sh<br/>CAC-1 scope brainstorm<br/>sign-off in triage.md"]
+  S0d --> S1["1 Analysis"]
+  S1 --> A["Path A code<br/>pipelines/&lt;platform&gt;<br/>node run.js 1 / 2 / 3"]
+  S1 --> B["Path B docs<br/>html-to-md.sh, images-to-md.sh<br/>kb-generation"]
+  S1 --> C["Path C SME interview"]
+  A --> S1x["source-ledger.sh report + check<br/>extraction-report.sh<br/>CAC-1b"]
+  B --> S1x
+  C --> S1x
+  S1x --> S2["2 Requirements"]
+  S2 --> S2a["BRD scaffolds → enrich from KB → validate<br/>F{NNN}.brd.json"]
+  S2a --> S2b["brd-report.sh<br/>open-questions.sh --stage 2 = 0 blocking<br/>facts-lock.sh, question-kinds.sh"]
+  S2b --> S2c["CAC-2 BRD sign-off<br/>CAC-3 architecture entry"]
+  S2c --> S3["3 Architecture and Design ✋"]
+  S3 --> S3a["modularize-domain → blueprint.md + html<br/>fit-gap, .mx-brd.json"]
+  S3a --> S3b["design-system.html, ds.css<br/>one wireframe per screen<br/>CAC-4"]
+  S3b --> S4["4 Build Plan ✋"]
+  S4 --> S4a["brd-to-build-plan → build-plan.md<br/>coverage-check.sh<br/>module briefs, CAC-5"]
+  S4a --> BR{"gate-check build-ready"}
+  BR --> S5["5 Build"]
+  S5 --> S5a["walking skeleton first"]
+  S5a --> S5b["per module: BUILD → GATE → PROVE → LOOK → CONFIRM<br/>check --references, exec.sh, lint,<br/>verify-module.sh, design-audit.js, ui-review"]
+  S5b --> S5c["every 2-3 modules<br/>coherence pass: lint QUAL004, graph-report"]
+  S5c --> S6["6 Test"]
+  S6 --> S6a["Playwright golden path + edge cases<br/>DB assertions<br/>test-report.html, docs/report.json"]
+  S6a --> S7["7 Cutover ✋"]
+  S7 --> S7a["data migration scripts<br/>cutover checklist, CAC-6"]
+  S7a --> WU["Wrap-up<br/>harvest-learnings.sh"]
+  classDef stop fill:#f8dedb,stroke:#b3261e,color:#1d2430
+  class S0,S3,S4,S7 stop
+  classDef mode fill:#dde8f6,stroke:#2f5f9e,color:#1d2430
+  class P,S1,S2,S5,S6 mode
+  </pre></div>
+  <div class="tablewrap"><table class="steps">
+    <tr><th>Stage</th><th>Steps</th><th>Scripts and commands</th></tr>
+    <tr><td>P Kickoff</td><td class="what">Scaffold the project. Answer every intake question. Propose the entry mode with evidence and record it CONFIRMED. <span class="gate">Gate: every intake question answered. Owner ba-agent.</span></td><td class="scripts"><code>bin/init-project.sh &lt;project&gt;</code><br><code>bin/init-agents.sh &lt;session-root&gt;</code><br><code>bin/gate-check.sh &lt;project&gt; P</code></td></tr>
+    <tr><td>0 Triage ✋</td><td class="what">Inventory every source file. Grade sufficiency (SPECIFICATION / OUTLINE / SKETCH). Decide extract-or-not per structure and fill the coverage matrix. Scan documents. Run the CAC-1 scope brainstorm, order the slices, get sign-off in <code>triage.md</code>. <span class="gate">Owner ba-agent.</span></td><td class="scripts"><code>bin/source-sufficiency.sh init &lt;project&gt;</code><br><code>bin/source-sufficiency.sh report &lt;project&gt;</code><br><code>bin/interview-mode.sh --set …</code> (only after the user agrees)<br><code>bin/triage-report.sh &lt;project&gt;</code><br><code>bin/source-sufficiency.sh --refresh</code> for late files<br><code>bin/gate-check.sh &lt;project&gt; 0</code></td></tr>
+    <tr><td>1 Analysis</td><td class="what">Path A: run the platform pipeline (extract, knowledge base, BRD scaffolds, reports). Path B: convert documents to Markdown and build the KB. Path C: interview the SME. Every source file must name the artifact that consumed it. <span class="gate">Gate: source ledger clean, four extraction quality checks. CAC-1b.</span></td><td class="scripts"><code>cd pipelines/&lt;platform&gt;/pipeline &amp;&amp; npm install</code><br><code>node run.js</code> · <code>node run.js 2</code> · <code>node run.js 3</code> · <code>npm run reports</code><br><code>bin/html-to-md.sh &lt;project&gt;</code> · <code>bin/images-to-md.sh</code><br><code>bin/source-ledger.sh report &lt;project&gt;</code><br><code>bin/source-ledger.sh check &lt;project&gt;</code><br><code>bin/extraction-report.sh &lt;project&gt;</code><br><code>bin/gate-check.sh &lt;project&gt; 1</code></td></tr>
+    <tr><td>2 Requirements</td><td class="what">Turn scaffolds into validated BRDs, one per feature. Drive blocking open questions to zero. Lock facts. <span class="gate">CAC-2 BRD sign-off, CAC-3 architecture entry.</span></td><td class="scripts"><code>bin/brd-report.sh &lt;project&gt;</code><br><code>bin/open-questions.sh &lt;project&gt; --stage 2</code><br><code>bin/questions-report.sh</code> · <code>bin/facts-lock.sh</code> · <code>bin/question-kinds.sh</code><br><code>bin/gate-check.sh &lt;project&gt; 2</code></td></tr>
+    <tr><td>3 Design ✋</td><td class="what">Module boundaries, blueprint, fit-gap, security model, integrations. Design system and one wireframe per screen. <span class="gate">CAC-4. Owner architect-agent, interviews by ba-agent.</span></td><td class="scripts">skills: <code>modularize-domain.md</code>, <code>architecture-blueprint.md</code>, <code>design-artifacts.md</code><br>outputs: <code>architecture/blueprint.html</code>, <code>design/design-system.html</code>, <code>design/wireframes/*.html</code><br><code>bin/gate-check.sh &lt;project&gt; 3</code></td></tr>
+    <tr><td>4 Build plan ✋</td><td class="what">Dependency-ordered script sequence, coverage ledger, one brief per module. <span class="gate">CAC-5, then the build-ready wiring check.</span></td><td class="scripts"><code>bin/coverage-check.sh</code><br><code>bin/gate-check.sh &lt;project&gt; 4</code><br><code>bin/gate-check.sh &lt;project&gt; build-ready</code></td></tr>
+    <tr><td>5 Build</td><td class="what">Walking skeleton, then the five-stage module loop per module (see <a href="#build">below</a>). Coherence pass every two or three modules.</td><td class="scripts"><code>./mxcli check s.mdl -p app.mpr --references</code><br><code>bin/exec.sh s.mdl</code> · <code>./mxcli lint -p app.mpr</code><br><code>project-bin/verify-module.sh &lt;Module&gt;</code><br><code>./mxcli graph-report -p app.mpr</code><br><code>bin/gate-check.sh &lt;project&gt; 5</code></td></tr>
+    <tr><td>6 Test</td><td class="what">Golden path, edge cases and database assertions across the whole app. Zero open P1 in the app-wide review. <span class="gate">Owner test-agent and review-agent.</span></td><td class="scripts">Playwright suite per <code>e2e-harness-base.md</code><br>outputs: <code>test-report.html</code>, <code>docs/report.json</code><br><code>bin/gate-check.sh &lt;project&gt; 6</code></td></tr>
+    <tr><td>7 Cutover ✋</td><td class="what">Legacy data migration scripts and the cutover checklist. Runs after Stage 6 on purpose. <span class="gate">CAC-6.</span></td><td class="scripts"><code>bin/gate-check.sh &lt;project&gt; 7</code><br><code>bin/harvest-learnings.sh &lt;project&gt;</code></td></tr>
+  </table></div>
+
+  <!-- ===================== REQUIREMENTS-DRIVEN ===================== -->
+  <h2 id="req"><span class="pill req">Requirements-driven</span> Specs, BRDs, workshop output, no legacy code</h2>
+  <p class="sub">Same spine, Stage 7 dropped. Path A is declared N/A with evidence, never skipped. A text-native corpus (Markdown and HTML only) takes the docs-ready fast path.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TD
+  P["P Kickoff<br/>init-project.sh"] --> S0["0 Triage and Scope ✋"]
+  S0 --> S0a["source-sufficiency.sh init + report<br/>document-discovery over the corpus<br/>extraction call per extractable structure"]
+  S0a --> S0b["triage-report.sh<br/>CAC-1, sign-off"]
+  S0b --> Q{"corpus text-native?<br/>no Office / PDF"}
+  Q -- "no" --> S1["1 Analysis<br/>Path B kb-generation<br/>Path C SME<br/>Path A = N/A"]
+  Q -- "yes: docs-ready" --> F1["1 html-to-md.sh once<br/>text/*.md + documents-index.md"]
+  S1 --> S1x["source-ledger.sh, extraction-report.sh<br/>CAC-1b"]
+  F1 --> F2["2 thin BRD transform<br/>one use case per section, sourceRef"]
+  S1x --> S2["2 Requirements<br/>BRDs from KB<br/>brd-report.sh, open-questions.sh"]
+  S2 --> S3
+  F2 --> S3["3 Architecture and Design ✋<br/>CAC-4"]
+  S3 --> S4["4 Build Plan ✋<br/>CAC-5, build-ready"]
+  S4 --> S5["5 Build<br/>module loop"]
+  S5 --> S6["6 Test"]
+  S6 --> S7["7 Cutover<br/>N/A unless legacy data exists"]
+  classDef stop fill:#f8dedb,stroke:#b3261e,color:#1d2430
+  class S0,S3,S4 stop
+  classDef mode fill:#f6e9cf,stroke:#8a5a10,color:#1d2430
+  class P,S1,S2,S5,S6,F1,F2 mode
+  classDef na fill:#ece9e2,stroke:#c6beae,color:#7c8494
+  class S7 na
+  </pre></div>
+  <div class="tablewrap"><table class="steps">
+    <tr><th>Stage</th><th>What changes versus migration</th><th>Scripts and commands</th></tr>
+    <tr><td>0 Triage ✋</td><td class="what">Runs in full. Document inventory always runs. The extraction call runs per extractable structure inside the docs (a schema, a table dump, an export). N/A is earned on evidence.</td><td class="scripts"><code>bin/source-sufficiency.sh init &lt;project&gt;</code><br><code>bin/source-sufficiency.sh report &lt;project&gt;</code><br><code>bin/triage-report.sh &lt;project&gt;</code><br><code>bin/gate-check.sh &lt;project&gt; 0</code></td></tr>
+    <tr><td>1 Analysis</td><td class="what">Path B and C only. The source ledger still has to account for every document, including embedded images and pages.</td><td class="scripts"><code>bin/html-to-md.sh &lt;project&gt;</code><br><code>bin/images-to-md.sh</code><br><code>bin/source-ledger.sh report | check</code><br><code>bin/extraction-report.sh &lt;project&gt;</code></td></tr>
+    <tr><td>1–2 docs-ready</td><td class="what">Fast path: one conversion run, then a thin BRD transform with one use case per section and a <code>sourceRef</code> back to the text. Stages 3 and 4 unchanged.</td><td class="scripts"><code>bin/html-to-md.sh &lt;project&gt;</code> (once)<br>outputs: <code>analysis/knowledge-base/text/*.md</code>, <code>documents-index.md</code></td></tr>
+    <tr><td>2–6</td><td class="what">Unchanged. Same reports, same gates, same module loop.</td><td class="scripts">as migration</td></tr>
+    <tr><td>7</td><td class="what">N/A in the register unless legacy data exists somewhere to cut over.</td><td class="scripts">register line only</td></tr>
+  </table></div>
+  <div class="note">Small project tier (one module, up to 8 screens, 25 use cases): set <code>Size tier: small</code> in the register and follow <code>small-project-tier.md</code>. The stages still run, the artifacts shrink.</div>
+
+  <!-- ===================== GREENFIELD ===================== -->
+  <h2 id="gf"><span class="pill gf">Greenfield</span> Just an idea, or a running start on the model</h2>
+  <p class="sub">The narrowest mode. Stages 1 to 4 collapse to whatever plan the user already has. Stage 0 does not collapse: the scope conversation still runs. If you find yourself inventing requirements mid-build, you are in requirements-driven mode and should back up to Stage 2.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TD
+  P["P Kickoff light<br/>init-project.sh<br/>intake answered"] --> S0["0 Scope only ✋<br/>CAC-1 brainstorm<br/>sign-off in triage.md"]
+  S0 --> S0a["inventory, extraction, documents<br/>rows = N/A in the register"]
+  S0a --> C["1–4 collapse<br/>to the plan the user brings"]
+  C --> BR{"gate-check build-ready"}
+  BR --> S5["5 Build<br/>walking skeleton, then module loop"]
+  S5 --> S6["6 Test"]
+  S6 --> S7["7 Cutover N/A"]
+  S6 --> WU["Wrap-up<br/>harvest-learnings.sh"]
+  classDef stop fill:#f8dedb,stroke:#b3261e,color:#1d2430
+  class S0 stop
+  classDef mode fill:#dfeedc,stroke:#3f7b3a,color:#1d2430
+  class P,S5,S6 mode
+  classDef na fill:#ece9e2,stroke:#c6beae,color:#7c8494
+  class S0a,C,S7 na
+  </pre></div>
+  <div class="tablewrap"><table class="steps">
+    <tr><th>Stage</th><th>Steps</th><th>Scripts and commands</th></tr>
+    <tr><td>P light</td><td class="what">Scaffold, answer intake, register <code>Greenfield CONFIRMED</code>.</td><td class="scripts"><code>bin/init-project.sh &lt;project&gt;</code></td></tr>
+    <tr><td>0 Scope ✋</td><td class="what">CAC-1 brainstorm and slice ordering. Inventory, extraction and document rows are written N/A with the reason "no corpus".</td><td class="scripts"><code>bin/gate-check.sh &lt;project&gt; 0</code></td></tr>
+    <tr><td>5 Build</td><td class="what">Walking skeleton first, then the module loop. Same discipline as every other mode.</td><td class="scripts"><code>./mxcli check s.mdl -p app.mpr --references</code><br><code>bin/exec.sh s.mdl</code> · <code>./mxcli lint -p app.mpr</code><br><code>project-bin/verify-module.sh &lt;Module&gt;</code></td></tr>
+    <tr><td>6 Test</td><td class="what">Golden path, edge cases, DB assertions, app-wide review.</td><td class="scripts"><code>bin/gate-check.sh &lt;project&gt; 6</code></td></tr>
+  </table></div>
+
+  <!-- ===================== CHANGE AN EXISTING APP ===================== -->
+  <h2 id="chg"><span class="pill chg">Change an existing app</span> A live .mpr you are altering, not rebuilding</h2>
+  <p class="sub">The knowledge base comes from the model itself (Path D). The first real step is mapping the whole app, run without asking, followed by the one question the user owns: what to do with each top finding. The project may park there until a change is named; Stage 0b then asks what the user wants to work on, whether there are input documents, and what else it touches, read from the map. A regression net goes under the app before anything changes, and every gate from Stage 5 on is also a regression gate.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart TD
+  P["P Kickoff light<br/>./mxcli in place, then init-project.sh<br/>open question: what is driving it?<br/>register: Change an existing app CONFIRMED"] --> M["0a Map the app, not asked, just run<br/>bin/app-facts.sh then bin/app-report.sh<br/>(app-analysis.md, about a minute)"]
+  M --> F["show the report, ask per top finding:<br/>fix in this work / log / accept<br/>answers into PROJECT.md"]
+  F --> PK{"change named yet?"}
+  PK -- "not yet" --> PARK["parked: a normal state<br/>Stage 1 PENDING, nothing nags"]
+  PARK -.->|change arrives| S0
+  PK -- "only audits / tests wanted" --> AS["switch to existing-app-assurance<br/>Track A starts from the same report"]
+  PK -- "yes" --> S0
+  S0["0b Scope ✋ what do you want to work on,<br/>what else does it touch"] --> S0a["what it touches into triage.md, read from the map:<br/>dependencies.json tangles and edges,<br/>then associations, SEARCH, SHOW PAGES IN,<br/>published / consumed services"]
+  S0a --> S0b["capability map from SHOW MODULES<br/>extraction rows N/A<br/>CAC-1, sign-off"]
+  S0b --> RN["Regression net under the app<br/>Track B baseline from existing-app-assurance"]
+  RN --> S1["1 Analysis Path D<br/>DESCRIBE ENTITY, SHOW MICROFLOWS IN,<br/>graph-report scoped to the change + what it touches<br/>counts recorded, Path A = N/A, CAC-1b"]
+  S1 --> S2["2 Requirements<br/>BRDs for what changes only, as-is / to-be<br/>CAC-2, CAC-3"]
+  S2 --> Q{"crosses a module boundary,<br/>adds an integration,<br/>alters the domain model?"}
+  Q -- "yes" --> S3["3 Architecture and Design ✋ in full<br/>wireframes for changed screens only<br/>design system = captured existing styling"]
+  Q -- "no" --> S3b["3 collapses to:<br/>which existing module owns this"]
+  S3 --> S4
+  S3b --> S4["4 Build Plan ✋ what changes only<br/>respects live data<br/>coverage ledger = mxcli brain plan<br/>CAC-5, build-ready"]
+  S4 --> S5["5 Build<br/>module loop + regression net must stay green<br/>mxcli brain capture per leaf"]
+  S5 --> S6["6 Test<br/>journeys of the change + full regression suite"]
+  S6 --> S7["7 Cutover N/A: the app is live"]
+  classDef stop fill:#f8dedb,stroke:#b3261e,color:#1d2430
+  class S0,S3,S4 stop
+  classDef mode fill:#f3dfe8,stroke:#8a3a5e,color:#1d2430
+  class P,M,M1,M2,M3,RN,S1,S2,S5,S6 mode
+  classDef na fill:#ece9e2,stroke:#c6beae,color:#7c8494
+  class S3b,S7 na
+  </pre></div>
+  <div class="tablewrap"><table class="steps">
+    <tr><th>Step</th><th>What it does</th><th>Scripts and commands</th></tr>
+    <tr><td>P light</td><td class="what">Scaffold. Intake answers come from the model, not from the user's memory. Run the machine check once.</td><td class="scripts"><code>bin/doctor.sh</code><br><code>bin/init-project.sh &lt;project&gt;</code></td></tr>
+    <tr><td>0a Map the app</td><td class="what">Run, do not ask: it is read-only and takes about a minute. Inventory, module tangles, loop-risk microflows, dead elements, with a fix-first list. Show the report and ask the user to disposition each top finding (fix in this work / log / accept); answers go to <code>PROJECT.md</code>. The project may then park until a change is named. Owed in this mode as the <code>app-report</code> artifact. Lint, security matrix and marketplace drift fill the report's Security and Lint sections.</td><td class="scripts"><code>bin/app-facts.sh</code> (<code>app-analysis.md</code>)<br><code>bin/app-report.sh &lt;project&gt;</code><br><code>./mxcli lint -p app.mpr</code><br><code>./mxcli -p app.mpr -c "SHOW SECURITY MATRIX"</code><br><code>./mxcli marketplace diff &lt;content-id&gt; -p app.mpr</code> (v0.18+)</td></tr>
+    <tr><td>0b Scope ✋</td><td class="what">Once the change is named: what do you want to work on, do you have input documents, and what else does it touch — starting from the map's tangles and edges. What it touches is written into <code>triage.md</code> as its own section, with counts. Capability map from the module list. CAC-1 and sign-off.</td><td class="scripts"><code>SHOW ASSOCIATIONS IN &lt;Module&gt;</code> · <code>DESCRIBE ENTITY M.E</code><br><code>SEARCH '&lt;entity&gt;'</code> · <code>SHOW PAGES IN &lt;Module&gt;</code><br><code>SHOW REFERENCES OF M.E</code> · <code>SHOW IMPACT OF M.E</code><br><code>analysis/app-facts/dependencies.json</code> for the tangle<br><code>bin/gate-check.sh &lt;project&gt; 0</code></td></tr>
+    <tr><td>Regression net</td><td class="what">Track B from the assurance skill, before any change: harness, action inventory, one journey per action, DB assertions, wiring sweep, LOOK pass, committed baseline.</td><td class="scripts">see <a href="#alc">Track B</a> below<br><code>project-bin/coverage-preflight.sh --assess --module &lt;M&gt;</code></td></tr>
+    <tr><td>1 Path D</td><td class="what">Query the model into the knowledge base, scoped to the change plus what it touches. Record counts. Path A declared N/A with attribution. Path C matters most here: the people who know why the app is the way it is.</td><td class="scripts"><code>SHOW ENTITIES IN</code> · <code>DESCRIBE ENTITY</code> · <code>SHOW MICROFLOWS IN</code><br><code>DESCRIBE MICROFLOW</code> · <code>DESCRIBE PAGE</code><br><code>bin/extraction-report.sh &lt;project&gt;</code><br><code>bin/gate-check.sh &lt;project&gt; 1</code></td></tr>
+    <tr><td>2 Requirements</td><td class="what">One as-is / to-be BRD per capability being changed. Nothing for the untouched rest.</td><td class="scripts"><code>bin/brd-report.sh</code> · <code>bin/open-questions.sh --stage 2</code></td></tr>
+    <tr><td>3 Design</td><td class="what">Full only when the change crosses a module boundary, adds an integration or alters the domain model. Otherwise "which module owns this". Wireframes for changed screens only.</td><td class="scripts"><code>bin/gate-check.sh &lt;project&gt; 3</code></td></tr>
+    <tr><td>4 Build plan ✋</td><td class="what">Plan for what changes only, that respects live data. Coverage ledger lives in the brain, not a hand-kept file.</td><td class="scripts"><code>./mxcli brain init</code> · <code>./mxcli brain plan</code><br><code>bin/gate-check.sh &lt;project&gt; build-ready</code></td></tr>
+    <tr><td>5–6</td><td class="what">Module loop unchanged. Every gate also re-runs the regression net. Each finished leaf is captured in the brain.</td><td class="scripts"><code>bin/exec.sh s.mdl</code> · <code>project-bin/verify-module.sh &lt;M&gt;</code><br><code>./mxcli brain capture "&lt;leaf&gt;"</code> · <code>./mxcli brain check</code></td></tr>
+    <tr><td>7</td><td class="what">N/A in the register: the app is already live.</td><td class="scripts">register line only</td></tr>
+  </table></div>
+
+  <!-- ===================== A LA CARTE ===================== -->
+  <h2 id="alc"><span class="pill alc">À-la-carte assurance</span> Audit or test an app nobody is changing</h2>
+  <p class="sub">No pipeline, no intake, no gates, no register. Read-only against the model. Three tracks, pick what the user asked for. Track B is also the regression baseline the change mode needs.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  E["existing-app-assurance.md"] --> A["Track A audit"]
+  E --> A2["Track A2 design-system audit"]
+  E --> B["Track B regression net"]
+  A --> A1["query the model<br/>SHOW MODULES / ENTITIES / ASSOCIATIONS<br/>DESCRIBE ENTITY, SEARCH"]
+  A1 --> A3["structure<br/>mxcli graph-report"]
+  A3 --> A4["best practices<br/>mxcli lint + Starlark"]
+  A4 --> A5["security<br/>manage-security, sec_* rules"]
+  A5 --> A6["overall score<br/>mxcli report"]
+  A6 --> A7["marketplace<br/>mxcli marketplace diff"]
+  A7 --> AR["findings report<br/>dispositions triaged with the user"]
+  A2 --> A2a["9 steps: theme.compiled.css root size,<br/>check-design-portability.sh"]
+  B --> B1["1 harness<br/>e2e-harness-base"]
+  B1 --> B2["2 action inventory per module<br/>SHOW PAGES IN, SHOW MICROFLOWS IN"]
+  B2 --> B3["3 journeys/&lt;Module&gt;.journey.json<br/>5 rungs, --positive-control"]
+  B3 --> B4["4 DB assertions"]
+  B4 --> B5["5 wiring sweep"]
+  B5 --> B6["6 LOOK + design-audit.js"]
+  B6 --> B7["7 commit suite + baseline"]
+  B7 --> B8["8 optional test-agent<br/>init-agents.sh build"]
+  classDef mode fill:#e4e5ea,stroke:#5b5e69,color:#1d2430
+  class E,A,A2,B mode
+  </pre></div>
+  <div class="tablewrap"><table class="steps">
+    <tr><th>Track</th><th>What it does</th><th>Scripts and commands</th></tr>
+    <tr><td>A audit</td><td class="what">Map, then score. Structure and tangle, best practices, security posture, overall quality, marketplace drift. Deliverable is a findings report whose dispositions are triaged with the user, never applied silently.</td><td class="scripts"><code>./mxcli -p app.mpr -c "SHOW STRUCTURE"</code><br><code>./mxcli graph-report -p app.mpr</code><br><code>./mxcli lint -p app.mpr --list-rules</code><br><code>./mxcli report -p app.mpr --format html</code><br><code>./mxcli marketplace diff &lt;id&gt; -p app.mpr --json</code></td></tr>
+    <tr><td>A2 design</td><td class="what">Nine-step design-system audit of the deployed theme, including the root font size and portability of the design tokens.</td><td class="scripts"><code>grep</code> on <code>deployment/web/theme.compiled.css</code><br><code>bin/check-design-portability.sh</code></td></tr>
+    <tr><td>B regression net</td><td class="what">Eight steps, each with a recorded denominator: one journey per page action, database assertions, wiring sweep, LOOK pass, then commit the suite as the baseline. On an existing app <code>verify-module.sh</code> is never expected to come back clean, so run the preflight first.</td><td class="scripts"><code>project-bin/coverage-preflight.sh --assess --module &lt;M&gt;</code><br><code>project-bin/verify-module.sh &lt;Module&gt;</code><br><code>design-audit.js</code><br><code>bin/init-agents.sh &lt;session-root&gt; build</code> (test-agent only)</td></tr>
+  </table></div>
+
+  <!-- ===================== STAGE 5 MODULE LOOP ===================== -->
+  <h2 id="build">Stage 5 module loop <span class="sub">shared by every mode that builds</span></h2>
+  <p class="sub">Five stages per module from <code>module-review.md</code>. Each stage owes a mark with a denominator; the obligation check reports a pass nobody performed as PENDING, never green.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
+  WS["walking skeleton<br/>one thin end-to-end path"] --> L1
+  subgraph mod["per module, entities → microflows → pages, security-setup.mdl last"]
+    L1["1 BUILD mdl-agent<br/>mxcli check --references"] --> L2["2 GATE gate-agent<br/>exec.sh: snapshot → exec → mxbuild → auto-restore<br/>mxcli lint"]
+    L2 --> L3["3 PROVE<br/>verify-module.sh<br/>Playwright + OQL + wiring sweep + monkey"]
+    L3 --> L4["4 LOOK every screen<br/>design-audit.js, check-page-shell.sh,<br/>page-fidelity.js"]
+    L4 --> L5["5 CONFIRM<br/>ui-review-&lt;date&gt;.html with denominator"]
+  end
+  L5 --> N{"2-3 modules done?"}
+  N -- "yes" --> CP["coherence pass<br/>lint QUAL004<br/>graph-report GRAPH_DEAD_ASSETS, GRAPH_INTEGRATION_SURFACE"]
+  N -- "no" --> L1
+  CP --> L1
+  L2 -. "mxbuild fails" .-> R["restore-mpr.sh"]
+  R --> L1
+  </pre></div>
+  <div class="tablewrap"><table class="steps">
+    <tr><th>Stage</th><th>What it proves</th><th>Scripts and commands</th></tr>
+    <tr><td>1 BUILD</td><td class="what">Script parses and every referenced module, entity and association exists.</td><td class="scripts"><code>./mxcli check s.mdl -p app.mpr --references</code></td></tr>
+    <tr><td>2 GATE</td><td class="what">Snapshot, execute, run mxbuild, auto-restore on failure. Lint the result.</td><td class="scripts"><code>bin/exec.sh mdlsource/s.mdl</code><br><code>bin/exec-approval.sh</code> where approval is wired<br><code>./mxcli lint -p app.mpr</code><br><code>bin/restore-mpr.sh</code> on a bad build</td></tr>
+    <tr><td>3 PROVE</td><td class="what">Journeys click through, database rows match, no dead wiring, monkey run survives.</td><td class="scripts"><code>project-bin/verify-module.sh &lt;Module&gt;</code><br>fixtures per <code>fixture-seeding.md</code></td></tr>
+    <tr><td>4 LOOK</td><td class="what">Every screen viewed against its wireframe, design tokens reach the running app.</td><td class="scripts"><code>node design-audit.js</code><br><code>project-bin/check-design-reaches-app.sh</code><br><code>project-bin/check-page-shell.sh</code><br><code>node project-bin/page-fidelity.js</code></td></tr>
+    <tr><td>5 CONFIRM</td><td class="what">Written review with the denominator: N of N screens looked at, N journeys run.</td><td class="scripts">output: <code>design/ui-reviews/ui-review-&lt;date&gt;.html</code><br><code>bin/gate-check.sh &lt;project&gt; 5</code></td></tr>
+  </table></div>
+
+  <footer>Sources: <code>skills/conversion-runbook.md</code> (stage tables and entry modes), <code>skills/existing-app-change.md</code> (Path D and blast radius), <code>skills/existing-app-assurance.md</code> (Tracks A, A2, B), <code>skills/module-review.md</code>. Script names are the toolkit's own; replace <code>&lt;project&gt;</code> and <code>app.mpr</code> with yours.</footer>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', theme: 'neutral', fontFamily: 'IBM Plex Sans, system-ui, sans-serif' });
+</script>
+</body>
+</html>

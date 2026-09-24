@@ -2,7 +2,7 @@
 
 ## What this repo is
 Shared skills, stage-gate tooling, and learnings for **Mendix migration and development projects**.
-Serves three entry modes (see `skills/conversion-runbook.md` → "Entry Modes"): **migration** (legacy source, all stages), **requirements-driven** (specs/SME input, no legacy code, stages 1–6), and **greenfield** (stage 5 onward). Plus **à-la-carte use with no pipeline at all** — auditing or regression/e2e-testing an existing app routes straight to `skills/existing-app-assurance.md`, skipping intake/stages/gates entirely.
+Serves four entry modes (see `skills/conversion-runbook.md` → "Entry Modes"): **migration** (legacy source, all stages), **requirements-driven** (specs/SME input, no legacy code, stages 1–6), **greenfield** (stage 5 onward), and **change an existing app** (a live `.mpr`, a slice being added or altered — stages P, 0–6 per slice, `skills/existing-app-change.md`). Plus **à-la-carte use with no pipeline at all** — auditing or regression/e2e-testing an existing app routes straight to `skills/existing-app-assurance.md`, skipping intake/stages/gates entirely.
 
 ## The front door
 - `CONVERSION-RUNBOOK.md` (root) — thin "how to start" pointer.
@@ -94,7 +94,7 @@ POINTERS, never copies — see `project-bin/check-root-clean.sh`.**
 
 The BRD is the platform boundary. Upstream of it a source is OutSystems, Java, or a folder of
 epics. Downstream of it there are only entities, microflows, pages and use cases. This repo
-serves three entry modes (migration, requirements-driven, greenfield) plus à-la-carte use, and
+serves four entry modes (migration, requirements-driven, greenfield, change an existing app) plus à-la-carte use, and
 only the first of those runs a pipeline at all.
 
 **Where things go.**

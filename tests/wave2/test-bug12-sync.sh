@@ -340,7 +340,7 @@ BEFORE="$(md5 -q "$P10/intake.md" 2>/dev/null || md5sum "$P10/intake.md" | cut -
 O="$("$SYNC" "$P10" 2>&1)"
 case "$O" in *"predates the current kickoff question set"*) ok "a plain run REPORTS the old set" ;;
               *) bad "a plain run REPORTS the old set" ;; esac
-case "$O" in *"Entry mode: migration, requirements-driven, or greenfield?"*)
+case "$O" in *"Entry mode: migration, requirements-driven, greenfield, or change an existing app?"*)
       ok "  and names the question that matters most" ;;
   *)  bad "  and names the question that matters most" ;; esac
 case "$O" in *"licence/security constraints"*)

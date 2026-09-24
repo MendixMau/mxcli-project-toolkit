@@ -22,7 +22,8 @@ verification rungs form a ladder, and a green result only certifies what that ru
    passes (see `scriptable-sp-verification.md`).
 6. **Live runtime observation** — a browser retrieve, `/xas/` traffic, a DB row count. The
    only rung that verifies *behaviour*. Some defect families are invisible to everything
-   above this line.
+   above this line. **It is not infallible: it is only as true as the harness that reads it**
+   — see operating rule 3.
 
 ## The register
 
@@ -44,6 +45,8 @@ verification rungs form a ladder, and a green result only certifies what that ru
 | `create import mapping` array-to-child binding | rungs 1–4; `DESCRIBE IMPORT MAPPING` looks correct | live retrieve after a real `import from mapping`: child list empty | Unverified-until-proven-live; severity not yet classified — read BUG-99's hold before blaming mxcli | BUG-99 |
 | Cross-module `ALTER PAGE ... INSERT` of a DG2 column | rungs 1–3 (`DESCRIBE` *omits* the malformed column) | rung 5: Studio Pro loader `InvalidCastException`; `mx check` also crashes | Forbidden construct; recovery is `create or replace page` | BUG-96 |
 | Expression in `ContentParams:` inside a customContent column | rungs 1–3 (`DESCRIBE` normalises correct and broken forms to the same text) | mxbuild / Studio Pro error pane: CE1613 | Bind with `Attribute:`, never an expression | `learned-datagrid-customcontent-binding.md` |
+| `Title = null` (or any `= null`) as an **XPath retrieve constraint** | rungs 1–3 — `check --references` clean, exec succeeds, and mxcli's **own OQL engine evaluates the query** and returns rows, so even a read-back looks right | native `mx check` / mxbuild: CE0161 | XPath has no `= null`; write `not(Title)` / `Title != ''` for the empty test. Note what makes this one expensive: mxcli's query engine is more permissive than the model loader, so "I ran the query and it worked" is **not** evidence the constraint is legal | PRD benchmark, Arm A (Maurits Visser), 2026-09 |
+| A page layout migrated with `ALTER PAGES … WHERE LAYOUT = X`, in a project whose page scripts **hardcode** `Layout:` inside `create or replace page` | rungs 1–6 — every rung, including live runtime: the app loads, every page renders, every journey passes. There is no error anywhere | a screenshot **of the nav shell** on every page, or `grep -l 'Layout: <old>' mdlsource/` after the migration | `create or replace page` rewrites the page **wholesale**, layout included — so re-running any older page script silently reverts that page to the old shell, and the app ships **two navigation shells at once**. Found when 4 of 7 screens had no navigation at all, just a bare hamburger, after a UI fix loop re-ran five page scripts. A layout migration is not done until the `Layout:` literal is fixed **in the source scripts**; the `ALTER` is a one-shot, the scripts are the repeat offender | PRD benchmark, Arm A (Maurits Visser), 2026-09 |
 
 ## Operating rules that fall out of this table
 
@@ -53,10 +56,18 @@ verification rungs form a ladder, and a green result only certifies what that ru
 2. **Read-back is not ground truth either.** `DESCRIBE` hides three rows of this table
    (omits, round-trips corruption, normalises). It is one more lenient reader, not an oracle
    — `skills/tool-output-is-not-ground-truth.md` is the general form.
-3. **For anything that wires behaviour** (calculated attributes, import mappings, filters,
+3. **Rung 6 has its own gaps — when the instrument lies.** The ladder calls live runtime
+   observation "the only rung that verifies *behaviour*", and that is still true, but a
+   screenshot is only evidence about the app while the harness that took it is correct. A
+   screenshot harness that resizes a loaded page instead of creating one context per width
+   produced seven false "drawer covers content" defects on a healthy app, and a selector
+   scoped to a container the control leaves at phone width times out silently at one width
+   and passes at the other. Both in `ui-loop.md` → "The screenshot harness is an instrument
+   too". The tell is uniformity: a defect on every screen at exactly one width is the camera.
+4. **For anything that wires behaviour** (calculated attributes, import mappings, filters,
    datasources), the acceptance test is a **live observation**: a runtime retrieve, the
    `/xas/` payload, a row count — not any static check. `testing-shape.md`'s false-green
    register is the verification-side companion of this authoring-side table.
-4. **Add a row when the family grows.** The entry condition is exactly: "passed rung N,
+5. **Add a row when the family grows.** The entry condition is exactly: "passed rung N,
    failed at rung >N, confirmed in the field." File the bug in `bug-logs/mxcli-bugs.md`
    first; this table carries the one-line lesson and the pointer.

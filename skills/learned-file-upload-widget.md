@@ -101,8 +101,8 @@ Also grant `execute` on both microflows to the user's module role. Missing grant
 ## 5. The traps, and what to do on stock v0.23 / v0.24
 
 Both of the first two traps reproduce unchanged on v0.24.0, which was re-tested 2026-09-25. v0.24's CE0463 fix (#1161) is for
-Barcode Scanner's seeded object lists, a different cause. Neither trap is filed upstream yet (checked: closed
-#999 and #574 are related but not the same). When a newer mxcli ships, re-probe both on a copy before trusting this table:
+Barcode Scanner's seeded object lists, a different cause. Both are filed upstream: the simple-mode CE0463 as mendixlabs/mxcli#1198, the DESCRIBE round trip as #1199
+(closed #999 and #574 are related but not the same). When a newer mxcli ships, re-probe both on a copy before trusting this table:
 (1) change one format to `configMode: 'simple', predefinedType: 'plainTextFile'`, exec, run `mx check`;
 (2) `describe page` the uploader page and exec the output unchanged on a copy that differs from it.
 
@@ -145,5 +145,5 @@ Patched build (simple .txt plus advanced .zip, written from a DESCRIBE round tri
 - Image mode (`uploadMode: 'images'`, `associatedImages`, `System.Image`) was not tested.
 - Custom buttons, `maxFilesPerUpload`, and the delete-from-widget path were not tested.
 - Only the `mxcli run --local` runtime with HSQLDB was used. Not tested on PostgreSQL, in Docker, or opened in Studio Pro.
-- The proposed fixes in section 5 exist only as a local mxcli patch with unit tests. When they land upstream,
+- The proposed fixes in section 5 exist only as a local mxcli patch with unit tests (#1198, #1199 describe them). When those issues close,
   re-run the simple-mode format and the DESCRIBE round trip before dropping the workarounds.

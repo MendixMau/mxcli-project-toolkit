@@ -924,6 +924,36 @@ fi
 # The project's own .mpr/mprcontents are never touched — this runs entirely inside a scratch
 # directory, removed on every exit path via a RETURN trap (bash), not just the happy path.
 #
+# THE SCRATCH COPY IS THE WHOLE MODEL DIRECTORY, NOT JUST .mpr + mprcontents/. Two field
+# reports (an Atlas project on Mendix 11.14.0 with mxcli v0.23.0, Windows 11; and a project
+# with a custom theme on Mendix 11.12.4, macOS) both saw this self-test FAIL with a dirty
+# baseline — 1000+ `Could not find widget ...` / design-property errors, every one of them
+# from Atlas_Web_Content page templates or the custom theme — while the real gate (exec.sh /
+# verify-model.sh, which run mxbuild --target=deploy IN PLACE against the project as it sits
+# on disk) passed with 0 errors on the identical model. A --target=deploy build resolves
+# widget/theme/design-property references out of theme/, resources/, widgets/ and javasource/
+# sitting BESIDE the .mpr; a copy of only .mpr + mprcontents/ cannot see any of them, so it
+# fails on resources that were never actually broken. Options weighed and why they lost:
+#   A. mxbuild --target=check (skip resource resolution). No evidence this target exists —
+#      grepped bin/, project-bin/, skills/, bug-logs/: every real gate in this toolkit runs
+#      --target=deploy, and nothing here has ever invoked --target=check.
+#   B. A sibling .mpr copied into the project's OWN directory. Unsafe, not chosen: MPR v2
+#      stores its content in mprcontents/ beside the .mpr, so a second .mpr dropped next to
+#      the real one collides with the project's own mprcontents/ — this would risk corrupting
+#      the very model it is meant to leave untouched.
+#   (Symlinks into the project tree instead of copying were also considered and rejected:
+#   Git Bash on Windows silently COPIES through a symlink instead of linking it, unless
+#   MSYS=winsymlinks is set on that machine — nothing here can assume it is.)
+#   C. Copy the whole project tree. Chosen, scoped down: copy the directory that holds the
+#   .mpr (dirname "$MPR" — the project root on a single-tree checkout, app/ on a two-tree one,
+#   CLAUDE.md "Shipping an instrument" rule 2), minus .git/, deployment/, node_modules/ and
+#   .mpr-snapshots/ — none of which mxbuild reads, and the last of which can itself hold
+#   several full mprcontents/ copies. The model's real basename is preserved automatically,
+#   because every sibling is copied as-is (a renamed .mpr makes mxbuild bail before it writes
+#   an error file at all — reported 2026-09-22, the basename fix below). This measures nothing
+#   it cannot afford: the copied size is printed (du -sh) so a user sees the cost before the
+#   next run, not after.
+#
 # Skipped under --quick (two extra mxbuild runs); force it with `bin/doctor.sh --gate-selftest
 # [project-dir]`, which also works stood alone without waiting through the rest of doctor.
 # Bounded by DOCTOR_GATE_TIMEOUT (default 300s) via mxtk_mxbuild_error_count. exec.sh's own
@@ -938,6 +968,7 @@ head_ "Gate self-test (can the mxbuild gate actually see an error?)"
 
 gate_selftest() {
   local scratch scratch_mpr t0 t1 elapsed mdl model_dir base_count bad_count rc timeout_s
+  local copy_excl copy_ok entry entry_name x copy_size
   timeout_s="${DOCTOR_GATE_TIMEOUT:-300}"
   t0=$(date +%s)
 
@@ -964,18 +995,34 @@ gate_selftest() {
   }
   trap 'rm -rf "$scratch" 2>/dev/null' RETURN
 
-  # Keep the model's REAL basename in the scratch dir: mprcontents/ (copied verbatim below)
-  # carries an internal record of it, and a renamed copy makes mxbuild bail BEFORE it writes
-  # any error file — which this self-test would then report as "gate cannot read mxbuild's
-  # error file", a false FAIL on a healthy gate. (Reported 2026-09-22 by Yvann.)
+  # Copy the WHOLE model directory — .mpr, mprcontents/, theme/, resources/, widgets/,
+  # javasource/, everything a --target=deploy build reads off disk beside the .mpr — minus
+  # what it never reads. See the section header above ("THE SCRATCH COPY IS THE WHOLE MODEL
+  # DIRECTORY") for the two field reports this fixes and the options it was weighed against.
+  # The model's REAL basename is preserved automatically because every sibling, the .mpr
+  # included, is copied as itself: mprcontents/ carries an internal record of the .mpr's own
+  # name, and a renamed copy makes mxbuild bail BEFORE it writes any error file at all — which
+  # this self-test would then report as "gate cannot read mxbuild's error file", a false FAIL
+  # on a healthy gate (reported 2026-09-22 by Yvann).
+  model_dir="$(dirname "$MPR")"
+  copy_excl=".git deployment node_modules .mpr-snapshots"
+  copy_ok=1
+  for entry in "$model_dir"/* "$model_dir"/.[!.]*; do
+    [ -e "$entry" ] || continue
+    entry_name="$(basename "$entry")"
+    for x in $copy_excl; do
+      [ "$entry_name" = "$x" ] && continue 2
+    done
+    cp -R "$entry" "$scratch/" 2>/dev/null || copy_ok=0
+  done
   scratch_mpr="$scratch/$(basename "$MPR")"
-  if ! cp "$MPR" "$scratch_mpr" 2>/dev/null; then
-    bad "gate self-test: could not copy the model into the scratch dir"
+  if [ "$copy_ok" -ne 1 ] || [ ! -e "$scratch_mpr" ]; then
+    bad "gate self-test: could not copy the model directory into the scratch dir"
     GATE_SELFTEST_LINE="fail (copy failed)"
     return 0
   fi
-  model_dir="$(dirname "$MPR")"
-  [ -d "$model_dir/mprcontents" ] && cp -r "$model_dir/mprcontents" "$scratch/mprcontents" 2>/dev/null
+  copy_size="$(du -sh "$scratch" 2>/dev/null | awk '{print $1}')"
+  note "copied ${copy_size:-?} of project resources into the scratch dir (excluding .git, deployment/, node_modules/, .mpr-snapshots/)"
 
   # (a) Baseline: the gate must resolve SOME integer off this model, clean or not — "?" here
   # means the gate cannot read mxbuild's own output, which is the original F-042-class defect.

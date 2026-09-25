@@ -2,9 +2,19 @@
 # exec.sh — the guard chain around a model write.
 #
 #   concurrent-writer guard → module-brief advisory → mxcli check → snapshot → baseline → exec
-#   → mxbuild gate → auto-restore on regression → lint ratchet → SP reopen
+#   → mxbuild delta gate → auto-restore only on a NEW error → lint ratchet → SP reopen
+#
+# The mxbuild gate is a DELTA gate, not an absolute "0 errors" one: a write is kept
+# when the post-exec error set is the pre-flight baseline exactly, or a strict
+# SUBSET of it (every post-exec error already existed before this script ran — no
+# new error code+location, even if some were cleared). Only a set containing
+# something new triggers the snapshot restore. See "Delta gate" below.
 #
 # Usage: ./bin/exec.sh <script.mdl>
+#
+# Refuses to run while the model has UNCOMMITTED changes (by design: the snapshot
+# taken below would not cover them, so a later auto-restore could silently lose
+# that work) — commit the model first, or FORCE_EXEC=1 to override at that risk.
 #
 # Overrides: FORCE_EXEC=1 (skip refusals), SKIP_CHECK=1 (skip the pre-exec
 #            mxcli check), SKIP_BASELINE=1 (skip pre-flight mxbuild),
@@ -470,6 +480,34 @@ err_set() {
   "$PY" -c "import json;d=json.load(open('$(native_path "$1")'));print('|'.join(sorted(x.get('message','') for x in d.get('problems',[]) if x.get('severity')=='Error')))" 2>/dev/null || echo ""
 }
 
+# is_subset_of <candidate> <superset> — both are err_set's own "|"-joined sorted
+# message strings (the SAME comparison key the identical-baseline check already
+# used; this does not introduce a new one). True (exit 0) when every message in
+# <candidate> also appears in <superset> — i.e. nothing NEW. An empty <candidate>
+# (0 post-exec errors) is trivially a subset. Bash-native, no extra Python call:
+# both strings are already in hand as plain variables by the time this runs.
+# Pure POSIX word-splitting on IFS='|', no arrays/`read -a` — bash 3.2 / Git Bash
+# safe. Messages containing a literal "|" would break the membership test the
+# same way they already break the exact-equality test above; not new exposure.
+is_subset_of() {
+  _cand="$1"
+  [ -z "$_cand" ] && return 0
+  _super="|$2|"
+  _oldIFS="$IFS"
+  IFS='|'
+  for _e in $_cand; do
+    IFS="$_oldIFS"
+    [ -z "$_e" ] && continue
+    case "$_super" in
+      *"|$_e|"*) : ;;
+      *) return 1 ;;
+    esac
+    IFS='|'
+  done
+  IFS="$_oldIFS"
+  return 0
+}
+
 # ── Doctor freshness (warn-only) ─────────────────────────────────────────────
 # doctor.sh used to run once, at install, and never again. A machine that drifts mid-project
 # (new mxcli, a wrong-arch mxbuild, an endpoint agent slowing every fork) then reads as "the
@@ -601,14 +639,37 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
       # ── Delta gate ─────────────────────────────────────────────────────────
       # A shared model means another workstream can leave it non-building; an
       # absolute "zero errors" gate would then block every good script forever.
+      # Keeps the write when the POST-exec error set is the baseline exactly
+      # (nothing changed), OR a STRICT SUBSET of it (every post-exec message
+      # already existed pre-exec — no new error code+location, even though some
+      # pre-existing ones may have been cleared). Only a set with something NEW
+      # in it restores the snapshot. Real incident: a script that took 34
+      # pre-existing errors down to 1 was rolled back and logged
+      # "blocked: PRE-EXISTING CE1613" because the gate could only recognise
+      # "unchanged," never "reduced." Comparison key is unchanged — err_set's
+      # per-message string (see err_set above) — subset-checked by
+      # is_subset_of, not switched to a different key.
       POST_SET=$(err_set "$ERRORS_FILE")
+      DELTA_KIND=""
       if [ -n "$BASELINE_SET" ] && [ "$BASELINE_SET" = "$POST_SET" ]; then
+        DELTA_KIND="identical"
+      elif [ -n "$BASELINE_SET" ] && is_subset_of "$POST_SET" "$BASELINE_SET"; then
+        DELTA_KIND="subset"
+      fi
+      if [ -n "$DELTA_KIND" ]; then
         GATE_STATE="pass"
         KEEP_CODES=$(err_codes "$ERRORS_FILE")
-        echo "  ⚠  mxbuild: $CE_COUNT error(s) — IDENTICAL to the pre-flight baseline."
-        echo "     Pre-existing [$KEEP_CODES], not introduced by this script. KEEPING the changes."
-        echo "     The model still will not deploy until those are cleared in Studio Pro."
-        [ "$EXEC_STATUS" -eq 0 ] && log_build "⚠️ applied (dirty model)" "no new errors; pre-existing $KEEP_CODES still blocks deploy"
+        if [ "$DELTA_KIND" = "subset" ]; then
+          echo "  ⚠  mxbuild: $CE_COUNT error(s) — a STRICT SUBSET of the $_BC pre-flight baseline error(s), no new ones."
+          echo "     Pre-existing [$KEEP_CODES] remain; this script reduced the error count. KEEPING the changes."
+          echo "     The model still will not deploy until those are cleared in Studio Pro."
+          [ "$EXEC_STATUS" -eq 0 ] && log_build "⚠️ applied (dirty model, reduced)" "errors ${_BC}→${CE_COUNT} (pre-existing, reduced); remaining [$KEEP_CODES] still blocks deploy"
+        else
+          echo "  ⚠  mxbuild: $CE_COUNT error(s) — IDENTICAL to the pre-flight baseline."
+          echo "     Pre-existing [$KEEP_CODES], not introduced by this script. KEEPING the changes."
+          echo "     The model still will not deploy until those are cleared in Studio Pro."
+          [ "$EXEC_STATUS" -eq 0 ] && log_build "⚠️ applied (dirty model)" "no new errors; pre-existing $KEEP_CODES still blocks deploy"
+        fi
         cp "$ERRORS_FILE" "$LAST_ERRS"
         rm -f "$ERRORS_FILE"
       else

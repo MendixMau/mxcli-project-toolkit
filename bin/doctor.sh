@@ -376,9 +376,23 @@ PROJECT_ROOT="${PROJECT_DIR:-$TOOLKIT_ROOT}"
 # shellcheck disable=SC1091
 . "$TOOLKIT_ROOT/project-bin/_common.sh"
 
-SP_APP="$(find_sp_app 2>/dev/null || true)"
+# doctor_find <outvar> <errvar> <cmd...> — one invocation, stdout (the path chosen) into
+# <outvar> and stderr (find_sp_app/find_java's own WARNING/NOTE reasoning, when more than one
+# candidate existed) into <errvar> — so the report below can say which root was picked and
+# WHY in the discovery code's own words, rather than a second explanation that could drift
+# from it. Two calls would risk exactly that drift for no benefit, since both are read-only.
+doctor_find() {
+  local __ov="$1" __ev="$2" __ef __out; shift 2
+  __ef=$(mktemp "${TMPDIR:-/tmp}/doctor-find.XXXXXX")
+  __out=$("$@" 2>"$__ef") || true
+  eval "$__ov=\$__out"
+  eval "$__ev=\$(cat \"\$__ef\")"
+  rm -f "$__ef"
+}
+
+doctor_find SP_APP SP_APP_WHY find_sp_app
 MXBUILD="$(find_mxbuild 2>/dev/null || true)"
-JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
+doctor_find JAVA_HOME_FOUND JAVA_WHY find_java
 JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 
 # toolkit.env — the human-editable answer to "doctor guessed the wrong Studio Pro / Java".
@@ -410,9 +424,9 @@ install_toolchain() {
   fi
   note "downloading the mxbuild toolchain (mxcli setup mxbuild — same as the container build)..."
   if (cd "$PROJECT_DIR" && "$PMXCLI" setup mxbuild -p "$(basename "$INSTALL_MPR")"); then
-    SP_APP="$(find_sp_app 2>/dev/null || true)"
+    doctor_find SP_APP SP_APP_WHY find_sp_app
     MXBUILD="$(find_mxbuild 2>/dev/null || true)"
-    JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
+    doctor_find JAVA_HOME_FOUND JAVA_WHY find_java
     JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
     ok "toolchain downloaded to ~/.mxcli/mxbuild/ (shared cache, reused by every project)"
   else
@@ -558,6 +572,10 @@ GATE_OK=1
 # Studio Pro install (the root mxbuild and the bundled JRE are discovered under).
 if [ -n "$SP_APP" ]; then
   ok "Studio Pro install: $SP_APP"
+  # find_sp_app only writes to stderr when there was more than one install to choose between
+  # and it had to explain the choice (matched-version pick is silent; a mismatch/fallback
+  # names itself) — echo that reasoning here so the report says WHY, not just WHICH.
+  [ -n "${SP_APP_WHY:-}" ] && printf '%s\n' "$SP_APP_WHY" | while IFS= read -r l; do note "$l"; done
 elif [ "$PLATFORM" = linux ]; then
   warn "no Studio Pro install (none exists for Linux)."
   note "A standalone mxbuild works instead: bin/doctor.sh --install <project-dir> downloads"
@@ -614,6 +632,11 @@ if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
   JV="$("$JAVA_EXE" -version 2>&1 | grep -i 'version' | head -1)" || JV=""
   if [ -n "$JV" ]; then
     ok "java runs: $JV  ($JAVA_EXE)"
+    # find_java only writes to stderr when it had to explain itself: JAVA_HOME/PATH lacking
+    # javac, a well-known JDK root chosen over others for matching Mendix's required major
+    # version, or a NOTE that no such mapping is documented for this model's version. Silence
+    # means the pick needed no explanation (JAVA_HOME set and fine, or Studio Pro's own JRE).
+    [ -n "${JAVA_WHY:-}" ] && printf '%s\n' "$JAVA_WHY" | while IFS= read -r l; do note "$l"; done
     # mxbuild compiles the model's Java actions, which takes javac — a JRE has none. Studio
     # Pro's bundled runtime is a JRE that mxbuild is paired with, so only flag a system Java.
     case "$JAVA_HOME_FOUND" in

@@ -220,21 +220,89 @@ native_path() {
 }
 
 # ---------------------------------------------------------------------------
-# find_sp_app — newest installed Studio Pro root.
+# project_mendix_version <mpr-path> — the MODEL's own Mendix version, so find_sp_app/find_java
+# can match Studio Pro / the JDK to the model instead of always guessing "newest installed".
+#
+# An .mpr is a SQLite database; the version lives in `_MetaData._ProductVersion`
+# (confirmed against a real 11.12.1 model: table _MetaData, columns _FormatVersion,
+# _ProductVersion, _BuildVersion, _SchemaHash — one row). Two tiers:
+#
+#   1. Python's stdlib sqlite3 module, via resolve_py — exact, and needs nothing beyond a
+#      working Python 3 (which require_py's callers already depend on elsewhere in this repo).
+#   2. `strings` on the raw file, for a machine with no Python at all. _ProductVersion and
+#      _BuildVersion are adjacent TEXT columns with no separator in the raw page and are
+#      normally byte-identical, so `strings` shows them run together as one doubled blob
+#      (e.g. "11.12.111.12.1{SHA256}..."). A naive greedy version regex over-matches that
+#      ("11.12.111" instead of "11.12.1") and would return a silently wrong answer — worse
+#      than no answer, since callers use this to CHOOSE an install. So tier 2 only trusts a
+#      candidate that really is two identical halves; anything else returns failure rather
+#      than a guess, and callers already treat failure as "fall back to the old behaviour".
+#
+# Echoes e.g. "11.12.1" and returns 0, or returns 1 with nothing on stdout.
+# ---------------------------------------------------------------------------
+_mtk_mendix_version_from_strings() {
+  local mpr="$1" blob len halflen half1 half2
+  command -v strings >/dev/null 2>&1 || return 1
+  blob=$(strings "$mpr" 2>/dev/null | grep -m1 -oE '^[0-9]+(\.[0-9]+)+') || return 1
+  [ -n "$blob" ] || return 1
+  len=${#blob}
+  [ $((len % 2)) -eq 0 ] || return 1
+  halflen=$((len / 2))
+  half1="${blob:0:halflen}"
+  half2="${blob:halflen:halflen}"
+  [ "$half1" = "$half2" ] || return 1
+  case "$half1" in
+    [0-9]*.[0-9]*.[0-9]*) printf '%s\n' "$half1"; return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+project_mendix_version() {
+  local mpr="$1" _py out
+  [ -n "$mpr" ] && [ -f "$mpr" ] || return 1
+  _py="${PY:-$(resolve_py 2>/dev/null || true)}"
+  if [ -n "$_py" ]; then
+    out=$("$_py" -c '
+import sqlite3, sys
+try:
+    conn = sqlite3.connect(sys.argv[1])
+    row = conn.cursor().execute("SELECT _ProductVersion FROM _MetaData LIMIT 1").fetchone()
+    print(row[0] if row and row[0] else "")
+except Exception:
+    print("")
+' "$(native_path "$mpr")" 2>/dev/null)
+    case "$out" in [0-9]*.[0-9]*.[0-9]*) printf '%s\n' "$out"; return 0 ;; esac
+  fi
+  _mtk_mendix_version_from_strings "$mpr"
+}
+
+# ---------------------------------------------------------------------------
+# find_sp_app [<mpr-path>] — the installed Studio Pro root that matches the model, or the
+# newest one if none matches (or the model's version can't be read).
 #
 # Returns an .app bundle on macOS and a version directory on Windows; callers
 # must go through find_mxbuild() rather than appending a path themselves, because
 # the layout below the root differs per platform.
 #
+# Field report (2026-09-25, macOS with several Studio Pro versions installed): with more than
+# one root found, this used to ALWAYS take the highest-versioned one — sort order was handled
+# carefully, version MATCHING was not — so an older project quietly built against a newer
+# Studio Pro's mxbuild. When two or more roots are found, the model's own Mendix version (see
+# project_mendix_version) is read and matched against each root's version; ties/no-match fall
+# back to the newest-installed behaviour below, now with a named warning instead of silence.
+# <mpr-path> is optional — omit it (every existing caller does) and it is discovered via
+# find_mpr(); pass it explicitly only for testing or when $PROJECT_ROOT is not yet the model's
+# directory. $MENDIX_APP still overrides everything, unconditionally, as before.
+#
 # Version-sorted, NOT lexically sorted: with 11.9.0 and 11.13.0 both installed,
 # a plain `sort` picks 11.9.0 as "highest" because '9' > '1' at the third
 # character. That silently builds against the wrong Mendix version. `sort -V`
 # handles it; if this box has a sort without -V, we fall back and say so rather
-# than quietly return a wrong answer. $MENDIX_APP overrides.
+# than quietly return a wrong answer.
 # ---------------------------------------------------------------------------
 find_sp_app() {
   if [ -n "${MENDIX_APP:-}" ]; then mxtk_posix_path "$MENDIX_APP"; return 0; fi
-  local list="" root seen=""
+  local mpr="${1:-}" list="" root seen=""
   case "$(mxtk_platform)" in
     macos)
       list=$(ls -d /Applications/Mendix\ Studio\ Pro*.app 2>/dev/null) || true
@@ -288,6 +356,38 @@ find_sp_app() {
       return 1
       ;;
   esac
+
+  # Prefer the root matching the model's own Mendix version — only meaningful, and only
+  # attempted, when there is more than one candidate. A single install has nothing to choose
+  # between, so this stays a no-op there (no version read, no behaviour change, no cost).
+  if [ "$(printf '%s\n' "$list" | grep -c .)" -gt 1 ]; then
+    [ -n "$mpr" ] || mpr=$(find_mpr 2>/dev/null) || true
+    if [ -n "$mpr" ]; then
+      local want match="" base last_tok
+      want=$(project_mendix_version "$mpr" 2>/dev/null) || true
+      if [ -n "$want" ]; then
+        while IFS= read -r root; do
+          [ -n "$root" ] || continue
+          # Match on the LAST whitespace-separated token of the basename, minus a trailing
+          # .app: "Mendix Studio Pro 11.12.1.app" -> "11.12.1"; a Windows version dir
+          # "11.12.1" or "11.12.1.108016" (build-numbered) -> itself, since there is no
+          # space to split on. Deliberately conservative: "... 11.14.0 Beta.app" -> "Beta",
+          # which will not match — a beta's real internal version may differ from its
+          # folder name, so refusing to guess falls through to the newest-installed warning
+          # below rather than silently picking a beta build.
+          base="$(basename "$root")"; base="${base%.app}"; last_tok="${base##* }"
+          case "$last_tok" in
+            "$want"|"$want".*) match="$root"; break ;;
+          esac
+        done <<LIST
+$list
+LIST
+        if [ -n "$match" ]; then printf '%s\n' "$match"; return 0; fi
+        echo "WARNING: no installed Studio Pro matches this model's Mendix version ($want) —" >&2
+        echo "         using the newest installed instead. Set MENDIX_APP=<path> to pin one." >&2
+      fi
+    fi
+  fi
 
   if printf '1.10\n1.9\n' | sort -V >/dev/null 2>&1; then
     printf '%s\n' "$list" | sort -V | tail -1
@@ -375,22 +475,75 @@ find_mxbuild() {
   return 1
 }
 
+# _mtk_has_javac <home-dir> — true when <home-dir> is a JDK, not just a JRE.
+# mxbuild needs javac to compile a project's Java actions; a JRE silently lacks it.
+_mtk_has_javac() {
+  case "$(mxtk_platform)" in
+    windows) [ -x "$1/bin/javac.exe" ] ;;
+    *)       [ -x "$1/bin/javac" ] ;;
+  esac
+}
+
+# _mtk_jdk_major <home-dir> — the JDK's major version number (e.g. "21"), or empty.
+# Runs javac itself rather than parsing the directory name, since install layouts vary
+# too widely to pattern-match ("jdk-21...", "java-21-openjdk...", "zulu21.32...", a bare
+# "21.0.10"). Handles both the modern scheme ("javac 21.0.10" -> 21) and the legacy one
+# still seen on old JDK 8 installs ("javac 1.8.0_302" -> 8).
+_mtk_jdk_major() {
+  local exe out v
+  case "$(mxtk_platform)" in
+    windows) exe="$1/bin/javac.exe" ;;
+    *)       exe="$1/bin/javac" ;;
+  esac
+  [ -x "$exe" ] || return 1
+  out=$("$exe" -version 2>&1) || true
+  v=$(printf '%s\n' "$out" | grep -oE '[0-9]+(\.[0-9]+)*' | head -1)
+  case "$v" in
+    1.*) printf '%s\n' "${v#1.}" | cut -d. -f1 ;;
+    '')  return 1 ;;
+    *)   printf '%s\n' "$v" | cut -d. -f1 ;;
+  esac
+}
+
 # find_java — JAVA_HOME for the mxbuild invocation. $JAVA_HOME wins if already set.
+#
+# A "JDK" here means a home directory carrying bin/javac (bin/javac.exe on Windows) — see
+# _mtk_has_javac. Field report (2026-09-25, macOS with several Studio Pro versions
+# installed): this used to accept the first directory that merely EXISTED, with no javac
+# check anywhere in the chain, so a 32-bit JRE 8 with no javac could be returned while a
+# real JDK sat unused elsewhere on the machine — mxbuild then failed on the first Java
+# action with an error naming nothing about the JDK choice that produced it.
+#
+# Order: $JAVA_HOME (still wins even without javac — an explicit override is trusted, but
+# a missing javac is now warned about instead of silently shipped) -> macOS java_home ->
+# Studio Pro's bundled runtime -> the mxcli download cache -> well-known JDK install roots
+# for this platform -> java on PATH. Every tier from Studio Pro's bundled runtime onward
+# now requires _mtk_has_javac to accept a candidate.
+#
+# Among several well-known-root candidates, prefer the major version Mendix actually needs
+# for THIS model: 11.x -> JDK 21 is the only mapping this repo documents (skills/
+# testing-shape.md, bin/doctor.sh's own toolchain-download note both say so) — no other
+# major version's requirement is recorded here, so none is guessed; for those, or when the
+# model's version can't be read at all, this prefers the highest javac major found and
+# says so on stderr rather than picking silently.
 #
 # /usr/libexec/java_home is a macOS binary and does not exist anywhere else, so on
 # Windows this used to leave JAVA_HOME empty and JAVA_EXE as the literal "/bin/java".
 # Studio Pro ships its own JRE, which is the right one to use — it matches the
 # mxbuild it is paired with — so that is tried before any system Java.
 find_java() {
-  if [ -n "${JAVA_HOME:-}" ] && [ -d "$JAVA_HOME" ]; then echo "$JAVA_HOME"; return 0; fi
+  if [ -n "${JAVA_HOME:-}" ] && [ -d "$JAVA_HOME" ]; then
+    _mtk_has_javac "$JAVA_HOME" || echo "WARNING: JAVA_HOME=$JAVA_HOME has no bin/javac — mxbuild will fail on any Java action." >&2
+    echo "$JAVA_HOME"; return 0
+  fi
   local app jh
   if [ "$(mxtk_platform)" = macos ] && [ -x /usr/libexec/java_home ]; then
-    jh=$(/usr/libexec/java_home 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
+    jh=$(/usr/libexec/java_home 2>/dev/null) && [ -n "$jh" ] && _mtk_has_javac "$jh" && { echo "$jh"; return 0; }
   fi
   # Studio Pro's bundled JRE.
   if app=$(find_sp_app 2>/dev/null); then
     for jh in "$app/jre" "$app/Contents/jre" "$app/runtime/jre"; do
-      [ -d "$jh" ] && { echo "$jh"; return 0; }
+      [ -d "$jh" ] && _mtk_has_javac "$jh" && { echo "$jh"; return 0; }
     done
   fi
   # A JRE/JDK shipped inside the mxcli download cache, next to its mxbuild.
@@ -399,13 +552,70 @@ find_java() {
   local cache
   if cache=$(find_mxcli_cache 2>/dev/null); then
     for jh in "$cache/jre" "$cache/modeler/jre" "$cache/runtime/jre" "$cache/jdk"; do
-      [ -d "$jh" ] && { echo "$jh"; return 0; }
+      [ -d "$jh" ] && _mtk_has_javac "$jh" && { echo "$jh"; return 0; }
     done
   fi
-  # System Java, resolved from the java on PATH (two levels up from bin/java).
+
+  # Well-known JDK install roots, platform-specific. A glob matching nothing must not leak
+  # its literal pattern text into the candidate list — nullglob is bash-4+, so every hit is
+  # guarded with [ -d ] instead of trusting the glob to have expanded.
+  local mpr want want_major="" roots="" d
+  mpr=$(find_mpr 2>/dev/null) || true
+  if [ -n "$mpr" ]; then
+    want=$(project_mendix_version "$mpr" 2>/dev/null) || true
+    case "$want" in 11.*) want_major=21 ;; esac
+  fi
+  case "$(mxtk_platform)" in
+    macos)
+      for d in /Library/Java/JavaVirtualMachines/*/Contents/Home; do
+        [ -d "$d" ] && roots="$roots$d"$'\n'
+      done ;;
+    windows)
+      local base
+      for base in "${ProgramW6432:-}" "${PROGRAMFILES:-}"; do
+        [ -n "$base" ] || continue
+        base=$(mxtk_posix_path "$base")
+        [ -d "$base" ] || continue
+        for d in "$base/Eclipse Adoptium"/jdk-* "$base/Java"/jdk-* "$base/Microsoft/jdk-"*; do
+          [ -d "$d" ] && roots="$roots$d"$'\n'
+        done
+      done ;;
+    *)
+      for d in /usr/lib/jvm/*; do
+        [ -d "$d" ] && roots="$roots$d"$'\n'
+      done ;;
+  esac
+  local best="" best_ver=-1 ver n_candidates=0
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    _mtk_has_javac "$d" || continue
+    n_candidates=$((n_candidates + 1))
+    ver=$(_mtk_jdk_major "$d") || ver=""
+    if [ -n "$want_major" ] && [ "$ver" = "$want_major" ]; then echo "$d"; return 0; fi
+    if [ -n "$ver" ] && [ "$ver" -gt "$best_ver" ] 2>/dev/null; then best="$d"; best_ver="$ver"; fi
+  done <<ROOTS
+$roots
+ROOTS
+  if [ -n "$best" ]; then
+    if [ -n "$want_major" ]; then
+      echo "WARNING: no installed JDK $want_major found for this Mendix $want model — using" >&2
+      echo "         the highest javac found instead: $best (JDK $best_ver)." >&2
+    elif [ "$n_candidates" -gt 1 ]; then
+      echo "NOTE: this model's Mendix major version has no documented required-JDK mapping —" >&2
+      echo "      using the highest javac found among $n_candidates candidates: $best (JDK $best_ver)." >&2
+    fi
+    echo "$best"; return 0
+  fi
+
+  # System Java, resolved from the java on PATH (two levels up from bin/java) — last resort.
   local j
   j=$(command -v java 2>/dev/null) && [ -n "$j" ] && {
-    jh=$(dirname "$(dirname "$j")"); [ -d "$jh" ] && { echo "$jh"; return 0; }; }
+    jh=$(dirname "$(dirname "$j")")
+    if [ -d "$jh" ]; then
+      _mtk_has_javac "$jh" || echo "WARNING: java on PATH ($jh) has no bin/javac — mxbuild will fail on any Java action." >&2
+      echo "$jh"; return 0
+    fi
+  }
   return 1
 }
 

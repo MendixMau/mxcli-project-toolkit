@@ -300,7 +300,9 @@ duplicate check → WF stub submission → status update. Uses `$currentUser/Nam
 applicant field.
 
 **Patterns demonstrated:**
-- Guard chain pattern (early-return at each step, no deep nesting)
+- Guard chain pattern (early-return at each step, no deep nesting) — for *state* guards only;
+  per-field input checks never return early, they collect-all as in §2 (see
+  `learned-microflow-patterns.md` → "Validation Feedback — Correct Pattern")
 - `$currentUser/Name` — built-in variable for the logged-in user's name
 - XPath retrieve chained across two modules (same as GET_OrderDetail_Dto)
 - `$Obj/Attr` path navigation after retrieve

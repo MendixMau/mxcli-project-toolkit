@@ -5475,6 +5475,29 @@ and render it in `DESCRIBE MICROFLOW` so the round trip does not silently flip i
 callee's flag is readable in the model.
 ---
 
+## BUG-141: `alter page … set RenderMode` is refused on a dynamic text, though `create page` writes it — fix ready on a fork branch
+
+**Severity:** Low — loud refusal, clean workaround; costs a full widget restatement per heading-level change
+**mxcli version:** main `31eee45` / v0.21.0
+**Mendix version:** 11.14.0
+**Discovered:** 2026-09-22, promoting a comparison page's title to H2 on a requirements-driven RFQ project
+**Reproducible:** yes — any `dynamictext`, page or snippet
+
+`set RenderMode = H2 on txtTitle` fails with `property "RenderMode" not found (widget has no
+pluggable Object)`. Root cause: the MPR backend's fixed property list in
+`setRawWidgetPropertyMut` lacks `RenderMode`, so it falls through to the pluggable setter; the MCP
+backend's mutator already handles it (the two lists drifted).
+
+**Workaround:** `replace txtTitle with { dynamictext txtTitle (Content: '…', RenderMode: H2, Class: '…') }`
+— restate content, params and class.
+
+**Fix:** written, tested (fails-then-passes, revert-proven), validated on a real 11.14.0 model
+(`mx check` 0 errors). Upstream package — issue draft, patch, PR body, submission steps — in
+`pending-github-issues/bug141-*`. Not yet filed upstream.
+
+**Not covered by the fix:** `set Content`/`ContentParams` on a dynamic text (parser-level),
+container `RenderMode`, button `RenderType` — all still need `replace`.
+
 ## BUG-DRAFT-loop-var-expression-typecheck: the expression type checker is skipped inside a `LOOP` body — the identical expression is caught on a parameter and missed on a loop variable (2026-09-15)
 
 > **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1100**

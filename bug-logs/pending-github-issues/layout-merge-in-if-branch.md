@@ -3,6 +3,7 @@
 **Status:** NOT YET FILED
 **Suggested labels:** bug, layout, lint
 **Duplicate check:** not yet searched (GitHub API unreachable from the session that drafted this) — search `MPR008 merge` and `#1154` before filing.
+**Context from the mxcli team (2026-09-25):** microflow positioning is intended for a standalone `mxcli layout` command; on v0.24.0 that command lays out domain models only, so this report still stands.
 
 ---
 

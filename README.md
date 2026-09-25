@@ -700,6 +700,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
+| Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it — one row per area: Mendix docs page, bundled assess-quality section, toolkit skill before the write, lint rule after exec | `skills/mendix-best-practices-index.md` |
 | Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal | `skills/mendix-epics-api.md` |
 <!-- ROUTING:END -->
 

@@ -63,6 +63,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index — describe each unique picture once, into its own file, before Stage 2 closes |
+| `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it — one row per area: Mendix docs page, bundled assess-quality section, toolkit skill before the write, lint rule after exec |
 | `skills/learned-stylegallery.md` | Building or using the in-app design gallery |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words |
@@ -139,6 +140,14 @@ this summary. The hard STOPs below are inline on purpose; never route around the
   hand back the **filled** confirmed JSON pattern from `learned-mcp-patterns.md`, not just the label.
 - Annotate selectively (`learned-microflow-patterns.md`); always annotate a CE-error fix.
 - **Loops / long flows — run `microflow-preflight.md`** and post its checklist before the first MDL line; `microflow-preflight: no trigger` otherwise.
+- **Never hand a task back as "too difficult".** A microflow that will not come out clean is a piece
+  that is too big, not a task beyond you: post the `split-first` plan from `microflow-preflight.md`
+  (orchestrator + one `SUB_` per responsibility, with signatures) and write the pieces the plan
+  makes Simple or Guided. Silence or a refusal is a failed preflight; the plan is the deliverable.
+- **Escalate one piece, once, after one retry.** If a single `SUB_` still fails `mxcli check` after
+  one rewrite, report that piece by name with the check output and stop on it — the main session
+  decides whether to rerun it on a stronger model. Do not retry the whole script, and do not
+  escalate before the split.
 - **Pages/snippets — run the full pre-flight in `ui-preflight-pages.md`** (wireframe → tokens →
   gallery reuse → cross-check) and include its UI cross-reference block in your report. **No wireframe
   → STOP** — do not guess layout or bindings. Reuse existing gallery components; don't reimplement

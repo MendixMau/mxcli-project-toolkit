@@ -9,7 +9,34 @@ the advice is the same.
 
 ---
 
-## Trigger — run this if ANY of these hold for the microflow you are about to write
+## Tier first — Simple, Guided or Split-first
+
+Decide the tier from the plan, before any MDL. Post the tier with the checklist.
+
+| Tier | Holds when | What you do |
+|---|---|---|
+| **Simple** | Linear flow, ≤ 10 activities, no loop, no REST/Java/web-service call, one entity | Post `microflow-preflight: no trigger` and write it |
+| **Guided** | Any trigger in the list below, and ≤ 20 activities counting loop bodies, one loop at most | Post the checklist, write it as one flow |
+| **Split-first** | More than 20 activities counting loop bodies, or two or more loops, or a nested loop, or a list built from a list, or a REST/Java call inside a loop | Post the checklist **and the split plan** below; the user confirms the plan before the first MDL line |
+
+**The split plan** is a thin orchestrator plus one `SUB_` per responsibility, each with its
+signature, posted in chat:
+
+```
+split-first: <Module.ACT_Orchestrator>
+- ACT_Orchestrator ($Order: Sales.Order) → calls the SUB_s below, shows the page, nothing else
+- SUB_RetrieveLines ($Order) returns List of Sales.OrderLine — one retrieve, no loop
+- SUB_PriceLines ($Lines) returns List of Sales.OrderLine — the loop; collects into OrderLine_CommitList
+- SUB_CommitLines ($Lines) — one commit, on error rollback
+Each SUB_ ≤ 15 top-level activities, ≤ 1 loop.
+```
+
+Why split-first exists: a colleague's session refused a long microflow as "too difficult" and
+the same task went through on a stronger model. The task was not hard, the piece was too big.
+A `SUB_` per responsibility is what the size table asks for anyway, and each piece is a Simple
+or Guided flow that any model writes.
+
+## Trigger — Guided or Split-first if ANY of these hold
 
 1. It has **any loop** (`loop … in`, or `while`).
 2. A **retrieve, commit, delete, REST call, Java action or sub-microflow call** is planned inside a loop.
@@ -26,7 +53,7 @@ None applies → post `microflow-preflight: no trigger` in chat and proceed.
 ## The checklist — post it in chat before the first MDL line
 
 ```
-microflow-preflight: <Module.Microflow>
+microflow-preflight: <Module.Microflow> — tier: Simple | Guided | Split-first
 - Loops: N. Per loop: retrieve y/n · commit/delete y/n · call y/n · batch strategy · expected list size
 - Retrieves inside loops: 0 (else: moved before the loop, find/filter inside)
 - Commits/deletes inside loops: 0 — collected into <Entity>_CommitList, one commit after the loop
@@ -93,6 +120,16 @@ coordinates are relative to the loop box's top-left corner; n = activities in th
 | Next activity after the loop | loop centre + 80·n + 180 |
 | Sequential pitch | 160 |
 
+**`mxcli layout` is a domain-model command.** The mxcli team's answer to microflow
+positioning (2026-09-25) is a standalone layout command rather than anything in `create
+microflow`. On v0.24.0 and on upstream `main` at that date, `mxcli layout --help` says
+*"Arrange the entities of a domain model"*; it moves entities only, and there is no microflow or
+nanoflow mode yet. Measured: `mxcli layout -p app.mpr --dry-run` on a scratch copy of a PoC
+model listed 10 entity moves and no microflow. **Before relying on it for a microflow, probe
+your binary:** `mxcli layout --help` — the capability-probe rule. Until a microflow mode ships,
+the remedy for a bad microflow layout stays the one in this file: no `@position`, and the
+`SUB_` split for the defect below.
+
 **`RESET LAYOUT` does not parse** on v0.24.0: `mismatched input 'RESET'` (BUG-28, never
 implemented upstream). Never write it. If you have to repair a flow by hand, annotate **every**
 canvas statement or none.
@@ -135,3 +172,4 @@ clean row proves only the rows lint covers. The checklist is the record for the 
 - Whether a `/** … */` doc comment round-trips into the microflow's Documentation.
 - Nanoflow-vs-microflow guidance. No current Mendix docs page was found.
 - Whether upstream fixes the if-branch merge overlap in a later release.
+- Whether a later `mxcli layout` release re-lays-out microflows, and whether that run clears the if-branch merge overlap. Re-probe `mxcli layout --help` on each new binary.

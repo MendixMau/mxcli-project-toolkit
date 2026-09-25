@@ -88,7 +88,11 @@ if [ -f "$cache" ]; then
 fi
 
 if [ -z "$ctx" ]; then
-  ctx=$("$PY" - "$transcript" <<'PY' 2>/dev/null
+  # bash 3.2 does not recognise a heredoc opened inside $(...): it scans the body as
+  # shell text while hunting for the matching ')', so a stray quote in the body can
+  # break the parse on macOS's default bash (same trap as bin/wire-company-brain.sh).
+  # Read the heredoc into a variable first, then pipe it in — no heredoc inside $(...).
+  IFS= read -r -d '' _ctx_py <<'PY' || true
 import json, os, sys
 path = sys.argv[1]; CAP = 8 << 20
 def newest(chunk):
@@ -116,7 +120,7 @@ try:
         else: print(0)
 except Exception: print(0)
 PY
-)
+  ctx=$(printf '%s' "$_ctx_py" | "$PY" - "$transcript" 2>/dev/null)
   case "$ctx" in ''|*[!0-9]*) ctx=0 ;; esac
   printf '%s %s' "$now" "$ctx" > "$cache" 2>/dev/null
 fi

@@ -313,7 +313,7 @@ Use this before every write. Full per-rule detail (root causes, bug IDs, retest 
 | Drop an attribute that has security grants | Studio Pro GUI | N/A |
 | After any MPR corruption or load error | `bin/restore-mpr.sh` | Closed |
 
-**The crash net.** An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units). `bin/exec.sh` snapshots both before every batch; 5 rotate; `bin/restore-mpr.sh` rolls back both together (either alone is useless). Git commits at phase gates are the real history. Ad-hoc `.mpr.backup` copies are banned.
+**The crash net.** An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units). `bin/exec.sh` snapshots both before every batch; 5 rotate; `bin/restore-mpr.sh` rolls back both together (either alone is useless). Git commits at phase gates are the real history. Ad-hoc `.mpr.backup` copies are banned. By design, `exec.sh` refuses to run at all while the model has uncommitted changes — its snapshot would not cover them, so a later auto-restore could silently lose that work; commit the model first (`FORCE_EXEC=1` overrides, at your own risk).
 
 ### Something went wrong? Don't panic.
 

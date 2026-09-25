@@ -5689,6 +5689,8 @@ Probe: `mxcli init --tool claude` (v0.22.0) into an empty directory. The generat
 
 > **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/layout-merge-in-if-branch.md`.
 
+> **mxcli team response (2026-09-25):** positioning is meant to be handled by a standalone `mxcli layout` command, not by `create microflow`. On v0.24.0 and upstream `main` at that date the command arranges **domain models only** (`mxcli layout --help`: "Arrange the entities of a domain model"; `--dry-run` on a scratch copy of a PoC model listed 10 entity moves, no microflow). Re-probe `mxcli layout --help` on each release; until a microflow mode ships, the workaround above stands.
+
 **Discovered:** 2026-09-25, measuring the rewritten v0.24.0 layout engine (upstream #1154) for
 `skills/microflow-preflight.md`, on a scratch copy of a small Mendix 11.12.1 PoC model.
 **Reproducible:** yes, minimal A/B with two controls that lay out clean, on the same copy.

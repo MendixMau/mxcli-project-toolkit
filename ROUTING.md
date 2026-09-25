@@ -258,5 +258,6 @@ picks the row up. That is the whole procedure — there is no second list to rem
 
 | Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
 |---|---|---|---|---|
+| Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it — one row per area: Mendix docs page, bundled assess-quality section, toolkit skill before the write, lint rule after exec | `skills/mendix-best-practices-index.md` | all | 3,5,6 | ondemand |
 | Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal | `skills/mendix-epics-api.md` | ba,architect | P,0 | ondemand |
 <!-- ROUTING:END -->

@@ -5682,3 +5682,77 @@ Probe: `mxcli init --tool claude` (v0.22.0) into an empty directory. The generat
 - `bin/sync-project.sh` now warns, report-only, when the `DECLARE $<var> <Module>.<Entity>;` row is present in a project's `CLAUDE.md` (stale `mxcli init` row — re-run init or strip it), alongside its existing stale-ledger-row warning.
 - `skills/bootstrap-project.md`: the audit pass strips the row when merging into an init-generated `CLAUDE.md`.
 - Still open: until a stamp exists upstream, record `mxcli --version` in `PROJECT.md` at init time so the drift is at least dated.
+
+---
+
+## BUG-DRAFT-layout-merge-in-if-branch: v0.24.0 auto-layout puts the merge on top of an activity that follows a loop inside an `if` branch — lint MPR008 on a correct script with no `@position` (2026-09-25)
+
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/layout-merge-in-if-branch.md`.
+
+**Discovered:** 2026-09-25, measuring the rewritten v0.24.0 layout engine (upstream #1154) for
+`skills/microflow-preflight.md`, on a scratch copy of a small Mendix 11.12.1 PoC model.
+**Reproducible:** yes, minimal A/B with two controls that lay out clean, on the same copy.
+**mxcli version:** `v0.24.0` (built from the `v0.24.0` tag). **Mendix:** 11.12.1.
+
+**What happens.** A microflow whose `if` branch contains a loop *and then another activity*
+gets its merge node laid out on top of that activity. The script carries no `@position` at all,
+so this is the auto-layout the `syntax microflow.layout` help tells you to prefer. `describe
+microflow` shows the merge 20 px from the commit; `mxcli lint` reports **MPR008** (overlapping
+elements) on a script that is correct.
+
+```
+-- no @position anywhere; default layout
+create or modify microflow Probe.SUB_LoopInIf ()
+begin
+  retrieve $Items from Probe.Item;
+  if $Items != empty then
+    loop $Row in $Items
+    begin
+      change $Row (Name = 'x');
+      change $Row (Name = 'y');
+    end loop;
+    commit $Items on error rollback;
+  else
+    log info node 'Probe' 'empty';
+  end if;
+end;
+```
+
+Coordinates from `describe microflow Probe.SUB_LoopInIf` after `exec` on v0.24.0:
+
+| element | x, y |
+|---|---|
+| if | 520, 200 |
+| loop (true branch) | 870, 200 |
+| commit (true branch, after the loop) | 1210, 200 |
+| **merge** | **1230, 200** |
+| log (else branch) | 690, 350 |
+| end | 1430, 200 |
+
+**Controls, same binary, same copy — both clean:**
+
+| Shape | merge | lint |
+|---|---|---|
+| plain if/else, no loop (two activities in the true branch at 690 and 850) | 970, 200 | clean |
+| `if` branch containing **only** the loop, nothing after it | after the loop | clean |
+
+So the loop's own width is accounted for when the merge is placed, but an activity that follows
+the loop inside the same branch is not. The pattern is common — "if there is anything to
+process, loop over it, then commit the list" — and it is the shape the `microflow-preflight.md`
+collect-then-commit recipe produces when the whole thing sits under a guard.
+
+**Expected:** the merge sits after the last activity of the longest branch, as it does for
+branches without a loop.
+
+**Workaround (in `microflow-preflight.md` → "Known v0.24.0 defect"):** move the loop into a
+`SUB_` microflow, or place the trailing activity after `end if`. Do not hand-place the merge
+with `@merge` — partial hand placement is what MPR008/MPR011 flag first (measured in the same
+session: one hand-placed statement among auto-placed ones → MPR008; a negative loop-body
+coordinate → MPR011).
+
+**Why it matters for the toolkit.** `project-bin/exec.sh` now runs the lint ratchet after every
+clean mxbuild (#134) and a rise over the baseline writes `LINT ROSE` into the BUILD-LOG row. A
+correct script that trips MPR008 through this defect looks identical to a real overlap, so the
+gate-agent's "do not accept the rise with `--update-baseline`" rule needs this entry to tell the
+two apart: an MPR008 whose two elements are a merge and the activity after a loop in an `if`
+branch is this bug, and the fix is the workaround above, not a baseline bump.

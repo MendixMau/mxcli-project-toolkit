@@ -17,6 +17,63 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are.
 
 ## Unreleased
 - fix(bug-logs): **BUG-141 — `alter page … set RenderMode` on a dynamic text, with an upstream-ready fix package** (issue draft, 3-commit patch, PR body, submission steps in `bug-logs/pending-github-issues/bug141-*`; fix revert-proven and `mx check`-clean on 11.14.0) — a requirements-driven RFQ project
+- fix(project-bin/exec.sh): **the lint ratchet now runs after every clean mxbuild, and its verdict lands in the same BUILD-LOG row.** mxbuild proves the model compiles, not how it is built: on a field project a migration microflow shipped three commits inside loops (`mxcli lint` CONV011) under "✅ applied · mxbuild clean", because lint lived only in the gate-agent definition as an optional step and that agent had been spawned 0 times against 21 `exec.sh` runs. `exec.sh` now calls `bin/lint-gate.sh` after a clean build; a rise vs the committed baseline writes `⚠️ applied, LINT ROSE: <rules>` and exits 1 while keeping the write (shape, not corruption), `SKIP_LINT=<reason>` is the only override and is recorded in the row, and a project without `lint-gate.sh` gets `lint not installed` rather than a blank cell. `agents/gate-agent.md` and `agents/agent-roles.md` now read the row instead of treating lint as optional; `learned-detection-gaps.md` gains the register row. Field run: a marketplace guest-group migration, 2026-09-24, ~13 s per run on a 10k-finding project — Maurits Visser
+- learn(ui-loop, learned-detection-gaps): **the screenshot harness is an instrument, and nobody
+  scores it.** Two harness defects on the PRD benchmark's Arm A produced screenshots that were
+  about to be written up as app defects. (1) The harness loaded each page at 1280 and then called
+  `setViewportSize({width:390})` for the second shot; Atlas's off-canvas sidebar region does not
+  re-collapse on resize, so **all seven** phone-width shots came back with the navigation drawer
+  open over a dimmed page — and an entire review round's verdicts were wrong in both directions,
+  the 1280 shots called broken when they were fine. Re-shot from a context *created* at 390, the
+  same pages render a collapsed hamburger and full-width content. (2) At 390 the overview grid is
+  Atlas `hide-phone`: the desktop control measures 0×0 and the control a user taps lives **outside**
+  the grid container, so a container-scoped selector passes at 1280 and times out silently at 390.
+  `ui-loop.md` gains "The screenshot harness is an instrument too" (one width per run set at
+  context creation, never resize a loaded page; target the visible twin, not the container; and
+  the tell — a defect on 7 of 7 screens at exactly one width is the camera, a real layout defect
+  hits one or two). `learned-detection-gaps.md` gains the matching operating rule: rung 6, which
+  the ladder calls "the only rung that verifies *behaviour*", is only as true as the harness that
+  reads it. The high-code arm of the same benchmark never hit either defect because its harness
+  made a fresh context per screen per width — a harness difference, not a platform difference, and
+  it nearly became a finding about Mendix. — PRD benchmark, Arm A (Maurits Visser)
+- learn(learned-detection-gaps): **two new register rows from the PRD benchmark.** `Title = null`
+  as an XPath retrieve constraint passes `check --references`, passes exec, and is **evaluated by
+  mxcli's own OQL engine**, which returns rows — so even a read-back looks right; real mxbuild
+  rejects it with CE0161. The lesson is sharper than the fix (`not(Title)`): mxcli's query engine
+  is more permissive than the model loader, so "I ran the query and it worked" is not evidence a
+  constraint is legal. Second row: a layout migrated with `ALTER PAGES … WHERE LAYOUT = X` is
+  silently reverted by any later `create or replace page` that hardcodes the old `Layout:`, because
+  that statement rewrites the page wholesale. It is green through **every rung including live
+  runtime** — the app loads, every page renders, every journey passes — and the app ships two
+  navigation shells at once. Found when 4 of 7 screens turned out to have no navigation at all,
+  just a bare hamburger, after a UI fix loop re-ran five older page scripts. The migration is not
+  done until the `Layout:` literal is fixed in the source scripts. — PRD benchmark, Arm A (Maurits Visser)
+- fix(module-review): **rubric row 8 judged the nav *bar* but never the nav *menu*.** The row
+  already caught an un-skinned default nav bar and a sidebar design shipped as a top-bar app; it
+  said nothing about the navigation profile's own items. The menu is chrome on every screen and
+  belongs to no page, so a page-by-page LOOK pass structurally never reaches it — Arm A of the PRD
+  benchmark passed a full module review and two UI sweeps with five bare text labels and no icons.
+  Row 8 now names the menu items (labels, icons, order, grouping) as a finding class, says to judge
+  them once explicitly on the first screen opened, and points at `learned-sidebar-collapse-icons.md`
+  so the corrected icon capability is reachable from the review rubric and not only from a build
+  skill. — PRD benchmark, Arm A (Maurits Visser)
+- fix(learned-sidebar-collapse-icons): **the skill told sessions that menu-item icons cannot be
+  scripted — they can, and have been able to for some time.** The file asserted that
+  `navigation.create` "has no menu-item icon token" and that per-item icons "have to be assigned
+  by hand in Studio Pro". `mxcli syntax navigation.create` on **v0.22.0** documents
+  `MENU ITEM 'Label' PAGE Module.Page ICON Atlas_Core.Atlas."name"`, the quoting rule for
+  hyphenated Atlas names, and `SHOW / DESCRIBE ICON COLLECTION` to browse the 366 stock icons.
+  Cost of the stale claim: the PRD low-code-vs-high-code benchmark's Arm A shipped five text-only
+  navigation items through a full build and two UI sweeps, because the skill said icons were not
+  scriptable so nobody re-probed — the user's own verdict on the shipped nav was "lots of text ugly
+  stuff". Corrected in place with the probe command, a worked example, and a note that this is the
+  **capability-probe rule** failing precisely where it hurts most: a general prior written into a
+  skill file is the most convincing general prior there is. Also split the two halves that were
+  conflated — `ICON` places the glyph (MDL), icon-only-when-collapsed is theme CSS (and the class
+  names must be read from your own `themesource/atlas_core/`, never copied from another project).
+  — PRD benchmark, Arm A (Maurits Visser)
+- docs(existing-app-change): **Stage 0 in the change-an-existing-app mode now asks in plain words.** "What do you want to work on", "do you have input documents", "what else does it touch" replace slice / blast radius in the skill, intake Q4–Q5, the gate message, the pipeline walk and the routing row; migration keeps its own vocabulary — Maurits Visser
+- new(existing-app-change): **map the app first, ask what to do with the findings, and let a project park until the change is named.** Stage 0 in this mode now opens with the app analysis (`app-facts.sh` + `app-report.sh`, `skills/app-analysis.md`), run without asking since it is read-only and takes about a minute, followed by the question the user owns: fix / log / accept per top finding. Kickoff no longer opens with "which slice?"; the slice and its blast radius (read from the map's tangles and edges, not recomputed) come at Stage 0b, when the change arrives. `artifact-manifest.tsv` owes the map in this mode (`app-report`, Stage 0); gate-check reports a mapped project with no change as Stage 0 `PENDING` instead of a permanent FAIL, and its Stage 1 hint names Path D instead of an extractor. `existing-app-assurance.md` Track A starts from the same report, so an audit that turns into a change does not redo it. Fixture: `test-bug03-gates.sh` T12. Field run: a live client workflow app — 28 modules, one tangle of 7 of 9 own modules, 213 loop microflows, mapped in 76 s; gate-check read it PENDING/parked with 0 needing attention — Maurits Visser
 - docs(pipeline-walks): **`docs/pipeline-walks.html` — a process diagram per entry mode, with the scripts run at every step.** Shared spine, migration, requirements-driven (incl. the docs-ready fast path), greenfield, change-an-existing-app (opening with the app-mapping step: `SHOW STRUCTURE`, `graph-report`, `lint`, `report`, security matrix, `marketplace diff`), à-la-carte tracks A/A2/B, and the Stage 5 BUILD→GATE→PROVE→LOOK→CONFIRM loop, each as a mermaid flowchart plus a stage/what/scripts table. Linked from the README entry-modes paragraph — Maurits Visser
 - fix(bin/doctor.sh): **doctor told every Podman user "docker is not installed"** — the section advertised Podman in its advice text ("Rancher Desktop or Podman … are common substitutes") while all four probes ran `docker` only: `docker info`, the `command -v docker` gate, the not-installed warning, and a start hint that said `open -a Docker`. So a machine fully able to run the container lane on Podman, but without the docker shim, was reported broken — and on a team that cannot licence Docker Desktop that reads as "go install software you are not allowed to have" (a colleague's machine-ready status carried "Docker not installed" as a known issue; they may have had Podman all along). Detection is now docker-then-podman (`MXTK_CONTAINER_RUNTIME` forces one), the runtime is **named** in the report (`podman responding — …`), the start hint knows `podman machine start` / `podman.socket`, and the not-installed warning names Podman as the licence-free option instead of implying Docker Desktop is required. Same bounded background/poll/kill probe for both, same 0/1/2 exit contract; `mxcli docker check` invocation deliberately untouched (different repo). **Not field-run** — no container runtime in the authoring container; needs one run on a Mac with Podman and no `docker` on PATH. Driver: the Mendix migration team's Docker Desktop licensing constraint — Maurits Visser
 - learn(skills/doctor-triage.md): **"doctor.sh says red — what now?" is now on disk instead of in a Slack thread.** Three failures that render identically get separated: my environment is wrong / the toolkit's own self-check is wrong / this line does not apply in my lane. Check the machine before naming a fix — a wrong-arch binary, a missing one and a broken self-check all read the same, which is how *"install Studio Pro 10.24.18"* became the first confident answer to a Linux-ELF mxbuild on a Mac, and how a false `fail (unreadable error file)` (the self-test bug fixed in `c0ea53c`) sent people to audit their own machines. Also: the three toolchain lanes (bundled `mx` — macOS ships one only from Mendix 11 — the Linux-only CDN toolchain, and the container lane, runtime-agnostic although doctor still probes only `docker`), a derivation for which FAILs block rather than a list that rots, the N+M-lines-dispositioned bound, and the VM/arch caveat. From the macOS onboarding thread of 2026-09-22 — Yvann, and the four people in it

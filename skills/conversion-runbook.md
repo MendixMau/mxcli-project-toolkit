@@ -125,7 +125,7 @@ The stages are the same for everyone; what differs is where you enter and which 
 | **Legacy source code** (± docs, ± SME) | **Migration** | P, 0–7 (all) | The default everything below describes. Path A (code extractors) always runs. |
 | **Requirements only** — BRDs, specs, workshop outputs, wireframes; no legacy code | **Requirements-driven** | P, 0–6 (skip 7) | Stage 0 runs. `document-discovery.md` runs over the whole corpus for the inventory, **and** the extraction call runs per extractable structure inside it — a schema, a table dump, a data export or entity tables in a spec each get one; `N/A` is earned on evidence, never on the mode label (`source-triage.md` owns that rule — see "Stage 0 runs in every entry mode" below). Stage 1 runs Path B (`kb-generation.md`) + Path C (SME) only; Path A is declared not-applicable, not "skipped". Stages 2–6 run unchanged — BRDs come from documents instead of extraction. Stage 7 only if legacy data exists somewhere to cut over. **A text-native corpus — Markdown and HTML pages, no legacy code, no Office/PDF containers — takes the docs-ready fast path below.** |
 | **Just an idea / a running start on the model** | **Greenfield** | P (light), 0 (scope only), 5–6 | Stages 1–4 collapse to whatever plan the user already has. Stage 0 does **not** collapse: with no corpus there is nothing to grade, but the scope conversation is exactly as load-bearing as it is anywhere else, so Stage 0 reduces to CAC-1's brainstorm and its sign-off. If you find yourself inventing requirements mid-build, you're actually in requirements-driven mode — back up to Stage 2. |
-| **A live Mendix app you are changing** — a slice is being added or altered, the rest stays as it is | **Change an existing app** | P, 0–6 per slice (skip 7 — the app is live) | `existing-app-change.md` owns the mode. Stage 1 runs **Path D** — `mxcli` queries the `.mpr` into the knowledge base, scoped to the slice **plus its blast radius**, which Stage 0 writes into `triage.md` as its own section. A regression net (Track B baseline) goes under the app before anything changes. Stages 2–4 run over the slice only: one as-is/to-be BRD per capability being changed, Stage 3 in full only when the change crosses a module boundary, adds an integration or alters the domain model — otherwise it collapses to "which existing module owns this". Stage 7 is N/A in the register with that reason. The coverage ledger is `mxcli brain plan`, not a hand-kept file. |
+| **A live Mendix app you are changing** — a feature or flow is being added or altered, the rest stays as it is | **Change an existing app** | P, 0–6 per change (skip 7 — the app is live) | `existing-app-change.md` owns the mode. Stage 1 runs **Path D** — `mxcli` queries the `.mpr` into the knowledge base, scoped to the change **plus what it touches**, which Stage 0 writes into `triage.md` as its own section. A regression net (Track B baseline) goes under the app before anything changes. Stages 2–4 run over the change only: one as-is/to-be BRD per capability being changed, Stage 3 in full only when the change crosses a module boundary, adds an integration or alters the domain model — otherwise it collapses to "which existing module owns this". Stage 7 is N/A in the register with that reason. The coverage ledger is `mxcli brain plan`, not a hand-kept file. |
 
 ### Stage 0 runs in every entry mode
 
@@ -338,6 +338,23 @@ Rules — these apply to every stage and every per-module build loop:
    template and the gate rows below defer here. (Why, 2026-09-02: three transitions that
    asked well and proved well and closed nothing — see the template section for the measured
    register.)
+
+8. **The last checklist item of every stage and every module build is the gate script,
+   run and pasted.** `bin/gate-check.sh <project-root> <stage>` — and for a module build the
+   obligation lines for that module — go in the chat as output, with zero `PENDING`, or with
+   each remaining `PENDING` named and waived (`--waive <obligation> --reason "..."`). A stage
+   whose gate script never ran is not done, however complete its checklist looks. This is the
+   item that makes the obligation check bite: it reports a pass nobody performed, but only on
+   a run, and nothing before this rule required one.
+
+   **Why (measured, 2026-09-19, `lowcode-vs-highcode-benchmark` runs `mendix-run1` and
+   `mendix-run1b`).** A full Stage-5 build closed with all seven screens built, a green mxbuild
+   gate, and 11 of 37 acceptance rows confirmed. `gate-check.sh` had run exactly once, at
+   scaffold time. The `look` obligation, the wiring sweep, journeys and coherence were all
+   `PENDING` and nobody saw it, because nothing asked. When the gate was finally run as a
+   deliberate second pass, the seven screens scored 0, 18, 40, 40, 58, 58 and 69 percent against
+   their own wireframes on an element checklist — one screen matched none of its wireframe's
+   elements at all. Every one of those defects was visible to a gate that never ran.
 
 The final full-checklist repost before a gate doubles as the gate's evidence: the user should
 be able to approve the gate by reading that one message. The close-out block is what the

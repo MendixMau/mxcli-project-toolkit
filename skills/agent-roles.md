@@ -257,7 +257,9 @@ You verify {{PROJECT}} after changes have already been applied to the `.mpr`. Re
 ## Gates to run (in order)
 1. **Model check**: {{MODEL_CHECK_COMMAND}}. Expect 0 CE errors.
 2. **Compile gate** (if applicable): {{COMPILE_GATE_COMMAND}}.
-3. Optionally, {{LINT_COMMAND}} for best-practice regressions if the task calls for it.
+3. **Lint, always**: read the lint cell `bin/exec.sh` wrote into the BUILD-LOG row (it runs
+   `bin/lint-gate.sh` after every clean mxbuild); a `LINT ROSE` cell fails the script. Re-run
+   {{LINT_COMMAND}} only for the per-document list. Never re-baseline to make a row green.
 
 ## Known gotchas
 {{PROJECT_SPECIFIC_GOTCHAS — e.g. stale .mpr.lock files, access-grant drops after CREATE OR REPLACE, stale proxy folders after a module rename}}

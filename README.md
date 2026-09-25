@@ -11,7 +11,7 @@ Serves five ways in — four pipeline entry modes that share the same stages, pl
 - **Migrations** (legacy source code) — all stages.
 - **Requirements-driven builds** (specs/BRDs/SME input, no legacy code) — stages 1–6; document discovery replaces source triage, extraction Path B/C replaces code extractors.
 - **Greenfield mxcli builds** — Stage 5 onward; the standard Mendix build discipline is not migration-specific.
-- **Changing an existing app** (a live `.mpr`, a slice being added or altered) — stages P, 0–6 per slice; the knowledge base is queried from the model itself (Path D), a regression net goes under the app first, and Stage 7 is N/A because the app never stops being live. `skills/existing-app-change.md`.
+- **Changing an existing app** (a live `.mpr`, a feature or flow being added or altered) — stages P, 0–6 per change; the knowledge base is queried from the model itself (Path D), a regression net goes under the app first, and Stage 7 is N/A because the app never stops being live. `skills/existing-app-change.md`.
 - **Existing apps — à la carte, no pipeline** — audit, lint, or put a regression/e2e test net under a Mendix app you already have. No intake, no stages, no gates: start at `skills/existing-app-assurance.md` and grab only the tools you need.
 
 Used across all mxcli-powered projects — OS migrations, Java/Angular migrations, Node/Express+React migrations, and other client integration work.
@@ -532,7 +532,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Stage 0 sign-off when the inventory is at or under 1 module / 8 screens / 25 use cases, or the user says the app is small — declare the tier, then apply its per-stage caps and the three artifact waivers | `skills/small-project-tier.md` |
 | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts | `skills/bootstrap-project.md` |
 | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim | `skills/cloud-dev-environment.md` |
-| Changing an EXISTING Mendix app — adding a feature, altering a flow, restructuring a module — when it has no BRDs, no architecture doc and no wireframes: the knowledge base comes from the live model (Path D), stages 2–4 run over the changed slice plus its blast radius only, and the Track B regression baseline is the precondition; audit-only stays in existing-app-assurance | `skills/existing-app-change.md` |
+| Changing an EXISTING Mendix app — adding a feature, altering a flow, restructuring a module — when it has no BRDs, no architecture doc and no wireframes: the knowledge base comes from the live model (Path D), stages 2–4 run over what changes plus what it touches, nothing more, and the Track B regression baseline is the precondition; audit-only stays in existing-app-assurance | `skills/existing-app-change.md` |
 | Setting up or wiring a COMPANY BRAIN — the private tier between the toolkit and a project for own skills, conventions, lint rules, MDL snippets and approved MPKs; and deciding whether something goes to the toolkit, the company brain or docs/brain/ | `skills/company-brain.md` |
 | Cutover and retrospective — promoting proven patterns back into the toolkit | `skills/close-the-loop.md` |
 | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited | `skills/measured-claims.md` |

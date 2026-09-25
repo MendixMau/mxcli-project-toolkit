@@ -70,6 +70,50 @@ wrong — that is the exact escape this loop exists to close (`module-review.md`
 
 ---
 
+## The screenshot harness is an instrument too
+
+"Judge from the screenshot" only holds while the screenshot is true. Two harness defects,
+both found in one afternoon on the PRD benchmark (2026-09-22), produced screenshots that
+were about to be written up as app defects:
+
+**1. One width per run, set at context creation. Never `setViewportSize` on a loaded page.**
+The harness loaded each page at 1280, shot it, then resized the same page to 390 and shot it
+again. Atlas's off-canvas sidebar region (`mx-scrollcontainer-left region-sidebar
+mx-scrollcontainer-toggleable`) does not re-collapse on resize, so **all seven** 390px shots
+came back with the navigation drawer open over a dimmed page. Re-shot from a browser context
+*created* at 390, the same pages render a collapsed hamburger and full-width content. An
+entire earlier review round carried a "drawer covers content" verdict from this artefact, on
+both widths, in both directions — the 1280 shots were called broken when they were fine.
+
+```js
+// wrong: one context, resized between shots
+await page.setViewportSize({ width: 390, height: 844 });
+// right: one context per width, page loaded inside it
+const ctx = await browser.newContext({ viewport: { width, height } });
+```
+
+**2. A control that is 0×0 at one width may have a reachable twin outside the container you
+scoped to.** At 390 the overview grid is Atlas `hide-phone`: `.mx-name-btnOpenDetail`
+measures 0×0, and the control a user actually taps is `.mx-name-btnOpenDetailNarrow` in the
+phone list view — which lives **outside** the `.mx-name-dgMyRequests` container. A selector
+scoped to the grid passes at 1280 and times out silently at 390. Target the visible one of
+both, not the container: `page.locator('.mx-name-btnOpenDetailNarrow:visible,
+.mx-name-btnOpenDetail:visible').first()`.
+
+**The rule that falls out of both:** before writing up a responsive finding, ask which side of
+the camera it is on. The tell is *uniformity* — a defect on 7 of 7 screens at exactly one
+width is the harness until proven otherwise; a real layout defect is usually on one or two
+screens. Confirm by re-shooting one screen from a fresh context at that width before the
+verdict is written. Journey harnesses have the same failure mode as the instruments in
+"Related" below: they are code, they are read as ground truth, and nobody scores them
+(`tool-output-is-not-ground-truth.md`).
+
+The high-code arm of the same benchmark never hit either defect, because its harness created
+a fresh context per screen per width. That is a harness difference, not a platform
+difference — do not let a screenshot artefact become a finding about Mendix.
+
+---
+
 ## The prompt
 
 Hand this to an agent, or run it yourself:

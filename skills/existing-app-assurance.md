@@ -32,6 +32,13 @@ Not for building anything new. Two different places to go, depending on what "ne
 
 ## Track A — Analyze / audit the model
 
+**Start with the map.** `bin/app-facts.sh` then `<toolkit>/bin/app-report.sh`, per `app-analysis.md`:
+inventory, module tangles, loop-risk microflows and dead elements in about a minute, rendered as
+`analysis/app-report.html` with a fix-first list. Its Security and Lint sections report **fault** until
+you fill them from the rows below into `architecture/app-dossier.md` (§5, §6) and re-render — the
+report is the findings list the rows add to, not a separate deliverable. The same map is Stage 0a of
+`existing-app-change.md`, so an audit that turns into a change does not redo it.
+
 | Question | Tool |
 |---|---|
 | What's in the model? | `SHOW MODULES / ENTITIES / ASSOCIATIONS`, `DESCRIBE ENTITY`, `SEARCH` — see `query-the-model.md` |
@@ -41,7 +48,7 @@ Not for building anything new. Two different places to go, depending on what "ne
 | Overall quality scan | `assess-quality.md` (bundled) |
 | Have installed marketplace modules been locally edited? What would an upgrade overwrite? | `mxcli marketplace diff <content-id> -p app.mpr [--to VERSION] [--json]` (≥ v0.18; content-id via the module's AppStoreGuid) — reports per-element local edits and upgrade collisions; an element it cannot describe is reported **unknown, never unchanged**, and `verified:false` in the JSON means "no modifications found" is not a conclusion |
 
-**Deliverable:** a findings report (markdown or HTML — reuse `toolkit-guide.html`'s tokens), each finding with evidence (the query/lint output) and a proposed disposition: fix now / log / accept. Triage the list *with the user* — dispositions are their call.
+**Deliverable:** `analysis/app-report.html`, re-rendered after the dossier carries what the rows above found — each finding with evidence (the query/lint output) and a proposed disposition: fix now / log / accept. Show the report, then triage the list *with the user* — dispositions are their call, and asking for them is the step that ends Track A.
 
 ## Track A2 — Audit the design system (bounded: an afternoon, not a re-design)
 

@@ -43,7 +43,12 @@ $extra"
 done
 
 BEGIN='<!-- COMPANY-BRAIN:BEGIN -->'; END='<!-- COMPANY-BRAIN:END -->'
-block="$(cat <<BLK
+# bash 3.2's $(...) scanner does not recognise a heredoc opened inside a command
+# substitution: it scans the body as shell text, so an apostrophe in the body (e.g.
+# "company's") opens a quote that is never closed and the parse fails with "unexpected
+# EOF while looking for matching `''" on macOS's default bash. Build the block with a
+# heredoc feeding `read -d ''` instead, which every caller supports the same way.
+IFS= read -r -d '' block <<BLK || true
 $BEGIN
 ## Company brain
 
@@ -53,7 +58,7 @@ integration, and before choosing a component, read \`$BRAIN/ROUTING.md\`** and f
 that fires. It loads on demand; nothing from it is copied here.
 $END
 BLK
-)"
+block="${block%$'\n'}"
 written=0
 while IFS= read -r CL; do
   [ -n "$CL" ] || continue

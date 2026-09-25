@@ -150,6 +150,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 |---|---|---|---|---|
 | Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations | `skills/learned-mdl-preflight.md` | mdl | 5 | baseline |
 | Writing or fixing any microflow — MDL gotchas plus annotation discipline | `skills/learned-microflow-patterns.md` | mdl | 5 | baseline |
+| Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list — post the checklist before the first MDL line | `skills/microflow-preflight.md` | mdl | 5 | baseline |
 | Choosing CLI vs MCP+MDL vs hand-rolled MCP, or any MCP write session — three co-equal write modes, not CLI-only | `skills/learned-mcp-patterns.md` | mdl | 5 | baseline |
 | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop | `skills/microflow-loop-antipatterns.md` | architect,review,mdl | 0,5,6 | ondemand |
 | Writing MDL microflow scripts — worked recipes | `skills/mdl-cookbook-microflows.md` | mdl | 5 | ondemand |

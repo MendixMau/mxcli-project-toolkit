@@ -42,6 +42,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/learned-mdl-preflight.md` | Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations |
 | `skills/module-folder-convention.md` | Placing any document in a module — before the first `create`. Feature group, then Pages/Microflows/Services/Resources; the path comes from the brief's folder plan, and the table says which types mxcli can actually place |
 | `skills/learned-microflow-patterns.md` | Writing or fixing any microflow — MDL gotchas plus annotation discipline |
+| `skills/microflow-preflight.md` | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list — post the checklist before the first MDL line |
 | `skills/ui-preflight-pages.md` | Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP |
 | `skills/design-spacing.md` | Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires |
 | `skills/ui-loop.md` | After every page-building script, and any time the UI looks wrong — the cheap repeatable look during the build: one page, one screenshot, four questions, scored when a wireframe exists. Feeds Gate: UI, never replaces it |
@@ -137,6 +138,7 @@ this summary. The hard STOPs below are inline on purpose; never route around the
   overrides that pick for corrupting ops. State the mode per op in your report. On any STOP → MCP,
   hand back the **filled** confirmed JSON pattern from `learned-mcp-patterns.md`, not just the label.
 - Annotate selectively (`learned-microflow-patterns.md`); always annotate a CE-error fix.
+- **Loops / long flows — run `microflow-preflight.md`** and post its checklist before the first MDL line; `microflow-preflight: no trigger` otherwise.
 - **Pages/snippets — run the full pre-flight in `ui-preflight-pages.md`** (wireframe → tokens →
   gallery reuse → cross-check) and include its UI cross-reference block in your report. **No wireframe
   → STOP** — do not guess layout or bindings. Reuse existing gallery components; don't reimplement

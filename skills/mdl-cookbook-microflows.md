@@ -260,7 +260,9 @@ begin
   -- Check after exec and restore manually if missing.
   retrieve $SalesAreaDtoList from $Dto/OrderRegistration.SalesAreaData_Dto_OrderDetail_Dto;
 
-  -- PATTERN: LOOP over list — create + wire + commit each row inside the loop body.
+  -- PATTERN: LOOP over list — create + wire each row, collect it, ONE commit after the loop
+  -- (a commit inside the body is lint CONV011; see microflow-preflight.md).
+  $SalesAreaData_CommitList = create list of OrderRegistration.SalesAreaData;
   loop $SalesAreaDtoRow in $SalesAreaDtoList
   begin
     $SalesAreaData = create OrderRegistration.SalesAreaData (
@@ -273,8 +275,9 @@ begin
       CreatedBy = $currentUser/Name
     );
     change $SalesAreaData (OrderRegistration.SalesAreaData_OrderDetail = $OrderDetail);
-    commit $SalesAreaData on error rollback;
+    add $SalesAreaData to $SalesAreaData_CommitList;
   end loop;
+  commit $SalesAreaData_CommitList on error rollback;
 
   -- Set status to 01 (Draft editing) via shared header microflow.
   $UpdateOk = call microflow BusinessApp_Common.ACT_ApplicationCommonHeader_UpdateStatus(
@@ -564,7 +567,7 @@ end;
 | $currentUser | `$currentUser/Name`, `$currentUser/Email` | Built-in, no retrieve needed |
 | Log with concat | `log warning node 'N' '{1}' with ({1} = 'prefix' + $Var)` | Use {1} placeholder, not + in main string |
 | Inline conditional | `Attr = if $Dto != empty then $Dto/Attr else ''` | In CREATE parameter list |
-| Loop with persist | `loop $Row in $List begin ... create ... change ... commit ... end loop` | commit inside loop body |
+| Loop with persist | `loop $Row in $List begin ... create ... change ... add $X to $X_CommitList; end loop; commit $X_CommitList` | collect, then ONE commit after the loop — never inside (CONV011) |
 | STUB_ call | `$Result = call microflow Module.STUB_OpName(Param = $val) on error rollback` | Identical signature to real op |
 | Navigate after action | `show page Module.Page($Param = $var)` | After last commit, before return |
 | Safe sub-call | `... on error rollback` | On every CALL MICROFLOW that modifies data |

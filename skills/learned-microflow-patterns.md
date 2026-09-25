@@ -408,14 +408,70 @@ end;
 
 ## Validation Feedback — Correct Pattern (from ACT_OrderDetail_Save)
 
-**Rule:** Use `validation feedback` directly — no `log error` alongside it, no annotations.
+**Trigger:** writing any VAL_/ACT_ microflow that puts `validation feedback` on user input.
 
-```mdl
-IF trim($Dto/FieldName) = '' THEN
-  SET $IsValid = false;
-  VALIDATION FEEDBACK $Dto/FieldName MESSAGE 'non-English message';
-END IF;
+**Rule: collect every field error, then stop once.** Declare `$IsValid Boolean = true`; give
+each field its own independent `if` that fires `validation feedback` and `set $IsValid = false`
+— no `return` inside it, no `else` chaining. After the last check, `if not($IsValid) then return
+false; end if;`, then save. A cross-field check guards on *its own* inputs being non-empty,
+never on `$IsValid`. Use `validation feedback` directly — no `log error` alongside it, no
+annotations.
+
+**Why:** early return flags one field per submit — an empty form turns the first input red, the
+user fixes it, resubmits, and only then sees the second (kybapp, 2026-09-25, reported by the
+product owner; a grep found 44 feedback-then-`return` sites across 11 of its scripts).
+
+Wrong — the second check never runs while the first field is empty:
+
+```sql
+if $Quote/TotalPrice = empty then
+  validation feedback $Quote/TotalPrice message 'Total price is required.';
+  return false;
+end if;
+if $Quote/ValidUntil = empty then
+  validation feedback $Quote/ValidUntil message 'Valid until is required.';
+  return false;
+end if;
 ```
+
+Right — every field flags red on the same submit:
+
+```sql
+create or modify microflow Sales."ACT_Quote_Submit" (
+  $Quote: Sales."Quote"
+)
+returns Boolean as $IsSubmitted
+begin
+  declare $IsSubmitted Boolean = false;
+  declare $IsValid Boolean = true;
+  if $Quote/TotalPrice = empty then
+    validation feedback $Quote/TotalPrice message 'Total price is required.';
+    set $IsValid = false;
+  end if;
+  if $Quote/ValidUntil = empty then
+    validation feedback $Quote/ValidUntil message 'Valid until is required.';
+    set $IsValid = false;
+  end if;
+  -- cross-field: guard on ValidUntil itself, not on $IsValid
+  if $Quote/ValidUntil != empty and $Quote/ValidUntil < [%CurrentDateTime%] then
+    validation feedback $Quote/ValidUntil message 'Valid until must be in the future.';
+    set $IsValid = false;
+  end if;
+  if not($IsValid) then
+    return false;
+  end if;
+  commit $Quote refresh;
+  set $IsSubmitted = true;
+  return $IsSubmitted;
+end;
+/
+```
+
+Early return stays right for **state guards** that are not about a field (wrong status, record
+missing, deadline passed → `show message`, `return false`) — run those first, then the
+collect-all field block. Attribute paths stay unquoted (`$Quote/TotalPrice`); see
+`learned-mdl-preflight.md`. `mxcli check` passes both shapes — only a reader or a browser
+submit of an empty form tells them apart.
 
 **GRANT syntax:** Short role names only — `Admin, User` NOT `OrderRegistration.Admin`.
 

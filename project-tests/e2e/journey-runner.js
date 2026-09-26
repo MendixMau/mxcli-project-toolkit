@@ -160,6 +160,25 @@ async function act(page, a, vars, note) {
       await el.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
       if (!(await el.isVisible({ timeout: 6000 }).catch(() => false)))
         throw new Error(`.mx-name-${a.widget} not visible`);
+      // Hit-test before the forced click. `force` skips Playwright's actionability check, so a
+      // click lands on whatever sits on top: a toast over the page's header actions swallowed
+      // a click and the step read as "the action did nothing" two steps later (card-disbursement
+      // build, row 5.6). A user's click lands there too, so a cover that outlasts an animation
+      // (5 × 250 ms) is the finding, named by its class.
+      let cover = null;
+      for (let t = 0; t < 5; t++) {
+        cover = await el.evaluate(n => {
+          const r = n.getBoundingClientRect();
+          const e = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          if (!e || n.contains(e) || e.contains(n)) return null;
+          const c = e.closest('[class]') || e;
+          return String(c.className || c.tagName).trim().split(/\s+/).slice(0, 3).join('.');
+        }).catch(() => null);
+        if (!cover) break;
+        await PAUSE(250);
+      }
+      if (cover)
+        throw new Error(`.mx-name-${a.widget} is covered by .${cover} — a click lands on that, not on the widget`);
       await el.click({ force: true }).catch(() => el.click());
       break;
     }

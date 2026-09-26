@@ -695,7 +695,10 @@ async function runJourney(page, j) {
 
     // ── RUNG 2: ordered spans ────────────────────────────────────────────────
     if (step.spans && step.spans.ordered && step.spans.ordered.length) {
-      const spans = await O.capture(t0, { min: 1 });
+      // Wait for the claimed microflows, not just any span — see otel.js capture() `until`.
+      const claimed = step.spans.ordered;
+      const spans = await O.capture(t0, { min: 1,
+        until: sp => { const got = O.microflowNames(sp); return claimed.every(n => got.includes(n)); } });
       if (!spans.length) {
         record('trace', `${step.name}: spans`, 'INVALID',
                'zero spans captured — Jaeger down or OTel off. Trace rung did NOT run.', req);

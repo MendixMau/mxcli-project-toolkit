@@ -35,8 +35,17 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
  * Collect every span the service emitted at or after `t0` (ms epoch).
  * Polls, because the exporter batches — spans lag the click by a second or two.
  * Retains `logs`, which is where OTel exception events land in Jaeger.
+ *
+ * `until(spans)` — keep polling until it returns true (or retries run out), not merely
+ * until `min` spans exist. `min: 1` alone stops at the FIRST flushed batch, which is
+ * routinely the page's HTTP/xas spans without the microflow spans behind them: a
+ * journey step then fails "ordered — actual (none)" over a sequence Jaeger holds a
+ * second later (card-disbursement requirements-driven build, 2026-09-26: 2 of 6 trace
+ * claims red on one run, green on the same app with the spans verified in Jaeger).
+ * A predicate that never holds costs the full retry window and returns what it has,
+ * so a genuinely missing microflow still fails — later, never falsely.
  */
-async function capture(t0, { min = 1, retries = 8, waitMs = 1500 } = {}) {
+async function capture(t0, { min = 1, retries = 8, waitMs = 1500, until = null } = {}) {
   let out = [];
   for (let i = 0; i < retries; i++) {
     await sleep(waitMs);
@@ -63,7 +72,7 @@ async function capture(t0, { min = 1, retries = 8, waitMs = 1500 } = {}) {
         logs: (s.logs || []).map(l => Object.fromEntries(l.fields.map(f => [f.key, f.value]))),
       });
     }
-    if (out.length >= min) break;
+    if (out.length >= min && (!until || until(out))) break;
   }
   return out;
 }

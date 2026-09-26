@@ -116,8 +116,8 @@ the same vacuity bug one level up.
 | `trace-order` | expect a microflow that never fires | span ORDER, not existence |
 | `trace-negative` | assert a microflow that *did* run must not have | the negative trace claim |
 | `data-delta` | expect +2 from a +1 action | the row-count delta |
-| `data-target` | `mustPointAt` a value never picked | the association *target* |
-| `outcome` | unreachable floor on the outcome query | the end-to-end claim |
+| `data-target` | `mustPointAt` a value never picked (numeric for a numeric key) | the association *target* |
+| `outcome` | unreachable `atLeast` or `expect` on the outcome query | the end-to-end claim |
 
 **A rung with no mutant is UNPROVEN, which is `fault` — never `pass`.** Same discipline as INVALID.
 

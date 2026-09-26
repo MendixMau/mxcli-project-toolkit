@@ -506,7 +506,12 @@ function controlMutants(j) {
     for (const s of c.steps) {
       for (const spec of (s.data && s.data.assocMustBeSet) || []) {
         if (spec.mustPointAt) {
-          spec.mustPointAt.value = '__LOC_THAT_WAS_NEVER_SELECTED__';
+          // A numeric key (Long/Integer) needs a numeric never-picked value: the text
+          // sentinel is an OQL error there, the targeted check reads INVALID instead of
+          // FAIL, and the rung is reported unproven over a working assertion
+          // (card-disbursement build, row 3.8: a Long package key).
+          spec.mustPointAt.value = /^-?\d+$/.test(String(spec.mustPointAt.value))
+            ? '-424242' : '__LOC_THAT_WAS_NEVER_SELECTED__';
           return;
         }
       }
@@ -515,9 +520,14 @@ function controlMutants(j) {
   }, named('points at the seeded'));
 
   // Rung 5 — the end-to-end outcome claim.
-  add('outcome', 'outcome query with an unreachable floor', (c) => {
-    if (!c.outcome || c.outcome.atLeast === undefined) return false;
-    c.outcome.atLeast = 999999;
+  // An exact `expect` is the stronger claim; the mutant once knew floors alone, so a
+  // journey declaring `expect` had this rung reported unproven (card-disbursement build,
+  // row 4.8).
+  add('outcome', 'outcome query with an unreachable floor or exact value', (c) => {
+    if (!c.outcome) return false;
+    if (c.outcome.atLeast !== undefined) c.outcome.atLeast = 999999;
+    else if (c.outcome.expect !== undefined) c.outcome.expect = 999999;
+    else return false;
   }, named('end state'));
 
   // The denominator is declared, not counted from whatever happened to be added.

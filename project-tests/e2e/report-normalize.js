@@ -94,7 +94,8 @@ const INPUTS = {
   verifyDir:       '.claude/loop/verify',
   conformanceDir:  'docs/conformance',
   modulesDir:      'architecture/modules',
-  journeysDir:     'journeys',
+  // verify-module.sh's JOURNEY_DIR, so a project keeping journeys elsewhere is read where it keeps them.
+  journeysDir:     process.env.JOURNEY_DIR || 'journeys',
   runLedger:       '.claude/loop/run-ledger.jsonl',
   deferrals:       '.claude/loop/deferrals.jsonl',
   mpr:             PROJ.mprName,
@@ -156,7 +157,30 @@ const V_CONF = { OK: 'pass', STALE: 'fail', UNDERSTATED: 'fail', OVERSTATED: 'fa
 
 // ── Small utilities ──────────────────────────────────────────────────────────
 
-const abs = p => (path.isAbsolute(p) ? p : path.join(ROOT, p));
+// Two-tree layout (F-042; card-disbursement requirements-driven build, 2026-09-26): ROOT is
+// the model's app/ directory, while docs/, architecture/, .claude/loop/, tests/e2e/artifacts/
+// and journeys/ sit beside it at the repository root. Resolving every INPUT against ROOT made
+// all of them "missing" — 8 instrument FAULTs over artefacts that existed — and wrote the
+// report into a stray app/docs/, so verify-module found no docs/report.json to render. Same
+// cure as project.config.js designPath() and design-audit.js nearRoot(): probe ROOT first (the
+// .mpr, deployment/model/*, .mxcli/catalog.db live there), then the repo root. PROJECT_DIR is
+// ROOT's parent only when this harness sits outside ROOT but inside that parent — the
+// signature of the two-tree checkout; in a single tree it IS ROOT and nothing changes.
+const inside = (dir, p) => { const r = path.relative(dir, p); return !!r && !r.startsWith('..') && !path.isAbsolute(r); };
+const PROJECT_DIR = (!inside(ROOT, __dirname) && inside(path.dirname(ROOT), __dirname))
+  ? path.dirname(ROOT) : ROOT;
+function abs(p) {
+  if (path.isAbsolute(p)) return p;
+  const inRoot = path.join(ROOT, p);
+  if (PROJECT_DIR === ROOT || fs.existsSync(inRoot)) return inRoot;
+  return path.join(PROJECT_DIR, p);
+}
+// An absolute JOURNEY_DIR (verify-module passes $PWD/...) is re-expressed relative to the
+// project, so the report's reproduce commands and evidence paths carry no machine path.
+if (path.isAbsolute(INPUTS.journeysDir) && inside(PROJECT_DIR, INPUTS.journeysDir))
+  INPUTS.journeysDir = path.relative(PROJECT_DIR, INPUTS.journeysDir).split(path.sep).join('/');
+// Outputs are never probed: they belong at the repo root, where verify-module looks for them.
+const absOut = p => (path.isAbsolute(p) ? p : path.join(PROJECT_DIR, p));
 
 // Requirement pointers: rule 4 of the schema. A blank cell in a source is the
 // ABSENCE of a pointer, and "" renders as an empty table cell that reads like an
@@ -193,7 +217,7 @@ function sortKeysDeep(v) {
 
 // Evidence paths are relative to report.json and never base64 (schema rule 3).
 function relTo(outFile, target) {
-  return path.relative(path.dirname(abs(outFile)), abs(target)).split(path.sep).join('/');
+  return path.relative(path.dirname(absOut(outFile)), abs(target)).split(path.sep).join('/');
 }
 
 // Every read goes through here so that "missing" and "unreadable" and "not JSON"
@@ -2422,7 +2446,7 @@ function loadInputs(outFile) {
     .filter(l => !(l.file.status === 'missing'));   // a module dir with no ledger is not an input
 
   // ── Project / run metadata ────────────────────────────────────────────────
-  const meta = { projectId: path.basename(ROOT), mpr: INPUTS.mpr };
+  const meta = { projectId: PROJ.id || path.basename(ROOT), mpr: INPUTS.mpr };   // basename(ROOT) is 'app' in a two-tree checkout
   try { meta.mprModifiedAt = fs.statSync(abs(INPUTS.mpr)).mtime.toISOString(); } catch { meta.mprModifiedAt = null; }
   const md = readJsonInput(INPUTS.metadata);
   if (md.status === 'ok') {
@@ -3028,7 +3052,7 @@ function main() {
   const inputs = loadInputs(outFile);
   const report = sortKeysDeep(normalize(inputs));
 
-  const outPath = abs(outFile);
+  const outPath = absOut(outFile);
   try {
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, JSON.stringify(report, null, 2) + '\n');

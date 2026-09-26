@@ -354,11 +354,17 @@ async function login(page) {
 // GET /logout does NOT work — it renders a page and leaves the session alive
 // (measured: the app root still resolved to the dashboard afterwards). The xas
 // `logout` action does; after it, / redirects to login.html.
+// The token matters: without it the server still answers 200 `{}` and the
+// session lives on. Mendix 11 has no mx.session.getCSRFToken — the token is in
+// mx.session.sessionData.csrftoken (measured 2026-09-26, 11.13: 13 leaked
+// sessions from runs that all "logged out", then the trial cap refused login).
 async function logout(page) {
   try {
     const status = await page.evaluate(async () => {
-      const token = (window.mx && mx.session && mx.session.getCSRFToken)
-        ? mx.session.getCSRFToken() : '';
+      const s = (window.mx && mx.session) || {};
+      const token = s.getCSRFToken ? s.getCSRFToken()
+        : ((s.sessionData && s.sessionData.csrftoken) || '');
+      if (!token) return 'no-token';
       const res = await fetch('/xas/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Csrf-Token': token },

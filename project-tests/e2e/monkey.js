@@ -147,13 +147,38 @@ async function typeSafely(page, handle, text) {
   }, b64);
 }
 
+// ── leaving the app is the harness's move, not the app's crash ─────────────
+// MEASURED 2026-09-26 (card-disbursement requirements-driven build, seed 410855898): on the
+// landing page a backAfterSubmit clicked a control that pushes no history entry (a theme
+// toggle), so Back left the app — to login.html, then to about:blank. The oracle scored the
+// non-app page "blank page", every later round on that target scored it again, and the next
+// target was never reached: 10 crash-class findings, one target unfuzzed, no app defect.
+const SIGN_OUT = /\b(sign|log)\s*(out|off)\b/i;
+function leftApp(url, baseUrl) {
+  const base = String(baseUrl).replace(/\/+$/, '');
+  if (!url || (url !== base && !url.startsWith(base + '/'))) return true;
+  return /\/login\.html(?:[?#]|$)/.test(url);
+}
+
+// Open a NAV target, from outside the app if a round left it.
+async function land(page, group, item) {
+  if (leftApp(page.url(), cfg.baseUrl)) await page.goto(cfg.baseUrl + '/', { timeout: 20000 }).catch(() => {});
+  await H.navTo(page, group, item).catch(() => {});
+  await page.waitForTimeout(2000);
+  return page.locator('.mx-page').first().isVisible({ timeout: 8000 }).catch(() => false);
+}
+
 // ── one round ───────────────────────────────────────────────────────────────
 async function round(page, target, bucket) {
   bucket.jsErrors = []; bucket.http5xx = [];
   const t0 = Date.now();
 
   const inputs = page.locator('.mx-page input:visible, .mx-page textarea:visible');
-  const buttons = page.locator('.mx-page button:visible, .mx-page .mx-button:visible');
+  // Sign-out controls are excluded: a monkey that signs itself out measures the login page
+  // for the rest of the target (same run as leftApp: an app shell with a Sign out button
+  // inside the page, clicked by a reloadMidFlow round).
+  const buttons = page.locator('.mx-page button:visible, .mx-page .mx-button:visible')
+                      .filter({ hasNotText: SIGN_OUT });
   const nIn = await inputs.count().catch(() => 0);
   const nBtn = await buttons.count().catch(() => 0);
 
@@ -176,6 +201,11 @@ async function round(page, target, bucket) {
       if (btn) await btn.click({ force: true, timeout: 4000 }).catch(() => {});
       await page.waitForTimeout(1500);
       await page.goBack({ timeout: 6000 }).catch(() => {});
+      if (leftApp(page.url(), cfg.baseUrl)) {
+        // The oracle below then scores the page Forward returns to — the abuse still ran.
+        await page.goForward({ timeout: 10000 }).catch(() => {});
+        what += ' (Back left the app: the click pushed no history entry; returned with Forward)';
+      }
     } else if (abuse === 'rapidTab') {
       for (let i = 0; i < 15; i++) await page.keyboard.press('Tab').catch(() => {});
       await page.keyboard.press('Enter').catch(() => {});
@@ -193,8 +223,11 @@ async function round(page, target, bucket) {
   return traceRan;
 }
 
+// leftApp is exported for tests/wave2/test-monkey-left-app.sh; requiring this file runs nothing.
+module.exports = { leftApp, SIGN_OUT };
+
 // ── main ────────────────────────────────────────────────────────────────────
-(async () => {
+if (require.main === module) (async () => {
   console.log(`MONKEY_SEED=${SEED}   rounds=${ROUNDS}   (re-run exactly: --seed ${SEED})`);
 
   const { browser, page } = await H.launchBrowser();
@@ -221,12 +254,17 @@ async function round(page, target, bucket) {
     const nav = NAV[key];
     const [group, item] = nav.length === 1 ? [null, nav[0]] : nav;
     console.log(`\n=== ${key}`);
-    await H.navTo(page, group, item).catch(() => {});
-    await page.waitForTimeout(2000);
-    const landed = await page.locator('.mx-page').first().isVisible({ timeout: 8000 }).catch(() => false);
-    if (!landed) { finding('info', key, 'not reached', 'nav did not land — target skipped, NOT fuzzed'); continue; }
-    for (let i = 0; i < Math.ceil(ROUNDS / targets.length); i++) {
+    if (!(await land(page, group, item))) { finding('info', key, 'not reached', 'nav did not land — target skipped, NOT fuzzed'); continue; }
+    const n = Math.ceil(ROUNDS / targets.length);
+    for (let i = 0; i < n; i++) {
       anyTrace = (await round(page, key, bucket)) || anyTrace;
+      // A round that leaves no page behind would have every later round re-score the same
+      // screen. Re-land; if that fails, say how much of the target went unfuzzed.
+      if (!(await page.locator('.mx-page').first().isVisible({ timeout: 3000 }).catch(() => false))
+          && !(await land(page, group, item))) {
+        finding('info', key, 'lost', `no page after round ${i + 1} (at ${page.url()}) and re-landing failed — the remaining ${n - i - 1} round(s) NOT fuzzed`);
+        break;
+      }
     }
   }
 

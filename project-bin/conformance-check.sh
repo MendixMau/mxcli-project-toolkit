@@ -15,6 +15,8 @@
 # Failure policy: regressions only. A row that was OK in the baseline and is no longer OK
 # fails the run. Pre-existing mismatches are reported but do not fail — the lesson from lint,
 # which was made optional because day-one noise made it unusable, and now never runs at all.
+# A row with no baseline line yet (a module built after the baseline was written) is baselined
+# on first sight and said so; `--module` scopes a baseline rewrite to that module's rows.
 #
 # When there is no ledger
 #
@@ -58,7 +60,7 @@ while [ $# -gt 0 ]; do
     --module)          MODULE="${2:-}"; shift 2 ;;
     --update-baseline) UPDATE_BASELINE=1; shift ;;
     --quiet)           QUIET=1; shift ;;
-    -h|--help)         sed -n '2,43p' "$0"; exit 0 ;;
+    -h|--help)         sed -n '2,45p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -287,23 +289,43 @@ RESULTS="$(printf '%s' "$RESULTS" | sed '/^$/d' | sort)"
 # --- baseline / regression --------------------------------------------------------------
 KEYED="$(printf '%s\n' "$RESULTS" | awk -F'\t' '{print $1"\t"$2"\t"$5}')"
 
+# `--module` measures one module, so it may rewrite only that module's rows. Writing $KEYED
+# whole dropped every other module's baseline, and their regressions went unmeasured with
+# nothing said (card-disbursement build, 2026-09-26: `--update-baseline --module MockServices`
+# dropped the 127 Disbursement rows).
 if [ "$UPDATE_BASELINE" -eq 1 ] || [ ! -f "$BASELINE" ]; then
-  printf '%s\n' "$KEYED" > "$BASELINE"
+  if [ -n "$MODULE" ] && [ -f "$BASELINE" ]; then
+    { awk -F'\t' -v m="$MODULE" '$1!=m' "$BASELINE"; printf '%s\n' "$KEYED"; } \
+      | sed '/^$/d' | sort > "$BASELINE.tmp" && mv "$BASELINE.tmp" "$BASELINE"
+  else
+    printf '%s\n' "$KEYED" > "$BASELINE"
+  fi
   WROTE_BASELINE=1
 else
   WROTE_BASELINE=0
 fi
 
+# A row the baseline has never seen (a module built after the first run wrote it) used to be
+# compared with "" — never a regression, forever, with nothing said. Its first measurement is
+# its baseline, exactly as the first run's were; the count is printed below.
 REGRESSIONS=""
+SEEDED=""
 if [ "$WROTE_BASELINE" -eq 0 ]; then
   while IFS=$'\t' read -r mod ptr verdict; do
     [ -n "$mod" ] || continue
-    was="$(awk -F'\t' -v m="$mod" -v p="$ptr" '$1==m && $2==p {print $3}' "$BASELINE")"
-    if [ "$was" = "OK" ] && [ "$verdict" != "OK" ]; then
+    was="$(awk -F'\t' -v m="$mod" -v p="$ptr" '$1==m && $2==p {print $3; exit}' "$BASELINE")"
+    if [ -z "$was" ]; then
+      SEEDED+="$mod	$ptr	$verdict"$'\n'
+    elif [ "$was" = "OK" ] && [ "$verdict" != "OK" ]; then
       REGRESSIONS+="$mod	$ptr	was OK, now $verdict"$'\n'
     fi
   done <<< "$KEYED"
+  if [ -n "$SEEDED" ]; then
+    { cat "$BASELINE"; printf '%s' "$SEEDED"; } | sed '/^$/d' | sort > "$BASELINE.tmp" \
+      && mv "$BASELINE.tmp" "$BASELINE"
+  fi
 fi
+NSEED=$(printf '%s' "$SEEDED" | grep -c . || true)
 
 # --- report ------------------------------------------------------------------------------
 STAMP="$(date +%Y-%m-%d)"
@@ -325,6 +347,7 @@ echo "  UNDERSTATED            $UNDER"
 [ "$TMO" -gt 0 ]   && echo "  TIMEOUT                $TMO   (>${TIMEOUT_S}s — never counted as a pass)"
 [ "$UNK" -gt 0 ]   && echo "  UNKNOWN-STATUS         $UNK"
 echo "  report                 $REPORT"
+[ "$NSEED" -gt 0 ] && echo "  newly baselined        $NSEED   (no baseline row yet — regressions measured from the next run)"
 
 if [ "$STALE" -gt 0 ] || [ "$UNDER" -gt 0 ]; then
   echo
@@ -334,7 +357,11 @@ fi
 
 if [ "$WROTE_BASELINE" -eq 1 ]; then
   echo
-  echo "  baseline written to $BASELINE ($MEASURABLE rows). Regressions are measured from here."
+  if [ -n "$MODULE" ]; then
+    echo "  baseline rows for $MODULE rewritten in $BASELINE ($MEASURABLE rows; other modules' rows kept)."
+  else
+    echo "  baseline written to $BASELINE ($MEASURABLE rows). Regressions are measured from here."
+  fi
   exit 0
 fi
 

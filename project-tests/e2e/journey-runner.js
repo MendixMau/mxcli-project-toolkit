@@ -795,12 +795,32 @@ async function runJourney(page, j) {
   }
 }
 
+// ── Exit code ───────────────────────────────────────────────────────────────
+// A walk passes when nothing FAILed and nothing was INVALID. A CONTROL run asks the other
+// question — can the harness tell when the app is broken — so its FAIL rows are the mutants
+// doing their job, and it passes only when every rung's mutant was caught (each `control`
+// row PASS, proven == expected, and at least one rung tried).
+//
+// MEASURED 2026-09-26 (card-disbursement requirements-driven build): the walk's rule was
+// applied to both runs. A control that proved 7 of 7 rungs exited 1 on its own 7 mutant
+// FAILs plus the INVALID a broken landing leaves downstream, so verify-module graded the
+// rung FINDING and the module INCOMPLETE on every run — a control rung that could not go
+// green, and so told the reader nothing when it went red.
+function runExitCode(positiveControl, results, mutants) {
+  if (!positiveControl) return results.some(r => r.verdict === 'FAIL' || r.verdict === 'INVALID') ? 1 : 0;
+  const ctl = results.filter(r => r.rung === 'control');
+  return mutants.expected > 0 && mutants.proven === mutants.expected
+    && ctl.length === mutants.expected && ctl.every(r => r.verdict === 'PASS') ? 0 : 1;
+}
+
 // ── Exports for the rung-4 scope unit test ──────────────────────────────────
 // The SQL builders are pure and exported so their behaviour can be proven against
 // fixture rows without a running app. See tests/e2e/journey-rung4-scope.test.js.
+// runExitCode is exported for tests/wave2/test-journey-control-exit.sh.
 module.exports = {
   sqlRowCount, sqlWatermark, whereScoped, scopeLiteral,
   sqlAssocTotal, sqlAssocLinked, sqlMustPointAt, captureScope, scopeEvidence,
+  runExitCode,
 };
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -920,6 +940,9 @@ if (require.main !== module) return;
       console.log('    Unproven is fault, not pass. Declare the missing claim on the journey,');
       console.log('    or accept that this rung has never been shown able to go red.');
     }
+    console.log(runExitCode(true, results, mutants) === 0
+      ? '  control verdict: PASS — every rung\'s mutant was caught; the FAIL/INVALID rows above are the mutants\''
+      : '  control verdict: FAIL — at least one rung is unproven; read the [control] rows above');
   }
 
   fs.mkdirSync(cfg.artifactsDir, { recursive: true });
@@ -942,7 +965,7 @@ if (require.main !== module) return;
   }, null, 2));
   console.log(`  findings → ${path.relative(cfg.root, out)}`);
 
-  process.exit(n('FAIL') === 0 && n('INVALID') === 0 ? 0 : 1);
+  process.exit(runExitCode(POSITIVE_CONTROL, results, mutants));
 })().catch(e => {
   console.error('ERR', e.stack?.split('\n').slice(0, 8).join('\n'));
   process.exit(1);

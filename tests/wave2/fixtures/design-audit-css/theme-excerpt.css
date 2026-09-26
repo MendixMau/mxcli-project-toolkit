@@ -1,0 +1,45 @@
+/* VERBATIM excerpts of a real deployment/web/theme.compiled.css (mxbuild output, Mendix 11.13.0,
+   Atlas Core theme) captured 2026-09-26 for tests/wave2/test-design-audit-css-corpus.sh.
+   Not hand-written: each block below is copied byte-for-byte from that file. */
+@media (max-width: 767px) {
+  .spacing-outer-bottom-large {
+    margin-bottom: var(--m-spacing-large)  !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .spacing-outer-bottom-large {
+    margin-bottom: var(--t-spacing-large)  !important;
+  }
+}
+
+@media (min-width: 992px) {
+  .spacing-outer-bottom-large {
+    margin-bottom: var(--spacing-large)  !important;
+  }
+}
+
+@font-face {
+  font-family: "Atlas_Core$Atlas_Styling";
+  src: url("./fonts/Atlas_Core$Atlas_Styling.ttf") format("truetype");
+}
+
+@keyframes placeholderGradient {
+  0% {
+    background-position: 100px 0;
+  }
+  100% {
+    background-position: -100px 0;
+  }
+}
+
+.mx-datagrid-table-resizing th,
+.mx-datagrid-table-resizing td {
+  cursor: col-resize !important;
+}
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .mx-menubar {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

@@ -95,22 +95,30 @@ const nowIso = () => new Date().toISOString();
 // ============================================================================
 // 1. CSS — which classes are actually DEFINED, and where
 // ============================================================================
-// Selector-position only: we walk the file tracking brace depth and harvest class
-// tokens from the text that PRECEDES an opening brace. Harvesting the whole file
-// would pick up `content: ".foo"` and url fragments and quietly define classes that
-// no rule ever declares — which turns the invented-class check into decoration.
+// Selector-position only: we harvest class tokens from the text that PRECEDES an opening
+// brace. Harvesting the whole file would pick up `content: ".foo"` and url fragments and
+// quietly define classes that no rule ever declares — which turns the invented-class
+// check into decoration. Strings are blanked first and `;` ends a declaration, so a
+// declaration value never reaches a harvest.
+//
+// Every depth, not only depth 0: a rule inside `@media` / `@supports` / `@layer` defines
+// its class just as much. Harvesting depth 0 alone called Atlas's `spacing-outer-bottom-large`
+// "invented" on every page — Atlas emits it ONLY inside three breakpoint @media blocks — while
+// design-spacing.md prescribes that exact class (card-disbursement build, 2026-09-26). An
+// at-rule's own prelude (`@media (min-width: 992px)`) names no class and is skipped.
 function classesInCss(text) {
   const out = new Set();
-  const src = text.replace(/\/\*[\s\S]*?\*\//g, '');
-  let depth = 0, buf = '';
+  const src = text.replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, '""');
+  let buf = '';
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
     if (c === '{') {
-      if (depth === 0) harvest(buf, out);
-      buf = ''; depth++;
-    } else if (c === '}') {
-      depth = Math.max(0, depth - 1); buf = '';
-    } else if (depth === 0) {
+      if (!/^\s*@/.test(buf)) harvest(buf, out);
+      buf = '';
+    } else if (c === '}' || c === ';') {
+      buf = '';
+    } else {
       buf += c;
       if (buf.length > 8000) buf = buf.slice(-4000);
     }

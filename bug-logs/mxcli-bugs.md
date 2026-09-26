@@ -5758,3 +5758,22 @@ correct script that trips MPR008 through this defect looks identical to a real o
 gate-agent's "do not accept the rise with `--update-baseline`" rule needs this entry to tell the
 two apart: an MPR008 whose two elements are a merge and the activity after a loop in an `if`
 branch is this bug, and the fix is the workaround above, not a baseline bump.
+
+## BUG-DRAFT-mpr012-assumes-react-client: lint MPR012 reports every legacy dynamic image as a React-client error (CE0582) on a Mendix 11 project that still builds for the Dojo client (2026-09-26)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-26, when an existing-app change project merged upstream `main`. The lint ratchet jumped by 57, and every one of the new findings was MPR012.
+**Reproducible:** yes, on every run against that model. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** MPR012 says: "dynamic image 'imageViewer1' in … is not supported by the React client (Mendix 10.7+, the only client on 11) — mxbuild reports CE0582". It fires on every `Forms$ImageViewer`: 57 of them on that project's own modules. Two things show this is not an error for this model:
+- `mx check` (mxbuild 11.12.2) on the same `.mpr` reports **0 errors and no CE0582**.
+- The project still builds for the **Dojo** client: the built `deployment/web/index.html` loads `mxui/mxui.js`.
+
+So the rule's premise, "the only client on 11", does not hold for this project.
+
+**Expected:** MPR012 should fire only when the project builds for the React client. Otherwise it should be an info-level "blocks a React migration" note, not a warning.
+
+**Workaround:** accept the rise with `--update-baseline` and name MPR012 in the commit message. Cite the clean `mx check` and the Dojo marker as evidence. Keep the list, because it is the to-do list for a future move to the React client.
+
+**Why it matters for the toolkit.** `exec.sh` runs the lint ratchet after every clean mxbuild. A new built-in rule that fires on untouched legacy widgets fails that ratchet on the first build after a toolkit or mxcli update, even though the model did not change. Before treating a sudden rise in one new rule as a regression, check it against `mx check`.

@@ -5777,3 +5777,24 @@ So the rule's premise, "the only client on 11", does not hold for this project.
 **Workaround:** accept the rise with `--update-baseline` and name MPR012 in the commit message. Cite the clean `mx check` and the Dojo marker as evidence. Keep the list, because it is the to-do list for a future move to the React client.
 
 **Why it matters for the toolkit.** `exec.sh` runs the lint ratchet after every clean mxbuild. A new built-in rule that fires on untouched legacy widgets fails that ratchet on the first build after a toolkit or mxcli update, even though the model did not change. Before treating a sudden rise in one new rule as a regression, check it against `mx check`.
+
+## BUG-DRAFT-partial-revoke-association-noop: `revoke R on E (write (<association>))` reports success and changes nothing (2026-09-26)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-26, on an existing-app change project, while making a component admin's guest links read-only.
+**Reproducible:** yes, on a scratch copy of the model. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You revoke write on association members, for example `revoke Mod.Member on Mod.Guest (write ("Group_Guests", "Guest_OrganisationEmployee"));`. It parses, `exec` reports it as applied, and mxbuild stays clean. But `SHOW ACCESS ON ENTITY` still lists both associations as `ReadWrite`. The same statement with an attribute works: `(write (Email))` turns Email into `ReadOnly`. The qualified form `(write (Mod."Group_Guests"))` gives a parse error.
+
+**Expected:** association members are downgraded the same way attributes are. If they can't be, the statement should fail with an error. It should never be a silent no-op.
+
+**Workaround:**
+1. Revoke the role from the entity entirely: `revoke R on E;`. This removes R from every rule of E.
+2. Re-grant each of R's rules from its `DESCRIBE ENTITY` line, changing only the member lists. The XPath then stays byte-for-byte the same.
+3. Diff the `where` clauses before and after.
+4. Verify with `SHOW ACCESS`.
+
+Never take the exec's "applied" as proof.
+
+**Why it matters for the toolkit.** It is a false green on a security change (`skills/learned-detection-gaps.md` class): every gate passes and the right it was meant to remove is still there.

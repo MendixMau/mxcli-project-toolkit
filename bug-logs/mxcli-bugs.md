@@ -5475,6 +5475,95 @@ and render it in `DESCRIBE MICROFLOW` so the round trip does not silently flip i
 callee's flag is readable in the model.
 ---
 
+## BUG-141: workflow condition outcomes are written without a `PersistentId` — every instance paused after a decision turns `Incompatible` on the next deploy, even one that changes nothing
+
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/bug141-condition-outcome-no-persistent-id.md`.
+
+**Severity:** High for anything going live. It is silent on every static rung, and it strands
+real work in production: the in-flight instances stop and need an admin. It does not block a
+demo, because a demo stays inside one deploy.
+**mxcli version when found:** v0.24.0. Still open on upstream `main` at 9509176 (2026-09-26).
+**Mendix version:** 11.13.0
+**Discovered:** 2026-09-26, a card-disbursement requirements-driven build. The case workflow
+had two call-microflow tasks with outcomes (one Boolean, one enumeration) ahead of its user tasks.
+Both those and a workflow `DECISION` go through the same outcome writer.
+**Reproducible:** yes, three times in one day on the same model, with three different deploys
+(below).
+
+### Summary
+
+`conditionOutcomeToGen()` in `mdl/backend/modelsdk/workflow_write.go` writes
+`Workflows$BooleanConditionOutcome`, `Workflows$EnumerationValueConditionOutcome` and
+`Workflows$VoidConditionOutcome` with no `PersistentId`. The same file gives one to every
+activity, to `UserTaskOutcome` (`userTaskOutcomeToGen`) and to `ParallelSplitOutcome` through
+`addFreshPersistentID(g)`. The runtime's workflow metamodel builds
+`ModelBooleanConditionOutcome(id, value, persistentId, flow, container)`, so it needs one. With
+none stored, the outcome gets a new identity every time the model loads.
+
+A running instance records which outcome it took. After the next deploy that outcome no longer
+exists under the recorded identity, so the engine marks the instance **`Incompatible`**:
+*"A selected outcome has been replaced in the already executed path."* That hits every instance
+paused **after** a decision, which in most workflows is every instance waiting at a user task.
+
+### What it takes to see it
+
+Nothing on the static ladder sees it. `check --references`, `exec`, `DESCRIBE WORKFLOW`, lint,
+mxbuild and native `mx check` are all clean, and every journey passes, because a journey starts
+and finishes its instances inside one run. It shows only when an instance **outlives a
+restart**.
+
+### Evidence
+
+1. **Three live reproductions** (`mxcli run --local`, HSQLDB, Mendix 11.13.0). Each case was
+   started, left `InProgress` at the user task after the decision, and then:
+   - the app was **restarted with no model change at all** (workflow unit byte-identical). The
+     case came back `Incompatible`;
+   - a second case went through a redeploy that **changed only unrelated page documents**. It
+     came back `Incompatible`;
+   - a third went through a redeploy whose only change was **one date format on a dashboard page**. It came back
+     `Incompatible`.
+2. **The stored unit.** A BSON dump of the workflow document shows `PersistentId` on every
+   activity and on every `UserTaskOutcome`, and on **none** of the condition outcomes.
+3. **The runtime needs it.** `com.mendix.workflows-metamodel.jar` (11.13.0 runtime bundle)
+   constructs `ModelBooleanConditionOutcome(id, value, persistentId, flow, container)`.
+4. **The writer.** `workflow_write.go` on `main` 9509176: `conditionOutcomeToGen()` (line 649)
+   returns all three outcome elements without calling `addFreshPersistentID(g)`. Its neighbours
+   do call it: `userTaskOutcomeToGen` (line 639) and the `ParallelSplitOutcome` loop in
+   `parallelSplitToGen` (line 573). The helper is at line 778.
+
+### Fix (upstream)
+
+Add one line in each of the three cases, before `return g`:
+
+```go
+addFreshPersistentID(g)
+```
+
+`Workflows$BooleanConditionOutcome.PersistentID` is already declared in
+`generated/metamodel/types.go`, so no metamodel change is needed.
+
+A related risk, **not probed**: the helper's own comment says it mints a *fresh* GUID on every
+save. If `create or replace workflow` re-mints the IDs of outcomes that already had one,
+re-running a workflow script would make instances `Incompatible` in the same way, for user-task
+outcomes too. Ask upstream to keep an existing `PersistentId` when rewriting a unit, and probe
+it here before relying on a workflow re-run against a database with live instances.
+
+### Workaround
+
+None in MDL. There is no syntax that sets a `PersistentId`. Do not hand-patch the unit either:
+that bypasses `exec.sh`'s gate, and the next `create or replace workflow` drops the patch.
+
+Until upstream ships the fix, plan for it:
+- the app's workflow admin page lists **`Incompatible`** instances and gives an admin a way to
+  handle them (abort, restart, or move them on with a jump-to);
+- every screen that routes to an instance's task handles an instance that has no open task
+  (open the case, not a dead end);
+- a go-live plan either drains in-flight instances before each deploy or accepts the admin step.
+
+Detection-gap register: `skills/learned-detection-gaps.md` (the row that cites BUG-141).
+
+---
+
 ## BUG-DRAFT-loop-var-expression-typecheck: the expression type checker is skipped inside a `LOOP` body — the identical expression is caught on a parameter and missed on a loop variable (2026-09-15)
 
 > **FILED UPSTREAM 2026-09-15 — https://github.com/mendixlabs/mxcli/issues/1100**

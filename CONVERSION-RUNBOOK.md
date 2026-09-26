@@ -22,7 +22,7 @@ Then open your agent (Claude Code or equivalent) in the workspace and say what y
 | Legacy source code | Migration | P, 0–7 |
 | Requirements/specs only, no code | Requirements-driven | P, 1–6 |
 | Just an idea / existing plan | Greenfield | P (light), 5–6 |
-| A live Mendix app you are changing | Change an existing app | P, 0–6 per slice |
+| A live Mendix app you are changing | Change an existing app | P, 0–6 per change |
 
 ## Where you run this — detected, not asked
 

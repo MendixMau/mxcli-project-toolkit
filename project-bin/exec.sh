@@ -2,7 +2,7 @@
 # exec.sh — the guard chain around a model write.
 #
 #   concurrent-writer guard → module-brief advisory → mxcli check → snapshot → baseline → exec
-#   → mxbuild gate → auto-restore on regression → SP reopen
+#   → mxbuild gate → auto-restore on regression → lint ratchet → SP reopen
 #
 # Usage: ./bin/exec.sh <script.mdl>
 #
@@ -281,6 +281,63 @@ if [ -f "$LAST_ERRS" ]; then
 fi
 
 
+# ── Lint ratchet ─────────────────────────────────────────────────────────────
+# Added 2026-09-24. mxbuild proves the model compiles; it says nothing about how it
+# is built. On a field project a migration microflow shipped with three commits
+# inside loops (mxcli lint CONV011) under a "✅ applied · mxbuild clean" row, because
+# nothing on this path ever ran lint: the gate-agent listed lint as optional and had
+# been spawned 0 times against 21 exec.sh runs, and lint-gate.sh had only ever been
+# run by hand to seed its baseline. An instrument that lives in an agent definition
+# is a suggestion; one that lives here runs. So lint runs HERE, after a clean
+# mxbuild, and its verdict lands in the same BUILD-LOG row as the mxbuild verdict.
+#
+# Semantics: a rise vs the committed baseline exits 1 but does NOT restore the
+# snapshot — lint findings are about shape, not corruption, and the write is
+# fixable by a follow-up script; a restore here would teach people to skip it.
+# SKIP_LINT=<reason> is the only override and the reason is written into the row.
+# A project without bin/lint-gate.sh gets a "lint not installed" cell, never a
+# blank one — a blank cell reads as fine, which is the false-green this exists
+# to stop. ~13 s measured on a 10k-finding project.
+LINT_RC=0; LINT_DETAIL="lint not-run"
+run_lint_gate() {
+  if [ -n "${SKIP_LINT:-}" ]; then
+    LINT_DETAIL="lint SKIPPED (SKIP_LINT=$SKIP_LINT)"
+    echo "  ⚠ lint ratchet skipped: SKIP_LINT=$SKIP_LINT"; return
+  fi
+  if [ ! -x "$PROJECT_ROOT/bin/lint-gate.sh" ]; then
+    LINT_RC=2; LINT_DETAIL="lint not installed (bin/lint-gate.sh missing — sync-project.sh installs it)"
+    echo "  ⚠ $LINT_DETAIL"; return
+  fi
+  echo "→ Running lint ratchet (bin/lint-gate.sh, read-only)..."
+  _lo=$(mktemp /tmp/lint-gate-out.XXXXXX)
+  # exec.sh runs under set -e: a bare failing command here aborts the script with no BUILD-LOG
+  # row at all (measured on the first wired run in a real project, 2026-09-24). Capture explicitly.
+  LINT_RC=0
+  bash "$PROJECT_ROOT/bin/lint-gate.sh" >"$_lo" 2>&1 || LINT_RC=$?
+  case "$LINT_RC" in
+    0) LINT_DETAIL="lint unchanged vs baseline"; echo "  ✓ lint: no rule rose vs baseline" ;;
+    1) _rules=$(grep -E '^ +[A-Z]+[0-9]+ +[a-z]+ +[0-9]+ -> [0-9]+ +\(\+[0-9]+\)' "$_lo" \
+                 | awk '{printf "%s %s ", $1, $6}')
+       LINT_DETAIL="lint ROSE: ${_rules:-see output}"
+       echo "  ✗ lint: rule(s) rose vs baseline — ${_rules:-see below}"
+       sed -n '/^FAIL/,$p' "$_lo" | head -60 | sed 's/^/    /'
+       echo "    Fix the script and re-run, or accept the debt on purpose with"
+       echo "    bin/lint-gate.sh --update-baseline and say so in the commit message." ;;
+    *) LINT_DETAIL="lint could not run (lint-gate exit $LINT_RC)"; echo "  ⚠ $LINT_DETAIL"
+       tail -5 "$_lo" | sed 's/^/    /' ;;
+  esac
+  rm -f "$_lo"
+}
+# One place decides the applied-row wording, so both mxbuild-clean branches agree.
+log_applied() {  # $1 = mxbuild detail
+  run_lint_gate
+  if [ "$LINT_RC" -eq 1 ]; then
+    log_build "⚠️ applied, LINT ROSE" "$1; $LINT_DETAIL"
+  else
+    log_build "✅ applied" "$1; $LINT_DETAIL"
+  fi
+}
+
 # ── Pre-exec syntax gate ─────────────────────────────────────────────────────
 # `mxcli check --references` is the ONLY gate that can reject a bad script
 # before it mutates the .mpr. Every gate after this one recovers by snapshot
@@ -539,7 +596,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
       # "0 error(s) found". Test the parsed count, never the file's existence.
       GATE_STATE="pass"
       echo "  ✓ mxbuild: 0 errors — model is clean."
-      [ "$EXEC_STATUS" -eq 0 ] && log_build "✅ applied" "mxbuild clean"
+      [ "$EXEC_STATUS" -eq 0 ] && log_applied "mxbuild clean"
     else
       # ── Delta gate ─────────────────────────────────────────────────────────
       # A shared model means another workstream can leave it non-building; an
@@ -656,7 +713,7 @@ PYEOF
     # the ordinary clean build lands. It was the only outcome with no log_build
     # call: PROJECT-A hit 7 consecutive clean execs that produced 0 log rows
     # (2026-08-06) and patched it locally before the template caught up.
-    [ "$EXEC_STATUS" -eq 0 ] && log_build "✅ applied" "mxbuild clean (no errors file written)"
+    [ "$EXEC_STATUS" -eq 0 ] && log_applied "mxbuild clean (no errors file written)"
   fi
   rm -f "$ERRORS_FILE"
 else
@@ -762,6 +819,14 @@ if [ "$GATE_STATE" != "pass" ]; then
   echo "    hook will refuse it until ./bin/verify-model.sh has run the gate over it."
   log_build "⚠️ applied, UNVERIFIED" "gate $GATE_STATE — model not verified"
   exit 0
+fi
+
+if [ "$LINT_RC" -eq 1 ]; then
+  echo ""
+  echo "✗ Script applied and mxbuild is clean, but LINT ROSE — this is not a pass."
+  echo "  $LINT_DETAIL"
+  echo "  The write is kept (lint is shape, not corruption). Fix it before calling the task done."
+  exit 1
 fi
 
 echo ""

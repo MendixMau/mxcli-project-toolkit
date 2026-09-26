@@ -257,6 +257,25 @@ wholesale at script 67, fifty-five scripts later, after rendering at 1360px. All
 built on a sidebar layout against wireframes drawing a top bar — repaired at script 20.
 The script's header carries the full evidence for each check.
 
+**A fidelity score is not a LOOK pass, and must never be accepted as one.**
+`page-fidelity.js` matches identifiers in the page MDL against the wireframe's text. It
+cannot see where an element sits, only that the name occurs. Measured on the
+`lowcode-vs-highcode-benchmark` Arm A run of 2026-09-19 (`results/mendix-run1b/`), scoring
+seven screens both ways on the same commit:
+
+| Screen | Fidelity (text match) | Element checklist (present / placed / behaves) |
+|---|---:|---:|
+| S1 Requests overview | 100% | 58% |
+| S4 Approval queue | 100% | 40% |
+| S3 Request detail | 55% | 69% |
+
+Two screens scored a perfect 100 while missing more than half their wireframe: the elements
+were named in the MDL and laid out wrongly. S3 runs the other way, because its grid's decimal
+formatting is not expressible as text the instrument greps for. So a high fidelity score
+closes nothing — the `look` obligation is discharged by a person or an agent opening the
+rendered page, at 1280px and at 390px, and writing down what it saw. Use the fidelity score
+for the rework curve between LOOK passes, never in place of one.
+
 **Measured again, controlled A/B, 2026-08-31** (`process/preflight-skill-baseline-2026-08-31.md`):
 5 fresh drafting agents with this file inlined produced **zero** judgement-step violations
 (layout, H1, inline styles, invented classes) across all 5 reps; 5 without it reproduced every

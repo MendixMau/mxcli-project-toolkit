@@ -42,6 +42,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/learned-mdl-preflight.md` | Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations |
 | `skills/module-folder-convention.md` | Placing any document in a module — before the first `create`. Feature group, then Pages/Microflows/Services/Resources; the path comes from the brief's folder plan, and the table says which types mxcli can actually place |
 | `skills/learned-microflow-patterns.md` | Writing or fixing any microflow — MDL gotchas plus annotation discipline |
+| `skills/microflow-preflight.md` | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list — post the checklist before the first MDL line |
 | `skills/ui-preflight-pages.md` | Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP |
 | `skills/design-spacing.md` | Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires |
 | `skills/ui-loop.md` | After every page-building script, and any time the UI looks wrong — the cheap repeatable look during the build: one page, one screenshot, four questions, scored when a wireframe exists. Feeds Gate: UI, never replaces it |
@@ -62,6 +63,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan — build order and slice boundaries. Opens with a brainstorm |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index — describe each unique picture once, into its own file, before Stage 2 closes |
+| `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it — one row per area: Mendix docs page, bundled assess-quality section, toolkit skill before the write, lint rule after exec |
 | `skills/learned-stylegallery.md` | Building or using the in-app design gallery |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words |
@@ -101,6 +103,7 @@ a rule below names an asset (e.g. "the wireframe", "the brief"), it means the pa
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
 | `skills/learned-mdl-cannot-express.md` | Before a wireframe or a design commits to a WIDGET — and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time |
 | `skills/learned-dg2-patterns.md` | Building or altering any data grid — native DATAGRID vs pluggable DG2 decision rule, the ALTER PAGE INSERT corruption, sort-by and filter-binding traps |
+| `skills/learned-file-upload-widget.md` | Putting any file upload / attachment / document field on a page, an uploader page failing mx check with CE0463, or an uploader DESCRIBE that will not re-execute — the File Uploader MDL shape proven end to end on v0.23 and v0.24, the widgets mxcli cannot author, and the upload instrument |
 | `skills/scriptable-sp-verification.md` | Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle |
 | `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first |
 | `skills/walking-skeleton.md` | Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them |
@@ -137,6 +140,15 @@ this summary. The hard STOPs below are inline on purpose; never route around the
   overrides that pick for corrupting ops. State the mode per op in your report. On any STOP → MCP,
   hand back the **filled** confirmed JSON pattern from `learned-mcp-patterns.md`, not just the label.
 - Annotate selectively (`learned-microflow-patterns.md`); always annotate a CE-error fix.
+- **Loops / long flows — run `microflow-preflight.md`** and post its checklist before the first MDL line; `microflow-preflight: no trigger` otherwise.
+- **Never hand a task back as "too difficult".** A microflow that will not come out clean is a piece
+  that is too big, not a task beyond you: post the `split-first` plan from `microflow-preflight.md`
+  (orchestrator + one `SUB_` per responsibility, with signatures) and write the pieces the plan
+  makes Simple or Guided. Silence or a refusal is a failed preflight; the plan is the deliverable.
+- **Escalate one piece, once, after one retry.** If a single `SUB_` still fails `mxcli check` after
+  one rewrite, report that piece by name with the check output and stop on it — the main session
+  decides whether to rerun it on a stronger model. Do not retry the whole script, and do not
+  escalate before the split.
 - **Pages/snippets — run the full pre-flight in `ui-preflight-pages.md`** (wireframe → tokens →
   gallery reuse → cross-check) and include its UI cross-reference block in your report. **No wireframe
   → STOP** — do not guess layout or bindings. Reuse existing gallery components; don't reimplement

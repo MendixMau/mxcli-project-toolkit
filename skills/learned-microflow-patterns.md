@@ -12,15 +12,16 @@ microflow (`PLM_GetExclusiveParts`, a PLM parts-flow project, 2026-07-23) before
 made an MCP-mode exec (see `learned-mdl-preflight.md` STOP rule 9) slow enough to hit the 5-minute
 default timeout.
 
-**Guideline, not a hard cap:** aim to keep a freshly-drafted microflow under ~30-50 activities. If a
+**Guideline, not a hard cap:** the Mendix docs limit is 25 elements; lint's `QUAL003` warns at 25 and
+`CONV009` (mxcli-bundled `assess-quality` skill) flags at 15 — but both count **top-level activities
+only**, so loop bodies are invisible to them: count those by hand (`microflow-preflight.md`). If a
 task naturally produces more (bulk seed data, a long linear pipeline), prefer splitting into
 sub-microflows by responsibility — e.g. one sub-microflow per entity/record-type being created,
 called in sequence from a thin orchestrating microflow — over one flat monolith. But some
 microflows genuinely can't be meaningfully shrunk (a single cohesive validation/decision sequence
 with real branching, for instance) — don't force an artificial split that just adds indirection
-without improving anything. The lint layer's own threshold (`CONV009`, `assess-quality.md`: max 15
-activities) is stricter still and will flag most things in this range anyway — treat both numbers
-as signals to *consider* a split, not a rule to satisfy mechanically.
+without improving anything — treat the numbers as signals to *consider* a split, not a rule to
+satisfy mechanically.
 
 **Bonus when a STOP-rule-9 (inline association-set) split is also needed:** if only part of the
 work needs MCP mode (setting associations) while the rest is plain attribute creation, split along
@@ -397,11 +398,10 @@ end;
 - **`not expr` → CE0117:** Mendix requires parentheses: `not(expr)`. `not $IsValid` is rejected. Always write `not($IsValid)`.
 - **LESSON-03:** Always use fully-qualified `Module.EntityName` in the `returns` clause. Unqualified entity names (e.g. `returns OrderDetail as $Var`) cause CE1613 "entity no longer exists" because the model checker cannot resolve the type. Always write `returns OrderRegistration.OrderDetail as $OrderDetail`.
 - **LESSON-04 — `retrieve $X from $obj/Assoc limit 1` → CE0018 + CE0136 (mxcli BUG):** mxcli generates a "Retrieve by Association" BSON activity with empty `Association` and `Entity` properties. Mendix rejects these with CE0018 ("Association property required") and CE0136 ("Entity property required"). **Fix:** replace with XPath DB retrieve: `retrieve $X from Module.Entity where [AssocPath/Module.Entity/Attr = $var] limit 1;`. **Pre-flight before using XPath:** (1) target entity is persistent (not an NPE), (2) all entities in the XPath path are persistent, (3) all objects being filtered on are committed to the DB — XPath queries the database, not in-memory objects. If any condition fails, use a different approach (pass as parameter, loop retrieve, etc.).
-- **Microflow canvas layout — RESET LAYOUT, not @position (LESSON-01+02):**
-  - `@position(x, y)` stores coordinates for individual activities but does NOT position the start event, end events, or merge nodes. Those are placed by mxcli at default coordinates that conflict with manual @position values, producing stacked or misaligned flows. `@position` is effectively useless for controlling visual layout.
-  - **Correct approach:** add `reset layout` between the signature and `begin`. This clears all `relativeMiddlePoint` positions. Studio Pro re-runs its auto-layout on next open, producing a clean horizontal flow automatically.
-  - **Syntax:** `create or modify microflow Module.Name (...) returns ... reset layout begin ... end;`
-  - **Rule:** always add `reset layout` to any `create or replace` / `create or modify` microflow script. Never rely on `@position` for layout control.
+- **Microflow canvas layout — omit layout annotations (LESSON-01+02, corrected 2026-09-25):**
+  - **Rule:** write no `@position` at all; mxcli's auto-layout places every statement (start, merges and ends included — `@start`/`@merge` exist and `describe` emits them). Partial hand placement is what breaks: auto-placed neighbours are not measured against hand-placed ones (MPR008/MPR011). If repairing a described flow by hand, annotate every canvas statement or none.
+  - **`mxcli layout` (v0.24.0) arranges domain models only** — the mxcli team's intended home for auto-positioning, but no microflow mode exists yet on v0.24.0 or upstream main (2026-09-25). Probe `mxcli layout --help` on your binary before relying on it for a flow.
+  - **`reset layout` is a parse error** (`mismatched input 'RESET'`, still on v0.24.0) — BUG-28: never implemented upstream. Never write it. Measurements and the v0.24.0 if-branch defect: `microflow-preflight.md`.
   - **If/else branch geometry (for future reference when @position is fixed):** true branch (abort) → X > decision, Y < decision (goes up); false branch (main path) → X > decision, Y > decision (goes down). Both branches must have X > the decision diamond's X.
 
 ---

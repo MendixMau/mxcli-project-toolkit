@@ -1,7 +1,7 @@
 # Skill: app-analysis — a standing dossier of an existing app before you change it
 
 **Use when:** you are handed an app you did not build (inheritance, takeover, review,
-"continue development on this"), before the first change slice and again at every milestone.
+"continue development on this"), before the first change and again at every milestone.
 The output is `architecture/app-dossier.md`, a document the team keeps, plus an HTML render
 of it for people who will not open a repository.
 
@@ -89,7 +89,7 @@ Use the toolkit verdict vocabulary (`skills/report-schema.md`):
 | status | meaning here |
 |---|---|
 | `pass` | collected, judged, nothing above threshold, or every finding has a disposition that is a decision |
-| `fail` | collected, judged, at least one finding above threshold without a decision (`later` with no slice or date, `undecided`, or a missing line all count as no decision) |
+| `fail` | collected, judged, at least one finding above threshold without a decision (`later` with no named change or date, `undecided`, or a missing line all count as no decision) |
 | `fault` | not collected, or collected but not trustworthy (partial describe, parse mismatch above `MAX_PARSE_MISMATCH_PCT`) |
 | `manual` | collected, but the verdict needs a person (dead elements, every "accepted" disposition) |
 | `skipped` | deliberately not run this time, with the reason in the summary row |
@@ -250,7 +250,7 @@ verdict stands; the dossier only quotes it). Automating both is tracked in the C
 asset type, and the top 20 modules by count. Do not list every asset. Always `manual` until a
 dead-element instrument exists: the catalog cannot see Java code, published REST operations
 called by name, or workflow references, so "no inbound reference" is a candidate, not a
-verdict. Confirm each in Studio Pro ("Find usages") before it reaches a change slice.
+verdict. Confirm each in Studio Pro ("Find usages") before it reaches a change.
 
 Every finding table in sections 3 and 4 carries a **severity** column, first, with the score in
 brackets, and is sorted worst first. Write the id in backticks and the target name in brackets
@@ -259,10 +259,10 @@ renderer matches a decision to the finding it scored, and an unmatched decision 
 undecided finding on the page.
 
 **8. Dispositions.** One line per finding: `<finding id> · <decision: fix | accept | later> ·
-<owner> · <reason or slice>`. Finding ids come from the companion skills (`DEP-CYCLE-01`,
-`LOOP-DB-014`, and so on). It is where the team's decisions live, and a refresh never
-rewrites it; that is what makes the dossier a standing document and not a report.
-A `later` is a decision only with a slice or a date; `later, undecided` is a placeholder and
+<owner> · <reason or the change it waits for>`. Finding ids come from the companion skills
+(`DEP-CYCLE-01`, `LOOP-DB-014`, and so on). It is where the team's decisions live, and a
+refresh never rewrites it; that is what makes the dossier a standing document and not a report.
+A `later` is a decision only with a named change or a date; `later, undecided` is a placeholder and
 leaves the section `fail`. Ids are never reused or deleted: a finding that stops existing
 (module reclassified, loop removed) keeps its line, marked `closed <date>: <reason>`.
 
@@ -299,12 +299,12 @@ decided otherwise.
 
 - `skills/module-dependency-review.md`, `skills/microflow-loop-antipatterns.md` (the judgement)
 - `skills/existing-app-assurance.md` (the à-la-carte audit this dossier is the map for)
-- `skills/existing-app-change.md` (the change slice, whose Stage 0 blast radius covers the same
-  ground this dossier already measured). **Not yet wired, as of 2026-09-16.** Neither of those two
-  files mentions the dossier, the facts or this skill, so nothing reads what this produces except
-  `bin/app-report.sh`. The change slice still recomputes its blast radius by hand. Until that is
-  joined, a dossier finding reaches a change slice only because a person carried it, and this
-  section describes an intended relationship, not an implemented one. Do not write a skill
-  description that claims otherwise.
+- `skills/existing-app-change.md` — **wired 2026-09-22.** Its Stage 0a runs this procedure before any
+  change is named, asks the user to disposition the top findings, and reads the blast radius for Stage
+  0b from `analysis/app-facts/dependencies.json`. In that mode `bin/lib/artifact-manifest.tsv` owes
+  the report (`app-report`, Stage 0), so a map nobody ran reports PENDING. `existing-app-assurance.md`
+  Track A starts from the same report. What is still NOT wired: the dossier itself
+  (`architecture/app-dossier.md`) is not owed by anything, only the rendered report; and nothing
+  re-runs the facts at Stage 6 to show a change left the tangle and loop counts no worse.
 - `skills/lint-that-actually-runs.md`, `skills/report-schema.md`, `skills/measured-claims.md`
 - `skills/skills-over-scripts.md`: the instrument fetches, this file judges; keep it that way

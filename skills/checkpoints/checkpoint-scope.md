@@ -20,6 +20,7 @@ What varies is only where the capability map comes from:
 | Migration | `triage.md`'s Business Capability Map, from the codebase. |
 | Requirements-driven | The same table in `triage.md`, built from the document corpus and any DB schema — `document-discovery.md` and `bin/source-sufficiency.sh`'s pass-1 inventory feed it. A spec pack has capabilities exactly like a codebase does. |
 | Greenfield | There is no corpus. Run the brainstorm anyway, off the user's own description, and record the result — it is the only scope statement the project will have. |
+| Change an existing app | The app map (`analysis/app-report.json`, run at Stage 0a) plus the user's own answers to *what do you want to work on* and *do you have input documents*. The brainstorm is about what the change touches, not about ordering the whole app. |
 
 **Do not skip the brainstorm because the map was easy to build.** A short capability list makes
 the conversation faster, not unnecessary.

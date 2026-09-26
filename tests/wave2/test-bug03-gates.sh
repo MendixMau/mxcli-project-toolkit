@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fixture for wave-2 #3: the unanchored substring CONTENT gates — Stage 0 (triage sign-off),
-# Stage 2 (validation stop condition) and Stage 7 (cutover decision row).
+# Stage 2 (validation stop condition) and Stage 7 (cutover decision row); T12 adds the
+# existing-app-change parked state (Stage 0) and that mode's Stage 1 hint.
 #
 # Stage P is covered by test-stage-p.sh and is deliberately not retested here.
 #
@@ -173,6 +174,38 @@ printf 'Toolkit commit: none\n\n| Stage | Decision | Status | Notes |\n|---|---|
 V="$(verdict "$P" 7)"
 case "$V" in *WAIVED*) ok "the short token 'existing-app' still waives stage 7" ;;
              *) bad "existing-app short token no longer waives stage 7: $V" ;; esac
+
+
+echo "== T12: existing-app mode — a mapped app waiting on its change is PENDING, not FAIL =="
+# existing-app-change.md §"Map the app first": the map runs before any slice is named, and the
+# project may park there. The parked arm is narrow: this mode, the untouched placeholder, AND a
+# rendered map. Drop any one and the old FAIL must come back.
+mkexisting() {
+  d="$WORK/$1"; mkdir -p "$d/analysis"
+  printf 'Toolkit commit: none\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n\nEntry mode: %s\n' "$2" > "$d/PROJECT.md"
+  printf '# Triage\n\n## Sign-off\n\nConfirmed by: [user] on [date]\n' > "$d/triage.md"
+  echo "$d"
+}
+P="$(mkexisting t12-parked 'Change an existing app')"; printf '{}\n' > "$P/analysis/app-report.json"
+V="$(verdict "$P" 0)"
+case "$V" in *PENDING*'waiting on the change'*) ok "mapped + unsigned triage in this mode reads PENDING, parked" ;;
+             *) bad "parked existing-app project not PENDING: $V" ;; esac
+V="$(verdict "$P" 1)"
+case "$V" in *'Path D'*) ok "Stage 1 hint names the live-model path in this mode" ;;
+             *) bad "Stage 1 hint still points at extractors in existing-app mode: $V" ;; esac
+
+P="$(mkexisting t12-unmapped 'Change an existing app')"
+V="$(verdict "$P" 0)"
+case "$V" in *FAIL*) ok "no map yet: the placeholder still FAILs in this mode" ;;
+             *) bad "unmapped existing-app project escaped the placeholder FAIL: $V" ;; esac
+
+P="$(mkexisting t12-migration 'Migration')"; printf '{}\n' > "$P/analysis/app-report.json"
+V="$(verdict "$P" 0)"
+case "$V" in *FAIL*) ok "another mode with a stray app-report.json still FAILs the placeholder" ;;
+             *) bad "the parked arm leaked into migration mode: $V" ;; esac
+V="$(verdict "$P" 1)"
+case "$V" in *'Path D'*) bad "migration project got the existing-app Stage 1 hint: $V" ;;
+             *) ok "other modes keep the extractor / kb-generation hint" ;; esac
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"

@@ -48,6 +48,7 @@ own bug log before running anything you have not run here before.
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/checkpoints/checkpoint-cutover.md` | CAC-6, after Stage 6 passes and before any cutover step — migration mode only, and a hard gate: every answer lands CONFIRMED, no ASSUMED defaults |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index — describe each unique picture once, into its own file, before Stage 2 closes |
+| `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it — one row per area: Mendix docs page, bundled assess-quality section, toolkit skill before the write, lint rule after exec |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
@@ -92,8 +93,14 @@ own bug log before running anything you have not run here before.
 2. **Compile gate** (if applicable): {{COMPILE_GATE_COMMAND}}.
 3. **Coverage checklist** (Gate 3, `iterative-build-loop.md`): walk the module's confirmed
    business-rule coverage checklist item by item — CE-error-free ≠ done.
-4. **Lint** (when the task calls for it): {{LINT_COMMAND}}. Flag *new* violations; don't fail the
-   gate on pre-existing baseline ones unless the task scope includes them.
+4. **Lint** (always): `bin/exec.sh` already ran `bin/lint-gate.sh` after the clean mxbuild and
+   wrote the verdict into the same BUILD-LOG row (`✅ applied … lint unchanged` or
+   `⚠️ applied, LINT ROSE: CONV011 (+3) …`). Read that row first; re-run {{LINT_COMMAND}} only to
+   get the per-document list behind a rise. Name each rule that rose, the documents behind it,
+   and whether the rise belongs to the script under review or to earlier debt. A rise is a FAIL
+   for the script even when mxbuild is clean. Never re-baseline to turn a row green — that is
+   the user's decision, made in chat and recorded in the commit message. If the row says
+   `lint not installed`, say so as a finding: nothing has checked shape in this project.
 
 ## A clean result is not automatically a pass
 

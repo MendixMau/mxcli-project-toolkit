@@ -315,6 +315,14 @@ generic dialog, so that file is where a server-side error is actually readable.
 | `--hub` | expose the running app at a public URL through `mxcli tunnel-hub` — a chisel client reverse-tunnels out over 443 and the runtime boots with `ApplicationRootUrl` set to the hub URL, so the app works under that origin. Implies `--local`. |
 | `--test-endpoint` | host mxcli's token-guarded test endpoint, so `mxcli test <files> -p <app.mpr> --attach` runs against this already-warm app — a couple of seconds instead of ~30 |
 
+**`mxcli test … --attach` is a model write even when nothing changes.** It adds and then removes
+its `MxTest` microflows, so the `.mpr` mtime moves while every unit comes back byte-identical —
+and the catalog then reads stale, so `verify-module.sh`'s graph sweep FAULTs with "catalog is
+stale" on a module you did not touch. Order a test-then-verify loop as: `mxcli test … --attach`
+→ `./mxcli -p <app.mpr> -c 'REFRESH CATALOG FULL'` (~6 s) → `verify-module.sh`. (Field case: the
+card-disbursement requirements-driven build, 2026-09, mxcli v0.24.0 — a seeding test run before
+the module verify made the graph sweep FAULT until the catalog was rebuilt.)
+
 **`--hub` is what makes a container-hosted run reachable.** A cloud/devcontainer session has no
 shared filesystem with a laptop and cannot serve `localhost` to one. Before `--hub` the only answer
 was a hand-rolled ngrok/cloudflared tunnel; it is now a flag. `mxcli test --local` likewise boots on

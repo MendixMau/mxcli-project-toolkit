@@ -253,6 +253,16 @@ probe() {
   if ! runnable "$cmd"; then echo "UNRUNNABLE"; return; fi
   out="$(run_guarded "$cmd")"; rc=$?
   if [ $rc -ge 128 ]; then echo "TIMEOUT"; return; fi
+  # A probe mxcli cannot run says nothing about the model, so it is UNRUNNABLE, never ABSENT.
+  # Scored as ABSENT it was a false OK on every not-built row with a malformed probe: on a
+  # card-disbursement requirements-driven build `DESCRIBE DEMOUSER ops1` read ABSENT/OK while
+  # `DESCRIBE DEMO USER 'ops1'` read PRESENT on the same model. Both strings are verbatim
+  # mxcli v0.24.0 output (rc 1): "Parse error: line 1:64 extraneous input '.' …" and
+  # "Error: no describable document named "DEMOUSER" found in the project; specify the type
+  # explicitly, …". A genuine miss stays ABSENT: "Error: constant not found: Nope.X".
+  case "$out" in
+    *"Parse error:"*|*"no describable document named"*) echo "UNRUNNABLE"; return ;;
+  esac
   if [ $rc -ne 0 ]; then echo "ABSENT"; return; fi
   if [ -z "$(printf '%s' "$out" | tr -d '[:space:]')" ]; then echo "ABSENT"; return; fi
   case "$out" in
@@ -270,7 +280,7 @@ while IFS=$'\t' read -r kind mod ptr status cmd; do
   [ "$QUIET" -eq 1 ] || printf '\r  measuring %d/%d ' "$n" "$MEASURABLE" >&2
   observed="$(probe "$cmd")"
   case "$observed" in
-    UNRUNNABLE) verdict="UNRUNNABLE" ;;   # acceptance cell looks executable but is not
+    UNRUNNABLE) verdict="UNRUNNABLE" ;;   # prose, or a command mxcli refused to parse/resolve
     TIMEOUT)    verdict="TIMEOUT" ;;      # never treated as a pass
     *)
       case "$status:$observed" in
@@ -343,7 +353,7 @@ echo "  ledger rows            $TOTAL   (measured $MEASURABLE · prose-only $PRO
 echo "  OK                     $OK"
 echo "  STALE                  $STALE   (claims built/partial, model says absent)"
 echo "  UNDERSTATED            $UNDER"
-[ "$UNRUN" -gt 0 ] && echo "  UNRUNNABLE             $UNRUN   (backticked prose, not a command)"
+[ "$UNRUN" -gt 0 ] && echo "  UNRUNNABLE             $UNRUN   (backticked prose, or a probe mxcli rejects — fix the probe; see the report)"
 [ "$TMO" -gt 0 ]   && echo "  TIMEOUT                $TMO   (>${TIMEOUT_S}s — never counted as a pass)"
 [ "$UNK" -gt 0 ]   && echo "  UNKNOWN-STATUS         $UNK"
 echo "  report                 $REPORT"

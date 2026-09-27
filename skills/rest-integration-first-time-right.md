@@ -291,6 +291,21 @@ association direction; all fine, page empty → stale deployment or a different 
 - Fixture facts cost hours: an endpoint that genuinely returns 0 children looks exactly like
   a broken mapping. Know which fixture id has data before you debug.
 
+### Added on mxcli v0.24.0 (Mendix 11.13.0, 2026-09-26)
+
+- **`rest call … body $Var` sends the literal text `$Var`**, with check, exec and mxbuild all
+  green. Write `body '{1}' with ({1} = $Var)` (BUG-151).
+- **`import from mapping M($Call/ResponseBody)` is a parse error.** Declare a String first:
+  `declare $Body String = $Call/ResponseBody;` then `M($Body)` (BUG-152).
+- **A published REST service has no auth clause**, and an `Authentication:` property is
+  silently ignored. Authenticate inside the operation microflow, and prove that no credentials
+  and a wrong password each answer 401 (BUG-152).
+- **`create or modify published rest service` replaces the resource list.** One script owns
+  the service and names every resource (BUG-152).
+- **Extend an import mapping with `create or modify`, never drop and recreate it.** The drop
+  orphans every import activity that calls it (BUG-99), and `drop import mapping` on a missing
+  mapping stops the script (BUG-152).
+
 ## Related
 
 - `learned-mdl-preflight.md` — write-mode choice and the STOP table

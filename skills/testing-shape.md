@@ -174,6 +174,7 @@ so the next person argues with the incident rather than with the rule.
 | **Unit** | A microflow passes in isolation but no button calls it, or the caller passes different args | Assert the **caller path** exists, not just the microflow |
 | **Trace** | `[].every()` is `true` — assertions pass on **zero spans** | Assert the span set is **non-empty first**, then assert over it. Also check the action wasn't a no-op: navigating to the page you are already on fires nothing. |
 | **Trace** | A caught error leaves the microflow span `OK` while its activities are `ERROR` | Assert at **activity** granularity, not microflow granularity |
+| **all** | `mxcli run --local` starts with **scheduled events off**, so a job-driven feature never runs under test and its journey passes vacuously or fails for the wrong reason (2026-09-26, Mendix 11.13.0) | Prove it in a separate start with scheduled events on — §5, "`run --local` starts with scheduled events off" |
 | **all** | `$?` after a pipeline measures the pipe, not the script — biased toward false *success* | Never read `$?` through a pipe. See `tool-output-is-not-ground-truth.md`. |
 
 **Verdict discipline — the canonical statement, referenced from `journey-proof.md` rather than
@@ -322,6 +323,23 @@ stale" on a module you did not touch. Order a test-then-verify loop as: `mxcli t
 → `./mxcli -p <app.mpr> -c 'REFRESH CATALOG FULL'` (~6 s) → `verify-module.sh`. (Field case: the
 card-disbursement requirements-driven build, 2026-09, mxcli v0.24.0 — a seeding test run before
 the module verify made the graph sweep FAULT until the catalog was rebuilt.)
+
+**`--test-endpoint` writes into the working model for as long as the app runs.** It injects an
+`MxTest` module, `javasource/mxtest/`, `themesource/mxtest/` and a Settings-unit change that
+chains its registration after startup; a clean stop prints "test endpoint removed; project
+restored". In that window `git status` shows extra model paths and the lint ratchet rises
+(CUSTOM002, CONV013). So: run the build-time app **without** the flag and switch it on only for a
+test window; no exec, no commit and no model restore until the clean stop. Restoring the model
+under a running endpoint deletes `MxTest`, and the next `--attach` refuses with "needs a runtime
+restart". After the stop, `git status` on the model must be empty. (Field case: the same build,
+v0.24.0, 2026-09-26: 11 model paths with the endpoint up, back to 2 after the stop.)
+
+**`run --local` starts with scheduled events off.** The runtime log reads "Synchronizing scheduled
+events: None", so job-driven behaviour is never exercised and a journey over it can only pass
+vacuously or fail for the wrong reason. Prove scheduled work in a **separate** start with
+`--runtime-setting ScheduledEventExecution=ALL`: count rows over at least 2 ticks and grep the log
+for the "Scheduling …" line. Keep journeys that count rows exactly on the default start, where no
+timer moves the data. (Field case: the same build, Mendix 11.13.0, 2026-09-26.)
 
 **A gate build while `run --local` serves breaks the running client.** `bin/verify-model.sh` and
 exec.sh's gate run `mxbuild --target=deploy`, which rewrites `deployment/web/` and drops the

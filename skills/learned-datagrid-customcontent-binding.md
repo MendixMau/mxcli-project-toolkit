@@ -7,6 +7,10 @@ field, anything bound to the row object. Read this **before** writing the widget
 **Status:** confirmed on Mendix 11.12.0 / mxcli v0.16.0, 2026-07-30, by observing the
 Studio Pro error pane before and after. Not confirmed by `mxcli check` — see the trap below.
 
+**v0.24.0 (BUG-142):** the rule holds for every `dynamictext` bound to an object, not only in
+customContent columns — only a bare attribute or a quoted literal builds. `check --references`
+now refuses the parenthesised forms but still passes `if … then … else`.
+
 ---
 
 ## The rule

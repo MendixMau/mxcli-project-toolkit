@@ -155,7 +155,7 @@ Why each line is there:
 | unset enum → `''` | any non-blank value is an exact-match filter server-side; `toString(empty)` poisons the URL |
 | one `{1}` for the whole URL | multi-placeholder templates do not substitute — they go out literally |
 | `@Mod.ApiBaseUrl` constant | a hard-coded `localhost` is the container under Docker; constant syntax proven |
-| `on error continue` on `rest call` | the only handler it accepts; a block is CE6035. An empty body is how failure presents |
+| `on error continue` on `rest call` | the simplest handler: an empty body is how failure presents. A custom block (`on error { … }`, `on error without rollback { … }`) also passes `mx check` now (Mendix 11.13, mxcli v0.24 — the older "a block is CE6035" note is stale), but **never inside a loop**: any custom handler there is CE0644, so a retry loop calls a sub-microflow that holds the attempt (`learned-microflow-patterns.md` → per-row isolation) |
 | **`all`** on `import from mapping` | **see §0** — omitted = `ForceSingleOccurrence=1` = silent EMPTY |
 | `[3]` empty check | distinguishes "threw" from "mapped nothing" — the two must never look alike |
 | `$Count = count($Routes)` | bare `$x = count(...)` is the aggregate form; `length()` is for strings |

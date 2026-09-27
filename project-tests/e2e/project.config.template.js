@@ -128,8 +128,19 @@ function mprPath() {
 // name, which MUST match what the runtime emits, so deriving a wrong name here
 // would make every trace assertion query a service that does not exist. Set
 // NAME_OVERRIDE to null in a project whose directory name is correct.
+//
+// Two-tree layout: ROOT is app/, and "app" names nothing — `id` came out as `app`, so every
+// trace assertion queried a service called `app` (card-disbursement requirements-driven
+// build, 2026-09-25). There the model's own name is the identity, and it is also what
+// `mxcli run --local --trace` defaults OTEL_SERVICE_NAME to. Read inside a try: this file
+// must not throw on require, and a missing .mpr still throws where `mpr` is accessed.
 const NAME_OVERRIDE = null;   // TEMPLATE: set only if your checkout dir != the app name
-const ID = process.env.PROJECT_ID || NAME_OVERRIDE || path.basename(ROOT);
+function derivedId() {
+  const dirName = path.basename(ROOT);
+  if (dirName !== 'app') return dirName;
+  try { return path.basename(mprPath(), '.mpr'); } catch { return path.basename(path.dirname(ROOT)); }
+}
+const ID = process.env.PROJECT_ID || NAME_OVERRIDE || derivedId();
 const DISPLAY_NAME = process.env.PROJECT_DISPLAY_NAME || ID.replace(/[-_]+/g, ' ');
 
 // ============================================================================

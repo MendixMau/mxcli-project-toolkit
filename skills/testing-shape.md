@@ -323,6 +323,14 @@ stale" on a module you did not touch. Order a test-then-verify loop as: `mxcli t
 card-disbursement requirements-driven build, 2026-09, mxcli v0.24.0 — a seeding test run before
 the module verify made the graph sweep FAULT until the catalog was rebuilt.)
 
+**A gate build while `run --local` serves breaks the running client.** `bin/verify-model.sh` and
+exec.sh's gate run `mxbuild --target=deploy`, which rewrites `deployment/web/` and drops the
+`dist/` bundle `run --local` built. The runtime keeps answering 200, but every page load 404s on
+`dist/index.js`, so a journey's login hangs waiting for `.mx-page` — it reads as a login or
+licence failure. The tell is `404 - file not found for file: dist%2Findex.js` in
+`.mxcli/runtime.log`. Restart `run --local` after every gate build; never probe across one.
+(Field case: the card-disbursement requirements-driven build, Mendix 11.13.0, 2026-09-25.)
+
 **`--hub` is what makes a container-hosted run reachable.** A cloud/devcontainer session has no
 shared filesystem with a laptop and cannot serve `localhost` to one. Before `--hub` the only answer
 was a hand-rolled ngrok/cloudflared tunnel; it is now a flag. `mxcli test --local` likewise boots on

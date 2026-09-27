@@ -17,6 +17,9 @@ suite that silently loses this rung is a UI-only suite still reporting "e2e".
 2. Only if that genuinely 401s, **and only on a host that actually has PostgreSQL**, fall back
    to a direct DB connection (below) — and record in the run report that the data rung came
    from a different instrument than usual.
+   **Not `mx.data.get` from the browser.** The React client (`OptimizedClient: Yes`, Mendix 11)
+   throws `mx.data.get is disabled`, so a Playwright probe that reads rows that way errors out
+   and says nothing about the data (field case, Mendix 11.13.0, 2026-09-25).
 3. If neither is available, the run has **no data rung**. Say so in the report. A suite that
    silently drops to UI-only is the same class of false-green as a spec that logs in as admin:
    it still prints "passed".

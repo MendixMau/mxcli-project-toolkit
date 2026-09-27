@@ -141,6 +141,38 @@ pluggablewidget 'com.mendix.widget.web.datagrid.Datagrid' "dgName" (
 - On the native `DATAGRID` form, `DynamicRowClass` is not MDL-able either (MDL-WIDGET01) —
   set it via MCP after exec (`pg_patch_page`, path `.../object/dynamicRowClass`).
 
+## Column sizing at phone width — shrink what may ellipsize, floor what must read whole
+
+mxcli writes every DG2 column's `minWidth` as `auto` with no MDL property for it, and a column
+`Size` is only legal with `ColumnWidth: manual` (MDL-WIDGET10). So column minimums live in the
+theme. Two facts decide the CSS:
+
+- DG2 puts `min-width: 0` on every `.th` and `.td`, so a `1fr` column shrinks below its content.
+- A custom-content cell's wrapper `.td-custom-content` is a flex item of `.td` and keeps
+  `min-width: auto`, so long text in it grows past the column and runs under the next one.
+
+**Before (the obvious fix, wrong):** `.td > .td-custom-content { min-width: 0; }` on every cell.
+Long names ellipsize — and every status pill and id shrinks below its width and spills out of its
+cell. Field case (a card-disbursement requirements-driven build, Mendix 11.13.0, 2026-09-27):
+20 of 20 pills spilled on one list page at 390px, 5 of 5 on the dashboard, and a header read
+"Packa…".
+
+**After:** shrink only the wrapper around text that may ellipsize, floor every header and every
+cell that must read whole, and let the grid scroll sideways inside its card:
+
+```scss
+.td > .td-custom-content:has(.<text-class>) { min-width: 0; }          // may ellipsize
+.widget-datagrid-grid .th,
+.widget-datagrid-grid .td:has(.<id-class>, .<pill-class>, .<time-class>) { min-width: max-content; }
+.widget-datagrid-content { overflow-x: auto; }
+.widget-datagrid-grid { min-width: <the wireframe's grid minimum>; }
+```
+
+The class names in `<…>` are your design system's — grep the theme for them, do not copy these.
+Measured after: 0 of 20 and 0 of 5 spilled at 390, names still ellipsized, desktop widths
+unchanged. Measure per cell (spilled / total, at 390 and 1280); a screenshot glance misses one
+clipped pill in twenty.
+
 ## Grants
 
 A grid is a widget on a page — no separate grant beyond the page VIEW grant. Access to the

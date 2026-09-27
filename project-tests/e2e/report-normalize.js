@@ -2502,6 +2502,17 @@ function loadInputs(outFile) {
 // ============================================================================
 function selftest() {
   let bad = 0;
+  // The cases below exercise two walkthrough instruments. WALKTHROUGHS comes from the
+  // project's config — the template declares one, a real project may declare none — so the
+  // selftest pins its own declarations, for this process only (it exits when done). Without
+  // this it failed 2 cases on the template config (mobile-fieldscan is commented out there)
+  // and threw a TypeError on a project declaring neither (card-disbursement
+  // requirements-driven build, 2026-09-26: 41 ok, 4 FAIL, then `canExpressFault` of undefined).
+  WALKTHROUGHS.splice(0, WALKTHROUGHS.length,
+    { instrument: 'full-app-walkthrough', input: 'findings', script: 'full-app-walkthrough.js', tags: [] },
+    { instrument: 'mobile-fieldscan', input: 'findingsMobile', script: 'mobile-fieldscan.js', tags: ['mobile'] });
+  WALKTHROUGH_BY_NAME.clear();
+  for (const w of WALKTHROUGHS) WALKTHROUGH_BY_NAME.set(w.instrument, w);
   const t = (name, got, want) => {
     const ok = JSON.stringify(got) === JSON.stringify(want);
     if (!ok) bad++;

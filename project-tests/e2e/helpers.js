@@ -461,7 +461,10 @@ async function dismissModal(page, retries = 3) {
 // (no deeplink navigation). parentTitle opens the group; childTitle is the dest.
 async function navTo(page, parentTitle, childTitle) {
   const clickTitle = (t) => page.evaluate((title) => {
-    const a = [...document.querySelectorAll('.mx-navigationtree a')]
+    // A top-bar layout (the `mxcli new` template's home page) renders the same menu as
+    // .mx-navbar with the same a[title] shape; tree-only found nothing there and every
+    // journey died at step 1 (card-disbursement requirements-driven build, 2026-09-25).
+    const a = [...document.querySelectorAll('.mx-navigationtree a, .mx-navbar a')]
       .find((x) => x.getAttribute('title') === title);
     if (a) { a.scrollIntoView({ block: 'nearest' }); a.click(); return true; }
     return false;

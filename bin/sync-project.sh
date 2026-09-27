@@ -888,9 +888,13 @@ known_fix_note() {
       fi
       echo "bin/_common.sh predates the WINDOWS MXBUILD GATE fix (toolkit, 2026-08-25). This is where find_sp_app/find_mxbuild, JAVA_HOME resolution and mxtk_platform actually live — exec.sh only calls them. So upgrading exec.sh ALONE does not deliver the fix, and grepping exec.sh for mxtk_platform reports 0 even on a fully patched project: grep _common.sh instead. Without this file the mxbuild gate is skipped on every Windows exec and nothing checks your builds. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh." ;;
     exec.sh)
+      if grep -q 'MXTK_MXBUILD_WHY' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null \
+         && ! grep -q 'RESTORER=' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
+        echo "bin/exec.sh predates the V1 AUTO-RESTORE fix (toolkit, 2026-09-27, marketplace-rnd): its inline restore had only the mprcontents/ arm, so on a v1 single-file .mpr a failed gate printed 'Snapshot has no mprcontents/ — refusing to restore', left the broken model in place, and then blamed the error on PRE-EXISTING. Now the restore goes through bin/restore-mpr.sh (v1 and v2). Upgrade: --upgrade-bin exec.sh (restore-mpr.sh installs with it)."; return
+      fi
       if grep -q 'model-stamp' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null \
          && ! grep -q 'MXTK_MXBUILD_WHY' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
-        echo "bin/exec.sh predates the VERSION-MISMATCH FALSE GREEN fix (toolkit, 2026-09-27, marketplace-rnd): an mxbuild that refused the model (exit 3, reason in errors[], empty problems[]) was logged 'pass · mxbuild clean' — 29 of 29 execs on one machine, one of them shipping a CE0066. Now it is unverified, with mxbuild's own reason in the BUILD-LOG row. Needs the matching _common.sh: --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
+        echo "bin/exec.sh predates the VERSION-MISMATCH FALSE GREEN fix (toolkit, 2026-09-27, marketplace-rnd): an mxbuild that refused the model (exit 3, reason in errors[], empty problems[]) was logged 'pass · mxbuild clean' — 29 of 29 execs on one machine, one of them shipping a CE0066. Now it is unverified, with mxbuild's own reason in the BUILD-LOG row. This copy also lacks the V1 AUTO-RESTORE fix (a failed gate on a single-file .mpr was never rolled back). Needs the matching _common.sh: --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
       fi
       if ! grep -q 'model-stamp' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
         echo "bin/exec.sh predates the GATE-MUST-RUN fix (toolkit, 2026-09-17): a missing mxbuild is downloaded, a gate that still cannot run REFUSES the write (ALLOW_UNVERIFIED=1 to override), and a passing gate writes the verification stamp the pre-commit hook checks. Without it every exec on a machine with no mxbuild is applied unverified — on any OS, cloud containers included. Needs the matching _common.sh (mxtk_ensure_mxbuild): --upgrade-bin _common.sh --upgrade-bin exec.sh."; return

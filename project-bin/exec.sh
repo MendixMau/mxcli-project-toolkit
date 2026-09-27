@@ -641,31 +641,31 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
         echo "  ✗ mxbuild: $CE_COUNT error(s) found — restoring snapshot to avoid loading a corrupt MPR."
         CE_CODES=$(err_codes "$ERRORS_FILE")
         NEWEST_SNAP=$(ls -dt "$PROJECT_ROOT/.mpr-snapshots"/[0-9]*/ 2>/dev/null | head -1)
-        if [ -n "$NEWEST_SNAP" ] && [ -f "$NEWEST_SNAP/$MPR_BASE" ]; then
-          # Stage then swap — see restore-mpr.sh for why deleting first is fatal.
-          SNAP_UNITS=$(find "$NEWEST_SNAP/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
-          if [ "$SNAP_UNITS" -gt 0 ]; then
-            TMP_MC="$MODEL_DIR/.mprcontents.restore.$$"
-            rm -rf "$TMP_MC"
-            if cp -r "$NEWEST_SNAP/mprcontents" "$TMP_MC"; then
-              rm -rf "$MODEL_DIR/mprcontents"
-              mv "$TMP_MC" "$MODEL_DIR/mprcontents"
-              cp "$NEWEST_SNAP/$MPR_BASE" "$MPR"
-              LIVE_UNITS=$(find "$MODEL_DIR/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
-              if [ "$LIVE_UNITS" -eq "$SNAP_UNITS" ]; then
-                echo "  → Auto-restored from: $NEWEST_SNAP ($LIVE_UNITS units verified)"
-              else
-                echo "  ⚠  RESTORE INCOMPLETE: $LIVE_UNITS of $SNAP_UNITS units."
-                echo "     Recover with: git checkout HEAD -- $MPR_BASE mprcontents/"
-              fi
-            else
-              rm -rf "$TMP_MC"
-              echo "  ⚠  RESTORE FAILED — working tree left untouched, model may be mid-write."
-              echo "     Recover with: git checkout HEAD -- $MPR_BASE mprcontents/"
-            fi
+        # One restore implementation: restore-mpr.sh. exec.sh used to carry an inline copy
+        # of it that had only the mprcontents/ (v2) arm, so on a v1 single-file model
+        # (Marketplace-RnD, 152 MB, 2026-09-26) every failed gate printed "Snapshot has no
+        # mprcontents/ — refusing to restore" and left the broken model in place. The
+        # attribution check below then rebuilt that SAME broken model and blamed the error
+        # on "PRE-EXISTING". RESTORED gates that check.
+        RESTORED=0
+        RESTORER="$(dirname "$0")/restore-mpr.sh"
+        if [ -z "$NEWEST_SNAP" ] || [ ! -f "$NEWEST_SNAP/$MPR_BASE" ]; then
+          echo "  ⚠  No usable snapshot to restore from — the model is left as the script wrote it."
+        elif [ ! -f "$RESTORER" ]; then
+          echo "  ⚠  bin/restore-mpr.sh is not installed — cannot auto-restore (run sync-project.sh)."
+        elif R_OUT=$(bash "$RESTORER" "$NEWEST_SNAP" 2>&1); then
+          RESTORED=1
+          printf '%s\n' "$R_OUT" | sed 's/^/  → /'
+          echo "  → Auto-restored from: $NEWEST_SNAP"
+        else
+          printf '%s\n' "$R_OUT" | sed 's/^/     /'
+          echo "  ⚠  RESTORE FAILED from $NEWEST_SNAP."
+        fi
+        if [ "$RESTORED" -ne 1 ]; then
+          if [ -d "$MODEL_DIR/mprcontents" ]; then
+            echo "     Recover with: git checkout HEAD -- $MPR_BASE mprcontents/   (or ./bin/restore-mpr.sh)"
           else
-            echo "  ⚠  Snapshot has no mprcontents/ — refusing to restore from it."
-            echo "     Recover with: git checkout HEAD -- $MPR_BASE mprcontents/"
+            echo "     Recover with: git checkout HEAD -- $MPR_BASE   (or ./bin/restore-mpr.sh)"
           fi
         fi
         # Print WHERE, not just WHAT: mxbuild's problems[] carries module/document/element and,
@@ -689,37 +689,48 @@ PYEOF
         cp "$ERRORS_FILE" "$LAST_ERRS"
         echo "  → Full error detail: .mpr-snapshots/last-mxbuild-errors.json"
 
-        # ── Whose error is it? ───────────────────────────────────────────────
-        # The model is now back at its pre-exec state. If it STILL fails, the
-        # error predates this script, which was merely the first thing to hit
-        # it. Costs one extra mxbuild, only on the failure path.
-        BASE_ERRS=$(mktemp /tmp/mxbuild-base.XXXXXX)
-        # Same shared run+capture as the pre-flight baseline and the main gate
-        # above (mxtk_mxbuild_error_count, _common.sh) — one implementation.
-        mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$BASE_ERRS" >/dev/null || true
-        # Same empty-file rule as the pre-flight baseline: SP 11 mxbuild writes no
-        # errors file on a clean build, and that plus exit 0 is a verified 0.
-        if [ ! -s "$BASE_ERRS" ] && [ "$MXTK_MXBUILD_EXIT" -eq 0 ]; then
-          BASE_COUNT=0; BASE_CODES=""
+        if [ "$RESTORED" -ne 1 ]; then
+          # Nothing was rolled back, so rebuilding now would measure the script's own
+          # output and call its error PRE-EXISTING. Say what happened instead.
+          echo ""
+          echo "  ✗ The model still holds this script's changes and fails with [$CE_CODES]."
+          log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — NOT rolled back (restore did not run)"
         else
-          BASE_COUNT=$(err_count "$BASE_ERRS"); BASE_CODES=$(err_codes "$BASE_ERRS")
-        fi
-        rm -f "$BASE_ERRS"
+          # ── Whose error is it? ───────────────────────────────────────────────
+          # The model is now back at its pre-exec state. If it STILL fails, the
+          # error predates this script, which was merely the first thing to hit
+          # it. Costs one extra mxbuild, only on the failure path.
+          BASE_ERRS=$(mktemp /tmp/mxbuild-base.XXXXXX)
+          # Same shared run+capture as the pre-flight baseline and the main gate
+          # above (mxtk_mxbuild_error_count, _common.sh) — one implementation.
+          mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$BASE_ERRS" >/dev/null || true
+          # Same empty-file rule as the pre-flight baseline: SP 11 mxbuild writes no
+          # errors file on a clean build, and that plus exit 0 is a verified 0.
+          if [ ! -s "$BASE_ERRS" ] && [ "$MXTK_MXBUILD_EXIT" -eq 0 ]; then
+            BASE_COUNT=0; BASE_CODES=""
+          else
+            BASE_COUNT=$(err_count "$BASE_ERRS"); BASE_CODES=$(err_codes "$BASE_ERRS")
+          fi
+          rm -f "$BASE_ERRS"
 
-        echo ""
-        if [ "$BASE_COUNT" != "0" ] && [ "$BASE_COUNT" != "?" ]; then
-          echo "  ⚠  PRE-EXISTING: the restored model already fails with $BASE_COUNT error(s) [$BASE_CODES]."
-          echo "     This script is NOT the cause. Nothing will exec until that is cleared."
-          case "$BASE_CODES" in
-            *CE0066*|*CE0463*)
-              echo "     Those codes are Studio-Pro-only fixes:"
-              echo "       CE0066  security overview → update entity access"
-              echo "       CE0463  right-click a widget → Update all widgets" ;;
-          esac
-          log_build "🚫 blocked" "PRE-EXISTING $BASE_CODES — not caused by this script; needs Studio Pro"
-        else
-          echo "  → The restored model builds clean, so this script introduced [$CE_CODES]."
-          log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back"
+          echo ""
+          if [ "$BASE_COUNT" != "0" ] && [ "$BASE_COUNT" != "?" ]; then
+            echo "  ⚠  PRE-EXISTING: the restored model already fails with $BASE_COUNT error(s) [$BASE_CODES]."
+            echo "     This script is NOT the cause. Nothing will exec until that is cleared."
+            case "$BASE_CODES" in
+              *CE0066*|*CE0463*)
+                echo "     Those codes are Studio-Pro-only fixes:"
+                echo "       CE0066  security overview → update entity access"
+                echo "       CE0463  right-click a widget → Update all widgets" ;;
+            esac
+            log_build "🚫 blocked" "PRE-EXISTING $BASE_CODES — not caused by this script; needs Studio Pro"
+          elif [ "$BASE_COUNT" = "?" ]; then
+            echo "  → The restored model could not be measured, so whose error it is stays open: [$CE_CODES]."
+            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back; restored model not measured"
+          else
+            echo "  → The restored model builds clean, so this script introduced [$CE_CODES]."
+            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back"
+          fi
         fi
         rm -f "$ERRORS_FILE"
       fi

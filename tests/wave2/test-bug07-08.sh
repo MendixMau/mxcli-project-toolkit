@@ -21,6 +21,8 @@
 # (gate cannot run -> refuse) discriminates against every script before 2026-09-17.
 # Case K (mxbuild refused the model: exit 3, errors[], empty problems[]) discriminates
 # against every script before 2026-09-27 — the pre-fix row reads "pass · mxbuild clean".
+# Case L (failed gate on a v1 single-file model is rolled back) discriminates against every
+# exec.sh with the inline mprcontents/-only restore.
 #
 # NOTHING here touches a real .mpr, a real mxcli or a real mxbuild. The fixture
 # is a throwaway git repo in /tmp with stubs for all three.
@@ -43,7 +45,8 @@ printf 'bson\n' > "$P/mprcontents/a.mxunit"
 printf 'CREATE MODULE "Nope";\n' > "$P/mdlsource/test.mdl"
 cp "$TOOLKIT/project-bin/_common.sh" "$P/bin/_common.sh"
 cp "$EXEC_SH" "$P/bin/exec.sh"
-chmod +x "$P/bin/exec.sh"
+cp "$TOOLKIT/project-bin/restore-mpr.sh" "$P/bin/restore-mpr.sh"   # installed beside exec.sh
+chmod +x "$P/bin/exec.sh" "$P/bin/restore-mpr.sh"
 
 # snapshot-mpr.sh stub. SNAP_SLEEP stalls it, which is where case I interrupts:
 # stalling inside the fake `mxcli exec` instead would leave an orphan process
@@ -56,7 +59,7 @@ sleep "${SNAP_SLEEP:-0}"
 D=".mpr-snapshots/$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$D"
 cp Fixture.mpr "$D/Fixture.mpr"
-cp -r mprcontents "$D/mprcontents"
+[ -d mprcontents ] && cp -r mprcontents "$D/mprcontents"   # v1 single-file: the .mpr is the model
 echo "Snapshot saved: $D"
 SNAP
 chmod +x "$P/bin/snapshot-mpr.sh"
@@ -66,7 +69,8 @@ cat > "$P/mxcli" <<'MXCLI'
 #!/usr/bin/env bash
 case "${1:-}" in
   check) echo "fake mxcli check: ${MODE_CHECK:-0}"; exit "${MODE_CHECK:-0}" ;;
-  exec)  echo "fake mxcli exec"; exit "${MODE_EXEC:-0}" ;;
+  exec)  echo "fake mxcli exec"; [ -n "${MUTATE_MPR:-}" ] && echo "written by the script" >> "$MUTATE_MPR"
+         exit "${MODE_EXEC:-0}" ;;
 esac
 exit 0
 MXCLI
@@ -84,6 +88,10 @@ case "${MODE_BUILD:-clean}" in
   nofile) [ -n "$OUT" ] && rm -f "$OUT" ;;
   errors) [ -n "$OUT" ] && printf '{"problems":[{"severity":"Error","errorCode":"CE1234","message":"boom"}]}' > "$OUT" ;;
   refused) [ -n "$OUT" ] && cp "$GOLDEN_REFUSED" "$OUT" ;;
+  # errors only while the script's write is in the model: a restored model builds clean
+  written) if grep -q 'written by the script' "$MUTATE_MPR" 2>/dev/null; then
+             printf '{"problems":[{"severity":"Error","errorCode":"CE1234","message":"boom"}]}' > "$OUT"
+           else printf '{"problems":[]}' > "$OUT"; fi ;;
 esac
 echo "fake mxbuild ${MODE_BUILD:-clean}"
 exit "${MODE_BUILD_EXIT:-0}"
@@ -274,6 +282,37 @@ printf '%s' "$LAST" | grep -q 'unverified' && ok "row says gate unverified" || b
 printf '%s' "$LAST" | grep -q 'does not exactly match MxBuild version' \
   && ok "row carries mxbuild's own reason" || bad "row does not say why: $LAST"
 grep -q 'mxbuild setup\|setup mxbuild\|MXBUILD_PATH' "$WORK/out.K" && ok "remedy named on screen" || bad "no remedy on screen"
+
+# ── L: a failed gate on a v1 single-file model is rolled back ────────────────
+# Field (marketplace-rnd, 152 MB v1 .mpr, 2026-09-26): the inline restore had only the
+# mprcontents/ arm, printed "Snapshot has no mprcontents/ — refusing to restore from it."
+# and left the broken model in place. Restore now goes through restore-mpr.sh.
+echo "== L: v1 model (no mprcontents/) + failed gate -> .mpr byte-identical to the snapshot =="
+P1="$WORK/proj-v1"
+mkdir -p "$P1/bin" "$P1/mdlsource"
+printf 'v1 single-file model, pre-exec\n' > "$P1/Fixture.mpr"
+cp "$P/mdlsource/test.mdl" "$P1/mdlsource/"
+cp "$P/bin/_common.sh" "$P/bin/exec.sh" "$P/bin/restore-mpr.sh" "$P/bin/snapshot-mpr.sh" "$P1/bin/"
+cp "$P/mxcli" "$P1/mxcli"
+cp "$P1/Fixture.mpr" "$WORK/v1-original.mpr"
+( cd "$P1" && git init -q . && git add -A && \
+  git -c user.email=t@t -c user.name=t commit -qm fixture ) >/dev/null 2>&1
+( cd "$P1" && SKIP_BASELINE=1 SP_RESTART=0 MXTK_NO_INSTALL=1 MXBUILD_PATH="$WORK/mxbuild" \
+    MODE_BUILD=written MUTATE_MPR="$P1/Fixture.mpr" ./bin/exec.sh mdlsource/test.mdl ) >"$WORK/out.L" 2>&1
+RC=$?
+[ "$RC" -eq 1 ] && ok "[guard] gate failed, exit 1" || bad "[guard] exit $RC, expected 1"
+if cmp -s "$P1/Fixture.mpr" "$WORK/v1-original.mpr"; then
+  ok "v1 .mpr restored byte-identical to the pre-exec snapshot"
+else
+  bad "v1 .mpr NOT restored — the script's write is still in the model"
+fi
+grep -q 'refusing to restore' "$WORK/out.L" && bad "still refuses a v1 snapshot" || ok "no v1 refusal"
+L1ROW=$(grep '^| [0-9]' "$P1/docs/BUILD-LOG.md" 2>/dev/null | tail -1)
+case "$L1ROW" in
+  *PRE-EXISTING*) bad "blamed PRE-EXISTING — the attribution rebuild saw the script's own write: $L1ROW" ;;
+  *"rolled back"*) ok "row says rolled back" ;;
+  *) bad "unexpected row: $L1ROW" ;;
+esac
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"

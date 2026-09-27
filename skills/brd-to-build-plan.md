@@ -602,8 +602,8 @@ Before any `GRANT` script, decide and document:
 **⛔ Demo user password rules — read before writing any security MDL:**
 
 - **Never touch MxAdmin.** Every project ships with MxAdmin and password `1` as a standard. Do not wipe it, reset it, or re-create it. Any script that modifies MxAdmin is wrong.
-- **Do not set passwords for demo users.** Create the user account (name, user role); leave the password field unset. The user switches to a demo account from inside the app after signing in as MxAdmin — no password is required. Setting a password is unnecessary and creates inconsistency across projects.
-- **Pattern:** `create demo user "firstname.lastname" with roles "Module"."Role";` — nothing more. No password block.
+- **A demo user's password is mandatory in the grammar, so give it one throwaway value.** On mxcli v0.24.0 `CREATE DEMO USER '<name>' (<UserRole>)` with no password is a parse error (`mismatched input '(' expecting PASSWORD`, `mxcli syntax security demo-user`). Pick one value per project that meets the project's password policy (a demo user also needs security above Off, and a 12-character minimum is common — `walking-skeleton.md`). Record it in the build plan, reuse it for every demo user, and never use a real credential. Signing in as MxAdmin and switching demo user from inside the app still needs no password.
+- **Pattern:** `create demo user 'firstname.lastname' password '<project demo password>' (<UserRole>);` — a single-quoted name and a project **user** role, not a qualified module role. The older form `create demo user "firstname.lastname" with roles "Module"."Role";` (no password) no longer parses (a card-disbursement requirements-driven build, 2026-09-25).
 
 ## Step 7: Navigation Wiring
 

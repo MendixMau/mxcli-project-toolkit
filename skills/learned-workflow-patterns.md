@@ -293,7 +293,8 @@ MULTI USER TASK "Board" 'Board review'
   OUTCOMES 'Approve' { } 'Reject' { };
 
 -- jump to, inside a user-task outcome. Must be the last statement of its path.
--- Inside a BOUNDARY EVENT body it writes a targetless, name-colliding Jump — BUG-109.
+-- Inside a BOUNDARY EVENT body it wrote a targetless, name-colliding Jump through v0.20.0
+-- (BUG-109); on v0.24.0 it writes a real jump there too.
 USER TASK "Review" 'Review'
   PAGE MyModule."WF_Task_ApproveReject"
   OUTCOMES 'Ok' { } 'Redo' { JUMP TO "Review"; };
@@ -345,6 +346,13 @@ the workflow**, not a later UI row. A plan that builds the workflow at row 41 an
 **The `WITH` clause's value must be quoted.** `WITH ("Ctx" = '$WorkflowContext')` works;
 `WITH (Ctx = $WorkflowContext)` **segfaults the binary** — and the "parameter is not mapped"
 hint `--references` prints talks you straight into the crashing spelling. BUG-107.
+
+> **v0.24.0 (Mendix 11.13.0, 2026-09-26): the two halves below have come apart.** The
+> bare-enum form is now refused before the write by `MDL-WF03` (forced with `--no-check` it
+> still writes the `StorageLoadException`). A Boolean decision with `true`/`false` outcome
+> keywords on an expression — `decision N '$WorkflowContext/Attr = ''X''' outcomes true -> { … }
+> false -> { };` — builds at 0 native errors and reads back intact. The string-labelled repro
+> in §8 Warning 1 was not re-run on v0.24.0. Table: §8 Warning 1.
 
 **Never script a `DECISION` at all — not on an enumeration, not on a boolean.** This is
 **BUG-76**, open since 2026-08-13 and re-confirmed on v0.20.0 twice: mxcli writes every
@@ -447,6 +455,31 @@ button also commits the form and closes the page; the statement does neither, so
 means rebuilding both by hand. Use `SET TASK OUTCOME` only when you must validate or mutate
 first in a flow that has no page.
 
+**`SET TASK OUTCOME` needs a signed-in named user — assigning the task first is not enough.**
+A published REST operation without platform authentication (or a scheduled event, or any
+system-context call) has no current user, and the runtime refuses the outcome with
+`UserException: Only named users can complete user task.` — even when the same flow first
+assigned the task to a real account. `mxcli check`, `exec` and `mx check` cannot see this; it
+surfaces as a 4xx/5xx from the operation and one line in `runtime.log`. Field case (a
+card-disbursement requirements-driven build, Mendix 11.13.0, 2026-09-26): an API-driven
+"assign, then complete" answered 403 until the assign + outcome ran in a session of the calling
+account, after which the proof test answered 200 with the outcome recorded under that account.
+The run-as pattern is a Java action that opens a session for the named account, runs the
+microflow in it, and always closes it:
+
+```java
+IUser user = Core.getUser(Core.createSystemContext(), userName);   // the account the call has already authenticated
+if (user == null) throw new CoreException("No account '" + userName + "'");
+ISession session = Core.initializeSession(user, null);
+try {
+  return Core.microflowCall("Module.SUB_Task_Complete").inTransaction(true)
+      .withParam("Task", task).execute(session.createContext());
+} finally { Core.logout(session); }
+```
+
+Authenticate the account *before* this runs (the Java action trusts the name it is given), and
+keep the microflow's own checks — it now runs with that user's access rules, not as system.
+
 **`DESCRIBE MICROFLOW` reads `call workflow` back since v0.20.0 — but the catalog still
 does not see it.** The describe half of this warning is retired: on mxcli v0.20.0 the round
 trip closes — `DESCRIBE` emits `call workflow Mod.WF ($Var);` (the positional form, added to
@@ -497,6 +530,7 @@ mxcli **v0.18.0**, where `DECISION` writes correctly.
 | `v0.17.0` | **corrupts the `.mpr`** — confirmed, BUG-76 (binary `2026-08-10T05:12:17Z`) |
 | `v0.18.0`+ | writes correctly; verify what was stored anyway |
 | `v0.20.0` / `v0.21.0` | **resolved 2026-09-08 — a spelling pincer, not a shape.** The two 2026-08-31 probes disagreed because one used bare outcomes and one used qualified ones: bare `'Yes'` passes `mxcli check` and produces the byte-exact `StorageLoadException`; qualified `Module.Enum.Value` is rejected by `MDL-WF03` but loads natively via `exec --no-check` with one `CE0117` (the empty condition). Re-probed on v0.21.0: unchanged. Workaround: qualified spelling + `--no-check`, then pick the expression in Studio Pro (BUG-76, mendixlabs/mxcli#1031) |
+| `v0.24.0` | **split in two, 2026-09-26 (Mendix 11.13.0, a card-disbursement requirements-driven build).** Bare-enum outcome: refused before the write by `MDL-WF03`; forced with `--no-check`, the same `StorageLoadException` (rc 1) — guarded, not fixed. Boolean decision with `true`/`false` outcome keywords on a context-attribute expression: check, exec and native `mx check` 0 errors, `DESCRIBE` shows the expression intact — scriptable. The string-labelled `'1 = 1'` repro below was not re-run; run it before scripting that shape |
 
 Two half-right versions of this warning coexisted for four days from 2026-08-21. One said
 "absolute prohibition, confirmed on v0.17.0" and never learned about the v0.18.0 fix — follow
@@ -985,6 +1019,12 @@ already exists.
 > terminator, CE0105 — and neither is expressible, see §11 of `workflow-structure-rules.md`),
 > and there is **no notification boundary event** in the grammar at all.
 >
+> **The interrupting half is superseded on v0.24.0 (Mendix 11.13.0, 2026-09-26).** An
+> interrupting timer whose body calls a microflow and ends in `end workflow comment '…';` or in
+> `jump to <earlier activity>;` builds at 0 native errors, and the read-back shows a real jump
+> with a real target — BUG-109 no longer reproduces. Only one interrupting boundary per activity
+> (`MDL-WF15` / CE6697); `workflow-structure-rules.md` §2.
+>
 > This entry is the reason the rule exists: a construct "used in a real build" was verified by
 > the tool that cannot see the defect. `mxcli check` is not evidence for workflows.
 
@@ -1054,7 +1094,7 @@ was disputed until 2026-09-08 (the `DECISION`, below — now resolved as a spell
 | Claim, and where it still appears | Status on v0.20.0 |
 |---|---|
 | `DECISION` corrupts the `.mpr` (§8 Warning 1, BUG-76) | **Resolved 2026-09-08 — spelling, not shape.** This probe's `ExclusiveSplitActivity` loaded because its outcomes were qualified (`Module.Enum.Value`, forced through `--no-check` past `MDL-WF03`); the same-day retest (`bug-logs/mxlabs-v0.20.0-retest-2026-08-31.md`) corrupted because its outcomes were bare, which `mxcli check` accepts and the loader rejects as an invalid `EnumerationValueIdentifier`. Re-probed on v0.21.0 (2026-09-08): both jaws unchanged. Keep BUG-76's STOP rule until upstream fixes either jaw (mendixlabs/mxcli#1031); the workaround is qualified spelling + `exec --no-check` + one `CE0117` to fix in the canvas. |
-| An MDL-written `BOUNDARY EVENT … TIMER` is always malformed — `CE0105` | **Cleared for the non-interrupting form.** The timer wrote correctly, reading `$WorkflowContext/<DeadlineAttribute>`. The *interrupting* form still fails `CE0105` because its terminator is inexpressible (§19, BUG-109). |
+| An MDL-written `BOUNDARY EVENT … TIMER` is always malformed — `CE0105` | **Cleared for the non-interrupting form.** The timer wrote correctly, reading `$WorkflowContext/<DeadlineAttribute>`. The *interrupting* form still fails `CE0105` because its terminator is inexpressible (§19, BUG-109) — **on v0.24.0 it writes and loads too** (§19's second correction). |
 | `CALL MICROFLOW` stores the pre-11.9 `$Type` (§13, BUG-WF06) | **Cleared.** 14/14 landed as `CallMicroflowActivity` — re-confirming the v0.17.0 fix. |
 | `DESCRIBE WORKFLOW` is blind to boundary events, decisions, jumps and waits | **Largely cleared.** All four now read back. The Event Sub-Process still does not — see below. |
 | §10 step 5's bare "No `DECISION`" | **Historical.** Read it as "no `DECISION` before v0.18.0, and verify what was stored on any binary"; §15 governs whether to use one at all. |
@@ -1123,11 +1163,11 @@ sibling (a *valid* target, still name-collided and targetless, CE0495 + CE6680) 
 | `jump to <target>` | `check --references` | `exec` | native `mx check` |
 |---|---|---|---|
 | a real activity name, earlier in the flow | pass | pass | **0 errors** |
-| a real activity name, later in the flow | pass | pass | **CE6681** — a genuine platform rule, `workflow-structure-rules.md` (forward jumps), not this defect |
+| a real activity name, later in the flow | pass | pass | **0 errors on v0.24.0** (2026-09-26). This row read "CE6681, a genuine platform rule" — it was mxcli's jump-named-after-its-target defect, fixed upstream in v0.21.0 (§25), not a platform rule |
 | any name that matches nothing | pass | pass | **CE6681** — this defect: the self-referencing jump |
 
-So `CE6681` has two causes and the message names neither. Check the target exists *before*
-you reason about direction.
+So on a current binary `CE6681` on a jump has one cause, and the message does not name it:
+check the target exists before anything else.
 
 **Why `DESCRIBE` walks you straight into it:** describe emits the *source* model's activity
 names, but a rebuild derives names from the called microflow. So `jump to callMicroflow6`
@@ -1199,8 +1239,8 @@ behind it, so that jump has no valid target at all. What happens:
 
 The message is about the **kind** of the target, so it sends you inspecting a target that does
 not exist. Read `CE6681` as *"this jump does not resolve"* and check existence before kind.
-(§11's forward-`JUMP TO` row is the same code from the other cause: a forward target resolves
-to the end/jump activity.) The fix is not a better jump — it is that **a reject ends the
+(`workflow-structure-rules.md` §11's forward-`JUMP TO` row used to blame the same code on
+direction; on v0.24.0 a forward jump builds clean, so there is no second cause.) The fix is not a better jump — it is that **a reject ends the
 workflow**. `WF_MOCApproval` therefore contains no `JUMP TO` at all.
 
 This is a fourth entry for the detection-gap register: clean at three rungs, broken at the

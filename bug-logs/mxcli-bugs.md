@@ -2673,6 +2673,8 @@ before touching the live one.
 
 ## BUG-76: `DECISION` activities in a native `WORKFLOW` are unconditionally storage-corrupted — mxcli writes the outcome label as a raw string into a field that must be a real `EnumerationValueIdentifier`, on every DECISION regardless of the underlying expression's type
 
+> **RETESTED on v0.24.0 / Mendix 11.13.0, 2026-09-26 (a card-disbursement requirements-driven build) — the entry has split in two.** (1) **Enum half: guarded, not fixed.** A `DECISION` on an enumeration attribute with bare outcome labels is now refused before the write by `MDL-WF03` ("decision outcome '…' is not fully qualified"); `exec` refuses too. Forced with `exec --no-check` it still writes the unloadable model — native `mx check` rc 1, `StorageLoadException`. (2) **Boolean half: clean for the keyword form.** `decision N '$WorkflowContext/Attr = ''X''' outcomes true -> { … } false -> { };` passes `check --references`, `exec` and native `mx check` at 0 errors, and `DESCRIBE WORKFLOW` reads the expression and both arms back. **Not re-run on v0.24.0:** the string-labelled `decision '1 = 1' outcomes 'OutcomeA' … 'OutcomeB'` repro below — keep the STOP rule for that shape until someone runs it. Skills updated: `learned-workflow-patterns.md` §8, `workflow-structure-rules.md` §11.
+
 > **CONFIRMED STILL OPEN on v0.21.0 — CRITICAL, verified 2026-09-14 with the byte-exact original signature: `StorageLoadException … The text 'OutcomeA' is not a valid EnumerationValueIdentifier`, project unloadable by mxbuild. Keep the STOP rule: no DECISION activities in CREATE WORKFLOW via mxcli.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 > **CONFIRMED STILL OPEN on v0.20.0 — CRITICAL, verified 2026-08-31 with the byte-exact original signature: `StorageLoadException … The text 'OutcomeA' is not a valid EnumerationValueIdentifier`, project unloadable by mxbuild. Keep the STOP rule: no DECISION activities in CREATE WORKFLOW via mxcli.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
@@ -3721,6 +3723,8 @@ free-text outcomes are unaffected; only the enumeration path is wrong.
 ---
 
 ## BUG-109: `JUMP TO` inside a boundary-event body writes a Jump with no Target, named after its own target
+
+> **NO LONGER REPRODUCES on v0.24.0 / Mendix 11.13.0 — retested 2026-09-26 (a card-disbursement requirements-driven build).** An **interrupting** boundary timer whose body calls a microflow and then does `jump to <earlier activity>;` passes `check --references`, `exec` and native `mx check` at 0 errors, and `DESCRIBE WORKFLOW` reads back a real jump to that activity — not a jump named after it. The same boundary ending in `end workflow comment '…';` also builds clean. Upstream `825873d6` (in v0.21.0) fixed the jump-named-after-its-target defect (`learned-workflow-patterns.md` §25); v0.21.0–v0.23.x were not retested for this shape. The dangling-target half (#1005) is a separate shape and was not part of this retest. Skills updated: `workflow-structure-rules.md` §11, `learned-workflow-patterns.md` §19.
 
 **Severity:** High — the only legal terminator for an interrupting boundary event is unusable
 **mxcli version:** v0.20.0 (2026-08-28)

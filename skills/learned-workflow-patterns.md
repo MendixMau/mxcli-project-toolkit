@@ -640,6 +640,7 @@ varying **only** the suspected cause — see [[sandbox-ab-tool-defect-probe]].
 | Error | Cause | Fix |
 |---|---|---|
 | **CE7412** | Task page missing `$WorkflowUserTask` (or `$WorkflowContext`) in `Params:` | Declare both parameters |
+| **CE7410** | A user task's `PAGE` takes no `System.WorkflowUserTask` parameter. On mxcli v0.24.0 `check --references` names it and refuses before the write (`exec`, even `--no-check`, cannot write it) — no longer a native-only find (2026-09-26) | Give the page the task parameter |
 | **CE1571** "no argument selected" | Button sits outside the dataview scoped to its parameter entity | Move the button inside the correct `DATAVIEW` |
 | **CE2421** | `TEXTBOX` bound to an enum attribute | Use `RADIOBUTTONS` (editable) or `DYNAMICTEXT` + `ContentParams` (read-only) |
 | **CE0111** | `complete_task 'WrongName'` — outcome string does not match the definition | Check `DESCRIBE WORKFLOW` for the exact outcome strings |

@@ -77,6 +77,19 @@ retrieve $MyItems from Module.MyEntity
 
 **Never** use `[%CurrentUser%]` as a string expression value — it stores as the literal text.
 
+**Nor in any microflow a system session can reach** — a published REST operation without
+platform authentication, a scheduled event, a Java action's system context. The runtime refuses
+the retrieve (*"token cannot be used in a system session"*) and the call fails; check, exec,
+mxbuild, lint and every UI journey stay green, because a browser always has a user. Field case
+(a card-disbursement requirements-driven build, Mendix 11.13.0, 2026-09-27): a shared
+state-change sub-microflow gained the token, and the REST start operation went from 201 to 500.
+In shared microflows look the account up by login instead:
+
+```mdl
+declare $LoginName String = if $currentUser = empty then '' else $currentUser/Name;
+retrieve $Account from Administration.Account where [Name = $LoginName] limit 1;
+```
+
 ---
 
 ## Page → Microflow Data Passing: Objects Only

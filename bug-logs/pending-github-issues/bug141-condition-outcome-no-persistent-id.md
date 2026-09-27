@@ -2,7 +2,9 @@
 **Source:** `bug-logs/mxcli-bugs.md`, `## BUG-141`. Observed 2026-09-26 on a card-disbursement
 requirements-driven build (Mendix 11.13.0, mxcli v0.24.0).
 **Status:** NOT YET FILED. Before filing, check the issue tracker for a duplicate and re-read
-`conditionOutcomeToGen()` on current `main`.
+`conditionOutcomeToGen()` on current `main`. The fix and a regression test are ready as one
+commit: `bug141-fix.patch` next to this file (`git am` on `main` 95091765). Open it as a PR that
+references the issue, or attach it to the issue.
 **Suggested labels:** bug, workflow, silent-corruption
 
 ---
@@ -46,7 +48,7 @@ outcomes.
 starts and finishes an instance within one run passes. It only shows when an instance outlives
 a restart, which means in production.
 
-## Suggested fix
+## Fix
 
 One line in each of the three `case` arms of `conditionOutcomeToGen()`, before `return g`:
 
@@ -55,11 +57,25 @@ addFreshPersistentID(g)
 ```
 
 `WorkflowsBooleanConditionOutcome.PersistentID` is already in `generated/metamodel/types.go`.
+The attached commit adds that and `TestConditionOutcomeToGen_HasPersistentID`, which fails on all
+three outcome types without the fix and passes with it. `go test ./mdl/backend/modelsdk/
+./modelsdk/canon/` is green, and gofmt and vet are clean.
 
-## A related question
+## Verified on a real model
 
-`addFreshPersistentID`'s comment says it mints a new GUID on every save. If
-`create or replace workflow` re-mints the IDs of outcomes and activities that already have
-one, re-running a workflow script against a database with live instances would cause the same
-`Incompatible` state, for user-task outcomes too. We have not probed that. Could the writer keep
-an existing `PersistentId` when it rewrites a unit?
+This was v0.24.0 plus the three lines, on the model that reproduced the bug (Mendix 11.13.0):
+
+- Condition outcomes carrying a `PersistentId` went from 0/30 to 30/30. `mx check` reports 0
+  errors.
+- An instance paused at a user task after the decisions stayed `InProgress` across a restart
+  with no model change. The released binary turns it `Incompatible`. After the restart the
+  instance ran on to `Completed`.
+
+## Re-running `create or replace workflow`
+
+We worried that `addFreshPersistentID` ("a fresh GUID on every save") would re-mint the IDs
+each time a workflow script is re-run. It does not. `canon.CarryPersistentIDs` keeps the stored
+IDs. The patched `create or replace` kept all 54 IDs the released binary had written, and a
+second re-run kept 84/84. So the fix re-IDs condition outcomes once, on the first write after
+upgrading, and the IDs are stable from then on. The release notes might say so: instances paused
+past a decision at that one deploy still go `Incompatible`.

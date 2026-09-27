@@ -5477,7 +5477,7 @@ callee's flag is readable in the model.
 
 ## BUG-141: workflow condition outcomes are written without a `PersistentId` — every instance paused after a decision turns `Incompatible` on the next deploy, even one that changes nothing
 
-> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/bug141-condition-outcome-no-persistent-id.md`.
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/bug141-condition-outcome-no-persistent-id.md`; the fix and its test, proven on a live restart, are in `bug-logs/pending-github-issues/bug141-fix.patch`.
 
 **Severity:** High for anything going live. It is silent on every static rung, and it strands
 real work in production: the in-flight instances stop and need an admin. It does not block a
@@ -5542,16 +5542,31 @@ addFreshPersistentID(g)
 `Workflows$BooleanConditionOutcome.PersistentID` is already declared in
 `generated/metamodel/types.go`, so no metamodel change is needed.
 
-A related risk, **not probed**: the helper's own comment says it mints a *fresh* GUID on every
-save. If `create or replace workflow` re-mints the IDs of outcomes that already had one,
-re-running a workflow script would make instances `Incompatible` in the same way, for user-task
-outcomes too. Ask upstream to keep an existing `PersistentId` when rewriting a unit, and probe
-it here before relying on a workflow re-run against a database with live instances.
+**Patch proven, 2026-09-27.** The ready-to-apply commit, with a regression test, is
+`bug-logs/pending-github-issues/bug141-fix.patch` (`git am` on `main` 95091765). The test fails
+on all three outcome types without the fix and passes with it; the `modelsdk` and
+`modelsdk/canon` packages stay green. Field run, on the same card-disbursement model, with
+v0.24.0 plus the three lines:
+- **Stored unit:** condition outcomes carrying a `PersistentId` went from 0/30 to 30/30. Native
+  `mx check`: 0 errors.
+- **Runtime:** an instance paused at a user task after the decisions stayed `InProgress` across a
+  restart with no model change. The released binary turns the same instance `Incompatible`
+  (Evidence 1). After the restart it took its next REST call and ran to `Completed`
+  (`NewOpening` → `AccountsOpened` → `ContractPrinted`).
+
+**Re-running a workflow script does not re-mint IDs.** This was the open question; it is now
+measured. Upstream's `canon.CarryPersistentIDs` pairs the rewritten unit with the stored one and
+keeps the existing IDs. `create or replace workflow` with the patched binary kept all 54 IDs the
+released binary had written and added the 30 new ones. A second re-run kept 84/84. So adopting
+the fix costs one re-ID of the condition outcomes, on its first write: instances already past a
+decision at that deploy go `Incompatible` once. The IDs are stable from then on.
 
 ### Workaround
 
 None in MDL. There is no syntax that sets a `PersistentId`. Do not hand-patch the unit either:
-that bypasses `exec.sh`'s gate, and the next `create or replace workflow` drops the patch.
+that bypasses `exec.sh`'s gate, and the next `create or replace workflow` drops the patch. A
+project may build mxcli with `bug141-fix.patch` and write its workflow scripts with that binary,
+but only while no instances need to survive the one re-ID described above.
 
 Until upstream ships the fix, plan for it:
 - the app's workflow admin page lists **`Incompatible`** instances and gives an admin a way to

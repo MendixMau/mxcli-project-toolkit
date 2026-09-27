@@ -64,9 +64,16 @@ require_py
 if [ -z "${MPR:-}" ]; then
   MPR="$(ls "$ROOT"/*.mpr 2>/dev/null | head -1)"
   MPR="$(basename "${MPR:-}")"
+  # Two-tree layout (.mpr under app/): the same one-level-down probe as _common.sh find_mpr.
+  # Without it lint-gate exited 2 ("no .mpr found") on every exec of a two-tree project and
+  # exec.sh logged "lint could not run" — the ratchet was silently off for a whole build
+  # (card-disbursement requirements-driven build, 2026-09-25; F-020/F-042 class).
+  if [ -z "$MPR" ] && ls "$ROOT"/app/*.mpr >/dev/null 2>&1; then
+    MPR="app/$(basename "$(ls "$ROOT"/app/*.mpr | head -1)")"
+  fi
 fi
 if [ -z "$MPR" ] || [ ! -f "$ROOT/$MPR" ]; then
-  echo "lint-gate: no .mpr found in $ROOT — set MPR=<name>.mpr" >&2
+  echo "lint-gate: no .mpr found in $ROOT or $ROOT/app — set MPR=<name>.mpr" >&2
   exit 2
 fi
 if [ "$(ls "$ROOT"/*.mpr 2>/dev/null | wc -l | tr -d " ")" -gt 1 ] && [ -z "${MPR_EXPLICIT:-}" ]; then

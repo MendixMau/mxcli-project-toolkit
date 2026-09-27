@@ -5798,3 +5798,18 @@ So the rule's premise, "the only client on 11", does not hold for this project.
 Never take the exec's "applied" as proof.
 
 **Why it matters for the toolkit.** It is a false green on a security change (`skills/learned-detection-gaps.md` class): every gate passes and the right it was meant to remove is still there.
+
+## BUG-DRAFT-check-references-misses-same-script-queue: `mxcli check --references` reports a queue created earlier in the same script as "task queue not found" (2026-09-27)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-27, on an existing-app change project, while moving a batch job onto a new task queue.
+**Reproducible:** yes. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You have a script that runs `create or modify queue M.Q ...;` and later `call microflow M.X(...) in queue M.Q;`. `check --references` fails with `task queue not found: M.Q (referenced by in queue)`. The checker says "references to objects created within the script are skipped", but queues are not skipped. `exec` of the same script on a scratch copy works, and mxbuild is clean.
+
+**Expected:** a queue created earlier in the script counts as existing, the same way entities and microflows do.
+
+**Workaround:** put the `create queue` in its own script and exec it first. The second script then passes `check --references`.
+
+**Why it matters for the toolkit.** `exec.sh` refuses a script that fails check, so the single-script form never reaches the model. It costs one extra exec-and-gate cycle, about 5 minutes on a large model.

@@ -45,19 +45,55 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
  * A predicate that never holds costs the full retry window and returns what it has,
  * so a genuinely missing microflow still fails — later, never falsely.
  */
+// Jaeger answers the NEWEST `limit` traces in the window, and says nothing about the rest. On
+// an app with timers and health checks running, 400 traces can be two minutes: measured on the
+// card-disbursement requirements-driven build, 2026-09-27, the newest 400 spanned 08:31-08:33
+// while t0 was 15 minutes back — 4,608 traces in the window, 24 ERROR spans at 08:21 that a
+// one-page capture reported as "0 errors". So page backwards (end = the oldest trace's start
+// - 1 µs) while a page comes back full and still starts after t0, dedupe by trace, and cap
+// the pages. The result carries `.pages`, and `.truncated` when the cap was hit before t0 —
+// a capture that stopped short says so instead of reading as complete. A step's own capture
+// (t0 seconds back) is one page, exactly as before.
+const PAGE_LIMIT = 400;
+const MAX_PAGES = Number(process.env.OTEL_MAX_PAGES) || 25;
+
+async function fetchSince(t0) {
+  const t0Us = Math.floor(t0 * 1000);
+  const nowUs = Date.now() * 1000;
+  const startUs = Math.min(nowUs - 3600e6, t0Us);   // never narrower than the old lookback=1h
+  let endUs = nowUs + 60e6;                          // headroom for clock skew
+  const byId = new Map();
+  let pages = 0, truncated = false;
+  for (;;) {
+    const r = await fetch(`${JAEGER}/api/traces?service=${SVC}&limit=${PAGE_LIMIT}&start=${startUs}&end=${endUs}`);
+    const data = (await r.json()).data || [];
+    pages++;
+    let oldest = Infinity;
+    for (const t of data) {
+      if (!byId.has(t.traceID)) byId.set(t.traceID, t);
+      for (const s of t.spans) if (s.startTime < oldest) oldest = s.startTime;
+    }
+    if (data.length < PAGE_LIMIT || !(oldest > t0Us)) break;
+    if (pages >= MAX_PAGES) { truncated = true; break; }
+    endUs = oldest - 1;
+  }
+  return { data: [...byId.values()], pages, truncated };
+}
+
 async function capture(t0, { min = 1, retries = 8, waitMs = 1500, until = null } = {}) {
   let out = [];
   for (let i = 0; i < retries; i++) {
     await sleep(waitMs);
-    let data = [];
+    let data = [], pages = 0, truncated = false;
     try {
-      const r = await fetch(`${JAEGER}/api/traces?service=${SVC}&limit=400&lookback=1h`);
-      data = (await r.json()).data || [];
+      ({ data, pages, truncated } = await fetchSince(t0));
     } catch (e) {
       // A flaky query shouldn't kill a run mid-suite; retry.
       continue;
     }
     out = [];
+    out.pages = pages;
+    if (truncated) out.truncated = true;
     for (const t of data) for (const s of t.spans) {
       if (s.startTime / 1000 < t0) continue;
       out.push({

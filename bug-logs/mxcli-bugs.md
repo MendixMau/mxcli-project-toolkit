@@ -5813,3 +5813,87 @@ Never take the exec's "applied" as proof.
 **Workaround:** put the `create queue` in its own script and exec it first. The second script then passes `check --references`.
 
 **Why it matters for the toolkit.** `exec.sh` refuses a script that fails check, so the single-script form never reaches the model. It costs one extra exec-and-gate cycle, about 5 minutes on a large model.
+
+## BUG-DRAFT-xpath-system-member-case: an XPath system member written in the wrong case (`[CreatedDate >= $Since]`) passes `check --references` and fails the build with CE0161 (2026-09-27)
+
+> **NOT YET FILED.** Upstream draft kept with the project's harvest.
+
+**Discovered:** 2026-09-27, on an existing-app change project, while retrieving the guests added in one batch.
+**Reproducible:** yes, on a scratch copy. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.**
+
+```
+retrieve $G from UserGroups.Guest where [CreatedDate >= $Since];   -- WRONG
+```
+
+- `mxcli check --references` → `Check passed!`
+- exec, then `mx check` → `[CE0161] "Error(s) in XPath constraint." at Retrieve object(s) activity`
+
+In XPath the system members are lowercase: `createdDate`, `changedDate`, `owner`, `changedBy`.
+The checker does not match their case, so the capitalised form passes it and fails only at the build.
+
+**Fix:** `[createdDate >= $Since]`, which built with 0 errors. The same applies to the other three members.
+
+**Not this bug (works as designed):** `[Assoc = empty]` on an association is caught by `check` as MDL047, with a `not(Assoc/Target)` hint.
+
+**Expected:** `check --references` rejects a system member in the wrong case, the same way it rejects an unknown attribute.
+
+## BUG-DRAFT-association-owner-ignored: `create or modify association … owner Both` reports "Modified" and leaves the owner unchanged (2026-09-27)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-27, on an existing-app change project, while making a one-to-one association navigable from both ends.
+**Reproducible:** yes, on a scratch copy. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You run `create or modify association UserGroups.GuestGroup_App … owner Both;` on an existing association whose owner is Default. It prints `Modified`, but `DESCRIBE ASSOCIATION` still shows owner Default. The owner change is dropped without a message. That is a silent no-op, the same class as `BUG-DRAFT-partial-revoke-association-noop`.
+
+**Why the obvious workaround is worse.** `drop association` followed by `create association … owner Both` does set the owner, but it mints a **new association ID**:
+- existing database links are lost;
+- every access rule's member right on that association resets to None (the entity's ReadWrite/ReadOnly rights were lost);
+- across modules it gives CE0066 (`BUG-DRAFT-association-owner-both-cross-module-ce0066`).
+
+**Workaround (proven on a scratch copy, `mx check` 0 errors):** patch the association unit in place in the MPR (SQLite `Unit` table, BSON `Contents`):
+1. Flip `Owner` to `Both`, keeping the same ID.
+2. Append a `DomainModels$MemberAccess` (None) for the association to every access rule of the other entity.
+3. Recompute `ContentsHash` (base64 of the sha256 of `Contents`).
+
+Do this on a snapshot, never on the only copy. If you don't want to patch, stay with owner Default and a 1-* convention. That is what the project did.
+
+**Expected:** `create or modify` applies the owner. If it cannot, it refuses with an error that names the limitation.
+
+## BUG-DRAFT-association-owner-both-cross-module-ce0066: drop + create with `owner Both` across modules leaves the other module's access rules stale → CE0066 (2026-09-27)
+
+> **NOT YET FILED.** Extends `BUG-DRAFT-association-owner-ignored`.
+
+**Discovered:** 2026-09-27, on an existing-app change project, on a scratch copy.
+**Reproducible:** yes. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You run `drop association` and then `create association UserGroups.GuestGroup_App … owner Both`, where the other end (`AppStore.App`) is in another module. mxcli prints `Reconciled 3 access rule(s)…`, but those are only GuestGroup's rules. `AppStore.App`'s 13 rules get no `MemberAccess` for the new association, and `mx check` reports:
+
+```
+[CE0066] Entity access is out of date. … at Domain model of module 'AppStore'
+```
+
+Neither `update security` nor stripping the stale member access clears it.
+
+**So:** today there is no mxcli path to owner Both on a cross-module association. `create or modify` ignores the owner, and drop + create leaves the far side stale. Only the raw BSON patch under `BUG-DRAFT-association-owner-ignored` works. The fallback is owner Default.
+
+**Expected:** reconcile member access on **both** ends' entities when an association with owner Both is created.
+
+## BUG-DRAFT-audit-member-access-ce0066: grants inject `System.owner` / `System.changedBy` member access on entities without those members → CE0066 (fixed upstream; record the mxcli version) (2026-09-26)
+
+> **RESOLVED upstream (mxcli `2455ee9f`, in v0.22 and later). NOT REPRODUCED on v0.23.0** — three probes, 0 errors. Kept because the lesson is about which binary ran.
+
+**Discovered:** 2026-09-26, on an existing-app change project. A build on one machine logged CE0066 after grant scripts.
+**Reproducible:** on older binaries only. **mxcli version:** the failing exec most likely ran v0.21.0, which was earlier on that machine's PATH, not the project's v0.23.0. **Mendix:** 11.12.2.
+
+**What happened.** Grant scripts added `MemberAccess` entries for `System.owner` / `System.changedBy` to entities that do not have those audit members (three entities in that model). The result was `CE0066 Entity access is out of date`.
+
+**Fix:** use mxcli v0.22 or later. Until then, the interim fix was a small script that strips `MemberAccess` entries pointing at audit members the entity lacks, run on a snapshot and followed by `mx check`.
+
+**The process point.** A bug "reproduced" on the wrong binary costs a probe day (`skills/retesting-learned-rules.md`). Before reporting or working around a CE after exec:
+- run `mxcli --version` with the **same** invocation the exec used (`./mxcli` vs a `mxcli` on PATH);
+- write that version into the BUILD-LOG row.
+
+Two machines on one project can differ here without anyone noticing.

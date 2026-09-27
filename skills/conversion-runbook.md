@@ -3,6 +3,8 @@
 **Applies to:** any mxcli project — see Entry Modes below for where your project type enters the pipeline.
 **Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 
+**Which `bin/`:** a bare `bin/<script>` in this runbook is the **toolkit's** copy — run it as `<Toolkit root>/bin/<script>`, the root being the first row of your project's `CLAUDE.local.md` wiring table. Only the `project-bin/*` scripts are installed into a project's own `bin/`, and for those `./bin/<script>` is right. (A Stage 0 session ran `bin/source-sufficiency.sh` from the project root and found no such file — 2026-09-25.)
+
 **Purpose:** The spine the toolkit was missing. Each stage below has an owning skill and each skill is good — but until now nothing said *what a stage must produce before the next one starts*, *what the user has to decide*, or *whose job it is to ask them*. This skill is that layer: a stage completes when a decision is on record, not when the agent stops typing.
 
 **Upstream:** `bootstrap-project.md` (Stage P scaffolding), `query-the-model.md` (the lookup-before-ask discipline every gate depends on).

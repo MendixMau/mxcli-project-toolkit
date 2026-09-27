@@ -459,6 +459,36 @@ This applies anywhere an enum value flows into a String context: concatenation, 
 
 ---
 
+## Expression Functions Take Positional Arguments Only — Never `name: value`
+
+**Bug (verbatim, from field feedback):**
+
+```mdl
+set $JSON = $JSON + ',"temperature":' + toString(from: $Temperature);
+```
+
+**Rule:** every built-in Mendix expression function — `toString($X)`, `formatDateTime($D, 'yyyy-MM-dd')`, `substring($S, 0, 3)`, `length()`, `contains()`, etc. — takes **positional arguments only**. There is no `name: value` form inside an expression. That labelled-colon shape is real MDL syntax elsewhere — page properties (`Attribute: Name`), page actions (`Action: MICROFLOW Mod.Flow(Param: val)`), and annotations (`@anchor(from: bottom, to: top)`) all use it — which is almost certainly where the habit leaks in from. Inside an *expression*, a bare `name:` is not a label at all: `mxcli`'s expression grammar has no named-argument production for function calls (`argumentList: expression (COMMA expression)*`), so it parses `label: value` as `label` (an unresolved bare identifier) **`:`-divided by** `value` — COLON is the OQL division operator — one silently wrong expression, not an error.
+
+**This is not reliably caught by `mxcli check`, including `--references`.** Verified on mxcli v0.24.0 / Mendix 11.12.1:
+
+| Written | `mxcli check --references` |
+|---|---|
+| `toString(from: $Temperature)` | **Passes silently** (exit 0, "✓ All references valid" / "Check passed!") — parsed as `toString(from : $Temperature)`, one bogus division argument, argument count still matches `toString`'s arity of 1 |
+| `formatDateTime($D, pattern: 'yyyy-MM-dd')` | **Passes silently** — same mechanism, second argument's label/value pair still counts as one argument, matching `formatDateTime`'s arity of 2 |
+| `substring(from: $S, index: 0, length: 3)` (or any label, e.g. `src:` — not keyword-specific) | **Fails**, but with a misleading message that never names the real cause: `substring() expects 2 to 3 argument(s), got 1. [E006]` |
+
+A labelled call that happens to land on the function's normal arity round-trips through `mxcli check`/`describe microflow` clean and reaches real `mx check`/Studio Pro/mxbuild before anyone notices — where the bare identifier (`from`, `pattern`, …) fails as an undefined rule/constant reference. Only a call whose label count doesn't match the arity gets a (misleadingly worded) error from `mxcli check` itself. Treat any `name:` inside a function call's parentheses as a STOP regardless of whether `mxcli check` complained — grep the expression for `[A-Za-z]\w*:\s` before trusting a clean check.
+
+```mdl
+-- WRONG — silently misparsed, not a syntax error:
+set $JSON = $JSON + ',"temperature":' + toString(from: $Temperature);
+
+-- CORRECT:
+set $JSON = $JSON + ',"temperature":' + toString($Temperature);
+```
+
+---
+
 ## CHANGE activity: clear a String attribute — use `empty` not `''`
 
 Setting a String attribute to empty string via `''` in a CHANGE activity causes CE0117:

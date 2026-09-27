@@ -145,5 +145,6 @@ Patched build (simple .txt plus advanced .zip, written from a DESCRIBE round tri
 - Image mode (`uploadMode: 'images'`, `associatedImages`, `System.Image`) was not tested.
 - Custom buttons, `maxFilesPerUpload`, and the delete-from-widget path were not tested.
 - Only the `mxcli run --local` runtime with HSQLDB was used. Not tested on PostgreSQL, in Docker, or opened in Studio Pro.
-- The proposed fixes in section 5 exist only as a local mxcli patch with unit tests (#1198, #1199 describe them). When those issues close,
-  re-run the simple-mode format and the DESCRIBE round trip before dropping the workarounds.
+- #1199 (DESCRIBE round trip) is fixed upstream (mxcli commit 51b36dc0, 2026-09-25); retest on the next release before dropping that workaround.
+  #1198 (simple-mode CE0463) has a PR package, not yet sent: `bug-logs/submitted-prs/mxcli/2026-09-27-file-uploader-nested-visibility/`.
+  When it merges, re-run the simple-mode format before dropping the `advanced`-mode workaround.

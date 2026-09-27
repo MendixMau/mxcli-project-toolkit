@@ -192,7 +192,7 @@ developer sees in Studio Pro without leaving the model.
 
 ---
 
-## Step 5 — Run the audit, and read all four verdicts
+## Step 5 — Run the audit, and read all five verdicts
 
 ```bash
 bin/constants-audit.sh            # table + summary
@@ -207,6 +207,7 @@ It never prints a value — only `EMPTY` vs `SET`, the type, and the flags.
 | `EMPTY` | no model default | fine on a licensed node whose Portal sets it; on a free node, in a Docker run, or in a fresh clone it is blank at runtime. Give it a value or a sentinel |
 | `MODEL-SECRET` | a secret-named constant that does carry a model default | deliberate on a demo (the value is in git, Team Server and every clone — say "burned"); never right for anything holding real data |
 | `WAIVED` | a finding with a register line | nothing — but re-read the reason at each stage gate |
+| `SENTINEL` | the default is a `__NAME__` placeholder (`__SET_ME__`, Step 3) — not a finding, and no value of that shape is a secret | make sure every environment you run in overrides it; the app fails fast where one does not |
 
 **Completion criterion, with the denominator:** the run states the total (`N constants`) and
 ends at **0 unwaived findings**. `WAIVED` is legal; silence is not — an audit nobody ran is not

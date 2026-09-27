@@ -19,6 +19,8 @@
 # fix cannot show that it discriminates. Cases A, B, D, G, H2 pass on both; they
 # are regression guards, not discriminators, and are labelled [guard]. Case H
 # (gate cannot run -> refuse) discriminates against every script before 2026-09-17.
+# Case K (mxbuild refused the model: exit 3, errors[], empty problems[]) discriminates
+# against every script before 2026-09-27 — the pre-fix row reads "pass · mxbuild clean".
 #
 # NOTHING here touches a real .mpr, a real mxcli or a real mxbuild. The fixture
 # is a throwaway git repo in /tmp with stubs for all three.
@@ -81,11 +83,14 @@ case "${MODE_BUILD:-clean}" in
   empty)  [ -n "$OUT" ] && : > "$OUT" ;;
   nofile) [ -n "$OUT" ] && rm -f "$OUT" ;;
   errors) [ -n "$OUT" ] && printf '{"problems":[{"severity":"Error","errorCode":"CE1234","message":"boom"}]}' > "$OUT" ;;
+  refused) [ -n "$OUT" ] && cp "$GOLDEN_REFUSED" "$OUT" ;;
 esac
 echo "fake mxbuild ${MODE_BUILD:-clean}"
 exit "${MODE_BUILD_EXIT:-0}"
 MXB
 chmod +x "$WORK/mxbuild"
+# Verbatim errors file of mxbuild 11.14.0 refusing an 11.12.2 model (marketplace-rnd, 2026-09-26).
+export GOLDEN_REFUSED="$TOOLKIT/tests/wave2/fixtures/mxbuild-version-mismatch.errors.json"
 
 ( cd "$P" && git init -q . && git add -A && \
   git -c user.email=t@t -c user.name=t commit -qm fixture ) >/dev/null 2>&1
@@ -250,6 +255,25 @@ else
   bad "a failing mxcli check did not stop the exec (rc $RC)"
 fi
 [ "$(rows)" -gt "$BEFORE" ] && ok "the block is logged" || bad "blocked run left no trace in the log"
+
+# ── K: mxbuild REFUSED the model (version mismatch) -> UNVERIFIED, never clean ─
+# Field shape (marketplace-rnd, 2026-09-26): exit 3, reason in errors[], problems[] empty.
+# Before the fix this counted 0 Error problems and logged "pass · mxbuild clean" for 29 of
+# 29 execs, one of which carried a CE0066 the matching mxbuild found.
+echo "== K: mxbuild exit 3 + errors[] + empty problems[] -> UNVERIFIED, not clean =="
+rm -f "$P/.mpr-snapshots/.exec.lock"
+BEFORE=$(rows)
+RC=$(MODE_BUILD=refused MODE_BUILD_EXIT=3 run K)
+LAST=$(grep '^| [0-9]' "$LOG" 2>/dev/null | tail -1)
+[ "$(rows)" -gt "$BEFORE" ] && ok "row logged" || bad "no row logged"
+case "$LAST" in
+  *"mxbuild clean"*|*"| pass |"*) bad "FALSE GREEN: a refused build logged as clean: $LAST" ;;
+  *) ok "refused build not logged as clean" ;;
+esac
+printf '%s' "$LAST" | grep -q 'unverified' && ok "row says gate unverified" || bad "row lacks 'unverified': $LAST"
+printf '%s' "$LAST" | grep -q 'does not exactly match MxBuild version' \
+  && ok "row carries mxbuild's own reason" || bad "row does not say why: $LAST"
+grep -q 'mxbuild setup\|setup mxbuild\|MXBUILD_PATH' "$WORK/out.K" && ok "remedy named on screen" || bad "no remedy on screen"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"

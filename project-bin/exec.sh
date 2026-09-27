@@ -44,6 +44,7 @@ BUILD_LOG="$PROJECT_ROOT/docs/BUILD-LOG.md"
 # Declared HERE, above log_build, not next to the gate: a row must be able to
 # carry a gate verdict even when the gate block below is never reached.
 GATE_STATE="not-run"   # not-run | skipped | unverified | pass | fail
+MXB_WHY=""             # mxbuild's errors[] reason when it exited without checking the model
 
 # ── Exec approval (auto records itself) ──────────────────────────────────────
 # bin/exec-approval.sh decides ask vs auto; the ASKING happens before exec.sh ever runs (in
@@ -75,7 +76,8 @@ true even when someone forgets. Read this before assuming the model builds.
 
 `gate` is the mxbuild verdict, and it is never blank:
 `pass` verified clean · `fail` verified broken · `skipped` mxbuild/java missing ·
-`unverified` errors file unparseable · `not-run` the gate was never reached.
+`unverified` errors file unparseable, or mxbuild exited non-zero without checking the
+model (wrong version, JDK) · `not-run` the gate was never reached.
 Only `pass` means anything looked at the model. A zero exit does not.
 
 | when (ISO-8601 local) | script | gate | result | detail |
@@ -522,9 +524,16 @@ if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; 
   else
     BASELINE_SET=$(err_set "$_BF")
     _BC=$(err_count "$_BF"); _BCODES=$(err_codes "$_BF")
+    # Non-zero exit, 0 Error problems: mxbuild refused the model without checking it
+    # (version mismatch, JDK) — the baseline was NOT measured. It used to print
+    # "baseline clean" here (marketplace-rnd 2026-09-26, run A2: mxbuild 11.14.0, model 11.12.2).
+    [ "$_BC" = "0" ] && [ "$MXTK_MXBUILD_EXIT" -ne 0 ] && _BC="?"
   fi
   rm -f "$_BF"
-  if [ "$_BC" != "0" ]; then
+  if [ "$_BC" = "?" ]; then
+    echo "  ⚠  Baseline NOT measured: mxbuild exited $MXTK_MXBUILD_EXIT without checking the model."
+    [ -n "${MXTK_MXBUILD_WHY:-}" ] && echo "     mxbuild says: $MXTK_MXBUILD_WHY"
+  elif [ "$_BC" != "0" ]; then
     echo "  ⚠  Model ALREADY has $_BC error(s) [$_BCODES] before this script runs."
     echo "     Not yours. The gate will keep your changes if you add nothing new."
   else
@@ -582,6 +591,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$ERRORS_FILE" >/dev/null || true
   MXBUILD_EXIT="$MXTK_MXBUILD_EXIT"
   MXBUILD_OUT="$MXTK_MXBUILD_OUT"
+  MXB_WHY="${MXTK_MXBUILD_WHY:-}"
 
   if [ -f "$ERRORS_FILE" ] && [ -s "$ERRORS_FILE" ]; then
     CE_COUNT=$(err_count "$ERRORS_FILE")
@@ -589,6 +599,21 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
       GATE_STATE="unverified"
       echo "  ⚠  mxbuild errors file could not be parsed — check manually."
       echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | head -10 || true
+    elif [ "$CE_COUNT" = "0" ] && [ "$MXBUILD_EXIT" -ne 0 ]; then
+      # Non-empty errors file, 0 Error problems, NON-ZERO exit: mxbuild never checked the
+      # model. The reason sits in errors[], which err_count does not read, e.g. (verbatim,
+      # marketplace-rnd 2026-09-26, exit 3): "Project version '11.12.2' does not exactly
+      # match MxBuild version '11.14.0'". The same shape comes from a JDK the deploy build's
+      # gradle cannot run under. This branch used to fall through to the one below and log
+      # "pass · mxbuild clean" — 29 of 29 execs on one machine, one of them shipping a
+      # CE0066. An exit code and a problem count are two facts; 0 problems from a tool that
+      # exited non-zero means NOT MEASURED.
+      GATE_STATE="unverified"
+      echo "  ✗ mxbuild exited $MXBUILD_EXIT and listed 0 model problems — it did NOT check the model."
+      echo "    ${MXB_WHY:-no reason in errors[]; mxbuild output follows}"
+      [ -z "$MXB_WHY" ] && { echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | tail -10 || true; }
+      echo "    A version mismatch is fixed by the matching mxbuild: ./mxcli setup mxbuild -p $MPR_BASE"
+      echo "    (find_mxbuild prefers it once cached), or MXBUILD_PATH=<that mxbuild>."
     elif [ "$CE_COUNT" = "0" ]; then
       # mxbuild ALWAYS writes an errors file, even on success ({"problems":[]}).
       # A guard that tested only "file is non-empty" therefore took the restore
@@ -702,6 +727,7 @@ PYEOF
   elif [ "$MXBUILD_EXIT" -ne 0 ]; then
     GATE_STATE="fail"
     echo "  ✗ mxbuild failed to run (exit $MXBUILD_EXIT) — gate could not verify the model."
+    [ -n "$MXB_WHY" ] && echo "    mxbuild says: $MXB_WHY"
     echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | head -20 || true
     echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
     log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
@@ -817,7 +843,7 @@ if [ "$GATE_STATE" != "pass" ]; then
   echo "⚠️  Script applied to $MPR_BASE, but THE GATE DID NOT RUN ($GATE_STATE)."
   echo "    Nothing has verified the model, and it carries no verification stamp: the commit"
   echo "    hook will refuse it until ./bin/verify-model.sh has run the gate over it."
-  log_build "⚠️ applied, UNVERIFIED" "gate $GATE_STATE — model not verified"
+  log_build "⚠️ applied, UNVERIFIED" "gate $GATE_STATE${MXB_WHY:+ (mxbuild exit ${MXBUILD_EXIT:-?}: $MXB_WHY)} — model not verified"
   exit 0
 fi
 

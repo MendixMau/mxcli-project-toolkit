@@ -879,11 +879,19 @@ known_fix_note() {
     page-scope.sh)
       echo "bin/page-scope.sh predates the HEADER_WORDS fix (F-042, 2026-08-28): SHOW PAGES header columns Excluded/Folder/Params were parsed as page rows, inflating the page denominator (measured: 6 real pages counted as 13), so every consumer of page-scope.json graded against furniture. One-line fix — recommended upgrade." ;;
     _common.sh)
+      if grep -q 'mxtk_ensure_mxbuild' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null \
+         && ! grep -q 'mxtk_model_version' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null; then
+        echo "bin/_common.sh predates the VERSION-MISMATCH FALSE GREEN fix (toolkit, 2026-09-27, marketplace-rnd): find_mxbuild picked the NEWEST mxbuild, which refuses a model of another Mendix version (exit 3, reason in errors[], problems[] empty), and the gate counted that as 0 errors — 29 of 29 execs logged 'mxbuild clean' on one machine and a CE0066 shipped. Now: the mxbuild matching the model's _ProductVersion is preferred, and a non-zero exit with 0 problems is unverified, never clean. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh (and verify-model.sh)."; return
+      fi
       if ! grep -q 'mxtk_ensure_mxbuild' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null; then
         echo "bin/_common.sh predates the GATE-MUST-RUN fix (toolkit, 2026-09-17): mxtk_ensure_mxbuild downloads a missing mxbuild through ./mxcli, on any machine or cloud container, so exec.sh can refuse to write when the gate cannot run instead of writing unverified. Also missing native_path (Windows errors-file fix, 2026-09-15) if this copy is older still. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
       fi
       echo "bin/_common.sh predates the WINDOWS MXBUILD GATE fix (toolkit, 2026-08-25). This is where find_sp_app/find_mxbuild, JAVA_HOME resolution and mxtk_platform actually live — exec.sh only calls them. So upgrading exec.sh ALONE does not deliver the fix, and grepping exec.sh for mxtk_platform reports 0 even on a fully patched project: grep _common.sh instead. Without this file the mxbuild gate is skipped on every Windows exec and nothing checks your builds. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh." ;;
     exec.sh)
+      if grep -q 'model-stamp' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null \
+         && ! grep -q 'MXTK_MXBUILD_WHY' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
+        echo "bin/exec.sh predates the VERSION-MISMATCH FALSE GREEN fix (toolkit, 2026-09-27, marketplace-rnd): an mxbuild that refused the model (exit 3, reason in errors[], empty problems[]) was logged 'pass · mxbuild clean' — 29 of 29 execs on one machine, one of them shipping a CE0066. Now it is unverified, with mxbuild's own reason in the BUILD-LOG row. Needs the matching _common.sh: --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
+      fi
       if ! grep -q 'model-stamp' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
         echo "bin/exec.sh predates the GATE-MUST-RUN fix (toolkit, 2026-09-17): a missing mxbuild is downloaded, a gate that still cannot run REFUSES the write (ALLOW_UNVERIFIED=1 to override), and a passing gate writes the verification stamp the pre-commit hook checks. Without it every exec on a machine with no mxbuild is applied unverified — on any OS, cloud containers included. Needs the matching _common.sh (mxtk_ensure_mxbuild): --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
       fi

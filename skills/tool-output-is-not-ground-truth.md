@@ -262,6 +262,22 @@ Two corollaries, both of which cost real time here:
   run where the gate had been *skipped*. Both pass paths were green. The failure path is where
   error-reporting code lives, and it is the path nobody runs.
 
+**A count of zero and an exit code are two facts, not one.** (Marketplace-RnD, 2026-09-26.)
+The exec gate counted `Error` entries in mxbuild's `problems[]` and read 0 as clean. mxbuild
+11.14.0, handed an 11.12.2 model, exited **3**, put its reason in `errors[]` and left
+`problems[]` empty, so the gate logged `pass · mxbuild clean` on 29 of 29 execs. One of those
+execs carried a CE0066 that the matching 11.12.2 mxbuild found at once.
+
+```
+| … | `51-…mdl` | pass | ✅ applied | mxbuild clean |            # WRONG: exit 3, never checked
+| … | `51-…mdl` | unverified | ⚠️ applied, UNVERIFIED | gate unverified (mxbuild exit 3:
+    … Project version '11.12.2' does not exactly match MxBuild version '11.14.0' …) |   # RIGHT
+```
+
+When a tool can fail without producing the thing you count, "0 found" plus a non-zero exit
+means **not measured**. Report it as unverified, carry the tool's own reason, and never
+report it as clean.
+
 ---
 
 # Part 3 — A passing gate is not a working model

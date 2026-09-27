@@ -26,6 +26,7 @@ set -e
 MPR="$(find_mpr)" || exit 2
 cd "$PROJECT_ROOT"
 STAMP=1; [ "${1:-}" = "--no-stamp" ] && STAMP=0
+WHY=""
 
 MXBUILD="$(mxtk_ensure_mxbuild "$MPR" || true)"
 JAVA_HOME="$(find_java 2>/dev/null || true)"
@@ -53,12 +54,23 @@ if [ ! -s "$ERR" ] && [ "$RC" -eq 0 ]; then
 elif [ -s "$ERR" ]; then
   COUNT="$("$PY" -c "import json;d=json.load(open('$(native_path "$ERR")'));print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null || echo "?")"
   CODES="$("$PY" -c "import json;d=json.load(open('$(native_path "$ERR")'));print(','.join(sorted({x.get('errorCode','?') for x in d.get('problems',[]) if x.get('severity')=='Error'})))" 2>/dev/null || echo "?")"
+  # Non-zero exit with 0 Error problems: mxbuild stopped BEFORE checking the model (version
+  # mismatch, JDK/gradle) and said why in errors[]. That read as "0 errors" and WROTE THE
+  # PASS STAMP (marketplace-rnd 2026-09-26, mxbuild 11.14.0 vs an 11.12.2 model, exit 3).
+  if [ "$COUNT" = "0" ] && [ "$RC" -ne 0 ]; then
+    COUNT="?"; WHY="$(mxtk_mxbuild_why "$ERR" "$PY" 2>/dev/null || true)"
+  fi
 else
   COUNT="?"; CODES=""
 fi
 
 if [ "$COUNT" = "?" ]; then
-  echo "✗ mxbuild exited $RC and its errors file could not be read — NOTHING was verified."
+  if [ -n "${WHY:-}" ]; then
+    echo "✗ mxbuild exited $RC without checking the model — NOTHING was verified."
+    echo "    mxbuild says: $WHY"
+  else
+    echo "✗ mxbuild exited $RC and its errors file could not be read — NOTHING was verified."
+  fi
   grep -v '^$' "$OUT" | tail -15 | sed 's/^/    /'
   rm -f "$ERR" "$OUT"; exit 2
 fi

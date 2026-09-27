@@ -48,7 +48,7 @@ mkdir -p "$WORK/tests/e2e"; : > "$WORK/Fixture.mpr"
 cp "$SUT" "$E2E/helpers.js" "$E2E/otel.js" "$E2E/config.js" "$WORK/tests/e2e/"
 cp "$CFG" "$WORK/tests/e2e/project.config.js"
 
-OUT="$(cd "$WORK/tests/e2e" && APP_PORT=1 node - "$FIX" <<'EOF' 2>&1
+IFS= read -r -d '' JS <<'EOF' || true
 const fix = process.argv[2];
 const R = require('./journey-runner.js');
 if (typeof R.runExitCode !== 'function') { console.log('NOFN'); process.exit(0); }
@@ -70,7 +70,7 @@ say('NONE', true, { results: [{ rung: 'ui', name: 'login', verdict: 'INVALID' }]
 let w = clone(walk); w.results[0].verdict = 'FAIL'; say('WFAIL', false, w);
 w = clone(walk); w.results[0].verdict = 'INVALID'; say('WINV', false, w);
 EOF
-)"
+OUT="$(cd "$WORK/tests/e2e" && printf '%s' "$JS" | APP_PORT=1 node - "$FIX" 2>&1)"
 line() { printf '%s\n' "$OUT" | sed -n "s/^$1 //p"; }
 if printf '%s\n' "$OUT" | grep -qx NOFN; then
   bad "journey-runner.js exports no runExitCode — the exit rule is the walk's, applied to both runs"

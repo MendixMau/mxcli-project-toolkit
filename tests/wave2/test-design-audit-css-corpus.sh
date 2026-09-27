@@ -30,7 +30,7 @@ GOLDEN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/design-audit-css/
 [ -f "$GOLDEN" ] || { echo "FAIL — golden capture missing: $GOLDEN"; exit 1; }
 
 # design-audit.js runs on load, so lift the two functions out of its text instead of requiring it.
-OUT="$(node - "$SUT" "$GOLDEN" <<'EOF'
+IFS= read -r -d '' JS <<'EOF' || true
 const fs = require('fs');
 const [sut, golden] = process.argv.slice(2);
 const js = fs.readFileSync(sut, 'utf8');
@@ -48,7 +48,7 @@ show('GOLDEN', fs.readFileSync(golden, 'utf8'));
 show('SYN-QUOTED', '.real { content: ".not-a-class"; background: url(\'img/x.png\'); }');
 show('SYN-BRACE', '.a { content: "{"; } .b { color: red; }');
 EOF
-)"
+OUT="$(printf '%s' "$JS" | node - "$SUT" "$GOLDEN")"
 rc=$?
 [ "$rc" -eq 0 ] || { echo "FAIL — harness could not load classesInCss from $SUT (rc=$rc)"; echo "$OUT"; exit 1; }
 

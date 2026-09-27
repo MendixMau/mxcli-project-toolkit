@@ -28,7 +28,7 @@ GOLDEN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/design-audit-nav/
 [ -f "$GOLDEN" ] || { echo "FAIL — golden capture missing: $GOLDEN"; exit 1; }
 
 # design-audit.js runs on load, so lift the function out of its text instead of requiring it.
-OUT="$(node - "$SUT" "$GOLDEN" <<'JS'
+IFS= read -r -d '' JS <<'JS' || true
 const fs = require('fs');
 const [sut, golden] = process.argv.slice(2);
 const js = fs.readFileSync(sut, 'utf8');
@@ -45,7 +45,7 @@ show('GOLDEN', fs.readFileSync(golden, 'utf8'));
 // SYNTHETIC — shapes the capture does not carry.
 show('SYN', "  menu 'Ops' (\n    menu item 'Plain' page Mod.Plain_Page;\n    menu item 'Run' microflow Mod.ACT_Run icon Atlas_Core.Atlas.play;\n  );\n");
 JS
-)"
+OUT="$(printf '%s' "$JS" | node - "$SUT" "$GOLDEN")"
 rc=$?
 [ "$rc" -eq 0 ] || { echo "FAIL — harness could not load parseNavigation from $SUT (rc=$rc)"; echo "$OUT"; exit 1; }
 

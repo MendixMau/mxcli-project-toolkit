@@ -46,7 +46,7 @@ cp "$SUT" "$E2E/helpers.js" "$E2E/otel.js" "$E2E/config.js" "$WORK/tests/e2e/"
 cp "$CFG" "$WORK/tests/e2e/project.config.js"
 
 # An old monkey runs main on require and would launch a browser: bound it.
-OUT="$(cd "$WORK/tests/e2e" && APP_PORT=1 timeout 30 node - <<'EOF' 2>&1
+IFS= read -r -d '' JS <<'EOF' || true
 const M = require('./monkey.js');
 if (typeof M.leftApp !== 'function' || !(M.SIGN_OUT instanceof RegExp)) { console.log('NOFN'); process.exit(0); }
 const base = 'http://localhost:8080';
@@ -66,7 +66,7 @@ const S = t => console.log(`S:${t} ${M.SIGN_OUT.test(t)}`);
 ['Sign out', 'Log off', 'Logout', 'Switch theme', 'Signature', 'Log in'].forEach(S);
 process.exit(0);
 EOF
-)"
+OUT="$(cd "$WORK/tests/e2e" && printf '%s' "$JS" | APP_PORT=1 timeout 30 node - 2>&1)"
 line() { printf '%s\n' "$OUT" | sed -n "s/^$1 //p"; }
 if printf '%s\n' "$OUT" | grep -qx NOFN || [ -z "$(line LOGIN)" ]; then
   bad "monkey.js exports no leftApp/SIGN_OUT (or ran main on require) — a round that leaves the app is scored as an app crash"

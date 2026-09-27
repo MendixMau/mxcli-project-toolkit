@@ -43,7 +43,7 @@ cp "$SUT" "$WORK/otel.js"
 # otel.js reads only otelService from the config at require time.
 echo "module.exports = { otelService: 'Fixture' };" > "$WORK/project.config.js"
 
-OUT="$(node - "$WORK/otel.js" "$GOLDEN" <<'EOF'
+IFS= read -r -d '' JS <<'EOF' || true
 const fs = require('fs');
 const [sut, golden] = process.argv.slice(2);
 const full = JSON.parse(fs.readFileSync(golden, 'utf8'));
@@ -64,7 +64,7 @@ const names = sp => O.microflowNames(sp).sort().join(',');
   console.log(`NEVER polls=${polls} spans=${sp.length}`);
 })().catch(e => { console.log(`ERR ${e.message}`); process.exit(3); });
 EOF
-)"
+OUT="$(printf '%s' "$JS" | node - "$WORK/otel.js" "$GOLDEN")"
 rc=$?
 [ "$rc" -eq 0 ] || { echo "FAIL — harness could not drive capture() from $SUT (rc=$rc)"; echo "$OUT"; exit 1; }
 line() { printf '%s\n' "$OUT" | sed -n "s/^$1 //p"; }

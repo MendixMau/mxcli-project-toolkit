@@ -1,6 +1,6 @@
 Repo: mendixlabs/mxcli
 Source: toolkit inbox `contrib/inbox/2026-09-27-mxcli-upstream-issues.md`, probes on scratch copies 2026-09-27
-Status: **DRAFT, not filed** (Bug). Duplicate search done 2026-09-27. Retest on the current mxcli release before filing.
+Status: **FILED — https://github.com/mendixlabs/mxcli/issues/1224 (2026-09-27)**. Retested before filing on mxcli main 95091765 in a neutral blank 11.12.2 app; the filed text (the live issue) supersedes this draft. NARROWED: a same-module owner change now works; only the cross-module case keeps the old owner.
 
 --- everything above this line is stripped before filing ---
 

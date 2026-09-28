@@ -1,4 +1,4 @@
-Status: READY-TO-SEND (not yet opened) · closes mendixlabs/mxcli#1198 · base upstream main 95091765
+Status: OPENED mendixlabs/mxcli#1227 2026-09-28 (make build/test/lint green on 95091765: 84 packages ok, 0 FAIL) · closes mendixlabs/mxcli#1198 · base upstream main 95091765
 
 # mxcli PR: null hidden object-list item TextTemplates (File Uploader simple mode, CE0463)
 

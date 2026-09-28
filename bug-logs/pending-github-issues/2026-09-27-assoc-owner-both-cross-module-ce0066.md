@@ -1,6 +1,6 @@
 Repo: mendixlabs/mxcli
 Source: toolkit inbox `contrib/inbox/2026-09-27-mxcli-upstream-issues.md`, probes on scratch copies 2026-09-27
-Status: **DRAFT, not filed** (Bug). Duplicate search done 2026-09-27. Retest on the current mxcli release before filing.
+Status: **FILED — https://github.com/mendixlabs/mxcli/issues/1223 (2026-09-27)**. Retested before filing on mxcli main 95091765 in a neutral blank 11.12.2 app; the filed text (the live issue) supersedes this draft. Reproduced as drafted; added: UPDATE SECURITY reports all up to date and does not repair it; owner Default control builds clean.
 
 --- everything above this line is stripped before filing ---
 

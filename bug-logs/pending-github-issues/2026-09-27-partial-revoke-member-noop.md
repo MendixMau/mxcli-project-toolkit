@@ -1,6 +1,6 @@
 Repo: mendixlabs/mxcli
 Source: toolkit inbox `contrib/inbox/2026-09-27-mxcli-upstream-issues.md`, probes on scratch copies 2026-09-27
-Status: **DRAFT, not filed** (Bug). Duplicate search done 2026-09-27. Retest on the current mxcli release before filing.
+Status: **FILED — https://github.com/mendixlabs/mxcli/issues/1225 (2026-09-27)**. Retested before filing on mxcli main 95091765 in a neutral blank 11.12.2 app; the filed text (the live issue) supersedes this draft. SYMPTOM CHANGED: current main prints a false 'No access rules found matching …' and exits 0; the qualified spelling (write (Mod.Assoc)) is now a parse error — use the short association name.
 
 --- everything above this line is stripped before filing ---
 

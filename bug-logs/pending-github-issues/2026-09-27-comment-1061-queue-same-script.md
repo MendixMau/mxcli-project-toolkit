@@ -1,6 +1,6 @@
 Repo: mendixlabs/mxcli
 Source: toolkit inbox `contrib/inbox/2026-09-27-mxcli-upstream-issues.md`, probes on scratch copies 2026-09-27
-Status: **DRAFT, not filed** (Comment on open #1061). Duplicate search done 2026-09-27. Retest on the current mxcli release before filing.
+Status: **FILED — comment on https://github.com/mendixlabs/mxcli/issues/1061#issuecomment-5856968798 (2026-09-27)**. Retested before filing on mxcli main 95091765 in a neutral blank 11.12.2 app; the filed text (the live issue) supersedes this draft. Reproduced: check exits 1, exec refuses; --no-check build has 0 errors.
 
 --- everything above this line is stripped before filing ---
 

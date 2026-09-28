@@ -1,6 +1,6 @@
 Repo: mendixlabs/mxcli
 Source: toolkit inbox `contrib/inbox/2026-09-27-mxcli-upstream-issues.md`, probes on scratch copies 2026-09-27
-Status: **DRAFT, not filed** (Bug). Duplicate search done 2026-09-27. Retest on the current mxcli release before filing.
+Status: **FILED — comment on https://github.com/mendixlabs/mxcli/issues/1213#issuecomment-5856968276 (2026-09-27)**. Retested before filing on mxcli main 95091765 in a neutral blank 11.12.2 app; the filed text (the live issue) supersedes this draft. WIDENED and filed as a comment on #1213: check resolves no bare attribute name in a retrieve XPath (4 of 5 spellings pass check, fail mx check); describe prints the member as CreatedDate.
 
 --- everything above this line is stripped before filing ---
 

@@ -32,7 +32,10 @@ This is the index of what we sent upstream or have ready to send.
 |---|---|---|
 | `submitted-prs/mxcli/2026-09-27-file-uploader-nested-visibility/` | #1198 | OPENED as [mendixlabs/mxcli#1227](https://github.com/mendixlabs/mxcli/pull/1227) on 2026-09-28; linked from #1198 |
 | `submitted-prs/mxcli/2026-09-28-alter-page-set-rendermode/` | #1228 | OPENED as [mendixlabs/mxcli#1229](https://github.com/mendixlabs/mxcli/pull/1229) on 2026-09-28; linked from #1228. Rebased from fork-only MendixMau/mxcli#1 (now closed) |
+| `submitted-prs/mxcli/2026-09-28-marketplace-install-fromappstore/` | (issue not yet filed: draft `pending-github-issues/marketplace-install-not-grouped-in-studio-pro.md`) | READY, not sent. On main 95091765; unit tests + marketplace/cmd packages pass; Studio Pro regrouping not yet proven on a real model |
 
 ## Issue drafts
 
 The seven 2026-09-27 drafts in `pending-github-issues/` were all filed on 2026-09-27: four as #1223–#1226 and three as comments (tables above). Each file's status line carries its link and how the filed text differs from the draft. Three changed on retest against main 95091765: `create-or-modify-assoc-ignores-owner` narrowed to cross-module only, `partial-revoke-member-noop` changed symptom (false "No access rules found", exit 0), and `xpath-system-member-case-ce0161` widened to all bare XPath member names.
+
+One new draft on 2026-09-28, NOT YET FILED: `marketplace-install-not-grouped-in-studio-pro` (3 of 5 marketplace identity fields stamped; `--file` stamps none). Its fix PR package is in the table above and waits on the issue number.

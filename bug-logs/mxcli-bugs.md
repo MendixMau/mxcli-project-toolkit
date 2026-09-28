@@ -6291,6 +6291,144 @@ is placed on top of the next activity: lint MPR008 on a correct script. It showe
 of one script. After every handler was given its own `return`, the next exec had a clean mxbuild
 and MPR008 back at baseline. **Workaround: end every error handler with its own `return`**, so
 there is no merge to place.
+## BUG-DRAFT-mpr012-assumes-react-client: lint MPR012 reports every legacy dynamic image as a React-client error (CE0582) on a Mendix 11 project that still builds for the Dojo client (2026-09-26)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-26, when an existing-app change project merged upstream `main`. The lint ratchet jumped by 57, and every one of the new findings was MPR012.
+**Reproducible:** yes, on every run against that model. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** MPR012 says: "dynamic image 'imageViewer1' in … is not supported by the React client (Mendix 10.7+, the only client on 11) — mxbuild reports CE0582". It fires on every `Forms$ImageViewer`: 57 of them on that project's own modules. Two things show this is not an error for this model:
+- `mx check` (mxbuild 11.12.2) on the same `.mpr` reports **0 errors and no CE0582**.
+- The project still builds for the **Dojo** client: the built `deployment/web/index.html` loads `mxui/mxui.js`.
+
+So the rule's premise, "the only client on 11", does not hold for this project.
+
+**Expected:** MPR012 should fire only when the project builds for the React client. Otherwise it should be an info-level "blocks a React migration" note, not a warning.
+
+**Workaround:** accept the rise with `--update-baseline` and name MPR012 in the commit message. Cite the clean `mx check` and the Dojo marker as evidence. Keep the list, because it is the to-do list for a future move to the React client.
+
+**Why it matters for the toolkit.** `exec.sh` runs the lint ratchet after every clean mxbuild. A new built-in rule that fires on untouched legacy widgets fails that ratchet on the first build after a toolkit or mxcli update, even though the model did not change. Before treating a sudden rise in one new rule as a regression, check it against `mx check`.
+
+## BUG-DRAFT-partial-revoke-association-noop: `revoke R on E (write (<association>))` reports success and changes nothing (2026-09-26)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-26, on an existing-app change project, while making a component admin's guest links read-only.
+**Reproducible:** yes, on a scratch copy of the model. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You revoke write on association members, for example `revoke Mod.Member on Mod.Guest (write ("Group_Guests", "Guest_OrganisationEmployee"));`. It parses, `exec` reports it as applied, and mxbuild stays clean. But `SHOW ACCESS ON ENTITY` still lists both associations as `ReadWrite`. The same statement with an attribute works: `(write (Email))` turns Email into `ReadOnly`. The qualified form `(write (Mod."Group_Guests"))` gives a parse error.
+
+**Expected:** association members are downgraded the same way attributes are. If they can't be, the statement should fail with an error. It should never be a silent no-op.
+
+**Workaround:**
+1. Revoke the role from the entity entirely: `revoke R on E;`. This removes R from every rule of E.
+2. Re-grant each of R's rules from its `DESCRIBE ENTITY` line, changing only the member lists. The XPath then stays byte-for-byte the same.
+3. Diff the `where` clauses before and after.
+4. Verify with `SHOW ACCESS`.
+
+Never take the exec's "applied" as proof.
+
+**Why it matters for the toolkit.** It is a false green on a security change (`skills/learned-detection-gaps.md` class): every gate passes and the right it was meant to remove is still there.
+
+## BUG-DRAFT-check-references-misses-same-script-queue: `mxcli check --references` reports a queue created earlier in the same script as "task queue not found" (2026-09-27)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-27, on an existing-app change project, while moving a batch job onto a new task queue.
+**Reproducible:** yes. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You have a script that runs `create or modify queue M.Q ...;` and later `call microflow M.X(...) in queue M.Q;`. `check --references` fails with `task queue not found: M.Q (referenced by in queue)`. The checker says "references to objects created within the script are skipped", but queues are not skipped. `exec` of the same script on a scratch copy works, and mxbuild is clean.
+
+**Expected:** a queue created earlier in the script counts as existing, the same way entities and microflows do.
+
+**Workaround:** put the `create queue` in its own script and exec it first. The second script then passes `check --references`.
+
+**Why it matters for the toolkit.** `exec.sh` refuses a script that fails check, so the single-script form never reaches the model. It costs one extra exec-and-gate cycle, about 5 minutes on a large model.
+
+## BUG-DRAFT-xpath-system-member-case: an XPath system member written in the wrong case (`[CreatedDate >= $Since]`) passes `check --references` and fails the build with CE0161 (2026-09-27)
+
+> **NOT YET FILED.** Upstream draft kept with the project's harvest.
+
+**Discovered:** 2026-09-27, on an existing-app change project, while retrieving the guests added in one batch.
+**Reproducible:** yes, on a scratch copy. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.**
+
+```
+retrieve $G from UserGroups.Guest where [CreatedDate >= $Since];   -- WRONG
+```
+
+- `mxcli check --references` → `Check passed!`
+- exec, then `mx check` → `[CE0161] "Error(s) in XPath constraint." at Retrieve object(s) activity`
+
+In XPath the system members are lowercase: `createdDate`, `changedDate`, `owner`, `changedBy`.
+The checker does not match their case, so the capitalised form passes it and fails only at the build.
+
+**Fix:** `[createdDate >= $Since]`, which built with 0 errors. The same applies to the other three members.
+
+**Not this bug (works as designed):** `[Assoc = empty]` on an association is caught by `check` as MDL047, with a `not(Assoc/Target)` hint.
+
+**Expected:** `check --references` rejects a system member in the wrong case, the same way it rejects an unknown attribute.
+
+## BUG-DRAFT-association-owner-ignored: `create or modify association … owner Both` reports "Modified" and leaves the owner unchanged (2026-09-27)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-27, on an existing-app change project, while making a one-to-one association navigable from both ends.
+**Reproducible:** yes, on a scratch copy. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You run `create or modify association UserGroups.GuestGroup_App … owner Both;` on an existing association whose owner is Default. It prints `Modified`, but `DESCRIBE ASSOCIATION` still shows owner Default. The owner change is dropped without a message. That is a silent no-op, the same class as `BUG-DRAFT-partial-revoke-association-noop`.
+
+**Why the obvious workaround is worse.** `drop association` followed by `create association … owner Both` does set the owner, but it mints a **new association ID**:
+- existing database links are lost;
+- every access rule's member right on that association resets to None (the entity's ReadWrite/ReadOnly rights were lost);
+- across modules it gives CE0066 (`BUG-DRAFT-association-owner-both-cross-module-ce0066`).
+
+**Workaround (proven on a scratch copy, `mx check` 0 errors):** patch the association unit in place in the MPR (SQLite `Unit` table, BSON `Contents`):
+1. Flip `Owner` to `Both`, keeping the same ID.
+2. Append a `DomainModels$MemberAccess` (None) for the association to every access rule of the other entity.
+3. Recompute `ContentsHash` (base64 of the sha256 of `Contents`).
+
+Do this on a snapshot, never on the only copy. If you don't want to patch, stay with owner Default and a 1-* convention. That is what the project did.
+
+**Expected:** `create or modify` applies the owner. If it cannot, it refuses with an error that names the limitation.
+
+## BUG-DRAFT-association-owner-both-cross-module-ce0066: drop + create with `owner Both` across modules leaves the other module's access rules stale → CE0066 (2026-09-27)
+
+> **NOT YET FILED.** Extends `BUG-DRAFT-association-owner-ignored`.
+
+**Discovered:** 2026-09-27, on an existing-app change project, on a scratch copy.
+**Reproducible:** yes. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You run `drop association` and then `create association UserGroups.GuestGroup_App … owner Both`, where the other end (`AppStore.App`) is in another module. mxcli prints `Reconciled 3 access rule(s)…`, but those are only GuestGroup's rules. `AppStore.App`'s 13 rules get no `MemberAccess` for the new association, and `mx check` reports:
+
+```
+[CE0066] Entity access is out of date. … at Domain model of module 'AppStore'
+```
+
+Neither `update security` nor stripping the stale member access clears it.
+
+**So:** today there is no mxcli path to owner Both on a cross-module association. `create or modify` ignores the owner, and drop + create leaves the far side stale. Only the raw BSON patch under `BUG-DRAFT-association-owner-ignored` works. The fallback is owner Default.
+
+**Expected:** reconcile member access on **both** ends' entities when an association with owner Both is created.
+
+## BUG-DRAFT-audit-member-access-ce0066: grants inject `System.owner` / `System.changedBy` member access on entities without those members → CE0066 (fixed upstream; record the mxcli version) (2026-09-26)
+
+> **RESOLVED upstream (mxcli `2455ee9f`, in v0.22 and later). NOT REPRODUCED on v0.23.0** — three probes, 0 errors. Kept because the lesson is about which binary ran.
+
+**Discovered:** 2026-09-26, on an existing-app change project. A build on one machine logged CE0066 after grant scripts.
+**Reproducible:** on older binaries only. **mxcli version:** the failing exec most likely ran v0.21.0, which was earlier on that machine's PATH, not the project's v0.23.0. **Mendix:** 11.12.2.
+
+**What happened.** Grant scripts added `MemberAccess` entries for `System.owner` / `System.changedBy` to entities that do not have those audit members (three entities in that model). The result was `CE0066 Entity access is out of date`.
+
+**Fix:** use mxcli v0.22 or later. Until then, the interim fix was a small script that strips `MemberAccess` entries pointing at audit members the entity lacks, run on a snapshot and followed by `mx check`.
+
+**The process point.** A bug "reproduced" on the wrong binary costs a probe day (`skills/retesting-learned-rules.md`). Before reporting or working around a CE after exec:
+- run `mxcli --version` with the **same** invocation the exec used (`./mxcli` vs a `mxcli` on PATH);
+- write that version into the BUILD-LOG row.
+
+Two machines on one project can differ here without anyone noticing.
 
 ## BUG-DRAFT-rename-module-leaves-xpath: `rename module` reports its references updated but leaves every XPath constraint naming the old module — mxbuild CE1613 (2026-09-25)
 

@@ -149,11 +149,13 @@ end;
 /
 ```
 
-**Known CE behaviour:**
-- `validation feedback` activities need to be re-wired in Studio Pro after every `mxcli exec`.
-  The activity is created but the Variable binding (which widget to highlight) is empty.
-  This is CE0639 — a known mxcli limitation. After exec, open Studio Pro and wire each
-  validation feedback activity to its variable manually.
+**Known CE behaviour (retested 2026-09-27):**
+- The CE0639 "Variable not wired" defect on `validation feedback $Obj/Attr` does **not**
+  reproduce on mxcli v0.23.0 / Mendix 11.12.2 (BUG-47, resolved). No Studio Pro re-wiring is
+  needed. The object-only form with no attribute still gives CE0091, so always name the attribute.
+- This example keeps its feedback in an `ACT_` microflow, which CONV010 flags. New code puts the
+  feedback in a `VAL_`/`SUB_` microflow and has the `ACT_` call it and branch
+  (`learned-microflow-patterns.md` → "Validation Feedback — Correct Pattern").
 
 ---
 

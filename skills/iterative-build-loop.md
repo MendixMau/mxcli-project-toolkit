@@ -636,7 +636,6 @@ Some operations cannot be done via mxcli. Plan for these explicitly in each modu
 |------|--------|---------------|
 | After any `GRANT` script | Open Studio Pro → click "Update security" banner → Ctrl+S | 2 min |
 | Drop attribute with access rules | Delete in Studio Pro (BUG-01 — mxcli corrupts MPR) | 2 min |
-| After `VALIDATION FEEDBACK` activities | Wire `Variable` manually in Studio Pro (BUG CE0639) | 1–2 min per activity |
 | After XPath retrieves written by mxcli | Run binary patch script + reload Studio Pro (BUG-15b) | 3 min |
 
 **Cross-module associations can be created via mxcli** using `CREATE ASSOCIATION` — BUG-02 is fixed in v0.13.0. No Studio Pro handoff needed.

@@ -239,6 +239,20 @@ native_path() {
 # ---------------------------------------------------------------------------
 find_sp_app() {
   if [ -n "${MENDIX_APP:-}" ]; then mxtk_posix_path "$MENDIX_APP"; return 0; fi
+  local list
+  list=$(mxtk_sp_list) || return 1
+  if printf '1.10\n1.9\n' | sort -V >/dev/null 2>&1; then
+    printf '%s\n' "$list" | sort -V | tail -1
+  else
+    echo "WARNING: this sort has no -V; falling back to lexical order, which mis-ranks" >&2
+    echo "         11.9 above 11.13. Set MENDIX_APP=<path> to be certain." >&2
+    printf '%s\n' "$list" | sort | tail -1
+  fi
+}
+
+# mxtk_sp_list — every installed Studio Pro root, one per line, unsorted (find_sp_app
+# picks the newest; find_mxbuild first looks for the one matching the model's version).
+mxtk_sp_list() {
   local list="" root seen=""
   case "$(mxtk_platform)" in
     macos)
@@ -293,14 +307,7 @@ find_sp_app() {
       return 1
       ;;
   esac
-
-  if printf '1.10\n1.9\n' | sort -V >/dev/null 2>&1; then
-    printf '%s\n' "$list" | sort -V | tail -1
-  else
-    echo "WARNING: this sort has no -V; falling back to lexical order, which mis-ranks" >&2
-    echo "         11.9 above 11.13. Set MENDIX_APP=<path> to be certain." >&2
-    printf '%s\n' "$list" | sort | tail -1
-  fi
+  printf '%s\n' "$list"
 }
 
 # ---------------------------------------------------------------------------
@@ -354,12 +361,94 @@ find_mxcli_cache() {
   fi
 }
 
-# find_mxbuild — the mxbuild binary: $MXBUILD_PATH override, then the chosen SP
-# install, then the mxcli download cache (see find_mxcli_cache). The SP-derived
+# ---------------------------------------------------------------------------
+# mxtk_model_version [mpr] — the model's Mendix version (e.g. 11.12.2), read from the
+# .mpr's own SQLite _MetaData._ProductVersion. v1 and v2 models both carry it (v2's .mpr
+# is still the SQLite index). sqlite3 CLI if present (read-only), else Python's sqlite3.
+# Prints nothing and returns 1 when it cannot tell — callers then fall back to "newest".
+# Golden input: a field project's .mpr (v1, 152 MB) → _MetaData row
+# ('11.12.2', '11.12.2', '{SHA256}…', 0), columns _ProductVersion, _BuildVersion,
+# _SchemaHash, _DisableAutoMprV2Upgrade (captured 2026-09-27).
+# ---------------------------------------------------------------------------
+mxtk_model_version() {
+  local mpr="${1:-}" v="" py
+  [ -n "$mpr" ] || mpr="$(find_mpr 2>/dev/null)" || return 1
+  [ -f "$mpr" ] || return 1
+  if command -v sqlite3 >/dev/null 2>&1; then
+    v=$(sqlite3 -readonly "$mpr" 'select _ProductVersion from _MetaData' 2>/dev/null | head -1 | tr -d '\r')
+  fi
+  if [ -z "$v" ]; then
+    py="${PY:-$(resolve_py 2>/dev/null || true)}"
+    [ -n "$py" ] && v=$("$py" -c "import sqlite3,sys,os,urllib.request as u
+c=sqlite3.connect('file:'+u.pathname2url(os.path.abspath(sys.argv[1]))+'?mode=ro',uri=True)
+print(c.execute('select _ProductVersion from _MetaData').fetchone()[0])" "$(native_path "$mpr")" 2>/dev/null | head -1 | tr -d '\r')
+  fi
+  case "$v" in
+    [0-9]*.[0-9]*) printf '%s\n' "$v"; return 0 ;;
+  esac
+  return 1
+}
+
+# mxtk_version_in_name <dir-or-name> <version> — true when the LAST path component names
+# <version> (compared on major.minor.patch). Matches "11.12.2", "11.12.2.83245",
+# "Mendix Studio Pro 11.12.2.app", "Mendix Studio Pro 11.12.2 Beta.app"; never "11.12.20".
+mxtk_version_in_name() {
+  local base v3 re
+  base=$(basename "$1")
+  v3=$(printf '%s' "$2" | cut -d. -f1-3)
+  [ -n "$v3" ] || return 1
+  re=$(printf '%s' "$v3" | sed 's/\./\\./g')
+  printf '%s\n' "$base" | grep -Eq "(^|[^0-9.])${re}(\.[0-9]+)?([^0-9.]|\.[^0-9]|\$)"
+}
+
+# mxtk_mxbuild_for_version <version> — an executable mxbuild whose install (Studio Pro
+# root or mxcli cache dir) is named for <version>, or return 1. Studio Pro first, then
+# the cache, same order as find_mxbuild's newest-first fallback.
+mxtk_mxbuild_for_version() {
+  local ver="$1" d c list cache_root
+  [ -n "$ver" ] || return 1
+  if [ -z "${MENDIX_APP:-}" ] && list=$(mxtk_sp_list 2>/dev/null); then
+    while IFS= read -r d; do
+      [ -n "$d" ] || continue
+      mxtk_version_in_name "$d" "$ver" || continue
+      for c in "$d/Contents/modeler/mxbuild" "$d/modeler/mxbuild.exe"; do
+        [ -x "$c" ] && { echo "$c"; return 0; }
+      done
+    done <<EOF_SP
+$list
+EOF_SP
+  fi
+  cache_root="${MXCLI_HOME:-$HOME/.mxcli}/mxbuild"
+  for d in "$cache_root"/*/; do
+    [ -d "$d" ] || continue
+    d="${d%/}"
+    mxtk_version_in_name "$d" "$ver" || continue
+    for c in "$d/modeler/mxbuild" "$d/modeler/mxbuild.exe"; do
+      [ -x "$c" ] && { echo "$c"; return 0; }
+    done
+  done
+  return 1
+}
+
+# find_mxbuild — the mxbuild binary: $MXBUILD_PATH override, then the Studio Pro install
+# or mxcli cache entry matching the MODEL'S version, then (no match) the newest SP install,
+# then the newest mxcli download cache entry (see find_mxcli_cache). The SP-derived
 # path is still echoed when nothing is executable anywhere, so callers' error
 # messages name the path that was expected rather than "<none>".
+#
+# WHY VERSION FIRST (field project, 2026-09-26). mxbuild opens only a model of its own
+# exact version. "Newest" picked a Studio Pro 11.14.0 Beta for an 11.12.2 model; that
+# mxbuild exited 3 in two seconds with "Project version '11.12.2' does not exactly match
+# MxBuild version '11.14.0'" in errors[] and an empty problems[] — and the gate read the
+# empty problems[] as "0 errors, clean" for 29 of 29 execs, one of which shipped a CE0066.
+# The matching 11.12.2 mxbuild sat in the mxcli cache the whole time. The no-match fallback
+# is loud in mxtk_ensure_mxbuild (this function is always called with stderr discarded).
 find_mxbuild() {
   if [ -n "${MXBUILD_PATH:-}" ]; then echo "$MXBUILD_PATH"; return 0; fi
+  local ver m
+  if ver=$(mxtk_model_version 2>/dev/null) && m=$(mxtk_mxbuild_for_version "$ver"); then
+    echo "$m"; return 0
+  fi
   local app cand="" cache
   if app=$(find_sp_app 2>/dev/null); then
     case "$(mxtk_platform)" in
@@ -389,8 +478,11 @@ find_mxbuild() {
 find_java() {
   if [ -n "${JAVA_HOME:-}" ] && [ -d "$JAVA_HOME" ]; then echo "$JAVA_HOME"; return 0; fi
   local app jh
+  # JDK 21 first on macOS: with JDK 25 as the default, the Mendix 11 deploy build's gradle
+  # 8.5 fails ("Unsupported class file major version 69", mxbuild exit 3, empty problems[])
+  # — field project 2026-09-26, Mendix 11.12.2. Platform-guarded: java_home is mac-only.
   if [ "$(mxtk_platform)" = macos ] && [ -x /usr/libexec/java_home ]; then
-    jh=$(/usr/libexec/java_home 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
+    jh=$(/usr/libexec/java_home -v 21 2>/dev/null || /usr/libexec/java_home 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
   fi
   # Studio Pro's bundled JRE.
   if app=$(find_sp_app 2>/dev/null); then
@@ -458,6 +550,7 @@ find_java_exe() {
 # Sets on return (bash 3.2 has no namerefs, so these globals ARE the contract):
 #   MXTK_MXBUILD_OUT    captured stdout+stderr from the mxbuild invocation
 #   MXTK_MXBUILD_EXIT   mxbuild's own exit code, or 124 if it was killed for timing out
+#   MXTK_MXBUILD_WHY    mxbuild's errors[] messages (why it did not check), or empty
 #
 # [errors-file], if given, is left on disk afterward (whatever mxbuild wrote, even
 # nothing) for a caller that also wants err_codes/err_set/the raw JSON off the same
@@ -468,7 +561,9 @@ find_java_exe() {
 # determined. Empty errors file + exit 0 is 0, not "?": Studio Pro 11's mxbuild only
 # writes --write-errors when the project already has errors, so an empty file after
 # a clean exit is a verified-clean build (2026-09-14 field run), not a parse
-# failure. Returns 0 (count printed, 0 or more) · 1 (mxbuild ran, file unreadable —
+# failure. A NON-ZERO exit with 0 Error problems is "?" too: mxbuild refused the model
+# (version mismatch, JDK) without checking it — see the note at the end of the function.
+# Returns 0 (count printed, 0 or more) · 1 (mxbuild ran, file unreadable —
 # no Python 3, or the JSON did not parse) · 2 (mxbuild or java not found/executable,
 # nothing was run) · 3 (timed out and was killed after <timeout-seconds>).
 # ---------------------------------------------------------------------------
@@ -476,7 +571,7 @@ mxtk_mxbuild_error_count() {
   local _mpr="$1" _timeout="${2:-300}" _ef="${3:-}" _own_ef=0
   local _mb _jh _je _out _pid _waited=0 _exit=0 _py _count
 
-  MXTK_MXBUILD_OUT=""; MXTK_MXBUILD_EXIT=""
+  MXTK_MXBUILD_OUT=""; MXTK_MXBUILD_EXIT=""; MXTK_MXBUILD_WHY=""
   _mb="$(find_mxbuild 2>/dev/null || true)"
   _jh="$(find_java 2>/dev/null || true)"
   _je="$(find_java_exe 2>/dev/null || true)"
@@ -523,9 +618,28 @@ mxtk_mxbuild_error_count() {
     echo "?"; return 1
   fi
   _count=$("$_py" -c "import json;d=json.load(open('$(native_path "$_ef")'));print(len([x for x in d.get('problems',[]) if x.get('severity')=='Error']))" 2>/dev/null)
+  MXTK_MXBUILD_WHY=$(mxtk_mxbuild_why "$_ef" "$_py")
   [ "$_own_ef" -eq 1 ] && rm -f "$_ef"
   if [ -z "$_count" ]; then echo "?"; return 1; fi
+  # Non-zero exit and ZERO Error problems: mxbuild stopped BEFORE checking the model — a
+  # version mismatch, a JDK/gradle failure — and put the reason in errors[], leaving
+  # problems[] empty. That is "could not verify", never "0 errors". (An exit code and a
+  # problem count are two facts; skills/tool-output-is-not-ground-truth.md.)
+  if [ "$_count" = "0" ] && [ "$_exit" -ne 0 ]; then echo "?"; return 1; fi
   echo "$_count"; return 0
+}
+
+# mxtk_mxbuild_why <errors-file> [python] — mxbuild's own errors[] messages, joined and
+# capped at 300 chars, or nothing. errors[] is where mxbuild says why it did NOT check the
+# model; problems[] is only the model's findings. Verbatim errors[] captured on
+# A field project (2026-09-26, mxbuild 11.14.0 vs an 11.12.2 model, exit 3):
+#   {"errors":[{"message":"The MPR file located at …/Marketplace.mpr could not be opened:
+#    Project version '11.12.2' does not exactly match MxBuild version '11.14.0'. Use loose
+#    version check option for less strict version checking.","details":""}],"problems":[]}
+mxtk_mxbuild_why() {
+  local _py="${2:-${PY:-$(resolve_py 2>/dev/null || true)}}"
+  [ -s "$1" ] && [ -n "$_py" ] || return 0
+  "$_py" -c "import json;d=json.load(open('$(native_path "$1")'));print('; '.join((e.get('message','') if isinstance(e,dict) else str(e)) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null || true
 }
 
 # project_name — the .mpr basename without extension, for user-facing messages.
@@ -598,9 +712,28 @@ require_py() {
 # (offline CI), in which case this degrades to plain discovery.
 # ---------------------------------------------------------------------------
 mxtk_ensure_mxbuild() {
-  local mpr="$1" found="" root mxcli
+  local mpr="$1" found="" root mxcli ver="" mismatch=0
   found="$(find_mxbuild 2>/dev/null || true)"
-  if [ -n "$found" ] && [ -x "$found" ]; then printf '%s\n' "$found"; return 0; fi
+  # A runnable mxbuild of the WRONG version is not a runnable gate: it refuses the model
+  # (exit 3, "Project version 'X' does not exactly match MxBuild version 'Y'"). When the
+  # model's version is readable and no install of it exists, download it like a missing
+  # mxbuild; if that is not possible, keep the mismatched one but say so, loudly.
+  ver="$(mxtk_model_version "$mpr" 2>/dev/null || true)"
+  if [ -n "$ver" ] && [ -n "$found" ] && [ -x "$found" ]; then
+    if [ -n "${MXBUILD_PATH:-}" ]; then
+      case "$found" in
+        *"$(printf '%s' "$ver" | cut -d. -f1-3)"*) ;;
+        *) echo "  ⚠  MXBUILD_PATH=$found does not name this model's Mendix version ($ver) — if it is another version, mxbuild will refuse the model and the gate cannot verify it." >&2 ;;
+      esac
+      printf '%s\n' "$found"; return 0
+    fi
+    mxtk_mxbuild_for_version "$ver" >/dev/null 2>&1 || mismatch=1
+  fi
+  if [ -n "$found" ] && [ -x "$found" ] && [ "$mismatch" -eq 0 ]; then printf '%s\n' "$found"; return 0; fi
+  if [ "$mismatch" -eq 1 ]; then
+    echo "  ⚠  No mxbuild for this model's Mendix version ($ver) is installed; the only one found is $found." >&2
+    echo "     mxbuild refuses a model of another version, so the gate would verify nothing with it." >&2
+  fi
   [ "${MXTK_NO_INSTALL:-0}" = "1" ] && { [ -n "$found" ] && printf '%s\n' "$found"; return 1; }
   root="$(dirname "$mpr")"
   mxcli=""
@@ -617,7 +750,12 @@ mxtk_ensure_mxbuild() {
   echo "  ($mxcli setup mxbuild — the same download bin/doctor.sh --install runs; cached under ~/.mxcli/mxbuild/)" >&2
   if (cd "$root" && "$mxcli" setup mxbuild -p "$(basename "$mpr")" >&2); then
     found="$(find_mxbuild 2>/dev/null || true)"
-    if [ -n "$found" ] && [ -x "$found" ]; then printf '%s\n' "$found"; return 0; fi
+    if [ -n "$found" ] && [ -x "$found" ]; then
+      if [ -n "$ver" ] && ! mxtk_mxbuild_for_version "$ver" >/dev/null 2>&1; then
+        echo "  ⚠  download finished but there is still no mxbuild for $ver — using $found; the gate will report the refusal as unverified." >&2
+      fi
+      printf '%s\n' "$found"; return 0
+    fi
     echo "  download reported success but no runnable mxbuild was found afterwards (looked under ${MXCLI_HOME:-$HOME/.mxcli}/mxbuild/)." >&2
   else
     echo "  '$mxcli setup mxbuild' failed — a blocked network or proxy is the usual cause (the download comes from the Mendix CDN)." >&2

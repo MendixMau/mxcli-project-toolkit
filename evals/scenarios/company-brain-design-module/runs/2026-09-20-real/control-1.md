@@ -1,4 +1,4 @@
-# USI_Routing_Workshop — Design system, brand colours, and Routing_Overview sketch
+# Acme_Routing_Workshop — Design system, brand colours, and Routing_Overview sketch
 
 **Status check first:** this project is at Stage 1 (Analysis) complete, Stage 2 (Requirements)
 next — the user's own framing ("nearly closed," not closed). The toolkit's process puts the

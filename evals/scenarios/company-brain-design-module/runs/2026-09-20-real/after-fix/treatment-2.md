@@ -2,19 +2,19 @@
 
 ## Design system
 
-This is a USI app, so it uses the company brain's design system, not a bespoke one:
-**`USI_Theme_Module`** (`.../usi-brain-real/components/USI_Theme_Module.mpk`), imported as its
+This is a Acme app, so it uses the company brain's design system, not a bespoke one:
+**`Acme_Theme_Module`** (`.../acme-brain-real/components/Acme_Theme_Module.mpk`), imported as its
 own Mendix module. It's an Atlas layout override plus brand SCSS variables and per-component
 SCSS overrides (`_navigation-bar`, `_button`, `_card`, `_input`, `_list-view`, `_headings`,
 `_footer`, `_tab-container`, `_radio-button`, `_lang-selector`, `_base`,
-`layouts/_layout-atlas.scss`) living under `themesource/usi_theme_module/`. Typography is
+`layouts/_layout-atlas.scss`) living under `themesource/acme_theme_module/`. Typography is
 **Open Sans**, shipped by the module — not the brand guide's print typeface (Helvetica LT Std),
 which is intentionally not used on the web.
 
 House rule (`house-page-conventions.md`): never hand-roll a theme, never type a hex value into
 a page — every colour comes from the module's brand variables or a documented extended-palette
-entry — and buttons use the theme's own **Button Style** design property (`USI blue` /
-`USI red`), not Atlas defaults or a custom class.
+entry — and buttons use the theme's own **Button Style** design property (`Acme blue` /
+`Acme red`), not Atlas defaults or a custom class.
 
 **Not yet verified**: the manifest flags that this package has never been imported by any
 project via mxcli (`Proven in` table is empty) and that the import method (CLI/MCP/Studio Pro)
@@ -24,21 +24,21 @@ attempting it — "not yet verified" is a real gap, not boilerplate.
 ## Brand colours
 
 All values are asserted, none hand-picked, and all come from one source:
-`usi-brain-real/components/USI_Theme_Module.md` (`themesource/usi_theme_module/web/usi-custom-variables.scss`), cross-checked against the deviation note in that same file.
+`acme-brain-real/components/Acme_Theme_Module.md` (`themesource/acme_theme_module/web/acme-custom-variables.scss`), cross-checked against the deviation note in that same file.
 
 | Token | Value | Source / role |
 |---|---|---|
 | `$brand-primary` | `#0C4C8A` | On-screen primary. **Not** the print corporate blue — see deviation note below. |
-| `$brand-success` | `#437242` | USI green |
-| `$brand-warning` | `#ed6d0f` | USI orange |
-| `$brand-danger` | `#e60012` | USI red |
+| `$brand-success` | `#437242` | Acme green |
+| `$brand-warning` | `#ed6d0f` | Acme orange |
+| `$brand-danger` | `#e60012` | Acme red |
 | `$sidebar-bg` | `#24276c` | Side navigation |
 | `$topbar-bg` | `#FFFFFF` (height `70px`) | Top bar |
 | `$bg-color` | `#f8f8f8` | Page background |
 | `$border-radius-default` | `4px` | |
 | Font | "Open Sans", sans-serif | Bundled with the module |
 
-**Deviation to leave alone**: the corporate brand guide's print "Corporate" colour is USI Blue
+**Deviation to leave alone**: the corporate brand guide's print "Corporate" colour is Acme Blue
 Pantone 655C, `#002662` — that's the logo/print blue, not what the theme uses on screen. The
 theme's `$brand-primary` (`#0C4C8A`) is Pantone 541C from the guide's Extended → Bright row, and
 all four brand colours above are consistently drawn from that same Bright row (541C blue, 485C
@@ -46,7 +46,7 @@ red, 1565C orange, 357C green). The manifest explicitly warns against "correctin
 so would break, not fix, the theme. I'm using the theme's values as-is.
 
 Logo: artwork only, from the corporate identity download — never recreated or re-typeset
-(`USI-UI-UX-Guide-v2.0.pdf`, section 01, referenced from the manifest).
+(`Acme-UI-UX-Guide-v2.0.pdf`, section 01, referenced from the manifest).
 
 ## Page plan
 
@@ -68,7 +68,7 @@ for actors ManufacturingProcessEngineer / Supervisor / LineLeader.
 - Row click → navigates to `Routing_View` (drilldown), per UC001 main flow step 3.
 - Primary actions on this screen are navigation-only (read-only scope C01.ROUTE.READ) — no
   create/edit buttons; if any button is needed (e.g. "Refresh", "Export") it uses the theme's
-  `USI blue` button style.
+  `Acme blue` button style.
 
 **`Routing_View`** (drilldown, per house naming `<Entity>_View`)
 - Header section (DataView on `Routing`): RoutingCode/Name/Type, OwnerTeam, SiteId,
@@ -87,14 +87,14 @@ task's "preparation only" instruction.
 
 ## Files I read
 
-1. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.md`
-2. `<scratch>/usi-brain-real/ROUTING.md`
-3. `<scratch>/usi-brain-real/components/USI_Theme_Module.md`
-4. `<scratch>/usi-brain-real/skills/house-page-conventions.md`
-5. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/PROJECT.md`
-6. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/intake.md`
-7. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/triage.md`
-8. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+1. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/CLAUDE.md`
+2. `<scratch>/acme-brain-real/ROUTING.md`
+3. `<scratch>/acme-brain-real/components/Acme_Theme_Module.md`
+4. `<scratch>/acme-brain-real/skills/house-page-conventions.md`
+5. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/PROJECT.md`
+6. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/intake.md`
+7. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/triage.md`
+8. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
 
 (`CLAUDE.local.md`, `AGENTS.md`, and `widgets-inventory.txt` exist in the project root but were
 not opened — `CLAUDE.md` states it is the canonical instruction file and the others are pointers
@@ -103,7 +103,7 @@ was followed directly.)
 
 ## Open questions for the user
 
-1. **Import method for `USI_Theme_Module.mpk`** — it's a full module export (`.mpr` + brand
+1. **Import method for `Acme_Theme_Module.mpk`** — it's a full module export (`.mpr` + brand
    assets + ~40 bundled jars/widgets), never imported by any project via mxcli before. Should I
    probe `./mxcli --help` / the import subcommand for this project's mxcli version before doing
    the actual import, or would you rather do that import yourself in Studio Pro?

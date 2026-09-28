@@ -70,9 +70,21 @@
 # styling nothing.
 #
 #   project-bin/check-design-reaches-app.sh                     # defaults, from the project root
-#   project-bin/check-design-reaches-app.sh <design.css> <built.css>
+#   project-bin/check-design-reaches-app.sh <design.css> <built.css> [custom-variables.scss]
 #
-# Exit 0 clean, 1 violations, 2 inspected nothing (NOT a pass).
+# Exit 0 clean, 1 violations, 2 inspected nothing or a pass could not run (NOT a pass).
+#
+# ── BOTH LAYOUTS (2026-09-28) ───────────────────────────────────────────────────────────────
+#
+# The theme, themesource and deployment trees sit beside the .mpr, NOT at the project root.
+# On a single-tree checkout those are the same directory; on a two-tree checkout (repo at the
+# root, the app under app/) they are not. This script used to read theme/web/custom-variables.scss
+# relative to the working directory, found nothing on a two-tree checkout, and printed
+# "knobs bound 0 of 0" under "clean, 1 warning" — a false clean on a Mendix 11.14 app whose
+# real figure, with the path given by hand, was 26 of 30 knobs bound and 157 of 157 tokens.
+# The model directory is now resolved the way every other project-bin script resolves it
+# (find_model_dir in _common.sh: $PROJECT_ROOT, $MPR_FILE, the app/ probe), and a knob file
+# that cannot be found, or that declares no knobs, is an instrument fault — exit 2, never clean.
 #
 # THIS CHECK REQUIRES A BUILD. That is the point: there is no way to answer "did it reach the
 # app" from source alone, which is exactly why nothing answered it. With no built stylesheet it
@@ -83,30 +95,56 @@ set -uo pipefail
 DESIGN="${1:-}"
 BUILT="${2:-}"
 
+# ── Where things live ───────────────────────────────────────────────────────────────────────
+# ROOT holds design/ and mdlsource/; MODEL_DIR holds the .mpr and, beside it, theme/,
+# themesource/ and deployment/. The script has always run from the project root, so ROOT is
+# $PROJECT_ROOT when set, else the working directory — not _common.sh's own tier-2 guess, which
+# for the toolkit's shared copy is the toolkit. MODEL_DIR comes from find_model_dir when an .mpr
+# can be found; a copy installed beside an older _common.sh, or a tree with no .mpr, falls back
+# to probing app/ for the framework's trees.
+ROOT="${PROJECT_ROOT:-$(pwd)}"
+MODEL_DIR=""
+if [ -f "$(dirname "${BASH_SOURCE[0]}")/_common.sh" ]; then
+  PROJECT_ROOT="$ROOT"
+  . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
+  if type find_model_dir >/dev/null 2>&1; then
+    MODEL_DIR="$(find_model_dir 2>/dev/null)" || MODEL_DIR=""
+  fi
+fi
+if [ -z "$MODEL_DIR" ]; then
+  MODEL_DIR="$ROOT"
+  if [ ! -d "$ROOT/theme" ] && [ ! -d "$ROOT/deployment" ] && { [ -d "$ROOT/app/theme" ] || [ -d "$ROOT/app/deployment" ]; }; then
+    MODEL_DIR="$ROOT/app"
+  fi
+fi
+# Paths print relative to where the user stands when they can; absolute otherwise.
+rel() { case "$1" in "$(pwd)"/*) printf '%s' "${1#"$(pwd)"/}" ;; *) printf '%s' "$1" ;; esac; }
+
 if [ -z "$DESIGN" ]; then
-  for c in design/ds.css design/design-system.css; do
-    [ -f "$c" ] && { DESIGN="$c"; break; }
+  for c in "$ROOT/design/ds.css" "$ROOT/design/design-system.css" "$MODEL_DIR/design/ds.css" "$MODEL_DIR/design/design-system.css"; do
+    [ -f "$c" ] && { DESIGN="$(rel "$c")"; break; }
   done
 fi
 if [ -z "$BUILT" ]; then
-  for c in deployment/web/theme.compiled.css deployment/web/theme.css; do
-    [ -f "$c" ] && { BUILT="$c"; break; }
+  for c in "$MODEL_DIR/deployment/web/theme.compiled.css" "$MODEL_DIR/deployment/web/theme.css"; do
+    [ -f "$c" ] && { BUILT="$(rel "$c")"; break; }
   done
 fi
 
 # The framework's own customization surface. Atlas has called this file the same thing since
-# Atlas 2; a project that renamed it passes it as a third argument via CUSTOM_VARS.
-CUSTOM_VARS="${CUSTOM_VARS:-theme/web/custom-variables.scss}"
+# Atlas 2; a project that renamed it passes it as the third argument, or via CUSTOM_VARS.
+CUSTOM_VARS="${3:-${CUSTOM_VARS:-$(rel "$MODEL_DIR/theme/web/custom-variables.scss")}}"
+THEME_WEB="$MODEL_DIR/theme/web"
 
 if [ -z "$DESIGN" ] || [ ! -f "$DESIGN" ]; then
   printf 'check-design-reaches-app: no design system stylesheet found.\n' >&2
-  printf '  Searched: design/ds.css, design/design-system.css\n' >&2
+  printf '  Searched: design/ds.css, design/design-system.css under %s and %s\n' "$ROOT" "$MODEL_DIR" >&2
   printf '  This is NOT a pass. Name it explicitly, or run from the project root.\n' >&2
   exit 2
 fi
 if [ -z "$BUILT" ] || [ ! -f "$BUILT" ]; then
   printf 'check-design-reaches-app: no BUILT stylesheet found.\n' >&2
-  printf '  Searched: deployment/web/theme.compiled.css, deployment/web/theme.css\n' >&2
+  printf '  Searched: deployment/web/theme.compiled.css, deployment/web/theme.css under %s\n' "$MODEL_DIR" >&2
   printf '  Run a build first. "Did the design system reach the app" cannot be answered from\n' >&2
   printf '  source, and answering it from source is how this defect shipped.\n' >&2
   printf '  This is NOT a pass.\n' >&2
@@ -115,9 +153,11 @@ fi
 
 VIOLATIONS=0
 WARNINGS=0
+FAULTS=0
 
 report() { printf 'FAIL  %s\n      %s\n' "$1" "$2"; VIOLATIONS=$((VIOLATIONS + 1)); }
 warn()   { printf 'WARN  %s\n      %s\n' "$1" "$2"; WARNINGS=$((WARNINGS + 1)); }
+fault()  { printf 'FAULT %s\n      %s\n' "$1" "$2"; FAULTS=$((FAULTS + 1)); }
 
 # ── Pass 0: read the design system ──────────────────────────────────────────────────────────
 # Tokens: custom properties declared in a :root block. Values too, because a knob may be bound
@@ -227,19 +267,19 @@ done
 # Only dead where the theme actually runs on custom properties. Where it does not, assigning a
 # framework SCSS variable is the CORRECT bridge and must not be reported.
 CSS_VARS_MODE="unknown"
-if grep -rqE '^[[:space:]]*\$use-css-variables[[:space:]]*:[[:space:]]*true' theme/web/ 2>/dev/null; then
+if grep -rqE '^[[:space:]]*\$use-css-variables[[:space:]]*:[[:space:]]*true' "$THEME_WEB/" 2>/dev/null; then
   CSS_VARS_MODE="true"
-elif grep -rqE '^[[:space:]]*\$use-css-variables[[:space:]]*:[[:space:]]*false' theme/web/ 2>/dev/null; then
+elif grep -rqE '^[[:space:]]*\$use-css-variables[[:space:]]*:[[:space:]]*false' "$THEME_WEB/" 2>/dev/null; then
   CSS_VARS_MODE="false"
 fi
 if [ "$CSS_VARS_MODE" = "true" ]; then
-  for f in theme/web/*.scss themesource/*/web/*.scss; do
+  for f in "$THEME_WEB"/*.scss "$MODEL_DIR"/themesource/*/web/*.scss; do
     [ -f "$f" ] || continue
-    case "$f" in themesource/atlas_*|themesource/atlas_*/*) continue ;; esac
+    case "$f" in */themesource/atlas_*) continue ;; esac
     while IFS= read -r hit; do
       [ -z "$hit" ] && continue
       ln="${hit%%:*}"
-      report "$f:$ln assigns a framework SCSS variable while the theme runs \$use-css-variables: true" \
+      report "$(rel "$f"):$ln assigns a framework SCSS variable while the theme runs \$use-css-variables: true" \
         'That assignment compiles to nothing. Set the matching CSS custom property in the framework customization file instead.'
     done <<EOF
 $(grep -nE '^[[:space:]]*\$[a-z0-9-]+[[:space:]]*:[[:space:]]*var\(--' "$f" 2>/dev/null)
@@ -251,8 +291,10 @@ fi
 MODEL_CLASS_TOTAL=0
 MODEL_CLASS_MISSING=0
 MODEL_MISSING_SAMPLE=""
-if [ -d mdlsource ]; then
-  MODEL_CLASSES="$(grep -rhoE "Class:[[:space:]]*'[^']+'" mdlsource 2>/dev/null \
+MDLSOURCE=""
+for c in "$ROOT/mdlsource" "$MODEL_DIR/mdlsource"; do [ -d "$c" ] && { MDLSOURCE="$c"; break; }; done
+if [ -n "$MDLSOURCE" ]; then
+  MODEL_CLASSES="$(grep -rhoE "Class:[[:space:]]*'[^']+'" "$MDLSOURCE" 2>/dev/null \
     | sed "s/.*'\\(.*\\)'/\\1/" | tr ' ' '\n' | grep -E '^[A-Za-z_-][A-Za-z0-9_-]*$' | sort -u)"
   for cls in $MODEL_CLASSES; do
     MODEL_CLASS_TOTAL=$((MODEL_CLASS_TOTAL + 1))
@@ -266,9 +308,18 @@ if [ -d mdlsource ]; then
 fi
 
 # ── Verdicts ────────────────────────────────────────────────────────────────────────────────
-if [ "$KNOB_TOTAL" -eq 0 ]; then
-  warn "no framework knobs found in $CUSTOM_VARS" \
-    'Pass 1 could not run. Set CUSTOM_VARS to the framework customization file, or say in the review why this project has none.'
+# A knob file that is missing, or that declares nothing, means Pass 1 read nothing. "0 of 0
+# knobs bound" under a clean verdict is the false green this used to print on every two-tree
+# checkout, so it is a FAULT: exit 2, the pass is UNMEASURED, never clean.
+KNOBS_LINE="$KNOB_BOUND of $KNOB_TOTAL framework knobs point at a design-system token"
+if [ ! -f "$CUSTOM_VARS" ]; then
+  fault "framework customization file not found: $CUSTOM_VARS" \
+    "Pass 1 (knobs bound) did not run. Model directory: $MODEL_DIR. Pass the file as the third argument or CUSTOM_VARS=<path>; on a two-tree checkout check that the .mpr is under app/."
+  KNOBS_LINE="UNMEASURED — $CUSTOM_VARS not found"
+elif [ "$KNOB_TOTAL" -eq 0 ]; then
+  fault "no framework knobs declared in $CUSTOM_VARS" \
+    'Pass 1 (knobs bound) read nothing: no uncommented --name: declarations. Point CUSTOM_VARS at the real framework customization file, or say in the review why this project has none.'
+  KNOBS_LINE="UNMEASURED — no knobs declared in $CUSTOM_VARS"
 elif [ "$KNOB_BOUND" -eq 0 ]; then
   report "0 of $KNOB_TOTAL framework knobs are bound to a design-system token" \
     "The framework is still wearing its own defaults. Unbound:${UNBOUND_SAMPLE:- (all)}"
@@ -295,7 +346,8 @@ fi
 printf '\n'
 printf 'design system   %s\n' "$DESIGN"
 printf 'built stylesheet %s\n' "$BUILT"
-printf 'knobs bound     %s of %s framework knobs point at a design-system token\n' "$KNOB_BOUND" "$KNOB_TOTAL"
+printf 'knob file       %s\n' "$CUSTOM_VARS"
+printf 'knobs bound     %s\n' "$KNOBS_LINE"
 printf 'tokens arrived  %s of %s\n' "$TOKENS_ARRIVED" "$TOKEN_COUNT"
 printf 'classes arrived %s of %s\n' "$CLASSES_ARRIVED" "$CLASS_COUNT"
 printf 'model classes   %s of %s asked for by the model are undefined\n' "$MODEL_CLASS_MISSING" "$MODEL_CLASS_TOTAL"
@@ -306,6 +358,10 @@ if [ "$VIOLATIONS" -gt 0 ]; then
   printf 'The design system exists and the app is not wearing it. Fix the BINDING, not the tokens\n'
   printf '—-the tokens were never the problem, which is why every other check stayed green.\n'
   exit 1
+fi
+if [ "$FAULTS" -gt 0 ]; then
+  printf '\ncheck-design-reaches-app: %s pass(es) could not run — UNMEASURED, NOT a pass.\n' "$FAULTS"
+  exit 2
 fi
 if [ "$WARNINGS" -gt 0 ]; then
   printf '\ncheck-design-reaches-app: clean, %s warning(s) — read them.\n' "$WARNINGS"

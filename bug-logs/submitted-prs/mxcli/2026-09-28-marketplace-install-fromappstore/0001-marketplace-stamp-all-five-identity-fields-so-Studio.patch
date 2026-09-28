@@ -1,0 +1,397 @@
+From 82808b5b7b499e08ab1c4185bdcd983621397717 Mon Sep 17 00:00:00 2001
+From: MendixMau <mauritscgvisser@gmail.com>
+Date: Mon, 28 Sep 2026 05:18:57 +0000
+Subject: [PATCH] marketplace: stamp all five identity fields so Studio Pro
+ groups the module
+
+A module Studio Pro installs from the Marketplace carries five fields on
+its Projects$ModuleImpl: FromAppStore, AppStoreVersion, AppStoreGuid,
+AppStoreVersionGuid and AppStorePackageIdString. `marketplace install
+<content-id>` and `marketplace update` stamped only the first three, and
+Studio Pro reads all of them: the module was listed among the app's own
+modules in the App Explorer instead of under "Marketplace modules", and
+nothing in mxcli's own output (SHOW MODULES reads FromAppStore only) said
+so.
+
+Thread the content id from the resolved marketplace content through
+installModule / installModuleFromFile / installByTransplant /
+PerformInstall and through the update command into PerformUpdate, and
+have StampMarketplaceVersion write the version UUID into both
+AppStoreGuid and AppStoreVersionGuid and the content id into
+AppStorePackageIdString via one helper, stampModuleDoc. The helper keeps
+the ADR-0005 discipline: it only assigns keys the document already has.
+
+`--file` installs still record no identity (a package on disk has none);
+that is a separate ask.
+
+Field: a fresh 11.13.0 project with a module installed via --file shows
+FromAppStore=False and all four strings empty in the module unit; the
+same project's Studio Pro-installed Encryption module shows all five set,
+with AppStoreGuid == AppStoreVersionGuid and AppStorePackageIdString ==
+"1011". Unit tests cover the helper; the marketplace and cmd packages
+pass.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01VJgWP5vEoAsNsJYqCDMGNw
+---
+ cmd/mxcli/cmd_marketplace_install.go       |  23 ++---
+ cmd/mxcli/cmd_marketplace_update.go        |   5 +-
+ cmd/mxcli/marketplace/security_test.go     |   6 +-
+ cmd/mxcli/marketplace/update.go            |  38 +++++--
+ cmd/mxcli/marketplace/update_stamp_test.go | 110 +++++++++++++++++++++
+ 5 files changed, 158 insertions(+), 24 deletions(-)
+ create mode 100644 cmd/mxcli/marketplace/update_stamp_test.go
+
+diff --git a/cmd/mxcli/cmd_marketplace_install.go b/cmd/mxcli/cmd_marketplace_install.go
+index c675e14fb..de4f36a14 100644
+--- a/cmd/mxcli/cmd_marketplace_install.go
++++ b/cmd/mxcli/cmd_marketplace_install.go
+@@ -11,6 +11,7 @@ import (
+ 	"os"
+ 	"os/exec"
+ 	"path/filepath"
++	"strconv"
+ 	"strings"
+ 
+ 	modelsdk "github.com/mendixlabs/mxcli"
+@@ -142,7 +143,7 @@ func runMarketplaceInstall(cmd *cobra.Command, args []string) error {
+ 				return err
+ 			}
+ 		}
+-		return installModule(cmd.Context(), client, version, mprPath, allowFormatChange, out)
++		return installModule(cmd.Context(), client, content.ContentID, version, mprPath, allowFormatChange, out)
+ 	default:
+ 		// Theme / Starter App / Sample / unknown: download + instruct rather
+ 		// than guess a placement we can't verify.
+@@ -170,7 +171,7 @@ func installFromFile(ctx context.Context, mpkPath, mprPath string, allowFormatCh
+ 	}
+ 	switch {
+ 	case pkg.ModelerProject.Module.Name != "":
+-		return installModuleFromFile(ctx, mpkPath, mprPath, allowFormatChange, "", "",
++		return installModuleFromFile(ctx, mpkPath, mprPath, allowFormatChange, "", "", "",
+ 			"from "+filepath.Base(mpkPath), out)
+ 	case pkg.ClientModule.Name != "":
+ 		return placeWidgetFile(mpkPath, filepath.Dir(mprPath), out)
+@@ -221,7 +222,7 @@ func printWidgetNext(out io.Writer) {
+ 
+ // installModule imports a module .mpk into the project, but only when the module
+ // is not already present. An existing module is reported, not modified.
+-func installModule(ctx context.Context, client *marketplace.Client, v *marketplace.Version, mprPath string, allowFormatChange bool, out io.Writer) error {
++func installModule(ctx context.Context, client *marketplace.Client, contentID int, v *marketplace.Version, mprPath string, allowFormatChange bool, out io.Writer) error {
+ 	// Download to a temp .mpk so we can inspect it and hand it to mx.
+ 	tmpDir, err := os.MkdirTemp("", "mxcli-install-")
+ 	if err != nil {
+@@ -232,17 +233,17 @@ func installModule(ctx context.Context, client *marketplace.Client, v *marketpla
+ 	if err != nil {
+ 		return err
+ 	}
+-	return installModuleFromFile(ctx, mpkPath, mprPath, allowFormatChange, v.VersionNumber, v.VersionID,
++	return installModuleFromFile(ctx, mpkPath, mprPath, allowFormatChange, strconv.Itoa(contentID), v.VersionNumber, v.VersionID,
+ 		"version "+v.VersionNumber, out)
+ }
+ 
+ // installModuleFromFile is the part of a module install that starts once the
+ // package is on disk — shared by the online path (after its download) and by
+-// --file (which has no download). versionNumber and versionID are the
+-// marketplace identity to record on the module; both are empty for a package
+-// from disk, which has none. label is how the package is named in output.
++// --file (which has no download). contentID, versionNumber and versionID are
++// the marketplace identity to record on the module; all three are empty for a
++// package from disk, which has none. label is how the package is named in output.
+ func installModuleFromFile(ctx context.Context, mpkPath, mprPath string, allowFormatChange bool,
+-	versionNumber, versionID, label string, out io.Writer) error {
++	contentID, versionNumber, versionID, label string, out io.Writer) error {
+ 
+ 	moduleName, err := moduleNameFromMpk(mpkPath)
+ 	if err != nil {
+@@ -271,7 +272,7 @@ func installModuleFromFile(ctx context.Context, mpkPath, mprPath string, allowFo
+ 	// the project's storage format and works for theme modules. --allow-format-change
+ 	// selects the legacy `mx module-import`, which does neither.
+ 	if !allowFormatChange {
+-		res, ierr := installByTransplant(ctx, mpkPath, mprPath, moduleName, mendixVer, versionNumber, versionID)
++		res, ierr := installByTransplant(ctx, mpkPath, mprPath, moduleName, mendixVer, contentID, versionNumber, versionID)
+ 		if ierr != nil {
+ 			return ierr
+ 		}
+@@ -310,7 +311,7 @@ func installModuleFromFile(ctx context.Context, mpkPath, mprPath string, allowFo
+ // installByTransplant builds a reference project from the package and copies the
+ // module out of it, so the destination keeps its MPR format.
+ func installByTransplant(ctx context.Context, mpkPath, mprPath, moduleName, mendixVer string,
+-	versionNumber, versionID string) (*mp.UpdateResult, error) {
++	contentID, versionNumber, versionID string) (*mp.UpdateResult, error) {
+ 
+ 	work, err := os.MkdirTemp("", "mxinstall")
+ 	if err != nil {
+@@ -326,7 +327,7 @@ func installByTransplant(ctx context.Context, mpkPath, mprPath, moduleName, mend
+ 	if err != nil {
+ 		return nil, fmt.Errorf("build a reference project from the package: %w", err)
+ 	}
+-	return mp.PerformInstall(mprPath, refMpr, mpkPath, moduleName, versionNumber, versionID, newBackendFactory())
++	return mp.PerformInstall(mprPath, refMpr, mpkPath, moduleName, contentID, versionNumber, versionID, newBackendFactory())
+ }
+ 
+ // isMPRv2 reports whether the project at mprPath uses the MPR v2 storage format:
+diff --git a/cmd/mxcli/cmd_marketplace_update.go b/cmd/mxcli/cmd_marketplace_update.go
+index c96365cf5..19e38c9e4 100644
+--- a/cmd/mxcli/cmd_marketplace_update.go
++++ b/cmd/mxcli/cmd_marketplace_update.go
+@@ -7,6 +7,7 @@ import (
+ 	"io"
+ 	"os"
+ 	"path/filepath"
++	"strconv"
+ 
+ 	"github.com/mendixlabs/mxcli/cmd/mxcli/marketplace"
+ 	"github.com/mendixlabs/mxcli/internal/auth"
+@@ -170,8 +171,8 @@ func runMarketplaceUpdate(cmd *cobra.Command, args []string) error {
+ 	targetMpk := filepath.Join(work, "target.mpk")
+ 
+ 	fmt.Fprintf(out, "\nUpdating %s %s → %s...\n", moduleName, installedVersion, target)
+-	res, err := marketplace.PerformUpdate(mprPath, targetRef, targetMpk, moduleName, installedVersion, target,
+-		targetVersion.VersionID, newBackendFactory())
++	res, err := marketplace.PerformUpdate(mprPath, targetRef, targetMpk, moduleName, strconv.Itoa(contentID),
++		installedVersion, target, targetVersion.VersionID, newBackendFactory())
+ 	if err != nil {
+ 		return fmt.Errorf("%w\n\nThe project may be mid-update — %s could be missing. Restore from version control",
+ 			err, moduleName)
+diff --git a/cmd/mxcli/marketplace/security_test.go b/cmd/mxcli/marketplace/security_test.go
+index 6f585582b..990cf537a 100644
+--- a/cmd/mxcli/marketplace/security_test.go
++++ b/cmd/mxcli/marketplace/security_test.go
+@@ -61,7 +61,7 @@ func TestPerformUpdate_ReconcilesAnIncompleteAccessRule(t *testing.T) {
+ 				t.Fatalf("control: %s is still in the reference's rules %v — nothing was stripped", removed, got)
+ 			}
+ 
+-			res, err := PerformUpdate(target, ref, emptyMpk(t), "Administration",
++			res, err := PerformUpdate(target, ref, emptyMpk(t), "Administration", "23513",
+ 				"4.3.2", "4.3.3", "00000000-0000-0000-0000-000000000000", eng.backend)
+ 			if err != nil {
+ 				t.Fatalf("PerformUpdate: %v", err)
+@@ -90,7 +90,7 @@ func TestPerformUpdate_LeavesCompleteRulesAlone(t *testing.T) {
+ 	ref := copyFixture(t)
+ 
+ 	before := memberRefs(t, ref, "Administration", "Account")
+-	res, err := PerformUpdate(target, ref, emptyMpk(t), "Administration",
++	res, err := PerformUpdate(target, ref, emptyMpk(t), "Administration", "23513",
+ 		"4.3.2", "4.3.3", "00000000-0000-0000-0000-000000000000", testBackend)
+ 	if err != nil {
+ 		t.Fatalf("PerformUpdate: %v", err)
+@@ -113,7 +113,7 @@ func TestPerformInstall_ReconcilesAnIncompleteAccessRule(t *testing.T) {
+ 	removed := stripLastMemberAccess(t, ref, "Administration", "Account")
+ 	execMDL(t, target, "drop module Administration;")
+ 
+-	res, err := PerformInstall(target, ref, emptyMpk(t), "Administration",
++	res, err := PerformInstall(target, ref, emptyMpk(t), "Administration", "23513",
+ 		"4.3.2", "00000000-0000-0000-0000-000000000000", testBackend)
+ 	if err != nil {
+ 		t.Fatalf("PerformInstall: %v", err)
+diff --git a/cmd/mxcli/marketplace/update.go b/cmd/mxcli/marketplace/update.go
+index 41f7131fe..47403f93c 100644
+--- a/cmd/mxcli/marketplace/update.go
++++ b/cmd/mxcli/marketplace/update.go
+@@ -148,7 +148,7 @@ type SkippedFile struct {
+ //
+ // A failure partway leaves the project in a broken state. The caller must work
+ // on a copy, or hold a backup: this does not roll back.
+-func PerformUpdate(mprPath, referenceMpr, targetMpk, moduleName, fromVersion, toVersion, toVersionID string,
++func PerformUpdate(mprPath, referenceMpr, targetMpk, moduleName, contentID, fromVersion, toVersion, toVersionID string,
+ 	newBackend func() backend.FullBackend) (*UpdateResult, error) {
+ 
+ 	ids, err := CaptureIdentities(mprPath, moduleName)
+@@ -177,7 +177,7 @@ func PerformUpdate(mprPath, referenceMpr, targetMpk, moduleName, fromVersion, to
+ 	if err != nil {
+ 		return nil, fmt.Errorf("restore role grants: %w", err)
+ 	}
+-	if err := StampMarketplaceVersion(mprPath, moduleName, toVersion, toVersionID); err != nil {
++	if err := StampMarketplaceVersion(mprPath, moduleName, contentID, toVersion, toVersionID); err != nil {
+ 		return nil, fmt.Errorf("record the installed version: %w", err)
+ 	}
+ 	files, skippedFiles, err := InstallPackageFiles(targetMpk, filepath.Dir(mprPath))
+@@ -220,7 +220,16 @@ func PerformUpdate(mprPath, referenceMpr, targetMpk, moduleName, fromVersion, to
+ // module by its AppStoreGuid — the marketplace *version* UUID — so a wrong stamp
+ // makes the module unrecognisable to the next update, which then reports that no
+ // module in the project came from this content.
+-func StampMarketplaceVersion(mprPath, moduleName, versionNumber, versionID string) error {
++//
++// Studio Pro reads the same record, and it reads all of it. A module it
++// installs itself carries five fields: FromAppStore, AppStoreVersion, the
++// version UUID in both AppStoreGuid and AppStoreVersionGuid, and the content id
++// in AppStorePackageIdString. A module stamped with only the first three is
++// listed among the app's own modules in the App Explorer instead of under
++// "Marketplace modules", so the stamp writes all five. contentID is the
++// marketplace content id as decimal text ("1011" for Encryption); empty when
++// the caller has none, in which case that one field is left as it was.
++func StampMarketplaceVersion(mprPath, moduleName, contentID, versionNumber, versionID string) error {
+ 	reader, err := modelsdk.Open(mprPath)
+ 	if err != nil {
+ 		return fmt.Errorf("open %s: %w", mprPath, err)
+@@ -242,9 +251,7 @@ func StampMarketplaceVersion(mprPath, moduleName, versionNumber, versionID strin
+ 		if !strings.EqualFold(name, moduleName) {
+ 			continue
+ 		}
+-		setStringField(doc, "AppStoreVersion", versionNumber)
+-		setStringField(doc, "AppStoreGuid", versionID)
+-		setBoolField(doc, "FromAppStore", true)
++		stampModuleDoc(doc, contentID, versionNumber, versionID)
+ 		enc, merr := bson.Marshal(doc)
+ 		if merr != nil {
+ 			reader.Disconnect()
+@@ -266,6 +273,21 @@ func StampMarketplaceVersion(mprPath, moduleName, versionNumber, versionID strin
+ 	return writer.UpdateRawUnit(unitID, contents)
+ }
+ 
++// stampModuleDoc writes the marketplace identity onto a Projects$ModuleImpl
++// document the way Studio Pro's own install leaves it: the version UUID goes
++// into AppStoreGuid and AppStoreVersionGuid alike, and the content id into
++// AppStorePackageIdString. It only assigns keys the document already has (see
++// setStringField), so a metamodel version without one of them is left intact.
++func stampModuleDoc(doc bson.D, contentID, versionNumber, versionID string) {
++	setStringField(doc, "AppStoreVersion", versionNumber)
++	setStringField(doc, "AppStoreGuid", versionID)
++	setStringField(doc, "AppStoreVersionGuid", versionID)
++	if contentID != "" {
++		setStringField(doc, "AppStorePackageIdString", contentID)
++	}
++	setBoolField(doc, "FromAppStore", true)
++}
++
+ // setStringField assigns an existing key, and only an existing key. Inventing a
+ // property Mendix does not store for this version is the failure mode ADR-0005
+ // warns about: mxbuild tolerates it and Studio Pro refuses to open the document.
+@@ -425,7 +447,7 @@ func duplicateOfPackagedWidget(name string, twins map[string]string) (string, bo
+ // `mx module-import` is what makes it worth having — it preserves the project's
+ // storage format, where module-import rewrites MPR v2 as v1, and it works for
+ // theme modules, which module-import refuses outright.
+-func PerformInstall(mprPath, referenceMpr, packageMpk, moduleName, version, versionID string,
++func PerformInstall(mprPath, referenceMpr, packageMpk, moduleName, contentID, version, versionID string,
+ 	newBackend func() backend.FullBackend) (*UpdateResult, error) {
+ 
+ 	copied, err := TransplantModule(referenceMpr, mprPath, moduleName)
+@@ -438,7 +460,7 @@ func PerformInstall(mprPath, referenceMpr, packageMpk, moduleName, version, vers
+ 	// none; leaving the module unstamped is the truthful record, and both then
+ 	// report — correctly — that no marketplace content is installed under it.
+ 	if versionID != "" {
+-		if err := StampMarketplaceVersion(mprPath, moduleName, version, versionID); err != nil {
++		if err := StampMarketplaceVersion(mprPath, moduleName, contentID, version, versionID); err != nil {
+ 			return nil, fmt.Errorf("record the installed version: %w", err)
+ 		}
+ 	}
+diff --git a/cmd/mxcli/marketplace/update_stamp_test.go b/cmd/mxcli/marketplace/update_stamp_test.go
+new file mode 100644
+index 000000000..00f38a02e
+--- /dev/null
++++ b/cmd/mxcli/marketplace/update_stamp_test.go
+@@ -0,0 +1,110 @@
++// SPDX-License-Identifier: Apache-2.0
++
++package marketplace
++
++import (
++	"testing"
++
++	"go.mongodb.org/mongo-driver/bson"
++)
++
++func lookupString(t *testing.T, doc bson.D, key string) string {
++	t.Helper()
++	for _, e := range doc {
++		if e.Key == key {
++			s, ok := e.Value.(string)
++			if !ok {
++				t.Fatalf("%s: expected string, got %T", key, e.Value)
++			}
++			return s
++		}
++	}
++	t.Fatalf("%s: key absent", key)
++	return ""
++}
++
++func docHasKey(doc bson.D, key string) bool {
++	for _, e := range doc {
++		if e.Key == key {
++			return true
++		}
++	}
++	return false
++}
++
++// A Projects$ModuleImpl as Studio Pro writes it carries all five marketplace
++// identity fields. The stamp must fill every one of them the way Studio Pro's
++// own install does: the version UUID in AppStoreGuid AND AppStoreVersionGuid,
++// the content id in AppStorePackageIdString. A module with only three of the
++// five set is listed among the app's own modules in the App Explorer instead
++// of under "Marketplace modules".
++func TestStampModuleDoc_SetsAllFiveIdentityFields(t *testing.T) {
++	doc := bson.D{
++		{Key: "$Type", Value: "Projects$ModuleImpl"},
++		{Key: "Name", Value: "Encryption"},
++		{Key: "FromAppStore", Value: false},
++		{Key: "AppStoreVersion", Value: ""},
++		{Key: "AppStoreGuid", Value: ""},
++		{Key: "AppStoreVersionGuid", Value: ""},
++		{Key: "AppStorePackageIdString", Value: ""},
++	}
++	stampModuleDoc(doc, "1011", "11.1.1", "0d8f1c4e-2b5a-4f3c-9a7e-6c1d2e3f4a5b")
++
++	if got := lookupString(t, doc, "AppStoreVersion"); got != "11.1.1" {
++		t.Errorf("AppStoreVersion = %q", got)
++	}
++	if got := lookupString(t, doc, "AppStoreGuid"); got != "0d8f1c4e-2b5a-4f3c-9a7e-6c1d2e3f4a5b" {
++		t.Errorf("AppStoreGuid = %q", got)
++	}
++	if got := lookupString(t, doc, "AppStoreVersionGuid"); got != "0d8f1c4e-2b5a-4f3c-9a7e-6c1d2e3f4a5b" {
++		t.Errorf("AppStoreVersionGuid = %q", got)
++	}
++	if got := lookupString(t, doc, "AppStorePackageIdString"); got != "1011" {
++		t.Errorf("AppStorePackageIdString = %q", got)
++	}
++	var from bool
++	for _, e := range doc {
++		if e.Key == "FromAppStore" {
++			from, _ = e.Value.(bool)
++		}
++	}
++	if !from {
++		t.Errorf("FromAppStore not set")
++	}
++}
++
++// An unknown content id (a package installed from disk, or a caller that has
++// none) leaves AppStorePackageIdString as it was rather than blanking it.
++func TestStampModuleDoc_EmptyContentIDLeavesPackageId(t *testing.T) {
++	doc := bson.D{
++		{Key: "FromAppStore", Value: false},
++		{Key: "AppStoreVersion", Value: ""},
++		{Key: "AppStoreGuid", Value: ""},
++		{Key: "AppStoreVersionGuid", Value: ""},
++		{Key: "AppStorePackageIdString", Value: "1011"},
++	}
++	stampModuleDoc(doc, "", "11.2.0", "uuid-2")
++	if got := lookupString(t, doc, "AppStorePackageIdString"); got != "1011" {
++		t.Errorf("AppStorePackageIdString overwritten: %q", got)
++	}
++	if got := lookupString(t, doc, "AppStoreVersionGuid"); got != "uuid-2" {
++		t.Errorf("AppStoreVersionGuid = %q", got)
++	}
++}
++
++// setStringField only assigns keys the document already has (ADR-0005), so a
++// metamodel version that lacks one of the five is left intact: no key is added.
++func TestStampModuleDoc_DoesNotAddAbsentKeys(t *testing.T) {
++	doc := bson.D{
++		{Key: "FromAppStore", Value: false},
++		{Key: "AppStoreVersion", Value: ""},
++		{Key: "AppStoreGuid", Value: ""},
++	}
++	stampModuleDoc(doc, "1011", "11.1.1", "uuid-1")
++	if docHasKey(doc, "AppStoreVersionGuid") || docHasKey(doc, "AppStorePackageIdString") {
++		t.Errorf("stamp added keys the document did not have: %v", doc)
++	}
++	if got := lookupString(t, doc, "AppStoreGuid"); got != "uuid-1" {
++		t.Errorf("AppStoreGuid = %q", got)
++	}
++}
+-- 
+2.43.0
+

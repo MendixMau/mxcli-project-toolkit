@@ -935,6 +935,15 @@ no `mxcli fix security`, and forcing a recompute with an MDL `GRANT` on a UserCo
 tried and **does not clear it**. Plan that module for a Studio Pro session; do not install it into a
 project that must stay buildable headlessly in the meantime.
 
+**5. (added 2026-09-28) A headless install is not a Studio Pro install in the model's eyes — check the
+Source column, and know what it cannot tell you.** `marketplace install <content-id>` stamps three of the
+five marketplace identity fields on the module (`FromAppStore`, `AppStoreVersion`, `AppStoreGuid`);
+`--file` stamps none. Studio Pro reads all five, so the module lands among the app's own modules in the
+App Explorer instead of under "Marketplace modules". After every install read `SHOW MODULES`: Source
+must say `Marketplace v<version>` (a `--file` install shows nothing there, and that is the first sign).
+Even when it does, on ≤ v0.24.0 the Studio Pro grouping is still wrong — see
+`BUG-DRAFT-marketplace-install-not-grouped-in-studio-pro` for the fix package.
+
 ---
 
 ### HISTORICAL RECORD (the bug as it was, kept because a ledger entry that vanishes reads as a bug never found)
@@ -6612,3 +6621,60 @@ filed upstream.
   and not probed here. The toolkit repeats the claim without evidence in
   `skills/learned-workflow-patterns.md` (the MPR006 row and the page-patterns note). Treat it as
   unconfirmed until someone runs an empty container. Ask upstream what the crash is.
+
+---
+
+## BUG-DRAFT-marketplace-install-not-grouped-in-studio-pro: a module installed by `marketplace install` is listed among the app's own modules in Studio Pro, not under "Marketplace modules" — the stamp writes 3 of 5 identity fields, and `--file` writes none (2026-09-28)
+
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/marketplace-install-not-grouped-in-studio-pro.md`.
+> Fix patch ready in `bug-logs/submitted-prs/mxcli/2026-09-28-marketplace-install-fromappstore/` (file the issue first, then the PR).
+
+> **Status:** reported 2026-09-28 from a field project on v0.24.0 (modules installed by mxcli showed up
+> in Studio Pro among the app's modules). Cause read from source on upstream `main` 95091765 and
+> measured on a fresh 11.13.0 probe project plus a real project that has a Studio Pro-installed module.
+> The Studio Pro regrouping after the fix is **not yet proven** — it needs a content-id install with the
+> patched binary and a Studio Pro open.
+
+**Family:** the #879 entry above (its fix added the stamp this entry is about; trap 5 there is the
+field rule), BUG-132 (`fix design-properties` on marketplace packages), BUG-133 (`_USE_ME` flows).
+
+**Discovered:** 2026-09-28. **mxcli version:** v0.24.0 (same code on `main` 95091765). **Severity:**
+Medium. Nothing fails to build; the module is simply not a Marketplace module to Studio Pro, so it is
+not shown as one, not offered updates there, and reads as the app's own code in every review.
+
+**Repro:**
+```
+mxcli marketplace install 1011 -p App.mpr        # Encryption, by content id
+mxcli -p App.mpr -c "SHOW MODULES"               # Source: Marketplace v11.x.y  (looks right)
+# open in Studio Pro: Encryption is among the app's own modules
+```
+
+**Expected:** the module carries the five fields a Studio Pro install writes on `Projects$ModuleImpl`
+(`FromAppStore`, `AppStoreVersion`, `AppStoreGuid`, `AppStoreVersionGuid`, `AppStorePackageIdString`)
+and is listed under "Marketplace modules".
+
+**Actual (measured):**
+- Content-id install / `marketplace update`: `StampMarketplaceVersion` (`cmd/mxcli/marketplace/update.go`)
+  writes `FromAppStore`, `AppStoreVersion`, `AppStoreGuid` only. `AppStoreVersionGuid` and
+  `AppStorePackageIdString` stay empty. The content id is never passed down to the stamp.
+- `--file` install: nothing is stamped. `FromAppStore` false, four empty strings (fresh 11.13.0 probe,
+  BusinessEvents package, unit decoded from `mprcontents`). `SHOW MODULES` shows no Source at all.
+- Studio Pro-installed reference (Encryption in a real project): all five set, `AppStoreGuid` equals
+  `AppStoreVersionGuid` (the version UUID), `AppStorePackageIdString` is `"1011"`.
+- `SHOW MODULES` and the catalog render `Marketplace v<x>` from `FromAppStore` alone
+  (`mdl/catalog/builder_modules.go`, `mdl/executor/cmd_modules.go`), so the CLI cannot show the gap.
+
+**Impact:** every module installed headlessly on a project reads as the app's own module the first time
+someone opens it in Studio Pro. Reviews count it as project code; Studio Pro's Marketplace pane does not
+list it for update. The `--file` route is worse: the module is not a marketplace module even to mxcli.
+
+**Workaround (≤ v0.24.0):** install by content id, never `--file`, and read `SHOW MODULES` Source after
+every install (preflight STOP row 27). That fixes the `--file` half. The grouping half needs the patch,
+or a one-off model patch that copies `AppStoreGuid` into `AppStoreVersionGuid` and writes the content id
+into `AppStorePackageIdString` (run it through `./bin/exec.sh --patch` so it is gated and restorable).
+
+**Fix (proposed upstream):** thread the content id through `installModule` → `PerformInstall` and the
+update command → `PerformUpdate`; one helper `stampModuleDoc` writes all five, still only on keys the
+document already has (ADR-0005). Unit tests for the helper; marketplace and cmd packages pass.
+Scope B (`--file --content-id --version` resolving the UUID through the marketplace client) is a
+separate ask in the issue draft.

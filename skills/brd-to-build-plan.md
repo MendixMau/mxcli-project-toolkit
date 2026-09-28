@@ -319,7 +319,7 @@ harness. This is the *moment*; the shape is Step 1's column and the detail is th
 >
 > Denominator: N modules → N close rows, ⌈N/3⌉ or more coherence rows, and exactly one final gate row.
 
-**Why the closing rows are rows, not a step in the build loop (ProcureFlow cook-off,
+**Why the closing rows are rows, not a step in the build loop (an unattended cook-off build,
 2026-09-27).** A 137-row plan was built unattended to DONE. The full e2e suite showed 62 pass and
 0 fail, and a time-and-outage run proved the escalation and ERP paths. The project looked finished.
 Asked for a "% done", the Stage 5 gate ran for the first time and showed `verify-module.sh` 0 of 7

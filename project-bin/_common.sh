@@ -361,7 +361,7 @@ find_mxcli_cache() {
 # .mpr's own SQLite _MetaData._ProductVersion. v1 and v2 models both carry it (v2's .mpr
 # is still the SQLite index). sqlite3 CLI if present (read-only), else Python's sqlite3.
 # Prints nothing and returns 1 when it cannot tell — callers then fall back to "newest".
-# Golden input: marketplace-rnd's Marketplace.mpr (v1, 152 MB) → _MetaData row
+# Golden input: a field project's .mpr (v1, 152 MB) → _MetaData row
 # ('11.12.2', '11.12.2', '{SHA256}…', 0), columns _ProductVersion, _BuildVersion,
 # _SchemaHash, _DisableAutoMprV2Upgrade (captured 2026-09-27).
 # ---------------------------------------------------------------------------
@@ -431,7 +431,7 @@ EOF_SP
 # path is still echoed when nothing is executable anywhere, so callers' error
 # messages name the path that was expected rather than "<none>".
 #
-# WHY VERSION FIRST (marketplace-rnd, 2026-09-26). mxbuild opens only a model of its own
+# WHY VERSION FIRST (field project, 2026-09-26). mxbuild opens only a model of its own
 # exact version. "Newest" picked a Studio Pro 11.14.0 Beta for an 11.12.2 model; that
 # mxbuild exited 3 in two seconds with "Project version '11.12.2' does not exactly match
 # MxBuild version '11.14.0'" in errors[] and an empty problems[] — and the gate read the
@@ -475,7 +475,7 @@ find_java() {
   local app jh
   # JDK 21 first on macOS: with JDK 25 as the default, the Mendix 11 deploy build's gradle
   # 8.5 fails ("Unsupported class file major version 69", mxbuild exit 3, empty problems[])
-  # — marketplace-rnd 2026-09-26, Mendix 11.12.2. Platform-guarded: java_home is mac-only.
+  # — field project 2026-09-26, Mendix 11.12.2. Platform-guarded: java_home is mac-only.
   if [ "$(mxtk_platform)" = macos ] && [ -x /usr/libexec/java_home ]; then
     jh=$(/usr/libexec/java_home -v 21 2>/dev/null || /usr/libexec/java_home 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
   fi
@@ -627,7 +627,7 @@ mxtk_mxbuild_error_count() {
 # mxtk_mxbuild_why <errors-file> [python] — mxbuild's own errors[] messages, joined and
 # capped at 300 chars, or nothing. errors[] is where mxbuild says why it did NOT check the
 # model; problems[] is only the model's findings. Verbatim errors[] captured on
-# marketplace-rnd (2026-09-26, mxbuild 11.14.0 vs an 11.12.2 model, exit 3):
+# A field project (2026-09-26, mxbuild 11.14.0 vs an 11.12.2 model, exit 3):
 #   {"errors":[{"message":"The MPR file located at …/Marketplace.mpr could not be opened:
 #    Project version '11.12.2' does not exactly match MxBuild version '11.14.0'. Use loose
 #    version check option for less strict version checking.","details":""}],"problems":[]}

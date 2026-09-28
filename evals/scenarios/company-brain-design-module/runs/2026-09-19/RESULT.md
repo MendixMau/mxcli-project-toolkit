@@ -24,8 +24,8 @@ Re-score any time: `bash runs/grade.sh` over `runs/<date>/*.md`.
 - **Sessions:** 6 fresh Sonnet subagents, 3 per arm, one identical prompt, no hint that a
   company brain exists. Each wrote a design-system answer, a page plan, and the ordered list of
   files it opened. ~110k tokens and ~70 s each.
-- **Markers:** `USIDesignSystem`, `SNIPPET_USIPageHeader` / `SNIPPET_USIDataTable`,
-  `--usi-brand-*`. Grepped for absence in both arms' project files before the run, so a hit
+- **Markers:** `AcmeDesignSystem`, `SNIPPET_AcmePageHeader` / `SNIPPET_AcmeDataTable`,
+  `--acme-brand-*`. Grepped for absence in both arms' project files before the run, so a hit
   cannot be a guess.
 
 ## What the treatment arm did

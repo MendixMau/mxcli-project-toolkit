@@ -97,7 +97,7 @@ echo "fake mxbuild ${MODE_BUILD:-clean}"
 exit "${MODE_BUILD_EXIT:-0}"
 MXB
 chmod +x "$WORK/mxbuild"
-# Verbatim errors file of mxbuild 11.14.0 refusing an 11.12.2 model (marketplace-rnd, 2026-09-26).
+# Verbatim errors file of mxbuild 11.14.0 refusing an 11.12.2 model (field project, 2026-09-26).
 export GOLDEN_REFUSED="$TOOLKIT/tests/wave2/fixtures/mxbuild-version-mismatch.errors.json"
 
 ( cd "$P" && git init -q . && git add -A && \
@@ -265,7 +265,7 @@ fi
 [ "$(rows)" -gt "$BEFORE" ] && ok "the block is logged" || bad "blocked run left no trace in the log"
 
 # ── K: mxbuild REFUSED the model (version mismatch) -> UNVERIFIED, never clean ─
-# Field shape (marketplace-rnd, 2026-09-26): exit 3, reason in errors[], problems[] empty.
+# Field shape (field project, 2026-09-26): exit 3, reason in errors[], problems[] empty.
 # Before the fix this counted 0 Error problems and logged "pass · mxbuild clean" for 29 of
 # 29 execs, one of which carried a CE0066 the matching mxbuild found.
 echo "== K: mxbuild exit 3 + errors[] + empty problems[] -> UNVERIFIED, not clean =="
@@ -284,7 +284,7 @@ printf '%s' "$LAST" | grep -q 'does not exactly match MxBuild version' \
 grep -q 'mxbuild setup\|setup mxbuild\|MXBUILD_PATH' "$WORK/out.K" && ok "remedy named on screen" || bad "no remedy on screen"
 
 # ── L: a failed gate on a v1 single-file model is rolled back ────────────────
-# Field (marketplace-rnd, 152 MB v1 .mpr, 2026-09-26): the inline restore had only the
+# Field (field project, 152 MB v1 .mpr, 2026-09-26): the inline restore had only the
 # mprcontents/ arm, printed "Snapshot has no mprcontents/ — refusing to restore from it."
 # and left the broken model in place. Restore now goes through restore-mpr.sh.
 echo "== L: v1 model (no mprcontents/) + failed gate -> .mpr byte-identical to the snapshot =="

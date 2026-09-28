@@ -450,7 +450,7 @@ echo "→ Snapshotting model..."
 # ── Restore (one implementation) ─────────────────────────────────────────────
 # Rolls the model back to the snapshot just taken, through restore-mpr.sh. exec.sh used to
 # carry an inline copy of it that had only the mprcontents/ (v2) arm, so on a v1 single-file
-# model (Marketplace-RnD, 152 MB, 2026-09-26) every failed gate printed "Snapshot has no
+# model (field project, 152 MB, 2026-09-26) every failed gate printed "Snapshot has no
 # mprcontents/ — refusing to restore" and left the broken model in place. Sets RESTORED=1 on
 # success; prints the manual recovery line otherwise. Used by the failed gate and by --patch.
 RESTORED=0
@@ -601,7 +601,7 @@ if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; 
     _BC=$(err_count "$_BF"); _BCODES=$(err_codes "$_BF")
     # Non-zero exit, 0 Error problems: mxbuild refused the model without checking it
     # (version mismatch, JDK) — the baseline was NOT measured. It used to print
-    # "baseline clean" here (marketplace-rnd 2026-09-26, run A2: mxbuild 11.14.0, model 11.12.2).
+    # "baseline clean" here (field project 2026-09-26, run A2: mxbuild 11.14.0, model 11.12.2).
     [ "$_BC" = "0" ] && [ "$MXTK_MXBUILD_EXIT" -ne 0 ] && _BC="?"
   fi
   rm -f "$_BF"
@@ -700,7 +700,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
     elif [ "$CE_COUNT" = "0" ] && [ "$MXBUILD_EXIT" -ne 0 ]; then
       # Non-empty errors file, 0 Error problems, NON-ZERO exit: mxbuild never checked the
       # model. The reason sits in errors[], which err_count does not read, e.g. (verbatim,
-      # marketplace-rnd 2026-09-26, exit 3): "Project version '11.12.2' does not exactly
+      # field project 2026-09-26, exit 3): "Project version '11.12.2' does not exactly
       # match MxBuild version '11.14.0'". The same shape comes from a JDK the deploy build's
       # gradle cannot run under. This branch used to fall through to the one below and log
       # "pass · mxbuild clean" — 29 of 29 execs on one machine, one of them shipping a

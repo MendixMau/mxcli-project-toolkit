@@ -1,6 +1,6 @@
 # mxcli upstream issue drafts (mendixlabs/mxcli), ranked by impact
 
-**Source:** marketplace-rnd guest-groups work, probes on scratch copies 2026-09-27.
+**Source:** a field project's guest-groups work, probes on scratch copies 2026-09-27.
 mxcli v0.23.0, Mendix 11.12.2, v1 .mpr. **Status:** drafts, not filed. Duplicate search done
 (nearest existing issues noted per item).
 

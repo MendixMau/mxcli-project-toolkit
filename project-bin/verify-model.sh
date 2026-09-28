@@ -56,7 +56,7 @@ elif [ -s "$ERR" ]; then
   CODES="$("$PY" -c "import json;d=json.load(open('$(native_path "$ERR")'));print(','.join(sorted({x.get('errorCode','?') for x in d.get('problems',[]) if x.get('severity')=='Error'})))" 2>/dev/null || echo "?")"
   # Non-zero exit with 0 Error problems: mxbuild stopped BEFORE checking the model (version
   # mismatch, JDK/gradle) and said why in errors[]. That read as "0 errors" and WROTE THE
-  # PASS STAMP (marketplace-rnd 2026-09-26, mxbuild 11.14.0 vs an 11.12.2 model, exit 3).
+  # PASS STAMP (field project 2026-09-26, mxbuild 11.14.0 vs an 11.12.2 model, exit 3).
   if [ "$COUNT" = "0" ] && [ "$RC" -ne 0 ]; then
     COUNT="?"; WHY="$(mxtk_mxbuild_why "$ERR" "$PY" 2>/dev/null || true)"
   fi

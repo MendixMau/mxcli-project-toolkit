@@ -270,7 +270,7 @@ function localMockClasses(html) {
 // BUILDABLE is not owed. bindRows used to skip only header rows, so a wireframe's
 // `<s>Demo chip (curated tiles)</s>` row (verdict "CUT — would be empty on 15 of the 16
 // tiles") was scored as a missed binding on a page that correctly left it out
-// (marketplace-rnd CatalogView_v5, 2026-09-23).
+// (a field project's catalog page, 2026-09-23).
 const notOwed = trInner => {
   if (/<s>/i.test(trInner)) return true;
   const raw = [...trInner.matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map(c => c[1]);
@@ -371,7 +371,7 @@ let MODULE = null;
 // (v0.23.0) renders an IMAGE widget's ImageUrl as its bare template — `ImageUrl: '{1}'` —
 // and DROPS the template's attribute parameters, although the model holds them
 // (Forms$ClientTemplate.Parameters → DomainModels$AttributeRef, verified in the .mpr BSON).
-// Measured on marketplace-rnd CatalogView_v5, 2026-09-23: a script bound both card images
+// Measured on a field project's catalog page, 2026-09-23: a script bound both card images
 // with `set ImageUrl = [Attr] on <widget>`, the app shows the logos, and DESCRIBE still
 // printed `'{1}'` — indistinguishable from the unbound pre-fix page, so the scorer reported
 // two bindings missed. Guessing from `'{1}'` would credit exactly the unbound defect that

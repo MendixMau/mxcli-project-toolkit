@@ -1,6 +1,6 @@
 # Local boot: app-specific login replacement means no local password works
 
-**Source:** marketplace-rnd `docs/case-study/boot.md`. **Status:** unreviewed.
+**Source:** a field project's `docs/case-study/boot.md`. **Status:** unreviewed.
 
 The app replaces XAS login with a custom Java listener that verifies against a remote identity
 service, so no local/demo password logs in. The project keeps a local patch (skip-worktree) that

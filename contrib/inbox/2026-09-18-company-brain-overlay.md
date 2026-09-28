@@ -99,9 +99,9 @@ re-merged by hand. An overlay is `git pull` on both and one sync.
   `skills/PROMOTED.md` (2026-09-14) is the up-direction done right: after promotion the private file
   becomes a pointer stub so project routing rows keep resolving. **v1 of this idea is therefore
   "extract personal-toolkit's shape into `templates/company-brain/`", not a design from scratch.**
-- **The failure mode is documented, from the other side.** USI workshop research
-  (`ai-presales-notes/customers/USI/workshop/research/gap-repo-truth.md` §5c, 2026-08): five skills
-  cited by the *public* toolkit existed only in the *private* one — "a USI engineer following the
+- **The failure mode is documented, from the other side.** A customer workshop
+  (a private workshop research note, 2026-08): five skills
+  cited by the *public* toolkit existed only in the *private* one — "an engineer at that customer following the
   pointer gets nothing." Master still carries three such pointers today (`commands/mobile-dev-loop-
   prompt.md`, two bug-log lines). **Rule for the template: the public tier never cites the company
   tier; the company tier may cite public. Add the grep to `check-scripts`/CI.**
@@ -112,7 +112,7 @@ re-merged by hand. An overlay is `git pull` on both and one sync.
   the harness repo or a new org-owned repo — "it's Maurits' personal-toolkit-derived work, not yet an
   org asset." The company-brain template is the answer that makes both true: the toolkit stays the
   public harness, an org-owned company brain is one `templates/company-brain/` instantiation.
-- **The deck already teaches the first half.** USI deck slide "A skill in the project folder does
+- **The deck already teaches the first half.** The customer workshop deck slide "A skill in the project folder does
   not survive the project" (ch. 56) — where a skill lives — and "How the next session knows what
   already happened" — the wiring page, now `toolkit-guide.html` §9.
 - **Cross-project direction, seeds only.** `personal-toolkit/field-runs/` and `handoffs/` are the

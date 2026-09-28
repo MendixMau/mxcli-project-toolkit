@@ -15,7 +15,7 @@ mxcli reads the 10.6.4 model directly, no complaint:
 $ mxcli -p <extracted-from-mpk>/project.mpr -c "SHOW MODULES"
 | Module           | Entities | Pages | Microflows | ... |
 | System           | 39       | 0     | 0          |     |
-| USI_Theme_Module | 0        | 0     | 0          |     |
+| Acme_Theme_Module | 0        | 0     | 0          |     |
 (2 modules)   exit 0
 ```
 
@@ -26,7 +26,7 @@ snippets or enums. It is not a model import at all. It is files.
 ## 2. So "installing" it is a file operation, and it builds
 
 ```bash
-cp -r <mpk>/themesource/usi_theme_module  <app>/themesource/
+cp -r <mpk>/themesource/acme_theme_module  <app>/themesource/
 cp -n <mpk>/widgets/*.mpk                 <app>/widgets/
 mxbuild --java-home=$JH --java-exe-path=$JH/bin/java --target=deploy <app>.mpr
 # BUILD SUCCEEDED — log includes "Compiling theme files" / "Exporting a theme"
@@ -43,8 +43,8 @@ The module's `web/main.scss` opens with:
 @import '../../../theme/web/custom-variables';
 ```
 
-It imports the **project's** variables, and `usi-custom-variables.scss` — the file carrying every
-USI brand value — **is imported by nothing in the package**. Verified by grep across the module.
+It imports the **project's** variables, and `acme-custom-variables.scss` — the file carrying every
+Acme brand value — **is imported by nothing in the package**. Verified by grep across the module.
 It is a *replacement* for the project's `theme/web/custom-variables.scss`, not a partial.
 
 So the module compiled happily against whatever palette the project already had, produced valid
@@ -53,10 +53,10 @@ CSS, and reported success. Nothing warns you.
 ## 4. The complete, working install
 
 ```bash
-cp -r <mpk>/themesource/usi_theme_module        <app>/themesource/
+cp -r <mpk>/themesource/acme_theme_module        <app>/themesource/
 cp -n <mpk>/widgets/*.mpk                       <app>/widgets/
 cp <app>/theme/web/custom-variables.scss        <app>/theme/web/custom-variables.scss.backup
-cp <mpk>/themesource/usi_theme_module/web/usi-custom-variables.scss \
+cp <mpk>/themesource/acme_theme_module/web/acme-custom-variables.scss \
    <app>/theme/web/custom-variables.scss        # the step that is easy to miss
 mxbuild --java-home=$JH --java-exe-path=$JH/bin/java --target=deploy <app>.mpr
 ```

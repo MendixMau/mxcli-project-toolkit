@@ -59,7 +59,7 @@ turns.
      Reshape or ask the user to do it.
 
    **A model patch refused as destruction** is the toolkit's own case of this check. On
-   2026-09-27 on marketplace-rnd, Claude Code's auto-mode classifier refused
+   2026-09-27 on a field project, Claude Code's auto-mode classifier refused
    `python3 patch.py Marketplace.mpr` as "Irreversible Local Destruction". The `.mpr` was
    git-tracked and snapshotted. Reshape it to `./bin/exec.sh --patch patch.py`: the same
    write, now with snapshot, mxbuild gate, restore and a BUILD-LOG row. It also matches an

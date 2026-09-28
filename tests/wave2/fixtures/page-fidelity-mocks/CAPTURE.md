@@ -49,7 +49,7 @@ cleared it; the page header did not, and it is the one holding the heading.
 
 ## bind-contract — the five-column bind table and DESCRIBE's blind ImageUrl (2026-09-23)
 
-`bind-contract.html` carries five rows of the real bind table in marketplace-rnd's
+`bind-contract.html` carries five rows of the real bind table in a field project's
 `CatalogView-redesign-v2.html`, **verbatim in markup and prose** — including the struck
 `<s>Demo chip</s>` row with its `CUT —` verdict, the CSS cell "(already a ds.css candidate)",
 and the Dark-mode cell naming `#mxapp.theme-dark`. Changed: the class prefix (`mps-` -> `x-`)

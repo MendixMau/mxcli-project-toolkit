@@ -1,7 +1,7 @@
 # Run 2 — 2026-09-20 — the real theme module and brand guide
 
 Run 1 used a stand-in component. This one uses the company's actual Mendix theme module
-(a full module export, 56 MB, adding `themesource/usi_theme_module/`) and its corporate UI/UX
+(a full module export, 56 MB, adding `themesource/acme_theme_module/`) and its corporate UI/UX
 guide PDF. Same app, same two arms, prompt reworded to the fixture's real stage (run-1 defect D1).
 
 ## Result

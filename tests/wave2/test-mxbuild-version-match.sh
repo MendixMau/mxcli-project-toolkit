@@ -4,7 +4,7 @@
 #
 #   usage: bash tests/wave2/test-mxbuild-version-match.sh project-bin/_common.sh
 #
-# Field origin (marketplace-rnd, Mendix 11.12.2, v1 single-file .mpr, 2026-09-26): find_mxbuild
+# Field origin (field project, Mendix 11.12.2, v1 single-file .mpr, 2026-09-26): find_mxbuild
 # picked the NEWEST mxbuild (a Studio Pro 11.14.0 Beta). It refused the 11.12.2 model with exit
 # 3, put the reason in the errors file's errors[] and left problems[] empty; the gate counted
 # 0 Error problems and logged "pass · mxbuild clean" for 29 of 29 execs, one carrying a CE0066.

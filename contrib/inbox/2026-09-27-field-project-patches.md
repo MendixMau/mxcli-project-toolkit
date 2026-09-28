@@ -6,10 +6,10 @@
 > project copy lacks — so the promotion is a merge of two functions, not a copy-over. The 11
 > STALE rows are ordinary sync lag (`sync-project.sh --upgrade-bin`), no toolkit action.
 
-**From:** marketplace-rnd
+**From:** a field project
 **Date:** 2026-09-27
 **Kind:** fix
-**Field evidence:** installed toolkit scripts in marketplace-rnd/bin that differ from the shipped copy — a local patch here is a fix that never traveled (how graph-sweep's stat bug got patched twice)
+**Field evidence:** installed toolkit scripts in a field project's bin/ that differ from the shipped copy — a local patch here is a fix that never traveled (how graph-sweep's stat bug got patched twice)
 **Proposed target:** see per-item notes below
 
 ---
@@ -90,12 +90,12 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 -// BUILDABLE is not owed. bindRows used to skip only header rows, so a wireframe's
 -// `<s>Demo chip (curated tiles)</s>` row (verdict "CUT — would be empty on 15 of the 16
 -// tiles") was scored as a missed binding on a page that correctly left it out
--// (marketplace-rnd CatalogView_v5, 2026-09-23).
+-// (a field project's catalog page, 2026-09-23).
 +// A row the author struck through or marked CUT / NOT BUILDABLE is not owed — the same rule
 +// contractRows applies. bindRows used to skip only header rows, so CatalogView-redesign-v2's
 +// `<s>Demo chip (curated tiles)</s>` row (verdict "CUT — would be empty on 15 of the 16 tiles")
 +// was scored as a missed LastPublishedVersionDemoUrl binding on a page that correctly left it
-+// out (marketplace-rnd, 2026-09-23). Two readers of one table disagreeing about which rows count
++// out (field project, 2026-09-23). Two readers of one table disagreeing about which rows count
 +// is the defect; notOwed() is the one answer both now use.
  const notOwed = trInner => {
    if (/<s>/i.test(trInner)) return true;
@@ -114,7 +114,7 @@ Not byte-identical to any shipped version in toolkit history — a real local fi
 +// design is local CSS. Rows the author marked NOT BUILDABLE / CUT / struck through are not owed.
 +// The CSS cell is prose as well as selectors — "`.mps-filter-rail` (already a ds.css
 +// candidate)" — and the old unanchored /\.([a-z]…)/ harvested `css` out of `ds.css` as a class
-+// the page owed (marketplace-rnd CatalogView_v5, 2026-09-23: `contract: Filter rail (.css)`,
++// the page owed (a field project's catalog page, 2026-09-23: `contract: Filter rail (.css)`,
 +// 1 of 30 contract items bogus and unfixable by any build). A dot glued to a preceding word is
 +// either a FILE NAME (ds.css, main.scss) or a COMPOUND SELECTOR (#mxapp.theme-dark — a real
 +// class, and the same table's Dark-mode row owes it). Only the extension is dropped; an

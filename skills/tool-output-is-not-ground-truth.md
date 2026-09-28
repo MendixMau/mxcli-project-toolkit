@@ -262,7 +262,7 @@ Two corollaries, both of which cost real time here:
   run where the gate had been *skipped*. Both pass paths were green. The failure path is where
   error-reporting code lives, and it is the path nobody runs.
 
-**A count of zero and an exit code are two facts, not one.** (Marketplace-RnD, 2026-09-26.)
+**A count of zero and an exit code are two facts, not one.** (field project, 2026-09-26.)
 The exec gate counted `Error` entries in mxbuild's `problems[]` and read 0 as clean. mxbuild
 11.14.0, handed an 11.12.2 model, exited **3**, put its reason in `errors[]` and left
 `problems[]` empty, so the gate logged `pass · mxbuild clean` on 29 of 29 execs. One of those

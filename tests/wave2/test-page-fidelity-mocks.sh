@@ -111,7 +111,7 @@ hasnt "the once-used card wrapper is not a mock"  "$MOCKLINE2" "x-card"
 hasnt "a mocked list page does not score null"    "$OUT2" "fidelity null%"
 
 echo "  -- bind table: struck/CUT rows are not owed; DESCRIBE's blind ImageUrl; ALTER bodies count"
-# bind-contract.html reproduces rows of a real five-column bind table (marketplace-rnd
+# bind-contract.html reproduces rows of a real five-column bind table (field project
 # CatalogView-redesign-v2.html, 2026-09-23); bind-contract-describe.mdl is the shape mxcli
 # v0.23.0 DESCRIBE printed for the built page — two IMAGE widgets whose ImageUrl renders as a
 # bare '{1}' although the model binds an attribute. See CAPTURE.md.

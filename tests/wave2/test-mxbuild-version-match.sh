@@ -33,9 +33,10 @@ PASS=0; FAIL=0
 ok()   { PASS=$((PASS + 1)); echo "  ok    $*"; }
 fail() { FAIL=$((FAIL + 1)); echo "  FAIL  $*"; }
 
-PY=""
-for c in python3 python; do "$c" -c 'import sqlite3' >/dev/null 2>&1 && { PY="$c"; break; }; done
-[ -n "$PY" ] || { echo "SKIP: no Python 3 with sqlite3"; exit 0; }
+# shellcheck disable=SC1091
+. "$HERE/../../bin/lib/portable.sh"
+PY="$(resolve_py)" && "$PY" -c 'import sqlite3' >/dev/null 2>&1 \
+  || { echo "SKIP: no Python 3 with sqlite3"; exit 0; }
 
 # ── Fixture project: a v1 single-file .mpr with the captured _MetaData shape ─
 P="$T/proj"; mkdir -p "$P"

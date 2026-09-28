@@ -27,6 +27,10 @@
 #      an instrument that green-lights a project with no compiled stylesheet is worse than
 #      absent. Exit 2, and 2 must not be confused with 0.
 #
+#   5. BOTH LAYOUTS, AND NO SILENT ZERO. On a two-tree checkout the knob file sits under app/;
+#      a knob file the instrument cannot find or read reports UNMEASURED and exits 2, never
+#      "0 of 0 knobs bound" under a clean verdict (field run 2026-09-28).
+#
 # Usage: bash test-design-reaches-app.sh [path-to-check-design-reaches-app.sh]
 
 set -u
@@ -140,6 +144,63 @@ d="$(project vendor built-fixed.css true)"
 mkdir -p "$d/themesource/atlas_core/web"
 printf '$brand-primary: var(--brand);\n' > "$d/themesource/atlas_core/web/main.scss"
 check "a vendored atlas_core file is not reported" "$(code "$d")" "0"
+
+# ── 9. both layouts: the app under app/ ─────────────────────────────────────────────────────
+# The theme, themesource and deployment trees sit beside the .mpr. On a two-tree checkout
+# (design/ and mdlsource/ at the repo root, the app under app/) the instrument used to read
+# theme/web/custom-variables.scss from the root, find nothing, and print "0 of 0 knobs bound"
+# under a clean verdict. Field run 2026-09-28: 0 of 0 by default, 26 of 30 with the path given
+# by hand. The layout below is the real one's, path for path (see CAPTURE.md).
+two_tree() {
+  d="$(project "$1" "$2" "$3")"
+  mkdir -p "$d/app" "$d/mdlsource"
+  mv "$d/theme" "$d/deployment" "$d/themesource" "$d/app/"
+  [ "$4" = "mpr" ] && : > "$d/app/App.mpr"
+  printf '%s' "$d"
+}
+d="$(two_tree tt built-fixed.css true mpr)"
+out="$(run "$d")"
+check "two-tree (.mpr under app/) exits 0"         "$(code "$d")" "0"
+has   "two-tree finds the knob file under app/"     "$out" "knob file       app/theme/web/custom-variables.scss"
+has   "two-tree measures the knobs"                 "$out" "knobs bound     4 of 4"
+has   "two-tree finds the built sheet under app/"   "$out" "built stylesheet app/deployment/web/theme.compiled.css"
+has   "two-tree reads \$use-css-variables"          "$out" "css-vars mode   \$use-css-variables: true"
+hasnt "two-tree never says 0 of 0"                  "$out" "knobs bound     0 of 0"
+
+d="$(two_tree tt-broken built-broken.css true mpr)"
+check "two-tree shipped state still exits 1"       "$(code "$d")" "1"
+has   "two-tree reports 0 of 4 knobs"               "$(run "$d")" "0 of 4 framework knobs are bound"
+
+# No .mpr (an installed copy beside an older _common.sh, or a bare tree): probe app/ anyway.
+d="$(two_tree tt-nompr built-fixed.css true "")"
+has   "two-tree without an .mpr still finds app/"   "$(run "$d")" "knobs bound     4 of 4"
+
+d="$(two_tree tt-bridge built-fixed.css true mpr)"
+printf '$brand-primary: var(--brand);\n' > "$d/app/themesource/moc/web/main.scss"
+out="$(run "$d")"
+check "two-tree dead SCSS bridge exits 1"          "$(code "$d")" "1"
+has   "two-tree names the bridge file under app/"   "$out" "app/themesource/moc/web/main.scss:1"
+
+# ── 10. a knob file it cannot read is a fault, never clean ──────────────────────────────────
+d="$(project noknobs built-fixed.css true)"
+rm -f "$d/theme/web/custom-variables.scss"
+out="$(run "$d")"
+check "a missing knob file exits 2"               "$(code "$d")" "2"
+has   "says the knob pass is UNMEASURED"            "$out" "UNMEASURED"
+has   "names the missing file"                      "$out" "custom-variables.scss not found"
+hasnt "does not call it clean"                      "$out" "check-design-reaches-app: clean"
+hasnt "does not print 0 of 0"                       "$out" "knobs bound     0 of 0"
+
+d="$(project emptyknobs built-fixed.css true)"
+printf ':root {\n//   --brand-primary: #264ae5;\n}\n$use-css-variables: true;\n' > "$d/theme/web/custom-variables.scss"
+check "a knob file declaring no knobs exits 2"    "$(code "$d")" "2"
+has   "says no knobs were declared"                 "$(run "$d")" "no framework knobs declared"
+
+# A knob file given by hand is still honoured, as the third argument and as CUSTOM_VARS.
+d="$(project override built-fixed.css true)"
+mkdir -p "$d/elsewhere"; mv "$d/theme/web/custom-variables.scss" "$d/elsewhere/cv.scss"
+has   "third argument names the knob file"          "$( cd "$d" && bash "$SUT" design/ds.css deployment/web/theme.compiled.css elsewhere/cv.scss 2>&1 )" "knobs bound     4 of 4"
+has   "CUSTOM_VARS names the knob file"             "$( cd "$d" && CUSTOM_VARS=elsewhere/cv.scss bash "$SUT" 2>&1 )" "knobs bound     4 of 4"
 
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

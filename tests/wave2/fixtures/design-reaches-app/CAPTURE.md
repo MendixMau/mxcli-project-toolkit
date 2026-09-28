@@ -38,3 +38,32 @@ no selector altered, no structure simplified.
 
 The 0-of-35 and 0-of-28 rows are the whole reason this instrument exists: both were true
 while `mx check`, `mxcli lint`, the MDL suite and two e2e journeys were green.
+
+## The two-tree layout (case 9), captured 2026-09-28
+
+Case 9 builds its project in the shape of a real two-tree checkout, a Mendix 11.14.0 app
+(mxbuild 11.14.0, Atlas 3, `$use-css-variables: true`) with the model under `app/`. The
+paths, verbatim from that checkout:
+
+| Path (relative to the repo root) | Holds |
+|---|---|
+| `design/ds.css` | the design system: tokens and classes |
+| `mdlsource/` | the MDL scripts the WARN pass reads |
+| `app/<Name>.mpr` + `app/mprcontents/` | the model |
+| `app/theme/web/custom-variables.scss` | the framework knobs (664 lines, 35 uncommented declarations) |
+| `app/themesource/<module>/web/` | theme modules |
+| `app/deployment/web/theme.compiled.css` | the built sheet (1.2 MB) |
+
+Measured there on 2026-09-28, with the built sheet passed by hand and nothing else:
+
+| | Before the fix (knob file read from the root) | After the fix (no arguments at all) |
+|---|---|---|
+| knobs bound | **0 of 0** | **26 of 30** |
+| tokens arrived | 157 of 157 | 157 of 157 |
+| classes arrived | 239 of 269 | 239 of 269 |
+| `$use-css-variables` | unknown (dead-bridge pass silently skipped) | true |
+| verdict | `clean, 3 warning(s)`, exit 0 | `clean, 2 warning(s)`, exit 0 |
+
+The 35 declarations include some that name no knob the built bare `:root` defines; those
+drop out of the denominator. The "before" verdict is the defect: a pass that read nothing,
+reported as clean.

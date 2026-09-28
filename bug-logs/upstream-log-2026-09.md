@@ -16,6 +16,7 @@ This is the index of what we sent upstream or have ready to send.
 | mendixlabs/mxcli#1224 | 2026-09-27 | `create or modify association` keeps the old owner when the association crosses modules | Open |
 | mendixlabs/mxcli#1225 | 2026-09-27 | `revoke … (write (<association>))` says "No access rules found", exits 0, changes nothing | Open |
 | mendixlabs/mxcli#1226 | 2026-09-27 | MPR012 warns on legacy image widgets in a classic-client app (no CE0582 there) | Open |
+| mendixlabs/mxcli#1228 | 2026-09-28 | `alter page` / `alter snippet` cannot `set RenderMode` on a dynamic text ("not a property of this built-in widget") | Open. Fix proposed in PR #1229 |
 
 ## Comments on existing issues
 
@@ -30,6 +31,7 @@ This is the index of what we sent upstream or have ready to send.
 | Package | Closes | Status |
 |---|---|---|
 | `submitted-prs/mxcli/2026-09-27-file-uploader-nested-visibility/` | #1198 | OPENED as [mendixlabs/mxcli#1227](https://github.com/mendixlabs/mxcli/pull/1227) on 2026-09-28; linked from #1198 |
+| `submitted-prs/mxcli/2026-09-28-alter-page-set-rendermode/` | #1228 | OPENED as [mendixlabs/mxcli#1229](https://github.com/mendixlabs/mxcli/pull/1229) on 2026-09-28; linked from #1228. Rebased from fork-only MendixMau/mxcli#1 (now closed) |
 
 ## Issue drafts
 

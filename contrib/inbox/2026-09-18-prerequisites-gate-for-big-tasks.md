@@ -1,6 +1,6 @@
 # Idea: a prerequisites gate before any "full X" task — readiness and success criteria first, tokens second
 
-**From:** Maurits Visser (MendixMau)
+**From:** the maintainer
 **Date:** 2026-09-18
 **Kind:** process
 **Field evidence:** recurring pattern, not a single incident — big à-la-carte asks ("full app
@@ -83,7 +83,7 @@ Two halves:
    **existing-app assurance (audit/lint/regression)**, **full migration assessment**. Others
    later.
 2. ~~Where does the "I already checked this on this project" memory live?~~ **Resolved 2026-09-18
-   (Maurits): `mxcli brain`.** Rationale: the 2026-09-17 split already sends "what a session
+   (the maintainer): `mxcli brain`.** Rationale: the 2026-09-17 split already sends "what a session
    learned" to brain and only gate answers to `PROJECT.md`; riding the CLI's own concept avoids a
    parallel register that rots; anchors make a prerequisite self-invalidating (`brain check` goes
    red when the demo user's module role is dropped). Three constraints:

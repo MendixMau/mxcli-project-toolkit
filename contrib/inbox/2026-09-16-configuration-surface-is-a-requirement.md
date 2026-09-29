@@ -1,6 +1,6 @@
 # "Read it from the environment" is only a design if the environment can be written to — a deployment tier was chosen at stage 0 and silently deleted a configuration mechanism the whole app depended on
 
-**From:** Maurits Visser, from a MOC/PSSR app replacement
+**From:** the maintainer, from an app-replacement project
 **Date:** 2026-09-16
 **Kind:** learning / process
 **Field evidence:** confirmed on a real deployment, not a hypothesis. Four configuration

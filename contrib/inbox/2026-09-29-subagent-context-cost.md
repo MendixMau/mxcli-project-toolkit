@@ -27,15 +27,20 @@ Calls per row are the same. The whole cost gap is **context re-read per call**:
 
 1. **Lead session: autocompact was accidentally 1M.** Lead averaged 363–466k per call. Fixable
    by configuration; re-estimated at 250k autocompact the build drops ~$270–310 → ~$214–237.
-2. **Sub-agents start heavy.** Every build/test sub-agent averaged 225–240k from its first
-   call — it loads CLAUDE.md, the always-on skills and the spec before doing anything. This
-   part survives the autocompact fix and is why the toolkit arm still costs ~$1.7–1.9 per row
+2. **Sub-agents start heavy and never compact.** Estimated load before the first write is
+   ~145–215k (chars/4): stub with 81-row routing table ~8k, CLAUDE.md + CLAUDE.local.md ~5k,
+   always-routed skills ~95k (conversion-runbook.md alone 23.5k), whole build-plan + BRD
+   20–80k. The MCP arm starts at ~1–3k. 34 of 38 sub-agents peaked at 250–580k without
+   compacting, so the 225–265k per-call average is a growing context. This part survives
+   the autocompact fix and is why the toolkit arm still costs ~$1.7–1.9 per row
    vs ~$1.4–1.6 (at a 2x speed advantage).
 3. **Parallel agents pay cache writes.** Each fresh sub-agent writes its own cache — 3x the
    MCP arm's cache-write spend. That is the price of the parallelism that bought the speed;
    it scales with (2).
 
-Output tokens and effort level are not the driver: the cheaper arm produced 2.4x more output.
+Output tokens and effort level are not the driver: lead-to-lead output per call is equal
+(~630 vs ~610 tokens). The recorded sub-agent output is undercounted in both arms
+(streamed usage records; `measure-usage.py` should read each message's final usage record).
 
 ## Proposed improvements (hypotheses until re-measured)
 
@@ -46,6 +51,8 @@ Output tokens and effort level are not the driver: the cheaper arm produced 2.4x
   the whole frozen spec.
 - **Autocompact default in what `init-project.sh` writes** (or a preflight warning when a
   session runs with autocompact > 250k).
+- **Cap agent bundles / add autocompact for sub-agents** so a long-running drafter compacts
+  instead of growing to 500k+.
 - **Measure it.** Add per-role mean-context-per-call to the time log so the next run shows
   whether the payload diet worked (same script, same windows).
 

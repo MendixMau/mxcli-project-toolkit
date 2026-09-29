@@ -421,19 +421,33 @@ end;
 
 ## Validation Feedback — Correct Pattern (VAL_/SUB_ gives it, ACT_ calls and branches)
 
-**Rule:** `validation feedback` lives in a `VAL_` or `SUB_` microflow that returns a verdict. The
-`ACT_` microflow the button calls only calls it and branches on the result: close the page,
-stay open, or show a message. Name the attribute, and write no `log error` beside the feedback.
+**Trigger:** writing any VAL_/SUB_/ACT_ microflow that puts `validation feedback` on user input.
 
-**Why:** CONV010 (the ACT_ content rule, `lint-rules/conv010_act_microflow_content.star`) allows
+**Rule 1 — placement.** `validation feedback` lives in a `VAL_` or `SUB_` microflow that returns a
+verdict. The `ACT_` microflow the button calls only calls it and branches on the result: close the
+page, stay open, or show a message. Name the attribute, and write no `log error` beside the
+feedback, no annotations.
+
+**Rule 2 — collect every field error, then stop once.** Inside the VAL_/SUB_: declare
+`$IsValid Boolean = true`; give each field its own independent `if` that fires `validation
+feedback` and `set $IsValid = false` — no `return` inside it, no `else` chaining. After the last
+check, return `$IsValid`. A cross-field check guards on *its own* inputs being non-empty, never on
+`$IsValid`.
+
+**Why (placement):** CONV010 (the ACT_ content rule, `lint-rules/conv010_act_microflow_content.star`) allows
 page actions, messages, sub-microflow calls, logging and control flow in `ACT_`.
 `ValidationFeedbackAction` is not on that list, in the toolkit's rule or in upstream's. So feedback
 written straight into `ACT_` lints red on every save flow. This section used to recommend exactly
 that (the old `ACT_OrderDetail_Save` example). A field project's guest-groups build
 (2026-09-27) reported that the pattern lints red.
 
+**Why (collect-all):** early return flags one field per submit — an empty form turns the first
+input red, the user fixes it, resubmits, and only then sees the second (a requirements-driven RFQ
+project, 2026-09-25, reported by the product owner; a grep found 44 feedback-then-`return` sites
+across 11 of its scripts).
+
 ```mdl
--- WRONG: feedback inside the ACT_ (CONV010: "contains 'ValidationFeedbackAction' action")
+-- WRONG (placement): feedback inside the ACT_ (CONV010: "contains 'ValidationFeedbackAction' action")
 create microflow Mod."ACT_Order_Save" ($Order: Mod."Order")
 begin
   if trim($Order/Reference) = '' then
@@ -444,22 +458,46 @@ begin
   close page;
 end;
 
--- RIGHT: VAL_ gives the feedback and returns a verdict; ACT_ calls and branches
-create microflow Mod."VAL_Order" ($Order: Mod."Order") returns Boolean as $IsValid
+-- WRONG (early return): the second check never runs while the first field is empty
+create microflow Mod."VAL_Quote" ($Quote: Mod."Quote") returns Boolean as $IsValid
 begin
   declare $IsValid Boolean = true;
-  if trim($Order/Reference) = '' then
-    set $IsValid = false;
-    validation feedback $Order/Reference message 'Reference is required.';
+  if $Quote/TotalPrice = empty then
+    validation feedback $Quote/TotalPrice message 'Total price is required.';
+    return false;
+  end if;
+  if $Quote/ValidUntil = empty then
+    validation feedback $Quote/ValidUntil message 'Valid until is required.';
+    return false;
   end if;
   return $IsValid;
 end;
 
-create microflow Mod."ACT_Order_Save" ($Order: Mod."Order")
+-- RIGHT: VAL_ flags every field on the same submit and returns a verdict; ACT_ calls and branches
+create microflow Mod."VAL_Quote" ($Quote: Mod."Quote") returns Boolean as $IsValid
 begin
-  $IsValid = call microflow Mod."VAL_Order"(Order = $Order);
+  declare $IsValid Boolean = true;
+  if $Quote/TotalPrice = empty then
+    validation feedback $Quote/TotalPrice message 'Total price is required.';
+    set $IsValid = false;
+  end if;
+  if $Quote/ValidUntil = empty then
+    validation feedback $Quote/ValidUntil message 'Valid until is required.';
+    set $IsValid = false;
+  end if;
+  -- cross-field: guard on ValidUntil itself, not on $IsValid
+  if $Quote/ValidUntil != empty and $Quote/ValidUntil < [%CurrentDateTime%] then
+    validation feedback $Quote/ValidUntil message 'Valid until must be in the future.';
+    set $IsValid = false;
+  end if;
+  return $IsValid;
+end;
+
+create microflow Mod."ACT_Quote_Submit" ($Quote: Mod."Quote")
+begin
+  $IsValid = call microflow Mod."VAL_Quote"(Quote = $Quote);
   if $IsValid then
-    call microflow Mod."SUB_Order_Save"(Order = $Order);
+    call microflow Mod."SUB_Quote_Save"(Quote = $Quote);
     close page;
   end if;
 end;
@@ -469,6 +507,12 @@ When the SUB_ does more than validate (the field instance was `SUB_AddGuestsToGu
 which gives `validation feedback … 'You can add up to 50 addresses at a time.'` and returns
 `'TooMany'`), return an outcome String or enumeration. The ACT_ branches on it:
 `TooMany` keeps the popup open, and any other outcome shows a message and closes it.
+
+Early return stays right for **state guards** that are not about a field (wrong status, record
+missing, deadline passed → `show message`, `return false`) — run those first, then the
+collect-all field block. Attribute paths stay unquoted (`$Quote/TotalPrice`); see
+`learned-mdl-preflight.md`. `mxcli check` passes both shapes — only a reader or a browser
+submit of an empty form tells them apart.
 
 **GRANT syntax:** Short role names only — `Admin, User` NOT `OrderRegistration.Admin`.
 

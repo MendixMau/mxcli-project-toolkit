@@ -1,14 +1,14 @@
-**From:** tfc-tcxgraphpoc
+**From:** field project C
 **Date:** 2026-09-14
 **Kind:** learning
-**Field evidence:** promotion/defect sections found in tfc-tcxgraphpoc's decision registers — each row was already reviewed in-project; triage into the named target files
+**Field evidence:** promotion/defect sections found in field project C's decision registers — each row was already reviewed in-project; triage into the named target files
 **Proposed target:** see per-item notes below
 
 ---
 
 ## [from PROJECT.md] Toolkit promotion changelog (apply to the shared toolkit at wrap-up — do NOT edit it mid-build)
 
-**This table IS the future changelog for the shared toolkit** at `~/Mendix/mxcli-project-toolkit`.
+**This table IS the future changelog for the shared toolkit** at `<toolkit-root>`.
 Each row is an intended, reviewed promotion to apply later (wrap-up, or a deliberate session) — the
 shared toolkit stays untouched until then, so other projects' sessions never read half-baked edits.
 Each row names the exact target file + placement so it's directly actionable. Per conversion-runbook.md

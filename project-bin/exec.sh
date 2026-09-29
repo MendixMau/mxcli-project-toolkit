@@ -6,9 +6,11 @@
 #
 # The mxbuild gate is a DELTA gate, not an absolute "0 errors" one: a write is kept
 # when the post-exec error set is the pre-flight baseline exactly, or a strict
-# SUBSET of it (every post-exec error already existed before this script ran — no
-# new error code+location, even if some were cleared). Only a set containing
-# something new triggers the snapshot restore. See "Delta gate" below.
+# SUBSET of it (every post-exec error message already existed before this script
+# ran — nothing new, even if some were cleared). Only a set containing something
+# new triggers the snapshot restore. See "Delta gate" below.
+# Known limit: errors are compared by message text only, so a new error whose
+# message matches one already in the baseline is not seen as new.
 #
 # Usage: ./bin/exec.sh <script.mdl>
 #        ./bin/exec.sh --patch <script> [args...]
@@ -764,9 +766,11 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
       # absolute "zero errors" gate would then block every good script forever.
       # Keeps the write when the POST-exec error set is the baseline exactly
       # (nothing changed), OR a STRICT SUBSET of it (every post-exec message
-      # already existed pre-exec — no new error code+location, even though some
-      # pre-existing ones may have been cleared). Only a set with something NEW
-      # in it restores the snapshot. Real incident: a script that took 34
+      # already existed pre-exec — no new message, even though some
+      # pre-existing ones may have been cleared). Messages only: a new error
+      # with the same text as a baseline one passes (known limit, see header).
+      # Only a set with something NEW in it restores the snapshot.
+      # Real incident: a script that took 34
       # pre-existing errors down to 1 was rolled back and logged
       # "blocked: PRE-EXISTING CE1613" because the gate could only recognise
       # "unchanged," never "reduced." Comparison key is unchanged — err_set's

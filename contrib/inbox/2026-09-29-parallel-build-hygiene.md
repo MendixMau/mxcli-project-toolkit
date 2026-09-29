@@ -1,6 +1,6 @@
 # Parallel build: mxbuild collisions, a per-script gate that grows with the model, undercounted output
 
-**From:** ProcureFlow cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
+**From:** benchmark cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
 **Date:** 2026-09-29
 **Kind:** process
 **Field evidence:** toolkit arm BUILD-LOG.md and METRICS.md: 11 of 96 script applies failed (11.5%); 2 were "gate could not run: mxbuild exit 1" from concurrent builds (rows 16, fix-39; row 119 was a glyph error, not a collision); per-script apply grew from 22–30 s (slice 1) to 55–65 s (slice 2) as the mxbuild gate grew.

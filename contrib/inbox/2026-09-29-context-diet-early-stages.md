@@ -1,6 +1,6 @@
 # Stages 0–4 load ~40–70k of toolkit text before the task starts — trim the default load
 
-**From:** ProcureFlow cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
+**From:** benchmark cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
 **Date:** 2026-09-29
 **Kind:** process
 **Field evidence:** chars/4 measurement of every baseline row in `bin/lib/skill-routing.tsv` (29 Sep 2026); cook-off sub-agents loaded ~145–215k before their first write (see 2026-09-29-subagent-context-cost.md). Stage 0–4 figures are measured file sizes, not transcript-measured loads.

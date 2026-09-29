@@ -1,6 +1,6 @@
 # Four modelling errors hit BOTH arms — they are lint rules, not tool bugs
 
-**From:** ProcureFlow cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
+**From:** benchmark cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
 **Date:** 2026-09-29
 **Kind:** learning
 **Field evidence:** defect tables of both arms (~37 vs ~38 defects; modelling errors 16 vs 15); four defects recurred in both arms independently, so they come from the spec/platform, not the authoring tool.

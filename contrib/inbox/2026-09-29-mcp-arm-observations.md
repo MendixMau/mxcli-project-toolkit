@@ -1,6 +1,6 @@
 # What the Studio Pro MCP arm teaches (and needs) — for the toolkit and for the MCP/Concord owners
 
-**From:** ProcureFlow cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
+**From:** benchmark cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
 **Date:** 2026-09-29
 **Kind:** learning
 **Field evidence:** MCP arm's METRICS/RETRO-LOG/TIME-LOG and Concord's own tool journal: 406 screen-driving calls (22% of build calls) clustered on screens the MCP cannot write; those rows ran 12–21 min each vs 2.6–3.5 min/row for domain and logic; the person did 9 manual steps.

@@ -1,6 +1,6 @@
 # mxcli v0.24.0: 8 page settings refused/dropped, file property unwritable, DESCRIBE round-trip gap — ledger coverage partial
 
-**From:** ProcureFlow cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
+**From:** benchmark cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
 **Date:** 2026-09-29
 **Kind:** bug
 **Field evidence:** toolkit arm's c4-01 script and UI pass (METRICS.md, BUILD-LOG.md in the run repo); ~190 of 301 excluded minutes were mxcli diagnosis and fixes; fixes sit on 9 branches of the MendixMau/mxcli fork plus fix/widget-file-property, no upstream PR found.

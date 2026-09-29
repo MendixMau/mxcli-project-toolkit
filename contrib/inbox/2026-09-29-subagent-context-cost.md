@@ -1,6 +1,6 @@
 # Sub-agents start with ~2x the context they need: that, not call count, makes toolkit builds cost more per row
 
-**From:** ProcureFlow cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
+**From:** benchmark cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
 **Date:** 2026-09-29
 **Kind:** process
 **Field evidence:** Both arms' session transcripts measured with the same script (active minutes

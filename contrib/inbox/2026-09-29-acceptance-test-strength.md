@@ -1,6 +1,6 @@
 # Acceptance testing: what made the toolkit arm's tests stronger, and its three gaps
 
-**From:** ProcureFlow cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
+**From:** benchmark cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
 **Date:** 2026-09-29
 **Kind:** learning
 **Field evidence:** both arms ran the same acceptance rows, seed data and DONE bullets. Toolkit arm: 149 microflow unit tests (428 @expect) + 33 Playwright scripts with OQL DB checks, all committed; 20/20 scenario bullets (stitched from 3 runs); final E2E 62 pass / 0 fail / 7 not run. MCP arm: 0 committed unit tests or scripts; 11/20 in its official run; timers skipped.

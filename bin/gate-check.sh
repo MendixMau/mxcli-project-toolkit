@@ -1022,8 +1022,16 @@ has_confirmed_decision() {
   local stage="$1"
   local f="$REGISTER"
   [ -n "$f" ] && [ -f "$f" ] || return 1
+  # Table-scoped: only rows of the Decisions table (a header row whose first cell is
+  # "Stage") count. Scanning every pipe row let the Open-questions table
+  # ("| 7 | ... | Raised at | CONFIRMED |") stand in for a stage decision. A register with
+  # no such header anywhere falls back to scanning every table, as before.
   awk -F'|' -v want="$stage" '
-    /^\|/ {
+    !/^\|/ { intab = 0; next }
+    {
+      h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
+      if (h == "stage") { intab = 1; hdr = 1; next }
+      if ($2 ~ /^[ \t:]*-+[ \t:-]*$/) next
       s = $2
       gsub(/^[ \t]+|[ \t]+$/, "", s)
       sub(/^[Ss]tage[ \t]*/, "", s)
@@ -1043,10 +1051,10 @@ has_confirmed_decision() {
         # yet") does not qualify, and neither does "NOT CONFIRMED". What this newly
         # admits is a field that BEGINS with CONFIRMED and then continues — which is
         # the convention it exists to accept.
-        if (f ~ /^CONFIRMED([ \t]|$)/) found = 1
+        if (f ~ /^CONFIRMED([ \t]|$)/) { anyf = 1; if (intab) tabf = 1 }
       }
     }
-    END { exit !found }
+    END { exit !(hdr ? tabf : anyf) }
   ' "$f"
 }
 
@@ -1212,7 +1220,7 @@ check_stage_7() {
     echo "PENDING|no decision register (PROJECT.md) under $PROJECT_DIR — nothing to read a cutover decision from"
     return
   fi
-  # Field-exact on the STATUS (as has_confirmed_decision already is, since d8117be) and now
+  # Anchored on the STATUS (as has_confirmed_decision is, since d8117be) and now
   # also column-aware on ROW SELECTION. `tolower($0) ~ /cutover/` scanned the whole row
   # including the free-text Notes cell, so an unrelated CONFIRMED row whose notes said
   # "groundwork for the eventual cutover" passed Stage 7 — the ✋ gate whose stated purpose is
@@ -1220,22 +1228,34 @@ check_stage_7() {
   # (col 2) equal to 7, or the decision field (col 3) naming the cutover. Distinguish "no such
   # row" from "row present but not CONFIRMED" — they need different fixes.
   local verdict rows
+  #
+  # Table-scoped the same way as has_confirmed_decision: only the Decisions table (header
+  # row starting "| Stage |") is read, so an Open-questions row "| 7 | ... |" or any other
+  # table mentioning the cutover is not a candidate. Status matching is word-anchored like
+  # has_confirmed_decision (TD-07), so "CONFIRMED 2026-08-10" passes here as it does for
+  # every other stage; "NOT CONFIRMED" and a Notes cell mentioning the word still do not.
   verdict=$(awk -F'|' '
-    /^\|/ {
+    !/^\|/ { intab=0; next }
+    {
+      h=tolower($2); gsub(/^[ \t]+|[ \t]+$/,"",h)
+      if (h=="stage") { intab=1; hdr=1; next }
+      if ($2 ~ /^[ \t:]*-+[ \t:-]*$/) next
       s=$2; gsub(/^[ \t]+|[ \t]+$/,"",s); sub(/^[Ss]tage[ \t]*/,"",s)
       d=(NF>=3)?tolower($3):""
       if (s != "7" && d !~ /cutover/) next
-      rows++
-      for (i=2;i<=NF;i++){ v=toupper($i); gsub(/^[ \t]+|[ \t]+$/,"",v); if (v=="CONFIRMED") found=1 }
+      c=0
+      for (i=2;i<=NF;i++){ v=toupper($i); gsub(/^[ \t]+|[ \t]+$/,"",v); if (v ~ /^CONFIRMED([ \t]|$)/) c=1 }
+      anyr++; if (c) anyf=1
+      if (intab) { tabr++; if (c) tabf=1 }
     }
-    END { print (found?"PASS":"FAIL") " " rows+0 }' "$f")
+    END { if (hdr) print (tabf?"PASS":"FAIL") " " tabr+0; else print (anyf?"PASS":"FAIL") " " anyr+0 }' "$f")
   rows="${verdict#* }"
   if [ "${verdict%% *}" = "PASS" ]; then
-    echo "PASS|a Stage-7/cutover decision row in $f has Status exactly CONFIRMED ($rows candidate row(s))"
+    echo "PASS|a Stage-7/cutover decision row in $f has Status CONFIRMED ($rows candidate row(s))"
   elif [ "$rows" = "0" ]; then
-    echo "PENDING|no cutover decision row in $f — add a Decisions row whose Stage field is 7 (or whose Decision names the cutover) with Status exactly CONFIRMED"
+    echo "PENDING|no cutover decision row in $f — add a Decisions row whose Stage field is 7 (or whose Decision names the cutover) with Status CONFIRMED"
   else
-    echo "FAIL|$rows cutover decision row(s) in $f, none with a field exactly CONFIRMED (✋ gate — UNCONFIRMED/ASSUMED does not pass)"
+    echo "FAIL|$rows cutover decision row(s) in $f, none with a field starting CONFIRMED (✋ gate — UNCONFIRMED/ASSUMED does not pass)"
   fi
 }
 

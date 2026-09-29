@@ -18,7 +18,7 @@ the no-client-data rule that CI enforces).
 
 | Destination | What belongs there | Vehicle |
 |---|---|---|
-| `mendixlabs/mxcli` | Defects and gaps in the **binary itself**: MDL syntax accepted by `check` then rejected by `exec`, a command whose output is wrong, a `DESCRIBE`/`CREATE` round-trip that does not close, a flag that should exist | **Issues only.** We do not hold that source. Never attempt a PR, never post a patch |
+| `mendixlabs/mxcli` | Defects and gaps in the **binary itself**: MDL syntax accepted by `check` then rejected by `exec`, a command whose output is wrong, a `DESCRIBE`/`CREATE` round-trip that does not close, a flag that should exist | **Issue first, always.** **PR** only when we have a *proven* fix (§3a) and the issue is filed. Otherwise the issue alone |
 | `MendixMau/mxcli-project-toolkit` | Everything about the **process**: skills, gates, runbook stages, `bin/` scripts, agent roles, report generators, checklists | **PR** when the fix is small and obvious · **Idea** (GitHub Discussion) when it needs design · **Issue** when a toolkit script has a plain reproducible defect |
 
 The test that separates them: *would this still be wrong with no toolkit installed at all?* Yes →
@@ -64,11 +64,32 @@ describes. Ideas carry no closure pressure, so they are the correct container fo
 not stop me" findings, where the right fix is a gate, a re-ordering of a stage, or a script that
 refuses, and nobody yet knows which.
 
+### 3a. An mxcli PR — only with a proven fix
+
+`mendixlabs/mxcli` takes PRs from us when all five hold. Miss one and it stays an issue, with the
+fix idea under "suggested fixes".
+
+| Must hold | Why |
+|---|---|
+| The issue is filed and referenced (`closes #NNN`) | Upstream `CONTRIBUTING.md` requires an issue before code |
+| The patch is rebased on **current** upstream `main`, and anything upstream already fixed is dropped | Real case, 2026-09-27: half of a two-part fix (#1199) had landed upstream two days after filing; our half contradicted it and failed 2 upstream tests |
+| `make test` passes on that rebase, full suite, plus gofmt/vet | A package test proves the change, not the blast radius |
+| Field proof: the fixed binary on a real model, `mx check` 0 errors, and the runtime behaviour | Upstream's Step 5c; unit tests alone prove the logic, not the assumptions |
+| One concern per PR, one obviously right implementation | Same rule as any PR |
+
+**Failure it prevents:** a patch built on a two-day-old base, sent with "tests pass" from the old
+base. Upstream CI goes red on tests we never ran, and the maintainer sees a fix for a solved bug.
+
+The package lives in the toolkit at `bug-logs/submitted-prs/mxcli/<date>-<slug>/`: the
+`git format-patch` file plus a `README.md` holding the status line, the PR title and body
+(Part 1, scrubbed per §5), and the send steps. Whoever holds push rights to a fork sends it.
+
 The commands, once the draft has passed §5:
 
 | Vehicle | Command |
 |---|---|
 | mxcli issue | `gh issue create -R mendixlabs/mxcli --title "..." --body-file <part1.md>` |
+| mxcli PR (§3a) | `git am <patch>` on a branch off upstream `main` in your fork, push, `gh pr create -R mendixlabs/mxcli --head <you>:<branch> --title "..." --body-file <part1.md>` |
 | toolkit issue | `gh issue create -R MendixMau/mxcli-project-toolkit --title "..." --body-file <part1.md>` |
 | toolkit PR | branch off `origin/master`, one concern per PR, `gh pr create -R MendixMau/mxcli-project-toolkit --base master --body-file <part1.md>` |
 | toolkit Idea | `gh api graphql` `createDiscussion` with the repo id and the `Ideas` category id (read both with a `repository { id discussionCategories(first:10) { nodes { id name } } }` query first — do not hard-code them) |
@@ -149,7 +170,7 @@ wrap-up.
 ## 8. One-screen decision
 
 ```
-Would it be wrong with no toolkit installed?  ── yes ──▶  mendixlabs/mxcli · ISSUE (never a PR)
+Would it be wrong with no toolkit installed?  ── yes ──▶  mendixlabs/mxcli · ISSUE; + PR if §3a holds
         │ no
 Does the toolkit already say this?            ── yes ──▶  not a submission; local compliance note
         │ no                                               (routing gap? → small PR to the routing row)

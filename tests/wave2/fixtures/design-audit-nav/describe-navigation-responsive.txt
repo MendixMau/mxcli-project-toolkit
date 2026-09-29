@@ -1,0 +1,19 @@
+-- GOLDEN CAPTURE, verbatim: `mxcli -p <app>.mpr describe navigation Responsive` (mxcli v0.24.0,
+-- Mendix 11.13.0), 2026-09-26, card-disbursement requirements-driven build. Only these three
+-- header lines were added; mxcli's WARNING banner lines on stderr are not part of stdout.
+-- navigation PROFILE: Responsive
+--   Kind: Responsive
+create or replace navigation Responsive
+  home page MyFirstModule.Home_Web
+  menu (
+    menu 'Work' icon Atlas_Core.Atlas.briefcase (
+      menu item 'Home' page MyFirstModule.Home_Web icon Atlas_Core.Atlas.home;
+      menu item 'Cases' page Disbursement.Case_Overview icon Atlas_Core.Atlas."list-bullets";
+    );
+    menu 'Configure' icon Atlas_Core.Atlas.cog (
+      menu item 'Mock console' page MockServices.MockConsole_Overview icon Atlas_Core.Atlas."console-terminal";
+      menu item 'Design system' page StyleGallery.Gallery_Overview icon Atlas_Core.Atlas."color-painting-palette";
+    );
+  )
+;
+

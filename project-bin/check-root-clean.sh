@@ -24,7 +24,14 @@ cd "$PROJECT_ROOT" || { echo "cannot cd to project root" >&2; exit 1; }
 #
 # AGENTS.md is allowed as a POINTER to CLAUDE.md, never as a copy: two copies of the instructions
 # drift, and the one the agent reads is whichever its harness happens to prefer.
-ALLOWED="${ROOT_ALLOWED:-AGENTS.md CLAUDE.md CLAUDE.local.md PROJECT.md README.md index.html} ${ROOT_ALLOWED_EXTRA:-}"
+#
+# intake.md and triage.md are allowed because the toolkit itself puts them there: init-project.sh
+# scaffolds intake.md at the root, and bin/lib/artifact-manifest.tsv (read by gate-check.sh) owes
+# both at exactly those root paths. FINDINGS.md is allowed because `mxcli init`'s generated
+# CLAUDE.md tells every agent to "Append to FINDINGS.md" — a root path. (2026-09-25, card-
+# disbursement requirements-driven build: this check reported the project's own Stage P/0
+# artifacts as strays, and contradicted the mxcli instruction sitting in the same CLAUDE.md.)
+ALLOWED="${ROOT_ALLOWED:-AGENTS.md CLAUDE.md CLAUDE.local.md PROJECT.md README.md index.html intake.md triage.md FINDINGS.md} ${ROOT_ALLOWED_EXTRA:-}"
 
 STRAY=""
 for f in *.md *.html; do

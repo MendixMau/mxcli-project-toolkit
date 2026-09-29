@@ -2690,7 +2690,9 @@ fi
 # the board shows the Sync/Drift FAIL rows, so it does not lie). Nothing overrides 2. A flag
 # must not be able to destroy a file this script did not write.
 INDEX="$PROJECT_DIR/index.html"
-PROJECT_NAME="$(basename "$PROJECT_DIR")"
+# Name the board after the resolved directory: `gate-check.sh . 2` from inside the project
+# titled it ". — Conversion Dashboard" (card-disbursement requirements-driven build, 2026-09-25).
+PROJECT_NAME="$(basename "$(cd "$PROJECT_DIR" 2>/dev/null && pwd -P || printf '%s' "$PROJECT_DIR")")"
 GC_SENTINEL="<!-- generated-by: mxcli-project-toolkit/bin/gate-check.sh -->"
 
 WRITE_HTML=1

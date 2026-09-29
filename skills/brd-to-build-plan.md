@@ -308,6 +308,28 @@ harness. This is the *moment*; the shape is Step 1's column and the detail is th
 > **RULE: every phase ends in at least one verification row. A phase of only `BUILD` rows is
 > malformed — reject it and add the row.**
 
+> **RULE: a mid-phase PROVE row does not close a module. The plan also carries three closing rows,
+> and a plan without them is not finished:**
+>
+> | Row | Kind | Step | Pass = |
+> |---|---|---|---|
+> | after each module's last phase | `HARNESS` | `bin/verify-module.sh <Module>`, then LOOK + CONFIRM per `module-review.md` | the module's summary has no FAULT, and the review states `N of N pages reviewed` |
+> | after every 2–3 closed modules | `HARNESS` | `process-coherence-pass.md` on that cluster | the cluster's cross-module journey chains |
+> | the plan's **last** row | `RUN` | `gate-check.sh <project> 5` | every Stage 5 obligation is discharged or waived with a reason: 0 PENDING |
+>
+> Denominator: N modules → N close rows, ⌈N/3⌉ or more coherence rows, and exactly one final gate row.
+
+**Why the closing rows are rows, not a step in the build loop (an unattended benchmark build,
+2026-09-27).** A 137-row plan was built unattended to DONE. The full e2e suite showed 62 pass and
+0 fail, and a time-and-outage run proved the escalation and ERP paths. The project looked finished.
+Asked for a "% done", the Stage 5 gate ran for the first time and showed `verify-module.sh` 0 of 7
+modules, look / sweep / journeys each 0 of 7, the coherence pass, walking skeleton and
+design-reaches-app checks never run, 8 owed artifacts missing, and `PROJECT.md` still at Stage 4.
+`iterative-build-loop.md` requires all of it (steps 3–5 and 17). But the build prompt walked the
+plan's rows, and the plan's only verification rows were each row's own DONE check. Nothing that
+walks a plan does a step the plan does not list. Give the close a row and it gets numbered,
+depended on and run.
+
 **Why this is a schema and not advice (a customer training round, 2026-08-25).** That plan had 35 build
 rows and one coverage ledger at the end — zero verification rows. Nobody omitted them: the row
 schema in use was `# / script / produces / depends on / write mode / state`, every column of which
@@ -602,8 +624,8 @@ Before any `GRANT` script, decide and document:
 **⛔ Demo user password rules — read before writing any security MDL:**
 
 - **Never touch MxAdmin.** Every project ships with MxAdmin and password `1` as a standard. Do not wipe it, reset it, or re-create it. Any script that modifies MxAdmin is wrong.
-- **Do not set passwords for demo users.** Create the user account (name, user role); leave the password field unset. The user switches to a demo account from inside the app after signing in as MxAdmin — no password is required. Setting a password is unnecessary and creates inconsistency across projects.
-- **Pattern:** `create demo user "firstname.lastname" with roles "Module"."Role";` — nothing more. No password block.
+- **A demo user's password is mandatory in the grammar, so give it one throwaway value.** On mxcli v0.24.0 `CREATE DEMO USER '<name>' (<UserRole>)` with no password is a parse error (`mismatched input '(' expecting PASSWORD`, `mxcli syntax security demo-user`). Pick one value per project that meets the project's password policy (a demo user also needs security above Off, and a 12-character minimum is common — `walking-skeleton.md`). Record it in the build plan, reuse it for every demo user, and never use a real credential. Signing in as MxAdmin and switching demo user from inside the app still needs no password.
+- **Pattern:** `create demo user 'firstname.lastname' password '<project demo password>' (<UserRole>);` — a single-quoted name and a project **user** role, not a qualified module role. The older form `create demo user "firstname.lastname" with roles "Module"."Role";` (no password) no longer parses (a card-disbursement requirements-driven build, 2026-09-25).
 
 ## Step 7: Navigation Wiring
 
@@ -658,6 +680,10 @@ Once Steps 0–8 are done, the plan is ready for `iterative-build-loop.md` to ex
 
 If a build session discovers a gap in the plan (a dependency missed, a question not anticipated), fix the plan document first, then resume the build loop — don't patch it ad hoc in a script comment.
 
+**Any prompt that drives a build from this plan, especially an unattended one, ends on the plan's
+final `gate-check.sh <project> 5` row.** It does not end on "all rows built". Reporting DONE while
+that row shows PENDING means reporting DONE on Stage 4.
+
 ---
 
 ## Anti-Patterns This Skill Prevents
@@ -668,6 +694,10 @@ If a build session discovers a gap in the plan (a dependency missed, a question 
 - **Discovering cross-module association ownership mid-script.** Decide which module's script creates each cross-module association upfront — it can now be done via `CREATE ASSOCIATION` (BUG-02 fixed in v0.13.0), but if ownership is unclear mid-script it still causes a surprise rewrite.
 - **Writing a row now and its `claims` later.** "Later" is a gate, a ledger pass, or a review — by then the BRD has to be re-read to reconstruct what the author already knew. Measured: a 12-BRD plan with zero claims (Step 5b). This applies to rows being written now; an older plan without claims is accepted, not a defect.
 - **Deciding role mapping after security scripts are already applied.** Forces a rewrite of every `GRANT` statement.
+- **A plan whose only verification rows are mid-phase PROVE checks.** Every row goes green, and
+  no module is ever closed: `verify-module.sh`, the LOOK, the coherence pass and the Stage 5 gate
+  run only when a row names them. Measured: 137 rows DONE and e2e at 62 pass, 0 fail, with the Stage 5 gate
+  at 0 of 7 modules (Step 5, closing rows).
 - **Treating every CE error as equally investigatable.** Without a scope boundary, "is this stubbed on purpose" and "is this a design gap" look identical.
 - **Skipping the StyleGallery decision and building pages bare-Atlas.** First modules look fine; by module 3 the design is inconsistent and a retrofit is needed. The `✋` gate in Step 4b is cheap — the retrofit is not.
 - **Building feature pages before Phase 2 UI scaffold.** `ui-preflight-pages.md` Step 3 has nothing to cross-reference; mdl-agent invents class names or falls back to bare Atlas. Phase 2 must exist before the first real page is built.

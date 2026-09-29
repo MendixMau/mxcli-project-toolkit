@@ -404,15 +404,49 @@ let leaves = null;
 // Measured 2026-08-18 with coverage.txt = "cannot read BRD: unexpected token at line 1".
 // So: parse first, and only claim a verdict if all five counters are real numbers.
 const COUNTERS = ['total', 'claimed', 'unclaimed', 'phantom', 'doubleClaimed'];
+// Multi-ledger mode (one ledger per BRD) runs coverage-check-all.sh instead, which prints one
+// `<BRD>: CLEAN|FINDINGS|FAULT|NO LEDGER — <counters flattened onto the line>` line per BRD and
+// a closing `N BRD(s) checked.` Read with the one-counter-per-line regexes above, every counter
+// was null and every multi-ledger module carried a permanent coverage FAULT over a clean count
+// (card-disbursement requirements-driven build, 2026-09-26: two modules, `All clean.` in the
+// same coverage.txt as the FAULT row). So: sum each counter across the BRD lines — and leave it
+// null (unmeasured) when any BRD line is a FAULT / NO LEDGER, lacks that counter, or the lines
+// do not add up to the stated BRD count.
+const COVER_BRD_RE = /^(\S+): (CLEAN|FINDINGS|FAULT|NO LEDGER)\b(.*)$/gm;
+const COVER_ON_LINE = {
+  total:         /(?:^|\s)leaves:\s*(\d+)/,
+  claimed:       /(?:^|\s)CLAIMED:\s*(\d+)/,
+  unclaimed:     /(?:^|\s)UNCLAIMED:\s*(\d+)/,
+  phantom:       /(?:^|\s)PHANTOM:\s*(\d+)/,
+  doubleClaimed: /DOUBLE-CLAIMED:\s*(\d+)/,
+};
+let covBrds = 0;
 if (covTxt) {
-  const g = (re) => { const m = re.exec(covTxt); return m ? Number(m[1]) : null; };
-  leaves = {
-    total:         g(/^\s*leaves:\s*(\d+)/m),
-    claimed:       g(/^\s*CLAIMED:\s*(\d+)/m),
-    unclaimed:     g(/^\s*UNCLAIMED:\s*(\d+)/m),
-    phantom:       g(/^\s*PHANTOM:\s*(\d+)/m),
-    doubleClaimed: g(/^\s*DOUBLE-CLAIMED:\s*(\d+)/m),
-  };
+  const perBrd = [...covTxt.matchAll(COVER_BRD_RE)];
+  if (perBrd.length) {
+    covBrds = perBrd.length;
+    const stated = /^(\d+) BRD\(s\) checked\./m.exec(covTxt);
+    const whole = !stated || Number(stated[1]) === perBrd.length;
+    leaves = {};
+    for (const k of COUNTERS) {
+      let sum = whole ? 0 : null;
+      for (const m of perBrd) {
+        if (sum === null) break;
+        const hit = (m[2] === 'CLEAN' || m[2] === 'FINDINGS') ? COVER_ON_LINE[k].exec(m[3]) : null;
+        sum = hit ? sum + Number(hit[1]) : null;
+      }
+      leaves[k] = sum;
+    }
+  } else {
+    const g = (re) => { const m = re.exec(covTxt); return m ? Number(m[1]) : null; };
+    leaves = {
+      total:         g(/^\s*leaves:\s*(\d+)/m),
+      claimed:       g(/^\s*CLAIMED:\s*(\d+)/m),
+      unclaimed:     g(/^\s*UNCLAIMED:\s*(\d+)/m),
+      phantom:       g(/^\s*PHANTOM:\s*(\d+)/m),
+      doubleClaimed: g(/^\s*DOUBLE-CLAIMED:\s*(\d+)/m),
+    };
+  }
 }
 const covMissing = leaves ? COUNTERS.filter((k) => leaves[k] == null) : COUNTERS;
 if (covTxt && covMissing.length === 0) {
@@ -424,7 +458,7 @@ if (covTxt && covMissing.length === 0) {
     verdict: bad.length ? 'fail' : 'pass', provenance: 'measured',
     detail: 'leaves ' + leaves.total + ' · claimed ' + leaves.claimed + ' · unclaimed ' +
             leaves.unclaimed + ' · phantom ' + leaves.phantom + ' · double-claimed ' +
-            leaves.doubleClaimed,
+            leaves.doubleClaimed + (covBrds ? ' · summed over ' + covBrds + ' BRD ledger(s)' : ''),
     measuredAt: STARTED,
     nonVacuity: { controlRan: false, note: 'coverage-check has no positive control' },
     evidence: [{ type: 'log', path: relOut(path.join(DIR, 'coverage.txt')) }],
@@ -437,7 +471,11 @@ if (covTxt && covMissing.length === 0) {
     (covTxt
       ? 'coverage-check wrote output but no ' + covMissing.join('/') + ' count could be ' +
         'read from it, so it did not finish a count. An unreadable counter is an ' +
-        'unmeasured one, never a zero.'
+        'unmeasured one, never a zero.' +
+        (covBrds && covMissing.length === 1 && covMissing[0] === 'total'
+          ? ' Its per-BRD lines carry no `leaves:` — a coverage-check-all.sh from before ' +
+            '2026-09-27 drops it; run bin/sync-project.sh to refresh the installed copy.'
+          : '')
       : 'coverage-check produced no output')));
   // The rollup must not inherit half-parsed counters either.
   if (covMissing.length) leaves = null;

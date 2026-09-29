@@ -40,6 +40,23 @@ let _mouseX = 720;
 let _mouseY = 450;
 
 // ── Browser ─────────────────────────────────────────────────────────────────
+
+// Which Chromium to launch when the one this Playwright pins is not installed.
+// Field origin (2026-09-27): in a cloud container the pinned headless shell was
+// absent and only /opt/pw-browsers/chromium (an older revision) existed, so every
+// e2e launch failed before testing anything. Order: PW_EXECUTABLE (explicit
+// override, always wins); else, only when the pinned binary is missing, the
+// container's /opt/pw-browsers/chromium if present; else undefined, and
+// Playwright uses its own. A configured channel (e.g. 'chrome') is left alone.
+const FALLBACK_CHROMIUM = '/opt/pw-browsers/chromium';
+function resolveExecutablePath() {
+  if (process.env.PW_EXECUTABLE) return process.env.PW_EXECUTABLE;
+  if (cfg.channel && cfg.channel !== 'chromium') return undefined;
+  let pinned = null;
+  try { pinned = chromium.executablePath(); } catch (_) { /* no pinned path known */ }
+  if (pinned && fs.existsSync(pinned)) return undefined;
+  return fs.existsSync(FALLBACK_CHROMIUM) ? FALLBACK_CHROMIUM : undefined;
+}
 async function launchBrowser({ videoDir = null, trace = false, viewport = null } = {}) {
   requirePlaywright();
   const vp = viewport || cfg.viewport;
@@ -49,6 +66,8 @@ async function launchBrowser({ videoDir = null, trace = false, viewport = null }
     args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
   };
   if (cfg.channel && cfg.channel !== 'chromium') launchOpts.channel = cfg.channel;
+  const exe = resolveExecutablePath();
+  if (exe) launchOpts.executablePath = exe;
   const browser = await chromium.launch(launchOpts);
   const context = await browser.newContext({
     viewport: vp,
@@ -75,6 +94,8 @@ async function launchBrowserAt(x, y, w, h, { videoDir = null, trace = false, mob
     ],
   };
   if (cfg.channel && cfg.channel !== 'chromium') launchOpts.channel = cfg.channel;
+  const exe = resolveExecutablePath();
+  if (exe) launchOpts.executablePath = exe;
   const browser = await chromium.launch(launchOpts);
   // mobile:true → use the real Playwright device profile (iPhone 14 by default).
   // This gives the correct UA, viewport, deviceScaleFactor and touch flags so the
@@ -354,11 +375,17 @@ async function login(page) {
 // GET /logout does NOT work — it renders a page and leaves the session alive
 // (measured: the app root still resolved to the dashboard afterwards). The xas
 // `logout` action does; after it, / redirects to login.html.
+// The token matters: without it the server still answers 200 `{}` and the
+// session lives on. Mendix 11 has no mx.session.getCSRFToken — the token is in
+// mx.session.sessionData.csrftoken (measured 2026-09-26, 11.13: 13 leaked
+// sessions from runs that all "logged out", then the trial cap refused login).
 async function logout(page) {
   try {
     const status = await page.evaluate(async () => {
-      const token = (window.mx && mx.session && mx.session.getCSRFToken)
-        ? mx.session.getCSRFToken() : '';
+      const s = (window.mx && mx.session) || {};
+      const token = s.getCSRFToken ? s.getCSRFToken()
+        : ((s.sessionData && s.sessionData.csrftoken) || '');
+      if (!token) return 'no-token';
       const res = await fetch('/xas/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Csrf-Token': token },
@@ -455,7 +482,10 @@ async function dismissModal(page, retries = 3) {
 // (no deeplink navigation). parentTitle opens the group; childTitle is the dest.
 async function navTo(page, parentTitle, childTitle) {
   const clickTitle = (t) => page.evaluate((title) => {
-    const a = [...document.querySelectorAll('.mx-navigationtree a')]
+    // A top-bar layout (the `mxcli new` template's home page) renders the same menu as
+    // .mx-navbar with the same a[title] shape; tree-only found nothing there and every
+    // journey died at step 1 (card-disbursement requirements-driven build, 2026-09-25).
+    const a = [...document.querySelectorAll('.mx-navigationtree a, .mx-navbar a')]
       .find((x) => x.getAttribute('title') === title);
     if (a) { a.scrollIntoView({ block: 'nearest' }); a.click(); return true; }
     return false;

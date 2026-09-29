@@ -149,11 +149,13 @@ end;
 /
 ```
 
-**Known CE behaviour:**
-- `validation feedback` activities need to be re-wired in Studio Pro after every `mxcli exec`.
-  The activity is created but the Variable binding (which widget to highlight) is empty.
-  This is CE0639 — a known mxcli limitation. After exec, open Studio Pro and wire each
-  validation feedback activity to its variable manually.
+**Known CE behaviour (retested 2026-09-27):**
+- The CE0639 "Variable not wired" defect on `validation feedback $Obj/Attr` does **not**
+  reproduce on mxcli v0.23.0 / Mendix 11.12.2 (BUG-47, resolved). No Studio Pro re-wiring is
+  needed. The object-only form with no attribute still gives CE0091, so always name the attribute.
+- This example keeps its feedback in an `ACT_` microflow, which CONV010 flags. New code puts the
+  feedback in a `VAL_`/`SUB_` microflow and has the `ACT_` call it and branch
+  (`learned-microflow-patterns.md` → "Validation Feedback — Correct Pattern").
 
 ---
 
@@ -303,7 +305,9 @@ duplicate check → WF stub submission → status update. Uses `$currentUser/Nam
 applicant field.
 
 **Patterns demonstrated:**
-- Guard chain pattern (early-return at each step, no deep nesting)
+- Guard chain pattern (early-return at each step, no deep nesting) — for *state* guards only;
+  per-field input checks never return early, they collect-all as in §2 (see
+  `learned-microflow-patterns.md` → "Validation Feedback — Correct Pattern")
 - `$currentUser/Name` — built-in variable for the logged-in user's name
 - XPath retrieve chained across two modules (same as GET_OrderDetail_Dto)
 - `$Obj/Attr` path navigation after retrieve

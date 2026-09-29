@@ -59,6 +59,23 @@
 # ignores it the same way it ignores `.mxtk/`. The other nine entries are all relative (no
 # machine-specific path) and stay in the shared `.claude/settings.json`, same as before.
 #
+# NOT WRITTEN, ON PURPOSE: `autoMode` (2026-09-27). In auto permission mode a second gate, the
+# safety classifier, runs after these rules and can refuse a command they allow (field: a Python
+# BSON patch of a git-tracked, snapshotted .mpr refused as "Irreversible Local Destruction").
+# `autoMode.environment` is the documented way to give it trusted context, so this script was
+# going to merge some. It cannot, from here. https://code.claude.com/docs/en/auto-mode-config
+# ("Where the classifier reads configuration", fetched 2026-09-27): the classifier reads
+# `autoMode` only from ~/.claude/settings.json, managed settings and the --settings flag / Agent
+# SDK, and "doesn't read `autoMode` from project settings in `.claude/settings.json` or
+# `.claude/settings.local.json`", because a checked-in repo or a build step could otherwise
+# inject its own allow rules. https://code.claude.com/docs/en/settings-reference (`autoMode`,
+# same date) agrees: Scope "User or managed". Writing it here would be inert, and writing the
+# operator's user-wide ~/.claude/settings.json from a per-project installer is not this script's
+# business. The per-user route is Claude Code's own `/auto-mode-setup`, which writes that file
+# after the user accepts. The project-level route that works is the command's shape: a model
+# patch goes through `./bin/exec.sh --patch <script>`, which the allow rules above already cover
+# and which snapshots, gates and restores. See skills/agent-permission-friction.md.
+#
 # Usage:
 #   bin/install-claude-permissions.sh <project-root>              # merge, write, back up first
 #   bin/install-claude-permissions.sh <project-root> --check       # report only; exits 1 if any

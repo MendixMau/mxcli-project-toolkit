@@ -97,6 +97,11 @@ if [ -z "${MXTK_ROOT:-}" ]; then
   _self=$(cd "$BIN/.." 2>/dev/null && pwd)
   [ -d "${_self:-/nonexistent}/skills" ] && MXTK_ROOT="$_self"
 fi
+# Export it: the coverage rung runs coverage-preflight.sh as a child process, and that reads
+# MXTK_ROOT from the environment. Derived but unexported, the rung reported INSTRUMENT FAULT
+# "coverage-check.sh not found" with the clone resolved a few lines above (card-disbursement
+# requirements-driven build, 2026-09-25).
+[ -n "${MXTK_ROOT:-}" ] && export MXTK_ROOT
 
 _tool() {
   local n="$1" d

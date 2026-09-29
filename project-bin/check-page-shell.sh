@@ -219,8 +219,11 @@ for f in $TARGETS; do
     # That is the worse kind of false positive: it fires on correct code, it names a real
     # rule, and the fix it asks for (delete four H1s) would have broken four pages. A check
     # that cannot bound its own input tells you nothing about the input.
-    # Known limit: the counter does not skip quoted strings, so an UNBALANCED brace inside a
-    # string literal truncates the body early. Balanced placeholders ({1} of {2}) are fine.
+    # Quoted strings are skipped, across lines: an UNBALANCED brace inside a string literal
+    # used to move the depth. Measured on the card-disbursement requirements-driven build,
+    # 2026-09-26: a payload preview `Content: '{{ … }'` (a JSON template, `{{` being the
+    # escaped literal brace) left the depth at +1 per preview, the scan ran on through the
+    # next pages, and a page with one H1 was reported as declaring 3.
     body="$(awk -v start="$ln" '
       # The page body: from the declaration to the brace that MATCHES the body opening
       # one, counted per CHARACTER, with parens tracked so a brace inside the
@@ -242,15 +245,24 @@ for f in $TARGETS; do
       # correct RenderMode: H1 as having none. A per-line "started only when depth > 0"
       # reading never starts on a one-line body, where the braces balance within the line.
       # Only the paren state separates the two, so the paren state is tracked.
+      #
+      # A single-quoted MDL string is skipped whole: it may span lines, and a doubled quote
+      # inside it is an escaped quote, which two toggles handle (octal 047 = the quote). A `--` note ends the line only OUTSIDE
+      # a string (stripping it first would cut a string holding `--` and desync the quotes),
+      # and a block comment is skipped too, so an apostrophe in its prose opens no string.
       NR < start { next }
       { print $0 }
       done { exit }
       {
         line = $0
-        sub(/--.*$/, "", line)          # a trailing -- note must not move the depth
         n = length(line)
         for (i = 1; i <= n; i++) {
           c = substr(line, i, 1)
+          if (inblk) { if (c == "*" && substr(line, i + 1, 1) == "/") { inblk = 0; i++ }; continue }
+          if (c == "\047") { inq = !inq; continue }
+          if (inq) continue
+          if (c == "/" && substr(line, i + 1, 1) == "*") { inblk = 1; i++; continue }
+          if (c == "-" && substr(line, i + 1, 1) == "-") break   # a trailing -- note must not move the depth
           if (!started) {
             if (c == "(") pd++
             else if (c == ")") { if (pd > 0) pd-- }

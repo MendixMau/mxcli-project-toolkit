@@ -95,22 +95,30 @@ const nowIso = () => new Date().toISOString();
 // ============================================================================
 // 1. CSS — which classes are actually DEFINED, and where
 // ============================================================================
-// Selector-position only: we walk the file tracking brace depth and harvest class
-// tokens from the text that PRECEDES an opening brace. Harvesting the whole file
-// would pick up `content: ".foo"` and url fragments and quietly define classes that
-// no rule ever declares — which turns the invented-class check into decoration.
+// Selector-position only: we harvest class tokens from the text that PRECEDES an opening
+// brace. Harvesting the whole file would pick up `content: ".foo"` and url fragments and
+// quietly define classes that no rule ever declares — which turns the invented-class
+// check into decoration. Strings are blanked first and `;` ends a declaration, so a
+// declaration value never reaches a harvest.
+//
+// Every depth, not only depth 0: a rule inside `@media` / `@supports` / `@layer` defines
+// its class just as much. Harvesting depth 0 alone called Atlas's `spacing-outer-bottom-large`
+// "invented" on every page — Atlas emits it ONLY inside three breakpoint @media blocks — while
+// design-spacing.md prescribes that exact class (card-disbursement build, 2026-09-26). An
+// at-rule's own prelude (`@media (min-width: 992px)`) names no class and is skipped.
 function classesInCss(text) {
   const out = new Set();
-  const src = text.replace(/\/\*[\s\S]*?\*\//g, '');
-  let depth = 0, buf = '';
+  const src = text.replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'/g, '""');
+  let buf = '';
   for (let i = 0; i < src.length; i++) {
     const c = src[i];
     if (c === '{') {
-      if (depth === 0) harvest(buf, out);
-      buf = ''; depth++;
-    } else if (c === '}') {
-      depth = Math.max(0, depth - 1); buf = '';
-    } else if (depth === 0) {
+      if (!/^\s*@/.test(buf)) harvest(buf, out);
+      buf = '';
+    } else if (c === '}' || c === ';') {
+      buf = '';
+    } else {
       buf += c;
       if (buf.length > 8000) buf = buf.slice(-4000);
     }
@@ -444,20 +452,29 @@ async function checkStructure(page) {
 }
 
 // ── navigation map, derived from the live navigation document
-function buildNavMap() {
-  const txt = describeNavigation();
-  if (!txt) return { map: new Map(), source: 'unavailable' };
+// Real `describe navigation` output carries an `icon <ref>` clause between the target and
+// the `;` on items, and between the caption and the `(` on groups. Anchoring on `;` right after
+// the page name matched no item that had an icon, so every page read as "no navigation route"
+// and rung 7 never ran (card-disbursement build, 2026-09-26). Match up to the terminator.
+function parseNavigation(txt) {
   const map = new Map();
   let group = null;
   for (const line of txt.split('\n')) {
-    let m = /^\s*menu\s+'([^']+)'\s*\(/.exec(line);
+    let m = /^\s*menu\s+'([^']+)'[^;]*\(\s*$/.exec(line);
     if (m) { group = m[1]; continue; }
     if (/^\s*\);\s*$/.test(line)) { group = null; continue; }
-    m = /^\s*menu item\s+'([^']+)'\s+page\s+([\w.]+);/.exec(line);
+    m = /^\s*menu item\s+'([^']+)'\s+page\s+([\w.]+)(?=[\s;])[^;]*;/.exec(line);
     if (m) { map.set(m[2], { group, item: m[1], via: 'page' }); continue; }
-    m = /^\s*menu item\s+'([^']+)'\s+microflow\s+([\w.]+);/.exec(line);
+    m = /^\s*menu item\s+'([^']+)'\s+microflow\s+([\w.]+)(?=[\s;])[^;]*;/.exec(line);
     if (m) map.set(`microflow:${m[2]}`, { group, item: m[1], via: 'microflow' });
   }
+  return map;
+}
+
+function buildNavMap() {
+  const txt = describeNavigation();
+  if (!txt) return { map: new Map(), source: 'unavailable' };
+  const map = parseNavigation(txt);
   // Resolve microflow-opened items onto pages by module + name tokens. Inference is
   // labelled as such in the row detail; it is never presented as measured routing.
   for (const [k, v] of [...map]) {

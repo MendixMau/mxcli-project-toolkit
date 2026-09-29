@@ -1,0 +1,9 @@
+{
+  "errors": [
+    {
+      "message": "The MPR file located at /tmp/gate-probe/broken/app/Marketplace.mpr could not be opened: Project version '11.12.2' does not exactly match MxBuild version '11.14.0'. Use loose version check option for less strict version checking.",
+      "details": ""
+    }
+  ],
+  "problems": []
+}

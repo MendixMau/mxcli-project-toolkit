@@ -1,0 +1,108 @@
+From d6133533a8d8c6575f8d11f76faafc09727251eb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 08:17:23 +0000
+Subject: [PATCH] fix(workflow): give condition outcomes a PersistentId
+
+conditionOutcomeToGen() wrote Boolean, EnumerationValue and Void
+condition outcomes without a PersistentId. Activities, UserTaskOutcome
+and ParallelSplitOutcome all get one via addFreshPersistentID.
+
+The runtime identifies an outcome an instance has taken by its
+persistent ID, so an outcome stored without one is a new outcome on
+every load. Every instance already past a decision (or past a
+call-microflow task with outcomes) turned Incompatible on the next
+deploy, a restart with no model change included: "A selected outcome
+has been replaced in the already executed path".
+
+Field-proven on v0.24.0 + this change, Mendix 11.13.0: a workflow
+with 30 condition outcomes went from 0/30 to 30/30 carrying an ID,
+mx check 0 errors; an instance paused at a user task after the
+decisions stayed InProgress across a no-change restart and then ran
+to Completed. Re-running create or replace workflow kept all 84 IDs
+(CarryPersistentIDs), so the fix costs one re-ID on first write only.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Pm41sykqDGcvioGzsY5H2N
+---
+ .../workflow_condition_outcome_test.go        | 41 +++++++++++++++++++
+ mdl/backend/modelsdk/workflow_write.go        |  3 ++
+ 2 files changed, 44 insertions(+)
+ create mode 100644 mdl/backend/modelsdk/workflow_condition_outcome_test.go
+
+diff --git a/mdl/backend/modelsdk/workflow_condition_outcome_test.go b/mdl/backend/modelsdk/workflow_condition_outcome_test.go
+new file mode 100644
+index 00000000..857073a4
+--- /dev/null
++++ b/mdl/backend/modelsdk/workflow_condition_outcome_test.go
+@@ -0,0 +1,41 @@
++// SPDX-License-Identifier: Apache-2.0
++
++package modelsdkbackend
++
++import (
++	"testing"
++
++	"github.com/mendixlabs/mxcli/modelsdk/element"
++	"github.com/mendixlabs/mxcli/sdk/workflows"
++)
++
++// TestConditionOutcomeToGen_HasPersistentID guards the outcome of a decision or
++// of a call-microflow task. The runtime identifies an outcome an instance has
++// taken by its PersistentId; an outcome written without one is a new outcome on
++// every load, so every instance already past it turns Incompatible on the next
++// deploy ("A selected outcome has been replaced in the already executed path").
++func TestConditionOutcomeToGen_HasPersistentID(t *testing.T) {
++	outcomes := map[string]workflows.ConditionOutcome{
++		"Workflows$BooleanConditionOutcome":          &workflows.BooleanConditionOutcome{Value: true},
++		"Workflows$EnumerationValueConditionOutcome": &workflows.EnumerationValueConditionOutcome{Value: "MyFirstModule.Colour.Red"},
++		"Workflows$VoidConditionOutcome":             &workflows.VoidConditionOutcome{},
++	}
++	for typeName, outcome := range outcomes {
++		g, ok := conditionOutcomeToGen(outcome).(*element.Base)
++		if !ok || g == nil {
++			t.Fatalf("%s: conditionOutcomeToGen returned %T", typeName, conditionOutcomeToGen(outcome))
++		}
++		if g.TypeName() != typeName {
++			t.Errorf("type = %q, want %q", g.TypeName(), typeName)
++		}
++		found := false
++		for _, p := range g.Properties() {
++			if p.Name() == "PersistentId" {
++				found = true
++			}
++		}
++		if !found {
++			t.Errorf("%s written without a PersistentId", typeName)
++		}
++	}
++}
+diff --git a/mdl/backend/modelsdk/workflow_write.go b/mdl/backend/modelsdk/workflow_write.go
+index e3587917..c039280b 100644
+--- a/mdl/backend/modelsdk/workflow_write.go
++++ b/mdl/backend/modelsdk/workflow_write.go
+@@ -654,6 +654,7 @@ func conditionOutcomeToGen(outcome workflows.ConditionOutcome) element.Element {
+ 		if o.Flow != nil {
+ 			addPart(g, "Flow", flowToGen(o.Flow))
+ 		}
++		addFreshPersistentID(g)
+ 		return g
+ 	case *workflows.EnumerationValueConditionOutcome:
+ 		g := newElem("Workflows$EnumerationValueConditionOutcome", outcomeID(o.ID))
+@@ -661,12 +662,14 @@ func conditionOutcomeToGen(outcome workflows.ConditionOutcome) element.Element {
+ 		if o.Flow != nil {
+ 			addPart(g, "Flow", flowToGen(o.Flow))
+ 		}
++		addFreshPersistentID(g)
+ 		return g
+ 	case *workflows.VoidConditionOutcome:
+ 		g := newElem("Workflows$VoidConditionOutcome", outcomeID(o.ID))
+ 		if o.Flow != nil {
+ 			addPart(g, "Flow", flowToGen(o.Flow))
+ 		}
++		addFreshPersistentID(g)
+ 		return g
+ 	default:
+ 		return nil
+-- 
+2.43.0
+

@@ -34,6 +34,13 @@
 #                  anything holding real data. Waive it with a reason, or override per
 #                  environment and empty the default.
 #
+# Reported, not a finding:
+#   SENTINEL       the model default is a `__NAME__` sentinel (`__SET_ME__`) — the shape
+#                  learned-constants-and-secrets.md Step 3 prescribes for a secret every
+#                  environment must override: it fails fast, naming the constant. Before
+#                  2026-09-27 it read MODEL-SECRET, the same verdict as a real password in git
+#                  (card-disbursement requirements-driven build, a hub password constant).
+#
 # Waivers live in the project's own register, one line each, anywhere in docs/constants-register.md:
 #   Waived constant <Qualified.Name>: <reason>
 # A waiver is a decision on the record, not a mute button — the run reports WAIVED and its reason.
@@ -63,7 +70,7 @@ JSON=0
 for a in "$@"; do
   case "$a" in
     --json) JSON=1 ;;
-    -h|--help) sed -n '2,45p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help) sed -n '2,53p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "constants-audit: unknown argument '$a'" >&2; exit 2 ;;
   esac
 done
@@ -114,7 +121,7 @@ done
 # register is what makes the classification real.
 SECRET_RE='[Kk][Ee][Yy]$|[Ss]ecret|[Pp]assword|[Pp]wd|[Tt]oken|[Cc]redential|ApiKey|APIKey|[Pp]assphrase|PrivateKey'
 
-FINDINGS=0; WAIVED=0; TOTAL=0; EMPTIES=0; SECRETS=0
+FINDINGS=0; WAIVED=0; TOTAL=0; EMPTIES=0; SECRETS=0; SENTINELS=0
 ROWS=""; JROWS=""
 
 # Read the body rows. The `---|---` separator and the header are skipped by the Qualified-Name
@@ -135,21 +142,26 @@ while IFS= read -r line; do
 
   # $dflt is used ONLY for this emptiness test and is never echoed, never stored in a variable
   # that reaches output, and never written to the JSON.
-  if [ -z "$dflt" ]; then state=EMPTY; EMPTIES=$((EMPTIES + 1)); else state=SET; fi
+  # The sentinel test reads the value's SHAPE only — `__` + [A-Za-z0-9_] + `__` — and prints
+  # nothing: a value of that shape is a placeholder by construction, never a secret.
+  if [ -z "$dflt" ]; then state=EMPTY; EMPTIES=$((EMPTIES + 1))
+  elif printf '%s' "$dflt" | grep -Eq '^__[A-Za-z0-9_]+__$'; then state=SENTINEL; SENTINELS=$((SENTINELS + 1))
+  else state=SET; fi
   if printf '%s' "$qname" | grep -Eq "$SECRET_RE"; then secret=yes; SECRETS=$((SECRETS + 1)); else secret=no; fi
   case "$expo" in [Yy]es|true|True) client=yes ;; *) client=no ;; esac
 
   verdict=OK
   [ "$state" = EMPTY ] && verdict=EMPTY
   [ "$secret" = yes ] && [ "$state" = SET ] && verdict=MODEL-SECRET
+  [ "$state" = SENTINEL ] && verdict=SENTINEL
   [ "$secret" = yes ] && [ "$client" = yes ] && verdict=CLIENT-SECRET
 
   reason=""
-  if [ "$verdict" != OK ] && [ -n "$REGISTER" ]; then
+  if [ "$verdict" != OK ] && [ "$verdict" != SENTINEL ] && [ -n "$REGISTER" ]; then
     reason=$(grep -m1 "^Waived constant $qname:" "$REGISTER" 2>/dev/null | sed "s/^Waived constant $qname: *//")
     if [ -n "$reason" ]; then verdict=WAIVED; WAIVED=$((WAIVED + 1)); fi
   fi
-  [ "$verdict" != OK ] && [ "$verdict" != WAIVED ] && FINDINGS=$((FINDINGS + 1))
+  [ "$verdict" != OK ] && [ "$verdict" != WAIVED ] && [ "$verdict" != SENTINEL ] && FINDINGS=$((FINDINGS + 1))
 
   # The table shows the first line of the reason only. A waiver is prose — one real waiver's runs to
   # four sentences — and printing it whole turns a 30-row table into a wall. The register is
@@ -169,15 +181,15 @@ EOF
 [ "$TOTAL" -gt 0 ] || { echo "constants-audit: parsed 0 constants from a table that had a header — the row format moved." >&2; exit 2; }
 
 if [ "$JSON" = 1 ]; then
-  printf '{\n  "instrument": "constants-audit",\n  "model": "%s",\n  "total": %d,\n  "empty": %d,\n  "secretNamed": %d,\n  "findings": %d,\n  "waived": %d,\n  "constants": [\n%s  ]\n}\n' \
-    "$(basename "$MPR")" "$TOTAL" "$EMPTIES" "$SECRETS" "$FINDINGS" "$WAIVED" "$(printf '%s' "$JROWS" | sed '$ s/,$//')"
+  printf '{\n  "instrument": "constants-audit",\n  "model": "%s",\n  "total": %d,\n  "empty": %d,\n  "sentinel": %d,\n  "secretNamed": %d,\n  "findings": %d,\n  "waived": %d,\n  "constants": [\n%s  ]\n}\n' \
+    "$(basename "$MPR")" "$TOTAL" "$EMPTIES" "$SENTINELS" "$SECRETS" "$FINDINGS" "$WAIVED" "$(printf '%s' "$JROWS" | sed '$ s/,$//')"
 else
   echo "Constants audit — $(basename "$MPR") · $TOTAL constants · no values are printed"
   echo ""
   printf '%-13s %-44s %-10s %-8s %s\n' VERDICT CONSTANT TYPE DEFAULT WAIVER
   printf '%s' "$ROWS" | grep -v '^OK  ' | sort
   echo ""
-  echo "  $TOTAL constants · $EMPTIES with no model default · $SECRETS secret-named · $WAIVED waived"
+  echo "  $TOTAL constants · $EMPTIES with no model default · $SENTINELS sentinel default(s) · $SECRETS secret-named · $WAIVED waived"
   if [ "$FINDINGS" -gt 0 ]; then
     echo "  ✗ $FINDINGS finding(s). EMPTY = blank in any environment that cannot set constants"
     echo "    (free node, Docker run, fresh clone). MODEL-SECRET = the value is in git."

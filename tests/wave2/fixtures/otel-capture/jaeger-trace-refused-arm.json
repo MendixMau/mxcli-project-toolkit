@@ -1,0 +1,520 @@
+{
+ "data": [
+  {
+   "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+   "spans": [
+    {
+     "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+     "spanID": "6b80ee02197cd6c0",
+     "operationName": "Microflow MockServices.VAL_MockScenario_Payload",
+     "references": [
+      {
+       "refType": "CHILD_OF",
+       "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+       "spanID": "fa4649c3449fa902"
+      }
+     ],
+     "startTime": 1790409626709073,
+     "duration": 18484,
+     "tags": [
+      {
+       "key": "mx.microflow.depth",
+       "type": "int64",
+       "value": 3
+      },
+      {
+       "key": "mx.microflow.name",
+       "type": "string",
+       "value": "MockServices.VAL_MockScenario_Payload"
+      },
+      {
+       "key": "otel.scope.name",
+       "type": "string",
+       "value": "com.mendix.runtime"
+      },
+      {
+       "key": "otel.status_code",
+       "type": "string",
+       "value": "OK"
+      },
+      {
+       "key": "span.kind",
+       "type": "string",
+       "value": "server"
+      },
+      {
+       "key": "thread.id",
+       "type": "int64",
+       "value": 146
+      },
+      {
+       "key": "thread.name",
+       "type": "string",
+       "value": "JettyServer-7"
+      }
+     ],
+     "logs": [],
+     "processID": "p1",
+     "warnings": null
+    },
+    {
+     "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+     "spanID": "fa4649c3449fa902",
+     "operationName": "Microflow MockServices.VAL_MockScenario_Arm",
+     "references": [
+      {
+       "refType": "CHILD_OF",
+       "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+       "spanID": "f989744b009500c8"
+      }
+     ],
+     "startTime": 1790409626707895,
+     "duration": 19740,
+     "tags": [
+      {
+       "key": "mx.microflow.depth",
+       "type": "int64",
+       "value": 2
+      },
+      {
+       "key": "mx.microflow.name",
+       "type": "string",
+       "value": "MockServices.VAL_MockScenario_Arm"
+      },
+      {
+       "key": "otel.scope.name",
+       "type": "string",
+       "value": "com.mendix.runtime"
+      },
+      {
+       "key": "otel.status_code",
+       "type": "string",
+       "value": "OK"
+      },
+      {
+       "key": "span.kind",
+       "type": "string",
+       "value": "server"
+      },
+      {
+       "key": "thread.id",
+       "type": "int64",
+       "value": 146
+      },
+      {
+       "key": "thread.name",
+       "type": "string",
+       "value": "JettyServer-7"
+      }
+     ],
+     "logs": [],
+     "processID": "p1",
+     "warnings": null
+    },
+    {
+     "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+     "spanID": "f989744b009500c8",
+     "operationName": "Microflow MockServices.ACT_MockScenario_Arm",
+     "references": [
+      {
+       "refType": "CHILD_OF",
+       "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+       "spanID": "28bab01e60e87dd5"
+      }
+     ],
+     "startTime": 1790409626707352,
+     "duration": 20532,
+     "tags": [
+      {
+       "key": "mx.microflow.depth",
+       "type": "int64",
+       "value": 1
+      },
+      {
+       "key": "mx.microflow.name",
+       "type": "string",
+       "value": "MockServices.ACT_MockScenario_Arm"
+      },
+      {
+       "key": "otel.scope.name",
+       "type": "string",
+       "value": "com.mendix.runtime"
+      },
+      {
+       "key": "otel.status_code",
+       "type": "string",
+       "value": "OK"
+      },
+      {
+       "key": "span.kind",
+       "type": "string",
+       "value": "server"
+      },
+      {
+       "key": "thread.id",
+       "type": "int64",
+       "value": 146
+      },
+      {
+       "key": "thread.name",
+       "type": "string",
+       "value": "JettyServer-7"
+      }
+     ],
+     "logs": [],
+     "processID": "p1",
+     "warnings": null
+    },
+    {
+     "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+     "spanID": "28bab01e60e87dd5",
+     "operationName": "Call microflow MockServices.ACT_MockScenario_Arm",
+     "references": [
+      {
+       "refType": "CHILD_OF",
+       "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+       "spanID": "11fa3a7d5e02c482"
+      }
+     ],
+     "startTime": 1790409626696746,
+     "duration": 32391,
+     "tags": [
+      {
+       "key": "mx.operation.type",
+       "type": "string",
+       "value": "callMicroflow"
+      },
+      {
+       "key": "otel.scope.name",
+       "type": "string",
+       "value": "com.mendix.runtime"
+      },
+      {
+       "key": "otel.status_code",
+       "type": "string",
+       "value": "OK"
+      },
+      {
+       "key": "span.kind",
+       "type": "string",
+       "value": "server"
+      },
+      {
+       "key": "thread.id",
+       "type": "int64",
+       "value": 146
+      },
+      {
+       "key": "thread.name",
+       "type": "string",
+       "value": "JettyServer-7"
+      }
+     ],
+     "logs": [],
+     "processID": "p1",
+     "warnings": null
+    },
+    {
+     "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+     "spanID": "32acedcc452e6e31",
+     "operationName": "SELECT /work/app/deployment/data/database/hsqldb/carddisbursement/carddisbursement.mockservices$mockscenario",
+     "references": [
+      {
+       "refType": "CHILD_OF",
+       "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+       "spanID": "28bab01e60e87dd5"
+      }
+     ],
+     "startTime": 1790409626703564,
+     "duration": 154,
+     "tags": [
+      {
+       "key": "db.connection_string",
+       "type": "string",
+       "value": "hsqldb:file:"
+      },
+      {
+       "key": "db.name",
+       "type": "string",
+       "value": "/work/app/deployment/data/database/hsqldb/carddisbursement/carddisbursement"
+      },
+      {
+       "key": "db.operation",
+       "type": "string",
+       "value": "SELECT"
+      },
+      {
+       "key": "db.sql.table",
+       "type": "string",
+       "value": "mockservices$mockscenario"
+      },
+      {
+       "key": "db.statement",
+       "type": "string",
+       "value": "SELECT \"mockservices$mockscenario\".\"id\", \"mockservices$mockscenario\".\"operation\", \"mockservices$mockscenario\".\"kind\", \"mockservices$mockscenario\".\"sticky\", \"mockservices$mockscenario\".\"active\", \"mockservices$mockscenario\".\"custompayload\", \"mockservices$mockscenario\".\"faultcode\", \"mockservices$mockscenario\".\"httpstatus\", \"mockservices$mockscenario\".\"hitcount\", \"mockservices$mockscenario\".\"createddate\", \"mockservices$mockscenario\".\"changeddate\", \"mockservices$mockscenario\".\"system$owner\", \"mockservices$mockscenario\".\"system$changedby\" FROM \"mockservices$mockscenario\" WHERE \"mockservices$mockscenario\".\"id\" = ?"
+      },
+      {
+       "key": "db.system",
+       "type": "string",
+       "value": "hsqldb"
+      },
+      {
+       "key": "db.user",
+       "type": "string",
+       "value": "SA"
+      },
+      {
+       "key": "otel.scope.name",
+       "type": "string",
+       "value": "io.opentelemetry.jdbc"
+      },
+      {
+       "key": "otel.scope.version",
+       "type": "string",
+       "value": "2.29.0-alpha"
+      },
+      {
+       "key": "span.kind",
+       "type": "string",
+       "value": "client"
+      },
+      {
+       "key": "thread.id",
+       "type": "int64",
+       "value": 146
+      },
+      {
+       "key": "thread.name",
+       "type": "string",
+       "value": "JettyServer-7"
+      }
+     ],
+     "logs": [],
+     "processID": "p1",
+     "warnings": null
+    },
+    {
+     "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+     "spanID": "11fa3a7d5e02c482",
+     "operationName": "POST /*",
+     "references": [],
+     "startTime": 1790409626694533,
+     "duration": 36156,
+     "tags": [
+      {
+       "key": "client.address",
+       "type": "string",
+       "value": "127.0.0.1"
+      },
+      {
+       "key": "http.request.method",
+       "type": "string",
+       "value": "POST"
+      },
+      {
+       "key": "http.response.status_code",
+       "type": "int64",
+       "value": 200
+      },
+      {
+       "key": "http.route",
+       "type": "string",
+       "value": "/*"
+      },
+      {
+       "key": "network.peer.address",
+       "type": "string",
+       "value": "127.0.0.1"
+      },
+      {
+       "key": "network.peer.port",
+       "type": "int64",
+       "value": 36678
+      },
+      {
+       "key": "network.protocol.version",
+       "type": "string",
+       "value": "1.1"
+      },
+      {
+       "key": "otel.scope.name",
+       "type": "string",
+       "value": "io.opentelemetry.jetty-12.0"
+      },
+      {
+       "key": "otel.scope.version",
+       "type": "string",
+       "value": "2.29.0-alpha"
+      },
+      {
+       "key": "server.address",
+       "type": "string",
+       "value": "localhost"
+      },
+      {
+       "key": "server.port",
+       "type": "int64",
+       "value": 8080
+      },
+      {
+       "key": "span.kind",
+       "type": "string",
+       "value": "server"
+      },
+      {
+       "key": "thread.id",
+       "type": "int64",
+       "value": 146
+      },
+      {
+       "key": "thread.name",
+       "type": "string",
+       "value": "JettyServer-7"
+      },
+      {
+       "key": "url.path",
+       "type": "string",
+       "value": "/xas/"
+      },
+      {
+       "key": "url.scheme",
+       "type": "string",
+       "value": "http"
+      },
+      {
+       "key": "user_agent.original",
+       "type": "string",
+       "value": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/141.0.7390.37 Safari/537.36"
+      }
+     ],
+     "logs": [],
+     "processID": "p1",
+     "warnings": null
+    },
+    {
+     "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+     "spanID": "42fe3d00af19a6d8",
+     "operationName": "Java action MockServices.JA_Json_IsValid",
+     "references": [
+      {
+       "refType": "CHILD_OF",
+       "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+       "spanID": "6b80ee02197cd6c0"
+      }
+     ],
+     "startTime": 1790409626711291,
+     "duration": 14513,
+     "tags": [
+      {
+       "key": "mx.activity.input_variable_names",
+       "type": "string",
+       "value": "Scenario/CustomPayload"
+      },
+      {
+       "key": "mx.activity.name",
+       "type": "string",
+       "value": "JavaAction"
+      },
+      {
+       "key": "mx.activity.output_variable_name",
+       "type": "string",
+       "value": "IsJson"
+      },
+      {
+       "key": "otel.scope.name",
+       "type": "string",
+       "value": "com.mendix.runtime"
+      },
+      {
+       "key": "otel.status_code",
+       "type": "string",
+       "value": "OK"
+      },
+      {
+       "key": "span.kind",
+       "type": "string",
+       "value": "server"
+      },
+      {
+       "key": "thread.id",
+       "type": "int64",
+       "value": 146
+      },
+      {
+       "key": "thread.name",
+       "type": "string",
+       "value": "JettyServer-7"
+      }
+     ],
+     "logs": [],
+     "processID": "p1",
+     "warnings": null
+    },
+    {
+     "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+     "spanID": "581b94df924d35a3",
+     "operationName": "AddValidationFeedback activity",
+     "references": [
+      {
+       "refType": "CHILD_OF",
+       "traceID": "c4dc26854ecdb369548b4f882d2bd351",
+       "spanID": "6b80ee02197cd6c0"
+      }
+     ],
+     "startTime": 1790409626726390,
+     "duration": 1084,
+     "tags": [
+      {
+       "key": "mx.activity.input_variable_names",
+       "type": "string",
+       "value": "Scenario"
+      },
+      {
+       "key": "mx.activity.name",
+       "type": "string",
+       "value": "AddValidationFeedback"
+      },
+      {
+       "key": "mx.activity.output_variable_name",
+       "type": "string",
+       "value": ""
+      },
+      {
+       "key": "otel.scope.name",
+       "type": "string",
+       "value": "com.mendix.runtime"
+      },
+      {
+       "key": "otel.status_code",
+       "type": "string",
+       "value": "OK"
+      },
+      {
+       "key": "span.kind",
+       "type": "string",
+       "value": "server"
+      },
+      {
+       "key": "thread.id",
+       "type": "int64",
+       "value": 146
+      },
+      {
+       "key": "thread.name",
+       "type": "string",
+       "value": "JettyServer-7"
+      }
+     ],
+     "logs": [],
+     "processID": "p1",
+     "warnings": null
+    }
+   ],
+   "warnings": null
+  }
+ ],
+ "total": 0,
+ "limit": 0,
+ "offset": 0,
+ "errors": null
+}

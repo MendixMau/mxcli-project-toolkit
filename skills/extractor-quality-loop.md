@@ -119,6 +119,22 @@ non-standard auth/middleware files that define routes) appears in `inventory.end
 
 **Overall score = sum(dimension_score × weight) / sum(weights)**
 
+### A source that is not code-shaped: replace the dimensions, keep the contract
+
+The six above are code-shaped (fields, FKs, enums, routes, specs). A source with none of
+those — a process model, a form catalogue, a spreadsheet of rules — gets **its own**
+dimensions, declared in the validator header and used as the `dimensions` keys of
+`extraction-quality.json`. Scoring a code dimension the stack does not have is the wrong
+move: 0 found / 0 expected scores 100 by arithmetic and pads the average (the
+Suspicious-Zero Gate below exists for exactly that).
+
+Field case (a card-disbursement requirements-driven build, 2026-09): an Enterprise
+Architect XMI/BPEL process model was scored on **nodes, transitions, guards, documentation,
+diagram membership, and diagram-image label recall** — each a count of items in the source
+against items captured. What stays fixed whatever the dimensions are: every expected count
+comes from the source (never from the inventory), 0–100 per dimension, weights stated,
+the ≥ 95% gate, the Suspicious-Zero Gate, and the self-graded rule below.
+
 ## What Is Explicitly NOT Scored
 
 The following are intentionally excluded — they belong in BRDs and human review, not the

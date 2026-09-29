@@ -3,7 +3,7 @@
 #
 #   bin/check-no-private-citations.sh [root]     # exit 1 on any hit
 #
-# Real incident (USI workshop research, 2026-08): five skills cited by this public repo existed
+# Real incident (a customer workshop, 2026-08): five skills cited by this public repo existed
 # only in a private repo, so an engineer following the pointer got nothing. A company brain
 # (templates/company-brain/) may cite the toolkit; the toolkit must never cite a company brain,
 # a personal repo, or any path under a user's home that is not this repo. This is the CI floor

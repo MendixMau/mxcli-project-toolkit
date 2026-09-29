@@ -88,14 +88,14 @@ not built that file, per this task's "preparation only" scope.
 
 ## Files I read
 
-1. `<scratch>/cb-eval2/control/USI_Routing_Workshop/CLAUDE.md`
-2. `<scratch>/cb-eval2/control/USI_Routing_Workshop/CLAUDE.local.md`
-3. `<scratch>/cb-eval2/control/USI_Routing_Workshop/PROJECT.md`
-4. `<scratch>/cb-eval2/control/USI_Routing_Workshop/intake.md`
-5. `<scratch>/cb-eval2/control/USI_Routing_Workshop/triage.md`
-6. `<scratch>/cb-eval2/control/USI_Routing_Workshop/widgets-inventory.txt`
-7. `<scratch>/cb-eval2/control/USI_Routing_Workshop/analysis/knowledge-base/share/KB_MES20_APIBehaviorSpec.md` (grep only, then targeted read)
-8. `<scratch>/cb-eval2/control/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+1. `<scratch>/cb-eval2/control/Acme_Routing_Workshop/CLAUDE.md`
+2. `<scratch>/cb-eval2/control/Acme_Routing_Workshop/CLAUDE.local.md`
+3. `<scratch>/cb-eval2/control/Acme_Routing_Workshop/PROJECT.md`
+4. `<scratch>/cb-eval2/control/Acme_Routing_Workshop/intake.md`
+5. `<scratch>/cb-eval2/control/Acme_Routing_Workshop/triage.md`
+6. `<scratch>/cb-eval2/control/Acme_Routing_Workshop/widgets-inventory.txt`
+7. `<scratch>/cb-eval2/control/Acme_Routing_Workshop/analysis/knowledge-base/share/KB_MES20_APIBehaviorSpec.md` (grep only, then targeted read)
+8. `<scratch>/cb-eval2/control/Acme_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
 9. `<home>/mxcli-project-toolkit/skills/design-artifacts.md`
 10. `<home>/mxcli-project-toolkit/skills/conversion-runbook.md` (Stage 3 section, via grep)
 11. `<home>/mxcli-project-toolkit/skills/checkpoints/checkpoint-design.md`

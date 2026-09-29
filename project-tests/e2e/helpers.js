@@ -40,6 +40,23 @@ let _mouseX = 720;
 let _mouseY = 450;
 
 // ── Browser ─────────────────────────────────────────────────────────────────
+
+// Which Chromium to launch when the one this Playwright pins is not installed.
+// Field origin (2026-09-27): in a cloud container the pinned headless shell was
+// absent and only /opt/pw-browsers/chromium (an older revision) existed, so every
+// e2e launch failed before testing anything. Order: PW_EXECUTABLE (explicit
+// override, always wins); else, only when the pinned binary is missing, the
+// container's /opt/pw-browsers/chromium if present; else undefined, and
+// Playwright uses its own. A configured channel (e.g. 'chrome') is left alone.
+const FALLBACK_CHROMIUM = '/opt/pw-browsers/chromium';
+function resolveExecutablePath() {
+  if (process.env.PW_EXECUTABLE) return process.env.PW_EXECUTABLE;
+  if (cfg.channel && cfg.channel !== 'chromium') return undefined;
+  let pinned = null;
+  try { pinned = chromium.executablePath(); } catch (_) { /* no pinned path known */ }
+  if (pinned && fs.existsSync(pinned)) return undefined;
+  return fs.existsSync(FALLBACK_CHROMIUM) ? FALLBACK_CHROMIUM : undefined;
+}
 async function launchBrowser({ videoDir = null, trace = false, viewport = null } = {}) {
   requirePlaywright();
   const vp = viewport || cfg.viewport;
@@ -49,6 +66,8 @@ async function launchBrowser({ videoDir = null, trace = false, viewport = null }
     args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
   };
   if (cfg.channel && cfg.channel !== 'chromium') launchOpts.channel = cfg.channel;
+  const exe = resolveExecutablePath();
+  if (exe) launchOpts.executablePath = exe;
   const browser = await chromium.launch(launchOpts);
   const context = await browser.newContext({
     viewport: vp,
@@ -75,6 +94,8 @@ async function launchBrowserAt(x, y, w, h, { videoDir = null, trace = false, mob
     ],
   };
   if (cfg.channel && cfg.channel !== 'chromium') launchOpts.channel = cfg.channel;
+  const exe = resolveExecutablePath();
+  if (exe) launchOpts.executablePath = exe;
   const browser = await chromium.launch(launchOpts);
   // mobile:true → use the real Playwright device profile (iPhone 14 by default).
   // This gives the correct UA, viewport, deviceScaleFactor and touch flags so the

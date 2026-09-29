@@ -14,7 +14,7 @@ needed today). MxBuild 11.14.0 from `cdn.mendix.com`.
 | Download the CLI | `curl …/releases/latest/download/mxcli-linux-amd64` | ✅ 96 MB, `mxcli version v0.22.0` |
 | Create an app headlessly | `./mxcli new UsiThemeProbe --version 11.14.0` | ✅ 9 modules, first build settled, no GUI |
 | Read the model | `./mxcli -p UsiThemeProbe.mpr -c "SHOW MODULES"` | ✅ |
-| Import the company's theme module | `mx module-import USI_Theme_Module.mpk UsiThemeProbe.mpr` | ❌ **refused, exit 117** |
+| Import the company's theme module | `mx module-import Acme_Theme_Module.mpk UsiThemeProbe.mpr` | ❌ **refused, exit 117** |
 
 ## The install route, corrected against the binary
 
@@ -36,7 +36,7 @@ binary's actual surface, from `./mxcli --help` and the subcommands' own help:
 ## The blocker, and it is upstream
 
 ```
-$ mx module-import USI_Theme_Module.mpk UsiThemeProbe.mpr
+$ mx module-import Acme_Theme_Module.mpk UsiThemeProbe.mpr
 The package could not be imported, because it was created with version 10.6.4 of Mendix
 Studio Pro. Please open it in any version in the range from 10.21.0 to 10.24.99 first.
 exit 117
@@ -80,7 +80,7 @@ mx module-import <new>.mpk <app>.mpr  # install it
 **But the converter has a version window, and 10.6.4 is outside 11.14's.**
 
 ```
-$ mx convert USI_Theme_Module.mpk out/USI_Theme_Module_11.mpk
+$ mx convert Acme_Theme_Module.mpk out/Acme_Theme_Module_11.mpk
 Unpacking the input mpk file … Found the input mpr file … Checking the version of the mpr file.
 Conversion failed: System.InvalidOperationException:
   The version '10.6.4.28084' of the mpr file is not supported.

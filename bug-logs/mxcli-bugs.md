@@ -919,6 +919,15 @@ no `mxcli fix security`, and forcing a recompute with an MDL `GRANT` on a UserCo
 tried and **does not clear it**. Plan that module for a Studio Pro session; do not install it into a
 project that must stay buildable headlessly in the meantime.
 
+**5. (added 2026-09-28) A headless install is not a Studio Pro install in the model's eyes — check the
+Source column, and know what it cannot tell you.** `marketplace install <content-id>` stamps three of the
+five marketplace identity fields on the module (`FromAppStore`, `AppStoreVersion`, `AppStoreGuid`);
+`--file` stamps none. Studio Pro reads all five, so the module lands among the app's own modules in the
+App Explorer instead of under "Marketplace modules". After every install read `SHOW MODULES`: Source
+must say `Marketplace v<version>` (a `--file` install shows nothing there, and that is the first sign).
+Even when it does, on ≤ v0.24.0 the Studio Pro grouping is still wrong — see
+`BUG-DRAFT-marketplace-install-not-grouped-in-studio-pro` for the fix package.
+
 ---
 
 ### HISTORICAL RECORD (the bug as it was, kept because a ledger entry that vanishes reads as a bug never found)
@@ -1984,6 +1993,13 @@ restore, rather than as a soft warning.
 
 ## BUG-62: `ALTER PAGE ... SET Snippet = ... ON <snippetcall-widget>` passes `--references` but fails at exec time — `SNIPPETCALL` widgets need `REPLACE` with an explicit `Params` map, not `SET`
 
+> **Also seen on v0.23.0 (2026-09-25), in a colleague's naming-conventions change on an existing Mendix 11.12.4 app. It widens this entry from "retarget a snippet call" to "rename a snippet":**
+> - **There is no `rename snippet`.** v0.24.0 verified: `mxcli rename --help` lists entity, microflow, nanoflow, page, enumeration, association, constant and module. The only route is copy, repoint the callers, then drop, and that route loses content.
+> - `describe` leaves out `Params:` on a **nested** `SNIPPETCALL` whose mapping goes to a same-named variable, so the copy loses the mapping. This is the "DESCRIBE never renders `Params:`" lesson below, now seen losing data.
+> - A bare `ContentParams` path in the new snippet passed `check` but failed mxbuild when the snippet has 2+ entity parameters. It built only after being wrapped in a `DATAVIEW`, which is a structural change.
+> - `SET Snippet = …` is still unsupported (this entry's title). `REPLACE` worked on 10 of 11 callers. On one, `describe` showed the new target, but mxbuild still saw the old snippet after the drop (5 of 5 tries).
+> - Impact in the field: all 3 planned snippet renames were dropped. v0.24.0: the missing verb is verified; the three content-loss items were **not probed**. Upstream: no `rename snippet` on `main` (2026-09-24).
+
 > ### ⚠️ PARTIALLY FIXED in mxcli v0.18.0 — retested 2026-08-20
 >
 > Retested on v0.18.0, Mendix 11.12.0, graded with Studio Pro 11.12.0's `mx`, A/B'd against v0.17.0.
@@ -2083,7 +2099,13 @@ remediation — `PLM.PLM_GraphAgentChat`'s `snippetCall1` re-target.
 
 ---
 
-## BUG-63: `write-lint-rules.md` documents API values that do not exist — every `action_type` example is wrong, and `source_type` case is wrong — so rules written from the guide silently match nothing
+## BUG-63: `write-lint-rules.md` documents API values that do not exist — every `action_type` example is wrong, and `source_type` case is wrong — so rules written from the guide silently match nothing (widened 2026-09-25: also `microflow_type` case, SQL-vs-Starlark entity-type spelling, and what `activity_count` counts)
+
+> **Also seen on v0.23.0 (2026-09-25), in a colleague's naming-conventions change: two more wrong values, and one count that means something else. v0.24.0 verified 2026-09-25 with a probe rule on a scratch copy of a small PoC model:**
+> - **`microflow_type` is UPPERCASE.** Starlark returned `MICROFLOW` (the probe tallied `{"MICROFLOW": 51}`). The bundled `write-lint-rules/SKILL.md` still documents `"microflow"`/`"nanoflow"` in v0.24.0 and on `main`. 59db6e7b0 (2026-09-18, Refs #1027) left that row alone.
+> - **`microflows()` also yields rules and nanoflows** (`RULE`, `NANOFLOW`), but only in non-platform modules. The v0.24.0 `mdl/linter/context.go` says so ("yields all three flow flavours"), and the field saw rules on v0.23.0. The probe model's 18 rules all sit in marketplace modules, which the linter skips, so the probe could not show one.
+> - **SQL and Starlark disagree on entity type.** `CATALOG.ENTITIES` returns `PERSISTENT`/`NON_PERSISTENT`/`VIEW`, while Starlark `entity_type` returns `Persistent`/`NonPersistent`/`View`. A rule prototyped in SQL and then ported goes blind. The field's two handbook rules found 0 of 16 and 0 of 28 real hits this way.
+> - **`activity_count` counts top-level flow objects, not actions.** On a probe microflow with an annotation, retrieve, if, loop{change}, commit and log, it returned `activity_count=6`: annotation, retrieve, split, loop, commit and log. It excludes start, end and merge, and it does **not** count the action inside the loop. `activities_for()` returns the same top-level objects: `StartEvent, ActionActivity:RetrieveAction, Annotation, ExclusiveSplit, ExclusiveMerge, LoopedActivity, ActionActivity:CommitObjectsAction, ActionActivity:LogMessageAction, EndEvent`. So the field workaround, counting `ActionActivity`, gives 3 of the 4 real actions. The docs say "Number of activities", and CONV009 over-reports (field: 16 counted, 11 actions). The toolkit note, with a before/after, is in `skills/lint-that-actually-runs.md` §1. Upstream: 5fb124129 / 84449c76c (2026-09-22, ARCH002/ARCH003 entity_type) are unreleased; no fix was found for the `microflow_type` doc row or for `activity_count`.
 
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14 by inspection plus a live catalog query: the shipped `write-lint-rules/SKILL.md` still lists the same fictional `action_type` examples (line 318) and lowercase `source_type` (line 364); `SELECT DISTINCT SourceType FROM CATALOG.REFS` on a live scaffolded app returns the real, uppercase values.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
@@ -3486,6 +3508,8 @@ derive one from the `.mpr` filename) — this is a scaffolding-template gap, not
 judgment call.
 
 ## BUG-102: `ALTER PAGE … SET DataSource = … ON widget` silently no-ops on a native DataGrid — reports success, passes the mxbuild gate, XPath never changes
+
+> **Also seen on v0.23.0 (2026-09-25), in a colleague's naming-conventions change: the neighbouring form fails loudly instead of silently.** On a **legacy** `Forms$DataGrid`, `ALTER PAGE … SET XPathConstraint = … ON <grid>` is rejected, and `mxcli bson dump` is read-only, so a stale grid XPath (left behind by a module rename, see `BUG-DRAFT-rename-module-leaves-xpath`) has no offline route. The only routes are `--mcp` against a running Studio Pro, or editing by hand. Field workaround: replace the legacy grid with a Data Grid 2. v0.24.0: **not probed** (the probe copy cannot author a data grid, `unsupported widget type: datagrid`).
 
 > **NOT RETESTED this round (v0.21.0, 2026-09-14) — the current `mxcli syntax page.alter` reference documents only `SET DataSource = $Param` (a variable form); no `DATABASE FROM … WHERE […] SORT BY …` form appears in the syntax reference at all, and DATAGRID now routes through the unified DataGrid2 engine (same v0.21.0 changelog note flagged on BUG-93/BUG-16). Unclear whether the original repro shape is still constructible without deeper investigation than this round had time for.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
@@ -5682,3 +5706,458 @@ Probe: `mxcli init --tool claude` (v0.22.0) into an empty directory. The generat
 - `bin/sync-project.sh` now warns, report-only, when the `DECLARE $<var> <Module>.<Entity>;` row is present in a project's `CLAUDE.md` (stale `mxcli init` row — re-run init or strip it), alongside its existing stale-ledger-row warning.
 - `skills/bootstrap-project.md`: the audit pass strips the row when merging into an init-generated `CLAUDE.md`.
 - Still open: until a stamp exists upstream, record `mxcli --version` in `PROJECT.md` at init time so the drift is at least dated.
+
+---
+
+## BUG-DRAFT-layout-merge-in-if-branch: v0.24.0 auto-layout puts the merge on top of an activity that follows a loop inside an `if` branch — lint MPR008 on a correct script with no `@position` (2026-09-25)
+
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/layout-merge-in-if-branch.md`.
+
+> **mxcli team response (2026-09-25):** positioning is meant to be handled by a standalone `mxcli layout` command, not by `create microflow`. On v0.24.0 and upstream `main` at that date the command arranges **domain models only** (`mxcli layout --help`: "Arrange the entities of a domain model"; `--dry-run` on a scratch copy of a PoC model listed 10 entity moves, no microflow). Re-probe `mxcli layout --help` on each release; until a microflow mode ships, the workaround above stands.
+
+**Discovered:** 2026-09-25, measuring the rewritten v0.24.0 layout engine (upstream #1154) for
+`skills/microflow-preflight.md`, on a scratch copy of a small Mendix 11.12.1 PoC model.
+**Reproducible:** yes, minimal A/B with two controls that lay out clean, on the same copy.
+**mxcli version:** `v0.24.0` (built from the `v0.24.0` tag). **Mendix:** 11.12.1.
+
+**What happens.** A microflow whose `if` branch contains a loop *and then another activity*
+gets its merge node laid out on top of that activity. The script carries no `@position` at all,
+so this is the auto-layout the `syntax microflow.layout` help tells you to prefer. `describe
+microflow` shows the merge 20 px from the commit; `mxcli lint` reports **MPR008** (overlapping
+elements) on a script that is correct.
+
+```
+-- no @position anywhere; default layout
+create or modify microflow Probe.SUB_LoopInIf ()
+begin
+  retrieve $Items from Probe.Item;
+  if $Items != empty then
+    loop $Row in $Items
+    begin
+      change $Row (Name = 'x');
+      change $Row (Name = 'y');
+    end loop;
+    commit $Items on error rollback;
+  else
+    log info node 'Probe' 'empty';
+  end if;
+end;
+```
+
+Coordinates from `describe microflow Probe.SUB_LoopInIf` after `exec` on v0.24.0:
+
+| element | x, y |
+|---|---|
+| if | 520, 200 |
+| loop (true branch) | 870, 200 |
+| commit (true branch, after the loop) | 1210, 200 |
+| **merge** | **1230, 200** |
+| log (else branch) | 690, 350 |
+| end | 1430, 200 |
+
+**Controls, same binary, same copy — both clean:**
+
+| Shape | merge | lint |
+|---|---|---|
+| plain if/else, no loop (two activities in the true branch at 690 and 850) | 970, 200 | clean |
+| `if` branch containing **only** the loop, nothing after it | after the loop | clean |
+
+So the loop's own width is accounted for when the merge is placed, but an activity that follows
+the loop inside the same branch is not. The pattern is common — "if there is anything to
+process, loop over it, then commit the list" — and it is the shape the `microflow-preflight.md`
+collect-then-commit recipe produces when the whole thing sits under a guard.
+
+**Expected:** the merge sits after the last activity of the longest branch, as it does for
+branches without a loop.
+
+**Workaround (in `microflow-preflight.md` → "Known v0.24.0 defect"):** move the loop into a
+`SUB_` microflow, or place the trailing activity after `end if`. Do not hand-place the merge
+with `@merge` — partial hand placement is what MPR008/MPR011 flag first (measured in the same
+session: one hand-placed statement among auto-placed ones → MPR008; a negative loop-body
+coordinate → MPR011).
+
+**Why it matters for the toolkit.** `project-bin/exec.sh` now runs the lint ratchet after every
+clean mxbuild (#134) and a rise over the baseline writes `LINT ROSE` into the BUILD-LOG row. A
+correct script that trips MPR008 through this defect looks identical to a real overlap, so the
+gate-agent's "do not accept the rise with `--update-baseline`" rule needs this entry to tell the
+two apart: an MPR008 whose two elements are a merge and the activity after a loop in an `if`
+branch is this bug, and the fix is the workaround above, not a baseline bump.
+
+## BUG-DRAFT-mpr012-assumes-react-client: lint MPR012 reports every legacy dynamic image as a React-client error (CE0582) on a Mendix 11 project that still builds for the Dojo client (2026-09-26)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-26, when an existing-app change project merged upstream `main`. The lint ratchet jumped by 57, and every one of the new findings was MPR012.
+**Reproducible:** yes, on every run against that model. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** MPR012 says: "dynamic image 'imageViewer1' in … is not supported by the React client (Mendix 10.7+, the only client on 11) — mxbuild reports CE0582". It fires on every `Forms$ImageViewer`: 57 of them on that project's own modules. Two things show this is not an error for this model:
+- `mx check` (mxbuild 11.12.2) on the same `.mpr` reports **0 errors and no CE0582**.
+- The project still builds for the **Dojo** client: the built `deployment/web/index.html` loads `mxui/mxui.js`.
+
+So the rule's premise, "the only client on 11", does not hold for this project.
+
+**Expected:** MPR012 should fire only when the project builds for the React client. Otherwise it should be an info-level "blocks a React migration" note, not a warning.
+
+**Workaround:** accept the rise with `--update-baseline` and name MPR012 in the commit message. Cite the clean `mx check` and the Dojo marker as evidence. Keep the list, because it is the to-do list for a future move to the React client.
+
+**Why it matters for the toolkit.** `exec.sh` runs the lint ratchet after every clean mxbuild. A new built-in rule that fires on untouched legacy widgets fails that ratchet on the first build after a toolkit or mxcli update, even though the model did not change. Before treating a sudden rise in one new rule as a regression, check it against `mx check`.
+
+## BUG-DRAFT-partial-revoke-association-noop: `revoke R on E (write (<association>))` reports success and changes nothing (2026-09-26)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-26, on an existing-app change project, while making a component admin's guest links read-only.
+**Reproducible:** yes, on a scratch copy of the model. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You revoke write on association members, for example `revoke Mod.Member on Mod.Guest (write ("Group_Guests", "Guest_OrganisationEmployee"));`. It parses, `exec` reports it as applied, and mxbuild stays clean. But `SHOW ACCESS ON ENTITY` still lists both associations as `ReadWrite`. The same statement with an attribute works: `(write (Email))` turns Email into `ReadOnly`. The qualified form `(write (Mod."Group_Guests"))` gives a parse error.
+
+**Expected:** association members are downgraded the same way attributes are. If they can't be, the statement should fail with an error. It should never be a silent no-op.
+
+**Workaround:**
+1. Revoke the role from the entity entirely: `revoke R on E;`. This removes R from every rule of E.
+2. Re-grant each of R's rules from its `DESCRIBE ENTITY` line, changing only the member lists. The XPath then stays byte-for-byte the same.
+3. Diff the `where` clauses before and after.
+4. Verify with `SHOW ACCESS`.
+
+Never take the exec's "applied" as proof.
+
+**Why it matters for the toolkit.** It is a false green on a security change (`skills/learned-detection-gaps.md` class): every gate passes and the right it was meant to remove is still there.
+
+## BUG-DRAFT-check-references-misses-same-script-queue: `mxcli check --references` reports a queue created earlier in the same script as "task queue not found" (2026-09-27)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-27, on an existing-app change project, while moving a batch job onto a new task queue.
+**Reproducible:** yes. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You have a script that runs `create or modify queue M.Q ...;` and later `call microflow M.X(...) in queue M.Q;`. `check --references` fails with `task queue not found: M.Q (referenced by in queue)`. The checker says "references to objects created within the script are skipped", but queues are not skipped. `exec` of the same script on a scratch copy works, and mxbuild is clean.
+
+**Expected:** a queue created earlier in the script counts as existing, the same way entities and microflows do.
+
+**Workaround:** put the `create queue` in its own script and exec it first. The second script then passes `check --references`.
+
+**Why it matters for the toolkit.** `exec.sh` refuses a script that fails check, so the single-script form never reaches the model. It costs one extra exec-and-gate cycle, about 5 minutes on a large model.
+
+## BUG-DRAFT-xpath-system-member-case: an XPath system member written in the wrong case (`[CreatedDate >= $Since]`) passes `check --references` and fails the build with CE0161 (2026-09-27)
+
+> **NOT YET FILED.** Upstream draft kept with the project's harvest.
+
+**Discovered:** 2026-09-27, on an existing-app change project, while retrieving the guests added in one batch.
+**Reproducible:** yes, on a scratch copy. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.**
+
+```
+retrieve $G from UserGroups.Guest where [CreatedDate >= $Since];   -- WRONG
+```
+
+- `mxcli check --references` → `Check passed!`
+- exec, then `mx check` → `[CE0161] "Error(s) in XPath constraint." at Retrieve object(s) activity`
+
+In XPath the system members are lowercase: `createdDate`, `changedDate`, `owner`, `changedBy`.
+The checker does not match their case, so the capitalised form passes it and fails only at the build.
+
+**Fix:** `[createdDate >= $Since]`, which built with 0 errors. The same applies to the other three members.
+
+**Not this bug (works as designed):** `[Assoc = empty]` on an association is caught by `check` as MDL047, with a `not(Assoc/Target)` hint.
+
+**Expected:** `check --references` rejects a system member in the wrong case, the same way it rejects an unknown attribute.
+
+## BUG-DRAFT-association-owner-ignored: `create or modify association … owner Both` reports "Modified" and leaves the owner unchanged (2026-09-27)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-27, on an existing-app change project, while making a one-to-one association navigable from both ends.
+**Reproducible:** yes, on a scratch copy. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You run `create or modify association UserGroups.GuestGroup_App … owner Both;` on an existing association whose owner is Default. It prints `Modified`, but `DESCRIBE ASSOCIATION` still shows owner Default. The owner change is dropped without a message. That is a silent no-op, the same class as `BUG-DRAFT-partial-revoke-association-noop`.
+
+**Why the obvious workaround is worse.** `drop association` followed by `create association … owner Both` does set the owner, but it mints a **new association ID**:
+- existing database links are lost;
+- every access rule's member right on that association resets to None (the entity's ReadWrite/ReadOnly rights were lost);
+- across modules it gives CE0066 (`BUG-DRAFT-association-owner-both-cross-module-ce0066`).
+
+**Workaround (proven on a scratch copy, `mx check` 0 errors):** patch the association unit in place in the MPR (SQLite `Unit` table, BSON `Contents`):
+1. Flip `Owner` to `Both`, keeping the same ID.
+2. Append a `DomainModels$MemberAccess` (None) for the association to every access rule of the other entity.
+3. Recompute `ContentsHash` (base64 of the sha256 of `Contents`).
+
+Do this on a snapshot, never on the only copy. If you don't want to patch, stay with owner Default and a 1-* convention. That is what the project did.
+
+**Expected:** `create or modify` applies the owner. If it cannot, it refuses with an error that names the limitation.
+
+## BUG-DRAFT-association-owner-both-cross-module-ce0066: drop + create with `owner Both` across modules leaves the other module's access rules stale → CE0066 (2026-09-27)
+
+> **NOT YET FILED.** Extends `BUG-DRAFT-association-owner-ignored`.
+
+**Discovered:** 2026-09-27, on an existing-app change project, on a scratch copy.
+**Reproducible:** yes. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You run `drop association` and then `create association UserGroups.GuestGroup_App … owner Both`, where the other end (`AppStore.App`) is in another module. mxcli prints `Reconciled 3 access rule(s)…`, but those are only GuestGroup's rules. `AppStore.App`'s 13 rules get no `MemberAccess` for the new association, and `mx check` reports:
+
+```
+[CE0066] Entity access is out of date. … at Domain model of module 'AppStore'
+```
+
+Neither `update security` nor stripping the stale member access clears it.
+
+**So:** today there is no mxcli path to owner Both on a cross-module association. `create or modify` ignores the owner, and drop + create leaves the far side stale. Only the raw BSON patch under `BUG-DRAFT-association-owner-ignored` works. The fallback is owner Default.
+
+**Expected:** reconcile member access on **both** ends' entities when an association with owner Both is created.
+
+## BUG-DRAFT-audit-member-access-ce0066: grants inject `System.owner` / `System.changedBy` member access on entities without those members → CE0066 (fixed upstream; record the mxcli version) (2026-09-26)
+
+> **RESOLVED upstream (mxcli `2455ee9f`, in v0.22 and later). NOT REPRODUCED on v0.23.0** — three probes, 0 errors. Kept because the lesson is about which binary ran.
+
+**Discovered:** 2026-09-26, on an existing-app change project. A build on one machine logged CE0066 after grant scripts.
+**Reproducible:** on older binaries only. **mxcli version:** the failing exec most likely ran v0.21.0, which was earlier on that machine's PATH, not the project's v0.23.0. **Mendix:** 11.12.2.
+
+**What happened.** Grant scripts added `MemberAccess` entries for `System.owner` / `System.changedBy` to entities that do not have those audit members (three entities in that model). The result was `CE0066 Entity access is out of date`.
+
+**Fix:** use mxcli v0.22 or later. Until then, the interim fix was a small script that strips `MemberAccess` entries pointing at audit members the entity lacks, run on a snapshot and followed by `mx check`.
+
+**The process point.** A bug "reproduced" on the wrong binary costs a probe day (`skills/retesting-learned-rules.md`). Before reporting or working around a CE after exec:
+- run `mxcli --version` with the **same** invocation the exec used (`./mxcli` vs a `mxcli` on PATH);
+- write that version into the BUILD-LOG row.
+
+Two machines on one project can differ here without anyone noticing.
+
+## BUG-DRAFT-rename-module-leaves-xpath: `rename module` reports its references updated but leaves every XPath constraint naming the old module — mxbuild CE1613 (2026-09-25)
+
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/rename-module-leaves-xpath.md`.
+
+> **Status:** reported on v0.23.0 by a colleague; **v0.24.0: verified** 2026-09-25 on a scratch copy of a small PoC model (Mendix 11.12.1). `mxcli rename -p app.mpr module RenA RenB` printed `Renamed module: RenA → RenB` / `Updated 6 reference(s) in 4 document(s)`; `describe microflow RenB.SUB_Find` then still showed `where RenA.Item/Name = 'x';` and `RenB.SUB_Assoc` still showed `where RenA.Item_Owner/RenA.Owner/Label = 'x';`; `grep -rl 'RenA' mprcontents/` listed the 2 units that still name it. Upstream: no fix found on `main` (2026-09-24). The XPath rewrite that does exist there (35efa0207, #910, unreleased) covers **attribute** rename only.
+
+**Discovered:** 2026-09-22..24, a naming-conventions change on an existing Mendix 11.12.4 app (MPR v2), reported from the field.
+**mxcli version:** v0.23.0 (field), v0.24.0 (retest). **Severity:** High. The command says it worked, and the damage shows only at build.
+
+**Repro:**
+```
+-- ModuleA has entity Item and a microflow that retrieves with XPath
+retrieve $Items from ModuleA.Item where ModuleA.Item_Owner/ModuleA.Owner/Label = 'x';
+```
+```
+mxcli rename -p app.mpr module ModuleA ModuleB
+mxcli -p app.mpr -c "describe microflow ModuleB.SUB_Find"
+mx check app.mpr
+```
+
+**Expected:** every qualified name that starts with `ModuleA.` follows the rename, including those
+inside retrieve XPath, widget datasource XPath and expression strings.
+
+**Actual:** the unit and structural references are renamed, and the success line counts them. Text
+that holds a qualified name is not rewritten: retrieve XPath, a legacy data grid's XPath, and
+expressions. In the field this gave "407 references updated" and then 34 CE1613 from 10 microflows
+plus one grid XPath, all still naming the old module.
+
+**Impact:** a module rename is not safe offline. The reference count reads like proof that it is.
+
+**Workaround:** after the rename, `describe` each affected microflow, correct the module name, and
+re-create it. Diff each regenerated microflow against a pre-rename export before you exec it,
+because DESCRIBE output of non-nesting decision branches can drop merges on re-exec (upstream #923).
+Find the affected units with `grep -rl 'ModuleA\.' mprcontents/` on the renamed copy (MPR v2). On v0.24.0,
+`SEARCH 'ModuleA.'` returned "No matches found." for the stale XPath. Run `mx check` after the rename; the success line does not replace it.
+
+## BUG-DRAFT-rename-page-renames-folder: `rename page` renames a same-named folder instead of the page, and reports success (2026-09-25)
+
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/rename-page-renames-folder.md`.
+
+> **Status:** reported on v0.23.0 by a colleague; **v0.24.0: verified** 2026-09-25 on a scratch copy of a small PoC model, but only when the folder unit is older than the page. Three shapes did **not** reproduce: page at the module root with folder `Pages/Dup`, page in `Pages` beside `Pages/Dup`, and page name equal to the module name. In each, the folder was created by a `move` *after* the page. The shape that reproduces: `move page RenA.Other to folder 'Pages/Same'` first, then `create page RenA.Same`, then `mxcli rename -p app.mpr page RenA.Same Same_Overview`. That printed `Renamed page: RenA.Same → RenA.Same_Overview`. `show pages in RenA` then listed `RenA.Same` unchanged and `RenA.Other` in folder `Pages/Same_Overview`. `git status` showed one changed unit, whose `$Type` is `Projects$Folder`. **Root cause (v0.24.0 source):** `RenameDocumentByName` in `mdl/backend/modelsdk/infrastructure_write.go` walks every unit in the module's container set and rewrites the first one whose top-level `Name` equals the old name. It never checks `$Type`, and folders are units, so unit order decides the outcome. Upstream: the same code is on `main` (2026-09-24); no fix found.
+
+**Discovered:** 2026-09-22..24, same field report as above.
+**mxcli version:** v0.23.0 (field), v0.24.0 (retest). **Severity:** High. The wrong object changes silently.
+
+**Repro:** see the status line. In the field the shape was page `ModuleA.PageX` alongside a folder
+`Pages/PageX` in the same module.
+
+**Expected:** the page is renamed. A folder never matches a `rename page`.
+
+**Actual:** the folder is renamed. The page keeps its name, but callers are rewritten to the new
+page name (3 in the field), so mxbuild reports CE1613 "page … no longer exists" on each caller.
+
+**Impact:** silent wrong change. The success line and the caller count look right.
+
+**Workaround:** after every `rename page`, read the model back (`show pages in ModuleA`). If a
+folder of the same name exists, move its documents to a temporary folder, drop the folder, rename
+the page, then move the documents back.
+
+## BUG-DRAFT-move-case-only-folder-twin: a case-only folder change by `move` leaves the old-case folder behind (2026-09-25)
+
+> **Status:** reported on v0.23.0 by a colleague; **v0.24.0: verified** (the twin) 2026-09-25 on a scratch copy of a small PoC model. First `move page RenA.Item_Overview to folder 'Pages/AbcArea'`, then `... to folder 'Pages/ABCArea'`. The page ends in `Pages/ABCArea`, and two `Projects$Folder` units remain, `AbcArea` (empty) and `ABCArea`. In this flat shape `drop folder 'Pages/AbcArea' in RenA` removed the empty twin (`Dropped folder: 'Pages/AbcArea' in RenA`). The field saw `DROP FOLDER` refuse, because it resolved to the new-case twin that holds documents. That was on nested paths (`Logic/SubfolderAbc/...`), which were **not probed**. Upstream: no fix found.
+
+**Discovered:** 2026-09-22..24, same field report. **mxcli version:** v0.23.0, v0.24.0. **Severity:** Medium.
+
+**Expected:** a move whose target differs only in case either renames the folder in place or
+reuses it. No empty twin is left.
+
+**Actual:** a second folder is created, and the old-case folder remains empty. In the field there
+were 6 nested twins, and `DROP FOLDER` could not remove them.
+
+**Workaround:** none offline in the field. Studio Pro can delete the empty folders. On v0.24.0,
+try `drop folder '<old-case path>' in ModuleA` and confirm with `show pages`/`git status` that it
+removed the *empty* twin.
+
+## BUG-DRAFT-dg2-association-path-bindings: a Data Grid 2 column or `sort by` over an association passes `check` in forms that build to CE1613 — quoting the path stores one attribute named `Assoc/Attr` (2026-09-25)
+
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/dg2-association-path-bindings.md`.
+
+> **Status:** reported on v0.23.0 by a colleague; **v0.24.0: `check` half verified, build half not probed** 2026-09-25. A page with `datagrid dg1 (DataSource: database "RenA"."Item" sort by "Item_Owner/Label" asc)` and columns `(Attribute: "Item_Owner/Label")` and `(Attribute: Item_Owner/Label)` passed `mxcli check --references` (`Check passed!`). The quoted and unquoted sort forms both passed. The MDL-WIDGET16 info line derived the column names as `colQ → "Item_Owner/Label", colU → Item_Owner/Label`, so the quotes survive into the stored name. Exec and mxbuild were not run: the probe copy has no Data Grid 2 widget definition (`unsupported widget type: datagrid`). Upstream: fe5a7408e (2026-09-21, "let a sort column name the association it navigates", unreleased; see also closed #1152) addresses the **sort** half on `main`. No fix was found for the quoted **column** path; closed #830 covered unquoted association columns.
+
+**Family:** BUG-29 (quoted paths in nav expressions → CE0117), BUG-75 (quoted path as a call
+argument → CE0117), BUG-41 (DG2 text-filter attributes). The toolkit had logged this binding only
+as a row in `skills/learned-detection-gaps.md` (root cause there: `resolveAssociationAttributePath`
+does not strip quotes before splitting on `/`). This entry is the ledger home for it.
+
+**Discovered:** 2026-09-22..24, same field report. **mxcli version:** v0.23.0, v0.24.0. **Severity:** Medium. The check is green and the build shows CE1613.
+
+**Repro:**
+```
+column colX (Attribute: "Assoc_A_B/Name", Caption: 'B')        -- quoted: CE1613 at build
+column colY (Attribute: Assoc_A_B/Name,   Caption: 'B')        -- unquoted: builds
+datagrid dg (DataSource: database ModuleA.EntityA sort by Assoc_A_B/Name asc) { ... }  -- CE1613
+```
+
+**Expected:** a quoted identifier that contains `/` is either split into a path or rejected by
+`check`. A `sort by` over an association is either authored as a path or rejected by `check`.
+
+**Actual (field, v0.23.0):**
+- Quoted column path: stored as **one attribute whose name contains a slash**, which gives CE1613.
+- Unquoted `sort by Assoc/Attr`: written as a plain attribute of the grid's entity, which gives CE1613.
+- The full `Module.Assoc/Module.Entity/Attr` sort form does not parse. Quoted, it parses and then gives CE1613 too.
+
+**Impact:** projects that follow the generated `CLAUDE.md` advice to "always quote identifiers"
+hit this on every association column. The quote-everything convention has to break here.
+
+**Workaround:** write association paths unquoted in `Attribute:`. On ≤ v0.24.0 do not author
+`sort by` over an association: sort by a local attribute, or use a microflow datasource that
+sorts. See the STOP row in `skills/learned-mdl-preflight.md`.
+
+## BUG-DRAFT-check-references-ignores-in-script-rename: `check --references` resolves against the model before the script, so names after an in-script `rename module` fail (2026-09-25)
+
+> **Status:** reported on v0.23.0 by a colleague; **v0.24.0: verified** 2026-09-25 on a scratch copy of a small PoC model. The script `rename module RenA to RenB;` followed by `create persistent entity "RenB"."Extra" (...)` and a microflow retrieving `"RenB"."Item"` gave `✓ Syntax OK (3 statements)` and then `statement 2: module not found: RenB` / `statement 3: module not found: RenB` / `✗ 2 reference error(s) found`. The "(References to objects created within the script are skipped)" rule does not extend to renames. Upstream: no fix found. #955 (in-script creation order) is related but closed.
+
+**Discovered:** 2026-09-22..24, same field report. **mxcli version:** v0.23.0, v0.24.0. **Severity:** Medium.
+
+**Expected:** the reference checker applies `rename` statements to its view of the model as it
+walks the script, the same way it already skips objects the script creates.
+
+**Actual:** every `ModuleB.*` reference after the rename line is an error (11 in the field).
+
+**Impact:** a rename script cannot pass the toolkit's pre-exec check. The only routes are a
+guardrail override or checking against a pre-renamed copy.
+
+**Workaround:** run the rename as its own step (`mxcli rename … module`, then `mx check`). Then
+check the follow-up script against the renamed model. If one script is unavoidable, run
+`check --references` against a scratch copy that has already been renamed.
+
+## BUG-DRAFT-diff-local-misses-new-units: `diff-local` does not report new (untracked) documents (2026-09-25)
+
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/diff-local-misses-new-units.md`.
+
+> **Status:** reported on v0.23.0 by a colleague; **v0.24.0: verified** 2026-09-25 on a scratch copy of a small PoC model under git. On a clean checkout, creating a module, an entity, a microflow and a page left 6 untracked `mprcontents/…` directories, and `mxcli diff-local -p app.mpr` printed `No local changes found in mxunit files.` A second exec, adding an entity and a microflow to an existing module, gave `Summary: 0 new, 1 modified, 0 deleted`: the new microflow was missing. **Root cause (v0.24.0 source):** `mdl/executor/cmd_diff_local.go` builds its list from `git diff --name-status <ref> -- <contentsDir>`, which never lists untracked files. `git add -N <new dirs>` makes the new unit appear (`1 new`), but it then renders as `create or modify microflow .SUB_New ()` with an **empty module qualifier**, a second defect in the same path. Upstream: 0dce31214 (2026-09-10, unreleased) fixes other diff-local defects on `main` but not this one. Closed #1038 and #424 are different diff-local bugs.
+
+**Discovered:** 2026-09-22..24, same field report. **mxcli version:** v0.23.0, v0.24.0. **Severity:** High for any change check built on it.
+
+**Expected:** new documents are listed as `new` and rendered with their module.
+
+**Actual:** new documents are missing. The summary counts only modified and deleted units.
+
+**Impact:** a naming or convention check driven by `diff-local` skips exactly the documents most
+likely to break the convention: the new ones.
+
+**Workaround:** build the change list from git yourself. Take
+`git diff --name-only <ref> -- mprcontents/` plus `git ls-files --others --exclude-standard mprcontents/`,
+then resolve unit ids to documents through `CATALOG.OBJECTS` (or `describe`).
+
+## BUG-DRAFT-diff-local-module-uuid: `diff-local` renders domain-model changes with the unit UUID where the module name belongs (2026-09-25)
+
+> **Status:** reported on v0.23.0 by a colleague; **v0.24.0: verified** 2026-09-25 on a scratch copy of a small PoC model. After adding an entity, `diff-local` printed `--- DomainModel.<domain-model-unit-uuid> (current)` and `+create persistent entity <domain-model-unit-uuid>.Thing (`. The DomainModel unit carries no `Name`, and `cmd_diff_local.go` falls back to the unit id instead of resolving the containing module. **Slowness on older commit ranges** (field: `--ref <c>~1..<c>` produced nothing in 120 s, while a 14-document range took ~5 s) was **not probed**. Upstream: no fix found.
+
+**Discovered:** 2026-09-22..24, same field report. **mxcli version:** v0.23.0, v0.24.0. **Severity:** Low.
+
+**Expected:** `create persistent entity ModuleA.Thing (`: the module name, as valid MDL.
+
+**Actual:** the unit UUID stands in for the module. The line is neither readable nor valid MDL.
+
+**Workaround:** map the unit to its module through the `.mpr` `Unit` table or `CATALOG.OBJECTS`
+(unit ids are stored in .NET byte order in the `.mpr`). Keep `--ref` ranges narrow.
+
+## Feature asks from the field, v0.23.0 (2026-09-25)
+
+Not defects. These are four asks from the same naming-conventions field report (mxcli v0.23.0,
+Mendix 11.12.4), recorded so they are not re-discovered. Each carries its v0.24.0 state. None is
+filed upstream.
+
+- **Bundled lint rules hard-code one convention set.** CONV005 requires `SNIPPET_`, CONV009/QUAL004
+  suggest `SUB_`/`SCH_`, and CONV003 has a fixed page-suffix list. A team whose handbook forbids
+  those prefixes gets permanent noise. Ask: make the prefix/suffix lists `options` in
+  `lint-config.yaml`, like CONV018's `max_root_documents`. Field workaround: own rules, with the
+  built-ins left out of the gate. v0.24.0: not probed.
+- **Rules load only from `.claude/lint-rules/`.** v0.24.0: verified. `mxcli lint --help` has no
+  `--rules-dir` and there is no config key. Projects that gitignore `.claude/` cannot track their
+  rules where they are loaded. Field workaround: a tracked copy plus a symlink.
+- **Facts missing from the catalog.** Annotation text: v0.24.0 verified. In `CATALOG.ACTIVITIES`
+  and `activities_for()`, an `Annotation` row's caption is the generic `Activity`, not its text.
+  Widget heading level (`RenderMode: H1`) was not probed. Both are reachable only by parsing
+  DESCRIBE, so "one H1 per page" and "annotations are dated" cannot be lint rules.
+- **MPR006 says an empty container "will crash at runtime".** Unverified in the field (34 hits),
+  and not probed here. The toolkit repeats the claim without evidence in
+  `skills/learned-workflow-patterns.md` (the MPR006 row and the page-patterns note). Treat it as
+  unconfirmed until someone runs an empty container. Ask upstream what the crash is.
+
+---
+
+## BUG-DRAFT-marketplace-install-not-grouped-in-studio-pro: a module installed by `marketplace install` is listed among the app's own modules in Studio Pro, not under "Marketplace modules" — the stamp writes 3 of 5 identity fields, and `--file` writes none (2026-09-28)
+
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/marketplace-install-not-grouped-in-studio-pro.md`.
+> Fix patch ready in `bug-logs/submitted-prs/mxcli/2026-09-28-marketplace-install-fromappstore/` (file the issue first, then the PR).
+
+> **Status:** reported 2026-09-28 from a field project on v0.24.0 (modules installed by mxcli showed up
+> in Studio Pro among the app's modules). Cause read from source on upstream `main` 95091765 and
+> measured on a fresh 11.13.0 probe project plus a real project that has a Studio Pro-installed module.
+> The Studio Pro regrouping after the fix is **not yet proven** — it needs a content-id install with the
+> patched binary and a Studio Pro open.
+
+**Family:** the #879 entry above (its fix added the stamp this entry is about; trap 5 there is the
+field rule), BUG-132 (`fix design-properties` on marketplace packages), BUG-133 (`_USE_ME` flows).
+
+**Discovered:** 2026-09-28. **mxcli version:** v0.24.0 (same code on `main` 95091765). **Severity:**
+Medium. Nothing fails to build; the module is simply not a Marketplace module to Studio Pro, so it is
+not shown as one, not offered updates there, and reads as the app's own code in every review.
+
+**Repro:**
+```
+mxcli marketplace install 1011 -p App.mpr        # Encryption, by content id
+mxcli -p App.mpr -c "SHOW MODULES"               # Source: Marketplace v11.x.y  (looks right)
+# open in Studio Pro: Encryption is among the app's own modules
+```
+
+**Expected:** the module carries the five fields a Studio Pro install writes on `Projects$ModuleImpl`
+(`FromAppStore`, `AppStoreVersion`, `AppStoreGuid`, `AppStoreVersionGuid`, `AppStorePackageIdString`)
+and is listed under "Marketplace modules".
+
+**Actual (measured):**
+- Content-id install / `marketplace update`: `StampMarketplaceVersion` (`cmd/mxcli/marketplace/update.go`)
+  writes `FromAppStore`, `AppStoreVersion`, `AppStoreGuid` only. `AppStoreVersionGuid` and
+  `AppStorePackageIdString` stay empty. The content id is never passed down to the stamp.
+- `--file` install: nothing is stamped. `FromAppStore` false, four empty strings (fresh 11.13.0 probe,
+  BusinessEvents package, unit decoded from `mprcontents`). `SHOW MODULES` shows no Source at all.
+- Studio Pro-installed reference (Encryption in a real project): all five set, `AppStoreGuid` equals
+  `AppStoreVersionGuid` (the version UUID), `AppStorePackageIdString` is `"1011"`.
+- `SHOW MODULES` and the catalog render `Marketplace v<x>` from `FromAppStore` alone
+  (`mdl/catalog/builder_modules.go`, `mdl/executor/cmd_modules.go`), so the CLI cannot show the gap.
+
+**Impact:** every module installed headlessly on a project reads as the app's own module the first time
+someone opens it in Studio Pro. Reviews count it as project code; Studio Pro's Marketplace pane does not
+list it for update. The `--file` route is worse: the module is not a marketplace module even to mxcli.
+
+**Workaround (≤ v0.24.0):** install by content id, never `--file`, and read `SHOW MODULES` Source after
+every install (preflight STOP row 27). That fixes the `--file` half. The grouping half needs the patch,
+or a one-off model patch that copies `AppStoreGuid` into `AppStoreVersionGuid` and writes the content id
+into `AppStorePackageIdString` (run it through `./bin/exec.sh --patch` so it is gated and restorable).
+
+**Fix (proposed upstream):** thread the content id through `installModule` → `PerformInstall` and the
+update command → `PerformUpdate`; one helper `stampModuleDoc` writes all five, still only on keys the
+document already has (ADR-0005). Unit tests for the helper; marketplace and cmd packages pass.
+Scope B (`--file --content-id --version` resolving the UUID through the marketplace client) is a
+separate ask in the issue draft.

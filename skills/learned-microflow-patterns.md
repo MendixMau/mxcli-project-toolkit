@@ -12,15 +12,16 @@ microflow (`PLM_GetExclusiveParts`, a PLM parts-flow project, 2026-07-23) before
 made an MCP-mode exec (see `learned-mdl-preflight.md` STOP rule 9) slow enough to hit the 5-minute
 default timeout.
 
-**Guideline, not a hard cap:** aim to keep a freshly-drafted microflow under ~30-50 activities. If a
+**Guideline, not a hard cap:** the Mendix docs limit is 25 elements; lint's `QUAL003` warns at 25 and
+`CONV009` (mxcli-bundled `assess-quality` skill) flags at 15 — but both count **top-level activities
+only**, so loop bodies are invisible to them: count those by hand (`microflow-preflight.md`). If a
 task naturally produces more (bulk seed data, a long linear pipeline), prefer splitting into
 sub-microflows by responsibility — e.g. one sub-microflow per entity/record-type being created,
 called in sequence from a thin orchestrating microflow — over one flat monolith. But some
 microflows genuinely can't be meaningfully shrunk (a single cohesive validation/decision sequence
 with real branching, for instance) — don't force an artificial split that just adds indirection
-without improving anything. The lint layer's own threshold (`CONV009`, `assess-quality.md`: max 15
-activities) is stricter still and will flag most things in this range anyway — treat both numbers
-as signals to *consider* a split, not a rule to satisfy mechanically.
+without improving anything — treat the numbers as signals to *consider* a split, not a rule to
+satisfy mechanically.
 
 **Bonus when a STOP-rule-9 (inline association-set) split is also needed:** if only part of the
 work needs MCP mode (setting associations) while the rest is plain attribute creation, split along
@@ -393,35 +394,70 @@ end;
 - **`show message` in microflows → CE0720 — ⚠️ DOES NOT REPRODUCE on mxcli `4b58b89` (2026-08-26) / Mendix 11.13.0. Retested 2026-09-04; treat the nanoflow workaround below as history, not instruction.** The serialization the old rule described is still exactly what mxcli writes — `show message 'x'` round-trips as `show message '{1}' type Information objects ['x']` — but Mendix now accepts it. Evidence: a probe microflow carrying a bare literal, a concatenation (`'a ' + toString(1) + ' b'`) and all three severity levels was executed against a real model and passed a **real mxbuild with 0 errors**; a second, production microflow with a concatenated message shipped the same day, same result. Both the literal case and the `objects [$Var]` case are covered. **The old rule, retained because a project pinned to an older binary still needs it:** on mxcli ~v0.13.0, `show message 'literal text'` generated `show message '{1}' objects ['literal text']`; Mendix rejected string literals in the objects list (only variable refs allowed) → CE0720, and even `show message '{1}' objects [$Var]` was broken by a rogue `'{1}'` inserted as the first objects item. Workaround, confirmed 2026-07-20 (PROJECT-D): wrap the microflow in a NANOFLOW that calls it via `CALL MICROFLOW` and does the `show message` there, then rewire the page button's `Action` to the nanoflow (`ALTER PAGE` cannot `SET Action` — `REPLACE` the whole actionbutton). **Before applying that workaround, spend one `mxcli check` + one exec on the probe above; on any binary from 2026-08-26 onward it is unnecessary complexity.**
 - **Severity goes AFTER the text: `show message 'text' type Warning;`.** The level-first form `SHOW MESSAGE WARNING 'text';` **does not parse** — not in microflows, not in nanoflows — even though mxcli's own bundled `.ai-context/skills/write-nanoflows.md` uses it seven times and the binary embeds examples of it in its strings. `mxcli syntax` documents the activity nowhere, in either form. There is no `blocking` modifier. Confirmed 2026-09-04 on `4b58b89`.
 - **`show message ... type Success` silently becomes `type Information` (no error, no warning):** Mendix's nanoflow Show Message action only has three severities — `Information`, `Warning`, `Error`. There is no `Success` level. Writing `show message '...' type Success;` passes `mxcli check` AND a real `mx check`/docker check with 0 errors, because mxcli silently remaps `Success` → `Information` rather than rejecting it — confirmed via `describe nanoflow` showing the persisted BSON as `type Information` after requesting `type Success`. Functionally harmless (message still shows) but visually wrong (blue "info" toast instead of a green "success" toast) and easy to miss since nothing errors. **Use `type Information` for a "success" message from the start** — don't write `type Success` expecting it to work or to at least fail loudly.
-- **`validation feedback $Dto/Attr message '...'` → CE0639 (mxcli bug):** mxcli stores the attribute path string but does NOT wire the Variable property in the underlying BSON → CE0639 "No variable selected". **Workaround:** use `log error` + configure Validation Feedback manually in Studio Pro (open the activity, set Variable = $OrderDetail_Dto, Member = AttributeName, Message = 'text').
+- **`validation feedback $Obj/Attr message '...'` → CE0639 — ⚠️ DOES NOT REPRODUCE on mxcli v0.23.0 / Mendix 11.12.2. Retested 2026-09-27 (a field project's guest-groups build); treat the Studio Pro workaround as history.** BUG-47 was already marked resolved on 2026-08-03. In this build, `SUB_AddGuestsToGuestGroup` carries `validation feedback $ShareHelper/Emails message '…'`, and its exec logged `pass · mxbuild clean` against the matching 11.12.2 mxbuild. **The old rule, retained for projects pinned to an older binary:** mxcli stored the attribute path but did not wire the Variable property → CE0639 "No variable selected", fixed by hand in Studio Pro (Variable = the object, Member = the attribute). **Still open, narrower:** the object-only form with no attribute emits a blank Attribute → CE0091 (BUG-ENGALAR-05). Always name the attribute. **Where it goes:** in a `VAL_`/`SUB_` microflow, never an `ACT_` one — see the next section.
 - **`not expr` → CE0117:** Mendix requires parentheses: `not(expr)`. `not $IsValid` is rejected. Always write `not($IsValid)`.
 - **LESSON-03:** Always use fully-qualified `Module.EntityName` in the `returns` clause. Unqualified entity names (e.g. `returns OrderDetail as $Var`) cause CE1613 "entity no longer exists" because the model checker cannot resolve the type. Always write `returns OrderRegistration.OrderDetail as $OrderDetail`.
 - **LESSON-04 — `retrieve $X from $obj/Assoc limit 1` → CE0018 + CE0136 (mxcli BUG):** mxcli generates a "Retrieve by Association" BSON activity with empty `Association` and `Entity` properties. Mendix rejects these with CE0018 ("Association property required") and CE0136 ("Entity property required"). **Fix:** replace with XPath DB retrieve: `retrieve $X from Module.Entity where [AssocPath/Module.Entity/Attr = $var] limit 1;`. **Pre-flight before using XPath:** (1) target entity is persistent (not an NPE), (2) all entities in the XPath path are persistent, (3) all objects being filtered on are committed to the DB — XPath queries the database, not in-memory objects. If any condition fails, use a different approach (pass as parameter, loop retrieve, etc.).
-- **Microflow canvas layout — RESET LAYOUT, not @position (LESSON-01+02):**
-  - `@position(x, y)` stores coordinates for individual activities but does NOT position the start event, end events, or merge nodes. Those are placed by mxcli at default coordinates that conflict with manual @position values, producing stacked or misaligned flows. `@position` is effectively useless for controlling visual layout.
-  - **Correct approach:** add `reset layout` between the signature and `begin`. This clears all `relativeMiddlePoint` positions. Studio Pro re-runs its auto-layout on next open, producing a clean horizontal flow automatically.
-  - **Syntax:** `create or modify microflow Module.Name (...) returns ... reset layout begin ... end;`
-  - **Rule:** always add `reset layout` to any `create or replace` / `create or modify` microflow script. Never rely on `@position` for layout control.
+- **Microflow canvas layout — omit layout annotations (LESSON-01+02, corrected 2026-09-25):**
+  - **Rule:** write no `@position` at all; mxcli's auto-layout places every statement (start, merges and ends included — `@start`/`@merge` exist and `describe` emits them). Partial hand placement is what breaks: auto-placed neighbours are not measured against hand-placed ones (MPR008/MPR011). If repairing a described flow by hand, annotate every canvas statement or none.
+  - **`mxcli layout` (v0.24.0) arranges domain models only** — the mxcli team's intended home for auto-positioning, but no microflow mode exists yet on v0.24.0 or upstream main (2026-09-25). Probe `mxcli layout --help` on your binary before relying on it for a flow.
+  - **`reset layout` is a parse error** (`mismatched input 'RESET'`, still on v0.24.0) — BUG-28: never implemented upstream. Never write it. Measurements and the v0.24.0 if-branch defect: `microflow-preflight.md`.
   - **If/else branch geometry (for future reference when @position is fixed):** true branch (abort) → X > decision, Y < decision (goes up); false branch (main path) → X > decision, Y > decision (goes down). Both branches must have X > the decision diamond's X.
 
 ---
 
-## Validation Feedback — Correct Pattern (from ACT_OrderDetail_Save)
+## Validation Feedback — Correct Pattern (VAL_/SUB_ gives it, ACT_ calls and branches)
 
-**Rule:** Use `validation feedback` directly — no `log error` alongside it, no annotations.
+**Rule:** `validation feedback` lives in a `VAL_` or `SUB_` microflow that returns a verdict. The
+`ACT_` microflow the button calls only calls it and branches on the result: close the page,
+stay open, or show a message. Name the attribute, and write no `log error` beside the feedback.
+
+**Why:** CONV010 (the ACT_ content rule, `lint-rules/conv010_act_microflow_content.star`) allows
+page actions, messages, sub-microflow calls, logging and control flow in `ACT_`.
+`ValidationFeedbackAction` is not on that list, in the toolkit's rule or in upstream's. So feedback
+written straight into `ACT_` lints red on every save flow. This section used to recommend exactly
+that (the old `ACT_OrderDetail_Save` example). A field project's guest-groups build
+(2026-09-27) reported that the pattern lints red.
 
 ```mdl
-IF trim($Dto/FieldName) = '' THEN
-  SET $IsValid = false;
-  VALIDATION FEEDBACK $Dto/FieldName MESSAGE 'non-English message';
-END IF;
+-- WRONG: feedback inside the ACT_ (CONV010: "contains 'ValidationFeedbackAction' action")
+create microflow Mod."ACT_Order_Save" ($Order: Mod."Order")
+begin
+  if trim($Order/Reference) = '' then
+    validation feedback $Order/Reference message 'Reference is required.';
+    return;
+  end if;
+  commit $Order;
+  close page;
+end;
+
+-- RIGHT: VAL_ gives the feedback and returns a verdict; ACT_ calls and branches
+create microflow Mod."VAL_Order" ($Order: Mod."Order") returns Boolean as $IsValid
+begin
+  declare $IsValid Boolean = true;
+  if trim($Order/Reference) = '' then
+    set $IsValid = false;
+    validation feedback $Order/Reference message 'Reference is required.';
+  end if;
+  return $IsValid;
+end;
+
+create microflow Mod."ACT_Order_Save" ($Order: Mod."Order")
+begin
+  $IsValid = call microflow Mod."VAL_Order"(Order = $Order);
+  if $IsValid then
+    call microflow Mod."SUB_Order_Save"(Order = $Order);
+    close page;
+  end if;
+end;
 ```
 
+When the SUB_ does more than validate (the field instance was `SUB_AddGuestsToGuestGroup`,
+which gives `validation feedback … 'You can add up to 50 addresses at a time.'` and returns
+`'TooMany'`), return an outcome String or enumeration. The ACT_ branches on it:
+`TooMany` keeps the popup open, and any other outcome shows a message and closes it.
+
 **GRANT syntax:** Short role names only — `Admin, User` NOT `OrderRegistration.Admin`.
-
-**CE0639 is unavoidable via mxcli:** mxcli does not wire the Variable property in validation feedback BSON. After exec, open the microflow in Studio Pro → for each feedback activity → set Variable = $Dto, Member = attribute. One Studio Pro session fixes all.
-
-**Do NOT add `log error` before validation feedback** — it is not the project pattern and adds noise.
 
 ---
 
@@ -456,6 +492,36 @@ set $Result = $Result + toString($Item/Status) + '\n';
 ```
 
 This applies anywhere an enum value flows into a String context: concatenation, `return`, `set`, `declare`, function arguments expecting String. Confirmed on a live project (2026-07-07).
+
+---
+
+## Expression Functions Take Positional Arguments Only — Never `name: value`
+
+**Bug (verbatim, from field feedback):**
+
+```mdl
+set $JSON = $JSON + ',"temperature":' + toString(from: $Temperature);
+```
+
+**Rule:** every built-in Mendix expression function — `toString($X)`, `formatDateTime($D, 'yyyy-MM-dd')`, `substring($S, 0, 3)`, `length()`, `contains()`, etc. — takes **positional arguments only**. There is no `name: value` form inside an expression. That labelled-colon shape is real MDL syntax elsewhere — page properties (`Attribute: Name`), page actions (`Action: MICROFLOW Mod.Flow(Param: val)`), and annotations (`@anchor(from: bottom, to: top)`) all use it — which is almost certainly where the habit leaks in from. Inside an *expression*, a bare `name:` is not a label at all: `mxcli`'s expression grammar has no named-argument production for function calls (`argumentList: expression (COMMA expression)*`), so it parses `label: value` as `label` (an unresolved bare identifier) **`:`-divided by** `value` — COLON is the OQL division operator — one silently wrong expression, not an error.
+
+**This is not reliably caught by `mxcli check`, including `--references`.** Verified on mxcli v0.24.0 / Mendix 11.12.1:
+
+| Written | `mxcli check --references` |
+|---|---|
+| `toString(from: $Temperature)` | **Passes silently** (exit 0, "✓ All references valid" / "Check passed!") — parsed as `toString(from : $Temperature)`, one bogus division argument, argument count still matches `toString`'s arity of 1 |
+| `formatDateTime($D, pattern: 'yyyy-MM-dd')` | **Passes silently** — same mechanism, second argument's label/value pair still counts as one argument, matching `formatDateTime`'s arity of 2 |
+| `substring(from: $S, index: 0, length: 3)` (or any label, e.g. `src:` — not keyword-specific) | **Fails**, but with a misleading message that never names the real cause: `substring() expects 2 to 3 argument(s), got 1. [E006]` |
+
+A labelled call that happens to land on the function's normal arity round-trips through `mxcli check`/`describe microflow` clean and reaches real `mx check`/Studio Pro/mxbuild before anyone notices — where the bare identifier (`from`, `pattern`, …) fails as an undefined rule/constant reference. Only a call whose label count doesn't match the arity gets a (misleadingly worded) error from `mxcli check` itself. Treat any `name:` inside a function call's parentheses as a STOP regardless of whether `mxcli check` complained — grep the expression for `[A-Za-z]\w*:\s` before trusting a clean check.
+
+```mdl
+-- WRONG — silently misparsed, not a syntax error:
+set $JSON = $JSON + ',"temperature":' + toString(from: $Temperature);
+
+-- CORRECT:
+set $JSON = $JSON + ',"temperature":' + toString($Temperature);
+```
 
 ---
 

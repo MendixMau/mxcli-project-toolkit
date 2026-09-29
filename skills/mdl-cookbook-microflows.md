@@ -149,11 +149,13 @@ end;
 /
 ```
 
-**Known CE behaviour:**
-- `validation feedback` activities need to be re-wired in Studio Pro after every `mxcli exec`.
-  The activity is created but the Variable binding (which widget to highlight) is empty.
-  This is CE0639 — a known mxcli limitation. After exec, open Studio Pro and wire each
-  validation feedback activity to its variable manually.
+**Known CE behaviour (retested 2026-09-27):**
+- The CE0639 "Variable not wired" defect on `validation feedback $Obj/Attr` does **not**
+  reproduce on mxcli v0.23.0 / Mendix 11.12.2 (BUG-47, resolved). No Studio Pro re-wiring is
+  needed. The object-only form with no attribute still gives CE0091, so always name the attribute.
+- This example keeps its feedback in an `ACT_` microflow, which CONV010 flags. New code puts the
+  feedback in a `VAL_`/`SUB_` microflow and has the `ACT_` call it and branch
+  (`learned-microflow-patterns.md` → "Validation Feedback — Correct Pattern").
 
 ---
 
@@ -260,7 +262,9 @@ begin
   -- Check after exec and restore manually if missing.
   retrieve $SalesAreaDtoList from $Dto/OrderRegistration.SalesAreaData_Dto_OrderDetail_Dto;
 
-  -- PATTERN: LOOP over list — create + wire + commit each row inside the loop body.
+  -- PATTERN: LOOP over list — create + wire each row, collect it, ONE commit after the loop
+  -- (a commit inside the body is lint CONV011; see microflow-preflight.md).
+  $SalesAreaData_CommitList = create list of OrderRegistration.SalesAreaData;
   loop $SalesAreaDtoRow in $SalesAreaDtoList
   begin
     $SalesAreaData = create OrderRegistration.SalesAreaData (
@@ -273,8 +277,9 @@ begin
       CreatedBy = $currentUser/Name
     );
     change $SalesAreaData (OrderRegistration.SalesAreaData_OrderDetail = $OrderDetail);
-    commit $SalesAreaData on error rollback;
+    add $SalesAreaData to $SalesAreaData_CommitList;
   end loop;
+  commit $SalesAreaData_CommitList on error rollback;
 
   -- Set status to 01 (Draft editing) via shared header microflow.
   $UpdateOk = call microflow BusinessApp_Common.ACT_ApplicationCommonHeader_UpdateStatus(
@@ -564,7 +569,7 @@ end;
 | $currentUser | `$currentUser/Name`, `$currentUser/Email` | Built-in, no retrieve needed |
 | Log with concat | `log warning node 'N' '{1}' with ({1} = 'prefix' + $Var)` | Use {1} placeholder, not + in main string |
 | Inline conditional | `Attr = if $Dto != empty then $Dto/Attr else ''` | In CREATE parameter list |
-| Loop with persist | `loop $Row in $List begin ... create ... change ... commit ... end loop` | commit inside loop body |
+| Loop with persist | `loop $Row in $List begin ... create ... change ... add $X to $X_CommitList; end loop; commit $X_CommitList` | collect, then ONE commit after the loop — never inside (CONV011) |
 | STUB_ call | `$Result = call microflow Module.STUB_OpName(Param = $val) on error rollback` | Identical signature to real op |
 | Navigate after action | `show page Module.Page($Param = $var)` | After last commit, before return |
 | Safe sub-call | `... on error rollback` | On every CALL MICROFLOW that modifies data |

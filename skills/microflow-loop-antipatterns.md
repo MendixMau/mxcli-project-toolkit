@@ -176,5 +176,7 @@ Keep the reading honest:
 
 `skills/app-analysis.md` (owner), `skills/module-dependency-review.md`,
 `skills/existing-app-change.md` (a slice that touches a listed microflow inherits its
-finding), `skills/lint-that-actually-runs.md` (the lint-rule form of LOOP_TQ is a follow-up:
-it needs loop containment, which the Starlark API does not expose today).
+finding), `skills/lint-that-actually-runs.md` (a commit inside a loop is already caught by the
+Go built-in rule CONV011 NoCommitInLoop; retrieve, delete, REST and call inside a loop still have
+no lint rule, since the Starlark API does not expose loop containment — `skills/microflow-preflight.md`
+is the pre-write check for those).

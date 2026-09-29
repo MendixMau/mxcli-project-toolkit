@@ -2,9 +2,26 @@
 # exec.sh — the guard chain around a model write.
 #
 #   concurrent-writer guard → module-brief advisory → mxcli check → snapshot → baseline → exec
-#   → mxbuild gate → auto-restore on regression → SP reopen
+#   → mxbuild gate → auto-restore on regression → lint ratchet → SP reopen
 #
 # Usage: ./bin/exec.sh <script.mdl>
+#        ./bin/exec.sh --patch <script> [args...]
+#
+# --patch (2026-09-27): the same chain around a one-off script that edits the model directly
+# (a Python BSON patch for something mxcli cannot express, e.g. an association owner change).
+# Run bare, such a script got no snapshot, no gate, no restore and no BUILD-LOG row. In auto
+# permission mode, Claude Code's classifier also refused it as "Irreversible Local Destruction".
+# This mode runs it as `<interpreter> <script> <model.mpr> [args...]`. The interpreter comes from
+# the extension: .py runs under Python 3, .sh under bash, anything else must be executable.
+# MXTK_MPR and MXTK_MODEL_DIR are exported too. What differs from an MDL run: there is no
+# `mxcli check` and no module-brief advisory, since neither can read the script. A patch is
+# also opaque, so it is kept ONLY on a verified gate. A non-zero exit is restored at once,
+# without spending an mxbuild on it. A gate that fails, cannot run, or reports `unverified` is
+# restored too, and ALLOW_UNVERIFIED does not apply. A dirty model with the same errors as
+# before is kept, same as for MDL (the delta gate).
+# What it does NOT guard: anything the script touches besides the model. `./bin/exec.sh` is on
+# the project's allow-list (install-claude-permissions.sh), so in auto mode Claude Code's
+# classifier does not review the script. Read what a patch does outside the .mpr before running it.
 #
 # Overrides: FORCE_EXEC=1 (skip refusals), SKIP_CHECK=1 (skip the pre-exec
 #            mxcli check), SKIP_BASELINE=1 (skip pre-flight mxbuild),
@@ -26,11 +43,30 @@ _T0=$(date +%s)
 MPR="$(find_mpr)" || exit 1
 MPR_BASE="$(basename "$MPR")"
 NAME="$(basename "$MPR" .mpr)"
+PATCH_MODE=0
+if [ "${1:-}" = "--patch" ]; then
+  PATCH_MODE=1
+  shift
+fi
 SCRIPT="${1:-}"
+[ $# -gt 0 ] && shift
+# Remaining args go to the patch script, after the model path. An MDL run takes none.
+LOG_NAME="$(basename "$SCRIPT")"
+[ "$PATCH_MODE" = "1" ] && LOG_NAME="patch: $LOG_NAME"
 
 if [ -z "$SCRIPT" ]; then
   echo "Usage: ./bin/exec.sh <script.mdl>"
+  echo "       ./bin/exec.sh --patch <script> [args...]"
   exit 1
+fi
+if [ "$PATCH_MODE" = "1" ]; then
+  # Resolve the path BEFORE the cd below, so a path relative to the caller's cwd keeps working.
+  [ -f "$SCRIPT" ] || { echo "✗ --patch: no such file: $SCRIPT"; exit 1; }
+  SCRIPT="$(cd "$(dirname "$SCRIPT")" && pwd)/$(basename "$SCRIPT")"
+  case "$SCRIPT" in
+    *.py|*.sh) ;;
+    *) [ -x "$SCRIPT" ] || { echo "✗ --patch: $SCRIPT is not .py, not .sh and not executable — cannot tell how to run it."; exit 1; } ;;
+  esac
 fi
 
 cd "$PROJECT_ROOT"
@@ -44,6 +80,7 @@ BUILD_LOG="$PROJECT_ROOT/docs/BUILD-LOG.md"
 # Declared HERE, above log_build, not next to the gate: a row must be able to
 # carry a gate verdict even when the gate block below is never reached.
 GATE_STATE="not-run"   # not-run | skipped | unverified | pass | fail
+MXB_WHY=""             # mxbuild's errors[] reason when it exited without checking the model
 
 # ── Exec approval (auto records itself) ──────────────────────────────────────
 # bin/exec-approval.sh decides ask vs auto; the ASKING happens before exec.sh ever runs (in
@@ -75,7 +112,8 @@ true even when someone forgets. Read this before assuming the model builds.
 
 `gate` is the mxbuild verdict, and it is never blank:
 `pass` verified clean · `fail` verified broken · `skipped` mxbuild/java missing ·
-`unverified` errors file unparseable · `not-run` the gate was never reached.
+`unverified` errors file unparseable, or mxbuild exited non-zero without checking the
+model (wrong version, JDK) · `not-run` the gate was never reached.
 Only `pass` means anything looked at the model. A zero exit does not.
 
 | when (ISO-8601 local) | script | gate | result | detail |
@@ -98,7 +136,7 @@ HDR2
   # false-green the gate exists to prevent.
   _detail="$2$_EXEC_APPROVAL_SUFFIX"
   printf '| %s | `%s` | %s | %s | %s |\n' \
-    "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$(basename "$SCRIPT")" \
+    "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
 }
 
@@ -197,7 +235,7 @@ fi
 #
 # Platform and marketplace modules are skipped - this project does not author their briefs.
 brief_missing=""
-if [ -f "$SCRIPT" ] && [ -f "$PROJECT_ROOT/architecture/build-plan.md" ]; then
+if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -f "$PROJECT_ROOT/architecture/build-plan.md" ]; then
   # Comments FIRST, before any pattern match. A `-- ... CREATE MODULE errors if ...` line in a
   # real workshop script otherwise yielded a module named "errors" and would have demanded a
   # brief for it forever. A guard that cries wolf gets switched off — same reasoning as
@@ -281,6 +319,63 @@ if [ -f "$LAST_ERRS" ]; then
 fi
 
 
+# ── Lint ratchet ─────────────────────────────────────────────────────────────
+# Added 2026-09-24. mxbuild proves the model compiles; it says nothing about how it
+# is built. On a field project a migration microflow shipped with three commits
+# inside loops (mxcli lint CONV011) under a "✅ applied · mxbuild clean" row, because
+# nothing on this path ever ran lint: the gate-agent listed lint as optional and had
+# been spawned 0 times against 21 exec.sh runs, and lint-gate.sh had only ever been
+# run by hand to seed its baseline. An instrument that lives in an agent definition
+# is a suggestion; one that lives here runs. So lint runs HERE, after a clean
+# mxbuild, and its verdict lands in the same BUILD-LOG row as the mxbuild verdict.
+#
+# Semantics: a rise vs the committed baseline exits 1 but does NOT restore the
+# snapshot — lint findings are about shape, not corruption, and the write is
+# fixable by a follow-up script; a restore here would teach people to skip it.
+# SKIP_LINT=<reason> is the only override and the reason is written into the row.
+# A project without bin/lint-gate.sh gets a "lint not installed" cell, never a
+# blank one — a blank cell reads as fine, which is the false-green this exists
+# to stop. ~13 s measured on a 10k-finding project.
+LINT_RC=0; LINT_DETAIL="lint not-run"
+run_lint_gate() {
+  if [ -n "${SKIP_LINT:-}" ]; then
+    LINT_DETAIL="lint SKIPPED (SKIP_LINT=$SKIP_LINT)"
+    echo "  ⚠ lint ratchet skipped: SKIP_LINT=$SKIP_LINT"; return
+  fi
+  if [ ! -x "$PROJECT_ROOT/bin/lint-gate.sh" ]; then
+    LINT_RC=2; LINT_DETAIL="lint not installed (bin/lint-gate.sh missing — sync-project.sh installs it)"
+    echo "  ⚠ $LINT_DETAIL"; return
+  fi
+  echo "→ Running lint ratchet (bin/lint-gate.sh, read-only)..."
+  _lo=$(mktemp /tmp/lint-gate-out.XXXXXX)
+  # exec.sh runs under set -e: a bare failing command here aborts the script with no BUILD-LOG
+  # row at all (measured on the first wired run in a real project, 2026-09-24). Capture explicitly.
+  LINT_RC=0
+  bash "$PROJECT_ROOT/bin/lint-gate.sh" >"$_lo" 2>&1 || LINT_RC=$?
+  case "$LINT_RC" in
+    0) LINT_DETAIL="lint unchanged vs baseline"; echo "  ✓ lint: no rule rose vs baseline" ;;
+    1) _rules=$(grep -E '^ +[A-Z]+[0-9]+ +[a-z]+ +[0-9]+ -> [0-9]+ +\(\+[0-9]+\)' "$_lo" \
+                 | awk '{printf "%s %s ", $1, $6}')
+       LINT_DETAIL="lint ROSE: ${_rules:-see output}"
+       echo "  ✗ lint: rule(s) rose vs baseline — ${_rules:-see below}"
+       sed -n '/^FAIL/,$p' "$_lo" | head -60 | sed 's/^/    /'
+       echo "    Fix the script and re-run, or accept the debt on purpose with"
+       echo "    bin/lint-gate.sh --update-baseline and say so in the commit message." ;;
+    *) LINT_DETAIL="lint could not run (lint-gate exit $LINT_RC)"; echo "  ⚠ $LINT_DETAIL"
+       tail -5 "$_lo" | sed 's/^/    /' ;;
+  esac
+  rm -f "$_lo"
+}
+# One place decides the applied-row wording, so both mxbuild-clean branches agree.
+log_applied() {  # $1 = mxbuild detail
+  run_lint_gate
+  if [ "$LINT_RC" -eq 1 ]; then
+    log_build "⚠️ applied, LINT ROSE" "$1; $LINT_DETAIL"
+  else
+    log_build "✅ applied" "$1; $LINT_DETAIL"
+  fi
+}
+
 # ── Pre-exec syntax gate ─────────────────────────────────────────────────────
 # `mxcli check --references` is the ONLY gate that can reject a bad script
 # before it mutates the .mpr. Every gate after this one recovers by snapshot
@@ -289,7 +384,9 @@ fi
 # a passing build. SKIP_CHECK=1 for the rare script mxcli's parser rejects but
 # the model accepts (log why, in the script).
 PMXCLI="$(find_project_mxcli 2>/dev/null || true)"
-if [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
+if [ "$PATCH_MODE" = "1" ]; then
+  echo "→ --patch: no pre-exec mxcli check (not MDL). The mxbuild gate below is this write's only check."
+elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
   echo "→ Pre-exec check: mxcli check (grammar + references)..."
   if ! "$PMXCLI" check "$SCRIPT" -p "$MPR" --references; then
     echo ""
@@ -326,7 +423,7 @@ JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 # nobody can explain is a skip nobody acts on — which is how Windows machines ran
 # unverified execs for an entire training round.
 if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
-  if [ "${ALLOW_UNVERIFIED:-0}" = "1" ]; then
+  if [ "${ALLOW_UNVERIFIED:-0}" = "1" ] && [ "$PATCH_MODE" != "1" ]; then
     echo "⚠ ALLOW_UNVERIFIED=1: mxbuild gate will be SKIPPED — this exec will NOT be model-verified." >&2
     [ -x "$MXBUILD" ]  || echo "    mxbuild not found/executable: ${MXBUILD:-<none>}   (set MXBUILD_PATH=)" >&2
     [ -x "$JAVA_EXE" ] || echo "    java not found/executable:    ${JAVA_EXE:-<none>}  (set JAVA_HOME=)" >&2
@@ -336,8 +433,12 @@ if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
     [ -x "$MXBUILD" ]  || echo "    mxbuild not found/executable: ${MXBUILD:-<none>}   (MXBUILD_PATH= overrides; bin/doctor.sh --install <project> downloads it)" >&2
     [ -x "$JAVA_EXE" ] || echo "    java not found/executable:    ${JAVA_EXE:-<none>}  (JAVA_HOME= overrides; install a JDK)" >&2
     echo "  NOTHING was written to the model. Fix the gate (bin/doctor.sh --install <project>), then re-run." >&2
-    echo "  To write anyway, unverified: ALLOW_UNVERIFIED=1 ./bin/exec.sh $SCRIPT  — the commit hook will then" >&2
-    echo "  refuse the result until ./bin/verify-model.sh has run the gate over it." >&2
+    if [ "$PATCH_MODE" = "1" ]; then
+      echo "  --patch keeps a write only on a verified gate, so ALLOW_UNVERIFIED does not apply to it." >&2
+    else
+      echo "  To write anyway, unverified: ALLOW_UNVERIFIED=1 ./bin/exec.sh $SCRIPT  — the commit hook will then" >&2
+      echo "  refuse the result until ./bin/verify-model.sh has run the gate over it." >&2
+    fi
     log_build "✗ refused" "mxbuild gate cannot run (mxbuild: $([ -x "$MXBUILD" ] && echo ok || echo missing), java: $([ -x "$JAVA_EXE" ] && echo ok || echo missing)); nothing written"
     exit 1
   fi
@@ -345,6 +446,39 @@ fi
 
 echo "→ Snapshotting model..."
 ./bin/snapshot-mpr.sh
+
+# ── Restore (one implementation) ─────────────────────────────────────────────
+# Rolls the model back to the snapshot just taken, through restore-mpr.sh. exec.sh used to
+# carry an inline copy of it that had only the mprcontents/ (v2) arm, so on a v1 single-file
+# model (field project, 152 MB, 2026-09-26) every failed gate printed "Snapshot has no
+# mprcontents/ — refusing to restore" and left the broken model in place. Sets RESTORED=1 on
+# success; prints the manual recovery line otherwise. Used by the failed gate and by --patch.
+RESTORED=0
+RESTORE_TRIED=0
+restore_snapshot() {
+  RESTORE_TRIED=1
+  NEWEST_SNAP=$(ls -dt "$PROJECT_ROOT/.mpr-snapshots"/[0-9]*/ 2>/dev/null | head -1)
+  RESTORER="$(dirname "$0")/restore-mpr.sh"
+  if [ -z "$NEWEST_SNAP" ] || [ ! -f "$NEWEST_SNAP/$MPR_BASE" ]; then
+    echo "  ⚠  No usable snapshot to restore from — the model is left as the script wrote it."
+  elif [ ! -f "$RESTORER" ]; then
+    echo "  ⚠  bin/restore-mpr.sh is not installed — cannot auto-restore (run sync-project.sh)."
+  elif R_OUT=$(bash "$RESTORER" "$NEWEST_SNAP" 2>&1); then
+    RESTORED=1
+    printf '%s\n' "$R_OUT" | sed 's/^/  → /'
+    echo "  → Auto-restored from: $NEWEST_SNAP"
+  else
+    printf '%s\n' "$R_OUT" | sed 's/^/     /'
+    echo "  ⚠  RESTORE FAILED from $NEWEST_SNAP."
+  fi
+  if [ "$RESTORED" -ne 1 ]; then
+    if [ -d "$MODEL_DIR/mprcontents" ]; then
+      echo "     Recover with: git checkout HEAD -- $MPR_BASE mprcontents/   (or ./bin/restore-mpr.sh)"
+    else
+      echo "     Recover with: git checkout HEAD -- $MPR_BASE   (or ./bin/restore-mpr.sh)"
+    fi
+  fi
+}
 
 # ── JSON reader ──────────────────────────────────────────────────────────────
 # The mxbuild gate reads its verdict out of a JSON errors file, so it needs a
@@ -465,9 +599,16 @@ if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; 
   else
     BASELINE_SET=$(err_set "$_BF")
     _BC=$(err_count "$_BF"); _BCODES=$(err_codes "$_BF")
+    # Non-zero exit, 0 Error problems: mxbuild refused the model without checking it
+    # (version mismatch, JDK) — the baseline was NOT measured. It used to print
+    # "baseline clean" here (field project 2026-09-26, run A2: mxbuild 11.14.0, model 11.12.2).
+    [ "$_BC" = "0" ] && [ "$MXTK_MXBUILD_EXIT" -ne 0 ] && _BC="?"
   fi
   rm -f "$_BF"
-  if [ "$_BC" != "0" ]; then
+  if [ "$_BC" = "?" ]; then
+    echo "  ⚠  Baseline NOT measured: mxbuild exited $MXTK_MXBUILD_EXIT without checking the model."
+    [ -n "${MXTK_MXBUILD_WHY:-}" ] && echo "     mxbuild says: $MXTK_MXBUILD_WHY"
+  elif [ "$_BC" != "0" ]; then
     echo "  ⚠  Model ALREADY has $_BC error(s) [$_BCODES] before this script runs."
     echo "     Not yours. The gate will keep your changes if you add nothing new."
   else
@@ -487,7 +628,30 @@ fi
 # it. A failed exec is precisely when the gate matters most.
 echo "→ Executing $SCRIPT..."
 EXEC_STATUS=0
-"${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
+if [ "$PATCH_MODE" = "1" ]; then
+  export MXTK_MPR="$MPR" MXTK_MODEL_DIR="$MODEL_DIR"
+  case "$SCRIPT" in
+    *.py) if [ -n "$PY" ]; then "$PY" "$SCRIPT" "$MPR" "$@" || EXEC_STATUS=$?
+          else echo "  ✗ no working Python 3 to run a .py patch"; EXEC_STATUS=127; fi ;;
+    *.sh) bash "$SCRIPT" "$MPR" "$@" || EXEC_STATUS=$? ;;
+    *)    "$SCRIPT" "$MPR" "$@" || EXEC_STATUS=$? ;;
+  esac
+  if [ "$EXEC_STATUS" -ne 0 ]; then
+    # An opaque script that failed half-way is not worth an mxbuild: roll it back now.
+    echo ""
+    echo "  ✗ patch script exited $EXEC_STATUS — restoring the snapshot (a half-run patch is never kept)."
+    restore_snapshot
+    if [ -x ./bin/model-stamp.sh ]; then ./bin/model-stamp.sh clear >/dev/null 2>&1 || true; fi
+    if [ "$RESTORED" -eq 1 ]; then
+      log_build "❌ patch failed" "script exit $EXEC_STATUS — rolled back, gate not run"
+    else
+      log_build "❌ patch failed" "script exit $EXEC_STATUS — NOT rolled back (restore did not run)"
+    fi
+    exit "$EXEC_STATUS"
+  fi
+else
+  "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?
+fi
 
 if [ "$EXEC_STATUS" -ne 0 ]; then
   echo ""
@@ -525,6 +689,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$ERRORS_FILE" >/dev/null || true
   MXBUILD_EXIT="$MXTK_MXBUILD_EXIT"
   MXBUILD_OUT="$MXTK_MXBUILD_OUT"
+  MXB_WHY="${MXTK_MXBUILD_WHY:-}"
 
   if [ -f "$ERRORS_FILE" ] && [ -s "$ERRORS_FILE" ]; then
     CE_COUNT=$(err_count "$ERRORS_FILE")
@@ -532,6 +697,21 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
       GATE_STATE="unverified"
       echo "  ⚠  mxbuild errors file could not be parsed — check manually."
       echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | head -10 || true
+    elif [ "$CE_COUNT" = "0" ] && [ "$MXBUILD_EXIT" -ne 0 ]; then
+      # Non-empty errors file, 0 Error problems, NON-ZERO exit: mxbuild never checked the
+      # model. The reason sits in errors[], which err_count does not read, e.g. (verbatim,
+      # field project 2026-09-26, exit 3): "Project version '11.12.2' does not exactly
+      # match MxBuild version '11.14.0'". The same shape comes from a JDK the deploy build's
+      # gradle cannot run under. This branch used to fall through to the one below and log
+      # "pass · mxbuild clean" — 29 of 29 execs on one machine, one of them shipping a
+      # CE0066. An exit code and a problem count are two facts; 0 problems from a tool that
+      # exited non-zero means NOT MEASURED.
+      GATE_STATE="unverified"
+      echo "  ✗ mxbuild exited $MXBUILD_EXIT and listed 0 model problems — it did NOT check the model."
+      echo "    ${MXB_WHY:-no reason in errors[]; mxbuild output follows}"
+      [ -z "$MXB_WHY" ] && { echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | tail -10 || true; }
+      echo "    A version mismatch is fixed by the matching mxbuild: ./mxcli setup mxbuild -p $MPR_BASE"
+      echo "    (find_mxbuild prefers it once cached), or MXBUILD_PATH=<that mxbuild>."
     elif [ "$CE_COUNT" = "0" ]; then
       # mxbuild ALWAYS writes an errors file, even on success ({"problems":[]}).
       # A guard that tested only "file is non-empty" therefore took the restore
@@ -539,7 +719,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
       # "0 error(s) found". Test the parsed count, never the file's existence.
       GATE_STATE="pass"
       echo "  ✓ mxbuild: 0 errors — model is clean."
-      [ "$EXEC_STATUS" -eq 0 ] && log_build "✅ applied" "mxbuild clean"
+      [ "$EXEC_STATUS" -eq 0 ] && log_applied "mxbuild clean"
     else
       # ── Delta gate ─────────────────────────────────────────────────────────
       # A shared model means another workstream can leave it non-building; an
@@ -558,34 +738,10 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
         GATE_STATE="fail"
         echo "  ✗ mxbuild: $CE_COUNT error(s) found — restoring snapshot to avoid loading a corrupt MPR."
         CE_CODES=$(err_codes "$ERRORS_FILE")
-        NEWEST_SNAP=$(ls -dt "$PROJECT_ROOT/.mpr-snapshots"/[0-9]*/ 2>/dev/null | head -1)
-        if [ -n "$NEWEST_SNAP" ] && [ -f "$NEWEST_SNAP/$MPR_BASE" ]; then
-          # Stage then swap — see restore-mpr.sh for why deleting first is fatal.
-          SNAP_UNITS=$(find "$NEWEST_SNAP/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
-          if [ "$SNAP_UNITS" -gt 0 ]; then
-            TMP_MC="$MODEL_DIR/.mprcontents.restore.$$"
-            rm -rf "$TMP_MC"
-            if cp -r "$NEWEST_SNAP/mprcontents" "$TMP_MC"; then
-              rm -rf "$MODEL_DIR/mprcontents"
-              mv "$TMP_MC" "$MODEL_DIR/mprcontents"
-              cp "$NEWEST_SNAP/$MPR_BASE" "$MPR"
-              LIVE_UNITS=$(find "$MODEL_DIR/mprcontents" -name '*.mxunit' 2>/dev/null | wc -l | tr -d ' ')
-              if [ "$LIVE_UNITS" -eq "$SNAP_UNITS" ]; then
-                echo "  → Auto-restored from: $NEWEST_SNAP ($LIVE_UNITS units verified)"
-              else
-                echo "  ⚠  RESTORE INCOMPLETE: $LIVE_UNITS of $SNAP_UNITS units."
-                echo "     Recover with: git checkout HEAD -- $MPR_BASE mprcontents/"
-              fi
-            else
-              rm -rf "$TMP_MC"
-              echo "  ⚠  RESTORE FAILED — working tree left untouched, model may be mid-write."
-              echo "     Recover with: git checkout HEAD -- $MPR_BASE mprcontents/"
-            fi
-          else
-            echo "  ⚠  Snapshot has no mprcontents/ — refusing to restore from it."
-            echo "     Recover with: git checkout HEAD -- $MPR_BASE mprcontents/"
-          fi
-        fi
+        # restore_snapshot (above) is the one restore implementation, through restore-mpr.sh.
+        # Without it the attribution check below rebuilt the SAME broken model and blamed the
+        # error on "PRE-EXISTING" (v1 model, 2026-09-26). RESTORED gates that check.
+        restore_snapshot
         # Print WHERE, not just WHAT: mxbuild's problems[] carries module/document/element and,
         # for CE0117, the expression parser's own message under metadata.expressionErrors. The
         # old one-liner printed "CE0117 Error(s) in expression." and nothing else, so the reader
@@ -607,37 +763,48 @@ PYEOF
         cp "$ERRORS_FILE" "$LAST_ERRS"
         echo "  → Full error detail: .mpr-snapshots/last-mxbuild-errors.json"
 
-        # ── Whose error is it? ───────────────────────────────────────────────
-        # The model is now back at its pre-exec state. If it STILL fails, the
-        # error predates this script, which was merely the first thing to hit
-        # it. Costs one extra mxbuild, only on the failure path.
-        BASE_ERRS=$(mktemp /tmp/mxbuild-base.XXXXXX)
-        # Same shared run+capture as the pre-flight baseline and the main gate
-        # above (mxtk_mxbuild_error_count, _common.sh) — one implementation.
-        mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$BASE_ERRS" >/dev/null || true
-        # Same empty-file rule as the pre-flight baseline: SP 11 mxbuild writes no
-        # errors file on a clean build, and that plus exit 0 is a verified 0.
-        if [ ! -s "$BASE_ERRS" ] && [ "$MXTK_MXBUILD_EXIT" -eq 0 ]; then
-          BASE_COUNT=0; BASE_CODES=""
+        if [ "$RESTORED" -ne 1 ]; then
+          # Nothing was rolled back, so rebuilding now would measure the script's own
+          # output and call its error PRE-EXISTING. Say what happened instead.
+          echo ""
+          echo "  ✗ The model still holds this script's changes and fails with [$CE_CODES]."
+          log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — NOT rolled back (restore did not run)"
         else
-          BASE_COUNT=$(err_count "$BASE_ERRS"); BASE_CODES=$(err_codes "$BASE_ERRS")
-        fi
-        rm -f "$BASE_ERRS"
+          # ── Whose error is it? ───────────────────────────────────────────────
+          # The model is now back at its pre-exec state. If it STILL fails, the
+          # error predates this script, which was merely the first thing to hit
+          # it. Costs one extra mxbuild, only on the failure path.
+          BASE_ERRS=$(mktemp /tmp/mxbuild-base.XXXXXX)
+          # Same shared run+capture as the pre-flight baseline and the main gate
+          # above (mxtk_mxbuild_error_count, _common.sh) — one implementation.
+          mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$BASE_ERRS" >/dev/null || true
+          # Same empty-file rule as the pre-flight baseline: SP 11 mxbuild writes no
+          # errors file on a clean build, and that plus exit 0 is a verified 0.
+          if [ ! -s "$BASE_ERRS" ] && [ "$MXTK_MXBUILD_EXIT" -eq 0 ]; then
+            BASE_COUNT=0; BASE_CODES=""
+          else
+            BASE_COUNT=$(err_count "$BASE_ERRS"); BASE_CODES=$(err_codes "$BASE_ERRS")
+          fi
+          rm -f "$BASE_ERRS"
 
-        echo ""
-        if [ "$BASE_COUNT" != "0" ] && [ "$BASE_COUNT" != "?" ]; then
-          echo "  ⚠  PRE-EXISTING: the restored model already fails with $BASE_COUNT error(s) [$BASE_CODES]."
-          echo "     This script is NOT the cause. Nothing will exec until that is cleared."
-          case "$BASE_CODES" in
-            *CE0066*|*CE0463*)
-              echo "     Those codes are Studio-Pro-only fixes:"
-              echo "       CE0066  security overview → update entity access"
-              echo "       CE0463  right-click a widget → Update all widgets" ;;
-          esac
-          log_build "🚫 blocked" "PRE-EXISTING $BASE_CODES — not caused by this script; needs Studio Pro"
-        else
-          echo "  → The restored model builds clean, so this script introduced [$CE_CODES]."
-          log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back"
+          echo ""
+          if [ "$BASE_COUNT" != "0" ] && [ "$BASE_COUNT" != "?" ]; then
+            echo "  ⚠  PRE-EXISTING: the restored model already fails with $BASE_COUNT error(s) [$BASE_CODES]."
+            echo "     This script is NOT the cause. Nothing will exec until that is cleared."
+            case "$BASE_CODES" in
+              *CE0066*|*CE0463*)
+                echo "     Those codes are Studio-Pro-only fixes:"
+                echo "       CE0066  security overview → update entity access"
+                echo "       CE0463  right-click a widget → Update all widgets" ;;
+            esac
+            log_build "🚫 blocked" "PRE-EXISTING $BASE_CODES — not caused by this script; needs Studio Pro"
+          elif [ "$BASE_COUNT" = "?" ]; then
+            echo "  → The restored model could not be measured, so whose error it is stays open: [$CE_CODES]."
+            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back; restored model not measured"
+          else
+            echo "  → The restored model builds clean, so this script introduced [$CE_CODES]."
+            log_build "❌ gate failed" "$CE_COUNT error(s): $CE_CODES — script rolled back"
+          fi
         fi
         rm -f "$ERRORS_FILE"
       fi
@@ -645,9 +812,11 @@ PYEOF
   elif [ "$MXBUILD_EXIT" -ne 0 ]; then
     GATE_STATE="fail"
     echo "  ✗ mxbuild failed to run (exit $MXBUILD_EXIT) — gate could not verify the model."
+    [ -n "$MXB_WHY" ] && echo "    mxbuild says: $MXB_WHY"
     echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | head -20 || true
     echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
-    log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
+    # --patch logs its own row below, after rolling back; one row per run.
+    [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
   else
     GATE_STATE="pass"
     echo "  ✓ mxbuild: 0 errors — model is clean."
@@ -656,7 +825,7 @@ PYEOF
     # the ordinary clean build lands. It was the only outcome with no log_build
     # call: PROJECT-A hit 7 consecutive clean execs that produced 0 log rows
     # (2026-08-06) and patched it locally before the template caught up.
-    [ "$EXEC_STATUS" -eq 0 ] && log_build "✅ applied" "mxbuild clean (no errors file written)"
+    [ "$EXEC_STATUS" -eq 0 ] && log_applied "mxbuild clean (no errors file written)"
   fi
   rm -f "$ERRORS_FILE"
 else
@@ -666,6 +835,22 @@ else
   echo "    JAVA_EXE=$JAVA_EXE (exists+exec: $([ -x "$JAVA_EXE" ] && echo YES || echo NO))"
   echo "  → Override with MXBUILD_PATH=/path/to/mxbuild, or MENDIX_APP=/Applications/....app"
   echo "  → Verify manually in SP before proceeding."
+fi
+
+# ── --patch: keep only a verified write ──────────────────────────────────────
+# A failed gate has already restored above (RESTORE_TRIED=1). What is left is a gate that could
+# not run or could not verify — which an MDL run keeps, flagged, and a patch does not.
+if [ "$PATCH_MODE" = "1" ] && [ "$GATE_STATE" != "pass" ] && [ "$RESTORE_TRIED" -eq 0 ]; then
+  echo ""
+  echo "  ✗ --patch: gate $GATE_STATE — nothing verified the patch, so it is rolled back."
+  restore_snapshot
+  if [ -x ./bin/model-stamp.sh ]; then ./bin/model-stamp.sh clear >/dev/null 2>&1 || true; fi
+  if [ "$RESTORED" -eq 1 ]; then
+    log_build "↩ patch rolled back" "gate $GATE_STATE${MXB_WHY:+ (mxbuild: $MXB_WHY)} — an unverified patch is not kept"
+  else
+    log_build "❌ patch unverified" "gate $GATE_STATE — NOT rolled back (restore did not run)"
+  fi
+  exit 1
 fi
 
 # ── v1 leak guard ────────────────────────────────────────────────────────────
@@ -745,7 +930,7 @@ fi
 # is no longer the one anything verified.
 if [ -x ./bin/model-stamp.sh ]; then
   if [ "$GATE_STATE" = "pass" ] && [ "$EXEC_STATUS" -eq 0 ]; then
-    ./bin/model-stamp.sh write pass "exec.sh $(basename "$SCRIPT")" || true
+    ./bin/model-stamp.sh write pass "exec.sh $([ "$PATCH_MODE" = 1 ] && echo '--patch ')$(basename "$SCRIPT")" || true
   else
     ./bin/model-stamp.sh clear >/dev/null 2>&1 || true
   fi
@@ -760,8 +945,16 @@ if [ "$GATE_STATE" != "pass" ]; then
   echo "⚠️  Script applied to $MPR_BASE, but THE GATE DID NOT RUN ($GATE_STATE)."
   echo "    Nothing has verified the model, and it carries no verification stamp: the commit"
   echo "    hook will refuse it until ./bin/verify-model.sh has run the gate over it."
-  log_build "⚠️ applied, UNVERIFIED" "gate $GATE_STATE — model not verified"
+  log_build "⚠️ applied, UNVERIFIED" "gate $GATE_STATE${MXB_WHY:+ (mxbuild exit ${MXBUILD_EXIT:-?}: $MXB_WHY)} — model not verified"
   exit 0
+fi
+
+if [ "$LINT_RC" -eq 1 ]; then
+  echo ""
+  echo "✗ Script applied and mxbuild is clean, but LINT ROSE — this is not a pass."
+  echo "  $LINT_DETAIL"
+  echo "  The write is kept (lint is shape, not corruption). Fix it before calling the task done."
+  exit 1
 fi
 
 echo ""

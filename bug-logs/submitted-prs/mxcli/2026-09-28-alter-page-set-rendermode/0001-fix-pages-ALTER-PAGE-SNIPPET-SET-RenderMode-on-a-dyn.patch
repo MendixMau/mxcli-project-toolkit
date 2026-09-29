@@ -1,0 +1,351 @@
+From 9b0d927f4e63f2ab971532c4395adb44f8d683aa Mon Sep 17 00:00:00 2001
+From: MendixMau <mauritscgvisser@gmail.com>
+Date: Mon, 28 Sep 2026 10:43:19 +0800
+Subject: [PATCH] fix(pages): ALTER PAGE/SNIPPET SET RenderMode on a dynamic
+ text (closes #1228)
+
+`alter page P { set RenderMode = H2 on <dynamictext> }` was refused as "not a
+property of this built-in widget", although CREATE PAGE and REPLACE accept
+RenderMode on a dynamictext and the MCP backend's mutator already sets it.
+setRawWidgetPropertyMut had no case for it, so it fell through to the
+pluggable-property setter.
+
+Add a RenderMode case dispatched on the stored $Type (Forms$DynamicText): the
+value is validated case-insensitively against Text, Paragraph and H1-H6 and
+written in its canonical spelling; anything else is refused with the accepted
+list, leaving the document untouched. Other widgets keep the previous path.
+`check -p` picks this up too, since it dry-runs the same setter.
+
+Docs: alter-page skill, docs-site alter-page.md, MDL_QUICK_REFERENCE.md,
+`mxcli syntax page.alter`, and a fix-issue finding.
+
+Tested: make test (84 packages ok, 0 FAIL), make lint. The new unit tests fail
+without the mutator change (8 subtests) and pass with it.
+Mendix 11.12.2, fresh blank app: the bug-test script exits 1 on main and
+applies on this branch (describe: H2, Paragraph, H4); mx check 0 errors; H7
+refused with nothing written; at runtime the home-page heading set to H5
+renders as <h5>.
+
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+---
+ .../fix-issue/findings/mdl-backend.jsonl      |  1 +
+ .claude/skills/mendix/alter-page/SKILL.md     |  1 +
+ cmd/mxcli/syntax/features_page.go             |  2 +-
+ docs-site/src/language/alter-page.md          |  1 +
+ docs/01-project/MDL_QUICK_REFERENCE.md        |  3 +-
+ .../alter-page-set-rendermode-dynamictext.mdl | 64 +++++++++++++
+ .../dynamictext_rendermode_test.go            | 89 +++++++++++++++++++
+ mdl/backend/pagemutator/mutator.go            | 57 ++++++++++++
+ 8 files changed, 216 insertions(+), 2 deletions(-)
+ create mode 100644 mdl-examples/bug-tests/alter-page-set-rendermode-dynamictext.mdl
+ create mode 100644 mdl/backend/pagemutator/dynamictext_rendermode_test.go
+
+diff --git a/.claude/skills/fix-issue/findings/mdl-backend.jsonl b/.claude/skills/fix-issue/findings/mdl-backend.jsonl
+index 92c3e92b..6c2c7ed5 100644
+--- a/.claude/skills/fix-issue/findings/mdl-backend.jsonl
++++ b/.claude/skills/fix-issue/findings/mdl-backend.jsonl
+@@ -134,3 +134,4 @@
+ {"area":"mdl/backend","date":"2026-09-25","symptom":"A data view with `DataSource: nanoflow Module.NF` (e.g. describe → exec of Feedback v4.0.2's FeedbackModule.ShareFeedback) passes `mxcli check` and exec, then mxbuild 11.13.0 reports CE2633 \"No nanoflow configured for the data source of this data view\". Same result through `alter page … set DataSource = nanoflow X on dv`","cause":"Both writers nested the name in a `Forms$NanoflowSettings` child (ParameterMappings marker 3) by analogy with `Forms$MicroflowSource`, which really does nest `Forms$MicroflowSettings`. Studio Pro's `Forms$NanoflowSource` is FLAT: ForceFullObjects, Nanoflow, ParameterMappings (marker 2) directly on the source — exactly gen's shape. mxbuild found no Nanoflow key. The raw nested builder also never read d.ParameterMappings, so a parameterized source nanoflow lost its arguments. On the read side, the ALTER PAGE flow-context lookup (`flowFromDataSourceDoc`) and describe's argument reader (`flowSourceArgs`) only knew the nested shape, so Studio Pro-authored nanoflow sources yielded no entity context / no arguments","file":"`mdl/backend/modelsdk/widget_write_legacy_gaps.go` (`nanoflowSourceToGen` via gen + `Forms$NanoflowSource` TypeDefaults in `widget_write.go`), `mdl/backend/pagemutator/mutator.go` (`serializeDataSourceBson`, `flowFromDataSourceDoc`), `mdl/executor/cmd_pages_describe_datasource.go` (`flowSourceArgs`)","insight":"**The code comment asserted the wrong shape as a measured fact** (\"Studio Pro nests it in a Forms$NanoflowSettings child … Legacy's shape is the one with a working project behind it\") and a unit test pinned it — both were parity-with-legacy, never measured. `Forms$NanoflowSettings` is not a type in modelsdk/gen or generated/metamodel: **when gen and a hand-rolled builder disagree about a type's shape, grep gen for the type the builder invents before trusting the builder**. What settled it in one step: a 60-line scanner that `bson.Unmarshal`s every mprcontents unit and prints the key-set (with list markers) of each `$Type` instance — 5 of 5 flat nanoflow sources, and 4 of 4 microflow sources nested as gen says, so the microflow path needed nothing. **Enumerate every writer of the type, not just the reported one**: the ALTER PAGE setter had its own copy of the same wrong literal, and the read-side lookups keyed on the wrong shape meant Studio Pro pages were the ones silently mis-read. Readers keep the nested fallback for pages written before the fix. Verified: exec + `mx check` 11.13.0 CE2633 → 0 errors for CREATE PAGE (ShareFeedback round trip, repro script) and ALTER PAGE; ShareFeedback's dataView5 DataSource ndsl now matches Studio Pro exactly. Control: implementation reverted → the 5 new tests fail with the nested key set. Repro `mdl-examples/bug-tests/dataview-nanoflow-source-ce2633.mdl`","refs":[],"ce":["CE2633"]}
+ {"area": "mdl/backend", "date": "2026-09-25", "symptom": "`returns list of pEntity` for a declared type parameter produced mx check CE1613 \"The selected entity '.pEntity' no longer exists.\" on the action and on a `list of pEntity` parameter; a Studio Pro \"List of <type parameter>\" read back as a bare `List` (DESCRIBE and catalog) and a rewrite of it would serialize a list of an unnamed entity.", "cause": "types.ListType carried only Entity. The reader handled only a ConcreteEntityType list element, the writer always emitted one, and CREATE sent `list of T` down the entity path (Module \"\" + \".\" + T).", "file": "mdl/types/javaaction_types.go (ListType.TypeParameterID), mdl/backend/modelsdk/java_read.go (listTypeFromGen), java_write.go (codeActionListTypeToGen), javascript_read.go, mdl/executor/cmd_javaactions.go (listOfTypeParameter)", "insight": "The Model SDK is the arbiter for which element a slot accepts: `ParameterizedEntityType.createInListTypeUnderParameter` (metamodel 7.21.0+) settles that a list element may be a type parameter, so no version gate. No fixture had a Studio Pro-authored instance, so the evidence is mx check on 11.6.6: previous build CE1613 x2, fixed build 0 errors, clean baseline 0. The JavaScript writer reuses the Java converter, so one write fix covers both; the JS reader is separate raw-map code and needed its own case.", "refs": ["mendixlabs/mxcli#1183"]}
+ {"area": "mdl/backend", "date": "2026-09-26", "symptom": "`ALTER PAGE … SET ImageUrl = '…' ON img1` (pluggable Image) prints \"Altered page\" and changes nothing: DESCRIBE still shows the old URL. Same silent success for SET on any pluggable widget property of kind Expression, Image, Icon, Action, DataSource, Attribute or Widgets", "cause": "setPluggableWidgetPropertyMut (mdl/backend/pagemutator/mutator.go) wrote every value to Value.PrimitiveValue. imageUrl is a TextTemplate; readers take Value.TextTemplate. The DataGrid 2 column setter had the identical defect fixed on 2026-08-18 (columnValueField) — the widget-level setter sitting next to it was never given the same schema dispatch.", "file": "mdl/backend/pagemutator/mutator.go (setPluggableWidgetPropertyMut, buildPropKindMap), test pluggable_property_kind_test.go, example mdl-examples/bug-tests/1201-alter-page-set-pluggable-texttemplate.mdl", "insight": "When a fix lands on one setter for 'write the field the schema declares', grep the sibling setters in the same file for the same always-PrimitiveValue write — a WidgetValue carries every variant field, so the wrong write never errors and every signal stays green. The live control is cheap without mxbuild: copy testdata/expr-checker, create an image with URL A, ALTER to B, describe (pre-fix binary shows A). A null TextTemplate means the slot is hidden (#574); ALTER does not re-run visibility, so refuse rather than build an envelope there. Not fixed here: a pluggable boolean SET stores \"yes\"/\"no\" — check what CREATE stores before changing it.", "refs": ["mendixlabs/mxcli#1201", "mendixlabs/mxcli#1069", "mendixlabs/mxcli#750", "mendixlabs/mxcli#574"], "rules": []}
++{"area": "mdl/backend", "date": "2026-09-22", "symptom": "`alter page P { set RenderMode = H1 on <dynamictext> }` is refused: `failed to set RenderMode on compTitle: property \"RenderMode\" not found (widget has no pluggable Object)` (on current main: `not a property of this built-in widget … use alter styling`), while `create page … dynamictext x (RenderMode: H1)` and `replace x with { dynamictext … }` accept it. `check -p` refuses it too, since it dry-runs the same setter", "cause": "setRawWidgetPropertyMut is a hand-kept switch of first-class built-in properties (caption/content/label/class/…); anything not listed falls through to the pluggable-property setter. RenderMode had no case, although the MCP mutator (mdl/backend/mcp/page_mutator.go) has had one all along — the two backends' SET vocabularies are separate lists", "file": "`mdl/backend/pagemutator/mutator.go` (setDynamicTextRenderModeMut)", "insight": "When a CREATE property is refused by ALTER SET on a built-in widget, compare the CREATE builder's property list with the case list in setRawWidgetPropertyMut (and the MCP mutator's) — every such refusal so far (DynamicClasses, lowercase class, RenderMode) was a missing case, not a storage question. Dispatch RenderMode on the stored `$Type` (Forms$DynamicText): containers and ActionButtons store differently-valued RenderMode/RenderType, and a pluggable widget may own a `renderMode` key, so those keep the old path. Validate against pages.TextRenderMode (Text, Paragraph, H1–H6) case-insensitively and store the canonical spelling — the visitor passes `h2` through as typed. Still missing from SET on dynamictext: ContentParams (CREATE accepts it; SET has no case). Control: HEAD's mutator.go makes the new tests fail with the reported refusal; real 11.14.0 copy: exec → describe shows H2 → mx check 0 errors", "refs": []}
+diff --git a/.claude/skills/mendix/alter-page/SKILL.md b/.claude/skills/mendix/alter-page/SKILL.md
+index d19707e4..3813ee9d 100644
+--- a/.claude/skills/mendix/alter-page/SKILL.md
++++ b/.claude/skills/mendix/alter-page/SKILL.md
+@@ -153,6 +153,7 @@ so a silent write would build cleanly and then fail to open.
+ | `'<slotKey>'` | Pluggable widgets — any **action-typed** property (File Uploader `createFileAction`, DataGrid 2 `onSelectionChange`, …) | Any `create page` action expression | `set 'createFileAction' = microflow M.ACT_Create on fileUploader1` — refused, naming the widget's action slots, if the key is not action-typed |
+ | `caption` | ACTIONBUTTON, LINKBUTTON | String | `set caption = 'Submit' on btnSave` |
+ | `content` | DYNAMICTEXT | String | `set content = 'New Heading' on txtTitle` |
++| `RenderMode` | DYNAMICTEXT | Text, Paragraph, H1–H6 (any case; anything else is refused) | `set RenderMode = H2 on txtTitle` |
+ | `label` | TEXTBOX, TEXTAREA, DATEPICKER, COMBOBOX, CHECKBOX, RADIOBUTTONS | String | `set label = 'full Name' on txtName` |
+ | `buttonstyle` | ACTIONBUTTON, LINKBUTTON | Primary, Default, Success, Danger, Warning, Info | `set buttonstyle = danger on btnDelete` |
+ | `class` | Any widget | CSS class string | `set class = 'card mx-2' on container1` |
+diff --git a/cmd/mxcli/syntax/features_page.go b/cmd/mxcli/syntax/features_page.go
+index f8f1e46f..76582253 100644
+--- a/cmd/mxcli/syntax/features_page.go
++++ b/cmd/mxcli/syntax/features_page.go
+@@ -284,7 +284,7 @@ CREATE PAGE Sales.Detail (Title: 'Detail', Layout: Atlas_Core.Atlas_Default) {
+ 			"popup width", "popup height", "popup resizable",
+ 			"drop template", "insert template", "list view template",
+ 		},
+-		Syntax:  "ALTER PAGE Module.Name {\n  SET property = value ON widgetName;   -- widget property names: any casing\n  SET 'Row size' = 'Small' ON lvOrders;  -- an Atlas DESIGN property of that widget's\n                                         --   type; quoted and case-sensitive.\n                                         --   `show design properties for <type>` lists\n                                         --   them. ON/OFF for a toggle, where OFF\n                                         --   REMOVES the entry.\n                                         --   A multi-select ('Hide on') or compound\n                                         --   ('Spacing') one needs the inline\n                                         --   DesignProperties: [...] form, because a\n                                         --   SET assignment carries one value.\n  SET Action = MICROFLOW Module.MF ON btnSave;   -- any CREATE PAGE action form\n  SET 'createFileAction' = MICROFLOW Module.MF ON fileUploader1;\n                                         -- a pluggable widget's NAMED action slot,\n                                         --   by the widget's own key; refused on a\n                                         --   key that is not action-typed\n  SET DataSource = $Param ON dvOrder;   -- parameter/microflow/nanoflow/selection;\n                                        --   DATABASE and association are REPLACE-only,\n                                        --   and a data view takes no database source\n  SET (prop1 = val1, prop2 = val2) ON widgetName;\n  SET Title = 'New Title';  -- page-level (case-sensitive)\n  SET Documentation = 'What this page is for.';\n  SET Class = 'css-class';  -- page-level CSS class / style\n  SET Style = 'css: rule';\n  SET PopupWidth = 800;     -- page-level pop-up dimensions\n  SET PopupHeight = 480;\n  SET PopupResizable = true;\n  INSERT AFTER widgetName { <widgets> };\n  INSERT BEFORE widgetName { <widgets> };\n  INSERT INTO containerName { <widgets> };\n  DROP WIDGET name1, name2;\n  DROP TEMPLATE FOR Module.Specialization IN listViewName;\n  REPLACE widgetName WITH { <widgets> };\n};\n\n-- The BULK form: one design property on every widget of a TYPE.\nALTER PAGES [IN Module]\n  SET 'Compact' = ON, 'Striped' = ON\n  WHERE WIDGETTYPE = datagrid            -- the MDL keyword, which resolves to\n                                         --   exactly one widget id. A full id in\n                                         --   quotes works too. NOT a name: a widget\n                                         --   name is unique only within its page.\n  [DRY RUN];                             -- run this FIRST. It reports the matches\n                                         --   against a discardable copy and writes\n                                         --   nothing.",
++		Syntax:  "ALTER PAGE Module.Name {\n  SET property = value ON widgetName;   -- widget property names: any casing\n  SET 'Row size' = 'Small' ON lvOrders;  -- an Atlas DESIGN property of that widget's\n                                         --   type; quoted and case-sensitive.\n                                         --   `show design properties for <type>` lists\n                                         --   them. ON/OFF for a toggle, where OFF\n                                         --   REMOVES the entry.\n                                         --   A multi-select ('Hide on') or compound\n                                         --   ('Spacing') one needs the inline\n                                         --   DesignProperties: [...] form, because a\n                                         --   SET assignment carries one value.\n  SET Action = MICROFLOW Module.MF ON btnSave;   -- any CREATE PAGE action form\n  SET 'createFileAction' = MICROFLOW Module.MF ON fileUploader1;\n                                         -- a pluggable widget's NAMED action slot,\n                                         --   by the widget's own key; refused on a\n                                         --   key that is not action-typed\n  SET DataSource = $Param ON dvOrder;   -- parameter/microflow/nanoflow/selection;\n                                        --   DATABASE and association are REPLACE-only,\n                                        --   and a data view takes no database source\n  SET RenderMode = H2 ON txtTitle;   -- dynamic text: Text | Paragraph | H1..H6\n  SET (prop1 = val1, prop2 = val2) ON widgetName;\n  SET Title = 'New Title';  -- page-level (case-sensitive)\n  SET Documentation = 'What this page is for.';\n  SET Class = 'css-class';  -- page-level CSS class / style\n  SET Style = 'css: rule';\n  SET PopupWidth = 800;     -- page-level pop-up dimensions\n  SET PopupHeight = 480;\n  SET PopupResizable = true;\n  INSERT AFTER widgetName { <widgets> };\n  INSERT BEFORE widgetName { <widgets> };\n  INSERT INTO containerName { <widgets> };\n  DROP WIDGET name1, name2;\n  DROP TEMPLATE FOR Module.Specialization IN listViewName;\n  REPLACE widgetName WITH { <widgets> };\n};\n\n-- The BULK form: one design property on every widget of a TYPE.\nALTER PAGES [IN Module]\n  SET 'Compact' = ON, 'Striped' = ON\n  WHERE WIDGETTYPE = datagrid            -- the MDL keyword, which resolves to\n                                         --   exactly one widget id. A full id in\n                                         --   quotes works too. NOT a name: a widget\n                                         --   name is unique only within its page.\n  [DRY RUN];                             -- run this FIRST. It reports the matches\n                                         --   against a discardable copy and writes\n                                         --   nothing.",
+ 		Example: "ALTER PAGE Module.EditPage {\n  SET (Caption = 'Save & Close', ButtonStyle = Success) ON btnSave;\n  INSERT AFTER txtName {\n    TEXTBOX txtMiddleName (Label: 'Middle Name', Attribute: MiddleName)\n  };\n  DROP WIDGET txtUnused;\n};",
+ 		SeeAlso: []string{"page.create", "page.show", "snippet.alter"},
+ 	})
+diff --git a/docs-site/src/language/alter-page.md b/docs-site/src/language/alter-page.md
+index 8e4898af..c7275259 100644
+--- a/docs-site/src/language/alter-page.md
++++ b/docs-site/src/language/alter-page.md
+@@ -40,6 +40,7 @@ ALTER PAGE Module.EditPage {
+ |----------|-------------|---------|
+ | `Caption` | Button/link caption | `SET Caption = 'Submit' ON btnSave` |
+ | `Label` | Input field label | `SET Label = 'Full Name' ON txtName` |
++| `RenderMode` | Dynamic text rendering: `Text`, `Paragraph`, `H1`–`H6` | `SET RenderMode = H2 ON txtTitle` |
+ | `ButtonStyle` | Button visual style | `SET ButtonStyle = Danger ON btnDelete` |
+ | `Class` | CSS class names | `SET Class = 'card p-3' ON cMain` |
+ | `Style` | Inline CSS | `SET Style = 'margin: 8px;' ON cBox` |
+diff --git a/docs/01-project/MDL_QUICK_REFERENCE.md b/docs/01-project/MDL_QUICK_REFERENCE.md
+index af27e8df..666e8720 100644
+--- a/docs/01-project/MDL_QUICK_REFERENCE.md
++++ b/docs/01-project/MDL_QUICK_REFERENCE.md
+@@ -1645,6 +1645,7 @@ Modify an existing page or snippet's widget tree in-place without full `create o
+ | Documentation | `set Documentation = 'What this page is for.'` | Page-level. Same property the `/** … */` doc comment on `CREATE PAGE` writes, so an existing page can be documented without restating it. `''` clears it |
+ | Pop-up dimensions | `set PopupWidth = 800` / `set PopupHeight = 480` / `set PopupResizable = true` | Page-level; apply when the page opens in a pop-up |
+ | Page CSS class / style | `set Class = 'css-class'` / `set Style = 'css: rule'` | Page-level (no ON clause); sets the page's Appearance |
++| Dynamic text heading level | `set RenderMode = H2 on txtTitle` | Dynamic text only: Text, Paragraph, H1–H6 (any casing). Any other widget or value is an error naming the allowed set |
+ | Widget dynamic classes | `set DynamicClasses = 'expr' on widgetName` | Runtime-computed classes on a widget — the surgical alternative to a bulk `update widgets` |
+ | Insert after | `insert after widgetName { widgets }` | Add widgets after target |
+ | Insert before | `insert before widgetName { widgets }` | Add widgets before target |
+@@ -1661,7 +1662,7 @@ Modify an existing page or snippet's widget tree in-place without full `create o
+ | Set layout | `set layout = Module.LayoutName` | Change page layout, auto-maps placeholders |
+ | Set layout + map | `set layout = Module.Layout map (Old as New)` | Explicit placeholder mapping |
+ 
+-**Supported SET properties:** Caption, Label, ButtonStyle, Class, Style, DynamicClasses, Editable, Visible, Name, Title (page-level), Documentation (page-level), Layout (page-level), PopupWidth / PopupHeight / PopupResizable (page-level), and quoted pluggable widget properties.
++**Supported SET properties:** Caption, Label, ButtonStyle, Class, Style, DynamicClasses, RenderMode (dynamic text), Editable, Visible, Name, Title (page-level), Documentation (page-level), Layout (page-level), PopupWidth / PopupHeight / PopupResizable (page-level), and quoted pluggable widget properties.
+ 
+ **Example:**
+ ```sql
+diff --git a/mdl-examples/bug-tests/alter-page-set-rendermode-dynamictext.mdl b/mdl-examples/bug-tests/alter-page-set-rendermode-dynamictext.mdl
+new file mode 100644
+index 00000000..3ad76acb
+--- /dev/null
++++ b/mdl-examples/bug-tests/alter-page-set-rendermode-dynamictext.mdl
+@@ -0,0 +1,64 @@
++-- ============================================================================
++-- ALTER PAGE / ALTER SNIPPET: SET RenderMode on a dynamic text
++-- ============================================================================
++--
++-- Reported:
++--
++--   alter page MyModule.Comparison_Page { set RenderMode = H2 on compTitle }
++--   -> failed to set RenderMode on compTitle: property "RenderMode" not found
++--      (widget has no pluggable Object)
++--
++-- (current main words the same refusal as "not a property of this built-in
++-- widget … use alter styling", which is no more true: RenderMode is not a
++-- design property either).
++--
++-- `create page … dynamictext x (RenderMode: H1)` and `replace x with { … }`
++-- both accept it, because RenderMode is a first-class Forms$DynamicText
++-- property. The ALTER SET switch in setRawWidgetPropertyMut simply had no case
++-- for it, so it fell through to the pluggable-property setter.
++--
++-- Values: Text, Paragraph, H1..H6 (matched case-insensitively, stored in the
++-- canonical spelling). Anything else is refused by both `check -p` and `exec`
++-- — e.g. `set RenderMode = H7 on title` →
++--   invalid RenderMode "H7" for dynamic text "title": expected one of Text,
++--   Paragraph, H1, H2, H3, H4, H5, H6
++--
++-- Measured on a copy of a real Mendix 11.14.0 app: exec → "Altered page",
++-- describe shows RenderMode: H2, mx check → 0 errors; exactly one .mxunit
++-- changed.
++--
++-- Usage:
++--   mxcli exec mdl-examples/bug-tests/alter-page-set-rendermode-dynamictext.mdl -p app.mpr
++-- ============================================================================
++
++create entity MyFirstModule.RmRow ( Name: String );
++
++create or replace page MyFirstModule.P_SetRenderMode
++(
++  Title: 'Set RenderMode',
++  Layout: Atlas_Core.Atlas_Default,
++  Params: { $Row: MyFirstModule.RmRow }
++)
++{
++  dataview dv (datasource: $Row) {
++    dynamictext title (content: 'Title {1}', contentparams: [{1} = Name], rendermode: H1)
++    dynamictext body (content: 'Body')
++  }
++}
++
++alter page MyFirstModule.P_SetRenderMode {
++  set RenderMode = H2 on title;
++  set rendermode = paragraph on body;
++}
++
++create or replace snippet MyFirstModule.S_SetRenderMode
++{
++  dynamictext snipTitle (content: 'Snippet title', rendermode: H3)
++}
++
++alter snippet MyFirstModule.S_SetRenderMode {
++  set RenderMode = H4 on snipTitle;
++}
++
++describe page MyFirstModule.P_SetRenderMode;
++describe snippet MyFirstModule.S_SetRenderMode;
+diff --git a/mdl/backend/pagemutator/dynamictext_rendermode_test.go b/mdl/backend/pagemutator/dynamictext_rendermode_test.go
+new file mode 100644
+index 00000000..2c5b365f
+--- /dev/null
++++ b/mdl/backend/pagemutator/dynamictext_rendermode_test.go
+@@ -0,0 +1,89 @@
++// SPDX-License-Identifier: Apache-2.0
++
++package pagemutator
++
++import (
++	"strings"
++	"testing"
++
++	"go.mongodb.org/mongo-driver/bson"
++
++	"github.com/mendixlabs/mxcli/mdl/backend/bsonnav"
++)
++
++// makeDynamicText builds a stored dynamic text widget the way Studio Pro writes
++// it: a RenderMode string alongside the Content client template.
++func makeDynamicText(name, renderMode string) bson.D {
++	return bson.D{
++		{Key: "$Type", Value: "Forms$DynamicText"},
++		{Key: "Name", Value: name},
++		{Key: "NativeTextStyle", Value: "Text"},
++		{Key: "RenderMode", Value: renderMode},
++	}
++}
++
++// `alter page P { set RenderMode = H1 on compTitle }` on a dynamic text failed
++// with
++//
++//	failed to set RenderMode on compTitle: property "RenderMode" not found (widget has no pluggable Object)
++//
++// while `create page … dynamictext x (…, RenderMode: H1)` and `replace x with
++// { dynamictext x (…, RenderMode: H1) }` both accept it. RenderMode is a
++// first-class Forms$DynamicText property, so the SET must write it in place.
++func TestSetWidgetProperty_DynamicTextRenderMode(t *testing.T) {
++	cases := []struct{ in, want string }{
++		{"H1", "H1"},
++		{"H6", "H6"},
++		{"h2", "H2"}, // property values arrive as typed — case-insensitive, like the name
++		{"Paragraph", "Paragraph"},
++		{"text", "Text"},
++	}
++	for _, tc := range cases {
++		t.Run(tc.in, func(t *testing.T) {
++			rawData := makeRawPage(makeDynamicText("compTitle", "Text"))
++			m := &Mutator{rawData: rawData, widgetFinder: findBsonWidget}
++			if err := m.SetWidgetProperty("compTitle", "RenderMode", tc.in); err != nil {
++				t.Fatalf("SetWidgetProperty(RenderMode=%s) failed: %v", tc.in, err)
++			}
++			got := bsonnav.DGetString(findBsonWidget(rawData, "compTitle").widget, "RenderMode")
++			if got != tc.want {
++				t.Errorf("RenderMode = %q, want %q", got, tc.want)
++			}
++		})
++	}
++
++	t.Run("lowercase property name", func(t *testing.T) {
++		rawData := makeRawPage(makeDynamicText("compTitle", "Text"))
++		m := &Mutator{rawData: rawData, widgetFinder: findBsonWidget}
++		if err := m.SetWidgetProperty("compTitle", "rendermode", "H3"); err != nil {
++			t.Fatalf("SetWidgetProperty(rendermode) failed: %v", err)
++		}
++		if got := bsonnav.DGetString(findBsonWidget(rawData, "compTitle").widget, "RenderMode"); got != "H3" {
++			t.Errorf("RenderMode = %q, want H3", got)
++		}
++	})
++}
++
++// An invalid value is refused with the accepted list, and the stored value is
++// left alone — writing an unknown enum member gives a document Studio Pro
++// cannot open.
++func TestSetWidgetProperty_DynamicTextRenderModeInvalid(t *testing.T) {
++	for _, bad := range []any{"H7", "Div", "", 1, true} {
++		rawData := makeRawPage(makeDynamicText("compTitle", "H1"))
++		m := &Mutator{rawData: rawData, widgetFinder: findBsonWidget}
++		err := m.SetWidgetProperty("compTitle", "RenderMode", bad)
++		if err == nil {
++			t.Fatalf("RenderMode = %v must be refused", bad)
++		}
++		msg := err.Error()
++		if strings.Contains(msg, "pluggable Object") {
++			t.Errorf("RenderMode = %v: the message describes mxcli internals: %q", bad, msg)
++		}
++		if !strings.Contains(msg, "Paragraph") || !strings.Contains(msg, "H6") {
++			t.Errorf("RenderMode = %v: the message does not list the accepted values: %q", bad, msg)
++		}
++		if got := bsonnav.DGetString(findBsonWidget(rawData, "compTitle").widget, "RenderMode"); got != "H1" {
++			t.Errorf("RenderMode = %v: stored value changed to %q on a refused write", bad, got)
++		}
++	}
++}
+diff --git a/mdl/backend/pagemutator/mutator.go b/mdl/backend/pagemutator/mutator.go
+index a458d783..524ded6e 100644
+--- a/mdl/backend/pagemutator/mutator.go
++++ b/mdl/backend/pagemutator/mutator.go
+@@ -2752,12 +2752,69 @@ func setRawWidgetPropertyMut(widget bson.D, propName string, value any) error {
+ 		return nil
+ 	case "attribute":
+ 		return setWidgetAttributeRefMut(widget, value)
++	case "rendermode":
++		// RenderMode is a first-class property of a dynamic text (Text, Paragraph,
++		// H1–H6). Other widgets that store a RenderMode (a container's Div/Section/…)
++		// or a pluggable widget with its own "renderMode" key keep the existing path.
++		if isDynamicTextWidget(widget) {
++			return setDynamicTextRenderModeMut(widget, value)
++		}
++		return setPluggableWidgetPropertyMut(widget, propName, value)
+ 	default:
+ 		// Try as pluggable widget property
+ 		return setPluggableWidgetPropertyMut(widget, propName, value)
+ 	}
+ }
+ 
++// dynamicTextRenderModes are the values a Forms$DynamicText's RenderMode takes —
++// the same set CREATE PAGE writes from `dynamictext x (RenderMode: …)`.
++var dynamicTextRenderModes = []pages.TextRenderMode{
++	pages.TextRenderModeText,
++	pages.TextRenderModeParagraph,
++	pages.TextRenderModeH1,
++	pages.TextRenderModeH2,
++	pages.TextRenderModeH3,
++	pages.TextRenderModeH4,
++	pages.TextRenderModeH5,
++	pages.TextRenderModeH6,
++}
++
++// isDynamicTextWidget reports whether a stored widget is a dynamic text. Stored
++// documents carry Forms$DynamicText; Pages$DynamicText is the SDK spelling.
++func isDynamicTextWidget(widget bson.D) bool {
++	switch bsonnav.DGetString(widget, "$Type") {
++	case "Forms$DynamicText", "Pages$DynamicText":
++		return true
++	}
++	return false
++}
++
++// setDynamicTextRenderModeMut writes a dynamic text's RenderMode in place. The
++// value is matched case-insensitively (MDL passes it as typed: `H1`, `h1`) and
++// stored in the canonical spelling; anything outside the enumeration is refused
++// before the document is touched — an unknown enum member is a document Studio
++// Pro cannot open.
++func setDynamicTextRenderModeMut(widget bson.D, value any) error {
++	s, _ := value.(string)
++	for _, mode := range dynamicTextRenderModes {
++		if s != "" && strings.EqualFold(s, string(mode)) {
++			if !bsonnav.DSet(widget, "RenderMode", string(mode)) {
++				// Studio Pro writes RenderMode on every dynamic text; a document
++				// without it is not one this setter should guess a position for.
++				return fmt.Errorf("dynamic text %q has no stored RenderMode property to set",
++					bsonnav.DGetString(widget, "Name"))
++			}
++			return nil
++		}
++	}
++	names := make([]string, len(dynamicTextRenderModes))
++	for i, mode := range dynamicTextRenderModes {
++		names[i] = string(mode)
++	}
++	return fmt.Errorf("invalid RenderMode %q for dynamic text %q: expected one of %s",
++		fmt.Sprint(value), bsonnav.DGetString(widget, "Name"), strings.Join(names, ", "))
++}
++
+ // ---------------------------------------------------------------------------
+ // Design property (Atlas styling) mutation
+ // ---------------------------------------------------------------------------
+-- 
+2.50.1 (Apple Git-155)
+

@@ -39,6 +39,7 @@ Read a row when its Stage(s) cell says *every stage* or names the stage the regi
 | Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations | `skills/learned-mdl-preflight.md` | 5 |
 | Placing any document in a module — before the first `create`. Feature group, then Pages/Microflows/Services/Resources; the path comes from the brief's folder plan, and the table says which types mxcli can actually place | `skills/module-folder-convention.md` | 4,5 |
 | Writing or fixing any microflow — MDL gotchas plus annotation discipline | `skills/learned-microflow-patterns.md` | 5 |
+| Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list — post the checklist before the first MDL line | `skills/microflow-preflight.md` | 5 |
 | Building any page or snippet — before the first widget. Wireframe, tokens, gallery reuse, cross-check; no wireframe means STOP | `skills/ui-preflight-pages.md` | 5 |
 | Writing or reviewing any page or snippet — the spacing scale (8/16/24/32/48), section rhythm, and the page-header scaffold every full page starts with; sections at 0px apart and pages with no H1 are the defects it retires | `skills/design-spacing.md` | 5 |
 | After every page-building script, and any time the UI looks wrong — the cheap repeatable look during the build: one page, one screenshot, four questions, scored when a wireframe exists. Feeds Gate: UI, never replaces it | `skills/ui-loop.md` | 5 |
@@ -338,6 +339,23 @@ Rules — these apply to every stage and every per-module build loop:
    template and the gate rows below defer here. (Why, 2026-09-02: three transitions that
    asked well and proved well and closed nothing — see the template section for the measured
    register.)
+
+8. **The last checklist item of every stage and every module build is the gate script,
+   run and pasted.** `bin/gate-check.sh <project-root> <stage>` — and for a module build the
+   obligation lines for that module — go in the chat as output, with zero `PENDING`, or with
+   each remaining `PENDING` named and waived (`--waive <obligation> --reason "..."`). A stage
+   whose gate script never ran is not done, however complete its checklist looks. This is the
+   item that makes the obligation check bite: it reports a pass nobody performed, but only on
+   a run, and nothing before this rule required one.
+
+   **Why (measured, 2026-09-19, `lowcode-vs-highcode-benchmark` runs `mendix-run1` and
+   `mendix-run1b`).** A full Stage-5 build closed with all seven screens built, a green mxbuild
+   gate, and 11 of 37 acceptance rows confirmed. `gate-check.sh` had run exactly once, at
+   scaffold time. The `look` obligation, the wiring sweep, journeys and coherence were all
+   `PENDING` and nobody saw it, because nothing asked. When the gate was finally run as a
+   deliberate second pass, the seven screens scored 0, 18, 40, 40, 58, 58 and 69 percent against
+   their own wireframes on an element checklist — one screen matched none of its wireframe's
+   elements at all. Every one of those defects was visible to a gate that never ran.
 
 The final full-checklist repost before a gate doubles as the gate's evidence: the user should
 be able to approve the gate by reading that one message. The close-out block is what the

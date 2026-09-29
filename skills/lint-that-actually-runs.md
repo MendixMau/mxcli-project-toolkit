@@ -43,6 +43,30 @@ sqlite3 .mxcli/catalog.db "SELECT DISTINCT ActionType   FROM activities;"
 the same API with different casing and run both. `CONV015` (`"Persistent"`) returned 4;
 `ARCH002`/`ARCH003` (`"PERSISTENT"`) returned 0. One command, conclusive.
 
+**Verified on v0.24.0 (2026-09-25, probe rule on a scratch copy of a small PoC model; also found
+in the field on v0.23.0).** Three more facts the bundled guide gets wrong or leaves out:
+
+- `mf.microflow_type` is `"MICROFLOW"` / `"NANOFLOW"` / `"RULE"`. The guide says `"microflow"`.
+  `microflows()` yields all three flavours from non-platform modules, so a microflow-only rule
+  must filter on the type.
+- SQL and Starlark spell entity types differently. `CATALOG.ENTITIES` gives `PERSISTENT` /
+  `NON_PERSISTENT`, while Starlark `entity_type` gives `Persistent` / `NonPersistent`. A rule
+  prototyped in SQL and pasted into Starlark goes blind. That happened twice in the field, 0 of 16
+  and 0 of 28 real hits.
+- `mf.activity_count` counts **top-level flow objects**: actions, splits, loops and annotations,
+  excluding start, end and merge. It does not count actions inside a loop. `activities_for()` has
+  the same top-level scope. So CONV009 over-reports actions, and nothing counts loop bodies.
+
+```python
+# before: reads as "actions", measures objects (annotation + retrieve + if + loop{change} + commit + log → 6)
+if mf.microflow_type == "microflow" and mf.activity_count > 15:
+# after: matches, and counts actions (→ 3; the change inside the loop is still invisible, say so in the message)
+acts = [a for a in activities_for(mf.qualified_name) if a.activity_type == "ActionActivity"]
+if mf.microflow_type == "MICROFLOW" and len(acts) > 15:
+```
+
+Ledger: BUG-63 (addendum 2026-09-25).
+
 ## 2. A rule that matches nothing must say so
 
 Fixing the casing is not the end of it. A rule can reach the model and still inspect nothing,

@@ -1,30 +1,30 @@
 ## Design system
 
-I will use **USIDesignSystem** (`usi.USIDesignSystem.mpk`, v2.4.0), the company's approved Mendix
-design-system module, not a hand-rolled or generic Atlas theme. It comes from the USI company
+I will use **AcmeDesignSystem** (`acme.AcmeDesignSystem.mpk`, v2.4.0), the company's approved Mendix
+design-system module, not a hand-rolled or generic Atlas theme. It comes from the Acme company
 brain wired into this project's `CLAUDE.local.md` (`COMPANY-BRAIN` block →
-`.../usi-brain/ROUTING.md`), specifically `components/usi.USIDesignSystem.md`, and is governed by
+`.../acme-brain/ROUTING.md`), specifically `components/acme.AcmeDesignSystem.md`, and is governed by
 `skills/house-page-conventions.md` in the same brain. Per that manifest, the page must open with
-`USIDesignSystem.SNIPPET_USIPageHeader`, use `USIDesignSystem.SNIPPET_USIDataTable` for the list
-grid (not a bare DATAGRID), and use only the brand tokens (`--usi-brand-primary`,
-`--usi-brand-ink`, `--usi-surface`) — no hardcoded colors. It has not yet been imported into
-`USI_Routing_Workshop.mpr`; that import (`./mxcli import mpk ...`, binary-probed first) is a
+`AcmeDesignSystem.SNIPPET_AcmePageHeader`, use `AcmeDesignSystem.SNIPPET_AcmeDataTable` for the list
+grid (not a bare DATAGRID), and use only the brand tokens (`--acme-brand-primary`,
+`--acme-brand-ink`, `--acme-surface`) — no hardcoded colors. It has not yet been imported into
+`Acme_Routing_Workshop.mpr`; that import (`./mxcli import mpk ...`, binary-probed first) is a
 prerequisite build step, not something I've done as part of this prep.
 
 ## Page plan
 
 Target: `RoutingManagement.Routing_Overview`, backed by entity `RoutingManagement.Routing` (per
 `analysis/knowledge-base/brd/F001-routing-overview.brd.json`), layout `Atlas_Core.Atlas_Default`
-per the BRD's stub but restyled through USIDesignSystem tokens/snippets per house convention.
+per the BRD's stub but restyled through AcmeDesignSystem tokens/snippets per house convention.
 
 Structure (top to bottom):
 
-1. **`USIDesignSystem.SNIPPET_USIPageHeader`** — page title ("Routing Catalogue"), replaces any
+1. **`AcmeDesignSystem.SNIPPET_AcmePageHeader`** — page title ("Routing Catalogue"), replaces any
    hand-built HEADER widget (mandatory per house convention).
 2. **Search/filter section (`SearchFilters`)** — a small filter bar sourced from
    `RoutingSearch_Dto`: site, product family, lifecycle state filter inputs (COMBOBOX/TEXTBOX),
    feeding `GET_Routing_List`.
-3. **`USIDesignSystem.SNIPPET_USIDataTable`** wrapping a DATAGRID over `RoutingReadModel`
+3. **`AcmeDesignSystem.SNIPPET_AcmeDataTable`** wrapping a DATAGRID over `RoutingReadModel`
    (`ResultGrid` section) — the BRD's overview reads through the read-model, not `Routing`
    directly. Columns: `RoutingCode`, `RoutingNameDefault`, `VersionNo`, `LifecycleState`,
    `ReleaseStatus`, `IsCurrent`, `EffectiveFrom`/`EffectiveTo`. Row click opens `Routing_View`
@@ -43,19 +43,19 @@ before the first widget is drafted — see Open questions.
 
 ## Files I read
 
-- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/CLAUDE.md`
-- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/CLAUDE.local.md`
-- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/PROJECT.md`
-- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/` (directory listing, `find`)
-- `<scratch>/cb-eval/usi-brain/` (directory listing, `ls`)
-- `<scratch>/cb-eval/usi-brain/ROUTING.md`
-- `<scratch>/cb-eval/usi-brain/components/usi.USIDesignSystem.md`
-- `<scratch>/cb-eval/usi-brain/skills` (directory listing)
-- `<scratch>/cb-eval/usi-brain/skills/house-page-conventions.md`
-- `<scratch>/cb-eval/usi-brain/components/README.md`
-- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
-- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/widgets-inventory.txt`
-- `<scratch>/cb-eval/treatment/USI_Routing_Workshop/triage.md`
+- `<scratch>/cb-eval/treatment/Acme_Routing_Workshop/CLAUDE.md`
+- `<scratch>/cb-eval/treatment/Acme_Routing_Workshop/CLAUDE.local.md`
+- `<scratch>/cb-eval/treatment/Acme_Routing_Workshop/PROJECT.md`
+- `<scratch>/cb-eval/treatment/Acme_Routing_Workshop/` (directory listing, `find`)
+- `<scratch>/cb-eval/acme-brain/` (directory listing, `ls`)
+- `<scratch>/cb-eval/acme-brain/ROUTING.md`
+- `<scratch>/cb-eval/acme-brain/components/acme.AcmeDesignSystem.md`
+- `<scratch>/cb-eval/acme-brain/skills` (directory listing)
+- `<scratch>/cb-eval/acme-brain/skills/house-page-conventions.md`
+- `<scratch>/cb-eval/acme-brain/components/README.md`
+- `<scratch>/cb-eval/treatment/Acme_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+- `<scratch>/cb-eval/treatment/Acme_Routing_Workshop/widgets-inventory.txt`
+- `<scratch>/cb-eval/treatment/Acme_Routing_Workshop/triage.md`
 - `<home>/mxcli-project-toolkit/skills/ui-preflight-pages.md`
 
 ## Open questions for the user
@@ -66,13 +66,13 @@ before the first widget is drafted — see Open questions.
    (`intake.md`, `triage.md`, the BRD set). Which is correct — should I treat this as Stage 5
    (and if so, where are the Stage 2–4 artifacts I'm not seeing), or is `PROJECT.md` accurate and
    we're really still pre-build?
-2. **No wireframe exists.** `design/wireframes/` doesn't exist in this project. Both the USI
+2. **No wireframe exists.** `design/wireframes/` doesn't exist in this project. Both the Acme
    house conventions and the toolkit's `ui-preflight-pages.md` treat "no wireframe" as a hard
    STOP before drafting any page MDL. Do you want me to produce a `Routing_Overview` wireframe
    first (per `design-artifacts.md`), or do you consider the page plan above sufficient to build
    from directly?
-3. **USIDesignSystem import status.** The `.mpk` is approved in the company brain but I found no
-   evidence it's been imported into `USI_Routing_Workshop.mpr` yet (no `mdlsource/` scripts, no
+3. **AcmeDesignSystem import status.** The `.mpk` is approved in the company brain but I found no
+   evidence it's been imported into `Acme_Routing_Workshop.mpr` yet (no `mdlsource/` scripts, no
    module listing available since I did not run any MDL/mxcli commands as part of this prep). Can
    you confirm whether it's already imported, or should that be step 1 of the build?
 4. **Overview data source.** The BRD's `Routing_Overview.sections` names `ResultGrid` against the

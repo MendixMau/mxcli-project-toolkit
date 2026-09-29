@@ -919,6 +919,15 @@ no `mxcli fix security`, and forcing a recompute with an MDL `GRANT` on a UserCo
 tried and **does not clear it**. Plan that module for a Studio Pro session; do not install it into a
 project that must stay buildable headlessly in the meantime.
 
+**5. (added 2026-09-28) A headless install is not a Studio Pro install in the model's eyes — check the
+Source column, and know what it cannot tell you.** `marketplace install <content-id>` stamps three of the
+five marketplace identity fields on the module (`FromAppStore`, `AppStoreVersion`, `AppStoreGuid`);
+`--file` stamps none. Studio Pro reads all five, so the module lands among the app's own modules in the
+App Explorer instead of under "Marketplace modules". After every install read `SHOW MODULES`: Source
+must say `Marketplace v<version>` (a `--file` install shows nothing there, and that is the first sign).
+Even when it does, on ≤ v0.24.0 the Studio Pro grouping is still wrong — see
+`BUG-DRAFT-marketplace-install-not-grouped-in-studio-pro` for the fix package.
+
 ---
 
 ### HISTORICAL RECORD (the bug as it was, kept because a ledger entry that vanishes reads as a bug never found)
@@ -5774,6 +5783,145 @@ gate-agent's "do not accept the rise with `--update-baseline`" rule needs this e
 two apart: an MPR008 whose two elements are a merge and the activity after a loop in an `if`
 branch is this bug, and the fix is the workaround above, not a baseline bump.
 
+## BUG-DRAFT-mpr012-assumes-react-client: lint MPR012 reports every legacy dynamic image as a React-client error (CE0582) on a Mendix 11 project that still builds for the Dojo client (2026-09-26)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-26, when an existing-app change project merged upstream `main`. The lint ratchet jumped by 57, and every one of the new findings was MPR012.
+**Reproducible:** yes, on every run against that model. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** MPR012 says: "dynamic image 'imageViewer1' in … is not supported by the React client (Mendix 10.7+, the only client on 11) — mxbuild reports CE0582". It fires on every `Forms$ImageViewer`: 57 of them on that project's own modules. Two things show this is not an error for this model:
+- `mx check` (mxbuild 11.12.2) on the same `.mpr` reports **0 errors and no CE0582**.
+- The project still builds for the **Dojo** client: the built `deployment/web/index.html` loads `mxui/mxui.js`.
+
+So the rule's premise, "the only client on 11", does not hold for this project.
+
+**Expected:** MPR012 should fire only when the project builds for the React client. Otherwise it should be an info-level "blocks a React migration" note, not a warning.
+
+**Workaround:** accept the rise with `--update-baseline` and name MPR012 in the commit message. Cite the clean `mx check` and the Dojo marker as evidence. Keep the list, because it is the to-do list for a future move to the React client.
+
+**Why it matters for the toolkit.** `exec.sh` runs the lint ratchet after every clean mxbuild. A new built-in rule that fires on untouched legacy widgets fails that ratchet on the first build after a toolkit or mxcli update, even though the model did not change. Before treating a sudden rise in one new rule as a regression, check it against `mx check`.
+
+## BUG-DRAFT-partial-revoke-association-noop: `revoke R on E (write (<association>))` reports success and changes nothing (2026-09-26)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-26, on an existing-app change project, while making a component admin's guest links read-only.
+**Reproducible:** yes, on a scratch copy of the model. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You revoke write on association members, for example `revoke Mod.Member on Mod.Guest (write ("Group_Guests", "Guest_OrganisationEmployee"));`. It parses, `exec` reports it as applied, and mxbuild stays clean. But `SHOW ACCESS ON ENTITY` still lists both associations as `ReadWrite`. The same statement with an attribute works: `(write (Email))` turns Email into `ReadOnly`. The qualified form `(write (Mod."Group_Guests"))` gives a parse error.
+
+**Expected:** association members are downgraded the same way attributes are. If they can't be, the statement should fail with an error. It should never be a silent no-op.
+
+**Workaround:**
+1. Revoke the role from the entity entirely: `revoke R on E;`. This removes R from every rule of E.
+2. Re-grant each of R's rules from its `DESCRIBE ENTITY` line, changing only the member lists. The XPath then stays byte-for-byte the same.
+3. Diff the `where` clauses before and after.
+4. Verify with `SHOW ACCESS`.
+
+Never take the exec's "applied" as proof.
+
+**Why it matters for the toolkit.** It is a false green on a security change (`skills/learned-detection-gaps.md` class): every gate passes and the right it was meant to remove is still there.
+
+## BUG-DRAFT-check-references-misses-same-script-queue: `mxcli check --references` reports a queue created earlier in the same script as "task queue not found" (2026-09-27)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-27, on an existing-app change project, while moving a batch job onto a new task queue.
+**Reproducible:** yes. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You have a script that runs `create or modify queue M.Q ...;` and later `call microflow M.X(...) in queue M.Q;`. `check --references` fails with `task queue not found: M.Q (referenced by in queue)`. The checker says "references to objects created within the script are skipped", but queues are not skipped. `exec` of the same script on a scratch copy works, and mxbuild is clean.
+
+**Expected:** a queue created earlier in the script counts as existing, the same way entities and microflows do.
+
+**Workaround:** put the `create queue` in its own script and exec it first. The second script then passes `check --references`.
+
+**Why it matters for the toolkit.** `exec.sh` refuses a script that fails check, so the single-script form never reaches the model. It costs one extra exec-and-gate cycle, about 5 minutes on a large model.
+
+## BUG-DRAFT-xpath-system-member-case: an XPath system member written in the wrong case (`[CreatedDate >= $Since]`) passes `check --references` and fails the build with CE0161 (2026-09-27)
+
+> **NOT YET FILED.** Upstream draft kept with the project's harvest.
+
+**Discovered:** 2026-09-27, on an existing-app change project, while retrieving the guests added in one batch.
+**Reproducible:** yes, on a scratch copy. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.**
+
+```
+retrieve $G from UserGroups.Guest where [CreatedDate >= $Since];   -- WRONG
+```
+
+- `mxcli check --references` → `Check passed!`
+- exec, then `mx check` → `[CE0161] "Error(s) in XPath constraint." at Retrieve object(s) activity`
+
+In XPath the system members are lowercase: `createdDate`, `changedDate`, `owner`, `changedBy`.
+The checker does not match their case, so the capitalised form passes it and fails only at the build.
+
+**Fix:** `[createdDate >= $Since]`, which built with 0 errors. The same applies to the other three members.
+
+**Not this bug (works as designed):** `[Assoc = empty]` on an association is caught by `check` as MDL047, with a `not(Assoc/Target)` hint.
+
+**Expected:** `check --references` rejects a system member in the wrong case, the same way it rejects an unknown attribute.
+
+## BUG-DRAFT-association-owner-ignored: `create or modify association … owner Both` reports "Modified" and leaves the owner unchanged (2026-09-27)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-27, on an existing-app change project, while making a one-to-one association navigable from both ends.
+**Reproducible:** yes, on a scratch copy. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You run `create or modify association UserGroups.GuestGroup_App … owner Both;` on an existing association whose owner is Default. It prints `Modified`, but `DESCRIBE ASSOCIATION` still shows owner Default. The owner change is dropped without a message. That is a silent no-op, the same class as `BUG-DRAFT-partial-revoke-association-noop`.
+
+**Why the obvious workaround is worse.** `drop association` followed by `create association … owner Both` does set the owner, but it mints a **new association ID**:
+- existing database links are lost;
+- every access rule's member right on that association resets to None (the entity's ReadWrite/ReadOnly rights were lost);
+- across modules it gives CE0066 (`BUG-DRAFT-association-owner-both-cross-module-ce0066`).
+
+**Workaround (proven on a scratch copy, `mx check` 0 errors):** patch the association unit in place in the MPR (SQLite `Unit` table, BSON `Contents`):
+1. Flip `Owner` to `Both`, keeping the same ID.
+2. Append a `DomainModels$MemberAccess` (None) for the association to every access rule of the other entity.
+3. Recompute `ContentsHash` (base64 of the sha256 of `Contents`).
+
+Do this on a snapshot, never on the only copy. If you don't want to patch, stay with owner Default and a 1-* convention. That is what the project did.
+
+**Expected:** `create or modify` applies the owner. If it cannot, it refuses with an error that names the limitation.
+
+## BUG-DRAFT-association-owner-both-cross-module-ce0066: drop + create with `owner Both` across modules leaves the other module's access rules stale → CE0066 (2026-09-27)
+
+> **NOT YET FILED.** Extends `BUG-DRAFT-association-owner-ignored`.
+
+**Discovered:** 2026-09-27, on an existing-app change project, on a scratch copy.
+**Reproducible:** yes. **mxcli version:** v0.23.0. **Mendix:** 11.12.2.
+
+**What happens.** You run `drop association` and then `create association UserGroups.GuestGroup_App … owner Both`, where the other end (`AppStore.App`) is in another module. mxcli prints `Reconciled 3 access rule(s)…`, but those are only GuestGroup's rules. `AppStore.App`'s 13 rules get no `MemberAccess` for the new association, and `mx check` reports:
+
+```
+[CE0066] Entity access is out of date. … at Domain model of module 'AppStore'
+```
+
+Neither `update security` nor stripping the stale member access clears it.
+
+**So:** today there is no mxcli path to owner Both on a cross-module association. `create or modify` ignores the owner, and drop + create leaves the far side stale. Only the raw BSON patch under `BUG-DRAFT-association-owner-ignored` works. The fallback is owner Default.
+
+**Expected:** reconcile member access on **both** ends' entities when an association with owner Both is created.
+
+## BUG-DRAFT-audit-member-access-ce0066: grants inject `System.owner` / `System.changedBy` member access on entities without those members → CE0066 (fixed upstream; record the mxcli version) (2026-09-26)
+
+> **RESOLVED upstream (mxcli `2455ee9f`, in v0.22 and later). NOT REPRODUCED on v0.23.0** — three probes, 0 errors. Kept because the lesson is about which binary ran.
+
+**Discovered:** 2026-09-26, on an existing-app change project. A build on one machine logged CE0066 after grant scripts.
+**Reproducible:** on older binaries only. **mxcli version:** the failing exec most likely ran v0.21.0, which was earlier on that machine's PATH, not the project's v0.23.0. **Mendix:** 11.12.2.
+
+**What happened.** Grant scripts added `MemberAccess` entries for `System.owner` / `System.changedBy` to entities that do not have those audit members (three entities in that model). The result was `CE0066 Entity access is out of date`.
+
+**Fix:** use mxcli v0.22 or later. Until then, the interim fix was a small script that strips `MemberAccess` entries pointing at audit members the entity lacks, run on a snapshot and followed by `mx check`.
+
+**The process point.** A bug "reproduced" on the wrong binary costs a probe day (`skills/retesting-learned-rules.md`). Before reporting or working around a CE after exec:
+- run `mxcli --version` with the **same** invocation the exec used (`./mxcli` vs a `mxcli` on PATH);
+- write that version into the BUILD-LOG row.
+
+Two machines on one project can differ here without anyone noticing.
+
 ## BUG-DRAFT-rename-module-leaves-xpath: `rename module` reports its references updated but leaves every XPath constraint naming the old module — mxbuild CE1613 (2026-09-25)
 
 > **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/rename-module-leaves-xpath.md`.
@@ -5956,3 +6104,60 @@ filed upstream.
   and not probed here. The toolkit repeats the claim without evidence in
   `skills/learned-workflow-patterns.md` (the MPR006 row and the page-patterns note). Treat it as
   unconfirmed until someone runs an empty container. Ask upstream what the crash is.
+
+---
+
+## BUG-DRAFT-marketplace-install-not-grouped-in-studio-pro: a module installed by `marketplace install` is listed among the app's own modules in Studio Pro, not under "Marketplace modules" — the stamp writes 3 of 5 identity fields, and `--file` writes none (2026-09-28)
+
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/marketplace-install-not-grouped-in-studio-pro.md`.
+> Fix patch ready in `bug-logs/submitted-prs/mxcli/2026-09-28-marketplace-install-fromappstore/` (file the issue first, then the PR).
+
+> **Status:** reported 2026-09-28 from a field project on v0.24.0 (modules installed by mxcli showed up
+> in Studio Pro among the app's modules). Cause read from source on upstream `main` 95091765 and
+> measured on a fresh 11.13.0 probe project plus a real project that has a Studio Pro-installed module.
+> The Studio Pro regrouping after the fix is **not yet proven** — it needs a content-id install with the
+> patched binary and a Studio Pro open.
+
+**Family:** the #879 entry above (its fix added the stamp this entry is about; trap 5 there is the
+field rule), BUG-132 (`fix design-properties` on marketplace packages), BUG-133 (`_USE_ME` flows).
+
+**Discovered:** 2026-09-28. **mxcli version:** v0.24.0 (same code on `main` 95091765). **Severity:**
+Medium. Nothing fails to build; the module is simply not a Marketplace module to Studio Pro, so it is
+not shown as one, not offered updates there, and reads as the app's own code in every review.
+
+**Repro:**
+```
+mxcli marketplace install 1011 -p App.mpr        # Encryption, by content id
+mxcli -p App.mpr -c "SHOW MODULES"               # Source: Marketplace v11.x.y  (looks right)
+# open in Studio Pro: Encryption is among the app's own modules
+```
+
+**Expected:** the module carries the five fields a Studio Pro install writes on `Projects$ModuleImpl`
+(`FromAppStore`, `AppStoreVersion`, `AppStoreGuid`, `AppStoreVersionGuid`, `AppStorePackageIdString`)
+and is listed under "Marketplace modules".
+
+**Actual (measured):**
+- Content-id install / `marketplace update`: `StampMarketplaceVersion` (`cmd/mxcli/marketplace/update.go`)
+  writes `FromAppStore`, `AppStoreVersion`, `AppStoreGuid` only. `AppStoreVersionGuid` and
+  `AppStorePackageIdString` stay empty. The content id is never passed down to the stamp.
+- `--file` install: nothing is stamped. `FromAppStore` false, four empty strings (fresh 11.13.0 probe,
+  BusinessEvents package, unit decoded from `mprcontents`). `SHOW MODULES` shows no Source at all.
+- Studio Pro-installed reference (Encryption in a real project): all five set, `AppStoreGuid` equals
+  `AppStoreVersionGuid` (the version UUID), `AppStorePackageIdString` is `"1011"`.
+- `SHOW MODULES` and the catalog render `Marketplace v<x>` from `FromAppStore` alone
+  (`mdl/catalog/builder_modules.go`, `mdl/executor/cmd_modules.go`), so the CLI cannot show the gap.
+
+**Impact:** every module installed headlessly on a project reads as the app's own module the first time
+someone opens it in Studio Pro. Reviews count it as project code; Studio Pro's Marketplace pane does not
+list it for update. The `--file` route is worse: the module is not a marketplace module even to mxcli.
+
+**Workaround (≤ v0.24.0):** install by content id, never `--file`, and read `SHOW MODULES` Source after
+every install (preflight STOP row 27). That fixes the `--file` half. The grouping half needs the patch,
+or a one-off model patch that copies `AppStoreGuid` into `AppStoreVersionGuid` and writes the content id
+into `AppStorePackageIdString` (run it through `./bin/exec.sh --patch` so it is gated and restorable).
+
+**Fix (proposed upstream):** thread the content id through `installModule` → `PerformInstall` and the
+update command → `PerformUpdate`; one helper `stampModuleDoc` writes all five, still only on keys the
+document already has (ADR-0005). Unit tests for the helper; marketplace and cmd packages pass.
+Scope B (`--file --content-id --version` resolving the UUID through the marketplace client) is a
+separate ask in the issue draft.

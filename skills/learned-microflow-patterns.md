@@ -394,7 +394,7 @@ end;
 - **`show message` in microflows → CE0720 — ⚠️ DOES NOT REPRODUCE on mxcli `4b58b89` (2026-08-26) / Mendix 11.13.0. Retested 2026-09-04; treat the nanoflow workaround below as history, not instruction.** The serialization the old rule described is still exactly what mxcli writes — `show message 'x'` round-trips as `show message '{1}' type Information objects ['x']` — but Mendix now accepts it. Evidence: a probe microflow carrying a bare literal, a concatenation (`'a ' + toString(1) + ' b'`) and all three severity levels was executed against a real model and passed a **real mxbuild with 0 errors**; a second, production microflow with a concatenated message shipped the same day, same result. Both the literal case and the `objects [$Var]` case are covered. **The old rule, retained because a project pinned to an older binary still needs it:** on mxcli ~v0.13.0, `show message 'literal text'` generated `show message '{1}' objects ['literal text']`; Mendix rejected string literals in the objects list (only variable refs allowed) → CE0720, and even `show message '{1}' objects [$Var]` was broken by a rogue `'{1}'` inserted as the first objects item. Workaround, confirmed 2026-07-20 (PROJECT-D): wrap the microflow in a NANOFLOW that calls it via `CALL MICROFLOW` and does the `show message` there, then rewire the page button's `Action` to the nanoflow (`ALTER PAGE` cannot `SET Action` — `REPLACE` the whole actionbutton). **Before applying that workaround, spend one `mxcli check` + one exec on the probe above; on any binary from 2026-08-26 onward it is unnecessary complexity.**
 - **Severity goes AFTER the text: `show message 'text' type Warning;`.** The level-first form `SHOW MESSAGE WARNING 'text';` **does not parse** — not in microflows, not in nanoflows — even though mxcli's own bundled `.ai-context/skills/write-nanoflows.md` uses it seven times and the binary embeds examples of it in its strings. `mxcli syntax` documents the activity nowhere, in either form. There is no `blocking` modifier. Confirmed 2026-09-04 on `4b58b89`.
 - **`show message ... type Success` silently becomes `type Information` (no error, no warning):** Mendix's nanoflow Show Message action only has three severities — `Information`, `Warning`, `Error`. There is no `Success` level. Writing `show message '...' type Success;` passes `mxcli check` AND a real `mx check`/docker check with 0 errors, because mxcli silently remaps `Success` → `Information` rather than rejecting it — confirmed via `describe nanoflow` showing the persisted BSON as `type Information` after requesting `type Success`. Functionally harmless (message still shows) but visually wrong (blue "info" toast instead of a green "success" toast) and easy to miss since nothing errors. **Use `type Information` for a "success" message from the start** — don't write `type Success` expecting it to work or to at least fail loudly.
-- **`validation feedback $Dto/Attr message '...'` → CE0639 (mxcli bug):** mxcli stores the attribute path string but does NOT wire the Variable property in the underlying BSON → CE0639 "No variable selected". **Workaround:** use `log error` + configure Validation Feedback manually in Studio Pro (open the activity, set Variable = $OrderDetail_Dto, Member = AttributeName, Message = 'text').
+- **`validation feedback $Obj/Attr message '...'` → CE0639 — ⚠️ DOES NOT REPRODUCE on mxcli v0.23.0 / Mendix 11.12.2. Retested 2026-09-27 (a field project's guest-groups build); treat the Studio Pro workaround as history.** BUG-47 was already marked resolved on 2026-08-03. In this build, `SUB_AddGuestsToGuestGroup` carries `validation feedback $ShareHelper/Emails message '…'`, and its exec logged `pass · mxbuild clean` against the matching 11.12.2 mxbuild. **The old rule, retained for projects pinned to an older binary:** mxcli stored the attribute path but did not wire the Variable property → CE0639 "No variable selected", fixed by hand in Studio Pro (Variable = the object, Member = the attribute). **Still open, narrower:** the object-only form with no attribute emits a blank Attribute → CE0091 (BUG-ENGALAR-05). Always name the attribute. **Where it goes:** in a `VAL_`/`SUB_` microflow, never an `ACT_` one — see the next section.
 - **`not expr` → CE0117:** Mendix requires parentheses: `not(expr)`. `not $IsValid` is rejected. Always write `not($IsValid)`.
 - **LESSON-03:** Always use fully-qualified `Module.EntityName` in the `returns` clause. Unqualified entity names (e.g. `returns OrderDetail as $Var`) cause CE1613 "entity no longer exists" because the model checker cannot resolve the type. Always write `returns OrderRegistration.OrderDetail as $OrderDetail`.
 - **LESSON-04 — `retrieve $X from $obj/Assoc limit 1` → CE0018 + CE0136 (mxcli BUG):** mxcli generates a "Retrieve by Association" BSON activity with empty `Association` and `Entity` properties. Mendix rejects these with CE0018 ("Association property required") and CE0136 ("Entity property required"). **Fix:** replace with XPath DB retrieve: `retrieve $X from Module.Entity where [AssocPath/Module.Entity/Attr = $var] limit 1;`. **Pre-flight before using XPath:** (1) target entity is persistent (not an NPE), (2) all entities in the XPath path are persistent, (3) all objects being filtered on are committed to the DB — XPath queries the database, not in-memory objects. If any condition fails, use a different approach (pass as parameter, loop retrieve, etc.).
@@ -406,22 +406,58 @@ end;
 
 ---
 
-## Validation Feedback — Correct Pattern (from ACT_OrderDetail_Save)
+## Validation Feedback — Correct Pattern (VAL_/SUB_ gives it, ACT_ calls and branches)
 
-**Rule:** Use `validation feedback` directly — no `log error` alongside it, no annotations.
+**Rule:** `validation feedback` lives in a `VAL_` or `SUB_` microflow that returns a verdict. The
+`ACT_` microflow the button calls only calls it and branches on the result: close the page,
+stay open, or show a message. Name the attribute, and write no `log error` beside the feedback.
+
+**Why:** CONV010 (the ACT_ content rule, `lint-rules/conv010_act_microflow_content.star`) allows
+page actions, messages, sub-microflow calls, logging and control flow in `ACT_`.
+`ValidationFeedbackAction` is not on that list, in the toolkit's rule or in upstream's. So feedback
+written straight into `ACT_` lints red on every save flow. This section used to recommend exactly
+that (the old `ACT_OrderDetail_Save` example). A field project's guest-groups build
+(2026-09-27) reported that the pattern lints red.
 
 ```mdl
-IF trim($Dto/FieldName) = '' THEN
-  SET $IsValid = false;
-  VALIDATION FEEDBACK $Dto/FieldName MESSAGE 'non-English message';
-END IF;
+-- WRONG: feedback inside the ACT_ (CONV010: "contains 'ValidationFeedbackAction' action")
+create microflow Mod."ACT_Order_Save" ($Order: Mod."Order")
+begin
+  if trim($Order/Reference) = '' then
+    validation feedback $Order/Reference message 'Reference is required.';
+    return;
+  end if;
+  commit $Order;
+  close page;
+end;
+
+-- RIGHT: VAL_ gives the feedback and returns a verdict; ACT_ calls and branches
+create microflow Mod."VAL_Order" ($Order: Mod."Order") returns Boolean as $IsValid
+begin
+  declare $IsValid Boolean = true;
+  if trim($Order/Reference) = '' then
+    set $IsValid = false;
+    validation feedback $Order/Reference message 'Reference is required.';
+  end if;
+  return $IsValid;
+end;
+
+create microflow Mod."ACT_Order_Save" ($Order: Mod."Order")
+begin
+  $IsValid = call microflow Mod."VAL_Order"(Order = $Order);
+  if $IsValid then
+    call microflow Mod."SUB_Order_Save"(Order = $Order);
+    close page;
+  end if;
+end;
 ```
 
+When the SUB_ does more than validate (the field instance was `SUB_AddGuestsToGuestGroup`,
+which gives `validation feedback … 'You can add up to 50 addresses at a time.'` and returns
+`'TooMany'`), return an outcome String or enumeration. The ACT_ branches on it:
+`TooMany` keeps the popup open, and any other outcome shows a message and closes it.
+
 **GRANT syntax:** Short role names only — `Admin, User` NOT `OrderRegistration.Admin`.
-
-**CE0639 is unavoidable via mxcli:** mxcli does not wire the Variable property in validation feedback BSON. After exec, open the microflow in Studio Pro → for each feedback activity → set Variable = $Dto, Member = attribute. One Studio Pro session fixes all.
-
-**Do NOT add `log error` before validation feedback** — it is not the project pattern and adds noise.
 
 ---
 

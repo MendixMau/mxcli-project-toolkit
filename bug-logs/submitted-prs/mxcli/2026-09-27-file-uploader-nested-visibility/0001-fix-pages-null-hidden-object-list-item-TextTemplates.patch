@@ -1,0 +1,229 @@
+From 76be70e4f54932a637fe17b07c0ab797a5751458 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Sun, 27 Sep 2026 14:41:14 +0000
+Subject: [PATCH] fix(pages): null hidden object-list item TextTemplates under
+ nested visibility rules (closes #1198)
+
+A pluggable widget whose editorConfig hides an object-list ITEM
+sub-property (a nested rule, ListPropertyKey set) kept the shipped
+default text in that item's required TextTemplate even while the rule
+hid it. Studio Pro stores null there, so mx check reported CE0463.
+
+Found on File Uploader 2.5.0: allowedFileFormats[].typeFormatDescription
+is a required TextTemplate hidden when configMode = "simple", so every
+simple-mode format failed mx check.
+
+ApplyVisibilityRules now skips nested rules at the top level and
+evaluates them per item: when the rule is determinable from the item's
+own primitive values and fires, that item's TextTemplate is nulled.
+Only the hidden direction and only TextTemplate values are touched; an
+indeterminable rule leaves the item unchanged.
+
+Tested: make test (84 packages ok), gofmt, go vet.
+Mendix 11.12.2: simple-mode .txt format plus advanced .zip format,
+mx check 0 errors, runtime upload of both files stored, downloaded
+bytes sha256-equal to source (2/2), .csv rejected by the widget.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DyrzWc5YejD1iBLgJ7TS7q
+---
+ mdl/backend/widgetobj/builder.go              | 81 +++++++++++++++++
+ .../widget_visibility_nested_test.go          | 87 +++++++++++++++++++
+ 2 files changed, 168 insertions(+)
+ create mode 100644 mdl/backend/widgetobj/widget_visibility_nested_test.go
+
+diff --git a/mdl/backend/widgetobj/builder.go b/mdl/backend/widgetobj/builder.go
+index 26c57ff0..bbde8f08 100644
+--- a/mdl/backend/widgetobj/builder.go
++++ b/mdl/backend/widgetobj/builder.go
+@@ -818,6 +818,10 @@ func ApplyVisibilityRules(object bson.D, propertyTypeIDs map[string]pages.Proper
+ 	hidden := make(map[string]bool, len(rules))
+ 	conditional := make([]string, 0, len(rules))
+ 	for _, rule := range rules {
++		if rule.Nested() {
++			// Item sub-property of an object list: evaluated per item below.
++			continue
++		}
+ 		entry, ok := propertyTypeIDs[rule.PropertyKey]
+ 		if !ok || entry.ValueType != "TextTemplate" {
+ 			continue
+@@ -853,6 +857,83 @@ func ApplyVisibilityRules(object bson.D, propertyTypeIDs map[string]pages.Proper
+ 			return val
+ 		})
+ 	}
++	return applyNestedVisibilityRules(object, propertyTypeIDs, rules)
++}
++
++// applyNestedVisibilityRules nulls the TextTemplate of an object-list ITEM
++// sub-property that a nested rule (ListPropertyKey set) hides under that
++// item's own configuration.
++//
++// The File Uploader 2.5.0 `allowedFileFormats` item is the case that found it:
++// `typeFormatDescription` is a REQUIRED TextTemplate hidden when
++// `configMode = "simple"`. buildObjectListItemBSON fills unset required
++// templates with the shipped default text (#891), which is right while the
++// property is visible and CE0463 while it is hidden: Studio Pro stores null
++// there, and `mx update-widgets` rewrites exactly that field and nothing else.
++//
++// Only the hidden direction is applied. A visible item template is already
++// handled at item build time (#891 / emptyClientTemplateRules), and an
++// indeterminable rule leaves the item untouched.
++func applyNestedVisibilityRules(object bson.D, propertyTypeIDs map[string]pages.PropertyTypeIDEntry, rules []types.WidgetVisibilityRule) bson.D {
++	byList := map[string][]types.WidgetVisibilityRule{}
++	for _, rule := range rules {
++		if rule.Nested() {
++			byList[rule.ListPropertyKey] = append(byList[rule.ListPropertyKey], rule)
++		}
++	}
++	if len(byList) == 0 {
++		return object
++	}
++	listKeys := make([]string, 0, len(byList))
++	for k := range byList {
++		listKeys = append(listKeys, k)
++	}
++	sort.Strings(listKeys)
++	for _, listKey := range listKeys {
++		entry, ok := propertyTypeIDs[listKey]
++		if !ok || len(entry.NestedPropertyIDs) == 0 {
++			continue
++		}
++		listRules := byList[listKey]
++		object = updateWidgetPropertyValue(object, propertyTypeIDs, listKey, func(val bson.D) bson.D {
++			for i, elem := range val {
++				if elem.Key != "Objects" {
++					continue
++				}
++				arr, ok := elem.Value.(bson.A)
++				if !ok {
++					continue
++				}
++				out := make(bson.A, len(arr))
++				for j, it := range arr {
++					item, ok := it.(bson.D)
++					if !ok {
++						out[j] = it
++						continue
++					}
++					values := primitiveValuesOf(item, entry.NestedPropertyIDs)
++					for _, rule := range listRules {
++						sub, ok := entry.NestedPropertyIDs[rule.PropertyKey]
++						if !ok || sub.ValueType != "TextTemplate" {
++							continue
++						}
++						fires, determinable := rule.Fires(func(c types.WidgetVisibilityCondition) (string, bool) {
++							v, ok := values[c.PropertyKey]
++							return v, ok
++						})
++						if determinable && fires {
++							item = updateWidgetPropertyValue(item, entry.NestedPropertyIDs, rule.PropertyKey, func(v bson.D) bson.D {
++								return setBSONField(v, "TextTemplate", nil)
++							})
++						}
++					}
++					out[j] = item
++				}
++				val[i] = bson.E{Key: "Objects", Value: out}
++			}
++			return val
++		})
++	}
+ 	return object
+ }
+ 
+diff --git a/mdl/backend/widgetobj/widget_visibility_nested_test.go b/mdl/backend/widgetobj/widget_visibility_nested_test.go
+new file mode 100644
+index 00000000..393a2c14
+--- /dev/null
++++ b/mdl/backend/widgetobj/widget_visibility_nested_test.go
+@@ -0,0 +1,87 @@
++// SPDX-License-Identifier: Apache-2.0
++
++package widgetobj
++
++import (
++	"testing"
++
++	"go.mongodb.org/mongo-driver/bson"
++
++	"github.com/mendixlabs/mxcli/mdl/types"
++	"github.com/mendixlabs/mxcli/sdk/pages"
++)
++
++// TestApplyPropertyVisibility_NestedObjectListItem locks in the File Uploader
++// 2.5.0 fix: `allowedFileFormats` items carry a required TextTemplate
++// `typeFormatDescription` that is hidden when the item's `configMode` is
++// "simple". Studio Pro stores null there; a populated template is CE0463. The
++// rule is nested (ListPropertyKey set) and must be evaluated per item, against
++// that item's own configMode.
++func TestApplyPropertyVisibility_NestedObjectListItem(t *testing.T) {
++	const (
++		listID  = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
++		modeID  = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
++		descID  = "cccccccc-cccc-cccc-cccc-cccccccccccc"
++		objType = "dddddddd-dddd-dddd-dddd-dddddddddddd"
++	)
++	populated := bson.D{{Key: "$Type", Value: "Forms$ClientTemplate"}}
++	mkProp := func(id, prim string, tt any) bson.D {
++		return bson.D{
++			{Key: "$Type", Value: "CustomWidgets$WidgetProperty"},
++			{Key: "TypePointer", Value: types.UUIDToBlob(id)},
++			{Key: "Value", Value: bson.D{
++				{Key: "$Type", Value: "CustomWidgets$WidgetValue"},
++				{Key: "PrimitiveValue", Value: prim},
++				{Key: "TextTemplate", Value: tt},
++			}},
++		}
++	}
++	mkItem := func(mode string) bson.D {
++		return bson.D{
++			{Key: "$Type", Value: "CustomWidgets$WidgetObject"},
++			{Key: "TypePointer", Value: types.UUIDToBlob(objType)},
++			{Key: "Properties", Value: bson.A{int32(2), mkProp(modeID, mode, nil), mkProp(descID, "", populated)}},
++		}
++	}
++	listProp := bson.D{
++		{Key: "$Type", Value: "CustomWidgets$WidgetProperty"},
++		{Key: "TypePointer", Value: types.UUIDToBlob(listID)},
++		{Key: "Value", Value: bson.D{
++			{Key: "$Type", Value: "CustomWidgets$WidgetValue"},
++			{Key: "Objects", Value: bson.A{int32(2), mkItem("simple"), mkItem("advanced")}},
++		}},
++	}
++	ob := &Builder{
++		object: bson.D{{Key: "Properties", Value: bson.A{int32(2), listProp}}},
++		propertyTypeIDs: map[string]pages.PropertyTypeIDEntry{
++			"allowedFileFormats": {PropertyTypeID: listID, ValueType: "Object", ObjectTypeID: objType,
++				NestedPropertyIDs: map[string]pages.PropertyTypeIDEntry{
++					"configMode":            {PropertyTypeID: modeID, ValueType: "Enumeration"},
++					"typeFormatDescription": {PropertyTypeID: descID, ValueType: "TextTemplate", Required: true},
++				}},
++		},
++	}
++	ob.ApplyPropertyVisibility([]types.WidgetVisibilityRule{{
++		PropertyKey:     "typeFormatDescription",
++		ListPropertyKey: "allowedFileFormats",
++		HiddenWhen:      &types.WidgetVisibilityCondition{PropertyKey: "configMode", Operator: "eq", Value: "simple"},
++	}})
++
++	var items bson.A
++	for _, e := range ob.object {
++		if e.Key == "Properties" {
++			val := findField(t, e.Value.(bson.A)[1].(bson.D), "Value").(bson.D)
++			items = findField(t, val, "Objects").(bson.A)
++		}
++	}
++	descOf := func(item bson.D) any {
++		props := findField(t, item, "Properties").(bson.A)
++		return findField(t, findField(t, props[2].(bson.D), "Value").(bson.D), "TextTemplate")
++	}
++	if tt := descOf(items[1].(bson.D)); tt != nil {
++		t.Errorf("simple item: typeFormatDescription TextTemplate = %v, want nil", tt)
++	}
++	if tt := descOf(items[2].(bson.D)); tt == nil {
++		t.Errorf("advanced item: typeFormatDescription TextTemplate was nulled; it is visible and must be kept")
++	}
++}
+-- 
+2.43.0
+

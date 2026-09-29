@@ -6,11 +6,10 @@
 #
 # The mxbuild gate is a DELTA gate, not an absolute "0 errors" one: a write is kept
 # when the post-exec error set is the pre-flight baseline exactly, or a strict
-# SUBSET of it (every post-exec error message already existed before this script
-# ran — nothing new, even if some were cleared). Only a set containing something
-# new triggers the snapshot restore. See "Delta gate" below.
-# Known limit: errors are compared by message text only, so a new error whose
-# message matches one already in the baseline is not seen as new.
+# SUBSET of it (every post-exec error already existed before this script ran —
+# nothing new, even if some were cleared). Only a set containing something new
+# triggers the snapshot restore. See "Delta gate" below. An error is identified by
+# code + message + where (module / document / element), counted, not deduplicated.
 #
 # Usage: ./bin/exec.sh <script.mdl>
 #        ./bin/exec.sh --patch <script> [args...]
@@ -554,20 +553,40 @@ err_codes() {
   [ -n "$PY" ] || { echo "?"; return; }
   "$PY" -c "import json;d=json.load(open('$(native_path "$1")'));print(','.join(sorted({x.get('errorCode','?') for x in d.get('problems',[]) if x.get('severity')=='Error'})))" 2>/dev/null || echo "?"
 }
+# err_set <errors.json> — one key per Error problem: a short hash of errorCode + message +
+# every location's module / document / element, sorted, duplicates KEPT, joined with "|".
+# The key used to be the message text alone. On a real 22-error model (Mendix 11.12.1),
+# 20 of the 22 shared two messages ("Could not find widget 'Markdown viewer' …" x15,
+# "… 'Events' …" x5), and mxbuild's CE0117 message is always "Error(s) in expression." —
+# so while one CE0117 or one missing widget was in the baseline, a script could add any
+# number more and the gate kept it.
+# Names, not elementId GUIDs: a CREATE OR REPLACE re-mints the GUIDs of a microflow whose
+# pre-existing error it leaves in place, and that must still read as pre-existing. A rename
+# does read as new, and restores — the safe direction. Hex tokens: no "|" or glob characters,
+# whatever the message says.
 err_set() {
   [ -n "$PY" ] || { echo ""; return; }
-  "$PY" -c "import json;d=json.load(open('$(native_path "$1")'));print('|'.join(sorted(x.get('message','') for x in d.get('problems',[]) if x.get('severity')=='Error')))" 2>/dev/null || echo ""
+  "$PY" - "$(native_path "$1")" <<'ERRSETPY' 2>/dev/null || echo ""
+import hashlib, json, sys
+d = json.load(open(sys.argv[1]))
+keys = []
+for x in d.get('problems', []):
+    if x.get('severity') != 'Error':
+        continue
+    locs = sorted('\x1e'.join(str(l.get(k) or '') for k in ('module', 'document', 'element'))
+                  for l in (x.get('locations') or []))
+    raw = '\x1f'.join([x.get('errorCode') or '', x.get('message') or ''] + locs)
+    keys.append(hashlib.sha1(raw.encode('utf-8')).hexdigest()[:16])
+print('|'.join(sorted(keys)))
+ERRSETPY
 }
 
-# is_subset_of <candidate> <superset> — both are err_set's own "|"-joined sorted
-# message strings (the SAME comparison key the identical-baseline check already
-# used; this does not introduce a new one). True (exit 0) when every message in
-# <candidate> also appears in <superset> — i.e. nothing NEW. An empty <candidate>
-# (0 post-exec errors) is trivially a subset. Bash-native, no extra Python call:
-# both strings are already in hand as plain variables by the time this runs.
-# Pure POSIX word-splitting on IFS='|', no arrays/`read -a` — bash 3.2 / Git Bash
-# safe. Messages containing a literal "|" would break the membership test the
-# same way they already break the exact-equality test above; not new exposure.
+# is_subset_of <candidate> <superset> — both are err_set's "|"-joined sorted key lists.
+# True (exit 0) when <candidate> is a sub-MULTISET of <superset>: each key in <candidate>
+# consumes one occurrence in <superset>, so a baseline holding an error once does not
+# excuse the same error twice. An empty <candidate> (0 post-exec errors) is trivially a
+# subset. Bash-native, no extra Python call. Word-splitting on IFS='|' and ${var/pat/rep},
+# no arrays or `read -a` — bash 3.2 / Git Bash safe.
 is_subset_of() {
   _cand="$1"
   [ -z "$_cand" ] && return 0
@@ -578,7 +597,7 @@ is_subset_of() {
     IFS="$_oldIFS"
     [ -z "$_e" ] && continue
     case "$_super" in
-      *"|$_e|"*) : ;;
+      *"|$_e|"*) _super="${_super/|$_e|/|}" ;;
       *) return 1 ;;
     esac
     IFS='|'
@@ -765,17 +784,15 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
       # A shared model means another workstream can leave it non-building; an
       # absolute "zero errors" gate would then block every good script forever.
       # Keeps the write when the POST-exec error set is the baseline exactly
-      # (nothing changed), OR a STRICT SUBSET of it (every post-exec message
-      # already existed pre-exec — no new message, even though some
-      # pre-existing ones may have been cleared). Messages only: a new error
-      # with the same text as a baseline one passes (known limit, see header).
+      # (nothing changed), OR a STRICT SUBSET of it (every post-exec error
+      # already existed pre-exec — nothing new, even though some pre-existing
+      # ones may have been cleared). An error is code + message + location,
+      # counted (see err_set), so a second copy of a baseline error is new.
       # Only a set with something NEW in it restores the snapshot.
       # Real incident: a script that took 34
       # pre-existing errors down to 1 was rolled back and logged
       # "blocked: PRE-EXISTING CE1613" because the gate could only recognise
-      # "unchanged," never "reduced." Comparison key is unchanged — err_set's
-      # per-message string (see err_set above) — subset-checked by
-      # is_subset_of, not switched to a different key.
+      # "unchanged," never "reduced."
       POST_SET=$(err_set "$ERRORS_FILE")
       DELTA_KIND=""
       if [ -n "$BASELINE_SET" ] && [ "$BASELINE_SET" = "$POST_SET" ]; then

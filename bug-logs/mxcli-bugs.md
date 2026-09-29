@@ -6700,3 +6700,38 @@ update command → `PerformUpdate`; one helper `stampModuleDoc` writes all five,
 document already has (ADR-0005). Unit tests for the helper; marketplace and cmd packages pass.
 Scope B (`--file --content-id --version` resolving the UUID through the marketplace client) is a
 separate ask in the issue draft.
+
+---
+
+## BUG-DRAFT-grant-association-generalization-member: GRANT cannot name a member association that is owned by another module's entity and points at the entity's generalization (2026-09-28)
+
+> **NOT YET FILED.**
+
+**Discovered:** 2026-09-28, while fixing a guest-groups association in a Mendix app. **mxcli version:** v0.23.0. **Mendix:** 11.12.2. **Reproducible:** yes, on a scratch copy.
+
+**What happens.** On `Shared.CropImage` (a generalization of `ImageCrop.CropImage`), an association `ModuleA.Screenshot_CropImage` (owner Both, owned by `ModuleA.Screenshot`) appears in the entity's access-rule member list. When you run `grant <Role> on Shared.CropImage (read (..., Screenshot_CropImage))`, it fails with:
+
+```
+entity Shared.CropImage has no member(s) Screenshot_CropImage
+```
+
+The qualified form `ModuleA.Screenshot_CropImage` is a syntax error.
+
+**Why this matters.** `revoke <Role> on <Entity>` followed by a re-grant with the "same" member list silently drops that MemberAccess, because `grant` cannot name it. mxcli prints success, but the member right does not re-appear. The model then reports CE0066 on the module (Entity access is out of date).
+
+**Workaround (proven on a scratch copy, mx check 0 errors):** patch the MemberAccess back in with a BSON edit of the access rule:
+
+1. Dump the entity's access rule BSON.
+2. Append a `DomainModels$MemberAccess` object with `AccessRights: None` and the association ID:
+   ```
+   {"$Type":"DomainModels$MemberAccess","AccessRights":"None","Association":"ModuleA.Screenshot_CropImage","Attribute":""}
+   ```
+3. Give it a fresh `$ID` (UUID).
+4. Recompute the access rule's unit `ContentsHash` (base64 of the sha256 of the `Contents` BSON).
+
+Before revoking a rule, snapshot its member list with `SHOW ACCESS ON ENTITY` and diff it after the re-grant to spot the silent drop.
+
+**Expected:** `grant` either names the association (qualified form works, or mxcli resolves it), or it refuses with a clear error naming the limitation.
+
+**Actual:** the member is silently dropped on re-grant, and the model fails validation.
+

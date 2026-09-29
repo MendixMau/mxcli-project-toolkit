@@ -206,6 +206,12 @@ page has not been looked at.
   native widgets wrap content in fixed structural children (gallery →
   `.widget-gallery-top-bar` / `-content` / `-footer`). A custom grid/flex class on the wrong DOM
   level is the common, easy-to-miss cause. See `learned-stylegallery.md`.
+- **Measure text alignment on the glyphs, not the element boxes.** Box centres cannot see text
+  offset inside a box: a breadcrumb link with a 44px touch target and its plain-text neighbour
+  both centred at y=91 ("aligned") while the link's text sat 12px high. Read the text node's own
+  box: `const r = document.createRange(); r.selectNodeContents(el); r.getBoundingClientRect()`.
+  Glyph centres read 79 vs 91 before the fix and 79/79 after (a card-disbursement
+  requirements-driven build, 2026-09-25).
 - **Capture below the fold.** Atlas often scrolls `.mx-scrollcontainer-center`, not
   `document.body` — find where `scrollHeight > clientHeight` and scroll that.
 

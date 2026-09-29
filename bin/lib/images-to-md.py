@@ -564,6 +564,11 @@ def main(argv):
     def rel_project(p):
         return os.path.relpath(p, project).replace(os.sep, '/')
 
+    # A --out run must be re-checked with the same --out, or --check reads the default root.
+    default_out = os.path.join(project, 'analysis', 'knowledge-base', 'images')
+    out_flag = '' if os.path.normpath(images_out) == os.path.normpath(default_out) \
+        else ' --out %s' % rel_project(images_out)
+
     manifest_path = os.path.join(images_out, 'manifest.json')
     sha_to_id = {} if force else load_old_manifest(manifest_path)
     used_numbers = set(int(v.split('-')[1]) for v in sha_to_id.values())
@@ -756,8 +761,9 @@ def main(argv):
     print('  worklist: %s' % rel_project(worklist_path))
     print('Images to describe: %d%s' % (
         n_content,
-        (' — write analysis/knowledge-base/images/<id>.md per the template in '
-         'skills/image-transcription.md, then: bin/images-to-md.sh <p> --check') if n_content else ''))
+        (' — write %s/<id>.md per the template in '
+         'skills/image-transcription.md, then: bin/images-to-md.sh <p>%s --check'
+         % (rel_project(images_out), out_flag)) if n_content else ''))
 
     if do_check or do_inline:
         return run_check(project, images_out, entries, order, do_inline=(do_inline or do_check))
@@ -804,12 +810,16 @@ def run_check(project, images_out, entries, order, do_inline):
     for sha, ent in content:
         for loc in ent.locations:
             owners.setdefault(loc['source'], set()).add(ent.id)
+    # The --artifact path is the manifest this run actually wrote — under --out when one was
+    # given. It used to be the default root, hard-coded, so a `--out` run printed ledger marks
+    # citing a manifest that did not exist (2026-09-25, card-disbursement requirements-driven build).
+    rel_manifest = os.path.relpath(os.path.join(images_out, 'manifest.json'), project).replace(os.sep, '/')
     if owners:
         print('')
         print('  Coverage complete. Ledger marks owed, per source file:')
         for owner in sorted(owners):
-            print('    bin/source-ledger.sh mark <p> \'%s\' --artifact analysis/knowledge-base/images/manifest.json '
-                  '--evidence "<fill in>" --media %d --by <who>' % (owner, len(owners[owner])))
+            print('    bin/source-ledger.sh mark <p> \'%s\' --artifact %s '
+                  '--evidence "<fill in>" --media %d --by <who>' % (owner, rel_manifest, len(owners[owner])))
     return 0
 
 

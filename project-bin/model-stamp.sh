@@ -48,6 +48,53 @@ _real() {  # resolve symlinks by hand (GNU-only resolvers are absent on older ma
   printf '%s/%s\n' "$(cd "$(dirname "$p")" && pwd -P)" "$(basename "$p")"
 }
 
+# Pin git's view of the repository before any `git -C "$MODEL_DIR"` below.
+#
+# WHY (2026-09-26, card-disbursement requirements-driven build). A commit made from a
+# `git worktree` runs this hook with GIT_DIR exported (the absolute .git/worktrees/<name>),
+# and so does `git --git-dir=… commit` (a RELATIVE GIT_DIR). Git's rule for GIT_DIR without
+# GIT_WORK_TREE is "the current directory is the top of the work tree" — so on a two-tree
+# checkout `git -C app …` saw app/ as the top with an empty prefix, the pathspecs
+# `App.mpr mprcontents` matched nothing in an index that holds `app/App.mpr`, and
+# `check --staged` said "no model files staged" and passed a model nobody had verified
+# (a relative GIT_DIR instead made `git -C app` fail, `in_git` false, exit 0: same pass).
+# Resolving the top once from the caller's cwd and exporting absolute paths makes every
+# later `git -C` agree with the git that invoked the hook.
+_mxtk_abs() { case "$1" in /*) printf '%s\n' "$1" ;; *) printf '%s/%s\n' "$(pwd -P)" "$1" ;; esac; }
+case "${GIT_INDEX_FILE:-}" in ''|/*) ;; *) GIT_INDEX_FILE="$(_mxtk_abs "$GIT_INDEX_FILE")"; export GIT_INDEX_FILE ;; esac
+if [ -n "${GIT_DIR:-}" ]; then
+  _gtop="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  GIT_DIR="$(_mxtk_abs "$GIT_DIR")"; export GIT_DIR
+  if [ -n "${GIT_WORK_TREE:-}" ]; then GIT_WORK_TREE="$(_mxtk_abs "$GIT_WORK_TREE")"; export GIT_WORK_TREE
+  elif [ -n "$_gtop" ]; then GIT_WORK_TREE="$_gtop"; export GIT_WORK_TREE; fi
+fi
+
+# A project with no model yet (requirements-driven Stages P-4) has nothing to verify.
+#
+# WHY (2026-09-25, same build). `find_mpr` failing used to end every command here, `check`
+# included — so the pre-commit hook refused the Stage P intake commit with "no .mpr found"
+# although nothing model-related was staged, and each pre-model commit needed the override.
+# `check` now passes when no .mpr exists at the root or under app/ AND no model path
+# (*.mpr, mprcontents/) is staged; a staged model that no .mpr resolves still refuses, and
+# two .mpr files still refuse (find_mpr's "refusing to guess"). Every other command still
+# needs a model: a stamp or fingerprint over no model would be a constant.
+_mxtk_any_mpr() { local f; for f in "$PROJECT_ROOT"/*.mpr "$PROJECT_ROOT"/app/*.mpr; do [ -e "$f" ] && return 0; done; return 1; }
+if [ "${1:-}" = "check" ] && [ -z "${MPR_FILE:-}" ] && ! _mxtk_any_mpr; then
+  _q=0; for a in "$@"; do case "$a" in -q|--quiet) _q=1 ;; esac; done
+  _staged=""
+  if git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    _staged="$(git -C "$PROJECT_ROOT" diff --cached --name-only --diff-filter=d 2>/dev/null \
+      | grep -E '(^|/)[^/]+\.mpr$|(^|/)mprcontents/' || true)"
+  fi
+  if [ -z "$_staged" ]; then
+    [ "$_q" = 1 ] || echo "  no model in this project yet (no .mpr at the root or under app/) — nothing to verify"
+    exit 0
+  fi
+  echo "  ✗ model files are staged, but no .mpr resolves under $PROJECT_ROOT (root or app/):" >&2
+  printf '%s\n' "$_staged" | head -5 | sed 's/^/      /' >&2
+  exit 1
+fi
+
 MPR="$(find_mpr)" || exit 1
 MPR="$(_real "$MPR")"
 MODEL_DIR="$(dirname "$MPR")"

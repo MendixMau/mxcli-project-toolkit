@@ -96,9 +96,32 @@ def map_header(hdr_cells):
         # itself still parses — an extra column must not eat the whole row
     return m
 
+# The skill's second table — Corrections (`# | Date | Claim … | Measurement that overturned it …
+# | Where the old claim still stands …`) — is not a findings table. Mapped as one, no header
+# cell reached finding or disposition, so each correction rendered as a blank finding read OPEN
+# and the counts overstated open work by the number of corrections (field run, card-
+# disbursement requirements-driven build, 2026-09-25: 4 findings + 2 corrections read as 6 rows,
+# open 3 with 1 real). A header with a Claim column and no Finding/Disposition column is that
+# table; its rows are listed in their own section and never enter the findings counts.
+def is_corrections_header(hdr_cells):
+    names = [c.lower().strip("*` ") for c in hdr_cells]
+    return (any(n.startswith("claim") for n in names)
+            and not any("finding" in n or "disposition" in n for n in names))
+
+def map_corrections_header(hdr_cells):
+    m = {}
+    for i, name in enumerate(hdr_cells):
+        n = name.lower().strip("*` ")
+        if n in ("#", "id"):                               m[i] = "id"
+        elif "date" in n:                                  m[i] = "date"
+        elif n.startswith("claim"):                        m[i] = "claim"
+        elif "measurement" in n or "overturn" in n:        m[i] = "measurement"
+        elif "still stands" in n or "flush" in n:          m[i] = "where"
+    return m
+
 lines = raw.splitlines()
-rows, unparsed = [], []
-header_map, header_len = None, 0
+rows, unparsed, corrections = [], [], []
+header_map, header_len, header_kind = None, 0, "findings"
 in_comment = False
 i = 0
 while i < len(lines):
@@ -117,13 +140,23 @@ while i < len(lines):
     cs = cells(line)
     nxt = lines[i + 1] if i + 1 < len(lines) else ""
     if SEP_ROW.match(nxt):                          # header row: next line is |---|---|
-        header_map, header_len = map_header(cs), len(cs)
+        if is_corrections_header(cs):
+            header_map, header_kind = map_corrections_header(cs), "corrections"
+        else:
+            header_map, header_kind = map_header(cs), "findings"
+        header_len = len(cs)
         i += 2; continue
     if header_map is None:
         unparsed.append(line.strip())
         i += 1; continue
     if len(cs) != header_len:
         unparsed.append(line.strip())
+        i += 1; continue
+    if header_kind == "corrections":
+        c = {f: "" for f in ("id", "date", "claim", "measurement", "where")}
+        for idx, field in header_map.items():
+            if idx < len(cs): c[field] = cs[idx]
+        corrections.append(c)
         i += 1; continue
     row = {f: "" for f in ("id", "date", "module", "source", "defect_class",
                            "severity", "finding", "disposition")}
@@ -132,7 +165,7 @@ while i < len(lines):
     rows.append(row)
     i += 1
 
-if not rows and not unparsed:
+if not rows and not unparsed and not corrections:
     print(f"FAULT: {REG} exists but contains no table rows this parser recognises.", file=sys.stderr)
     print( "       The register format is skills/improvement-register.md's markdown table —", file=sys.stderr)
     print( "       nothing was written; an empty-but-green page is not a pass.", file=sys.stderr)
@@ -307,6 +340,16 @@ for r in rows:
         f"<span class=\"muted\">{esc(strip_md(r['disposition']))}</span></td></tr>\n")
 parts.append("</table>\n")
 
+if corrections:
+    parts.append(f"<h2>Corrections — {len(corrections)} row(s), not counted as findings</h2>\n")
+    parts.append("<table><tr><th>#</th><th>Date</th><th>Claim</th><th>Measurement that overturned it</th>"
+                 "<th>Where the old claim still stands</th></tr>\n")
+    for c in corrections:
+        parts.append(f"<tr><td>{esc(c['id'])}</td><td>{esc(c['date'])}</td>"
+                     f"<td>{esc(strip_md(c['claim']))}</td><td>{esc(strip_md(c['measurement']))}</td>"
+                     f"<td>{esc(strip_md(c['where']))}</td></tr>\n")
+    parts.append("</table>\n")
+
 parts.append(f"""<div class="footer">
 Rendered from <code>{esc(reg_rel)}</code>. The register is append-only and stays the authority —
 this page is a disposable render. Regenerate: <code>bin/render-improvement-register.sh</code>.
@@ -321,6 +364,8 @@ with open(OUT, "w", encoding="utf-8") as f:
 
 print(f"improvement-register → {OUT}")
 print(f"  rows      {len(rows)} parsed" + (f", {len(unparsed)} UNPARSED (shown on the page)" if unparsed else ""))
+if corrections:
+    print(f"  corrections {len(corrections)} (listed separately, not counted as findings)")
 print(f"  status    " + "  ".join(f"{k}={v}" for k, v in status_counts.items()))
 print(f"  severity  " + "  ".join(f"{k}={v}" for k, v in sev_counts.items()))
 if trend:

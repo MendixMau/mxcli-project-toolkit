@@ -69,7 +69,11 @@ printf '%s' "$now" > "$throttle" 2>/dev/null
 # here can be 600KB (an inlined screenshot), so a fixed byte tail routinely
 # slices mid-line and finds no parseable record. Stops at the first usage
 # record found, or at the cap.
-ctx=$("$PY" - "$transcript" <<'PY' 2>/dev/null
+# bash 3.2 does not recognise a heredoc opened inside $(...): it scans the body as
+# shell text while hunting for the matching ')', so a stray quote in the body can
+# break the parse on macOS's default bash (same trap as bin/wire-company-brain.sh).
+# Read the heredoc into a variable first, then pipe it in — no heredoc inside $(...).
+IFS= read -r -d '' _ctx_py <<'PY' || true
 import json, os, sys
 
 path = sys.argv[1]
@@ -111,7 +115,7 @@ try:
 except Exception:
     print(0)
 PY
-)
+ctx=$(printf '%s' "$_ctx_py" | "$PY" - "$transcript" 2>/dev/null)
 
 case "$ctx" in ''|*[!0-9]*) exit 0 ;; esac
 [ "$ctx" -gt 0 ] || exit 0

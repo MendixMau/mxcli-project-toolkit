@@ -126,6 +126,12 @@ Once `KB.md` exists (Phase 4), reconcile each use case against it:
   as check #2, don't have the pipeline silently pick a side.
 - **No coverage:** doc-KB says nothing about this screen/action → leave `status` as
   `code-inferred`. This is not itself a finding; it just means Phase 4 didn't cover that area.
+- **No source at all:** on a `documents`/`interview`/`greenfield` BRD a use case can be this
+  build's own design — a screen or flow no code and no document describes (the operator UI of
+  a card-disbursement requirements-driven build: 21 of 45 use cases). Set `status: proposed`,
+  never `code-inferred` — that claims a code source that does not exist — and give it an
+  `openQuestions` entry for sign-off, or cite the `CONFIRMED` register row that signed it off.
+  A `proposed` use case is not corroboration: `bin/brd-report.sh` counts only `doc-confirmed`.
 
 **Update these fields in place on the BRD JSON, not in a separate reconciliation file** — this
 is what makes re-running `node generate-report.js` produce the combined code+doc report for

@@ -201,6 +201,16 @@ _co_plain_gate_needs() {
     *) echo "" ;;
   esac
 }
+# _co_owed <manifest modes> <entry mode> — does this project's entry mode owe the row? The same
+# test as artifact-check.sh's second pass, and the same rule: an unknown mode (young register, no
+# `Entry mode:` line yet) owes every row — louder, never quieter.
+#
+# WHY (2026-09-25, card-disbursement requirements-driven build). The three manifest loops below
+# ignored the modes column, so a requirements-driven Stage 0 PASS still said "still missing for
+# this stage: app-report" — a row only existing-app-change owes, which artifact-check.sh itself
+# reported as N/A on the same run.
+_co_owed() { [ -z "$2" ] && return 0; case ",$1," in *",$2,"*) return 0 ;; esac; return 1; }
+
 # mxtk_plain_verdict <stage> <verdict text> <project-dir> [register]
 # The "In plain words" paragraph under a gate line: status first, then every reason the
 # technical text carries that has a known plain translation, then what is still missing on
@@ -244,11 +254,13 @@ mxtk_plain_verdict() {
   case "$low" in *"unanswered"*|*"no blanks"*|*"blank"*)
     _co_say "a kickoff question is still blank" ;; esac
   # Missing mandatory artifacts for this stage, in plain names.
-  local id stage paths producer consumers modes absence miss=""
+  local id stage paths producer consumers modes absence miss="" mode
+  mode="$(_art_entry_mode "$reg" 2>/dev/null || true)"
   if [ -f "$ARTIFACT_TSV" ]; then
     while IFS=$'\t' read -r id stage paths producer consumers modes absence; do
       case "$id" in ''|'#'*|artifact) continue ;; esac
       [ "$stage" = "$st" ] && [ "$absence" != "optin" ] || continue
+      _co_owed "$modes" "$mode" || continue
       _art_waiver "$reg" "$id" "$stage" >/dev/null 2>&1 && continue
       _art_find "$root" "$paths"
       [ -z "$ART_HIT" ] && miss="$miss${miss:+; }$(_co_plain_artifact "$id")"
@@ -274,11 +286,16 @@ mxtk_closeout_report() {
 
   # ── Artifacts produced ──────────────────────────────────────────────────
   printf '**Artifacts produced** (rows of `bin/lib/artifact-manifest.tsv` for stage %s; presence only, never quality)\n' "$st"
-  local id stage paths producer consumers modes absence reason n_art=0 optin
+  local id stage paths producer consumers modes absence reason n_art=0 optin mode
+  mode="$(_art_entry_mode "$reg" 2>/dev/null || true)"
   if [ -f "$ARTIFACT_TSV" ]; then
     while IFS=$'\t' read -r id stage paths producer consumers modes absence; do
       case "$id" in ''|'#'*|artifact) continue ;; esac
       [ "$stage" = "$st" ] || continue
+      if ! _co_owed "$modes" "$mode"; then
+        [ "$absence" = "optin" ] || printf -- '- ⏭ `%s` — N/A: entry mode %s does not owe it\n' "$id" "$mode"
+        continue
+      fi
       optin=""
       if [ "$absence" = "optin" ]; then
         optin="$(_art_field "$reg" "opt-in artifact $id" 2>/dev/null || true)"
@@ -418,6 +435,7 @@ mxtk_closeout_report() {
     while IFS=$'\t' read -r id stage paths producer consumers modes absence; do
       case "$id" in ''|'#'*|artifact) continue ;; esac
       [ "$stage" = "$next" ] && [ "$absence" = "optin" ] || continue
+      _co_owed "$modes" "$mode" || continue
       n_opt=$((n_opt+1))
       optin="$(_art_field "$reg" "opt-in artifact $id" 2>/dev/null || true)"
       if [ -n "$optin" ]; then

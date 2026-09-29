@@ -1,6 +1,6 @@
 # A tolerant parser upstream of a strict one is a silent-failure machine — and HTTP 200 is not an oracle for anything a human reads
 
-**From:** Maurits Visser, from a MOC/PSSR app replacement
+**From:** the maintainer, from an app-replacement project
 **Date:** 2026-09-16
 **Kind:** learning
 **Field evidence:** two confirmed defects on a real deployment, measured. Numbers below.

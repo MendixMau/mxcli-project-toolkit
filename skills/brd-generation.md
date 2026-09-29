@@ -217,7 +217,7 @@ of BRDs kept guessing at the shape.
 | `generatedAt`, `appType`, `summary{}`, `openGaps[]` | top level | all three scaffolders | the fingerprint that identifies a BRD as code-extracted |
 | `webBlocks[]`, `timers[]` | top level | all three scaffolders | |
 | `reviewStatus` | `useCases[]` | all three (`use-case-mapper.js`) | `pending` until a human reviews the narrative |
-| `status` | `useCases[]` | set by `brd-validation.md` check 6 | `code-inferred` / `doc-confirmed` / `doc-conflict` |
+| `status` | `useCases[]` | set by `brd-validation.md` check 6 | `code-inferred` / `doc-confirmed` / `doc-conflict` / `proposed` (no code and no document behind it — this build's own design, owed a sign-off) |
 | `hiddenRules[]` | `microflows[]` | java-angular and node-express-react only (`microflow-mapper.js`) — **not** OutSystems | rules found inside code that the domain model does not show |
 | `mendixType`, `attributeCount` | `domainEntities[]` | all three (`domain-entity-mapper.js`) | `attributeCount` is the retired form of `attributes[]`; the count is derivable from the list, the list is not derivable from the count |
 | `gaps[]` | every mapped item | all three | feeds `confidence` |

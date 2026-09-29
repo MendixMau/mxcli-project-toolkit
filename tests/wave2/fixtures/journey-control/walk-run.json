@@ -1,0 +1,408 @@
+{
+ "capturedAt": "2026-09-26T08:15:38.349Z",
+ "positiveControl": false,
+ "mutants": {
+  "expectedPerJourney": 7,
+  "expected": 0,
+  "supported": 0,
+  "proven": 0,
+  "unsupported": []
+ },
+ "results": [
+  {
+   "rung": "ui",
+   "name": "login",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Open Configure › Mock console: reached",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Open Configure › Mock console: widget btnReset",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Open Configure › Mock console: widget lvSystems",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Open Configure › Mock console: widget lvPackages",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Open Configure › Mock console: page says \"Mock console\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Open Configure › Mock console: page says \"DO_SIGN_CONTRACTS\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Reset the hub to its baseline: confirmation says \"Reset the mock hub?\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Reset the hub to its baseline: reached",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Reset the hub to its baseline: page says \"DO_SIGN_CONTRACTS\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Reset the hub to its baseline: page says \"7710001\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[GUARD] Reset the hub to its baseline: capture non-empty",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] Reset the hub to its baseline: ordered",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] Reset the hub to its baseline: no ERROR at any level",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] NEGATIVE: Reset the hub to its baseline: REST_ did not run",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Reset the hub to its baseline: the call log is empty",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Reset the hub to its baseline: no scenario is armed",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Reset the hub to its baseline: all six systems are Online",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Reset the hub to its baseline: one default package",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Reset the hub to its baseline: two applications, none KO",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "A custom payload that is not JSON is refused: radio rbKind checked \"Custom payload\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "A custom payload that is not JSON is refused: reached",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "A custom payload that is not JSON is refused: widget btnDlgCancel",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "A custom payload that is not JSON is refused: page says \"Not valid JSON\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[GUARD] A custom payload that is not JSON is refused: capture non-empty",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] A custom payload that is not JSON is refused: ordered",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] A custom payload that is not JSON is refused: no ERROR at any level",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] NEGATIVE: A custom payload that is not JSON is refused: ^MockServices\\.SUB_MockScenario_Arm$ did not run",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "A custom payload that is not JSON is refused: nothing was armed",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Arm a one-shot fault on DO_SIGN_CONTRACTS: radio rbKind checked \"Fault\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Arm a one-shot fault on DO_SIGN_CONTRACTS: reached",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Arm a one-shot fault on DO_SIGN_CONTRACTS: page says \"MWF-503\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Arm a one-shot fault on DO_SIGN_CONTRACTS: page says \"· once\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Arm a one-shot fault on DO_SIGN_CONTRACTS: page does NOT say \"Not valid JSON\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[GUARD] Arm a one-shot fault on DO_SIGN_CONTRACTS: capture non-empty",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] Arm a one-shot fault on DO_SIGN_CONTRACTS: ordered",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] Arm a one-shot fault on DO_SIGN_CONTRACTS: no ERROR at any level",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] NEGATIVE: Arm a one-shot fault on DO_SIGN_CONTRACTS: VAL_MockScenario_Payload did not run",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Arm a one-shot fault on DO_SIGN_CONTRACTS: DO_SIGN_CONTRACTS is armed with fault MWF-503 / 503",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Arm a one-shot fault on DO_SIGN_CONTRACTS: only that one is armed",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "The hub answers the fault once, then succeeds: DO_SIGN_CONTRACTS (armed) answers 503",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "The hub answers the fault once, then succeeds: DO_SIGN_CONTRACTS (armed) response has MWF-503",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "The hub answers the fault once, then succeeds: DO_SIGN_CONTRACTS (after the one shot) answers 200",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "The hub answers the fault once, then succeeds: MockServices.MockCallLog +2",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "The hub answers the fault once, then succeeds: the call log holds the 503 then the 200",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "The hub answers the fault once, then succeeds: the one-shot disarmed itself; both calls counted",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Take GM4 offline: GET_SYSTEM_STATUS answers 200",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Take GM4 offline: GET_SYSTEM_STATUS response has \"StatusCode\":\"0\",\"StatusDescription\":\"Offline\",\"System\":\"GM4\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Take GM4 offline: reached",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[GUARD] Take GM4 offline: capture non-empty",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] Take GM4 offline: ordered",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] Take GM4 offline: no ERROR at any level",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Take GM4 offline: GM4 answers StatusCode 0",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Take GM4 offline: the other five stay Online",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Mark application 7710001 KO: DO_START_APPROVAL answers 200",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Mark application 7710001 KO: DO_START_APPROVAL response has \"APPROVED_FLAG\":false",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Mark application 7710001 KO: reached",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[GUARD] Mark application 7710001 KO: capture non-empty",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] Mark application 7710001 KO: ordered",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] Mark application 7710001 KO: no ERROR at any level",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Mark application 7710001 KO: 7710001 is KO, 7710002 is not",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Cancelling the reset changes nothing: confirmation says \"Reset the mock hub?\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Cancelling the reset changes nothing: reached",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Cancelling the reset changes nothing: GM4 is still offline",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Cancelling the reset changes nothing: 7710001 is still KO",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Cancelling the reset changes nothing: the call log is kept",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Reset restores the baseline: confirmation says \"Reset the mock hub?\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Reset restores the baseline: reached",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "ui",
+   "name": "Reset restores the baseline: page does NOT say \"MWF-503\"",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[GUARD] Reset restores the baseline: capture non-empty",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] Reset restores the baseline: ordered",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] Reset restores the baseline: no ERROR at any level",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "trace",
+   "name": "[MF] NEGATIVE: Reset restores the baseline: REST_ did not run",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Reset restores the baseline: MockServices.MockApplication_MockPackage set on every row",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Reset restores the baseline: MockServices.MockApplication_MockPackage points at the seeded ProdPackageKey",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Reset restores the baseline: the call log is empty",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Reset restores the baseline: no scenario is armed and no hit count survives",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "data",
+   "name": "Reset restores the baseline: no application is KO",
+   "verdict": "PASS"
+  },
+  {
+   "rung": "outcome",
+   "name": "MockServices end state",
+   "verdict": "PASS"
+  }
+ ]
+}

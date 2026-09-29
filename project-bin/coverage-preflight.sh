@@ -37,12 +37,23 @@
 # engine's own verdict through unchanged; every other level is strictly *less* severe than
 # today's FAULT. Every level states what it knows, what it does not, and what would upgrade it.
 #
-# Ledger path shapes — all three are read, the first is canonical:
+# Ledger path shapes — all four are read, in this order:
+#   architecture/modules/<Module>/coverage-ledger/      one ledger per BRD, <BRDID>.md each
+#                                                       (project-bin/coverage-check-all.sh's form)
 #   architecture/modules/<Module>/coverage-ledger.md    canonical (per-module, scales)
 #   architecture/modules/<Module>-coverage-ledger.md    flat module layout (PROJECT-A's shape)
 #   architecture/coverage-ledger.md                     single-BRD project (sanctioned by
 #                                                       skills/coverage-ledger.md's header)
-# When none exists the message names all three, so an operator can act without reading source.
+# When none exists the message names all four, so an operator can act without reading source.
+#
+# The directory wins over the .md beside it: a module that splits its ledger per BRD keeps
+# coverage-ledger.md as an index, and measuring BRDs against the index is a false red. Real
+# case (card-disbursement requirements-driven build, 2026-09-26): 9 BRDs, 4 module ledger
+# directories holding 9 per-BRD files, every one clean under coverage-check-all.sh — and this
+# script found each module's index file, ran all 9 BRDs against it, and printed 9 of 9
+# UNCLAIMED (2,300+ leaves) for a module that owns one BRD. In the directory form each BRD is
+# measured against its own <BRDID>.md; a BRD with no file there belongs to another module and
+# is counted, named, and not measured.
 #
 # Usage:
 #   project-bin/coverage-preflight.sh [--summary] [--module <Name>] [<brd.json> [<ledger.md>]]
@@ -130,17 +141,30 @@ find_engine() {
 # ---------------------------------------------------------------------------
 # Discovery
 # ---------------------------------------------------------------------------
+LEDGER_DIR=""
 LEDGER_CANON=""
 LEDGER_FLAT=""
 LEDGER_PROJECT="architecture/coverage-ledger.md"
 if [ -n "$MODULE" ]; then
+  LEDGER_DIR="architecture/modules/$MODULE/coverage-ledger"
   LEDGER_CANON="architecture/modules/$MODULE/coverage-ledger.md"
   LEDGER_FLAT="architecture/modules/$MODULE-coverage-ledger.md"
 fi
 
+# A ledger directory counts only when it holds at least one per-BRD file — an empty directory
+# is not a ledger, and falling through to the file shapes is the honest reading of it.
+ledger_dir_ok() {
+  [ -n "$1" ] && [ -d "$1" ] || return 1
+  ls "$1"/*.md >/dev/null 2>&1
+}
+
 find_ledger() {
   local c
-  for c in "$ARG_LEDGER" "${LEDGER_FILE:-}" "$LEDGER_CANON" "$LEDGER_FLAT" "$LEDGER_PROJECT"; do
+  for c in "$ARG_LEDGER" "${LEDGER_FILE:-}"; do
+    [ -n "$c" ] && { [ -f "$c" ] || ledger_dir_ok "$c"; } && { printf '%s\n' "$c"; return 0; }
+  done
+  ledger_dir_ok "$LEDGER_DIR" && { printf '%s\n' "$LEDGER_DIR"; return 0; }
+  for c in "$LEDGER_CANON" "$LEDGER_FLAT" "$LEDGER_PROJECT"; do
     [ -n "$c" ] && [ -f "$c" ] && { printf '%s\n' "$c"; return 0; }
   done
   return 1
@@ -228,6 +252,7 @@ WHERE="${MODULE:-this project}"
 # The paths tried, printed verbatim so "not found" is actionable rather than a riddle.
 print_paths_tried() {
   echo "  looked for a ledger at:"
+  [ -n "$LEDGER_DIR" ]   && printf '    %-50s (one <BRDID>.md per BRD)\n' "$LEDGER_DIR/"
   [ -n "$LEDGER_CANON" ] && printf '    %-50s (canonical, per-module)\n' "$LEDGER_CANON"
   [ -n "$LEDGER_FLAT" ]  && printf '    %-50s (flat module layout)\n' "$LEDGER_FLAT"
   printf '    %-50s (single-BRD project)\n' "$LEDGER_PROJECT"
@@ -392,10 +417,49 @@ if [ "$NBRD" -eq 0 ]; then
 fi
 
 RC=0
-for b in $BRDS; do
-  # shellcheck disable=SC2086
-  "$ENGINE" $ENGINE_ARGS "$b" "$LEDGER" || RC=$?
-done
+if [ -d "$LEDGER" ]; then
+  # Directory form: each BRD against its own <BRDID>.md. The denominator is stated both ways —
+  # BRDs measured here, and BRDs that have no ledger here (another module's) — so "1 measured"
+  # can never be read as "1 exists".
+  NMEAS=0; OTHERS=""
+  for b in $BRDS; do
+    bid="$(basename "$b" .brd.json)"
+    if [ -f "$LEDGER/$bid.md" ]; then
+      NMEAS=$((NMEAS + 1))
+      # shellcheck disable=SC2086
+      "$ENGINE" $ENGINE_ARGS "$b" "$LEDGER/$bid.md" || RC=$?
+    else
+      OTHERS="$OTHERS $bid"
+    fi
+  done
+  NOTHERS=0; [ -n "$OTHERS" ] && NOTHERS=$(printf '%s\n' $OTHERS | grep -c .)
+  # A ledger file named after no BRD is only knowable when every BRD was discovered — with a
+  # single BRD passed in, the directory's other files are simply not this run's business.
+  ORPHANS=""
+  if [ -z "$ARG_BRD" ] && [ -z "${BRD_FILE:-}" ]; then
+    for l in "$LEDGER"/*.md; do
+      lid="$(basename "$l" .md)"; hit=0
+      for b in $BRDS; do [ "$(basename "$b" .brd.json)" = "$lid" ] && { hit=1; break; }; done
+      [ "$hit" -eq 1 ] || ORPHANS="$ORPHANS $lid"
+    done
+  fi
+  echo ""
+  echo "  per-BRD ledgers: $NMEAS of $NBRD BRD(s) measured against $LEDGER/<BRDID>.md;"
+  echo "  $NOTHERS BRD(s) have no ledger here (another module's, not measured):${OTHERS:- none}"
+  if [ -n "$ORPHANS" ]; then
+    echo "  FAULT: ledger file(s) with no matching BRD:$ORPHANS — named after a BRD id that does not exist." >&2
+    [ "$RC" -lt 2 ] && RC=2
+  fi
+  if [ "$NMEAS" -eq 0 ]; then
+    echo "FAULT: $LEDGER holds no ledger matching any of the $NBRD BRD(s) — cannot evaluate, which is not a pass." >&2
+    RC=2
+  fi
+else
+  for b in $BRDS; do
+    # shellcheck disable=SC2086
+    "$ENGINE" $ENGINE_ARGS "$b" "$LEDGER" || RC=$?
+  done
+fi
 
 if [ "$LEVEL" -eq 2 ]; then
   echo ""

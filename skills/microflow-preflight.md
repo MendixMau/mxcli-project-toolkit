@@ -153,6 +153,9 @@ ratchet then rises on a script with nothing wrong in it. Plain if/else and a loo
 table asks for anyway. Or move the following activity to after `end if`. Name the chosen
 remedy on the checklist's Layout line.
 
+Same overlap, second shape: an `on error { … }` handler that does not end in `return` merges
+back into the main flow on top of the next activity. End every handler with its own `return`.
+
 ## Verify — read the BUILD-LOG row
 
 After `./bin/exec.sh`, the lint ratchet writes its verdict into the same BUILD-LOG row:
@@ -163,13 +166,17 @@ checklist, **the preflight failed. Say so in chat**, fix the script and re-run. 
 the rise with `--update-baseline`. Lint cannot see a retrieve or REST call inside a loop, so a
 clean row proves only the rows lint covers. The checklist is the record for the rest.
 
+Verified on v0.24.0: **CONV013 fires falsely** on a Java or REST call with a custom
+`on error without rollback { … }` handler, so baseline it citing BUG-149. A `/** … */` doc comment
+before `create microflow` does land in its Documentation (BUG-152 item 4).
+
 ## Not verified
 
 - That `mx check` passes a flow whose loop child escaped its box (MPR011). This comes from the
   rule's source comment only.
-- CONV013 / CONV014 firing on a REST or Java call.
-- The `while` + `limit … offset` batch recipe run end to end. `while` itself executes on v0.24.0.
-- Whether a `/** … */` doc comment round-trips into the microflow's Documentation.
+- CONV014 firing on a REST or Java call.
+- The `while` + `limit … offset` batch recipe run end to end. `while` itself executes on v0.24.0;
+  a variable first assigned inside it must be `declare`d before it (BUG-154).
 - Nanoflow-vs-microflow guidance. No current Mendix docs page was found.
 - Whether upstream fixes the if-branch merge overlap in a later release.
 - Whether a later `mxcli layout` release re-lays-out microflows, and whether that run clears the if-branch merge overlap. Re-probe `mxcli layout --help` on each new binary.

@@ -121,6 +121,22 @@ while IFS= read -r f; do
           'Use cd "$(dirname "$x")" && pwd.' ;;
     esac
 
+    # bash 3.2's $(...) scanner does not recognise a heredoc opened inside it: it scans
+    # the body as shell text while hunting for the matching ')', so a stray apostrophe or
+    # quote in the body breaks the parse on macOS's default bash — invisible to bash -n on
+    # any machine that only has bash 5 (real incident: bin/wire-company-brain.sh, a
+    # "company's" in the block text). Strip the two lookalikes first: a `<<<` here-string
+    # (no heredoc body, just overlaps `<<`) and `$((...))` arithmetic (its `<<` is a
+    # bit-shift) — both false-triggered the raw pattern in testing.
+    case "$txt" in
+      *'$('*'<<'*)
+        _pc="$(printf '%s' "$txt" | sed -e 's/<<<//g' -e 's/\$(([^)]*))//g')"
+        if printf '%s' "$_pc" | grep -Eq '\$\([^)]*<<[^<]'; then
+          report "$f" "$ln" "heredoc opened inside \$(...) — unparseable on bash 3.2" \
+            "Read the heredoc into a variable first (IFS= read -r -d '' var <<EOF ... EOF), then use \"\$var\" inside \$(...)."
+        fi ;;
+    esac
+
     case "$txt" in
       *'mapfile '*|*'readarray '*)
         report "$f" "$ln" "mapfile/readarray need bash 4 (macOS ships 3.2)" \

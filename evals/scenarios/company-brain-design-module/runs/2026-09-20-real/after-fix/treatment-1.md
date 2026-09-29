@@ -2,20 +2,20 @@
 
 ## Design system
 
-This is a USI app, wired to the company brain (`projects.tsv` lists this project root). The
+This is a Acme app, wired to the company brain (`projects.tsv` lists this project root). The
 brain's `ROUTING.md` is explicit: "Choosing a design system, theme, brand colour or page shell for
-a USI app" → `components/USI_Theme_Module.md`. That manifest is equally explicit: **"Never
-hand-roll a theme or a second design system for a USI app."** So there is no design-system
-*decision* to make here — the design system is the imported Mendix module `USI_Theme_Module`
-(`USI_Theme_Module.mpk`, 56 MB, model timestamp 2024-03-19), which adds an Atlas layout override
-plus per-component SCSS under `themesource/usi_theme_module/`. The house rule
+a Acme app" → `components/Acme_Theme_Module.md`. That manifest is equally explicit: **"Never
+hand-roll a theme or a second design system for a Acme app."** So there is no design-system
+*decision* to make here — the design system is the imported Mendix module `Acme_Theme_Module`
+(`Acme_Theme_Module.mpk`, 56 MB, model timestamp 2024-03-19), which adds an Atlas layout override
+plus per-component SCSS under `themesource/acme_theme_module/`. The house rule
 (`skills/house-page-conventions.md`) reinforces it: never type a hex value into a page — every
 colour comes from the module's brand variables or a documented extended-palette entry, and
-buttons use the module's own "USI blue" / "USI red" Button Style property rather than Atlas
+buttons use the module's own "Acme blue" / "Acme red" Button Style property rather than Atlas
 defaults.
 
 **Status check:** the module is not yet imported into this project — no `design/` folder,
-`themesource/usi_theme_module/`, or `architecture/` exists yet (this project is at Stage 1 done /
+`themesource/acme_theme_module/`, or `architecture/` exists yet (this project is at Stage 1 done /
 Stage 2 next per `PROJECT.md`), and the manifest's own "Proven in" table is empty — no project has
 imported it on any mxcli version yet. Import is a real step (full module export bundling
 CommunityCommons, Email Connector, Encryption, OIDC, OQL, several Datagrid widgets, ~40 userlib
@@ -24,16 +24,16 @@ subcommand's help before picking CLI vs MCP vs Studio Pro rather than assuming f
 
 ## Brand colours
 
-All values are read directly out of `components/USI_Theme_Module.md`
-(`themesource/usi_theme_module/web/usi-custom-variables.scss`) in the company brain — not
+All values are read directly out of `components/Acme_Theme_Module.md`
+(`themesource/acme_theme_module/web/acme-custom-variables.scss`) in the company brain — not
 invented, not taken from the print brand guide:
 
 | Token (SCSS variable) | Value | Use |
 |---|---|---|
 | `$brand-primary` | `#0C4C8A` | UI primary — Pantone 541C, the *on-screen* brand blue |
-| `$brand-success` | `#437242` | USI green |
-| `$brand-warning` | `#ed6d0f` | USI orange |
-| `$brand-danger` | `#e60012` | USI red |
+| `$brand-success` | `#437242` | Acme green |
+| `$brand-warning` | `#ed6d0f` | Acme orange |
+| `$brand-danger` | `#e60012` | Acme red |
 | `$sidebar-bg` | `#24276c` | side navigation |
 | `$topbar-bg` | `#FFFFFF` (70px height) | top bar |
 | `$bg-color` | `#f8f8f8` | page background |
@@ -41,7 +41,7 @@ invented, not taken from the print brand guide:
 | `$border-radius-default` | `4px` | |
 
 **One documented, deliberate deviation, not to be "corrected":** the corporate print guide
-(`USI-UI-UX-Guide-v2.0.pdf`, beside the manifest) names Corporate = USI Blue, Pantone 655C,
+(`Acme-UI-UX-Guide-v2.0.pdf`, beside the manifest) names Corporate = Acme Blue, Pantone 655C,
 `#002662`. The theme's `$brand-primary` is `#0C4C8A` (Pantone 541C) instead — all four theme
 brand colours are taken from the guide's Extended → Bright row (541C blue / 485C red `#e60012` /
 1565C orange `#ed6d0f` / 357C green `#437242`), consistently. `#002662` is the logo/print blue;
@@ -51,18 +51,18 @@ deviations per the manifest (verified 2026-09-20), not gaps to fill.
 
 ## Page plan
 
-Sketch for `RoutingManagement.Routing_Overview`, on `Atlas_Core.Atlas_Default` + the USI theme
+Sketch for `RoutingManagement.Routing_Overview`, on `Atlas_Core.Atlas_Default` + the Acme theme
 override, built from the confirmed BRD (`F001-routing-overview.brd.json`, UC001) and the module's
 `pages[0]` entry, which already names the three sections:
 
-1. **Top bar / shell** — USI theme top bar (`$topbar-bg` white, 70px) with the USI logo (master
+1. **Top bar / shell** — Acme theme top bar (`$topbar-bg` white, 70px) with the Acme logo (master
    artwork only, never redrawn) and side navigation in `$sidebar-bg` (`#24276c`), per the house
    convention.
 2. **SearchFilters** (page header block) — filter row over `RoutingSearch_Dto`: Site, Product
    Family, Lifecycle State (the BRD's "search routing headers by site, product family, or
    lifecycle state"). Built from the project's own filter widgets already in
    `widgets-inventory.txt` (`DatagridTextFilter`, `DatagridDropdownFilter`, `DatagridDateFilter`)
-   rather than a custom filter bar. Primary "Search" action uses the theme's `usi-blue` button
+   rather than a custom filter bar. Primary "Search" action uses the theme's `acme-blue` button
    style.
 3. **ReleasedContextSummary** — a status/context strip above or beside the grid, sourced from
    `GET_ReleasedRoutingContext` (open question F001-RO-1 below affects exactly this section).
@@ -82,27 +82,27 @@ written, and no MDL/pages were created or modified.
 
 ## Files I read
 
-1. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop` (ls)
-2. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.md`
-3. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/CLAUDE.local.md`
-4. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/PROJECT.md`
-5. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/AGENTS.md` (diffed against CLAUDE.md — identical)
-6. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/analysis` (find, listing)
-7. `<scratch>/usi-brain-real` (ls) and `ROUTING.md`
-8. `<scratch>/usi-brain-real/components/` (ls)
-9. `<scratch>/usi-brain-real/components/USI_Theme_Module.md`
-10. `<scratch>/usi-brain-real/skills/` (ls)
-11. `<scratch>/usi-brain-real/skills/house-page-conventions.md`
-12. `<scratch>/usi-brain-real/components/README.md`
-13. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
+1. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop` (ls)
+2. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/CLAUDE.md`
+3. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/CLAUDE.local.md`
+4. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/PROJECT.md`
+5. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/AGENTS.md` (diffed against CLAUDE.md — identical)
+6. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/analysis` (find, listing)
+7. `<scratch>/acme-brain-real` (ls) and `ROUTING.md`
+8. `<scratch>/acme-brain-real/components/` (ls)
+9. `<scratch>/acme-brain-real/components/Acme_Theme_Module.md`
+10. `<scratch>/acme-brain-real/skills/` (ls)
+11. `<scratch>/acme-brain-real/skills/house-page-conventions.md`
+12. `<scratch>/acme-brain-real/components/README.md`
+13. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/analysis/knowledge-base/brd/F001-routing-overview.brd.json`
 14. `<home>/mxcli-project-toolkit/skills/design-artifacts.md` (read-only, to check the generic branding-interview process this company brain overrides)
-15. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/widgets-inventory.txt`
-16. `<scratch>/cb-eval3/treatment/USI_Routing_Workshop/intake.md` and `triage.md` (grepped for brand/design/colour/theme/logo — no hits)
-17. `<scratch>/usi-brain-real/projects.tsv`
+15. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/widgets-inventory.txt`
+16. `<scratch>/cb-eval3/treatment/Acme_Routing_Workshop/intake.md` and `triage.md` (grepped for brand/design/colour/theme/logo — no hits)
+17. `<scratch>/acme-brain-real/projects.tsv`
 
 ## Open questions for the user
 
-1. **Import order.** `USI_Theme_Module.mpk` has never been imported into any project yet (its
+1. **Import order.** `Acme_Theme_Module.mpk` has never been imported into any project yet (its
    "Proven in" table is empty). Should I probe this project's `./mxcli` import surface and get the
    module imported as the first concrete step of Stage 2/3 design work, before any wireframe is
    turned into real pages?

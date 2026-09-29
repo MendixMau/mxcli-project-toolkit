@@ -1,0 +1,31 @@
+create or modify page Demo.Catalog (
+  Title: 'Catalog',
+  Layout: Demo.Layout_Main,
+  Class: 'page-dashboard'
+) {
+  container ctnDeck (Class: 'x-deck') {
+    dynamictext txtH1 (Content: 'Catalog', RenderMode: H1)
+  }
+  snippetcall sncFilterRail (Snippet: Demo.Snip_FilterRail)
+  listview lvCards (
+    DataSource: microflow Demo.DS_LoadItems,
+    PageSize: 1000
+  ) {
+    -- Context: $currentObject (Demo.Item), $lvCards (selection)
+    container ctnCanvas (Class: 'x-canvas') {
+      image imgLogo (
+        ImageType: imageUrl,
+        ImageUrl: '{1}',
+        WidthUnit: percentage,
+        Class: 'x-canvas__img'
+      )
+    }
+    image imgPublisherTile (
+      ImageType: imageUrl,
+      ImageUrl: '{1}',
+      WidthUnit: pixels,
+      Width: 40,
+      Class: 'x-ptile'
+    )
+  }
+}

@@ -26,7 +26,7 @@ fail=0; warn=0
 
 # ---- 1. filenames -----------------------------------------------------------------------
 # Two capitalised words separated by a SPACE are usually a person ("Elma Chang"). Underscore-
-# and hyphen-joined words are identifiers (USI_Theme_Module, Routing-Overview), so they are not
+# and hyphen-joined words are identifiers (Acme_Theme_Module, Routing-Overview), so they are not
 # matched — that distinction was added after the first run flagged the module package itself.
 NAME_RE='(^|[ (])[A-Z][a-z]{2,} [A-Z][a-z]{2,}([ .)_-]|$)'
 MAIL_RE='[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'

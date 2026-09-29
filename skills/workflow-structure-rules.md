@@ -71,6 +71,16 @@ event path*, or a non-interrupting one ending in *End workflow*. Decide the type
 writing the body; the terminator follows from it. Whether the task deserves a timer at all is a
 separate question — `learned-workflow-patterns.md` §19: no SLA in the requirements, no timer.
 
+**One interrupting boundary per activity, and a non-interrupting path cannot end the workflow.**
+A second interrupting boundary on the same parent is `MDL-WF15` at `mxcli check` (CE6697
+natively); `end workflow` inside a non-interrupting path is `MDL-WF08` (CE1844). So once a task
+carries an interrupting cancellation timer, a second "abort on signal" trigger can be neither
+kind of boundary. Field case (a card-disbursement requirements-driven build, mxcli v0.24.0,
+2026-09-26): the design wanted an API call to notify a boundary on a task that already had an
+interrupting timer; both routes were refused at check time, and the API completed the task
+directly instead. Pick the second trigger's mechanism — task completion, or an event
+sub-process (§3) — before scripting either boundary.
+
 ## 3. Event sub-processes — cancellation lives outside the main flow
 
 An event sub-process is a **sibling of the main flow, not part of it**. It has its own flow,
@@ -290,7 +300,8 @@ easy to miss when writing the runbook for cutover:
 | Code | Meaning | Section |
 |---|---|---|
 | CE6689 | activity unreachable — written after a terminal | §1, §3 |
-| CE1844 | *End workflow* inside a non-linear path (parallel branch) | §4 |
+| CE1844 | *End workflow* inside a non-linear path (parallel branch, or a non-interrupting boundary path — `MDL-WF08`) | §4, §2 |
+| CE6697 | a second interrupting boundary event on one activity (`MDL-WF15`) | §2 |
 | CE1845 | parallel split with fewer than two paths | §4 |
 | MW0012 | *Jump to* inside a parallel branch | §4 |
 | CE1834 | user task has no page | task page rules, `learned-workflow-patterns.md` §4. The page's parameter must be **`System.WorkflowUserTask`** — `System.UserTask` does not exist, and a page built against it never satisfies the check no matter how many times it is re-set |
@@ -319,10 +330,11 @@ row's stated floor is evidence against it.
 | ~~decision on a **boolean or free-text** outcome~~ | **RETRACTED 2026-09-03 — see the CORRUPTING row below.** This row read "proven on mxcli ≥ v0.18.0" and it was wrong: BUG-76's v0.20.0 retest corrupts on a condition of literal `1 = 1`. The condition never mattered; the defect is in how the *outcome label* is written. Left visible with a strikethrough rather than deleted, because "a boolean decision is the safe kind" is the belief this table has to actively kill |
 | call microflow, with or without parameters | **proven** — with two limits. (1) The `WITH` clause's **value must be quoted**: `WITH ("Ctx" = '$WorkflowContext')`. Unquoted (`= $WorkflowContext`) segfaults the binary, BUG-107. (2) **`$WorkflowUserTask` is NOT in scope here** — only `$WorkflowContext` and `$WorkflowInstance` are. Passing it is a **CE0117** that `mxcli check --references` passes completely clean; only mxbuild catches it. A microflow that needs the task looks it up by name off `$WorkflowInstance` through `System.WorkflowEndedUserTask`. Proven by sandbox A/B on a full project copy, 2026-09-04 — this corrects an earlier reading of §8 that treated *call microflow* as having the task |
 | — | — |
-| **decision on an enumeration** | **CORRUPTING — BUG-76**, of which this probe is a re-confirmation on 11.14 (first logged as BUG-108 before the older entry was found). BUG-76 is the general case: *every* `DECISION` with outcomes corrupts, whatever its condition reads. The enum case is the worse one — it has no writable spelling at all, since mxcli rejects both fully-qualified forms and accepts only the bare value that corrupts. Hand-add every decision in Studio Pro; never script one. Recovery: `DROP WORKFLOW` |
+| **decision on an enumeration** | **CORRUPTING — BUG-76**, of which this probe is a re-confirmation on 11.14 (first logged as BUG-108 before the older entry was found). BUG-76 is the general case: *every* `DECISION` with outcomes corrupts, whatever its condition reads. The enum case is the worse one — it has no writable spelling at all, since mxcli rejects both fully-qualified forms and accepts only the bare value that corrupts. Hand-add every decision in Studio Pro; never script one. Recovery: `DROP WORKFLOW`. **v0.24.0 (2026-09-26): guarded, not fixed** — the bare-value spelling is now refused before the write by `MDL-WF03`; forced through with `--no-check` it still writes the byte-exact `StorageLoadException` |
+| **decision on a Boolean expression, `true`/`false` outcomes** | **proven on v0.24.0 / Mendix 11.13.0** (2026-09-26, a card-disbursement requirements-driven build): `decision N '$WorkflowContext/Attr = ''X''' outcomes true -> { … } false -> { };` passes check, exec and native `mx check` at 0 errors, and `DESCRIBE` reads the expression back intact. This is the keyword-outcome form only — the string-labelled `'1 = 1'` / `'OutcomeA'` repro of BUG-76 was not re-run on v0.24.0; run `learned-workflow-patterns.md` §8 Warning 1's repro before scripting any other shape |
 | **parallel split**, incl. **nested** | **proven on v0.21.0 — with one mandatory post-exec step**, which is the whole of §4's warning above and `learned-workflow-patterns.md` §18. The structure writes correctly at any depth; the `EndOfParallelSplitPathActivity` that closes each path does not, and MDL has no keyword for it. Add it with `bin/wf-add-path-terminators.py <unit.mxunit> --apply` after this script **and after every later script that rewrites the workflow** (§23), then verify with a live run, never a gate. BUG-121; field-proven 8-of-16 → **16-of-16 stations, 6 concurrent**. This row read RETRACTED until 2026-09-14 |
-| **forward `JUMP TO`** (target later in the flow than the outcome jumping to it) | **CE6681.** A *backward* `jump to` builds clean; a forward one is *"not possible to jump to end activities or jump-to activities"* — mxcli resolves a forward target to the end/jump activity rather than the task. Isolated with a two-task probe workflow: same statement, backward clean, forward CE6681. Restructure so the jump goes backwards, or hand-add |
-| **boundary event timer, interrupting** | **hand-add in Studio Pro.** Its path must end in *End* or *Jump* (CE0105); `END WORKFLOW` does not parse and `JUMP TO` is BUG-109 |
+| **forward `JUMP TO`** (target later in the flow than the outcome jumping to it) | **proven on v0.24.0 / Mendix 11.13.0 — this row taught CE6681 until 2026-09-26, and direction was never the platform rule.** Re-probed as an intended known-bad control (a card-disbursement requirements-driven build): `check --references`, `exec` and native `mx check` all 0 errors, and `DESCRIBE` reads the jump back with its real target. The CE6681 recorded here came from mxcli's jump-named-after-its-target defect, for which forward order was the broken case; upstream `825873d6` fixed it in v0.21.0 (`learned-workflow-patterns.md` §25). On a binary older than v0.21.0, jump backwards or hand-add. A CE6681 on a jump now means the target does not resolve — see the reject-path paragraph below the table |
+| **boundary event timer, interrupting** | **proven on v0.24.0 / Mendix 11.13.0** (2026-09-26, a card-disbursement requirements-driven build): a body that calls a microflow and then ends in `end workflow comment '…';`, or in `jump to <earlier activity>;`, passes check, exec and native `mx check` at 0 errors, and the read-back shows a real jump with a real target — BUG-109 no longer reproduces. The path must still end in *End* or *Jump* (CE0105 on an empty body), and §2's one-interrupting-boundary rule applies. **Before v0.24.0: hand-add** — `end workflow` did not parse before the post-v0.22.0 nightly, and `JUMP TO` there was BUG-109 through v0.20.0 |
 | **boundary event on notification** | **hand-add** — the grammar admits `{TIMER, INTERRUPTING, NON}` only |
 | **event sub-process** (all four start kinds), recurrence | **hand-add** — no construct in the grammar, in any position |
 | **multi-user decision method / completion timing** | **hand-add** — the activity is scriptable, its decision rule is not |
@@ -370,8 +382,9 @@ reject outcome is a *dangling* jump: no valid target exists. `mxcli check --refe
 it, `exec` reports `Created workflow`, `DESCRIBE WORKFLOW` reads it back — and the native build
 refuses with **CE6681**, *"not possible to jump to end activities or jump-to activities"*. That
 message is about jump **targets**, so it sends you looking at the target's type; the actual
-fault is that there is no target at all. The table's forward-`JUMP TO` row above is the same
-code from a different cause. Read `CE6681` as **"this jump does not resolve"**, then check
+fault is that there is no target at all. The table's forward-`JUMP TO` row blamed the same
+code on direction until 2026-09-26; on v0.24.0 a forward jump builds clean, so direction is not
+a second cause. Read `CE6681` as **"this jump does not resolve"**, then check
 whether a target exists before checking what kind it is. Design the reject path to *End* and
 the question disappears.
 
@@ -454,7 +467,7 @@ between people, this decides how many workflows exist and who each task targets.
 
 | BPMN element | Mendix | Then check §11 for |
 |---|---|---|
-| Exclusive gateway (XOR) | **Native** — Decision | **BUG-76.** Qualified outcome spelling, `exec --no-check`. Often better expressed as outcomes on the preceding user task — §15 |
+| Exclusive gateway (XOR) | **Native** — Decision | **BUG-76.** Qualified outcome spelling, `exec --no-check`; a Boolean `true`/`false` decision is clean on v0.24.0 (§11). Often better expressed as outcomes on the preceding user task — §15 |
 | Parallel gateway (AND) | **Native** — Parallel Split | **BUG-121.** Path terminators after every write — `learned-workflow-patterns.md` §18, §23 |
 | **Inclusive gateway (OR)** | **Workaround** — parallel split *with a decision on each path* | Both damaged constructs at once. **Cost this explicitly in `fit-gap.md`**; do not let it enter a build plan as one row |
 | User task | **Native** — User Task | proven. Page takes `System.WorkflowUserTask`; targeting microflow takes two parameters |
@@ -464,7 +477,7 @@ between people, this decides how many workflows exist and who each task targets.
 | Receive task | **Native** — Wait for Notification | proven; takes no name |
 | Call activity / reusable subprocess | **Native** — Call Workflow | proven |
 | Event sub-process | **Native** | **hand-add** — no MDL construct, in any position (§3, §11) |
-| Timer: intermediate catch, boundary interrupting/non-interrupting | **Native** | non-interrupting proven; **interrupting is a hand-add** (§2, §11) |
+| Timer: intermediate catch, boundary interrupting/non-interrupting | **Native** | non-interrupting proven; interrupting proven on v0.24.0, **a hand-add on older binaries** (§2, §11) |
 | Message / signal / conditional / escalation / compensation / cancel events | **Workaround** — microflow combinations | per-case; §11 has no row, so probe before promising |
 | Link events (throw/catch) | **Native** | unprobed in MDL |
 | None start / none end | **Native** | end-of-branch is **not expressible** — §4, §11 |

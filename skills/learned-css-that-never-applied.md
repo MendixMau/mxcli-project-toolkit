@@ -82,6 +82,14 @@ consulted, so "mine is later" was never relevant. The fix was `.mx-listview > ul
 the framework deliberately blanking that element. A rule you add without outranking it is not
 "competing", it is being deleted.
 
+**The same erasure hides inside classes a port calls "Atlas-native, styled by the knobs".** Some
+Atlas base properties have no custom-variables knob at all: `.btn { font-weight: normal }` and,
+above 767px, `.form-group { display: flex; flex-direction: row }`. Field case (a
+card-disbursement requirements-driven build, Mendix 11.13.0, 2026-09-25): every button rendered
+at 400 against the design system's 500, and hand-written labels sat beside their inputs;
+`check-design-reaches-app.sh` saw nothing, because both classes counted as bound. Port each such
+property as its own rule, and read it back as a computed value, not as a knob that was set.
+
 ---
 
 ## The diagnostic — two reads, before you touch the rule

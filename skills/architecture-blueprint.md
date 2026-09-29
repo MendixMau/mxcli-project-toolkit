@@ -327,13 +327,20 @@ the consuming project's `PROJECT.md` — rows under its dependencies and open-qu
 register (`conversion-runbook.md` §"One decision register"), and a second register beside it is
 how the same question ends up with two answers:
 
-| # | Item | Type | Resolution / owner |
+| ID | Item | Type | Resolution / owner |
 |---|---|---|---|
-| 1 | Unresolved BRD `openQuestions` | Decision needed | who decides, by when |
-| 2 | Cross-module associations | Scripted via mxcli (BUG-02 fixed v0.13.0) | which module's script creates each, scheduled in which build step |
-| 3 | Marketplace "Buy" decisions | Dependency | confirmed / deferred |
-| 4 | mxcli known bugs on this app's shape | Handoff | see `bug-logs/mxcli-bugs.md` |
-| 5 | Behavior changes vs. source | Faithful-rebuild risk | documented + signed off |
+| OI-1 | Unresolved BRD `openQuestions` | Decision needed | who decides, by when |
+| OI-2 | Cross-module associations | Scripted via mxcli (BUG-02 fixed v0.13.0) | which module's script creates each, scheduled in which build step |
+| OI-3 | Marketplace "Buy" decisions | Dependency | confirmed / deferred |
+| OI-4 | mxcli known bugs on this app's shape | Handoff | see `bug-logs/mxcli-bugs.md` |
+| OI-5 | Behavior changes vs. source | Faithful-rebuild risk | documented + signed off |
+
+**Number these rows `OI-n`, never a bare `1`, `2`, `3`.** `bin/gate-check.sh` reads the first
+cell of every table row in `PROJECT.md` as a Stage field, so a register row numbered `| 7 |`
+counts as a cutover decision. On a card-disbursement requirements-driven build (2026-09-25) a
+row `| 7 | Behaviour change … |` made Stage 7 report FAIL before Stage 4 had begun; renumbering
+the rows `OI-n` cleared it. The same misreading can make a `CONFIRMED` row `| 3 | … |` pass the
+Stage 3 ✋ gate.
 
 **Every unresolved BRD `openQuestion` must appear here.** Do not resolve them silently to make the diagram tidy — an open question in a diagram is honest; a wrong assumption baked into MDL is expensive.
 

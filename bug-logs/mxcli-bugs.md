@@ -196,6 +196,20 @@ The old widget (and its name) is dropped; the new widget takes its place in the 
 
 **Discovered:** 2026-05-21, an OS 11 reference migration script 34 (fixing CE0720 on lblHdrAction).
 
+### Retest on v0.24.0 (2026-09-27) — still open, and wider than above
+
+Found on a card-disbursement requirements-driven build (Mendix 11.13.0), `alter page` and
+`alter layout`. The whole replacement subtree is built while the old widget and **its children**
+still hold their names, so renaming only the replaced widget does not help: any **child** name the
+replacement reuses collides. The natural case, the same grid with one column added, fails on
+`duplicate widget name txtSearchGlyph` (a glyph nested in the grid). A script that ran once
+therefore fails on its second run, so a `REPLACE` hook in a re-runnable script is never safe.
+
+**Workaround that re-runs:** `drop widget X;` then `insert into <parent> { … }` (or `insert after
+<sibling>`) in the same `alter page`, anchored on a widget the owning script never renames. It
+passed `mx check` and ran twice on a probe and twice on the model. A grid whose `DATABASE` source
+changes goes the same route (`SET DataSource` cannot write that form, see BUG-11).
+
 ---
 
 ## BUG-09: Gallery `filter {}` block cannot express association-path filter attributes
@@ -791,6 +805,8 @@ Then restart SP.
 ## BUG-23: `ContentParams` with an explicit `$currentObject/` prefix resolves as a literal (broken) attribute path → CE1613
 
 **RESOLVED (v0.21.0) — retested and archived 2026-09-14, see [archive-resolved-2026-09-14.md](archive-resolved-2026-09-14.md) and [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).**
+
+**v0.24.0: see BUG-142** — the `toString(Attr)` form this entry's fix taught no longer builds; only a bare attribute or a quoted literal does.
 
 ---
 
@@ -2695,6 +2711,8 @@ before touching the live one.
 
 ## BUG-76: `DECISION` activities in a native `WORKFLOW` are unconditionally storage-corrupted — mxcli writes the outcome label as a raw string into a field that must be a real `EnumerationValueIdentifier`, on every DECISION regardless of the underlying expression's type
 
+> **RETESTED on v0.24.0 / Mendix 11.13.0, 2026-09-26 (a card-disbursement requirements-driven build) — the entry has split in two.** (1) **Enum half: guarded, not fixed.** A `DECISION` on an enumeration attribute with bare outcome labels is now refused before the write by `MDL-WF03` ("decision outcome '…' is not fully qualified"); `exec` refuses too. Forced with `exec --no-check` it still writes the unloadable model — native `mx check` rc 1, `StorageLoadException`. (2) **Boolean half: clean for the keyword form.** `decision N '$WorkflowContext/Attr = ''X''' outcomes true -> { … } false -> { };` passes `check --references`, `exec` and native `mx check` at 0 errors, and `DESCRIBE WORKFLOW` reads the expression and both arms back. **Not re-run on v0.24.0:** the string-labelled `decision '1 = 1' outcomes 'OutcomeA' … 'OutcomeB'` repro below — keep the STOP rule for that shape until someone runs it. Skills updated: `learned-workflow-patterns.md` §8, `workflow-structure-rules.md` §11.
+
 > **CONFIRMED STILL OPEN on v0.21.0 — CRITICAL, verified 2026-09-14 with the byte-exact original signature: `StorageLoadException … The text 'OutcomeA' is not a valid EnumerationValueIdentifier`, project unloadable by mxbuild. Keep the STOP rule: no DECISION activities in CREATE WORKFLOW via mxcli.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 > **CONFIRMED STILL OPEN on v0.20.0 — CRITICAL, verified 2026-08-31 with the byte-exact original signature: `StorageLoadException … The text 'OutcomeA' is not a valid EnumerationValueIdentifier`, project unloadable by mxbuild. Keep the STOP rule: no DECISION activities in CREATE WORKFLOW via mxcli.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).
@@ -2837,6 +2855,16 @@ spelling; (2) give `DECISION` an expression clause.
 ## BUG-77: BUG-75's "create/change attribute values are safe" scope claim is wrong — quoted attribute segments (`$Var/"Attr"`) DO cause CE0117 in create/change statements too, just not consistently
 
 **NOT REPRODUCED (mxcli v0.21.0) — retested and archived 2026-09-14, see [archive-resolved-2026-09-14.md](archive-resolved-2026-09-14.md) and [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).**
+
+> **REPRODUCED on v0.24.0 (2026-09-26), with one trigger isolated.** A card-disbursement
+> requirements-driven build (Mendix 11.13.0) hit CE0117 at mxbuild, `check` green, twice. (1) A
+> quoted member in an expression, `$Req/"ClientId"`: CE0117 "the '"<Attr>' part is incomplete",
+> the quote surviving into the expression text; unquoted it built. (2) A `change $X ( … )` whose **closing paren stood on a line of
+> its own**: only the **last** assignment kept its quoted names verbatim, every other assignment in
+> the statement was stored clean, and moving the paren up onto the last assignment's line built at
+> 0 errors. Line layout alone explains this entry's "two of three activities failed" and the clean
+> v0.21.0 blank-app probe, though only the change form was isolated. The rule stands: never quote a
+> segment of `$Var/Attr`, in any statement.
 
 ## BUG-78: CE0161 on a reference-set-to-string-literal retrieve WHERE clause (`where [Assoc = 'Value']`) — fixed by comparing the association to a retrieved object instead
 
@@ -3071,6 +3099,15 @@ refuses elsewhere.
 ## BUG-92: `ALTER PAGE INSERT` silently no-ops against a wrong-but-plausible anchor, and drops the whole INSERT on an empty caption — both can leave invisible orphaned duplicate widgets
 
 > **NOT RETESTED this round (v0.21.0, 2026-09-14) — the multi-trap repro (customContent-column anchor, empty-caption drop, then a 5-retry sequence to expose orphaned duplicates via native mxbuild CE0495) needs more fixture-building time than this round had.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
+
+> **v0.24.0 (2026-09-27): a wrong column name now fails loudly and names the rule (Trap 1's
+> addressing half).** On a card-disbursement requirements-driven build (Mendix 11.13.0),
+> `alter page … on colCase` against a Data grid 2 column was refused with: *"widget "colCase" not
+> found. DataGrid2 columns are addressed by a derived name (the bound attribute, or the caption),
+> not the name written in MDL — available columns: Case, Client, Package___channel, State,
+> Deadline, Updated (run DESCRIBE PAGE to confirm)"*. Spaces and slashes in a caption become `_`
+> runs (`Package / channel` → `Package___channel`). Address the column by a name from that list.
+> Traps 2 and 3 were not retested.
 
 **Severity:** High — the actually-costly failure mode is not the no-op itself but that repeated
 retries against it leave orphaned duplicate widgets invisible to `DESCRIBE PAGE`, which native
@@ -3746,6 +3783,8 @@ free-text outcomes are unaffected; only the enumeration path is wrong.
 
 ## BUG-109: `JUMP TO` inside a boundary-event body writes a Jump with no Target, named after its own target
 
+> **NO LONGER REPRODUCES on v0.24.0 / Mendix 11.13.0 — retested 2026-09-26 (a card-disbursement requirements-driven build).** An **interrupting** boundary timer whose body calls a microflow and then does `jump to <earlier activity>;` passes `check --references`, `exec` and native `mx check` at 0 errors, and `DESCRIBE WORKFLOW` reads back a real jump to that activity — not a jump named after it. The same boundary ending in `end workflow comment '…';` also builds clean. Upstream `825873d6` (in v0.21.0) fixed the jump-named-after-its-target defect (`learned-workflow-patterns.md` §25); v0.21.0–v0.23.x were not retested for this shape. The dangling-target half (#1005) is a separate shape and was not part of this retest. Skills updated: `workflow-structure-rules.md` §11, `learned-workflow-patterns.md` §19.
+
 **Severity:** High — the only legal terminator for an interrupting boundary event is unusable
 **mxcli version:** v0.20.0 (2026-08-28)
 **Mendix version:** 11.14.0
@@ -4325,6 +4364,21 @@ working copies) is additionally needed, and only for SDK-driven model edits.
 ## BUG-117: Widget-property writer silently drops any unsupported property name, on any widget type, with no MDL-WIDGET07 warning
 
 > **STILL OPEN (narrowed) on v0.21.0 — verified 2026-09-14: v0.21.0 fixed only the two properties this ledger's own upstream note named (`editable`/`contentparams` — MDL-WIDGET20/21). The general case is unfixed: a LISTVIEW with `PageSize: 1, Pagination: buttons, PagingPosition: bottom` still drops `Pagination`/`PagingPosition` silently — only `PageSize` (a real LISTVIEW property) survives `DESCRIBE PAGE`, with no MDL-WIDGET07 warning at check time.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
+
+> **v0.24.0 field instances (2026-09-26, a card-disbursement requirements-driven build, Mendix
+> 11.13.0).** Accepted by `check` and `exec`, absent after the write:
+> - pluggable **Gallery** `ShowPagingButtons: 'auto'` (the key as `describe` prints it) — the
+>   widget's BSON still says `always`, so an empty gallery draws "Currently showing 0 to 0 of 0"
+>   and four page buttons. Silent at every rung. The schema's camelCase key
+>   (`showPagingButtons: 'auto'`) passes `check` and then fails mxbuild with CE0463 "The
+>   definition of this widget has changed". Read the value back from the unit before believing it.
+> - **image** `imageIcon`, **text box** `ReadOnlyStyle: Text` (renders a disabled input instead),
+>   **combobox** `clearable: false` — these three at least raise lint **MDL-WIDGET06** after exec.
+>   An icon-only image widget cannot be written at all: without an image it is MDL-WIDGET22.
+>
+> Workarounds used: hide the empty gallery's footer from the theme
+> (`.widget-gallery:has(> .widget-gallery-empty) > .widget-gallery-footer`); read-only-as-text is a
+> label over a `form-control-static` text; the icon is a CSS mask on a class.
 
 **Severity:** High — a silent drop that passes `check --references`, `exec` AND native `mx check`; only the running app shows it
 **mxcli version:** a pre-v0.20.0 build (discovered 2026-08-25; v0.20.0 shipped 2026-08-28) — **NOT RETESTED on v0.20.0; retest before filing**
@@ -5091,6 +5145,10 @@ never applied. A one-line property tweak therefore leaves a two-page script half
 
 **Also note:** `DESCRIBE PAGE` does not round-trip `PageSize` at all — the property is absent from
 the dump — so you cannot read the current value back out of the model to confirm what you set.
+Same on v0.24.0 for a **list view inside a snippet**: `describe snippet` omits `PageSize: 20`
+although the unit's BSON holds it (int32 20) and the page renders 11 of 11 items with no "Load
+more" (a card-disbursement requirements-driven build, 2026-09-25). Confirm from the unit or by
+counting rendered items.
 
 **Workaround:** re-emit the whole page with `create or modify page`, changing only the one value.
 That is what `87b` does, and why a two-value edit is a 190-line script.
@@ -5499,6 +5557,456 @@ and render it in `DESCRIBE MICROFLOW` so the round trip does not silently flip i
 callee's flag is readable in the model.
 ---
 
+## BUG-141: workflow condition outcomes are written without a `PersistentId` — every instance paused after a decision turns `Incompatible` on the next deploy, even one that changes nothing
+
+> **NOT YET FILED** — paste-ready draft in `bug-logs/pending-github-issues/bug141-condition-outcome-no-persistent-id.md`; the fix and its test, proven on a live restart, are in `bug-logs/pending-github-issues/bug141-fix.patch`.
+
+**Severity:** High for anything going live. It is silent on every static rung, and it strands
+real work in production: the in-flight instances stop and need an admin. It does not block a
+demo, because a demo stays inside one deploy.
+**mxcli version when found:** v0.24.0. Still open on upstream `main` at 9509176 (2026-09-26).
+**Mendix version:** 11.13.0
+**Discovered:** 2026-09-26, a card-disbursement requirements-driven build. The case workflow
+had two call-microflow tasks with outcomes (one Boolean, one enumeration) ahead of its user tasks.
+Both those and a workflow `DECISION` go through the same outcome writer.
+**Reproducible:** yes, three times in one day on the same model, with three different deploys
+(below).
+
+### Summary
+
+`conditionOutcomeToGen()` in `mdl/backend/modelsdk/workflow_write.go` writes
+`Workflows$BooleanConditionOutcome`, `Workflows$EnumerationValueConditionOutcome` and
+`Workflows$VoidConditionOutcome` with no `PersistentId`. The same file gives one to every
+activity, to `UserTaskOutcome` (`userTaskOutcomeToGen`) and to `ParallelSplitOutcome` through
+`addFreshPersistentID(g)`. The runtime's workflow metamodel builds
+`ModelBooleanConditionOutcome(id, value, persistentId, flow, container)`, so it needs one. With
+none stored, the outcome gets a new identity every time the model loads.
+
+A running instance records which outcome it took. After the next deploy that outcome no longer
+exists under the recorded identity, so the engine marks the instance **`Incompatible`**:
+*"A selected outcome has been replaced in the already executed path."* That hits every instance
+paused **after** a decision, which in most workflows is every instance waiting at a user task.
+
+### What it takes to see it
+
+Nothing on the static ladder sees it. `check --references`, `exec`, `DESCRIBE WORKFLOW`, lint,
+mxbuild and native `mx check` are all clean, and every journey passes, because a journey starts
+and finishes its instances inside one run. It shows only when an instance **outlives a
+restart**.
+
+### Evidence
+
+1. **Three live reproductions** (`mxcli run --local`, HSQLDB, Mendix 11.13.0). Each case was
+   started, left `InProgress` at the user task after the decision, and then:
+   - the app was **restarted with no model change at all** (workflow unit byte-identical). The
+     case came back `Incompatible`;
+   - a second case went through a redeploy that **changed only unrelated page documents**. It
+     came back `Incompatible`;
+   - a third went through a redeploy whose only change was **one date format on a dashboard page**. It came back
+     `Incompatible`.
+2. **The stored unit.** A BSON dump of the workflow document shows `PersistentId` on every
+   activity and on every `UserTaskOutcome`, and on **none** of the condition outcomes.
+3. **The runtime needs it.** `com.mendix.workflows-metamodel.jar` (11.13.0 runtime bundle)
+   constructs `ModelBooleanConditionOutcome(id, value, persistentId, flow, container)`.
+4. **The writer.** `workflow_write.go` on `main` 9509176: `conditionOutcomeToGen()` (line 649)
+   returns all three outcome elements without calling `addFreshPersistentID(g)`. Its neighbours
+   do call it: `userTaskOutcomeToGen` (line 639) and the `ParallelSplitOutcome` loop in
+   `parallelSplitToGen` (line 573). The helper is at line 778.
+
+### Fix (upstream)
+
+Add one line in each of the three cases, before `return g`:
+
+```go
+addFreshPersistentID(g)
+```
+
+`Workflows$BooleanConditionOutcome.PersistentID` is already declared in
+`generated/metamodel/types.go`, so no metamodel change is needed.
+
+**Patch proven, 2026-09-27.** The ready-to-apply commit, with a regression test, is
+`bug-logs/pending-github-issues/bug141-fix.patch` (`git am` on `main` 95091765). The test fails
+on all three outcome types without the fix and passes with it; the `modelsdk` and
+`modelsdk/canon` packages stay green. Field run, on the same card-disbursement model, with
+v0.24.0 plus the three lines:
+- **Stored unit:** condition outcomes carrying a `PersistentId` went from 0/30 to 30/30. Native
+  `mx check`: 0 errors.
+- **Runtime:** an instance paused at a user task after the decisions stayed `InProgress` across a
+  restart with no model change. The released binary turns the same instance `Incompatible`
+  (Evidence 1). After the restart it took its next REST call and ran to `Completed`
+  (`NewOpening` → `AccountsOpened` → `ContractPrinted`).
+
+**Re-running a workflow script does not re-mint IDs.** This was the open question; it is now
+measured. Upstream's `canon.CarryPersistentIDs` pairs the rewritten unit with the stored one and
+keeps the existing IDs. `create or replace workflow` with the patched binary kept all 54 IDs the
+released binary had written and added the 30 new ones. A second re-run kept 84/84. So adopting
+the fix costs one re-ID of the condition outcomes, on its first write: instances already past a
+decision at that deploy go `Incompatible` once. The IDs are stable from then on.
+
+### Workaround
+
+None in MDL. There is no syntax that sets a `PersistentId`. Do not hand-patch the unit either:
+that bypasses `exec.sh`'s gate, and the next `create or replace workflow` drops the patch. A
+project may build mxcli with `bug141-fix.patch` and write its workflow scripts with that binary,
+but only while no instances need to survive the one re-ID described above.
+
+Until upstream ships the fix, plan for it:
+- the app's workflow admin page lists **`Incompatible`** instances and gives an admin a way to
+  handle them (abort, restart, or move them on with a jump-to);
+- every screen that routes to an instance's task handles an instance that has no open task
+  (open the case, not a dead end);
+- a go-live plan either drains in-flight instances before each deploy or accepts the admin step.
+
+Detection-gap register: `skills/learned-detection-gaps.md` (the row that cites BUG-141).
+
+---
+
+## BUG-142: `ContentParams` on v0.24.0 — any value other than a bare attribute or a quoted literal is stored as an attribute path (CE1613 at mxbuild); `check` refuses the parenthesised forms and passes `if … then … else`
+
+**mxcli:** v0.24.0 (f18c307) · **Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-26, a card-disbursement requirements-driven build: twice on a list-view
+snippet, then again on a form's payload preview, each time `check` green and exec.sh's mxbuild
+gate red.
+**Reproducible:** yes. A five-form probe on a scratch copy of the model, `mx check`.
+**Supersedes the fix BUG-23 taught.** BUG-23's v0.21.0 retest covered only the `$currentObject/`
+prefix. The `toString(Attr)` form it prescribed now fails both check and mxbuild.
+
+| `ContentParams` value | `mxcli check --references` | mxbuild |
+|---|---|---|
+| `CaseRef` (bare attribute) | clean | clean |
+| `'literal'` | clean | clean |
+| `toString(CreditLimit)` | error: "looks like an expression, and MDL cannot author an expression-typed template parameter yet — an unquoted value is stored as an attribute" | CE1613 |
+| `toString($currentObject/CreditLimit)` | error (same) | CE1613 |
+| `if IsUrgent then 'x' else 'y'` | **clean** | CE1613 "The selected attribute '<Module>.<Entity>.ifIsUrgentthen'x'else'y'' no longer exists." |
+
+**Cause, from source.** `mdl/visitor/visitor_page_v3.go:1232` takes `expr.GetText()`, and ANTLR
+joins the tokens with no whitespace. Then `mdl/executor/cmd_pages_builder_v3_widgets.go:836-846`
+sends every unquoted value to `resolveTemplateAttributePathFull`. So no parameter is ever typed as
+an expression. The refusal in `check` is a heuristic that looks for a parenthesis. The one tell
+before mxbuild: `describe` prints the stored value with its spaces stripped.
+
+**A Boolean bound bare builds, but it renders the runtime's display text** ("Yes"/"No"), not
+`true`/`false`. So no single text can print a JSON boolean.
+
+**Workaround.** Make the per-row label data: a stored or derived String attribute, bound bare.
+Tone variants go in `DynamicClasses`, which does take an expression. For a literal boolean, use two
+texts holding `true` and `false`, each shown by visibility on the attribute. This is
+`learned-mdl-preflight.md` STOP row 12.
+
+---
+
+## BUG-143: `theme` tooling on v0.24.0 — the seeder reads class-scoped tokens, and the generated Atlas map leaves five things for a design port to fix by hand
+
+**mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-25, a card-disbursement requirements-driven build. Found at the
+StyleGallery LOOK by comparing computed styles pairwise with the design system.
+**Reproducible:** yes. Row 1 is an A/B seed on a scratch app. Rows 2–6 are reads of the
+generated `_mxcli-atlas-map.scss` plus computed-style probes.
+
+| # | Where | What happens | Workaround |
+|---|---|---|---|
+| 1 | `theme create --from <css>` | Reads `--mxt-*` declarations **anywhere** in the file, class-scoped blocks included (`.density-compact { --mxt-row-height: 34px }`), and the last one wins. A compact-density recipe reseeded the row height from 44px to 34px. With that line removed, the re-seed gave 44px and 0 mismatches over 71 tokens, light and dark. | Declare `--mxt-*` only in `:root {}` and `:root.theme-dark {}`. Recipes use Atlas variables or the design system's own prefix. |
+| 2 | Atlas map | `--topbar-bg` and `--topbar-border-color` are sent to the rail token, and there is no `--mxt-topbar`. A light topbar over a dark rail cannot be expressed through tokens. | Override the two Atlas variables in the project stylesheet. |
+| 3 | Atlas map, "Atlas fixups" block | Paints the topbar language selector with the rail's ink (`--mxt-rail-ink-active`) at specificity (0,3,0), assuming a dark topbar. On a light topbar it is white on white: `.current-language-text` computed `rgb(255,255,255)` on `#ffffff`. The rule sits inside the generated fence. | Override outside the fence at (0,4,0). |
+| 4 | Atlas map | Binds `--btn-primary-bg` to `--mxt-brand` but leaves `--btn-danger-bg` (and success/warning) on Atlas's derived shade. A Danger button rendered `#971b1f` against the token's `#b91c1c` while every token read correct. | Bind `--btn-<intent>-bg`, `-border-color` and `-bg-hover` to the token in all three scopes. |
+| 5 | map and recipes | No knob for button geometry. `.btn`, `.btn-sm` and `.btn-lg` stay Bootstrap 3: 40/34/45px tall, 12px text on sm, 3px radius. 9 of 9 gallery buttons differed from the wireframe, and 9 of 9 matched after porting. | Port `.btn`, `.btn.btn-sm` and `.btn.btn-lg` by hand. |
+| 6 | `theme switcher install` | Ships no execute grants, so the button renders disabled or hidden for a role that cannot run the nanoflow. Nothing re-applies the stored choice on page load, so a reload returns to the OS theme (the tool's own note says so). | Grant the nanoflows. Apply the stored choice from a pre-boot script in the theme's `index.html`. |
+
+**Upstream fix.** Seed only from the root and dark blocks. Derive the fixup ink from the topbar
+token. Bind every `--btn-<intent>-*` the map has a token for. Add a topbar token.
+
+---
+
+## BUG-144: `create user role` writes a role without `CheckSecurity`, `GUID` and three other keys — mxbuild then skips that role's security consistency check
+
+**mxcli:** v0.24.0 (`mdl/backend/modelsdk/security_write.go`, `AddUserRole`) · **Mendix:** 11.13.0 ·
+**Not filed upstream.**
+**Discovered:** 2026-09-25, a card-disbursement requirements-driven build.
+**Reproducible:** yes. BSON decode of the project security unit, comparing the template's
+`Administrator` with five mxcli-created roles, plus `SHOW USER ROLES` before and after a patch.
+
+A new user role is written with `$ID`, `$Type`, `Name`, `ModuleRoles` and `ManageAllRoles` only.
+Studio Pro also writes `CheckSecurity`, `GUID`, `Description`, `ManageableRoles` and
+`ManageUsersWithoutRoles`. The missing keys have three effects:
+
+1. `SHOW USER ROLES` reads "Check Security: No", and mxbuild skips the per-role consistency check.
+   A "role has no access" error cannot appear for any role mxcli created, so a clean build proves
+   less than it seems to.
+2. The role has no `GUID`, and the runtime keys `System.UserRole` on it.
+3. `drop` + `create` gives the role a new identity. A re-runnable script must use
+   `create or modify user role`.
+
+**Workaround used.** A post-exec fixup adds the missing keys, using `GUID = $ID` (mxcli's convention
+for elements it creates). It is idempotent and never touches a role that already has the keys.
+After it ran, mxbuild reported 0 errors, a second exec kept the patch, and sign-in was proven per
+role at runtime. A unit patch sits outside exec.sh's gate, so run the fixup's check after every
+exec that touches security. The fix belongs upstream in `AddUserRole`.
+
+---
+
+## BUG-145: entity-access `grant` merges into an existing rule, so a narrowing grant narrows nothing — and `(read *)` writes no member access for the audit system members
+
+**mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-25, a card-disbursement requirements-driven build.
+**Reproducible:** (a) yes, `SHOW SECURITY MATRIX` before and after. (b) yes, a BSON count of
+`MemberAccesses` per access rule against `SHOW ENTITIES`.
+
+**(a) Merge.** Start with a role that holds `(create, read *, write *)` on an entity. Running
+`grant R on M.E (read *)` leaves CREATE and WRITE in place: the matrix still reads CRW, and lint
+CONV006 stays raised. After `revoke R on M.E;` and the same grant, the matrix reads R. A
+re-runnable script that narrows access must revoke first. The safe pattern in
+`learned-mdl-preflight.md` STOP row 14 (revoke every role, then re-grant every role) already does
+this.
+
+**(b) System members.** `*` writes one member access for each user attribute and each owned
+association, and none for `Owner`, `ChangedBy`, `CreatedDate` or `ChangedDate`. mx check and
+mxbuild report 0 errors. **Unproven:** whether the runtime then denies a non-admin read of those
+members. Before binding one for a non-admin role, prove the read in that page's LOOK. If it is
+denied, grant the member explicitly and update this entry.
+
+---
+
+## BUG-146: `mxcli diff` reports false modifications on an already-applied script, and a multi-line doc comment can read as a dropped attribute
+
+**mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-25, a card-disbursement requirements-driven build, re-running `diff`
+right after a script's first exec.
+**Reproducible:** yes. The line diff, `SHOW STRUCTURE` and `DESCRIBE` after a second exec all show
+the model unchanged.
+
+`learned-mdl-preflight.md` STOP row 23 says to read the `-` lines of `diff --format struct` before
+every exec. On v0.24.0, the following show up on a model the script has already produced:
+
+- Every `String(unlimited)` attribute is shown as changed, because the script side prints plain
+  `String`.
+- An unchanged enumeration shows `~ Modified`, because the current side prints its name without
+  the module (`create enumeration .Kind`).
+- An entity whose only difference is a model-side `@Position` shows `~ Modified`.
+- The four audit system members print as `Unknown` on the script side, although exec writes them
+  correctly.
+- Grant statements are "not compared" at all.
+- **A `/** … */` entity doc comment whose second line has no leading ` * ` is parsed as an
+  attribute.** A script that dropped nothing showed `- Attribute Named X, not Y`, which is a false
+  STOP-23 alarm. The line diff and a post-exec `DESCRIBE` both listed every attribute.
+
+The real changes (two added validation rules) were in the same list. So: read the line diff
+(`diff` without `--format struct`) before trusting a `~ Modified`. Check every `- Attribute` name
+against `DESCRIBE ENTITY` before either trusting or dismissing it. Verify grants with
+`SHOW SECURITY MATRIX` after exec. Write doc comments on one line, or with ` * ` on every line.
+
+---
+
+## BUG-147: `check --references` and `exec` disagree about documents the same script creates — a forward `call microflow` passes check and half-applies at exec; an `ALTER PAGE` naming something created earlier in the script is refused before exec
+
+**mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-25 and 2026-09-26, a card-disbursement requirements-driven build. Each
+direction was hit three times.
+**Reproducible:** yes.
+
+**(a) A forward call passes check and fails part-way through exec.** Take a microflow that calls
+one defined **later** in the same script. `check --references` passes it. `exec` writes every
+statement before the caller, then refuses the caller with "defined later in this script — move
+its create statement before this one" or "microflow not found in the project". On one run the
+partial application then failed mxbuild with CE0117 ×8. exec.sh's snapshot restored the model; a
+bare `mxcli exec` leaves the partial model in place. **Rule: callees before callers, in every
+script.**
+
+**(b) An `ALTER PAGE` that names something the same script creates is refused before exec.**
+`check --references` resolves an `ALTER PAGE`'s target page, and the microflow or nanoflow behind
+a re-pointed action, against the model **before the script runs**. So a script that creates page
+B (or microflow M) and then alters page A to link to it is refused, although exec would apply it.
+exec.sh runs that check first, so the whole script is refused. **Rule: split it into a create
+script and an alter script.** The second depends on the first, and its header says so.
+
+**Expected.** `check` should resolve references in script order, against the model plus
+everything created earlier in the script. `exec` should validate forward calls before writing
+anything.
+
+---
+
+## BUG-148: a quoted enumeration literal as the LAST member of a `create` member list draws E007 at `check`
+
+**mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-25 and 2026-09-26, a card-disbursement requirements-driven build. Three
+hits: an enumeration default in a `create entity` attribute list, and two microflow
+`create <Entity> ( … )` member lists.
+**Reproducible:** yes. Three scratch scripts that differ only in the member's position and quoting
+gave 1 warning, 0 and 0.
+
+A fully quoted literal as the last member, such as `"Owner" = "Mod"."Enum"."Value"`, draws "Unrecognised
+tokens at this position. The parser skipped to the next safe boundary so the rest of the
+expression could be parsed … [E007]". The same literal earlier in the list is clean. So is the
+literal unquoted in the last position (`Mod.Enum.Value`).
+
+- In a microflow `create`, E007 is a **warning printed above "Check passed!"**, and exec writes
+  the right value.
+- In a `create entity` attribute list it failed the check.
+
+**Workaround.** Write the literal unquoted, or put another member last. Also, a warning printed
+under a passing check is not necessarily about your script's logic.
+
+---
+
+## BUG-149: `check` and `lint` rules that misfire on v0.24.0, and four constructs `check` passes that mxbuild refuses
+
+**mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-25 to 2026-09-26, a card-disbursement requirements-driven build.
+**Reproducible:** each row was measured on its own, either as the lint delta of one exec or as a
+check/mxbuild A/B.
+**Why these are collected in one place.** `exec.sh` runs the lint ratchet after every clean
+mxbuild. A false positive therefore surfaces as `LINT ROSE`, and the only way past it is a
+baseline entry with a reason. This list is where that reason comes from.
+
+**False positives and misses:**
+
+| Rule | What happens | Do this |
+|---|---|---|
+| **E001** (check) | An enum attribute assigned from `if $Raw = '9999' then Mod.Enum.A else …` is reported once per string literal, as "comparing or assigning an Enumeration attribute against a string literal". The comparison is String against String. | Map the string to an Integer first (`declare $Kind Integer = if $Raw = '9999' then 1 else …`), then branch on it in the enum assignment. That passed check, exec and mxbuild with 0 errors. |
+| **E006** (check) | Refuses `parseDateTime(value, pattern, default)` as a wrong argument count. Mendix supports the three-argument form. | Guard the input with `isMatch`, then use the two-argument parse. |
+| check, reference stage, on a `.test.mdl` | Flags every test as "module not found: MxTest", because `mxcli test` creates that module at run time. 19 of 19 statements were flagged, so a real reference error would hide among them. | For test files, read only the syntax and lint stages of `check`. Those stages still caught a real MDL063 duplicate variable. |
+| **CONV013** (lint) | A Java action call or a `rest call` with a custom handler (`on error without rollback { … }`) is reported as "uses '' error handling instead of Custom". The unit holds `ErrorHandlingType: CustomWithoutRollBack`. | Add a baseline entry that cites this row. |
+| **MPR002** (lint) | A microflow whose whole body is one `return <expression>` is reported as an empty stub. This is often deliberate, for example a route that stands in for a workflow `DECISION` (BUG-76). | Add a baseline entry, with the reason in the script header. |
+| **MDL-WIDGET15** (lint, info) | Adjacent inline dynamictexts are flagged as "text concatenates" even inside a flex row with a gap (`hstack`), where they cannot touch. The rule does not read the parent's class. | None needed. Measure the gap in the LOOK. |
+| **MDL-WIDGET31** (lint) | Flags inputs in a read-only container, but checks only native inputs. It missed a pluggable Switch. | Also see the platform half: a list view that is not `Editable` (mxcli's default) makes every input inside it read-only, including inputs in a **nested** list view whose own `Editable` is true. Set `Editable: true` on every list view on the path to the input. |
+| **MPR006** + **MDL-WIDGET03** | An empty CONTAINER lints MPR006 ("will crash at runtime"). Moving its inline `Style` onto a child Text fails MDL-WIDGET03, because a dynamictext cannot carry an inline Style. That leaves exactly one legal shape for a styled empty element (a colour chip, a rule line). | Use a container that carries the class and Style and holds one Text with empty content. In one field run, 43 specimens took lint from +37 back to baseline and rendered correctly. |
+
+**`check` passes, mxbuild refuses (exec.sh's gate catches these; a bare exec does not):**
+
+| Construct | mxbuild | Do this |
+|---|---|---|
+| `get workflows for $X` on an entity that no workflow yet uses as its context | CE1870 "the selected workflow context is not used by any workflow" | Stub the helper, and write its body in the same step as the workflow. |
+| `millisecondsBetween(…)` assigned to an Integer attribute | CE0117 (the function returns Decimal) | Wrap it in `round()`. |
+| An **entity** named with a Mendix reserved word (`Case`), quoted or not | CE7247 "The name 'Case' is a reserved word" | Qualify the name. `mxcli syntax domain-model keywords` lists MDL's parser keywords, not Mendix's reserved names. See the reserved-word row in `learned-detection-gaps.md`. |
+| A JSON structure key named `CONTEXT` | CE9524 at `mx check` only | `custom name map ('CONTEXT' as 'ApprovalContext')`; the wire key stays `CONTEXT`. Only `CONTEXT` was probed. Other reserved-looking keys may behave the same way. |
+
+---
+
+## BUG-150: bundled Data grid 2 and filter widget definitions on v0.24.0 — fixed values that break slots and filters, a project override that `refresh catalog` reverts, and control-bar attributes resolved against the grid's entity
+
+**mxcli:** v0.24.0 (`datagrid.def.json` and the text and drop-down filter definitions) ·
+**Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-25, a card-disbursement requirements-driven build, building one Data
+grid 2 for the StyleGallery.
+**Reproducible:** yes, through exec.sh's mxbuild gate, `describe page`, and the rendered DOM.
+
+1. **`RowClass`** is listed as a known property but is not mapped. `check` accepts it, exec drops
+   it, and rows get no dynamic class (no risk, flag or selected-row states). The native
+   `DATAGRID`'s `DynamicRowClass` is a separate gap, covered in `learned-dg2-patterns.md`.
+2. **`showEmptyPlaceholder`** is fixed to `none`, so an `emptyplaceholder` slot fails mxbuild
+   with CE0463. **`showNumberOfRows`** must stay unset under button paging, because the property
+   is hidden there and any set value is CE0463.
+3. The **text and drop-down filters** fix `attrChoice` to `auto`, which only resolves inside a
+   grid column. A filter in the grid's control bar needs `linked`. The drop-down filter definition
+   also maps an `attributes` key the widget does not declare, so no attribute reaches it. It leaves
+   `emptySelectionCaption` unmapped, so the closed picker says "Select".
+4. **Project widget definitions** (`.mxcli/widgets/`):
+   - (a) Every file needs a `generatorVersion` at least as high as mxcli's own. Otherwise mxcli
+     regenerates the whole folder on every run.
+   - (b) An mpk-generated `<name>.def.json` patched in place is silently reverted by
+     `refresh catalog`, which exec.sh's lint pass runs.
+   - Put the patch in a **sibling** file instead (`datagrid_project.def.json`, which sorts after
+     the stock file; the same `mdlName` wins). Rebuild it from the stock file with a staleness
+     check, so a stock update cannot go unnoticed.
+5. **A bare attribute name in a widget in the grid's control bar** is resolved against the
+   **grid's** entity, although at runtime the context there is the enclosing data view's object.
+   mxbuild fails with CE1613. Inside the control bar, name the data view's attributes fully
+   qualified. For buttons there, see `learned-page-patterns.md` → control-bar buttons.
+
+---
+
+## BUG-151: `rest call … body $Var` sends the literal text `$Var`, not the variable's value
+
+**Severity:** High. The payload is wrong and nothing says so: `check`, exec and mxbuild are green.
+**mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-26, a card-disbursement requirements-driven build, on an outbound
+integration.
+**Reproducible:** yes. On a scratch copy, a BSON read of the `RestCallAction` body template after
+each form, plus `DESCRIBE`.
+
+The bare-expression body form writes a StringTemplate whose text is `$Var` and whose parameter
+list is empty. The endpoint therefore receives the characters `$Var`.
+`body '{1}' with ({1} = $Var)` round-trips correctly. **Write the template form only.**
+
+---
+
+## BUG-152: published REST services, mappings and Java actions on v0.24.0 — an auth property that is ignored, a resource list that is replaced, doc comments that never land, and a `check` crash
+
+**mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-26, a card-disbursement requirements-driven build, building a mock
+service and its callers.
+**Reproducible:** yes, on scratch copies (`describe` read-back, BSON reads, lint deltas).
+
+1. **No authentication clause.** `create published rest service` has none. An `Authentication:`
+   property passes `check` and is silently ignored: the service is written without auth, and
+   every call reaches the operation microflow unauthenticated. `describe` shows no auth.
+   Authenticate inside the operation microflow instead. Then prove it at runtime: no credentials
+   and a wrong password must each answer 401.
+2. **SIGSEGV in `check`.** An UNQUOTED value on an auth-like service property crashes `check`
+   instead of raising a parse error. Quote every property value.
+3. **`create or modify published rest service` REPLACES the resource list.** A second run that
+   names only resource B leaves the service with B alone, and A is unpublished without a warning.
+   Two scripts that each declare their own resources on one service undo each other. One script
+   owns the service and names every resource.
+4. **Doc comments** (`/** */`) set documentation on microflows, entities and Java actions. Before an
+   import or export mapping, or a published REST service, they are silently ignored
+   ("already in sync"). Before a Java action parameter they are a syntax error. QUAL002 therefore
+   cannot be cleared for those from MDL. Add a baseline entry with the reason.
+5. **`import from mapping … ($Call/ResponseBody)` is a parse error** ("mismatched input '/'"). The
+   source must be a variable: `declare $Body String = $Call/ResponseBody;` then `($Body)`.
+6. **Import mappings, re-run.**
+   - `drop import mapping` on a mapping that does not exist stops the script, and there is no
+     `if exists`.
+   - `create or modify import mapping` over a JSON array with a nested
+     `create Assoc/Child = DATA { … }` is idempotent: two runs leave one mapping, and callers
+     still point at it. The nested child needs the `create` keyword.
+   - Drop + recreate orphans every import activity that calls the mapping (BUG-99). Extend the
+     mapping with `create or modify` instead.
+7. **Java action `Integer` parameter.** `create java action` generates it as `java.lang.Integer`.
+   Studio Pro's integer parameter arrives as `java.lang.Long`. The Integer form was not exercised
+   at runtime; declare `Long` until it is proven.
+
+---
+
+## BUG-153: `mxcli oql --direct` — `HAVING` without `GROUP BY` does not parse, and a date aggregate comes back in a form OQL cannot read back
+
+**mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-26, a card-disbursement requirements-driven build, in journey-runner seeds
+and data-rung queries.
+**Reproducible:** yes. Both failures made a journey rung report INVALID.
+
+1. **`HAVING` without `GROUP BY`.** `SELECT COUNT(…) … HAVING COUNT(…) = 2` fails with
+   "mismatched input 'HAVING'". For a seed that should return a row only when a precondition
+   holds, put the condition in the WHERE as a scalar subquery:
+   `… WHERE … AND (SELECT COUNT(x.ID) FROM M.E AS x) = 2`. That returns no row when the condition
+   fails, so the seed reports INVALID and never a feature FAIL.
+2. **Date aggregates.** `SELECT MAX(createdDate)` returns a Java `Date.toString()` string, which OQL
+   cannot parse back as a literal ("could not be parsed"). A "rows newer than the baseline"
+   watermark on a date therefore fails. Put the watermark on `ID` instead: it is numeric, monotonic
+   and round-trips.
+
+With `--json`, the array goes to stdout and the alpha banner to stderr, so parse stdout alone.
+`project-tests/e2e/helpers.js` already does.
+
+---
+
+## BUG-154: MDL surface gaps on v0.24.0 — missing `if exists` forms, and spellings the syntax reference does not state
+
+**mxcli:** v0.24.0 · **Mendix:** 11.13.0 · **Not filed upstream.**
+**Discovered:** 2026-09-25 to 2026-09-26, a card-disbursement requirements-driven build.
+**Reproducible:** yes. Each row is a `check` or exec result.
+
+| Written | What happens | Use |
+|---|---|---|
+| `drop enumeration if exists X` | Parse error. (`drop user role if exists` and `drop demo user if exists` do exist.) | Put the drop in a one-shot script. |
+| `drop snippet if exists X` | Parse error. `drop snippet X` works. There is no rename, and CONV005 wants the `SNIPPET_` prefix. | Create the new name, then drop the old one in a one-shot script. |
+| `drop import mapping X` when X is missing | Error; the script stops. There is no `if exists`. | Never drop a mapping that has callers (BUG-152 item 6). |
+| `DataSource: MICROFLOW Mod.DS_Name()` | Parse error at `(`. | `DataSource: MICROFLOW Mod.DS_Name` |
+| `max(a, b, c)` | "Provide 2 argument(s) for max()" | `max(max(a, b), c)` |
+| A backslash in a `'…'` literal | Escapes are processed: `\\` → `\`, `\n` → newline, `\t` → tab. | Spell a literal backslash as `urlDecode('%5C')`. |
+| A variable first assigned inside a `while` loop | "variable is not declared" at exec | `declare` it before the loop. |
+| `alter page … { set Url = '…'; }` | Works: check, exec and mxbuild pass, and the page opens at that URL. But `syntax page.alter` does not list `Url`. | Use it. The listing is incomplete, not the command. |
+
+---
 ## BUG-155: `alter page … set RenderMode` is refused on a dynamic text, though `create page` writes it — fix ready on a fork branch
 
 **Severity:** Low — loud refusal, clean workaround; costs a full widget restatement per heading-level change
@@ -5806,6 +6314,14 @@ gate-agent's "do not accept the rise with `--update-baseline`" rule needs this e
 two apart: an MPR008 whose two elements are a merge and the activity after a loop in an `if`
 branch is this bug, and the fix is the workaround above, not a baseline bump.
 
+### Second shape, same defect (v0.24.0, Mendix 11.13.0, 2026-09-26)
+
+Seen in a card-disbursement requirements-driven build. An error handler (`on error without
+rollback { … }`) that does **not** end in `return` merges back into the main flow, and the merge
+is placed on top of the next activity: lint MPR008 on a correct script. It showed up on exec 4
+of one script. After every handler was given its own `return`, the next exec had a clean mxbuild
+and MPR008 back at baseline. **Workaround: end every error handler with its own `return`**, so
+there is no merge to place.
 ## BUG-DRAFT-mpr012-assumes-react-client: lint MPR012 reports every legacy dynamic image as a React-client error (CE0582) on a Mendix 11 project that still builds for the Dojo client (2026-09-26)
 
 > **NOT YET FILED.**

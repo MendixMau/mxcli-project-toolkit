@@ -116,8 +116,8 @@ the same vacuity bug one level up.
 | `trace-order` | expect a microflow that never fires | span ORDER, not existence |
 | `trace-negative` | assert a microflow that *did* run must not have | the negative trace claim |
 | `data-delta` | expect +2 from a +1 action | the row-count delta |
-| `data-target` | `mustPointAt` a value never picked | the association *target* |
-| `outcome` | unreachable floor on the outcome query | the end-to-end claim |
+| `data-target` | `mustPointAt` a value never picked (numeric for a numeric key) | the association *target* |
+| `outcome` | unreachable `atLeast` or `expect` on the outcome query | the end-to-end claim |
 
 **A rung with no mutant is UNPROVEN, which is `fault` — never `pass`.** Same discipline as INVALID.
 
@@ -216,6 +216,8 @@ across runs, so a diff in the report means a diff in the project.
 | Two windows, one account | menu entries disappear mid-run, read as "role restriction" | One account per window; a menu that *loses* entries mid-run is never a role restriction |
 | `DEMO_SPEED` raised | four real-looking failures | It divides hand-tuned pauses too |
 | Seeds return nothing | whole journey INVALID | Usually a race: runner fired while the runtime was still warming. **INVALID, not FAIL** |
+| Seed with `HAVING` and no `GROUP BY` | "mismatched input 'HAVING'", journey INVALID | Put the precondition in the WHERE as a scalar subquery (`… AND (SELECT COUNT(x.ID) FROM M.E AS x) = 2`): no row when it fails, so INVALID, never a feature FAIL (BUG-153) |
+| "Newer than baseline" watermark on a date | `MAX(date)` comes back as a Java `Date.toString()` string that OQL "could not be parsed" | Put the watermark on `ID` — numeric, monotonic, round-trips (BUG-153) |
 | Raw `curl` to M2EE | "Authentication failed" | The scheme is not plain base64-in-a-header. Use the tool that works, and do not conclude an outage from your own broken client |
 
 ---

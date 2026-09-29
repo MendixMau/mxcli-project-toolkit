@@ -160,6 +160,25 @@ async function act(page, a, vars, note) {
       await el.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
       if (!(await el.isVisible({ timeout: 6000 }).catch(() => false)))
         throw new Error(`.mx-name-${a.widget} not visible`);
+      // Hit-test before the forced click. `force` skips Playwright's actionability check, so a
+      // click lands on whatever sits on top: a toast over the page's header actions swallowed
+      // a click and the step read as "the action did nothing" two steps later (card-disbursement
+      // build, row 5.6). A user's click lands there too, so a cover that outlasts an animation
+      // (5 × 250 ms) is the finding, named by its class.
+      let cover = null;
+      for (let t = 0; t < 5; t++) {
+        cover = await el.evaluate(n => {
+          const r = n.getBoundingClientRect();
+          const e = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          if (!e || n.contains(e) || e.contains(n)) return null;
+          const c = e.closest('[class]') || e;
+          return String(c.className || c.tagName).trim().split(/\s+/).slice(0, 3).join('.');
+        }).catch(() => null);
+        if (!cover) break;
+        await PAUSE(250);
+      }
+      if (cover)
+        throw new Error(`.mx-name-${a.widget} is covered by .${cover} — a click lands on that, not on the widget`);
       await el.click({ force: true }).catch(() => el.click());
       break;
     }
@@ -506,7 +525,12 @@ function controlMutants(j) {
     for (const s of c.steps) {
       for (const spec of (s.data && s.data.assocMustBeSet) || []) {
         if (spec.mustPointAt) {
-          spec.mustPointAt.value = '__LOC_THAT_WAS_NEVER_SELECTED__';
+          // A numeric key (Long/Integer) needs a numeric never-picked value: the text
+          // sentinel is an OQL error there, the targeted check reads INVALID instead of
+          // FAIL, and the rung is reported unproven over a working assertion
+          // (card-disbursement build, row 3.8: a Long package key).
+          spec.mustPointAt.value = /^-?\d+$/.test(String(spec.mustPointAt.value))
+            ? '-424242' : '__LOC_THAT_WAS_NEVER_SELECTED__';
           return;
         }
       }
@@ -515,9 +539,14 @@ function controlMutants(j) {
   }, named('points at the seeded'));
 
   // Rung 5 — the end-to-end outcome claim.
-  add('outcome', 'outcome query with an unreachable floor', (c) => {
-    if (!c.outcome || c.outcome.atLeast === undefined) return false;
-    c.outcome.atLeast = 999999;
+  // An exact `expect` is the stronger claim; the mutant once knew floors alone, so a
+  // journey declaring `expect` had this rung reported unproven (card-disbursement build,
+  // row 4.8).
+  add('outcome', 'outcome query with an unreachable floor or exact value', (c) => {
+    if (!c.outcome) return false;
+    if (c.outcome.atLeast !== undefined) c.outcome.atLeast = 999999;
+    else if (c.outcome.expect !== undefined) c.outcome.expect = 999999;
+    else return false;
   }, named('end state'));
 
   // The denominator is declared, not counted from whatever happened to be added.
@@ -695,7 +724,10 @@ async function runJourney(page, j) {
 
     // ── RUNG 2: ordered spans ────────────────────────────────────────────────
     if (step.spans && step.spans.ordered && step.spans.ordered.length) {
-      const spans = await O.capture(t0, { min: 1 });
+      // Wait for the claimed microflows, not just any span — see otel.js capture() `until`.
+      const claimed = step.spans.ordered;
+      const spans = await O.capture(t0, { min: 1,
+        until: sp => { const got = O.microflowNames(sp); return claimed.every(n => got.includes(n)); } });
       if (!spans.length) {
         record('trace', `${step.name}: spans`, 'INVALID',
                'zero spans captured — Jaeger down or OTel off. Trace rung did NOT run.', req);
@@ -792,12 +824,32 @@ async function runJourney(page, j) {
   }
 }
 
+// ── Exit code ───────────────────────────────────────────────────────────────
+// A walk passes when nothing FAILed and nothing was INVALID. A CONTROL run asks the other
+// question — can the harness tell when the app is broken — so its FAIL rows are the mutants
+// doing their job, and it passes only when every rung's mutant was caught (each `control`
+// row PASS, proven == expected, and at least one rung tried).
+//
+// MEASURED 2026-09-26 (card-disbursement requirements-driven build): the walk's rule was
+// applied to both runs. A control that proved 7 of 7 rungs exited 1 on its own 7 mutant
+// FAILs plus the INVALID a broken landing leaves downstream, so verify-module graded the
+// rung FINDING and the module INCOMPLETE on every run — a control rung that could not go
+// green, and so told the reader nothing when it went red.
+function runExitCode(positiveControl, results, mutants) {
+  if (!positiveControl) return results.some(r => r.verdict === 'FAIL' || r.verdict === 'INVALID') ? 1 : 0;
+  const ctl = results.filter(r => r.rung === 'control');
+  return mutants.expected > 0 && mutants.proven === mutants.expected
+    && ctl.length === mutants.expected && ctl.every(r => r.verdict === 'PASS') ? 0 : 1;
+}
+
 // ── Exports for the rung-4 scope unit test ──────────────────────────────────
 // The SQL builders are pure and exported so their behaviour can be proven against
 // fixture rows without a running app. See tests/e2e/journey-rung4-scope.test.js.
+// runExitCode is exported for tests/wave2/test-journey-control-exit.sh.
 module.exports = {
   sqlRowCount, sqlWatermark, whereScoped, scopeLiteral,
   sqlAssocTotal, sqlAssocLinked, sqlMustPointAt, captureScope, scopeEvidence,
+  runExitCode,
 };
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -917,6 +969,9 @@ if (require.main !== module) return;
       console.log('    Unproven is fault, not pass. Declare the missing claim on the journey,');
       console.log('    or accept that this rung has never been shown able to go red.');
     }
+    console.log(runExitCode(true, results, mutants) === 0
+      ? '  control verdict: PASS — every rung\'s mutant was caught; the FAIL/INVALID rows above are the mutants\''
+      : '  control verdict: FAIL — at least one rung is unproven; read the [control] rows above');
   }
 
   fs.mkdirSync(cfg.artifactsDir, { recursive: true });
@@ -939,7 +994,7 @@ if (require.main !== module) return;
   }, null, 2));
   console.log(`  findings → ${path.relative(cfg.root, out)}`);
 
-  process.exit(n('FAIL') === 0 && n('INVALID') === 0 ? 0 : 1);
+  process.exit(runExitCode(POSITIVE_CONTROL, results, mutants));
 })().catch(e => {
   console.error('ERR', e.stack?.split('\n').slice(0, 8).join('\n'));
   process.exit(1);

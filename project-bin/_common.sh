@@ -29,14 +29,19 @@
 _mxtk_resolve_root() {
   local self_parent d
   self_parent=$(cd "$(dirname "${BASH_SOURCE[2]:-${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}}")/.." 2>/dev/null && pwd)
-  # tier 2: the script sits in a real project's bin/
-  if [ -n "$self_parent" ] && ls "$self_parent"/*.mpr >/dev/null 2>&1; then
+  # tier 2: the script sits in a real project's bin/ (model at the root, or under app/ on a
+  # two-tree checkout — the same one-level probe find_mpr makes)
+  if [ -n "$self_parent" ] && { ls "$self_parent"/*.mpr >/dev/null 2>&1 || ls "$self_parent"/app/*.mpr >/dev/null 2>&1; }; then
     printf '%s\n' "$self_parent"; return 0
   fi
-  # tier 3: walk up from $PWD looking for the .mpr
+  # tier 3: walk up from $PWD looking for the .mpr (root or app/).
+  # WHY app/ (2026-09-26, card-disbursement requirements-driven build): on a two-tree checkout
+  # with no root .mpr, tiers 2 and 3 used to find nothing AT the project and kept climbing — and
+  # the first stray .mpr in any ancestor directory became PROJECT_ROOT. A scratch copy under a
+  # folder holding one unrelated .mpr pointed model-stamp.sh at that file and its hook passed.
   d=$(pwd)
   while [ "$d" != "/" ]; do
-    if ls "$d"/*.mpr >/dev/null 2>&1; then printf '%s\n' "$d"; return 0; fi
+    if ls "$d"/*.mpr >/dev/null 2>&1 || ls "$d"/app/*.mpr >/dev/null 2>&1; then printf '%s\n' "$d"; return 0; fi
     d=$(dirname "$d")
   done
   # nothing found: keep the old behaviour so the caller's own error is the one seen

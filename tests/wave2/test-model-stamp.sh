@@ -83,5 +83,35 @@ before="$(cat .claude/settings.json)"; "$TK/bin/install-claude-permissions.sh" "
 "$TK/bin/install-claude-permissions.sh" "$P" --uninstall >/dev/null
 "$py" -c "import json,sys;d=json.load(open('.claude/settings.json'));cmds=[h['command'] for g in d['hooks']['SessionStart'] for h in g['hooks']];sys.exit(0 if d['permissions'].get('deny',[])==[] and cmds==['sh .claude/bootstrap-mxcli.sh || true'] and d['permissions']['allow'][0]=='Bash(./mxcli:*)' else 1)" && ok "uninstall removes only what it added" || bad "uninstall wrong: $(cat .claude/settings.json)"
 
+echo "T9 two-tree with NO root symlink: --git-dir and git-worktree commits are checked, not waved through"
+# 2026-09-26: with GIT_DIR exported (a worktree commit, or `git --git-dir=…`) `git -C app` saw
+# app/ as the work-tree top, the pathspecs matched nothing, and check --staged passed.
+Q="$WORK/q"; mkdir -p "$Q/bin" "$Q/app/mprcontents"
+( cd "$Q" && git init -q . && git config user.email t@t && git config user.name t
+  cp "$TK/project-bin/_common.sh" "$TK/project-bin/model-stamp.sh" "$TK/project-bin/install-project-hooks.sh" bin/
+  printf mpr > app/App.mpr; printf u1 > app/mprcontents/a.mxunit; printf '/.claude/\n' > .gitignore
+  ./bin/install-project-hooks.sh >/dev/null
+  git add -A >/dev/null; MODEL_UNVERIFIED_OK=1 git commit -qm init 2>/dev/null
+  git worktree add -q "$WORK/q-wt" 2>/dev/null )
+cd "$Q" && printf u1b > app/mprcontents/a.mxunit && git add app
+git --git-dir=.git commit -qm x 2>/dev/null && bad "--git-dir commit waved an unverified model through" || ok "--git-dir commit refused the unverified model"
+git reset -q
+cd "$WORK/q-wt" && printf u1c > app/mprcontents/a.mxunit && git add app
+git commit -qm x 2>/dev/null && bad "worktree commit waved an unverified model through" || ok "worktree commit refused the unverified model"
+./bin/model-stamp.sh write pass "fixture" >/dev/null
+git commit -qm x 2>/dev/null && ok "worktree commit of the verified model accepted" || bad "worktree refused its verified model"
+
+echo "T10 no model yet (requirements-driven Stages P-4): non-model commits pass; a stray staged model does not"
+R="$WORK/r"; mkdir -p "$R/bin"
+cd "$R" && git init -q . && git config user.email t@t && git config user.name t
+cp "$TK/project-bin/_common.sh" "$TK/project-bin/model-stamp.sh" "$TK/project-bin/install-project-hooks.sh" bin/
+PROJECT_ROOT="$R" ./bin/install-project-hooks.sh >/dev/null
+echo intake > intake.md && git add intake.md bin
+PROJECT_ROOT="$R" git commit -qm intake 2>/dev/null && ok "pre-model intake commit accepted" || bad "pre-model intake commit refused (no .mpr found)"
+out="$(PROJECT_ROOT="$R" ./bin/model-stamp.sh check 2>&1)"; rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q "no model in this project yet" && ok "check says there is no model yet" || bad "check rc=$rc" "$out"
+mkdir -p app/mprcontents && printf u > app/mprcontents/x.mxunit && git add app
+PROJECT_ROOT="$R" git commit -qm stray 2>/dev/null && bad "staged mprcontents with no .mpr committed" || ok "staged model with no .mpr refused"
+
 echo; echo "model-stamp: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

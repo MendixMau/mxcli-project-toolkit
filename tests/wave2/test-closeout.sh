@@ -119,6 +119,12 @@ echo "== T8: --closeout without a stage refuses =="
 "$GATE" --closeout "$P" >/dev/null 2>&1; RC=$?
 [ "$RC" -eq 2 ] && ok "exit 2" || bad "exit $RC"
 
+echo "== T9: a row the entry mode does not owe is N/A, never 'still missing' (2026-09-25) =="
+P="$(mkproj t9)"
+OUT="$("$GATE" --closeout "$P" 0 2>&1)"
+case "$OUT" in *"⏭ \`app-report\` — N/A: entry mode requirements does not owe it"*) ok "app-report N/A on a requirements-driven register" ;; *) bad "app-report not N/A: $(printf '%s' "$OUT" | grep app-report)" ;; esac
+if printf '%s\n' "$OUT" | grep 'still missing for this stage' | grep -q 'app-report'; then bad "plain words list app-report as missing"; else ok "plain words do not list a row this mode does not owe"; fi
+
 rm -rf "$WORK"
 echo "passed $PASS, failed $FAIL"
 [ "$FAIL" -eq 0 ]

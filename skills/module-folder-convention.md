@@ -98,7 +98,17 @@ root — the script placed what it could and said nothing about the rest.
 | Java action | `<Feature>/Services` | ❌ undocumented | ❌ undocumented — Studio Pro |
 | Scheduled event | `<Feature>/Services` | ❌ undocumented | ❌ undocumented — Studio Pro |
 | Mapping · JSON structure · published/consumed service · message definition | `<Feature>/Services` | ❌ not supported | ❌ not supported — Studio Pro |
-| Workflow · document template · image collection · regex · dataset | `<Feature>/Resources` (workflow: `Microflows`) | ❌ not supported | ❌ not supported — Studio Pro |
+| Workflow | `<Feature>/Microflows` | ✅ `folder 'path'` keyword on `create [or modify] workflow` — **mxcli v0.24.0+**; ❌ on older binaries | see the v0.24.0 note below |
+| Document template · image collection · regex · dataset | `<Feature>/Resources` | ❌ not supported | ❌ not supported — Studio Pro |
+
+**mxcli v0.24.0 moved the line (2026-09-26, a card-disbursement requirements-driven build).**
+`create or modify workflow … folder 'Workflow/Microflows'` stored the workflow in that folder —
+`DESCRIBE WORKFLOW` reads the `folder` clause back — so a workflow is no longer a Studio Pro
+placement. On the same binary `mxcli syntax move` lists `MOVE` for `WORKFLOW`, `JAVA ACTION`,
+`SCHEDULED EVENT`, `JSON STRUCTURE`, `IMPORT`/`EXPORT MAPPING`, `REST CLIENT`,
+`PUBLISHED REST SERVICE`, `IMAGE COLLECTION` and `REGULAR EXPRESSION`; those moves are documented
+there, not probed here. Run `mxcli syntax move` on your binary and treat the ❌ cells above as
+"before v0.24.0" until a `describe` read-back shows the document where you put it.
 
 **Two consequences you have to act on, not just know:**
 

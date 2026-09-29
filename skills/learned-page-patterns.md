@@ -208,7 +208,7 @@ else 'badge-default'
 
 - **Cannot INSERT rows into a layoutgrid by row name:** `insert after row5 { row newRow { ... } }` fails with "widget not found". ALTER PAGE can only INSERT widgets within an existing column. To add a full new row, use `create or modify page` to rebuild the section, or do it in Studio Pro.
 - **SET content on dynamictext with ContentParams (BUG-07):** fails with "property 'content' not found (widget has no pluggable Object)". Use REPLACE with a different widget name instead.
-- **REPLACE with same widget name (BUG-08):** fails with "duplicate widget name". Always use a different name in the replacement body — the old name is dropped when the old widget is removed.
+- **REPLACE with same widget name (BUG-08):** fails with "duplicate widget name". On v0.24.0 the same happens for any reused **child** name (the natural case: the same grid with one column added), so a REPLACE hook is never re-run safe. Use `drop widget X;` then `insert into <parent> { … }` (or `insert after <sibling>`); that shape ran twice clean on a probe and on the real model.
 - **CONTAINER inside dataview/form slot corrupts BSON (BUG-18):** Wrapping a widget in a new CONTAINER via `replace txtWidget with { container cWrapper { textbox txtWidget } }` inside a `dataview` writes a `DivContainer` into a BSON slot typed for `WidgetObject` — SP crashes on load with `InvalidCastException`. Use SCSS to fake affixes/wrappers instead. Never REPLACE a widget with a container wrapping it inside a form/dataview body.
 - **REPLACE on datagrid custom-content columns drops them (observed a Java/Angular analysis project, 2026-07-05):** `replace colName with { column colName (...) { ... } }` silently deletes the column instead of swapping it. Use `insert after dgName.LastColumn { column ... }` to re-add dropped columns, or rebuild the full datagrid with `create or modify page`.
 
@@ -332,3 +332,20 @@ move and it is exactly the shape that raises CE1571: the stored model carries an
 `DESCRIBE` does not render. So the module's button is not the example to follow here; the
 `-- Context:` comment is. (Field-found 2026-09-07 wiring an "Import and process" button onto
 `ExcelImporter.Import_Overview` in a sales-coaching build, after two failed applies.)
+
+**Attributes in the control bar resolve against the grid's entity, not the context.** A widget in
+the control bar showing a bare attribute (`Attribute: OpenCount`) is resolved by mxcli against the
+**grid's** entity, although at runtime the context there is the enclosing data view's object. So
+mxbuild fails with CE1613 naming `<GridEntity>.OpenCount`. Inside the control bar, name the data
+view's attributes fully qualified. (mxcli v0.24.0, BUG-150 item 5; a card-disbursement
+requirements-driven build, 2026-09-25.)
+
+## List view `Editable`: every list view on the path to an input
+
+mxcli writes a list view with `Editable` false by default, and a non-editable list view makes
+**every** input inside it read-only, including an input in a **nested** list view whose own
+`Editable` is true. The input draws but cannot be changed (`aria-readonly`, a click changes
+nothing). Making the input itself editable does nothing. Set `Editable: true` on each list view
+between the page and the input. Lint MDL-WIDGET31 checks only native inputs, so it misses a
+pluggable one such as a Switch (BUG-149). (Mendix 11.13.0, mxcli v0.24.0, the same build,
+2026-09-26: fixed only when both the outer and the inner list view were editable.)

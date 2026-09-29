@@ -62,6 +62,7 @@
 #
 #   1  knobs bound        N of M framework knobs point at a design-system token.  0 = VIOLATION
 #   2  tokens arrived     N of M design-system tokens exist in the built sheet.   0 = VIOLATION
+#      tokens valued      K of M carry the DESIGN's value there (not just its name). K < N = WARN
 #   3  classes arrived    N of M design-system classes exist in the built sheet.  0 = VIOLATION
 #   4  dead SCSS bridge   `$x: var(--y)` while the theme runs on custom properties. any = VIOL
 #
@@ -83,20 +84,28 @@ set -uo pipefail
 DESIGN="${1:-}"
 BUILT="${2:-}"
 
+# Where the model lives. The design system and mdlsource/ sit at the repo root either way; the
+# built sheet, theme/ and themesource/ sit beside the .mpr — the root on a single-tree checkout,
+# app/ on a two-tree one (repo at the root, `mxcli new` app under app/, the same one-level probe
+# _common.sh's find_mpr makes). Root-relative defaults alone exited 2 on every two-tree project
+# (field run, card-disbursement requirements-driven build, 2026-09-25).
+MP=""
+if ! ls ./*.mpr >/dev/null 2>&1 && ls app/*.mpr >/dev/null 2>&1; then MP="app/"; fi
+
 if [ -z "$DESIGN" ]; then
   for c in design/ds.css design/design-system.css; do
     [ -f "$c" ] && { DESIGN="$c"; break; }
   done
 fi
 if [ -z "$BUILT" ]; then
-  for c in deployment/web/theme.compiled.css deployment/web/theme.css; do
+  for c in "${MP}deployment/web/theme.compiled.css" "${MP}deployment/web/theme.css"; do
     [ -f "$c" ] && { BUILT="$c"; break; }
   done
 fi
 
 # The framework's own customization surface. Atlas has called this file the same thing since
 # Atlas 2; a project that renamed it passes it as a third argument via CUSTOM_VARS.
-CUSTOM_VARS="${CUSTOM_VARS:-theme/web/custom-variables.scss}"
+CUSTOM_VARS="${CUSTOM_VARS:-${MP}theme/web/custom-variables.scss}"
 
 if [ -z "$DESIGN" ] || [ ! -f "$DESIGN" ]; then
   printf 'check-design-reaches-app: no design system stylesheet found.\n' >&2
@@ -106,7 +115,7 @@ if [ -z "$DESIGN" ] || [ ! -f "$DESIGN" ]; then
 fi
 if [ -z "$BUILT" ] || [ ! -f "$BUILT" ]; then
   printf 'check-design-reaches-app: no BUILT stylesheet found.\n' >&2
-  printf '  Searched: deployment/web/theme.compiled.css, deployment/web/theme.css\n' >&2
+  printf '  Searched: %sdeployment/web/theme.compiled.css, %sdeployment/web/theme.css\n' "$MP" "$MP" >&2
   printf '  Run a build first. "Did the design system reach the app" cannot be answered from\n' >&2
   printf '  source, and answering it from source is how this defect shipped.\n' >&2
   printf '  This is NOT a pass.\n' >&2
@@ -212,6 +221,31 @@ done <<EOF
 $TOKENS
 EOF
 
+# ── Pass 2b: did they arrive WITH THE DESIGN'S VALUE? ───────────────────────────────────────
+# A name in the built sheet is not the design in the built sheet. The `mxcli new` template for
+# Mendix 11.13 ships its own `--mxt-*` token bridge with its own values; a design system
+# authored on the same vocabulary read "40 of 40 tokens arrived" while 8 of 40 carried the
+# design's value (brand designed #4f46e5, built #0f6e6b — the template's teal). Field run,
+# card-disbursement requirements-driven build, 2026-09-25. So: for each token, compare the
+# design's value with the WINNING value in a bare `:root` of the built sheet (the same reading
+# as pass 1), case- and whitespace-insensitive.
+norm_val() { printf '%s' "$1" | tr -d ' \t' | tr 'A-Z' 'a-z'; }
+TOKENS_VALUED=0
+VALUE_MISS_SAMPLE=""
+VALUE_MISS_N=0
+while IFS="$(printf '\t')" read -r tname tval; do
+  [ -z "$tname" ] && continue
+  bval="$(printf '%s\n' "$BUILT_ROOT" | awk -F'\t' -v k="$tname" '$1 == k { v = $2 } END { print v }')"
+  if [ -n "$bval" ] && [ "$(norm_val "$bval")" = "$(norm_val "$tval")" ]; then
+    TOKENS_VALUED=$((TOKENS_VALUED + 1))
+  elif [ -n "$bval" ] && [ "$VALUE_MISS_N" -lt 4 ]; then
+    VALUE_MISS_N=$((VALUE_MISS_N + 1))
+    VALUE_MISS_SAMPLE="$VALUE_MISS_SAMPLE $tname (built $bval, designed $tval);"
+  fi
+done <<EOF
+$TOKENS
+EOF
+
 # ── Pass 3: did the classes arrive? ─────────────────────────────────────────────────────────
 CLASSES_ARRIVED=0
 MISSING_CLASS_SAMPLE=""
@@ -227,15 +261,15 @@ done
 # Only dead where the theme actually runs on custom properties. Where it does not, assigning a
 # framework SCSS variable is the CORRECT bridge and must not be reported.
 CSS_VARS_MODE="unknown"
-if grep -rqE '^[[:space:]]*\$use-css-variables[[:space:]]*:[[:space:]]*true' theme/web/ 2>/dev/null; then
+if grep -rqE '^[[:space:]]*\$use-css-variables[[:space:]]*:[[:space:]]*true' "${MP}theme/web/" 2>/dev/null; then
   CSS_VARS_MODE="true"
-elif grep -rqE '^[[:space:]]*\$use-css-variables[[:space:]]*:[[:space:]]*false' theme/web/ 2>/dev/null; then
+elif grep -rqE '^[[:space:]]*\$use-css-variables[[:space:]]*:[[:space:]]*false' "${MP}theme/web/" 2>/dev/null; then
   CSS_VARS_MODE="false"
 fi
 if [ "$CSS_VARS_MODE" = "true" ]; then
-  for f in theme/web/*.scss themesource/*/web/*.scss; do
+  for f in "${MP}"theme/web/*.scss "${MP}"themesource/*/web/*.scss; do
     [ -f "$f" ] || continue
-    case "$f" in themesource/atlas_*|themesource/atlas_*/*) continue ;; esac
+    case "${f#"$MP"}" in themesource/atlas_*|themesource/atlas_*/*) continue ;; esac
     while IFS= read -r hit; do
       [ -z "$hit" ] && continue
       ln="${hit%%:*}"
@@ -279,6 +313,11 @@ if [ "$TOKENS_ARRIVED" -eq 0 ] && [ "$TOKEN_COUNT" -gt 0 ]; then
     'The port did not reach the build at all. Check that the theme module directory name matches a real module.'
 fi
 
+if [ "$TOKENS_ARRIVED" -gt 0 ] && [ "$TOKENS_VALUED" -lt "$TOKENS_ARRIVED" ]; then
+  warn "$TOKENS_ARRIVED of $TOKEN_COUNT design-system tokens exist in $BUILT by name, $TOKENS_VALUED carry the design's value" \
+    "Differing:${VALUE_MISS_SAMPLE:- (none in a bare :root)} — a name the framework or app template also defines is not the design arriving. Read the values, not the count."
+fi
+
 if [ "$CLASS_COUNT" -gt 0 ] && [ "$CLASSES_ARRIVED" -eq 0 ]; then
   report "0 of $CLASS_COUNT design-system classes exist in $BUILT" \
     'Every class the pages reference resolves to nothing. Port the component rules, not only the tokens.'
@@ -297,6 +336,7 @@ printf 'design system   %s\n' "$DESIGN"
 printf 'built stylesheet %s\n' "$BUILT"
 printf 'knobs bound     %s of %s framework knobs point at a design-system token\n' "$KNOB_BOUND" "$KNOB_TOTAL"
 printf 'tokens arrived  %s of %s\n' "$TOKENS_ARRIVED" "$TOKEN_COUNT"
+printf 'tokens valued   %s of %s carry the design value in a bare :root\n' "$TOKENS_VALUED" "$TOKEN_COUNT"
 printf 'classes arrived %s of %s\n' "$CLASSES_ARRIVED" "$CLASS_COUNT"
 printf 'model classes   %s of %s asked for by the model are undefined\n' "$MODEL_CLASS_MISSING" "$MODEL_CLASS_TOTAL"
 printf 'css-vars mode   $use-css-variables: %s\n' "$CSS_VARS_MODE"

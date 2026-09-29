@@ -1,7 +1,7 @@
-**From:** moc-app-replacement
+**From:** field project B
 **Date:** 2026-09-14
 **Kind:** bug
-**Field evidence:** bug-log entries in moc-app-replacement not found (by heading) in bug-logs/mxcli-bugs.md — verify each against the toolkit log before filing; heading match is a heuristic
+**Field evidence:** bug-log entries in field project B not found (by heading) in bug-logs/mxcli-bugs.md — verify each against the toolkit log before filing; heading match is a heuristic
 **Proposed target:** see per-item notes below
 
 ---
@@ -24,14 +24,14 @@ That last clause is the promise, and it is what makes the tool safe to run mid-b
 
 ### What happened
 
-`mxcli run --local` was serving the project on `moc` for hours, with seeded notification
+`mxcli run --local` was serving the project on `appdb` for hours, with seeded notification
 templates and demo users. Over roughly forty minutes, `mxcli test --local` was run about eight
 times (a registration suite, growing from 3 to 18 tests, plus three small probes). Each run
 prints:
 
 ```
   Starting local PostgreSQL...
-  Database ready: moc_test (user "mendix") at 127.0.0.1:5432
+  Database ready: appdb_test (user "mendix") at 127.0.0.1:5432
 ```
 
 The next `run --local` then failed:
@@ -40,8 +40,8 @@ The next `run --local` then failed:
 Error: starting runtime: start failed: The database to be used does not exist.
 ```
 
-`psql -l` showed **`moc_test` present and `moc` gone**. Only `postgres`, `template0`,
-`template1` and `moc_test` remained.
+`psql -l` showed **`appdb_test` present and `appdb` gone**. Only `postgres`, `template0`,
+`template1` and `appdb_test` remained.
 
 ### The evidence that it is the test runs and not something else
 
@@ -53,11 +53,11 @@ Wed Sep  9 03:47:45 2026
 ```
 
 03:47 is inside the window of the test runs, and well after the app had last been serving on
-`moc`. So `test --local` did not merely create its own database beside the existing one — it
+`appdb`. So `test --local` did not merely create its own database beside the existing one — it
 brought up a PostgreSQL instance on the same port (`127.0.0.1:5432`, which it prints itself)
-on a data directory that did not contain `moc`.
+on a data directory that did not contain `appdb`.
 
-Both databases cannot have coexisted on the surviving cluster: `moc_test` is there and `moc`
+Both databases cannot have coexisted on the surviving cluster: `appdb_test` is there and `appdb`
 is not, and nothing else in the session drops databases.
 
 ### Why this is worse than it looks
@@ -65,7 +65,7 @@ is not, and nothing else in the session drops databases.
 Nothing warns. The failure does not surface during the test run — every test passed, 18 of 18 —
 and it does not surface at the end of it either. It surfaces on the **next unrelated action**,
 as an error about a database, at which point the connection to the test run is not obvious.
-The recovery (`createdb moc`, restart, re-seed) is cheap; noticing what happened is not.
+The recovery (`createdb appdb`, restart, re-seed) is cheap; noticing what happened is not.
 
 The promise in `--help` actively encourages the pattern that loses the data: the whole point of
 that sentence is to tell the user they may keep the app warm while testing.

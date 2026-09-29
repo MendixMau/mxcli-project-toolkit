@@ -5475,7 +5475,7 @@ and render it in `DESCRIBE MICROFLOW` so the round trip does not silently flip i
 callee's flag is readable in the model.
 ---
 
-## BUG-141: `alter page … set RenderMode` is refused on a dynamic text, though `create page` writes it — fix ready on a fork branch
+## BUG-155: `alter page … set RenderMode` is refused on a dynamic text, though `create page` writes it — fix ready on a fork branch
 
 **Severity:** Low — loud refusal, clean workaround; costs a full widget restatement per heading-level change
 **mxcli version:** main `31eee45` / v0.21.0
@@ -5493,7 +5493,7 @@ backend's mutator already handles it (the two lists drifted).
 
 **Fix:** written, tested (fails-then-passes, revert-proven), validated on a real 11.14.0 model
 (`mx check` 0 errors). Upstream package — issue draft, patch, PR body, submission steps — in
-`pending-github-issues/bug141-*`. Not yet filed upstream.
+`pending-github-issues/bug155-*`. Not yet filed upstream.
 
 **Not covered by the fix:** `set Content`/`ContentParams` on a dynamic text (parser-level),
 container `RenderMode`, button `RenderType` — all still need `replace`.

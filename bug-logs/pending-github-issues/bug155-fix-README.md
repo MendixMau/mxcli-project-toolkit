@@ -1,5 +1,5 @@
-**Companion to:** `bug141-alter-page-set-rendermode-dynamictext.md`
-**Patch:** `bug141-fix.patch` (git format-patch, 3 commits — fix, docs, test comment; author is a placeholder —
+**Companion to:** `bug155-alter-page-set-rendermode-dynamictext.md`
+**Patch:** `bug155-fix.patch` (git format-patch, 3 commits — fix, docs, test comment; author is a placeholder —
 `git commit --amend --reset-author` after `git am`)
 **Branch, ready to use:** `MendixMau/mxcli:fix/alter-page-set-rendermode` (fork PR MendixMau/mxcli#1)
 **Status:** verified 2026-09-22 against `mendixlabs/mxcli` main `31eee45`; NOT YET submitted —
@@ -7,7 +7,7 @@ mxcli's CONTRIBUTING requires the issue to be filed and approved before a PR
 
 ---
 
-# BUG-141 fix — how to turn it into the upstream PR
+# BUG-155 fix — how to turn it into the upstream PR
 
 ## What is in it (8 files, one concern)
 
@@ -44,7 +44,7 @@ mxcli's CONTRIBUTING requires the issue to be filed and approved before a PR
    git checkout -b fix/NNN-alter-page-set-rendermode
    # b) or onto a fresh upstream checkout
    git checkout -b fix/NNN-alter-page-set-rendermode origin/main
-   git am <toolkit>/bug-logs/pending-github-issues/bug141-fix.patch
+   git am <toolkit>/bug-logs/pending-github-issues/bug155-fix.patch
    ```
    Then `git rebase -i origin/main` → squash to one commit if the maintainer prefers, reword it to
    `fix: ALTER PAGE/SNIPPET SET RenderMode on a dynamic text (closes #NNN)`, `--reset-author`,
@@ -107,5 +107,5 @@ and a finding in `.claude/skills/fix-issue/findings/mdl-backend.jsonl`.
 `RenderType` on a button.
 ```
 
-6. After merge and release: mark BUG-141 RESOLVED in `mxcli-bugs.md`, and in the consuming
+6. After merge and release: mark BUG-155 RESOLVED in `mxcli-bugs.md`, and in the consuming
    project drop the `replace` workaround in favour of `set RenderMode`.

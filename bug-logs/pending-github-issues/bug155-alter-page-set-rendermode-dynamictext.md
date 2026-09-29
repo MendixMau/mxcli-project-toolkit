@@ -1,8 +1,8 @@
 **Repo:** `mendixlabs/mxcli`
-**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-141` — found 2026-09-22 building a supplier-portal
+**Source:** `bug-logs/mxcli-bugs.md`, `## BUG-155` — found 2026-09-22 building a supplier-portal
 comparison page on a requirements-driven RFQ project (Mendix 11.14.0)
 **Status:** NOT YET FILED — fix ready on fork branch `MendixMau/mxcli:fix/alter-page-set-rendermode`
-(fork PR MendixMau/mxcli#1); companion `bug141-fix-README.md` has the PR package
+(fork PR MendixMau/mxcli#1); companion `bug155-fix-README.md` has the PR package
 **Suggested labels:** bug, alter-page
 
 ---

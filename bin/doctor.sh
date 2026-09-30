@@ -764,6 +764,20 @@ container_start_hint() {
     esac
   fi
   note "Then re-run: bin/doctor.sh${PROJECT_DIR:+ $PROJECT_DIR}   (this section is skipped by --quick)"
+  note "Not required, if you would rather not run one: the build check (exec.sh's mxbuild gate) needs no"
+  note "container, and Studio Pro's Run Locally or ./mxcli run --local runs the app without one."
+}
+
+# cloud_no_daemon — the Claude Code on the web container ships the docker CLI but no running
+# daemon, and the agent cannot start one there. Telling it "sudo systemctl start docker" sent
+# sessions off trying, then reporting "cannot start the docker daemon" as a blocker — while the
+# mxbuild gate (exec.sh) and `mxcli run --local` both work with no Docker at all. So in the cloud
+# lane a missing daemon is reported as the normal state, with the Docker-free route, not a WARN.
+cloud_no_daemon() {
+  ok "no $RUNTIME_LABEL in this cloud container — normal here, and not a blocker. Do not try to start it."
+  note "Build check: exec.sh's mxbuild gate — mxbuild is a plain binary, no Docker needed."
+  note "Run the app: ./mxcli run --local (add --hub for a preview URL) — skills/cloud-dev-environment.md."
+  note "Snapshot first: mxcli run --local consolidates a split-model .mpr (bug-logs, CRITICAL)."
 }
 
 if [ "$NO_DOCKER" = 1 ]; then
@@ -774,7 +788,12 @@ elif [ -n "$CONTAINER_RUNTIME" ]; then
   container_daemon_up || DOCKER_STATE=$?
   case "$DOCKER_STATE" in
     0)
-      ok "$RUNTIME_LABEL responding — mxcli docker check + test-stack-up.sh (app up, e2e, screenshots) available" ;;
+      ok "$RUNTIME_LABEL responding — mxcli docker run + test-stack-up.sh (app up, e2e, screenshots) available" ;;
+    *) [ "$ENV_LANE" = cloud ] && DOCKER_STATE=cloud ;;
+  esac
+  case "$DOCKER_STATE" in
+    0) ;;
+    cloud) cloud_no_daemon ;;
     2)
       warn "$CONTAINER_RUNTIME is installed but '$CONTAINER_RUNTIME info' gave no answer within ${DOCKER_PROBE_SECS} s — treated as not running."
       note "That silent wait is what makes a setup look hung. Raise the bound with"
@@ -790,19 +809,20 @@ elif [ -n "$CONTAINER_RUNTIME" ]; then
   # Never elsewhere — Windows launch paths vary and Linux needs sudo. Podman is left alone:
   # `podman machine start` on a machine that has never run `podman machine init` is not a safe
   # guess to make on someone's behalf.
-  if [ "$DOCKER_STATE" != 0 ] && [ "$INSTALL" = 1 ] && [ "$CONTAINER_RUNTIME" = docker ] && [ "$PLATFORM" = macos ] && [ -d /Applications/Docker.app ]; then
+  if [ "$DOCKER_STATE" != 0 ] && [ "$DOCKER_STATE" != cloud ] && [ "$INSTALL" = 1 ] && [ "$CONTAINER_RUNTIME" = docker ] && [ "$PLATFORM" = macos ] && [ -d /Applications/Docker.app ]; then
     if open -a Docker 2>/dev/null; then
       note "--install: launched Docker Desktop (open -a Docker). Give it ~30-90 s, then re-run doctor."
     fi
   fi
+elif [ "$ENV_LANE" = cloud ]; then
+  cloud_no_daemon
 else
   warn "no container runtime found — neither docker nor podman. One is recommended for new builders."
-  note "It is what lets the agent verify its own build: 'mxcli docker check' (deep model+build"
-  note "verification) and project-bin/test-stack-up.sh (Postgres + the app up, Playwright e2e,"
-  note "page screenshots) both need it. Without it, only mxbuild verifies the model and a human"
-  note "must open Studio Pro to see whether anything actually renders."
-  note "No-container fallback for just running the app: 'mxcli run --local' against a native"
-  note "PostgreSQL (host:PORT)."
+  note "The build check does NOT need it: exec.sh's mxbuild gate is a plain binary. What it adds"
+  note "is the running app in a container: project-bin/test-stack-up.sh (Postgres + the app up,"
+  note "Playwright e2e, page screenshots)."
+  note "No-container route for running the app: 'mxcli run --local' against a native"
+  note "PostgreSQL (host:PORT) — the same route the cloud lane uses."
   note "Docker Desktop needs a paid licence at larger companies, and is NOT required: Podman is"
   note "the licence-free option (docker-CLI compatible; doctor probes it directly, so no docker"
   note "shim is needed). Rancher Desktop and colima (macOS) are the other common substitutes."

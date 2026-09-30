@@ -29,7 +29,9 @@ echo "doctor docker probe — $DOCTOR"
 
 # 1. hanging daemon: bounded, and says so
 S0=$(date +%s)
-PATH="$T/hang:$PATH" MXTK_DOCKER_PROBE_SECS=2 bash "$DOCTOR" > "$T/hang.out" 2>&1
+# Cases 1-2 are the desktop/devcontainer lanes: CLAUDE_CODE_REMOTE cleared, so the fixture
+# means the same thing when it runs inside a cloud session. Case 2b is the cloud lane.
+PATH="$T/hang:$PATH" CLAUDE_CODE_REMOTE= MXTK_DOCKER_PROBE_SECS=2 bash "$DOCTOR" > "$T/hang.out" 2>&1
 S1=$(date +%s)
 if [ $((S1 - S0)) -lt 40 ]; then ok "hanging docker: doctor finished in $((S1 - S0)) s (bound 2 s)"; else fail "hanging docker: doctor took $((S1 - S0)) s — the bound is not biting"; fi
 assert_contains "$T/hang.out" "probing the docker daemon (bounded: 2 s" "hanging docker: announces the probe and its bound before waiting"
@@ -39,10 +41,19 @@ assert_contains "$T/hang.out" "Then re-run: bin/doctor.sh" "hanging docker: says
 assert_missing  "$T/hang.out" "docker daemon responding" "hanging docker: not reported as up"
 
 # 2. daemon down, answering at once
-PATH="$T/down:$PATH" bash "$DOCTOR" > "$T/down.out" 2>&1
+PATH="$T/down:$PATH" CLAUDE_CODE_REMOTE= bash "$DOCTOR" > "$T/down.out" 2>&1
 assert_contains "$T/down.out" "daemon is not responding" "down docker: reported as not responding"
 assert_contains "$T/down.out" "To start it:" "down docker: carries a start command"
 assert_missing  "$T/down.out" "gave no answer within" "down docker: a fast 'down' is not called a timeout"
+assert_contains "$T/down.out" "Not required, if you would rather not run one" "down docker: says a container is optional"
+
+# 2b. cloud container: docker CLI, no daemon — the normal state there, never a start command.
+# (Sessions told "sudo systemctl start docker" tried, failed, and reported it as a blocker.)
+PATH="$T/down:$PATH" CLAUDE_CODE_REMOTE=true bash "$DOCTOR" > "$T/cloud.out" 2>&1
+assert_contains "$T/cloud.out" "normal here, and not a blocker" "cloud, no daemon: reported as normal"
+assert_contains "$T/cloud.out" "mxcli run --local" "cloud, no daemon: names the Docker-free run route"
+assert_missing  "$T/cloud.out" "To start it:" "cloud, no daemon: no start command"
+assert_missing  "$T/cloud.out" "WARN  docker is installed" "cloud, no daemon: not a WARN"
 
 # 3. daemon up
 PATH="$T/up:$PATH" bash "$DOCTOR" > "$T/up.out" 2>&1

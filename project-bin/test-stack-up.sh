@@ -320,7 +320,28 @@ fi
 # --- Bring up the app -------------------------------------------------------
 if [ $APP_FOUND -ne 0 ]; then
   if [ "$MODE" = "nodocker" ]; then
-    bad "App down and --no-docker given. Click Run Locally in Studio Pro, then re-run --check."
+    bad "App down and --no-docker given. Click Run Locally in Studio Pro (or, with no Studio Pro, ./mxcli run --local), then re-run --check."
+    exit 1
+  fi
+  # No reachable Docker (or Podman) daemon: say so and name the Docker-free route, instead of letting
+  # `mxcli docker run` fail with a daemon error the agent then reports as "cannot start Docker".
+  # A cloud container ships the docker CLI with no daemon; that is normal, not a blocker.
+  # Bounded: a stopped Docker Desktop can leave `docker info` silent for minutes.
+  _RT=docker; command -v docker >/dev/null 2>&1 || _RT=podman
+  if ! command -v "$_RT" >/dev/null 2>&1; then _DK=1; else
+    "$_RT" info >/dev/null 2>&1 & _dk_pid=$!; _dk_w=0; _DK=
+    while kill -0 "$_dk_pid" 2>/dev/null; do
+      [ "$_dk_w" -ge 15 ] && { kill "$_dk_pid" 2>/dev/null; _DK=2; break; }
+      sleep 1; _dk_w=$((_dk_w + 1))
+    done
+    [ -n "$_DK" ] || { wait "$_dk_pid"; _DK=$?; }
+  fi
+  if [ "$_DK" != 0 ]; then
+    bad "App down and no Docker/Podman reachable, so this script cannot build the app container."
+    echo "  Normal in a cloud container, and fine on a desktop without one. Run the app without it:"
+    echo "    Studio Pro: Run Locally.  No Studio Pro:"
+    echo "    ./mxcli run --local -p $(basename "$MPR")   # flags: skills/cloud-dev-environment.md"
+    echo "  Snapshot first — mxcli run --local consolidates a split-model .mpr. Then re-run with --check."
     exit 1
   fi
   if [ -z "$MXCLI" ]; then

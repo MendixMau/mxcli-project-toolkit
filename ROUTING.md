@@ -151,14 +151,12 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations | `skills/learned-mdl-preflight.md` | mdl | 5 | baseline |
 | Writing or fixing any microflow — MDL gotchas plus annotation discipline | `skills/learned-microflow-patterns.md` | mdl | 5 | baseline |
 | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list — post the checklist before the first MDL line | `skills/microflow-preflight.md` | mdl | 5 | baseline |
-| Before the first MCP write in a session (Studio Pro open: `mxcli --mcp` exec, or pg_*/ped_* calls) — save after every write, the handoff sequence, confirmed JSON payloads. Choosing the write mode itself is Step 0 of learned-mdl-preflight.md | `skills/learned-mcp-patterns.md` | mdl | 5 | ondemand |
 | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop | `skills/microflow-loop-antipatterns.md` | architect,review,mdl | 0,5,6 | ondemand |
 | Writing MDL microflow scripts — worked recipes | `skills/mdl-cookbook-microflows.md` | mdl | 5 | ondemand |
 | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check | `skills/build/mdl/oneshot-mdl-method.md` | mdl | 5 | ondemand |
 | Writing a popup page's microflow with a retry/validation-failure branch that re-shows the same popup — missing close page stacks duplicate dialogs | `skills/learned-popup-navigation.md` | mdl | 5 | ondemand |
 | Writing MDL for a datagrid column with ShowContentAs customContent that needs to display a bound value | `skills/learned-datagrid-customcontent-binding.md` | mdl | 5 | ondemand |
 | Writing ANY microflow behind a button that commits, completes a workflow task, or triggers a backend flow — popup or full page: it owes the user a message, a close, and a control that stops offering the action once done | `skills/learned-popup-feedback-pattern.md` | mdl | 5 | ondemand |
-| Before calling any studio_* MCP tool — the family is distinct from pg_*/ped_* (learned-mcp-patterns.md); same hybrid-write hard rules apply, but no field run exists yet and no tool names are enumerated here | `docs/studio-tools.md` | mdl | - | experimental |
 
 #### Build · Pages — page-building patterns
 

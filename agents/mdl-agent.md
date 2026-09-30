@@ -25,14 +25,16 @@ architecture, build plan, BRDs) live in the **`## Wiring` block of the project-r
 the single source of truth. Read that block at the start of every task and resolve paths from it. When
 a rule below names an asset (e.g. "the wireframe", "the brief"), it means the path from that block.
 
-## Skills this agent must load
+## Skills — open each one when its trigger fires
 <!-- Generated from mxcli-project-toolkit/bin/lib/skill-routing.tsv by bin/render-routing.sh.
      Do not hand-edit between the markers: add or change the ROW, then re-render.
      Paths are relative to the toolkit root given in the CLAUDE.local.md Wiring block. -->
 <!-- ROUTING:BEGIN agent:mdl -->
+Open a file when its When cell happens in your task, not all of them at the start. A page task never opens the microflow rows; a microflow task never opens the page rows.
+
 | Load this | When |
 |---|---|
-| `skills/conversion-runbook.md` | Any pipeline work at all — every session, before producing any stage artifact (not just "when unsure"); READMEs and the guide are orientation only |
+| `skills/conversion-runbook.md` | Any pipeline work at all — every session, before producing any stage artifact: read §1b plus your own stage's section, not the whole file (gate-check.sh prints the line spans); READMEs and the guide are orientation only |
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
 | `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
 | `skills/degrade-to-judgement.md` | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict |

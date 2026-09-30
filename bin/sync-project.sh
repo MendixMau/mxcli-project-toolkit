@@ -631,7 +631,7 @@ if [ -f "$CL" ] && ! grep -q "Session-start ritual" "$CL"; then
 3. \`$TOOLKIT_ROOT/bin/status.sh <project-root> --brief\` — where, done/overdue, next action; post it
    as the session's first message (same step as init-project writes for new projects).
 4. If the commit differs from \`PROJECT.md\`'s \`Toolkit commit:\` line: re-read
-   \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` in full, then update that line.
+   \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` §1b plus your stage's section, then update that line.
 5. State in chat which commit you're working from. gate-check blocks all gates on a mismatch.
 EOF
   echo "Updated: CLAUDE.local.md — appended the session-start ritual."

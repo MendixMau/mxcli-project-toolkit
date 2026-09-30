@@ -101,7 +101,7 @@ P="$(mkproj t7)"
 } > "$P/PROJECT.md"
 V="$(verdict "$P" 7)"
 case "$V" in
-  *FAIL*) case "$V" in *'none with a field exactly CONFIRMED'*) ok "notes-only mention fails, and distinguishes 'row present, not CONFIRMED'" ;;
+  *FAIL*) case "$V" in *'none with a field starting CONFIRMED'*) ok "notes-only mention fails, and distinguishes 'row present, not CONFIRMED'" ;;
                        *) bad "fails but with the wrong diagnosis: $V" ;; esac ;;
   *) bad "PASSED on a CONFIRMED row that merely MENTIONS the cutover in its notes: $V" ;;
 esac
@@ -206,6 +206,52 @@ case "$V" in *FAIL*) ok "another mode with a stray app-report.json still FAILs t
 V="$(verdict "$P" 1)"
 case "$V" in *'Path D'*) bad "migration project got the existing-app Stage 1 hint: $V" ;;
              *) ok "other modes keep the extractor / kb-generation hint" ;; esac
+
+echo "== T13: only the Decisions table counts — an Open-questions row numbered 7 is not a cutover decision =="
+# Both register readers scanned every pipe row in the file, so the template's Open-questions
+# table ("| # | Question | Raised at | Status |") could stand in for a stage decision whenever
+# a question's number matched the stage and its Status cell said CONFIRMED.
+P="$(mkproj t13)"
+{ printf 'Toolkit commit: none\n\n## Decisions\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n'
+  printf '| 3 | Adopt Atlas design system | CONFIRMED | unrelated |\n'
+  printf '\n## Open questions\n\n| # | Question | Raised at | Status |\n|---|---|---|---|\n'
+  printf '| 7 | Who owns the cutover weekend? | Stage 5 | CONFIRMED |\n'
+  printf '| 4 | Build plan order ok? | Stage 4 | CONFIRMED |\n'
+} > "$P/PROJECT.md"
+V="$(verdict "$P" 7)"
+case "$V" in *PASS*) bad "an Open-questions row passed Stage 7: $V" ;;
+             *'no cutover decision row'*) ok "Open-questions row #7 is not a Stage-7 candidate" ;;
+             *) bad "wrong diagnosis: $V" ;; esac
+mkdir -p "$P/architecture"; printf '# Build plan\n' > "$P/architecture/build-plan.md"
+V="$(verdict "$P" 4)"
+case "$V" in *PASS*) bad "an Open-questions row passed Stage 4: $V" ;;
+             *FAIL*) ok "Open-questions row #4 is not a Stage-4 decision" ;;
+             *) bad "no Stage 4 FAIL: $V" ;; esac
+{ printf '\n## Decisions (later)\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n'
+  printf '| 4 | Build plan approved | CONFIRMED | |\n'
+} >> "$P/PROJECT.md"
+V="$(verdict "$P" 4)"
+case "$V" in *PASS*) ok "a Stage-4 row in a second Stage-headed table still counts" ;;
+             *) bad "false red on a real Stage-4 row: $V" ;; esac
+
+echo "== T14: Stage 7 accepts a dated status, like every other stage (TD-07) =="
+P="$(mkproj t14)"
+{ printf 'Toolkit commit: none\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n'
+  printf '| 7 | Cutover plan | CONFIRMED 2026-08-10 | signed off |\n'
+} > "$P/PROJECT.md"
+V="$(verdict "$P" 7)"
+case "$V" in *PASS*) ok "'CONFIRMED 2026-08-10' passes Stage 7" ;; *) bad "dated CONFIRMED rejected at Stage 7: $V" ;; esac
+{ printf 'Toolkit commit: none\n\n| Stage | Decision | Status | Notes |\n|---|---|---|---|\n'
+  printf '| 7 | Cutover plan | NOT CONFIRMED | pending sponsor |\n'
+} > "$P/PROJECT.md"
+V="$(verdict "$P" 7)"
+case "$V" in *FAIL*) ok "'NOT CONFIRMED' still fails Stage 7" ;; *) bad "'NOT CONFIRMED' did not fail: $V" ;; esac
+
+echo "== T15: a register with no Stage-headed table falls back to scanning every row =="
+P="$(mkproj t15)"
+{ printf 'Toolkit commit: none\n\n| 7 | Cutover plan | CONFIRMED | |\n'; } > "$P/PROJECT.md"
+V="$(verdict "$P" 7)"
+case "$V" in *PASS*) ok "header-less register keeps the old behaviour" ;; *) bad "header-less register regressed: $V" ;; esac
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"

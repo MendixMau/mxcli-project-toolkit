@@ -325,8 +325,9 @@ someone else pushed to a shared repo. CI that genuinely wants the old behaviour 
 This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 (analysis, BRDs, architecture, design, build plan, build, test, cutover):
 
-1. **Read \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` FIRST — every session.** It is the
-   executable spec. The toolkit README and toolkit-guide.html are orientation only; stage
+1. **Read \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` §1b plus your own stage's section FIRST —
+   every session; not the whole file** (\`bin/gate-check.sh <project-root> <stage>\` prints the line
+   spans). It is the executable spec. The toolkit README and toolkit-guide.html are orientation only; stage
    summaries anywhere are routing, not deliverable lists.
 2. **Before producing any stage artifact, open that stage's owning skill** and follow its
    full output list (e.g. Stage 3 design work = \`design-artifacts.md\`, incl. one wireframe

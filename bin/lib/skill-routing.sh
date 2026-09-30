@@ -192,7 +192,7 @@ routing_render() {
       done
       ;;
     readme-baseline|baseline)
-      echo "Read a row when its Stage(s) cell says *every stage* or names the stage the register (PROJECT.md) says you are in. Rows for other stages are not this session's reading."
+      echo "Each row is a trigger, not a reading list: open a row's file when the first column happens in this session, and only rows whose Stage(s) cell says *every stage* or names the stage the register (PROJECT.md) says you are in. Do not read the table ahead — a build session that only writes pages never opens the microflow rows."
       echo ""
       if [ "$view" = "baseline" ]; then
         echo "| Always relevant for | Reference this (under \`${prefix%/}/\`) | Stage(s) |"
@@ -236,6 +236,8 @@ routing_render() {
       ;;
     agent:*)
       local who="${view#agent:}"
+      echo "Open a file when its When cell happens in your task, not all of them at the start. A page task never opens the microflow rows; a microflow task never opens the page rows."
+      echo ""
       echo "| Load this | When |"
       echo "|---|---|"
       local t

@@ -387,6 +387,22 @@ log_applied() {  # $1 = mxbuild detail
   fi
 }
 
+# ── Just-in-time rules ───────────────────────────────────────────────────────
+# A routing row is a pointer, and a pointer is not a read (preflight A/B, 2026-08-31). So the
+# rules no later check can catch are printed here, at the one moment every session passes
+# through — helper or single session alike. Print only; never blocks.
+if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ]; then
+  if grep -qiE '^[[:space:]]*(create([[:space:]]+or[[:space:]]+replace)?[[:space:]]+(page|snippet)|alter[[:space:]]+(page|snippet))' "$SCRIPT"; then
+    echo "→ Page rules for this script (skills/ui-preflight-pages.md; run project-bin/check-page-shell.sh first):"
+    echo "    layout + page column match the wireframe; one H1; reuse a gallery snippet before inventing one;"
+    echo "    no inline styles, no class the theme does not define; report entry points, wireframe and gallery used."
+  fi
+  if grep -qiE '^[[:space:]]*create([[:space:]]+or[[:space:]]+replace)?[[:space:]]+(microflow|nanoflow)' "$SCRIPT"; then
+    echo "→ Microflow rules for this script (skills/learned-microflow-patterns.md, skills/learned-mdl-preflight.md):"
+    echo "    association paths carry the module prefix; set associations from the owner side; qualified role names in GRANT."
+  fi
+fi
+
 # ── Pre-exec syntax gate ─────────────────────────────────────────────────────
 # `mxcli check --references` is the ONLY gate that can reject a bad script
 # before it mutates the .mpr. Every gate after this one recovers by snapshot

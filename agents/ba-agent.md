@@ -38,11 +38,9 @@ Open a file when its When cell happens in your task, not all of them at the star
 |---|---|
 | `skills/conversion-runbook.md` | Any pipeline work at all — every session, before producing any stage artifact: read §1b plus your own stage's section, not the whole file (gate-check.sh prints the line spans); READMEs and the guide are orientation only |
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
-| `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
-| `skills/degrade-to-judgement.md` | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict |
+| `skills/working-rules.md` | Every session, before the first answer or write — the short always-on card: which source to ask, when tool output proves nothing, what to do when an input is missing. Long forms are read only when a card line sends you there |
 | `skills/interview-protocol.md` | Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn |
 | `skills/checkpoints/checkpoint-template.md` | Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table |
-| `skills/agent-roles.md` | Setting up or completing a project's dev-process subagents — once, at project start, not "on demand" |
 | `skills/source-triage.md` | Deciding whether to extract at all, before any BRD gets generated |
 | `bin/source-sufficiency.sh` | Taking in a new source — before generating anything from it. Grades what the source can support; nothing else in this toolkit reads a source |
 | `bin/source-ledger.sh` | Closing Stage 1, or adding files to a source folder — every inventoried file must name the artifact that consumed it (text AND embedded diagrams), or carry a waiver; blocks Stages 1–2 until it does |
@@ -51,9 +49,7 @@ Open a file when its When cell happens in your task, not all of them at the star
 | `bin/question-kinds.sh` | Deciding who answers a question — before putting any batch to the user. gap/conflict/choice/user-only is what keeps a gate batch at four questions instead of 127 |
 | `bin/facts-lock.sh` | Writing BRDs, especially several in parallel — "build" before the fan-out, "check" before any BRD is called done |
 | `skills/module-brief.md` | Building any module — before the first script. The mdl-agent's single per-module input |
-| `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
-| `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/grill-mode.md` | Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough |
 | `skills/checkpoints/checkpoint-scope.md` | CAC-1, closing Stage 0 in EVERY entry mode — scope IN: full scope or a slice, and in what order. Opens with a brainstorm, not options |
 | `skills/checkpoints/checkpoint-extraction.md` | CAC-1b, after Stage 1 — scope OUT: is what extraction produced what you meant. No gate stops you; run it late against the BRDs if it was skipped |
@@ -86,6 +82,7 @@ Open a file when its When cell happens in your task, not all of them at the star
 | `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN — the private tier between the toolkit and a project for own skills, conventions, lint rules, MDL snippets and approved MPKs; and deciding whether something goes to the toolkit, the company brain or docs/brain/ |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
+| `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `skills/agent-permission-friction.md` | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing |
 | `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to |

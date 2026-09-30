@@ -325,6 +325,10 @@ someone else pushed to a shared repo. CI that genuinely wants the old behaviour 
 This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 (analysis, BRDs, architecture, design, build plan, build, test, cutover):
 
+> **Dispatched helper?** If you were started from an \`agents/*-agent.md\` stub (mdl, gate, test,
+> review), skip items 1–4 and the baseline table below: your stub's table is your whole reading
+> list, and your task prompt names the brief and wireframe. Everything below is for the main session.
+
 1. **Read \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` §1b plus your own stage's section FIRST —
    every session; not the whole file** (\`bin/gate-check.sh <project-root> <stage>\` prints the line
    spans). It is the executable spec. The toolkit README and toolkit-guide.html are orientation only; stage

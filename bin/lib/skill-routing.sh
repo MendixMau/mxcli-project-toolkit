@@ -192,6 +192,8 @@ routing_render() {
       done
       ;;
     readme-baseline|baseline)
+      echo "**Dispatched helper** (started from an \`agents/*-agent.md\` stub)? Skip this table — your stub's table is your whole reading list."
+      echo ""
       echo "Each row is a trigger, not a reading list: open a row's file when the first column happens in this session, and only rows whose Stage(s) cell says *every stage* or names the stage the register (PROJECT.md) says you are in. Do not read the table ahead — a build session that only writes pages never opens the microflow rows."
       echo ""
       if [ "$view" = "baseline" ]; then

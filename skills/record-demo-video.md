@@ -131,6 +131,28 @@ invisible in a headless test run, 13 extra seconds of blank screen in a
 recording. Skip the navigation when a login form is already on screen; there
 is no session to clear anyway.
 
+**Role switches leave a white page — cut it at record time.** A tour that
+signs out and in as another role shows a blank page from the sign-out until
+the next login form paints: 10–13s per switch on a desktop Mendix app, and a
+two-role tour has five or more of them. `freezedetect` keeps ~1.5s of each and
+cannot tell a blank page from a still screen worth reading. The recorder knows
+exactly when the blank starts and ends, so have it write the window out as a
+cut and drop those frames when you cut the file:
+
+```js
+let blankAt = null;                       // recorder clock (s), set at sign-out
+async function signOut(page) { /* ...click Sign out... */ blankAt = now() + 0.3; }
+const cutBlank = () => { if (blankAt !== null && now() - 0.3 > blankAt + 1)
+  cuts.push([blankAt, now() - 0.3]); blankAt = null; };
+// signIn: goto login, paint the caption, THEN cutBlank() - the form stays in
+// act card shown between sign-out and sign-in: cutBlank() before it, re-arm after
+```
+
+An act card ("Act 2 — the approver") shown during the switch is content, not
+blank: close the cut window before it and reopen it after. Check the result on
+the step timeline — gaps between steps at role switches should drop from
+~13s to the length of the card plus the login beat.
+
 Check the result before shipping it — extract the first frames and look:
 
 ```bash
@@ -187,6 +209,23 @@ much.
 
 Verify by extracting a frame from a tabbed page and looking for the tab
 labels.
+
+**The video player covers the bottom ~70px too.** Whoever watches the file
+does so in a player that draws its play icon, scrubber and time over the
+bottom of the frame — exactly where a `bottom: 0` strip sits, so the caption
+is unreadable the moment anyone hovers or pauses. On a desktop recording
+(1440px wide) keep the strip clear of it and large enough to read in a
+scaled-down player:
+
+```css
+#__e2e-banner { position: fixed; bottom: 78px; left: 50%; transform: translateX(-50%);
+  width: calc(100% - 120px); max-width: 1180px; font: 500 25px/1.45 system-ui;
+  padding: 18px 28px; }
+```
+
+(Field feedback on a desktop Mendix demo: "You don't see it because of the
+playing icon of videos" — the strip was at `bottom: 0` with ~20px text.) On a
+mobile layout, add the same offset to the app-chrome lift above.
 
 ### 4. Make each caption *read as a new caption*
 
@@ -448,6 +487,8 @@ be sorted.
 | Frame 0 is the clapper flash itself, not the app | A stream-copy `-ss` can only land on a keyframe and silently rewinds past the requested cut point | Rule 1 — cut cheaply well before the clapper with `-c copy`, then make the precise cut on the re-encode pass |
 | 13s of blank bolted on *after* the trim | `loginOnce()` re-navigates and forces a second client cold boot | Rule 1 — skip the goto when a login form is already up |
 | Long still stretches mid-video | Waits for slow pages, unavoidable at record time | Rule 1 — `freezedetect` + `select`/`setpts` squeeze |
+| ~13s of white page at every role switch | Sign-out lands on a blank page while the next login loads | Rule 1 — recorder marks the window as a cut; act cards in between stay |
+| Caption hidden behind the player's play icon / scrubber | Strip pinned at `bottom: 0`, small text | Rule 3 — lift it ≥ ~78px, 25px text at 1440 wide |
 | "You're not explaining the steps" | One caption per step, left up through the navigation | Rule 2 — two-beat narration |
 | Bottom tab bar invisible all video | Caption strip pinned over the app's bottom chrome | Rule 3 — lift the app chrome by the strip's measured height |
 | Video reads as static | No scrolling, no state changes, captions never visibly change | Rules 4, 6, 7 |

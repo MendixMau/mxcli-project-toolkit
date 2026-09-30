@@ -563,22 +563,67 @@ err_codes() {
 # Names, not elementId GUIDs: a CREATE OR REPLACE re-mints the GUIDs of a microflow whose
 # pre-existing error it leaves in place, and that must still read as pre-existing. A rename
 # does read as new, and restores — the safe direction. Hex tokens: no "|" or glob characters,
-# whatever the message says.
+# whatever the message says. ERRKEY_PY is the one definition of that key: err_set and
+# err_report both prepend it, so "new" in the verdict and "NEW" in the report cannot drift.
+ERRKEY_PY='import hashlib
+def errkey(x):
+    locs = sorted("\x1e".join(str(l.get(k) or "") for k in ("module", "document", "element"))
+                  for l in (x.get("locations") or []))
+    raw = "\x1f".join([x.get("errorCode") or "", x.get("message") or ""] + locs)
+    return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]'
 err_set() {
   [ -n "$PY" ] || { echo ""; return; }
-  "$PY" - "$(native_path "$1")" <<'ERRSETPY' 2>/dev/null || echo ""
-import hashlib, json, sys
+  { printf '%s\n' "$ERRKEY_PY"; cat <<'ERRSETPY'; } | "$PY" - "$(native_path "$1")" 2>/dev/null || echo ""
+import json, sys
 d = json.load(open(sys.argv[1]))
-keys = []
+print('|'.join(sorted(errkey(x) for x in d.get('problems', []) if x.get('severity') == 'Error')))
+ERRSETPY
+}
+
+# err_report count|print <errors.json> — splits the post-exec errors against BASELINE_SET,
+# counted the same way is_subset_of counts. Only when the baseline was measured
+# (BASE_KNOWN=1); otherwise every error is listed as before, with no new/old split.
+#   count → "<new count> <new codes, comma-joined>", or "?" when the baseline is unknown.
+#   print → the NEW errors in full (code, message, where, expression detail), then the
+#           pre-existing ones as one line per code + message with a count.
+# Why (field run, 2026-09-29): a restore on a 22-error model printed "22 error(s) found"
+# and all 22 with locations; the one the script added was not marked, and the count was
+# the same as before the script ran.
+err_report() {
+  [ -n "$PY" ] || { [ "$1" = count ] && echo "?"; return; }
+  { printf '%s\n' "$ERRKEY_PY"; cat <<'ERRREPPY'; } | "$PY" - "$1" "$(native_path "$2")" "$BASELINE_SET" "${BASE_KNOWN:-0}" 2>/dev/null || { [ "$1" = count ] && echo "?"; }
+import json, sys
+from collections import Counter
+mode, known = sys.argv[1], sys.argv[4] == '1'
+d = json.load(open(sys.argv[2]))
+left = Counter(k for k in sys.argv[3].split('|') if k)
+new, old = [], []
 for x in d.get('problems', []):
     if x.get('severity') != 'Error':
         continue
-    locs = sorted('\x1e'.join(str(l.get(k) or '') for k in ('module', 'document', 'element'))
-                  for l in (x.get('locations') or []))
-    raw = '\x1f'.join([x.get('errorCode') or '', x.get('message') or ''] + locs)
-    keys.append(hashlib.sha1(raw.encode('utf-8')).hexdigest()[:16])
-print('|'.join(sorted(keys)))
-ERRSETPY
+    k = errkey(x)
+    if known and left[k] > 0:
+        left[k] -= 1
+        old.append(x)
+    else:
+        new.append(x)
+if mode == 'count':
+    print('%d %s' % (len(new), ','.join(sorted(set(x.get('errorCode') or '?' for x in new)))) if known else '?')
+    sys.exit(0)
+if known:
+    print('   NEW, from this script (%d):' % len(new))
+for e in new:
+    print('  ', e.get('errorCode', '?'), e.get('message', ''))
+    for loc in e.get('locations', []) or []:
+        print('      at', loc.get('module', '-'), '/', loc.get('document', '-'), '/', loc.get('element', '-'))
+    md = e.get('metadata') or {}
+    if md.get('expressionErrors'):
+        print('      expression:', md['expressionErrors'])
+if old:
+    print('   Already there before this script, not why it was undone (%d):' % len(old))
+    for (code, msg), n in sorted(Counter((e.get('errorCode', '?'), e.get('message', '')) for e in old).items()):
+        print('  ', code, msg, ('x%d' % n) if n > 1 else '')
+ERRREPPY
 }
 
 # is_subset_of <candidate> <superset> — both are err_set's "|"-joined sorted key lists.
@@ -638,6 +683,7 @@ fi
 # "this script broke it" from "it was already broken". Costs one extra mxbuild;
 # skip with SKIP_BASELINE=1 when you know the tree is clean.
 BASELINE_SET=""
+BASE_KNOWN=0
 if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   echo "→ Pre-flight: checking whether the model already has errors..."
   _BF=$(mktemp /tmp/mxbuild-baseline.XXXXXX)
@@ -664,6 +710,7 @@ if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; 
     [ "$_BC" = "0" ] && [ "$MXTK_MXBUILD_EXIT" -ne 0 ] && _BC="?"
   fi
   rm -f "$_BF"
+  case "$_BC" in ''|*[!0-9]*) ;; *) BASE_KNOWN=1 ;; esac
   if [ "$_BC" = "?" ]; then
     echo "  ⚠  Baseline NOT measured: mxbuild exited $MXTK_MXBUILD_EXIT without checking the model."
     [ -n "${MXTK_MXBUILD_WHY:-}" ] && echo "     mxbuild says: $MXTK_MXBUILD_WHY"
@@ -818,8 +865,22 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
         rm -f "$ERRORS_FILE"
       else
         GATE_STATE="fail"
-        echo "  ✗ mxbuild: $CE_COUNT error(s) found — restoring snapshot to avoid loading a corrupt MPR."
         CE_CODES=$(err_codes "$ERRORS_FILE")
+        read -r NEW_COUNT NEW_CODES <<EOF
+$(err_report count "$ERRORS_FILE")
+EOF
+        case "$NEW_COUNT" in
+          ''|*[!0-9]*)
+            NEW_COUNT="?"
+            echo "  ✗ mxbuild: $CE_COUNT error(s) found — restoring snapshot to avoid loading a corrupt MPR." ;;
+          *)
+            _OLD=$(( CE_COUNT - NEW_COUNT ))
+            if [ "$_OLD" -gt 0 ]; then
+              echo "  ✗ mxbuild: this script added $NEW_COUNT new error(s) [$NEW_CODES] ($CE_COUNT in total, $_OLD were already there) — undoing it."
+            else
+              echo "  ✗ mxbuild: this script added $NEW_COUNT new error(s) [$NEW_CODES] — undoing it."
+            fi ;;
+        esac
         # restore_snapshot (above) is the one restore implementation, through restore-mpr.sh.
         # Without it the attribution check below rebuilt the SAME broken model and blamed the
         # error on "PRE-EXISTING" (v1 model, 2026-09-26). RESTORED gates that check.
@@ -829,19 +890,8 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
         # old one-liner printed "CE0117 Error(s) in expression." and nothing else, so the reader
         # had to re-run mxbuild by hand on a scratch copy to learn which activity (greenfield
         # pilot, 2026-09-04: an unqualified enum value in a CHANGE, found only that way).
-        [ -n "$PY" ] && "$PY" - "$ERRORS_FILE" <<'PYEOF' 2>/dev/null || true
-import json, sys
-d = json.load(open(sys.argv[1]))
-for e in d.get('problems', []):
-    if e.get('severity') != 'Error':
-        continue
-    print('  ', e.get('errorCode', '?'), e.get('message', ''))
-    for loc in e.get('locations', []) or []:
-        print('      at', loc.get('module', '-'), '/', loc.get('document', '-'), '/', loc.get('element', '-'))
-    md = e.get('metadata') or {}
-    if md.get('expressionErrors'):
-        print('      expression:', md['expressionErrors'])
-PYEOF
+        # With a measured baseline, the NEW errors come first and the rest are summarised.
+        err_report print "$ERRORS_FILE" || true
         cp "$ERRORS_FILE" "$LAST_ERRS"
         echo "  → Full error detail: .mpr-snapshots/last-mxbuild-errors.json"
 
@@ -870,7 +920,16 @@ PYEOF
           rm -f "$BASE_ERRS"
 
           echo ""
-          if [ "$BASE_COUNT" != "0" ] && [ "$BASE_COUNT" != "?" ]; then
+          if [ "$NEW_COUNT" != "?" ] && [ "$BASE_COUNT" != "0" ] && [ "$BASE_COUNT" != "?" ]; then
+            # The baseline was measured and this script added errors on top of it. The old
+            # branch below said "NOT the cause. Nothing will exec until that is cleared" here,
+            # which was false twice over: the script added the error, and the delta gate keeps
+            # any later script that adds nothing new (field run, 2026-09-29).
+            echo "  → Undone: this script added $NEW_COUNT new error(s) [$NEW_CODES]. Fix those and re-run."
+            echo "     The model is back to its $BASE_COUNT earlier error(s) [$BASE_CODES]. Those did not cause this; a script"
+            echo "     that adds nothing new is kept even while they remain."
+            log_build "❌ gate failed" "$NEW_COUNT new error(s): $NEW_CODES — script rolled back; $BASE_COUNT pre-existing remain"
+          elif [ "$BASE_COUNT" != "0" ] && [ "$BASE_COUNT" != "?" ]; then
             echo "  ⚠  PRE-EXISTING: the restored model already fails with $BASE_COUNT error(s) [$BASE_CODES]."
             echo "     This script is NOT the cause. Nothing will exec until that is cleared."
             case "$BASE_CODES" in

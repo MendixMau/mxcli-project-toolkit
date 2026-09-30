@@ -120,7 +120,7 @@ detects it and records it. The warning above applies only when you run the toolk
 "the toolkit says not WSL, but `mxcli new`'s Dev Container wants Docker on WSL — yes or no?" Yes.
 
 **The lanes mix freely on one project.** Do the headless stages in the Dev Container, then open
-the same `.mpr` in Studio Pro from Git Bash for the MCP write modes and UI polish, and go back.
+the same `.mpr` in Studio Pro from Git Bash for the steps MDL cannot express and UI polish, and go back.
 The only rule is one writer at a time: do not have the container building or writing the `.mpr`
 while Studio Pro holds it open (`skills/handoff-to-studio-pro.md`).
 
@@ -270,19 +270,11 @@ Reads are always safe and free; writes go through the STOP table below.
 
 Triage, analysis, BRD generation, architecture, and design are entirely model-driven. The LLM reads source code, documents, and SME input; produces markdown, JSON, and diagrams; and hands a reviewed, signed-off plan to stage 5. No mxcli command runs, no `.mpr` is touched. This is deliberate — it is far cheaper to fix a wrong module boundary in a diagram than after 40 MDL scripts assume it.
 
-### Stage 5+: three write modes
+### Stage 5+: write modes
 
-Once you have a reviewed build plan, you have three tools to write to the `.mpr`. Pick by what you're building. Only the first exists in a cloud container or devcontainer (no Studio Pro there — `CONVERSION-RUNBOOK.md` → *Where you run this*); the CLI mode covers the whole build, and the model travels to Studio Pro afterwards for anything that needs the other two.
+Once you have a reviewed build plan, the default way to write the `.mpr` is the **CLI** (`./bin/exec.sh script.mdl`, Studio Pro closed). On mxcli v0.24 it writes everything MDL can express — domain model, microflows (inline association sets included), pages (association-mode comboboxes and dropdown filters, cross-module datasources), access rules, security level and project settings, navigation, workflows. It is also the only mode that exists in a cloud container or devcontainer (no Studio Pro there — `CONVERSION-RUNBOOK.md` → *Where you run this*). You write a readable, version-controlled MDL script; `exec.sh` snapshots the model first, runs the mxbuild gate after, and restores on failure.
 
-| Mode | When to use it | Why |
-|---|---|---|
-| **CLI** (`mxcli exec script.mdl`) | Initial build: entities, attributes, enumerations, associations, microflow logic, access rules, navigation, demo users — anything that is large, structural, and done once | You write a readable MDL script, the CLI writes the whole batch to disk in one shot, SP stays closed. The big advantage is scale — you can scaffold an entire module in a single exec. The script is version-controlled and reviewable before it runs. Automatic snapshot before every exec means you can iterate without fear. The tradeoff: SP must be closed and restarted after each exec, which takes time. |
-| **MCP + MDL** (`mxcli --mcp exec script.mdl`) | Targeted changes, UI tweaks, iterative refinement — anything you're actively tuning where restarting SP between each change would kill your flow | SP stays open the whole time. You make a change, it lands in the live model, SP reflects it immediately — no restart, no wait, no recompile cycle. This is the mode for UI work: adjusting a page layout, wiring a widget, fixing a visibility expression. The feel is closer to live editing. You still write MDL, so the script is readable — you just route it through SP's own engine instead of the CLI's disk writer, which also sidesteps a class of BSON serializer bugs. |
-| **Hand-rolled MCP** (`pg_patch_page`, `ped_create_document`) | Widget JSON shapes that MDL has no syntax for yet — DataGrid2 column configs, dropdown filter wiring, complex visibility inside datagrid customContent | Same SP-stays-open benefit as MCP+MDL, but you're writing raw JSON payloads directly against SP's model API. No MDL involved. Use only when the other two modes genuinely have no syntax for the operation. Confirmed patterns are in `learned-mcp-patterns.md`; save discipline is critical (uncommitted MPR guard before every write). |
-
-**In practice:** use CLI to build, use MCP to refine. A typical module goes: one CLI exec to scaffold the domain model and microflows → MCP+MDL for page iteration and UI tweaks → hand-rolled MCP only for the specific widget shapes MDL can't reach.
-
-**Studio Pro GUI** is not a write mode for agents — it's the fallback for two operations that corrupt deterministically on every CLI/MCP retry: `ALTER SETTINGS` and dropping an attribute that has security grants. Those go to the human.
+**Studio Pro by hand** covers only what MDL cannot express (`skills/learned-mdl-cannot-express.md`, and the STOP rows in `skills/learned-mdl-preflight.md`) — a human step, sequenced by the main session: save and close Studio Pro before the next CLI write.
 
 ### Stage 6: testing
 
@@ -302,15 +294,10 @@ Use this before every write. Full per-rule detail (root causes, bug IDs, retest 
 | Operation | Mode | SP state |
 |---|---|---|
 | Entities, attributes, enumerations | CLI | Closed |
-| Associations (after `SHOW ASSOCIATIONS` check) | CLI | Closed |
-| Microflows — no inline assoc-sets | CLI | Closed |
+| Associations | CLI | Closed |
+| Microflows (inline association sets included), pages, workflows | CLI | Closed |
 | Access rules, module roles, demo users, navigation | CLI | Closed |
-| Microflows — with inline assoc-sets (`CHANGE $Obj (Assoc = $Other)`) | MCP + MDL | **Open** |
-| `visible:`/`editable:` inside `datagrid customContent` columns | Hand-rolled MCP (`pg_patch_page`) | **Open** |
-| DataGrid2 column configs, dropdown filter wiring | Hand-rolled MCP (`pg_patch_page`) | **Open** |
-| Cross-module association traversal as widget datasource | Hand-rolled MCP (`pg_patch_page`) | **Open** |
-| `ALTER SETTINGS`, `ALTER PROJECT SECURITY LEVEL` | Studio Pro GUI | N/A |
-| Drop an attribute that has security grants | Studio Pro GUI | N/A |
+| `visible:`/`editable:` inside `datagrid customContent` columns (`learned-mdl-preflight.md` row 1) | Studio Pro by hand | **Open** |
 | After any MPR corruption or load error | `bin/restore-mpr.sh` | Closed |
 
 **The crash net.** An MPR is two parts: `Project.mpr` (SQLite index) and `mprcontents/` (BSON units). `bin/exec.sh` snapshots both before every batch; 5 rotate; `bin/restore-mpr.sh` rolls back both together (either alone is useless). Git commits at phase gates are the real history. Ad-hoc `.mpr.backup` copies are banned. By design, `exec.sh` refuses to run at all while the model has uncommitted changes — its snapshot would not cover them, so a later auto-restore could silently lose that work; commit the model first (`FORCE_EXEC=1` overrides, at your own risk).
@@ -608,7 +595,6 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 
 | Task | Skill to load |
 |---|---|
-| Before the first MCP write in a session (Studio Pro open: `mxcli --mcp` exec, or pg_*/ped_* calls) — save after every write, the handoff sequence, confirmed JSON payloads. Choosing the write mode itself is Step 0 of learned-mdl-preflight.md | `skills/learned-mcp-patterns.md` |
 | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop | `skills/microflow-loop-antipatterns.md` |
 | Writing MDL microflow scripts — worked recipes | `skills/mdl-cookbook-microflows.md` |
 | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check | `skills/build/mdl/oneshot-mdl-method.md` |

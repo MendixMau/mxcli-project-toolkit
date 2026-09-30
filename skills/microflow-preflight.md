@@ -80,7 +80,7 @@ microflow-preflight: <Module.Microflow> — tier: Simple | Guided | Split-first
 | At most 25 elements per microflow | **CONV009** at 15 (info), **QUAL003** at 25 (warning), both top-level only | Split by responsibility: `ACT_` = UI + calls, `VAL_` returns Boolean, `SUB_` persists |
 | Keep decision logic simple | **QUAL001** McCabe > 10 (1 + decisions + loops) | Move a guard chain into a `VAL_` |
 
-Counting in an expression uses `length($List)`, never `count()` (`learned-mdl-preflight.md` STOP row 10).
+Counting in an expression uses `length($List)`, never `count()` (`mxcli check` refuses `count()`, MDL044).
 
 ## Layout — omit `@position` entirely
 

@@ -5,7 +5,7 @@
 **Purpose:** Fix the one rule that makes every other gate in `conversion-runbook.md` work: **query the model → read the source → ask the human, in that order, and never skip to the last one.** An agent that asks the user something it could have derived wastes their attention and teaches them to stop trusting the interviews. An agent that guesses instead of querying produces scripts that look right and fail at `mxbuild`, or silently drift from what the Mendix model actually contains.
 
 **Upstream:** none — this is baseline discipline, load before drafting any MDL or running any interview.
-**Downstream:** `conversion-runbook.md` (every gate's step 1, "the agent does its homework first", is this skill), `learned-mdl-preflight.md` (STOP rule 8 is one of the two load-bearing query rules below, restated here as a habit rather than a buried table row).
+**Downstream:** `conversion-runbook.md` (every gate's step 1, "the agent does its homework first", is this skill), `learned-mdl-preflight.md` (the retired STOP row 8 was one of the two load-bearing query rules below, restated here as a habit rather than a buried table row).
 
 ---
 
@@ -71,7 +71,7 @@ Read is always safe; write goes through the STOP table (`learned-mdl-preflight.m
 
 These are already true today; this skill is where they become a discipline instead of trivia buried in a preflight table.
 
-1. **`SHOW ASSOCIATIONS` before every `CREATE ASSOCIATION`.** MDL has no `IF NOT EXISTS` — re-running a CREATE silently duplicates the association, and mxbuild then throws CE0065/CE0069. Only write `CREATE ASSOCIATION` for a name that does not yet appear in `SHOW ASSOCIATIONS` output. (= `learned-mdl-preflight.md` STOP rule 8.)
+1. **`SHOW ASSOCIATIONS` before every `CREATE ASSOCIATION`.** MDL has no `IF NOT EXISTS`. On v0.24.0 a `CREATE ASSOCIATION` on an existing name is refused, but only `SHOW ASSOCIATIONS` tells you whether the association is there and which side owns it. Only write `CREATE ASSOCIATION` for a name that does not yet appear in its output; otherwise use `create or modify association`. (Retired `learned-mdl-preflight.md` STOP row 8.)
 2. **`SHOW ENTITIES IN <MarketplaceModule>` before writing a single line against a marketplace module.** `mxcli check --references` cannot validate a reference into a module that isn't imported yet, so a guessed entity/attribute name produces a script that passes a naive read-through and fails at `mxbuild`. Query the module's actual contents before referencing it. (Currently buried in `brd-to-build-plan.md`; this is its canonical home.)
 
 ---

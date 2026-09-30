@@ -131,10 +131,9 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
 <!-- A scoped journey that creates an object almost always must link it. An order created with no
      association to the unit/location it's for is a broken golden path even though it "saved" — a real
      WMS incident. List every association the action must set here so the mdl-agent writes them and
-     the review loop can verify them. Note: inline assoc-sets hit learned-mdl-preflight rule 9 (route
-     to `--mcp`, never drop the set to dodge the STOP) on mxcli v0.16.0 — resolved in v0.17.0, see
-     rule 9's 2026-08-11 update; check which binary the target project is pinned to before assuming
-     either behavior. -->
+     the review loop can verify them. Note: inline assoc-sets work through the plain CLI on mxcli
+     v0.17.0+ (probed on v0.24.0); set them from the owner side
+     (learned-microflow-patterns.md). Never drop the set. -->
 
 ### Open business questions
 - [ ] <anything unresolved — mdl-agent must escalate, not guess>
@@ -230,8 +229,8 @@ rather than wondering whether they missed a file.
   real build here should produce one.">
 
 ### Write-mode plan (per learned-mdl-preflight.md Step 0)
-| Element | CLI / MCP+MDL / hand-rolled MCP | Why |
-|---------|--------------------------------|-----|
+| Element | CLI / Studio Pro by hand | Why |
+|---------|--------------------------|-----|
 
 ### Document folder plan  (layout: module-folder-convention.md — feature group, then type)
 <!-- Type folders: Pages | Microflows (nanoflows too) | Services | Resources, plus

@@ -66,6 +66,7 @@ if [ ! -d "$TRANSCRIPTS" ]; then
 fi
 
 require_py
+# Exit 0 even if the reader dies on a transcript shape nobody has seen yet: say so, never fail.
 "$PY" - "$TRANSCRIPTS" "$PROJECT_DIR" "$TOP" "$NAMES" "$TOOLKIT_ROOT" <<'PYEOF'
 import json, os, re, shlex, sys
 from collections import defaultdict
@@ -154,6 +155,14 @@ def transcripts():
                     for s in sorted(os.listdir(sub)):
                         if s.endswith(".jsonl"):
                             yield os.path.join(sub, s), True
+
+def num(v, default):
+    """A Read offset/limit as an int. Old transcripts store them as strings, sometimes as junk
+    like '30, 90' (field run 2026-09-30, 1,300 sessions: the arithmetic below crashed on one)."""
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return default
 
 def tok(n):
     return (n + 3) // 4
@@ -271,8 +280,8 @@ for path, is_sub in transcripts():
                     if name == "Read" and inp.get("file_path"):
                         # a paged read (offset/limit) of the next part is not a re-read; the same part again is
                         pending[b.get("id")] = ("file", show(inp["file_path"], cwd),
-                                                "%s@%s+%s" % (inp["file_path"], max((inp.get("offset") or 1) - 1, 0),
-                                                              inp.get("limit") or 2000))  # the Read tool's defaults
+                                                "%s@%s+%s" % (inp["file_path"], max(num(inp.get("offset"), 1) - 1, 0),
+                                                              num(inp.get("limit"), 2000)))  # the Read tool's defaults
                     elif name == "Bash":
                         f = shell_file(inp.get("command") or "", cwd)
                         pending[b.get("id")] = ("file", show(f, cwd), "sh:" + f) if f else ("bucket", "shell output (other)", None)
@@ -380,3 +389,6 @@ if compactions:
 else:
     print("  none")
 PYEOF
+rc=$?
+[ "$rc" -eq 0 ] || echo "context-audit: the reader stopped early (exit $rc) on a transcript it could not parse — numbers above are partial. Please report it." >&2
+exit 0

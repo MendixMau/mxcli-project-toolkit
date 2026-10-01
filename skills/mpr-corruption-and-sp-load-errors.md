@@ -4,8 +4,7 @@ Written after a live incident on a Mendix project (2026-07-29) where Studio Pro 
 mid-MCP-session and then refused to reopen the project. Everything below was actually
 executed; the dead ends are recorded as dead ends so they aren't repeated.
 
-**Applies to:** any mxcli/MCP project on Mendix 11.x, macOS.
-**Companion:** `learned-mcp-patterns.md`.
+**Applies to:** any mxcli project on Mendix 11.x, macOS.
 
 ---
 

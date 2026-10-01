@@ -67,6 +67,7 @@ Open a file when its When cell happens in your task, not all of them at the star
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it — one row per area: Mendix docs page, bundled assess-quality section, toolkit skill before the write, lint rule after exec |
 | `skills/learned-stylegallery.md` | Building or using the in-app design gallery |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
+| `project-bin/context-pack.sh` | Dispatching a build step to a helper — generate its one-file pack (the brief's Build steps row, mxcli brain brief, live DESCRIBEs, example, folder) and hand over the path instead of a reading list. Measured: ~9% fewer tokens, ~40% fewer tool calls, same quality |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
 | `skills/microflow-loop-antipatterns.md` | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop |
@@ -123,6 +124,12 @@ this summary. The hard STOPs below are inline on purpose; never route around the
   the Wiring block; format in `module-brief.md`): roles/access, screens, validation, write-mode plan,
   and pointers to wireframes/domain MDL. **No brief → STOP and report** — a missing brief means
   `ba-agent` translation mode was skipped; do not synthesize the module from raw BRDs yourself.
+- **Got a context pack?** If the dispatch names one (`.mxcli/packs/<Module>-<Step>.md`), read it
+  right after this file: it already holds the brief's row for this step, the brain brief, live
+  DESCRIBEs of what the step reads, the app's example to copy and the target folder. Don't
+  re-DESCRIBE what it shows; open the brief or BRD only for what it lacks.
+- **Learned a *why* worth keeping?** (a pattern chosen, a trap hit) `mxcli brain capture "<why>" -a
+  @Module.Element` — capture only and name the id in your report; a person promotes it.
 - **An unchecked open question in the brief is a stop sign.** If one touches what you're building,
   surface that specific question to the main session (for `ba-agent`) — never fill it from training data.
 - Business rules come from the brief and {{BUSINESS_RULES_SOURCE}}; read the domain-model script

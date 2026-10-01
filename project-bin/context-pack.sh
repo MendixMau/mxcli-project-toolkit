@@ -110,10 +110,40 @@ pack() {
     "$(date '+%Y-%m-%d %H:%M')" "${BRIEF#$PROJECT_ROOT/}"
 
   printf '## This step builds\n\n| Document | Folder |\n|---|---|\n'
+  # entities, associations and enumerations live in the domain model, not in a folder; the
+  # name alone cannot say which kind a not-yet-built element is, so the cell says both
+  # (field run: an entity step's pack said "escalate" and the helper stopped to ask)
   names "$BUILDS" | while IFS= read -r n; do
     f="$(folder_of "$n")"
-    printf '| %s | %s |\n' "$n" "${f:-NOT IN FOLDER PLAN — escalate, do not invent one}"
+    printf '| %s | %s |\n' "$n" "${f:-not in the folder plan — fine for an entity, association or enumeration (domain model); any other document: escalate, do not invent a folder}"
   done
+  printf '\n'
+
+  # the rules a helper must apply, by step kind. Field run 2026-10-01: helpers given a pack
+  # skipped the skill reads the pack did not mention, and one reported the preflight skill
+  # "not available" although it was installed. A citation is not a read: name the files here.
+  local kinds="" tk
+  for n in $(names "$BUILDS"); do
+    case "$(folder_of "$n")" in
+      *Pages*|*Snippets*) kinds="$kinds page" ;;
+      "") kinds="$kinds domain" ;;
+      *) kinds="$kinds logic" ;;
+    esac
+  done
+  tk="$(find_toolkit_root 2>/dev/null || true)"; [ -n "$tk" ] && tk="$tk/"
+  # mxcli's bundled skills: flat <name>.md in older versions, <name>/SKILL.md in newer ones
+  mxskill() {
+    if [ -f "$MODEL_DIR/.ai-context/skills/$1/SKILL.md" ]; then printf '.ai-context/skills/%s/SKILL.md' "$1"
+    else printf '.ai-context/skills/%s.md' "$1"; fi
+  }
+  printf '## Rules — read these before drafting (the pack does not replace them)\n\n'
+  printf -- '- `%sskills/learned-mdl-preflight.md` — STOP table; check every planned operation\n' "$tk"
+  case "$kinds" in *logic*) printf -- '- `%sskills/learned-microflow-patterns.md` — microflow patterns\n' "$tk" ;; esac
+  case "$kinds" in *page*)
+    printf -- '- `%sskills/ui-preflight-pages.md` — page pre-flight (wireframe, tokens, StyleGallery)\n' "$tk"
+    printf -- '- `%s` — widget syntax\n' "$(mxskill create-page)" ;;
+  esac
+  case "$kinds" in *domain*) printf -- '- `%s` — entity, association, enumeration syntax\n' "$(mxskill generate-domain-model)" ;; esac
   printf '\n'
 
   printf '## Why (mxcli brain brief)\n\n'

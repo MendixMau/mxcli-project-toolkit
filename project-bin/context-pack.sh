@@ -117,11 +117,12 @@ pack() {
   printf '\n'
 
   printf '## Why (mxcli brain brief)\n\n'
+  # the brain's own headings start at "#"; push them two levels down so they nest under this one
   if [ -d "$MODEL_DIR/docs/brain" ]; then
     if [ -n "$SLICE" ]; then
-      (cd "$MODEL_DIR" && "$MXCLI" brain brief --slice "$SLICE" -p "$MPR_BASE" 2>/dev/null) || printf '_brain brief --slice %s failed_\n' "$SLICE"
+      (set -o pipefail; cd "$MODEL_DIR" && "$MXCLI" brain brief --slice "$SLICE" -p "$MPR_BASE" 2>/dev/null | sed -E 's/^(#+) /##\1 /') || printf '_brain brief --slice %s failed_\n' "$SLICE"
     else
-      (cd "$MODEL_DIR" && "$MXCLI" brain brief --module "$MODULE" -p "$MPR_BASE" 2>/dev/null) || printf '_brain brief --module %s failed_\n' "$MODULE"
+      (set -o pipefail; cd "$MODEL_DIR" && "$MXCLI" brain brief --module "$MODULE" -p "$MPR_BASE" 2>/dev/null | sed -E 's/^(#+) /##\1 /') || printf '_brain brief --module %s failed_\n' "$MODULE"
     fi
   else
     printf '_No docs/brain/ yet — `mxcli brain init` at build start (iterative-build-loop.md)._\n'
@@ -132,17 +133,50 @@ pack() {
   [ -n "$n" ] && printf '## Arch constraints (module brief)\n%s\n\n' "$n"
 
   printf '## Model now — what this step reads (live DESCRIBE)\n\n'
-  for n in $(names "$READS"); do describe "$n" || MISSING="$MISSING $n"; done
+  local watch="" ui="" a
+  for n in $(names "$READS"); do
+    if out="$(describe "$n")"; then
+      printf '%s\n\n' "$out"
+      case "$out" in "### $n (entity)"*)
+        a="$(printf '%s\n' "$out" | sed -nE 's/^[[:space:]]+"?([A-Za-z0-9_]+)"?: (DateTime|Boolean|Enumeration)([^A-Za-z].*)?$/\1/p' | paste -s -d, - | sed 's/,/, /g')"
+        [ -n "$a" ] && watch="$watch- $n: $a
+" ;;
+      esac
+    else MISSING="$MISSING $n"; fi
+  done
+
+  # a page step: its folder-plan folder holds pages, or the thing it changes / copies is a page
+  for n in $(names "$BUILDS"); do
+    case "$(folder_of "$n")" in *Pages*|*Snippets*) ui=1 ;; esac
+  done
 
   if [ -n "$(names "$BUILDS")" ]; then
     for n in $(names "$BUILDS"); do
-      out="$(describe "$n")" && printf '## Already in the model — you are changing this, not creating it\n\n%s\n' "$out"
+      if out="$(describe "$n")"; then
+        printf '## Already in the model — you are changing this, not creating it\n\n%s\n' "$out"
+        # who depends on it: keep their contract (field run: the change helper looked this up by hand)
+        a="$(cd "$MODEL_DIR" && "$MXCLI" impact -p "$MPR_BASE" "$n" 2>/dev/null | sed -n -e '/^| SourceType/,$p' -e '/^(no impact/p')"
+        [ -n "$a" ] && printf '### Depends on %s (mxcli impact) — keep their contract\n\n%s\n\n' "$n" "$a"
+        case "$out" in "### $n (page)"*|"### $n (snippet)"*) ui=1 ;; esac
+      fi
     done
   fi
 
   if [ -n "$(names "$EXAMPLE")" ]; then
     printf '## Example to copy — the app'"'"'s own way of doing this\n\n'
-    for n in $(names "$EXAMPLE"); do describe "$n" || MISSING="$MISSING $n"; done
+    for n in $(names "$EXAMPLE"); do
+      if out="$(describe "$n")"; then
+        printf '%s\n\n' "$out"
+        case "$out" in "### $n (page)"*|"### $n (snippet)"*) ui=1 ;; esac
+      else MISSING="$MISSING $n"; fi
+    done
+  fi
+
+  # field run 2026-10-01: 2 of 2 page helpers bound a TEXTBOX to DateTime/enum attributes they
+  # had in the pack above; `mxcli check` passed, mx check failed with CE2421. Name them up front.
+  if [ -n "$ui" ] && [ -n "$watch" ]; then
+    printf '## Widget watch-out — not TEXTBOX-bindable\n\n'
+    printf 'TEXTBOX takes String and number attributes only. These fail mx check with CE2421 (`mxcli check` passes them): read-only → DYNAMICTEXT with ContentParams; editable → DATEPICKER, CHECKBOX, or RADIOBUTTONS for an enum.\n\n%s\n' "$watch"
   fi
 
   if [ -n "$MISSING" ]; then

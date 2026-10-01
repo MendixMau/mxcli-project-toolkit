@@ -15,7 +15,7 @@
 # them, the brain explains them. A pack is regenerated per dispatch and never committed.
 #
 # PRODUCER FOR EVERY CONSUMER. Reads the "### Build steps" table in
-# architecture/modules/<Module>-brief.md, which architect-agent writes at Stage 4 per
+# architecture/modules/<Module>/module-brief.md (or the flat <Module>-brief.md), which architect-agent writes at Stage 4 per
 # skills/module-brief.md (Ready-check: "Build steps covers every document to be built"). Reads
 # docs/brain/ if `mxcli brain init` has run (iterative-build-loop.md, build start); without it
 # the pack says so and carries on — the brain section is the only optional one.
@@ -47,8 +47,13 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$MODULE" ] && [ -n "$STEP" ] || { echo "usage: context-pack.sh <Module> <step> [--out FILE] [--brief PATH]" >&2; exit 2; }
 
-[ -n "$BRIEF" ] || BRIEF="$PROJECT_ROOT/architecture/modules/$MODULE-brief.md"
-[ -f "$BRIEF" ] || { echo "context-pack: no brief at $BRIEF" >&2; exit 2; }
+# Both brief layouts are in use: <Module>/module-brief.md (iterative-build-loop.md) and the flat
+# <Module>-brief.md. The folder form wins when both exist.
+if [ -z "$BRIEF" ]; then
+  BRIEF="$PROJECT_ROOT/architecture/modules/$MODULE/module-brief.md"
+  [ -f "$BRIEF" ] || BRIEF="$PROJECT_ROOT/architecture/modules/$MODULE-brief.md"
+fi
+[ -f "$BRIEF" ] || { echo "context-pack: no brief at architecture/modules/$MODULE/module-brief.md or $MODULE-brief.md" >&2; exit 2; }
 MPR="$(find_mpr)" || exit 2
 MODEL_DIR="$(cd "$(dirname "$MPR")" && pwd)"
 MPR_BASE="$(basename "$MPR")"

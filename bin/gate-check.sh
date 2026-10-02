@@ -1174,10 +1174,72 @@ check_stage_4() {
     return
   fi
   if reg_unavailable; then reg_unavailable_note; return; fi
-  if has_confirmed_decision 4; then
-    echo "PASS|build-plan.md present and a Stage-4 CONFIRMED decision is in $REGISTER"
-  else
+  if ! has_confirmed_decision 4; then
     echo "FAIL|build-plan.md exists but ${REGISTER:-PROJECT.md} has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass"
+    return
+  fi
+  local closing
+  closing="$(stage4_closing_rows "$build_plan")"
+  case "$closing" in
+    FAIL\|*) echo "$closing" ;;
+    *) echo "PASS|build-plan.md present, ${closing#OK|}, and a Stage-4 CONFIRMED decision is in $REGISTER" ;;
+  esac
+}
+
+# stage4_closing_rows <build-plan.md> → "OK|<what was counted>" or "FAIL|<what is missing>".
+#
+# THE PLAN IS READ, NOT ONLY FOUND. brd-to-build-plan.md (#163) makes three closing rows
+# mandatory: per module a HARNESS row `bin/verify-module.sh <Module>` (then LOOK + CONFIRM per
+# module-review.md), a process-coherence-pass row per 2-3 modules, and a last row
+# `gate-check.sh <project> 5`. This check used to test only that the file existed and was
+# approved, so a plan approved before that rule was never reopened. Field case, 2026-10-02: a
+# 137-row plan for 7 modules had 0 / 0 / 0 of them, Stage 4 printed PASS, and the build reached
+# DONE with look, sweep and journeys at 0 of 7 — nothing that walks a plan does a step the plan
+# does not list.
+#
+# Denominator: the modules declared under architecture/modules/<Module>/ and as
+# `## Module brief — <Module>` sections in the plan. When neither exists yet (briefs are written
+# just in time), the modules named by close rows are the denominator, and at least one is owed.
+# Coherence rows are owed only from two modules up (there is no cluster of one). A plan with no
+# numbered rows at all is not counted — there is nothing to walk — and the verdict says so.
+stage4_closing_rows() {
+  local plan="$1" rows declared closed m missing="" n ncoh need last
+  rows="$(tr -d '\r' < "$plan" | grep -E '^\|[[:space:]]*[0-9]+[A-Za-z.]*[[:space:]]*\|')"
+  # Rows with a Kind cell are the plan's steps; a numbered question or decision table elsewhere
+  # in the file is not. Plans written before the Kind column keep every numbered row.
+  printf '%s\n' "$rows" | grep -qE '\|[[:space:]]*`?(BRIEF|BUILD|PROVE|RUN|HARNESS)`?[[:space:]]*\|' \
+    && rows="$(printf '%s\n' "$rows" | grep -E '\|[[:space:]]*`?(BRIEF|BUILD|PROVE|RUN|HARNESS)`?[[:space:]]*\|')"
+  if [ -z "$rows" ]; then
+    echo "OK|no numbered rows (closing rows not counted)"
+    return
+  fi
+  declared="$( { for m in "$(dirname "$plan")/modules"/*/; do [ -d "$m" ] && basename "$m"; done
+                 tr -d '\r' < "$plan" | sed -nE 's/^#+[[:space:]]+Module brief[[:space:]]+(—|–|-|:)[[:space:]]*([A-Za-z0-9_]+).*/\2/p'
+               } 2>/dev/null | sed '/^$/d' | sort -u)"
+  closed="$(printf '%s\n' "$rows" | grep 'verify-module\.sh' \
+            | sed -nE 's/.*verify-module\.sh[`"[:space:]]+([A-Za-z0-9_]+).*/\1/p' | sort -u)"
+  if [ -n "$declared" ]; then
+    for m in $declared; do
+      printf '%s\n' "$rows" | grep 'verify-module\.sh' | grep -qw -- "$m" || missing="$missing $m"
+    done
+    n="$(printf '%s\n' "$declared" | wc -l | tr -d ' ')"
+  else
+    n="$(printf '%s\n' "$closed" | sed '/^$/d' | wc -l | tr -d ' ')"
+    [ "$n" -gt 0 ] || missing=" (no module has one)"
+  fi
+  ncoh="$(printf '%s\n' "$rows" | grep -ciE 'process-coherence-pass|coherence pass')"
+  need=0; [ "$n" -ge 2 ] && need=$(( (n + 2) / 3 ))
+  last="$(printf '%s\n' "$rows" | tail -1)"
+
+  local why=""
+  [ -n "$missing" ] && why="no \`verify-module.sh <Module>\` close row for:$missing"
+  [ "$ncoh" -lt "$need" ] && why="${why:+$why; }$ncoh of $need coherence-pass row(s) for $n modules"
+  printf '%s' "$last" | grep -qE 'gate-check\.sh[^|]*[[:space:]]5([^0-9]|$)' \
+    || why="${why:+$why; }the last numbered row is not \`gate-check.sh <project> 5\`"
+  if [ -n "$why" ]; then
+    echo "FAIL|build-plan.md is missing its closing rows (brd-to-build-plan.md, \"three closing rows\"): $why — add them; nothing that walks the plan does a step it does not list"
+  else
+    echo "OK|closing rows for $n of $n modules, $ncoh coherence row(s), final gate row"
   fi
 }
 

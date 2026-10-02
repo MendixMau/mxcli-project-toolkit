@@ -318,6 +318,13 @@ harness. This is the *moment*; the shape is Step 1's column and the detail is th
 > | the plan's **last** row | `RUN` | `gate-check.sh <project> 5` | every Stage 5 obligation is discharged or waived with a reason: 0 PENDING |
 >
 > Denominator: N modules → N close rows, ⌈N/3⌉ or more coherence rows, and exactly one final gate row.
+>
+> `gate-check.sh <project> 4` counts them. N is the modules under `architecture/modules/<Module>/`
+> plus any `## Module brief — <Module>` section; a close row is a step row naming
+> `verify-module.sh <Module>`; coherence rows are owed from two modules up; the last step row
+> must be `gate-check.sh … 5`. A plan approved before this rule FAILs Stage 4 until the rows are
+> added — re-run the gate after any change to this skill, because an approved plan is not
+> reopened by anything else.
 
 **Why the closing rows are rows, not a step in the build loop (an unattended benchmark build,
 2026-09-27).** A 137-row plan was built unattended to DONE. The full e2e suite showed 62 pass and

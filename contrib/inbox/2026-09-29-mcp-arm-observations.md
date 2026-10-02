@@ -1,9 +1,9 @@
-# What the Studio Pro MCP arm teaches (and needs) — for the toolkit and for the MCP/Concord owners
+# What the Studio Pro MCP arm teaches (and needs) — for the toolkit and for the MCP/comparison-tool owners
 
 **From:** benchmark cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
 **Date:** 2026-09-29
 **Kind:** learning
-**Field evidence:** MCP arm's METRICS/RETRO-LOG/TIME-LOG and Concord's own tool journal: 406 screen-driving calls (22% of build calls) clustered on screens the MCP cannot write; those rows ran 12–21 min each vs 2.6–3.5 min/row for domain and logic; the person did 9 manual steps.
+**Field evidence:** MCP arm's METRICS/RETRO-LOG/TIME-LOG and the comparison tool's own tool journal: 406 screen-driving calls (22% of build calls) clustered on screens the MCP cannot write; those rows ran 12–21 min each vs 2.6–3.5 min/row for domain and logic; the person did 9 manual steps.
 **Proposed target:** `skills/upstream-feedback.md` (route the MCP items), `skills/iterative-build-loop.md` (the two adoptable habits)
 
 ---
@@ -15,7 +15,7 @@ Adoptable by the toolkit:
 - **Visual check per page during the build**, not after the person complains (the MCP arm's UI
   work started only after "the UI looks quite bad").
 
-For the MCP/Concord owners (not toolkit work):
+For the MCP/comparison-tool owners (not toolkit work):
 - Write support for security, user roles, role home pages, snippets, scheduled events,
   import/export mappings, published REST, pluggable-widget property schema.
 - Atomic writes with fixed batch order (a reverse-order batch miswired 16 associations).

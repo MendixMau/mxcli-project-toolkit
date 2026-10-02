@@ -66,19 +66,101 @@ Branding is an input, not an afterthought — and not a checkbox to tick silentl
 | Basis | When | Effort |
 |---|---|---|
 | **Client branding guidelines** (logo, palette, type, spacing) | Real project — request them as an analysis deliverable | depends |
-| **Atlas defaults** | POC / no brand yet — matches the actual build target 1:1 | zero |
+| **Atlas defaults** | No brand, like-for-like rebuild — matches the actual build target 1:1 | zero |
+| **Ideation-library direction** (ui-ux-pro-max, question D1 below) | No brand, demo / presales / POC — a deliberate, current look | low |
 | **Neutral placeholder palette** (the `dataviz` reference palette) | Design-forward but brand-agnostic, swap later | low |
 
-For a faithful rebuild POC, **Atlas defaults** are usually right — the wireframes then look like what Mendix will actually render, so coverage comparison is like-for-like. Record the choice; it cascades into every token below.
+**Atlas defaults fit a like-for-like rebuild, not a demo.** When coverage comparison against the
+source is the point, Atlas defaults are right: the wireframes look like what Mendix will render.
+For a demo, presales or POC build, prefer a deliberate **showcase direction** instead — fidelity
+covers behaviour, not looks. Measured on two runs of this pipeline over the same procurement
+source (2026-10): the run that carried the source app's own look produced clean, generic,
+dated wireframes; the run where the user demanded "more 2027, slick, modern" is the one they
+picked side by side. Neither run used the ideation library below, which was then a passive
+paragraph here. Record the choice; it cascades into every token below.
 
-**No brand and no opinion? Borrow the ideation database.** When the client has neither guidelines
-nor a preference, the public [ui-ux-pro-max-skill](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill)
-repo (MIT) is a good input for this interview: clone it read-only and search its
-`src/ui-ux-pro-max/data/` CSVs (styles, color palettes, font pairings, UX guidelines) for 2–3
-directions that fit the client's domain, then present those as the interview options. **Reuse
-stops at the data.** Its implementation guidance targets CSS frameworks (React, Tailwind, etc.),
-not Mendix — the chosen direction lands as `ds.css` tokens, the Atlas mapping table, and
-StyleGallery choices per `learned-stylegallery.md`, never as its CSS or component code.
+### Two questions, asked in order — never merged into one
+
+1. **"Is there a brand guideline, a style guide or an existing design system?"** — `user-only`
+   (`interview-protocol.md`): asked on its own, with **no recommendation**, never as a line in a
+   batch. A yes ends here: the brand is the basis.
+2. **If there is no brand: "Where does the look come from?"** — a `choice`, asked in the Step 0b
+   batch next to the navigation-layout question below, in the two-options-plus-recommendation
+   shape:
+
+> **D1 — Design direction (no client brand)**
+> There is no brand guideline, so the look is ours to choose. Purpose on record: *<quote the
+> Stage P purpose row from `PROJECT.md`>*.
+> - **(a) Three directions from the ui-ux-pro-max ideation library.** I fetch a public, MIT-licensed
+>   design dataset (88 styles, 192 palettes, 74 font pairings, 119 UX rules) read-only, at a
+>   pinned commit, into `.ideation/` (git-ignored, ~30 MB, ~2 s). I search it for this domain and
+>   come back with three directions, safe to bold, as the next question. One more question; a
+>   deliberate, current look.
+> - **(b) Atlas defaults.** No fetch, zero effort, and the wireframes look exactly like what
+>   Mendix renders, so coverage comparison is like-for-like. It also looks like every other
+>   Mendix app.
+>
+> **I recommend (a)** for a demo, presales or POC build; **(b)** when the purpose is a faithful
+> rebuild judged on coverage.
+
+"Something else" is always open: a direction the user describes, or the neutral placeholder
+palette. **Only a yes to (a) triggers the fetch. On (b) or anything else, nothing is fetched and
+no network call is made.**
+
+### On (a): fetch, search, propose three
+
+The dataset is the fact source and its own search CLI is the instrument (Python 3 standard
+library only, BM25 over the CSVs) — there is no toolkit wrapper. Fetch exactly the pinned commit,
+from the project root:
+
+```bash
+PIN=09170eec67eefd46a7ae85de61b40c194020f997   # ui-ux-pro-max-skill master, 2026-09-27
+git init -q .ideation/ui-ux-pro-max
+git -C .ideation/ui-ux-pro-max fetch -q --depth 1 https://github.com/nextlevelbuilder/ui-ux-pro-max-skill "$PIN"
+git -C .ideation/ui-ux-pro-max -c advice.detachedHead=false checkout -q FETCH_HEAD
+grep -qxF '.ideation/' .gitignore 2>/dev/null || echo '.ideation/' >> .gitignore
+cd .ideation/ui-ux-pro-max/src/ui-ux-pro-max/scripts
+python3 search.py "<seed words>" --design-system -p "<App>" -f markdown   # one bundle per seed
+python3 search.py "<words>" --domain ux -n 4                              # UX rules for the key screens
+```
+
+Moving the pin is a toolkit PR that changes this one line, never a per-project `git pull`.
+
+Then the judgement, which is yours:
+
+1. **Map the domain to rows yourself.** The dataset has no row for most enterprise back-office
+   domains (procurement, ERP, claims, case handling): a bare domain query returns noise (a
+   procurement query ranked "Food Delivery" second). Pick three seed queries that span safe to
+   bold: the nearest product row (e.g. `invoice billing finance back-office enterprise`), the
+   AI/agent row when the app has an agent (`AI agent copilot automation platform SaaS`), and a
+   bolder option (`financial dashboard dark data-dense analytics`, or a bento/soft-UI style).
+2. **Run `--design-system -f markdown` once per seed.** Each is ~3 KB (~800 tokens) and returns in
+   under 0.3 s, so three directions cost ~2.5k tokens — cheap enough to run inside the interview.
+   Keep the Style name, the Colors table, the Typography pair and the Avoid list. Drop the
+   Pattern section (landing-page CTA advice such as "Contact Sales", wrong for a back-office
+   app), the font `@import` URLs (the font goes into the theme) and the pre-delivery checklist
+   (web/Tailwind items).
+3. **Check every on-colour pair before you present it.** The palettes are mostly AA-adjusted
+   already, but a dark row can make the primary vanish: `#0F172A` on `#020617` is 1.13:1, so that
+   direction must use its accent as the action colour. Say so in the option, do not fix it
+   silently.
+4. **Present the three as the follow-up question** (D1a), each with a name, a one-line feel,
+   five hex swatches, the font pair, one signature idea (what the agent or decision screen does
+   differently), and the source rows. Recommend one, with the reason. If the user wants to see
+   them, render quick HTML swatches — that is the CAC-4 brainstorm, not a design system yet.
+
+**Reuse stops at the data.** The chosen direction lands as `ds.css` tokens (three tiers per
+`learned-stylegallery.md`), the Atlas mapping table and StyleGallery choices — class-only CSS in
+px. What never ports: `search.py --persist` (it writes `design-system/<app>/MASTER.md`, a second
+design spec that would compete with `ds.css`); any CSS, Tailwind, React or `--stack` guidance;
+the landing-page patterns; its chart colours (chart series come from the `dataviz` palette);
+its spacing scale (the toolkit's is `design-spacing.md`, 8/16/24/32/48).
+
+**Record it** as a Stage 3 row in the `PROJECT.md` Decisions table, with the commit and rows so
+the direction can be reproduced:
+`| 3 | Design direction: <name> — ui-ux-pro-max @ 09170ee; colors.csv "<Product Type>", styles.csv "<Style ID>", typography.csv "<pairing>" | CONFIRMED | user, <date>: "<their words>" |`
+and repeat the source rows at the top of `design/brand.md`. On (b), record
+`| 3 | Design direction: Atlas defaults (ideation library offered, declined) | CONFIRMED | … |`.
 
 **Ask the navigation layout in the same interview.** Top-bar nav vs side-nav (and similar
 high-level layout defaults) is a first-class design input, not a background rule: include it

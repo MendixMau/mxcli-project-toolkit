@@ -1181,6 +1181,77 @@ check_stage_4() {
   fi
 }
 
+# Stage 5 is still MANUAL, with one mechanical piece (2026-10-02): every page bin/exec.sh built
+# is owed a LOOK, and a module is not done while one is owed. Two unattended builds built every
+# page and opened no screenshot of any — the LOOK was routed and had an obligation row, but both
+# are about a report, and a build that writes none owes nothing anyone checks. So this joins two
+# recorded facts, not a judgement (project-bin/look-ledger.sh): pages built (exec.sh) against
+# images actually opened (the PostToolUse(Read) hook). It FAILs only the claim that Stage 5 is
+# done; exec.sh never reads it, so it never blocks a script or the next page.
+#
+# Evidence it did not create (CLAUDE.md "Shipping an instrument" rule 6): a PROOF-OF-LOOK
+# citation in design/ui-reviews/ui-review-*.html whose screenshot is newer than the build and
+# at least 10KB, and a `Waived obligation look/<Module>` (or look/<Module.Page>) register line.
+# No owed.tsv — a project built before this, or one whose exec.sh predates it — stays MANUAL.
+check_stage_5() {
+  local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
+  local unseen="" n_unseen=0 st page epoch mod rep line shot f sz mt
+  if [ ! -s "$owed" ] || [ ! -f "$TOOLKIT_DIR/project-bin/look-ledger.sh" ]; then
+    check_stage_manual; return
+  fi
+  # The toolkit's copy, not the project's: the same join for every project, whichever version
+  # of the script it installed.
+  rows="$(PROJECT_ROOT="$PROJECT_DIR" bash "$TOOLKIT_DIR/project-bin/look-ledger.sh" status 2>/dev/null)"
+  [ -n "$rows" ] || { check_stage_manual; return; }
+
+  # PROOF-OF-LOOK citations, once: "Module.Page<TAB>shot-mtime" per citation with a real shot.
+  for rep in "$PROJECT_DIR"/design/ui-reviews/ui-review-*.html; do
+    [ -f "$rep" ] || continue
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      page="$(printf '%s' "$line" | sed 's/^PROOF-OF-LOOK:[[:space:]]*//;s/[[:space:]]*=.*$//')"
+      shot="$(printf '%s' "$line" | sed 's/^.*=[[:space:]]*//')"
+      case "$shot" in /*) f="$shot" ;; *) f="$(dirname "$rep")/$shot" ;; esac
+      [ -f "$f" ] || continue
+      sz="$(wc -c < "$f" 2>/dev/null | tr -d ' ')"; [ "${sz:-0}" -ge 10240 ] || continue
+      mt="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)"
+      proofs="$proofs$page	$mt
+"
+    done <<EOF
+$(tr -d '\r' < "$rep" | grep -oE 'PROOF-OF-LOOK:[[:space:]]*[^=<]+=[[:space:]]*[^<>[:space:]]+')
+EOF
+  done
+
+  while IFS='	' read -r st page epoch; do
+    [ -n "$page" ] || continue
+    n=$((n+1))
+    if [ "$st" = "SEEN" ]; then n_seen=$((n_seen+1)); continue; fi
+    if [ -n "$proofs" ] && printf '%s' "$proofs" \
+         | awk -F'\t' -v p="$page" -v e="$epoch" '$1==p && $2+0>=e+0 {f=1} END {exit !f}'; then
+      n_proof=$((n_proof+1)); continue
+    fi
+    mod="${page%%.*}"
+    if [ -n "$REGISTER" ] && type _ob_waiver >/dev/null 2>&1 \
+       && { _ob_waiver "$REGISTER" look "$page" >/dev/null || _ob_waiver "$REGISTER" look "$mod" >/dev/null; }; then
+      n_waived=$((n_waived+1)); continue
+    fi
+    n_unseen=$((n_unseen+1))
+    [ "$n_unseen" -le 8 ] && unseen="$unseen${unseen:+, }$page"
+  done <<EOF
+$rows
+EOF
+  [ "$n_unseen" -gt 8 ] && unseen="$unseen, +$((n_unseen-8)) more"
+
+  local how="$n_seen opened"
+  [ "$n_proof" -gt 0 ] && how="$how, $n_proof by PROOF-OF-LOOK"
+  [ "$n_waived" -gt 0 ] && how="$how, $n_waived waived"
+  if [ "$n_unseen" -gt 0 ]; then
+    echo "FAIL|look: $n_unseen of $n built page(s) never looked at since their last build: $unseen — screenshot each, open the PNG (a file name containing the page name), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
+  else
+    echo "MANUAL|look: $n of $n built page(s) accounted for ($how); the rest of Stage 5 is manual"
+  fi
+}
+
 check_stage_6() {
   local f test_ok="" review_ok=""
   for f in "$PROJECT_DIR/test-report.html" "$PROJECT_DIR"/reports/test-report.html \
@@ -2590,6 +2661,7 @@ for stage in "${STAGE_NAMES[@]}"; do
     2) result="$(check_stage_2)" ;;
     3) result="$(check_stage_3)" ;;
     4) result="$(check_stage_4)" ;;
+    5) result="$(check_stage_5)" ;;
     6) result="$(check_stage_6)" ;;
     7) result="$(check_stage_7)" ;;
     *) result="$(check_stage_manual)" ;;

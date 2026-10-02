@@ -26,7 +26,7 @@
 # them; that redundancy is deliberate and matches this script's spec, not an oversight.
 #
 # NOT ADDED, ON PURPOSE: `Bash(*)` or anything broader. This script only ever appends to
-# `permissions.allow`, `permissions.deny` and `hooks.SessionStart` — never removes or reorders
+# `permissions.allow`, `permissions.deny` and the two hooks below — never removes or reorders
 # what is there.
 #
 # THE ONE DENY (2026-09-17): a bare `./mxcli exec` / `mxcli exec`. It is the single command the
@@ -40,6 +40,13 @@
 # THE ONE HOOK: `bash bin/session-check.sh || true` on SessionStart — the project-local check
 # that says at the top of every session whether the model on disk is verified, whether the
 # mxbuild gate can run here, and whether the installed guard scripts are stale. It never blocks.
+#
+# THE SECOND HOOK (2026-10-02): `bash bin/look-ledger.sh seen || true` on PostToolUse, matcher
+# `Read`. Two unattended builds built every page and never opened a screenshot of one; nothing
+# could tell, because the only record of a LOOK was a report nobody had to write. This hook
+# writes one ledger row per image the agent actually opens, and gate-check.sh's Stage 5 check
+# joins it against the pages bin/exec.sh built. It ignores every non-image Read, never blocks,
+# and exits 0 even when look-ledger.sh is not installed yet.
 #
 # MERGE PATTERN reused from bin/install-claude-hooks.sh (~line 112-206): Python via
 # lib/portable.sh's require_py, a timestamped backup before any write, and a merge that keeps
@@ -152,37 +159,49 @@ ENTRIES_LOCAL=(
 # THE ONE DENY and THE ONE HOOK (2026-09-17, see header notes above) are global, not
 # per-machine — they carry no $TOOLKIT_ROOT path — so they are only ever merged into the
 # SHARED settings.json, never into settings.local.json (the local call below passes "" / no
-# deny entries and the python side treats an empty hook_cmd as "nothing to check/add").
+# deny entries and the python side treats an empty hook list as "nothing to check/add").
 DENY=(
   "Bash(./mxcli exec:*)"
   "Bash(mxcli exec:*)"
   "Bash(./mxcli.exe exec:*)"
 )
 SESSION_HOOK="bash bin/session-check.sh || true"
+LOOK_HOOK="bash bin/look-ledger.sh seen || true"
+# event <TAB> matcher ("" = none) <TAB> command, one hook per line.
+HOOKS="SessionStart		$SESSION_HOOK
+PostToolUse	Read	$LOOK_HOOK"
 
 require_py
 
 # One process, one JSON file, one entry group — called twice (shared, local) so a single
-# implementation stays correct for both instead of two near-identical copies. hook_cmd is ""
+# implementation stays correct for both instead of two near-identical copies. hooks is ""
 # for the local call (no hook, no deny entries belong in settings.local.json).
 _merge_group() {
-  local settings_path="$1" sidecar_path="$2" mode="$3" hook_cmd="$4" n_allow="$5"; shift 5
-  "$PY" - "$settings_path" "$sidecar_path" "$mode" "$hook_cmd" "$n_allow" "$@" <<'PY'
+  local settings_path="$1" sidecar_path="$2" mode="$3" hooks="$4" n_allow="$5"; shift 5
+  "$PY" - "$settings_path" "$sidecar_path" "$mode" "$hooks" "$n_allow" "$@" <<'PY'
 import json, os, shutil, sys
 
-settings_path, sidecar_path, mode, hook_cmd, n_allow, *rest = sys.argv[1:]
+settings_path, sidecar_path, mode, hooks_arg, n_allow, *rest = sys.argv[1:]
 n_allow = int(n_allow)
 entries, deny_entries = rest[:n_allow], rest[n_allow:]
+# (event, matcher, command) per line; matcher "" means the group carries no matcher.
+hook_specs = [tuple(l.split("\t", 2)) for l in hooks_arg.splitlines() if l.strip()]
 
 
-def hook_present(d):
-    if not hook_cmd:
-        return True
-    for grp in d.get("hooks", {}).get("SessionStart", []) or []:
+def hook_present(d, spec):
+    ev, matcher, cmd = spec
+    for grp in d.get("hooks", {}).get(ev, []) or []:
+        if (grp.get("matcher") or "") != matcher:
+            continue
         for h in grp.get("hooks", []) or []:
-            if h.get("command") == hook_cmd:
+            if h.get("command") == cmd:
                 return True
     return False
+
+
+def hook_label(spec):
+    ev, matcher, cmd = spec
+    return "hooks.%s%s: %s" % (ev, "[%s]" % matcher if matcher else "", cmd)
 
 
 def load_json(path, default):
@@ -198,14 +217,17 @@ def write_json(path, data):
         f.write("\n")
 
 
-# Sidecar: a plain list (pre-2026-09-17: allow strings only) or {"allow": [...], "deny": [...],
-# "hook": bool}. Both are read; the dict form is written.
+# Sidecar: a plain list (pre-2026-09-17: allow strings only), {"allow", "deny", "hook": bool}
+# (pre-2026-10-02: "hook" = the SessionStart hook), or that plus "hooks": [command, ...] naming
+# every hook this script added. All three are read; the newest form is written, "hook" kept.
 _side = load_json(sidecar_path, [])
 if isinstance(_side, list):
     _side = {"allow": _side, "deny": [], "hook": False}
 added = set(_side.get("allow", []))
 added_deny = set(_side.get("deny", []))
-added_hook = bool(_side.get("hook", False))
+added_hooks = set(_side.get("hooks", []))
+if _side.get("hook") and hook_specs:
+    added_hooks.add(hook_specs[0][2])  # the SessionStart hook, the only one before 2026-10-02
 
 if mode == "check":
     d = load_json(settings_path, {})
@@ -213,7 +235,8 @@ if mode == "check":
     deny = d.get("permissions", {}).get("deny", [])
     missing = [e for e in entries if e not in allow]
     missing_deny = [e for e in deny_entries if e not in deny]
-    if missing or missing_deny or not hook_present(d):
+    missing_hooks = [h for h in hook_specs if not hook_present(d, h)]
+    if missing or missing_deny or missing_hooks:
         print("Missing entries in %s:" % settings_path)
         for m in missing:
             print("  " + m)
@@ -221,11 +244,11 @@ if mode == "check":
             print("Missing deny entries (permissions.deny):")
             for m in missing_deny:
                 print("  " + m)
-        if not hook_present(d):
-            print("  hooks.SessionStart: " + hook_cmd)
+        for h in missing_hooks:
+            print("  " + hook_label(h))
         sys.exit(1)
-    if hook_cmd:
-        print("All %d allow, %d deny entries and the SessionStart hook present in %s" % (len(entries), len(deny_entries), settings_path))
+    if hook_specs:
+        print("All %d allow, %d deny entries and %d hook(s) present in %s" % (len(entries), len(deny_entries), len(hook_specs), settings_path))
     else:
         print("All %d allow entries present in %s" % (len(entries), settings_path))
     sys.exit(0)
@@ -249,14 +272,17 @@ if mode == "uninstall":
         d["permissions"]["allow"] = kept
         if "deny" in d["permissions"]:
             d["permissions"]["deny"] = kept_deny
-    if added_hook and "hooks" in d:
-        groups = d["hooks"].get("SessionStart", []) or []
+    for spec in hook_specs:
+        ev, _m, cmd = spec
+        if cmd not in added_hooks or "hooks" not in d or ev not in d["hooks"]:
+            continue
+        groups = d["hooks"].get(ev, []) or []
         for grp in groups:
-            grp["hooks"] = [h for h in grp.get("hooks", []) if h.get("command") != hook_cmd]
-        d["hooks"]["SessionStart"] = [g for g in groups if g.get("hooks")]
-        if not d["hooks"]["SessionStart"]:
-            del d["hooks"]["SessionStart"]
-        removed.append("hooks.SessionStart: " + hook_cmd)
+            grp["hooks"] = [h for h in grp.get("hooks", []) if h.get("command") != cmd]
+        d["hooks"][ev] = [g for g in groups if g.get("hooks")]
+        if not d["hooks"][ev]:
+            del d["hooks"][ev]
+        removed.append(hook_label(spec))
     write_json(settings_path, d)
     if os.path.exists(sidecar_path):
         os.remove(sidecar_path)
@@ -295,33 +321,41 @@ newly_denied = [e for e in deny_entries if e not in deny]
 for e in newly_denied:
     deny.append(e)
 
-new_hook = False
-if not hook_present(d):
-    hooks = d.setdefault("hooks", {})
-    groups = hooks.setdefault("SessionStart", [])
-    groups.append({"hooks": [{"type": "command", "command": hook_cmd}]})
-    new_hook = True
+new_hooks = []
+for spec in hook_specs:
+    if hook_present(d, spec):
+        continue
+    ev, matcher, cmd = spec
+    grp = {"matcher": matcher} if matcher else {}
+    grp["hooks"] = [{"type": "command", "command": cmd}]
+    d.setdefault("hooks", {}).setdefault(ev, []).append(grp)
+    new_hooks.append(spec)
 
 write_json(settings_path, d)
 
-if newly_added or newly_denied or new_hook:
+if newly_added or newly_denied or new_hooks:
     added.update(newly_added)
     added_deny.update(newly_denied)
-    write_json(sidecar_path, {"allow": sorted(added), "deny": sorted(added_deny), "hook": added_hook or new_hook})
-    print("Added %d entry(ies) to %s" % (len(newly_added) + len(newly_denied) + (1 if new_hook else 0), settings_path))
+    added_hooks.update(h[2] for h in new_hooks)
+    side = {"allow": sorted(added), "deny": sorted(added_deny)}
+    if hook_specs:
+        side["hook"] = hook_specs[0][2] in added_hooks
+        side["hooks"] = sorted(added_hooks)
+    write_json(sidecar_path, side)
+    print("Added %d entry(ies) to %s" % (len(newly_added) + len(newly_denied) + len(new_hooks), settings_path))
     for e in newly_added:
         print("  + allow " + e)
     for e in newly_denied:
         print("  + deny  " + e)
-    if new_hook:
-        print("  + hooks.SessionStart: " + hook_cmd)
+    for h in new_hooks:
+        print("  + " + hook_label(h))
 else:
     print("All permission entries already present in %s -- nothing to do" % settings_path)
 PY
 }
 
 RC=0
-_merge_group "$SETTINGS" "$SIDECAR" "$MODE" "$SESSION_HOOK" "${#ENTRIES_SHARED[@]}" "${ENTRIES_SHARED[@]}" "${DENY[@]}" || RC=$?
+_merge_group "$SETTINGS" "$SIDECAR" "$MODE" "$HOOKS" "${#ENTRIES_SHARED[@]}" "${ENTRIES_SHARED[@]}" "${DENY[@]}" || RC=$?
 _merge_group "$SETTINGS_LOCAL" "$SIDECAR_LOCAL" "$MODE" "" "${#ENTRIES_LOCAL[@]}" "${ENTRIES_LOCAL[@]}" || {
   RC2=$?
   [ "$RC2" -gt "$RC" ] && RC=$RC2

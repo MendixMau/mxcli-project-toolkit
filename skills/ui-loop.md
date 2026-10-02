@@ -47,7 +47,14 @@ The gate was not missing. Its cadence was too coarse to catch anything early.
 After a script that creates or changes a page:
 
 1. **Run it and open the page** — through real navigation, as a real user role, not a direct URL.
-2. **Screenshot it.**
+2. **Screenshot it, then open the PNG** (the Read tool). Name the file after the page —
+   `order-overview.png` or `Order_Overview_1280.png` for `Orders.Order_Overview`. `bin/exec.sh`
+   recorded the page as owed a look when the script landed; opening a screenshot whose name
+   contains the page name, taken after that build, is what clears it. Until every built page is
+   cleared, `gate-check.sh <project> 5` FAILs and names the pages still owed (`page-fidelity.js`
+   does not clear it: a text score is not a look). Two unattended builds shipped every page
+   unseen before this existed. A page that genuinely needs no look: `--waive look/<Module>
+   --reason "..."`.
 3. **Ask four questions** against the page's wireframe (or the design system if there is no
    wireframe):
    - **What's missing?** A field, button, column or whole section that should be there and isn't.

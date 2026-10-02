@@ -1081,6 +1081,15 @@ if [ "$GATE_STATE" = "fail" ]; then
   exit 1
 fi
 
+# ── LOOK owed ────────────────────────────────────────────────────────────────
+# Every page this script wrote is now owed a LOOK (look-ledger.sh header: two unattended builds
+# built every page and opened no screenshot of any). Written here, after the restore branch,
+# because a restored script built nothing. Never blocks this exec or the next one — only
+# gate-check.sh's Stage 5 "done" claim reads it. Not for --patch: a patch is opaque.
+if [ "$PATCH_MODE" = 0 ] && [ -f "$(dirname "$0")/look-ledger.sh" ]; then
+  bash "$(dirname "$0")/look-ledger.sh" owe "$SCRIPT" || true
+fi
+
 if [ "$GATE_STATE" != "pass" ]; then
   echo ""
   echo "⚠️  Script applied to $MPR_BASE, but THE GATE DID NOT RUN ($GATE_STATE)."

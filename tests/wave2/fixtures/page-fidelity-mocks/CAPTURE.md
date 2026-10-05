@@ -89,3 +89,13 @@ master prints `fidelity 100% … bindings 2/2`; with comments stripped it is
 `commented-template.mdl` is the page built to that wireframe; `-stub.mdl` is the same page as a
 forward-reference stub carrying a `Stub:` caption; `-snippets.mdl` moves the page header into a
 snippet declared in the same file and calls a second snippet that is not in the input.
+
+## dynclasses-* — the DynamicClasses shapes (2026-10-05)
+
+`dynclasses-describe-v025.mdl` is **verbatim** `DESCRIBE PAGE` output from mxcli v0.25.0
+(built from the v0.25.0 tag) on a scratch copy of mxcli's own public `testdata/pedapp`, after
+`exec` of `dynclasses-script.mdl`. Only its four `--` header lines were added. It is the shape
+the parser had never seen: v0.25 prints the expression bare (`DynamicClasses: if … then
+'is-active' else 'is-idle'`), under `--mdl 0` as well. `dynclasses-script.mdl` is the
+headerless script as exec'd (quoted form). `dynclasses.html` is a **synthetic** one-card
+wireframe; nothing in it is a fact about a real wireframe — the case is about the MDL side.

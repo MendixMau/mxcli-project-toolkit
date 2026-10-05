@@ -179,6 +179,15 @@ printf "create page Sales.OrderInbox (Title: 'x') {\n  snippetcall a (snippet: S
 OUT11=$(cd "$TMP" && node "$SUT" --no-log "$CT" OrderInbox "$SNIPONLY" 2>&1; echo "exit=$?")
 has   "a page made only of unseen snippets is UNMEASURED" "$OUT11" "exit=3"
 
+echo "  -- DynamicClasses in both shapes: quoted (a headerless script) and bare (mxcli v0.25 DESCRIBE)"
+# v0.25.0 DESCRIBE prints `DynamicClasses: if … then 'is-active' else 'is-idle'` with no outer
+# quotes, under --mdl 0 too; the quoted-form regex read is-active as undeclared (classes 1/2).
+# The describe input is a verbatim capture; the wireframe is synthetic and marked.
+OUT12=$(cd "$TMP" && node "$SUT" --no-log "$FIX/dynclasses.html" Dyn_Probe "$FIX/dynclasses-describe-v025.mdl" 2>&1)
+has   "bare DynamicClasses (v0.25 DESCRIBE) declares its classes" "$OUT12" "classes 2/2"
+OUT13=$(cd "$TMP" && node "$SUT" --no-log "$FIX/dynclasses.html" Dyn_Probe "$FIX/dynclasses-script.mdl" 2>&1)
+has   "quoted DynamicClasses (headerless script) still does"      "$OUT13" "classes 2/2"
+
 echo
 printf 'test-page-fidelity-mocks: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

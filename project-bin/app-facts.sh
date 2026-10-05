@@ -164,6 +164,8 @@ for fn in sorted(os.listdir(MDL_DIR)):
         # The catalog holds TOP-LEVEL activities only (verified 2026-09-15: a microflow with a
         # nested loop has one LoopedActivity row and none of the body activities). So parsed >
         # catalog is expected whenever loops nest; only parsed < catalog means the parser missed one.
+        # mxcli v0.25.0 also catalogs loop-body activities, so there the two can match; the
+        # check holds on either version. The loop parser reads v0.25 DESCRIBE unchanged.
         if loops < exp:
             out["_meta"]["parse_mismatch"].append({"microflow": qn, "catalog": exp, "parsed": loops})
         elif loops > exp:

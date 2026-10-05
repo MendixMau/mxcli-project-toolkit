@@ -498,6 +498,23 @@ function score(wf, mdl) {
   for (const m of mdl.matchAll(/DynamicClasses\s*[:=]\s*'((?:[^']|'')*)'/gi))
     for (const t of m[1].matchAll(/''([a-z][a-z0-9-]*)''|'([a-z][a-z0-9-]*)'/gi))
       cls.add(t[1] || t[2]);
+  // mxcli ≥ v0.25 DESCRIBE prints the expression BARE, under --mdl 0 too (verbatim, v0.25.0):
+  //   container ctnStatus (Class: 'card', DynamicClasses: if 1 = 1 then 'is-active' else 'is-idle') {
+  // The quoted-form regex above never matches that, so on v0.25 every dynamic class read as
+  // undeclared. Scan the bare expression to the `,` / `)` / newline that ends the property.
+  for (const m of mdl.matchAll(/DynamicClasses\s*[:=]\s*(?!['\s])/gi)) {
+    const from = m.index + m[0].length;
+    let i = from, depth = 0, inStr = false;
+    for (; i < mdl.length; i++) {
+      const c = mdl[i];
+      if (inStr) { if (c === "'") inStr = false; continue; }   // `''` closes and reopens: harmless
+      if (c === "'") inStr = true;
+      else if (c === '(') depth++;
+      else if (c === ')') { if (depth-- === 0) break; }
+      else if ((c === ',' || c === '\n') && depth === 0) break;
+    }
+    for (const t of mdl.slice(from, i).matchAll(/'([a-z][a-z0-9-]*)'/gi)) cls.add(t[1]);
+  }
   const hit = txt => { const w = words(txt); return w.length ? w.filter(x => corpus.includes(x)).length / w.length >= 0.6 : true; };
   const dim = arr => ({ n: arr.length, ok: arr.filter(hit).length, miss: arr.filter(x => !hit(x)) });
   const h = dim(wf.headings), b = dim(wf.buttons), k = dim(wf.blocks);

@@ -349,8 +349,7 @@ Rules — these apply to every stage and every per-module build loop:
    item that makes the obligation check bite: it reports a pass nobody performed, but only on
    a run, and nothing before this rule required one.
 
-   **Why (measured, 2026-09-19, `lowcode-vs-highcode-benchmark` runs `mendix-run1` and
-   `mendix-run1b`).** A full Stage-5 build closed with all seven screens built, a green mxbuild
+   **Why (measured, 2026-09-19, two field builds of the same app).** A full Stage-5 build closed with all seven screens built, a green mxbuild
    gate, and 11 of 37 acceptance rows confirmed. `gate-check.sh` had run exactly once, at
    scaffold time. The `look` obligation, the wiring sweep, journeys and coherence were all
    `PENDING` and nobody saw it, because nothing asked. When the gate was finally run as a

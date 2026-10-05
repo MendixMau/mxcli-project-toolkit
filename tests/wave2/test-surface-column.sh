@@ -20,7 +20,9 @@ INIT="$TOOLKIT/bin/init-project.sh"
 OK=0; BAD=0
 ok(){ echo "  ok   $1"; OK=$((OK+1)); }
 bad(){ echo "  FAIL $1"; BAD=$((BAD+1)); }
-has(){ printf '%s' "$2" | grep -qF -- "$3" && ok "$1" || bad "$1 (looked for: $3)"; }
+# Here-strings, not `printf | grep -q`: under pipefail, grep -q exiting on an early match
+# SIGPIPEs printf mid-write and fails the pipeline — a race on the gate's ~17 KB output.
+has(){ grep -qF -- "$3" <<<"$2" && ok "$1" || bad "$1 (looked for: $3)"; }
 
 W="$(mktemp -d)"; trap 'rm -rf "$W"' EXIT
 P="$W/p"; mkdir -p "$P"; : > "$P/Fixture.mpr"
@@ -38,11 +40,11 @@ has "stage 3 keeps design-system.html (em-dash inside a parenthetical)" "$OUT" "
 has "stage 3 keeps the wireframes glob"                                 "$OUT" "wireframes/*.html"
 # Stage 2's cell names the RENAMED file after its em-dash gloss. Reporting it would tell every
 # project it still owes an artifact the toolkit deleted — the exact drift this check exists for.
-printf '%s' "$OUT" | grep -q 'enrichment-summary' \
+grep -q 'enrichment-summary' <<<"$OUT" \
   && bad "stage 2 reported the renamed enrichment-summary.html as an owed surface" \
   || ok "stage 2 ignores the historical name behind the gloss"
 # A toolkit COMMAND sits in the same cell as the artifact it renders.
-printf '%s' "$OUT" | grep -qE 'Surface [^—]*bin/' \
+grep -qE 'Surface [^—]*bin/' <<<"$OUT" \
   && bad "a bin/ command was reported as a project surface" \
   || ok "toolkit commands are not mistaken for surfaces"
 

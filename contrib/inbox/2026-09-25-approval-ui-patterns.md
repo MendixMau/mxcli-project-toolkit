@@ -3,7 +3,7 @@
 **From:** field-build prep (mxcli compared with another build approach) — the maintainer
 **Date:** 2026-09-25
 **Kind:** skill-draft
-**Field evidence:** Wireframes only, so far. They pass the Stage 3 gate, render with 0 overflow at 1440 and 390 on 42 wireframes, and pass the portability check. Not built in a Mendix model yet. HYPOTHESIS that they build natively; the cook-off run logs "built as designed / adapted / not feasible" per pattern in METRICS.md ("Pattern evidence"). Promote only what both arms built.
+**Field evidence:** Wireframes only, so far. They pass the Stage 3 gate, render with 0 overflow at 1440 and 390 on 42 wireframes, and pass the portability check. Not built in a Mendix model yet. HYPOTHESIS that they build natively; the field build logs "built as designed / adapted / not feasible" per pattern in METRICS.md ("Pattern evidence"). Promote only what both builds built.
 **Proposed target:** `skills/design-artifacts.md` (pattern section) + `design/wireframe-template.html` rules shipped by the toolkit (approval layout rule) + the StyleGallery token set
 
 ---

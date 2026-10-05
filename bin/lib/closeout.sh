@@ -6,7 +6,7 @@
 # gate-check paste, the live-checklist repost) — and silent about CLOSING: nobody was told, in
 # one message, what the stage produced, what was decided in it, what is still open going into
 # the next one, what the next stage will do and how, and which skills govern it. Measured on a
-# real register (TFC-TCXGraphPOC): 77 CONFIRMED/ASSUMED rows and no reader-facing recap at any
+# real register (a field project): 77 CONFIRMED/ASSUMED rows and no reader-facing recap at any
 # gate; an open-questions table mixing ANSWERED, Deferred and PARKED rows so "what is still
 # open entering Stage 5" could not be read off it. The checkpoint format's "What we found"
 # digest is built to drive the next questions, not to inventory the stage.

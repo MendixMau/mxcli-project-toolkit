@@ -1,9 +1,9 @@
-# UI rounds cost 5.6x the MCP arm for the same time — per-script validation in drafters, then re-apply
+# UI rounds cost 5.6x the MCP build for the same time — per-script validation in drafters, then re-apply
 
-**From:** benchmark cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
+**From:** a field comparison (mxcli + toolkit build vs a Studio Pro MCP build, same frozen spec)
 **Date:** 2026-09-29
 **Kind:** process
-**Field evidence:** both TIME-LOG.md files: UI 177 min / 1,507 calls (toolkit) vs 181 min / 515 calls (MCP); round 1 alone = 64% of the toolkit arm's UI calls; ~20% of UI tokens went to round 2 repairing round-1 regressions. Result: toolkit arm clearly closer to wireframes (own re-review 1 → 15 of 43 pages MATCH).
+**Field evidence:** both TIME-LOG.md files: UI 177 min / 1,507 calls (toolkit) vs 181 min / 515 calls (MCP); round 1 alone = 64% of the toolkit build's UI calls; ~20% of UI tokens went to round 2 repairing round-1 regressions. Result: toolkit build clearly closer to wireframes (own re-review 1 → 15 of 43 pages MATCH).
 **Proposed target:** `skills/ui-loop.md`, `skills/learned-css-that-never-applied.md`, `project-bin/check-page-shell.sh`
 
 ---

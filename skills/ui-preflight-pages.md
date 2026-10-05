@@ -259,8 +259,8 @@ The script's header carries the full evidence for each check.
 
 **A fidelity score is not a LOOK pass, and must never be accepted as one.**
 `page-fidelity.js` matches identifiers in the page MDL against the wireframe's text. It
-cannot see where an element sits, only that the name occurs. Measured on the
-`lowcode-vs-highcode-benchmark` Arm A run of 2026-09-19 (`results/mendix-run1b/`), scoring
+cannot see where an element sits, only that the name occurs. Measured on a
+field build of 2026-09-19, scoring
 seven screens both ways on the same commit:
 
 | Screen | Fidelity (text match) | Element checklist (present / placed / behaves) |

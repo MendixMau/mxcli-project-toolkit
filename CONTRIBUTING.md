@@ -133,6 +133,6 @@ designed and waiting, not for work that is imagined.
 - A deliberate *don't-file* after searching upstream and finding the bug already logged
   (pattern-b overlap note → BUG-75/77, now 8 confirmations across 3 projects).
 - A per-project promotion queue naming exact toolkit target files
-  (tfc-tcxgraphpoc `PROJECT.md` → "Toolkit promotion changelog", TD-01…TD-06).
+  (a field project's `PROJECT.md` → "Toolkit promotion changelog", TD-01…TD-06).
 
 Model your contribution on any of these and it will sail through.

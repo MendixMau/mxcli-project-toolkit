@@ -44,7 +44,7 @@ const tsFiles = allFiles.filter(f => f.endsWith('.ts') && !f.endsWith('.spec.ts'
 //  - pre-v17 CLI: foo.component.ts / foo.service.ts / app-routing.module.ts
 //  - Angular 20 style guide: foo.ts (the @Component/@Injectable decorator is the only marker),
 //    standalone routes in app.routes.ts using loadComponent: () => import(...).then(m => m.Foo)
-// (A CLI benchmark app, 2026-09-23, was the first v20 source: the suffix filter found 0 of 11 screens.)
+// (A field-test CLI app, 2026-09-23, was the first v20 source: the suffix filter found 0 of 11 screens.)
 const decoratedWith = (f, deco) => new RegExp(`@${deco}\\s*\\(`).test(readSafe(f));
 let componentFiles = tsFiles.filter(f => f.endsWith('.component.ts') || decoratedWith(f, 'Component'));
 // Legacy layout rule: where a public/ folder exists, only components under it are business

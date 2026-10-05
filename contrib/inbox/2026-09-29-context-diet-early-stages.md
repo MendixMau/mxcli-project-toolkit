@@ -1,9 +1,9 @@
 # Stages 0–4 load ~40–70k of toolkit text before the task starts — trim the default load
 
-**From:** benchmark cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
+**From:** a field comparison (mxcli + toolkit build vs a Studio Pro MCP build, same frozen spec)
 **Date:** 2026-09-29
 **Kind:** process
-**Field evidence:** chars/4 measurement of every baseline row in `bin/lib/skill-routing.tsv` (29 Sep 2026); cook-off sub-agents loaded ~145–215k before their first write (see 2026-09-29-subagent-context-cost.md). Stage 0–4 figures are measured file sizes, not transcript-measured loads.
+**Field evidence:** chars/4 measurement of every baseline row in `bin/lib/skill-routing.tsv` (29 Sep 2026); field-build sub-agents loaded ~145–215k before their first write (see 2026-09-29-subagent-context-cost.md). Stage 0–4 figures are measured file sizes, not transcript-measured loads.
 **Proposed target:** `bin/lib/skill-routing.tsv` + `bin/render-routing.sh`, `skills/conversion-runbook.md`, agent stubs under `agents/`
 
 ---
@@ -23,7 +23,7 @@ session.
 | stage "-" baselines (skills-over-scripts, degrade-to-judgement, retesting-learned-rules, tool-output-is-not-ground-truth) | ~7k | every stage |
 | Stage 0–2 script rows (`source-sufficiency.sh` 10k, `source-ledger.sh` 9k, `facts-lock.sh` 3k, …) | ~25k if read | routed as rows; an agent that *reads* a script instead of running it pays its full size |
 | agent stub routing table (81 rows in the mdl stub) | ~8k | every sub-agent |
-| Stage 5 baselines | ~75k | build only — but cook-off sub-agents loaded ~95k of skills, so the stage slice is not what agents actually honour (hypothesis) |
+| Stage 5 baselines | ~75k | build only — but field-build sub-agents loaded ~95k of skills, so the stage slice is not what agents actually honour (hypothesis) |
 
 Total baseline rows: ~163k if everything is read.
 

@@ -9,18 +9,18 @@ exception, and the section below says exactly what the headless route omits.
 
 Completes the agent skill family: `skills/mendix-agents.md` builds the agent,
 `skills/mendix-agent-ui.md` embeds the chat panel, **this skill makes the runtime actually
-answer**. Worked, battle-tested driver scripts live in the TFC-TCXGraphPOC project
+answer**. Worked, battle-tested driver scripts live in a private field project
 (`tests/e2e/configure-genai.js`, `import-agents.js`, `test-agents.js`, plus
 `.ai-context/skills/genai-configuration.md` with the full app-specific detail); copy and
-adapt them rather than rewriting from scratch. **They are on the `claude/tfc-app-e2e-testing-rra3km`
-branch, not `main`** — checked 2026-08-31; on `main` those four paths do not exist.
+adapt them rather than rewriting from scratch. **They are on a feature branch
+there, not `main`** — checked 2026-08-31; on `main` those four paths do not exist.
 
 ## Prerequisites — what you must be handed before starting
 
 - **The MxCloud GenAI resource keys themselves** — base64-encoded JSON blobs, one per
   resource (text generation, embeddings, knowledge base). Typically issued from the Mendix
   Portal per app environment. Without them nothing below works; there is no anonymous mode.
-- Supply them to the driver script via **environment variables only** (the TFC project uses
+- Supply them to the driver script via **environment variables only** (that project uses
   `GenAIText`, `GenAIEmbed`, `GenAIKB`). **Never on argv** (argv is world-readable in
   `/proc`), never committed, and never screenshot the filled key textarea.
 - A running app, and an **Administrator** login for it. Scripts must log out in a `finally`

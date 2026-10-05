@@ -343,7 +343,7 @@ This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
    the rendered page at 1280px and 390px and write what you saw to
    \`design/ui-reviews/ui-review-<date>.html\`. The fidelity score does not discharge the
    look obligation — it scored 100% on two screens that matched under half their wireframe
-   (benchmark run \`mendix-run1b\`, 2026-09-19).
+   (field build, 2026-09-19).
 
 EOF
   echo "Created: CLAUDE.local.md (runbook-first wiring + baseline routing)"

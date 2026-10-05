@@ -134,18 +134,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are.
   reads it. The high-code build in the same comparison never hit either defect because its harness
   made a fresh context per screen per width — a harness difference, not a platform difference, and
   it nearly became a finding about Mendix. — field build (Maurits Visser)
-- learn(learned-detection-gaps): **two new register rows from a field build.** `Title = null`
-  as an XPath retrieve constraint passes `check --references`, passes exec, and is **evaluated by
-  mxcli's own OQL engine**, which returns rows — so even a read-back looks right; real mxbuild
-  rejects it with CE0161. The lesson is sharper than the fix (`not(Title)`): mxcli's query engine
-  is more permissive than the model loader, so "I ran the query and it worked" is not evidence a
-  constraint is legal. Second row: a layout migrated with `ALTER PAGES … WHERE LAYOUT = X` is
-  silently reverted by any later `create or replace page` that hardcodes the old `Layout:`, because
-  that statement rewrites the page wholesale. It is green through **every rung including live
-  runtime** — the app loads, every page renders, every journey passes — and the app ships two
-  navigation shells at once. Found when 4 of 7 screens turned out to have no navigation at all,
-  just a bare hamburger, after a UI fix loop re-ran five older page scripts. The migration is not
-  done until the `Layout:` literal is fixed in the source scripts. — field build (Maurits Visser)
+- learn(learned-detection-gaps): **two new register rows from a field build.** `Title = null` as an XPath retrieve constraint passes `check --references`, passes exec, and is **evaluated by mxcli's own OQL engine**, which returns rows — so even a read-back looks right; real mxbuild rejects it with CE0161. The lesson is sharper than the fix (`not(Title)`): mxcli's query engine is more permissive than the model loader, so "I ran the query and it worked" is not evidence a constraint is legal. Second row: a layout migrated with `ALTER PAGES … WHERE LAYOUT = X` is silently reverted by any later `create or replace page` that hardcodes the old `Layout:`, because that statement rewrites the page wholesale. It is green through **every rung including live runtime** — the app loads, every page renders, every journey passes — and the app ships two navigation shells at once. Found when 4 of 7 screens turned out to have no navigation at all, just a bare hamburger, after a UI fix loop re-ran five older page scripts. The migration is not done until the `Layout:` literal is fixed in the source scripts. — field build (Maurits Visser)
 - fix(module-review): **rubric row 8 judged the nav *bar* but never the nav *menu*.** The row
   already caught an un-skinned default nav bar and a sidebar design shipped as a top-bar app; it
   said nothing about the navigation profile's own items. The menu is chrome on every screen and

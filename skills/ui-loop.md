@@ -66,7 +66,11 @@ After a script that creates or changes a page:
 4. **Score it when a wireframe exists** — `node project-bin/page-fidelity.js` for the page. The
    row it appends to `docs/PAGE-FIDELITY.tsv` is the score of record (target ≥80%) and the
    `fidelity` obligation reads it; a page nobody scored is a page nobody checked, however the
-   screenshot looked. No wireframe: waive it explicitly (`--waive fidelity/<Module> --reason
+   screenshot looked. The number prints as `text-match`: identifier overlap, blind to placement,
+   nesting, size and colour. **It never replaces step 3** — a field build that ran it 38 times
+   and never opened a screenshot shipped pages whose text matched and whose layout did not.
+   `UNMEASURED` (exit 3) means there was nothing to compare — fix the input, it is not a score;
+   `STUB IN MODEL` (exit 4) means a `Stub:` page is being scored as the build. No wireframe: waive it explicitly (`--waive fidelity/<Module> --reason
    "no wireframe"`) — there is no automatic discharge, and a module the obligation never hears
    about stays PENDING forever.
 5. **Fix it now, or write it down now.** A defect that survives into the next script costs more to

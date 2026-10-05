@@ -67,3 +67,25 @@ which is what makes those bindings visible to the scorer.
 
 Measured on the real page: bindings 13/18 -> 14/16 (DemoUrl row no longer owed; the two
 image rows seen through the ALTER script), contract 16/30 -> 16/29 (`.css` gone).
+
+## commented-template — a template comment that names `<main>` (2026-10-02)
+
+`commented-template.html` reduces a wireframe from a requirements-driven build whose team
+wrote its own wireframe template. **Verbatim in shape:** the `<!DOCTYPE>` followed by a
+header comment whose rules say "inside `<main>`" and "AFTER `</main>`" (rules 3 and 7 kept
+word for word apart from the product name); `div.app-shell > aside.app-rail` with a
+`.userchip`; `div.app-main > main.page-column` holding `.page-header` (crumb, `h1.page-title`,
+`p.page-sub`), `.seg-tabs`, a `.dg-toolbar`, a bound `.inbox` list, an `h2.section-title`
+and a `table.dg`; then `div.wf-anno` with `table.bind` **after** `</main>`. **Changed:** every
+name and sample value (the domain became orders and customers), and the rail, filters, rows
+and bind table were cut to two or three entries each.
+
+On the real wireframe, master's `contentOf()` matched `<main` inside the comment and scored
+the comment text: `headings 0/0 actions 0/0 content 0/0 classes 0/0 bindings 3/6`, printed
+as `fidelity 50%`; a sibling page printed `fidelity 100%` on `bindings 1/1`. On this fixture
+master prints `fidelity 100% … bindings 2/2`; with comments stripped it is
+`text-match 85% … headings 2/2 … classes 6/22 … bindings 2/2`.
+
+`commented-template.mdl` is the page built to that wireframe; `-stub.mdl` is the same page as a
+forward-reference stub carrying a `Stub:` caption; `-snippets.mdl` moves the page header into a
+snippet declared in the same file and calls a second snippet that is not in the input.

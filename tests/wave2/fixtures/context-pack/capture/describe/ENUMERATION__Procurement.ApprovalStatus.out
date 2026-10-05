@@ -1,6 +1,0 @@
-create or modify enumeration Procurement.ApprovalStatus (
-  PENDING 'Pending',
-  APPROVED 'Approved',
-  REJECTED 'Rejected'
-) FOLDER 'Requisition';
-/

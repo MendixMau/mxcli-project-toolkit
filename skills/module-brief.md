@@ -269,8 +269,8 @@ rather than wondering whether they missed a file.
      WHY (2026-10-01 A/B, 3 helper runs with a pack vs 3 without, same brief, same task):
      without a pack the helper assembles its own context — DESCRIBE one entity, read the BRD,
      hunt for an example — and each lookup re-sends the whole conversation. With the pack:
-     ~9% fewer tokens, ~40% fewer tool calls, ~40% less time; 0 new errors and the right
-     folder in both arms. The saving is the lookups; the rest is the agent's fixed start-up. -->
+     ~40% fewer tool calls and ~40% less time; tokens ~9% lower, within run-to-run noise, so
+     not proven. 0 new errors and the right folder with and without a pack. The saving is the lookups; the rest is the agent's fixed start-up. -->
 
 
 ### Cross-module dependencies & integrations

@@ -61,7 +61,7 @@ Building catalog (full mode - includes activities/widgets)...
 ✓ Catalog ready (3.9s)
 ✓ Catalog cached to .mxcli/catalog.db
 
-Impact analysis for Procurement.ACT_ApprovalStep_Approve
+Impact analysis for Sales.ACT_ApprovalStep_Approve
 
 Summary:
   PAGE: 1
@@ -69,4 +69,4 @@ Summary:
 Found 1 affected element(s)
 | SourceType | SourceName                    | RefKind |
 |------------|-------------------------------|---------|
-| PAGE       | Procurement.RequisitionDetail | action  |
+| PAGE       | Sales.SalesOrderLine | action  |

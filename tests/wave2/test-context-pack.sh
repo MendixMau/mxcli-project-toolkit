@@ -2,7 +2,7 @@
 # test-context-pack.sh — pin context-pack.sh against real mxcli output.
 #
 # No mxcli and no real .mpr: MXCLI points at fixtures/context-pack/fake-mxcli, which replays
-# DESCRIBE and impact output captured verbatim from mxcli v0.23.0 on a cook-off
+# DESCRIBE and impact output captured verbatim from mxcli v0.23.0 on a field-build
 # model (see the stub's header). The brief is fixtures/context-pack/module-brief.md. Pinned:
 #
 #   1. A CHANGE STEP: every Reads element described with its real kind, the built document shown
@@ -39,35 +39,35 @@ hasnt(){ if grep -qF -- "$2" "$3"; then bad "$1" "unexpected: $2"; else ok "$1";
 
 # mkproj <dir> <root|app> — a project with the fixture brief and an empty .mpr
 mkproj() {
-  mkdir -p "$1/architecture/modules/Procurement"
-  cp "$FIX/module-brief.md" "$1/architecture/modules/Procurement/module-brief.md"
+  mkdir -p "$1/architecture/modules/Sales"
+  cp "$FIX/module-brief.md" "$1/architecture/modules/Sales/module-brief.md"
   if [ "$2" = app ]; then mkdir -p "$1/app"; : > "$1/app/App.mpr"; else : > "$1/App.mpr"; fi
 }
-run() { ( cd "$1" && PROJECT_ROOT="$1" bash "$CP" Procurement "$2" --out "$1/pack.md" ) 2>"$1/err"; echo $?; }
+run() { ( cd "$1" && PROJECT_ROOT="$1" bash "$CP" Sales "$2" --out "$1/pack.md" ) 2>"$1/err"; echo $?; }
 
 for layout in root app; do
   P="$TMP/$layout"; mkproj "$P" "$layout"
   echo "== layout: $layout =="
 
   check "5.1 change step exits 0" "$(run "$P" 5.1)" "0"
-  has "5.1 entity described with its kind"      "### Procurement.ApprovalStep (entity)" "$P/pack.md"
-  has "5.1 enumeration described with its kind" "### Procurement.ApprovalStatus (enumeration)" "$P/pack.md"
+  has "5.1 entity described with its kind"      "### Sales.ApprovalStep (entity)" "$P/pack.md"
+  has "5.1 enumeration described with its kind" "### Sales.ApprovalStatus (enumeration)" "$P/pack.md"
   has "5.1 built document shown as existing"    "Already in the model" "$P/pack.md"
-  has "5.1 impact table carried"                "Procurement.RequisitionDetail" "$P/pack.md"
-  has "5.1 example included"                    "### Procurement.ACT_ApprovalStep_Reject (microflow)" "$P/pack.md"
-  has "5.1 folder from the folder plan"         "| Procurement.ACT_ApprovalStep_Approve | Requisition/Microflows |" "$P/pack.md"
+  has "5.1 impact table carried"                "Sales.SalesOrderLine" "$P/pack.md"
+  has "5.1 example included"                    "### Sales.ACT_ApprovalStep_Reject (microflow)" "$P/pack.md"
+  has "5.1 folder from the folder plan"         "| Sales.ACT_ApprovalStep_Approve | SalesOrder/Microflows |" "$P/pack.md"
   has "5.1 microflow rules named"               "learned-microflow-patterns.md" "$P/pack.md"
   has "5.1 arch constraints carried"            "audit row in the same transaction" "$P/pack.md"
   has "5.1 no brain dir → says so"              "No docs/brain/ yet" "$P/pack.md"
 
   check "5.2 page step exits 0" "$(run "$P" 5.2)" "0"
   has "5.2 widget watch-out present"            "Widget watch-out" "$P/pack.md"
-  has "5.2 watch-out names the Boolean attr"    "Procurement.CatalogItem: Active" "$P/pack.md"
+  has "5.2 watch-out names the Boolean attr"    "Sales.Product: Active" "$P/pack.md"
   has "5.2 page rules named"                    "ui-preflight-pages.md" "$P/pack.md"
 
   check "5.3 typo in Reads exits 1" "$(run "$P" 5.3)" "1"
-  has "5.3 typo listed under Not found"         "- Procurement.ApprovalStepp" "$P/pack.md"
-  has "5.3 stderr names it"                     "Procurement.ApprovalStepp" "$P/err"
+  has "5.3 typo listed under Not found"         "- Sales.ApprovalStepp" "$P/pack.md"
+  has "5.3 stderr names it"                     "Sales.ApprovalStepp" "$P/err"
 
   check "unknown step exits 2" "$(run "$P" 9.9)" "2"
 done
@@ -91,7 +91,7 @@ if [ -e "$P/pack.md" ]; then bad "off → no pack written" "pack.md exists"; els
 has "off → stderr names the fallback" "reading list" "$P/err"
 
 check "env MXTK_CONTEXT_PACKS=on beats PROJECT.md off" \
-  "$( ( cd "$P" && PROJECT_ROOT="$P" MXTK_CONTEXT_PACKS=on bash "$CP" Procurement 5.1 --out "$P/pack.md" ) 2>/dev/null; echo $?)" "0"
+  "$( ( cd "$P" && PROJECT_ROOT="$P" MXTK_CONTEXT_PACKS=on bash "$CP" Sales 5.1 --out "$P/pack.md" ) 2>/dev/null; echo $?)" "0"
 
 printf '# Project\nContext packs: banana\n' > "$P/PROJECT.md"
 check "unrecognised value → runs as on (exit 0)" "$(run "$P" 5.1)" "0"

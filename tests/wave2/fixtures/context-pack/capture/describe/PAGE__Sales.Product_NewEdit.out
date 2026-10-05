@@ -1,14 +1,14 @@
-create or modify page Procurement.CatalogItem_NewEdit (
+create or modify page Sales.Product_NewEdit (
   Title: 'Catalog item',
   Layout: Atlas_Core.PopupLayout,
-  Folder: 'Supplier/Pages',
-  Params: { $CatalogItem: Procurement.CatalogItem }
+  Folder: 'Catalog/Pages',
+  Params: { $Product: Sales.Product }
 ) {
   layoutgrid g {
     row row1 {
       column col1 (DesktopWidth: AutoFill) {
-        dataview dv (DataSource: $CatalogItem, ReadOnlyStyle: Control) {
-          -- Context: $currentObject (CatalogItem)
+        dataview dv (DataSource: $Product, ReadOnlyStyle: Control) {
+          -- Context: $currentObject (Product)
           container formGrid (Class: 'form-grid') {
             container fgSku (Class: 'form-group') {
               textbox tbSku (Label: 'SKU *', Attribute: Sku)
@@ -29,18 +29,18 @@ create or modify page Procurement.CatalogItem_NewEdit (
             container fgPrice (Class: 'form-group') {
               textbox tbPrice (Label: 'Unit price *', Attribute: UnitPrice)
             }
-            container fgVendor (Class: 'form-group') {
-              combobox cbVendor (
-                Label: 'Vendor *',
-                Attribute: CatalogItem_Vendor,
-                DataSource: database from Procurement.Vendor,
+            container fgBrand (Class: 'form-group') {
+              combobox cbBrand (
+                Label: 'Brand *',
+                Attribute: Product_Brand,
+                DataSource: database from Sales.Brand,
                 CaptionAttribute: Name
               )
             }
             container fgActive (Class: 'form-group') {
               checkbox cbActive (Label: 'Active', Attribute: Active)
               dynamictext helpActive (
-                Content: 'Inactive items are not offered on new requisitions.',
+                Content: 'Inactive items are not offered on new sales orders.',
                 Class: 'form-help'
               )
             }
@@ -49,7 +49,7 @@ create or modify page Procurement.CatalogItem_NewEdit (
             actionbutton btnCancel (Caption: 'Cancel', Action: cancel_changes close_page, Class: 'btn')
             actionbutton btnSave (
               Caption: 'Save',
-              Action: microflow Procurement.ACT_CatalogItem_Save(CatalogItem: $CatalogItem),
+              Action: microflow Sales.ACT_Product_Save(Product: $Product),
               ButtonStyle: Primary,
               Class: 'btn btn-primary'
             )
@@ -60,4 +60,4 @@ create or modify page Procurement.CatalogItem_NewEdit (
   }
 }
 
-grant view on page Procurement.CatalogItem_NewEdit to Procurement.Admin, Procurement.ProcurementOfficer;
+grant view on page Sales.Product_NewEdit to Sales.Admin, Sales.SalesOfficer;

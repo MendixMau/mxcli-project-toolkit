@@ -1,25 +1,25 @@
-create or modify page Procurement.CatalogItem_Overview (
+create or modify page Sales.Product_Overview (
   Title: 'Catalog',
   Layout: Atlas_Core.Atlas_Default,
   Url: 'catalog',
-  Folder: 'Supplier/Pages'
+  Folder: 'Catalog/Pages'
 ) {
   container colMain (Class: 'page-column') {
     container hdr (Class: 'page-header') {
       container hdrText (Class: 'page-header-text') {
         dynamictext "title" (Content: 'Catalog', RenderMode: H1, Class: 'page-title')
-        dynamictext sub (Content: 'Orderable items with their list price and vendor.', Class: 'page-sub')
+        dynamictext sub (Content: 'Orderable items with their list price and brand.', Class: 'page-sub')
       }
       container hdrActions (Class: 'page-actions') {
         actionbutton btnNew (
           Caption: 'New item',
-          Action: create_object Procurement.CatalogItem then show_page Procurement.CatalogItem_NewEdit,
+          Action: create_object Sales.Product then show_page Sales.Product_NewEdit,
           ButtonStyle: Primary
         )
       }
     }
-    datagrid dgMain (DataSource: database from Procurement.CatalogItem sort by Sku asc) {
-      -- Context: $currentObject (Procurement.CatalogItem), $dgMain (selection)
+    datagrid dgMain (DataSource: database from Sales.Product sort by Sku asc) {
+      -- Context: $currentObject (Sales.Product), $dgMain (selection)
       column Sku (Attribute: Sku, Caption: 'SKU') {
         textfilter fSku
       }
@@ -30,23 +30,23 @@ create or modify page Procurement.CatalogItem_Overview (
         textfilter fCategory
       }
       column UnitPrice (Attribute: UnitPrice, Caption: 'Unit price')
-      column "CatalogItem_Vendor/Name" (Attribute: CatalogItem_Vendor/Name, Caption: 'Vendor') {
-        textfilter fVendor
+      column "Product_Brand/Name" (Attribute: Product_Brand/Name, Caption: 'Brand') {
+        textfilter fBrand
       }
       column Active (Attribute: Active, Caption: 'Active')
       column col7 (Caption: ' ', ShowContentAs: customContent) {
         actionbutton btnEdit (
           Caption: 'Edit',
-          Action: show_page Procurement.CatalogItem_NewEdit(CatalogItem: $currentObject)
+          Action: show_page Sales.Product_NewEdit(Product: $currentObject)
         )
         actionbutton btnDeactivate (
           Caption: 'Deactivate',
-          Action: microflow Procurement.ACT_CatalogItem_Deactivate(CatalogItem: $currentObject),
+          Action: microflow Sales.ACT_Product_Deactivate(Product: $currentObject),
           Visible: [$currentObject/Active]
         )
         actionbutton btnDelete (
           Caption: 'Delete',
-          Action: microflow Procurement.ACT_CatalogItem_Delete(CatalogItem: $currentObject),
+          Action: microflow Sales.ACT_Product_Delete(Product: $currentObject),
           ButtonStyle: Danger
         )
       }
@@ -54,4 +54,4 @@ create or modify page Procurement.CatalogItem_Overview (
   }
 }
 
-grant view on page Procurement.CatalogItem_Overview to Procurement.Admin, Procurement.Employee, Procurement.DepartmentManager, Procurement.ProcurementOfficer, Procurement.FinanceApprover, Procurement.APClerk, Procurement.TreasuryOfficer, Procurement.CFO, Procurement.APManager, Procurement.Warehouse;
+grant view on page Sales.Product_Overview to Sales.Admin, Sales.Employee, Sales.DepartmentManager, Sales.SalesOfficer, Sales.FinanceApprover, Sales.APClerk, Sales.TreasuryOfficer, Sales.CFO, Sales.APManager, Sales.Warehouse;

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # fake-mxcli — replays capture/ for test-context-pack.sh. Captured from mxcli v0.23.0 against the
-# cook-off model (Mendix 11.14.0), 2026-10-05: one DESCRIBE per kind, in
+# field-build model (Mendix 11.14.0), 2026-10-05: one DESCRIBE per kind, in
 # context-pack.sh's own kind order, stopping at the first success. Every kind/name pair not
 # in capture/ returned exit 1 with "<kind> not found" on stderr there, which is what this
 # replays. `brain brief` is not captured (the model had no docs/brain/): it prints a marker.

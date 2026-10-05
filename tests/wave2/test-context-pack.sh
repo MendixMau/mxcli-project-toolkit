@@ -14,6 +14,7 @@
 #   5. THE SWITCH: `Context packs: off` exits 3 and writes nothing; MXTK_CONTEXT_PACKS wins over
 #      PROJECT.md; `no-brain` leaves out the brain even when docs/brain/ exists; `on` includes it;
 #      an unrecognised value warns and runs as on.
+#   7. OLD BRIEF: a brief with no "### Build steps" table (written before packs) exits 3, like off.
 #   6. BOTH LAYOUTS: the .mpr at the root, and under app/ (two-tree).
 #
 # Usage: bash test-context-pack.sh [path-to-context-pack.sh]
@@ -96,6 +97,14 @@ check "env MXTK_CONTEXT_PACKS=on beats PROJECT.md off" \
 printf '# Project\nContext packs: banana\n' > "$P/PROJECT.md"
 check "unrecognised value → runs as on (exit 0)" "$(run "$P" 5.1)" "0"
 has "unrecognised value → warns" "unrecognised" "$P/err"
+
+echo "== old brief (no Build steps table) =="
+P="$TMP/old"; mkproj "$P" root
+awk '/^### Build steps/ {skip=1; next} skip && /^##/ {skip=0} !skip' "$FIX/module-brief.md" \
+  > "$P/architecture/modules/Sales/module-brief.md"
+check "no Build steps table → exit 3" "$(run "$P" 5.1)" "3"
+if [ -e "$P/pack.md" ]; then bad "old brief → no pack written" "pack.md exists"; else ok "old brief → no pack written"; fi
+has "old brief → stderr names the fallback" "reading list" "$P/err"
 
 echo
 echo "$PASS passed, $FAIL failed"

@@ -30,7 +30,8 @@
 # Exit: 0 pack complete · 1 pack written, but an element it names is not in the model
 #       (listed under "Not found" — a typo in the brief, or a Reads element not built yet)
 #       · 2 instrument fault (no brief, no row for <step>, no mxcli, no .mpr)
-#       · 3 packs switched off (`Context packs: off`) — dispatch with the reading list
+#       · 3 no pack: packs switched off (`Context packs: off`), or the brief has no
+#         "### Build steps" table (written before packs existed) — dispatch with the reading list
 #
 # SWITCH. PROJECT.md `Context packs: on | no-brain | off` (default on; env MXTK_CONTEXT_PACKS
 # wins for one command). `no-brain` leaves out the `mxcli brain` section — use it when the brain
@@ -80,6 +81,9 @@ if [ -z "$BRIEF" ]; then
   [ -f "$BRIEF" ] || BRIEF="$PROJECT_ROOT/architecture/modules/$MODULE-brief.md"
 fi
 [ -f "$BRIEF" ] || { echo "context-pack: no brief at architecture/modules/$MODULE/module-brief.md or $MODULE-brief.md" >&2; exit 2; }
+# A brief written before packs has no Build steps table. That is a project mid-build on an older
+# toolkit, not a fault: fall back like `off`, so its sessions carry on without retrofitting briefs.
+grep -q '^### Build steps' "$BRIEF" || { echo "context-pack: no '### Build steps' table in $BRIEF (brief predates packs) — dispatch with the reading list" >&2; exit 3; }
 MPR="$(find_mpr)" || exit 2
 MODEL_DIR="$(cd "$(dirname "$MPR")" && pwd)"
 MPR_BASE="$(basename "$MPR")"

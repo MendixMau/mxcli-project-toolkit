@@ -6734,3 +6734,54 @@ Before revoking a rule, snapshot its member list with `SHOW ACCESS ON ENTITY` an
 
 **Actual:** the member is silently dropped on re-grant, and the model fails validation.
 
+
+## BUG-DRAFT-module-close-never-surfaced: (toolkit `bin/status.sh` + `module-brief.md` template, not mxcli) a whole build runs without the module close (LOOK, wiring sweep, design-audit) ever becoming the NEXT action — the brief declares it, nothing on the build path asks for it (2026-10-02)
+
+**Severity:** High — `module-review.md` stage 4 is "the stage that gets skipped, and the stage the escaped defects come from"; this is the mechanism by which it gets skipped even when the brief says the module is not done without it
+**Toolkit:** `bin/status.sh` `next_action()` (lines 119-131) and `skills/module-brief.md` identical on master `8abd614` and the frozen copy the build ran on
+**mxcli version:** v0.24.0 · **Mendix version:** 11.14.0
+**Discovered:** 2026-10-02 (same field build as BUG-DRAFT-stage4-gate-ignores-closing-rows: 137 rows, 7 modules, 56 scripts)
+**Reproducible:** yes, deterministic for any project whose walking skeleton was not run
+
+Companion to BUG-DRAFT-stage4-gate-ignores-closing-rows (the plan never listed the close). This entry is the other
+two surfaces that could have caught it and did not.
+
+### 1. The brief declares the close; nothing executes it
+- `module-brief.md:295`: the module "is done when `module-review.md`'s five-stage pass (build, gate, prove, LOOK,
+  confirm) closes clean against what this brief specified". The largest module's brief carries the sweep claim
+  `N of N interactive elements swept across P of P pages in <Module>` (P = 17).
+- At DONE: `.claude/loop/sweep/` never existed (0 sweep files for 7 modules); `design/ui-reviews/` never existed;
+  no `design-audit.js` / `page-audit.js` output in `git log --all --name-only`, although both scripts were installed
+  in `tests/e2e/` from the first commit.
+- Build-session transcript (laptop part, 15:13→17:17 UTC, before anyone asked): tool calls naming `design-audit`,
+  `page-audit`, `wiring-sweep`, `module-review`, `verify-module` or `ui-loop`: **0**. (The cloud part's transcript is not
+  on disk; git history shows no output of any of them either.)
+- The template's `### Pages to LOOK at` section is absent from **7 of 7** briefs (grep count 0 per brief),
+  and the brief's Ready-check has no line for it, so nothing noticed.
+
+### 2. `status.sh` NEXT can never reach the LOOK while an earlier obligation is open
+`next_action()` is "ordered lookup, earliest wins". For Stage 5 the walking-skeleton check returns before
+anything else is considered:
+```
+if [ -z "$SKELETON" ]; then echo "run the walking skeleton before the first module (skills/walking-skeleton.md)"; return; fi
+```
+On this project, after 56 of 56 scripts gate-passed and the build was declared DONE, `status.sh --brief` still reads:
+```
+STATE   scripts 56 written / 56 gate-pass / 0 done- · modules opened ≥1 · UNSYNCED 0 · open questions 0
+NEXT    run the walking skeleton before the first module (skills/walking-skeleton.md)
+```
+while `gate-check.sh <project> 4` lists nine open obligations (`look 0 of 7`, `sweep 0 of 7`, `journeys 0 of 7`,
+`coherence 0/1`, `skeleton 0/1`, `design-reaches-app 0/1`, …). The one-line position of record shows one of nine, and
+it is the one that reads as a pre-build step long past — "before the first module" when every module is built.
+A session that misses that single line (this one did — `status.sh` ran once in the laptop session and its NEXT was not
+acted on; that is the build agent's failure and is recorded as such) gets no second prompt: nothing in `exec.sh`, the
+mxbuild gate or the close-task hook mentions a module close.
+
+**Workaround:** at every module's last script, run `gate-check.sh <project> 4` and read the `Obligation` lines, not
+the NEXT line; treat `look N of M` with N < M as "module not done".
+**Fix (suggested):** (a) `status.sh` prints the obligation count next to NEXT (`9 obligations open — look 0/7, sweep 0/7 …`)
+so one line cannot hide eight; (b) once any module has gate-passed scripts, reword the skeleton NEXT ("walking
+skeleton was skipped — run it, then close modules: look 0/7") instead of "before the first module"; (c) `module-brief.md`
+Ready-check gains a line that the brief names its close (`verify-module.sh` + LOOK) so the brief's own checklist
+carries the done-definition it states at line 295; (d) the exec/close-task hook, on the first exec after a module's
+last build-plan row, owes "module close: verify-module + LOOK" the way it owes a BUILD-LOG row.

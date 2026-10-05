@@ -261,6 +261,12 @@ These close options left open in Findings 1–4 and set the constraints for the 
 1. **Nothing blocks.** This is a shared toolkit; other people run it on their own projects. A
    surprising new gate would be switched off rather than obeyed, spending the toolkit's credibility
    to fix one project. The postmortem's original ask — make `fault` block Stage 4 — is **rejected**.
+   **Amended 2026-10-02, for the LOOK only:** two unattended builds built every page and opened no
+   screenshot of any, and a page is the first thing a client sees. `bin/gate-check.sh` Stage 5 now
+   FAILs while a page `bin/exec.sh` built has no screenshot opened since (`project-bin/look-ledger.sh`).
+   It blocks only the claim that Stage 5 is done — never a script, a page, or the next module — and
+   takes a PROOF-OF-LOOK citation or a `--waive look/<Module>` line as evidence. Everything else
+   above stands.
 2. **The number stops lying instead.** The report leads with coverage, not pass-rate: *"58% of
    checks did not run"* above the fold, and no percentage anywhere may use a denominator that
    excludes faults. This blocks nobody and is the only thing that actually failed.

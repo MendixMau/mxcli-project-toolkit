@@ -1,0 +1,35 @@
+/**
+ * Page button: reject the current step; a comment is required.
+ */
+create or modify microflow Procurement.ACT_ApprovalStep_Reject (
+  $ApprovalStep: Procurement.ApprovalStep
+)
+folder 'Requisition/Microflows'
+begin
+  @position(360, 200)
+  @caption '$ApprovalStep/Comments = empty or trim($ApprovalStep/Comments) = '''''
+  if $ApprovalStep/Comments = empty or trim($ApprovalStep/Comments) = '' then
+    @position(530, 300)
+    validation feedback $ApprovalStep/Comments message 'A comment is required to reject.';
+    @position(690, 300)
+    return;
+  end if;
+  @position(530, 200)
+  retrieve $Req from $ApprovalStep/Procurement.ApprovalStep_PurchaseRequisition;
+  @position(690, 200)
+  $Res = call microflow Procurement.ACT_ApprovalStep_Decide(PurchaseRequisition = $Req, Approve = false, Comments = $ApprovalStep/Comments);
+  @position(850, 200)
+  @merge(1300, 200)
+  @caption '$Res != empty'
+  if $Res != empty then
+    @position(1020, 300)
+    close page;
+    @position(1180, 300)
+    show page Procurement.RequisitionDetail($PurchaseRequisition = $Req);
+  end if;
+  @position(1500, 200)
+  return;
+end;
+
+grant execute on microflow Procurement.ACT_ApprovalStep_Reject to Procurement.Admin, Procurement.DepartmentManager, Procurement.ProcurementOfficer, Procurement.FinanceApprover;
+/

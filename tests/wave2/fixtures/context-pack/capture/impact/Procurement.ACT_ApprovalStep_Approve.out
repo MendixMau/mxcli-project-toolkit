@@ -1,0 +1,72 @@
+Connected to: App.mpr (Mendix 11.14.0)
+Building catalog (full mode - includes activities/widgets)...
+✓ Modules: 21
+✓ Entities: 177
+✓ Attributes: 783
+✓ Entity Event Handlers: 1
+✓ Associations: 187
+✓ Enumerations: 66
+✓ Enumeration values: 306
+✓ Constants: 24
+✓ ConstantValues: 0
+✓ Java Actions: 129
+✓ Java Action Parameters: 294
+✓ JavaScript Actions: 67
+✓ Image Collections: 11
+✓ Icon Collections: 3
+✓ Menus: 2
+✓ Page Templates: 52
+✓ Data Transformers: 0
+✓ Scheduled Events: 4
+✓ Task Queues: 1
+✓ Regular Expressions: 4
+✓ Agent-editor documents: 0
+✓ Microflows: 628
+✓ Nanoflows: 36
+✓ Rules: 3
+✓ Flow parameters: 1058
+✓ Activities: 6734
+✓ Pages: 116
+✓ Widgets: 2782
+✓ Snippets: 103
+✓ Snippet widgets: 972
+✓ Building blocks: 40
+✓ Layouts: 26
+✓ OData Clients: 0
+✓ OData Services: 0
+✓ Workflows: 1
+✓ Business Event Services: 0
+✓ widget_definitions: 43
+✓ Database Connections: 0
+✓ JAR Dependencies: 14
+✓ REST Clients: 0
+✓ Published REST Services: 1
+✓ Published REST Operations: 2
+✓ External Entities: 0
+✓ External Actions: 0
+✓ Business Events: 0
+✓ Contract Entities: 0
+✓ Contract Messages: 0
+✓ Navigation profiles: 1
+✓ Navigation menu items: 22
+✓ Navigation role homes: 12
+✓ RoleMappings: 162
+✓ JSON Structures: 21
+✓ Import Mappings: 15
+✓ Export Mappings: 8
+✓ References: 4446
+✓ Permissions: 3818
+✓ XPath Expressions: 361
+✓ strings: 5873
+✓ Catalog ready (3.9s)
+✓ Catalog cached to .mxcli/catalog.db
+
+Impact analysis for Procurement.ACT_ApprovalStep_Approve
+
+Summary:
+  PAGE: 1
+
+Found 1 affected element(s)
+| SourceType | SourceName                    | RefKind |
+|------------|-------------------------------|---------|
+| PAGE       | Procurement.RequisitionDetail | action  |

@@ -1,0 +1,13 @@
+Connected to: App.mpr (Mendix 11.14.0)
+Loading cached catalog (built 1s ago, full mode)...
+✓ Catalog ready (from cache)
+
+Impact analysis for Procurement.CatalogItem_NewEdit
+
+Summary:
+  PAGE: 1
+
+Found 1 affected element(s)
+| SourceType | SourceName                       | RefKind   |
+|------------|----------------------------------|-----------|
+| PAGE       | Procurement.CatalogItem_Overview | show_page |

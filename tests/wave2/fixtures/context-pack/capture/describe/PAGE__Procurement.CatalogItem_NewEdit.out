@@ -1,0 +1,63 @@
+create or modify page Procurement.CatalogItem_NewEdit (
+  Title: 'Catalog item',
+  Layout: Atlas_Core.PopupLayout,
+  Folder: 'Supplier/Pages',
+  Params: { $CatalogItem: Procurement.CatalogItem }
+) {
+  layoutgrid g {
+    row row1 {
+      column col1 (DesktopWidth: AutoFill) {
+        dataview dv (DataSource: $CatalogItem, ReadOnlyStyle: Control) {
+          -- Context: $currentObject (CatalogItem)
+          container formGrid (Class: 'form-grid') {
+            container fgSku (Class: 'form-group') {
+              textbox tbSku (Label: 'SKU *', Attribute: Sku)
+              dynamictext helpSku (
+                Content: 'Set when the item is created. It cannot change afterwards.',
+                Class: 'form-help'
+              )
+            }
+            container fgName (Class: 'form-group') {
+              textbox tbName (Label: 'Name *', Attribute: Name)
+            }
+            container fgDescription (Class: 'form-group span-2') {
+              textarea taDescription (Label: 'Description', Attribute: Description)
+            }
+            container fgCategory (Class: 'form-group') {
+              textbox tbCategory (Label: 'Category', Attribute: Category)
+            }
+            container fgPrice (Class: 'form-group') {
+              textbox tbPrice (Label: 'Unit price *', Attribute: UnitPrice)
+            }
+            container fgVendor (Class: 'form-group') {
+              combobox cbVendor (
+                Label: 'Vendor *',
+                Attribute: CatalogItem_Vendor,
+                DataSource: database from Procurement.Vendor,
+                CaptionAttribute: Name
+              )
+            }
+            container fgActive (Class: 'form-group') {
+              checkbox cbActive (Label: 'Active', Attribute: Active)
+              dynamictext helpActive (
+                Content: 'Inactive items are not offered on new requisitions.',
+                Class: 'form-help'
+              )
+            }
+          }
+          footer footer1 {
+            actionbutton btnCancel (Caption: 'Cancel', Action: cancel_changes close_page, Class: 'btn')
+            actionbutton btnSave (
+              Caption: 'Save',
+              Action: microflow Procurement.ACT_CatalogItem_Save(CatalogItem: $CatalogItem),
+              ButtonStyle: Primary,
+              Class: 'btn btn-primary'
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
+grant view on page Procurement.CatalogItem_NewEdit to Procurement.Admin, Procurement.ProcurementOfficer;

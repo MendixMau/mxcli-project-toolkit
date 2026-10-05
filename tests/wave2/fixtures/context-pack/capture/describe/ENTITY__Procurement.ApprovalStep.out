@@ -1,0 +1,16 @@
+/**
+ * One approval step of a requisition (requisition BRD E4).
+ */
+@Position(360, 380)
+create or modify persistent entity Procurement.ApprovalStep (
+  StepOrder: Integer,
+  ApproverRole: Enumeration(Procurement.RoleName),
+  Status: Enumeration(Procurement.ApprovalStatus) default Procurement.ApprovalStatus.PENDING,
+  Comments: String(500),
+  DecidedAt: DateTime
+);
+
+grant Procurement.Admin, Procurement.Employee, Procurement.DepartmentManager, Procurement.ProcurementOfficer, Procurement.FinanceApprover on Procurement.ApprovalStep (read *);
+
+grant Procurement.Admin, Procurement.DepartmentManager, Procurement.ProcurementOfficer, Procurement.FinanceApprover on Procurement.ApprovalStep (read (StepOrder, ApproverRole, "Status", DecidedAt, ApprovalStep_PurchaseRequisition, ApprovalStep_User, Comments), write (Comments)) where '[Status = ''PENDING'']';
+/

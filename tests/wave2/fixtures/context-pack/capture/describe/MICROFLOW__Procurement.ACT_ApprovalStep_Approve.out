@@ -1,0 +1,27 @@
+/**
+ * Page button: approve the current step with the comment typed on it.
+ */
+create or modify microflow Procurement.ACT_ApprovalStep_Approve (
+  $ApprovalStep: Procurement.ApprovalStep
+)
+folder 'Requisition/Microflows'
+begin
+  @position(360, 200)
+  retrieve $Req from $ApprovalStep/Procurement.ApprovalStep_PurchaseRequisition;
+  @position(520, 200)
+  $Res = call microflow Procurement.ACT_ApprovalStep_Decide(PurchaseRequisition = $Req, Approve = true, Comments = $ApprovalStep/Comments);
+  @position(680, 200)
+  @merge(1130, 200)
+  @caption '$Res != empty'
+  if $Res != empty then
+    @position(850, 300)
+    close page;
+    @position(1010, 300)
+    show page Procurement.RequisitionDetail($PurchaseRequisition = $Req);
+  end if;
+  @position(1330, 200)
+  return;
+end;
+
+grant execute on microflow Procurement.ACT_ApprovalStep_Approve to Procurement.Admin, Procurement.DepartmentManager, Procurement.ProcurementOfficer, Procurement.FinanceApprover;
+/

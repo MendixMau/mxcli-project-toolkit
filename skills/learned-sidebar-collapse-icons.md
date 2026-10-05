@@ -37,7 +37,7 @@ neither without noticing:
    > **Correction, 2026-09-21.** This bullet previously said the grammar had *no* icon token and
    > that per-item icons "have to be assigned by hand in Studio Pro". That was wrong for mxcli
    > **v0.22.0** (`mxcli syntax navigation.create` lists `ICON` and documents the quoting rule),
-   > and it cost a real project: the PRD benchmark's Arm A shipped five text-only menu items
+   > and it cost a real project: a field build shipped five text-only menu items
    > through an entire build and two UI sweeps, because the skill said icons were not scriptable
    > so nobody re-probed. The user's verdict on the result was "lots of text ugly stuff".
    >

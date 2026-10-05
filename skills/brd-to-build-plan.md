@@ -374,7 +374,7 @@ harness. This is the *moment*; the shape is Step 1's column and the detail is th
 > added — re-run the gate after any change to this skill, because an approved plan is not
 > reopened by anything else.
 
-**Why the closing rows are rows, not a step in the build loop (an unattended benchmark build,
+**Why the closing rows are rows, not a step in the build loop (an unattended field build,
 2026-09-27).** A 137-row plan was built unattended to DONE. The full e2e suite showed 62 pass and
 0 fail, and a time-and-outage run proved the escalation and ERP paths. The project looked finished.
 Asked for a "% done", the Stage 5 gate ran for the first time and showed `verify-module.sh` 0 of 7

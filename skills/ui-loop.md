@@ -84,7 +84,7 @@ wrong — that is the exact escape this loop exists to close (`module-review.md`
 ## The screenshot harness is an instrument too
 
 "Judge from the screenshot" only holds while the screenshot is true. Two harness defects,
-both found in one afternoon on the PRD benchmark (2026-09-22), produced screenshots that
+both found in one afternoon on a field build (2026-09-22), produced screenshots that
 were about to be written up as app defects:
 
 **1. One width per run, set at context creation. Never `setViewportSize` on a loaded page.**
@@ -119,7 +119,7 @@ verdict is written. Journey harnesses have the same failure mode as the instrume
 "Related" below: they are code, they are read as ground truth, and nobody scores them
 (`tool-output-is-not-ground-truth.md`).
 
-The high-code arm of the same benchmark never hit either defect, because its harness created
+The high-code build in the same comparison never hit either defect, because its harness created
 a fresh context per screen per width. That is a harness difference, not a platform
 difference — do not let a screenshot artefact become a finding about Mendix.
 

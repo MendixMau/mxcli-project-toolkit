@@ -259,12 +259,12 @@ setup t9c; push_change skills/source-triage.md edit
 echo "== T10: --ack-protocol REFUSES without a TTY, and names the logged alternative =="
 setup t10; push_change skills/source-triage.md edit
 OUT="$("$GC" --no-html --ack-protocol "$PROJ" </dev/null 2>&1)"; R=$?
-if [ "$R" != "0" ] && saw "$OUT" 'non-interactively'; then
+if [ "$R" != "0" ] && saw "$OUT" 'Refusing to record'; then
   ok "refuses a headless ack"
   saw "$OUT" 'force-stale'  && ok "directs the caller to the bypass" || bad "refuses but offers no path forward"
   saw "$OUT" 'BUILD-LOG'    && ok "says the bypass will be logged"   || bad "does not say it is logged"
 else
-  bad "acked without a human present (exit $R) — PROTOCOL-ACK now means nothing"
+  bad "no refusal for a headless ack (exit $R) — PROTOCOL-ACK may now mean nothing"
 fi
 [ -f "$PROJ/docs/BUILD-LOG.md" ] && bad "a refused ack still wrote to the build log" \
                                  || ok "a refused ack wrote nothing"
@@ -334,10 +334,6 @@ setup t14; push_change skills/conversion-runbook.md edit
 [ "$(rc "")" = "0" ] && ok "bare run exits 0" || bad "bare run exited $(rc "")"
 saw "$(run "")" ' A)' && ok "and still shows the notice" || bad "informational run swallowed the notice"
 
-echo ""
-echo "PASS=$PASS FAIL=$FAIL   ($WORK)"
-[ "$FAIL" -eq 0 ]
-
 # ── Control: the plain-language default ──────────────────────────────────────
 # The notice a non-developer actually meets. It must state the situation in words, say plainly
 # that nothing is blocked, tell the agent to ask rather than decide, and point at --verbose for
@@ -357,3 +353,7 @@ if saw "$PLAIN" ' A)'; then
   saw "$PLAIN" 'do not ask them to type anything' && ok "plain notice tells the agent not to delegate typing" \
     || bad "plain notice does not tell the agent to relay"
 fi
+
+echo ""
+echo "PASS=$PASS FAIL=$FAIL   ($WORK)"
+[ "$FAIL" -eq 0 ]

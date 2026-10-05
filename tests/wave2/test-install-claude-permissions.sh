@@ -103,6 +103,17 @@ for e in d.get("permissions", {}).get("deny", []):
 PY
 }
 
+py_look_hook_present() {  # $1 = settings.json path -> exit 0 iff the PostToolUse(Read) LOOK hook is there
+  "$PY" - "$1" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+for grp in d.get("hooks", {}).get("PostToolUse", []) or []:
+    if grp.get("matcher") == "Read" and any(h.get("command") == "bash bin/look-ledger.sh seen || true" for h in grp.get("hooks", []) or []):
+        sys.exit(0)
+sys.exit(1)
+PY
+}
+
 py_hook_present() {  # $1 = settings.json path -> exit 0 iff the SessionStart hook is there
   "$PY" - "$1" "$SESSION_HOOK" <<'PY'
 import json, sys
@@ -166,6 +177,8 @@ done
                            || bad "T1: some deny entries missing from the fresh file"
 py_hook_present "$FRESH/.claude/settings.json" && ok "T1: SessionStart hook present in the fresh file" \
                                                  || bad "T1: SessionStart hook missing from the fresh file"
+py_look_hook_present "$FRESH/.claude/settings.json" && ok "T1: PostToolUse(Read) LOOK hook present in the fresh file" \
+                                                      || bad "T1: PostToolUse(Read) LOOK hook missing from the fresh file"
 
 # ── T2: existing mxcli-init settings.json (real capture, 2026-09-16) ───────────────────────
 EXIST="$WORK/existing"
@@ -316,6 +329,9 @@ done
 py_hook_present "$EXIST/.claude/settings.json" \
   && bad "T5: SessionStart hook survived --uninstall" \
   || ok "T5: SessionStart hook removed by --uninstall"
+py_look_hook_present "$EXIST/.claude/settings.json" \
+  && bad "T5: PostToolUse(Read) LOOK hook survived --uninstall" \
+  || ok "T5: PostToolUse(Read) LOOK hook removed by --uninstall"
 
 [ -e "$EXIST/.claude/.mxtk-permissions-added.json" ] \
   && bad "T5: sidecar file survived --uninstall (should be removed)" \

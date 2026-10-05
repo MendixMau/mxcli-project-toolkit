@@ -611,6 +611,13 @@ module close, any page whose *only* rows are `stub` rows is an unfinished page w
 stub label — the same finding as no row at all (`ui-preflight-pages.md` Step 5,
 `module-review.md` rubric row 6).
 
+**Mark the stub in the model, not only in the script name.** Give the stub page one text widget
+whose caption starts `Stub:` (e.g. `Stub: built in 20-order-inbox.mdl`). `page-fidelity.js`
+reads that marker: scored **without** `--stub`, a page carrying it is reported as
+`STUB IN MODEL`, logged at 0% and exits 4 — so a stub that was never replaced cannot pass as
+the build (field case, 2026-10-02: a stub answer page printed 100% off its one binding). The
+real page script drops the caption with the rest of the stub.
+
 ---
 
 ## CE Error Triage

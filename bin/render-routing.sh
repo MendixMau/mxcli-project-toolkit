@@ -213,7 +213,9 @@ fi
 # Found 2026-09-16, contributing deploy-to-sandbox: the row said `any` where the renderer reads
 # `all` or a real agent name — `--check` printed "all skills routed or exempted" over a skill
 # that rendered into 0 of 6 agent stubs. Same one-word-of-validation fix as BAD_TIER.
-AGENT_NAMES="$(for f in "$ROOT"/agents/*-agent.md; do [ -f "$f" ] || continue; basename "$f" | sed 's/-agent\.md$//'; done | tr '\n' ' ')"
+# `lead` (the main session) is a valid token with no stub: a lead-only row reaches the project
+# baseline view's Role(s) column, and no helper — that is its point (2026-10-05).
+AGENT_NAMES="lead $(for f in "$ROOT"/agents/*-agent.md; do [ -f "$f" ] || continue; basename "$f" | sed 's/-agent\.md$//'; done | tr '\n' ' ')"
 BAD_AGENT="$(awk -F'\t' -v ok="$AGENT_NAMES" '
   /^#/ || NF < 6 { next }
   $4 == "all" { next }
@@ -307,9 +309,16 @@ if [ "$MODE" = "check" ]; then
   # Per-stage breakdown: what a session actually reads at each stage is the every-stage rows
   # plus that stage's own rows, not the whole baseline tier at once (routing_baseline_pack,
   # shared with bin/gate-check.sh's ADVISORY line so both report the same number).
+  # Then per role: what ONE session in that role is pointed at, from the Role(s) column. The
+  # stage number is the sum over every role; no single helper should ever read it.
   for _stage in P 0 1 2 3 4 5 6 7; do
     IFS=$'\t' read -r _sw _sf _sp <<< "$(routing_baseline_pack "$_stage" "$ROOT")"
-    printf '  stage %s: %s words / %s files\n' "$_stage" "$_sw" "$_sf"
+    _roles=""
+    for _role in lead ba architect mdl gate test review; do
+      IFS=$'\t' read -r _rw _rf _rp <<< "$(routing_baseline_pack "$_stage" "$ROOT" "$_role")"
+      _roles="$_roles $_role $_rw/$_rf"
+    done
+    printf '  stage %s: %s words / %s files  — per role (words/files):%s\n' "$_stage" "$_sw" "$_sf" "$_roles"
   done
   exit 0
 fi

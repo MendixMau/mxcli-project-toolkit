@@ -20,3 +20,9 @@
 conv010_act_microflow_content.star  276df639edbd90d8010ee711a1e7c0fa  v0.17.0
 data_change_microflows.star         a47e068e01895ce2938d39846a8d907d  v0.17.0
 entity_business_key.star            956c7469e234033e22a9ac32844cb236  v0.17.0
+conv010_act_microflow_content.star  24295842479e192c71c5176e91a24d39  v0.24.0
+data_change_microflows.star         4f8194a133da3f1961e87f5df684afed  v0.24.0
+entity_business_key.star            d66528c958ad2259462bdf0456c13286  v0.24.0
+conv010_act_microflow_content.star  de7463c1eca28b9b3291adf2a03db2d7  v0.25.0
+data_change_microflows.star         4f8194a133da3f1961e87f5df684afed  v0.25.0
+entity_business_key.star            d66528c958ad2259462bdf0456c13286  v0.25.0

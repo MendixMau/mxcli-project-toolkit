@@ -166,23 +166,23 @@ reason; never record it `ASSUMED` on your own. Below 0.5, rows bundle unrelated 
 failure no longer points at one. Above 1.5, every row's fixed cost (brief read, orientation,
 gate, register line, commit) is paid for a fraction of a use case.
 
-**The failure this prevents (cook-off, 2026-10-02).** The same 70-use-case app was planned twice.
+**The failure this prevents (field build, 2026-10-02).** The same 70-use-case app was planned twice.
 A plan with grouped rows (137 rows) was built at **11 model calls per row**. An unattended Stage 4
 re-run recorded "one script per entity and per page" as an `ASSUMED` granularity and wrote **246
 rows (174 `BUILD`) — 2.5 per use case**; its build took **25 calls per original-scope row** for
 build and UI alone, and ~40 h against ~11 h. Wrong:
 
 ```
-| 60 | BUILD | 060-masterdata-page-vendor_overview.mdl  | Vendor_Overview page     | 59 |
-| 61 | BUILD | 061-masterdata-page-vendor_newedit.mdl   | Vendor_NewEdit page      | 60 |
-| 62 | BUILD | 062-masterdata-mf-vendor-save.mdl        | ACT_Vendor_Save          | 61 |
+| 60 | BUILD | 060-crm-page-customer_overview.mdl  | Customer_Overview page   | 59 |
+| 61 | BUILD | 061-crm-page-customer_newedit.mdl   | Customer_NewEdit page    | 60 |
+| 62 | BUILD | 062-crm-mf-customer-save.mdl        | ACT_Customer_Save        | 61 |
 ```
 
 Right — rows follow the use cases; use cases that share one page and its save logic are one row:
 
 ```
-| 21 | BUILD | UC-F002-01 Browse vendors, approve or deactivate: 060-…-vendor_overview.mdl, 063-…-mf-vendor-status.mdl | Vendor list + status actions, grants | 20 |
-| 22 | BUILD | UC-F002-02 + 03 Add / edit a vendor: 061-…-vendor_newedit.mdl, 062-…-mf-vendor-save.mdl | Vendor form + save, grants | 21 |
+| 21 | BUILD | UC-F002-01 Browse customers, activate or deactivate: 060-…-customer_overview.mdl, 063-…-mf-customer-status.mdl | Customer list + status actions, grants | 20 |
+| 22 | BUILD | UC-F002-02 + 03 Add / edit a customer: 061-…-customer_newedit.mdl, 062-…-mf-customer-save.mdl | Customer form + save, grants | 21 |
 ```
 
 Script order inside a row is the order listed. A script that fails rolls back alone; the row stays

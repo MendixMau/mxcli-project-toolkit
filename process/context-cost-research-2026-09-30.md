@@ -24,10 +24,10 @@ open skill-removal PR where noted). Numbers are per file, as loaded at session s
 
 | Observation | Number | Source |
 |---|---|---|
-| Benchmark build, direct-tool arm | one session, 515 UI calls | benchmark note |
-| Benchmark build, toolkit arm | 38 helpers, **each** re-paying a start pack of 145–215k; 1,507 UI calls | benchmark note, transcripts |
-| Toolkit arm, first UI round | 64% of UI calls; about 20% of tokens went to repairing round-1 regressions | benchmark note |
-| Screenshot loop | wireframe fidelity 1 → 15 | benchmark note |
+| Field comparison, direct-tool build | one session, 515 UI calls | field notes |
+| Field comparison, toolkit build | 38 helpers, **each** re-paying a start pack of 145–215k; 1,507 UI calls | field notes, transcripts |
+| Toolkit build, first UI round | 64% of UI calls; about 20% of tokens went to repairing round-1 regressions | field notes |
+| Screenshot loop | wireframe fidelity 1 → 15 | field notes |
 | Everyday single sessions on a laptop | toolkit file reads were only 4% of tokens; session length, the 1M window and command output dominate | `bin/context-audit.sh` over real transcripts |
 
 The conclusion holds for orchestrated builds: every helper re-reads the same pack, so the pack
@@ -140,7 +140,7 @@ same before and after.
 | Review helper | ~109k | **~12k** | runbook slice 1.8k, card 1.3k, module-review 6.2k, ui-loop core 1.2k, gaps core 1k |
 | Lead | ~109k | ~20–25k | runbook core + Stage 5 + dispatch, card, interview, brief spec, checkpoint, teamserver |
 
-With 38 helpers (the benchmark's count) that is roughly 3.5M fewer tokens read at start per
+With 38 helpers (the field build's count) that is roughly 3.5M fewer tokens read at start per
 build. This is an estimate from file sizes; tomorrow's build measures the real number.
 
 ## 8. The page preflight and the screenshot loop
@@ -151,12 +151,12 @@ needed?
 | Evidence | Says |
 |---|---|
 | 2026-08-31 A/B (`preflight-skill-baseline-2026-08-31.md`) | Without the skill: median 3 shell violations per page. With it inlined: 1, zero variance. A longer revision (+800 words) did slightly worse. |
-| Benchmark | Round 1 was 64% of UI calls; about 20% of tokens repaired round-1 regressions. The loop lifted wireframe fidelity 1 → 15. |
+| Field build | Round 1 was 64% of UI calls; about 20% of tokens repaired round-1 regressions. The loop lifted wireframe fidelity 1 → 15. |
 | Research | Two cross-check rows (page column, page scaffold) are enforced after the fact by `check-page-shell.sh`, and B0 by `check-design-reaches-app.sh`; the report-back block with denominators is what the A/B showed working (5/5 vs 0/5). |
 
 Reading: the loop fixes what the preflight misses, but every miss costs a round. A short
 preflight (only the rules no script checks) plus running `check-page-shell.sh` **before** exec
-could make round 1 cheaper without adding much start load. That is a hypothesis; §9 arm P tests
+could make round 1 cheaper without adding much start load. That is a hypothesis; §9 variant P tests
 it, including the option of dropping the preflight entirely.
 
 Blocking dependency if the preflight is demoted or removed: `bin/gate-check.sh:1287` fails
@@ -166,10 +166,10 @@ fidelity obligation.
 
 ## 9. Test build plan
 
-Same scratch app and module list as the benchmark, same helper model tier, fresh project
-scaffold for each arm.
+Same scratch app and module list as the field build, same helper model tier, fresh project
+scaffold for each variant.
 
-| Arm | Toolkit | Page drafting |
+| Variant | Toolkit | Page drafting |
 |---|---|---|
 | **Base** | master + #185 | as today |
 | **Lean** | lean branch (steps 1–4 of §11 applied) | ui-preflight trimmed (~4.8k), inlined |
@@ -184,7 +184,7 @@ violations (`check-page-shell.sh`), fidelity score (`page-fidelity.js`), wall ti
 
 **Pass criteria for Lean vs Base:** helper start load down by at least 70%; `mx check` errors,
 shell violations and fidelity no worse; total build tokens down.
-**For P-loop vs P-short:** the arm with fewer total UI tokens wins if its final fidelity and
+**For P-loop vs P-short:** the variant with fewer total UI tokens wins if its final fidelity and
 shell score are equal; if quality differs, quality wins.
 
 ## 10. Side findings

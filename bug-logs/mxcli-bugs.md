@@ -6738,9 +6738,9 @@ Before revoking a rule, snapshot its member list with `SHOW ACCESS ON ENTITY` an
 ## BUG-DRAFT-module-close-never-surfaced: (toolkit `bin/status.sh` + `module-brief.md` template, not mxcli) a whole build runs without the module close (LOOK, wiring sweep, design-audit) ever becoming the NEXT action — the brief declares it, nothing on the build path asks for it (2026-10-02)
 
 **Severity:** High — `module-review.md` stage 4 is "the stage that gets skipped, and the stage the escaped defects come from"; this is the mechanism by which it gets skipped even when the brief says the module is not done without it
-**Toolkit:** `bin/status.sh` `next_action()` (lines 119-131) and `skills/module-brief.md` identical on master `8abd614` and the frozen run copy `192b69a`
+**Toolkit:** `bin/status.sh` `next_action()` (lines 119-131) and `skills/module-brief.md` identical on master `8abd614` and the frozen copy the build ran on
 **mxcli version:** v0.24.0 · **Mendix version:** 11.14.0
-**Discovered:** 2026-10-02 (same benchmark build as BUG-DRAFT-stage4-gate-ignores-closing-rows: 137 rows, 7 modules, 56 scripts)
+**Discovered:** 2026-10-02 (same field build as BUG-DRAFT-stage4-gate-ignores-closing-rows: 137 rows, 7 modules, 56 scripts)
 **Reproducible:** yes, deterministic for any project whose walking skeleton was not run
 
 Companion to BUG-DRAFT-stage4-gate-ignores-closing-rows (the plan never listed the close). This entry is the other
@@ -6748,8 +6748,8 @@ two surfaces that could have caught it and did not.
 
 ### 1. The brief declares the close; nothing executes it
 - `module-brief.md:295`: the module "is done when `module-review.md`'s five-stage pass (build, gate, prove, LOOK,
-  confirm) closes clean against what this brief specified". The Procurement brief carries the sweep claim
-  `N of N interactive elements swept across P of P pages in Procurement` (P = 17).
+  confirm) closes clean against what this brief specified". The largest module's brief carries the sweep claim
+  `N of N interactive elements swept across P of P pages in <Module>` (P = 17).
 - At DONE: `.claude/loop/sweep/` never existed (0 sweep files for 7 modules); `design/ui-reviews/` never existed;
   no `design-audit.js` / `page-audit.js` output in `git log --all --name-only`, although both scripts were installed
   in `tests/e2e/` from the first commit.

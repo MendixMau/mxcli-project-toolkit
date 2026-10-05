@@ -251,11 +251,14 @@ rather than wondering whether they missed a file.
      the `folder` property and never invents one. A document with no row and no derivable feature
      (module-folder-convention.md, "Deciding the path") is escalated, NOT swept into Common/. -->
 
-### Build steps  (one row per dispatch — `bin/context-pack.sh <Module> <Step>` turns a row into the helper's pack)
+### Build steps  (one row per dispatch, i.e. per script — `bin/context-pack.sh <Module> <Step>` turns a row into the helper's pack)
 | Step | Builds | Reads | Example | Slice |
 |------|--------|-------|---------|-------|
 | e.g. 5.1 | Sales.ACT_Order_ApproveAll | Sales.Order, Sales.Order_Customer, Sales.ENUM_OrderStatus | Sales.ACT_Order_Approve | 02-approvals |
-<!-- Names only, comma-separated, fully qualified — the model describes them, this table never
+<!-- A step is one dispatch, NOT one build-plan row. The build plan sizes rows by use case
+     (brd-to-build-plan.md Step 3); one use-case row lists several steps here. Do not size
+     the build plan from this table.
+     Names only, comma-separated, fully qualified — the model describes them, this table never
      does. Builds: the documents this step creates or changes (each needs a folder-plan row).
      Reads: every existing element the step touches — entities, associations, enums, called
      microflows; the pack DESCRIBEs each one live, so a wrong name fails loudly at dispatch
@@ -283,7 +286,8 @@ rather than wondering whether they missed a file.
 - [ ] Write mode chosen for every element that hits a learned-mdl-preflight STOP row
 - [ ] Folder plan names the module's feature groups and covers every document to be built
 - [ ] Build steps has a row for every document to be built in this phase, and
-      `bin/context-pack.sh <Module> <Step>` exits 0 for each (exit 1 = a Reads name is wrong)
+      `bin/context-pack.sh <Module> <Step>` exits 0 for each (exit 1 = a Reads name is wrong;
+      exit 3 = packs switched off in PROJECT.md, so this half of the item is skipped)
 - [ ] Test plan complete: shape declared, base set named and covering the coverage checklist, at least one journey with its data effect
 - [ ] Build skills to read first is filled in — or explicitly says "none detected" — for every
       build group this module touches (integration, pages, mdl, workflow, agents), not just

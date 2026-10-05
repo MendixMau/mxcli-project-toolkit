@@ -30,6 +30,21 @@
 # Exit: 0 pack complete · 1 pack written, but an element it names is not in the model
 #       (listed under "Not found" — a typo in the brief, or a Reads element not built yet)
 #       · 2 instrument fault (no brief, no row for <step>, no mxcli, no .mpr)
+#       · 3 packs switched off (`Context packs: off`) — dispatch with the reading list
+#
+# SWITCH. PROJECT.md `Context packs: on | no-brain | off` (default on; env MXTK_CONTEXT_PACKS
+# wins for one command). `no-brain` leaves out the `mxcli brain` section — use it when the brain
+# is not initialised, or a CLI release changed `brain brief`. `off` exits 3 without writing a
+# pack, and the dispatcher hands the helper today's reading list instead (iterative-build-loop.md).
+# The switch exists so a CLI change costs one register line, not a revert. An unrecognised
+# value warns and runs as `on`.
+#
+# REMOVING THIS (if something better replaces packs): delete this file, then the lines that name
+# it in skills/iterative-build-loop.md (build-start checklist), skills/module-brief.md (Build
+# steps heading, Ready-check line, "How the mdl-agent Uses It" step 1), agents/mdl-agent.md
+# ("Got a context pack?"), bin/lib/skill-routing.tsv (then `bin/render-routing.sh` to re-render
+# README.md / ROUTING.md / agent tables), and bin/lib/install-manifest.sh (MXTK_PROJECT_BIN).
+# The Build steps table can stay: it is a useful dispatch list without the script.
 #
 # Bash 3.2 compatible: no mapfile, no associative arrays.
 
@@ -40,12 +55,23 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --out) OUT="$2"; shift 2 ;;
     --brief) BRIEF="$2"; shift 2 ;;
-    -h|--help) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,49p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "context-pack: unknown flag $1" >&2; exit 2 ;;
     *) if [ -z "$MODULE" ]; then MODULE="$1"; elif [ -z "$STEP" ]; then STEP="$1"; else echo "context-pack: extra argument $1" >&2; exit 2; fi; shift ;;
   esac
 done
 [ -n "$MODULE" ] && [ -n "$STEP" ] || { echo "usage: context-pack.sh <Module> <step> [--out FILE] [--brief PATH]" >&2; exit 2; }
+
+# --- the switch (header: SWITCH) --------------------------------------------------------------
+PACKS="${MXTK_CONTEXT_PACKS:-}"
+if [ -z "$PACKS" ] && [ -f "$PROJECT_ROOT/PROJECT.md" ]; then
+  PACKS="$(sed -nE 's/^[*_ -]*Context packs:[*_ ]*[`]?([A-Za-z-]+).*/\1/p' "$PROJECT_ROOT/PROJECT.md" | head -1 | tr 'A-Z' 'a-z')"
+fi
+case "${PACKS:-on}" in
+  on|no-brain) ;;
+  off) echo "context-pack: off (PROJECT.md 'Context packs: off') — dispatch with the reading list" >&2; exit 3 ;;
+  *) echo "context-pack: unrecognised 'Context packs: $PACKS' — running as 'on' (on | no-brain | off)" >&2; PACKS=on ;;
+esac
 
 # Both brief layouts are in use: <Module>/module-brief.md (iterative-build-loop.md) and the flat
 # <Module>-brief.md. The folder form wins when both exist.
@@ -153,7 +179,9 @@ pack() {
 
   printf '## Why (mxcli brain brief)\n\n'
   # the brain's own headings start at "#"; push them two levels down so they nest under this one
-  if [ -d "$MODEL_DIR/docs/brain" ]; then
+  if [ "$PACKS" = "no-brain" ]; then
+    printf '_Brain section off (`Context packs: no-brain`) — the module brief carries the why._\n'
+  elif [ -d "$MODEL_DIR/docs/brain" ]; then
     if [ -n "$SLICE" ]; then
       (set -o pipefail; cd "$MODEL_DIR" && "$MXCLI" brain brief --slice "$SLICE" -p "$MPR_BASE" 2>/dev/null | sed -E 's/^(#+) /##\1 /') || printf '_brain brief --slice %s failed_\n' "$SLICE"
     else

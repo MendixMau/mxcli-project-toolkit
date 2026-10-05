@@ -53,7 +53,7 @@ OUT=$(cd "$TMP" && node "$SUT" --no-log "$FIX/grouped-overview.html" Demo_Overvi
 echo "$OUT" | sed 's/^/    | /'
 
 echo "  -- the null score is the failure, not the low one"
-hasnt "a wireframe drawing an h1 never scores null" "$OUT" "fidelity null%"
+hasnt "a wireframe drawing an h1 is never UNMEASURED" "$OUT" "UNMEASURED"
 has   "the h1 stays in the denominator"             "$OUT" "headings 1/1"
 
 echo "  -- once-used classes are structure"
@@ -97,7 +97,7 @@ echo "  -- a DECLARED bound value leaves the denominator"
 # would report them as missed heading/content and fall below 100%.
 hasnt "a bound heading is not a missed heading" "$OUT" "Environmental system improvement"
 hasnt "a bound value is not missed content"     "$OUT" "ISO14001_Transition.pdf"
-has   "the page still scores 100% with bound values present" "$OUT" "fidelity 100%"
+has   "the page still scores 100% with bound values present" "$OUT" "text-match 100%"
 # The h2 must leave the HEADING DENOMINATOR, not merely stop being reported as missed —
 # otherwise the score would be 1 of 2 and still pass the two assertions above.
 has   "the bound heading is out of the denominator" "$OUT" "headings 1/1"
@@ -108,7 +108,7 @@ echo "$OUT2" | sed 's/^/    | /'
 MOCKLINE2=$(printf '%s\n' "$OUT2" | grep 'bound-data mocks' || true)
 has   "the repeated list-item class is a mock"    "$MOCKLINE2" "x-item"
 hasnt "the once-used card wrapper is not a mock"  "$MOCKLINE2" "x-card"
-hasnt "a mocked list page does not score null"    "$OUT2" "fidelity null%"
+hasnt "a mocked list page is not UNMEASURED"    "$OUT2" "UNMEASURED"
 
 echo "  -- bind table: struck/CUT rows are not owed; DESCRIBE's blind ImageUrl; ALTER bodies count"
 # bind-contract.html reproduces rows of a real five-column bind table (field project
@@ -138,6 +138,46 @@ if grep -q 'function contractRows' "$SUT"; then
 else
   echo "  skip contract assertions: this page-fidelity.js has no contract dimension"
 fi
+
+echo "  -- a template comment naming <main> is not the page; nothing measured is not a score"
+# commented-template.html reduces a field wireframe template (2026-10-02): its header comment
+# says "inside <main>" and "AFTER </main>", and the scorer used to take the comment text as
+# the page — every text dimension 0/0, the number made of bindings alone (master printed
+# `fidelity 100% … bindings 2/2` for this file). See CAPTURE.md.
+CT="$FIX/commented-template.html"
+OUT6=$(cd "$TMP" && node "$SUT" --no-log "$CT" OrderInbox "$FIX/commented-template.mdl" 2>&1; echo "exit=$?")
+echo "$OUT6" | sed 's/^/    | /'
+has   "the comment is not the content boundary"         "$OUT6" "headings 2/2"
+has   "the classes inside <main> are counted"           "$OUT6" "classes 6/22"
+has   "the label says what it measures"                 "$OUT6" "text-match 85%"
+has   "and says it is not a LOOK"                       "$OUT6" "it is not a LOOK"
+has   "a scored page exits 0"                           "$OUT6" "exit=0"
+EMPTY="$TMP/empty-main.html"
+printf '<html><body><!-- inside <main> --><main></main><table class="bind"><tr><td>Grid</td><td>DATAGRID</td><td>Sales.ReviewTask</td></tr></table></body></html>' > "$EMPTY"
+OUT7=$(cd "$TMP" && node "$SUT" --no-log "$EMPTY" OrderInbox "$FIX/commented-template.mdl" 2>&1; echo "exit=$?")
+has   "bindings alone are UNMEASURED, not a score"      "$OUT7" "text-match UNMEASURED"
+has   "UNMEASURED exits 3"                              "$OUT7" "exit=3"
+hasnt "UNMEASURED prints no percentage"                 "$OUT7" "%   headings"
+
+echo "  -- a Stub: caption scored as the build is 0%, and --stub still exempts it"
+OUT8=$(cd "$TMP" && node "$SUT" --no-log "$CT" OrderInbox "$FIX/commented-template-stub.mdl" 2>&1; echo "exit=$?")
+has   "a stub in the model scores 0%"                   "$OUT8" "text-match 0%"
+has   "and says why"                                    "$OUT8" "STUB IN MODEL"
+has   "stub-in-model exits 4"                           "$OUT8" "exit=4"
+OUT9=$(cd "$TMP" && node "$SUT" --no-log --stub "$CT" OrderInbox "$FIX/commented-template-stub.mdl" 2>&1; echo "exit=$?")
+hasnt "a declared stub is not flagged"                  "$OUT9" "STUB IN MODEL"
+has   "a declared stub exits 0"                         "$OUT9" "exit=0"
+
+echo "  -- snippet bodies in the input are page content; missing ones are named"
+OUT10=$(cd "$TMP" && node "$SUT" --no-log "$CT" OrderInbox "$FIX/commented-template-snippets.mdl" 2>&1)
+echo "$OUT10" | sed 's/^/    | /'
+has   "the snippet's heading is found"                  "$OUT10" "headings 1/2"
+has   "a run missing a snippet is marked partial"       "$OUT10" "(partial)"
+has   "and names the snippet it could not see"          "$OUT10" "Sales.SNIPPET_InboxGrids"
+SNIPONLY="$TMP/snip-only.mdl"
+printf "create page Sales.OrderInbox (Title: 'x') {\n  snippetcall a (snippet: Sales.Gone)\n}\n" > "$SNIPONLY"
+OUT11=$(cd "$TMP" && node "$SUT" --no-log "$CT" OrderInbox "$SNIPONLY" 2>&1; echo "exit=$?")
+has   "a page made only of unseen snippets is UNMEASURED" "$OUT11" "exit=3"
 
 echo
 printf 'test-page-fidelity-mocks: %d passed, %d failed\n' "$PASS" "$FAIL"

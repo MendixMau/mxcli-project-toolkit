@@ -1,6 +1,8 @@
 # Microflow Patterns — MDL Microflow & Association Rules for This Project
 **Applies to:** any mxcli project.
 
+Re-probed on mxcli v0.24.0 / Mendix 11.13.0 (2026-09-30); rules that now work or that `mxcli check` catches were removed.
+
 ---
 
 ## Microflow Size — Split Into Sub-Microflows Before Drafting, Not After
@@ -8,9 +10,7 @@
 Decide this **before** writing a microflow, not after a lint pass catches it. A single seed/stub
 microflow with dozens of create-object-per-record blocks (e.g. one CREATE+COMMIT per row of a
 16-row dataset) balloons past any reasonable size fast — this project hit ~93 activities in one
-microflow (`PLM_GetExclusiveParts`, a PLM parts-flow project, 2026-07-23) before anyone noticed, which also
-made an MCP-mode exec (see `learned-mdl-preflight.md` STOP rule 9) slow enough to hit the 5-minute
-default timeout.
+microflow (`PLM_GetExclusiveParts`, a PLM parts-flow project, 2026-07-23) before anyone noticed.
 
 **Guideline, not a hard cap:** the Mendix docs limit is 25 elements; lint's `QUAL003` warns at 25 and
 `CONV009` (mxcli-bundled `assess-quality` skill) flags at 15 — but both count **top-level activities
@@ -22,33 +22,6 @@ microflows genuinely can't be meaningfully shrunk (a single cohesive validation/
 with real branching, for instance) — don't force an artificial split that just adds indirection
 without improving anything — treat the numbers as signals to *consider* a split, not a rule to
 satisfy mechanically.
-
-**Bonus when a STOP-rule-9 (inline association-set) split is also needed:** if only part of the
-work needs MCP mode (setting associations) while the rest is plain attribute creation, split along
-that boundary too, not just by size — see `learned-mcp-patterns.md`'s NPE+STOP-rule-9 split
-precedent. A microflow that creates records AND sets their associations inline forces the *entire*
-microflow through the slower MCP path even though most of its activities didn't need to be there.
-Splitting into "create rows (plain CLI, fast)" + "set associations (MCP, smaller)" gets both the
-size-limit benefit and the exec-speed benefit from the same restructuring.
-
----
-
-## Parameter Naming — No `$` in Declarations
-
-Parameter names are declared WITHOUT `$`. The `$` is only used in the body as a reference sigil.
-
-```mdl
--- CORRECT
-create microflow Module.ACT_DoSomething ("Name": String, "Customer": Module.Customer)
-begin
-  declare $Result String = $Name;
-end;
-
--- WRONG — $ becomes part of the stored parameter name
-create microflow Module.ACT_DoSomething ("$Name": String)
-```
-
-Also applies to `@param` in doc comments: write `@param Name`, not `@param $Name`.
 
 ---
 
@@ -75,7 +48,7 @@ retrieve $MyItems from Module.MyEntity
   limit 1;
 ```
 
-**Never** use `[%CurrentUser%]` as a string expression value — it stores as the literal text.
+**Never** use `[%CurrentUser%]` as a string expression value. v0.24.0: `check` and `exec` pass it and `mx check` gives `[CE0117] Error(s) in expression` — it is not stored as literal text. In an expression write `$currentUser/Name`; `$currentUser` also works directly inside XPath.
 
 **Nor in any microflow a system session can reach** — a published REST operation without
 platform authentication, a scheduled event, a Java action's system context. The runtime refuses
@@ -89,26 +62,6 @@ In shared microflows look the account up by login instead:
 declare $LoginName String = if $currentUser = empty then '' else $currentUser/Name;
 retrieve $Account from Administration.Account where [Name = $LoginName] limit 1;
 ```
-
----
-
-## Page → Microflow Data Passing: Objects Only
-
-A page can ONLY pass entity objects (persistent or NPE) to a microflow — not individual String/Integer/Decimal values. This is a hard Mendix platform constraint.
-
-```mdl
--- WRONG: microflow takes strings (cannot be called from a page button)
-create microflow Module.ACT_Save ("Name": String, "PostalCode": String)
-
--- CORRECT: microflow takes an entity object
-create microflow Module.ACT_Save ("Input": Module.InputDto)
-begin
-  declare $Name String = $Input/Name;
-  ...
-end;
-```
-
-With nested DataViews, a button has access to objects from all enclosing DataViews — each is wired to the corresponding microflow parameter automatically.
 
 ---
 
@@ -185,11 +138,7 @@ Non-Persistent Entities (NPEs) used as form backing objects are named with the `
 3. Button calls microflow passing the NPE. Microflow reads `$Dto/AttributeName` and creates/updates persistent entities.
 4. The NPE is never committed.
 
-**NPE association retrieval — mxcli limitation:**
-`declare $Var NPE.Entity = $Other/Assoc` generates a "Create Variable" activity (not "Retrieve by Association"), causing type errors. mxcli cannot generate a correct "Retrieve by Association" for NPEs. Fix in Studio Pro: delete the "Create Variable" activity, replace with "Retrieve" configured as "By Association".
-
-**Cross-module NPE associations:** can be created via mxcli — BUG-02 fixed in v0.13.0.
-
+**NPE retrieve from the database — CE0056.** `retrieve $Var from NPE.Entity` is invalid — NPEs have no database table. v0.24.0: `check` and `exec` pass it and `mx check` gives `[CE0056] Entity '…' cannot be retrieved from the database because it is non-persistable`. Pass the NPE to the microflow as a parameter instead. A by-association retrieve from an NPE (`retrieve $O from $Dto/Mod.Assoc`) is stored correctly.
 ---
 
 ## Association Direction — Reading SHOW ASSOCIATIONS Correctly
@@ -215,100 +164,25 @@ Studio Pro visual (ground truth): ChoiceOrg (*) ──► (1) OrderApplicationHe
 
 ---
 
-## Association Paths in Expressions — No Module Prefix
+## Association Paths in Expressions — Module-Prefix Every Step
 
-**Rule:** In Mendix expressions (microflow expressions, dynamic class, XPath, contentparams), association path traversal uses just the **association name** — no module prefix.
-
-```
--- CORRECT
-$currentObject/OrderDetail_OrderApplicationHeader/OrderApplicationHeader_ApplicationCommonHeader/Status
-
--- WRONG — module prefix causes expression error
-$currentObject/OrderRegistration.OrderDetail_OrderApplicationHeader/OrderRegistration.OrderApplicationHeader_ApplicationCommonHeader/Status
-```
-
-This applies in: dynamic class expressions, XPath constraints, microflow expressions, contentparams paths.
+**Rule:** In a Mendix expression, write each association step **and** each entity step with its module prefix: `$Line/Shop.Line_Order/Shop.Order/Name`. The unprefixed form `$Line/Line_Order/Name` passes `mxcli check` and `exec`, then fails `mx check` with CE0117 (v0.24.0, measured in a microflow expression; `mxcli lint` does not flag it). Only a bare `= empty` test does not need the long form.
 
 ---
 
 ## Association Direction — Setting in Microflows
 
-An association can be set from either side when both objects are in scope:
+An association can only be set from its **owner** side — the entity it goes `from` in `DESCRIBE ASSOCIATION`, the one that holds the FK. Setting it from the other side passes `check` and `exec` and fails `mx check` with CE0854 (`Association not reachable from entity '…'`; v0.24.0, `mxcli lint` does not flag it). Same-module and cross-module associations alike. For `Line` → `Order` (Line owns the FK):
 
 ```mdl
--- Standard: change the child (FK owner)
-change $SearchResult (OrderRegistration.OrderDetail_Dto_PartnerSearchResult = $Dto)
+-- Correct: set it from the owner
+change $Line (Shop.Line_Order = $Order)
 
--- Fallback: change the parent (same effect)
-change $Dto (OrderRegistration.OrderDetail_Dto_PartnerSearchResult = $SearchResult)
+-- CE0854: the same association set from the non-owner side
+change $Order (Shop.Line_Order = $Line)
 ```
 
-If the child-side `change` fails, try the parent-side before diagnosing further.
-
----
-
-## NPE → PE Data Transfer — Pass as Parameter, Never Retrieve
-
-**Rule:** When a microflow needs to read data from an NPE Dto (e.g. to copy fields into a persistent entity), always accept the NPE as a **direct parameter** — never attempt to retrieve it via association inside the microflow.
-
-mxcli silently translates `retrieve $Var from $Obj/NPE_Assoc limit 1` into a database retrieve, which fails with CE0056 because NPEs have no database table. The correct Mendix activity type would be "Retrieve by Association" (in-memory), but mxcli cannot generate that for NPEs.
-
-**Correct pattern:**
-```mdl
-create or replace microflow Module.ACT_Save (
-  "Dto": Module.OrderDetail_Dto,
-  "AreaDto": Module.OrderArea_Dto      -- pass NPE directly; do NOT retrieve inside
-)
-```
-
-**Wrong pattern (generates CE0056):**
-```mdl
-retrieve $AreaDto from $Dto/Module.AreaDto_Assoc limit 1;  -- mxcli drops the association path
-```
-
-Apply this proactively — don't wait for CE0056. If you're about to write a retrieve for an NPE, switch to parameter passing before writing the script.
-
----
-
-## XPath Retrieve Guards — Always Add When XPath Storage Is Uncertain
-
-**Rule:** Any `retrieve ... where [...]` that uses a cross-module association path MUST include a post-retrieve guard and a `@annotation` with the exact XPath string. mxcli (BUG-15b) cannot reliably write complex XPath constraints into Studio Pro's constraint field — the retrieve may run as an unfiltered table scan at runtime without any visible error.
-
-**When to apply:** any retrieve whose WHERE clause uses an association path (e.g. `[AssocModule.Assoc/Module.Entity/Attr = $X]`). Simple direct-attribute XPath (`where Attr = $X`) appears to work for same-entity conditions.
-
-**Pattern — post-retrieve guard for direct attribute:**
-```mdl
-@annotation 'BUG-15b: XPath may be empty in Studio Pro. Required constraint: [CustomerCode = $ExistingCustomerCode]'
-retrieve $ExistingOrderDetail from OrderRegistration.OrderDetail
-  where [CustomerCode = $ExistingCustomerCode]
-  limit 1;
-
-if $ExistingOrderDetail/CustomerCode != $ExistingCustomerCode then
-  log error node 'OrderRegistration'
-    'WRONG RECORD -- got CustomerCode=' + $ExistingOrderDetail/CustomerCode + ' expected=' + $ExistingCustomerCode
-    + '. Fix: open retrieve in Studio Pro, set Constraint=[CustomerCode = $ExistingCustomerCode]';
-  return empty;
-end if;
-```
-
-**Pattern — guard when no direct attribute is available (cross-entity association path):**
-```mdl
-@annotation 'BUG-15b: XPath may be empty. Required constraint: [OrderRegistration.OrderDetail_OrderCustomerBase/OrderRegistration.OrderDetail/CustomerCode = $CCode]'
-retrieve $ExistingBase from Customer_Common.OrderCustomerBase
-  where [OrderRegistration.OrderDetail_OrderCustomerBase/OrderRegistration.OrderDetail/CustomerCode = $CCode]
-  limit 1;
-
-if $ExistingBase = empty then
-  log error node 'OrderRegistration'
-    'No record found for CustomerCode=' + $CCode
-    + '. If Studio Pro Constraint field is empty, add: [OrderRegistration.OrderDetail_OrderCustomerBase/OrderRegistration.OrderDetail/CustomerCode = $CCode]';
-  return empty;
-end if;
-```
-
-**Annotation strings:** MDL annotation strings are single-line only. Newlines inside `@annotation '...'` cause parse errors. Keep annotations to one line per `@annotation` statement.
-
-**Notify user:** when a script contains a retrieve with XPath that may not store correctly, explicitly state in the session output: "STUDIO PRO ACTION REQUIRED — check Constraint field of retrieve X". Do not silently continue.
+If a `change` fails with CE0854, set the association from the other entity — read the direction off `DESCRIBE ASSOCIATION` first.
 
 ---
 
@@ -322,7 +196,7 @@ different places:
 
 | Form | Where it lands | On the canvas? |
 |------|----------------|----------------|
-| `@annotation 'text'` | A note on the microflow canvas (AnnotationFlow to the next activity, or free-floating) | **Yes — the only one that does** |
+| `@annotation 'text'` | A note on the microflow canvas (AnnotationFlow to the next statement) | **Yes — the only one that does** |
 | `/** ... */` above the signature | The microflow's **Documentation** property (properties pane / right-click → Documentation) | No |
 | `-- text` | MDL script comment only — **stripped on exec** | No — appears nowhere in Studio Pro |
 
@@ -333,32 +207,11 @@ canvas note is the usual cause of "we're not seeing annotations." After exec, ve
 `describe microflow Module.Name` — `@`-annotations appear in its output; if they're missing
 there, they weren't written as `@annotation`.
 
-### Critical: `@annotation` placement — never before an `if` or decision
+### `@annotation` binds to the next statement
 
-**This is the most common cause of annotations silently not persisting.** mxcli binds an `@annotation` to the *next activity* in the flow via an `AnnotationFlow` edge. When the next element is an `if` / decision / split — not a real activity — mxcli drops the annotation entirely. The script applies and reports success, but the canvas note never appears.
+An `@annotation` sits immediately before the statement it explains — an activity, an `if`, or the first statement of the flow. v0.24.0: all of these persist (`describe` shows every one). A free-floating `@annotation` at the end of the flow, before `end;`, does not parse. MDL annotation strings are single-line: a newline inside `@annotation '...'` is a parse error.
 
-**Confirmed failure at scale:** in one session, 12 annotations were written, all before `if` statements — 0 of 12 persisted. Same mxcli version annotates correctly on other flows where placement is correct.
-
-**Safe placements:**
-- At the **end of the flow**, after the last activity, before `end` — free-floating, no following element required
-- Immediately **before a real activity** (create / change / retrieve / commit / call microflow / log)
-
-**Unsafe placement (annotation silently dropped):**
-- Before `if` / `else if`
-- Before a decision or split
-- At the very start of the flow before any activity
-
-**Pattern — summary annotation at end:**
-```mdl
-create microflow Module.ACT_Save ("Input": Module.InputDto)
-begin
-  -- ... activities ...
-  commit $Result;
-  @annotation 'Saves the InputDto to the database. Validates required fields before commit.';
-end;
-```
-
-**Verify after exec:** run `DESCRIBE MICROFLOW Module.ACT_Save` and confirm `@annotation` text appears in the output. Syntax-check passing does not mean the annotation persisted.
+**Verify after exec:** run `DESCRIBE MICROFLOW Module.ACT_Save` and confirm the `@annotation` text appears in the output.
 
 ### Then: apply `@annotation` selectively
 
@@ -366,13 +219,13 @@ end;
 
 **Two annotation shapes, used differently:**
 
-- **Microflow-level summary** — a free-floating `@annotation` (no following activity) placed once, near the start of a genuinely complex microflow, stating the overall approach in a sentence or two. Complements, doesn't replace, the `/** ... */` doc-comment above the microflow signature: the doc-comment is the formal spec-facing summary (params, returns, what it validates); the free-floating annotation is the in-canvas one a reviewer sees without opening the properties panel. Reserve this for microflows whose logic isn't a straightforward linear read — a 3-activity CRUD save doesn't need one.
+- **Microflow-level summary** — an `@annotation` before the first statement of a genuinely complex microflow, stating the overall approach in a sentence or two. Complements, doesn't replace, the `/** ... */` doc-comment above the microflow signature: the doc-comment is the formal spec-facing summary (params, returns, what it validates); the annotation is the in-canvas one a reviewer sees without opening the properties panel. Reserve this for microflows whose logic isn't a straightforward linear read — a 3-activity CRUD save doesn't need one.
 - **Per-activity note** — attached to one specific activity, only when that activity's purpose or behavior would otherwise surprise a reviewer.
 
 **Annotate especially (per-activity):**
 - Activities that interact with cross-module microflows (explain what the external MF does and why)
 - Any activity that involves an NPE → PE copy (explain: "copying from in-memory Dto — cannot commit Dto directly because it is an NPE")
-- Any activity where a known mxcli limitation applies (explain the intent and the workaround — e.g. BUG-15b's XPath annotation pattern above)
+- Any activity where a known mxcli limitation applies (explain the intent and the workaround)
 - Loop bodies whose per-iteration effect isn't obvious from the loop variable name alone
 - Status transitions whose new status value isn't self-explanatory
 - **The fix for a CE error**, once resolved (see below)
@@ -397,24 +250,10 @@ end;
 
 ## Additional MDL Syntax Rules
 
-- **RETRIEVE syntax:** `retrieve $Var from Module.Entity where [...];` — NOT `$Var = retrieve from ...`
-- **Microflow datasource in page:** `datasource: microflow Module.MF` — no `()` after name
-- **DataView cannot use association datasource** — CE6705. Use `dynamictext contentparams` with association traversal path for read-only display.
-- **`datagrid` = old widget** — Mendix 11.10 flags CE0463. Use `gallery datasource: database from Module.Entity`. Other list widget types with association/microflow datasource also get CE0463 when created via mxcli; fix with Studio Pro "Update All Widgets".
-- **Cross-module association `change`:** always `change` from the MANY/Parent side (FK owner). Setting from the ONE/Child side causes CE0854.
-- **NPE RETRIEVE from DB (CE0056):** `retrieve $Var from NPE.Entity` is invalid — NPEs have no database table. Pass NPE as parameter instead (see rule above).
-- **contentparams cross-module NPE traversal (CE0402):** `[{1} = Module.Assoc/Attribute]` fails when the target entity is an NPE in another module. Denormalize the field onto the source entity instead.
-- **`show message` in microflows → CE0720 — ⚠️ DOES NOT REPRODUCE on mxcli `4b58b89` (2026-08-26) / Mendix 11.13.0. Retested 2026-09-04; treat the nanoflow workaround below as history, not instruction.** The serialization the old rule described is still exactly what mxcli writes — `show message 'x'` round-trips as `show message '{1}' type Information objects ['x']` — but Mendix now accepts it. Evidence: a probe microflow carrying a bare literal, a concatenation (`'a ' + toString(1) + ' b'`) and all three severity levels was executed against a real model and passed a **real mxbuild with 0 errors**; a second, production microflow with a concatenated message shipped the same day, same result. Both the literal case and the `objects [$Var]` case are covered. **The old rule, retained because a project pinned to an older binary still needs it:** on mxcli ~v0.13.0, `show message 'literal text'` generated `show message '{1}' objects ['literal text']`; Mendix rejected string literals in the objects list (only variable refs allowed) → CE0720, and even `show message '{1}' objects [$Var]` was broken by a rogue `'{1}'` inserted as the first objects item. Workaround, confirmed 2026-07-20 (PROJECT-D): wrap the microflow in a NANOFLOW that calls it via `CALL MICROFLOW` and does the `show message` there, then rewire the page button's `Action` to the nanoflow (`ALTER PAGE` cannot `SET Action` — `REPLACE` the whole actionbutton). **Before applying that workaround, spend one `mxcli check` + one exec on the probe above; on any binary from 2026-08-26 onward it is unnecessary complexity.**
-- **Severity goes AFTER the text: `show message 'text' type Warning;`.** The level-first form `SHOW MESSAGE WARNING 'text';` **does not parse** — not in microflows, not in nanoflows — even though mxcli's own bundled `.ai-context/skills/write-nanoflows.md` uses it seven times and the binary embeds examples of it in its strings. `mxcli syntax` documents the activity nowhere, in either form. There is no `blocking` modifier. Confirmed 2026-09-04 on `4b58b89`.
-- **`show message ... type Success` silently becomes `type Information` (no error, no warning):** Mendix's nanoflow Show Message action only has three severities — `Information`, `Warning`, `Error`. There is no `Success` level. Writing `show message '...' type Success;` passes `mxcli check` AND a real `mx check`/docker check with 0 errors, because mxcli silently remaps `Success` → `Information` rather than rejecting it — confirmed via `describe nanoflow` showing the persisted BSON as `type Information` after requesting `type Success`. Functionally harmless (message still shows) but visually wrong (blue "info" toast instead of a green "success" toast) and easy to miss since nothing errors. **Use `type Information` for a "success" message from the start** — don't write `type Success` expecting it to work or to at least fail loudly.
-- **`validation feedback $Obj/Attr message '...'` → CE0639 — ⚠️ DOES NOT REPRODUCE on mxcli v0.23.0 / Mendix 11.12.2. Retested 2026-09-27 (a field project's guest-groups build); treat the Studio Pro workaround as history.** BUG-47 was already marked resolved on 2026-08-03. In this build, `SUB_AddGuestsToGuestGroup` carries `validation feedback $ShareHelper/Emails message '…'`, and its exec logged `pass · mxbuild clean` against the matching 11.12.2 mxbuild. **The old rule, retained for projects pinned to an older binary:** mxcli stored the attribute path but did not wire the Variable property → CE0639 "No variable selected", fixed by hand in Studio Pro (Variable = the object, Member = the attribute). **Still open, narrower:** the object-only form with no attribute emits a blank Attribute → CE0091 (BUG-ENGALAR-05). Always name the attribute. **Where it goes:** in a `VAL_`/`SUB_` microflow, never an `ACT_` one — see the next section.
-- **`not expr` → CE0117:** Mendix requires parentheses: `not(expr)`. `not $IsValid` is rejected. Always write `not($IsValid)`.
-- **LESSON-03:** Always use fully-qualified `Module.EntityName` in the `returns` clause. Unqualified entity names (e.g. `returns OrderDetail as $Var`) cause CE1613 "entity no longer exists" because the model checker cannot resolve the type. Always write `returns OrderRegistration.OrderDetail as $OrderDetail`.
-- **LESSON-04 — `retrieve $X from $obj/Assoc limit 1` → CE0018 + CE0136 (mxcli BUG):** mxcli generates a "Retrieve by Association" BSON activity with empty `Association` and `Entity` properties. Mendix rejects these with CE0018 ("Association property required") and CE0136 ("Entity property required"). **Fix:** replace with XPath DB retrieve: `retrieve $X from Module.Entity where [AssocPath/Module.Entity/Attr = $var] limit 1;`. **Pre-flight before using XPath:** (1) target entity is persistent (not an NPE), (2) all entities in the XPath path are persistent, (3) all objects being filtered on are committed to the DB — XPath queries the database, not in-memory objects. If any condition fails, use a different approach (pass as parameter, loop retrieve, etc.).
+- **Cross-module association `change` from the non-owner side (CE0854):** `check` and `exec` pass it; `mx check` gives `[CE0854] Cross-module association 'Mod.Assoc' is not reachable from entity 'ModB.Entity'`. Change from the owner side — see "Association Direction — Setting in Microflows".
+- **`validation feedback $Obj message '...'` with no attribute → CE0091:** `check` and `exec` pass it; `mx check` gives `[CE0091] No member selected.` Always name the attribute: `validation feedback $Obj/Attr message '...'` (that form builds at 0 errors). **Where it goes:** in a `VAL_`/`SUB_` microflow, never an `ACT_` one — see the next section.
 - **Microflow canvas layout — omit layout annotations (LESSON-01+02, corrected 2026-09-25):**
   - **Rule:** write no `@position` at all; mxcli's auto-layout places every statement (start, merges and ends included — `@start`/`@merge` exist and `describe` emits them). Partial hand placement is what breaks: auto-placed neighbours are not measured against hand-placed ones (MPR008/MPR011). If repairing a described flow by hand, annotate every canvas statement or none.
-  - **`mxcli layout` (v0.24.0) arranges domain models only** — the mxcli team's intended home for auto-positioning, but no microflow mode exists yet on v0.24.0 or upstream main (2026-09-25). Probe `mxcli layout --help` on your binary before relying on it for a flow.
-  - **`reset layout` is a parse error** (`mismatched input 'RESET'`, still on v0.24.0) — BUG-28: never implemented upstream. Never write it. Measurements and the v0.24.0 if-branch defect: `microflow-preflight.md`.
   - **If/else branch geometry (for future reference when @position is fixed):** true branch (abort) → X > decision, Y < decision (goes up); false branch (main path) → X > decision, Y > decision (goes down). Both branches must have X > the decision diamond's X.
 
 ---
@@ -514,31 +353,13 @@ collect-all field block. Attribute paths stay unquoted (`$Quote/TotalPrice`); se
 `learned-mdl-preflight.md`. `mxcli check` passes both shapes — only a reader or a browser
 submit of an empty form tells them apart.
 
-**GRANT syntax:** Short role names only — `Admin, User` NOT `OrderRegistration.Admin`.
+**GRANT syntax:** qualify the module role — `Module.Admin`, never bare `Admin`. `mxcli check` refuses the bare name (MDL-GRANT02).
 
 ---
 
-## Retrieve by Association — Never Use `$Dto/Module.Assoc` Form
+## Enum Attribute in String Context — Use `toString($Obj/Attr)`
 
-`retrieve $Var from $Obj/Module.AssocName` generates CE0018 (Association property empty in BSON). Always use XPath retrieve instead:
-
-```mdl
--- WRONG (CE0018)
-retrieve $SearchResult from $Dto/OrderRegistration.OrderDetail_Dto_PartnerSearchResult;
-
--- CORRECT
-retrieve $SearchResult from OrderRegistration.PartnerSearchResult
-  where [OrderRegistration.OrderDetail_Dto_PartnerSearchResult = $Dto]
-  limit 1;
-```
-
----
-
-## Enum Attribute in String Context — Always Use `toString($Obj/Attr)`
-
-**Bug:** Using an enum attribute directly where a string is expected (e.g. string concatenation, `set $Str = $Obj/Status`, loop body building a result string) silently writes the raw enum key name without the module prefix, which Mendix rejects at runtime or produces a CE error.
-
-**Rule:** Always wrap enum attribute reads in `toString()` when the result is used as a String.
+**Rule:** Wrap an enum attribute read in `toString()` when the result is used as a String. v0.24.0: `return $Order/Status` from a String microflow and `change $Order (Note = $Order/Status)` pass `check` and `exec`, then fail `mx check` with CE0117 (`mxcli lint` does not flag it). The concatenation form is flagged E004 by `check`, but `exec` still writes it.
 
 ```mdl
 -- WRONG: enum used as string directly
@@ -552,57 +373,13 @@ This applies anywhere an enum value flows into a String context: concatenation, 
 
 ---
 
-## Expression Functions Take Positional Arguments Only — Never `name: value`
-
-**Bug (verbatim, from field feedback):**
-
-```mdl
-set $JSON = $JSON + ',"temperature":' + toString(from: $Temperature);
-```
-
-**Rule:** every built-in Mendix expression function — `toString($X)`, `formatDateTime($D, 'yyyy-MM-dd')`, `substring($S, 0, 3)`, `length()`, `contains()`, etc. — takes **positional arguments only**. There is no `name: value` form inside an expression. That labelled-colon shape is real MDL syntax elsewhere — page properties (`Attribute: Name`), page actions (`Action: MICROFLOW Mod.Flow(Param: val)`), and annotations (`@anchor(from: bottom, to: top)`) all use it — which is almost certainly where the habit leaks in from. Inside an *expression*, a bare `name:` is not a label at all: `mxcli`'s expression grammar has no named-argument production for function calls (`argumentList: expression (COMMA expression)*`), so it parses `label: value` as `label` (an unresolved bare identifier) **`:`-divided by** `value` — COLON is the OQL division operator — one silently wrong expression, not an error.
-
-**This is not reliably caught by `mxcli check`, including `--references`.** Verified on mxcli v0.24.0 / Mendix 11.12.1:
-
-| Written | `mxcli check --references` |
-|---|---|
-| `toString(from: $Temperature)` | **Passes silently** (exit 0, "✓ All references valid" / "Check passed!") — parsed as `toString(from : $Temperature)`, one bogus division argument, argument count still matches `toString`'s arity of 1 |
-| `formatDateTime($D, pattern: 'yyyy-MM-dd')` | **Passes silently** — same mechanism, second argument's label/value pair still counts as one argument, matching `formatDateTime`'s arity of 2 |
-| `substring(from: $S, index: 0, length: 3)` (or any label, e.g. `src:` — not keyword-specific) | **Fails**, but with a misleading message that never names the real cause: `substring() expects 2 to 3 argument(s), got 1. [E006]` |
-
-A labelled call that happens to land on the function's normal arity round-trips through `mxcli check`/`describe microflow` clean and reaches real `mx check`/Studio Pro/mxbuild before anyone notices — where the bare identifier (`from`, `pattern`, …) fails as an undefined rule/constant reference. Only a call whose label count doesn't match the arity gets a (misleadingly worded) error from `mxcli check` itself. Treat any `name:` inside a function call's parentheses as a STOP regardless of whether `mxcli check` complained — grep the expression for `[A-Za-z]\w*:\s` before trusting a clean check.
-
-```mdl
--- WRONG — silently misparsed, not a syntax error:
-set $JSON = $JSON + ',"temperature":' + toString(from: $Temperature);
-
--- CORRECT:
-set $JSON = $JSON + ',"temperature":' + toString($Temperature);
-```
-
----
-
-## CHANGE activity: clear a String attribute — use `empty` not `''`
-
-Setting a String attribute to empty string via `''` in a CHANGE activity causes CE0117:
-
-```mdl
--- CE0117 — DO NOT USE:
-change $Order ("ProblemMessage" = '') refresh;
-
--- CORRECT — use empty keyword:
-change $Order ("ProblemMessage" = empty) refresh;
-```
-
-Using `''` in IF conditions and RETRIEVE WHERE clauses is fine. The restriction is specific to CHANGE/CREATE activity value assignments. Confirmed Mendix 11.12.0 Beta, 2026-07-17.
-
 ## Per-row isolation in a loop: three Mendix facts, one afternoon (2026-09-07, a sales-coaching build)
 
 The pattern "loop over rows, one bad row must not sink the file" costs three failed runs if you
 do not know these; each was learned from the runtime log of an import of 222 Salesforce rows.
 
 1. **No custom error handling inside a loop body — CE0644.** `on error continue` and
-   `on error { ... }` on a call inside `loop ... end loop` both fail mxbuild. Move the guarded
+   `on error { ... }` on a call inside `loop ... end loop` both fail `mx check` (`[CE0644] Error handling type must be 'Rollback' inside a looped activity`). Move the guarded
    call into a wrapper microflow (`SUB_X_Safe` that calls `SUB_X on error ...`) and have the
    loop call the wrapper. `mxcli check` warns MDL006 for this; the warning is right.
 2. **`on error { ... }` is custom WITH rollback, and the rollback is the whole outer

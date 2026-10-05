@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# fake-mxcli — replays capture/ for test-context-pack.sh. Captured from mxcli v0.23.0 against the
+# field-build model (Mendix 11.14.0), 2026-10-05: one DESCRIBE per kind, in
+# context-pack.sh's own kind order, stopping at the first success. Every kind/name pair not
+# in capture/ returned exit 1 with "<kind> not found" on stderr there, which is what this
+# replays. `brain brief` is not captured (the model had no docs/brain/): it prints a marker.
+# Redacted: the .mpr name in capture/impact/ is replaced by App.mpr; nothing else is edited.
+CAP="$(cd "$(dirname "$0")" && pwd)/capture"
+case "$1" in
+  impact) n="${4:-}"; [ -f "$CAP/impact/$n.out" ] && { cat "$CAP/impact/$n.out"; exit 0; }; exit 1 ;;
+  brain)  echo "# Brain brief"; echo "## Decisions"; echo "- FAKE-BRAIN-MARKER $*"; exit 0 ;;
+esac
+# -p <mpr> -c "DESCRIBE <KIND...> <Name>"
+q="${4:-}"; q="${q#DESCRIBE }"; name="${q##* }"; kind="${q% *}"; kind="${kind// /_}"
+f="$CAP/describe/${kind}__${name}.out"
+[ -f "$f" ] && { cat "$f"; exit 0; }
+echo "Error: $(printf '%s' "$kind" | tr 'A-Z_' 'a-z ') not found: $name" >&2; exit 1

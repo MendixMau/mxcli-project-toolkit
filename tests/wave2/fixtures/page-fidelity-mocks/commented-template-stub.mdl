@@ -1,0 +1,11 @@
+create or modify page Sales.OrderInbox (
+  Title: 'Order inbox',
+  Layout: Atlas_Core.Atlas_Default
+) {
+  dynamictext dStub (Content: 'Stub: built in script 20')
+  datagrid dgTasks (DataSource: DATABASE Sales.ReviewTask WHERE [Assignee = '[%CurrentUser%]'])
+  datagrid dgWaiting (DataSource: DATABASE Sales.CustomerQuery) {
+    column cOrder (Attribute: OrderNumber, Caption: 'Order')
+    column cSent (Attribute: SentAt, Caption: 'Sent')
+  }
+}

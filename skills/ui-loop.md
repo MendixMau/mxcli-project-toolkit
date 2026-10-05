@@ -47,7 +47,14 @@ The gate was not missing. Its cadence was too coarse to catch anything early.
 After a script that creates or changes a page:
 
 1. **Run it and open the page** — through real navigation, as a real user role, not a direct URL.
-2. **Screenshot it.**
+2. **Screenshot it, then open the PNG** (the Read tool). Name the file after the page —
+   `order-overview.png` or `Order_Overview_1280.png` for `Orders.Order_Overview`. `bin/exec.sh`
+   recorded the page as owed a look when the script landed; opening a screenshot whose name
+   contains the page name, taken after that build, is what clears it. Until every built page is
+   cleared, `gate-check.sh <project> 5` FAILs and names the pages still owed (`page-fidelity.js`
+   does not clear it: a text score is not a look). Two unattended builds shipped every page
+   unseen before this existed. A page that genuinely needs no look: `--waive look/<Module>
+   --reason "..."`.
 3. **Ask four questions** against the page's wireframe (or the design system if there is no
    wireframe):
    - **What's missing?** A field, button, column or whole section that should be there and isn't.
@@ -59,7 +66,11 @@ After a script that creates or changes a page:
 4. **Score it when a wireframe exists** — `node project-bin/page-fidelity.js` for the page. The
    row it appends to `docs/PAGE-FIDELITY.tsv` is the score of record (target ≥80%) and the
    `fidelity` obligation reads it; a page nobody scored is a page nobody checked, however the
-   screenshot looked. No wireframe: waive it explicitly (`--waive fidelity/<Module> --reason
+   screenshot looked. The number prints as `text-match`: identifier overlap, blind to placement,
+   nesting, size and colour. **It never replaces step 3** — a field build that ran it 38 times
+   and never opened a screenshot shipped pages whose text matched and whose layout did not.
+   `UNMEASURED` (exit 3) means there was nothing to compare — fix the input, it is not a score;
+   `STUB IN MODEL` (exit 4) means a `Stub:` page is being scored as the build. No wireframe: waive it explicitly (`--waive fidelity/<Module> --reason
    "no wireframe"`) — there is no automatic discharge, and a module the obligation never hears
    about stays PENDING forever.
 5. **Fix it now, or write it down now.** A defect that survives into the next script costs more to

@@ -73,9 +73,8 @@ A component is approved when its `.mpk` sits beside a filled manifest (`componen
 version, Mendix range, namespace once imported, the CLI command that actually worked, proven-in
 table).
 
-**Import from the CLI.** The write modes are CLI and MCP, picked by the shape of the work
-(`learned-mdl-preflight.md` Step 0); Studio Pro is a handoff surface for a human
-(`handoff-to-studio-pro.md`), not a mode an agent chooses — and MCP needs it running, so on a
+**Import from the CLI.** The default write mode is the CLI (`learned-mdl-preflight.md` Step 0); Studio Pro is a handoff surface for a human
+(`handoff-to-studio-pro.md`), not a mode an agent chooses — so on a
 headless machine the CLI is the only option. **Probe the binary you have** for the import
 subcommand rather than assuming: the "marketplace is manual" prior misfired twice in this
 toolkit's history. A CLI that cannot import on your version is a defect to record and log, not a

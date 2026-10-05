@@ -131,10 +131,9 @@ list into the brief, stop — link it instead and synthesize the *decision* abou
 <!-- A scoped journey that creates an object almost always must link it. An order created with no
      association to the unit/location it's for is a broken golden path even though it "saved" — a real
      WMS incident. List every association the action must set here so the mdl-agent writes them and
-     the review loop can verify them. Note: inline assoc-sets hit learned-mdl-preflight rule 9 (route
-     to `--mcp`, never drop the set to dodge the STOP) on mxcli v0.16.0 — resolved in v0.17.0, see
-     rule 9's 2026-08-11 update; check which binary the target project is pinned to before assuming
-     either behavior. -->
+     the review loop can verify them. Note: inline assoc-sets work through the plain CLI on mxcli
+     v0.17.0+ (probed on v0.24.0); set them from the owner side
+     (learned-microflow-patterns.md). Never drop the set. -->
 
 ### Open business questions
 - [ ] <anything unresolved — mdl-agent must escalate, not guess>
@@ -230,8 +229,8 @@ rather than wondering whether they missed a file.
   real build here should produce one.">
 
 ### Write-mode plan (per learned-mdl-preflight.md Step 0)
-| Element | CLI / MCP+MDL / hand-rolled MCP | Why |
-|---------|--------------------------------|-----|
+| Element | CLI / Studio Pro by hand | Why |
+|---------|--------------------------|-----|
 
 ### Document folder plan  (layout: module-folder-convention.md — feature group, then type)
 <!-- Type folders: Pages | Microflows (nanoflows too) | Services | Resources, plus
@@ -251,6 +250,27 @@ rather than wondering whether they missed a file.
      the `folder` property and never invents one. A document with no row and no derivable feature
      (module-folder-convention.md, "Deciding the path") is escalated, NOT swept into Common/. -->
 
+### Build steps  (one row per dispatch, i.e. per script — `bin/context-pack.sh <Module> <Step>` turns a row into the helper's pack)
+| Step | Builds | Reads | Example | Slice |
+|------|--------|-------|---------|-------|
+| e.g. 5.1 | Sales.ACT_Order_ApproveAll | Sales.Order, Sales.Order_Customer, Sales.ENUM_OrderStatus | Sales.ACT_Order_Approve | 02-approvals |
+<!-- A step is one dispatch, NOT one build-plan row. The build plan sizes rows by use case
+     (brd-to-build-plan.md Step 3); one use-case row lists several steps here. Do not size
+     the build plan from this table.
+     Names only, comma-separated, fully qualified — the model describes them, this table never
+     does. Builds: the documents this step creates or changes (each needs a folder-plan row).
+     Reads: every existing element the step touches — entities, associations, enums, called
+     microflows; the pack DESCRIBEs each one live, so a wrong name fails loudly at dispatch
+     instead of inside the helper's script. Example: the app's own closest document to copy
+     (same kind of flow, same security pattern) — in the 2026-10-01 A/B the microflow
+     cookbook skill added no quality; the app's own example already carried the patterns. Slice: the `mxcli brain` slice whose requirements this step builds, or "—".
+
+     WHY (2026-10-01 A/B, 3 helper runs with a pack vs 3 without, same brief, same task):
+     without a pack the helper assembles its own context — DESCRIBE one entity, read the BRD,
+     hunt for an example — and each lookup re-sends the whole conversation. With the pack:
+     ~40% fewer tool calls and ~40% less time; tokens ~9% lower, within run-to-run noise, so
+     not proven. 0 new errors and the right folder with and without a pack. The saving is the lookups; the rest is the agent's fixed start-up. -->
+
 
 ### Cross-module dependencies & integrations
 - Depends on: <ModuleX.Entity via assoc> · Integrations: <stub | real>
@@ -264,6 +284,9 @@ rather than wondering whether they missed a file.
 - [ ] No open business question blocks the elements in this build phase
 - [ ] Write mode chosen for every element that hits a learned-mdl-preflight STOP row
 - [ ] Folder plan names the module's feature groups and covers every document to be built
+- [ ] Build steps has a row for every document to be built in this phase, and
+      `bin/context-pack.sh <Module> <Step>` exits 0 for each (exit 1 = a Reads name is wrong;
+      exit 3 = packs switched off in PROJECT.md, so this half of the item is skipped)
 - [ ] Test plan complete: shape declared, base set named and covering the coverage checklist, at least one journey with its data effect
 - [ ] Build skills to read first is filled in — or explicitly says "none detected" — for every
       build group this module touches (integration, pages, mdl, workflow, agents), not just
@@ -284,6 +307,9 @@ never covered) is fed back here, not silently fixed in the model with the brief 
 
 1. **Step 1 of every build task:** read the module brief. It replaces "read the task spec and hunt
    for context" — the brief *is* the context, pre-synthesized.
+   **Dispatching a helper?** Run `bin/context-pack.sh <Module> <Step> --out
+   .mxcli/packs/<Module>-<Step>.md` and hand it the path: the step's Build steps row, the brain
+   brief, live DESCRIBEs of every Reads element, the example and the folder, in one file.
 2. **Gap escalation, not guessing:** if a business rule the agent needs is missing or an open
    question is unresolved, the agent surfaces the specific question to `ba-agent` (which updates the
    brief) — it never fills the gap from training data. This is why the brief has an explicit "open

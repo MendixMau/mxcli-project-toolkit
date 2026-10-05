@@ -60,6 +60,10 @@ newbytes=$(stat -f%z "$out" 2>/dev/null || stat -c%s "$out" 2>/dev/null \
 # If shrinking didn't actually help, don't bother redirecting.
 [ "$newbytes" -lt "$bytes" ] 2>/dev/null || exit 0
 
+# The Read now lands on the copy, so a PostToolUse(Read) hook sees the copy's path. Leave the
+# original beside it: project-bin/look-ledger.sh reads this to record which screenshot was seen.
+printf '%s\n' "$path" > "$CACHE/$key.src" 2>/dev/null || true
+
 printf '%s' "$input" | jq -c \
   --arg p "$out" \
   --arg orig "$path" \

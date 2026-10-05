@@ -18,8 +18,20 @@
 //
 // Scoring: headings 25%, action labels 30%, content blocks 25%, structural classes 20%,
 // bindings 25% (normalized over the dimensions the wireframe actually uses — one it
-// doesn't use is dropped from the denominator). Prints per-dimension hits and every miss;
-// exits 0 always — it is an instrument, not a gate. The gate is check-page-shell.sh.
+// doesn't use is dropped from the denominator). Prints per-dimension hits and every miss.
+// It is an instrument, not a gate (the gate is check-page-shell.sh), but it does not
+// print a number it did not measure. Exit codes:
+//   0  scored (a low score is still 0 — the number is the verdict)
+//   2  usage / no such wireframe / no declaration of the page in the input
+//   3  UNMEASURED — nothing to compare; printed with the reason, NOT logged
+//   4  STUB IN MODEL — a `Stub:` caption scored without --stub; logged as 0%
+//
+// THE LABEL IS `text-match`, NOT `fidelity` (renamed 2026-10-02). Two field builds on one
+// template read "fidelity 100%" as "the page looks like the wireframe" and never opened a
+// screenshot. The number is identifier overlap between two texts; it cannot see placement,
+// nesting, size or colour. The LOOK (skills/ui-loop.md) is the fidelity check; this is its
+// cheap pre-filter. The file and TSV keep their names so existing projects and the
+// fidelity obligation keep working.
 //
 // Third field run (ToeicBuddy Reading_Part, 2026-08-27) added bind-table awareness:
 // on a data-heavy page nearly all visible copy is BOUND (passages, stems, options),
@@ -294,6 +306,13 @@ function bindRows(html) {
 }
 
 function wfFacts(html) {
+  // HTML COMMENTS ARE NOT PAGE. contentOf() picks its boundary with a regex, and a template
+  // whose header comment says "put the screen inside <main> … the bind table goes AFTER
+  // </main>" handed it the comment text as the page. Field case, 2026-10-02, two builds
+  // on one template: every page scored headings/actions/content/classes 0/0, so the only
+  // dimension left was bindings — "100%" on a page with 1 of 1 bindings, "0%" on another,
+  // neither describing the page. Strip comments before anything reads the document.
+  html = html.replace(/<!--[\s\S]*?-->/g, ' ');
   const mock = localMockClasses(html);
   let main = contentOf(html);
   const mockUsed = [];
@@ -378,10 +397,10 @@ let MODULE = null;
 // script fixed, so it does not; instead the binding script is passed as another input
 // (`… - path/to/alter.mdl < describe.mdl`) and its ALTER body counts. An ALTER-only input
 // is not a page: without a CREATE the run still exits 2.
+const SRCS = MDLS.map(f => f === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(f, 'utf8'));
 function pageMdl() {
   let out = '', alters = '';
-  for (const f of MDLS) {
-    const src = f === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(f, 'utf8');
+  for (const src of SRCS) {
     const re = new RegExp(
       'CREATE(\\s+OR\\s+(MODIFY|REPLACE))?\\s+PAGE\\s+"?([A-Za-z0-9_]+)"?\\."?' + PAGE + '"?\\b', 'gi');
     for (const m of src.matchAll(re)) {
@@ -393,6 +412,50 @@ function pageMdl() {
   }
   return out && out + alters;
 }
+
+// SNIPPETS ARE PAGE. A page assembled from snippet calls carries its headings, buttons and
+// classes in the snippet bodies, so scoring the page body alone marks all of it missing —
+// and the cheapest way to raise that number is to inline the text into the page, which
+// undoes the reuse the snippets were for. Snippet bodies found in ANY input (the build
+// script, or `mxcli describe snippet` output passed as another file) are added to the
+// corpus, nested calls included. A call whose body is not in the input is NAMED, and the
+// run is marked partial — the number is then a floor, and says so.
+const SNIP_CALL = /\bsnippetcall\s+"?[A-Za-z0-9_]+"?\s*\(\s*snippet\s*:\s*"?([A-Za-z0-9_]+)"?\."?([A-Za-z0-9_]+)"?/gi;
+function expandSnippets(body) {
+  let extra = '';
+  const seen = new Set(), missing = [];
+  let frontier = body;
+  for (let depth = 0; depth < 4 && frontier; depth++) {
+    let next = '';
+    for (const m of frontier.matchAll(SNIP_CALL)) {
+      const q = m[1] + '.' + m[2];
+      if (seen.has(q)) continue;
+      seen.add(q);
+      const re = new RegExp('CREATE(\\s+OR\\s+(MODIFY|REPLACE))?\\s+SNIPPET\\s+"?' + m[1] + '"?\\."?' + m[2] + '"?\\b', 'i');
+      let found = null;
+      for (const src of SRCS) { const d = src.match(re); if (d) { found = pageBody(src, d.index); break; } }
+      if (found) { extra += found + '\n'; next += found + '\n'; } else missing.push(q);
+    }
+    frontier = next;
+  }
+  return { extra, missing };
+}
+
+// The page's OWN widgets, with its declaration header and snippet calls removed: if nothing
+// text-bearing is left and a called snippet is missing, there is nothing to score at all.
+function ownsContent(body) {
+  const open = body.indexOf('{');
+  const inner = (open < 0 ? '' : body.slice(open)).replace(new RegExp(SNIP_CALL.source + '[^)]*\\)', 'gi'), ' ');
+  return /'[^']+'|\b(attribute|datasource)\s*:/i.test(inner);
+}
+
+// A FORWARD-REFERENCE STUB IN THE MODEL. iterative-build-loop.md § Forward references marks a
+// stub page with a caption that starts `Stub:` or `Stub -`. Scored WITHOUT --stub, such a
+// page is being reported as the build — field case, 2026-10-02: a stub answer page scored
+// 100% on its one binding and was counted as done. Scored as what it is: 0%, logged
+// `stub-in-model`, exit 4. With --stub it is the declared forward reference and scores
+// normally, exempt from the target as before.
+const STUB_MARK = /'\s*stub\s*(:|-|\u2013|\u2014)/i;
 
 // Known limit: the counter does not skip quoted strings, so an UNBALANCED brace inside a
 // string literal truncates the body early (balanced placeholders like '{1} of {2}' are fine).
@@ -466,12 +529,43 @@ function score(wf, mdl) {
 }
 
 const wf = wfFacts(readWireframe());
-const mdl = pageMdl();
-if (!mdl.trim()) { console.error('page-fidelity: no declaration of page "' + PAGE + '" found in input'); process.exit(2); }
+const ownMdl = pageMdl();
+if (!ownMdl.trim()) { console.error('page-fidelity: no declaration of page "' + PAGE + '" found in input'); process.exit(2); }
+const snips = expandSnippets(ownMdl);
+const mdl = ownMdl + snips.extra;
 const s = score(wf, mdl);
-console.log(PAGE + '  fidelity ' + s.pct + '%   headings ' + s.h.ok + '/' + s.h.n +
-  '  actions ' + s.b.ok + '/' + s.b.n + '  content ' + s.k.ok + '/' + s.k.n + '  classes ' + s.c.ok + '/' + s.c.n +
-  (s.bd.n ? '  bindings ' + s.bd.ok + '/' + s.bd.n : ''));
+const dims = '   headings ' + s.h.ok + '/' + s.h.n + '  actions ' + s.b.ok + '/' + s.b.n +
+  '  content ' + s.k.ok + '/' + s.k.n + '  classes ' + s.c.ok + '/' + s.c.n +
+  (s.bd.n ? '  bindings ' + s.bd.ok + '/' + s.bd.n : '');
+const snipNote = () => console.log('  snippets not in input (their content is not scored): ' + snips.missing.join(' ') +
+  '\n  pass their bodies as more inputs: ./mxcli -p <app>.mpr -c "describe snippet <Mod.Name>" > snip.mdl');
+
+// UNMEASURED IS NOT A SCORE. Two ways to have nothing to compare, both reported and neither
+// logged, because a logged row is what the fidelity obligation counts as the page measured:
+//   * the wireframe yields no heading, action, content block or class — the content
+//     boundary landed on the wrong element (the comment case above, a missing <main>), so a
+//     number off bindings alone would be a number about the annotation table;
+//   * the page's own body has no text-bearing widget and the snippets it calls are not in
+//     the input — the page is somewhere this run cannot see.
+// Exit 3, so a loop that scores pages cannot read either case as a pass.
+const unmeasured = !(s.h.n + s.b.n + s.k.n + s.c.n)
+  ? 'the wireframe gave no headings, actions, content or classes to compare' +
+    (s.bd.n ? ' (only ' + s.bd.n + ' binding row(s))' : '') +
+    ' — its content boundary is likely the wrong element; open the wireframe and check where <main> / .wf-screen is'
+  : (snips.missing.length && !snips.extra && !ownsContent(ownMdl))
+    ? 'the page is built from snippet calls whose bodies are not in the input' : null;
+if (unmeasured) {
+  console.log(PAGE + '  text-match UNMEASURED — ' + unmeasured + dims);
+  if (snips.missing.length) snipNote();
+  console.log('  not logged: an unmeasured page has no score of record');
+  process.exit(3);
+}
+const stubHit = !STUB && (ownMdl.match(STUB_MARK) || [])[0];
+if (stubHit) s.pct = 0;
+console.log(PAGE + '  text-match ' + s.pct + '%' + dims + (snips.missing.length ? '  (partial)' : ''));
+if (stubHit)
+  console.log('  STUB IN MODEL: a caption starts ' + stubHit.trim() + "' — this page is a forward-reference stub," +
+    ' not the build. Scored 0%. Build the page, or score it with --stub while it is still a stub.');
 const miss = [...s.h.miss.map(x => 'heading: ' + x), ...s.b.miss.map(x => 'action:  ' + x),
               ...s.k.miss.map(x => 'content: ' + x.slice(0, 78)),
               ...(s.c.miss.length ? ['classes: ' + s.c.miss.join(' ')] : []),
@@ -488,6 +582,11 @@ if (wf.mockUsed.length) console.log('  bound-data mocks (wireframe-local, text n
 if (wf.structural.length) console.log('  wireframe structure (kept as page content, not a mock): ' + wf.structural.join(' '));
 if (wf.mockCls.length) console.log('  wireframe-local classes (not scored): ' + wf.mockCls.join(' '));
 if (STUB) console.log('  stub — forward-reference target, exempt from the 80% target; the first non-stub row is the score of record');
+if (snips.missing.length) snipNote();
+// The number above is identifier overlap between two texts. It cannot see placement,
+// nesting, size or colour, so it is not a LOOK and never stands in for one.
+console.log('  text-match compares identifiers, not pixels — it is not a LOOK. Screenshot the page and' +
+  ' check it against the wireframe (skills/ui-loop.md).');
 
 // ---- record the run (see header: EVERY RUN IS RECORDED) -------------------------------
 if (!NOLOG) {
@@ -564,7 +663,9 @@ if (!NOLOG) {
         new Date().toISOString().slice(0, 16).replace('T', ' '),
         PAGE, MODULE || '-', s.pct === null ? '-' : s.pct + '%',
         frac(s.h), frac(s.b), frac(s.k), frac(s.c), frac(s.bd),
-        STUB ? 'stub' : MDLS.includes('-') ? (MDLS.length > 1 ? 'describe+script' : 'describe') : 'draft',
+        (STUB ? 'stub' : stubHit ? 'stub-in-model'
+          : MDLS.includes('-') ? (MDLS.length > 1 ? 'describe+script' : 'describe') : 'draft') +
+          (snips.missing.length ? '+partial' : ''),
         path.relative(root, path.resolve(WF_FILE)) + (WF_REF ? '#/' + WF_REF.route : ''),
       ].join('\t');
       fs.appendFileSync(tsv, row + '\n');
@@ -574,3 +675,4 @@ if (!NOLOG) {
     console.error('page-fidelity: score NOT logged (' + e.message + ')');
   }
 }
+if (stubHit) process.exit(4);

@@ -134,6 +134,8 @@ still had the old (wrong) description and two already-resolved open questions st
 Run this before scripting each module:
 
 - [ ] **Module brief exists and passes its ready-check.** `architecture/modules/<Module>/module-brief.md` must exist (authored by `ba-agent` translation mode, per `module-brief.md`) with every ready-check box ticked: every screen has a wireframe, the access table covers every element, no open business question blocks this phase, write mode chosen for every STOP-row element. **No brief, or an unchecked ready-check item touching this phase → STOP.** Produce/complete the brief first — do not let the `mdl-agent` synthesize the module from raw BRDs. This is the just-in-time gate. `gate-check.sh` cannot require all briefs at Stage 4 (they don't all exist yet), so the ordering guarantee lives where the build actually gets its orders: every phase opens with a **`BRIEF` row** (`brd-to-build-plan.md` Step 5) — a check-then-create carrying its own `State` cell: does the brief exist and cover this phase's rows, and if not, write or extend it. `project-bin/exec.sh` **warns** if a script writes to a module with no brief — satisfied by either `architecture/modules/<M>/module-brief.md` or a `## Module brief — <M>` heading in the build plan (the single-module merged form) — but it does not refuse, and says nothing at all in a project with no build plan. À-la-carte use of this toolkit is a supported choice; the warning is a signal that a planned row was skipped, not a gate.
+- [ ] **The project brain is on — or deliberately off.** Skip this item when PROJECT.md says `Context packs: no-brain` or `off` (a CLI release changed `mxcli brain`, or the app does not use it). Otherwise: `docs/brain/` exists beside the `.mpr` (`mxcli brain init`, once per app). The module's requirements are captured into their slice with FORWARD anchors at what will be built (`mxcli brain capture "<requirement>" --slice <slice> -a @Module.Element`, then `promote`), so `mxcli brain plan` reports BUILT/PLANNED from the model — progress nobody self-reports. A *why* learned while building (pattern chosen, trap hit) is captured with a BACKWARD anchor; a person promotes it (`close-the-loop.md`).
+- [ ] **Each dispatch gets a pack.** Before handing a step to `mdl-agent`: `bin/context-pack.sh <Module> <Step> --out .mxcli/packs/<Module>-<Step>.md`, and give the helper that path instead of a reading list. Exit 1 means a name in the brief's Build steps row is not in the model — fix the brief before dispatching. Exit 3 means packs are switched off (`Context packs: off` in PROJECT.md): dispatch with the reading list instead (the brief, the BRD rows, the skills the step needs). A *Build step* is one dispatch, one script; a build-plan `BUILD` row is one use case and usually lists several steps (`brd-to-build-plan.md` Step 3).
 - [ ] Read source screenshots for this module top-to-bottom
 - [ ] Read the feature doc (F-doc or BRD) for this module
 - [ ] Extract the build checklist from the feature doc:
@@ -608,6 +610,13 @@ a bad first-build score does not reclassify the row. And a stub row is a promise
 module close, any page whose *only* rows are `stub` rows is an unfinished page wearing a
 stub label — the same finding as no row at all (`ui-preflight-pages.md` Step 5,
 `module-review.md` rubric row 6).
+
+**Mark the stub in the model, not only in the script name.** Give the stub page one text widget
+whose caption starts `Stub:` (e.g. `Stub: built in 20-order-inbox.mdl`). `page-fidelity.js`
+reads that marker: scored **without** `--stub`, a page carrying it is reported as
+`STUB IN MODEL`, logged at 0% and exits 4 — so a stub that was never replaced cannot pass as
+the build (field case, 2026-10-02: a stub answer page printed 100% off its one binding). The
+real page script drops the caption with the rest of the stub.
 
 ---
 

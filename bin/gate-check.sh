@@ -1174,10 +1174,143 @@ check_stage_4() {
     return
   fi
   if reg_unavailable; then reg_unavailable_note; return; fi
-  if has_confirmed_decision 4; then
-    echo "PASS|build-plan.md present and a Stage-4 CONFIRMED decision is in $REGISTER"
-  else
+  if ! has_confirmed_decision 4; then
     echo "FAIL|build-plan.md exists but ${REGISTER:-PROJECT.md} has no Stage-4 CONFIRMED decision — ✋ gate: a plan nobody approved doesn't pass"
+    return
+  fi
+  local closing
+  closing="$(stage4_closing_rows "$build_plan")"
+  case "$closing" in
+    FAIL\|*) echo "$closing" ;;
+    *) echo "PASS|build-plan.md present, ${closing#OK|}, and a Stage-4 CONFIRMED decision is in $REGISTER" ;;
+  esac
+}
+
+# stage4_closing_rows <build-plan.md> → "OK|<what was counted>" or "FAIL|<what is missing>".
+#
+# THE PLAN IS READ, NOT ONLY FOUND. brd-to-build-plan.md (#163) makes three closing rows
+# mandatory: per module a HARNESS row `bin/verify-module.sh <Module>` (then LOOK + CONFIRM per
+# module-review.md), a process-coherence-pass row per 2-3 modules, and a last row
+# `gate-check.sh <project> 5`. This check used to test only that the file existed and was
+# approved, so a plan approved before that rule was never reopened. Field case, 2026-10-02: a
+# 137-row plan for 7 modules had 0 / 0 / 0 of them, Stage 4 printed PASS, and the build reached
+# DONE with look, sweep and journeys at 0 of 7 — nothing that walks a plan does a step the plan
+# does not list.
+#
+# Denominator: the modules declared under architecture/modules/<Module>/ and as
+# `## Module brief — <Module>` sections in the plan. When neither exists yet (briefs are written
+# just in time), the modules named by close rows are the denominator, and at least one is owed.
+# Coherence rows are owed only from two modules up (there is no cluster of one). A plan with no
+# numbered rows at all is not counted — there is nothing to walk — and the verdict says so.
+stage4_closing_rows() {
+  local plan="$1" rows declared closed m missing="" n ncoh need last
+  rows="$(tr -d '\r' < "$plan" | grep -E '^\|[[:space:]]*[0-9]+[A-Za-z.]*[[:space:]]*\|')"
+  # Rows with a Kind cell are the plan's steps; a numbered question or decision table elsewhere
+  # in the file is not. Plans written before the Kind column keep every numbered row.
+  printf '%s\n' "$rows" | grep -qE '\|[[:space:]]*`?(BRIEF|BUILD|PROVE|RUN|HARNESS)`?[[:space:]]*\|' \
+    && rows="$(printf '%s\n' "$rows" | grep -E '\|[[:space:]]*`?(BRIEF|BUILD|PROVE|RUN|HARNESS)`?[[:space:]]*\|')"
+  if [ -z "$rows" ]; then
+    echo "OK|no numbered rows (closing rows not counted)"
+    return
+  fi
+  declared="$( { for m in "$(dirname "$plan")/modules"/*/; do [ -d "$m" ] && basename "$m"; done
+                 tr -d '\r' < "$plan" | sed -nE 's/^#+[[:space:]]+Module brief[[:space:]]+(—|–|-|:)[[:space:]]*([A-Za-z0-9_]+).*/\2/p'
+               } 2>/dev/null | sed '/^$/d' | sort -u)"
+  closed="$(printf '%s\n' "$rows" | grep 'verify-module\.sh' \
+            | sed -nE 's/.*verify-module\.sh[`"[:space:]]+([A-Za-z0-9_]+).*/\1/p' | sort -u)"
+  if [ -n "$declared" ]; then
+    for m in $declared; do
+      printf '%s\n' "$rows" | grep 'verify-module\.sh' | grep -qw -- "$m" || missing="$missing $m"
+    done
+    n="$(printf '%s\n' "$declared" | wc -l | tr -d ' ')"
+  else
+    n="$(printf '%s\n' "$closed" | sed '/^$/d' | wc -l | tr -d ' ')"
+    [ "$n" -gt 0 ] || missing=" (no module has one)"
+  fi
+  ncoh="$(printf '%s\n' "$rows" | grep -ciE 'process-coherence-pass|coherence pass')"
+  need=0; [ "$n" -ge 2 ] && need=$(( (n + 2) / 3 ))
+  last="$(printf '%s\n' "$rows" | tail -1)"
+
+  local why=""
+  [ -n "$missing" ] && why="no \`verify-module.sh <Module>\` close row for:$missing"
+  [ "$ncoh" -lt "$need" ] && why="${why:+$why; }$ncoh of $need coherence-pass row(s) for $n modules"
+  printf '%s' "$last" | grep -qE 'gate-check\.sh[^|]*[[:space:]]5([^0-9]|$)' \
+    || why="${why:+$why; }the last numbered row is not \`gate-check.sh <project> 5\`"
+  if [ -n "$why" ]; then
+    echo "FAIL|build-plan.md is missing its closing rows (brd-to-build-plan.md, \"three closing rows\"): $why — add them; nothing that walks the plan does a step it does not list"
+  else
+    echo "OK|closing rows for $n of $n modules, $ncoh coherence row(s), final gate row"
+  fi
+}
+
+# Stage 5 is still MANUAL, with one mechanical piece (2026-10-02): every page bin/exec.sh built
+# is owed a LOOK, and a module is not done while one is owed. Two unattended builds built every
+# page and opened no screenshot of any — the LOOK was routed and had an obligation row, but both
+# are about a report, and a build that writes none owes nothing anyone checks. So this joins two
+# recorded facts, not a judgement (project-bin/look-ledger.sh): pages built (exec.sh) against
+# images actually opened (the PostToolUse(Read) hook). It FAILs only the claim that Stage 5 is
+# done; exec.sh never reads it, so it never blocks a script or the next page.
+#
+# Evidence it did not create (CLAUDE.md "Shipping an instrument" rule 6): a PROOF-OF-LOOK
+# citation in design/ui-reviews/ui-review-*.html whose screenshot is newer than the build and
+# at least 10KB, and a `Waived obligation look/<Module>` (or look/<Module.Page>) register line.
+# No owed.tsv — a project built before this, or one whose exec.sh predates it — stays MANUAL.
+check_stage_5() {
+  local owed="$PROJECT_DIR/.claude/loop/look/owed.tsv" rows proofs="" n=0 n_seen=0 n_proof=0 n_waived=0
+  local unseen="" n_unseen=0 st page epoch mod rep line shot f sz mt
+  if [ ! -s "$owed" ] || [ ! -f "$TOOLKIT_DIR/project-bin/look-ledger.sh" ]; then
+    check_stage_manual; return
+  fi
+  # The toolkit's copy, not the project's: the same join for every project, whichever version
+  # of the script it installed.
+  rows="$(PROJECT_ROOT="$PROJECT_DIR" bash "$TOOLKIT_DIR/project-bin/look-ledger.sh" status 2>/dev/null)"
+  [ -n "$rows" ] || { check_stage_manual; return; }
+
+  # PROOF-OF-LOOK citations, once: "Module.Page<TAB>shot-mtime" per citation with a real shot.
+  for rep in "$PROJECT_DIR"/design/ui-reviews/ui-review-*.html; do
+    [ -f "$rep" ] || continue
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      page="$(printf '%s' "$line" | sed 's/^PROOF-OF-LOOK:[[:space:]]*//;s/[[:space:]]*=.*$//')"
+      shot="$(printf '%s' "$line" | sed 's/^.*=[[:space:]]*//')"
+      case "$shot" in /*) f="$shot" ;; *) f="$(dirname "$rep")/$shot" ;; esac
+      [ -f "$f" ] || continue
+      sz="$(wc -c < "$f" 2>/dev/null | tr -d ' ')"; [ "${sz:-0}" -ge 10240 ] || continue
+      mt="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)"
+      proofs="$proofs$page	$mt
+"
+    done <<EOF
+$(tr -d '\r' < "$rep" | grep -oE 'PROOF-OF-LOOK:[[:space:]]*[^=<]+=[[:space:]]*[^<>[:space:]]+')
+EOF
+  done
+
+  while IFS='	' read -r st page epoch; do
+    [ -n "$page" ] || continue
+    n=$((n+1))
+    if [ "$st" = "SEEN" ]; then n_seen=$((n_seen+1)); continue; fi
+    if [ -n "$proofs" ] && printf '%s' "$proofs" \
+         | awk -F'\t' -v p="$page" -v e="$epoch" '$1==p && $2+0>=e+0 {f=1} END {exit !f}'; then
+      n_proof=$((n_proof+1)); continue
+    fi
+    mod="${page%%.*}"
+    if [ -n "$REGISTER" ] && type _ob_waiver >/dev/null 2>&1 \
+       && { _ob_waiver "$REGISTER" look "$page" >/dev/null || _ob_waiver "$REGISTER" look "$mod" >/dev/null; }; then
+      n_waived=$((n_waived+1)); continue
+    fi
+    n_unseen=$((n_unseen+1))
+    [ "$n_unseen" -le 8 ] && unseen="$unseen${unseen:+, }$page"
+  done <<EOF
+$rows
+EOF
+  [ "$n_unseen" -gt 8 ] && unseen="$unseen, +$((n_unseen-8)) more"
+
+  local how="$n_seen opened"
+  [ "$n_proof" -gt 0 ] && how="$how, $n_proof by PROOF-OF-LOOK"
+  [ "$n_waived" -gt 0 ] && how="$how, $n_waived waived"
+  if [ "$n_unseen" -gt 0 ]; then
+    echo "FAIL|look: $n_unseen of $n built page(s) never looked at since their last build: $unseen — screenshot each, open the PNG (a file name containing the page name), compare it to its wireframe (skills/ui-loop.md); or --waive look/<Module> --reason \"...\""
+  else
+    echo "MANUAL|look: $n of $n built page(s) accounted for ($how); the rest of Stage 5 is manual"
   fi
 }
 
@@ -1629,7 +1762,7 @@ stage_protocol_paths() {
     2)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-brd.md skills/checkpoints/checkpoint-architecture.md skills/image-transcription.md skills/small-project-tier.md skills/kb-generation.md skills/brd-generation.md skills/brd-validation.md" ;;
     3)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-design.md skills/small-project-tier.md skills/mendix-best-practices-index.md skills/layering-review.md skills/architecture-blueprint.md skills/modularize-domain.md skills/design-artifacts.md skills/brd-to-build-plan.md skills/workflow-structure-rules.md skills/learned-mdl-cannot-express.md" ;;
     4)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-build.md skills/agent-roles.md skills/small-project-tier.md skills/module-brief.md skills/module-folder-convention.md skills/brd-to-build-plan.md skills/coverage-ledger.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/learned-constants-and-secrets.md" ;;
-    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/microflow-preflight.md skills/mendix-best-practices-index.md skills/ui-preflight-pages.md skills/design-spacing.md skills/learned-stylegallery.md skills/ui-loop.md skills/learned-mcp-patterns.md skills/module-review.md skills/testing-shape.md skills/microflow-loop-antipatterns.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/learned-file-upload-widget.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md skills/walking-skeleton.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
+    5|build-ready) echo "skills/interview-protocol.md skills/grill-mode.md skills/agent-roles.md skills/module-brief.md skills/learned-mdl-preflight.md skills/module-folder-convention.md skills/learned-microflow-patterns.md skills/microflow-preflight.md skills/mendix-best-practices-index.md skills/ui-preflight-pages.md skills/design-spacing.md skills/learned-stylegallery.md skills/ui-loop.md skills/module-review.md skills/testing-shape.md skills/microflow-loop-antipatterns.md skills/iterative-build-loop.md skills/mdl-cookbook-microflows.md skills/build/mdl/oneshot-mdl-method.md skills/learned-page-patterns.md skills/oneshot-page-structure-patterns.md skills/mendix-agents.md skills/mendix-agent-ui.md skills/mendix-agent-setup.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/learned-workflow-patterns.md skills/workflow-structure-rules.md skills/rest-integration-first-time-right.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/learned-sidebar-collapse-icons.md skills/learned-popup-navigation.md skills/learned-datagrid-customcontent-binding.md skills/learned-popup-feedback-pattern.md skills/learned-mdl-cannot-express.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-dg2-patterns.md skills/learned-file-upload-widget.md skills/security-is-not-a-later-script.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/preview-over-hub-tunnel.md skills/walking-skeleton.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
     6)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/mendix-best-practices-index.md skills/module-review.md skills/testing-shape.md skills/existing-app-assurance.md skills/app-analysis.md skills/module-dependency-review.md skills/microflow-loop-antipatterns.md skills/qa-loop-goal-pattern.md skills/mendix-agent-setup.md skills/e2e-harness-base.md skills/learned-db-assertions.md skills/fixture-seeding.md skills/journey-proof.md skills/monkey-test.md skills/learned-skill-ux-audit.md skills/learned-skill-scope-delta.md skills/report-schema.md skills/harness-architecture.md skills/process-coherence-pass.md skills/e2e-evidence-report.md skills/record-demo-video.md skills/share-demo-package.md skills/lint-that-actually-runs.md skills/improvement-register.md skills/journey-examples.md skills/wiring-sweep.md skills/workflow-structure-rules.md skills/bug-submission-checklist.md skills/empty-widget-triage.md skills/anonymize-client-app-for-demo.md skills/learned-css-that-never-applied.md skills/learned-detection-gaps.md skills/learned-local-db-confusion.md skills/full-harness-audit.md skills/test-result-audit.md skills/finding-disposition.md skills/handoff-to-studio-pro.md skills/preview-over-hub-tunnel.md skills/platform-link.md skills/teamserver-alignment.md skills/learned-constants-and-secrets.md" ;;
     7)  echo "skills/interview-protocol.md skills/grill-mode.md skills/checkpoints/checkpoint-template.md skills/checkpoints/checkpoint-cutover.md skills/close-the-loop.md skills/share-demo-package.md skills/handoff-to-studio-pro.md skills/platform-link.md skills/teamserver-alignment.md skills/deploy-to-sandbox.md" ;;
     *)  echo "" ;;
@@ -2590,6 +2723,7 @@ for stage in "${STAGE_NAMES[@]}"; do
     2) result="$(check_stage_2)" ;;
     3) result="$(check_stage_3)" ;;
     4) result="$(check_stage_4)" ;;
+    5) result="$(check_stage_5)" ;;
     6) result="$(check_stage_6)" ;;
     7) result="$(check_stage_7)" ;;
     *) result="$(check_stage_manual)" ;;

@@ -1,9 +1,9 @@
 # mxcli v0.24.0: 8 page settings refused/dropped, file property unwritable, DESCRIBE round-trip gap — ledger coverage partial
 
-**From:** benchmark cook-off (mxcli + toolkit arm vs Studio Pro MCP arm, same frozen spec)
+**From:** a field comparison (mxcli + toolkit build vs a Studio Pro MCP build, same frozen spec)
 **Date:** 2026-09-29
 **Kind:** bug
-**Field evidence:** toolkit arm's c4-01 script and UI pass (METRICS.md, BUILD-LOG.md in the run repo); ~190 of 301 excluded minutes were mxcli diagnosis and fixes; fixes sit on 9 branches of the MendixMau/mxcli fork plus fix/widget-file-property, no upstream PR found.
+**Field evidence:** toolkit build's c4-01 script and UI pass (METRICS.md, BUILD-LOG.md in the run repo); ~190 of 301 excluded minutes were mxcli diagnosis and fixes; fixes sit on 9 branches of the MendixMau/mxcli fork plus fix/widget-file-property, no upstream PR found.
 **Proposed target:** `bug-logs/mxcli-bugs.md` (BUG-117 is related)
 
 ---
@@ -15,7 +15,7 @@ but not persisted"); delete confirmation + role visibility; uploader max files.
 
 Also:
 - Pluggable widget `type="file"` property (Document Viewer) unwritable: MDL-WIDGET06, then
-  CE0642 "Document is required". The MCP arm hit the same gap and worked around it by
+  CE0642 "Document is required". The MCP build hit the same gap and worked around it by
   removing and re-adding the widget.
 - `index on createdDate`: "attribute createdDate not found for index" — system attribute not
   addressable.

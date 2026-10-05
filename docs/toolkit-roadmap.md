@@ -27,7 +27,7 @@ Nothing here waits on anything else. Roughly two days total.
 | 0.2 | Fix published service operations contributing zero reference rows | catalog build, upstream | 2 to 4 h | measured |
 | 0.3 | Fix the model snapshot script on the single file model format | `bin/snapshot-mpr.sh` | 1 to 2 h | measured |
 | 0.4 | File the three command line defects upstream | `bug-logs/` | 1 h | measured |
-| 0.5 | Correct the MCP save claim, with its two caveats | `skills/learned-mcp-patterns.md` | 30 m | measured |
+| 0.5 | Correct the MCP save claim, with its two caveats | the MCP skill (retired 2026-09-30) | 30 m | measured |
 | 0.6 | ~~Correct the docs that say impact and local diff do not exist~~ | | | **withdrawn** |
 | 0.7 | Remove a command from the docs that does not exist | `README.md`, `ROUTING.md`, `agents/test-agent.md` | 30 m | measured |
 | 0.8 | Revisit the handoff tables against the bug log | `skills/iterative-build-loop.md`, `skills/migrate-general.md` | 2 h | measured |

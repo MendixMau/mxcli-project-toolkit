@@ -1,0 +1,19 @@
+/**
+ * Catalog item (catalog BRD E2).
+ */
+@Position(1140, 100)
+create or modify persistent entity Sales.Product (
+  Sku: String(40) unique,
+  Name: String(160),
+  Description: String(500),
+  Category: String(60),
+  UnitPrice: Decimal,
+  Active: Boolean default true
+);
+
+grant Sales.Admin, Sales.SalesOfficer on Sales.Product (create, delete, read *, write *);
+
+grant Sales.Employee, Sales.DepartmentManager, Sales.FinanceApprover on Sales.Product (read *);
+
+grant Sales.APClerk, Sales.TreasuryOfficer, Sales.CFO, Sales.APManager, Sales.Warehouse on Sales.Product (read *);
+/

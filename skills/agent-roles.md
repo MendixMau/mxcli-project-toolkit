@@ -201,10 +201,10 @@ this summary. The hard STOPs below are inline on purpose; never route around the
   surface that specific question to the main session (for `ba-agent`) — never fill it from training data.
 - Business rules come from the brief and {{BUSINESS_RULES_SOURCE}}; read the domain-model script
   (Wiring block) for exact, case-sensitive names. Don't guess names or rules.
-- **Write mode, per operation, up front:** run `learned-mdl-preflight.md` Step 0 (classify each op
-  CLI / MCP+MDL / hand-rolled MCP by task shape — not "CLI unless forced"), then its STOP table
-  overrides that pick for corrupting ops. State the mode per op in your report. On any STOP → MCP,
-  hand back the **filled** confirmed JSON pattern from `learned-mcp-patterns.md`, not just the label.
+- **Write mode, per operation, up front:** run `learned-mdl-preflight.md` Step 0 — the default is the
+  CLI through `bin/exec.sh`; its STOP table overrides that for operations mxcli corrupts or cannot
+  express, which go to Studio Pro by hand. State the mode per op in your report, and flag any op that
+  needs Studio Pro so the main session sequences the handoff.
 - Annotate selectively (`learned-microflow-patterns.md`); always annotate a CE-error fix.
 - **Pages/snippets — run the full pre-flight in `ui-preflight-pages.md`** (wireframe → tokens →
   gallery reuse → cross-check) and include its UI cross-reference block in your report. **No wireframe

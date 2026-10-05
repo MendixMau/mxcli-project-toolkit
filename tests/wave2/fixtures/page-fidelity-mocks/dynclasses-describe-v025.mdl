@@ -1,0 +1,10 @@
+-- GOLDEN CAPTURE, verbatim: `mxcli -p PedApp.mpr -c "DESCRIBE PAGE MyFirstModule.Dyn_Probe"`
+-- (mxcli v0.25.0 built from the v0.25.0 tag), 2026-10-05, on a scratch copy of mxcli's public
+-- testdata/pedapp after exec of dynclasses-script.mdl. `--mdl 0` prints the same DynamicClasses
+-- line. Only these four header lines were added.
+mdl 1;
+create or modify page MyFirstModule.Dyn_Probe (Title: 'Dyn probe', Layout: Atlas_Core.Atlas_TopBar) {
+  container ctnStatus (Class: 'card', DynamicClasses: if 1 = 1 then 'is-active' else 'is-idle') {
+    dynamictext txtHello (Content: 'hello')
+  }
+};

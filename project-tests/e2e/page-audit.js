@@ -407,18 +407,40 @@ const DOM_PROBE = function () {
   };
 };
 
+// ── navigation map, derived from the live navigation document
+// Two output shapes, both read here, so a project on either mxcli works:
+//   ≤ v0.24  `menu 'G' icon I (` … `);` around `menu item 'X' page M.P icon I;`
+//            (or `microflow M.F`). The icon clause sits between the target and the `;`;
+//            anchoring on `;` right after the page name matched no item that had an
+//            icon, so every page read as "no navigation route" (card-disbursement, 2026-09-26).
+//   ≥ v0.25  `menu 'G' ( Icon: I ) {` … `}` around
+//            `menu item 'X' ( OnClick: show page M.P, Icon: I )` (or `call microflow M.F`).
+//            `--mdl 0` does not bring the old shape back: navigation describes this way in
+//            both dialects. Golden captures of both: tests/wave2/fixtures/design-audit-nav/.
+// Groups nest, so they are a stack. design-audit.js carries this same function; keep them equal
+// (tests/wave2/test-design-audit-nav-map.sh lifts it from both files and runs the same cases).
+function parseNavigation(txt) {
+  const map = new Map();
+  const groups = [];
+  for (const line of txt.split('\n')) {
+    const group = groups.length ? groups[groups.length - 1] : null;
+    let m = /^\s*menu\s+'([^']+)'.*\{\s*$/.exec(line) || /^\s*menu\s+'([^']+)'[^;]*\(\s*$/.exec(line);
+    if (m) { groups.push(m[1]); continue; }
+    if (/^\s*(\}|\);)\s*$/.test(line)) { groups.pop(); continue; }
+    m = /^\s*menu item\s+'([^']+)'\s*\(.*?\bOnClick:\s*show page\s+([\w.]+)/.exec(line)
+      || /^\s*menu item\s+'([^']+)'\s+page\s+([\w.]+)(?=[\s;])[^;]*;/.exec(line);
+    if (m) { map.set(m[2], { group, item: m[1], via: 'page' }); continue; }
+    m = /^\s*menu item\s+'([^']+)'\s*\(.*?\bOnClick:\s*call microflow\s+([\w.]+)/.exec(line)
+      || /^\s*menu item\s+'([^']+)'\s+microflow\s+([\w.]+)(?=[\s;])[^;]*;/.exec(line);
+    if (m) map.set(`microflow:${m[2]}`, { group, item: m[1], via: 'microflow' });
+  }
+  return map;
+}
+
 function navMapFromModel() {
   const txt = describeNavigation();
   if (!txt) return { map: new Map(), source: 'unavailable' };
-  const map = new Map(); let group = null;
-  for (const line of txt.split('\n')) {
-    let m = /^\s*menu\s+'([^']+)'\s*\(/.exec(line);
-    if (m) { group = m[1]; continue; }
-    if (/^\s*\);\s*$/.test(line)) { group = null; continue; }
-    m = /^\s*menu item\s+'([^']+)'\s+page\s+([\w.]+);/.exec(line);
-    if (m) { map.set(m[2], { group, item: m[1] }); }
-  }
-  return { map, source: 'describe navigation Responsive' };
+  return { map: parseNavigation(txt), source: 'describe navigation Responsive' };
 }
 
 // App reachability + ownership. We refuse an unverified port for the same reason

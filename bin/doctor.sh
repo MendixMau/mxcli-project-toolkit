@@ -452,7 +452,10 @@ if [ "$INSTALL" -eq 1 ]; then
     # 2026-08-31): mxcli-{darwin|linux}-{amd64|arm64}, mxcli-windows-amd64.exe. Windows gets
     # the .exe name so Git Bash's transparent foo -> foo.exe mapping serves the project
     # convention ./mxcli unchanged. $MXCLI_VERSION pins a release tag (e.g. v0.16.0) for
-    # teams that standardise; default is latest.
+    # teams that standardise; default is latest. v0.25.0 froze `mdl 1`: DESCRIBE output and
+    # `-c` input changed shape (navigation, DynamicClasses, `show entity` refused). The
+    # toolkit's instruments read both shapes, so a project mid-build may stay on its version
+    # (MXCLI_VERSION=v0.24.0) and move when it chooses.
     MXCLI_ARCH="$(uname -m 2>/dev/null || echo unknown)"
     case "$MXCLI_ARCH" in
       x86_64|amd64) MXCLI_ARCH=amd64 ;;
@@ -497,7 +500,8 @@ if [ "$INSTALL" -eq 1 ]; then
         _STEP=$((_STEP + 1))
         note "  $_STEP. mxcli (~90 MB) -> $PROJECT_DIR/$MXCLI_DEST"
         note "     the MDL CLI every session here uses; from $MXCLI_URL"
-        [ -z "${MXCLI_VERSION:-}" ] && note "     (latest release — set MXCLI_VERSION=vX.Y.Z to pin the team's version)"
+        [ -z "${MXCLI_VERSION:-}" ] && note "     (latest release — set MXCLI_VERSION=vX.Y.Z to pin the team's version;"
+        [ -z "${MXCLI_VERSION:-}" ] && note "      a project already building on v0.24 can stay there: MXCLI_VERSION=v0.24.0)"
       fi
       if [ "$NEED_TOOLCHAIN" -eq 1 ]; then
         _STEP=$((_STEP + 1))

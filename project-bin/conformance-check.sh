@@ -251,6 +251,13 @@ run_guarded() {
 probe() {
   local cmd="$1" out rc
   if ! runnable "$cmd"; then echo "UNRUNNABLE"; return; fi
+  # mxcli v0.25.0 reads -c as mdl 1, which refuses the one-element summaries outright:
+  # "Parse error: line 1: `show entity` is not in mdl 1: write `describe entity` for the
+  # definition, …" (verbatim, v0.25.0). Ledgers written for v0.24 carry `SHOW ENTITY M.X`, so
+  # every such row would turn UNRUNNABLE on upgrade and read as a regression. DESCRIBE answers
+  # the same presence question on both versions (rc 0 found, "Error: entity not found: M.X"
+  # rc 1 missing), so ask that instead. Only these two forms were removed; other SHOWs still run.
+  cmd="$(printf '%s' "$cmd" | sed -E 's/^[Ss][Hh][Oo][Ww]( +([Ee][Nn][Tt][Ii][Tt][Yy]|[Aa][Ss][Ss][Oo][Cc][Ii][Aa][Tt][Ii][Oo][Nn]) )/DESCRIBE\1/')"
   out="$(run_guarded "$cmd")"; rc=$?
   if [ $rc -ge 128 ]; then echo "TIMEOUT"; return; fi
   # A probe mxcli cannot run says nothing about the model, so it is UNRUNNABLE, never ABSENT.

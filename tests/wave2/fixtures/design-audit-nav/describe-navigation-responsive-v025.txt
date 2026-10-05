@@ -1,0 +1,25 @@
+-- GOLDEN CAPTURE, verbatim: `mxcli -p TestApp.mpr describe navigation Responsive` (mxcli v0.25.0,
+-- built from the v0.25.0 tag; Mendix 11.14.0), 2026-10-05, on mxcli's own public test app
+-- testdata/testapp-views/TestApp.mpr. Only these four header lines were added. `--mdl 0` prints
+-- the same text minus the `mdl 1;` line, so the old shape does not come back under it.
+mdl 1;
+-- navigation PROFILE: Responsive
+--   Kind: Responsive
+create or modify navigation Responsive
+  home page MyFirstModule.Home_Web
+  home microflow MyFirstModule.MyFirstLogic for Administrator
+  home page Pages.Vehicle_Overview for User
+  not found page Pages.Vehicle_Overview
+{
+  menu item 'Home' ( OnClick: show page MyFirstModule.Home_Web with (DisabledDuringExecution: false), Icon: glyph 57377 )
+  menu 'Item 0' ( Icon: Atlas_Core.Atlas."align-center" ) {
+    menu item 'Item 1' ( Icon: Atlas_Core.Atlas."controls-pause" )
+  }
+  menu item 'Item 2' ( OnClick: show page MyFirstModule.Home_Web, Icon: Atlas_Core.Atlas_Filled."alert-triangle" )
+  menu item 'Item 3' ( OnClick: call microflow MyFirstModule.MyFirstLogic, Icon: Atlas_Core.Atlas_Styling."grow-shrink-none-fixed" )
+  menu item 'Item 4' ( OnClick: call nanoflow MyFirstModule.Nanoflow, Icon: glyph 9993 )
+  menu item 'Item 5' ( OnClick: sign out, Icon: image System.Images.Save )
+  menu item 'signout' ( OnClick: sign out, Icon: Atlas_Core.Atlas."alarm-bell" )
+  menu item 'Editable listview' ( OnClick: show page Pages.EditableLIstView )
+};
+

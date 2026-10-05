@@ -1,0 +1,10 @@
+-- The headerless (mdl 0) script that built the page captured in dynclasses-describe-v025.mdl;
+-- exec'd verbatim with mxcli v0.25.0. Its DynamicClasses is the quoted form.
+create page MyFirstModule.Dyn_Probe (
+  Title: 'Dyn probe',
+  Layout: Atlas_Core.Atlas_TopBar
+) {
+  container ctnStatus (Class: 'card', DynamicClasses: 'if 1 = 1 then ''is-active'' else ''is-idle''') {
+    dynamictext txtHello (Content: 'hello')
+  }
+};

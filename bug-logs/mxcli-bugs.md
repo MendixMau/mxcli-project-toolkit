@@ -3615,20 +3615,20 @@ discipline.
 **Severity:** High — the always-quote-identifiers house rule, applied to a parameter, produces a corrupt parameter name that only surfaces at the mxbuild gate
 **mxcli version:** built from source at `4b58b89` (2026-08-26)
 **Mendix version:** 11.13.0
-**Discovered:** 2026-08-31, TFC-TCXGraphPOC-main, writing a microflow taking a `TFC.TFCStub`
+**Discovered:** 2026-08-31, a field project, writing a microflow taking a `Mod.Stub`
 **Reproducible:** yes
 
 The documented quoting rule ("always quote identifiers; quotes are stripped automatically")
 does not extend to the `$` sigil on a microflow parameter. Declaring
 
 ```
-create microflow M.Flow ("$TFCStub": TFC.TFCStub) ...
+create microflow M.Flow ("$Stub": Mod.Stub) ...
 ```
 
 strips the quotes but keeps the `$` **inside** the stored parameter name, so the model holds a
-parameter literally named `$TFCStub` whose body references `$TFCStub` — which now resolves as
-`$` + name `TFCStub` and matches nothing. `mxcli check --references` passes; the failure is
-CE1613 at mxbuild. Correct form: `$TFCStub: TFC.TFCStub` (sigil unquoted; quote only the
+parameter literally named `$Stub` whose body references `$Stub` — which now resolves as
+`$` + name `Stub` and matches nothing. `mxcli check --references` passes; the failure is
+CE1613 at mxbuild. Correct form: `$Stub: Mod.Stub` (sigil unquoted; quote only the
 bare-name identifiers).
 
 **Workaround:** never wrap the `$`-prefixed form in quotes. If already written, regenerate the
@@ -3639,7 +3639,7 @@ microflow with the unquoted sigil.
 **Severity:** Medium — page becomes uneditable through mxcli for the affected names
 **mxcli version:** built from source at `4b58b89` (2026-08-26)
 **Mendix version:** 11.13.0
-**Discovered:** 2026-08 (TFC-TCXGraphPOC-main, iterating on agent-panel page edits)
+**Discovered:** 2026-08 (a field project, iterating on agent-panel page edits)
 **Reproducible:** intermittent but recurred across sessions
 
 A `REPLACE widget WITH { … }` (and an `INSERT` whose block carries more than one root widget)
@@ -3655,7 +3655,7 @@ edit via MCP `pg_patch_page`. Prefer single-root blocks in `REPLACE`/`INSERT`.
 **Severity:** Medium — retrying a failed page script verbatim fails on names that no longer exist in the model
 **mxcli version:** built from source at `4b58b89` (2026-08-26)
 **Mendix version:** 11.13.0
-**Discovered:** 2026-08 (TFC-TCXGraphPOC-main, exec.sh auto-restore path)
+**Discovered:** 2026-08 (a field project, exec.sh auto-restore path)
 **Reproducible:** yes within a session
 
 After an exec fails mxbuild and the snapshot is restored, re-running the corrected script can
@@ -3665,7 +3665,7 @@ project path, not the file contents). `DESCRIBE PAGE` on the restored model show
 absent.
 
 **Workaround:** bump the widget names (suffix `2`), or clear/refresh the mxcli catalog cache
-before retrying. Renaming is the reliable path; it is why several TFC pages carry `_v2`
+before retrying. Renaming is the reliable path; it is why several field-project pages carry `_v2`
 widget names.
 
 ---

@@ -80,8 +80,8 @@ _art_register_lines() {
 # _art_field <register> <lowercased label> — value of the first "Label: value" line.
 #
 # One awk pass, not a bash loop. The loop form spawned `tr` and `sed` per register line, and
-# this function is called two or three times per manifest row — on a real register (TFC,
-# ~300 lines, cells running to 2,000 characters) that was ~60,000 subprocesses per gate-check
+# this function is called two or three times per manifest row — on a real register (~300
+# lines, cells running to 2,000 characters) that was ~60,000 subprocesses per gate-check
 # run, i.e. the "Stage 2 hangs" report of 2026-09-02 that was not a hang but a ninety-second
 # lookup. Same contract: first match wins, label compared lower-cased and trimmed, empty
 # values skipped, HTML comments ignored (as _art_register_lines does).

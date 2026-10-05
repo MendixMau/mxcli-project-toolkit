@@ -47,7 +47,7 @@ the user was actually asked and delegated ("you decide").
 brainstorms, the hard stop) and proved well (gate-check pasted, live checklist reposted) and
 closed nothing: nobody was told in one message what the stage had produced, what had been
 decided in it, what was still open going into the next one, what that next stage would do
-and how, and which skills would govern it. Measured on a real register (TFC-TCXGraphPOC,
+and how, and which skills would govern it. Measured on a real register (a field project,
 2026-09-02): 77 CONFIRMED/ASSUMED rows and no reader-facing recap at any gate; an open-questions
 table mixing ANSWERED, Deferred, PARKED and REVERSED rows so "what is still open entering
 Stage 5" could not be read off it; a hand-written `architecture/workflow-definition.md` that

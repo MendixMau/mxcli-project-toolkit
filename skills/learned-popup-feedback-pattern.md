@@ -139,7 +139,7 @@ the failure this file exists to prevent.
    ```
 
    Keying it on a domain attribute instead is a trap where the domain object has no attribute for
-   the outcome — on the project above, `TFCStub` records the NPD and Vendor decisions but not the
+   the outcome — on the project above, `ProjectStub` records the NPD and Vendor decisions but not the
    Die Go one, so two of the three pages had nothing to key on. The task's state always exists.
 
 3. **On the failure branch, do not complete the task.** Where the button calls a validating

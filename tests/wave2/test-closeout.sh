@@ -5,7 +5,7 @@
 #
 #   tests/wave2/test-closeout.sh /path/to/gate-check.sh
 #
-# Field run the same day: bin/gate-check.sh --closeout <TFC-TCXGraphPOC> {2,3,4} — Stage 4
+# Field run the same day: bin/gate-check.sh --closeout <field-project> {2,3,4} — Stage 4
 # surfaced a PENDING coverage ledger, 2 UNSYNCED markers and 5 open questions whose status
 # words ("TO", "REVERSED", "PARKED") sit outside the closed vocabulary; Stage 3 tracked the
 # hand-written architecture/workflow-definition.md as an opt-in-by-deed. Those are the shapes

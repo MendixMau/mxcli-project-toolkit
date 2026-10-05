@@ -26,7 +26,9 @@ generic Atlas output that will need rework.
 
 Design direction is the checkpoint users most often want to *talk about*, not pick from a list.
 Open with a divergent conversation: show references (the source app's look, the client's brand,
-2–3 mood directions described concretely or as quick HTML swatches) and discuss — what should
+2–3 mood directions described concretely or as quick HTML swatches — with no client brand,
+take them from the ideation library when the user says yes to it, `design-artifacts.md` Step 0b
+question D1) and discuss — what should
 this app *feel* like, what must carry over from the brand, what should deliberately change?
 If the user says anything like "let's ideate on the design" at any point, this conversation IS
 the response — do not generate the design system or launch agents until it converges and the
@@ -76,7 +78,12 @@ or desktop-first. Use that to set the recommended option.
 > "Do you have branding guidelines, a Figma file, or an existing design system?
 >
 > Drop a link, paste the key details (colors, fonts, logo), or describe the visual direction.
-> If none — say 'use Atlas defaults' and we'll proceed with out-of-the-box Atlas styling."
+> If there is none, say so — the next question is where the look comes from."
+
+This question is `user-only`: no default answer is offered in it. A "none" leads to
+`design-artifacts.md` Step 0b question D1 (ideation-library directions vs Atlas defaults), a
+`choice` with its own recommendation — Atlas defaults are one answer to D1, not the default
+answer to this question.
 
 **What to do with the answer:**
 
@@ -85,7 +92,7 @@ or desktop-first. Use that to set the recommended option.
 | Figma link | Add to `PROJECT.md` → `## Decisions` → `Design assets:`. Note which flows are designed vs wireframe-only. |
 | Brand doc / PDF | Same as above. Extract: primary color, font family, logo usage rules. |
 | Verbal description | Record key decisions (primary color, font, tone) in `design-artifacts.md` inputs. |
-| "Atlas defaults" | Note it. No custom tokens needed. Skip Atlas customization in MDL layer. |
+| "None" | Ask D1 (`design-artifacts.md` Step 0b). On "Atlas defaults": note it, no custom tokens, skip Atlas customization in the MDL layer. On "ideation library": fetch at the pinned commit, propose three directions, record the chosen one. |
 | Existing Mendix design system | Identify the theme module. Use its layout + widget naming conventions throughout. |
 
 ---
@@ -96,5 +103,6 @@ or desktop-first. Use that to set the recommended option.
 PROJECT.md → ## Decisions:
   Atlas layout: [chosen layout]
   Platform target: [web / responsive / native / both]
-  Design assets: [Figma URL / brand doc link / 'Atlas defaults' / description]
+  Design assets: [Figma URL / brand doc link / 'none' / description]
+  Design direction: [brand / Atlas defaults / <name> — ui-ux-pro-max @ <sha7> + source rows]
 ```

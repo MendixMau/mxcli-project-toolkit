@@ -126,10 +126,18 @@ if [ -z "$DESIGN" ]; then
     [ -f "$c" ] && { DESIGN="$(rel "$c")"; break; }
   done
 fi
+# A `mxcli docker build` writes its compiled theme under .docker/build/, not deployment/, so a
+# project that only ever ran the docker stack had no BUILT stylesheet here and this check
+# exited 2 on an app that was up and serving the theme (field report, 2026-10-02). When both
+# trees exist, the NEWER file wins — it is the one the running app was built from.
+BUILT_ABS=""
 if [ -z "$BUILT" ]; then
   for c in "$MODEL_DIR/deployment/web/theme.compiled.css" "$MODEL_DIR/deployment/web/theme.css"; do
-    [ -f "$c" ] && { BUILT="$(rel "$c")"; break; }
+    [ -f "$c" ] && { BUILT_ABS="$c"; break; }
   done
+  c="$MODEL_DIR/.docker/build/app/web/theme.compiled.css"
+  if [ -f "$c" ] && { [ -z "$BUILT_ABS" ] || [ "$c" -nt "$BUILT_ABS" ]; }; then BUILT_ABS="$c"; fi
+  [ -n "$BUILT_ABS" ] && BUILT="$(rel "$BUILT_ABS")"
 fi
 
 # The framework's own customization surface. Atlas has called this file the same thing since
@@ -145,7 +153,8 @@ if [ -z "$DESIGN" ] || [ ! -f "$DESIGN" ]; then
 fi
 if [ -z "$BUILT" ] || [ ! -f "$BUILT" ]; then
   printf 'check-design-reaches-app: no BUILT stylesheet found.\n' >&2
-  printf '  Searched: deployment/web/theme.compiled.css, deployment/web/theme.css under %s\n' "$MODEL_DIR" >&2
+  printf '  Searched: deployment/web/theme.compiled.css, deployment/web/theme.css,\n' >&2
+  printf '            .docker/build/app/web/theme.compiled.css under %s\n' "$MODEL_DIR" >&2
   printf '  Run a build first. "Did the design system reach the app" cannot be answered from\n' >&2
   printf '  source, and answering it from source is how this defect shipped.\n' >&2
   printf '  This is NOT a pass.\n' >&2

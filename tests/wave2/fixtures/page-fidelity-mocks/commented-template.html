@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!--
+  Demo wireframe template. COPY this file to design/wireframes/<PageName>.html,
+  where <PageName> is the BRD page name exactly. Then replace every «…» placeholder.
+
+  RULES (design-artifacts.md Step 3, ui-preflight-pages.md, check-page-shell.sh,
+  page-fidelity.js, check-prototype-links.js all read these):
+   1. Link ../ds.css and never declare a colour, size or font in this file.
+   3. Exactly ONE <h1 class="page-title"> per full page, inside <main>. The rail
+      brand is not a heading. Section headings are h2/h3.
+   5. Every <button>, and every <a> that is not a #/route link, carries
+      data-bind="<row id>" naming a <tr id> of the table.bind below.
+   7. Annotation lives in div.wf-anno AFTER </main>. The prototype hides wf-*
+      blocks and table.bind behind "Show bindings", and page-fidelity.js never
+      scores them.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>OrderInbox · Demo wireframe</title>
+<link rel="stylesheet" href="../ds.css">
+<style>main{max-width:1100px}</style>
+</head>
+<body data-route="order-inbox">
+
+<div class="app-shell" data-nav-role="Clerk">
+  <aside class="app-rail">
+    <div class="rail-brand"><span class="rail-brand-mark"></span>Demo</div>
+    <div class="rail-nav" role="navigation">
+      <a class="rail-item" href="#/dashboard" data-roles="Clerk"><span class="rail-icon">⌂</span>Dashboard</a>
+      <a class="rail-item is-active" href="#/order-inbox" data-roles="Clerk"><span class="rail-icon">✓</span>Order inbox</a>
+    </div>
+    <div class="userchip">
+      <div><div class="userchip-name bound">Sam Example</div><div class="userchip-role">Clerk</div></div>
+      <a href="#/index">Sign out</a>
+    </div>
+  </aside>
+
+  <div class="app-main">
+    <main class="page-column">
+      <div class="page-header">
+        <div class="page-header-text">
+          <div class="crumb">Orders / Order inbox</div>
+          <h1 class="page-title">Order inbox</h1>
+          <p class="page-sub">Your open review tasks. Open a task to see the order next to its check result.</p>
+        </div>
+      </div>
+
+      <div class="seg-tabs"><span class="seg-tab is-active">My tasks (2)</span><span class="seg-tab">Waiting for customer (1)</span></div>
+
+      <div class="dg-toolbar">
+        <div class="dg-filter"><span class="dg-filter-label">Order status</span><select class="form-control"><option>All</option><option>In review</option></select></div>
+        <div class="dg-spacer"></div>
+      </div>
+      <div class="dg-wrap">
+        <div class="inbox">
+          <a class="task-row" href="#/order-review"><div><div class="task-title bound">Order review · ORD-1001</div><div class="task-meta bound">Example Customer</div></div></a>
+          <a class="task-row" href="#/order-review"><div><div class="task-title bound">Order review · ORD-1002</div><div class="task-meta bound">Other Customer</div></div></a>
+        </div>
+        <div class="dg-pager">1–2 of 2</div>
+      </div>
+
+      <h2 class="section-title">Waiting for customer</h2>
+      <div class="dg-wrap">
+        <table class="dg">
+          <thead><tr><th class="dg-h">Order</th><th class="dg-h">Customer</th><th class="dg-h">Sent</th></tr></thead>
+          <tbody>
+            <tr class="dg-r"><td class="dg-c">ORD-1003</td><td class="dg-c">Example Customer</td><td class="dg-c">21 Sep 2026 10:12</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="wf-anno">
+  <h2>Binding annotation: OrderInbox</h2>
+  <table class="bind">
+    <thead><tr><th>Source field / element</th><th>Mendix widget</th><th>Datasource</th></tr></thead>
+    <tbody>
+      <tr id="grid-tasks"><td>My open tasks</td><td>Data grid 2, paged (20)</td><td>Database Sales.ReviewTask [Assignee = '[%CurrentUser%]']</td></tr>
+      <tr id="grid-waiting"><td>Waiting for customer: Order/OrderNumber, SentAt</td><td>Data grid 2</td><td>Database Sales.CustomerQuery</td></tr>
+    </tbody>
+  </table>
+</div>
+</body>
+</html>

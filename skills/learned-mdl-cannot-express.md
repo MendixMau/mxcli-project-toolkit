@@ -155,8 +155,7 @@ Two caveats, both cheap:
   writing if you then confirm it *matched*. Same field run.
 - `learned-detection-gaps.md` — the register of things that pass a rung and fail later; the
   `item …` parse-then-exec-fail case is one of its shapes.
-- `learned-mcp-patterns.md` — CLI, MCP and hand-rolled are **three co-equal write modes**. Every
-  ⛔ above is a CLI-mode limit; MCP or Studio Pro clears them. A build that uses one mode for
-  everything pays this list in full, and that is a choice worth making on purpose.
+- `learned-mdl-preflight.md` Step 0 — the CLI is the default write mode; every ⛔ above is
+  what still needs Studio Pro by hand.
 - `ui-preflight-pages.md` Step 4 — "flag an element MDL cannot express before drafting" is the
   instruction; this file is the list that makes it actionable.

@@ -13,7 +13,7 @@ paid for.
 failures. It does not replace the two preflights, which cover ground this file doesn't:
 
 - `learned-mdl-preflight.md` — before writing **any** MDL, including §0's write-mode choice
-  (CLI vs MCP+MDL vs hand-rolled MCP) and its STOP table.
+  (CLI by default; Studio Pro by hand for what MDL cannot express) and its STOP table.
 - `ui-preflight-pages.md` — before the first widget of **any** page: wireframe → design tokens →
   gallery reuse, so a one-shot page doesn't reinvent a layout the project's design gallery
   already solved.
@@ -54,10 +54,10 @@ applied fix.** Diagnose from `DESCRIBE` against the `.mpr`, never from the scrip
 
 Dependency order, not taste. mxcli resolves references as it goes.
 
-**Self-containment is the rule.** One module owning everything it needs. Cross-module datasources
-corrupt page BSON and mxbuild does not catch it — see `learned-mcp-patterns.md` for the
-cross-module datasource cases that must go through MCP instead. A slice that borrows from a
-neighbouring module is not shippable.
+**Self-containment is the rule.** One module owning everything it needs. A slice that borrows from a
+neighbouring module is not shippable. (Cross-module association datasources used to corrupt page
+BSON and mxbuild did not catch it; that is fixed — re-probed clean on mxcli v0.24 — but the rule
+stands as a design rule.)
 
 > Security is step 10 in *execution* order only. It is **not** a later decision — see
 > `module-brief.md` for what the module's roles and grants must already say before step 1 runs.
@@ -212,6 +212,5 @@ the scratch project first, always.
 
 **Related:** `learned-mdl-preflight.md` and `ui-preflight-pages.md` (read these two FIRST, see
 above) · `oneshot-page-structure-patterns.md` (the layout layer one level down — containers,
-spacing, flex/grid orientation) · `learned-mcp-patterns.md` (what to do when the STOP table sends
-you to MCP) · `tool-output-is-not-ground-truth.md` (§7 generalised) ·
+spacing, flex/grid orientation) · `tool-output-is-not-ground-truth.md` (§7 generalised) ·
 `mpr-corruption-and-sp-load-errors.md` (when §6 goes wrong anyway) · `measured-claims.md` (§9).

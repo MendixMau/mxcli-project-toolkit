@@ -1,0 +1,16 @@
+/**
+ * One approval step of a sales order (sales order BRD E4).
+ */
+@Position(360, 380)
+create or modify persistent entity Sales.ApprovalStep (
+  StepOrder: Integer,
+  ApproverRole: Enumeration(Sales.RoleName),
+  Status: Enumeration(Sales.ApprovalStatus) default Sales.ApprovalStatus.PENDING,
+  Comments: String(500),
+  DecidedAt: DateTime
+);
+
+grant Sales.Admin, Sales.Employee, Sales.DepartmentManager, Sales.SalesOfficer, Sales.FinanceApprover on Sales.ApprovalStep (read *);
+
+grant Sales.Admin, Sales.DepartmentManager, Sales.SalesOfficer, Sales.FinanceApprover on Sales.ApprovalStep (read (StepOrder, ApproverRole, "Status", DecidedAt, ApprovalStep_SalesOrder, ApprovalStep_User, Comments), write (Comments)) where '[Status = ''PENDING'']';
+/

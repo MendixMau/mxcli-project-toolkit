@@ -1,0 +1,18 @@
+create or modify page Sales.OrderInbox (
+  Title: 'Order inbox',
+  Layout: Atlas_Core.Atlas_Default
+) {
+  container cHead (Class: 'page-header') {
+    container cHeadText (Class: 'page-header-text') {
+      dynamictext dCrumb (Content: 'Orders / Order inbox', Class: 'crumb')
+      dynamictext dTitle (Content: 'Order inbox', RenderMode: H1, Class: 'page-title')
+      dynamictext dSub (Content: 'Your open review tasks. Open a task to see the order next to its check result.', Class: 'page-sub')
+    }
+  }
+  datagrid dgTasks (DataSource: DATABASE Sales.ReviewTask WHERE [Assignee = '[%CurrentUser%]'])
+  dynamictext dWaiting (Content: 'Waiting for customer', RenderMode: H2, Class: 'section-title')
+  datagrid dgWaiting (DataSource: DATABASE Sales.CustomerQuery) {
+    column cOrder (Attribute: OrderNumber, Caption: 'Order')
+    column cSent (Attribute: SentAt, Caption: 'Sent')
+  }
+}

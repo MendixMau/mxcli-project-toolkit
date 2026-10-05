@@ -1,6 +1,6 @@
 # Workflow anti-patterns an agent build produces and no gate catches — plus an mxcli defect: condition outcomes have no PersistentId, so every restart breaks in-flight instances
 
-**From:** BIA approval-chain prototype (Mendix 11.15.0, mxcli v0.21.0)
+**From:** an approval-chain workflow prototype (Mendix 11.15.0, mxcli v0.21.0)
 **Date:** 2026-10-02
 **Kind:** bug
 **Field evidence:** found by the owner opening the workflow in Studio Pro; every gate was green — mx check 0 errors, lint 0 errors, journey e2e 14/14, coverage e2e 14/14. The workflow works; it does not read as the process it implements, and nothing in the pipeline looks at that.

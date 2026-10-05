@@ -36,6 +36,19 @@ _routing_has() {
   return 1
 }
 
+# The Role(s) cell of the baseline view: "all" reads as "every role", a list as "lead, mdl".
+_routing_roles_cell() {
+  if [ "$1" = "all" ]; then printf 'every role'; else printf '%s' "$1" | sed 's/,/, /g'; fi
+}
+
+# Does a row's agents cell reach <who>? "all" reaches everyone, lead included; an empty <who>
+# means "no role filter" (the whole stage pack, as before roles existed).
+_routing_reaches() {
+  [ -z "$2" ] && return 0
+  [ "$1" = "all" ] && return 0
+  _routing_has "$1" "$2"
+}
+
 # ── Groups ─────────────────────────────────────────────────────────────────────────────────
 #
 # Column 7. The order here is the RENDER order — it follows the arc of a project (what am I
@@ -135,14 +148,19 @@ _routing_stage_arm() {
 #   so a caller can print an explicit "stage unknown — full pack" instead of a mislabelled
 #   partial number. A truly empty return (caller sees "") now means the lookup itself failed
 #   (missing table, sourcing error), not "the stage wasn't recognised".
+#
+#   Optional third argument <role> (lead|ba|architect|mdl|gate|test|review): count only rows
+#   whose agents cell is "all" or names that role — what one helper at that stage is pointed
+#   at. Omitted = every role, the number this function always returned.
 routing_baseline_pack() {
-  local stage="$1" root="$2" words=0 files=0 paths="" p wc_out
+  local stage="$1" root="$2" role="${3:-}" words=0 files=0 paths="" p wc_out
   local name path when agents stages tier group
   local known_stages=" P 0 1 2 3 4 5 6 7 " full=0
   case "$known_stages" in *" $stage "*) : ;; *) full=1 ;; esac
   while IFS=$'\t' read -r name path when agents stages tier group; do
     [ "$tier" = "baseline" ] || continue
     case "$path" in *.md) : ;; *) continue ;; esac
+    _routing_reaches "$agents" "$role" || continue
     if [ "$full" -eq 0 ] && [ "$stages" != "-" ]; then
       _routing_has "$stages" "$stage" || continue
     fi
@@ -170,6 +188,7 @@ routing_baseline_pack() {
 #   readme-situational | Task | Skill to load |                          (tier=ondemand)
 #   readme-experimental| Under trial | Skill |                            (tier=experimental)
 #   baseline <prefix>  same as readme-baseline, paths shown under <prefix>/ (for CLAUDE.local.md)
+#                      both baseline views end in a Role(s) column: "every role" or the agents list
 #   agent:<name>       | When | Load this |   rows for that agent, baseline first
 #   stage-map          shell `case` arms for gate-check.sh's stage_protocol_paths()
 routing_render() {
@@ -194,21 +213,23 @@ routing_render() {
     readme-baseline|baseline)
       echo "Each row is a trigger, not a reading list: open a row's file when the first column happens in this session, and only rows whose Stage(s) cell says *every stage* or names the stage the register (PROJECT.md) says you are in. Do not read the table ahead — a build session that only writes pages never opens the microflow rows."
       echo ""
+      echo "Then filter by Role(s). A helper dispatched with a role stub (ba, architect, mdl, gate, test, review) reads only rows that say *every role* or name its role — its stub lists the same files, and it never opens another role's rows. The main session is **lead**: *every role* and lead rows, plus the rows of any role whose work it does itself instead of dispatching."
+      echo ""
       if [ "$view" = "baseline" ]; then
-        echo "| Always relevant for | Reference this (under \`${prefix%/}/\`) | Stage(s) |"
+        echo "| Always relevant for | Reference this (under \`${prefix%/}/\`) | Stage(s) | Role(s) |"
       else
-        echo "| Always relevant for | Reference this | Stage(s) |"
+        echo "| Always relevant for | Reference this | Stage(s) | Role(s) |"
       fi
-      echo "|---|---|---|"
+      echo "|---|---|---|---|"
       # Every-stage rows first (TSV order), then stage-specific rows (TSV order) — see the
       # routing_render docstring above.
       routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
         [ "$tier" = "baseline" ] && [ "$stages" = "-" ] || continue
-        printf '| %s | `%s` | every stage |\n' "$(_routing_md_escape "$when")" "$path"
+        printf '| %s | `%s` | every stage | %s |\n' "$(_routing_md_escape "$when")" "$path" "$(_routing_roles_cell "$agents")"
       done
       routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
         [ "$tier" = "baseline" ] && [ "$stages" != "-" ] || continue
-        printf '| %s | `%s` | %s |\n' "$(_routing_md_escape "$when")" "$path" "$stages"
+        printf '| %s | `%s` | %s | %s |\n' "$(_routing_md_escape "$when")" "$path" "$stages" "$(_routing_roles_cell "$agents")"
       done
       ;;
     readme-experimental)
@@ -237,6 +258,8 @@ routing_render() {
     agent:*)
       local who="${view#agent:}"
       echo "Open a file when its When cell happens in your task, not all of them at the start. A page task never opens the microflow rows; a microflow task never opens the page rows."
+      echo ""
+      echo "This table is your whole list. The baseline table in the project's CLAUDE.local.md is shared with the main session and the other helpers: skip every row there whose Role(s) cell does not say *every role* or name $who."
       echo ""
       echo "| Load this | When |"
       echo "|---|---|"

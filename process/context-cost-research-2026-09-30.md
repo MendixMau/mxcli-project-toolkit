@@ -41,7 +41,8 @@ session length, which the auto-compact window (§10) addresses.
 | #182 (merged) | `learned-mcp-patterns.md` off the Stage 5 always-on list | Stage 5 pack 121k → 116k |
 | #183 (merged) | Routing tables are trigger lists; setup no longer says "read the whole runbook" | Wording only; agents still load by stage |
 | #184 (merged) | `bin/context-audit.sh` crash fix | The measuring tool works on older transcripts |
-| #185 (draft) | Removes the MCP skill and doc; CLI is the default route; preflight 9.8k → 6.1k, microflow patterns 9.9k → 5.9k; three backwards rules corrected | Stage 5 pack 116k → about 109k |
+| #185 (merged) | Removes the MCP skill and doc; CLI is the default route; preflight 9.8k → 6.1k, microflow patterns 9.9k → 5.9k; three backwards rules corrected | Stage 5 pack 116k → about 109k |
+| §11 step 2 (2026-10-05) | Baseline view gets a Role(s) column and a `lead` token; helpers read only their own rows; per-role counts in `render-routing.sh --check` | Stage 5 per helper: mdl 54k, review 43k, gate 34k, test 33k words (all helpers 68k before) |
 
 ## 4. Stage packs today (master `8abd614`)
 

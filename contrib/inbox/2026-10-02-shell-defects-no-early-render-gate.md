@@ -29,11 +29,7 @@ The wireframe rail is `--ds-rail-w: 248px` (`design/ds.css:330`). It is light, w
 
 **S4 root cause.** Mendix input widgets render their own `.form-group` with Atlas horizontal columns. The label is `col-sm-3`, so its max-width is 25% and long text is cut with an ellipsis. This happens inside the ported design-system `.form-grid`. The fix is a 4-line bridge rule in the theme `main.scss`, marked `[MENDIX BRIDGE] … (LOOK S4, 2026-10-02)`. The fix for S1 is the same kind of thing: an `APP SHELL [MENDIX BRIDGE]` block that keeps Atlas_Default's sidebar expanded, hides `.region-topbar` and paints the brand on the sidebar. Neither problem is about any one page. Both belong to the theme and the layout, so both were visible on the very first page.
 
-![before / after / wireframe — shell and form labels](2026-10-02-shell-defects-no-early-render-gate/shell-and-form-labels.png)
-*New-requisition form. Panels left to right: BEFORE (as built), AFTER (LOOK fixes, before the S1 bridge), WIREFRAME (rendered), all at 1440×900. The shell (S1) is still the Atlas one in AFTER because the S1 bridge came later. Labels read `Depar…`, `Justifi…`, `Catal…` before the fix.*
-
-![before / after — grid row actions and amounts](2026-10-02-shell-defects-no-early-render-gate/grid-actions-and-amounts.png)
-*Purchase-order overview. BEFORE: Acknowledge and Cancel stack in every row, which doubles the row height (S2), and amounts read `50000`, `24000` (S3). AFTER: autoFit action column plus grouped two-decimal format.*
+*Screenshots left out on purpose: they showed a field build's app, which is run data. What they showed, at 1440×900: on a form page, labels cut to `Depar…`, `Justifi…`, `Catal…` before the S4 fix, and the Atlas shell still in place until the S1 bridge landed; on an overview grid, two row actions stacked in every row, doubling the row height (S2), and amounts shown as `50000` with no grouping (S3), fixed by an autoFit action column and a grouped two-decimal format.*
 
 ## What ran green over it
 

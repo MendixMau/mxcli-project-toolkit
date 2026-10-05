@@ -73,8 +73,8 @@ Branding is an input, not an afterthought — and not a checkbox to tick silentl
 **Atlas defaults fit a like-for-like rebuild, not a demo.** When coverage comparison against the
 source is the point, Atlas defaults are right: the wireframes look like what Mendix will render.
 For a demo, presales or POC build, prefer a deliberate **showcase direction** instead — fidelity
-covers behaviour, not looks. Measured on two runs of this pipeline over the same procurement
-source (2026-10): the run that carried the source app's own look produced clean, generic,
+covers behaviour, not looks. Measured on two runs of this pipeline over the same
+source app (2026-10): the run that carried the source app's own look produced clean, generic,
 dated wireframes; the run where the user demanded "more 2027, slick, modern" is the one they
 picked side by side. Neither run used the ideation library below, which was then a passive
 paragraph here. Record the choice; it cascades into every token below.
@@ -129,8 +129,8 @@ Moving the pin is a toolkit PR that changes this one line, never a per-project `
 Then the judgement, which is yours:
 
 1. **Map the domain to rows yourself.** The dataset has no row for most enterprise back-office
-   domains (procurement, ERP, claims, case handling): a bare domain query returns noise (a
-   procurement query ranked "Food Delivery" second). Pick three seed queries that span safe to
+   domains (purchasing, ERP, claims, case handling): a bare domain query returns noise (a
+   purchasing query ranked "Food Delivery" second). Pick three seed queries that span safe to
    bold: the nearest product row (e.g. `invoice billing finance back-office enterprise`), the
    AI/agent row when the app has an agent (`AI agent copilot automation platform SaaS`), and a
    bolder option (`financial dashboard dark data-dense analytics`, or a bento/soft-UI style).

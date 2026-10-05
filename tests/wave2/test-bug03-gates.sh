@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Fixture for wave-2 #3: the unanchored substring CONTENT gates — Stage 0 (triage sign-off),
 # Stage 2 (validation stop condition) and Stage 7 (cutover decision row); T12 adds the
-# existing-app-change parked state (Stage 0) and that mode's Stage 1 hint.
+# existing-app-change parked state (Stage 0) and that mode's Stage 1 hint; T16 the Stage 4
+# closing rows (brd-to-build-plan.md, #163).
 #
 # Stage P is covered by test-stage-p.sh and is deliberately not retested here.
 #
@@ -252,6 +253,34 @@ P="$(mkproj t15)"
 { printf 'Toolkit commit: none\n\n| 7 | Cutover plan | CONFIRMED | |\n'; } > "$P/PROJECT.md"
 V="$(verdict "$P" 7)"
 case "$V" in *PASS*) ok "header-less register keeps the old behaviour" ;; *) bad "header-less register regressed: $V" ;; esac
+
+echo "== T16: Stage 4 reads the plan — the three closing rows are counted (#163, field case 2026-10-02) =="
+# check_stage_4 tested only that build-plan.md existed and was approved. A 137-row plan for 7
+# modules with 0 close rows, 0 coherence rows and no final gate row printed PASS, and the build
+# reached DONE with look/sweep/journeys at 0 of 7. Positive control: the pre-fix script PASSES
+# the first case below.
+HDR='| # | Kind | Step | Produces | Depends on | Skills | State |\n|---|---|---|---|---|---|---|\n'
+P="$(mkproj t16)"; printf '| 4 | Build plan approved | CONFIRMED | |\n' >> "$P/PROJECT.md"
+mkdir -p "$P/architecture/modules/Orders" "$P/architecture/modules/Customers" "$P/architecture/modules/Billing"
+printf "# Plan\n\n$HDR| 1 | BRIEF | Orders brief | | | none | built |\n| 2 | BUILD | 10-orders.mdl | | 1 | none | built |\n| 3 | PROVE | acceptance test | | 2 | none | built |\n" \
+  > "$P/architecture/build-plan.md"
+V="$(verdict "$P" 4)"
+case "$V" in *FAIL*'Billing Customers Orders'*'0 of 1 coherence'*'last numbered row'*) ok "a plan with no closing rows FAILs and names each missing one" ;;
+             *) bad "a plan with no closing rows was not refused with its gaps named: $V" ;; esac
+printf "# Plan\n\n$HDR| 1 | BUILD | 10-orders.mdl | | | none | built |\n| 2 | HARNESS | \`bin/verify-module.sh Orders\`, then LOOK + CONFIRM | | 1 | none | |\n| 3 | HARNESS | bin/verify-module.sh Customers | | | none | |\n| 4 | HARNESS | process-coherence-pass.md on Orders + Customers | | | none | |\n| 5 | HARNESS | bin/verify-module.sh Billing | | | none | |\n| 6 | RUN | \`gate-check.sh <project> 5\` | | | none | |\n\n## Open questions\n\n| # | Question | Status |\n|---|---|---|\n| 1 | who signs off | open |\n" \
+  > "$P/architecture/build-plan.md"
+V="$(verdict "$P" 4)"
+case "$V" in *PASS*'3 of 3 modules'*) ok "a plan with every closing row passes; a numbered question table after it is not a step" ;;
+             *) bad "false red on a complete plan: $V" ;; esac
+sed -i.bak 's/gate-check.sh <project> 5/gate-check.sh <project> 3/' "$P/architecture/build-plan.md"
+V="$(verdict "$P" 4)"
+case "$V" in *FAIL*'last numbered row'*) ok "a final gate row for the wrong stage is not the closing row" ;;
+             *) bad "a final 'gate-check.sh 3' row passed: $V" ;; esac
+P="$(mkproj t16b)"; printf '| 4 | Build plan approved | CONFIRMED | |\n' >> "$P/PROJECT.md"; mkdir -p "$P/architecture"
+printf "# Plan\n\n$HDR| 1 | BUILD | 10.mdl | | | none | |\n| 2 | RUN | gate-check.sh . 5 | | | none | |\n" > "$P/architecture/build-plan.md"
+V="$(verdict "$P" 4)"
+case "$V" in *FAIL*'no module has one'*) ok "with no briefs yet, a plan still owes at least one module close row" ;;
+             *) bad "a plan with no module dirs and no close row passed: $V" ;; esac
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"

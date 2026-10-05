@@ -1,0 +1,17 @@
+create or modify page Sales.OrderInbox (
+  Title: 'Order inbox',
+  Layout: Atlas_Core.Atlas_Default
+) {
+  snippetcall headCall (snippet: Sales.SNIPPET_PageHead)
+  snippetcall gridsCall (Snippet: Sales.SNIPPET_InboxGrids)
+}
+
+create or modify snippet Sales.SNIPPET_PageHead {
+  container cHead (Class: 'page-header') {
+    container cHeadText (Class: 'page-header-text') {
+      dynamictext dCrumb (Content: 'Orders / Order inbox', Class: 'crumb')
+      dynamictext dTitle (Content: 'Order inbox', RenderMode: H1, Class: 'page-title')
+      dynamictext dSub (Content: 'Your open review tasks. Open a task to see the order next to its check result.', Class: 'page-sub')
+    }
+  }
+}

@@ -134,6 +134,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 |---|---|---|---|---|
 | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated | `skills/module-review.md` | mdl,review,test | 5,6 | baseline |
 | Before any mxcli exec / exec.sh / --mcp write — ask or run? the knob decides | `bin/exec-approval.sh` | mdl,gate | 5,6 | baseline |
+| Dispatching a build step to a helper — generate its one-file pack (the brief's Build steps row, mxcli brain brief, live DESCRIBEs, example, folder) and hand over the path instead of a reading list. Measured: 25-38% fewer tool calls and 30-41% less time, same quality; the token saving is not proven | `project-bin/context-pack.sh` | mdl | 5 | ondemand |
 | Building a module with mxcli — verified, iterative, coverage-checklist gated | `skills/iterative-build-loop.md` | mdl,gate | 5 | ondemand |
 | After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views; --json writes architecture/build-plan.json parsed from build-plan.md's Phase headings (a plan with no Phase headings gets no file) | `project-bin/build-plan-status.sh` | architect,gate,review | 4,5,6 | ondemand |
 | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets | `skills/anonymize-client-app-for-demo.md` | mdl,review | 6 | ondemand |
@@ -151,14 +152,12 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Writing ANY MDL script — before the first line. Step 0 picks the write mode, then the STOP table overrides it for corrupting operations | `skills/learned-mdl-preflight.md` | mdl | 5 | baseline |
 | Writing or fixing any microflow — MDL gotchas plus annotation discipline | `skills/learned-microflow-patterns.md` | mdl | 5 | baseline |
 | Writing a microflow with any loop, a retrieve/commit/call inside a loop, nested or multiple loops, >20 activities counting loop bodies, or a list built from a list — post the checklist before the first MDL line | `skills/microflow-preflight.md` | mdl | 5 | baseline |
-| Before the first MCP write in a session (Studio Pro open: `mxcli --mcp` exec, or pg_*/ped_* calls) — save after every write, the handoff sequence, confirmed JSON payloads. Choosing the write mode itself is Step 0 of learned-mdl-preflight.md | `skills/learned-mcp-patterns.md` | mdl | 5 | ondemand |
 | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop | `skills/microflow-loop-antipatterns.md` | architect,review,mdl | 0,5,6 | ondemand |
 | Writing MDL microflow scripts — worked recipes | `skills/mdl-cookbook-microflows.md` | mdl | 5 | ondemand |
 | Writing a single MDL script that takes a project from nothing to a working vertical slice — execution order, why it is deliberately non-idempotent, the instrument hierarchy, and the silent failures that pass every check | `skills/build/mdl/oneshot-mdl-method.md` | mdl | 5 | ondemand |
 | Writing a popup page's microflow with a retry/validation-failure branch that re-shows the same popup — missing close page stacks duplicate dialogs | `skills/learned-popup-navigation.md` | mdl | 5 | ondemand |
 | Writing MDL for a datagrid column with ShowContentAs customContent that needs to display a bound value | `skills/learned-datagrid-customcontent-binding.md` | mdl | 5 | ondemand |
 | Writing ANY microflow behind a button that commits, completes a workflow task, or triggers a backend flow — popup or full page: it owes the user a message, a close, and a control that stops offering the action once done | `skills/learned-popup-feedback-pattern.md` | mdl | 5 | ondemand |
-| Before calling any studio_* MCP tool — the family is distinct from pg_*/ped_* (learned-mcp-patterns.md); same hybrid-write hard rules apply, but no field run exists yet and no tool names are enumerated here | `docs/studio-tools.md` | mdl | - | experimental |
 
 #### Build · Pages — page-building patterns
 

@@ -63,7 +63,7 @@ before."
 | Source file | Verdict | Target | Notes |
 |---|---|---|---|
 | `mendix-epics-api.md` | PROMOTE-WITH-EDIT | `skills/mendix-epics-api.md` | No existing shared skill covers the Epics portal API; strip `PROJECT-E-EP-*` example IDs. |
-| `mendix-write-modes.md` | **Check overlap first** — likely MERGE | `skills/learned-mdl-preflight.md` and/or `skills/learned-mcp-patterns.md` | CLI-vs-MCP-vs-hand-rolled-MCP decision table; the file's own "Related" section already points at `learned-mdl-preflight.md` as owning this territory. |
+| `mendix-write-modes.md` | **Check overlap first** — likely MERGE | `skills/learned-mdl-preflight.md` (and the since-retired MCP skill) | CLI-vs-MCP-vs-hand-rolled-MCP decision table; the file's own "Related" section already points at `learned-mdl-preflight.md` as owning this territory. |
 | `rest-integration-first-time-right.md` | PROMOTE-WITH-EDIT | `skills/rest-integration-first-time-right.md` | Strongest candidate in this batch — entity/Custom-Name matching, JSON structure bug, reverse-association trap; strip PROJECT-C/PROJECT-A names. |
 | `seed-users-and-data.md` | PROMOTE-WITH-EDIT (partial) | `skills/seed-users-hsqldb-local-run.md` | Only Steps 0–4 (HSQLDB lock discovery, trimmed-jar JDBC runner, user-role junction gotcha) generalize; **check against `skills/fixture-seeding.md` first** — likely complementary (HSQLDB-local vs Postgres/Docker), not duplicate. |
 | `mxcli-alter-page-observations.md` | Split, not a skill | `bug-logs/mxcli-bugs.md` | OBS-04 corrects existing BUG-18; OBS-05 is a new independent bug (INSERT no-op + orphan duplicates). OBS-01/02/03 already covered by `learned-page-patterns.md` BUG-07 — drop. |
@@ -168,7 +168,7 @@ For every file promoted above:
 3. Batch the clean `PROMOTE-AS-IS` / `PROMOTE-WITH-EDIT` rows (§1, §2, §3) — low-risk, mostly
    find-and-strip-client-names work.
 4. Do the two `MERGE-INTO-EXISTING` overlap checks (`mendix-write-modes.md` vs
-   `learned-mdl-preflight.md`/`learned-mcp-patterns.md`; `seed-users-and-data.md` vs
+   `learned-mdl-preflight.md`; `seed-users-and-data.md` vs
    `fixture-seeding.md`) as their own small reviews before merging, since both need a real
    side-by-side read, not just a copy.
 5. File the confirmed bugs (§5) into `bug-logs/` — independent of everything else, can run

@@ -67,7 +67,7 @@ Open a file when its When cell happens in your task, not all of them at the star
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it — one row per area: Mendix docs page, bundled assess-quality section, toolkit skill before the write, lint rule after exec |
 | `skills/learned-stylegallery.md` | Building or using the in-app design gallery |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate — greps the stylesheet for rules that cannot match the HTML Mendix emits (rem against the real root, table/th/td selectors, positional row selectors). mx check, mxcli check and mxcli lint are all blind to CSS |
-| `skills/learned-mcp-patterns.md` | Before the first MCP write in a session (Studio Pro open: `mxcli --mcp` exec, or pg_*/ped_* calls) — save after every write, the handoff sequence, confirmed JSON payloads. Choosing the write mode itself is Step 0 of learned-mdl-preflight.md |
+| `project-bin/context-pack.sh` | Dispatching a build step to a helper — generate its one-file pack (the brief's Build steps row, mxcli brain brief, live DESCRIBEs, example, folder) and hand over the path instead of a reading list. Measured: 25-38% fewer tool calls and 30-41% less time, same quality; the token saving is not proven |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
 | `skills/microflow-loop-antipatterns.md` | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop |
@@ -114,7 +114,6 @@ Open a file when its When cell happens in your task, not all of them at the star
 | `skills/learned-constants-and-secrets.md` | Adding a constant, installing a marketplace module, deploying to a new environment, or needing a Mendix PAT — where an encryption key, API credential, endpoint or access token gets its value, why a free node has only one channel, and why a token missing from the files you grepped is not missing |
 | `project-bin/constants-audit.sh` | Before any first deploy to a new environment, and after installing or updating any marketplace module — which constants would be blank where nobody can set them, and which now carry a secret in the model. Never prints a value |
 | `project-bin/ts-sync.sh` | Sharing the project with a colleague on Mendix Team Server while the build loop stays on GitHub — content-transplant snapshots between the two clones (status/push/pull); SUPERSEDED by platform-link.md §3 (adopt without rewriting history, field-proven) — only if that path fails; UNPROVEN against a real Team Server |
-| `docs/studio-tools.md` | Before calling any studio_* MCP tool — the family is distinct from pg_*/ped_* (learned-mcp-patterns.md); same hybrid-write hard rules apply, but no field run exists yet and no tool names are enumerated here |
 <!-- ROUTING:END -->
 
 ## Ground rules
@@ -137,10 +136,10 @@ this summary. The hard STOPs below are inline on purpose; never route around the
   by domain, supported-vs-unsupported statements, quoting and the CE7247 collision table,
   worked examples. If it does not exist, the same content is still inline in `CLAUDE.md`.
   Either way it lives outside `.ai-context/`, so mxcli upgrades cannot overwrite it.
-- **Write mode, per operation, up front:** run `learned-mdl-preflight.md` Step 0 (classify each op
-  CLI / MCP+MDL / hand-rolled MCP by task shape — not "CLI unless forced"), then its STOP table
-  overrides that pick for corrupting ops. State the mode per op in your report. On any STOP → MCP,
-  hand back the **filled** confirmed JSON pattern from `learned-mcp-patterns.md`, not just the label.
+- **Write mode, per operation, up front:** run `learned-mdl-preflight.md` Step 0 — the default is the
+  CLI through `bin/exec.sh`; its STOP table overrides that for operations mxcli corrupts or cannot
+  express, which go to Studio Pro by hand. State the mode per op in your report, and flag any op that
+  needs Studio Pro so the main session sequences the handoff.
 - Annotate selectively (`learned-microflow-patterns.md`); always annotate a CE-error fix.
 - **Loops / long flows — run `microflow-preflight.md`** and post its checklist before the first MDL line; `microflow-preflight: no trigger` otherwise.
 - **Never hand a task back as "too difficult".** A microflow that will not come out clean is a piece
@@ -209,6 +208,5 @@ treat it as full-discipline.
 
 ## Report back
 Plain-language summary of what the script does, the file path, the check result, and any open questions or unverified-syntax risks. Also include:
-- **Write mode per operation** — CLI / MCP+MDL / hand-rolled MCP, and why each was chosen (from `learned-mdl-preflight.md` Step 0). If the whole task is one CLI exec, say so; if any operation needs SP open, flag it so the main session sequences the handoff.
+- **Write mode per operation** — CLI (the default) or Studio Pro by hand, and why (from `learned-mdl-preflight.md` Step 0). If the whole task is one CLI exec, say so; if any operation needs SP open, flag it so the main session sequences the handoff.
 - **Folder per created document** — the `<Feature>/<Type>` path each one landed in, and any document whose feature group you could not determine from the brief (that is a question for the architect, not a guess for you).
-- **Filled MCP skeletons** for any hand-rolled-MCP operation — the confirmed pattern from `learned-mcp-patterns.md` with real names filled in, ready to run.

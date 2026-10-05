@@ -129,7 +129,7 @@ Every project has open questions that block scripting until answered. The projec
 
 | # | Question | Why it blocks scripting |
 |---|----------|------------------------|
-| 1 | **Iteration granularity** — one script per layer (domain/microflows/pages) or per page cluster? | Determines script numbering scheme and rollback unit |
+| 1 | **Iteration granularity** — row size (default: one use case per `BUILD` row, Step 3) and script split inside a row (per layer or per page cluster)? | Row size sets the plan's per-row overhead; the script split sets the numbering scheme and rollback unit |
 | 2 | **Cross-module association ownership** — which module's domain model holds each cross-module association? | Determines which module's script creates it — `CREATE ASSOCIATION` via mxcli works (BUG-02 fixed in v0.13.0), but ownership must be clear before scripting |
 | 3 | **Stub vs. real scope for this phase** — which integrations are stubbed, which are live? | Determines whether `STUB_` microflows or real `IVK_` microflows get scripted first |
 | 4 | **Demo user / role mapping** — which target roles map to which source system roles? | Needed before any `GRANT` script; changing role mapping after grants means rewriting security scripts |
@@ -144,7 +144,53 @@ Document both the question and the resolution — future sessions (and future yo
 
 ## Step 3: Choose Iteration Granularity
 
-Pick one granularity for the whole project (or per-module, if complexity varies):
+### A row is a use case; a script is a rollback unit
+
+Two sizes, decided separately. **The row** is what the build loop walks, briefs, gates, logs and
+commits. **The script** is what `exec.sh` applies and rolls back. One row holds as many scripts as
+its use case needs.
+
+**Default row: one BRD use case** (a vertical slice: its entities, microflows, pages and grants,
+ending in a check that can fail), plus the shared rows every plan has — roles, scaffold, a
+foundation domain row per module, `BRIEF` rows and the closing rows (Step 5). A dev does not have
+to choose this; apply it, and ask only when the bound below trips.
+
+**Bound — count before you write the plan out:**
+
+```
+BUILD rows ÷ BRD use cases   →   0.5 – 1.5 is in range
+```
+
+Outside that range, stop and ask the user (`interview-protocol.md` §3) with the two numbers and the
+reason; never record it `ASSUMED` on your own. Below 0.5, rows bundle unrelated use cases and a
+failure no longer points at one. Above 1.5, every row's fixed cost (brief read, orientation,
+gate, register line, commit) is paid for a fraction of a use case.
+
+**The failure this prevents (field build, 2026-10-02).** The same 70-use-case app was planned twice.
+A plan with grouped rows (137 rows) was built at **11 model calls per row**. An unattended Stage 4
+re-run recorded "one script per entity and per page" as an `ASSUMED` granularity and wrote **246
+rows (174 `BUILD`) — 2.5 per use case**; its build took **25 calls per original-scope row** for
+build and UI alone, and ~40 h against ~11 h. Wrong:
+
+```
+| 60 | BUILD | 060-crm-page-customer_overview.mdl  | Customer_Overview page   | 59 |
+| 61 | BUILD | 061-crm-page-customer_newedit.mdl   | Customer_NewEdit page    | 60 |
+| 62 | BUILD | 062-crm-mf-customer-save.mdl        | ACT_Customer_Save        | 61 |
+```
+
+Right — rows follow the use cases; use cases that share one page and its save logic are one row:
+
+```
+| 21 | BUILD | UC-F002-01 Browse customers, activate or deactivate: 060-…-customer_overview.mdl, 063-…-mf-customer-status.mdl | Customer list + status actions, grants | 20 |
+| 22 | BUILD | UC-F002-02 + 03 Add / edit a customer: 061-…-customer_newedit.mdl, 062-…-mf-customer-save.mdl | Customer form + save, grants | 21 |
+```
+
+Script order inside a row is the order listed. A script that fails rolls back alone; the row stays
+`partial` until every script in it is `done-`.
+
+### Splitting scripts inside a row
+
+Pick one script split for the whole project (or per-module, if complexity varies):
 
 | Granularity | Script unit | Best for |
 |------------|------------|----------|
@@ -288,7 +334,9 @@ Every row is one of five kinds, sharing one numbering and one dependency graph. 
 
 - **`BRIEF`** — writes no model. *Check the brief for this phase's module exists and covers this
   phase's rows; create it if absent, extend it if thin.* Exactly one per phase, always first.
-- **`BUILD`** — writes model. One entity, one microflow group (≤6), or one page section.
+- **`BUILD`** — writes model. One use case (or one shared foundation: roles, a module's core domain,
+  scaffold) — Step 3. The Step cell lists the row's scripts; each script is one entity, one
+  microflow group (≤6), or one page section.
 - **`PROVE`** — headless and mechanical, mid-phase. `mxcli test`, a `curl`, a `DESCRIBE` read-back.
   On mxcli ≥ v0.19.0, `.test.mdl` suites are a first-class PROVE instrument: `@setup` really
   runs its microflow, `@verify` really evaluates its OQL (holds / fails-with-the-value /
@@ -318,6 +366,13 @@ harness. This is the *moment*; the shape is Step 1's column and the detail is th
 > | the plan's **last** row | `RUN` | `gate-check.sh <project> 5` | every Stage 5 obligation is discharged or waived with a reason: 0 PENDING |
 >
 > Denominator: N modules → N close rows, ⌈N/3⌉ or more coherence rows, and exactly one final gate row.
+>
+> `gate-check.sh <project> 4` counts them. N is the modules under `architecture/modules/<Module>/`
+> plus any `## Module brief — <Module>` section; a close row is a step row naming
+> `verify-module.sh <Module>`; coherence rows are owed from two modules up; the last step row
+> must be `gate-check.sh … 5`. A plan approved before this rule FAILs Stage 4 until the rows are
+> added — re-run the gate after any change to this skill, because an approved plan is not
+> reopened by anything else.
 
 **Why the closing rows are rows, not a step in the build loop (an unattended benchmark build,
 2026-09-27).** A 137-row plan was built unattended to DONE. The full e2e suite showed 62 pass and

@@ -1,0 +1,6 @@
+create or modify enumeration Sales.ApprovalStatus (
+  PENDING 'Pending',
+  APPROVED 'Approved',
+  REJECTED 'Rejected'
+) FOLDER 'SalesOrder';
+/

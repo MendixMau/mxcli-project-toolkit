@@ -990,7 +990,7 @@ The entire toolkit workflow assumes split format: mxcli's own MDL exec writes *i
 - Detection before it bites: if `find mprcontents -name '*.mxunit' | wc -l` drops to 0 and the `.mpr` balloons to MBs after an install, you hit this.
 
 ### Recovery (proven, non-destructive)
-1. **Close Studio Pro** (never restore files under an open SP — split-brain, see learned-mcp-patterns §2).
+1. **Close Studio Pro** (never restore files under an open SP — split-brain).
 2. Restore the pre-import split snapshot (both `.mpr` + `mprcontents/`):
    ```bash
    bash bin/restore-mpr.sh .mpr-snapshots/<pre-import-stamp>   # or: git checkout HEAD -- <app>.mpr mprcontents/
@@ -1414,7 +1414,7 @@ This got further than Symptom 1 (a real `pg_patch_page` call was made — "Opera
 
 ### Impact
 
-Blocks the `--mcp exec` path entirely for `ALTER PAGE` writes on this project/version combo — both the DG2-column-append use case (expected to need raw `pg_patch_page`, per `learned-mcp-patterns.md`) AND plain structural inserts/SETs that were expected to work per `mxcli mcp capabilities`' own claim ("Pages — CREATE + ALTER (widget coverage grows per type)").
+Blocks the `--mcp exec` path entirely for `ALTER PAGE` writes on this project/version combo — both the DG2-column-append use case (expected to need raw `pg_patch_page`) AND plain structural inserts/SETs that were expected to work per `mxcli mcp capabilities`' own claim ("Pages — CREATE + ALTER (widget coverage grows per type)").
 
 ### Not yet tried
 
@@ -2497,8 +2497,7 @@ endpoint) instead, calling `ped_get_schema` (constructor schemas for `Microflows
 `Microflows$ChangeObjectAction`, `Microflows$CommitAction`, `Microflows$SequenceFlow`,
 `Microflows$MemberChange`) to learn the correct shapes, then `ped_create_document` directly with a
 hand-built document using the correct `microflowReturnType`/`$Type`-tagged shapes mxcli's wrapper gets
-wrong. This is a viable but much higher-effort fallback — see `learned-mcp-patterns.md` for the
-general hand-rolled-MCP pattern; this bug is the reason it was needed at all for a case
+wrong. This is a viable but much higher-effort fallback — (the general hand-rolled-MCP pattern lived in a since-retired skill); this bug is the reason it was needed at all for a case
 `learned-mdl-preflight.md` otherwise documents as "just use `--mcp exec`".
 
 **Also noted (separate, MCP-server-side, not mxcli):** the Studio Pro MCP server's own

@@ -72,3 +72,16 @@ jobs:
 
       - name: Gate and instrument fixtures (tests/wave2/run-all.sh)
         run: bash tests/wave2/run-all.sh
+
+      # Standalone fixtures at tests/ root. Added 2026-10-05: test-lint-delivery.sh (14 cases,
+      # several proving a project's hand-tuned lint rule survives a sync) was never run here,
+      # because neither runner above looks at tests/test-*.sh. A glob, not a list, so the next
+      # standalone fixture cannot be orphaned the same way.
+      - name: Standalone fixtures (tests/test-*.sh)
+        run: |
+          rc=0
+          for t in tests/test-*.sh; do
+            echo "### $t"
+            bash "$t" || { echo "FAILED: $t"; rc=1; }
+          done
+          exit $rc

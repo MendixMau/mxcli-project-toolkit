@@ -16,14 +16,15 @@
 # Usage: bin/coverage-check.sh [--summary] <brd.json> <ledger.md>
 #
 # Exit 0 only when UNCLAIMED, PHANTOM, DOUBLE-CLAIMED and COUNT-MISMATCH are
-# all empty. Non-zero otherwise.
+# all empty; 1 for findings; 2 for a FAULT (bad arguments, or a WRONG-SHAPE
+# ledger — tables present, none of them in the pointer shape below).
 #
 # Bash + jq only. Written for macOS/BSD userland (no GNU-only flags).
 # Read-only: never touches the Mendix model.
 
 set -euo pipefail
 
-CAP=40
+CAP="${COVERAGE_CHECK_CAP:-40}"
 
 usage() {
   echo "Usage: $0 [--summary] <brd.json> <ledger.md>" >&2
@@ -143,6 +144,36 @@ BEGIN { mode = ""; skip_sep = 0 }
 }
 ' "$LEDGER" > "$TMPDIR/rows.tsv"
 
+# ---------------------------------------------------------------------------
+# WRONG-SHAPE ledger. A ledger written one row per MODEL ELEMENT
+# (| Element | Kind | Status |) instead of one row per BRD POINTER parses to zero
+# rows above, so every leaf came out UNCLAIMED — a finding that reads as
+# "some work left" when the truth is "this ledger cannot be measured at all".
+# Real case (#208): five module ledgers in that shape, reported as ordinary
+# UNCLAIMED gaps for a whole build; once rewritten, the real gaps were a fraction
+# of what had been shown. So: table rows present, none of them pointer rows -> FAULT.
+# ---------------------------------------------------------------------------
+TABLE_ROWS=$(awk '
+  { t = $0; gsub(/^[ \t]+|[ \t]+$/, "", t) }
+  t !~ /^\|.*\|$/ { prev = 0; next }
+  t ~ /^\|[ \t:|-]+\|$/ { if (prev) n--; prev = 0; next }
+  { n++; prev = 1 }
+  END { print n + 0 }
+' "$LEDGER")
+PARSED_ROWS=$(grep -c . "$TMPDIR/rows.tsv" || true)
+POINTER_ROWS=$(awk -F'\t' '$2 ~ /^[A-Za-z0-9_.:-]*\// { n++ } END { print n + 0 }' "$TMPDIR/rows.tsv")
+if [[ "$TABLE_ROWS" -gt 0 && "$POINTER_ROWS" -eq 0 ]]; then
+  echo "coverage-check: $BRD"
+  echo "  ledger:        $LEDGER"
+  echo "  FAULT: WRONG-SHAPE LEDGER (0 of $TABLE_ROWS table rows are BRD pointers; $PARSED_ROWS in a pointer table)"
+  echo "  A ledger row claims one BRD leaf pointer, not one model element. Expected tables:"
+  echo "    | pointer | type | title | slice | writeMode | acceptance | status |   (BUILDABLE)"
+  echo "    | pointer | category | reason |                                       (NON-BUILDABLE)"
+  echo "  with pointer cells like /domainEntities/0/name or /pages/* (12)."
+  echo "  This ledger cannot be measured; its UNCLAIMED count would be meaningless."
+  exit 2
+fi
+
 : > "$TMPDIR/claims_buildable_raw.txt"
 : > "$TMPDIR/claims_ledgered_raw.txt"
 : > "$TMPDIR/rejected_bad_ledger_entry.txt"
@@ -186,6 +217,27 @@ done < "$TMPDIR/rows.tsv"
 # The trailing (N) applies to the WHOLE cell, wildcard or not. Keeping the count
 # mandatory is the point: it is what makes an added 8th grid column FAIL rather
 # than be silently absorbed.
+# A pointer may carry its BRD id instead of a leading slash: F003/domainEntities/* .
+# The build-plan `claims:` convention (skills/brd-to-build-plan.md Step 5b) writes it
+# that way, but leaves are enumerated as /domainEntities/..., so until this a CORRECT
+# prefixed claim was PHANTOM and a wrong one looked no different (#209). Resolution:
+#   own id (file name, its F001 part before the first "-", or the BRD .id) -> /rest
+#   another BRD in the same directory                                      -> skipped,
+#       counted as OTHER-BRD (it is measured when that BRD is)
+#   anything else                                                          -> PHANTOM
+BRD_DIR="$(dirname "$BRD")"
+BRD_BASE="$(basename "$BRD")"; BRD_BASE="${BRD_BASE%.json}"; BRD_BASE="${BRD_BASE%.brd}"
+BRD_IDS=" $BRD_BASE ${BRD_BASE%%-*} $(jq -r '.id? // empty | strings' "$BRD" 2>/dev/null || true) "
+: > "$TMPDIR/other_brd.txt"
+brd_is_self() { [[ "$BRD_IDS" == *" $1 "* ]]; }
+brd_is_other() {
+  local f
+  for f in "$BRD_DIR/$1.brd.json" "$BRD_DIR/$1"-*.brd.json; do
+    [[ -f "$f" ]] && return 0
+  done
+  return 1
+}
+
 expand_claims() {
   local rawfile="$1" outfile="$2"
   : > "$outfile"
@@ -204,8 +256,8 @@ expand_claims() {
     read -r -a tokens <<< "$body"
     IFS="$IFS_SAVE"
 
-    local produced=0
-    local tok
+    local produced=0 other=0
+    local tok orig
     for tok in "${tokens[@]}"; do
       tok="$(printf '%s' "$tok" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
       [[ -z "$tok" ]] && continue
@@ -224,30 +276,42 @@ expand_claims() {
         tok_declared="${BASH_REMATCH[2]}"
       fi
 
+      orig="$tok"
+      if [[ "$tok" != /* && "$tok" == */* ]]; then
+        if brd_is_self "${tok%%/*}"; then
+          tok="/${tok#*/}"
+        elif brd_is_other "${tok%%/*}"; then
+          echo "$orig" >> "$TMPDIR/other_brd.txt"
+          other=1
+          continue
+        fi
+      fi
+
       if [[ "$tok" == */\* ]]; then
         local prefix="${tok%/\*}" esc matches actual=0
         esc=$(printf '%s' "$prefix" | sed -e 's/[.[\*^$]/\\&/g')
         matches=$(grep -E "^${esc}/" "$TMPDIR/leaves.txt" || true)
         [[ -n "$matches" ]] && actual=$(printf '%s\n' "$matches" | grep -c .)
         if [[ "$actual" -eq 0 ]]; then
-          echo "$tok" >> "$TMPDIR/phantom_wildcard.txt"
+          echo "$orig" >> "$TMPDIR/phantom_wildcard.txt"
         else
           printf '%s\n' "$matches" >> "$outfile"
           produced=$(( produced + actual ))
         fi
       elif [[ "$tok" == *"*"* ]]; then
-        echo "$tok" >> "$TMPDIR/malformed_wildcard.txt"
+        echo "$orig" >> "$TMPDIR/malformed_wildcard.txt"
       else
         if grep -qxF "$tok" "$TMPDIR/leaves.txt"; then
           echo "$tok" >> "$outfile"
           produced=$(( produced + 1 ))
         else
-          echo "$tok" >> "$TMPDIR/phantom_wildcard.txt"
+          echo "$orig" >> "$TMPDIR/phantom_wildcard.txt"
         fi
       fi
     done
 
-    if [[ -n "$declared" && "$produced" -gt 0 && "$produced" -ne "$declared" ]]; then
+    # A cell that also names another BRD has a count spanning both; it cannot be checked here.
+    if [[ -n "$declared" && "$other" -eq 0 && "$produced" -gt 0 && "$produced" -ne "$declared" ]]; then
       echo "$cell (declared $declared, actual $produced)" >> "$TMPDIR/count_mismatch.txt"
     fi
   done < "$rawfile"
@@ -285,6 +349,7 @@ PHANTOM_COUNT=$(grep -c . "$TMPDIR/phantom_all.txt" || true)
 DOUBLE_COUNT=$(grep -c . "$TMPDIR/double_claimed.txt" || true)
 MISMATCH_COUNT=$(grep -c . "$TMPDIR/count_mismatch.txt" || true)
 REJECTED_LEDGER_COUNT=$(grep -c . "$TMPDIR/rejected_bad_ledger_entry.txt" || true)
+OTHER_BRD_COUNT=$(grep -c . "$TMPDIR/other_brd.txt" || true)
 
 print_capped() {
   local file="$1" total="$2"
@@ -312,6 +377,9 @@ echo "  DOUBLE-CLAIMED:$DOUBLE_COUNT"
 echo "  COUNT-MISMATCH:$MISMATCH_COUNT"
 if [[ "$REJECTED_LEDGER_COUNT" -gt 0 ]]; then
   echo "  REJECTED (ledger entry missing category/reason): $REJECTED_LEDGER_COUNT"
+fi
+if [[ "$OTHER_BRD_COUNT" -gt 0 ]]; then
+  echo "  OTHER-BRD:     $OTHER_BRD_COUNT (claims naming another BRD; measured there, not here)"
 fi
 
 if [[ "$SUMMARY" -eq 0 ]]; then

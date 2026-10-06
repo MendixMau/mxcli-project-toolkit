@@ -416,7 +416,9 @@ if [ "$NBRD" -eq 0 ]; then
   exit 2
 fi
 
+# The worst verdict wins: a FAULT (2) on one BRD must not be overwritten by a finding (1) on the next.
 RC=0
+raise_rc() { [ "$1" -gt "$RC" ] && RC="$1"; return 0; }
 if [ -d "$LEDGER" ]; then
   # Directory form: each BRD against its own <BRDID>.md. The denominator is stated both ways —
   # BRDs measured here, and BRDs that have no ledger here (another module's) — so "1 measured"
@@ -427,7 +429,7 @@ if [ -d "$LEDGER" ]; then
     if [ -f "$LEDGER/$bid.md" ]; then
       NMEAS=$((NMEAS + 1))
       # shellcheck disable=SC2086
-      "$ENGINE" $ENGINE_ARGS "$b" "$LEDGER/$bid.md" || RC=$?
+      "$ENGINE" $ENGINE_ARGS "$b" "$LEDGER/$bid.md" || raise_rc $?
     else
       OTHERS="$OTHERS $bid"
     fi
@@ -457,8 +459,45 @@ if [ -d "$LEDGER" ]; then
 else
   for b in $BRDS; do
     # shellcheck disable=SC2086
-    "$ENGINE" $ENGINE_ARGS "$b" "$LEDGER" || RC=$?
+    "$ENGINE" $ENGINE_ARGS "$b" "$LEDGER" || raise_rc $?
   done
+fi
+
+# ---------------------------------------------------------------------------
+# PHANTOM CLAIM — a build-plan claim that resolves to no leaf in any BRD it can apply to (#209).
+# The ledger above is what the engine measured; this checks the PLAN's own claims, at LEVEL 1 too,
+# because a plan row claiming F003/domainEntities/* (2) over a BRD with no such leaves is a row
+# that will be marked done against nothing. Same engine, one run per BRD against a claims-only
+# ledger — no second leaf enumeration here. A /slash claim is phantom only if it is phantom in
+# EVERY BRD (it names none); a prefixed claim is only ever measured by its own BRD.
+# ---------------------------------------------------------------------------
+if [ "$NCLAIMS" -gt 0 ]; then
+  PC="$TMPD/plan-claims.md"
+  {
+    echo "| pointer | type | title | slice | writeMode | acceptance | status |"
+    echo "|---|---|---|---|---|---|---|"
+    printf '%s\n' "$CLAIMS" | while IFS=$'\t' read -r _row ptr; do
+      [ -n "$ptr" ] && printf '| %s | claim | - | - | - | - | - |\n' "$ptr"
+    done
+  } > "$PC"
+  : > "$TMPD/phantoms.tsv"
+  for b in $BRDS; do
+    COVERAGE_CHECK_CAP=1000000 "$ENGINE" "$b" "$PC" 2>/dev/null \
+      | awk -v b="$b" '/^  -- PHANTOM pointers --/ { on = 1; next } /^  -- / { on = 0 } on { sub(/^ +/, ""); print $0 "\t" b }' \
+      >> "$TMPD/phantoms.tsv"
+  done
+  PHANTOM_CLAIMS="$(awk -F'\t' -v n="$NBRD" '
+    { if (!($1 in hit)) order[++k] = $1; hit[$1]++; if (!($1 in where)) where[$1] = $2 }
+    END { for (i = 1; i <= k; i++) { c = order[i]
+            if (c !~ /^\//) print "PHANTOM CLAIM: " c " matches no leaf in " where[c]
+            else if (hit[c] >= n) print "PHANTOM CLAIM: " c " matches no leaf in any of the " n " BRD(s)" } }
+  ' "$TMPD/phantoms.tsv")"
+  if [ -n "$PHANTOM_CLAIMS" ]; then
+    echo ""
+    printf '%s\n' "$PHANTOM_CLAIMS" | sed 's/^/  /'
+    echo "  $(printf '%s\n' "$PHANTOM_CLAIMS" | grep -c .) build-plan claim(s) resolve to nothing: fix the pointer, or drop the claim."
+    raise_rc 1
+  fi
 fi
 
 if [ "$LEVEL" -eq 2 ]; then

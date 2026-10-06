@@ -1,0 +1,105 @@
+-- single-call.example.mdl — call a Single_Call agent from a microflow, with an honest fallback.
+--
+-- Pairs with single-call.agent.json (same folder). Nothing here creates keys, models or agents:
+-- the key is imported on the GenAI Resources page, the agent from its JSON on the Agents page,
+-- and the model is bound in that import's dialog 2 (skills/mendix-agent-setup.md). This script holds only what the app needs to CALL it.
+--
+-- SHAPE.
+--   1. A non-persistent context entity whose attributes are named exactly like the agent's
+--      Variables. The agent file names it in "Entity"; the version's UserPrompt reads it through
+--      {{Key}} placeholders. Agent_Call_WithoutHistory fills them from the object you pass.
+--   2. SUB_Agent_Get: the agent by Title, empty when it has not been imported.
+--   3. SUB_Agent_ModelAnswer: build the context, call, read the text; FALSE on every failure path
+--      (call error, no response, empty text), each with a log line naming the fix.
+--   4. The caller answers deterministically when the agent does not, and the answer SAYS which one
+--      it is (IsAIGenerated / IsStub / LabelText). A fallback that looks like an AI answer is the
+--      false green this pattern exists to prevent.
+--
+-- Field origin: translated from a Mendix 11.15 app (Agent Commons 4.3.1, GenAI Connector 7.2.1)
+-- where the same four parts passed mxbuild and answered 3/3 questions live on a Sonnet 5 model;
+-- its e2e journey asserted the facts and markers plus IsAIGenerated in the database (41/41), and
+-- microflow tests pinned the fallback text (6/6). The Procurement names below are the toolkit's
+-- invented domain; adapt the facts microflow to whatever your app computes.
+--
+-- Assumes: Procurement.PurchaseRequest (RequestNumber), Procurement.AdvisorAnswer (Question, Headline,
+-- Text, IsAIGenerated, IsStub, LabelText, association AdvisorAnswer_PurchaseRequest), the module role
+-- Procurement.Officer, and Procurement.SUB_Advisor_Facts(Request) returning the facts as text, one
+-- per line, each ending in its source marker ([ERP], [BUDGET]) — the agent is told to keep them.
+--
+-- mdl 0 spelling (no header). Module roles: grant your users GenAICommons.User and
+-- MxGenAIConnector.User, or the call fails on access for every non-admin.
+
+/** What the agent's prompt variables read ({{RequestNumber}}, {{Facts}}, {{Question}}). Named as "Entity" in single-call.agent.json. */
+create or modify non-persistent entity Procurement.AgentQuestion (
+  RequestNumber: String(50),
+  Facts: String(unlimited),
+  Question: String(unlimited)
+);
+
+grant read * on entity Procurement.AgentQuestion to Procurement.Officer;
+
+/** The agent; empty when it has not been imported yet. */
+create or modify microflow Procurement.SUB_Agent_Get ()
+returns AgentCommons.Agent as $Agent
+folder 'Agent'
+begin
+  retrieve $Agents from AgentCommons.Agent where Title = 'Purchase Request Advisor';
+  $Agent = head $Agents;
+  return $Agent;
+end;
+
+/** The model's answer into $Answer (Headline = first line, Text = the rest). False when the call fails or the answer is empty; the caller then answers without the model. */
+create or modify microflow Procurement.SUB_Agent_ModelAnswer ($Answer: Procurement.AdvisorAnswer, $Request: Procurement.PurchaseRequest, $Facts: String, $Question: String, $Agent: AgentCommons.Agent)
+returns Boolean as $Answered
+folder 'Agent'
+begin
+  $Context = create Procurement.AgentQuestion (RequestNumber = $Request/RequestNumber, Facts = $Facts, Question = $Question);
+  $Response = call java action AgentCommons.Agent_Call_WithoutHistory(Agent = $Agent, OptionalContextObject = $Context, OptionalRequest = empty, OptionalFileCollection = empty) on error without rollback begin
+    log warning node 'Procurement' 'Agent: the call failed ({1}); answering without the model. A 400 naming a parameter (e.g. temperature) is the agent version, not the key.' with ({1} = $latestError/Message);
+    declare $Failed Boolean = false;
+    return $Failed;
+  end error;
+  if $Response = empty then
+    log warning node 'Procurement' 'Agent: no response (is a model selected on the version in use? see the AgentCommons log); answering without the model';
+    return false;
+  end if;
+  $Out = call microflow GenAICommons.Response_GetModelResponseString(Response = $Response);
+  declare $Clean String = trim($Out);
+  if $Clean = '' then
+    log warning node 'Procurement' 'Agent: empty answer; answering without the model';
+    return false;
+  end if;
+  declare $Headline String = $Clean;
+  declare $Body String = '';
+  declare $Nl Integer = find($Clean, '
+');
+  if $Nl > 0 then
+    set $Headline = trim(substring($Clean, 0, $Nl));
+    set $Body = trim(substring($Clean, $Nl + 1));
+  end if;
+  change $Answer (Headline = $Headline, Text = $Body, IsAIGenerated = true, IsStub = false, LabelText = 'AI answer · ' + $Agent/Title);
+  return true;
+end;
+
+/** Asks the advisor about a purchase request. Starts as the deterministic answer, labelled as such; the model replaces it only when it actually answers. */
+create or modify microflow Procurement.SUB_Advisor_Ask ($Request: Procurement.PurchaseRequest, $Question: String)
+returns Procurement.AdvisorAnswer as $Answer
+folder 'Agent'
+begin
+  $Facts = call microflow Procurement.SUB_Advisor_Facts(Request = $Request);
+  $Answer = create Procurement.AdvisorAnswer (Question = $Question, IsAIGenerated = false, IsStub = true, LabelText = 'Computed answer, no language model', AdvisorAnswer_PurchaseRequest = $Request);
+  $Agent = call microflow Procurement.SUB_Agent_Get();
+  declare $Live Boolean = false;
+  if $Agent != empty then
+    $Answered = call microflow Procurement.SUB_Agent_ModelAnswer(Answer = $Answer, Request = $Request, Facts = $Facts, Question = $Question, Agent = $Agent);
+    set $Live = $Answered;
+  end if;
+  if not($Live) then
+    change $Answer (Headline = 'The facts for ' + $Request/RequestNumber, Text = $Facts);
+    if $Agent != empty then
+      change $Answer (LabelText = 'Computed answer: the agent did not answer');
+    end if;
+  end if;
+  commit $Answer with events;
+  return $Answer;
+end;

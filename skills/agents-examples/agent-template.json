@@ -1,5 +1,5 @@
 {
-  "_comment": "Scrubbed skeleton. Copy, replace every REPLACE ME, regenerate all UUIDs. Version_InUse.UUID MUST match one of Versions[].UUID or nothing is active after import.",
+  "_comment": "Scrubbed skeleton. Copy, replace every REPLACE ME, regenerate all UUIDs. Version_InUse.UUID MUST match one of Versions[].UUID or nothing is active after import. No Temperature key: some models reject the parameter outright (Claude Sonnet 5 on Mendix Cloud GenAI: 400 `temperature` is deprecated), and every call then fails; add it only for a model you have seen accept it.",
   "Title": "REPLACE ME — agent name",
   "Description": "REPLACE ME — one line on what this agent does and for whom.",
   "UsageType": "Conversational",
@@ -24,7 +24,6 @@
       ],
       "MCPs": [],
       "SingleMCPTools": [],
-      "Temperature": 0.2,
       "KnowledgeBases": []
     }
   ],

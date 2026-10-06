@@ -17,7 +17,7 @@
 // merely a bulk-loader for new agents. It reports the contents of that model
 // combobox per file, because an EMPTY list is the whole diagnosis: it means
 // GenAICommons has no DeployedModel rows, which means the MxCloud keys imported
-// without models (see configure-genai.js), which means every agent will render
+// without models (see configure-genai.example.js), which means every agent will render
 // a chat panel and answer nothing.
 //
 // On the object itself a re-import is a no-op. AgentCommons.Agent_GetCreate_AgentImport
@@ -295,7 +295,7 @@ async function chooseModel(page, want) {
   const noModels = summary.perFile.filter((r) => Array.isArray(r.modelOptions) && r.modelOptions.length === 0);
   if (noModels.length) {
     console.error(`\nFAIL: ${noModels.length} agent(s) had NO model to bind — GenAICommons has no`);
-    console.error('DeployedModel rows. Run configure-genai.js and check runtime.log for');
+    console.error('DeployedModel rows. Run configure-genai.example.js and check runtime.log for');
     console.error('"Host not in allowlist"; the keys import but the models never arrive.');
     process.exit(1);
   }

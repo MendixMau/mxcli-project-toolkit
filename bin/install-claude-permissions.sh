@@ -25,9 +25,15 @@
 # The exec.sh-specific entries are listed separately even though `bin/*.sh:*` already covers
 # them; that redundancy is deliberate and matches this script's spec, not an oversight.
 #
-# NOT ADDED, ON PURPOSE: `Bash(*)` or anything broader. This script only ever appends to
-# `permissions.allow`, `permissions.deny` and the two hooks below — never removes or reorders
-# what is there.
+# PROFILES (2026-10-06): bin/permission-profile.sh resolves `wrappers` | `project` (default) |
+# `full`, picked at intake Q12. `wrappers` is exactly the list below. `project` adds edits inside
+# the project folder (`Edit(/**)` — `/` anchors at the project, per the permissions doc's path
+# table) and the everyday project commands, plus `ask` rules so destructive git and sudo still
+# prompt in every mode. `full` adds bare `Bash`/`Edit`/`Read`/`WebFetch`/`WebSearch` — ONLY to the
+# per-machine settings.local.json, so one person's opt-in is never committed for a whole team.
+# Deny and ask rules beat allow rules in every mode, `full` included. This script never removes
+# an entry it did not add (the sidecar below is the record); switching to a smaller profile
+# removes the entries THIS script added for the bigger one.
 #
 # THE ONE DENY (2026-09-17): a bare `./mxcli exec` / `mxcli exec`. It is the single command the
 # whole guard chain exists to wrap — no snapshot, no mxbuild gate, no BUILD-LOG row, no
@@ -103,18 +109,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-USAGE="Usage: $0 <project-root> [--check|--uninstall]"
+USAGE="Usage: $0 <project-root> [--check|--uninstall] [--profile wrappers|project|full]"
 
 MODE="install"
 PROJECT_DIR=""
-for a in "$@"; do
-  case "$a" in
+PROFILE_ARG=""
+while [ $# -gt 0 ]; do
+  case "$1" in
     --check)     MODE="check" ;;
     --uninstall) MODE="uninstall" ;;
+    --profile)   PROFILE_ARG="${2:-}"; shift ;;
+    --profile=*) PROFILE_ARG="${1#--profile=}" ;;
     -h|--help)   echo "$USAGE"; exit 0 ;;
-    -*) echo "unknown option: $a" >&2; echo "$USAGE" >&2; exit 2 ;;
-    *)  PROJECT_DIR="$a" ;;
+    -*) echo "unknown option: $1" >&2; echo "$USAGE" >&2; exit 2 ;;
+    *)  PROJECT_DIR="$1" ;;
   esac
+  shift
 done
 
 if [ -z "$PROJECT_DIR" ]; then
@@ -132,9 +142,19 @@ SIDECAR="$PROJECT_DIR/.claude/.mxtk-permissions-added.json"
 SETTINGS_LOCAL="$PROJECT_DIR/.claude/settings.local.json"
 SIDECAR_LOCAL="$PROJECT_DIR/.claude/.mxtk-permissions-added-local.json"
 
-# The fixed allow-list. Do NOT widen this to Bash(*) or anything broader — see this repo's
-# CLAUDE.md "Shipping an instrument" rules; a permission allow-list is exactly the kind of
-# instrument a field-proof bar exists for.
+# --profile on an install persists (per machine, .mxtk/), so a later sync --check agrees with it.
+if [ -n "$PROFILE_ARG" ] && [ "$MODE" = install ]; then
+  "$SCRIPT_DIR/permission-profile.sh" "$PROJECT_DIR" --set "$PROFILE_ARG" || exit 2
+fi
+if [ -n "$PROFILE_ARG" ] && [ "$MODE" != install ]; then
+  PROFILE="$(MXTK_PERMISSION_PROFILE="$PROFILE_ARG" "$SCRIPT_DIR/permission-profile.sh" "$PROJECT_DIR")"
+else
+  PROFILE="$("$SCRIPT_DIR/permission-profile.sh" "$PROJECT_DIR")"
+fi
+echo "permission profile: $PROFILE"
+
+# The `wrappers` allow-list. Broader rules belong to the profiles below, never here — see this
+# repo's CLAUDE.md "Shipping an instrument" rules.
 #
 # SHARED: relative invocations only, safe to commit — everyone on the project gets the same
 # allow-list regardless of where they cloned the toolkit.
@@ -165,6 +185,41 @@ DENY=(
   "Bash(mxcli exec:*)"
   "Bash(./mxcli.exe exec:*)"
 )
+ASK=()
+
+# `project` profile: relative, committable, shared. mkdir/cp/mv/rm are not here — a Bash rule
+# cannot be scoped to a folder; in Manual mode they prompt, in acceptEdits/auto mode Claude Code
+# already allows them inside the project.
+if [ "$PROFILE" = project ] || [ "$PROFILE" = full ]; then
+  ENTRIES_SHARED+=(
+    "Edit(/**)"
+    "Bash(node tests/*)"
+    "Bash(npx playwright *)"
+    "Bash(npm install:*)"
+    "Bash(npm ci:*)"
+    "Bash(docker compose:*)"
+    "Bash(docker ps:*)"
+    "Bash(docker logs:*)"
+    "Bash(git add:*)"
+    "Bash(git commit:*)"
+    "Bash(git mv:*)"
+    "Bash(python3 bin/*)"  # portability-ok: a permission-rule string, not an interpreter call
+    "Bash(python3 tests/*)"  # portability-ok: a permission-rule string, not an interpreter call
+  )
+  # Prompt even in auto/bypass mode and even under `full`: hard to undo, or outside the project.
+  ASK=(
+    "Bash(git push*--force*)"
+    "Bash(git push* -f*)"
+    "Bash(git reset --hard*)"
+    "Bash(git clean *)"
+    "Bash(sudo *)"
+  )
+fi
+# `full` profile: one person's opt-in — per-machine settings.local.json only.
+if [ "$PROFILE" = full ]; then
+  ENTRIES_LOCAL+=( "Bash" "Edit" "Read" "WebFetch" "WebSearch" )
+fi
+
 SESSION_HOOK="bash bin/session-check.sh || true"
 LOOK_HOOK="bash bin/look-ledger.sh seen || true"
 # event <TAB> matcher ("" = none) <TAB> command, one hook per line.
@@ -177,13 +232,13 @@ require_py
 # implementation stays correct for both instead of two near-identical copies. hooks is ""
 # for the local call (no hook, no deny entries belong in settings.local.json).
 _merge_group() {
-  local settings_path="$1" sidecar_path="$2" mode="$3" hooks="$4" n_allow="$5"; shift 5
-  "$PY" - "$settings_path" "$sidecar_path" "$mode" "$hooks" "$n_allow" "$@" <<'PY'
+  local settings_path="$1" sidecar_path="$2" mode="$3" hooks="$4" n_allow="$5" n_deny="$6"; shift 6
+  "$PY" - "$settings_path" "$sidecar_path" "$mode" "$hooks" "$n_allow" "$n_deny" "$@" <<'PY'
 import json, os, shutil, sys
 
-settings_path, sidecar_path, mode, hooks_arg, n_allow, *rest = sys.argv[1:]
-n_allow = int(n_allow)
-entries, deny_entries = rest[:n_allow], rest[n_allow:]
+settings_path, sidecar_path, mode, hooks_arg, n_allow, n_deny, *rest = sys.argv[1:]
+n_allow, n_deny = int(n_allow), int(n_deny)
+entries, deny_entries, ask_entries = rest[:n_allow], rest[n_allow:n_allow + n_deny], rest[n_allow + n_deny:]
 # (event, matcher, command) per line; matcher "" means the group carries no matcher.
 hook_specs = [tuple(l.split("\t", 2)) for l in hooks_arg.splitlines() if l.strip()]
 
@@ -225,6 +280,7 @@ if isinstance(_side, list):
     _side = {"allow": _side, "deny": [], "hook": False}
 added = set(_side.get("allow", []))
 added_deny = set(_side.get("deny", []))
+added_ask = set(_side.get("ask", []))
 added_hooks = set(_side.get("hooks", []))
 if _side.get("hook") and hook_specs:
     added_hooks.add(hook_specs[0][2])  # the SessionStart hook, the only one before 2026-10-02
@@ -235,8 +291,9 @@ if mode == "check":
     deny = d.get("permissions", {}).get("deny", [])
     missing = [e for e in entries if e not in allow]
     missing_deny = [e for e in deny_entries if e not in deny]
+    missing_ask = [e for e in ask_entries if e not in d.get("permissions", {}).get("ask", [])]
     missing_hooks = [h for h in hook_specs if not hook_present(d, h)]
-    if missing or missing_deny or missing_hooks:
+    if missing or missing_deny or missing_ask or missing_hooks:
         print("Missing entries in %s:" % settings_path)
         for m in missing:
             print("  " + m)
@@ -244,11 +301,15 @@ if mode == "check":
             print("Missing deny entries (permissions.deny):")
             for m in missing_deny:
                 print("  " + m)
+        if missing_ask:
+            print("Missing ask entries (permissions.ask):")
+            for m in missing_ask:
+                print("  " + m)
         for h in missing_hooks:
             print("  " + hook_label(h))
         sys.exit(1)
     if hook_specs:
-        print("All %d allow, %d deny entries and %d hook(s) present in %s" % (len(entries), len(deny_entries), len(hook_specs), settings_path))
+        print("All %d allow, %d deny, %d ask entries and %d hook(s) present in %s" % (len(entries), len(deny_entries), len(ask_entries), len(hook_specs), settings_path))
     else:
         print("All %d allow entries present in %s" % (len(entries), settings_path))
     sys.exit(0)
@@ -268,10 +329,13 @@ if mode == "uninstall":
     deny = perms.get("deny", [])
     removed += [e for e in deny if e in added_deny]
     kept_deny = [e for e in deny if e not in added_deny]
+    removed += [e for e in perms.get("ask", []) if e in added_ask]
     if "permissions" in d:
         d["permissions"]["allow"] = kept
         if "deny" in d["permissions"]:
             d["permissions"]["deny"] = kept_deny
+        if "ask" in d["permissions"]:
+            d["permissions"]["ask"] = [e for e in perms["ask"] if e not in added_ask]
     for spec in hook_specs:
         ev, _m, cmd = spec
         if cmd not in added_hooks or "hooks" not in d or ev not in d["hooks"]:
@@ -309,6 +373,16 @@ if allow is None:
     allow = []
     perms["allow"] = allow
 
+# A smaller profile than last time: drop what THIS script added that the profile no longer
+# wants. Entries someone else wrote are never in the sidecar, so never touched.
+pruned = []
+for key, want, mine in (("allow", entries, added), ("deny", deny_entries, added_deny), ("ask", ask_entries, added_ask)):
+    gone = [e for e in perms.get(key, []) if e in mine and e not in want]
+    if gone:
+        perms[key] = [e for e in perms[key] if e not in gone]
+        pruned += ["%s %s" % (key, e) for e in gone]
+    mine.difference_update(set(mine) - set(want))
+
 newly_added = [e for e in entries if e not in allow]
 for e in newly_added:
     allow.append(e)
@@ -320,6 +394,12 @@ if deny is None:
 newly_denied = [e for e in deny_entries if e not in deny]
 for e in newly_denied:
     deny.append(e)
+
+newly_asked = []
+if ask_entries or "ask" in perms:
+    ask = perms.setdefault("ask", [])
+    newly_asked = [e for e in ask_entries if e not in ask]
+    ask.extend(newly_asked)
 
 new_hooks = []
 for spec in hook_specs:
@@ -333,20 +413,27 @@ for spec in hook_specs:
 
 write_json(settings_path, d)
 
-if newly_added or newly_denied or new_hooks:
+if newly_added or newly_denied or newly_asked or new_hooks or pruned:
     added.update(newly_added)
     added_deny.update(newly_denied)
+    added_ask.update(newly_asked)
     added_hooks.update(h[2] for h in new_hooks)
     side = {"allow": sorted(added), "deny": sorted(added_deny)}
+    if added_ask:
+        side["ask"] = sorted(added_ask)
     if hook_specs:
         side["hook"] = hook_specs[0][2] in added_hooks
         side["hooks"] = sorted(added_hooks)
     write_json(sidecar_path, side)
-    print("Added %d entry(ies) to %s" % (len(newly_added) + len(newly_denied) + len(new_hooks), settings_path))
+    print("Added %d, removed %d entry(ies) in %s" % (len(newly_added) + len(newly_denied) + len(newly_asked) + len(new_hooks), len(pruned), settings_path))
     for e in newly_added:
         print("  + allow " + e)
     for e in newly_denied:
         print("  + deny  " + e)
+    for e in newly_asked:
+        print("  + ask   " + e)
+    for e in pruned:
+        print("  - " + e)
     for h in new_hooks:
         print("  + " + hook_label(h))
 else:
@@ -355,8 +442,8 @@ PY
 }
 
 RC=0
-_merge_group "$SETTINGS" "$SIDECAR" "$MODE" "$HOOKS" "${#ENTRIES_SHARED[@]}" "${ENTRIES_SHARED[@]}" "${DENY[@]}" || RC=$?
-_merge_group "$SETTINGS_LOCAL" "$SIDECAR_LOCAL" "$MODE" "" "${#ENTRIES_LOCAL[@]}" "${ENTRIES_LOCAL[@]}" || {
+_merge_group "$SETTINGS" "$SIDECAR" "$MODE" "$HOOKS" "${#ENTRIES_SHARED[@]}" "${#DENY[@]}" "${ENTRIES_SHARED[@]}" "${DENY[@]}" ${ASK[@]+"${ASK[@]}"} || RC=$?
+_merge_group "$SETTINGS_LOCAL" "$SIDECAR_LOCAL" "$MODE" "" "${#ENTRIES_LOCAL[@]}" 0 "${ENTRIES_LOCAL[@]}" || {
   RC2=$?
   [ "$RC2" -gt "$RC" ] && RC=$RC2
 }

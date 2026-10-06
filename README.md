@@ -432,6 +432,8 @@ mxcli-project-toolkit/
     install-harness-permissions.sh ← ONE entry point: calls install-claude-permissions.sh, plus
                                    Copilot (.vscode/settings.json), Aider (.aider.conf.yml);
                                    run at scaffold time, --check'd on sync — see toolkit-guide.html §9
+    permission-profile.sh       ← which permission profile a project runs: wrappers | project
+                                   (default) | full (per machine) — intake Q12; doctor.sh shows it
     install-hooks.sh            ← unrelated: the git pre-commit client-data guard for THIS repo
   claude-hooks/                 ← sources for the above: hooks/ (5) + bin/ (checkpoint, close-task)
   agents/                       ← the six agent stub templates (ba/architect/mdl/gate/test/review)

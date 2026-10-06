@@ -928,6 +928,36 @@ if [ -n "$PROJECT_DIR" ]; then
       note "bin/doctor.sh --install $PROJECT_DIR fetches the right build for this OS/arch"
       note "(from github.com/mendixlabs/mxcli/releases) and then the mxbuild toolchain with it."
     fi
+
+    # Claude Code permissions (2026-10-06): which profile intake Q12 picked, whether the
+    # settings files carry it, and what a project file cannot do. Greps only — no Python here.
+    head_ "Claude Code permissions: $PROJECT_DIR"
+    PERM_PROFILE="$("$TOOLKIT_ROOT/bin/permission-profile.sh" "$PROJECT_DIR" 2>/dev/null)"
+    PERM_FROM="$("$TOOLKIT_ROOT/bin/permission-profile.sh" "$PROJECT_DIR" --explain 2>/dev/null | sed -n 's/^from: //p')"
+    ok "profile: ${PERM_PROFILE:-?} (from: ${PERM_FROM:-?})"
+    PSET="$PROJECT_DIR/.claude/settings.json"
+    PLOCAL="$PROJECT_DIR/.claude/settings.local.json"
+    PERM_GAP=""
+    grep -qF '"Bash(./bin/exec.sh:*)"' "$PSET" 2>/dev/null || PERM_GAP="the safe-wrapper entries"
+    case "$PERM_PROFILE" in
+      project|full) grep -qF '"Edit(/**)"' "$PSET" 2>/dev/null || PERM_GAP="${PERM_GAP:-the project-folder entries}" ;;
+    esac
+    [ "$PERM_PROFILE" = full ] && { grep -qE '^[[:space:]]*"Bash",?[[:space:]]*$' "$PLOCAL" 2>/dev/null || PERM_GAP="${PERM_GAP:-the full-access entries}"; }
+    if [ -n "$PERM_GAP" ]; then
+      warn "the settings files are missing $PERM_GAP for this profile, so Claude Code will prompt for them"
+      note "fix: $TOOLKIT_ROOT/bin/install-harness-permissions.sh $PROJECT_DIR"
+    else
+      ok "settings files match the profile"
+    fi
+    for _pf in "$PSET" "$PLOCAL"; do
+      if grep -qE '"defaultMode"[[:space:]]*:[[:space:]]*"(auto|bypassPermissions)"' "$_pf" 2>/dev/null; then
+        warn "${_pf#$PROJECT_DIR/} sets defaultMode to auto/bypassPermissions — Claude Code ignores that in a project file"
+      fi
+    done
+    _um="$(grep -oE '"defaultMode"[[:space:]]*:[[:space:]]*"[A-Za-z]+"' "$HOME/.claude/settings.json" 2>/dev/null | sed -E 's/.*"([A-Za-z]+)"$/\1/' | head -1)"
+    note "your own default mode (~/.claude/settings.json): ${_um:-not set, so the Claude Code built-in default applies}"
+    note "No prompts at all is your call, not the project's: set it in ~/.claude/settings.json, or start"
+    note "'claude --dangerously-skip-permissions' only inside a container/VM. Deny/ask rules still apply."
   fi
 fi
 

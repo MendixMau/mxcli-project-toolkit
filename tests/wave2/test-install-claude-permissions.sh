@@ -337,6 +337,34 @@ py_look_hook_present "$EXIST/.claude/settings.json" \
   && bad "T5: sidecar file survived --uninstall (should be removed)" \
   || ok "T5: sidecar file removed by --uninstall"
 
+# ── T5b: profiles (bin/permission-profile.sh) — default, full, downgrade, typo ─────────────
+PROF="$WORK/profiles"
+mkdir -p "$PROF/.claude"
+echo '{"permissions":{"allow":["Bash(git add:*)"]}}' > "$PROF/.claude/settings.json"
+"$SUBJECT" "$PROF" >"$WORK/t5b.out" 2>&1
+grep -qx "permission profile: project" "$WORK/t5b.out" && ok "T5b: no PROJECT.md resolves to the 'project' default" \
+                                                      || bad "T5b: default profile is not 'project'"
+py_get_allow "$PROF/.claude/settings.json" | grep -qxF "Edit(/**)" && ok "T5b: project profile allows edits inside the project" \
+                                                                    || bad "T5b: project profile missing Edit(/**)"
+"$PY" -c "import json,sys;d=json.load(open('$PROF/.claude/settings.json'));sys.exit(0 if 'Bash(sudo *)' in d['permissions'].get('ask',[]) else 1)" \
+  && ok "T5b: project profile puts sudo behind an ask rule" || bad "T5b: sudo ask rule missing"
+"$SUBJECT" "$PROF" --profile full >/dev/null 2>&1
+py_get_allow "$PROF/.claude/settings.local.json" | grep -qx "Bash" && ok "T5b: full adds bare Bash to settings.local.json" \
+                                                                   || bad "T5b: full did not add bare Bash locally"
+py_get_allow "$PROF/.claude/settings.json" | grep -qx "Bash" && bad "T5b: full leaked bare Bash into the shared settings.json" \
+                                                             || ok "T5b: shared settings.json never gets bare Bash"
+"$SUBJECT" "$PROF" --profile wrappers >/dev/null 2>&1
+ALLOWW="$(py_get_allow "$PROF/.claude/settings.json")"
+printf '%s\n' "$ALLOWW" | grep -qxF "Edit(/**)" && bad "T5b: downgrade to wrappers left Edit(/**)" \
+                                                 || ok "T5b: downgrade to wrappers removes the project entries"
+printf '%s\n' "$ALLOWW" | grep -qxF "Bash(git add:*)" && ok "T5b: downgrade keeps a pre-existing entry it never added" \
+                                                       || bad "T5b: downgrade removed a pre-existing entry"
+py_get_allow "$PROF/.claude/settings.local.json" | grep -qx "Bash" && bad "T5b: downgrade left bare Bash locally" \
+                                                                   || ok "T5b: downgrade removes the full entries"
+TYPO="$(MXTK_PERMISSION_PROFILE=fulll "$(dirname "$SUBJECT")/permission-profile.sh" "$PROF" 2>/dev/null)"
+[ "$TYPO" = wrappers ] && ok "T5b: a misspelt profile falls back to wrappers" \
+                       || bad "T5b: misspelt profile resolved to '$TYPO' (want wrappers)"
+
 # ══════════════════════════════════════════════════════════════════════════════════════════
 # install-harness-permissions.sh — Copilot and Aider (Claude delegated, spot-checked only)
 # ══════════════════════════════════════════════════════════════════════════════════════════

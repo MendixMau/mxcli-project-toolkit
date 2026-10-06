@@ -63,18 +63,22 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-USAGE="Usage: $0 <project-root> [--check|--uninstall]"
+USAGE="Usage: $0 <project-root> [--check|--uninstall] [--profile wrappers|project|full]"
 
 MODE="install"
 PROJECT_DIR=""
-for a in "$@"; do
-  case "$a" in
+PROFILE_ARGS=()  # Claude Code only — see bin/permission-profile.sh
+while [ $# -gt 0 ]; do
+  case "$1" in
     --check)     MODE="check" ;;
     --uninstall) MODE="uninstall" ;;
+    --profile)   PROFILE_ARGS=(--profile "${2:-}"); shift ;;
+    --profile=*) PROFILE_ARGS=("$1") ;;
     -h|--help)   echo "$USAGE"; exit 0 ;;
-    -*) echo "unknown option: $a" >&2; echo "$USAGE" >&2; exit 2 ;;
-    *)  PROJECT_DIR="$a" ;;
+    -*) echo "unknown option: $1" >&2; echo "$USAGE" >&2; exit 2 ;;
+    *)  PROJECT_DIR="$1" ;;
   esac
+  shift
 done
 
 if [ -z "$PROJECT_DIR" ]; then
@@ -91,7 +95,7 @@ RC=0
 
 echo "=== claude ==="
 if [ -x "$SCRIPT_DIR/install-claude-permissions.sh" ]; then
-  "$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" $( [ "$MODE" = install ] || echo "--$MODE" ) || {
+  "$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" $( [ "$MODE" = install ] || echo "--$MODE" ) ${PROFILE_ARGS[@]+"${PROFILE_ARGS[@]}"} || {
     ec=$?; [ "$ec" -gt "$RC" ] && RC=$ec
   }
 else

@@ -158,6 +158,24 @@ and exists to *reach that dialog*.
   text* — it is the most important signal the run produces. A failed import popup does not
   self-close; cancel it explicitly.
 
+- **A 400 that names a parameter is the agent version, not the key.** Claude Sonnet 5 on
+  Mendix Cloud GenAI rejects `temperature`
+  (`400 - {"detail":"The model returned the following errors: `temperature` is deprecated
+  for this model. (Service: BedrockRuntime ...`). An agent whose version carries a
+  Temperature then fails on every call — and an app with a fallback answers anyway, so
+  nothing looks broken. Leave `Temperature` out of the agent JSON; an agent already
+  imported keeps it (a re-import never edits): delete it on the Agents page and import
+  again. Probe: one call, then
+  `grep -n "is deprecated for this model" <runtime.log>`. The body is in the runtime log
+  only; `mxcli run --watch`'s console shows build lines, not runtime errors.
+- **Assert an LLM answer by its facts, not its wording.** An e2e step that expects the
+  sentence fails on the next run; one that expects nothing passes an agent that answers
+  wrongly. Assert the facts any correct answer must contain (counts, ids, the source
+  markers) plus the stored flag that the model produced it (`IsAIGenerated = true`, not
+  the fallback) in the database. Watch `textAbsent` on a number: the page's own context
+  panel shows the same number, so it is never absent (a first run went 40/41 on exactly
+  that, a test defect).
+
 ## Environment-specific: sandboxed/proxied containers
 
 Everything in this section is about restricted-egress environments (e.g. a cloud agent

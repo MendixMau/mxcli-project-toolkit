@@ -1,0 +1,37 @@
+{
+  "Title": "Purchase Request Advisor",
+  "Description": "Single-call agent: answers one question about a purchase request from the facts the app computed for it, citing each fact's source. Read-only.",
+  "UsageType": "Single_Call",
+  "UUID": "3b2b6c22-122f-49c3-abe1-c48e8a3a85f6",
+  "Entity": "Procurement.AgentQuestion",
+  "Versions": [
+    {
+      "Title": "v1",
+      "SystemPrompt": "You answer questions about one purchase request for a procurement officer.\n\nUse ONLY the FACTS in the message. Every fact ends with a source marker such as [ERP] or [BUDGET]; keep the marker after each statement that uses that fact. If the facts do not answer the question, say what is missing; never guess a number, a supplier or a date.\n\nYou are read-only: never claim to have approved, changed or sent anything.\n\nFormat: one headline line that answers the question, then at most 4 short sentences. Plain text, no markdown headings, no bullet lists.",
+      "UserPrompt": "Purchase request {{RequestNumber}}.\n\nFACTS (computed by the app):\n{{Facts}}\n\nQUESTION: {{Question}}",
+      "VersionNumber": "1",
+      "UUID": "bc50611c-c502-4692-a2d4-bf7b6eb1684f",
+      "VersionChangedDate": "2026-10-06T00:00:00.000Z",
+      "ToolChoice": "none",
+      "Tools": [],
+      "MCPs": [],
+      "SingleMCPTools": [],
+      "KnowledgeBases": []
+    }
+  ],
+  "Variables": [
+    {
+      "Key": "RequestNumber"
+    },
+    {
+      "Key": "Facts"
+    },
+    {
+      "Key": "Question"
+    }
+  ],
+  "Version_InUse": {
+    "UUID": "bc50611c-c502-4692-a2d4-bf7b6eb1684f"
+  },
+  "TestCases": []
+}

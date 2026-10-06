@@ -46,6 +46,18 @@ the rest, so all seven must be installed:
 
 Also register `ASU_AgentEditor` as an after-startup microflow.
 
+Two install steps the marketplace install does not do for you (field run 2026-10-06, Mendix
+11.15, Agent Commons 4.3.1 / GenAI Connector 7.2.1 / MCP Client 4.3.0):
+
+- **`mxcli sync-java-deps -p App.mpr` after installing.** The modules declare their managed
+  jars (okhttp, okhttp-sse, okio, kotlin-stdlib, the MCP SDK) but the install does not put
+  them in `vendorlib/`, so the Java compile fails on `package OkHttpClient does not exist` /
+  `io.modelcontextprotocol.client does not exist`. Probe: `ls vendorlib | grep -c okhttp`
+  is 0 before, ≥1 after, and the next mxbuild compiles.
+- **Two widgets the pages need:** *Markdown viewer* and *Events* (both Mendix marketplace
+  widgets). Without them the agent pages fail mxbuild with 22 × CE0462 (missing widget).
+  Install them like any widget, then `mxcli fix widgets`.
+
 ## Three ways to create an agent — pick the second
 
 `AgentCommons.Agent` is an **entity**, not a model document. An agent cannot be declared in
@@ -69,8 +81,10 @@ Confirmed by diffing against an actual export. Key sets match exactly at all thr
 ```
 top-level : Title, Description, UsageType, UUID, Versions,
             Variables, Version_InUse, TestCases
+            + Entity                     (single-call: the context entity)
 version   : Title, SystemPrompt, VersionNumber, UUID, VersionChangedDate,
             ToolChoice, Tools, MCPs, SingleMCPTools, Temperature, KnowledgeBases
+            + UserPrompt                 (single-call: the prompt template)
 tool      : Name, Description, Microflow, UserAccessApproval, IsEnabled, UUID
 ```
 
@@ -82,7 +96,8 @@ tool      : Name, Description, Microflow, UserAccessApproval, IsEnabled, UUID
 | tool `DisplayTitle` / `DisplayDescription` | present | **absent** from real exports |
 | `PromptOwner`, version `Description`, `VersionOwner` | present | **absent** from real exports |
 | `Version_InUse` | not mentioned | **required** — `{"UUID": "<a version UUID>"}` |
-| `Temperature` | not mentioned | present on the version |
+| `Temperature` | not mentioned | present on the version — and **optional**: leave it out. Claude Sonnet 5 on Mendix Cloud GenAI rejects it (400 `` `temperature` is deprecated for this model ``) and every call fails |
+| `Entity`, `UserPrompt` | not mentioned | single-call agents: `Entity` names a module entity, `UserPrompt` holds `{{Key}}` placeholders, `Variables` is `[{"Key": "<attribute>"}]` — one per placeholder |
 
 `Version_InUse.UUID` must match one of `Versions[].UUID`, or **nothing is active after
 import** — silently.
@@ -97,7 +112,8 @@ Enum values, verified against the model:
 was generated from*, which is not the format the importer accepts. Get a real export before
 generating one.
 
-→ `skills/agents-examples/agent-template.json`, `skills/agents-examples/catalog-copilot.agent.json`
+→ `skills/agents-examples/agent-template.json`, `skills/agents-examples/catalog-copilot.agent.json`,
+`skills/agents-examples/single-call.agent.json`
 
 ## Writing tools
 
@@ -191,6 +207,40 @@ enough to cost an afternoon.
 
 → `skills/agents-examples/agent-action.example.mdl`
 
+## Single-call agents — a microflow asks, no chat
+
+When the app asks the model one question and shows one answer (an advisor button, a
+summary, a "why" next to a number), use `UsageType: Single_Call` and no ConversationalUI:
+
+```
+create a non-persistent context object       (attributes named like the agent's Variables)
+  → AgentCommons.Agent_Call_WithoutHistory(Agent, OptionalContextObject, empty, empty)
+  → GenAICommons.Response_GetModelResponseString(Response)
+```
+
+The call resolves the version in use, fills the version's `UserPrompt` `{{Key}}`
+placeholders from the context object's attributes, and calls the model bound to that
+version. Three things the field run taught:
+
+- **Put the facts in the prompt, not the tools.** The app computes what is true (counts,
+  ids, statuses), passes it as one `Facts` variable with a source marker per line, and the
+  system prompt says "use ONLY the facts, keep the markers, say what is missing". No tools,
+  `ToolChoice: none`. Measured: 3/3 answers kept every number and marker; one ran a
+  sentence over the prompt's length limit.
+- **Every failure path returns false and the caller answers without the model**, and the
+  answer says which it is (`IsAIGenerated`, `IsStub`, a label). The call raising (a 400),
+  returning empty, and returning blank text are three different paths; all three happened
+  or were provoked in the field. The 400's body is only in the **runtime log**
+  (`MxGenAI Connector: Something went wrong while calling the chat completions API` with
+  the JSON after it); `mxcli run --watch`'s console never shows it.
+- **Test the two halves separately.** The model's wording varies per run, so the e2e
+  journey asserts the facts and markers any correct answer must hold plus
+  `IsAIGenerated = true` in the database — never the sentence. The fallback is
+  deterministic, so microflow tests pin its exact text, and in the test database (no agent
+  imported) the ask path must come back labelled as the fallback.
+
+→ `skills/agents-examples/single-call.example.mdl`, `skills/agents-examples/single-call.agent.json`
+
 ## Never commit a client export
 
 Real exports carry client-identifying content — system prompts naming the client, tool
@@ -204,6 +254,10 @@ before committing, or keep the export outside the repo. See `anonymize-client-ap
 - [ ] Provider values taken from a Studio-Pro-created document
 - [ ] Agent defined as JSON in the repo, not a seed microflow
 - [ ] `Version_InUse.UUID` matches a `Versions[].UUID`
+- [ ] No `Temperature` unless the bound model is known to accept it
+- [ ] Single-call: every `{{Key}}` in `UserPrompt` has a `Variables` entry and an attribute on `Entity`
+- [ ] `mxcli sync-java-deps` run after the install; Markdown viewer and Events widgets installed
+- [ ] The answer says whether the model or the fallback produced it
 - [ ] Every tool: scalar params, guarded, bounded, non-empty failure strings
 - [ ] Write tools: `UserConfirmationRequired` + audit record on every branch
 - [ ] Internal identifiers masked out of every tool return

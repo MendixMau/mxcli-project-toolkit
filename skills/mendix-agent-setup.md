@@ -9,13 +9,13 @@ exception, and the section below says exactly what the headless route omits.
 
 Completes the agent skill family: `skills/mendix-agents.md` builds the agent,
 `skills/mendix-agent-ui.md` embeds the chat panel, **this skill makes the runtime actually
-answer**. The agent import driver lives here, generalised:
+answer**. The two driver scripts live here, generalised:
+`skills/agents-examples/configure-genai.example.js` (keys) and
 `skills/agents-examples/import-agents.example.js` (agents, model binding, `REPLACE=1`). Copy
-it into the project's `tests/e2e/` next to the harness `helpers.js`, which does the login.
-It came from a private field project, whose feature branch also has `configure-genai.js`
-(keys), `test-agents.js` (chat-panel agents) and `.ai-context/skills/genai-configuration.md`;
-it was field-run again on 2026-10-06 in a second app: one single-call agent replaced and
-bound, then answering live.
+them into the project's `tests/e2e/` next to the harness `helpers.js`, which does the login.
+They came from a private field project (whose feature branch also has a `test-agents.js` for
+chat-panel agents) and were field-run again on 2026-10-06 in a second app: one text key,
+9 deployed models, one single-call agent replaced and bound, then answering live.
 
 ## Prerequisites — what you must be handed before starting
 

@@ -2969,6 +2969,14 @@ HTML_TAIL
   fi
 fi
 
+# The build plan page rides along with the board, under the same rule (only when this run is
+# allowed to write HTML). Before 2026-10-06 nothing but a hand-run --html refreshed it, so the
+# page a project wrote at Stage 4 never changed again. --refresh never touches a page that
+# build-plan-status.sh did not generate, and writes nothing when there is no build-plan.md.
+if [ "$WRITE_HTML" = "1" ] && [ -f "$TOOLKIT_DIR/project-bin/build-plan-status.sh" ]; then
+  bash "$TOOLKIT_DIR/project-bin/build-plan-status.sh" "$PROJECT_DIR" --refresh >/dev/null 2>&1 || true
+fi
+
 # ---------------------------------------------------------------------------
 # "## Current stage" in the register — a readout, never hand-advanced.
 #

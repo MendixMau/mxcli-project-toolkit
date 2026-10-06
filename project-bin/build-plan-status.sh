@@ -28,8 +28,13 @@
 # --html and --json outputs and never touches the .mpr.
 #
 # Usage:
-#   build-plan-status.sh [project-dir] [--html] [--json] [--quiet]
-#     --html    also write architecture/build-plan.html (self-contained, no external deps)
+#   build-plan-status.sh [project-dir] [--html] [--json] [--quiet] [--refresh]
+#     --html    also write architecture/build-plan.html (self-contained, no external deps): the
+#               plan itself (phases, rows, claims from build-plan.md, see "P." below) followed
+#               by views A and B
+#     --refresh the unattended form of --html, for exec.sh and gate-check.sh: quiet, writes only
+#               when build-plan.md exists, never over a build-plan.html this script did not
+#               write, and leaves the file untouched when nothing but the timestamp would change
 #     --json    also write architecture/build-plan.json, parsed from architecture/build-plan.md's
 #               Step-5 Phase headings, row tables and claims: blocks (see "C." below)
 #     --quiet   suppress the stdout table (useful when only --html/--json output is wanted)
@@ -46,9 +51,11 @@ shift 2>/dev/null || true
 WRITE_HTML=0
 WRITE_JSON=0
 QUIET=0
+REFRESH=0
 for a in "$@"; do
   case "$a" in
     --html)  WRITE_HTML=1 ;;
+    --refresh) WRITE_HTML=1; REFRESH=1; QUIET=1 ;;
     --json)  WRITE_JSON=1 ;;
     --quiet) QUIET=1 ;;
     *) echo "unknown arg: $a" >&2; exit 2 ;;
@@ -179,57 +186,7 @@ if [ "$QUIET" -eq 0 ]; then
   echo "  Staleness backstop for A: project-bin/done-drift-check.sh"
 fi
 
-# ── optional HTML render ─────────────────────────────────────────────────
-if [ "$WRITE_HTML" -eq 1 ]; then
-  OUT="$ROOT/architecture/build-plan.html"
-  mkdir -p "$ROOT/architecture"
-  {
-    echo '<!doctype html><html><head><meta charset="utf-8">'
-    echo '<title>Build Plan Status</title>'
-    echo '<style>
-body{font:14px/1.5 -apple-system,Segoe UI,sans-serif;margin:2rem;color:#1a1a1a;background:#fff}
-h1{font-size:1.3rem} h2{font-size:1.05rem;margin-top:2rem;border-bottom:1px solid #ddd;padding-bottom:.3rem}
-table{border-collapse:collapse;width:100%;margin-top:.5rem}
-th,td{text-align:left;padding:.4rem .6rem;border-bottom:1px solid #eee;font-size:.9rem}
-th{color:#666;font-weight:600}
-.done{color:#0a7d2c} .in-progress{color:#a66a00} .pending{color:#888}
-.CLEAN{color:#0a7d2c} .FINDINGS{color:#b3261e} .INCOMPLETE{color:#a66a00}
-.note{color:#666;font-size:.85rem;margin-top:1rem}
-</style></head><body>'
-    echo "<h1>Build Plan Status</h1><p class=note>Generated $STAMP by project-bin/build-plan-status.sh — regenerate after any phase status change, never hand-edit.</p>"
-
-    echo "<h2>A. Build-plan phase progress</h2>"
-    if [ "$PHASE_COUNT" -eq 0 ]; then
-      echo "<p>No phase folders found under <code>mdlsource/</code>.</p>"
-    else
-      echo "<table><tr><th>Phase</th><th>Done / Total</th><th>%</th><th>Status</th></tr>"
-      printf '%s' "$PHASE_ROWS" | while IFS=$'\t' read -r phase ratio pct status; do
-        [ -n "$phase" ] || continue
-        echo "<tr><td>$phase</td><td>$ratio</td><td>$pct</td><td class=\"$status\">$status</td></tr>"
-      done
-      echo "</table>"
-    fi
-
-    echo "<h2>B. Per-module test/review status</h2>"
-    if [ "$MODULE_COUNT" -eq 0 ]; then
-      echo "<p>No module directories found under <code>architecture/modules/</code>.</p>"
-    else
-      echo "<table><tr><th>Module</th><th>Briefed</th><th>Reviewed</th><th>Open findings</th></tr>"
-      printf '%s' "$MODULE_ROWS" | while IFS=$'\t' read -r module briefed reviewed findings; do
-        [ -n "$module" ] || continue
-        cls="pending"
-        case "$reviewed" in CLEAN*) cls=CLEAN ;; FINDINGS*) cls=FINDINGS ;; INCOMPLETE*) cls=INCOMPLETE ;; esac
-        echo "<tr><td>$module</td><td>$briefed</td><td class=\"$cls\">$reviewed</td><td>$findings</td></tr>"
-      done
-      echo "</table>"
-    fi
-    echo "<p class=note>A: built, from mdlsource/ done- prefixes. B: proven, from verify-module.sh + docs/improvement-register.md. A phase at 100% with no reviewed row in B is built, not proven.</p>"
-    echo '</body></html>'
-  } > "$OUT"
-  [ "$QUIET" -eq 0 ] && echo "" && echo "  wrote ${OUT#$ROOT/}"
-fi
-
-# ── C. optional JSON render, from build-plan.md itself ───────────────────
+# ── C. the plan itself, parsed from build-plan.md (--json, and --html's plan section) ──
 # Views A and B never read the plan's prose, by design (see A's comment). But the prose is
 # where the plan actually lives: brd-to-build-plan.md Step 5 writes one `### Phase N <dash> Name`
 # heading per phase, a row table (`# | Kind | Step | Produces/Proves | Depends on | Skills |
@@ -245,32 +202,24 @@ fi
 # contains a double quote, and an invalid file is worse than none, because the viewer shows
 # nothing while the file looks present. resolve_py follows exec.sh: sourced from _common.sh
 # when present, with a guarded fallback for projects whose _common.sh predates it.
-if [ "$WRITE_JSON" -eq 1 ]; then
-  JSON_OUT="$ROOT/architecture/build-plan.json"
-  if [ -f "$(dirname "${BASH_SOURCE[0]}")/_common.sh" ]; then
-    # shellcheck disable=SC1091
-    . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
-  fi
-  if ! type resolve_py >/dev/null 2>&1; then
-    resolve_py() {
-      _c=""
-      for _c in "${PYTHON:-}" python3 python py; do  # portability-ok: this IS the interpreter probe
-        [ -n "$_c" ] || continue
-        case "$(command -v "$_c" 2>/dev/null)" in *[Ww]indows[Aa]pps*) continue ;; esac
-        if "$_c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
-          echo "$_c"; return 0
-        fi
-      done
-      return 1
-    }
-  fi
-  PY="$(resolve_py || true)"
-  if [ ! -f "$BUILD_PLAN" ]; then
-    JSON_MSG="no architecture/build-plan.md, so build-plan.json was not written"
-  elif [ -z "$PY" ]; then
-    JSON_MSG="no working Python 3 found (tried python3, python, py), so build-plan.json was not written"  # portability-ok: names in a diagnostic
-  else
-    "$PY" - "$BUILD_PLAN" "$JSON_OUT" "$STAMP" <<'PYEOF'
+#
+# --html reads the same parse (P. below). This is the fix for the empty board: until 2026-10-06
+# the HTML was written from views A and B only, so a project whose plan was fully tabled but
+# whose build had not yet created mdlsource/<phase>/ folders got "No phase folders found" and
+# a column of "Briefed: no" — a page that looked broken at exactly the moment Stage 4 hands it
+# to the user. brd-to-build-plan.md Step 10 always said the tracker shows "the phases, their
+# numbered scripts, dependency order, and a per-phase/per-script status"; until the 2026-08-19
+# renderer the agent wrote that page by hand from the markdown, and the renderer that replaced
+# it never read the markdown.
+PLAN_JSON=""
+PLAN_MSG=""
+JSON_MSG=""
+TMP_JSON=""
+cleanup_tmp() { [ -n "$TMP_JSON" ] && rm -f "${TMP_JSON:?}"; }
+trap cleanup_tmp EXIT
+
+parse_plan() {  # $1 = output path. Exit 0 written, 3 no Phase headings, other = parse failure.
+  "$PY" - "$BUILD_PLAN" "$1" "$STAMP" <<'PYEOF'
 import json, re, sys
 
 src, out, stamp = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -433,34 +382,305 @@ with open(out, "w", encoding="utf-8") as f:
     json.dump(doc, f, indent=2, ensure_ascii=False)
     f.write("\n")
 PYEOF
+}
+
+if [ "$WRITE_JSON" -eq 1 ] || [ "$WRITE_HTML" -eq 1 ]; then
+  if [ -f "$(dirname "${BASH_SOURCE[0]}")/_common.sh" ]; then
+    # shellcheck disable=SC1091
+    . "$(dirname "${BASH_SOURCE[0]}")/_common.sh"
+  fi
+  if ! type resolve_py >/dev/null 2>&1; then
+    resolve_py() {
+      _c=""
+      for _c in "${PYTHON:-}" python3 python py; do  # portability-ok: this IS the interpreter probe
+        [ -n "$_c" ] || continue
+        case "$(command -v "$_c" 2>/dev/null)" in *[Ww]indows[Aa]pps*) continue ;; esac
+        if "$_c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+          echo "$_c"; return 0
+        fi
+      done
+      return 1
+    }
+  fi
+  PY="$(resolve_py || true)"
+  JSON_OUT="$ROOT/architecture/build-plan.json"
+  if [ ! -f "$BUILD_PLAN" ]; then
+    PLAN_MSG="no architecture/build-plan.md yet"
+    JSON_MSG="no architecture/build-plan.md, so build-plan.json was not written"
+  elif [ -z "$PY" ]; then
+    PLAN_MSG="no working Python 3 found (tried python3, python, py), which reading build-plan.md needs"  # portability-ok: names in a diagnostic
+    JSON_MSG="no working Python 3 found (tried python3, python, py), so build-plan.json was not written"  # portability-ok: names in a diagnostic
+  else
+    if [ "$WRITE_JSON" -eq 1 ]; then
+      PLAN_TARGET="$JSON_OUT"
+    else
+      # --html alone: parse into a scratch file, so an HTML-only run never leaves a JSON behind.
+      TMP_JSON="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/build-plan-status.$$.json")"
+      PLAN_TARGET="$TMP_JSON"
+    fi
+    parse_plan "$PLAN_TARGET"
     case $? in
-      0) JSON_MSG="wrote ${JSON_OUT#$ROOT/}"
-         # A producer guarantees its own output is ignored (snapshot-mpr.sh's rule). The JSON
-         # is a build product: regenerated on demand in under a second, derived entirely from
-         # build-plan.md. Committed, it would churn on most commits and, worse, sit stale in
-         # git after the markdown moved on, and a dashboard that is quietly out of date is
-         # what makes people stop trusting it. Written here rather than in init-project.sh so
-         # it reaches projects that already exist, on their first --json run.
-         if [ -d "$ROOT/.git" ] || [ -f "$ROOT/.git" ]; then
-           GI="$ROOT/.gitignore"
-           if ! { [ -f "$GI" ] && grep -qE '^/?architecture/build-plan\.json$' "$GI"; }; then
-             if {
-               if [ -f "$GI" ] && [ -s "$GI" ] && [ -n "$(tail -c 1 "$GI")" ]; then printf '\n'; fi
-               printf '# Build product of project-bin/build-plan-status.sh --json, derived from\n'
-               printf '# architecture/build-plan.md. Regenerate on demand; never commit a stale copy.\n'
-               printf '/architecture/build-plan.json\n'
-             } >> "$GI" 2>/dev/null; then
-               JSON_MSG="$JSON_MSG (added /architecture/build-plan.json to .gitignore: a build product, not committed)"
-             else
-               JSON_MSG="$JSON_MSG (WARN could not write .gitignore; add /architecture/build-plan.json to it yourself)"
+      0) PLAN_JSON="$PLAN_TARGET"
+         JSON_MSG="wrote ${JSON_OUT#$ROOT/}"
+         if [ "$WRITE_JSON" -eq 1 ]; then
+           # A producer guarantees its own output is ignored (snapshot-mpr.sh's rule). The JSON
+           # is a build product: regenerated on demand in under a second, derived entirely from
+           # build-plan.md. Committed, it would churn on most commits and, worse, sit stale in
+           # git after the markdown moved on, and a dashboard that is quietly out of date is
+           # what makes people stop trusting it. Written here rather than in init-project.sh so
+           # it reaches projects that already exist, on their first --json run.
+           if [ -d "$ROOT/.git" ] || [ -f "$ROOT/.git" ]; then
+             GI="$ROOT/.gitignore"
+             if ! { [ -f "$GI" ] && grep -qE '^/?architecture/build-plan\.json$' "$GI"; }; then
+               if {
+                 if [ -f "$GI" ] && [ -s "$GI" ] && [ -n "$(tail -c 1 "$GI")" ]; then printf '\n'; fi
+                 printf '# Build product of project-bin/build-plan-status.sh --json, derived from\n'
+                 printf '# architecture/build-plan.md. Regenerate on demand; never commit a stale copy.\n'
+                 printf '/architecture/build-plan.json\n'
+               } >> "$GI" 2>/dev/null; then
+                 JSON_MSG="$JSON_MSG (added /architecture/build-plan.json to .gitignore: a build product, not committed)"
+               else
+                 JSON_MSG="$JSON_MSG (WARN could not write .gitignore; add /architecture/build-plan.json to it yourself)"
+               fi
              fi
            fi
          fi ;;
-      3) JSON_MSG="no Phase headings in architecture/build-plan.md, so build-plan.json was not written" ;;
-      *) JSON_MSG="could not parse architecture/build-plan.md, so build-plan.json was not written" ;;
+      3) PLAN_MSG="build-plan.md has no Phase headings (brd-to-build-plan.md Step 5 format), so there is no row list to show"
+         JSON_MSG="no Phase headings in architecture/build-plan.md, so build-plan.json was not written" ;;
+      *) PLAN_MSG="could not parse architecture/build-plan.md"
+         JSON_MSG="could not parse architecture/build-plan.md, so build-plan.json was not written" ;;
     esac
   fi
-  [ "$QUIET" -eq 0 ] && echo "" && echo "  $JSON_MSG"
+  [ "$WRITE_JSON" -eq 1 ] && [ "$QUIET" -eq 0 ] && echo "" && echo "  $JSON_MSG"
+fi
+
+# ── HTML render ──────────────────────────────────────────────────────────
+# Order on the page: the plan (from build-plan.md via C's parse), then A (script folders, built),
+# then B (modules, proven). The plan is what a reader opens the page for; A and B sit beside it.
+#
+# Per plan row, the State cell is what the plan SAYS. The "Scripts" column is what the disk
+# SHOWS: every *.mdl / *.sql name written in the row's Step or Produces cell, looked up by file
+# name anywhere under mdlsource/ (flat or phase folders), with `…` / `...` inside a name read as
+# a wildcard because brd-to-build-plan.md's own examples abbreviate that way. `done-<name>` on
+# disk = passed its gate. No name, no lookup: this never guesses which script a prose row means
+# (A's rule, kept). When the two disagree (State says built and a named script is not done-, or
+# every named script is done- and State says not built) the cell says so: done-drift-check.sh's
+# question, asked per row.
+render_plan_section() {  # stdout: the plan section's HTML
+  if [ -z "$PLAN_JSON" ]; then
+    echo "<h2>The plan</h2><p class=empty>Nothing to show yet: ${PLAN_MSG:-build-plan.md was not read}.</p>"
+    return 0
+  fi
+  "$PY" - "$PLAN_JSON" "$MDLSOURCE" <<'PYEOF' || echo "<h2>The plan</h2><p class=empty>Could not render the plan section from build-plan.md.</p>"
+import fnmatch, html, json, os, re, sys
+
+src, mdl = sys.argv[1], sys.argv[2]
+d = json.load(open(src, encoding="utf-8"))
+e = lambda s: html.escape(s or "", quote=True)
+# `code` spans in plan cells render as <code>, not literal backticks
+ec = lambda s: re.sub(r"`([^`]+)`", r"<code>\1</code>", e(s))
+
+files = set()
+if os.path.isdir(mdl):
+    for _r, _ds, fs in os.walk(mdl):
+        for f in fs:
+            if f.endswith((".mdl", ".sql")):
+                files.add(f)
+
+SCRIPT = re.compile(r"[A-Za-z0-9_.\-*…]+\.(?:mdl|sql)\b")
+
+def named_scripts(*cells):
+    out = []
+    for cell in cells:
+        for m in SCRIPT.findall(cell or ""):
+            n = m[5:] if m.startswith("done-") else m
+            n = n.replace("…", "*").replace("...", "*")
+            if n.strip("*.").split(".")[0] and n not in out:
+                out.append(n)
+    return out
+
+def on_disk(pat):
+    if any(fnmatch.fnmatchcase(f, "done-" + pat) for f in files): return "done"
+    if any(fnmatch.fnmatchcase(f, pat) for f in files): return "written"
+    return "missing"
+
+def classify(state):  # the parser's rollup reading, per row
+    s = (state or "").lower()
+    if s.startswith("not built"): return "not built"
+    if s.startswith("built"): return "built"
+    if s.startswith("pending a person"): return "pending a person"
+    return None
+
+CLS = {"built": "st-built", "not built": "st-todo", "pending a person": "st-person",
+       "in progress": "st-progress", "unknown": "st-unknown", None: "st-unknown"}
+
+phases = d.get("phases", [])
+all_steps = [s for p in phases for s in p["steps"]]
+tally = {"built": 0, "not built": 0, "pending a person": 0, None: 0}
+for s in all_steps:
+    tally[classify(s["state"])] += 1
+named_total = named_done = drift_rows = 0
+rows_html = []
+for p in phases:
+    out = []
+    for s in p["steps"]:
+        names = named_scripts(s["step"], s["produces"])
+        k = classify(s["state"])
+        disk = ""
+        if names:
+            states = [on_disk(n) for n in names]
+            dn = states.count("done")
+            named_total += len(names); named_done += dn
+            drift = ""
+            if dn == len(names):
+                label, dcls = "done-", "st-built"
+                if k == "not built":
+                    drift = "every script it names is done-, but State still says not built"
+            elif dn or "written" in states:
+                label, dcls = "%d of %d done-" % (dn, len(names)), "st-progress"
+            else:
+                label, dcls = "not written yet", "st-todo"
+            if k == "built" and dn < len(names):
+                drift = "State says built, but not every script it names is done-"
+            title = "; ".join("%s: %s" % (n, st) for n, st in zip(names, states))
+            disk = '<span class="%s" title="%s">%s</span>' % (dcls, e(title), e(label))
+            if drift:
+                drift_rows += 1
+                disk += '<div class=drift>&#9888; %s</div>' % e(drift)
+        out.append('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td class="%s">%s</td><td>%s</td></tr>' % (
+            e(s["number"]), e(s["kind"]), ec(s["step"]), ec(s["produces"]),
+            e(", ".join(s["dependsOn"])), CLS[k], e(s["state"]), disk))
+    rows_html.append(out)
+
+plural = lambda n, w: "%d %s%s" % (n, w, "" if n == 1 else "s")
+print("<h2>The plan</h2>")
+print("<p class=lede>From <code>architecture/build-plan.md</code>: %s, %s: "
+      "<b class=st-built>%d built</b>, <b class=st-todo>%d not built</b>, <b class=st-person>%d pending a person</b>%s.</p>" % (
+      plural(len(phases), "phase"), plural(len(all_steps), "row"),
+      tally["built"], tally["not built"], tally["pending a person"],
+      (", <b class=st-unknown>%d with a State cell this page cannot read</b>" % tally[None]) if tally[None] else ""))
+if named_total:
+    print("<p class=note>Scripts named in the plan: %d, of which %d are renamed <code>done-</code> under <code>mdlsource/</code>.%s</p>" % (
+        named_total, named_done,
+        (" <span class=drift>&#9888; %s where the plan and the disk disagree.</span>" % plural(drift_rows, "row")) if drift_rows else ""))
+for p, out in zip(phases, rows_html):
+    print('<section class=phase><h3>Phase %s &mdash; %s <span class="badge %s">%s</span></h3>' % (
+        e(p["id"]), e(p["name"]), CLS.get(p["state"], "st-unknown"), e(p["state"])))
+    if p.get("note"):
+        print("<p class=note>%s</p>" % e(p["note"]))
+    if p["steps"]:
+        b = sum(1 for s in p["steps"] if classify(s["state"]) == "built")
+        print("<p class=note>%d of %s built</p>" % (b, plural(len(p["steps"]), "row")))
+        print("<div class=scroll><table><tr><th>#</th><th>Kind</th><th>Step</th><th>Produces / Proves</th>"
+              "<th>Depends on</th><th>State</th><th>Scripts</th></tr>")
+        print("\n".join(out))
+        print("</table></div>")
+    else:
+        print("<p class=empty>No row table under this phase.</p>")
+    if p.get("claims"):
+        print("<details><summary>Claims (%d)</summary><ul class=claims>" % len(p["claims"]))
+        for c in p["claims"]:
+            extra = (" (%d)" % c["count"] if c.get("count") is not None else "") + (" [%s]" % c["brd"] if c.get("brd") else "")
+            print("<li><code>%s</code>%s</li>" % (e(c["pointer"]), e(extra)))
+        print("</ul></details>")
+    elif p.get("claimsNote"):
+        print("<p class=note>Claims: %s</p>" % e(p["claimsNote"]))
+    print("</section>")
+w = d.get("warnings") or []
+if w:
+    print("<details class=warn><summary>Parser notes (%d): lines in build-plan.md this page could not read as plan data</summary><ul>" % len(w))
+    for x in w:
+        print("<li>%s</li>" % e(x))
+    print("</ul></details>")
+PYEOF
+}
+
+if [ "$WRITE_HTML" -eq 1 ]; then
+  OUT="$ROOT/architecture/build-plan.html"
+  SKIP_HTML=""
+  if [ "$REFRESH" -eq 1 ]; then
+    # Unattended callers (exec.sh, gate-check.sh) get gate-check.sh's index.html rules: no plan,
+    # no page; and never over a page this script did not write (before 2026-08-19 agents wrote
+    # this file by hand, and a project may still carry one). Every render from this script names
+    # it in the stamp line, so older renders are recognised and adopted.
+    if [ ! -f "$BUILD_PLAN" ]; then
+      SKIP_HTML="no build-plan.md"
+    elif [ -f "$OUT" ] && ! grep -qF 'build-plan-status.sh' "$OUT"; then
+      SKIP_HTML="architecture/build-plan.html was not written by this script"
+    fi
+  fi
+  if [ -n "$SKIP_HTML" ]; then
+    [ "$QUIET" -eq 0 ] && echo "" && echo "  build-plan.html not written: $SKIP_HTML"
+  else
+    mkdir -p "$ROOT/architecture"
+    OUT_TMP="$OUT.tmp.$$"
+    {
+      echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+      echo '<!-- generated-by: mxcli-project-toolkit/project-bin/build-plan-status.sh -->'
+      echo '<title>Build Plan</title>'
+      echo '<style>
+:root{--ink:#1c1f24;--muted:#646b75;--line:#e3e6ea;--bg:#fff;--ok:#0a7d2c;--warn:#a66a00;--bad:#b3261e;--person:#6a3fb5}
+@media (prefers-color-scheme:dark){:root{--ink:#e6e8eb;--muted:#9aa1ab;--line:#2f343b;--bg:#16181c;--ok:#5cc27a;--warn:#e0a640;--bad:#f07167;--person:#b49af0}}
+body{font:14px/1.5 -apple-system,Segoe UI,sans-serif;margin:0;padding:2rem 16px;color:var(--ink);background:var(--bg)}
+main{max-width:1200px;margin:0 auto}
+h1{font-size:1.35rem;margin:0} h2{font-size:1.1rem;margin-top:2.2rem;border-bottom:1px solid var(--line);padding-bottom:.3rem}
+h3{font-size:1rem;margin:1.6rem 0 .2rem}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;margin-top:.5rem}
+th,td{text-align:left;vertical-align:top;padding:.4rem .6rem;border-bottom:1px solid var(--line);font-size:.88rem}
+th{color:var(--muted);font-weight:600;white-space:nowrap}
+code{font-size:.85em}
+.badge{font-size:.75rem;font-weight:600;padding:.1rem .5rem;border:1px solid currentColor;border-radius:999px;margin-left:.4rem;vertical-align:middle}
+.st-built,.done,.CLEAN{color:var(--ok)} .st-progress,.in-progress,.INCOMPLETE{color:var(--warn)}
+.st-todo,.pending{color:var(--muted)} .st-person{color:var(--person)} .st-unknown{color:var(--muted);font-style:italic}
+.FINDINGS,.drift{color:var(--bad)} .drift{font-size:.8rem;margin-top:.15rem}
+.note,.empty{color:var(--muted);font-size:.85rem} .lede{font-size:.95rem}
+details{margin:.5rem 0} summary{cursor:pointer;color:var(--muted);font-size:.85rem}
+.claims{font-size:.82rem} .warn summary{color:var(--warn)}
+</style></head><body><main>'
+      echo "<h1>Build Plan</h1><p class=note id=stamp>Generated $STAMP by project-bin/build-plan-status.sh from architecture/build-plan.md, mdlsource/ and the module review files. exec.sh and gate-check.sh regenerate it; never hand-edit.</p>"
+
+      render_plan_section
+
+      echo "<h2>A. Script folders: how much is built</h2>"
+      if [ "$PHASE_COUNT" -eq 0 ]; then
+        echo "<p class=empty>No phase folders under <code>mdlsource/</code> yet. They appear as the build starts, one folder per phase (brd-to-build-plan.md); until then the plan above is the whole picture.</p>"
+      else
+        echo "<div class=scroll><table><tr><th>Phase folder</th><th>Done / Total</th><th>%</th><th>Status</th></tr>"
+        printf '%s' "$PHASE_ROWS" | while IFS=$'\t' read -r phase ratio pct status; do
+          [ -n "$phase" ] || continue
+          echo "<tr><td>$phase</td><td>$ratio</td><td>$pct</td><td class=\"$status\">$status</td></tr>"
+        done
+        echo "</table></div>"
+      fi
+
+      echo "<h2>B. Modules: how much is proven</h2>"
+      if [ "$MODULE_COUNT" -eq 0 ]; then
+        echo "<p class=empty>No module directories under <code>architecture/modules/</code> yet.</p>"
+      else
+        echo "<p class=note>Briefs are written one module at a time, as that module's build starts (module-brief.md), so \"no\" before then is expected.</p>"
+        echo "<div class=scroll><table><tr><th>Module</th><th>Briefed</th><th>Reviewed</th><th>Open findings</th></tr>"
+        printf '%s' "$MODULE_ROWS" | while IFS=$'\t' read -r module briefed reviewed findings; do
+          [ -n "$module" ] || continue
+          cls="pending"
+          case "$reviewed" in CLEAN*) cls=CLEAN ;; FINDINGS*) cls=FINDINGS ;; INCOMPLETE*) cls=INCOMPLETE ;; esac
+          echo "<tr><td>$module</td><td>$briefed</td><td class=\"$cls\">$reviewed</td><td>$findings</td></tr>"
+        done
+        echo "</table></div>"
+      fi
+      echo "<p class=note>The plan: what build-plan.md says. A: built, from mdlsource/ done- prefixes. B: proven, from verify-module.sh + docs/improvement-register.md. A phase at 100% with no reviewed row in B is built, not proven.</p>"
+      echo '</main></body></html>'
+    } > "$OUT_TMP"
+    # Two renders of the same state differ only in the stamp line. A refresh that changed nothing
+    # leaves the file alone, or every exec.sh run would dirty the working tree.
+    if [ "$REFRESH" -eq 1 ] && [ -f "$OUT" ] \
+       && [ "$(grep -v 'id=stamp' "$OUT")" = "$(grep -v 'id=stamp' "$OUT_TMP")" ]; then
+      rm -f "${OUT_TMP:?}"
+    else
+      mv -f "$OUT_TMP" "$OUT"
+    fi
+    [ "$QUIET" -eq 0 ] && echo "" && echo "  wrote ${OUT#$ROOT/}"
+  fi
 fi
 
 exit 0

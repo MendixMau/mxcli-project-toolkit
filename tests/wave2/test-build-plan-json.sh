@@ -33,6 +33,12 @@
 #       requires a leading `#`), so a plan carrying only that shape is the same as a plan with
 #       none: no file, exit 0, "no Phase headings" on stdout. Pinned because Step 5's own
 #       worked example used to be exactly this shape until this PR fixed it to real headings.
+#   T10 --html shows the plan itself, not only the mdlsource/ folder counts (2026-10-06: a
+#       requirements-driven project's page showed two empty sections while build-plan.md held 6
+#       phases): phase names and row steps appear, no build-plan.json is left behind without
+#       --json, a `done-` script reads done-, and a row whose State says built while its script
+#       is not done- is flagged. --refresh leaves an unchanged page byte-identical, never writes
+#       over a page this script did not generate, and writes nothing without a build-plan.md.
 #
 # Usage: bash tests/wave2/test-build-plan-json.sh /path/to/build-plan-status.sh
 
@@ -315,6 +321,49 @@ OUT9="$(bash "$SCRIPT" "$P9" --json 2>&1)"; RC9=$?
 [ "$RC9" -eq 0 ] && ok "T9 fenced plain-text phases: exit 0" || bad "T9 rc=$RC9" "$OUT9"
 [ ! -f "$P9/architecture/build-plan.json" ] && ok "T9 fenced plain-text phases: no file written" || bad "T9 a file was written for fenced plain-text phase labels" "$(cat "$P9/architecture/build-plan.json")"
 case "$OUT9" in *"no Phase headings"*) ok "T9 stdout says why nothing was written" ;; *) bad "T9 stdout silent about the missing file" "$OUT9" ;; esac
+
+# ── T10: the page shows the plan; --refresh is safe to run unattended ──
+P10="$(new_project htmlplan)"
+mkdir -p "$P10/mdlsource"
+cat > "$P10/architecture/build-plan.md" <<'MD'
+# Build Plan
+
+### Phase 1 — App Scaffold
+
+| # | Kind | Step | Produces/Proves | Depends on | Skills | State |
+|---|---|---|---|---|---|---|
+| 1.1 | script | `01-app-scaffold.mdl` | modules, roles | — | — | built |
+| 1.2 | script | `02-enums.mdl` | enumerations | 1.1 | — | built |
+
+### Phase 2 — Orders
+
+| # | Kind | Step | Produces/Proves | Depends on | Skills | State |
+|---|---|---|---|---|---|---|
+| 2.1 | script | `10-orders-domain.mdl` | Order entity | 1.1 | — | not built |
+MD
+: > "$P10/mdlsource/done-01-app-scaffold.mdl"
+: > "$P10/mdlsource/02-enums.mdl"
+H10="$P10/architecture/build-plan.html"
+OUT10="$(bash "$SCRIPT" "$P10" --html --quiet 2>&1)"; RC10=$?
+[ "$RC10" -eq 0 ] && [ -f "$H10" ] && ok "T10 --html writes the page" || bad "T10 rc=$RC10" "$OUT10"
+grep -q 'App Scaffold' "$H10" 2>/dev/null && grep -q 'Orders' "$H10" && grep -q '10-orders-domain.mdl' "$H10" \
+  && ok "T10 page shows phase names and row steps from build-plan.md" || bad "T10 plan rows missing from the page"
+[ ! -f "$P10/architecture/build-plan.json" ] && ok "T10 --html alone leaves no build-plan.json" || bad "T10 build-plan.json written without --json"
+grep -qF 'title="01-app-scaffold.mdl: done">done-<' "$H10" 2>/dev/null && ok "T10 a done- script reads done-" || bad "T10 done- script not shown as done-"
+grep -q 'State says built, but not every script it names is done-' "$H10" 2>/dev/null \
+  && ok "T10 a built row whose script is not done- is flagged" || bad "T10 State/disk drift not flagged"
+SUM_A="$(cksum < "$H10")"
+bash "$SCRIPT" "$P10" --refresh >/dev/null 2>&1
+[ "$(cksum < "$H10")" = "$SUM_A" ] && ok "T10 --refresh leaves an unchanged page byte-identical" || bad "T10 --refresh rewrote a page whose content did not change"
+mv "$P10/mdlsource/02-enums.mdl" "$P10/mdlsource/done-02-enums.mdl"
+bash "$SCRIPT" "$P10" --refresh >/dev/null 2>&1
+grep -q 'State says built, but not every script' "$H10" && bad "T10 --refresh did not pick up a done- rename" || ok "T10 --refresh picks up a done- rename"
+printf '<html>written by hand</html>\n' > "$H10"
+bash "$SCRIPT" "$P10" --refresh >/dev/null 2>&1
+[ "$(cat "$H10")" = "<html>written by hand</html>" ] && ok "T10 --refresh never overwrites a page it did not generate" || bad "T10 --refresh overwrote a foreign page"
+P10B="$(new_project htmlnoplan)"
+bash "$SCRIPT" "$P10B" --refresh >/dev/null 2>&1
+[ ! -f "$P10B/architecture/build-plan.html" ] && ok "T10 --refresh writes nothing without build-plan.md" || bad "T10 --refresh wrote a page with no plan"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"

@@ -1090,6 +1090,15 @@ if [ "$PATCH_MODE" = 0 ] && [ -f "$(dirname "$0")/look-ledger.sh" ]; then
   bash "$(dirname "$0")/look-ledger.sh" owe "$SCRIPT" || true
 fi
 
+# ── Build plan page ──────────────────────────────────────────────────────────
+# Refresh architecture/build-plan.html so it tracks the build without anyone remembering to
+# (its only trigger used to be iterative-build-loop.md step 16, so a page written at Stage 4
+# stayed empty for the whole build). --refresh is quiet, writes only over a page that script
+# generated, and leaves the file alone when nothing but the timestamp would change.
+if [ -f "$(dirname "$0")/build-plan-status.sh" ]; then
+  bash "$(dirname "$0")/build-plan-status.sh" "$PROJECT_ROOT" --refresh >/dev/null 2>&1 || true
+fi
+
 if [ "$GATE_STATE" != "pass" ]; then
   echo ""
   echo "⚠️  Script applied to $MPR_BASE, but THE GATE DID NOT RUN ($GATE_STATE)."

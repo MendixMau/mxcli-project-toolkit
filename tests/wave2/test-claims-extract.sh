@@ -191,6 +191,20 @@ else
   bad "synthetic: no diagnostics — every synthetic line parsed" "$SYN_DIAG_N"
 fi
 
+# Inline BRD-prefixed claims, several per line (#209). SYNTHETIC, but the line SHAPE is the one a
+# requirements-driven field build (2026-10-05) wrote on every row of its plan — the inline rule
+# only fired on a leading "/", so 136 such pointers there were silently unread.
+SYN2="$TMP/synthetic-inline.md"
+# The separator is a UTF-8 middle dot, written as octal escapes in printf's FORMAT (portable to
+# BSD and GNU printf alike) so no non-ASCII byte sits in this file's source.
+printf '# SYNTHETIC fixture - hand-written, not a real build plan.\n\n| 1 | BUILD | one row |\nclaims: F001/useCases/* \302\267 F001/pages/* (4) \302\267 F002/summary\n\n| 2 | BUILD | prose note stays one pointer |\nclaims: F003/domainEntities/Account (Administration, not here)\n' > "$SYN2"
+SYN2_OUT="$(mxtk_extract_claims_tsv "$SYN2" 2>/dev/null | cut -f5,6,7 | tr '\t\n' ' |')"
+if [ "$SYN2_OUT" = "F001/useCases/* - F001|F001/pages/* 4 F001|F002/summary - F002|F003/domainEntities/Account - F003|" ]; then
+  ok "synthetic: inline prefixed line splits into 3 pointers, counts kept per pointer; a prose note does not split"
+else
+  bad "synthetic: inline prefixed multi-pointer line" "$SYN2_OUT"
+fi
+
 echo ""
 TOTAL=$((PASS + FAIL))
 echo "SCORE: $PASS/$TOTAL"

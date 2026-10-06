@@ -39,6 +39,13 @@
 #     column (older, undocumented convention; kept for compatibility, not the primary form).
 #   - `A..B` ranges, e.g. `F001/businessRules/BR001..BR004` — passed through as ONE literal
 #     pointer. This script does not expand ranges; that is `expand_claims`'s job too, unchanged.
+#   - several pointers on ONE line, split by a separator token that has no letters or digits:
+#     `claims: F001/useCases/* · F001/pages/* (4)` -> two pointers, each keeping its own count.
+#     Split only when every token is a pointer, a `(N)`/`[..]` annotation, or a separator;
+#     anything else (a prose note in parens) falls back to the one-pointer reading above.
+#     Real case (#209): a requirements-driven field build, 2026-10-05, wrote every row of its
+#     plan as an inline `claims: F001/x/* · F001/y/*` line. The inline rule only fired on a
+#     leading `/`, so all of them were silently unread.
 #
 # A line that is prose, not a pointer (a stray fit-gap reference, a Stage-0 gate name with no
 # path shape) is never silently folded into "the row" or dropped: it is reported on stderr as
@@ -98,6 +105,24 @@ mxtk_extract_claims_tsv() {
       seen++
     }
 
+    # One claims line -> one or more pointers (see the header). Tokens are split on blanks; no
+    # non-ASCII appears in any regex here, a separator is simply a token with no [A-Za-z0-9].
+    function emit_line(raw,   n, i, t, toks, g, ng, nsep, ok) {
+      n = split(trim(raw), toks, /[ \t]+/); ng = 0; nsep = 0; ok = 1
+      for (i = 1; i <= n; i++) {
+        t = toks[i]
+        if (t !~ /[A-Za-z0-9]/) { nsep++; continue }
+        if (t ~ /^\([0-9]+\)$/ || t ~ /^\[[^]]+\]$/) {
+          if (ng == 0) { ok = 0; break }
+          g[ng] = g[ng] " " t; continue
+        }
+        if (looks_like_pointer(t)) { g[++ng] = t; continue }
+        ok = 0; break
+      }
+      if (ok && ng >= 2 && nsep >= 1) { for (i = 1; i <= ng; i++) emit(g[i]); return }
+      emit(raw)
+    }
+
     function closeblock() {
       if (inblock && seen == 0) print "claims-block-empty\t" FILENAME "\t" bstart "\t" phase "\t" row > "/dev/stderr"
       inblock = 0; fence = 0; pend = 0
@@ -135,10 +160,10 @@ mxtk_extract_claims_tsv() {
       if (genfence) { fence = 1; form = "fenced"; pend = 0 } else { fence = 0; form = "note"; pend = 1 }
       next
     }
-    /^[ \t]*claims:[ \t]*\// {
+    /^[ \t]*claims:[ \t]*[A-Za-z0-9_.:-]*\// {
       closeblock(); line = $0; sub(/^[ \t]*claims:[ \t]*/, "", line)
       inblock = 1; fence = 0; form = "inline"; seen = 0; bstart = FNR
-      emit(line); pend = 0; next
+      emit_line(line); pend = 0; next
     }
 
     {
@@ -152,10 +177,10 @@ mxtk_extract_claims_tsv() {
       # decision resolves to "no fence" and this line is just the first content line of the block.
       if (inblock && pend) { pend = 0 }
 
-      if (inblock && fence) { if (trim($0) != "") emit($0); next }
+      if (inblock && fence) { if (trim($0) != "") emit_line($0); next }
 
       if (inblock) {
-        if ($0 ~ /^[ \t]+[^ \t]/) { emit($0); next }
+        if ($0 ~ /^[ \t]+[^ \t]/) { emit_line($0); next }
         closeblock()
       }
 

@@ -69,6 +69,12 @@ decorative.
 One journey = a persona walking a path with carried state. Not a list of page stops. Per step, in
 this order — the ordering matters, because each rung is only meaningful if the one above held.
 
+**The persona is the signed-in user.** A journey's `persona` must equal the `TEST_USER` the run
+signs in as; the runner records a mismatched journey `INVALID` and does not walk it. A cross-role
+claim ("Reviewer may approve, Requester may not") is one journey file per role, each run under
+its own `TEST_USER` — never one run as admin, which bypasses the grants the journey exists to
+prove. (#149: a journey declaring a non-admin persona walked green under the admin user.)
+
 | # | Rung | Asserts | Why it is not covered by the rung above |
 |---|---|---|---|
 | 1 | **Landing guard** | the step's `ready` widget is visible | Without it, every later assertion runs against the *previous* page and screenshots it under the new page's title |

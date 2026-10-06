@@ -43,8 +43,18 @@ visits it.
    URL — an overlay or stray toggle that swallows clicks silently is exactly the kind of bug a
    direct-URL load skips past. `mxcli playwright open` / `status` to confirm the session is live.
 2. `playwright-cli snapshot` — every interactive element on the page comes back with a ref (`e12`,
-   `e15`, ...), role, and accessible name. This is the enumeration, and it is exhaustive by
-   construction: nothing is skipped because an eye wandered past it.
+   `e15`, ...), role, and accessible name. This is the enumeration of what the DOM shows *now*.
+   **It is not exhaustive on its own:** a widget behind a `Visible:` expression is absent from the
+   DOM unless its condition holds at sweep time, so a DOM-only list shrinks the denominator
+   silently — "N of N" over a smaller N.
+   **So also enumerate from the page script.** `./mxcli -p <app>.mpr -c "describe page <Module>.<Page>"`
+   (or the page's `.mdl`) and list every clickable widget that carries a `Visible:` or `Editable:`
+   condition. Each one is either swept under a state that satisfies the condition (put a row in
+   that state, then sweep), or carried as **UNREACHED** with its condition shown. The denominator is the
+   DOM's count plus every conditional widget the DOM did not show — never the DOM's count alone.
+   (#156, 2026-09-26: a 3-grid console page enumerated 48 from the DOM; its `Visible: [Active]`
+   row action was missing because no row was active. Swept after activating one: 1 of 1 PASS. The
+   honest denominator was 49.)
 3. For each ref that is a clickable affordance — button, link, breadcrumb crumb, nav/menu item,
    tab; **not** a plain text input, that's `monkey-test.md`'s job:
    a. Record the pre-click baseline: current URL, a snapshot (for a DOM diff), and start watching
@@ -70,7 +80,9 @@ visits it.
 | A network request fired (microflow call, datasource refetch) | PASS | wired, even before confirming the UI reflects it yet |
 | Nothing observable at all — no URL/DOM/network/console change | **FAIL** | the exact defect this pass exists to catch |
 | An exception or error page appeared | **FAIL** | wired to something that breaks — worse than unwired, don't downgrade it |
-| Element present in the snapshot but not actually interactable (disabled, zero-size, covered by an overlay) | **FAIL**, distinct reason | log the reason; an overlay swallowing a click is the direct-URL trap in procedure step 1, caught here mechanically instead of by luck |
+| Disabled, and the widget's own state explains it — a Data grid 2 pager when every row fits on one page; save on an unchanged form | **N/A (by design)** | counted in the denominator, with the explaining state recorded (`pager: 3 rows, page size 20`). Not a FAIL, and not a per-project excuse |
+| Element present in the snapshot but not actually interactable (disabled with no such explanation, zero-size, covered by an overlay) | **FAIL**, distinct reason | log the reason; an overlay swallowing a click is the direct-URL trap in procedure step 1, caught here mechanically instead of by luck |
+| A conditional widget (`Visible:`/`Editable:`) the sweep never saw satisfied | **UNREACHED** | counted in the denominator with its condition shown; never dropped from it, never read as a pass |
 | Instrument absent / snapshot didn't return the element / session not live | **FAULT** | absence is never a pass — same discipline as `monkey-test.md`'s fourth row |
 
 **A PASS on "network request fired" is narrower than it looks.** It proves a wire exists, not
@@ -95,8 +107,9 @@ wire at all** — and a PASS here must never be cited as proving more than that.
 Fold into `module-review.md`'s stage-3 PROVE report as a WIRING rung, next to UI/Data/monkey:
 
 ```
-wiring · <module> · <N> of <N> interactive elements swept, <P> pages
-  <F> failed (no observable effect), <E> error-on-click, <P> passed
+wiring · <module> · <S> of <N> interactive elements swept, <P> pages   (N = DOM + unshown conditional)
+  <F> failed (no observable effect), <E> error-on-click, <P> passed,
+  <D> N/A by design (state recorded), <U> unreached (condition shown)
   Read as: these elements are wired to something. Not that the something is correct.
 ```
 

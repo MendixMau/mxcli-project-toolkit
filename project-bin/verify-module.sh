@@ -398,6 +398,30 @@ else
         "Without it the app port is a guess, so no runtime instrument below can be trusted."
 fi
 
+# ── 0b. Catalog freshness — refresh a catalog the .mpr has outrun, BEFORE §1 reads it ───────
+# `mxcli test … --attach` rewrites the .mpr even when it leaves the model as it found it, so
+# "seed with test --attach, then verify the module" — the obvious order — always left the
+# graph sweep reading a catalog older than the .mpr: FAULT "catalog is stale", run INCOMPLETE,
+# no model defect behind it (#153; card-disbursement build, 2026-09-26: 0 of 666 Unit rows
+# differed). The remedy the FAULT names is REFRESH CATALOG FULL (~6s), so run it here, before
+# the parallel instruments start and so while nothing in this run holds the catalog. When it
+# cannot run (no ./mxcli, refresh fails) nothing changes: graph-sweep's own freshness guard
+# still FAULTs on the stale catalog, which is the right verdict for a graph nobody rebuilt.
+_vm_mpr="$(find_mpr 2>/dev/null)" || _vm_mpr=""
+_vm_db="$(dirname "${_vm_mpr:-.}")/.mxcli/catalog.db"
+if [ -n "$_vm_mpr" ] && [ -f "$_vm_db" ] && [ "$_vm_mpr" -nt "$_vm_db" ]; then
+  if _vm_mx="$(find_project_mxcli)"; then
+    printf '\n\033[1m▶ catalog older than the .mpr — REFRESH CATALOG FULL\033[0m\n'
+    if "$_vm_mx" -p "$_vm_mpr" -c 'REFRESH CATALOG FULL' > "$OUTDIR/09-catalog-refresh.log" 2>&1; then
+      echo "  refreshed (log: $OUTDIR/09-catalog-refresh.log)"
+    else
+      c_warn "  ! catalog refresh failed"; echo " — the graph sweep will FAULT on the stale catalog (log: $OUTDIR/09-catalog-refresh.log)"
+    fi
+  else
+    c_warn "  ! catalog older than the .mpr and no ./mxcli to refresh it"; echo " — the graph sweep will FAULT"
+  fi
+fi
+
 # ── 1. Model-side instruments (no app required) ─────────────────────────────
 # These three share no state and touch no app, so they always run in parallel — unlike the
 # runtime instruments in §2 there is nothing here to race on and no login session to spend, so

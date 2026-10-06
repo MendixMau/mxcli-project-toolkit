@@ -6785,3 +6785,69 @@ skeleton was skipped — run it, then close modules: look 0/7") instead of "befo
 Ready-check gains a line that the brief names its close (`verify-module.sh` + LOOK) so the brief's own checklist
 carries the done-definition it states at line 295; (d) the exec/close-task hook, on the first exec after a module's
 last build-plan row, owes "module close: verify-module + LOOK" the way it owes a BUILD-LOG row.
+
+## BUG-DRAFT-v024-page-setting-false-warnings: on v0.24.0, 8 page settings are refused or dropped, and 3 of the refusals are false — the value was stored (2026-09-29)
+
+> **Status:** reported by a field comparison build (mxcli + toolkit vs a Studio Pro MCP build, same
+> frozen spec, 2026-09-29; #165, #168). **Not re-probed here.** The silent-drop half is BUG-117's
+> root cause; the gallery-filter and `DateFormat` items are already covered (the gallery-filter
+> entry near the top of this file; `customDateFormat` under "Harness gaps" §12). What is new is the
+> **false warnings**: 3 of the 8 warnings fired on values that were in the unit afterwards, so the
+> reader cannot trust a warning in either direction. The report does not record which 3.
+
+**mxcli version:** v0.24.0. **Severity:** Medium — each false warning cost a probe; ~190 of the run's 301 excluded minutes were mxcli diagnosis and fixes.
+
+**The 8 settings:** linked gallery filters; gallery onClick; date picker DateFormat; group digits;
+native Required (MDL-WIDGET07, then dropped); combobox caption expression / `emptyOptionText`
+(MDL-WIDGET06 "recognized but not persisted"); delete confirmation + role visibility; uploader max files.
+
+**Expected:** a value that is stored raises no warning; a value that is dropped fails the write.
+
+**Actual:** some dropped values pass silently, and some stored values warn.
+
+**Workaround:** after every page write, read the setting back (`describe page`, or the unit's BSON)
+before believing either the warning or its absence. Re-probe each of the 8 on the current release
+before filing; record which warnings were false.
+
+## BUG-DRAFT-pluggable-file-property-unwritable: a pluggable widget's `type="file"` property (Document Viewer) cannot be written — MDL-WIDGET06, then CE0642 at mxbuild (2026-09-29)
+
+> **Status:** reported by the same field comparison build (#168). **Not re-probed here.** A fix sits
+> on a fork branch (`fix/widget-file-property`); no upstream PR was found.
+
+**mxcli version:** v0.24.0. **Severity:** High — the widget cannot be configured from MDL at all, and the build then fails.
+
+**Expected:** the file property takes a value and the widget builds.
+
+**Actual:** the write raises MDL-WIDGET06 and stores nothing; mxbuild then fails with CE0642
+"Document is required". The Studio Pro MCP build hit the same gap.
+
+**Workaround:** remove the widget and re-add it in Studio Pro, then set the file there.
+
+## BUG-DRAFT-index-on-createddate: `index on createdDate` fails — "attribute createdDate not found for index" (2026-09-29)
+
+> **Status:** reported by the same field comparison build (#168). **Not re-probed here.** Related:
+> the `sort by createdDate` CE1613 note above ("C."), which is a different cause (system date
+> storage off on the entity).
+
+**mxcli version:** v0.24.0. **Severity:** Low.
+
+**Expected:** an index on a stored system attribute (`createdDate`, `changedDate`) can be declared.
+
+**Actual:** "attribute createdDate not found for index" — the system attribute is not addressable from the index clause.
+
+**Workaround:** add the index in Studio Pro, or index a user attribute that carries the same date.
+
+## BUG-DRAFT-describe-replay-ce1613: replaying `describe page` output passes `mxcli check` and fails `mx check` with CE1613 (2026-09-29)
+
+> **Status:** reported by the same field comparison build (#168). **Not re-probed here.** Same
+> family as BUG-23 and BUG-142 (a caption/content parameter stored as an attribute path).
+
+**mxcli version:** v0.24.0. **Severity:** Medium — round-trip is not lossless, and `mxcli check` does not catch it.
+
+**Expected:** `describe` output, replayed, builds the same page.
+
+**Actual:** `describe` prints a caption attribute as a bare `FullName`; replaying that output
+passes `mxcli check`, and `mx check` then fails with CE1613.
+
+**Workaround:** never treat `describe` output as a source to replay without an `mx check`; qualify
+the caption parameter (as BUG-23 / BUG-142 describe) before re-executing.

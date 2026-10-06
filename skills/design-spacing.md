@@ -60,6 +60,11 @@ must follow the content hierarchy, strictly increasing outward:
 | **Between sections (card → card, grid → next region)** | **24px** | **`spacing-outer-bottom-large` on every section container — this is the one that is consistently missing** |
 | Page padding (content vs viewport/layout edges) | 24px | the layout's `-layout` spacing; do not double it with an extra wrapper |
 
+These three `spacing-outer-bottom*` classes are the only raw spacing classes this skill
+prescribes, and `design-audit.js` rung 7 exempts exactly them (#152) — any other hand-written
+`spacing-*` class still fails there as a duplicate of the **Spacing** design property. Adding a
+class to this table means adding it to `SKILL_PRESCRIBED` in that file, in the same commit.
+
 Three rules that follow from it:
 
 - **A new section never starts at 0px from the previous one.** Every top-level section

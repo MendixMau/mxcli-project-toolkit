@@ -29,7 +29,7 @@
 //
 // Usage (copy next to the harness helpers.js; TEST_USER needs AgentCommons.AgentAdmin):
 //   node tests/e2e/import-agents.js [outDir] [file.agent.json ...]
-//   AGENT_MODEL='<caption>'   pick that model in dialog 2 instead of the first
+//   AGENT_MODEL='<caption>'   pick that model in dialog 2 instead of the first (unset: first option, with a WARN)
 //   REPLACE=1                 delete the agent with the same Title first (row menu > Delete), so an
 //                             edited JSON actually lands. Without it a changed file is silently ignored
 //                             (the import matches on UUID and keeps the old object). Dev data only.
@@ -238,6 +238,12 @@ async function chooseModel(page, want) {
         rec.modelOptions = options;
         rec.modelPicked = picked;
         console.log('   model options:', options === null ? '(combobox not found)' : JSON.stringify(options));
+        console.log('   model picked:', picked || '(none)');
+        // Measured 2026-10-06: a re-import without AGENT_MODEL bound the first option (Haiku 4.5) instead of the
+        // model the agent was built for, and nothing said so. With more than one option, say it loudly.
+        if (!WANT_MODEL && Array.isArray(options) && options.length > 1) {
+          console.warn(`   WARN: AGENT_MODEL unset, so the FIRST of ${options.length} options was bound. Set AGENT_MODEL='<caption>' to choose.`);
+        }
 
         // Confirm only binds something when a model was actually picked;
         // otherwise dismiss, so we never confirm an empty binding.

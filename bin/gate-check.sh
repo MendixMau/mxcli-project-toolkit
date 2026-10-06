@@ -2670,6 +2670,7 @@ printf "Report disposition (findings filed?): %s — %s\n" "$DISP_STATUS" "$DISP
 
 # Stage P is checked outside the numeric loop (bash 3.2 arrays need integer indices).
 N_PASS=0; N_PENDING=0; N_WAIVED=0; N_FAIL=0; N_MANUAL=0; NEXT_UP=""; NEXT_UP_STATUS=""; ATTENTION=""
+APPROVED_OVER_FAIL=""
 P_RESULT="$(check_stage_P)"
 P_STATUS="${P_RESULT%%|*}"
 P_NOTE="${P_RESULT#*|}"
@@ -2735,6 +2736,16 @@ for stage in "${STAGE_NAMES[@]}"; do
      && waiver_applies "${waiver%%|*}" "$status" "$note"; then
     note="${waiver#*|} · underlying check: $status"
     status="WAIVED"
+  fi
+  # APPROVED OVER A FAILING GATE (#207). The register's CONFIRMED row is what status.sh,
+  # exec.sh and every agent read afterwards; the gate under it is read by nobody. Field case,
+  # 2026-10-06: a delegated Stage-4 approval was recorded while the closing-rows check was red,
+  # and 47 scripts were built on that plan. Delegating the approval is legitimate; an approval
+  # nobody compared to its gate is not. Same verdict, same exit code — the note names the
+  # mismatch, and the summary repeats it so status.sh can quote it.
+  if [ "$status" = "FAIL" ] && ! reg_unavailable && has_confirmed_decision "$stage"; then
+    note="APPROVED OVER A FAILING GATE — Stage $stage is CONFIRMED in $(basename "${REGISTER:-PROJECT.md}"), but: $note"
+    APPROVED_OVER_FAIL="${APPROVED_OVER_FAIL:+$APPROVED_OVER_FAIL, }Stage $stage"
   fi
   case "$status" in
     PASS)    N_PASS=$((N_PASS+1)) ;;
@@ -2806,6 +2817,10 @@ if [ "$_owed" -gt 0 ]; then
 fi
 if [ "$N_FAIL" -gt 0 ]; then
   echo "Needs attention — something is there and it is wrong:$ATTENTION"
+fi
+if [ -n "$APPROVED_OVER_FAIL" ]; then
+  echo "Approved over a failing gate: $APPROVED_OVER_FAIL — the approval stands in the register while"
+  echo "         the gate under it is red. Fix the gate, or re-open the approval with the user."
 fi
 # The FIRST stage that is neither passed nor waived — whether it is empty or wrong. Skipping
 # over a FAIL to name the first empty stage further down would point the reader past the thing

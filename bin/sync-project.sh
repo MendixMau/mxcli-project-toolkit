@@ -550,6 +550,17 @@ if [ -d "$AGENT_DIR" ]; then
 else
   echo "Note: no .claude/agents/ here — run bin/init-agents.sh $PROJECT_DIR if sessions run from this directory."
 fi
+# Name the slots still unfilled (#211). Informational, not a warning: a stub is MEANT to stay
+# unfilled until its stage starts (agent-roles.md), so --strict must not fail an early-stage
+# project on it. What it must not be is invisible — bin/status.sh carries the same count.
+. "$SCRIPT_DIR/lib/placeholders.sh"
+_ph="$(mxtk_placeholders "$AGENT_DIR"/*.md "$PROJECT_DIR/CLAUDE.local.md")"
+if [ -n "$_ph" ]; then
+  echo "Unfilled agent slots: $(mxtk_placeholder_total "$AGENT_DIR"/*.md "$PROJECT_DIR/CLAUDE.local.md") — complete each stub when its stage starts (agent-roles.md):"
+  printf '%s\n' "$_ph" | while IFS="$(printf '\t')" read -r _f _n _names; do
+    echo "  ${_f#"$PROJECT_DIR"/}: $_n — $_names"
+  done
+fi
 
 CL="$PROJECT_DIR/CLAUDE.local.md"
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"

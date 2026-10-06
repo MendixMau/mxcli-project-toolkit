@@ -5,7 +5,8 @@
 #
 #   bin/status.sh <project-root>          # the screen
 #   bin/status.sh <project-root> --brief  # the three lines an agent posts in chat, plus
-#                                         # "Tokens this stage:" from bin/token-burn.sh
+#                                         # "Tokens this stage:" from bin/token-burn.sh, plus a
+#                                         # WATCH line only when something below is wrong
 #
 # WHY. gate-check.sh answers "may stage N close?" in ~75 lines, and on a greenfield project at
 # Stage 5 it asked for source-sufficiency and a cutover row (greenfield pilot, 2026-09-04).
@@ -28,6 +29,7 @@ TOOLKIT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # screen was read, which is why the verdict bug went unnoticed for as long as it did.
 # One parser now, so a display fix and a gating fix can never diverge again.
 . "$TOOLKIT_ROOT/bin/lib/entry-mode.sh"
+. "$TOOLKIT_ROOT/bin/lib/placeholders.sh"
 PROJECT_DIR="${1:-}"; BRIEF=0
 for a in "$@"; do case "$a" in --brief) BRIEF=1 ;; esac; done
 case "$PROJECT_DIR" in ""|--*) echo "usage: bin/status.sh <project-root> [--brief]" >&2; exit 1 ;; esac
@@ -74,7 +76,38 @@ if [ -f "$BUILD_LOG" ]; then
   N_PASS="$(printf '%s\n' "$LATEST" | grep -c ' pass$')"; N_PASS="${N_PASS:-0}"
   LAST_FAIL="$(printf '%s\n' "$LATEST" | grep -vE ' pass$' | awk '{print $1}' | head -3 | tr '\n' ' ')"
 fi
-NOT_DONE_PASS="$( [ -f "$BUILD_LOG" ] && printf '%s\n' "$LATEST" | awk '$2=="pass" && $1 !~ /^done-/ {print $1}' | head -3 | tr '\n' ' ' )"
+# Gate-passed scripts still on disk WITHOUT done- (#210). Joined against the files, not read off
+# the log alone: a script renamed to done- keeps its old name in the log, and counting those made
+# the list point at files that no longer exist.
+STALL_LIST=""
+if [ -f "$BUILD_LOG" ] && [ -d "$MDL_DIR" ]; then
+  STALL_LIST="$( { find "$MDL_DIR" -name '*.mdl' -not -name 'done-*' -not -path '*/gallery/*' | sed 's#.*/##; s/^/F /'
+                   printf '%s\n' "$LATEST" | awk '$2=="pass" {print "P " $1}'; } \
+                 | awk '$1=="F"{f[$2]=1; next} $1=="P"{p[$2]=1} END{for (k in p) if (k in f) print k}' | sort )"
+fi
+N_STALL="$(printf '%s' "$STALL_LIST" | grep -c .)"; N_STALL="${N_STALL:-0}"
+NOT_DONE_PASS="$(printf '%s\n' "$STALL_LIST" | sed '/^$/d' | head -3 | tr '\n' ' ')"
+# done- is gated on the coverage checklist (iterative-build-loop.md). Field case 2026-10-06: 47
+# scripts built, 0 done-, build-plan.html empty — the checklist could never pass and nothing said
+# so. Several gate-passes and ZERO done- is a stall, not a backlog.
+DONE_STALL=""
+[ "$N_DONE" -eq 0 ] && [ "$N_STALL" -ge 3 ] && DONE_STALL="done- stalled: $N_STALL gate-pass, 0 done-"
+# build-plan.html older than the newest mdlsource/ change reads as a plan nobody is building.
+BP_STALE=""
+BP_HTML="$PROJECT_DIR/architecture/build-plan.html"
+if [ -f "$BP_HTML" ] && [ -d "$MDL_DIR" ] && git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+  _mdl_ts="$(git -C "$PROJECT_DIR" log -1 --format=%ct -- mdlsource 2>/dev/null)"
+  # Commit time when the page is tracked (a fresh clone resets every mtime); mtime only for an
+  # untracked, locally generated page.
+  _bp_ts="$(git -C "$PROJECT_DIR" log -1 --format=%ct -- architecture/build-plan.html 2>/dev/null)"
+  [ -n "$_bp_ts" ] || _bp_ts="$(stat -c %Y "$BP_HTML" 2>/dev/null || stat -f %m "$BP_HTML" 2>/dev/null)"
+  case "$_mdl_ts$_bp_ts" in ''|*[!0-9]*) : ;; *)
+    [ "$_bp_ts" -lt "$_mdl_ts" ] && BP_STALE="build-plan.html STALE (older than the newest mdlsource/ commit — bin/build-plan-status.sh --html)" ;;
+  esac
+fi
+# Agent slots still unfilled (#211) — by design until each agent's stage starts, never invisible.
+PH_TOTAL="$(mxtk_placeholder_total "$PROJECT_DIR"/.claude/agents/*.md "$PROJECT_DIR/CLAUDE.local.md")"
+PH_FILES="$(mxtk_placeholders "$PROJECT_DIR"/.claude/agents/*.md "$PROJECT_DIR/CLAUDE.local.md" | grep -c .)"
 
 # --- doctor receipt -------------------------------------------------------------------------
 DR="$PROJECT_DIR/.claude/.doctor-receipt"
@@ -103,7 +136,10 @@ fi
 # --no-html: a status READ must not rewrite the project dashboard (merge review 2026-09-08 — a
 # probe on a wired project left index.html modified, the same clean-tree trip as doctor receipts).
 GC="$("$TOOLKIT_ROOT/bin/gate-check.sh" --no-html "$PROJECT_DIR" 2>/dev/null)"
-NEED_ATTN="$(printf '%s\n' "$GC" | awk '/^Needs attention/{f=1;next} /^Next up:/{f=0} f' | sed -E 's/^ +//' | cut -c1-140)"
+NEED_ATTN="$(printf '%s\n' "$GC" | awk '/^Needs attention/{f=1;next} /^Next up:|^Approved over a failing gate:/{f=0} f' | sed -E 's/^ +//' | cut -c1-140)"
+# #207: a CONFIRMED approval sitting on a red gate. gate-check names it; this repeats it, because
+# the approval row is what everyone reads afterwards and the gate is read by nobody.
+APPROVED_OVER="$(printf '%s\n' "$GC" | grep -m1 '^Approved over a failing gate:' | sed -E 's/^Approved over a failing gate: *//; s/ — .*$//')"
 N_ATTN="$(printf '%s\n' "$GC" | grep -oE '[0-9]+ need attention' | grep -oE '^[0-9]+' || echo 0)"
 OB_PENDING="$(printf '%s\n' "$GC" | grep -E '^Obligation ' | grep -E ' (PENDING|FAULT) ' | awk '{print $2": "$3}' | tr '\n' ',' | sed 's/,$//; s/,/, /g')"
 MOD_OPENED="$(printf '%s\n' "$GC" | grep -m1 -E '^Obligation look ' | grep -q 'no module has been opened' && echo 0 || echo '≥1')"
@@ -117,13 +153,18 @@ fi
 
 # --- NEXT: ordered lookup, earliest wins. Owner skill in the right-hand comment. -------------
 next_action() {
+  if [ -n "$APPROVED_OVER" ]; then echo "$APPROVED_OVER is approved in PROJECT.md but its gate FAILS — fix the gate, or re-open the approval with the user (bin/gate-check.sh)"; return; fi   # conversion-runbook.md §2
   if [ "$N_ATTN" -gt 0 ]; then echo "fix what gate-check flags: $(printf '%s\n' "$NEED_ATTN" | head -1)"; return; fi   # conversion-runbook.md §2
   case "$STAGE_LINE" in *"Stage 5"*|*"Stage 6"*|*"Stage 7"*)
     if [ -z "$SKELETON" ]; then echo "run the walking skeleton before the first module (skills/walking-skeleton.md)"; return; fi ;;  # walking-skeleton.md
   esac
+  case "$STAGE_LINE" in *"Stage 5"*|*"Stage 6"*|*"Stage 7"*)
+    if [ "${PH_TOTAL:-0}" -gt 0 ]; then echo "complete the agent stubs: $PH_TOTAL unfilled {{...}} slot(s) in $PH_FILES file(s) — bin/sync-project.sh lists them (agent-roles.md)"; return; fi ;;
+  esac
   if [ "$UNSYNCED" -gt 0 ]; then echo "ba-agent flushes $UNSYNCED UNSYNCED marker(s) in PROJECT.md — every gate is blocked until then (conversion-runbook.md §3b)"; return; fi
   case "$COH" in *"DUE"*) echo "run process-coherence-pass.md — the cross-module seam check is due"; return ;; esac   # process-coherence-pass.md
   if [ -n "$LAST_FAIL" ]; then echo "last gate FAILED for: $LAST_FAIL— fix and re-exec (docs/BUILD-LOG.md, .mpr-snapshots/last-mxbuild-errors.json)"; return; fi   # iterative-build-loop.md Gate: BUILD
+  if [ -n "$DONE_STALL" ]; then echo "$DONE_STALL — done- needs the coverage checklist; run bin/coverage-preflight.sh to see what blocks it (iterative-build-loop.md)"; return; fi
   if [ -n "$NOT_DONE_PASS" ]; then echo "gate-passed but not done-: $NOT_DONE_PASS— walk the happy path + coverage checklist, then git mv to done- (iterative-build-loop.md step 13-15)"; return; fi
   if [ -n "$OB_PENDING" ]; then echo "discharge: $OB_PENDING (bin/lib/obligations.tsv names the artifact each owes)"; return; fi
   [ -n "$GC_NEXT" ] && { echo "$GC_NEXT"; return; }
@@ -134,9 +175,15 @@ NEXT="$(next_action)"
 # --- print ----------------------------------------------------------------------------------
 TK="toolkit $TK_COMMIT_NOW"; [ -n "$TK_COMMIT_REG" ] && [ "$TK_COMMIT_REG" != "$TK_COMMIT_NOW" ] && TK="$TK (register says $TK_COMMIT_REG)"
 [ -n "$TK_UPD" ] && TK="$TK · updates: $TK_UPD"
+WATCH=""
+for _w in "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROVED_OVER}" "$DONE_STALL" "${BP_STALE%% (*}" \
+          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )"; do
+  [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
+done
 if [ "$BRIEF" = 1 ]; then
   echo "WHERE   $NAME · $STAGE_LINE${ENTRY:+ · $ENTRY}${ADOPTED:+ · joined at $ADOPTED}"
   echo "STATE   scripts $N_SCRIPTS written / $N_PASS gate-pass / $N_DONE done- · modules opened $MOD_OPENED${SKELETON:+ · skeleton $SKELETON} · UNSYNCED $UNSYNCED · open questions $OPEN_Q"
+  [ -n "$WATCH" ] && echo "WATCH   $WATCH"
   echo "NEXT    $NEXT"
   "$TOOLKIT_ROOT/bin/token-burn.sh" "$PROJECT_DIR" --brief 2>/dev/null
   exit 0
@@ -147,6 +194,8 @@ printf 'DONE      scripts: %s written, %s gate-pass, %s done-  ·  modules opene
 printf 'OVERDUE   %s  ·  %s  ·  %s  ·  UNSYNCED markers: %s  ·  open questions: %s\n' "$DOCTOR" "$LINT" "${COH:-coherence: cadence script not installed}" "$UNSYNCED" "$OPEN_Q"
 [ -n "$OB_PENDING" ] && printf '          obligations pending: %s\n' "$OB_PENDING"
 [ -n "$LAST_FAIL" ] && printf '          last gate FAILED: %s\n' "$LAST_FAIL"
+[ -n "$WATCH" ] && printf 'WATCH     %s\n' "$WATCH"
+[ -n "$BP_STALE" ] && printf '          %s\n' "$BP_STALE"
 if [ "$N_ATTN" -gt 0 ]; then printf 'ATTENTION %s\n' "$(printf '%s\n' "$NEED_ATTN" | head -3 | sed '2,$s/^/          /')"; else printf 'ATTENTION none — gate-check: %s\n' "$(printf '%s\n' "$GC" | grep -m1 '^Summary:' | sed 's/^Summary: *//')"; fi
 printf '\nNEXT  →   %s\n\n' "$NEXT"
 printf '(full detail: bin/gate-check.sh %s · this screen never blocks anything)\n' "$PROJECT_DIR"

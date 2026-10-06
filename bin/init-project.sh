@@ -710,8 +710,18 @@ echo "    will touch this project, BEFORE its first model write. bin/exec.sh dow
 echo "    mxbuild itself and REFUSES to write when the gate still cannot run; the pre-commit hook"
 echo "    refuses model commits that no gate has passed. doctor tells you up front rather than then."
 echo "  - Complete each agent stub's {{PLACEHOLDER}}s per skills/agent-roles.md when its stage"
-echo "    starts (ba/architect at Stage P kickoff, mdl/gate/test at Stage 5). Stubs refuse to"
-echo "    run until completed, so a half-setup fails loudly instead of silently."
+echo "    starts (ba/architect at Stage P kickoff, mdl/gate/test/review at Stage 5). Stubs refuse"
+echo "    to run until completed, so a half-setup fails loudly instead of silently."
+# Name them (#211): one generic line let a field project reach Stage 5 with 30 unfilled slots
+# and an mdl-agent refusing work for a reason nobody could see. bin/status.sh repeats the count.
+. "$SCRIPT_DIR/lib/placeholders.sh"
+_ph="$(mxtk_placeholders "$PROJECT_DIR"/.claude/agents/*.md "$PROJECT_DIR/CLAUDE.local.md")"
+if [ -n "$_ph" ]; then
+  echo "    Unfilled right now ($(mxtk_placeholder_total "$PROJECT_DIR"/.claude/agents/*.md "$PROJECT_DIR/CLAUDE.local.md") slot(s)):"
+  printf '%s\n' "$_ph" | while IFS="$(printf '\t')" read -r _f _n _names; do
+    echo "      ${_f#"$PROJECT_DIR"/}: $_n — $_names"
+  done
+fi
 echo "  - Stage 0 triage: choose/reuse an extraction pipeline (needs triage first, see source-triage.md)."
 echo "  - Optional, NOT installed by this script: the context-cost hooks. They are user-global —"
 echo "    they fire in every repo on this machine — so installing them is your explicit choice."

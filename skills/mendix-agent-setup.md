@@ -9,11 +9,13 @@ exception, and the section below says exactly what the headless route omits.
 
 Completes the agent skill family: `skills/mendix-agents.md` builds the agent,
 `skills/mendix-agent-ui.md` embeds the chat panel, **this skill makes the runtime actually
-answer**. Worked, battle-tested driver scripts live in a private field project
-(`tests/e2e/configure-genai.js`, `import-agents.js`, `test-agents.js`, plus
-`.ai-context/skills/genai-configuration.md` with the full app-specific detail); copy and
-adapt them rather than rewriting from scratch. **They are on a feature branch
-there, not `main`** — checked 2026-08-31; on `main` those four paths do not exist.
+answer**. The agent import driver lives here, generalised:
+`skills/agents-examples/import-agents.example.js` (agents, model binding, `REPLACE=1`). Copy
+it into the project's `tests/e2e/` next to the harness `helpers.js`, which does the login.
+It came from a private field project, whose feature branch also has `configure-genai.js`
+(keys), `test-agents.js` (chat-panel agents) and `.ai-context/skills/genai-configuration.md`;
+it was field-run again on 2026-10-06 in a second app: one single-call agent replaced and
+bound, then answering live.
 
 ## Prerequisites — what you must be handed before starting
 
@@ -70,6 +72,14 @@ an agent version is dialog 2 of the agent-import flow ("Check Agent settings aft
 "Model for the selected version"). Agent import is the second half of GenAI configuration,
 not a bulk loader — re-importing an existing agent is a no-op on the object (matched by UUID)
 and exists to *reach that dialog*.
+
+**Which means an edited agent file never lands by re-importing it.** Change the prompt or a
+setting in the JSON, import it again, and the agent in the app is exactly what it was —
+the run looks clean. To make an edit land: delete the agent (row menu `…` › Delete on the
+Agents page), then import (`REPLACE=1 node tests/e2e/import-agents.js`), then bind the model
+in dialog 2 again. Dev and test data only: deleting an agent in production drops its
+history. Probe: change one field, plain re-import, read it back with OQL on
+`AgentCommons.Version` — unchanged; repeat with `REPLACE=1` — changed.
 
 ## Order of operations — and the two steps people skip
 
@@ -163,11 +173,17 @@ and exists to *reach that dialog*.
   (`400 - {"detail":"The model returned the following errors: `temperature` is deprecated
   for this model. (Service: BedrockRuntime ...`). An agent whose version carries a
   Temperature then fails on every call — and an app with a fallback answers anyway, so
-  nothing looks broken. Leave `Temperature` out of the agent JSON; an agent already
-  imported keeps it (a re-import never edits): delete it on the Agents page and import
-  again. Probe: one call, then
+  nothing looks broken. Leave `Temperature` out of the agent JSON; to fix an agent already
+  imported, see the replace route above. Probe: one call, then
   `grep -n "is deprecated for this model" <runtime.log>`. The body is in the runtime log
   only; `mxcli run --watch`'s console shows build lines, not runtime errors.
+- **Agent Commons 4.3.x dialog markup.** Dialog 2's model picker no longer carries
+  `.combobox-model-selection`; it is the `.widget-combobox` under the label "Model for the
+  selected version" (options are `[role="option"]` in the opened menu). A script keyed on the
+  old class finds no combobox, clicks *Not now*, and exits 0 with nothing bound — the
+  example script now exits 1 on that. The Agents grid's row menu (`.popupmenu-trigger`)
+  opens only on a real pointer click; a DOM `click()` does nothing there, the opposite of
+  the modal buttons above.
 - **Assert an LLM answer by its facts, not its wording.** An e2e step that expects the
   sentence fails on the next run; one that expects nothing passes an agent that answers
   wrongly. Assert the facts any correct answer must contain (counts, ids, the source

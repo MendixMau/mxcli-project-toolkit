@@ -35,7 +35,7 @@ bad() { FAIL=$((FAIL+1)); echo "  FAIL — $1"; [ -n "${2:-}" ] && echo "       
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/journey-persona.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/tests/e2e"; : > "$WORK/Fixture.mpr"
-cp "$SUT" "$E2E/helpers.js" "$E2E/otel.js" "$E2E/config.js" "$WORK/tests/e2e/"
+cp "$SUT" "$E2E/helpers.js" "$E2E/settle.js" "$E2E/otel.js" "$E2E/config.js" "$WORK/tests/e2e/"
 cp "$CFG" "$WORK/tests/e2e/project.config.js"
 
 IFS= read -r -d '' JS <<'JSEOF' || true

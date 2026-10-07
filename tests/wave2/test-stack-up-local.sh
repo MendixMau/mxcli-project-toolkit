@@ -21,8 +21,9 @@ case "$SRC" in /*) ;; *) SRC="$PWD/$SRC" ;; esac
 GOLDEN="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/fixtures/run-local/run-local.json"
 [ -f "$SRC" ] && [ -f "$(dirname "$SRC")/_common.sh" ] && [ -f "$GOLDEN" ] \
   || { echo "FIXTURE ERROR: need $SRC, its _common.sh, and $GOLDEN"; exit 2; }
-command -v python3 >/dev/null 2>&1 && command -v curl >/dev/null 2>&1 \
-  || { echo "FIXTURE ERROR: needs python3 and curl"; exit 2; }
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/bin/lib/portable.sh"
+require_py
+command -v curl >/dev/null 2>&1 || { echo "FIXTURE ERROR: needs curl"; exit 2; }
 
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/stackup-local.XXXXXX")"
 PIDS=""
@@ -41,7 +42,7 @@ unset PROJECT_ROOT MPR_FILE STACK_ENV STACK_CONF SERVED_FILE
 # --- the fake app -------------------------------------------------------------------------
 mkdir -p "$WORK/www"
 printf '<html><script src="mxclientsystem/mxui/mxui.js"></script></html>\n' > "$WORK/www/login.html"
-python3 -I - "$WORK/www" "$WORK/port" >/dev/null 2>&1 <<'EOF' &
+"$PY" -I - "$WORK/www" "$WORK/port" >/dev/null 2>&1 <<'EOF' &
 import functools, http.server, sys
 H = functools.partial(http.server.SimpleHTTPRequestHandler, directory=sys.argv[1])
 s = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)

@@ -23,6 +23,8 @@
 #     they get a "review against current template" note instead.
 #   - CLAUDE.md baseline routing: report-only (merging prose is an LLM job — see
 #     bootstrap-project.md audit mode).
+#   - CLAUDE.md written by mxcli init before v0.22: its command tables, lint list, skills
+#     index and examples move to docs/mxcli-reference.md (bin/lib/slim-claude-md.sh).
 #
 # Run after every `git pull` of the toolkit:  bin/sync-project.sh <project-root>
 
@@ -71,6 +73,8 @@ AGENTS="$MXTK_AGENTS"
 # Item 3 of wire-agents.sh's stamped block, the one text shared with the in-place repair step
 # below (5c) — see that file's header for why it is not typed twice.
 . "$SCRIPT_DIR/lib/wiring-item3.sh"
+# slim_claude_md: moves a pre-v0.22 mxcli init CLAUDE.md's reference sections out of context.
+. "$SCRIPT_DIR/lib/slim-claude-md.sh"
 
 # "Is this copy an unedited older toolkit version?" — the test that lets sections 4 and 4b
 # refresh a stale bin/ or tests/e2e/ copy without a flag. See the file's header.
@@ -640,6 +644,20 @@ if [ -f "$f" ]; then
   fi
 fi
 
+# --- 2a4. CLAUDE.md: move a pre-v0.22 mxcli init file's reference sections out of context ---
+# The one structural edit sync makes to CLAUDE.md, and only to a file carrying mxcli's own
+# pre-v0.22 signature heading: those sections are mxcli's text, not the project's, and they
+# are moved (to docs/mxcli-reference.md, original backed up), never deleted. Why and the
+# bench evidence: bin/lib/slim-claude-md.sh header.
+if slim_claude_md_needed "$PROJECT_DIR"; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo "Would slim: CLAUDE.md — pre-v0.22 mxcli reference sections ($(wc -c < "$PROJECT_DIR/CLAUDE.md" | tr -d ' ') bytes, loaded on every call) move to docs/mxcli-reference.md"
+    CHANGES=$((CHANGES + 1))
+  elif slim_claude_md "$PROJECT_DIR"; then
+    CHANGES=$((CHANGES + 1))
+  fi
+fi
+
 # --- 2b. CLAUDE.local.md: append the session-start ritual if this project predates it ---
 if [ -f "$CL" ] && ! grep -q "Session-start ritual" "$CL"; then
   w_app "$CL" <<EOF
@@ -798,7 +816,7 @@ fi
 # the old row used (a hand-written table carries full toolkit paths; the generated one is
 # relative to the header's stated root), and the rest of the table is left byte-for-byte.
 #
-# CLAUDE.md is NOT edited. Its "mxcli-project-toolkit Integration" block is written by
+# This row is NOT edited in CLAUDE.md (2a4 moves only mxcli's own pre-v0.22 sections). Its "mxcli-project-toolkit Integration" block is written by
 # skills/bootstrap-project.md — an LLM merge into the file `mxcli init` generates — and not by
 # bin/init-project.sh (which writes CLAUDE.local.md only; wire-agents.sh PRESERVES an existing
 # CLAUDE.md). A file no script produced is a file no script should rewrite (the report-only
@@ -849,7 +867,7 @@ if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -Eq "$DECLARE_OBJECT_RE" "$PROJECT_DI
   warn "CLAUDE.md teaches \`DECLARE \$Var Module.Entity;\` — that row came from an mxcli init" \
        "older than v0.22; v0.22 \`check\` rejects it (MDL043/CE0053, an object variable" \
        "declaration). Fix: commit first, re-run \`mxcli init\` with the current binary, then" \
-       "re-run the bootstrap-project.md merge. sync does not edit CLAUDE.md — see" \
+       "re-run the bootstrap-project.md merge. sync does not edit this row — see" \
        "BUG-DRAFT-stale-init-claude-md-declare-object in bug-logs/mxcli-bugs.md."
 fi
 
@@ -890,7 +908,7 @@ if [ -f "$PROJECT_DIR/CLAUDE.local.md" ]; then
     warn "CLAUDE.md cites Baseline-only skills also covered by CLAUDE.local.md — check whether" \
          "its \"mxcli-project-toolkit Integration\" section (~$_dup_words word(s), heading to" \
          "EOF, not all of it necessarily routing) is a duplicated Baseline routing block." \
-         "sync never edits CLAUDE.md; if it is a duplicate, replace that block by hand with" \
+         "sync never edits that section; if it is a duplicate, replace that block by hand with" \
          "the pointer per bootstrap-project.md Step 2."
   fi
 else

@@ -32,7 +32,7 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 <!-- Generated from mxcli-project-toolkit/bin/lib/skill-routing.tsv by bin/render-routing.sh.
      Do not hand-edit between the markers: add or change the ROW, then re-render. -->
 <!-- ROUTING:BEGIN agent:ba -->
-Open a file when its When cell happens in your task, not all of them at the start. A page task never opens the microflow rows; a microflow task never opens the page rows.
+Open a file when its When cell happens in your task, not all of them at the start. Below the baseline rows, a When cell is only the trigger; the file says the rest. A page task never opens the microflow rows; a microflow task never opens the page rows.
 
 This table is your whole list. The baseline table in the project's CLAUDE.local.md is shared with the main session and the other helpers: skip every row there whose Role(s) cell does not say *every role* or name ba.
 
@@ -56,19 +56,19 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
 | `skills/grill-mode.md` | Deep, adaptive interview on one topic, on demand, when a checkpoint's 2+1 or a single question batch isn't enough |
-| `skills/checkpoints/checkpoint-scope.md` | CAC-1, closing Stage 0 in EVERY entry mode — scope IN: full scope or a slice, and in what order. Opens with a brainstorm, not options |
-| `skills/checkpoints/checkpoint-extraction.md` | CAC-1b, after Stage 1 — scope OUT: is what extraction produced what you meant. No gate stops you; run it late against the BRDs if it was skipped |
-| `skills/checkpoints/checkpoint-brd.md` | CAC-2, after BRD scaffolding and before enrichment — capability grouping and enrichment order |
-| `skills/checkpoints/checkpoint-architecture.md` | CAC-3, after BRD validation and before architecture locks — the hidden business rules that are expensive to discover later |
-| `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index — describe each unique picture once, into its own file, before Stage 2 closes |
-| `skills/small-project-tier.md` | Stage 0 sign-off when the inventory is at or under 1 module / 8 screens / 25 use cases, or the user says the app is small — declare the tier, then apply its per-stage caps and the three artifact waivers |
-| `bin/triage-report.sh` | Rendering a filled triage.md for review — the triage.html surface Stage 0 names. Renders only; the Stage 0 verdict stays with gate-check and the judgement with source-triage.md |
-| `bin/extraction-report.sh` | Reviewing what the extraction actually produced — the Stage 1 surface, and the file the Stage 1 gate looks for. Renders a code-extracted and a document knowledge base alike, so a requirements-driven project gets the surface too; prints no zero that a second record does not agree with |
-| `bin/brd-report.sh` | Reviewing what the BRDs actually say — the Stage 2 surface, for BRDs from any source. Reads every knowledge base at once, and keeps a section that is absent-because-not-applicable apart from one that is absent-because-expected |
-| `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it — one row per area: Mendix docs page, bundled assess-quality section, toolkit skill before the write, lint rule after exec |
-| `skills/bootstrap-project.md` | Generating a new project's CLAUDE.md — baseline routing plus project-specific facts |
-| `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
-| `skills/existing-app-change.md` | Changing an EXISTING Mendix app — adding a feature, altering a flow, restructuring a module — when it has no BRDs, no architecture doc and no wireframes: the knowledge base comes from the live model (Path D), stages 2–4 run over what changes plus what it touches, nothing more, and the Track B regression baseline is the precondition; audit-only stays in existing-app-assurance |
+| `skills/checkpoints/checkpoint-scope.md` | CAC-1, closing Stage 0 in EVERY entry mode |
+| `skills/checkpoints/checkpoint-extraction.md` | CAC-1b, after Stage 1 |
+| `skills/checkpoints/checkpoint-brd.md` | CAC-2, after BRD scaffolding and before enrichment |
+| `skills/checkpoints/checkpoint-architecture.md` | CAC-3, after BRD validation and before architecture locks |
+| `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
+| `skills/small-project-tier.md` | Stage 0 sign-off when the inventory is at or under 1 module / 8 screens / 25 use cases, or the user says the app is small |
+| `bin/triage-report.sh` | Rendering a filled triage.md for review |
+| `bin/extraction-report.sh` | Reviewing what the extraction actually produced |
+| `bin/brd-report.sh` | Reviewing what the BRDs actually say |
+| `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
+| `skills/bootstrap-project.md` | Generating a new project's CLAUDE.md |
+| `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
+| `skills/existing-app-change.md` | Changing an EXISTING Mendix app |
 | `skills/app-analysis.md` | Building or refreshing the standing dossier of an EXISTING app before changing it: inventory, module dependency shape, loop risk patterns, each section with a verdict and a fault where nothing was measured (a standing document; nothing else in the toolkit reads it yet) |
 | `skills/layering-review.md` | Checking whether an EXISTING app's module boundaries still hold: the layer map (bin/app-layer-map.sh) computes the order the modules would stack in and draws only the edges that point back up, so one tangle of N mutually reachable modules becomes a named list of edges with a weight and a ref kind; Stage 3 in existing-app-change mode, and the honest blast radius for a slice |
 | `skills/assess-migration.md` | Assessing or planning a migration up front, before any pipeline is chosen |
@@ -84,18 +84,18 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/kb-generation.md` | Extracting Excel/Word/PDF specs into a knowledge base |
 | `skills/brd-generation.md` | Writing or enriching a BRD JSON |
 | `skills/brd-validation.md` | Validating BRDs against the code and document KB |
-| `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN — the private tier between the toolkit and a project for own skills, conventions, lint rules, MDL snippets and approved MPKs; and deciding whether something goes to the toolkit, the company brain or docs/brain/ |
-| `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
-| `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
-| `skills/agent-permission-friction.md` | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing |
-| `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically — creating/reading stories and epics, updating workflow state, or integrating BRDs with the portal |
-| `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to |
-| `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them — check what is actually on the machine before naming a fix; a wrong-arch binary, a missing one and a broken self-check all read the same |
+| `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN |
+| `skills/close-the-loop.md` | Cutover and retrospective |
+| `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence |
+| `skills/agent-permission-friction.md` | Any refused, denied or blocked command |
+| `skills/mendix-epics-api.md` | Working with the Mendix Epics board programmatically |
+| `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit |
+| `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them |
 | `skills/corpus-extraction-integrity.md` | Extracting structured requirements from a large delivered document corpus into per-scope knowledge-base files |
-| `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
-| `skills/gate-check-file-locations.md` | gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script |
+| `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say |
+| `skills/gate-check-file-locations.md` | gate-check.sh reports a Stage 0 file not found that plainly exists |
 | `skills/platform-link.md` | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App |
-| `skills/deploy-to-sandbox.md` | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment — "it works locally" is not evidence about a deployment; also when a test suite fails only against the remote URL |
+| `skills/deploy-to-sandbox.md` | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment |
 <!-- ROUTING:END -->
 - Follow `query-the-model.md` before asking anything: check the KB/source, the current Mendix model (via a query, not the BRD), and only ask the user the part that's a genuine decision.
 - Run the full interview protocol from `conversion-runbook.md` §1 at every gate: homework first, 2-4 options with evidence, assumptions stated out loud, user answers in the terminal, decision written to the stage HTML *and* `PROJECT.md`, unknowns default + `ASSUMED` + proceed.

@@ -257,7 +257,7 @@ routing_render() {
       ;;
     agent:*)
       local who="${view#agent:}"
-      echo "Open a file when its When cell happens in your task, not all of them at the start. A page task never opens the microflow rows; a microflow task never opens the page rows."
+      echo "Open a file when its When cell happens in your task, not all of them at the start. Below the baseline rows, a When cell is only the trigger; the file says the rest. A page task never opens the microflow rows; a microflow task never opens the page rows."
       echo ""
       echo "This table is your whole list. The baseline table in the project's CLAUDE.local.md is shared with the main session and the other helpers: skip every row there whose Role(s) cell does not say *every role* or name $who."
       echo ""
@@ -268,6 +268,11 @@ routing_render() {
         routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
           [ "$tier" = "$t" ] || continue
           if [ "$agents" != "all" ]; then _routing_has "$agents" "$who" || continue; fi
+          # A helper reads its stub on every dispatch, so non-baseline rows keep only the trigger
+          # (the When cell up to its first " — "); the tail describes the file, which the helper
+          # reads once the trigger fires. Baseline tails stay whole: several are instructions
+          # ("read §1b, not the whole file") that must reach the helper before it opens anything.
+          [ "$t" = "baseline" ] || when="${when%% — *}"
           printf '| `%s` | %s |\n' "$path" "$(_routing_md_escape "$when")"
         done
       done

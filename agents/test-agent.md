@@ -23,7 +23,7 @@ and `"DESCRIBE ..."` reads are always fine, and are how you ground every name yo
      Do not hand-edit between the markers: add or change the ROW, then re-render.
      Paths are relative to the toolkit root given in the CLAUDE.local.md Wiring block. -->
 <!-- ROUTING:BEGIN agent:test -->
-Open a file when its When cell happens in your task, not all of them at the start. A page task never opens the microflow rows; a microflow task never opens the page rows.
+Open a file when its When cell happens in your task, not all of them at the start. Below the baseline rows, a When cell is only the trigger; the file says the rest. A page task never opens the microflow rows; a microflow task never opens the page rows.
 
 This table is your whole list. The baseline table in the project's CLAUDE.local.md is shared with the main session and the other helpers: skip every row there whose Role(s) cell does not say *every role* or name test.
 
@@ -39,45 +39,45 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
-| `skills/checkpoints/checkpoint-cutover.md` | CAC-6, after Stage 6 passes and before any cutover step — migration mode only, and a hard gate: every answer lands CONFIRMED, no ASSUMED defaults |
-| `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index — describe each unique picture once, into its own file, before Stage 2 closes |
-| `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it — one row per area: Mendix docs page, bundled assess-quality section, toolkit skill before the write, lint rule after exec |
-| `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container — the one-time setup order (mxcli download → mxcli init → init-project.sh → sources decision → push) and the commit-and-push loop that survives container reclaim |
-| `skills/existing-app-assurance.md` | Auditing or regression/e2e-testing an EXISTING app — no intake, no stages, no gates |
-| `skills/mendix-agent-setup.md` | Standing up a project's GenAI agents in any environment — MxCloud key import, model-to-agent binding, KB indexing and the agent-answers-a-question proof are all UI-only (no MDL/SQL path), driven with Playwright; you need the resource keys handed to you as env vars first |
-| `project-bin/test-stack-up.sh` | Before any runtime test — brings the stack up unattended and PROVES the thing that answered is this project's app; --check makes it report-only |
+| `skills/checkpoints/checkpoint-cutover.md` | CAC-6, after Stage 6 passes and before any cutover step |
+| `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
+| `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
+| `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
+| `skills/existing-app-assurance.md` | Auditing or regression/e2e-testing an EXISTING app |
+| `skills/mendix-agent-setup.md` | Standing up a project's GenAI agents in any environment |
+| `project-bin/test-stack-up.sh` | Before any runtime test |
 | `skills/e2e-harness-base.md` | Standing up or extending the Playwright e2e harness |
 | `skills/learned-db-assertions.md` | Writing DB assertion tests that cross-check UI state against the database |
-| `skills/fixture-seeding.md` | Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness |
-| `skills/journey-proof.md` | Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red |
-| `skills/monkey-test.md` | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works |
-| `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN — the private tier between the toolkit and a project for own skills, conventions, lint rules, MDL snippets and approved MPKs; and deciding whether something goes to the toolkit, the company brain or docs/brain/ |
-| `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
-| `skills/report-schema.md` | Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer |
-| `skills/harness-architecture.md` | Installing, extending, debugging or porting the verification harness — which part owns what, which parts run standalone, and what a missing part must report |
-| `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence — a claim not in the register may not be cited |
-| `skills/agent-permission-friction.md` | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing |
+| `skills/fixture-seeding.md` | Establishing the data and identities a journey run needs |
+| `skills/journey-proof.md` | Proving a module's user journey end-to-end |
+| `skills/monkey-test.md` | Running the fuzz/crash net on a module whose journeys are already green |
+| `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN |
+| `skills/close-the-loop.md` | Cutover and retrospective |
+| `skills/report-schema.md` | Writing or reading docs/report.json |
+| `skills/harness-architecture.md` | Installing, extending, debugging or porting the verification harness |
+| `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence |
+| `skills/agent-permission-friction.md` | Any refused, denied or blocked command |
 | `skills/e2e-evidence-report.md` | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything |
-| `skills/record-demo-video.md` | Recording a narrated screen-capture demo of a running app for a human to watch — opening on the app instead of a blank frame, and keeping captions synced to the pixels |
-| `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo — to a customer, prospect or reviewer: relative image paths and "the name shown above" both break the moment the file travels alone, and the usernames a login panel displays are not the ones it accepts |
-| `skills/improvement-register.md` | Any review pass that runs more than once — module-review, coherence, monkey, wiring-sweep: findings accumulate across runs, a per-run report cannot show a trend |
-| `skills/journey-examples.md` | Writing an actual .journey.json — the worked field-by-field reference for the contract journey-proof.md argues for |
-| `skills/wiring-sweep.md` | Every module before it is called done — does every clickable thing actually do something; run AFTER the happy-path journey is green, never before |
-| `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit — before drafting, choosing which repo and vehicle it belongs to |
-| `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run — before assuming a single cause |
-| `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them — check what is actually on the machine before naming a fix; a wrong-arch binary, a missing one and a broken self-check all read the same |
-| `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say — the toolkit is the subject, not the app it builds |
-| `skills/learned-file-upload-widget.md` | Putting any file upload / attachment / document field on a page, an uploader page failing mx check with CE0463, or an uploader DESCRIBE that will not re-execute — the File Uploader MDL shape proven end to end on v0.23 and v0.24, the widgets mxcli cannot author, and the upload instrument |
-| `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first |
-| `skills/full-harness-audit.md` | The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work — or you are unsure which harness skill applies; this one routes you |
-| `skills/test-result-audit.md` | End of any build+test cycle that wrote docs/report.json — did the testing itself hold up, not just get filed; one level up from finding-disposition |
-| `skills/finding-disposition.md` | Any report from a test/review run is about to be published — no report ends without a disposition for every finding |
-| `skills/handoff-to-studio-pro.md` | Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step |
-| `skills/preview-over-hub-tunnel.md` | Exposing a container-run app at a public URL (mxcli run --hub) — demo/stakeholder preview: the db-name default trap, the runtime REST client ignoring JVM proxy settings (GenAI 403 "Host not in allowlist" that is really a proxy bypass), and stale-app detection |
-| `bin/run-hub.sh` | Starting a hub-tunnelled preview with the flags outbound calls actually need — wraps mxcli run --hub with db-name and the runtime proxy settings from preview-over-hub-tunnel.md |
-| `skills/walking-skeleton.md` | Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them |
+| `skills/record-demo-video.md` | Recording a narrated screen-capture demo of a running app for a human to watch |
+| `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo |
+| `skills/improvement-register.md` | Any review pass that runs more than once |
+| `skills/journey-examples.md` | Writing an actual .journey.json |
+| `skills/wiring-sweep.md` | Every module before it is called done |
+| `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit |
+| `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run |
+| `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them |
+| `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say |
+| `skills/learned-file-upload-widget.md` | Putting any file upload / attachment / document field on a page, an uploader page failing mx check with CE0463, or an uploader DESCRIBE that will not re-execute |
+| `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa |
+| `skills/full-harness-audit.md` | The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work |
+| `skills/test-result-audit.md` | End of any build+test cycle that wrote docs/report.json |
+| `skills/finding-disposition.md` | Any report from a test/review run is about to be published |
+| `skills/handoff-to-studio-pro.md` | Handing a headless-built model to a person |
+| `skills/preview-over-hub-tunnel.md` | Exposing a container-run app at a public URL (mxcli run --hub) |
+| `bin/run-hub.sh` | Starting a hub-tunnelled preview with the flags outbound calls actually need |
+| `skills/walking-skeleton.md` | Stage 5 start, before the first module of any entry mode |
 | `skills/platform-link.md` | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App |
-| `skills/deploy-to-sandbox.md` | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment — "it works locally" is not evidence about a deployment; also when a test suite fails only against the remote URL |
+| `skills/deploy-to-sandbox.md` | Promoting an app to a deployed sandbox or cloud node, or before a customer tests a deployment |
 <!-- ROUTING:END -->
 
 ## Before you start

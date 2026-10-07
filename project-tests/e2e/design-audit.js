@@ -334,6 +334,16 @@ const DESIGN_PROP_EQUIVALENTS = [
   { re: /^background-color-/, prop: 'Background color' },
   { re: /^text-align-/, prop: 'Text align' },
 ];
+// Classes a toolkit skill prescribes by name are exempt (#152). design-spacing.md puts
+// `spacing-outer-bottom-large` on every section container and on the page-head scaffold, so
+// every page built from that skill failed this rung — 4 of 4 fails on a 7-page build
+// (card-disbursement build, 2026-09-26), carried as a permanent known-fail that teaches
+// readers to skip the rung. The rendered result is identical to the Spacing property. Keep
+// this list equal to the classes design-spacing.md §2 names; a class added there without
+// being added here re-opens the disagreement. Exempt hits stay visible in the row detail.
+const SKILL_PRESCRIBED = new Set([
+  'spacing-outer-bottom', 'spacing-outer-bottom-medium', 'spacing-outer-bottom-large',
+]);
 function rawClassOverDesignProperty(doc, usage) {
   const hits = [];
   for (const { node } of usage.nodes) {
@@ -342,7 +352,7 @@ function rawClassOverDesignProperty(doc, usage) {
     const props = new Set((node.designProperties || []).map((p) => p.key));
     for (const c of cls) {
       const rule = DESIGN_PROP_EQUIVALENTS.find((r) => r.re.test(c));
-      if (rule) hits.push({ widget: node.name || node.id, class: c, property: rule.prop, alsoHasProperty: props.has(rule.prop) });
+      if (rule) hits.push({ widget: node.name || node.id, class: c, property: rule.prop, alsoHasProperty: props.has(rule.prop), prescribed: SKILL_PRESCRIBED.has(c) });
     }
   }
   // mdlSource carries the nodes the tree drops (#891), so sweep it too.
@@ -350,7 +360,7 @@ function rawClassOverDesignProperty(doc, usage) {
   for (const c of mdlClasses(doc.mdlSource)) {
     const rule = DESIGN_PROP_EQUIVALENTS.find((r) => r.re.test(c));
     if (rule && !hits.some((h) => h.class === c)) {
-      hits.push({ widget: '(from mdlSource — node absent from ELK tree)', class: c, property: rule.prop, alsoHasProperty: mdlProps.has(rule.prop) });
+      hits.push({ widget: '(from mdlSource — node absent from ELK tree)', class: c, property: rule.prop, alsoHasProperty: mdlProps.has(rule.prop), prescribed: SKILL_PRESCRIBED.has(c) });
     }
   }
   return hits;
@@ -670,7 +680,14 @@ function staticSweep(pages, css, wf, controlNotes) {
     }
 
     // ── raw class where a design property exists ────────────────────────────
-    const raw = rawClassOverDesignProperty(doc, usage);
+    const rawAll = rawClassOverDesignProperty(doc, usage);
+    // A prescribed class still fails when the widget ALSO sets the property: that is a
+    // conflict, not the skill's scaffold.
+    const raw = rawAll.filter((h) => !h.prescribed || h.alsoHasProperty);
+    const exempt = rawAll.filter((h) => !raw.includes(h));
+    const exemptNote = exempt.length
+      ? `; exempt (prescribed by design-spacing.md): ${exempt.map((h) => `${h.widget}.${h.class}`).join(', ')}`
+      : '';
     if (raw.length) { stats.rawClassPages++; stats.rawClassHits += raw.length; }
     checks.push(row({
       id: `design-audit/rung7/raw-class-vs-designproperty/${qn}`, module: mod, page: qn,
@@ -679,7 +696,8 @@ function staticSweep(pages, css, wf, controlNotes) {
       detail: raw.length
         ? `${raw.length} hand-written class(es) duplicating a design property: `
           + raw.map((h) => `${h.widget}.${h.class} → "${h.property}"${h.alsoHasProperty ? ' (widget ALSO sets the property — conflict)' : ''}`).join('; ')
-        : (lowerBound ? 'none seen, but the page is partially-read — not a pass' : 'none'),
+          + exemptNote
+        : (lowerBound ? 'none seen, but the page is partially-read — not a pass' : 'none') + exemptNote,
       nonVacuity: controlNotes.rung6,
       ...(lowerBound ? { blockedBy: readId } : {}),
     }));

@@ -842,14 +842,31 @@ function runExitCode(positiveControl, results, mutants) {
     && ctl.length === mutants.expected && ctl.every(r => r.verdict === 'PASS') ? 0 : 1;
 }
 
+// ── Persona = the signed-in user ────────────────────────────────────────────
+// A journey's `persona` names the role whose access path it proves. It used to be
+// printed and nothing else, so a journey declaring persona "Reviewer" walked green
+// under TEST_USER=Admin — a pass for the wrong reason, because admin bypasses the
+// very grants the journey claims to exercise (#149, 2026-09-25). One run signs in
+// once, so a journey whose persona differs from that user is not run: INVALID, and
+// the remedy is to run it with TEST_USER set to the persona. A journey with no
+// persona runs as whoever signed in, as before.
+// Returns null when the journey may run, or the INVALID detail when it may not.
+function personaMismatch(j, signedInAs) {
+  if (!j.persona || j.persona === signedInAs) return null;
+  return `journey declares persona "${j.persona}", run signed in as "${signedInAs}" — ` +
+         'the run measures the wrong access path. Journey NOT run; run it with ' +
+         `TEST_USER=${j.persona} (one file, one run per role).`;
+}
+
 // ── Exports for the rung-4 scope unit test ──────────────────────────────────
 // The SQL builders are pure and exported so their behaviour can be proven against
 // fixture rows without a running app. See tests/e2e/journey-rung4-scope.test.js.
-// runExitCode is exported for tests/wave2/test-journey-control-exit.sh.
+// runExitCode is exported for tests/wave2/test-journey-control-exit.sh, personaMismatch
+// for tests/wave2/test-journey-persona.sh.
 module.exports = {
   sqlRowCount, sqlWatermark, whereScoped, scopeLiteral,
   sqlAssocTotal, sqlAssocLinked, sqlMustPointAt, captureScope, scopeEvidence,
-  runExitCode,
+  runExitCode, personaMismatch,
 };
 
 // ── Main ────────────────────────────────────────────────────────────────────
@@ -886,6 +903,11 @@ if (require.main !== module) return;
 
   if (li.ok && !li.usedFallback) {
     for (const j of journeys) {
+      const wrongPersona = personaMismatch(j, li.user);
+      if (wrongPersona) {
+        record('ui', `${j.id}: persona`, 'INVALID', wrongPersona, (j.requirement || []).join(', '));
+        continue;
+      }
       if (POSITIVE_CONTROL) {
         // Non-vacuity, per RUNG. testing-shape.md §6 asks for this and only one spec
         // in the whole corpus had ever been shown to fail when it should.

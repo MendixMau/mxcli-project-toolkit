@@ -172,12 +172,30 @@ next_action() {
 }
 NEXT="$(next_action)"
 
+# --- context packs reachable? -------------------------------------------------------------
+# A brief with no "### Build steps" table makes context-pack.sh exit 3, and the helper is handed
+# the whole reading list instead of one file for its step. Silent by design (old briefs must keep
+# working), which is why nobody noticed: two field builds (2026-10-07) ran with packs on and no
+# pack ever written, while long-lived build helpers grew to 200k tokens of context.
+PACK_GAP=""
+case "$STAGE_LINE" in *"Stage 5"*|*"Stage 6"*)
+  _pk="$(sed -nE 's/^[*_ -]*Context packs:[*_ ]*[`]?([A-Za-z-]+).*/\1/p' "$REG" 2>/dev/null | head -1 | tr 'A-Z' 'a-z')"
+  if [ "${MXTK_CONTEXT_PACKS:-$_pk}" != "off" ]; then
+    _nb=0; _nm=0
+    for _b in "$PROJECT_DIR"/architecture/modules/*/module-brief.md "$PROJECT_DIR"/architecture/modules/*-brief.md; do
+      [ -f "$_b" ] || continue
+      _nb=$((_nb + 1)); grep -q '^### Build steps' "$_b" || _nm=$((_nm + 1))
+    done
+    [ "$_nm" -gt 0 ] && PACK_GAP="context packs unused: $_nm of $_nb brief(s) have no '### Build steps' table, so helpers get the full reading list (module-brief.md)"
+  fi ;;
+esac
+
 # --- print ----------------------------------------------------------------------------------
 TK="toolkit $TK_COMMIT_NOW"; [ -n "$TK_COMMIT_REG" ] && [ "$TK_COMMIT_REG" != "$TK_COMMIT_NOW" ] && TK="$TK (register says $TK_COMMIT_REG)"
 [ -n "$TK_UPD" ] && TK="$TK · updates: $TK_UPD"
 WATCH=""
 for _w in "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROVED_OVER}" "$DONE_STALL" "${BP_STALE%% (*}" \
-          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )"; do
+          "$( [ "${PH_TOTAL:-0}" -gt 0 ] && echo "agent slots unfilled: $PH_TOTAL in $PH_FILES file(s)" )" "$PACK_GAP"; do
   [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
 done
 if [ "$BRIEF" = 1 ]; then

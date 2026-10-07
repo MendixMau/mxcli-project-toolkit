@@ -6,10 +6,14 @@
 #   - intake.md: appends questions that exist in the current template but not in the file.
 #     Never rewrites existing answers, and offers — never performs unprompted — a replacement
 #     of a template question whose boilerplate is provably untouched (--repair-intake).
-#   - bin/ crash net: installs what is MISSING and repairs a lost exec bit. A locally modified
-#     script is REPORTED, never overwritten, unless --upgrade-bin names it (and then the local
-#     copy is backed up first). Six of this machine's projects have hand-hardened their
-#     exec.sh; a blind-overwrite sync would have destroyed all six.
+#   - bin/ crash net: installs what is MISSING and repairs a lost exec bit. A copy that is
+#     byte-for-byte an OLDER toolkit version (proved against the toolkit's own git history,
+#     bin/lib/past-stock.sh) is refreshed — nobody edited it, so there is nothing to lose.
+#     A locally modified script is REPORTED, never overwritten, unless --upgrade-bin names it
+#     (and then the local copy is backed up first). Six of this machine's projects have
+#     hand-hardened their exec.sh; a blind-overwrite sync would have destroyed all six.
+#   - tests/e2e/ engine: same three-way contract as bin/ (missing / unedited older copy /
+#     locally modified). --no-refresh turns the middle case back into a report for both.
 #   - triage.md: installs it if the project predates the Stage 0 scaffold, refreshes it only
 #     while it is still an untouched scaffold, and otherwise KEEPS it. Same contract as the
 #     agent stubs below, not the intake one — a triage document has no per-question unit to
@@ -72,6 +76,10 @@ AGENTS="$MXTK_AGENTS"
 # slim_claude_md: moves a pre-v0.22 mxcli init CLAUDE.md's reference sections out of context.
 . "$SCRIPT_DIR/lib/slim-claude-md.sh"
 
+# "Is this copy an unedited older toolkit version?" — the test that lets sections 4 and 4b
+# refresh a stale bin/ or tests/e2e/ copy without a flag. See the file's header.
+. "$SCRIPT_DIR/lib/past-stock.sh"
+
 # Is this agent file an UNTOUCHED stub (safe to overwrite), or completed work?
 # Two conditions, both required: it still carries the STUB GENERATED banner AND it still
 # has at least one genuinely unfilled {{PLACEHOLDER}}.
@@ -120,10 +128,11 @@ UPGRADE_LINT=""
 REPAIR_INTAKE=0
 ADOPT_ROUTING=0
 PIN_MODELS=0
+NO_REFRESH=0
 PROJECT_DIR=""
 USAGE="Usage: $0 <project-root> [--diff-completed] [--dry-run] [--strict]
                           [--upgrade-bin <script.sh|all>] [--upgrade-lint-rules <rule.star|all>]
-                          [--repair-intake] [--adopt-routing] [--pin-models]"
+                          [--repair-intake] [--adopt-routing] [--pin-models] [--no-refresh]"
 while [ $# -gt 0 ]; do
   case "$1" in
     --diff-completed) DIFF_COMPLETED=1; shift ;;
@@ -132,6 +141,7 @@ while [ $# -gt 0 ]; do
     --repair-intake)  REPAIR_INTAKE=1; shift ;;
     --adopt-routing)  ADOPT_ROUTING=1; shift ;;
     --pin-models)     PIN_MODELS=1; shift ;;
+    --no-refresh)     NO_REFRESH=1; shift ;;
     --upgrade-bin)
       shift
       [ $# -gt 0 ] || { echo "--upgrade-bin needs a script name or 'all'" >&2; exit 1; }
@@ -169,6 +179,8 @@ while [ $# -gt 0 ]; do
       echo "  --pin-models       for a COMPLETED agent whose model: line has drifted from the"
       echo "                     template, rewrite only that line to match. Reported first,"
       echo "                     acted on only with this flag."
+      echo "  --no-refresh       do not refresh bin/ and tests/e2e/ copies that are unedited"
+      echo "                     older toolkit versions; report them as drift instead."
       exit 0 ;;
     -*) echo "unknown option: $1" >&2; exit 1 ;;
     *)  PROJECT_DIR="$1"; shift ;;
@@ -906,7 +918,7 @@ if [ -f "$_routing_owner" ] && ! grep -q "query-the-model" "$_routing_owner"; th
   warn "$(basename "$_routing_owner") does not reference the Baseline routing set — audit it per bootstrap-project.md."
 fi
 
-# --- 4. Crash net: refresh bin/ guard scripts (OFFER, never force) ----------------------
+# --- 4. Crash net: refresh bin/ guard scripts (unedited copies only; OFFER the rest) -----
 # init-project.sh installs seven project-local guard scripts into bin/. Sync did not look at
 # bin/ at all, so a project kept whatever crash net it was BORN with — including versions with
 # the `set -e` gap and the "restores over every successful build" bug — and the documented
@@ -919,6 +931,13 @@ fi
 # upstream). A blind-overwrite sync destroys real work in six projects at once. So:
 #   missing          -> install (nothing local to destroy)
 #   identical        -> leave alone; repair the exec bit if it was lost
+#   older, unedited  -> REFRESH. The copy hashes to a version the toolkit itself shipped
+#                       (bin/lib/past-stock.sh), so nobody changed it and nothing is lost.
+#                       Until 2026-10-07 this case was reported like a hand edit, and a
+#                       project kept the crash net it was born with until someone typed
+#                       --upgrade-bin. Held back while bin/_common.sh is hand-edited: 29 of
+#                       the scripts source it, and a refreshed script on a hand-edited library
+#                       is a combination nobody has run. --no-refresh reports instead.
 #   locally modified -> REPORT the drift, print how to see it and how to accept it.
 #                       Never overwritten without --upgrade-bin, which backs the copy up first.
 CRASHNET_SRC="$(cd "$SCRIPT_DIR/.." && pwd)/project-bin"
@@ -928,6 +947,24 @@ CRASHNET_SRC="$(cd "$SCRIPT_DIR/.." && pwd)/project-bin"
 # on — not crash-net per se, but "missing -> install, drifted -> report, never
 # blind-overwrite" applies identically to a project's tuned copy of either.
 CRASHNET_FILES="$MXTK_PROJECT_BIN"
+TK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# copy_kind <toolkit-rel-path> <src> <dst> — classify a project copy that exists:
+#   "same", "stock:<date>" (an unedited older toolkit version), or "edited".
+copy_kind() {
+  if cmp -s "$2" "$3"; then echo same; return; fi
+  # project-bin/X was bin/X before the project-bin split; its older versions live there.
+  _ck_when="$(mxtk_past_stock "$TK_ROOT" "$1" "$3" "bin/${1##*/}")" && { echo "stock:$_ck_when"; return; }
+  echo edited
+}
+
+# The refresh hold: a hand-edited shared library keeps every older copy that depends on it as
+# it is (reported), because a refreshed caller on an edited library has never been run.
+BIN_HOLD=""
+if [ "$NO_REFRESH" -eq 0 ] && [ -f "$PROJECT_DIR/bin/_common.sh" ] && [ -f "$CRASHNET_SRC/_common.sh" ] \
+   && [ "$(copy_kind project-bin/_common.sh "$CRASHNET_SRC/_common.sh" "$PROJECT_DIR/bin/_common.sh")" = edited ]; then
+  BIN_HOLD="_common.sh"
+fi
 
 # known_fix_note NAME — a one-line pointer at a specific, named fix for a crash-net file, so a
 # drift warning can say WHAT was missed instead of only how many lines differ. Deliberately a flat
@@ -1018,6 +1055,19 @@ elif [ -d "$CRASHNET_SRC" ]; then
         CHANGES=$((CHANGES + 1))
       fi
     else
+      kind="$(copy_kind "project-bin/$s" "$src" "$dst")"
+      upgrade_named=0
+      case " $UPGRADE_BIN " in *" all "*|*" $s "*) upgrade_named=1 ;; esac
+      if [ "${kind#stock:}" != "$kind" ] && [ "$NO_REFRESH" -eq 0 ] && [ -z "$BIN_HOLD" ] && [ "$upgrade_named" -eq 0 ]; then
+        if [ "$DRY_RUN" -eq 1 ]; then
+          echo "Would refresh: bin/$s (an unedited toolkit copy of ${kind#stock:} — no local changes to lose)"
+        else
+          cp "$src" "$dst"; chmod +x "$dst"
+          echo "Refreshed: bin/$s (was an unedited toolkit copy of ${kind#stock:})"
+        fi
+        CHANGES=$((CHANGES + 1))
+        continue
+      fi
       DRIFTED="$DRIFTED $s"
       add=$(diff "$src" "$dst" | grep -c '^>' || true)
       del=$(diff "$src" "$dst" | grep -c '^<' || true)
@@ -1031,6 +1081,14 @@ elif [ -d "$CRASHNET_SRC" ]; then
           echo "Upgraded: bin/$s to the toolkit version. Your copy is kept at $(basename "$bak")."
         fi
         CHANGES=$((CHANGES + 1))
+      elif [ "${kind#stock:}" != "$kind" ]; then
+        if [ -n "$BIN_HOLD" ]; then
+          warn "bin/$s is an unedited toolkit copy of ${kind#stock:}, NOT refreshed: bin/$BIN_HOLD is" \
+               "locally edited and $s depends on it. Accept both together: $0 $PROJECT_DIR --upgrade-bin all"
+        else
+          warn "bin/$s is an unedited toolkit copy of ${kind#stock:} (--no-refresh kept it)." \
+               "Refresh: $0 $PROJECT_DIR"
+        fi
       else
         warn "bin/$s is LOCALLY MODIFIED (+$add lines here / -$del lines only in the template)." \
              "Not overwritten. It may be missing crash-net fixes shipped since." \
@@ -1118,12 +1176,32 @@ if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-tests.sh" ]; then
   E2E_DST="$PROJECT_DIR/tests/e2e"
   E2E_MISSING=""
   E2E_DRIFTED=""
+  E2E_STOCK=""
+  # Same hold as the crash net: helpers.js and config.js are required by every engine file, so
+  # while either is hand-edited, older copies around it stay as they are and are reported.
+  E2E_HOLD=""
+  for t in helpers.js config.js; do
+    [ -f "$E2E_SRC/$t" ] && [ -f "$E2E_DST/$t" ] || continue
+    [ "$(copy_kind "project-tests/e2e/$t" "$E2E_SRC/$t" "$E2E_DST/$t")" = edited ] && E2E_HOLD="$E2E_HOLD $t"
+  done
   for t in $MXTK_PROJECT_TESTS; do
     [ -f "$E2E_SRC/$t" ] || continue
     if [ ! -f "$E2E_DST/$t" ]; then
       E2E_MISSING="$E2E_MISSING $t"
     elif ! cmp -s "$E2E_SRC/$t" "$E2E_DST/$t"; then
-      E2E_DRIFTED="$E2E_DRIFTED $t"
+      kind="$(copy_kind "project-tests/e2e/$t" "$E2E_SRC/$t" "$E2E_DST/$t")"
+      if [ "${kind#stock:}" != "$kind" ] && [ "$NO_REFRESH" -eq 0 ] && [ -z "$E2E_HOLD" ]; then
+        if [ "$DRY_RUN" -eq 1 ]; then
+          echo "Would refresh: tests/e2e/$t (an unedited toolkit copy of ${kind#stock:} — no local changes to lose)"
+        else
+          cp "$E2E_SRC/$t" "$E2E_DST/$t"
+          echo "Refreshed: tests/e2e/$t (was an unedited toolkit copy of ${kind#stock:})"
+        fi
+        CHANGES=$((CHANGES + 1))
+      else
+        [ "${kind#stock:}" != "$kind" ] && E2E_STOCK="$E2E_STOCK $t"
+        E2E_DRIFTED="$E2E_DRIFTED $t"
+      fi
     fi
   done
   [ -f "$E2E_DST/project.config.js" ] || E2E_MISSING="$E2E_MISSING project.config.js"
@@ -1143,10 +1221,19 @@ if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-tests.sh" ]; then
     CHANGES=$((CHANGES + 1))
   fi
 
-  # Drift is reported, not healed. install-tests.sh already keeps a differing file and says so;
-  # naming it here is what makes a sync tell you the engine is behind, which is the whole reason
-  # this script exists. --force is deliberately NOT offered automatically: it is the caller's
-  # decision, exactly as --upgrade-bin is for the crash net.
+  # Hand-edited drift is reported, not healed (unedited older copies were refreshed above).
+  # install-tests.sh already keeps a differing file and says so; naming it here is what makes
+  # a sync tell you the engine is behind, which is the whole reason this script exists.
+  # --force is deliberately NOT offered automatically: it is the caller's decision, exactly as
+  # --upgrade-bin is for the crash net.
+  if [ -n "$E2E_STOCK" ]; then
+    if [ -n "$E2E_HOLD" ]; then
+      warn "tests/e2e/ unedited older copies NOT refreshed:$E2E_STOCK" \
+           "Held back because tests/e2e/$(echo $E2E_HOLD | sed 's/ /, tests\/e2e\//g') is locally edited and every engine file requires it."
+    else
+      warn "tests/e2e/ unedited older copies kept by --no-refresh:$E2E_STOCK"
+    fi
+  fi
   if [ -n "$E2E_DRIFTED" ]; then
     warn "tests/e2e/ file(s) differ from the toolkit engine:$E2E_DRIFTED" \
          "Not overwritten — they may be locally hardened, or they may be missing fixes shipped since." \

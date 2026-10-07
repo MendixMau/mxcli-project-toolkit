@@ -4,7 +4,8 @@
 # Always evaluates all stages (0-7). On a full informational run it also regenerates index.html in
 # the project directory from the real results, so the dashboard can never silently drift from
 # actual project state. A stage-specific run answers one question and writes nothing: that is the
-# invocation used in agent loops and hooks, and a read-only query must leave no trace.
+# invocation used in agent loops and hooks, and a read-only query must leave no trace. The one
+# exception is `--closeout <dir> <stage>` on a stage that PASSes: a passed gate moves the board.
 #
 # Usage: bin/gate-check.sh [--html|--no-html] [--ack-protocol [--approved-in-chat]|--force-stale] [--verbose]
 #                          [--adopt <stage> --reason "..."]
@@ -2870,6 +2871,18 @@ case "$HTML_MODE" in
   always) WRITE_HTML=1 ;;
   auto)   [ -n "$REQUESTED_STAGE" ] && WRITE_HTML=0 ;;
 esac
+# A passed gate is a state change the board owes (#146). Stage queries stay read-only, but the
+# --closeout run is the one runbook §1b rule 7 makes at EVERY gate, so when its stage PASSes or
+# is WAIVED it writes the board. Before this, a project that followed the runbook never saw its
+# board move: after gate 2 passed it still read the scaffold-time FAILs (2026-09-25).
+CLOSEOUT_STATUS=""
+if [ "$CLOSEOUT" = "1" ]; then
+  case "$REQUESTED_STAGE" in
+    P|p) CLOSEOUT_STATUS="$P_STATUS" ;;
+    *)   tbl_get "$REQUESTED_STAGE" "$RESULTS_TBL" && CLOSEOUT_STATUS="$TBL_VALUE" ;;
+  esac
+  case "$CLOSEOUT_STATUS" in PASS|WAIVED) WRITE_HTML=1 ;; esac
+fi
 if [ "$WRITE_HTML" = "1" ] && [ "$HTML_MODE" != "always" ] && [ -n "$REQUESTED_STAGE" ] \
    && { [ "$SYNC_BLOCKING" = "1" ] || [ "$DRIFT_STATUS" = "FAIL" ]; }; then
   WRITE_HTML=0

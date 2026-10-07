@@ -654,6 +654,38 @@ if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! grep -q "Toolkit commit:" "$PROJECT_DIR
   CHANGES=$((CHANGES + 1))
 fi
 
+# --- 2b2. CLAUDE.local.md: retire the two "read the whole runbook" lines ------------------
+# WHY (field run 2026-10-07, requirements-driven build). init-project.sh stopped telling sessions
+# to read conversion-runbook.md whole on 2026-09-30, but a CLAUDE.local.md is never overwritten
+# and this script refreshed only the routing block. A project scaffolded from an older clone kept
+# "Read ... FIRST — every session" and "re-read ... in full", so every session still opened the
+# runbook whole (~7k tokens per read, re-read on every later call) after the fix had shipped.
+# Suffix match on the exact old wording, keeping whatever toolkit path the line carries; a line
+# anyone has edited by hand no longer ends that way and is left alone.
+_RB_OLD1='/skills/conversion-runbook.md` FIRST — every session.** It is the'
+_RB_NEW1='/skills/conversion-runbook.md` §1b plus your own stage'"'"'s section FIRST — every session; not the whole file** (`bin/gate-check.sh <project-root> <stage>` prints the line spans). It is the'
+_RB_OLD2='/skills/conversion-runbook.md` in full, then update that line.'
+_RB_NEW2='/skills/conversion-runbook.md` §1b plus your stage'"'"'s section, then update that line.'
+_rb_has_old() { awk -v a="$_RB_OLD1" -v b="$_RB_OLD2" '
+  { n = length($0)
+    if ((n >= length(a) && substr($0, n - length(a) + 1) == a) || (n >= length(b) && substr($0, n - length(b) + 1) == b)) { f = 1 } }
+  END { exit f ? 0 : 1 }' "$1"; }
+if [ -f "$CL" ] && _rb_has_old "$CL"; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo "Would rewrite: CLAUDE.local.md — 'read the runbook whole' lines → §1b plus your stage's section."
+  else
+    _tmp="$(mktemp "${TMPDIR:-/tmp}/rbrw.XXXXXX")" || exit 2
+    awk -v a="$_RB_OLD1" -v ra="$_RB_NEW1" -v b="$_RB_OLD2" -v rb="$_RB_NEW2" '
+      { n = length($0)
+        if (n >= length(a) && substr($0, n - length(a) + 1) == a) { print substr($0, 1, n - length(a)) ra; next }
+        if (n >= length(b) && substr($0, n - length(b) + 1) == b) { print substr($0, 1, n - length(b)) rb; next }
+        print }' "$CL" > "$_tmp" && cat "$_tmp" > "$CL"
+    rm -f "$_tmp"
+    echo "Rewrote: CLAUDE.local.md — sessions read runbook §1b plus their stage's section, not the whole file."
+  fi
+  CHANGES=$((CHANGES + 1))
+fi
+
 # --- 2c. CLAUDE.local.md: append the Wiring block if this project predates it -----------
 # Agents resolve all paths from this block; a project scaffolded before it has none.
 if [ -f "$CL" ] && ! grep -q "## Wiring" "$CL"; then
@@ -1308,10 +1340,11 @@ echo ""
 VERB="updated"; [ "$DRY_RUN" -eq 1 ] && VERB="would be updated"
 if [ "$CHANGES" -gt 0 ]; then
   echo "$CHANGES artifact(s) $VERB. Also tell the active session: 'the toolkit changed —"
-  echo "re-read README.md and skills/conversion-runbook.md before acting.'"
+  echo "re-read runbook §1b plus your stage's section and CLAUDE.local.md before acting.'"
+  echo "(Not README.md or the whole runbook: gate-check prints your stage's line spans.)"
 elif [ "$WARNINGS" -eq 0 ]; then
   echo "All copied artifacts up to date. Referenced skills update via git pull alone —"
-  echo "just have the session re-read the runbook if it started before the pull."
+  echo "if the session started before the pull, have it re-read runbook §1b plus its stage's section."
 fi
 # Never close with "up to date" while warnings are on screen — that line is what made a stale
 # crash net read as a clean sync.

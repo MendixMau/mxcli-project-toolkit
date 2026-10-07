@@ -67,6 +67,7 @@ sleep 0 & DEAD_PID=$!; wait "$DEAD_PID" 2>/dev/null
 
 ADMIN_MARK="fixture-admin-marker-7c1"   # stands in for the adminPass value
 OLD=202001010000
+BOOT=202101010000   # the handshake: newer than the model, older than any edit a case makes
 
 # mkproj <name> <root|app|symlink> -> echoes the project root
 mkproj() {
@@ -90,6 +91,9 @@ handshake() {
   sed -e "s/^  \"pid\": [0-9]*/  \"pid\": $2/" \
       -e "s/^  \"appPort\": [0-9]*/  \"appPort\": $APP/" \
       -e "s/^  \"adminPass\": \"[^\"]*\"/  \"adminPass\": \"$ADMIN_MARK\"/" "$GOLDEN" > "$1/.mxcli/run-local.json"
+  # Between the model (OLD) and now: a write and an edit in the same clock tick share an mtime,
+  # so an edit made right after this line would not read as newer (35/50 on a probe here).
+  touch -t "$BOOT" "$1/.mxcli/run-local.json"
 }
 run() { (cd "$1" && bash bin/test-stack-up.sh --check 2>&1); }
 envv() { sed -n "s/^$2=//p" "$1/.claude/loop/stack.env" 2>/dev/null; }

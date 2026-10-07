@@ -11,6 +11,7 @@
 //         tests/e2e/artifacts/page-audit-control.json  (--positive-control; own file —
 //         a control run must never overwrite a real run)
 //         tests/e2e/artifacts/page-audit-<Module.Page>.png  (one screenshot per page)
+//         tests/e2e/artifacts/page-audit-<Module.Page>.top.png  (first screen — read this one)
 //
 // WHAT THIS IS FOR, AND HOW IT DIFFERS FROM design-audit.js
 // `design-audit.js` sweeps the corpus for class correctness, accessibility and
@@ -53,6 +54,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const R = require('./page-audit-rules.js');
+const { settle } = require('./settle.js');
 
 // project.config.js is the only project-aware file in tests/e2e/. It is safe to
 // require here where ./config is not: it has NO side effects at require time
@@ -547,8 +549,9 @@ async function liveSweep(pages, perPage) {
           }
           const item = page.locator(`text="${target.item}"`).first();
           await item.click({ timeout: 10000 });
-          await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
-          await page.waitForTimeout(600);
+          // Page state, not 'networkidle' (a polling client only ends that by timing out,
+          // up to 20 s per page) plus a fixed 600 ms. settle.js; SETTLE_MODE=fixed = old waits.
+          await settle(page, { timeout: 20000, fallbackMs: 600 });
           navigated = true;
         } catch (e) {
           why = `clicking nav item "${target.item}" failed: ${String(e.message).slice(0, 160)}`;
@@ -570,8 +573,14 @@ async function liveSweep(pages, perPage) {
       }
 
       await page.screenshot({ path: shot, fullPage: true }).catch(() => {});
+      // Plus the first screen (1440x900) — the shot an agent should LOOK at. A tall
+      // full-page shot is downscaled to ~1024 px high before a model sees it, which
+      // leaves text unreadable; the viewport shot stays legible at ~1.7k tokens.
+      const top = shot.replace(/\.png$/, '.top.png');
+      await page.screenshot({ path: top, fullPage: false }).catch(() => {});
       const captured = fs.existsSync(shot);
       if (pp && captured) pp.screenshot = path.relative(ROOT, shot);
+      if (pp && fs.existsSync(top)) pp.screenshotTop = path.relative(ROOT, top);
       rows.push(row({ id: `${INSTRUMENT}/live/screenshot/${qn}`, module: mod, page: qn,
         category: 'live', severity: 'P2', title: 'page screenshot captured',
         verdict: captured ? 'pass' : 'fault',

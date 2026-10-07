@@ -47,7 +47,10 @@ The gate was not missing. Its cadence was too coarse to catch anything early.
 After a script that creates or changes a page:
 
 1. **Run it and open the page** — through real navigation, as a real user role, not a direct URL.
-2. **Screenshot it, then open the PNG** (the Read tool). Name the file after the page —
+2. **Screenshot it, then open the PNG** (the Read tool). Take the viewport (`fullPage: false`,
+   e.g. 1440×900), not the whole page: a tall full-page shot reaches you shrunk to ~1024 px high
+   with unreadable text. Below the fold, scroll and take a second viewport shot.
+   Name the file after the page —
    `order-overview.png` or `Order_Overview_1280.png` for `Orders.Order_Overview`. `bin/exec.sh`
    recorded the page as owed a look when the script landed; opening a screenshot whose name
    contains the page name, taken after that build, is what clears it. Until every built page is

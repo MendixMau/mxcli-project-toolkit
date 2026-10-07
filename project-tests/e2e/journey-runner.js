@@ -33,6 +33,7 @@
 const fs = require('fs');
 const path = require('path');
 const H = require(__dirname + '/helpers.js');
+const { settle } = require(__dirname + '/settle.js');
 const O = require(__dirname + '/otel.js');
 const { cfg } = require(__dirname + '/config.js');
 
@@ -288,7 +289,11 @@ async function act(page, a, vars, note) {
     case 'wait':         await page.waitForTimeout(a.ms || 1000); break;
     default: throw new Error(`unknown action "${a.do}"`);
   }
-  await page.waitForTimeout(a.settleMs ?? 1200);
+  // An explicit settleMs is a fixed wait, as before. Otherwise wait for the page to
+  // finish (settle.js) rather than 1200 ms after every action; SETTLE_MODE=fixed
+  // restores the old 1200 ms for an A/B run.
+  if (a.settleMs != null) await page.waitForTimeout(a.settleMs);
+  else await settle(page, { timeout: 10000, stableMs: 300, networkIdleMs: 0, fallbackMs: 1200 });
 }
 
 // ── Rung 3 helpers ──────────────────────────────────────────────────────────
@@ -575,7 +580,7 @@ function controlMutants(j) {
 // carry-over inside a walk. Here, carry-over between walks is precisely the bug.
 async function resetToStart(page) {
   await page.goto(cfg.baseUrl, { waitUntil: 'domcontentloaded' });
-  await page.waitForTimeout(2500);
+  await settle(page, { fallbackMs: 2500 });
 }
 
 async function runJourney(page, j) {

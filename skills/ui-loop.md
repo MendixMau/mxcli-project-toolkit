@@ -183,6 +183,12 @@ So keep `run --local --watch` running beside the session; `test-stack-up.sh` not
 Docker app and reloads it, but that path is five times slower. `docker reload --css` does not
 compile SCSS: a `main.scss` edit needs the build.
 
+`test-stack-up.sh` recognises the watch loop as this project's app: `mxcli run --local` (v0.24+)
+writes `.mxcli/run-local.json` beside the `.mpr` while it serves, and a live pid there plus a
+Mendix answer on its port publishes `APP_OWNERSHIP=verified`, `APP_SOURCE=run-local`, so the e2e
+config tests it without `ALLOW_UNVERIFIED_APP=1`. It never reloads or restarts that loop. Started
+without `--watch`, a model edited since boot is reported stale with the restart to run.
+
 ## When it finds something — which side is actually wrong
 
 The symptom is easy to see. **Where the fix goes is not, and the instinct is usually wrong.**

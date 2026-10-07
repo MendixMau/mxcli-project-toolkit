@@ -492,7 +492,7 @@ reported normally.
 
 | Value | Means | Basis |
 |---|---|---|
-| `verified` | a container published this port **and** its compose `working_dir` label is this project — the one identity claim that cannot be true of two projects at once | `APP_OWNERSHIP=verified` in `.claude/loop/stack.env`, written by `bin/test-stack-up.sh` |
+| `verified` | a container published this port **and** its compose `working_dir` label is this project — the one identity claim that cannot be true of two projects at once; or a live `mxcli run --local` whose `.mxcli/run-local.json`, beside this project's `.mpr`, names the port (`APP_SOURCE=run-local`) | `APP_OWNERSHIP=verified` in `.claude/loop/stack.env`, written by `bin/test-stack-up.sh` |
 | `asserted` | an operator said so and nothing checked | an `APP_PORT` env var, or the project's deployment config |
 | `unknown` | a Mendix answered and nothing more | a guess, or a `stack.env` predating the marker |
 

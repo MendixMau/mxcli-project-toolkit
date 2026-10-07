@@ -34,11 +34,13 @@ APP_PORT=<port>
 APP_OWNERSHIP=verified | unverified | asserted | unknown
 ```
 
-`verified` means a container owned by this project's `.docker` is serving that port. `unverified`
+`verified` means a container owned by this project's `.docker` is serving that port, or a live
+`mxcli run --local` of this project is (its `.mxcli/run-local.json` names the port; `APP_SOURCE`
+says which: `docker` | `run-local` | `scan`). `unverified`
 means a Mendix answered a port from the `APP_PORTS` fallback scan list — *a* Mendix, not
 necessarily yours. **A harness must refuse an unverified port** unless the operator sets
 `ALLOW_UNVERIFIED_APP=1`, and must record the ownership it acted on. **VERIFIED**
-(`project-bin/test-stack-up.sh:150-198`).
+(`project-bin/test-stack-up.sh`, `owned_app_port` / `local_loop_port` / `find_app_port`).
 
 This is not defensive decoration. On one measured occasion a published `stack.env` named a port
 that belonged to a *different* project's Mendix, which answered 200 with a real login page. Every

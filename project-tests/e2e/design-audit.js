@@ -47,6 +47,7 @@ const os = require('os');
 // project.config.js is the only project-aware file in tests/e2e/, and it has no
 // side effects at require time (unlike ./config, which can process.exit(2)).
 const PROJ = require('./project.config');
+const { settle } = require(__dirname + '/settle.js');
 
 const ROOT = PROJ.root;
 const MPR = PROJ.mprName;
@@ -771,7 +772,8 @@ async function appSweep(pages, navMap, controlNotes) {
     try {
       await page.setViewportSize({ width: 1440, height: 900 });
       await helpers.navTo(page, nav.group, nav.item);
-      await page.waitForTimeout(1200);
+      // wait for the page, not 1200 ms (SETTLE_MODE=fixed keeps the 1200 ms for an A/B run)
+      await settle(page, { timeout: 10000, networkIdleMs: 0, fallbackMs: 1200 });
 
       const st = await checkStructure(page);
       const shot = path.join(ARTIFACTS, `design-audit-${qn}.png`);

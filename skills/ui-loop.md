@@ -47,7 +47,10 @@ The gate was not missing. Its cadence was too coarse to catch anything early.
 After a script that creates or changes a page:
 
 1. **Run it and open the page** — through real navigation, as a real user role, not a direct URL.
-2. **Screenshot it, then open the PNG** (the Read tool). Name the file after the page —
+2. **Screenshot it, then open the PNG** (the Read tool). Take the viewport (`fullPage: false`,
+   e.g. 1440×900), not the whole page: a tall full-page shot reaches you shrunk to ~1024 px high
+   with unreadable text. Below the fold, scroll and take a second viewport shot.
+   Name the file after the page —
    `order-overview.png` or `Order_Overview_1280.png` for `Orders.Order_Overview`. `bin/exec.sh`
    recorded the page as owed a look when the script landed; opening a screenshot whose name
    contains the page name, taken after that build, is what clears it. Until every built page is
@@ -165,6 +168,20 @@ gate reported it — two independent readings of the same build. What the look t
 the "fix" (`Class: 'form-vertical'`) landed in the model, passed the gate, and changed
 nothing on screen, because the theme, not the page, decides the form orientation — the
 first row of the table below, met on the first attempt.
+
+**Keep the app current without rebuilding it.** Same measure on an existing app (field run
+2026-10-07, cloud container, one page change), from exec to the change on screen:
+
+| How the app picks up the change | Time |
+|---|---|
+| `mxcli run --local --watch` kept running (page change) | ~18 s |
+| same, security or navigation change (it restarts itself) | ~60 s |
+| `bin/test-stack-up.sh` → `docker reload --skip-check` | 93 s |
+| restart (`docker run --wait`) | 179 s |
+
+So keep `run --local --watch` running beside the session; `test-stack-up.sh` notices a stale
+Docker app and reloads it, but that path is five times slower. `docker reload --css` does not
+compile SCSS: a `main.scss` edit needs the build.
 
 ## When it finds something — which side is actually wrong
 

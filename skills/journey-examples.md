@@ -123,7 +123,7 @@ row means "the walk did not get there", never "not applicable".
 | `wait` | `ms` | **`ms`, not `settleMs`.** |
 | anything else | — | throws `unknown action` → step `FAIL`. |
 
-Every action also reads `settleMs` (default 1200, applied *after* the action) and `label`
+Every action also reads `settleMs` (a fixed wait *after* the action; when absent the runner waits until the page is idle — no progress bar, DOM still — via `tests/e2e/settle.js`, and `SETTLE_MODE=fixed` restores the old 1200) and `label`
 (**display only** — the walk narrates `Click "Submit for approval"` while keeping `.mx-name-btnSubmit`
 for whoever has to fix it). `widget` is a bare Mendix widget name; the runner prepends `.mx-name-`.
 
@@ -254,7 +254,7 @@ Each of these is either an error path in the runner or a correction recorded in 
 | `oql` / `outcome` with no `expect` or `atLeast` | `INVALID` on every run, forever | declare a bar; prefer `atLeast` on a fixture with history |
 | Two independent `LIMIT 1` seeds | the journey selects one row and asserts about another | key the second seed off the first |
 | Unaliased seed SQL | seed resolves to `null` → whole journey `INVALID` | `SELECT Name AS n …` |
-| `wait` with `settleMs` | the wait is 1200ms, not what you wrote | `wait` reads `ms` |
+| `wait` with `settleMs` | the wait is `settleMs` after a 1000ms `wait`, not what you wrote | `wait` reads `ms` |
 | A `_note` object inside `textPresent` / `ordered` / `checks` | the comment becomes an assertion | comment on the parent object, never inside an iterated array |
 | Treating "seeds returned nothing" as a feature failure | someone debugs the app for a fixture gap | `INVALID`; see `fixture-seeding.md`'s four-cause table |
 | `persona` drifting from `TEST_USER` | the report names an identity that never walked | keep them in step; check `usedFallback` in the findings file |

@@ -10,15 +10,43 @@
 #   1. NEVER touches Studio Pro. No force-quit, no kill. It detects SP and reports; that is all.
 #      restart-sp.sh owns crash recovery and warns that unsaved work is lost. This must be safe to
 #      run while someone else is working in SP.
-#   2. NEVER writes to the .mpr. `mxcli docker build` reads the model and writes only build output.
+#   2. Never writes model CONTENT. Measured (field run 2026-10-07, existing app): a `mxcli docker
+#      run` / `docker build` runs `mx update-widgets` first, which rewrites widget definitions in the
+#      .mpr — git showed it modified after a build that failed. That is a widget-definition refresh,
+#      not a change anyone authored, but it IS a write: commit or snapshot before a build, and never
+#      run one while Studio Pro has the model open.
 #   3. Proves liveness with an actual HTTP response. "No error" is not "up".
-#   4. Idempotent. If the app already answers, it does nothing and exits 0.
+#   4. Idempotent, but never STALE. If the app already answers and was built from the current model,
+#      it does nothing and exits 0. If the model changed since this script last built it, an app
+#      that answers is serving the OLD model — every test then measures yesterday's build and a
+#      fixed bug "still fails". So it hot-reloads (`mxcli docker reload`: build + reload_model,
+#      no container restart) and falls back to a restart only if the reload fails. See WARM LOOP.
 #   5. Starts an auxiliary service if it is down; NEVER stops one (another session may be using it).
 #
 # Usage:
 #   bin/test-stack-up.sh --check     # report only, change nothing. Exit 0 iff required deps are up.
 #   bin/test-stack-up.sh             # report, then bring up what is missing (may run a Docker build)
 #   bin/test-stack-up.sh --no-docker # bring up auxiliaries only; never build. "SP is already running it".
+#   bin/test-stack-up.sh --restart   # skip the hot reload; rebuild and restart the container (old path)
+#
+# WARM LOOP. After a model change the old loop was: exec.sh gate (mxbuild) -> `docker run` (mx check +
+# mxbuild again) -> container restart -> boot wait. Now: the app's model is recorded in
+# .claude/loop/served-model (the model-stamp fingerprint at the moment this script built it); when
+# the current fingerprint differs, `mxcli docker reload` rebuilds and swaps the model into the
+# running runtime instead of restarting it, and passes --skip-check when model-stamp says the
+# current model already passed an mxbuild (the exec.sh gate) — that check was the duplicate.
+# Entity/association changes need a DB sync that reload_model may not do; if the reload fails or the
+# app stops answering, it falls back to the restart. MXTK_WARM_RELOAD=off keeps the old idempotent
+# no-op. Measured (field run 2026-10-07, existing app, cloud container, one page change):
+#   docker run --wait, cold                         190 s
+#   restart (docker run --wait over a running app)  179 s
+#   docker reload, with the duplicate check         140 s
+#   docker reload --skip-check                       93 s  (reload_model itself 0.6 s; the build is the rest)
+#   mxcli run --local --watch, page change           ~18 s from exec to applied (security/nav change: ~60 s restart)
+# So the fastest loop is not this script: keep `mxcli run --local --watch` running beside the
+# session and let it apply each exec (skills/ui-loop.md). This script is the Docker path and the
+# proof-of-ownership step. `docker reload --css` is NOT a theme loop: it copies the theme without
+# compiling SCSS, so a main.scss edit does not show.
 #
 # Exit codes: 0 = required stack is up · 1 = not up and could not fix · 2 = usage/env error
 #
@@ -70,8 +98,9 @@ MODE="up"
 case "${1:-}" in
   --check)     MODE="check" ;;
   --no-docker) MODE="nodocker" ;;
+  --restart)   MODE="restart" ;;
   "")          ;;
-  *) echo "usage: $0 [--check|--no-docker]" >&2; exit 2 ;;
+  *) echo "usage: $0 [--check|--no-docker|--restart]" >&2; exit 2 ;;
 esac
 
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
@@ -201,6 +230,29 @@ publish_stack_env() {
   } > "$STACK_ENV"
 }
 
+# --- Served model: which model state is the running app built from? ----------
+# Written ONLY by this script, right after it built the app, so it names the model the build read
+# (after mx update-widgets, which can rewrite the .mpr — fingerprint before the build would be
+# stale the moment the build finished). An app started any other way (Studio Pro, a manual
+# `docker run`) has no record: freshness UNKNOWN, reported, never guessed.
+SERVED_FILE="${SERVED_FILE:-$ROOT/.claude/loop/served-model}"
+STAMP_SH="$(dirname "${BASH_SOURCE[0]}")/model-stamp.sh"
+model_fp() { [ -f "$STAMP_SH" ] && bash "$STAMP_SH" fingerprint 2>/dev/null; }
+record_served() {
+  local fp; fp="$(model_fp)" || fp=""
+  [ -n "$fp" ] || return 0
+  mkdir -p "$(dirname "$SERVED_FILE")" 2>/dev/null && printf '%s\n' "$fp" > "$SERVED_FILE"
+}
+# Echoes fresh | stale | unknown.
+served_state() {
+  local want have
+  have="$(head -1 "$SERVED_FILE" 2>/dev/null)"
+  want="$(model_fp)" || want=""
+  if [ -z "$have" ] || [ -z "$want" ]; then echo unknown
+  elif [ "$have" = "$want" ]; then echo fresh
+  else echo stale; fi
+}
+
 echo "── Test stack: $PROJ ──────────────────────────────────"
 
 # --- Studio Pro: report only, never act -------------------------------------
@@ -235,6 +287,15 @@ if [ $APP_FOUND -eq 0 ]; then
   fi
 else
   bad "App not serving on any of: $APP_PORTS"
+fi
+SERVED="none"
+if [ $APP_FOUND -eq 0 ]; then
+  SERVED="$(served_state)"
+  case "$SERVED" in
+    fresh)   ok "App serves the current model" ;;
+    stale)   warn "App serves an OLDER model — the model changed since it was built; tests would measure the old build" ;;
+    unknown) warn "App freshness unknown — not built by this script (Studio Pro / manual run); it may serve an old model" ;;
+  esac
 fi
 
 # --- Jaeger (needed only for Trace assertions) ------------------------------
@@ -293,6 +354,10 @@ if [ "$MODE" = "check" ]; then
     echo "APP UP, BUT REST-FED SPECS WILL BE INVALID — see the container warning above"
     exit 1
   fi
+  if [ "$SERVED" = "stale" ] && [ "$APP_OWNERSHIP" = "verified" ]; then
+    echo "APP UP BUT STALE — re-run without --check to hot-reload the current model"
+    exit 1
+  fi
   if [ $APP_FOUND -eq 0 ] && [ $MOCK_OK -eq 0 ]; then
     echo "READY (app :$APP_PORT · jaeger $([ $JAEGER_OK -eq 0 ] && echo up || echo DOWN))"
     exit 0
@@ -314,6 +379,51 @@ if [ $MOCK_REQUIRED -eq 1 ] && [ $MOCK_OK -ne 0 ]; then
     else bad "Mock API failed to start — see $MOCK_LOG"; fi
   else
     bad "MOCK_HEALTH_URL is set but MOCK_DIR is missing or not a directory: ${MOCK_DIR:-<unset>}"
+  fi
+fi
+
+# --- Warm loop: refresh a running app instead of restarting it --------------
+# Only for OUR container (ownership verified): a reload swaps the model in a runtime, and doing that
+# to an unverified port could be another project's app or a Studio Pro run.
+if [ $APP_FOUND -eq 0 ] && [ "$APP_OWNERSHIP" = "verified" ] && [ -n "$MXCLI" ] \
+   && [ "${MXTK_WARM_RELOAD:-on}" != "off" ] && [ "$MODE" != "nodocker" ] \
+   && { [ "$SERVED" != "fresh" ] || [ "$MODE" = "restart" ]; }; then
+  T0=$(date +%s)
+  RELOADED=1
+  if [ "$MODE" != "restart" ]; then
+    # --skip-check only when this exact model already passed an mxbuild (exec.sh's gate or
+    # verify-model.sh). Otherwise the check is the only build-error report before the build.
+    SKIP=""
+    if [ -f "$STAMP_SH" ] && bash "$STAMP_SH" check -q >/dev/null 2>&1; then SKIP="--skip-check"; fi
+    echo "→ Model changed since the app was built — hot-reloading (build + reload_model${SKIP:+, check skipped: model already gate-verified})..."
+    "$MXCLI" docker reload -p "$MPR" $SKIP >"$DOCKER_LOG" 2>&1
+    RELOADED=$?
+    if [ $RELOADED -eq 0 ]; then
+      # reload_model returned; prove the app still answers before trusting it.
+      for _ in $(seq 1 20); do
+        APP_FIND="$(find_app_port)" && break
+        sleep 1
+      done
+      if mendix_at "${APP_FIND%%|*}"; then
+        record_served
+        ok "Hot reload done in $(( $(date +%s) - T0 ))s — app serves the current model"
+        SERVED=fresh
+      else
+        warn "reload_model returned but the app stopped answering — falling back to a restart"
+        RELOADED=1
+      fi
+    else
+      warn "docker reload failed (rc=$RELOADED) — falling back to a restart. Log: $DOCKER_LOG"
+      tail -5 "$DOCKER_LOG" | sed 's/^/    /'
+    fi
+  fi
+  if [ $RELOADED -ne 0 ]; then
+    echo "→ Rebuilding and restarting the container..."
+    "$MXCLI" docker run -p "$MPR" --wait >"$DOCKER_LOG" 2>&1
+    if [ $? -ne 0 ]; then
+      bad "mxcli docker run failed — see $DOCKER_LOG"; tail -20 "$DOCKER_LOG"; exit 1
+    fi
+    APP_FOUND=1   # re-proved below by the boot-wait loop
   fi
 fi
 
@@ -374,6 +484,7 @@ if [ $APP_FOUND -ne 0 ]; then
   APP_OWNERSHIP="${APP_FIND##*|}"
 
   if [ $APP_FOUND -eq 0 ]; then
+    record_served
     ok "App serving on :$APP_PORT after ${WAITED}s (ownership $APP_OWNERSHIP)"
   else
     bad "App still not answering after ${BOOT_TIMEOUT}s — see $DOCKER_LOG"

@@ -3,7 +3,8 @@
 #
 #   ./bin/model-stamp.sh fingerprint [--staged]   # print the model fingerprint
 #   ./bin/model-stamp.sh write <state> <source…>  # record that the current model was verified
-#   ./bin/model-stamp.sh check [--staged] [-q]    # exit 0 iff the (staged) model matches a PASS stamp
+#   ./bin/model-stamp.sh check [--staged] [-q] [--clean]  # exit 0 iff the (staged) model matches a PASS stamp
+#                                                          (--clean: and that pass saw 0 mxbuild errors)
 #   ./bin/model-stamp.sh clear                    # forget the stamp (the model changed unverified)
 #   ./bin/model-stamp.sh paths                    # the repo-relative model paths this covers
 #
@@ -219,6 +220,10 @@ case "$cmd" in
     { printf 'fingerprint: %s\n' "$fp"
       printf 'state: %s\n' "$state"
       printf 'source: %s\n' "$*"
+      # mxbuild error count the pass saw. exec.sh's delta gate also passes a model that
+      # still carries pre-existing errors, so "pass" alone does not mean clean; exec.sh
+      # skips its pre-flight mxbuild only on a stamp that says 0 here (check --clean).
+      printf 'errors: %s\n' "${MXTK_STAMP_ERRORS:-?}"
       printf 'at: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     } > "$STAMP"
     # Machine-local, like the doctor receipt: never let it travel with the repo.
@@ -230,8 +235,8 @@ case "$cmd" in
     ;;
   clear) rm -f "$STAMP"; echo "  verification stamp cleared" ;;
   check)
-    staged=0; quiet=0
-    for a in "$@"; do case "$a" in --staged) staged=1 ;; -q|--quiet) quiet=1 ;; esac; done
+    staged=0; quiet=0; clean=0
+    for a in "$@"; do case "$a" in --staged) staged=1 ;; -q|--quiet) quiet=1 ;; --clean) clean=1 ;; esac; done
     say() { [ "$quiet" = 1 ] || echo "$@"; }
     if [ "$staged" = 1 ]; then
       in_git || exit 0
@@ -262,6 +267,9 @@ case "$cmd" in
     fi
     if [ "$st" != "pass" ]; then
       say "  ✗ $what is UNVERIFIED: last verification was '$st' ($src, $at)"; exit 1
+    fi
+    if [ "$clean" = 1 ] && [ "$(stamp_field errors)" != "0" ]; then
+      say "  ✗ $what passed with pre-existing errors ($(stamp_field errors)) — not a clean stamp"; exit 1
     fi
     say "  ✓ $what verified ($src, $at)"
     ;;

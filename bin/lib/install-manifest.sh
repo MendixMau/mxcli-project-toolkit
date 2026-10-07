@@ -176,7 +176,7 @@ MXTK_LINT_RULES_NOINSTALL="README.md STOCK-HASHES.txt"
 #
 # project.config.template.js is listed separately because it is the one file a project is
 # EXPECTED to edit — installing it over an edited copy would silently revert the port.
-MXTK_PROJECT_TESTS="config.js helpers.js otel.js journey-runner.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js full-app-walkthrough.js report-normalize.js report-render.js review-report.js example.journey.json"
+MXTK_PROJECT_TESTS="config.js helpers.js settle.js otel.js journey-runner.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js full-app-walkthrough.js report-normalize.js report-render.js review-report.js example.journey.json"
 MXTK_PROJECT_TESTS_TEMPLATE="project.config.template.js"
 
 # Deliberately not installed. Same contract as the lists above.

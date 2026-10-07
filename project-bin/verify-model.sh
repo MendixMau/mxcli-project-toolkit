@@ -84,5 +84,5 @@ for x in [p for p in d.get('problems',[]) if p.get('severity')=='Error'][:15]:
 fi
 echo "✓ mxbuild: 0 errors — model is clean."
 rm -f "$ERR" "$OUT"
-[ "$STAMP" = 1 ] && ./bin/model-stamp.sh write pass "verify-model.sh"
+[ "$STAMP" = 1 ] && MXTK_STAMP_ERRORS=0 ./bin/model-stamp.sh write pass "verify-model.sh"
 exit 0

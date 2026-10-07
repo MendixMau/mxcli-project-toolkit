@@ -80,6 +80,13 @@ Both were invisible to a report that enumerated only what ran.
 Record the page set and its size in the report. `12 of 12 pages reviewed` is a claim.
 `reviewed the module` is not.
 
+**Order, not selection.** When `tests/e2e/page-audit.js` has run, open the screenshots in the
+order of `tests/e2e/artifacts/page-audit-look-order.txt`: worst first (fault, then fail, then by
+P1/P2/P3 finding count), so attention is freshest where the rules already found trouble. The file
+lists **all N pages**, its header says so, and the denominator does not change. A page at the
+bottom with zero findings still gets its look: the rules cannot see layout, and "the audit was
+clean" is exactly the "looked fine" this stage exists to refuse.
+
 ### 4b. Run the mechanical sweep first, then look at what it cannot see
 
 ```bash

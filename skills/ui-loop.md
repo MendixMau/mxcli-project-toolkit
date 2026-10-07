@@ -169,6 +169,20 @@ the "fix" (`Class: 'form-vertical'`) landed in the model, passed the gate, and c
 nothing on screen, because the theme, not the page, decides the form orientation — the
 first row of the table below, met on the first attempt.
 
+**Keep the app current without rebuilding it.** Same measure on an existing app (field run
+2026-10-07, cloud container, one page change), from exec to the change on screen:
+
+| How the app picks up the change | Time |
+|---|---|
+| `mxcli run --local --watch` kept running (page change) | ~18 s |
+| same, security or navigation change (it restarts itself) | ~60 s |
+| `bin/test-stack-up.sh` → `docker reload --skip-check` | 93 s |
+| restart (`docker run --wait`) | 179 s |
+
+So keep `run --local --watch` running beside the session; `test-stack-up.sh` notices a stale
+Docker app and reloads it, but that path is five times slower. `docker reload --css` does not
+compile SCSS: a `main.scss` edit needs the build.
+
 ## When it finds something — which side is actually wrong
 
 The symptom is easy to see. **Where the fix goes is not, and the instinct is usually wrong.**

@@ -547,8 +547,22 @@ async function liveSweep(pages, perPage) {
             const g = page.locator(`.mx-navigationtree >> text="${target.group}"`).first();
             if (await g.count()) { await g.click({ timeout: 5000 }).catch(() => {}); await page.waitForTimeout(400); }
           }
-          const item = page.locator(`text="${target.item}"`).first();
-          await item.click({ timeout: 10000 });
+          // Try every element carrying the label, not just the first. A layout can render
+          // the same item twice (sidebar tree + top menu bar); with the sidebar collapsed
+          // to its 32 px rail the content placeholder covers it, so .first() timed out on
+          // every page while the menu-bar copy was one click away (field run 2026-10-07,
+          // existing app). A trial click finds the one a user could actually click.
+          const items = page.locator(`text="${target.item}"`);
+          await items.first().waitFor({ state: 'attached', timeout: 10000 });
+          let clicked = false; let lastErr = null;
+          for (let i = 0, n = await items.count(); i < n && !clicked; i++) {
+            try {
+              await items.nth(i).click({ trial: true, timeout: 2000 });
+              await items.nth(i).click({ timeout: 5000 });
+              clicked = true;
+            } catch (err) { lastErr = err; }
+          }
+          if (!clicked) throw lastErr;
           // Page state, not 'networkidle' (a polling client only ends that by timing out,
           // up to 20 s per page) plus a fixed 600 ms. settle.js; SETTLE_MODE=fixed = old waits.
           await settle(page, { timeout: 20000, fallbackMs: 600 });
@@ -911,7 +925,25 @@ function main() {
   });
 }
 
+// Look order: every page, worst first — fault, then fail, then by its P1/P2/P3 finding counts.
+// Triage only changes which screenshot a reviewer opens FIRST; the list always holds all N pages,
+// because a page with zero findings is not a page nobody needs to look at (the rules cannot see
+// layout, and module-review.md stage 4 owes a look at every one).
+const SEV_RANK = ['P1', 'P2', 'P3'];
+function lookOrder(perPage) {
+  const key = (p) => [PRECEDENCE[p.verdict] || 0,
+    ...SEV_RANK.map((s) => p.findings.filter((f) => f.severity === s).length), p.findings.length];
+  return perPage.map((p, i) => ({ p, i, k: key(p) }))
+    .sort((a, b) => { for (let j = 0; j < a.k.length; j++) if (b.k[j] !== a.k[j]) return b.k[j] - a.k[j]; return a.i - b.i; })
+    .map(({ p }, n) => ({
+      rank: n + 1, page: p.page, verdict: p.verdict,
+      findings: SEV_RANK.map((s) => `${s}:${p.findings.filter((f) => f.severity === s).length}`).join(' '),
+      screenshotTop: p.screenshotTop || null, screenshot: p.screenshot || null,
+    }));
+}
+
 function finish({ startedAt, checks, instruments, perPage, coverage, app, controlRows }) {
+  const order = lookOrder(perPage);
   const tally = checks.reduce((a, c) => { a[c.verdict] = (a[c.verdict] || 0) + 1; return a; }, {});
   const artifact = {
     schemaVersion: SCHEMA_VERSION,
@@ -938,6 +970,7 @@ function finish({ startedAt, checks, instruments, perPage, coverage, app, contro
     },
     humanJudgement: R.HUMAN_JUDGEMENT,
     instruments,
+    lookOrder: order,
     perPage,
     checks,
     controls: controlRows,
@@ -948,6 +981,11 @@ function finish({ startedAt, checks, instruments, perPage, coverage, app, contro
   const out = OPT.out
     || path.join(ARTIFACTS, OPT.page ? `page-audit-${OPT.page}.json` : 'page-audit.json');
   fs.writeFileSync(out, JSON.stringify(artifact, null, 2));
+  if (!OPT.page && !OPT.out && order.length) {
+    fs.writeFileSync(path.join(ARTIFACTS, 'page-audit-look-order.txt'),
+      `# Look at ALL ${order.length} pages; this only sets which first (worst first).\n`
+      + order.map((o) => `${o.rank}\t${o.verdict}\t${o.findings}\t${o.page}\t${o.screenshotTop || o.screenshot || '(no screenshot)'}`).join('\n') + '\n');
+  }
 
   // ── console summary ────────────────────────────────────────────────────────
   console.log(`\npage-audit — ${artifact.run.mode} — ${perPage.length} pages, ${checks.length} checks`);
@@ -955,12 +993,14 @@ function finish({ startedAt, checks, instruments, perPage, coverage, app, contro
     console.log(`wireframe coverage: ${coverage.withWireframe}/${coverage.inScopePages} in-scope pages have one `
       + `(${coverage.withoutWireframe} do not: ${coverage.pagesWithNoWireframe.join(', ') || 'none'})`);
   }
-  for (const p of perPage) {
+  const byPage = new Map(perPage.map((p) => [p.page, p]));
+  for (const p of order.map((o) => byPage.get(o.page))) {
     const f = p.findings.length;
     console.log(`  ${p.verdict.toUpperCase().padEnd(5)} ${p.page.padEnd(42)} ${p.checkCount || 0} checks, ${f} finding${f === 1 ? '' : 's'}`
       + (p.wireframe && !p.wireframe.exists ? '  [NO WIREFRAME]' : ''));
   }
   console.log(`\nverdicts: ${JSON.stringify(tally)}  →  ${out}`);
+  if (order.length) console.log(`look order (worst first, all ${order.length} pages): ${path.join(ARTIFACTS, 'page-audit-look-order.txt')}`);
 
   const anyFault = checks.some((c) => c.verdict === 'fault');
   const anyFail = checks.some((c) => c.verdict === 'fail');
@@ -975,4 +1015,4 @@ if (require.main === module) {
   } catch (e) { console.error(e.stack); process.exitCode = 2; }
 }
 
-module.exports = { auditPageStatic, readCompleteness, worst, DOM_PROBE, PAGE_WIREFRAME };
+module.exports = { auditPageStatic, readCompleteness, worst, lookOrder, DOM_PROBE, PAGE_WIREFRAME };

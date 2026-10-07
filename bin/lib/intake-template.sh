@@ -126,6 +126,16 @@ _Not yet asked._ How to verify: ask the user; default is `auto`. Full rule text 
 gates, the resolution order, the STOP-table carve-out): `bin/lib/wiring-item3.sh` — the same
 text every agent's Start-here stamp carries. See `bin/exec-approval.sh --explain` for what is
 currently resolved and why; the user switches it, never the agent on its own judgement.
+
+## 12. Claude Code permissions: `project` (default), `wrappers`, or `full`?
+
+_Not yet asked._ How to verify: ask the user; default is `project`. `wrappers` = only the
+toolkit's safe wrappers run without a prompt. `project` = those plus edits inside this folder and
+the everyday test/npm/docker/git-commit commands. `full` = everything, on this person's machine
+only (`.claude/settings.local.json`); force-push, `git reset --hard`, `git clean` and `sudo`
+still prompt. Record it as `Permission profile:` in PROJECT.md, then run
+`bin/install-harness-permissions.sh <project> --profile <answer>`; `bin/doctor.sh <project>`
+shows what is in effect.
 MXTK_INTAKE_EOF
 }
 

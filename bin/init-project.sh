@@ -186,6 +186,7 @@ Every gate decision lands here as \`CONFIRMED\` or \`ASSUMED\`, never silently d
 
 ${TOOLKIT_COMMIT_LINE}
 Exec approval: auto
+Permission profile: project
 
 <!-- The bold line above is a READOUT: bin/gate-check.sh rewrites it on every full run from the
      verdicts it just produced (first stage neither PASS nor WAIVED). Do not edit it by hand.

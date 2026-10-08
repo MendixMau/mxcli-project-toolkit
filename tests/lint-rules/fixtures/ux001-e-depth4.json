@@ -1,0 +1,59 @@
+{
+ "widgets": [
+  {
+   "id": "w-btnGo",
+   "name": "btnGo",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-Sales.Order_Overview",
+   "container_qualified_name": "Sales.Order_Overview",
+   "container_type": "PAGE",
+   "module_name": "Sales",
+   "action_type": "Forms$MicroflowClientAction",
+   "microflow_ref": "Sales.ACT_Alpha"
+  }
+ ],
+ "refs_from": {
+  "Sales.ACT_Alpha": [
+   {
+    "source_type": "MICROFLOW",
+    "source_name": "Sales.ACT_Alpha",
+    "target_type": "MICROFLOW",
+    "target_name": "Sales.SUB_Beta",
+    "ref_kind": "CALL",
+    "module_name": "Sales"
+   }
+  ],
+  "Sales.SUB_Beta": [
+   {
+    "source_type": "MICROFLOW",
+    "source_name": "Sales.SUB_Beta",
+    "target_type": "MICROFLOW",
+    "target_name": "Sales.SUB_Gamma",
+    "ref_kind": "CALL",
+    "module_name": "Sales"
+   }
+  ],
+  "Sales.SUB_Gamma": [
+   {
+    "source_type": "MICROFLOW",
+    "source_name": "Sales.SUB_Gamma",
+    "target_type": "MICROFLOW",
+    "target_name": "Sales.SUB_Delta",
+    "ref_kind": "CALL",
+    "module_name": "Sales"
+   }
+  ]
+ },
+ "activities": {
+  "Sales.SUB_Delta": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "auto_generate_caption": false
+   }
+  ]
+ }
+}

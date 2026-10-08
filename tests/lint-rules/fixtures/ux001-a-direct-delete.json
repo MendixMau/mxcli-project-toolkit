@@ -1,0 +1,14 @@
+{
+ "widgets": [
+  {
+   "id": "w-btnDelete",
+   "name": "btnDelete",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-Sales.Order_Overview",
+   "container_qualified_name": "Sales.Order_Overview",
+   "container_type": "PAGE",
+   "module_name": "Sales",
+   "action_type": "Forms$DeleteClientAction"
+  }
+ ]
+}

@@ -1,0 +1,14 @@
+{
+ "widgets": [
+  {
+   "id": "w-btnDelete",
+   "name": "btnDelete",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-System.Some_Page",
+   "container_qualified_name": "System.Some_Page",
+   "container_type": "PAGE",
+   "module_name": "System",
+   "action_type": "Forms$DeleteClientAction"
+  }
+ ]
+}

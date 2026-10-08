@@ -58,6 +58,8 @@ DESTRUCTIVE_ACTIONS = ("DeleteObjectAction",)
 # CamelCase/segment end, so "Approved", "Deleted", "Submitted" never match.
 DESTRUCTIVE_NAME_PATTERN = "(^|_)(Delete|Remove|Approve|Reject|Submit|Archive|Finalize|Finalise|Publish|Withdraw|Revoke|Discard|Purge)($|_|[A-Z0-9])"
 
+# Flows walked from the button: the target, what it calls, what that calls (3 flows deep).
+# A delete four flows away is not seen; the unit suite pins both sides of that line.
 MAX_CALL_DEPTH = 3
 
 

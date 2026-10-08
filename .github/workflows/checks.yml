@@ -85,3 +85,10 @@ jobs:
             bash "$t" || { echo "FAILED: $t"; rc=1; }
           done
           exit $rc
+
+      # Lint-rule unit suite. Added 2026-10-08 with UX001/UX002: executes the Starlark rules
+      # under go.starlark.net at mxcli's pinned version (tests/lint-rules/starrun, built here
+      # with the runner's Go), so rule logic is proven before any field calibration. Not under
+      # the glob above because it needs Go and lives in its own directory.
+      - name: Lint-rule unit suite (tests/lint-rules/test-ux-rules.sh)
+        run: bash tests/lint-rules/test-ux-rules.sh

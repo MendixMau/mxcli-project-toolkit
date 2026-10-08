@@ -1,0 +1,88 @@
+{
+ "microflows": [
+  {
+   "id": "m-ACT_Big",
+   "name": "ACT_Big",
+   "qualified_name": "Sales.ACT_Big",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Big": [
+   {
+    "id": "a0",
+    "name": "a0",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "",
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "",
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "",
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a3",
+    "name": "a3",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "",
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a4",
+    "name": "a4",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "",
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a5",
+    "name": "a5",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "",
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a6",
+    "name": "a6",
+    "caption": "Step",
+    "activity_type": "ExclusiveSplit",
+    "action_type": "",
+    "auto_generate_caption": true
+   },
+   {
+    "id": "a7",
+    "name": "a7",
+    "caption": "Step",
+    "activity_type": "ExclusiveSplit",
+    "action_type": "",
+    "auto_generate_caption": true
+   },
+   {
+    "id": "a8",
+    "name": "a8",
+    "caption": "Step",
+    "activity_type": "ExclusiveSplit",
+    "action_type": "",
+    "auto_generate_caption": true
+   }
+  ]
+ }
+}

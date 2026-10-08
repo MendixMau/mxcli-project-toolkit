@@ -1,0 +1,15 @@
+{
+ "widgets": [
+  {
+   "id": "w-btnReject",
+   "name": "btnReject",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-Sales.Order_Overview",
+   "container_qualified_name": "Sales.Order_Overview",
+   "container_type": "PAGE",
+   "module_name": "Sales",
+   "action_type": "Forms$CallNanoflowClientAction",
+   "nanoflow_ref": "Sales.ACT_Reject"
+  }
+ ]
+}

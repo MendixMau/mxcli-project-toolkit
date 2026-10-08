@@ -1,0 +1,24 @@
+{
+ "microflows": [
+  {
+   "id": "m-RULE_IsValid",
+   "name": "RULE_IsValid",
+   "qualified_name": "Sales.RULE_IsValid",
+   "module_name": "Sales",
+   "microflow_type": "RULE",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.RULE_IsValid": [
+   {
+    "id": "a0",
+    "name": "a0",
+    "caption": "Step",
+    "activity_type": "ExclusiveSplit",
+    "action_type": "",
+    "auto_generate_caption": true
+   }
+  ]
+ }
+}

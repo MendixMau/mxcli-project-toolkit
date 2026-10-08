@@ -14,7 +14,8 @@
 #      answers ("Order already approved?"), not the auto-generated expression. In MDL:
 #         @caption 'Order already approved?'
 #         IF $Order/Status = 'Approved' THEN ...
-#   2. a flow with ANNOTATE_FROM or more top-level activities has at least one
+#   2. a flow with ANNOTATE_FROM or more top-level activities (start/end events and
+#      annotations themselves not counted) has at least one
 #      annotation or a documentation text saying what the flow is for. In MDL:
 #         @annotation 'Rejects the order, notifies the requester, closes the task.'
 #      before an activity, or a /** ... */ doc block before CREATE MICROFLOW.
@@ -32,7 +33,9 @@
 # getMicroflowObjectType() in mxcli's catalog builder returns (builder_microflows.go);
 # microflow_type is UPPERCASE ("MICROFLOW" / "NANOFLOW" / "RULE"), verified on 0.24.0
 # (skills/lint-that-actually-runs.md). activities_for() is TOP-LEVEL only: decisions
-# inside a loop body are not seen (documented limitation, same as CONV009).
+# inside a loop body are not seen (documented limitation, same as CONV009). It also
+# returns the StartEvent and EndEvent objects, which are not activities and are not
+# counted towards ANNOTATE_FROM (found by the unit suite, tests/lint-rules).
 
 RULE_ID = "UX002"
 RULE_NAME = "DecisionsCaptioned"
@@ -47,6 +50,9 @@ FLOW_TYPES = ("MICROFLOW", "NANOFLOW")
 
 # Top-level activity count from which a flow owes the reader an annotation.
 ANNOTATE_FROM = 8
+
+# Objects activities_for() returns that are not activities to a reader.
+NOT_COUNTED = ("StartEvent", "EndEvent", "Annotation")
 
 
 def check():
@@ -67,22 +73,24 @@ def check():
             continue
         saw_any_activity = True
 
+        # Version probe on the FIRST object of any kind, not only on a decision: a flow
+        # with no decisions on an old binary must still produce the blindness finding.
+        if not hasattr(acts[0], "auto_generate_caption"):
+            api_missing = True
+            break
+
         bare_decisions = 0
         has_annotation = False
+        counted = 0
         for act in acts:
             if act.activity_type == "Annotation":
                 has_annotation = True
-                continue
+            if act.activity_type not in NOT_COUNTED:
+                counted += 1
             if act.activity_type != "ExclusiveSplit":
                 continue
-            auto = getattr(act, "auto_generate_caption", None)
-            if auto == None:
-                api_missing = True
-                break
-            if auto or act.caption.strip() == "":
+            if act.auto_generate_caption or act.caption.strip() == "":
                 bare_decisions += 1
-        if api_missing:
-            break
 
         loc = location(
             module=mf.module_name,
@@ -99,10 +107,10 @@ def check():
                 suggestion="Give each decision a caption written as the question it answers: `@caption 'Already approved?'` before the IF in MDL, or the Caption field in Studio Pro.",
             ))
 
-        if len(acts) >= ANNOTATE_FROM and not has_annotation and mf.description.strip() == "":
+        if counted >= ANNOTATE_FROM and not has_annotation and mf.description.strip() == "":
             violations.append(violation(
                 message="'{}' has {} top-level activities, no annotation and no documentation.".format(
-                    mf.name, len(acts)
+                    mf.name, counted
                 ),
                 location=loc,
                 suggestion="Add `@annotation '...'` before the first activity saying what the flow does and for whom, or a /** ... */ documentation block before CREATE MICROFLOW.",

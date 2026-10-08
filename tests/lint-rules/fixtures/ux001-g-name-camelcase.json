@@ -1,0 +1,15 @@
+{
+ "widgets": [
+  {
+   "id": "w-btnShow",
+   "name": "btnShow",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-Sales.Order_Overview",
+   "container_qualified_name": "Sales.Order_Overview",
+   "container_type": "PAGE",
+   "module_name": "Sales",
+   "action_type": "Forms$MicroflowClientAction",
+   "microflow_ref": "Sales.ACT_ShowApprovedOrders"
+  }
+ ]
+}

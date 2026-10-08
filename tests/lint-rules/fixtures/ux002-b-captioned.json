@@ -1,0 +1,24 @@
+{
+ "microflows": [
+  {
+   "id": "m-ACT_Check",
+   "name": "ACT_Check",
+   "qualified_name": "Sales.ACT_Check",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Check": [
+   {
+    "id": "a0",
+    "name": "a0",
+    "caption": "Already approved?",
+    "activity_type": "ExclusiveSplit",
+    "action_type": "",
+    "auto_generate_caption": false
+   }
+  ]
+ }
+}

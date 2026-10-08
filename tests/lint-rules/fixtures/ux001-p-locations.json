@@ -1,0 +1,48 @@
+{
+ "widgets": [
+  {
+   "id": "w-btnDelete",
+   "name": "btnDelete",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-Orders.Order_Overview",
+   "container_qualified_name": "Orders.Order_Overview",
+   "container_type": "PAGE",
+   "module_name": "Orders",
+   "action_type": "Forms$DeleteClientAction"
+  },
+  {
+   "id": "w-btnRemove",
+   "name": "btnRemove",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-Billing.Invoice_Edit",
+   "container_qualified_name": "Billing.Invoice_Edit",
+   "container_type": "PAGE",
+   "module_name": "Billing",
+   "action_type": "Forms$MicroflowClientAction",
+   "microflow_ref": "Billing.ACT_Invoice_Clear"
+  },
+  {
+   "id": "w-btnApprove",
+   "name": "btnApprove",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-Sales.Quote_View",
+   "container_qualified_name": "Sales.Quote_View",
+   "container_type": "PAGE",
+   "module_name": "Sales",
+   "action_type": "Forms$MicroflowClientAction",
+   "microflow_ref": "Sales.ACT_Quote_Approve"
+  }
+ ],
+ "activities": {
+  "Billing.ACT_Invoice_Clear": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "auto_generate_caption": false
+   }
+  ]
+ }
+}

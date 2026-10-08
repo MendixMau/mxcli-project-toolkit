@@ -1,0 +1,28 @@
+{
+ "widgets": [
+  {
+   "id": "w-btnDelete",
+   "name": "btnDelete",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-Sales.Order_Overview",
+   "container_qualified_name": "Sales.Order_Overview",
+   "container_type": "PAGE",
+   "module_name": "Sales",
+   "action_type": "Forms$MicroflowClientAction",
+   "microflow_ref": "Sales.ACT_Order_Delete",
+   "has_confirmation": true
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Order_Delete": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "auto_generate_caption": false
+   }
+  ]
+ }
+}

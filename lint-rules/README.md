@@ -33,7 +33,13 @@ finding ("needs mxcli >= 0.25.0") and nothing else — `bin/lint-gate.sh` reads 
 never as a clean pass. Their vocabulary (`Forms$DeleteClientAction`, `ExclusiveSplit`,
 `DeleteObjectAction`) was read from the mxcli source at 0.25.0, not from `write-lint-rules.md`;
 the first field calibration is still owed — run both on a scratch copy of a real model and
-record the counts here before trusting the numbers.
+record the counts here before trusting the numbers. Their *logic* is proven: `tests/lint-rules/`
+runs both under the real Starlark interpreter (`go.starlark.net` at mxcli's pinned version) over
+33 hand-written fixtures — self-checks, call depth both sides of the bound, cycles, the name
+pattern, module skips, snippet locations, start/end events not counted — plus a synthetic
+3000-flow / 20000-widget model each rule finishes in under a second. Fixtures encode the
+projection as read from the mxcli source; they are not captured output, so they prove the
+rule, not the vocabulary.
 
 `conv010` here is likewise the repaired form of the rule mxcli seeds, and supersedes the
 version this directory shipped on 11 Aug: one violation per microflow instead of one per

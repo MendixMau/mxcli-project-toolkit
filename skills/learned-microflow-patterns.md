@@ -113,6 +113,8 @@ broken, and a database assertion alone would have called both working.** Neither
 the check; the pair is. It is the argument for keeping the journey rung and the OQL rung as two
 separate rungs rather than trusting whichever one is cheaper to run.
 
+**Rollback semantics.** A rollback does not undo REST/SOAP/Java calls already made. Do not commit an object the error flow just rolled back, because Mendix no longer sees it as changed. Continue is only allowed on a call-microflow or a loop, and the failing activity's own changes are always lost. Scheduled-event flows: see `microflow-loop-antipatterns.md` -> "Scheduled-event flows".
+
 ---
 
 ## Every Required Attribute Is Set BEFORE the Commit — One COMMIT, as Late as Possible

@@ -283,6 +283,7 @@ human looking at the screenshot, not by the suite.
 - **Phone viewports:** a target can be attached and rendered but **below the fold**, where
   `isVisible()` is false and the click is skipped. `scrollIntoViewIfNeeded()` before the visibility
   check.
+- **Test isolation.** Tests share no data and run in any order. Setup only opens and logs in. Teardown undoes what the test changed. Keep the Unit Testing rollback on. Wait for a condition, never a fixed sleep. Locate by mx-name and nothing else (`e2e-harness-base.md` applies this to the harness).
 - **Do not scale up a speed multiplier** that divides hand-tuned waits. A pluggable combobox needing
   ~1200 ms to open its dropdown fails at 150 ms, and the resulting failures look completely real.
 

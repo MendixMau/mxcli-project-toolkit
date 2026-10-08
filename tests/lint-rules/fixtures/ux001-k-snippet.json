@@ -1,0 +1,14 @@
+{
+ "widgets": [
+  {
+   "id": "w-btnDelete",
+   "name": "btnDelete",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-Sales.SNIPPET_Actions",
+   "container_qualified_name": "Sales.SNIPPET_Actions",
+   "container_type": "SNIPPET",
+   "module_name": "Sales",
+   "action_type": "Forms$DeleteClientAction"
+  }
+ ]
+}

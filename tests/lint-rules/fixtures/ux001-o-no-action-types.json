@@ -1,0 +1,24 @@
+{
+ "widgets": [
+  {
+   "id": "w-a",
+   "name": "a",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-Sales.Order_Overview",
+   "container_qualified_name": "Sales.Order_Overview",
+   "container_type": "PAGE",
+   "module_name": "Sales",
+   "action_type": ""
+  },
+  {
+   "id": "w-b",
+   "name": "b",
+   "widget_type": "ACTIONBUTTON",
+   "container_id": "c-Sales.Order_Overview",
+   "container_qualified_name": "Sales.Order_Overview",
+   "container_type": "PAGE",
+   "module_name": "Sales",
+   "action_type": ""
+  }
+ ]
+}

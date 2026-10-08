@@ -246,9 +246,9 @@ _ob_has_denominator() {
 # "expired".
 _ob_stale() {
   local root="$1" hit="$2" hash n
-  hash="$(head -c 8000 "$hit" 2>/dev/null | tr -d '\r' \
+  hash="$(cat "$hit" 2>/dev/null | tr -d '\r' \
     | grep -oiE 'VALID[[:space:]]+AT:?[[:space:]]*[0-9a-f]{7,40}' \
-    | grep -oiE '[0-9a-f]{7,40}$' | head -1)"
+    | grep -oiE '[0-9a-f]{7,40}$' | tail -1)"
   [ -n "$hash" ] || return 1
   git -C "$root" cat-file -e "${hash}^{commit}" 2>/dev/null || return 1
   n="$(git -C "$root" log --oneline "${hash}..HEAD" -- '*.mpr' mdlsource 2>/dev/null | wc -l | tr -d ' ')"
@@ -303,9 +303,9 @@ _ob_look_proof_broken() {
 
   # VALID AT commit time, for freshness. Unresolvable → freshness unmeasured, not failed.
   local vhash vtime=""
-  vhash="$(head -c 8000 "$hit" 2>/dev/null | tr -d '\r' \
+  vhash="$(cat "$hit" 2>/dev/null | tr -d '\r' \
     | grep -oiE 'VALID[[:space:]]+AT:?[[:space:]]*[0-9a-f]{7,40}' \
-    | grep -oiE '[0-9a-f]{7,40}$' | head -1)"
+    | grep -oiE '[0-9a-f]{7,40}$' | tail -1)"
   [ -n "$vhash" ] && vtime="$(git -C "$root" show -s --format=%ct "${vhash}^{commit}" 2>/dev/null || true)"
 
   reldir="$(dirname "$hit")"

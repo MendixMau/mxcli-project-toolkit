@@ -69,6 +69,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `project-bin/graph-sweep.sh` | Running the wiring rung alone — a module imported but never reached, an element built but wired to nothing, a boundary crossed; mxbuild and e2e are blind to all three |
 | `skills/fixture-seeding.md` | Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness |
 | `skills/journey-proof.md` | Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red |
+| `skills/unhappy-path-testing.md` | Writing or running e2e cases beyond the happy journeys (blank/whitespace required fields, over-length, duplicates, cancel, double submit, wrong state, wrong role, backend down, stale write, empty search) — every case cites a requirement first, UNSPECIFIED is re-scored against house rules, GAP counts carry the denominator; runs after journey-proof and before monkey-test |
 | `skills/monkey-test.md` | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works |
 | `skills/learned-skill-ux-audit.md` | UX audit and screenshot-loop discipline |
 | `skills/learned-skill-scope-delta.md` | Tracking scope delta between the BRD and the built state |

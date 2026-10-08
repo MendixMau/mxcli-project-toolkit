@@ -16,6 +16,7 @@ and the guard for each. Job 2 is why this skill exists; if you shorten it, do no
 | Non-pipeline app, à-la-carte assurance | `existing-app-assurance.md` (shared toolkit) |
 | Why a green UI report can still be lying | **§4a below** — merged in, no longer a separate file |
 | The deep five-rung version of "prove it", with per-rung non-vacuity controls | `journey-proof.md` (shared toolkit) |
+| Unhappy paths after the journeys are green — requirement-cited cases, house-rules fallback for UNSPECIFIED, GAP counts with a denominator | `unhappy-path-testing.md` (shared toolkit) |
 | Requirement traceability the suite asserts against | `coverage-ledger.md` (shared toolkit) |
 | Why `$?` and tool output are not evidence | `tool-output-is-not-ground-truth.md` (shared toolkit) |
 | Does the whole journey hang together, not just each piece — a different axis, not a fifth rung | `process-coherence-pass.md` (shared toolkit) |
@@ -270,7 +271,7 @@ human looking at the screenshot, not by the suite.
   bland **"Sign in failed."** on the login page — indistinguishable from a wrong password, and
   `system$user.failedlogins` stays at **0** because authentication was never reached. Every
   downstream step then reports as a feature failure. Measured 2026-08-31 on a Mendix 11.13 app: a
-  16-step narrated tour scored 0, with each step labelled `(as (not signed in))`, and the only honest
+  narrated tour of 16 steps scored 0, with each step labelled `(as (not signed in))`, and the only honest
   evidence was one line in the runtime log —
   `ERROR - Connector: ... Maximum number of sessions exceeded! (You are currently using a trial
   license)`. Sixteen "defects" that were one leaked session pool.

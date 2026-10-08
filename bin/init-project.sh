@@ -689,6 +689,21 @@ else
   echo "  $DENYFILE by hand, or this project's name is invisible to the guard."
 fi
 
+# --- no Dev Container ----------------------------------------------------------------
+# `mxcli new` / `mxcli init` always writes `.devcontainer/`, and VS Code then offers (and later
+# remembers) "Reopen in Container". That container is a second machine: no `claude` login, no
+# dotfiles, and its install step is fragile. The toolkit's path is plain local use, so the
+# folder is moved aside here. Real incident, 2026-10-08: a first-time user landed in the
+# container with "claude: command not found" and a fresh login prompt, and asked how to get
+# rid of it. Keep it with MXTK_KEEP_DEVCONTAINER=1. Nothing is deleted: the folder is parked
+# under .mxtk-backup/ so it can be restored by hand.
+if [ -d "$PROJECT_DIR/.devcontainer" ] && [ -z "${MXTK_KEEP_DEVCONTAINER:-}" ]; then
+  mkdir -p "$PROJECT_DIR/.mxtk-backup"
+  mv "$PROJECT_DIR/.devcontainer" "$PROJECT_DIR/.mxtk-backup/devcontainer-$(date +%Y%m%d-%H%M%S)"
+  echo "Moved .devcontainer/ to .mxtk-backup/ — work locally; VS Code will not ask to reopen in a container."
+  echo "  (MXTK_KEEP_DEVCONTAINER=1 keeps it.)"
+fi
+
 GUIDE="$SCRIPT_DIR/../toolkit-guide.html"
 # First-touch sentinel. This is the same file every agent must test before opening the guide
 # (see CLAUDE.md "First-touch rule"); writing it here is what stops the next session — and the

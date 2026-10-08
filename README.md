@@ -111,13 +111,14 @@ network hop with path translation on every file argument. The toolkit does none 
 Git Bash runs where Studio Pro, `mxcli` and your model already live, and ships with Git for
 Windows. `doctor.sh` detects WSL and warns.
 
-**This is about the shell you type in, not about Docker.** Docker Desktop on Windows runs its
-engine on a WSL2 backend, and VS Code will offer to "install Docker on WSL" the first time you
-reopen an `mxcli new` project in its Dev Container — say yes. That is the `devcontainer` lane
-(`CONVERSION-RUNBOOK.md` → *Where you run this*), headless and fully supported; `doctor.sh`
-detects it and records it. The warning above applies only when you run the toolkit's scripts
-*yourself* from a WSL prompt against a Studio Pro on the Windows side. Real question, 2026-09-07:
-"the toolkit says not WSL, but `mxcli new`'s Dev Container wants Docker on WSL — yes or no?" Yes.
+**This is about the shell you type in, not about Docker.** `mxcli new` writes a `.devcontainer/`
+and VS Code then offers to "Reopen in Container" — **say no, work locally.** The container is a
+second machine (no `claude` login, no dotfiles, a fragile install step), and the toolkit's path
+is plain local use: `bin/init-project.sh` parks that folder under `.mxtk-backup/` so the prompt
+stops. If you already clicked yes: F1 → "Dev Containers: Reopen Folder Locally", nothing is lost.
+Real incident, 2026-10-08: a first-time user landed in the container with "claude: command not
+found" and a fresh login prompt. The `devcontainer` lane in `CONVERSION-RUNBOOK.md` stays
+supported for those who want it (`MXTK_KEEP_DEVCONTAINER=1`), it is just not the default.
 
 **The lanes mix freely on one project.** Do the headless stages in the Dev Container, then open
 the same `.mpr` in Studio Pro from Git Bash for the steps MDL cannot express and UI polish, and go back.

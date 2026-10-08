@@ -136,7 +136,8 @@ MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh"  # gate-check.sh runs i
 # lint-rules/README.md. conv010 (CONV010) is the top rule by
 # volume everywhere it runs; the de-noised version here took PROJECT-C 399 -> 51.
 #
-# The toolkit ships ONLY these three of mxcli's ~29. Copying the rest would pin every project
+# The toolkit repairs ONLY these three of mxcli's ~29 (MXTK_LINT_RULES_STOCK below); rules
+# after them in the list are toolkit-authored, never seeded by init. Copying the rest would pin every project
 # to whatever mxcli shipped the day someone copied them.
 #
 # MXTK_LINT_RULES_CONFIGURABLE — installed once, then owned by the project. conv020 is not an
@@ -151,6 +152,13 @@ MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh"  # gate-check.sh runs i
 # sync-project.sh restores them; lint-rules/STOCK-HASHES.txt is what lets it tell a
 # reverted-to-stock file (safe to restore) from one a project deliberately tuned (hands off).
 MXTK_LINT_RULES="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star ux001_confirm_before_destructive.star ux002_decisions_captioned.star"
+# MXTK_LINT_RULES_STOCK — the subset of MXTK_LINT_RULES that `mxcli init` ALSO seeds, i.e. the
+# only files lint-rules/STOCK-HASHES.txt can ever hold a hash for. The ux001/ux002 rules are
+# toolkit-authored: init never writes them, so no stock hash can exist and a coverage check
+# that demanded one (tests/wave2/test-stock-hashes.sh, until 2026-10-08) went red on every
+# version the day a non-stock rule joined MXTK_LINT_RULES. Every name here must also be in
+# MXTK_LINT_RULES; the fixture asserts it.
+MXTK_LINT_RULES_STOCK="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star"
 MXTK_LINT_RULES_CONFIGURABLE="conv020_action_user_feedback.star"
 
 # Files in lint-rules/ deliberately NOT installed. Same contract as MXTK_PROJECT_BIN_NOINSTALL:

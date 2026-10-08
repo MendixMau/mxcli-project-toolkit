@@ -622,7 +622,7 @@ if html_out:
     src_list = ''.join(f'<li><code>{esc(os.path.basename(s))}</code></li>' for s in sources) \
                or '<li>no source files named</li>'
 
-    page = f"""<title>Source sufficiency — {esc(os.path.basename(os.environ.get('PROJECT_DIR','')))}</title>
+    page = f"""<title>Source sufficiency — {esc(os.path.basename(os.path.realpath(os.environ.get('PROJECT_DIR',''))))}</title>
 <style>
   /* Neutrals are slate-biased rather than pure grey so the four semantic hues read as data.
      The accent is used ONLY for the recommendation; severity never borrows it. */

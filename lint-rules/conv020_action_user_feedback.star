@@ -1,7 +1,8 @@
 # mxtk-lint-rule: conv020_action_user_feedback
-# Shipped by mxcli-project-toolkit. UNLIKE the other rules here this one is MEANT to be
-# edited: PROJECT_MODULES must name the modules this project owns, or the rule inspects
-# nothing and says so. sync-project.sh therefore installs it once and never refreshes it;
+# Shipped by mxcli-project-toolkit. UNLIKE the other rules here this one MAY be edited:
+# PROJECT_MODULES defaults to "*" (every module the lint run includes, i.e. all but those
+# in .claude/lint-vendor-modules.txt); narrow it to a tuple to scope the rule down.
+# sync-project.sh installs it once and never refreshes it;
 # when the template changes it reports the change and leaves your configured copy alone.
 # See lint-rules/README.md.
 # --- end mxtk-lint-rule header ---
@@ -41,14 +42,14 @@ SEVERITY = "warning"
 
 REQUIRES = ["full"]
 
-# CONFIGURE ME. Only lint modules this project owns -- everything else is Marketplace
-# or vendor content you do not author and cannot fix. Leaving this empty does not make
-# the rule lint everything; it makes the rule refuse to run (see the guard in check()),
-# because a rule that silently inspects nothing is worse than no rule.
+# "*" (default) = every module this lint run includes. project-bin/lint-gate.sh passes
+# .claude/lint-vendor-modules.txt as an exclusion, so Marketplace/vendor content is already
+# out of scope there. Set a tuple of names to narrow it, e.g. ("Sales", "Orders"); an empty
+# tuple makes the rule refuse to run (see the guard in check()) rather than pass silently.
 #
-# List them with:
+# List modules with:
 #   ./mxcli -p <project>.mpr -c "SHOW MODULES"
-PROJECT_MODULES = ()
+PROJECT_MODULES = "*"
 
 # Work was actually completed and persisted.
 STATE_CHANGE_ACTIONS = (
@@ -61,6 +62,13 @@ STATE_CHANGE_ACTIONS = (
 FEEDBACK_ACTIONS = (
     "ShowMessageAction",
     "ValidationFeedbackAction",
+    # Navigating the user to a page, or closing the current one, is visible feedback.
+    # Presence only: flow order is not visible to this API, so a page opened BEFORE the
+    # commit also counts. Refresh-in-client is NOT detectable (not exposed by mxcli as an
+    # activity field) -- upstream ask; until then a flow that only refreshes is flagged.
+    "ShowPageAction",
+    "ClosePageAction",
+    "ShowHomePageAction",
 )
 
 MAX_CALL_DEPTH = 3
@@ -102,17 +110,17 @@ def check():
     # UNCONFIGURED GUARD. Ships from the toolkit with an empty module list. Without
     # this, an uncustomised copy inspects zero microflows and reports a clean pass --
     # the exact silent-false-pass shape this rule's self-check exists to prevent.
-    if not PROJECT_MODULES:
+    if not PROJECT_MODULES:  # empty tuple/string only; "*" is truthy
         return [violation(
-            message="CONV020 is unconfigured: PROJECT_MODULES is empty, so this rule inspected NOTHING. It was installed from the toolkit template and never customised for this project.",
+            message="CONV020 is unconfigured: PROJECT_MODULES is empty, so this rule inspected NOTHING.",
             location=location(module="_rule", document_type="Microflow", document_name="CONV020"),
-            suggestion="Edit PROJECT_MODULES at the top of this rule to list the modules this project owns (`SHOW MODULES`), excluding Marketplace and vendor modules.",
+            suggestion="Set PROJECT_MODULES at the top of this rule to "*" (all non-vendor modules) or to a tuple of module names.",
         )]
 
     # Which microflows are called directly from a page, and which from a nanoflow.
     # Starlark has no recursion, so the call graph is walked with a bounded frontier.
     for mf in microflows():
-        if mf.module_name not in PROJECT_MODULES:
+        if PROJECT_MODULES != "*" and mf.module_name not in PROJECT_MODULES:
             continue
 
         in_scope += 1

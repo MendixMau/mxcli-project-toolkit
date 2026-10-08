@@ -385,6 +385,7 @@ Write a gap report in `tests/results/YYYY-MM-DD-gap-report.md`:
 ## Mendix-specific quirks to know
 
 - **`.mx-name-*` selectors are stable** — always use these, never rely on position or text
+- **Stable is not unique in the DOM** — a tabbed page renders hidden panes at zero height, so `.mx-name-x` can match two nodes with the hidden one first. Use `:visible`, plain click before `force`, and poll text — `e2e-locators-that-lie.md` has the four measured defects
 - **Widget names come from MDL** — the name you gave a widget in `CREATE PAGE` is the class
 - **Post-login modal** — Mendix shows a "Welcome" or consent modal after login; always dismiss it
 - **3.5s wait after login** — less and the modal check may race; more is safe

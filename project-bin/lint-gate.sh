@@ -18,7 +18,8 @@
 #
 # Exit codes: 0 clean or unchanged · 1 a rule increased · 2 could not run
 #
-# PRODUCES .claude/loop/lint-last.json on every run that actually gets as far as computing
+# PRODUCES .claude/loop/lint-ledger.tsv (append-only, one row per rule per run; read with
+# project-bin/lint-trend.sh) and .claude/loop/lint-last.json on every run that actually gets as far as computing
 # counts (timestamp, verdict, total, per-rule counts) — the dir is created if absent. This is
 # NOT docs/BUILD-LOG.md (the exec table Studio's parseExecRows / bin/status.sh /
 # project-bin/done-drift-check.sh parse) and must never become another writer of it; it is a
@@ -155,6 +156,39 @@ def write_last(verdict, viol_list, counts_now):
         open(last_path, "a").write("\n")
     except OSError as e:
         print("lint-gate: could not write %s: %s" % (last_path, e), file=sys.stderr)
+    write_ledger(verdict, viol_list, counts_now)
+
+# LEDGER. lint-last.json is overwritten every run, so it can answer "what did lint say last
+# time" and nothing else. The ledger is append-only: one row per rule per run, so a rule's
+# count can be read ACROSS runs — did the thing we shipped ever fire, and did its count go
+# down once people saw it. That is the question the rollout plan in process/lint-backlog.md
+# asks before promoting a warning to an error ("two clean projects"), and until this file
+# existed nobody could answer it without a git archaeology of lint-baseline.json.
+#
+#   .claude/loop/lint-ledger.tsv   ts  verdict  rule  count  severity  blind
+#
+# `blind` is 1 when the rule emitted a `_rule` finding that run (it inspected nothing), so a
+# zero next to a 1 is never read as clean. Rules with zero findings are NOT written: a rule's
+# absence on a date means "ran, found nothing" only if the run row (rule `_run`) is there —
+# which it always is, carrying the total. Read it with project-bin/lint-trend.sh.
+def write_ledger(verdict, viol_list, counts_now):
+    try:
+        loop_dir = os.path.join(os.path.dirname(base_path), "loop")
+        os.makedirs(loop_dir, exist_ok=True)
+        ledger = os.path.join(loop_dir, "lint-ledger.tsv")
+        ts = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        blind_rules = {v["ruleId"] for v in viol_list if v.get("module") == "_rule"}
+        sev_now = {v["ruleId"]: v.get("severity", "") for v in viol_list}
+        new_file = not os.path.exists(ledger)
+        with open(ledger, "a") as f:
+            if new_file:
+                f.write("ts\tverdict\trule\tcount\tseverity\tblind\n")
+            f.write("%s\t%s\t_run\t%d\t\t%d\n" % (ts, verdict, len(viol_list), 1 if blind_rules else 0))
+            for r in sorted(counts_now):
+                f.write("%s\t%s\t%s\t%d\t%s\t%d\n" % (
+                    ts, verdict, r, counts_now[r], sev_now.get(r, ""), 1 if r in blind_rules else 0))
+    except OSError as e:
+        print("lint-gate: could not append %s: %s" % (ledger, e), file=sys.stderr)
 
 # mxcli prints a plaintext progress banner before the JSON; slice from the first brace.
 raw = open(out_path).read()
@@ -187,6 +221,13 @@ blind = [v for v in viol
 crashed = {v["ruleId"] for v in viol if "Starlark rule error" in (v.get("message") or "")}
 if crashed:
     viol = [v for v in viol if v["ruleId"] not in crashed]
+    counts = collections.Counter(v["ruleId"] for v in viol)
+
+# Self-reported blindness (module "_rule") is likewise never baselined: a rule that said it
+# inspected nothing would otherwise be ratcheted as accepted debt (#229). Later runs still
+# report it as PASS-BLIND via `blind` above, which was computed before this filter.
+if update:
+    viol = [v for v in viol if v.get("module") != "_rule"]
     counts = collections.Counter(v["ruleId"] for v in viol)
 
 if update:

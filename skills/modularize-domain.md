@@ -67,6 +67,9 @@ If a candidate clears **none**, it does **not** get its own module.
 - One module mixing a customer-facing access domain with back-office data.
 - Distinct teams editing the same module and colliding.
 
+### Indexes
+Index every attribute used as a sort item, in an XPath on an entity expected past ~10k rows, or as a published OData key. Lead with the most selective attribute, keep indexes under 3 attributes (max 5), never create two indexes with the same leading attribute, and skip Boolean and enumeration attributes (Recommender MXP003/007/016).
+
 ---
 
 ## Step 3: Default to One Module + Folders

@@ -111,13 +111,14 @@ network hop with path translation on every file argument. The toolkit does none 
 Git Bash runs where Studio Pro, `mxcli` and your model already live, and ships with Git for
 Windows. `doctor.sh` detects WSL and warns.
 
-**This is about the shell you type in, not about Docker.** Docker Desktop on Windows runs its
-engine on a WSL2 backend, and VS Code will offer to "install Docker on WSL" the first time you
-reopen an `mxcli new` project in its Dev Container — say yes. That is the `devcontainer` lane
-(`CONVERSION-RUNBOOK.md` → *Where you run this*), headless and fully supported; `doctor.sh`
-detects it and records it. The warning above applies only when you run the toolkit's scripts
-*yourself* from a WSL prompt against a Studio Pro on the Windows side. Real question, 2026-09-07:
-"the toolkit says not WSL, but `mxcli new`'s Dev Container wants Docker on WSL — yes or no?" Yes.
+**This is about the shell you type in, not about Docker.** `mxcli new` writes a `.devcontainer/`
+and VS Code then offers to "Reopen in Container" — **say no, work locally.** The container is a
+second machine (no `claude` login, no dotfiles, a fragile install step), and the toolkit's path
+is plain local use: `bin/init-project.sh` parks that folder under `.mxtk-backup/` so the prompt
+stops. If you already clicked yes: F1 → "Dev Containers: Reopen Folder Locally", nothing is lost.
+Real incident, 2026-10-08: a first-time user landed in the container with "claude: command not
+found" and a fresh login prompt. The `devcontainer` lane in `CONVERSION-RUNBOOK.md` stays
+supported for those who want it (`MXTK_KEEP_DEVCONTAINER=1`), it is just not the default.
 
 **The lanes mix freely on one project.** Do the headless stages in the Dev Container, then open
 the same `.mpr` in Studio Pro from Git Bash for the steps MDL cannot express and UI polish, and go back.
@@ -649,6 +650,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Writing DB assertion tests that cross-check UI state against the database | `skills/learned-db-assertions.md` |
 | Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness | `skills/fixture-seeding.md` |
 | Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red | `skills/journey-proof.md` |
+| Writing or running e2e cases beyond the happy journeys (blank/whitespace required fields, over-length, duplicates, cancel, double submit, wrong state, wrong role, backend down, stale write, empty search) — every case cites a requirement first, UNSPECIFIED is re-scored against house rules, GAP counts carry the denominator; runs after journey-proof and before monkey-test | `skills/unhappy-path-testing.md` |
 | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works | `skills/monkey-test.md` |
 | UX audit and screenshot-loop discipline | `skills/learned-skill-ux-audit.md` |
 | Tracking scope delta between the BRD and the built state | `skills/learned-skill-scope-delta.md` |
@@ -674,6 +676,7 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 | Task | Skill to load |
 |---|---|
 | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words | `bug-logs/mxcli-bugs.md` |
+| An e2e rung reports a UI defect (widget never appeared, click did nothing, screen contradicts the data, fixture count wrong) — check the locator before blaming the app: :visible, click order, poll, derived fixtures | `skills/e2e-locators-that-lie.md` |
 | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing | `skills/agent-permission-friction.md` |
 | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` |
 | Preparing an mxcli/Studio Pro bug for submission — scope pinning, read-back-vs-write-path verification, gate-sensitivity negative controls, severity scoping, before it's called filable | `skills/bug-submission-checklist.md` |

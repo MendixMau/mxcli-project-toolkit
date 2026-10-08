@@ -16,6 +16,7 @@ and the guard for each. Job 2 is why this skill exists; if you shorten it, do no
 | Non-pipeline app, à-la-carte assurance | `existing-app-assurance.md` (shared toolkit) |
 | Why a green UI report can still be lying | **§4a below** — merged in, no longer a separate file |
 | The deep five-rung version of "prove it", with per-rung non-vacuity controls | `journey-proof.md` (shared toolkit) |
+| Unhappy paths after the journeys are green — requirement-cited cases, house-rules fallback for UNSPECIFIED, GAP counts with a denominator | `unhappy-path-testing.md` (shared toolkit) |
 | Requirement traceability the suite asserts against | `coverage-ledger.md` (shared toolkit) |
 | Why `$?` and tool output are not evidence | `tool-output-is-not-ground-truth.md` (shared toolkit) |
 | Does the whole journey hang together, not just each piece — a different axis, not a fifth rung | `process-coherence-pass.md` (shared toolkit) |
@@ -270,7 +271,7 @@ human looking at the screenshot, not by the suite.
   bland **"Sign in failed."** on the login page — indistinguishable from a wrong password, and
   `system$user.failedlogins` stays at **0** because authentication was never reached. Every
   downstream step then reports as a feature failure. Measured 2026-08-31 on a Mendix 11.13 app: a
-  16-step narrated tour scored 0, with each step labelled `(as (not signed in))`, and the only honest
+  narrated tour of 16 steps scored 0, with each step labelled `(as (not signed in))`, and the only honest
   evidence was one line in the runtime log —
   `ERROR - Connector: ... Maximum number of sessions exceeded! (You are currently using a trial
   license)`. Sixteen "defects" that were one leaked session pool.
@@ -283,6 +284,7 @@ human looking at the screenshot, not by the suite.
 - **Phone viewports:** a target can be attached and rendered but **below the fold**, where
   `isVisible()` is false and the click is skipped. `scrollIntoViewIfNeeded()` before the visibility
   check.
+- **Test isolation.** Tests share no data and run in any order. Setup only opens and logs in. Teardown undoes what the test changed. Keep the Unit Testing rollback on. Wait for a condition, never a fixed sleep. Locate by mx-name and nothing else (`e2e-harness-base.md` applies this to the harness).
 - **Do not scale up a speed multiplier** that divides hand-tuned waits. A pluggable combobox needing
   ~1200 ms to open its dropdown fails at 150 ms, and the resulting failures look completely real.
 
@@ -351,9 +353,17 @@ licence failure. The tell is `404 - file not found for file: dist%2Findex.js` in
 
 **`--hub` is what makes a container-hosted run reachable.** A cloud/devcontainer session has no
 shared filesystem with a laptop and cannot serve `localhost` to one. Before `--hub` the only answer
-was a hand-rolled ngrok/cloudflared tunnel; it is now a flag. `mxcli test --local` likewise boots on
-mxcli's own runtime (ports 8081/8091, its own `<project>_test` database), so a warm `run --local`
-loop can keep serving while tests run.
+was a hand-rolled ngrok/cloudflared tunnel; it is now a flag.
+
+**`mxcli test --local` does NOT leave a warm `run --local` app alone.** It uses its own ports
+(8081/8091) and its own `<project>_test` database, but not its own deployment directory: mxbuild
+always writes `<app dir>/deployment`, so a building test run rewrites `deployment/run/bin` under the
+live app. mxcli warns ("This test run recompiles the project") but does not stop it, and the live
+app then answers 200 with empty bodies or `NoClassDefFoundError` — journeys that follow fail for
+reasons unrelated to the feature. **Restart `run --local` after any `test --local` run; never run a
+journey across one.** `--attach` avoids the second build but hot-applies into the live app and runs
+against its database, so restart before any journey that counts rows.
+(Field case: existing app, mxcli v0.25, Mendix 11.15, 2026-10-07.)
 
 > ### 🔴 Docker is NOT a safe default if the app calls host services by `localhost`
 >

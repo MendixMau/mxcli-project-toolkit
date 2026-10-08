@@ -193,6 +193,8 @@ rule applies and that MCP will handle it as a follow-up.
 
 ---
 
+**Accessibility floor.** Every page has a meaningful title, every input a visible label, every informative image alt text, and every decorative image `alt=''`. Text contrast is >=4.5:1, buttons and inputs >=3:1, focus is always visible and never colour-only, there is no positive tabindex, and link text names its destination.
+
 ### Step 5 — Run the shell check before you exec (mechanical, seconds)
 
 Steps 1–4 are judgement and they are the substance. This step is the part a script can

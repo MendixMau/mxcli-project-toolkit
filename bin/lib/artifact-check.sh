@@ -189,9 +189,29 @@ _art_newer() {
 }
 
 # resolve_artifact() already serves.
+
+# Resolve the ${JOURNEY_DIR} manifest token (#235) with verify-module.sh's own precedence
+# (env > <root>/.claude/toolkit.env > ~/.mxcli-toolkit.env > <root>/journeys) by sourcing
+# project-bin/_common.sh in a subshell with PROJECT_ROOT pinned. Prints a path relative to the
+# root when it lies under it, otherwise as given (absolute); falls back to "journeys".
+_art_journey_dir() {
+  local root="$1" common="$_ART_LIB_DIR/../../project-bin/_common.sh" jd=""
+  if [ -f "$common" ]; then
+    jd="$( export PROJECT_ROOT="$root"; . "$common" >/dev/null 2>&1; printf '%s' "${JOURNEY_DIR:-}" )" || jd=""
+  else
+    jd="${JOURNEY_DIR:-}"
+  fi
+  jd="${jd:-journeys}"; jd="${jd%/}"
+  case "$jd" in "$root"/*) jd="${jd#"$root"/}" ;; esac
+  printf '%s' "$jd"
+}
+
 _art_find() {
-  local root="$1" paths="$2" pat base f rest
+  local root="$1" paths="$2" pat base f rest jd
   ART_HIT=""; ART_EMPTY=""
+  case "$paths" in
+    *'${JOURNEY_DIR}'*) jd="$(_art_journey_dir "$root")"; paths="${paths//\$\{JOURNEY_DIR\}/$jd}" ;;
+  esac
   rest="$paths"
   while [ -n "$rest" ]; do
     pat="${rest%%|*}"
@@ -207,8 +227,10 @@ _art_find() {
     # defect, same day, as the one fixed in obligation-check.sh's `_ob_find`, where it DID
     # change the verdict.
     local newest_hit=""
-    for base in "$root" "$root"/analysis/*; do
-      [ -d "$base" ] || continue
+    local bases=("$root" "$root"/analysis/*)
+    case "$pat" in /*) bases=("") ;; esac   # absolute (a JOURNEY_DIR outside the root)
+    for base in "${bases[@]}"; do
+      [ -z "$base" ] || [ -d "$base" ] || continue
       # base quoted, pattern not: the base must survive spaces, the pattern must glob.
       for f in "$base"/$pat; do
         [ -e "$f" ] || continue

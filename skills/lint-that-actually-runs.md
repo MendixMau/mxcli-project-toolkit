@@ -111,6 +111,16 @@ all the same order of magnitude, and no project produced a single real error-sev
 the ratchet is the *only* mechanism available. `project-bin/lint-gate.sh` implements it
 (`--update-baseline` to accept current counts).
 
+**The ratchet remembers one number per rule; the ledger remembers every run.** Every gate run
+appends one row per rule to `.claude/loop/lint-ledger.tsv` (timestamp, verdict, rule, count,
+severity, blind), and `project-bin/lint-trend.sh` reads it back: runs a rule fired in, first and
+last count with dates, best/worst, and how many runs it was blind. That is the answer to "did
+the rule we shipped ever catch anything here, and did the count go down once people saw it" —
+the evidence `process/lint-backlog.md` asks for before a warning becomes an error. A rule that
+never appears in the ledger is clean here *or* wrong; `--rule <id>` and the blind column say
+which. Before this file existed the only history was `lint-baseline.json` in git, which records
+the count that was *accepted*, not what each run saw.
+
 ## Two false-pass bugs already designed out of `lint-gate.sh` — keep them out
 
 Both were found by testing the gate, not by reading it:

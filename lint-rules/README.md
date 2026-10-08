@@ -28,6 +28,8 @@ are excluded at the gate (`bin/lint-gate.sh -e`, from a per-project
 version this directory shipped on 11 Aug: one violation per microflow instead of one per
 activity, plus four action types allowlisted. On PROJECT-C that is 399 rows -> 51 findings.
 
+Candidates that are not rules yet, and the order they ship in: `process/lint-backlog.md`.
+
 ## A rule that matches nothing now says so
 
 `CONV010` and `CONV020` can only identify a page action by its name — `refs_to()` reports the

@@ -4,6 +4,8 @@
 #   bin/look-ledger.sh owe <script.mdl>   called by bin/exec.sh after a script lands
 #   bin/look-ledger.sh seen               PostToolUse(Read) hook; reads the hook JSON on stdin
 #   bin/look-ledger.sh status             prints one line per owed page: SEEN or OWED
+#   bin/look-ledger.sh unseen             owed pages nothing accounts for (exec.sh's LOOK guard reads this)
+#   bin/look-ledger.sh creates <script>   pages a script CREATEs (not ALTERs)
 #
 # WHY (2026-10-02). Two unattended builds, run side by side with the same toolkit, built every
 # page and never once opened a screenshot of one. Both ran page-fidelity.js, a text score, and
@@ -16,8 +18,9 @@
 #   owed  — exec.sh writes one row per page a script CREATEs or ALTERs, when the script lands.
 #   seen  — the Read hook writes one row per image file the agent actually opened.
 # gate-check.sh's Stage 5 check joins them: a page built after its last seen screenshot FAILs
-# the Stage 5 "done" claim. Nothing here blocks a write, a script, or the next page — only the
-# claim that a module is done while a page in it has never been looked at.
+# the Stage 5 "done" claim. Since #232 bin/exec.sh also refuses a script that CREATEs pages while
+# more than LOOK_OWED_MAX are unseen (`unseen` below); fixes (ALTER PAGE) always run. Otherwise
+# nothing here blocks a write — only the claim that a module is done while a page in it has never been looked at.
 #
 # How a screenshot names its page: the image's file name must contain the page name, compared
 # with case and punctuation removed — Orders.Order_Overview is seen by order-overview.png,
@@ -58,13 +61,14 @@ _sha() {
 # either case, each half of the name quoted or bare. Block comments and -- lines are skipped so a
 # commented-out page is not owed.
 look_pages_in() {
-  awk '
+  awk -v creates_only="${LOOK_CREATES_ONLY:-0}" '
     /^[[:space:]]*\/\*/ { inc=1 }
     inc { if ($0 ~ /\*\//) inc=0; next }
     /^[[:space:]]*--/ { next }
     { l=toupper($0) }
     l ~ /^[[:space:]]*(CREATE([[:space:]]+OR[[:space:]]+(REPLACE|MODIFY))?|ALTER)[[:space:]]+PAGE[[:space:]]/ {
       s=$0; sub(/^[[:space:]]*/, "", s)
+      if (creates_only == 1 && toupper(s) ~ /^ALTER[[:space:]]/) next
       n=split(s, w, /[[:space:]]+/)
       for (i=1; i<=n; i++) if (toupper(w[i])=="PAGE") { name=w[i+1]; break }
       sub(/[(;{].*$/, "", name); gsub(/"/, "", name)
@@ -147,11 +151,46 @@ look_status() {
     }' "$OWED" 2>/dev/null | sort -k2,2
 }
 
+# look_unseen — the owed pages nothing accounts for, one Module.Page per line (exec.sh refuses on
+# the count; gate-check.sh Stage 5 computes the same join inline). A page is accounted for by a
+# screenshot the Read hook saw (status SEEN), a PROOF-OF-LOOK citation in a ui-review report
+# (screenshot >=10KB, newer than the build) — evidence this script did not create — or a
+# `Waived obligation look/<Module or Module.Page>` register line.
+look_unseen() {
+  local st page epoch rep line shot f sz mt proofs="" reg="$PROJECT_ROOT/PROJECT.md"
+  for rep in "$PROJECT_ROOT"/design/ui-reviews/ui-review-*.html; do
+    [ -f "$rep" ] || continue
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      page=$(printf '%s' "$line" | sed 's/^PROOF-OF-LOOK:[[:space:]]*//;s/[[:space:]]*=.*$//')
+      shot=$(printf '%s' "$line" | sed 's/^.*=[[:space:]]*//')
+      case "$shot" in /*) f="$shot" ;; *) f="$(dirname "$rep")/$shot" ;; esac
+      [ -f "$f" ] || continue
+      sz=$(wc -c < "$f" 2>/dev/null | tr -d ' '); [ "${sz:-0}" -ge 10240 ] || continue
+      proofs="$proofs$page	$(_mtime "$f")
+"
+    done <<EOF
+$(tr -d '\r' < "$rep" | grep -oE 'PROOF-OF-LOOK:[[:space:]]*[^=<]+=[[:space:]]*[^<>[:space:]]+')
+EOF
+  done
+  while IFS=$'\t' read -r st page epoch; do
+    [ "$st" = OWED ] || continue
+    if [ -n "$proofs" ] && printf '%s' "$proofs" \
+         | awk -F'\t' -v p="$page" -v e="$epoch" '$1==p && $2+0>=e+0 {f=1} END {exit !f}'; then continue; fi
+    if [ -f "$reg" ] && grep -qiE "Waived obligation look(/${page%%.*}(\.${page#*.})?)?[[:space:]]*:" "$reg" 2>/dev/null; then continue; fi
+    echo "$page"
+  done <<EOF
+$(look_status)
+EOF
+}
+
 case "${1:-}" in
   owe)    shift; cmd_owe "$@" ;;
   seen)   cmd_seen ;;
   status) look_status ;;
   pages)  shift; look_pages_in "${1:-/dev/null}" ;;
-  *) echo "usage: $0 owe <script.mdl> | seen < hook-json | status | pages <script.mdl>" >&2; exit 2 ;;
+  creates) shift; LOOK_CREATES_ONLY=1 look_pages_in "${1:-/dev/null}" ;;
+  unseen)  look_unseen ;;
+  *) echo "usage: $0 owe <script.mdl> | seen < hook-json | status | unseen | pages|creates <script.mdl>" >&2; exit 2 ;;
 esac
 exit 0

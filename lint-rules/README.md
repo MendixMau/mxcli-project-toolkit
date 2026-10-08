@@ -7,7 +7,7 @@ and configure the marked constants — **after** running `mxcli init`, never bef
 | Rule | What it catches | Configure? |
 |---|---|---|
 | `conv010_act_microflow_content.star` | `ACT_` page-action microflows holding business logic instead of delegating to `SUB_` | if your prefixes differ — `ACTION_PREFIX`, `DELEGATE_PREFIX` |
-| `conv020_action_user_feedback.star` | Page-triggered microflows that commit / import / delete but tell the user nothing | **yes** — `PROJECT_MODULES`, and `ACTION_PREFIX` if your prefixes differ |
+| `conv020_action_user_feedback.star` | Page-triggered microflows that commit / import / delete but tell the user nothing | no — `PROJECT_MODULES` defaults to `"*"` (all modules the lint run includes, minus `.claude/lint-vendor-modules.txt`); `ACTION_PREFIX` if your prefixes differ |
 | `data_change_microflows.star` | ARCH002 — persistent entities written from pages instead of microflows | no |
 | `entity_business_key.star` | ARCH003 — persistent entities with no UNIQUE NOT NULL business key | no |
 
@@ -37,7 +37,7 @@ convention: on a project that names things differently both rules matched nothin
 nothing, and reported a clean pass.
 
 Both now emit a `_rule` finding when the prefix matches zero microflows (CONV010 guards on the
-project having any microflows at all; CONV020 on `PROJECT_MODULES` containing any). Verified by
+project having any microflows at all; CONV020 on `PROJECT_MODULES` being non-empty and containing any). Verified by
 fixture on TestCLIApp — setting `ACTION_PREFIX` to an unused string produces the finding, and
 the real prefix produces none. `bin/lint-gate.sh` treats `module == "_rule"` as blindness, so
 this turns a silent pass into a gate failure rather than a line in a report nobody reads.
@@ -149,6 +149,7 @@ If yes, it needs a self-check before it is worth installing.
 
 `CONV020` deliberately ignores retrieves, changes without commit, non-page-reachable
 microflows, and validation-only paths. It flags roughly what a reviewer would flag by hand.
+Show-page, close-page and show-home-page actions count as feedback (presence only, not order). Refresh-in-client is not visible to the Starlark API, so a flow that only refreshes is still flagged until mxcli exposes it.
 A rule that fires on everything gets switched off, and a switched-off rule catches nothing —
 which is how `CONV010` and the lint gate both ended up idle.
 

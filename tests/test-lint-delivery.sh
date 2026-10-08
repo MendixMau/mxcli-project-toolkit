@@ -89,7 +89,7 @@ ls "$R"/*.local-* >/dev/null 2>&1 && grep -q "LOCAL TUNING" "$R"/*.local-* \
 rm -f "$R"/*.local-*
 
 echo "== 8 configured conv020 is left alone, silently =="
-sed 's/^PROJECT_MODULES = ()/PROJECT_MODULES = ("MyModule",)/' "$C" > "$C.t" && mv "$C.t" "$C"
+sed 's/^PROJECT_MODULES = "\*"/PROJECT_MODULES = ("MyModule",)/' "$C" > "$C.t" && mv "$C.t" "$C"
 out=$(mxtk_install_lint_rules "$W/tk" "$P" 0 "" 2>&1)
 [ -z "$out" ] && ok "silent" || no "noisy about the expected state"
 grep -q 'PROJECT_MODULES = ("MyModule",)' "$C" && ok "config survived" || no "CONFIG WIPED"

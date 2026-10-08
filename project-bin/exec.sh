@@ -235,6 +235,43 @@ if [ -n "$MPR_DIRTY" ]; then
   echo "  (FORCE_EXEC set — proceeding despite uncommitted changes)"
 fi
 
+# 4b. LOOK debt (#232, supersedes #188). Every page a script builds is owed a LOOK
+#     (look-ledger.sh); until now that was a notice, and two unattended builds wrote every page
+#     without opening one screenshot. So: a script that CREATEs pages is refused while more than
+#     LOOK_OWED_MAX (default 5, 0 = off) built pages are still unseen. Not blocked, so fixes stay
+#     possible (rule 7): ALTER-only scripts, --patch, FORCE_EXEC=1, MXTK_NO_LOOK_GUARD=1. Evidence
+#     the guard did not create counts (rule 6): a PROOF-OF-LOOK citation in a ui-review report, a
+#     `Waived obligation look/...` register line, or a `-- PROOF-OF-LOOK:` line in this script's
+#     first 30 lines (the agent's statement that it looked, for the pages the script follows up).
+#     Without the Read hook that writes seen.tsv no page can ever be marked seen, so the guard
+#     warns once and steps aside instead of stalling the build.
+LOOK_LEDGER="$(dirname "$0")/look-ledger.sh"
+if [ "$PATCH_MODE" != "1" ] && [ "${MXTK_NO_LOOK_GUARD:-0}" != "1" ] && [ -f "$SCRIPT" ] && [ -f "$LOOK_LEDGER" ] \
+   && [ "${LOOK_OWED_MAX:-5}" -gt 0 ] 2>/dev/null; then
+  if [ -n "$(bash "$LOOK_LEDGER" creates "$SCRIPT" 2>/dev/null)" ]; then
+    if ! grep -qs 'look-ledger.sh seen' "$PROJECT_ROOT/.claude/settings.json" "$PROJECT_ROOT/.claude/settings.local.json"; then
+      if [ ! -f "$PROJECT_ROOT/.claude/loop/look/.nohook-warned" ]; then
+        echo "  (LOOK guard off: no Read hook records screenshots here — re-run install-claude-permissions.sh / sync-project.sh to enable it)"
+        mkdir -p "$PROJECT_ROOT/.claude/loop/look" 2>/dev/null && : > "$PROJECT_ROOT/.claude/loop/look/.nohook-warned" 2>/dev/null || true
+      fi
+    elif ! head -30 "$SCRIPT" | grep -q 'PROOF-OF-LOOK'; then
+      LOOK_UNSEEN="$(bash "$LOOK_LEDGER" unseen 2>/dev/null)"
+      LOOK_N=0; [ -n "$LOOK_UNSEEN" ] && LOOK_N=$(printf '%s\n' "$LOOK_UNSEEN" | wc -l | tr -d ' ')
+      if [ "$LOOK_N" -gt "${LOOK_OWED_MAX:-5}" ]; then
+        echo "✗ $LOOK_N built page(s) were never looked at (limit ${LOOK_OWED_MAX:-5}) — refusing a script that builds more pages."
+        printf '%s\n' "$LOOK_UNSEEN" | head -8 | sed 's/^/    /'
+        echo "  → Screenshot each, open the PNG (file name containing the page name), compare it to its wireframe (skills/ui-loop.md)."
+        echo "    Fixes to those pages (ALTER PAGE) still run. Or: --waive look/<Module> --reason \"...\" · a '-- PROOF-OF-LOOK: <what you saw>' header line · FORCE_EXEC=1 · MXTK_NO_LOOK_GUARD=1"
+        if [ "$FORCE" != "1" ]; then
+          log_build "🚫 blocked" "$LOOK_N built pages never looked at (limit ${LOOK_OWED_MAX:-5}) — script creates more pages"
+          exit 3
+        fi
+        echo "  (FORCE_EXEC set — proceeding despite unseen pages)"
+      fi
+    fi
+  fi
+fi
+
 # 5. Module brief advisory (WARNS, never blocks).
 #
 # WHY THE BRIEF. It is the mdl-agent's single per-module input: the access-table slice,

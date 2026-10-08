@@ -1,0 +1,68 @@
+{
+ "microflows": [
+  {
+   "id": "m-System.ACT_Cleanup",
+   "name": "ACT_Cleanup",
+   "qualified_name": "System.ACT_Cleanup",
+   "module_name": "System",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  },
+  {
+   "id": "m-Sales.RULE_X",
+   "name": "RULE_X",
+   "qualified_name": "Sales.RULE_X",
+   "module_name": "Sales",
+   "microflow_type": "RULE",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "System.ACT_Cleanup": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Loop",
+    "activity_type": "LoopedActivity",
+    "action_type": "",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   }
+  ],
+  "Sales.RULE_X": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Loop",
+    "activity_type": "LoopedActivity",
+    "action_type": "",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   }
+  ]
+ }
+}

@@ -1,0 +1,21 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.ACT_One",
+   "name": "ACT_One",
+   "qualified_name": "Sales.ACT_One",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  },
+  {
+   "id": "m-Sales.ACT_Two",
+   "name": "ACT_Two",
+   "qualified_name": "Sales.ACT_Two",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {}
+}

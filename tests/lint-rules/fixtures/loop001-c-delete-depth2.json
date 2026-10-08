@@ -1,0 +1,47 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.ACT_Purge",
+   "name": "ACT_Purge",
+   "qualified_name": "Sales.ACT_Purge",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Purge": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Loop",
+    "activity_type": "LoopedActivity",
+    "action_type": "",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Loop",
+    "activity_type": "LoopedActivity",
+    "action_type": "",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a3",
+    "name": "a3",
+    "caption": "Delete line",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 2,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a2"
+   }
+  ]
+ }
+}

@@ -1,0 +1,36 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.ACT_Order_Delete",
+   "name": "ACT_Order_Delete",
+   "qualified_name": "Sales.ACT_Order_Delete",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Order_Delete": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Delete order",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "error_handling_type": "Continue",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "CommitAction",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   }
+  ]
+ }
+}

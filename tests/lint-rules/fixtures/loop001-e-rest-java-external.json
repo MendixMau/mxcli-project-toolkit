@@ -1,0 +1,59 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.ACT_Push",
+   "name": "ACT_Push",
+   "qualified_name": "Sales.ACT_Push",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Push": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Loop",
+    "activity_type": "LoopedActivity",
+    "action_type": "",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "POST row",
+    "activity_type": "ActionActivity",
+    "action_type": "RestCallAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   },
+   {
+    "id": "a3",
+    "name": "a3",
+    "caption": "Hash",
+    "activity_type": "ActionActivity",
+    "action_type": "JavaActionCallAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   },
+   {
+    "id": "a4",
+    "name": "a4",
+    "caption": "OData get",
+    "activity_type": "ActionActivity",
+    "action_type": "CallExternalAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   }
+  ]
+ }
+}

@@ -12,6 +12,8 @@ and configure the marked constants — **after** running `mxcli init`, never bef
 | `entity_business_key.star` | ARCH003 — persistent entities with no UNIQUE NOT NULL business key | no |
 | `ux001_confirm_before_destructive.star` | UX001 — a button that deletes, approves, rejects, submits or archives (direct delete action, or a flow that deletes / is named so) without "Ask confirmation" | `DESTRUCTIVE_NAME_PATTERN` if your verbs differ |
 | `ux002_decisions_captioned.star` | UX002 — decisions (`ExclusiveSplit`) with an auto-generated caption instead of the question they answer; flows of 8+ activities with neither an annotation nor a documentation text | `ANNOTATE_FROM` |
+| `err001_error_swallowed.star` | ERR001 — an activity set to Continue / Custom / Custom-without-rollback in a flow that never logs, raises an error event, or calls a flow named like a handler (`SUB_LogError`, `ERR_…`): the error is swallowed | `HANDLER_NAME_PATTERN` if your handler flows are named differently |
+| `loop001_expensive_action_in_loop.star` | LOOP001 — a database retrieve, delete, REST call, external call or Java action inside a loop body (any depth): one round trip per row | `EXPENSIVE` if a call type is cheap in your setup |
 
 `data_change_microflows` and `entity_business_key` are **repaired copies of rules `mxcli init`
 already seeds**, not new ones. Both shipped comparing `entity.entity_type` to `"PERSISTENT"`

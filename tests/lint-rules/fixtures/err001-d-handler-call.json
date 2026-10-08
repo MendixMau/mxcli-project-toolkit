@@ -1,0 +1,69 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.ACT_Sync",
+   "name": "ACT_Sync",
+   "qualified_name": "Sales.ACT_Sync",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  },
+  {
+   "id": "m-Sales.SUB_LogError",
+   "name": "SUB_LogError",
+   "qualified_name": "Sales.SUB_LogError",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Sync": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "RestCallAction",
+    "error_handling_type": "CustomWithoutRollBack",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "MicroflowCallAction",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   }
+  ],
+  "Sales.SUB_LogError": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "LogMessageAction",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false,
+    "log_level": "Error"
+   }
+  ]
+ },
+ "refs_from": {
+  "Sales.ACT_Sync": [
+   {
+    "source_type": "MICROFLOW",
+    "source_name": "Sales.ACT_Sync",
+    "target_type": "MICROFLOW",
+    "target_name": "Sales.SUB_LogError",
+    "ref_kind": "CALL",
+    "module_name": "Sales"
+   }
+  ]
+ }
+}

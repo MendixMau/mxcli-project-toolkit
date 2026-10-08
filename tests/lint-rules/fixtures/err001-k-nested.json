@@ -1,0 +1,80 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.ACT_LoopSwallow",
+   "name": "ACT_LoopSwallow",
+   "qualified_name": "Sales.ACT_LoopSwallow",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  },
+  {
+   "id": "m-Sales.ACT_LoopLogged",
+   "name": "ACT_LoopLogged",
+   "qualified_name": "Sales.ACT_LoopLogged",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_LoopSwallow": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "LoopedActivity",
+    "action_type": "",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Push row",
+    "activity_type": "ActionActivity",
+    "action_type": "RestCallAction",
+    "error_handling_type": "Continue",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   }
+  ],
+  "Sales.ACT_LoopLogged": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "LoopedActivity",
+    "action_type": "",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "RestCallAction",
+    "error_handling_type": "Continue",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   },
+   {
+    "id": "a3",
+    "name": "a3",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "LogMessageAction",
+    "error_handling_type": "Rollback",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1",
+    "log_level": "Warning"
+   }
+  ]
+ }
+}

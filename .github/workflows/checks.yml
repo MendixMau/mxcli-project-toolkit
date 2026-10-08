@@ -92,3 +92,5 @@ jobs:
       # the glob above because it needs Go and lives in its own directory.
       - name: Lint-rule unit suite (tests/lint-rules/test-ux-rules.sh)
         run: bash tests/lint-rules/test-ux-rules.sh
+      - name: Lint-rule unit suite (tests/lint-rules/test-batch1-rules.sh)
+        run: bash tests/lint-rules/test-batch1-rules.sh

@@ -1,0 +1,81 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.ACT_Many",
+   "name": "ACT_Many",
+   "qualified_name": "Sales.ACT_Many",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Many": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Loop",
+    "activity_type": "LoopedActivity",
+    "action_type": "",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "D2",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   },
+   {
+    "id": "a3",
+    "name": "a3",
+    "caption": "D3",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   },
+   {
+    "id": "a4",
+    "name": "a4",
+    "caption": "D4",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   },
+   {
+    "id": "a5",
+    "name": "a5",
+    "caption": "D5",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   },
+   {
+    "id": "a6",
+    "name": "a6",
+    "caption": "D6",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   }
+  ]
+ }
+}

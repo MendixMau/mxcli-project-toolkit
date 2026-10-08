@@ -1315,21 +1315,26 @@ EOF
   fi
 }
 
-check_stage_6() {
-  local f test_ok="" review_ok=""
+# The one test for "is there a test surface?" — check_stage_6 and the dashboard's Surface
+# column both call it, so the gate and the column cannot disagree about one file (#233).
+# Accepts test-report.html (root or reports/, project or analysis base) OR the harness pair
+# verify-module.sh's render rung produces: docs/verification/report.html rendered FROM
+# docs/report.json. Both halves must be present — accepting one without the other would accept
+# a surface whose machine half is gone. (Before this, test-report.html was the only accepted
+# name and nothing in the toolkit generated it, so Stage 6 was structurally unpassable —
+# improvement-plan Finding 14 / P9.)
+test_surface_hit() {
+  local f
   for f in "$PROJECT_DIR/test-report.html" "$PROJECT_DIR"/reports/test-report.html \
            "$ANALYSIS_BASE/test-report.html" "$ANALYSIS_BASE"/reports/test-report.html; do
-    [ -s "$f" ] && test_ok=1
+    [ -s "$f" ] && return 0
   done
-  # The harness's own surface also satisfies the test half: verify-module.sh's final render
-  # rung produces docs/verification/report.html from docs/report.json (report-render.js /
-  # report-normalize.js). Both halves must be present — the HTML is rendered FROM the JSON,
-  # and accepting one without the other would accept a surface whose machine half is gone.
-  # Before this, test-report.html was the only accepted name and nothing in the toolkit
-  # generated it, so Stage 6 was structurally unpassable (improvement-plan Finding 14 / P9).
-  if [ -s "$PROJECT_DIR/docs/verification/report.html" ] && [ -s "$PROJECT_DIR/docs/report.json" ]; then
-    test_ok=1
-  fi
+  [ -s "$PROJECT_DIR/docs/verification/report.html" ] && [ -s "$PROJECT_DIR/docs/report.json" ]
+}
+
+check_stage_6() {
+  local test_ok="" review_ok=""
+  test_surface_hit && test_ok=1
   # module-review.md report — any non-empty dated report under a ui-reviews/ dir
   if [ -n "$(find_artifact -path '*/ui-reviews/ui-review-*.html' -size +0c)" ]; then
     review_ok=1
@@ -1706,6 +1711,9 @@ stage_surface_status() {
   fi
   for pat in $pats; do
     hit=0
+    # test-report.html is answered by the same function check_stage_6 uses (#233), so the
+    # harness report pair also discharges it.
+    if [ "$pat" = "test-report.html" ] && test_surface_hit; then continue; fi
     # SURFACE_BASES, not just the project root. §2's Surface cells are inconsistent about
     # paths: some carry one ("architecture/blueprint.html", "docs/report.json") and some name
     # the file bare ("design-system.html", "build-plan.html", "test-report.html"). A bare cell

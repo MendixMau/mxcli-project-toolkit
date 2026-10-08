@@ -51,6 +51,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/fixture-seeding.md` | Establishing the data and identities a journey run needs — BEFORE it runs. Derive and measure with project-bin/fixture-manifest.sh first; interview only the residue, and never seed from inside the harness |
 | `skills/journey-proof.md` | Proving a module's user journey end-to-end — the deep form of step 3 PROVE; use whenever an instrument reports green and you cannot say what would have made it red |
 | `skills/monkey-test.md` | Running the fuzz/crash net on a module whose journeys are already green — and reading the result, which is NOT evidence the module works |
+| `skills/e2e-locators-that-lie.md` | An e2e rung reports a UI defect (widget never appeared, click did nothing, screen contradicts the data, fixture count wrong) — check the locator before blaming the app: :visible, click order, poll, derived fixtures |
 | `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN — the private tier between the toolkit and a project for own skills, conventions, lint rules, MDL snippets and approved MPKs; and deciding whether something goes to the toolkit, the company brain or docs/brain/ |
 | `skills/close-the-loop.md` | Cutover and retrospective — promoting proven patterns back into the toolkit |
 | `skills/report-schema.md` | Writing or reading docs/report.json — the append-only contract every instrument writes to and every renderer reads; open BEFORE building a new instrument or a second renderer |

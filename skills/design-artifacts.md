@@ -191,7 +191,7 @@ Contents of `ds.css` + what `design-system.html` renders:
 - **Tokens as CSS custom properties:** brand ramp, accent, status (reserved), spacing, radius, type scale, shadow, motion — plus a full **light + dark** set. Dark mode is *selected* (its own steps), never an automatic flip. The selector depends on the theme machinery: on a project using **mxcli's theme system (≥ v0.20.0)**, the dark palette lives at `:root.theme-dark` (Atlas ships that class slot on `<html>`; mxcli's `--variant auto` follows `prefers-color-scheme` before first paint AND honours the class, and `theme switcher install` provides the user toggle) — declare dark *after* Mendix's own `_theme-dark.scss` or the app reverts to stock blue when the class lands. On a hand-themed Atlas project, use `[data-theme="dark"]` and avoid bare `prefers-color-scheme` — Atlas's own toggle conflicts with media-query-only dark mode. Either way the design system's *steps* stay selected, not auto-flipped.
 - **Data colors** come from the `dataviz` skill's validated palette — do not hand-pick chart/KPI colors; run its validator if you swap any.
 - **Components the app actually needs** (derive from the source screens, not a generic kit): buttons, inputs + validation, table/data grid with row actions, KPI/stat tiles, badges/status pills, dialog, toast, nav shell, plus any product-specific pieces.
-- **An Atlas mapping table:** each token → its Atlas SCSS variable (`$brand-primary`, `$background-color`, `$font-color`, `$border-radius-*`, `$spacing-*`, `$font-family-base`, success/warning/danger). This table is what the build phase turns into `theme/web/custom-variables.scss` + design properties.
+- **An Atlas mapping table:** each token → its Atlas SCSS variable (`$brand-primary`, `$background-color`, `$font-color`, `$border-radius-*`, `$spacing-*`, `$font-family-base`, success/warning/danger). This table is what the build phase turns into `theme/web/custom-variables.scss` + design properties. **The SASS-variable table is Atlas 3 only.** On Atlas 4 (Atlas Core >=4), map tokens to CSS custom properties in `:root` with `$use-css-variables: true` first in `custom-variables.scss`; use `var(--x)`, not `$x`, and `color-mix()`, not `darken()`/`lighten()`; declare only the values you override.
 
 **Render it and look at it** (headless-screenshot both light and dark) — the eye catches what code review misses. This is non-negotiable per the `dataviz` procedure.
 
@@ -336,6 +336,7 @@ with failures here does not pass to the build loop.
 
 - **Render every wireframe and look** (both themes).
 - **Coverage check** each faithful wireframe against its source screenshot: every visible field/section present, right widget type, right state. Gaps become explicit sub-tasks — the same discipline as the build loop's Step 11, applied one stage earlier so the spec is complete before building.
+- **Accessibility pass:** see `ui-preflight-pages.md` -> "Accessibility floor"; check it on the wireframe, not after the build.
 
 ---
 

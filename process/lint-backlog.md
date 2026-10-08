@@ -58,6 +58,46 @@ project). This file has the *what* and the *order*.
 | 11 | Widget-bound entity with zero access rules at production level | security | SEC001 variant scoped to entities pages actually touch | entity access in projection | idea |
 | 12 | Navigation item without icon | design | `learned-sidebar-collapse-icons.md` | navigation in projection (unconfirmed) | blocked: field unconfirmed |
 
+## Batch 4 — Mendix quality-source review
+
+Sources: Mendix Best Practice Recommender, QSM/AQM public docs, ATS public docs, Menditect public docs,
+docs.mendix.com; reviewed 2026-10-08. Rule ids are placeholders. Lintability was read from the mxcli lint
+source (Starlark accessors), and no rule below has been probed on a real model yet, so every "Needs" cell
+is still the vocabulary probe from rollout rule 3. The full review is
+`process/quality-sources-review-2026-10-08.md`. Suggested PR grouping: {13, 14, 15} · {16, 17, 27} ·
+{21, 22} · {18, 23, 28} · {19, 20, 29} · {24, 25, 26}.
+
+| # | Rule | Category | Evidence | Needs | Status |
+|---|---|---|---|---|---|
+| 13 | Anonymous role hygiene: anonymous = admin role; anonymous mapped to an Administration module role; a module role shared by anonymous and another user role (SEC010) | security | Recommender MXS005, MXS008, MXS009 | `project_security()` anonymous/admin role names; `user_roles().is_anonymous`; `role_mappings()` | idea |
+| 14 | Anonymous role can create, delete or write members of a persistable entity (SEC011) | security | Recommender MXS006 | `permissions()` access_type vocabulary (probe) | idea |
+| 15 | Entity access grants default rights to new members (SEC012) | security | General Development Best Practices → Security | `permissions().default_member_access_rights` values (probe) | idea |
+| 16 | Generalization deeper than two levels (PERF001) | performance | Recommender MXP009; General Dev BP; Community perf #9 | `entities().generalization`; how System ancestors count | idea |
+| 17 | Data view / list view nested two or more levels (PERF002) | performance | Recommender MXP011 | `widgets()` widget_type strings, parent_widget_id | idea |
+| 18 | Commit without events on an entity with event handlers or validation rules (CORR001) | correctness | Setting Up Data Validation ("set With events to Yes") | `activities_for()` with_events / commit_type values; `entities().has_event_handlers` | idea |
+| 19 | Page title empty or default (UX003) | design | Accessibility introduction → meaningful page titles | `pages().title` default value (probe) | idea |
+| 20 | Page URL starts with a parameter, or two URLs conflict (CONV021) | correctness | General Dev BP → URLs | `pages().url` | idea |
+| 21 | Microflow prefix outside the Mendix list; MPR001 checks only the leading capital (CONV022) | naming | Naming Conventions BP prefix table | `microflows().name`; prefix list as config | idea |
+| 22 | Event-handler and scheduled-event microflow names match their trigger (CONV023) | naming | Naming Conventions BP (BCO_…ARO_, SCE_) | `entity_event_handlers()` moment/event; `scheduled_events()` microflow_name | idea |
+| 23 | Microflow returns System.Error / HttpResponse / SoapFault (ERR002) | correctness | Error Handling in Microflows | `microflows().return_type` spelling (probe) | idea |
+| 24 | Binary attribute instead of System.Image / FileDocument specialisation (DESIGN002) | design | Configuring a Domain Model | `attributes_for().data_type` value for binary (probe) | idea |
+| 25 | User role holds more than one module role of the same module (SEC013) | security | App Setup BP → user roles | `role_mappings()` | idea |
+| 26 | Exact-duplicate access rules on one entity (PERF003) | performance | Recommender MXP010 | `permissions()` grouped by entity + xpath_constraint | idea |
+| 27 | Non-persistable entity associated with System.User / System.Session (PERF004) | performance | Recommender MXP008 | `associations()` from/to; `entities().entity_type` | idea |
+| 28 | Log node empty or not the module name (LOG001) | quality | General Dev BP → logging; Logging refguide | `activities_for().log_node_expression` shape (literal vs constant) | idea |
+| 29 | Action buttons and inputs left on generated widget names (TEST001) | quality | ATS community + harness locator practice (mx-name) | `widgets().name`, widget_type | idea |
+| 30 | Index on sort / XPath / OData-key attributes | performance | Recommender MXP003, MXP007, MXP016 | an `indexes()` accessor (does not exist; upstream) | blocked: no index accessor |
+| 31 | Scheduled event not in UTC | correctness | Scheduled Events refguide | `scheduled_events().time_zone` values | skill (rule later, maybe) |
+
+### Notes from the 2026-10-08 review
+
+- CONV005 demands a `SNIPPET_` prefix, while Mendix's naming-conventions page says `SNIP_`. Every
+  Mendix-conventional app fails CONV005; settle before touching naming rules 21 and 22.
+- MPR001's prefix regex accepts any capitalised prefix (its prefix list is a comment, not a check), and the
+  list names `SCH_`/`SE_` where Mendix uses `SCE_`.
+- Stock rule ids are now MPR001-012 in the mxcli source; the generated project CLAUDE.md tables still say
+  MDL001-007.
+
 ## Cheap extras (one afternoon each, when a batch has room)
 
 Microflow not in a folder · non-persistent entity committed to the database · many-to-many

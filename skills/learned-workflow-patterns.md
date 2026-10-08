@@ -253,6 +253,8 @@ TARGETING MICROFLOW MyModule."SUB_TargetReviewers"
 Such a microflow takes `$Workflow: System.Workflow` and `$Context: <your entity>`, and
 returns `List of System.User`.
 
+**Targeting defaults.** Target user tasks at workflow groups by default, and constrain on group tokens `[%WorkflowGroup_X%]`, not Name. A targeting XPath or microflow that returns 0 objects fails the workflow, so guard the empty case. A due date is a stored deadline, not a reminder.
+
 ---
 
 ## 6. Syntax reference: the workflow definition

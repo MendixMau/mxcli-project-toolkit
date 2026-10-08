@@ -111,6 +111,9 @@ finding on an enabled-reachable microflow is written first and sized first. Reac
 never on its own make a finding `high`, because nothing is running it today. Note the event by
 name in the row, so that switching it on is a decision somebody makes with this in front of them.
 
+### Scheduled-event flows (what the flow itself must do)
+A scheduled-event flow commits in batches, survives a rerun after a crash (idempotent) and finishes well inside its interval. No more than 10 events run at once per node. Renaming an event resets its enabled state per environment, so re-check it after deploy. Use UTC, never change the session object, and clean `System.ProcessedQueueTask`.
+
 ## Say what a loop body is, in the section, in words
 
 The reader of section 4 is a Mendix developer who has never seen this tool, or a manager who

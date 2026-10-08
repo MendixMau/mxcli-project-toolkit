@@ -10,8 +10,10 @@
 # projects saw.
 #
 #   T1  every entry is <rule-file>  <32-hex md5>  <vX.Y.Z>, no duplicate (rule, version)
-#   T2  every rule named is one the toolkit owns (MXTK_LINT_RULES), and every listed
-#       version covers all of them — a half-captured version is caught here
+#   T2  every rule named is a stock one the toolkit repairs (MXTK_LINT_RULES_STOCK, itself a
+#       subset of MXTK_LINT_RULES), and every listed version covers all of them — a
+#       half-captured version is caught here. Toolkit-authored rules (ux001, …) are never
+#       seeded by `mxcli init`, so no version can list them and none is asked to.
 #   T3  the real reader (_mxtk_lint_is_stock) accepts every entry and rejects a foreign hash
 #   T4  live, only with a binary: `mxcli init` into an EMPTY dir, every seeded rule's md5 is
 #       listed. This is the capture procedure in the file's own header, run as a check.
@@ -45,16 +47,21 @@ dup=$(entries | awk '{print $1" "$3}' | sort | uniq -d)
 
 echo "== T2 coverage =="
 [ -n "${MXTK_LINT_RULES:-}" ] && ok "MXTK_LINT_RULES loaded" || no "MXTK_LINT_RULES empty — manifest not loaded"
+[ -n "${MXTK_LINT_RULES_STOCK:-}" ] && ok "MXTK_LINT_RULES_STOCK loaded" || no "MXTK_LINT_RULES_STOCK empty — manifest not loaded"
+for f in ${MXTK_LINT_RULES_STOCK:-}; do
+  case " $MXTK_LINT_RULES " in *" $f "*) ok "stock rule is also toolkit-owned: $f" ;;
+    *) no "$f is in MXTK_LINT_RULES_STOCK but not MXTK_LINT_RULES — sync would never deliver it" ;; esac
+done
 for f in $(entries | awk '{print $1}' | sort -u); do
-  case " $MXTK_LINT_RULES " in *" $f "*) ok "listed rule is toolkit-owned: $f" ;;
-    *) no "$f is listed but not in MXTK_LINT_RULES — nothing ever looks it up" ;; esac
+  case " ${MXTK_LINT_RULES_STOCK:-} " in *" $f "*) ok "listed rule is a stock one the toolkit repairs: $f" ;;
+    *) no "$f is listed but not in MXTK_LINT_RULES_STOCK — init never seeds it, nothing ever looks it up" ;; esac
 done
 for v in $(entries | awk '{print $3}' | sort -u); do
   missing=""
-  for f in $MXTK_LINT_RULES; do
+  for f in ${MXTK_LINT_RULES_STOCK:-}; do
     entries | awk -v f="$f" -v v="$v" '$1==f && $3==v {x=1} END {exit !x}' || missing="$missing $f"
   done
-  [ -z "$missing" ] && ok "$v covers all toolkit-owned rules" || no "$v is missing:$missing"
+  [ -z "$missing" ] && ok "$v covers all stock rules" || no "$v is missing:$missing"
 done
 
 echo "== T3 the real reader agrees =="
@@ -82,7 +89,7 @@ else
   W=$(mktemp -d "${TMPDIR:-/tmp}/stockhash.XXXXXX"); trap 'rm -rf "$W"' EXIT
   ( cd "$W" && "$MX" init . >/dev/null 2>&1 )
   seeded=0
-  for f in $MXTK_LINT_RULES; do
+  for f in $MXTK_LINT_RULES_STOCK; do
     s="$W/.claude/lint-rules/$f"
     [ -f "$s" ] || continue
     seeded=$((seeded+1))
@@ -90,8 +97,8 @@ else
     _mxtk_lint_is_stock "$f" "$h" "$HASHES" && ok "seeded $f is listed" \
       || no "seeded $f ($h) is NOT listed — add it with this mxcli's version"
   done
-  [ "$seeded" -gt 0 ] && ok "init seeded $seeded toolkit-owned rule(s)" \
-                      || no "init seeded none of: $MXTK_LINT_RULES — did it run?"
+  [ "$seeded" -gt 0 ] && ok "init seeded $seeded stock rule(s)" \
+                      || no "init seeded none of: $MXTK_LINT_RULES_STOCK — did it run?"
 fi
 
 echo ""

@@ -104,7 +104,7 @@ echo "== 10 caller forgot the manifest: the lib sources it itself =="
 P4="$W/proj4"; mkdir -p "$P4/.claude"; echo x > "$P4/PROJECT.md"
 bash -c "set -u; . '$W/tk/bin/lib/install-lint-rules.sh'; \
          mxtk_install_lint_rules '$W/tk' '$P4' 0 ''" >/dev/null 2>&1
-[ "$(ls "$P4/.claude/lint-rules" 2>/dev/null | wc -l | tr -d ' ')" = 4 ] \
+[ "$(ls "$P4/.claude/lint-rules" 2>/dev/null | wc -l | tr -d ' ')" = 6 ] \
   && ok "rules landed anyway" || no "silent no-op"
 
 echo "== 11 manifest genuinely unavailable: warn, never pretend success =="

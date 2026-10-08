@@ -351,9 +351,17 @@ licence failure. The tell is `404 - file not found for file: dist%2Findex.js` in
 
 **`--hub` is what makes a container-hosted run reachable.** A cloud/devcontainer session has no
 shared filesystem with a laptop and cannot serve `localhost` to one. Before `--hub` the only answer
-was a hand-rolled ngrok/cloudflared tunnel; it is now a flag. `mxcli test --local` likewise boots on
-mxcli's own runtime (ports 8081/8091, its own `<project>_test` database), so a warm `run --local`
-loop can keep serving while tests run.
+was a hand-rolled ngrok/cloudflared tunnel; it is now a flag.
+
+**`mxcli test --local` does NOT leave a warm `run --local` app alone.** It uses its own ports
+(8081/8091) and its own `<project>_test` database, but not its own deployment directory: mxbuild
+always writes `<app dir>/deployment`, so a building test run rewrites `deployment/run/bin` under the
+live app. mxcli warns ("This test run recompiles the project") but does not stop it, and the live
+app then answers 200 with empty bodies or `NoClassDefFoundError` — journeys that follow fail for
+reasons unrelated to the feature. **Restart `run --local` after any `test --local` run; never run a
+journey across one.** `--attach` avoids the second build but hot-applies into the live app and runs
+against its database, so restart before any journey that counts rows.
+(Field case: existing app, mxcli v0.25, Mendix 11.15, 2026-10-07.)
 
 > ### 🔴 Docker is NOT a safe default if the app calls host services by `localhost`
 >

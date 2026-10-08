@@ -740,9 +740,12 @@ async function runJourney(page, j) {
     }
 
     // ── RUNG 2: ordered spans ────────────────────────────────────────────────
-    if (step.spans && step.spans.ordered && step.spans.ordered.length) {
+    // Runs for a positive claim (ordered) OR a negative-only claim (mustNotFire with
+    // ordered empty/absent) — a step whose whole proof is "this did NOT run" (#150).
+    const claimed = (step.spans && step.spans.ordered) || [];
+    const mustNot = (step.spans && step.spans.mustNotFire) || [];
+    if (claimed.length || mustNot.length) {
       // Wait for the claimed microflows, not just any span — see otel.js capture() `until`.
-      const claimed = step.spans.ordered;
       const spans = await O.capture(t0, { min: 1,
         until: sp => { const got = O.microflowNames(sp); return claimed.every(n => got.includes(n)); } });
       if (!spans.length) {
@@ -750,9 +753,10 @@ async function runJourney(page, j) {
                'zero spans captured — Jaeger down or OTel off. Trace rung did NOT run.', req);
       } else {
         O.guard(spans, otelReporter(req), `${step.name}: capture non-empty`);
-        O.assertSequence(spans, step.spans.ordered, otelReporter(req), `${step.name}: ordered`);
+        if (claimed.length)
+          O.assertSequence(spans, claimed, otelReporter(req), `${step.name}: ordered`);
         O.assertNoErrors(spans, otelReporter(req), `${step.name}: no ERROR at any level`);
-        for (const n of step.spans.mustNotFire || []) {
+        for (const n of mustNot) {
           O.assertNotFired(spans, new RegExp(n), otelReporter(req), `${step.name}: ${n} did not run`);
         }
       }

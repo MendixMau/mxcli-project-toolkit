@@ -4,7 +4,7 @@
 # "mxcli-project-toolkit Integration" heading — the shape every CLAUDE.md written by mxcli init
 # v0.25 has. `grep -n heading | head | cut` returned grep's exit 1 through pipefail, errexit ended
 # the script, and every step after it (bin/ crash-net refresh, tests/e2e install, lint rules)
-# never ran. Field: three consuming projects (TramiusECI/SCR/SVC), every sync since 9a0350b.
+# never ran. Field: three consuming projects of one organisation, every sync since 9a0350b.
 #
 # Run against the pre-fix script and T1-T3 must fail (exit 1, no bin/ line, no summary).
 #

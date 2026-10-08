@@ -237,6 +237,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
 |---|---|---|---|---|
 | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words | `bug-logs/mxcli-bugs.md` | mdl,gate | 5,6 | ondemand |
+| An e2e rung reports a UI defect (widget never appeared, click did nothing, screen contradicts the data, fixture count wrong) — check the locator before blaming the app: :visible, click order, poll, derived fixtures | `skills/e2e-locators-that-lie.md` | test,review | 5,6 | ondemand |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` | all | - | baseline |
 | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing | `skills/agent-permission-friction.md` | all | - | ondemand |
 | Studio Pro will not load the project, or the .mpr looks gutted — recover before relaunching SP, never git checkout | `skills/mpr-corruption-and-sp-load-errors.md` | mdl,gate | - | ondemand |

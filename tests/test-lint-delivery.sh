@@ -48,7 +48,13 @@ RECEIPT="$P/.claude/.mxtk-lint-receipt"
 echo "== 1 fresh install =="
 mxtk_install_lint_rules "$W/tk" "$P" 0 "" >/dev/null
 { [ -f "$A" ] && [ -f "$C" ] && [ -f "$RECEIPT" ]; } && ok "rules + receipt written" || no "install"
-[ "$(ls "$R" | wc -l | tr -d ' ')" = 4 ] && ok "NOINSTALL list respected (4 files)" || no "leaked: $(ls "$R")"
+# Expected count comes from the manifest, not a literal: every rule in MXTK_LINT_RULES and
+# MXTK_LINT_RULES_CONFIGURABLE lands, nothing from MXTK_LINT_RULES_NOINSTALL does. (A literal
+# 4 went red the day two toolkit-authored rules joined the managed list, 2026-10-08.)
+want=$(set -- $MXTK_LINT_RULES $MXTK_LINT_RULES_CONFIGURABLE; echo $#)
+got=$(ls "$R" | wc -l | tr -d ' ')
+[ "$got" = "$want" ] && ok "NOINSTALL list respected ($want files)" || no "expected $want files, got $got: $(ls "$R")"
+for f in $MXTK_LINT_RULES_NOINSTALL; do [ -e "$R/$f" ] && no "leaked NOINSTALL file: $f"; done
 
 echo "== 2 re-run is silent and rewrites nothing =="
 before=$(portable_md5 "$A"); out=$(mxtk_install_lint_rules "$W/tk" "$P" 0 "")

@@ -191,10 +191,27 @@ if [ -f "$LOCK" ]; then
   fi
 fi
 
-# 3. No stray raw `mxcli exec` from another session.
-if pgrep -fl "mxcli exec" 2>/dev/null | grep -qv "$$"; then
-  echo "✗ A raw 'mxcli exec' is already running elsewhere — refusing to write concurrently."
-  [ "$FORCE" = "1" ] || exit 1
+# 3. No raw `mxcli exec` against THIS model running outside the wrapper (#228).
+#    Matches argv exactly (argv0 is mxcli, `exec` is an argument, the args name this .mpr)
+#    and skips this shell's own ancestry, so a caller whose command line merely mentions
+#    "mxcli exec", or an exec on another project's model, no longer refuses a correct run.
+#    A refusal is logged. If no process list can be had (no ps, no PowerShell) the check
+#    warns once and carries on: a check that cannot run must not block (rules 6/7).
+#    Opt out: MXTK_NO_RAW_GUARD=1. Override a genuine hit: FORCE_EXEC=1.
+if [ "${MXTK_NO_RAW_GUARD:-0}" != "1" ]; then
+  RAW_HIT="$(mxtk_raw_exec_on "$MPR")" && RAW_RC=0 || RAW_RC=$?
+  if [ "$RAW_RC" -ne 0 ]; then
+    echo "  (raw-exec guard skipped: no process list on this platform — step 2's lock is still in force)"
+  elif [ -n "$RAW_HIT" ]; then
+    echo "✗ A raw 'mxcli exec' is already running against $MPR_BASE — refusing to write concurrently."
+    printf '%s\n' "$RAW_HIT" | head -3 | sed 's/^/    pid /'
+    echo "  → Wait for it, or kill it if it is stale. Override (NOT recommended): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
+    if [ "$FORCE" != "1" ]; then
+      log_build "🚫 blocked" "raw mxcli exec already running against $MPR_BASE (pid $(printf '%s\n' "$RAW_HIT" | head -1 | cut -f1))"
+      exit 1
+    fi
+    echo "  (FORCE_EXEC set — proceeding despite raw exec)"
+  fi
 fi
 
 # 4. Uncommitted model changes. The snapshot taken below would not cover them,

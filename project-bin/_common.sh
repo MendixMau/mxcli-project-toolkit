@@ -787,3 +787,57 @@ mxtk_sha256() {
   else openssl dgst -sha256 | sed 's/^.*= //'
   fi
 }
+
+# ---------------------------------------------------------------------------
+# mxtk_proc_list — every process as "pid<TAB>ppid<TAB>args", one per line, from ONE snapshot;
+# returns 1 when the platform gives no list (the caller must then warn and carry on, never block).
+#
+# WHY (#228). exec.sh's raw-exec guard used `pgrep -fl "mxcli exec"`: a substring search of
+# every process on the machine, which also matched the caller's own `bash -c '... mxcli exec
+# ...'` line, other projects' execs and greps, and which does not exist under Git Bash.
+# This lists processes so the caller can compare argv exactly. macOS and Linux share
+# `ps -A -o pid=,ppid=,args=`; Windows asks PowerShell (Git Bash's own ps shows MSYS pids only).
+# ---------------------------------------------------------------------------
+mxtk_proc_list() {
+  case "$(mxtk_platform)" in
+    windows)
+      command -v powershell.exe >/dev/null 2>&1 || return 1
+      powershell.exe -NoProfile -Command \
+        "Get-CimInstance Win32_Process | ForEach-Object { \"\$(\$_.ProcessId)\`t\$(\$_.ParentProcessId)\`t\$(\$_.CommandLine)\" }" \
+        2>/dev/null | tr -d '\r'
+      ;;
+    *)
+      command -v ps >/dev/null 2>&1 || return 1
+      ps -A -o pid=,ppid=,args= 2>/dev/null \
+        | sed -E 's/^[[:space:]]*([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+/\1	\2	/'
+      ;;
+  esac
+}
+
+# mxtk_raw_exec_on <model.mpr> — print "pid<TAB>args" for each process that is `mxcli exec`
+# against that model and is NOT this shell, one of its ancestors, or one of its descendants
+# (the $(...) subshells running this very check appear in ps under the caller's argv). Pids
+# are compared exactly, so 123 never hides 1234. Exit 0 = list obtained (output may be empty),
+# 1 = no process list available.
+mxtk_raw_exec_on() {
+  local mpr="$1" list
+  list=$(mxtk_proc_list) || return 1
+  [ -n "$list" ] || return 1
+  printf '%s\n' "$list" | awk -F'\t' -v me="$$" -v mpr="$mpr" -v base="$(basename "$mpr")" '
+    { pp[$1]=$2; args[$1]=$3 }
+    END {
+      skip[me]=1; down[me]=1
+      for (p=me; p in pp && p > 1 && !(pp[p] in skip); p=pp[p]) skip[pp[p]]=1
+      for (r=0; r<6; r++) for (k in pp) if (pp[k] in down) { down[k]=1; skip[k]=1 }
+      for (k in pp) {
+        if (k in skip) continue
+        a=args[k]; m=split(a, w, /[[:space:]]+/)
+        b=w[1]; gsub(/"/, "", b); sub(/.*[\/\\]/, "", b)
+        if (b != "mxcli" && b != "mxcli.exe") continue
+        hasexec=0; for (i=2;i<=m;i++) if (w[i]=="exec") hasexec=1
+        if (!hasexec) continue
+        if (index(a, mpr) || index(a, base)) print k "\t" a
+      }
+    }'
+  return 0
+}

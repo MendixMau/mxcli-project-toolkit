@@ -34,7 +34,8 @@ const ROOT = PROJ.root;
 //
 // test-stack-up.sh now records APP_OWNERSHIP: `verified` means the port is published
 // by a container whose compose working_dir is THIS project (the one identity claim
-// that cannot be true of two projects at once); `unverified` means a port scan found
+// that cannot be true of two projects at once), or by a live `mxcli run --local` whose
+// .mxcli/run-local.json sits beside THIS project's .mpr; `unverified` means a port scan found
 // a Mendix and nothing more. We refuse `unverified` rather than warn about it —
 // this whole harness exists because a warning on stderr is not a guard.
 function resolveStack() {

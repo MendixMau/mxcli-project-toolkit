@@ -752,7 +752,10 @@ fi
 LEDGER_ROW_RE='bug-logs/mxcli-bugs\.md'
 # ledger_row_prefix <file> — the path prefix the retired row's cell carried ('' when relative).
 ledger_row_prefix() {
-  grep -m1 "^|.*$LEDGER_ROW_RE" "$1" | sed -n 's/.*[|` ]\([^|` ]*\)bug-logs\/mxcli-bugs\.md.*/\1/p'
+  # `|| true`: both callers only reach here after a grep for the same row matched, but a
+  # no-match under pipefail + errexit would end the whole sync with no message (see the
+  # _dup_from_line note in section 3) — never leave that to the callers.
+  grep -m1 "^|.*$LEDGER_ROW_RE" "$1" | sed -n 's/.*[|` ]\([^|` ]*\)bug-logs\/mxcli-bugs\.md.*/\1/p' || true
 }
 LEDGER_ROWS_BEFORE=0
 [ -f "$CL" ] && LEDGER_ROWS_BEFORE="$(grep -c "^|.*$LEDGER_ROW_RE" "$CL" 2>/dev/null || true)"
@@ -899,7 +902,11 @@ if [ -f "$PROJECT_DIR/CLAUDE.local.md" ]; then
   # a flat assertion. Same rule as the ledger-row warn above: CLAUDE.md is bootstrap-project.md's
   # (an LLM merge), not this script's, so sync never edits it — only names the fix.
   if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -qE 'skills/(learned-mdl-preflight|query-the-model)\.md' "$PROJECT_DIR/CLAUDE.md"; then
-    _dup_from_line="$(grep -n 'mxcli-project-toolkit Integration' "$PROJECT_DIR/CLAUDE.md" | head -1 | cut -d: -f1)"
+    # `|| true`: no heading is the COMMON case (every CLAUDE.md mxcli init v0.25 writes cites
+    # the skills without it). Unguarded, grep's exit 1 fails the pipeline under pipefail and
+    # errexit ended the whole sync here, silently, before the bin/ and tests/e2e refresh —
+    # every sync from 9a0350b (2026-09-18) to this fix. Regression: tests/wave2/test-sync-dup-heading-exit.sh.
+    _dup_from_line="$(grep -n 'mxcli-project-toolkit Integration' "$PROJECT_DIR/CLAUDE.md" | head -1 | cut -d: -f1 || true)"
     if [ -n "$_dup_from_line" ]; then
       _dup_words="$(tail -n "+$_dup_from_line" "$PROJECT_DIR/CLAUDE.md" | wc -w | tr -d ' ')"
     else

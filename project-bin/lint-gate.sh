@@ -223,6 +223,13 @@ if crashed:
     viol = [v for v in viol if v["ruleId"] not in crashed]
     counts = collections.Counter(v["ruleId"] for v in viol)
 
+# Self-reported blindness (module "_rule") is likewise never baselined: a rule that said it
+# inspected nothing would otherwise be ratcheted as accepted debt (#229). Later runs still
+# report it as PASS-BLIND via `blind` above, which was computed before this filter.
+if update:
+    viol = [v for v in viol if v.get("module") != "_rule"]
+    counts = collections.Counter(v["ruleId"] for v in viol)
+
 if update:
     json.dump({"counts": dict(sorted(counts.items())),
                "total": len(viol),

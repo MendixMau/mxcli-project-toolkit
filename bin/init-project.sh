@@ -434,6 +434,11 @@ fi
   echo "  $SCRIPT_DIR/wire-agents.sh $PROJECT_DIR"
 }
 
+# A CLAUDE.md that wire-agents.sh preserved from an mxcli init older than v0.22 carries ~30k
+# characters of command tables into every call; move them out (bin/lib/slim-claude-md.sh).
+. "$SCRIPT_DIR/lib/slim-claude-md.sh"
+slim_claude_md "$PROJECT_DIR" || true
+
 # ── Per-harness auto-run allow-list ──────────────────────────────────────────────────────
 # `mxcli init` (just run above, inside wire-agents.sh) writes .claude/settings.json allowing
 # `Bash(./mxcli:*)` but none of the safe wrappers this toolkit tells every agent to use

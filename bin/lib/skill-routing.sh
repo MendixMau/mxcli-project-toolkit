@@ -210,16 +210,12 @@ routing_render() {
         done
       done
       ;;
-    readme-baseline|baseline)
+    readme-baseline)
       echo "Each row is a trigger, not a reading list: open a row's file when the first column happens in this session, and only rows whose Stage(s) cell says *every stage* or names the stage the register (PROJECT.md) says you are in. Do not read the table ahead — a build session that only writes pages never opens the microflow rows."
       echo ""
       echo "Then filter by Role(s). A helper dispatched with a role stub (ba, architect, mdl, gate, test, review) reads only rows that say *every role* or name its role — its stub lists the same files, and it never opens another role's rows. The main session is **lead**: *every role* and lead rows, plus the rows of any role whose work it does itself instead of dispatching."
       echo ""
-      if [ "$view" = "baseline" ]; then
-        echo "| Always relevant for | Reference this (under \`${prefix%/}/\`) | Stage(s) | Role(s) |"
-      else
-        echo "| Always relevant for | Reference this | Stage(s) | Role(s) |"
-      fi
+      echo "| Always relevant for | Reference this | Stage(s) | Role(s) |"
       echo "|---|---|---|---|"
       # Every-stage rows first (TSV order), then stage-specific rows (TSV order) — see the
       # routing_render docstring above.
@@ -230,6 +226,27 @@ routing_render() {
       routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
         [ "$tier" = "baseline" ] && [ "$stages" != "-" ] || continue
         printf '| %s | `%s` | %s | %s |\n' "$(_routing_md_escape "$when")" "$path" "$stages" "$(_routing_roles_cell "$agents")"
+      done
+      ;;
+    baseline)
+      # The CLAUDE.local.md view, loaded into EVERY session of EVERY project — so it carries the
+      # trigger only (the "when" cell up to its first " — "), and a two-line preamble. The full
+      # trigger text and the reasoning behind each row live in ROUTING.md, one read away (a fresh
+      # scaffold's CLAUDE.local.md went 17.5 KB → 11.7 KB, 2026-10-07). readme-baseline keeps the
+      # full text: README and the runbook are read on purpose, not loaded every turn.
+      echo "Triggers, not a reading list: open a row's file only when its trigger happens now, at *every stage* or the stage PROJECT.md records. Main session = **lead**; a role stub reads only its own rows and *every role*."
+      echo ""
+      echo "Full trigger text and the why behind each row: \`${prefix%/}/ROUTING.md\`."
+      echo ""
+      echo "| Trigger | Reference this (under \`${prefix%/}/\`) | Stage(s) | Role(s) |"
+      echo "|---|---|---|---|"
+      routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
+        [ "$tier" = "baseline" ] && [ "$stages" = "-" ] || continue
+        printf '| %s | `%s` | every stage | %s |\n' "$(_routing_md_escape "${when%% — *}")" "$path" "$(_routing_roles_cell "$agents")"
+      done
+      routing_rows | while IFS=$'\t' read -r name path when agents stages tier group; do
+        [ "$tier" = "baseline" ] && [ "$stages" != "-" ] || continue
+        printf '| %s | `%s` | %s | %s |\n' "$(_routing_md_escape "${when%% — *}")" "$path" "$stages" "$(_routing_roles_cell "$agents")"
       done
       ;;
     readme-experimental)
@@ -327,11 +344,8 @@ routing_claude_local_block() {
   cat <<EOF
 ## Baseline routing (always-on)
 
-GENERATED between the markers from \`$prefix/bin/lib/skill-routing.tsv\`. Refresh after a
-toolkit pull with \`$prefix/bin/sync-project.sh <project-root>\`. Do not hand-edit inside the
-markers — the edit is silently reverted on the next sync, and the drift is invisible until a
-skill stops reaching anyone. Everything outside the markers in this file is yours and is never
-touched.
+Generated. Refresh after a toolkit pull with \`$prefix/bin/sync-project.sh <project-root>\`, which
+reverts any edit inside the markers; everything outside them is yours.
 
 <!-- ROUTING:BEGIN baseline -->
 $(routing_render baseline "$prefix")

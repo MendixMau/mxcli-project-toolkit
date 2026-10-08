@@ -6,10 +6,14 @@
 #   - intake.md: appends questions that exist in the current template but not in the file.
 #     Never rewrites existing answers, and offers — never performs unprompted — a replacement
 #     of a template question whose boilerplate is provably untouched (--repair-intake).
-#   - bin/ crash net: installs what is MISSING and repairs a lost exec bit. A locally modified
-#     script is REPORTED, never overwritten, unless --upgrade-bin names it (and then the local
-#     copy is backed up first). Six of this machine's projects have hand-hardened their
-#     exec.sh; a blind-overwrite sync would have destroyed all six.
+#   - bin/ crash net: installs what is MISSING and repairs a lost exec bit. A copy that is
+#     byte-for-byte an OLDER toolkit version (proved against the toolkit's own git history,
+#     bin/lib/past-stock.sh) is refreshed — nobody edited it, so there is nothing to lose.
+#     A locally modified script is REPORTED, never overwritten, unless --upgrade-bin names it
+#     (and then the local copy is backed up first). Six of this machine's projects have
+#     hand-hardened their exec.sh; a blind-overwrite sync would have destroyed all six.
+#   - tests/e2e/ engine: same three-way contract as bin/ (missing / unedited older copy /
+#     locally modified). --no-refresh turns the middle case back into a report for both.
 #   - triage.md: installs it if the project predates the Stage 0 scaffold, refreshes it only
 #     while it is still an untouched scaffold, and otherwise KEEPS it. Same contract as the
 #     agent stubs below, not the intake one — a triage document has no per-question unit to
@@ -19,6 +23,8 @@
 #     they get a "review against current template" note instead.
 #   - CLAUDE.md baseline routing: report-only (merging prose is an LLM job — see
 #     bootstrap-project.md audit mode).
+#   - CLAUDE.md written by mxcli init before v0.22: its command tables, lint list, skills
+#     index and examples move to docs/mxcli-reference.md (bin/lib/slim-claude-md.sh).
 #
 # Run after every `git pull` of the toolkit:  bin/sync-project.sh <project-root>
 
@@ -67,6 +73,12 @@ AGENTS="$MXTK_AGENTS"
 # Item 3 of wire-agents.sh's stamped block, the one text shared with the in-place repair step
 # below (5c) — see that file's header for why it is not typed twice.
 . "$SCRIPT_DIR/lib/wiring-item3.sh"
+# slim_claude_md: moves a pre-v0.22 mxcli init CLAUDE.md's reference sections out of context.
+. "$SCRIPT_DIR/lib/slim-claude-md.sh"
+
+# "Is this copy an unedited older toolkit version?" — the test that lets sections 4 and 4b
+# refresh a stale bin/ or tests/e2e/ copy without a flag. See the file's header.
+. "$SCRIPT_DIR/lib/past-stock.sh"
 
 # Is this agent file an UNTOUCHED stub (safe to overwrite), or completed work?
 # Two conditions, both required: it still carries the STUB GENERATED banner AND it still
@@ -116,10 +128,11 @@ UPGRADE_LINT=""
 REPAIR_INTAKE=0
 ADOPT_ROUTING=0
 PIN_MODELS=0
+NO_REFRESH=0
 PROJECT_DIR=""
 USAGE="Usage: $0 <project-root> [--diff-completed] [--dry-run] [--strict]
                           [--upgrade-bin <script.sh|all>] [--upgrade-lint-rules <rule.star|all>]
-                          [--repair-intake] [--adopt-routing] [--pin-models]"
+                          [--repair-intake] [--adopt-routing] [--pin-models] [--no-refresh]"
 while [ $# -gt 0 ]; do
   case "$1" in
     --diff-completed) DIFF_COMPLETED=1; shift ;;
@@ -128,6 +141,7 @@ while [ $# -gt 0 ]; do
     --repair-intake)  REPAIR_INTAKE=1; shift ;;
     --adopt-routing)  ADOPT_ROUTING=1; shift ;;
     --pin-models)     PIN_MODELS=1; shift ;;
+    --no-refresh)     NO_REFRESH=1; shift ;;
     --upgrade-bin)
       shift
       [ $# -gt 0 ] || { echo "--upgrade-bin needs a script name or 'all'" >&2; exit 1; }
@@ -165,6 +179,8 @@ while [ $# -gt 0 ]; do
       echo "  --pin-models       for a COMPLETED agent whose model: line has drifted from the"
       echo "                     template, rewrite only that line to match. Reported first,"
       echo "                     acted on only with this flag."
+      echo "  --no-refresh       do not refresh bin/ and tests/e2e/ copies that are unedited"
+      echo "                     older toolkit versions; report them as drift instead."
       exit 0 ;;
     -*) echo "unknown option: $1" >&2; exit 1 ;;
     *)  PROJECT_DIR="$1"; shift ;;
@@ -628,6 +644,20 @@ if [ -f "$f" ]; then
   fi
 fi
 
+# --- 2a4. CLAUDE.md: move a pre-v0.22 mxcli init file's reference sections out of context ---
+# The one structural edit sync makes to CLAUDE.md, and only to a file carrying mxcli's own
+# pre-v0.22 signature heading: those sections are mxcli's text, not the project's, and they
+# are moved (to docs/mxcli-reference.md, original backed up), never deleted. Why and the
+# bench evidence: bin/lib/slim-claude-md.sh header.
+if slim_claude_md_needed "$PROJECT_DIR"; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo "Would slim: CLAUDE.md — pre-v0.22 mxcli reference sections ($(wc -c < "$PROJECT_DIR/CLAUDE.md" | tr -d ' ') bytes, loaded on every call) move to docs/mxcli-reference.md"
+    CHANGES=$((CHANGES + 1))
+  elif slim_claude_md "$PROJECT_DIR"; then
+    CHANGES=$((CHANGES + 1))
+  fi
+fi
+
 # --- 2b. CLAUDE.local.md: append the session-start ritual if this project predates it ---
 if [ -f "$CL" ] && ! grep -q "Session-start ritual" "$CL"; then
   w_app "$CL" <<EOF
@@ -651,6 +681,38 @@ fi
 if [ -f "$PROJECT_DIR/PROJECT.md" ] && ! grep -q "Toolkit commit:" "$PROJECT_DIR/PROJECT.md"; then
   printf '\nToolkit commit: (set at session start — see CLAUDE.local.md ritual)\n' | w_app "$PROJECT_DIR/PROJECT.md"
   echo "Updated: PROJECT.md — added the Toolkit commit acknowledgement line."
+  CHANGES=$((CHANGES + 1))
+fi
+
+# --- 2b2. CLAUDE.local.md: retire the two "read the whole runbook" lines ------------------
+# WHY (field run 2026-10-07, requirements-driven build). init-project.sh stopped telling sessions
+# to read conversion-runbook.md whole on 2026-09-30, but a CLAUDE.local.md is never overwritten
+# and this script refreshed only the routing block. A project scaffolded from an older clone kept
+# "Read ... FIRST — every session" and "re-read ... in full", so every session still opened the
+# runbook whole (~7k tokens per read, re-read on every later call) after the fix had shipped.
+# Suffix match on the exact old wording, keeping whatever toolkit path the line carries; a line
+# anyone has edited by hand no longer ends that way and is left alone.
+_RB_OLD1='/skills/conversion-runbook.md` FIRST — every session.** It is the'
+_RB_NEW1='/skills/conversion-runbook.md` §1b plus your own stage'"'"'s section FIRST — every session; not the whole file** (`bin/gate-check.sh <project-root> <stage>` prints the line spans). It is the'
+_RB_OLD2='/skills/conversion-runbook.md` in full, then update that line.'
+_RB_NEW2='/skills/conversion-runbook.md` §1b plus your stage'"'"'s section, then update that line.'
+_rb_has_old() { awk -v a="$_RB_OLD1" -v b="$_RB_OLD2" '
+  { n = length($0)
+    if ((n >= length(a) && substr($0, n - length(a) + 1) == a) || (n >= length(b) && substr($0, n - length(b) + 1) == b)) { f = 1 } }
+  END { exit f ? 0 : 1 }' "$1"; }
+if [ -f "$CL" ] && _rb_has_old "$CL"; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo "Would rewrite: CLAUDE.local.md — 'read the runbook whole' lines → §1b plus your stage's section."
+  else
+    _tmp="$(mktemp "${TMPDIR:-/tmp}/rbrw.XXXXXX")" || exit 2
+    awk -v a="$_RB_OLD1" -v ra="$_RB_NEW1" -v b="$_RB_OLD2" -v rb="$_RB_NEW2" '
+      { n = length($0)
+        if (n >= length(a) && substr($0, n - length(a) + 1) == a) { print substr($0, 1, n - length(a)) ra; next }
+        if (n >= length(b) && substr($0, n - length(b) + 1) == b) { print substr($0, 1, n - length(b)) rb; next }
+        print }' "$CL" > "$_tmp" && cat "$_tmp" > "$CL"
+    rm -f "$_tmp"
+    echo "Rewrote: CLAUDE.local.md — sessions read runbook §1b plus their stage's section, not the whole file."
+  fi
   CHANGES=$((CHANGES + 1))
 fi
 
@@ -754,7 +816,7 @@ fi
 # the old row used (a hand-written table carries full toolkit paths; the generated one is
 # relative to the header's stated root), and the rest of the table is left byte-for-byte.
 #
-# CLAUDE.md is NOT edited. Its "mxcli-project-toolkit Integration" block is written by
+# This row is NOT edited in CLAUDE.md (2a4 moves only mxcli's own pre-v0.22 sections). Its "mxcli-project-toolkit Integration" block is written by
 # skills/bootstrap-project.md — an LLM merge into the file `mxcli init` generates — and not by
 # bin/init-project.sh (which writes CLAUDE.local.md only; wire-agents.sh PRESERVES an existing
 # CLAUDE.md). A file no script produced is a file no script should rewrite (the report-only
@@ -805,7 +867,7 @@ if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -Eq "$DECLARE_OBJECT_RE" "$PROJECT_DI
   warn "CLAUDE.md teaches \`DECLARE \$Var Module.Entity;\` — that row came from an mxcli init" \
        "older than v0.22; v0.22 \`check\` rejects it (MDL043/CE0053, an object variable" \
        "declaration). Fix: commit first, re-run \`mxcli init\` with the current binary, then" \
-       "re-run the bootstrap-project.md merge. sync does not edit CLAUDE.md — see" \
+       "re-run the bootstrap-project.md merge. sync does not edit this row — see" \
        "BUG-DRAFT-stale-init-claude-md-declare-object in bug-logs/mxcli-bugs.md."
 fi
 
@@ -846,7 +908,7 @@ if [ -f "$PROJECT_DIR/CLAUDE.local.md" ]; then
     warn "CLAUDE.md cites Baseline-only skills also covered by CLAUDE.local.md — check whether" \
          "its \"mxcli-project-toolkit Integration\" section (~$_dup_words word(s), heading to" \
          "EOF, not all of it necessarily routing) is a duplicated Baseline routing block." \
-         "sync never edits CLAUDE.md; if it is a duplicate, replace that block by hand with" \
+         "sync never edits that section; if it is a duplicate, replace that block by hand with" \
          "the pointer per bootstrap-project.md Step 2."
   fi
 else
@@ -856,7 +918,7 @@ if [ -f "$_routing_owner" ] && ! grep -q "query-the-model" "$_routing_owner"; th
   warn "$(basename "$_routing_owner") does not reference the Baseline routing set — audit it per bootstrap-project.md."
 fi
 
-# --- 4. Crash net: refresh bin/ guard scripts (OFFER, never force) ----------------------
+# --- 4. Crash net: refresh bin/ guard scripts (unedited copies only; OFFER the rest) -----
 # init-project.sh installs seven project-local guard scripts into bin/. Sync did not look at
 # bin/ at all, so a project kept whatever crash net it was BORN with — including versions with
 # the `set -e` gap and the "restores over every successful build" bug — and the documented
@@ -869,6 +931,13 @@ fi
 # upstream). A blind-overwrite sync destroys real work in six projects at once. So:
 #   missing          -> install (nothing local to destroy)
 #   identical        -> leave alone; repair the exec bit if it was lost
+#   older, unedited  -> REFRESH. The copy hashes to a version the toolkit itself shipped
+#                       (bin/lib/past-stock.sh), so nobody changed it and nothing is lost.
+#                       Until 2026-10-07 this case was reported like a hand edit, and a
+#                       project kept the crash net it was born with until someone typed
+#                       --upgrade-bin. Held back while bin/_common.sh is hand-edited: 29 of
+#                       the scripts source it, and a refreshed script on a hand-edited library
+#                       is a combination nobody has run. --no-refresh reports instead.
 #   locally modified -> REPORT the drift, print how to see it and how to accept it.
 #                       Never overwritten without --upgrade-bin, which backs the copy up first.
 CRASHNET_SRC="$(cd "$SCRIPT_DIR/.." && pwd)/project-bin"
@@ -878,6 +947,24 @@ CRASHNET_SRC="$(cd "$SCRIPT_DIR/.." && pwd)/project-bin"
 # on — not crash-net per se, but "missing -> install, drifted -> report, never
 # blind-overwrite" applies identically to a project's tuned copy of either.
 CRASHNET_FILES="$MXTK_PROJECT_BIN"
+TK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# copy_kind <toolkit-rel-path> <src> <dst> — classify a project copy that exists:
+#   "same", "stock:<date>" (an unedited older toolkit version), or "edited".
+copy_kind() {
+  if cmp -s "$2" "$3"; then echo same; return; fi
+  # project-bin/X was bin/X before the project-bin split; its older versions live there.
+  _ck_when="$(mxtk_past_stock "$TK_ROOT" "$1" "$3" "bin/${1##*/}")" && { echo "stock:$_ck_when"; return; }
+  echo edited
+}
+
+# The refresh hold: a hand-edited shared library keeps every older copy that depends on it as
+# it is (reported), because a refreshed caller on an edited library has never been run.
+BIN_HOLD=""
+if [ "$NO_REFRESH" -eq 0 ] && [ -f "$PROJECT_DIR/bin/_common.sh" ] && [ -f "$CRASHNET_SRC/_common.sh" ] \
+   && [ "$(copy_kind project-bin/_common.sh "$CRASHNET_SRC/_common.sh" "$PROJECT_DIR/bin/_common.sh")" = edited ]; then
+  BIN_HOLD="_common.sh"
+fi
 
 # known_fix_note NAME — a one-line pointer at a specific, named fix for a crash-net file, so a
 # drift warning can say WHAT was missed instead of only how many lines differ. Deliberately a flat
@@ -968,6 +1055,19 @@ elif [ -d "$CRASHNET_SRC" ]; then
         CHANGES=$((CHANGES + 1))
       fi
     else
+      kind="$(copy_kind "project-bin/$s" "$src" "$dst")"
+      upgrade_named=0
+      case " $UPGRADE_BIN " in *" all "*|*" $s "*) upgrade_named=1 ;; esac
+      if [ "${kind#stock:}" != "$kind" ] && [ "$NO_REFRESH" -eq 0 ] && [ -z "$BIN_HOLD" ] && [ "$upgrade_named" -eq 0 ]; then
+        if [ "$DRY_RUN" -eq 1 ]; then
+          echo "Would refresh: bin/$s (an unedited toolkit copy of ${kind#stock:} — no local changes to lose)"
+        else
+          cp "$src" "$dst"; chmod +x "$dst"
+          echo "Refreshed: bin/$s (was an unedited toolkit copy of ${kind#stock:})"
+        fi
+        CHANGES=$((CHANGES + 1))
+        continue
+      fi
       DRIFTED="$DRIFTED $s"
       add=$(diff "$src" "$dst" | grep -c '^>' || true)
       del=$(diff "$src" "$dst" | grep -c '^<' || true)
@@ -981,6 +1081,14 @@ elif [ -d "$CRASHNET_SRC" ]; then
           echo "Upgraded: bin/$s to the toolkit version. Your copy is kept at $(basename "$bak")."
         fi
         CHANGES=$((CHANGES + 1))
+      elif [ "${kind#stock:}" != "$kind" ]; then
+        if [ -n "$BIN_HOLD" ]; then
+          warn "bin/$s is an unedited toolkit copy of ${kind#stock:}, NOT refreshed: bin/$BIN_HOLD is" \
+               "locally edited and $s depends on it. Accept both together: $0 $PROJECT_DIR --upgrade-bin all"
+        else
+          warn "bin/$s is an unedited toolkit copy of ${kind#stock:} (--no-refresh kept it)." \
+               "Refresh: $0 $PROJECT_DIR"
+        fi
       else
         warn "bin/$s is LOCALLY MODIFIED (+$add lines here / -$del lines only in the template)." \
              "Not overwritten. It may be missing crash-net fixes shipped since." \
@@ -1068,12 +1176,32 @@ if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-tests.sh" ]; then
   E2E_DST="$PROJECT_DIR/tests/e2e"
   E2E_MISSING=""
   E2E_DRIFTED=""
+  E2E_STOCK=""
+  # Same hold as the crash net: helpers.js and config.js are required by every engine file, so
+  # while either is hand-edited, older copies around it stay as they are and are reported.
+  E2E_HOLD=""
+  for t in helpers.js config.js; do
+    [ -f "$E2E_SRC/$t" ] && [ -f "$E2E_DST/$t" ] || continue
+    [ "$(copy_kind "project-tests/e2e/$t" "$E2E_SRC/$t" "$E2E_DST/$t")" = edited ] && E2E_HOLD="$E2E_HOLD $t"
+  done
   for t in $MXTK_PROJECT_TESTS; do
     [ -f "$E2E_SRC/$t" ] || continue
     if [ ! -f "$E2E_DST/$t" ]; then
       E2E_MISSING="$E2E_MISSING $t"
     elif ! cmp -s "$E2E_SRC/$t" "$E2E_DST/$t"; then
-      E2E_DRIFTED="$E2E_DRIFTED $t"
+      kind="$(copy_kind "project-tests/e2e/$t" "$E2E_SRC/$t" "$E2E_DST/$t")"
+      if [ "${kind#stock:}" != "$kind" ] && [ "$NO_REFRESH" -eq 0 ] && [ -z "$E2E_HOLD" ]; then
+        if [ "$DRY_RUN" -eq 1 ]; then
+          echo "Would refresh: tests/e2e/$t (an unedited toolkit copy of ${kind#stock:} — no local changes to lose)"
+        else
+          cp "$E2E_SRC/$t" "$E2E_DST/$t"
+          echo "Refreshed: tests/e2e/$t (was an unedited toolkit copy of ${kind#stock:})"
+        fi
+        CHANGES=$((CHANGES + 1))
+      else
+        [ "${kind#stock:}" != "$kind" ] && E2E_STOCK="$E2E_STOCK $t"
+        E2E_DRIFTED="$E2E_DRIFTED $t"
+      fi
     fi
   done
   [ -f "$E2E_DST/project.config.js" ] || E2E_MISSING="$E2E_MISSING project.config.js"
@@ -1093,10 +1221,19 @@ if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-tests.sh" ]; then
     CHANGES=$((CHANGES + 1))
   fi
 
-  # Drift is reported, not healed. install-tests.sh already keeps a differing file and says so;
-  # naming it here is what makes a sync tell you the engine is behind, which is the whole reason
-  # this script exists. --force is deliberately NOT offered automatically: it is the caller's
-  # decision, exactly as --upgrade-bin is for the crash net.
+  # Hand-edited drift is reported, not healed (unedited older copies were refreshed above).
+  # install-tests.sh already keeps a differing file and says so; naming it here is what makes
+  # a sync tell you the engine is behind, which is the whole reason this script exists.
+  # --force is deliberately NOT offered automatically: it is the caller's decision, exactly as
+  # --upgrade-bin is for the crash net.
+  if [ -n "$E2E_STOCK" ]; then
+    if [ -n "$E2E_HOLD" ]; then
+      warn "tests/e2e/ unedited older copies NOT refreshed:$E2E_STOCK" \
+           "Held back because tests/e2e/$(echo $E2E_HOLD | sed 's/ /, tests\/e2e\//g') is locally edited and every engine file requires it."
+    else
+      warn "tests/e2e/ unedited older copies kept by --no-refresh:$E2E_STOCK"
+    fi
+  fi
   if [ -n "$E2E_DRIFTED" ]; then
     warn "tests/e2e/ file(s) differ from the toolkit engine:$E2E_DRIFTED" \
          "Not overwritten — they may be locally hardened, or they may be missing fixes shipped since." \
@@ -1308,10 +1445,11 @@ echo ""
 VERB="updated"; [ "$DRY_RUN" -eq 1 ] && VERB="would be updated"
 if [ "$CHANGES" -gt 0 ]; then
   echo "$CHANGES artifact(s) $VERB. Also tell the active session: 'the toolkit changed —"
-  echo "re-read README.md and skills/conversion-runbook.md before acting.'"
+  echo "re-read runbook §1b plus your stage's section and CLAUDE.local.md before acting.'"
+  echo "(Not README.md or the whole runbook: gate-check prints your stage's line spans.)"
 elif [ "$WARNINGS" -eq 0 ]; then
   echo "All copied artifacts up to date. Referenced skills update via git pull alone —"
-  echo "just have the session re-read the runbook if it started before the pull."
+  echo "if the session started before the pull, have it re-read runbook §1b plus its stage's section."
 fi
 # Never close with "up to date" while warnings are on screen — that line is what made a stale
 # crash net read as a clean sync.

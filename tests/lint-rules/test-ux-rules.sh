@@ -27,7 +27,9 @@ if ! command -v go >/dev/null 2>&1; then
   echo "     Install Go (https://go.dev/dl/, or: brew install go / apt install golang) and re-run."
   exit 1
 fi
-command -v python3 >/dev/null 2>&1 || { echo "FAIL python3 not found"; exit 1; }
+# shellcheck source=../../bin/lib/portable.sh
+. "$TK/bin/lib/portable.sh"
+require_py   # sets $PY or exits 2 with an actionable message
 
 W=$(mktemp -d "${TMPDIR:-/tmp}/uxrules.XXXXXX")
 trap 'rm -rf "$W"' EXIT
@@ -61,7 +63,7 @@ run(){
 check(){
   local label="$1" expr="$2"
   if [ "$RC" -ne 0 ]; then no "$label (harness exit $RC: $(head -c 300 "$ERR"))"; return; fi
-  if python3 - "$OUT" "$expr" <<'PY'
+  if "$PY" - "$OUT" "$expr" <<'PY'
 import json, sys
 v = json.load(open(sys.argv[1]))
 sys.exit(0 if eval(sys.argv[2]) else 1)
@@ -144,7 +146,7 @@ check "p stripped projection, flow with no decision -> still 1 _rule finding" 'l
 
 echo "== performance (synthetic, 3000 flows / 20000 widgets) =="
 PF="$W/perf.json"
-python3 "$HERE/gen-perf-fixture.py" "$PF" >/dev/null || { no "perf fixture generation"; }
+"$PY" "$HERE/gen-perf-fixture.py" "$PF" >/dev/null || { no "perf fixture generation"; }
 TIMEFORMAT='%R'
 for pair in "UX001:$R1" "UX002:$R2"; do
   nm="${pair%%:*}"; rule="${pair#*:}"

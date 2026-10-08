@@ -1,0 +1,36 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.ACT_Sync",
+   "name": "ACT_Sync",
+   "qualified_name": "Sales.ACT_Sync",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Sync": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "RestCallAction",
+    "error_handling_type": "Custom",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Step",
+    "activity_type": "ErrorEvent",
+    "action_type": "",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   }
+  ]
+ }
+}

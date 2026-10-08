@@ -1,0 +1,48 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.ACT_Import",
+   "name": "ACT_Import",
+   "qualified_name": "Sales.ACT_Import",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Import": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "RetrieveAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false,
+    "retrieve_source": "database"
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Loop",
+    "activity_type": "LoopedActivity",
+    "action_type": "",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a3",
+    "name": "a3",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a2"
+   }
+  ]
+ }
+}

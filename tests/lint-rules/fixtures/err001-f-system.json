@@ -1,0 +1,46 @@
+{
+ "microflows": [
+  {
+   "id": "m-System.ACT_Cleanup",
+   "name": "ACT_Cleanup",
+   "qualified_name": "System.ACT_Cleanup",
+   "module_name": "System",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  },
+  {
+   "id": "m-Administration.ACT_Reset",
+   "name": "ACT_Reset",
+   "qualified_name": "Administration.ACT_Reset",
+   "module_name": "Administration",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "System.ACT_Cleanup": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "error_handling_type": "Continue",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   }
+  ],
+  "Administration.ACT_Reset": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "DeleteObjectAction",
+    "error_handling_type": "Continue",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   }
+  ]
+ }
+}

@@ -1,0 +1,216 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.ACT_Big",
+   "name": "ACT_Big",
+   "qualified_name": "Sales.ACT_Big",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Big": [
+   {
+    "id": "a0",
+    "name": "a0",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a3",
+    "name": "a3",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a4",
+    "name": "a4",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a5",
+    "name": "a5",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a6",
+    "name": "a6",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a7",
+    "name": "a7",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a8",
+    "name": "a8",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a9",
+    "name": "a9",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a10",
+    "name": "a10",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a11",
+    "name": "a11",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a12",
+    "name": "a12",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a13",
+    "name": "a13",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a14",
+    "name": "a14",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a15",
+    "name": "a15",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a16",
+    "name": "a16",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a17",
+    "name": "a17",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a18",
+    "name": "a18",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a19",
+    "name": "a19",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   }
+  ]
+ }
+}

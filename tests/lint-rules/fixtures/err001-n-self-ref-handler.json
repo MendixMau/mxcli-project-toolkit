@@ -1,0 +1,38 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.SUB_HandleError",
+   "name": "SUB_HandleError",
+   "qualified_name": "Sales.SUB_HandleError",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.SUB_HandleError": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "CommitAction",
+    "error_handling_type": "Continue",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   }
+  ]
+ },
+ "refs_from": {
+  "Sales.SUB_HandleError": [
+   {
+    "source_type": "MICROFLOW",
+    "source_name": "Sales.SUB_HandleError",
+    "target_type": "MICROFLOW",
+    "target_name": "Sales.SUB_HandleError",
+    "ref_kind": "CALL",
+    "module_name": "Sales"
+   }
+  ]
+ }
+}

@@ -181,12 +181,28 @@ func main() {
 		"widgets":    noArgs("widgets", list("widget", widgetFields, fx.Widgets)),
 		"microflows": noArgs("microflows", list("microflow", microflowFields, fx.Microflows)),
 		"pages":      noArgs("pages", list("page", pageFields, fx.Pages)),
-		"activities_for": starlark.NewBuiltin("activities_for", func(t *starlark.Thread, b *starlark.Builtin, a starlark.Tuple, k []starlark.Tuple) (starlark.Value, error) {
-			q, err := oneStr("activities_for")(t, b, a, k)
-			if err != nil {
+		// activities_for(q, nested=False) mirrors mxcli 0.25.0: the fixture lists every
+		// object of a flow, loop bodies included (with parent_loop_id / loop_depth), and the
+		// default call returns only the rows whose loop_depth is 0 or absent, exactly as the
+		// real builtin leaves loop bodies out unless nested=True (mendixlabs/mxcli#1266).
+		"activities_for": starlark.NewBuiltin("activities_for", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var q string
+			var nested bool
+			if err := starlark.UnpackArgs("activities_for", args, kwargs, "qualified_name", &q, "nested?", &nested); err != nil {
 				return nil, err
 			}
-			return list("activity", activityFields, fx.Activities[q]), nil
+			rows := fx.Activities[q]
+			if !nested {
+				top := make([]map[string]any, 0, len(rows))
+				for _, r := range rows {
+					if d, ok := r["loop_depth"].(float64); ok && d > 0 {
+						continue
+					}
+					top = append(top, r)
+				}
+				rows = top
+			}
+			return list("activity", activityFields, rows), nil
 		}),
 		"refs_from": starlark.NewBuiltin("refs_from", func(t *starlark.Thread, b *starlark.Builtin, a starlark.Tuple, k []starlark.Tuple) (starlark.Value, error) {
 			q, err := oneStr("refs_from")(t, b, a, k)

@@ -1,0 +1,81 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.ACT_Calc",
+   "name": "ACT_Calc",
+   "qualified_name": "Sales.ACT_Calc",
+   "module_name": "Sales",
+   "microflow_type": "MICROFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.ACT_Calc": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Loop",
+    "activity_type": "LoopedActivity",
+    "action_type": "",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "MicroflowCallAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   },
+   {
+    "id": "a3",
+    "name": "a3",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "CommitAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   },
+   {
+    "id": "a4",
+    "name": "a4",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "CreateObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   },
+   {
+    "id": "a5",
+    "name": "a5",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ChangeObjectAction",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   },
+   {
+    "id": "a6",
+    "name": "a6",
+    "caption": "Step",
+    "activity_type": "ExclusiveSplit",
+    "action_type": "",
+    "error_handling_type": "",
+    "loop_depth": 1,
+    "auto_generate_caption": false,
+    "parent_loop_id": "a1"
+   }
+  ]
+ }
+}

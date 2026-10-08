@@ -1,0 +1,46 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.NF_Save",
+   "name": "NF_Save",
+   "qualified_name": "Sales.NF_Save",
+   "module_name": "Sales",
+   "microflow_type": "NANOFLOW",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.NF_Save": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Commit",
+    "activity_type": "ActionActivity",
+    "action_type": "CommitAction",
+    "error_handling_type": "Continue",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a2",
+    "name": "a2",
+    "caption": "Call sync",
+    "activity_type": "ActionActivity",
+    "action_type": "MicroflowCallAction",
+    "error_handling_type": "CustomWithoutRollBack",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   },
+   {
+    "id": "a3",
+    "name": "a3",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "ShowPageAction",
+    "error_handling_type": "Rollback",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   }
+  ]
+ }
+}

@@ -1,0 +1,26 @@
+{
+ "microflows": [
+  {
+   "id": "m-Sales.RULE_CanShip",
+   "name": "RULE_CanShip",
+   "qualified_name": "Sales.RULE_CanShip",
+   "module_name": "Sales",
+   "microflow_type": "RULE",
+   "description": ""
+  }
+ ],
+ "activities": {
+  "Sales.RULE_CanShip": [
+   {
+    "id": "a1",
+    "name": "a1",
+    "caption": "Step",
+    "activity_type": "ActionActivity",
+    "action_type": "RetrieveAction",
+    "error_handling_type": "Continue",
+    "loop_depth": 0,
+    "auto_generate_caption": false
+   }
+  ]
+ }
+}

@@ -150,7 +150,7 @@ MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh"  # gate-check.sh runs i
 # project that re-runs init loses these fixes and its lint gate goes quietly blind. Re-running
 # sync-project.sh restores them; lint-rules/STOCK-HASHES.txt is what lets it tell a
 # reverted-to-stock file (safe to restore) from one a project deliberately tuned (hands off).
-MXTK_LINT_RULES="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star ux001_confirm_before_destructive.star ux002_decisions_captioned.star"
+MXTK_LINT_RULES="conv010_act_microflow_content.star data_change_microflows.star entity_business_key.star ux001_confirm_before_destructive.star ux002_decisions_captioned.star err001_error_swallowed.star loop001_expensive_action_in_loop.star"
 MXTK_LINT_RULES_CONFIGURABLE="conv020_action_user_feedback.star"
 
 # Files in lint-rules/ deliberately NOT installed. Same contract as MXTK_PROJECT_BIN_NOINSTALL:

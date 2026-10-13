@@ -113,14 +113,10 @@ Typical `user-only` questions, none of which a source can answer:
 2. **Never batch-approvable.** It cannot be one line of a batch that can be cleared with "approve
    all as recommended", because there is no recommendation to approve. Ask it on its own.
 
-*Real incident, 2026-08-19 (PROJECT-B).* "Are there branding inputs?" went in as line 7
-of a seven-item Stage 3 gate batch, carrying the recommended default *"no branding assets
-provided — use Atlas defaults."* The user approved the batch. There was in fact a real art
-direction — top-bar layout, industrial look, grey background, cool colours, the client wordmark in
-the shell — and a WCAG 2.1 AA target, and neither had ever been asked for. Both surfaced only
-when the user challenged the finished design system and asked why nobody had checked. The
-question had been treated as a `gap`. The recommendation was the entire defect: it converted
-"I don't know" into "I've decided", and a batch approval swallowed it.
+*Failure:* "Are there branding inputs?" rode in a seven-item batch with the default *"use Atlas
+defaults"*; the batch was approved, and a real art direction plus a WCAG AA target surfaced only
+after the design system was built. The recommendation converted "I don't know" into "I've
+decided" (2026-08-19, `process/baseline-incident-history.md` §IP1).
 
 **Design-system questions specifically.** Branding and accessibility are `user-only` on every
 project and are asked plainly and separately at the design step — not folded into a batched
@@ -248,12 +244,9 @@ tool-specific at all — it is the half that actually enforces the gate, and the
 without `AskUserQuestion` will drop first, because "I can't call that tool" reads as "skip this
 step" rather than "render it differently".
 
-*Why this is spelled out (real incident, 2026-08-19).* A dry run of this toolkit on GitHub
-Copilot on Windows produced the question *"AskUserQuestion doesn't seem installed, is that
-something we can include in the setup?"* It cannot be. Until then every call site here named
-the tool as **the** mechanism, so on a non-Claude agent the instruction was simply
-unfollowable — and an unfollowable gate is not a loud failure, it is a silent skip. Same shape
-as the Stage P false-green: the enforcement quietly evaporates and nothing says so.
+*Failure:* a Copilot dry run asked *"AskUserQuestion doesn't seem installed, is that something
+we can include in the setup?"* — while the tool was named as **the** mechanism, the gate was
+unfollowable off Claude Code, which is a silent skip, not a loud failure (2026-08-19, `process/baseline-incident-history.md` §IP2).
 
 ### 4. Record the answer where the collector can see it.
 
@@ -272,7 +265,7 @@ States the collector recognises — anything else normalises to `UNRECOGNISED` a
 |---|---|
 | `UNRAISED` | never put to the user. **Blocks.** |
 | `RAISED` | asked, awaiting the answer. Does not block. |
-| `ANSWERED` | settled, answer recorded. |
+| `ANSWERED` | settled; requires a non-empty `answer`. |
 | `ASSUMED` | you took a position **and the user consented** to you taking it. Requires `consentBy` and `consentAt`. Without both it normalises to `UNRAISED` and blocks — a position the user never saw is not an assumption they made. |
 | `MOOT` | descoped. Genuinely dead, not quietly dropped. |
 | `UNRECOGNISED` | an unparseable status. **Blocks**, on purpose. |
@@ -285,14 +278,9 @@ from `raisedAt` and the collector reads both.
 ## An answer that points at another document is a claim, not an answer
 
 The one form of answer that reads as settled and cannot be trusted: *"X already covers this."*
-Verbatim, from a real intake (2026-09-02, Q4 "documents not yet accounted for?"):
-
-> the `.pptx` is already inside `source/<track>/` and was already used as triage input by the
-> Group A–D triage pass (see `<track>-triage.md`) — nothing additional exists outside the folder.
-
-The triage never named the deck. Two months of downstream artifacts inherited the gap, because
-once Q4 read "answered" nothing had a reason to look again. The answer *cited a document*, which
-is exactly why it was believed.
+Failure: *"the `.pptx` … was already used as triage input by the Group A–D triage pass"* — the
+triage never named the deck, and two months of artifacts inherited the gap; the answer *cited a
+document*, which is exactly why it was believed (2026-09-02, `process/baseline-incident-history.md` §IP3; also `source-triage.md`).
 
 **Rule.** Before recording an answer of the form "X already handled Y": open X and find Y in it —
 `grep -il "<Y's name>" X`. Zero hits means the answer is "not yet accounted for", whatever the

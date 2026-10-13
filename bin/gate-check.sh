@@ -2731,6 +2731,18 @@ else
 fi
 printf "Report disposition (findings filed?): %s — %s\n" "$DISP_STATUS" "$DISP_NOTE"
 
+# Script ownership (#269) — INFORMATION, never a verdict and never a block. A document created by
+# more than one mdlsource/ script reverts whenever an older script is replayed; field apps carried
+# 99/579, 130/357 and 38/159. exec.sh warns per write; this prints the project-wide count so a
+# slice close can see whether it is falling. Only when mdlsource/ exists.
+if [ -d "$PROJECT_DIR/mdlsource" ] && [ -f "$TOOLKIT_DIR/project-bin/script-owners.sh" ]; then
+  OWN_CNT="$(bash "$TOOLKIT_DIR/project-bin/script-owners.sh" count "$PROJECT_DIR" 2>/dev/null || true)"
+  case "$OWN_CNT" in
+    0\ *|"") ;;
+    *) printf "Script ownership (warn only): %s of %s document(s) are created by more than one mdlsource/ script — project-bin/script-owners.sh report lists them\n" "${OWN_CNT%% *}" "${OWN_CNT#* }" ;;
+  esac
+fi
+
 # Stage P is checked outside the numeric loop (bash 3.2 arrays need integer indices).
 N_PASS=0; N_PENDING=0; N_WAIVED=0; N_FAIL=0; N_MANUAL=0; NEXT_UP=""; NEXT_UP_STATUS=""; ATTENTION=""
 APPROVED_OVER_FAIL=""

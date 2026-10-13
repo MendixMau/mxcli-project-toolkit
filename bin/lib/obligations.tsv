@@ -137,8 +137,9 @@ fidelity	mdl	module	names	docs/PAGE-FIDELITY.tsv	no	yes	5	skills/ui-loop.md
 # module's own dispatch history. It is owed by mdl because mdl-agent is the one that knows, at
 # the moment of writing, whether it is the one writing.
 #
-# Column 9 names skills/agent-roles.md, not agents/mdl-agent.md: agent-roles.md's "Workflow"
-# step 8a is what actually specifies the log line, its path and format, and the discharge rule
+# Column 9 names skills/agent-roles.md, not agents/mdl-agent.md: the mdl-agent "Workflow" step 8a
+# (its full text now lives in agents/README.md, pointed to from agent-roles.md) specifies the log
+# line, its path and format, and the discharge rule
 # ("owes no denominator, just the line") — that is the governing text this column exists to
 # point at. The agent stub is the performer named in column 2 (mdl); it is not itself a skill
 # and holds no verdict of its own to point to (review of PR #99, 2026-09).

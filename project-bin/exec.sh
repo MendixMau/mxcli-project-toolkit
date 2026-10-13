@@ -400,7 +400,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}$_EXEC_APPROVAL_SUFFIX"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${RESTATE_NOTE:+ · ⚠ $RESTATE_NOTE}$_EXEC_APPROVAL_SUFFIX"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -817,6 +817,68 @@ elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
     exit 1
   fi
   echo "  ✓ check clean"
+fi
+
+# ── Restatement guards (warn-first, added 2026-10-13) ────────────────────────
+# A whole restatement (`create or modify|replace microflow|page|...`) is valid MDL whatever it
+# replaces, so check, mxbuild and lint stay green while it reverts someone else's work. Two
+# ways that happened in the field, one guard each:
+#   stale draft (#261)  — a script drafted from a DESCRIBE taken BEFORE an earlier script in the
+#                         batch ran put four old messages back. bin/describe-baseline.sh verify
+#                         compares the script's `-- baseline:` header to a fresh DESCRIBE.
+#   co-owners (#269)    — 99/579, 130/357 and 38/159 documents on three apps were created by more
+#                         than one mdlsource/ script; replaying an older one reverts the newer.
+#                         bin/script-owners.sh check names every other owner with no
+#                         `-- supersedes:` header settling who wins.
+# Both WARN by default and the warning lands in this run's BUILD-LOG row. They REFUSE (nothing
+# written) when MXTK_RESTATE_GUARD=refuse, or when exec approval is `ask` (bin/exec-approval.sh)
+# — set MXTK_RESTATE_GUARD=warn for one run to go ahead there. MXTK_RESTATE_GUARD=off skips both.
+# Neither can see what DESCRIBE does not print (role and layout-row visibility, #309).
+RESTATE_NOTE=""
+RESTATE_MODE="${MXTK_RESTATE_GUARD:-}"
+[ -z "$RESTATE_MODE" ] && { [ "${_ea_mode:-}" = "ask" ] && RESTATE_MODE=refuse || RESTATE_MODE=warn; }
+if [ "$PATCH_MODE" != "1" ] && [ "$RESTATE_MODE" != "off" ] && [ -f "$SCRIPT" ]; then
+  _rs_hit=0
+  _rs_bin="$(dirname "$0")"
+  if [ -f "$_rs_bin/script-owners.sh" ]; then
+    _so_rc=0
+    _so_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$_rs_bin/script-owners.sh" check "$SCRIPT" "$PROJECT_ROOT" 2>/dev/null)" || _so_rc=$?
+    if [ "$_so_rc" -eq 1 ] && [ -n "$_so_out" ]; then
+      _rs_hit=1
+      _so_n="$(printf '%s\n' "$_so_out" | cut -f2 | sort -u | grep -c . || true)"
+      echo "⚠ Restatement: $_so_n document(s) this script restates are also owned by another mdlsource/ script:"
+      printf '%s\n' "$_so_out" | awk -F'\t' '{ printf "    %s — %s\n", $2, $4 }'
+      echo "  → edit the owning script or use alter; if this script is the new owner, add '-- supersedes: <older script>'"
+      echo "    (bash bin/script-owners.sh report lists every co-owned document; learned-mdl-preflight.md STOP 21)"
+      RESTATE_NOTE="co-owned: $(printf '%s\n' "$_so_out" | cut -f2 | sed 's/^[A-Z]* //' | sort -u | head -3 | tr '\n' ' ' | sed 's/ $//')"
+      if [ "$_so_n" -gt 3 ]; then RESTATE_NOTE="$RESTATE_NOTE +$((_so_n - 3))"; fi
+    fi
+  fi
+  if [ -f "$_rs_bin/describe-baseline.sh" ]; then
+    _db_rc=0
+    _db_out="$(PROJECT_ROOT="$PROJECT_ROOT" bash "$_rs_bin/describe-baseline.sh" verify "$SCRIPT" 2>&1)" || _db_rc=$?
+    case "$_db_rc" in
+      1)
+        _rs_hit=1
+        echo "⚠ Stale draft: document(s) this script restates changed since its '-- baseline:' DESCRIBE was taken:"
+        printf '%s\n' "$_db_out" | grep -v '^SAME' | sed -E 's/^DRIFT	([^	]*)	/    \1 — /; s/^(STALEHEADER|UNKNOWN)	([^	]*)	/    \2 — /'
+        echo "  → DESCRIBE it again, merge the live body into the script, re-stamp: bash bin/describe-baseline.sh stamp $SCRIPT"
+        RESTATE_NOTE="${RESTATE_NOTE:+$RESTATE_NOTE; }stale baseline: $(printf '%s\n' "$_db_out" | awk -F'\t' '$1 == "DRIFT" { print $2 }' | head -3 | tr '\n' ' ' | sed 's/ $//')"
+        ;;
+      2)
+        _db_n="$(printf '%s\n' "$_db_out" | awk -F'\t' '$1 == "NOBASELINE" { print $2 }')"
+        [ "${_db_n:-0}" -gt 0 ] 2>/dev/null && echo "  note: $_db_n restated document(s), no '-- baseline:' header — drafted ahead of earlier scripts? stamp at draft time: bash bin/describe-baseline.sh stamp <script>"
+        ;;
+      3) echo "  note: baseline header present but DESCRIBE could not run — drift not checked" ;;
+    esac
+  fi
+  if [ "$_rs_hit" = 1 ] && [ "$RESTATE_MODE" = "refuse" ]; then
+    echo ""
+    echo "  ✗ REFUSING (MXTK_RESTATE_GUARD=refuse or exec approval 'ask'). NOTHING was written to the model."
+    echo "    To write anyway after reading the above: MXTK_RESTATE_GUARD=warn ./bin/exec.sh $SCRIPT"
+    log_build "🚫 blocked" "restatement guard refused — nothing written"
+    exit 1
+  fi
 fi
 
 # ── Gate must be able to run ─────────────────────────────────────────────────
@@ -1379,9 +1441,30 @@ EOF
     echo "  ✗ mxbuild failed to run (exit $MXBUILD_EXIT) — gate could not verify the model."
     [ -n "$MXB_WHY" ] && echo "    mxbuild says: $MXB_WHY"
     echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | head -20 || true
-    echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
-    # --patch logs its own row below, after rolling back; one row per run.
-    [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
+    # mxbuild CRASHED ON THE WRITTEN MODEL (#309 inbox, field 2026-10-13, Mendix 11.14.0, mxcli
+    # v0.25.0): a two-hop data source passed `check`, then mxbuild's loader died ("An error
+    # occurred when trying to set the 'DestinationEntity' property ...") with no errors file.
+    # This branch kept the write, the next exec printed "Baseline NOT measured" and wrote on top
+    # of a model nothing could load, and each later script snapshotted the broken state.
+    # BASE_KNOWN=1 means mxbuild ran on this model a moment ago (measured baseline, or a clean
+    # verification stamp), so the crash is a property of the WRITE, not of the machine: roll it
+    # back like a failed gate. Without a measured baseline it may be the machine (wrong version,
+    # JDK), and the old behaviour stays: kept, flagged, no stamp.
+    if [ "$PATCH_MODE" != "1" ] && [ "${BASE_KNOWN:-0}" = "1" ]; then
+      echo "  ✗ mxbuild ran on this model before the write and crashed after it — rolling the write back."
+      restore_snapshot
+      if [ "$RESTORED" -eq 1 ]; then
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model (ran on the baseline) — script rolled back${MXB_WHY:+; mxbuild: $MXB_WHY}"
+      else
+        echo "  STOP: the model may not load. Restore it before the next exec: ./bin/restore-mpr.sh <newest .mpr-snapshots/ dir>"
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model — NOT rolled back (restore did not run)"
+      fi
+    else
+      echo "  → Snapshot preserved. STOP: the model may not load. Before the next exec, restore it"
+      echo "    (./bin/restore-mpr.sh <newest .mpr-snapshots/ dir>) or prove it builds (./bin/verify-model.sh)."
+      # --patch logs its own row below, after rolling back; one row per run.
+      [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
+    fi
   else
     GATE_STATE="pass"; GATE_ERRORS=0
     echo "  ✓ mxbuild: 0 errors — model is clean."

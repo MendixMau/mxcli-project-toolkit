@@ -123,7 +123,7 @@ The stages are the same for everyone; what differs is where you enter and which 
 3. **Any requirements artifacts exist** — specs, BRDs, context docs, wireframes, workshop outputs → **Requirements-driven**. Having "complete" specs does *not* mean skipping to Stage 5: stages 2–4 are where those specs become validated BRDs, an architecture, module boundaries, a design system, and an ordered plan. Skipping them means improvising all of that mid-build.
 4. **None of the above** — you're genuinely starting from a conversation → **Greenfield**. This is the narrowest mode, not the default for "no legacy system."
 
-(Real misrouting incident, 2026-07-14: a project with full specs + analyzable source was classified greenfield "because there's nothing to migrate," proposing to skip 0–4 — exactly what rules 2–3 exist to prevent. Second incident, 2026-09-22: `intake.md` Q1 offered only three modes, so a session changing a live app could not pick the fourth even though `gate-check.sh` already recognised it — rule 1 and the table row below are the fix.)
+(Failure: a project with full specs + analyzable source was classified greenfield "because there's nothing to migrate" and proposed skipping 0–4 — `process/baseline-incident-history.md` §R1.)
 
 | You're starting from… | Mode | Stages that run | What changes |
 |---|---|---|---|
@@ -137,14 +137,9 @@ The stages are the same for everyone; what differs is where you enter and which 
 **Stage 0 is the scope stage. It is not the extractor stage.** Reuse-vs-build-new is one question
 *inside* it, and it is the only part that needs a codebase.
 
-This distinction was implicit until 2026-08-20, when a customer round made the cost of leaving it
-implicit measurable. A project whose source was markdown files plus database tables was classified
-requirements-driven — reasonably, given the rules above. The mode's row then said "skip 0", so
-Stage 0 was skipped **whole**: no source characterisation, no `analysis/` folder, no triage
-artifact, and — the expensive one — **no scope conversation**, because CAC-1 fires after Stage 0
-and Stage 0 never ran. Extraction was then run anyway and pulled in far more than the subsystems
-under discussion, which nothing downstream was positioned to notice: Stage 2's gate checks that
-BRDs are *validation-clean*, and a hundred clean BRDs describing things nobody asked for pass it.
+Failure it prevents: a requirements-driven project skipped Stage 0 whole — no triage, and no
+scope conversation, since CAC-1 never fired — then extracted far beyond the subsystems in scope; a
+hundred validation-clean BRDs about things nobody asked for passed Stage 2 (2026-08-20, `process/baseline-incident-history.md` §R2).
 
 So: **no entry mode may skip Stage 0, because no entry mode may skip the scope conversation.**
 What varies is how much of the stage is applicable, and inapplicability is *recorded*, never
@@ -171,11 +166,9 @@ their `_files/` sidecars), no legacy code, no Office/PDF containers. A corpus wi
 `.pdf` in it takes the ordinary requirements-driven row above, because those containers carry
 embedded images that owe their own accounting (`bin/lib/source-formats.tsv`, `media = yes`).
 
-**Why this path exists (2026-09-09).** A project of exactly this shape was slow and token-hungry
-through Stages 1–4, for measured reasons: every session read the raw HTML (3–10× the tokens of
-its text), and the ledger asked for one disposition per file — every sidecar `.png`, `.css` and
-`.js` included — for a corpus nothing extracts. Nothing below skips a gate; it names the shortest
-honest route through them, and every command here was run against the gates before it was written.
+**Why (2026-09-09):** a project of this shape read raw HTML every session (3–10× the tokens) and
+owed a ledger disposition per sidecar file (`process/baseline-incident-history.md` §R3). Nothing below skips a gate; it is the
+shortest honest route through them, each command run against the gates before it was written.
 
 | Stage | Docs-ready form |
 |---|---|
@@ -216,7 +209,7 @@ Every gate in §2 runs the same six-step shape. This is the thing that should be
 5. **The decision is written to two places**: the stage's HTML proposal doc (the artifact, customer-showable) and `PROJECT.md` (the register), marked `CONFIRMED`.
 6. **`ASSUMED` is earned by asking, never by skipping.** An answer may be recorded `ASSUMED` only after the question was actually posed and the user said "don't know" / "you decide" — that is delegation-by-consent, recorded with the risk if wrong. Deriving an answer yourself and not asking is a protocol violation, not an `ASSUMED`.
 
-**The gate's own questions are not the only questions — raise the accumulated batch too.** Steps 1–6 govern the questions the *gate* asks. But the pipeline generates a second stream all the time: every `openQuestions` entry a BRD records, every row added to `analysis/sme-questions.md`. Those were never wired to anything, and they rotted. Measured on one real project (2026-08-12): 46 rows in `sme-questions.md` against 7 mentions of an answer, ~35 unresolved BRD `openQuestions`, one status reading *"Open — routed to sme-questions.md F1/F2"* — routed to a file nobody opens. Several were not merely unasked but already **decided**: *"ASSUMED drafting position (a), hardcode — taken to keep this BRD buildable… NOT a settled product decision"* is a real product choice (hardcode vs. build a configurable rules engine) taken unilaterally and never shown to anyone. And 23 distinct free-text status strings meant nothing could count them, which is why nothing ever surfaced them.
+**The gate's own questions are not the only questions — raise the accumulated batch too.** Steps 1–6 govern the questions the *gate* asks; the pipeline also accumulates a second stream — every BRD `openQuestions` entry, every `analysis/sme-questions.md` row — and unwired, it rots. Failure: 46 SME rows with 7 answered, ~35 unresolved BRD questions, and a hardcode-vs-rules-engine product choice taken as a "drafting position" nobody was shown (2026-08-12, `process/baseline-incident-history.md` §R4).
 
 So, **as a required step at every gate, before the gate's own questions**:
 
@@ -234,16 +227,9 @@ bin/questions-report.sh <project-root> --stage <N>    # → docs/open-questions.
 
 `gate-check.sh` writes it for you whenever the open-questions row blocks a gate. Give the user the path — it is openable, sortable and forwardable to a customer SME in a way a terminal dump is not, and it flags every question that arrived without a proposed answer.
 
-The vocabulary is controlled, and only these six values are legal in a `status`:
-
-| State | Meaning | Blocks a gate? |
-|---|---|---|
-| `UNRAISED` | never put in front of the user — the default for anything not positively past it | **yes** |
-| `RAISED` | put to the user at a named gate, awaiting their reply | no |
-| `ANSWERED` | the user decided; requires a non-empty `answer` | no |
-| `ASSUMED` | agent took a position **and** the user consented after seeing it; requires `consentBy` + `consentAt` | no |
-| `MOOT` | descoped by another decision; the reason is in the text | no |
-| `UNRECOGNISED` | the normaliser could not place it — counts as **not done** | **yes** |
+The `status` vocabulary is controlled: six legal values — `UNRAISED` and `UNRECOGNISED` block a
+gate; `RAISED`, `ANSWERED`, `ASSUMED`, `MOOT` do not. Their meanings are the table in
+`interview-protocol.md` §4, the single source.
 
 An `ASSUMED` with no `consentBy`/`consentAt` is not an assumption, it is the defect: it normalises to `UNRAISED` and blocks. `bin/gate-check.sh <project-root> <N>` enforces this and will not pass a stage carrying unraised questions. Unlike protocol staleness (which notifies), this one blocks — it is the project's own state, and an architecture built on decisions the customer never saw is exactly what §1 exists to prevent.
 
@@ -251,7 +237,7 @@ Note the ruling this encodes, from the user, 2026-08-12: *"At each gate, also gi
 
 A proposal beats a questionnaire because it asks the user to **correct** something rather than supply it cold — and by the time each gate arrives, the agent has read the source and has evidence to put behind its recommendation.
 
-**Unattended mode is opt-in, never inferred.** The "default + record + proceed" behavior (skipping the wait, not the question — questions still get logged in `PROJECT.md` open-questions) is only legal when the user explicitly said to run unattended, recorded at Stage P in `PROJECT.md` (`Interview mode: unattended`). Default is **attended**: every gate question is asked in chat and the turn ends there. (Real incident, 2026-07-14: an attended run produced architecture diagrams and a design system through Stage 3 without a single question reaching the user — "a solo run never stalls" was read as "never ask." It means "an *authorized* solo run doesn't deadlock," nothing more.)
+**Unattended mode is opt-in, never inferred.** The "default + record + proceed" behavior (skipping the wait, not the question — questions still get logged in `PROJECT.md` open-questions) is only legal when the user explicitly said to run unattended, recorded at Stage P in `PROJECT.md` (`Interview mode: unattended`). Default is **attended**: every gate question is asked in chat and the turn ends there. (Failure: an attended run reached Stage 3 with zero questions asked, reading "a solo run never stalls" as "never ask" — `process/baseline-incident-history.md` §R5.)
 
 **Unattended runs keep a Ruling ledger.** Nobody can be asked, so the register alone is not
 enough: an `ASSUMED` line records the decision and sometimes the reason, never the blast
@@ -281,7 +267,7 @@ obra/superpowers, adapted; the ledger is the compensating control for the fact t
 
 And at **every** checkpoint, after the 2+1 questions: one standing open-floor question — "anything else you want changed, added, or worried about — scope, priorities, anything?" — before the gate closes.
 
-**Lightweight-change carve-out — small, unambiguous, already-decided changes skip dispatch, never skip the record.** Not every BRD/architecture edit needs the six-step protocol or a `ba-agent`/`architect-agent` round-trip. If the change is small in scope (renaming a field, adding one or two entities/attributes whose shape was already settled in the current conversation, fixing a stale line that contradicts an already-CONFIRMED decision) *and* unambiguous (no real alternatives to weigh, nothing left for the user to correct), the acting agent may edit the BRD/architecture doc directly instead of dispatching a subagent. It still MUST: (a) log the change in `PROJECT.md` — a `## Change log` row when the user asked for it (`change-intake.md`: an S change the user typed needs no question, only that row), a decision row when it settles a choice — (b) set or flip the drift-sync marker on any BRD/wireframe it touched and did not flush in the same session, per §3b. What this carve-out buys back is the interview/dispatch overhead, not the paper trail — a change made without a recorded decision or marker is exactly the drift this runbook exists to catch, however small the diff. Anything touching module boundaries, the security model, a new integration, or requiring a judgment call between real alternatives still runs the full protocol. (Real incident, 2026-07-23: a "flip 2 entities to persistent + add 2 new entities" change — already fully settled in conversation — was routed through ba-agent twice and architect-agent once, ~270k combined tokens, for what was fundamentally a handful of document edits. The user called it out directly. The fix isn't skipping the record, it's skipping the dispatch when there's nothing left to decide.)
+**Lightweight-change carve-out — small, unambiguous, already-decided changes skip dispatch, never skip the record.** Not every BRD/architecture edit needs the six-step protocol or a `ba-agent`/`architect-agent` round-trip. If the change is small in scope (renaming a field, adding one or two entities/attributes whose shape was already settled in the current conversation, fixing a stale line that contradicts an already-CONFIRMED decision) *and* unambiguous (no real alternatives to weigh, nothing left for the user to correct), the acting agent may edit the BRD/architecture doc directly instead of dispatching a subagent. It still MUST: (a) log the change in `PROJECT.md` — a `## Change log` row when the user asked for it (`change-intake.md`: an S change the user typed needs no question, only that row), a decision row when it settles a choice — (b) set or flip the drift-sync marker on any BRD/wireframe it touched and did not flush in the same session, per §3b. What this carve-out buys back is the interview/dispatch overhead, not the paper trail — a change made without a recorded decision or marker is exactly the drift this runbook exists to catch, however small the diff. Anything touching module boundaries, the security model, a new integration, or requiring a judgment call between real alternatives still runs the full protocol. (Failure: a settled 4-entity edit took three subagent round-trips, ~270k tokens — `process/baseline-incident-history.md` §R8.)
 
 **The packaged form of this protocol is a checkpoint — and checkpoints are mandatory where they exist.** `skills/checkpoints/` ships ready-made Context-Aware Checkpoints (CAC) for the six busiest transitions (scope, BRD, architecture, design, build, cutover) — each runs the protocol above as a "2 predefined questions + 1 open question" script, derived from what the pipeline actually found. Run the raw six steps only where no checkpoint exists. **A checkpoint fires *before* the next stage's artifacts are produced** — creating architecture diagrams or a design system before their checkpoint ran is a protocol violation: stop, run the checkpoint, and be prepared to throw the premature artifact away. Either way the decisions land in `PROJECT.md` — checkpoints keep no state file of their own.
 
@@ -352,13 +338,9 @@ Rules — these apply to every stage and every per-module build loop:
    item that makes the obligation check bite: it reports a pass nobody performed, but only on
    a run, and nothing before this rule required one.
 
-   **Why (measured, 2026-09-19, two field builds of the same app).** A full Stage-5 build closed with all seven screens built, a green mxbuild
-   gate, and 11 of 37 acceptance rows confirmed. `gate-check.sh` had run exactly once, at
-   scaffold time. The `look` obligation, the wiring sweep, journeys and coherence were all
-   `PENDING` and nobody saw it, because nothing asked. When the gate was finally run as a
-   deliberate second pass, the seven screens scored 0, 18, 40, 40, 58, 58 and 69 percent against
-   their own wireframes on an element checklist — one screen matched none of its wireframe's
-   elements at all. Every one of those defects was visible to a gate that never ran.
+   **Why:** a full Stage-5 build closed green with `gate-check.sh` run once, at scaffold; run
+   late, it showed LOOK, wiring, journeys and coherence all `PENDING` and the seven screens at
+   0–69% of their wireframes (2026-09-19, `process/baseline-incident-history.md` §R9).
 
 The final full-checklist repost before a gate doubles as the gate's evidence: the user should
 be able to approve the gate by reading that one message. The close-out block is what the
@@ -368,13 +350,9 @@ reader approves the *transition* on — checklist for the work, block for the ha
 
 ## 1c. Dispatch — what leaves the main session, in what batch, on which model
 
-**Why this is written down (2026-09-14).** The six agent stubs have carried model tiers since
-they were generated (`architect-agent` on the strong tier, the other five on the mid tier), and
-§2's Owner rows name who is accountable for each stage. Nothing said *when* the main session
-hands work over — so in the token-path A/B (nine runs, Stages P–4) the main session did nearly
-everything itself, at its own model's price, and only two skills (`brd-generation.md`,
-`image-transcription.md`) ever asked for a fan-out. Owner is accountability; this table is the
-runtime rule. It is the single source; `agent-roles.md` (setup) defers here. *How* to dispatch —
+**Why (2026-09-14):** with no rule for *when* to hand work over, the main session did nearly all
+of Stages P–4 itself at its own model's price (`process/baseline-incident-history.md` §R10). Owner is accountability; this table is
+the runtime rule. It is the single source; `agent-roles.md` (setup) defers here. *How* to dispatch —
 model named on every call, fresh agent not fork, fix rounds, notices — is `agent-roles.md` →
 "Dispatching".
 
@@ -444,12 +422,9 @@ Eight stages (plus Stage P kickoff). For each: what the user co-defines, what th
 
 **Every stage transition has a packaged checkpoint. Here is where they attach.** The `skills/checkpoints/`
 CAC files run the §1 interview protocol at the busiest transitions; they write to `PROJECT.md`,
-never to a separate state file. Until 2026-08-20 this runbook — the file every session is required
-to read — **named none of them**, and they were reachable only from `skills/migration-pipeline.md`.
-A requirements-driven session never loads that skill, so it never fired a single checkpoint, and
-CAC-1's scope brainstorm silently did not exist outside migration mode. Checkpoints are wired to
-*stages* here, not to pipeline phases, precisely so that a project running no pipeline still gets
-them.
+never to a separate state file. They are wired to *stages*, not pipeline phases, so a project
+running no pipeline still gets them (failure: reachable only from `migration-pipeline.md`, they
+never fired in requirements-driven mode — `process/baseline-incident-history.md` §R12).
 
 | Fires at the close of | Checkpoint | The question it exists to force |
 |---|---|---|
@@ -565,11 +540,9 @@ Then, and only then, **the open scope question** ("Scope brainstorm", further do
 present the overview, say what the corpus appears to cover versus what the user described at Stage
 P, and discuss it openly. No option lists.
 
-Doing this out of order is a real, reported failure (2026-08-19): a Stage 0 run on a four-file
-documents-only corpus produced a correct ten-dimension grade and then asked the user a closed,
-rubric-shaped gate question — because the grade was the only artifact in front of it. The
-instruction to present a source map already existed here; nothing produced the map, so the agent
-asked what the tooling gave it something to ask about. **An uncovered dimension is an open question
+Failure out of order: a four-file corpus got a correct ten-dimension grade, then a closed,
+rubric-shaped gate question — the grade was the only artifact in front of the agent (2026-08-19,
+`process/baseline-incident-history.md` §R16). **An uncovered dimension is an open question
 for a human. A low rating is a closed one. Reach the first list before the second.**
 
 Three things come out of pass 2, and each changes what you do next:
@@ -596,19 +569,14 @@ shape-changing gaps to the gate, and mark the extraction rows N/A rather than un
 **Decide that on evidence, and decide it per artifact — not off the entry-mode label.** Open the
 folder first. A schema, a table dump, an ORM model, an OpenAPI contract or entity/field tables
 inside a spec are extractable structure, and each earns a Coverage Matrix row and the two-way
-reuse-or-build call exactly as a codebase would. A mode-shaped `N/A` is precisely how the misroute
-in the next paragraph happens: the corpus reads like requirements, the whole of it goes down Path
-B, and the entities that were sitting in the schema are re-typed out of prose three stages later.
+reuse-or-build call exactly as a codebase would. A mode-shaped `N/A` is precisely how the most
+common presales misroute happens: the corpus reads like requirements, the whole of it goes down
+Path B, and the entities that were sitting in the schema are re-typed out of prose three stages
+later (`process/baseline-incident-history.md` §R17). Markdown alongside a schema does not downgrade the schema.
 
 **"Does not apply" stops at the extraction rows. It never reaches the scope brainstorm.** Read
 that sentence as licence to move on to Stage 1 and you have skipped the one thing Stage 0 exists
 for. Finish the stage: run CAC-1, get the slice ordering, sign `triage.md` off.
-
-**A source that is documents plus a database is not a documents-only source.** A schema, a table
-dump, or an ORM model file is extractable structure and grades as such — the presence of markdown
-alongside it does not downgrade it. This is the shape that misroutes most often in presales
-(2026-08-20): the corpus *reads* like requirements, so it gets treated as prose, and the entities
-that were sitting right there in the schema get re-derived by hand later.
 
 | | |
 |---|---|
@@ -623,34 +591,24 @@ that were sitting right there in the schema get re-derived by hand later.
 Three extraction methods, not two. Each is either **done** or **explicitly declared unavailable by a named person** — never silently skipped.
 
 **Closes with CAC-1b** (`skills/checkpoints/checkpoint-extraction.md`) — the scope-out
-confirmation. It is a checkpoint you run, not a gate that stops you, and the reason is worth
-keeping in front of you.
-
-Stage 0 confirms scope *in*: what we intend to cover. It cannot confirm scope *out*, because
-nobody knows what extraction will actually produce until it has produced it. On the customer round
-that prompted this, extraction ran across the whole corpus rather than the subsystems under
-discussion, and the over-reach was invisible until modules were being built — every downstream
-gate measured *quality*, and the output was perfectly good BRDs about the wrong things. A
-validation-clean BRD for a subsystem nobody asked for is a clean pass at every remaining gate in
-this runbook.
+confirmation; a checkpoint you run, not a gate that stops you. Stage 0 confirms scope *in*; it
+cannot confirm scope *out*, because nobody knows what extraction produces until it has. Failure:
+extraction ran across the whole corpus, and validation-clean BRDs about unrequested subsystems
+passed every remaining gate until modules were being built (`process/baseline-incident-history.md` §R18).
 
 So before any BRD is written: put the extraction result next to the Stage 0 scope decision, name
-the delta, and get a decision on it. Do it before the BRDs rather than after — writing them first
-makes narrowing feel expensive, which is exactly when people stop narrowing.
+the delta, and get a decision on it — writing BRDs first makes narrowing feel expensive, which is
+exactly when people stop narrowing.
 
-**Nothing enforces this and nothing should.** A script can only check that a `CONFIRMED` row
-exists in `PROJECT.md`, and an agent can type that row without asking anyone — so the check
-cannot tell the conversation from the string, which is the only thing worth telling apart. (A
-blocking version of this gate existed for part of 2026-08-20 and was removed the same day; see
-`skills/skills-over-scripts.md`.) If the checkpoint gets skipped, run it late against the BRD set
-you already have — with the extraction report in hand you can see what actually came out, which
-is better input than the triage map ever was.
+**Nothing enforces this and nothing should** — a script can see a `CONFIRMED` row, never the
+conversation behind it (`skills/skills-over-scripts.md`). If the checkpoint gets skipped, run it
+late against the BRD set you already have.
 
 | | |
 |---|---|
 | **User defines** | Do documents exist that aren't in the folder (specs, manuals, field-label sheets, screenshots)? DB schema? Sample data? Who has them? SME access for what neither code nor docs answer. **Then, at CAC-1b: does the extraction output match the intended scope — accept, narrow, or re-extract.** |
 | **Agent produces** | **Path A — code → AST extractors** (always runs *in migration mode*; N/A with attribution otherwise). **Path B — documents → LLM extraction** (`kb-generation.md`). **Path C — SME interview** (closes `openQuestions` that neither code nor docs answer). Plus CAC-1b's scope-out surface — the delta table when CAC-1 recorded a slice to diff against, otherwise the one-line statement of what extraction covers (a single app dropped in a folder needs stating, not interrogating). |
-| **Surface** | `analysis/source-ledger.html` — `bin/source-ledger.sh report <project-root>`: every inventoried file, its verdict, and what consumed it. `<kb>/extraction-report.html` — `bin/extraction-report.sh <project-root>`. One renderer for every entry mode: it reads the knowledge base, not the source, so a Path B document corpus gets the same surface as a Path A extraction, one page per knowledge base at the path the gate looks for. Each section carries a `report-schema.md` verdict, and no zero is printed unless a second record (the pre-merge `extracted/*.json`, or `reports/summary.md`) agrees with it — one method returning zero renders `manual`, not a green. Until 2026-08-20 this was `node generate-report.js` inside each pipeline, so requirements-driven and greenfield projects could not produce the file their own Stage 1 gate requires, despite this row promising it. |
+| **Surface** | `analysis/source-ledger.html` — `bin/source-ledger.sh report <project-root>`: every inventoried file, its verdict, and what consumed it. `<kb>/extraction-report.html` — `bin/extraction-report.sh <project-root>`. One renderer for every entry mode: it reads the knowledge base, not the source, so a Path B document corpus gets the same surface as a Path A extraction, one page per knowledge base at the path the gate looks for. Each section carries a `report-schema.md` verdict, and no zero is printed unless a second record (the pre-merge `extracted/*.json`, or `reports/summary.md`) agrees with it — one method returning zero renders `manual`, not a green. History: `process/baseline-incident-history.md` §R19. |
 | **Gate** | 4 extraction quality checks pass with evidence. Paths B and C are done or declared-unavailable, with attribution (who declared it, when). **Every row of the Stage 0 inventory has a disposition that holds up** — `bin/source-ledger.sh check <project>`: an artifact that exists, is non-empty and *names* the file (with one specific finding as evidence, and for a container its images and pages accounted for: `mark <rel> --artifact <path> --evidence "<finding → where>" --pages N --media N --by <who>`; a mention is not a reading, post-mortem 2026-09-02 F3), or a person's waiver (`bin/gate-check.sh <project> --waive source/<rel> --reason "..."`), and no file on disk without an inventory row. This part **blocks** — `bin/gate-check.sh <project> 1` exits 1 on it, and so does Stage 2 — because it is a file test, not a conversation test: "the triage already used the deck" is grepped, not believed (the 2026-09-02 miss). The rest stays advisory. Record CAC-1b's outcome as a Stage-1 `Extraction scope:` decision naming what is in and what is out, so the next session isn't guessing. |
 | **Owner** | `ba-agent` |
 
@@ -660,7 +618,7 @@ is better input than the triage map ever was.
 |---|---|
 | **User defines** | Confirms business rules the code implies. Answers `openQuestions` (via SME). Narrative is never invented. |
 | **Agent produces** | BRD scaffolds → enrichment from `KB.md` → validation to clean. `F{NNN}.brd.json`. |
-| **Surface** | `analysis/brd-report.html` — `bin/brd-report.sh <project-root>`. One renderer for every entry mode: it reads BRDs, not source, so a requirements-driven or greenfield project gets the same surface as a migration, and so does a BRD no extractor produced. Each section carries a `report-schema.md` verdict, so a section that is empty because this kind of BRD has nothing to put there reads differently from one that is empty because something broke. Until 2026-08-19 this was `enrichment-summary.html`, built three times inside three pipelines against three different BRD key shapes — each copy rendered blanks for the other two’s output, and non-migration projects got no surface at all despite this row promising one. |
+| **Surface** | `analysis/brd-report.html` — `bin/brd-report.sh <project-root>`. One renderer for every entry mode: it reads BRDs, not source, so a requirements-driven or greenfield project gets the same surface as a migration, and so does a BRD no extractor produced. Each section carries a `report-schema.md` verdict, so a section that is empty because this kind of BRD has nothing to put there reads differently from one that is empty because something broke. History: `process/baseline-incident-history.md` §R20. |
 | **Gate** | Every BRD validation-clean; `validation-report.md` has 0 issues; **every `openQuestions` entry raised in chat** — `bin/open-questions.sh <root> --stage 2` reports 0 blocking, which `gate-check.sh` enforces. Close-out block pasted (§1b rule 7) — CAC-3 opens with it. "Chased to closure" was the old wording and it was unenforceable: a question logged with a self-answer read as closed. |
 | **Owner** | `ba-agent` |
 

@@ -31,15 +31,11 @@ the file), or a person's waiver (`bin/gate-check.sh <project> --waive source/<re
 un-inventoried. Added files re-enter through `init --refresh` — never through memory.
 
 > **A claim that another document already handled a file is a claim to verify, not an
-> answer.** Real incident, 2026-09-02, a VBA migration: intake Q4 ("documents not yet accounted
-> for?") was closed with *"the .pptx is already inside `source/` and was already used as triage
-> input by the Group A–D triage pass"*. The triage was derived from the `.cls` exports and never
-> named the deck; its 22 diagrams — the only place the workflow engine's X/M/E semantics were
-> written down — went unread for two months of BRDs, blueprint and build plan, and a `CONFIRMED`
-> architecture decision had to be reversed. The wrong answer *reads* right because it cites a
-> document. The right form is the ledger's: **name the artifact, and let the gate grep it.** A
-> text read of a deck is not the deck either — a 25-slide, 22-image container is consumed when
-> the disposition says `--pages 25 --media 22`, not when its title appears in a summary.
+> answer.** Failure: *"the .pptx … was already used as triage input"* closed an intake question;
+> the triage never named the deck, its 22 diagrams went unread for two months, and a `CONFIRMED`
+> architecture decision was reversed (2026-09-02, `process/baseline-incident-history.md` §ST1). The right form is the ledger's:
+> **name the artifact, and let the gate grep it.** A text read of a deck is not the deck — a
+> 25-slide, 22-image container is consumed when the disposition says `--pages 25 --media 22`.
 
 **Always stand up an extractor — reuse where one already covers this stack, build new otherwise.** Field finding: reading source without an extractor missed information even on small, cleanly structured apps — manual reading is not a substitute for the coverage an extractor gives you, it's a different (weaker) tool. The extractor *is* the coverage gate: it's what lets Step 3 below actually answer "is this reliable enough to trust," instead of relying on how thorough a manual read happened to be. There is no manual-only path anymore.
 
@@ -56,12 +52,10 @@ OpenAPI/GraphQL contract, or entity/field table definitions inside a spec docume
 extractable structure, each gets its own Coverage Matrix row in Step 3, and each gets its own
 verdict.
 
-Mixed corpora are where this goes wrong, and they are the normal case in presales. The folder
-*reads* like requirements, so the whole thing is sent down the document path (`kb-generation.md`,
-Path B) and comes back as prose — including the entities that were sitting in the schema, which
-then get re-derived by hand three stages later. Prose is the right reading method for prose and
-the wrong one for structure. Choosing per artifact is this step's job; routing a whole corpus by
-how it looks at a glance is the failure it exists to prevent.
+Mixed corpora — the normal case in presales — are where this goes wrong: the folder *reads*
+like requirements, all of it goes down Path B, and the schema's entities are re-derived by hand
+three stages later (anti-patterns below). Prose is the right reading method for prose and the
+wrong one for structure.
 
 **This does not reopen the two-way call.** Path B is not "read the code by hand" — it is the
 correct method for genuine prose. For every *extractable structure* the answer is still
@@ -83,21 +77,9 @@ file" was never the manual-only path it forbids — that rule is about *structur
 exports), where a human skim demonstrably drops the tail. Nothing here lets a codebase, a schema
 or a data export past without an extractor.
 
-**Field evidence, 2026-09-07** — a no-code app replacement whose corpus was one data export
-(`.ods`), one 3.5 MB reverse-engineering spec (`.html`) and one workflow inventory (`.md`):
-
-- The **export parser corrected the documents written about it**: 53 stored columns against
-  128–175 documented (~120 are computed in the platform — neither attributes to model nor data to
-  migrate), four different spellings of one foreign key across four sheets, 15 sheets where the
-  spec documented 17, plus per-sheet volumes. No reading of any document produces one of those.
-- A **regex classifier over the spec's prose scored ~50% precision and ~50% recall** against a
-  user-confirmed sample, and was deleted the same day. It read the spec's "what the recording
-  covered" bullets as requirements, truncated sentences at inline HTML tags, and matched none of
-  the negative-form statements ("there is no role model", "no reminders, no escalation") that
-  carried some of the sharpest requirements in the document. The same agent's plain read of the
-  same file, at intake, was better in one pass.
-- The user's question is the rule in one line: *"do we need an extractor for html & md files?
-  Can't we just analyse and conclude what it should be? But when it's ppt and images better yes?"*
+**Field evidence (2026-09-07, `process/baseline-incident-history.md` §ST3):** the export parser corrected the spec written about
+it (53 stored columns against 128–175 documented); a regex classifier over the spec's prose scored
+~50% precision and recall and was deleted the same day — the agent's plain read was better.
 
 **Large text-native files still need a denominator.** A 3.5 MB HTML spec is legible but not
 readable in one pass, so the parser that takes its tables should also emit its **section list**.
@@ -123,18 +105,9 @@ For a **requirements-driven** project the two are not alternatives and the seque
 So: **document discovery is unconditional; extractors are conditional on there being structure;
 `N/A` is a finding about the folder, never a property of the entry mode.**
 
-**Why this is spelled out (2026-09-07).** `conversion-runbook.md`'s Stage-0 applicability table
-said the extraction call was **`N/A` for requirements-driven**, flatly — while this skill and the
-shipped `triage.md` header said `N/A` only where the corpus holds no extractable structure, "on
-evidence, never on the entry-mode label". The runbook is the file every session is required to
-read first, so the unconditional version was the one that got followed. On the project that
-surfaced it — requirements-driven, corpus of one spec, one workflow inventory and **one platform
-data export** — following the runbook literally would have marked extraction `N/A` and left the
-export unparsed. That parser went on to correct the very documents written about the app: 53
-stored columns against 128–175 documented, four spellings of one foreign key across four sheets,
-15 sheets where the spec said 17. Same shape as the `toolkit-guide.html` first-touch incident in
-`CLAUDE.md`: a rule stated conditionally in its owning file and unconditionally in the front
-door, where the front door wins. The runbook now defers here.
+**This skill owns the rule; the runbook defers here.** Failure: the runbook once said `N/A` for
+requirements-driven flatly, and following it would have left a data export unparsed — the parser
+that later corrected the spec (`process/baseline-incident-history.md` §ST4).
 
 | Signal | Lean toward |
 |---|---|

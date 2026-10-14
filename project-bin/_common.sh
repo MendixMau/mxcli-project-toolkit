@@ -642,6 +642,138 @@ mxtk_mxbuild_why() {
   "$_py" -c "import json;d=json.load(open('$(native_path "$1")'));print('; '.join((e.get('message','') if isinstance(e,dict) else str(e)) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null || true
 }
 
+# mxtk_copy_model_tree <model-dir> <dest-dir> [<mpr-basename>] — copy the model tree into an
+# existing <dest-dir>, for a scratch copy.
+#   Two args: the whole <model-dir> (the .mpr, mprcontents/ and everything mxbuild reads beside
+#   them), leaving out .git, .mpr-snapshots, deployment, .mxcli (the LIVE app's run --local record
+#   — a copy carrying it points app-restart.sh at the live app) and node_modules.
+#   Three args: an ALLOW-LIST — <mpr-basename> with its -wal/-shm if present, plus the app
+#   directories in $MXTK_APP_DIRS that exist. For a single-tree checkout, where <model-dir> is the
+#   repo root and also holds sources/, analysis/, docs/ and binaries nobody's build reads. A
+#   directory mxbuild needs and the list lacks makes the gate fail ON THE COPY — never the live
+#   model — and MXTK_APP_DIRS adds it.
+# Used by bin/test-scratch.sh (mxcli test, #278; two args) and bin/exec.sh --on-copy (#350). tar
+# preserves mtimes, which --on-copy relies on to tell the files `mxcli exec` wrote from the files
+# it copied. Returns tar's status.
+MXTK_APP_DIRS="${MXTK_APP_DIRS:-mprcontents widgets javasource javascriptsource theme themesource userlib vendorlib resources nativemobile mlsource}"
+mxtk_copy_model_tree() {
+  if [ -z "${3:-}" ]; then
+    tar -C "$1" --exclude=./.git --exclude=./.mpr-snapshots --exclude=./deployment \
+        --exclude=./.mxcli --exclude=./node_modules -cf - . | tar -C "$2" -xf -
+    return
+  fi
+  local _src="$1" _dst="$2" _mb="$3" _e
+  set --
+  for _e in "$_mb" "$_mb-wal" "$_mb-shm" $MXTK_APP_DIRS; do [ -e "$_src/$_e" ] && set -- "$@" "./$_e"; done
+  tar -C "$_src" --exclude=node_modules -cf - "$@" | tar -C "$_dst" -xf -
+}
+
+# ── Interrupted exec.sh --on-copy promotions (#350, #384 review) ─────────────────────────────
+# oc_promote (exec.sh) leaves these names beside the model for promotion PID N, in this order:
+#   .mxtk-promote.N.manifest   written FIRST: "L 0|1" (live had mprcontents/), "C 0|1" (the copy
+#                              had), then "E <rel>" / "N <rel>" per side file (existed live / new)
+#   .mxtk-promote.N.mpr / .mprcontents       staged new model (never live)
+#   <rel>.mxtk-promote.N                     a staged side file (never live)
+#   .mxtk-promote.N.old.mpr                  hard link of the live .mpr, taken before the swap
+#   .mxtk-promote.N.old.mprcontents          the live mprcontents/, moved aside by the swap
+#   <rel>.mxtk-promote.N.old                 hard link of a live side file, taken before its swap
+#   .mxtk-promote.N.committed                every rename done and verified; only cleanup is left
+# A kill between the two mprcontents/ renames leaves NO mprcontents/, so every model writer and
+# copier (exec.sh on every path, test-scratch.sh) refuses while any of these exist.
+
+# mxtk_promote_leftovers <model-dir> — prints the PIDs of interrupted promotions; 0 iff any.
+mxtk_promote_leftovers() {
+  local f n pids=""
+  for f in "$1"/.mxtk-promote.*; do
+    [ -e "$f" ] || continue
+    n="${f##*/.mxtk-promote.}"; n="${n%%.*}"
+    case " $pids " in *" $n "*) ;; *) pids="$pids $n" ;; esac
+  done
+  [ -n "$pids" ] || return 1
+  echo $pids
+}
+
+# mxtk_promote_recover <model-dir> <mpr-basename> <pid> [<handback-dir>] — finish or undo one
+# interrupted promotion. Idempotent: every step is guarded by what is on disk, so a second run (or
+# a run after a killed run) is a no-op or finishes the job. Never deletes a live file: anything it
+# takes out of the live tree goes back to <handback-dir> (the kept copy) or into .mxtk-promote.N.trash,
+# and the trash is removed only after every rename succeeded.
+#   .committed present -> the live model IS the promoted one: remove the .old leftovers only.
+#   no .committed      -> roll back to the pre-promotion live model, by rename.
+# Returns 0 done · 1 a rename failed (nothing deleted; re-run) · 2 ambiguous (nothing touched).
+mxtk_promote_recover() {
+  local md="$1" mb="$2" p="$3" hb="${4:-}" t s f k rel lv=1 cv=1 ok=1
+  t="$md/.mxtk-promote.$p"; s="mxtk-promote.$p"
+  _pr_out() {  # $1 = path in the live tree, $2 = its rel path in the copy: hand back, else trash
+    if [ -n "$hb" ] && [ ! -e "$hb/$2" ]; then mkdir -p "$(dirname "$hb/$2")" && mv "$1" "$hb/$2" && return 0; fi
+    mkdir -p "$t.trash/$(dirname "$2")" && mv "$1" "$t.trash/$2.$$"
+  }
+  if [ ! -f "$t.manifest" ]; then
+    for f in "$t".*; do
+      [ -e "$f" ] || continue
+      # .committed alone: a kill between the committed cleanup's two last rms (manifest first) —
+      # the promotion was complete, only its marker is left.
+      case "$f" in "$t.fsprobe"|"$t.trash"|"$t.committed") ;; *)
+        echo "✗ promotion $p: $f exists but its manifest does not — cannot tell what it is. Nothing touched."
+        return 2 ;; esac
+    done
+    rm -rf "${t:?}.fsprobe" "${t:?}.trash" "${t:?}.committed"; return 0
+  fi
+  if [ -f "$t.committed" ]; then
+    rm -rf "${t:?}.old.mprcontents" "${t:?}.old.mpr" "${t:?}.trash" || return 1
+    while read -r k rel; do
+      case "$k" in E|N) rm -f "${md:?}/${rel:?}.${s:?}.old" ;; esac
+    done < "$t.manifest"
+    rm -f "${t:?}.manifest" "${t:?}.fsprobe" && rm -f "${t:?}.committed"
+    echo "  promotion $p had committed: the live model is the promoted one; leftovers removed."
+    return 0
+  fi
+  lv="$(sed -n 's/^L //p' "$t.manifest")"; cv="$(sed -n 's/^C //p' "$t.manifest")"
+  if [ -d "$t.old.mprcontents" ] && [ -d "$md/mprcontents" ] && [ -e "$t.new.mprcontents" ]; then
+    echo "✗ promotion $p: mprcontents/, its .old and its .new all exist — cannot tell which is live. Nothing touched."
+    return 2
+  fi
+  # 1. Side files: put each original back (a hard link to the live file means it was never swapped).
+  while read -r k rel; do
+    case "$k" in E|N) ;; *) continue ;; esac
+    if [ -f "$md/$rel.$s.old" ]; then
+      if [ "$md/$rel.$s.old" -ef "$md/$rel" ]; then mkdir -p "$t.trash" && mv "$md/$rel.$s.old" "$t.trash/side.$$" || ok=0
+      else
+        [ -f "$md/$rel" ] && { _pr_out "$md/$rel" "$rel" || ok=0; }
+        mv -f "$md/$rel.$s.old" "$md/$rel" || ok=0
+      fi
+    elif [ "$k" = N ] && [ ! -f "$md/$rel.$s" ] && [ -f "$md/$rel" ]; then
+      _pr_out "$md/$rel" "$rel" || ok=0   # added by the promotion; did not exist before it
+    fi
+    [ -f "$md/$rel.$s" ] && { _pr_out "$md/$rel.$s" "$rel" || ok=0; }
+  done < "$t.manifest"
+  # 2. The .mpr.
+  if [ -f "$t.old.mpr" ]; then
+    if [ "$t.old.mpr" -ef "$md/$mb" ]; then mkdir -p "$t.trash" && mv "$t.old.mpr" "$t.trash/mpr.$$" || ok=0
+    else
+      if [ -n "$hb" ] && [ ! -e "$hb/$mb" ]; then ln "$md/$mb" "$hb/$mb" 2>/dev/null || cp -p "$md/$mb" "$hb/$mb"; fi
+      mv -f "$t.old.mpr" "$md/$mb" || ok=0
+    fi
+  fi
+  [ -f "$t.mpr" ] && { _pr_out "$t.mpr" "$mb" || ok=0; }
+  # 3. mprcontents/.
+  if [ -d "$t.old.mprcontents" ]; then
+    if [ -d "$md/mprcontents" ]; then mv "$md/mprcontents" "$t.new.mprcontents" || ok=0; fi
+    [ "$ok" = 1 ] && { mv "$t.old.mprcontents" "$md/mprcontents" || ok=0; }
+  elif [ "$lv" = 0 ] && [ "$cv" = 1 ] && [ ! -d "$t.mprcontents" ] && [ -d "$md/mprcontents" ]; then
+    mv "$md/mprcontents" "$t.new.mprcontents" || ok=0   # a v1 live model: the promotion added it
+  fi
+  [ -d "$t.new.mprcontents" ] && { _pr_out "$t.new.mprcontents" mprcontents || ok=0; }
+  [ -d "$t.mprcontents" ] && { _pr_out "$t.mprcontents" mprcontents || ok=0; }
+  if [ "$ok" != 1 ] || { [ "$lv" = 1 ] && [ ! -d "$md/mprcontents" ]; }; then
+    echo "✗ promotion $p: a rename failed — nothing was deleted. Fix the cause and run it again."
+    return 1
+  fi
+  rm -rf "${t:?}.trash" && rm -f "${t:?}.fsprobe" "${t:?}.manifest"
+  echo "  promotion $p had not committed: rolled back by rename; the live model is the one before it."
+  return 0
+}
+
 # project_name — the .mpr basename without extension, for user-facing messages.
 project_name() {
   local mpr

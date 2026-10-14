@@ -236,6 +236,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# _common.sh carries the copy routine (mxtk_copy_model_tree, shared with exec.sh --on-copy). A
+# hand-edited, older _common.sh that sync-project.sh held back does not have it.
+if ! type mxtk_copy_model_tree >/dev/null 2>&1; then
+  echo "✗ test-scratch: bin/_common.sh predates mxtk_copy_model_tree. Update it: <toolkit>/bin/sync-project.sh <project-root>" >&2
+  echo "  (a locally edited _common.sh is held back by sync: --upgrade-bin _common.sh). Nothing was copied or run." >&2
+  exit 3
+fi
+
 # 1+3. Port lock first (machine-wide, cheap to fail), then the project lock for the copy.
 take_lock "$PORT_LOCK" "test ports $PORTS" || exit 3
 for _p in $PORTS; do
@@ -247,11 +255,16 @@ done
 mkdir -p "$(dirname "$EXEC_LOCK")"
 take_lock "$EXEC_LOCK" "this project's model (an exec.sh is writing it)" || exit 3
 
-# 2. The copy.
+# 2. The copy. Refused over an interrupted exec.sh --on-copy promotion (its leftovers beside the
+#    model; between its two renames there is no mprcontents/ to copy) — #384 review.
+if type mxtk_promote_leftovers >/dev/null 2>&1 && _left="$(mxtk_promote_leftovers "$MODEL_DIR")"; then
+  echo "✗ test-scratch: an exec.sh --on-copy promotion (PID $_left) was interrupted; the model may be half-swapped." >&2
+  echo "  → ./bin/exec.sh --recover-promote, then re-run. Nothing was copied or run." >&2
+  exit 3
+fi
 SCRATCH="$(mktemp -d "${MXTK_SCRATCH_DIR:-${TMPDIR:-/tmp}}/$(basename "$MPR_NAME" .mpr)-test.XXXXXX")" || exit 3
 echo "→ test-scratch: copying $(basename "$MODEL_DIR")/ → $SCRATCH (no .git, .mpr-snapshots, deployment, .mxcli)"
-if ! tar -C "$MODEL_DIR" --exclude=./.git --exclude=./.mpr-snapshots --exclude=./deployment \
-       --exclude=./.mxcli --exclude=./node_modules -cf - . | tar -C "$SCRATCH" -xf -; then
+if ! mxtk_copy_model_tree "$MODEL_DIR" "$SCRATCH"; then
   echo "✗ test-scratch: copy failed." >&2; exit 3
 fi
 release "$EXEC_LOCK"

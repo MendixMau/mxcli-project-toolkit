@@ -15,7 +15,7 @@
 #   bin/lint-gate.sh                    # check against baseline; exit 1 if any rule rose
 #   bin/lint-gate.sh --update-baseline  # accept current counts as the new baseline
 #       --reason "<why>"                # REQUIRED when the update raises any rule's count
-#       --approved-in-chat              # ALSO required when a security-tier rule rises
+#       then bin/baseline-approve.sh lint  # run by the USER, in a terminal, when it rises
 #   bin/lint-gate.sh --full             # ignore the vendor exclusion (rarely useful)
 #
 # Exit codes: 0 clean or unchanged · 1 a rule increased, or BLIND (a rule inspected nothing,
@@ -50,9 +50,15 @@
 # .claude/lint-acceptances.tsv (ts, total before/after, per-rule rises, security flag, reason)
 # — commit it with the baseline. A first baseline and a pure ratchet-down need no reason.
 # A rise in a security-tier rule (default SEC* and CONV006; override, one id or glob per line,
-# in .claude/lint-security-rules.txt) also needs --approved-in-chat: a claim on the record that
-# the user was shown the findings and said yes, the same contract as gate-check --ack-protocol.
-# Never set it on your own judgement.
+# in .claude/lint-security-rules.txt) is flagged as such in that log.
+#
+# A RISE NEEDS A PERSON, NOT A FLAG (#348, 2026-10-14). --approved-in-chat was the proof the user
+# said yes, and the agent could type it itself. Now any update that raises a rule (or re-creates
+# a deleted baseline, or follows a hand edit gate-check would FAIL) writes only content a person
+# approved: the refused run saves the proposal and prints `bin/baseline-approve.sh lint` for the
+# USER to run in their terminal; it records the sha256 of exactly that content, and the re-run
+# writes it. A first baseline and a pure ratchet-down still need nothing. --approved-in-chat is
+# accepted and ignored, so old command lines still parse. See baseline-lock.sh.
 #
 # PRODUCES .claude/loop/lint-ledger.tsv (append-only, one row per rule per run; read with
 # project-bin/lint-trend.sh) and .claude/loop/lint-last.json on every run that actually gets as far as computing
@@ -132,8 +138,8 @@ while [ $# -gt 0 ]; do
     --reason) [ $# -ge 2 ] || { echo "lint-gate: --reason needs a value" >&2; exit 2; }
               REASON="$2"; shift ;;
     --reason=*) REASON="${1#--reason=}" ;;
-    --approved-in-chat) APPROVED=1 ;;
-    -h|--help) sed -n '2,64p' "$0"; exit 0 ;;
+    --approved-in-chat) APPROVED=1 ;;  # retired as evidence (#348): accepted, ignored
+    -h|--help) sed -n '2,71p' "$0"; exit 0 ;;
     *) echo "lint-gate: unknown argument '$1'" >&2; exit 2 ;;
   esac
   shift
@@ -282,9 +288,14 @@ else
 fi
 [ -s "$OUT" ] || { echo "lint-gate: lint produced no output" >&2; exit 2; }
 
-BASELINE="$BASELINE" OUT="$OUT" UPDATE="$UPDATE" REASON="$REASON" APPROVED="$APPROVED" \
+if [ "$APPROVED" -eq 1 ] && [ "$UPDATE" -eq 1 ]; then
+  echo "lint-gate: note — --approved-in-chat is no longer evidence (#348); a rise needs bin/baseline-approve.sh, run by the user." >&2
+fi
+LOCK="$(dirname "${BASH_SOURCE[0]}")/baseline-lock.sh"
+[ -f "$LOCK" ] || LOCK=""
+BASELINE="$BASELINE" OUT="$OUT" UPDATE="$UPDATE" REASON="$REASON" LOCK="$LOCK" ROOT="$ROOT" \
   SECURITY_FILE="$SECURITY_FILE" ACCEPT_LOG="$ACCEPT_LOG" "$PY" - <<'PY'
-import json, os, sys, collections, datetime, fnmatch
+import json, os, sys, collections, datetime, fnmatch, hashlib, subprocess, tempfile
 
 out_path  = os.environ["OUT"]
 base_path = os.environ["BASELINE"]
@@ -389,7 +400,9 @@ counts = collections.Counter(v["ruleId"] for v in viol)
 if update:
     # Accepting a rise is a decision; record it. See the header ("ACCEPTING DEBT ...").
     reason   = os.environ.get("REASON", "").strip()
-    approved = os.environ.get("APPROVED") == "1"
+    lock, root = os.environ.get("LOCK", ""), os.environ.get("ROOT", ".")
+    def run_lock(*a):
+        return subprocess.run(["bash", lock] + list(a), capture_output=True, text=True)
     sec_pats = ["SEC*", "CONV006"]
     sec_file = os.environ.get("SECURITY_FILE", "")
     if sec_file and os.path.exists(sec_file):
@@ -414,15 +427,44 @@ if update:
         print("           bin/lint-gate.sh --update-baseline --reason \"<why each rise is acceptable>\"",
               file=sys.stderr)
         sys.exit(2)
-    if sec_raised and not approved:
-        print("lint-gate: REFUSED — security-tier rule(s) rose: %s" % ", ".join(
-              "%s %d->%d" % x for x in sec_raised), file=sys.stderr)
-        print("           Show the user these findings in chat. Only after they say yes, re-run with", file=sys.stderr)
-        print("           --approved-in-chat (a claim on the record). Otherwise fix the grant.", file=sys.stderr)
-        for v in [x for x in viol if x["ruleId"] in {r for r, _, _ in sec_raised}][:10]:
-            print("             %s | %s | %s" % (v["ruleId"], v.get("document") or v.get("module") or "",
-                  (v.get("message") or "")[:110]), file=sys.stderr)
-        sys.exit(2)
+    # The exact bytes this update would write; an approval is for these and nothing else.
+    content = json.dumps({"counts": dict(sorted(counts.items())),
+                          "total": len(viol),
+                          "note": "Per-rule finding counts on OUR modules. Gate fails when any rises."},
+                         indent=2) + "\n"
+    sha = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    prior = run_lock("verify", root, "lint").stdout.split("\t")[0] if lock else ""
+    why = []
+    if raised:
+        why.append("raises %s" % ", ".join("%s %d->%d" % x for x in raised))
+    if prior == "GONE":
+        why.append("re-creates a baseline that was deleted")
+    if prior == "FAIL":
+        why.append("follows a baseline that moved without approval")
+    if prior == "MANUAL":
+        why.append("follows a baseline with no verifiable record (predates the lock, or came in by a merge)")
+    basis = "first" if old_base is None else "tighten"
+    if why:
+        basis = "approved"
+        if not lock:
+            print("lint-gate: REFUSED — this update %s and needs a person's approval, but" % "; ".join(why), file=sys.stderr)
+            print("           bin/baseline-lock.sh is not installed. Run the toolkit's bin/sync-project.sh.", file=sys.stderr)
+            sys.exit(2)
+        if run_lock("approved", root, "lint", sha).returncode != 0:
+            print("lint-gate: REFUSED — this update %s." % "; ".join(why), file=sys.stderr)
+            for v in [x for x in viol if x["ruleId"] in {r for r, _, _ in sec_raised}][:10]:
+                print("             %s | %s | %s" % (v["ruleId"], v.get("document") or v.get("module") or "",
+                      (v.get("message") or "")[:110]), file=sys.stderr)
+            summary = "lint: %s%s. Reason: %s" % ("; ".join(why),
+                      " (SECURITY-TIER: %s)" % ", ".join(r for r, _, _ in sec_raised) if sec_raised else "",
+                      reason or "-")
+            with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as t:
+                t.write(content)
+            r = run_lock("propose", root, "lint", t.name, summary)
+            os.unlink(t.name)
+            sys.stderr.write(r.stderr)
+            sys.exit(2)
+        print("==> human approval found for this exact baseline (sha %s)" % sha[:12])
     if raised:
         log = os.environ.get("ACCEPT_LOG", "")
         try:
@@ -440,11 +482,11 @@ if update:
         except OSError as e:
             print("lint-gate: could not append %s: %s" % (log, e), file=sys.stderr)
             sys.exit(2)
-    json.dump({"counts": dict(sorted(counts.items())),
-               "total": len(viol),
-               "note": "Per-rule finding counts on OUR modules. Gate fails when any rises."},
-              open(base_path, "w"), indent=2)
-    open(base_path, "a").write("\n")
+    open(base_path, "w").write(content)
+    if lock:
+        run_lock("record", root, "lint", basis)
+    else:
+        print("lint-gate: bin/baseline-lock.sh not installed — this write is unrecorded (sync-project.sh)", file=sys.stderr)
     print("==> baseline written: %d findings across %d rules" % (len(viol), len(counts)))
     for r, c in counts.most_common():
         print("      %5d  %-8s %s" % (c, sev[r], r))

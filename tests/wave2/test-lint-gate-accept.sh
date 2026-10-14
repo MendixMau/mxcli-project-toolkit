@@ -10,6 +10,8 @@
 #     as "lint ROSE: see output" (20 rows), so red stopped meaning anything (#229).
 #   - --update-baseline took no reason: 61 self-accepted re-baselines, security warnings
 #     included, and nothing summed them.
+#   - (#348, 2026-10-14) the agent could type --approved-in-chat itself: a rise now waits for
+#     bin/baseline-approve.sh, run by the person (simulated under a pseudo-terminal here).
 # This proves each fix discriminates. No mxcli or .mpr is needed: lint-gate's LINT_JSON mode
 # reads a captured result. The violation objects copy the key set of a real
 # `mxcli lint --format json` capture (mxcli v0.25.0: ruleId, severity, message, module,
@@ -30,6 +32,9 @@ bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; [ -n "${2:-}" ] && printf '
 
 P="$WORK/proj"; mkdir -p "$P/bin" "$P/.claude"
 cp "$GATE" "$P/bin/lint-gate.sh"; [ -f "$TK/project-bin/_common.sh" ] && cp "$TK/project-bin/_common.sh" "$P/bin/"
+# The lock pair is installed beside lint-gate.sh (#348); human_approve is the person's step.
+for f in baseline-lock.sh baseline-approve.sh; do [ -f "$(dirname "$GATE")/$f" ] && cp "$(dirname "$GATE")/$f" "$P/bin/"; done
+. "$TK/tests/wave2/fixtures/baseline-lock/human.sh"
 printf 'mpr' > "$P/App.mpr"; printf '#!/bin/sh\nexit 0\n' > "$P/mxcli"; chmod +x "$P/mxcli" "$P/bin/lint-gate.sh"
 
 # v <ruleId> <severity> <n> [module] -> n violation objects
@@ -61,19 +66,26 @@ out=$(gate --update-baseline 2>&1); rc=$?
 [ "$rc" -eq 2 ] && ok "refused (rc 2)" || bad "rise accepted without a reason (rc $rc)" "$out"
 [ "$(base_total)" = "$before" ] && ok "baseline unchanged ($before)" || bad "baseline changed to $(base_total)"
 
-echo "T4 with --reason the rise is accepted and logged"
+echo "T4 with --reason the rise still waits for the person; after their approval it is accepted and logged"
 out=$(gate --update-baseline --reason "two flows split later in slice 3" 2>&1); rc=$?
-[ "$rc" -eq 0 ] && ok "accepted with a reason" || bad "rc=$rc" "$out"
+[ "$rc" -eq 2 ] && [ "$(base_total)" = "$before" ] && ok "a reason alone is not approval (rc 2, baseline unchanged)" || bad "rise accepted on the agent's word (rc $rc)" "$out"
+case "$out" in *"bin/baseline-approve.sh lint"*) ok "refusal names the person's command" ;; *) bad "refusal does not name bin/baseline-approve.sh" "$out" ;; esac
+human_approve "$P" lint; hrc=$?
+[ "$hrc" -eq 3 ] && echo "  skip (no usable \`script\` for a pseudo-terminal) — T4-T7 need it" && exit 0
+out=$(gate --update-baseline --reason "two flows split later in slice 3" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "accepted after the person approved" || bad "rc=$rc" "$out"
 row=$(tail -1 "$P/.claude/lint-acceptances.tsv" 2>/dev/null)
 case "$row" in *CONV009+1*MDL-FLOW01+2*"two flows split later"*) ok "row: rises and reason recorded" ;; *) bad "acceptance row wrong" "$row" ;; esac
 
-echo "T5 a security-tier rise needs --approved-in-chat on top of a reason"
+echo "T5 --approved-in-chat is no longer evidence; a security-tier rise needs the person's approval"
 mk "$(v CONV009 info 3)$(v MDL-FLOW01 info 3)$(v SEC003 warning 2)$(v CONV006 warning 1)"
-out=$(gate --update-baseline --reason "by design" 2>&1); rc=$?
-[ "$rc" -eq 2 ] && ok "SEC003/CONV006 rise refused without approval" || bad "security rise accepted (rc $rc)" "$out"
-case "$out" in *SEC003*CONV006*|*CONV006*SEC003*) ok "refusal names both security rules" ;; *) bad "refusal does not name the rules" "$out" ;; esac
 out=$(gate --update-baseline --approved-in-chat --reason "user approved demo-user warning in chat" 2>&1); rc=$?
-[ "$rc" -eq 0 ] && ok "accepted with reason + --approved-in-chat" || bad "rc=$rc" "$out"
+[ "$rc" -eq 2 ] && ok "SEC003/CONV006 rise refused on the flag alone (#348)" || bad "the agent's own flag moved the baseline (rc $rc)" "$out"
+case "$out" in *SEC003*CONV006*|*CONV006*SEC003*) ok "refusal names both security rules" ;; *) bad "refusal does not name the rules" "$out" ;; esac
+grep -q "SECURITY-TIER" "$P/.claude/baseline-pending/lint.summary" 2>/dev/null && ok "the proposal the person reviews flags the security tier" || bad "proposal summary does not flag security"
+human_approve "$P" lint
+out=$(gate --update-baseline --approved-in-chat --reason "user approved demo-user warning in chat" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "accepted after the person approved" || bad "rc=$rc" "$out"
 tail -1 "$P/.claude/lint-acceptances.tsv" | grep -q $'\tyes\t' && ok "row marks the security approval" || bad "security flag missing" "$(tail -1 "$P/.claude/lint-acceptances.tsv")"
 
 echo "T6 a pure ratchet-down needs no reason"
@@ -86,8 +98,8 @@ out=$(gate --update-baseline 2>&1); rc=$?
 echo "T7 the project's security list replaces the default"
 printf '# ours\nCONV007\n' > "$P/.claude/lint-security-rules.txt"
 mk "$(v CONV009 info 1)$(v MDL-FLOW01 info 3)$(v SEC003 warning 2)$(v CONV006 warning 1)$(v CONV007 info 1)"
-out=$(gate --update-baseline --reason "x" 2>&1); rc=$?
-[ "$rc" -eq 2 ] && ok "CONV007 rise refused once listed" || bad "listed rule not treated as security (rc $rc)" "$out"
+gate --update-baseline --reason "x" >/dev/null 2>&1
+grep -q "SECURITY-TIER: CONV007" "$P/.claude/baseline-pending/lint.summary" 2>/dev/null && ok "CONV007 flagged as security once listed" || bad "listed rule not treated as security" "$(cat "$P/.claude/baseline-pending/lint.summary" 2>/dev/null)"
 rm -f "$P/.claude/lint-security-rules.txt"
 
 echo "T8 PASS-BLIND is logged as BLIND, not as a rise"

@@ -79,6 +79,13 @@ EXPECTED_DENY=(
   "Bash(./mxcli exec:*)"
   "Bash(mxcli exec:*)"
   "Bash(./mxcli.exe exec:*)"
+  "Bash(*baseline-approve.sh*)"
+  "Bash(*baseline-lock.sh*record*)"
+  "Bash(*>*baseline-approvals.tsv*)"
+  "Bash(*>*baseline-writes.tsv*)"
+  "Edit(**/baseline-approvals.tsv)"
+  "Edit(**/baseline-writes.tsv)"
+  "Edit(**/baseline-history/**)"
 )
 SESSION_HOOK="bash bin/session-check.sh || true"
 
@@ -175,6 +182,10 @@ for e in "${EXPECTED_DENY[@]}"; do
 done
 [ "$MISSING_DENY" -eq 0 ] && ok "T1: all ${#EXPECTED_DENY[@]} deny entries present in the fresh file" \
                            || bad "T1: some deny entries missing from the fresh file"
+# #375 review: a Bash deny naming the approvals log by file name blocked `git add`/`git log -p` on it.
+printf '%s\n' "$DENY1" | grep -qxF 'Bash(*baseline-approv*)' \
+  && bad "T1: the over-broad Bash(*baseline-approv*) deny is back (blocks git add on the log)" \
+  || ok "T1: no Bash deny matches the approvals log by name alone (git add/log stay allowed)"
 py_hook_present "$FRESH/.claude/settings.json" && ok "T1: SessionStart hook present in the fresh file" \
                                                  || bad "T1: SessionStart hook missing from the fresh file"
 py_look_hook_present "$FRESH/.claude/settings.json" && ok "T1: PostToolUse(Read) LOOK hook present in the fresh file" \
@@ -403,6 +414,10 @@ PY
   printf '%s\n' "$AA" | grep -qxF "$(printf 'bin/exec.sh\ttrue')" \
     && ok "T6: Copilot autoApprove has bin/exec.sh: true" \
     || bad "T6: Copilot autoApprove missing bin/exec.sh: true"
+  # #348: approving a baseline move is the user's act — Copilot must ask, never auto-run it.
+  printf '%s\n' "$AA" | grep -qxF '/baseline-approve\.sh/	false' \
+    && ok "T6: Copilot autoApprove asks for baseline-approve.sh (false)" \
+    || bad "T6: Copilot autoApprove missing /baseline-approve\.sh/: false" "$AA"
   printf '%s\n' "$AA" | grep -q "$TOOLKIT_ROOT" \
     && bad "T6: Copilot .vscode/settings.json leaked the absolute toolkit-root path" \
     || ok "T6: Copilot .vscode/settings.json carries no absolute toolkit-root path"

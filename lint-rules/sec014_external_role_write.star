@@ -43,7 +43,8 @@
 # finding here would make lint-gate exit PASS-BLIND on every exec of every synced project until
 # someone answers a question — the #229 pattern. The silence is not a pass: the sync names it.
 # After configuring, SEC014 jumps 0 -> N in one run; re-baseline right then
-# (lint-gate.sh --update-baseline --reason "SEC014 configured" --approved-in-chat), or the
+# (lint-gate.sh --update-baseline --reason "SEC014 configured", then the user runs
+# baseline-approve.sh lint), or the
 # rise is blamed on whatever script runs next.
 #
 # SELF-CHECKS (configured but unusable: the rule must say so, never report a clean pass):

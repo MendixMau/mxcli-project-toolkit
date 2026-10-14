@@ -98,7 +98,13 @@ rc="$(run)"
 mv "$P/PRESENT.bak" "$P/PRESENT"
 
 # --- 6. an unscoped --update-baseline still rewrites everything --------------------------------
-printf 'Orders\t`/stale`\tOK\n' >> "$P/docs/conformance/baseline.tsv"
+# The retired row arrives through the ledger, not a hand edit of baseline.tsv: since #348 a
+# baseline that moved outside the instrument is refused (test-baseline-lock.sh covers that).
+printf '| `/enumerations/0` | enum | Retired | 1.3 | exec.sh | `DESCRIBE ENTITY Orders.Order` | built |\n' \
+  >> "$P/architecture/modules/Orders/coverage-ledger.md"
+run --update-baseline >/dev/null
+[ "$(wc -l < "$P/docs/conformance/baseline.tsv" | tr -d ' ')" = 5 ] || bad "the retired row never reached the baseline"
+ledger Orders Order ACT_Order_Save
 rc="$(run --update-baseline)"
 [ "$rc" = 0 ] && [ "$(wc -l < "$P/docs/conformance/baseline.tsv" | tr -d ' ')" = 4 ] \
   && ok "unscoped --update-baseline rewrites the whole file (a retired row is dropped)" \

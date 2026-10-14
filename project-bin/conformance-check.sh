@@ -389,13 +389,58 @@ KEYED="$(printf '%s\n' "$RESULTS" | awk -F'\t' '{print $1"\t"$2"\t"$5}')"
 # whole dropped every other module's baseline, and their regressions went unmeasured with
 # nothing said (card-disbursement build, 2026-09-26: `--update-baseline --module MockServices`
 # dropped the 127 Disbursement rows).
+#
+# A rewrite that LOOSENS needs a person (#348): a row OK in the old baseline and not OK in the
+# new one is a regression being accepted, so it is written only against a matching row in
+# .claude/baseline-approvals.tsv (bin/baseline-approve.sh conformance, run by the user). So does
+# re-creating a deleted baseline, or any write over one that moved outside this script. A
+# first baseline, a rewrite that loosens nothing and first-sight seeding need nothing; every
+# write is recorded (bin/baseline-lock.sh) so gate-check can tell a hand edit from ours.
+LOCK="$(dirname "${BASH_SOURCE[0]}")/baseline-lock.sh"
+[ -f "$LOCK" ] || LOCK=""
+PRIOR=""; [ -n "$LOCK" ] && PRIOR="$(bash "$LOCK" verify "$PROJECT_ROOT" conformance | cut -f1)"
+# lock_write <new-file> <basis> — move <new-file> over the baseline, or refuse (exit 2)
+lock_write() {
+  local new="$1" basis="$2" why="" loose sha
+  if [ -f "$BASELINE" ]; then
+    loose="$(awk -F'\t' 'NR==FNR { if ($3=="OK") ok[$1"\t"$2]=1; next }
+                         (($1"\t"$2) in ok) && $3!="OK" {n++} END {print n+0}' "$BASELINE" "$new")"
+    [ "$loose" -gt 0 ] && why="accepts $loose regression(s) (rows OK in the baseline, not OK now)"
+  fi
+  [ "$PRIOR" = GONE ] && why="${why:+$why; }re-creates a baseline that was deleted"
+  [ "$PRIOR" = FAIL ] && why="${why:+$why; }follows a baseline that moved without approval"
+  [ "$PRIOR" = MANUAL ] && why="${why:+$why; }follows a baseline with no verifiable record"
+  if [ -z "$why" ]; then
+    mv "$new" "$BASELINE"
+    if [ -n "$LOCK" ]; then bash "$LOCK" record "$PROJECT_ROOT" conformance "$basis"
+    else echo "  note: bin/baseline-lock.sh not installed — this baseline write is unrecorded (sync-project.sh)" >&2; fi
+    return 0
+  fi
+  if [ -z "$LOCK" ]; then
+    echo "REFUSED — this baseline write $why and needs a person's approval, but bin/baseline-lock.sh is not installed (run the toolkit's bin/sync-project.sh)." >&2
+    rm -f "$new"; exit 2
+  fi
+  sha="$(bash "$LOCK" sha "$new")"
+  if bash "$LOCK" approved "$PROJECT_ROOT" conformance "$sha"; then
+    mv "$new" "$BASELINE"
+    bash "$LOCK" record "$PROJECT_ROOT" conformance approved
+    echo "  human approval found for this exact baseline (sha $(printf '%s' "$sha" | cut -c1-12))"
+    return 0
+  fi
+  echo "REFUSED — this baseline write $why." >&2
+  [ -f "$BASELINE" ] && awk -F'\t' 'NR==FNR { if ($3=="OK") ok[$1"\t"$2]=1; next }
+       (($1"\t"$2) in ok) && $3!="OK" {print "    " $1 "  " $2 "  OK -> " $3}' "$BASELINE" "$new" | head -20 >&2
+  bash "$LOCK" propose "$PROJECT_ROOT" conformance "$new" "conformance: $why${MODULE:+ (module $MODULE)}"
+  rm -f "$new"; exit 2
+}
 if [ "$UPDATE_BASELINE" -eq 1 ] || [ ! -f "$BASELINE" ]; then
   if [ -n "$MODULE" ] && [ -f "$BASELINE" ]; then
     { awk -F'\t' -v m="$MODULE" '$1!=m' "$BASELINE"; printf '%s\n' "$KEYED"; } \
-      | sed '/^$/d' | sort > "$BASELINE.tmp" && mv "$BASELINE.tmp" "$BASELINE"
+      | sed '/^$/d' | sort > "$BASELINE.tmp"
   else
-    printf '%s\n' "$KEYED" > "$BASELINE"
+    printf '%s\n' "$KEYED" > "$BASELINE.tmp"
   fi
+  if [ -f "$BASELINE" ]; then lock_write "$BASELINE.tmp" tighten; else lock_write "$BASELINE.tmp" first; fi
   WROTE_BASELINE=1
 else
   WROTE_BASELINE=0
@@ -416,9 +461,13 @@ if [ "$WROTE_BASELINE" -eq 0 ]; then
       REGRESSIONS+="$mod	$ptr	was OK, now $verdict"$'\n'
     fi
   done <<< "$KEYED"
-  if [ -n "$SEEDED" ]; then
+  # Seeding adds rows the baseline never had; it is recorded, never laundered over a hand edit.
+  if [ -n "$SEEDED" ] && { [ "$PRIOR" = FAIL ] || [ "$PRIOR" = MANUAL ]; }; then
+    echo "  note: $(printf '%s' "$SEEDED" | grep -c .) row(s) not seeded — the baseline is $PRIOR in gate-check; the user runs bin/baseline-approve.sh conformance --current" >&2
+    SEEDED=""
+  elif [ -n "$SEEDED" ]; then
     { cat "$BASELINE"; printf '%s' "$SEEDED"; } | sed '/^$/d' | sort > "$BASELINE.tmp" \
-      && mv "$BASELINE.tmp" "$BASELINE"
+      && lock_write "$BASELINE.tmp" seed
   fi
 fi
 NSEED=$(printf '%s' "$SEEDED" | grep -c . || true)

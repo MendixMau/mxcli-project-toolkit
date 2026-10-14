@@ -43,6 +43,11 @@
 # runs the same mxcli underneath. A skill that genuinely needs the bare form runs it from a
 # script (the rule matches the top-level command only).
 #
+# THE SECOND DENY (2026-10-14, #348): the baseline-approve.sh command, a direct
+# `baseline-lock.sh record`, and writes into the baseline logs. Approving a ratchet baseline move
+# is the user's act; the agent could type `--approved-in-chat` itself. Narrow on purpose (#375
+# review): a rule matching the log's file name blocked `git add` and `git log -p` on it.
+#
 # THE ONE HOOK: `bash bin/session-check.sh || true` on SessionStart — the project-local check
 # that says at the top of every session whether the model on disk is verified, whether the
 # mxbuild gate can run here, and whether the installed guard scripts are stale. It never blocks.
@@ -184,6 +189,18 @@ DENY=(
   "Bash(./mxcli exec:*)"
   "Bash(mxcli exec:*)"
   "Bash(./mxcli.exe exec:*)"
+  # #348: approving a ratchet baseline move is the user's act. Denies the approve command, a
+  # direct `baseline-lock.sh record` (instruments call it from inside their scripts, which these
+  # top-level rules do not see), shell redirection into the two logs, and file-tool edits of the
+  # logs and snapshots. Reading, `git add`/`git commit -- …`/`git log -p` on them stay allowed.
+  # See project-bin/baseline-lock.sh for what this does not stop.
+  "Bash(*baseline-approve.sh*)"
+  "Bash(*baseline-lock.sh*record*)"
+  "Bash(*>*baseline-approvals.tsv*)"
+  "Bash(*>*baseline-writes.tsv*)"
+  "Edit(**/baseline-approvals.tsv)"
+  "Edit(**/baseline-writes.tsv)"
+  "Edit(**/baseline-history/**)"
 )
 ASK=()
 

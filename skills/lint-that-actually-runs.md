@@ -135,10 +135,40 @@ the ratchet is the *only* mechanism available. `project-bin/lint-gate.sh` implem
 re-baselined 61 times, every time by the agent whose script caused the rise; baselines grew
 8 -> 757, 440 -> 677 and 9 -> 187, with security warnings accepted in the same batches as naming
 info. So an update that raises any rule needs `--reason "<why>"` and is appended to
-`.claude/lint-acceptances.tsv` (commit it with the baseline); a rise in a security-tier rule
-(default `SEC*` and `CONV006`, override in `.claude/lint-security-rules.txt`) also needs
-`--approved-in-chat`, set only after the user saw the findings and said yes. A first baseline
-and a ratchet-down need neither.
+`.claude/lint-acceptances.tsv` (commit it with the baseline). A first baseline and a
+ratchet-down need nothing more.
+
+**A rise moves only on the user's own command (#348).** `--approved-in-chat` was the agent's
+claim that the user said yes, and the agent could type it unasked. Now the refused update saves
+the proposal and prints `bin/baseline-approve.sh lint`. Show the user the rise (security-tier
+rules, default `SEC*` and `CONV006`, are flagged in it). **The user** runs that command in a
+separate terminal window, reads the diff and types `approve`. It needs a TTY, so it is refused
+through the agent and through Claude Code's `!` prefix. Then re-run the same update. The approval is
+the sha256 of exactly that content, so a count that moves in between is refused again.
+
+```
+agent:  bin/lint-gate.sh --update-baseline --reason "x" --approved-in-chat   -> exit 0   (before: the agent approved itself)
+agent:  bin/lint-gate.sh --update-baseline --reason "x"                      -> REFUSED, prints the user's command
+user:   bin/baseline-approve.sh lint     (a separate terminal window; types approve)
+agent:  bin/lint-gate.sh --update-baseline --reason "x"                      -> written
+```
+
+Never run `baseline-approve.sh` or `baseline-lock.sh record` yourself, and never edit the
+`.claude/baseline-*` logs. Claude Code denies all three (`bin/install-claude-permissions.sh`).
+`conformance-check.sh --update-baseline` follows the same rule when it would accept a
+regression.
+
+`gate-check.sh` prints `Baselines (human-approved?)`. It replays each recorded write against
+its saved content, so a forged record is caught too. It reports:
+- FAIL: the baseline is looser than its last recorded write with no approval. Committed
+  records that have gone missing also FAIL.
+- MANUAL: the baseline predates the lock, or the looser content came in through a git merge.
+
+Both block Stages 5 and 6, and the instruments refuse to write until the user approves. The
+remedy for either is `baseline-approve.sh <kind> --current`, run by the user.
+
+A CRLF checkout compares equal. Commit `.claude/baseline-*` with the baseline. What the lock does not stop, an agent deliberately evading the deny rules, is listed
+in `project-bin/baseline-lock.sh`.
 
 **The ratchet remembers one number per rule; the ledger remembers every run.** Every gate run
 appends one row per rule to `.claude/loop/lint-ledger.tsv` (timestamp, verdict, rule, count,

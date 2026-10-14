@@ -53,7 +53,7 @@ p=$(mkp a 1 "$STOCK_CFG"); out=$(notice "$p"); rc=$?
 [ $rc -eq 0 ] && ok "a rule installed, stock config -> notice owed" || bad "a no notice (rc=$rc)"
 case "$out" in *"rules:"*"SEC014:"*"options:"*"external_roles:"*) ok "a notice shows the exact config path" ;; *) bad "a config path missing" "$out" ;; esac
 case "$out" in *'"none"'*"user's answer"*"PROJECT.md"*) ok "a \"none\" is named as a user decision recorded in PROJECT.md" ;; *) bad "a none-is-a-decision missing" "$out" ;; esac
-case "$out" in *"--update-baseline"*"--approved-in-chat"*) ok "a tells to re-baseline right after configuring" ;; *) bad "a re-baseline hint missing" "$out" ;; esac
+case "$out" in *"--update-baseline"*"baseline-approve.sh lint"*) ok "a tells to re-baseline right after configuring" ;; *) bad "a re-baseline hint missing" "$out" ;; esac
 
 p=$(mkp b 1 NONE); notice "$p" >/dev/null && ok "b rule installed, no lint-config.yaml -> notice owed" || bad "b no notice without a config file"
 p=$(mkp c 1 "${STOCK_CFG}#   SEC014:

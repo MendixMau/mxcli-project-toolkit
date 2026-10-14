@@ -858,9 +858,9 @@ run_lint_gate() {
          LINT_DETAIL="lint ROSE: ${_rules:-see output}${_blind:+; BLIND: $_blind}"
          echo "  ✗ lint: rule(s) rose vs baseline — ${_rules:-see below}"
          sed -n '/^FAIL/,$p' "$_lo" | head -60 | sed 's/^/    /'
-         echo "    Fix the script and re-run. Accepting the debt is the user's call, made in chat:"
-         echo "    bin/lint-gate.sh --update-baseline --reason \"<why>\" (a security-tier rise also"
-         echo "    needs --approved-in-chat). The acceptance is logged to .claude/lint-acceptances.tsv."
+         echo "    Fix the script and re-run. Accepting the debt is the user's call, not yours:"
+         echo "    bin/lint-gate.sh --update-baseline --reason \"<why>\", then the USER runs"
+         echo "    bin/baseline-approve.sh lint in a separate terminal. Logged to .claude/lint-acceptances.tsv."
        fi ;;
     *) LINT_DETAIL="lint could not run (lint-gate exit $LINT_RC)"; echo "  ⚠ $LINT_DETAIL"
        tail -5 "$_lo" | sed 's/^/    /' ;;

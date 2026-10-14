@@ -2545,6 +2545,39 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# Baselines — did a ratchet baseline move without a person's approval? (#348)
+#
+# lint-gate.sh and conformance-check.sh record every baseline they write, with its content, and a
+# loosening write only lands against a row bin/baseline-approve.sh wrote (a person, in a
+# terminal). baseline-lock.sh verify replays the records against their content: a baseline, or a
+# recorded write, looser than the write before it with no approval is FAIL (a hand edit, or a
+# forged record — #375 review). MANUAL: no record at all (predates the lock or the log was
+# removed), or looser content a git merge produced. Committed records may not go missing. CR is
+# stripped before comparing. Both FAIL and MANUAL block, since only a person clears either. The toolkit's own baseline-lock.sh reads the
+# project, whichever version the project installed. BLOCKS Stages 5 and 6 (below); the
+# remedy, a person running `bin/baseline-approve.sh <kind> --current`, is never blocked.
+BASE_STATUS="PASS"; BASE_NOTE=""; BASE_BLOCK=0
+BASE_LOCK="$TOOLKIT_DIR/project-bin/baseline-lock.sh"
+if [ -f "$BASE_LOCK" ]; then
+  for _bk in lint conformance; do
+    _bv="$(bash "$BASE_LOCK" verify "$PROJECT_DIR" "$_bk" 2>/dev/null)"
+    _bs="$(printf '%s' "$_bv" | cut -f1)"
+    case "$_bs" in
+      NONE) continue ;;
+      FAIL|GONE) BASE_STATUS="FAIL"; BASE_BLOCK=1 ;;
+      MANUAL) [ "$BASE_STATUS" = PASS ] && BASE_STATUS="MANUAL"; BASE_BLOCK=1 ;;
+      PASS) ;;
+      *) [ "$BASE_STATUS" = PASS ] && BASE_STATUS="MANUAL"; BASE_BLOCK=1; _bv="$_bk	could not be verified" ;;
+    esac
+    BASE_NOTE="$BASE_NOTE${BASE_NOTE:+; }$_bk: $(printf '%s' "$_bv" | cut -f2-)"
+  done
+  [ -n "$BASE_NOTE" ] || { BASE_STATUS="PASS"; BASE_NOTE="no ratchet baseline in this project yet"; }
+else
+  BASE_STATUS="MANUAL"; BASE_NOTE="project-bin/baseline-lock.sh missing from $TOOLKIT_DIR — cannot evaluate, which is not a pass"
+fi
+printf "Baselines (human-approved?): %s — %s\n" "$BASE_STATUS" "$BASE_NOTE"
+
+# ---------------------------------------------------------------------------
 # Source sufficiency — was the source actually characterised, or did Stage 0
 # pass on nobody having looked?
 #
@@ -3265,6 +3298,18 @@ if [ -n "$REQUESTED_STAGE" ]; then
   # skills/close-the-loop.md was written to retire, and a warning shown once per key
   # (advise()'s own semantics) is too easy to have already been shown and forgotten by the time
   # a report goes un-filed again.
+  # No Stage-5/6 gate passes on a ratchet baseline that moved without a person's approval:
+  # a rise baselined away is a FAIL nobody was shown. See the Baselines block above.
+  # MANUAL blocks too (#375 confirmation review): every non-PASS state here is one only a person
+  # clears, and a non-blocking MANUAL was a one-commit bypass.
+  if { [ "$REQUESTED_STAGE" = "5" ] || [ "$REQUESTED_STAGE" = "6" ]; } && [ "$BASE_BLOCK" = 1 ]; then
+    echo "" >&2
+    echo "Gate BLOCKED by a baseline no person has approved ($BASE_STATUS): $BASE_NOTE" >&2
+    echo "Show the user the change (git log -p on the baseline file). If they accept it, THEY run" >&2
+    echo "bin/baseline-approve.sh <kind> --current in a separate terminal window (not via the agent" >&2
+    echo "or Claude Code's ! prefix: it needs a TTY); otherwise restore it from git." >&2
+    exit 1
+  fi
   if { [ "$REQUESTED_STAGE" = "5" ] || [ "$REQUESTED_STAGE" = "6" ]; } && [ "$DISP_STATUS" = "FAIL" ]; then
     echo "" >&2
     echo "Gate BLOCKED by report-disposition-check: $DISP_NOTE" >&2

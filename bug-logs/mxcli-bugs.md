@@ -7080,3 +7080,15 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Workaround:** never run either command on a project whose constants may hold a secret; keep secret constants EMPTY in the model and pass the value at run time with `--constant Module.Name=value` (written nowhere).
 
 **Toolkit side:** one line in `skills/learned-constants-and-secrets.md` (step 3).
+
+## BUG-DRAFT-business-event-mdl-gaps: `create business event service` has String(200) attributes only, collides with the inherited CloudEvent id attribute, and needs BSON patches for the V2 publish subject and a shared channel name (2026-10-15)
+
+> **NOT YET FILED.** Upstream issue drafted. Related and closed: mendixlabs/mxcli#476 (reserved attribute names), PR #533 (duplicate channels).
+
+**Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
+
+**What happens.** (1) A message attribute is String(200); a long payload attribute needs unlimited length and the entity side must match or mxbuild reports a max-length mismatch. (2) A message attribute named `EventId` duplicates a member of the inherited CloudEvent entity. (3) The `PublishBusinessEvent_V2` Subject written through MDL needs a refresh (CE0115). (4) `ChannelName` is random per service, so publisher and subscriber apps land on different topics.
+
+**Workaround:** BSON patch scripts for unlimited length, subject and channel name, then `mxcli fix hashes --repair`; avoid `EventId` as an attribute name; check that publisher and subscriber channel names are equal before running. Measured: 16 of 16 channels matched on the broker after the patch.
+
+**Toolkit side:** ledger only (`project-bin/mxpatch.py` is the place for a shipped patcher if this recurs).

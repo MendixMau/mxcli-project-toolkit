@@ -143,7 +143,7 @@ mask() {  # print argv joined, with the value after any password/secret/token/ke
 # with the remedy, instead of dying mid-restart on "command not found".
 command -v mxtk_port_holder >/dev/null 2>&1 || {
   echo "app-restart: bin/_common.sh is older than this script (no mxtk_port_holder)." >&2
-  echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --upgrade-bin _common.sh   (backs up a hand-edited copy first)" >&2; exit 2; }
+  echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --only-bin _common.sh --upgrade-bin _common.sh   (installs just that file; backs up a hand-edited copy first)" >&2; exit 2; }
 # blocked <port> "<pid>|<name>" <when> — exit 4, the holder named, nothing of it touched.
 blocked() {
   echo "✗ app-restart: instrument blocked — port :$1 is held by $(mxtk_holder_text "$2"), not this project's run --local." >&2
@@ -160,7 +160,7 @@ blocked() {
 # _common.sh that predates them.
 command -v mxtest_left >/dev/null 2>&1 && command -v mxtk_pid_is_mxcli_run >/dev/null 2>&1 || {
   echo "app-restart: bin/_common.sh is older than this script (no mxtest_left / mxtk_pid_is_mxcli_run)." >&2
-  echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --upgrade-bin _common.sh   (backs up a hand-edited copy first)" >&2; exit 2; }
+  echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --only-bin _common.sh --upgrade-bin _common.sh   (installs just that file; backs up a hand-edited copy first)" >&2; exit 2; }
 # in_our_tree <pid> — the recorded pid itself, or a descendant of it (the runtime mxcli started).
 in_our_tree() { [ "$ALIVE" = 1 ] && mxtk_pid_in_tree "$1" "$PID"; }
 

@@ -80,19 +80,8 @@ adding a fourth row to the table above.
 
 ## 3. The five journey rungs — what "the golden path is proven" actually requires
 
-One journey = one persona walking a path with carried state, asserted in this order (each rung is
-only meaningful if the one above held):
-
-| # | Rung | Catches |
-|---|---|---|
-| 1 | Landing guard | without it, every later assertion runs against the *previous* page |
-| 2 | What the screen says | the machine can do the work right and the screen can still lie about it |
-| 3 | Ordered spans | existence-only checks can't tell a skipped step from a reordered one |
-| 4 | Data effects (3 claims: delta / assocMustBeSet / mustPointAt) | saved vs. saved-with-link vs. saved-with-the-*right*-link |
-| 5 | Outcome | per-step deltas can each be right while the journey's net result is wrong |
-
-Full spec, mutants, and the false-green register this exists to close: `journey-proof.md`,
-`testing-shape.md` §4.
+→ see `journey-proof.md` § The five rungs (one persona, carried state; each rung only meaningful if
+the one above held). The false-green register it closes: `testing-shape.md` §4.
 
 ## 4. The cadence layer — the thing most likely to be silently unmet
 

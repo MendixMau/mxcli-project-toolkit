@@ -177,6 +177,8 @@ runtime inside the same misleading error family.
 
 ---
 
+**`describe constant` and `show constants` print the stored default verbatim (mxcli v0.26.0 and v0.27.0, no masking).** Never run them on a project whose constants may hold a credential: the value lands in the transcript. Keep secret constants empty in the model and pass them with `--constant Module.Name=value`.
+
 ## Step 4 — Write the decision down where the next session will read it
 
 One file per project: `docs/constants-register.md`. It carries two things.

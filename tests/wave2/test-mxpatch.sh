@@ -156,13 +156,40 @@ I="$(idx "$M")"; [ "$RC" -eq 0 ] && [ "$I" = "checked 27" ] && ok "exec.sh --pat
 [ "$(find "$M/mprcontents" -name '*.bak' | wc -l | tr -d ' ')" = 0 ] && ok "exec.sh --patch form: no *.bak under mprcontents/ either" || bad "patch form left a .bak in mprcontents/"
 M="$WORK/t"; model "$M"; mkdir -p "$WORK/tmpdir"   # no MXPATCH_BACKUP_DIR: the temp dir, not the model tree
 OUT="$( cd "$M" && env -u MXPATCH_BACKUP_DIR TMPDIR="$WORK/tmpdir" "$PY" "$BIN/wf-add-path-terminators.py" TestApp.mpr MyFirstModule.Approval --apply 2>&1)"; RC=$?
-[ "$RC" -eq 0 ] && ls "$WORK/tmpdir/mxpatch-bak/TestApp/$WF.mxunit."*.bak >/dev/null 2>&1 && [ "$(find "$M" -name '*.bak' | wc -l | tr -d ' ')" = 0 ] \
-  && ok "default backup dir: <tempdir>/mxpatch-bak/<model>/, nothing in the model tree" || bad "default backup rc=$RC" "$OUT"
+DEFB="$(ls -d "$WORK/tmpdir"/mxpatch-bak-*/ 2>/dev/null | head -1)"; DEFB="${DEFB%/}"
+[ "$RC" -eq 0 ] && [ -n "$DEFB" ] && ls "$DEFB/TestApp/$WF.mxunit."*.bak >/dev/null 2>&1 && [ "$(find "$M" -name '*.bak' | wc -l | tr -d ' ')" = 0 ] \
+  && ok "default backup dir: <tempdir>/mxpatch-bak-<uid>/<model>/, nothing in the model tree" || bad "default backup rc=$RC" "$OUT"
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) ;;   # no POSIX modes there
+  *) PERM="$("$PY" -c 'import os,stat,sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "$DEFB" 2>/dev/null)"
+     [ "$PERM" = 0o700 ] && ok "[guard] default backup dir is private (0700), not a shared predictable /tmp dir" || bad "default backup dir mode: ${PERM:-<none>}" ;;
+esac
+# Two writes to the same unit within one second keep two backups (the name was one-second resolution).
+M="$WORK/b2"; model "$M"; rm -rf "$WORK/bak2"
+MXPATCH_BACKUP_DIR="$WORK/bak2" "$PY" -c '
+import sys; sys.path.insert(0, sys.argv[1]); import mxpatch
+m = mxpatch.Model(sys.argv[2])
+for v in ("First", "Second"):        # one process, well inside one second
+    u = m.find_unit("Workflows$Workflow", "Approval")
+    mxpatch.set_value(mxpatch.find_element(u.doc, "ACT_Approval_Notify"), "Caption", v)
+    m.write_unit(u, apply=True, backup=True, log=lambda s: None)
+' "$BIN" "$M/TestApp.mpr" >/dev/null 2>&1
+NB="$(ls "$WORK/bak2" 2>/dev/null | wc -l | tr -d ' ')"
+[ "$NB" = 2 ] && ok "[guard] two writes in the same second: 2 backups, none overwritten" || bad "same-second backups: $NB" "$(ls -la "$WORK/bak2" 2>&1)"
 M="$WORK/r"; model "$M"; F0="$("$PY" -c 'import sys,hashlib; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$M/$(upath $WF)")"
 OUT="$( cd "$M" && MXPATCH_BACKUP_DIR="$M/mprcontents/bak" "$PY" "$BIN/wf-add-path-terminators.py" TestApp.mpr MyFirstModule.Approval --apply 2>&1)"; RC=$?
 [ "$RC" -ne 0 ] && [ ! -e "$M/mprcontents/bak" ] && [ "$(idx "$M")" = "checked 27" ] && printf '%s' "$OUT" | grep -q 'is inside' \
   && [ "$F0" = "$("$PY" -c 'import sys,hashlib; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$M/$(upath $WF)")" ] \
   && ok "[guard] MXPATCH_BACKUP_DIR inside mprcontents/: refused before anything is written" || bad "inside-mprcontents rc=$RC" "$OUT"
+# The same refusal through a symlink into mprcontents/, and through another case spelling
+# (MPRCONTENTS/ is mprcontents/ on macOS and Windows; refused everywhere, which only refuses more).
+ln -s "$M/mprcontents" "$WORK/mc-link"
+for probe in "$WORK/mc-link/x" "$M/MPRCONTENTS/x"; do
+  OUT="$( cd "$M" && MXPATCH_BACKUP_DIR="$probe" "$PY" "$BIN/wf-add-path-terminators.py" TestApp.mpr MyFirstModule.Approval --apply 2>&1)"; RC=$?
+  [ "$RC" -ne 0 ] && printf '%s' "$OUT" | grep -q 'is inside' && [ "$(idx "$M")" = "checked 27" ] \
+    && [ "$(find "$M/mprcontents" -name '*.bak' | wc -l | tr -d ' ')" = 0 ] && [ ! -e "$M/MPRCONTENTS" ] \
+    && ok "[guard] MXPATCH_BACKUP_DIR=${probe#$WORK/}: refused, nothing written" || bad "probe ${probe#$WORK/} rc=$RC" "$OUT"
+done
 grep -q 'The ContentsHash index matches every unit file' "$FX/after-ported-patchers-v0.26.0.out" && grep -q "MISMATCH  $WF" "$FX/after-master-patchers-v0.26.0.out" \
   && ok "[guard] captured: mxcli v0.26.0 found master's patchers stale and these clean, on this model" || bad "capture files"
 

@@ -56,7 +56,8 @@ and pluggable-widget properties addressed by PropertyKey -- both wait on a captu
 
 BACKUPS. write_unit(backup=True) keeps the old bytes of the unit OUTSIDE mprcontents/, in
 $MXPATCH_BACKUP_DIR (exec.sh --patch points it into the snapshot it just took, so the backup
-is pruned with it), else <tempdir>/mxpatch-bak/<model>/. Until 2026-10-15 it was
+is pruned with it), else <tempdir>/mxpatch-bak-<uid>/<model>/ (created 0700). Until
+2026-10-15 it was
 <unit>.mxunit.bak beside the unit: untracked in the model folder, and one
 `git add mprcontents` from being committed (field run, #390).
 
@@ -67,6 +68,7 @@ import glob
 import hashlib
 import os
 import sqlite3
+import stat
 import struct
 import sys
 import tempfile
@@ -121,6 +123,25 @@ def _atomic_write(path, data):
         if os.path.exists(tmp):
             os.remove(tmp)
         raise
+
+
+def _private_tmp():
+    """<tempdir>/mxpatch-bak-<uid>, created 0700 and checked to be ours and not a symlink; a
+    shared, predictable /tmp/mxpatch-bak is open to other local users (#374 review). Anything
+    else found there: a fresh mkdtemp (0700) instead."""
+    me = os.getuid() if hasattr(os, "getuid") else None
+    tag = str(me) if me is not None else (os.environ.get("USERNAME") or os.environ.get("USER") or "user")
+    base = os.path.join(tempfile.gettempdir(), "mxpatch-bak-%s" % tag)
+    try:
+        os.mkdir(base, 0o700)
+    except FileExistsError:
+        pass
+    st = os.lstat(base)
+    if stat.S_ISDIR(st.st_mode) and not stat.S_ISLNK(st.st_mode) and (me is None or st.st_uid == me):
+        if me is not None and (st.st_mode & 0o077):
+            os.chmod(base, 0o700)
+        return base
+    return tempfile.mkdtemp(prefix="mxpatch-bak-")
 
 
 def _bson_str(t, key, value):
@@ -374,17 +395,21 @@ class Model(object):
 
     # -- write -------------------------------------------------------------------------------
     def backup_dir(self):
-        """Where write_unit(backup=True) keeps a unit's old bytes: $MXPATCH_BACKUP_DIR, else
-        <tempdir>/mxpatch-bak/<model name>. Never inside mprcontents/ (refused), where a backup
-        is an untracked file in the model tree that `git add mprcontents` would commit."""
-        d = os.environ.get("MXPATCH_BACKUP_DIR") or os.path.join(
-            tempfile.gettempdir(), "mxpatch-bak", os.path.splitext(os.path.basename(self.mpr))[0])
-        d = os.path.abspath(d)
-        inside = os.path.normcase(os.path.join(self.contents, ""))
-        if os.path.normcase(os.path.join(d, "")).startswith(inside):
+        """Where write_unit(backup=True) keeps a unit's old bytes: $MXPATCH_BACKUP_DIR, else a
+        private per-user dir under the temp dir (_private_tmp). Never inside mprcontents/
+        (refused), where a backup is an untracked file in the model tree that
+        `git add mprcontents` would commit."""
+        model = os.path.splitext(os.path.basename(self.mpr))[0]
+        d = os.environ.get("MXPATCH_BACKUP_DIR") or os.path.join(_private_tmp(), model)
+        # realpath on both sides, so a symlink into mprcontents/ is seen through, and compared
+        # lower-cased: on macOS and Windows "MPRCONTENTS/x" IS mprcontents/. Lower-casing on Linux
+        # too only refuses more (a sibling spelled MPRCONTENTS), never less (#374 review).
+        def key(p):
+            return os.path.normcase(os.path.join(os.path.realpath(p), "")).lower()
+        if key(d).startswith(key(self.contents)):
             raise PatchError("MXPATCH_BACKUP_DIR %s is inside %s: a backup there is an untracked file "
                              "in the model tree. Point it outside mprcontents/." % (d, self.contents))
-        return d
+        return os.path.abspath(d)
 
     def write_unit(self, unit, apply=False, backup=False, log=None):
         """Encode `unit.doc`, write it and set its ContentsHash, as one step.
@@ -410,7 +435,15 @@ class Model(object):
         if backup:
             bdir = self.backup_dir()
             os.makedirs(bdir, exist_ok=True)
-            bak = os.path.join(bdir, "%s.%s.bak" % (os.path.basename(unit.path), time.strftime("%Y%m%d-%H%M%S")))
+            # Timestamp + pid + a counter: two writes to one unit within a second must not
+            # overwrite the first backup (#374 review).
+            n = 0
+            while True:
+                bak = os.path.join(bdir, "%s.%s-%d-%d.bak" % (os.path.basename(unit.path),
+                                   time.strftime("%Y%m%d-%H%M%S"), os.getpid(), n))
+                if not os.path.exists(bak):
+                    break
+                n += 1
             _atomic_write(bak, unit.raw)
         # ORDER, chosen so that every crash state is one `mxcli fix hashes` reports and a re-run
         # repairs (#374 review): (1) commit the NEW hash to the index, (2) swap the file in with

@@ -6,6 +6,7 @@
 #   bin/mx-metadata-note.py write    [<commit>] [--force] # write that commit's note
 #   bin/mx-metadata-note.py backfill [<rev-range>] [--dry-run] [--force]
 #   bin/mx-metadata-note.py sync     <remote>            # publish: fetch + merge the remote's notes, then push
+#   bin/mx-metadata-note.py units    <path-to.mpr> [--hashes-only]  # working-tree unit list (app-facts.sh)
 #   (git push never carries the notes -- run sync after pushing the branch)
 #   (all take --mpr <path-from-git-top> when there is more than one candidate .mpr)
 #   Run it as "$PY" bin/mx-metadata-note.py, PY from _common.sh's resolve_py -- never through the
@@ -37,7 +38,9 @@
 # notes backfilled on a 357-commit field app, pushed, and Studio Pro 11.15 History shows them (screenshot
 # confirmed by the user, 2026-10-12).
 #
-# PRODUCER/CONSUMER. Reads only git objects -- no working tree, no mxcli, no mxbuild. Run by the
+# PRODUCER/CONSUMER. Reads only git objects -- no working tree, no mxcli, no mxbuild -- except
+# `units`, which reads the working-tree model for project-bin/app-facts.sh (its incremental loop
+# sweep and its freshness line in bin/status.sh); one UnitID -> name mapping serves both. Run by the
 # post-commit / post-rewrite hooks bin/install-project-hooks.sh installs (init-project.sh and
 # sync-project.sh run that installer). Studio Pro is the consumer. Never blocks a commit: every
 # failure prints one warning and exits 0, because a missing note costs a History entry and a
@@ -45,7 +48,7 @@
 #
 # Stdlib only (sqlite3, json, subprocess): runs under any python3 on mac, Linux and Git Bash.
 
-import json, os, re, sqlite3, struct, subprocess, sys, tempfile
+import base64, hashlib, json, os, re, sqlite3, struct, subprocess, sys, tempfile, urllib.parse
 
 REF = "mx_metadata"
 STATUS = {"A": "Added", "M": "Modified", "D": "Deleted"}
@@ -110,35 +113,42 @@ def find_mpr(arg=None):
     return os.path.relpath(real[0], os.path.realpath(top)).replace(os.sep, "/")
 
 
-class Rev:
-    """The model as it stood at one commit."""
+def unit_table(path):
+    """{UnitID: (ContainerID, ContentsHash)} from an .mpr's Unit table, opened read-only."""
+    uri = "file:" + urllib.parse.quote(os.path.abspath(path).replace(os.sep, "/"), safe="/:") + "?mode=ro"
+    db = sqlite3.connect(uri, uri=True)
+    try:
+        cols = {r[1] for r in db.execute("pragma table_info(Unit)")}
+        hcol = "ContentsHash" if "ContentsHash" in cols else "NULL"
+        return {guid(u): ((guid(c) if c else None), h or "")
+                for u, c, h in db.execute(f"select UnitID, ContainerID, {hcol} from Unit")}
+    finally:
+        db.close()
 
-    def __init__(self, rev, mpr):
-        self.rev, self.mpr = rev, mpr
-        self.contents = (os.path.dirname(mpr) + "/mprcontents").lstrip("/")
-        self._units, self._parent = {}, None
+
+class Model:
+    """The document tree of one model: the .mpr Unit table plus the unit bodies. Rev reads it
+    as it stood at a commit (git objects only); Tree reads the working tree (app-facts.sh's
+    incremental sweep and its freshness line). module_of/qualified_name are the one mapping
+    from a UnitID to the name Studio Pro and mxcli show."""
+
+    def __init__(self, mpr):
+        self.mpr = mpr
+        self._units, self._table = {}, None
+
+    def table(self):
+        if self._table is None:
+            self._table = self._read_table()
+        return self._table
 
     def parent_of(self, uid):
-        if self._parent is None:
-            fd, path = tempfile.mkstemp(suffix=".mpr")
-            try:
-                with os.fdopen(fd, "wb") as f:
-                    f.write(git("show", f"{self.rev}:{self.mpr}", binary=True))
-                db = sqlite3.connect(path)
-                try:
-                    self._parent = {guid(u): (guid(c) if c else None)
-                                    for u, c in db.execute("select UnitID, ContainerID from Unit")}
-                finally:
-                    db.close()
-            finally:
-                os.unlink(path)
-        return self._parent.get(uid)
+        row = self.table().get(uid)
+        return row[0] if row else None
 
     def unit(self, uid):
         if uid not in self._units:
-            path = f"{self.contents}/{uid[:2]}/{uid[2:4]}/{uid}.mxunit"
-            r = subprocess.run(["git", "show", f"{self.rev}:{path}"], capture_output=True)
-            self._units[uid] = top_level_strings(r.stdout) if r.returncode == 0 else {}
+            b = self._unit_bytes(uid)
+            self._units[uid] = top_level_strings(b) if b else {}
         return self._units[uid]
 
     def module_of(self, uid):
@@ -150,6 +160,96 @@ class Rev:
                 return d.get("Name", "")
             cur = self.parent_of(cur)
         return ""
+
+    def folder_path(self, uid):
+        """Names of the containers between the module and the unit, outermost first."""
+        names, seen, cur = [], {uid}, self.parent_of(uid)
+        while cur and cur not in seen:
+            seen.add(cur)
+            d = self.unit(cur)
+            if d.get("$Type") != "Projects$Folder":
+                break
+            names.append(d.get("Name", ""))
+            cur = self.parent_of(cur)
+        return list(reversed(names))
+
+
+class Rev(Model):
+    """The model as it stood at one commit."""
+
+    def __init__(self, rev, mpr):
+        super().__init__(mpr)
+        self.rev = rev
+        self.contents = (os.path.dirname(mpr) + "/mprcontents").lstrip("/")
+
+    def _read_table(self):
+        fd, path = tempfile.mkstemp(suffix=".mpr")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(git("show", f"{self.rev}:{self.mpr}", binary=True))
+            return unit_table(path)
+        finally:
+            os.unlink(path)
+
+    def _unit_bytes(self, uid):
+        path = f"{self.contents}/{uid[:2]}/{uid[2:4]}/{uid}.mxunit"
+        r = subprocess.run(["git", "show", f"{self.rev}:{path}"], capture_output=True)
+        return r.stdout if r.returncode == 0 else None
+
+
+class Tree(Model):
+    """The model in the working tree: <mpr> and <mpr dir>/mprcontents. MPR v2 only -- a v1
+    model keeps its units inside the .mpr, and the caller falls back to a full sweep."""
+
+    def __init__(self, mpr):
+        super().__init__(mpr)
+        self.contents = os.path.join(os.path.dirname(os.path.abspath(mpr)), "mprcontents")
+        if not os.path.isdir(self.contents):
+            raise SystemExit(f"mx-metadata-note units: {self.contents} not found (MPR v1 model?)")
+
+    def _read_table(self):
+        return unit_table(self.mpr)
+
+    def _unit_bytes(self, uid):
+        try:
+            with open(os.path.join(self.contents, uid[:2], uid[2:4], uid + ".mxunit"), "rb") as f:
+                return f.read()
+        except OSError:
+            return None
+
+
+def units(mpr, hashes_only=False):
+    """One TSV line per unit of the working-tree model: UnitID, content hash and, unless
+    hashes_only, UnitType, qualified name (Module.Name, "" for a unit outside a module) and the
+    folder path (Module/Folder/.../Name).
+
+    The hash has the Unit table's ContentsHash format, base64(sha256(<the .mxunit bytes>)), and
+    is computed from the bytes. The column normally holds that same value, but nothing guarantees
+    a row is rewritten in the same moment as its file (a save in progress, a checkout of the two
+    at different states), and a stale row would hide a change. The bytes are what
+    `mxcli describe` reads, so they win; the column is the fallback for a unit with no file, and
+    each disagreement is counted on stderr."""
+    t = Tree(mpr)
+    out, stale = sys.stdout, 0
+    for uid in sorted(t.table()):
+        h = t.table()[uid][1]
+        b = t._unit_bytes(uid)
+        if b is not None:
+            fh = base64.b64encode(hashlib.sha256(b).digest()).decode()
+            stale += bool(h) and h != fh
+            h = fh
+        if hashes_only:
+            out.write(f"{uid}\t{h}\n")
+            continue
+        d = t.unit(uid)
+        mod, name = t.module_of(uid), d.get("Name", "")
+        qn = f"{mod}.{name}" if mod and name and d.get("$Type") != "Projects$ModuleImpl" else ""
+        path = "/".join([mod] + t.folder_path(uid) + [name]) if qn else ""
+        out.write(f"{uid}\t{h}\t{d.get('$Type', '')}\t{qn}\t{path}\n")
+    if stale:
+        print(f"{stale} unit(s) whose Unit-table ContentsHash disagrees with the .mxunit bytes; the bytes were used",
+              file=sys.stderr)
+    return 0
 
 
 def model_changes(commit, mpr):
@@ -317,12 +417,18 @@ def main(argv):
     if "--mpr" in args:
         i = args.index("--mpr"); mpr_arg = args[i + 1]; del args[i:i + 2]
     cmd = args.pop(0) if args else "help"
+    if cmd == "units":
+        hashes = "--hashes-only" in args
+        args = [a for a in args if a != "--hashes-only"]
+        if not args:
+            raise SystemExit("usage: mx-metadata-note.py units <path-to.mpr> [--hashes-only]")
+        return units(args[0], hashes)
     if cmd == "sync":
         if not args:
             raise SystemExit("usage: mx-metadata-note.py sync <remote>")
         return sync(args[0])
     if cmd not in ("changes", "write", "backfill"):
-        print("usage: mx-metadata-note.py changes|write [<commit>] [--force] | backfill [<range>] [--dry-run] [--force] | sync <remote>  [--mpr <path>]")
+        print("usage: mx-metadata-note.py changes|write [<commit>] [--force] | backfill [<range>] [--dry-run] [--force] | sync <remote>  [--mpr <path>] | units <path-to.mpr> [--hashes-only]")
         return 2
     mpr = find_mpr(mpr_arg)
     if cmd == "changes":

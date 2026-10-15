@@ -1,0 +1,24 @@
+# mdl-scan-rules.tsv — one row per STOP row of skills/learned-mdl-preflight.md that a text pattern
+# identifies. Read by bin/mdl-scan.sh. Columns, TAB-separated:
+#   id       STOP-<n>, the preflight row number
+#   kind     line          ERE on the comment-stripped, lowercased line (strings kept)
+#            customcontent ERE on the same line with string literals blanked, only inside a
+#                          datagrid column body whose header says ShowContentAs: customContent
+#            contentparams built-in: a ContentParams value that is not a bare attribute,
+#                          an unquoted association path or a quoted literal (pattern unused)
+#   severity warn   exec.sh prints the hit and goes on; the BUILD-LOG row notes it
+#            block  exec.sh refuses (MXTK_SCAN_OVERRIDE="<reason>" is the user's override)
+#            A rule ships as `warn`. It goes to `block` only after ONE field run in which it
+#            caught a real failure and flagged nothing valid, cited on the commit that flips
+#            it. Candidates: STOP-12, STOP-16, STOP-26. STOP-1 stays `warn`: its evidence
+#            predates v0.24.0, where `mx check` is 0 errors and Studio Pro load is untested.
+#   pattern  lowercase ERE (POSIX awk; no \b, no lookaround)
+#   message  what the hit is
+#   fix      the rewrite
+#   evidence the bug-log entry holding the captured failure; its fixture is
+#            tests/wave2/fixtures/mdl-scan/<id>.{bad,good}.mdl (`-- evidence:` lines)
+# A rule with no captured failure in bug-logs/ does not get a row (issue #349).
+STOP-1	customcontent	warn	(visible|editable)[[:space:]]*:[[:space:]]*\[	conditional Visible/Editable inside a datagrid customContent column (StorageLoadException on Studio Pro open)	set it in Studio Pro by hand, or bind dynamictext (Attribute: "State")	BUG-18
+STOP-12	contentparams	warn	-	ContentParams value is an expression; it is stored as an attribute path (CE1613 at mxbuild)	bind a bare attribute ({1} = Attr) or a quoted literal; make a computed label a String attribute	BUG-142
+STOP-16	line	warn	\[%currentuser/	path inside the [%CurrentUser%] token in an XPath constraint (CE0161)	keep the token bare and walk the whole path on the left: [Mod.A_B/Mod.B/Mod.B_Account = '[%CurrentUser%]']	bug-logs/mxcli-bugs.md "Any GRANT/REVOKE exec in a module fails once ANY entity there has an Account_Supplier-style cross-module XPath"
+STOP-26	line	warn	attribute[[:space:]]*:[[:space:]]*"[^"]*/[^"]*"	quoted association path in Attribute: is stored as one attribute named "Assoc/Attr" (CE1613)	write the path unquoted: Attribute: Assoc_A_B/Name	BUG-DRAFT-dg2-association-path-bindings

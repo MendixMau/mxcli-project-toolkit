@@ -26,11 +26,11 @@ own bug log before running anything you have not run here before.
 <!-- ROUTING:BEGIN agent:gate -->
 Open a file when its When cell happens in your task, not all of them at the start. Below the baseline rows, a When cell is only the trigger; the file says the rest. A page task never opens the microflow rows; a microflow task never opens the page rows.
 
-This table is your whole list. The baseline table in the project's CLAUDE.local.md is shared with the main session and the other helpers: skip every row there whose Role(s) cell does not say *every role* or name gate.
+This table is your whole list. The baseline table in the project's CLAUDE.local.md is shared with the main session and the other helpers: skip every row there whose Role(s) cell does not say *every role* or name gate. A cell that names gate as *on demand* is a row this table lists below the baseline rows, by its trigger.
 
 | Load this | When |
 |---|---|
-| `skills/conversion-runbook.md` | Any pipeline work at all — every session, before producing any stage artifact: read §1b plus your own stage's section, not the whole file (gate-check.sh prints the line spans); READMEs and the guide are orientation only |
+| `bin/runbook-slice.sh` | Any pipeline work at all, as a helper — every dispatch, before producing anything: run the toolkit's bin/runbook-slice.sh <stage>, which prints §1b plus your stage's section of the conversion runbook; never open skills/conversion-runbook.md whole |
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
 | `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
 | `skills/degrade-to-judgement.md` | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict |

@@ -11,8 +11,12 @@
 # project path, and --only render mode WRITES into ROOT in place — so this cannot point the real
 # script at a project directory the way other project-shaped fixtures do. Instead it copies the
 # real render-routing.sh and its real lib/skill-routing.sh verbatim into a throwaway scratch
-# tree that mimics this repo's own shape (bin/, bin/lib/, the 9 SURFACES files with real markers,
+# tree that mimics this repo's own shape (bin/, bin/lib/, the SURFACES files with real markers,
 # skills/), so ROOT resolves inside the scratch tree and nothing under the real repo is touched.
+#
+# Since 2026-10-14 skills/conversion-runbook.md is NOT a surface: it carried a fourth rendered
+# copy of the baseline table inside a baseline file. The scratch runbook below therefore carries
+# a pointer and no markers, and T1/T3 assert the table never reaches it.
 #
 # Usage: bash tests/wave2/test-routing-tier.sh [path-to-render-routing.sh]
 #   (lib/skill-routing.sh is taken from alongside it: $(dirname SUT)/lib/skill-routing.sh)
@@ -75,7 +79,7 @@ demo	skills/demo-tier.md	Doing the thing this probes — tier-demotion target	al
 conversion-runbook	skills/conversion-runbook.md	Any pipeline work — every session	all	-	baseline	spine
 EOF
 
-# ── The 9 SURFACES render-routing.sh hard-codes, each with real markers, minimal otherwise ──
+# ── The SURFACES render-routing.sh hard-codes, each with real markers, minimal otherwise ────
 cat > "$R/ROUTING.md" <<'EOF'
 # Routing
 
@@ -99,9 +103,9 @@ mkdir -p "$R/skills"
 cat > "$R/skills/conversion-runbook.md" <<'EOF'
 # Runbook
 
-<!-- ROUTING:BEGIN readme-baseline -->
-<!-- ROUTING:END -->
+The baseline set lives in CLAUDE.local.md and ROUTING.md; it is not copied into this file.
 EOF
+RB_BEFORE="$(cat "$R/skills/conversion-runbook.md")"
 for a in ba architect mdl gate test review; do
   cat > "$R/agents/${a}-agent.md" <<EOF
 # ${a}-agent
@@ -133,15 +137,23 @@ else
   ok "--check after the first render reports in sync"
 fi
 
-echo "== T1: while baseline, demo-tier.md appears on both baseline surfaces =="
+echo "== T1: while baseline, demo-tier.md appears on the README baseline surface, never in the runbook =="
 case "$(sed -n '/ROUTING:BEGIN readme-baseline/,/ROUTING:END/p' "$R/README.md")" in
   *demo-tier.md*) ok "README.md readme-baseline block lists demo-tier.md before demotion" ;;
   *) bad "README.md readme-baseline block missing demo-tier.md before demotion" ;;
 esac
 case "$(cat "$R/skills/conversion-runbook.md")" in
-  *demo-tier.md*) ok "conversion-runbook.md readme-baseline block lists demo-tier.md before demotion" ;;
-  *) bad "conversion-runbook.md readme-baseline block missing demo-tier.md before demotion" ;;
+  *demo-tier.md*|*ROUTING:BEGIN*) bad "conversion-runbook.md received a rendered baseline table (it is no longer a surface)" ;;
+  *) ok "conversion-runbook.md carries no rendered baseline table (not a surface)" ;;
 esac
+[ "$(cat "$R/skills/conversion-runbook.md")" = "$RB_BEFORE" ] \
+  && ok "render left conversion-runbook.md byte-identical" \
+  || bad "render rewrote conversion-runbook.md, which is not a surface" "$(cat "$R/skills/conversion-runbook.md")"
+if grep -qx 'skills/conversion-runbook.md' "$R/bin/render-routing.sh"; then
+  bad "render-routing.sh still lists skills/conversion-runbook.md in SURFACES"
+else
+  ok "render-routing.sh SURFACES no longer lists skills/conversion-runbook.md"
+fi
 case "$(sed -n '/ROUTING:BEGIN readme-situational/,/ROUTING:END/p' "$R/README.md")" in
   *demo-tier.md*) bad "README.md readme-situational block already lists demo-tier.md before demotion (should be baseline-only)" ;;
   *) ok "README.md readme-situational block does not list demo-tier.md before demotion" ;;
@@ -173,10 +185,9 @@ case "$(sed -n '/ROUTING:BEGIN readme-baseline/,/ROUTING:END/p' "$R/README.md")"
   *demo-tier.md*) bad "README.md readme-baseline block still lists demo-tier.md after demotion" ;;
   *) ok "README.md readme-baseline block no longer lists demo-tier.md after demotion" ;;
 esac
-case "$(cat "$R/skills/conversion-runbook.md")" in
-  *demo-tier.md*) bad "conversion-runbook.md readme-baseline block still lists demo-tier.md after demotion" ;;
-  *) ok "conversion-runbook.md readme-baseline block no longer lists demo-tier.md after demotion" ;;
-esac
+[ "$(cat "$R/skills/conversion-runbook.md")" = "$RB_BEFORE" ] \
+  && ok "conversion-runbook.md still byte-identical after the demotion re-render" \
+  || bad "the demotion re-render rewrote conversion-runbook.md" "$(cat "$R/skills/conversion-runbook.md")"
 # The anchor skill must still be there — proves the disappearance is the demoted row, not an
 # empty table wiping every surface.
 case "$(sed -n '/ROUTING:BEGIN readme-baseline/,/ROUTING:END/p' "$R/README.md")" in
@@ -204,22 +215,82 @@ if [ -z "$BASE2" ]; then
 elif [ -z "$BASE1" ]; then
   bad "skipped: no BASE1 to compare against" ""
 else
-  # The delta is demo-tier.md's own word count PLUS the words its now-removed row contributed
-  # to the readme-baseline block rendered *inside* conversion-runbook.md — conversion-runbook.md
-  # is itself one of the summed baseline docs, and it lists itself and its siblings in its own
-  # body, so demoting any baseline skill shrinks two things at once. An exact-equals assertion
-  # against DEMO_WORDS alone is therefore too strict; assert the drop is at least demo-tier.md's
-  # own body (the table-row contribution is extra, never negative) and bounded well below a
-  # whole extra file's worth, so a real regression (e.g. the demoted skill not actually dropping,
-  # or an unrelated surface losing content) still fails this.
+  # Exactly demo-tier.md's own word count. Before 2026-10-14 the runbook (itself a summed
+  # baseline doc) carried a rendered copy of the baseline table, so a demotion also shrank the
+  # runbook by the demoted row and this could only assert a range. With the runbook out of
+  # SURFACES nothing else moves: any other delta means some surface still copies the table into
+  # a counted file.
   DELTA=$((BASE1 - BASE2))
-  if [ "$DELTA" -ge "$DEMO_WORDS" ] && [ "$DELTA" -le "$((DEMO_WORDS + 40))" ]; then
-    ok "baseline word count dropped by demo-tier.md's body plus its table row ($BASE1 -> $BASE2, -$DELTA, body=$DEMO_WORDS)"
+  if [ "$DELTA" -eq "$DEMO_WORDS" ]; then
+    ok "baseline word count dropped by exactly demo-tier.md's body ($BASE1 -> $BASE2, -$DELTA)"
   else
-    bad "baseline word count delta out of the expected range for demoting one skill" \
-      "before=$BASE1 after=$BASE2 delta=$DELTA demo_body_words=$DEMO_WORDS expected range=[$DEMO_WORDS, $((DEMO_WORDS + 40))]"
+    bad "baseline word count delta is not exactly the demoted skill's body" \
+      "before=$BASE1 after=$BASE2 delta=$DELTA demo_body_words=$DEMO_WORDS"
   fi
 fi
+
+# ── T6–T8 (2026-10-14): the per-role on-demand token "<role>?" in the agents column ───────────
+# A baseline row whose cell says "mdl?,review" is baseline for review and on demand for mdl:
+# out of mdl's word count, still in mdl's stub (below the baseline rows, trigger only, so it
+# stays findable — CLAUDE.md skill rule 8), and named in the Role(s) column.
+echo "== T6: a 'mdl?' token keeps the row in mdl's stub, on demand, and out of mdl's count =="
+{ echo "# Per Role"; echo; i=0; while [ "$i" -lt 40 ]; do printf 'pr '; i=$((i+1)); done; echo; } > "$R/skills/per-role.md"
+PR_WORDS="$(LC_ALL=C wc -w < "$R/skills/per-role.md" | tr -d ' ')"
+printf 'perrole\tskills/per-role.md\tPer-role probe trigger — tail that only baseline readers see\tmdl?,review\t-\tbaseline\treference\n' >> "$R/bin/lib/skill-routing.tsv"
+printf 'allbut\tskills/anchor.md\tAll-but probe — tail\tall,mdl?\t-\tbaseline\treference\n' >> "$R/bin/lib/skill-routing.tsv"
+OUT6="$("$R/bin/render-routing.sh" 2>&1)" || bad "render with a '?' token exited 0" "$OUT6"
+CHECK6="$("$R/bin/render-routing.sh" --check 2>&1)"; RC6=$?
+[ "$RC6" -eq 0 ] && ok "--check accepts 'mdl?,review' and 'all,mdl?'" || bad "--check rejected a valid '?' token" "$CHECK6"
+MDL_LINE="$(grep -n 'skills/per-role.md' "$R/agents/mdl-agent.md" | head -1)"
+ANCHOR_LINE="$(grep -n 'skills/anchor.md' "$R/agents/mdl-agent.md" | head -1 | cut -d: -f1)"
+case "$MDL_LINE" in
+  *'| Per-role probe trigger |') ok "mdl stub lists the row with its trigger only (on-demand form)" ;;
+  '') bad "mdl stub lost the row — an on-demand row must stay findable" ;;
+  *) bad "mdl stub lists the row in baseline form" "$MDL_LINE" ;;
+esac
+[ -n "$ANCHOR_LINE" ] && [ "${MDL_LINE%%:*}" -gt "$ANCHOR_LINE" ] 2>/dev/null \
+  && ok "mdl stub places it below the baseline rows" || bad "mdl stub row order wrong" "$MDL_LINE / anchor $ANCHOR_LINE"
+grep -q 'skills/per-role.md` | Per-role probe trigger — tail that only baseline readers see |' "$R/agents/review-agent.md" \
+  && ok "review stub keeps the full baseline row" || bad "review stub lost the baseline form" "$(grep per-role "$R/agents/review-agent.md")"
+grep -q 'per-role' "$R/agents/gate-agent.md" && bad "gate stub got a row it is not named on" || ok "gate stub does not get the row"
+role_words() { printf '%s\n' "$CHECK6" | grep '^  stage 5:' | sed -n "s/.* $1 \([0-9]*\)\/.*/\1/p"; }
+RB_W="$(LC_ALL=C wc -w < "$R/skills/conversion-runbook.md" | tr -d ' ')"
+A_W="$(LC_ALL=C wc -w < "$R/skills/anchor.md" | tr -d ' ')"
+MW="$(role_words mdl)"; RW="$(role_words review)"
+# Baseline rows at this point: anchor, runbook, perrole (mdl?,review), allbut (all,mdl? — it
+# points at anchor.md again, so a role it reaches counts anchor twice). demo was demoted in T2.
+[ "$RW" = "$((2 * A_W + RB_W + PR_WORDS))" ] && ok "review's count includes both rows ($RW)" \
+  || bad "review count $RW, wanted $((2 * A_W + RB_W + PR_WORDS))" "$CHECK6"
+[ "$MW" = "$((A_W + RB_W))" ] && ok "mdl's count excludes the 'mdl?,review' and 'all,mdl?' rows ($MW)" \
+  || bad "mdl count $MW, wanted $((A_W + RB_W))" "$CHECK6"
+
+echo "== T7: the Role(s) column names the on-demand roles =="
+case "$(sed -n '/ROUTING:BEGIN readme-baseline/,/ROUTING:END/p' "$R/README.md")" in
+  *'skills/per-role.md` | every stage | review (mdl: on demand) |'*) ok "Role(s) reads 'review (mdl: on demand)'" ;;
+  *) bad "Role(s) cell for 'mdl?,review' wrong" "$(grep per-role "$R/README.md")" ;;
+esac
+case "$(sed -n '/ROUTING:BEGIN readme-baseline/,/ROUTING:END/p' "$R/README.md")" in
+  *'| every stage | every role except mdl (on demand for those) |'*) ok "Role(s) reads 'every role except mdl (on demand for those)'" ;;
+  *) bad "Role(s) cell for 'all,mdl?' wrong" "$(grep 'All-but' "$R/README.md")" ;;
+esac
+
+echo "== T8: the agent audit refuses a '?' token that cannot mean anything =="
+cp "$R/bin/lib/skill-routing.tsv" "$TMP/tsv.good"
+printf 'odrow\tskills/anchor.md\tOn-demand row probe\tmdl?\t-\tondemand\treference\n' >> "$R/bin/lib/skill-routing.tsv"
+O="$("$R/bin/render-routing.sh" --check 2>&1)"; RC=$?
+[ "$RC" -ne 0 ] && printf '%s' "$O" | grep -q 'odrow.*on-demand token on a ondemand row' \
+  && ok "'mdl?' on an ondemand row fails --check, named" || bad "'mdl?' on an ondemand row not refused" "$O"
+cp "$TMP/tsv.good" "$R/bin/lib/skill-routing.tsv"
+printf 'dup\tskills/anchor.md\tDup probe\tmdl,mdl?\t-\tbaseline\treference\n' >> "$R/bin/lib/skill-routing.tsv"
+O="$("$R/bin/render-routing.sh" --check 2>&1)"; RC=$?
+[ "$RC" -ne 0 ] && printf '%s' "$O" | grep -q 'dup.*also listed plain' \
+  && ok "'mdl,mdl?' fails --check, named" || bad "'mdl,mdl?' not refused" "$O"
+cp "$TMP/tsv.good" "$R/bin/lib/skill-routing.tsv"
+printf 'bogus\tskills/anchor.md\tBogus probe\tmdx?\t-\tbaseline\treference\n' >> "$R/bin/lib/skill-routing.tsv"
+O="$("$R/bin/render-routing.sh" --check 2>&1)"; RC=$?
+[ "$RC" -ne 0 ] && printf '%s' "$O" | grep -q 'bad token: mdx?' \
+  && ok "an unknown role with '?' fails --check" || bad "'mdx?' not refused" "$O"
+cp "$TMP/tsv.good" "$R/bin/lib/skill-routing.tsv"
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

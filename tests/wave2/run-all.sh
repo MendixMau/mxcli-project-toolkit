@@ -56,7 +56,7 @@ for t in "$DIR"/test-*.sh; do
   if [ -n "$subj_name" ]; then
     for cand in "$TOOLKIT/bin/$subj_name" "$TOOLKIT/bin/lib/$subj_name" "$TOOLKIT/project-bin/$subj_name" \
                 "$TOOLKIT/skills/$subj_name" "$TOOLKIT/claude-hooks/hooks/$subj_name" \
-                "$TOOLKIT/$subj_name"; do
+                "$TOOLKIT/tests/behaviour/$subj_name" "$TOOLKIT/$subj_name"; do
       [ -f "$cand" ] && { subject="$cand"; break; }
     done
     if [ -z "$subject" ]; then

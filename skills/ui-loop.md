@@ -239,6 +239,14 @@ started it>'` once; it is remembered after that. `--dry-run` says what it would 
 app uses `bin/test-stack-up.sh --restart` instead. This is the one restart an implementer may run
 without the lead (`dispatching.md`).
 
+**Under `mxcli run --local`, restarts matched every "it signs me out" report** in one field app,
+and the trial licence's own 2–4 h stop is a restart too. If a human may be using the app, say so
+in chat **before** restarting. When a human reports "it keeps signing me out", compare the runtime
+log's `successfully started` lines with the times first: 7 starts in ~90 min of theme work lined up
+with the reports (#337). That is a **timing match**; no session table was inspected, and sessions
+do persist in `System.Session` across a container restart (`measured-claims.md`), so the
+mechanism is open.
+
 ## When it finds something — which side is actually wrong
 
 The symptom is easy to see. **Where the fix goes is not, and the instinct is usually wrong.**

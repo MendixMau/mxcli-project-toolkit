@@ -3,7 +3,9 @@
 # ContentsHash, dry-run / already-applied / refuse-if-drifted), mxunit_bson.py's BSON 0x09, and
 # the two wf-*.py patchers ported onto it.
 #
-# usage: bash tests/wave2/test-mxpatch.sh /path/to/project-bin
+# usage: bash tests/wave2/test-mxpatch.sh /path/to/project-bin/exec.sh
+#   (any file in project-bin, or the directory itself; run-all.sh only resolves a named
+#   .sh/.md subject, so the usage line names exec.sh and the fixture tests its directory)
 #
 # Golden input is captured, never written: fixtures/mxpatch/model/ is a real MPR v2 model
 # (Studio Pro-authored base + units mxcli v0.21.0 / v0.26.0 wrote), and the expected verdicts
@@ -15,8 +17,9 @@
 # (no mxpatch.py), the 0x09 case fails (the codec raises), and the patcher cases fail on
 # "index stale after --apply" — the defect, reproduced. [guard] marks regression guards.
 set -uo pipefail
-BIN="${1:?usage: test-mxpatch.sh /path/to/project-bin}"
+BIN="${1:?usage: test-mxpatch.sh /path/to/project-bin/exec.sh}"
 case "$BIN" in /*) ;; *) BIN="$PWD/$BIN" ;; esac
+[ -f "$BIN" ] && BIN="$(dirname "$BIN")"
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 FX="$TK/tests/wave2/fixtures/mxpatch"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/mxpatch.XXXXXX")"

@@ -7068,3 +7068,15 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Workaround:** drop the parameter and find the instance through `System.Workflow_ParentWorkflow` (or the context entity's association); rename the activity (`closeCase`, not `close`).
 
 **Toolkit side:** ledger only; `skills/workflow-structure-rules.md` has the other measured workflow signatures.
+
+## BUG-DRAFT-describe-show-constants-print-secrets: `describe constant` and `show constants` print the stored default, so a demo password lands in the transcript (2026-10-15), HIGH
+
+> **NOT YET FILED.** Upstream issue drafted. The v0.27.0 source has no masking and no `--reveal` flag.
+
+**Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
+
+**What happens.** After a constant's default has been filled with a credential, `describe constant M.Name` and `show constants in M` print it verbatim (seen in two apps' transcripts). Names matching Password, Secret or Token are not masked.
+
+**Workaround:** never run either command on a project whose constants may hold a secret; keep secret constants EMPTY in the model and pass the value at run time with `--constant Module.Name=value` (written nowhere).
+
+**Toolkit side:** one line in `skills/learned-constants-and-secrets.md` (step 3).

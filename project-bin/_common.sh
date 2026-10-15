@@ -933,6 +933,222 @@ EOF_ARGS
 }
 
 # ---------------------------------------------------------------------------
+# The shared lock: mxtk_lock_take / mxtk_lock_release / mxtk_lock_live (+ mxtk_lock_fields)
+#
+# One implementation for exec.sh (the per-project .mpr-snapshots/.exec.lock) and test-scratch.sh
+# (the same file, plus the machine-wide test-port lock). Bash 3.2, POSIX tools, no flock (macOS and
+# Git Bash ship none). It replaces two "keep in step" copies (exec_lock_* / take_over).
+#
+# The lock file holds one line, "<pid> <epoch> <label> nonce=<n>". The nonce makes every line ever
+# written unique, so a line that has left the file never comes back; a line from the pre-nonce code
+# ("<pid> <epoch> <label>", or a bare pid) reads the same way. The holder is LIVE while its pid is
+# alive, not a zombie, and (where `ps -o args=` can say) an exec.sh or test-scratch.sh — the rule the
+# old code used, so a holder written by either version is respected by both.
+#
+# A dead holder's line X is REAPED under a ticket, never by age:
+#   1. reap tickets are files <lock>.reap.<cksum of X>.<N>, holding "<pid> <nonce>", each created
+#      exclusively and never empty (written to <lock>.tmp.<pid>, then `ln`ed into place);
+#   2. ticket N+1 may be taken only when ticket N's pid is dead (same liveness rule) — a live
+#      reaper is never overtaken, however long it takes;
+#   3. only the holder of the highest ticket for X re-reads the lock and removes it, and only if it
+#      still holds exactly X. Then it creates its own lock exclusively, like anyone else;
+#   4. a new holder deletes the tickets of every other key (X is gone for good once replaced).
+# WHY (r-eng-backlog item 1, 2026-10-14): the previous protocol serialised reaping through one
+# `<lock>.takeover` file that went stale by pid OR age and was moved aside and put back with `ln`.
+# While it was moved aside a third contender created a fresh one, the `ln` failed, and two
+# contenders were inside the takeover at once: E read the stale line, D removed it and took a fresh
+# lock, then E's `rm` deleted D's lock — two holders. Re-checking just before the `rm` (a rejected
+# attempt) only narrowed that window. Under tickets the compare and the `rm` belong to one live
+# process per X, and X cannot reappear, so the compare-then-rm cannot hit a fresh lock.
+# Proof: tests/wave2/bench-lock-race.sh reproduces the double holder on the old block and finds
+# none here; tests/wave2/test-lock-reap.sh covers each rule.
+#
+# Mixed versions (a project bin/ older than another session's): the lock file, its line and the
+# liveness rule are unchanged, so neither version deadlocks the other. This code also backs off
+# while a live old-style <lock>.takeover exists (pid alive and under 10 s old, or empty and under
+# a minute — the old code's own rule) and clears a stale one once it holds the lock.
+#
+# ANCHOR(lock-test): MXTK_LOCK_TEST_PAUSE, when set, names a command run as `<cmd> <anchor> <pid>`
+# at: ticket-taken (right after a reap ticket is created), compare (before the re-read of the
+# lock), rm (after the compare matched, before the rm) and created (right after a lock is taken).
+# The race harness pauses there or SIGKILLs <pid>. Unset = no-op. MXTK_LOCK_RETRY_SLEEP (default 1
+# s) is the pause between attempts.
+# ---------------------------------------------------------------------------
+_mxtk_lock_anchor() { [ -z "${MXTK_LOCK_TEST_PAUSE:-}" ] || "$MXTK_LOCK_TEST_PAUSE" "$1" "$$" || true; }
+
+# mxtk_lock_live <pid> — 0 iff that process is alive, not a zombie, and plausibly a lock holder.
+mxtk_lock_live() {
+  local a
+  [ -n "${1:-}" ] || return 1
+  case "$1" in *[!0-9]*) return 1 ;; esac
+  kill -0 "$1" 2>/dev/null || return 1
+  # Linux: an unreaped zombie still answers kill -0; /proc/<pid>/stat says Z after the "(comm) ".
+  case "$(sed 's/.*) //' "/proc/$1/stat" 2>/dev/null | cut -d' ' -f1)" in Z) return 1 ;; esac
+  # A pid reused by an unrelated process is dead to us; where ps cannot show args (Git Bash),
+  # kill -0 alone decides. test-scratch.sh holds the exec lock while it copies the model.
+  a="$(ps -o args= -p "$1" 2>/dev/null || true)"
+  case "$a" in ""|*exec.sh*|*test-scratch.sh*) return 0 ;; esac
+  return 1
+}
+
+# mxtk_lock_fields "<line>" — sets MXTK_LOCK_HPID, MXTK_LOCK_HSINCE (epoch or "") and
+# MXTK_LOCK_HLABEL ("?" for a bare-pid line), the nonce left out. For messages only.
+mxtk_lock_fields() {
+  local l="${1% nonce=*}" rest
+  MXTK_LOCK_HPID="${l%% *}"; MXTK_LOCK_HSINCE=""; MXTK_LOCK_HLABEL="?"
+  rest="${l#* }"; [ "$rest" = "$l" ] && return 0
+  MXTK_LOCK_HSINCE="${rest%% *}"
+  [ "${rest#* }" = "$rest" ] || MXTK_LOCK_HLABEL="${rest#* }"
+  case "$MXTK_LOCK_HSINCE" in ''|*[!0-9]*) MXTK_LOCK_HSINCE="" ;; esac
+  return 0
+}
+
+_mxtk_lock_key() { printf '%s' "$1" | cksum | awk '{print $1 "-" $2}'; }
+
+# _mxtk_lock_excl <lock> <target> <content> — create <target> holding <content>, exclusively and
+# never empty: written to <lock>.tmp.<pid>, then hard-linked (ln fails when <target> exists). On a
+# filesystem without hard links (FAT/exFAT, some shares) ln fails with <target> absent; then an
+# O_EXCL create (noclobber) is used, which has the old written-after-create window.
+_mxtk_lock_excl() {
+  local tmp="$1.tmp.$$" rc=1
+  printf '%s\n' "$3" > "$tmp" 2>/dev/null || return 1
+  if ln "$tmp" "$2" 2>/dev/null; then rc=0
+  elif [ ! -e "$2" ] && [ -e "$tmp" ]; then
+    ( set -o noclobber; printf '%s\n' "$3" > "$2" ) 2>/dev/null && rc=0
+  fi
+  rm -f "$tmp"
+  return "$rc"
+}
+
+# _mxtk_lock_legacy_busy <lock> — 0 while an old-style <lock>.takeover is live by the old rule.
+_mxtk_lock_legacy_busy() {
+  local t since
+  [ -e "$1.takeover" ] || return 1
+  t="$(head -1 "$1.takeover" 2>/dev/null || true)"
+  if [ -z "$t" ]; then [ -z "$(find "$1.takeover" -mmin +1 2>/dev/null)" ]; return; fi
+  since="${t#* }"; since="${since%% *}"; case "$since" in ''|*[!0-9]*) since=0 ;; esac
+  kill -0 "${t%% *}" 2>/dev/null && [ $(( $(date +%s) - since )) -le 10 ]
+}
+
+# _mxtk_lock_reap <lock> <stale line X> — 0 when the lock no longer holds X (we removed it, or it
+# had changed: X never comes back, try to take the lock again at once); 1 when another live reaper
+# holds the highest ticket for X (or an old-style takeover is live) — wait and look again.
+_mxtk_lock_reap() {
+  local L="$1" X="$2" key max=0 n f t
+  if _mxtk_lock_legacy_busy "$L"; then
+    MXTK_LOCK_BLOCKER="$(head -1 "$L.takeover" 2>/dev/null | cut -d' ' -f1) $L.takeover"; return 1
+  fi
+  key="$(_mxtk_lock_key "$X")"
+  for f in "$L.reap.$key".*; do
+    n="${f##*.}"; case "$n" in ''|*[!0-9]*) continue ;; esac
+    [ "$n" -gt "$max" ] && max="$n"
+  done
+  if [ "$max" -gt 0 ]; then
+    f="$L.reap.$key.$max"; t="$(head -1 "$f" 2>/dev/null || true)"
+    if [ -n "$t" ]; then
+      mxtk_lock_live "${t%% *}" && { MXTK_LOCK_BLOCKER="${t%% *} $f"; return 1; }
+    # Empty: only the no-hard-link fallback writes after the create. Its creator is mid-write.
+    elif [ -e "$f" ] && [ -z "$(find "$f" -mmin +1 2>/dev/null)" ]; then MXTK_LOCK_BLOCKER="? $f"; return 1; fi
+  fi
+  n=$((max + 1)); f="$L.reap.$key.$n"
+  _mxtk_lock_excl "$L" "$f" "$$ $_MXTK_LOCK_NONCE" || return 1   # another reaper took N first
+  _mxtk_lock_anchor ticket-taken
+  # Ours is the highest: N+1 needs our pid dead. Checked anyway — the rule, not an inference.
+  [ -e "$L.reap.$key.$((n + 1))" ] && return 1
+  _mxtk_lock_anchor compare
+  if [ -e "$L" ] && [ "$(head -1 "$L" 2>/dev/null || true)" = "$X" ]; then
+    _mxtk_lock_anchor rm
+    # An EMPTY X is not unique: the old code (and the no-hard-link fallback) creates its lock empty
+    # and writes after, so a fresh empty lock can replace the stale one under us. The stale one is
+    # over a minute old (mxtk_lock_take judged it so); a replacement is seconds old. Review of #379.
+    if [ -z "$X" ] && { [ -s "$L" ] || [ -z "$(find "$L" -mmin +1 2>/dev/null)" ]; }; then
+      rm -f "$f"; return 0
+    fi
+    rm -f "$L"
+    MXTK_LOCK_REAPED="$X"
+    return 0   # the ticket stays until the next holder clears it
+  fi
+  rm -f "$f"   # X is gone for good; our ticket is litter
+  return 0
+}
+
+# _mxtk_lock_gc <lock> <our line> — run by a new holder: tickets of every other key, temp files of
+# dead pids, and a stale old-style takeover file.
+_mxtk_lock_gc() {
+  local L="$1" mine f
+  mine="$(_mxtk_lock_key "$2")"
+  for f in "$L".reap.*; do
+    case "$f" in "$L.reap.$mine."*) continue ;; esac
+    rm -f "$f"
+  done
+  for f in "$L".tmp.*; do
+    [ -e "$f" ] || continue
+    mxtk_lock_live "${f##*.tmp.}" || rm -f "$f"
+  done
+  _mxtk_lock_legacy_busy "$L" || rm -f "$L.takeover"
+  return 0
+}
+
+# mxtk_lock_take <lockfile> <label> [tries=6] — 0 taken (MXTK_LOCK_REAPED = the dead holder's line
+# when we reaped one, else ""); 1 a live holder has it (MXTK_LOCK_HELD = its line); 2 gave up after
+# <tries> attempts (others kept taking it, or MXTK_LOCK_BLOCKER = "<pid> <file>": a live reaper's
+# ticket, or an old-style takeover file, that never finished — mxtk_lock_blocked_text says what to
+# do). Call it directly, not in $( ): it sets variables.
+mxtk_lock_take() {
+  local L="$1" label="$2" tries="${3:-6}" i=0 held line slp="${MXTK_LOCK_RETRY_SLEEP:-1}"
+  MXTK_LOCK_HELD=""; MXTK_LOCK_REAPED=""; MXTK_LOCK_BLOCKER=""
+  [ -n "${_MXTK_LOCK_NONCE:-}" ] || _MXTK_LOCK_NONCE="$$$RANDOM$RANDOM$(date +%s)"
+  line="$$ $(date +%s) $label nonce=$_MXTK_LOCK_NONCE"
+  while [ "$i" -lt "$tries" ]; do
+    i=$((i + 1)); MXTK_LOCK_BLOCKER=""   # describes the LAST attempt only
+    if _mxtk_lock_excl "$L" "$L" "$line"; then
+      _mxtk_lock_anchor created
+      _mxtk_lock_gc "$L" "$line"
+      return 0
+    fi
+    held="$(head -1 "$L" 2>/dev/null || true)"
+    if [ -z "$held" ]; then
+      [ -e "$L" ] || continue   # released between our create and our read
+      # Empty: the pre-ticket code writes after its O_EXCL create — wait, unless it is over a
+      # minute old (its writer died between the two) and so a stale line like any other.
+      if [ -z "$(find "$L" -mmin +1 2>/dev/null)" ]; then sleep "$slp"; continue; fi
+    elif mxtk_lock_live "${held%% *}"; then
+      MXTK_LOCK_HELD="$held"; return 1
+    fi
+    _mxtk_lock_reap "$L" "$held" && continue
+    sleep "$slp"   # another live reaper is on it; see who won
+  done
+  MXTK_LOCK_HELD="$(head -1 "$L" 2>/dev/null || true)"
+  return 2
+}
+
+# mxtk_lock_blocked_text — after rc 2, when a live reaper blocked the reap: which pid and which file,
+# and what to do. A reaper normally holds its ticket for milliseconds; one that does not is stopped
+# (Ctrl+Z / SIGSTOP), hung, or a dead reaper's pid reused by another exec.sh-named process where
+# `ps -o args=` cannot tell them apart (Git Bash). Prints nothing when MXTK_LOCK_BLOCKER is empty.
+mxtk_lock_blocked_text() {
+  local p="${MXTK_LOCK_BLOCKER%% *}" f="${MXTK_LOCK_BLOCKER#* }"
+  [ -n "${MXTK_LOCK_BLOCKER:-}" ] || return 0
+  echo "  The dead holder's lock is being reaped by PID $p, which is alive but has not finished:"
+  echo "    $f"
+  if [ "$p" = "?" ]; then
+    echo "  → Its creator died mid-write; it stops counting a minute after it was created. Re-run then."
+  else
+    echo "  → If PID $p is stopped (Ctrl+Z), resume it: kill -CONT $p (or fg in its terminal)."
+    echo "    If it is hung, or not an exec.sh / test-scratch.sh at all (a reused pid), end it: kill $p — then re-run."
+  fi
+}
+
+# mxtk_lock_release <lockfile> — remove it only while it holds our own line (pid AND nonce).
+mxtk_lock_release() {
+  local own
+  [ -n "${_MXTK_LOCK_NONCE:-}" ] || return 0
+  own="$(head -1 "$1" 2>/dev/null || true)"
+  case "$own" in "$$ "*" nonce=$_MXTK_LOCK_NONCE") rm -f "$1" ;; esac
+  return 0
+}
+
+# ---------------------------------------------------------------------------
 # mxcli run / test identity — shared by app-restart.sh and test-scratch.sh (one copy each until
 # 2026-10-14; they had drifted only in a branch test-scratch never took). A caller whose installed
 # _common.sh predates this section stops with the sync remedy (`command -v mxtest_left`).

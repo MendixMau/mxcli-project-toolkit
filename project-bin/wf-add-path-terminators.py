@@ -33,7 +33,7 @@ gate. A unit path works in either form. Count paths, not branches -- a nested sp
 are paths too.
 
 The write goes through mxpatch.py, so the .mpr's ContentsHash for the unit is updated in the
-same step (and a .bak of the old unit is kept). Until 2026-10-14 (#294) this tool rewrote the
+same step (a backup of the old unit is kept outside mprcontents/, see mxpatch.py BACKUPS). Until 2026-10-14 (#294) this tool rewrote the
 .mxunit and left the index alone: every --apply left a stale hash that `mx check` cannot see.
 
 VERIFY WITH A LIVE RUN, NEVER WITH A BUILD GATE. Both gates are blind in both directions.

@@ -28,6 +28,8 @@ PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
 bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; [ -n "${2:-}" ] && printf '%s\n' "$2" | sed 's/^/       /'; return 0; }
 . "$TK/bin/lib/portable.sh"; require_py
+# Backups land here, never in the system temp dir (case P checks the default separately).
+export MXPATCH_BACKUP_DIR="$WORK/bak"
 
 WF=056b39ea-2e14-4d12-8ae1-87fa4b3c038a      # Workflows$Workflow MyFirstModule.Approval
 SE=c54d8347-a8ec-40ba-b88e-873bfec0a493      # ScheduledEvents$ScheduledEvent (StartDateTime is 0x09)
@@ -135,7 +137,13 @@ M="$WORK/p"; model "$M"
 OUT="$("$PY" "$BIN/wf-add-path-terminators.py" "$M/$(upath $WF)" --apply 2>&1)"; RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'terminators to add   : 2' && ok "[guard] terminators: 2 added (v0.21.0-written split)" || bad "terminators rc=$RC" "$OUT"
 I="$(idx "$M")"; [ "$I" = "checked 27" ] && ok "terminators --apply (unit-path form): index clean" || bad "terminators: index stale after --apply" "$I"
-[ -f "$M/$(upath $WF).bak" ] && ok "[guard] .bak kept" || bad "no .bak"
+# Field run #390: the backup was <unit>.mxunit.bak inside mprcontents/, an untracked file in the
+# model tree that `git add mprcontents` commits. It must land outside the model tree.
+BAKS_IN="$(find "$M/mprcontents" -name '*.bak' | wc -l | tr -d ' ')"
+[ "$BAKS_IN" = 0 ] && ok "no *.bak left under mprcontents/ after a successful patch" || bad "$BAKS_IN *.bak under mprcontents/" "$(find "$M/mprcontents" -name '*.bak')"
+BAK="$(ls "$MXPATCH_BACKUP_DIR"/$WF.mxunit.*.bak 2>/dev/null | head -1)"
+[ -n "$BAK" ] && cmp -s "$BAK" "$FX/model/$(upath $WF)" && printf '%s' "$OUT" | grep -qF "backup (outside mprcontents/): $BAK" \
+  && ok "[guard] backup kept in MXPATCH_BACKUP_DIR, the unit's old bytes, path printed" || bad "backup not in MXPATCH_BACKUP_DIR" "$(ls -la "$MXPATCH_BACKUP_DIR" 2>&1)"$'\n'"$OUT"
 OUT="$("$PY" "$BIN/wf-add-path-terminators.py" "$M/$(upath $WF)" --apply 2>&1)"
 printf '%s' "$OUT" | grep -q 'Every path is already terminated' && ok "[guard] re-run: idempotent" || bad "re-run" "$OUT"
 OUT="$("$PY" "$BIN/wf-set-call-captions.py" "$M/$(upath $WF)" --captions MyFirstModule.ACT_Approval_Review='Review the request' --apply 2>&1)"; RC=$?
@@ -145,6 +153,16 @@ M="$WORK/q"; model "$M"   # the exec.sh --patch form: <model.mpr> <Module.Workfl
 OUT="$( cd "$M" && "$PY" "$BIN/wf-add-path-terminators.py" TestApp.mpr MyFirstModule.Approval --apply 2>&1 \
      && "$PY" "$BIN/wf-set-call-captions.py" TestApp.mpr MyFirstModule.Approval --captions MyFirstModule.ACT_Approval_Review='Review the request' --apply 2>&1)"; RC=$?
 I="$(idx "$M")"; [ "$RC" -eq 0 ] && [ "$I" = "checked 27" ] && ok "exec.sh --patch form (.mpr + qualified name): both applied, index clean" || bad "patch form rc=$RC" "$OUT"$'\n'"$I"
+[ "$(find "$M/mprcontents" -name '*.bak' | wc -l | tr -d ' ')" = 0 ] && ok "exec.sh --patch form: no *.bak under mprcontents/ either" || bad "patch form left a .bak in mprcontents/"
+M="$WORK/t"; model "$M"; mkdir -p "$WORK/tmpdir"   # no MXPATCH_BACKUP_DIR: the temp dir, not the model tree
+OUT="$( cd "$M" && env -u MXPATCH_BACKUP_DIR TMPDIR="$WORK/tmpdir" "$PY" "$BIN/wf-add-path-terminators.py" TestApp.mpr MyFirstModule.Approval --apply 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && ls "$WORK/tmpdir/mxpatch-bak/TestApp/$WF.mxunit."*.bak >/dev/null 2>&1 && [ "$(find "$M" -name '*.bak' | wc -l | tr -d ' ')" = 0 ] \
+  && ok "default backup dir: <tempdir>/mxpatch-bak/<model>/, nothing in the model tree" || bad "default backup rc=$RC" "$OUT"
+M="$WORK/r"; model "$M"; F0="$("$PY" -c 'import sys,hashlib; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$M/$(upath $WF)")"
+OUT="$( cd "$M" && MXPATCH_BACKUP_DIR="$M/mprcontents/bak" "$PY" "$BIN/wf-add-path-terminators.py" TestApp.mpr MyFirstModule.Approval --apply 2>&1)"; RC=$?
+[ "$RC" -ne 0 ] && [ ! -e "$M/mprcontents/bak" ] && [ "$(idx "$M")" = "checked 27" ] && printf '%s' "$OUT" | grep -q 'is inside' \
+  && [ "$F0" = "$("$PY" -c 'import sys,hashlib; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$M/$(upath $WF)")" ] \
+  && ok "[guard] MXPATCH_BACKUP_DIR inside mprcontents/: refused before anything is written" || bad "inside-mprcontents rc=$RC" "$OUT"
 grep -q 'The ContentsHash index matches every unit file' "$FX/after-ported-patchers-v0.26.0.out" && grep -q "MISMATCH  $WF" "$FX/after-master-patchers-v0.26.0.out" \
   && ok "[guard] captured: mxcli v0.26.0 found master's patchers stale and these clean, on this model" || bad "capture files"
 

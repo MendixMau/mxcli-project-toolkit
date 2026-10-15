@@ -54,6 +54,12 @@ boolean, int32, int64 and double can be set; anything else is refused rather tha
 Not here yet (#294's field-data half): copying a widget's shape from a known-good sibling,
 and pluggable-widget properties addressed by PropertyKey -- both wait on a captured page unit.
 
+BACKUPS. write_unit(backup=True) keeps the old bytes of the unit OUTSIDE mprcontents/, in
+$MXPATCH_BACKUP_DIR (exec.sh --patch points it into the snapshot it just took, so the backup
+is pruned with it), else <tempdir>/mxpatch-bak/<model>/. Until 2026-10-15 it was
+<unit>.mxunit.bak beside the unit: untracked in the model folder, and one
+`git add mprcontents` from being committed (field run, #390).
+
 Stdlib only (sqlite3, hashlib, base64): runs under any python3 on mac, Linux and Git Bash.
 """
 import base64
@@ -63,6 +69,8 @@ import os
 import sqlite3
 import struct
 import sys
+import tempfile
+import time
 import uuid
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -365,6 +373,19 @@ class Model(object):
         return hits[0]
 
     # -- write -------------------------------------------------------------------------------
+    def backup_dir(self):
+        """Where write_unit(backup=True) keeps a unit's old bytes: $MXPATCH_BACKUP_DIR, else
+        <tempdir>/mxpatch-bak/<model name>. Never inside mprcontents/ (refused), where a backup
+        is an untracked file in the model tree that `git add mprcontents` would commit."""
+        d = os.environ.get("MXPATCH_BACKUP_DIR") or os.path.join(
+            tempfile.gettempdir(), "mxpatch-bak", os.path.splitext(os.path.basename(self.mpr))[0])
+        d = os.path.abspath(d)
+        inside = os.path.normcase(os.path.join(self.contents, ""))
+        if os.path.normcase(os.path.join(d, "")).startswith(inside):
+            raise PatchError("MXPATCH_BACKUP_DIR %s is inside %s: a backup there is an untracked file "
+                             "in the model tree. Point it outside mprcontents/." % (d, self.contents))
+        return d
+
     def write_unit(self, unit, apply=False, backup=False, log=None):
         """Encode `unit.doc`, write it and set its ContentsHash, as one step.
 
@@ -385,8 +406,12 @@ class Model(object):
             log("dry run: would write %s (%d bytes, was %d) and set its ContentsHash to %s"
                 % (os.path.basename(unit.path), len(blob), len(unit.raw), new_hash))
             return "dry-run"
+        bak = None
         if backup:
-            _atomic_write(unit.path + ".bak", unit.raw)
+            bdir = self.backup_dir()
+            os.makedirs(bdir, exist_ok=True)
+            bak = os.path.join(bdir, "%s.%s.bak" % (os.path.basename(unit.path), time.strftime("%Y%m%d-%H%M%S")))
+            _atomic_write(bak, unit.raw)
         # ORDER, chosen so that every crash state is one `mxcli fix hashes` reports and a re-run
         # repairs (#374 review): (1) commit the NEW hash to the index, (2) swap the file in with
         # os.replace. If (2) fails, the index row is put back to the old hash. The remaining
@@ -415,8 +440,8 @@ class Model(object):
             db.close()
         unit.raw = blob
         log("wrote %s (%d bytes) and its ContentsHash %s" % (os.path.basename(unit.path), len(blob), new_hash))
-        if backup:
-            log("backup: %s.bak" % unit.path)
+        if bak:
+            log("backup (outside mprcontents/): %s" % bak)
         return "written"
 
     def rehash(self, paths, apply=False, log=None):

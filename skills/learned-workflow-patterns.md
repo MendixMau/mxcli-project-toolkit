@@ -1274,7 +1274,7 @@ here. This section is only how to run the repair and keep it applied.
 
 ```
 bin/wf-add-path-terminators.py <workflow>.mxunit          # dry run: paths found / to add
-bin/wf-add-path-terminators.py <workflow>.mxunit --apply  # patches, leaves a .bak
+bin/wf-add-path-terminators.py <workflow>.mxunit --apply  # patches; backup goes outside mprcontents/
 ```
 
 It walks the unit, appends the terminator to every unterminated `ParallelSplitOutcome` flow, and
@@ -1343,7 +1343,7 @@ project-bin/wf-set-call-captions.py <workflow>.mxunit --captions-file captions.t
 It walks the unit, finds every `Workflows$CallMicroflowActivity` whose `Microflow` matches a
 name you gave it, and replaces only that activity's `Caption` — `Name` (the flow-internal
 identifier every `Flow` element references to reach the activity) is never touched, so nothing
-that points at the activity can break. Defaults to a dry run; `--apply` writes, after a `.bak`.
+that points at the activity can break. Defaults to a dry run; `--apply` writes, after a backup kept outside `mprcontents/` (`$MXPATCH_BACKUP_DIR`, which `exec.sh --patch` points into its snapshot).
 
 **Two things worth deciding before scripting a workflow, given this gap:**
 

@@ -7044,3 +7044,51 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Toolkit side:** do not rename the flow or add a fake caller. Accept the rise with `bin/lint-gate.sh --update-baseline --reason "QUAL004 DS_ datasource false positive (BUG-DRAFT-qual004-dg2-datasource)"`. `skills/lint-that-actually-runs.md` → "Stock rules against the toolkit's own conventions".
 
 **Expected:** a `DataSource: microflow X` on any widget, pluggable or not, is an inbound reference to X. `describe page` already prints it.
+
+## BUG-DRAFT-check-expression-gaps: `check` passes `formatDecimal($d, 2)`, `toString` of a Decimal into a bounded String and a lone backslash in `replaceAll`; each fails at mxbuild or at runtime (2026-10-15)
+
+> **NOT YET FILED.** Upstream: tracking issue mendixlabs/mxcli#580 (expression type checking, open). Draft text kept outside the repo.
+
+**Version:** mxcli v0.26.0 (retested on v0.27.0 where noted), Mendix 11.15, from a five-app lab project. **Reproducible:** yes on v0.27.0 with `check` alone: all three print "Syntax OK". (`upperCase()` is now caught by MDL044.)
+**What happens.** (1) `formatDecimal` needs a String pattern as second argument: CE0117 at mxbuild, the most common code in the field log. (2) `toString(minutesBetween(a, b))` or `toString(x div 60)` into a String(10..40) attribute produced 43 characters at runtime and overflowed it; assigning a Decimal to an Integer is caught (MDL041) but this is not. `secondsBetween(due, now)` is absolute, so a past due date read as time left. (3) MDL string literals are raw and `replaceAll` is a regex replace: `replaceAll($s, '"', '\\"')` is stored unterminated and fails at runtime; check and mxbuild both pass it. Also seen: `Body: template '{}'` needs `'{{}}'` (CE0712), and `[%CurrentDateTime%]` in some XPath positions (CE0161).
+**Toolkit side (workaround):** `formatDecimal($d, '#,##0.00')`; wrap Decimal in `floor()` before `toString`; negate `secondsBetween` when end < start; a JSON escape through `replaceAll` needs the four-backslash and eight-backslash literals; `'{{}}'` for a literal empty JSON object; declare `$Now` first instead of a date function in XPath. Money as a String attribute only when the sub-unit is fixed. Treat `check` as syntax plus a few type rules, never as the build.
+
+## BUG-DRAFT-microflow-declare-and-retrieve-check: a many-to-one list retrieve passes `check` and fails mxbuild; MDL043 says "object variable" for an enumeration declare; declare-then-create is MDL063 (2026-10-15)
+
+> **NOT YET FILED.** Related upstream: #199 (open, retrieve by association), #1422 (closed). Not retested on v0.27.0 (needs a project).
+
+**Version:** mxcli v0.26.0 (retested on v0.27.0 where noted), Mendix 11.15, from a five-app lab project.
+**What happens.** `retrieve $L from $obj/Assoc` where the association is many-to-one seen from the one side passes `check --references` and fails in mxbuild. `declare $X Mod.Enum;` gets MDL043 worded for an object variable. `declare $X Entity = empty;` followed by `$X = create Entity (...)` is MDL063 (duplicate variable).
+**Toolkit side (workaround):** list from the many side: `retrieve $L from Mod.Line where Mod_Assoc = $obj`. Enumerations: `declare $X Enumeration(Mod.Enum) = empty;`. A conditional object: a sub-microflow that returns the created object on each branch, never declare-then-create. Lists: `create list of Mod.Entity`.
+
+## BUG-DRAFT-microflow-splice-and-alter-scope: `create or modify microflow` refuses to splice when a loop body, a used return value, an earlier alter or an error handler changed the flow; `alter microflow` resolves a replacement against the stored flow so a variable declared in the same block is "not declared" (2026-10-15)
+
+> **NOT YET FILED.** Upstream: #1489 (open, error-handler activity), #1361 and #1408 (closed; #1408 makes exec all-or-nothing from v0.27.0). The alter-scope part has no upstream issue found.
+
+**Version:** mxcli v0.26.0 (retested on v0.27.0 where noted), Mendix 11.15, from a five-app lab project. Related ledger entry above: the splice free-room refusal that `check` does not predict.
+**What happens.** "this change cannot be spliced into the stored flow: the Loop ... changes inside its body", "cannot be spliced ... $Code is still used by", and a refusal once another script had spliced a decision in. On v0.26.0 a first partial apply left the model half changed and the next `alter` failed with "no free room for the fragment" (the all-or-nothing rollback arrived in v0.27.0, not re-verified here). In one alter block, `insert after $X begin declare $Late ...; end;` then `replace loop ...` using `$Late` passes `check` and fails exec with "variable 'Late' is not declared"; re-running the script is refused (MDL090).
+**Toolkit side (workaround):** add a new microflow and repoint the caller (the old flow stays unused); drop and recreate when nothing references it; `alter microflow ... insert after commit $X begin ... end` for additions; split one alter script into two blocks, declare in the first; snapshot before exec (`bin/exec.sh` already restores on a failed gate).
+
+## BUG-DRAFT-microflow-create-without-commit-silent: a `create` activity with no `commit` writes nothing and nothing says so (2026-10-15)
+
+> **NOT YET FILED.** No upstream issue found; ask is a lint rule. Verified on v0.27.0: `check` passes, no warning.
+
+**Version:** mxcli v0.26.0 (retested on v0.27.0 where noted), Mendix 11.15, from a five-app lab project.
+**What happens.** An after-startup seed did `$o = create Mod.Item (...)` twenty times without `commit $o`. `check` passed, the log said "Seeded 20", the table held 0 rows.
+**Toolkit side (workaround):** write `commit $o` on the create (or `create ... commit`) and verify with a row count, never with the log line.
+
+## BUG-DRAFT-dg2-write-defects-field: Data grid 2 `Caption: ''` with `customContent` (CE0463), `dropdownfilter` loses its attribute, `SET ColumnWidth: manual` collapses the other columns (2026-10-15)
+
+> **NOT YET FILED.** Upstream: #1111, #830 (closed), #891 (open). v0.27.0 changelog: "DataGrid 2 columns with no caption or no attribute get the empty templates Studio Pro writes (CE0463)" may fix the first; retest before filing.
+
+**Version:** mxcli v0.26.0 (retested on v0.27.0 where noted), Mendix 11.15, from a five-app lab project. Related: BUG-38, BUG-42, `skills/learned-detection-gaps.md` (dropdownfilter via mxcli).
+**What happens.** (1) `column (Caption: '', ShowContentAs: customContent)` passes `check`, CE0463 on the grid at mxbuild; any non-empty caption builds. (2) `dropdownfilter (attributes: [...])` writes a filter without its attribute ("Unable to get filter store", the grid blanks). (3) `SET (ColumnWidth: manual, Size: 220) ON <column>` makes sibling columns vanish; restoring with `autoFill` alone built CE0463 and was rolled back; `ColumnWidth: autoFill, Size: 1` was clean.
+**Toolkit side (workaround):** a non-empty caption; drop the dropdown filter or build it by hand in Studio Pro; set widths in CSS (`grid-template-columns` override) instead of `ColumnWidth`.
+
+## BUG-DRAFT-describe-roundtrip-gaps-and-datetime-localization: `describe snippet` omits the root `DataSource: $View` (re-apply fails CE0488) and a page describe lists 37 of 40 widgets; an existing DateTime attribute cannot be switched to localized by `create or modify` or `alter` (2026-10-15)
+
+> **NOT YET FILED.** Upstream: none found for the entity case (#1297 and #1251 are view entities); the snippet case may be fixed by v0.27.0 (ako/mxcli#1138, data view sourced from a snippet parameter). Retest both before filing.
+
+**Version:** mxcli v0.26.0 (retested on v0.27.0 where noted), Mendix 11.15, from a five-app lab project.
+**What happens.** The described snippet text has no `DataSource: $View` on its root data view, so exec of it fails CE0488. A page describe omitted a pill, a text and a link widget, so a design audit reads "partially read". A DateTime attribute created `not localized` keeps that after `create or modify entity` and after `alter ... modify attribute X: DateTime`; only writing `DateTime localized` flips it. `not localized` makes the client compare the UTC wall clock with local now, so overdue chips were wrong.
+**Toolkit side (workaround):** after a snippet round trip add the datasource by hand; count widgets in the described text against the page before trusting an audit; always write `DateTime localized` explicitly, then `describe entity` to read it back.

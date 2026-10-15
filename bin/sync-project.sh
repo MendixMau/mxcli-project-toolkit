@@ -1071,7 +1071,7 @@ if [ -f "$PROJECT_DIR/CLAUDE.local.md" ]; then
     # the skills without it). Unguarded, grep's exit 1 fails the pipeline under pipefail and
     # errexit ended the whole sync here, silently, before the bin/ and tests/e2e refresh —
     # every sync from 9a0350b (2026-09-18) to this fix. Regression: tests/wave2/test-sync-dup-heading-exit.sh.
-    if printf '%s\n' "$_dup_body" | grep -qE 'skills/(learned-mdl-preflight|query-the-model)\.md'; then
+    if grep -qE -- 'skills/(learned-mdl-preflight|query-the-model)\.md' <<<"$_dup_body"; then
       _dup_from_line="$(printf '%s\n' "$_dup_body" | grep -n 'mxcli-project-toolkit Integration' | head -1 | cut -d: -f1 || true)"
     fi
   fi

@@ -269,7 +269,28 @@ for LAYOUT in root app; do
   [ "$RC" -eq 1 ] && ok "refused (rc 1)" || bad "rc $RC"
   has "says FORCE_EXEC does not override" "$OUT" "FORCE_EXEC does not override"
   [ -e "$M/.mxtk-promote.997.committed" ] && ok "nothing touched" || bad "recovery ran while SP held the model"
+  has "#390: the refusal writes a BUILD-LOG row" "$(cat "$P/docs/BUILD-LOG.md" 2>/dev/null)" "🚫 blocked (Studio Pro holds the model)"
   kill "$SPP" 2>/dev/null; rm -f "$M/Fixture.mpr.lock"
+
+  for MODE in clone tar; do
+    echo "-- copy mode $MODE: build caches never copied, mtimes kept, promotion works"
+    P="$WORK/$LAYOUT-copy-$MODE"; mkproj "$P" "$SUB"; M="$P${SUB:+/$SUB}"
+    mkdir -p "$M/javascriptsource/m/node_modules/pkg" "$M/theme/web"; echo x > "$M/javascriptsource/m/node_modules/pkg/i.js"
+    echo y > "$M/javascriptsource/m/A.js"; echo s > "$M/theme/web/main.scss"
+    ( cd "$P" && git add -A && git -c user.email=t@t -c user.name=t commit -qm caches ) >/dev/null 2>&1
+    touch -t 200001010000 "$M/javasource/m/Old.java"   # a fresh mtime in the copy would be newer
+    STUB_MXB_ERR=1 MXTK_COPY_MODE=$MODE run "$P" --on-copy mdlsource/test.mdl >/dev/null
+    K="$(ls -d "$P/.mpr-snapshots/.on-copy/"*/ 2>/dev/null | head -1)"
+    [ -n "$K" ] && [ -f "$K/model/Fixture.mpr" ] && [ -f "$K/model/javascriptsource/m/A.js" ] && [ -f "$K/model/theme/web/main.scss" ] \
+      && ok "[$MODE] model and app dirs copied" || bad "[$MODE] copy incomplete: $(ls "$K/model" 2>/dev/null)"
+    [ -n "$K" ] && [ -z "$(find "$K/model" -name node_modules)" ] && ok "[$MODE] node_modules not copied" || bad "[$MODE] node_modules copied"
+    [ -n "$K" ] && [ ! "$K/model/javasource/m/Old.java" -nt "$M/javasource/m/Old.java" ] \
+      && ok "[$MODE] mtimes preserved" || bad "[$MODE] copied files got new mtimes"
+    OUT="$(STUB_SIDE=1 MXTK_COPY_MODE=$MODE run "$P" --on-copy mdlsource/test.mdl)"; RC=$?
+    [ "$RC" -eq 0 ] && grep -q 'changed by exec' "$M/Fixture.mpr" && [ -f "$M/javasource/m/New.java" ] \
+      && ok "[$MODE] clean run promotes" || bad "[$MODE] rc $RC: $(printf '%s' "$OUT" | tail -3)"
+    [ -f "$M/javascriptsource/m/node_modules/pkg/i.js" ] && ok "[$MODE] live node_modules untouched" || bad "[$MODE] live node_modules lost"
+  done
 
   echo "-- a side file written with an archive mtime is still promoted (by checksum)"
   P="$WORK/$LAYOUT-archmtime"; mkproj "$P" "$SUB"; M="$P${SUB:+/$SUB}"
@@ -301,6 +322,13 @@ for LAYOUT in root app; do
   [ "$RC" -eq 1 ] && ok "refused (rc 1)" || bad "rc $RC"
   has "says FORCE_EXEC does not override" "$OUT" "FORCE_EXEC does not override"
   [ ! -f "$WORK/log/exec-targets" ] && ok "nothing executed" || bad "exec ran"
+  has "#390: the refusal writes a BUILD-LOG row" "$(cat "$P/docs/BUILD-LOG.md" 2>/dev/null)" "🚫 blocked (Studio Pro holds the model)"
+  echo "-- #390: with a DIRTY model and Studio Pro open, --on-copy reports Studio Pro (it is checked first)"
+  echo "uncommitted edit" >> "$M/mprcontents/ab/a.mxunit"
+  OUT="$(run "$P" --on-copy mdlsource/test.mdl)"; RC=$?
+  [ "$RC" -eq 1 ] && ok "refused (rc 1)" || bad "rc $RC"
+  has "the Studio Pro refusal, not the dirty-model one" "$OUT" "Studio Pro has Fixture open"
+  hasnt "the dirty-model guard was not reached" "$OUT" "Uncommitted model changes"
   kill "$SPP" 2>/dev/null
 done
 

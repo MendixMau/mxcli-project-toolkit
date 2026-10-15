@@ -8,6 +8,10 @@
 #   BENCH_RUNS=3              clean runs per path per size (the median is reported)
 #   BENCH_FAIL_RUNS=10        failure-injection runs per path, per failure kind, per size
 #   BENCH_UNIT_BYTES=1024     bytes per synthetic unit
+#   BENCH_APP_TREE=1          also build a realistic app tree beside the model (field run #390:
+#                             the copy, not the swap, dominated): javasource 1,500 files,
+#                             javascriptsource 100 + a node_modules of 15,000, themesource 400,
+#                             theme 60, widgets 40 x 1 MB, userlib 60 x 1 MB, vendorlib 150 x 1 MB
 #
 # What it measures, per size, default path vs --on-copy, with the real exec.sh, snapshot-mpr.sh,
 # restore-mpr.sh and _common.sh and stub mxcli/mxbuild (no real model, mxcli or mxbuild):
@@ -31,6 +35,7 @@ SIZES="${BENCH_SIZES:-500 5000 20000}"
 RUNS="${BENCH_RUNS:-3}"
 FRUNS="${BENCH_FAIL_RUNS:-10}"
 UBYTES="${BENCH_UNIT_BYTES:-1024}"
+APPTREE="${BENCH_APP_TREE:-0}"
 case "$(date +%N)" in *[!0-9]*|'') echo "bench-exec-on-copy: needs GNU date (%N) for ms timing" >&2; exit 2 ;; esac
 ms() { echo $(( $(date +%s%N) / 1000000 )); }
 
@@ -58,6 +63,19 @@ printf '{"problems":[]}' > "$ef"; exit 0
 MXB
 chmod +x "$WORK/stubs/mxbuild"
 
+mkfiles() {  # $1 = dir, $2 = count, $3 = bytes, $4 = extension — one awk, not a process per file
+  mkdir -p "$1"
+  awk -v d="$1" -v n="$2" -v b="$3" -v e="$4" 'BEGIN { s = "x"; while (length(s) < b) s = s s; s = substr(s, 1, b)
+    for (i = 0; i < n; i++) { f = d "/f" i "." e; printf "%s", s > f; close(f) } }'
+}
+mkapptree() {  # $1 = template dir
+  local m p
+  for m in 1 2 3 4 5; do mkfiles "$1/javasource/m$m/proxies" 300 2048 java; mkfiles "$1/themesource/m$m/web" 80 1024 scss; done
+  mkfiles "$1/javascriptsource/m1/actions" 100 1024 js
+  for p in $(seq 1 300); do mkfiles "$1/javascriptsource/m1/actions/node_modules/pkg$p" 50 256 js; done
+  mkfiles "$1/theme/web" 60 2048 scss
+  mkfiles "$1/widgets" 40 1048576 mpk; mkfiles "$1/userlib" 60 1048576 jar; mkfiles "$1/vendorlib" 150 1048576 jar
+}
 mktemplate() {  # $1 = dir, $2 = unit count
   local T="$1" n="$2" i d pad
   mkdir -p "$T/bin" "$T/mdlsource" "$T/javasource/m"
@@ -71,6 +89,7 @@ mktemplate() {  # $1 = dir, $2 = unit count
     i=$((i + 1))
   done
   printf 'class Old {}\n' > "$T/javasource/m/Old.java"
+  [ "$APPTREE" = 1 ] && mkapptree "$T"
   printf 'CREATE MODULE "Bench";\n' > "$T/mdlsource/b.mdl"
   cp "$TOOLKIT/project-bin/_common.sh" "$TOOLKIT/project-bin/restore-mpr.sh" "$TOOLKIT/project-bin/snapshot-mpr.sh" "$T/bin/"
   cp "$SUBJECT" "$T/bin/exec.sh"

@@ -658,30 +658,67 @@ mxtk_mxbuild_why() {
   "$_py" -c "import json;d=json.load(open('$(native_path "$1")'));print('; '.join((e.get('message','') if isinstance(e,dict) else str(e)) for e in d.get('errors',[]) or [])[:300])" 2>/dev/null || true
 }
 
-# mxtk_copy_model_tree <model-dir> <dest-dir> [<mpr-basename>] — copy the model tree into an
-# existing <dest-dir>, for a scratch copy.
-#   Two args: the whole <model-dir> (the .mpr, mprcontents/ and everything mxbuild reads beside
-#   them), leaving out .git, .mpr-snapshots, deployment, .mxcli (the LIVE app's run --local record
-#   — a copy carrying it points app-restart.sh at the live app) and node_modules.
-#   Three args: an ALLOW-LIST — <mpr-basename> with its -wal/-shm if present, plus the app
-#   directories in $MXTK_APP_DIRS that exist. For a single-tree checkout, where <model-dir> is the
-#   repo root and also holds sources/, analysis/, docs/ and binaries nobody's build reads. A
-#   directory mxbuild needs and the list lacks makes the gate fail ON THE COPY — never the live
-#   model — and MXTK_APP_DIRS adds it.
-# Used by bin/test-scratch.sh (mxcli test, #278; two args) and bin/exec.sh --on-copy (#350). tar
-# preserves mtimes, which --on-copy relies on to tell the files `mxcli exec` wrote from the files
-# it copied. Returns tar's status.
+# mxtk_copy_model_tree <model-dir> <dest-dir> [<mpr-basename> | --app] — copy the model tree into
+# an existing <dest-dir>, for a scratch copy.
+#   Two args (bin/test-scratch.sh, #278): the whole <model-dir> through tar, leaving out .git,
+#   .mpr-snapshots, deployment, .mxcli (the LIVE app's run --local record — a copy carrying it
+#   points app-restart.sh at the live app) and node_modules.
+#   <mpr-basename> (bin/exec.sh --on-copy on a single-tree checkout, #350): an ALLOW-LIST — the .mpr
+#   with its -wal/-shm, plus the directories in $MXTK_APP_DIRS that exist; never sources/,
+#   analysis/, docs/ or binaries. A directory mxbuild needs and the list lacks fails the gate ON THE
+#   COPY, never the live model; MXTK_APP_DIRS adds it.
+#   --app (exec.sh --on-copy on a two-tree app/): every top-level entry but the two-arg exclusions.
+#   In both on-copy forms, directories named in $MXTK_COPY_SKIP (build caches) are never copied,
+#   and an entry is CLONED where the filesystem can (macOS APFS `cp -c`, Linux reflink), else tarred.
+#   WHY (field run, #390): a 549-unit app took 87-134 s to copy against a ~120 ms swap. Clone vs tar
+#   is probed once per copy on the .mpr itself (read-only); MXTK_COPY_MODE=tar|clone overrides.
+#   Every path preserves mtimes, which --on-copy relies on. Returns non-zero if any entry failed.
 MXTK_APP_DIRS="${MXTK_APP_DIRS:-mprcontents widgets javasource javascriptsource theme themesource userlib vendorlib resources nativemobile mlsource}"
+MXTK_COPY_SKIP="${MXTK_COPY_SKIP:-node_modules .cache .mendix-cache .gradle}"
+mxtk_copy_how() {  # $1 = a file in the source, $2 = dest dir: prints clone-mac | clone-gnu | tar
+  case "${MXTK_COPY_MODE:-}" in
+    tar) echo tar; return ;;
+    clone) [ "$(mxtk_platform)" = macos ] && echo clone-mac || echo clone-gnu; return ;;
+  esac
+  if [ "$(mxtk_platform)" = macos ] && cp -c "$1" "$2/.mxtk-cowprobe" 2>/dev/null; then echo clone-mac
+  elif cp --reflink=always "$1" "$2/.mxtk-cowprobe" 2>/dev/null; then echo clone-gnu
+  else echo tar; fi
+  rm -f "${2:?}/.mxtk-cowprobe"
+}
 mxtk_copy_model_tree() {
   if [ -z "${3:-}" ]; then
     tar -C "$1" --exclude=./.git --exclude=./.mpr-snapshots --exclude=./deployment \
         --exclude=./.mxcli --exclude=./node_modules -cf - . | tar -C "$2" -xf -
     return
   fi
-  local _src="$1" _dst="$2" _mb="$3" _e
-  set --
-  for _e in "$_mb" "$_mb-wal" "$_mb-shm" $MXTK_APP_DIRS; do [ -e "$_src/$_e" ] && set -- "$@" "./$_e"; done
-  tar -C "$_src" --exclude=node_modules -cf - "$@" | tar -C "$_dst" -xf -
+  local _src="$1" _dst="$2" _e _how _x="" _s _skip _rc=0 _list
+  for _s in $MXTK_COPY_SKIP; do _x="$_x --exclude=$_s"; done
+  if [ "$3" = --app ]; then
+    _list="$(ls -A "$_src" | grep -vxE '\.git|\.mpr-snapshots|deployment|\.mxcli|node_modules')"
+    _how="$(mxtk_copy_how "$_src/$(ls "$_src" | grep -m1 '\.mpr$')" "$_dst")"
+  else
+    _list="$(for _e in "$3" "$3-wal" "$3-shm" $MXTK_APP_DIRS; do [ -e "$_src/$_e" ] && echo "$_e"; done)"
+    _how="$(mxtk_copy_how "$_src/$3" "$_dst")"
+  fi
+  while IFS= read -r _e; do
+    [ -n "$_e" ] || continue
+    _skip=""   # an entry holding a build cache is tarred (with the cache excluded), never cloned
+    if [ -d "$_src/$_e" ] && [ "$_how" != tar ]; then
+      for _s in $MXTK_COPY_SKIP; do [ -n "$(find "$_src/$_e" -name "$_s" -prune -print 2>/dev/null | head -1)" ] && _skip=1; done
+    fi
+    case "$_how${_skip:+-skip}" in
+      clone-mac) cp -cRp "$_src/$_e" "$_dst/$_e" ;;
+      clone-gnu) cp -a --reflink=auto "$_src/$_e" "$_dst/$_e" ;;
+      *) false ;;
+    esac || {
+      rm -rf "${_dst:?}/${_e:?}"
+      # shellcheck disable=SC2086
+      tar -C "$_src" $_x -cf - "./$_e" | tar -C "$_dst" -xf - || _rc=1
+    }
+  done <<MXTKLIST
+$_list
+MXTKLIST
+  return "$_rc"
 }
 
 # ── Interrupted exec.sh --on-copy promotions (#350, #384 review) ─────────────────────────────

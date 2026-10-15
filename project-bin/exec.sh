@@ -537,7 +537,7 @@ take_score() {
 # Not found, or the scan itself errors (exit 2) → one warning, and the exec goes on: mxcli
 # check and the mxbuild gate still stand behind it.
 SCAN_NOTE=""
-if [ "$PATCH_MODE" != "1" ]; then
+if [ "$PATCH_MODE" != "1" ] && [ "$RECOVER" != 1 ]; then
   _SCAN=""
   for _s in "${MXTK_ROOT:-}/bin/mdl-scan.sh" \
             "$(sed -nE 's/^\| *Toolkit root *\| *`([^`]+)`.*/\1/p' "$PROJECT_ROOT/CLAUDE.local.md" 2>/dev/null | head -1)/bin/mdl-scan.sh"; do
@@ -605,6 +605,7 @@ if sp_holds_model; then
   echo "  → Close the project in Studio Pro (or quit SP), then re-run."
   if [ "$ON_COPY" = 1 ] || [ "$RECOVER" = 1 ]; then
     echo "    --on-copy / --recover-promote: FORCE_EXEC does not override this — a promotion is refused while Studio Pro holds the model."
+    log_build "🚫 blocked (Studio Pro holds the model)" "lock PID $SP_PID — nothing written"
     exit 1
   fi
   echo "    Override (NOT recommended): FORCE_EXEC=1 ./bin/exec.sh $SCRIPT"
@@ -1103,9 +1104,9 @@ oc_fingerprint() {  # $1 = model dir. One cksum over the .mpr, its -wal, and eve
   ( cd "$1" && { cksum "$MPR_BASE"; [ -f "$MPR_BASE-wal" ] && cksum "$MPR_BASE-wal"
       if [ -d mprcontents ]; then find mprcontents -type f | LC_ALL=C sort | tr '\n' '\0' | xargs -0 cksum; fi; } ) 2>/dev/null | cksum
 }
-oc_side_manifest() {  # $1 = model dir: "crc size path" per file under $OC_SIDE_DIRS
-  ( cd "$1" && for _d in $OC_SIDE_DIRS; do [ -d "$_d" ] && find "$_d" -type f; done | LC_ALL=C sort \
-      | while IFS= read -r _f; do cksum "$_f"; done ) 2>/dev/null
+oc_side_manifest() {  # $1 = model dir: "crc size path" per file under $OC_SIDE_DIRS, build caches pruned
+  ( cd "$1" && for _d in $OC_SIDE_DIRS; do [ -d "$_d" ] && find "$_d" \( -name node_modules -o -name .cache \) -prune \
+      -o -type f -print; done | LC_ALL=C sort | tr '\n' '\0' | xargs -0 cksum | awk 'NF >= 3' ) 2>/dev/null
 }
 oc_side_sum() {  # $1 = file: "crc size", or "-" when it does not exist
   if [ -f "$1" ]; then cksum < "$1" | awk '{print $1, $2}'; else echo "-"; fi
@@ -1115,7 +1116,7 @@ oc_side_sum0() {  # $1 = rel path: its "crc size" in OC_SIDE0 (taken before the 
 }
 oc_other_list() {  # $1 = copy [$2 = marker: only files newer]: sorted paths outside the model and $OC_SIDE_DIRS
   ( cd "$1" && find . \( -path ./mprcontents -o -path ./deployment -o -path ./.mxcli -o -path ./.git \
-      -o -path ./node_modules \) -prune -o -type f ${2:+-newer "$2"} -print 2>/dev/null | sed 's|^\./||' | while IFS= read -r _r; do
+      -o -name node_modules -o -name .cache \) -prune -o -type f ${2:+-newer "$2"} -print 2>/dev/null | sed 's|^\./||' | while IFS= read -r _r; do
       case "$_r" in "$MPR_BASE"|"$MPR_BASE".*|"$MPR_BASE"-*) continue ;; esac
       _in=0; for _d in $OC_SIDE_DIRS; do case "$_r" in "$_d"/*) _in=1 ;; esac; done
       [ "$_in" = 1 ] || printf '%s\n' "$_r"
@@ -1264,10 +1265,11 @@ if [ "$ON_COPY" = 1 ]; then
   _c0=$(oc_ms)
   # Single-tree checkout (the model dir is the repo root): copy the allow-list only — the .mpr and
   # the app directories (_common.sh MXTK_APP_DIRS), never sources/, analysis/, docs/ or binaries.
-  # A two-tree app/ is all app, and is copied whole.
+  # A two-tree app/ is all app, and is copied whole. Never build caches (MXTK_COPY_SKIP); cloned
+  # where the filesystem can (field run #390: a 549-unit app took 87-134 s by tar on macOS).
   _oc_rc=0
   if [ "$MODEL_DIR" = "$(cd "$PROJECT_ROOT" && pwd)" ]; then mxtk_copy_model_tree "$MODEL_DIR" "$OC_COPY" "$MPR_BASE" || _oc_rc=$?
-  else mxtk_copy_model_tree "$MODEL_DIR" "$OC_COPY" || _oc_rc=$?; fi
+  else mxtk_copy_model_tree "$MODEL_DIR" "$OC_COPY" --app || _oc_rc=$?; fi
   if [ "$_oc_rc" -ne 0 ] || [ ! -f "$OC_MPR" ]; then
     rm -rf "${OC_SCR:?}"
     echo "✗ --on-copy: copying the model to $OC_SCR failed — nothing was written."

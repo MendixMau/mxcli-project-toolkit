@@ -19,6 +19,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 
 ## Unreleased
 
+- learn(bug-ledger): **a Business Events AppId is copied with the model and shown by no command** (TK-041, upstream draft) — a five-app lab project
 - learn(bug-ledger): **`create business event service` gaps: String(200) only, CloudEvent id collision, V2 subject and channel name need patching** (TK-040, upstream draft) — a five-app lab project
 - learn(secrets): **`describe constant` and `show constants` print a stored credential verbatim; keep secret constants empty and pass `--constant`** (TK-039, HIGH, upstream draft; skill line + ledger) — a five-app lab project
 - learn(bug-ledger): **a workflow call-microflow with a System.Workflow parameter: check demands the mapping, mxbuild says CE0117** (TK-038, upstream draft, workaround recorded) — a five-app lab project

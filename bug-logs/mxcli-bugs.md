@@ -7092,3 +7092,15 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Workaround:** BSON patch scripts for unlimited length, subject and channel name, then `mxcli fix hashes --repair`; avoid `EventId` as an attribute name; check that publisher and subscriber channel names are equal before running. Measured: 16 of 16 channels matched on the broker after the patch.
 
 **Toolkit side:** ledger only (`project-bin/mxpatch.py` is the place for a shipped patcher if this recurs).
+
+## BUG-DRAFT-business-events-appid-copied: a Business Events AppId is the project unit id, is copied with the model, and no mxcli command prints it (2026-10-15)
+
+> **NOT YET FILED.** Upstream issue drafted; none found upstream.
+
+**Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
+
+**What happens.** Copying an app model keeps the project unit id, which Business Events uses as the AppId. It is not in `describe settings` or `show settings`. Two apps with the same AppId subscribing to the same message join one consumer group and compete for records.
+
+**Workaround:** read each app's AppId statically before wiring a second subscriber (the `Projects$Project` unit id in the unpacked `mprcontents`); one subscriber per message is safe.
+
+**Toolkit side:** ledger only.

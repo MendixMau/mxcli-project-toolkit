@@ -61,7 +61,8 @@ else
       fi
     done
   } > "$BODY"
-  info="$ARM	$REF@$sha${DROP:+ without $DROP}	routing_baseline_pack=$words words/$files files"
+  info="$ARM	$REF@$sha	routing_baseline_pack=$words words/$files files"
+  [ -z "$DROP" ] || info="$info, without $DROP: $((words - $(LC_ALL=C wc -w < "$WT/$DROP"))) words/$((files - 1)) files"
 fi
 { cat "$BODY"; echo; echo "===== END OF CONTEXT PACK ====="
   printf 'PACK-END: %s-%s\n' "$ARM" "$(cksum < "$BODY" | cut -d' ' -f1)"; } > "$OUT"

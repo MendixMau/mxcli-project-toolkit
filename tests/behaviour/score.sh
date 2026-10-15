@@ -158,7 +158,7 @@ else
   co="$(cd "$TMP" && "$MXCLI" check check.mdl 2>&1 | tr -d '\033' | sed 's/\[[0-9;]*m//g')"
   check="$(printf '%s\n' "$co" | sed -n 's/.* \([0-9][0-9]*\) errors\{0,1\},.*/\1/p' | tail -1)"
   if [ -z "$check" ]; then
-    if printf '%s\n' "$co" | grep -q 'Syntax OK\|Check passed'; then check=0; else check=PARSE; fi
+    if printf '%s\n' "$co" | grep -q -E 'Syntax OK|Check passed'; then check=0; else check=PARSE; fi
   fi
 fi
 

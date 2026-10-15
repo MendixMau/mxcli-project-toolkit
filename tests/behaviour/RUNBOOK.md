@@ -23,7 +23,8 @@ bash build-packs.sh T origin/master --without skills/<x>.md # ablation: value of
 bash build-packs.sh N                                       # no pack: preamble only
 ```
 
-Each writes `work/pack-<arm>.txt` (`work/` is ignored by git). The ref is checked out in a
+Each writes `work/pack-<arm>.txt` (`work/` is ignored by git). A candidate and an ablation both
+write `work/pack-T.txt`: build one, run its reps, then build the other. The ref is checked out in a
 temporary detached worktree and removed again; the caller's tree is never touched. An ablation
 pack keeps the stub and its routing row naming the skill; only the skill's text is gone, which is
 the "routed but not read" case the skill would face. M vs ablated T is the skill's value; N vs M
@@ -36,8 +37,10 @@ is the whole pack's value over plain reasoning.
    for every rep of every arm.** Its prompt is `AGENT-PROMPT.txt` with PACK, TASK and OUT replaced
    by absolute paths: `work/pack-A.txt`, `tasks/K.md`, `work/out/A-K-rN.md`.
 3. Start the orchestrating session in a directory with no project `CLAUDE.md` in it or above
-   it: the subagents inherit it. On 2026-10-15, 13 of 20 drafts named the host project's model
-   file, which no pack or task contained; it reached every arm alike, but N is no longer "no pack".
+   it: the subagents inherit it. In the 2026-10-15 stub-diet run, 13 of its 20 M/T drafts named
+   the host project's model file, which no pack or task contained (0 of the 10 N drafts did, but
+   N inherited the same file); it reached every arm alike, so N measured "no toolkit rules", not
+   "no guidance".
 4. From the subagent's result take its final reply and its usage line (`tool_uses`,
    `subagent_tokens`), then score:
    ```

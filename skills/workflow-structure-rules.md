@@ -278,9 +278,9 @@ microflow the decision calls. Write the result to a **Boolean (or enumeration) a
 context entity** in a *call microflow* that runs earlier in the flow, then branch on it:
 
 ```
-call microflow Mod.ACT_Review_Evaluate (Case = $WorkflowContext) as cmEvaluate;   -- sets Case/NeedsSecond
-decision decSecond $WorkflowContext/NeedsSecond
-  outcomes true -> { user task ... } false -> { };
+call microflow Mod.ACT_Review_Evaluate with ("Case" = '$WorkflowContext');   -- sets Case/NeedsSecond
+decision decSecond '$WorkflowContext/NeedsSecond'
+  outcomes true -> { user task ... } false -> { };   -- Boolean keyword form proven in §11 (BUG-76)
 ```
 
 Three limits the same field run hit, none of which `check` explains well (mxcli v0.26.0, Mendix
@@ -356,7 +356,7 @@ row's stated floor is evidence against it.
 | **parallel split**, incl. **nested** | **proven on v0.21.0 — with one mandatory post-exec step**, which is the whole of §4's warning above and `learned-workflow-patterns.md` §18. The structure writes correctly at any depth; the `EndOfParallelSplitPathActivity` that closes each path does not, and MDL has no keyword for it. Add it with `bin/wf-add-path-terminators.py <unit.mxunit> --apply` after this script **and after every later script that rewrites the workflow** (§23), then verify with a live run, never a gate. BUG-121; field-proven 8-of-16 → **16-of-16 stations, 6 concurrent**. This row read RETRACTED until 2026-09-14 |
 | **forward `JUMP TO`** (target later in the flow than the outcome jumping to it) | **proven on v0.24.0 / Mendix 11.13.0 — this row taught CE6681 until 2026-09-26, and direction was never the platform rule.** Re-probed as an intended known-bad control (a card-disbursement requirements-driven build): `check --references`, `exec` and native `mx check` all 0 errors, and `DESCRIBE` reads the jump back with its real target. The CE6681 recorded here came from mxcli's jump-named-after-its-target defect, for which forward order was the broken case; upstream `825873d6` fixed it in v0.21.0 (`learned-workflow-patterns.md` §25). On a binary older than v0.21.0, jump backwards or hand-add. A CE6681 on a jump now means the target does not resolve — see the reject-path paragraph below the table |
 | **boundary event timer, interrupting** | **proven on v0.24.0 / Mendix 11.13.0** (2026-09-26, a card-disbursement requirements-driven build): a body that calls a microflow and then ends in `end workflow comment '…';`, or in `jump to <earlier activity>;`, passes check, exec and native `mx check` at 0 errors, and the read-back shows a real jump with a real target — BUG-109 no longer reproduces. The path must still end in *End* or *Jump* (CE0105 on an empty body), and §2's one-interrupting-boundary rule applies. **Before v0.24.0: hand-add** — `end workflow` did not parse before the post-v0.22.0 nightly, and `JUMP TO` there was BUG-109 through v0.20.0 |
-| **boundary event on notification** | **hand-add** — the grammar admits `{TIMER, INTERRUPTING, NON}` only |
+| **boundary event on notification** | **hand-add before v0.26.0** — the grammar admitted `{TIMER, INTERRUPTING, NON}` only. **v0.26.0: `boundary event interrupting notification` exists** (`learned-workflow-patterns.md` §19) |
 | **event sub-process** (all four start kinds), recurrence | **hand-add** — no construct in the grammar, in any position |
 | **multi-user decision method / completion timing** | **hand-add** — the activity is scriptable, its decision rule is not |
 | **explicit `END WORKFLOW`, end-of-parallel-split-path, end-of-boundary-event-path** | **not expressible — and the "not needed" half of this row was wrong, corrected 2026-09-14.** MDL terminates by nesting and `mx check` accepts it, so the gap is invisible to every gate; the **runtime is not indifferent**. A parallel-split path with no terminator opens no task at all (BUG-121, repaired post-exec by `bin/wf-add-path-terminators.py`), and an empty outcome block meant to stop the instance rejoins the enclosing flow instead (§21 gap 2). One grammar gap, two silent runtime faults. **v0.26.0: the end-of-boundary-event-path marker is now written by mxcli itself; the parallel-split terminator is not re-probed.** Still true: **CE1844 cannot be triggered from MDL** — §4 governs the diagram and anything hand-added, not the script |

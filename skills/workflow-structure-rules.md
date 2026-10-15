@@ -272,6 +272,27 @@ Anything genuinely needing `$currentUser` is a *call microflow*, which has it �
 `learned-workflow-patterns.md` §15 adds the mxcli-side limit: no bracketed association filter in
 a decision expression — that is a microflow with a `RETRIEVE`.
 
+**Compute, then branch.** A *decision* reads an expression on the context; it cannot call a
+microflow. When the rule needs logic (a threshold, a lookup, a count), do not wrap it in a
+microflow the decision calls. Write the result to a **Boolean (or enumeration) attribute on the
+context entity** in a *call microflow* that runs earlier in the flow, then branch on it:
+
+```
+call microflow Mod.ACT_Review_Evaluate (Case = $WorkflowContext) as cmEvaluate;   -- sets Case/NeedsSecond
+decision decSecond $WorkflowContext/NeedsSecond
+  outcomes true -> { user task ... } false -> { };
+```
+
+Three limits the same field run hit, none of which `check` explains well (mxcli v0.26.0, Mendix
+11.15, one five-app lab project): (a) a microflow *called from a workflow* returns **Boolean, an
+enumeration or nothing** (`learned-workflow-patterns.md` §6), so hand a computed value back by
+storing it on the context entity, not through a `String` or entity return; (b) a decision's
+condition is a Boolean or enumeration expression on `$WorkflowContext` or `$WorkflowInstance`
+only, hence the stored attribute above; (c) a user task with a single outcome holds no
+activities in that outcome (`MDL-WF02` / CE1876): put the call **after** the task (§5). A
+"compute then branch" call microflow also needs its result attribute to exist before the
+workflow script runs, so the entity script comes first.
+
 ## 9. Versioning — which edits break running instances
 
 Relevant the moment a workflow is redeployed with live cases (migration cutover, any Stage 6+

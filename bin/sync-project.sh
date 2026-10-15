@@ -1058,17 +1058,25 @@ if [ -f "$PROJECT_DIR/CLAUDE.local.md" ]; then
   # can also trip it; the message below is phrased as "check whether" for that reason, not as
   # a flat assertion. Same rule as the ledger-row warn above: CLAUDE.md is bootstrap-project.md's
   # (an LLM merge), not this script's, so sync never edits it — only names the fix.
-  if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -qE 'skills/(learned-mdl-preflight|query-the-model)\.md' "$PROJECT_DIR/CLAUDE.md"; then
+  # The toolkit's own wiring block (mxtk:wiring:start..end, written by wire-agents.sh) cites
+  # skills/learned-mdl-preflight.md in its item-3 sentence, so it is stripped before the grep:
+  # otherwise the toolkit flags its own text as the adopter's duplicate (#382). And the check
+  # only speaks when the "mxcli-project-toolkit Integration" heading exists: with no heading
+  # there is no section to name or size, and a whole-file word count described as "heading to
+  # EOF" pointed the adopter at text that is not theirs to edit.
+  _dup_from_line=""
+  if [ -f "$PROJECT_DIR/CLAUDE.md" ]; then
+    _dup_body="$(awk '/mxtk:wiring:start/{skip=1} !skip{print} /mxtk:wiring:end/{skip=0}' "$PROJECT_DIR/CLAUDE.md")"
     # `|| true`: no heading is the COMMON case (every CLAUDE.md mxcli init v0.25 writes cites
     # the skills without it). Unguarded, grep's exit 1 fails the pipeline under pipefail and
     # errexit ended the whole sync here, silently, before the bin/ and tests/e2e refresh —
     # every sync from 9a0350b (2026-09-18) to this fix. Regression: tests/wave2/test-sync-dup-heading-exit.sh.
-    _dup_from_line="$(grep -n 'mxcli-project-toolkit Integration' "$PROJECT_DIR/CLAUDE.md" | head -1 | cut -d: -f1 || true)"
-    if [ -n "$_dup_from_line" ]; then
-      _dup_words="$(tail -n "+$_dup_from_line" "$PROJECT_DIR/CLAUDE.md" | wc -w | tr -d ' ')"
-    else
-      _dup_words="$(wc -w < "$PROJECT_DIR/CLAUDE.md" | tr -d ' ')"
+    if printf '%s\n' "$_dup_body" | grep -qE 'skills/(learned-mdl-preflight|query-the-model)\.md'; then
+      _dup_from_line="$(printf '%s\n' "$_dup_body" | grep -n 'mxcli-project-toolkit Integration' | head -1 | cut -d: -f1 || true)"
     fi
+  fi
+  if [ -n "$_dup_from_line" ]; then
+    _dup_words="$(printf '%s\n' "$_dup_body" | tail -n "+$_dup_from_line" | wc -w | tr -d ' ')"
     warn "CLAUDE.md cites Baseline-only skills also covered by CLAUDE.local.md — check whether" \
          "its \"mxcli-project-toolkit Integration\" section (~$_dup_words word(s), heading to" \
          "EOF, not all of it necessarily routing) is a duplicated Baseline routing block." \

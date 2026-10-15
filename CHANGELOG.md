@@ -7,7 +7,9 @@ updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
-**Release cycle (from 2026-09-19).** New lines land under `## Unreleased`, at the top. Every few
+**Release cycle (from 2026-09-19).** New lines land under `## Unreleased
+
+- fix(sync-project): **the "Baseline-only skills cited" warning no longer fires on the toolkit's own wiring block, and no longer sizes a section that does not exist.** The check grepped all of `CLAUDE.md` for `skills/learned-mdl-preflight.md` / `skills/query-the-model.md`, and `wire-agents.sh`'s `mxtk:wiring` block cites the first, so every sync flagged the toolkit's own text; with no "mxcli-project-toolkit Integration" heading it then printed a whole-file word count as "heading to EOF". The wiring block is now stripped before the grep, and the warning is raised only when the heading exists. `tests/wave2/test-sync-dup-heading-exit.sh` T4 flips (no heading: no warning) and gains T7-T9. — joshuamoesa (#382)`, at the top. Every few
 days the maintainer cuts a release with `bin/cut-release.sh`: the `## Unreleased` heading becomes
 `## vYYYY.MM.DD`, master is tagged `vYYYY.MM.DD`, and a fresh empty `## Unreleased` opens. So the
 top section is always "what changed since the last release", a project reports the release it is

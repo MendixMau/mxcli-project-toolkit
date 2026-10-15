@@ -126,7 +126,7 @@ MXTK_PROJECT_BIN="app-restart.sh test-scratch.sh assemble-prototype.js prototype
 # installed because a PROJECT runs it. report-disposition-check.sh is run by gate-check.sh out of
 # the toolkit clone, so a project copy would be a second copy nothing calls — which is how the
 # per-script lists drifted in the first place.
-MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh"  # gate-check.sh runs it from the TOOLKIT clone ($TOOLKIT_DIR/project-bin/, gate-check.sh:2149), never from a project copy — installing it would create a second copy nothing calls
+MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh coverage-check-all.sh ts-sync.sh"  # gate-check.sh runs it from the TOOLKIT clone ($TOOLKIT_DIR/project-bin/, gate-check.sh:2149), never from a project copy — installing it would create a second copy nothing calls; coverage-check-all.sh is run by review-module.sh through its _tool lookup (beside it, then the toolkit clone), so a project copy is optional and nothing calls it from bin/; ts-sync.sh is a toolkit-side transplant helper marked UNPROVEN and SUPERSEDED in its header (#381)
 
 # --- Starlark lint rules -----------------------------------------------------------------
 # Copied from toolkit lint-rules/ into <project>/.claude/lint-rules/. Two lists, because the

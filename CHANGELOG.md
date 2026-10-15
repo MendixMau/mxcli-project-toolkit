@@ -7,7 +7,9 @@ updating it became a separate chore). One line per change:
 Kinds: `new` · `fix` · `learn` (a skill/learning) · `process` (rules, templates, CI).
 Credit the person or project that surfaced the change — the credit line is the thank-you.
 
-**Release cycle (from 2026-09-19).** New lines land under `## Unreleased`, at the top. Every few
+**Release cycle (from 2026-09-19).** New lines land under `## Unreleased
+
+- fix(install-manifest): **a clean toolkit checkout passes its own `project-bin/` manifest self-check, so adopters no longer see the "named by NEITHER list" warning at the top of every sync.** `coverage-check-all.sh` (found by `review-module.sh` through its `_tool` lookup in the toolkit clone) and `ts-sync.sh` (UNPROVEN and SUPERSEDED per its header) join `MXTK_PROJECT_BIN_NOINSTALL` with reasons. New `tests/wave2/test-manifest-clean-checkout.sh` fails, rather than warns, when a `project-bin/` file is in neither list. — joshuamoesa (#381)`, at the top. Every few
 days the maintainer cuts a release with `bin/cut-release.sh`: the `## Unreleased` heading becomes
 `## vYYYY.MM.DD`, master is tagged `vYYYY.MM.DD`, and a fresh empty `## Unreleased` opens. So the
 top section is always "what changed since the last release", a project reports the release it is

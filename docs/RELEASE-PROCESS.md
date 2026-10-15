@@ -108,6 +108,9 @@ The reviewer, for each of the 5 rows, reads the diff and confirms or corrects th
    for a change to always-loaded / baseline-routed text or an agent stub, **recommended** for
    situational skill text, **NOT RUN with a reason** for process docs and templates that review
    agents read (they are agent-read text, so never "n/a"), and **n/a** for scripts only.
+   A stub change that is only a generated on-demand routing row (`render-routing.sh` output,
+   Context cost 0) is not an agent-stub change for this purpose: Behaviour is **NOT RUN: on-demand
+   row only**, not required.
 5. **Runtime** — measured seconds per exec/gate/check, or "n/a" with nothing on a hot path.
 
 The review ends with 5 of 5 rows confirmed; "NOT RUN: <reason>" counts, a blank does not.

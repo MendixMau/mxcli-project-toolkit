@@ -258,7 +258,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle | `skills/scriptable-sp-verification.md` | mdl,gate | - | ondemand |
 | A runtime test reads/writes data that then is not there, or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first | `skills/learned-local-db-confusion.md` | mdl,test,gate | 5,6 | ondemand |
 | gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script | `skills/gate-check-file-locations.md` | ba,gate | 0 | ondemand |
-| A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" prints the matching ledger entries, so the session reads one entry, not the 32k-word ledger | `bin/bug-lookup.sh` | mdl,gate | 5,6 | baseline |
+| A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger | `bin/bug-lookup.sh` | mdl,gate | 5,6 | baseline |
 
 #### Reference — lookup tables, not method
 

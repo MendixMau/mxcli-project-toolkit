@@ -7056,3 +7056,15 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Workaround:** `show glyphs [like '...']` and use a listed code; treat an MDL078 warning as a build blocker; keep ONE final navigation script that restates every item; use `home page M.P for <UserRole>` per role, and run `mxcli lint` (MPR007) before the build.
 
 **Toolkit side:** ledger only; `skills/learned-sidebar-collapse-icons.md` covers the icon requirement.
+
+## BUG-DRAFT-workflow-call-microflow-system-workflow-param: a workflow `call microflow` target with a `System.Workflow` parameter: `check` demands the mapping, mxbuild says CE0117 for every spelling (2026-10-15)
+
+> **NOT YET FILED.** Upstream issue drafted; none found upstream.
+
+**Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
+
+**What happens.** A microflow with a `System.Workflow` parameter, called from a workflow `call microflow` with `Workflow = ...` mapped: `check` insists on the mapping, the build gate reports CE0117 "Unknown variable 'Workflow'". Separately, `close` is a keyword and cannot name a workflow activity.
+
+**Workaround:** drop the parameter and find the instance through `System.Workflow_ParentWorkflow` (or the context entity's association); rename the activity (`closeCase`, not `close`).
+
+**Toolkit side:** ledger only; `skills/workflow-structure-rules.md` has the other measured workflow signatures.

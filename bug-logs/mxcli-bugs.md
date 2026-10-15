@@ -7116,3 +7116,15 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Workaround:** read the module's dependencies on its Marketplace page, install them first (by content id or `install --file`), then `mxcli fix widgets -p <app>.mpr` before the first mxbuild.
 
 **Toolkit side:** ledger only; `skills/decompose-app.md` already lists the `fix widgets` step.
+
+## BUG-DRAFT-run-local-scheduled-events-off: `run --local` boots with scheduled events off and says so only in the runtime log (2026-10-15)
+
+> **NOT YET FILED.** Upstream issue drafted. `--runtime-setting` exists in v0.27.0; nothing prints or defaults the setting.
+
+**Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
+
+**What happens.** A lapse or retry scheduled event never runs; the log says "Synchronizing scheduled events: None". `--runtime-setting ScheduledEventExecution=ALL` fixes it. Passing it through a restart wrapper that rewrites the shared start command overwrote that command.
+
+**Workaround:** start once with `--runtime-setting ScheduledEventExecution=ALL` and keep it in the project's own start line. Already taught for tests in `skills/testing-shape.md` ("`run --local` starts with scheduled events off").
+
+**Toolkit side:** the skill paragraph exists; this entry makes it findable by symptom.

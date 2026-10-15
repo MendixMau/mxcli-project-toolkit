@@ -34,15 +34,15 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 |---|---|
 | `bin/runbook-slice.sh` | Any pipeline work at all, as a helper — every dispatch, before producing anything: run the toolkit's bin/runbook-slice.sh <stage>, which prints §1b plus your stage's section of the conversion runbook; never open skills/conversion-runbook.md whole |
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
-| `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
+| `skills/skills-over-scripts.md` | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one — judgement goes in a skill, code only fetches facts a reader cannot |
 | `skills/degrade-to-judgement.md` | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict |
-| `skills/module-review.md` | Reviewing any module before calling it done — the ONE pass: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated |
+| `skills/module-review.md` | Is the module done? Reviewing any module before calling it done — the ONE pass, the once-over: build, gate, prove, LOOK (is it logical, does it look right, does it match our design, over every page not just the tested ones), confirm with the denominator stated |
 | `skills/testing-shape.md` | Before calling any module tested, or before re-running tests after a change — what testing a module means, which re-runs a change owes (UI-only vs logic lane), and the false-green register of confirmed ways a test reports green over a broken feature |
 | `project-bin/verify-module.sh` | Finishing any module — before calling it done. One command that runs every instrument and keeps "instrument faulted" apart from "feature failed"; in a wired project run the installed copy at bin/verify-module.sh |
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
-| `skills/checkpoints/checkpoint-cutover.md` | CAC-6, after Stage 6 passes and before any cutover step |
+| `skills/checkpoints/checkpoint-cutover.md` | Going live / cutover: CAC-6, after Stage 6 passes and before any cutover or old-data migration step |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
@@ -67,13 +67,13 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo |
 | `skills/improvement-register.md` | Any review pass that runs more than once |
 | `skills/journey-examples.md` | Writing an actual .journey.json |
-| `skills/wiring-sweep.md` | Every module before it is called done |
+| `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit |
-| `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run |
+| `skills/empty-widget-triage.md` | A page/grid/list/combobox renders or shows empty ('0 to 0 of 0', blank cells, zero rows, zero options) during UI review or an e2e run |
 | `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say |
 | `skills/learned-file-upload-widget.md` | Putting any file upload / attachment / document field on a page, an uploader page failing mx check with CE0463, or an uploader DESCRIBE that will not re-execute |
-| `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa |
+| `skills/learned-local-db-confusion.md` | A runtime test or seed reads/writes data that then is not there (the test wrote a row, the DB query shows nothing), or vice versa |
 | `skills/full-harness-audit.md` | The user asks for a full end-to-end test, a click-through proof, or does-everything-actually-work |
 | `skills/test-result-audit.md` | End of any build+test cycle that wrote docs/report.json |
 | `skills/finding-disposition.md` | Any report from a test/review run is about to be published |
@@ -113,16 +113,9 @@ write from a silently discarded one. Cross-check every state-changing result aga
 database (`learned-db-assertions.md`) rather than trusting the screen.
 
 A trace rung (OpenTelemetry) is **optional and per-project** — include it only if this project
-opted in. If it did, {{OTEL_SETUP}} describes the setup, and two rules are absolute:
-
-1. **Guard against an empty capture first.** `[].every(...)` is `true`, so trace assertions pass
-   vacuously over zero spans. Assert the span set is non-empty *before* asserting anything about
-   its contents. Also confirm the action wasn't a no-op — navigating to the page you are already
-   on fires nothing.
-2. **A microflow's status is not its activities' status.** A microflow with an error handler
-   reports `OK` while its own activity spans are `ERROR` — the handler swallowed a real failure.
-   Always walk the activity spans. A page can render fine with an empty grid over a completely
-   dead integration, and both a UI check and a microflow-status check will lie about it.
+opted in ({{OTEL_SETUP}} describes the setup). Its two absolute rules (non-empty span set first;
+walk activity spans, not microflow status; navigating to the page you are already on fires
+nothing) → see `testing-shape.md` §4, the **Trace** rows.
 
 ## The wiring sweep — you own it, and it leaves a file
 

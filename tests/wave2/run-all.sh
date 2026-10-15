@@ -56,11 +56,9 @@ for t in "$DIR"/test-*.sh; do
   if [ -n "$subj_name" ]; then
     for cand in "$TOOLKIT/bin/$subj_name" "$TOOLKIT/bin/lib/$subj_name" "$TOOLKIT/project-bin/$subj_name" \
                 "$TOOLKIT/skills/$subj_name" "$TOOLKIT/claude-hooks/hooks/$subj_name" \
-                "$TOOLKIT/$subj_name"; do
+                "$TOOLKIT/tests/behaviour/$subj_name" "$TOOLKIT/tests/advisory/$subj_name" "$TOOLKIT/$subj_name"; do
       [ -f "$cand" ] && { subject="$cand"; break; }
     done
-    # Maintainer-side advisory tools (never shipped) live apart from bin/; same lookup, one line.
-    [ -z "$subject" ] && [ -f "$TOOLKIT/tests/advisory/$subj_name" ] && subject="$TOOLKIT/tests/advisory/$subj_name"
     if [ -z "$subject" ]; then
       # Counted as a failure, not a skip. A fixture whose subject cannot be resolved is not
       # being run, and a runner that reports "all green" while quietly not running two

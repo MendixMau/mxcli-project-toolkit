@@ -114,7 +114,8 @@ database (`learned-db-assertions.md`) rather than trusting the screen.
 
 A trace rung (OpenTelemetry) is **optional and per-project** — include it only if this project
 opted in ({{OTEL_SETUP}} describes the setup). Its two absolute rules (non-empty span set first;
-walk activity spans, not microflow status) → see `testing-shape.md` §4, the **Trace** rows.
+walk activity spans, not microflow status; navigating to the page you are already on fires
+nothing) → see `testing-shape.md` §4, the **Trace** rows.
 
 ## The wiring sweep — you own it, and it leaves a file
 

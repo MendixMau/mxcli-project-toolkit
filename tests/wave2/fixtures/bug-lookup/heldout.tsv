@@ -15,3 +15,7 @@ h12	[error] [CE0495] "Duplicate name 'btnSubmit'." at Action button 'btnSubmit',
 h13	[error] [CE0068] "End events cannot be placed inside a loop." at End event	NONE	mxcli mdl-examples/bug-tests/captrack-19-return-in-loop-as-clause.fail.mdl:6
 h14	[error] [CE0111] "Duplicate variable name 'Order'." at Create object activity 'Create Order'	NONE	mxcli mdl-examples/bug-tests/ledger-63-string-find.mdl:10 (name varied)
 h15	[error] [CE7033] "A microflow used for background execution must have a Microflow return type of 'Nothing'."	NONE	mxcli mdl-examples/bug-tests/1064-queued-microflow-must-return-nothing.fail.mdl:6
+# h16-h18 added 2026-10-15 after review (no-match rows with no CE code, so the 40% coverage floor is tested), written before the ranker ran on them.
+h16	Error: no debug session — run 'mxcli debug enable' first	NONE	mxcli cmd/mxcli/docker/debugger.go:277
+h17	Error: managed block in postgresql.conf is missing its end marker	NONE	mxcli cmd/mxcli/docker/ensuredb.go:440
+h18	Error: the query returned no rows; @verify needs exactly one row and one column	NONE	mxcli cmd/mxcli/testrunner/verify.go:190

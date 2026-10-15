@@ -14,11 +14,14 @@
 # that matches the error in front of them. The routing row for the ledger points here.
 #
 # ONE WORD (a CE code, a BUG id, a keyword) or --exact: matching entries in full, headers only
-# above 6 matches. SEVERAL WORDS (a pasted error): ranked. Each `## ` entry scores the distinct
+# above 6 matches. SEVERAL WORDS (a pasted error): ranked. All arguments are joined ("$*"), so
+# an unquoted multi-word query is ranked too (before ranking, only $1 was read). Each `## ` entry scores the distinct
 # query terms it contains, weighted by IDF (rare terms count more); CE codes and BUG ids x3, a
 # term in the header x1.5, an exact BUG id in the header +100. "No confident match" is printed
 # when the best entry covers < MXTK_BUG_MINCOV (default 0.40) of the query's term weight, or
 # when the query's CE code is in no entry. Measured on tests/wave2/fixtures/bug-lookup/.
+# Exit: 0 entries printed (the "no confident match" banner too: it still lists the nearest 3),
+# 1 nothing matches or no query, 2 no ledger or a bad --full rank.
 # Bash 3.2 + POSIX awk (mawk, gawk, BWK awk); no gawk-isms.
 set -eu
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -60,13 +60,8 @@ Full narratives: `process/baseline-incident-history.md` § TO1.
 
 Read the `.mpr` while Studio Pro was mid-rewrite and declared the session's work lost. It was not.
 
-**Antidote:** confirm against an independent source before declaring loss.
-```bash
-git hash-object Project.mpr            # working tree
-git rev-parse <commit>:Project.mpr     # committed
-```
-Identical hashes mean the tree *is* the checkpoint, whatever a stale read said. Also re-run the
-query — caches (`.mxcli/catalog.db`) lag.
+**Antidote:** confirm against an independent source before declaring loss → see
+`mpr-corruption-and-sp-load-errors.md` § RULE 3 (the git hash check).
 
 ### 2. "mxcli converts v2→v1 on read" — correlation asserted as cause
 

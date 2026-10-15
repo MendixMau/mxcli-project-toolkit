@@ -33,7 +33,7 @@ run on real work and watched going red. That is the whole of the claim.
 >
 > So: **five rungs, seven mutants** (rung 3 and rung 4 each carry two). "Rung 6/7" in a
 > `design-audit` artifact refers to that separate instrument, not to a sixth and seventh rung of the
-> journey.
+> journey. Do **not** merge them into one 1–7 table.
 
 ---
 

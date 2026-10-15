@@ -113,16 +113,8 @@ write from a silently discarded one. Cross-check every state-changing result aga
 database (`learned-db-assertions.md`) rather than trusting the screen.
 
 A trace rung (OpenTelemetry) is **optional and per-project** — include it only if this project
-opted in. If it did, {{OTEL_SETUP}} describes the setup, and two rules are absolute:
-
-1. **Guard against an empty capture first.** `[].every(...)` is `true`, so trace assertions pass
-   vacuously over zero spans. Assert the span set is non-empty *before* asserting anything about
-   its contents. Also confirm the action wasn't a no-op — navigating to the page you are already
-   on fires nothing.
-2. **A microflow's status is not its activities' status.** A microflow with an error handler
-   reports `OK` while its own activity spans are `ERROR` — the handler swallowed a real failure.
-   Always walk the activity spans. A page can render fine with an empty grid over a completely
-   dead integration, and both a UI check and a microflow-status check will lie about it.
+opted in ({{OTEL_SETUP}} describes the setup). Its two absolute rules (non-empty span set first;
+walk activity spans, not microflow status) → see `testing-shape.md` §4, the **Trace** rows.
 
 ## The wiring sweep — you own it, and it leaves a file
 

@@ -108,15 +108,15 @@ Run it at Stage 3 against the **drawn** diagram, and again at Stage 5 against th
 
 | # | Check | Bound |
 |---|---|---|
-| 1 | Paths that end exactly once | N of N paths; 0 activities after a terminal |
-| 2 | Boundary events whose type is named **and** whose terminator matches that type | N of N boundary events |
-| 3 | Parallel splits with ≥2 paths and 0 *End workflow* / 0 *Jump to* at **any** depth in a branch | N of N splits |
-| 4 | Enum-branching activities carrying every value **plus Empty** | N of N decisions + call-microflows-returning-enum + AI agent tasks |
-| 5 | User tasks whose targeting mechanism is named, **with the sentence it came from quoted** | N of N user tasks — `ASSUMED: no targeting` is legal, blank is not |
-| 6 | User tasks with an error handler for empty targeting, or an expression that provably cannot be empty | N of N user tasks |
-| 7 | Multi-user tasks with decision method **and** completion timing stated, sourced to a business rule | N of N multi-user tasks |
-| 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` | N of N expressions |
-| 9 | Event sub-processes with one start event, correct family, recurrence in bounds | N of N sub-processes |
+| 1 | Paths that end exactly once (§1) | N of N paths; 0 activities after a terminal |
+| 2 | Boundary events whose type is named **and** whose terminator matches that type (§2) | N of N boundary events |
+| 3 | Parallel splits with ≥2 paths and 0 *End workflow* / 0 *Jump to* at **any** depth in a branch (§4) | N of N splits |
+| 4 | Enum-branching activities carrying every value **plus Empty** (§5) | N of N decisions + call-microflows-returning-enum + AI agent tasks |
+| 5 | User tasks whose targeting mechanism is named, **with the sentence it came from quoted** (§6) | N of N user tasks — `ASSUMED: no targeting` is legal, blank is not |
+| 6 | User tasks with an error handler for empty targeting, or an expression that provably cannot be empty (§6) | N of N user tasks |
+| 7 | Multi-user tasks with decision method **and** completion timing stated, sourced to a business rule (§7) | N of N multi-user tasks |
+| 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` (§8) | N of N expressions |
+| 9 | Event sub-processes with one start event, correct family, recurrence in bounds (§3) | N of N sub-processes |
 | 10 | Constructs checked against §11 and marked *proven* or *hand-add in Studio Pro* | N of N constructs; every hand-add is its own numbered build-plan row |
 | 11 | **If the source is a BPMN/swimlane diagram:** pools counted, lanes carried into row 5, every element screened against §13 | N pools = N workflows; N of N elements screened; every NOT-SUPPORTED one has a `fit-gap.md` row. *"Source is not a process diagram"* is legal |
 

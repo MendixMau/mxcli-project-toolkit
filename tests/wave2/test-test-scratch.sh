@@ -11,7 +11,8 @@
 # the copy leaves out .mxcli (the live app's run --local record), .git and deployment; the port
 # lock is held during the run and released after; a second run while the first holds the ports
 # is refused; a dead holder's port lock is taken over; a live exec.sh on the project refuses the
-# copy; --attach and -p are refused; mxcli's exit code is passed through; the copy is deleted.
+# copy; --attach and -p are refused; mxcli's exit code is passed through; the copy is deleted;
+# a bin/_common.sh older than the shared mxtest helpers stops with exit 2 and the sync remedy.
 # No real mxcli: a stub records its cwd and argv.
 set -uo pipefail
 TOOLKIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -90,6 +91,17 @@ OUT="$(run g -- tests/a.test.mdl --attach)"; RC=$?
 [ "$RC" -eq 3 ] && has "--attach refused" "$OUT" "LIVE app" || bad "--attach exit $RC"
 OUT="$(run h -- tests/a.test.mdl -p Other.mpr)"; RC=$?
 [ "$RC" -eq 2 ] && ok "-p refused" || bad "-p exit $RC"
+
+echo "-- a bin/_common.sh older than the shared mxtest helpers → exit 2 naming sync, nothing copied or run"
+OC="$WORK/oldcommon"; mkdir -p "$OC/bin"; cp "$P/Fixture.mpr" "$P/mxcli" "$OC/"; cp "$P/bin/test-scratch.sh" "$OC/bin/"
+sed '/^# mxcli run \/ test identity/,$d' "$TOOLKIT/project-bin/_common.sh" > "$OC/bin/_common.sh"
+grep -q '^find_mpr()' "$OC/bin/_common.sh" && ! grep -q 'mxtest_left' "$OC/bin/_common.sh" \
+  && ok "[setup] _common.sh without the mxtest helpers" || bad "[setup] could not strip only the mxtest helpers"
+OUT="$( cd "$OC" && REC="$WORK/rec.oc" ./bin/test-scratch.sh -- tests/a.test.mdl 2>&1 )"; RC=$?
+[ "$RC" -eq 2 ] && ok "exit 2" || bad "exit $RC: $(printf '%s' "$OUT" | tail -2)"
+has "names the remedy" "$OUT" "sync-project.sh"
+case "$OUT" in *"command not found"*) bad "died on command not found" ;; *) ok "no command-not-found" ;; esac
+[ -f "$WORK/rec.oc" ] && bad "mxcli ran" || ok "nothing run"
 
 
 echo "-- #304 review: a stale-lock takeover never removes a lock another run took meanwhile"

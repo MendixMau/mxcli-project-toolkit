@@ -23,7 +23,8 @@
 # stranger named by pid and alive; our app dead and a stranger on the app port → exit 4, nothing
 # started. (The stranger is a bare TCP listener, as a runtime's admin port is to curl.)
 # #160: the port/tree helpers moved to _common.sh; an older _common.sh stops with exit 2 + the
-# sync remedy (this is the case where it would otherwise die on "command not found").
+# sync remedy (this is the case where it would otherwise die on "command not found"); so does one older
+# than the mxtest/pid helpers that moved there from this script and test-scratch.sh.
 # #304 review: a stale record whose pid was reused by an unrelated process, restarted with --cmd →
 # that process survives (the pid is checked to be an mxcli run itself). #244: the settings unit is
 # the CAPTURED one (fixtures/mxtest-guard, from mxcli's own test model), re-encoded with the
@@ -274,6 +275,17 @@ sed '/^# Process identity — who holds a port/,$d' "$TOOLKIT/project-bin/_commo
 grep -q mxtk_port_holder "$O/bin/_common.sh" && bad "[setup] could not strip the helpers" || ok "[setup] _common.sh without the shared helpers"
 OUT="$(restart "$O" --dry-run)"; RC=$?
 [ "$RC" -eq 2 ] && ok "exit 2" || bad "exit $RC: $(printf '%s' "$OUT" | tail -2)"
+has "names the remedy" "$OUT" "sync-project.sh"
+hasnt "no command-not-found mid-run" "$OUT" "command not found"
+
+echo "-- a bin/_common.sh older than the shared mxtest/pid helpers → exit 2 naming sync, nothing stopped"
+O2="$WORK/oldcommon2"; mkapp "$O2" "$PORT"
+sed '/^# mxcli run \/ test identity/,$d' "$TOOLKIT/project-bin/_common.sh" > "$O2/bin/_common.sh"
+grep -q mxtk_port_holder "$O2/bin/_common.sh" && ! grep -q 'mxtest_left\|mxtk_pid_is_mxcli_run' "$O2/bin/_common.sh" \
+  && ok "[setup] _common.sh with the port helpers, without the mxtest/pid helpers" || bad "[setup] could not strip only the mxtest/pid helpers"
+OUT="$(restart "$O2" --dry-run)"; RC=$?
+[ "$RC" -eq 2 ] && ok "exit 2" || bad "exit $RC: $(printf '%s' "$OUT" | tail -2)"
+has "names what is missing" "$OUT" "no mxtest_left"
 has "names the remedy" "$OUT" "sync-project.sh"
 hasnt "no command-not-found mid-run" "$OUT" "command not found"
 

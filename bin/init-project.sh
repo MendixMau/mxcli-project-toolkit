@@ -309,7 +309,8 @@ This project uses the shared toolkit at \`$TOOLKIT_ROOT\`. For ANY pipeline work
 1. **Read \`$TOOLKIT_ROOT/skills/conversion-runbook.md\` §1b plus your own stage's section FIRST —
    every session; not the whole file** (\`bin/gate-check.sh <project-root> <stage>\` prints the line
    spans). It is the executable spec. The toolkit README and toolkit-guide.html are orientation only; stage
-   summaries anywhere are routing, not deliverable lists.
+   summaries anywhere are routing, not deliverable lists. A helper agent (mdl, gate, test, review)
+   runs \`$TOOLKIT_ROOT/bin/runbook-slice.sh <stage>\` instead, which prints exactly those lines.
 2. **Before producing any stage artifact, open that stage's owning skill** and follow its
    full output list (e.g. Stage 3 design work = \`design-artifacts.md\`, incl. one wireframe
    per screen — not just a design system).

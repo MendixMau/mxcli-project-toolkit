@@ -98,7 +98,7 @@ AGENTS="$MXTK_AGENTS"
 is_pure_stub() {
   local f="$1"
   grep -q "STUB GENERATED" "$f" || return 1
-  sed 's/{{DOUBLE_BRACE}}//g' "$f" | grep -q '{{[A-Z_]*[^}]*}}'
+  grep -q -- '{{[A-Z_]*[^}]*}}' <<<"$(sed 's/{{DOUBLE_BRACE}}//g' "$f")"
 }
 
 DIFF_COMPLETED=0
@@ -342,7 +342,7 @@ elif [ -n "$INTAKE" ]; then
       echo "Updated: $INTAKE — appended Q9 (interview mode). Answer it this session."
     fi
     CHANGES=$((CHANGES + 1))
-  elif ! q9_section "$INTAKE" | grep -q 'Answered\|Unverified'; then
+  elif ! grep -q -- 'Answered\|Unverified' <<<"$(q9_section "$INTAKE")"; then
     # Present, but ungradeable by gate-check's Stage P check.
     Q9_TMP=$(mktemp "${TMPDIR:-/tmp}/q9sec.XXXXXX") || exit 2
     Q9_REF=$(mktemp "${TMPDIR:-/tmp}/q9ref.XXXXXX") || exit 2
@@ -358,7 +358,7 @@ elif [ -n "$INTAKE" ]; then
     # into the "edited, NOT touching it" warning below.
     q9_current_text > "$Q9_REF"
     if cmp -s "$Q9_TMP" "$Q9_REF" \
-       || sed -n '2,$p' "$Q9_TMP" | grep -v '^[[:space:]]*$' | head -1 | grep -q '^_Not yet asked\._'; then
+       || grep -q -- '^_Not yet asked\._' <<<"$(sed -n '2,$p' "$Q9_TMP" | grep -v '^[[:space:]]*$' | head -1)"; then
       echo "Note: $INTAKE Q9 is the unanswered template text — Stage P will FAIL until"
       echo "      the kickoff interview happens. That is correct; nothing to repair."
 
@@ -428,7 +428,7 @@ elif [ -n "$INTAKE" ]; then
   MISSING_N=0
   while IFS= read -r _q; do
     [ -n "$_q" ] || continue
-    if ! sed -n 's/^## [0-9][0-9]*\. //p' "$INTAKE" | grep -Fxq "$_q"; then
+    if ! grep -Fxq -- "$_q" <<<"$(sed -n 's/^## [0-9][0-9]*\. //p' "$INTAKE")"; then
       MISSING_Q="$MISSING_Q$_q
 "
       MISSING_N=$((MISSING_N + 1))
@@ -1368,7 +1368,7 @@ _ea_rewrite_item3() {   # $1=file  $2=start-prefix  $3=end-prefix  $4=replacemen
       { if (skip) { if (index($0, endp) == 1) { exit }; print; next }
         if (index($0, start) == 1) { print; skip = 1 } }
     ' "$f" | tr '\n' ' ' | tr -s ' ')"
-    printf '%s' "$_blk" | grep -qF -- "$needle" || return 1
+    grep -qF -- "$needle" <<<"$_blk" || return 1
   fi
   [ "$DRY_RUN" -eq 1 ] && return 0
   _tmp="$(mktemp "${TMPDIR:-/tmp}/eaitem3.XXXXXX")" || return 1

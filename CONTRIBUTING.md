@@ -79,9 +79,11 @@ follow `README.md` → "How to add a new skill" including the routing-table row.
    `CLAUDE.md` → "Shipping an instrument — field-proof before merge".
 3. A `CHANGELOG.md` line is present and credits the source.
 4. Scoped fixtures for the touched files were run, and named in the PR.
-5. Squash by default; a merge commit only for a branch whose every commit is already clean —
+5. The PR's Impact block has all five rows filled and each matches the diff
+   (`docs/RELEASE-PROCESS.md` §4a); a missing or estimated Context cost row is a finding.
+6. Squash by default; a merge commit only for a branch whose every commit is already clean —
    see below.
-6. A name found in a PR is rewritten by hand, in the PR, with a placeholder (`ClientX`) —
+7. A name found in a PR is rewritten by hand, in the PR, with a placeholder (`ClientX`) —
    never auto-replaced. Auto-replace breaks paths, fixtures and credit lines, and the real
    name stays recoverable from history either way.
 

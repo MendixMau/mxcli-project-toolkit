@@ -1,0 +1,13 @@
+-- Clean corpus: valid MDL that an earlier scanner flagged as STOP-12 (independent review of #355).
+-- A bare ContentParams value followed by a Visible expression, on one line and over two.
+create or modify snippet Module.Item_Row (Params: { $Item: Module.Item }) {
+  dataview dvItem (DataSource: $Item) {
+    dynamictext t (Content:'{1}', ContentParams: [{1} = Name], Visible: [IsActive])
+    dynamictext t2 (
+      Content: '{1}',
+      ContentParams: [
+        {1} = Name
+      ], Visible: [IsActive and Name != empty]
+    )
+  }
+}

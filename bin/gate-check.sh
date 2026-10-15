@@ -2379,12 +2379,10 @@ fi
 # grepping the runbook's actual headings ("### Stage N — …", "## 1b. …") on every run — never
 # a hard-coded number, which would be wrong after the next edit. The runbook's own "how to
 # read this" paragraph states the same rule; this line is what makes it actionable.
-runbook_span() { # runbook_span <file> <start-regex> <end-regex> — "A–B" (1-based, inclusive) or ""
-  awk -v h="$2" -v e="$3" '
-    !start && $0 ~ h { start = NR; next }
-    start && $0 ~ e   { end = NR - 1; exit }
-    END { if (start) { if (!end) end = NR; printf "%d–%d", start, end } }' "$1" 2>/dev/null
-}
+# The span logic lives in lib/runbook-span.sh, shared with bin/runbook-slice.sh (which prints
+# these same lines for a helper that never runs a gate) and with the per-role word count in
+# lib/skill-routing.sh.
+. "$TOOLKIT_DIR/bin/lib/runbook-span.sh"
 if [ -n "$REQUESTED_STAGE" ]; then
   RB_FILE="$TOOLKIT_DIR/skills/conversion-runbook.md"
   case "$REQUESTED_STAGE" in
@@ -2395,8 +2393,8 @@ if [ -n "$REQUESTED_STAGE" ]; then
     # Keyed on the " — " every stage heading carries: "### Stage 0 runs in every entry mode"
     # (under Entry Modes) also starts with "### Stage 0", and matched first without it.
     RB_HEAD="$(grep -m1 "^### Stage $RB_STAGE — " "$RB_FILE" | sed 's/^### //; s/[[:space:]]*$//')"
-    RB_SPAN="$(runbook_span "$RB_FILE" "^### Stage $RB_STAGE — " "^###? ")"
-    RB_1B="$(runbook_span "$RB_FILE" "^## 1b\\." "^## ")"
+    RB_SPAN="$(runbook_stage_span "$RB_FILE" "$RB_STAGE")"
+    RB_1B="$(runbook_1b_span "$RB_FILE")"
     if [ -n "$RB_HEAD" ] && [ -n "$RB_SPAN" ] && [ -n "$RB_1B" ]; then
       printf 'Read for this gate: skills/conversion-runbook.md §"%s" (lines %s) + §1b Live Checklist (lines %s) — not the whole file\n' \
         "$RB_HEAD" "$RB_SPAN" "$RB_1B"

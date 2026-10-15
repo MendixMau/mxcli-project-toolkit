@@ -7128,3 +7128,15 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Workaround:** start once with `--runtime-setting ScheduledEventExecution=ALL` and keep it in the project's own start line. Already taught for tests in `skills/testing-shape.md` ("`run --local` starts with scheduled events off").
 
 **Toolkit side:** the skill paragraph exists; this entry makes it findable by symptom.
+
+## BUG-DRAFT-test-local-fixed-ports: `mxcli test --local` hard-codes ports 8081/8091 and refuses while another app holds 8081, FIXED in mxcli v0.27.0 (2026-10-15)
+
+> **FIXED UPSTREAM** in v0.27.0: `mxcli test --app-port / --admin-port / --serve-port` (CHANGELOG 0.27.0, Added). No upstream issue needed.
+
+**Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
+
+**What happens (v0.26.0 and older).** With another app on :8081, `bin/test-scratch.sh` reports ":8081 already answers" for as long as it runs; `--attach` needs a restart in test-endpoint mode.
+
+**Workaround:** on v0.27.0 and later pass `--app-port` and `--admin-port` to `mxcli test --local`. On v0.26.0 stop the other app, or prove behaviour with REST scripts against the running app.
+
+**Toolkit side:** `skills/testing-shape.md` names the flags. `bin/test-scratch.sh` still takes its lock on the fixed 8081/8091; moving it to the new flags needs a field run and is left open.

@@ -410,7 +410,8 @@ for the facts behind each check.
 **The property that makes this worth gating: a design-system defect is dormant until some widget
 carries the class.** So the defects are all present from the first build and surface one at a time,
 much later, as UI work attaches classes to pages. "The build is green and the pages look fine" is
-not evidence that the design system is correct — it is evidence that it is not being exercised yet.
+not evidence that the design system is correct — it is evidence that it is not being exercised yet,
+and it reads identically either way.
 
 ---
 
@@ -450,7 +451,7 @@ mdlsource/gallery/
 ## Anti-Patterns This Skill Prevents
 
 - **Wireframes before a design system.** Produces inconsistent screens with no shared tokens; the Atlas theme becomes a per-page cleanup job.
-- **Embedding tokens in `design-system.html` instead of a separate `ds.css`.** Wireframes must redeclare tokens → drift and inconsistency between screens.
+- **Embedding tokens in `design-system.html` instead of a separate `ds.css`** → see `learned-stylegallery.md` § Anti-Patterns This Skill Prevents.
 - **Skipping `brand.md` and `target-ui.md`.** Design decisions end up undocumented; deliberate inversions (primary/CTA swap) look like mistakes to future maintainers.
 - **Hand-picking chart/KPI colors.** Bypasses the `dataviz` validator — ship colorblind-unsafe data. Use the validated palette.
 - **Generative design for screens that have a source screenshot.** Invents divergence you then correct back toward the source.

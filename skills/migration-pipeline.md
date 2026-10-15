@@ -275,27 +275,7 @@ in merger) when building a new stack's extractor rather than re-deriving it.
 
 **Phase 3 (BRD scaffolding) does not start until the extraction quality score ≥ 95%.**
 
-Read `extractor-quality-loop.md` in full before writing or running any extractor. That skill
-defines the mandatory test/build loop, the 6 scored dimensions, the `extraction-quality.json`
-format, and the `run.sh` interface every stack extractor must implement.
-
-The loop:
-1. Run extractor → emits `inventory.json` (or KB JSONs)
-2. Run validator → emits `extraction-quality.json` with dimension scores
-3. If overall score < 95%: fix the extractor, go to 1
-4. If overall score ≥ 95%: gate passed, update `PROJECT.md`, proceed to Phase 3
-
-Never hand-patch `inventory.json` to inflate a score. The validator must derive ground truth
-from source files directly.
-
-Quick checklist (validator covers these automatically):
-- [ ] Entity field count matches source interfaces/models
-- [ ] Cross-file enum references resolved (not typed as String)
-- [ ] Union types resolved to the enum variant, not String fallback
-- [ ] All FK fields mapped to associations (including aliased FKs)
-- [ ] All route-defining files globbed (not just `*-routes.ts` — include auth, app.ts, etc.)
-- [ ] All test spec files classified to a capability (no "Other" bucket)
-- [ ] Business logic items explicitly listed as BRD-only, not penalised
+→ see `skills/extractor-quality-loop.md` § The Loop (plus § The 6 Scored Dimensions, § Validator Requirements, § run.sh Requirements) — read it in full before writing or running any extractor.
 
 ### ► CAC-1b Extraction Scope Checkpoint
 
@@ -471,7 +451,7 @@ App (one Mendix app)
 - **Consolidate** small source modules covering the same domain into one Mendix module
 - **Split** large source modules where UI and domain logic are entangled
 - **Promote** entities used by 3+ source modules to a Common or Domain module
-- **Cross-module associations** are created via mxcli `CREATE ASSOCIATION` (BUG-02 fixed in v0.13.0)
+- **Cross-module associations** are created via mxcli `CREATE ASSOCIATION` (`bin/bug-lookup.sh BUG-02`)
 - **Layering rule:** Common modules must not import from feature modules (same as OS 3-tier rule)
 
 ### Output
@@ -510,7 +490,7 @@ deadline or feature priority that should front-load the build plan.
 ## Phase 7 — MDL Generation
 
 Reads `.mx-brd.json` files and produces layered MDL scripts.
-See `migrate-general.md` for layering rules, naming conventions, and known mxcli bugs.
+Module layering: `source-os11.md` § Module Classification. Script layering, naming conventions and known mxcli bugs: `migrate-general.md` (§2 for script layering).
 
 ### Script output structure
 
@@ -624,5 +604,5 @@ Track key pipeline decisions per project:
 | Module scope | All modules / Business only | Business first | Framework modules add noise |
 | BRD format | JSON / Markdown / Both | JSON + .md review copy | Machine-readable + human review |
 | Rearchitect strategy | 1:1 / Consolidated / Split | TBD per project | Depends on domain complexity |
-| Cross-module assocs | mxcli / Studio Pro | mxcli (BUG-02 fixed v0.13.0) | `CREATE ASSOCIATION` works correctly |
+| Cross-module assocs | mxcli / Studio Pro | mxcli | `CREATE ASSOCIATION` works (`bin/bug-lookup.sh BUG-02`) |
 | Phase ordering | Docs before code / Code before docs | Code first (Phase 3), docs second (Phase 4) | BRD scaffolding needs no human triage; document discovery does — run the free pass first |

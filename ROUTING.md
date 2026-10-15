@@ -242,7 +242,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 
 | Always relevant for | Load this | Agent(s) | Stage(s) | Tier |
 |---|---|---|---|---|
-| Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is 32k words | `bug-logs/mxcli-bugs.md` | mdl,gate | 5,6 | ondemand |
+| Reading a whole class of tool defects (a retest, a new mxcli release, an audit) — for one CE code or symptom use bin/bug-lookup.sh instead; the ledger is too large to read whole | `bug-logs/mxcli-bugs.md` | mdl,gate | 5,6 | ondemand |
 | An e2e rung reports a UI defect (widget never appeared, click did nothing, screen contradicts the data, fixture count wrong) — check the locator before blaming the app: :visible, click order, poll, derived fixtures | `skills/e2e-locators-that-lie.md` | test,review | 5,6 | ondemand |
 | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude | `skills/tool-output-is-not-ground-truth.md` | all | - | baseline |
 | Any refused, denied or blocked command — BEFORE rewriting a permission rule and before telling the user a tool is blocked. A rule matches the START of the command line, so an allowlisted tool prefixed with cd matches nothing | `skills/agent-permission-friction.md` | all | - | ondemand |
@@ -258,7 +258,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | Needing Studio Pro load evidence without a human at the GUI — direct-binary launch and log capture; a capture technique, NOT a validated pass/fail oracle | `skills/scriptable-sp-verification.md` | mdl,gate | - | ondemand |
 | A runtime test or seed reads/writes data that then is not there (the test wrote a row, the DB query shows nothing), or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first | `skills/learned-local-db-confusion.md` | mdl,test,gate | 5,6 | ondemand |
 | gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script | `skills/gate-check-file-locations.md` | ba,gate | 0 | ondemand |
-| A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" prints the matching ledger entries, so the session reads one entry, not the 32k-word ledger | `bin/bug-lookup.sh` | mdl,gate | 5,6 | baseline |
+| A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger | `bin/bug-lookup.sh` | mdl,gate | 5,6 | baseline |
 
 #### Reference — lookup tables, not method
 

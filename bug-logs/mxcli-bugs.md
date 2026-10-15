@@ -7044,3 +7044,15 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Toolkit side:** do not rename the flow or add a fake caller. Accept the rise with `bin/lint-gate.sh --update-baseline --reason "QUAL004 DS_ datasource false positive (BUG-DRAFT-qual004-dg2-datasource)"`. `skills/lint-that-actually-runs.md` → "Stock rules against the toolkit's own conventions".
 
 **Expected:** a `DataSource: microflow X` on any widget, pluggable or not, is an inbound reference to X. `describe page` already prints it.
+
+## BUG-DRAFT-nav-glyph-reset-home: an undefined menu glyph is only a `check` warning (MDL078) and kills mxbuild with no error file, a partial `create or modify navigation` resets the menu, and a default home page is not checked per role (2026-10-15)
+
+> **NOT YET FILED.** Upstream issue drafted. MDL078 is a deliberate warning upstream (the font table is a snapshot); the lint rule MPR007 covers the role/home case.
+
+**Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
+
+**What happens.** (1) `icon glyph 57388` passes `check` with MDL078 as a warning, exec applies it, mxbuild exits 1 (`Sequence contains no matching element`) and writes no `last-mxbuild-errors.json`, so the gate reports only "failed to run (exit 1)". (2) A partial `create or modify navigation <profile>` rewrites the profile: items not restated are gone, so the final profile needs its own last script. (3) `home page M.P` on the default profile gives CE2729 per role that cannot open P.
+
+**Workaround:** `show glyphs [like '...']` and use a listed code; treat an MDL078 warning as a build blocker; keep ONE final navigation script that restates every item; use `home page M.P for <UserRole>` per role, and run `mxcli lint` (MPR007) before the build.
+
+**Toolkit side:** ledger only; `skills/learned-sidebar-collapse-icons.md` covers the icon requirement.

@@ -1100,7 +1100,7 @@ mxtk_lock_take() {
   [ -n "${_MXTK_LOCK_NONCE:-}" ] || _MXTK_LOCK_NONCE="$$$RANDOM$RANDOM$(date +%s)"
   line="$$ $(date +%s) $label nonce=$_MXTK_LOCK_NONCE"
   while [ "$i" -lt "$tries" ]; do
-    i=$((i + 1))
+    i=$((i + 1)); MXTK_LOCK_BLOCKER=""   # describes the LAST attempt only
     if _mxtk_lock_excl "$L" "$L" "$line"; then
       _mxtk_lock_anchor created
       _mxtk_lock_gc "$L" "$line"
@@ -1115,7 +1115,6 @@ mxtk_lock_take() {
     elif mxtk_lock_live "${held%% *}"; then
       MXTK_LOCK_HELD="$held"; return 1
     fi
-    MXTK_LOCK_BLOCKER=""
     _mxtk_lock_reap "$L" "$held" && continue
     sleep "$slp"   # another live reaper is on it; see who won
   done

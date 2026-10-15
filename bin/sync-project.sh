@@ -173,6 +173,9 @@ while [ $# -gt 0 ]; do
     --only-bin)
       shift
       [ $# -gt 0 ] || { echo "--only-bin needs a script name from the toolkit's project-bin/" >&2; exit 1; }
+      # One bare name per flag. An empty or space-holding value would split into nothing (and
+      # "0 file(s) written", exit 0) or into several names the caller never typed.
+      case "$1" in ""|*[[:space:]]*) echo "--only-bin needs ONE script name, got '$1'" >&2; exit 1 ;; esac
       ONLY_BIN="$ONLY_BIN $1"; shift ;;
     --upgrade-bin)
       shift
@@ -248,32 +251,63 @@ PROJECT_NAME="$(basename "$(cd "$PROJECT_DIR" && pwd)")"
 # Everything is decided before anything is written: an unknown name or a refused overwrite
 # exits 1 with the project untouched. bin/ is <project-root>/bin on both layouts (single-tree,
 # and two-tree with the .mpr under app/) — the same place the crash-net section writes.
+# Names must be in the install manifest ($MXTK_PROJECT_BIN): a file that sits in project-bin/
+# but is deliberately not installed (MXTK_PROJECT_BIN_NOINSTALL) is refused like any other.
+# The full sync's refresh hold applies too: an unedited older copy is NOT refreshed on top of a
+# hand-edited bin/_common.sh unless --upgrade-bin names it (or all) or --force is given.
+# `set -f` while splitting the name lists: `--only-bin '*'` must never glob into the cwd.
 if [ -n "$ONLY_BIN" ]; then
   OB_SRC="$TK_ROOT/project-bin"
   OB_DST="$PROJECT_DIR/bin"
   ob_wired=0
   for m in bin PROJECT.md intake.md CLAUDE.local.md; do [ -e "$PROJECT_DIR/$m" ] && ob_wired=1; done
   [ "$ob_wired" -eq 1 ] || { echo "Error: $PROJECT_DIR has no PROJECT.md, intake.md, CLAUDE.local.md or bin/ — not a wired project. Nothing written." >&2; exit 1; }
-  ob_err=0; ob_plan=""
+  ob_err=0; ob_plan=""; ob_hold=""
+  if [ "$NO_REFRESH" -eq 0 ] && [ -f "$OB_DST/_common.sh" ] && [ -f "$OB_SRC/_common.sh" ] \
+     && [ "$(copy_kind project-bin/_common.sh "$OB_SRC/_common.sh" "$OB_DST/_common.sh")" = edited ]; then
+    ob_hold="_common.sh"
+  fi
+  set -f
   for s in $ONLY_BIN; do
     case "$s" in */*|.*|"") echo "Error: --only-bin takes a bare file name from project-bin/, got '$s'" >&2; ob_err=1; continue ;; esac
     src="$OB_SRC/$s"; dst="$OB_DST/$s"
     if [ ! -f "$src" ]; then echo "Error: no such script in the toolkit's project-bin/: $s" >&2; ob_err=1; continue; fi
+    case " $MXTK_PROJECT_BIN " in *" $s "*) ;; *)
+      case " $MXTK_PROJECT_BIN_NOINSTALL " in
+        *" $s "*) echo "Error: $s is deliberately not installed into projects (MXTK_PROJECT_BIN_NOINSTALL in bin/lib/install-manifest.sh)" >&2 ;;
+        *)        echo "Error: $s is not in the install manifest (MXTK_PROJECT_BIN in bin/lib/install-manifest.sh)" >&2 ;;
+      esac
+      ob_err=1; continue ;;
+    esac
     if [ ! -f "$dst" ]; then ob_plan="$ob_plan install:$s"; continue; fi
     kind="$(copy_kind "project-bin/$s" "$src" "$dst")"
     if [ "$kind" = same ]; then ob_plan="$ob_plan same:$s"; continue; fi
-    if [ "${kind#stock:}" != "$kind" ] && [ "$NO_REFRESH" -eq 0 ]; then ob_plan="$ob_plan refresh:$s"; continue; fi
     if [ "$FORCE" -eq 1 ] || case " $UPGRADE_BIN " in *" all "*|*" $s "*) true ;; *) false ;; esac; then
       ob_plan="$ob_plan upgrade:$s"; continue
     fi
-    echo "Refused: bin/$s is LOCALLY MODIFIED. See what differs:  diff -u $src $dst" >&2
-    echo "   Accept the toolkit version (your copy is backed up): add --upgrade-bin $s (or --force)" >&2
+    if [ "${kind#stock:}" != "$kind" ]; then
+      if [ "$NO_REFRESH" -eq 0 ] && { [ -z "$ob_hold" ] || [ "$s" = "$ob_hold" ]; }; then
+        ob_plan="$ob_plan refresh:$s"; continue
+      fi
+      if [ -n "$ob_hold" ] && [ "$NO_REFRESH" -eq 0 ]; then
+        echo "⚠️  bin/$s is an unedited toolkit copy of ${kind#stock:}, NOT refreshed: bin/$ob_hold is" >&2
+        echo "   locally edited and $s depends on it. Accept both together: $0 $PROJECT_DIR --upgrade-bin all" >&2
+        echo "   Scoped: $0 $PROJECT_DIR --only-bin $ob_hold --only-bin $s --upgrade-bin $ob_hold --upgrade-bin $s" >&2
+      else
+        echo "Refused: bin/$s is an unedited toolkit copy of ${kind#stock:} and --no-refresh keeps it." >&2
+      fi
+    else
+      echo "Refused: bin/$s is LOCALLY MODIFIED. See what differs:  diff -u $src $dst" >&2
+      echo "   Accept the toolkit version (your copy is backed up): add --upgrade-bin $s (or --force)" >&2
+    fi
     ob_err=1
   done
+  set +f
   [ "$ob_err" -eq 0 ] || { echo "--only-bin: nothing written." >&2; exit 1; }
   echo "=== Scoped bin/ install for $PROJECT_DIR (--only-bin; nothing else is touched) ==="
   [ -d "$OB_DST" ] || w_mkdir "$OB_DST"
   ob_n=0
+  set -f
   for item in $ob_plan; do
     act="${item%%:*}"; s="${item#*:}"; src="$OB_SRC/$s"; dst="$OB_DST/$s"
     if [ "$act" = same ]; then
@@ -285,7 +319,15 @@ if [ -n "$ONLY_BIN" ]; then
       fi
       continue
     fi
-    if [ "$DRY_RUN" -eq 1 ]; then echo "Would write: bin/$s ($act)"; ob_n=$((ob_n + 1)); continue; fi
+    if [ "$DRY_RUN" -eq 1 ]; then
+      if [ "$act" = upgrade ]; then
+        echo "Would upgrade: bin/$s — local copy would be backed up first (bin/$s.local-<timestamp>)"
+        ob_n=$((ob_n + 2))
+      else
+        echo "Would write: bin/$s ($act)"; ob_n=$((ob_n + 1))
+      fi
+      continue
+    fi
     if [ "$act" = upgrade ]; then
       bak="$dst.local-$(date +%Y%m%d%H%M%S)"
       cp "$dst" "$bak"; chmod -x "$bak"
@@ -297,6 +339,7 @@ if [ -n "$ONLY_BIN" ]; then
     echo "Wrote: bin/$s ($act)"
     ob_n=$((ob_n + 1))
   done
+  set +f
   echo "--only-bin: $ob_n file(s) $( [ "$DRY_RUN" -eq 1 ] && echo 'would be written' || echo 'written'); nothing else was touched."
   exit 0
 fi

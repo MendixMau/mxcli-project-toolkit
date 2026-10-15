@@ -16,6 +16,12 @@
 #   O4  an unknown script exits non-zero and writes nothing; so does a path-like name
 #   O5  a locally modified copy is refused (exit 1, nothing written), accepted with
 #       --upgrade-bin <name> or --force, backed up first, and every written file is printed
+#   O6  the full sync's refresh hold: an unedited OLDER exec.sh is refreshed on a clean
+#       _common.sh (control) but refused on a hand-edited one, unless --upgrade-bin names it;
+#       --dry-run of that upgrade says a backup would be written, and writes nothing
+#   O7  a project-bin/ file outside the install manifest (NOINSTALL) is refused
+#   O8  --only-bin '*' from a cwd full of script names installs nothing (no glob expansion)
+#   O9  --only-bin '' is a usage error
 #
 # Every fixture is built by the REAL bin/init-project.sh under /tmp. No real project is touched.
 export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-fixture-denylist.$$"
@@ -25,6 +31,8 @@ set -uo pipefail
 SYNC="${1:?usage: test-sync-only-bin.sh /path/to/sync-project.sh}"
 case "$SYNC" in /*) ;; *) SYNC="$PWD/$SYNC" ;; esac
 TK="$(cd "$(dirname "$SYNC")/.." && pwd)"
+# O6 needs an older exec.sh the toolkit really shipped (CI checks out full history).
+OLD_EXEC_REV="$(git -C "$TK" log --format=%H -n2 -- project-bin/exec.sh 2>/dev/null | sed -n 2p)"
 INIT="$TK/bin/init-project.sh"
 WORK="$(mktemp -d /tmp/onlybin.XXXXXX)"
 trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"; rm -rf "$WORK"' EXIT
@@ -114,6 +122,42 @@ for L in single two; do
   printf '#!/usr/bin/env bash\n# LOCAL AGAIN\n' > "$P/bin/exec.sh"
   "$SYNC" "$P" --only-bin exec.sh --force >/dev/null 2>&1 && cmp -s "$TK/project-bin/exec.sh" "$P/bin/exec.sh" \
     && ok "O5[$L] --force overwrites (after a backup)" || bad "O5[$L] --force did not overwrite"
+
+  P="$(mkproj o6 "$L")"
+  if [ -z "$OLD_EXEC_REV" ]; then
+    bad "O6[$L] no older project-bin/exec.sh in the toolkit's git history (shallow clone?)"
+  else
+    old_exec() { git -C "$TK" show "$OLD_EXEC_REV:project-bin/exec.sh" > "$P/bin/exec.sh"; chmod +x "$P/bin/exec.sh"; }
+    old_exec
+    OUT="$("$SYNC" "$P" --only-bin exec.sh 2>&1)"; RC=$?
+    [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q '^Wrote: bin/exec.sh (refresh)' \
+      && ok "O6[$L] control: older unedited exec.sh refreshed on a clean _common.sh" || bad "O6[$L] control: rc=$RC" "$OUT"
+    old_exec; printf '# local hardening\n' >> "$P/bin/_common.sh"
+    git -C "$P" -c user.name=fx -c user.email=t@t commit -qam held --no-verify >/dev/null 2>&1
+    B="$(fingerprint "$P")"
+    OUT="$("$SYNC" "$P" --only-bin exec.sh 2>&1)"; RC=$?
+    [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'NOT refreshed: bin/_common.sh is' && [ "$B" = "$(fingerprint "$P")" ] \
+      && ok "O6[$L] held on an edited _common.sh: refused with the full sync's message, nothing written" || bad "O6[$L] hold: rc=$RC" "$OUT"
+    OUT="$("$SYNC" "$P" --only-bin exec.sh --upgrade-bin exec.sh --dry-run 2>&1)"; RC=$?
+    [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'local copy would be backed up first' && [ "$B" = "$(fingerprint "$P")" ] \
+      && ok "O6[$L] --dry-run upgrade names the backup and writes nothing" || bad "O6[$L] dry-run: rc=$RC" "$OUT"
+    OUT="$("$SYNC" "$P" --only-bin exec.sh --upgrade-bin exec.sh 2>&1)"; RC=$?
+    [ "$RC" -eq 0 ] && cmp -s "$TK/project-bin/exec.sh" "$P/bin/exec.sh" && [ -n "$(find "$P/bin" -name 'exec.sh.local-*')" ] \
+      && ok "O6[$L] --upgrade-bin exec.sh lifts the hold (backed up)" || bad "O6[$L] upgrade: rc=$RC" "$OUT"
+  fi
+
+  P="$(mkproj o7 "$L")"; B="$(fingerprint "$P")"
+  OUT="$("$SYNC" "$P" --only-bin report-disposition-check.sh 2>&1)"; RC=$?
+  [ "$RC" -ne 0 ] && printf '%s' "$OUT" | grep -q 'NOINSTALL' && [ "$B" = "$(fingerprint "$P")" ] \
+    && ok "O7[$L] NOINSTALL script refused, nothing written" || bad "O7[$L] NOINSTALL: rc=$RC" "$OUT"
+
+  G="$WORK/glob-$L"; mkdir -p "$G"; : > "$G/restore-mpr.sh"; : > "$G/snapshot-mpr.sh"
+  OUT="$(cd "$G" && "$SYNC" "$P" --only-bin '*' 2>&1)"; RC=$?
+  [ "$RC" -ne 0 ] && [ ! -e "$P/bin/restore-mpr.sh" ] && [ ! -e "$P/bin/snapshot-mpr.sh" ] && [ "$B" = "$(fingerprint "$P")" ] \
+    && ok "O8[$L] --only-bin '*' is not glob-expanded: refused, nothing written" || bad "O8[$L] glob: rc=$RC" "$OUT"
+
+  OUT="$("$SYNC" "$P" --only-bin '' 2>&1)"; RC=$?
+  [ "$RC" -ne 0 ] && [ "$B" = "$(fingerprint "$P")" ] && ok "O9[$L] --only-bin '' is a usage error" || bad "O9[$L] empty name: rc=$RC" "$OUT"
 done
 
 echo ""

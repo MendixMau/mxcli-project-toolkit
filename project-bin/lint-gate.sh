@@ -386,6 +386,15 @@ if crashed:
 viol = [v for v in viol if v.get("module") != "_rule"]
 counts = collections.Counter(v["ruleId"] for v in viol)
 
+# FINDING IDENTITY (#239). The baseline stores per-rule counts, so on a rise the gate could only
+# show three arbitrary members of the rule (first in model order = oldest documents), and agents
+# read those as "my" findings. The baseline now also keeps a multiset of findings keyed by
+# (rule, module, document, message); a rise lists the findings that are NOT in that multiset.
+def fkey(v):
+    return "|".join((v.get("ruleId") or "", v.get("module") or "", v.get("document") or "",
+                     (v.get("message") or "").replace("\n", " ")))
+fcounts = collections.Counter(fkey(v) for v in viol)
+
 if update:
     # Accepting a rise is a decision; record it. See the header ("ACCEPTING DEBT ...").
     reason   = os.environ.get("REASON", "").strip()
@@ -442,7 +451,10 @@ if update:
             sys.exit(2)
     json.dump({"counts": dict(sorted(counts.items())),
                "total": len(viol),
-               "note": "Per-rule finding counts on OUR modules. Gate fails when any rises."},
+               "findings": dict(sorted(fcounts.items())),
+               "note": "Per-rule finding counts on OUR modules, plus a multiset of findings "
+                       "(rule|module|document|message) so a rise can name the new ones. "
+                       "Gate fails when any count rises."},
               open(base_path, "w"), indent=2)
     open(base_path, "a").write("\n")
     print("==> baseline written: %d findings across %d rules" % (len(viol), len(counts)))
@@ -457,7 +469,9 @@ if not os.path.exists(base_path):
     write_last("ERROR-NO-BASELINE", viol, counts)
     sys.exit(2)
 
-base = json.load(open(base_path)).get("counts", {})
+_b = json.load(open(base_path))
+base = _b.get("counts", {})
+base_findings = _b.get("findings")  # None on a baseline written before #239
 rose, fell = [], []
 for r in sorted(set(counts) | set(base)):
     now, was = counts.get(r, 0), base.get(r, 0)
@@ -508,8 +522,25 @@ if not rose:
 print("\nFAIL — %d rule(s) got worse:\n" % len(rose))
 for r, was, now in rose:
     print("   %-8s %-8s %d -> %d  (+%d)" % (r, sev.get(r, "?"), was, now, now - was))
-    for v in [x for x in viol if x["ruleId"] == r][:3]:
-        print("        %s | %s" % (v.get("module") or "(project)", v["message"][:120]))
+    rule_viol = [x for x in viol if x["ruleId"] == r]
+    if base_findings is not None:
+        # New = findings beyond what the baseline holds, per key (multiset surplus).
+        left = collections.Counter(base_findings)
+        new = []
+        for x in rule_viol:
+            k = fkey(x)
+            if left[k] > 0: left[k] -= 1
+            else: new.append(x)
+        print("        NEW since baseline (%d):" % len(new))
+        for v in new[:10]:
+            print("        + %s | %s | %s" % (v.get("module") or "(project)", v.get("document") or "-", v["message"][:120]))
+        if len(new) > 10:
+            print("        + ... %d more" % (len(new) - 10))
+    else:
+        print("        (baseline holds counts only: these 3 are the FIRST in model order, not necessarily new.")
+        print("         Re-baseline once on a clean tree to enable listing the new findings.)")
+        for v in rule_viol[:3]:
+            print("        %s | %s" % (v.get("module") or "(project)", v["message"][:120]))
     print()
 write_last("FAIL", viol, counts)
 sys.exit(1)

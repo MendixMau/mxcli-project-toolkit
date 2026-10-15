@@ -149,6 +149,16 @@ if [ -f "$MS_FILE" ]; then
     END { printf "manual steps pending %d of %d", p, t }' "$MS_FILE")"
 fi
 
+# --- app map freshness (#297) --------------------------------------------------------------
+# The map (skills/app-analysis.md) costs hours on a large model, so how stale it is matters:
+# app-facts.sh --freshness compares the .mpr Unit table now with the {UnitID: ContentsHash}
+# snapshot the last map stored. No map, no line — the screen is unchanged for projects without one.
+APPMAP=""
+if [ -f "$PROJECT_DIR/analysis/app-facts/manifest.json" ]; then
+  APPMAP="$(PROJECT_ROOT="$PROJECT_DIR" bash "$TOOLKIT_ROOT/project-bin/app-facts.sh" --freshness \
+            --facts-dir "$PROJECT_DIR/analysis/app-facts" 2>/dev/null | head -1)"
+fi
+
 # --- doctor receipt -------------------------------------------------------------------------
 DR="$PROJECT_DIR/.claude/.doctor-receipt"
 if [ -f "$DR" ]; then
@@ -267,7 +277,7 @@ done
 if [ "$BRIEF" = 1 ]; then
   echo "WHERE   $NAME · $STAGE_LINE${ENTRY:+ · $ENTRY}${ADOPTED:+ · joined at $ADOPTED}"
   [ -n "$ROUND_LINE" ] && echo "ROUND   $ROUND_LINE"
-  echo "STATE   scripts $N_SCRIPTS written / $N_PASS gate-pass / $N_DONE done- · modules opened $MOD_OPENED${SKELETON:+ · skeleton $SKELETON} · UNSYNCED $UNSYNCED · open questions $OPEN_Q${MANUAL:+ · $MANUAL}"
+  echo "STATE   scripts $N_SCRIPTS written / $N_PASS gate-pass / $N_DONE done- · modules opened $MOD_OPENED${SKELETON:+ · skeleton $SKELETON} · UNSYNCED $UNSYNCED · open questions $OPEN_Q${MANUAL:+ · $MANUAL}${APPMAP:+ · $APPMAP}"
   [ -n "$WATCH" ] && echo "WATCH   $WATCH"
   echo "NEXT    $NEXT"
   "$TOOLKIT_ROOT/bin/token-burn.sh" "$PROJECT_DIR" --brief 2>/dev/null
@@ -279,6 +289,7 @@ printf '%s\n\n' "$TK"
 printf 'DONE      scripts: %s written, %s gate-pass, %s done-  ·  modules opened: %s%s\n' "$N_SCRIPTS" "$N_PASS" "$N_DONE" "$MOD_OPENED" "${SKELETON:+  ·  skeleton proven $SKELETON}"
 printf 'OVERDUE   %s  ·  %s  ·  %s  ·  UNSYNCED markers: %s  ·  open questions: %s\n' "$DOCTOR" "$LINT" "${COH:-coherence: cadence script not installed}" "$UNSYNCED" "$OPEN_Q"
 [ -n "$MANUAL" ] && printf '          %s (docs/manual-steps.md)\n' "$MANUAL"
+[ -n "$APPMAP" ] && printf '          %s (refresh: bin/app-facts.sh)\n' "$APPMAP"
 [ -n "$OB_PENDING" ] && printf '          obligations pending: %s\n' "$OB_PENDING"
 [ -n "$LAST_FAIL" ] && printf '          last gate FAILED: %s\n' "$LAST_FAIL"
 [ -n "$WATCH" ] && printf 'WATCH     %s\n' "$WATCH"

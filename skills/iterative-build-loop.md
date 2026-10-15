@@ -96,9 +96,7 @@ assumption.
 **Do not trigger** for decisions a BRD never made a claim about (internal naming, layout choice, an
 enum's internal value set) — there's nothing to drift, and syncing anyway is noise.
 
-**Wireframes follow the same trigger, filtered further:** only re-render a wireframe when the decision
-changes something visually observable (new field, new button, changed flow, different state/color) —
-not for logic/microflow changes invisible in the UI.
+**Wireframes** → see `conversion-runbook.md` § 3b "Wireframes" (same trigger, visually observable changes only).
 
 **User feedback mid-build** ("also add X", a remark on a screenshot) starts one step earlier, in
 `change-intake.md`. It gets a `## Change log` row before any edit, the BRD or wireframe is edited
@@ -378,8 +376,26 @@ re-run it after the other apply finishes.
 `FORCE_EXEC` or raw `mxcli exec` runs between gates — each of those is an unrecorded or
 unverified write. If gate time dominates, reduce the number of applies at the granularity level
 (see "Iterative Granularity": layer scripts rather than per-page ones where partial recovery is
-unlikely, fewer stub-then-fill passes), keep parallel **drafting**, and let the exec lock
-refuse overlapping applies — re-run a refused one after the other finishes.
+unlikely, fewer stub-then-fill passes) — never by drafting less in parallel.
+
+**Draft the ready set in parallel, apply serially.** The unit is the build-plan row. The ready
+set is every `BUILD` row whose "Depends on" rows are all applied, minus overlapping writers: two
+rows whose scripts `create or replace`, `alter` or drop+create the same document (the row's
+written documents are listed in Produces, `brd-to-build-plan.md`) are never in one ready set,
+whatever "Depends on" says, and no row is drafted while its Produces overlaps a drafted but
+unapplied row. Rows in the ready set run at once; within a row, its scripts go in
+order, one `mdl-agent` per script. Applies go one at a time through `exec.sh` (the exec lock
+refuses a second); after each apply, recompute the ready set. The failure this prevents: a run
+that drafted one script at a time and sat idle while each draft finished. The risk it adds: a
+queued draft can restate a document as it was before a sibling apply — STOP rule 21's incident,
+where the second of two drop+creates of a shared seed aggregator silently dropped a seed call
+with `mx check` at 0 errors. So before applying a draft, if any apply has landed since it was
+drafted, run `mxcli diff -p <mpr> <script> --format struct` (`learned-mdl-preflight.md` STOP
+rule 23; check each `-` line against `describe` per its BUG-146 note before re-drafting): any
+confirmed `-` line, or any target STOP rule 21 covers (aggregator, after-startup chain, navigation), means
+re-draft from a fresh `describe` — never patch. `exec.sh`'s own
+`check --references` cannot see this: a stale restatement still resolves. Report
+`ready set N, drafted N, applied k`.
 
 ### Pre-exec sequence when MCP work was done
 
@@ -521,7 +537,7 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
       - Wait for the user to confirm SP is running — never assume
       - Confirm the app is actually serving the new build: `curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/login.html` → `200`. The browser shows the old JS bundle until SP recompiles; screenshots taken before this check show stale state.
       - Log in as demo user (not Administrator)
-      - **Navigate by clicking the nav item / button — not a direct URL** (this exercises real navigation; an overlay or stray toggle can silently swallow every click on one page)
+      - **Navigate by clicking the nav item / button — not a direct URL** (→ see `module-review.md` § 4c)
       - Fill minimum required fields
       - Click save / next
       - Confirm record created or navigation succeeded — **and confirm the demo user actually reached the page** (a blank screen or unclickable nav is a failure, not a pass)
@@ -563,7 +579,7 @@ numbered: a gate inserted in the middle used to leave every ordinal behind it wr
     ```
 
     At minimum, stage 3/4 must confirm for each page this module added:
-      - **Every displayed field shows its value** — especially DateTime/enum/calculated fields. A blank where data must exist (e.g. a system `createdDate`) is a render bug (P1), not missing data — confirm the binding in MDL, then treat a persistent blank as a finding.
+      - **Every displayed field shows its value** → see `module-review.md` § 4c (a persistent blank is P1).
       - **Every grid/gallery** shows rows or a proper empty-state message — never nothing.
       - **Every action/View button** points at the *current* page, not a superseded one (`DESCRIBE PAGE`).
       - **Every nav item, breadcrumb, and button actually reaches working logic** — a wired affordance with no microflow behind it, or one that dead-ends, is a P1, not a cosmetic finding.
@@ -726,7 +742,7 @@ Some operations cannot be done via mxcli. Plan for these explicitly in each modu
 | Drop attribute with access rules | Delete in Studio Pro (BUG-01 — mxcli corrupts MPR) | 2 min |
 | After XPath retrieves written by mxcli | Run binary patch script + reload Studio Pro (BUG-15b) | 3 min |
 
-**Cross-module associations can be created via mxcli** using `CREATE ASSOCIATION` — BUG-02 is fixed in v0.13.0. No Studio Pro handoff needed.
+Cross-module associations: `CREATE ASSOCIATION` via mxcli. No Studio Pro handoff needed (`bin/bug-lookup.sh BUG-02`).
 
 ---
 

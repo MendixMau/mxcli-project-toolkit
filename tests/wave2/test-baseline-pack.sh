@@ -129,6 +129,42 @@ MODE5="$(printf '%s' "$OUT5" | cut -f4)"
   && ok "known stages 3 and 5 report no 'full' marker (three fields only)" \
   || bad "a known stage carried a 'full' marker (3: '$MODE3', 5: '$MODE5')"
 
+echo "== the runbook slice is never counted on top of the whole runbook (review of PR #378) =="
+# bin/runbook-slice.sh prints a subset of skills/conversion-runbook.md. A pack that already counts
+# the runbook whole (no role, or lead/ba/architect) must count the slice as 0 — the no-role full
+# pack once counted the runbook twice (85,797 words, over the 80,000 budget). Scratch runbook is
+# 50 words; the scratch slice prints 7.
+R2="$W/root2"; mkdir -p "$R2/skills" "$R2/bin"
+words 10 > "$R2/skills/always.md"
+words 50 > "$R2/skills/conversion-runbook.md"
+printf '#!/usr/bin/env bash\necho s1 s2 s3 s4 s5 s6 s7\n' > "$R2/bin/runbook-slice.sh"
+TSV2="$W/scratch-routing-2.tsv"
+cat > "$TSV2" <<'EOF2'
+# name	path	when	agents	stages	tier	group
+always	skills/always.md	always relevant	all	-	baseline	spine
+conversion-runbook	skills/conversion-runbook.md	any pipeline work	lead,ba,architect	P,0,1,2,3,4,5,6,7	baseline	spine
+runbook-slice	bin/runbook-slice.sh	any pipeline work, as a helper	mdl,gate,test,review	P,0,1,2,3,4,5,6,7	baseline	spine
+EOF2
+pack2() { MXTK_ROUTING_TSV="$TSV2" bash -c 'source "'"$SKILL_ROUTING"'"; routing_baseline_pack "$1" "$2" "$3"' _ "$1" "$R2" "${2:-}" | cut -f1; }
+[ "$(pack2 GARBAGE)" = "60" ] && ok "no-role full pack counts the runbook once (10+50=60), not runbook+slice" \
+  || bad "no-role full pack double-counts the runbook: got $(pack2 GARBAGE), wanted 60 (110 = runbook counted twice)"
+[ "$(pack2 5)" = "60" ] && ok "no-role stage-5 pack counts the runbook, not the slice on top (60)" \
+  || bad "no-role stage-5 pack: got $(pack2 5), wanted 60 (67 = slice added on top of the runbook)"
+[ "$(pack2 5 lead)" = "60" ] && ok "lead stage-5 pack: always + runbook (60)" \
+  || bad "lead stage-5 pack: got $(pack2 5 lead), wanted 60"
+[ "$(pack2 5 mdl)" = "17" ] && ok "mdl stage-5 pack: always + the slice's printed words (17)" \
+  || bad "mdl stage-5 pack: got $(pack2 5 mdl), wanted 17"
+[ "$(pack2 GARBAGE mdl)" = "60" ] && ok "mdl full pack: the slice is counted as the whole runbook, once (60)" \
+  || bad "mdl full pack: got $(pack2 GARBAGE mdl), wanted 60"
+# Same claim on the real table: the no-role full pack equals the sum of its .md files, exactly.
+REALOUT="$(MXTK_ROUTING_TSV="$TOOLKIT/bin/lib/skill-routing.tsv" bash -c 'source "'"$SKILL_ROUTING"'"; routing_baseline_pack GARBAGE "$1"' _ "$TOOLKIT")"
+REALW="$(printf '%s' "$REALOUT" | cut -f1)"; MDSUM=0
+for p in $(printf '%s' "$REALOUT" | cut -f3); do
+  case "$p" in *.md) MDSUM=$((MDSUM + $(LC_ALL=C wc -w < "$TOOLKIT/$p" | tr -d ' '))) ;; esac
+done
+[ "$REALW" = "$MDSUM" ] && ok "real table: no-role full pack ($REALW) = its .md files alone, no slice on top" \
+  || bad "real table: no-role full pack $REALW != sum of its .md files $MDSUM (slice double-counted?)"
+
 echo "== field run: the real toolkit table at every runbook stage returns a non-empty pack =="
 FIELD_OK=1
 for st in P 0 1 2 3 4 5 6 7; do

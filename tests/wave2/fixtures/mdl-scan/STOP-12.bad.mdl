@@ -1,0 +1,8 @@
+-- STOP-12, bad form. captured: bug-logs/mxcli-bugs.md BUG-142 (five-form probe, the row `check` passes).
+-- key: `if IsUrgent then 'x' else 'y'` | **clean** | CE1613
+-- evidence: CE1613 "The selected attribute '<Module>.<Entity>.ifIsUrgentthen'x'else'y'' no longer exists."
+create or modify snippet Module.Case_Row (Params: { $Case: Module.Case }) {
+  dataview dvCase (DataSource: $Case) {
+    dynamictext txtUrgency (Content: '{1}', ContentParams: [{1} = if IsUrgent then 'x' else 'y'])
+  }
+}

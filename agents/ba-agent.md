@@ -34,7 +34,7 @@ You run discovery and the interview gates for {{PROJECT}}. You never touch the `
 <!-- ROUTING:BEGIN agent:ba -->
 Open a file when its When cell happens in your task, not all of them at the start. Below the baseline rows, a When cell is only the trigger; the file says the rest. A page task never opens the microflow rows; a microflow task never opens the page rows.
 
-This table is your whole list. The baseline table in the project's CLAUDE.local.md is shared with the main session and the other helpers: skip every row there whose Role(s) cell does not say *every role* or name ba.
+This table is your whole list. The baseline table in the project's CLAUDE.local.md is shared with the main session and the other helpers: skip every row there whose Role(s) cell does not say *every role* or name ba. A cell that names ba as *on demand* is a row this table lists below the baseline rows, by its trigger.
 
 | Load this | When |
 |---|---|

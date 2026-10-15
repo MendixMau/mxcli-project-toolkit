@@ -100,11 +100,14 @@ The reviewer, for each of the 5 rows, reads the diff and confirms or corrects th
 1. **Process** — every new human step, gate, blocking path or stage artifact in the diff is named.
 2. **Dependencies** — every shared file in the diff is listed; every new artifact read names
    the mandatory step that produces it (CLAUDE.md → "Shipping an instrument", rule 5).
-3. **Context cost** — the numbers are pasted from `bin/render-routing.sh --check` run on base
-   and on head. A missing row, or an estimate instead of the pasted output, is a review finding.
+3. **Context cost** — when any routed or always-loaded file changes, the numbers are pasted from
+   `bin/render-routing.sh --check` run on base and on head; otherwise "none: no routed or
+   always-loaded file touched" is the answer. A missing row, or an estimate instead of the pasted
+   output, is a review finding.
 4. **Behaviour** — an A/B per `process/preflight-skill-baseline-2026-08-31.md` is **required**
    for a change to always-loaded / baseline-routed text or an agent stub, **recommended** for
-   situational skill text, and **n/a** for scripts.
+   situational skill text, **NOT RUN with a reason** for process docs and templates that review
+   agents read (they are agent-read text, so never "n/a"), and **n/a** for scripts only.
 5. **Runtime** — measured seconds per exec/gate/check, or "n/a" with nothing on a hot path.
 
 The review ends with 5 of 5 rows confirmed; "NOT RUN: <reason>" counts, a blank does not.

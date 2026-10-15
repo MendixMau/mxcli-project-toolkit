@@ -1,0 +1,14 @@
+# dupes-allow.tsv -- pairs `authoring-audit.py dupes` must not report.
+# TAB-separated: file_a glob, file_b glob (either order), match, reason.
+# match: case-insensitive substring of either chunk, or * for the whole file pair.
+# Seeded from the P (pointer/tombstone/boilerplate) labels of the 69 hand-judged pairs, master 484e7ff.
+agents/architect-agent.md	skills/workflow-structure-rules.md	*	declared mirror: the stub carries the §12 checklist verbatim
+skills/module-completion-loop.md	skills/ui-review-loop.md	*	tombstones: both forward to module-review.md
+*	*	generated from	render-routing.sh marker comment
+skills/*	skills/*	**requires:** bash and python 3	standard skill header boilerplate
+skills/field-run.md	skills/improvement-register.md	do not group into a count	pointer: field-run cites improvement-register
+skills/modularize-domain.md	skills/module-folder-convention.md	co-location is the point	pointer: cites modularize-domain
+skills/degrade-to-judgement.md	skills/finding-disposition.md	harness updates itself	both cite skills-over-scripts
+skills/degrade-to-judgement.md	CLAUDE.md	governing rule on where judgement lives	both cite skills-over-scripts
+skills/brd-to-build-plan.md	agents/architect-agent.md	n constructs in the diagram, n rows in the plan	both cite workflow-structure-rules §12 row 10
+skills/journey-examples.md	skills/journey-proof.md	after actions and landing guard, before text/trace/data	both cite testing-shape §4a rule 7 as canonical

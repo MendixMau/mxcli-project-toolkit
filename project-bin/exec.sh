@@ -576,7 +576,7 @@ fi
 #    a dead holder is reaped under a ticket, never by age (see the block header there).
 command -v mxtk_lock_take >/dev/null 2>&1 || {
   echo "exec.sh: bin/_common.sh is older than this script (no mxtk_lock_take)." >&2
-  echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --upgrade-bin _common.sh   (backs up a hand-edited copy first)" >&2; exit 2; }
+  echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --only-bin _common.sh --upgrade-bin _common.sh   (installs just that file; backs up a hand-edited copy first)" >&2; exit 2; }
 _lrc=0; mxtk_lock_take "$LOCK" "$LOG_NAME" 6 || _lrc=$?
 if [ "$_lrc" = 1 ]; then
   mxtk_lock_fields "$MXTK_LOCK_HELD"; _age=""

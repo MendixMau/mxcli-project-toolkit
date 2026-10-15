@@ -82,7 +82,7 @@ fi
 # under a ticket, never by age (see the block header in _common.sh).
 command -v mxtk_lock_take >/dev/null 2>&1 || {
   echo "test-scratch: bin/_common.sh is older than this script (no mxtk_lock_take)." >&2
-  echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --upgrade-bin _common.sh   (backs up a hand-edited copy first)" >&2; exit 2; }
+  echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --only-bin _common.sh --upgrade-bin _common.sh   (installs just that file; backs up a hand-edited copy first)" >&2; exit 2; }
 take_lock() {  # $1 = lock file, $2 = what it guards (for messages). 0 = taken, 1 = live holder
   local rc=0
   mxtk_lock_take "$1" "test-scratch.sh" 8 || rc=$?

@@ -7152,3 +7152,15 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Workaround:** use a UUID for `ce_id`; carry an application idempotency key in the payload instead of the CloudEvent id.
 
 **Toolkit side:** ledger only.
+
+## NOTE-published-rest-404-for-missing-role: a published REST operation answers 404, not 403, for an authenticated user without the allowed role (Mendix runtime, 2026-10-15)
+
+> **Not an mxcli bug.** Mendix runtime behaviour; a support question is drafted.
+
+**Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
+
+**What happens.** Valid credentials but no allowed module role on the service: the runtime answers 404 "Resource not found"; 401 only for missing or wrong credentials. A contract that says 403 fails its own test.
+
+**Workaround:** write 404 (and 401) into the API contract and the proof script, or add an explicit role check in the operation's microflow that returns 403.
+
+**Toolkit side:** ledger only.

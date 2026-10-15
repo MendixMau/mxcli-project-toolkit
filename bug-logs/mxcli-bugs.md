@@ -5935,7 +5935,8 @@ list is empty. The endpoint therefore receives the characters `$Var`.
 service and its callers.
 **Reproducible:** yes, on scratch copies (`describe` read-back, BSON reads, lint deltas).
 
-1. **No authentication clause.** `create published rest service` has none. An `Authentication:`
+1. **SUPERSEDED on v0.26.0 (Mendix 11.15.0): `Authentication: (basic)` works.** A five-app lab run: `create or modify published rest service ... ( Path: '...', Version: '1.0.0', ServiceName: '...', Authentication: (basic) ) { resource 'r' { get 'ping' microflow M.F; } };` plus `grant access on published rest service M.S to M.Role;` and `grant execute on microflow M.F to M.Role;` answered 401 without credentials, 401 with a wrong password, 200 with the right one. The operation URL is service path + resource name + operation path (without the resource segment: 404). Upstream lists `basic`, `session`, `microflow M.F` and `none`. The v0.24.0 finding follows.
+   **No authentication clause (v0.24.0).** `create published rest service` has none. An `Authentication:`
    property passes `check` and is silently ignored: the service is written without auth, and
    every call reaches the operation microflow unauthenticated. `describe` shows no auth.
    Authenticate inside the operation microflow instead. Then prove it at runtime: no credentials

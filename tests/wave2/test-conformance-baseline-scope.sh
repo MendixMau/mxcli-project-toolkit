@@ -104,6 +104,19 @@ rc="$(run --update-baseline)"
   && ok "unscoped --update-baseline rewrites the whole file (a retired row is dropped)" \
   || bad "unscoped rewrite changed behaviour" "rc=$rc lines=$(wc -l < "$P/docs/conformance/baseline.tsv")"
 
+# --- 7. bare pointers and status `planned` are read (TK-006) -----------------------------------
+rm -rf "$P/docs/conformance"
+cat > "$P/architecture/modules/Orders/coverage-ledger.md" <<EOF
+| Pointer | Kind | Name | Row | Proof | Acceptance | Status |
+|---|---|---|---|---|---|---|
+| /domainEntities/0 | entity | Order | 1.1 | exec.sh | \`DESCRIBE ENTITY Orders.Order\` | built |
+| /microflows/0 | microflow | ACT_Later | 1.2 | exec.sh | \`DESCRIBE MICROFLOW Orders.ACT_Later\` | planned |
+EOF
+rm -f "$P/architecture/modules/Billing/coverage-ledger.md"
+rc="$(run)"
+[ "$rc" = 0 ] && [ "$(rows Orders)" = 2 ] && ok "bare-pointer ledger is read (2 rows) and planned+absent is OK" \
+  || bad "bare pointers or planned not read (rc=$rc)" "$(out)"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -3,7 +3,7 @@
 **Requires:** bash and Python 3 — this skill runs toolkit shell scripts. Run `bin/doctor.sh` once on a new machine; it names anything missing and how to get it. Windows: use Git Bash, and see the Prerequisites section of `conversion-runbook.md`.
 **Purpose:** OS 11-specific extraction rules, concept mappings, and migration patterns
 for use alongside `migration-pipeline.md`.
-**Scope:** OutSystems 11 traditional module model only. ODC is out of scope.
+**Scope:** OutSystems 11 traditional module model only. ODC (OutSystems Developer Cloud) is out of scope — cloud-native, REST-first, no modules, no URPM.
 **Examples:** every module name, entity and description below is a synthetic
 placeholder (`ACME01_…`, `C-0001`, `PartnerLookup`). They illustrate the *shape* of an
 OS 11 estate, not any particular one. Never paste identifiers, descriptions or scale
@@ -37,7 +37,8 @@ Every OS 11 application has a module naming convention. Classify before extracti
 | `IdP*` | Identity provider | Reference — use Mendix SSO module | Skip |
 
 **3-tier dependency rule (OS 11):** M → C → AppCommon. Never upward.
-Enforce the same direction in Mendix module layering.
+Enforce the same direction in Mendix module layering — Mendix does not enforce it
+automatically, so apply it as a design rule.
 
 **RW vs CW suffix:**
 - `_RW` = Reactive Web (modern SPA, strict client/server split)
@@ -119,6 +120,10 @@ the key-resolver to map back to the source module and name.
 | Data Action | Screen-level DB query | Page data source microflow |
 | Aggregate | SQL-like query | `retrieve` statement or OQL view |
 
+If an OS screen loads its data through a Data Action, the Mendix page needs a data
+source microflow. If OS logic lives in a Client Action, decide whether a nanoflow is
+enough or a server round-trip (microflow) is needed.
+
 ### DAO pattern
 
 OS 11 organises entity operations in `{Entity}_DAO` folders:
@@ -154,12 +159,16 @@ OS uses soft-delete (`IsActive = false`) by default. Preserve in Mendix.
 | `IsAutoNumber=No`, sequences from 10000 | Not needed — enumeration values are string keys |
 | Sequence entity (`M_Saiban`) | `Sequence` entity + counter microflow |
 
+OS starts those sequences at 10000 so auto-number IDs cannot drift between dev, test
+and prod; Mendix enumeration keys are strings, so the drift risk does not carry over.
+
 ### Security model
 
 | OS 11 | Mendix |
 |-------|--------|
 | Role (module-native) | Module role |
 | URPM role | User role aggregating module roles |
+| Permission | Entity access rule / microflow grant |
 | Screen permission | Page grant (`GRANT VIEW ON PAGE`) |
 | Action permission | Microflow grant (`GRANT EXECUTE ON MICROFLOW`) |
 

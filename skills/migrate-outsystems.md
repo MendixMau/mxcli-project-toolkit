@@ -13,7 +13,7 @@ This skill covers the full pipeline from raw OutSystems XML exports to structure
 OS-migration-skills/
 ├── migrate-outsystems.md          ← this file — pipeline overview + demo guide
 ├── skills/
-│   ├── migrate-general.md         ← OS11 → Mendix concept mapping + MDL implementation rules
+│   ├── migrate-general.md         ← MDL implementation rules (OS11 concept mapping: source-os11.md)
 │   └── assess-migration.md        ← generic assessment template (entities, logic, pages, security)
 ├── pipeline/
 │   ├── run.js                     ← orchestrator: phase 1 (sample), phase 2 (extract), phase 3 (generate)
@@ -277,5 +277,5 @@ The XML pipeline makes this concrete:
 
 ## Related Skills
 
-- [migrate-general.md](./skills/migrate-general.md) — OS11→Mendix concept mapping, MDL implementation rules, known mxcli bugs
+- [migrate-general.md](./skills/migrate-general.md) — MDL implementation rules, known mxcli bugs (OS11→Mendix concept mapping: `source-os11.md`)
 - [assess-migration.md](./skills/assess-migration.md) — Generic assessment template for any platform

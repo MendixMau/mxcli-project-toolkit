@@ -434,6 +434,8 @@ fi
 # These three share no state and touch no app, so they always run in parallel — unlike the
 # runtime instruments in §2 there is nothing here to race on and no login session to spend, so
 # this needs no opt-in flag.
+# Rung budgets in seconds, overridable for big plans or loaded machines (TK-008):
+#   VM_TMO_CONFORMANCE (1200)  VM_TMO_GRAPH (300)  VM_TMO_COVERAGE (300)  VM_TMO_JOURNEYS (900)
 if [ -x "$(_tool conformance-check.sh)" ]; then
   run_launch "conformance (ledger claims vs live model)" "$OUTDIR/10-conformance.log" gate "${VM_TMO_CONFORMANCE:-1200}" -- \
     "$(_tool conformance-check.sh)" --module "$MODULE"
@@ -442,7 +444,7 @@ else
 fi
 
 if [ -x "$(_tool graph-sweep.sh)" ]; then
-  run_launch "graph sweep (orphans + wiring shape)" "$OUTDIR/11-graph.log" gate 300 -- \
+  run_launch "graph sweep (orphans + wiring shape)" "$OUTDIR/11-graph.log" gate "${VM_TMO_GRAPH:-300}" -- \
     "$(_tool graph-sweep.sh)" --module "$MODULE"
 else
   fault "graph sweep (orphans + wiring shape)" "bin/graph-sweep.sh not installed"
@@ -496,12 +498,12 @@ else
   # 3 and 4 are not passes and not faults; they are graded absences, and the rung says which.
   PREFLIGHT="$(_tool coverage-preflight.sh)"
   if [ -n "$PREFLIGHT" ] && [ -x "$PREFLIGHT" ]; then
-    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate 300 -- \
+    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate "${VM_TMO_COVERAGE:-300}" -- \
       "$PREFLIGHT" --summary ${MODULE:+--module "$MODULE"}
   elif [ -f "$LEDGER" ] && [ -n "$BRD" ]; then
     # Preflight absent (an older wired project that has not synced). Fall back to the engine
     # directly — level 1 only, which is what this rung did before the grading layer existed.
-    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate 300 -- \
+    run_launch "coverage (BRD leaves: UNCLAIMED/PHANTOM/DOUBLE)" "$OUTDIR/12-coverage.log" gate "${VM_TMO_COVERAGE:-300}" -- \
       "$COVERAGE_CHECK" --summary "$BRD" "$LEDGER"
   else
     fault "coverage (BRD leaves)" \
@@ -576,12 +578,12 @@ else
     fault "journeys" "no journey runner at ${JOURNEY_RUNNER#$ROOT/}" \
           "Set JOURNEY_RUNNER, or see the journey-proof.md skill for the harness this expects."
   elif [ -f "$JOURNEY" ]; then
-    _exec "journeys (UI + ordered spans + data effects)" "$OUTDIR/20-journeys.log" gate 900 -- \
+    _exec "journeys (UI + ordered spans + data effects)" "$OUTDIR/20-journeys.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
       node "$JOURNEY_RUNNER" "$JOURNEY"
     # Non-vacuity: a journey that cannot fail is not evidence. Skipped under --quick because it
     # re-walks every step.
     [ "$QUICK" -eq 1 ] || _exec "journeys (positive control — MUST detect a broken precondition)" \
-      "$OUTDIR/21-journeys-control.log" gate 900 -- \
+      "$OUTDIR/21-journeys-control.log" gate "${VM_TMO_JOURNEYS:-900}" -- \
       node "$JOURNEY_RUNNER" "$JOURNEY" --positive-control
   else
     fault "journeys" "no ${JOURNEY#$ROOT/}" \

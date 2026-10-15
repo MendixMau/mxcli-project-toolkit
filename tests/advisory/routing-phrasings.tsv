@@ -1,0 +1,59 @@
+# routing-phrasings.tsv -- labelled phrasings for `authoring-audit.py routing` (CLAUDE.md rule 8).
+# TAB-separated: phrasing, expected path, acceptable alternates (comma list or -), must_hit (must_hit|-).
+# A must_hit row makes `routing --strict` exit 1 when it misses the top 3. None are must_hit yet.
+# Paths are column 2 of bin/lib/skill-routing.tsv. Phrasings are how users and agents actually ask.
+page shows 0 to 0 of 0	skills/empty-widget-triage.md	skills/fixture-seeding.md	-
+mx check CE0066 on my access rule	bin/bug-lookup.sh	bug-logs/mxcli-bugs.md	-
+should this be a script or a skill	skills/skills-over-scripts.md	-	-
+team server push blocked	skills/teamserver-alignment.md	skills/platform-link.md	-
+I changed the button colour in the scss and nothing happened	skills/learned-css-that-never-applied.md	-	-
+focus outline shows up on every page load, how do I get rid of it	skills/learned-css-that-never-applied.md	-	-
+we ported the design system but the app still looks default grey	skills/learned-css-that-never-applied.md	project-bin/check-design-reaches-app.sh	-
+I'm about to write a bash checker that flags pages without an H1	skills/skills-over-scripts.md	-	-
+can I just add another regex rule to gate-check for this	skills/skills-over-scripts.md	-	-
+is the Orders module done? give it a once-over before we close it	skills/module-review.md	project-bin/verify-module.sh	-
+do a final look at every page in the module, not just the ones the tests hit	skills/module-review.md	-	-
+just built the customer overview page, grab a screenshot and see if it looks right	skills/ui-loop.md	-	-
+the page looks off after my last script	skills/ui-loop.md	-	-
+git push to teamserver rejected, which remote is the real one	skills/teamserver-alignment.md	-	-
+colleague wants to open it in studio pro from team server, how do we keep both in sync	skills/teamserver-alignment.md	project-bin/ts-sync.sh,skills/platform-link.md	-
+ready to push the model up to team server for the first time	skills/teamserver-alignment.md	skills/platform-link.md	-
+review the module, did we actually match the wireframes	skills/module-review.md	project-bin/page-fidelity.js	-
+Studio Pro won't open the mpr anymore, says it's corrupt	skills/mpr-corruption-and-sp-load-errors.md	-	-
+write me a microflow that loops over orders and commits each one	skills/microflow-preflight.md	skills/learned-microflow-patterns.md	-
+can I hand the helper one file instead of a reading list	project-bin/context-pack.sh	-	-
+grid shows blank cells even though the database has data	skills/empty-widget-triage.md	-	-
+playwright says the button never appeared but I can see it on screen	skills/e2e-locators-that-lie.md	-	-
+need demo data so the pages aren't empty for the test run	skills/fixture-seeding.md	-	-
+where are we and what's next	bin/status.sh	-	-
+the user just said the form also needs a phone field	skills/change-intake.md	-	-
+lint came back clean with zero findings, feels suspicious	skills/lint-that-actually-runs.md	-	-
+add a file attachment upload to the claim form	skills/learned-file-upload-widget.md	-	-
+datagrid 2 or the old datagrid for the overview page	skills/learned-dg2-patterns.md	-	-
+popup opens a second copy of itself when validation fails	skills/learned-popup-navigation.md	-	-
+works on my laptop, the customer tests on the cloud node tomorrow	skills/deploy-to-sandbox.md	-	-
+where should the API key for the payment provider live	skills/learned-constants-and-secrets.md	project-bin/constants-audit.sh	-
+exec.sh refused to run my script, says something about a lock	skills/iterative-build-loop.md	bin/exec-approval.sh	-
+permission denied on my npx command even though it's allowlisted	skills/agent-permission-friction.md	-	-
+should this be one module or split into two	skills/modularize-domain.md	skills/module-dependency-review.md	-
+we only have a Word spec and some Excel sheets, no code	skills/kb-generation.md	skills/document-discovery.md	-
+need an approval user task with an escalation timer	skills/learned-workflow-patterns.md	skills/workflow-structure-rules.md	-
+call the vendor's REST API for the first time	skills/rest-integration-first-time-right.md	-	-
+app runs in a container, stakeholder needs a public link	skills/preview-over-hub-tunnel.md	bin/run-hub.sh	-
+doctor.sh shows red on mxbuild	skills/doctor-triage.md	-	-
+the test wrote a row but my DB query shows nothing	skills/learned-local-db-confusion.md	-	-
+the tests are green but would they even catch a break	skills/journey-proof.md	skills/testing-shape.md,skills/learned-detection-gaps.md	-
+add a chat assistant panel to the dashboard	skills/mendix-agent-ui.md	-	-
+should I file this against mxcli or open a toolkit PR	skills/upstream-feedback.md	-	-
+sidebar collapses but the menu labels get cut off	skills/learned-sidebar-collapse-icons.md	-	-
+how much space between sections on a page	skills/design-spacing.md	-	-
+client app, we want to show it at a conference without their logo or data	skills/anonymize-client-app-for-demo.md	-	-
+the subagent says all tests passed	skills/tool-output-is-not-ground-truth.md	-	-
+about to go live and move the old data over, what's left to decide	skills/checkpoints/checkpoint-cutover.md	-	-
+save button on the popup commits but the user never sees anything happen	skills/learned-popup-feedback-pattern.md	-	-
+the learned rule says use MCP for this but maybe the new mxcli fixed it	skills/retesting-learned-rules.md	-	-
+the existing app has no docs and I need to add a feature to it	skills/existing-app-change.md	-	-
+send the guide and screenshots to the customer	skills/share-demo-package.md	-	-
+half the buttons on the page do nothing when clicked	skills/wiring-sweep.md	-	-
+how do I hand the built model to someone who uses Studio Pro	skills/handoff-to-studio-pro.md	-	-
+the order count on the dashboard comes from the wrong place, the page shows the first record not mine	skills/interaction-model.md	-	-

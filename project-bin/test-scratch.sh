@@ -67,7 +67,7 @@ else echo "✗ test-scratch: no mxcli (project root or PATH)." >&2; exit 3; fi
 # "no injection left" and copying a model that recurses in its after-startup.
 command -v mxtest_left >/dev/null 2>&1 && command -v mxtest_refusal >/dev/null 2>&1 || {
   echo "test-scratch: bin/_common.sh is older than this script (no mxtest_left / mxtest_refusal)." >&2
-  echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --upgrade-bin _common.sh   (backs up a hand-edited copy first)" >&2; exit 2; }
+  echo "  → <toolkit>/bin/sync-project.sh $PROJECT_ROOT --only-bin _common.sh --upgrade-bin _common.sh   (installs just that file; backs up a hand-edited copy first)" >&2; exit 2; }
 
 # A model whose after-startup is an mxcli test injection must not be copied and tested: the copy
 # carries it, and mxcli test then chains the injection to itself (#244 observation 1).

@@ -440,7 +440,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}$_EXEC_APPROVAL_SUFFIX"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -493,7 +493,7 @@ take_score() {
 # Found like exec-approval.sh: $MXTK_ROOT, else the "Toolkit root" row of CLAUDE.local.md.
 # Not found, or the scan itself errors (exit 2) → one warning, and the exec goes on: mxcli
 # check and the mxbuild gate still stand behind it.
-SCAN_NOTE=""
+SCAN_NOTE=""; HV_NOTE=""   # HV_NOTE: the ContentsHash bracket's cell text, set below
 if [ "$PATCH_MODE" != "1" ]; then
   _SCAN=""
   for _s in "${MXTK_ROOT:-}/bin/mdl-scan.sh" \
@@ -1009,6 +1009,15 @@ fi
 
 echo "→ Snapshotting model..."
 ./bin/snapshot-mpr.sh
+# The snapshot just taken. A --patch run hands it to the script as MXPATCH_BACKUP_DIR, so the
+# .bak that bin/mxpatch.py keeps of each unit it rewrites lands beside the snapshot, OUTSIDE
+# the model tree, and is pruned with it. Until 2026-10-15 it was <unit>.mxunit.bak inside
+# mprcontents/: untracked in the model folder, one `git add mprcontents` from being committed
+# (field run, #390).
+SNAP_NOW="$(ls -dt "$PROJECT_ROOT/.mpr-snapshots"/[0-9]*/ 2>/dev/null | head -1)"; SNAP_NOW="${SNAP_NOW%/}"
+if [ "$PATCH_MODE" = "1" ] && [ -n "$SNAP_NOW" ]; then
+  export MXPATCH_BACKUP_DIR="$SNAP_NOW/mxpatch-bak"
+fi
 
 # ── Restore (one implementation) ─────────────────────────────────────────────
 # Rolls the model back to the snapshot just taken, through restore-mpr.sh. exec.sh used to
@@ -1326,6 +1335,21 @@ hv_run() {         # <outfile> — sets HV_STATE clean|issues|error and HV_RC
   fi
 }
 hv_keys() { grep -E '^  (MISMATCH|MISSING|ORPHAN) ' "$1" 2>/dev/null | awk '{print $1, $2}' | LC_ALL=C sort -u; }
+# hv_tally <file> — "1 mismatch, 2 orphan" from its MISMATCH/MISSING/ORPHAN rows, for the
+# BUILD-LOG cell.
+hv_tally() {
+  hv_keys "$1" | awk '{n[tolower($1)]++} END {s=""; split("mismatch missing orphan",k," ");
+                      for (i=1;i<=3;i++) if (n[k[i]]) s=s (s?", ":"") n[k[i]] " " k[i]; print s}'
+}
+# hv_rewritten <id> — 0 when the patch rewrote that unit: its file differs from the copy in the
+# snapshot taken before the script ran. The path is the row's third field, relative to the
+# model directory, and snapshot-mpr.sh copies mprcontents/ to the snapshot's top level, so
+# the same relative path holds on a two-tree (app/) checkout too.
+hv_rewritten() {
+  _hp="$(grep -E "^  MISMATCH +$1 " "$HV_BASE" | awk '{print $3}' | head -1)"
+  [ -n "$_hp" ] && [ -n "$SNAP_NOW" ] && [ -f "$SNAP_NOW/$_hp" ] && [ -f "$MODEL_DIR/$_hp" ] \
+    && ! cmp -s "$SNAP_NOW/$_hp" "$MODEL_DIR/$_hp"
+}
 hv_first() { grep -v -e '^[[:space:]]*$' -e '^WARNING: This is a' "$1" | head -1; }
 if [ "$PATCH_MODE" = "1" ]; then
   echo "→ ContentsHash baseline: mxcli fix hashes (read-only)..."
@@ -1333,23 +1357,29 @@ if [ "$PATCH_MODE" = "1" ]; then
   if [ -z "$PMXCLI" ]; then
     echo "  ⚠ NOT RUN — no project mxcli. A stale ContentsHash this patch leaves will go unseen:"
     echo "    mx check and mxbuild do not read the index."
+    HV_NOTE="hashes: NOT RUN (no project mxcli)"
   else
     hv_supported || _hv_s=$?
     if [ "$_hv_s" -eq 1 ]; then
       echo "  ⚠ NOT RUN — this mxcli has no 'fix hashes' (arrived in v0.25.0). Upgrade it: a stale"
       echo "    ContentsHash this patch leaves is invisible to mx check and to the mxbuild gate."
+      HV_NOTE="hashes: NOT RUN (mxcli has no fix hashes; v0.25.0+)"
     elif [ "$_hv_s" -eq 2 ]; then
       echo "  ⚠ NOT RUN — 'mxcli fix --help' itself failed, so support is unknown."
+      HV_NOTE="hashes: NOT RUN (fix --help failed)"
     else
       HV_BASE=$(mktemp "${TMPDIR:-/tmp}/exec-hv-base.XXXXXX")
       hv_run "$HV_BASE"
       case "$HV_STATE" in
-        clean)  HV_ON=1; echo "  ✓ index matches every unit file" ;;
-        issues) HV_ON=1
+        clean)  HV_ON=1; HV_NOTE="hashes: baseline clean"; echo "  ✓ index matches every unit file" ;;
+        issues) HV_ON=1; HV_NOTE="hashes: baseline $(hv_tally "$HV_BASE") (pre-existing)"
                 echo "  ⚠ the index is ALREADY out of step before this patch ($(grep -E '^[0-9]+ mismatch' "$HV_BASE"))."
-                echo "    Not this patch's doing, and not held against it. Repair it on its own (rewrites the"
-                echo "    index from the files, never the files): ./mxcli fix hashes -p $MPR_BASE --repair" ;;
+                echo "    Not this patch's doing, and not held against it. If this patch rewrites one of these"
+                echo "    units through bin/mxpatch.py, that write gives it a fresh hash and the verify below"
+                echo "    says so. Repair the others on their own (rewrites the index from the files, never"
+                echo "    the files): ./mxcli fix hashes -p $MPR_BASE --repair" ;;
         *)      echo "  ⚠ NOT RUN — the baseline could not be classified (exit $HV_RC: $(hv_first "$HV_BASE"))."
+                HV_NOTE="hashes: NOT RUN (baseline unclassifiable, exit $HV_RC)"
                 rm -f "$HV_BASE"; HV_BASE="" ;;
       esac
     fi
@@ -1396,10 +1426,42 @@ if [ "$PATCH_MODE" = "1" ]; then
     hv_run "$HV_POST"
     _hv_new=""
     [ "$HV_STATE" = issues ] && _hv_new="$(hv_keys "$HV_POST" | LC_ALL=C comm -13 <(hv_keys "$HV_BASE") - )"
-    if [ "$HV_STATE" = clean ]; then
-      echo "  ✓ index matches every unit file"
-    elif [ "$HV_STATE" = issues ] && [ -z "$_hv_new" ]; then
-      echo "  ✓ no new ContentsHash issue (the baseline's are still there — see above)"
+    if [ "$HV_STATE" = clean ] || { [ "$HV_STATE" = issues ] && [ -z "$_hv_new" ]; }; then
+      # Baseline issues the verify no longer reports. A MISMATCH on a unit the patch rewrote
+      # (its file differs from the snapshot) was repaired by that write — field run #390: an
+      # old-style --patch had left one, and the ported patcher's write fixed it. That was
+      # visible only in stdout; the BUILD-LOG cell (HV_NOTE) now carries it.
+      _hv_gone="$(hv_keys "$HV_BASE" | LC_ALL=C comm -23 - <(hv_keys "$HV_POST"))"
+      _hv_rw=""; _hv_nrw=0; _hv_noth=0
+      while read -r _k _id; do
+        [ -n "$_k" ] || continue
+        if [ "$_k" = MISMATCH ] && hv_rewritten "$_id"; then
+          _hv_rw="$_hv_rw $_id"; _hv_nrw=$((_hv_nrw + 1))
+        else
+          _hv_noth=$((_hv_noth + 1))
+        fi
+      done <<EOF_HV
+$_hv_gone
+EOF_HV
+      if [ "$HV_STATE" = clean ]; then
+        echo "  ✓ index matches every unit file"; _hv_v="verify clean"
+      else
+        echo "  ✓ no new ContentsHash issue (the baseline's other ones are still there — see above)"
+        _hv_v="verify $(hv_tally "$HV_POST") left (pre-existing), none new"
+      fi
+      for _id in $_hv_rw; do
+        echo "  ✓ this patch rewrote unit $_id with a fresh hash: its pre-existing MISMATCH is repaired."
+      done
+      if [ "$_hv_noth" -gt 0 ]; then
+        echo "  ✓ $_hv_noth other pre-existing issue(s) no longer reported (not on a unit this patch rewrote)."
+      fi
+      if [ "$HV_STATE" = issues ]; then
+        echo "    Repair the rest on their own: ./mxcli fix hashes -p $MPR_BASE --repair"
+      fi
+      _hv_fx=""
+      [ "$_hv_nrw" -gt 0 ] && _hv_fx="$_hv_nrw pre-existing repaired by this patch's rewrite"
+      [ "$_hv_noth" -gt 0 ] && _hv_fx="${_hv_fx:+$_hv_fx, }$_hv_noth other pre-existing gone"
+      HV_NOTE="$HV_NOTE, ${_hv_v}${_hv_fx:+ ($_hv_fx)}"
     else
       echo ""
       if [ "$HV_STATE" = issues ]; then
@@ -1411,10 +1473,12 @@ if [ "$PATCH_MODE" = "1" ]; then
         echo "    Write units through bin/mxpatch.py (write_unit sets the hash with the file), or end the"
         echo "    script with: ./mxcli fix hashes -p \"\$1\" --repair"
         _hv_detail="ContentsHash: $_hv_n new issue(s) after the patch"
+        HV_NOTE="$HV_NOTE, verify $_hv_n new"
       else
         echo "  ✗ could not verify the ContentsHash index after the patch (exit $HV_RC: $(hv_first "$HV_POST"))."
         echo "    The baseline ran, so this is new. A patch is kept only on a verified model."
         _hv_detail="ContentsHash verify could not run after the patch (exit $HV_RC)"
+        HV_NOTE="$HV_NOTE, verify error"
       fi
       echo "  → restoring the snapshot (the mxbuild gate cannot see this, so it is not run)."
       restore_snapshot

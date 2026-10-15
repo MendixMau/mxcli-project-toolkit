@@ -14,8 +14,11 @@
 #
 # Positive control: against master's exec.sh (before 2026-10-14) cases B, D, E, I fail — the
 # patch is kept (exit 0) although the index is stale — and C, F, G, H, J fail on their
-# messages / call counts (there is no verify at all): 8 pass, 17 fail. Exit codes alone in
-# A, C, F, G, H, J are guards.
+# messages / call counts (there is no verify at all): 12 pass, 26 fail. Against this PR's
+# exec.sh before the field-run fixes (01b9b42, #390) the BUILD-LOG hash cell (A, B, C, K, L,
+# F2), the fresh-hash baseline line (C), the repaired-by-rewrite line (K) and the
+# MXPATCH_BACKUP_DIR hand-off (K) fail: 29 pass, 9 fail. Exit codes alone in A, C, F, G, H,
+# J, K, L are guards.
 set -uo pipefail
 
 EXEC_SH="${1:?usage: test-exec-hash-verify.sh /path/to/exec.sh}"
@@ -47,10 +50,14 @@ echo "Snapshot saved: $D"
 SNAP
 chmod +x "$P/bin/snapshot-mpr.sh"
 
-# The patch: writes into the model, exits $PATCH_EXIT.
+# The patch: writes into the model, exits $PATCH_EXIT. PATCH_UNIT=1 also rewrites the
+# DomainModel unit, the one the captured verify-stale run reports as MISMATCH. It records the
+# MXPATCH_BACKUP_DIR exec.sh handed it in $BAKDIR_OUT.
 cat > "$P/patch.sh" <<'PATCH'
 #!/usr/bin/env bash
 echo "written by the patch" >> "$1"
+[ -n "${PATCH_UNIT:-}" ] && echo "rewritten" >> "$(dirname "$1")/mprcontents/84/77/84776610-13b2-48cb-a265-d5e984d63129.mxunit"
+[ -n "${BAKDIR_OUT:-}" ] && printf '%s\n' "${MXPATCH_BACKUP_DIR:-<unset>}" > "$BAKDIR_OUT"
 exit "${PATCH_EXIT:-0}"
 PATCH
 
@@ -87,18 +94,20 @@ export FX PSFX MXB_LOG="$WORK/mxb-log"
 # run <label> — HV_SEQ, STUB_VER, PATCH_EXIT come from the caller's environment.
 run() {
   rm -f "$P/.stub-n" "$P/.stub-log" "$MXB_LOG"; rm -rf "$WORK/tmp"; mkdir -p "$WORK/tmp"
-  ( cd "$P" && git checkout -q -- Fixture.mpr && TMPDIR="$WORK/tmp" SKIP_BASELINE=1 SP_RESTART=0 MXTK_NO_INSTALL=1 \
+  ( cd "$P" && git checkout -q -- Fixture.mpr mprcontents && TMPDIR="$WORK/tmp" SKIP_BASELINE=1 SP_RESTART=0 MXTK_NO_INSTALL=1 \
       MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" ./bin/exec.sh --patch patch.sh ) >"$WORK/out.$1" 2>&1
   echo $?
 }
 kept()     { grep -q 'written by the patch' "$P/Fixture.mpr"; }
 verifies() { _n=$(grep -c '^fix hashes -p ' "$P/.stub-log" 2>/dev/null) || true; echo "${_n:-0}"; }
 built()    { [ -s "$MXB_LOG" ]; }
+lastrow()  { tail -1 "$LOG" 2>/dev/null; }
 
 echo "== A: clean -> clean: kept, gate runs [guard] =="
 RC=$(HV_SEQ=verify-clean-v0.26.0,verify-clean-v0.26.0 run A)
 [ "$RC" -eq 0 ] && kept && ok "exit 0, patch kept" || bad "A rc=$RC" "$(tail -20 "$WORK/out.A")"
 built && ok "mxbuild gate ran" || bad "gate did not run"
+lastrow | grep -q '✅ applied .* · hashes: baseline clean, verify clean' && ok "BUILD-LOG row: hashes baseline clean, verify clean (#390)" || bad "A: row" "$(lastrow)"
 
 echo "== B: clean -> the stale hash master's patchers leave: restored, exit 1 =="
 RC=$(HV_SEQ=verify-clean-v0.26.0,after-master-patchers-v0.26.0 run B)
@@ -108,12 +117,16 @@ grep -q 'MISMATCH  056b39ea-2e14-4d12-8ae1-87fa4b3c038a' "$WORK/out.B" && ok "na
 grep -q 'bin/mxpatch.py' "$WORK/out.B" && ok "names the remedy" || bad "B: no remedy"
 built && bad "B: mxbuild ran on a model the verify had already refused" || ok "gate not spent"
 grep -q 'patch refused.*ContentsHash: 1 new issue' "$LOG" 2>/dev/null && ok "BUILD-LOG row" || bad "B: no BUILD-LOG row" "$(tail -3 "$LOG" 2>/dev/null)"
+lastrow | grep -q 'hashes: baseline clean, verify 1 new' && ok "BUILD-LOG row carries the hash cell" || bad "B: hash cell" "$(lastrow)"
 
 echo "== C: stale -> the same stale row: a baseline issue is not this patch's [guard] =="
 RC=$(HV_SEQ=verify-stale-v0.26.0,verify-stale-v0.26.0 run C)
 [ "$RC" -eq 0 ] && kept && ok "exit 0, kept" || bad "C rc=$RC" "$(tail -12 "$WORK/out.C")"
 grep -q 'ALREADY out of step' "$WORK/out.C" && ok "baseline issue reported" || bad "C: baseline issue not reported"
 grep -q 'fix hashes -p Fixture.mpr --repair' "$WORK/out.C" && ok "with its repair line" || bad "C: no repair line"
+grep -q 'that write gives it a fresh hash' "$WORK/out.C" && ok "baseline says a unit this patch rewrites gets a fresh hash (#390)" || bad "C: no fresh-hash line"
+lastrow | grep -q 'hashes: baseline 1 mismatch (pre-existing), verify 1 mismatch left (pre-existing), none new' \
+  && ok "BUILD-LOG row: baseline 1 mismatch, 1 left, none new" || bad "C: row" "$(lastrow)"
 
 echo "== D: stale -> MISSING + ORPHAN: only the NEW rows fail it =="
 RC=$(HV_SEQ=verify-stale-v0.26.0,verify-orphan-missing-v0.26.0 run D)
@@ -151,6 +164,28 @@ echo "== J: clean -> clean after the PORTED patchers' real run [guard] =="
 RC=$(HV_SEQ=verify-clean-v0.26.0,after-ported-patchers-v0.26.0 run J)
 [ "$RC" -eq 0 ] && kept && ok "exit 0, kept" || bad "J rc=$RC"
 grep -q '^fix hashes -p .*Fixture.mpr$' "$P/.stub-log" && ok "verify is the read-only form (no --repair)" || bad "J: form" "$(cat "$P/.stub-log")"
+
+echo "== K: stale -> clean, and the patch rewrote that unit: repaired by the rewrite, said so (#390) =="
+RC=$(PATCH_UNIT=1 BAKDIR_OUT="$WORK/bakdir" HV_SEQ=verify-stale-v0.26.0,verify-clean-v0.26.0 run K)
+[ "$RC" -eq 0 ] && kept && ok "exit 0, kept" || bad "K rc=$RC" "$(tail -12 "$WORK/out.K")"
+grep -q 'this patch rewrote unit 84776610-13b2-48cb-a265-d5e984d63129 with a fresh hash: its pre-existing MISMATCH is repaired' "$WORK/out.K" \
+  && ok "names the unit the rewrite repaired" || bad "K: no repaired line" "$(grep -n 'MISMATCH\|repaired' "$WORK/out.K")"
+lastrow | grep -q "hashes: baseline 1 mismatch (pre-existing), verify clean (1 pre-existing repaired by this patch's rewrite)" \
+  && ok "BUILD-LOG row: baseline 1 mismatch, verify clean, 1 repaired by the rewrite" || bad "K: row" "$(lastrow)"
+case "$(cat "$WORK/bakdir" 2>/dev/null)" in
+  "$P"/.mpr-snapshots/[0-9]*/mxpatch-bak) ok "MXPATCH_BACKUP_DIR handed to the patch: inside the snapshot just taken, outside mprcontents/" ;;
+  *) bad "K: MXPATCH_BACKUP_DIR=$(cat "$WORK/bakdir" 2>/dev/null)" ;;
+esac
+
+echo "== L: stale -> clean, the patch did NOT rewrite that unit: gone, not credited to the rewrite [guard] =="
+RC=$(HV_SEQ=verify-stale-v0.26.0,verify-clean-v0.26.0 run L)
+[ "$RC" -eq 0 ] && kept && ok "exit 0, kept" || bad "L rc=$RC"
+grep -q 'this patch rewrote unit' "$WORK/out.L" && bad "L: credited a rewrite that did not happen" || ok "no rewrite claimed"
+lastrow | grep -q 'hashes: baseline 1 mismatch (pre-existing), verify clean (1 other pre-existing gone)' && ok "BUILD-LOG row: 1 other gone" || bad "L: row" "$(lastrow)"
+
+echo "== F2: NOT RUN is in the BUILD-LOG row too [guard] =="
+RC=$(STUB_VER=v0.24.0 HV_SEQ= run F2)
+lastrow | grep -q 'hashes: NOT RUN (mxcli has no fix hashes' && ok "row says NOT RUN" || bad "F2: row" "$(lastrow)"
 
 echo ""
 echo "PASS: $PASS  FAIL: $FAIL"

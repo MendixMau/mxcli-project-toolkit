@@ -165,6 +165,13 @@ GenAI problem: an empty string is a legal value that downstream code accepts and
 several layers away, in someone else's error message. A sentinel fails at the first use, with
 your constant's name in the message.
 
+**A sentinel needs a guard wherever code acts on it** — e.g. create the API account at startup
+only when the password constant is not `__SET_ME__`. **One integration secret, two stores:** an
+app-to-app service password lives in both apps' machine-local stores; rotate both together.
+**API account passwords must satisfy the Mendix password policy** — a policy failure inside the
+after-startup account create aborts the boot (`M2EE: Starting Mendix Runtime failed.`;
+`mendix-service-seam.md` P11).
+
 For `Encryption.EncryptionKey` specifically: **exactly 32 characters**. 31 or 33 fails at
 runtime inside the same misleading error family.
 

@@ -54,21 +54,24 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/tool-output-is-not-ground-truth.md` | Any time an exit code, a tool's output or a subagent's report is about to become a stated finding — verify before you conclude |
 | `skills/learned-detection-gaps.md` | Before trusting a green check/exec/DESCRIBE result as proof, or when a runtime symptom appears over a fully green model — the register of constructs that pass early rungs and fail later ones |
 | `skills/security-is-not-a-later-script.md` | Creating any entity, or calling a module security-ready — entity and grants land in one script, and ready means SHOW SECURITY MATRIX proves it |
-| `bin/bug-lookup.sh` | A CE error or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" prints the matching ledger entries, so the session reads one entry, not the 32k-word ledger |
+| `bin/bug-lookup.sh` | A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger |
 | `bin/status.sh` | The first command of every session, and any time someone asks "where are we" or "what next" — one screen: stage, done/overdue, the ONE next action, from the instruments, never from memory |
 | `skills/retesting-learned-rules.md` | Before obeying any learned-* STOP or workaround that costs a detour — probe the binary you actually have, then stamp the verdict back into the rule |
-| `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report |
+| `skills/skills-over-scripts.md` | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one |
 | `skills/checkpoints/checkpoint-build.md` | CAC-5, after design sign-off and before the build plan |
 | `skills/image-transcription.md` | Images to read listed by images-to-md or the documents index |
 | `skills/mendix-best-practices-index.md` | Asked "is there a Mendix best practice for this", or mapping a lint rule that rose in the ratchet back to the practice and the skill that prevents it |
 | `skills/learned-stylegallery.md` | Building or using the in-app design gallery |
 | `skills/ui-loop.md` | After every page-building script, and any time the UI looks wrong |
 | `project-bin/check-design-portability.sh` | Before porting ds.css into SCSS, and at the Stage-3 gate |
-| `skills/module-review.md` | Reviewing any module before calling it done |
+| `skills/module-review.md` | Is the module done? Reviewing any module before calling it done |
 | `project-bin/context-pack.sh` | Dispatching a build step to a helper |
 | `bug-logs/mxcli-bugs.md` | Reading a whole class of tool defects (a retest, a new mxcli release, an audit) |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
+| `skills/decompose-app.md` | Splitting an existing Mendix monolith into several apps |
+| `skills/mendix-service-seam.md` | Wiring a service seam between two Mendix apps |
 | `skills/microflow-loop-antipatterns.md` | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop |
+| `skills/rehost-app.md` | Rehosting an existing Mendix .mpr into a fresh app |
 | `skills/iterative-build-loop.md` | An exec.sh guard refused a write (not a permission prompt), or building a module with mxcli |
 | `skills/mdl-cookbook-microflows.md` | Writing MDL microflow scripts |
 | `skills/build/mdl/oneshot-mdl-method.md` | Writing a single MDL script that takes a project from nothing to a working vertical slice |
@@ -85,13 +88,13 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/mpr-corruption-and-sp-load-errors.md` | Studio Pro will not load the project, or the .mpr looks gutted |
 | `project-bin/lint-gate.sh` | Running lint as a gate rather than a report |
 | `skills/improvement-register.md` | Any review pass that runs more than once |
-| `skills/wiring-sweep.md` | Every module before it is called done |
+| `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
 | `skills/learned-workflow-patterns.md` | Writing or debugging a Mendix native Workflow (CREATE WORKFLOW/USER TASK/OUTCOMES) |
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL |
 | `skills/rest-integration-first-time-right.md` | Building a REST integration (consumed or published) for the first time on a project |
 | `skills/bug-submission-checklist.md` | Preparing an mxcli/Studio Pro bug for submission |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit |
-| `skills/empty-widget-triage.md` | A page/grid/combobox renders empty (blank cells, zero rows, zero options) during UI review or an e2e run |
+| `skills/empty-widget-triage.md` | A page/grid/list/combobox renders or shows empty ('0 to 0 of 0', blank cells, zero rows, zero options) during UI review or an e2e run |
 | `skills/doctor-triage.md` | doctor.sh reports FAIL or WARN, or someone asks whether a red setup line blocks them |
 | `skills/sandbox-ab-tool-defect-probe.md` | Suspecting an mxcli/mxbuild tool defect and deciding whether to swap a binary |
 | `skills/restart-sp-reopen-and-hang-detection.md` | Restarting Studio Pro on macOS |
@@ -102,11 +105,11 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/anonymize-client-app-for-demo.md` | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint |
 | `skills/field-run.md` | Driving the whole toolkit pipeline on a real source to find what the written skills don't say |
 | `skills/learned-mdl-cannot-express.md` | Before a wireframe or a design commits to a WIDGET, when a requirement shows a widget to one role and not another, and when a page script hits a parse error that looks like a syntax mistake: the short list of things MDL cannot write at all, and the four-minute probe that answers it at Stage 3 instead of at build time |
-| `skills/learned-css-that-never-applied.md` | A style change that appears to have done nothing, a focus ring that paints on every page landing, or an app still grey after a design port every instrument called green |
+| `skills/learned-css-that-never-applied.md` | A CSS/SCSS or style change that appears to have done nothing (a colour or class that won't show), a focus ring or outline that paints on every page landing or load, or an app still grey after a design port every instrument called green |
 | `skills/learned-dg2-patterns.md` | Building or altering any data grid |
 | `skills/learned-file-upload-widget.md` | Putting any file upload / attachment / document field on a page, an uploader page failing mx check with CE0463, or an uploader DESCRIBE that will not re-execute |
 | `skills/scriptable-sp-verification.md` | Needing Studio Pro load evidence without a human at the GUI |
-| `skills/learned-local-db-confusion.md` | A runtime test reads/writes data that then is not there, or vice versa |
+| `skills/learned-local-db-confusion.md` | A runtime test or seed reads/writes data that then is not there (the test wrote a row, the DB query shows nothing), or vice versa |
 | `skills/walking-skeleton.md` | Stage 5 start, before the first module of any entry mode |
 | `skills/platform-link.md` | At project birth (before the first build script) and any time a model needs a platform home: creating the Team Server app, adopting an existing GitHub-born model into it without rewriting history, or deploying; also when the Platform SDK returns 403, git rejects the PAT, a deploy cannot be triggered from a PAT, or the app turns out to be a Free App |
 | `skills/teamserver-alignment.md` | Any session that will push a model to Mendix Team Server, and BEFORE telling the user a Team Server push is blocked |

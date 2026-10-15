@@ -32,7 +32,7 @@ All gate decisions land in the consuming project's `PROJECT.md`, marked `CONFIRM
 
 ## Key skills and when to load them
 
-Load skill files **on demand when the task calls for it** — not all upfront. Full routing table: `README.md` → "When to use which skill". The always-on set (`README.md` → "Baseline routing"): `query-the-model.md`, `learned-mdl-preflight.md`, `learned-microflow-patterns.md`, and `bin/bug-lookup.sh` (a CE code, BUG-n or keyword → the matching ledger entries; `bug-logs/mxcli-bugs.md` itself is read on demand — it outgrew the always-on budget).
+Load skill files **on demand when the task calls for it** — not all upfront. Full routing table: `README.md` → "When to use which skill". The always-on set (`README.md` → "Baseline routing"): `query-the-model.md`, `learned-mdl-preflight.md`, `learned-microflow-patterns.md`, and `bin/bug-lookup.sh` (a CE code, BUG-n, keyword or the whole pasted error message → the matching ledger entries; `bug-logs/mxcli-bugs.md` itself is read on demand — it outgrew the always-on budget).
 
 | Task | Read this file |
 |------|---------------|
@@ -67,6 +67,7 @@ Migration assessment (`assess-migration`) is **bundled with mxcli** (`.ai-contex
 | OutSystems | `pipelines/outsystems/` | `cd pipelines/outsystems/pipeline && npm install` — see its `README.md` / `pipeline-guide.html` |
 | Java + Angular / Spring Boot | `pipelines/java-angular/` | `cd pipelines/java-angular/pipeline && npm install` — see its `README.md` |
 | Node/Express + React | `pipelines/node-express-react/` — **regex-based, proven on one source shape only; read its README's "Known gap" sections first** | `cd pipelines/node-express-react/pipeline && npm install` |
+| Mendix (an existing `.mpr`, rehost or move a module) | `pipelines/mendix-mpr/` — **build-green on a small app only; read its README's "Field runs" first** | `MXCLI=/path/to/mxcli pipelines/mendix-mpr/rehost-extract.sh <source.mpr> <target.mpr> <out-dir>` — Python 3 stdlib, no `npm install`; see its `README.md` |
 
 `node_modules/` is gitignored — `npm install` locally per pipeline. Set local paths in `pipelines/<x>/pipeline/config.json`; **never commit real local paths**. Curated sample outputs live under each pipeline.
 

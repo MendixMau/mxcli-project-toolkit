@@ -6,9 +6,9 @@ agents/architect-agent.md	skills/workflow-structure-rules.md	*	declared mirror: 
 skills/module-completion-loop.md	skills/ui-review-loop.md	*	tombstones: both forward to module-review.md
 *	*	generated from	render-routing.sh marker comment
 skills/*	skills/*	**requires:** bash and python 3	standard skill header boilerplate
-skills/field-run.md	skills/improvement-register.md	fixed	pointer: field-run cites improvement-register
+skills/field-run.md	skills/improvement-register.md	do not group into a count	pointer: field-run cites improvement-register
 skills/modularize-domain.md	skills/module-folder-convention.md	co-location is the point	pointer: cites modularize-domain
 skills/degrade-to-judgement.md	skills/finding-disposition.md	harness updates itself	both cite skills-over-scripts
-skills/degrade-to-judgement.md	CLAUDE.md	skills-over-scripts	both cite skills-over-scripts
-skills/brd-to-build-plan.md	agents/architect-agent.md	denominator	both cite workflow-structure-rules §12 row 10
-skills/journey-examples.md	skills/journey-proof.md	testing-shape.md	both cite testing-shape §4a rule 7 as canonical
+skills/degrade-to-judgement.md	CLAUDE.md	governing rule on where judgement lives	both cite skills-over-scripts
+skills/brd-to-build-plan.md	agents/architect-agent.md	n constructs in the diagram, n rows in the plan	both cite workflow-structure-rules §12 row 10
+skills/journey-examples.md	skills/journey-proof.md	after actions and landing guard, before text/trace/data	both cite testing-shape §4a rule 7 as canonical

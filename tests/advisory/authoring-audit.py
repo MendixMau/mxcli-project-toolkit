@@ -71,7 +71,7 @@ def corpus(root):
             if len(re.findall(r'\w+', t)) >= 10: out.append((rel, ln, t))
     for f in files:
         if os.path.isfile(f):
-            with open(f, encoding='utf-8') as fh: add(os.path.relpath(f, root), fh.readlines())
+            with open(f, encoding='utf-8') as fh: add(os.path.relpath(f, root).replace(os.sep, '/'), fh.readlines())
     with open(os.path.join(root, 'README.md'), encoding='utf-8') as fh: L = fh.readlines()
     st = next((i for i, l in enumerate(L) if l.startswith('#### Baseline routing')), None)
     if st is not None:
@@ -134,9 +134,9 @@ def cmd_dupes(a):
     for s, i, j in cand:
         (fa, la, ta), (fb, lb, tb) = C[i], C[j]
         key = tuple(sorted((fa, fb)))
+        if allowed(allow, fa, fb, ta, tb): skipped += 1; continue   # before the cap: never spends it
         if per[key] >= 3: continue
         per[key] += 1
-        if allowed(allow, fa, fb, ta, tb): skipped += 1; continue
         shown += 1
         print(f'{shown:3d}  {s:.3f}  {fa}:{la}  <>  {fb}:{lb}\n       A: {ta[:110]}\n       B: {tb[:110]}')
         if shown >= a.top: break

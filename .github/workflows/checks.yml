@@ -104,7 +104,7 @@ jobs:
   # ADVISORY, never a gate (added with tests/advisory/authoring-audit.py): prints near-duplicate
   # rules across skills/agents/CLAUDE.md and routing top-3 hits for the labelled phrasings
   # (CLAUDE.md rule 8). Its own job, so it reports even when a gate above is red, and it cannot
-  # turn the PR red: continue-on-error on job and step, `|| true` on both runs. Stdlib Python, ~20 s.
+  # turn the PR red: continue-on-error on job and step, `|| true` on both runs. Stdlib Python, ~15 s.
   authoring-audit:
     runs-on: ubuntu-latest
     continue-on-error: true

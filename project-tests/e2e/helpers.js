@@ -491,7 +491,10 @@ async function navTo(page, parentTitle, childTitle) {
     return false;
   }, t).catch(() => false);
   if (parentTitle) { await clickTitle(parentTitle); await page.waitForTimeout(Math.round(500 / cfg.speed)); }
-  await clickTitle(childTitle);
+  // A missing target is a failure, not a no-op (TK-012): nothing was clicked, the landing
+  // guard of a persona home page stays green, and a broken-control journey passes. The
+  // parent stays soft (an open flyout needs no click); the item itself must be found.
+  if (!(await clickTitle(childTitle))) throw new Error(`navigation item "${childTitle}" not found`);
   await page.waitForTimeout(Math.round(1500 / cfg.speed));
   await dismissModal(page);
 }

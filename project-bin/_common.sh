@@ -494,11 +494,20 @@ find_mxbuild() {
 find_java() {
   if [ -n "${JAVA_HOME:-}" ] && [ -d "$JAVA_HOME" ]; then echo "$JAVA_HOME"; return 0; fi
   local app jh
-  # JDK 21 first on macOS: with JDK 25 as the default, the Mendix 11 deploy build's gradle
-  # 8.5 fails ("Unsupported class file major version 69", mxbuild exit 3, empty problems[])
-  # — field project 2026-09-26, Mendix 11.12.2. Platform-guarded: java_home is mac-only.
-  if [ "$(mxtk_platform)" = macos ] && [ -x /usr/libexec/java_home ]; then
-    jh=$(/usr/libexec/java_home -v 21 2>/dev/null || /usr/libexec/java_home 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
+  # macOS: the JDK that matches the model. Studio Pro 11.13 and below build with JDK 21 (with
+  # JDK 25 as the default, the deploy build's gradle 8.5 fails: "Unsupported class file major
+  # version 69", mxbuild exit 3, empty problems[] — field project 2026-09-26, Mendix 11.12.2);
+  # 11.14 and above need JDK 25 (Gradle 9.1+; "release version 25 not supported" on JDK 21 —
+  # field report, Mendix 11.15; docs.mendix.com/refguide/system-requirements). The model's
+  # version is read from the .mpr; unreadable → 21 as before. Platform-guarded: java_home is
+  # mac-only. MXTK_JAVA_HOME_BIN overrides the binary (tests).
+  local jhbin="${MXTK_JAVA_HOME_BIN:-/usr/libexec/java_home}" want=21 mver mmaj mmin
+  if [ "$(mxtk_platform)" = macos ] && [ -x "$jhbin" ]; then
+    if mver=$(mxtk_model_version 2>/dev/null); then
+      mmaj="${mver%%.*}"; mmin="${mver#*.}"; mmin="${mmin%%.*}"
+      if [ "$mmaj" -gt 11 ] 2>/dev/null || { [ "$mmaj" -eq 11 ] && [ "$mmin" -ge 14 ]; } 2>/dev/null; then want=25; fi
+    fi
+    jh=$("$jhbin" -v "$want" 2>/dev/null || "$jhbin" 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
   fi
   # Studio Pro's bundled JRE.
   if app=$(find_sp_app 2>/dev/null); then

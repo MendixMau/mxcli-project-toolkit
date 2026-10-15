@@ -104,7 +104,8 @@ The reviewer, for each of the 5 rows, reads the diff and confirms or corrects th
    `bin/render-routing.sh --check` run on base and on head; otherwise "none: no routed or
    always-loaded file touched" is the answer. A missing row, or an estimate instead of the pasted
    output, is a review finding.
-4. **Behaviour** — an A/B per `process/preflight-skill-baseline-2026-08-31.md` is **required**
+4. **Behaviour** — an A/B per `process/preflight-skill-baseline-2026-08-31.md`, run with the
+   behaviour suite (`tests/behaviour/RUNBOOK.md`: arm M = base, arm T = PR head), is **required**
    for a change to always-loaded / baseline-routed text or an agent stub, **recommended** for
    situational skill text, **NOT RUN with a reason** for process docs and templates that review
    agents read (they are agent-read text, so never "n/a"), and **n/a** for scripts only.

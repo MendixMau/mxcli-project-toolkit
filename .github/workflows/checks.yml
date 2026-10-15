@@ -100,3 +100,18 @@ jobs:
         run: bash tests/lint-rules/test-batch3-rules.sh
       - name: Lint-rule unit suite, batch 4 (tests/lint-rules/test-batch4-rules.sh)
         run: bash tests/lint-rules/test-batch4-rules.sh
+
+  # ADVISORY, never a gate (added with tests/advisory/authoring-audit.py): prints near-duplicate
+  # rules across skills/agents/CLAUDE.md and routing top-3 hits for the labelled phrasings
+  # (CLAUDE.md rule 8). Its own job, so it reports even when a gate above is red, and it cannot
+  # turn the PR red: continue-on-error on job and step, `|| true` on both runs. Stdlib Python, ~15 s.
+  authoring-audit:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authoring audit, advisory (routing, dupes)
+        continue-on-error: true
+        run: |
+          python3 tests/advisory/authoring-audit.py routing || true
+          python3 tests/advisory/authoring-audit.py dupes --top 40 || true

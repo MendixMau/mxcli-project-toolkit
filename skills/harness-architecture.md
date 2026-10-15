@@ -294,15 +294,8 @@ engine uniformly testable.
 
 ## 6. Rungs 6 and 7 are a separate instrument, not part of the journey
 
-**The journey ships FIVE rungs and SEVEN mutants** (rungs 3 and 4 each carry two independent
-claims). `design-audit.js` produces artifacts labelled *rung 6* and *rung 7*; those labels refer to
-**that separate instrument**, not to a sixth and seventh rung of the journey.
-
-Do **not** merge them into one 1-7 table. Do **not** cite rung 6 or 7 in a gate, a module brief or
-a report as though they were part of the shipped spec — `journey-proof.md` forbids exactly this,
-and the reason is the discipline the whole harness rests on: they pass their own positive control
-but have not yet gone red on real work a human then agreed was a real defect. Promoting an
-instrument on a green run is the move this harness exists to forbid.
+→ see `journey-proof.md` § "Rungs 6 and 7" (top of the file) — five rungs, seven mutants; `design-audit.js`'s
+*rung 6/7* labels name that separate instrument.
 
 Run them, read them, report what they say. They are not verdicts.
 

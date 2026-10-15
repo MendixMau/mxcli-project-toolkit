@@ -285,6 +285,8 @@ Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcl
    produce (rule 1 makes the row a trigger condition; this rule is the check that the trigger
    works). The coverage audit in `render-routing.sh --check` catches the unrouted case
    mechanically; wrong-trigger routing it cannot see.
+   `tests/advisory/authoring-audit.py routing` is that check (BM25 over trigger text vs the
+   labelled `routing-phrasings.tsv`); its `dupes` lists rules stated twice. Advisory, never a gate.
 
 (Rules 6–8 adapted 2026-08-31 from public skill-authoring guidance in obra/superpowers
 `writing-skills` and Matt Pocock's `writing-for-agents` — patterns only. Their fourth

@@ -7104,3 +7104,15 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Workaround:** read each app's AppId statically before wiring a second subscriber (the `Projects$Project` unit id in the unpacked `mprcontents`); one subscriber per message is safe.
 
 **Toolkit side:** ledger only.
+
+## BUG-DRAFT-marketplace-install-deps-and-widgets: `marketplace install` pulls no dependent module and leaves CE0463 widget definitions (2026-10-15)
+
+> **NOT YET FILED.** Upstream: `marketplace install --file` shipped (mendixlabs/mxcli#1150, PR #1151, merged). Dependency resolution and the widget fix inside install are not covered by it.
+
+**Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
+
+**What happens.** Installing a connector module without the module it depends on gives about 50 mxbuild CE errors; installing the dependency with `install --file <downloaded.mpk>` worked. A Marketplace module can install under a folded name (Workflow Commons as one word) and leaves CE0463 widget definitions that `mxcli fix widgets` repairs (41 units).
+
+**Workaround:** read the module's dependencies on its Marketplace page, install them first (by content id or `install --file`), then `mxcli fix widgets -p <app>.mpr` before the first mxbuild.
+
+**Toolkit side:** ledger only; `skills/decompose-app.md` already lists the `fix widgets` step.

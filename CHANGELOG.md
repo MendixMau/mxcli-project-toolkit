@@ -19,6 +19,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 
 ## Unreleased
 
+- learn(bug-ledger): **`marketplace install` pulls no dependency and leaves CE0463 widgets; `install --file` and `fix widgets` are the workaround** (TK-042; overlaps merged upstream #1151) — a five-app lab project
 - learn(bug-ledger): **a Business Events AppId is copied with the model and shown by no command** (TK-041, upstream draft) — a five-app lab project
 - learn(bug-ledger): **`create business event service` gaps: String(200) only, CloudEvent id collision, V2 subject and channel name need patching** (TK-040, upstream draft) — a five-app lab project
 - learn(secrets): **`describe constant` and `show constants` print a stored credential verbatim; keep secret constants empty and pass `--constant`** (TK-039, HIGH, upstream draft; skill line + ledger) — a five-app lab project

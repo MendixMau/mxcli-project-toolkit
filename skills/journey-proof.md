@@ -33,7 +33,7 @@ run on real work and watched going red. That is the whole of the claim.
 >
 > So: **five rungs, seven mutants** (rung 3 and rung 4 each carry two). "Rung 6/7" in a
 > `design-audit` artifact refers to that separate instrument, not to a sixth and seventh rung of the
-> journey.
+> journey. Do **not** merge them into one 1–7 table.
 
 ---
 
@@ -243,6 +243,23 @@ the same vacuity bug one level up.
    (pilot: one transactional table went 50 → 57 rows). Never run controls against anything you are also using as a
    demo baseline, and never against production.
 
+### Every journey names its claim and ships a control
+
+**Trigger:** you write or change a journey. Declare `"claim"` (the one business sentence the journey
+exists to prove), then copy the journey to `<id>.control.json` beside it, or in `controls/` beside
+it, with one claim the app must not satisfy and `"control": { "of": "<journey id>", "mustFail":
+"<check-name text>" }`. Run `tests/e2e/named-controls.js <control files>`. A control is PROVEN only
+when the runner exits 1, every check whose name contains `mustFail` is FAIL (at least one), and
+nothing else is FAIL or INVALID. Its `persona` must equal `TEST_USER`, or it is a FAULT and does not
+run. Never name a control `*.journey.json`: real walks, `report-normalize.js` and
+`fixture-manifest.sh` discover journeys by that suffix, and would walk the control as a journey.
+The seven mutants above prove the harness. Only a named control proves the claim.
+
+*Failure it prevents (2026-09-26, #159):* a journey claimed "a case waits while an upstream system is
+offline". It passed every rung, and its positive control proved 7 of 7. Its named control read
+`NOT PROVEN`, because the case was waiting for a different reason. `journey-runner.js` prints
+`WARN   named control:` for a journey with no `claim` or no control file (warn-only, no field run yet).
+
 ### Control output goes in its own file
 
 `journey-findings.json` is a single slot. A control run used to overwrite the real walk in it —
@@ -337,6 +354,7 @@ across runs, so a diff in the report means a diff in the project.
 - [ ] All five rungs asserted; none quietly absent.
 - [ ] `--positive-control` run, **all seven mutants proven** (every one of rungs 1–5 covered),
       results in their own file.
+- [ ] Every journey has a `claim` and a named control, and `named-controls.js` reads PROVEN for each.
 - [ ] Zero `INVALID` in the real run — or each one explained as an instrument fault, not a feature.
 - [ ] Walk renders: every step has actions, a shot (or an honest placeholder), and its checks.
 - [ ] Ledger rows the journey exercises are marked, and modules with a ledger and no journey are

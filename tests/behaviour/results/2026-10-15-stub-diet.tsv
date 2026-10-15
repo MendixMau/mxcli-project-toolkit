@@ -1,0 +1,45 @@
+# 2026-10-15 stub-diet A/B (#369/#378/#380). Arm M = master d16f578, arm T = d16f578 + #369 + #378 + #380 (local merge 833392c). One model fixed for every rep.
+# read_all=0 rows: agent stopped reading the 4,822-line pack early; re-run, counted here, excluded from the comparison. tool_calls/tokens per rep were not recorded; ranges: M 15-24 calls ~245k tokens, T 7-14 calls 160-175k tokens.
+# Findings: 39 reps read the whole pack (20 drafts, 19 probes), 3 partial reads, all on the 4,822-line M pack. T held the eight metrics that run's rule named (planted, scan, check, mfpre, cinloop, rinloop, uixref, crumbs); quoted on mf was lower (median 93 against 95), which the every-metric rule now reports. M ran one probe rep each, none valid for skills-over-scripts.
+M-mf-r1	arm=M	task=mf	sections=4/4	report=1	wmode=4/3	quoted=94	folder=2/2	scan=0	check=0	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=NA	tokens=NA
+M-mf-r2	arm=M	task=mf	sections=4/4	report=1	wmode=3/2	quoted=95	folder=1/1	scan=0	check=0	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=NA	tokens=NA
+M-mf-r3	arm=M	task=mf	sections=4/4	report=1	wmode=4/3	quoted=95	folder=2/2	scan=0	check=0	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=NA	tokens=NA
+M-mf-r4	arm=M	task=mf	sections=4/4	report=1	wmode=3/3	quoted=64	folder=2/2	scan=0	check=0	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=NA	tokens=NA
+M-mf-r5	arm=M	task=mf	sections=4/4	report=1	wmode=3/2	quoted=95	folder=1/1	scan=0	check=0	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=NA	tokens=NA
+M-page-r1	arm=M	task=page	sections=4/4	report=1	wmode=6/5	quoted=100	folder=0/3	scan=0	check=0	planted=1	crumbs=3/3	txtcrumb=0	h1=3/2	empty=1	uixref=1	read_all=1	tool_calls=NA	tokens=NA
+M-page-r2	arm=M	task=page	sections=4/4	report=1	wmode=6/5	quoted=100	folder=0/3	scan=0	check=PARSE	planted=1	crumbs=0/3	txtcrumb=0	h1=3/2	empty=1	uixref=1	read_all=1	tool_calls=NA	tokens=NA
+M-page-r3	arm=M	task=page	sections=4/4	report=1	wmode=5/4	quoted=95	folder=0/2	scan=0	check=0	planted=1	crumbs=3/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=NA	tokens=NA
+M-page-r4	arm=M	task=page	sections=4/4	report=1	wmode=5/4	quoted=100	folder=0/2	scan=0	check=PARSE	planted=1	crumbs=3/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=NA	tokens=NA
+M-page-r5	arm=M	task=page	sections=4/4	report=1	wmode=16/16	quoted=95	folder=6/8	scan=0	check=PARSE	planted=1	crumbs=0/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=NA	tokens=NA
+M-probe-learned-css-that-never-applied-r1	arm=M	task=probe-learned-css-that-never-applied	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+M-probe-module-review-r1	arm=M	task=probe-module-review	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+M-probe-teamserver-alignment-r1	arm=M	task=probe-teamserver-alignment	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+M-probe-ui-loop-r1	arm=M	task=probe-ui-loop	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-mf-r1	arm=T	task=mf	sections=4/4	report=1	wmode=5/4	quoted=93	folder=2/2	scan=0	check=0	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=NA	tokens=NA
+T-mf-r2	arm=T	task=mf	sections=4/4	report=1	wmode=4/3	quoted=82	folder=2/2	scan=0	check=0	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=NA	tokens=NA
+T-mf-r3	arm=T	task=mf	sections=4/4	report=1	wmode=3/2	quoted=94	folder=1/1	scan=0	check=0	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=NA	tokens=NA
+T-mf-r4	arm=T	task=mf	sections=4/4	report=1	wmode=3/2	quoted=94	folder=1/1	scan=0	check=0	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=NA	tokens=NA
+T-mf-r5	arm=T	task=mf	sections=4/4	report=1	wmode=4/3	quoted=85	folder=2/2	scan=0	check=0	planted=1	mfpre=1	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=NA	tokens=NA
+T-page-r1	arm=T	task=page	sections=4/4	report=1	wmode=5/4	quoted=100	folder=0/2	scan=0	check=0	planted=1	crumbs=3/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=NA	tokens=NA
+T-page-r2	arm=T	task=page	sections=4/4	report=1	wmode=5/4	quoted=100	folder=0/2	scan=0	check=PARSE	planted=1	crumbs=3/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=NA	tokens=NA
+T-page-r3	arm=T	task=page	sections=4/4	report=1	wmode=4/4	quoted=100	folder=0/2	scan=0	check=PARSE	planted=1	crumbs=0/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=NA	tokens=NA
+T-page-r4	arm=T	task=page	sections=4/4	report=1	wmode=5/4	quoted=100	folder=0/2	scan=0	check=0	planted=1	crumbs=3/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=NA	tokens=NA
+T-page-r5	arm=T	task=page	sections=4/4	report=1	wmode=7/6	quoted=79	folder=1/3	scan=0	check=0	planted=1	crumbs=3/3	txtcrumb=0	h1=2/2	empty=1	uixref=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-learned-css-that-never-applied-r1	arm=T	task=probe-learned-css-that-never-applied	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-learned-css-that-never-applied-r2	arm=T	task=probe-learned-css-that-never-applied	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-learned-css-that-never-applied-r3	arm=T	task=probe-learned-css-that-never-applied	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-module-review-r1	arm=T	task=probe-module-review	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-module-review-r2	arm=T	task=probe-module-review	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-module-review-r3	arm=T	task=probe-module-review	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-skills-over-scripts-r1	arm=T	task=probe-skills-over-scripts	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-skills-over-scripts-r2	arm=T	task=probe-skills-over-scripts	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-skills-over-scripts-r3	arm=T	task=probe-skills-over-scripts	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-teamserver-alignment-r1	arm=T	task=probe-teamserver-alignment	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-teamserver-alignment-r2	arm=T	task=probe-teamserver-alignment	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-teamserver-alignment-r3	arm=T	task=probe-teamserver-alignment	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-ui-loop-r1	arm=T	task=probe-ui-loop	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-ui-loop-r2	arm=T	task=probe-ui-loop	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+T-probe-ui-loop-r3	arm=T	task=probe-ui-loop	probe_first=1	probe_any=1	read_all=1	tool_calls=NA	tokens=NA
+M-probe-learned-css-that-never-applied-r1-partial	arm=M	task=probe-learned-css-that-never-applied	probe_first=1	probe_any=1	read_all=0	tool_calls=NA	tokens=NA
+M-probe-skills-over-scripts-r1-partial	arm=M	task=probe-skills-over-scripts	probe_first=1	probe_any=1	read_all=0	tool_calls=NA	tokens=NA
+M-probe-teamserver-alignment-r1-partial	arm=M	task=probe-teamserver-alignment	probe_first=1	probe_any=1	read_all=0	tool_calls=NA	tokens=NA

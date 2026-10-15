@@ -136,7 +136,7 @@ Per business capability, answer the questions that decide whether its BRD comes 
 
 - Can this be extracted automatically (does an extractor for this source shape exist)?
 - Does a mapper exist to turn that extraction into a BRD?
-- Is the output reliable enough to trust without heavy rework (check against `migration-pipeline.md` Phase 2's quality checklist once a sample run exists)?
+- Is the output reliable enough to trust without heavy rework (check against `extractor-quality-loop.md` Validator Requirements once a sample run exists)?
 - If not: does this need a new extractor, a new mapper, or is it just better done manually?
 
 | Capability | Extractable? | Mapper → BRD? | Reliable? | Verdict |

@@ -1104,8 +1104,10 @@ oc_fingerprint() {  # $1 = model dir. One cksum over the .mpr, its -wal, and eve
   ( cd "$1" && { cksum "$MPR_BASE"; [ -f "$MPR_BASE-wal" ] && cksum "$MPR_BASE-wal"
       if [ -d mprcontents ]; then find mprcontents -type f | LC_ALL=C sort | tr '\n' '\0' | xargs -0 cksum; fi; } ) 2>/dev/null | cksum
 }
+# Detection prunes exactly what the copy skips (_common.sh MXTK_COPY_SKIP), so the two never disagree.
+OC_PRUNE=(-name .mxtk-prune-none); for _s in $MXTK_COPY_SKIP; do OC_PRUNE+=(-o -name "$_s"); done
 oc_side_manifest() {  # $1 = model dir: "crc size path" per file under $OC_SIDE_DIRS, build caches pruned
-  ( cd "$1" && for _d in $OC_SIDE_DIRS; do [ -d "$_d" ] && find "$_d" \( -name node_modules -o -name .cache \) -prune \
+  ( cd "$1" && for _d in $OC_SIDE_DIRS; do [ -d "$_d" ] && find "$_d" \( "${OC_PRUNE[@]}" \) -prune \
       -o -type f -print; done | LC_ALL=C sort | tr '\n' '\0' | xargs -0 cksum | awk 'NF >= 3' ) 2>/dev/null
 }
 oc_side_sum() {  # $1 = file: "crc size", or "-" when it does not exist
@@ -1116,7 +1118,7 @@ oc_side_sum0() {  # $1 = rel path: its "crc size" in OC_SIDE0 (taken before the 
 }
 oc_other_list() {  # $1 = copy [$2 = marker: only files newer]: sorted paths outside the model and $OC_SIDE_DIRS
   ( cd "$1" && find . \( -path ./mprcontents -o -path ./deployment -o -path ./.mxcli -o -path ./.git \
-      -o -name node_modules -o -name .cache \) -prune -o -type f ${2:+-newer "$2"} -print 2>/dev/null | sed 's|^\./||' | while IFS= read -r _r; do
+      -o "${OC_PRUNE[@]}" \) -prune -o -type f ${2:+-newer "$2"} -print 2>/dev/null | sed 's|^\./||' | while IFS= read -r _r; do
       case "$_r" in "$MPR_BASE"|"$MPR_BASE".*|"$MPR_BASE"-*) continue ;; esac
       _in=0; for _d in $OC_SIDE_DIRS; do case "$_r" in "$_d"/*) _in=1 ;; esac; done
       [ "$_in" = 1 ] || printf '%s\n' "$_r"

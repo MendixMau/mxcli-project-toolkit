@@ -64,6 +64,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/agent-permission-friction.md` | Any refused, denied or blocked command |
 | `skills/e2e-evidence-report.md` | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything |
 | `skills/record-demo-video.md` | Recording a narrated screen-capture demo of a running app for a human to watch |
+| `skills/demo-recording-polish.md` | A demo film someone will watch looks captured, not produced |
 | `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo |
 | `skills/improvement-register.md` | Any review pass that runs more than once |
 | `skills/journey-examples.md` | Writing an actual .journey.json |

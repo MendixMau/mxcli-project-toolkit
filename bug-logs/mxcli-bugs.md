@@ -7140,3 +7140,15 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 **Workaround:** on v0.27.0 and later pass `--app-port` and `--admin-port` to `mxcli test --local`. On v0.26.0 stop the other app, or prove behaviour with REST scripts against the running app.
 
 **Toolkit side:** `skills/testing-shape.md` names the flags. `bin/test-scratch.sh` still takes its lock on the fixed 8081/8091; moving it to the new flags needs a field run and is left open.
+
+## BUG-DRAFT-business-events-oversize-ce-id: the Business Events consumer drops a record whose `ce_id` is over 36 characters, commits the offset and leaves no row (2026-10-15)
+
+> **NOT YET FILED.** Owner: the Business Events Marketplace module (Mendix), not mxcli.
+
+**Discovered:** 2026-10-14/15, a five-app lab project. **mxcli version:** v0.26.0 (checked against the v0.27.0 source). **Mendix:** 11.15.0. macOS.
+
+**What happens.** A produced event with `ce_id` longer than 36 characters (for example `HE-<id>-<Message>`) is dropped by the consumer: the log has "error processing record ... maximum length of 36", the offset is committed, there is no EventLog row and no retry. `ConsumedBusinessEvent.EventId` is String(36).
+
+**Workaround:** use a UUID for `ce_id`; carry an application idempotency key in the payload instead of the CloudEvent id.
+
+**Toolkit side:** ledger only.

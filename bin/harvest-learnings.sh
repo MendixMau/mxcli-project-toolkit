@@ -190,8 +190,8 @@ COMMITSEOF
       STALE_N=$((STALE_N + 1))
       # <project-root>, never $PROJECT_DIR: the draft is destined for the public inbox and an
       # absolute path is a home-directory leak the pre-commit guard refuses (caught 2026-09-14).
-      printf -- '- bin/%s — STALE: identical to shipped %s (%s); fix: bin/sync-project.sh <project-root> --upgrade-bin %s\n\n' \
-        "$base" "$MATCH_SHORT" "$MATCH_DATE" "$base" >> "$TMP"
+      printf -- '- bin/%s — STALE: identical to shipped %s (%s); fix: bin/sync-project.sh <project-root> --only-bin %s --upgrade-bin %s\n\n' \
+        "$base" "$MATCH_SHORT" "$MATCH_DATE" "$base" "$base" >> "$TMP"
       continue
     fi
 

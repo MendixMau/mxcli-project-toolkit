@@ -282,9 +282,9 @@ runnable() {
     *…*|*"..."*) return 1 ;;                       # elided placeholder, not a real command
   esac
   # Must be VERB [NOUN...] OPERAND — i.e. end in something that looks like an identifier.
-  printf '%s' "$c" | grep -Eq '^(SHOW|DESCRIBE)( +[A-Z]+)+ +[A-Za-z_][A-Za-z0-9_.]*( .*)?$' && return 0
+  grep -Eq -- '^(SHOW|DESCRIBE)( +[A-Z]+)+ +[A-Za-z_][A-Za-z0-9_.]*( .*)?$' <<<"$c" && return 0
   # SHOW <PLURAL> with no operand is legitimate (e.g. "SHOW MODULES", "SHOW PAGES").
-  printf '%s' "$c" | grep -Eq '^SHOW +[A-Z]+$' && return 0
+  grep -Eq -- '^SHOW +[A-Z]+$' <<<"$c" && return 0
   return 1
 }
 

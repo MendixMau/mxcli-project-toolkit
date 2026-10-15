@@ -159,6 +159,24 @@ and report score first → last. Lint counts say whether a rule fires; this says
 got better and the sessions faster while it did. `bin/harvest-learnings.sh` carries the
 trend summary (never the rows — those name scripts) into the toolkit inbox at wrap-up.
 
+## Stock rules against the toolkit's own conventions
+
+Three stock rules flag things this toolkit does on purpose. Each needs a known answer; otherwise an
+agent "fixes" the finding by renaming a working flow, adding a fake caller, or moving a doc comment
+onto the wrong document. Each answer is the user's decision, recorded in `PROJECT.md`, like any opt-out
+(`lint-rules/README.md` → "Opting out of a rule").
+
+| Finding | Why it is not a defect | What to do today |
+|---|---|---|
+| **QUAL004** on a `DS_` flow whose only caller is a Data grid 2 datasource (#360) | The stock rule already counts `datasource` refs (v0.24.0+), yet v0.26.0 flagged two working Data grid 2 datasources. The catalog likely misses the pluggable widget's ref. | Confirm with `describe page`, then accept the rise: `--update-baseline --reason "QUAL004 DS_ datasource false positive"`. Never rename or add a caller. Upstream: `pending-github-issues/qual004-dg2-datasource-ref.md` |
+| **QUAL004** on a `TEST_` helper (#241) | It is called from `tests/*.test.mdl`, which lint cannot see. `ENTRY_POINT_PREFIXES` is a constant, not an option. | Baseline with a reason. Keep QUAL004 on: it is the orphan check `process-coherence-pass.md` runs. Upstream: `pending-github-issues/lint-naming-prefixes-as-options.md` |
+| **CUSTOM002** on `TEST_`, `GET_`, `PRS_`, `STUB_` (#241) | `example_microflow.star` is an *example* rule from `mxcli init` ("customize the prefixes"). Its `VALID_PREFIXES` is a constant. | `rules: CUSTOM002: enabled: false`, recorded in `PROJECT.md`, or baseline with a reason. Never edit the `.star` file. Upstream: `pending-github-issues/lint-naming-prefixes-as-options.md` |
+| **QUAL002** on import mappings, published REST services and Marketplace Java actions (#246) | MDL cannot store documentation on the first two (MDL089); a doc comment above them moves to the next microflow. | The rule has per-kind options (mxcli >= 0.24.0): `rules: QUAL002: options: check_import_mappings: false`, `check_published_rest_services: false`, `check_java_actions: false`, `check_java_action_params: false`. Or document them in Studio Pro. Upstream: `pending-github-issues/qual002-skip-mdl089-types.md` |
+
+The QUAL002 option names come from the `missing_documentation.star` that `mxcli init` v0.24.0–v0.26.0
+writes (it reads them with `get_option`). Grep your copy for `get_option` before relying on them;
+they have not been field-run yet.
+
 ## Two false-pass bugs already designed out of `lint-gate.sh` — keep them out
 
 Both were found by testing the gate, not by reading it:

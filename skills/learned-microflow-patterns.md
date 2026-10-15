@@ -252,6 +252,7 @@ An `@annotation` sits immediately before the statement it explains — an activi
 
 ## Additional MDL Syntax Rules
 
+- **Microflow header:** `create microflow M.N ()` keeps its `()` even when empty, then `returns`, then `folder '…'` (not `in`). The `check` errors point at `returns`/`List of`. BUG-DRAFT-microflow-header-grammar.
 - **Cross-module association `change` from the non-owner side (CE0854):** `check` and `exec` pass it; `mx check` gives `[CE0854] Cross-module association 'Mod.Assoc' is not reachable from entity 'ModB.Entity'`. Change from the owner side — see "Association Direction — Setting in Microflows".
 - **`validation feedback $Obj message '...'` with no attribute → CE0091:** `check` and `exec` pass it; `mx check` gives `[CE0091] No member selected.` Always name the attribute: `validation feedback $Obj/Attr message '...'` (that form builds at 0 errors). **Where it goes:** in a `VAL_`/`SUB_` microflow, never an `ACT_` one — see the next section.
 - **Microflow canvas layout — omit layout annotations (LESSON-01+02, corrected 2026-09-25):**

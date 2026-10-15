@@ -1,0 +1,9 @@
+-- No STOP row. captured: bug-logs/mxcli-bugs.md BUG-86, still open on v0.21.0.
+-- key: `currentDeviceType()` in a CREATE NANOFLOW still passes `check`/`exec`
+-- evidence: native mxbuild still fails `[CE0117]` at the Create-variable activity
+create or modify nanoflow Module.NF_Device_Get ()
+returns String
+begin
+  declare $Device String = toString(currentDeviceType());
+  return $Device;
+end;

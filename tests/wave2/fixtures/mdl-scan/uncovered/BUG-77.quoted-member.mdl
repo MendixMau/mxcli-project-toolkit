@@ -1,0 +1,7 @@
+-- Not a STOP row (a preflight gotcha). captured: bug-logs/mxcli-bugs.md BUG-77, v0.24.0 reproduction.
+-- key: quoted member in an expression, `$Req/"ClientId"`
+-- evidence: CE0117 "the '"<Attr>' part is incomplete"
+create or modify microflow Module.ACT_Request_Log ($Req: Module.Request)
+begin
+  log info node 'Request' 'client ' + $Req/"ClientId";
+end;

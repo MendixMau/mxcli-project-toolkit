@@ -1,0 +1,25 @@
+Captured 2026-10-12 in #293 (split from it): the NativeNote slice of the public field-service
+template app 9.24.2 (Mendix Marketplace) moved into a fresh Mendix 11.13.0 app, mxcli v0.26.0,
+Linux. The full run read 346 crossing refs and wrote 308 ledger rows, 0 UNRESOLVED, exit 0.
+
+Nothing here is hand-written. Every file is verbatim from that run, or a verbatim line subset of it:
+
+  slice.txt           verbatim (NativeNote + 26 Synchronization documents)
+  cut-rules.tsv       verbatim (the field run's decisions, 43 rules)
+  cut-extra.tsv       verbatim (13 rows no catalog holds)
+  exporter.json       verbatim exporter --json after its name-boundary fix (the one fed to the run)
+  exporter-prefix.txt verbatim transcript of the exporter BEFORE that fix (counts Note x54, Technician x2)
+  crossing-refs.tsv   SUBSET of the run's --dump-refs output (346 refs): every ref of one ledger key
+                      per distinct evidence string, so each rule is exercised once and System once
+                      -> 43 refs, 42 keys. Lines copied unchanged, order kept.
+  mx-check.txt        SUBSET of the mx 9.24 check on the slice package (186 CE1613 lines): the first 3
+                      (names the catalog already has) + every line naming the two catalog-blind docs
+  expected-ledger.tsv SUBSET of the run's cut-ledger.tsv: the 57 rows this input must reproduce, with
+                      their original E-numbers (the test compares columns 2-8 and renumbers)
+
+Known right answer (bin/cut-ledger.sh with all of the above):
+  43 crossing refs -> 57 ledger rows (20 out, 22 in from the catalog; 2 check-only; 13 extra)
+  by resolution: handoff 20, platform 1, resolved 24, retire 1, stub 11
+  no rule unused; no exporter-only note with exporter.json; exactly one with exporter-prefix.txt
+  ("Technician: exporter counts 2 unit(s) naming it, ledger has 0 out-edges to it", as in the field
+  run's transcript)

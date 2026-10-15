@@ -32,7 +32,7 @@ All gate decisions land in the consuming project's `PROJECT.md`, marked `CONFIRM
 
 ## Key skills and when to load them
 
-Load skill files **on demand when the task calls for it** — not all upfront. Full routing table: `README.md` → "When to use which skill". The always-on set (`README.md` → "Baseline routing"): `query-the-model.md`, `learned-mdl-preflight.md`, `learned-microflow-patterns.md`, and `bin/bug-lookup.sh` (a CE code, BUG-n or keyword → the matching ledger entries; `bug-logs/mxcli-bugs.md` itself is read on demand — it outgrew the always-on budget).
+Load skill files **on demand when the task calls for it** — not all upfront. Full routing table: `README.md` → "When to use which skill". The always-on set (`README.md` → "Baseline routing"): `query-the-model.md`, `learned-mdl-preflight.md`, `learned-microflow-patterns.md`, and `bin/bug-lookup.sh` (a CE code, BUG-n, keyword or the whole pasted error message → the matching ledger entries; `bug-logs/mxcli-bugs.md` itself is read on demand — it outgrew the always-on budget).
 
 | Task | Read this file |
 |------|---------------|
@@ -286,6 +286,8 @@ Create `skills/{topic}.md` with `# Title`, `**Applies to:** migration | any mxcl
    produce (rule 1 makes the row a trigger condition; this rule is the check that the trigger
    works). The coverage audit in `render-routing.sh --check` catches the unrouted case
    mechanically; wrong-trigger routing it cannot see.
+   `tests/advisory/authoring-audit.py routing` is that check (BM25 over trigger text vs the
+   labelled `routing-phrasings.tsv`); its `dupes` lists rules stated twice. Advisory, never a gate.
 
 (Rules 6–8 adapted 2026-08-31 from public skill-authoring guidance in obra/superpowers
 `writing-skills` and Matt Pocock's `writing-for-agents` — patterns only. Their fourth

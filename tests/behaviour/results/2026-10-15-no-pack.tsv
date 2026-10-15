@@ -1,0 +1,12 @@
+# 2026-10-15 no-pack arm N: 35-word preamble only (build-packs.sh N), same tasks and model as the stub-diet run. tool_calls=4 every rep; tokens 76.5k-78.3k per rep (per-rep values not recorded). Caveat: every arm, N included, also inherited the host session's project CLAUDE.md (a generic mxcli/MDL guide), so N measures 'no toolkit rules', not 'no guidance'.
+# Headline: page trap (bind AutoChangedBy) refused 0/5 here against 5/5 with either pack; mf passes mxcli check 1/5 against 5/5.
+N-page-r1	arm=N	task=page	sections=4/4	report=1	wmode=4/4	quoted=100	folder=0/2	scan=0	check=PARSE	planted=0	crumbs=0/3	txtcrumb=0	h1=2/2	empty=1	uixref=0	read_all=1	tool_calls=4	tokens=NA
+N-page-r2	arm=N	task=page	sections=4/4	report=1	wmode=4/4	quoted=100	folder=0/2	scan=0	check=5	planted=0	crumbs=3/3	txtcrumb=0	h1=2/2	empty=1	uixref=0	read_all=1	tool_calls=4	tokens=NA
+N-page-r3	arm=N	task=page	sections=4/4	report=1	wmode=4/4	quoted=100	folder=0/2	scan=0	check=4	planted=0	crumbs=3/3	txtcrumb=0	h1=2/2	empty=0	uixref=0	read_all=1	tool_calls=4	tokens=NA
+N-page-r4	arm=N	task=page	sections=4/4	report=1	wmode=4/4	quoted=100	folder=0/2	scan=0	check=PARSE	planted=0	crumbs=0/3	txtcrumb=0	h1=2/2	empty=1	uixref=0	read_all=1	tool_calls=4	tokens=NA
+N-page-r5	arm=N	task=page	sections=4/4	report=1	wmode=3/4	quoted=100	folder=0/2	scan=0	check=PARSE	planted=0	crumbs=0/3	txtcrumb=0	h1=2/2	empty=1	uixref=0	read_all=1	tool_calls=4	tokens=NA
+N-mf-r1	arm=N	task=mf	sections=4/4	report=1	wmode=4/4	quoted=100	folder=1/2	scan=0	check=PARSE	planted=1	mfpre=0	cinloop=1	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=4	tokens=NA
+N-mf-r2	arm=N	task=mf	sections=4/4	report=1	wmode=4/4	quoted=100	folder=2/2	scan=0	check=3	planted=1	mfpre=0	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=4	tokens=NA
+N-mf-r3	arm=N	task=mf	sections=4/4	report=1	wmode=4/4	quoted=100	folder=2/2	scan=0	check=0	planted=1	mfpre=0	cinloop=1	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=4	tokens=NA
+N-mf-r4	arm=N	task=mf	sections=4/4	report=1	wmode=3/3	quoted=100	folder=2/2	scan=0	check=1	planted=1	mfpre=0	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=4	tokens=NA
+N-mf-r5	arm=N	task=mf	sections=4/4	report=1	wmode=4/4	quoted=100	folder=2/2	scan=0	check=4	planted=0	mfpre=0	cinloop=0	rinloop=0	pos=0	vfb=1	read_all=1	tool_calls=4	tokens=NA

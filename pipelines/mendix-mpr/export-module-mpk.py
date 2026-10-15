@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """export-module-mpk.py — headless "export module to .mpk" for an MPR v1 (single SQLite) app.
 
-usage: export-module-mpk.py <source.mpr> <Module> <out.mpk> [--no-widgets] [--json]
+usage: export-module-mpk.py <source.mpr> <Module> <out.mpk> [--no-widgets] [--scrub-constant-defaults] [--json]
 
 WHAT IT DOES
   Writes a Mendix *module package* in the shape Studio Pro / Marketplace module packages have
@@ -18,7 +18,12 @@ WHAT IT DOES
       health-check microflow names and the navigation profiles are emptied, and those units'
       ContentsHash recomputed (sha256 of Contents, base64 — verified on all 4783 units of the field-service template),
     - the module unit (`ContainmentName='Modules'`, BSON Name == <Module>) and every unit below
-      it by ContainerID, every column copied byte for byte (UnitID, ContentsHash, Contents …),
+      it by ContainerID, every column copied byte for byte (UnitID, ContentsHash, Contents …).
+      That includes the module's own constants (`Constants$Constant`) WITH their DefaultValue: a
+      key or password kept as a constant default travels in the package. `--scrub-constant-defaults`
+      empties every DefaultValue, recomputes the ContentsHash and prints the count — UNVERIFIED in
+      Studio Pro: no package built with it has yet been installed and checked (`mx check`). An
+      emptied non-String default (Integer, Boolean …) needs a value set in the target,
   plus the module's files, matched on the lower-cased module name the way Mendix lays them out:
   `javasource/<m>/` (minus `proxies/`, which the build regenerates), `javascriptsource/<m>/`,
   `themesource/<m>/`, `resources/<m>/`, every `userlib/<jar>` that has a
@@ -81,6 +86,10 @@ class Refuse(Exception):
     pass
 
 
+class SamePath(Refuse):
+    """Source and output are the same file: a usage error (exit 2), never a write."""
+
+
 # --- minimal BSON reading: top-level fields only, enough for $Type / Name / WidgetId ---------
 def _bson_top(b):
     """Return the top-level string fields of a BSON document (others skipped)."""
@@ -124,7 +133,7 @@ def _bson_strings(b, key):
         i += 4
 
 
-# --- type-preserving BSON (list of (type, key, value)), used only to scrub two project docs ---
+# --- type-preserving BSON (list of (type, key, value)), used only to scrub project docs and constants ---
 def bson_load(b, i=0):
     size = struct.unpack_from("<i", b, i)[0]
     end, i, items = i + size - 1, i + 4, []
@@ -202,6 +211,13 @@ def scrub_security(items):
     return items
 
 
+def scrub_constant(items):
+    """Empty a module constant's DefaultValue (top-level string): API keys and passwords live there."""
+    if _get(items, "DefaultValue") is not None:
+        items = _set(items, "DefaultValue", 2, _str(""))
+    return items
+
+
 def scrub_settings(items):
     def walk(node):
         out = []
@@ -233,15 +249,20 @@ def scrub_navigation(items):
     return _empty_list(items, "Profiles")
 
 
-def scrubbed_row(row):
+def scrubbed_row(row, scrub_constant_defaults=False):
     """Return the Unit row with a scrubbed Contents and a recomputed ContentsHash."""
     uid, cid, cname, tconf, _h, cconf, contents = row
-    typ = _bson_top(contents).get("$Type")
+    top = _bson_top(contents)
+    typ = top.get("$Type")
     scrubbers = {"Security$ProjectSecurity": scrub_security,
                  "Settings$ProjectSettings": scrub_settings,
                  "Navigation$NavigationDocument": scrub_navigation}
+    if scrub_constant_defaults:
+        scrubbers["Constants$Constant"] = scrub_constant
     if typ not in scrubbers:
         return row, False
+    if typ == "Constants$Constant" and not top.get("DefaultValue"):
+        return row, False                      # already empty: copy byte for byte
     if bson_dump(bson_load(contents)) != contents:
         raise Refuse(f"{typ}: BSON round trip is not byte-identical — will not rewrite it")
     items = bson_load(contents)
@@ -389,16 +410,21 @@ def package_xml(module, files):
 
 
 # --- main ---------------------------------------------------------------------------------
-def export(src, module, out, with_widgets=True):
+def export(src, module, out, with_widgets=True, scrub_constant_defaults=False):
+    # refuse before anything is removed or written: `out` == `src` would delete the source app
+    if os.path.exists(out) and os.path.realpath(out) == os.path.realpath(src):
+        raise SamePath(f"output {out} is the source .mpr itself — refusing before any write")
     tmp_mpr = out + ".project.mpr.tmp"
+    if os.path.realpath(tmp_mpr) == os.path.realpath(src):
+        raise SamePath(f"temporary file {tmp_mpr} would be the source .mpr — refusing")
     try:
-        return _export(src, module, out, with_widgets, tmp_mpr)
+        return _export(src, module, out, with_widgets, tmp_mpr, scrub_constant_defaults)
     finally:
         if os.path.exists(tmp_mpr):
             os.remove(tmp_mpr)
 
 
-def _export(src, module, out, with_widgets, tmp_mpr):
+def _export(src, module, out, with_widgets, tmp_mpr, scrub_constant_defaults=False):
     db, tables = open_source(src)
     shell, subtree, mod_top, all_modules, by_id = collect(db, module)
     app_dir = os.path.dirname(os.path.abspath(src))
@@ -412,11 +438,15 @@ def _export(src, module, out, with_widgets, tmp_mpr):
     dst.execute(f"insert into _MetaData ({', '.join(meta_cols)}) values ({', '.join('?' * len(meta_cols))})", meta)
     keep = shell + subtree
     q = f"select {', '.join(REF_UNIT_COLS)} from Unit where UnitID = ?"
-    scrubbed = []
+    scrubbed, constants_emptied = [], []
     for uid in keep:
-        row, changed = scrubbed_row(db.execute(q, (uid,)).fetchone())
+        row, changed = scrubbed_row(db.execute(q, (uid,)).fetchone(), scrub_constant_defaults)
         if changed:
-            scrubbed.append(_bson_top(row[6]).get("$Type"))
+            top = _bson_top(row[6])
+            if top.get("$Type") == "Constants$Constant":
+                constants_emptied.append(f"{module}.{top.get('Name', '?')}")
+            else:
+                scrubbed.append(top.get("$Type"))
         dst.execute(f"insert into Unit values ({', '.join('?' * 7)})", row)
     dst.commit(); dst.close()
 
@@ -452,6 +482,8 @@ def _export(src, module, out, with_widgets, tmp_mpr):
         "units_module_subtree": len(subtree),
         "units_shell": len(shell),
         "project_docs_scrubbed": scrubbed,
+        "constant_defaults_emptied": constants_emptied,
+        "constant_defaults_scrubbed": scrub_constant_defaults,
         "unit_types": dict(sorted(types.items())),
         "from_app_store": mod_top.get("AppStoreVersion") or None,
         "files": len(files),
@@ -465,23 +497,46 @@ def _export(src, module, out, with_widgets, tmp_mpr):
     }
 
 
+KNOWN_FLAGS = {"--no-widgets", "--scrub-constant-defaults", "--json"}
+
+
 def main(argv):
+    # an unknown flag is refused, never ignored: a typo such as `--scrub-constants` would otherwise
+    # export with every constant default in plain text while the caller believes it scrubbed them
+    unknown = [a for a in argv if a.startswith("--") and a not in KNOWN_FLAGS]
+    if unknown:
+        print(f"unknown option(s): {' '.join(unknown)} (known: {' '.join(sorted(KNOWN_FLAGS))})",
+              file=sys.stderr)
+        print(__doc__.split("\n\n")[0] + "\n" + __doc__.split("\n")[2], file=sys.stderr)
+        return 2
     args = [a for a in argv if not a.startswith("--")]
     if len(args) != 3:
         print(__doc__.split("\n\n")[0] + "\n" + __doc__.split("\n")[2], file=sys.stderr)
         return 2
     try:
-        r = export(args[0], args[1], args[2], with_widgets="--no-widgets" not in argv)
+        r = export(args[0], args[1], args[2], with_widgets="--no-widgets" not in argv,
+                   scrub_constant_defaults="--scrub-constant-defaults" in argv)
+    except SamePath as e:
+        print(f"REFUSED: {e}", file=sys.stderr)
+        return 2
     except Refuse as e:
         print(f"REFUSED: {e}", file=sys.stderr)
         return 3
     if "--json" in argv:
         print(json.dumps(r, indent=2))
+        print("constant defaults " + (f"emptied: {len(r['constant_defaults_emptied'])} (--scrub-constant-defaults)"
+              if r["constant_defaults_scrubbed"] else "copied unchanged"), file=sys.stderr)
     else:
         print(f"wrote {r['out']}: module {r['module']} ({r['product_version']}), "
               f"{r['units_module_subtree']} units + {r['units_shell']} shell, {r['files']} files "
               f"({r['java_files']} .java, {r['js_files']} js), widgets shipped {len(r['widgets_shipped'])}"
               f"/{len(r['widgets_referenced'])} referenced")
+        if r["constant_defaults_scrubbed"]:
+            print(f"  constant defaults emptied (--scrub-constant-defaults): {len(r['constant_defaults_emptied'])}"
+                  + (" (" + ", ".join(r["constant_defaults_emptied"]) + ")" if r["constant_defaults_emptied"] else ""))
+        else:
+            print("  constant defaults copied unchanged (module constants travel in the package; "
+                  "--scrub-constant-defaults empties them)")
         if r["widgets_unresolved"]:
             print("  widget ids with no .mpk in widgets/ (core or platform widgets): "
                   + ", ".join(r["widgets_unresolved"]))

@@ -19,7 +19,7 @@ Pull from the actual project state:
 
 ## What's Next
 
-Stage 7 produces legacy-data migration scripts (if any) and a cutover checklist naming who does what, when, and how to roll back.
+→ see `conversion-runbook.md` § Stage 7 — Cutover (Agent produces: migration scripts if any, cutover checklist with who, when and rollback).
 
 ---
 

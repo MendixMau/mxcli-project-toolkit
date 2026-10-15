@@ -42,6 +42,9 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 MXCLI="${MXCLI:-$(command -v mxcli || true)}"
 [ -x "$MXCLI" ] || { echo "mxcli not found: set MXCLI=/path/to/mxcli" >&2; exit 2; }
 PY="${PYTHON:-python3}"
+# the source is read-only: a target that resolves to the same file would be overwritten by exec
+_real() { "$PY" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"; }
+[ "$(_real "$SRC")" != "$(_real "$TGT")" ] || { echo "source and target are the same file: $SRC — refusing" >&2; exit 2; }
 mkdir -p "$OUT/captures" "$OUT/mdl"
 mx() { "$MXCLI" "$@" 2>&1 | grep -v 'vibe-coded PoC'; }   # one warning line per call, drop it
 log() { printf '%s\n' "$*" >&2; }
@@ -54,10 +57,12 @@ mx -p "$SRC" list modules > "$OUT/captures/list-modules.txt"
 "$MXCLI" -p "$SRC" project-tree --json 2>/dev/null > "$OUT/captures/project-tree.json"
 if [ $# -eq 0 ]; then
   # own module = empty Source column, not System
-  MODULES=(); while IFS= read -r _m; do MODULES+=("$_m"); done < <(awk -F'|' 'NR>3 && NF>3 { gsub(/ /,"",$2); gsub(/ /,"",$3); if ($3=="" && $2!="System" && $2!="") print $2 }' "$OUT/captures/list-modules.txt")
+  MODULES=(); while IFS= read -r _m; do MODULES+=("$_m"); done < <(awk -F'|' -f "$HERE/lib/own-modules.awk" "$OUT/captures/list-modules.txt")
 else
   MODULES=("$@")
 fi
+# bash 3.2 under set -u dies on "${MODULES[@]}" when the array is empty
+[ ${#MODULES[@]} -gt 0 ] || { log "no own modules in captures/list-modules.txt — name them as arguments"; exit 2; }
 log "own modules: ${MODULES[*]}"
 for M in "${MODULES[@]}"; do
   for t in entities associations enumerations microflows nanoflows pages snippets javaactions; do

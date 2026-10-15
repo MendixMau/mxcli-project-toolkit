@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Proves the skill-routing table actually reaches an agent, not just that it renders.
 #
-# render-routing.sh --check already proves the nine in-repo surfaces match the table. What it
+# render-routing.sh --check already proves the in-repo surfaces match the table. What it
 # does NOT catch: two rows sharing a name (one silently shadows the other in agent:<x> views),
 # a [[wikilink]] between skills pointing at a file that was never written, or — the part that
 # actually matters — whether bin/lib/skill-routing.sh's routing_sync_claude_local() genuinely
@@ -62,7 +62,7 @@ while IFS= read -r -d '' f; do
 done < <(find "$ROOT/skills" -name '*.md' -print0)
 [ "$dangling" -eq 0 ] && ok "no dangling cross-references" || FAIL=1
 
-echo "== 5. the nine in-repo surfaces match the table =="
+echo "== 5. the in-repo surfaces match the table =="
 if "$SCRIPT_DIR/render-routing.sh" --check >/tmp/ckroute.render 2>&1; then
   ok "README/ROUTING.md/agent templates/gate-check.sh all in sync"
 else

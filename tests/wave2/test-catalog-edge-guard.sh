@@ -166,10 +166,10 @@ for layout in single two; do
 
   # --- 5. app-facts: same guard, through a stub mxcli that drops a prepared catalog -------------
   if [ -f "$AF" ]; then
-    for variant in source-calls full-actions full-kindless; do
+    for variant in source-calls full-actions full-kindless py-crlf; do
       P="$(proj $layout)"
       case "$variant" in
-        source-calls)  mkdb "$WORK/prep.db" source calls ;;
+        source-calls|py-crlf)  mkdb "$WORK/prep.db" source calls ;;
         full-actions)  mkdb "$WORK/prep.db" full actions ;;
         full-kindless) mkdb "$WORK/prep.db" full kindless ;;
       esac
@@ -180,7 +180,17 @@ o=""; while [ \$# -gt 0 ]; do [ "\$1" = -o ] && o="\$2"; shift; done
 mkdir -p .mxcli && cp "$WORK/prep.db" .mxcli/catalog.db && echo '{}' > "\$o"
 EOF
       chmod +x "$WORK/mxcli-stub"
-      ( cd "$P" && PROJECT_ROOT="$P" MXCLI="$WORK/mxcli-stub" bash "$AF" --skip-loops --facts-dir "$P/facts" ) > "$WORK/out" 2>&1
+      if [ "$variant" = py-crlf ]; then
+        # The sqlite3-CLI-less path with a Python that ends every line in CRLF, as native Windows
+        # Python does under Git Bash (which ships no sqlite3). The real interpreter does the work.
+        _real_py="$(command -v python3 || command -v python)"  # portability-ok: fixture picks the real interpreter to wrap
+        printf '#!/usr/bin/env bash\nset -o pipefail\n"%s" "$@" | awk '"'"'{printf "%%s\\r\\n", $0}'"'"'\n' "$_real_py" > "$WORK/py-crlf"
+        chmod +x "$WORK/py-crlf"
+        ( cd "$P" && PROJECT_ROOT="$P" MXCLI="$WORK/mxcli-stub" APPFACTS_NO_SQLITE3_CLI=1 PYTHON="$WORK/py-crlf" \
+            bash "$AF" --skip-loops --facts-dir "$P/facts" ) > "$WORK/out" 2>&1
+      else
+        ( cd "$P" && PROJECT_ROOT="$P" MXCLI="$WORK/mxcli-stub" bash "$AF" --skip-loops --facts-dir "$P/facts" ) > "$WORK/out" 2>&1
+      fi
       rc=$?
       case "$variant" in
         source-calls)
@@ -194,6 +204,14 @@ EOF
             ok "[$layout] app-facts accepts an action-only catalog (zero calls)"
           else
             bad "[$layout] app-facts refused a model with no calls" "rc=$rc $(out)"
+          fi ;;
+        py-crlf)
+          # The guard is what is under test (as for the variants above); step 2 needs columns this
+          # synthetic catalog does not carry.
+          if grep -q "catalog ok: build_mode=source modules=2 refs=3" "$WORK/out" && ! grep -q "schema is missing" "$WORK/out"; then
+            ok "[$layout] app-facts without the sqlite3 CLI, CRLF Python: the guard reads the catalog clean"
+          else
+            bad "[$layout] app-facts failed on the sqlite3-less CRLF path" "rc=$rc $(out)"
           fi ;;
         full-kindless)
           if [ "$rc" = 2 ] && grep -q "carry no RefKind" "$WORK/out" && grep -q "build_mode 'full'" "$WORK/out" \

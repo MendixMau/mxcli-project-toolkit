@@ -19,8 +19,21 @@
 #     module pairs. Module-level cycles are computed here, each elementary cycle once.
 #   - Loop BODIES are not in the catalog: activities are a flat list per microflow with no
 #     containment column. `mxcli describe microflow` renders proper `loop ... end loop;`
-#     blocks in 1-2 s each, so step 3 describes only the microflows the catalog says contain a
-#     loop and parses those.
+#     blocks, so step 3 describes only the microflows the catalog says contain a loop and
+#     parses those. A describe is NOT cheap on a big model: ~31 s each on a 17,500-unit app
+#     (1,917 described in 2 h 45 at 6 workers, field report #297), because each call loads the
+#     model. So step 3 is incremental (below).
+#
+# INCREMENTAL SWEEP (#297). manifest.json keeps a {UnitID: ContentsHash} snapshot of the .mpr
+# Unit table (the hash taken from the .mxunit bytes, which the column normally equals; see
+# mx-metadata-note.py units for why the bytes win), and an index of which unit state each mdl/ file was described from. A refresh
+# re-describes only a candidate whose unit is new, changed (hash), moved (module/folder path)
+# or has no output yet; it keeps every other mdl/ file and deletes the outputs of units that are
+# gone or no longer loop. UnitID -> name comes from mx-metadata-note.py (beside this script):
+# the same mapping that writes the Studio Pro History note. A full sweep runs when asked
+# (--full), on the first run, when the mxcli version changed, or when the unit table cannot be
+# read (MPR v1, helper missing); the manifest says which and why. Incremental output is
+# byte-identical to a full sweep on the same model (tests/wave2/test-app-facts-incremental.sh).
 #
 # Read-only for the model. Runs `mxcli graph-report` (rewrites .mxcli/catalog.db, never the
 # .mpr) and `mxcli describe` (pure read). Never `exec`, never `apply`.
@@ -31,11 +44,14 @@
 #   bin/app-facts.sh --skip-loops            # steps 1-2 only (seconds, not minutes)
 #   bin/app-facts.sh --workers N             # parallel describe calls for step 3 (default 4)
 #   bin/app-facts.sh --max-loops N           # cap the loop sweep (a first look at a huge app)
+#   bin/app-facts.sh --full                  # re-describe every candidate, ignoring the index
+#   bin/app-facts.sh --freshness             # one line: units changed since the last map (status.sh)
 #   bin/app-facts.sh --parse-only DIR        # re-parse already-described MDL in DIR/mdl (tests)
 #
 # Outputs (all under the facts dir):
 #   manifest.json        what ran, versions, counts, timings, and a status per section:
-#                        pass | fault | skipped — a section that did not run is never absent
+#                        pass | fault | skipped — a section that did not run is never absent;
+#                        plus units.snapshot {UnitID: ContentsHash} and mdl_index (incremental)
 #   graph-report.json    mxcli's own report, kept verbatim for cross-checking
 #   inventory.json       project, modules (kind, sizes), scheduled events
 #   dependencies.json    module edges, bidirectional pairs, cycles, god nodes, cohesion, dead
@@ -70,6 +86,10 @@ SKIP_LOOPS=0
 WORKERS=4
 MAX_LOOPS=0
 PARSE_ONLY=""
+FULL=0
+FRESHNESS=0
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+UNITS_PY="$SCRIPT_DIR/mx-metadata-note.py"
 while [ $# -gt 0 ]; do
   case "$1" in
     --facts-dir)  FACTS_DIR="${2:-}"; shift 2 ;;
@@ -77,7 +97,9 @@ while [ $# -gt 0 ]; do
     --workers)    WORKERS="${2:-4}"; shift 2 ;;
     --max-loops)  MAX_LOOPS="${2:-0}"; shift 2 ;;
     --parse-only) PARSE_ONLY="${2:-}"; shift 2 ;;
-    -h|--help)    sed -n '2,45p' "$0"; exit 0 ;;
+    --full)       FULL=1; shift ;;
+    --freshness)  FRESHNESS=1; shift ;;
+    -h|--help)    sed -n '2,62p' "$0"; exit 0 ;;
     *) echo "app-facts: unknown argument '$1'" >&2; exit 2 ;;
   esac
 done
@@ -207,6 +229,40 @@ MODEL_DIR="$(cd "$(dirname "$MPR")" && pwd)"
 MPR_BASE="$(basename "$MPR")"
 DB="$MODEL_DIR/.mxcli/catalog.db"
 [ -n "$FACTS_DIR" ] || FACTS_DIR="${PROJECT_ROOT:-.}/analysis/app-facts"
+
+# ---------------------------------------------------------------------------------------------
+# --freshness: one line for bin/status.sh. Compares the Unit table now with the snapshot the
+# last map stored. No mxcli, no catalog, writes nothing. Silent when there is no map yet.
+# ---------------------------------------------------------------------------------------------
+if [ "$FRESHNESS" -eq 1 ]; then
+  [ -f "$FACTS_DIR/manifest.json" ] || exit 0
+  # The unit list goes through a temp file, never an env var or argv: one env string is capped at
+  # 128 KB on Linux, ~1,600 units' worth, and the line vanished on exactly the large apps (#297 review).
+  NOW_FILE="$(mktemp "${TMPDIR:-/tmp}/app-facts-units.XXXXXX")" || exit 0
+  trap 'rm -f "$NOW_FILE"' EXIT
+  if "$PY" "$UNITS_PY" units "$MODEL_DIR/$MPR_BASE" --hashes-only > "$NOW_FILE" 2>/dev/null; then NOW_OK=1; else NOW_OK=0; fi
+  "$PY" - "$FACTS_DIR/manifest.json" "$NOW_FILE" "$NOW_OK" <<'PY'
+import json, sys
+try:
+    man = json.load(open(sys.argv[1]))
+except (OSError, ValueError):
+    print("app map: manifest.json unreadable — rerun bin/app-facts.sh"); sys.exit(0)
+units = man.get("units") or {}
+# The snapshot's own date: a --skip-loops run carries the last loop sweep's snapshot forward.
+when = (units.get("snapshot_taken") or man.get("generated") or "?")[:16].replace("T", " ")
+snap = units.get("snapshot")
+if not snap:
+    print("app map: built %s with no unit snapshot — rerun bin/app-facts.sh to track freshness" % when)
+elif sys.argv[3] != "1":
+    print("app map: built %s; unit table unreadable, freshness unknown" % when)
+else:
+    cur = dict(l.rstrip("\n").split("\t", 1) for l in open(sys.argv[2], encoding="utf-8") if "\t" in l)
+    n = sum(1 for u, h in cur.items() if snap.get(u) != h) + sum(1 for u in snap if u not in cur)
+    print("app map: fresh (built %s)" % when if n == 0 else "app map: %d units changed since %s" % (n, when))
+PY
+  rm -f "$NOW_FILE"; trap - EXIT
+  exit 0
+fi
 mkdir -p "$FACTS_DIR/mdl" || exit 2
 FACTS_DIR="$(cd "$FACTS_DIR" && pwd)"
 
@@ -216,7 +272,6 @@ if [ -z "$MXCLI" ]; then
   elif command -v mxcli >/dev/null 2>&1; then MXCLI="mxcli"
   else echo "app-facts: mxcli not found (./mxcli or on PATH); set MXCLI=/path/to/mxcli" >&2; exit 2; fi
 fi
-command -v sqlite3 >/dev/null || { echo "app-facts: sqlite3 not on PATH" >&2; exit 2; }
 MX_VERSION="$("$MXCLI" --version 2>/dev/null | head -1)"
 # A project-local ./mxcli is often an older pin; its catalog can lack whole tables (seen 2026-09-15:
 # a v0.17 pin had no scheduled_events_data and the guard below exits 2). Say so up front.
@@ -230,7 +285,8 @@ log() { printf '==> %s\n' "$*"; }
 
 # ---------------------------------------------------------------------------------------------
 # Step 1 — full catalog build, via graph-report (one call: the rebuild AND mxcli's own report).
-# First run on a cold catalog: ~20-30 s on 1,000-2,700 microflows, measured. Not a hang.
+# First run on a cold catalog: ~20-30 s on 1,000-2,700 microflows, 7 min on a 17,500-unit app
+# (#297), measured. Not a hang.
 # ---------------------------------------------------------------------------------------------
 log "step 1: full catalog build + mxcli graph-report ($MPR_BASE)"
 T1=$(date +%s)
@@ -244,7 +300,20 @@ if [ $RC -ne 0 ] || [ ! -s "$FACTS_DIR/graph-report.json" ]; then
 fi
 [ -f "$DB" ] || { echo "FAULT: $DB not written by graph-report" >&2; exit 2; }
 
-q() { sqlite3 -noheader "$DB" "$1"; }
+# One-column guard queries. The sqlite3 CLI when it is there (unchanged behaviour); otherwise the
+# same query through Python's sqlite3 module, which step 2 needs anyway. The CLI is absent on
+# cloud containers where apt has no sqlite3 package (field run, FSM 9.24.2, 2026-10-12), and a
+# missing CLI must not stop a script whose facts never came from the CLI. Git Bash has no sqlite3,
+# so Windows always takes the Python path, and native Windows Python prints CRLF: the `tr` keeps
+# every `[ "$(q …)" = "1" ]` below from failing on a trailing \r (as _common.sh does for its probe).
+# APPFACTS_NO_SQLITE3_CLI=1 forces the Python path (the fixture uses it to prove this branch).
+if [ -z "${APPFACTS_NO_SQLITE3_CLI:-}" ] && command -v sqlite3 >/dev/null 2>&1; then
+  q() { sqlite3 -noheader "$DB" "$1"; }
+else
+  q() { DB="$DB" "$PY" -c 'import os, sqlite3, sys
+c = sqlite3.connect("file:%s?mode=ro" % os.environ["DB"], uri=True)
+for r in c.execute(sys.argv[1]): print(r[0])' "$1" | tr -d '\r'; }
+fi
 BUILD_MODE="$(q "SELECT Value FROM catalog_meta WHERE Key='build_mode';")"
 # The build_mode LABEL is not checked (fixed 2026-10-13, field report 2026-10-11): mxcli v0.24.0
 # labels a complete catalog 'source', and the old `!= full` test refused it on every run. What
@@ -284,11 +353,31 @@ log "catalog ok: build_mode=${BUILD_MODE:-unset} modules=$N_MODULES refs=$N_REFS
 # ---------------------------------------------------------------------------------------------
 log "step 2: inventory + dependency facts"
 T2=$(date +%s)
-DB="$DB" FACTS_DIR="$FACTS_DIR" MX_VERSION="$MX_VERSION" MPR_BASE="$MPR_BASE" MAX_LOOPS="$MAX_LOOPS" "$PY" - <<'PY' || exit 2
+# The catalog is opened through mxtk_sqlite_ro_uri (_common.sh): a bare "file:%s?mode=ro" cut the
+# path at a '#' or '?' in a folder name, lost mode=ro, and SQLite created and opened an empty file
+# beside the model folder. A _common.sh older than this script (or none) lacks the helper: build
+# the same URI inline, as require_py and find_mpr fall back above. native_path (when present)
+# turns an MSYS /c/... path into C:/... first, as mxtk_model_version does.
+DB_NATIVE="$DB"
+if type native_path >/dev/null 2>&1; then DB_NATIVE="$(native_path "$DB")"; fi
+if type mxtk_sqlite_ro_uri >/dev/null 2>&1; then
+  DB_URI="$(mxtk_sqlite_ro_uri "$DB_NATIVE")"
+else
+  DB_URI="$("$PY" -c "import os,sys,urllib.request as u
+print('file:'+u.pathname2url(os.path.abspath(sys.argv[1]))+'?mode=ro')" "$DB_NATIVE" | tr -d '\r')"
+fi
+[ -n "$DB_URI" ] || { echo "FAULT: could not build a read-only URI for $DB" >&2; exit 2; }
+DB="$DB" DB_URI="$DB_URI" FACTS_DIR="$FACTS_DIR" MX_VERSION="$MX_VERSION" MPR_BASE="$MPR_BASE" MAX_LOOPS="$MAX_LOOPS" "$PY" - <<'PY' || exit 2
 import json, os, sqlite3, sys, collections
 
-db = sqlite3.connect("file:%s?mode=ro" % os.environ["DB"], uri=True)
+db = sqlite3.connect(os.environ["DB_URI"], uri=True)
 db.row_factory = sqlite3.Row
+# The shell checked the catalog with the sqlite3 CLI on the plain path; this is a second open. If
+# it reached a different file, an empty graph must not be written as the app's facts.
+if db.execute("SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()[0] == 0:
+    sys.stderr.write("FAULT: %s opened with 0 tables (URI %s), though the catalog check passed. Refusing to write facts.\n"
+                     % (os.environ["DB"], os.environ["DB_URI"]))
+    sys.exit(2)
 F = os.environ["FACTS_DIR"]
 def rows(sql, *a): return [dict(r) for r in db.execute(sql, a)]
 def one(sql, *a):  return db.execute(sql, a).fetchone()[0]
@@ -511,17 +600,94 @@ PY
 T2=$(( $(date +%s) - T2 ))
 
 # ---------------------------------------------------------------------------------------------
-# Step 3 — describe every loop-containing microflow, in parallel, then parse the loop bodies.
+# Step 2b — unit snapshot: {UnitID: ContentsHash} from the .mpr Unit table, with each unit's
+# type, qualified name and folder path. One read of each .mxunit file, no mxcli. A model
+# whose table cannot be read gets a full sweep, never a guessed incremental one.
+# ---------------------------------------------------------------------------------------------
+UNITS_TSV="$FACTS_DIR/.units.tsv"; UNITS_STATUS="fault"; UNITS_REASON=""
+rm -f "$UNITS_TSV"
+if [ ! -f "$UNITS_PY" ]; then
+  UNITS_REASON="mx-metadata-note.py not beside app-facts.sh"
+elif "$PY" "$UNITS_PY" units "$MODEL_DIR/$MPR_BASE" > "$UNITS_TSV" 2> "$FACTS_DIR/.units.err" && [ -s "$UNITS_TSV" ]; then
+  UNITS_STATUS="pass"; UNITS_REASON="$(wc -l < "$UNITS_TSV" | tr -d ' ') units read from the Unit table"
+  [ -s "$FACTS_DIR/.units.err" ] && UNITS_REASON="$UNITS_REASON; $(tail -1 "$FACTS_DIR/.units.err" | cut -c1-160)"
+else
+  UNITS_REASON="unit table unreadable: $(tail -1 "$FACTS_DIR/.units.err" 2>/dev/null | cut -c1-160)"
+  rm -f "$UNITS_TSV"
+fi
+rm -f "$FACTS_DIR/.units.err"
+
+# ---------------------------------------------------------------------------------------------
+# Step 3 — describe the loop-containing microflows whose unit changed since their mdl/ file was
+# written (all of them on a full sweep), in parallel, then parse every loop body.
 # ---------------------------------------------------------------------------------------------
 LOOP_STATUS="skipped"; LOOP_REASON="--skip-loops"; T3=0; N_CAND=0; N_DESC=0; N_FAILED=0; N_RULES=0
+SWEEP_MODE="none"; SWEEP_REASON="--skip-loops"
 N_CAND=$(wc -l < "$FACTS_DIR/loops-candidates.tsv" | tr -d ' ')
+PLAN="$FACTS_DIR/.sweep-plan.json"; TODO="$FACTS_DIR/.describe-todo.txt"
+rm -f "$PLAN" "$TODO"
 if [ "$SKIP_LOOPS" -eq 0 ]; then
   T3=$(date +%s)
+  # The plan: which candidates to describe, which outputs to keep, which to delete. It also
+  # deletes every mdl/ file that is about to be rewritten or no longer belongs, so a describe
+  # that fails leaves no stale file behind.
+  FACTS_DIR="$FACTS_DIR" UNITS_TSV="$UNITS_TSV" FULL="$FULL" MX_VERSION="$MX_VERSION" PLAN="$PLAN" TODO="$TODO" \
+  UNITS_REASON="$UNITS_REASON" "$PY" - <<'PY' || exit 2
+import json, os
+F = os.environ["FACTS_DIR"]; MDL = os.path.join(F, "mdl")
+by_qn = {}
+if os.path.exists(os.environ["UNITS_TSV"]):
+    for line in open(os.environ["UNITS_TSV"], encoding="utf-8"):
+        p = line.rstrip("\n").split("\t")
+        if len(p) == 5 and p[3]:
+            by_qn[p[3]] = {"unit": p[0], "hash": p[1], "path": p[4]}
+cands = []
+for line in open(os.path.join(F, "loops-candidates.tsv"), encoding="utf-8"):
+    p = line.rstrip("\n").split("\t")
+    if len(p) >= 4 and p[3] != "RULE":
+        cands.append(p[0])
+try:
+    prev = json.load(open(os.path.join(F, "manifest.json")))
+except (OSError, ValueError):
+    prev = {}
+prev_idx = prev.get("mdl_index") or {}
+if os.environ["FULL"] == "1":
+    mode, why = "full", "--full"
+elif not by_qn:
+    mode, why = "full", "no unit snapshot (%s)" % os.environ["UNITS_REASON"]
+elif not prev_idx:
+    mode, why = "full", "no mdl_index from an earlier run (first run, or facts written before incremental sweeps)"
+elif prev.get("mdl_index_mxcli") != os.environ["MX_VERSION"]:
+    mode, why = "full", "mxcli changed since the last sweep (%s -> %s)" % (prev.get("mdl_index_mxcli"), os.environ["MX_VERSION"])
+else:
+    mode, why = "incremental", "unit hashes compared with mdl_index"
+want = set(cands)
+have = {fn[:-4] for fn in os.listdir(MDL) if fn.endswith(".mdl")}
+todo, reused, removed = [], [], []
+for qn in sorted(have):
+    if mode == "full" or qn not in want:
+        os.unlink(os.path.join(MDL, qn + ".mdl"))
+        if qn not in want: removed.append(qn)
+for qn in cands:
+    cur = by_qn.get(qn)
+    if mode == "incremental" and qn in have and cur is not None and prev_idx.get(qn) == cur:
+        reused.append(qn); continue
+    if qn in have and mode == "incremental":
+        os.unlink(os.path.join(MDL, qn + ".mdl"))
+    todo.append(qn)
+with open(os.environ["TODO"], "w", encoding="utf-8") as fh:
+    for qn in todo: fh.write(qn + "\n")
+json.dump({"mode": mode, "reason": why, "describe": len(todo), "reused": len(reused), "removed": len(removed),
+           "index": {qn: by_qn[qn] for qn in cands if qn in by_qn}}, open(os.environ["PLAN"], "w"))
+PY
+  SWEEP_MODE="$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["mode"])' "$PLAN")"
+  SWEEP_REASON="$("$PY" -c 'import json,sys; print(json.load(open(sys.argv[1]))["reason"])' "$PLAN")"
+  N_TODO=$(wc -l < "$TODO" | tr -d ' ')
   if [ "${N_CAND:-0}" -eq 0 ]; then
     LOOP_STATUS="pass"; LOOP_REASON="no LoopedActivity in the catalog; nothing to describe"
     echo '{"_meta":{"files":0,"parsed":0,"parse_mismatch":[],"unreadable":[]},"microflows":{}}' > "$FACTS_DIR/loops.json"
   else
-    log "step 3: describing $N_CAND loop-containing microflows with $WORKERS workers (~1-2 s each)"
+    log "step 3: $SWEEP_MODE sweep ($SWEEP_REASON): describing $N_TODO of $N_CAND loop-containing microflows with $WORKERS workers"
     : > "$FACTS_DIR/describe-failures.txt"
     # -n 1 with the name as $1, not -I{}: BSD xargs refuses -I when the replacement string
     # appears more than a few times in the command ("command line cannot be assembled").
@@ -529,11 +695,12 @@ if [ "$SKIP_LOOPS" -eq 0 ]; then
     # and all three live in microflows_data), and `describe microflow` says "not found" for the
     # other two. 11 of 425 on the first real run, all nanoflows and rules.
     N_RULES=$(awk -F'\t' '$4=="RULE"' "$FACTS_DIR/loops-candidates.tsv" | wc -l | tr -d ' ')
-    awk -F'\t' '$4!="RULE"{print $1}' "$FACTS_DIR/loops-candidates.tsv" | \
+    if [ "$N_TODO" -gt 0 ]; then
       MXCLI="$MXCLI" MODEL_DIR="$MODEL_DIR" MPR_BASE="$MPR_BASE" OUT="$FACTS_DIR" \
-      xargs -P "$WORKERS" -n 1 sh -c '
-        cd "$MODEL_DIR" && "$MXCLI" describe "$1" -p "$MPR_BASE" > "$OUT/mdl/$1.mdl" 2>/dev/null \
-          || { echo "$1" >> "$OUT/describe-failures.txt"; rm -f "$OUT/mdl/$1.mdl"; }' _
+        xargs -P "$WORKERS" -n 1 sh -c '
+          cd "$MODEL_DIR" && "$MXCLI" describe "$1" -p "$MPR_BASE" > "$OUT/mdl/$1.mdl" 2>/dev/null \
+            || { echo "$1" >> "$OUT/describe-failures.txt"; rm -f "$OUT/mdl/$1.mdl"; }' _ < "$TODO"
+    fi
     N_DESC=$(ls "$FACTS_DIR"/mdl/*.mdl 2>/dev/null | wc -l | tr -d ' ')
     N_FAILED=$(wc -l < "$FACTS_DIR/describe-failures.txt" | tr -d ' ')
     if [ "${N_DESC:-0}" -eq 0 ]; then
@@ -541,7 +708,7 @@ if [ "$SKIP_LOOPS" -eq 0 ]; then
       exit 2
     fi
     "$PY" -c "$PARSER" "$FACTS_DIR/mdl" "$FACTS_DIR/loops-expected.json" "$FACTS_DIR/loops-scheduled.json" > "$FACTS_DIR/loops.json" || exit 2
-    LOOP_STATUS="pass"; LOOP_REASON="described $N_DESC of $N_CAND; $N_FAILED failed; $N_RULES rules not describable by this mxcli"
+    LOOP_STATUS="pass"; LOOP_REASON="described $N_DESC of $N_CAND ($N_TODO this run, $SWEEP_MODE); $N_FAILED failed; $N_RULES rules not describable by this mxcli"
     # A rule with a loop is a known blind spot (no `describe rule` in mxcli v0.21.0), reported as a
     # count so the dossier can name it under Method. A microflow or nanoflow that failed is partial.
     [ "$N_FAILED" -gt 0 ] && LOOP_STATUS="partial"
@@ -556,9 +723,50 @@ fi
 FACTS_DIR="$FACTS_DIR" MX_VERSION="$MX_VERSION" MPR_BASE="$MPR_BASE" DB="$DB" \
 T1="$T1" T2="$T2" T3="$T3" TALL="$(( $(date +%s) - START_ALL ))" \
 LOOP_STATUS="$LOOP_STATUS" LOOP_REASON="$LOOP_REASON" N_CAND="$N_CAND" N_DESC="$N_DESC" N_FAILED="$N_FAILED" N_RULES="$N_RULES" \
-BUILD_MODE="$BUILD_MODE" N_MODULES="$N_MODULES" N_REFS="$N_REFS" N_ACTS="$N_ACTS" WORKERS="$WORKERS" MAX_LOOPS="$MAX_LOOPS" "$PY" - <<'PY'
+BUILD_MODE="$BUILD_MODE" N_MODULES="$N_MODULES" N_REFS="$N_REFS" N_ACTS="$N_ACTS" WORKERS="$WORKERS" MAX_LOOPS="$MAX_LOOPS" \
+UNITS_TSV="$UNITS_TSV" UNITS_STATUS="$UNITS_STATUS" UNITS_REASON="$UNITS_REASON" PLAN="$PLAN" FULL="$FULL" \
+SWEEP_MODE="$SWEEP_MODE" SWEEP_REASON="$SWEEP_REASON" SKIP_LOOPS="$SKIP_LOOPS" "$PY" - <<'PY'
 import json, os, datetime, hashlib
 F = os.environ["FACTS_DIR"]
+try:
+    prev = json.load(open(os.path.join(F, "manifest.json")))
+except (OSError, ValueError):
+    prev = {}
+# Unit snapshot: the state of the model this map was built from. bin/status.sh compares it with
+# the Unit table now (app-facts.sh --freshness).
+snap = {}
+if os.path.exists(os.environ["UNITS_TSV"]):
+    for line in open(os.environ["UNITS_TSV"], encoding="utf-8"):
+        p = line.rstrip("\n").split("\t")
+        if len(p) >= 2: snap[p[0]] = p[1]
+prev_snap = (prev.get("units") or {}).get("snapshot") or {}
+changed = None
+if snap and prev_snap:
+    changed = {"previous_map": prev.get("generated", ""),
+               "changed": sum(1 for u, h in snap.items() if u in prev_snap and prev_snap[u] != h),
+               "added": sum(1 for u in snap if u not in prev_snap),
+               "removed": sum(1 for u in prev_snap if u not in snap)}
+# The snapshot dates the map, and the loop section is its slowest part. A --skip-loops run leaves
+# mdl/ as it was, so it keeps the snapshot (and its date) of the last loop sweep: otherwise
+# --freshness would say "fresh" over stale loop outputs (#297 review). None yet: none stored.
+gen = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+units_note = ""
+if os.environ["SKIP_LOOPS"] == "1":
+    snap_out = prev_snap
+    snap_taken = (prev.get("units") or {}).get("snapshot_taken") or prev.get("generated", "") if prev_snap else ""
+    units_note = ("; snapshot carried from the last loop sweep (--skip-loops)" if prev_snap
+                  else "; no snapshot stored: --skip-loops and no earlier loop sweep")
+else:
+    snap_out, snap_taken = snap, (gen if snap else "")
+# mdl_index: which unit state each mdl/ file was described from. Only files that exist now are
+# indexed, so a failed describe is retried next run. --skip-loops leaves mdl/ alone and carries the
+# previous index forward unchanged.
+plan = json.load(open(os.environ["PLAN"])) if os.path.exists(os.environ["PLAN"]) else None
+if plan is not None:
+    mdl_index = {qn: v for qn, v in plan["index"].items() if os.path.exists(os.path.join(F, "mdl", qn + ".mdl"))}
+    mdl_index_mxcli = os.environ["MX_VERSION"]
+else:
+    mdl_index, mdl_index_mxcli = prev.get("mdl_index") or {}, prev.get("mdl_index_mxcli", "")
 def sha(p):
     h = hashlib.sha256()
     with open(p, "rb") as fh:
@@ -570,29 +778,43 @@ loops = json.load(open(os.path.join(F, "loops.json"))) if os.path.exists(os.path
 mismatch = len(loops["_meta"]["parse_mismatch"]) if loops else 0
 man = {
   "schema": "app-facts/1",
-  "generated": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
+  "generated": gen,
   "mpr": os.environ["MPR_BASE"], "mpr_sha256_16": sha(mp) if os.path.exists(mp) else "",
   "mxcli": os.environ["MX_VERSION"],
   "catalog": {"modules": int(os.environ["N_MODULES"]), "refs": int(os.environ["N_REFS"]), "activities": int(os.environ["N_ACTS"]), "build_mode": os.environ.get("BUILD_MODE", "")},
   "timings_s": {"catalog_and_graph_report": int(os.environ["T1"]), "inventory_and_dependencies": int(os.environ["T2"]), "loops": int(os.environ["T3"]), "total": int(os.environ["TALL"])},
-  "options": {"workers": int(os.environ["WORKERS"]), "max_loops": int(os.environ["MAX_LOOPS"])},
+  "options": {"workers": int(os.environ["WORKERS"]), "max_loops": int(os.environ["MAX_LOOPS"]), "full": os.environ["FULL"] == "1"},
+  "units": {"status": os.environ["UNITS_STATUS"], "reason": os.environ["UNITS_REASON"] + units_note, "count": len(snap_out),
+            "source": "the .mpr Unit table; ContentsHash format, computed from each .mxunit's bytes", "changed_since_previous_map": changed,
+            "snapshot_taken": snap_taken, "snapshot": snap_out},
+  "mdl_index": mdl_index, "mdl_index_mxcli": mdl_index_mxcli,
   "sections": {
     "inventory":    {"status": "pass", "file": "inventory.json"},
     "dependencies": {"status": "pass", "file": "dependencies.json"},
     "loops":        {"status": os.environ["LOOP_STATUS"], "file": "loops.json", "reason": os.environ["LOOP_REASON"],
                      "candidates": int(os.environ["N_CAND"]), "described": int(os.environ["N_DESC"]), "failed": int(os.environ["N_FAILED"]),
                      "rules_not_describable": int(os.environ["N_RULES"]), "parse_mismatch": mismatch,
-                     "catalog_undercount": int(loops["_meta"].get("catalog_undercount", 0)) if loops else 0},
+                     "catalog_undercount": int(loops["_meta"].get("catalog_undercount", 0)) if loops else 0,
+                     "sweep": {"mode": os.environ["SWEEP_MODE"], "reason": os.environ["SWEEP_REASON"],
+                               "described_this_run": plan["describe"] if plan else 0,
+                               "reused": plan["reused"] if plan else 0,
+                               "removed_outputs": plan["removed"] if plan else 0}},
     "security":     {"status": "fault", "reason": "not collected by this version of app-facts.sh"},
     "lint_baseline":{"status": "fault", "reason": "run project-bin/lint-gate.sh separately; not folded in yet"},
   },
 }
 json.dump(man, open(os.path.join(F, "manifest.json"), "w"), indent=1, sort_keys=True)
 print("==> facts written to %s (total %ss)" % (F, os.environ["TALL"]))
+if changed is not None:
+    print("    units since the previous map (%s): %d changed, %d added, %d removed"
+          % (changed["previous_map"][:16].replace("T", " "), changed["changed"], changed["added"], changed["removed"]))
 if mismatch:
     print("    NOTE: %d microflow(s) where the parser found FEWER loops than the catalog, see loops.json _meta.parse_mismatch" % mismatch)
 uc = int(loops["_meta"].get("catalog_undercount", 0)) if loops else 0
 if uc:
     print("    note: %d microflow(s) where the parser found MORE loops than the catalog (nested loops; the catalog holds top-level activities only)" % uc)
 PY
+RC=$?
+rm -f "$UNITS_TSV" "$PLAN" "$TODO"
+[ "$RC" -eq 0 ] || exit 2
 exit 0

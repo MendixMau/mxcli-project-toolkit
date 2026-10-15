@@ -1,0 +1,18 @@
+-- STOP-1, bad form. captured: bug-logs/mxcli-bugs.md BUG-18 (Symptom). The entry names the shape,
+-- not a whole script; the page around it is the minimum that holds that shape.
+-- key: `container ctn (visible: [expr]) { ... }` widgets inside a `column (ShowContentAs: customContent)` datagrid column
+-- key: column colCustom (
+-- evidence: has an invalid value '' for property Attribute. The text '   ' is not a valid AttributeIdentifier.
+create or modify page Module."PageName" (Title: 'Orders', Layout: Atlas_Core.Atlas_Default) {
+  datagrid dgName (DataSource: database from Module.Entity) {
+    column colCustom (
+      Caption: 'Label',
+      ShowContentAs: customContent,
+      Sortable: false
+    ) {
+      container ctn (visible: [State = Module.ENUM_State.Open]) {
+        dynamictext txtOpen (Content: 'Open')
+      }
+    }
+  }
+}

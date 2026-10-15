@@ -7139,7 +7139,7 @@ Both flagged flows are Data grid 2 datasources on pages in the same module and w
 
 **Workaround:** on v0.27.0 and later pass `--app-port` and `--admin-port` to `mxcli test --local`. On v0.26.0 stop the other app, or prove behaviour with REST scripts against the running app.
 
-**Toolkit side:** `skills/testing-shape.md` names the flags. `bin/test-scratch.sh` still takes its lock on the fixed 8081/8091; moving it to the new flags needs a field run and is left open.
+**Toolkit side:** ledger only for now; a `skills/testing-shape.md` line naming the flags waits on a behaviour A/B (baseline file). `bin/test-scratch.sh` still takes its lock on the fixed 8081/8091; moving it to the new flags needs a field run and is left open.
 
 ## BUG-DRAFT-business-events-oversize-ce-id: the Business Events consumer drops a record whose `ce_id` is over 36 characters, commits the offset and leaves no row (2026-10-15)
 

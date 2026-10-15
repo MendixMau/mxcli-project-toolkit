@@ -21,7 +21,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 
 - learn(bug-ledger): **published REST answers 404, not 403, for a user without the allowed role** (TK-046, Mendix runtime behaviour; write 404 into the contract) — a five-app lab project
 - learn(bug-ledger): **the Business Events consumer silently drops a record whose ce_id is over 36 characters** (TK-045, Business Events module owner; use a UUID) — a five-app lab project
-- learn(testing): **`mxcli test --local` takes `--app-port` / `--admin-port` from v0.27.0, so it no longer refuses while another app holds 8081** (TK-044, fixed upstream; skill line + ledger) — a five-app lab project
+- learn(testing): **`mxcli test --local` takes `--app-port` / `--admin-port` from v0.27.0, so it no longer refuses while another app holds 8081** (TK-044, fixed upstream; ledger only, the skill line waits on an A/B) — a five-app lab project
 - learn(bug-ledger): **`run --local` starts with scheduled events off** (TK-043; skill text already in testing-shape.md, now findable by symptom) — a five-app lab project
 - learn(bug-ledger): **`marketplace install` pulls no dependency and leaves CE0463 widgets; `install --file` and `fix widgets` are the workaround** (TK-042; overlaps merged upstream #1151) — a five-app lab project
 - learn(bug-ledger): **a Business Events AppId is copied with the model and shown by no command** (TK-041, upstream draft) — a five-app lab project

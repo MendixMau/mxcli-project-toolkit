@@ -490,7 +490,7 @@ deadline or feature priority that should front-load the build plan.
 ## Phase 7 — MDL Generation
 
 Reads `.mx-brd.json` files and produces layered MDL scripts.
-See `migrate-general.md` for layering rules, naming conventions, and known mxcli bugs.
+Module layering: `source-os11.md` § Module Classification. Script layering, naming conventions and known mxcli bugs: `migrate-general.md` (§2 for script layering).
 
 ### Script output structure
 

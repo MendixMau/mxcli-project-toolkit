@@ -259,7 +259,7 @@ Use these prompts in order when starting a real migration engagement:
 
 ### Step 7 — Plan the Mendix implementation
 
-> "Based on F001, what Mendix entities, enumerations, and microflows would we need? Apply the conventions from `skills/migrate-general.md`: ACT_/GET_/VAL_ naming, NPE form backing pattern, stub pattern for SAP calls, 8-field audit standard."
+> "Based on F001, what Mendix entities, enumerations, and microflows would we need? Apply the conventions from `skills/migrate-general.md`: ACT_/GET_/VAL_ naming, NPE form backing pattern, stub pattern for SAP calls; and the 8-field audit standard from `skills/source-os11.md` § Audit Field Standard."
 
 ---
 

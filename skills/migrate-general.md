@@ -1,7 +1,7 @@
 # General Migration to Mendix Skill
 **Applies to:** migration.
 
-Guidance for migrating any legacy application to Mendix using MDL and mxcli. Platform-agnostic process; OutSystems 11 specifics live in `skills/source-os11.md` (§9).
+Guidance for migrating any legacy application to Mendix using MDL and mxcli. Platform-agnostic process; OutSystems 11 specifics live in `skills/source-os11.md`.
 
 ## When to Use This Skill
 

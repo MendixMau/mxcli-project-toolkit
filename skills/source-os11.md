@@ -130,11 +130,11 @@ OS 11 organises entity operations in `{Entity}_DAO` folders:
 
 | OS DAO action | Mendix equivalent |
 |---------------|------------------|
-| `{Entity}_Save` | `ACT_{Entity}_Save` |
-| `{Entity}_GetForUpdate` | `GET_{Entity}_ById` |
+| `{Entity}_Save` | `ACT_{Entity}_Save` (create or update) |
+| `{Entity}_GetForUpdate` | `GET_{Entity}_ById` or retrieve by key |
 | `{Entity}_DeleteLogical` | `ACT_{Entity}_SoftDelete` — sets `IsActive = false` |
-| `{Entity}_DeletePhysical` | `ACT_{Entity}_Delete` |
-| `{Entity}_GetById` | `GET_{Entity}_ById` |
+| `{Entity}_DeletePhysical` | `ACT_{Entity}_Delete` — actual `delete $Entity` |
+| `{Entity}_GetById` | `GET_{Entity}_ById` — retrieve by PK or business key |
 
 OS uses soft-delete (`IsActive = false`) by default. Preserve in Mendix.
 
@@ -148,7 +148,7 @@ OS uses soft-delete (`IsActive = false`) by default. Preserve in Mendix.
 | Screen Action | Microflow / nanoflow from button |
 | Input Parameter (screen) | Page parameter |
 | Local Variable (screen) | NPE attribute (form backing object) |
-| Aggregate on screen | Page data source microflow |
+| Aggregate on screen | Page data source microflow or XPath retrieve |
 | OnInitialize | Page data source microflow (init pattern) |
 
 ### Static Entities → Enumerations

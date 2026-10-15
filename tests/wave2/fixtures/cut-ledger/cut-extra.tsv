@@ -1,0 +1,14 @@
+# rows no catalog holds: direction, kind, source_doc, target_doc, refs, resolution, evidence
+out	second-order	Utils (mpk)	ValidationFeedback.*	4	resolved:marketplace	Utils' own edge; marketplace install 110282 -> 3.4.0 (captures/15)
+out	second-order	Utils (mpk)	CommunityCommons.*	3	resolved:marketplace	Utils' own edge; CommunityCommons 11.5.1 (captures/15)
+out	second-order	Utils (mpk)	Administration.Account	3	resolved:marketplace	Utils' own edge; starter's Administration 4.5.0 has Account
+out	second-order	Utils (mpk)	NanoflowCommons.*	1	resolved:marketplace	Utils' own edge; starter's NanoflowCommons 7.2.1
+out	second-order	Utils (mpk)	NativeMobileResources.*	2	resolved:marketplace	Utils' own edge; starter's NativeMobileResources 12.2.2
+out	second-order	Utils (mpk)	AppSettings.Environment	1	stub	CUT STUB constant (default 'Local', exposed to client) — edges-C-app.mdl; without it mx check CE0117 at Decision 'Production?'
+out	java-handoff	Utils (mpk)	javasource/utils/actions/GetFileType.java	1	handoff:done	this.context() is a Mendix 9 API -> getContext() (captures/23); mxbuild javac error before, BUILD SUCCEEDED after
+out	java-handoff	Utils (mpk)	javasource/utils/actions/{JA_RoundMinutes,executeInBackgroundImmediately}.java	2	handoff:done	orphan action files (no Java action unit in Utils) extending com.mendix.webui.CustomJavaAction — deleted (captures/23)
+out	java-handoff	Utils (mpk)	userlib/tika-core-1.28.4.jar	1	handoff:done	source RequiredLib marker names former module FileTypeChecker, so the exporter did not ship it; copied with a .Utils.RequiredLib marker (captures/23)
+out	app-setting	NativeNote pages	Navigation.NativePhone (native profile)	1	resolved:starter	mxcli cannot create a native profile (only the fixed web kinds) and without one every nanoflow show-page of a native page is CE6081: target is Blank Native Mobile App 11.13.0 (Marketplace 109511) via mx create-project, not mxcli new (captures/14)
+out	app-setting	Navigation.NativePhone	sync lines for NativeNote, NativeImage, Offline{Note,Image}Action, NoteImage, NativeWorkOrder, NativeTicket, NativeTechnician, Account	9	resolved:mdl	the package scrubs navigation; source lines replayed for the slice's entities — edges-C-app.mdl
+out	widget	NativeNote pages	widgets/AppEvents.mpk, Repeater.mpk	2	resolved:starter	package ships 4.0.0 / 2.2.1; install kept the starter's newer 5.1.0 / 2.4.0 (captures/16); no CE0463
+out	app-setting	Project security	security level + user-role mapping	1	handoff	source is Production with 8 user roles; the slice starter is Off with 3, and NativeNote/Synchronization module roles are mapped to no user role: the access-rule XPath through the stubs is never evaluated. Raise to Production and map Technician -> NativeNote.EditMy, Synchronization.CreateMy before any runtime test

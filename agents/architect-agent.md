@@ -29,13 +29,13 @@ You own architecture and build-plan decisions for {{PROJECT}}. Hard rule: you ne
 <!-- ROUTING:BEGIN agent:architect -->
 Open a file when its When cell happens in your task, not all of them at the start. Below the baseline rows, a When cell is only the trigger; the file says the rest. A page task never opens the microflow rows; a microflow task never opens the page rows.
 
-This table is your whole list. The baseline table in the project's CLAUDE.local.md is shared with the main session and the other helpers: skip every row there whose Role(s) cell does not say *every role* or name architect.
+This table is your whole list. The baseline table in the project's CLAUDE.local.md is shared with the main session and the other helpers: skip every row there whose Role(s) cell does not say *every role* or name architect. A cell that names architect as *on demand* is a row this table lists below the baseline rows, by its trigger.
 
 | Load this | When |
 |---|---|
 | `skills/conversion-runbook.md` | Any pipeline work at all — every session, before producing any stage artifact: read §1b plus your own stage's section, not the whole file (gate-check.sh prints the line spans); READMEs and the guide are orientation only |
 | `skills/query-the-model.md` | Any question before asking the user or writing anything — query the model, then read the source, then ask the human, in that order |
-| `skills/skills-over-scripts.md` | Before writing any .js or .sh for a check, gate or report — and before adding a rule to an existing one: judgement goes in a skill, code only fetches facts a reader cannot |
+| `skills/skills-over-scripts.md` | Script or skill? Before writing any .js or bash/.sh for a check, checker, linter, gate or report, or adding a rule or regex to an existing one — judgement goes in a skill, code only fetches facts a reader cannot |
 | `skills/degrade-to-judgement.md` | Any pass whose input is missing, stale or unresolvable — before recording UNMEASURED, N/A or a silent skip: name what was missing, say what you assessed against instead, still deliver a verdict |
 | `skills/interview-protocol.md` | Putting a question TO the user — any gate, any stage: ask in chat not in a file, two named options plus your recommendation, one batch per gate then end the turn |
 | `skills/checkpoints/checkpoint-template.md` | Any stage transition — the 2+1 format every CAC uses, and the one-register rule (answers land in PROJECT.md, never in a separate state file). The seven CACs themselves are routed per stage in the situational table |
@@ -58,6 +58,8 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `project-bin/check-prototype-links.js` | Before wireframes pass to the build loop, and with --brd before a BRD is signed off: dead #/route links, orphan screens, controls with no data-bind and no data-cut, BRD routes no screen has, screens no use case walks (design-artifacts.md Step 3c, brd-validation.md check 8) |
 | `skills/cloud-dev-environment.md` | Setting up or resuming an mxcli project in a cloud/ephemeral container |
 | `skills/existing-app-change.md` | Changing an EXISTING Mendix app |
+| `skills/decompose-app.md` | Splitting an existing Mendix monolith into several apps |
+| `skills/mendix-service-seam.md` | Wiring a service seam between two Mendix apps |
 | `project-bin/app-facts.sh` | Collecting the facts an app dossier is written from: forces a full catalog build, module edges through the real module column, strongly connected components, describes every loop-containing microflow and parses the loop bodies; exit 2 on a stale, fast-mode or schema-incomplete catalog, never a verdict |
 | `skills/app-analysis.md` | Building or refreshing the standing dossier of an EXISTING app before changing it: inventory, module dependency shape, loop risk patterns, each section with a verdict and a fault where nothing was measured (a standing document; nothing else in the toolkit reads it yet) |
 | `skills/layering-review.md` | Checking whether an EXISTING app's module boundaries still hold: the layer map (bin/app-layer-map.sh) computes the order the modules would stack in and draws only the edges that point back up, so one tangle of N mutually reachable modules becomes a named list of edges with a weight and a ref kind; Stage 3 in existing-app-change mode, and the honest blast radius for a slice |
@@ -108,15 +110,15 @@ Run it at Stage 3 against the **drawn** diagram, and again at Stage 5 against th
 
 | # | Check | Bound |
 |---|---|---|
-| 1 | Paths that end exactly once | N of N paths; 0 activities after a terminal |
-| 2 | Boundary events whose type is named **and** whose terminator matches that type | N of N boundary events |
-| 3 | Parallel splits with ≥2 paths and 0 *End workflow* / 0 *Jump to* at **any** depth in a branch | N of N splits |
-| 4 | Enum-branching activities carrying every value **plus Empty** | N of N decisions + call-microflows-returning-enum + AI agent tasks |
-| 5 | User tasks whose targeting mechanism is named, **with the sentence it came from quoted** | N of N user tasks — `ASSUMED: no targeting` is legal, blank is not |
-| 6 | User tasks with an error handler for empty targeting, or an expression that provably cannot be empty | N of N user tasks |
-| 7 | Multi-user tasks with decision method **and** completion timing stated, sourced to a business rule | N of N multi-user tasks |
-| 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` | N of N expressions |
-| 9 | Event sub-processes with one start event, correct family, recurrence in bounds | N of N sub-processes |
+| 1 | Paths that end exactly once (§1) | N of N paths; 0 activities after a terminal |
+| 2 | Boundary events whose type is named **and** whose terminator matches that type (§2) | N of N boundary events |
+| 3 | Parallel splits with ≥2 paths and 0 *End workflow* / 0 *Jump to* at **any** depth in a branch (§4) | N of N splits |
+| 4 | Enum-branching activities carrying every value **plus Empty** (§5) | N of N decisions + call-microflows-returning-enum + AI agent tasks |
+| 5 | User tasks whose targeting mechanism is named, **with the sentence it came from quoted** (§6) | N of N user tasks — `ASSUMED: no targeting` is legal, blank is not |
+| 6 | User tasks with an error handler for empty targeting, or an expression that provably cannot be empty (§6) | N of N user tasks |
+| 7 | Multi-user tasks with decision method **and** completion timing stated, sourced to a business rule (§7) | N of N multi-user tasks |
+| 8 | Expressions referencing only `$WorkflowContext` / `$WorkflowInstance` (§8) | N of N expressions |
+| 9 | Event sub-processes with one start event, correct family, recurrence in bounds (§3) | N of N sub-processes |
 | 10 | Constructs checked against §11 and marked *proven* or *hand-add in Studio Pro* | N of N constructs; every hand-add is its own numbered build-plan row |
 | 11 | **If the source is a BPMN/swimlane diagram:** pools counted, lanes carried into row 5, every element screened against §13 | N pools = N workflows; N of N elements screened; every NOT-SUPPORTED one has a `fit-gap.md` row. *"Source is not a process diagram"* is legal |
 

@@ -405,7 +405,9 @@ _ob_look_proof_broken() {
   local why=""
   [ -n "$missing" ] && why="cited screenshots not on disk:$missing"
   [ -n "$small" ] && why="${why:+$why; }cited screenshots under 10KB (blank/placeholder):$small"
-  [ -n "$oldshots" ] && why="${why:+$why; }screenshots older than their section's VALID AT (a previous review's shots):$oldshots"
+  # The remedy is named in the message (#357): after a partial re-take, agents read this FAULT as
+  # "re-shoot the whole module" or "accept the FAULT", because nothing pointed at the addendum form.
+  [ -n "$oldshots" ] && why="${why:+$why; }screenshots older than their section's VALID AT (a previous review's shots):$oldshots — partial re-take? keep the old section and its original stamp (restore it if bumped); append an addendum (VALID AT: <model commit the shots were taken on> + PROOF-OF-LOOK for the re-shot pages) — module-review.md stage 5"
   if [ -n "$claimed" ] && [ "$n_cited" -lt "$claimed" ]; then
     why="${why:+$why; }$n_cited citation(s) for $claimed reviewed page(s)"
   fi

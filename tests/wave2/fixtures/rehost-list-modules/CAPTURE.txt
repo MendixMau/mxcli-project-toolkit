@@ -1,0 +1,19 @@
+Verbatim `mxcli list modules` output, the table pipelines/mendix-mpr/rehost-extract.sh parses
+(lib/own-modules.awk) to pick the own modules it rehosts. Never hand-edited.
+
+list-modules-v0.26.0.txt, list-modules-v0.25.0.txt
+  Captured 2026-10-14. Model: mxcli's own public test project
+  (mendixlabs/mxcli, modelsdk/mpr/testdata/v1-project/App.mpr, Mendix 9.24, at mxcli commit
+  bd45c47), copied, then `create module Orders` and `create module Billing` with mxcli v0.26.0.
+  Command: `mxcli -p App.mpr list modules > file 2>&1` — stdout and stderr together, so the
+  WARNING and "Connected to:" lines are in the file as the script's `mx` wrapper sees them
+  before its own grep. v0.25.0 and v0.26.0 print byte-identical tables.
+  Own modules: Billing, Orders (2). Excluded: NanoflowCommons (Marketplace v3.0.0), System.
+
+field-service-template-9.24.2.txt
+  Captured 2026-10-12 with mxcli v0.26.0, `mxcli -p <app>.mpr -c "list modules"`, on a public
+  Marketplace field-service template (Mendix 9.24.2, MPR v1, 64 MB); taken from #293's samples.
+  This capture starts at the table header (no WARNING / "Connected to:" line): the parse must
+  not depend on a fixed number of leading lines.
+  59 modules: 16 "Marketplace vX", System, and 42 with an empty Source column (own).
+  (#293's capture note said "45 own"; counting the Source column gives 42.)

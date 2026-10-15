@@ -337,6 +337,8 @@ Every row is one of five kinds, sharing one numbering and one dependency graph. 
 - **`BUILD`** — writes model. One use case (or one shared foundation: roles, a module's core domain,
   scaffold) — Step 3. The Step cell lists the row's scripts; each script is one entity, one
   microflow group (≤6), or one page section.
+  Produces names every document the row writes, shared ones included (pages, navigation,
+  after-startup, shared microflows): the parallel ready set excludes overlapping writers.
 - **`PROVE`** — headless and mechanical, mid-phase. `mxcli test`, a `curl`, a `DESCRIBE` read-back.
   On mxcli ≥ v0.19.0, `.test.mdl` suites are a first-class PROVE instrument: `@setup` really
   runs its microflow, `@verify` really evaluates its OQL (holds / fails-with-the-value /

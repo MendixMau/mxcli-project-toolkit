@@ -1347,7 +1347,7 @@ module.exports = {
   sqlAssocTotal, sqlAssocLinked, sqlMustPointAt, captureScope, scopeEvidence,
   runExitCode, personaMismatch, namedControlGaps, findControls,
   classifyAdminProbe, journeyNeedsAdmin, missingEnv, preflight, orderJourneys, stateTracker,
-  judgeLanding,
+  judgeLanding, journeyIdProblems,
   traceRung, controlMutants, forbiddenSample, probeApp, appGate, flagAppDown, LIVENESS_SKEW_MS,
 };
 
@@ -1437,8 +1437,27 @@ function findControls(journeyFiles) {
 }
 let CONTROL_GAPS = [];
 
+// A journey with no string `id` used to run and name every capture `undefined-stepN.png`, so a
+// second journey overwrote the first one's evidence (#383). Two files sharing an id collide the
+// same way. Pure; the caller exits 2 on any returned line, before the browser opens.
+function journeyIdProblems(loaded, files) {
+  const out = [], seen = new Map();
+  loaded.forEach((j, i) => {
+    const f = files[i] || `journey #${i + 1}`;
+    if (!j || typeof j.id !== 'string' || !j.id.trim()) {
+      out.push(`${f}: journey has no "id" (a non-empty string; see example.journey.json). ` +
+               `Screenshots and findings are named from it.`);
+    } else if (seen.has(j.id)) {
+      out.push(`${f}: journey id "${j.id}" is already used by ${seen.get(j.id)}; ids must be unique`);
+    } else seen.set(j.id, f);
+  });
+  return out;
+}
+
 (async () => {
   const loaded = files.map(f => JSON.parse(fs.readFileSync(f, 'utf8')));
+  const idProblems = journeyIdProblems(loaded, files);
+  if (idProblems.length) { for (const l of idProblems) console.error(`ERROR ${l}`); process.exit(2); }
   // Declared order first (requires/leaves/consumes); without headers this is file order.
   const { order: journeys, cycle } = orderJourneys(loaded);
   if (journeys.some((j, i) => j !== loaded[i]))

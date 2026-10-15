@@ -14,11 +14,12 @@
 #
 # Positive control: against master's exec.sh (before 2026-10-14) cases B, D, E, I fail — the
 # patch is kept (exit 0) although the index is stale — and C, F, G, H, J fail on their
-# messages / call counts (there is no verify at all): 12 pass, 26 fail. Against this PR's
+# messages / call counts (there is no verify at all): 12 pass, 31 fail. Against this PR's
 # exec.sh before the field-run fixes (01b9b42, #390) the BUILD-LOG hash cell (A, B, C, K, L,
-# F2), the fresh-hash baseline line (C), the repaired-by-rewrite line (K) and the
-# MXPATCH_BACKUP_DIR hand-off (K) fail: 29 pass, 9 fail. Exit codes alone in A, C, F, G, H,
-# J, K, L are guards.
+# F2), the fresh-hash baseline line (C), the repaired-by-rewrite line (K), the
+# MXPATCH_BACKUP_DIR hand-off (K) and case M fail: 29 pass, 14 fail. Against 4878984 only
+# case M fails (38 pass, 5 fail): a rewritten unit left stale again was "pre-existing".
+# Exit codes alone in A, C, F, G, H, J, K, L are guards.
 set -uo pipefail
 
 EXEC_SH="${1:?usage: test-exec-hash-verify.sh /path/to/exec.sh}"
@@ -182,6 +183,16 @@ RC=$(HV_SEQ=verify-stale-v0.26.0,verify-clean-v0.26.0 run L)
 [ "$RC" -eq 0 ] && kept && ok "exit 0, kept" || bad "L rc=$RC"
 grep -q 'this patch rewrote unit' "$WORK/out.L" && bad "L: credited a rewrite that did not happen" || ok "no rewrite claimed"
 lastrow | grep -q 'hashes: baseline 1 mismatch (pre-existing), verify clean (1 other pre-existing gone)' && ok "BUILD-LOG row: 1 other gone" || bad "L: row" "$(lastrow)"
+
+echo "== M: stale -> the same unit still stale AFTER the patch rewrote it: a NEW stale hash, restored (#374 review) =="
+# Matching issues by KIND+ID alone read this as "pre-existing, none new" and kept the patch:
+# the patch rewrote the unit and left its hash stale again, which is #390's field state.
+RC=$(PATCH_UNIT=1 HV_SEQ=verify-stale-v0.26.0,verify-stale-v0.26.0 run M)
+[ "$RC" -eq 1 ] && ok "exit 1" || bad "M rc=$RC (expected 1: the patch rewrote a stale unit and left it stale)" "$(tail -10 "$WORK/out.M")"
+kept && bad "M: the patch was KEPT" || ok "patch rolled back"
+grep -q '1 new issue' "$WORK/out.M" && ok "counted as 1 new issue" || bad "M: not counted new" "$(grep -n 'new\|MISMATCH' "$WORK/out.M")"
+lastrow | grep -q 'patch refused.*hashes: baseline 1 mismatch (pre-existing), verify 1 new' && ok "BUILD-LOG row: verify 1 new" || bad "M: row" "$(lastrow)"
+built && bad "M: mxbuild ran on a model the verify had already refused" || ok "gate not spent"
 
 echo "== F2: NOT RUN is in the BUILD-LOG row too [guard] =="
 RC=$(STUB_VER=v0.24.0 HV_SEQ= run F2)

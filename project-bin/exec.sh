@@ -1426,6 +1426,22 @@ if [ "$PATCH_MODE" = "1" ]; then
     hv_run "$HV_POST"
     _hv_new=""
     [ "$HV_STATE" = issues ] && _hv_new="$(hv_keys "$HV_POST" | LC_ALL=C comm -13 <(hv_keys "$HV_BASE") - )"
+    # A baseline MISMATCH that is STILL reported, on a unit the patch rewrote, is NEW too: the
+    # patch wrote that unit and left its hash stale again. Matching on KIND+ID alone read it as
+    # "pre-existing, none new" and kept the patch (#374 review; #390's field state exactly).
+    if [ "$HV_STATE" = issues ]; then
+      _hv_same="$(hv_keys "$HV_POST" | LC_ALL=C comm -12 <(hv_keys "$HV_BASE") - )"
+      while read -r _k _id; do
+        [ "$_k" = MISMATCH ] || continue
+        if hv_rewritten "$_id"; then
+          echo "  ✗ this patch rewrote unit $_id and its ContentsHash is still stale: counted as new."
+          _hv_new="${_hv_new:+$_hv_new
+}$_k $_id"
+        fi
+      done <<EOF_SAME
+$_hv_same
+EOF_SAME
+    fi
     if [ "$HV_STATE" = clean ] || { [ "$HV_STATE" = issues ] && [ -z "$_hv_new" ]; }; then
       # Baseline issues the verify no longer reports. A MISMATCH on a unit the patch rewrote
       # (its file differs from the snapshot) was repaired by that write — field run #390: an

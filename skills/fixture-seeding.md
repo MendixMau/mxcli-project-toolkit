@@ -1,6 +1,6 @@
 # Fixture seeding — derive it, measure the gap, ask only what cannot be derived
 
-**Applies to:** establishing the data and identities a `journey-proof.md` run needs, before it runs.
+**Applies to:** establishing the data and identities a `journey-proof.md` run needs, before it runs - seed data, test data, demo data, empty pages, fixtures.
 
 This skill sits **above** the mechanism references, not beside them. `demo-data.md` is a good
 document about one channel (direct SQL insert) and knows nothing about the others;
@@ -66,6 +66,45 @@ as one:
 wrong at least once, on a genuinely empty database, and a default explanation of that kind sends
 someone to debug the wrong subsystem.
 
+## Explore the data structure first
+
+Journeys declare what they *touch*; a journey that never reaches a page declares no need for it.
+Before choosing any row, answer three questions from the model itself, not from entity names:
+
+| Question | Read it from | Failure if skipped |
+|---|---|---|
+| What must be filled, what is unique? | domain model: required/unique validation, defaults, persistent vs non-persistent (never seed non-persistent entities — pages build them from microflows) | insert refused, or `duplicate key value violates unique constraint` on a row the app creates itself |
+| Which association hangs a child on a page? | associations (owner, delete behaviour) + each page's data-source XPath; seed the association the page's data source path names, in the table where it is stored (in Mendix the child usually owns the reference) | marker, line item or ticket row exists, the page list stays empty |
+| Which enum values do pages filter on? | XPath strings in page data sources and access rules, plus the enumerations | an overview filtered on `Status != 'Open'` stays empty because the seed only held `Open` rows |
+
+Technique, in the order that worked: persistent entities -> associations -> enumerations -> access
+rules per role with their XPath -> page data sources with XPath; end with one table,
+`entity | who needs it | state it must be in`. Read each from the model with `mxcli -p <app>.mpr`:
+`SHOW ENTITIES`, `DESCRIBE ENTITY`, `SHOW ASSOCIATIONS`, the enumeration and access listings
+(`query-the-model.md`). These read the `.mpr` directly; no running app is needed.
+
+## Choose the data by use case, not by table
+
+Write the use case in three sentences first (who, what they do, what they see). Then:
+
+- **One record in every status a page filters on**, and one in each end state of a lifecycle.
+- **Children for list and detail pages**: every "children" list gets at least 2 children.
+- **Role-linked identities**: the test user must own a domain object (an Employee linked to the
+  Account) or a list scoped by `[HR.Employee_Account='[%CurrentUser%]']` is empty for exactly
+  that role. Give that scope 2-3 rows.
+- **Referential integrity**: set every association a page follows. Counters that microflows maintain
+  (`NumberOfTickets`) are plain integers to SQL; make them equal their children.
+- **Realistic invented values**: `SI-20261013-001`, mail at example.com, never `Item-001` unless Q3 said so.
+- **5-20 rows per entity**; a dashboard needs a spread, not volume.
+- **Dates relative to now** ("this week" counters read 0 on a fixed date).
+- **Reruns repeat through a stable business key, never through fixed ids.** A Mendix object id is
+  a bigint `(short_id << 48) | (sequence << 7) | rand7`: `short_id` from
+  `mendixsystem$entityidentifier`, the sequence advanced in the same transaction (`demo-data.md`).
+  Never write an id as a literal or a uuid. A hand-minted id that skips the sequence collides with
+  rows the app creates later, and a stale `short_id` paints blank grid rows (`mxcli-bugs.md`,
+  Platform behaviours D and Methodology lessons #11). Guard each insert with `WHERE NOT EXISTS` on
+  the business key (`e2e-harness-base.md`); rebuild from an empty frozen copy.
+
 ## 4. Interview — a proposal with evidence, then stop and wait
 
 Only after the manifest exists. Four questions are genuinely undecidable from the repo; everything
@@ -116,6 +155,33 @@ There is no single right channel. Choose per fixture element:
   inserts land somewhere real, the tables look healthy, and the app still shows nothing — and
   `demo-data.md`'s own runtime-cache caveat supplies a plausible wrong explanation for it.
 
+### Scan the actions before you run anything
+
+Reset, delete-all and import-demo-data actions wipe the seed **and the test users**. Grep the
+action inventory (buttons, microflow names) for them before the first run. Verbatim symptom from a
+generated journey that pressed a "Reset all demodata" button: Administrator passed, then every other
+role reported `login FAIL: The username or password you entered is incorrect` - 104 of 127 journeys,
+and the same on an empty and a seeded database, so before and after looked identical. Administrator
+*delete* journeys do the same through cascades: deleting an Employee also deleted the Account
+linked to it, because that association's delete behaviour cascades (read it with `DESCRIBE
+ASSOCIATION`; 1 account of 3 left, 157 of 183 journeys failing login). Seeds that link Employee to Account are
+what make it bite; an empty database hides it. Run destructive journeys **last, or on a copy**, and
+count them separately.
+
+### Generic traps, with the exact symptom
+
+| Trap | Symptom |
+|---|---|
+| Enum column seeded with the caption | `Status = 'In progress'` matches no value: the cell renders blank and every `Status = 'InProgress'` filter skips the row. Store the value name |
+| Specialization seeded in its own table only | `insert into hr$manager` alone: the object is missing from every `Employee` list. Insert one row per table in the inheritance chain with the same id, minted from the specialization's `short_id` (its own `mendixsystem$entityidentifier` row, not the parent's: a parent short_id gives blank or mistyped rows), and set `submetaobjectname` on each parent row to the specialization's name |
+| Calculated attribute in the insert | `column "fullname" does not exist`: a calculated attribute has no column. Leave it out |
+| View or external entity seeded | the insert fails (no table, or a database view that refuses inserts): a view entity is computed by its OQL and an external entity lives in the remote service. Seed the entities the view reads, or the source system |
+| Package snapshot loaded after the app started once | `duplicate key value violates unique constraint` - the app creates some rows itself at first start; waive that table, expect one per self-seeding Marketplace module |
+| Snapshot dates vs "this week" counters | dashboard shows 0 for a snapshot dated months ago. Shift all timestamps *before* any spec using relative dates, or the anchor is the new rows |
+| Removing a user from a role as sole target | the snapshot's own demo users lose the role, and the rows they own are owned by nobody who can log in; re-own a few rows to the test user's object |
+| Role names differ per app (`QualityManager` here, `DepartmentManager` there) | users file lists a role the database does not have; read the roles from the actual database, not habit |
+| File-bearing rows (Image, FileDocument) | row exists, `FileNotFoundInStorageException` in the log; copy files after every start, or leave those rows out on purpose |
+
 Every write here is a model or database write. **Get approval before each one.**
 
 ## 6. Verify — with the journeys' own SQL
@@ -135,12 +201,30 @@ the answer is "re-copy the Run Locally database", say that in the project's own 
 "re-run the seed script", the seed script has to be idempotent, which most hand-written ones are
 not.
 
+## What seeding buys - set expectations
+
+Journeys PASS / FAIL / INVALID on two public template apps, same set, empty vs seeded database:
+**33 / 93 / 68 -> 58 / 68 / 68** and **20 / 163 / 114 -> 51 / 132 / 114**. Seeding raised passes by
+25 and 31; INVALID (no click path, no role, external call) cannot move. The remaining FAILs were not
+seed shortfalls alone: no click path or a conditional widget, DATA-STATE not yet seeded (an action shown
+only for a reviewed or closed row - add that row, the next iteration), and instrument limits (grids the
+engine finds no visible row in). Classify each remaining FAIL into those buckets; do not call a seeded
+run "done" because it beat the empty one.
+
 ## Non-vacuity
 
 `fixture-manifest.sh` carries three mutants, one per section it judges — an absent account, a seed
 that returns zero rows, and a malformed seed query — plus a fault arm (admin API unreachable) that
 must exit 2 rather than 1. A section with no mutant reports **fault**, not pass. Run the controls
 before trusting a green manifest.
+
+## Done when (denominators)
+
+- [ ] 3-sentence use case written; one table row per persistent entity a page reads (N of N).
+- [ ] Every enum value a page filters on has >= 1 row (V of V values).
+- [ ] Every role's landing page opened once and non-empty (R of R roles).
+- [ ] Destructive actions listed (D found, D run last or on a copy; "none found" is a legal count).
+- [ ] `bin/fixture-manifest.sh` exits 0; a second run of the seed changes no row count.
 
 ## Related
 

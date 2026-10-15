@@ -44,7 +44,7 @@ for t in "$DIR"/test-*.sh; do
   # Both spellings appear in the fixtures: `/path/to/gate-check.sh` and `[path-to-init-project.sh]`.
   # The second one matches the filename pattern whole, so the prefix has to come off explicitly.
   subj_name=$(grep -iEm1 '^# *usage:' "$t" \
-              | grep -oE '[A-Za-z0-9_.-]+\.(sh|md)' | grep -v "^${name}$" | head -1 \
+              | grep -oE '[A-Za-z0-9_.-]+\.(sh|md|py)' | grep -v "^${name}$" | head -1 \
               | sed 's|^path-to-||')
   if [ -z "$subj_name" ]; then
     # Fall back to the "usage:" line the fixture prints when run with no argument.
@@ -56,7 +56,7 @@ for t in "$DIR"/test-*.sh; do
   if [ -n "$subj_name" ]; then
     for cand in "$TOOLKIT/bin/$subj_name" "$TOOLKIT/bin/lib/$subj_name" "$TOOLKIT/project-bin/$subj_name" \
                 "$TOOLKIT/skills/$subj_name" "$TOOLKIT/claude-hooks/hooks/$subj_name" \
-                "$TOOLKIT/$subj_name"; do
+                "$TOOLKIT/tests/behaviour/$subj_name" "$TOOLKIT/tests/advisory/$subj_name" "$TOOLKIT/$subj_name"; do
       [ -f "$cand" ] && { subject="$cand"; break; }
     done
     if [ -z "$subject" ]; then

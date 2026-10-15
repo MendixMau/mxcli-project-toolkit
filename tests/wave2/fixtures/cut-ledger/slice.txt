@@ -1,0 +1,30 @@
+# increment 3 slice: what moves out of FSM into NoteSlice (Mendix 11.13.0)
+NativeNote                      # whole module, by MPK (export-module-mpk.py + marketplace install --file)
+# the Synchronization_Note flows: closure (inside Synchronization) of the 3 entry nanoflows NativeNote calls,
+# moved by describe -> exec (MDL). Synchronization.Synchronize is NOT here: it is the app-wide sync, stubbed.
+Synchronization.NativeNote_SetupOfflineNoteAction
+Synchronization.NativeNote_SetupOfflineImageActions
+Synchronization.NativeImage_SetupOfflineImageAction
+Synchronization.OfflineNoteAction_Create
+Synchronization.OfflineNoteAction_SetTechnicianSystemID
+Synchronization.OfflineNoteAction_SetWorkOrderSystemID
+Synchronization.OfflineImageAction_Create
+Synchronization.NoteImage_Commit
+Synchronization.OfflineAction_Save
+Synchronization.OfflineActionList_Commit
+Synchronization.OfflineActionList_Save_NF
+Synchronization.ACO_NoteImage_SetHasBeenUploadedTrue
+Synchronization.ACO_OfflineAction_SetHasBeenUploadedTrue
+Synchronization.UploadHelper_CheckAndGet
+Synchronization.UploadHelper_Create_StorageItemKey
+Synchronization.UploadHelper_Get
+Synchronization.UploadHelper_GetOrCreate
+Synchronization.UploadHelper_Set_LastOfflineCreatedDate
+Synchronization.UploadHelper_Store
+Synchronization.UploadHelper_Update_LastOfflineCreatedDate
+Synchronization.OfflineAction
+Synchronization.OfflineNoteAction
+Synchronization.OfflineImageAction
+Synchronization.NoteImage
+Synchronization.UploadHelper
+Synchronization.OfflineImageAction_NoteImage

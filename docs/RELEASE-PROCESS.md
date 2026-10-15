@@ -87,6 +87,40 @@ eight moves. A `ready` PR with no activity for 14 days gets `verdict/promote-to-
 `CHANGELOG.md`. Over the cap: split the PR or stack it (each layer green on its own, split plan
 stated in the PR body before work starts). `size/*` labels this from the diff.
 
+## 4a. The Impact block — what a change costs, stated before review
+
+Every Direct-lane PR fills the five Impact rows in `.github/PULL_REQUEST_TEMPLATE.md`
+(Process, Dependencies, Context cost, Behaviour, Runtime), and every review re-checks them.
+Why: on 2026-10-15 three PRs were reviewed without anyone stating their process cost; #375
+added a human step per re-baseline and #384 added 1–11 s per exec, and both were found only by
+chance.
+
+The reviewer, for each of the 5 rows, reads the diff and confirms or corrects the answer:
+
+1. **Process** — every new human step, gate, blocking path or stage artifact in the diff is named.
+2. **Dependencies** — every shared file in the diff is listed; every new artifact read names
+   the mandatory step that produces it (CLAUDE.md → "Shipping an instrument", rule 5).
+3. **Context cost** — when any routed or always-loaded file changes, the numbers are pasted from
+   `bin/render-routing.sh --check` run on base and on head; otherwise "none: no routed or
+   always-loaded file touched" is the answer. A missing row, or an estimate instead of the pasted
+   output, is a review finding.
+4. **Behaviour** — an A/B per `process/preflight-skill-baseline-2026-08-31.md`, run with the
+   behaviour suite (`tests/behaviour/RUNBOOK.md`: arm M = base, arm T = PR head), is **required**
+   for a change to always-loaded / baseline-routed text or an agent stub, **recommended** for
+   situational skill text, **NOT RUN with a reason** for process docs and templates that review
+   agents read (they are agent-read text, so never "n/a"), and **n/a** for scripts only.
+   A stub change that is only a generated on-demand routing row (`render-routing.sh` output,
+   Context cost 0) is not an agent-stub change for this purpose: Behaviour is **NOT RUN: on-demand
+   row only**, not required.
+5. **Runtime** — measured seconds per exec/gate/check, or "n/a" with nothing on a hot path.
+
+The review ends with 5 of 5 rows confirmed; "NOT RUN: <reason>" counts, a blank does not.
+
+| | Context cost row |
+|---|---|
+| ✗ bad | "Small — a few lines in one skill." |
+| ✓ good | "`learned-mdl-preflight.md` +42 words; mdl at Stage 5 30,185 → 30,227; baseline 73,522 → 73,564 (budget 80,000). `render-routing.sh --check` on base and head." |
+
 ## 5. Model tiers, by purpose
 
 Described by what each tier is for, not by vendor or model name — a session on any harness

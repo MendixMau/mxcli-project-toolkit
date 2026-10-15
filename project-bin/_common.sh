@@ -362,6 +362,22 @@ find_mxcli_cache() {
 }
 
 # ---------------------------------------------------------------------------
+# mxtk_sqlite_ro_uri <path> — print a read-only SQLite URI for <path>: absolute, URI-escaped,
+# ending in ?mode=ro. Hand it to Python as sqlite3.connect(uri, uri=True).
+# Escaping is the point: a plain "file:%s?mode=ro" cuts the path at a '#' or '?' in any folder
+# name ("a #2", "b?c"), drops mode=ro with it, and SQLite then CREATES an empty file at the
+# truncated path (a zero-byte "a " beside the model folder) and opens that instead.
+# Uses $PY when set, else resolve_py. Returns 1 when there is no Python. The caller decides
+# whether to pass the path through native_path first; this does no platform conversion.
+# ---------------------------------------------------------------------------
+mxtk_sqlite_ro_uri() {
+  local py="${PY:-$(resolve_py 2>/dev/null || true)}"
+  [ -n "$py" ] || return 1
+  "$py" -c "import os,sys,urllib.request as u
+print('file:'+u.pathname2url(os.path.abspath(sys.argv[1]))+'?mode=ro')" "$1" | tr -d '\r'
+}
+
+# ---------------------------------------------------------------------------
 # mxtk_model_version [mpr] — the model's Mendix version (e.g. 11.12.2), read from the
 # .mpr's own SQLite _MetaData._ProductVersion. v1 and v2 models both carry it (v2's .mpr
 # is still the SQLite index). sqlite3 CLI if present (read-only), else Python's sqlite3.
@@ -379,9 +395,9 @@ mxtk_model_version() {
   fi
   if [ -z "$v" ]; then
     py="${PY:-$(resolve_py 2>/dev/null || true)}"
-    [ -n "$py" ] && v=$("$py" -c "import sqlite3,sys,os,urllib.request as u
-c=sqlite3.connect('file:'+u.pathname2url(os.path.abspath(sys.argv[1]))+'?mode=ro',uri=True)
-print(c.execute('select _ProductVersion from _MetaData').fetchone()[0])" "$(native_path "$mpr")" 2>/dev/null | head -1 | tr -d '\r')
+    [ -n "$py" ] && v=$("$py" -c "import sqlite3,sys
+c=sqlite3.connect(sys.argv[1],uri=True)
+print(c.execute('select _ProductVersion from _MetaData').fetchone()[0])" "$(PY="$py" mxtk_sqlite_ro_uri "$(native_path "$mpr")")" 2>/dev/null | head -1 | tr -d '\r')
   fi
   case "$v" in
     [0-9]*.[0-9]*) printf '%s\n' "$v"; return 0 ;;
@@ -914,4 +930,122 @@ EOF_ARGS
     done
   done
   return 1
+}
+
+# ---------------------------------------------------------------------------
+# mxcli run / test identity — shared by app-restart.sh and test-scratch.sh (one copy each until
+# 2026-10-14; they had drifted only in a branch test-scratch never took). A caller whose installed
+# _common.sh predates this section stops with the sync remedy (`command -v mxtest_left`).
+# ---------------------------------------------------------------------------
+
+# mxtk_pid_is_mxcli_run <pid> — 0 when the process IS an `mxcli run` (#304 review). A SIGKILLed
+# mxcli leaves its run --local record behind and the OS hands its pid to an unrelated process;
+# `kill -0` cannot tell the difference. Linux with /proc: argv one per line (mxtk_pid_args), so
+# `run` must be a whole argument after one naming mxcli. macOS (and Linux without /proc): the
+# joined `ps -o args=` line, " run " as a word after mxcli. Windows: the image name is mxcli.exe
+# (tasklist — Git Bash's ps cannot show a Windows process's arguments, and PowerShell per call is
+# slow). Unreadable → 1.
+mxtk_pid_is_mxcli_run() {
+  local a="" nl='
+'
+  if [ "$(mxtk_platform)" = windows ]; then
+    a="$(tasklist //FI "PID eq $1" //FO CSV //NH 2>/dev/null | tr -d '\r' | head -1 | cut -d'"' -f2)"
+    case "$(printf '%s' "$a" | tr '[:upper:]' '[:lower:]')" in mxcli.exe|mxcli) return 0 ;; esac
+    return 1
+  fi
+  a="$(mxtk_pid_args "$1")" || return 1
+  if [ "$(mxtk_platform)" = linux ] && [ -r "/proc/$1/cmdline" ]; then
+    case "$nl$a$nl" in *mxcli*"${nl}run${nl}"*) return 0 ;; esac
+    return 1
+  fi
+  case " $a " in *mxcli*" run "*) return 0 ;; esac
+  return 1
+}
+
+# ── After-startup left on an mxcli test injection (#244, BUG-157) ───────────
+# `mxcli test` and `mxcli run --test-endpoint` point the model's after-startup microflow at
+# MxTest.RegisterEndpoint (MxTest.TestRunner for a plain test run) and chain the original; only a
+# clean exit puts it back. A run stopped by a signal leaves it, and the next injection then chains
+# RegisterEndpoint to itself: StackOverflowError in the after-startup, the runtime never starts.
+# Read straight from the model bytes — no mxcli, no running app: the setting is the BSON string
+# element 0x02 "AfterStartupMicroflow" 0x00 of the project-settings unit (mprcontents/**/*.mxunit;
+# inside the .mpr itself on a v1 model). Layout checked against real settings units (mxcli's own
+# test models). A unit or .mpr without the bytes "MxTest." anywhere is not scanned at all (an 8 MB
+# v1 .mpr costs a grep, not an 8 s od). MXTK_SKIP_MXTEST_GUARD=1 skips the check, out loud.
+mxtest_after_startup() (  # $1 = file, or - for stdin. Prints the value ('' = none); 1 = no such element
+  # A subshell with pipefail OFF: awk exits at the first match and od then dies of SIGPIPE; under
+  # the caller's pipefail that 141 would hide the answer and switch the guard off on a large .mpr.
+  set +o pipefail
+  { if [ "$1" = - ]; then od -An -v -tx1; else od -An -v -tx1 "$1"; fi; } 2>/dev/null | awk '
+    BEGIN { for (i = 0; i < 256; i++) hv[sprintf("%02x", i)] = i
+            for (i = 32; i < 127; i++) { c = sprintf("%c", i); ch[sprintf("%02x", i)] = c; hx[c] = sprintf("%02x", i) }
+            s = "AfterStartupMicroflow"; T = length(s) + 2; t[1] = "02"; t[T] = "00"
+            for (i = 1; i <= length(s); i++) t[i + 1] = hx[substr(s, i, 1)]
+            k = 0; st = 0; found = 0 }
+    { for (f = 1; f <= NF; f++) { b = $f
+        if (st == 0) { if (b == t[k + 1]) k++; else k = (b == t[1]) ? 1 : 0
+                       if (k == T) { st = 1; L = 0; m = 1; n = 0; v = "" } }
+        else if (st == 1) { L += hv[b] * m; m *= 256
+                            if (++n == 4) { if (L < 1 || L > 1024) { st = 0; k = 0 } else if (L == 1) { found = 1; exit } else { st = 2; n = 0 } } }
+        else { if (++n < L) v = v ((b in ch) ? ch[b] : "?"); else { found = 1; exit } } } }
+    END { if (!found) exit 1; print v }'
+)
+MXTEST_LEFT=""; MXTEST_UNIT=""; MXTEST_HEAD=""
+mxtest_left() {  # $1 = model dir, $2 = .mpr. 0 = after-startup is an mxcli test injection (sets MXTEST_*)
+  local unit val cands
+  MXTEST_LEFT=""; MXTEST_UNIT=""; MXTEST_HEAD=""
+  if [ "${MXTK_SKIP_MXTEST_GUARD:-0}" = 1 ]; then
+    echo "  ! MXTK_SKIP_MXTEST_GUARD=1 — NOT checking for a leftover mxcli test after-startup (#244). If the app" >&2
+    echo "    then dies with StackOverflowError in MxTest.RegisterEndpoint, that is what this check was for." >&2
+    return 1
+  fi
+  if [ -d "$1/mprcontents" ]; then
+    cands="$(LC_ALL=C grep -rla --include='*.mxunit' 'AfterStartupMicroflow' "$1/mprcontents" 2>/dev/null)"
+  else cands="$2"; fi
+  # Every unit holding the text, not the first: a doc string elsewhere can mention the setting by
+  # name. Only the BSON element counts, and only a unit that contains "MxTest." can hold the value.
+  while IFS= read -r unit; do
+    [ -n "$unit" ] && [ -f "$unit" ] || continue
+    LC_ALL=C grep -qa 'MxTest\.' "$unit" 2>/dev/null || continue
+    val="$(mxtest_after_startup "$unit")" || continue
+    case "$val" in MxTest.RegisterEndpoint|MxTest.TestRunner) ;; *) continue ;; esac
+    MXTEST_LEFT="$val"; MXTEST_UNIT="$unit"
+    case "$unit" in *.mxunit)   # what HEAD has, so the repair can name it; "?" = not tracked / no git
+      MXTEST_HEAD="$(git -C "$(dirname "$unit")" show "HEAD:./$(basename "$unit")" 2>/dev/null | mxtest_after_startup -)" || MXTEST_HEAD="?" ;;
+    *) MXTEST_HEAD="?" ;; esac
+    return 0
+  done <<CANDS
+$cands
+CANDS
+  return 1
+}
+mxtest_refusal() {  # $1 = tool name. Prints the refusal and the repair to stderr. test-scratch gets the
+  # test-a-copy advice; any other caller (app-restart) the stop-the-live-app advice.
+  local was="$MXTEST_HEAD" rel="${MXTEST_UNIT#"$PROJECT_ROOT"/}"
+  echo "✗ $1: this model's after-startup microflow is $MXTEST_LEFT — left behind by an mxcli test or" >&2
+  echo "  run --test-endpoint that did not exit cleanly (stopped by a signal or killed; BUG-157)," >&2
+  echo "  or held right now by a live run --test-endpoint of this project." >&2
+  echo "  Starting on it recurses (the next injection chains $MXTEST_LEFT to itself: StackOverflowError)," >&2
+  echo "  or fails the build with CE1613 if the MxTest module is already gone. Either way the app never starts." >&2
+  echo "  set in: $rel" >&2
+  case "$was" in '?') was="<your own after-startup microflow, or '' for none>"
+                      echo "  HEAD: not readable (no git, or the unit is untracked)" >&2 ;;
+                 '')  echo "  HEAD: no after-startup microflow" >&2 ;;
+                 *)   echo "  HEAD: $was" >&2 ;; esac
+  if [ "$1" = test-scratch ]; then
+    echo "  → If this project's app runs with --test-endpoint right now (skills/cloud-dev-environment.md), the" >&2
+    echo "    live model is fine as it is — test a copy whose settings unit comes from HEAD instead (#244's" >&2
+    echo "    workaround): git worktree add <dir> HEAD, copy the units under test into it, run mxcli test there" >&2
+    echo "    on free ports. Or stop the live app with Ctrl+C in its own terminal (a clean stop restores it)." >&2
+  else
+    echo "  → If this project's app is running with --test-endpoint right now, this is its live injection:" >&2
+    echo "    stop it with Ctrl+C in its own terminal (a clean stop restores the setting), then retry." >&2
+  fi
+  echo "  → Otherwise restore it, then retry:" >&2
+  echo "      git checkout -- '$rel'      (then git status: the run may have left an MxTest module too)" >&2
+  echo "    or through ./bin/exec.sh (an ALTER SETTINGS — say so in chat; it is what mxcli's own cleanup runs):" >&2
+  echo "      mdl 1;" >&2
+  echo "      alter settings runtime (AfterStartupMicroflow: '$was');" >&2
+  echo "    or Studio Pro: App Settings → Runtime → After startup." >&2
+  echo "  A false refusal? MXTK_SKIP_MXTEST_GUARD=1 skips this check (and says so)." >&2
 }

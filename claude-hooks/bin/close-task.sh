@@ -104,8 +104,16 @@ cat <<'TABLE'
 Rules: verify before filing · one place only, link don't copy · a committed script is not
 an executed script.
 
-### Then
-    checkpoint.sh --write     # and fill the Narrative  (append-only history)
+TABLE
+
+# checkpoint.sh is installed beside this script in ~/.claude/bin, which is usually not on PATH:
+# print the sibling's full path, single-quoted so a path with spaces survives copy-paste (#358).
+shq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+_ck="$(cd "$(dirname "$0")" 2>/dev/null && pwd)/checkpoint.sh"
+if [ -f "$_ck" ]; then _ck=$(shq "$_ck"); else _ck="checkpoint.sh"; fi
+echo "### Then"
+echo "    $_ck --write     # and fill the Narrative  (append-only history)"
+cat <<'TABLE'
     OVERWRITE docs/progress/RESUME.md   # <= 60 lines: where we are, next actions,
                                         #    do-not-lose, and which file to read for what.
                                         #    This is the ONLY file read after /clear.

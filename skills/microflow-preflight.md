@@ -120,12 +120,8 @@ coordinates are relative to the loop box's top-left corner; n = activities in th
 | Next activity after the loop | loop centre + 80·n + 180 |
 | Sequential pitch | 160 |
 
-**`mxcli layout` is a domain-model command.** The mxcli team's answer to microflow
-positioning (2026-09-25) is a standalone layout command rather than anything in `create
-microflow`. On v0.24.0 and on upstream `main` at that date, `mxcli layout --help` says
-*"Arrange the entities of a domain model"*; it moves entities only, and there is no microflow or
-nanoflow mode yet. Measured: `mxcli layout -p app.mpr --dry-run` on a scratch copy of a PoC
-model listed 10 entity moves and no microflow. **Before relying on it for a microflow, probe
+**`mxcli layout` is a domain-model command.** On v0.24.0 (as of 2026-09-25) it moves entities only; there is no
+microflow or nanoflow mode (history: `process/baseline-incident-history.md` § MF1). **Before relying on it for a microflow, probe
 your binary:** `mxcli layout --help` — the capability-probe rule. Until a microflow mode ships,
 the remedy for a bad microflow layout stays the one in this file: no `@position`, and the
 `SUB_` split for the defect below.

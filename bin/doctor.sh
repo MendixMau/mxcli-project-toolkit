@@ -318,7 +318,7 @@ ps_apply() {
   _psa_ex="$PROJECT_DIR/bin/exec.sh"
   if [ ! -x "$_psa_ex" ] || ! grep -q 'PATCH_MODE' "$_psa_ex" 2>/dev/null; then
     bad "property sets: not repaired — this project's bin/exec.sh has no --patch, and the repair is only run through it"
-    note "upgrade it first: bin/sync-project.sh $PROJECT_DIR --upgrade-bin exec.sh"
+    note "upgrade it first: bin/sync-project.sh $PROJECT_DIR --only-bin exec.sh --upgrade-bin exec.sh"
     return 0
   fi
   note "repairing through bin/exec.sh --patch (snapshot, fix, mxbuild gate, kept only on a verified gate)…"

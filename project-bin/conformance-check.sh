@@ -180,7 +180,8 @@ if [ "$LEDGER_COUNT" -eq 0 ]; then
 fi
 
 # --- extract (module, pointer, status, command) from BUILDABLE rows -------------------
-# A BUILDABLE row is a 7-column table row whose first cell is a JSON Pointer. awk sees 9
+# A BUILDABLE row is a 7-column table row whose first cell is a JSON Pointer (backticked or bare;
+# status `planned` reads as not-built). awk sees 9
 # fields because of the leading and trailing pipes. Only rows with a backticked
 # SHOW/DESCRIBE in the acceptance cell are measurable; the rest are counted, not run.
 # The module label comes from the path, and the path has three shapes (above), so read it per
@@ -214,10 +215,11 @@ extract() {
   mod="$(ledger_module "$ledger")"
   brd="$(ledger_brd "$ledger")"
   awk -F'|' -v mod="$mod" -v brd="$brd" -v file="$ledger" '
-    NF==9 && $2 ~ /^ *`\// {
+    NF==9 && $2 ~ /^ *`?\// {   # pointer cell: backticked or bare (TK-006)
       total++
       ptr=$2; acc=$7; st=$8
       gsub(/^ +| +$/, "", ptr); gsub(/^ +| +$/, "", st)
+      if (st == "planned") st = "not-built"   # "planned" = not built yet (TK-006)
       if (brd != "-") ptr = brd ":" ptr
       if (match(acc, /`(SHOW|DESCRIBE)[^`]*`/)) {
         cmd = substr(acc, RSTART+1, RLENGTH-2)
@@ -263,6 +265,13 @@ if [ "$MEASURABLE" -eq 0 ]; then
   if [ "$NNOTABLE" -gt 0 ] && [ "$NNOTABLE" -eq "$LEDGER_COUNT" ]; then
     echo "FAULT: nothing to measure — the ledger read is an index, not a ledger table." >&2
     while IFS= read -r f; do [ -n "$f" ] && explain_index "$f"; done <<< "$NOTABLE"
+    echo "       Refusing to report a clean run over zero measurements." >&2
+    exit 2
+  fi
+  if [ "$PROSE" -gt 0 ]; then
+    echo "FAULT: $PROSE ledger row(s) found in $LEDGER_COUNT ledger(s), 0 measurable: the acceptance text is prose, not a probe." >&2
+    echo "       A row is measured only when its acceptance cell holds a backticked SHOW or DESCRIBE command." >&2
+    echo "       See skills/coverage-ledger.md for the acceptance column; prose is counted, never run." >&2
     echo "       Refusing to report a clean run over zero measurements." >&2
     exit 2
   fi

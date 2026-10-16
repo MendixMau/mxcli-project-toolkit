@@ -50,6 +50,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 . "$SCRIPT_DIR/lib/wiring-item3.sh"
+. "$SCRIPT_DIR/lib/portable.sh"
 
 DEFAULT_TOOLS="claude copilot cursor continue windsurf aider"
 OPTIN_TOOLS="opencode vibe"
@@ -329,6 +330,16 @@ for rel in $PRESERVE; do
   fi
 done
 
+# .claude/settings.json is NOT in PRESERVE on purpose. PRESERVE restores the old bytes, which
+# would also throw away anything a newer mxcli adds to that file. It is merged instead: snapshot
+# now, union after init (see the re-merge below). Issue #419.
+SETTINGS_REL=".claude/settings.json"
+SETTINGS_SNAP=""
+if [ -z "$DRY" ] && [ -f "$PROJECT_DIR/$SETTINGS_REL" ]; then
+  SETTINGS_SNAP="$BACKUP_DIR/.claude_settings.json.$STAMP_TS"
+  cp "$PROJECT_DIR/$SETTINGS_REL" "$SETTINGS_SNAP"
+fi
+
 TOOL_ARGS=""
 for t in $TOOLS; do TOOL_ARGS="$TOOL_ARGS --tool $t"; done
 
@@ -383,6 +394,50 @@ if [ -z "$DRY" ]; then
 "
     fi
   done
+fi
+
+# Re-merge .claude/settings.json after `mxcli init` overwrote it (issue #419). The project's
+# snapshot wins on every scalar and keeps every list entry in its own order (permission profile,
+# user entries, the `mxcli exec` deny rule, hooks); entries and keys that only mxcli's new file
+# has are appended or added. Nothing the project had is ever dropped. A snapshot that is not
+# valid JSON is restored byte for byte instead of guessed at.
+if [ -z "$DRY" ] && [ -n "$SETTINGS_SNAP" ]; then
+  require_py
+  "$PY" - "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL" <<'PYMERGE'
+import json, sys, shutil
+snap, cur = sys.argv[1], sys.argv[2]
+def load(p):
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
+try:
+    old = load(snap)
+except Exception:
+    shutil.copyfile(snap, cur)
+    print("Restored .claude/settings.json byte for byte (previous copy was not valid JSON).")
+    sys.exit(0)
+try:
+    new = load(cur)
+except Exception:
+    new = None
+def merge(o, n):
+    if isinstance(o, dict) and isinstance(n, dict):
+        out = dict(o)
+        for k, v in n.items():
+            out[k] = merge(o[k], v) if k in o else v
+        return out
+    if isinstance(o, list) and isinstance(n, list):
+        return o + [x for x in n if x not in o]
+    return o
+res = merge(old, new) if new is not None else old
+if res != old or new is None:
+    with open(cur, "w", encoding="utf-8") as f:
+        json.dump(res, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    print("Re-merged .claude/settings.json after mxcli init (your entries kept, new mxcli entries added).")
+else:
+    shutil.copyfile(snap, cur)
+    print("Kept .claude/settings.json (mxcli init added nothing new).")
+PYMERGE
 fi
 
 # --- stamp ------------------------------------------------------------------------------------

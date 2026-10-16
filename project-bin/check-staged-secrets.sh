@@ -48,11 +48,28 @@
 #
 # Exit: 0 clean (or no sources found) · 1 a secret value is in the scanned blobs · 2 not a git repo
 set -u
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$PROJECT_ROOT" || { echo "check-staged-secrets: cannot cd to $PROJECT_ROOT" >&2; exit 2; }
 git rev-parse --show-toplevel >/dev/null 2>&1 || { echo "check-staged-secrets: not a git repository" >&2; exit 2; }
 MODE=staged; [ "${1:-}" = "--tree" ] && MODE=tree
-PY="$(command -v python3 || command -v python || true)"
+# Non-fatal interpreter probe: without Python the named-key scan is skipped, the rest still runs.
+# resolve_py is _common.sh's (portable.sh is toolkit-side and not copied into projects).
+[ -f "$SCRIPT_DIR/_common.sh" ] && . "$SCRIPT_DIR/_common.sh"
+if ! type resolve_py >/dev/null 2>&1; then
+  resolve_py() {
+    _c=""
+    for _c in "${PYTHON:-}" python3 python py; do  # portability-ok: this IS the interpreter probe
+      [ -n "$_c" ] || continue
+      case "$(command -v "$_c" 2>/dev/null)" in *[Ww]indows[Aa]pps*) continue ;; esac
+      if "$_c" -c 'import sys; sys.exit(0 if sys.version_info[0] == 3 else 1)' >/dev/null 2>&1; then
+        echo "$_c"; return 0
+      fi
+    done
+    return 1
+  }
+fi
+PY="$(resolve_py || true)"
 
 NAMEPAT='(PASS|SECRET|TOKEN|KEY|PAT$|CREDENTIAL)'
 MINLEN=8

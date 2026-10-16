@@ -95,6 +95,10 @@
 #                                                                   # entry is missing; writes nothing
 #   bin/install-claude-permissions.sh <project-root> --uninstall   # remove only entries this
 #                                                                   # script added; back up first
+#   bin/install-claude-permissions.sh <project-root> --hooks-only [--check]
+#                                                                   # only the two hooks, nothing
+#                                                                   # else added, pruned or checked
+#                                                                   # (bin/sync-project.sh repairs with it)
 #
 # Idempotent: re-running --install after everything is already present changes nothing (both
 # files are rewritten byte-for-byte the same). Called from bin/init-project.sh at scaffold time
@@ -109,15 +113,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-USAGE="Usage: $0 <project-root> [--check|--uninstall] [--profile wrappers|project|full]"
+USAGE="Usage: $0 <project-root> [--check|--uninstall|--hooks-only] [--profile wrappers|project|full]"
 
 MODE="install"
 PROJECT_DIR=""
 PROFILE_ARG=""
+HOOKS_ONLY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --check)     MODE="check" ;;
     --uninstall) MODE="uninstall" ;;
+    --hooks-only) HOOKS_ONLY=1 ;;
     --profile)   PROFILE_ARG="${2:-}"; shift ;;
     --profile=*) PROFILE_ARG="${1#--profile=}" ;;
     -h|--help)   echo "$USAGE"; exit 0 ;;
@@ -377,6 +383,8 @@ if allow is None:
 # wants. Entries someone else wrote are never in the sidecar, so never touched.
 pruned = []
 for key, want, mine in (("allow", entries, added), ("deny", deny_entries, added_deny), ("ask", ask_entries, added_ask)):
+    if os.environ.get("MXTK_HOOKS_ONLY") == "1":
+        break  # --hooks-only: add the hooks, never prune what an earlier full install wrote
     gone = [e for e in perms.get(key, []) if e in mine and e not in want]
     if gone:
         perms[key] = [e for e in perms[key] if e not in gone]
@@ -442,6 +450,14 @@ PY
 }
 
 RC=0
+if [ "$HOOKS_ONLY" -eq 1 ]; then
+  # Hooks alone: no allow, deny or ask entries, nothing in settings.local.json, no pruning. A
+  # project whose settings predate the hooks (or whose `mxcli init` rewrote the file) gets the
+  # two hook lines back without its profile or its hand-edited allow-list being touched.
+  export MXTK_HOOKS_ONLY=1
+  _merge_group "$SETTINGS" "$SIDECAR" "$MODE" "$HOOKS" 0 0
+  exit $?
+fi
 _merge_group "$SETTINGS" "$SIDECAR" "$MODE" "$HOOKS" "${#ENTRIES_SHARED[@]}" "${#DENY[@]}" "${ENTRIES_SHARED[@]}" "${DENY[@]}" ${ASK[@]+"${ASK[@]}"} || RC=$?
 _merge_group "$SETTINGS_LOCAL" "$SIDECAR_LOCAL" "$MODE" "" "${#ENTRIES_LOCAL[@]}" 0 "${ENTRIES_LOCAL[@]}" || {
   RC2=$?

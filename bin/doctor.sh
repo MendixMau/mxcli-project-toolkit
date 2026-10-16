@@ -1174,6 +1174,17 @@ if [ -n "$PROJECT_DIR" ]; then
     else
       ok "settings files match the profile"
     fi
+    # The two hooks. Without the PostToolUse(Read) look-ledger hook seen.tsv is never written, so the
+    # ledger says "0 seen" for pages whose screenshots were opened (field: a lab project, 22 of 31).
+    HOOK_GAP=""
+    grep -qF 'bin/session-check.sh' "$PSET" 2>/dev/null || HOOK_GAP="session-check (SessionStart)"
+    grep -qF 'bin/look-ledger.sh seen' "$PSET" 2>/dev/null || HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen (PostToolUse Read)"
+    if [ -n "$HOOK_GAP" ]; then
+      warn "the project's .claude/settings.json has no hook for $HOOK_GAP, so the look ledger will read 0 seen however many screenshots were opened"
+      note "fix: $TOOLKIT_ROOT/bin/install-claude-permissions.sh $PROJECT_DIR --hooks-only   (or bin/sync-project.sh $PROJECT_DIR)"
+    else
+      ok "session-check and look-ledger hooks are in .claude/settings.json"
+    fi
     for _pf in "$PSET" "$PLOCAL"; do
       if grep -qE '"defaultMode"[[:space:]]*:[[:space:]]*"(auto|bypassPermissions)"' "$_pf" 2>/dev/null; then
         warn "${_pf#$PROJECT_DIR/} sets defaultMode to auto/bypassPermissions — Claude Code ignores that in a project file"

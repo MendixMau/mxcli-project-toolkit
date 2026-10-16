@@ -1576,6 +1576,23 @@ if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-harness-permissions.sh" ]; th
          "$SCRIPT_DIR/install-harness-permissions.sh $PROJECT_DIR"
     echo "$_PERM_OUT" | sed 's/^/   /'
   fi
+  # The two hooks (SessionStart session-check, PostToolUse look-ledger seen) are the exception
+  # to "report only": adding a hook line is additive, touches no allow-list and no profile, and
+  # without the look-ledger hook seen.tsv stays empty so Stage 5 and the owed-LOOK count read
+  # "0 seen" for pages that were looked at (field: a lab project, 22 of 31 pages had screenshots,
+  # ledger said 0 seen). Warning alone did not get it fixed in unattended runs, so repair it.
+  if [ -x "$SCRIPT_DIR/install-claude-permissions.sh" ] \
+     && ! "$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" --hooks-only --check >/dev/null 2>&1; then
+    if [ "$DRY_RUN" -eq 1 ]; then
+      echo "Would add: Claude Code hooks (session-check, look-ledger seen) to .claude/settings.json"
+    elif "$SCRIPT_DIR/install-claude-permissions.sh" "$PROJECT_DIR" --hooks-only >/dev/null 2>&1; then
+      echo "Added: Claude Code hooks (session-check, look-ledger seen) to .claude/settings.json (it was missing them; the look ledger read 0 seen without it)."
+    else
+      warn "could not add the Claude Code hooks to $PROJECT_DIR/.claude/settings.json. Re-run:" \
+           "$SCRIPT_DIR/install-claude-permissions.sh $PROJECT_DIR --hooks-only"
+    fi
+    CHANGES=$((CHANGES + 1))
+  fi
 fi
 
 # ── Starlark lint rules ──────────────────────────────────────────────────────────────────

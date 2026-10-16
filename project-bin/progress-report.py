@@ -2,7 +2,7 @@
 """Progress report: one self-contained HTML page for a conversion project, stages P to 6.
 
 usage: progress-report.py PROJECT_DIR [--out FILE] [--toolkit DIR] [--rates FILE] [--fragment FILE]
-                         [--logs-dir DIR] [--no-log]
+                         [--logs-dir DIR] [--session-log PATH ...] [--no-log]
 
 Called by project-bin/build-plan-status.sh (--html, --refresh, --open), which writes
 architecture/progress-report.html. It replaces the older architecture/build-plan.html.
@@ -53,8 +53,8 @@ EXTRA_ARTIFACTS = {
     "5": [], "6": [],
 }
 # Project advisory thresholds (each rule says which one fired).
-ADV = {"opus_cost_share": 0.40, "ctx_avg_tokens": 180_000, "ctx_peak_frac": 0.98, "compactions": 1, "ctx_red_compactions": 2,   # context: average under 180k is fine; peak counts only when the window was reached
-       "hang_red_s": 1800, "repeat_fail_red_n": 5,      # red (severe) only for a long stall or a tool failing every run at least this often
+ADV = {"opus_cost_share": 0.40, "ctx_avg_tokens": 180_000, "ctx_peak_frac": 0.98, "compactions": 1,   # context: average under 180k is fine; the window counts as reached only at this share of the real window (or after a compaction). Context is never red
+       "hang_amber_s": 600, "hang_red_s": 1800, "repeat_fail_red_n": 2,   # red only for a key script failing on every run (at least this many runs) or one hang or stall past hang_red_s; amber from hang_amber_s
        "inherent_scripts": r"^(exec|gate-check|doctor|verify-module|review-module|build[\w-]*|mxbuild|mxcli|stack-up[\w-]*|test-stack-up)\.sh$",   # time in these is how the toolkit works, not a project choice
         "cache_rewrites": 3,
        "stage_outlier_x": 1.5, "agent_short_s": 120, "agent_long_s": 1800, "short_agents_n": 3, "long_agents_n": 2,
@@ -69,17 +69,29 @@ ADV = {"opus_cost_share": 0.40, "ctx_avg_tokens": 180_000, "ctx_peak_frac": 0.98
        "serial_agents_n": 3, "serial_agent_s": 60,            # sub-agents run one after another that could overlap
        "full_test_n": 3, "full_test_s": 120,                  # full test suite runs
        "slice_outlier_x": 2.0, "slice_outlier_n": 1,          # exec.sh runs above this multiple of the median
-       "fail_share_amber": 0.10, "fail_share_red": 0.25,      # run health: share of tool calls that failed
-       "hung_amber": 1, "hung_red": 3}                        # run health: hung or killed commands
+       "fail_share_amber": 0.25}                              # run health: amber from this failure rate (of all calls, or of one key script); red is never rate-based
+TRIVIAL_CMDS = frozenset("cd sleep echo true false test [ ls cat pwd export source . printf grep diff".split())   # shell builtins and trivial commands: a non-zero exit is routine, never a repeat-failure tip
+INHERENT_TOOLS = frozenset(("AskUserQuestion", "ExitPlanMode"))   # required interview and approval time: waiting on the user, not a slow step or a hang
 TOKENS_PER_MIN = 30_000   # assumed exchange rate used only to rank token waste against time waste
 KEY_SCRIPTS = (("doctor", r"^doctor\.sh$"), ("gate-check", r"^gate-check\.sh$"), ("exec", r"^exec\.sh$"),
                ("tests", r"^(test-[\w.-]*\.sh|run-all\.sh|run-tests\.sh|verify-module\.sh|pytest)$"))
 FULL_TEST_SCRIPTS = ("run-all.sh", "run-tests.sh")
 WAITY_RE = re.compile(r"\bsleep\s+\d|gh\s+(run|pr)\s+(watch|checks)|--watch\b|\buntil\b")
 SCRIPT_RE = re.compile(r"(?:^|[\s/;&|(])([A-Za-z0-9_.-]+\.(?:sh|py|js))\b")
-# Context window per model id (first match wins), read from the session log's model id. Not a fixed 200k.
+# Context window per model id (first match wins), read from the session log's model id. Only 200k and 1M exist.
 WINDOWS = [(r"\[1m\]|-1m\b", 1_000_000), (r"^claude-", 200_000)]   # regexes on the model id
-KNOWN_WINDOWS = (200_000, 500_000, 1_000_000)   # when an observed context exceeds the assumed window, step up to the next of these
+KNOWN_WINDOWS = (200_000, 1_000_000)   # when an observed context exceeds the assumed window, use the next of these (never an invented size)
+def window_for(model, observed=0):
+    """Context window for one model id, or None when the model is not in WINDOWS. A context seen above 200k proves the
+    larger window is in use, so the result steps up to the next size in KNOWN_WINDOWS."""
+    base = next((w_ for g, w_ in WINDOWS if re.search(g, model or "")), None)
+    if base is None: return None
+    if observed <= base: return base
+    return next((k for k in KNOWN_WINDOWS if k >= observed), None)
+def ctx_pct(n, window):
+    """Share of the window in percent, never above 100. Nothing when the window is unknown."""
+    return min(100.0, 100.0 * n / window) if window else None
+def ctx_pct_txt(n, window): return "%.0f%%" % ctx_pct(n, window) if window else "n/a"
 def context_window(msgs):
     """(window, note) for the main thread. The window comes from the dominant model id; a context seen above it proves the
     assumption wrong, so it is raised to the next known size. (None, note) when the model is not in the table or nothing fits:
@@ -87,10 +99,10 @@ def context_window(msgs):
     if not msgs: return None, "no requests"
     model = collections.Counter(m["model"] for m in msgs).most_common(1)[0][0]
     obs = max(m["in"] + m["cr"] + m["cw"] for m in msgs)
-    base = next((w_ for g, w_ in WINDOWS if re.search(g, model or "")), None)
+    base = window_for(model)
     if base is None: return None, "model %s is not in the WINDOWS table" % model
     if obs <= base: return base, ""
-    nxt = next((k for k in KNOWN_WINDOWS if k >= obs), None)
+    nxt = window_for(model, obs)
     if nxt is None: return None, "a context of %s exceeds every known window" % fmt_tok(obs)
     return nxt, "raised from %s: the log shows %s" % (fmt_tok(base), fmt_tok(obs))
 TEST_MOMENTS = [("Every change", "Gate check plus only the tests that touch the change"),
@@ -290,6 +302,16 @@ def find_sessions(proj, logs_dir=None):
     out.sort(key=lambda f: os.path.getmtime(f))
     return out, base
 
+def explicit_sessions(paths):
+    """--session-log inputs: a .jsonl file, or a folder of them (not searched below it). Used as given, no cwd test."""
+    out = []
+    for p_ in paths:
+        p_ = os.path.abspath(os.path.expanduser(p_))
+        if os.path.isdir(p_): out += sorted(glob.glob(os.path.join(p_, "*.jsonl")), key=os.path.getmtime)
+        elif os.path.isfile(p_): out.append(p_)
+    seen = set()
+    return [f for f in out if not (f in seen or seen.add(f))]
+
 def session_in_project(path, proj):
     roots = {os.path.realpath(proj), os.path.abspath(proj)}
     try:
@@ -466,7 +488,7 @@ def advice(info, an, main, agents, rates):
     peak = max([m["in"] + m["cw"] + m["cr"] for m in main["msgs"]] or [0])
     comp = main["compacts"]
     cw_, cn_ = context_window(main["msgs"])
-    ctxt = "Peak main-thread context was %s tokens (%s)." % (fmt_tok(peak), ("%.0f%% of the %s window for this model%s" % (pct(peak, cw_), fmt_tok(cw_), "; " + cn_ if cn_ else "")) if cw_ else "window unknown: " + cn_)
+    ctxt = "Peak main-thread context was %s tokens (%s)." % (fmt_tok(peak), ("%s of the %s window for this model%s" % (ctx_pct_txt(peak, cw_), fmt_tok(cw_), "; " + cn_ if cn_ else "")) if cw_ else "window unknown: " + cn_)
     if comp: ctxt += " Auto-compacted %d times (at %s tokens), each time dropping the context to about %s." % (len(comp), ", ".join(fmt_tok(c["pre"] or 0) for c in comp), fmt_tok(sum(c["post"] or 0 for c in comp) / len(comp)))
     out.append(("Context size", ctxt + (" Hand bulk reading to sub-agents and park or clear at a stage boundary, before the next auto-compaction." if comp else "")))
     inp = tot["in"] + tot["cw"] + tot["cr"]; hit = pct(tot["cr"], inp)
@@ -501,7 +523,7 @@ def call_stats(info, an, main):
     for n in {c["name"] for c in done}: med[n] = _median([c["dur"] for c in done if c["name"] == n])
     failed = [c for c in done if c["err"]]
     killed = [c for c in calls if c["killed"] or c["timeout"]]
-    hung = [c for c in done if c["dur"] >= ADV["hang_min_s"] and c["dur"] >= ADV["hang_x"] * max(med.get(c["name"], 0), 1) and not c["waity"] and not c["bg"]]
+    hung = [c for c in done if c["dur"] >= ADV["hang_min_s"] and c["dur"] >= ADV["hang_x"] * max(med.get(c["name"], 0), 1) and not c["waity"] and not c["bg"] and c["name"] not in INHERENT_TOOLS]
     hung_all = {id(c): c for c in hung + killed}.values()
     keyed = collections.OrderedDict()
     for label, rx in KEY_SCRIPTS:
@@ -511,14 +533,15 @@ def call_stats(info, an, main):
     t0, t1 = an["t0"], an["t1"]; wall = max(t1 - t0, 1)
     idle = _union([list(x) for x in an["idle"]])
     ci = _union([[c["t0"], c["t1"]] for c in done if c["waity"] or c["bg"]])
-    tool = _union([[c["t0"], c["t1"]] for c in done if not (c["waity"] or c["bg"]) and c["name"] not in ("Agent", "Task")])
-    ci_s = _total(ci); tool_s = _total(tool); idle_s = _total(idle)
+    ask = [[c["t0"], c["t1"]] for c in done if c["name"] in INHERENT_TOOLS]   # interview time is waiting on the user
+    tool = _union([[c["t0"], c["t1"]] for c in done if not (c["waity"] or c["bg"]) and c["name"] not in ("Agent", "Task") and c["name"] not in INHERENT_TOOLS])
+    ci_s = _total(ci); tool_s = _total(tool); idle_s = _total(_union(idle + ask))
     think_s = max(0.0, wall - idle_s - ci_s - tool_s)
     # slices: one exec.sh run
     sl = [c for c in done if c["name"] == "Bash" and c["script"] == "exec.sh"]
     sl_med = _median([c["dur"] for c in sl])
     sl_out = [c for c in sl if sl_med and c["dur"] > ADV["slice_outlier_x"] * sl_med]
-    slow = sorted([c for c in done if c["name"] not in ("Agent", "Task") and not c["waity"] and not c["bg"]], key=lambda c: -c["dur"])[:3]
+    slow = sorted([c for c in done if c["name"] not in ("Agent", "Task") and not c["waity"] and not c["bg"] and c["name"] not in INHERENT_TOOLS], key=lambda c: -c["dur"])[:3]
     return {"calls": calls, "done": done, "med": med, "failed": failed, "killed": killed, "hung": list(hung_all), "keyed": keyed,
             "split": {"tool": tool_s, "think": think_s, "user": idle_s, "ci": ci_s, "wall": wall},
             "slices": sl, "slice_med": sl_med, "slice_out": sl_out, "slow": slow}
@@ -528,21 +551,23 @@ def callname(c):
     return c["name"] or "tool"
 
 def run_health(cs):
-    """Green, amber or red per measure, each with its counts."""
-    def lvl(x, amber, red): return "red" if x >= red else "amber" if x >= amber else "green"
+    """Green, amber or red per measure, each with its counts. Red is rare: a key script failing on every run (at least
+    repeat_fail_red_n runs) or one hang or stall past hang_red_s. Amber: a failure rate from fail_share_amber, or a hang past hang_amber_s."""
     nd = len(cs["done"]); share = len(cs["failed"]) / nd if nd else 0.0
-    items = [("Tool calls failed", lvl(share, ADV["fail_share_amber"], ADV["fail_share_red"]), "%d of %d (%.0f%%)" % (len(cs["failed"]), nd, 100 * share))]
-    kl = []; worst = "green"
+    items = [("Tool calls failed", "amber" if share >= ADV["fail_share_amber"] else "green", "%d of %d (%.0f%%)" % (len(cs["failed"]), nd, 100 * share))]
+    kl = []; worst = "green"; rk = {"green": 0, "amber": 1, "red": 2}
     for label, v in cs["keyed"].items():
         if not v["runs"]: continue
-        rate = v["fail"] / v["runs"]; l_ = lvl(rate, ADV["fail_share_amber"], ADV["fail_share_red"])
+        rate = v["fail"] / v["runs"]
+        l_ = "red" if (v["fail"] == v["runs"] and v["runs"] >= ADV["repeat_fail_red_n"]) else "amber" if rate >= ADV["fail_share_amber"] else "green"
         kl.append("%s %d/%d passing" % (label, v["runs"] - v["fail"], v["runs"]))
-        if {"green": 0, "amber": 1, "red": 2}[l_] > {"green": 0, "amber": 1, "red": 2}[worst]: worst = l_
+        if rk[l_] > rk[worst]: worst = l_
     items.append(("Key scripts", worst if kl else "green", "; ".join(kl) or "none ran (doctor, gate-check, exec, tests)"))
-    nh = len(cs["hung"]) + len([c for c in cs["killed"] if c not in cs["hung"]])
-    items.append(("Hung or killed", lvl(nh, ADV["hung_amber"], ADV["hung_red"]), "%d command(s)" % nh))
-    order = {"green": 0, "amber": 1, "red": 2}
-    overall = max((i[1] for i in items), key=lambda x: order[x])
+    longest = max([c.get("dur", 0.0) for c in cs["hung"]] + [c.get("dur", 0.0) for c in cs["killed"] if c.get("dur") is not None] + [0.0])
+    nh = len({id(c) for c in list(cs["hung"]) + list(cs["killed"])})
+    items.append(("Hung or killed", "red" if longest > ADV["hang_red_s"] else "amber" if longest > ADV["hang_amber_s"] else "green",
+                  "%d command(s)%s" % (nh, ", longest %s" % fmt_dur(longest) if longest else "")))
+    overall = max((i[1] for i in items), key=lambda x: rk[x])
     return overall, items
 
 def advisory(info, an, main, agents, rates, tot, peak):
@@ -580,10 +605,12 @@ def advisory(info, an, main, agents, rates, tot, peak):
     big = [c for c in cs["done"] if c["name"] == "Read" and c["rchars"] >= ADV["large_read_chars"]]
     reached = bool(win) and peak >= ADV["ctx_peak_frac"] * win
     r = max(avg / ADV["ctx_avg_tokens"], 1.0 if reached else 0.0, comp / ADV["compactions"] if ADV["compactions"] else 0, len(big) / ADV["large_read_n"])
-    csev = "red" if (reached or comp >= ADV["ctx_red_compactions"]) else "amber" if (comp or avg >= ADV["ctx_avg_tokens"]) else "info"
-    rule(r, "tokens", ("Context: the window was reached or compacted" if (reached or comp) else "Context: the main thread runs large") if csev != "info" else "Context: large file reads",
+    csev = "amber" if (reached or comp or avg >= ADV["ctx_avg_tokens"]) else "info"   # context is never red
+    ctitle = ("Context: the window was reached and compacted %d time(s)" % comp if (reached and comp) else "Context: the window was reached" if reached
+              else "Context: compacted %d time(s)" % comp if comp else "Context: the main thread runs large" if avg >= ADV["ctx_avg_tokens"] else "Context: large file reads")
+    rule(r, "tokens", ctitle,
          "Average context %s, peak %s (%s); %d automatic compaction(s); %d file read(s) over %s characters." %
-         (fmt_tok(avg), fmt_tok(peak), ("%s window, %.0f%% avg, %.0f%% peak" % (fmt_tok(win), pct(avg, win), pct(peak, win)) + ("; " + wnote if wnote else "")) if win else "window unknown: " + wnote, comp, len(big), fmt_tok(ADV["large_read_chars"])),
+         (fmt_tok(avg), fmt_tok(peak), ("%s window, %s avg, %s peak" % (fmt_tok(win), ctx_pct_txt(avg, win), ctx_pct_txt(peak, win)) + ("; " + wnote if wnote else "")) if win else "window unknown: " + wnote, comp, len(big), fmt_tok(ADV["large_read_chars"])),
          "Every request re-reads the whole context, so a full window costs more on every later turn, and compaction loses detail.",
          "Hand bulk reading (source files, long logs) to sub-agents so only a summary returns, and park or clear at each stage boundary instead of waiting for auto-compaction.",
          "Fired when average context reaches %s, the peak reaches %.0f%% of the window, compactions reach %d, or %d large reads occur (ctx_avg_tokens, ctx_peak_frac, compactions, large_read_n)." % (fmt_tok(ADV["ctx_avg_tokens"]), 100 * ADV["ctx_peak_frac"], ADV["compactions"], ADV["large_read_n"]),
@@ -641,10 +668,10 @@ def advisory(info, an, main, agents, rates, tot, peak):
                 (", longest %s in %s" % (fmt_dur(longest["dur"]), callname(longest))) if longest else "", ", ".join(stg) or "no stage"),
              "A hung command blocks the whole session until it times out, and the time is lost even when the work is then redone.",
              "Give long commands a timeout and run them in the background; if the same one hangs twice, fix or file the tool instead of retrying.",
-             "Fired when %d or more calls ran past %d s and %dx their tool's median, timed out, or were stopped (hang_n, hang_min_s, hang_x)." % (ADV["hang_n"], ADV["hang_min_s"], ADV["hang_x"]), lost_s=excess + 60.0 * len([c for c in hg if "dur" not in c]), sev="red" if excess >= ADV["hang_red_s"] else "amber")
+             "Fired when %d or more calls ran past %d s and %dx their tool's median, timed out, or were stopped (hang_n, hang_min_s, hang_x)." % (ADV["hang_n"], ADV["hang_min_s"], ADV["hang_x"]), lost_s=excess + 60.0 * len([c for c in hg if "dur" not in c]), sev="red" if (longest and longest.get("dur", 0) > ADV["hang_red_s"]) else "amber")
     byfail = collections.defaultdict(list)
     for c in cs["failed"]:
-        if c["name"] == "Bash" and c["script"]: byfail[(c["script"], c.get("variant", ""))].append(c)
+        if c["name"] == "Bash" and c["script"] and c["script"] not in TRIVIAL_CMDS: byfail[(c["script"], c.get("variant", ""))].append(c)   # real scripts and tools only, by name
     worst = max(byfail.items(), key=lambda kv: len(kv[1])) if byfail else None
     if worst:
         (sn, var), fl = worst; nm = sn + ((" " + var) if var else "")
@@ -656,7 +683,7 @@ def advisory(info, an, main, agents, rates, tot, peak):
              "A tool that fails repeatedly is either broken or being rerun without changing its input, and each rerun costs the call plus the turn that reads its output.",
              "Read the failure once, fix the cause or the script, and file the tool if the failure is not yours. Stop rerunning it unchanged.",
              "Fired when the same script fails %d or more times (repeat_fail_n). Counted %d." % (ADV["repeat_fail_n"], len(fl)),
-             lost_s=sum(c.get("dur", 0) for c in fl), sev="red" if (len(fl) == tot_runs and len(fl) >= ADV["repeat_fail_red_n"]) else "amber")
+             lost_s=sum(c.get("dur", 0) for c in fl), sev="red" if (len(fl) == tot_runs and tot_runs >= ADV["repeat_fail_red_n"] and any(re.match(rx, sn) for _, rx in KEY_SCRIPTS)) else "amber")
     else:
         rule(0, "health", "Failing tool on repeat", "no script failed repeatedly", "", "", "Fired when the same script fails %d or more times (repeat_fail_n). Counted 0." % ADV["repeat_fail_n"])
     edits = collections.defaultdict(list)
@@ -842,7 +869,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     # KPIs
     allc = [m["in"] + m["cr"] + m["cw"] for m in main["msgs"]] or [0]; ctx_avg = sum(allc) / len(allc)
     cwin, cnote = context_window(main["msgs"])
-    pw = lambda a_: ("%.0f%%" % pct(a_, cwin)) if cwin else "n/a"
+    pw = lambda a_: ctx_pct_txt(a_, cwin)
     nart = sum(len(arts[s_]["files"]) for s_ in STAGES); ndec = len(info["decisions"])
     kp = [("Gates passed", "%d of 8" % npass, "stages P to 6, from PROJECT.md"), ("Plan rows built", ("%d of %d" % (bp["built"], bp["total"])) if bp and bp["total"] else "none yet", "from architecture/build-plan.md"),
           ("Artifacts present", "%d" % nart, "files found for the eight stages"), ("Decisions", "%d" % ndec, "rows in the PROJECT.md register")] if not L else [("Wall time", fmt_dur(wall), "first to last event in the session"), ("Waiting for you", fmt_dur(idle_s), "gaps over %d min" % (IDLE_GAP_S // 60)),
@@ -867,8 +894,8 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         parts.append("<div class='card health'><b>Run health</b> <span class='pill p-%s'>%s</span>%s</div>" % (overall, WORD[overall], "".join("<div class=hi><i class='dot p-%s'></i><b>%s</b> %s</div>" % (lv, esc(n_), esc(v_)) for n_, lv, v_ in items)))
         for g in ORDER:
             tips = [d for d in fired if d["group"] == g]
-            if not tips and g != "Speed": continue
-            worst = max((d["sev"] for d in tips), key=lambda x: rank[x]) if tips else "info"
+            if not tips: continue   # an empty group is not shown at all, no count of 0
+            worst = max((d["sev"] for d in tips), key=lambda x: rank[x])
             dot = "p-" + {"red": "red", "amber": "amber", "info": "info"}[worst]
             body = (speed if g == "Speed" else "") + "".join(
                 "<div class='tip t-%s'><h3>%s</h3><p><b>Seen.</b> %s</p><p><b>Why it matters.</b> %s</p><p><b>Fix.</b> %s</p><p class=why>Lost: about %s. %s</p></div>" % (d["sev"], esc(d["title"]), esc(d["seen"]), esc(d["matters"]), esc(d["fix"]), esc(d["lost"] or "n/a"), esc(d["why"])) for d in tips)
@@ -1006,7 +1033,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
             w("<details id='agents-%s' %s class=card style='margin-top:8px'><summary><b>%s</b> &middot; %d agents &middot; %s new tokens &middot; est. %s</summary><div class=tw><table style='margin-top:8px'><tr><th>Description</th><th>Model</th><th class=n>Start</th><th class=n>Duration</th><th class=n>Turns</th><th class=n>Context avg / peak</th><th class=n>New tokens</th><th class=n>Est. cost</th></tr>" %
               (s, "open" if s in ("3", "4") else "", "Before P" if s == "pre" else "Stage %s: %s" % (s, STAGE_NAME[s]), len(ag), fmt_tok(stot), money(sum(a["tok"]["cost"] for a in ag))))
             for a in singles:
-                w("<tr><td>%s</td><td>%s</td><td class=n>%s</td><td class=n>%s</td><td class=n>%d</td><td class=n>%s / %s (%.0f%%)</td><td class=n>%s</td><td class=n>%s</td></tr>" % (esc(a["desc"]), esc(a["model"].replace("claude-", "")), local_hm(a["t0"]), fmt_dur(a["t1"] - a["t0"]), a["turns"], fmt_tok(a["ctx_avg"]), fmt_tok(a["ctx_peak"]), pct(a["ctx_peak"], window_for(a["model"])), fmt_tok(head(a["tok"])), money(a["tok"]["cost"])))
+                w("<tr><td>%s</td><td>%s</td><td class=n>%s</td><td class=n>%s</td><td class=n>%d</td><td class=n>%s / %s (%s)</td><td class=n>%s</td><td class=n>%s</td></tr>" % (esc(a["desc"]), esc(a["model"].replace("claude-", "")), local_hm(a["t0"]), fmt_dur(a["t1"] - a["t0"]), a["turns"], fmt_tok(a["ctx_avg"]), fmt_tok(a["ctx_peak"]), ctx_pct_txt(a["ctx_peak"], window_for(a["model"], a["ctx_peak"])), fmt_tok(head(a["tok"])), money(a["tok"]["cost"])))
             for wid, fl in wfs.items():
                 ph = sorted({a["phase"] for a in fl if a["phase"]})
                 w("<tr><td><b>Workflow %s</b> (%d parallel agents%s)<br><span class=sub>%s</span></td><td>%s</td><td class=n>%s</td><td class=n>%s</td><td class=n>%d</td><td class=n>%s / %s</td><td class=n>%s</td><td class=n>%s</td></tr>" %
@@ -1050,8 +1077,15 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         w("<li><b>Time.</b> Wall time is the window length. A gap of more than %d minutes between any two events is waiting for the user, overnight breaks included. A minute is sub-agent time when any sub-agent record span covers it, even if that agent was itself waiting on a tool.</li>" % (IDLE_GAP_S // 60))
     w("<li><b>Gate state.</b> From the PROJECT.md line under Current stage (gates passed list). The generated index.html table supplies titles and details; when it disagrees, PROJECT.md wins and a note appears. Progress for a stage that has not passed is promised artifacts present (toolkit artifact-manifest.tsv, entry mode %s); Stage 5 uses plan rows built.</li>" % esc(info["entry_mode"]))
     w("<li><b>Abbreviations.</b> BRD: business requirements document. This page uses no libraries and no network. Decisions: rows of the PROJECT.md Decisions table by Stage column; CONFIRMED means the user agreed, ASSUMED means the agent proceeded on a stated assumption, RAISED means an open question.</li>")
-    w("<li><b>Known gaps.</b> Gate verdicts for Stages 5 and 6 cannot be evaluated before build; interactive time the user spends outside the session is not visible.</li></ul>")
-    w("<li><b>Inputs.</b> Project folder: <code>%s</code>. Session log(s): %s. To regenerate with the same inputs: <code>project-bin/build-plan-status.sh &lt;project&gt; --html</code>, or <code>progress-report.py &lt;project&gt; --logs-dir &lt;dir&gt;</code>.</li>" % (esc(proj), ("<code>" + "</code>, <code>".join(esc(x) for x in args.sessions[:6]) + "</code>" + (" and %d more" % (len(args.sessions) - 6) if len(args.sessions) > 6 else "")) if args.sessions else ("none found under <code>%s</code>" % esc(args.logs_base) if args.logs_base else "not read")))
+    w("<li><b>Known gaps.</b> Gate verdicts for Stages 5 and 6 cannot be evaluated before build; interactive time the user spends outside the session is not visible.</li>")
+    shown = [esc(x) for x in args.sessions[:6]]
+    logs_txt = ("<code>" + "</code>, <code>".join(shown) + "</code>" + (" and %d more" % (len(args.sessions) - 6) if len(args.sessions) > 6 else "")) if args.sessions else ("none found under <code>%s</code>" % esc(args.logs_base) if args.logs_base else "not read")
+    how = "chosen with --session-log" if args.session_log else "found by discovery"
+    rates_txt = ("<code>%s</code>" % esc(args.rates_used)) if args.rates_used else "built-in placeholder rates (a file at <code>%s</code> or --rates would override them)" % esc(args.rates_default)
+    regen = "project-bin/build-plan-status.sh &lt;project&gt; --html" + "".join(" --session-log &lt;path&gt;" for _ in args.session_log[:1])
+    direct = "progress-report.py &lt;project&gt; " + (" ".join("--session-log <code>%s</code>" % esc(x) for x in args.session_log) if args.session_log else "--logs-dir &lt;dir&gt;")
+    w("<li><b>Inputs.</b> Project folder: <code>%s</code>. Session log(s) (%s): %s. Rates file: %s. To regenerate with the same inputs: <code>%s</code>, or <code>%s</code>.</li>" % (esc(proj), how, logs_txt, rates_txt, regen, direct))
+    w("</ul>")
     w("<div class=note id=stamp>Rebuild: project-bin/build-plan-status.sh --html. Setting in PROJECT.md: Progress report: off, ask or auto (now %s). Generated %s.</div></footer></div>%s</div></main>" % (esc(info["setting"]), gen, aside))
     w(JS)
     if args.reload:
@@ -1067,14 +1101,22 @@ def main_():
   session logs     <logs-dir or CLAUDE_CONFIG_DIR or ~/.claude>/projects/<slug>/*.jsonl and <session>/subagents/;
                    <slug> is the project path with every non-alphanumeric character replaced by '-'.
                    A log counts for the project when a record's cwd is at or under it.
-  context window   per model id from the WINDOWS table in the script; raised when the log shows a larger context.
+  --session-log    use this log instead of discovery (a .jsonl file, or a folder of them; repeat for several). The sub-agent logs
+                   next to each log (<session>/subagents/) are read too. Needed when the session was started outside the project
+                   folder and discovery cannot find it. Discovery stays the default.
+  rates file       prices per million tokens: --rates FILE, else <project>/.claude/progress-report-rates.txt when present, else
+                   the placeholder rates in the script. One line per model: glob input cache-write cache-read output.
+  context window   per model id from the WINDOWS table in the script (200k, or 1M for a 1M model); 1M is used when the log shows
+                   a context above 200k. Percentages never exceed 100.
   page name        REPORT_FILE in the script (--print-name prints it).""")
     ap.add_argument("project")
-    ap.add_argument("--out"); ap.add_argument("--toolkit"); ap.add_argument("--rates")
+    ap.add_argument("--out"); ap.add_argument("--toolkit")
+    ap.add_argument("--rates", help="rates file (glob input cache-write cache-read output per line); default <project>/.claude/progress-report-rates.txt if present, else placeholder rates")
     ap.add_argument("--fragment", help="HTML file with the plan tables and views A and B, embedded as the build detail")
     ap.add_argument("--plan-json", help="parsed build plan (build-plan-status.sh --json shape)")
     ap.add_argument("--plan-msg", default="")
     ap.add_argument("--logs-dir", help="folder holding the <slug>/ session log folders (default: <CLAUDE_CONFIG_DIR or ~/.claude>/projects)")
+    ap.add_argument("--session-log", action="append", default=[], metavar="PATH", help="session log to use instead of discovery: a .jsonl file or a folder of them; repeatable")
     ap.add_argument("--no-log", action="store_true", help="skip session log discovery")
     a = ap.parse_args()
     proj = os.path.abspath(os.path.expanduser(a.project))
@@ -1094,9 +1136,12 @@ def main_():
     manifest = load_manifest(tk, info["entry_mode"]); arts = collect_artifacts(proj, manifest)
     rf = a.rates or os.path.join(proj, ".claude", "progress-report-rates.txt")
     rates = load_rates(rf if os.path.isfile(rf) else None)
+    a.rates_used = rf if os.path.isfile(rf) else ""; a.rates_default = rf
     bp = load_build_plan(a.plan_json or os.path.join(proj, "architecture", "build-plan.json"), proj)
     a.fragment = read(a.fragment) if a.fragment else ""; a.plan_msg = a.plan_msg
-    sessions, base = ([], "") if a.no_log else find_sessions(proj, a.logs_dir)
+    if a.session_log and not a.no_log:
+        sessions, base = explicit_sessions(a.session_log), ""
+    else: sessions, base = ([], "") if a.no_log else find_sessions(proj, a.logs_dir)
     a.n_sessions = len(sessions); a.has_log = False; a.log_note = ""; a.sessions = sessions; a.logs_base = base
     main = {"msgs": [], "times": [], "compacts": [], "prompts": 0, "tools": [], "calls": []}; agents = []
     if sessions:

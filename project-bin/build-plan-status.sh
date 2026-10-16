@@ -34,6 +34,8 @@
 #               when a Claude Code session log exists (project-bin/progress-report.py), and the
 #               plan itself (phases, rows, claims from build-plan.md, see "P." below) followed
 #               by views A and B. An existing build-plan.html is left alone.
+#     --session-log PATH  use this Claude Code session log (a .jsonl file or a folder of them; repeatable) instead of
+#               discovery, for a session started outside the project folder. Passed to progress-report.py.
 #     --refresh the unattended form of --html, for exec.sh and gate-check.sh: quiet, writes only
 #               when build-plan.md exists, never over a progress-report.html this script did not
 #               write, and leaves the file untouched when nothing but the stamp lines would change
@@ -59,8 +61,12 @@ WRITE_JSON=0
 QUIET=0
 REFRESH=0
 OPEN=0
+SESSION_LOGS=()
+_want_log=0
 for a in "$@"; do
+  if [ "$_want_log" -eq 1 ]; then SESSION_LOGS+=("$a"); _want_log=0; continue; fi
   case "$a" in
+    --session-log) _want_log=1 ;;
     --html)  WRITE_HTML=1 ;;
     --open)  WRITE_HTML=1; OPEN=1 ;;
     --refresh) WRITE_HTML=1; REFRESH=1; QUIET=1 ;;
@@ -70,6 +76,7 @@ for a in "$@"; do
     *) if [ -z "$ROOT" ]; then ROOT="$a"; else echo "unexpected second path: $a (first was $ROOT)" >&2; exit 2; fi ;;
   esac
 done
+[ "$_want_log" -eq 0 ] || { echo "--session-log needs a path" >&2; exit 2; }
 [ -n "$ROOT" ] || ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 cd "$ROOT" || exit 0
@@ -688,6 +695,7 @@ if [ "$WRITE_HTML" -eq 1 ]; then
     } > "$FRAG_TMP"
     GEN_ARGS=(--out "$OUT_TMP" --fragment "$FRAG_TMP" --plan-msg "${PLAN_MSG:-}")
     [ -n "$PLAN_JSON" ] && GEN_ARGS+=(--plan-json "$PLAN_JSON")
+    for _sl in ${SESSION_LOGS[@]+"${SESSION_LOGS[@]}"}; do GEN_ARGS+=(--session-log "$_sl"); done
     if "$PY" "$GEN" "$ROOT" "${GEN_ARGS[@]}" >/dev/null 2>"$OUT.err.$$"; then
       # Two renders of the same state differ only in the stamp lines. A refresh that changed
       # nothing leaves the file alone, or every exec.sh run would dirty the working tree.
@@ -700,14 +708,16 @@ if [ "$WRITE_HTML" -eq 1 ]; then
       [ "$QUIET" -eq 0 ] && echo "" && echo "  wrote ${OUT#$ROOT/}"
     else
       rm -f "${OUT_TMP:?}"
-      [ "$QUIET" -eq 0 ] && echo "" && echo "  $REPORT_FILE not written: the generator failed: $(head -c 300 "$OUT.err.$$" 2>/dev/null)"
+      _why="$(tail -n 1 "$OUT.err.$$" 2>/dev/null | head -c 200)"
+      if [ "$QUIET" -eq 0 ]; then echo "" && echo "  $REPORT_FILE not written: the generator failed: $(head -c 300 "$OUT.err.$$" 2>/dev/null)"
+      else echo "WARN: $REPORT_FILE not updated, progress-report.py failed: ${_why:-no message}" >&2; fi   # unattended callers stay quiet on success, never on a crash
     fi
     rm -f "${FRAG_TMP:?}" "${OUT}.err.$$"
   fi
 fi
 
 # ── --open: show the page ────────────────────────────────────────────────────
-# macOS with Chrome running: reload the tab whose URL contains progress-report.html, never a new
+# macOS with Chrome running: reload the tab showing this project's report (its exact file:// URL), never a new
 # window when a tab exists. Otherwise open the file once. Anywhere else (Linux, Windows, no GUI)
 # it does nothing and says so. The setting gates the write above; this only needs the file.
 if [ "$OPEN" -eq 1 ]; then report_name; fi
@@ -715,10 +725,14 @@ if [ "$OPEN" -eq 1 ] && [ -f "$ROOT/architecture/$REPORT_FILE" ] && [ "$(progres
   if [ "$(uname -s)" = "Darwin" ]; then
     _res="none"
     if pgrep -x "Google Chrome" >/dev/null 2>&1; then  # portability-ok: --open is macOS-only by design (guarded by uname)
+      # Match this project's file URL exactly (file:// + absolute path, percent-encoded), never any tab that
+      # merely contains the page name: another project's report must not be reloaded in its place.
+      _url="file://$("${PY:-python3}" -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$ROOT/architecture/$REPORT_FILE" 2>/dev/null)"  # portability-ok: PY is resolve_py output
       _as='tell application "Google Chrome"
 repeat with w in windows
 repeat with t in tabs of w
-if URL of t contains "'"$REPORT_FILE"'" then
+set u to URL of t
+if u is "'"$_url"'" or u starts with "'"$_url"'#" or u starts with "'"$_url"'?" then
 reload t
 return "reloaded"
 end if

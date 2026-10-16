@@ -1928,7 +1928,8 @@ fi
 # stayed empty for the whole build). --refresh is quiet, writes only over a page that script
 # generated, and leaves the file alone when nothing but the timestamp would change.
 if [ -f "$(dirname "$0")/build-plan-status.sh" ]; then
-  bash "$(dirname "$0")/build-plan-status.sh" "$PROJECT_ROOT" --refresh >/dev/null 2>&1 || true
+  # A crashed generator leaves one visible WARN line (the script prints it on stderr); never a failed step.
+  { bash "$(dirname "$0")/build-plan-status.sh" "$PROJECT_ROOT" --refresh 2>&1 >/dev/null || true; } | grep -m1 '^WARN: ' || true
 fi
 
 # ── Watch compatibility (advisory) ───────────────────────────────────────────

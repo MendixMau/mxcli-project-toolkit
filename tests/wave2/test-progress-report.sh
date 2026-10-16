@@ -14,6 +14,12 @@
 #   T8  an existing architecture/build-plan.html is never deleted, and gate-check and status.sh
 #       do not fail because of it (checked on the surface lookup only, see the grep below).
 #   T9  the 30 s self-reload is present only while a build is active (recent activity).
+#   T10 a plain (non-workflow) sub-agent renders, context percentages never pass 100, window_for exists.
+#   T11 calm severity: red only for a key script failing every run (2 or more) or a hang over 30 min.
+#   T12 repeat-failure tip ignores cd and sleep; inherent waits (AskUserQuestion) are not slow steps.
+#   T13 context windows are 200k or 1M only; "window reached" only at 98% of the real window.
+#   T14 --session-log overrides discovery and is recorded in the footer; --help lists it and the rates file.
+#   T15 --open matches this project's exact file URL (osascript stubbed); a generator crash leaves one WARN.
 #
 # Usage: bash tests/wave2/test-progress-report.sh /path/to/build-plan-status.sh
 
@@ -57,6 +63,7 @@ mklog() {  # configdir projdir
 import json, sys, time, datetime, os
 CR = int(os.environ.get("CTX_CR", "20000")); MODEL = os.environ.get("CTX_MODEL", "claude-sonnet-5-5")
 out, cwd, base = sys.argv[1], sys.argv[2], float(sys.argv[3])
+HANG = int(os.environ.get("HANG_S", "700")); CALLS = json.loads(os.environ.get("CALLS_JSON", "null"))
 rows = []; n = [0]
 def iso(t): return datetime.datetime.fromtimestamp(t, datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 def asst(t, blocks, tin=100, cr=None):
@@ -68,20 +75,34 @@ def res(t, tid, text, err=False):
     rows.append({"type": "user", "timestamp": iso(t), "cwd": cwd, "uuid": "u%d" % n[0], "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": tid, "content": text, "is_error": err}]}})
 rows.append({"type": "user", "timestamp": iso(base), "cwd": cwd, "uuid": "u0", "message": {"role": "user", "content": "CANARY-PROMPT-TEXT please start"}})
 t = base + 5; i = 0
-def call(cmd, dur, err=False, text="ok"):
+def call(cmd, dur, err=False, text="ok", name="Bash"):
     global t, i
     i += 1; tid = "t%d" % i
-    asst(t, [{"type": "tool_use", "id": tid, "name": "Bash", "input": {"command": cmd}}])
+    asst(t, [{"type": "tool_use", "id": tid, "name": name, "input": ({"command": cmd} if name == "Bash" else {"questions": []})}])
     res(t + dur, tid, ("Exit code 1\nCANARY-RESULT-TEXT" if err else text), err); t += dur + 4
-for k in range(8): call("bash ./bin/doctor.sh", 3)
-call("bash ./exec.sh slice-1", 40)
-for k in range(6): call("bash ./bin/gate-check.sh . 2", 6, err=True)
-call("bash ./exec.sh slice-2", 45)
-call("bash ./bin/build-all.sh", 700)
-call("bash ./exec.sh slice-3", 50)
-for k in range(5): call("ls architecture", 1)
+if CALLS is not None:
+    for c_ in CALLS: call(c_[0], c_[1], bool(c_[2]))
+else:
+    for k in range(8): call("bash ./bin/doctor.sh", 3)
+    call("bash ./exec.sh slice-1", 40)
+    for k in range(6): call("bash ./bin/gate-check.sh . 2", 6, err=True)
+    call("bash ./exec.sh slice-2", 45)
+    call("bash ./bin/build-all.sh", HANG)
+    call("bash ./exec.sh slice-3", 50)
+    for k in range(5): call("ls architecture", 1)
+    for k in range(4): call("cd /tmp/no-such-dir", 1, err=True)
+    for k in range(3): call("sleep 1", 1, err=True)
+    for k in range(4): call("./bin/convert-data.py", 80)
+    call("", 420, name="AskUserQuestion")
 with open(out, "w") as f:
     for r in rows: f.write(json.dumps(r) + "\n")
+if CALLS is None:   # one ordinary sub-agent (not a workflow agent), with a context above 200k
+    sd = out[:-6] + "/subagents"; os.makedirs(sd, exist_ok=True)
+    rows = []; n[0] = 100
+    asst(base + 100, [{"type": "text", "text": "x"}], cr=230000); asst(base + 160, [{"type": "text", "text": "x"}], cr=235000)
+    with open(sd + "/agent-aaa.jsonl", "w") as f:
+        for r in rows: f.write(json.dumps(r) + "\n")
+    json.dump({"description": "Plain helper agent"}, open(sd + "/agent-aaa.meta.json", "w"))
 PYEOF
 }
 
@@ -100,18 +121,22 @@ CLAUDE_CONFIG_DIR="$CFG" bash "$SCRIPT" "$P2" --html >/dev/null 2>&1
 R2="$P2/architecture/progress-report.html"
 has "$R2" 'id=tips' "Tips and tricks section present"
 has "$R2" "Run health" "Run health strip present"
-has "$R2" ">Speed<\|<b>Speed</b>" "Speed panel present"
+has "$R2" "<b>Speed</b>" "Speed group present (it has a tip: convert-data.py is slow on every run)"
+has "$R2" "Slow on every run: convert-data.py" "slow non-toolkit script is a Speed tip"
+hasnt "$R2" "<li>AskUserQuestion" "an interview (AskUserQuestion) is not among the slowest calls"
+hasnt "$R2" "<b>Speed</b> <span class=muted>0" "no Speed 0"
 has "$R2" "Hanging or killed commands" "hanging process tip fires"
 has "$R2" "build-all.sh" "hanging tip names the script"
 has "$R2" "Failing tool on repeat: gate-check.sh 2" "repeat failure tip fires and names the script"
 has "$R2" "failed 6 of 6 runs" "repeat failure count is 6"
-has "$R2" "p-red" "health strip is red"
+has "$R2" "pill p-red" "health strip is red (gate-check fails on every run)"
 has "$R2" "gate-check 0/6 passing" "health strip counts gate-check runs"
 hasnt "$R2" "Waiting on the user" "an inherent tip (waiting on the user, 70% of this log) is never shown"
 hasnt "$R2" "Model mix" "an inherent tip (model mix) is never shown"
 [ "$(grep -o '<details class=grp' "$R2" | wc -l)" -ge 2 ] && ok "tip groups are details elements" || bad "tip groups are details elements"
 [ "$(grep -c '<details class=grp open' "$R2")" -eq 0 ] && ok "every group is collapsed by default" || bad "every group is collapsed by default"
 has "$R2" "<b>Health</b>" "Health group shown (it has tips)"
+hasnt "$R2" "<b>Sub-agents</b> <span class=muted>0" "no empty group printed with a count of 0"
 hasnt "$R2" "<b>Sub-agents</b>" "empty Sub-agents group hidden"
 hasnt "$R2" "<b>Context</b>" "empty Context group hidden (context well under the window)"
 grep -qw "RED" "$R2" && bad "the word RED is never printed" || ok "the word RED is never printed"
@@ -133,6 +158,98 @@ has "$R6" "<b>Context</b>" "Context group shown when average context is 180k or 
 P7="$WORK/p7"; mkproj "$P7"; CFG7="$WORK/cfg7"; CTX_MODEL=mystery-model CTX_CR=250000 mklog "$CFG7" "$P7" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))"
 CLAUDE_CONFIG_DIR="$CFG7" bash "$SCRIPT" "$P7" --html >/dev/null 2>&1
 has "$P7/architecture/progress-report.html" "window unknown" "a model missing from the table reads window unknown"
+
+echo "T10 plain sub-agent (window_for), percentages capped"
+has "$R2" "Plain helper agent" "plain sub-agent listed"
+has "$R2" "pill p-red" "page still rendered around it"
+grep -Eq '\((1[0-9][0-9]|[2-9][0-9][0-9])%\)|NameError' "$R2" && bad "no percentage over 100 in the sub-agent table" || ok "no percentage over 100 in the sub-agent table"
+"$PY" - "$ROOT/project-bin" <<'PYEOF' && ok "window_for caps and steps 200k to 1M" || bad "window_for caps and steps 200k to 1M"
+import sys, importlib.util
+sp = importlib.util.spec_from_file_location("pr", sys.argv[1] + "/progress-report.py"); m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m)
+assert m.window_for("claude-sonnet-5-5") == 200000 and m.window_for("claude-sonnet-5-5", 230000) == 1000000
+assert m.window_for("mystery") is None and m.window_for("claude-x", 5000000) is None
+assert m.ctx_pct(5000000, 200000) == 100.0 and m.ctx_pct(1, None) is None
+assert m.KNOWN_WINDOWS == (200000, 1000000) and sorted(w for _, w in m.WINDOWS) == [200000, 1000000]
+PYEOF
+
+echo "T11 calm severity"
+run_sev() {  # name calls_json
+  local d="$WORK/sev-$1" cfg="$WORK/cfg-$1"; mkproj "$d"
+  CALLS_JSON="$2" mklog "$cfg" "$d" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))"
+  CLAUDE_CONFIG_DIR="$cfg" bash "$SCRIPT" "$d" --html >/dev/null 2>&1
+  RP="$d/architecture/progress-report.html"
+}
+Q='["ls",1,0],["ls",1,0],["ls",1,0],["ls",1,0],["ls",1,0]'
+run_sev d12 '[["bash ./bin/doctor.sh",3,0],["bash ./bin/doctor.sh",3,1],'"$Q"']'
+has "$RP" "doctor 1/2 passing" "doctor 1 of 2 counted"
+has "$RP" "pill p-amber" "doctor failing 1 of 2 is amber"
+hasnt "$RP" "pill p-red" "doctor failing 1 of 2 is not red"
+hasnt "$RP" "Needs action" "no Needs action wording for amber"
+has "$RP" "Worth a look" "amber reads Worth a look"
+run_sev d22 '[["bash ./bin/doctor.sh",3,1],["bash ./bin/doctor.sh",3,1],'"$Q"']'
+has "$RP" "pill p-red" "a key script failing all 2 runs is red"
+has "$RP" "Needs action" "red reads Needs action"
+run_sev d11 '[["bash ./bin/doctor.sh",3,1],'"$Q"']'
+hasnt "$RP" "pill p-red" "a key script with a single failing run is not red"
+run_sev h400 '[["bash ./bin/build-all.sh",400,0],'"$Q"']'
+hasnt "$RP" "pill p-red\|pill p-amber" "a 400 s hang leaves the strip green"
+run_sev h700 '[["bash ./bin/build-all.sh",700,0],'"$Q"']'
+has "$RP" "pill p-amber" "a hang over 10 minutes is amber"
+hasnt "$RP" "pill p-red" "a 700 s hang is not red"
+run_sev h1900 '[["bash ./bin/build-all.sh",1900,0],'"$Q"']'
+has "$RP" "pill p-red" "a hang over 30 minutes is red"
+run_sev hmany '[["bash ./bin/build-all.sh",400,0],["bash ./bin/build-all.sh",400,0],["bash ./bin/build-all.sh",400,0],'"$Q"']'
+hasnt "$RP" "pill p-red" "three 400 s hangs are not red: duration counts, not count"
+
+echo "T12 repeat failures ignore builtins; interviews are not slow steps"
+hasnt "$R2" "cd x[0-9]" "cd is never a repeat-failure tip"
+hasnt "$R2" "sleep x[0-9]" "sleep is never a repeat-failure tip"
+has "$R2" "Failing tool on repeat: gate-check.sh 2" "the real failing script is still named"
+
+echo "T13 context windows"
+has "$R6" "1.00M window" "250k context uses the 1M window"
+hasnt "$R6" "500" "no invented 500k window"
+hasnt "$R6" "window was reached" "25 percent of 1M is not window reached"
+mkproj "$WORK/p13"; CTX_CR=199000 mklog "$WORK/cfg13" "$WORK/p13" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))"
+CLAUDE_CONFIG_DIR="$WORK/cfg13" bash "$SCRIPT" "$WORK/p13" --html >/dev/null 2>&1
+has "$WORK/p13/architecture/progress-report.html" "Context: the window was reached" "199k of 200k reads window reached"
+has "$WORK/p13/architecture/progress-report.html" "200.0k window, 100% avg\|200.0k window, 99% avg" "and the numbers say so"
+
+echo "T14 --session-log"
+P14="$WORK/p14"; mkproj "$P14"; mklog "$WORK/cfg14" "$P14" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))"
+LOGF="$(ls "$WORK"/cfg14/projects/*/s1.jsonl)"
+mkdir -p "$WORK/elsewhere"; cp "$LOGF" "$WORK/elsewhere/s9.jsonl"; cp -R "${LOGF%.jsonl}" "$WORK/elsewhere/s9"
+EMPTY14="$WORK/cfg14empty"; mkdir -p "$EMPTY14/projects"
+CLAUDE_CONFIG_DIR="$EMPTY14" bash "$SCRIPT" "$P14" --html >/dev/null 2>&1
+hasnt "$P14/architecture/progress-report.html" 'id=tips' "no log discovered without the option"
+CLAUDE_CONFIG_DIR="$EMPTY14" bash "$SCRIPT" "$P14" --html --session-log "$WORK/elsewhere/s9.jsonl" >/dev/null 2>&1
+has "$P14/architecture/progress-report.html" 'id=tips' "--session-log file is used"
+has "$P14/architecture/progress-report.html" "Plain helper agent" "its subagents folder is read too"
+has "$P14/architecture/progress-report.html" "elsewhere/s9.jsonl" "footer names the chosen log"
+has "$P14/architecture/progress-report.html" "chosen with --session-log" "footer says it was chosen"
+has "$P14/architecture/progress-report.html" "Rates file:" "footer names the rates file"
+CLAUDE_CONFIG_DIR="$EMPTY14" bash "$SCRIPT" "$P14" --html --session-log "$WORK/elsewhere" >/dev/null 2>&1
+has "$P14/architecture/progress-report.html" 'id=tips' "--session-log folder is used"
+HELP="$("$PY" "$ROOT/project-bin/progress-report.py" --help 2>&1)"
+printf '%s' "$HELP" | grep -q -- "--session-log" && ok "--help lists --session-log" || bad "--help lists --session-log"
+printf '%s' "$HELP" | grep -q "progress-report-rates.txt" && ok "--help lists the rates file path" || bad "--help lists the rates file path"
+
+echo "T15 --open exact URL; a crash leaves a WARN"
+P15="$WORK/p15 with space"; mkproj "$P15"; STUB="$WORK/stub"; mkdir -p "$STUB"
+printf '#!/bin/sh\ncat > "%s/osa.txt" <<EOF2\n$2\nEOF2\necho none\n' "$WORK" > "$STUB/osascript"  # portability-ok: macOS stubs for the --open test
+printf '#!/bin/sh\necho Darwin\n' > "$STUB/uname"; printf '#!/bin/sh\nexit 0\n' > "$STUB/pgrep"; printf '#!/bin/sh\necho "$@" > "%s/open.txt"\n' "$WORK" > "$STUB/open"  # portability-ok: macOS stubs for the --open test
+chmod +x "$STUB"/*
+PATH="$STUB:$PATH" CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P15" --open >/dev/null 2>&1
+ABS="$(cd "$P15" && pwd -P)/architecture/progress-report.html"
+has "$WORK/osa.txt" "file://.*p15%20with%20space/architecture/progress-report.html" "AppleScript matches this project's percent-encoded file URL"
+hasnt "$WORK/osa.txt" "contains" "AppleScript no longer matches any tab that merely contains the name"
+has "$WORK/open.txt" "progress-report.html" "no matching tab: the file is opened once"
+# a crash: unattended refresh prints one WARN and still exits 0
+P16="$WORK/p16"; mkproj "$P16"; CRASH="$WORK/crash"; mkdir -p "$CRASH"
+cp "$ROOT/project-bin/build-plan-status.sh" "$CRASH/"; printf 'raise SystemExit("boom")\n' > "$CRASH/progress-report.py"
+OUTW="$(CLAUDE_CONFIG_DIR="$EMPTY" bash "$CRASH/build-plan-status.sh" "$P16" --refresh 2>&1 >/dev/null)"; RC=$?
+[ "$RC" -eq 0 ] && ok "a generator crash does not fail the step" || bad "a generator crash does not fail the step"
+printf '%s' "$OUTW" | grep -q "^WARN: progress-report.html not updated" && [ "$(printf '%s\n' "$OUTW" | wc -l)" -eq 1 ] && ok "one visible WARN line" || bad "one visible WARN line ($OUTW)"
 
 echo "T6d footer records the inputs; title"
 has "$R2" "<b>Inputs.</b> Project folder" "footer names the project folder"

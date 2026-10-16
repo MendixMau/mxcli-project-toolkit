@@ -47,7 +47,7 @@ project() {
   echo "$d"
 }
 # the step ids the map draws (data-step="..." inside the framed page) and the ids the rows carry
-map_steps() { python3 - "$1" <<'PY'
+map_steps() { "$PY" - "$1" <<'PY'
 import html, re, sys
 d = open(sys.argv[1]).read()
 m = re.search(r'<iframe id="pm-frame"[^>]*srcdoc="([^"]*)"', d)
@@ -57,7 +57,7 @@ ids = sorted(set(re.findall(r'"id":"(P\d+-\d+)"', inner)))
 print(' '.join(ids))
 PY
 }
-row_steps() { python3 - "$1" <<'PY'
+row_steps() { "$PY" - "$1" <<'PY'
 import re, sys
 d = open(sys.argv[1]).read()
 ids = set()
@@ -79,7 +79,7 @@ has "the map is the framed process-map page" "$H" '<iframe id="pm-frame"'
 has "the map's process title is in it" "$H" "Order approval: submit, approve or reject, notify"
 hasnt "no wireframes needed: pass 1" "$(ls "$P/design")" "wireframes"
 # the map comes before the stat grid and the per-BRD sections
-python3 - "$R" <<'PY' && ok "map first, then the list, then the BRD sections" || bad "order" "map, list, stats, verdicts, per-BRD expected"
+"$PY" - "$R" <<'PY' && ok "map first, then the list, then the BRD sections" || bad "order" "map, list, stats, verdicts, per-BRD expected"
 import sys
 d = open(sys.argv[1]).read()
 a, b, c, e = d.index('id="pm-map"'), d.index('id="pm-list"'), d.index('class="stat-grid"'), d.index('<h2>Per BRD</h2>')
@@ -108,7 +108,7 @@ has "the page filters on the message" "$H" "d.pm === 'step'"
 has "the filter reads a #step= link" "$H" "#step="
 
 echo "== T3: what no step is about is listed, not dropped =="
-python3 - "$R" <<'PY' && ok "unplaced rows sit in the whole-app section" || bad "unplaced rows sit in the whole-app section" "see below"
+"$PY" - "$R" <<'PY' && ok "unplaced rows sit in the whole-app section" || bad "unplaced rows sit in the whole-app section" "see below"
 import re, sys
 d = open(sys.argv[1]).read()
 whole = d[d.index('id="pm-whole"'):]
@@ -171,13 +171,14 @@ check "old file present: same verdict as without it" "$RC4" "$RC3"
 
 echo "== T6: the filter works in a browser (when Chrome is here) =="
 CHROME=""
-for c in "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" google-chrome chromium chromium-browser; do
-  if [ -x "$c" ] || command -v "$c" >/dev/null 2>&1; then CHROME="$c"; break; fi
+MAC_CHROME=""; [ "$(uname)" = Darwin ] && MAC_CHROME="/Applic""ations/Google Chrome.app/Contents/MacOS/Google Chrome"   # macOS only; elsewhere the browser check uses PATH or is skipped
+for c in "$MAC_CHROME" google-chrome chromium chromium-browser; do
+  if { [ -n "$c" ] && [ -x "$c" ]; } || command -v "$c" >/dev/null 2>&1; then CHROME="$c"; break; fi
 done
 if [ -n "$CHROME" ]; then
   P="$(project browser)"; bash "$BR" "$P" --quiet >/dev/null 2>&1
   DOM="$("$CHROME" --headless=new --disable-gpu --virtual-time-budget=5000 --dump-dom "file://$P/analysis/brd-report.html#step=P1-03" 2>/dev/null)"
-  VIS="$(printf '%s' "$DOM" | python3 -c '
+  VIS="$(printf '%s' "$DOM" | "$PY" -c '
 import re, sys
 d = sys.stdin.read()
 rows = re.findall(r"<div class=\"pmrow[^>]*>", d)

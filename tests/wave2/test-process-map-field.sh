@@ -6,6 +6,9 @@ set -u
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
 PM="$TOOLKIT/project-bin/process-map.js"
 FIX="$TOOLKIT/tests/wave2/fixtures/process-map"
+# shellcheck disable=SC1091
+. "$TOOLKIT/bin/lib/portable.sh"
+require_py
 command -v node >/dev/null 2>&1 || { echo "SKIP: node not on PATH"; exit 0; }
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ok   $1"; }
@@ -22,7 +25,7 @@ node "$PM" anchor --project "$P" >/dev/null 2>&1
 mkdir -p "$P/design/prototype"
 cp "$P/design/question-anchors.json" "$P/design/prototype/anchors-old.json"
 rm "$P/design/question-anchors.json"
-python3 - "$P/design/process-model.json" <<'PY'
+"$PY" - "$P/design/process-model.json" <<'PY'
 import json,sys
 p=sys.argv[1]; m=json.load(open(p)); m['anchors']='design/prototype/anchors-old.json'; json.dump(m,open(p,'w'),indent=2)
 PY
@@ -45,7 +48,7 @@ has "anchor says when there was no previous file" "$(node "$PM" anchor --project
 
 echo "== long process: warning above 12 steps, canvas holds the loop-back edge =="
 L="$TMP/long"; mkdir -p "$L/design" "$L/brd"
-python3 - "$L" <<'PY'
+"$PY" - "$L" <<'PY'
 import json,sys
 L=sys.argv[1]
 steps=[]
@@ -68,8 +71,8 @@ has "board keeps room for the loop-back" "$(cat "$L/design/process-map.html")" "
 echo "== existing-app layout: BRD in analysis/knowledge-base/brd, PAGE-MAP.tsv, no data-mx-page =="
 E="$TMP/exist"; rm -rf "$E"; mkdir -p "$E/analysis/knowledge-base/brd" "$E/design/wireframes"
 cp "$FIX"/brd/*.brd.json "$E/analysis/knowledge-base/brd/" 2>/dev/null || cp "$FIX"/*/brd/*.brd.json "$E/analysis/knowledge-base/brd/" 2>/dev/null || cp "$(find "$FIX" -name '*.brd.json' | head -1)" "$E/analysis/knowledge-base/brd/"
-BRDID=$(python3 -c "import json,glob;print(json.load(open(glob.glob('$E/analysis/knowledge-base/brd/*.json')[0]))['id'])")
-UC=$(python3 -c "import json,glob;print(json.load(open(glob.glob('$E/analysis/knowledge-base/brd/*.json')[0]))['useCases'][0]['id'])")
+BRDID=$("$PY" -c "import json,glob;print(json.load(open(glob.glob('$E/analysis/knowledge-base/brd/*.json')[0]))['id'])")
+UC=$("$PY" -c "import json,glob;print(json.load(open(glob.glob('$E/analysis/knowledge-base/brd/*.json')[0]))['useCases'][0]['id'])")
 cat > "$E/design/wireframes/order-list-v2.html" <<'H'
 <html><body><h1>Orders</h1></body></html>
 H
@@ -77,7 +80,7 @@ cat > "$E/design/wireframes/index.html" <<'H'
 <html><body><h1>Index</h1></body></html>
 H
 printf 'Order_Overview\torder-list-v2.html\n' > "$E/design/wireframes/PAGE-MAP.tsv"
-STAND=$(python3 -c "import json,glob;d=json.load(open(glob.glob('$E/analysis/knowledge-base/brd/*.json')[0]));print(json.dumps([{'useCase':'%s:%s'%(d['id'],u['id']),'reason':'n/a'} for u in d['useCases'][1:]]))")
+STAND=$("$PY" -c "import json,glob;d=json.load(open(glob.glob('$E/analysis/knowledge-base/brd/*.json')[0]));print(json.dumps([{'useCase':'%s:%s'%(d['id'],u['id']),'reason':'n/a'} for u in d['useCases'][1:]]))")
 cat > "$E/design/process-model.json" <<J
 {"schema":"process-model/1","app":"Demo","lanes":[{"id":"r","label":"R","kind":"role"}],
  "ignorePages":["index"],
@@ -101,7 +104,7 @@ V=$(node "$PM" validate --project "$TMP/nobrd" 2>&1)
 has "no BRD at all lists the folders searched" "$V" "analysis/knowledge-base/brd"
 
 echo "== validate: one cause line when most errors share it =="
-python3 - "$TMP/nobrd/design/process-model.json" <<'PY'
+"$PY" - "$TMP/nobrd/design/process-model.json" <<'PY'
 import json,sys
 p=sys.argv[1]; m=json.load(open(p))
 st=m['processes'][0]['steps']

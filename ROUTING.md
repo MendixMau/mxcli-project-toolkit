@@ -264,6 +264,7 @@ picks the row up. That is the whole procedure — there is no second list to rem
 | A runtime test or seed reads/writes data that then is not there (the test wrote a row, the DB query shows nothing), or vice versa — three local Postgres instances can answer on this box; resolve the real port from the project's own compose file first | `skills/learned-local-db-confusion.md` | mdl,test,gate | 5,6 | ondemand |
 | gate-check.sh reports a Stage 0 file not found that plainly exists — ANALYSIS_BASE falls back to project root until Stage 1; move the file, do not debug the script | `skills/gate-check-file-locations.md` | ba,gate | 0 | ondemand |
 | A CE error (mx check or mxbuild: CE0066, CE0117…), a cited BUG-n, or behavior that looks like a known mxcli quirk rather than a modeling mistake — `bin/bug-lookup.sh CE0117` / `BUG-102` / "keyword" / the whole pasted error message (ranked top 3) prints the matching ledger entries, so the session reads one entry, not the whole ledger | `bin/bug-lookup.sh` | mdl,gate | 5,6 | baseline |
+| You hit, or worked around, a bug in mxcli or the toolkit — `bin/file-bugs.sh --add --target mxcli\|toolkit --title T --repro R --expected E --actual A` appends a row to docs/bugs.jsonl; later the same script redacts, shows duplicates, files after a y/N (`--file BUG-NN`), or prints new-issue links (`--links`, `--json`) | `bin/file-bugs.sh` | mdl,gate | 5,6 | baseline |
 
 #### Reference — lookup tables, not method
 

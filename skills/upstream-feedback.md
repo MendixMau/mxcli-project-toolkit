@@ -2,15 +2,16 @@
 
 **Applies to:** any mxcli project — migration, requirements-driven, and greenfield alike.
 
-**Purpose:** Route a finding worth sending upstream — an mxcli command that lied, a gate that
-let a defect through, a runbook stage that was missing a step — to the right repo and the right
-vehicle, in a form that may actually be posted. Answers one question: **which repo, which
+**Purpose:** Route a finding worth sending upstream (an mxcli command that lied, a gate that
+let a defect through, a runbook stage missing a step) to the right repo and vehicle, in a form that may be posted. Answers one question: **which repo, which
 vehicle, and what may be posted.**
 
 **Companions:** `bug-submission-checklist.md` (the full evidence bar for an mxcli defect — this
 file routes, that one proves), `close-the-loop.md` (local filing; this is the upstream half),
 `tool-output-is-not-ground-truth.md` (verify before you file), `CONTRIBUTING.md` (lanes and
 the no-client-data rule that CI enforces).
+
+**Bug log.** On hitting or working around a tool bug, append a row: `bin/file-bugs.sh --add ...` (`docs/bugs.jsonl`). It files later, redacted, `--links` or y/N per bug.
 
 ---
 
@@ -31,9 +32,7 @@ write or check (a model element it cannot create, a batch it applies out of orde
 reads an unsaved model) is neither an mxcli defect nor a toolkit one — the test above answers
 "no" for mxcli and "yes, still wrong without the toolkit". Do not file it in either repo and do
 not paper over it with a toolkit rule; draft it locally (§4 shape, §5 scrub) for the person to
-pass to that server's owners, and note the draft's path in `PROJECT.md`. Failure it prevents: a
-2026-09-29 field comparison logged its MCP asks only in a toolkit inbox note, where no MCP owner
-would read them. The asks from that run, with what was measured:
+pass to that server's owners, and note the draft's path in `PROJECT.md`. (2026-09-29: asks sat in a toolkit inbox note.) Asks, as measured:
 
 | Ask | Evidence from the run |
 |---|---|

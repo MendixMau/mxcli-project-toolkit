@@ -52,16 +52,36 @@ const scroll = (t, ms = 800) => ({t: T0 + t + ms, t0: T0 + t, t1: T0 + t + ms, k
 { const {shots: [s]} = P.shots(meta(30000), [focus(5000), {t: T0 + 5100, kind: 'hold', until: T0 + 12000}]);
   ok('hold extends to the end of the narration line', s && s.c >= 12000, s); }
 
+{ const {shots: [s]} = P.shots(meta(30000), [{t: T0 + 4000, kind: 'hold', until: T0 + 14000}, focus(5000)]);
+  ok('a line already playing when the shot starts holds it to the line end', s && s.c >= 14000, s); }
+
 // 7. cuts: time after a cut shifts left, a note inside a cut is ignored
 { const m = meta(30000, [[T0 + 2000, T0 + 12000]]);
   const r = P.shots(m, [focus(1000 + 0), focus(5000), focus(15000)]);
   ok('note inside a cut ignored, later note shifted by the cut', r.shots.some(s => s.a === 15000 - 10000 - 400) && r.len === 20000, r); }
 
 // 8. a kept bottom band: the framed region sits in the visible area above it
-{ const low = {x: 300, y: 800, width: 400, height: 120};
+{ const low = {x: 760, y: 700, width: 400, height: 120};
   const {shots: [s]} = P.shots(meta(20000), [focus(5000, low)], {keepBottom: 120});
   const visBottom = s && s.rect.y + s.rect.h * (V.height - 120) / V.height;
   ok('zoomed region stays above the kept band', s && visBottom <= V.height - 120 + 0.01 && visBottom >= low.y + low.height, {s, visBottom}); }
+
+// 10. framing: the element itself, centred, with ~8% padding on every side
+{ const box = {x: 700, y: 400, width: 500, height: 200};
+  const {shots: [s]} = P.shots(meta(20000), [focus(5000, box)]);
+  const pad = Math.min(box.x - s.rect.x, s.rect.x + s.rect.w - box.x - box.width, box.y - s.rect.y, s.rect.y + s.rect.h - box.y - box.height);
+  ok('framed element sits inside the rect with at least 8% padding', s && pad >= 0.08 * box.height - 0.01, {s, pad});
+  ok('framed element is centred (u, v within 0.5 +- 0.2)', s && Math.abs(s.u - .5) <= .2 && Math.abs(s.v - .5) <= .2, s); }
+
+// 11. a target hugging a frame edge cannot be centred, so it gets no zoom
+{ const edge = {x: 1456, y: 327, width: 400, height: 170};
+  const r = P.shots(meta(20000), [focus(5000, edge)]);
+  ok('edge target is skipped, not zoomed off-centre', r.shots.length === 0 && /frame edge/.test((r.skipped[0] || {}).why), r); }
+
+// 12. a target cut by the frame edge is clipped and never zoomed past zoomMin
+{ const cut = {x: 600, y: -60, width: 700, height: 600};
+  const {shots: [s]} = P.shots(meta(20000), [focus(5000, cut)]);
+  ok('half-cut target zooms at most zoomMin', s && s.z <= P.KNOBS.zoomMin, s); }
 
 // 9. camera(): full frame outside shots, the shot rect while holding, eased in between
 { const {shots} = P.shots(meta(20000), [focus(5000)]), s = shots[0];

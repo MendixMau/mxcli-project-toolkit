@@ -10,6 +10,7 @@
 //   await polish.scrollTo(page, locator);            // eased, on the real scroll container
 //   await polish.click(page, locator, {zoom: cardLocator});        // glide, pause, ripple, click; camera note
 //   await polish.focus(page, denseCard);             // camera note without a click
+//   await polish.park(page, {near: nextTarget});     // rest the cursor beside the next target, off the content
 //   await rec.stop();                                // writes frames.json + events.json
 //   await polish.render('take/', 'take.mp4', {fps:60}); // composite: eased push-in/hold/zoom-out, sub-pixel
 //   polish.assemble('take/', 'flat.mp4');            // same frames, no camera (fast, ffmpeg only)
@@ -32,12 +33,15 @@ const KNOBS = {
   cursorPx: 30,                 // arrow height at 1080p
   moveMs: [500, 900],           // per cursor move, scaled by distance
   preClickMs: [150, 250],       // settle on the target before pressing
-  ripplePx: 55, rippleMs: 400,  // 0 -> 55 px, ease-out, opacity .6 -> 0
+  ripplePx: 60, rippleMs: 450,  // 0 -> 60 px, ease-out; opacity held near .9 to half-way, then 0
   rippleColor: 'rgba(17,24,39,.95)', rippleFill: 'rgba(17,24,39,.18)',  // dark ring, white halo (in the overlay)
   scrollMs: px => clamp(400 + 0.5 * px, 600, 1400),
   afterScrollMs: [400, 600],
   zoomMax: 1.75, zoomMin: 1.25, // never past 1.75; a region that only earns < 1.25 gets no zoom at all
-  zoomMarginPx: 48,             // breathing room around the framed region (CSS px)
+  zoomPad: .08,                 // padding around the framed element, as a share of its size per side
+  centreBand: .2,               // the target's centre must land within 0.5 +- this of the zoomed frame, or no zoom
+  parkInsetPx: 32,              // between actions the cursor rests this far in from the side edge, never mid-content
+  parkMs: 800, parkAfterMs: 450,
   leadMs: 400,                  // push-in starts this long before the click
   inMs: 700, holdMs: 2000, outMs: 800,
   mergeMs: 2500,                // camera notes closer than this share one shot
@@ -62,8 +66,8 @@ const OVERLAY = `(()=>{if(window.__dp)return;const K=${JSON.stringify({c: KNOBS.
    place(m*m*m*x0+3*m*m*t*p1.x+3*m*t*t*p2.x+t*t*t*x,m*m*m*y0+3*m*m*t*p1.y+3*m*t*t*p2.y+t*t*t*y);if(u>=1)break;}}
  function ripple(x,y){const r=document.createElement('div');
   // dark ring + white halo: visible on light and dark UI, and never the same colour as a page's own highlight
-  r.style.cssText='position:fixed;left:'+x+'px;top:'+y+'px;width:'+K.r+'px;height:'+K.r+'px;margin:-'+K.r/2+'px 0 0 -'+K.r/2+'px;border-radius:50%;border:4px solid '+K.rc+';box-shadow:0 0 0 2px rgba(255,255,255,.9),inset 0 0 0 2px rgba(255,255,255,.9);background:'+K.rf+';z-index:2147483646;pointer-events:none';
-  document.body.append(r);r.animate([{transform:'scale(0.15)',opacity:.6},{transform:'scale(.75)',opacity:.45,offset:.55},{transform:'scale(1)',opacity:0}],{duration:K.rm,easing:'cubic-bezier(.22,.61,.36,1)',fill:'forwards'}).onfinish=()=>r.remove();}
+  r.style.cssText='position:fixed;left:'+x+'px;top:'+y+'px;width:'+K.r+'px;height:'+K.r+'px;margin:-'+K.r/2+'px 0 0 -'+K.r/2+'px;border-radius:50%;border:4px solid '+K.rc+';box-shadow:0 0 0 3px rgba(255,255,255,.95),inset 0 0 0 2px rgba(255,255,255,.9);background:'+K.rf+';z-index:2147483646;pointer-events:none';
+  document.body.append(r);r.animate([{transform:'scale(0.1)',opacity:.95},{transform:'scale(.7)',opacity:.85,offset:.5},{transform:'scale(1)',opacity:0}],{duration:K.rm,easing:'cubic-bezier(.22,.61,.36,1)',fill:'forwards'}).onfinish=()=>r.remove();}
  const scroller=el=>{for(let n=el.parentElement;n;n=n.parentElement){const s=getComputedStyle(n);if(/(auto|scroll)/.test(s.overflowY)&&n.scrollHeight>n.clientHeight+1)return n;}return document.scrollingElement;};
  // Eased scroll of the element's real scroll container; returns how far it went so the caller can time the wait.
  async function scroll(el,block,msFor){if(getComputedStyle(el).display==='contents'&&el.firstElementChild)el=el.firstElementChild;
@@ -83,7 +87,7 @@ const st = page => page.__dp || (page.__dp = {x: null, y: null, rec: null});
 async function ready(page) {
   await page.evaluate(OVERLAY);
   const s = st(page);
-  if (s.x == null) { const v = page.viewportSize(); s.x = v.width * .62; s.y = v.height * .58; }
+  if (s.x == null) { const v = page.viewportSize(); s.x = KNOBS.parkInsetPx; s.y = v.height * .5; }   // rest at the side, not on content
   await page.evaluate(([x, y]) => { window.__dp.ensure(); window.__dp.place(x, y); }, [s.x, s.y]);
 }
 // Tell the scroller about a fixed band at the bottom (a caption strip) so "center" means the visible area.
@@ -99,6 +103,16 @@ async function moveTo(page, x, y, o = {}) {
   const [a, b] = o.moveMs || KNOBS.moveMs, ms = o.ms || clamp(a + d * .45, a, b);
   await page.evaluate(([x, y, ms]) => window.__dp.move(x, y, ms), [x, y, ms]);
   s.x = x; s.y = y; await page.mouse.move(x, y);   // the real pointer lands too, so hover states are true
+}
+
+// Park the cursor between actions: beside o.near (a Locator: just left of it, or right when it hugs the left edge),
+// else in the nearest side gutter at the current height. Never left resting on the content the viewer is reading.
+async function park(page, o = {}) {
+  await ready(page); const s = st(page), V = page.viewportSize(), k = KNOBS.parkInsetPx;
+  let x = s.x < V.width / 2 ? k : V.width - k, y = clamp(s.y, V.height * .12, V.height * .85);
+  if (o.near) { const b = await boxOf(o.near.first ? o.near.first() : o.near).catch(() => null);
+    if (b) { x = b.x > 3 * k ? b.x - k : b.x + b.width + k; y = clamp(b.y + b.height / 2, V.height * .12, V.height * .85); } }
+  await moveTo(page, x, y, {ms: o.ms || KNOBS.parkMs});
 }
 
 async function scrollTo(page, loc, o = {}) {
@@ -126,6 +140,7 @@ async function click(page, loc, o = {}) {
   else if (o.zoom) { const z = o.zoom.first ? o.zoom.first() : o.zoom;
     if (await z.waitFor({state: 'visible', timeout: o.zoomWait || 5000}).then(() => true, () => false)) { await nap(300); zb = await boxOf(z); } }
   const r = st(page).rec; if (r) r.events.push({t: tClick, kind: 'click', bbox: b, x, y, t0, zoom: zb || undefined});
+  if (o.park !== false) { await nap(KNOBS.parkAfterMs); await park(page, {near: o.parkNear}); }
 }
 
 async function focus(page, loc, o = {}) {
@@ -192,9 +207,12 @@ function mapper(meta) {
 function shots(meta, events, k = {}) {
   k = {...KNOBS, ...k}; const {toOut, len} = mapper(meta), V = meta.viewport, kb = k.keepBottom || 0, vis = (V.height - kb) / V.height;
   // with a kept bottom band only the area above it shows the zoomed picture, so frame inside that area
-  const fit = b => Math.min(V.width / (b.width + 2 * k.zoomMarginPx), (V.height - kb) / (b.height + 2 * k.zoomMarginPx));
-  const union = (a, b) => { const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y); return {x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y}; };
-  const notes = events.filter(e => e.zoom).map(e => ({t: toOut(e.t), box: e.zoom, until: e.until && toOut(e.until)})).filter(e => e.t != null).sort((a, b) => a.t - b.t);
+  const P = 1 + 2 * k.zoomPad, fit = b => Math.min(V.width / (b.width * P), (V.height - kb) / (b.height * P));
+  // A target partly outside the frame is clipped to what is visible and never zoomed past zoomMin.
+  const clip = b => { const x = Math.max(0, b.x), y = Math.max(0, b.y), r = Math.min(V.width, b.x + b.width), btm = Math.min(V.height - kb, b.y + b.height);
+    return {x, y, width: Math.max(0, r - x), height: Math.max(0, btm - y), cut: r - x < b.width - 4 || btm - y < b.height - 4}; };
+  const union = (a, b) => { const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y); return {x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y, cut: a.cut || b.cut}; };
+  const notes = events.filter(e => e.zoom).map(e => ({t: toOut(e.t), box: clip(e.zoom), until: e.until && toOut(e.until)})).filter(e => e.t != null).sort((a, b) => a.t - b.t);
   // Boundaries: the camera must be back at 1x before the page scrolls or the cursor sets off for an unzoomed click,
   // or the hold frames a region the content has already left.
   const bounds = events.filter(e => (e.kind === 'scroll' && e.px > 40) || (e.kind === 'click' && !e.zoom)).map(e => ({t: toOut(e.t0 || e.t), end: toOut(e.t1 || e.t)})).filter(e => e.t != null).sort((a, b) => a.t - b.t);
@@ -208,17 +226,22 @@ function shots(meta, events, k = {}) {
   }
   let prevEnd = 0; const res = [];
   for (const s of out) {
-    const z = clamp(fit(s.box), k.zoomMin, k.zoomMax), cx = s.box.x + s.box.width / 2, cy = s.box.y + s.box.height / 2;
+    const z = clamp(fit(s.box), k.zoomMin, s.box.cut ? k.zoomMin : k.zoomMax), cx = s.box.x + s.box.width / 2, cy = s.box.y + s.box.height / 2;
     const w = V.width / z, h = V.height / z, rect = {x: clamp(cx - w / 2, 0, V.width - w), y: clamp(cy - h * vis / 2, 0, V.height - kb - h * vis), w, h};
+    // Centred or nothing: near a frame edge the camera rect clamps and the target slides off-centre. A lower zoom only
+    // widens the rect and makes that worse, so a target that cannot sit near the middle is not zoomed at all.
+    const u = (cx - rect.x) / w, v = (cy - rect.y) / (h * vis);
+    if (Math.abs(u - .5) > k.centreBand || Math.abs(v - .5) > k.centreBand) { skipped.push({t: s.firstT, why: 'target at the frame edge: cannot be centred', u: +u.toFixed(2), v: +v.toFixed(2)}); continue; }
     const prevB = bounds.filter(x => x.end <= s.firstT).pop(), nextB = bounds.find(x => x.t > s.lastT);
     let a = Math.max(prevEnd, prevB ? prevB.end : 0, s.firstT - k.leadMs), b = a + k.inMs;
     let hold = Math.max(s.lastT + k.holdMs, b + k.holdMs, s.until || 0);
-    for (const h of holds) if (h.t >= a && h.t <= hold) hold = Math.max(hold, h.until);
+    // a narration line that is playing when the shot starts (or starts during it) keeps the shot until it ends
+    for (const h of holds) if (h.t <= hold && h.until >= s.firstT) hold = Math.max(hold, h.until);
     const limit = Math.min(len, nextB ? nextB.t : len);
     let c = hold, d = c + k.outMs;
     if (d > limit) { d = limit; c = d - k.outMs; }
     if (c - b < k.minHoldMs) { skipped.push({t: s.firstT, why: nextB && nextB.t < len ? 'next scroll or move comes too soon to hold' : 'no room to zoom out before the end', holdMs: Math.round(c - b)}); continue; }
-    res.push({z: +z.toFixed(3), rect, a, b, c, d}); prevEnd = d;
+    res.push({z: +z.toFixed(3), rect, a, b, c, d, u: +u.toFixed(2), v: +v.toFixed(2)}); prevEnd = d;
   }
   return {shots: res, skipped, len};
 }
@@ -301,7 +324,7 @@ function sourceStats(dir) {
   return {frames: ts.length, captureFps: +meta.captureFps.toFixed(1), gapMsP50: q(.5), gapMsP90: q(.9), gapMsMax: q(1), clockSkewMs: meta.clockSkewMs};
 }
 
-module.exports = {KNOBS, launchArgs, prepare, ready, bottomPad, moveTo, scrollTo, click, focus, holdUntil, startCapture, assemble, render, shots, camera, sourceStats};
+module.exports = {KNOBS, launchArgs, prepare, ready, bottomPad, moveTo, park, scrollTo, click, focus, holdUntil, startCapture, assemble, render, shots, camera, sourceStats};
 
 // CLI: node demo-polish.js render <takeDir> <out.mp4> [--keep-bottom 120]   |   assemble <takeDir> <out.mp4>   |   stats <takeDir>
 if (require.main === module) {

@@ -13,6 +13,9 @@ Pull from `.mx-brd.json` files and source KB screens:
 - Key user flows (group screens by journey: auth, main feature, settings, etc.)
 - Source layout patterns detected (sidebar, top nav, card grid, list-detail, modal forms)
 - Any screens with no direct Atlas widget equivalent (flag these specifically)
+- When `design/process-board.html` exists (`process-board.md`): walk the open questions and ASSUMED
+  decisions on the board, step by step, instead of as a flat list; a reviewer answers a question
+  better when they see the screen and the moment it changes
 
 ## What's Next
 

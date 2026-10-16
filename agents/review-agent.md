@@ -64,6 +64,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/app-analysis.md` | Building or refreshing the standing dossier of an EXISTING app before changing it: inventory, module dependency shape, loop risk patterns, each section with a verdict and a fault where nothing was measured (a standing document; nothing else in the toolkit reads it yet) |
 | `skills/module-dependency-review.md` | Judging module tangles, bidirectional pairs, cohesion and hubs from analysis/app-facts/dependencies.json; stock graph_module_* views split names on the first dot and are not trusted |
 | `skills/microflow-loop-antipatterns.md` | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop |
+| `skills/process-board.md` | After the wireframes, when a reviewer cannot tell where the open questions and ASSUMED decisions fit: one swimlane board per process, each step on its wireframe, every question pinned to a step (project-bin/process-board.js validate, anchor, build) |
 | `project-bin/conformance-check.sh` | Running the ledger rung alone |
 | `project-bin/graph-sweep.sh` | Running the wiring rung alone |
 | `skills/fixture-seeding.md` | Seed data, test data, demo data or fixtures are needed, or pages come up empty |

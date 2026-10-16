@@ -570,6 +570,90 @@ find_java_exe() {
 }
 
 # ---------------------------------------------------------------------------
+# Watcher pause and infra retry around the exec gate's mxbuild.
+#
+# Field (a migration project, 12 modules, 2026-10-16/17): the gate's mxbuild and a live
+# `mxcli run --local --watch` on the SAME project both write deployment/. One of the two dies
+# part-way ("Directory not empty: .../deployment/web", mxbuild exit 1 or 3, no errors file):
+# 17 of 27 failed gates, against 0 of 22 gates run in watcher-free copies of the same project.
+#
+# Chosen fix: pause the watcher for the length of the gate (SIGSTOP, then SIGCONT). mxbuild
+# has no option that moves the deploy target's output out of <project>/deployment, so a
+# separate output dir is not available; a pause needs no mxbuild support and no change to the
+# watcher. Only the watcher process itself is stopped. Its runtime keeps serving, and a rebuild
+# the watcher already started before the pause can still collide, which is what the retry below
+# is for. exec.sh resumes the watcher in its EXIT trap too, so an interrupted run does not leave
+# it stopped; after a SIGKILL of exec.sh itself, run `kill -CONT <pid>` by hand.
+# ---------------------------------------------------------------------------
+MXTK_PAUSED_PIDS=""
+MXTK_GATE_RETRY_NOTE=""
+
+# mxtk_watcher_pids <project-root> - pids of `mxcli run --local --watch` that belong to this
+# project: the command line names the project root, or the process runs with it as its cwd.
+mxtk_watcher_pids() {
+  local _root _pid _cmd _cwd
+  _root="$(cd "$1" 2>/dev/null && pwd -P)" || return 0
+  for _pid in $(pgrep -f 'run --local' 2>/dev/null || true); do  # portability-ok: pgrep -f ships with Linux procps and macOS; Windows has no watcher to pause here
+    [ "$_pid" = "$$" ] && continue
+    _cmd="$(ps -o command= -p "$_pid" 2>/dev/null)" || continue
+    case "$_cmd" in *mxcli*"run --local"*--watch*) ;; *) continue ;; esac
+    _cwd="$(readlink "/proc/$_pid/cwd" 2>/dev/null || lsof -a -p "$_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+    case "$_cmd" in *"$_root"*) echo "$_pid"; continue ;; esac
+    [ -n "$_cwd" ] && [ "$_cwd" = "$_root" ] && echo "$_pid"
+  done
+  return 0
+}
+
+# mxtk_pause_watchers <project-root> - SIGSTOP every watcher of this project, remember the pids.
+mxtk_pause_watchers() {
+  local _pid
+  MXTK_PAUSED_PIDS=""
+  for _pid in $(mxtk_watcher_pids "$1"); do
+    if kill -STOP "$_pid" 2>/dev/null; then
+      MXTK_PAUSED_PIDS="$MXTK_PAUSED_PIDS $_pid"
+      echo "  → paused the run --local --watch watcher (pid $_pid) for the gate; it resumes right after" >&2
+    fi
+  done
+  return 0
+}
+
+# mxtk_resume_watchers - SIGCONT whatever mxtk_pause_watchers stopped. Safe to call twice.
+mxtk_resume_watchers() {
+  local _pid
+  for _pid in $MXTK_PAUSED_PIDS; do kill -CONT "$_pid" 2>/dev/null || true; done
+  MXTK_PAUSED_PIDS=""
+  return 0
+}
+
+# mxtk_gate_mxbuild <mpr> <timeout-seconds> <errors-file> - the exec gate's way to run
+# mxbuild: mxtk_mxbuild_error_count with this project's watcher paused around it, and ONE
+# retry when mxbuild exits 1 or 3 and left no sign of a model problem (no CE code in its
+# output, nothing in the errors file). That shape is an infrastructure failure, not a verdict
+# on the model; a real model error always names a CE code. An errors file with content (for
+# example a version mismatch in errors[]) is deterministic and is not retried.
+# Prints nothing on stdout (callers discard the count); sets the same MXTK_MXBUILD_* globals as
+# mxtk_mxbuild_error_count, plus MXTK_GATE_RETRY_NOTE ("retry after infra exit" or empty).
+# Returns mxtk_mxbuild_error_count's code for the final attempt.
+mxtk_gate_mxbuild() {
+  local _mpr="$1" _timeout="${2:-0}" _ef="$3" _rc=0
+  MXTK_GATE_RETRY_NOTE=""
+  mxtk_pause_watchers "${PROJECT_ROOT:-$(dirname "$_mpr")}"
+  mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+  case "${MXTK_MXBUILD_EXIT:-}" in
+    1|3)
+      if [ ! -s "$_ef" ] && ! printf '%s\n' "${MXTK_MXBUILD_OUT:-}" | grep -Eq 'CE[0-9]{4}'; then
+        echo "  ⚠ retry after infra exit: mxbuild exited $MXTK_MXBUILD_EXIT with no CE code and no errors file; building once more" >&2
+        MXTK_GATE_RETRY_NOTE="retry after infra exit"
+        : > "$_ef"
+        _rc=0
+        mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+      fi ;;
+  esac
+  mxtk_resume_watchers
+  return "$_rc"
+}
+
+# ---------------------------------------------------------------------------
 # mxtk_mxbuild_error_count — run mxbuild once, print its Error-severity count.
 #
 # Pulled out of project-bin/exec.sh, where this exact sequence (run mxbuild with

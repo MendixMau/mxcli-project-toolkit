@@ -437,6 +437,7 @@ BUILD_LOG="$PROJECT_ROOT/docs/BUILD-LOG.md"
 GATE_STATE="not-run"   # not-run | skipped | unverified | pass | fail
 GATE_ERRORS="?"        # mxbuild error count behind a pass (0 = clean); recorded in the stamp
 MXB_WHY=""             # mxbuild's errors[] reason when it exited without checking the model
+GATE_NOTE=""           # "retry after infra exit" when a gate mxbuild was run twice
 
 # ── Exec approval (auto records itself) ──────────────────────────────────────
 # bin/exec-approval.sh decides ask vs auto; the ASKING happens before exec.sh ever runs (in
@@ -490,7 +491,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -708,7 +709,7 @@ if [ "$LOCK_TAKEN" != 1 ]; then
   echo "  → Wait for the other exec to finish, then re-run. Nothing was written."
   exit 1
 fi
-trap 'exec_lock_release' EXIT
+trap 'mxtk_resume_watchers; exec_lock_release' EXIT
 
 # 3. A raw `mxcli exec` elsewhere on the machine is NOT this project's business. The old guard
 #    here (`pgrep -fl "mxcli exec"`) matched every exec on the machine, so a test run on a
@@ -1353,7 +1354,8 @@ if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; 
   # can drift apart. Its own printed count is discarded here: this call site
   # already has err_set/err_count/err_codes on hand and needs BASELINE_SET
   # (the message set, not just a count) for the delta-gate comparison below.
-  mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$_BF" >/dev/null || true
+  mxtk_gate_mxbuild "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$_BF" >/dev/null || true
+  [ -n "$MXTK_GATE_RETRY_NOTE" ] && GATE_NOTE="$MXTK_GATE_RETRY_NOTE"
   # Studio Pro 11's mxbuild (its --help says so) writes --write-errors "only if the
   # project has errors": on a clean model the mktemp'd file stays EMPTY, json.load
   # fails, and this read "Model ALREADY has ? error(s) [?]" on every clean run
@@ -1633,7 +1635,8 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   # discarded here: this call site keeps its own file-presence/exit-code
   # branching below unchanged, computing CE_COUNT via err_count once it knows
   # which branch applies.
-  mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$ERRORS_FILE" >/dev/null || true
+  mxtk_gate_mxbuild "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$ERRORS_FILE" >/dev/null || true
+  [ -n "$MXTK_GATE_RETRY_NOTE" ] && GATE_NOTE="$MXTK_GATE_RETRY_NOTE"
   MXBUILD_EXIT="$MXTK_MXBUILD_EXIT"
   MXBUILD_OUT="$MXTK_MXBUILD_OUT"
   MXB_WHY="${MXTK_MXBUILD_WHY:-}"
@@ -1751,7 +1754,7 @@ EOF
           BASE_ERRS=$(mktemp /tmp/mxbuild-base.XXXXXX)
           # Same shared run+capture as the pre-flight baseline and the main gate
           # above (mxtk_mxbuild_error_count, _common.sh) — one implementation.
-          mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$BASE_ERRS" >/dev/null || true
+          mxtk_gate_mxbuild "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$BASE_ERRS" >/dev/null || true
           # Same empty-file rule as the pre-flight baseline: SP 11 mxbuild writes no
           # errors file on a clean build, and that plus exit 0 is a verified 0.
           if [ ! -s "$BASE_ERRS" ] && [ "$MXTK_MXBUILD_EXIT" -eq 0 ]; then

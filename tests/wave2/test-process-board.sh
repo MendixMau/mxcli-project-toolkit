@@ -119,6 +119,22 @@ jedit "$P/design/question-anchors.json" 'j.anchors[0].targets=[{type:"step",step
 OUT="$(run validate --project "$P")"; RC=$?
 check "judged anchor to a missing step: exit 1" "$RC" "1"
 
+echo "== T6b: ignorePages silences the wireframe-on-no-step warning; anchor --json keeps stdout pure =="
+P="$(fresh ignore)"
+jedit "$P/design/process-model.json" 'j.ignorePages=["Orders.Settings_Edit"]'
+OUT="$(run validate --project "$P")"; RC=$?
+check "exit 0" "$RC" "0"
+hasnt "ignored page gives no warning" "$OUT" "wireframe(s) on no process step"
+has "summary shows 0 warnings" "$OUT" "0 error(s), 0 warning(s)"
+jedit "$P/design/process-model.json" 'j.ignorePages=["Orders.Nope"]'
+OUT="$(run validate --project "$P")"
+has "an ignorePages entry that matches nothing warns" "$OUT" 'ignorePages: "Orders.Nope" matches no wireframe'
+P="$(fresh jsonout)"
+jedit "$P/design/question-anchors.json" 'j.anchors=j.anchors.filter(a=>a.id!=="F001:Q04")'
+JOUT="$(node "$SUT" anchor --json --project "$P" 2>/dev/null)"; RC=$?
+check "anchor --json exits 1 while items remain" "$RC" "1"
+check "stdout is pure JSON" "$(printf '%s' "$JOUT" | node -e 'try{const j=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(Array.isArray(j)?j.length:"notarray")}catch(e){console.log("bad")}')" "1"
+
 echo "== T7: build refuses on errors =="
 P="$(fresh refuse)"
 jedit "$P/design/process-model.json" 'j.processes[0].steps[0].useCases=["F001:UC099"]'

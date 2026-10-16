@@ -32,11 +32,13 @@ Skip it for a one-screen app or a project whose questions are all closed. Record
 | `design/question-anchors.json` | `process-board.js anchor` plus you, Step 3 | where each item is pinned. Path is `model.anchors` if set. |
 | `design/process-board.html` | `process-board.js build`, Step 4 | generated, never hand-edited, self-contained, light and dark. |
 
-The script is `project-bin/process-board.js` (installed into a wired project's `bin/`). Run it from the project root or pass `--project`. For the nested layout (`analysis/<name>/design/`), pass `--model analysis/<name>/design/process-model.json`; outputs go next to the model.
+The script is `project-bin/process-board.js` (installed into a wired project's `bin/`). When the project `bin/` has no copy (an older or scratch project), call it by its toolkit path, `node <toolkit>/project-bin/process-board.js`. Run it from the project root or pass `--project`. For the nested layout (`analysis/<name>/design/`), pass `--model analysis/<name>/design/process-model.json`; outputs go next to the model.
 
 ## Step 1: Find the processes
 
-Read the BRD use cases and the blueprint journeys. A process is one piece of work with a start and an end that a business person would name: "submit an order and get it approved", "report a fault and follow it up". Usually 4 to 10 for a small app. Every use case must end up on a step or in `standalone` with a reason. Lookups, exports and settings screens that belong to no flow go in `standalone`.
+Read the BRD use cases and the blueprint journeys. A process is one piece of work with a start and an end that a business person would name: "submit an order and get it approved", "report a fault and follow it up". Usually 4 to 10 for a small app. Keep a process to at most 10 to 12 steps; a longer one reads better split in two. Every use case must end up on a step or in `standalone` with a reason. Lookups, exports and settings screens that belong to no flow go in `standalone`.
+
+Rule of thumb for dashboards and exports: they are steps inside the process that produces the data, unless they have their own actor and their own trigger. Then they are a process of their own. A screen reached from several flows is a step in the most used flow.
 
 ## Step 2: Write design/process-model.json
 
@@ -44,7 +46,7 @@ Read the BRD use cases and the blueprint journeys. A process is one piece of wor
 {
   "schema": "process-model/1",
   "app": "Order desk",
-  "questions": "analysis/questions/consolidated.json",
+  "questions": "<path to the consolidated questions file>",
   "anchors": "design/question-anchors.json",
   "lanes": [
     { "id": "requester", "label": "Requester", "kind": "role" },
@@ -73,12 +75,13 @@ Rules the validator enforces:
 - **Lanes**: `kind` is `role`, `system`, `scheduled` or `external`. One lane per role from the Stage-3 role model, one for the app, one per scheduled job or outside system that acts on its own.
 - **Steps**: `kind` is `task` (a person on a screen; needs `page`), `system` (the app does it, no screen), `decision` (needs two or more `next` outcomes, each with a `label`) or `end`. Default: `task` when `page` is set, else `system`.
 - **page** resolves against the wireframes by `data-mx-page` (`Module.Page`), else the short name or the filename. A page with no wireframe is an error; set `"wireframeMissing": "<reason>"` when that is a recorded decision, and it becomes a warning.
-- **useCases** are `"<BRD id>:<use case id>"`. An unknown one is an error.
+- **useCases** are `"<BRD id>:<use case id>"`. The part before the colon is the BRD's `id` field. When the use case ids carry their own prefix, it is `"F004:UC-F004-01"`. An unknown one is an error.
 - **next** may point into another process (the card shows "continues in"). A step that loops back draws a dashed edge over the top.
 - **col** is the column. It counts up by itself; set it only to line steps up (two lanes in the same column) or to leave a gap. Two steps in one lane and column is an error.
 - **actions**, **status**, **does** and **events** are what the reviewer reads as "what happens". Use microflow names in `actions`: they are also the strongest anchoring signal.
-- **questions** (optional): a consolidated questions file, an array or `{ "questions": [...] }` with `cid`, `title`, `question`, `blocking`, `assumption`, `risk`, `askWho`, `sources: [{ "brd", "id" }]`. Without it, each BRD open question is its own item.
-- **register** (optional, default `PROJECT.md`): any table with a Decision and a Status column. Rows whose status says ASSUMED become decision items.
+- **questions** (optional): a consolidated questions file (look under the analysis questions folder; omit the key when the project keeps none), an array or `{ "questions": [...] }` with `cid`, `title`, `question`, `blocking`, `assumption`, `risk`, `askWho`, `sources: [{ "brd", "id" }]`. Without it, each BRD open question is its own item.
+- **register** (optional, default `PROJECT.md`): any table with a Decision and a Status column. Rows whose status says ASSUMED become decision items. Expect many of them to be build plan and environment decisions; most end in a global bucket.
+- **ignorePages** (optional): a list of wireframe pages (`Module.Page`, short name or filename) that are layout sketches, not screens. They need no step and do not trigger the "wireframe on no step" warning. A name that matches no wireframe warns.
 
 Write titles as plain verbs a business owner says: "Approve or reject?", not "ACT_Approve". Microflow names go in `actions`, behind the technical details click.
 
@@ -88,7 +91,7 @@ Run `process-board.js validate` until it reports 0 errors. Read every warning; a
 
 ```bash
 node bin/process-board.js anchor          # derive, keep judged entries, write the anchors file
-node bin/process-board.js anchor --json   # the still-unanchored items as skeletons to fill in
+node bin/process-board.js anchor --json   # the still-unanchored items as skeletons to fill in (pure JSON on stdout, status lines on stderr)
 ```
 
 `anchor` places what it can prove (`anchoredBy: "derived"`), strongest signal first:
@@ -108,11 +111,14 @@ Derived entries are recomputed on every run. For each item left over, and for an
 
 - Targets: `{ "type": "step", "step": "P1-03" }`, `{ "type": "page", "page": "Order_Overview" }` (a screen on no step), or `{ "type": "global", "bucket": "Hosting and operations" }`.
 - Pin to the step where the answer changes what happens. Up to three targets.
+- Standard bucket names for global items, so the whole-app list stays short: `Build plan`, `Hosting and operations`, `Security`, `Data`, `Scope`, `Look and feel`, `App structure`. ASSUMED register rows about build, environment, security, data or scope usually land here.
 - Use a global bucket only for items about the whole app or the way of working (hosting, build plan, look and feel, app structure). Global is allowed and counted, never hidden.
 - `basis` is one plain sentence; the reviewer sees it as "Placed by review (...)".
 - The fingerprint ties the judgment to the item text. When the item is reworded, the judged entry is dropped with a warning and the item is unanchored again, so a stale placement never survives silently.
 
-Re-run `anchor` until it reports `0 unanchored`. `validate --strict` fails on any unanchored item.
+Judged entries go into the `anchors` array of the anchors file, next to the derived ones. The skeletons from `anchor --json` already carry `anchoredBy: "judged"` and empty `targets`: fill `targets` and `basis` in place and keep `id`, `kind` and `fingerprint` (`text` can go).
+
+Re-run `anchor` until it reports `0 unanchored`. `anchor` exits 1 while items remain; that is expected, not an error. `validate --strict` fails on any unanchored item.
 
 ## Step 4: Build
 
@@ -136,9 +142,12 @@ A clean validate proves the data, not the picture. Screenshot the index and at l
 ```bash
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"   # Linux: google-chrome
 B="file://$PWD/design/process-board.html"
-"$CHROME" --headless=new --hide-scrollbars --window-size=1800,1400 --virtual-time-budget=8000 --screenshot=/tmp/board-index.png "$B#/"
-"$CHROME" --headless=new --hide-scrollbars --window-size=3000,1300 --virtual-time-budget=8000 --screenshot=/tmp/board-P1.png "$B#/P1"
+shot() { perl -e 'alarm 120; exec @ARGV' "$CHROME" --headless=new --hide-scrollbars --virtual-time-budget=8000 "$@"; }   # Linux: timeout 120
+shot --window-size=1800,1400 --screenshot=/tmp/board-index.png "$B#/"
+shot --window-size=3000,1300 --screenshot=/tmp/board-P1.png "$B#/P1"
 ```
+
+Use `--virtual-time-budget` and wrap the call in a timeout as shown. Never use Chrome's `--timeout` flag: it made the run hang past two minutes. A board with 10 to 12 steps fits 3000 px; for a wider one, split the process or screenshot at 4000 px.
 
 Use `--headless=new`: the old headless mode often paints the wireframe thumbnails blank. Check:
 

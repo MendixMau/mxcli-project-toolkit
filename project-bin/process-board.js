@@ -26,7 +26,7 @@
 //   process-board.js build                 validate, then write design/process-board.html
 //   options: --project <root>  --model <file>  --out <file>  --json (anchor: todo as JSON)
 //
-// Exit: 0 ok; 1 validation errors (or, with --strict, unanchored items); 2 usage/input error.
+// Exit: 0 ok; 1 validation errors (or unanchored items left: always for anchor, with --strict for validate); 2 usage/input error.
 // No libraries, no network, deterministic output (same input, same bytes).
 'use strict';
 const fs = require('fs');
@@ -207,7 +207,13 @@ for (const ref of Object.keys(UC).sort(byteSort)) {
   if (!onBoard && !alone) err('use case ' + ref + ' (' + UC[ref].title + ') is on no process and not listed as standalone');
   if (onBoard && alone) warn('use case ' + ref + ' is on a process and also listed as standalone');
 }
-const pagesOffBoard = Object.keys(WF).filter(k => !pageToSteps[k]).sort(byteSort);
+// ignorePages: wireframes that are layout sketches, not screens; they need no step.
+const ignoreSet = new Set();
+for (const ig of model.ignorePages || []) {
+  const k = resolvePage(ig);
+  if (k) ignoreSet.add(k); else warn('ignorePages: "' + ig + '" matches no wireframe');
+}
+const pagesOffBoard = Object.keys(WF).filter(k => !pageToSteps[k] && !ignoreSet.has(k)).sort(byteSort);
 if (pagesOffBoard.length) warn(pagesOffBoard.length + ' wireframe(s) on no process step: ' + pagesOffBoard.join(', '));
 
 // ---------- pinnable items: questions + ASSUMED decisions ----------
@@ -399,13 +405,15 @@ for (const a of Object.values(ANCH)) {
 const statLine = () => 'anchors: ' + stats.total + ' item(s), ' + stats.derived + ' derived, ' + stats.judged + ' judged, ' +
   stats.global + ' global, ' + stats.unanchored + ' unanchored';
 
+// With --json, stdout carries only the JSON; status lines go to stderr.
+const say = (...a) => (asJson ? console.error(...a) : console.log(...a));
 function report() {
-  for (const w of warnings) console.log('WARN  ' + w);
-  for (const e of errors) console.log('ERROR ' + e);
+  for (const w of warnings) say('WARN  ' + w);
+  for (const e of errors) say('ERROR ' + e);
   const ucs = Object.keys(UC).length;
-  console.log('model: ' + processes.length + ' process(es), ' + Object.keys(STEP).length + ' step(s), ' + ucs + ' use case(s) (' +
+  say('model: ' + processes.length + ' process(es), ' + Object.keys(STEP).length + ' step(s), ' + ucs + ' use case(s) (' +
     Object.keys(standaloneSet).length + ' standalone), ' + Object.keys(WF).length + ' wireframe(s), ' + errors.length + ' error(s), ' + warnings.length + ' warning(s)');
-  console.log(statLine());
+  say(statLine());
 }
 
 // ---------- commands ----------
@@ -427,7 +435,7 @@ if (cmd === 'anchor') {
   fs.mkdirSync(path.dirname(anchorsFile), { recursive: true });
   fs.writeFileSync(anchorsFile, JSON.stringify(out, null, 2) + '\n');
   report();
-  console.log('wrote ' + path.relative(root, anchorsFile));
+  say('wrote ' + path.relative(root, anchorsFile));
   if (unanchored.length) {
     if (asJson) {
       console.log(JSON.stringify(unanchored.map(it => ({ id: it.id, kind: it.kind, anchoredBy: 'judged', targets: [], basis: '', fingerprint: it.fingerprint, text: it.text })), null, 2));
@@ -436,7 +444,8 @@ if (cmd === 'anchor') {
       for (const it of unanchored) console.log(it.id + '\t' + it.kind + '\t' + it.text.slice(0, 160));
     }
   }
-  process.exit(errors.length ? 1 : 0);
+  // exit 1 while items remain (not an error: keep judging until 0 unanchored)
+  process.exit(errors.length || unanchored.length ? 1 : 0);
 }
 
 // ---------- build ----------

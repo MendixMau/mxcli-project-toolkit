@@ -3,9 +3,8 @@
 
 **Purpose:** Decide a microflow's shape — what runs inside each loop, how many activities it
 really has, whether it carries layout annotations — before drafting it. Lint only sees the
-result after `exec`, and it cannot see inside a loop. Measured on **mxcli v0.24.0**
-(released 2026-09-24) on a scratch copy of a real model. Older binaries lay out differently;
-the advice is the same.
+result after `exec`, and it cannot see inside a loop. Measured on **mxcli v0.24.0**; older
+binaries lay out differently, the advice is the same.
 
 ---
 
@@ -31,10 +30,8 @@ split-first: <Module.ACT_Orchestrator>
 Each SUB_ ≤ 15 top-level activities, ≤ 1 loop.
 ```
 
-Why split-first exists: a colleague's session refused a long microflow as "too difficult" and
-the same task went through on a stronger model. The task was not hard, the piece was too big.
-A `SUB_` per responsibility is what the size table asks for anyway, and each piece is a Simple
-or Guided flow that any model writes.
+Why split-first exists: a session refused a long microflow as "too difficult"; the piece was too
+big, not the task. Each `SUB_` is a Simple or Guided flow that any model writes.
 
 ## Trigger — Guided or Split-first if ANY of these hold
 
@@ -82,6 +79,17 @@ microflow-preflight: <Module.Microflow> — tier: Simple | Guided | Split-first
 
 Counting in an expression uses `length($List)`, never `count()` (`mxcli check` refuses `count()`, MDL044).
 
+### Expression return types (lab observations, mxcli v0.26.0)
+
+`check` passes all of these except `formatDecimal` (CE0117, a build error). The two Decimal rows fail at runtime on the first long value; `secondsBetween` is a wrong sign. Not confirmed against the reference guide.
+
+| Expression | Observed | Write it so |
+|---|---|---|
+| `minutesBetween`, `hoursBetween` | **Decimal**: `toString(...)` was 43 characters and overflowed a `String(40)` | `toString(floor(...))`; size the String for the longest value |
+| `$x div 60` | **Decimal** (`1.05h` into a `String(10)`) | `floor($x div 60)` or round before `toString` |
+| `secondsBetween($start, $end)` | **Absolute** value: a past due date looks like time left | Compare the dates first; negate when end is before start |
+| `formatDecimal(...)` in a **page** text parameter | Decimal only; a pattern argument is CE0117 | Money or ratio text on a page is a **String attribute** filled by a microflow |
+
 ## Layout — omit `@position` entirely
 
 Upstream now states the toolkit's rule. `mxcli syntax microflow.layout` on v0.24.0 says:
@@ -97,18 +105,7 @@ without one is placed by the builder, which does not look at your hand-placed co
 | Hand spacing | activities 100 px apart | **MPR008** overlap (the engine's own pitch is 160) |
 | Negative body coordinates | `@position(-100, 80)` inside the loop | **MPR011** ×2: the child escapes its loop box |
 
-**The clean version** is the same loop with no annotations. `describe` on it shows the layout
-the builder produced (abbreviated):
-
-```
-@position(360, 200)   retrieve $Items from ProbeMF.Item;
-@position(520, 200)   $Item_CommitList = create list of ProbeMF.Item;
-@position(940, 200) @anchor(from: right, to: left)
-loop $Item in $Items begin
-  @position(210, 80)  …   @position(370, 80)  …   @position(530, 80)  …
-end loop;
-@position(1360, 200)  commit $Item_CommitList;
-```
+**The clean version** is the same loop with no annotations; `describe` shows the layout the builder produced.
 
 The builder re-lays-out every unannotated `create or modify`. v0.24.0 geometry, for reading `describe` output (centres; body
 coordinates are relative to the loop box's top-left corner; n = activities in the body):
@@ -120,11 +117,10 @@ coordinates are relative to the loop box's top-left corner; n = activities in th
 | Next activity after the loop | loop centre + 80·n + 180 |
 | Sequential pitch | 160 |
 
-**`mxcli layout` is a domain-model command.** On v0.24.0 (as of 2026-09-25) it moves entities only; there is no
-microflow or nanoflow mode (history: `process/baseline-incident-history.md` § MF1). **Before relying on it for a microflow, probe
-your binary:** `mxcli layout --help` — the capability-probe rule. Until a microflow mode ships,
-the remedy for a bad microflow layout stays the one in this file: no `@position`, and the
-`SUB_` split for the defect below.
+**`mxcli layout` is a domain-model command.** On v0.24.0 it moves entities only, with no
+microflow mode (history: `process/baseline-incident-history.md` § MF1). **Probe your binary
+first:** `mxcli layout --help`. Until a microflow mode ships, the remedy is no `@position`, and
+the `SUB_` split for the defect below.
 
 **`RESET LAYOUT` does not parse** on v0.24.0: `mismatched input 'RESET'` (BUG-28, never
 implemented upstream). Never write it. If you have to repair a flow by hand, annotate **every**
@@ -141,9 +137,8 @@ if … then
 else … end if;
 ```
 
-The builder places the merge at (1230, 200) and the commit at (1210, 200). `mxcli lint` reports
-**MPR008** `Activities '(merge)' (1230,200) and '(unnamed)' (1210,200) overlap`. The lint
-ratchet then rises on a script with nothing wrong in it. Plain if/else and a loop-only branch are clean.
+The builder places the merge at (1230, 200) and the commit at (1210, 200); `mxcli lint` reports
+**MPR008** `Activities '(merge)' (1230,200) and '(unnamed)' (1210,200) overlap` and the ratchet rises on a correct script. Plain if/else and a loop-only branch are clean.
 
 **Remedy (not `@position`):** move the loop into its own `SUB_` microflow, which the size
 table asks for anyway. Or move the following activity to after `end if`. Name the chosen
@@ -174,5 +169,4 @@ before `create microflow` does land in its Documentation (BUG-152 item 4).
 - The `while` + `limit … offset` batch recipe run end to end. `while` itself executes on v0.24.0;
   a variable first assigned inside it must be `declare`d before it (BUG-154).
 - Nanoflow-vs-microflow guidance. No current Mendix docs page was found.
-- Whether upstream fixes the if-branch merge overlap in a later release.
 - Whether a later `mxcli layout` release re-lays-out microflows, and whether that run clears the if-branch merge overlap. Re-probe `mxcli layout --help` on each new binary.

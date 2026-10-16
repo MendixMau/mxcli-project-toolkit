@@ -1511,15 +1511,46 @@ _ea_rewrite_item3() {   # $1=file  $2=start-prefix  $3=end-prefix  $4=replacemen
     grep -qF -- "$needle" <<<"$_blk" || return 1
   fi
   [ "$DRY_RUN" -eq 1 ] && return 0
-  _tmp="$(mktemp "${TMPDIR:-/tmp}/eaitem3.XXXXXX")" || return 1
-  awk -v start="$start" -v endp="$endp" -v repl="$repl" '
+  _tmp="$(mktemp "${TMPDIR:-/tmp}/eaitem3.XXXXXX")" || return 2
+  _rf="$(mktemp "${TMPDIR:-/tmp}/eaitem3r.XXXXXX")" || { rm -f "$_tmp"; return 2; }
+  # BSD awk (stock macOS) rejects a newline inside -v ("awk: newline in string"), so the
+  # replacement text is streamed from a file, as the Q9 repair does. Return 2 (not 0) when awk
+  # fails so the caller warns instead of reporting a rewrite that never happened.
+  printf '%s\n' "$repl" > "$_rf" || { rm -f "$_tmp" "$_rf"; return 2; }
+  if awk -v start="$start" -v endp="$endp" -v rf="$_rf" '
     BEGIN { skip = 0 }
     { if (skip) { if (index($0, endp) == 1) { skip = 0 } else { next } }
-      if (!skip && index($0, start) == 1) { print repl; skip = 1; next }
+      if (!skip && index($0, start) == 1) {
+        while ((getline l < rf) > 0) print l
+        close(rf); skip = 1; next }
       print }
-  ' "$f" > "$_tmp" && cat "$_tmp" > "$f"
-  rm -f "$_tmp"
-  return 0
+  ' "$f" > "$_tmp" && [ -s "$_tmp" ]; then
+    cat "$_tmp" > "$f"
+    rm -f "$_tmp" "$_rf"
+    return 0
+  fi
+  rm -f "$_tmp" "$_rf"
+  return 2
+}
+# Report one item-3 rewrite attempt: $1=rc of _ea_rewrite_item3  $2=label  $3=dry text  $4=done text
+_ea_report_item3() {
+  case "$1" in
+    0) if [ "$DRY_RUN" -eq 1 ]; then echo "Would rewrite: $2 item 3 — $3"
+       else echo "Rewrote: $2 item 3 — $4"; fi
+       CHANGES=$((CHANGES + 1)) ;;
+    2) warn "$2 item 3 rewrite FAILED (awk error or temp file); file left unchanged." "Re-run sync, or edit item 3 by hand." ;;
+  esac
+}
+_ea_try_item3() {   # $1=file $2=label $3=md/hash text $4=prefix of "3. **"  — tries both wordings
+  _p="$4"; _rc=0
+  _ea_rewrite_item3 "$1" "${_p}3. **Never run" "${_p}4. **" "$3" || _rc=$?
+  if [ "$_rc" -ne 1 ]; then
+    _ea_report_item3 "$_rc" "$2" "carries the old \"without asking the user first — every time\" wording" "the old \"without asking the user first — every time\" wording is now the exec-approval knob (bin/exec-approval.sh)."
+    return
+  fi
+  _rc=0
+  _ea_rewrite_item3 "$1" "${_p}3. **Before any" "${_p}4. **" "$3" '`ask` (the default)' || _rc=$?
+  _ea_report_item3 "$_rc" "$2" "still says \`ask\` is the default; exec approval now defaults to \`auto\`" "flipped from \"\`ask\` (the default)\" wording to auto-default (bin/exec-approval.sh)."
 }
 if [ "$WIRED" -eq 1 ]; then
   _EA_NEW3_MD="$(wiring_item3_md "$TOOLKIT_ROOT")"
@@ -1527,38 +1558,10 @@ if [ "$WIRED" -eq 1 ]; then
   for rel in AGENTS.md CLAUDE.md .github/copilot-instructions.md .cursorrules .windsurfrules; do
     f="$PROJECT_DIR/$rel"
     [ -f "$f" ] || continue
-    if _ea_rewrite_item3 "$f" "3. **Never run" "4. **" "$_EA_NEW3_MD"; then
-      if [ "$DRY_RUN" -eq 1 ]; then
-        echo "Would rewrite: $rel item 3 — carries the old \"without asking the user first — every time\" wording"
-      else
-        echo "Rewrote: $rel item 3 — the old \"without asking the user first — every time\" wording is now the exec-approval knob (bin/exec-approval.sh)."
-      fi
-      CHANGES=$((CHANGES + 1))
-    elif _ea_rewrite_item3 "$f" "3. **Before any" "4. **" "$_EA_NEW3_MD" '`ask` (the default)'; then
-      if [ "$DRY_RUN" -eq 1 ]; then
-        echo "Would rewrite: $rel item 3 — still says \`ask\` is the default; exec approval now defaults to \`auto\`"
-      else
-        echo "Rewrote: $rel item 3 — flipped from \"\`ask\` (the default)\" wording to auto-default (bin/exec-approval.sh)."
-      fi
-      CHANGES=$((CHANGES + 1))
-    fi
+    _ea_try_item3 "$f" "$rel" "$_EA_NEW3_MD" ""
   done
   f="$PROJECT_DIR/.aider.conf.yml"
-  if [ -f "$f" ] && _ea_rewrite_item3 "$f" "# 3. **Never run" "# 4. **" "$_EA_NEW3_HASH"; then
-    if [ "$DRY_RUN" -eq 1 ]; then
-      echo "Would rewrite: .aider.conf.yml item 3 — carries the old \"without asking the user first — every time\" wording"
-    else
-      echo "Rewrote: .aider.conf.yml item 3 — the old \"without asking the user first — every time\" wording is now the exec-approval knob (bin/exec-approval.sh)."
-    fi
-    CHANGES=$((CHANGES + 1))
-  elif [ -f "$f" ] && _ea_rewrite_item3 "$f" "# 3. **Before any" "# 4. **" "$_EA_NEW3_HASH" '`ask` (the default)'; then
-    if [ "$DRY_RUN" -eq 1 ]; then
-      echo "Would rewrite: .aider.conf.yml item 3 — still says \`ask\` is the default; exec approval now defaults to \`auto\`"
-    else
-      echo "Rewrote: .aider.conf.yml item 3 — flipped from \"\`ask\` (the default)\" wording to auto-default (bin/exec-approval.sh)."
-    fi
-    CHANGES=$((CHANGES + 1))
-  fi
+  [ -f "$f" ] && _ea_try_item3 "$f" ".aider.conf.yml" "$_EA_NEW3_HASH" "# "
 fi
 
 # ── Per-harness auto-run allow-list: report only, never write ────────────────────────────

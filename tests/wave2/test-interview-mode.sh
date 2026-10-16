@@ -230,7 +230,7 @@ esac
 [ -z "$(fire CLAUDE_INTERVIEW_MODE=auto)" ] \
   && ok "auto does not block" \
   || bad "auto blocked — the mode is a lie and the user is back to being stopped"
-[ -f "$P/docs/open-questions.html" ] \
+[ -f "$P/analysis/brd-report.html" ] \
   && ok "auto still writes the report (the recording is the safety net)" \
   || bad "auto skipped the report — questions now vanish with nothing to review"
 [ -z "$(fire CLAUDE_INTERVIEW_MODE=unattended)" ] \

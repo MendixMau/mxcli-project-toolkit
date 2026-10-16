@@ -3318,14 +3318,15 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "" >&2
     echo "Gate BLOCKED: $blk question(s) at stage $st have never been raised with the user." >&2
     echo "  $counts" >&2
-    # Write the triage report the user reads, alongside the batch the agent reads.
-    # A terminal dump scrolls away and only the agent ever sees it; the HTML is the artefact
-    # a human can open, sort by state, and hand to someone else. --no-html suppresses it for
-    # the same reason it suppresses the board: a read-only query must not dirty a tree.
-    QR_SCRIPT="$TOOLKIT_DIR/bin/questions-report.sh"
-    QR_OUT="$PROJECT_DIR/docs/open-questions.html"
+    # Write the report the user reads, alongside the batch the agent reads. A terminal dump
+    # scrolls away and only the agent ever sees it; the HTML is the artefact a human can open and
+    # hand to someone else. Since 2026-10-16 the questions live in the Stage 2 BRD report, under
+    # the process map (bin/brd-report.sh), not in docs/open-questions.html. --no-html suppresses
+    # it for the same reason it suppresses the board: a read-only query must not dirty a tree.
+    QR_SCRIPT="$TOOLKIT_DIR/bin/brd-report.sh"
+    QR_OUT="$PROJECT_DIR/analysis/brd-report.html"
     if [ "$HTML_MODE" != "never" ] && [ -x "$QR_SCRIPT" ]; then
-      "$QR_SCRIPT" "$PROJECT_DIR" $arg -o "$QR_OUT" --quiet >/dev/null 2>&1
+      "$QR_SCRIPT" "$PROJECT_DIR" $arg --html "$QR_OUT" --quiet >/dev/null 2>&1
       [ -f "$QR_OUT" ] || QR_OUT=""
     else
       QR_OUT=""
@@ -3334,7 +3335,9 @@ if [ -n "$REQUESTED_STAGE" ]; then
     echo "" >&2
     echo "  See them, as a chat-ready batch:" >&2
     echo "    $OQ_SCRIPT $PROJECT_DIR${arg:+ $arg}" >&2
-    [ -n "$QR_OUT" ] && echo "  Triage report (open this, and give the user the path): $QR_OUT" >&2
+    [ -n "$QR_OUT" ] && echo "  BRD report, questions under the process map (open this, and give the user the path): $QR_OUT" >&2
+    # Back-compat: the retired page is never read and never fails a gate; it only gets pointed away from.
+    [ -f "$PROJECT_DIR/docs/open-questions.html" ] && echo "  (docs/open-questions.html is the retired page: its content is in analysis/brd-report.html now. Safe to delete.)" >&2
     echo "" >&2
     echo "  Raising is mandatory; assuming is not forbidden. Anything the user hands back" >&2
     echo "  ('you decide') is recorded ASSUMED with consentBy/consentAt and stops blocking." >&2

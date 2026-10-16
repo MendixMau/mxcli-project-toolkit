@@ -685,7 +685,7 @@ renderer on their own reports and a change that stops their work gets switched o
 than obeyed. The number is made impossible to misread instead.
 
 **Vocabulary is reused, not invented.** `NOTHING EXAMINED` is `bin/open-questions.sh`'s rc-3
-state, and `bin/questions-report.sh:72` refuses outright to render a clean-looking zero over
+state, and `bin/brd-report.sh` (exit 3) refuses outright to render a clean-looking zero over
 it — the closest existing precedent for this whole change. "cannot evaluate, which is not a
 pass" is `bin/gate-check.sh`'s wording, verbatim.
 

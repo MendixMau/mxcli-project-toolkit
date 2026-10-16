@@ -428,5 +428,68 @@ exp = (sw - t0) / (t1 - t0)
 assert abs(frac - exp) < 0.02, "band at %.3f, switch at %.3f" % (frac, exp)
 PYEOF9
 
+echo "F13 a cached discovery run does not reopen session files"
+P13="$WORK/proj13"; mkproj "$P13"; P13R="$(cd "$P13" && pwd -P)"
+CFG13="$WORK/cfg13"; mklog "$CFG13" "$P13R" 25
+rm -f "$P13/.claude/progress-report-sessions.txt"
+CLAUDE_CONFIG_DIR="$CFG13" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P13" --out "$WORK/out13/a.html" >"$WORK/out13.cold" 2>&1
+CLAUDE_CONFIG_DIR="$CFG13" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P13" --out "$WORK/out13/b.html" >"$WORK/out13.warm" 2>&1
+[ -s "$P13/.claude/progress-report-sessions.txt" ] && ok "discovery cache written to .claude/progress-report-sessions.txt" || bad "discovery cache written"
+grep -q "discovery cold" "$WORK/out13.cold" && grep -q "opened .*s1.jsonl" "$WORK/out13.cold" && ok "cold run reads the session file" || bad "cold run reads the session file"
+grep -q "discovery warm, 0 file(s) read" "$WORK/out13.warm" && ok "warm run reads no file during discovery" || bad "warm run reads no file during discovery"
+grep -q "opened .*s1.jsonl" "$WORK/out13.warm" && bad "warm run reopened the session file" || ok "warm run does not reopen the session file"
+has "$WORK/out13/b.html" "Sessions from other folders (1)" "a warm run lists the same sessions"
+touch "$CFG13/projects/-tmp-elsewhere/s1.jsonl"; echo >> "$CFG13/projects/-tmp-elsewhere/s1.jsonl"
+CLAUDE_CONFIG_DIR="$CFG13" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P13" --out "$WORK/out13/c.html" >"$WORK/out13.chg" 2>&1
+grep -q "opened .*s1.jsonl" "$WORK/out13.chg" && ok "a changed session file is read again" || bad "a changed session file is read again"
+
+echo "F14 autoreload keeps the view, waits for idle and can be paused"
+P14="$WORK/proj14"; mkproj "$P14"; mkdir -p "$P14/.claude/loop"
+NOWU="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+printf 'ts\tscript\tgate\tresult\telapsed_s\tmxbuild_errors\tlint_rc\tlint_total\trestored\tscore\n%s\t01-orders.mdl\tpass\tapplied\t40\t0\t0\t\t0\t90.0\n' "$NOWU" > "$P14/.claude/loop/metrics-ledger.tsv"
+CLAUDE_CONFIG_DIR="$EMPTY" "$PY" "$GEN" "$P14" --out "$WORK/out14/r.html" >/dev/null 2>&1
+has "$WORK/out14/r.html" "history.scrollRestoration='manual'" "scrollRestoration is set to manual"
+has "$WORK/out14/r.html" "sessionStorage" "scroll position and open details go to sessionStorage"
+has "$WORK/out14/r.html" "id=livebtn" "Pause control present"
+has "$WORK/out14/r.html" "Live &middot; refreshes every 30 s" "live indicator present"
+if command -v node >/dev/null 2>&1; then
+node - "$WORK/out14/r.html" <<'JSEOF' && ok "node: state saved and restored, no reload within 20 s of input, Pause stops it" || bad "autoreload behaviour (node)"
+const fs = require("fs");
+const h = fs.readFileSync(process.argv[2], "utf8");
+const src = h.match(/<script id=autoreload>([\s\S]*?)<\/script>/)[1];
+let now = 1e12, timers = [], reloads = 0, store = {}, scrolls = [];
+const det = [{id: "a", tagName: "DETAILS", open: true}, {id: "b", tagName: "DETAILS", open: false}];
+const listeners = {};
+const btn = {textContent: "", addEventListener: (n, f) => { btn.f = f; }};
+const txt = {textContent: ""};
+const win = {pageYOffset: 640, addEventListener: (n, f) => { listeners[n] = f; }, scrollTo: (x, y) => scrolls.push(y)};
+const doc = {documentElement: {style: {}, scrollTop: 0},
+  getElementById: id => id === "livebtn" ? btn : id === "livetxt" ? txt : det.find(d => d.id === id) || null,
+  querySelectorAll: () => det, addEventListener: () => {}};
+const hist = {};
+const loc = {pathname: "/r.html", reload: () => { reloads++; }};
+const ss = {getItem: k => k in store ? store[k] : null, setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; }};
+const Date2 = {now: () => now};
+const fn = new Function("window", "document", "history", "location", "sessionStorage", "setTimeout", "Date", src.replace(/last=\d+/, "last=" + (now / 1000)));
+fn(win, doc, hist, loc, ss, (f, ms) => timers.push({f, ms}), Date2);
+const assert = require("assert");
+assert.strictEqual(hist.scrollRestoration, "manual");
+assert.strictEqual(timers.length, 1); assert.strictEqual(timers[0].ms, 30000);
+// user interacted 5 s ago: the tick re-arms and does not reload
+listeners.scroll(); now += 5000; timers.shift().f(); assert.strictEqual(reloads, 0); assert.strictEqual(timers.length, 1);
+// 25 s after the last input: reload, with state saved
+now += 25000; timers.shift().f(); assert.strictEqual(reloads, 1);
+const saved = JSON.parse(store["pr-view:/r.html"]); assert.strictEqual(saved.y, 640); assert.deepStrictEqual(saved.d, {a: true, b: false});
+// a new page load restores it
+det[0].open = false; det[1].open = true; scrolls = [];
+fn(win, doc, hist, loc, ss, (f, ms) => timers.push({f, ms}), Date2);
+assert.strictEqual(det[0].open, true); assert.strictEqual(det[1].open, false); assert.strictEqual(scrolls[0], 640);
+// Pause stops reloads
+timers = []; fn(win, doc, hist, loc, ss, (f, ms) => timers.push({f, ms}), Date2);
+btn.f({preventDefault() {}}); assert.strictEqual(txt.textContent, "Paused");
+now += 60000; reloads = 0; timers.shift().f(); assert.strictEqual(reloads, 0);
+JSEOF
+else ok "SKIP: node not available for the autoreload behaviour test"; fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

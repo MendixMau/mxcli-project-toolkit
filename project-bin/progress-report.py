@@ -407,7 +407,7 @@ def save_cache(path, scanned, entries):
         with open(tmp, "w", encoding="utf-8") as fh:
             fh.write("# scanned=%.0f  progress-report session cache: verdict, mtime, size, path, details. Safe to delete.\n" % scanned)
             for f, e in sorted(entries.items()):
-                fh.write("%s\t%.0f\t%d\t%s\t%s\n" % (e["v"], e["m"], e["s"], f, json.dumps(e["info"]) if e.get("info") else ""))
+                fh.write("%s\t%.6f\t%d\t%s\t%s\n" % (e["v"], e["m"], e["s"], f, json.dumps(e["info"]) if e.get("info") else ""))
         os.replace(tmp, path)
     except OSError: pass
 
@@ -450,7 +450,7 @@ def find_sessions(proj, logs_dir=None, cache_path=None):
             try: st = os.stat(f)
             except OSError: continue
             if st.st_mtime < cutoff: continue
-            if st.st_mtime == e["m"] and st.st_size == e["s"]: entries[f] = e
+            if abs(st.st_mtime - e["m"]) < 1e-3 and st.st_size == e["s"]: entries[f] = e
             else: cands.append((st.st_mtime, f, st.st_size))
         for name in os.listdir(base):
             d = os.path.join(base, name)

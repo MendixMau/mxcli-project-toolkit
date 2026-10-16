@@ -533,6 +533,45 @@ fi
 
 fi
 
+# --- installed Claude hooks: copies that call a toolkit script which is gone ------------------
+#
+# install-claude-hooks.sh writes COPIES into ~/.claude/hooks with the toolkit path filled in.
+# When a toolkit update removes a script (bin/questions-report.sh was retired in v1.0), an old
+# copy keeps calling it: the hook still runs but silently loses its output. A warning only,
+# never a failure: the hooks are user-global and optional.
+if [ -d "$HOME/.claude/hooks" ]; then
+  head_ "Installed Claude hooks (~/.claude/hooks)"
+  STALE_HOOKS=0
+  HOOKS_SEEN=0
+  for hf in "$HOME"/.claude/hooks/*.sh; do
+    [ -f "$hf" ] || continue
+    HOOKS_SEEN=$((HOOKS_SEEN + 1))
+    # The toolkit root the installer wrote, e.g. TOOLKIT="/path/to/toolkit".
+    HOOK_ROOT="$(sed -n 's/^[A-Z_]*TOOLKIT[A-Z_]*="\(\/[^"]*\)".*/\1/p' "$hf" | head -1)"
+    HOOK_REFS=""
+    if [ -n "$HOOK_ROOT" ]; then
+      HOOK_REFS="$(grep -oE '[$][{]?[A-Z_]*TOOLKIT[A-Z_]*[}]?/[A-Za-z0-9_./-]+[.](sh|py|js|tsv)' "$hf" 2>/dev/null \
+        | sed -e 's/^[$][{]*[A-Z_]*[}]*//' -e "s|^|$HOOK_ROOT|" | sort -u)"
+    fi
+    HOOK_GONE=""
+    while IFS= read -r ref; do
+      [ -n "$ref" ] || continue
+      [ -e "$ref" ] || HOOK_GONE="$HOOK_GONE ${ref##*/}"
+    done <<EOF_REFS
+$HOOK_REFS
+EOF_REFS
+    if [ -n "$HOOK_GONE" ]; then
+      STALE_HOOKS=$((STALE_HOOKS + 1))
+      warn "installed hook $(basename "$hf") calls a toolkit script that no longer exists:$HOOK_GONE"
+    fi
+  done
+  if [ "$STALE_HOOKS" -gt 0 ]; then
+    note "The installed copy is older than this toolkit. Re-run: $TOOLKIT_ROOT/bin/install-claude-hooks.sh --full"
+  elif [ "$HOOKS_SEEN" -gt 0 ]; then
+    ok "installed hooks only call toolkit scripts that exist"
+  fi
+fi
+
 # --- command line tools ---------------------------------------------------------------------
 
 head_ "Command line tools"
@@ -1467,10 +1506,15 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
     note "(added /.claude/toolkit.env to the project's .gitignore — it holds this machine's paths)"
   fi
   # The progress report's session cache holds absolute session-log paths (user name, session ids).
-  if [ -d "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q .claude/progress-report-sessions.txt 2>/dev/null; then
+  # -e, not -d: in a git worktree .git is a file. --no-index: a tracked file is never "ignored" otherwise,
+  # and the line would be appended again on every run.
+  if [ -e "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q --no-index .claude/progress-report-sessions.txt 2>/dev/null; then
     printf '\n# Machine-local progress report session cache (absolute session-log paths)\n/.claude/progress-report-sessions.txt\n' \
       >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
     note "(added /.claude/progress-report-sessions.txt to the project's .gitignore — the cache is machine-local)"
+  fi
+  if [ -e "$PROJECT_DIR/.git" ] && git -C "$PROJECT_DIR" ls-files --error-unmatch .claude/progress-report-sessions.txt >/dev/null 2>&1; then
+    note "(.claude/progress-report-sessions.txt is already tracked by git; untrack it with: git rm --cached .claude/progress-report-sessions.txt)"
   fi
 fi
 

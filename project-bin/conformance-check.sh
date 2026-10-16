@@ -268,6 +268,13 @@ if [ "$MEASURABLE" -eq 0 ]; then
     echo "       Refusing to report a clean run over zero measurements." >&2
     exit 2
   fi
+  if [ "$PROSE" -gt 0 ]; then
+    echo "FAULT: $PROSE ledger row(s) found in $LEDGER_COUNT ledger(s), 0 measurable: the acceptance text is prose, not a probe." >&2
+    echo "       A row is measured only when its acceptance cell holds a backticked SHOW or DESCRIBE command." >&2
+    echo "       See skills/coverage-ledger.md for the acceptance column; prose is counted, never run." >&2
+    echo "       Refusing to report a clean run over zero measurements." >&2
+    exit 2
+  fi
   echo "FAULT: 0 measurable rows extracted from $LEDGER_COUNT ledger(s)." >&2
   echo "       Either the ledger table shape changed or the glob matched nothing." >&2
   echo "       Refusing to report a clean run over zero measurements." >&2

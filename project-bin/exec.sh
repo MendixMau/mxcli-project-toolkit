@@ -172,7 +172,7 @@ mxtk_change_class() {  # $1 = MDL script; prints "<class>\t<why>"
 # ── Subjects (advisory, added 2026-10-16) ────────────────────────────────────
 # The elements a script writes: one "<kind>\t<Module.Name>\tline N" row per statement head,
 # kind = the object word before the first qualified name (microflow, page, entity, ...;
-# "access" for GRANT/REVOKE). A head with no qualified name prints "unmapped\t-\tline N".
+# "access" for GRANT/REVOKE, "userrole" for CREATE/ALTER/DROP USER ROLE, whose name has no module). A head with no qualified name prints "unmapped\t-\tline N".
 # bin/affected-tests.sh turns these into the tests to re-run (testing-shape.md §3 subject set).
 # Same lexer and statement-head rule as the change class; read-only heads are skipped.
 mxtk_subjects() {  # $1 = MDL script
@@ -194,6 +194,7 @@ mxtk_subjects() {  # $1 = MDL script
         else if (kind == "" && u !~ /^(OR|MODIFY|REPLACE|PERSISTENT|NON-PERSISTENT|IF|NOT|EXISTS)$/) last = tolower(u)
       }
       if (name == "" && toupper(o[2]) == "MODULE" && o[3] ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { kind = "module"; name = o[3] }
+      if (toupper(o[2]) == "USER" && toupper(o[3]) == "ROLE" && o[4] ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { kind = "userrole"; name = o[4] }
       if (v == "GRANT" || v == "REVOKE") kind = "access"
       else if (v == "UPDATE") kind = "page"
       else if (kind == "pages") kind = "page"

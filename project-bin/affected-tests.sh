@@ -9,7 +9,7 @@
 #   subject   <kind>    <Module.Name>   line N of <script>
 #   caller    <Module.Name>  depth N     (SHOW CALLERS OF ... TRANSITIVE)
 #   callers   measured | NOT MEASURED (<reason>)
-#   data      NOT MEASURED  <kind> <Module.Name>  (entity/association/enumeration/access/module subject)
+#   data      NOT MEASURED  <kind> <Module.Name>  (entity/association/enumeration/access/module/role/userrole/constant subject)
 #   unit      <file.test.mdl>  <why>
 #   journey   <file.journey.json>  <why>
 #   journeys  unmapped  N of M journey file(s) cannot be selected by name
@@ -38,7 +38,8 @@
 #      microflow, nanoflow, page, snippet and layout subject. Golden input: a verbatim v0.26.0
 #      capture (tests/wave2/fixtures/affected-tests/CAPTURE.txt). Transitive callers include pages
 #      (a button's CALL MICROFLOW, a SHOW PAGE) on v0.26.0. The first call builds mxcli's catalog
-#      (~40 s on a 275-flow app), later ones ~4 s. --no-model, no project mxcli, no .mpr, or output
+#      (~19 s on a 275-flow app), later ones ~3 s. mxcli rebuilds the catalog when the .mpr
+#      changed, so a call after an exec sees the callers that exec created (measured on v0.26.0). --no-model, no project mxcli, no .mpr, or output
 #      that does not parse: "callers NOT MEASURED", and the selection is the subjects alone.
 #   3. affected unit: *.test.mdl files that name a subject, or a caller at depth <= --depth
 #      (default 1: "the tests of its callers"; MXTK_AFFECTED_DEPTH sets the default, --depth wins). Module, entity, association, enumeration and
@@ -49,11 +50,12 @@
 #      A journey file that is not named <Module>.journey.json and holds no qualified Module.Name
 #      cannot be selected by name at all; the "journeys unmapped" row counts them, so an empty
 #      selection is never read as "nothing owed".
-#   6. data subjects (entity, association, enumeration, access, module): selected by the owning
-#      module only. Their use in another module's rule, page or microflow is not measured, and a
-#      "data NOT MEASURED" row says so for each one.
 #   5. module: every test file naming the module, journeys/<M>.journey.json; the modules are the
 #      subjects' modules plus every --module. full: every test file, every journey file.
+#   6. data subjects (entity, association, enumeration, access, module, module role, user role,
+#      constant): selected by the owning module only (a user role has no module and selects
+#      nothing). Their use in another module's rule, page or microflow is not measured, and a
+#      "data NOT MEASURED" row says so for each one.
 # What it does NOT do: run anything. `mxcli test` writes to the model, so the run rows go through
 # bin/test-scratch.sh (a scratch copy) and the journey runner; the caller runs them.
 #
@@ -122,7 +124,7 @@ fi
 while IFS='	' read -r k n w; do out "subject	$k	$n	$w"; done < "$WORK/subjects"
 [ -n "$SCRIPTS" ] && [ ! -s "$WORK/subjects" ] && out "subject	none	-	no model-writing statement in the script(s)"
 mod_of() { printf '%s\n' "${1%%.*}"; }
-awk -F'\t' '$2 != "-" { split($2, a, "."); print a[1] }' "$WORK/subjects" > "$WORK/modules"
+awk -F'\t' '$2 != "-" && $1 != "userrole" { split($2, a, "."); print a[1] }' "$WORK/subjects" > "$WORK/modules"
 for m in $MODULES; do echo "$m" >> "$WORK/modules"; done
 sort -u "$WORK/modules" -o "$WORK/modules"
 
@@ -159,9 +161,10 @@ else
 fi
 while IFS='	' read -r n d; do out "caller	$n	depth $d"; done < "$WORK/callers"
 out "callers	$CALLERS"
-awk -F'\t' '$1 ~ /^(entity|association|enumeration|access|module)$/ && $2 != "-" { print $1 "\t" $2 }' "$WORK/subjects" | sort -u |
+awk -F'\t' '$1 ~ /^(entity|association|enumeration|access|module|role|userrole|constant)$/ && $2 != "-" { print $1 "\t" $2 }' "$WORK/subjects" | sort -u |
   while IFS='	' read -r k n; do
-    out "data	NOT MEASURED	$k $n	(cross-module use not measured; selected by owning module $(mod_of "$n") only)"
+    if [ "$k" = userrole ]; then out "data	NOT MEASURED	$k $n	(access change; a user role has no owning module, so no test or journey is selected by it)"
+    else out "data	NOT MEASURED	$k $n	(cross-module use not measured; selected by owning module $(mod_of "$n") only)"; fi
   done
 
 # ── Candidate files ──────────────────────────────────────────────────────────
@@ -171,7 +174,7 @@ for _d in "$JDIR" tests/e2e; do [ -d "$_d" ] && find "$_d" -type f -name '*.jour
 
 # names: the strings a test or journey must contain to be selected
 names_for_unit() {
-  awk -F'\t' '$2 != "-" && $1 !~ /^(entity|association|enumeration|access|module)$/ { print $2 }' "$WORK/subjects"
+  awk -F'\t' '$2 != "-" && $1 !~ /^(entity|association|enumeration|access|module|userrole)$/ { print $2 }' "$WORK/subjects"
   awk -F'\t' -v d="$DEPTH" '$2 + 0 <= d { print $1 }' "$WORK/callers"
 }
 modules_for_unit() { awk -F'\t' '$2 != "-" && $1 ~ /^(entity|association|enumeration|access|module)$/ { split($2, a, "."); print a[1] }' "$WORK/subjects" | sort -u; }
@@ -228,7 +231,10 @@ else out "journey	none	scope $J: $( [ "$J" = none ] && echo 'strategy says none'
 if [ "$J" = affected ] || [ "$J" = module ]; then
   _tot="$(wc -l < "$WORK/journeys" | tr -d ' ')"; _un=0
   while IFS= read -r f; do [ -n "$f" ] || continue
-    case "$f" in "$JDIR"/*.journey.json) continue ;; esac
+    # mapped by name only when the stem is ONE identifier: <JDIR>/<Module>.journey.json
+    case "$f" in "$JDIR"/*.journey.json)
+      _stem="${f##*/}"; _stem="${_stem%.journey.json}"
+      case "$_stem" in ''|*[!A-Za-z0-9_]*) ;; *) continue ;; esac ;; esac
     grep -qE '(^|[^A-Za-z0-9_.])[A-Z][A-Za-z0-9_]*\.[A-Z][A-Za-z0-9_]*' "$f" 2>/dev/null || _un=$((_un+1))
   done < "$WORK/journeys"
   [ "$_tot" -gt 0 ] && out "journeys	unmapped	$_un of $_tot journey file(s) are not named <Module>.journey.json and hold no qualified Module.Name: selection by name cannot reach them; read them before saying nothing is owed"

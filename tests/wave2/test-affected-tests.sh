@@ -50,6 +50,7 @@ t Other    Admin.ACT_Reset
 echo '{"id":"J-1","steps":[]}' > "$P/journeys/Shop.journey.json"
 echo '{"id":"J-2","steps":[]}' > "$P/journeys/Admin.journey.json"
 echo '{"id":"J-3","note":"opens Shop.Order_Edit","steps":[]}' > "$P/tests/e2e/edit.clerk.journey.json"
+echo '{"id":"J-6","steps":[]}' > "$P/journeys/Shop.admin.journey.json"   # in journeys/, not <Module>.journey.json, names nothing
 echo '{"id":"J-4","steps":[]}' > "$P/tests/e2e/home.clerk.journey.json"
 echo '{"id":"J-5","note":"starts on Shop.Order_Overview","steps":[]}' > "$P/tests/e2e/overview.clerk.journey.json"
 
@@ -104,7 +105,7 @@ lacks A "Other.test.mdl" && ok "another module's test not selected" || bad "A Ot
 has A "journey	journeys/Shop.journey.json	module Shop" && ok "the module journey of the subject and its callers" || bad "A journey" "$(grep ^journey "$WORK/out.A")"
 lacks A "Admin.journey.json" && lacks A "home.clerk" && ok "unrelated journeys not selected" || bad "A unrelated journey"
 has A "journey	tests/e2e/overview.clerk.journey.json	names Shop.Order_Overview" && ok "a journey that names a transitive CALLER is selected" || bad "A caller journey" "$(grep ^journey "$WORK/out.A")"
-has A "journeys	unmapped	1 of 5 journey file(s)" && ok "unmapped journey count printed (home.clerk names nothing)" || bad "A unmapped" "$(grep ^journeys "$WORK/out.A")"
+has A "journeys	unmapped	2 of 6 journey file(s)" && ok "unmapped count: home.clerk AND journeys/Shop.admin.journey.json (a file in journeys/ is mapped only when named <Module>.journey.json)" || bad "A unmapped" "$(grep ^journeys "$WORK/out.A")"
 lacks A "data	NOT MEASURED" && ok "no data row for a microflow change" || bad "A data row"
 has A "run	./bin/test-scratch.sh -- tests/unit/Total.test.mdl tests/unit/Validate.test.mdl --local" && ok "run row: test-scratch on the selection" || bad "A run unit" "$(grep ^run "$WORK/out.A")"
 has A "run	node tests/e2e/journey-runner.js journeys/Shop.journey.json" && ok "run row: journey runner" || bad "A run journey"
@@ -167,8 +168,8 @@ rm -f "$P/PROJECT.md"
 
 echo "== F: deploy-ready default is the full suite =="
 run F --moment deploy "$TOTAL" >/dev/null
-has F "unit=full journeys=full" && [ "$(grep -c '^unit	' "$WORK/out.F")" = 5 ] && [ "$(grep -c '^journey	' "$WORK/out.F")" = 5 ] \
-  && ok "all 5 test files, all 5 journey files" || bad "F full" "$(grep -e ^unit -e ^journey "$WORK/out.F")"
+has F "unit=full journeys=full" && [ "$(grep -c '^unit	' "$WORK/out.F")" = 5 ] && [ "$(grep -c '^journey	' "$WORK/out.F")" = 6 ] \
+  && ok "all 5 test files, all 6 journey files" || bad "F full" "$(grep -e ^unit -e ^journey "$WORK/out.F")"
 [ "$(calls)" = 0 ] && ok "no mxcli call at deploy-ready" || bad "F called mxcli"
 run F2 --moment module --module Admin >/dev/null
 has F2 "Other.test.mdl	names module Admin" && has F2 "journeys/Admin.journey.json" && ok "module close of a named module, no script needed" || bad "F2" "$(cat "$WORK/out.F2")"
@@ -189,6 +190,46 @@ has I "unit	tests/unit/Total.test.mdl	names module Shop (data or access change)"
 cat "$WORK/enum.mdl" "$TOTAL" > "$WORK/mixed.mdl"
 run I2 "$WORK/mixed.mdl" >/dev/null
 [ "$(grep -c '^data	NOT MEASURED' "$WORK/out.I2")" = 1 ] && has I2 "callers	measured" && ok "mixed: one data row, callers still measured for the microflow" || bad "I2 mixed" "$(grep -e ^data -e ^callers "$WORK/out.I2")"
+
+echo "== J: role, user role and constant subjects print data NOT MEASURED =="
+cat > "$WORK/roles.mdl" <<'EOF'
+create module role Shop.Manager;
+create user role Admin (Shop.Manager);
+create or modify constant Shop.MaxItems type Integer default 5;
+EOF
+run J "$WORK/roles.mdl" >/dev/null
+has J "subject	role	Shop.Manager" && has J "subject	userrole	Admin" && has J "subject	constant	Shop.MaxItems" && ok "three subjects, none unmapped" || bad "J subjects" "$(grep ^subject "$WORK/out.J")"
+has J "data	NOT MEASURED	role Shop.Manager	(cross-module use not measured" && ok "module role row" || bad "J role" "$(grep ^data "$WORK/out.J")"
+has J "data	NOT MEASURED	constant Shop.MaxItems	(cross-module use not measured" && ok "constant row" || bad "J constant" "$(grep ^data "$WORK/out.J")"
+has J "data	NOT MEASURED	userrole Admin	(access change" && ok "user role row" || bad "J userrole" "$(grep ^data "$WORK/out.J")"
+lacks J "module Admin" && lacks J "Other.test.mdl" && ok "a user role name is never read as a module" || bad "J userrole as module" "$(cat "$WORK/out.J")"
+printf 'alter user role Admin add module roles (Shop.Manager);\ndrop user role Old;\n' > "$WORK/roles2.mdl"
+run J2 "$WORK/roles2.mdl" >/dev/null
+[ "$(grep -c '^subject	userrole	' "$WORK/out.J2")" = 2 ] && ok "ALTER and DROP USER ROLE are subjects too" || bad "J2" "$(grep ^subject "$WORK/out.J2")"
+
+echo "== K: a caller added by an exec shows up on the next call (no stale cache) =="
+# The real catalog: on mxcli v0.26.0 a scratch copy had 4 transitive callers of a microflow;
+# after `exec` created a microflow calling it, the next SHOW CALLERS rebuilt the catalog
+# ("Catalog cached to .mxcli/catalog.db", the .mpr had changed) and listed 5, the new one at
+# depth 1 (fixtures/affected-tests/CAPTURE-FRESHNESS.txt). The script keeps no state of its own,
+# so it must pass that through. The stub below behaves like that capture: output follows the .mpr.
+cat > "$P/mxcli" <<'MXCLI'
+#!/usr/bin/env bash
+D="$(cd "$(dirname "$0")" && pwd)"
+echo "Callers of Shop.SUB_Order_Total (transitive)"
+echo "| Caller | Depth |"
+echo "|---|---|"
+echo "| Shop.VAL_Order | 1 |"
+grep -q ADDED "$D/Fixture.mpr" && echo "| Shop.ZZ_New_Caller | 1 |"
+exit 0
+MXCLI
+printf 'not a real model\n' > "$P/Fixture.mpr"
+run K1 "$TOTAL" >/dev/null
+lacks K1 "Shop.ZZ_New_Caller" && ok "before the exec: the new caller is not there" || bad "K1"
+printf 'not a real model\nADDED\n' > "$P/Fixture.mpr"      # what an exec does to the model
+run K2 "$TOTAL" >/dev/null
+has K2 "caller	Shop.ZZ_New_Caller	depth 1" && has K2 "callers	measured" && ok "after the exec: the new caller is listed, callers measured" || bad "K2 stale" "$(grep -e ^caller "$WORK/out.K2")"
+[ ! -e "$P/.mxcli" ] && [ ! -e "$P/.affected-cache" ] && ok "the script keeps no cache of its own" || bad "K cache file"
 
 echo "== H: usage =="
 RC=$(run H --moment later "$TOTAL"); [ "$RC" -eq 2 ] && ok "bad --moment exits 2" || bad "H rc=$RC"

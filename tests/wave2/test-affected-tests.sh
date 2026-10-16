@@ -417,6 +417,28 @@ has L10y "Total.test.mdl" && grep -q "model has 'Shop.SUB_Order_Total' (casing d
 fl 'Unit flows:\n- SUB_Order_Total: money\n- Nope.ACT_X: invented'
 STUB_BADMOD=Nope run L10z --moment module --module Shop >/dev/null 2>&1
 grep -q "module Nope not found in the model" "$WORK/err.L10z" && ! grep -q "Unit modules names" "$WORK/err.L10z" && has L10z "Total.test.mdl" && ok "L10z a listed module the model lacks warns 'not found in the model', non-fatal" || bad "L10z" "$(cat "$WORK/out.L10z" "$WORK/err.L10z")"
+# L10aa..: review r2 (parser forms, mixed-module tests, CRLF)
+printf '# Project\n\nUnit tests default: no\n' > "$P/PROJECT.md"
+for _f in 'Unit flows:\n1. SUB_Order_Total: money\n2) ACT_Order_Submit: REST' 'Unit flows:\n+ SUB_Order_Total: money\n+ ACT_Order_Submit: REST' '## Unit flows\n\n- SUB_Order_Total: money\n- ACT_Order_Submit: REST' '### Unit flows:\n- SUB_Order_Total: money\n- ACT_Order_Submit: REST' 'Unit flows: SUB_Order_Total: money, ACT_Order_Submit: REST'; do
+  fl "$_f"; run L10aa --moment module --module Shop >/dev/null 2>&1
+  has L10aa "Total.test.mdl" && has L10aa "Submit.test.mdl" && lacks L10aa "Validate.test.mdl" && [ ! -s "$WORK/err.L10aa" ] && ok "L10aa list form read, both flows: $(printf '%s' "$_f" | head -c 28)" || bad "L10aa $_f" "$(cat "$WORK/out.L10aa" "$WORK/err.L10aa")"
+done
+fl '## Unit flows\n\nTBD, to be decided\n\n## Other'
+run L10ab --moment module --module Shop >/dev/null 2>&1
+grep -q "looks like a Unit flows block but lists no flow" "$WORK/err.L10ab" && ok "L10ab a Unit flows block that yields no flow warns" || bad "L10ab" "$(cat "$WORK/err.L10ab")"
+printf '# Brief\r\n\r\nUnit flows:\r\n- SUB_Order_Total: money\r\n\r\n- ACT_Order_Submit: REST\r\n' > "$BRIEF_DIR/Shop/module-brief.md"
+run L10ac --moment module --module Shop >/dev/null 2>&1
+has L10ac "Total.test.mdl" && has L10ac "Submit.test.mdl" && [ ! -s "$WORK/err.L10ac" ] && ok "L10ac CRLF brief: flows read, no 'cannot read' warning" || bad "L10ac" "$(cat "$WORK/out.L10ac" "$WORK/err.L10ac")"
+# mixed-module test: Admin has no list, so it is on
+printf '/**\n * @test Mixed\n */\ncall microflow Admin.ACT_Reset();\ncall microflow Shop.VAL_Order();\n/\n' > "$P/tests/unit/Mixed.test.mdl"
+fl 'Unit flows:\n- SUB_Order_Total: money'
+printf '# Project\n\nUnit tests default: yes\n' > "$P/PROJECT.md"
+run L10ad "$TOTAL" >/dev/null 2>&1
+has L10ad "Mixed.test.mdl" && lacks L10ad "Validate.test.mdl" && has L10ad "Total.test.mdl" && ok "L10ad default yes: a test naming a listed AND an unlisted module is kept; a Shop-only unlisted test is dropped" || bad "L10ad" "$(cat "$WORK/out.L10ad")"
+printf '# Project\n\nUnit tests default: no\n' > "$P/PROJECT.md"; am 'Unit tests: yes'
+run L10ae "$TOTAL" >/dev/null 2>&1
+has L10ae "Mixed.test.mdl" && lacks L10ae "Validate.test.mdl" && ok "L10ae default no, Admin flipped: the same mixed test is selected via Admin" || bad "L10ae" "$(cat "$WORK/out.L10ae")"
+rm -f "$P/tests/unit/Mixed.test.mdl"; rm -rf "$BRIEF_DIR/Admin"
 rm -rf "$P/architecture"
 printf '# Project\n\nUnit tests default: no\n' > "$P/PROJECT.md"
 [ ! -e "$P/.mxcli" ] && ok "wrote nothing into the project" || bad "project written"

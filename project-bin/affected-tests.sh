@@ -69,7 +69,7 @@
 #      `SHOW MICROFLOWS IN <M>` does not list, a different casing, or a module the model lacks warns
 #      (best effort: skipped under --no-model or when mxcli cannot run). `Unit tests: yes` or
 #      `Unit modules:` with NO list keeps the module-level selection. Under `Unit tests default: yes`
-#      a module with a list is still narrowed to it (the list wins for its module); the others stay on.
+#      a module with a list is narrowed to it, but a test is dropped only when EVERY module it names has a list that excludes it; a test naming any module without a list stays (that module is on).
 # Journeys are not affected by any of this.
 #
 # HOW THE SELECTION IS MADE (judgement-free facts only; skills-over-scripts.md):
@@ -176,14 +176,16 @@ for _b in architecture/modules/*/module-brief.md architecture/modules/*-brief.md
               if (k ~ /^[ \t]*unit[ \t]*\(/ && v ~ /^yes/) f = 1 }
       END { exit !f }' "$_b"; then FLIPPED="$FLIPPED $_m"; fi
   # Unit flows: a bullet list `- [Module.]Flow[ (note)][: reason]` under a `Unit flows:` line, or inline
-  # `Unit flows: A, B`. Blank lines between bullets are fine; a heading or any other line ends the block.
+  # `Unit flows: A, B` (comma-split, each may carry `: reason`), `-`/`*`/`+`/numbered bullets, or a `## Unit flows`
+  # heading. Blank lines between bullets are fine; a heading or any other line ends the block.
   # A line in the block that cannot be read warns with its text, never dropped silently.
   awk -v m="$_m" -v b="$_b" '
     function trim(t) { gsub(/^[ \t]+|[ \t]+$/, "", t); return t }
     function warn(t) { print "warning: Unit flows in " b ": cannot read \"" t "\"; write `- ACT_Name: reason`" > "/dev/stderr" }
     function item(l,   nm, rest, par, r, i) {
       gsub(/`|\*\*/, "", l); l = trim(l)
-      if (l == "" || substr(l, 1, 1) == "<") return
+      if (l == "") return
+      if (substr(l, 1, 1) == "<") { seen++; return }
       if (!match(l, /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?/)) { warn(l); return }
       nm = substr(l, 1, RLENGTH); rest = trim(substr(l, RLENGTH + 1)); par = ""
       if (substr(rest, 1, 1) == "(") { i = index(rest, ")"); if (i) { par = substr(rest, 2, i - 2); rest = trim(substr(rest, i + 1)) } }
@@ -191,14 +193,17 @@ for _b in architecture/modules/*/module-brief.md architecture/modules/*-brief.md
       else if (substr(rest, 1, 1) == ":") { r = trim(substr(rest, 2)); if (r == "") r = par }
       else if (rest ~ /^-[ \t]/) r = trim(substr(rest, 2))
       else { warn(l); return }
-      print (index(nm, ".") ? nm : m "." nm) "\t" r
+      seen++; print (index(nm, ".") ? nm : m "." nm) "\t" r
     }
-    tolower($0) ~ /^[ \t*>-]*unit flows:/ { on = 1; v = substr($0, index(tolower($0), "unit flows:") + 11); gsub(/`|\*\*/, "", v); v = trim(v)
-      if (v != "") { if (index(v, ":")) item(v); else { k = split(v, a, ","); for (j = 1; j <= k; j++) item(a[j]) } }
+    { sub(/\r$/, "") }
+    tolower($0) ~ /^[ \t*>-]*unit flows:/ { on = 1; hdr = 1; v = substr($0, index(tolower($0), "unit flows:") + 11); gsub(/`|\*\*/, "", v); v = trim(v)
+      if (v != "") { k = split(v, a, ","); for (j = 1; j <= k; j++) item(a[j]) }
       next }
+    tolower($0) ~ /^[ \t]*(#+[ \t]+)?[*]*unit flows[ \t*:]*$/ { on = 1; hdr = 1; next }
     on && /^[ \t]*$/ { next }
-    on && /^[ \t]*[-*][ \t]/ { l = $0; sub(/^[ \t]*[-*][ \t]+/, "", l); item(l); next }
-    on { on = 0 }' "$_b" >> "$WORK/unitflows"
+    on && /^[ \t]*([-*+]|[0-9]+[.)])[ \t]/ { l = $0; sub(/^[ \t]*([-*+]|[0-9]+[.)])[ \t]+/, "", l); item(l); next }
+    on { on = 0 }
+    END { if (hdr && !seen) print "warning: Unit flows in " b " looks like a Unit flows block but lists no flow; write `- ACT_Name: reason` lines under `Unit flows:`" > "/dev/stderr" }' "$_b" >> "$WORK/unitflows"
 done
 # a module with a Unit flows list is flipped by it
 for _lm in $(cut -f1 "$WORK/unitflows" | sed 's/\..*//' | sort -u); do FLIPPED="$FLIPPED $_lm"; done
@@ -414,8 +419,14 @@ if [ "$UNIT_GATED" = 1 ]; then   # default no, some modules flipped: only those 
 elif [ -n "$LISTMODS" ]; then   # default yes: a module with a list is narrowed to it, the rest stay on
   : > "$WORK/unit.ls"; for m in $LISTMODS; do list_sel "$m" >> "$WORK/unit.ls"; done
   while IFS='	' read -r f w; do
-    _gov=0; for m in $LISTMODS; do grep -qE "(^|[^A-Za-z0-9_])$m\." "$f" 2>/dev/null && _gov=1; done
-    [ "$_gov" = 0 ] && printf '%s\t%s\n' "$f" "$w"
+    # governed by a list only when EVERY module the test names is a listed module; any other module is on, keep the test
+    _gov="$(awk -v lm="$LISTMODS" 'BEGIN { n = split(tolower(lm), L, " "); for (i = 1; i <= n; i++) isl[L[i]] = 1 }
+      { s = $0; while (match(s, /(^|[^A-Za-z0-9_.$])[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_]/)) {
+          q = substr(s, RSTART, RLENGTH); sub(/^[^A-Za-z_]/, "", q); sub(/\..*/, "", q); q = tolower(q)
+          if (q in isl) hl = 1; else if (q != "system") ho = 1
+          s = substr(s, RSTART + RLENGTH) } }
+      END { print (hl && !ho) ? 1 : 0 }' "$f" 2>/dev/null)"
+    [ "$_gov" = 1 ] || printf '%s\t%s\n' "$f" "$w"
   done < "$WORK/unit.sel" > "$WORK/unit.new"
   cat "$WORK/unit.ls" >> "$WORK/unit.new"
   awk -F'\t' '!seen[$1]++' "$WORK/unit.new" > "$WORK/unit.sel"

@@ -211,6 +211,36 @@ BUILT_ROOT="$(awk '
   END { for (k in map) print k "\t" map[k] }
 ' "$BUILT")"
 
+# Themed palettes. A design system may keep its whole palette in scoped blocks,
+# `:root.theme-light { ... }`, `:root.theme-dark { ... }`, with no bare `:root` at all. Pass 1
+# above must stay bare-only (a knob bound inside a theme the app is not wearing is not bound),
+# but the value comparison in pass 2b has nothing to compare for such a token in a bare block.
+# The honest reading is the SAME block on both sides: a token the design declares in
+# `:root.theme-light` is valued when the built sheet's `:root.theme-light` carries that value.
+# Output is "scope<TAB>name<TAB>value", first-seen order, last declaration in a scope winning.
+scoped_root() {
+  awk '
+    /^[[:space:]]*:root[^{,]*[.\[:][^{,]*\{[[:space:]]*$/ {
+      sel = $0; sub(/[[:space:]]*\{[[:space:]]*$/, "", sel); gsub(/[[:space:]]+/, " ", sel); gsub(/^ | $/, "", sel); inscope = 1; next }
+    inscope && /^[[:space:]]*\}/ { inscope = 0; next }
+    inscope && match($0, /--[a-zA-Z0-9-]+[[:space:]]*:/) {
+      name = substr($0, RSTART, RLENGTH); sub(/[[:space:]]*:$/, "", name)
+      rest = substr($0, RSTART + RLENGTH); sub(/;.*$/, "", rest)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", rest)
+      key = sel "\t" name; if (!(key in map)) order[++n] = key; map[key] = rest
+    }
+    END { for (i = 1; i <= n; i++) print order[i] "\t" map[order[i]] }
+  ' "$1"
+}
+DESIGN_SCOPED="$(scoped_root "$DESIGN")"
+BUILT_SCOPED="$(scoped_root "$BUILT")"
+# Names the design declares in a bare `:root`; every other token is themed-only.
+DESIGN_BARE_NAMES="$(awk '
+  /^[[:space:]]*:root[[:space:]]*\{[[:space:]]*$/ { inroot = 1; next }
+  inroot && /^[[:space:]]*\}/ { inroot = 0; next }
+  inroot && match($0, /--[a-zA-Z0-9-]+[[:space:]]*:/) { n = substr($0, RSTART, RLENGTH); sub(/[[:space:]]*:$/, "", n); print n }
+' "$DESIGN" | sort -u)"
+
 KNOB_TOTAL=0
 KNOB_BOUND=0
 UNBOUND_SAMPLE=""
@@ -274,8 +304,32 @@ norm_val() { printf '%s' "$1" | tr -d ' \t' | tr 'A-Z' 'a-z'; }
 TOKENS_VALUED=0
 VALUE_MISS_SAMPLE=""
 VALUE_MISS_N=0
+THEMED_TOKENS=0
 while IFS="$(printf '\t')" read -r tname tval; do
   [ -z "$tname" ] && continue
+  if ! printf '%s\n' "$DESIGN_BARE_NAMES" | grep -qxF -- "$tname" \
+     && printf '%s\n' "$DESIGN_SCOPED" | awk -F'\t' -v k="$tname" '$2 == k { f = 1 } END { exit !f }'; then
+    # Themed-only token: valued when EVERY scoped block that declares it is matched by the
+    # built sheet's same-named block carrying the same value.
+    THEMED_TOKENS=$((THEMED_TOKENS + 1))
+    themed_ok=1; themed_note=""
+    while IFS="$(printf '\t')" read -r dscope dname dval; do
+      [ "$dname" = "$tname" ] || continue
+      bv="$(printf '%s\n' "$BUILT_SCOPED" | awk -F'\t' -v s="$dscope" -v k="$tname" '$1 == s && $2 == k { v = $3 } END { print v }')"
+      if [ -z "$bv" ] || [ "$(norm_val "$bv")" != "$(norm_val "$dval")" ]; then
+        themed_ok=0; themed_note="$dscope built ${bv:-absent}, designed $dval"; break
+      fi
+    done <<EOF
+$DESIGN_SCOPED
+EOF
+    if [ "$themed_ok" -eq 1 ]; then
+      TOKENS_VALUED=$((TOKENS_VALUED + 1))
+    elif [ "$VALUE_MISS_N" -lt 4 ]; then
+      VALUE_MISS_N=$((VALUE_MISS_N + 1))
+      VALUE_MISS_SAMPLE="$VALUE_MISS_SAMPLE $tname ($themed_note);"
+    fi
+    continue
+  fi
   bval="$(printf '%s\n' "$BUILT_ROOT" | awk -F'\t' -v k="$tname" '$1 == k { v = $2 } END { print v }')"
   if [ -n "$bval" ] && [ "$(norm_val "$bval")" = "$(norm_val "$tval")" ]; then
     TOKENS_VALUED=$((TOKENS_VALUED + 1))
@@ -367,7 +421,7 @@ fi
 
 if [ "$TOKENS_ARRIVED" -gt 0 ] && [ "$TOKENS_VALUED" -lt "$TOKENS_ARRIVED" ]; then
   warn "$TOKENS_ARRIVED of $TOKEN_COUNT design-system tokens exist in $BUILT by name, $TOKENS_VALUED carry the design's value" \
-    "Differing:${VALUE_MISS_SAMPLE:- (none in a bare :root)} — a name the framework or app template also defines is not the design arriving. Read the values, not the count."
+    "Differing:${VALUE_MISS_SAMPLE:- (none in a bare :root or a matching themed block)} — a name the framework or app template also defines is not the design arriving. Read the values, not the count."
 fi
 
 if [ "$CLASS_COUNT" -gt 0 ] && [ "$CLASSES_ARRIVED" -eq 0 ]; then
@@ -389,7 +443,7 @@ printf 'built stylesheet %s\n' "$BUILT"
 printf 'knob file       %s\n' "$CUSTOM_VARS"
 printf 'knobs bound     %s\n' "$KNOBS_LINE"
 printf 'tokens arrived  %s of %s\n' "$TOKENS_ARRIVED" "$TOKEN_COUNT"
-printf 'tokens valued   %s of %s carry the design value in a bare :root\n' "$TOKENS_VALUED" "$TOKEN_COUNT"
+printf 'tokens valued   %s of %s carry the design value in a bare :root (%s themed-only, compared block for block)\n' "$TOKENS_VALUED" "$TOKEN_COUNT" "$THEMED_TOKENS"
 printf 'classes arrived %s of %s\n' "$CLASSES_ARRIVED" "$CLASS_COUNT"
 printf 'model classes   %s of %s asked for by the model are undefined\n' "$MODEL_CLASS_MISSING" "$MODEL_CLASS_TOTAL"
 printf 'css-vars mode   $use-css-variables: %s\n' "$CSS_VARS_MODE"

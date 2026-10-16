@@ -16,6 +16,8 @@
 #        ./bin/exec.sh --change-class <script.mdl>   (advisory ui-only/logic tag; writes nothing)
 #        ./bin/exec.sh --watch-compat <script.mdl>   (advisory: can `run --local --watch` apply
 #                                                     this, or does the app need a restart; writes nothing)
+#        ./bin/exec.sh --subjects <script.mdl>       (advisory: the elements it writes, one per line;
+#                                                     bin/affected-tests.sh reads it; writes nothing)
 #        ./bin/exec.sh --cr CR-07 <script.mdl>        (any mode: tag the run with its change request)
 #        Leading flags (--cr, --commit-first, then --patch) may come in any order.
 #
@@ -78,6 +80,13 @@
 #            MXTK_SCAN_OVERRIDE="<reason>" (the user only: run despite a blocking STOP-row scan hit, #349)
 set -e
 _T0=$(date +%s)
+# Per-step seconds (2026-10-16): the BUILD-LOG row used to carry only the total, so nobody could
+# say where an exec's time went (check, baseline, exec, gate, lint, score). step_done <name>
+# adds "<name> <s>s" since the previous mark; the run summary and the BUILD-LOG detail print it.
+# The gate mark sits right after the mxbuild run, before any pass/fail branch, so a rolled-back
+# run (the costliest ones) logs its gate seconds too.
+_TLAST=$_T0; STEP_TIMES=""
+step_done() { _tn=$(date +%s); STEP_TIMES="${STEP_TIMES:+$STEP_TIMES }$1 $((_tn - _TLAST))s"; _TLAST=$_tn; }
 
 # ── Change class (advisory, added 2026-10-13) ────────────────────────────────
 # Tags each run `ui-only` or `logic`, so the run summary can say which TEST LANE applies
@@ -167,6 +176,41 @@ mxtk_change_class() {  # $1 = MDL script; prints "<class>\t<why>"
       printf "ui-only\t%d page/snippet/layout statement(s), nothing else\n", ui
     }' "$1"
 }
+# ── Subjects (advisory, added 2026-10-16) ────────────────────────────────────
+# The elements a script writes: one "<kind>\t<Module.Name>\tline N" row per statement head,
+# kind = the object word before the first qualified name (microflow, page, entity, ...;
+# "access" for GRANT/REVOKE, "userrole" for CREATE/ALTER/DROP USER ROLE, whose name has no module). A head with no qualified name prints "unmapped\t-\tline N".
+# bin/affected-tests.sh turns these into the tests to re-run (testing-shape.md §3 subject set).
+# Same lexer and statement-head rule as the change class; read-only heads are skipped.
+mxtk_subjects() {  # $1 = MDL script
+  awk "$_MXTK_MDL_LEX"'
+    BEGIN { depth = 0; inblock = 0; indollar = 0 }
+    {
+      lex_line($0)
+      t = clean; gsub(/^[ \t]+/, "", t)
+      if (start_depth != 0 || t !~ /^[A-Za-z]/) next
+      n = split(t, o, /[ \t(;{,=]+/)
+      v = toupper(o[1])
+      if (v !~ /^(CREATE|ALTER|DROP|MOVE|GRANT|REVOKE|UPDATE)$/) next
+      if (v == "UPDATE" && toupper(o[2]) != "WIDGETS") next
+      kind = ""; name = ""
+      for (i = 2; i <= n; i++) {
+        if (o[i] ~ /^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/) { name = o[i]; break }
+        u = toupper(o[i])
+        if (u ~ /^(MICROFLOW|NANOFLOW|PAGE|PAGES|SNIPPET|LAYOUT|ENTITY|ASSOCIATION|ENUMERATION|CONSTANT|WORKFLOW|RULE)$/) kind = tolower(u)
+        else if (kind == "" && u !~ /^(OR|MODIFY|REPLACE|PERSISTENT|NON-PERSISTENT|IF|NOT|EXISTS)$/) last = tolower(u)
+      }
+      if (name == "" && toupper(o[2]) == "MODULE" && o[3] ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { kind = "module"; name = o[3] }
+      if (toupper(o[2]) == "USER" && toupper(o[3]) == "ROLE" && o[4] ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { kind = "userrole"; name = o[4] }
+      if (v == "GRANT" || v == "REVOKE") kind = "access"
+      else if (v == "UPDATE") kind = "page"
+      else if (kind == "pages") kind = "page"
+      else if (kind == "") kind = last
+      if (name == "") printf "unmapped\t-\tline %d\n", NR
+      else printf "%s\t%s\tline %d\n", kind, name, NR
+      last = ""
+    }' "$1"
+}
 # Leading flags, parsed in ONE loop before anything needs a project, in any order:
 # --cr CR-NN, --commit-first, then optionally --patch (whose next word is the script) or one of
 # the advisory modes. A malformed --cr id, an unknown --flag, or a script name starting with
@@ -190,7 +234,7 @@ while [ $# -gt 0 ]; do
       shift 2 ;;
     --commit-first) COMMIT_FIRST=1; shift ;;
     --patch) PATCH_MODE=1; shift; break ;;
-    --change-class|--watch-compat) ADVISORY="$1"; shift; break ;;
+    --change-class|--watch-compat|--subjects) ADVISORY="$1"; shift; break ;;
     *) break ;;
   esac
 done
@@ -204,6 +248,11 @@ esac
 if [ "$ADVISORY" = "--change-class" ]; then
   [ -f "${1:-}" ] || { echo "Usage: ./bin/exec.sh --change-class <script.mdl>" >&2; exit 2; }
   mxtk_change_class "$1"
+  exit 0
+fi
+if [ "$ADVISORY" = "--subjects" ]; then
+  [ -f "${1:-}" ] || { echo "Usage: ./bin/exec.sh --subjects <script.mdl>" >&2; exit 2; }
+  mxtk_subjects "$1"
   exit 0
 fi
 
@@ -365,13 +414,14 @@ fi
 change_lane() {
   case "$CHANGE_CLASS" in
     ui-only) echo "re-run the journeys of every page the change reaches (embedders of a changed snippet/layout) once + a LOOK. No .test.mdl; reviewers read the artifacts, they do not re-run" ;;
-    logic)   echo "re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Full mxcli test at module close, not here" ;;
+    logic)   echo "re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Unit tests only for affected modules with unit on; everything runs once at build complete and before each later deploy, per PROJECT.md ## Test strategy" ;;
   esac
 }
 [ -n "$CR_ID" ] && echo "→ Change request: $CR_ID (PROJECT.md '## Change log'; cite this run's commit in its Closed-by)"
 if [ -n "$CHANGE_CLASS" ]; then
   echo "→ Change class: $CHANGE_CLASS ($CHANGE_WHY)"
   echo "  test lane (skills/testing-shape.md §3): $(change_lane)"
+  [ "$PATCH_MODE" = "1" ] || echo "  affected tests: ./bin/affected-tests.sh $SCRIPT"
 fi
 
 cd "$PROJECT_ROOT"
@@ -440,7 +490,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -764,7 +814,7 @@ fi
 #   b) a "## Module brief - <Module>" heading in architecture/build-plan.md
 #
 # Platform and marketplace modules are skipped - this project does not author their briefs.
-brief_missing=""
+brief_missing=""; cr_unbriefed=""
 if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -f "$PROJECT_ROOT/architecture/build-plan.md" ]; then
   # Comments FIRST, before any pattern match. A `-- ... CREATE MODULE errors if ...` line in a
   # real workshop script otherwise yielded a module named "errors" and would have demanded a
@@ -809,11 +859,39 @@ if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -f "$PROJECT_ROOT/architect
     case "$m" in
       System|Administration|Atlas_Core|Atlas_Web_Content|Atlas_UI_Resources|MxModelReflection      |CommunityCommons|Encryption|NanoflowCommons|WebActions|DeepLink|MxTest) continue ;;
     esac
-    [ -f "$PROJECT_ROOT/architecture/modules/$m/module-brief.md" ] && continue
-    grep -qiE "^#+[[:space:]]*Module brief[[:space:]]*(—|-|:)[[:space:]]*$m[[:space:]]*$" \
-      "$PROJECT_ROOT/architecture/build-plan.md" 2>/dev/null && continue
+    if [ -f "$PROJECT_ROOT/architecture/modules/$m/module-brief.md" ]; then
+      # CR advisory: a CR that touches this module should have a CR-tagged Build steps row.
+      if [ -n "$CR_ID" ] && ! grep -qE "$CR_ID([^0-9]|\$)" "$PROJECT_ROOT/architecture/modules/$m/module-brief.md" 2>/dev/null; then
+        cr_unbriefed="$cr_unbriefed $m"
+      fi
+      continue
+    fi
+    if grep -qiE "^#+[[:space:]]*Module brief[[:space:]]*(—|-|:)[[:space:]]*$m[[:space:]]*$" \
+      "$PROJECT_ROOT/architecture/build-plan.md" 2>/dev/null; then
+      if [ -n "$CR_ID" ]; then
+        # Merged form: look only inside that module's own section (to the next "## " heading).
+        # LC_ALL=C: macOS awk exits 2 ("towc: multibyte conversion failure") on an em dash heading
+        # under a UTF-8 locale. Exit 1 = id not found (warn); any other code is a real awk error and
+        # its stderr stays visible. Every occurrence on a line is checked, not just the first.
+        _awk_rc=0
+        LC_ALL=C awk -v m="$m" -v cr="$CR_ID" '
+          /^#+[ \t]*[Mm]odule [Bb]rief/ { inb = 0; t = $0; sub(/^#+[ \t]*[Mm]odule [Bb]rief/, "", t); while (t != "" && substr(t, 1, 1) !~ /[A-Za-z0-9_]/) t = substr(t, 2); sub(/[ \t]+$/, "", t); if (tolower(t) == tolower(m)) inb = 1; next }
+          /^## / { inb = 0 }
+          inb { r = $0; while ((i = index(r, cr)) > 0) { c = substr(r, i + length(cr), 1); if (c !~ /[0-9]/) { found = 1; break }; r = substr(r, i + length(cr)) } }
+          END { exit found ? 0 : 1 }' "$PROJECT_ROOT/architecture/build-plan.md" || _awk_rc=$?
+        [ "$_awk_rc" -eq 0 ] || cr_unbriefed="$cr_unbriefed $m"
+      fi
+      continue
+    fi
     brief_missing="$brief_missing $m"
   done
+fi
+if [ -n "$cr_unbriefed" ]; then
+  for m in $cr_unbriefed; do
+    echo "⚠ WARN: the brief of $m does not mention $CR_ID. Add a $CR_ID tagged Build steps row to it"
+    echo "    (skills/change-intake-detail.md Step 4), so the change is specified and stays visible. Proceeding."
+  done
+  echo ""
 fi
 if [ -n "$brief_missing" ]; then
   echo "⚠ No module brief for:$brief_missing — proceeding, but nothing has specified this module."
@@ -928,8 +1006,10 @@ run_lint_gate() {
 # One place decides the applied-row wording, so both mxbuild-clean branches agree.
 log_applied() {  # $1 = mxbuild detail
   run_lint_gate
+  step_done lint
   LINT_RC_FOR_LEDGER="$LINT_RC"
   take_score
+  if [ "$SCORED" = 1 ]; then step_done score; fi
   if [ "$LINT_RC" -eq 1 ]; then
     log_build "⚠️ applied, LINT ROSE" "$1; $LINT_DETAIL"
   elif [ "$LINT_RC" -eq 3 ]; then
@@ -947,6 +1027,7 @@ log_applied() {  # $1 = mxbuild detail
 # a passing build. SKIP_CHECK=1 for the rare script mxcli's parser rejects but
 # the model accepts (log why, in the script).
 PMXCLI="$(find_project_mxcli 2>/dev/null || true)"
+step_done guards
 if [ "$PATCH_MODE" = "1" ]; then
   echo "→ --patch: no pre-exec mxcli check (not MDL). The mxbuild gate below is this write's only check."
 elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
@@ -978,6 +1059,8 @@ MXBUILD="$(mxtk_ensure_mxbuild "$MPR" || true)"
 # below failed its -x test and the entire mxbuild block was skipped on every run.
 # find_java/find_java_exe (project-bin/_common.sh) resolve per platform and prefer
 # Studio Pro's own bundled JRE, which is the one paired with this mxbuild.
+# The note comes first: once JAVA_HOME is assigned below, find_java_note sees it set and stays silent.
+_jnote="$(find_java_note 2>/dev/null || true)"; [ -z "$_jnote" ] || echo "⚠ $_jnote" >&2
 JAVA_HOME="$(find_java 2>/dev/null || true)"
 JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 
@@ -1007,8 +1090,10 @@ if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
   fi
 fi
 
+step_done check
 echo "→ Snapshotting model..."
 ./bin/snapshot-mpr.sh
+step_done snapshot
 # The snapshot just taken. A --patch run hands it to the script as MXPATCH_BACKUP_DIR, so the
 # .bak that bin/mxpatch.py keeps of each unit it rewrites lands beside the snapshot, OUTSIDE
 # the model tree, and is pruned with it. Until 2026-10-15 it was <unit>.mxunit.bak inside
@@ -1396,6 +1481,7 @@ fi
 # was already applied. The result was live, ungated, unlogged model changes,
 # arrived at by the guard chain exiting through the one path with no guards on
 # it. A failed exec is precisely when the gate matters most.
+step_done baseline
 echo "→ Executing $SCRIPT..."
 EXEC_STATUS=0
 if [ "$PATCH_MODE" = "1" ]; then
@@ -1520,6 +1606,7 @@ if [ "$EXEC_STATUS" -ne 0 ]; then
   echo "    failing statement is already in the model. Running the gate anyway."
 fi
 
+step_done exec
 echo ""
 echo "→ Running mxbuild model check (catches BSON corruption before SP opens)..."
 echo "  (mxbuild: $MXBUILD)"
@@ -1550,6 +1637,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   MXBUILD_EXIT="$MXTK_MXBUILD_EXIT"
   MXBUILD_OUT="$MXTK_MXBUILD_OUT"
   MXB_WHY="${MXTK_MXBUILD_WHY:-}"
+  step_done gate
 
   if [ -f "$ERRORS_FILE" ] && [ -s "$ERRORS_FILE" ]; then
     CE_COUNT=$(err_count "$ERRORS_FILE")
@@ -1709,9 +1797,27 @@ EOF
     echo "  ✗ mxbuild failed to run (exit $MXBUILD_EXIT) — gate could not verify the model."
     [ -n "$MXB_WHY" ] && echo "    mxbuild says: $MXB_WHY"
     echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | head -20 || true
-    echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
-    # --patch logs its own row below, after rolling back; one row per run.
-    [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
+    # mxbuild CRASHED ON THE WRITTEN MODEL (field 2026-10-13, Mendix 11.14.0, mxcli v0.25.0): a
+    # two-hop data source passed `check`, then mxbuild's loader died with no errors file. This
+    # branch kept the write, the next exec printed "Baseline NOT measured" and wrote on top of a
+    # model nothing could load. BASE_KNOWN=1 means mxbuild ran on this model a moment ago
+    # (measured baseline, or a clean verification stamp), so the crash is a property of the
+    # WRITE, not of the machine: roll it back like a failed gate. Without a measured baseline it
+    # may be the machine (wrong version, JDK), and the old behaviour stays: kept, flagged.
+    if [ "$PATCH_MODE" != "1" ] && [ "${BASE_KNOWN:-0}" = "1" ]; then
+      echo "  ✗ mxbuild ran on this model before the write and crashed after it — rolling the write back."
+      restore_snapshot
+      if [ "$RESTORED" -eq 1 ]; then
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model (ran on the baseline) — script rolled back${MXB_WHY:+; mxbuild: $MXB_WHY}"
+      else
+        echo "  STOP: the model may not load. Restore it before the next exec: ./bin/restore-mpr.sh <newest .mpr-snapshots/ dir>"
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model — NOT rolled back (restore did not run)"
+      fi
+    else
+      echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
+      # --patch logs its own row below, after rolling back; one row per run.
+      [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
+    fi
   else
     GATE_STATE="pass"; GATE_ERRORS=0
     echo "  ✓ mxbuild: 0 errors — model is clean."
@@ -1928,6 +2034,7 @@ echo "✓ Script applied to $MPR_BASE."
 echo ""
 _EL=$(( $(date +%s) - _T0 ))
 echo "  elapsed: ${_EL}s (check + snapshot + exec + mxbuild gate)"
+if [ -n "$STEP_TIMES" ]; then echo "  steps: $STEP_TIMES"; fi
 [ -n "$CHANGE_CLASS" ] && echo "  change class: $CHANGE_CLASS — test lane: $(change_lane)"
 # A budget, not a gate: a normal run is 30-90 s on a healthy machine. Past 4 minutes the
 # usual cause is the machine (Defender scanning every fork, OneDrive, a slow disk), and

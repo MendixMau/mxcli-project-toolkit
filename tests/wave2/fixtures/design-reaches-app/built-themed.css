@@ -1,0 +1,32 @@
+:root {
+  --brand-primary: var(--brand);
+  --font-family-base: "Open Sans", sans-serif;
+}
+
+:root.theme-light {
+  --brand: #AA1122;
+  --brand-hover: #99101F;
+  --brand-ink: #770C18;
+  --bg: #FAFAFA;
+  --surface: #FFFFFF;
+  --line: #E6E6E8;
+  --ink: #1B1B1F;
+  --ink-soft: #6B6B73;
+  --on-brand: #FFFFFF;
+}
+
+:root.theme-dark {
+  --brand: #FF5566;
+  --brand-hover: #FF7080;
+  --brand-ink: #FFB0B8;
+  --bg: #121214;
+  --surface: #1C1C20;
+  --line: #2E2E33;
+  --ink: #F2F2F4;
+  --ink-soft: #A8A8B0;
+  --on-brand: #121214;
+}
+
+.ds-page { padding: 24px; }
+.ds-card { background: var(--surface); border: 1px solid var(--line); }
+.ds-muted { color: var(--ink-soft); }

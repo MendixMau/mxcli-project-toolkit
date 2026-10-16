@@ -70,6 +70,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/journey-proof.md` | Proving a module's user journey end-to-end |
 | `skills/unhappy-path-testing.md` | Writing or running e2e cases beyond the happy journeys (blank/whitespace required fields, over-length, duplicates, cancel, double submit, wrong state, wrong role, backend down, stale write, empty search) |
 | `skills/monkey-test.md` | Running the fuzz/crash net on a module whose journeys are already green |
+| `skills/unit-test.md` | Writing or running a microflow unit test (.test.mdl, mxcli test, @expect) once the project or the user has decided a flow gets one |
 | `skills/e2e-locators-that-lie.md` | An e2e rung reports a UI defect (widget never appeared, click did nothing, screen contradicts the data, fixture count wrong) |
 | `skills/learned-skill-ux-audit.md` | UX audit and screenshot-loop discipline |
 | `skills/learned-skill-scope-delta.md` | Tracking scope delta between the BRD and the built state |

@@ -81,6 +81,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/mendix-agents.md` | Building a Mendix AI agent |
 | `skills/mendix-agent-ui.md` | Embedding a copilot chat panel |
 | `skills/mendix-agent-setup.md` | Standing up a project's GenAI agents in any environment |
+| `skills/unit-test.md` | Writing or running a microflow unit test (.test.mdl, mxcli test, @expect) once the project or the user has decided a flow gets one |
 | `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN |
 | `skills/close-the-loop.md` | Cutover and retrospective |
 | `skills/measured-claims.md` | Before citing ANY behavioural claim about the harness, the Mendix runtime or a test tool as evidence, or counting tokens from transcripts |

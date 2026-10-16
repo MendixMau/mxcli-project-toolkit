@@ -34,7 +34,9 @@
 #               by views A and B
 #     --refresh the unattended form of --html, for exec.sh and gate-check.sh: quiet, writes only
 #               when build-plan.md exists, never over a build-plan.html this script did not
-#               write, and leaves the file untouched when nothing but the timestamp would change
+#               write, and leaves the file untouched when nothing but the timestamp would change.
+#               It also keeps an EXISTING architecture/build-plan.json current (same parser as
+#               --json, same no-rewrite-for-a-timestamp rule) and never creates one
 #     --json    also write architecture/build-plan.json, parsed from architecture/build-plan.md's
 #               Step-5 Phase headings, row tables and claims: blocks (see "C." below)
 #     --quiet   suppress the stdout table (useful when only --html/--json output is wanted)
@@ -425,6 +427,20 @@ if [ "$WRITE_JSON" -eq 1 ] || [ "$WRITE_HTML" -eq 1 ]; then
     case $? in
       0) PLAN_JSON="$PLAN_TARGET"
          JSON_MSG="wrote ${JSON_OUT#$ROOT/}"
+         if [ "$REFRESH" -eq 1 ] && [ "$WRITE_JSON" -eq 0 ] && [ -f "$JSON_OUT" ]; then
+           # --refresh keeps an EXISTING build-plan.json current (never creates one): exec.sh and
+           # gate-check.sh run --refresh after every build step, so a json written once at Stage 4
+           # would otherwise read 0 built after a day of building. Same parser as --json; the
+           # write is skipped when only generatedAt would differ, like the html below.
+           if "$PY" -c 'import json,sys
+def load(f):
+    d=json.load(open(f,encoding="utf-8")); d.pop("generatedAt",None); return d
+sys.exit(0 if load(sys.argv[1])==load(sys.argv[2]) else 1)' "$JSON_OUT" "$PLAN_TARGET" >/dev/null 2>&1; then
+             JSON_MSG="${JSON_OUT#$ROOT/} already current"
+           else
+             cp -f "$PLAN_TARGET" "$JSON_OUT" 2>/dev/null && JSON_MSG="refreshed ${JSON_OUT#$ROOT/}"
+           fi
+         fi
          if [ "$WRITE_JSON" -eq 1 ]; then
            # A producer guarantees its own output is ignored (snapshot-mpr.sh's rule). The JSON
            # is a build product: regenerated on demand in under a second, derived entirely from

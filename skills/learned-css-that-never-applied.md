@@ -9,17 +9,14 @@ unstyled/grey after a design port that every instrument called green.
 
 ## The one-line finding
 
-A change-governance app (2026-09-10) went through two UI passes. The first shipped an app the
-user called "poor". The second, same person, same day, same design system: "much better." Nothing
-about the CSS authoring got better in between. What changed was the closing check:
+An app went through two UI passes: the first the user called "poor", the second "much better".
+Only the closing check changed:
 
 > **Pass 1 verified that the SCRIPT EXECUTED. Pass 2 verified that THE PIXEL CHANGED.**
 > Every green signal in pass 1 was true and irrelevant.
 
-`mx check` clean, `mxcli lint` clean, the MDL suite green, two e2e journeys green, the design port
-reporting its tokens correctly landed in the right file — over an app whose grid header was white
-on white, whose cards were all one colour, and whose entire table stylesheet had never matched a
-single element.
+`mx check`, `mxcli lint`, the MDL suite and two e2e journeys were all green over an app whose grid
+header was white on white and whose table stylesheet had never matched a single element.
 
 This skill is the rung that was missing. It is not "look at a screenshot" (`ui-loop.md` already
 says that, and it is right). A screenshot tells you something is wrong; it does not tell you
@@ -27,28 +24,26 @@ whether your rule matched nothing, matched too much, or matched and lost.
 
 ---
 
-## The three ways a perfectly correct rule paints nothing
+## The four ways a perfectly correct rule paints nothing
 
-All three were met in one field run. They look identical on screen and have opposite fixes.
+They look identical on screen and have opposite fixes.
 
 | # | Failure | What you see | What is actually true |
 |---|---|---|---|
 | 1 | **Matches nothing** | the element is unstyled | the selector names a DOM the app does not render |
 | 2 | **Matches too much** | something *else* broke | the selector names an ancestor shared with chrome |
 | 3 | **Matches, loses the cascade** | the element is unstyled | the framework outranks you and is actively erasing it |
+| 4 | **Matches, wins, nothing to paint on** | a Data Grid 2 row ignores outline or background | the row is `display: contents`: no box |
 
 ### 1. Matches nothing — three of four misses in one run
 
-`design/ds.css` styled `.ds-tablewrap` and `table.ds-table`. The design system's own showcase page
-is HTML, so it really does render a `<table>`. The app renders DataGrid2, whose row is a
-`<div class="tr">` and whose cell is a `<div class="td">` — **there is no `<table>` element on any
-page**. Not one table rule had ever applied: through the full design port, two build phases,
-mxbuild clean, lint clean, both journeys green. That is why the grid header was white on white.
+`design/ds.css` styled `table.ds-table`. The showcase page is HTML, but the app renders DataGrid2:
+rows are `<div class="tr">`, cells `<div class="td">`, and **no `<table>` exists on any page**. No
+table rule ever applied, through the port, mxbuild, lint and both journeys.
 
-Then, styling the top bar, three selectors were guessed in one sitting — `.navbar`,
-`header.navbar`, `.mx-layoutgrid-fluid` — and all three matched zero elements. The bar stayed
-flat and the rule looked "ignored". The real carrier was `.mx-scrollcontainer-top.region-topbar`,
-and it was found in one read of the live element chain, not by a fourth guess.
+Styling the top bar, three guessed selectors (`.navbar`, `header.navbar`, `.mx-layoutgrid-fluid`)
+matched zero elements. The real carrier, `.mx-scrollcontainer-top.region-topbar`, was found in one
+read of the live element chain, not by a fourth guess.
 
 > `project-bin/check-design-portability.sh` catches the `table`/`th`/`td` case statically and
 > should be run before porting. It cannot catch the guessed-carrier case, because
@@ -56,9 +51,8 @@ and it was found in one read of the live element chain, not by a fourth guess.
 
 ### 2. Matches too much — the widened guess
 
-A page-ground rule `.mx-page { background: var(--bg) }` was added so white cards would stop
-sitting on white. The navigation bar lives inside that container, so it was painted too: white
-menu text on a now-white bar, an **invisible top nav**. Reverted after a screenshot.
+`.mx-page { background: var(--bg) }`, added so white cards stop sitting on white, also painted the
+navigation bar inside that container: white menu text on a white bar, an **invisible top nav**.
 
 The instinct after failure 1 is to widen the selector until something matches. This is what that
 costs. A rule that paints nothing is visible in one screenshot; a rule that paints chrome is
@@ -66,8 +60,8 @@ visible in one screenshot *of a different page*, which is how it ships.
 
 ### 3. Matches, loses the cascade — and source order never got a say
 
-`.mx-listview-empty` named exactly the right element. It sat roughly **eleven thousand lines
-after** Atlas in the compiled sheet. It still lost, because Atlas ships:
+`.mx-listview-empty` named exactly the right element, roughly **eleven thousand lines after**
+Atlas in the compiled sheet. It still lost, because Atlas ships:
 
 ```css
 .mx-listview > ul .mx-listview-empty { border-style: none; background-color: transparent; }
@@ -84,17 +78,24 @@ the framework deliberately blanking that element. A rule you add without outrank
 
 **The same erasure hides inside classes a port calls "Atlas-native, styled by the knobs".** Some
 Atlas base properties have no custom-variables knob at all: `.btn { font-weight: normal }` and,
-above 767px, `.form-group { display: flex; flex-direction: row }`. Field case (a
-card-disbursement requirements-driven build, Mendix 11.13.0, 2026-09-25): every button rendered
-at 400 against the design system's 500, and hand-written labels sat beside their inputs;
-`check-design-reaches-app.sh` saw nothing, because both classes counted as bound. Port each such
+above 767px, `.form-group { display: flex; flex-direction: row }`. Field case
+(Mendix 11.13.0): every button rendered at 400 against the design system's 500; the check saw
+nothing, because both classes counted as bound. Port each such
 property as its own rule, and read it back as a computed value, not as a knob that was set.
+
+---
+
+### 4. `display: contents`: no box to paint on
+
+A Data Grid 2 row has no box, so `outline`, `background`, `box-shadow` or `scrollIntoView` on the
+row paints nothing, though the computed-style read shows your value. Target the row's cells
+instead. Read-side twin: `offsetParent === null` in `testing-shape.md`.
 
 ---
 
 ## The diagnostic — two reads, before you touch the rule
 
-Run against the app that is actually running, as a real user role, on the page in question.
+Run against the running app, as a real user role, on the page in question.
 
 **Rung A — what is this element's computed value, really?**
 
@@ -120,17 +121,8 @@ const chain = await page.evaluate(() => {
 console.log(JSON.stringify(chain, null, 1));
 ```
 
-That printed, verbatim, on the field run:
-
-```
-["LABEL.", "LI.mx-listview-empty", "UL.",
- "DIV.mx-listview.mx-name-lvSupportingDocument",
- "DIV.mx-name-cardFileBody.ds-cardbody",
- "DIV.mx-name-cardFile.ds-card.ds-section"]
-```
-
-— which names the carrier, names its ancestors (so you can write a `>` chain that outranks the
-framework), and shows your own `ds-*` classes are present two levels up, all in one read.
+The output names the carrier and its ancestors, so you can write a `>` chain that outranks the
+framework.
 
 **Then decide from what Rung A returned. The three answers have three different fixes:**
 
@@ -181,21 +173,15 @@ error a customer notices first.
 `project-bin/check-design-reaches-app.sh` counts how many component classes **arrived** in the
 built stylesheet. It cannot see a class that arrived perfectly and is bound to no widget.
 
-On the field run, at the moment the user said the UI was poor, `ds.css` already contained four
-complete semantic tint sets, a five-step elevation scale and a styled empty state. Every one of
-them was correct. Every one of them was referenced by **zero widgets**. The design system was
-finished and the app was grey.
-
-No CSS instrument can see this, because nothing is wrong with the CSS.
+In the field run `ds.css` held four semantic tint sets, an elevation scale and a styled empty
+state, all correct and all referenced by **zero widgets**. The app was grey. No CSS instrument can
+see this, because nothing is wrong with the CSS.
 
 > **Measure it as a ratio, not a list: of the M component classes defined in `ds.css`, how many
 > have at least one carrier in the model?** Get the M from the stylesheet and the carriers from
 > the model (`mxcli` catalog/`DESCRIBE`, or a grep of the executed MDL for `Class:` and
 > `DynamicClasses:`). Report "N of M classes have a carrier". A zero-carrier class is a finding,
 > and the fix is never to rewrite it — **it is to bind it.**
-
-Three of the five improvements the user reacted to were pure binding of CSS that had been sitting
-in the file, unreferenced, the whole time.
 
 ---
 
@@ -204,10 +190,8 @@ in the file, unreferenced, the whole time.
 Added 2026-10-12 from a 20-task UX-fix run over three apps. **On page load Mendix focuses the
 first navigation item from script, and Chrome counts that as `:focus-visible`.** So a plain
 `:focus-visible { outline: … }` ring, added for accessibility, paints on every landing. A mouse
-user sees one tab ringed as if selected. In the field run that was 3 of 3 roles on one app (two
-tabs looked selected for one role) and 5 of 5 roles on another, where an earlier task had ruled it
-"correct a11y". Every journey stayed green, because each one clicked the page body before
-counting, and the count looked at `inset` box-shadows, not outlines.
+user sees one tab ringed as if selected. Every journey stayed green: each clicked the page body
+first, and the count looked at `inset` box-shadows, not outlines.
 
 The fix: draw the ring only after the user has used the keyboard. A small script loaded from
 `theme/web/index.html` (or wherever the theme loads its own scripts):
@@ -232,6 +216,19 @@ and read the computed `outline-style` of the focused element (expect `none`), th
 and read it again (expect your ring). A check that clicks first has already cleared the state it
 is supposed to see, and a check that counts box-shadows cannot see an outline. Completion line:
 "N of N roles: no ring on landing, ring after Tab".
+
+## Atlas carriers that beat a plain descendant rule
+
+Lab observations; confirm with a computed-style read on your Atlas version.
+
+| You write | What happens | Write it as |
+|---|---|---|
+| `.my-cards li` for a list view with `Class` `my-cards` | `Class` lands on the root `div.mx-listview`; Atlas's `.mx-listview > ul > li` outranks you | `.mx-listview.my-cards > ul > li` |
+| `.my-content { display: flex }` in the page body; a top-level button | Body is a flex column (`mx-placeholder`); the button stretches full width | `.region-content .mx-placeholder > .btn { align-self: flex-start; }`; region classes cannot be set by `alter layout`, so put padding on `.<shell> .region-content` |
+| `.my-timeline { display: flex }` | Items sit in a child `ul`: strip renders vertical | `.my-timeline > ul { display: flex; }` |
+| `.my-step:first-child` | Every step is its own `li`'s first child | `.my-timeline > ul > li:first-child .my-step` |
+
+Fix these in the shared stylesheet. A theme-only change needs an app restart.
 
 ## Related
 

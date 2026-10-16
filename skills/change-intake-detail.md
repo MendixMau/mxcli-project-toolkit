@@ -1,10 +1,10 @@
 # Change Intake — Detail: Why, Worked Example, Apply, Prove, Gate Check
 
 **Applies to:** any mxcli project with a `PROJECT.md` (migration, requirements-driven, greenfield, change an existing app), from Stage 2 onward.
-**Purpose:** the on-demand half of `change-intake.md`. That file is the baseline core every lead and ba-agent session reads (trigger, row format, class → entry artifact, size → ask, owners, Done when). Read this one when you apply or prove a change request, when a class, size or status is unclear, or when the `Change log:` gate line needs explaining.
-**Owns:** nothing on its own: `change-intake.md` owns the `## Change log` table in `PROJECT.md` and the classes, sizes and statuses. `conversion-runbook.md` §3b (drift-sync) is the BRD-flush step of this loop; `iterative-build-loop.md`, `close-the-loop.md` and `agent-roles.md` point at `change-intake.md`.
+**Purpose:** the on-demand half of `change-intake.md`. That file is the baseline core every lead and ba-agent session reads. Read this one to apply or prove a change request, when a class, size or status is unclear, or to explain the `Change log:` gate line.
+**Owns:** nothing: `change-intake.md` owns the `## Change log` table and the classes, sizes and statuses. `conversion-runbook.md` §3b (drift-sync) is this loop's BRD-flush step.
 
-**Trigger:** any message from the user that asks for something to be different from what the artifacts say or what was built, typed, pasted, relayed ("the finance lead wants..."), or said while looking at a screenshot or the running app. Not a trigger: answering a question you asked at a gate (that is `interview-protocol.md`), or a finding from a review pass (that is `finding-disposition.md`).
+**Trigger:** any message asking for something different from the artifacts or the build, typed, pasted, relayed or said over a screenshot. Not a trigger: a gate answer (`interview-protocol.md`) or a review finding (`finding-disposition.md`).
 
 ---
 
@@ -100,7 +100,7 @@ A row the user rejects is kept, with Status `rejected — <reason>`. A rejected 
 ## Step 4 — Apply: top down, as far down as needed
 
 1. Edit the entry artifact (Step 2).
-2. Cascade down only to layers that *restate* what changed. Module briefs point to the BRD and do not copy it (`module-brief.md`), so most BRD edits need no brief edit. If the change adds or retires a build step, add or edit that row in the build plan.
+2. The BRD stays the source of truth. The module brief's `### Build steps` table is updated, with a CR-tagged row such as `CR-07-1`, for every CR that touches that module's build steps, screens, access or rules, so `context-pack.sh <Module> CR-07-1` finds it. Every CR that adds work also gets a build-plan row tagged `CR-NN`: **S** one row in the module's own phase, **M** and **L** wait for a change round (a follow-up adds the full "unplanned changes" view and change rounds). An agreed CR that is not built yet is *waiting*. Surface it at session start and at module close; never let it drop out of sight.
 3. Then write the MDL and run it with `./bin/exec.sh --cr CR-NN <script>`. The tag lands in the BUILD-LOG detail cell, and that BUILD-LOG row is the evidence for Step 5.
 4. Set the status to `applied` and fill Closed-by with the commit that holds the artifact edit.
 

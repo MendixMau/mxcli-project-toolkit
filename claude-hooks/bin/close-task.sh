@@ -115,7 +115,8 @@ echo "### Then"
 echo "    $_ck --write     # and fill the Narrative  (append-only history)"
 cat <<'TABLE'
     OVERWRITE docs/progress/RESUME.md   # <= 60 lines: where we are, next actions,
-                                        #    do-not-lose, and which file to read for what.
+                                        #    Waiting changes: (agreed, unbuilt CR ids), do-not-lose, and
+                                        #    which file to read for what.
                                         #    This is the ONLY file read after /clear.
     git commit
     close-task.sh --done      # empties the pending-writes file; PreCompact unblocks

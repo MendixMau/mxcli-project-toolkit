@@ -118,5 +118,113 @@ FIRST=$(echo "$V" | grep -n "CAUSE" | head -1 | cut -d: -f1); FE=$(echo "$V" | g
 [ "$FIRST" -lt "$FE" ] && ok "CAUSE comes before the error list" || bad "CAUSE comes before the error list" "$FIRST vs $FE"
 has "CAUSE gives the fix" "$V" 'set "brdDirs"'
 
+echo "== migrate: old shape converts to targets, empty entries are left out =="
+setanch() { "$PY" - "$1/design/process-model.json" "$2" <<'PY'
+import json,sys
+p=sys.argv[1]; m=json.load(open(p)); m['anchors']=sys.argv[2]; json.dump(m,open(p,'w'),indent=2)
+PY
+}
+P=$(fresh old1); rm -f "$P/design/question-anchors.json"; mkdir -p "$P/design/old"
+cat > "$P/design/old/a.json" <<'J'
+{"anchors":[{"id":"F001:Q01","step":"P1-02","basis":"b1"},{"id":"F001:Q02","bucket":"Money"},{"id":"F001:Q03"},{"step":"P1-01"},{"id":"F001:Q05","target":"P1-03"},{"id":"F001:Q06","page":"Order_Overview"}]}
+J
+echo old-bak > "$P/design/old/a.json.bak"
+setanch "$P" design/old/a.json
+OUT=$(node "$PM" migrate --project "$P" 2>&1)
+has "migrate counts the carried entries" "$OUT" "carried over 4 entries (4 judged)"
+has "an entry with no target is reported by id" "$OUT" "F001:Q03"
+has "an entry with no id is counted" "$OUT" "1 old entry had no id"
+NEW=$(cat "$P/design/question-anchors.json")
+has "step key became a step target" "$NEW" '"type": "step"'
+has "bucket key became a global target" "$NEW" '"bucket": "Money"'
+has "page key became a page target" "$NEW" '"type": "page"'
+has "judged is kept" "$NEW" '"anchoredBy": "judged"'
+hasnt "the empty entry is not in the new file" "$NEW" "F001:Q03"
+NT=$("$PY" -c "
+import json;a=json.load(open('$P/design/question-anchors.json'))['anchors']
+d={e['id']:e['targets'] for e in a}
+print(d['F001:Q01']==[{'type':'step','step':'P1-02'}], d['F001:Q05']==[{'type':'step','step':'P1-03'}], all(isinstance(t,dict) for e in a for t in e['targets']))")
+[ "$NT" = "True True True" ] && ok "targets equal the old placements, all objects" || bad "targets equal the old placements" "$NT"
+[ -f "$P/design/old/a.json.bak.1" ] && [ "$(cat "$P/design/old/a.json.bak")" = "old-bak" ] && ok "an existing .bak is kept, the new one is .bak.1" || bad "existing .bak kept"
+H1=$(cksum "$P/design/question-anchors.json" "$P/design/process-model.json")
+OUT2=$(node "$PM" migrate --project "$P" 2>&1)
+H2=$(cksum "$P/design/question-anchors.json" "$P/design/process-model.json")
+has "second migrate has nothing to do" "$OUT2" "nothing to do"
+[ "$H1" = "$H2" ] && ok "second migrate leaves both files byte-identical" || bad "second migrate byte-identical"
+A=$(node "$PM" anchor --project "$P" 2>&1)
+hasnt "anchor does not count an emptied entry as anchored" "$A" "F001:Q03	"
+
+echo "== migrate: a judged old entry beats a derived current one =="
+P=$(fresh coll); mkdir -p "$P/design/old"
+node "$PM" anchor --project "$P" >/dev/null 2>&1
+DID=$("$PY" -c "
+import json;a=json.load(open('$P/design/question-anchors.json'))['anchors']
+print([e['id'] for e in a if e['anchoredBy']=='derived'][0])")
+cat > "$P/design/old/a.json" <<J
+{"anchors":[{"id":"$DID","step":"P1-07","basis":"hand judged"}]}
+J
+setanch "$P" design/old/a.json
+OUT=$(node "$PM" migrate --project "$P" 2>&1)
+has "collision is printed" "$OUT" "$DID: the old judged placement replaced the current derived one"
+R=$("$PY" -c "
+import json;a=json.load(open('$P/design/question-anchors.json'))['anchors']
+e=[x for x in a if x['id']=='$DID'][0]
+print(e['anchoredBy'], e['targets'][0].get('step'))")
+[ "$R" = "judged P1-07" ] && ok "the judged placement won" || bad "the judged placement won" "$R"
+P=$(fresh coll2); mkdir -p "$P/design/old"
+JID=$("$PY" -c "
+import json;print(json.load(open('$P/design/question-anchors.json'))['anchors'][0]['id'])")
+cat > "$P/design/old/a.json" <<J
+{"anchors":[{"id":"$JID","step":"P1-07"}]}
+J
+setanch "$P" design/old/a.json; rm "$P/design/question-anchors.json.bak" 2>/dev/null
+cp "$FIX/design/question-anchors.json" "$P/design/question-anchors.json"
+OUT=$(node "$PM" migrate --project "$P" 2>&1)
+has "two judged placements: the current one is kept and the loss is printed" "$OUT" "the current placement is kept"
+
+echo "== anchor: a judged entry with empty targets is unanchored, not global =="
+P=$(fresh emp)
+"$PY" - "$P/design/question-anchors.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); d['anchors'].append({'id':'F001:Q04','kind':'question','anchoredBy':'judged','targets':[]}); json.dump(d,open(p,'w'))
+PY
+A=$(node "$PM" anchor --project "$P" 2>&1)
+has "warns that the entry places nothing" "$A" "has no targets"
+hasnt "and does not count it as judged" "$A" "3 judged"
+
+echo "== PAGE-MAP.tsv beats the filename stem; a row naming a missing file warns =="
+E2="$TMP/pm2"; rm -rf "$E2"; cp -R "$E" "$E2"
+sed -i.bak "s/\"useCases\":\[\"[^\"]*\"\]/\"useCases\":[\"$BRDID:$UC\"]/" "$E2/design/process-model.json"
+cp "$E2/design/wireframes/order-list-v2.html" "$E2/design/wireframes/Order_Overview.html"
+cat > "$E2/design/wireframes/order-list-v2.html" <<'H'
+<html><body><h1>Mapped</h1></body></html>
+H
+printf 'Order_Overview\torder-list-v2.html\nGhost_Page\tnot-there.html\n' > "$E2/design/wireframes/PAGE-MAP.tsv"
+node "$PM" build --project "$E2" >"$E2/build.log" 2>&1
+has "the PAGE-MAP file wins over a stale stem match" "$(grep -o 'file":"wireframes/[^"]*' "$E2/design/process-map.html" 2>/dev/null | tr '\n' ' ')$(tail -2 "$E2/build.log")" "order-list-v2.html"
+hasnt "the stale stem file is not used" "$(grep -o 'file":"wireframes/[^"]*' "$E2/design/process-map.html" 2>/dev/null)" "Order_Overview.html"
+V=$(node "$PM" validate --project "$E2" 2>&1)
+has "a PAGE-MAP row naming a missing file warns" "$V" 'PAGE-MAP.tsv row "Ghost_Page" names not-there.html'
+
+echo "== CAUSE line for the page-names cause =="
+E3="$TMP/pm3"; rm -rf "$E3"; cp -R "$E" "$E3"; rm -f "$E3/design/wireframes/PAGE-MAP.tsv"
+"$PY" - "$E3/design/process-model.json" <<'PY'
+import json,sys
+p=sys.argv[1]; m=json.load(open(p)); st=m['processes'][0]['steps']
+for i in range(2,6): st.append({'id':'P1-0%d'%i,'title':'S%d'%i,'lane':'r','page':'Nope_%d'%i})
+json.dump(m,open(p,'w'))
+PY
+V=$(node "$PM" validate --project "$E3" 2>&1)
+has "CAUSE line names the page cause" "$V" "CAUSE"
+has "and points at PAGE-MAP.tsv or data-mx-page" "$(echo "$V" | grep CAUSE)" "PAGE-MAP"
+
+echo "== template: fit for every overflowing board, hint text, resize =="
+T="$(cat "$TOOLKIT/project-bin/process-map.template.html")"
+has "embed fits every overflowing board" "$T" "EMBED"
+has "the hint says scaled" "$T" "The map is scaled to fit the page."
+has "the hint says split above 12" "$T" "split it in two."
+has "sideways is only for the zoom floor" "$T" "Scroll sideways to follow the process."
+has "fit re-runs when the wrap resizes" "$T" "ro.observe(wrap)"
+
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

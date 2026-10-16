@@ -165,6 +165,8 @@ table.uc td{border-top:1px solid var(--line);padding:4px 6px;vertical-align:top}
 }
 /* embed mode: the maps alone, inside a host page's iframe */
 body.embed .top{display:none}
+.embedhint{margin:6px 2px 0;font-size:12px;color:var(--muted)}
+.embedhint[hidden]{display:none}
 body.embed main{padding:8px 4px 16px;max-width:none}
 body.embed section.proc{margin:0 0 22px}
 body.embed section.proc h2{margin:6px 0 4px;font-size:15px}
@@ -355,14 +357,18 @@ function renderIndex(){
 }
 
 // ---------- one process ----------
+var HINT_BASE = 'Coloured pins count the questions on that step.';
 function renderProcess(p, host){
   var emb = !!host; host = host || view;
+  var hintEl = null, embHint = null;
   if (!emb){
     view.innerHTML = '';
     view.appendChild(h('p',{style:'margin:0'},[h('a',{href:'#/',text:'← All processes'})]));
     view.appendChild(h('h1',{text:p.title}));
     if (p.summary) view.appendChild(h('p',{class:'lede',text:p.summary}));
-    view.appendChild(howto('Click any step card to see its screen large and the questions about it','Coloured pins count the questions on that step. Scroll sideways to follow the process.'));
+    var hw = howto('Click any step card to see its screen large and the questions about it', HINT_BASE);
+    hintEl = hw.querySelector('small');
+    view.appendChild(hw);
     view.appendChild(legend());
   }
   var laneIds = []; p.steps.forEach(function(s){ if (laneIds.indexOf(s.lane)<0) laneIds.push(s.lane); });
@@ -403,13 +409,23 @@ function renderProcess(p, host){
     el[s.id] = card; board.appendChild(card);
   });
   wrap.appendChild(board); host.appendChild(wrap);
+  if (emb){ embHint = h('p',{class:'embedhint',text:'The map is wider than this page: scroll sideways inside it to follow the process.'}); embHint.hidden = true; host.appendChild(embHint); }
   if (!EMBED && store('pb-clicked')!=='1'){ var first = board.querySelector('.step'); if (first) first.classList.add('pulse'); }
-  // A long process is scaled to fit the box (not below 50%); past that it scrolls inside the box only.
+  // A long process, or any map in the embedded report, is scaled to fit its box (not below 50%);
+  // past that it scrolls inside the box only. The hint says which of the three cases the reader is in.
   function fit(){
-    if (!board.classList.contains('long')) return;
+    var scalable = board.classList.contains('long') || EMBED;
     board.style.zoom = 1;
-    var z = Math.max(0.5, Math.min(1, (wrap.clientWidth - 4) / board.scrollWidth));
-    board.style.zoom = z;
+    var z = 1, over = false;
+    if (scalable){
+      z = Math.max(0.5, Math.min(1, (wrap.clientWidth - 4) / board.scrollWidth));
+      board.style.zoom = z;
+      over = board.scrollWidth * z > wrap.clientWidth + 2;
+    } else over = board.scrollWidth > wrap.clientWidth + 2;
+    var many = p.steps.length > 12;
+    if (hintEl) hintEl.textContent = HINT_BASE + (z < 1 ? ' The map is scaled to fit the page.' : '') +
+      (many ? ' More than 12 steps is hard to read: split it in two.' : '') + (over ? ' Scroll sideways to follow the process.' : '');
+    if (embHint) embHint.hidden = !over;
   }
   function draw(){
     fit();
@@ -456,8 +472,8 @@ function renderProcess(p, host){
       });
     });
   }
-  requestAnimationFrame(draw);
-  if (window.ResizeObserver) new ResizeObserver(function(){ draw(); }).observe(board);
+  requestAnimationFrame(draw); REDRAW.push(draw);
+  if (window.ResizeObserver){ var ro = new ResizeObserver(function(){ draw(); }); ro.observe(board); ro.observe(wrap); }
   if (emb) return;
   // the list under the map: every question on this process, in step order
   var seen = {}, list = [];
@@ -553,7 +569,16 @@ function markStep(id){
   if (id){ var c = document.querySelector('.step[data-step="'+id+'"]'); if (c) c.classList.add('sel'); }
 }
 function pickStep(s){ markStep(s.id); try{ parent.postMessage({pm:'step', step:s.id, proc:procOf[s.id].id}, '*'); }catch(e){} }
-function sendHeight(){ try{ parent.postMessage({pm:'height', h:Math.ceil(view.getBoundingClientRect().bottom + (window.pageYOffset||0)) + 12}, '*'); }catch(e){} }
+function sendHeight(){
+  try{
+    // the bottom of the last block, not of #view itself: #view can report a collapsed box in a short frame
+    var last = view.lastElementChild, b = (last ? last.getBoundingClientRect().bottom : view.getBoundingClientRect().bottom) + (window.pageYOffset||0);
+    if (!window.innerWidth || b < 40) return;   // not laid out yet: a zero here would collapse the frame
+    parent.postMessage({pm:'height', h:Math.ceil(b) + 16}, '*');
+  }catch(e){}
+}
+var REDRAW = [];
+function draws(){ REDRAW.forEach(function(f){ try{ f(); }catch(e){} }); }
 function renderEmbed(){
   view.className = 'wide'; view.innerHTML = '';
   view.appendChild(legend());
@@ -563,7 +588,10 @@ function renderEmbed(){
   });
   window.addEventListener('message', function(e){ var d = e.data||{}; if (d.pm==='select') markStep(d.step); });
   if (window.ResizeObserver) new ResizeObserver(sendHeight).observe(view);
-  sendHeight(); window.addEventListener('load', sendHeight);
+  // The frame may not have its width yet when this first runs, so report again once it has settled.
+  sendHeight(); window.addEventListener('load', sendHeight); window.addEventListener('resize', function(){ draws(); sendHeight(); });
+  [60, 250, 700, 1500].forEach(function(ms){ setTimeout(function(){ draws(); sendHeight(); }, ms); });
+  requestAnimationFrame(function(){ requestAnimationFrame(sendHeight); });
   try{ parent.postMessage({pm:'ready'}, '*'); }catch(e){}
 }
 

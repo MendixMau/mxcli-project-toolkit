@@ -104,7 +104,17 @@ require_py
 BRD_FILES=$(discover_brds "$PROJECT_DIR")
 BRD_COUNT=$(count_lines "$BRD_FILES")
 
-if [ "$BRD_COUNT" = "0" ]; then
+# Stage 0/1 has no BRDs yet, but the gate can still block on sme-questions.md questions and must
+# hand the user a page. With no BRDs and no questions found, nothing is rendered (exit 3).
+SME_ONLY=0
+if [ "$BRD_COUNT" = "0" ] && [ -x "$HERE/open-questions.sh" ]; then
+  _n=$(bash "$HERE/open-questions.sh" "$PROJECT_DIR" ${STAGE_ARG:+--stage "$STAGE_ARG"} --json 2>/dev/null | "$PY" -c 'import json,sys
+try: print(json.load(sys.stdin)["counts"]["total"])
+except Exception: print(0)' 2>/dev/null)
+  [ "${_n:-0}" -gt 0 ] 2>/dev/null && SME_ONLY=1
+fi
+
+if [ "$BRD_COUNT" = "0" ] && [ "$SME_ONLY" = "0" ]; then
   # An empty result set is never a pass (report-schema.md). Distinct exit code so no caller
   # can read "found nothing" as "nothing to find".
   echo "brd-report: no BRDs found under $PROJECT_DIR — nothing rendered." >&2
@@ -991,11 +1001,14 @@ if n_by_step:
                     + _group('Requirements', _pick(req_rows, False)) + _group('Open questions and assumptions', _pick(q_rows, False)))
 whole_html = _group('Requirements', _pick(req_rows, True)) + _group('Open questions and assumptions', _pick(q_rows, True))
 
+# First paint height: the frame reports its real height once it has a width, but a screenshot or a slow
+# frame must not show a clipped map in the meantime. About 105 px per lane row, plus legend and title.
+pm_h0 = 70 + sum(120 + 105 * len({st.get('lane') for st in pr.get('steps', [])}) for pr in (pm_data or {}).get('processes', [])) if pm_frame else 120
 if pm_frame:
     map_html = ('<section class="pmmap" id="pm-map"><h2>Process map</h2>'
                 '<p class="lede">One map per business process. Rows are the people and the system, cards are the steps in order. '
                 'Click a step to see the requirements and open questions about it below.</p>'
-                '<iframe id="pm-frame" title="Process map" sandbox="allow-scripts" scrolling="no" '
+                f'<iframe id="pm-frame" title="Process map" sandbox="allow-scripts" scrolling="no" style="height:{pm_h0}px" '
                 f'srcdoc="{html.escape(pm_frame, quote=True)}"></iframe></section>')
 else:
     map_html = f'<section class="pmmap" id="pm-map"><h2>Process map</h2><div class="banner warn">{esc(pm_note)}</div></section>'
@@ -1039,7 +1052,7 @@ function pick(id, scroll){
 window.addEventListener('message', function(e){
   if (!frame || e.source !== frame.contentWindow) return;
   var d = e.data || {};
-  if (d.pm === 'height') frame.style.height = d.h + 'px';
+  if (d.pm === 'height') { if (d.h > 80) frame.style.height = d.h + 'px'; }
   else if (d.pm === 'step') pick(d.step, true);
   else if (d.pm === 'ready') post();
 });
@@ -1207,11 +1220,9 @@ page = f"""<!DOCTYPE html>
 </head>
 <body>
 <div class="wrap">
-  <h1>Stage 2 — what the BRDs actually say</h1>
-  <p class="lede">Rendered {esc(datetime.datetime.now().strftime('%Y-%m-%d'))} from
-     {len(analysed)} BRD(s) in {len(kb_dirs)} knowledge-base director(ies) — whatever produced
-     them. Every section carries a verdict, so a section that is empty because this kind of BRD
-     has nothing to put there reads differently from one that is empty because something broke.</p>
+  <h1>{'Open questions, stage ' + stage_arg + ' view' if (not analysed and stage_arg) else ('Open questions' if not analysed else 'Stage 2 — what the BRDs actually say')}</h1>
+  <p class="lede">{('Rendered ' + esc(datetime.datetime.now().strftime('%Y-%m-%d')) + '. No BRDs exist yet: these are the questions collected from analysis/sme-questions.md.') if not analysed else ('Rendered ' + esc(datetime.datetime.now().strftime('%Y-%m-%d')) + ' from ' + str(len(analysed)) + ' BRD(s) in ' + str(len(kb_dirs)) + ' knowledge-base director(ies), whatever produced them. Every section carries a verdict, so a section that is empty because this kind of BRD has nothing to put there reads differently from one that is empty because something broke.')}
+     {esc('Questions shown: up to stage ' + stage_arg + '.') if stage_arg else ''}</p>
 
   {map_html}
 

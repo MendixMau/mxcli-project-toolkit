@@ -124,7 +124,7 @@ I3  node project-bin/page-fidelity.js --no-log tests/wave2/fixtures/page-fidelit
 I4  node project-bin/page-fidelity.js --no-log tests/wave2/fixtures/page-fidelity-mocks/mocked-list.html DemoList tests/wave2/fixtures/page-fidelity-mocks/demo-list.mdl
 I5  bash bin/html-to-md.sh "tests/wave2/fixtures/html-to-md/Fleet Portal Requirements.html" > ~/mxtk-win-run/fleet.md
     Then: wc -l ~/mxtk-win-run/fleet.md
-I6  bash bin/brd-report.sh --help ; bash bin/triage-report.sh --help ; bash bin/brd-report.sh --help
+I6  bash bin/brd-report.sh --help ; bash bin/triage-report.sh --help
     (exit 0 and a usage text each = PASS; these are the report tools with no committed input)
 I7  bash bin/bug-lookup.sh CE0053
 I8  bash bin/token-burn.sh --help

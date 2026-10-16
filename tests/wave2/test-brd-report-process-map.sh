@@ -210,5 +210,89 @@ echo "== T8: the map renderer is not copied =="
 check "brd-report.sh draws no swimlane itself" "$(grep -c 'laneband\|renderProcess' "$BR")" "0"
 has "it calls process-map.js build --embed" "$(cat "$BR")" "'build', '--embed'"
 
+echo "== T9: review fixes: questions-only report, --stage, whole-app collapse, fit =="
+# a Stage 0/1 gate blocked by sme-questions.md only (no BRDs) still writes a report
+Q="$TMP/smeonly"; mkdir -p "$Q/analysis/a/knowledge-base"
+echo "<html>x</html>" > "$Q/analysis/a/knowledge-base/extraction-report.html"   # Stage 1 passes on its own evidence, so the gate reaches the question check
+cat > "$Q/analysis/sme-questions.md" <<'M'
+# SME questions
+
+| # | Question | Evidence | Options |
+|---|---|---|---|
+| F1 | What is the approval limit for an order? | source | (a) 1000 (b) none |
+| F2 | Who signs off on refunds? | source | (a) lead (b) finance |
+M
+printf '# Demo\n' > "$Q/PROJECT.md"
+GOUT="$("$GATE" "$Q" 1 2>&1)"
+has "the gate is blocked by the unraised questions" "$GOUT" "Gate BLOCKED"
+has "and gives the path of the report" "$GOUT" "brd-report.html"
+[ -f "$Q/analysis/brd-report.html" ] && ok "gate stage 1 with only sme-questions.md writes a report" || bad "gate stage 1 with only sme-questions.md writes a report"
+QR="$(cat "$Q/analysis/brd-report.html" 2>/dev/null)"
+has "the questions-only page lists the unraised question" "$QR" "What is the approval limit for an order?"
+has "the page says it is a stage view" "$QR" "Open questions, stage 1 view"
+has "the page header shows the stage filter" "$QR" "Questions shown: up to stage 1."
+hasnt "no process map frame without a model" "$QR" '<iframe id="pm-frame"'
+mkdir -p "$TMP/nothing-here"; bash "$BR" "$TMP/nothing-here" --quiet >/dev/null 2>&1; check "no BRDs and no questions still exits 3" "$?" "3"
+# --stage passthrough: the stage the gate asked for reaches the collector
+P="$(project stagearg)"
+bash "$BR" "$P" --stage 1 --quiet >/dev/null 2>&1
+has "--stage N is shown in the lede" "$(cat "$P/analysis/brd-report.html")" "Questions shown: up to stage 1."
+bash "$BR" "$P" --quiet >/dev/null 2>&1
+hasnt "without --stage there is no stage note" "$(cat "$P/analysis/brd-report.html")" "Questions shown: up to stage"
+# the whole-app group is collapsed above 8 items, open below
+P="$(project manyq)"
+jq '.openQuestions += [range(10) | {"id":("W"+tostring),"question":("Whole app question "+tostring),"assumption":"none","blocking":false,"source":"x"}]' "$P/analysis/a/knowledge-base/brd/F001-orders.brd.json" > "$P/q" && mv "$P/q" "$P/analysis/a/knowledge-base/brd/F001-orders.brd.json"
+bash "$BR" "$P" --quiet >/dev/null 2>&1
+MQ="$(cat "$P/analysis/brd-report.html")"
+has "more than 8 whole-app items are collapsed" "$MQ" '<details class="more"><summary>Show the'
+P="$(project fewq)"; bash "$BR" "$P" --quiet >/dev/null 2>&1
+hasnt "8 or fewer whole-app items are not collapsed" "$(cat "$P/analysis/brd-report.html")" '<summary>Show the'
+# the embedded map is fitted: the iframe starts at a computed height and the host ignores a bogus first post
+BRS="$(cat "$BR")"
+has "the iframe gets a first-paint height" "$BRS" "pm_h0"
+has "the host ignores a collapsed height post" "$BRS" "d.h > 80"
+if [ -n "$CHROME" ]; then
+  # The embedded map drawn at the width the report gives it (the page is 980px wide, the frame about 970):
+  # the last step card must end inside the frame, not be cut off on the right.
+  P="$(project fit)"
+  "$PY" - "$P/design/process-model.json" <<'PY'
+import json, sys
+f = sys.argv[1]; m = json.load(open(f)); st = m['processes'][0]['steps']
+keep, drop = st[:3], st[3:]
+keep[-1]['next'] = []
+have = {u for s in keep for u in s.get('useCases', [])}
+lost = sorted({u for s in drop for u in s.get('useCases', [])} - have)
+m['processes'][0]['steps'] = keep
+m.setdefault('standalone', []).extend({'useCase': u, 'reason': 'n/a'} for u in lost)
+m['standalone'] = [x for x in m['standalone'] if x['useCase'] not in have]
+json.dump(m, open(f, 'w'))
+PY
+  node "$TOOLKIT/project-bin/process-map.js" build --project "$P" --embed --out "$P/embed.html" --data-out "$P/embed.json" >/dev/null 2>&1
+  "$PY" - "$P/embed.html" <<'PY'
+import sys
+f = sys.argv[1]; s = open(f).read()
+js = """<script>setTimeout(function(){var c=document.querySelectorAll('.step');var l=c[c.length-1];var r=l.getBoundingClientRect();
+var b=document.querySelector('.board');document.title='FIT:'+(r.right<=window.innerWidth+1?'inside':'clipped')+':'+Math.round(r.right)+'/'+window.innerWidth+':zoom'+(b.style.zoom||1);},2500);</script></body>"""
+open(f, 'w').write(s.replace('</body>', js, 1))
+PY
+  FITOUT="$("$PY" - "$CHROME" "$P/embed.html" <<'PY'
+import subprocess, sys, re
+chrome, f = sys.argv[1], sys.argv[2]
+try:
+    out = subprocess.run([chrome, '--headless=new', '--disable-gpu', '--virtual-time-budget=8000',
+        '--window-size=970,900', '--dump-dom', 'file://' + f], capture_output=True, text=True, timeout=90).stdout
+    m = re.search(r'<title>(FIT:[^<]*)</title>', out)
+    print(m.group(1) if m else 'FIT:unreadable')
+except Exception as e:
+    print('FIT:error ' + str(e))
+PY
+)"
+  case "$FITOUT" in
+    FIT:unreadable|FIT:error*) echo "  skip browser fit probe ($FITOUT)";;
+    *) has "last step card is inside the frame width ($FITOUT)" "$FITOUT" "FIT:inside";;
+  esac
+fi
+
+
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

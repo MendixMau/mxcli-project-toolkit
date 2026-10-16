@@ -86,6 +86,7 @@ function anchorEntries(j) {
   for (const e of list) {
     if (!e || !e.id) { res.noId++; continue; }
     let targets = e.targets || (e.target ? [e.target] : null);
+    if (targets && !Array.isArray(targets)) targets = [targets];
     if (targets) targets = targets.map(t => typeof t === 'string' ? { type: 'step', step: t } : t);
     if (!targets) {
       targets = [];
@@ -139,8 +140,14 @@ if (cmd === 'migrate') {
   writeAtomic(target, JSON.stringify(out, null, 2) + '\n');
   const rawText = fs.readFileSync(modelFile, 'utf8');
   const keyRe = /("anchors"\s*:\s*)"[^"]*"/;
-  if (keyRe.test(rawText)) writeAtomic(modelFile, rawText.replace(keyRe, (m, k) => k + JSON.stringify(want)));
-  else { const m = readJson(modelFile, 'process model'); m.anchors = want; writeAtomic(modelFile, JSON.stringify(m, null, 2) + '\n'); }
+  // The regex hits the first "anchors" string at any depth; keep its result only when the TOP-LEVEL key changed.
+  let keyOnly = false;
+  if (keyRe.test(rawText)) {
+    const patched = rawText.replace(keyRe, (m, k) => k + JSON.stringify(want));
+    let top = null; try { top = JSON.parse(patched).anchors; } catch (e) { /* fall through */ }
+    if (top === want) { writeAtomic(modelFile, patched); keyOnly = true; }
+  }
+  if (!keyOnly) { const m = readJson(modelFile, 'process model'); m.anchors = want; writeAtomic(modelFile, JSON.stringify(m, null, 2) + '\n'); }
   let bak = old + '.bak', n = 1;
   while (fs.existsSync(bak)) bak = old + '.bak.' + (n++);
   fs.renameSync(old, bak);
@@ -149,8 +156,9 @@ if (cmd === 'migrate') {
     path.relative(root, old) + ' to ' + want + (haveE.entries.length ? ' (' + haveE.entries.length + ' already there)' : ''));
   for (const m of notes) console.log('migrate: ' + m);
   if (oldE.noTarget.length) console.log('migrate: ' + oldE.noTarget.length + ' old entr' + (oldE.noTarget.length === 1 ? 'y' : 'ies') + ' placed nothing and ' + (oldE.noTarget.length === 1 ? 'was' : 'were') + ' left out: ' + oldE.noTarget.join(', '));
+  if (haveE.noTarget.length) console.log('migrate: ' + haveE.noTarget.length + ' entr' + (haveE.noTarget.length === 1 ? 'y' : 'ies') + ' in the current anchors file placed nothing and ' + (haveE.noTarget.length === 1 ? 'was' : 'were') + ' left out: ' + haveE.noTarget.join(', '));
   if (oldE.noId) console.log('migrate: ' + oldE.noId + ' old entr' + (oldE.noId === 1 ? 'y' : 'ies') + ' had no id and ' + (oldE.noId === 1 ? 'was' : 'were') + ' left out');
-  console.log('migrate: old file kept as ' + path.relative(root, bak) + '; model "anchors" is now ' + want + ' (only that key was changed)');
+  console.log('migrate: old file kept as ' + path.relative(root, bak) + '; model "anchors" is now ' + want + ' (' + (keyOnly ? 'only that key was changed' : 'the model was re-written with that key set') + ')');
   console.log('migrate: next, run anchor to place anything new and list what is still unanchored');
   process.exit(0);
 }

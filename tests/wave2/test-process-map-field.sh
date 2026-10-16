@@ -182,6 +182,54 @@ cp "$FIX/design/question-anchors.json" "$P/design/question-anchors.json"
 OUT=$(node "$PM" migrate --project "$P" 2>&1)
 has "two judged placements: the current one is kept and the loss is printed" "$OUT" "the current placement is kept"
 
+echo "== migrate: the top-level key is patched, a nested look-alike is not =="
+P=$(fresh nest); mkdir -p "$P/design/old"
+node "$PM" anchor --project "$P" >/dev/null 2>&1
+cp "$P/design/question-anchors.json" "$P/design/old/a.json"; rm "$P/design/question-anchors.json"
+"$PY" - "$P/design/process-model.json" <<'PY'
+import json,sys
+p=sys.argv[1]; m=json.load(open(p)); d={'meta':{'anchors':'notes.txt'}}; d.update(m); d['anchors']='design/old/a.json'; json.dump(d,open(p,'w'),indent=2)
+PY
+OUT=$(node "$PM" migrate --project "$P" 2>&1)
+R=$("$PY" -c "
+import json;m=json.load(open('$P/design/process-model.json'))
+print(m['anchors'], m['meta']['anchors'])")
+[ "$R" = "design/question-anchors.json notes.txt" ] && ok "top-level key changed, nested one untouched" || bad "top-level key changed" "$R"
+hasnt "output does not claim only that key changed" "$OUT" "only that key was changed"
+has "output says the model was re-written" "$OUT" "re-written with that key set"
+P=$(fresh plain); mkdir -p "$P/design/old"
+node "$PM" anchor --project "$P" >/dev/null 2>&1
+cp "$P/design/question-anchors.json" "$P/design/old/a.json"; rm "$P/design/question-anchors.json"
+setanch "$P" design/old/a.json
+has "a plain model still claims only the key changed" "$(node "$PM" migrate --project "$P" 2>&1)" "only that key was changed"
+
+echo "== migrate: a string target in an old file is a one-item list =="
+P=$(fresh strt); mkdir -p "$P/design/old"; rm -f "$P/design/question-anchors.json"
+cat > "$P/design/old/a.json" <<'J'
+{"anchors":[{"id":"F001:Q01","targets":"P1-02"}]}
+J
+setanch "$P" design/old/a.json
+OUT=$(node "$PM" migrate --project "$P" 2>&1); RC=$?
+[ "$RC" -eq 0 ] && ok "string targets do not crash migrate" || bad "string targets crash migrate" "$OUT"
+R=$("$PY" -c "
+import json;e=json.load(open('$P/design/question-anchors.json'))['anchors'][0]
+print(e['targets'])")
+[ "$R" = "[{'type': 'step', 'step': 'P1-02'}]" ] && ok "string target became one step target" || bad "string target became one step target" "$R"
+
+echo "== migrate: unfilled entries in the current file are listed =="
+P=$(fresh cur0); mkdir -p "$P/design/old"
+node "$PM" anchor --project "$P" >/dev/null 2>&1
+"$PY" - "$P/design/question-anchors.json" <<'PY'
+import json,sys
+p=sys.argv[1]; d=json.load(open(p)); d['anchors'].append({'id':'F001:Q77','kind':'question','targets':[]}); json.dump(d,open(p,'w'))
+PY
+cat > "$P/design/old/a.json" <<'J'
+{"anchors":[{"id":"F001:Q78","step":"P1-02"}]}
+J
+setanch "$P" design/old/a.json
+OUT=$(node "$PM" migrate --project "$P" 2>&1)
+has "current-file entry with no targets is named" "$OUT" "in the current anchors file placed nothing and was left out: F001:Q77"
+
 echo "== anchor: a judged entry with empty targets is unanchored, not global =="
 P=$(fresh emp)
 "$PY" - "$P/design/question-anchors.json" <<'PY'

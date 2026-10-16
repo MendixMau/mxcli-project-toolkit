@@ -202,5 +202,33 @@ mkdir -p "$d/elsewhere"; mv "$d/theme/web/custom-variables.scss" "$d/elsewhere/c
 has   "third argument names the knob file"          "$( cd "$d" && bash "$SUT" design/ds.css deployment/web/theme.compiled.css elsewhere/cv.scss 2>&1 )" "knobs bound     4 of 4"
 has   "CUSTOM_VARS names the knob file"             "$( cd "$d" && CUSTOM_VARS=elsewhere/cv.scss bash "$SUT" 2>&1 )" "knobs bound     4 of 4"
 
+# ── 11. themed palettes: compare the same block, not a bare :root that does not exist ───────
+# A design system whose palette lives only in `:root.theme-light` / `:root.theme-dark` used to
+# read "0 of N tokens carry the design value" because the comparison looked in a bare `:root`
+# of the built sheet. Synthetic fixture; the themed blocks are compared block for block.
+themed() {
+  d="$(project "$1" "$2" true)"
+  cp "$FIX/ds-themed.css" "$d/design/ds.css"
+  printf ':root {\n  --brand-primary: #264ae5;\n}\n$use-css-variables: true;\n' > "$d/theme/web/custom-variables.scss"
+  printf '%s' "$d"
+}
+d="$(themed themed built-themed.css)"
+out="$(run "$d")"
+check "a correctly ported themed palette exits 0"   "$(code "$d")" "0"
+has   "counts every themed token as valued"          "$out" "tokens valued   9 of 9"
+hasnt "no false 'carry the design's value' warning"  "$out" "carry the design's value"
+
+d="$(themed themed-wrong built-themed-wrong.css)"
+out="$(run "$d")"
+has   "a wrong themed value is still caught"         "$out" "7 carry the design's value"
+has   "names the block, token and both values"       "$out" "--brand (:root.theme-light built #0F6E6B, designed #AA1122)"
+
+# A descendant rule (`:root .theme-light`, with a space) does not set the variable on the root, so
+# it is not the block the design declared in `:root.theme-light`. It must not read as valued.
+d="$(themed themed-descendant built-themed-descendant.css)"
+out="$(run "$d")"
+hasnt "a descendant selector is not the root theme block" "$out" "tokens valued   9 of 9"
+has   "the descendant block counts as built absent"       "$out" "carry the design's value"
+
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

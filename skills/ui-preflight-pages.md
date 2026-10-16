@@ -20,8 +20,8 @@ Not needed for pure microflow/domain/security scripts.
 per arm on the same page, 2026-08-31, `process/preflight-skill-baseline-2026-08-31.md`): with
 this file inlined in the drafting agent's context, 5/5 reps chose the correct layout shell,
 5/5 opened with an H1, 0/5 wrote an inline style or invented a class; without it, 0/5, 2/5 and
-3/5+1/5 respectively — the exact ToeicBuddy field defects. The failed field run *cited this
-file by name* while producing the without-arm's numbers: a citation is not a read. So when
+3/5+1/5 respectively, the field defects. The failed field run *cited this file by name* while
+producing the without-arm's numbers: a citation is not a read. So when
 page-drafting is dispatched to a subagent, the dispatch prompt must include this file's text
 (or the subagent must read it as its first action) — a one-line "follow ui-preflight-pages.md"
 reproduces the baseline.
@@ -180,6 +180,7 @@ For each widget group in your planned MDL, verify every row:
 | **Displayed facts** | Every status, count or freshness value the page shows is read from the source its `Displayed fact:` row in `PROJECT.md` names, never from the raw stored attribute behind it (`process-coherence-pass.md` pass 5). The field case: a badge added in a later task read the stored status and brought back "Notified" on four pages that an earlier fix had made read "Stopped" |
 | **Conditional visibility** | Any `visible:` expression on the widget is legal under the STOP table (safe on regular widgets; MCP-only inside `datagrid customContent` columns — BUG-18) |
 | **Class carrier** | Every `class:` value is on the widget its design-system entry names as the carrier. A class alone does not win the cascade: CONTAINER → a bare `<div>` with no competing rule, but ACTIONBUTTON carries Atlas's compound `.mx-button.btn` (0-2-0) which **beats a single class (0-1-0) and overrides it only partially** — background applies, `display`/`padding`/`font-size` do not. See `learned-stylegallery.md` → "The Mendix DOM contract" |
+| **Atlas carriers** | Rules for list view items, the page body or a timeline strip use the selectors in `learned-css-that-never-applied.md` § "Atlas carriers" |
 | **Computed class names** | Every `DynamicClasses` expression's **complete output set** exists in the stylesheet. Work out every string the expression can emit and confirm each has a rule — one that does not fails silently, as an empty or unstyled element beside a caption asserting otherwise. Note: **Mendix `div` is float division** (`63 div 10 = 6.3`), so `(x div 10) * 10` does not bucket |
 
 If a wireframe element cannot be expressed in MDL at all (e.g. association-mode COMBOBOX, cross-module

@@ -8,15 +8,15 @@ stop, so a signal, not a clean exit) to restart the app. Later a clean-up remove
 `MxTest` module but not the setting; exec.sh's pre-flight then reported the model "ALREADY has 1 error"
 (CE1613), and the next app start recursed with a StackOverflowError in `MxTest.RegisterEndpoint`.
 mxcli v0.25.0, Mendix 11.14.0 Beta, toolkit c1efcb3.
-**Proposed target:** upstream mxcli for the root cause (already logged here as #244, closed 2026-10-14 after the toolkit refusal landed in the integration PR #329; the upstream root cause remains); in the
+**Proposed target:** upstream mxcli for the root cause (already logged here as #244, closed 2026-10-14 by #322 (toolkit refusal); the upstream root cause remains); in the
 toolkit, `skills/testing-shape.md` (the `--test-endpoint` paragraph) and an exec.sh pre-flight hint
 
-**Currency check:** 2026-10-16 against master d1cbd41: partly stale. exec.sh's pre-flight now refuses on a leftover injected setting and prints the `ALTER SETTINGS` repair (`_common.sh`), so the exec.sh hint half is done. Still open: the upstream root cause behind #244 (closed 2026-10-14 once the toolkit refusal landed), and `skills/testing-shape.md` does not say that a stop by signal skips the restore.
+**Currency check:** 2026-10-16 against master d1cbd41: partly stale. exec.sh's pre-flight now refuses on a leftover injected setting and prints the `ALTER SETTINGS` repair (`_common.sh`), so the exec.sh hint half is done. Still open: the upstream root cause behind #244 closed 2026-10-14 by #322 (toolkit refusal); the upstream root cause remains, and `skills/testing-shape.md` does not say that a stop by signal skips the restore.
 ---
 
 ## What is already covered
 
-- #244 (closed 2026-10-14; the toolkit refusal landed in #329, the upstream root cause remains) describes the same family on mxcli v0.25.0 / Mendix 11.15.0: the wrapper chains the
+- #244 (closed 2026-10-14 by #322 (toolkit refusal); the upstream root cause remains) describes the same family on mxcli v0.25.0 / Mendix 11.15.0: the wrapper chains the
   "current" after-startup flow, which is already `MxTest.RegisterEndpoint`, so it calls itself. It
   asks upstream to restore on interrupt and to refuse a self-wrap.
 - `skills/testing-shape.md` says `--test-endpoint` writes into the working model while the app runs and

@@ -606,6 +606,8 @@ MXBUILD="$(find_mxbuild 2>/dev/null || true)"
 JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
 JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 
+_jnote="$(find_java_note 2>/dev/null || true)"
+
 # toolkit.env — the human-editable answer to "doctor guessed the wrong Studio Pro / Java".
 # _common.sh already loaded it (project file, then ~/.mxcli-toolkit.env; a variable set in
 # the shell wins over both). Say what was read, so a stale value is findable.
@@ -843,6 +845,7 @@ if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
   JV="$("$JAVA_EXE" -version 2>&1 | grep -i 'version' | head -1)" || JV=""
   if [ -n "$JV" ]; then
     ok "java runs: $JV  ($JAVA_EXE)"
+    [ -z "${_jnote:-}" ] || warn "$_jnote"
     # mxbuild compiles the model's Java actions, which takes javac — a JRE has none. Studio
     # Pro's bundled runtime is a JRE that mxbuild is paired with, so only flag a system Java.
     case "$JAVA_HOME_FOUND" in
@@ -1173,6 +1176,19 @@ if [ -n "$PROJECT_DIR" ]; then
       note "fix: $TOOLKIT_ROOT/bin/install-harness-permissions.sh $PROJECT_DIR"
     else
       ok "settings files match the profile"
+    fi
+    # The two hooks. Without the PostToolUse(Read) look-ledger hook seen.tsv is never written, so the
+    # ledger says "0 seen" for pages whose screenshots were opened (field: a lab project, 22 of 31).
+    HOOK_GAP=""
+    grep -qF 'bin/session-check.sh' "$PSET" 2>/dev/null || HOOK_GAP="session-check (SessionStart)"
+    grep -qF 'bin/look-ledger.sh seen' "$PSET" 2>/dev/null || HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen (PostToolUse Read)"
+    if [ -n "$HOOK_GAP" ] && [ -f "$PROJECT_DIR/.mxtk/no-hook-repair" ]; then
+      ok "hook gap ($HOOK_GAP) accepted: .mxtk/no-hook-repair is set"
+    elif [ -n "$HOOK_GAP" ]; then
+      warn "the project's .claude/settings.json has no hook for $HOOK_GAP, so the look ledger will read 0 seen however many screenshots were opened"
+      note "fix: $TOOLKIT_ROOT/bin/install-claude-permissions.sh $PROJECT_DIR --hooks-only   (or bin/sync-project.sh $PROJECT_DIR)"
+    else
+      ok "session-check and look-ledger hooks are in .claude/settings.json"
     fi
     for _pf in "$PSET" "$PLOCAL"; do
       if grep -qE '"defaultMode"[[:space:]]*:[[:space:]]*"(auto|bypassPermissions)"' "$_pf" 2>/dev/null; then

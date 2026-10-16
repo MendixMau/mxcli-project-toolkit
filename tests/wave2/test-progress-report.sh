@@ -115,7 +115,7 @@ CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P1" --html >/dev/null 2>&1
 R1="$P1/architecture/progress-report.html"
 [ -f "$R1" ] && ok "progress-report.html written" || bad "progress-report.html written"
 has "$R1" "Orders" "plan content present"
-has "$R1" "unavailable" "says time and token data are unavailable"
+has "$R1" "Time, token and cost figures are not shown" "says time and token data are not shown"
 hasnt "$R1" 'id=tips' "no Tips section without a log"
 
 echo "T2-T6 with a session log"

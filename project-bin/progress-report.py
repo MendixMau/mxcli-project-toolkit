@@ -1294,7 +1294,7 @@ html{scroll-behavior:smooth}[id^=stage-],[id^=agents-],[id^=phase-],#tips{scroll
 .advi{border-left:4px solid var(--warn)}.advi.hi{border-left-color:var(--bad)}.advi .rk{font-size:12px;color:var(--mut)}.advi h3{margin:2px 0 6px}.advi p{margin:4px 0;font-size:13px}.advi .why{color:var(--mut);font-size:12px}
 details.ph>summary{list-style:none;cursor:pointer;color:var(--ink)}details.ph>summary::-webkit-details-marker{display:none}
 details.ph[open]{grid-column:1/-1}.steps td{font-size:12px;padding:3px 6px}
-.note-card{margin-top:14px;border-left:4px solid var(--warn)}.live{font-size:12px;color:var(--muted)}.live a{color:inherit}details.how{margin:10px 0;font-size:13px;color:var(--muted)}details.how summary{cursor:pointer}
+.nolog{margin:10px 0;font-size:13px}.note-card{margin-top:14px;border-left:4px solid var(--warn)}.live{font-size:12px;color:var(--muted)}.live a{color:inherit}details.how{margin:10px 0;font-size:13px;color:var(--muted)}details.how summary{cursor:pointer}
 .frag section.phase{margin-top:14px}.frag h2{font-size:16px;margin:24px 0 4px}.frag h3{margin:14px 0 2px}.frag .scroll{overflow-x:auto}
 .frag .lede{font-size:14px}.frag .empty{color:var(--mut)}.frag code{font-size:12px}
 .frag .st-built,.frag .done,.frag .CLEAN{color:var(--ok)}.frag .st-progress,.frag .in-progress,.frag .INCOMPLETE{color:var(--warn)}
@@ -1380,13 +1380,15 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     if SWITCH.get("inferred"):
         how_parts.append("<p><b>Stage switch inferred.</b> The Stage 4 sign-off row gives a date (%s) without a time, so the switch to Stage 5 is %s, the earliest build activity on or after it (source: %s). Stage 4 time includes that day's planning.</p>" % (datetime.datetime.fromtimestamp(SWITCH["day"]).strftime("%Y-%m-%d"), local_hm(SWITCH["t"]), esc(SWITCH.get("src", "the build activity"))))
     if facts: how_parts.append("<p><b>Build runs</b> come from %s (UTC in the file, shown in local time); a run counts as passed when the script was applied.</p>" % esc(facts["src"]))
-    if how_parts: w("<details class=how id=how><summary>How this was measured</summary>%s</details>" % "".join(how_parts))
     if not L:
         dsc = DISCOVERY
-        looked = (" Looked in this project's own log folder and %d other project folders (%d logs from the last %d days)." % (dsc.get("other_dirs", 0), dsc.get("other_files", 0), SCAN_DAYS)) if dsc.get("searched") else ""
+        looked = (" Looked in this project's own log folder and %d other project folders (%d logs from the last %d days)." % (dsc.get("other_dirs", 0), dsc.get("other_files", 0), SCAN_DAYS)) if dsc.get("searched") and not args.no_log else ""
         howto = (" To use a log from another place pass it with <code>--session-log &lt;path&gt;</code> (a .jsonl file, or a folder of them, for example <code>~/.claude/projects/&lt;slug&gt;/</code>), then regenerate: <code>project-bin/build-plan-status.sh &lt;project&gt; --html --session-log &lt;path&gt;</code>.") if not args.no_log else ""
         ledgers = (" Build runs below come from the exec log (%s); tokens and cost need a session log." % ", ".join("<code>%s</code>" % esc(x) for x in args.ledgers["sources"])) if args.ledgers else ""
-        w("<div class='card note-card'><b>Time, token and cost data from a session log are unavailable.</b> %s%s%s%s Everything else (stages, gates, artifacts, decisions, the plan) is shown as usual.</div>" % (esc(args.log_note), looked, howto, ledgers))
+        how_parts.append("<p><b>No session log.</b> %s%s%s%s</p>" % (esc(args.log_note), looked, howto, ledgers))
+    if how_parts: w("<details class=how id=how><summary>How this was measured</summary>%s</details>" % "".join(how_parts))
+    if not L:
+        w("<p class=nolog>%s Time, token and cost figures are not shown; everything else is (details in How this was measured).</p>" % esc(args.log_note))
         if args.ledgers and args.ledgers["phases"]: render_ledgers(w, args.ledgers)
     w("<div class='card' style='margin-top:14px'><div class=hd><h3><a href='#stage-%s'>%s</a></h3><span class=sub>%d of 8 gates passed%s</span></div>" % (info["current"] or "P", esc(info["current_line"] or "Current stage unknown"), npass, (", %d waived" % sum(1 for s_ in STAGES if states[s_] == "waived")) if "waived" in states.values() else ""))
     w("<div class='bar big ok' style='margin:8px 0' title='mean of the eight stage bars'><i style='width:%.0f%%'></i></div>" % overall)
@@ -1470,7 +1472,11 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
             if states[s] == "passed" and info.get("gate_stale_s") and (not row or row["status"] != "PASS"):
                 age = time.time() - gate["mtime"]
                 w("<div class='sub stale' title='PROJECT.md says this stage passed; the generated gate-check page is older than PROJECT.md and does not list it'>Gate-check page is %s old, re-run gate-check</div>" % (("%d days" % round(age / 86400)) if age >= 86400 else ("%d hours" % max(1, round(age / 3600)))))
-            elif row: w("<div class=sub title='%s'>Gate-check page: <b>%s</b> %s</div>" % (esc(row["detail"]), esc(row["status"]), esc(row["detail"][:110] + ("..." if len(row["detail"]) > 110 else ""))))
+            elif row:
+                # a placeholder FAIL on a stage after the current one is just "not started yet": show it as pending, not as a failure
+                rs = row["status"]
+                if rs == "FAIL" and "placeholder" in row["detail"].lower() and info["current"] in STAGES and STAGES.index(s) > STAGES.index(info["current"]): rs = "PENDING"
+                w("<div class=sub title='%s'>Gate-check page: <b>%s</b> %s</div>" % (esc(row["detail"]), esc(rs), esc(row["detail"][:110] + ("..." if len(row["detail"]) > 110 else ""))))
             files = list(arts[s]["files"].items()); prim = [(f, i) for f, i in files if link_kind(f) == "html"]; rest = [(f, i) for f, i in files if link_kind(f) != "html"]
             def chip(f, cls=""):
                 return "<a class='chip %s' href='%s'>%s</a>" % (cls, href(f), esc(os.path.relpath(f, proj)))

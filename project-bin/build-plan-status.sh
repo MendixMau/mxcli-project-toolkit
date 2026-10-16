@@ -303,7 +303,7 @@ def column_map(headers):
 def classify(state):
     s = state.lower()
     if s.startswith("not built"): return "not built"
-    if s.startswith("built"): return "built"
+    if s.startswith(("built", "done")): return "built"
     if s.startswith("pending a person"): return "pending a person"
     return None
 
@@ -559,7 +559,7 @@ def on_disk(pat):
 def classify(state):  # the parser's rollup reading, per row
     s = (state or "").lower()
     if s.startswith("not built"): return "not built"
-    if s.startswith("built"): return "built"
+    if s.startswith(("built", "done")): return "built"
     if s.startswith("pending a person"): return "pending a person"
     return None
 

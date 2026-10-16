@@ -54,6 +54,19 @@
 #      one `unit off` line and NEVER a `run ... .test.mdl` row. `Unit modules:` takes names split
 #      by comma or space; `#` and `( ... )` comments, a leading `- ` bullet, any case and `none`
 #      are read; a name that matches no module warns on stderr.
+#   4. PER FLOW (2026-10-16, after #417). A module brief may list the flows that get unit tests:
+#        Unit flows:
+#        - ACT_Order_CalculateTotal: money calculation
+#      (a bullet per flow, `Name: reason`; `Name` may be qualified `Module.Name`; a `<placeholder>`
+#      name is ignored). A module with a list is flipped by it and selected per flow: at the change
+#      moment (scope affected) only the tests naming a LISTED flow the change touched (the flow
+#      itself, or a caller within --depth; a data change in the module touches every listed flow);
+#      at the module and deploy moments the tests naming any listed flow. A test is mapped to its
+#      flow the way every selection here is: the test file names `Module.Flow` (grep -w -F). A
+#      flow listed without a reason warns; a name `SHOW MICROFLOWS IN <M>` does not list warns
+#      (best effort: skipped under --no-model or when mxcli cannot run). `Unit tests: yes` or
+#      `Unit modules:` with NO list keeps the module-level selection. A list is ignored where the
+#      project default is `Unit tests default: yes` (everything is on).
 # Journeys are not affected by any of this.
 #
 # HOW THE SELECTION IS MADE (judgement-free facts only; skills-over-scripts.md):
@@ -146,6 +159,7 @@ fi
 
 # ── Unit gate: off unless the project default is yes, the row says so, or a module is flipped ──
 UNIT_DEFAULT="$(awk '/^[ \t*]*Unit tests default:/ { v = $0; sub(/^[^:]*:/, "", v); gsub(/[ \t*`]/, "", v); print tolower(v); exit }' PROJECT.md 2>/dev/null)"
+[ -d "$WORK" ] && : > "$WORK/unitflows"
 FLIPPED="$(awk 'tolower($0) ~ /^[ \t*>-]*unit modules:/ { v = $0; sub(/^[^:]*:/, "", v); sub(/#.*/, "", v); gsub(/\([^)]*\)/, "", v)
   gsub(/[ \t*`,]+/, " ", v); n = split(v, a, " "); o = ""
   for (i = 1; i <= n; i++) if (tolower(a[i]) != "none") o = o " " a[i]
@@ -158,7 +172,19 @@ for _b in architecture/modules/*/module-brief.md architecture/modules/*-brief.md
       /^\|/ { split($0, c, "|"); k = tolower(c[2]); v = tolower(c[3]); gsub(/[ \t*`]/, "", v)
               if (k ~ /^[ \t]*unit[ \t]*\(/ && v ~ /^yes/) f = 1 }
       END { exit !f }' "$_b"; then FLIPPED="$FLIPPED $_m"; fi
+  # Unit flows: a bullet list `- [Module.]Flow: reason` under a `Unit flows:` line.
+  awk -v m="$_m" '
+    tolower($0) ~ /^[ \t*>-]*unit flows:/ { on = 1; next }
+    on && /^[ \t]*$/ { if (n) on = 0; next }
+    on && /^[ \t]*[-*][ \t]/ { l = $0; sub(/^[ \t]*[-*][ \t]+/, "", l); gsub(/`/, "", l)
+      i = index(l, ":"); nm = (i ? substr(l, 1, i - 1) : l); r = (i ? substr(l, i + 1) : "")
+      gsub(/^[ \t*]+|[ \t*]+$/, "", nm); gsub(/^[ \t]+|[ \t]+$/, "", r)
+      if (nm ~ /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/) { n++; q = (index(nm, ".") ? nm : m "." nm); print q "\t" r }
+      next }
+    on { on = 0 }' "$_b" >> "$WORK/unitflows"
 done
+# a module with a Unit flows list is flipped by it
+for _lm in $(cut -f1 "$WORK/unitflows" | sed 's/\..*//' | sort -u); do FLIPPED="$FLIPPED $_lm"; done
 UNIT_GATED=0; UNIT_OFF_WHY=""
 if [ "$MOMENT" != deploy ] && [ "${UNIT_DEFAULT#yes}" = "$UNIT_DEFAULT" ]; then
   if [ -n "$UNIT_DEFAULT" ]; then _dw="PROJECT.md Unit tests default: $UNIT_DEFAULT"
@@ -303,17 +329,54 @@ if [ -n "$FLIPPED" ]; then
   FLIPPED="$_canon"
 fi
 select_unit "$U" > "$WORK/unit.sel"
+LISTMODS=""
+if [ "$UNIT_GATED" = 1 ] && [ -s "$WORK/unitflows" ]; then
+  # canonical module names (as typed in FLIPPED) for the list rows; warn on a missing reason
+  for m in $FLIPPED; do
+    awk -F'\t' -v m="$m" 'tolower(substr($1, 1, index($1, ".") - 1)) == tolower(m) { c = 1 } END { exit !c }' "$WORK/unitflows" && LISTMODS="$LISTMODS $m"
+  done
+  awk -F'\t' '$2 == "" { print "warning: Unit flows lists " $1 " without a reason; one line why it needs a unit test (logic or integration)" > "/dev/stderr" }' "$WORK/unitflows"
+  # unknown flow names: best effort, one batched SHOW MICROFLOWS IN <M> (skipped without a model)
+  if [ "$NO_MODEL" != 1 ]; then
+    _mx="${MXCLI:-$(find_project_mxcli 2>/dev/null || true)}"; _mpr="$(find_mpr 2>/dev/null || true)"
+    if [ -n "$_mx" ] && [ -x "$_mx" ] && [ -n "$_mpr" ]; then
+      _q="$(cut -f1 "$WORK/unitflows" | sed 's/\..*//' | sort -u | sed 's/.*/SHOW MICROFLOWS IN &/' | awk '{ printf "%s%s", (NR > 1 ? "; " : ""), $0 }')"
+      if "$_mx" -p "$_mpr" -c "$_q" > "$WORK/mf.out" 2>/dev/null && grep -q '^| ' "$WORK/mf.out"; then
+        awk -F'|' '/^\| *[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]* *\|/ { n = $2; gsub(/ /, "", n); print n }' "$WORK/mf.out" | sort -u > "$WORK/mf.names"
+        cut -f1 "$WORK/unitflows" | while IFS= read -r _f; do
+          grep -qixF "$_f" "$WORK/mf.names" || echo "warning: Unit flows names '$_f', which is not a microflow in the model" >&2
+        done
+      fi
+    fi
+  fi
+fi
 if [ "$UNIT_GATED" = 1 ]; then   # default no, some modules flipped: only those modules' tests
   : > "$WORK/unit.gated"
+  names_for_unit | sort -u > "$WORK/touched"
+  modules_for_unit > "$WORK/datamods"
   for m in $FLIPPED; do
-    while IFS='	' read -r f w; do grep -qE "(^|[^A-Za-z0-9_])$m\." "$f" 2>/dev/null && printf '%s\t%s\n' "$f" "$w"; done < "$WORK/unit.sel"
-  done | awk -F'\t' '!seen[$1]++' > "$WORK/unit.gated"
-  mv "$WORK/unit.gated" "$WORK/unit.sel"
+    case " $LISTMODS " in
+    *" $m "*)   # per flow: the tests naming a listed flow (touched ones at scope affected)
+      awk -F'\t' -v m="$m" 'tolower(substr($1, 1, index($1, ".") - 1)) == tolower(m) { print $1 "\t" $2 }' "$WORK/unitflows" |
+      while IFS='	' read -r _fl _why; do
+        case "$U" in
+          none) continue ;;
+          affected) grep -qixF "$_fl" "$WORK/touched" || grep -qixF "$m" "$WORK/datamods" || continue ;;
+        esac
+        while IFS= read -r f; do
+          grep -q -w -F "$_fl" "$f" 2>/dev/null && printf '%s\tnames listed flow %s%s\n' "$f" "$_fl" "${_why:+ ($_why)}"
+        done < "$WORK/tests"
+      done >> "$WORK/unit.gated" ;;
+    *)
+      while IFS='	' read -r f w; do grep -qE "(^|[^A-Za-z0-9_])$m\." "$f" 2>/dev/null && printf '%s\t%s\n' "$f" "$w"; done < "$WORK/unit.sel" >> "$WORK/unit.gated" ;;
+    esac
+  done
+  awk -F'\t' '!seen[$1]++' "$WORK/unit.gated" > "$WORK/unit.sel"
 fi
 select_journeys "$J" > "$WORK/journey.sel"
 if [ -n "$UNIT_OFF_WHY" ]; then out "unit	off	$UNIT_OFF_WHY"
 elif [ -s "$WORK/unit.sel" ]; then sed 's/^/unit	/' "$WORK/unit.sel"
-else out "unit	none	scope $U: $( [ "$U" = none ] && echo 'strategy says none' || echo "0 of $(wc -l < "$WORK/tests" | tr -d ' ') .test.mdl file(s) match${FLIPPED:+ (unit on only for:$FLIPPED)}")"; fi
+else out "unit	none	scope $U: $( [ "$U" = none ] && echo 'strategy says none' || echo "0 of $(wc -l < "$WORK/tests" | tr -d ' ') .test.mdl file(s) match${FLIPPED:+ (unit on only for:$FLIPPED${LISTMODS:+; per listed flow in:$LISTMODS})}")"; fi
 if [ -s "$WORK/journey.sel" ]; then sed 's/^/journey	/' "$WORK/journey.sel"
 else out "journey	none	scope $J: $( [ "$J" = none ] && echo 'strategy says none' || echo "0 of $(wc -l < "$WORK/journeys" | tr -d ' ') journey file(s) in $JDIR/ and tests/e2e/ match")"; fi
 

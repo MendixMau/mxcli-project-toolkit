@@ -118,15 +118,14 @@ developer may change any cell in the same answer:
 > module's own (`--moment module --module <M>`); `full` = everything once; `none` = skip.
 > Build complete = you say the app is ready for UAT or production; I do not declare it alone.
 > Say 'run everything' any time.
-> Unit tests: only modules you name now, written while the logic is fresh (writing is not
-> running). Default: off, except modules with calculation, money/date, mapping, REST/Java logic or
-> a fixed bug. Change a cell, name modules, or say 'defaults'."
+> Unit tests: only flows you name, a reason each (calculation, money/date, mapping,
+> REST/Java logic, a fixed bug), Default none; journeys catch the rest. Change a cell, name flows, or say 'defaults'."
 
 **Record as:** `PROJECT.md` → `## Test strategy`, the table plus a `Status` column (`CONFIRMED`, or
-`ASSUMED` in auto mode), and the line `Unit modules: Shop, Admin` (`none` if none). Record Unit cells as scopes as shown.
+`ASSUMED` in auto mode); each named flow goes in its module brief as `Unit flows:` (`- ACT_X: reason`). Unit cells are scopes.
 `bin/affected-tests.sh --moment change|module|deploy|all` reads it; no section: these defaults.
-Unit is **off** unless `Unit tests default: yes` (whole project; absent = no), a `Unit modules:`
-entry, or `Unit tests: yes` in the module brief; the Unit cell is a scope and never turns it on.
+Unit is **off** unless `Unit tests default: yes` (absent = no) or a brief lists `Unit flows:`
+(`Unit modules:` / `Unit tests: yes` still flip a whole module); the Unit cell is a scope only.
 At build end ask "full run now?", a confirmation, not a decision.
 
 ## Open Question

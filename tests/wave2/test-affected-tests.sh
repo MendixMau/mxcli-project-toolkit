@@ -63,6 +63,9 @@ D="$(cd "$(dirname "$0")" && pwd)"
 printf '%s\n' "$*" >> "$D/.stub-log"
 [ "${STUB_NOPROJ:-}" = 1 ] && { cat "$FX/noproj.out"; cat "$FX/noproj.err" >&2; exit "$(cat "$FX/noproj.exit")"; }
 q=""; while [ $# -gt 0 ]; do [ "$1" = -c ] && q="$2"; shift; done
+case "$q" in "SHOW MICROFLOWS IN"*)   # synthetic listing, the real table shape
+  echo "| Qualified Name | Module | Name | Excluded |"; echo "|---|---|---|---|"
+  for n in ${STUB_MF:-Shop.SUB_Order_Total Shop.VAL_Order Shop.ACT_Order_Submit Admin.ACT_Reset}; do echo "| $n | ${n%%.*} | ${n#*.} | false |"; done; exit 0 ;; esac
 cat "$FX/callers.err" >&2
 first=1
 printf '%s\n' "$q" | tr ';' '\n' | sed -n 's/^ *SHOW CALLERS OF \([^ ]*\) TRANSITIVE *$/\1/p' | while IFS= read -r n; do
@@ -73,7 +76,7 @@ printf '%s\n' "$q" | tr ';' '\n' | sed -n 's/^ *SHOW CALLERS OF \([^ ]*\) TRANSI
 done || exit 99
 exit "$(cat "$FX/callers.exit")"
 MXCLI
-chmod +x "$P/mxcli"
+chmod +x "$P/mxcli"; cp "$P/mxcli" "$WORK/mxcli.orig"
 export FX
 
 lines() { sed -n "$1p" "$FX/shop.mdl" > "$WORK/$2"; echo "$WORK/$2"; }
@@ -332,6 +335,52 @@ echo "== H: usage =="
 RC=$(run H --moment later "$TOTAL"); [ "$RC" -eq 2 ] && ok "bad --moment exits 2" || bad "H rc=$RC"
 RC=$(run H2 "$WORK/no-such.mdl"); [ "$RC" -eq 2 ] && ok "missing script exits 2" || bad "H2 rc=$RC"
 RC=$(run H3); [ "$RC" -eq 2 ] && ok "a change with no script exits 2" || bad "H3 rc=$RC"
+# L10: per-flow unit tests (Unit flows: in the module brief)
+echo "== L10: Unit flows: per-flow selection =="
+cp "$WORK/mxcli.orig" "$P/mxcli"; chmod +x "$P/mxcli"   # section K swaps the stub
+printf '# Project\n\nUnit tests default: no\n' > "$P/PROJECT.md"
+fl() { mkdir -p "$BRIEF_DIR/Shop"; printf '# Brief\n\n%b\n' "$1" > "$BRIEF_DIR/Shop/module-brief.md"; }
+fl 'Unit flows:\n- SUB_Order_Total: money calculation\n- ACT_Order_Submit: REST call'
+run L10a "$TOTAL" >/dev/null 2>&1
+has L10a "unit	tests/unit/Total.test.mdl	names listed flow Shop.SUB_Order_Total (money calculation)" && ok "L10a listed and touched: its test is selected, with the reason" || bad "L10a" "$(cat "$WORK/out.L10a")"
+lacks L10a "Submit.test.mdl" && ok "L10b listed but untouched (depth-2 caller): skipped" || bad "L10b" "$(cat "$WORK/out.L10a")"
+lacks L10a "Validate.test.mdl" && ok "L10c unlisted but touched (depth-1 caller): skipped" || bad "L10c" "$(cat "$WORK/out.L10a")"
+lacks L10a "Lookalike.test.mdl" && ok "L10d a look-alike flow name is not the listed flow" || bad "L10d"
+[ ! -s "$WORK/err.L10a" ] && ok "L10e a clean list, known flows: no warning" || bad "L10e" "$(cat "$WORK/err.L10a")"
+run L10f --depth 2 "$TOTAL" >/dev/null 2>&1
+has L10f "Submit.test.mdl" && ok "L10f listed flow reached as a caller within --depth: selected" || bad "L10f" "$(cat "$WORK/out.L10f")"
+run L10g "$ENTITY" >/dev/null 2>&1
+has L10g "Total.test.mdl" && has L10g "Submit.test.mdl" && lacks L10g "Validate.test.mdl" && ok "L10g a data change in the module owes every listed flow, not the unlisted ones" || bad "L10g" "$(cat "$WORK/out.L10g")"
+run L10h --moment module --module Shop >/dev/null 2>&1
+has L10h "Total.test.mdl" && has L10h "Submit.test.mdl" && lacks L10h "Validate.test.mdl" && lacks L10h "Other.test.mdl" && ok "L10h module done: all listed flows' tests, nothing unlisted" || bad "L10h" "$(cat "$WORK/out.L10h")"
+run L10i --moment deploy >/dev/null 2>&1
+for t in Total Validate Submit Lookalike Other; do has L10i "$t.test.mdl" || bad "L10i full run lacks $t.test.mdl"; done; has L10i "unit	tests/unit/Other.test.mdl	full suite" && ok "L10i full run includes every test, listed or not" || bad "L10i"
+fl 'Unit flows:\n- Shop.SUB_Order_Total: money calculation'
+run L10j "$TOTAL" >/dev/null 2>&1
+has L10j "Total.test.mdl" && ok "L10j a qualified name in the list is read" || bad "L10j" "$(cat "$WORK/out.L10j")"
+fl 'Unit tests: yes'
+run L10k "$TOTAL" >/dev/null 2>&1
+has L10k "Total.test.mdl" && has L10k "Validate.test.mdl" && ok "L10k 'Unit tests: yes' without a list keeps the module-level selection" || bad "L10k" "$(cat "$WORK/out.L10k")"
+fl 'Unit tests: yes\n\nUnit flows:\n- SUB_Order_Total: money calculation'
+run L10l "$TOTAL" >/dev/null 2>&1
+has L10l "Total.test.mdl" && lacks L10l "Validate.test.mdl" && ok "L10l a list beats 'Unit tests: yes' in the same brief" || bad "L10l" "$(cat "$WORK/out.L10l")"
+fl 'Unit flows:\n- SUB_Order_Total\n- ACT_Order_Submit:   '
+run L10m "$TOTAL" >/dev/null 2>&1
+grep -q "Shop.SUB_Order_Total without a reason" "$WORK/err.L10m" && grep -q "Shop.ACT_Order_Submit without a reason" "$WORK/err.L10m" && has L10m "Total.test.mdl" && ok "L10m a flow listed without a reason warns (and is still selected)" || bad "L10m" "$(cat "$WORK/err.L10m")"
+fl 'Unit flows:\n- SUB_Order_Total: money calculation\n- NoSuchFlow: invented'
+run L10n "$TOTAL" >/dev/null 2>&1
+grep -q "'Shop.NoSuchFlow'" "$WORK/err.L10n" && ! grep -q "'Shop.SUB_Order_Total'" "$WORK/err.L10n" && ok "L10n an unknown flow name warns, a known one does not" || bad "L10n" "$(cat "$WORK/err.L10n")"
+run L10o --no-model "$TOTAL" >/dev/null 2>&1
+! grep -q "NoSuchFlow" "$WORK/err.L10o" && ok "L10o --no-model skips the existence check" || bad "L10o"
+fl 'Unit flows:\n- <ACT_Order_CalculateTotal>: <money calculation>'
+run L10p "$TOTAL" >/dev/null 2>&1
+lacks L10p "Total.test.mdl" && lacks L10p "Validate.test.mdl" && [ ! -s "$WORK/err.L10p" ] && ok "L10p the unfilled template placeholder lists nothing and warns nothing" || bad "L10p" "$(cat "$WORK/out.L10p" "$WORK/err.L10p")"
+printf '# Project\n\nUnit tests default: no\n## Test strategy\n| Moment | Unit tests | Journeys | Status |\n|---|---|---|---|\n| Every change | none | affected | CONFIRMED |\n' > "$P/PROJECT.md"
+fl 'Unit flows:\n- SUB_Order_Total: money calculation'
+run L10q "$TOTAL" >/dev/null 2>&1
+has L10q "Total.test.mdl" && ok "L10q row none + a Unit flows list: the listed flow's test runs (like L5c)" || bad "L10q" "$(cat "$WORK/out.L10q")"
+rm -rf "$P/architecture"
+printf '# Project\n\nUnit tests default: no\n' > "$P/PROJECT.md"
 [ ! -e "$P/.mxcli" ] && ok "wrote nothing into the project" || bad "project written"
 
 echo "== wiring =="

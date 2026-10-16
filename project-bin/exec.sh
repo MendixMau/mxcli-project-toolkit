@@ -16,6 +16,8 @@
 #        ./bin/exec.sh --change-class <script.mdl>   (advisory ui-only/logic tag; writes nothing)
 #        ./bin/exec.sh --watch-compat <script.mdl>   (advisory: can `run --local --watch` apply
 #                                                     this, or does the app need a restart; writes nothing)
+#        ./bin/exec.sh --subjects <script.mdl>       (advisory: the elements it writes, one per line;
+#                                                     bin/affected-tests.sh reads it; writes nothing)
 #        ./bin/exec.sh --cr CR-07 <script.mdl>        (any mode: tag the run with its change request)
 #        Leading flags (--cr, --commit-first, then --patch) may come in any order.
 #
@@ -167,6 +169,41 @@ mxtk_change_class() {  # $1 = MDL script; prints "<class>\t<why>"
       printf "ui-only\t%d page/snippet/layout statement(s), nothing else\n", ui
     }' "$1"
 }
+# ── Subjects (advisory, added 2026-10-16) ────────────────────────────────────
+# The elements a script writes: one "<kind>\t<Module.Name>\tline N" row per statement head,
+# kind = the object word before the first qualified name (microflow, page, entity, ...;
+# "access" for GRANT/REVOKE, "userrole" for CREATE/ALTER/DROP USER ROLE, whose name has no module). A head with no qualified name prints "unmapped\t-\tline N".
+# bin/affected-tests.sh turns these into the tests to re-run (testing-shape.md §3 subject set).
+# Same lexer and statement-head rule as the change class; read-only heads are skipped.
+mxtk_subjects() {  # $1 = MDL script
+  awk "$_MXTK_MDL_LEX"'
+    BEGIN { depth = 0; inblock = 0; indollar = 0 }
+    {
+      lex_line($0)
+      t = clean; gsub(/^[ \t]+/, "", t)
+      if (start_depth != 0 || t !~ /^[A-Za-z]/) next
+      n = split(t, o, /[ \t(;{,=]+/)
+      v = toupper(o[1])
+      if (v !~ /^(CREATE|ALTER|DROP|MOVE|GRANT|REVOKE|UPDATE)$/) next
+      if (v == "UPDATE" && toupper(o[2]) != "WIDGETS") next
+      kind = ""; name = ""
+      for (i = 2; i <= n; i++) {
+        if (o[i] ~ /^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/) { name = o[i]; break }
+        u = toupper(o[i])
+        if (u ~ /^(MICROFLOW|NANOFLOW|PAGE|PAGES|SNIPPET|LAYOUT|ENTITY|ASSOCIATION|ENUMERATION|CONSTANT|WORKFLOW|RULE)$/) kind = tolower(u)
+        else if (kind == "" && u !~ /^(OR|MODIFY|REPLACE|PERSISTENT|NON-PERSISTENT|IF|NOT|EXISTS)$/) last = tolower(u)
+      }
+      if (name == "" && toupper(o[2]) == "MODULE" && o[3] ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { kind = "module"; name = o[3] }
+      if (toupper(o[2]) == "USER" && toupper(o[3]) == "ROLE" && o[4] ~ /^[A-Za-z_][A-Za-z0-9_]*$/) { kind = "userrole"; name = o[4] }
+      if (v == "GRANT" || v == "REVOKE") kind = "access"
+      else if (v == "UPDATE") kind = "page"
+      else if (kind == "pages") kind = "page"
+      else if (kind == "") kind = last
+      if (name == "") printf "unmapped\t-\tline %d\n", NR
+      else printf "%s\t%s\tline %d\n", kind, name, NR
+      last = ""
+    }' "$1"
+}
 # Leading flags, parsed in ONE loop before anything needs a project, in any order:
 # --cr CR-NN, --commit-first, then optionally --patch (whose next word is the script) or one of
 # the advisory modes. A malformed --cr id, an unknown --flag, or a script name starting with
@@ -190,7 +227,7 @@ while [ $# -gt 0 ]; do
       shift 2 ;;
     --commit-first) COMMIT_FIRST=1; shift ;;
     --patch) PATCH_MODE=1; shift; break ;;
-    --change-class|--watch-compat) ADVISORY="$1"; shift; break ;;
+    --change-class|--watch-compat|--subjects) ADVISORY="$1"; shift; break ;;
     *) break ;;
   esac
 done
@@ -204,6 +241,11 @@ esac
 if [ "$ADVISORY" = "--change-class" ]; then
   [ -f "${1:-}" ] || { echo "Usage: ./bin/exec.sh --change-class <script.mdl>" >&2; exit 2; }
   mxtk_change_class "$1"
+  exit 0
+fi
+if [ "$ADVISORY" = "--subjects" ]; then
+  [ -f "${1:-}" ] || { echo "Usage: ./bin/exec.sh --subjects <script.mdl>" >&2; exit 2; }
+  mxtk_subjects "$1"
   exit 0
 fi
 
@@ -372,6 +414,7 @@ change_lane() {
 if [ -n "$CHANGE_CLASS" ]; then
   echo "→ Change class: $CHANGE_CLASS ($CHANGE_WHY)"
   echo "  test lane (skills/testing-shape.md §3): $(change_lane)"
+  [ "$PATCH_MODE" = "1" ] || echo "  affected tests: ./bin/affected-tests.sh $SCRIPT"
 fi
 
 cd "$PROJECT_ROOT"

@@ -181,7 +181,7 @@ built yet and claims nothing until it lands.
 | **Module done** | minutes | The module's journeys, unit tests if on (row above). New page or action has a test (planned: #354); that module's server-side security tests (planned: #352). |
 | **Build complete / deploy** | as needed | Every test and journey, once (rows above). Page × role smoke on the production DB engine (planned: #353); full security report (planned: #352); language/RTL layout, multi-language apps only (planned: #354). |
 
-> **Why scoped (#274):** unscoped regression re-proved each UI-only change 5–10×, and **143
+> **Why scoped (#274):** unscoped regression re-proved each UI-only change 5 to 10 times, and **143
 > minutes** of unit tests (no Unit default set) found stale strings, not one logic bug.
 
 So the authoring conversation happens **once per module**; everything after is a scoped re-run.

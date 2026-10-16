@@ -298,6 +298,22 @@ um 'Unit modules: none'; run L8e "$ENTITY" >/dev/null 2>&1
 has L8e "unit	off" && lacks L8e "unit on only for" && [ ! -s "$WORK/err.L8e" ] && ok "L8e none = no modules, no warning" || bad "L8e" "$(cat "$WORK/out.L8e" "$WORK/err.L8e")"
 um 'Unit modules: Shop, Nowhere'; run L8f "$ENTITY" >/dev/null 2>&1
 grep -q "'Nowhere'" "$WORK/err.L8f" && ! grep -q "'Shop'" "$WORK/err.L8f" && ok "L8f an unknown module warns on stderr, a known one does not" || bad "L8f" "$(cat "$WORK/err.L8f")"
+# L9: the Offer table copied verbatim, edited cells must be read
+OFFER='| Moment | Unit tests | Journeys | Status |
+|---|---|---|---|
+| Every change (build and feedback) | UC | JC | CONFIRMED |
+| Module done | module, modules on only | module | CONFIRMED |
+| Build complete, and before every later deploy | full | full | CONFIRMED |'
+pm() { printf 'Unit tests default: yes\n\n## Test strategy\n%s\n' "$(printf '%s\n' "$OFFER" | sed "s/UC/$1/; s/JC/$2/")" > "$P/PROJECT.md"; }
+pm none none; run L9a "$TOTAL" >/dev/null 2>&1
+has L9a "unit=none journeys=none" && has L9a "unit	none	scope none" && lacks L9a ".test.mdl" && ok "L9a Offer label 'Every change (build and feedback)' with Unit none: no unit tests" || bad "L9a" "$(cat "$WORK/out.L9a")"
+pm 'affected, modules on only' affected; run L9b "$TOTAL" >/dev/null 2>"$WORK/err.L9b"
+has L9b "unit=affected journeys=affected" && has L9b "Total.test.mdl" && ! grep -qi "unknown" "$WORK/out.L9b" && [ ! -s "$WORK/err.L9b" ] && ok "L9b the Offer cell 'affected, modules on only' reads as affected, no message" || bad "L9b" "$(cat "$WORK/out.L9b" "$WORK/err.L9b")"
+run L9c --moment module --module Shop >/dev/null 2>&1; has L9c "unit=module" && ok "L9c 'module, modules on only' reads as module" || bad "L9c" "$(head -1 "$WORK/out.L9c")"
+run L9d --moment deploy >/dev/null 2>&1; has L9d "unit=full journeys=full" && has L9d "row 'Build complete" && ok "L9d 'Build complete, and before every later deploy' maps to build complete" || bad "L9d" "$(head -1 "$WORK/out.L9d")"
+printf 'Unit tests default: yes\n## Test strategy\n| Every chnage | none | none | CONFIRMED |\n' > "$P/PROJECT.md"; run L9e "$TOTAL" >/dev/null 2>&1
+grep -q 'row label "Every chnage"' "$WORK/err.L9e" && ok "L9e an unmappable row label warns on stderr" || bad "L9e" "$(cat "$WORK/err.L9e")"
+
 # L6/L7: grants (unit on, so a module-wide selection would show)
 cp "$BASE_PM" "$P/PROJECT.md"
 run L6 "$GRANT" >/dev/null

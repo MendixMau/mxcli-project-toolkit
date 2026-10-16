@@ -33,7 +33,10 @@
 # and the strategy row says "default". --moment picks the row (change is the default):
 #   change = every change (build and feedback) · module = module done · deploy = build complete and
 #   before every later deploy · all = "run everything", any time (same as deploy).
-# Old row names "Module close" and "Deploy-ready" still read.
+# Old row names "Module close" and "Deploy-ready" still read. A label is matched by its first words,
+# case-insensitively: "Every change (build and feedback)" and "Build complete, and before every later
+# deploy" (the Offer's own wording) map to their moment; a cell reads up to its first comma
+# ("affected, modules on only" = affected). An unknown row label warns on stderr.
 #
 # UNIT TESTS ARE OFF BY DEFAULT (field test of the RC, 2026-10-16: nothing read the knob, so a
 # unit test was offered after every change). Precedence for the UNIT scope, highest first:
@@ -125,8 +128,11 @@ U="$DU"; J="$DJ"; FROM="default: PROJECT.md has no '## Test strategy' row '$ROW'
 if [ -f PROJECT.md ]; then
   _row="$(awk -v r="$ROW" -v r2="$ALT" '
     /^## /{ on = ($0 ~ /^## Test strategy/) ; next }
-    on && /^\|/ { split($0, c, "|"); x = c[2]; gsub(/^[ \t]+|[ \t]+$/, "", x)
-                  if (tolower(x) == tolower(r) || tolower(x) == tolower(r2)) { u = c[3]; j = c[4]; s = c[5]
+    on && /^\|/ { split($0, c, "|"); x = tolower(c[2]); sub(/[(,].*/, "", x); gsub(/^[ \t*`]+|[ \t*`]+$/, "", x)
+                  if (x == "moment" || x ~ /^[-: ]*$/) next
+                  if (x !~ /^(every change|module done|module close|build complete|deploy-ready)$/) { y = c[2]; gsub(/^[ \t]+|[ \t]+$/, "", y); print "warning: ## Test strategy row label \"" y "\" is not a known moment, ignored" > "/dev/stderr"; next }
+                  if (x == tolower(r) || x == tolower(r2)) { u = c[3]; j = c[4]; s = c[5]
+                    sub(/,.*/, "", u); sub(/,.*/, "", j)
                     gsub(/[ \t`*]/, "", u); gsub(/[ \t`*]/, "", j); gsub(/^[ \t]+|[ \t]+$/, "", s)
                     print tolower(u) "\t" tolower(j) "\t" s; exit } }' PROJECT.md)"
   if [ -n "$_row" ]; then

@@ -415,7 +415,8 @@ if [ -z "$DRY" ] && [ -n "$SETTINGS_SNAP" ]; then
     cp "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL"
     echo "WARN: wire-agents.sh: no Python 3 found; restored .claude/settings.json byte for byte, new mxcli entries NOT merged. Install python3 and re-run." >&2
   else
-  "$SETTINGS_PY" - "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL" <<'PYMERGE'
+  # `if !` keeps a non-zero merge exit reachable under set -e.
+  if ! "$SETTINGS_PY" - "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL" <<'PYMERGE'
 import json, sys, shutil
 snap, cur = sys.argv[1], sys.argv[2]
 def load(p):
@@ -454,7 +455,7 @@ else:
     shutil.copyfile(snap, cur)
     print("Kept .claude/settings.json (mxcli init added nothing new).")
 PYMERGE
-  if [ $? -ne 0 ]; then
+  then
     cp "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL"
     echo "WARN: wire-agents.sh: settings merge failed; restored .claude/settings.json byte for byte." >&2
   fi

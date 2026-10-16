@@ -75,5 +75,26 @@ cmp -s "$N/orig" "$N/.claude/settings.json" \
   && ok "no python: snapshot restored byte for byte" || bad "no python left a changed settings.json"
 grep -q "WARN" "$WORK/nopy.out" && ok "no python: WARN printed" || bad "no python: no WARN"
 
+# 3/4. python3 passes the version probe (-c) but the merge fails; the second one truncates the
+# target first. Both must restore byte for byte, warn, stamp, and exit 0.
+REALPY="$(command -v python3)"
+for mode in fail truncate; do
+  M="$WORK/merge-$mode"; mkproj "$M" 0
+  FB="$WORK/fakepy-$mode"; mkdir -p "$FB"
+  cat > "$FB/python3" <<FAKE
+#!/bin/sh
+[ "\$1" = "-c" ] && exec "$REALPY" "\$@"
+[ "$mode" = "truncate" ] && : > "\$3"
+exit 1
+FAKE
+  chmod +x "$FB/python3"
+  PATH="$FB:$PATH" bash "$SUBJECT" "$M" >"$WORK/merge-$mode.out" 2>&1; rc=$?
+  cmp -s "$M/orig" "$M/.claude/settings.json" \
+    && ok "failed merge ($mode): snapshot restored byte for byte" || bad "failed merge ($mode): settings.json differs"
+  grep -q "WARN" "$WORK/merge-$mode.out" && ok "failed merge ($mode): WARN printed" || bad "failed merge ($mode): no WARN"
+  grep -q "mxtk:wiring:start" "$M/AGENTS.md" && ok "failed merge ($mode): stamped" || bad "failed merge ($mode): not stamped"
+  [ "$rc" -eq 0 ] && ok "failed merge ($mode): rc 0" || bad "failed merge ($mode): rc $rc"
+done
+
 echo "passed $PASS, failed $FAIL"
 [ "$FAIL" -eq 0 ]

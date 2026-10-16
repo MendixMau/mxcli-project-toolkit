@@ -51,11 +51,11 @@ has skills/existing-app-change.md "--moment module --module <M>" && has skills/c
   && ok "the module-moment call names its module" || bad "module call without --module"
 
 echo "== unit tests off by default, wired =="
-has skills/checkpoints/checkpoint-build.md "\`Unit modules: Shop, Admin\`" && has skills/checkpoints/checkpoint-build.md "Unit tests default: yes" && has skills/checkpoints/checkpoint-build.md "Unit tests: yes" \
+has skills/checkpoints/checkpoint-build.md "\`Unit flows:\`" && has skills/checkpoints/checkpoint-build.md "Unit tests default: yes" && has skills/checkpoints/checkpoint-build.md "Unit tests: yes" \
   && ok "Offer records the three ways to turn unit on" || bad "unit-on syntax missing"
 has skills/checkpoints/checkpoint-build.md "Build complete = you say the app is ready" && ok "build complete is declared by the developer" || bad "build complete undefined"
 has skills/module-review.md "--moment module" && ok "module-review PROVE runs the module row" || bad "module-review not wired"
-has skills/module-brief.md "Unit tests: yes" && ok "module brief names the flip line" || bad "module brief flip line"
+has skills/module-brief.md "Unit flows:" && ok "module brief names the Unit flows list" || bad "module brief flip line"
 
 echo; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

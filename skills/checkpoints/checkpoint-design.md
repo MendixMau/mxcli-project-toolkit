@@ -8,28 +8,29 @@
 
 ## What to Surface
 
-Pull from `.mx-brd.json` files and source KB screens:
-- Total screens/pages in scope
+Pull from `.mx-brd.json` and source KB screens:
+- Screens/pages in scope
 - Key user flows (group screens by journey: auth, main feature, settings, etc.)
-- Source layout patterns detected (sidebar, top nav, card grid, list-detail, modal forms)
-- Any screens with no direct Atlas widget equivalent (flag these specifically)
+- Source layout patterns (sidebar, top nav, card grid, list-detail, modal forms)
+- Screens with no direct Atlas widget equivalent (flag)
+- `process-map.md`, if drawn: walk questions by step; pass 2 at the Stage 3 gate
 
 ## What's Next
 
 `design-artifacts.md` produces the design system decisions (Atlas layout, spacing tokens, component
 naming) andted without design decisions produce
-generic Atlas output that will need rework.
+generic Atlas output needing rework.
 
 ---
 
 ## Brainstorm First (before any predefined question)
 
-Design direction is the checkpoint users most often want to *talk about*, not pick from a list.
+Users most want to *talk about* design direction, not pick from a list.
 Open with a divergent conversation: show references (the source app's look, the client's brand,
 2–3 mood directions described concretely or as quick HTML swatches — with no client brand,
 take them from the ideation library when the user says yes to it, `design-artifacts.md` Step 0b
-question D1) and discuss — what should
-this app *feel* like, what must carry over from the brand, what should deliberately change?
+question D1) and discuss — what should this app *feel* like,
+what carries over from the brand, what changes?
 If the user says anything like "let's ideate on the design" at any point, this conversation IS
 the response — do not generate the design system or launch agents until it converges and the
 user says to proceed. Then run the predefined questions to record the direction.

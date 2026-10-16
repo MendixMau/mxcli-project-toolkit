@@ -80,6 +80,13 @@
 #            MXTK_SCAN_OVERRIDE="<reason>" (the user only: run despite a blocking STOP-row scan hit, #349)
 set -e
 _T0=$(date +%s)
+# Per-step seconds (2026-10-16): the BUILD-LOG row used to carry only the total, so nobody could
+# say where an exec's time went (check, baseline, exec, gate, lint, score). step_done <name>
+# adds "<name> <s>s" since the previous mark; the run summary and the BUILD-LOG detail print it.
+# The gate mark sits right after the mxbuild run, before any pass/fail branch, so a rolled-back
+# run (the costliest ones) logs its gate seconds too.
+_TLAST=$_T0; STEP_TIMES=""
+step_done() { _tn=$(date +%s); STEP_TIMES="${STEP_TIMES:+$STEP_TIMES }$1 $((_tn - _TLAST))s"; _TLAST=$_tn; }
 
 # ── Change class (advisory, added 2026-10-13) ────────────────────────────────
 # Tags each run `ui-only` or `logic`, so the run summary can say which TEST LANE applies
@@ -483,7 +490,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -971,8 +978,10 @@ run_lint_gate() {
 # One place decides the applied-row wording, so both mxbuild-clean branches agree.
 log_applied() {  # $1 = mxbuild detail
   run_lint_gate
+  step_done lint
   LINT_RC_FOR_LEDGER="$LINT_RC"
   take_score
+  if [ "$SCORED" = 1 ]; then step_done score; fi
   if [ "$LINT_RC" -eq 1 ]; then
     log_build "⚠️ applied, LINT ROSE" "$1; $LINT_DETAIL"
   elif [ "$LINT_RC" -eq 3 ]; then
@@ -990,6 +999,7 @@ log_applied() {  # $1 = mxbuild detail
 # a passing build. SKIP_CHECK=1 for the rare script mxcli's parser rejects but
 # the model accepts (log why, in the script).
 PMXCLI="$(find_project_mxcli 2>/dev/null || true)"
+step_done guards
 if [ "$PATCH_MODE" = "1" ]; then
   echo "→ --patch: no pre-exec mxcli check (not MDL). The mxbuild gate below is this write's only check."
 elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
@@ -1050,8 +1060,10 @@ if [ ! -x "$MXBUILD" ] || [ ! -x "$JAVA_EXE" ]; then
   fi
 fi
 
+step_done check
 echo "→ Snapshotting model..."
 ./bin/snapshot-mpr.sh
+step_done snapshot
 # The snapshot just taken. A --patch run hands it to the script as MXPATCH_BACKUP_DIR, so the
 # .bak that bin/mxpatch.py keeps of each unit it rewrites lands beside the snapshot, OUTSIDE
 # the model tree, and is pruned with it. Until 2026-10-15 it was <unit>.mxunit.bak inside
@@ -1439,6 +1451,7 @@ fi
 # was already applied. The result was live, ungated, unlogged model changes,
 # arrived at by the guard chain exiting through the one path with no guards on
 # it. A failed exec is precisely when the gate matters most.
+step_done baseline
 echo "→ Executing $SCRIPT..."
 EXEC_STATUS=0
 if [ "$PATCH_MODE" = "1" ]; then
@@ -1563,6 +1576,7 @@ if [ "$EXEC_STATUS" -ne 0 ]; then
   echo "    failing statement is already in the model. Running the gate anyway."
 fi
 
+step_done exec
 echo ""
 echo "→ Running mxbuild model check (catches BSON corruption before SP opens)..."
 echo "  (mxbuild: $MXBUILD)"
@@ -1593,6 +1607,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   MXBUILD_EXIT="$MXTK_MXBUILD_EXIT"
   MXBUILD_OUT="$MXTK_MXBUILD_OUT"
   MXB_WHY="${MXTK_MXBUILD_WHY:-}"
+  step_done gate
 
   if [ -f "$ERRORS_FILE" ] && [ -s "$ERRORS_FILE" ]; then
     CE_COUNT=$(err_count "$ERRORS_FILE")
@@ -1971,6 +1986,7 @@ echo "✓ Script applied to $MPR_BASE."
 echo ""
 _EL=$(( $(date +%s) - _T0 ))
 echo "  elapsed: ${_EL}s (check + snapshot + exec + mxbuild gate)"
+if [ -n "$STEP_TIMES" ]; then echo "  steps: $STEP_TIMES"; fi
 [ -n "$CHANGE_CLASS" ] && echo "  change class: $CHANGE_CLASS — test lane: $(change_lane)"
 # A budget, not a gate: a normal run is 30-90 s on a healthy machine. Past 4 minutes the
 # usual cause is the machine (Defender scanning every fork, OneDrive, a slow disk), and

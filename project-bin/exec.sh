@@ -437,6 +437,7 @@ BUILD_LOG="$PROJECT_ROOT/docs/BUILD-LOG.md"
 GATE_STATE="not-run"   # not-run | skipped | unverified | pass | fail
 GATE_ERRORS="?"        # mxbuild error count behind a pass (0 = clean); recorded in the stamp
 MXB_WHY=""             # mxbuild's errors[] reason when it exited without checking the model
+MXB_LOG_NOTE=""        # "mxbuild log: <path>" when the gate's full output was saved (BUILD-LOG detail)
 
 # ── Exec approval (auto records itself) ──────────────────────────────────────
 # bin/exec-approval.sh decides ask vs auto; the ASKING happens before exec.sh ever runs (in
@@ -490,7 +491,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -1639,12 +1640,32 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   MXB_WHY="${MXTK_MXBUILD_WHY:-}"
   step_done gate
 
+  # Keep the gate's full mxbuild output when the run did not end clean. The screen shows only
+  # the top lines (the failure detail is often in the tail), and the temp file behind
+  # mxtk_mxbuild_error_count is gone by now, so without this the evidence of a failed gate was
+  # lost (a field migration project lost the detail of a CE1613 this way). One file per run,
+  # under .mpr-snapshots/mxbuild-logs/ (git-ignored, outside the snapshot dirs restore_snapshot
+  # picks from), the newest 30 kept. Its project-relative path goes on screen and in the row.
+  MXB_LOG_REL=""
+  if [ -n "$MXBUILD_OUT" ] && { [ "$MXBUILD_EXIT" -ne 0 ] || [ -s "$ERRORS_FILE" ]; }; then
+    _MXB_LOG_DIR="$PROJECT_ROOT/.mpr-snapshots/mxbuild-logs"
+    MXB_LOG_REL=".mpr-snapshots/mxbuild-logs/$(date +%Y%m%d-%H%M%S)-$$.log"
+    if mkdir -p "$_MXB_LOG_DIR" 2>/dev/null && printf '%s\n' "$MXBUILD_OUT" > "$PROJECT_ROOT/$MXB_LOG_REL" 2>/dev/null; then
+      MXB_LOG_NOTE="mxbuild log: $MXB_LOG_REL"
+      ls -t "$_MXB_LOG_DIR"/*.log 2>/dev/null | sed -n '31,$p' | while IFS= read -r _old; do rm -f "$_old"; done
+    else
+      MXB_LOG_REL=""
+    fi
+  fi
+  mxb_log_hint() { [ -z "$MXB_LOG_REL" ] || echo "    full mxbuild output: $MXB_LOG_REL"; }
+
   if [ -f "$ERRORS_FILE" ] && [ -s "$ERRORS_FILE" ]; then
     CE_COUNT=$(err_count "$ERRORS_FILE")
     if [ "$CE_COUNT" = "?" ]; then
       GATE_STATE="unverified"
       echo "  ⚠  mxbuild errors file could not be parsed — check manually."
       echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | head -10 || true
+      mxb_log_hint
     elif [ "$CE_COUNT" = "0" ] && [ "$MXBUILD_EXIT" -ne 0 ]; then
       # Non-empty errors file, 0 Error problems, NON-ZERO exit: mxbuild never checked the
       # model. The reason sits in errors[], which err_count does not read, e.g. (verbatim,
@@ -1658,6 +1679,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
       echo "  ✗ mxbuild exited $MXBUILD_EXIT and listed 0 model problems — it did NOT check the model."
       echo "    ${MXB_WHY:-no reason in errors[]; mxbuild output follows}"
       [ -z "$MXB_WHY" ] && { echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | tail -10 || true; }
+      mxb_log_hint
       echo "    A version mismatch is fixed by the matching mxbuild: ./mxcli setup mxbuild -p $MPR_BASE"
       echo "    (find_mxbuild prefers it once cached), or MXBUILD_PATH=<that mxbuild>."
     elif [ "$CE_COUNT" = "0" ]; then
@@ -1797,6 +1819,7 @@ EOF
     echo "  ✗ mxbuild failed to run (exit $MXBUILD_EXIT) — gate could not verify the model."
     [ -n "$MXB_WHY" ] && echo "    mxbuild says: $MXB_WHY"
     echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | head -20 || true
+    mxb_log_hint
     # mxbuild CRASHED ON THE WRITTEN MODEL (field 2026-10-13, Mendix 11.14.0, mxcli v0.25.0): a
     # two-hop data source passed `check`, then mxbuild's loader died with no errors file. This
     # branch kept the write, the next exec printed "Baseline NOT measured" and wrote on top of a

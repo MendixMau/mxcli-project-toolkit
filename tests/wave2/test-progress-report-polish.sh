@@ -6,6 +6,11 @@
 #       nothing is reported as a State cell the page cannot read. "not built" is still checked first.
 #   P2  a gate-check placeholder failure on a stage AFTER the current one reads PENDING, not FAIL; the same failure
 #       on the current stage stays FAIL.
+#   P2b only a placeholder FAIL is relabelled: a real FAIL on a later stage stays FAIL, and every FAIL stays FAIL
+#       when the current stage cannot be read from PROJECT.md.
+#   P5  every State the build-plan skill lists (built / partial / not built / blocked) and the spellings the card
+#       counts (complete, verified, in progress, ...) are read the same way by the card, the plan header and the
+#       phase badge; a genuinely unreadable value is still reported as unreadable.
 #   P3  no session log: one calm line (not the orange box), the regenerate hint inside "How this was measured";
 #       with --no-log the page never claims it looked in folders or logs.
 #
@@ -53,7 +58,7 @@ CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P1" --html >/dev/null 2>&1
 R="$P1/architecture/progress-report.html"
 [ -f "$R" ] && ok "report written" || bad "report written"
 has "$R" "2 of 3 rows built" "Stage 5 card counts the done row as built (2 of 3)"
-has "$R" "<b class=st-built>2 built</b>, <b class=st-todo>1 not built</b>" "plan header agrees: 2 built, 1 not built"
+has "$R" "<b class=st-built>2 built</b>, <b class=st-progress>0 partial</b>, <b class=st-todo>1 not built</b>" "plan header agrees: 2 built, 1 not built"
 hasnt "$R" "cannot read" "no State cell is called unreadable"
 has "$R" "1 of 2 rows built" "Phase 2 shows 1 of 2 built"
 hasnt "$R" 'st-unknown">unknown' "no phase is labelled unknown"
@@ -77,6 +82,75 @@ def line(s):
 assert line("0") == "PENDING", line("0")
 assert line("P") == "FAIL", line("P")
 PY
+
+echo "P2b only placeholder FAILs relabel; unknown current stage keeps FAIL"
+P2B="$WORK/p2b"; mkproj "$P2B" "**Stage P - Kickoff**, in progress - gates passed: none"
+cat > "$P2B/index.html" <<'HTML'
+<table>
+<tr><td>P</td><td>Kickoff</td><td>FAIL</td><td>'Confirmed by:' still holds the shipped placeholder: "[user] on [date]"</td></tr>
+<tr><td>0</td><td>Triage</td><td>FAIL</td><td>decision table has no rows</td></tr>
+<tr><td>1</td><td>Intake</td><td>FAIL</td><td>'Confirmed by:' still holds the shipped placeholder: "[user] on [date]"</td></tr>
+</table>
+HTML
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P2B" --html >/dev/null 2>&1
+stage_line() {  # report stage -> status word shown on the gate-check line
+  "$PY" - "$1" "$2" <<'PY'
+import re, sys
+h = open(sys.argv[1], encoding="utf-8").read()
+i = h.index("id='stage-%s'" % sys.argv[2]); j = h.find("class='card stage", i + 10)
+print(re.search(r"Gate-check page: <b>(\w+)</b>", h[i:j if j > 0 else len(h)]).group(1))
+PY
+}
+R2B="$P2B/architecture/progress-report.html"
+[ "$(stage_line "$R2B" 0)" = FAIL ] && ok "non-placeholder FAIL on a later stage stays FAIL" || bad "non-placeholder FAIL on a later stage stays FAIL"
+[ "$(stage_line "$R2B" 1)" = PENDING ] && ok "placeholder FAIL on a later stage still reads PENDING" || bad "placeholder FAIL on a later stage still reads PENDING"
+P2C="$WORK/p2c"; mkdir -p "$P2C/architecture"; printf '# PROJECT.md\n\nno stage line here\n' > "$P2C/PROJECT.md"
+cp "$P2/index.html" "$P2C/index.html"
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P2C" --html >/dev/null 2>&1
+R2C="$P2C/architecture/progress-report.html"
+[ "$(stage_line "$R2C" 0)" = FAIL ] && ok "unknown current stage: placeholder FAIL stays FAIL" || bad "unknown current stage: placeholder FAIL stays FAIL"
+
+echo "P5 every listed State is read the same by card, plan header and phase badge"
+P5="$WORK/p5"; mkproj "$P5" "**Stage 5 - Build**, in progress - gates passed: P, 0, 1, 2, 3, 4"
+cat > "$P5/architecture/build-plan.md" <<'MD'
+# Build plan
+
+### Phase 1 - Alpha
+
+| # | Kind | Step | Produces | Depends on | State |
+|---|---|---|---|---|---|
+| 1 | BUILD | one | 01-a.mdl | - | built |
+| 2 | BUILD | two | 02-a.mdl | 1 | complete |
+| 3 | BUILD | three | 03-a.mdl | 2 | verified |
+
+### Phase 2 - Beta
+
+| # | Kind | Step | Produces | Depends on | State |
+|---|---|---|---|---|---|
+| 4 | BUILD | four | 04-b.mdl | - | partial |
+| 5 | BUILD | five | 05-b.mdl | 4 | blocked |
+| 6 | BUILD | six | 06-b.mdl | 4 | not built |
+
+### Phase 3 - Gamma
+
+| # | Kind | Step | Produces | Depends on | State |
+|---|---|---|---|---|---|
+| 7 | BUILD | seven | 07-c.mdl | - | blocked (waiting on an answer) |
+| 8 | BUILD | eight | 08-c.mdl | - | not built |
+MD
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P5" --html >/dev/null 2>&1
+R5="$P5/architecture/progress-report.html"
+has "$R5" "3 of 8 rows built, 1 partial" "card: 3 of 8 built, 1 partial"
+has "$R5" "<b class=st-built>3 built</b>, <b class=st-progress>1 partial</b>, <b class=st-todo>4 not built</b> (2 of them blocked)" "plan header: 3 built, 1 partial, 4 not built of which 2 blocked"
+hasnt "$R5" "cannot read" "no listed State is called unreadable"
+hasnt "$R5" 'st-unknown">unknown' "no phase is labelled unknown"
+has "$R5" 'st-built">built</span>' "Phase 1 badge: built"
+has "$R5" 'st-progress">in progress</span>' "Phase 2 badge: in progress"
+has "$R5" 'st-todo">not built</span>' "Phase 3 badge: not built (blocked counts as not built)"
+has "$R5" "3 of 3 rows built" "Phase 1 shows 3 of 3 built"
+sed 's/| not built |$/| whenever it suits |/' "$P5/architecture/build-plan.md" > "$P5/architecture/bp2.md" && mv "$P5/architecture/bp2.md" "$P5/architecture/build-plan.md"
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P5" --html >/dev/null 2>&1
+has "$R5" "2 with a State cell this page cannot read" "a genuinely unreadable State is still reported as unreadable"
 
 echo "P3 no-log line is calm and honest"
 has "$R" "class=nolog" "one calm line"

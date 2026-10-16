@@ -1,0 +1,43 @@
+mdl 1;
+create module Shop;
+create or modify persistent entity Shop.Order (
+  Amount: Decimal,
+  Status: String(30)
+);
+create or modify microflow Shop.SUB_Order_Total ($Order: Shop.Order) returns Decimal
+begin
+  return $Order/Amount;
+end;
+create or modify microflow Shop.VAL_Order ($Order: Shop.Order) returns Boolean
+begin
+  $Total = call microflow Shop.SUB_Order_Total(Order = $Order);
+  return $Total > 0;
+end;
+create or modify microflow Shop.ACT_Order_Submit ($Order: Shop.Order)
+begin
+  $Ok = call microflow Shop.VAL_Order(Order = $Order);
+  if $Ok then
+    change $Order (Status = 'Submitted');
+    commit $Order;
+  end if;
+end;
+create or modify page Shop.Order_Edit (
+  Title: 'Order',
+  Layout: Atlas_Core.Atlas_Default,
+  Params: ( $Order: Shop.Order )
+) {
+  dataview dvOrder (DataSource: $Order) {
+    actionbutton btnSubmit (Caption: 'Submit', Action: CALL MICROFLOW Shop.ACT_Order_Submit(Order = $currentObject), ButtonStyle: Primary)
+  }
+};
+create or modify microflow Shop.ACT_Order_New ()
+begin
+  $Order = create Shop.Order (Status = 'Draft');
+  show page Shop.Order_Edit(Order = $Order);
+end;
+create or modify page Shop.Order_Overview (
+  Title: 'Orders',
+  Layout: Atlas_Core.Atlas_Default
+) {
+  actionbutton btnNew (Caption: 'New', Action: CALL MICROFLOW Shop.ACT_Order_New, ButtonStyle: Default)
+};

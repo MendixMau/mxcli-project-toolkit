@@ -276,7 +276,7 @@ function renderIndex(){
   var nB = D.items.filter(function(i){return i.blocking;}).length;
   var nSteps = 0; D.processes.forEach(function(p){ nSteps += p.steps.length; });
   view.appendChild(h('h1',{text:(D.app?D.app+': ':'')+'how the work flows'}));
-  view.appendChild(h('p',{class:'lede',text:'Each map below is one business process. Rows are the people (and the system) doing the work, cards are the steps in order, and each card shows the screen where the step happens. Coloured pins mark the open questions and our assumptions, stuck to the step they change. Click a board to open it, click a step to see its screen and its questions.'}));
+  view.appendChild(h('p',{class:'lede',text:'Each map below is one business process. Rows are the people (and the system) doing the work, cards are the steps in order, and each card shows the screen where the step happens. Coloured pins mark the open questions and our assumptions, stuck to the step they change. Click a map to open it, click a step to see its screen and its questions.'}));
   view.appendChild(howto('Click a process card to open its map','Each map shows the steps, the screen for each step and the questions pinned to it.'));
   view.appendChild(legend());
   var st = h('div',{class:'stats'});

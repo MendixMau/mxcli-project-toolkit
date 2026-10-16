@@ -1,8 +1,8 @@
 # Change Intake — Log Feedback Before You Build It
 
-**Applies to:** `PROJECT.md` projects.
+**Applies to:** `PROJECT.md` projects, Stage 2 onward.
 **Purpose:** log a change before any edit, then edit the highest artifact it alters; MDL last. `change-intake-detail.md`.
-**Trigger:** the user or a relayed stakeholder wants anything to differ (not a gate answer or review finding).
+**Trigger:** the user or a relayed stakeholder wants anything to differ (not a gate answer or finding).
 
 Wrong: "Sure, adding it now" → MDL, no row.
 ## Row first, in `PROJECT.md` `## Change log`
@@ -19,7 +19,7 @@ Columns: CR-NN (never reused), Date, Source, Verbatim ask (`\|` for a pipe), Cla
 
 ## Brief and waiting changes
 
-BRD stays the source of truth. A CR touching a module's build steps, screens, access or rules gets a `CR-07-1` row in that brief's Build steps and a build-plan row `CR-NN` (S: module's phase; M/L: change round). Agreed, unbuilt CRs are *waiting*: say so at session start and module close.
+BRD stays the source. A CR touching a module's build steps, screens, access or rules gets a `CR-07-1` row in that brief's Build steps and a build-plan row `CR-NN` (S: module's phase; M/L: change round). Agreed, unbuilt CRs are *waiting*: say so at session start and module close.
 
 ## Size → ask (ask, then stop)
 

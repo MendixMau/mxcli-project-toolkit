@@ -151,8 +151,9 @@ So keep two:
 | `docs/progress/RESUME.md` | **Overwritten**, hard cap ~60 lines | Always, and first, after `/clear` |
 
 `RESUME.md` holds five things and nothing else: where we are (3–4 lines), the next actions in
-order, `Waiting changes:` (agreed, unbuilt CR ids), do-not-lose, and a **pointer table** — "read this larger file only if you are doing that
-specific thing." Pointers, not content. It replaces a 31k read with a 1.5k one.
+order, `Waiting changes:` (agreed, unbuilt CR ids), do-not-lose, and a
+**pointer table** — "read this larger file only if you are doing that specific thing." Pointers, not content. It replaces a 31k read
+with a 1.5k one.
 
 Wire it by putting the instruction in the project's `CLAUDE.md`, which is auto-loaded: *resuming?
 read `RESUME.md` and nothing else yet.* A resume convention that lives anywhere else is a

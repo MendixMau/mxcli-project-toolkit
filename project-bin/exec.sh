@@ -870,12 +870,16 @@ if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -f "$PROJECT_ROOT/architect
       "$PROJECT_ROOT/architecture/build-plan.md" 2>/dev/null; then
       if [ -n "$CR_ID" ]; then
         # Merged form: look only inside that module's own section (to the next "## " heading).
-        awk -v m="$m" -v cr="$CR_ID" '
+        # LC_ALL=C: macOS awk exits 2 ("towc: multibyte conversion failure") on an em dash heading
+        # under a UTF-8 locale. Exit 1 = id not found (warn); any other code is a real awk error and
+        # its stderr stays visible. Every occurrence on a line is checked, not just the first.
+        _awk_rc=0
+        LC_ALL=C awk -v m="$m" -v cr="$CR_ID" '
           /^#+[ \t]*[Mm]odule [Bb]rief/ { inb = 0; t = $0; sub(/^#+[ \t]*[Mm]odule [Bb]rief/, "", t); while (t != "" && substr(t, 1, 1) !~ /[A-Za-z0-9_]/) t = substr(t, 2); sub(/[ \t]+$/, "", t); if (tolower(t) == tolower(m)) inb = 1; next }
           /^## / { inb = 0 }
-          inb && index($0, cr) { i = index($0, cr) + length(cr); c = substr($0, i, 1); if (c !~ /[0-9]/) found = 1 }
-          END { exit found ? 0 : 1 }' "$PROJECT_ROOT/architecture/build-plan.md" 2>/dev/null \
-          || cr_unbriefed="$cr_unbriefed $m"
+          inb { r = $0; while ((i = index(r, cr)) > 0) { c = substr(r, i + length(cr), 1); if (c !~ /[0-9]/) { found = 1; break }; r = substr(r, i + length(cr)) } }
+          END { exit found ? 0 : 1 }' "$PROJECT_ROOT/architecture/build-plan.md" || _awk_rc=$?
+        [ "$_awk_rc" -eq 0 ] || cr_unbriefed="$cr_unbriefed $m"
       fi
       continue
     fi

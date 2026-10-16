@@ -102,6 +102,25 @@ printf '\n## Module brief - Orders\n\n### Build steps\n| Step | What |\n|---|---
 run "$P" --cr CR-07 script.mdl
 warned Orders CR-07 && bad "merged: warned although present" || ok "merged: silent when present"
 
+echo "== merged brief: em dash heading, UTF-8 locale (macOS awk towc failure)"
+P="$WORK/h"; mkproj "$P"
+printf '\n## Module brief \xe2\x80\x94 Orders\n\n### Build steps\n| Step | What |\n|---|---|\n| CR-07-1 | VAT |\n' >> "$P/architecture/build-plan.md"
+LC_ALL=en_US.UTF-8 run "$P" --cr CR-07 script.mdl
+warned Orders CR-07 && bad "em dash: false warn although present" "$(head -20 "$WORK/out")" || ok "em dash: silent when present"
+grep -q "multibyte\|awk:" "$WORK/out" && bad "awk error leaked" "$(grep -n 'awk' "$WORK/out")" || ok "em dash: no awk error"
+run "$P" --cr CR-09 script.mdl
+warned Orders CR-09 && ok "em dash: still warns for an absent id" || bad "em dash: no warn for CR-09" "$(head -20 "$WORK/out")"
+
+echo "== merged brief: CR-12-1 then CR-1-1 on one line, --cr CR-1 and CR-2"
+P="$WORK/i"; mkproj "$P"
+printf '\n## Module brief - Orders\n\n| CR-12-1 | x | CR-1-1 |\n' >> "$P/architecture/build-plan.md"
+run "$P" --cr CR-1 script.mdl
+warned Orders CR-1 && bad "boundary: false warn, CR-1-1 is on the line" "$(head -20 "$WORK/out")" || ok "boundary: later occurrence on the line counts"
+P="$WORK/j"; mkproj "$P"
+printf '\n## Module brief - Orders\n\n| CR-12-1 | x | CR-13-1 |\n' >> "$P/architecture/build-plan.md"
+run "$P" --cr CR-1 script.mdl
+warned Orders CR-1 && ok "boundary: CR-12/CR-13 only, still warns for CR-1" || bad "boundary: no warn" "$(head -20 "$WORK/out")"
+
 echo "== no brief at all: no crash, only the existing advisory"
 P="$WORK/g"; mkproj "$P"
 run "$P" --cr CR-07 script.mdl; RC=$?

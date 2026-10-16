@@ -23,7 +23,7 @@ Pull from validated `F{NNN}.brd.json` files:
 - Entities used by 3+ BRDs (Common module candidates)
 - BRDs with no cross-module dependencies (independent)
 - Resolved open questions that affect architecture (e.g. auth strategy, data ownership)
-- Many questions: draft `process-map.md` (pass 1)
+- Many questions: draft `process-map.md` (pass 1); CAC-3 shows it at the top of `analysis/brd-report.html`
 
 ## What's Next
 

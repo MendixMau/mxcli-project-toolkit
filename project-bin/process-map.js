@@ -23,8 +23,17 @@
 //   process-map.js validate [--strict]   check the model (and anchors, when present)
 //   process-map.js anchor                derive anchors mechanically, keep judged ones, write
 //                                          the anchors file, list what is still unanchored
+//   process-map.js migrate              a model whose "anchors" key points at an old path (say the
+//                                          prototype folder): move the file to design/question-anchors.json,
+//                                          keep the old one as *.bak, rewrite the key, print what carried over
 //   process-map.js build                 validate, then write design/process-map.html
+//   process-map.js build --embed         the same maps as a bare page for an <iframe> (no header,
+//                                          every process stacked, a step click posts a message to
+//                                          the parent). Used by bin/brd-report.sh, which puts the
+//                                          pass-1 map at the top of the Stage 2 report.
 //   options: --project <root>  --model <file>  --out <file>  --json (anchor: todo as JSON)
+//            --data-out <file>  (build: also write the steps, requirements and questions of each
+//                                step as JSON, so a host page can list them under the map)
 //
 // Exit: 0 ok; 1 validation errors (or unanchored items left: always for anchor, with --strict for validate); 2 usage/input error.
 // No libraries, no network, deterministic output (same input, same bytes).
@@ -36,7 +45,7 @@ const die = msg => { console.error('process-map: ' + msg); process.exit(2); };
 
 // ---------- args ----------
 const argv = process.argv.slice(2);
-let cmd = null, root = '.', modelArg = null, outArg = null, strict = false, asJson = false;
+let cmd = null, root = '.', modelArg = null, outArg = null, strict = false, asJson = false, embed = false, dataOut = null;
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === '--project') root = argv[++i];
@@ -44,14 +53,16 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === '--out') outArg = argv[++i];
   else if (a === '--strict') strict = true;
   else if (a === '--json') asJson = true;
+  else if (a === '--embed') embed = true;
+  else if (a === '--data-out') dataOut = argv[++i];
   else if (a === '-h' || a === '--help') {
-    console.log('usage: process-map.js validate|anchor|build [--project <root>] [--model <file>] [--out <file>] [--strict] [--json]');
+    console.log('usage: process-map.js validate|anchor|build|migrate [--project <root>] [--model <file>] [--out <file>] [--strict] [--json] [--embed] [--data-out <file>]');
     process.exit(0);
   } else if (a.startsWith('-')) die('unknown option ' + a);
   else if (!cmd) cmd = a;
   else die('unexpected argument ' + a);
 }
-if (!['validate', 'anchor', 'build'].includes(cmd || '')) die('give a command: validate, anchor or build');
+if (!['validate', 'anchor', 'build', 'migrate'].includes(cmd || '')) die('give a command: validate, anchor, build or migrate');
 root = path.resolve(root);
 const rel = p => path.resolve(root, p);
 const modelFile = modelArg ? path.resolve(modelArg) : rel('design/process-model.json');
@@ -65,21 +76,103 @@ const byteSort = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 const model = readJson(modelFile, 'process model');
 const designDir = path.dirname(modelFile);
 
+// ---------- migrate (before anything reads the anchors file) ----------
+// A model written before the anchors file had a home may name any path, often next to the
+// prototype. Judged entries are hand work, so they are moved, never rebuilt: the old file is kept
+// as <name>.bak and the entries are written into design/question-anchors.json in the current shape.
+function anchorEntries(j) {
+  const list = Array.isArray(j) ? j : (j && (j.anchors || j.items)) || [];
+  const res = { entries: [], noId: 0, noTarget: [] };
+  for (const e of list) {
+    if (!e || !e.id) { res.noId++; continue; }
+    let targets = e.targets || (e.target ? [e.target] : null);
+    if (targets) targets = targets.map(t => typeof t === 'string' ? { type: 'step', step: t } : t);
+    if (!targets) {
+      targets = [];
+      if (e.step) targets.push({ type: 'step', step: e.step });
+      if (e.page) targets.push({ type: 'page', page: e.page });
+      if (e.bucket) targets.push({ type: 'global', bucket: e.bucket });
+    }
+    // an entry that places the item nowhere is not an anchor: leave it out and report it
+    if (!targets.length) { res.noTarget.push(e.id); continue; }
+    // an entry of an old file was placed by a person: judged, unless it says otherwise
+    res.entries.push(Object.assign({}, e, { targets, anchoredBy: e.anchoredBy || 'judged' }));
+  }
+  return res;
+}
+function writeAtomic(f, text) {
+  const tmp = f + '.tmp-' + process.pid;
+  fs.writeFileSync(tmp, text);
+  fs.renameSync(tmp, f);
+}
+if (cmd === 'migrate') {
+  const target = path.join(designDir, 'question-anchors.json');
+  const want = path.relative(root, target).split(path.sep).join('/');
+  const old = model.anchors ? rel(model.anchors) : null;
+  if (!old || path.resolve(old) === path.resolve(target)) {
+    console.log('migrate: nothing to do, the model already uses ' + want);
+    process.exit(0);
+  }
+  if (!fs.existsSync(old)) die('the model names anchors file ' + model.anchors + ', which does not exist; nothing to carry over');
+  const oldE = anchorEntries(readJson(old, 'old anchors file'));
+  const haveE = fs.existsSync(target) ? anchorEntries(readJson(target, 'current anchors file')) : { entries: [], noId: 0, noTarget: [] };
+  const have = haveE.entries.slice();
+  const idx = {}; have.forEach((e, k) => { idx[e.id] = k; });
+  const carried = [], notes = [];
+  for (const e of oldE.entries) {
+    if (!(e.id in idx)) { carried.push(e); continue; }
+    const cur = have[idx[e.id]];
+    if (e.anchoredBy === 'judged' && cur.anchoredBy !== 'judged') {
+      have[idx[e.id]] = e; carried.push(e);
+      notes.push(e.id + ': the old judged placement replaced the current derived one');
+    } else if (e.anchoredBy === 'judged') {
+      if (JSON.stringify(e.targets) !== JSON.stringify(cur.targets)) notes.push(e.id + ': both files judge it, the current placement is kept (the old one is in the .bak)');
+    }
+  }
+  const all = have.concat(carried.filter(e => have.indexOf(e) < 0));
+  const out = { schema: 'process-anchors/1',
+    note: 'Generated by process-map.js anchor. Edit only judged entries (anchoredBy "judged"); derived entries are recomputed on every run.',
+    anchors: all };
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  // Order of writes: the new anchors file, then the model key, then the old file moves aside.
+  // A crash in between leaves a model that still points at an existing file.
+  writeAtomic(target, JSON.stringify(out, null, 2) + '\n');
+  const rawText = fs.readFileSync(modelFile, 'utf8');
+  const keyRe = /("anchors"\s*:\s*)"[^"]*"/;
+  if (keyRe.test(rawText)) writeAtomic(modelFile, rawText.replace(keyRe, (m, k) => k + JSON.stringify(want)));
+  else { const m = readJson(modelFile, 'process model'); m.anchors = want; writeAtomic(modelFile, JSON.stringify(m, null, 2) + '\n'); }
+  let bak = old + '.bak', n = 1;
+  while (fs.existsSync(bak)) bak = old + '.bak.' + (n++);
+  fs.renameSync(old, bak);
+  const judged = carried.filter(e => e.anchoredBy === 'judged').length;
+  console.log('migrate: carried over ' + carried.length + ' entr' + (carried.length === 1 ? 'y' : 'ies') + ' (' + judged + ' judged) from ' +
+    path.relative(root, old) + ' to ' + want + (haveE.entries.length ? ' (' + haveE.entries.length + ' already there)' : ''));
+  for (const m of notes) console.log('migrate: ' + m);
+  if (oldE.noTarget.length) console.log('migrate: ' + oldE.noTarget.length + ' old entr' + (oldE.noTarget.length === 1 ? 'y' : 'ies') + ' placed nothing and ' + (oldE.noTarget.length === 1 ? 'was' : 'were') + ' left out: ' + oldE.noTarget.join(', '));
+  if (oldE.noId) console.log('migrate: ' + oldE.noId + ' old entr' + (oldE.noId === 1 ? 'y' : 'ies') + ' had no id and ' + (oldE.noId === 1 ? 'was' : 'were') + ' left out');
+  console.log('migrate: old file kept as ' + path.relative(root, bak) + '; model "anchors" is now ' + want + ' (only that key was changed)');
+  console.log('migrate: next, run anchor to place anything new and list what is still unanchored');
+  process.exit(0);
+}
+
 // ---------- inputs ----------
 function globDir(dir, re) {
   try { return fs.readdirSync(dir).filter(f => re.test(f)).sort(byteSort).map(f => path.join(dir, f)); }
   catch (e) { return []; }
 }
+const BRD_SEARCHED = [];
 function brdFiles() {
+  const look = d => { BRD_SEARCHED.push(path.relative(root, d) || '.'); return globDir(d, /\.brd\.json$/); };
   if (Array.isArray(model.brdDirs) && model.brdDirs.length) {
-    return model.brdDirs.flatMap(d => globDir(rel(d), /\.brd\.json$/));
+    return model.brdDirs.flatMap(d => look(rel(d)));
   }
-  // Same three shapes as bin/lib/discover-brds.sh and the artifact manifest.
-  let out = [];
+  // The shapes of bin/lib/discover-brds.sh and the artifact manifest, plus an existing app's
+  // analysis/knowledge-base/brd.
+  let out = look(rel('analysis/knowledge-base/brd'));
   for (const a of globDir(rel('analysis'), /./)) {
-    out = out.concat(globDir(path.join(a, 'knowledge-base', 'brd'), /\.brd\.json$/));
+    out = out.concat(look(path.join(a, 'knowledge-base', 'brd')));
   }
-  out = out.concat(globDir(rel('knowledge-base/brd'), /\.brd\.json$/));
+  out = out.concat(look(rel('knowledge-base/brd')));
   return [...new Set(out)];
 }
 
@@ -110,7 +203,9 @@ for (const [id, b] of Object.entries(BRDS)) brdByFile[b.base] = id;
 // Wireframes: page key is data-mx-page ("Module.Page") when present, else the filename stem.
 const wfDir = model.wireframes ? rel(model.wireframes) : path.join(designDir, 'wireframes');
 const WF = {};          // pageKey -> { key, short, file, route, html }
+const WF_STRONG = {};   // short names that come from a data-mx-page: they beat PAGE-MAP.tsv
 const WF_SHORT = {};    // short name -> key
+const PAGE_MAPPED = {}; // names a PAGE-MAP.tsv row placed: they beat a wireframe whose key is only its filename stem
 const kebab = name => name.replace(/\.html$/i, '')
   .replace(/([a-z0-9])([A-Z])/g, '$1-$2').replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
   .replace(/[_\s]+/g, '-').replace(/[^A-Za-z0-9.\/-]/g, '-').replace(/-+/g, '-')
@@ -126,14 +221,34 @@ for (const f of globDir(wfDir, /\.html$/i)) {
   const route = attr(bodyTag, 'data-route') || attr(htmlTag, 'data-route') || kebab(path.basename(f));
   WF[key] = { key, short, file: path.relative(designDir, f).split(path.sep).join('/'), route, html };
   WF_SHORT[short] = key;
+  if (attr(bodyTag, 'data-mx-page') || attr(htmlTag, 'data-mx-page')) WF_STRONG[short] = true;
   WF_SHORT[stem] = WF_SHORT[stem] || key;
 }
-const resolvePage = p => (!p ? null : WF[p] ? p : WF_SHORT[p] ? WF_SHORT[p] : WF_SHORT[String(p).split('.').pop()] || null);
+// design/wireframes/PAGE-MAP.tsv (short page name <TAB> file) names wireframes that carry no data-mx-page.
+const PAGE_MAP_FILE = path.join(wfDir, 'PAGE-MAP.tsv');
+const PAGE_MAP_WARN = [];
+const PAGE_MAP_USED = fs.existsSync(PAGE_MAP_FILE);
+if (PAGE_MAP_USED) {
+  const byBase = {};
+  for (const w of Object.values(WF)) byBase[path.basename(w.file).replace(/\.html$/i, '')] = w.key;
+  for (const line of fs.readFileSync(PAGE_MAP_FILE, 'utf8').split(/\r?\n/)) {
+    const c = line.split('\t').map(x => x.trim());
+    if (c.length < 2 || !c[0] || c[0].startsWith('#')) continue;
+    const k = byBase[path.basename(c[1]).replace(/\.html$/i, '')];
+    if (!k) { PAGE_MAP_WARN.push('PAGE-MAP.tsv row "' + c[0] + '" names ' + c[1] + ', which is not a wireframe in ' + path.relative(root, wfDir)); continue; }
+    // order: data-mx-page, then PAGE-MAP.tsv, then the filename stem
+    for (const nm of [c[0], shortName(c[0])]) if (!WF_STRONG[nm]) { WF_SHORT[nm] = k; PAGE_MAPPED[nm] = k; }
+  }
+}
+function shortName(x) { return String(x).split('.').pop(); }
+const pageTried = () => 'tried data-mx-page, ' + (PAGE_MAP_USED ? path.relative(root, PAGE_MAP_FILE) : 'no ' + path.relative(root, PAGE_MAP_FILE)) + ', and the filename stem in ' + path.relative(root, wfDir);
+const resolvePage = p => (!p ? null : PAGE_MAPPED[p] ? PAGE_MAPPED[p] : WF[p] ? p : WF_SHORT[p] ? WF_SHORT[p] : WF_SHORT[String(p).split('.').pop()] || null);
 const shortOf = p => String(p || '').split('.').pop();
 
 // ---------- model checks ----------
 const errors = [], warnings = [];
 const err = m => errors.push(m), warn = m => warnings.push(m);
+for (const m of PAGE_MAP_WARN) warn(m);
 const LANE_KINDS = ['role', 'system', 'scheduled', 'external'];
 const STEP_KINDS = ['task', 'system', 'decision', 'end'];
 const lanes = Array.isArray(model.lanes) ? model.lanes : [];
@@ -150,6 +265,9 @@ lanes.forEach((l, i) => {
   laneIdx[l.id] = i;
   if (l.kind && !LANE_KINDS.includes(l.kind)) err('lane ' + l.id + ': kind "' + l.kind + '" is not one of ' + LANE_KINDS.join(', '));
 });
+const brdTried = () => Object.keys(BRDS).length
+  ? 'found ' + Object.keys(BRDS).join(', ') + ' in ' + [...new Set(Object.values(BRDS).map(b => path.relative(root, path.dirname(b.file))))].join(', ') + '; if the BRD lives elsewhere set "brdDirs" in the model'
+  : 'no *.brd.json in ' + BRD_SEARCHED.join(', ') + '; set "brdDirs" in the model to the folder that holds the BRDs';
 const normUc = r => String(r || '').trim().replace(/\s+/, ':');
 const STEP = {};        // stepId -> { step, proc }
 const ucToSteps = {};   // ucRef -> [stepId]
@@ -161,6 +279,7 @@ for (const p of processes) {
   if (procSeen[p.id]) err('process id ' + p.id + ' is used twice');
   procSeen[p.id] = true;
   if (!Array.isArray(p.steps) || !p.steps.length) { err(p.id + ': no steps'); continue; }
+  if (p.steps.length > 12) warn(p.id + ': ' + p.steps.length + ' steps; above 12 a map is hard to read, split it in two (skills/process-map.md Step 1)');
   let col = -1;
   const cells = {};
   for (const s of p.steps) {
@@ -183,13 +302,13 @@ for (const p of processes) {
       if (k) { s._page = k; (pageToSteps[k] = pageToSteps[k] || []).push(s.id); }
       else if (PASS1) { s._pageMissing = true; }
       else if (s.wireframeMissing) { s._pageMissing = true; warn(s.id + ': page ' + s.page + ' has no wireframe (' + s.wireframeMissing + ')'); }
-      else err(s.id + ': page "' + s.page + '" has no wireframe in ' + path.relative(root, wfDir) + ' (no data-mx-page or filename matches; set wireframeMissing with a reason if that is intended)');
+      else err(s.id + ': page "' + s.page + '" has no wireframe in ' + path.relative(root, wfDir) + ' (' + pageTried() + '; set wireframeMissing with a reason if that is intended)');
     } else if (s.kind === 'task' && !PASS1) {
       err(s.id + ': a task step needs a page (the screen the person works on); use kind "system" for automated work');
     }
     for (const r of s.useCases || []) {
       const ref = normUc(r);
-      if (!UC[ref]) err(s.id + ': use case ' + r + ' is not in any BRD (expected "<brd id>:<use case id>")');
+      if (!UC[ref]) err(s.id + ': use case ' + r + ' is not in any BRD (expected "<brd id>:<use case id>"; ' + brdTried() + ')');
       (ucToSteps[ref] = ucToSteps[ref] || []).push(s.id);
     }
     for (const a of s.actions || []) (actionToSteps[a] = actionToSteps[a] || []).push(s.id);
@@ -382,7 +501,10 @@ for (const it of ITEMS.filter(i => i.kind === 'question')) { const d = derive(it
 for (const it of ITEMS.filter(i => i.kind === 'decision')) { const d = derive(it); it._derived = d ? d.targets : null; it._basis = d ? d.basis : ''; }
 
 // ---------- existing anchors (judged entries survive; derived are recomputed) ----------
-const prev = fs.existsSync(anchorsFile) ? readJson(anchorsFile, 'anchors file') : { anchors: [] };
+const prevExists = fs.existsSync(anchorsFile);
+const prev = prevExists ? readJson(anchorsFile, 'anchors file') : { anchors: [] };
+if (!prevExists && model.anchors) warn('the model names anchors file ' + model.anchors + ', which does not exist: every item is placed from the BRDs alone. If the file moved, run process-map.js migrate');
+else if (prevExists && model.anchors && path.resolve(anchorsFile) !== path.join(designDir, 'question-anchors.json')) warn('the model keeps its anchors at ' + model.anchors + ', not design/question-anchors.json; process-map.js migrate moves them');
 const prevById = {};
 for (const a of prev.anchors || []) prevById[a.id] = a;
 function targetOk(t) {
@@ -396,7 +518,9 @@ const ANCH = {};       // id -> { targets, anchoredBy, basis }
 const staleJudged = [];
 for (const it of ITEMS) {
   const p = prevById[it.id];
-  if (p && p.anchoredBy === 'judged') {
+  if (p && p.anchoredBy === 'judged' && !(p.targets || []).length) {
+    warn('judged anchor ' + it.id + ' has no targets, so it places nothing: give it a step, page or bucket');
+  } else if (p && p.anchoredBy === 'judged') {
     if (p.fingerprint && p.fingerprint !== it.fingerprint) { staleJudged.push(it.id); }
     else {
       const bad = (p.targets || []).map(targetOk).filter(Boolean);
@@ -422,6 +546,13 @@ const statLine = () => 'anchors: ' + stats.total + ' item(s), ' + stats.derived 
 const say = (...a) => (asJson ? console.error(...a) : console.log(...a));
 function report() {
   for (const w of warnings) say('WARN  ' + w);
+  // One cause behind most errors: say it once, with the fix, before the list.
+  const causes = [[/is not in any BRD/, 'BRD path: most errors are use cases that no BRD was found for. Fix: set "brdDirs" in the model to the folder with the *.brd.json files (searched: ' + BRD_SEARCHED.join(', ') + ')'],
+    [/has no wireframe in/, 'page names: most errors are steps whose page matches no wireframe. Fix: add design/wireframes/PAGE-MAP.tsv (short name, tab, file) or data-mx-page on the wireframes']];
+  for (const [re, line] of causes) {
+    const n = errors.filter(e => re.test(e)).length;
+    if (errors.length > 2 && n * 2 > errors.length) say('CAUSE ' + n + ' of ' + errors.length + ' errors share one cause, ' + line);
+  }
   for (const e of errors) say('ERROR ' + e);
   const ucs = Object.keys(UC).length;
   say('model: ' + processes.length + ' process(es), ' + Object.keys(STEP).length + ' step(s), ' + ucs + ' use case(s) (' +
@@ -449,6 +580,12 @@ if (cmd === 'anchor') {
   fs.writeFileSync(anchorsFile, JSON.stringify(out, null, 2) + '\n');
   report();
   say('wrote ' + path.relative(root, anchorsFile));
+  // never a silent "0 unanchored": say how many hand-placed entries this run kept, and from which file
+  const keptJudged = ITEMS.filter(it => ANCH[it.id] && ANCH[it.id].anchoredBy === 'judged').length;
+  const prevJudged = (prev.anchors || []).filter(a => a.anchoredBy === 'judged').length;
+  say(prevExists ? 'carried over: ' + keptJudged + ' judged from ' + path.relative(root, anchorsFile) +
+    (prevJudged > keptJudged ? ' (' + (prevJudged - keptJudged) + ' dropped: item gone or text changed, see WARN above)' : '')
+    : 'carried over: 0 judged (no previous anchors file at ' + path.relative(root, anchorsFile) + ')');
   if (unanchored.length) {
     if (asJson) {
       console.log(JSON.stringify(unanchored.map(it => ({ id: it.id, kind: it.kind, anchoredBy: 'judged', targets: [], basis: '', fingerprint: it.fingerprint, text: it.text })), null, 2));
@@ -464,7 +601,7 @@ if (cmd === 'anchor') {
 // ---------- build ----------
 report();
 if (errors.length) { console.error('process-map: not building, fix the model first'); process.exit(1); }
-const outFile = outArg ? path.resolve(outArg) : path.join(designDir, 'process-map.html');
+const outFile = outArg ? path.resolve(outArg) : path.join(designDir, embed ? 'process-map-embed.html' : 'process-map.html');
 const protoFile = model.prototype ? rel(model.prototype) : path.join(designDir, 'prototype.html');
 const protoHref = fs.existsSync(protoFile) ? path.relative(path.dirname(outFile), protoFile).split(path.sep).join('/') : '';
 const dsFile = model.ds ? rel(model.ds) : path.join(designDir, 'ds.css');
@@ -480,7 +617,7 @@ for (const k of [...usedPages].sort(byteSort)) {
     html: w.html.replace(/<script\b[\s\S]*?<\/script\s*>/gi, '').replace(/<link\b[^>]*rel\s*=\s*["']stylesheet["'][^>]*>/gi, '<!--css-->') };
 }
 const data = {
-  app: model.app || '', title: model.title || 'Process map', protoHref,
+  app: model.app || '', title: model.title || 'Process map', protoHref, embed,
   lanes: lanes.map(l => ({ id: l.id, label: l.label || l.id, kind: l.kind || 'role' })),
   processes: processes.map(p => ({ id: p.id, title: p.title || p.id, summary: p.summary || '', journey: p.journey || '',
     steps: p.steps.map(s => ({ id: s.id, lane: s.lane, kind: s.kind, col: s._col, title: s.title || s.id, does: s.does || '',
@@ -503,4 +640,29 @@ const html = tpl
   .replace('"__DATA__"', () => json);
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
 fs.writeFileSync(outFile, html);
+if (dataOut) {
+  // What a host page needs to list requirements and questions under each step. A step's items are
+  // the ones pinned to it or to the screen it shows, the same rule the map uses for its pins.
+  const stepItems = {};
+  for (const { step: s } of Object.values(STEP)) {
+    stepItems[s.id] = ITEMS.filter(it => (ANCH[it.id] || { targets: [] }).targets.some(t =>
+      (t.type === 'step' && t.step === s.id) || (t.type === 'page' && s._page && resolvePage(t.page) === s._page))).map(it => it.id);
+  }
+  const ucSteps = {};
+  for (const [ref, sids] of Object.entries(ucToSteps)) ucSteps[ref] = [...new Set(sids)];
+  const host = {
+    schema: 'process-host/1', app: model.app || '',
+    processes: processes.map(p => ({ id: p.id, title: p.title || p.id, steps: p.steps.map((s, i) => ({
+      id: s.id, n: i + 1, title: s.title || s.id, lane: (lanes[laneIdx[s.lane]] || {}).label || s.lane,
+      useCases: (s.useCases || []).map(normUc), items: stepItems[s.id] })) })),
+    useCases: Object.fromEntries(Object.keys(UC).sort(byteSort).map(k => [k, { title: UC[k].title, steps: ucSteps[k] || [], standalone: k in standaloneSet ? standaloneSet[k] : null }])),
+    items: ITEMS.map(it => ({ id: it.id, kind: it.kind, title: it.title, text: it.text, blocking: it.blocking, assumption: it.assumption,
+      refs: it.refs, status: it.status || '', steps: Object.keys(stepItems).filter(sid => stepItems[sid].includes(it.id)).sort((a, b) => stepOrder[a] - stepOrder[b]),
+      buckets: (ANCH[it.id] ? ANCH[it.id].targets : []).filter(t => t.type === 'global').map(t => t.bucket),
+      pages: (ANCH[it.id] ? ANCH[it.id].targets : []).filter(t => t.type === 'page').map(t => shortOf(t.page)) })),
+    stats,
+  };
+  fs.mkdirSync(path.dirname(path.resolve(dataOut)), { recursive: true });
+  fs.writeFileSync(path.resolve(dataOut), JSON.stringify(host, null, 2) + '\n');
+}
 console.log('wrote ' + path.relative(root, outFile) + ' (' + Math.round(html.length / 1024) + ' KB)');

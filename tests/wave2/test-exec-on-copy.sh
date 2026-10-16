@@ -31,10 +31,17 @@ set -uo pipefail
 TOOLKIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SUBJECT="${1:-$TOOLKIT/project-bin/exec.sh}"
 case "$SUBJECT" in /*) ;; *) SUBJECT="$PWD/$SUBJECT" ;; esac
+# macOS TMPDIR ends in "/", so mktemp returns ".../T//execcopy.X"; exec.sh prints the resolved
+# ".../T/execcopy.X" and every exact-path assert below would fail. Normalise with cd + pwd.
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/execcopy.XXXXXX")" || exit 2
+WORK="$(cd "$WORK" && pwd)" || exit 2
 BG=""
 cleanup() { for p in $BG; do kill -KILL "$p" 2>/dev/null; done; rm -rf "$WORK"; }
 trap cleanup EXIT
+# Two free loopback ports for test-scratch.sh (it refuses when :8081 or :8091 already answers,
+# e.g. a dev runtime on the same machine, which made the M1 case fail for environment reasons).
+free_port() { local p="$1"; while (exec 3<>"/dev/tcp/127.0.0.1/$p") 2>/dev/null; do p=$((p+1)); done; echo "$p"; }
+_P1="$(free_port 18081)"; _P2="$(free_port $((_P1+1)))"; export MXTK_TEST_PORTS="$_P1 $_P2"
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ok   — $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  FAIL — $1"; }

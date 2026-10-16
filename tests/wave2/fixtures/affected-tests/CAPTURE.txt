@@ -1,0 +1,33 @@
+tests/wave2/fixtures/affected-tests/ : provenance (captured 2026-10-16, macOS arm64)
+
+Every file here is captured output, except this note and shop.mdl, the MDL script that told
+mxcli what to create (it was applied, so it is also real, exec'd MDL).
+
+BINARY: mxcli version v0.26.0 (2026-10-11T18:37:07Z), the darwin-arm64 release asset.
+
+THE MODEL: a scratch copy of an empty Studio Pro 11.12.0 app, then
+    mxcli exec shop.mdl -p Neutral.mpr
+which adds module Shop: entity Order; microflows SUB_Order_Total <- VAL_Order <-
+ACT_Order_Submit (a call chain); page Order_Edit whose button calls ACT_Order_Submit;
+microflow ACT_Order_New, which shows Order_Edit; page Order_Overview whose button calls
+ACT_Order_New. So a change to SUB_Order_Total reaches two pages through five hops.
+
+THE CAPTURES (<name>.out = stdout, .err = stderr, .exit = exit code):
+  callers.*     mxcli -p Neutral.mpr -c "$(cat callers.query)"
+                Four statements in ONE call (the batch affected-tests.sh sends), the first call
+                on the copy, so stderr carries the catalog build. Shows: transitive callers
+                include pages (button CALL MICROFLOW, SHOW PAGE) with their depth; a name with
+                no callers prints "(no callers found)"; one block per statement, in order.
+  val-order.out mxcli -p Neutral.mpr -c "SHOW CALLERS OF Shop.VAL_Order TRANSITIVE", a later
+                call (warm catalog), stdout only.
+  noproj.*      mxcli -p /nonexistent.mpr -c "SHOW CALLERS OF Shop.VAL_Order TRANSITIVE"
+                exit 1, nothing on stdout.
+
+The stub in test-affected-tests.sh replays these per statement: it splits the captured stdout
+into its "Callers of X (transitive)" blocks and prints, verbatim, the block of each statement
+it is asked for, in the order asked. A statement with no captured block fails the stub (99).
+
+FIELD RUN of the script itself (2026-10-16): a scratch copy of a five-app lab project (Mendix
+11.15, mxcli v0.26.0), three of its real change scripts. Per change: 2 to 55 subjects, 8 to 17
+transitive callers, 0 to 1 of the project's unit test files and 0 to 1 of its 20 journey files
+selected, against 1 and 20 at deploy-ready. The first call 19 s (catalog build), later 3 s.

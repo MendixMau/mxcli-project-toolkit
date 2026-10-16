@@ -37,7 +37,10 @@
 #
 # UNIT TESTS ARE OFF BY DEFAULT (field test of the RC, 2026-10-16: nothing read the knob, so a
 # unit test was offered after every change). Precedence for the UNIT scope, highest first:
-#   1. An explicit '## Test strategy' row for the moment (its Unit tests cell): wins outright.
+#   1. The '## Test strategy' Unit cell is a SCOPE only (none|affected|module|full). It never
+#      turns unit on: at the change and module moments the switches in 2 and 3 always filter it.
+#      Gate open (default yes): the cell is used as written. Gate closed: flipped modules only, with
+#      the moment's built-in scope when the cell says none.
 #   2. A module flipped to yes: that module's tests only, at the change and module moments (deploy
 #      and all run every existing unit test). A flip is any of: a PROJECT.md line
 #      `Unit modules: Shop, Admin` (decided at CAC-5); in the module brief
@@ -45,8 +48,9 @@
 #      `Unit tests: yes` or the Declared-shape table row `| Unit (...) | yes | ...`.
 #   3. PROJECT.md `Unit tests default:`. `yes` keeps the built-in scope for the moment; `no`, or the
 #      line ABSENT, means unit is OFF for every module not flipped in 2. When off the script prints
-#      one `unit off` line and NEVER a `run ... .test.mdl` row. (A row you wrote is a decision;
-#      the default line is only a default.)
+#      one `unit off` line and NEVER a `run ... .test.mdl` row. `Unit modules:` takes names split
+#      by comma or space; `#` and `( ... )` comments, a leading `- ` bullet, any case and `none`
+#      are read; a name that matches no module warns on stderr.
 # Journeys are not affected by any of this.
 #
 # HOW THE SELECTION IS MADE (judgement-free facts only; skills-over-scripts.md):
@@ -117,7 +121,7 @@ out() { printf '%s\n' "$*"; }
 case "$MOMENT" in change) ROW="Every change"; ALT="Every change"; DU=affected; DJ=affected ;;
                   module) ROW="Module done"; ALT="Module close"; DU=module; DJ=module ;;
                   deploy) ROW="Build complete"; ALT="Deploy-ready"; DU=full; DJ=full ;; esac
-U="$DU"; J="$DJ"; UNIT_ROW=0; FROM="default: PROJECT.md has no '## Test strategy' row '$ROW' (CAC-5 records it)"
+U="$DU"; J="$DJ"; FROM="default: PROJECT.md has no '## Test strategy' row '$ROW' (CAC-5 records it)"
 if [ -f PROJECT.md ]; then
   _row="$(awk -v r="$ROW" -v r2="$ALT" '
     /^## /{ on = ($0 ~ /^## Test strategy/) ; next }
@@ -127,7 +131,7 @@ if [ -f PROJECT.md ]; then
                     print tolower(u) "\t" tolower(j) "\t" s; exit } }' PROJECT.md)"
   if [ -n "$_row" ]; then
     _u="$(printf '%s' "$_row" | cut -f1)"; _j="$(printf '%s' "$_row" | cut -f2)"; _s="$(printf '%s' "$_row" | cut -f3)"
-    case "$_u" in none|affected|module|full) U="$_u"; UNIT_ROW=1 ;; *) FROM="row '$ROW' unit scope '$_u' unknown, default used; " ;; esac
+    case "$_u" in none|affected|module|full) U="$_u" ;; *) FROM="row '$ROW' unit scope '$_u' unknown, default used; " ;; esac
     case "$_j" in none|affected|module|full) J="$_j" ;; *) FROM="${FROM}row '$ROW' journey scope '$_j' unknown, default used; " ;; esac
     case "$FROM" in default:*) FROM="PROJECT.md ## Test strategy, row '$ROW'${_s:+, $_s}" ;; *) FROM="${FROM}PROJECT.md ## Test strategy" ;; esac
   fi
@@ -135,7 +139,10 @@ fi
 
 # ── Unit gate: off unless the project default is yes, the row says so, or a module is flipped ──
 UNIT_DEFAULT="$(awk '/^[ \t*]*Unit tests default:/ { v = $0; sub(/^[^:]*:/, "", v); gsub(/[ \t*`]/, "", v); print tolower(v); exit }' PROJECT.md 2>/dev/null)"
-FLIPPED="$(awk '/^[ \t*]*Unit modules:/ { v = $0; sub(/^[^:]*:/, "", v); gsub(/[ \t*`]/, "", v); gsub(/,/, " ", v); print v; exit }' PROJECT.md 2>/dev/null)"
+FLIPPED="$(awk 'tolower($0) ~ /^[ \t*>-]*unit modules:/ { v = $0; sub(/^[^:]*:/, "", v); sub(/#.*/, "", v); gsub(/\([^)]*\)/, "", v)
+  gsub(/[ \t*`,]+/, " ", v); n = split(v, a, " "); o = ""
+  for (i = 1; i <= n; i++) if (tolower(a[i]) != "none") o = o " " a[i]
+  print o; exit }' PROJECT.md 2>/dev/null)"
 for _b in architecture/modules/*/module-brief.md architecture/modules/*-brief.md; do
   [ -f "$_b" ] || continue
   case "$_b" in */module-brief.md) _m="$(basename "$(dirname "$_b")")" ;; *) _m="$(basename "$_b" -brief.md)" ;; esac
@@ -146,10 +153,10 @@ for _b in architecture/modules/*/module-brief.md architecture/modules/*-brief.md
       END { exit !f }' "$_b"; then FLIPPED="$FLIPPED $_m"; fi
 done
 UNIT_GATED=0; UNIT_OFF_WHY=""
-if [ "$UNIT_ROW" = 0 ] && [ "$MOMENT" != deploy ] && [ "${UNIT_DEFAULT#yes}" = "$UNIT_DEFAULT" ]; then
+if [ "$MOMENT" != deploy ] && [ "${UNIT_DEFAULT#yes}" = "$UNIT_DEFAULT" ]; then
   if [ -n "$UNIT_DEFAULT" ]; then _dw="PROJECT.md Unit tests default: $UNIT_DEFAULT"
   else _dw="PROJECT.md has no 'Unit tests default:' line, treated as no"; fi
-  if [ -n "$FLIPPED" ]; then UNIT_GATED=1
+  if [ -n "$FLIPPED" ]; then UNIT_GATED=1; [ "$U" = none ] && U="$DU"
   else U=none; UNIT_OFF_WHY="($_dw; flip a module: PROJECT.md 'Unit modules: <M>' or 'Unit tests: yes' in its brief)"; fi
   FROM="$FROM; unit: $_dw"
 fi
@@ -272,6 +279,22 @@ select_journeys() {  # $1 = scope; prints "<file>\t<why>"
   esac | awk -F'\t' '!seen[$1]++'
 }
 
+# Module names as typed in PROJECT.md or a brief: match case-insensitively, warn on strangers.
+if [ -n "$FLIPPED" ]; then
+  { cat "$WORK/modules"; for _b in architecture/modules/*/module-brief.md architecture/modules/*-brief.md; do
+      [ -f "$_b" ] || continue
+      case "$_b" in */module-brief.md) basename "$(dirname "$_b")" ;; *) basename "$_b" -brief.md ;; esac
+    done
+    [ -s "$WORK/tests" ] && xargs grep -ohE '(^|[^A-Za-z0-9_.])[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_]' < "$WORK/tests" 2>/dev/null | sed -E 's/^[^A-Za-z_]//; s/\..*//'
+  } | sort -u > "$WORK/known"
+  _canon=""
+  for m in $FLIPPED; do
+    _k="$(awk -v m="$m" 'tolower($0) == tolower(m) { print; exit }' "$WORK/known")"
+    if [ -n "$_k" ]; then _canon="$_canon $_k"
+    else _canon="$_canon $m"; echo "warning: Unit modules names '$m', which matches no module in the tests, briefs or this change" >&2; fi
+  done
+  FLIPPED="$_canon"
+fi
 select_unit "$U" > "$WORK/unit.sel"
 if [ "$UNIT_GATED" = 1 ]; then   # default no, some modules flipped: only those modules' tests
   : > "$WORK/unit.gated"

@@ -148,6 +148,8 @@ echo "== E: the project's strategy row wins =="
 cat > "$P/PROJECT.md" <<'EOF'
 # Project
 
+Unit tests default: yes
+
 ## Test strategy
 | Moment | Unit tests | Journeys | Status |
 |---|---|---|---|
@@ -270,10 +272,32 @@ printf '# Project\n\nUnit tests default: no\nUnit modules: Admin, Other\n' > "$P
 run L4d "$TOTAL" >/dev/null; lacks L4d "Total.test.mdl" && ok "L4d PROJECT.md 'Unit modules: Admin, Other': a Shop change selects no unit test" || bad "L4d" "$(cat "$WORK/out.L4d")"
 run L4e "$ENTITY" >/dev/null; printf '# Project\n\nUnit tests default: no\nUnit modules: Shop\n' > "$P/PROJECT.md"; run L4f "$ENTITY" >/dev/null
 has L4f "unit	tests/unit/Total.test.mdl	names module Shop" && lacks L4f "Other.test.mdl" && ok "L4f 'Unit modules: Shop' flips Shop only" || bad "L4f" "$(cat "$WORK/out.L4f")"
-# L5: an explicit row beats the default line
-printf 'Unit tests default: no\n## Test strategy\n| Every change | affected | affected | CONFIRMED |\n' > "$P/PROJECT.md"
+# L5 (P8): the Offer's recorded defaults are a scope, never a switch: default no, Admin flipped, Shop change = no Shop unit
+printf 'Unit tests default: no\nUnit modules: Admin\n## Test strategy\n| Moment | Unit tests | Journeys | Status |\n|---|---|---|---|\n| Every change | affected | affected | CONFIRMED |\n| Module done | module | module | CONFIRMED |\n' > "$P/PROJECT.md"
 run L5 "$TOTAL" >/dev/null
-has L5 "unit	tests/unit/Total.test.mdl" && ok "L5 an explicit strategy row beats Unit tests default: no" || bad "L5" "$(cat "$WORK/out.L5")"
+lacks L5 "Total.test.mdl" && lacks L5 "Validate.test.mdl" && ok "L5 row 'affected' + Admin flipped: a Shop change runs no Shop unit" || bad "L5" "$(cat "$WORK/out.L5")"
+run L5b --moment module --module Shop >/dev/null
+lacks L5b "Total.test.mdl" && ok "L5b module moment: Shop unit still off" || bad "L5b" "$(cat "$WORK/out.L5b")"
+# L5c (P9): row none + module turned on = that module's unit runs
+printf 'Unit tests default: no\nUnit modules: Shop\n## Test strategy\n| Every change | none | affected | CONFIRMED |\n| Module done | none | module | CONFIRMED |\n' > "$P/PROJECT.md"
+run L5c "$TOTAL" >/dev/null
+has L5c "unit	tests/unit/Total.test.mdl" && ok "L5c row none + Unit modules: Shop: Shop's unit runs" || bad "L5c" "$(cat "$WORK/out.L5c")"
+run L5d --moment module --module Shop >/dev/null
+has L5d "Total.test.mdl" && ok "L5d same at the module moment" || bad "L5d" "$(cat "$WORK/out.L5d")"
+# L8: Unit modules parsing
+um() { printf 'Unit tests default: no\n%s\n' "$1" > "$P/PROJECT.md"; }
+um 'Unit modules: shop , ADMIN'; run L8a "$ENTITY" >/dev/null 2>&1
+has L8a "Total.test.mdl" && ok "L8a names are case-insensitive" || bad "L8a" "$(cat "$WORK/out.L8a")"
+um 'Unit modules: Shop # decided at CAC-5'; run L8b "$ENTITY" >/dev/null 2>&1
+has L8b "Total.test.mdl" && ok "L8b a # comment is stripped" || bad "L8b" "$(cat "$WORK/out.L8b")"
+um 'Unit modules: Shop (decided at CAC-5)'; run L8c "$ENTITY" >/dev/null 2>&1
+has L8c "Total.test.mdl" && lacks L8c "Other.test.mdl" && ok "L8c a (...) comment is stripped" || bad "L8c" "$(cat "$WORK/out.L8c")"
+um '- Unit modules: Shop'; run L8d "$ENTITY" >/dev/null 2>&1
+has L8d "Total.test.mdl" && ok "L8d a bullet line is read" || bad "L8d" "$(cat "$WORK/out.L8d")"
+um 'Unit modules: none'; run L8e "$ENTITY" >/dev/null 2>&1
+has L8e "unit	off" && lacks L8e "unit on only for" && [ ! -s "$WORK/err.L8e" ] && ok "L8e none = no modules, no warning" || bad "L8e" "$(cat "$WORK/out.L8e" "$WORK/err.L8e")"
+um 'Unit modules: Shop, Nowhere'; run L8f "$ENTITY" >/dev/null 2>&1
+grep -q "'Nowhere'" "$WORK/err.L8f" && ! grep -q "'Shop'" "$WORK/err.L8f" && ok "L8f an unknown module warns on stderr, a known one does not" || bad "L8f" "$(cat "$WORK/err.L8f")"
 # L6/L7: grants (unit on, so a module-wide selection would show)
 cp "$BASE_PM" "$P/PROJECT.md"
 run L6 "$GRANT" >/dev/null

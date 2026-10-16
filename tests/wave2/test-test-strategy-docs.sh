@@ -36,7 +36,7 @@ echo "== the old full-suite-at-module-close wording is gone =="
 
 echo "== one table, three places =="
 for f in skills/checkpoints/checkpoint-build.md; do
-  has $f "| Every change (build and feedback) | affected | affected |" && has $f "| Module done | module | module |" && has $f "| Build complete, and before every later deploy | full | full |" \
+  has $f "| Every change (build and feedback) | affected, modules on only | affected |" && has $f "| Module done | module, modules on only | module |" && has $f "| Build complete, and before every later deploy | full | full |" \
     && ok "CAC-5 Offer table with the three defaults" || bad "Offer table"
 done
 has skills/checkpoints/checkpoint-build.md "PROJECT.md\` → \`## Test strategy\`" && has skills/checkpoints/checkpoint-build.md "CONFIRMED" \

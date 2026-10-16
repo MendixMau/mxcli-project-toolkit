@@ -310,6 +310,8 @@ association direction; all fine, page empty → stale deployment or a different 
 
 ## Related
 
+- `rest-between-mendix-apps.md` — when both ends are your own Mendix apps: the contract, consumer
+  honesty (stale, "as of", one owner per fact) and the cross-app test ladder
 - `learned-mdl-preflight.md` — write-mode choice and the STOP table
 - `learned-page-patterns.md` — DataGrid-2 filter placement for database-backed grids
 - `tool-output-is-not-ground-truth.md` — why the runtime test, not `DESCRIBE`, is the oracle

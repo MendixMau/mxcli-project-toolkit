@@ -1,0 +1,57 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+✓ Modules: 11
+✓ Entities: 51
+✓ Attributes: 245
+✓ Entity Event Handlers: 0
+✓ Associations: 49
+✓ Enumerations: 24
+✓ Enumeration values: 151
+✓ Constants: 3
+✓ ConstantValues: 0
+✓ Java Actions: 3
+✓ Java Action Parameters: 4
+✓ JavaScript Actions: 67
+✓ Image Collections: 7
+✓ Icon Collections: 3
+✓ Menus: 2
+✓ Page Templates: 46
+✓ Data Transformers: 0
+✓ Scheduled Events: 0
+✓ Task Queues: 0
+✓ Regular Expressions: 0
+✓ Agent-editor documents: 0
+✓ Microflows: 24
+✓ Nanoflows: 13
+✓ Rules: 0
+✓ Flow parameters: 26
+✓ Activities: 318
+✓ Pages: 19
+✓ Widgets: 229
+✓ Snippets: 4
+✓ Snippet widgets: 4
+✓ Building blocks: 40
+✓ Layouts: 22
+✓ OData Clients: 0
+✓ OData Services: 0
+✓ Business Event Services: 0
+✓ widget_definitions: 42
+✓ Database Connections: 0
+✓ JAR Dependencies: 0
+✓ REST Clients: 0
+✓ Published REST Services: 0
+✓ External Entities: 0
+✓ External Actions: 0
+✓ Business Events: 0
+✓ Contract Entities: 0
+✓ Contract Messages: 0
+✓ Navigation profiles: 1
+✓ Navigation menu items: 1
+✓ RoleMappings: 8
+✓ JSON Structures: 3
+✓ Import Mappings: 2
+✓ Export Mappings: 1
+✓ XPath Expressions: 5
+✓ References: 556
+✓ Permissions: 235
+✓ strings: 1568
+✓ Catalog cached to .mxcli/catalog.db

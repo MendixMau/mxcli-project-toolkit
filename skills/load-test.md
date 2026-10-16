@@ -29,7 +29,8 @@ The recipe skips correlation entirely:
 3. probe: fire each recorded call once, read Jaeger          (otel.js capture)
    → which microflow did it run, does it write?
 4. replay the chosen call with that session's cookie and the
-   token from mx.session.getCSRFToken()                      (raw node:http)
+   token: mx.session.sessionData.csrftoken (Mendix 11 has no
+   getCSRFToken), refuse to fire if empty, as helpers.js does   (raw node:http)
 5. ramp → burst → optional ladder → one lone request after
 ```
 
@@ -95,7 +96,7 @@ one is a server that fell over late, and the rung's percentiles called it a pass
 *requests* on one session. For users: log in K separate sessions and round-robin their
 cookie and token pairs, from K **distinct** accounts. Two live sessions on one account can
 degrade each other (measured: both lost their navigation menu), which reads as "the app got
-slow". End every session afterwards through the logout action; closing the browser context
+slow". End every session afterwards with `helpers.logout` (the xas logout action, with the token); closing the browser context
 leaves it alive against the runtime's session cap.
 
 **9. The trace store samples.** Jaeger's query caps at a few hundred traces; one burst makes

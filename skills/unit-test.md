@@ -7,8 +7,9 @@ assertion is live, how to run it without breaking the live app, and how to repor
 the false-green rows are `testing-shape.md` §4.
 
 **Whether** a module gets unit tests, and **when** they run, is the project's test strategy
-(`testing-shape.md` §1: project default no, flipped per module). This file does not
-decide that. When the user asks for unit tests outside a pipeline, they have decided.
+(PROJECT.md `## Test strategy`, `Unit modules:`, decided at CAC-5). Each change runs only the
+touched unit tests of opted-in modules; module done runs that module's; build complete and
+before each later deploy run everything once. This file does not decide that. When the user asks for unit tests outside a pipeline, they have decided.
 
 ---
 
@@ -18,9 +19,8 @@ decide that. When the user asks for unit tests outside a pipeline, they have dec
 |---|---|
 | calculation, money, dates, rounding | a page or layout change: that owes a journey and a look |
 | mapping (import/export, JSON shaping) | a flow that only retrieves and shows |
-| a branchy rule or tool microflow (each branch, each refusal message) | wiring: a test cannot see that no button calls the flow |
-| REST or Java action logic behind a stable contract | anything needing the user's session or module security (the runner switches security off) |
-| a flow where a bug was fixed: the test pins the fix | |
+| REST or Java action logic behind a stable contract | wiring: a test cannot see that no button calls the flow |
+| a flow where a bug was fixed: the test pins the fix | anything needing the user's session or module security (the runner switches security off) |
 
 Measured the other way round: a 143-minute microflow run on one project found stale strings and
 not one logic bug. Spend unit tests where logic is, not everywhere.
@@ -57,6 +57,7 @@ $Discount = call microflow Orders.CALC_Discount(Total = 1000.00);
 mxcli test tests/unit/Orders.test.mdl -p App.mpr --list
 ```
 
+On mxcli 0.21 and later add `--require-assertions`: a test that asserts nothing fails (BUG-LOCAL-30).
 Pass only when **both** hold: the listed count equals the number of `/` separators in the file,
 and **every** test shows its `@expect`. A plausible count with a missing test is BUG-LOCAL-29.
 

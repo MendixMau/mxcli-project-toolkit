@@ -1,0 +1,7 @@
+-- describe entity of a template module's entity emits `index ( desc);`
+create module Repro;
+create or modify persistent entity Repro.E (
+  Name: String(200),
+  ChangedDate: AutoChangedDate
+)
+index ( desc);

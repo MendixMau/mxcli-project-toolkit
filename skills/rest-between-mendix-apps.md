@@ -163,9 +163,11 @@ Climb from cheap to dear. A rung earns its cost only once the rung below is clea
 - **One `mxcli test --local` at a time on the machine, across all apps.** It binds the fixed ports
   8081 and 8091, whichever project runs it. Runners check those ports and refuse when they are
   taken; let them, and queue the next app's run behind the current one.
-- **The model-write guard is machine-wide too.** `exec.sh` refused because another project's raw
-  `mxcli exec` was running. Serialise model writes across apps. `mxcli test --attach` counts as a
-  model write (`testing-shape.md`), so it is not a way to run two apps' tests in parallel.
+- **`exec.sh` locks per project, not per machine** (#304). Another app's `exec.sh` no longer blocks
+  yours, so two apps' model writes may run side by side. A raw `mxcli exec` outside `exec.sh` takes
+  no lock, so keep every model write on `exec.sh`. `mxcli test --attach` counts as a model write
+  (`testing-shape.md`), so it still needs that app's lock and is not a way to run two tests of one
+  app in parallel.
 - **Never stop a test run with a signal** (BUG-157). `mxcli test` and `run --test-endpoint` point the
   after-startup microflow at an injected `MxTest` flow and restore it only on a clean exit. A run
   stopped by a kill or a background-task stop leaves the setting there, the next injection chains the

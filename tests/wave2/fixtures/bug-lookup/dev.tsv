@@ -1,0 +1,42 @@
+# DEV set — 40 queries labelled 2026-10-15 and used to tune the ranker (IDF weights, boosts, the 40% coverage floor, the unknown-CE rule). Not a fair test; see heldout.tsv.
+# id	query	expected (|-separated header keys; NONE = no entry should match)	source
+q01	[error] [CE0710] "The main flow cannot join an error flow or end in an error event." at Microflow 'Orders.ACT_Order_Submit'	BUG-73:	mxcli cmd/mxcli/changelog.md:388 (mxbuild line; doc name varied)
+q02	[error] [CE6680] "The 'Target' property is required." at Jump 'ReviewTask'	BUG-109:	mxcli mdl/executor/issue1024_boundary_jump_test.go:15
+q03	[error] [CE0495] "Duplicate name 'ReviewTask'." at User task 'ReviewTask', Jump 'ReviewTask'	BUG-109:	mxcli issue1024_boundary_jump_test.go:14
+q04	[error] [CE0046] "Invalid data type 'String'." at Snippet 'Common.SNIPPET_Label'	BUG-67:	mxcli mdl/types/snippet_parameter_types.go:13
+q05	[error] [CE0053] "Selected type is not allowed." at Create variable activity	BUG-DRAFT-stale-init-claude-md-declare-object	mxcli mdl-examples/bug-tests/declare-object-variable-rejected.fail.mdl:15
+q06	[error] [CE0642] "Property 'Attribute' is required." at Combo box 'comboBox1'	BUG-37:|BUG-127:	mxcli mdl-examples/bug-tests/traceops-23-combobox-association.mdl:9
+q07	[error] [CE1571] "No argument has been selected for parameter 'Customer'" at Action button 'actionButton2'	BUG-70:|BUG-95:|BUG-140:	mxcli cmd_pages_describe_datasource_test.go:268
+q08	[error] [CE0117] "Error(s) in expression." at Nanoflow 'Mobile.NF_DetectDevice'	BUG-86:|BUG-30:	mxcli mdl/executor/validate_nanoflow_test.go:26
+q09	[error] [CE0161] "Error(s) in XPath constraint." at Retrieve objects activity 'Retrieve list of Product from database'	CE0056 / CE0161|BUG-17:|BUG-45:|BUG-78:|Bare `Status`|Compound boolean|BUG-39:|BUG-03:	mxcli mdl-examples/bug-tests/831-xpath-variable-traversal.fail.mdl:11 (generic; any CE0161 entry)
+q11	[error] [CE0066] "Entity access is out of date…" at Domain model of module 'Sales'	BUG-46:|BUG-59:|BUG-DRAFT-audit-member-access-ce0066|BUG-DRAFT-association-owner|BUG-DRAFT-grant-association-generalization	mxcli cmd/mxcli/marketplace/security_test.go:43
+q12	[error] [CE0582] "Widget static image is not supported in React client. Right-click this error to convert it to an alternative widget type." at Static image 'imgLogo'	BUG-DRAFT-mpr012	mxcli mdl/linter/rules/legacy_image_widget.go:20
+q13	Error: module role not found: Inventory.User	BUG-04:	ledger L64 (verbatim, module name varied)
+q14	Error: property "content" not found (widget has no pluggable Object)	BUG-07:	ledger L147 (verbatim)
+q15	Error: module role already exists: Inventory.Manager	BUG-128:	ledger L5384 (verbatim, names filled)
+q16	Error: failed to insert: widget "ProductName" not found	BUG-26:|BUG-88:|BUG-92:	ledger L1385 (verbatim, widget varied)
+q17	Error: failed to build snippet: failed to resolve entity string: entity not found: string	BUG-67:	ledger L2298 (verbatim)
+q18	Error: attribute 'createdDate' not found for index on entity Orders.Order	BUG-DRAFT-index-on-createddate	mxcli mdl/executor/cmd_entities.go:1663 format
+q19	ERROR: Mendix.Modeler.Storage.StorageLoadException: One or more invalid values were detected while loading the project: Mendix.Modeler.Projects.Project: - Enumeration value condition outcome in  has an invalid value '' for property Value. The text 'Approved' is not a valid EnumerationValueIdentifier.	BUG-76:|BUG-108 	ledger L2738 (verbatim, outcome varied)
+q20	mx module-import failed: exit status 112 Importing theme module is not supported	`marketplace install` fails	ledger L820 (verbatim)
+q21	[error] [CE0056] "Entity Orders.CartLine cannot be retrieved from the database because it is non-persistable."	CE0056 / CE0161	ledger L401 (verbatim, entity varied)
+q22	[error] [CE6705] "Data view cannot have a data source of type association."	BUG-11:	ledger L377 (verbatim)
+q23	panic: runtime error: invalid memory address or nil pointer dereference [signal SIGSEGV: segmentation violation code=0x2 addr=0x58 pc=0x1059e618c] github.com/mendixlabs/mxcli/mdl/visitor.buildWorkflowCallMicroflow(...)	BUG-107:	ledger L3696 (verbatim)
+q24	System.ArgumentNullException: Value cannot be null. (Parameter 'value') at Mendix.Modeler.Workflows.Model.MicroflowCallParameterMapping.set_ParameterId(MicroflowParameterIdentifier value)	BUG-WF05:|BUG-WF02:|BUG-24:|consolidates BUG-WF02	ledger L1855 (verbatim)
+q25	System.InvalidCastException: Unable to cast object of type 'Mendix.Modeler.WebUI.Forms.Widgets.LayoutWidgets.DivContainers.DivContainer' to type 'Mendix.Modeler.WebUI.Forms.Widgets.CustomWidgets.WidgetObject'	BUG-19:|BUG-96:	ledger L751 (verbatim)
+q26	Error: database is locked (5) (SQLITE_BUSY)	BUG-06:	modernc sqlite error format (ledger names only the code)
+q27	Error: failed to set: failed to set PageSize on dgOrders: pluggable property "PageSize" not found	BUG-122:	ledger L5134 (verbatim, widget varied)
+q28	Error: failed to set Caption on cbStatus: widget has no Caption property	BUG-126:	ledger L5222 (verbatim, widget varied)
+q29	Error: enumeration not found: System.WorkflowState	BUG-DRAFT-system-enumerations-undiscoverable	ledger L6178 (verbatim, enum varied)
+q30	Warning: this project's path is 52 characters longer than Mendix tooling allows. Total 311 exceeds the 259-character limit MxToolset enforces.	BUG-112:	ledger L3905 (verbatim, numbers varied)
+q31	FAILED: Duplicate Guid in unit snippet 'MxModelReflection.Microflow'	BUG-132:	ledger L5490 (verbatim)
+q32	line 4:2  missing '(' at 'returns' line 4:10 missing ':' at 'List of' line 5:2  mismatched input 'in' expecting ')'	BUG-DRAFT-microflow-header-grammar	ledger L6990 (verbatim, line nos varied)
+q33	Error: failed to save modified page: pg_patch_page Sales.Order_Overview: Error invoking tool 'pg_patch_page': Operation at index 1 failed. {"errors":[{"code":"PROP_NOT_PRIMITIVE","message":"Property 'widgets' is not a primitive property"}]}	BUG-26:	ledger L1409 (verbatim, page varied)
+q34	Error: failed to create microflow: ped_create_document Sales.ACT_Order_New: Creating documents failed (1 of 1): Validation errors in form {path: message}: {"/flows/0/$Type":"Expected an element with $Type property."}	BUG-72:	ledger L2439 (verbatim, names varied)
+q35	failed to module not found for role .Administrator: module name is required	BUG-120:	ledger L4651 (verbatim)
+q37	module not found: MxTest	BUG-149:|BUG-157:	ledger L5865 (verbatim)
+q38	[error] [CE0729] "The service name should not be empty."	NONE	mxcli mdl-examples/bug-tests/f1-10.1-odata-service-name.mdl:9
+q39	[error] [CE0270] "No root element could be found in the schema."	NONE	mxcli validate_webservice_mapping_test.go:18
+q40	[error] [CE6770] "View Entity is out of sync with the OQL Query."	NONE	mxcli validate_view_numeric_width_test.go:20
+q41	[error] [CE0008] "No action defined." at Action button 'actionButton1'	NONE	mxcli mdl-examples/bug-tests/850-download-file-action.mdl:17
+q43	Error: no project given: pass -p <project.mpr>	NONE	mxcli source string

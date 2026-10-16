@@ -138,8 +138,31 @@ cat <<'TABLE'
 Rules: verify before filing · one place only, link don't copy · a committed script is not
 an executed script.
 
-### Then
-    checkpoint.sh --write     # and fill the Narrative  (append-only history)
+TABLE
+
+# ---- checkpoint.sh: resolve it, never call it bare ---------------------
+# checkpoint.sh ships in the toolkit at claude-hooks/bin/ and reaches ~/.claude/bin only via the
+# opt-in `bin/install-claude-hooks.sh --basic`; init-project does not install it. Printing it bare
+# sent agents to a command that did not exist on their machine (#358). Look in PATH, then
+# ~/.claude/bin, then the toolkit clone; print the full path found, or say how to get it. A
+# missing checkpoint.sh is not an owed write: it never changes the exit code.
+CKPT_BIN=$(command -v checkpoint.sh 2>/dev/null)
+for _c in "${HOME:-/nonexistent}/.claude/bin/checkpoint.sh" "$MXTK_ROOT/claude-hooks/bin/checkpoint.sh"; do
+  [ -n "$CKPT_BIN" ] && break
+  [ -f "$_c" ] && CKPT_BIN="$_c"
+done
+# Single-quote a path so the printed command survives copy-paste with spaces (e.g. a HOME such as
+# "John Doe"); an embedded ' becomes '\''. sed, not ${x//}, for bash 3.2.
+shq() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+echo "### Then"
+if [ -n "$CKPT_BIN" ]; then
+  echo "    $(shq "$CKPT_BIN") --write     # and fill the Narrative  (append-only history)"
+else
+  if [ -d "$MXTK_ROOT" ]; then _inst=$(shq "$MXTK_ROOT/bin/install-claude-hooks.sh")
+  else _inst="<toolkit>/bin/install-claude-hooks.sh"; fi
+  echo "    # checkpoint.sh not installed — run $_inst --basic, or skip: RESUME.md is the resume source"
+fi
+cat <<'TABLE'
     OVERWRITE docs/progress/RESUME.md   # <= 60 lines: where we are, next actions,
                                         #    do-not-lose, and which file to read for what.
                                         #    This is the ONLY file read after /clear.

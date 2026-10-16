@@ -20,11 +20,21 @@ unit and drops the terminators again. This tool is idempotent -- a path that alr
 a terminator is left alone -- so running it again costs nothing and forgetting it costs the
 whole fan-out.
 
-    <toolkit>/bin/wf-add-path-terminators.py <unit.mxunit>            # report only
-    <toolkit>/bin/wf-add-path-terminators.py <unit.mxunit> --apply    # patch, with a .bak
+    bin/wf-add-path-terminators.py <unit.mxunit>                               # report only
+    bin/exec.sh --patch bin/wf-add-path-terminators.py Mod.Workflow --expect-paths 9 --apply
 
-Find the unit: it is the `.mxunit` under mprcontents/ whose decoded `Name` is the workflow.
-Count paths, not branches -- a nested split's paths are paths too.
+--expect-paths N is the drift guard: the dry run reports how many split paths it found; pass
+that count with --apply, and a workflow that changed in between (paths added or dropped by a
+later script) is refused with exit 3, nothing written. Under exec.sh --patch always pass it.
+
+Under exec.sh --patch the script receives the .mpr first and finds the workflow by its
+qualified name; the write gets the snapshot, the `mxcli fix hashes` verify and the mxbuild
+gate. A unit path works in either form. Count paths, not branches -- a nested split's paths
+are paths too.
+
+The write goes through mxpatch.py, so the .mpr's ContentsHash for the unit is updated in the
+same step (a backup of the old unit is kept outside mprcontents/, see mxpatch.py BACKUPS). Until 2026-10-14 (#294) this tool rewrote the
+.mxunit and left the index alone: every --apply left a stale hash that `mx check` cannot see.
 
 VERIFY WITH A LIVE RUN, NEVER WITH A BUILD GATE. Both gates are blind in both directions.
 Start an instance, walk it to the split, and count the tasks the engine actually opens
@@ -40,26 +50,14 @@ before the patch and 16 of 16 after, six of them open concurrently at the split.
 NEVER run this against a model Studio Pro has open, or while the app is running -- see
 project-bin/snapshot-mpr.sh. Concurrent writers corrupt the .mpr.
 """
-import os, sys, uuid, shutil
+import os, sys, uuid
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from mxunit_bson import Bin, load, dump, enc_doc
+import mxpatch
+from mxpatch import get, is_doc
+from mxunit_bson import Bin
 
 TERMINATOR = "Workflows$EndOfParallelSplitPathActivity"
 SPLIT_OUTCOME = "Workflows$ParallelSplitOutcome"
-
-
-def get(doc, key):
-    """Value of `key` in an order-preserving [(type, key, value)] document."""
-    for _t, k, v in doc:
-        if k == key:
-            return v
-    return None
-
-
-def is_doc(x):
-    return isinstance(x, list) and all(
-        isinstance(e, tuple) and len(e) == 3 for e in x
-    )
 
 
 def make_terminator(n):
@@ -102,13 +100,26 @@ def walk(node, state):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    apply_ = "--apply" in sys.argv[1:]
-    if len(args) != 1:
+    argv, args, expect_paths = sys.argv[1:], [], None
+    apply_ = "--apply" in argv
+    i = 0
+    while i < len(argv):
+        if argv[i] == "--expect-paths" and i + 1 < len(argv):
+            try:
+                expect_paths = int(argv[i + 1])
+            except ValueError:
+                sys.exit("wf-add-path-terminators: --expect-paths takes a number, got %r" % argv[i + 1])
+            i += 1
+        elif not argv[i].startswith("--"):
+            args.append(argv[i])
+        i += 1
+    if not args:
         sys.exit(__doc__)
-    path = args[0]
-
-    doc = load(path)
+    try:
+        model, unit = mxpatch.resolve_unit(args, "Workflows$Workflow")
+    except mxpatch.PatchError as e:
+        sys.exit("wf-add-path-terminators: %s" % e)
+    doc = unit.doc
     state = {"paths": 0, "added": 0, "already": 0, "n": 0}
     walk(doc, state)
 
@@ -116,6 +127,12 @@ def main():
     print("already terminated   : %d" % state["already"])
     print("terminators to add   : %d" % state["added"])
 
+    if expect_paths is not None and state["paths"] != expect_paths:
+        print("\nREFUSED -- %d split paths found, the run expected %d: the workflow is not the one"
+              % (state["paths"], expect_paths))
+        print("this patch was planned against. Nothing written. Re-read it (dry run), then pass the")
+        print("count you just checked.")
+        sys.exit(3)
     if state["paths"] == 0:
         print("\nNo parallel split in this unit -- nothing to do.")
         return
@@ -126,17 +143,16 @@ def main():
         print("\nDry run. Re-run with --apply to write.")
         return
 
-    # Encode before touching the original, so an encoder failure cannot destroy the unit.
-    blob = enc_doc(doc)
-    shutil.copy2(path, path + ".bak")
-    with open(path, "wb") as fh:
-        fh.write(blob)
-    print("\nwrote %s (%d bytes, was %d)" % (path, len(blob), os.path.getsize(path + ".bak")))
-    print("backup: %s.bak" % path)
+    # mxpatch encodes before touching the original, and updates the ContentsHash with the file.
+    print("")
+    model.write_unit(unit, apply=True, backup=True)
     print("\nNow verify with a LIVE RUN and system$workflowactivity.")
     print("A green mx check proves nothing here -- it passes the broken model too.")
     print("Re-run this after ANY later script that rewrites this workflow.")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except mxpatch.PatchError as e:
+        sys.exit("wf-add-path-terminators: %s" % e)

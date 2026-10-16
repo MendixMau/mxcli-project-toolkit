@@ -23,7 +23,8 @@
 # stranger named by pid and alive; our app dead and a stranger on the app port → exit 4, nothing
 # started. (The stranger is a bare TCP listener, as a runtime's admin port is to curl.)
 # #160: the port/tree helpers moved to _common.sh; an older _common.sh stops with exit 2 + the
-# sync remedy (this is the case where it would otherwise die on "command not found").
+# sync remedy (this is the case where it would otherwise die on "command not found"); so does one older
+# than the mxtest/pid helpers that moved there from this script and test-scratch.sh.
 # #304 review: a stale record whose pid was reused by an unrelated process, restarted with --cmd →
 # that process survives (the pid is checked to be an mxcli run itself). #244: the settings unit is
 # the CAPTURED one (fixtures/mxtest-guard, from mxcli's own test model), re-encoded with the
@@ -74,6 +75,7 @@ mkapp() {  # $1 = project dir, $2 = port
 const fs = require('fs'), http = require('http'), path = require('path'), cp = require('child_process');
 const dir = process.cwd(), hs = path.join(dir, '.mxcli', 'run-local.json');
 const port = parseInt(fs.readFileSync(path.join(dir, '.fakeport'), 'utf8'), 10);
+fs.writeFileSync(path.join(dir, '.fakeargv'), process.argv.slice(2).join('\n') + '\n');   // what the launch really passed
 const child = cp.spawn('sleep', ['300'], { stdio: 'ignore' });
 fs.writeFileSync(path.join(dir, '.fakechild'), String(child.pid));
 http.createServer((req, res) => {
@@ -266,6 +268,47 @@ has "points at --cmd" "$OUT" "--cmd"
 echo "-- secrets masked"
 OUT="$(restart "$P" --dry-run --cmd './mxcli run --local --db-password hunter2 -p Fixture.mpr')"
 hasnt "a password value never reaches the screen" "$OUT" "hunter2"
+OUT="$(restart "$P" --dry-run --cmd './mxcli run --local --constant Mod.HubApiPassword=s3cretA --constant Mod.Api_Token=tokB --db-password hunter3 --db-password=hunter4 --constant Mod.Port=8080 -p Fixture.mpr')"
+hasnt "--constant Name=value with a Password name is masked" "$OUT" "s3cretA"
+hasnt "a Token-named constant is masked" "$OUT" "tokB"
+hasnt "--db-password <value> and --db-password=<value> are masked" "$OUT" "hunter3"
+hasnt "the = form is masked" "$OUT" "hunter4"
+has "a non-secret constant stays readable" "$OUT" "Mod.Port=8080"
+echo "-- secrets masked: quoted values with spaces, wider word list (follow-up to #403)"
+OUT="$(restart "$P" --dry-run --cmd './mxcli run --local --constant "Mod.ApiKey=two words" --db-password '"'"'zqx pw9'"'"' --constant Mod.Pwd=pwdv --constant Mod.Credential=credv --constant Mod.Passphrase=ppv --constant Mod.ClientSecret=csv -p Fixture.mpr')"
+hasnt "a double-quoted Name=value with spaces is masked whole (first word)" "$OUT" "two"
+hasnt "a double-quoted Name=value with spaces is masked whole (tail)" "$OUT" "words"
+hasnt "--db-password 'two words' is masked whole (first word)" "$OUT" "zqx"
+hasnt "--db-password 'two words' is masked whole (tail)" "$OUT" "pw9"
+hasnt "a Pwd-named constant is masked" "$OUT" "pwdv"
+hasnt "a Credential-named constant is masked" "$OUT" "credv"
+hasnt "a Passphrase-named constant is masked" "$OUT" "ppv"
+hasnt "a ClientSecret-named constant is masked" "$OUT" "csv"
+has "the rest of the command stays readable" "$OUT" "-p Fixture.mpr"
+has "a Name is kept, only the value masked" "$OUT" "Mod.ApiKey="
+# Known over-mask, pinned so it does not get worse unnoticed: a substring match on Key.
+OUT="$(restart "$P" --dry-run --cmd './mxcli run --local --constant Mod.Monkey=1 --constant Mod.Port=8080 -p Fixture.mpr')"
+hasnt "known over-mask: Monkey matches Key" "$OUT" "Mod.Monkey=1"
+has "a name with no secret word stays readable" "$OUT" "Mod.Port=8080"
+echo "-- the masked display never changes the executed command (real launch path)"
+CUR="$(hs_pid "$P")"; KILL_LIST="$KILL_LIST $CUR $(cat "$P/.fakechild" 2>/dev/null)"
+OUT="$(restart "$P" --timeout 30 --cmd './mxcli run --local --constant "Mod.ApiKey=two words" --db-password '"'"'zqx pw9'"'"' --constant Mod.Pwd=pwdv -p Fixture.mpr')"; RC=$?
+KILL_LIST="$KILL_LIST $(hs_pid "$P") $(cat "$P/.fakechild" 2>/dev/null)"
+[ "$RC" -eq 0 ] && ok "the restart with secrets in --cmd succeeded" || bad "exit $RC: $(printf '%s' "$OUT" | tail -4)"
+EXPECT_ARGV="$(printf '%s\n' run --local --constant 'Mod.ApiKey=two words' --db-password 'zqx pw9' --constant Mod.Pwd=pwdv -p Fixture.mpr)"
+[ "$(cat "$P/.fakeargv" 2>/dev/null)" = "$EXPECT_ARGV" ] && ok "the started app received the raw argv, byte-identical" || bad "started app argv differs: $(cat "$P/.fakeargv" 2>/dev/null)"
+hasnt "the printed output hides the spaced secret" "$OUT" "words"
+hasnt "the printed output hides the --db-password value" "$OUT" "zqx"
+case "$(cat "$P/.claude/loop/app-restart/start.cmd" 2>/dev/null)" in *"Mod.ApiKey=two words"*zqx\ pw9*) ok "start.cmd remembers the raw secrets" ;; *) bad "start.cmd lost the raw command" ;; esac
+echo "-- env assignment at the start of a --cmd string keeps the whole command visible"
+OUT="$(restart "$P" --dry-run --cmd 'DB_PASSWORD=envsecret ./mxcli run --local --watch -p Fixture.mpr')"
+hasnt "the env secret is masked" "$OUT" "envsecret"
+has "the whole command stays visible, quoted" "$OUT" "bash -c 'DB_PASSWORD=**** ./mxcli run --local --watch -p Fixture.mpr'"
+OUT="$(restart "$P" --dry-run --cmd 'DB_PASSWORD=envsecret echo hi')"
+hasnt "[refuse path] the env secret is masked" "$OUT" "envsecret"
+has "[refuse path] the whole command stays visible" "$OUT" "bash -c 'DB_PASSWORD=**** echo hi'"
+OUT="$(restart "$P" --dry-run --cmd 'echo "Mod.ApiKey=two words"')"
+hasnt "[refuse path] a non-mxcli command masks a spaced secret too" "$OUT" "words"
 alive "$DECOY" && ok "decoy survived the whole run" || bad "decoy killed"
 
 echo "-- #160: a bin/_common.sh older than the moved helpers → exit 2 naming sync, nothing stopped"
@@ -274,6 +317,17 @@ sed '/^# Process identity — who holds a port/,$d' "$TOOLKIT/project-bin/_commo
 grep -q mxtk_port_holder "$O/bin/_common.sh" && bad "[setup] could not strip the helpers" || ok "[setup] _common.sh without the shared helpers"
 OUT="$(restart "$O" --dry-run)"; RC=$?
 [ "$RC" -eq 2 ] && ok "exit 2" || bad "exit $RC: $(printf '%s' "$OUT" | tail -2)"
+has "names the remedy" "$OUT" "sync-project.sh"
+hasnt "no command-not-found mid-run" "$OUT" "command not found"
+
+echo "-- a bin/_common.sh older than the shared mxtest/pid helpers → exit 2 naming sync, nothing stopped"
+O2="$WORK/oldcommon2"; mkapp "$O2" "$PORT"
+sed '/^# mxcli run \/ test identity/,$d' "$TOOLKIT/project-bin/_common.sh" > "$O2/bin/_common.sh"
+grep -q mxtk_port_holder "$O2/bin/_common.sh" && ! grep -q 'mxtest_left\|mxtk_pid_is_mxcli_run' "$O2/bin/_common.sh" \
+  && ok "[setup] _common.sh with the port helpers, without the mxtest/pid helpers" || bad "[setup] could not strip only the mxtest/pid helpers"
+OUT="$(restart "$O2" --dry-run)"; RC=$?
+[ "$RC" -eq 2 ] && ok "exit 2" || bad "exit $RC: $(printf '%s' "$OUT" | tail -2)"
+has "names what is missing" "$OUT" "no mxtest_left"
 has "names the remedy" "$OUT" "sync-project.sh"
 hasnt "no command-not-found mid-run" "$OUT" "command not found"
 

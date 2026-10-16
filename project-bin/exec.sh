@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # exec.sh — the guard chain around a model write.
 #
-#   concurrent-writer guard → module-brief advisory → mxcli check → snapshot → baseline → exec
+#   STOP-row scan → concurrent-writer guard → module-brief advisory → mxcli check → snapshot → baseline → exec
 #   → mxbuild delta gate → auto-restore only on a NEW error → lint ratchet → SP reopen
 #
 # The mxbuild gate is a DELTA gate, not an absolute "0 errors" one: a write is kept
@@ -37,6 +37,9 @@
 # without spending an mxbuild on it. A gate that fails, cannot run, or reports `unverified` is
 # restored too, and ALLOW_UNVERIFIED does not apply. A dirty model with the same errors as
 # before is kept, same as for MDL (the delta gate).
+# Since 2026-10-14 (#295) a --patch run also brackets the script with `mxcli fix hashes`
+# (v0.25.0+, read-only): a ContentsHash the script left stale is a restore, before mxbuild,
+# which cannot see it. See "ContentsHash verify" below; bin/mxpatch.py writes units with it.
 # What it does NOT guard: anything the script touches besides the model. `./bin/exec.sh` is on
 # the project's allow-list (install-claude-permissions.sh), so in auto mode Claude Code's
 # classifier does not review the script. Read what a patch does outside the .mpr before running it.
@@ -72,6 +75,7 @@
 #            ALLOW_UNVERIFIED=1 (write even though the mxbuild gate cannot run —
 #            the write is then refused by default, see "Gate must be able to run"),
 #            MXTK_NO_INSTALL=1 (never download mxbuild; offline CI)
+#            MXTK_SCAN_OVERRIDE="<reason>" (the user only: run despite a blocking STOP-row scan hit, #349)
 set -e
 _T0=$(date +%s)
 
@@ -436,7 +440,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}$_EXEC_APPROVAL_SUFFIX"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -473,6 +477,60 @@ take_score() {
     echo "  ⚠ ${_sc:-score not taken}"
   fi
 }
+
+# ── STOP-row scan (added 2026-10-14, #349) ───────────────────────────────────
+# The toolkit's bin/mdl-scan.sh greps the script for the STOP rows of learned-mdl-preflight.md
+# that a text pattern identifies — each one a script that passed `mxcli check`, cost a full
+# apply and failed at mxbuild or on Studio Pro open. It runs first, before the lock, the
+# commit, `mxcli check` and the snapshot: a hit costs milliseconds here and 22-65 s plus a
+# restore after the apply. Each rule has a severity (bin/lib/mdl-scan-rules.tsv, whose header
+# says when a rule may move from warn to block):
+#   warn  (scan exit 3) — the hits are printed as warnings, the BUILD-LOG row notes them, and
+#         the exec goes on. Every rule ships as warn until a field run proves it.
+#   block (scan exit 1) — the exec is refused before anything is touched. FORCE_EXEC and
+#         SKIP_CHECK do not skip it. The only override is MXTK_SCAN_OVERRIDE="<reason>", for
+#         the user: printed and logged. Hardening it against an agent setting it is #348's job.
+# Found like exec-approval.sh: $MXTK_ROOT, else the "Toolkit root" row of CLAUDE.local.md.
+# Not found, or the scan itself errors (exit 2) → one warning, and the exec goes on: mxcli
+# check and the mxbuild gate still stand behind it.
+SCAN_NOTE=""; HV_NOTE=""   # HV_NOTE: the ContentsHash bracket's cell text, set below
+if [ "$PATCH_MODE" != "1" ]; then
+  _SCAN=""
+  for _s in "${MXTK_ROOT:-}/bin/mdl-scan.sh" \
+            "$(sed -nE 's/^\| *Toolkit root *\| *`([^`]+)`.*/\1/p' "$PROJECT_ROOT/CLAUDE.local.md" 2>/dev/null | head -1)/bin/mdl-scan.sh"; do
+    [ -f "$_s" ] && { _SCAN="$_s"; break; }
+  done
+  scan_ids() { printf '%s\n' "$_scan_out" | grep " \[$1\]\$" | sed -n 's/^\(STOP-[0-9a-z]*\) .*/\1/p' | sort -u | tr '\n' ' ' | sed 's/ $//'; }
+  if [ -z "$_SCAN" ]; then
+    echo "⚠ STOP-row scan skipped: bin/mdl-scan.sh not found (set MXTK_ROOT to the toolkit)." >&2
+  else
+    _scan_rc=0; _scan_out="$(bash "$_SCAN" "$SCRIPT" 2>&1)" || _scan_rc=$?   # set -e: keep the rc
+    case "$_scan_rc" in
+      0) ;;
+      3)
+        printf '%s\n' "$_scan_out" | sed 's/^/⚠ /' >&2
+        echo "  STOP-row scan: warnings only (rules not yet proven in the field) — going on. Read each line;" >&2
+        echo "  each names its learned-mdl-preflight.md row and the rewrite." >&2
+        SCAN_NOTE="scan warn: $(scan_ids warn)" ;;
+      1)
+        echo "$_scan_out"
+        case "${MXTK_SCAN_OVERRIDE:-}" in
+          ""|1|true|yes)
+            echo ""
+            echo "✗ STOP-row scan: refusing exec on a blocking rule. NOTHING was locked, snapshotted or written."
+            echo "  Each line above names its learned-mdl-preflight.md row and the rewrite. Fix the script."
+            echo "  Only the user may override, with a reason: MXTK_SCAN_OVERRIDE=\"<why>\" ./bin/exec.sh $SCRIPT"
+            log_build "🚫 blocked" "STOP-row scan: $(printf '%s\n' "$_scan_out" | grep -c ' \[block\]$') blocking hit(s), $(scan_ids block) — nothing written"
+            exit 1 ;;
+          *)
+            echo "⚠ STOP-row scan OVERRIDDEN by MXTK_SCAN_OVERRIDE: ${MXTK_SCAN_OVERRIDE}" >&2
+            echo "  Only the user sets this. An agent that set it has broken the preflight rule." >&2
+            SCAN_NOTE="scan overridden ($(scan_ids block)): $(printf '%s' "$MXTK_SCAN_OVERRIDE" | tr '|' '/')" ;;
+        esac ;;
+      *) echo "⚠ STOP-row scan could not run (exit $_scan_rc): $_scan_out" >&2 ;;
+    esac
+  fi
+fi
 
 # ── Concurrent-writer guard ──────────────────────────────────────────────────
 # The .mpr must have exactly ONE writer. Two mxcli/SP writers on the same file
@@ -951,6 +1009,15 @@ fi
 
 echo "→ Snapshotting model..."
 ./bin/snapshot-mpr.sh
+# The snapshot just taken. A --patch run hands it to the script as MXPATCH_BACKUP_DIR, so the
+# .bak that bin/mxpatch.py keeps of each unit it rewrites lands beside the snapshot, OUTSIDE
+# the model tree, and is pruned with it. Until 2026-10-15 it was <unit>.mxunit.bak inside
+# mprcontents/: untracked in the model folder, one `git add mprcontents` from being committed
+# (field run, #390).
+SNAP_NOW="$(ls -dt "$PROJECT_ROOT/.mpr-snapshots"/[0-9]*/ 2>/dev/null | head -1)"; SNAP_NOW="${SNAP_NOW%/}"
+if [ "$PATCH_MODE" = "1" ] && [ -n "$SNAP_NOW" ]; then
+  export MXPATCH_BACKUP_DIR="$SNAP_NOW/mxpatch-bak"
+fi
 
 # ── Restore (one implementation) ─────────────────────────────────────────────
 # Rolls the model back to the snapshot just taken, through restore-mpr.sh. exec.sh used to
@@ -1230,6 +1297,95 @@ if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; 
   fi
 fi
 
+# ── ContentsHash verify (--patch only; #295, 2026-10-14) ─────────────────────
+# An MPR v2 .mpr indexes every mprcontents/**/*.mxunit by base64(SHA-256(file)). A patch that
+# rewrites a unit and not its index row leaves Studio Pro deciding "what changed" from a stale
+# index, and NOTHING else in this chain can see it — mxcli's own help: "'mx check' does not
+# notice". Both patchers the toolkit shipped did exactly that until mxpatch.py (#294). So
+# around a --patch run: `mxcli fix hashes` (read-only without --repair) once before the
+# script as a baseline, once after it exits 0, before the mxbuild gate. Only an issue the
+# BASELINE did not have fails the run (a stale index from an earlier `git checkout` is not
+# this patch's doing — it is reported with its remedy and left alone).
+#
+# The contract is captured, not assumed (tests/wave2/fixtures/mxpatch/, v0.25.0 and v0.26.0
+# verbatim): exit 0 + "The ContentsHash index matches every unit file." (or "is an MPR v1
+# project") = clean; exit 1 + the "N mismatch(es), N missing file(s), N orphan file(s)."
+# summary = issues, one "  MISMATCH|MISSING|ORPHAN" row each; exit 1 WITHOUT the summary is an
+# error ("project not found") — never read the exit code alone. Support is read from
+# `mxcli fix --help` listing `hashes`, the way doctor.sh probes property-sets: on v0.24.0
+# `mxcli fix hashes --help` exits 0 with the parent's help, so it cannot be the probe.
+# No mxcli, or one older than v0.25.0: a loud NOT RUN, and the patch goes on to the gate —
+# blocking every patch on an old binary would block the remedy (guard rule 7).
+HV_ON=0; HV_BASE=""; HV_POST=""; HV_STATE=""; HV_RC=0
+hv_supported() {   # 0 listed, 1 absent, 2 the help itself failed
+  _hv_f=$(mktemp "${TMPDIR:-/tmp}/exec-hv.XXXXXX"); _hv_r=0
+  "$PMXCLI" fix --help > "$_hv_f" 2>&1 < /dev/null || _hv_r=2
+  if [ "$_hv_r" -eq 0 ]; then grep -qE '^[[:space:]]+hashes[[:space:]]' "$_hv_f" || _hv_r=1; fi
+  rm -f "$_hv_f"; return "$_hv_r"
+}
+hv_run() {         # <outfile> — sets HV_STATE clean|issues|error and HV_RC
+  HV_RC=0
+  "$PMXCLI" fix hashes -p "$MPR" > "$1" 2>&1 < /dev/null || HV_RC=$?
+  if [ "$HV_RC" -eq 0 ] && grep -qE 'ContentsHash index matches every unit file|is an MPR v1 project' "$1"; then
+    HV_STATE=clean
+  elif [ "$HV_RC" -eq 1 ] && grep -qE '^[0-9]+ mismatch\(es\), [0-9]+ missing file\(s\), [0-9]+ orphan file\(s\)\.' "$1"; then
+    HV_STATE=issues
+  else
+    HV_STATE=error
+  fi
+}
+hv_keys() { grep -E '^  (MISMATCH|MISSING|ORPHAN) ' "$1" 2>/dev/null | awk '{print $1, $2}' | LC_ALL=C sort -u; }
+# hv_tally <file> — "1 mismatch, 2 orphan" from its MISMATCH/MISSING/ORPHAN rows, for the
+# BUILD-LOG cell.
+hv_tally() {
+  hv_keys "$1" | awk '{n[tolower($1)]++} END {s=""; split("mismatch missing orphan",k," ");
+                      for (i=1;i<=3;i++) if (n[k[i]]) s=s (s?", ":"") n[k[i]] " " k[i]; print s}'
+}
+# hv_rewritten <id> — 0 when the patch rewrote that unit: its file differs from the copy in the
+# snapshot taken before the script ran. The path is the row's third field, relative to the
+# model directory, and snapshot-mpr.sh copies mprcontents/ to the snapshot's top level, so
+# the same relative path holds on a two-tree (app/) checkout too.
+hv_rewritten() {
+  _hp="$(grep -E "^  MISMATCH +$1 " "$HV_BASE" | awk '{print $3}' | head -1)"
+  [ -n "$_hp" ] && [ -n "$SNAP_NOW" ] && [ -f "$SNAP_NOW/$_hp" ] && [ -f "$MODEL_DIR/$_hp" ] \
+    && ! cmp -s "$SNAP_NOW/$_hp" "$MODEL_DIR/$_hp"
+}
+hv_first() { grep -v -e '^[[:space:]]*$' -e '^WARNING: This is a' "$1" | head -1; }
+if [ "$PATCH_MODE" = "1" ]; then
+  echo "→ ContentsHash baseline: mxcli fix hashes (read-only)..."
+  _hv_s=0
+  if [ -z "$PMXCLI" ]; then
+    echo "  ⚠ NOT RUN — no project mxcli. A stale ContentsHash this patch leaves will go unseen:"
+    echo "    mx check and mxbuild do not read the index."
+    HV_NOTE="hashes: NOT RUN (no project mxcli)"
+  else
+    hv_supported || _hv_s=$?
+    if [ "$_hv_s" -eq 1 ]; then
+      echo "  ⚠ NOT RUN — this mxcli has no 'fix hashes' (arrived in v0.25.0). Upgrade it: a stale"
+      echo "    ContentsHash this patch leaves is invisible to mx check and to the mxbuild gate."
+      HV_NOTE="hashes: NOT RUN (mxcli has no fix hashes; v0.25.0+)"
+    elif [ "$_hv_s" -eq 2 ]; then
+      echo "  ⚠ NOT RUN — 'mxcli fix --help' itself failed, so support is unknown."
+      HV_NOTE="hashes: NOT RUN (fix --help failed)"
+    else
+      HV_BASE=$(mktemp "${TMPDIR:-/tmp}/exec-hv-base.XXXXXX")
+      hv_run "$HV_BASE"
+      case "$HV_STATE" in
+        clean)  HV_ON=1; HV_NOTE="hashes: baseline clean"; echo "  ✓ index matches every unit file" ;;
+        issues) HV_ON=1; HV_NOTE="hashes: baseline $(hv_tally "$HV_BASE") (pre-existing)"
+                echo "  ⚠ the index is ALREADY out of step before this patch ($(grep -E '^[0-9]+ mismatch' "$HV_BASE"))."
+                echo "    Not this patch's doing, and not held against it. If this patch rewrites one of these"
+                echo "    units through bin/mxpatch.py, that write gives it a fresh hash and the verify below"
+                echo "    says so. Repair the others on their own (rewrites the index from the files, never"
+                echo "    the files): ./mxcli fix hashes -p $MPR_BASE --repair" ;;
+        *)      echo "  ⚠ NOT RUN — the baseline could not be classified (exit $HV_RC: $(hv_first "$HV_BASE"))."
+                HV_NOTE="hashes: NOT RUN (baseline unclassifiable, exit $HV_RC)"
+                rm -f "$HV_BASE"; HV_BASE="" ;;
+      esac
+    fi
+  fi
+fi
+
 # ── Execute ──────────────────────────────────────────────────────────────────
 # The exit status is CAPTURED, not allowed to trip `set -e`.
 #
@@ -1261,7 +1417,97 @@ if [ "$PATCH_MODE" = "1" ]; then
     else
       log_build "❌ patch failed" "script exit $EXEC_STATUS — NOT rolled back (restore did not run)"
     fi
+    rm -f "$HV_BASE"
     exit "$EXEC_STATUS"
+  fi
+  if [ "$HV_ON" = "1" ]; then
+    echo "→ ContentsHash verify: mxcli fix hashes (read-only)..."
+    HV_POST=$(mktemp "${TMPDIR:-/tmp}/exec-hv-post.XXXXXX")
+    hv_run "$HV_POST"
+    _hv_new=""
+    [ "$HV_STATE" = issues ] && _hv_new="$(hv_keys "$HV_POST" | LC_ALL=C comm -13 <(hv_keys "$HV_BASE") - )"
+    # A baseline MISMATCH that is STILL reported, on a unit the patch rewrote, is NEW too: the
+    # patch wrote that unit and left its hash stale again. Matching on KIND+ID alone read it as
+    # "pre-existing, none new" and kept the patch (#374 review; #390's field state exactly).
+    if [ "$HV_STATE" = issues ]; then
+      _hv_same="$(hv_keys "$HV_POST" | LC_ALL=C comm -12 <(hv_keys "$HV_BASE") - )"
+      while read -r _k _id; do
+        [ "$_k" = MISMATCH ] || continue
+        if hv_rewritten "$_id"; then
+          echo "  ✗ this patch rewrote unit $_id and its ContentsHash is still stale: counted as new."
+          _hv_new="${_hv_new:+$_hv_new
+}$_k $_id"
+        fi
+      done <<EOF_SAME
+$_hv_same
+EOF_SAME
+    fi
+    if [ "$HV_STATE" = clean ] || { [ "$HV_STATE" = issues ] && [ -z "$_hv_new" ]; }; then
+      # Baseline issues the verify no longer reports. A MISMATCH on a unit the patch rewrote
+      # (its file differs from the snapshot) was repaired by that write — field run #390: an
+      # old-style --patch had left one, and the ported patcher's write fixed it. That was
+      # visible only in stdout; the BUILD-LOG cell (HV_NOTE) now carries it.
+      _hv_gone="$(hv_keys "$HV_BASE" | LC_ALL=C comm -23 - <(hv_keys "$HV_POST"))"
+      _hv_rw=""; _hv_nrw=0; _hv_noth=0
+      while read -r _k _id; do
+        [ -n "$_k" ] || continue
+        if [ "$_k" = MISMATCH ] && hv_rewritten "$_id"; then
+          _hv_rw="$_hv_rw $_id"; _hv_nrw=$((_hv_nrw + 1))
+        else
+          _hv_noth=$((_hv_noth + 1))
+        fi
+      done <<EOF_HV
+$_hv_gone
+EOF_HV
+      if [ "$HV_STATE" = clean ]; then
+        echo "  ✓ index matches every unit file"; _hv_v="verify clean"
+      else
+        echo "  ✓ no new ContentsHash issue (the baseline's other ones are still there — see above)"
+        _hv_v="verify $(hv_tally "$HV_POST") left (pre-existing), none new"
+      fi
+      for _id in $_hv_rw; do
+        echo "  ✓ this patch rewrote unit $_id with a fresh hash: its pre-existing MISMATCH is repaired."
+      done
+      if [ "$_hv_noth" -gt 0 ]; then
+        echo "  ✓ $_hv_noth other pre-existing issue(s) no longer reported (not on a unit this patch rewrote)."
+      fi
+      if [ "$HV_STATE" = issues ]; then
+        echo "    Repair the rest on their own: ./mxcli fix hashes -p $MPR_BASE --repair"
+      fi
+      _hv_fx=""
+      [ "$_hv_nrw" -gt 0 ] && _hv_fx="$_hv_nrw pre-existing repaired by this patch's rewrite"
+      [ "$_hv_noth" -gt 0 ] && _hv_fx="${_hv_fx:+$_hv_fx, }$_hv_noth other pre-existing gone"
+      HV_NOTE="$HV_NOTE, ${_hv_v}${_hv_fx:+ ($_hv_fx)}"
+    else
+      echo ""
+      if [ "$HV_STATE" = issues ]; then
+        _hv_n=$(printf '%s\n' "$_hv_new" | grep -c . || true)
+        echo "  ✗ the patch left the .mpr's ContentsHash index out of step with the unit files: $_hv_n new issue(s)."
+        printf '%s\n' "$_hv_new" | while read -r _k _id; do
+          grep -A1 -E "^  $_k +$_id " "$HV_POST" | sed 's/^/  /'
+        done
+        echo "    Write units through bin/mxpatch.py (write_unit sets the hash with the file), or end the"
+        echo "    script with: ./mxcli fix hashes -p \"\$1\" --repair"
+        _hv_detail="ContentsHash: $_hv_n new issue(s) after the patch"
+        HV_NOTE="$HV_NOTE, verify $_hv_n new"
+      else
+        echo "  ✗ could not verify the ContentsHash index after the patch (exit $HV_RC: $(hv_first "$HV_POST"))."
+        echo "    The baseline ran, so this is new. A patch is kept only on a verified model."
+        _hv_detail="ContentsHash verify could not run after the patch (exit $HV_RC)"
+        HV_NOTE="$HV_NOTE, verify error"
+      fi
+      echo "  → restoring the snapshot (the mxbuild gate cannot see this, so it is not run)."
+      restore_snapshot
+      if [ -x ./bin/model-stamp.sh ]; then ./bin/model-stamp.sh clear >/dev/null 2>&1 || true; fi
+      rm -f "$HV_BASE" "$HV_POST"
+      if [ "$RESTORED" -eq 1 ]; then
+        log_build "❌ patch refused" "$_hv_detail — rolled back, gate not run"
+      else
+        log_build "❌ patch refused" "$_hv_detail — NOT rolled back (restore did not run)"
+      fi
+      exit 1
+    fi
+    rm -f "$HV_BASE" "$HV_POST"
   fi
 else
   "${PMXCLI:-./mxcli}" exec "$SCRIPT" -p "$MPR" || EXEC_STATUS=$?

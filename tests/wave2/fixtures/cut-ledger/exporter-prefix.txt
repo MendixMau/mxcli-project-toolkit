@@ -1,0 +1,56 @@
+$ python3 -I export-module-mpk.py mono/fsm.mpr NativeNote out924/NativeNote.mpk --json
+{
+  "module": "NativeNote",
+  "product_version": "9.24.2.6130",
+  "units_module_subtree": 73,
+  "units_shell": 6,
+  "project_docs_scrubbed": [
+    "Settings$ProjectSettings",
+    "Navigation$NavigationDocument",
+    "Security$ProjectSecurity"
+  ],
+  "unit_types": {
+    "DomainModels$DomainModel": 1,
+    "Enumerations$Enumeration": 2,
+    "Forms$Page": 2,
+    "Microflows$Microflow": 16,
+    "Microflows$Nanoflow": 35,
+    "Projects$Folder": 14,
+    "Projects$ModuleImpl": 1,
+    "Projects$ModuleSettings": 1,
+    "Security$ModuleSecurity": 1
+  },
+  "from_app_store": null,
+  "files": 7,
+  "java_files": 0,
+  "js_files": 0,
+  "widgets_referenced": [
+    "com.mendix.widget.native.appevents.AppEvents",
+    "com.mendix.widget.native.repeater.Repeater"
+  ],
+  "widgets_shipped": [
+    "widgets/com.mendix.widget.native.AppEvents.mpk",
+    "widgets/com.mendix.widget.native.Repeater.mpk"
+  ],
+  "widgets_unresolved": [],
+  "crossing_refs_by_module": {
+    "Administration": 3,
+    "CommunityCommons": 2,
+    "FSM_Specific": 2,
+    "General": 1,
+    "NanoflowCommons": 4,
+    "NativeMobile": 8,
+    "NativeMobileResources": 1,
+    "NativeTechnician": 2,
+    "Note": 54,
+    "Synchronization": 5,
+    "Technician": 2,
+    "Utils": 7
+  },
+  "out": "out924/NativeNote.mpk"
+}
+
+real	0m0.326s
+user	0m0.222s
+sys	0m0.076s
+exit=0

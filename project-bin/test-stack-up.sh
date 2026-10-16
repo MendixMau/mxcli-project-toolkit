@@ -160,7 +160,7 @@ esac
 # the remedy instead of dying mid-run on "command not found".
 command -v mxtk_pid_runs_deployment >/dev/null 2>&1 || {
   echo "test-stack-up: bin/_common.sh is older than this script (no mxtk_pid_runs_deployment)." >&2
-  echo "  → <toolkit>/bin/sync-project.sh $ROOT --upgrade-bin _common.sh   (backs up a hand-edited copy first)" >&2; exit 2; }
+  echo "  → <toolkit>/bin/sync-project.sh $ROOT --only-bin _common.sh --upgrade-bin _common.sh   (installs just that file; backs up a hand-edited copy first)" >&2; exit 2; }
 
 ok()   { printf '  \033[32m✓\033[0m %s\n' "$1"; }
 bad()  { printf '  \033[31m✗\033[0m %s\n' "$1"; }

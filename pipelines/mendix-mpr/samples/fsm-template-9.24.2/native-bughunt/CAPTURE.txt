@@ -1,0 +1,6 @@
+What: native-module round trip of a public Marketplace template (FSM) (Mendix 9.24.2), 12 Native* modules, describe -> check (against the source app, then the quarantine loop) -> exec into a 9.24.2 copy with the 12 modules dropped.
+When: 2026-10-12. mxcli v0.26.0 (2026-10-11T18:37:07Z), Linux container, no Studio Pro.
+D1-D3: minimal repros, each run alone against a fresh `mxcli new Scratch --version 9.24.2 --theme none --skip-init` app (D2 after copying com.mendix.widget.native.Repeater.mpk into widgets/ and `mxcli widget init`).
+D1-D3 are written from scratch (module Repro); they hold no model content of the template.
+D4 was an excerpt of the source describe (not isolated, blocked by D3); it is not shipped.
+Paths: <lab>/ = the lab checkout; originals not committed.

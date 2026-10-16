@@ -1,0 +1,9 @@
+-- No STOP row. captured: bug-logs/mxcli-bugs.md BUG-78 (all three forms fail).
+-- key: retrieve $Users from System.User where [UserRoles/Name = 'Engineering'];        -- CE0161
+-- evidence: fails `mx check` with `CE0161 "Error(s) in XPath
+create or modify microflow Module.SUB_Engineers_Get ()
+returns List of System.User
+begin
+  retrieve $Users from System.User where [UserRoles/Name = 'Engineering'];
+  return $Users;
+end;

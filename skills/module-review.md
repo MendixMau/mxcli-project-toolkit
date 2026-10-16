@@ -138,6 +138,9 @@ For each page, ask and answer in writing:
   heights cover them (`learned-detection-gaps.md`).
 - **Submit every New/Edit form with required fields empty.** A visible validation message must
   appear. A 4xx/5xx with no user-facing feedback is high-severity silent failure, not a pass.
+- **Can I get back?** Without the browser's Back button, per `design-spacing.md` §3 crumbs.
+- **Does every tile go somewhere?** `wiring-sweep.md` proves each click does something; judge
+  where it lands: a "Tasks" menu entry opens a list of tasks, not one record's page.
 - **Does every View/Edit/action button point at the *current* page?** Confirm with
   `DESCRIBE PAGE Module.Page` — superseded pages from an earlier build script survive as live
   targets and nothing mechanical notices.
@@ -323,7 +326,8 @@ the render was broken) becomes mechanically impossible to repeat, not just prohi
 A report may carry addenda: each re-look adds its own `VALID AT:` and its own `PROOF-OF-LOOK:`
 lines below it. Each citation is checked against the nearest stamp above it, and the report is
 stale only when the model has been built past its newest stamp (by commit time). Keep earlier
-sections; do not delete their proof lines.
+sections; do not delete their proof lines. Stamp an addendum with the model commit its shots were
+taken on, never a later commit that only adds the screenshots or the report: that commit postdates the shots.
 Reports dated before 2026-08-23 predate the rule and are left alone.
 
 **A LOOK report expires when the module changes.** Any BUILD/GATE commit that touches the module

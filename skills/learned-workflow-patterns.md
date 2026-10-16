@@ -309,10 +309,12 @@ USER TASK "Review" 'Review'
     CALL MICROFLOW MyModule."SUB_Remind" WITH ("Request" = '$WorkflowContext');
   };
 
--- wait for timer / wait for notification. WAIT FOR NOTIFICATION takes NO name --
--- 'WAIT FOR NOTIFICATION ''Ping'';' is a parse error; the name is a Studio Pro property.
+-- wait for timer / wait for notification.
+-- SUPERSEDED on v0.26.0: WAIT FOR NOTIFICATION takes a name (`wait for notification waitDone;`),
+-- and a NOTIFY WORKFLOW that targets it needs `TARGET Module.Workflow.waitDone`. On v0.20.0
+-- the named form was a parse error; the bare form still parses on v0.26.0. Name every wait.
 WAIT FOR TIMER 'addDays([%CurrentDateTime%], 1)';
-WAIT FOR NOTIFICATION;
+WAIT FOR NOTIFICATION waitDone;
 ```
 
 **The two signatures a workflow's own gates check and `mxcli check` does not** (v0.21.0,
@@ -445,7 +447,7 @@ manual Studio Pro steps built around a blocker that never existed.
 | Open an instance | `OPEN WORKFLOW $Wf;` (client action) |
 | Open a task | `OPEN USER TASK $Task;` (client action) |
 | Lock / unlock | `LOCK WORKFLOW $Wf;` · `UNLOCK WORKFLOW $Wf;` · `LOCK WORKFLOW ALL;` · `UNLOCK WORKFLOW ALL;` |
-| Release a wait | `$R = NOTIFY WORKFLOW $Wf;` (releases a *wait for notification* activity) |
+| Release a wait | `$R = NOTIFY WORKFLOW $Wf TARGET Module.Workflow.waitDone;` (releases a *wait for notification* activity; on mxcli v0.26.0 `TARGET` is required, without it `check` refuses: CE0166 / MDL-WF16. The target may be a named wait, a notification activity or a notification boundary event.) |
 | Instances for a context object | `$Wfs = GET WORKFLOWS FOR $Ctx;` |
 | Instance metadata | `$D = GET WORKFLOW DATA $Wf AS Mod."Entity";` |
 | Audit trail | `$Recs = GET WORKFLOW ACTIVITY RECORDS $Wf;` |
@@ -1013,6 +1015,16 @@ already exists.
 
 ## 19. `BOUNDARY EVENT TIMER` — don't add one without a documented business trigger
 
+> **SUPERSEDED on mxcli v0.26.0 (Mendix 11.15.0, 2026-10-15): the boundary terminator is no longer
+> a hand-add.** mxcli writes the end-of-boundary-path marker itself
+> (`Workflows$EndOfBoundaryEventPathActivity`), so a boundary path may end in a plain
+> `call microflow`; the notification boundary event exists too (`boundary event interrupting
+> notification Name 'Caption' { ... }`). Source: mxcli's own `write-workflows` skill and
+> `docs-site/src/language/workflow-activities.md`, and a five-app lab field run. A boundary
+> terminator pass is not needed; the **parallel split** terminator (§18, §23) is a separate
+> node and this note does not change it (not re-probed on v0.26.0). Re-test the notes below
+> against your pinned mxcli before relying on them.
+
 > **CORRECTION, 2026-09-03 (probed, mxcli v0.20.0 / Mendix 11.14.0).** The `'P3D'` form below
 > is **wrong** and was recorded here as proven on a `mxcli check` alone. The timer takes a
 > Mendix **expression**, not an ISO 8601 period: `'P3D'` passes `mxcli check` and `exec`, then
@@ -1274,7 +1286,7 @@ here. This section is only how to run the repair and keep it applied.
 
 ```
 bin/wf-add-path-terminators.py <workflow>.mxunit          # dry run: paths found / to add
-bin/wf-add-path-terminators.py <workflow>.mxunit --apply  # patches, leaves a .bak
+bin/wf-add-path-terminators.py <workflow>.mxunit --apply  # patches; backup goes outside mprcontents/
 ```
 
 It walks the unit, appends the terminator to every unterminated `ParallelSplitOutcome` flow, and
@@ -1343,7 +1355,7 @@ project-bin/wf-set-call-captions.py <workflow>.mxunit --captions-file captions.t
 It walks the unit, finds every `Workflows$CallMicroflowActivity` whose `Microflow` matches a
 name you gave it, and replaces only that activity's `Caption` — `Name` (the flow-internal
 identifier every `Flow` element references to reach the activity) is never touched, so nothing
-that points at the activity can break. Defaults to a dry run; `--apply` writes, after a `.bak`.
+that points at the activity can break. Defaults to a dry run; `--apply` writes, after a backup kept outside `mprcontents/` (`$MXPATCH_BACKUP_DIR`, which `exec.sh --patch` points into its snapshot).
 
 **Two things worth deciding before scripting a workflow, given this gap:**
 

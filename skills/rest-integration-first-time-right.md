@@ -297,9 +297,11 @@ association direction; all fine, page empty → stale deployment or a different 
   green. Write `body '{1}' with ({1} = $Var)` (BUG-151).
 - **`import from mapping M($Call/ResponseBody)` is a parse error.** Declare a String first:
   `declare $Body String = $Call/ResponseBody;` then `M($Body)` (BUG-152).
-- **A published REST service has no auth clause**, and an `Authentication:` property is
-  silently ignored. Authenticate inside the operation microflow, and prove that no credentials
-  and a wrong password each answer 401 (BUG-152).
+- **A published REST service has no auth clause on v0.24.0**, and an `Authentication:` property is
+  silently ignored there. **On v0.26.0 `Authentication: (basic)` works** (also `session`,
+  `microflow M.F`, `none`): grant the role access to the service and execute on each backing
+  microflow, and note the URL includes the resource segment. On either version, prove that no
+  credentials and a wrong password each answer 401 (BUG-152).
 - **`create or modify published rest service` replaces the resource list.** One script owns
   the service and names every resource (BUG-152).
 - **Extend an import mapping with `create or modify`, never drop and recreate it.** The drop

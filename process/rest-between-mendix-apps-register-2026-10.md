@@ -34,7 +34,7 @@ another project document (a proof file or the UX scan of 2026-10-12).
 | 21 | Date-shaped JSON sample inferred DateTime; String mapping failed mxbuild (CE5015) | exec gate (mxbuild) | exec gate | F |
 | 22 | Two apps on one host shared the session cookie; one login signed the other out | 6 | 6 | F |
 | 23 | StackOverflowError at startup: a test run stopped by a signal left after-startup on the injected `MxTest` flow, and the next injection chained it to itself (BUG-157) | 1 | — (process rule) | F |
-| 24 | Model-write guard is machine-wide; an exec refused while another app wrote | any exec | — (serialise) | F |
+| 24 | A machine-wide exec guard refused one app's exec while another app wrote (fixed by the per-project exec lock, #304; no longer applies) | any exec | — | F |
 | 25 | Consumed-test wrapper read only the first verdict | audit of the wrapper | — (read every verdict) | F |
 | 26 | Journey order load-bearing: a mock reset in one journey broke the next (4 false failures) | 6 | — (order in the suite) | F |
 

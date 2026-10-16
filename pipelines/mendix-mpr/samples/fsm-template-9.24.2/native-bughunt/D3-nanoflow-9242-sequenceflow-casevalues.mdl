@@ -1,0 +1,10 @@
+-- exec of a trivial microflow / nanoflow into a 9.24.2 project is refused: the writer emits properties of Mendix 10.2 / 10.15
+create module Repro;
+create or modify microflow Repro.MF_Min ()
+begin
+  return;
+end;
+create or modify nanoflow Repro.NF_Min ()
+begin
+  return;
+end;

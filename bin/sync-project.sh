@@ -12,6 +12,14 @@
 #     A locally modified script is REPORTED, never overwritten, unless --upgrade-bin names it
 #     (and then the local copy is backed up first). Six of this machine's projects have
 #     hand-hardened their exec.sh; a blind-overwrite sync would have destroyed all six.
+#     --upgrade-bin is NOT a scoped install: it only lifts that refusal, and the FULL sync
+#     below still runs (skills, CLAUDE.md, hooks, tests/e2e, deletions).
+#   - --only-bin X [--only-bin Y]: the scoped install. Copies ONLY the named project-bin/
+#     scripts into <project>/bin/, prints each file written, and touches nothing else — no
+#     section below runs. Same refusal for a locally modified copy (unless --upgrade-bin names
+#     it, or --force), and an unknown name exits 1 before anything is written. Field run,
+#     issue #390: an "--upgrade-bin exec.sh" install changed 244 tracked files, deleted one,
+#     added ~30 and reinstalled the git hooks.
 #   - tests/e2e/ engine: same three-way contract as bin/ (missing / unedited older copy /
 #     locally modified). --no-refresh turns the middle case back into a report for both.
 #   - triage.md: installs it if the project predates the Stage 0 scaffold, refreshes it only
@@ -83,6 +91,17 @@ AGENTS="$MXTK_AGENTS"
 # "Is this copy an unedited older toolkit version?" — the test that lets sections 4 and 4b
 # refresh a stale bin/ or tests/e2e/ copy without a flag. See the file's header.
 . "$SCRIPT_DIR/lib/past-stock.sh"
+TK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# copy_kind <toolkit-rel-path> <src> <dst> — classify a project copy that exists:
+#   "same", "stock:<date>" (an unedited older toolkit version), or "edited".
+# Defined up here because --only-bin (which exits before any section runs) classifies too.
+copy_kind() {
+  if cmp -s "$2" "$3"; then echo same; return; fi
+  # project-bin/X was bin/X before the project-bin split; its older versions live there.
+  _ck_when="$(mxtk_past_stock "$TK_ROOT" "$1" "$3" "bin/${1##*/}")" && { echo "stock:$_ck_when"; return; }
+  echo edited
+}
 
 # Is this agent file an UNTOUCHED stub (safe to overwrite), or completed work?
 # Two conditions, both required: it still carries the STUB GENERATED banner AND it still
@@ -98,7 +117,7 @@ AGENTS="$MXTK_AGENTS"
 is_pure_stub() {
   local f="$1"
   grep -q "STUB GENERATED" "$f" || return 1
-  sed 's/{{DOUBLE_BRACE}}//g' "$f" | grep -q '{{[A-Z_]*[^}]*}}'
+  grep -q -- '{{[A-Z_]*[^}]*}}' <<<"$(sed 's/{{DOUBLE_BRACE}}//g' "$f")"
 }
 
 DIFF_COMPLETED=0
@@ -128,6 +147,8 @@ w_mkdir() {
 }
 STRICT=0
 UPGRADE_BIN=""
+ONLY_BIN=""
+FORCE=0
 UPGRADE_LINT=""
 REPAIR_INTAKE=0
 ADOPT_ROUTING=0
@@ -136,7 +157,9 @@ NO_REFRESH=0
 PROJECT_DIR=""
 USAGE="Usage: $0 <project-root> [--diff-completed] [--dry-run] [--strict]
                           [--upgrade-bin <script.sh|all>] [--upgrade-lint-rules <rule.star|all>]
-                          [--repair-intake] [--adopt-routing] [--pin-models] [--no-refresh]"
+                          [--repair-intake] [--adopt-routing] [--pin-models] [--no-refresh]
+       $0 <project-root> --only-bin <script.sh> [--only-bin ...] [--upgrade-bin <script.sh|all>]
+                          [--force] [--dry-run] [--no-refresh]"
 while [ $# -gt 0 ]; do
   case "$1" in
     --diff-completed) DIFF_COMPLETED=1; shift ;;
@@ -146,6 +169,14 @@ while [ $# -gt 0 ]; do
     --adopt-routing)  ADOPT_ROUTING=1; shift ;;
     --pin-models)     PIN_MODELS=1; shift ;;
     --no-refresh)     NO_REFRESH=1; shift ;;
+    --force)          FORCE=1; shift ;;
+    --only-bin)
+      shift
+      [ $# -gt 0 ] || { echo "--only-bin needs a script name from the toolkit's project-bin/" >&2; exit 1; }
+      # One bare name per flag. An empty or space-holding value would split into nothing (and
+      # "0 file(s) written", exit 0) or into several names the caller never typed.
+      case "$1" in ""|*[[:space:]]*) echo "--only-bin needs ONE script name, got '$1'" >&2; exit 1 ;; esac
+      ONLY_BIN="$ONLY_BIN $1"; shift ;;
     --upgrade-bin)
       shift
       [ $# -gt 0 ] || { echo "--upgrade-bin needs a script name or 'all'" >&2; exit 1; }
@@ -171,6 +202,13 @@ while [ $# -gt 0 ]; do
       echo "  --strict           exit 3 if any warning was emitted (for CI / gate-check)"
       echo "  --upgrade-bin X    accept the toolkit version of a LOCALLY MODIFIED bin/ crash-net"
       echo "                     script (or 'all'). The project copy is backed up first."
+      echo "                     NOT a scoped install: the full sync still runs. To install"
+      echo "                     just some scripts, use --only-bin."
+      echo "  --only-bin X       copy ONLY project-bin/X into <project>/bin/ (repeatable) and"
+      echo "                     nothing else: no skills, CLAUDE.md, hooks, tests or deletions."
+      echo "                     A locally modified copy is refused unless --upgrade-bin names"
+      echo "                     it or --force is given (backed up first either way)."
+      echo "  --force            with --only-bin: overwrite locally modified copies too."
       echo "  --upgrade-lint-rules X  accept the toolkit version of a LOCALLY MODIFIED"
       echo "                     .claude/lint-rules/ rule (or 'all'), backing the copy up first."
       echo "  --repair-intake    accept the offered repair of a stale, still-verbatim intake"
@@ -195,12 +233,116 @@ if [ -z "$PROJECT_DIR" ]; then
   echo "$USAGE" >&2
   exit 1
 fi
+if [ -z "$ONLY_BIN" ]; then
+  [ "$FORCE" -eq 0 ] || { echo "--force only applies to --only-bin" >&2; exit 1; }
+elif [ "$DIFF_COMPLETED$REPAIR_INTAKE$ADOPT_ROUTING$PIN_MODELS" != "0000" ] || [ -n "$UPGRADE_LINT" ]; then
+  echo "--only-bin installs bin/ scripts and nothing else; it cannot be combined with" >&2
+  echo "--diff-completed, --repair-intake, --adopt-routing, --pin-models or --upgrade-lint-rules." >&2
+  exit 1
+fi
 if [ ! -d "$PROJECT_DIR" ]; then
   echo "Error: project directory does not exist: $PROJECT_DIR" >&2
   exit 1
 fi
 
 PROJECT_NAME="$(basename "$(cd "$PROJECT_DIR" && pwd)")"
+
+# --- --only-bin: the scoped install (issue #390) ------------------------------------------
+# Everything is decided before anything is written: an unknown name or a refused overwrite
+# exits 1 with the project untouched. bin/ is <project-root>/bin on both layouts (single-tree,
+# and two-tree with the .mpr under app/) — the same place the crash-net section writes.
+# Names must be in the install manifest ($MXTK_PROJECT_BIN): a file that sits in project-bin/
+# but is deliberately not installed (MXTK_PROJECT_BIN_NOINSTALL) is refused like any other.
+# The full sync's refresh hold applies too: an unedited older copy is NOT refreshed on top of a
+# hand-edited bin/_common.sh unless --upgrade-bin names it (or all) or --force is given.
+# `set -f` while splitting the name lists: `--only-bin '*'` must never glob into the cwd.
+if [ -n "$ONLY_BIN" ]; then
+  OB_SRC="$TK_ROOT/project-bin"
+  OB_DST="$PROJECT_DIR/bin"
+  ob_wired=0
+  for m in bin PROJECT.md intake.md CLAUDE.local.md; do [ -e "$PROJECT_DIR/$m" ] && ob_wired=1; done
+  [ "$ob_wired" -eq 1 ] || { echo "Error: $PROJECT_DIR has no PROJECT.md, intake.md, CLAUDE.local.md or bin/ — not a wired project. Nothing written." >&2; exit 1; }
+  ob_err=0; ob_plan=""; ob_hold=""
+  if [ "$NO_REFRESH" -eq 0 ] && [ -f "$OB_DST/_common.sh" ] && [ -f "$OB_SRC/_common.sh" ] \
+     && [ "$(copy_kind project-bin/_common.sh "$OB_SRC/_common.sh" "$OB_DST/_common.sh")" = edited ]; then
+    ob_hold="_common.sh"
+  fi
+  set -f
+  for s in $ONLY_BIN; do
+    case "$s" in */*|.*|"") echo "Error: --only-bin takes a bare file name from project-bin/, got '$s'" >&2; ob_err=1; continue ;; esac
+    src="$OB_SRC/$s"; dst="$OB_DST/$s"
+    if [ ! -f "$src" ]; then echo "Error: no such script in the toolkit's project-bin/: $s" >&2; ob_err=1; continue; fi
+    case " $MXTK_PROJECT_BIN " in *" $s "*) ;; *)
+      case " $MXTK_PROJECT_BIN_NOINSTALL " in
+        *" $s "*) echo "Error: $s is deliberately not installed into projects (MXTK_PROJECT_BIN_NOINSTALL in bin/lib/install-manifest.sh)" >&2 ;;
+        *)        echo "Error: $s is not in the install manifest (MXTK_PROJECT_BIN in bin/lib/install-manifest.sh)" >&2 ;;
+      esac
+      ob_err=1; continue ;;
+    esac
+    if [ ! -f "$dst" ]; then ob_plan="$ob_plan install:$s"; continue; fi
+    kind="$(copy_kind "project-bin/$s" "$src" "$dst")"
+    if [ "$kind" = same ]; then ob_plan="$ob_plan same:$s"; continue; fi
+    if [ "$FORCE" -eq 1 ] || case " $UPGRADE_BIN " in *" all "*|*" $s "*) true ;; *) false ;; esac; then
+      ob_plan="$ob_plan upgrade:$s"; continue
+    fi
+    if [ "${kind#stock:}" != "$kind" ]; then
+      if [ "$NO_REFRESH" -eq 0 ] && { [ -z "$ob_hold" ] || [ "$s" = "$ob_hold" ]; }; then
+        ob_plan="$ob_plan refresh:$s"; continue
+      fi
+      if [ -n "$ob_hold" ] && [ "$NO_REFRESH" -eq 0 ]; then
+        echo "⚠️  bin/$s is an unedited toolkit copy of ${kind#stock:}, NOT refreshed: bin/$ob_hold is" >&2
+        echo "   locally edited and $s depends on it. Accept both together: $0 $PROJECT_DIR --upgrade-bin all" >&2
+        echo "   Scoped: $0 $PROJECT_DIR --only-bin $ob_hold --only-bin $s --upgrade-bin $ob_hold --upgrade-bin $s" >&2
+      else
+        echo "Refused: bin/$s is an unedited toolkit copy of ${kind#stock:} and --no-refresh keeps it." >&2
+      fi
+    else
+      echo "Refused: bin/$s is LOCALLY MODIFIED. See what differs:  diff -u $src $dst" >&2
+      echo "   Accept the toolkit version (your copy is backed up): add --upgrade-bin $s (or --force)" >&2
+    fi
+    ob_err=1
+  done
+  set +f
+  [ "$ob_err" -eq 0 ] || { echo "--only-bin: nothing written." >&2; exit 1; }
+  echo "=== Scoped bin/ install for $PROJECT_DIR (--only-bin; nothing else is touched) ==="
+  [ -d "$OB_DST" ] || w_mkdir "$OB_DST"
+  ob_n=0
+  set -f
+  for item in $ob_plan; do
+    act="${item%%:*}"; s="${item#*:}"; src="$OB_SRC/$s"; dst="$OB_DST/$s"
+    if [ "$act" = same ]; then
+      if [ -x "$src" ] && [ ! -x "$dst" ]; then
+        if [ "$DRY_RUN" -eq 1 ]; then echo "Would repair exec bit: bin/$s"; else chmod +x "$dst"; echo "Repaired exec bit: bin/$s"; fi
+        ob_n=$((ob_n + 1))
+      else
+        echo "Unchanged: bin/$s (already the toolkit version)"
+      fi
+      continue
+    fi
+    if [ "$DRY_RUN" -eq 1 ]; then
+      if [ "$act" = upgrade ]; then
+        echo "Would upgrade: bin/$s — local copy would be backed up first (bin/$s.local-<timestamp>)"
+        ob_n=$((ob_n + 2))
+      else
+        echo "Would write: bin/$s ($act)"; ob_n=$((ob_n + 1))
+      fi
+      continue
+    fi
+    if [ "$act" = upgrade ]; then
+      bak="$dst.local-$(date +%Y%m%d%H%M%S)"
+      cp "$dst" "$bak"; chmod -x "$bak"
+      echo "Wrote: bin/$(basename "$bak") (backup of your locally modified copy)"
+      ob_n=$((ob_n + 1))
+    fi
+    cp "$src" "$dst"
+    if [ -x "$src" ]; then chmod +x "$dst"; fi
+    echo "Wrote: bin/$s ($act)"
+    ob_n=$((ob_n + 1))
+  done
+  set +f
+  echo "--only-bin: $ob_n file(s) $( [ "$DRY_RUN" -eq 1 ] && echo 'would be written' || echo 'written'); nothing else was touched."
+  exit 0
+fi
 
 # --- 0. --diff-completed: the reverse path ----------------------------------------------
 # Sync only ever flowed downhill. A completed agent was cut off from its template in BOTH
@@ -342,7 +484,7 @@ elif [ -n "$INTAKE" ]; then
       echo "Updated: $INTAKE — appended Q9 (interview mode). Answer it this session."
     fi
     CHANGES=$((CHANGES + 1))
-  elif ! q9_section "$INTAKE" | grep -q 'Answered\|Unverified'; then
+  elif ! grep -q -- 'Answered\|Unverified' <<<"$(q9_section "$INTAKE")"; then
     # Present, but ungradeable by gate-check's Stage P check.
     Q9_TMP=$(mktemp "${TMPDIR:-/tmp}/q9sec.XXXXXX") || exit 2
     Q9_REF=$(mktemp "${TMPDIR:-/tmp}/q9ref.XXXXXX") || exit 2
@@ -358,7 +500,7 @@ elif [ -n "$INTAKE" ]; then
     # into the "edited, NOT touching it" warning below.
     q9_current_text > "$Q9_REF"
     if cmp -s "$Q9_TMP" "$Q9_REF" \
-       || sed -n '2,$p' "$Q9_TMP" | grep -v '^[[:space:]]*$' | head -1 | grep -q '^_Not yet asked\._'; then
+       || grep -q -- '^_Not yet asked\._' <<<"$(sed -n '2,$p' "$Q9_TMP" | grep -v '^[[:space:]]*$' | head -1)"; then
       echo "Note: $INTAKE Q9 is the unanswered template text — Stage P will FAIL until"
       echo "      the kickoff interview happens. That is correct; nothing to repair."
 
@@ -428,7 +570,7 @@ elif [ -n "$INTAKE" ]; then
   MISSING_N=0
   while IFS= read -r _q; do
     [ -n "$_q" ] || continue
-    if ! sed -n 's/^## [0-9][0-9]*\. //p' "$INTAKE" | grep -Fxq "$_q"; then
+    if ! grep -Fxq -- "$_q" <<<"$(sed -n 's/^## [0-9][0-9]*\. //p' "$INTAKE")"; then
       MISSING_Q="$MISSING_Q$_q
 "
       MISSING_N=$((MISSING_N + 1))
@@ -916,17 +1058,25 @@ if [ -f "$PROJECT_DIR/CLAUDE.local.md" ]; then
   # can also trip it; the message below is phrased as "check whether" for that reason, not as
   # a flat assertion. Same rule as the ledger-row warn above: CLAUDE.md is bootstrap-project.md's
   # (an LLM merge), not this script's, so sync never edits it — only names the fix.
-  if [ -f "$PROJECT_DIR/CLAUDE.md" ] && grep -qE 'skills/(learned-mdl-preflight|query-the-model)\.md' "$PROJECT_DIR/CLAUDE.md"; then
+  # The toolkit's own wiring block (mxtk:wiring:start..end, written by wire-agents.sh) cites
+  # skills/learned-mdl-preflight.md in its item-3 sentence, so it is stripped before the grep:
+  # otherwise the toolkit flags its own text as the adopter's duplicate (#382). And the check
+  # only speaks when the "mxcli-project-toolkit Integration" heading exists: with no heading
+  # there is no section to name or size, and a whole-file word count described as "heading to
+  # EOF" pointed the adopter at text that is not theirs to edit.
+  _dup_from_line=""
+  if [ -f "$PROJECT_DIR/CLAUDE.md" ]; then
+    _dup_body="$(awk '/mxtk:wiring:start/{skip=1} !skip{print} /mxtk:wiring:end/{skip=0}' "$PROJECT_DIR/CLAUDE.md")"
     # `|| true`: no heading is the COMMON case (every CLAUDE.md mxcli init v0.25 writes cites
     # the skills without it). Unguarded, grep's exit 1 fails the pipeline under pipefail and
     # errexit ended the whole sync here, silently, before the bin/ and tests/e2e refresh —
     # every sync from 9a0350b (2026-09-18) to this fix. Regression: tests/wave2/test-sync-dup-heading-exit.sh.
-    _dup_from_line="$(grep -n 'mxcli-project-toolkit Integration' "$PROJECT_DIR/CLAUDE.md" | head -1 | cut -d: -f1 || true)"
-    if [ -n "$_dup_from_line" ]; then
-      _dup_words="$(tail -n "+$_dup_from_line" "$PROJECT_DIR/CLAUDE.md" | wc -w | tr -d ' ')"
-    else
-      _dup_words="$(wc -w < "$PROJECT_DIR/CLAUDE.md" | tr -d ' ')"
+    if grep -qE -- 'skills/(learned-mdl-preflight|query-the-model)\.md' <<<"$_dup_body"; then
+      _dup_from_line="$(printf '%s\n' "$_dup_body" | grep -n 'mxcli-project-toolkit Integration' | head -1 | cut -d: -f1 || true)"
     fi
+  fi
+  if [ -n "$_dup_from_line" ]; then
+    _dup_words="$(printf '%s\n' "$_dup_body" | tail -n "+$_dup_from_line" | wc -w | tr -d ' ')"
     warn "CLAUDE.md cites Baseline-only skills also covered by CLAUDE.local.md — check whether" \
          "its \"mxcli-project-toolkit Integration\" section (~$_dup_words word(s), heading to" \
          "EOF, not all of it necessarily routing) is a duplicated Baseline routing block." \
@@ -969,16 +1119,6 @@ CRASHNET_SRC="$(cd "$SCRIPT_DIR/.." && pwd)/project-bin"
 # on — not crash-net per se, but "missing -> install, drifted -> report, never
 # blind-overwrite" applies identically to a project's tuned copy of either.
 CRASHNET_FILES="$MXTK_PROJECT_BIN"
-TK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-
-# copy_kind <toolkit-rel-path> <src> <dst> — classify a project copy that exists:
-#   "same", "stock:<date>" (an unedited older toolkit version), or "edited".
-copy_kind() {
-  if cmp -s "$2" "$3"; then echo same; return; fi
-  # project-bin/X was bin/X before the project-bin split; its older versions live there.
-  _ck_when="$(mxtk_past_stock "$TK_ROOT" "$1" "$3" "bin/${1##*/}")" && { echo "stock:$_ck_when"; return; }
-  echo edited
-}
 
 # The refresh hold: a hand-edited shared library keeps every older copy that depends on it as
 # it is (reported), because a refreshed caller on an edited library has never been run.
@@ -1368,7 +1508,7 @@ _ea_rewrite_item3() {   # $1=file  $2=start-prefix  $3=end-prefix  $4=replacemen
       { if (skip) { if (index($0, endp) == 1) { exit }; print; next }
         if (index($0, start) == 1) { print; skip = 1 } }
     ' "$f" | tr '\n' ' ' | tr -s ' ')"
-    printf '%s' "$_blk" | grep -qF -- "$needle" || return 1
+    grep -qF -- "$needle" <<<"$_blk" || return 1
   fi
   [ "$DRY_RUN" -eq 1 ] && return 0
   _tmp="$(mktemp "${TMPDIR:-/tmp}/eaitem3.XXXXXX")" || return 1

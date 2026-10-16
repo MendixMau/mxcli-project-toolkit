@@ -97,7 +97,8 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # none; the trend view lived only as a grep in the skill.
 # wf-add-path-terminators.py + mxunit_bson.py are the BUG-121 repair, and they install as a
 # PAIR — the patcher imports the codec from its own directory, so shipping one without the
-# other is an ImportError on first use. They are here rather than in bin/ because a PROJECT
+# other is an ImportError on first use. Since 2026-10-14 (#294) it is a TRIO: both wf-*.py
+# patchers import mxpatch.py (unit lookup, write + ContentsHash), which imports the codec. They are here rather than in bin/ because a PROJECT
 # runs them, against that project's own model unit, after every MDL script that rewrites a
 # workflow carrying a PARALLEL SPLIT. Until MDL has a branch-ending keyword there is no other
 # way to make a scripted split fan out, and every gate is blind to its absence.
@@ -114,7 +115,7 @@ MXTK_AGENTS_STAGE_BUILD="mdl-agent.md gate-agent.md test-agent.md review-agent.m
 # may run itself (stops only the pid run --local recorded for THIS project), and `mxcli test` on a
 # scratch copy under the test-port lock. exec.sh names app-restart.sh in its watch advisory, so
 # it has to be installed beside it.
-MXTK_PROJECT_BIN="app-restart.sh test-scratch.sh assemble-prototype.js prototype-route.js check-prototype-links.js wf-add-path-terminators.py wf-set-call-captions.py mxunit_bson.py _common.sh app-facts.sh _claims.sh snapshot-mpr.sh restore-mpr.sh exec.sh look-ledger.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh lint-trend.sh metrics-ledger.sh metrics-trend.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js model-stamp.sh verify-model.sh install-project-hooks.sh session-check.sh constants-audit.sh context-pack.sh"
+MXTK_PROJECT_BIN="app-restart.sh test-scratch.sh assemble-prototype.js prototype-route.js check-prototype-links.js wf-add-path-terminators.py wf-set-call-captions.py mxunit_bson.py mxpatch.py _common.sh app-facts.sh _claims.sh snapshot-mpr.sh restore-mpr.sh exec.sh look-ledger.sh save-sp.sh restart-sp.sh check-sp-health.sh verify-module.sh test-stack-up.sh fixture-manifest.sh check-root-clean.sh lint-gate.sh lint-trend.sh metrics-ledger.sh metrics-trend.sh close-task.sh conformance-check.sh coverage-preflight.sh graph-sweep.sh review-module.sh coherence-cadence.sh build-plan-status.sh done-drift-check.sh page-scope.sh render-improvement-register.sh check-design-portability.sh check-design-reaches-app.sh check-page-shell.sh page-fidelity.js model-stamp.sh verify-model.sh install-project-hooks.sh mx-metadata-note.py session-check.sh constants-audit.sh context-pack.sh"
 
 # Files in project-bin/ that are deliberately NOT installed into projects. The reverse check
 # below flags anything named by NEITHER list, so a new file in project-bin/ has to be either
@@ -125,7 +126,7 @@ MXTK_PROJECT_BIN="app-restart.sh test-scratch.sh assemble-prototype.js prototype
 # installed because a PROJECT runs it. report-disposition-check.sh is run by gate-check.sh out of
 # the toolkit clone, so a project copy would be a second copy nothing calls — which is how the
 # per-script lists drifted in the first place.
-MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh"  # gate-check.sh runs it from the TOOLKIT clone ($TOOLKIT_DIR/project-bin/, gate-check.sh:2149), never from a project copy — installing it would create a second copy nothing calls
+MXTK_PROJECT_BIN_NOINSTALL="report-disposition-check.sh coverage-check-all.sh ts-sync.sh"  # gate-check.sh runs it from the TOOLKIT clone ($TOOLKIT_DIR/project-bin/, gate-check.sh:2149), never from a project copy — installing it would create a second copy nothing calls; coverage-check-all.sh is run by review-module.sh through its _tool lookup (beside it, then the toolkit clone), so a project copy is optional and nothing calls it from bin/; ts-sync.sh is a toolkit-side transplant helper marked UNPROVEN and SUPERSEDED in its header (#381)
 
 # --- Starlark lint rules -----------------------------------------------------------------
 # Copied from toolkit lint-rules/ into <project>/.claude/lint-rules/. Two lists, because the
@@ -190,7 +191,7 @@ MXTK_LINT_RULES_NOINSTALL="README.md STOCK-HASHES.txt"
 #
 # project.config.template.js is listed separately because it is the one file a project is
 # EXPECTED to edit — installing it over an edited copy would silently revert the port.
-MXTK_PROJECT_TESTS="config.js helpers.js settle.js otel.js journey-runner.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js full-app-walkthrough.js report-normalize.js report-render.js review-report.js example.journey.json"
+MXTK_PROJECT_TESTS="config.js helpers.js settle.js otel.js journey-runner.js named-controls.js journey-runner.selftest.js journey-rung4-scope.test.js monkey.js monkey.selftest.js page-audit.js page-audit-rules.js design-audit.js full-app-walkthrough.js report-normalize.js report-render.js review-report.js example.journey.json"
 MXTK_PROJECT_TESTS_TEMPLATE="project.config.template.js"
 
 # Deliberately not installed. Same contract as the lists above.

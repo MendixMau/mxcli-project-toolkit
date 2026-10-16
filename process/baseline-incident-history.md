@@ -268,3 +268,177 @@ Verbatim, from a real intake (2026-09-02, Q4 "documents not yet accounted for?")
 The triage never named the deck. Two months of downstream artifacts inherited the gap, because
 once Q4 read "answered" nothing had a reason to look again. The answer *cited a document*, which
 is exactly why it was believed.
+
+## UI1 — Design system ported, never reached the app (2026-09-09)
+
+_From `skills/ui-preflight-pages.md`; moved verbatim 2026-10-14._
+
+Measured 2026-09-09: 55 tokens were ported into the right file at the right stage, 0 of 35
+framework knobs were bound, 0 of 20 component classes existed in the built stylesheet, and two
+build phases of pages were written on top of it. The pages were structurally correct. `mx
+check`, `mxcli lint`, the MDL suite and two e2e journeys were all green, because none of them
+reads a stylesheet. It was found by a human opening a screenshot and asking why the UI was
+poor. The three failures were a bridge written against the wrong layer (SCSS variables where
+the theme runs `$use-css-variables: true`), component classes never ported at all, and a theme
+module whose `:root` loses the cascade to the framework's own customization file.
+
+## UI2 — First-build page fidelity, ToeicBuddy field run (2026-08-25/26)
+
+_From `skills/ui-preflight-pages.md`; moved verbatim 2026-10-14._
+
+**Measured, ToeicBuddy field run 2026-08-25/26** (`process/first-build-page-fidelity-2026-08-27.md`):
+first-build fidelity across 10 pages was **32% median** against a target of 80%. All 14
+wireframes declared a 900px page column and **0 of 10** pages capped their width — repaired
+wholesale at script 67, fifty-five scripts later, after rendering at 1360px. All 10 were
+built on a sidebar layout against wireframes drawing a top bar — repaired at script 20.
+The script's header carries the full evidence for each check.
+
+## UI3 — Fidelity score vs. element checklist, seven screens (2026-09-19)
+
+_From `skills/ui-preflight-pages.md`; moved verbatim 2026-10-14._
+
+**A fidelity score is not a LOOK pass, and must never be accepted as one.**
+`page-fidelity.js` matches identifiers in the page MDL against the wireframe's text. It
+cannot see where an element sits, only that the name occurs. Measured on a
+field build of 2026-09-19, scoring
+seven screens both ways on the same commit:
+
+| Screen | Fidelity (text match) | Element checklist (present / placed / behaves) |
+|---|---:|---:|
+| S1 Requests overview | 100% | 58% |
+| S4 Approval queue | 100% | 40% |
+| S3 Request detail | 55% | 69% |
+
+Two screens scored a perfect 100 while missing more than half their wireframe: the elements
+were named in the MDL and laid out wrongly. S3 runs the other way, because its grid's decimal
+formatting is not expressible as text the instrument greps for. So a high fidelity score
+closes nothing — the `look` obligation is discharged by a person or an agent opening the
+rendered page, at 1280px and at 390px, and writing down what it saw. Use the fidelity score
+for the rework curve between LOOK passes, never in place of one.
+
+## UI4 — Controlled A/B, and the build script that cited Step 3 (2026-08-31)
+
+_From `skills/ui-preflight-pages.md`; moved verbatim 2026-10-14._
+
+**Measured again, controlled A/B, 2026-08-31** (`process/preflight-skill-baseline-2026-08-31.md`):
+5 fresh drafting agents with this file inlined produced **zero** judgement-step violations
+(layout, H1, inline styles, invented classes) across all 5 reps; 5 without it reproduced every
+field defect. The content works when read — the failure mode is dispatching a page build with
+a *reference* to this file instead of its text (see the delivery rule at the top).
+
+The build script that produced those pages **cited this file's Step 3 by name**. That is
+the point: the pre-flight was run, and its output was a paragraph nobody could fail. A
+shell defect is uniform across every page built the same way, so no page stands out as a
+diff and per-page review does not surface it — which is exactly what a mechanical check
+is for, and exactly what human judgement is worst at.
+
+## TO1 — Three false findings from one session (2026-07-29)
+
+_From `skills/tool-output-is-not-ground-truth.md`; moved verbatim 2026-10-14, its headings demoted one level._
+
+### Three real instances from one session
+
+#### 1. "All your work is gone" — read during a write
+
+Read the `.mpr` while Studio Pro was mid-rewrite, saw 6 microflows instead of 13, and told the user
+the whole session's work was lost. It was not; the file was simply being written at that instant.
+
+**Antidote:** confirm against an independent source before declaring loss.
+```bash
+git hash-object Project.mpr            # working tree
+git rev-parse <commit>:Project.mpr     # committed
+```
+Identical hashes mean the tree *is* the checkpoint, whatever a stale read said. Also re-run the
+query — caches (`.mxcli/catalog.db`) lag.
+
+#### 2. "mxcli converts v2→v1 on read" — correlation asserted as cause
+
+The project kept flipping from MPR v2 to a single-file form. Noticed the conversions happened
+around read-only `mxcli` commands and reported mxcli as the culprit — plausible, and wrong. A
+subagent later checked mtime before and after its own mxcli calls: unchanged. Something else was
+doing it.
+
+**Antidote:** to claim tool T causes effect E, run T in isolation and observe E. Timing correlation
+in a tree with multiple concurrent writers is not evidence. Instrument (record state before/after
+your own calls) rather than infer.
+
+#### 3. "These filters are unbound" — a lossy DESCRIBE
+
+`DESCRIBE PAGE` emitted `dropdownfilter fEquipType` with no `Attributes:` property. Reported as a
+live shipping bug across two pages, and a corrective script was drafted. The user pushed back:
+the filters had been tested working many times. They were right.
+
+Two compounding errors:
+- **`grep` flattened the hierarchy**, hiding that the filters sat in a deliberately built filter bar
+  with paired labels.
+- **Disconfirming evidence was already in hand and ignored.** `mxcli check` on the corrective script
+  emitted `MDL-WIDGET07: property columnsFilterable is not recognized and will be silently dropped`
+  — an explicit admission that mxcli's model of that widget family is incomplete. A tool that does
+  not understand a sibling property cannot be trusted to round-trip a child one.
+
+Had it been executed, it would have rebuilt a working page containing `customContent` columns —
+the single highest-risk construct for load-time BSON corruption in this stack. **All risk, zero
+benefit, from a finding that never existed.**
+
+## TO2 — `$?` after a pipeline — three instances (2026-08-04)
+
+_From `skills/tool-output-is-not-ground-truth.md`; moved verbatim 2026-10-14._
+
+Real instances from the one session:
+
+| Observed | Concluded | Actually |
+|---|---|---|
+| `coverage-check ... \| tail; exit=0` with 323 UNCLAIMED | "exit 0 on a dirty ledger — new bug!" | exit **1**, correct |
+| `gate-check ... \| head; exit=0` printing "Gate BLOCKED" | "a blocked gate passes — 5th false-PASS!" | exit **1**, correct |
+| `exec.sh ... \| tail; EXIT=` (empty) | inconclusive | exit **3**, correct |
+
+## TO3 — A passing gate is not a working model — the workflow red pins (2026-08-05)
+
+_From `skills/tool-output-is-not-ground-truth.md`; moved verbatim 2026-10-14, its headings demoted one level._
+
+### The instance
+
+Scripted a Mendix workflow with five `CALL MICROFLOW` activities.
+
+- `mxcli check --references` → `Check passed!`
+- `mxcli exec` → `Created workflow`
+- `mx check` (Studio Pro's own validator) → **`0 errors`**
+- Studio Pro **opened the model** without complaint
+
+Four green signals. Every activity was a **red pin** that could not be clicked, and the app would
+have refused to boot: `Class 'Workflows$CallMicroflowTask' could not be found`.
+
+mxcli `v0.16.0` writes a `$Type` that Mendix renamed at 11.9. `mx check` does not validate that
+name. The upstream fix commit states this outright — *"Both checkers passed... the runtime refused
+to load the ENTIRE model at boot."*
+
+### Why it cost a day rather than an hour
+
+A six-variant probe had been run to find the trigger boundary, varying `WITH`-clause forms. **Every
+arm was graded by `mx check`.** All six passed, so the conclusion was "syntax X is safe" — and all
+six were broken in exactly the same way, because the variable that mattered was never varied.
+
+> A control that cannot distinguish your arms will confirm whichever hypothesis you brought.
+
+The probe was well-designed in every respect except the one that counted: nobody asked *what is
+this gate actually sensitive to?*
+
+## MF1 — `mxcli layout` probe history (2026-09-25)
+
+_From `skills/microflow-preflight.md`; moved verbatim 2026-10-14._
+
+**`mxcli layout` is a domain-model command.** The mxcli team's answer to microflow
+positioning (2026-09-25) is a standalone layout command rather than anything in `create
+microflow`. On v0.24.0 and on upstream `main` at that date, `mxcli layout --help` says
+*"Arrange the entities of a domain model"*; it moves entities only, and there is no microflow or
+nanoflow mode yet. Measured: `mxcli layout -p app.mpr --dry-run` on a scratch copy of a PoC
+model listed 10 entity moves and no microflow. **Before relying on it for a microflow, probe
+your binary:** `mxcli layout --help` — the capability-probe rule. Until a microflow mode ships,
+the remedy for a bad microflow layout stays the one in this file: no `@position`, and the
+`SUB_` split for the defect below.
+
+## MP1 — `marketplace install` #879 — the v0.21.0 re-probe (2026-09-10)
+
+_From `skills/learned-mdl-preflight.md`; moved verbatim 2026-10-14._
+
+- ~~`marketplace install` on a split-model project (#879)~~ — **RESOLVED in v0.21.0, STOP LIFTED (probed 2026-09-10).** Install no longer shells out to `mx module-import`; it copies units with mxcli's own writer and MPR v2 survives. The destructive path is now opt-in behind `--allow-format-change`, so the failure can only happen on purpose. Measured on a real 501-unit project: 501 → 1075 `.mxunit`, `.mpr` 84 KB → 156 KB (an index, not the 35 MB blob #879 produced), native mxbuild **0 errors**. **Read `bug-logs/mxcli-bugs.md` → the #879 entry before your first install** — the corruption is gone, and three *new* operational traps replaced it (packages do not carry their dependencies; two `mxcli fix` repairs are mandatory, not advisory; a bundled widget can silently fail to land and the installer cannot self-repair it).

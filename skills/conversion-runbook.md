@@ -566,7 +566,7 @@ late against the BRD set you already have.
 | | |
 |---|---|
 | **User defines** | Confirms business rules the code implies. Answers `openQuestions` (via SME). Narrative is never invented. |
-| **Agent produces** | BRD scaffolds → enrichment from `KB.md` → validation to clean. `F{NNN}.brd.json`. |
+| **Agent produces** | BRD scaffolds → enrichment from `KB.md` → validation to clean. `F{NNN}.brd.json`. When the open questions are many or several roles share a record: the draft process board (`process-board.md` pass 1: `design/process-model.json`, question anchors, `design/process-board.html` without screens), shown with the questions when they are raised so each one is answered in its place in the work. |
 | **Surface** | `analysis/brd-report.html` — `bin/brd-report.sh <project-root>`. One renderer for every entry mode: it reads BRDs, not source, so a requirements-driven or greenfield project gets the same surface as a migration, and so does a BRD no extractor produced. Each section carries a `report-schema.md` verdict, so a section that is empty because this kind of BRD has nothing to put there reads differently from one that is empty because something broke. History: `process/baseline-incident-history.md` §R20. |
 | **Gate** | Every BRD validation-clean; `validation-report.md` has 0 issues; **every `openQuestions` entry raised in chat** — `bin/open-questions.sh <root> --stage 2` reports 0 blocking, which `gate-check.sh` enforces. Close-out block pasted (§1b rule 7) — CAC-3 opens with it. "Chased to closure" was the old wording and it was unenforceable: a question logged with a self-answer read as closed. |
 | **Owner** | `ba-agent` |

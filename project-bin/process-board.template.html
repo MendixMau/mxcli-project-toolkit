@@ -15,15 +15,6 @@
   --shadow:0 1px 2px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.05);
   color-scheme:light;
 }
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#121417; --panel:#1b1e23; --ink:#e7e9ec; --muted:#a3abb5; --faint:#78818c; --line:#2f343b;
-    --lane:#181b20; --lane-sys:#162033; --lane-sch:#1f1830; --lane-ext:#1c1e22;
-    --accent:#6ea1ff; --accent-ink:#0b1220; --edge:#7c8693;
-    --block:#ff6b6b; --open:#f0a03c; --dec:#a989ff; --ok:#6fcf73;
-    --shadow:0 1px 2px rgba(0,0,0,.4); color-scheme:dark;
-  }
-}
 :root[data-theme="dark"]{
   --bg:#121417; --panel:#1b1e23; --ink:#e7e9ec; --muted:#a3abb5; --faint:#78818c; --line:#2f343b;
   --lane:#181b20; --lane-sys:#162033; --lane-sch:#1f1830; --lane-ext:#1c1e22;
@@ -113,6 +104,16 @@ h2{font-size:16px;margin:28px 0 10px}
 .edge.back{stroke-dasharray:5 4}
 .elabel{font-size:11.5px;font-weight:600;fill:var(--ink)}
 .elabelbg{fill:var(--panel);stroke:var(--line)}
+/* click cues */
+.howto{display:flex;align-items:center;gap:12px;margin:4px 0 14px;padding:12px 16px;border-radius:10px;background:color-mix(in srgb,var(--accent) 12%,var(--panel));border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));font-size:16px;font-weight:600}
+.howto .hand{font-size:24px;line-height:1}
+.howto small{display:block;font-weight:400;font-size:13px;color:var(--muted)}
+.step,.card{transition:transform .12s,box-shadow .12s,border-color .12s}
+.step:hover,.card:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.step .opencue,.card .opencue{display:flex;justify-content:flex-end;align-items:center;gap:4px;margin-top:8px;padding-top:6px;border-top:1px solid var(--line);color:var(--accent);font-size:12.5px;font-weight:650}
+.step.pulse{animation:pbpulse 1.6s ease-in-out infinite}
+@keyframes pbpulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent)}50%{box-shadow:0 0 0 10px color-mix(in srgb,var(--accent) 0%,transparent)}}
+@media (prefers-reduced-motion: reduce){.step.pulse{animation:none;box-shadow:0 0 0 3px var(--accent)}.step:hover,.card:hover{transform:none}}
 /* lists */
 .qlist{display:flex;flex-direction:column;gap:6px}
 .q{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer;text-align:left;width:100%}
@@ -182,7 +183,7 @@ var root = document.documentElement;
 function store(k, v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v);}catch(e){ return null; } }
 var th = store('pb-theme'); if (th==='light'||th==='dark') root.setAttribute('data-theme', th);
 document.getElementById('theme').onclick = function(){
-  var cur = root.getAttribute('data-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  var cur = root.getAttribute('data-theme') || 'light';
   var nx = cur==='dark' ? 'light' : 'dark'; root.setAttribute('data-theme', nx); store('pb-theme', nx);
 };
 var blockOnly = document.getElementById('blockOnly');
@@ -260,6 +261,9 @@ function qrow(it){
 }
 
 // ---------- index ----------
+function howto(big, small){
+  return h('div',{class:'howto'},[h('span',{class:'hand',text:'\uD83D\uDC46'}), h('div',null,[big, h('small',{text:small})])]);
+}
 function renderIndex(){
   view.innerHTML = '';
   var nQ = D.items.filter(function(i){return i.kind==='question';}).length, nD = D.items.length - nQ;
@@ -267,6 +271,7 @@ function renderIndex(){
   var nSteps = 0; D.processes.forEach(function(p){ nSteps += p.steps.length; });
   view.appendChild(h('h1',{text:(D.app?D.app+': ':'')+'how the work flows'}));
   view.appendChild(h('p',{class:'lede',text:'Each board below is one business process. Rows are the people (and the system) doing the work, cards are the steps in order, and each card shows the screen where the step happens. Coloured pins mark the open questions and our assumptions, stuck to the step they change. Click a board to open it, click a step to see its screen and its questions.'}));
+  view.appendChild(howto('Click a process card to open its board','Each board shows the steps, the screen for each step and the questions pinned to it.'));
   view.appendChild(legend());
   var st = h('div',{class:'stats'});
   [[D.processes.length,'processes'],[nSteps,'steps'],[Object.keys(D.wireframes).length,'screens shown'],[nQ,'open questions'],[nB,'block the build'],[nD,'assumptions to confirm']].forEach(function(x,i){
@@ -298,7 +303,8 @@ function renderIndex(){
     if (c.dec && !blockOnly.checked) pins.appendChild(h('span',{class:'pc dec'},[h('i',{class:'dot dec'}),String(c.dec)]));
     cards.appendChild(h('a',{class:'card',href:'#/'+encodeURIComponent(p.id)},[
       h('h3',{text:p.title}), p.summary ? h('p',{text:p.summary}) : null, mini,
-      h('div',{class:'meta'},[h('span',{text:p.steps.length+' steps'}), h('span',{text:laneIds.map(function(l){return laneById[l].label;}).join(', ')}), pins])
+      h('div',{class:'meta'},[h('span',{text:p.steps.length+' steps'}), h('span',{text:laneIds.map(function(l){return laneById[l].label;}).join(', ')}), pins]),
+      h('div',{class:'opencue',text:'Open board \u203A'})
     ]));
   });
   view.appendChild(cards);
@@ -332,6 +338,7 @@ function renderProcess(p){
   view.appendChild(h('p',{style:'margin:0'},[h('a',{href:'#/',text:'← All processes'})]));
   view.appendChild(h('h1',{text:p.title}));
   if (p.summary) view.appendChild(h('p',{class:'lede',text:p.summary}));
+  view.appendChild(howto('Click any step card to see its screen large and the questions about it','Coloured pins count the questions on that step. Scroll sideways to follow the process.'));
   view.appendChild(legend());
   var laneIds = []; p.steps.forEach(function(s){ if (laneIds.indexOf(s.lane)<0) laneIds.push(s.lane); });
   laneIds.sort(function(a,b){ return laneById[a].i-laneById[b].i; });
@@ -361,7 +368,8 @@ function renderProcess(p){
       h('div',{class:'t',text:s.title}),
       s.page ? h('div',{class:'pg',text:shortPage(s.page)}) : null,
       s.kind!=='task' && s.does ? h('div',{class:'does',text:s.does}) : null,
-      s.status ? h('span',{class:'status',text:s.status}) : null
+      s.status ? h('span',{class:'status',text:s.status}) : null,
+      h('div',{class:'opencue',text:(items.length?items.length+' question'+(items.length>1?'s':'')+' \u00B7 ':'')+'Open \u203A'})
     ]);
     s.next.forEach(function(n){ if (procOf[n.to] && procOf[n.to]!==p) body.appendChild(h('a',{class:'xlink',href:'#/'+encodeURIComponent(procOf[n.to].id),onclick:function(e){e.stopPropagation();},text:'continues in: '+procOf[n.to].title+' →'})); });
     kids.push(body);
@@ -369,6 +377,7 @@ function renderProcess(p){
     el[s.id] = card; board.appendChild(card);
   });
   wrap.appendChild(board); view.appendChild(wrap);
+  if (store('pb-clicked')!=='1'){ var first = board.querySelector('.step'); if (first) first.classList.add('pulse'); }
   function draw(){
     while (svg.firstChild) svg.removeChild(svg.firstChild);
     var defs = document.createElementNS(svgNS,'defs');
@@ -452,6 +461,7 @@ function qcard(it, withWhere){
   ]);
 }
 function openStep(s){
+  store('pb-clicked','1'); Array.prototype.forEach.call(document.querySelectorAll('.step.pulse'), function(e){ e.classList.remove('pulse'); });
   Array.prototype.forEach.call(document.querySelectorAll('.step.sel'), function(e){ e.classList.remove('sel'); });
   var c = document.querySelector('.step[data-step="'+s.id+'"]'); if (c) c.classList.add('sel');
   var p = procOf[s.id], lane = laneById[s.lane];

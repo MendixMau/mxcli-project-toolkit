@@ -1,5 +1,5 @@
 # Process Board: Where Each Question Fits in the Work
-**Applies to:** migration, requirements-driven build and existing-app change, at Stage 3, once the wireframes exist.
+**Applies to:** migration, requirements-driven build and existing-app change. Two passes: a draft at Stage 2 close (processes and question pins, no screens yet), the full board at Stage 3 once the wireframes exist.
 **Requires:** Node 18 or later (no packages). Windows: Git Bash, same commands.
 **Purpose:** Draw one swimlane board per business process. Each step sits in the lane of the person or system that does it, shows the wireframe it happens on, says what the system does between screens, and carries a pin for every open question and ASSUMED decision about that moment. A reviewer who cannot place "Should a rejected order go back to draft?" in a list of sixty can answer it on the board.
 **Upstream:** BRDs (Stage 2, mandatory: `useCases`, `openQuestions`, `pages`); `design/wireframes/*.html` (`design-artifacts.md` Step 3, mandatory at Stage 3); the `PROJECT.md` decisions table (every checkpoint); optionally a consolidated questions file the project already keeps.
@@ -11,7 +11,12 @@
 
 ## When
 
-Run it at Stage 3 after the wireframes are drawn and before the Stage-3 gate interview, when any of these hold:
+Two passes over one model. The hand work (Steps 1 to 3) happens once, at Stage 2 close; Stage 3 only re-runs the script.
+
+- **Pass 1, Stage 2 close.** Right after the BRDs validate and the open questions are consolidated, before they are raised with the user. Author the model and the anchors, build the board. Steps without a wireframe show "No wireframe yet"; that is expected. This is the moment the reviewer has to answer the questions, so this is when they need to see where each one fits. The draft is also input for Stage 3: the processes and lanes feed module boundaries (`modularize-domain.md`), the journeys (`architecture-blueprint.md` Step 3d) and the screen list (`design-artifacts.md`).
+- **Pass 2, Stage 3.** After the wireframes, set `page` on any step that gained a screen, re-run `anchor` for new questions and `build`. No re-authoring. The Stage-3 gate checks this pass (board present and not older than its model or anchors).
+
+Do it when any of these hold:
 
 - the BRDs carry more than about ten open questions, or the register more than about ten ASSUMED decisions;
 - more than one role touches the same record (an approval, a hand-over, a queue);

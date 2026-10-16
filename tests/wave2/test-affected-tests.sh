@@ -429,6 +429,21 @@ grep -q "looks like a Unit flows block but lists no flow" "$WORK/err.L10ab" && o
 printf '# Brief\r\n\r\nUnit flows:\r\n- SUB_Order_Total: money\r\n\r\n- ACT_Order_Submit: REST\r\n' > "$BRIEF_DIR/Shop/module-brief.md"
 run L10ac --moment module --module Shop >/dev/null 2>&1
 has L10ac "Total.test.mdl" && has L10ac "Submit.test.mdl" && [ ! -s "$WORK/err.L10ac" ] && ok "L10ac CRLF brief: flows read, no 'cannot read' warning" || bad "L10ac" "$(cat "$WORK/out.L10ac" "$WORK/err.L10ac")"
+# L10af..: review r3 (rule-based block parser)
+printf '# Project\n\nUnit tests default: no\n' > "$P/PROJECT.md"
+fl 'Unit flows:\n- SUB_Order_Total: money, rounded\n  to cents per line\n- ACT_Order_Submit: REST'
+run L10af --moment module --module Shop >/dev/null 2>&1
+has L10af "Total.test.mdl" && has L10af "Submit.test.mdl" && [ ! -s "$WORK/err.L10af" ] && ok "L10af wrapped reason line then another bullet: both flows kept" || bad "L10af" "$(cat "$WORK/out.L10af" "$WORK/err.L10af")"
+for _f in '## Unit flows (logic only)\n- SUB_Order_Total: money\n- ACT_Order_Submit: REST' 'Unit flows (logic only):\n- SUB_Order_Total: money\n- ACT_Order_Submit: REST' 'Unit flows (logic only): SUB_Order_Total: money, ACT_Order_Submit: REST'; do
+  fl "$_f"; run L10ag --moment module --module Shop >/dev/null 2>&1
+  has L10ag "Total.test.mdl" && has L10ag "Submit.test.mdl" && [ ! -s "$WORK/err.L10ag" ] && ok "L10ag header with (note) read: $(printf '%s' "$_f" | head -c 30)" || bad "L10ag $_f" "$(cat "$WORK/out.L10ag" "$WORK/err.L10ag")"
+done
+fl 'Unit flows:\n- SUB_Order_Total: money\n\nJourneys:\n- ACT_Order_Submit: REST'
+run L10ah --moment module --module Shop >/dev/null 2>&1
+has L10ah "Total.test.mdl" && lacks L10ah "Submit.test.mdl" && [ ! -s "$WORK/err.L10ah" ] && ok "L10ah a following 'Journeys:' field ends the block, silently" || bad "L10ah" "$(cat "$WORK/out.L10ah" "$WORK/err.L10ah")"
+fl 'Unit flows:\n- SUB_Order_Total: money\nstray prose here\n- ACT_Order_Submit: REST'
+run L10ai --moment module --module Shop >/dev/null 2>&1
+has L10ai "Submit.test.mdl" && grep -q 'cannot read "stray prose here"' "$WORK/err.L10ai" && ok "L10ai other unindented line warns with its text, block continues" || bad "L10ai" "$(cat "$WORK/out.L10ai" "$WORK/err.L10ai")"
 # mixed-module test: Admin has no list, so it is on
 printf '/**\n * @test Mixed\n */\ncall microflow Admin.ACT_Reset();\ncall microflow Shop.VAL_Order();\n/\n' > "$P/tests/unit/Mixed.test.mdl"
 fl 'Unit flows:\n- SUB_Order_Total: money'

@@ -177,7 +177,8 @@ for _b in architecture/modules/*/module-brief.md architecture/modules/*-brief.md
       END { exit !f }' "$_b"; then FLIPPED="$FLIPPED $_m"; fi
   # Unit flows: a bullet list `- [Module.]Flow[ (note)][: reason]` under a `Unit flows:` line, or inline
   # `Unit flows: A, B` (comma-split, each may carry `: reason`), `-`/`*`/`+`/numbered bullets, or a `## Unit flows`
-  # heading. Blank lines between bullets are fine; a heading or any other line ends the block.
+  # heading, optionally `(note)`. Blank lines are skipped; an indented non-bullet line continues the previous
+  # reason; the block ends at the next heading or an unindented `Word words:` field; any other line warns.
   # A line in the block that cannot be read warns with its text, never dropped silently.
   awk -v m="$_m" -v b="$_b" '
     function trim(t) { gsub(/^[ \t]+|[ \t]+$/, "", t); return t }
@@ -195,15 +196,23 @@ for _b in architecture/modules/*/module-brief.md architecture/modules/*-brief.md
       else { warn(l); return }
       seen++; print (index(nm, ".") ? nm : m "." nm) "\t" r
     }
+    function flush() { if (pend != "") item(pend); pend = "" }
     { sub(/\r$/, "") }
-    tolower($0) ~ /^[ \t*>-]*unit flows:/ { on = 1; hdr = 1; v = substr($0, index(tolower($0), "unit flows:") + 11); gsub(/`|\*\*/, "", v); v = trim(v)
+    # header: `Unit flows` (any heading level or plain), optional `(note)`, optional `:` and inline items
+    tolower($0) ~ /^[ \t*>#-]*unit flows[ \t*]*(\([^)]*\))?[ \t*]*(:.*)?$/ {
+      flush(); on = 1; hdr = 1; v = $0; sub(/^[^:]*(\([^)]*\))?[^:]*:?/, "", v)
+      if (index($0, ":") == 0 || $0 ~ /^[^:]*\([^)]*:/) v = ""
+      gsub(/`|\*\*/, "", v); v = trim(v)
       if (v != "") { k = split(v, a, ","); for (j = 1; j <= k; j++) item(a[j]) }
       next }
-    tolower($0) ~ /^[ \t]*(#+[ \t]+)?[*]*unit flows[ \t*:]*$/ { on = 1; hdr = 1; next }
-    on && /^[ \t]*$/ { next }
-    on && /^[ \t]*([-*+]|[0-9]+[.)])[ \t]/ { l = $0; sub(/^[ \t]*([-*+]|[0-9]+[.)])[ \t]+/, "", l); item(l); next }
-    on { on = 0 }
-    END { if (hdr && !seen) print "warning: Unit flows in " b " looks like a Unit flows block but lists no flow; write `- ACT_Name: reason` lines under `Unit flows:`" > "/dev/stderr" }' "$_b" >> "$WORK/unitflows"
+    !on { next }
+    /^[ \t]*$/ { next }
+    /^[ \t]*([-*+]|[0-9]+[.)])[ \t]/ { flush(); l = $0; sub(/^[ \t]*([-*+]|[0-9]+[.)])[ \t]+/, "", l); pend = l; next }
+    /^[ \t]+[^ \t]/ && !/^[ \t]*#/ { if (pend != "") pend = pend " " trim($0); next }
+    /^[ \t]*#/ { flush(); on = 0; next }
+    /^[A-Za-z][A-Za-z]*([ \t]+[A-Za-z]+)*[ \t]*:/ { flush(); on = 0; next }
+    { flush(); warn(trim($0)); next }
+    END { flush(); if (hdr && !seen) print "warning: Unit flows in " b " looks like a Unit flows block but lists no flow; write `- ACT_Name: reason` lines under `Unit flows:`" > "/dev/stderr" }' "$_b" >> "$WORK/unitflows"
 done
 # a module with a Unit flows list is flipped by it
 for _lm in $(cut -f1 "$WORK/unitflows" | sed 's/\..*//' | sort -u); do FLIPPED="$FLIPPED $_lm"; done

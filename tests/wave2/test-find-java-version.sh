@@ -66,6 +66,17 @@ export MXTK_FAKE_JDKS="25"
 checknote "11.12 model, only JDK 25: mismatch reported" 11.12.2 "wanted JDK 21"
 export MXTK_FAKE_JDKS="21 25"
 checknote "11.15 model, both JDKs: no note" 11.15.0 EMPTY
+# the exec.sh / verify-model.sh caller sequence: the note is taken BEFORE JAVA_HOME is assigned
+# (after it, find_java_note sees JAVA_HOME set and always stays silent)
+MXTK_FAKE_JDKS=21
+for f in exec.sh verify-model.sh; do
+  grep -n 'find_java_note\|^JAVA_HOME="\$(find_java' "$(dirname "$COMMON")/$f" | cut -d: -f1 | tr '\n' ' ' | awk '{exit !($1 < $2)}' \
+    && { PASS=$((PASS+1)); echo "  ok    $f: note computed before JAVA_HOME is set"; } \
+    || { FAIL=$((FAIL+1)); echo "  FAIL  $f: note computed after JAVA_HOME is set"; }
+done
+got="$( unset JAVA_HOME; export MXTK_JAVA_HOME_BIN="$T/java_home"; . "$COMMON" >/dev/null 2>&1; mxtk_platform() { echo macos; }; mxtk_model_version() { echo 11.15.0; }
+  _jnote="$(find_java_note 2>/dev/null || true)"; JAVA_HOME="$(find_java 2>/dev/null || true)"; echo "$_jnote" )"
+case "$got" in *"wanted JDK 25"*) PASS=$((PASS+1)); echo "  ok    caller sequence: 11.15 model, only JDK 21: note reaches exec.sh/verify-model.sh";; *) FAIL=$((FAIL+1)); echo "  FAIL  caller sequence -> '$got'";; esac
 # explicit JAVA_HOME wins and needs no note
 got="$( export JAVA_HOME="$T" MXTK_FAKE_JDKS=21 MXTK_JAVA_HOME_BIN="$T/java_home"; . "$COMMON" >/dev/null 2>&1; mxtk_platform() { echo macos; }; mxtk_model_version() { echo 11.15.0; }; echo "$(find_java)|$(find_java_note)" 2>/dev/null )"
 if [ "$got" = "$T|" ]; then PASS=$((PASS+1)); echo "  ok    explicit JAVA_HOME wins, no note"; else FAIL=$((FAIL+1)); echo "  FAIL  JAVA_HOME -> '$got'"; fi

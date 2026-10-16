@@ -340,7 +340,7 @@ Every row is one of five kinds, sharing one numbering and one dependency graph. 
   Produces names every document the row writes, shared ones included (pages, navigation,
   after-startup, shared microflows): the parallel ready set excludes overlapping writers.
 - **`PROVE`** — headless and mechanical, mid-phase. `mxcli test`, a `curl`, a `DESCRIBE` read-back.
-  On mxcli ≥ v0.19.0, `.test.mdl` suites are a first-class PROVE instrument: `@setup` really
+  On mxcli ≥ v0.19.0, `.test.mdl` suites are a unit-gated PROVE instrument: `@setup` really
   runs its microflow, `@verify` really evaluates its OQL (holds / fails-with-the-value /
   cannot-evaluate = ERROR), and `@cleanup rollback` really rolls back — **before v0.19 all
   three were parsed and ignored, so no `@verify` could ever fail**. Two consequences: prefer a

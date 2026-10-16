@@ -1466,6 +1466,12 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
       >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
     note "(added /.claude/toolkit.env to the project's .gitignore — it holds this machine's paths)"
   fi
+  # The progress report's session cache holds absolute session-log paths (user name, session ids).
+  if [ -d "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q .claude/progress-report-sessions.txt 2>/dev/null; then
+    printf '\n# Machine-local progress report session cache (absolute session-log paths)\n/.claude/progress-report-sessions.txt\n' \
+      >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
+    note "(added /.claude/progress-report-sessions.txt to the project's .gitignore — the cache is machine-local)"
+  fi
 fi
 
 if [ "$FAIL" -gt 0 ]; then

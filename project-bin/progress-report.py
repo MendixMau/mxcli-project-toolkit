@@ -386,13 +386,17 @@ def tool_share(path, roots, needle):
 
 def load_cache(path):
     """Discovery cache: one line per examined session file (verdict, mtime, size, path, details of a used one)."""
-    c = {"scanned": 0.0, "entries": {}}
+    c = {"scanned": 0.0, "entries": {}, "root": None, "rules": None}
     try: lines = open(path, encoding="utf-8").read().splitlines()
     except OSError: return None
     for ln in lines:
         if ln.startswith("# scanned="):
-            try: c["scanned"] = float(ln.split("=", 1)[1].split()[0])
-            except ValueError: pass
+            for part in ln[2:].split("\t"):
+                k, _, v = part.partition("=")
+                if k == "scanned":
+                    try: c["scanned"] = float(v)
+                    except ValueError: pass
+                elif k in ("root", "rules"): c[k] = v
             continue
         f = ln.split("\t")
         if len(f) >= 4 and f[0] in ("used", "no"):
@@ -400,12 +404,16 @@ def load_cache(path):
             except ValueError: continue
     return c
 
-def save_cache(path, scanned, entries):
+def cache_rules():
+    """The attribution rule constants a cached verdict depends on; a cache written under other rules is stale."""
+    return "share=%g;calls=%d" % (TOOL_SHARE, TOOL_MIN)
+
+def save_cache(path, scanned, entries, root):
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tmp = path + ".tmp.%d" % os.getpid()
         with open(tmp, "w", encoding="utf-8") as fh:
-            fh.write("# scanned=%.0f  progress-report session cache: verdict, mtime, size, path, details. Safe to delete.\n" % scanned)
+            fh.write("# scanned=%.0f\troot=%s\trules=%s\tprogress-report session cache: verdict, mtime, size, path, details. Safe to delete.\n" % (scanned, root, cache_rules()))
             for f, e in sorted(entries.items()):
                 fh.write("%s\t%.6f\t%d\t%s\t%s\n" % (e["v"], e["m"], e["s"], f, json.dumps(e["info"]) if e.get("info") else ""))
         os.replace(tmp, path)
@@ -414,7 +422,7 @@ def save_cache(path, scanned, entries):
 SWITCH = {}
 DISCOVERY = {}
 TOOL_MIN = 20; TOOL_SHARE = 0.25; SPAN_GAP_S = 1800
-SCAN_DAYS = 30; SCAN_MAX_FILES = 300; SCAN_MAX_BYTES = 200_000_000; 
+SCAN_DAYS = 30; SCAN_MAX_FILES = int(os.environ.get("PROGRESS_REPORT_SCAN_MAX_FILES") or 300); SCAN_MAX_BYTES = 200_000_000; 
 def slug(path):
     """Claude Code's folder name for a launch directory: every non-alphanumeric character becomes a dash."""
     return re.sub(r"[^A-Za-z0-9]", "-", path)
@@ -442,6 +450,10 @@ def find_sessions(proj, logs_dir=None, cache_path=None):
     needle = re.compile(b"|".join(re.escape(n.encode()) for n in roots))
     cpath = cache_path or os.path.join(proj, ".claude", "progress-report-sessions.txt")
     cache = load_cache(cpath); entries = {}; cands = []
+    root_id = os.path.realpath(proj)
+    # A cache belongs to one project path and one rule set: a copied or moved project, or a toolkit update that changed the
+    # thresholds, reads it as cold (its verdicts are about another folder or another rule).
+    if cache and (cache["root"] != root_id or cache["rules"] != cache_rules()): cache = None
     def own_dir(name): return name == me or me.startswith(name + "-") or name.startswith(me + "-")
     if cache:   # warm: known files are stat-ed; only a changed or a new file is read; only directories touched since the last run are listed
         DISCOVERY["cache"] = "warm"
@@ -472,7 +484,10 @@ def find_sessions(proj, logs_dir=None, cache_path=None):
                 try: st = os.stat(f)
                 except OSError: continue
                 if st.st_mtime >= cutoff: cands.append((st.st_mtime, f, st.st_size))
-        cands.sort(reverse=True); cands = cands[:SCAN_MAX_FILES]
+        cands.sort(reverse=True)
+        # Files past the cap are recorded as "no" (mtime and size), so a warm run never hands them back as candidates.
+        for mt, f, size in cands[SCAN_MAX_FILES:]: entries[f] = {"v": "no", "m": mt, "s": size, "info": None}
+        cands = cands[:SCAN_MAX_FILES]
     nread = 0
     for mt, f, size in sorted(cands, reverse=True):
         nread += 1
@@ -490,7 +505,7 @@ def find_sessions(proj, logs_dir=None, cache_path=None):
         i = e["info"]; sp = [tuple(x) for x in i["spans"]]
         out.append(f); DISCOVERY["mention"].append(f); DISCOVERY.setdefault("clip", {})[f] = sp
         DISCOVERY["used"].append({"id": os.path.splitext(os.path.basename(f))[0][:8], "t": sp[0][0], "share": i["share"], "touch": i["touch"], "total": i["total"], "span_s": sum(b_ - a_ for a_, b_ in sp)})
-    save_cache(cpath, started, entries)
+    save_cache(cpath, started, entries, root_id)
     dbg("discovery %s, %d file(s) read, %.2f s" % (DISCOVERY["cache"], nread, time.time() - started))
     out.sort(key=lambda f: os.path.getmtime(f))
     return out, base
@@ -696,9 +711,9 @@ def stage_boundaries(main, agents, info=None):
 
 def stage_switch(info, tools, skill_t=None):
     """THE Stage 4 to 5 boundary, used by every per-stage view (windows, sub-agent tables, tokens, chart band) and by the
-    no-log page. It is the EARLIEST evidenced build activity: the first row of the exec log (metrics ledger, else BUILD-LOG),
-    the Stage 4 sign-off time when the row has one, the first exec.sh call or build skill in the session log, and, only when
-    there is no exec log, the first write under mdlsource/. A sign-off row with a date but no time gives no moment of its
+    no-log page. It is the EARLIEST evidenced build activity: the first row of the exec log (metrics ledger, else BUILD-LOG)
+    and the Stage 4 sign-off time when the row has one. Only when there is no exec log row does the session log decide: the
+    first exec.sh call, the build skill, the first write under mdlsource/. With ledger rows, session signals are ignored. A sign-off row with a date but no time gives no moment of its
     own: midnight is not evidence, so activity before that date is ignored and the switch is marked inferred. A later
     gate-check run never moves it. Returns (epoch or None, source text)."""
     so = (info or {}).get("signoff", {}).get("4")
@@ -710,9 +725,10 @@ def stage_switch(info, tools, skill_t=None):
     r = switch_from_runs(info["dir"], day0 or 0) if info and info.get("dir") else None
     if r: cands.append((r[0], r[1]))
     if so and so[0] and day0 is None: cands.append((so[0], "the Stage 4 sign-off row in PROJECT.md"))
-    ex = [e["t"] for e in tools if e["t"] and ok(e["t"]) and exec_p(e)]
-    if ex: cands.append((min(ex), "the first exec.sh call in the session log"))
-    if skill_t and ok(skill_t): cands.append((skill_t, "the build skill in the session log"))
+    if not r:   # the exec log is the primary source: with rows in it, session-log signals never move the switch
+        ex = [e["t"] for e in tools if e["t"] and ok(e["t"]) and exec_p(e)]
+        if ex: cands.append((min(ex), "the first exec.sh call in the session log"))
+        if skill_t and ok(skill_t): cands.append((skill_t, "the build skill in the session log"))
     if not r:
         md = [e["t"] for e in tools if e["t"] and ok(e["t"]) and mdl_p(e)]
         if md: cands.append((min(md), "the first mdlsource write in the session log"))
@@ -1596,7 +1612,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         sg = an["sig"]
         w("<li><b>Source.</b> The Claude Code session logs of this project on this machine (%d session file(s), %d sub-agent log(s)). Usage is counted once per message id, taking the maximum of each counter, because the log writes one record per streamed block (same method as the toolkit's token-burn.sh). Synthetic records are skipped. New tokens = input + output + cache write; cache reads are shown apart. Only numbers, timestamps, tool names and sub-agent short descriptions are used; no prompt or message text is copied into this page.</li>" % (args.n_sessions, len(agents)))
         w("<li><b>Cost.</b> Estimate only: tokens times placeholder list prices (see the token table), not an invoice. Cache write and read are priced separately. Set your own rates with a rates file (same format as token-burn.sh --rates) at .claude/progress-report-rates.txt.</li>")
-        w("<li><b>Stage windows (approximate).</b> A stage starts at the first matching signal in the main thread: P = toolkit-init skill; 0 = first gate-check run; 1 = gate-check for stage 0 (else the extractor agent); 2 = first write of the BRD contract (else first BRD agent); 3 = gate-check for stage 2 (else a Stage 3 agent); 4 = a Stage 4 or build plan agent; 5 = a build skill. Windows are made monotonic. Detected starts: %s.</li>" %
+        w("<li><b>Stage windows (approximate).</b> A stage starts at the first matching signal in the main thread: P = toolkit-init skill; 0 = first gate-check run; 1 = gate-check for stage 0 (else the extractor agent); 2 = first write of the BRD contract (else first BRD agent); 3 = gate-check for stage 2 (else a Stage 3 agent); 4 = a Stage 4 or build plan agent; 5 = the first row of the exec log (metrics ledger, else BUILD-LOG) or the timed Stage 4 sign-off, whichever is earlier; only with no exec log rows, the first exec.sh call, a build skill or an mdlsource write in the session log. Windows are made monotonic. Detected starts: %s.</li>" %
           esc(", ".join("%s %s" % (s, local_hm(sg[s])) for s in STAGES if sg.get(s)) or "none"))
         w("<li><b>Attribution.</b> Main-thread requests go to the window they start in. Sub-agents go by description first (Stage N, inventory, extractor, BRD) and by start time otherwise, so a Stage 3 agent started during Stage 4 counts to Stage 3, while work done by the main thread in that window counts to Stage 4. Session time before the project existed is shown as Before Stage P.</li>")
         w("<li><b>Time.</b> Wall time is the window length. A gap of more than %d minutes between any two events is waiting for the user, overnight breaks included. A minute is sub-agent time when any sub-agent record span covers it, even if that agent was itself waiting on a tool.</li>" % (IDLE_GAP_S // 60))

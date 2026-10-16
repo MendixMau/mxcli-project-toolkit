@@ -22,6 +22,10 @@
 #   F11 a project set up by an older toolkit and updated with bin/sync-project.sh renders and leaves build-plan.html alone.
 #   F12 the Stage 4 to 5 switch is one function: the windows table, the chart band and the sub-agent tables agree, and a
 #       sub-agent that names a plan phase and starts within 30 minutes before it counts to Stage 5.
+#   F15 the discovery cache records the project's real path and the attribution rules: a copied project, or a changed
+#       threshold, reads it as cold; the copy does not list the original's sessions.
+#   F16 files skipped by the 300-file cap are recorded as "no": a cached run never reads more files than the uncached one.
+#   F17 with exec log rows the Stage 4 to 5 switch follows the log; an earlier exec.sh call in the session log is ignored.
 #
 # Usage: bash tests/wave2/test-progress-report-field-fixes.sh
 
@@ -199,12 +203,12 @@ S5="$(card "$OUT1" 5)"
 S5L="$(card "$WORK/out4/r.html" 5)"
 printf '%s' "$S5L" | grep -E "New tokens" | grep -qv "none" && ok "Stage 5 shows tokens from the events after the sign-off" || bad "Stage 5 shows tokens from the events after the sign-off"
 printf '%s' "$S5L" | grep -E "Wall time" | grep -q "none" && bad "Stage 5 wall time is not none" || ok "Stage 5 wall time is not none"
-"$PY" - "$WORK/out4/r.html" <<'PYEOF' && ok "Stage 5 window starts at the first exec.sh (11:50), earlier than the 12:00 sign-off" || bad "Stage 5 window starts at 11:50"
+"$PY" - "$WORK/out4/r.html" <<'PYEOF' && ok "ledger rows exist: the session's exec.sh at 11:50 is ignored, Stage 5 starts at the timed 12:00 sign-off" || bad "Stage 5 window starts at 12:00, not 11:50"
 import re, sys
 h = open(sys.argv[1], encoding="utf-8").read()
 t = re.sub(r"<[^>]+>", " ", h)
 m = re.search(r"Stage 5\s+(\d\d:\d\d) to", t)
-assert m and m.group(1) == "11:50", "Stage 5 window row: %r" % (m and m.group(1))
+assert m and m.group(1) == "12:00", "Stage 5 window row: %r" % (m and m.group(1))
 PYEOF
 
 CFG3="$WORK/cfg3"; NOEARLY=1 mklog "$CFG3" "$P1R" 25
@@ -442,6 +446,52 @@ has "$WORK/out13/b.html" "Sessions from other folders (1)" "a warm run lists the
 touch "$CFG13/projects/-tmp-elsewhere/s1.jsonl"; echo >> "$CFG13/projects/-tmp-elsewhere/s1.jsonl"
 CLAUDE_CONFIG_DIR="$CFG13" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P13" --out "$WORK/out13/c.html" >"$WORK/out13.chg" 2>&1
 grep -q "opened .*s1.jsonl" "$WORK/out13.chg" && ok "a changed session file is read again" || bad "a changed session file is read again"
+
+echo "F15 the cache is tied to the project path and the attribution rules"
+P15="$WORK/proj15"; mkproj "$P15"; P15R="$(cd "$P15" && pwd -P)"
+CFG15="$WORK/cfg15"; mklog "$CFG15" "$P15R" 25
+CLAUDE_CONFIG_DIR="$CFG15" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P15" --out "$WORK/out15/a.html" >"$WORK/out15.a" 2>&1
+has "$WORK/out15/a.html" "Sessions from other folders (1)" "the original project lists the session"
+head -1 "$P15/.claude/progress-report-sessions.txt" | grep -q "root=$P15R" && head -1 "$P15/.claude/progress-report-sessions.txt" | grep -q "rules=share=0.25;calls=20" && ok "cache header holds the project path and the 25% / 20 calls rules" || bad "cache header holds path and rules"
+P15B="$WORK/proj15-copy"; cp -R "$P15" "$P15B"
+CLAUDE_CONFIG_DIR="$CFG15" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P15B" --out "$WORK/out15/b.html" >"$WORK/out15.b" 2>&1
+grep -q "discovery cold" "$WORK/out15.b" && ok "a copied project with its cache starts cold" || bad "a copied project starts cold"
+hasnt "$WORK/out15/b.html" "Sessions from other folders (1)" "the copy does not show the original project's sessions"
+CLAUDE_CONFIG_DIR="$CFG15" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P15" --out "$WORK/out15/c.html" >"$WORK/out15.c" 2>&1
+grep -q "discovery warm" "$WORK/out15.c" && ok "the original's own cache is still warm" || bad "the original's cache is warm"
+sed -i.bak '1s/rules=[^\t]*/rules=share=0.10;calls=5/' "$P15/.claude/progress-report-sessions.txt"; rm -f "$P15/.claude/progress-report-sessions.txt.bak"
+CLAUDE_CONFIG_DIR="$CFG15" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P15" --out "$WORK/out15/d.html" >"$WORK/out15.d" 2>&1
+grep -q "discovery cold" "$WORK/out15.d" && ok "a cache written under other thresholds is rebuilt" || bad "other thresholds rebuild the cache"
+
+echo "F16 a cached run reads no more files than the uncached one (cap)"
+P16="$WORK/proj16"; mkproj "$P16"; P16R="$(cd "$P16" && pwd -P)"
+CFG16="$WORK/cfg16"; for n in 1 2 3 4 5; do mklog "$CFG16" "$P16R" 3 "n$n"; done
+PROGRESS_REPORT_SCAN_MAX_FILES=2 CLAUDE_CONFIG_DIR="$CFG16" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P16" --out "$WORK/out16/a.html" >"$WORK/out16.cold" 2>&1
+PROGRESS_REPORT_SCAN_MAX_FILES=2 CLAUDE_CONFIG_DIR="$CFG16" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P16" --out "$WORK/out16/b.html" >"$WORK/out16.warm" 2>&1
+RC="$(sed -n 's/.*discovery cold, \([0-9]*\) file(s) read.*/\1/p' "$WORK/out16.cold")"; RW="$(sed -n 's/.*discovery warm, \([0-9]*\) file(s) read.*/\1/p' "$WORK/out16.warm")"
+[ "$RC" = "2" ] && ok "cold run with a cap of 2 reads 2 files" || bad "cold run reads 2 files (got '$RC')"
+[ -n "$RW" ] && [ "$RW" -le "$RC" ] && ok "the cached run read $RW file(s), not more than the uncached $RC" || bad "cached run reads no more than uncached (cold '$RC', warm '$RW')"
+grep -c $'^no\t' "$P16/.claude/progress-report-sessions.txt" | grep -q "^[3-9]" && ok "files past the cap are recorded as no" || bad "files past the cap recorded as no"
+
+echo "F17 the exec log decides the switch; session-log signals are ignored when it has rows"
+P17="$WORK/proj17"; mkproj "$P17"
+sed -i.bak 's/CONFIRMED 2026-10-10 12:00/CONFIRMED (delegated) 2026-10-10/' "$P17/PROJECT.md"; rm -f "$P17/PROJECT.md.bak"
+P17R="$(cd "$P17" && pwd -P)"; CFG17="$WORK/cfg17"; mklog "$CFG17" "$P17R" 25 s17
+TZ=UTC CLAUDE_CONFIG_DIR="$EMPTY" "$PY" "$GEN" "$P17" --out "$WORK/out17/r.html" --session-log "$CFG17/projects/-tmp-elsewhere/s17.jsonl" >/dev/null 2>&1
+"$PY" - "$WORK/out17/r.html" <<'PYEOF17' && ok "log has an exec.sh call at 11:50 on the 10th; the switch stays at the first BUILD-LOG row (12 Oct 10:00)" || bad "switch follows the ledger, not the session log"
+import re, sys
+t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", open(sys.argv[1], encoding="utf-8").read()))
+assert "Stage 5 is 12 Oct 10:00" in t, "switch not at the first ledger row"
+assert "first exec.sh call in the session log" not in t, "session signal named as the source"
+PYEOF17
+P17B="$WORK/proj17b"; mkproj "$P17B"; rm -f "$P17B/docs/BUILD-LOG.md"
+sed -i.bak 's/CONFIRMED 2026-10-10 12:00/CONFIRMED (delegated) 2026-10-10/' "$P17B/PROJECT.md"; rm -f "$P17B/PROJECT.md.bak"
+TZ=UTC CLAUDE_CONFIG_DIR="$EMPTY" "$PY" "$GEN" "$P17B" --out "$WORK/out17/b.html" --session-log "$CFG17/projects/-tmp-elsewhere/s17.jsonl" >/dev/null 2>&1
+"$PY" - "$WORK/out17/b.html" <<'PYEOF17B' && ok "control: with no ledger rows the session's exec.sh call (on the 10th) still sets the switch" || bad "control: no ledger, session log decides"
+import re, sys
+t = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", open(sys.argv[1], encoding="utf-8").read()))
+assert "Stage 5 is 10 Oct" in t and "12 Oct" not in t.split("Detected starts")[1][:30], "session log should set the switch on the 10th"
+PYEOF17B
 
 echo "F14 autoreload keeps the view, waits for idle and can be paused"
 P14="$WORK/proj14"; mkproj "$P14"; mkdir -p "$P14/.claude/loop"

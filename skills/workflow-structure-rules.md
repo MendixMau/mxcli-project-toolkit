@@ -55,6 +55,27 @@ Two failures this prevents, both invisible to `mxcli check`:
 The main flow is `Start → … → End`. New activities go after the start and before the end (or
 before a *Jump*, when the main flow ends on one).
 
+**A *Jump to* has one fixed target. It cannot return to whichever step sent it there.** So "every
+failing step goes to one shared failure node, then retries the step that failed" is not a
+workflow you can draw: the retry needs a different target for each step, and there is no
+"return to caller". A five-app lab project (Mendix 11.15, mxcli v0.26.0) drew exactly that for
+seven calls. The Stage 3 count (§12) refused it, and the redesign cost a resolution round plus a
+resync of the blueprint and three BRDs. When one failure handler must serve N steps:
+
+- put the step and its retry or attention loop in a **child workflow** that each step reaches
+  through *Call workflow*. The child holds one handler, and its backward jumps stay inside the
+  child, so every target is fixed;
+- the child ends **normally** and writes its result on its own context (an outcome attribute).
+  The parent reads it in a decision after the call. A sub-workflow returns nothing, and if it
+  *fails* or is aborted, the parent fails too (Mendix docs, *Call workflow*). Failure must
+  therefore be data, never an error;
+- a jump in the parent aborts a running child (same page). Keep jumps in the parent to the
+  points where no child is running.
+
+The alternative, one copied tail per step, multiplied a 7-call parent to 21 calls and 43
+decisions in that project's count. Count the child design and the copied-tail design (§12)
+before you choose.
+
 ## 2. Boundary events — type decides the terminator
 
 A boundary event hangs on one parent activity. Only these can carry one: *wait for

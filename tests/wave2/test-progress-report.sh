@@ -15,7 +15,7 @@
 #       do not fail because of it (checked on the surface lookup only, see the grep below).
 #   T9  the 30 s self-reload is present only while a build is active (recent activity).
 #   T10 a plain (non-workflow) sub-agent renders, context percentages never pass 100, window_for exists.
-#   T11 calm severity: red only for a key script failing every run (2 or more) or a hang over 30 min.
+#   T11 calm severity: red only for a key script failing every run (3 or more) or a hang over 30 min.
 #   T12 repeat-failure tip ignores cd and sleep; inherent waits (AskUserQuestion) are not slow steps.
 #   T13 context windows are 200k or 1M only; "window reached" only at 98% of the real window.
 #   T14 --session-log overrides discovery and is recorded in the footer; --help lists it and the rates file.
@@ -85,15 +85,18 @@ if CALLS is not None:
 else:
     for k in range(8): call("bash ./bin/doctor.sh", 3)
     call("bash ./exec.sh slice-1", 40)
-    for k in range(6): call("bash ./bin/gate-check.sh . 2", 6, err=True)
+    for k in range(6): call("bash ./bin/gate-check.sh . 2", 15, err=True)
     call("bash ./exec.sh slice-2", 45)
-    call("bash ./bin/build-all.sh", HANG)
+    call("bash ./bin/import-data.sh", HANG)
     call("bash ./exec.sh slice-3", 50)
     for k in range(5): call("ls architecture", 1)
     for k in range(4): call("cd /tmp/no-such-dir", 1, err=True)
     for k in range(3): call("sleep 1", 1, err=True)
     for k in range(4): call("./bin/convert-data.py", 80)
     call("", 420, name="AskUserQuestion")
+for pre in [x for x in os.environ.get("COMPACT_PRE", "").split(",") if x]:
+    rows.append({"type": "system", "subtype": "compact_boundary", "timestamp": iso(t), "cwd": cwd, "uuid": "c%s" % pre, "compactMetadata": {"trigger": "auto", "preTokens": int(pre), "postTokens": 30000}})
+if os.environ.get("CTX_BETA"): rows.append({"type": "system", "timestamp": iso(t), "cwd": cwd, "uuid": "b1", "params": {"betas": ["claude-code-20250219", "context-1m-2025-08-07"]}})
 with open(out, "w") as f:
     for r in rows: f.write(json.dumps(r) + "\n")
 if CALLS is None:   # one ordinary sub-agent (not a workflow agent), with a context above 200k
@@ -126,7 +129,7 @@ has "$R2" "Slow on every run: convert-data.py" "slow non-toolkit script is a Spe
 hasnt "$R2" "<li>AskUserQuestion" "an interview (AskUserQuestion) is not among the slowest calls"
 hasnt "$R2" "<b>Speed</b> <span class=muted>0" "no Speed 0"
 has "$R2" "Hanging or killed commands" "hanging process tip fires"
-has "$R2" "build-all.sh" "hanging tip names the script"
+has "$R2" "import-data.sh" "hanging tip names the script"
 has "$R2" "Failing tool on repeat: gate-check.sh 2" "repeat failure tip fires and names the script"
 has "$R2" "failed 6 of 6 runs" "repeat failure count is 6"
 has "$R2" "pill p-red" "health strip is red (gate-check fails on every run)"
@@ -152,8 +155,8 @@ echo "T6c context window per model, never over 100 percent"
 P6="$WORK/p6"; mkproj "$P6"; CFG6="$WORK/cfg6"; CTX_CR=250000 mklog "$CFG6" "$P6" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))"
 CLAUDE_CONFIG_DIR="$CFG6" bash "$SCRIPT" "$P6" --html >/dev/null 2>&1
 R6="$P6/architecture/progress-report.html"
-has "$R6" "raised from 200" "a context above the assumed 200k window raises the window"
-grep -Eq "(1[0-9][0-9]|[2-9][0-9][0-9])% (avg|peak)" "$R6" && bad "no window percentage over 100" || ok "no window percentage over 100"
+has "$R6" "inferred" "a context above 200k with no marker is labelled inferred"
+grep -Eq "(10[1-9]|1[1-9][0-9]|[2-9][0-9][0-9])% (avg|peak)" "$R6" && bad "no window percentage over 100" || ok "no window percentage over 100"
 has "$R6" "<b>Context</b>" "Context group shown when average context is 180k or more"
 P7="$WORK/p7"; mkproj "$P7"; CFG7="$WORK/cfg7"; CTX_MODEL=mystery-model CTX_CR=250000 mklog "$CFG7" "$P7" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))"
 CLAUDE_CONFIG_DIR="$CFG7" bash "$SCRIPT" "$P7" --html >/dev/null 2>&1
@@ -162,7 +165,7 @@ has "$P7/architecture/progress-report.html" "window unknown" "a model missing fr
 echo "T10 plain sub-agent (window_for), percentages capped"
 has "$R2" "Plain helper agent" "plain sub-agent listed"
 has "$R2" "pill p-red" "page still rendered around it"
-grep -Eq '\((1[0-9][0-9]|[2-9][0-9][0-9])%\)|NameError' "$R2" && bad "no percentage over 100 in the sub-agent table" || ok "no percentage over 100 in the sub-agent table"
+grep -Eq '\((10[1-9]|1[1-9][0-9]|[2-9][0-9][0-9])%\)|NameError' "$R2" && bad "no percentage over 100 in the sub-agent table" || ok "no percentage over 100 in the sub-agent table"
 "$PY" - "$ROOT/project-bin" <<'PYEOF' && ok "window_for caps and steps 200k to 1M" || bad "window_for caps and steps 200k to 1M"
 import sys, importlib.util
 sp = importlib.util.spec_from_file_location("pr", sys.argv[1] + "/progress-report.py"); m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m)
@@ -187,18 +190,20 @@ hasnt "$RP" "pill p-red" "doctor failing 1 of 2 is not red"
 hasnt "$RP" "Needs action" "no Needs action wording for amber"
 has "$RP" "Worth a look" "amber reads Worth a look"
 run_sev d22 '[["bash ./bin/doctor.sh",3,1],["bash ./bin/doctor.sh",3,1],'"$Q"']'
-has "$RP" "pill p-red" "a key script failing all 2 runs is red"
+hasnt "$RP" "pill p-red" "a key script failing all 2 runs is not red (needs 3 runs)"
+run_sev d33 '[["bash ./bin/doctor.sh",3,1],["bash ./bin/doctor.sh",3,1],["bash ./bin/doctor.sh",3,1],'"$Q"']'
+has "$RP" "pill p-red" "a key script failing all 3 runs is red"
 has "$RP" "Needs action" "red reads Needs action"
 run_sev d11 '[["bash ./bin/doctor.sh",3,1],'"$Q"']'
 hasnt "$RP" "pill p-red" "a key script with a single failing run is not red"
-run_sev h400 '[["bash ./bin/build-all.sh",400,0],'"$Q"']'
+run_sev h400 '[["bash ./bin/import-data.sh",400,0],'"$Q"']'
 hasnt "$RP" "pill p-red\|pill p-amber" "a 400 s hang leaves the strip green"
-run_sev h700 '[["bash ./bin/build-all.sh",700,0],'"$Q"']'
+run_sev h700 '[["bash ./bin/import-data.sh",700,0],'"$Q"']'
 has "$RP" "pill p-amber" "a hang over 10 minutes is amber"
 hasnt "$RP" "pill p-red" "a 700 s hang is not red"
-run_sev h1900 '[["bash ./bin/build-all.sh",1900,0],'"$Q"']'
+run_sev h1900 '[["bash ./bin/import-data.sh",1900,0],'"$Q"']'
 has "$RP" "pill p-red" "a hang over 30 minutes is red"
-run_sev hmany '[["bash ./bin/build-all.sh",400,0],["bash ./bin/build-all.sh",400,0],["bash ./bin/build-all.sh",400,0],'"$Q"']'
+run_sev hmany '[["bash ./bin/import-data.sh",400,0],["bash ./bin/import-data.sh",400,0],["bash ./bin/import-data.sh",400,0],'"$Q"']'
 hasnt "$RP" "pill p-red" "three 400 s hangs are not red: duration counts, not count"
 
 echo "T12 repeat failures ignore builtins; interviews are not slow steps"
@@ -207,13 +212,44 @@ hasnt "$R2" "sleep x[0-9]" "sleep is never a repeat-failure tip"
 has "$R2" "Failing tool on repeat: gate-check.sh 2" "the real failing script is still named"
 
 echo "T13 context windows"
-has "$R6" "1.00M window" "250k context uses the 1M window"
 hasnt "$R6" "500" "no invented 500k window"
-hasnt "$R6" "window was reached" "25 percent of 1M is not window reached"
 mkproj "$WORK/p13"; CTX_CR=199000 mklog "$WORK/cfg13" "$WORK/p13" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))"
 CLAUDE_CONFIG_DIR="$WORK/cfg13" bash "$SCRIPT" "$WORK/p13" --html >/dev/null 2>&1
 has "$WORK/p13/architecture/progress-report.html" "Context: the window was reached" "199k of 200k reads window reached"
 has "$WORK/p13/architecture/progress-report.html" "200.0k window, 100% avg\|200.0k window, 99% avg" "and the numbers say so"
+
+echo "T16 context window from the log: marker, else 200k, never 1M from a peak when compacted; inherent hangs; layout"
+run_ctx() {  # name env...
+  local n="$1"; shift; local d="$WORK/c-$n"; mkproj "$d"
+  ( export "$@"; mklog "$WORK/cfgc-$n" "$d" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))" )
+  CLAUDE_CONFIG_DIR="$WORK/cfgc-$n" bash "$SCRIPT" "$d" --html >/dev/null 2>&1
+  RC_="$d/architecture/progress-report.html"
+}
+run_ctx comp CTX_CR=230000 COMPACT_PRE=226800,217200
+has "$RC_" "inferred: no 1M marker" "200k+ usage with auto compactions: window labelled inferred"
+hasnt "$RC_" "1.00M" "200k+ usage with auto compactions near 220k is never 1M"
+has "$RC_" "Context: " "a Context tip fires when compactions happened"
+grep -Eq "(10[1-9]|1[1-9][0-9]|[2-9][0-9][0-9])% (avg|peak)" "$RC_" && bad "percentages capped at 100 (compacted log)" || ok "percentages capped at 100 (compacted log)"
+run_ctx beta CTX_CR=250000 CTX_BETA=1
+has "$RC_" "1.00M window" "a context-1m beta in the log gives a 1M window"
+hasnt "$RC_" "inferred" "a window read from the log is not labelled inferred"
+run_ctx m1m CTX_CR=250000 CTX_MODEL='claude-opus-5-5[1m]'
+has "$RC_" "1.00M window" "a [1m] model id gives a 1M window"
+run_ctx plain CTX_CR=20000
+hasnt "$RC_" "inferred" "a plain 200k log is not inferred"
+hasnt "$RC_" "<b>Context</b>" "no context flag under 180k average without compaction"
+# inherent scripts never hang: a 40 min gate-check and a 15 min build leave health green and no hang tip
+run_sev inh '[["bash ./bin/gate-check.sh . 2",2400,0],["bash ./bin/build-all.sh",900,0],'"$Q"']'
+hasnt "$RP" "Hanging or killed" "gate-check and build hangs never produce a hang tip"
+hasnt "$RP" "pill p-red\|pill p-amber" "inherent scripts never change Run health colour"
+# tips name real scripts only, and drop tips that lose under a minute
+run_sev tok '[["JH run x",1,1],["JH run x",1,1],["JH run x",1,1],["./bin/tiny.sh",2,1],["./bin/tiny.sh",2,1],["./bin/tiny.sh",2,1],'"$Q"']'
+hasnt "$RP" "JH x" "a non-script token is never named in a tip"
+hasnt "$RP" "Failing tool on repeat: tiny.sh" "a repeat failure losing 6 s is not shown"
+# layout: header wraps with nowrap count; the aside is not moved above the content
+has "$R2" "\.hd{display:flex;flex-wrap:wrap" "stage header box wraps"
+has "$R2" "\.hd \.sub{white-space:nowrap" "gates-passed text stays on one line"
+hasnt "$R2" "order:-1" "tips are not moved above the title on a phone"
 
 echo "T14 --session-log"
 P14="$WORK/p14"; mkproj "$P14"; mklog "$WORK/cfg14" "$P14" "$(( $("$PY" -c 'import time;print(int(time.time()))') - 7200 ))"

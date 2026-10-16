@@ -54,7 +54,7 @@ EXTRA_ARTIFACTS = {
 }
 # Project advisory thresholds (each rule says which one fired).
 ADV = {"opus_cost_share": 0.40, "ctx_avg_tokens": 180_000, "ctx_peak_frac": 0.98, "compactions": 1,   # context: average under 180k is fine; the window counts as reached only at this share of the real window (or after a compaction). Context is never red
-       "hang_amber_s": 600, "hang_red_s": 1800, "repeat_fail_red_n": 2,   # red only for a key script failing on every run (at least this many runs) or one hang or stall past hang_red_s; amber from hang_amber_s
+       "hang_amber_s": 600, "hang_red_s": 1800, "repeat_fail_red_n": 3, "min_lost_s": 60,   # red only for a key script failing on every run (at least this many runs) or one hang or stall past hang_red_s; amber from hang_amber_s
        "inherent_scripts": r"^(exec|gate-check|doctor|verify-module|review-module|build[\w-]*|mxbuild|mxcli|stack-up[\w-]*|test-stack-up)\.sh$",   # time in these is how the toolkit works, not a project choice
         "cache_rewrites": 3,
        "stage_outlier_x": 1.5, "agent_short_s": 120, "agent_long_s": 1800, "short_agents_n": 3, "long_agents_n": 2,
@@ -70,6 +70,8 @@ ADV = {"opus_cost_share": 0.40, "ctx_avg_tokens": 180_000, "ctx_peak_frac": 0.98
        "full_test_n": 3, "full_test_s": 120,                  # full test suite runs
        "slice_outlier_x": 2.0, "slice_outlier_n": 1,          # exec.sh runs above this multiple of the median
        "fail_share_amber": 0.25}                              # run health: amber from this failure rate (of all calls, or of one key script); red is never rate-based
+SCRIPT_FILE_RE = re.compile(r"\.(sh|py|js)$")
+REAL_CMDS = frozenset("mxcli mxbuild mx git gh npm npx node python python3 make curl jq docker".split())   # the only non-file commands a tip may name
 TRIVIAL_CMDS = frozenset("cd sleep echo true false test [ ls cat pwd export source . printf grep diff".split())   # shell builtins and trivial commands: a non-zero exit is routine, never a repeat-failure tip
 INHERENT_TOOLS = frozenset(("AskUserQuestion", "ExitPlanMode"))   # required interview and approval time: waiting on the user, not a slow step or a hang
 TOKENS_PER_MIN = 30_000   # assumed exchange rate used only to rank token waste against time waste
@@ -92,19 +94,24 @@ def ctx_pct(n, window):
     """Share of the window in percent, never above 100. Nothing when the window is unknown."""
     return min(100.0, 100.0 * n / window) if window else None
 def ctx_pct_txt(n, window): return "%.0f%%" % ctx_pct(n, window) if window else "n/a"
-def context_window(msgs):
-    """(window, note) for the main thread. The window comes from the dominant model id; a context seen above it proves the
-    assumption wrong, so it is raised to the next known size. (None, note) when the model is not in the table or nothing fits:
-    callers then print 'window unknown', never a percentage over 100."""
+def context_window(msgs, compacts=(), flag_1m=False):
+    """(window, note) for the main thread, read from the log. 1M only when the log says so: a model id with [1m] or a
+    context-1m beta/flag (flag_1m). Otherwise 200k. A context above 200k without a 1M marker is NOT proof of 1M: when
+    automatic compactions fired, the window is capped at the highest compaction point (labelled inferred); with no compaction
+    it steps to the next known size (labelled inferred). (None, note) when the model is not in the table."""
     if not msgs: return None, "no requests"
     model = collections.Counter(m["model"] for m in msgs).most_common(1)[0][0]
     obs = max(m["in"] + m["cr"] + m["cw"] for m in msgs)
     base = window_for(model)
     if base is None: return None, "model %s is not in the WINDOWS table" % model
+    if flag_1m and base < 1_000_000: return 1_000_000, "1M read from the log's context flag"
+    if base >= 1_000_000: return base, "1M read from the model id"
+    pres = [c["pre"] for c in compacts if c.get("pre") and c.get("trig", "auto") == "auto"]
     if obs <= base: return base, ""
+    if pres: return max(pres), "inferred: no 1M marker in the log, so the window is capped at the compaction point (%s)" % fmt_tok(max(pres))
     nxt = window_for(model, obs)
     if nxt is None: return None, "a context of %s exceeds every known window" % fmt_tok(obs)
-    return nxt, "raised from %s: the log shows %s" % (fmt_tok(base), fmt_tok(obs))
+    return nxt, "inferred: the log shows %s and no 1M marker or compaction" % fmt_tok(obs)
 TEST_MOMENTS = [("Every change", "Gate check plus only the tests that touch the change"),
                 ("Module done", "Module journeys, plus unit tests when the project has them switched on"),
                 ("Build complete", "Everything, once"),
@@ -231,15 +238,18 @@ def cost_of(u, model, rates):
 
 def scan_transcript(path, is_main=False):
     """Returns messages (dedup by message.id, max of each counter), event times, compactions, prompts, tool events."""
-    msgs = {}; times = []; compacts = []; prompts = 0; tools = []; gate = []; calls = {}
+    flag_1m = False; msgs = {}; times = []; compacts = []; prompts = 0; tools = []; gate = []; calls = {}
     with open(path, encoding="utf-8", errors="replace") as f:
         for line in f:
             try: o = json.loads(line)
             except Exception: continue
             t = o.get("type"); ts = epoch(o.get("timestamp", "")) if o.get("timestamp") else None
             if ts and t in ("user", "assistant"): times.append(ts)
+            if not flag_1m:
+                bt = (o.get("params") or {}).get("betas") if isinstance(o.get("params"), dict) else None
+                if (isinstance(bt, list) and any("context-1m" in str(x) for x in bt)) or re.search(r"\[1m\]", str(o.get("requestedModel") or "")): flag_1m = True
             if "compactMetadata" in o:
-                cm = o["compactMetadata"]; compacts.append({"t": ts, "pre": cm.get("preTokens"), "post": cm.get("postTokens")})
+                cm = o["compactMetadata"]; compacts.append({"t": ts, "pre": cm.get("preTokens"), "post": cm.get("postTokens"), "trig": cm.get("trigger") or "auto"})
             if t == "user" and is_main and not o.get("isMeta") and not o.get("isCompactSummary"):
                 c = o.get("message", {}).get("content")
                 if isinstance(c, str) and not c.lstrip().startswith("<"): prompts += 1
@@ -257,6 +267,7 @@ def scan_transcript(path, is_main=False):
             if t != "assistant": continue
             m = o.get("message", {}); u = m.get("usage") or {}; mid = m.get("id") or o.get("uuid")
             if m.get("model") in (None, "<synthetic>"): continue
+            if "[1m]" in str(m.get("model")): flag_1m = True
             cur = msgs.setdefault(mid, {"t": ts, "model": m["model"], "in": 0, "out": 0, "cr": 0, "cw": 0})
             for k, uk in (("in", "input_tokens"), ("out", "output_tokens"), ("cr", "cache_read_input_tokens"), ("cw", "cache_creation_input_tokens")):
                 cur[k] = max(cur[k], u.get(uk) or 0)
@@ -281,7 +292,7 @@ def scan_transcript(path, is_main=False):
                         elif n in ("Agent", "Task"): ev["desc"] = i.get("description", "")
                         elif n == "Skill": ev["skill"] = i.get("skill", "")
                         tools.append(ev)
-    return {"msgs": list(msgs.values()), "times": times, "compacts": compacts, "prompts": prompts, "tools": tools, "calls": list(calls.values())}
+    return {"flag_1m": flag_1m, "msgs": list(msgs.values()), "times": times, "compacts": compacts, "prompts": prompts, "tools": tools, "calls": list(calls.values())}
 
 def slug(path):
     """Claude Code's folder name for a launch directory: every non-alphanumeric character becomes a dash."""
@@ -341,7 +352,7 @@ def load_sessions(paths):
             agents.append({"desc": str(meta.get("description") or meta.get("label") or "sub-agent")[:80], "model": model, "wf": wf,
                            "wf_id": os.path.basename(os.path.dirname(f)) if wf else None, "phase": meta.get("phase"),
                            "t0": min(d["times"]), "t1": max(d["times"]), "times": d["times"], "turns": len(d["msgs"]), "msgs": d["msgs"]})
-    main = {"msgs": [], "times": [], "compacts": [], "prompts": 0, "tools": [], "calls": []}
+    main = {"msgs": [], "times": [], "compacts": [], "prompts": 0, "tools": [], "calls": [], "flag_1m": any(m["flag_1m"] for m in mains)}
     for m in mains:
         for k in ("msgs", "times", "compacts", "tools", "calls"): main[k] += m[k]
         main["prompts"] += m["prompts"]
@@ -487,7 +498,7 @@ def advice(info, an, main, agents, rates):
         out.append(("Main thread model", "The main thread ran on %s for %d requests (est. $%.0f, %.0f%% of total). Routine orchestration turns could run on a cheaper model; keep the expensive one for review and judgment." % (mm[0], mm[1], mcost, pct(mcost, tot["cost"]))))
     peak = max([m["in"] + m["cw"] + m["cr"] for m in main["msgs"]] or [0])
     comp = main["compacts"]
-    cw_, cn_ = context_window(main["msgs"])
+    cw_, cn_ = context_window(main["msgs"], main["compacts"], main.get("flag_1m", False))
     ctxt = "Peak main-thread context was %s tokens (%s)." % (fmt_tok(peak), ("%s of the %s window for this model%s" % (ctx_pct_txt(peak, cw_), fmt_tok(cw_), "; " + cn_ if cn_ else "")) if cw_ else "window unknown: " + cn_)
     if comp: ctxt += " Auto-compacted %d times (at %s tokens), each time dropping the context to about %s." % (len(comp), ", ".join(fmt_tok(c["pre"] or 0) for c in comp), fmt_tok(sum(c["post"] or 0 for c in comp) / len(comp)))
     out.append(("Context size", ctxt + (" Hand bulk reading to sub-agents and park or clear at a stage boundary, before the next auto-compaction." if comp else "")))
@@ -521,9 +532,10 @@ def call_stats(info, an, main):
     for c in done: c["dur"] = max(0.0, c["t1"] - c["t0"])
     med = {}
     for n in {c["name"] for c in done}: med[n] = _median([c["dur"] for c in done if c["name"] == n])
+    inh = lambda c: c["name"] == "Bash" and bool(c["script"]) and bool(re.match(ADV["inherent_scripts"], c["script"]))   # required gates and builds never count as hangs
     failed = [c for c in done if c["err"]]
-    killed = [c for c in calls if c["killed"] or c["timeout"]]
-    hung = [c for c in done if c["dur"] >= ADV["hang_min_s"] and c["dur"] >= ADV["hang_x"] * max(med.get(c["name"], 0), 1) and not c["waity"] and not c["bg"] and c["name"] not in INHERENT_TOOLS]
+    killed = [c for c in calls if (c["killed"] or c["timeout"]) and not inh(c)]
+    hung = [c for c in done if c["dur"] >= ADV["hang_min_s"] and c["dur"] >= ADV["hang_x"] * max(med.get(c["name"], 0), 1) and not c["waity"] and not c["bg"] and c["name"] not in INHERENT_TOOLS and not inh(c)]
     hung_all = {id(c): c for c in hung + killed}.values()
     keyed = collections.OrderedDict()
     for label, rx in KEY_SCRIPTS:
@@ -586,6 +598,7 @@ def advisory(info, an, main, agents, rates, tot, peak):
     def rule(ratio, kind, title, seen, matters, fix, why, lost_s=0.0, lost_tok=0.0, group=None, sev=None, inherent=False):
         """inherent: the cost comes from how the toolkit or mxcli works (builds, required gates and reviews, the mandated review model, waiting on builds or the user). Never shown."""
         if ratio >= 1 and inherent: hidden[0] += 1; return
+        if ratio >= 1 and not lost_tok and 0 < lost_s < ADV["min_lost_s"]: ratio = 0   # a tip that loses under a minute is noise
         d = {"ratio": ratio, "kind": kind, "group": group or GROUP[kind], "sev": sev or ("amber" if ratio >= 2 else "info"), "title": title, "seen": seen, "matters": matters, "fix": fix, "why": why,
              "lost_s": lost_s, "lost_tok": lost_tok, "impact": lost_s / 60.0 + lost_tok / TOKENS_PER_MIN}
         (fired if ratio >= 1 else quiet).append(d)
@@ -601,7 +614,7 @@ def advisory(info, an, main, agents, rates, tot, peak):
          "Fired when the Opus share of cost is at least %.0f%% (opus_cost_share). Measured %.0f%%." % (100 * ADV["opus_cost_share"], 100 * share),
          lost_tok=sum(head(a["tok"]) for a in oa), inherent=True)
     mc = [m["in"] + m["cr"] + m["cw"] for m in main["msgs"]] or [0]; avg = sum(mc) / len(mc)
-    win, wnote = context_window(main["msgs"]); comp = len(main["compacts"])
+    win, wnote = context_window(main["msgs"], main["compacts"], main.get("flag_1m", False)); comp = len(main["compacts"])
     big = [c for c in cs["done"] if c["name"] == "Read" and c["rchars"] >= ADV["large_read_chars"]]
     reached = bool(win) and peak >= ADV["ctx_peak_frac"] * win
     r = max(avg / ADV["ctx_avg_tokens"], 1.0 if reached else 0.0, comp / ADV["compactions"] if ADV["compactions"] else 0, len(big) / ADV["large_read_n"])
@@ -671,7 +684,7 @@ def advisory(info, an, main, agents, rates, tot, peak):
              "Fired when %d or more calls ran past %d s and %dx their tool's median, timed out, or were stopped (hang_n, hang_min_s, hang_x)." % (ADV["hang_n"], ADV["hang_min_s"], ADV["hang_x"]), lost_s=excess + 60.0 * len([c for c in hg if "dur" not in c]), sev="red" if (longest and longest.get("dur", 0) > ADV["hang_red_s"]) else "amber")
     byfail = collections.defaultdict(list)
     for c in cs["failed"]:
-        if c["name"] == "Bash" and c["script"] and c["script"] not in TRIVIAL_CMDS: byfail[(c["script"], c.get("variant", ""))].append(c)   # real scripts and tools only, by name
+        if c["name"] == "Bash" and c["script"] and c["script"] not in TRIVIAL_CMDS and (SCRIPT_FILE_RE.search(c["script"]) or c["script"] in REAL_CMDS): byfail[(c["script"], c.get("variant", ""))].append(c)   # real scripts and tools only, by name
     worst = max(byfail.items(), key=lambda kv: len(kv[1])) if byfail else None
     if worst:
         (sn, var), fl = worst; nm = sn + ((" " + var) if var else "")
@@ -772,7 +785,7 @@ a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 .rail{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;margin-top:10px}
 .stage{display:flex;flex-direction:column;gap:8px;border-top:4px solid var(--idle)}
 .stage.passed{border-top-color:var(--ok)}.stage.progress{border-top-color:var(--accent)}.stage.waived{border-top-color:var(--warn)}.stage.pre{opacity:.85}
-.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.hd{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:4px 8px}.hd h3{min-width:0;flex:1 1 220px}.hd .sub{white-space:nowrap;overflow-wrap:normal}
 .badge{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--soft);white-space:nowrap;font-weight:600}
 .passed .badge{color:var(--ok)}.progress .badge{color:var(--accent)}.waived .badge{color:var(--warn)}
 dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;margin:0;font-size:13px}dt{color:var(--mut)}dd{margin:0;text-align:right}
@@ -796,7 +809,7 @@ html{scroll-behavior:smooth}[id^=stage-],[id^=agents-],[id^=phase-],#tips{scroll
 .snav b{font-size:12px;color:var(--mut);margin-right:4px}.snav a{min-width:34px;text-align:center;padding:4px 10px;border-radius:8px;background:var(--card);border:1px solid var(--line);font-weight:650;font-size:13px;color:var(--ink)}
 .snav a.passed{border-color:var(--ok)}.snav a.cur{background:var(--accent);color:#fff;border-color:var(--accent)}.snav a:hover{text-decoration:none;border-color:var(--accent)}
 .hd h3 a{color:inherit}.updated{display:inline-block;margin-top:6px;padding:3px 10px;border-radius:8px;background:var(--soft);font-size:13px;font-weight:600}
-.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}.layout.solo{display:block}.content{min-width:0}.side{position:sticky;top:52px;max-height:calc(100vh - 64px);overflow:auto;padding-right:2px}.side h2{margin-top:0}.health{margin-top:8px}.health .hi{font-size:13px;margin-top:3px}.grp{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:var(--card)}.grp>summary{cursor:pointer;padding:9px 12px;font-size:14px}.grp .speed,.grp>.split,.grp>div,.grp .tip{padding:0 12px 10px}.tip{border-top:1px solid var(--line);padding-top:10px}.tip h3{font-size:13px;margin:0 0 4px}.tip p{margin:0 0 4px;font-size:12.5px}.p-info{background:#8793a6;color:#fff}@media(max-width:1000px){.layout{grid-template-columns:minmax(0,1fr)}.side{position:static;max-height:none;order:-1}}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.p-green{background:#2e9e5b;color:#fff}.p-amber{background:#e0a100;color:#fff}.p-red{background:#d1383d;color:#fff}.pill{padding:1px 9px;margin-left:6px;border-radius:99px;font-size:12px}.speed{margin-top:8px;font-size:13px}.split{display:flex;gap:2px;margin:6px 0}.seg{background:var(--accent);color:#fff;font-size:11px;padding:3px 6px;border-radius:4px;white-space:nowrap;overflow:hidden}.seg:nth-child(2){opacity:.75}.seg:nth-child(3){background:var(--idle);color:var(--ink)}.seg:nth-child(4){opacity:.55}.muted{color:var(--mut);font-size:12px}\n.advl{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-top:8px}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}.layout.solo{display:block}.content{min-width:0}.side{position:sticky;top:52px;max-height:calc(100vh - 64px);overflow:auto;padding-right:2px}.side h2{margin-top:0}.health{margin-top:8px}.health .hi{font-size:13px;margin-top:3px}.grp{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:var(--card)}.grp>summary{cursor:pointer;padding:9px 12px;font-size:14px}.grp .speed,.grp>.split,.grp>div,.grp .tip{padding:0 12px 10px}.tip{border-top:1px solid var(--line);padding-top:10px}.tip h3{font-size:13px;margin:0 0 4px}.tip p{margin:0 0 4px;font-size:12.5px}.p-info{background:#8793a6;color:#fff}@media(max-width:1000px){.layout{grid-template-columns:minmax(0,1fr)}.side{position:static;max-height:none}}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.p-green{background:#2e9e5b;color:#fff}.p-amber{background:#e0a100;color:#fff}.p-red{background:#d1383d;color:#fff}.pill{padding:1px 9px;margin-left:6px;border-radius:99px;font-size:12px}.speed{margin-top:8px;font-size:13px}.split{display:flex;gap:2px;margin:6px 0}.seg{background:var(--accent);color:#fff;font-size:11px;padding:3px 6px;border-radius:4px;white-space:nowrap;overflow:hidden}.seg:nth-child(2){opacity:.75}.seg:nth-child(3){background:var(--idle);color:var(--ink)}.seg:nth-child(4){opacity:.55}.muted{color:var(--mut);font-size:12px}\n.advl{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-top:8px}
 .advi{border-left:4px solid var(--warn)}.advi.hi{border-left-color:var(--bad)}.advi .rk{font-size:12px;color:var(--mut)}.advi h3{margin:2px 0 6px}.advi p{margin:4px 0;font-size:13px}.advi .why{color:var(--mut);font-size:12px}
 details.ph>summary{list-style:none;cursor:pointer;color:var(--ink)}details.ph>summary::-webkit-details-marker{display:none}
 details.ph[open]{grid-column:1/-1}.steps td{font-size:12px;padding:3px 6px}
@@ -868,7 +881,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
             w("<p class=note>Note: the gate-check page (index.html) lists passed stages %s, PROJECT.md lists %s. PROJECT.md is newer or authoritative here; re-run gate-check to refresh the page.</p>" % (esc(", ".join(gp) or "none"), esc(", ".join(info["passed"]) or "none")))
     # KPIs
     allc = [m["in"] + m["cr"] + m["cw"] for m in main["msgs"]] or [0]; ctx_avg = sum(allc) / len(allc)
-    cwin, cnote = context_window(main["msgs"])
+    cwin, cnote = context_window(main["msgs"], main["compacts"], main.get("flag_1m", False))
     pw = lambda a_: ctx_pct_txt(a_, cwin)
     nart = sum(len(arts[s_]["files"]) for s_ in STAGES); ndec = len(info["decisions"])
     kp = [("Gates passed", "%d of 8" % npass, "stages P to 6, from PROJECT.md"), ("Plan rows built", ("%d of %d" % (bp["built"], bp["total"])) if bp and bp["total"] else "none yet", "from architecture/build-plan.md"),
@@ -1033,7 +1046,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
             w("<details id='agents-%s' %s class=card style='margin-top:8px'><summary><b>%s</b> &middot; %d agents &middot; %s new tokens &middot; est. %s</summary><div class=tw><table style='margin-top:8px'><tr><th>Description</th><th>Model</th><th class=n>Start</th><th class=n>Duration</th><th class=n>Turns</th><th class=n>Context avg / peak</th><th class=n>New tokens</th><th class=n>Est. cost</th></tr>" %
               (s, "open" if s in ("3", "4") else "", "Before P" if s == "pre" else "Stage %s: %s" % (s, STAGE_NAME[s]), len(ag), fmt_tok(stot), money(sum(a["tok"]["cost"] for a in ag))))
             for a in singles:
-                w("<tr><td>%s</td><td>%s</td><td class=n>%s</td><td class=n>%s</td><td class=n>%d</td><td class=n>%s / %s (%s)</td><td class=n>%s</td><td class=n>%s</td></tr>" % (esc(a["desc"]), esc(a["model"].replace("claude-", "")), local_hm(a["t0"]), fmt_dur(a["t1"] - a["t0"]), a["turns"], fmt_tok(a["ctx_avg"]), fmt_tok(a["ctx_peak"]), ctx_pct_txt(a["ctx_peak"], window_for(a["model"], a["ctx_peak"])), fmt_tok(head(a["tok"])), money(a["tok"]["cost"])))
+                w("<tr><td>%s</td><td>%s</td><td class=n>%s</td><td class=n>%s</td><td class=n>%d</td><td class=n>%s / %s (%s)</td><td class=n>%s</td><td class=n>%s</td></tr>" % (esc(a["desc"]), esc(a["model"].replace("claude-", "")), local_hm(a["t0"]), fmt_dur(a["t1"] - a["t0"]), a["turns"], fmt_tok(a["ctx_avg"]), fmt_tok(a["ctx_peak"]), ctx_pct_txt(a["ctx_peak"], window_for(a["model"]) if not cwin or cwin < 1_000_000 else cwin), fmt_tok(head(a["tok"])), money(a["tok"]["cost"])))
             for wid, fl in wfs.items():
                 ph = sorted({a["phase"] for a in fl if a["phase"]})
                 w("<tr><td><b>Workflow %s</b> (%d parallel agents%s)<br><span class=sub>%s</span></td><td>%s</td><td class=n>%s</td><td class=n>%s</td><td class=n>%d</td><td class=n>%s / %s</td><td class=n>%s</td><td class=n>%s</td></tr>" %
@@ -1106,8 +1119,8 @@ def main_():
                    folder and discovery cannot find it. Discovery stays the default.
   rates file       prices per million tokens: --rates FILE, else <project>/.claude/progress-report-rates.txt when present, else
                    the placeholder rates in the script. One line per model: glob input cache-write cache-read output.
-  context window   per model id from the WINDOWS table in the script (200k, or 1M for a 1M model); 1M is used when the log shows
-                   a context above 200k. Percentages never exceed 100.
+  context window   200k unless the log records 1M (a [1m] model id or a context-1m beta/flag). Above 200k with no marker the
+                   window is capped at the auto-compaction point and labelled "inferred". Percentages never exceed 100.
   page name        REPORT_FILE in the script (--print-name prints it).""")
     ap.add_argument("project")
     ap.add_argument("--out"); ap.add_argument("--toolkit")

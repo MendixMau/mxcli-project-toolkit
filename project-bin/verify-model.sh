@@ -31,6 +31,7 @@ WHY=""
 MXBUILD="$(mxtk_ensure_mxbuild "$MPR" || true)"
 JAVA_HOME="$(find_java 2>/dev/null || true)"
 JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
+_jnote="$(find_java_note 2>/dev/null || true)"; [ -z "$_jnote" ] || echo "⚠ $_jnote" >&2
 if [ ! -x "${MXBUILD:-/nonexistent}" ] || [ ! -x "${JAVA_EXE:-/nonexistent}" ]; then
   echo "✗ the mxbuild gate cannot run on this machine — NOTHING was verified."
   [ -x "${MXBUILD:-/nonexistent}" ]  || echo "    mxbuild: ${MXBUILD:-<none>}   (MXBUILD_PATH= overrides; bin/doctor.sh --install downloads it)"

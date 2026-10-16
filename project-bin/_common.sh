@@ -485,6 +485,32 @@ find_mxbuild() {
   return 1
 }
 
+# _mxtk_java_want — the JDK major the model's Mendix version needs: 25 for 11.14 and above,
+# else 21 (also when the version cannot be read).
+_mxtk_java_want() {
+  local mver mmaj mmin want=21
+  if mver=$(mxtk_model_version 2>/dev/null); then
+    mmaj="${mver%%.*}"; mmin="${mver#*.}"; mmin="${mmin%%.*}"
+    if [ "$mmaj" -gt 11 ] 2>/dev/null || { [ "$mmaj" -eq 11 ] && [ "$mmin" -ge 14 ]; } 2>/dev/null; then want=25; fi
+  fi
+  echo "$want"
+}
+
+# find_java_note — prints ONE line when find_java had to use a JDK other than the one the
+# model needs (macOS, JAVA_HOME unset, wanted JDK not installed); prints nothing otherwise.
+# find_java runs in a $(...) whose stderr every caller discards, so the warning has to be a
+# separate call the caller prints:
+#   _n="$(find_java_note || true)"; [ -n "$_n" ] && echo "WARN: $_n" >&2
+find_java_note() {
+  [ -n "${JAVA_HOME:-}" ] && [ -d "$JAVA_HOME" ] && return 0
+  local jhbin="${MXTK_JAVA_HOME_BIN:-/usr/libexec/java_home}" want used
+  [ "$(mxtk_platform)" = macos ] && [ -x "$jhbin" ] || return 0
+  want=$(_mxtk_java_want)
+  "$jhbin" -F -v "$want" >/dev/null 2>&1 && return 0
+  used=$(find_java 2>/dev/null) || used="none found"
+  echo "wanted JDK $want (for this model's Mendix version) is not installed, using $used; mxbuild may fail with a Java version error. Install JDK $want or set JAVA_HOME in toolkit.env."
+}
+
 # find_java — JAVA_HOME for the mxbuild invocation. $JAVA_HOME wins if already set.
 #
 # /usr/libexec/java_home is a macOS binary and does not exist anywhere else, so on
@@ -499,15 +525,17 @@ find_java() {
   # version 69", mxbuild exit 3, empty problems[] — field project 2026-09-26, Mendix 11.12.2);
   # 11.14 and above need JDK 25 (Gradle 9.1+; "release version 25 not supported" on JDK 21 —
   # field report, Mendix 11.15; docs.mendix.com/refguide/system-requirements). The model's
-  # version is read from the .mpr; unreadable → 21 as before. Platform-guarded: java_home is
-  # mac-only. MXTK_JAVA_HOME_BIN overrides the binary (tests).
-  local jhbin="${MXTK_JAVA_HOME_BIN:-/usr/libexec/java_home}" want=21 mver mmaj mmin
+  # version is read from the .mpr; unreadable → want 21 as before.
+  # Plain `java_home -v N` NEVER fails on macOS: when N is not installed it prints the default
+  # JDK and exits 0. Only `-F -v N` fails, so detection uses -F. A missing wanted JDK still
+  # falls back to the default (nothing new blocks), and find_java_note says so, because every
+  # caller discards find_java's stderr. Platform-guarded: java_home is mac-only.
+  # MXTK_JAVA_HOME_BIN overrides the binary (tests).
+  local jhbin="${MXTK_JAVA_HOME_BIN:-/usr/libexec/java_home}" want
   if [ "$(mxtk_platform)" = macos ] && [ -x "$jhbin" ]; then
-    if mver=$(mxtk_model_version 2>/dev/null); then
-      mmaj="${mver%%.*}"; mmin="${mver#*.}"; mmin="${mmin%%.*}"
-      if [ "$mmaj" -gt 11 ] 2>/dev/null || { [ "$mmaj" -eq 11 ] && [ "$mmin" -ge 14 ]; } 2>/dev/null; then want=25; fi
-    fi
-    jh=$("$jhbin" -v "$want" 2>/dev/null || "$jhbin" 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
+    want=$(_mxtk_java_want)
+    jh=$("$jhbin" -F -v "$want" 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
+    jh=$("$jhbin" 2>/dev/null) && [ -n "$jh" ] && { echo "$jh"; return 0; }
   fi
   # Studio Pro's bundled JRE.
   if app=$(find_sp_app 2>/dev/null); then

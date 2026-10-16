@@ -131,6 +131,12 @@ bundle_ok() {  # $1 port — the script bundle index.html loads must answer 2xx
   case "$code" in 2??) return 0 ;; esac
   BUNDLE="$src → HTTP ${code:-none}"; return 1
 }
+mask_has_secret() {  # pure bash glob: does $1 hold a secret word? (no fork)
+  case "$1" in
+    *[Pp][Aa][Ss][Ss]*|*[Pp][Ww][Dd]*|*[Ss][Ee][Cc][Rr][Ee][Tt]*|*[Tt][Oo][Kk][Ee][Nn]*|*[Kk][Ee][Yy]*|*[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]*) return 0 ;;
+  esac
+  return 1
+}
 mask() {  # print argv joined, with the value after any password/secret/token/key flag masked
   # Display only (TK-003): the executed ARGV is never touched. Each argument is masked on its own,
   # BEFORE it is quoted for display, so a quoted secret with spaces is hidden whole. Passes:
@@ -143,20 +149,32 @@ mask() {  # print argv joined, with the value after any password/secret/token/ke
   # substring, so `Monkey` (Key), `Turkey` (Key) and `Bypass` (Pass) mask too. Display only, harmless.
   local _w='([Pp][Aa][Ss][Ss]|[Pp][Ww][Dd]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|[Kk][Ee][Yy]|[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll])'
   local _v="\"[^\"]*\"|'[^']*'|[^ ]+"
-  local a out="" prev_secret=0
+  # Speed: the sed forks only run for an argument that holds a secret word (a bash glob decides),
+  # so a typical argv costs no fork at all. The argument after `-c` is a shell string: pass (1) is
+  # skipped for it, so `bash -c 'DB_PASSWORD=x ./mxcli run ...'` keeps the whole command visible.
+  local a out="" prev_secret=0 prev_c=0 p1
   for a in "$@"; do
-    if [ "$prev_secret" = 1 ]; then a="****"; prev_secret=0
+    p1='s/^$//'
+    if [ "$prev_secret" = 1 ]; then a="****"; prev_secret=0; prev_c=0
     else
-      case "$a" in
-        -*" "*|-*=*) ;;                                                # flag=value or a shell string: sed below
-        -*) if [ -n "$(printf '%s' "$a" | sed -nE "/^-[-A-Za-z_]*${_w}[-A-Za-z_]*$/p")" ]; then prev_secret=1; fi ;;
-      esac
-      a="$(printf '%s' "$a" | sed -E \
-        -e "s/^([A-Za-z0-9_.-]*${_w}[A-Za-z0-9_.-]*)=.*$/\1=****/" \
-        -e "s/\"([A-Za-z0-9_.-]*${_w}[A-Za-z0-9_.-]*)=[^\"]*\"/\"\1=****\"/g" \
-        -e "s/'([A-Za-z0-9_.-]*${_w}[A-Za-z0-9_.-]*)=[^']*'/'\1=****'/g" \
-        -e "s/(-[-A-Za-z_]*${_w}[-A-Za-z_]*)(=| +)(${_v})/\1\3****/g" \
-        -e "s/([A-Za-z0-9_.-]*${_w}[A-Za-z0-9_.-]*)=(${_v})/\1=****/g")"
+      if [ "$prev_c" = 1 ]; then prev_c=0
+      else
+        p1="s/^([A-Za-z0-9_.-]*${_w}[A-Za-z0-9_.-]*)=.*$/\\1=****/"
+        case "$a" in
+          -c) prev_c=1 ;;
+          -*" "*|-*=*) ;;                                              # flag=value or a shell string: sed below
+          -*[!-A-Za-z_]*) ;;
+          -*) mask_has_secret "$a" && prev_secret=1 ;;
+        esac
+      fi
+      if mask_has_secret "$a"; then
+        a="$(printf '%s' "$a" | sed -E \
+          -e "$p1" \
+          -e "s/\"([A-Za-z0-9_.-]*${_w}[A-Za-z0-9_.-]*)=[^\"]*\"/\"\\1=****\"/g" \
+          -e "s/'([A-Za-z0-9_.-]*${_w}[A-Za-z0-9_.-]*)=[^']*'/'\\1=****'/g" \
+          -e "s/(-[-A-Za-z_]*${_w}[-A-Za-z_]*)(=| +)(${_v})/\\1\\3****/g" \
+          -e "s/([A-Za-z0-9_.-]*${_w}[A-Za-z0-9_.-]*)=(${_v})/\\1=****/g")"
+      fi
     fi
     case "$a" in *" "*) a="'$a'" ;; esac
     out="$out $a"

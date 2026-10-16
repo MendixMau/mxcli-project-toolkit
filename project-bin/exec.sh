@@ -814,7 +814,7 @@ fi
 #   b) a "## Module brief - <Module>" heading in architecture/build-plan.md
 #
 # Platform and marketplace modules are skipped - this project does not author their briefs.
-brief_missing=""
+brief_missing=""; cr_unbriefed=""
 if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -f "$PROJECT_ROOT/architecture/build-plan.md" ]; then
   # Comments FIRST, before any pattern match. A `-- ... CREATE MODULE errors if ...` line in a
   # real workshop script otherwise yielded a module named "errors" and would have demanded a
@@ -859,11 +859,35 @@ if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -f "$PROJECT_ROOT/architect
     case "$m" in
       System|Administration|Atlas_Core|Atlas_Web_Content|Atlas_UI_Resources|MxModelReflection      |CommunityCommons|Encryption|NanoflowCommons|WebActions|DeepLink|MxTest) continue ;;
     esac
-    [ -f "$PROJECT_ROOT/architecture/modules/$m/module-brief.md" ] && continue
-    grep -qiE "^#+[[:space:]]*Module brief[[:space:]]*(—|-|:)[[:space:]]*$m[[:space:]]*$" \
-      "$PROJECT_ROOT/architecture/build-plan.md" 2>/dev/null && continue
+    if [ -f "$PROJECT_ROOT/architecture/modules/$m/module-brief.md" ]; then
+      # CR advisory: a CR that touches this module should have a CR-tagged Build steps row.
+      if [ -n "$CR_ID" ] && ! grep -qE "$CR_ID([^0-9]|\$)" "$PROJECT_ROOT/architecture/modules/$m/module-brief.md" 2>/dev/null; then
+        cr_unbriefed="$cr_unbriefed $m"
+      fi
+      continue
+    fi
+    if grep -qiE "^#+[[:space:]]*Module brief[[:space:]]*(—|-|:)[[:space:]]*$m[[:space:]]*$" \
+      "$PROJECT_ROOT/architecture/build-plan.md" 2>/dev/null; then
+      if [ -n "$CR_ID" ]; then
+        # Merged form: look only inside that module's own section (to the next "## " heading).
+        awk -v m="$m" -v cr="$CR_ID" '
+          /^#+[ \t]*[Mm]odule [Bb]rief/ { inb = 0; t = $0; sub(/^#+[ \t]*[Mm]odule [Bb]rief/, "", t); while (t != "" && substr(t, 1, 1) !~ /[A-Za-z0-9_]/) t = substr(t, 2); sub(/[ \t]+$/, "", t); if (tolower(t) == tolower(m)) inb = 1; next }
+          /^## / { inb = 0 }
+          inb && index($0, cr) { i = index($0, cr) + length(cr); c = substr($0, i, 1); if (c !~ /[0-9]/) found = 1 }
+          END { exit found ? 0 : 1 }' "$PROJECT_ROOT/architecture/build-plan.md" 2>/dev/null \
+          || cr_unbriefed="$cr_unbriefed $m"
+      fi
+      continue
+    fi
     brief_missing="$brief_missing $m"
   done
+fi
+if [ -n "$cr_unbriefed" ]; then
+  for m in $cr_unbriefed; do
+    echo "⚠ WARN: the brief of $m does not mention $CR_ID. Add a $CR_ID tagged Build steps row to it"
+    echo "    (skills/change-intake-detail.md Step 4), so the change is specified and stays visible. Proceeding."
+  done
+  echo ""
 fi
 if [ -n "$brief_missing" ]; then
   echo "⚠ No module brief for:$brief_missing — proceeding, but nothing has specified this module."

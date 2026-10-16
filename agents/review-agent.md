@@ -89,6 +89,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/journey-examples.md` | Writing an actual .journey.json |
 | `skills/wiring-sweep.md` | Every module before it is called done; buttons, links or actions that do nothing when clicked |
 | `skills/workflow-structure-rules.md` | Designing or reviewing a Workflow's SHAPE before or after the MDL |
+| `skills/rest-between-mendix-apps.md` | App-to-app REST or microservices: two or more Mendix apps you build that read each other over REST |
 | `skills/bug-submission-checklist.md` | Preparing an mxcli/Studio Pro bug for submission |
 | `skills/upstream-feedback.md` | About to open an issue, PR or discussion against mxcli or the toolkit |
 | `skills/empty-widget-triage.md` | A page/grid/list/combobox renders or shows empty ('0 to 0 of 0', blank cells, zero rows, zero options) during UI review or an e2e run |

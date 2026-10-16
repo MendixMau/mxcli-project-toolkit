@@ -7,10 +7,8 @@ Re-probed on mxcli v0.24.0 / Mendix 11.13.0 (2026-09-30); rules that now work or
 
 ## Microflow Size — Split Into Sub-Microflows Before Drafting, Not After
 
-Decide this **before** writing a microflow, not after a lint pass catches it. A single seed/stub
-microflow with dozens of create-object-per-record blocks (e.g. one CREATE+COMMIT per row of a
-16-row dataset) balloons past any reasonable size fast — this project hit ~93 activities in one
-microflow (`PLM_GetExclusiveParts`, a PLM parts-flow project, 2026-07-23) before anyone noticed.
+Decide this **before** writing a microflow, not after a lint pass catches it. A seed/stub microflow with one
+CREATE+COMMIT per record balloons fast: one project hit ~93 activities in a single microflow.
 
 **Guideline, not a hard cap:** the Mendix docs limit is 25 elements; lint's `QUAL003` warns at 25 and
 `CONV009` (mxcli-bundled `assess-quality` skill) flags at 15 — but both count **top-level activities
@@ -359,6 +357,10 @@ submit of an empty form tells them apart.
 **GRANT syntax:** qualify the module role — `Module.Admin`, never bare `Admin`. `mxcli check` refuses the bare name (MDL-GRANT02).
 
 ---
+
+## The current time is a token, not a function
+
+`mxcli check` (v0.26.0) rejects `currentDateTime()`. Write `[%CurrentDateTime%]`, e.g. `addDays([%CurrentDateTime%], 3)`.
 
 ## Enum Attribute in String Context — Use `toString($Obj/Attr)`
 

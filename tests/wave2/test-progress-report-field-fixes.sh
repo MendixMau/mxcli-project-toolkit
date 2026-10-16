@@ -10,7 +10,7 @@
 #       ("not built" is not built, "built (...)" and "done ..." are built, "partial" is partial) and the page says so.
 #   F4  no log in the project's own slug: found in another slug when 25% of its tool calls and at least 20 operate on the
 #       project path, counted only between those calls; a session that merely mentions the project is ignored. With no log at
-#       all the time ledger and BUILD-LOG feed the page, labelled, and the banner says how to pass --session-log.
+#       all the time ledger and BUILD-LOG feed the page, labelled, and the details block says how to pass --session-log.
 #   F5  stage boundaries use the same truth: log events after the Stage 4 sign-off count toward Stage 5 even when the
 #       gate-check page is stale.
 #   F6  Build progress: stacked phase bars, headline "N of M rows built, K partial", the phase being built now is marked,
@@ -185,16 +185,16 @@ P1R="$(cd "$P1" && pwd -P)"
 CFG="$WORK/cfg"; mklog "$CFG" "$P1R" 25
 CLAUDE_CONFIG_DIR="$CFG" "$PY" "$GEN" "$P1" --out "$WORK/out4/r.html" >/dev/null 2>&1
 has "$WORK/out4/r.html" "Sessions from other folders (1)" "a log in another slug qualifies by tool calls on the project (28 of 28)"
-hasnt "$WORK/out4/r.html" "Time, token and cost data from a session log are unavailable" "no unavailable banner when a log is found"
+hasnt "$WORK/out4/r.html" "class=nolog" "no unavailable banner when a log is found"
 hasnt "$WORK/out4/r.html" "13 Oct" "events three days after the last mention are clipped out"
 CFG2="$WORK/cfg2"; mklog "$CFG2" "$P1R" 10
 CLAUDE_CONFIG_DIR="$CFG2" "$PY" "$GEN" "$P1" --out "$WORK/out4/r2.html" >/dev/null 2>&1
-has "$WORK/out4/r2.html" "Time, token and cost data from a session log are unavailable" "13 tool calls on the project are not enough (20 needed): no log"
+has "$WORK/out4/r2.html" "class=nolog" "13 tool calls on the project are not enough (20 needed): no log"
 has "$WORK/out4/r2.html" "docs/progress/TIME-LEDGER.md" "fallback names the time ledger as its source"
 has "$WORK/out4/r2.html" "docs/BUILD-LOG.md" "fallback names BUILD-LOG as its source"
 has "$WORK/out4/r2.html" "Time and effort from the project ledgers" "ledger card shown"
 has "$WORK/out4/r2.html" "136k" "ledger phase row shown (tokens)"
-has "$WORK/out4/r2.html" "session-log &lt;path&gt;" "banner says how to pass --session-log"
+has "$WORK/out4/r2.html" "session-log &lt;path&gt;" "details block says how to pass --session-log"
 CLAUDE_CONFIG_DIR="$CFG2" "$PY" "$GEN" "$P1" --out "$WORK/out4/r3.html" --session-log "$CFG2/projects/-tmp-elsewhere/s1.jsonl" >/dev/null 2>&1
 hasnt "$WORK/out4/r3.html" "Sessions from other folders" "--session-log replaces discovery"
 
@@ -255,13 +255,13 @@ has "$WORK/out8/a.html" "<summary>How this was measured</summary>" "the sessions
 has "$WORK/out8/a.html" "<code>s1</code></td><td>2026-10-10</td><td class=n>100%</td>" "list row: short id, date, share of tool calls on the project"
 CFG8B="$WORK/cfg8b"; FILL=150 mklog "$CFG8B" "$P1R" 25
 CLAUDE_CONFIG_DIR="$CFG8B" "$PY" "$GEN" "$P1" --out "$WORK/out8/b.html" >/dev/null 2>&1
-has "$WORK/out8/b.html" "Time, token and cost data from a session log are unavailable" "28 of 178 calls (16%) is under the 25% share: not used"
+has "$WORK/out8/b.html" "class=nolog" "28 of 178 calls (16%) is under the 25% share: not used"
 CFG8C="$WORK/cfg8c"; TEXT=60 mklog "$CFG8C" "$P1R" 10
 CLAUDE_CONFIG_DIR="$CFG8C" "$PY" "$GEN" "$P1" --out "$WORK/out8/c.html" >/dev/null 2>&1
-has "$WORK/out8/c.html" "Time, token and cost data from a session log are unavailable" "60 text mentions do not attribute a session"
+has "$WORK/out8/c.html" "class=nolog" "60 text mentions do not attribute a session"
 CFG8D="$WORK/cfg8d"; REPORTRUN=1 mklog "$CFG8D" "$P1R" 25
 CLAUDE_CONFIG_DIR="$CFG8D" "$PY" "$GEN" "$P1" --out "$WORK/out8/d.html" >/dev/null 2>&1
-has "$WORK/out8/d.html" "Time, token and cost data from a session log are unavailable" "a session that runs progress-report.py is excluded"
+has "$WORK/out8/d.html" "class=nolog" "a session that runs progress-report.py is excluded"
 CFG8E="$WORK/cfg8e"; mklog "$CFG8E" "$P1R" 25 s1; FILL=100 mklog "$CFG8E" "$P1R" 25 s2
 CLAUDE_CONFIG_DIR="$CFG8E" "$PY" "$GEN" "$P1" --out "$WORK/out8/e.html" >/dev/null 2>&1
 has "$WORK/out8/e.html" "<code>s1</code>" "two sessions: the qualifying one is listed"

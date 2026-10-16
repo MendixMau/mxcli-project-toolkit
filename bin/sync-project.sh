@@ -1613,8 +1613,9 @@ fi
 # ── Progress report session cache: machine-local, keep it out of git ─────────────────────
 # It holds absolute session-log paths (user name, session ids). Same shape as doctor.sh's
 # receipt and toolkit.env lines; a project synced from an older toolkit has no such line.
-if [ "$WIRED" -eq 1 ] && [ -d "$PROJECT_DIR/.git" ] \
-   && ! git -C "$PROJECT_DIR" check-ignore -q .claude/progress-report-sessions.txt 2>/dev/null; then
+# -e, not -d: in a git worktree .git is a file. --no-index: a tracked file is never "ignored" otherwise.
+if [ "$WIRED" -eq 1 ] && [ -e "$PROJECT_DIR/.git" ] \
+   && ! git -C "$PROJECT_DIR" check-ignore -q --no-index .claude/progress-report-sessions.txt 2>/dev/null; then
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "Would add: /.claude/progress-report-sessions.txt to .gitignore (machine-local cache)"
   else
@@ -1623,6 +1624,10 @@ if [ "$WIRED" -eq 1 ] && [ -d "$PROJECT_DIR/.git" ] \
     echo "Added: /.claude/progress-report-sessions.txt to .gitignore (machine-local cache)"
   fi
   CHANGES=$((CHANGES + 1))
+fi
+if [ "$WIRED" -eq 1 ] && [ -e "$PROJECT_DIR/.git" ] \
+   && git -C "$PROJECT_DIR" ls-files --error-unmatch .claude/progress-report-sessions.txt >/dev/null 2>&1; then
+  echo "Note: .claude/progress-report-sessions.txt is already tracked by git; untrack it with: git rm --cached .claude/progress-report-sessions.txt"
 fi
 
 # ── Starlark lint rules ──────────────────────────────────────────────────────────────────

@@ -203,9 +203,14 @@ not.
 
 ### Workflow data: abort through the runtime, link tables first if SQL
 
-A seed reset that deletes workflow rows by SQL fails while the link tables still point at them
-(`workflow_currentactivity`, `workflow_workflowdefinition`, `usertask_assignees`, `usertask_targets`,
-`usertask_targetgroups`). Abort instances through the runtime (Workflow Commons admin, or a microflow
+A seed reset that deletes workflow rows by SQL fails while the link tables still point at them.
+On Mendix 11.15 (names read from a database, not from docs) they are
+`system$workflow_currentactivity`, `system$workflow_workflowdefinition`,
+`system$workflowusertask_assignees`, `system$workflowusertask_targetusers` and
+`system$workflowusertask_targetgroups`. Finished tasks keep their own links, with rows:
+`system$workflowendedusertask_assignees`, `_targetusers`, `_targetgroups`. There is no
+`usertask_targets` table. List the real names first (`information_schema.tables`) rather than
+trusting this list on another version. Abort instances through the runtime (Workflow Commons admin, or a microflow
 with *Change workflow state*); if SQL is unavoidable (local database only), delete the link tables
 first. Reset a context object only after its instances are gone: a deleted context object makes an
 instance incompatible, and that cannot be resolved (Mendix docs, *Workflow versioning*).

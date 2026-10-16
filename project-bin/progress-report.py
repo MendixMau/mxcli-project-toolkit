@@ -821,7 +821,7 @@ details.ph[open]{grid-column:1/-1}.steps td{font-size:12px;padding:3px 6px}
 .frag .FINDINGS,.frag .drift{color:var(--bad)}.frag .drift{font-size:12px}.frag .claims{font-size:12px}.frag .warn summary{color:var(--warn)}
 .frag .badge{margin-left:6px;border:1px solid currentColor;background:transparent}
 footer{margin-top:36px;font-size:13px;color:var(--mut)}footer li{margin:3px 0}
-@media(max-width:520px){.snav{padding:6px 12px}.advl{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rail{grid-template-columns:minmax(0,1fr)}main{padding:12px}h1{font-size:20px}.kpi .v{font-size:19px}}
+@media(max-width:520px){code,pre,.stage dd,.stage dt{overflow-wrap:anywhere;min-width:0}.stage dl{grid-template-columns:minmax(0,1fr)}.stage dd{text-align:left}.hd .sub{white-space:normal;flex:1 1 100%}.snav{padding:6px 12px;flex-wrap:nowrap;overflow-x:auto;max-width:100%}.snav a{flex:0 0 auto}.snav b{flex:0 0 auto}.updated{max-width:100%;overflow-wrap:anywhere}.advl{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rail{grid-template-columns:minmax(0,1fr)}main{padding:12px}h1{font-size:20px}.kpi .v{font-size:19px}}
 """
 KC = {"BRIEF": "#8b5cf6", "BUILD": "#2f6fed", "PROVE": "#1f9d63", "HARNESS": "#d98a0b", "RUN": "#c93c3c"}
 

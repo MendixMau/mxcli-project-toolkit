@@ -314,5 +314,12 @@ CLAUDE_CONFIG_DIR="$CFG2" bash "$SCRIPT" "$P5" --html >/dev/null 2>&1
 has "$P5/architecture/progress-report.html" "location.reload" "reload script present while active"
 hasnt "$R2" "location.reload" "no reload script when idle"
 
+echo "T16 narrow-width CSS (phone)"
+GEN="$ROOT/project-bin/progress-report.py"
+grep -q "@media(max-width:520px){code,pre,.stage dd" "$GEN" && ok "narrow rules wrap code and values" || bad "narrow rules wrap code and values"
+grep -q "\.stage dl{grid-template-columns:minmax(0,1fr)}" "$GEN" && ok "stage label/value rows stack on phones" || bad "stage label/value rows stack on phones"
+grep -q "\.hd \.sub{white-space:normal" "$GEN" && ok "gates label wraps below the header text" || bad "gates label wraps below the header text"
+grep -q "\.snav{padding:6px 12px;flex-wrap:nowrap;overflow-x:auto" "$GEN" && ok "stage nav scrolls inside its own container" || bad "stage nav scrolls inside its own container"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

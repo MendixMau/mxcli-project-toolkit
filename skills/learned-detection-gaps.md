@@ -3,25 +3,23 @@
 **Applies to:** any mxcli project
 **Purpose:** the register of MDL constructs that pass one or more verification rungs and still
 fail later, with the **first oracle that catches each**. Use it before trusting a green result
-("what does this rung miss?") and when a runtime symptom appears over a green model.
+and when a runtime symptom appears over a green model.
 
-Every row was found in the field. The pattern: **the verification rungs form a ladder, and a green
-result only certifies what that rung can see.**
+Every row was found in the field: **a green result only certifies what its rung can see.**
+
+**Hit or worked around a tool bug?** Append a row now: `bin/file-bugs.sh --add --target mxcli|toolkit --title T --repro R --expected E --actual A` (`docs/bugs.jsonl`, local id `PBUG-NN`); the same script later redacts and files it.
 
 ## The ladder
 
 1. `mxcli check --references` — MDL grammar and reference syntax. Catches the least.
 2. `mxcli exec` "success" — the write completed; says nothing about what was written.
-3. `DESCRIBE ...` read-back — mxcli's own lenient reader; normalises, and omits what it
-   cannot represent (so it can hide the very corruption you are checking for).
+3. `DESCRIBE ...` read-back — mxcli's own lenient reader; it normalises and omits what it cannot represent, so it can hide corruption.
 4. Native `mx check` / mxbuild — the real model loader. Catches structural and expression
    errors; blind to runtime wiring.
 5. Studio Pro's own GUI loader — catches BSON-structural corruption `mx check` sometimes
    passes (see `scriptable-sp-verification.md`).
 6. **Live runtime observation** — a browser retrieve, `/xas/` traffic, a DB row count. The
-   only rung that verifies *behaviour*. Some defect families are invisible to everything
-   above this line. **It is not infallible: it is only as true as the harness that reads it**
-   — see operating rule 3.
+   only rung that verifies *behaviour*. **Only as true as the harness that reads it** (operating rule 3).
 
 ## The register
 

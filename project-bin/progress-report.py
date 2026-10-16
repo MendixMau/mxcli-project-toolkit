@@ -114,7 +114,7 @@ def context_window(msgs, compacts=(), flag_1m=False):
     if nxt is None: return None, "a context of %s exceeds every known window" % fmt_tok(obs)
     return nxt, "inferred: the log shows %s and no 1M marker or compaction" % fmt_tok(obs)
 TEST_MOMENTS = [("Every change", "Gate check plus only the tests that touch the change"),
-                ("Module done", "Module journeys, plus unit tests when the project has them switched on"),
+                ("Module done", "Module journeys, plus the per-flow unit tests chosen at CAC-5 (listed in the module brief)"),
                 ("Build complete", "Everything, once"),
                 ("Before every later deploy", "Everything"),
                 ("User asks", "Everything")]

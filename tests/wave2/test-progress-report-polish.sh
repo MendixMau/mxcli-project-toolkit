@@ -102,5 +102,10 @@ has "$R3" "class=nolog" "without --no-log the calm line is also shown"
 has "$R3" "Looked in" "without --no-log the looked-in counts live inside the details"
 has "$R3" "then regenerate: <code>project-bin/build-plan-status.sh" "regenerate hint present inside the details"
 
+echo "P4 test-moments wording (the table is defined in the generator)"
+GENPY="$ROOT/project-bin/progress-report.py"
+has "$GENPY" "per-flow unit tests chosen at CAC-5" "unit tests run for the flows chosen at CAC-5"
+hasnt "$GENPY" "switched on" "the old 'switched on' wording is gone"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

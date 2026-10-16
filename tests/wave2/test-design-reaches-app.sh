@@ -223,5 +223,12 @@ out="$(run "$d")"
 has   "a wrong themed value is still caught"         "$out" "7 carry the design's value"
 has   "names the block, token and both values"       "$out" "--brand (:root.theme-light built #0F6E6B, designed #AA1122)"
 
+# A descendant rule (`:root .theme-light`, with a space) does not set the variable on the root, so
+# it is not the block the design declared in `:root.theme-light`. It must not read as valued.
+d="$(themed themed-descendant built-themed-descendant.css)"
+out="$(run "$d")"
+hasnt "a descendant selector is not the root theme block" "$out" "tokens valued   9 of 9"
+has   "the descendant block counts as built absent"       "$out" "carry the design's value"
+
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

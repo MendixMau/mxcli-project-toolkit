@@ -221,7 +221,7 @@ BUILT_ROOT="$(awk '
 scoped_root() {
   awk '
     /^[[:space:]]*:root[^{,]*[.\[:][^{,]*\{[[:space:]]*$/ {
-      sel = $0; sub(/[[:space:]]*\{[[:space:]]*$/, "", sel); gsub(/[[:space:]]+/, "", sel); inscope = 1; next }
+      sel = $0; sub(/[[:space:]]*\{[[:space:]]*$/, "", sel); gsub(/[[:space:]]+/, " ", sel); gsub(/^ | $/, "", sel); inscope = 1; next }
     inscope && /^[[:space:]]*\}/ { inscope = 0; next }
     inscope && match($0, /--[a-zA-Z0-9-]+[[:space:]]*:/) {
       name = substr($0, RSTART, RLENGTH); sub(/[[:space:]]*:$/, "", name)

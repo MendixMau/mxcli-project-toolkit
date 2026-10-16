@@ -35,8 +35,8 @@
 #   before every later deploy · all = "run everything", any time (same as deploy).
 # Old row names "Module close" and "Deploy-ready" still read. A label is matched by its first words,
 # case-insensitively: "Every change (build and feedback)" and "Build complete, and before every later
-# deploy" (the Offer's own wording) map to their moment; a cell reads up to its first comma
-# ("affected, modules on only" = affected). An unknown row label warns on stderr.
+# deploy" (the Offer's own wording) map to their moment; a cell reads up to its first comma or
+# parenthesis ("affected, modules on only" = affected, "none (decided CAC-5)" = none). An unknown row label warns on stderr.
 #
 # UNIT TESTS ARE OFF BY DEFAULT (field test of the RC, 2026-10-16: nothing read the knob, so a
 # unit test was offered after every change). Precedence for the UNIT scope, highest first:
@@ -131,10 +131,11 @@ if [ -f PROJECT.md ]; then
     on && /^\|/ { split($0, c, "|"); x = tolower(c[2]); sub(/[(,].*/, "", x); gsub(/^[ \t*`]+|[ \t*`]+$/, "", x)
                   if (x == "moment" || x ~ /^[-: ]*$/) next
                   if (x !~ /^(every change|module done|module close|build complete|deploy-ready)$/) { y = c[2]; gsub(/^[ \t]+|[ \t]+$/, "", y); print "warning: ## Test strategy row label \"" y "\" is not a known moment, ignored" > "/dev/stderr"; next }
-                  if (x == tolower(r) || x == tolower(r2)) { u = c[3]; j = c[4]; s = c[5]
-                    sub(/,.*/, "", u); sub(/,.*/, "", j)
+                  if (!done && (x == tolower(r) || x == tolower(r2))) { done = 1; u = c[3]; j = c[4]; s = c[5]
+                    sub(/[(,].*/, "", u); sub(/[(,].*/, "", j)
                     gsub(/[ \t`*]/, "", u); gsub(/[ \t`*]/, "", j); gsub(/^[ \t]+|[ \t]+$/, "", s)
-                    print tolower(u) "\t" tolower(j) "\t" s; exit } }' PROJECT.md)"
+                    out = tolower(u) "\t" tolower(j) "\t" s } }
+    END { if (done) print out }' PROJECT.md)"
   if [ -n "$_row" ]; then
     _u="$(printf '%s' "$_row" | cut -f1)"; _j="$(printf '%s' "$_row" | cut -f2)"; _s="$(printf '%s' "$_row" | cut -f3)"
     case "$_u" in none|affected|module|full) U="$_u" ;; *) FROM="row '$ROW' unit scope '$_u' unknown, default used; " ;; esac

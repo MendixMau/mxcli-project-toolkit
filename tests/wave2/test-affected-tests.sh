@@ -314,6 +314,11 @@ run L9d --moment deploy >/dev/null 2>&1; has L9d "unit=full journeys=full" && ha
 printf 'Unit tests default: yes\n## Test strategy\n| Every chnage | none | none | CONFIRMED |\n' > "$P/PROJECT.md"; run L9e "$TOTAL" >/dev/null 2>&1
 grep -q 'row label "Every chnage"' "$WORK/err.L9e" && ok "L9e an unmappable row label warns on stderr" || bad "L9e" "$(cat "$WORK/err.L9e")"
 
+pm 'none (decided CAC-5)' none; run L9f "$TOTAL" >/dev/null 2>"$WORK/err.L9f"
+has L9f "unit=none" && lacks L9f ".test.mdl" && ! grep -qi "unknown" "$WORK/out.L9f" && ok "L9f a cell 'none (decided CAC-5)' reads as none: no unit tests" || bad "L9f" "$(cat "$WORK/out.L9f")"
+printf 'Unit tests default: yes\n## Test strategy\n| Every change | none | none | CONFIRMED |\n| Modul done | none | none | CONFIRMED |\n' > "$P/PROJECT.md"; run L9g "$TOTAL" >/dev/null 2>"$WORK/err.L9g"
+has L9g "unit=none" && grep -q 'row label "Modul done"' "$WORK/err.L9g" && ok "L9g an unknown label AFTER a matched row still warns" || bad "L9g" "$(cat "$WORK/err.L9g")"
+
 # L6/L7: grants (unit on, so a module-wide selection would show)
 cp "$BASE_PM" "$P/PROJECT.md"
 run L6 "$GRANT" >/dev/null

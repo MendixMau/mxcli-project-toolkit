@@ -1516,7 +1516,7 @@ _ea_rewrite_item3() {   # $1=file  $2=start-prefix  $3=end-prefix  $4=replacemen
   # BSD awk (stock macOS) rejects a newline inside -v ("awk: newline in string"), so the
   # replacement text is streamed from a file, as the Q9 repair does. Return 2 (not 0) when awk
   # fails so the caller warns instead of reporting a rewrite that never happened.
-  printf '%s\n' "$repl" > "$_rf"
+  printf '%s\n' "$repl" > "$_rf" || { rm -f "$_tmp" "$_rf"; return 2; }
   if awk -v start="$start" -v endp="$endp" -v rf="$_rf" '
     BEGIN { skip = 0 }
     { if (skip) { if (index($0, endp) == 1) { skip = 0 } else { next } }
@@ -1538,7 +1538,7 @@ _ea_report_item3() {
     0) if [ "$DRY_RUN" -eq 1 ]; then echo "Would rewrite: $2 item 3 — $3"
        else echo "Rewrote: $2 item 3 — $4"; fi
        CHANGES=$((CHANGES + 1)) ;;
-    2) echo "WARN: $2 item 3 rewrite FAILED (awk error or temp file); file left unchanged — re-run sync, or edit item 3 by hand." ;;
+    2) warn "$2 item 3 rewrite FAILED (awk error or temp file); file left unchanged." "Re-run sync, or edit item 3 by hand." ;;
   esac
 }
 _ea_try_item3() {   # $1=file $2=label $3=md/hash text $4=prefix of "3. **"  — tries both wordings

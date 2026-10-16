@@ -333,13 +333,22 @@ if [ -x "$SYNC" ]; then
   printf '#!/bin/sh\nfor a in "$@"; do case "$a" in rf=*) echo "awk: simulated failure" >&2; exit 2;; esac; done\nexec /usr/bin/awk "$@"\n' > "$WORK/failawk/awk"
   chmod +x "$WORK/failawk/awk"
   BEFORE3="$(cat "$SP3/CLAUDE.md")"
+  cp -R "$SP3" "$SP3.base"
+  OUT4B="$(bash "$SYNC" "$SP3.base" 2>&1)"
   OUT4="$(PATH="$WORK/failawk:$PATH" bash "$SYNC" "$SP3" 2>&1)"
   printf '%s' "$OUT4" | grep -q 'Rewrote: CLAUDE.md item 3' \
     && bad "sync-project.sh: prints 'Rewrote' for an item-3 rewrite that failed" \
     || ok "sync-project.sh: no 'Rewrote' message when the item-3 rewrite fails"
-  printf '%s' "$OUT4" | grep -q 'WARN: CLAUDE.md item 3 rewrite FAILED' \
+  printf '%s' "$OUT4" | grep -q '⚠️  CLAUDE.md item 3 rewrite FAILED' \
     && ok "sync-project.sh: failed item-3 rewrite is reported as a WARN" \
     || bad "sync-project.sh: failed item-3 rewrite gave no WARN"
+  # the failures must reach the WARNINGS counter: the same fixture synced with a working awk
+  # gives the baseline count, and the six failed rewrites must add to it
+  N0="$(printf '%s' "$OUT4B" | sed -n 's/^\([0-9][0-9]*\) warning(s).*/\1/p')"
+  N1="$(printf '%s' "$OUT4" | sed -n 's/^\([0-9][0-9]*\) warning(s).*/\1/p')"
+  [ "${N1:-0}" -ge $(( ${N0:-0} + 6 )) ] \
+    && ok "sync-project.sh: failed item-3 rewrites are counted as warnings (${N0:-0} -> ${N1:-0})" \
+    || bad "sync-project.sh: failed item-3 rewrites not counted as warnings (${N0:-0} -> ${N1:-0})"
   [ "$BEFORE3" = "$(cat "$SP3/CLAUDE.md")" ] \
     && ok "sync-project.sh: file left unchanged when the rewrite fails" \
     || bad "sync-project.sh: file changed although the rewrite failed"

@@ -54,6 +54,15 @@ user says to proceed. Then run the predefined questions to record the direction.
 
 **Record as:** `PROJECT.md` → `## Decisions` → `Atlas layout:`
 
+### Q1b — Who lands where
+
+**When to ask:** Always, with Q1. Layout is not navigation.
+
+> "Who lands where, and how does each role find its work?" Propose a home and an inbox per role
+> from `design/interaction-model.md` (`interaction-model.md`).
+
+**Record as:** `PROJECT.md` → `## Decisions` → `Role homes:`
+
 ---
 
 ### Q2 — Responsive / platform target
@@ -102,6 +111,7 @@ answer to this question.
 ```
 PROJECT.md → ## Decisions:
   Atlas layout: [chosen layout]
+  Role homes: [role → home page, inbox]
   Platform target: [web / responsive / native / both]
   Design assets: [Figma URL / brand doc link / 'none' / description]
   Design direction: [brand / Atlas defaults / <name> — ui-ux-pro-max @ <sha7> + source rows]

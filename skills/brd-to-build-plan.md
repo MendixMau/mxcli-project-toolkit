@@ -699,6 +699,8 @@ Before any `GRANT` script, decide and document:
 
 Every page generated in the build plan must be wired to a navigation item before the module is considered done. Leaving pages unwired is a silent incompleteness — they exist in the MPR but are unreachable in a running app.
 
+Read the wire points from `design/interaction-model.md` (`interaction-model.md`): each role's home page, each page's nav entry and page parameter. A page that takes a parameter is opened from its callers, never from the menu.
+
 **Required for every module:**
 
 | Page type | Where to wire |

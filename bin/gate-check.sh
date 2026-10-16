@@ -1159,6 +1159,13 @@ check_stage_3() {
       return
     fi
   done
+  # The interaction-model facts (#291), computed once before the stage loop and printed under
+  # "Interaction model (stage 3 facts)". PENDING (no artifact yet — the Artifacts block reports
+  # that) and ADOPTED/WAIVED leave this verdict alone; a finding is something examined and wrong.
+  case "${MXTK_IM_STATUS:-}" in
+    FAIL)   echo "FAIL|interaction model: ${MXTK_IM_NOTE} — each finding is listed under 'Interaction model (stage 3 facts)' (skills/interaction-model.md)"; return ;;
+    MANUAL) echo "MANUAL|interaction model: ${MXTK_IM_NOTE}"; return ;;
+  esac
   if reg_unavailable; then reg_unavailable_note; return; fi
   if has_confirmed_decision 3; then
     echo "PASS|fit-gap, blueprint render, design system, wireframes present and a Stage-3 CONFIRMED decision is in $REGISTER"
@@ -2540,6 +2547,26 @@ if [ -r "$TOOLKIT_DIR/bin/lib/artifact-check.sh" ]; then
 else
   # Same discipline again: the checker failing is not the project passing.
   printf 'Artifacts: FAULT — bin/lib/artifact-check.sh missing from %s; no artifact was checked\n' "$TOOLKIT_DIR"
+fi
+
+# ---------------------------------------------------------------------------
+# Interaction model — the Stage-3 facts over design/interaction-model.md (#291).
+#
+# The artifact check above only notices the file is absent. Once it exists, three facts are
+# read from it: every BRD role has a home row, every BRD approval/user-task use case has an
+# inbox row (or a stated reason), every wireframe carries its `Page parameter:` line. Each
+# finding prints here; check_stage_3() turns any un-waived one into a Stage-3 FAIL. Judgement
+# (is that the right home?) stays in skills/interaction-model.md. Waivers and adoption: see the
+# header of bin/lib/interaction-model-check.sh.
+MXTK_IM_STATUS=""; MXTK_IM_NOTE=""
+if [ -r "$TOOLKIT_DIR/bin/lib/interaction-model-check.sh" ] && [ -r "$TOOLKIT_DIR/bin/lib/artifact-check.sh" ]; then
+  # shellcheck source=lib/interaction-model-check.sh
+  . "$TOOLKIT_DIR/bin/lib/interaction-model-check.sh"
+  mxtk_interaction_model_check "$PROJECT_DIR" "$REGISTER" "$ANALYSIS_BASE"
+else
+  MXTK_IM_STATUS="MANUAL"
+  MXTK_IM_NOTE="bin/lib/interaction-model-check.sh missing from $TOOLKIT_DIR — cannot evaluate, which is not a pass"
+  printf 'Interaction model (stage 3 facts): MANUAL — %s\n' "$MXTK_IM_NOTE"
 fi
 
 # ---------------------------------------------------------------------------

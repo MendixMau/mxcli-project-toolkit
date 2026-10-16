@@ -99,11 +99,18 @@ degrade each other (measured: both lost their navigation menu), which reads as "
 slow". End every session afterwards with `helpers.logout` (the xas logout action, with the token); closing the browser context
 leaves it alive against the runtime's session cap.
 
-**9. The trace store samples.** Jaeger's query caps at a few hundred traces; one burst makes
+**9. A local app without a licence caps sessions at 6.** A trial runtime allows 6 concurrent
+users ("Maximum number of sessions exceeded!") and stops itself after a random 2 to 4 hours
+("LicenseService: Maximum run time exceeded"). Both read as the app failing under load. On a
+local trial, more than 6 sessions is not a test: use a licensed runtime or a cloud sandbox for
+user counts above 6, and check uptime before a long run. Concurrent *requests* on one session
+hit no such cap in the field runs: the 1000 and 2000 bursts ran on one session.
+
+**10. The trace store samples.** Jaeger's query caps at a few hundred traces; one burst makes
 far more. Read server-side percentiles, never counts, and never read "0 ERROR spans" as "no
 request failed" above the cap.
 
-**10. An empty database is a different app.** A p95 on 50 rows says nothing about 5 million.
+**11. An empty database is a different app.** A p95 on 50 rows says nothing about 5 million.
 State the row counts of the entities the page reads, and look at the query plan or missing
 indexes before blaming the runtime. This is the honest half of "load testing is theatre".
 

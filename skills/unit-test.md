@@ -7,8 +7,8 @@ assertion is live, how to run it without breaking the live app, and how to repor
 the false-green rows are `testing-shape.md` §4.
 
 **Whether** a module gets unit tests, and **when** they run, is the project's test strategy
-(PROJECT.md `## Test strategy`, `Unit modules:`, decided at CAC-5). Each change runs only the
-touched unit tests of opted-in modules; module done runs that module's; build complete and
+(PROJECT.md `## Test strategy`, `Unit modules:` or per flow in the module brief's `Unit flows:`, decided at CAC-5). Each change runs only the
+touched unit tests of opted-in modules or listed flows; module done runs that module's; build complete and
 before each later deploy run everything once. This file does not decide that. When the user asks for unit tests outside a pipeline, they have decided.
 
 ---

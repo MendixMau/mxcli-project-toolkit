@@ -73,6 +73,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/brd-to-build-plan.md` | Turning BRDs plus architecture into a numbered, dependency-ordered build plan |
 | `skills/coverage-ledger.md` | Building the Stage 4 coverage ledger |
 | `bin/coverage-check.sh` | Checking a coverage ledger against its BRD |
+| `skills/learned-multilingual-app.md` | Adding a second language, a language picker or a translation script |
 | `skills/mendix-agents.md` | Building a Mendix AI agent |
 | `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN |
 | `skills/close-the-loop.md` | Cutover and retrospective |

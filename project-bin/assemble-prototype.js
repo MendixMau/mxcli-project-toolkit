@@ -283,6 +283,11 @@ const SCRIPT = `
 })();
 `;
 
+// The process map (process-map.js, skills/process-map.md) is built from the same wireframes and shows
+// each on its step. When the project has a process model, the prototype links to the map beside it
+// and the map links back (its header). Keyed on the model, not on the built map, so the order of
+// the two builds does not matter.
+const hasMap = fs.existsSync(path.join(path.dirname(path.resolve(outFile)), 'process-model.json'));
 const index = screens.map(s => '<li><a href="#/' + esc(s.route) + '">' + esc(s.title) + '</a> <code>#/' + esc(s.route) + '</code></li>').join('\n');
 
 const out = '<!doctype html>\n' +
@@ -294,7 +299,8 @@ const out = '<!doctype html>\n' +
   '<style data-proto-chrome>' + CHROME_CSS + '</style>\n' +
   '</head>\n<body data-default-route="' + esc(def) + '">\n' +
   '<nav id="proto-bar"><details><summary>Screens (' + screens.length + ')</summary><ol>\n' + index + '\n</ol></details>\n' +
-  '<label><input type="checkbox" id="proto-bindings"> Show bindings</label></nav>\n' +
+  '<label><input type="checkbox" id="proto-bindings"> Show bindings</label>' +
+  (hasMap ? '<br><a id="proto-map" href="process-map.html">Process map: where each screen sits in the work</a>' : '') + '</nav>\n' +
   '<div id="proto-missing" hidden></div>\n' +
   '<div id="proto-screens">\n' + screens.map(screenSection).join('') + '</div>\n' +
   '<script>' + SCRIPT + '</script>\n</body></html>\n';

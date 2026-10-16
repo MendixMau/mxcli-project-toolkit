@@ -50,7 +50,7 @@ except Exception: print("True")
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 TOOLKIT="__TOOLKIT_ROOT__"
 OQ="$TOOLKIT/bin/open-questions.sh"
-QR="$TOOLKIT/bin/questions-report.sh"
+QR="$TOOLKIT/bin/brd-report.sh"
 IM="$TOOLKIT/bin/interview-mode.sh"
 
 [ -x "$OQ" ] || exit 0
@@ -92,8 +92,8 @@ printf '%s' "$FP" > "$STATE" 2>/dev/null || true
 
 REPORT=""
 if [ -x "$QR" ]; then
-  "$QR" "$PROJECT_DIR" -o "$PROJECT_DIR/docs/open-questions.html" --quiet >/dev/null 2>&1
-  [ -f "$PROJECT_DIR/docs/open-questions.html" ] && REPORT="$PROJECT_DIR/docs/open-questions.html"
+  "$QR" "$PROJECT_DIR" --html "$PROJECT_DIR/analysis/brd-report.html" --quiet >/dev/null 2>&1
+  [ -f "$PROJECT_DIR/analysis/brd-report.html" ] && REPORT="$PROJECT_DIR/analysis/brd-report.html"
 fi
 
 # In auto mode — and when the user is remote — the report is the whole job. Refreshing it
@@ -113,7 +113,7 @@ REASON="$BLOCKING question(s) in this project have never been put to the user, a
 Before you stop: put them in the chat. Read $TOOLKIT/skills/interview-protocol.md — every question carries two named options and your recommendation; a bare question hands your analysis back to the user. Batch them, then end the turn and wait for answers.
 "
 [ -n "$REPORT" ] && REASON="${REASON}
-Triage report written for the user to review: $REPORT — give them this path.
+BRD report (open questions under the process map) written for the user to review: $REPORT — give them this path.
 "
 REASON="${REASON}
 This project is in interview mode '$MODE'. If the user wants speed over involvement here,

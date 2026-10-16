@@ -1,0 +1,146 @@
+{
+  "schema": "process-model/1",
+  "app": "Order desk",
+  "brdDirs": [
+    "brd"
+  ],
+  "lanes": [
+    {
+      "id": "requester",
+      "label": "Requester",
+      "kind": "role"
+    },
+    {
+      "id": "approver",
+      "label": "Approver",
+      "kind": "role"
+    },
+    {
+      "id": "system",
+      "label": "System",
+      "kind": "system"
+    }
+  ],
+  "processes": [
+    {
+      "id": "P1",
+      "title": "Order approval: submit, approve or reject, notify",
+      "summary": "A requester submits an order, an approver approves or rejects it, and the requester is told.",
+      "steps": [
+        {
+          "id": "P1-01",
+          "lane": "requester",
+          "title": "Fill in and submit the order",
+          "page": "Orders.Order_NewEdit",
+          "useCases": [
+            "F001:UC001"
+          ],
+          "actions": [
+            "ACT_Order_Submit"
+          ],
+          "status": "Draft",
+          "next": [
+            "P1-02"
+          ]
+        },
+        {
+          "id": "P1-02",
+          "lane": "system",
+          "kind": "system",
+          "title": "Check and store the order",
+          "does": "Validates the amount and sets the status to Submitted.",
+          "status": "Draft to Submitted",
+          "next": [
+            "P1-03"
+          ]
+        },
+        {
+          "id": "P1-03",
+          "lane": "approver",
+          "title": "Open the order",
+          "page": "Order_Approve",
+          "useCases": [
+            "F001:UC002"
+          ],
+          "next": [
+            "P1-04"
+          ]
+        },
+        {
+          "id": "P1-04",
+          "lane": "approver",
+          "kind": "decision",
+          "title": "Approve or reject?",
+          "does": "The approver decides.",
+          "next": [
+            {
+              "to": "P1-05",
+              "label": "Approve"
+            },
+            {
+              "to": "P1-06",
+              "label": "Reject"
+            }
+          ]
+        },
+        {
+          "id": "P1-05",
+          "lane": "system",
+          "kind": "system",
+          "title": "Record the approval",
+          "actions": [
+            "ACT_Order_Approve"
+          ],
+          "status": "Approved",
+          "next": [
+            "P1-07"
+          ]
+        },
+        {
+          "id": "P1-06",
+          "lane": "system",
+          "kind": "system",
+          "title": "Record the rejection",
+          "actions": [
+            "ACT_Order_Reject"
+          ],
+          "status": "Rejected",
+          "next": [
+            "P1-07"
+          ]
+        },
+        {
+          "id": "P1-07",
+          "lane": "system",
+          "kind": "system",
+          "title": "Tell the requester",
+          "useCases": [
+            "F001:UC003"
+          ],
+          "actions": [
+            "SUB_Order_Notify"
+          ],
+          "next": [
+            "P1-08"
+          ]
+        },
+        {
+          "id": "P1-08",
+          "lane": "requester",
+          "title": "See the outcome in the order list",
+          "page": "Order_Overview",
+          "useCases": [
+            "F001:UC004"
+          ],
+          "next": []
+        }
+      ]
+    }
+  ],
+  "standalone": [
+    {
+      "useCase": "F001:UC005",
+      "reason": "A nightly job with no screen and no person; it touches no step of the approval process."
+    }
+  ]
+}

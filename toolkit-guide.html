@@ -402,7 +402,7 @@ never a sibling next to it.</span></pre>
     <text x="542" y="278" font-size="10.5" fill="var(--ink-soft)" text-anchor="middle">row, or catalogued as not built</text>
     <text x="542" y="294" font-size="10" fill="var(--warn-ink)" text-anchor="middle">brain plan may replace it — research, PR #93</text>
     <rect x="656" y="230" width="210" height="72" rx="6" fill="var(--bg)" stroke="var(--fail-ink)"/>
-    <text x="761" y="248" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--fail-ink)" text-anchor="middle">docs/open-questions.html</text>
+    <text x="761" y="248" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--fail-ink)" text-anchor="middle">brd-report.html (questions)</text>
     <text x="761" y="264" font-size="10.5" fill="var(--ink-soft)" text-anchor="middle">anything the pipeline could not settle,</text>
     <text x="761" y="278" font-size="10.5" fill="var(--ink-soft)" text-anchor="middle">batched per gate by bin/open-questions.sh</text>
     <text x="761" y="294" font-size="10" fill="var(--fail-ink)" text-anchor="middle">blocks the gate while anything is unanswered</text>
@@ -483,7 +483,7 @@ never a sibling next to it.</span></pre>
     <tr><td><code>PROJECT.md</code></td><td>the agent at a gate, after asking you</td><td><code>gate-check.sh</code>, <code>checkpoint.sh</code>, every stage</td><td>a stage runs on a decision you never saw; gates block on <code>UNSYNCED</code></td></tr>
     <tr><td><code>docs/brain/</code></td><td><code>mxcli brain capture</code> when a session learns something</td><td>the next session, <code>brain check</code> before every commit</td><td>the next session reasonably decides the opposite</td></tr>
     <tr><td>coverage ledger</td><td>Stage 4, from build-plan <code>claims</code></td><td>Stage 4 gate, Stage 5 build rows</td><td>a requirement is silently neither built nor descoped</td></tr>
-    <tr><td><code>docs/open-questions.html</code></td><td><code>bin/open-questions.sh</code>, from BRD <code>openQuestions</code> + SME notes</td><td>you, at every gate</td><td>a product decision gets taken in a file nobody opens</td></tr>
+    <tr><td><code>analysis/brd-report.html</code> (open questions under the process map)</td><td><code>bin/brd-report.sh</code>, from <code>bin/open-questions.sh</code> (BRD <code>openQuestions</code> + SME notes)</td><td>you, at every gate</td><td>a product decision gets taken in a file nobody opens</td></tr>
     <tr><td><code>brd/*.brd.json</code></td><td>Stage 2 (extractor, KB, interview or by hand)</td><td>Stage 3, 4, the brief, the ledger</td><td>the build drifts from the requirement — see the drift-sync rule</td></tr>
     <tr><td><code>&lt;Module&gt;-brief.md</code></td><td>ba-agent (roles, screens, rules) + architect (entities, dependencies, stubs)</td><td>the build agent, first, for that module only</td><td>the build agent improvises what nobody wrote down</td></tr>
     <tr><td><code>docs/BUILD-LOG.md</code> · <code>docs/report.json</code></td><td><code>bin/exec.sh</code> and every instrument</td><td><code>status.sh</code>, <code>index.html</code>, the test-result audit</td><td>"done" becomes a claim instead of a record</td></tr>

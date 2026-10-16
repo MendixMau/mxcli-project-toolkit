@@ -164,7 +164,8 @@ else
 fi
 cat <<'TABLE'
     OVERWRITE docs/progress/RESUME.md   # <= 60 lines: where we are, next actions,
-                                        #    do-not-lose, and which file to read for what.
+                                        #    Waiting changes: (agreed, unbuilt CR ids), do-not-lose, and
+                                        #    which file to read for what.
                                         #    This is the ONLY file read after /clear.
     mxcli brain check -p <app.mpr>      # capture/promote never validate anchors; exit 1 =
                                         #    a dead anchor. Fix or `brain drop` before commit.

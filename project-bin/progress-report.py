@@ -473,21 +473,25 @@ def find_sessions(proj, logs_dir=None, cache_path=None):
                 except OSError: continue
                 if st.st_mtime >= cutoff: cands.append((st.st_mtime, f, st.st_size))
         cands.sort(reverse=True); cands = cands[:SCAN_MAX_FILES]
+    nread = 0
     for mt, f, size in sorted(cands, reverse=True):
-        DISCOVERY["other_files"] += 1
+        nread += 1
         if size > SCAN_MAX_BYTES: entries[f] = {"v": "no", "m": mt, "s": size, "info": None}; continue
         r = tool_share(f, roots, needle)
         if r is None: DISCOVERY["skipped_report"] += 1; entries[f] = {"v": "no", "m": mt, "s": size, "info": None}; continue
         if r["touch"] >= TOOL_MIN and r["share"] >= TOOL_SHARE:
             entries[f] = {"v": "used", "m": mt, "s": size, "info": {"share": r["share"], "touch": r["touch"], "total": r["total"], "spans": r["spans"]}}
         else: entries[f] = {"v": "no", "m": mt, "s": size, "info": None}
+    # the page's "looked in N folders (M logs)" counts must not depend on cold or warm: count them the same way both times
+    DISCOVERY["other_dirs"] = sum(1 for n in os.listdir(base) if os.path.isdir(os.path.join(base, n)) and not own_dir(n))
+    DISCOVERY["other_files"] = len(entries)
     for f, e in entries.items():
         if e["v"] != "used" or f in have_own(out): continue
         i = e["info"]; sp = [tuple(x) for x in i["spans"]]
         out.append(f); DISCOVERY["mention"].append(f); DISCOVERY.setdefault("clip", {})[f] = sp
         DISCOVERY["used"].append({"id": os.path.splitext(os.path.basename(f))[0][:8], "t": sp[0][0], "share": i["share"], "touch": i["touch"], "total": i["total"], "span_s": sum(b_ - a_ for a_, b_ in sp)})
     save_cache(cpath, started, entries)
-    dbg("discovery %s, %d file(s) read, %.2f s" % (DISCOVERY["cache"], DISCOVERY["other_files"], time.time() - started))
+    dbg("discovery %s, %d file(s) read, %.2f s" % (DISCOVERY["cache"], nread, time.time() - started))
     out.sort(key=lambda f: os.path.getmtime(f))
     return out, base
 

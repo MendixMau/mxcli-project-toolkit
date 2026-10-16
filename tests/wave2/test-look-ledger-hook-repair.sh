@@ -39,7 +39,7 @@ mkdir -p "$P/.claude"
 # Canonical json.dumps(indent=2) layout, like a file a tool wrote: --hooks-only refuses to rewrite
 # a hand-formatted file (exit 3), so a one-line-per-hook fixture only passed where something else
 # had already normalised it (a host with mxcli on PATH), and failed on the CI runner.
-python3 - "$P/.claude/settings.json" <<'PY'
+"$PY" - "$P/.claude/settings.json" <<'PY'
 import json, sys
 d = {"env": {"MXCLI_QUIET": "1"},
      "hooks": {"SessionStart": [{"hooks": [{"command": "sh .claude/bootstrap-mxcli.sh || true", "type": "command"}]}]},

@@ -1732,6 +1732,9 @@ stage_surface_status() {
     # test-report.html is answered by the same function check_stage_6 uses (#233), so the
     # harness report pair also discharges it.
     if [ "$pat" = "test-report.html" ] && test_surface_hit; then continue; fi
+    # progress-report.html replaced build-plan.html; a project that still has the old page keeps
+    # its Surface green (the file is never deleted, so it must not read as missing).
+    if [ "$pat" = "progress-report.html" ] && [ -e "$PROJECT_DIR/architecture/build-plan.html" ]; then continue; fi
     # SURFACE_BASES, not just the project root. §2's Surface cells are inconsistent about
     # paths: some carry one ("architecture/blueprint.html", "docs/report.json") and some name
     # the file bare ("design-system.html", "build-plan.html", "test-report.html"). A bare cell

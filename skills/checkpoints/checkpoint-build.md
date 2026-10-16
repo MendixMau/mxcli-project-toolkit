@@ -118,8 +118,9 @@ developer may change any cell in the same answer:
 > module's own (`--moment module --module <M>`); `full` = everything once; `none` = skip.
 > Build complete = you say the app is ready for UAT or production; I do not declare it alone.
 > Say 'run everything' any time.
-> Unit tests: only flows you name, a reason each (calculation, money/date, mapping,
-> REST/Java logic, a fixed bug), Default none; journeys catch the rest. Change a cell, name flows, or say 'defaults'."
+> Unit tests: only flows you name, written while the logic is fresh (writing is not running), a
+> reason each (calculation, money/date, mapping, REST/Java logic, a fixed bug). Default: off.
+> Change a cell, name flows, or say 'defaults'."
 
 **Record as:** `PROJECT.md` → `## Test strategy`, the table plus a `Status` column (`CONFIRMED`, or
 `ASSUMED` in auto mode); each named flow goes in its module brief as `Unit flows:` (`- ACT_X: reason`). Unit cells are scopes.

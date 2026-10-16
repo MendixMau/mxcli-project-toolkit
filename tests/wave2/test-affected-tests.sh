@@ -64,6 +64,7 @@ printf '%s\n' "$*" >> "$D/.stub-log"
 [ "${STUB_NOPROJ:-}" = 1 ] && { cat "$FX/noproj.out"; cat "$FX/noproj.err" >&2; exit "$(cat "$FX/noproj.exit")"; }
 q=""; while [ $# -gt 0 ]; do [ "$1" = -c ] && q="$2"; shift; done
 case "$q" in "SHOW MICROFLOWS IN"*)   # synthetic listing, the real table shape
+  [ -n "${STUB_BADMOD:-}" ] && case "$q" in *"IN $STUB_BADMOD"*) echo "Error: module not found: $STUB_BADMOD" >&2; exit 1 ;; esac
   echo "| Qualified Name | Module | Name | Excluded |"; echo "|---|---|---|---|"
   for n in ${STUB_MF:-Shop.SUB_Order_Total Shop.VAL_Order Shop.ACT_Order_Submit Admin.ACT_Reset}; do echo "| $n | ${n%%.*} | ${n#*.} | false |"; done; exit 0 ;; esac
 cat "$FX/callers.err" >&2
@@ -379,6 +380,43 @@ printf '# Project\n\nUnit tests default: no\n## Test strategy\n| Moment | Unit t
 fl 'Unit flows:\n- SUB_Order_Total: money calculation'
 run L10q "$TOTAL" >/dev/null 2>&1
 has L10q "Total.test.mdl" && ok "L10q row none + a Unit flows list: the listed flow's test runs (like L5c)" || bad "L10q" "$(cat "$WORK/out.L10q")"
+# L10r..x: review fixes (module scope, parser forms, default yes, owed tests, casing, missing module)
+am() { mkdir -p "$BRIEF_DIR/Admin"; printf '# Brief\n\n%b\n' "$1" > "$BRIEF_DIR/Admin/module-brief.md"; }
+fl 'Unit flows:\n- SUB_Order_Total: money calculation'; am 'Unit flows:\n- ACT_Reset: reset logic'
+run L10r --moment module --module Shop >/dev/null 2>&1
+has L10r "Total.test.mdl" && lacks L10r "Other.test.mdl" && ok "L10r --moment module --module Shop: Shop's listed flows only, not Admin's" || bad "L10r" "$(cat "$WORK/out.L10r")"
+run L10r2 --moment module --module Shop --module Admin >/dev/null 2>&1
+has L10r2 "Total.test.mdl" && has L10r2 "Other.test.mdl" && ok "L10r2 both modules named: both lists run" || bad "L10r2" "$(cat "$WORK/out.L10r2")"
+rm -rf "$BRIEF_DIR/Admin"
+fl 'Unit flows:\n- SUB_Order_Total: money calculation\n\n- ACT_Order_Submit: REST call\n\n\n- VAL_Order: rule'
+run L10s --moment module --module Shop >/dev/null 2>&1
+has L10s "Total.test.mdl" && has L10s "Submit.test.mdl" && has L10s "Validate.test.mdl" && ok "L10s blank lines between bullets do not end the list" || bad "L10s" "$(cat "$WORK/out.L10s")"
+fl 'Unit flows:\n- SUB_Order_Total (money): calculation\n- Shop.ACT_Order_Submit: REST call\n\n## Next heading\n- VAL_Order: not part of the list'
+run L10t --moment module --module Shop >/dev/null 2>&1
+has L10t "Total.test.mdl" && has L10t "Submit.test.mdl" && lacks L10t "Validate.test.mdl" && [ ! -s "$WORK/err.L10t" ] && ok "L10t 'ACT (note): reason' and 'Module.ACT: reason' are read; a heading ends the list" || bad "L10t" "$(cat "$WORK/out.L10t" "$WORK/err.L10t")"
+fl 'Unit flows: SUB_Order_Total, ACT_Order_Submit'
+run L10u --moment module --module Shop >/dev/null 2>&1
+has L10u "Total.test.mdl" && has L10u "Submit.test.mdl" && grep -q "Shop.SUB_Order_Total without a reason" "$WORK/err.L10u" && grep -q "Shop.ACT_Order_Submit without a reason" "$WORK/err.L10u" && ok "L10u inline 'Unit flows: A, B' is read; items without a reason warn" || bad "L10u" "$(cat "$WORK/out.L10u" "$WORK/err.L10u")"
+fl 'Unit flows:\n- SUB_Order_Total: ok\n- some words, not a flow\n- ACT_Order_Submit ?? why'
+run L10v --moment module --module Shop >/dev/null 2>&1
+grep -q 'cannot read "some words, not a flow"' "$WORK/err.L10v" && grep -q 'cannot read "ACT_Order_Submit ?? why"' "$WORK/err.L10v" && has L10v "Total.test.mdl" && ok "L10v an unreadable line warns with its text and does not drop the rest" || bad "L10v" "$(cat "$WORK/out.L10v" "$WORK/err.L10v")"
+printf '# Project\n\nUnit tests default: yes\n' > "$P/PROJECT.md"
+fl 'Unit flows:\n- SUB_Order_Total: money calculation'; am 'Unit tests: yes'
+run L10w --moment module --module Shop --module Admin >/dev/null 2>&1
+has L10w "Total.test.mdl" && lacks L10w "Validate.test.mdl" && lacks L10w "Submit.test.mdl" && has L10w "Other.test.mdl" && ok "L10w default yes: Shop narrowed to its list, Admin (no list) stays on" || bad "L10w" "$(cat "$WORK/out.L10w")"
+run L10w2 "$TOTAL" >/dev/null 2>&1
+has L10w2 "Total.test.mdl" && lacks L10w2 "Validate.test.mdl" && ok "L10w2 default yes, change moment: the unlisted touched caller's test is skipped" || bad "L10w2" "$(cat "$WORK/out.L10w2")"
+rm -rf "$BRIEF_DIR/Admin"
+printf '# Project\n\nUnit tests default: no\n' > "$P/PROJECT.md"
+fl 'Unit flows:\n- SUB_Order_Total: money\n- NoTestYet: owed'
+run L10x --moment module --module Shop >/dev/null 2>&1
+grep -q "Shop.NoTestYet, which no .test.mdl names" "$WORK/err.L10x" && ! grep -q "SUB_Order_Total, which no" "$WORK/err.L10x" && has L10x "Total.test.mdl" && ok "L10x a listed flow with no test warns (owed), a tested one does not" || bad "L10x" "$(cat "$WORK/err.L10x")"
+fl 'Unit flows:\n- sub_order_total: money'
+run L10y --moment module --module Shop >/dev/null 2>&1
+has L10y "Total.test.mdl" && grep -q "model has 'Shop.SUB_Order_Total' (casing differs)" "$WORK/err.L10y" && ok "L10y list casing differs: test still found (case-insensitive), casing warned" || bad "L10y" "$(cat "$WORK/out.L10y" "$WORK/err.L10y")"
+fl 'Unit flows:\n- SUB_Order_Total: money\n- Nope.ACT_X: invented'
+STUB_BADMOD=Nope run L10z --moment module --module Shop >/dev/null 2>&1
+grep -q "module Nope not found in the model" "$WORK/err.L10z" && ! grep -q "Unit modules names" "$WORK/err.L10z" && has L10z "Total.test.mdl" && ok "L10z a listed module the model lacks warns 'not found in the model', non-fatal" || bad "L10z" "$(cat "$WORK/out.L10z" "$WORK/err.L10z")"
 rm -rf "$P/architecture"
 printf '# Project\n\nUnit tests default: no\n' > "$P/PROJECT.md"
 [ ! -e "$P/.mxcli" ] && ok "wrote nothing into the project" || bad "project written"

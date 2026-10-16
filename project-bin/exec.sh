@@ -1709,9 +1709,27 @@ EOF
     echo "  ✗ mxbuild failed to run (exit $MXBUILD_EXIT) — gate could not verify the model."
     [ -n "$MXB_WHY" ] && echo "    mxbuild says: $MXB_WHY"
     echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | head -20 || true
-    echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
-    # --patch logs its own row below, after rolling back; one row per run.
-    [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
+    # mxbuild CRASHED ON THE WRITTEN MODEL (field 2026-10-13, Mendix 11.14.0, mxcli v0.25.0): a
+    # two-hop data source passed `check`, then mxbuild's loader died with no errors file. This
+    # branch kept the write, the next exec printed "Baseline NOT measured" and wrote on top of a
+    # model nothing could load. BASE_KNOWN=1 means mxbuild ran on this model a moment ago
+    # (measured baseline, or a clean verification stamp), so the crash is a property of the
+    # WRITE, not of the machine: roll it back like a failed gate. Without a measured baseline it
+    # may be the machine (wrong version, JDK), and the old behaviour stays: kept, flagged.
+    if [ "$PATCH_MODE" != "1" ] && [ "${BASE_KNOWN:-0}" = "1" ]; then
+      echo "  ✗ mxbuild ran on this model before the write and crashed after it — rolling the write back."
+      restore_snapshot
+      if [ "$RESTORED" -eq 1 ]; then
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model (ran on the baseline) — script rolled back${MXB_WHY:+; mxbuild: $MXB_WHY}"
+      else
+        echo "  STOP: the model may not load. Restore it before the next exec: ./bin/restore-mpr.sh <newest .mpr-snapshots/ dir>"
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model — NOT rolled back (restore did not run)"
+      fi
+    else
+      echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
+      # --patch logs its own row below, after rolling back; one row per run.
+      [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
+    fi
   else
     GATE_STATE="pass"; GATE_ERRORS=0
     echo "  ✓ mxbuild: 0 errors — model is clean."

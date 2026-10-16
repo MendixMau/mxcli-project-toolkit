@@ -158,7 +158,7 @@ recorded. A reviewer who doubts an artifact says which claim it fails to prove; 
 not a second run.
 
 **Each project picks what runs when** at CAC-5: PROJECT.md `## Test strategy` (`checkpoint-build.md`;
-defaults `affected`, `module`, `full`). Unit tests are off unless a module is named (`Unit modules:`).
+defaults `affected`, `module`, `full`). Unit is off unless named (`Unit modules:`/`Unit flows:`).
 Never at batch close, after a fix, or because a change "felt wide".
 
 | Event | What happens |

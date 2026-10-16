@@ -150,8 +150,14 @@ all, and never looks at a page.
 |------|-------------|-----|
 | UI (Playwright) | **always** | — |
 | Data (source of truth) | **always** — say which: OQL count delta \| upstream REST response \| documented n/a + the query proving it | `testing-shape.md` §1: "Data" means check the source of truth, not always query a database |
-| Unit (`.test.mdl`) | **no** (default) / yes | **no** unless this module has calculation, mapping or date/money logic, calls a Java action or REST, or had a bug fixed in that flow, name which. Project default: intake Q13 (`Unit tests default:`), `no` unless chosen (`testing-shape.md` §2). Flip: line `Unit tests: yes` |
+| Unit (`.test.mdl`) | **no** / flows listed | **no** unless a flow has calculation, mapping, date/money logic, a Java action or REST call, or a fixed bug: list those below (`testing-shape.md` §2). |
 | Trace (OTel) | yes / no | **yes if this module calls out** to REST, an import mapping, or external data — that is where failures get swallowed, and it overrides the project default |
+
+One line and a reason per flow; only these get tests.
+```
+Unit flows:
+- ACT_Order_CalculateTotal: money calculation
+```
 
 ### Base set — the trigger  (`testing-shape.md` §3)
 The named scripts that constitute this module's base logic. **When every script in this list is

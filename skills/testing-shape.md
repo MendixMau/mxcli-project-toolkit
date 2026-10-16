@@ -12,6 +12,7 @@ and the guard for each. Job 2 is why this skill exists; if you shorten it, do no
 | Playwright harness setup, widget discovery, suite structure | `e2e-harness-base.md` (shared toolkit) |
 | DB/OQL assertion mechanics | `learned-db-assertions.md` (shared toolkit) |
 | The run → fix → re-run loop shape | `qa-loop-goal-pattern.md` (shared toolkit) |
+| Writing and running a unit test: what is worth one, live asserts, a safe run | `unit-test.md` (shared toolkit) |
 | Unit-test syntax and the runner | `.ai-context/skills/test-microflows.md` — ⚠ mxcli-bundled, **regenerated on upgrade**. Read for mechanics; never edit it, never link doctrine at it. |
 | Non-pipeline app, à-la-carte assurance | `existing-app-assurance.md` (shared toolkit) |
 | Why a green UI report can still be lying | **§4a below** — merged in, no longer a separate file |
@@ -157,7 +158,7 @@ recorded. A reviewer who doubts an artifact says which claim it fails to prove; 
 not a second run.
 
 **Each project picks what runs when** at CAC-5: PROJECT.md `## Test strategy` (`checkpoint-build.md`;
-defaults `affected`, `module`, `full`). Unit tests are off unless a module is named (`Unit modules:`).
+defaults `affected`, `module`, `full`). Unit is off unless named (`Unit modules:`/`Unit flows:`).
 Never at batch close, after a fix, or because a change "felt wide".
 
 | Event | What happens |

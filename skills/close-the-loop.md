@@ -44,7 +44,7 @@ topics at once.
 | What you have | Goes to | Test that it belongs there |
 |---|---|---|
 | A script was executed against the `.mpr` | `docs/BUILD-LOG.md` | Append-only. One entry per exec: what it did · exec result · mxbuild result · manual SP work after |
-| A build-plan step is now done, blocked, or descoped | `architecture/build-plan.md` (+ the module's own plan) | Someone reading only the plan would otherwise redo it or skip it |
+| A build-plan step is now done, blocked, or descoped | `architecture/build-plan.md` (+ the module's own plan) | A plan-only reader would redo or skip it |
 | A gate answer — stage, entry mode, `CONFIRMED`/`ASSUMED`, waiver, opt-in | `PROJECT.md` | `gate-check.sh` and `checkpoint.sh` read it |
 | Feedback or a change the user asked for — typed, relayed from a stakeholder, or said over a screenshot | `PROJECT.md` → `## Change log`, before any edit (`change-intake.md`) | `gate-check.sh` counts the rows not yet applied or proven |
 | A decision a session learned — a pattern chosen and why, a disposition, an open question outside a gate, a slice requirement | `mxcli brain capture … -a @Module.Element`, then `promote` | Without the *why*, a future session could reasonably decide the opposite. Anchors into the model; `brain check` fails when they stop resolving, which `PROJECT.md` rows never do |
@@ -150,10 +150,10 @@ So keep two:
 | `docs/progress/checkpoints.md` | Append-only, unbounded | Auditing why a past claim was made. **Never to resume** |
 | `docs/progress/RESUME.md` | **Overwritten**, hard cap ~60 lines | Always, and first, after `/clear` |
 
-`RESUME.md` holds four things and nothing else: where we are (3–4 lines), the next actions in
-order, do-not-lose, and a **pointer table** — "read this larger file only if you are doing that
-specific thing." Pointers, not content. The whole value is that it replaces a 31k read with a
-1.5k one.
+`RESUME.md` holds five things and nothing else: where we are (3–4 lines), the next actions in
+order, `Waiting changes:` (agreed, unbuilt CR ids), do-not-lose, and a
+**pointer table** — "read this larger file only if you are doing that specific thing." Pointers, not content. It replaces a 31k read
+with a 1.5k one.
 
 Wire it by putting the instruction in the project's `CLAUDE.md`, which is auto-loaded: *resuming?
 read `RESUME.md` and nothing else yet.* A resume convention that lives anywhere else is a

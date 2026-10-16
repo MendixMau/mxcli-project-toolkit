@@ -1179,7 +1179,9 @@ if [ -n "$PROJECT_DIR" ]; then
     HOOK_GAP=""
     grep -qF 'bin/session-check.sh' "$PSET" 2>/dev/null || HOOK_GAP="session-check (SessionStart)"
     grep -qF 'bin/look-ledger.sh seen' "$PSET" 2>/dev/null || HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen (PostToolUse Read)"
-    if [ -n "$HOOK_GAP" ]; then
+    if [ -n "$HOOK_GAP" ] && [ -f "$PROJECT_DIR/.mxtk/no-hook-repair" ]; then
+      ok "hook gap ($HOOK_GAP) accepted: .mxtk/no-hook-repair is set"
+    elif [ -n "$HOOK_GAP" ]; then
       warn "the project's .claude/settings.json has no hook for $HOOK_GAP, so the look ledger will read 0 seen however many screenshots were opened"
       note "fix: $TOOLKIT_ROOT/bin/install-claude-permissions.sh $PROJECT_DIR --hooks-only   (or bin/sync-project.sh $PROJECT_DIR)"
     else

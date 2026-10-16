@@ -96,9 +96,17 @@
 #   bin/install-claude-permissions.sh <project-root> --uninstall   # remove only entries this
 #                                                                   # script added; back up first
 #   bin/install-claude-permissions.sh <project-root> --hooks-only [--check]
-#                                                                   # only the two hooks, nothing
-#                                                                   # else added, pruned or checked
-#                                                                   # (bin/sync-project.sh repairs with it)
+#                                                                   # only the two hooks: no allow,
+#                                                                   # deny or ask key created, nothing
+#                                                                   # pruned, no .bak, a hand-formatted
+#                                                                   # file is not rewritten (exit 3,
+#                                                                   # the lines are printed instead)
+#   bin/install-claude-permissions.sh <project-root> --consent-check
+#                                                                   # exit 0 if this project installed
+#                                                                   # the profile before (sidecar with a
+#                                                                   # non-empty allow, or
+#                                                                   # .mxtk/permission-profile); sync
+#                                                                   # repairs hooks only when it is 0
 #
 # Idempotent: re-running --install after everything is already present changes nothing (both
 # files are rewritten byte-for-byte the same). Called from bin/init-project.sh at scaffold time
@@ -119,11 +127,13 @@ MODE="install"
 PROJECT_DIR=""
 PROFILE_ARG=""
 HOOKS_ONLY=0
+CONSENT_CHECK=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --check)     MODE="check" ;;
     --uninstall) MODE="uninstall" ;;
     --hooks-only) HOOKS_ONLY=1 ;;
+    --consent-check) CONSENT_CHECK=1 ;;
     --profile)   PROFILE_ARG="${2:-}"; shift ;;
     --profile=*) PROFILE_ARG="${1#--profile=}" ;;
     -h|--help)   echo "$USAGE"; exit 0 ;;
@@ -273,9 +283,16 @@ def load_json(path, default):
 
 
 def write_json(path, data):
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
         f.write("\n")
+
+
+def detect_indent(text):
+    for line in text.splitlines():
+        if line[:1] in (" ", "\t") and line.strip().startswith('"'):
+            return line[:len(line) - len(line.lstrip())]
+    return "  "
 
 
 # Sidecar: a plain list (pre-2026-09-17: allow strings only), {"allow", "deny", "hook": bool}
@@ -363,21 +380,32 @@ if mode == "uninstall":
     sys.exit(0)
 
 # mode == install
+HOOKS_ONLY = os.environ.get("MXTK_HOOKS_ONLY") == "1"
 os.makedirs(os.path.dirname(settings_path), exist_ok=True)
+orig_text = None
 if os.path.exists(settings_path):
-    shutil.copy(settings_path, settings_path + ".bak-permissions-install")
+    with open(settings_path, encoding="utf-8") as f:
+        orig_text = f.read()
+    # --hooks-only is a pure insertion of two hook lines, so it leaves no .bak behind (the file
+    # is untouched otherwise, and a stray untracked backup is noise in a project's git status).
+    if not HOOKS_ONLY:
+        shutil.copy(settings_path, settings_path + ".bak-permissions-install")
     d = load_json(settings_path, {})
 else:
     d = {}
 
-perms = d.get("permissions")
-if perms is None:
-    perms = {}
-    d["permissions"] = perms
+if HOOKS_ONLY:
+    perms = d.get("permissions") or {}   # read-only view: --hooks-only never creates permission keys
+else:
+    perms = d.get("permissions")
+    if perms is None:
+        perms = {}
+        d["permissions"] = perms
 allow = perms.get("allow")
 if allow is None:
     allow = []
-    perms["allow"] = allow
+    if not HOOKS_ONLY:
+        perms["allow"] = allow
 
 # A smaller profile than last time: drop what THIS script added that the profile no longer
 # wants. Entries someone else wrote are never in the sidecar, so never touched.
@@ -398,7 +426,8 @@ for e in newly_added:
 deny = perms.get("deny")
 if deny is None:
     deny = []
-    perms["deny"] = deny
+    if not HOOKS_ONLY:
+        perms["deny"] = deny
 newly_denied = [e for e in deny_entries if e not in deny]
 for e in newly_denied:
     deny.append(e)
@@ -419,7 +448,25 @@ for spec in hook_specs:
     d.setdefault("hooks", {}).setdefault(ev, []).append(grp)
     new_hooks.append(spec)
 
-write_json(settings_path, d)
+if HOOKS_ONLY and not new_hooks:
+    pass  # nothing to insert: leave the file byte for byte as it is
+elif HOOKS_ONLY and orig_text is not None:
+    # Do not reformat a hand-edited file beyond the inserted entries. Rewrite only when the
+    # file is exactly what json.dump would have produced with its own indent; otherwise leave
+    # it alone and print the lines to add by hand.
+    ind = detect_indent(orig_text)
+    canon = json.dumps(load_json(settings_path, {}), indent=ind, ensure_ascii=False)
+    if canon == orig_text.rstrip():
+        tail = orig_text[len(orig_text.rstrip()):]  # keep the file's own trailing newline (or none)
+        with open(settings_path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(d, indent=ind, ensure_ascii=False) + tail)
+    else:
+        print("%s has hand-edited formatting; not rewriting it. Add these hook(s) yourself:" % settings_path)
+        for h in new_hooks:
+            print("  " + hook_label(h))
+        sys.exit(3)
+else:
+    write_json(settings_path, d)
 
 if newly_added or newly_denied or newly_asked or new_hooks or pruned:
     added.update(newly_added)
@@ -450,6 +497,22 @@ PY
 }
 
 RC=0
+if [ "$CONSENT_CHECK" -eq 1 ]; then
+  # A --hooks-only run writes a sidecar with allow: [], so file presence proves nothing; only a
+  # non-empty allow list shows the full installer ran here.
+  [ -f "$PROJECT_DIR/.mxtk/permission-profile" ] && exit 0
+  [ -f "$SIDECAR" ] || exit 1
+  "$PY" - "$SIDECAR" <<'PYC'
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    sys.exit(1)
+allow = d if isinstance(d, list) else d.get("allow", [])
+sys.exit(0 if allow else 1)
+PYC
+  exit $?
+fi
 if [ "$HOOKS_ONLY" -eq 1 ]; then
   # Hooks alone: no allow, deny or ask entries, nothing in settings.local.json, no pruning. A
   # project whose settings predate the hooks (or whose `mxcli init` rewrote the file) gets the

@@ -16,6 +16,13 @@
 #                              TOKEN / KEY / PAT. CRLF, `KEY = value`, quotes and an unquoted
 #                              trailing ` # comment` are normalised.
 #   .mxcli/run-local.json      every string in bootConfig whose key looks like one of those
+#                              Exception: a bootConfig.MicroflowConstants value that is already in
+#                              the committed model (HEAD, *.mpr or mprcontents/). `run --local` writes
+#                              EVERY constant's model default there, so a placeholder default such as
+#                              `your-api-key-here` is the model's own text, not a leak, and unstaging
+#                              cannot fix it. A real credential in a model default is already
+#                              committed: that is bin/constants-audit.sh's job, not this script's. A
+#                              constant passed with a value that is NOT in the model is still a source.
 #   $MXTK_SECRET_VALUES_FILE   optional: one literal value per line (name shown as "extra");
 #                              the filters below do NOT apply, you named it a secret
 # What is NOT treated as a secret, and why (this is a leak detector, not a password-strength
@@ -112,6 +119,11 @@ while IFS="$(printf '\t')" read -r name value; do
   lv="$(printf '%s' "$value" | tr 'A-Z' 'a-z')"
   case "$DEFAULTS" in *" $lv "*) skipped=$((skipped + 1)); continue ;; esac
   [ "${#value}" -ge "$MINLEN" ] || { skipped=$((skipped + 1)); continue; }
+  case "$name" in
+    .mxcli/run-local.json:MicroflowConstants.*)
+      printf '%s\n' "$value" > "$VF"
+      if git grep -q -F -f "$VF" HEAD -- '*.mpr' 'mprcontents/' 2>/dev/null; then skipped=$((skipped + 1)); continue; fi ;;
+  esac
   printf '%s\t%s\n' "$name" "$value" >> "$FILT"
 done < "$SRC"
 if [ -n "${MXTK_SECRET_VALUES_FILE:-}" ] && [ -f "$MXTK_SECRET_VALUES_FILE" ]; then

@@ -95,6 +95,23 @@ OUT="$(bash bin/check-staged-secrets.sh 2>&1)"; RC=$?
 [ "$RC" = 0 ] && ok "example-equal value ignored" || bad "example-equal value ignored (got $RC: $OUT)"
 git reset -q pub.txt
 
+echo "-- run --local writes every model default into MicroflowConstants: a default already in the model is not a source"
+rm -rf .docker; rm -f .env; mkdir -p mprcontents/ab
+printf 'default: your-api-key-here\n' > mprcontents/ab/unit1.mxunit; git add mprcontents; git commit -q -m model
+printf '{"bootConfig": {"MicroflowConstants": {"MyModule.ApiKey": "your-api-key-here", "MyModule.AuthToken": "passed-Cedar-4821"}}}' > .mxcli/run-local.json
+printf 'your-api-key-here\n' > unit2.mxunit; git add unit2.mxunit
+OUT="$(bash bin/check-staged-secrets.sh 2>&1)"; RC=$?
+[ "$RC" = 0 ] && ok "placeholder model default staged: exit 0" || bad "placeholder default staged (got $RC: $OUT)"
+git reset -q unit2.mxunit
+OUT="$(bash bin/check-staged-secrets.sh --tree 2>&1)"; RC=$?
+[ "$RC" = 0 ] && ok "placeholder model default in --tree: exit 0" || bad "placeholder default --tree (got $RC: $OUT)"
+printf 'x=passed-Cedar-4821\n' > leak.txt; git add leak.txt
+OUT="$(bash bin/check-staged-secrets.sh 2>&1)"; RC=$?
+[ "$RC" = 1 ] && ok "constant value NOT in the model is still found" || bad "constant not in model (got $RC)"
+has "names the constant" "$OUT" "MicroflowConstants.MyModule.AuthToken"
+hasnt "never prints the value" "$OUT" "passed-Cedar-4821"
+git reset -q leak.txt; rm -f leak.txt
+
 echo "-- MXTK_SECRET_VALUES_FILE is not filtered"
 printf 'mendix\n' > "$W/extra.txt"; printf 'mendix\n' > tracked.txt; git add tracked.txt; git commit -q -m t; git reset -q
 OUT="$(MXTK_SECRET_VALUES_FILE="$W/extra.txt" bash bin/check-staged-secrets.sh --tree 2>&1)"; RC=$?

@@ -349,6 +349,11 @@ else
   echo "Running: ./mxcli init$TOOL_ARGS"
   ( cd "$PROJECT_DIR" && "$MXCLI" init $TOOL_ARGS >/dev/null 2>&1 ) || {
     echo "wire-agents.sh: mxcli init failed. Nothing was stamped; your backups are in .mxtk-backup/." >&2
+    # init may have written its stock file before failing: put the project's own copy back.
+    if [ -n "$SETTINGS_SNAP" ]; then
+      cp "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL" \
+        && echo "wire-agents.sh: restored .claude/settings.json from the snapshot." >&2
+    fi
     exit 1
   }
 fi
@@ -402,8 +407,15 @@ fi
 # has are appended or added. Nothing the project had is ever dropped. A snapshot that is not
 # valid JSON is restored byte for byte instead of guessed at.
 if [ -z "$DRY" ] && [ -n "$SETTINGS_SNAP" ]; then
-  require_py
-  "$PY" - "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL" <<'PYMERGE'
+  # Never worse than before the re-wire: no Python, or a failed merge, puts the snapshot back
+  # byte for byte (and warns) instead of leaving mxcli's stock file. Stock entries a user had
+  # deleted come back on each re-wire (a union cannot see deletions).
+  SETTINGS_PY="$(resolve_py)" || SETTINGS_PY=""
+  if [ -z "$SETTINGS_PY" ]; then
+    cp "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL"
+    echo "WARN: wire-agents.sh: no Python 3 found; restored .claude/settings.json byte for byte, new mxcli entries NOT merged. Install python3 and re-run." >&2
+  else
+  "$SETTINGS_PY" - "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL" <<'PYMERGE'
 import json, sys, shutil
 snap, cur = sys.argv[1], sys.argv[2]
 def load(p):
@@ -426,7 +438,11 @@ def merge(o, n):
             out[k] = merge(o[k], v) if k in o else v
         return out
     if isinstance(o, list) and isinstance(n, list):
-        return o + [x for x in n if x not in o]
+        out = list(o)
+        for x in n:
+            if x not in out:
+                out.append(x)
+        return out
     return o
 res = merge(old, new) if new is not None else old
 if res != old or new is None:
@@ -438,6 +454,11 @@ else:
     shutil.copyfile(snap, cur)
     print("Kept .claude/settings.json (mxcli init added nothing new).")
 PYMERGE
+  if [ $? -ne 0 ]; then
+    cp "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL"
+    echo "WARN: wire-agents.sh: settings merge failed; restored .claude/settings.json byte for byte." >&2
+  fi
+  fi
 fi
 
 # --- stamp ------------------------------------------------------------------------------------

@@ -52,5 +52,28 @@ has 'mxcli-new-thing'         && ok "entry new in mxcli init is also added" || b
 n1="$(cksum < "$S")"; bash "$SUBJECT" "$P" >/dev/null 2>&1
 [ "$n1" = "$(cksum < "$S")" ] && ok "second re-wire changes nothing" || bad "second re-wire changed the file"
 
+# --- failure paths: the result must never be worse than before the re-wire --------------------
+ORIG='{ "permissions": { "allow": ["Bash(git status)"] }, "keep": "für" }'
+mkproj() {  # $1 dir, $2 init exit code
+  mkdir -p "$1/.claude"; : > "$1/Fixture.mpr"
+  sed "s/^exit 0\$/exit $2/" "$P/mxcli" > "$1/mxcli"; chmod +x "$1/mxcli"
+  printf '%s\n' "$ORIG" > "$1/.claude/settings.json"; cp "$1/.claude/settings.json" "$1/orig"
+}
+# 1. mxcli init writes its stock file then exits 3
+F="$WORK/fail"; mkproj "$F" 3
+bash "$SUBJECT" "$F" >/dev/null 2>&1; rc=$?
+[ "$rc" -ne 0 ] && cmp -s "$F/orig" "$F/.claude/settings.json" \
+  && ok "failing mxcli init: snapshot restored byte for byte" || bad "failing mxcli init left stock file (rc=$rc)"
+# 2. no python on PATH
+N="$WORK/nopy"; mkproj "$N" 0
+BIN="$WORK/bin"; mkdir -p "$BIN"
+for c in bash sh cp cat mkdir rm mv date dirname basename grep sed awk tr sort uniq head tail wc cksum shasum md5 md5sum cmp env mktemp ls find xargs chmod touch printf tee readlink pwd id uname git diff; do
+  w="$(command -v "$c" 2>/dev/null)" && [ -x "$w" ] && ln -sf "$w" "$BIN/$c"
+done
+PATH="$BIN" bash "$SUBJECT" "$N" >"$WORK/nopy.out" 2>&1
+cmp -s "$N/orig" "$N/.claude/settings.json" \
+  && ok "no python: snapshot restored byte for byte" || bad "no python left a changed settings.json"
+grep -q "WARN" "$WORK/nopy.out" && ok "no python: WARN printed" || bad "no python: no WARN"
+
 echo "passed $PASS, failed $FAIL"
 [ "$FAIL" -eq 0 ]

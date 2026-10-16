@@ -55,6 +55,8 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/journey-proof.md` | Proving a module's user journey end-to-end |
 | `skills/unhappy-path-testing.md` | Writing or running e2e cases beyond the happy journeys (blank/whitespace required fields, over-length, duplicates, cancel, double submit, wrong state, wrong role, backend down, stale write, empty search) |
 | `skills/monkey-test.md` | Running the fuzz/crash net on a module whose journeys are already green |
+| `skills/load-test.md` | Load, performance or stress testing a page ("will it hold 1000 users", concurrent users, k6, JMeter) |
+| `skills/unit-test.md` | Writing or running a microflow unit test (.test.mdl, mxcli test, @expect) once the project or the user has decided a flow gets one |
 | `skills/e2e-locators-that-lie.md` | An e2e rung reports a UI defect (widget never appeared, click did nothing, screen contradicts the data, fixture count wrong) |
 | `skills/company-brain.md` | Setting up or wiring a COMPANY BRAIN |
 | `skills/close-the-loop.md` | Cutover and retrospective |
@@ -64,6 +66,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/agent-permission-friction.md` | Any refused, denied or blocked command |
 | `skills/e2e-evidence-report.md` | Turning an already-rigorous run into a narrated proof a stakeholder can trust without running anything |
 | `skills/record-demo-video.md` | Recording a narrated screen-capture demo of a running app for a human to watch |
+| `skills/demo-recording-polish.md` | A demo film someone will watch looks captured, not produced |
 | `skills/share-demo-package.md` | Sending a demo guide, screenshots or a quickstart doc OUTSIDE the repo |
 | `skills/improvement-register.md` | Any review pass that runs more than once |
 | `skills/journey-examples.md` | Writing an actual .journey.json |

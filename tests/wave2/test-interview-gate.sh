@@ -53,7 +53,7 @@ case "$out" in
   *"Should discounts compound"*) ok "the batch is included in the reason" ;;
   *) bad "blocked without including the questions — the agent has to go find them" ;;
 esac
-[ -f "$P/docs/open-questions.html" ] && ok "writes docs/open-questions.html for the user" \
+[ -f "$P/analysis/brd-report.html" ] && ok "writes analysis/brd-report.html for the user" \
                                      || bad "no HTML report written — the user has nothing to review"
 
 # --- 2. Does not block the SAME set twice ---------------------------------------------

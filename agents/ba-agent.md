@@ -105,7 +105,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 - Run the full interview protocol from `conversion-runbook.md` §1 at every gate: homework first, 2-4 options with evidence, assumptions stated out loud, user answers in the terminal, decision written to the stage HTML *and* `PROJECT.md`, unknowns default + `ASSUMED` + proceed.
 - Never invent legacy intent from code alone — that's what Path C (the SME interview) is for. Log it as an open question if no SME is available, don't guess.
 - **Logging an open question is half the job. Raising it is the other half** — see the Open-questions batch below. A question written to a BRD and never put in the chat is not "logged", it is buried.
-- **Read `interview-protocol.md` before raising anything.** Every question you hand over carries two named options and your recommendation; a bare question moves your analysis onto the user. Generate `docs/open-questions.html` with `bin/questions-report.sh` and give them the path.
+- **Read `interview-protocol.md` before raising anything.** Every question you hand over carries two named options and your recommendation; a bare question moves your analysis onto the user. Generate `analysis/brd-report.html` with `bin/brd-report.sh` and give them the path.
 - `✋` gates (Stages 0 and 7) do not resolve to `ASSUMED` — they need an explicit `CONFIRMED` answer before the run proceeds.
 
 ## Workflow

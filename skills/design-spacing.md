@@ -4,16 +4,10 @@
 `ui-preflight-pages.md` step 4), and during `module-review.md` stage 4d when judging rhythm
 (rubric rows 2 and 8) — the reviewer judges against the *named scale below*, not against taste.
 
-**Why this exists (2026-08-22):** across projects, the most consistently wrong visual pattern
-is the space *between* elements — a new section starting flush against the previous one, a page
-with no header block, field grids spaced by inline pixel styles that differ per page. Root
-cause, measured on a live page (`ProductNumberWorkflow_Station` vs `ProductNumber_Overview`,
-same project, different build sessions): one page had a crumb + `RenderMode: H1` header, the
-other had a crumb and **no title at all**; one used token spacing, the other inline
-`gap: 12px`. Nothing mandated a scaffold, so header and rhythm quality was luck-of-the-session.
-The spacing knowledge existed (`oneshot-page-structure-patterns.md` §7) but sat one hop away,
-framed as a repair pattern — and a second hop is a hop that gets skipped
-(the `ui-review-loop.md` lesson). This file makes it a build-time default, not a fix.
+**Why this exists:** the most consistently wrong visual pattern across projects is the space
+*between* elements: sections flush against each other, pages with no header block, inline pixel
+spacing that differs per page. Nothing mandated a scaffold, so quality was luck-of-the-session. This
+file makes spacing a build-time default, not a repair pattern one hop away.
 
 ---
 
@@ -35,7 +29,7 @@ project — re-verify there if the project's Atlas is newer):
 
 The utilities (from `core/base/_spacing.scss`): `spacing-outer-{top,right,bottom,left,
 horizontal,vertical}[-medium|-large|-layout|-none]` for **margin**, `spacing-inner-…` same
-suffixes for **padding**. These are not a styling hack: Studio Pro's own **Spacing** design
+suffixes for **padding**. **Nothing else exists:** `spacing-outer-left-small` and the like pass `check` and mxbuild and style nothing; use the bare class (`spacing-outer-left`). These are not a styling hack: Studio Pro's own **Spacing** design
 property (Appearance tab) maps to exactly these classes
 (`themesource/atlas_core/web/design-properties.json` — None/S/M/L → `spacing-outer-*-none` /
 bare / `-medium` / `-large`), so a `Class:` value in MDL produces the identical model a

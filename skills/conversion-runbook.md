@@ -172,10 +172,10 @@ It prints a numbered, chat-ready batch — question, where it came from, and, wh
 **How the batch is asked is not free-form — `interview-protocol.md` owns it.** The gate can only detect *that* you asked; it cannot detect that you asked badly, and 39 bare questions pasted in one block technically unblocks the gate while handing the user the analysis the stage was meant to do. The four rules: ask in the chat (not in a file), two named options plus your recommendation on every question, one batch per gate then stop, and write the answer back where the collector can see it. Alongside the batch, generate the report the user actually reads:
 
 ```bash
-bin/questions-report.sh <project-root> --stage <N>    # → docs/open-questions.html
+bin/brd-report.sh <project-root> [--stage <N>]    # → analysis/brd-report.html
 ```
 
-`gate-check.sh` writes it for you whenever the open-questions row blocks a gate. Give the user the path — it is openable, sortable and forwardable to a customer SME in a way a terminal dump is not, and it flags every question that arrived without a proposed answer.
+`gate-check.sh` writes it for you whenever the open-questions row blocks a gate. The questions live in the BRD report, listed with their state and the process step they are about (it replaced `docs/open-questions.html`; an old project that still has that file is not failed, point the user at the BRD report instead). Give the user the path — it is openable and forwardable to a customer SME in a way a terminal dump is not, and it flags every question that arrived without a proposed answer.
 
 The `status` vocabulary is controlled: six legal values — `UNRAISED` and `UNRECOGNISED` block a
 gate; `RAISED`, `ANSWERED`, `ASSUMED`, `MOOT` do not. Their meanings are the table in
@@ -566,8 +566,8 @@ late against the BRD set you already have.
 | | |
 |---|---|
 | **User defines** | Confirms business rules the code implies. Answers `openQuestions` (via SME). Narrative is never invented. |
-| **Agent produces** | BRD scaffolds → enrichment from `KB.md` → validation to clean. `F{NNN}.brd.json`. |
-| **Surface** | `analysis/brd-report.html` — `bin/brd-report.sh <project-root>`. One renderer for every entry mode: it reads BRDs, not source, so a requirements-driven or greenfield project gets the same surface as a migration, and so does a BRD no extractor produced. Each section carries a `report-schema.md` verdict, so a section that is empty because this kind of BRD has nothing to put there reads differently from one that is empty because something broke. History: `process/baseline-incident-history.md` §R20. |
+| **Agent produces** | BRD scaffolds → enrichment from `KB.md` → validation. `F{NNN}.brd.json`. Many questions: draft `process-map.md` (pass 1). |
+| **Surface** | `analysis/brd-report.html` — `bin/brd-report.sh <project-root>`. Opens with the pass-1 process map; requirements and open questions are listed under it, a click on a step shows that step's rows (this page replaced `docs/open-questions.html`). One renderer for every entry mode: it reads BRDs, not source, so a requirements-driven or greenfield project gets the same surface as a migration, and so does a BRD no extractor produced. Each section carries a `report-schema.md` verdict, so a section that is empty because this kind of BRD has nothing to put there reads differently from one that is empty because something broke. History: `process/baseline-incident-history.md` §R20. |
 | **Gate** | Every BRD validation-clean; `validation-report.md` has 0 issues; **every `openQuestions` entry raised in chat** — `bin/open-questions.sh <root> --stage 2` reports 0 blocking, which `gate-check.sh` enforces. Close-out block pasted (§1b rule 7) — CAC-3 opens with it. "Chased to closure" was the old wording and it was unenforceable: a question logged with a self-answer read as closed. |
 | **Owner** | `ba-agent` |
 
@@ -578,8 +578,8 @@ The biggest gap before this runbook existed. Module boundaries, wiring diagrams 
 | | |
 |---|---|
 | **User defines** | ① One Mendix app or several (if flagged at Stage 0). ② **Module boundaries** (agent proposes with `modularize-domain.md` criteria). ③ **Buy vs build vs stub, per fit-gap item** — the confirming step `brd-to-build-plan.md` assumed already happened. ④ **Target security / role model** — not just whether auth existed in the source, but what the target should be. ⑤ **Data volumes, concurrency, NFRs** — these decide indexing, pagination, datagrid-vs-paged-gallery, loop batch sizes. ⑥ **Integration contracts** — real or stub, endpoint, credentials, owner, test environment. ⑦ **Branding inputs** — logo, palette, type, spacing, per `design-artifacts.md`; with no brand, the design direction (Step 0b question D1: ideation-library directions or Atlas defaults). |
-| **Agent produces** | `.mx-brd.json`, `architecture/` (module defs, layer diagram, wiring diagram, `fit-gap.md`, `blueprint.html` checkpoint render — plus a workflow diagram and/or agent-wiring diagram in `blueprint.md`/`blueprint.html` when CAC-3's Q3 flags real scope for either, plus cross-persona journey diagrams + journey list — `architecture-blueprint.md` Step 3d — whenever the BRDs carry more than one persona; single-persona skip recorded as a one-line note, never silent), `design/` per `design-artifacts.md`'s full output list: `design/interaction-model.md` (first) + `ds.css` + `design-system.html` + **`wireframes/*.html`, one annotated wireframe per screen** — the design system without the wireframes is half the deliverable and fails the gate. |
-| **Surface** | `module-design.html` · `architecture/blueprint.html` (generated render of `blueprint.md` — architecture-blueprint.md Step 7, never hand-edited) · `design-system.html` + `wireframes/*.html` |
+| **Agent produces** | `.mx-brd.json`, `architecture/` (module defs, layer diagram, wiring diagram, `fit-gap.md`, `blueprint.html` checkpoint render, plus a workflow and/or agent-wiring diagram when CAC-3's Q3 flags real scope for either, plus cross-persona journey diagrams + journey list — `architecture-blueprint.md` Step 3d — whenever the BRDs carry more than one persona; a single-persona skip is noted in one line), `design/` per `design-artifacts.md`: `design/interaction-model.md` (first) + `ds.css` + `design-system.html` + **`wireframes/*.html`, one annotated wireframe per screen** — the design system without wireframes is half the deliverable and fails the gate. Many questions: `process-map.md` pass 2. |
+| **Surface** | `module-design.html` · `architecture/blueprint.html` (generated from `blueprint.md`, architecture-blueprint.md Step 7, never hand-edited) · `design-system.html` + `wireframes/*.html` · `process-map.html` (the full map with screens, linked both ways with the prototype) |
 | **Gate ✋** | Boundaries approved. Marketplace calls made. Interaction model walked with two objects, two roles. Role model, volumes, integrations and branding **each asked and answered**: `CONFIRMED`, or explicitly delegated by the user ("you decide" → `ASSUMED` with risk). Never `ASSUMED` without the question having reached the user. Close-out block pasted before the ✋ decision is asked (§1b rule 7) — this stage has no closing checkpoint, so the gate is where the Stage-4 open (its approach, skills and optional artifacts) is shown. **No architecture/design artifact is produced before its checkpoint ran.** |
 | **Owner** | `architect-agent` (interviews run by `ba-agent`) |
 
@@ -654,8 +654,8 @@ nothing about the seams.
 
 **Read `testing-shape.md` before writing or judging any test here.** It defines what testing a
 module means, so it is the same thing every time, and it carries the **false-green register**: the
-confirmed ways a test reports green while the feature is broken. Its §3 check moments name what the
-release gate owes beyond module close. Alongside it, `measured-claims.md`
+confirmed ways a test reports green while the feature is broken. Its §3 check moments name what
+deploy-ready owes beyond module close. Alongside it, `measured-claims.md`
 holds the rule that gives evidence its force — *a claim not measured in that register may not be
 cited as evidence.*
 

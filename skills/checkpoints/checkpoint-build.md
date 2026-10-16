@@ -103,6 +103,32 @@ all scripts upfront. See `brd-to-build-plan.md` ("The build plan contains no MDL
 `test-plan`, `acceptance-criteria`), or `Optional artifacts: none for Stage 5` as a Stage-4
 decision.
 
+**Test strategy (in the same Offer, not a separate question).** Show the defaults; the
+developer may change any cell in the same answer:
+
+> "Testing during the build, unless you want otherwise:
+>
+> | Moment | Unit tests | Journeys |
+> |---|---|---|
+> | Every change (build and feedback) | affected, modules on only | affected |
+> | Module done | module, modules on only | module |
+> | Build complete, and before every later deploy | full | full |
+>
+> `affected` = what the change touched and its callers (`bin/affected-tests.sh`); `module` = the
+> module's own (`--moment module --module <M>`); `full` = everything once; `none` = skip.
+> Build complete = you say the app is ready for UAT or production; I do not declare it alone.
+> Say 'run everything' any time.
+> Unit tests: only flows you name, written while the logic is fresh (writing is not running), a
+> reason each (calculation, money/date, mapping, REST/Java logic, a fixed bug). Default: off.
+> Change a cell, name flows, or say 'defaults'."
+
+**Record as:** `PROJECT.md` → `## Test strategy`, the table plus a `Status` column (`CONFIRMED`, or
+`ASSUMED` in auto mode); each named flow goes in its module brief as `Unit flows:` (`- ACT_X: reason`). Unit cells are scopes.
+`bin/affected-tests.sh --moment change|module|deploy|all` reads it; no section: these defaults.
+Unit is **off** unless `Unit tests default: yes` (absent = no) or a brief lists `Unit flows:`
+(`Unit modules:` / `Unit tests: yes` still flip a whole module); the Unit cell is a scope only.
+At build end ask "full run now?", a confirmation, not a decision.
+
 ## Open Question
 
 > "Is there a deadline, a demo milestone, or a specific feature that must be working first?

@@ -64,12 +64,16 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/app-analysis.md` | Building or refreshing the standing dossier of an EXISTING app before changing it: inventory, module dependency shape, loop risk patterns, each section with a verdict and a fault where nothing was measured (a standing document; nothing else in the toolkit reads it yet) |
 | `skills/module-dependency-review.md` | Judging module tangles, bidirectional pairs, cohesion and hubs from analysis/app-facts/dependencies.json; stock graph_module_* views split names on the first dot and are not trusted |
 | `skills/microflow-loop-antipatterns.md` | Reading what loop bodies do (LOOP_TQ, deferred commit, nested loop, REST in loop, transaction control per item, scheduled-event reachability) from described MDL; the catalog holds top-level activities only and cannot see inside a loop |
+| `skills/process-map.md` | At Stage 2 close (draft, before the questions are raised) and again after the wireframes (Stage 3 re-render), when a reviewer cannot tell where the open questions and ASSUMED decisions fit: one swimlane map per process, each step on its wireframe, every question pinned to a step (project-bin/process-map.js validate, anchor, build) |
+| `skills/learned-multilingual-app.md` | Adding a second language, a language picker or a translation script |
 | `project-bin/conformance-check.sh` | Running the ledger rung alone |
 | `project-bin/graph-sweep.sh` | Running the wiring rung alone |
 | `skills/fixture-seeding.md` | Seed data, test data, demo data or fixtures are needed, or pages come up empty |
 | `skills/journey-proof.md` | Proving a module's user journey end-to-end |
 | `skills/unhappy-path-testing.md` | Writing or running e2e cases beyond the happy journeys (blank/whitespace required fields, over-length, duplicates, cancel, double submit, wrong state, wrong role, backend down, stale write, empty search) |
 | `skills/monkey-test.md` | Running the fuzz/crash net on a module whose journeys are already green |
+| `skills/load-test.md` | Load, performance or stress testing a page ("will it hold 1000 users", concurrent users, k6, JMeter) |
+| `skills/unit-test.md` | Writing or running a microflow unit test (.test.mdl, mxcli test, @expect) once the project or the user has decided a flow gets one |
 | `skills/e2e-locators-that-lie.md` | An e2e rung reports a UI defect (widget never appeared, click did nothing, screen contradicts the data, fixture count wrong) |
 | `skills/learned-skill-ux-audit.md` | UX audit and screenshot-loop discipline |
 | `skills/learned-skill-scope-delta.md` | Tracking scope delta between the BRD and the built state |

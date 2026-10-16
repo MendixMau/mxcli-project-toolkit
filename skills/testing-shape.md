@@ -12,6 +12,7 @@ and the guard for each. Job 2 is why this skill exists; if you shorten it, do no
 | Playwright harness setup, widget discovery, suite structure | `e2e-harness-base.md` (shared toolkit) |
 | DB/OQL assertion mechanics | `learned-db-assertions.md` (shared toolkit) |
 | The run → fix → re-run loop shape | `qa-loop-goal-pattern.md` (shared toolkit) |
+| Writing and running a unit test: what is worth one, live asserts, a safe run | `unit-test.md` (shared toolkit) |
 | Unit-test syntax and the runner | `.ai-context/skills/test-microflows.md` — ⚠ mxcli-bundled, **regenerated on upgrade**. Read for mechanics; never edit it, never link doctrine at it. |
 | Non-pipeline app, à-la-carte assurance | `existing-app-assurance.md` (shared toolkit) |
 | Why a green UI report can still be lying | **§4a below** — merged in, no longer a separate file |
@@ -21,6 +22,7 @@ and the guard for each. Job 2 is why this skill exists; if you shorten it, do no
 | Why `$?` and tool output are not evidence | `tool-output-is-not-ground-truth.md` (shared toolkit) |
 | Does the whole journey hang together, not just each piece — a different axis, not a fifth rung | `process-coherence-pass.md` (shared toolkit) |
 | The full build→gate→prove→look→confirm→next loop this shape plugs into, incl. monkey testing | `module-review.md` (shared toolkit) |
+| "Will this page hold N users": on request only, outside the module shape | `load-test.md` (shared toolkit) |
 
 > **Promotion note, closed 2026-08-18.** All three rows above now have a shared-toolkit copy,
 > so §4 — the load-bearing section — no longer cites anything a fresh project cannot open.
@@ -134,13 +136,13 @@ definition of done (`iterative-build-loop.md`). Without this anchor someone decl
 > hand (journey report, screenshot, diff) does not?* If you cannot name what it would show, do not run it.
 
 **The subject set.** A re-run covers the tests whose *subject* the exec'd script(s) changed — the
-script is the change list; `bin/exec.sh` tags each run `ui-only` or `logic` and prints its lane:
+script is the change list; `bin/exec.sh` tags its lane and `bin/affected-tests.sh <script>` lists the set:
 
 | Changed in this exec | Its subject set — re-run these, only these |
 |---|---|
 | A microflow | the tests that call it, plus the tests of its callers (`SHOW CALLERS OF <Mod.Flow>`) |
 | A page, snippet or layout | the journeys of every page the change reaches: the page itself, and every page that embeds a changed snippet or uses a changed layout, in any module |
-| An entity, association, enum or access rule | the tests and journeys of the module that owns it |
+| An entity, association, enum or access rule | the tests and journeys of the module that owns it (a grant on a flow or page it also changes is part of that subject) |
 
 Anything outside that set was not at risk from this change and is not re-run.
 
@@ -156,34 +158,33 @@ screenshots, the journey report — and **never re-run** what the implementer al
 recorded. A reviewer who doubts an artifact says which claim it fails to prove; that is a finding,
 not a second run.
 
-**The full suite (and the module's whole journey set) runs on the last three rows below only** — **never at batch close**, never after
-an individual fix, never because the change "felt wide". The e2e instruments are unchanged; only
-their trigger is.
+**Each project picks what runs when** at CAC-5: PROJECT.md `## Test strategy` (`checkpoint-build.md`;
+defaults `affected`, `module`, `full`). Unit is off unless named (`Unit modules:`/`Unit flows:`).
+Never at batch close, after a fix, or because a change "felt wide".
 
 | Event | What happens |
 |---|---|
 | A fix to an existing script | **Re-run its subject set**, in its lane. No questions, no re-authoring. |
 | A new script within agreed scope | Re-run its subject set. Extend the suite only for a *behaviour* the coverage checklist doesn't already cover. |
 | A new behaviour / scope change | The coverage checklist changes — the existing drift-sync path. The suite extends with it. |
-| Module close | The full suite, once (`module-review.md` PROVE). |
-| Release gate (before UAT/production) | The project-wide suite, once. |
-| The user asks for a full run | Run it, that message is the trigger. |
+| Module done | That module's own journeys, once; its unit tests only if on (`module-review.md` PROVE). |
+| Build complete (developer-declared) | Everything once: all journeys, all unit tests. |
+| Before each later deploy (after feedback) | Everything once again. |
+| The user says "run everything" | Run it, any time. |
 
 **Check moments — which checks each of those events owes.** Fast checks run during development;
-heavy checks wait for module close or the release gate. This sorts checks by *when*, not what
+heavy checks wait for module close or deploy-ready. This sorts checks by *when*, not what
 testing a module means: the §1 shape and the two lanes are unchanged. A *planned: #N* check is not
 built yet and claims nothing until it lands.
 
 | Moment | Budget | What runs |
 |---|---|---|
 | **Every exec** | ~1 minute (mxbuild 22–65 s per script, `iterative-build-loop.md` → Gate cost) | `exec.sh` includes: lock → module-brief advisory → `mxcli check` → snapshot → apply → mxbuild delta gate → auto-restore on a new error → lint ratchet. Static STOP-row scan (planned: #349); Studio Pro warning ratchet (planned: #351); human-locked baselines (planned: #348). |
-| **Module close** | minutes | The module's full suite and journeys (row above). New page or action has a test (planned: #354); that module's server-side security tests (planned: #352). |
-| **Release gate** | as needed | The project-wide suite, once (row above). Page × role smoke on the production DB engine (planned: #353); full security report (planned: #352); language/RTL layout, multi-language apps only (planned: #354). |
+| **Module done** | minutes | The module's journeys, unit tests if on (row above). New page or action has a test (planned: #354); that module's server-side security tests (planned: #352). |
+| **Build complete / deploy** | as needed | Every test and journey, once (rows above). Page × role smoke on the production DB engine (planned: #353); full security report (planned: #352); language/RTL layout, multi-language apps only (planned: #354). |
 
-> **Why scoped (#274):** the old unscoped "re-run the suite as regression" re-proved each UI-only
-> change 5–10× (other modules' journeys, the reviewer re-running them, a full `mxcli test` at every
-> batch close), and with no Unit default set, **143 minutes** of microflow tests found stale strings,
-> not one logic bug. A caption change owes one journey and one look.
+> **Why scoped (#274):** unscoped regression re-proved each UI-only change 5-10x, and **143
+> minutes** of unit tests (no Unit default set) found stale strings, not one logic bug.
 
 So the authoring conversation happens **once per module**; everything after is a scoped re-run.
 That is what makes this affordable on a module under active development.
@@ -222,10 +223,11 @@ so the next person argues with the incident rather than with the rule.
 | **UI** | A helper **no-ops without erroring** when its expected page is absent, so the spec runs to completion against the wrong page (2026-08-05, a mobile scanning spec) | Helpers must **throw** when a precondition is missing, never return quietly. Dump live page state rather than trusting the assertion's own label. |
 | **UI** | A full `page.goto(baseUrl)` **silently logs the session out** once security is above `Off`. Suites that log in once and then "reset navigation" with a goto bounce to `/login.html` and every downstream assertion breaks for the wrong reason (2026-08-15, after raising `Off` → `Prototype`) | Fix at the helper, not the call site: the shared navigate-home helper detects the login form (`#usernameInput`) and **re-authenticates every time**. Never trust a cookie across `page.goto`. Unconfirmed: this bounce may have been the 403 one in the next row, misread (the record does not say whether the URL carried `messageCode=403`). |
 | **UI** | **False red: a correct access block reads as a sign-out.** A signed-in user opening a page their role may not open is redirected to `login.html?messageCode=403`, and the stock login page shows **no message**. The session is kept (same `XASSESSIONID`; a full `page.goto('<base>/')` then loads the user's home with no login). A crawler or wrong-role spec that treats "landed on login.html" as "session lost" reports a security failure over a correct block, and a human calls it "the app signs me out" (2026-10-14, Mendix 11.15, [#338](https://github.com/MendixMau/mxcli-project-toolkit/issues/338)) | Classify `messageCode=403` as **blocked, session kept**, separately from a real sign-out, then prove the session with that probe: `page.goto('<base>/')` and assert not-on-login plus menu present. A login form there is a real sign-out; the row above's re-authenticating helper still applies. Before calling any sign-out a product defect, check the runtime log for a restart at that time ([#337](https://github.com/MendixMau/mxcli-project-toolkit/issues/337)). |
-| **UI** | **False red: an instrument pinned to one widget name or a typed menu list fails after a redesign.** A session-alive probe that waited for one named home grid reported **6/7 "SESSION DID NOT SURVIVE"** after a home redesign moved that grid to a second tab; with the selector widened, 7/7 PASS, and the blocks had been correct throughout. A nav-crawl comparing menus to a hardcoded EXPECTED list went **7/34**: all 27 FAILs were expectation rows (20 MISSING, 6 EXTRA), none an error or a sign-out (2026-10-14, [#339](https://github.com/MendixMau/mxcli-project-toolkit/issues/339)) | A session-alive check asserts **not on `login.html` and the menu bar present**, never one page's widget. Menu expectations are **derived from the model** at test start (`list navigation menu` plus the role grants), never typed. The tell: every FAIL has the same reason, and it names the instrument's own expectation. |
+| **UI** | **False red: an instrument pinned to one widget name or a typed menu list fails after a redesign.** A probe waiting for one named home grid reported **6/7 "SESSION DID NOT SURVIVE"** after a redesign moved that grid; widened, 7/7 PASS. A nav-crawl against a hardcoded EXPECTED menu list went **7/34**, all 27 FAILs expectation rows (2026-10-14, [#339](https://github.com/MendixMau/mxcli-project-toolkit/issues/339)) | A session-alive check asserts **not on `login.html` and the menu bar present**, never one page's widget. Menu expectations are **derived from the model** at test start (`list navigation menu` plus the role grants), never typed. The tell: every FAIL has the same reason, and it names the instrument's own expectation. |
 | **UI** | `:has-text(...)` is a **Playwright-only** pseudo-class. Inside `page.evaluate` it reaches `document.querySelector`, which throws `SyntaxError`; generic `.catch()` swallows it, so a `has_widget`-style helper evaluates **permanently false** and a visible row reads as absent (2026-08-15) | In `evaluate` context use a plain `.textContent.includes(...)` scan. Reserve `:has-text` / `:visible` for real Playwright locator strings. |
 | **UI** | `display: contents` elements always report `offsetParent === null` — so an `offsetParent !== null` visibility filter returns **empty** for a Data Grid 2 the user is actively looking at (browser layout quirk, not a Mendix bug) | Check the ancestor tabpanel's own `getComputedStyle(...).display`, never the row's `offsetParent`. |
-| **UI** | **A chat/transcript panel whose message pane is clipped to zero height reads as a full, correct answer to every DOM-level check.** The marketplace `ConversationalUI` snippet lays its container out as a flex column and expects the *host* to supply a height; a host that supplies none leaves the fixed-height composer taking every pixel and the flexing message pane resolving to `0px`. Because that pane's own `overflow-y` is `auto`, the entire conversation is simply scrolled out of a zero-height window: `textContent` returns it in full, the element exists, `count()` is non-zero, and a human sees an empty box. On 2026-08-31 an e2e walk read **776 characters of a correct, grounded answer** off a panel the user had just reported as showing nothing, and graded the step PASS. | Answer checks must assert **legibility, not presence**: after the answer lands, measure the pane's `getBoundingClientRect().height` against its content's, and fail when the pane is near-zero around a taller conversation. Take an element-scoped screenshot of the panel itself — a page-level shot at this size cannot distinguish an empty panel from a full one. A host that embeds a flex-column chat snippet owes it a definite height. |
+| **UI** | **Text from CSS `::before`/`::after` is invisible to `innerText`/`textContent`** (a journey failed 3 of 17 steps, feature fine; #276, 2026-10) | Read `getComputedStyle(el, '::after').content` (`none` = no text). Prefer a real widget; where CSS owns it, assert the pseudo content. |
+| **UI** | **A chat/transcript panel whose message pane is clipped to zero height reads as a full, correct answer to every DOM-level check.** The marketplace `ConversationalUI` snippet is a flex column that expects the *host* to supply a height; with none, the composer takes every pixel and the message pane resolves to `0px`, scrolled out of view: `textContent` returns the answer in full, `count()` is non-zero, and a human sees an empty box (2026-08-31: an e2e walk read 776 characters off such a panel, graded PASS). | Answer checks must assert **legibility, not presence**: after the answer lands, measure the pane's `getBoundingClientRect().height` against its content's, and fail when the pane is near-zero around a taller conversation. Take an element-scoped screenshot of the panel itself — a page-level shot at this size cannot distinguish an empty panel from a full one. A host that embeds a flex-column chat snippet owes it a definite height. |
 | **Data** | Asserting a row *exists* when seed data already satisfied the assertion | Assert on the **new** row — count delta or a fresh unique key. Never bare existence. |
 | **Data** | "No items found" has **five** distinct causes and looks identical for all five | Measure with an instrument; never infer the cause from the empty state |
 | **Unit** | **The runner silently drops the first test** when the file opens with a `/** */` header comment. The count looks plausible and nothing warns. (BUG-LOCAL-29, 2026-08-05) | **Count the `/` separators in the file and compare against `mxcli test --list`** before trusting a run. Avoid file-level `/** */` headers. |

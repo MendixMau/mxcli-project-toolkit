@@ -414,7 +414,7 @@ fi
 change_lane() {
   case "$CHANGE_CLASS" in
     ui-only) echo "re-run the journeys of every page the change reaches (embedders of a changed snippet/layout) once + a LOOK. No .test.mdl; reviewers read the artifacts, they do not re-run" ;;
-    logic)   echo "re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Full mxcli test at module close, not here" ;;
+    logic)   echo "re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Unit tests only for affected modules with unit on; everything runs once at build complete and before each later deploy, per PROJECT.md ## Test strategy" ;;
   esac
 }
 [ -n "$CR_ID" ] && echo "→ Change request: $CR_ID (PROJECT.md '## Change log'; cite this run's commit in its Closed-by)"
@@ -814,7 +814,7 @@ fi
 #   b) a "## Module brief - <Module>" heading in architecture/build-plan.md
 #
 # Platform and marketplace modules are skipped - this project does not author their briefs.
-brief_missing=""
+brief_missing=""; cr_unbriefed=""
 if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -f "$PROJECT_ROOT/architecture/build-plan.md" ]; then
   # Comments FIRST, before any pattern match. A `-- ... CREATE MODULE errors if ...` line in a
   # real workshop script otherwise yielded a module named "errors" and would have demanded a
@@ -859,11 +859,39 @@ if [ "$PATCH_MODE" != "1" ] && [ -f "$SCRIPT" ] && [ -f "$PROJECT_ROOT/architect
     case "$m" in
       System|Administration|Atlas_Core|Atlas_Web_Content|Atlas_UI_Resources|MxModelReflection      |CommunityCommons|Encryption|NanoflowCommons|WebActions|DeepLink|MxTest) continue ;;
     esac
-    [ -f "$PROJECT_ROOT/architecture/modules/$m/module-brief.md" ] && continue
-    grep -qiE "^#+[[:space:]]*Module brief[[:space:]]*(—|-|:)[[:space:]]*$m[[:space:]]*$" \
-      "$PROJECT_ROOT/architecture/build-plan.md" 2>/dev/null && continue
+    if [ -f "$PROJECT_ROOT/architecture/modules/$m/module-brief.md" ]; then
+      # CR advisory: a CR that touches this module should have a CR-tagged Build steps row.
+      if [ -n "$CR_ID" ] && ! grep -qE "$CR_ID([^0-9]|\$)" "$PROJECT_ROOT/architecture/modules/$m/module-brief.md" 2>/dev/null; then
+        cr_unbriefed="$cr_unbriefed $m"
+      fi
+      continue
+    fi
+    if grep -qiE "^#+[[:space:]]*Module brief[[:space:]]*(—|-|:)[[:space:]]*$m[[:space:]]*$" \
+      "$PROJECT_ROOT/architecture/build-plan.md" 2>/dev/null; then
+      if [ -n "$CR_ID" ]; then
+        # Merged form: look only inside that module's own section (to the next "## " heading).
+        # LC_ALL=C: macOS awk exits 2 ("towc: multibyte conversion failure") on an em dash heading
+        # under a UTF-8 locale. Exit 1 = id not found (warn); any other code is a real awk error and
+        # its stderr stays visible. Every occurrence on a line is checked, not just the first.
+        _awk_rc=0
+        LC_ALL=C awk -v m="$m" -v cr="$CR_ID" '
+          /^#+[ \t]*[Mm]odule [Bb]rief/ { inb = 0; t = $0; sub(/^#+[ \t]*[Mm]odule [Bb]rief/, "", t); while (t != "" && substr(t, 1, 1) !~ /[A-Za-z0-9_]/) t = substr(t, 2); sub(/[ \t]+$/, "", t); if (tolower(t) == tolower(m)) inb = 1; next }
+          /^## / { inb = 0 }
+          inb { r = $0; while ((i = index(r, cr)) > 0) { c = substr(r, i + length(cr), 1); if (c !~ /[0-9]/) { found = 1; break }; r = substr(r, i + length(cr)) } }
+          END { exit found ? 0 : 1 }' "$PROJECT_ROOT/architecture/build-plan.md" || _awk_rc=$?
+        [ "$_awk_rc" -eq 0 ] || cr_unbriefed="$cr_unbriefed $m"
+      fi
+      continue
+    fi
     brief_missing="$brief_missing $m"
   done
+fi
+if [ -n "$cr_unbriefed" ]; then
+  for m in $cr_unbriefed; do
+    echo "⚠ WARN: the brief of $m does not mention $CR_ID. Add a $CR_ID tagged Build steps row to it"
+    echo "    (skills/change-intake-detail.md Step 4), so the change is specified and stays visible. Proceeding."
+  done
+  echo ""
 fi
 if [ -n "$brief_missing" ]; then
   echo "⚠ No module brief for:$brief_missing — proceeding, but nothing has specified this module."
@@ -1031,6 +1059,8 @@ MXBUILD="$(mxtk_ensure_mxbuild "$MPR" || true)"
 # below failed its -x test and the entire mxbuild block was skipped on every run.
 # find_java/find_java_exe (project-bin/_common.sh) resolve per platform and prefer
 # Studio Pro's own bundled JRE, which is the one paired with this mxbuild.
+# The note comes first: once JAVA_HOME is assigned below, find_java_note sees it set and stays silent.
+_jnote="$(find_java_note 2>/dev/null || true)"; [ -z "$_jnote" ] || echo "⚠ $_jnote" >&2
 JAVA_HOME="$(find_java 2>/dev/null || true)"
 JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 
@@ -1767,9 +1797,27 @@ EOF
     echo "  ✗ mxbuild failed to run (exit $MXBUILD_EXIT) — gate could not verify the model."
     [ -n "$MXB_WHY" ] && echo "    mxbuild says: $MXB_WHY"
     echo "$MXBUILD_OUT" | grep -v "^$\|icon\|Microsoft\|Assembly\|__" | head -20 || true
-    echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
-    # --patch logs its own row below, after rolling back; one row per run.
-    [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
+    # mxbuild CRASHED ON THE WRITTEN MODEL (field 2026-10-13, Mendix 11.14.0, mxcli v0.25.0): a
+    # two-hop data source passed `check`, then mxbuild's loader died with no errors file. This
+    # branch kept the write, the next exec printed "Baseline NOT measured" and wrote on top of a
+    # model nothing could load. BASE_KNOWN=1 means mxbuild ran on this model a moment ago
+    # (measured baseline, or a clean verification stamp), so the crash is a property of the
+    # WRITE, not of the machine: roll it back like a failed gate. Without a measured baseline it
+    # may be the machine (wrong version, JDK), and the old behaviour stays: kept, flagged.
+    if [ "$PATCH_MODE" != "1" ] && [ "${BASE_KNOWN:-0}" = "1" ]; then
+      echo "  ✗ mxbuild ran on this model before the write and crashed after it — rolling the write back."
+      restore_snapshot
+      if [ "$RESTORED" -eq 1 ]; then
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model (ran on the baseline) — script rolled back${MXB_WHY:+; mxbuild: $MXB_WHY}"
+      else
+        echo "  STOP: the model may not load. Restore it before the next exec: ./bin/restore-mpr.sh <newest .mpr-snapshots/ dir>"
+        log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT on the written model — NOT rolled back (restore did not run)"
+      fi
+    else
+      echo "  → Snapshot preserved. Open in SP to verify manually before proceeding."
+      # --patch logs its own row below, after rolling back; one row per run.
+      [ "$PATCH_MODE" = "1" ] || log_build "❌ gate could not run" "mxbuild exit $MXBUILD_EXIT"
+    fi
   else
     GATE_STATE="pass"; GATE_ERRORS=0
     echo "  ✓ mxbuild: 0 errors — model is clean."

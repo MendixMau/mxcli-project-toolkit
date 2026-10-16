@@ -1,29 +1,25 @@
 # Detection gaps — what each verification rung is blind to
 
 **Applies to:** any mxcli project
-**Purpose:** the cross-project register of MDL constructs that pass one or more verification
-rungs and still fail later — with, for each, the **first oracle that actually catches it**.
-Use it two ways: before trusting a green result ("what is this rung known to miss?"), and
-when a runtime symptom appears over a fully green model ("which known gap looks like this?").
+**Purpose:** the register of MDL constructs that pass one or more verification rungs and still
+fail later, with the **first oracle that catches each**. Use it before trusting a green result
+and when a runtime symptom appears over a green model.
 
-Every row here was found in the field, most of them independently in more than one project.
-The point is not the individual bugs (each has its own entry) — it is the pattern: **the
-verification rungs form a ladder, and a green result only certifies what that rung can see.**
+Every row was found in the field: **a green result only certifies what its rung can see.**
+
+**Hit or worked around a tool bug?** Append a row now: `bin/file-bugs.sh --add --target mxcli|toolkit --title T --repro R --expected E --actual A` (`docs/bugs.jsonl`, local id `PBUG-NN`); the same script later redacts it; only a human files it (`!bin/file-bugs.sh --file PBUG-NN`, denied to agents).
 
 ## The ladder
 
 1. `mxcli check --references` — MDL grammar and reference syntax. Catches the least.
 2. `mxcli exec` "success" — the write completed; says nothing about what was written.
-3. `DESCRIBE ...` read-back — mxcli's own lenient reader; normalises, and omits what it
-   cannot represent (so it can hide the very corruption you are checking for).
+3. `DESCRIBE ...` read-back — mxcli's own lenient reader; it normalises and omits what it cannot represent, so it can hide corruption.
 4. Native `mx check` / mxbuild — the real model loader. Catches structural and expression
    errors; blind to runtime wiring.
 5. Studio Pro's own GUI loader — catches BSON-structural corruption `mx check` sometimes
    passes (see `scriptable-sp-verification.md`).
 6. **Live runtime observation** — a browser retrieve, `/xas/` traffic, a DB row count. The
-   only rung that verifies *behaviour*. Some defect families are invisible to everything
-   above this line. **It is not infallible: it is only as true as the harness that reads it**
-   — see operating rule 3.
+   only rung that verifies *behaviour*. **Only as true as the harness that reads it** (operating rule 3).
 
 ## The register
 
@@ -47,7 +43,9 @@ verification rungs form a ladder, and a green result only certifies what that ru
 | Cross-module `ALTER PAGE ... INSERT` of a DG2 column | rungs 1–3 (`DESCRIBE` *omits* the malformed column) | rung 5: Studio Pro loader `InvalidCastException`; `mx check` also crashes | Forbidden construct; recovery is `create or replace page` | BUG-96 |
 | `ALTER PAGE ... REPLACE` of an existing DG2 column with a new `Attribute:` (same module). The `SET (Attribute: …)` form is refused by `check` | rungs 1–2: `check --references` prints "Check passed!", exec applies it | rung 4: mxbuild, "An attribute is required when 'Show' is set to 'Attribute'" plus its sorting variant | Any change to a DG2 column is a whole-page `create or modify page` re-emit (`learned-dg2-patterns.md` rule 1) | BUG-DRAFT-dg2-replace-column-attribute-passes-check; an Ollama connector app, 2026-10-14 |
 | An `if` with no `else` inside an `on error { }` handler body | rungs 1–3 (mxcli v0.24.0) | mxbuild: CE0079 / CE0773 — the `if`'s false flow is not configured | Keep handler bodies straight-line calls; move the branching into a sub-microflow the handler calls | card-disbursement requirements-driven build, 2026-09-26 |
-| An entity, attribute or Java action parameter named with a Mendix-reserved word — `Case` failed as both an entity and a Java action parameter; `Context` as an attribute | rungs 1–3 (mxcli v0.24.0) | mxbuild: CE7247 | Qualify the name (`CustomerCase`, `ApprovalContext`). The reserved list is Mendix's, not MDL's, so quoting does not help — mxcli's bundled `check-syntax` skill lists what it knows (`syntax domain-model keywords` lists MDL's keywords, not these) | card-disbursement requirements-driven build, 2026-09-26; BUG-149 |
+| An entity, attribute or Java action parameter named with a Mendix-reserved word — `Case` failed as both an entity and a Java action parameter; `Context` as an attribute | rungs 1–3 (mxcli v0.24.0) | mxbuild: CE7247 | Qualify the name (`CustomerCase`, `ApprovalContext`). The reserved list is Mendix's, not MDL's, so quoting does not help — mxcli's bundled `check-syntax` skill lists what it knows (`syntax domain-model keywords` lists MDL's keywords, not these) | lab run, 2026-09-26; BUG-149 |
+| An **enumeration value** named `New` (a brief often says "New") | rungs 1-3 (v0.26.0) | mxbuild: CE7247 (reserved words cover enumeration values too) | Name it `Queued` and keep `New` as its caption | lab run, 2026-10-15 |
+| `AutoCreatedDate` / `AutoOwner` attributes a page must show | rungs 1-3 (v0.26.0): `check` accepts, notes MDL022 | They become system members `createdDate` / `owner`; a lab run could not bind them in a widget. `date` as a type is refused (MDL-DEPR160: `DateTime` with `not localized`) | For a **bindable** audit field use a plain `DateTime` or `String` attribute a microflow sets | lab run, 2026-10-15 |
 | A data widget on a page some role can open without read access to the widget's entity — even in a section that role never sees (BUG-94: no role-scoped visibility) | rungs 1–3, **and a bare `mx check` on a scratch copy** (cause of the difference not isolated) | exec.sh's mxbuild gate: CE2729 per widget attribute | Give that role read under an XPath no row satisfies (`[Assoc = empty and Assoc != empty]`), or move the widget to a page only the reading roles open. A clean scratch probe is not a pass for pages with security-scoped widgets — gate on the real exec | card-disbursement requirements-driven build, 2026-09-26 |
 | `[%CurrentUser%]` in a retrieve inside a microflow a REST, scheduled or system-context path can reach | rungs 1–5, lint, and every UI journey | rung 6 **on the system-session path only**: *"token cannot be used in a system session"*, the operation answers 500 | Look the account up by login name — `learned-microflow-patterns.md` → `[%CurrentUser%]` | card-disbursement requirements-driven build, 2026-09-27 |
 | Expression in `ContentParams:` on any `dynamictext` in an object context (customContent column, list view, data view) | rungs 1–3 — on v0.24.0 `check --references` refuses the parenthesised forms but **passes `if … then … else`**; `DESCRIBE` hides the difference | mxbuild / Studio Pro error pane: CE1613 | Bind a bare attribute (`Attribute:`) or a quoted literal only; a computed label becomes a String attribute, tone goes in `DynamicClasses` | BUG-142; `learned-datagrid-customcontent-binding.md` |
@@ -65,17 +63,13 @@ verification rungs form a ladder, and a green result only certifies what that ru
 1. **A green rung certifies only what that rung reads.** "Passes check and exec" is a claim
    about syntax and about a write completing — never about what was stored, and never about
    runtime behaviour.
-2. **Read-back is not ground truth either.** `DESCRIBE` hides three rows of this table
-   (omits, round-trips corruption, normalises). It is one more lenient reader, not an oracle
-   — `skills/tool-output-is-not-ground-truth.md` is the general form.
-3. **Rung 6 has its own gaps — when the instrument lies.** The ladder calls live runtime
-   observation "the only rung that verifies *behaviour*", and that is still true, but a
-   screenshot is only evidence about the app while the harness that took it is correct. A
-   screenshot harness that resizes a loaded page instead of creating one context per width
-   produced seven false "drawer covers content" defects on a healthy app, and a selector
-   scoped to a container the control leaves at phone width times out silently at one width
-   and passes at the other. Both in `ui-loop.md` → "The screenshot harness is an instrument
-   too". The tell is uniformity: a defect on every screen at exactly one width is the camera.
+2. **Read-back is not ground truth either.** `DESCRIBE` hides three rows of this table; it is a
+   lenient reader, not an oracle (`skills/tool-output-is-not-ground-truth.md`).
+3. **Rung 6 has its own gaps: the instrument can lie.** A screenshot is evidence only while the
+   harness is correct: one that resizes a loaded page instead of creating one context per width
+   produced seven false "drawer covers content" defects (`ui-loop.md` → "The screenshot harness
+   is an instrument too"). The tell is uniformity: a defect on every screen at exactly one width
+   is the camera.
 4. **For anything that wires behaviour** (calculated attributes, import mappings, filters,
    datasources), the acceptance test is a **live observation**: a runtime retrieve, the
    `/xas/` payload, a row count — not any static check. `testing-shape.md`'s false-green

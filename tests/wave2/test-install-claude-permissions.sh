@@ -81,6 +81,8 @@ EXPECTED_DENY=(
   "Bash(./mxcli.exe exec:*)"
   "Bash(*file-bugs.sh*--file*)"
   "Bash(*file-bugs.sh*--all*)"
+  "Bash(*file-bugs.py*--file*)"
+  "Bash(*file-bugs.py*--all*)"
 )
 SESSION_HOOK="bash bin/session-check.sh || true"
 

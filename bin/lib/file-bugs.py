@@ -108,19 +108,23 @@ def url_ok(s):
     return bool(a) and a[1] == ""
 
 
+SCHEMES = ("http", "https", "jdbc", "postgres", "postgresql", "mysql", "mongodb", "redis", "amqp", "ftp", "file", "ssh", "git")
+
+
 def url_clean(s):
     """What a URL becomes: the allowed prefix, a non-web scheme with its host redacted, or <url>."""
     a = split_allowed(s)
     if a:
         return a[0]
     m = re.match(r"(?i)^([a-z][a-z0-9+.-]*)://", s)
-    if m and m.group(1).lower() not in ("http", "https", "ftp"):
+    if m and m.group(1).lower() not in ("http", "https", "ftp") and m.group(1).lower() in SCHEMES:
         return m.group(1) + "://<host>"
     return "<url>"
 
 
 def url_safe(s):
-    return url_ok(s) or bool(re.match(r"(?i)^[a-z][a-z0-9+.-]*://<host>$", s)) or s.endswith("://<host")
+    m = re.match(r"(?i)^([a-z][a-z0-9+.-]*)://<host>?$", s)
+    return url_ok(s) or bool(m and m.group(1).lower() in SCHEMES)
 
 
 def mask_ok(t):
@@ -214,6 +218,7 @@ class Redactor:
     def __init__(self, project, extra_names):
         self.project = project
         self.warnings = []
+        self.bad_deny = []
         self.deny = self._load_deny()
         self.users = self._users()
         self.hosts = self._hosts() | self._config_hosts()
@@ -226,7 +231,7 @@ class Redactor:
     def _load_deny(self):
         """$LEAKGUARD_DENY is a regex value like check-no-client-data.sh reads it ('Foo|Bar'); a value
         that names an existing file is read as a file of one pattern per line. The project's
-        .leakguard-deny is read as well. An invalid pattern is split on | and its valid alternatives kept."""
+        .leakguard-deny is read as well. An invalid pattern is recorded in bad_deny."""
         pats = []
 
         def add(pat, src):
@@ -235,20 +240,8 @@ class Redactor:
                 return
             except re.error:
                 pass
-            # invalid as a whole: keep each valid alternative, warn about the rest (matched literally when 3+ chars)
-            bad = []
-            for alt in pat.split("|"):
-                if not alt:
-                    continue
-                try:
-                    pats.append(re.compile(alt, re.I))
-                except re.error:
-                    bad.append(alt)
-                    if len(alt) >= 3:
-                        pats.append(re.compile(re.escape(alt), re.I))
-            self.warnings.append("deny list %s: invalid regex %s, kept the valid alternatives%s" %
-                                 (src, ", ".join(repr(b[:40]) for b in bad) or repr(pat[:40]),
-                                  "; invalid parts of 3+ chars are matched literally" if any(len(b) >= 3 for b in bad) else ""))
+            # invalid as a whole: nothing is kept, posting/--links/--json are refused until it is fixed
+            self.bad_deny.append("%s: %r" % (src, pat[:60]))
 
         env = os.environ.get("LEAKGUARD_DENY", "")
         files = [os.path.join(self.project, ".leakguard-deny")]
@@ -628,12 +621,13 @@ def gh_create(repo, title, body):
 
 
 NODENY_MSG = ("no deny list, so client names outside the project files cannot be caught. Add one: one regex per line "
-              "in <project>/.leakguard-deny (the names this project must never publish), or set LEAKGUARD_DENY='Foo|Bar'.")
+              "in <project>/.leakguard-deny (the names this project must never publish), or set LEAKGUARD_DENY='Foo|Bar'. "
+              "Client names of 4 characters or fewer match as whole words only, so list them there too.")
 REFUSED_NOTE = "refused: run the dry run to see why"
 
 
 def main():
-    ap = argparse.ArgumentParser(prog="file-bugs.sh", add_help=True, formatter_class=argparse.RawDescriptionHelpFormatter,
+    ap = argparse.ArgumentParser(prog="file-bugs.sh", add_help=True, allow_abbrev=False, formatter_class=argparse.RawDescriptionHelpFormatter,
         description="Per-project bug log (docs/bugs.jsonl) and a redacted way to file it to mendixlabs/mxcli or the toolkit repo.",
         epilog="Posting (--file, --all) is for a human: run it yourself with `!bin/file-bugs.sh --file PBUG-NN`. "
                "No script can tell a person from an agent driving a pty, so the shipped Claude Code permissions "
@@ -671,7 +665,13 @@ def main():
     r = Redactor(project, a.name)
     for w in r.warnings:
         sys.stderr.write("file-bugs: warning: %s\n" % w)
-    nodeny = not r.deny
+    if r.bad_deny:
+        msg = ("invalid deny pattern (%s): fix it in the deny list. Posting, --links and --json are refused "
+               "until then; nothing posted." % "; ".join(r.bad_deny))
+        if posting or a.links or a.json:
+            sys.exit("file-bugs: " + msg)
+        print("NOTE: " + msg + "\n")
+    nodeny = not r.deny and not r.bad_deny
     if nodeny:
         if posting or a.links or a.json:
             sys.exit("file-bugs: " + NODENY_MSG + " Posting, --links and --json are refused until then; nothing posted.")

@@ -48,7 +48,7 @@ CREATE MICROFLOW Quuxmod.ACT_Save ($w: Quuxmod.Widgetron) BEGIN END;
 MDL
 printf 'database:\n  DatabaseHost: build-srv-01.corp.zonkco\n' > "$P/config/m2ee.yaml"
 printf 'Glorpley\\b\n' > "$W/deny"
-printf 'Snarfle\\b\nFoo(bar\n' > "$P/.leakguard-deny"
+printf 'Snarfle\\b\n' > "$P/.leakguard-deny"
 printf '[user]\n\tname = MendixMau\n' > "$W/gitconfig"
 cat > "$BIN/gh" <<'GH'
 #!/usr/bin/env bash
@@ -254,7 +254,8 @@ chk "env deny and the project .leakguard-deny are both used" '! echo "$G" | grep
 G="$(P2DENY='Snarfle\b' bodyof 'Snarfle and Glorpley')"
 chk "env as a file path and the project file are both used" '! echo "$G" | grep -qi "snarfle\|glorpley"'
 G="$(P2DENY='Foo(bar' bodyof 'saw Foo(bar here')"
-chk "an invalid regex line is matched literally and warned about" '! echo "$G" | grep -q "Foo(bar" && grep -q "invalid regex" "$W/p2.err"'
+chk "an invalid regex line makes --json refuse and names the part" '[ "$G" = NOJSON ] && grep -q "invalid deny pattern" "$W/p2.err" || true'
+OUT="$(cat "$W/p2.err")"; chk "invalid deny pattern error names the bad part" 'echo "$OUT" | grep -q "Foo(bar"'
 G="$(P2DENY= LEAKGUARD_DENY= bodyof 'no list at all')"
 chk "no deny list: --json is refused, nothing leaks" '! echo "$G" | grep -q "no list at all"'
 NOD="$W/nod"; rm -rf "$NOD"; mkdir -p "$NOD/docs"
@@ -267,7 +268,16 @@ chk "no deny list: --links refused" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "no 
 OUT="$(LEAKGUARD_DENY= ANS=y "$PY" "$W/ptyrun.py" tty "$SUBJ" --project "$NOD" --file PBUG-01 2>&1)"
 chk "no deny list: posting refused before any gh call" 'echo "$OUT" | grep -q "no deny list" && ! grep -q "issue create" "$GHLOG"'
 G="$(P2DENY= LEAKGUARD_DENY='Hooli|(' bodyof 'Hooli and ( here')"
-chk "invalid \$LEAKGUARD_DENY 'Hooli|(' keeps the valid alternative and warns" '! echo "$G" | grep -qi "hooli" && grep -q "invalid regex" "$W/p2.err"'
+chk "invalid \$LEAKGUARD_DENY 'Hooli|(' refuses --json" '[ "$G" = NOJSON ]'
+
+G="$(P2DENY='(Initech|Globex' bodyof 'Initech and Globex and initech-prod')"
+chk "partly valid deny pattern '(Initech|Globex': --json refused, nothing leaks" '[ "$G" = NOJSON ] && grep -q "invalid deny pattern" "$W/p2.err" && ! grep -qi "initech" "$GHLOG"'
+chk "the error names the bad pattern" 'grep -q "(Initech|Globex" "$W/p2.err"'
+mkdir -p "$W/p3"; cp -R "$P/." "$W/p3/"; printf '%s\n' '(Initech|Globex' > "$W/p3/.leakguard-deny"; : > "$GHLOG"
+OUT="$(ANS=y "$PY" "$W/ptyrun.py" tty "$SUBJ" --project "$W/p3" --file PBUG-01 2>&1)"
+chk "invalid deny pattern: posting refused before any gh call" 'echo "$OUT" | grep -q "invalid deny pattern" && ! grep -q "issue create" "$GHLOG"'
+OUT="$("$SUBJ" --project "$W/p3" --links </dev/null 2>&1)"; RC=$?
+chk "invalid deny pattern: --links refused" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "invalid deny pattern"'
 
 echo "J. versions line and exact URLs"
 G="$(bodyof 'Mendix 11.15.0.100 and Studio Pro 10.18.2.55 and mxcli 0.27.0.1 and version 1.2.3.4 but host 10.20.30.40' t '{"mendix":"11.15.0.100","mxcli":"v0.27.0","toolkit":"v2026.10.16"}')"
@@ -317,6 +327,14 @@ chk "the script header says no script can tell a human from an agent on a pty" '
 chk "--help tells agents to hand posting to a human" '"$SUBJ" --help | grep -q "run it yourself" && "$SUBJ" --help | tr "\n" " " | grep -q "deny.*file-bugs.sh --file"'
 chk "the shipped permissions deny file-bugs.sh --file and --all" 'grep -q "Bash(\*file-bugs.sh\*--file\*)" "$TOOLKIT/bin/install-claude-permissions.sh" && grep -q "Bash(\*file-bugs.sh\*--all\*)" "$TOOLKIT/bin/install-claude-permissions.sh"'
 chk "the skill line says a human files it" 'grep -q "only a human files" "$TOOLKIT/skills/learned-detection-gaps.md"'
+
+N0="$(wc -l < "$GHLOG")"
+OUT="$(ANS=y "$PY" "$W/ptyrun.py" tty "$SUBJ" --project "$P" --al 2>&1)"; OUT2="$(ANS=y "$PY" "$W/ptyrun.py" tty "$SUBJ" --project "$P" --fil=PBUG-03 2>&1)"
+chk "--al and --fil=X are rejected (no argparse abbreviation), nothing posted" 'echo "$OUT$OUT2" | grep -q "unrecognized" && [ "$(wc -l < "$GHLOG")" = "$N0" ]'
+chk "the shipped permissions also deny the .py file called directly" 'grep -q "Bash(\*file-bugs.py\*--file\*)" "$TOOLKIT/bin/install-claude-permissions.sh" && grep -q "Bash(\*file-bugs.py\*--all\*)" "$TOOLKIT/bin/install-claude-permissions.sh"'
+G="$(P2CONF='url: x' bodyof 'dial quuxmod://prod-db/x and amqp://mq.zonkco/q and gopher://zonkco/y')"
+chk "unknown URL scheme becomes <url>; known keeps scheme and drops host" 'echo "$G" | grep -q "<url>" && ! echo "$G" | grep -qi "quuxmod://\|prod-db\|zonkco" && echo "$G" | grep -q "amqp://<host>"'
+chk "scan flags an unknown scheme" '[ -n "$(scanof "quuxmod://<host>")" ] && [ -n "$(scanof "quuxmod://prod-db/x")" ]'
 
 echo "M. dotted users, attribute boundaries"
 G="$(USER=maurits.visser bodyof 'by maurits.visser, maurits and visser; Kundennummer2 and kundennummerold and Kundennummer_x')"

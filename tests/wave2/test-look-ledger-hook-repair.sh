@@ -25,6 +25,7 @@ export MXTK_LEAKGUARD_DENYFILE="${TMPDIR:-/tmp}/mxtk-fixture-denylist.$$"
 export MXTK_SYNC_SKIP_CLONE_CHECK=1
 set -uo pipefail
 TK="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+. "$TK/bin/lib/portable.sh"; require_py
 WORK="$(mktemp -d /tmp/lookhook.XXXXXX)"
 trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"; rm -rf "$WORK"' EXIT
 PASS=0; FAIL=0
@@ -122,33 +123,33 @@ printf '%s' "$out" | grep -q 'hooks are in .claude/settings.json' \
 
 # H5: a project with a full install, then a custom allow-list edit; hooks-only must not prune it
 Q="$WORK/full"; cp -R "$P" "$Q"
-python3 - "$Q/.claude/settings.json" <<'PY'
+"$PY" - "$Q/.claude/settings.json" <<'PY'
 import json,sys
 p=sys.argv[1]; d=json.load(open(p)); d["hooks"].pop("PostToolUse",None)
 d["permissions"]["allow"].append("Bash(my-own-tool:*)"); json.dump(d,open(p,"w"),indent=2)
 PY
 "$TK/bin/install-claude-permissions.sh" "$Q" >/dev/null 2>&1
-python3 - "$Q/.claude/settings.json" <<'PY'
+"$PY" - "$Q/.claude/settings.json" <<'PY'
 import json,sys
 p=sys.argv[1]; d=json.load(open(p)); d["hooks"].pop("PostToolUse",None); json.dump(d,open(p,"w"),indent=2)
 PY
-allow_before="$(python3 -c 'import json,sys;print(sorted(json.load(open(sys.argv[1]))["permissions"]["allow"]))' "$Q/.claude/settings.json")"
+allow_before="$("$PY" -c 'import json,sys;print(sorted(json.load(open(sys.argv[1]))["permissions"]["allow"]))' "$Q/.claude/settings.json")"
 "$TK/bin/install-claude-permissions.sh" "$Q" --hooks-only >/dev/null 2>&1
-allow_after="$(python3 -c 'import json,sys;print(sorted(json.load(open(sys.argv[1]))["permissions"]["allow"]))' "$Q/.claude/settings.json")"
+allow_after="$("$PY" -c 'import json,sys;print(sorted(json.load(open(sys.argv[1]))["permissions"]["allow"]))' "$Q/.claude/settings.json")"
 { [ "$allow_before" = "$allow_after" ] && grep -qF 'look-ledger.sh seen' "$Q/.claude/settings.json"; } \
   && ok "H5: --hooks-only restored the hook and left the allow-list as it was" \
   || bad "H5: allow-list changed or hook missing" "$allow_before
 $allow_after"
 
 # H6: the hook command as written in settings.json, fed a Read payload for a fresh screenshot
-cmd="$(python3 - "$S" <<'PY'
+IFS= read -r -d '' hookpy <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
 for g in d["hooks"]["PostToolUse"]:
     if g.get("matcher")=="Read":
         print(g["hooks"][0]["command"])
 PY
-)"
+cmd="$("$PY" -c "$hookpy" "$S")"
 mkdir -p "$P/mdlsource" "$P/docs/looks"; : > "$P/App.mpr"   # the ledger finds its root by the model file
 printf 'CREATE PAGE Orders.Order_Overview { }\n' > "$P/mdlsource/10-pages.mdl"
 touch -t 202001010000 "$P/mdlsource/10-pages.mdl"

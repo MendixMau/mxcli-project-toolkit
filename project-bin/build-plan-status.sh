@@ -300,18 +300,27 @@ def column_map(headers):
                 m[key] = i
     return m if "number" in m and "state" in m else None
 
+# Same prefixes as classify_state in progress-report.py, so the phase card, the plan header and
+# the phase badge give one count. brd-to-build-plan.md lists `built` / `partial` / `not built` /
+# `blocked`; the rest are the spellings the card already counts. `blocked` counts as not built.
+# A "not needed" style row is out of the count and out of the rollup. None = cannot be read.
 def classify(state):
-    s = state.lower()
-    if s.startswith("not built"): return "not built"
-    if s.startswith(("built", "done")): return "built"
+    s = state.lower().replace("**", "").strip()
     if s.startswith("pending a person"): return "pending a person"
+    if s.startswith(("blocked",)): return "blocked"
+    if s.startswith(("not built", "not done", "not started", "planned", "to do", "todo", "open", "pending", "failed")): return "not built"
+    if s.startswith(("not needed", "n/a", "dropped", "skipped", "waived", "deferred")): return "skipped"
+    if s.startswith(("built", "done", "complete", "verified", "proven", "passed")): return "built"
+    if s.startswith(("partial", "in progress", "started", "wip")): return "partial"
     return None
 
 def rollup(steps):
     kinds = [classify(s["state"]) for s in steps]
-    if not kinds or None in kinds: return "unknown"
+    if None in kinds: return "unknown"
+    kinds = [k for k in kinds if k != "skipped"]
+    if not kinds: return "unknown"
     if all(k == "built" for k in kinds): return "built"
-    if all(k == "not built" for k in kinds): return "not built"
+    if all(k in ("not built", "blocked") for k in kinds): return "not built"
     if all(k in ("built", "pending a person") for k in kinds): return "pending a person"
     return "in progress"
 
@@ -556,19 +565,23 @@ def on_disk(pat):
     if any(fnmatch.fnmatchcase(f, pat) for f in files): return "written"
     return "missing"
 
-def classify(state):  # the parser's rollup reading, per row
-    s = (state or "").lower()
-    if s.startswith("not built"): return "not built"
-    if s.startswith(("built", "done")): return "built"
+def classify(state):  # the parser's rollup reading, per row (keep in step with classify in parse_plan)
+    s = (state or "").lower().replace("**", "").strip()
     if s.startswith("pending a person"): return "pending a person"
+    if s.startswith("blocked"): return "blocked"
+    if s.startswith(("not built", "not done", "not started", "planned", "to do", "todo", "open", "pending", "failed")): return "not built"
+    if s.startswith(("not needed", "n/a", "dropped", "skipped", "waived", "deferred")): return "skipped"
+    if s.startswith(("built", "done", "complete", "verified", "proven", "passed")): return "built"
+    if s.startswith(("partial", "in progress", "started", "wip")): return "partial"
     return None
 
 CLS = {"built": "st-built", "not built": "st-todo", "pending a person": "st-person",
+       "partial": "st-progress", "blocked": "st-todo", "skipped": "st-todo",
        "in progress": "st-progress", "unknown": "st-unknown", None: "st-unknown"}
 
 phases = d.get("phases", [])
 all_steps = [s for p in phases for s in p["steps"]]
-tally = {"built": 0, "not built": 0, "pending a person": 0, None: 0}
+tally = {"built": 0, "not built": 0, "pending a person": 0, "partial": 0, "blocked": 0, "skipped": 0, None: 0}
 for s in all_steps:
     tally[classify(s["state"])] += 1
 named_total = named_done = drift_rows = 0
@@ -607,9 +620,12 @@ for p in phases:
 plural = lambda n, w: "%d %s%s" % (n, w, "" if n == 1 else "s")
 print("<h2>The plan</h2>")
 print("<p class=lede>From <code>architecture/build-plan.md</code>: %s, %s: "
-      "<b class=st-built>%d built</b>, <b class=st-todo>%d not built</b>, <b class=st-person>%d pending a person</b>%s.</p>" % (
+      "<b class=st-built>%d built</b>, <b class=st-progress>%d partial</b>, <b class=st-todo>%d not built</b>%s, <b class=st-person>%d pending a person</b>%s%s.</p>" % (
       plural(len(phases), "phase"), plural(len(all_steps), "row"),
-      tally["built"], tally["not built"], tally["pending a person"],
+      tally["built"], tally["partial"], tally["not built"] + tally["blocked"],
+      (" (%d of them blocked)" % tally["blocked"]) if tally["blocked"] else "",
+      tally["pending a person"],
+      (", %d not needed" % tally["skipped"]) if tally["skipped"] else "",
       (", <b class=st-unknown>%d with a State cell this page cannot read</b>" % tally[None]) if tally[None] else ""))
 if named_total:
     print("<p class=note>Scripts named in the plan: %d, of which %d are renamed <code>done-</code> under <code>mdlsource/</code>.%s</p>" % (

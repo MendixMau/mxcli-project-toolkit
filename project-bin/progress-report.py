@@ -1475,7 +1475,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
             elif row:
                 # a placeholder FAIL on a stage after the current one is just "not started yet": show it as pending, not as a failure
                 rs = row["status"]
-                if rs == "FAIL" and "placeholder" in row["detail"].lower() and info["current"] in STAGES and STAGES.index(s) > STAGES.index(info["current"]): rs = "PENDING"
+                if rs == "FAIL" and states[s] == "pending" and "placeholder" in row["detail"].lower() and info["current"] in STAGES and STAGES.index(s) > STAGES.index(info["current"]): rs = "PENDING"
                 w("<div class=sub title='%s'>Gate-check page: <b>%s</b> %s</div>" % (esc(row["detail"]), esc(rs), esc(row["detail"][:110] + ("..." if len(row["detail"]) > 110 else ""))))
             files = list(arts[s]["files"].items()); prim = [(f, i) for f, i in files if link_kind(f) == "html"]; rest = [(f, i) for f, i in files if link_kind(f) != "html"]
             def chip(f, cls=""):

@@ -654,8 +654,8 @@ nothing about the seams.
 
 **Read `testing-shape.md` before writing or judging any test here.** It defines what testing a
 module means, so it is the same thing every time, and it carries the **false-green register**: the
-confirmed ways a test reports green while the feature is broken. Its §3 check moments name what the
-release gate owes beyond module close. Alongside it, `measured-claims.md`
+confirmed ways a test reports green while the feature is broken. Its §3 check moments name what
+deploy-ready owes beyond module close. Alongside it, `measured-claims.md`
 holds the rule that gives evidence its force — *a claim not measured in that register may not be
 cited as evidence.*
 

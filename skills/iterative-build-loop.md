@@ -616,9 +616,9 @@ step.
 **Verification is scoped — once per gate, not once per script.** Gate: SYNTAX and Gate: BUILD run
 inside every `exec.sh`, and they are the only per-script checks. The test passes (happy path, journeys, LOOK) run **once
 per gate round** over what that round changed, and `bin/gate-check.sh` runs **once per gate round**,
-not after every exec. What re-runs after a change, by whom, and when the full suite runs (module
-close only, never batch close) is `testing-shape.md` §3 — the single source; `exec.sh` prints the
-run's lane (`ui-only` / `logic`). Repeating a pass the artifacts already prove is the over-testing
+not after every exec. What re-runs after a change, by whom, and when the full suite runs (per
+PROJECT.md `## Test strategy`; never batch close) is `testing-shape.md` §3; `exec.sh` prints
+the run's lane (`ui-only` / `logic`). Repeating a pass the artifacts already prove is the over-testing
 toolkit issue #274 measured: UI-only changes re-proven 5–10×.
 
 > **Older ordinals, for anyone arriving from a document that still cites them:** Gate 2 = Gate:

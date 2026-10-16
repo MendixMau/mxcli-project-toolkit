@@ -184,6 +184,8 @@ DENY=(
   "Bash(./mxcli exec:*)"
   "Bash(mxcli exec:*)"
   "Bash(./mxcli.exe exec:*)"
+  "Bash(*file-bugs.sh*--file*)"
+  "Bash(*file-bugs.sh*--all*)"
 )
 ASK=()
 

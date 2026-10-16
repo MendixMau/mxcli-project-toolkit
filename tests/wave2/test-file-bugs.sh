@@ -19,6 +19,11 @@
 #   H secrets: key=value, JSON, --flag value, hex, ASIA, paths, IPv6, any-TLD hosts, config hosts
 #   I deny list: regex value, project file, both, invalid line warned, none warned
 #   J versions line and the dotted-quad exemption; exact allowed-URL match
+#   K ordinary-word names (Order, Check, Home, Create): whole words only, mxcli verbs and toolkit
+#     file names survive; jdbc:/postgres:// keep the scheme, redact the host
+#   L Authorization/cookie headers, allowed repo URLs cut to the prefix, no deny list refuses,
+#     invalid deny regex keeps its valid alternatives, header and --help say who posts, deny rule shipped
+#   M first.last users, attribute followed by digits or letters
 set -uo pipefail
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
 SUBJ="${1:-$TOOLKIT/bin/file-bugs.sh}"
@@ -110,6 +115,8 @@ nrun() { "$PY" "$W/ptyrun.py" notty "$SUBJ" --project "$P" "$@"; }
 bodyof() {
   local P2="$W/p2"; rm -rf "$P2"; mkdir -p "$P2/docs" "$P2/mdlsource" "$P2/config"
   cp "$P/Zorbix.mpr" "$P2/"; cp "$P/mdlsource/"* "$P2/mdlsource/"; cp "$P/config/"* "$P2/config/"
+  [ -n "${P2MDL:-}" ] && printf '%s\n' "$P2MDL" > "$P2/mdlsource/02-extra.mdl"
+  [ -n "${P2CONF:-}" ] && printf '%s\n' "$P2CONF" > "$P2/config/extra.yaml"
   [ -n "${P2DENY:-}" ] && printf '%s\n' "$P2DENY" > "$P2/.leakguard-deny"
   FB_TEXT="$1" FB_TITLE="${2:-t}" FB_VERS="${3:-$EMPTYJ}" "$PY" -I - "$P2/docs/bugs.jsonl" <<'PY'
 import json, os, sys
@@ -117,7 +124,12 @@ open(sys.argv[1], "w").write(json.dumps({"id": "PBUG-01", "target": "mxcli", "ti
   "repro": os.environ["FB_TEXT"], "expected": "e", "actual": "a", "versions": json.loads(os.environ["FB_VERS"]),
   "status": "open"}) + "\n")
 PY
-  "$SUBJ" --project "$P2" --json </dev/null 2>"$W/p2.err" | "$PY" -I -c 'import json,sys; x=json.load(sys.stdin)[0]; print("REFUSED" if x["refused"] else x["body"])'
+  "$SUBJ" --project "$P2" --json </dev/null 2>"$W/p2.err" | "$PY" -I -c 'import json,sys
+try:
+    x=json.load(sys.stdin)[0]
+except ValueError:
+    print("NOJSON"); sys.exit()
+print("REFUSED" if x["refused"] else x["body"])'
 }
 scanof() {  # scanof 'text' -> reasons the shared scan gives (empty = clean)
   "$PY" -I - "$TOOLKIT/bin/lib/file-bugs.py" "$P" "$1" <<'PY'
@@ -244,7 +256,18 @@ chk "env as a file path and the project file are both used" '! echo "$G" | grep 
 G="$(P2DENY='Foo(bar' bodyof 'saw Foo(bar here')"
 chk "an invalid regex line is matched literally and warned about" '! echo "$G" | grep -q "Foo(bar" && grep -q "invalid regex" "$W/p2.err"'
 G="$(P2DENY= LEAKGUARD_DENY= bodyof 'no list at all')"
-chk "no deny list: warning, not failure" 'echo "$G" | grep -q "no list at all" && grep -q "no deny list" "$W/p2.err"'
+chk "no deny list: --json is refused, nothing leaks" '! echo "$G" | grep -q "no list at all"'
+NOD="$W/nod"; rm -rf "$NOD"; mkdir -p "$NOD/docs"
+printf '%s\n' '{"id":"PBUG-01","target":"mxcli","title":"Plain","repro":"r","expected":"e","actual":"a","versions":{},"status":"open"}' > "$NOD/docs/bugs.jsonl"
+: > "$GHLOG"
+OUT="$(LEAKGUARD_DENY= "$SUBJ" --project "$NOD" </dev/null 2>&1)"
+chk "no deny list: dry run still shows the bug and says how to add a list" 'echo "$OUT" | grep -q "TITLE: Plain" && echo "$OUT" | grep -q "leakguard-deny" && echo "$OUT" | grep -q "refused until then"'
+OUT="$(LEAKGUARD_DENY= "$SUBJ" --project "$NOD" --links </dev/null 2>&1)"; RC=$?
+chk "no deny list: --links refused" '[ $RC -ne 0 ] && echo "$OUT" | grep -q "no deny list" && ! echo "$OUT" | grep -q "issues/new"'
+OUT="$(LEAKGUARD_DENY= ANS=y "$PY" "$W/ptyrun.py" tty "$SUBJ" --project "$NOD" --file PBUG-01 2>&1)"
+chk "no deny list: posting refused before any gh call" 'echo "$OUT" | grep -q "no deny list" && ! grep -q "issue create" "$GHLOG"'
+G="$(P2DENY= LEAKGUARD_DENY='Hooli|(' bodyof 'Hooli and ( here')"
+chk "invalid \$LEAKGUARD_DENY 'Hooli|(' keeps the valid alternative and warns" '! echo "$G" | grep -qi "hooli" && grep -q "invalid regex" "$W/p2.err"'
 
 echo "J. versions line and exact URLs"
 G="$(bodyof 'Mendix 11.15.0.100 and Studio Pro 10.18.2.55 and mxcli 0.27.0.1 and version 1.2.3.4 but host 10.20.30.40' t '{"mendix":"11.15.0.100","mxcli":"v0.27.0","toolkit":"v2026.10.16"}')"
@@ -263,6 +286,42 @@ with open(sys.argv[1],"a") as f:
 PY
 ANS=y prun --file PBUG-10 >/dev/null 2>&1
 chk "a title that looks like a flag is passed as --title=..., repo stays the target" 'grep -q "issue create --repo=mendixlabs/mxcli --title=--repo=evil/x crash --body-file=" "$GHLOG" && ! grep -q "evil/x --" "$GHLOG"'
+
+echo "K. ordinary-word names and mxcli verbs"
+KMDL='CREATE MODULE Shop;
+CREATE PERSISTENT ENTITY Shop.Order (Name: String(10));
+CREATE PERSISTENT ENTITY Shop.Check (Name: String(10));
+CREATE PERSISTENT ENTITY Shop.Home (Name: String(10));
+CREATE PERSISTENT ENTITY Shop.Create (Name: String(10));'
+G="$(P2MDL="$KMDL" bodyof 'ran mxcli create, mxcli check, mxcli describe and mxcli build; gate-check.sh and bin/gate-check.sh ok; ordering and shopping and homework survive; an Order is wrong; Home broke; ACT_Order_Save; Create failed')"
+chk "mxcli create/check/describe/build survive" 'echo "$G" | grep -q "mxcli create, mxcli check, mxcli describe and mxcli build"'
+chk "toolkit script name gate-check.sh survives" 'echo "$G" | grep -q "gate-check.sh and bin/gate-check.sh ok"'
+chk "ordering, shopping, homework survive (no substring match)" 'echo "$G" | grep -q "ordering and shopping and homework survive"'
+chk "Order and Home as standalone references are replaced" '! echo "$G" | grep -qw "Order\|Home" && ! echo "$G" | grep -q "ACT_Order_Save"'
+chk "the keyword-named entity Create is replaced when written as the entity" '! echo "$G" | grep -q "Create failed"'
+G="$(P2MDL="$KMDL" bodyof 'Shop.Order, Shop.Check and Shop.Home')"
+chk "qualified Shop.Order / Shop.Check / Shop.Home are replaced" '! echo "$G" | grep -q "Shop\|Order\|Check\|Home"'
+G="$(P2CONF='url: jdbc:postgresql://db.zonkco/app' bodyof 'conn jdbc:postgresql://db.zonkco/app and postgres://db.zonkco:5432/x and a jdbc driver')"
+chk "jdbc:/postgres:// keep the scheme, redact the host" 'echo "$G" | grep -q "jdbc:postgresql://<host>" && echo "$G" | grep -q "postgres://<host>" && ! echo "$G" | grep -qi "zonkco"'
+chk "jdbc is not redacted as a host elsewhere" 'echo "$G" | grep -q "a jdbc driver"'
+
+echo "L. headers, repo URLs, deny list, who posts"
+G="$(bodyof 'curl -H "Authorization: Basic dXNlcjpwYXNz" and Authorization: Bearer abcdefghij1234 and authorization=Digest xyz123abc')"
+chk "Authorization Basic/Bearer/Digest values redacted" '! echo "$G" | grep -q "dXNlcjpwYXNz\|abcdefghij1234\|xyz123abc\|Basic dX"'
+G="$(bodyof "$(printf 'Cookie: sid=abc123; user=bob\nX-Auth-Token: tok999\nX-Api-Key: k1k2k3')")"
+chk "Cookie and X-*-Token/Key header values redacted" '! echo "$G" | grep -q "abc123\|bob\|tok999\|k1k2k3"'
+G="$(bodyof 'see https://github.com/mendixlabs/mxcli/issues?q=Zorbix+Quuxmod and https://github.com/mendixlabs/mxcli/blob/main/Kundennummer and https://github.com/mendixlabs/mxcli/issues/12#Widgetron and https://github.com/MendixMau/mxcli-project-toolkit/pull/7?x=Zorbix')"
+chk "repo URLs keep only the prefix and /issues/N or /pull/N" '! echo "$G" | grep -qi "zorbix\|quuxmod\|kundennummer\|widgetron\|blob\|q=" && echo "$G" | grep -q "github.com/mendixlabs/mxcli/issues/12" && echo "$G" | grep -q "MendixMau/mxcli-project-toolkit/pull/7"'
+chk "scan flags a header value and a non-prefix repo URL" '[ -n "$(scanof "Authorization: Basic dXNlcjpwYXNz")" ] && [ -n "$(scanof "https://github.com/mendixlabs/mxcli/blob/main/x")" ] && [ -n "$(scanof "https://github.com/mendixlabs/mxcli/issues?q=a")" ] && [ -z "$(scanof "https://github.com/mendixlabs/mxcli/issues/12")" ]'
+chk "the script header says no script can tell a human from an agent on a pty" 'grep -q "NO SCRIPT CAN TELL A HUMAN FROM" "$TOOLKIT/bin/file-bugs.sh"'
+chk "--help tells agents to hand posting to a human" '"$SUBJ" --help | grep -q "run it yourself" && "$SUBJ" --help | tr "\n" " " | grep -q "deny.*file-bugs.sh --file"'
+chk "the shipped permissions deny file-bugs.sh --file and --all" 'grep -q "Bash(\*file-bugs.sh\*--file\*)" "$TOOLKIT/bin/install-claude-permissions.sh" && grep -q "Bash(\*file-bugs.sh\*--all\*)" "$TOOLKIT/bin/install-claude-permissions.sh"'
+chk "the skill line says a human files it" 'grep -q "only a human files" "$TOOLKIT/skills/learned-detection-gaps.md"'
+
+echo "M. dotted users, attribute boundaries"
+G="$(USER=maurits.visser bodyof 'by maurits.visser, maurits and visser; Kundennummer2 and kundennummerold and Kundennummer_x')"
+chk "first.last redacts whole and each part" '! echo "$G" | grep -qi "maurits\|visser"'
+chk "attribute followed by digits or letters is redacted" '! echo "$G" | grep -qi "kundennummer"'
 
 echo "Z. no real issue was ever created"
 chk "every gh call went through the stub (log exists, no network tool used)" '[ -s "$GHLOG" ]'

@@ -20,7 +20,14 @@
 # check-no-client-data.sh, plus <project>/.leakguard-deny). The versions line is built from
 # version-shaped strings only. The same matcher then scans the result. A bug that still looks
 # unsafe is shown by the dry run only: no duplicate search, no URL, no --links/--json text, no post.
-# Posting needs --file/--all AND y/N read from /dev/tty (never stdin). The id is project-local
+# A deny list is required: without <project>/.leakguard-deny or $LEAKGUARD_DENY the dry run shows the
+# text with a note, and posting, --links and --json are refused. An invalid regex is split on | and its
+# valid alternatives kept (the rest warned about). Only the repo prefix of an allowed repo URL (plus
+# /issues/N or /pull/N) survives; Authorization/cookie style header values are redacted.
+# Posting needs --file/--all AND y/N read from /dev/tty (never stdin). NO SCRIPT CAN TELL A HUMAN FROM
+# AN AGENT DRIVING A PTY (a `script` wrapper answers y), so the shipped Claude Code permissions deny
+# `file-bugs.sh --file` and `--all` (bin/install-claude-permissions.sh): a human runs posting with
+# `!bin/file-bugs.sh --file PBUG-NN`. An agent uses the dry run, --links or --json and hands over. The id is project-local
 # (PBUG-NN, not a toolkit BUG-n); the public number is the issue. Success writes status=filed
 # and issue_url back, keeping the file mode.
 # Row fields: id date target title repro expected actual versions{mxcli,mendix,toolkit}

@@ -21,6 +21,18 @@ GENERIC_ATTRS = {"name", "description", "title", "status", "type", "value", "dat
 FILE_EXT = set("mpr mdl md json jsonl sh py js ts tsx jsx css scss html htm xml yaml yml txt log sql zip mpk jar java "
                "exe dll png jpg jpeg gif svg pdf csv toml ini cfg conf lock tsv properties tmp bak swp map gz tar "
                "mjs cjs rb go rs c h cpp class so dylib bat ps1 cmd env pem key crt".split())
+# Names that are ordinary words, short, or mxcli/MDL/Mendix words: matched as whole words or identifier
+# segments only, never inside other words. KW_NAMES are verbs/keywords: matched only in their exact
+# spelling, so `mxcli create` or `check` in prose survive an entity called Create or Check.
+KW_NAMES = set("""create check describe build show list edit view new test run init add drop alter select insert update delete
+exec execute lint format validate search install uninstall marketplace catalog open save close start stop import export diff
+apply rename move set get use help version doctor sync serve tunnel domain page microflow nanoflow entity module enumeration
+association attribute workflow snippet layout widget security project report input output index status error warning""".split())
+COMMON_NAMES = set("""order orders home admin account accounts user users customer customers product products item items sales
+shop store invoice invoices payment payments person people employee employees task tasks ticket tickets message messages
+document documents request requests setting settings person address data file files group groups role roles event events
+booking bookings contact contacts company department project projects client clients supplier vendor article articles
+category categories price offer offers cart basket delivery shipment""".split())
 CONF_SKIP = {"package.json", "package-lock.json", "bugs.jsonl", "tsconfig.json"}
 
 _CONF = {"\u0430": "a", "\u0435": "e", "\u043e": "o", "\u0440": "p", "\u0441": "c", "\u0445": "x", "\u0443": "y",
@@ -39,6 +51,8 @@ RE_TOKENS = re.compile(
     r"\b(?:gh[pousr]_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{16,}|sk-[A-Za-z0-9_-]{16,}|(?:AKIA|ASIA|AGPA|AIDA|AROA|ANPA)[0-9A-Z]{16}"
     r"|xox[baprs]-[A-Za-z0-9-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)\b"
     r"|\bBearer\s+[A-Za-z0-9._~+/=-]{8,}")
+RE_AUTH = re.compile(r"(?i)\b((?:proxy-)?authorization)(\s*[:=]\s*)[\"']?(?:basic|bearer|digest|token|negotiate|ntlm|aws4-hmac-sha256|apikey)\s+[^\s\"',;]+")
+RE_HDR = re.compile(r"(?im)^([ \t]*(?:set-cookie|cookie|www-authenticate|x-[\w-]*(?:auth|token|key|secret)[\w-]*)[ \t]*:(?![ \t]*<redacted>[ \t]*$)[ \t]*)(.+)$")
 RE_KV = re.compile(r"(?i)([\"']?)\b((?:[a-z0-9_.-]*" + KEYW + r"[a-z0-9_.-]*|authorization))\1(\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|[^\s,;}\]]+)")
 RE_FLAG = re.compile(r"(?i)(--?[a-z0-9_-]*" + KEYW + r"[a-z0-9_-]*)([ \t]+|=)(\"[^\"]*\"|'[^']*'|[^\s,;]+)")
 RE_EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
@@ -77,30 +91,97 @@ def join_lb(t):
     return re.sub(r"-?[ \t]*\r?\n[ \t]*", "", t)
 
 
+_ALLOWED = re.compile(r"(?i)^((?:https?://)?github\.com/(?:" + "|".join(re.escape(r) for r in ALLOWED_REPOS) +
+                      r"))((?:/(?:issues|pull)/\d+)?)(?![\w.-])(.*)$", re.S)
+
+
+def split_allowed(s):
+    """(kept, rest) for a URL under one of the two target repos, else None. Kept is the repo prefix
+    plus /issues/N or /pull/N; rest (any other path, query, fragment) is never kept."""
+    m = _ALLOWED.match(s)
+    return (m.group(1) + m.group(2), m.group(3)) if m else None
+
+
 def url_ok(s):
-    """Exactly one of the two target repos (case-insensitive), then end, / ? or #."""
-    s = re.sub(r"^[a-z][a-z0-9+.-]*://", "", s, flags=re.I).lower()
-    for repo in ALLOWED_REPOS:
-        pre = "github.com/" + repo
-        if s.startswith(pre) and (len(s) == len(pre) or s[len(pre)] in "/?#"):
-            return True
-    return False
+    """Exactly the repo prefix, optionally /issues/N or /pull/N; nothing after it."""
+    a = split_allowed(s)
+    return bool(a) and a[1] == ""
+
+
+def url_clean(s):
+    """What a URL becomes: the allowed prefix, a non-web scheme with its host redacted, or <url>."""
+    a = split_allowed(s)
+    if a:
+        return a[0]
+    m = re.match(r"(?i)^([a-z][a-z0-9+.-]*)://", s)
+    if m and m.group(1).lower() not in ("http", "https", "ftp"):
+        return m.group(1) + "://<host>"
+    return "<url>"
+
+
+def url_safe(s):
+    return url_ok(s) or bool(re.match(r"(?i)^[a-z][a-z0-9+.-]*://<host>$", s)) or s.endswith("://<host")
 
 
 def mask_ok(t):
     """Replace allowed repo URLs with a marker so name checks do not see them."""
-    t = RE_URL.sub(lambda m: "\x01" if url_ok(m.group(0)) else m.group(0), t)
+    t = RE_URL.sub(lambda m: "\x01" if url_safe(m.group(0)) else m.group(0), t)
     return RE_BARE.sub(lambda m: "\x01" if url_ok(m.group(0)) else m.group(0), t)
 
 
-def name_pat(name, sub):
-    """Case-insensitive pattern for a name. sub=True: also inside identifiers (substring);
-    sub=False: identifier-aware boundaries (not inside a longer letter/digit run, camelCase ok)."""
+def is_weak(n):
+    ln = n.lower()
+    return len(n) < 5 or ln in COMMON_NAMES or ln in KW_NAMES
+
+
+def name_pat(name, sub=None):
+    """Case-insensitive pattern for a name, line-break tolerant. Distinctive names (5+ chars, not an
+    English, MDL or Mendix word) match anywhere, also inside identifiers. Weak names match only as a
+    whole word or identifier segment (ACT_Order_Save, OrderOverview, myOrder; not ordering). Keyword
+    names (Create, Check) match only in their exact spelling."""
     n = norm(name)
     core = LB.join(re.escape(c) for c in n)
+    if sub is None:
+        sub = not is_weak(n)
     if sub:
         return "(?i:" + core + ")"
-    return r"(?<![A-Za-z0-9])(?i:" + core + r")(?![a-z0-9])"
+    if n.lower() in KW_NAMES:
+        return r"(?<![A-Za-z0-9])" + core + r"(?![a-z0-9])"
+    cap = LB.join(re.escape(c) for c in n[:1].upper() + n[1:])
+    return r"(?:(?<![A-Za-z0-9])(?i:" + core + r")|(?<=[a-z0-9])" + cap + r")(?![a-z0-9])"
+
+
+def _toolkit_names():
+    here = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.normpath(os.path.join(here, "..", ".."))
+    names = set()
+    for d in ("bin", "bin/lib", "project-bin", "skills", "agents"):
+        try:
+            for f in os.listdir(os.path.join(root, d)):
+                if os.path.isfile(os.path.join(root, d, f)):
+                    names.add(f)
+                    stem = f.rsplit(".", 1)[0]
+                    if "-" in stem and len(stem) >= 6:
+                        names.add(stem)
+        except OSError:
+            pass
+    return names
+
+
+_TK = _toolkit_names()
+RE_TKFILE = re.compile(r"(?<![\w.-])(?:" + "|".join(re.escape(x) for x in sorted(_TK, key=lambda x: -len(x))) + r")(?![\w-])") if _TK else None
+RE_MXCLI = re.compile(r"(?i)\bmxcli(?:\.exe)?(?:[ \t]+--?[\w-]+)*[ \t]+[a-z][a-z-]*(?:[ \t]+[a-z][a-z-]*)?")
+
+
+def protect(t, hold):
+    """Keep toolkit file names (anything in bin/, project-bin/, skills/) and mxcli verbs out of name matching."""
+    if RE_TKFILE:
+        t = RE_TKFILE.sub(lambda m: hold(m.group(0)), t)
+
+    def verbs(m):
+        return re.sub(r"(?<=[ \t])[a-z][a-z-]*", lambda w: hold(w.group(0)) if w.group(0) in KW_NAMES else w.group(0),
+                      m.group(0))
+    return RE_MXCLI.sub(verbs, t)
 
 
 def ip4_hits(t):
@@ -121,7 +202,7 @@ def ip6_ok(s):
 
 def host_hit(m):
     tld = m.group("tld")
-    return tld.lower() not in FILE_EXT and not url_ok(m.group(0))
+    return tld.lower() not in FILE_EXT and not split_allowed(m.group(0))
 
 
 def hex_ok(t, m):
@@ -145,15 +226,29 @@ class Redactor:
     def _load_deny(self):
         """$LEAKGUARD_DENY is a regex value like check-no-client-data.sh reads it ('Foo|Bar'); a value
         that names an existing file is read as a file of one pattern per line. The project's
-        .leakguard-deny is read as well. Bad patterns are escaped (never dropped) and warned about."""
+        .leakguard-deny is read as well. An invalid pattern is split on | and its valid alternatives kept."""
         pats = []
 
         def add(pat, src):
             try:
                 pats.append(re.compile(pat, re.I))
+                return
             except re.error:
-                self.warnings.append("deny list %s: invalid regex %r, matching it literally" % (src, pat[:40]))
-                pats.append(re.compile(re.escape(pat), re.I))
+                pass
+            # invalid as a whole: keep each valid alternative, warn about the rest (matched literally when 3+ chars)
+            bad = []
+            for alt in pat.split("|"):
+                if not alt:
+                    continue
+                try:
+                    pats.append(re.compile(alt, re.I))
+                except re.error:
+                    bad.append(alt)
+                    if len(alt) >= 3:
+                        pats.append(re.compile(re.escape(alt), re.I))
+            self.warnings.append("deny list %s: invalid regex %s, kept the valid alternatives%s" %
+                                 (src, ", ".join(repr(b[:40]) for b in bad) or repr(pat[:40]),
+                                  "; invalid parts of 3+ chars are matched literally" if any(len(b) >= 3 for b in bad) else ""))
 
         env = os.environ.get("LEAKGUARD_DENY", "")
         files = [os.path.join(self.project, ".leakguard-deny")]
@@ -168,9 +263,6 @@ class Redactor:
                 ln = ln.strip()
                 if ln and not ln.startswith("#"):
                     add(norm(ln), f)
-        if not pats:
-            self.warnings.append("no deny list ($LEAKGUARD_DENY unset, no <project>/.leakguard-deny): "
-                                 "client names outside the project files cannot be caught")
         return pats
 
     def _generic(self, w):
@@ -185,7 +277,9 @@ class Redactor:
             if v:
                 out.add(v)
         gn = sh(["git", "config", "user.name"]).stdout.strip()
-        out.update(w for w in re.split(r"[\s.]+", gn) if w)
+        out.update(w for w in re.split(r"[\s._-]+", gn) if w)
+        for u in list(out):
+            out.update(w for w in re.split(r"[._-]+", u) if w)   # first.last: the whole and each part
         return {u for u in out if len(u) >= 3 and u.lower() not in STOP_NAMES}
 
     def _hosts(self):
@@ -218,8 +312,10 @@ class Redactor:
                     continue
                 vals = kv.findall(txt) + re.findall(r"://(?:[^/\s@\"']*@)?([^/\s:\"'?#]+)", txt)
                 for v in vals:
-                    v = re.sub(r"^[a-z][a-z0-9+.-]*://", "", v, flags=re.I)
+                    v = re.sub(r"^(?:[a-z][a-z0-9+.-]*:)+//", "", v, flags=re.I)
                     v = re.sub(r"^[^/@]*@", "", v).split("/")[0].split(":")[0].strip("[]")
+                    if re.match(r"(?i)^(?:jdbc|postgres(?:ql)?|mysql|mariadb|sqlserver|oracle|mongodb|redis|amqp|https?|ftp|ldaps?)$", v):
+                        continue
                     if (re.match(r"^[A-Za-z0-9][A-Za-z0-9._-]{2,}$", v) and not re.match(r"^[\d.]+$", v)):
                         out.add(v)
                         if "." in v and len(v.split(".")[0]) >= 4:
@@ -279,19 +375,16 @@ class Redactor:
 
     def _compile(self):
         """One matcher list shared by redact() and scan(): (token, regex, kind)."""
-        subs = [(self.mods, "mod"), (self.ents, "ent"), (self.docs, "doc")]
         self.matchers = []
         if self.app:
-            self.matchers.append((self.app, "App1", name_pat(self.app, True)))
-        for table, _k in subs:
+            self.matchers.append((self.app, "App1", name_pat(self.app)))
+        for table in (self.mods, self.ents, self.docs, self.attrs):
             for n, tok in table.items():
-                self.matchers.append((n, tok, name_pat(n, True)))
-        for n, tok in self.attrs.items():
-            self.matchers.append((n, tok, name_pat(n, False)))
+                self.matchers.append((n, tok, name_pat(n)))
         for u in self.users:
-            self.matchers.append((u, "<user>", name_pat(u, False)))
+            self.matchers.append((u, "<user>", name_pat(u)))
         for h in self.hosts:
-            self.matchers.append((h, "<host>", name_pat(h, False)))
+            self.matchers.append((h, "<host>", name_pat(h)))
         self.matchers.sort(key=lambda x: -len(x[0]))
         self.mrx = [(re.compile(rx), tok) for _n, tok, rx in self.matchers]
 
@@ -306,17 +399,20 @@ class Redactor:
         t = norm(text)
         t = RE_PRIVKEY.sub("<key>", t)
         t = RE_TOKENS.sub("<token>", t)
+        t = RE_AUTH.sub(lambda m: m.group(1) + m.group(2) + "<redacted>", t)
+        t = RE_HDR.sub(lambda m: m.group(1) + "<redacted>", t)
         t = RE_KV.sub(lambda m: m.group(1) + m.group(2) + m.group(1) + m.group(3) + "<redacted>", t)
         t = RE_FLAG.sub(lambda m: m.group(1) + m.group(2) + "<redacted>", t)
         t = RE_HEXTOK.sub(lambda m: hold(m.group(0)) if hex_ok(t, m) else "<token>", t)
         t = RE_EMAIL.sub("<email>", t)
-        t = RE_URL.sub(lambda m: hold(m.group(0)) if url_ok(m.group(0)) else "<url>", t)
+        t = RE_URL.sub(lambda m: hold(url_clean(m.group(0))) if url_clean(m.group(0)) != "<url>" else "<url>", t)
         t = RE_PATH.sub("<path>", t)
-        t = RE_BARE.sub(lambda m: "<host>" if host_hit(m) else (hold(m.group(0)) if url_ok(m.group(0)) else m.group(0)), t)
+        t = RE_BARE.sub(lambda m: "<host>" if host_hit(m) else (hold(split_allowed(m.group(0))[0]) if split_allowed(m.group(0)) else m.group(0)), t)
         t = RE_IP6.sub(lambda m: "<ip>" if ip6_ok(m.group(0)) else m.group(0), t)
         t = RE_IP4.sub(lambda m: m.group(0) if RE_VERCTX.search(t[max(0, m.start() - 24):m.start()]) else "<ip>", t)
         for rx in self.deny:
             t = rx.sub("<redacted>", t)
+        t = protect(t, hold)
         for m, pm in sorted(self.mods.items(), key=lambda x: -len(x[0])):
             def qual(mm, pm=pm):
                 low = mm.group(1).lower()
@@ -326,7 +422,7 @@ class Redactor:
                             return pm + "." + v
                 self.docs[mm.group(1)] = "Doc%d" % (len(self.docs) + 1)
                 return pm + "." + self.docs[mm.group(1)]
-            t = re.sub(r"(?<![A-Za-z0-9])" + name_pat(m, True) + r"\.(\w+)", qual, t)
+            t = re.sub(r"(?<![A-Za-z0-9])" + name_pat(m) + r"\.(\w+)", qual, t)
         for rx, tok in self.mrx:
             t = rx.sub(tok, t)
         return re.sub(r"\x00(\d+)\x00", lambda m: keep[int(m.group(1))], t)
@@ -336,10 +432,14 @@ class Redactor:
         t0 = norm(text)
         bad = []
         for m in RE_URL.finditer(t0):
-            if not url_ok(m.group(0)):
+            if not url_safe(m.group(0)):
                 bad.append("URL " + m.group(0)[:40])
         tm = mask_ok(t0)
         t = tm
+        for m in RE_AUTH.finditer(t):
+            bad.append("authorization header")
+        for m in RE_HDR.finditer(t):
+            bad.append("secret header " + m.group(1).strip()[:20])
         for label, rx in (("home path", RE_PATH), ("email", RE_EMAIL), ("token", RE_TOKENS), ("private key", RE_PRIVKEY)):
             if rx.search(t):
                 bad.append(label)
@@ -348,7 +448,7 @@ class Redactor:
         if any(ip6_ok(m.group(0)) for m in RE_IP6.finditer(t)):
             bad.append("IPv6 address")
         for m in RE_BARE.finditer(t):
-            if host_hit(m):
+            if m.group("tld").lower() not in FILE_EXT and not url_ok(m.group(0)):
                 bad.append("hostname " + m.group(0)[:40])
         for m in RE_KV.finditer(t):
             if m.group(4).strip("\"'") != "<redacted>":
@@ -364,6 +464,7 @@ class Redactor:
             elif re.search(r"\d", s) and re.search(r"[A-Za-z]", s):
                 bad.append("opaque string " + s[:12] + "...")
         for t in (tm, join_lb(tm)):
+            t = protect(t, lambda s: "\x01")
             for rx, tok in self.mrx:
                 if rx.search(t):
                     bad.append("name survives")
@@ -526,11 +627,18 @@ def gh_create(repo, title, body):
             pass
 
 
+NODENY_MSG = ("no deny list, so client names outside the project files cannot be caught. Add one: one regex per line "
+              "in <project>/.leakguard-deny (the names this project must never publish), or set LEAKGUARD_DENY='Foo|Bar'.")
 REFUSED_NOTE = "refused: run the dry run to see why"
 
 
 def main():
-    ap = argparse.ArgumentParser(prog="file-bugs.sh", add_help=True)
+    ap = argparse.ArgumentParser(prog="file-bugs.sh", add_help=True, formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="Per-project bug log (docs/bugs.jsonl) and a redacted way to file it to mendixlabs/mxcli or the toolkit repo.",
+        epilog="Posting (--file, --all) is for a human: run it yourself with `!bin/file-bugs.sh --file PBUG-NN`. "
+               "No script can tell a person from an agent driving a pty, so the shipped Claude Code permissions "
+               "deny `file-bugs.sh --file` and `--all`. Dry run, --links and --json post nothing; all three, and "
+               "posting, need a deny list (<project>/.leakguard-deny or $LEAKGUARD_DENY).")
     ap.add_argument("--project", default=".")
     ap.add_argument("--file", action="append", default=[], metavar="PBUG-NN")
     ap.add_argument("--all", action="store_true")
@@ -560,13 +668,18 @@ def main():
             sys.stderr.write("file-bugs: %s is not open, skipped\n" % w)
     posting = bool(want or a.all) and not (a.links or a.json)
     tty = None
+    r = Redactor(project, a.name)
+    for w in r.warnings:
+        sys.stderr.write("file-bugs: warning: %s\n" % w)
+    nodeny = not r.deny
+    if nodeny:
+        if posting or a.links or a.json:
+            sys.exit("file-bugs: " + NODENY_MSG + " Posting, --links and --json are refused until then; nothing posted.")
+        print("NOTE: " + NODENY_MSG + " Posting, --links and --json are refused until then.\n")
     if posting:
         tty = tty_open()
         if tty is None:
             sys.exit("file-bugs: posting needs an interactive terminal (/dev/tty, y/N per bug); nothing posted")
-    r = Redactor(project, a.name)
-    for w in r.warnings:
-        sys.stderr.write("file-bugs: warning: %s\n" % w)
     out = []
     for _, d in todo:
         target = d.get("target")

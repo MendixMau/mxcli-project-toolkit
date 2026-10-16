@@ -365,7 +365,7 @@ fi
 change_lane() {
   case "$CHANGE_CLASS" in
     ui-only) echo "re-run the journeys of every page the change reaches (embedders of a changed snippet/layout) once + a LOOK. No .test.mdl; reviewers read the artifacts, they do not re-run" ;;
-    logic)   echo "re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). Full mxcli test at module close, not here" ;;
+    logic)   echo "re-run only the tests whose subject this change touched (changed microflows + their SHOW CALLERS, changed pages' journeys). The full suite runs at deploy-ready, per PROJECT.md ## Test strategy" ;;
   esac
 }
 [ -n "$CR_ID" ] && echo "→ Change request: $CR_ID (PROJECT.md '## Change log'; cite this run's commit in its Closed-by)"

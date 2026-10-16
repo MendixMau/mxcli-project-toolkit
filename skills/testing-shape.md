@@ -134,7 +134,7 @@ definition of done (`iterative-build-loop.md`). Without this anchor someone decl
 > hand (journey report, screenshot, diff) does not?* If you cannot name what it would show, do not run it.
 
 **The subject set.** A re-run covers the tests whose *subject* the exec'd script(s) changed — the
-script is the change list; `bin/exec.sh` tags each run `ui-only` or `logic` and prints its lane:
+script is the change list; `bin/exec.sh` tags its lane and `bin/affected-tests.sh <script>` lists the set:
 
 | Changed in this exec | Its subject set — re-run these, only these |
 |---|---|
@@ -156,29 +156,29 @@ screenshots, the journey report — and **never re-run** what the implementer al
 recorded. A reviewer who doubts an artifact says which claim it fails to prove; that is a finding,
 not a second run.
 
-**The full suite (and the module's whole journey set) runs on the last three rows below only** — **never at batch close**, never after
-an individual fix, never because the change "felt wide". The e2e instruments are unchanged; only
-their trigger is.
+**Each project picks what runs when** with its developer at CAC-5: PROJECT.md `## Test strategy`
+(`checkpoint-build.md`). Defaults: every change `affected`, module close `module`, deploy-ready
+`full`. The full suite never runs at batch close, after a fix, or because a change "felt wide".
 
 | Event | What happens |
 |---|---|
 | A fix to an existing script | **Re-run its subject set**, in its lane. No questions, no re-authoring. |
 | A new script within agreed scope | Re-run its subject set. Extend the suite only for a *behaviour* the coverage checklist doesn't already cover. |
 | A new behaviour / scope change | The coverage checklist changes — the existing drift-sync path. The suite extends with it. |
-| Module close | The full suite, once (`module-review.md` PROVE). |
-| Release gate (before UAT/production) | The project-wide suite, once. |
+| Module close | The module's tests and journeys, once (`module-review.md` PROVE). |
+| Deploy-ready (before UAT/production) | Every test and journey, once. |
 | The user asks for a full run | Run it, that message is the trigger. |
 
 **Check moments — which checks each of those events owes.** Fast checks run during development;
-heavy checks wait for module close or the release gate. This sorts checks by *when*, not what
+heavy checks wait for module close or deploy-ready. This sorts checks by *when*, not what
 testing a module means: the §1 shape and the two lanes are unchanged. A *planned: #N* check is not
 built yet and claims nothing until it lands.
 
 | Moment | Budget | What runs |
 |---|---|---|
 | **Every exec** | ~1 minute (mxbuild 22–65 s per script, `iterative-build-loop.md` → Gate cost) | `exec.sh` includes: lock → module-brief advisory → `mxcli check` → snapshot → apply → mxbuild delta gate → auto-restore on a new error → lint ratchet. Static STOP-row scan (planned: #349); Studio Pro warning ratchet (planned: #351); human-locked baselines (planned: #348). |
-| **Module close** | minutes | The module's full suite and journeys (row above). New page or action has a test (planned: #354); that module's server-side security tests (planned: #352). |
-| **Release gate** | as needed | The project-wide suite, once (row above). Page × role smoke on the production DB engine (planned: #353); full security report (planned: #352); language/RTL layout, multi-language apps only (planned: #354). |
+| **Module close** | minutes | The module's tests and journeys (row above). New page or action has a test (planned: #354); that module's server-side security tests (planned: #352). |
+| **Deploy-ready** | as needed | Every test and journey, once (row above). Page × role smoke on the production DB engine (planned: #353); full security report (planned: #352); language/RTL layout, multi-language apps only (planned: #354). |
 
 > **Why scoped (#274):** the old unscoped "re-run the suite as regression" re-proved each UI-only
 > change 5–10× (other modules' journeys, the reviewer re-running them, a full `mxcli test` at every

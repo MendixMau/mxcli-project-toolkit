@@ -103,6 +103,27 @@ all scripts upfront. See `brd-to-build-plan.md` ("The build plan contains no MDL
 `test-plan`, `acceptance-criteria`), or `Optional artifacts: none for Stage 5` as a Stage-4
 decision.
 
+**Test strategy (in the same Offer, not a separate question).** Show the defaults and let the
+developer change any cell in the same answer:
+
+> "Testing during the build, unless you want otherwise:
+>
+> | Moment | Unit tests | Journeys |
+> |---|---|---|
+> | Every change | affected | affected |
+> | Module close | module | module |
+> | Deploy-ready | full | full |
+>
+> `affected` = the tests and journeys of what the change touched and its callers
+> (`bin/affected-tests.sh`); `module` = the module's own; `full` = everything; `none` = skip.
+> Change a cell, or say 'defaults'."
+
+**Record as:** `PROJECT.md` → `## Test strategy`, the table plus a `Status` column
+(`CONFIRMED`, or `ASSUMED` in auto mode). `bin/affected-tests.sh --moment change|module|deploy`
+reads it; with no section it uses these defaults and says so. Unit tests stay subject to the
+intake default (`Unit tests default:` in PROJECT.md, `testing-shape.md` §2): `affected` selects
+from the tests that exist, it does not ask for new ones.
+
 ## Open Question
 
 > "Is there a deadline, a demo milestone, or a specific feature that must be working first?

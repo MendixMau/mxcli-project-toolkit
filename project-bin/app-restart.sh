@@ -40,7 +40,7 @@
 # Git Bash, so there --cmd is needed the first time. Every successful restart remembers the
 # command in .claude/loop/app-restart/start.cmd (self-gitignored, machine-local), so the next one
 # — or one after the app died — needs no --cmd. It must be an `mxcli run --local` command; this
-# script starts nothing else. Values after password/secret/token/key flags are masked on screen.
+# script starts nothing else. Values after password/secret/token/key flags, and of any Name=value whose Name holds one, are masked on screen.
 #
 # READY means: a new record with a live pid, a Mendix answer on its port (the login/index page
 # carries Mendix markers — any 4xx-answering process is NOT enough, see test-stack-up.sh), and the
@@ -134,8 +134,13 @@ bundle_ok() {  # $1 port — the script bundle index.html loads must answer 2xx
 mask() {  # print argv joined, with the value after any password/secret/token/key flag masked
   local a out=""
   for a in "$@"; do case "$a" in *" "*) a="'$a'" ;; esac; out="$out $a"; done
+  # Two passes (TK-003): (1) a secret-named FLAG masks its value, as `--db-password v` or
+  # `--db-password=v`; (2) ANY `Name=value` whose Name holds a secret word masks the value, which
+  # is how `--constant Module.HubApiPassword=v` (flag name `--constant`) used to print in clear.
+  local _w='([Pp][Aa][Ss][Ss]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|[Kk][Ee][Yy])'
   printf '%s\n' "${out# }" | sed -E \
-    "s/(-[-A-Za-z_]*([Pp][Aa][Ss][Ss]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Tt][Oo][Kk][Ee][Nn]|[Kk][Ee][Yy])[-A-Za-z_]*)(=| +)[^ ']+/\1\3****/g"
+    -e "s/(-[-A-Za-z_]*${_w}[-A-Za-z_]*)(=| +)[^ ']+/\1\3****/g" \
+    -e "s/([A-Za-z0-9_.-]*${_w}[A-Za-z0-9_.-]*)=[^ ']+/\1=****/g"
 }
 
 # Port and process helpers (mxtk_port_holder, mxtk_holder_text, mxtk_pid_in_tree) live in

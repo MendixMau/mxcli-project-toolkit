@@ -205,7 +205,9 @@ async function runStep(page, meta, s) {
 
   switch (s.do) {
     case 'nav': {
-      await H.navTo(page, s.group ? subst(s.group) : null, subst(s.item));
+      // A missing menu item is a recorded failed step; `fatal` alone decides whether the walk stops.
+      try { await H.navTo(page, s.group ? subst(s.group) : null, subst(s.item)); }
+      catch (e) { return step(meta, false, label, e.message); }
       await p(600);
       const ok = s.ready ? await vis(s.ready, 12000) : true;
       return step(meta, ok, label, ok ? '' : `.mx-name-${s.ready} never rendered after navigating to "${s.item}"`);

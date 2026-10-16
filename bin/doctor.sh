@@ -606,6 +606,8 @@ MXBUILD="$(find_mxbuild 2>/dev/null || true)"
 JAVA_HOME_FOUND="$(find_java 2>/dev/null || true)"
 JAVA_EXE="$(find_java_exe 2>/dev/null || true)"
 
+_jnote="$(find_java_note 2>/dev/null || true)"
+
 # toolkit.env — the human-editable answer to "doctor guessed the wrong Studio Pro / Java".
 # _common.sh already loaded it (project file, then ~/.mxcli-toolkit.env; a variable set in
 # the shell wins over both). Say what was read, so a stale value is findable.
@@ -843,6 +845,7 @@ if [ -n "$JAVA_EXE" ] && [ -x "$JAVA_EXE" ]; then
   JV="$("$JAVA_EXE" -version 2>&1 | grep -i 'version' | head -1)" || JV=""
   if [ -n "$JV" ]; then
     ok "java runs: $JV  ($JAVA_EXE)"
+    [ -z "${_jnote:-}" ] || warn "$_jnote"
     # mxbuild compiles the model's Java actions, which takes javac — a JRE has none. Studio
     # Pro's bundled runtime is a JRE that mxbuild is paired with, so only flag a system Java.
     case "$JAVA_HOME_FOUND" in

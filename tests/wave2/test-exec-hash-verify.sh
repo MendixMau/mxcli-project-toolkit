@@ -27,7 +27,9 @@ case "$EXEC_SH" in /*) ;; *) EXEC_SH="$PWD/$EXEC_SH" ;; esac
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
 FX="$TOOLKIT/tests/wave2/fixtures/mxpatch"
 PSFX="$TOOLKIT/tests/wave2/fixtures/property-sets"
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/exec-hv.XXXXXX")"
+# macOS $TMPDIR ends in "/", so a bare mktemp path holds "//" and the exact-path assert in case K
+# cannot match; pwd -P also gives the physical path (/private/var), the form exec.sh reports.
+WORK="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/exec-hv.XXXXXX")" && pwd -P)"
 trap 'rm -rf "$WORK"' EXIT
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }

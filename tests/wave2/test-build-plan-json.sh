@@ -39,6 +39,8 @@
 #       --json, a `done-` script reads done-, and a row whose State says built while its script
 #       is not done- is flagged. --refresh leaves an unchanged page byte-identical, never writes
 #       over a page this script did not generate, and writes nothing without a build-plan.md.
+#   T11 --refresh keeps an existing build-plan.json current (a State flipped in the md shows in
+#       the json), rewrites nothing when only generatedAt would differ, and never creates a json.
 #
 # Usage: bash tests/wave2/test-build-plan-json.sh /path/to/build-plan-status.sh
 
@@ -364,6 +366,33 @@ bash "$SCRIPT" "$P10" --refresh >/dev/null 2>&1
 P10B="$(new_project htmlnoplan)"
 bash "$SCRIPT" "$P10B" --refresh >/dev/null 2>&1
 [ ! -f "$P10B/architecture/build-plan.html" ] && ok "T10 --refresh writes nothing without build-plan.md" || bad "T10 --refresh wrote a page with no plan"
+
+# ── T11: --refresh keeps an existing build-plan.json current, never creates one ──
+P11="$(new_project jsonrefresh)"
+cat > "$P11/architecture/build-plan.md" <<'MD'
+# Build Plan
+
+### Phase 1 — Alpha
+
+| # | Kind | Step | Produces/Proves | Depends on | Skills | State |
+|---|---|---|---|---|---|---|
+| 1.1 | script | `01-alpha.mdl` | Alpha entity | — | — | not built |
+MD
+J11="$P11/architecture/build-plan.json"
+bash "$SCRIPT" "$P11" --json --quiet >/dev/null 2>&1
+q "$J11" "json.dumps(d)" | grep -q 'not built' && ok "T11 --json snapshot shows the row not built" || bad "T11 setup: snapshot not 'not built'" "$(cat "$J11" 2>/dev/null)"
+sed 's/| not built |/| built |/' "$P11/architecture/build-plan.md" > "$P11/md.tmp" && mv "$P11/md.tmp" "$P11/architecture/build-plan.md"
+bash "$SCRIPT" "$P11" --refresh >/dev/null 2>&1
+S11="$(q "$J11" "d['phases'][0]['steps'][0]")"
+case "$S11" in *"'not built'"*|*PARSE-ERROR*) bad "T11 --refresh left the json stale" "$S11" ;; *built*) ok "T11 --refresh updates the existing json to built" ;; *) bad "T11 unexpected step" "$S11" ;; esac
+SUM11="$(cksum < "$J11")"
+sleep 1
+bash "$SCRIPT" "$P11" --refresh >/dev/null 2>&1
+[ "$(cksum < "$J11")" = "$SUM11" ] && ok "T11 --refresh rewrites nothing when only the timestamp would change" || bad "T11 --refresh rewrote an unchanged json"
+P11B="$(new_project jsonrefreshnone)"
+cp "$P11/architecture/build-plan.md" "$P11B/architecture/build-plan.md"
+bash "$SCRIPT" "$P11B" --refresh >/dev/null 2>&1
+[ ! -f "$P11B/architecture/build-plan.json" ] && ok "T11 --refresh does not create a json when there is none" || bad "T11 --refresh created build-plan.json"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL   ($WORK)"

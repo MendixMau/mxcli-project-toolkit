@@ -1923,7 +1923,7 @@ if [ "$PATCH_MODE" = 0 ] && [ -f "$(dirname "$0")/look-ledger.sh" ]; then
 fi
 
 # ── Build plan page ──────────────────────────────────────────────────────────
-# Refresh architecture/build-plan.html so it tracks the build without anyone remembering to
+# Refresh architecture/progress-report.html so it tracks the build without anyone remembering to
 # (its only trigger used to be iterative-build-loop.md step 16, so a page written at Stage 4
 # stayed empty for the whole build). --refresh is quiet, writes only over a page that script
 # generated, and leaves the file alone when nothing but the timestamp would change.

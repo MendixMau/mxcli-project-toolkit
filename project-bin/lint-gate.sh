@@ -306,6 +306,7 @@ def write_last(verdict, viol_list, counts_now):
             "total": len(viol_list),
             "rule_count": len(counts_now),
             "counts": dict(sorted(counts_now.items())),
+            **({"new_findings": new_by_rule} if new_by_rule else {}),
         }, open(last_path, "w"), indent=2)
         open(last_path, "a").write("\n")
     except OSError as e:
@@ -394,6 +395,7 @@ def fkey(v):
     return "|".join((v.get("ruleId") or "", v.get("module") or "", v.get("document") or "",
                      (v.get("message") or "").replace("\n", " ")))
 fcounts = collections.Counter(fkey(v) for v in viol)
+new_by_rule = {}  # rule -> every new-or-changed finding; the FAIL view caps it, lint-last.json keeps all
 
 if update:
     # Accepting a rise is a decision; record it. See the header ("ACCEPTING DEBT ...").
@@ -531,11 +533,16 @@ for r, was, now in rose:
             k = fkey(x)
             if left[k] > 0: left[k] -= 1
             else: new.append(x)
-        print("        NEW since baseline (%d):" % len(new))
-        for v in new[:10]:
-            print("        + %s | %s | %s" % (v.get("module") or "(project)", v.get("document") or "-", v["message"][:120]))
-        if len(new) > 10:
-            print("        + ... %d more" % (len(new) - 10))
+        new_by_rule[r] = ["%s | %s | %s" % (v.get("module") or "(project)", v.get("document") or "-", v["message"][:120]) for v in new]
+        # Compact on purpose: exec.sh shows only the first 60 lines of this block, so a rule must
+        # not take more than the 5 lines it took before (rule, 3 findings, blank).
+        if len(new) != now - was:
+            print("        new or changed findings (%d); net rise +%d (reworded messages, earlier swaps or un-baselined drift count here)" % (len(new), now - was))
+        shown = new if len(new) <= 3 else new[:2]
+        for line in new_by_rule[r][:len(shown)]:
+            print("        + " + line)
+        if len(new) > 3:
+            print("        + ... %d more in .claude/loop/lint-last.json (new_findings)" % (len(new) - 2))
     else:
         print("        (baseline holds counts only: these 3 are the FIRST in model order, not necessarily new.")
         print("         Re-baseline once on a clean tree to enable listing the new findings.)")

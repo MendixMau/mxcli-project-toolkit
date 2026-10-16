@@ -25,11 +25,13 @@ cat > .mxcli/run-local.json <<'J'
 J
 git add .gitignore && git commit -q -m init
 
-echo "-- nothing staged: clean"
+echo "-- a clean staged file: clean"
+printf 'hello\n' > hello.txt; git add hello.txt
 OUT="$(bash bin/check-staged-secrets.sh 2>&1)"; RC=$?
 [ "$RC" = 0 ] && ok "clean exits 0" || bad "clean exits 0 (got $RC)"
 has "reports how many values it checked" "$OUT" "3 value(s) checked"
 
+git reset -q hello.txt; rm hello.txt
 echo "-- a staged file holding a .env value"
 printf '<input value="Zq7-xylophone-91">\n' > login.html; git add login.html
 OUT="$(bash bin/check-staged-secrets.sh 2>&1)"; RC=$?
@@ -63,5 +65,41 @@ rm -f .env .mxcli/run-local.json
 OUT="$(bash bin/check-staged-secrets.sh 2>&1)"; RC=$?
 [ "$RC" = 0 ] && ok "no sources exits 0" || bad "no sources exits 0 (got $RC)"
 has "no sources is stated, not silent" "$OUT" "nothing checked"
+
+echo "-- the default database password is not a secret (review: mass false positives)"
+mkdir -p .mxcli; printf '{"bootConfig": {"DatabasePassword": "mendix"}}' > .mxcli/run-local.json
+printf 'DB_PASSWORD=mendix\nOTHER_PASSWORD=Password\n' > .env
+printf 'mendix Mendix password\n' > notes.txt; git add notes.txt
+OUT="$(bash bin/check-staged-secrets.sh 2>&1)"; RC=$?
+[ "$RC" = 0 ] && ok "staged 'mendix' with default bootConfig/.env password exits 0" || bad "default password exits 0 (got $RC: $OUT)"
+has "says it skipped defaults" "$OUT" "nothing checked"
+git reset -q notes.txt
+
+echo "-- .docker/.env is a source; CRLF, spaces and inline comment are normalised"
+rm -f .env .mxcli/run-local.json; mkdir -p .docker
+printf '%s = %s  # local only\r\n%s=%s\r\n%s="%s"\r\n' M2EE_ADMIN_PASS "Kx9-admin-Quartz-31" DB_PASSWORD mendix TOKEN "Rv4-token-Magnolia-08" > .docker/.env
+printf 'a Kx9-admin-Quartz-31 b\n' > one.txt; printf 'Rv4-token-Magnolia-08\n' > two.txt; git add one.txt two.txt
+OUT="$(bash bin/check-staged-secrets.sh 2>&1)"; RC=$?
+[ "$RC" = 1 ] && ok ".docker/.env value found" || bad ".docker/.env value found (got $RC)"
+has "names the .docker/.env key" "$OUT" ".docker/.env:M2EE_ADMIN_PASS"
+has "CRLF quoted value matches" "$OUT" "two.txt holds the value of .docker/.env:TOKEN"
+hasnt "never prints the value" "$OUT" "Kx9-admin-Quartz-31"
+hasnt "never prints a CRLF value" "$OUT" "Rv4-token-Magnolia-08"
+git reset -q one.txt two.txt
+
+echo "-- a value equal to .env.example for the same key is published, not a secret"
+printf 'API_TOKEN=Published-Example-99\n' > .docker/.env.example
+printf 'API_TOKEN=Published-Example-99\n' > .docker/.env
+printf 'Published-Example-99\n' > pub.txt; git add pub.txt
+OUT="$(bash bin/check-staged-secrets.sh 2>&1)"; RC=$?
+[ "$RC" = 0 ] && ok "example-equal value ignored" || bad "example-equal value ignored (got $RC: $OUT)"
+git reset -q pub.txt
+
+echo "-- MXTK_SECRET_VALUES_FILE is not filtered"
+printf 'mendix\n' > "$W/extra.txt"; printf 'mendix\n' > tracked.txt; git add tracked.txt; git commit -q -m t; git reset -q
+OUT="$(MXTK_SECRET_VALUES_FILE="$W/extra.txt" bash bin/check-staged-secrets.sh --tree 2>&1)"; RC=$?
+[ "$RC" = 1 ] && ok "explicit extra value 'mendix' is found (rc 1)" || bad "extra value (rc $RC)"
+OUT="$(bash bin/check-staged-secrets.sh --tree 2>&1)"; RC=$?
+[ "$RC" = 0 ] && ok "without the extra file the default is ignored in --tree" || bad "tree default (rc $RC: $OUT)"
 
 echo; echo "$pass passed, $fail failed"; [ "$fail" = 0 ]

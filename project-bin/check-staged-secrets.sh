@@ -10,11 +10,28 @@
 # check that sees what git will actually store is a scan of the blobs, against the real values.
 #
 # Where the values come from (read here, never echoed):
-#   .env and .env.*            KEY=VALUE where KEY looks like PASSWORD / SECRET / TOKEN / KEY / PAT
+#   .env  .env.*               at the project root and in .docker/, docker/, .devcontainer/ (the
+#                              `mxcli docker` layout keeps M2EE_ADMIN_PASS and DB_PASSWORD in
+#                              .docker/.env). KEY=VALUE where KEY looks like PASSWORD / SECRET /
+#                              TOKEN / KEY / PAT. CRLF, `KEY = value`, quotes and an unquoted
+#                              trailing ` # comment` are normalised.
 #   .mxcli/run-local.json      every string in bootConfig whose key looks like one of those
-#   $MXTK_SECRET_VALUES_FILE   optional: one literal value per line (name shown as "extra")
-# Values shorter than 6 characters are ignored (a scan for "1" would match everything).
-# Example files (.env.example, .env.sample, .env.template) are not sources.
+#   $MXTK_SECRET_VALUES_FILE   optional: one literal value per line (name shown as "extra");
+#                              the filters below do NOT apply, you named it a secret
+# What is NOT treated as a secret, and why (this is a leak detector, not a password-strength
+# check; a weak demo password is not protected by it):
+#   - values under 8 characters: too short to scan for without matching ordinary text;
+#   - well-known development defaults (mendix, password, admin, postgres, changeme, ...): every
+#     mxcli project carries `mendix` as the database password, so it sits in thousands of tracked
+#     files (model blobs, java sources, docs) and would fail every commit. A check that is red on
+#     every commit gets switched off, which is worse than not guarding a published default;
+#   - a value equal to the same key's value in a sibling .env.example/.sample/.template file:
+#     that value is already published on purpose.
+# Example files are never sources.
+#
+# Speed: one `git grep -l -F -f <600 temp file>` per value, over the staged paths (--cached) or
+# HEAD, instead of a process per file per value. The value goes through a mode 600 file, never
+# argv, so `ps` cannot show it.
 #
 # Usage:
 #   bin/check-staged-secrets.sh            # staged blobs (what the next commit stores)
@@ -31,20 +48,41 @@ MODE=staged; [ "${1:-}" = "--tree" ] && MODE=tree
 PY="$(command -v python3 || command -v python || true)"
 
 NAMEPAT='(PASS|SECRET|TOKEN|KEY|PAT$|CREDENTIAL)'
-SRC="$(mktemp "${TMPDIR:-/tmp}/mxtk-secrets.XXXXXX")"; trap 'rm -f "$SRC"' EXIT
-chmod 600 "$SRC"
+MINLEN=8
+# Well-known development defaults, lowercase. Compared case-insensitively.
+DEFAULTS=" mendix password passw0rd admin administrator postgres postgresql changeme change-me change_me secret root test testing demo example default "
+SRC="$(mktemp "${TMPDIR:-/tmp}/mxtk-secrets.XXXXXX")"
+VF="$(mktemp "${TMPDIR:-/tmp}/mxtk-secval.XXXXXX")"
+trap 'rm -f "$SRC" "$VF"' EXIT
+chmod 600 "$SRC" "$VF"
 
-# name<TAB>value, one per line.
-for f in .env .env.*; do
+# name<TAB>value, one per line, before filtering.
+for f in .env .env.* .docker/.env .docker/.env.* docker/.env docker/.env.* .devcontainer/.env .devcontainer/.env.*; do
   [ -f "$f" ] || continue
   case "$f" in *.example|*.sample|*.template) continue ;; esac
-  sed -E 's/^[[:space:]]*export[[:space:]]+//' "$f" | while IFS= read -r line; do
-    case "$line" in \#*|"") continue ;; esac
-    k="${line%%=*}"; v="${line#*=}"; [ "$k" = "$line" ] && continue
-    v="${v%\"}"; v="${v#\"}"; v="${v%\'}"; v="${v#\'}"
-    printf '%s' "$k" | grep -qiE "$NAMEPAT" || continue
-    printf '%s\t%s\n' "$f:$k" "$v"
-  done >> "$SRC"
+  d="$(dirname "$f")"; ex=""
+  for e in "$d/.env.example" "$d/.env.sample" "$d/.env.template"; do [ -f "$e" ] && ex="$ex $e"; done
+  # shellcheck disable=SC2086
+  awk -v NAMEPAT="$NAMEPAT" -v SRCF="$f" '
+    function trim(x) { sub(/^[ \t\r]+/, "", x); sub(/[ \t\r]+$/, "", x); return x }
+    function parse(line, kv,   k, v, i) {
+      sub(/\r$/, "", line); line = trim(line)
+      if (line == "" || substr(line, 1, 1) == "#") return 0
+      sub(/^export[ \t]+/, "", line)
+      i = index(line, "="); if (i == 0) return 0
+      k = trim(substr(line, 1, i - 1)); v = trim(substr(line, i + 1))
+      if (v ~ /^"/) { sub(/^"/, "", v); sub(/".*$/, "", v) }
+      else if (v ~ /^\x27/) { sub(/^\x27/, "", v); sub(/\x27.*$/, "", v) }
+      else { sub(/[ \t]+#.*$/, "", v); v = trim(v) }
+      kv[1] = k; kv[2] = v; return 1
+    }
+    FNR == 1 { isex = (FILENAME != SRCF) }
+    { split("", kv); if (!parse($0, kv)) next
+      if (isex) { exv[kv[1]] = kv[2]; next }
+      if (toupper(kv[1]) !~ NAMEPAT) next
+      if ((kv[1] in exv) && exv[kv[1]] == kv[2]) next
+      printf "%s:%s\t%s\n", SRCF, kv[1], kv[2] }
+  ' $ex "$f" >> "$SRC"
 done
 if [ -f .mxcli/run-local.json ] && [ -n "$PY" ]; then
   "$PY" -I - "$NAMEPAT" >> "$SRC" 2>/dev/null <<'PYEOF'
@@ -65,36 +103,51 @@ for p, v in walk(data):
         print(".mxcli/run-local.json:" + p.split("bootConfig.", 1)[-1] + "\t" + v)
 PYEOF
 fi
+
+# Filter: length and known defaults (lowercased compare). Then the explicit extra values.
+FILT="$(mktemp "${TMPDIR:-/tmp}/mxtk-secfilt.XXXXXX")"; chmod 600 "$FILT"; trap 'rm -f "$SRC" "$VF" "$FILT"' EXIT
+skipped=0
+while IFS="$(printf '\t')" read -r name value; do
+  [ -n "$name" ] || continue
+  lv="$(printf '%s' "$value" | tr 'A-Z' 'a-z')"
+  case "$DEFAULTS" in *" $lv "*) skipped=$((skipped + 1)); continue ;; esac
+  [ "${#value}" -ge "$MINLEN" ] || { skipped=$((skipped + 1)); continue; }
+  printf '%s\t%s\n' "$name" "$value" >> "$FILT"
+done < "$SRC"
 if [ -n "${MXTK_SECRET_VALUES_FILE:-}" ] && [ -f "$MXTK_SECRET_VALUES_FILE" ]; then
-  while IFS= read -r v; do [ -n "$v" ] && printf 'extra\t%s\n' "$v"; done < "$MXTK_SECRET_VALUES_FILE" >> "$SRC"
+  while IFS= read -r v; do v="${v%$(printf '\r')}"; [ -n "$v" ] && printf 'extra\t%s\n' "$v"; done < "$MXTK_SECRET_VALUES_FILE" >> "$FILT"
+fi
+sort -u "$FILT" -o "$FILT"
+n="$(wc -l < "$FILT" | tr -d ' ')"
+if [ "$n" -eq 0 ]; then
+  echo "check-staged-secrets: no secret values to scan for (none found, or $skipped skipped as known defaults / under $MINLEN chars) — nothing checked."
+  exit 0
 fi
 
-n=0
-while IFS="$(printf '\t')" read -r name value; do
-  [ "${#value}" -ge 6 ] && n=$((n + 1))
-done < "$SRC"
-if [ "$n" -eq 0 ]; then echo "check-staged-secrets: no secret values found to scan for (no .env secrets, no run-local.json bootConfig) — nothing checked."; exit 0; fi
-
-if [ "$MODE" = tree ]; then FILES="$(git ls-files)"; else FILES="$(git diff --cached --name-only --diff-filter=ACMR)"; fi
+if [ "$MODE" = staged ]; then
+  STAGED="$(git diff --cached --name-only -z --diff-filter=ACMR | tr '\0' '\n' | head -c 1)"
+  if [ -z "$STAGED" ]; then echo "✓ check-staged-secrets: nothing staged ($n value(s) would be checked)."; exit 0; fi
+fi
 hits=0
-while IFS= read -r f; do
-  [ -n "$f" ] || continue
-  if [ "$MODE" = tree ]; then blob="$(git show "HEAD:$f" 2>/dev/null | LC_ALL=C tr -d '\000')"; else blob="$(git show ":$f" 2>/dev/null | LC_ALL=C tr -d '\000')"; fi
-  [ -n "$blob" ] || continue
-  while IFS="$(printf '\t')" read -r name value; do
-    [ "${#value}" -ge 6 ] || continue
-    if printf '%s' "$blob" | grep -qF -- "$value"; then
-      echo "  ✗ $f holds the value of $name"
-      hits=$((hits + 1))
-    fi
-  done < "$SRC"
-done <<EOF2
-$FILES
+while IFS="$(printf '\t')" read -r name value; do
+  printf '%s\n' "$value" > "$VF"
+  if [ "$MODE" = tree ]; then
+    files="$(git grep -l -F -f "$VF" HEAD 2>/dev/null | sed 's/^HEAD://')"
+  else
+    files="$(git diff --cached --name-only -z --diff-filter=ACMR | xargs -0 git --literal-pathspecs grep --cached -l -F -f "$VF" -- 2>/dev/null)"
+  fi
+  [ -n "$files" ] || continue
+  while IFS= read -r f; do
+    echo "  ✗ $f holds the value of $name"
+    hits=$((hits + 1))
+  done <<EOF2
+$files
 EOF2
+done < "$FILT"
 if [ "$hits" -gt 0 ]; then
   echo "✗ check-staged-secrets: $hits secret value(s) in $MODE blobs. Values are not shown."
   echo "  → Unstage the file (git rm --cached <file>), ignore it, keep the template without the value."
   echo "  → A value that reached a remote or a transcript is spent: rotate it. Removing the commit does not."
   exit 1
 fi
-echo "✓ check-staged-secrets: no secret value in the $MODE blobs ($n value(s) checked)."
+echo "✓ check-staged-secrets: no secret value in the $MODE blobs ($n value(s) checked, $skipped skipped as defaults / under $MINLEN chars)."

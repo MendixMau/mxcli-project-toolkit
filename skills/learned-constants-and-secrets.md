@@ -198,7 +198,7 @@ Three habits that make it hold:
 
 1. **Read a secret by testing it, not showing it.** `[ "${#VAR}" -ge 12 ]`, `[ "$A" = "$B" ] && echo same`, an HTTP status from `curl -u "$USER:$PASS"` with output discarded. Never `echo`, never `set -x`.
 2. **Put the ban in the lane rules** of any multi-agent build: one line naming these files. An agent that was not told will `cat` them to be helpful.
-3. **Scan what git will store.** `bin/check-staged-secrets.sh` (staged blobs) and `--tree` (everything tracked at HEAD) compare your real `.env` and `bootConfig` values against the blobs and print only the file and the key name. It is not wired into the generated pre-commit hook; add it yourself. `git commit -- <path>` re-adds an ignored tracked file at commit time, so a `.gitignore` entry is not a guard.
+3. **Scan what git will store.** `bin/check-staged-secrets.sh` (staged blobs) and `--tree` (everything tracked at HEAD) compare your real `.env`, `.docker/.env` and `bootConfig` values against the blobs and print only the file and the key name. It skips values under 8 characters, well-known defaults such as `mendix`, and a value equal to the same key in `.env.example`, so a weak demo password like `mendix` is NOT protected by it (the default sits in thousands of tracked files, and a check that fails every commit gets turned off). It is not wired into the generated pre-commit hook; add it yourself. `git commit -- <path>` re-adds an ignored tracked file at commit time, so a `.gitignore` entry is not a guard.
 
 A value that reached a transcript or a remote is spent: **rotate it.** Deleting the commit or the
 transcript does not un-leak it. The demo password on a free-node sandbox is the lowest stakes; a

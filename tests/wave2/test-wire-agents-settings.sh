@@ -72,22 +72,22 @@ for c in bash sh cp cat mkdir rm mv date dirname basename grep sed awk tr sort u
 done
 PATH="$BIN" bash "$SUBJECT" "$N" >"$WORK/nopy.out" 2>&1
 cmp -s "$N/orig" "$N/.claude/settings.json" \
-  && ok "no python: snapshot restored byte for byte" || bad "no python left a changed settings.json"
+  && ok "no python: snapshot restored byte for byte" || bad "no python left a changed settings.json"  # portability-ok: test name, not an interpreter call
 grep -q "WARN" "$WORK/nopy.out" && ok "no python: WARN printed" || bad "no python: no WARN"
 
 # 3/4. python3 passes the version probe (-c) but the merge fails; the second one truncates the
 # target first. Both must restore byte for byte, warn, stamp, and exit 0.
-REALPY="$(command -v python3)"
+REALPY="$(command -v python3)"  # portability-ok: finds the real interpreter to wrap
 for mode in fail truncate; do
   M="$WORK/merge-$mode"; mkproj "$M" 0
   FB="$WORK/fakepy-$mode"; mkdir -p "$FB"
-  cat > "$FB/python3" <<FAKE
+  cat > "$FB/python3" <<FAKE  # portability-ok: deliberate fake interpreter simulating a broken one
 #!/bin/sh
 [ "\$1" = "-c" ] && exec "$REALPY" "\$@"
 [ "$mode" = "truncate" ] && : > "\$3"
 exit 1
 FAKE
-  chmod +x "$FB/python3"
+  chmod +x "$FB/python3"  # portability-ok: deliberate fake interpreter
   PATH="$FB:$PATH" bash "$SUBJECT" "$M" >"$WORK/merge-$mode.out" 2>&1; rc=$?
   cmp -s "$M/orig" "$M/.claude/settings.json" \
     && ok "failed merge ($mode): snapshot restored byte for byte" || bad "failed merge ($mode): settings.json differs"

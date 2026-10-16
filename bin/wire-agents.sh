@@ -413,7 +413,7 @@ if [ -z "$DRY" ] && [ -n "$SETTINGS_SNAP" ]; then
   SETTINGS_PY="$(resolve_py)" || SETTINGS_PY=""
   if [ -z "$SETTINGS_PY" ]; then
     cp "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL"
-    echo "WARN: wire-agents.sh: no Python 3 found; restored .claude/settings.json byte for byte, new mxcli entries NOT merged. Install python3 and re-run." >&2
+    echo "WARN: wire-agents.sh: no Python 3 found; restored .claude/settings.json byte for byte, new mxcli entries NOT merged. Install python3 and re-run." >&2  # portability-ok: diagnostic
   else
   # `if !` keeps a non-zero merge exit reachable under set -e.
   if ! "$SETTINGS_PY" - "$SETTINGS_SNAP" "$PROJECT_DIR/$SETTINGS_REL" <<'PYMERGE'

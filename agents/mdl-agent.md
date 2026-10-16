@@ -77,7 +77,7 @@ This table is your whole list. The baseline table in the project's CLAUDE.local.
 | `skills/mdl-cookbook-microflows.md` | Writing MDL microflow scripts |
 | `skills/build/mdl/oneshot-mdl-method.md` | Writing a single MDL script that takes a project from nothing to a working vertical slice |
 | `skills/learned-page-patterns.md` | Building and auditing Mendix pages, or starting a UI fix round across many pages |
-| `skills/learned-multilingual-app.md` | Adding a second language, a language picker or a translation script |
+| `skills/learned-multilingual-app.md` | Adding a second language, a language picker or a translation script, and the moment a language picker errors, shows a blank label or changes nothing: source language, enabled languages, the user's starting language, a switch a non-admin role can use |
 | `skills/oneshot-page-structure-patterns.md` | Generating a whole page tree in one script |
 | `skills/mendix-agents.md` | Building a Mendix AI agent |
 | `skills/mendix-agent-ui.md` | Embedding a copilot chat panel |

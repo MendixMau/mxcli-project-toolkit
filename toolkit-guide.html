@@ -6,7 +6,7 @@
 <title>mxcli Project Toolkit — How This Works</title>
 <style>
   /* ── Shared shell tokens ─────────────────────────────────────────────
-     Every stage HTML surface (triage.html, architecture/blueprint.html, build-plan.html,
+     Every stage HTML surface (triage.html, architecture/blueprint.html, progress-report.html,
      test-report.html, index.html …) copies this :root block + base styles as its
      shell, so all project artifacts read as one system. These are the neutral
      bootstrap tokens; once Stage 3 produces design/design-system.html, THAT file's
@@ -331,7 +331,7 @@ never a sibling next to it.</span></pre>
   <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;">Nothing here requires reinstalling anything or starting over. Git commits at every phase gate are the real safety history.</p>
 
   <h2>8 · For agents: this page is also the shared HTML shell</h2>
-  <p style="font-size:14px;">Every stage HTML surface (<code>triage.html</code>, <code>architecture/blueprint.html</code>, <code>build-plan.html</code>, <code>test-report.html</code>, …) copies this file's <code>:root</code> token block and base styles, so all project artifacts look like one system. Once Stage 3 produces <code>design/design-system.html</code>, that file's tokens supersede these for artifacts generated afterwards. Copying the tokens does <em>not</em> mean opening this page: opening is governed by the first-touch rule in <code>CLAUDE.md</code> — only when <code>&lt;project-root&gt;/.claude/.guide-shown</code> is absent, and <code>touch</code> it immediately after.</p>
+  <p style="font-size:14px;">Every stage HTML surface (<code>triage.html</code>, <code>architecture/blueprint.html</code>, <code>progress-report.html</code>, <code>test-report.html</code>, …) copies this file's <code>:root</code> token block and base styles, so all project artifacts look like one system. Once Stage 3 produces <code>design/design-system.html</code>, that file's tokens supersede these for artifacts generated afterwards. Copying the tokens does <em>not</em> mean opening this page: opening is governed by the first-touch rule in <code>CLAUDE.md</code> — only when <code>&lt;project-root&gt;/.claude/.guide-shown</code> is absent, and <code>touch</code> it immediately after.</p>
 
   <h2>9 · First session on your harness — flip one setting</h2>
   <p style="font-size:13.5px; color:var(--ink-soft);">The AGENT-side default (whether it asks before a listed write) is one knob, <code>bin/exec-approval.sh</code> — rule text lives once, in <code>bin/lib/wiring-item3.sh</code>, not here. This page covers the other half: the HARNESS you're running in also prompts before it will even run <code>bin/exec.sh</code>, separately, unless you tell it not to. <code>bin/init-project.sh</code> and <code>bin/sync-project.sh</code> both call <code>bin/install-harness-permissions.sh</code>, which does this automatically for the harnesses that have a project-level setting for it — this table is what to check or flip by hand if that didn't run, or on a harness that has no project-level setting at all.</p>

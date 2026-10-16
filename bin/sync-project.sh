@@ -1610,6 +1610,21 @@ if [ "$WIRED" -eq 1 ] && [ -x "$SCRIPT_DIR/install-harness-permissions.sh" ]; th
   fi
 fi
 
+# ── Progress report session cache: machine-local, keep it out of git ─────────────────────
+# It holds absolute session-log paths (user name, session ids). Same shape as doctor.sh's
+# receipt and toolkit.env lines; a project synced from an older toolkit has no such line.
+if [ "$WIRED" -eq 1 ] && [ -d "$PROJECT_DIR/.git" ] \
+   && ! git -C "$PROJECT_DIR" check-ignore -q .claude/progress-report-sessions.txt 2>/dev/null; then
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo "Would add: /.claude/progress-report-sessions.txt to .gitignore (machine-local cache)"
+  else
+    if [ -s "$PROJECT_DIR/.gitignore" ] && [ -n "$(tail -c 1 "$PROJECT_DIR/.gitignore")" ]; then printf '\n' >> "$PROJECT_DIR/.gitignore"; fi
+    printf '\n# Machine-local progress report session cache (absolute session-log paths)\n/.claude/progress-report-sessions.txt\n' >> "$PROJECT_DIR/.gitignore"
+    echo "Added: /.claude/progress-report-sessions.txt to .gitignore (machine-local cache)"
+  fi
+  CHANGES=$((CHANGES + 1))
+fi
+
 # ── Starlark lint rules ──────────────────────────────────────────────────────────────────
 # Gated on WIRED for the same reason as the crash net: a mistyped path must not scatter
 # .star files into an unrelated directory. Unlike the crash net this is also a REPAIR path,

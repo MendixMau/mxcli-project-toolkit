@@ -613,6 +613,18 @@ else
   echo "Created/updated: .gitignore (.claude/settings.local.json ignored)"
 fi
 
+# The progress report caches which session logs belong to this project: absolute paths with a
+# user name and session ids. Machine-local, never tracked.
+if [ -f "$GITIGNORE" ] && grep -qE '^/?\.claude/progress-report-sessions\.txt$' "$GITIGNORE"; then
+  echo "Skip: .claude/progress-report-sessions.txt already listed in .gitignore."
+else
+  if [ -f "$GITIGNORE" ] && [ -s "$GITIGNORE" ] && [ -n "$(tail -c 1 "$GITIGNORE")" ]; then
+    printf '\n' >> "$GITIGNORE"
+  fi
+  printf '# Machine-local progress report session cache (absolute session-log paths) — never shared\n/.claude/progress-report-sessions.txt\n' >> "$GITIGNORE"
+  echo "Created/updated: .gitignore (.claude/progress-report-sessions.txt ignored)"
+fi
+
 # ---------------------------------------------------------------------------
 # Register this project's name with the toolkit's leak guard.
 #

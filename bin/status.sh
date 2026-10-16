@@ -88,21 +88,22 @@ fi
 N_STALL="$(printf '%s' "$STALL_LIST" | grep -c .)"; N_STALL="${N_STALL:-0}"
 NOT_DONE_PASS="$(printf '%s\n' "$STALL_LIST" | sed '/^$/d' | head -3 | tr '\n' ' ')"
 # done- is gated on the coverage checklist (iterative-build-loop.md). Field case 2026-10-06: 47
-# scripts built, 0 done-, build-plan.html empty — the checklist could never pass and nothing said
+# scripts built, 0 done-, progress report empty — the checklist could never pass and nothing said
 # so. Several gate-passes and ZERO done- is a stall, not a backlog.
 DONE_STALL=""
 [ "$N_DONE" -eq 0 ] && [ "$N_STALL" -ge 3 ] && DONE_STALL="done- stalled: $N_STALL gate-pass, 0 done-"
-# build-plan.html older than the newest mdlsource/ change reads as a plan nobody is building.
+# the progress report (or an older build-plan.html) older than the newest mdlsource/ change reads as a plan nobody is building.
 BP_STALE=""
-BP_HTML="$PROJECT_DIR/architecture/build-plan.html"
+BP_HTML="$PROJECT_DIR/architecture/progress-report.html"
+[ -f "$BP_HTML" ] || BP_HTML="$PROJECT_DIR/architecture/build-plan.html"  # pre-progress-report projects
 if [ -f "$BP_HTML" ] && [ -d "$MDL_DIR" ] && git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   _mdl_ts="$(git -C "$PROJECT_DIR" log -1 --format=%ct -- mdlsource 2>/dev/null)"
   # Commit time when the page is tracked (a fresh clone resets every mtime); mtime only for an
   # untracked, locally generated page.
-  _bp_ts="$(git -C "$PROJECT_DIR" log -1 --format=%ct -- architecture/build-plan.html 2>/dev/null)"
+  _bp_ts="$(git -C "$PROJECT_DIR" log -1 --format=%ct -- "${BP_HTML#"$PROJECT_DIR"/}" 2>/dev/null)"
   [ -n "$_bp_ts" ] || _bp_ts="$(stat -c %Y "$BP_HTML" 2>/dev/null || stat -f %m "$BP_HTML" 2>/dev/null)"
   case "$_mdl_ts$_bp_ts" in ''|*[!0-9]*) : ;; *)
-    [ "$_bp_ts" -lt "$_mdl_ts" ] && BP_STALE="build-plan.html STALE (older than the newest mdlsource/ commit — bin/build-plan-status.sh --html)" ;;
+    [ "$_bp_ts" -lt "$_mdl_ts" ] && BP_STALE="$(basename "$BP_HTML") STALE (older than the newest mdlsource/ commit — bin/build-plan-status.sh --html)" ;;
   esac
 fi
 # Agent slots still unfilled (#211) — by design until each agent's stage starts, never invisible.

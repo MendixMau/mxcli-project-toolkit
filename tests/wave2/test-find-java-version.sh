@@ -70,7 +70,9 @@ checknote "11.15 model, both JDKs: no note" 11.15.0 EMPTY
 # (after it, find_java_note sees JAVA_HOME set and always stays silent)
 MXTK_FAKE_JDKS=21
 for f in exec.sh verify-model.sh; do
-  grep -n 'find_java_note\|^JAVA_HOME="\$(find_java' "$(dirname "$COMMON")/$f" | cut -d: -f1 | tr '\n' ' ' | awk '{exit !($1 < $2)}' \
+  a=$(grep -n '^_jnote="\$(find_java_note' "$(dirname "$COMMON")/$f" | head -1 | cut -d: -f1)
+  b=$(grep -n '^JAVA_HOME="\$(find_java' "$(dirname "$COMMON")/$f" | head -1 | cut -d: -f1)
+  [ -n "$a" ] && [ -n "$b" ] && [ "$a" -lt "$b" ] \
     && { PASS=$((PASS+1)); echo "  ok    $f: note computed before JAVA_HOME is set"; } \
     || { FAIL=$((FAIL+1)); echo "  FAIL  $f: note computed after JAVA_HOME is set"; }
 done

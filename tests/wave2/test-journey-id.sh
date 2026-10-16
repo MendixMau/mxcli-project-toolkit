@@ -35,6 +35,19 @@ say('DUP', [{ id: 'J1' }, { id: 'J1' }], ['a.journey.json', 'b.journey.json']);
 say('FALLCOL', [{ id: 'hub' }, { name: 'x' }], ['a.journey.json', 'hub.journey.json']);
 say('TWONOID', [{}, {}], ['one.journey.json', 'two.journey.json']);
 JSEOF
+# Behavioural: run the runner itself. APP_PORT=1 stops it at preflight (no app, no browser).
+CLI="$WORK/cli"; mkdir -p "$CLI/journeys" "$CLI/dup"
+printf '%s' '{"name":"hub-nav","role":"Administrator","steps":[]}' > "$CLI/journeys/hub.journey.json"
+printf '%s' '{"id":"hub","steps":[]}' > "$CLI/dup/a.journey.json"
+printf '%s' '{"steps":[]}' > "$CLI/dup/hub.journey.json"
+runcli() { (cd "$WORK/tests/e2e" && APP_PORT=1 node journey-runner.js "$@" 2>&1); }
+W_OUT="$(runcli "$CLI/journeys/hub.journey.json")"
+case "$W_OUT" in *"WARN"*"hub.journey.json"*'using "hub"'*) ok "CLI: id-less file prints a WARN naming the file basename" ;; *) bad "CLI: no WARN for id-less file" "$(printf '%s' "$W_OUT" | head -5)" ;; esac
+case "$W_OUT" in *undefined*) bad "CLI: output contains undefined" "$(printf '%s' "$W_OUT" | grep undefined | head -3)" ;; *) ok "CLI: output never contains undefined" ;; esac
+D_OUT="$(runcli "$CLI/dup/a.journey.json" "$CLI/dup/hub.journey.json")"; D_RC=$?
+[ "$D_RC" -eq 2 ] && ok "CLI: duplicate id exits 2" || bad "CLI: duplicate id exit code $D_RC" "$(printf '%s' "$D_OUT" | head -5)"
+case "$D_OUT" in *"already used by"*) ok "CLI: duplicate id prints the ERROR naming both files" ;; *) bad "CLI: no duplicate ERROR" "$(printf '%s' "$D_OUT" | head -5)" ;; esac
+case "$D_OUT" in *"=== PREFLIGHT"*) bad "CLI: duplicate id reached preflight" ;; *) ok "CLI: duplicate id stops before preflight" ;; esac
 OUT="$(cd "$WORK/tests/e2e" && printf '%s' "$JS" | APP_PORT=1 node - 2>&1)"
 line() { printf '%s\n' "$OUT" | sed -n "s/^$1 //p"; }
 if printf '%s\n' "$OUT" | grep -qx NOFN; then bad "journey-runner.js exports no journeyIdProblems"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; fi
@@ -48,6 +61,5 @@ has NUM '"ids":["num"]' && ok "non-string id falls back to the basename" || bad 
 has DUP '"bad":["b.journey.json: journey id \"J1\" is already used by a.journey.json' && ok "duplicate id refused, naming both files" || bad "duplicate id accepted" "$(line DUP)"
 has FALLCOL 'hub.journey.json: journey id \"hub\" is already used by a.journey.json' && ok "basename fallback colliding with an explicit id is refused" || bad "fallback collision accepted" "$(line FALLCOL)"
 has TWONOID '"ids":["one","two"],"warn":' && has TWONOID '"bad":[]' && ok "two id-less files get distinct basenames" || bad "id-less pair" "$(line TWONOID)"
-if awk '/journeyIdProblems\(loaded, files\)/ {f=1} /process.exit\(2\)/ && f {g=1} END{exit !g}' "$SUT"; then ok "main calls it and exits 2"; else bad "main never enforces journeyIdProblems"; fi
 echo ""; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -7,11 +7,11 @@
 # Doc wording is behaviour for agent-read text, so this pins the facts that must agree:
 #   - no skill still says the full suite runs at module close, or names a "release gate" for it
 #   - testing-shape.md, the check-moments table and the Offer table carry the same three rows
-#     and the same defaults (every change affected, module close module, deploy-ready full)
+#     and the same defaults (every change affected, module done module, build complete full)
 #   - existing-app-change.md keeps "every gate is also a regression gate" and adds the scoping
 #   - exec.sh's logic lane text points at the strategy, not at module close
-# The held PR that carries these edits is gated on the A/B (E3); this test only keeps the
-# files from drifting apart while it is held.
+# This test keeps those files, the Offer and affected-tests.sh from drifting apart. The
+# maintainer waived the A/B on 2026-10-16; E3 runs after merge as a check.
 #
 # Positive control: on master 9 of 10 checks fail; only the "kept" regression-gate guard passes.
 set -uo pipefail
@@ -31,22 +31,31 @@ echo "== the old full-suite-at-module-close wording is gone =="
   && ok "iterative-build-loop.md points at the strategy" || bad "iterative-build-loop.md"
 ! has skills/conversion-runbook.md "the release gate owes" && has skills/conversion-runbook.md "deploy-ready owes" \
   && ok "conversion-runbook.md says deploy-ready" || bad "conversion-runbook.md"
-! has project-bin/exec.sh "Full mxcli test at module close, not here" && has project-bin/exec.sh "The full suite runs at deploy-ready, per PROJECT.md ## Test strategy" \
+! has project-bin/exec.sh "Full mxcli test at module close, not here" && has project-bin/exec.sh "everything runs once at build complete and before each later deploy, per PROJECT.md ## Test strategy" \
   && ok "exec.sh logic lane text" || bad "exec.sh logic lane text"
 
 echo "== one table, three places =="
 for f in skills/checkpoints/checkpoint-build.md; do
-  has $f "| Every change | affected | affected |" && has $f "| Module close | module | module |" && has $f "| Deploy-ready | full | full |" \
+  has $f "| Every change (build and feedback) | affected | affected |" && has $f "| Module done | module | module |" && has $f "| Build complete, and before every later deploy | full | full |" \
     && ok "CAC-5 Offer table with the three defaults" || bad "Offer table"
 done
 has skills/checkpoints/checkpoint-build.md "PROJECT.md\` → \`## Test strategy\`" && has skills/checkpoints/checkpoint-build.md "CONFIRMED" \
   && ok "Offer records the choice with a Status column" || bad "Offer record line"
-has skills/testing-shape.md "Defaults: every change \`affected\`, module close \`module\`, deploy-ready" \
+has skills/testing-shape.md "defaults \`affected\`, \`module\`, \`full\`" \
   && ok "testing-shape.md states the same defaults" || bad "testing-shape.md defaults sentence"
 
 echo "== existing-app-change.md =="
 has skills/existing-app-change.md "Re-run the baseline at every module gate" && ok "kept: every gate is also a regression gate" || bad "regression-gate rule lost"
 has skills/existing-app-change.md "the whole baseline runs at deploy-ready" && ok "whole baseline at deploy-ready" || bad "deploy-ready baseline"
+has skills/existing-app-change.md "--moment module --module <M>" && has skills/checkpoints/checkpoint-build.md "--moment module --module <M>" \
+  && ok "the module-moment call names its module" || bad "module call without --module"
+
+echo "== unit tests off by default, wired =="
+has skills/checkpoints/checkpoint-build.md "\`Unit modules: Shop, Admin\`" && has skills/checkpoints/checkpoint-build.md "Unit tests default: yes" && has skills/checkpoints/checkpoint-build.md "Unit tests: yes" \
+  && ok "Offer records the three ways to turn unit on" || bad "unit-on syntax missing"
+has skills/checkpoints/checkpoint-build.md "Build complete = you say the app is ready" && ok "build complete is declared by the developer" || bad "build complete undefined"
+has skills/module-review.md "--moment module" && ok "module-review PROVE runs the module row" || bad "module-review not wired"
+has skills/module-brief.md "Unit tests: yes" && ok "module brief names the flip line" || bad "module brief flip line"
 
 echo; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

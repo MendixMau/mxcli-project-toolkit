@@ -197,7 +197,7 @@ A module gate that is green on the new work and was never run against the baseli
 the question and reported it as the whole. Re-run the baseline at every module gate, not once at the
 end — a regression found three modules later costs the same to fix and much more to find.
 At a module gate that means the baseline journeys of the modules the change touched
-(`bin/affected-tests.sh --moment module`); the whole baseline runs at deploy-ready. A project that wants
+(`bin/affected-tests.sh --moment module --module <M>`); the whole baseline runs at deploy-ready. A project that wants
 the whole baseline at every module gate says so in PROJECT.md `## Test strategy`.
 
 ---

@@ -33,7 +33,7 @@ ok()  { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
 bad() { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; [ -n "${2:-}" ] && printf '%s\n' "$2" | sed 's/^/       /'; return 0; }
 echo "== subject: $SUBJECT"
 
-P="$WORK/proj"
+P="$WORK/proj"; BASE_PM="$WORK/base-PROJECT.md"
 mkdir -p "$P/bin" "$P/tests/unit" "$P/journeys" "$P/tests/e2e"
 printf 'not a real model\n' > "$P/Fixture.mpr"
 cp "$TOOLKIT/project-bin/_common.sh" "$TOOLKIT/project-bin/exec.sh" "$P/bin/"
@@ -47,6 +47,8 @@ t Validate Shop.VAL_Order
 t Submit   Shop.ACT_Order_Submit
 t Lookalike Shop.SUB_Order_Total_Legacy
 t Other    Admin.ACT_Reset
+# Unit tests are off unless the project says yes: the baseline project says yes, section L varies it.
+printf '# Project\n\nUnit tests default: yes\n' > "$BASE_PM"; cp "$BASE_PM" "$P/PROJECT.md"
 echo '{"id":"J-1","steps":[]}' > "$P/journeys/Shop.journey.json"
 echo '{"id":"J-2","steps":[]}' > "$P/journeys/Admin.journey.json"
 echo '{"id":"J-3","note":"opens Shop.Order_Edit","steps":[]}' > "$P/tests/e2e/edit.clerk.journey.json"
@@ -88,7 +90,7 @@ has()   { grep -qF -- "$2" "$WORK/out.$1"; }
 lacks() { ! grep -qF -- "$2" "$WORK/out.$1"; }
 calls() { if [ -f "$P/.stub-log" ]; then wc -l < "$P/.stub-log" | tr -d ' '; else echo 0; fi; }
 
-echo "== A: one microflow change, defaults (no PROJECT.md) =="
+echo "== A: one microflow change, defaults (project says Unit tests default: yes) =="
 RC=$(run A "$TOTAL")
 [ "$RC" -eq 0 ] && ok "exit 0" || bad "A rc=$RC" "$(cat "$WORK/err.A")"
 has A "strategy	change	unit=affected journeys=affected	(default:" && ok "strategy row says default affected/affected" || bad "A strategy" "$(head -1 "$WORK/out.A")"
@@ -161,10 +163,10 @@ has E "strategy	change	unit=none journeys=module	(PROJECT.md ## Test strategy, r
 has E "unit	none	scope none: strategy says none" && ok "unit none per strategy" || bad "E unit" "$(grep ^unit "$WORK/out.E")"
 has E "journey	journeys/Shop.journey.json	module Shop" && lacks E "edit.clerk" && ok "journeys at module scope" || bad "E journeys" "$(grep ^journey "$WORK/out.E")"
 [ "$(calls)" = 0 ] && ok "no affected scope, so no mxcli call" || bad "E called mxcli"
-printf '## Test strategy\n| Every change | sometimes | affected | ASSUMED |\n' > "$P/PROJECT.md"
+printf 'Unit tests default: yes\n## Test strategy\n| Every change | sometimes | affected | ASSUMED |\n' > "$P/PROJECT.md"
 run E2 "$TOTAL" >/dev/null
 has E2 "unit scope 'sometimes' unknown, default used" && has E2 "unit=affected" && ok "an unknown scope falls back and says so" || bad "E2" "$(head -1 "$WORK/out.E2")"
-rm -f "$P/PROJECT.md"
+cp "$BASE_PM" "$P/PROJECT.md"
 
 echo "== F: deploy-ready default is the full suite =="
 run F --moment deploy "$TOTAL" >/dev/null
@@ -230,6 +232,56 @@ printf 'not a real model\nADDED\n' > "$P/Fixture.mpr"      # what an exec does t
 run K2 "$TOTAL" >/dev/null
 has K2 "caller	Shop.ZZ_New_Caller	depth 1" && has K2 "callers	measured" && ok "after the exec: the new caller is listed, callers measured" || bad "K2 stale" "$(grep -e ^caller "$WORK/out.K2")"
 [ ! -e "$P/.mxcli" ] && [ ! -e "$P/.affected-cache" ] && ok "the script keeps no cache of its own" || bad "K cache file"
+
+echo "== L: unit tests are off by default, a module flips them on, a grant on the changed object is not an access change =="
+GRANT="$WORK/flow-grant.mdl"; { cat "$TOTAL"; echo "grant execute on microflow Shop.SUB_Order_Total to Shop.User;"; } > "$GRANT"
+EGRANT="$WORK/entity-grant.mdl"; echo "grant Shop.User on Shop.Order (create, read);" > "$EGRANT"
+BRIEF_DIR="$P/architecture/modules"
+# L1: line absent
+printf '# Project\n' > "$P/PROJECT.md"
+run L1 "$TOTAL" >/dev/null
+has L1 "unit=none" && has L1 "unit	off	(PROJECT.md has no 'Unit tests default:' line, treated as no; flip a module:" && lacks L1 "unit	tests/" && lacks L1 ".test.mdl" \
+  && ok "L1 default line absent: unit off, no test file, no run row" || bad "L1 absent" "$(cat "$WORK/out.L1")"
+has L1 "journey	journeys/Shop.journey.json" && ok "journeys unaffected by the unit gate" || bad "L1 journeys"
+# L2: explicit no
+printf '# Project\n\n**Unit tests default: no**\n' > "$P/PROJECT.md"
+run L2 "$TOTAL" >/dev/null
+has L2 "unit	off	(PROJECT.md Unit tests default: no; flip a module:" && lacks L2 ".test.mdl" && ok "L2 default no: unit off, never a .test.mdl run row" || bad "L2 no" "$(cat "$WORK/out.L2")"
+run L2b "$ENTITY" >/dev/null; lacks L2b ".test.mdl" && ok "L2b default no: an entity change selects no unit test either" || bad "L2b" "$(cat "$WORK/out.L2b")"
+run L2c --moment deploy >/dev/null; [ "$(grep -c '^unit	tests/' "$WORK/out.L2c")" = 5 ] && ok "L2c default no: build complete still runs every existing unit test" || bad "L2c" "$(cat "$WORK/out.L2c")"
+run L2d --moment all >/dev/null; [ "$(grep -c '^unit	tests/' "$WORK/out.L2d")" = 5 ] && has L2d "strategy	deploy" && ok "L2d --moment all = everything" || bad "L2d" "$(cat "$WORK/out.L2d")"
+# L3: yes
+printf '# Project\n\nUnit tests default: yes\n' > "$P/PROJECT.md"
+run L3 "$TOTAL" >/dev/null
+has L3 "unit	tests/unit/Total.test.mdl	names Shop.SUB_Order_Total" && has L3 "run	./bin/test-scratch.sh -- tests/unit/Total.test.mdl" && ok "L3 default yes: today's behaviour" || bad "L3 yes" "$(cat "$WORK/out.L3")"
+# L4: module flipped, default no
+printf '# Project\n\nUnit tests default: no\n' > "$P/PROJECT.md"
+mkdir -p "$BRIEF_DIR/Shop"; printf '# Brief\n\nUnit tests: yes\n' > "$BRIEF_DIR/Shop/module-brief.md"
+run L4 "$ENTITY" >/dev/null
+has L4 "unit	tests/unit/Total.test.mdl	names module Shop" && lacks L4 "Other.test.mdl" && has L4 "run	./bin/test-scratch.sh" && ok "L4 Shop flipped by a brief line: Shop's tests are selected" || bad "L4 flip" "$(cat "$WORK/out.L4")"
+printf '# Admin\n| Part | This module | Why |\n|---|---|---|\n| Unit (`.test.mdl`) | **yes** | Java action |\n' > "$BRIEF_DIR/Admin-brief.md"
+rm -rf "$BRIEF_DIR/Shop"
+run L4b "$TOTAL" >/dev/null
+lacks L4b "Total.test.mdl" && lacks L4b "Validate.test.mdl" && ok "L4b only Admin flipped (table row, flat brief): a Shop change selects no Shop test" || bad "L4b" "$(cat "$WORK/out.L4b")"
+printf '# Admin\n| Unit (`.test.mdl`) | **no** (default) / yes | x |\n' > "$BRIEF_DIR/Admin-brief.md"
+run L4c "$ENTITY" >/dev/null; has L4c "unit	off" && ok "L4c the unfilled brief template ('no (default) / yes') is not a flip" || bad "L4c" "$(cat "$WORK/out.L4c")"
+rm -rf "$P/architecture"
+printf '# Project\n\nUnit tests default: no\nUnit modules: Admin, Other\n' > "$P/PROJECT.md"
+run L4d "$TOTAL" >/dev/null; lacks L4d "Total.test.mdl" && ok "L4d PROJECT.md 'Unit modules: Admin, Other': a Shop change selects no unit test" || bad "L4d" "$(cat "$WORK/out.L4d")"
+run L4e "$ENTITY" >/dev/null; printf '# Project\n\nUnit tests default: no\nUnit modules: Shop\n' > "$P/PROJECT.md"; run L4f "$ENTITY" >/dev/null
+has L4f "unit	tests/unit/Total.test.mdl	names module Shop" && lacks L4f "Other.test.mdl" && ok "L4f 'Unit modules: Shop' flips Shop only" || bad "L4f" "$(cat "$WORK/out.L4f")"
+# L5: an explicit row beats the default line
+printf 'Unit tests default: no\n## Test strategy\n| Every change | affected | affected | CONFIRMED |\n' > "$P/PROJECT.md"
+run L5 "$TOTAL" >/dev/null
+has L5 "unit	tests/unit/Total.test.mdl" && ok "L5 an explicit strategy row beats Unit tests default: no" || bad "L5" "$(cat "$WORK/out.L5")"
+# L6/L7: grants (unit on, so a module-wide selection would show)
+cp "$BASE_PM" "$P/PROJECT.md"
+run L6 "$GRANT" >/dev/null
+has L6 "subject	microflow	Shop.SUB_Order_Total" && has L6 "part of that subject" && lacks L6 "names module Shop" && lacks L6 "Lookalike.test.mdl" && lacks L6 "data	NOT MEASURED	access" \
+  && ok "L6 describe-style microflow plus its trailing grant: no module-wide unit selection" || bad "L6" "$(cat "$WORK/out.L6")"
+has L6 "unit	tests/unit/Total.test.mdl	names Shop.SUB_Order_Total" && ok "L6 the microflow's own test is still selected" || bad "L6 own test"
+run L7 "$EGRANT" >/dev/null
+has L7 "data	NOT MEASURED	access Shop.User" && has L7 "names module Shop (data or access change)" && ok "L7 a standalone entity grant, unit yes: selected by module" || bad "L7" "$(cat "$WORK/out.L7")"
 
 echo "== H: usage =="
 RC=$(run H --moment later "$TOTAL"); [ "$RC" -eq 2 ] && ok "bad --moment exits 2" || bad "H rc=$RC"

@@ -103,26 +103,31 @@ all scripts upfront. See `brd-to-build-plan.md` ("The build plan contains no MDL
 `test-plan`, `acceptance-criteria`), or `Optional artifacts: none for Stage 5` as a Stage-4
 decision.
 
-**Test strategy (in the same Offer, not a separate question).** Show the defaults and let the
-developer change any cell in the same answer:
+**Test strategy (in the same Offer, not a separate question).** Show the defaults; the
+developer may change any cell in the same answer:
 
 > "Testing during the build, unless you want otherwise:
 >
 > | Moment | Unit tests | Journeys |
 > |---|---|---|
-> | Every change | affected | affected |
-> | Module close | module | module |
-> | Deploy-ready | full | full |
+> | Every change (build and feedback) | affected | affected |
+> | Module done | module | module |
+> | Build complete, and before every later deploy | full | full |
 >
-> `affected` = the tests and journeys of what the change touched and its callers
-> (`bin/affected-tests.sh`); `module` = the module's own; `full` = everything; `none` = skip.
-> Change a cell, or say 'defaults'."
+> `affected` = what the change touched and its callers (`bin/affected-tests.sh`); `module` = the
+> module's own (`--moment module --module <M>`); `full` = everything once; `none` = skip.
+> Build complete = you say the app is ready for UAT or production; I do not declare it alone.
+> Say 'run everything' any time.
+> Unit tests: only modules you name now, written while the logic is fresh (writing is not
+> running). Default: off, except modules with calculation, money/date, mapping, REST/Java logic or
+> a fixed bug. Change a cell, name modules, or say 'defaults'."
 
-**Record as:** `PROJECT.md` → `## Test strategy`, the table plus a `Status` column
-(`CONFIRMED`, or `ASSUMED` in auto mode). `bin/affected-tests.sh --moment change|module|deploy`
-reads it; with no section it uses these defaults and says so. Unit tests stay subject to the
-intake default (`Unit tests default:` in PROJECT.md, `testing-shape.md` §2): `affected` selects
-from the tests that exist, it does not ask for new ones.
+**Record as:** `PROJECT.md` → `## Test strategy`, the table plus a `Status` column (`CONFIRMED`, or
+`ASSUMED` in auto mode), and the line `Unit modules: Shop, Admin` (`none` if none).
+`bin/affected-tests.sh --moment change|module|deploy|all` reads it; no section: these defaults.
+Unit is **off** unless `Unit tests default: yes` (whole project; absent = no), a `Unit modules:`
+entry, or `Unit tests: yes` in the module brief. A Unit cell recorded here beats all three (default
+`no`: record `none`). At build end ask "full run now?", a confirmation, not a decision.
 
 ## Open Question
 

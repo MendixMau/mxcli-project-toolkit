@@ -19,21 +19,22 @@ looking. That is how a module ships with 31/31 green checks and a broken grid on
             — conformance-check + graph-sweep + coverage-check (model-side, parallel) +
             journeys (UI/Playwright + Data/OQL + Trace/OTel, one ordered walk via
             journey-runner.js) + journeys-control (positive control — proves the journey
-            could have failed) + monkey (crash net). This IS the UI (Playwright) + Data
-            (OQL/DB) + monkey rungs named above, run as one instrument, not a second pass
-            alongside them. wiring-sweep.md (every clickable element on the page, not just
+            could have failed) + monkey (crash net). This IS the UI, Data and monkey rungs
+            named above, run as one instrument. wiring-sweep.md (every clickable element on the page, not just
             what a journey visits) runs alongside it but by hand, deliberately outside
-            verify-module.sh — skills-over-scripts.md: the verdict on an ambiguous click
-            stays a judgement call, not a script. It is NOT optional and it leaves a file:
+            verify-module.sh (a judgement call, skills-over-scripts.md). It is NOT optional and it leaves a file:
             test-agent writes .claude/loop/sweep/<Module>/sweep.md, first line the
             denominator "N of N interactive elements swept across P of P pages". No file
             means the sweep did not happen, and the gate says so. Deep form when an
             instrument is green and you cannot say what would have made it red:
             journey-proof.md
+            Module close also runs the strategy row: `./bin/affected-tests.sh --moment module
+            --module <M>`, then its `run` rows (unit only if on). Source `default`: ask the
+            developer once, record `## Test strategy`.
 4. LOOK     THE INTELLIGENCE CHECK — a human-equivalent pass over every screen in
             the module. Is it logical? Does it look right? Does it match our design?
-            Stages 1-3 cannot answer any of those. This is the stage that gets
-            skipped, and it is the stage the escaped defects come from.
+            Stages 1-3 cannot answer those. It gets skipped, and the
+            escaped defects come from it.
 5. CONFIRM  one report, explicit denominator, a human look, then next module
 ```
 

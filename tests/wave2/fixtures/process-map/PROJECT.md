@@ -1,4 +1,4 @@
-# PROJECT.md: synthetic process board fixture
+# PROJECT.md: synthetic process map fixture
 Toolkit commit: none
 Entry mode: requirements-driven
 

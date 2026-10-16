@@ -1,23 +1,23 @@
 #!/bin/bash
-# test-process-board.sh: pin what process-board.js validates, how it anchors questions, what
-# `build` writes, and the Stage-3 gate rule that a process board must not be older than its model.
+# test-process-map.sh: pin what process-map.js validates, how it anchors questions, what
+# `build` writes, and the Stage-3 gate rule that a process map must not be older than its model.
 #
-# Golden input: tests/wave2/fixtures/process-board/, a synthetic order approval app (one BRD with
+# Golden input: tests/wave2/fixtures/process-map/, a synthetic order approval app (one BRD with
 # five use cases and four open questions, four wireframes, a PROJECT.md decisions table with two
 # ASSUMED rows, a process model and two judged anchors). Its shapes follow the BRD contract
 # (useCases, openQuestions, pages) and the wireframe contract (data-mx-page, data-route) the real
 # Stage-2 and Stage-3 producers write. Each defect case copies the fixture and changes one thing,
 # so a pass means that one defect was seen.
 #
-# Usage: bash test-process-board.sh [path-to-process-board.js]
+# Usage: bash test-process-map.sh [path-to-process-map.js]
 
 set -u
 
 TOOLKIT="$(cd "$(dirname "$0")/../.." && pwd)"
-SUT="${1:-$TOOLKIT/project-bin/process-board.js}"
+SUT="${1:-$TOOLKIT/project-bin/process-map.js}"
 SUT="$(cd "$(dirname "$SUT")" && pwd)/$(basename "$SUT")"
 GATE="$TOOLKIT/bin/gate-check.sh"
-FIX="$TOOLKIT/tests/wave2/fixtures/process-board"
+FIX="$TOOLKIT/tests/wave2/fixtures/process-map"
 export MXTK_NO_FETCH=1
 
 PASS=0; FAIL=0
@@ -57,11 +57,11 @@ has "ASSUMED register row becomes a decision item" "$A" '"id": "D3-01"'
 has "judged global anchor survives a re-run" "$A" '"bucket": "Money"'
 hasnt "CONFIRMED decisions are not pinned" "$A" "Module structure"
 
-echo "== T3: build writes a self-contained, deterministic board =="
+echo "== T3: build writes a self-contained, deterministic map =="
 OUT="$(run build --project "$P")"; RC=$?
 check "exit 0" "$RC" "0"
-B="$P/design/process-board.html"
-[ -s "$B" ] && ok "design/process-board.html written" || bad "design/process-board.html written" "no file"
+B="$P/design/process-map.html"
+[ -s "$B" ] && ok "design/process-map.html written" || bad "design/process-map.html written" "no file"
 H="$(cat "$B" 2>/dev/null)"
 has "app name in the page" "$H" "Order desk"
 has "process title embedded" "$H" "Order approval: submit, approve or reject, notify"
@@ -140,7 +140,7 @@ P="$(fresh refuse)"
 jedit "$P/design/process-model.json" 'j.processes[0].steps[0].useCases=["F001:UC099"]'
 OUT="$(run build --project "$P")"; RC=$?
 check "exit 1" "$RC" "1"
-[ -e "$P/design/process-board.html" ] && bad "no board written" "file exists" || ok "no board written"
+[ -e "$P/design/process-map.html" ] && bad "no map written" "file exists" || ok "no map written"
 
 echo "== T8: usage errors exit 2 =="
 OUT="$(run frobnicate --project "$FIX")"; RC=$?
@@ -148,35 +148,61 @@ check "unknown command" "$RC" "2"
 OUT="$(run validate --project "$TMP/nowhere")"; RC=$?
 check "no model" "$RC" "2"
 
-echo "== T9: Stage-3 gate fails a missing or stale process board =="
-gatefix() { # a full Stage-3 PASS scaffold plus the process board fixture
+echo "== T10: pass 1 (Stage 2 close) works with no wireframes at all =="
+P="$(fresh pass1)"
+rm -rf "$P/design/wireframes"
+OUT="$(run validate --project "$P")"; RC=$?
+check "steps that name a screen are allowed: exit 0" "$RC" "0"
+has "summary: 0 errors, 0 wireframes" "$OUT" "0 wireframe(s), 0 error(s)"
+hasnt "no wireframe error" "$OUT" "has no wireframe in"
+jedit "$P/design/process-model.json" 'delete j.processes[0].steps[0].page'
+OUT="$(run validate --project "$P")"; RC=$?
+check "a person step with no screen is allowed: exit 0" "$RC" "0"
+hasnt "no task-needs-a-page error" "$OUT" "a task step needs a page"
+run anchor --project "$P" >/dev/null
+OUT="$(run build --project "$P")"; RC=$?
+check "build exits 0" "$RC" "0"
+H="$(cat "$P/design/process-map.html" 2>/dev/null)"
+K="$(printf '%s' "$H" | node -e 'const h=require("fs").readFileSync(0,"utf8");const m=h.match(/\nvar D = (.*);\n/);if(!m){console.log("nodata");process.exit()}const d=JSON.parse(m[1]);const st=d.processes[0].steps;console.log(st.filter(s=>["P1-01","P1-02","P1-03","P1-08"].includes(s.id)).map(s=>s.id+":"+s.kind+":"+(s.page||"-")+":"+(s.pageMissing?"missing":"")).join(","))')"
+check "person steps stay tasks, a named screen is kept as a label, a system step stays system" "$K" "P1-01:task:-:,P1-02:system:-:,P1-03:task:Order_Approve:missing,P1-08:task:Order_Overview:missing"
+OUT="$(run validate --strict --project "$P")"; RC=$?
+check "pass 1 with every question anchored passes --strict" "$RC" "0"
+
+echo "== T9: Stage-3 gate fails a missing or stale process map =="
+gatefix() { # a full Stage-3 PASS scaffold plus the process map fixture
   local d; d="$(fresh "$1")"
   mkdir -p "$d/architecture"
   printf '# fit-gap\nrow\n' > "$d/architecture/fit-gap.md"
   printf '# bp\nx\n' > "$d/architecture/blueprint.md"
   printf '<html>\n' > "$d/design/design-system.html"
-  touch -t 202601010000 "$d/architecture/fit-gap.md" "$d/architecture/blueprint.md" "$d/design/process-model.json" "$d/design/question-anchors.json"
+  touch -t 202601010000 "$d/architecture/fit-gap.md" "$d/architecture/blueprint.md" "$d/design/process-model.json" "$d/design/question-anchors.json" "$d"/design/wireframes/*.html
   printf '<html>\n' > "$d/architecture/blueprint.html"
   touch -t 202601010100 "$d/architecture/blueprint.html"
   echo "$d"
 }
 P="$(gatefix gate-missing)"
 V="$("$GATE" --no-html "$P" 3 2>&1)"
-has "model without board fails" "$V" "design/process-model.json exists but design/process-board.html does not"
+has "model without map fails" "$V" "design/process-model.json exists but design/process-map.html does not"
 P="$(gatefix gate-fresh)"
 node "$SUT" build --project "$P" >/dev/null 2>&1
-touch -t 202601010200 "$P/design/process-board.html"
+touch -t 202601010200 "$P/design/process-map.html"
 V="$("$GATE" --no-html "$P" 3 2>&1)"
-hasnt "current board passes the process board check" "$V" "process-board.html is older"
+hasnt "current map passes the process map check" "$V" "process-map.html is older"
 has "and the stage passes" "$V" "PASS"
 touch -t 202601010300 "$P/design/process-model.json"
 V="$("$GATE" --no-html "$P" 3 2>&1)"
-has "model newer than board fails" "$V" "design/process-board.html is older than process-model.json"
+has "model newer than map fails" "$V" "design/process-map.html is older than process-model.json"
+P="$(gatefix gate-wf)"
+node "$SUT" build --project "$P" >/dev/null 2>&1
+touch -t 202601010200 "$P/design/process-map.html"
+touch -t 202601010400 "$P/design/wireframes/Order_Approve.html"
+V="$("$GATE" --no-html "$P" 3 2>&1)"
+has "wireframe newer than map fails" "$V" "design/process-map.html is older than Order_Approve.html"
 P="$(gatefix gate-none)"
 rm "$P/design/process-model.json"
 V="$("$GATE" --no-html "$P" 3 2>&1)"
-hasnt "no model: no process board FAIL" "$V" "design/process-model.json exists but"
-hasnt "no model: no staleness FAIL" "$V" "process-board.html is older"
+hasnt "no model: no process map FAIL" "$V" "design/process-model.json exists but"
+hasnt "no model: no staleness FAIL" "$V" "process-map.html is older"
 
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

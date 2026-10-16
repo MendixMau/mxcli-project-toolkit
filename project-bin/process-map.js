@@ -1,29 +1,29 @@
 #!/usr/bin/env node
-// process-board.js: draw the Stage-3 process board. One swimlane board per business process,
+// process-map.js: draw the Stage-3 process map. One swimlane map per business process,
 // each step showing the wireframe it happens on, what the system does between screens, and
 // every open question and assumption pinned to the step or screen it is about.
 //
 // WHY. A reviewer at Stage 3 gets sixty consolidated questions, thirty ASSUMED decisions and
 // forty wireframes as three separate lists. A business owner reading "Should a rejected order go
 // back to draft?" cannot tell where in the work that happens, so the question is answered blind or
-// not at all. The board puts the three side by side: the process across screens, and each
+// not at all. The map puts the three side by side: the process across screens, and each
 // question stuck to the moment it changes. Field origin: a requirements-driven rebuild POC,
 // 2026-10-16, where the reviewer said exactly this about the question list.
 //
-// SINGLE SOURCE. The board is GENERATED, never hand-edited, like blueprint.html:
+// SINGLE SOURCE. The map is GENERATED, never hand-edited, like blueprint.html:
 //   design/process-model.json   authored by the architect agent from the BRDs
-//                               (skills/process-board.md Step 2)
+//                               (skills/process-map.md Step 2)
 //   <anchors file>              written by `anchor` (derived) plus the agent's judged pass
-//                               (skills/process-board.md Step 3)
+//                               (skills/process-map.md Step 3)
 //   BRDs, wireframes, PROJECT.md, optional consolidated questions file: read-only inputs
 // Producers of the inputs: BRDs = Stage 2 (mandatory); wireframes = design-artifacts.md Step 3
 // (Stage 3, mandatory); PROJECT.md = bin/init-project.sh + every checkpoint.
 //
 // Usage (run from the project root, or pass --project):
-//   process-board.js validate [--strict]   check the model (and anchors, when present)
-//   process-board.js anchor                derive anchors mechanically, keep judged ones, write
+//   process-map.js validate [--strict]   check the model (and anchors, when present)
+//   process-map.js anchor                derive anchors mechanically, keep judged ones, write
 //                                          the anchors file, list what is still unanchored
-//   process-board.js build                 validate, then write design/process-board.html
+//   process-map.js build                 validate, then write design/process-map.html
 //   options: --project <root>  --model <file>  --out <file>  --json (anchor: todo as JSON)
 //
 // Exit: 0 ok; 1 validation errors (or unanchored items left: always for anchor, with --strict for validate); 2 usage/input error.
@@ -32,7 +32,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const die = msg => { console.error('process-board: ' + msg); process.exit(2); };
+const die = msg => { console.error('process-map: ' + msg); process.exit(2); };
 
 // ---------- args ----------
 const argv = process.argv.slice(2);
@@ -45,7 +45,7 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === '--strict') strict = true;
   else if (a === '--json') asJson = true;
   else if (a === '-h' || a === '--help') {
-    console.log('usage: process-board.js validate|anchor|build [--project <root>] [--model <file>] [--out <file>] [--strict] [--json]');
+    console.log('usage: process-map.js validate|anchor|build [--project <root>] [--model <file>] [--out <file>] [--strict] [--json]');
     process.exit(0);
   } else if (a.startsWith('-')) die('unknown option ' + a);
   else if (!cmd) cmd = a;
@@ -55,7 +55,7 @@ if (!['validate', 'anchor', 'build'].includes(cmd || '')) die('give a command: v
 root = path.resolve(root);
 const rel = p => path.resolve(root, p);
 const modelFile = modelArg ? path.resolve(modelArg) : rel('design/process-model.json');
-if (!fs.existsSync(modelFile)) die('no process model at ' + modelFile + ' (skills/process-board.md Step 2 authors it)');
+if (!fs.existsSync(modelFile)) die('no process model at ' + modelFile + ' (skills/process-map.md Step 2 authors it)');
 
 const readJson = (f, what) => {
   try { return JSON.parse(fs.readFileSync(f, 'utf8')); }
@@ -137,6 +137,9 @@ const err = m => errors.push(m), warn = m => warnings.push(m);
 const LANE_KINDS = ['role', 'system', 'scheduled', 'external'];
 const STEP_KINDS = ['task', 'system', 'decision', 'end'];
 const lanes = Array.isArray(model.lanes) ? model.lanes : [];
+// Pass 1 (Stage 2 close) has no wireframes at all: a step may name a screen that is not drawn yet,
+// or no screen, and renders as a labelled card without a thumbnail. Pass 2 is strict again.
+const PASS1 = Object.keys(WF).length === 0;
 const processes = Array.isArray(model.processes) ? model.processes : [];
 if (!lanes.length) err('model has no lanes');
 if (!processes.length) err('model has no processes');
@@ -164,7 +167,10 @@ for (const p of processes) {
     if (!s.id) { err(p.id + ': a step has no id'); continue; }
     if (STEP[s.id]) err('step id ' + s.id + ' is used twice');
     STEP[s.id] = { step: s, proc: p };
-    s.kind = s.kind || (s.page ? 'task' : 'system');
+    // A person step is a task even before it has a screen (pass 1 has no wireframes); only a step
+    // in a system, scheduled or external lane, or with an explicit kind, is automatic.
+    const laneKind = (lanes[laneIdx[s.lane]] || {}).kind || 'role';
+    s.kind = s.kind || (s.page || laneKind === 'role' ? 'task' : 'system');
     if (!STEP_KINDS.includes(s.kind)) err(s.id + ': kind "' + s.kind + '" is not one of ' + STEP_KINDS.join(', '));
     if (laneIdx[s.lane] === undefined) err(s.id + ': lane "' + s.lane + '" is not declared in lanes');
     col = Number.isInteger(s.col) ? s.col : col + 1;
@@ -175,9 +181,10 @@ for (const p of processes) {
     if (s.page) {
       const k = resolvePage(s.page);
       if (k) { s._page = k; (pageToSteps[k] = pageToSteps[k] || []).push(s.id); }
+      else if (PASS1) { s._pageMissing = true; }
       else if (s.wireframeMissing) { s._pageMissing = true; warn(s.id + ': page ' + s.page + ' has no wireframe (' + s.wireframeMissing + ')'); }
       else err(s.id + ': page "' + s.page + '" has no wireframe in ' + path.relative(root, wfDir) + ' (no data-mx-page or filename matches; set wireframeMissing with a reason if that is intended)');
-    } else if (s.kind === 'task') {
+    } else if (s.kind === 'task' && !PASS1) {
       err(s.id + ': a task step needs a page (the screen the person works on); use kind "system" for automated work');
     }
     for (const r of s.useCases || []) {
@@ -203,9 +210,9 @@ for (const st of standalone) {
   standaloneSet[ref] = st.reason || '';
 }
 for (const ref of Object.keys(UC).sort(byteSort)) {
-  const onBoard = !!ucToSteps[ref], alone = ref in standaloneSet;
-  if (!onBoard && !alone) err('use case ' + ref + ' (' + UC[ref].title + ') is on no process and not listed as standalone');
-  if (onBoard && alone) warn('use case ' + ref + ' is on a process and also listed as standalone');
+  const onMap = !!ucToSteps[ref], alone = ref in standaloneSet;
+  if (!onMap && !alone) err('use case ' + ref + ' (' + UC[ref].title + ') is on no process and not listed as standalone');
+  if (onMap && alone) warn('use case ' + ref + ' is on a process and also listed as standalone');
 }
 // ignorePages: wireframes that are layout sketches, not screens; they need no step.
 const ignoreSet = new Set();
@@ -213,8 +220,8 @@ for (const ig of model.ignorePages || []) {
   const k = resolvePage(ig);
   if (k) ignoreSet.add(k); else warn('ignorePages: "' + ig + '" matches no wireframe');
 }
-const pagesOffBoard = Object.keys(WF).filter(k => !pageToSteps[k] && !ignoreSet.has(k)).sort(byteSort);
-if (pagesOffBoard.length) warn(pagesOffBoard.length + ' wireframe(s) on no process step: ' + pagesOffBoard.join(', '));
+const pagesOffMap = Object.keys(WF).filter(k => !pageToSteps[k] && !ignoreSet.has(k)).sort(byteSort);
+if (pagesOffMap.length) warn(pagesOffMap.length + ' wireframe(s) on no process step: ' + pagesOffMap.join(', '));
 
 // ---------- pinnable items: questions + ASSUMED decisions ----------
 const questionsFile = model.questions ? rel(model.questions) : null;
@@ -354,6 +361,12 @@ function derive(it) {
     for (const q of ITEMS) if (q.kind === 'question' && q.id !== it.id && /^[A-Z]+-\d+$/.test(q.id) && tok(all, q.id) && q._derived) for (const t of q._derived) if (t.type === 'step') hit(t.step, 1, 'names ' + q.id + ' -> ' + t.step);
   }
   for (const k of pages) for (const sid of pageToSteps[k] || []) hit(sid, 2, 'names screen ' + WF[k].short + ' -> ' + sid);
+  // Pass 1 has no wireframes to resolve a screen name against, so a step's own `page` name stands in.
+  if (PASS1) for (const { step: st } of Object.values(STEP)) {
+    if (!st.page) continue;
+    const sh = shortOf(st.page);
+    if (tok(all, st.page) || (/_|[a-z][A-Z]/.test(sh) && tok(all, sh))) hit(st.id, 2, 'names screen ' + sh + ' -> ' + st.id);
+  }
   const top = Math.max(0, ...Object.values(score));
   if (top > 0) {
     const sids = Object.keys(score).filter(s => score[s] === top).sort((a, b) => stepOrder[a] - stepOrder[b]).slice(0, 3);
@@ -426,7 +439,7 @@ if (cmd === 'validate') {
 if (cmd === 'anchor') {
   const out = {
     schema: 'process-anchors/1',
-    note: 'Generated by process-board.js anchor. Edit only judged entries (anchoredBy "judged"); derived entries are recomputed on every run.',
+    note: 'Generated by process-map.js anchor. Edit only judged entries (anchoredBy "judged"); derived entries are recomputed on every run.',
     anchors: ITEMS.filter(it => ANCH[it.id]).map(it => ({
       id: it.id, kind: it.kind, anchoredBy: ANCH[it.id].anchoredBy, targets: ANCH[it.id].targets,
       basis: ANCH[it.id].basis, fingerprint: it.fingerprint,
@@ -450,8 +463,8 @@ if (cmd === 'anchor') {
 
 // ---------- build ----------
 report();
-if (errors.length) { console.error('process-board: not building, fix the model first'); process.exit(1); }
-const outFile = outArg ? path.resolve(outArg) : path.join(designDir, 'process-board.html');
+if (errors.length) { console.error('process-map: not building, fix the model first'); process.exit(1); }
+const outFile = outArg ? path.resolve(outArg) : path.join(designDir, 'process-map.html');
 const protoFile = model.prototype ? rel(model.prototype) : path.join(designDir, 'prototype.html');
 const protoHref = fs.existsSync(protoFile) ? path.relative(path.dirname(outFile), protoFile).split(path.sep).join('/') : '';
 const dsFile = model.ds ? rel(model.ds) : path.join(designDir, 'ds.css');
@@ -467,7 +480,7 @@ for (const k of [...usedPages].sort(byteSort)) {
     html: w.html.replace(/<script\b[\s\S]*?<\/script\s*>/gi, '').replace(/<link\b[^>]*rel\s*=\s*["']stylesheet["'][^>]*>/gi, '<!--css-->') };
 }
 const data = {
-  app: model.app || '', title: model.title || 'Process board', protoHref,
+  app: model.app || '', title: model.title || 'Process map', protoHref,
   lanes: lanes.map(l => ({ id: l.id, label: l.label || l.id, kind: l.kind || 'role' })),
   processes: processes.map(p => ({ id: p.id, title: p.title || p.id, summary: p.summary || '', journey: p.journey || '',
     steps: p.steps.map(s => ({ id: s.id, lane: s.lane, kind: s.kind, col: s._col, title: s.title || s.id, does: s.does || '',
@@ -480,13 +493,13 @@ const data = {
     assumption: it.kind === 'question' ? it.assumption : '', risk: it.risk, askWho: it.askWho || '', status: it.status || '',
     anchoredBy: ANCH[it.id] ? ANCH[it.id].anchoredBy : '', basis: ANCH[it.id] ? ANCH[it.id].basis : '',
     targets: ANCH[it.id] ? ANCH[it.id].targets.map(t => (t.type === 'page' ? { type: 'page', page: resolvePage(t.page) } : t)) : [] })),
-  stats, wireframes: wfOut, pagesOffBoard, ds: dsCss,
+  stats, wireframes: wfOut, pagesOffMap, ds: dsCss,
 };
 const json = JSON.stringify(data).replace(/</g, '\\u003c');
-const tpl = fs.readFileSync(path.join(__dirname, 'process-board.template.html'), 'utf8');
+const tpl = fs.readFileSync(path.join(__dirname, 'process-map.template.html'), 'utf8');
 const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const html = tpl
-  .replace('__TITLE__', () => esc((model.app ? model.app + ' ' : '') + (model.title || 'process board')))
+  .replace('__TITLE__', () => esc((model.app ? model.app + ' ' : '') + (model.title || 'process map')))
   .replace('"__DATA__"', () => json);
 fs.mkdirSync(path.dirname(outFile), { recursive: true });
 fs.writeFileSync(outFile, html);

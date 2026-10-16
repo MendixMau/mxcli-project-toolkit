@@ -196,6 +196,9 @@ baseline from Ground Rule 1, re-run, and by nothing else.
 A module gate that is green on the new work and was never run against the baseline has answered half
 the question and reported it as the whole. Re-run the baseline at every module gate, not once at the
 end — a regression found three modules later costs the same to fix and much more to find.
+At a module gate that means the baseline journeys of the modules the change touched
+(`bin/affected-tests.sh --moment module --module <M>`); the whole baseline runs at deploy-ready. A project that wants
+the whole baseline at every module gate says so in PROJECT.md `## Test strategy`.
 
 ---
 
@@ -297,5 +300,5 @@ it is the only entry mode where that is true.
 - A build plan over the change.
 - When the work arrives as a backlog: a `## Rounds` table in `PROJECT.md`, one row per round, its state current.
 - When an edit cannot go through mxcli: `docs/manual-steps.md` from `templates/manual-steps.md`, every step with its Check and a ticked Done line naming its evidence.
-- **A regression baseline that was green before the change and is green after it** — stated as N journeys over M modules, re-run at every module gate. Without this the rest is unverified.
+- **A regression baseline that was green before the change and is green after it**: stated as N journeys over M modules, re-run per module gate over the modules it touched, and whole at deploy-ready. Without this the rest is unverified.
 - Anything reusable learned about the app → `skills/learned-*.md`; process learnings → `process/process-learnings.md`.

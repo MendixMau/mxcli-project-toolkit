@@ -79,7 +79,7 @@ the framework deliberately blanking that element. A rule you add without outrank
 **The same erasure hides inside classes a port calls "Atlas-native, styled by the knobs".** Some
 Atlas base properties have no custom-variables knob at all: `.btn { font-weight: normal }` and,
 above 767px, `.form-group { display: flex; flex-direction: row }`. Field case
-(Mendix 11.13.0): every button rendered at 400 against the design system's 500; the check saw
+(Mendix 11.13.0): every button rendered at 400 against the design system's 500 and hand-written labels sat beside their inputs; the check saw
 nothing, because both classes counted as bound. Port each such
 property as its own rule, and read it back as a computed value, not as a knob that was set.
 
@@ -121,8 +121,9 @@ const chain = await page.evaluate(() => {
 console.log(JSON.stringify(chain, null, 1));
 ```
 
-The output names the carrier and its ancestors, so you can write a `>` chain that outranks the
-framework.
+Sample: `["LABEL.","LI.mx-listview-empty","UL.","DIV.mx-listview.mx-name-lvDocs","DIV.ds-card"]`
+names the carrier and its ancestors, so you can write a `>` chain that outranks the framework.
+Your own `ds-*` classes showing up two levels up means the carrier is wrong.
 
 **Then decide from what Rung A returned. The three answers have three different fixes:**
 

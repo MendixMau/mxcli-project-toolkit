@@ -81,7 +81,7 @@ Counting in an expression uses `length($List)`, never `count()` (`mxcli check` r
 
 ### Expression return types (lab observations, mxcli v0.26.0)
 
-`check` passes all of these; they fail at runtime on the first long value. Not confirmed against the reference guide.
+`check` passes all of these except `formatDecimal` (CE0117, a build error). The two Decimal rows fail at runtime on the first long value; `secondsBetween` is a wrong sign. Not confirmed against the reference guide.
 
 | Expression | Observed | Write it so |
 |---|---|---|
@@ -138,7 +138,7 @@ else … end if;
 ```
 
 The builder places the merge at (1230, 200) and the commit at (1210, 200); `mxcli lint` reports
-**MPR008** (overlap) and the ratchet rises on a correct script. Plain if/else and a loop-only branch are clean.
+**MPR008** `Activities '(merge)' (1230,200) and '(unnamed)' (1210,200) overlap` and the ratchet rises on a correct script. Plain if/else and a loop-only branch are clean.
 
 **Remedy (not `@position`):** move the loop into its own `SUB_` microflow, which the size
 table asks for anyway. Or move the following activity to after `end if`. Name the chosen

@@ -1438,25 +1438,32 @@ function findControls(journeyFiles) {
 let CONTROL_GAPS = [];
 
 // A journey with no string `id` used to run and name every capture `undefined-stepN.png`, so a
-// second journey overwrote the first one's evidence (#383). Two files sharing an id collide the
-// same way. Pure; the caller exits 2 on any returned line, before the browser opens.
+// second journey overwrote the first one's evidence (#383). A missing id now warns and falls back
+// to the file basename; two journeys ending up with one id (explicit, or a colliding fallback)
+// collide the same way and are refused. Sets `id` on id-less journeys. Returns { warnings,
+// problems }; the caller exits 2 on any problem, before the browser opens.
 function journeyIdProblems(loaded, files) {
-  const out = [], seen = new Map();
+  const warnings = [], problems = [], seen = new Map();
+  const name = i => files[i] || `journey #${i + 1}`;
+  const has = j => j && typeof j.id === 'string' && j.id.trim();
+  const claim = (i, id) => {
+    if (seen.has(id)) problems.push(`${name(i)}: journey id "${id}" is already used by ${seen.get(id)}; ids must be unique`);
+    else seen.set(id, name(i));
+  };
+  loaded.forEach((j, i) => { if (has(j)) claim(i, j.id); });
   loaded.forEach((j, i) => {
-    const f = files[i] || `journey #${i + 1}`;
-    if (!j || typeof j.id !== 'string' || !j.id.trim()) {
-      out.push(`${f}: journey has no "id" (a non-empty string; see example.journey.json). ` +
-               `Screenshots and findings are named from it.`);
-    } else if (seen.has(j.id)) {
-      out.push(`${f}: journey id "${j.id}" is already used by ${seen.get(j.id)}; ids must be unique`);
-    } else seen.set(j.id, f);
+    if (!j || has(j)) return;
+    const id = path.basename(name(i)).replace(/(\.journey)?\.json$/, '') || `journey-${i + 1}`;
+    warnings.push(`${name(i)}: journey has no "id"; using "${id}" (captures are named from it)`);
+    j.id = id; claim(i, id);
   });
-  return out;
+  return { warnings, problems };
 }
 
 (async () => {
   const loaded = files.map(f => JSON.parse(fs.readFileSync(f, 'utf8')));
-  const idProblems = journeyIdProblems(loaded, files);
+  const { warnings: idWarnings, problems: idProblems } = journeyIdProblems(loaded, files);
+  for (const l of idWarnings) console.error(`WARN ${l}`);
   if (idProblems.length) { for (const l of idProblems) console.error(`ERROR ${l}`); process.exit(2); }
   // Declared order first (requires/leaves/consumes); without headers this is file order.
   const { order: journeys, cycle } = orderJourneys(loaded);

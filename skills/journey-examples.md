@@ -63,7 +63,7 @@ Three of those are worth knowing before you write anything:
 
 | Field | Required? | What reads it | If omitted | Worked value |
 |---|---|---|---|---|
-| `id` | yes | walk record, control-mutant ids, screenshot filenames, the outcome finding's name | the run refuses to start: `<file>: journey has no "id"` (exit 2). Two files with the same id are refused too | `"J-PR-01"` |
+| `id` | no, set it | walk record, control-mutant ids, screenshot filenames, the outcome finding's name | a warning, then the file basename is the id; duplicate ids across files are refused (exit 2) | `"J-PR-01"` |
 | `title` | no | printed; copied into the walk | blank title in the report | `"Purchase request — pick a supplier, submit for approval"` |
 | `persona` | no | **printed and copied into the walk only** — never used to log in | the walk shows `cfg.user` instead | `"approver_test_user"` |
 | `requirement[]` | no, but see below | fallback pointer list for every step that declares none; also attached to the seed-failure and outcome findings | findings carry an empty requirement — "23 pass" becomes a claim about the app, not the spec | `["F101#/useCases/0/mainFlow/0"]` |

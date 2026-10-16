@@ -3,7 +3,8 @@
 #
 # Fixture for journey-runner.js's journeyIdProblems() (#383): a journey file without a string
 # `id` used to run and write `undefined-stepN.png`, and a second journey overwrote the first's
-# captures. The check refuses a missing/blank/non-string id and a duplicate id, naming the file.
+# captures. A missing/blank/non-string id now warns and falls back to the file basename; a
+# duplicate id (explicit, or a colliding fallback) is refused, naming both files.
 set -uo pipefail
 SUT="${1:-}"
 [ -z "$SUT" ] && SUT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/project-tests/e2e/journey-runner.js"
@@ -23,22 +24,30 @@ cp "$CFG" "$WORK/tests/e2e/project.config.js"
 IFS= read -r -d '' JS <<'JSEOF' || true
 const R = require('./journey-runner.js');
 if (typeof R.journeyIdProblems !== 'function') { console.log('NOFN'); process.exit(0); }
-const say = (k, loaded, files) => console.log(`${k} ${JSON.stringify(R.journeyIdProblems(loaded, files))}`);
+const run = (loaded, files) => { const r = R.journeyIdProblems(loaded, files);
+  return JSON.stringify({ ids: loaded.map(j => j.id), warn: r.warnings, bad: r.problems }); };
+const say = (k, loaded, files) => console.log(`${k} ${run(loaded, files)}`);
 say('GOOD', [{ id: 'J1' }, { id: 'J2' }], ['a.journey.json', 'b.journey.json']);
-say('NOID', [{ name: 'hub-nav', role: 'Administrator' }], ['hub.journey.json']);
+say('NOID', [{ name: 'hub-nav', role: 'Administrator' }], ['journeys/hub.journey.json']);
 say('BLANK', [{ id: '  ' }], ['blank.journey.json']);
 say('NUM', [{ id: 7 }], ['num.journey.json']);
 say('DUP', [{ id: 'J1' }, { id: 'J1' }], ['a.journey.json', 'b.journey.json']);
+say('FALLCOL', [{ id: 'hub' }, { name: 'x' }], ['a.journey.json', 'hub.journey.json']);
+say('TWONOID', [{}, {}], ['one.journey.json', 'two.journey.json']);
 JSEOF
 OUT="$(cd "$WORK/tests/e2e" && printf '%s' "$JS" | APP_PORT=1 node - 2>&1)"
 line() { printf '%s\n' "$OUT" | sed -n "s/^$1 //p"; }
 if printf '%s\n' "$OUT" | grep -qx NOFN; then bad "journey-runner.js exports no journeyIdProblems"; echo "PASS=$PASS FAIL=$FAIL"; exit 1; fi
 [ -n "$(line GOOD)" ] || { echo "FAIL — harness could not require $SUT"; echo "$OUT" | tail -5; exit 1; }
-[ "$(line GOOD)" = '[]' ] && ok "journeys with distinct ids pass" || bad "good ids refused" "$(line GOOD)"
-case "$(line NOID)" in *'hub.journey.json: journey has no \"id\"'*) ok "missing id is refused, naming the file and key" ;; *) bad "missing id accepted" "$(line NOID)" ;; esac
-case "$(line BLANK)" in *'no \"id\"'*) ok "blank id refused" ;; *) bad "blank id accepted" "$(line BLANK)" ;; esac
-case "$(line NUM)" in *'no \"id\"'*) ok "non-string id refused" ;; *) bad "numeric id accepted" "$(line NUM)" ;; esac
-case "$(line DUP)" in *'b.journey.json'*'already used by a.journey.json'*) ok "duplicate id refused, naming both files" ;; *) bad "duplicate id accepted" "$(line DUP)" ;; esac
+has() { case "$(line "$1")" in *"$2"*) return 0 ;; *) return 1 ;; esac; }
+has GOOD '"ids":["J1","J2"],"warn":[],"bad":[]' && ok "journeys with distinct ids pass quietly" || bad "good ids flagged" "$(line GOOD)"
+has NOID '"ids":["hub"]' && has NOID 'journeys/hub.journey.json: journey has no \"id\"' && has NOID '"bad":[]' \
+  && ok "missing id warns naming the file and falls back to the basename (no undefined)" || bad "missing id not defaulted" "$(line NOID)"
+has BLANK '"ids":["blank"]' && ok "blank id falls back to the basename" || bad "blank id" "$(line BLANK)"
+has NUM '"ids":["num"]' && ok "non-string id falls back to the basename" || bad "numeric id" "$(line NUM)"
+has DUP '"bad":["b.journey.json: journey id \"J1\" is already used by a.journey.json' && ok "duplicate id refused, naming both files" || bad "duplicate id accepted" "$(line DUP)"
+has FALLCOL 'hub.journey.json: journey id \"hub\" is already used by a.journey.json' && ok "basename fallback colliding with an explicit id is refused" || bad "fallback collision accepted" "$(line FALLCOL)"
+has TWONOID '"ids":["one","two"],"warn":' && has TWONOID '"bad":[]' && ok "two id-less files get distinct basenames" || bad "id-less pair" "$(line TWONOID)"
 if awk '/journeyIdProblems\(loaded, files\)/ {f=1} /process.exit\(2\)/ && f {g=1} END{exit !g}' "$SUT"; then ok "main calls it and exits 2"; else bad "main never enforces journeyIdProblems"; fi
 echo ""; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

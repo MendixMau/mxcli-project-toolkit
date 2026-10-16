@@ -487,14 +487,21 @@ async function navTo(page, parentTitle, childTitle) {
     // journey died at step 1 (card-disbursement requirements-driven build, 2026-09-25).
     const a = [...document.querySelectorAll('.mx-navigationtree a, .mx-navbar a')]
       .find((x) => x.getAttribute('title') === title);
-    if (a) { a.scrollIntoView({ block: 'nearest' }); a.click(); return true; }
-    return false;
-  }, t).catch(() => false);
+    if (a) { a.scrollIntoView({ block: 'nearest' }); a.click(); return { ok: true, visible: [] }; }
+    const visible = [...document.querySelectorAll('.mx-navigationtree a[title], .mx-navbar a[title]')]
+      .map((x) => x.getAttribute('title')).filter((x, i, all) => x && all.indexOf(x) === i);
+    return { ok: false, visible };
+  }, t).catch(() => ({ ok: false, visible: [] }));
   if (parentTitle) { await clickTitle(parentTitle); await page.waitForTimeout(Math.round(500 / cfg.speed)); }
   // A missing target is a failure, not a no-op (TK-012): nothing was clicked, the landing
   // guard of a persona home page stays green, and a broken-control journey passes. The
   // parent stays soft (an open flyout needs no click); the item itself must be found.
-  if (!(await clickTitle(childTitle))) throw new Error(`navigation item "${childTitle}" not found`);
+  const hit = await clickTitle(childTitle);
+  if (!hit.ok) {
+    const seen = hit.visible.length ? hit.visible.join(', ') : '(none)';
+    throw new Error(`navigation item "${childTitle}" not found for ${cfg.user}; visible: ${seen}. ` +
+      `Renamed item (fix the journey), or this persona's role cannot open the target page (fix the role grants)`);
+  }
   await page.waitForTimeout(Math.round(1500 / cfg.speed));
   await dismissModal(page);
 }

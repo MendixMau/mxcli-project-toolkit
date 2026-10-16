@@ -36,13 +36,16 @@ P="$WORK/proj"
 MXTK_NO_GUIDE=1 "$TK/bin/init-project.sh" "$P" >/dev/null 2>&1
 # What `mxcli init` writes and nothing else: no toolkit hooks, no wrapper allow-list, no sidecar.
 mkdir -p "$P/.claude"
-cat > "$P/.claude/settings.json" <<'JSON'
-{
-  "env": {"MXCLI_QUIET": "1"},
-  "hooks": {"SessionStart": [{"hooks": [{"command": "sh .claude/bootstrap-mxcli.sh || true", "type": "command"}]}]},
-  "permissions": {"allow": ["Bash(mxcli:*)", "Bash(./mxcli:*)"]}
-}
-JSON
+# Canonical json.dumps(indent=2) layout, like a file a tool wrote: --hooks-only refuses to rewrite
+# a hand-formatted file (exit 3), so a one-line-per-hook fixture only passed where something else
+# had already normalised it (a host with mxcli on PATH), and failed on the CI runner.
+python3 - "$P/.claude/settings.json" <<'PY'
+import json, sys
+d = {"env": {"MXCLI_QUIET": "1"},
+     "hooks": {"SessionStart": [{"hooks": [{"command": "sh .claude/bootstrap-mxcli.sh || true", "type": "command"}]}]},
+     "permissions": {"allow": ["Bash(mxcli:*)", "Bash(./mxcli:*)"]}}
+open(sys.argv[1], "w").write(json.dumps(d, indent=2) + "\n")
+PY
 rm -f "$P/.claude/.mxtk-permissions-added.json" "$P/.claude/settings.local.json"
 
 # H1

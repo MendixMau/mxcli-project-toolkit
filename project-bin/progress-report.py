@@ -144,27 +144,56 @@ def read(p):
 # ----------------------------------------------------------------- project
 def load_project(proj):
     md = read(os.path.join(proj, "PROJECT.md"))
-    info = {"dir": proj, "name": os.path.basename(proj.rstrip("/")), "current_line": None, "current": None, "passed": [], "decisions": [],
+    try: mt = os.path.getmtime(os.path.join(proj, "PROJECT.md"))
+    except OSError: mt = None
+    info = {"dir": proj, "name": os.path.basename(proj.rstrip("/")), "current_line": None, "current": None, "passed": [], "decisions": [], "signoff": {}, "md_mtime": None,
             "entry_mode": None, "has_md": bool(md)}
     m = re.search(r"^## Current stage\s*\n+\*\*(.+?)\*\*(.*)$", md, re.M)
     if m:
         info["current_line"] = (m.group(1) + m.group(2)).strip()
         s = re.match(r"Stage\s+(\w)", m.group(1)); info["current"] = s.group(1) if s else None
         g = re.search(r"gates passed:\s*([^()\n]+)", m.group(2))
-        if g: info["passed"] = [x.strip() for x in g.group(1).split(",") if x.strip() in STAGES]
+        if g: info["passed"] = [x.strip() for x in re.split(r"[\u00b7|;]", g.group(1))[0].split(",") if x.strip() in STAGES]   # "P, 0, 1, 2, 3, 4 · manual: 5": only the part before the dot is the passed list
     sec = re.search(r"^## Decisions\s*\n(.*?)(?=^## )", md, re.M | re.S)
     if sec:
         for line in sec.group(1).splitlines():
             c = [x.strip() for x in line.strip().strip("|").split("|")]
             if len(c) >= 3 and c[0] in STAGES and c[0] != "Stage":
                 st = re.match(r"[A-Za-z]+", c[2]); info["decisions"].append((c[0], c[1], st.group(0).upper() if st else "OTHER"))
+                if re.search(r"sign-?off", c[1], re.I) and st and st.group(0).upper() in ("CONFIRMED", "ASSUMED"):   # a stage sign-off row is the evidence the stage passed, and when
+                    t = decision_time(" ".join(c[2:]) or c[1]) or decision_time(c[1])
+                    sm = re.search(r"Stage\s*(\w)\b", c[1]); sg = c[0] if c[0] in STAGES else (sm.group(1) if sm else None)
+                    if sg in STAGES and (sg not in info["signoff"] or (t and t < info["signoff"][sg][0])): info["signoff"][sg] = (t, c[1][:80])
     m = re.search(r"Entry mode:\s*\**\s*(\w[\w-]*)", md)
     em = (m.group(1).lower() if m else "migration")
     info["entry_mode"] = "requirements" if em.startswith("requirements") else "existing-app-change" if em.startswith("existing") else em
     info["waived"] = set(re.findall(r"Waived artifact\s+([\w-]+)\s*:", md))
     m = re.search(r"^[\s>*_-]*Progress report\s*:\s*\**\s*(off|ask|auto)\b", md, re.M | re.I)
     info["setting"] = m.group(1).lower() if m else "ask"
+    info["md_mtime"] = mt
     return info
+
+def decision_time(txt):
+    """Epoch of the first date (and time when given) in a decision row cell; local time; None without a date."""
+    m = re.search(r"(20\d\d)-(\d\d)-(\d\d)(?:[ T](\d\d):(\d\d))?", txt or "")
+    if not m: return None
+    try: return datetime.datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4) or 0), int(m.group(5) or 0)).timestamp()
+    except ValueError: return None
+
+def reconcile_gates(info, gate):
+    """One source of truth for which stages passed. PROJECT.md (the stage line and the sign-off rows in its decision
+    register) wins over the generated gate-check page when it is the newer file; when the page is the newer file its
+    PASS rows are added. The page's own age is recorded so a card can say it is stale."""
+    md_t, g_t = info.get("md_mtime"), gate.get("mtime")
+    info["passed_md"] = list(info["passed"]); info["gate_stale_s"] = 0
+    if not info["has_md"]: return
+    gp = [s for s in STAGES if gate["rows"].get(s, {}).get("status") == "PASS"]
+    ps = set(info["passed"])
+    if info["current"] or ps:
+        ps |= {s for s in info["signoff"] if s in STAGES and (info["current"] is None or STAGES.index(s) < STAGES.index(info["current"]) or s in info["passed"])}
+    if g_t and md_t and g_t > md_t: ps |= set(gp)
+    if g_t and md_t and g_t < md_t - 60: info["gate_stale_s"] = md_t - g_t
+    info["passed"] = [s for s in STAGES if s in ps]
 
 def load_gate_index(proj):
     p = os.path.join(proj, "index.html"); out = {"rows": {}, "mtime": None, "extra": {}}
@@ -204,8 +233,10 @@ def collect_artifacts(proj, manifest):
     for r in manifest:
         found = []
         for pat in r["paths"]: found += resolve(proj, pat)
-        if SELF_OUT and not found and any(pat.endswith(REPORT_FILE) for pat in r["paths"]): found = [SELF_OUT]
-        for f in found: stages[r["stage"]]["files"].setdefault(f, r["id"])
+        if SELF_OUT and not found and any(pat.endswith(REPORT_FILE) for pat in r["paths"]): found = [SELF_OUT]   # counts as present, never listed (see below)
+        for f in found:
+            if os.path.basename(f) == REPORT_FILE or os.path.relpath(f, proj).startswith(".."): continue   # the report never lists itself, and nothing outside the project folder
+            stages[r["stage"]]["files"].setdefault(f, r["id"])
         stages[r["stage"]]["owed"].append({"id": r["id"], "found": len(found), "absence": r["absence"]})
     for s, pats in EXTRA_ARTIFACTS.items():
         for pat in pats:
@@ -236,7 +267,7 @@ def cost_of(u, model, rates):
     if not r: return None
     return (u["in"] * r[0] + u["cw"] * r[1] + u["cr"] * r[2] + u["out"] * r[3]) / 1e6
 
-def scan_transcript(path, is_main=False):
+def scan_transcript(path, is_main=False, clip=None):
     """Returns messages (dedup by message.id, max of each counter), event times, compactions, prompts, tool events."""
     flag_1m = False; msgs = {}; times = []; compacts = []; prompts = 0; tools = []; gate = []; calls = {}
     with open(path, encoding="utf-8", errors="replace") as f:
@@ -244,6 +275,7 @@ def scan_transcript(path, is_main=False):
             try: o = json.loads(line)
             except Exception: continue
             t = o.get("type"); ts = epoch(o.get("timestamp", "")) if o.get("timestamp") else None
+            if clip and ts and not (clip[0] <= ts <= clip[1]): continue
             if ts and t in ("user", "assistant"): times.append(ts)
             if not flag_1m:
                 bt = (o.get("params") or {}).get("betas") if isinstance(o.get("params"), dict) else None
@@ -294,6 +326,8 @@ def scan_transcript(path, is_main=False):
                         tools.append(ev)
     return {"flag_1m": flag_1m, "msgs": list(msgs.values()), "times": times, "compacts": compacts, "prompts": prompts, "tools": tools, "calls": list(calls.values())}
 
+DISCOVERY = {}
+SCAN_DAYS = 30; SCAN_MAX_FILES = 300; SCAN_MAX_BYTES = 200_000_000; MENTION_MIN = 5; MENTION_PAD_S = 1800
 def slug(path):
     """Claude Code's folder name for a launch directory: every non-alphanumeric character becomes a dash."""
     return re.sub(r"[^A-Za-z0-9]", "-", path)
@@ -310,6 +344,42 @@ def find_sessions(proj, logs_dir=None):
         if not (os.path.isdir(d) and (name == me or me.startswith(name + "-") or name.startswith(me + "-"))): continue
         for f in sorted(glob.glob(os.path.join(d, "*.jsonl"))):
             if session_in_project(f, proj): out.append(f)
+    # Sessions started elsewhere (another folder's slug): last 30 days, newest first, a capped number of files. A log counts
+    # when a record's cwd is the project, or when the project's absolute path appears at least MENTION_MIN times in it
+    # (cheap byte count, tool inputs included). Reported on the page as found by path mention.
+    DISCOVERY.update({"other_dirs": 0, "other_files": 0, "mention": [], "searched": True})
+    have = set(out); cands = []; cutoff = time.time() - SCAN_DAYS * 86400
+    for name in os.listdir(base):
+        d = os.path.join(base, name)
+        if not os.path.isdir(d): continue
+        own = (name == me or me.startswith(name + "-") or name.startswith(me + "-"))
+        if own: continue
+        DISCOVERY["other_dirs"] += 1
+        for f in glob.glob(os.path.join(d, "*.jsonl")):
+            try:
+                st = os.stat(f)
+                if st.st_mtime >= cutoff and f not in have: cands.append((st.st_mtime, f, st.st_size))
+            except OSError: pass
+    cands.sort(reverse=True)
+    needles = {os.path.realpath(proj).encode(), os.path.abspath(proj).encode()}
+    needle_re = re.compile(b"|".join(re.escape(n) for n in sorted(needles, key=len, reverse=True)))
+    for mt, f, size in cands[:SCAN_MAX_FILES]:
+        DISCOVERY["other_files"] += 1
+        if session_in_project(f, proj): out.append(f); continue
+        if size > SCAN_MAX_BYTES: continue
+        try: data = open(f, "rb").read()
+        except OSError: continue
+        if len(needle_re.findall(data)) >= MENTION_MIN:   # one regex, so a path that is a substring of its real path counts once
+            # a session that only mentions the project counts for the stretch where it did: first to last mention, padded
+            ts = []
+            for ln in data.split(b"\n"):
+                if any(n in ln for n in needles):
+                    mm = re.search(rb'"timestamp"\s*:\s*"([^"]+)"', ln)
+                    if mm:
+                        e_ = epoch(mm.group(1).decode())
+                        if e_: ts.append(e_)
+            out.append(f); DISCOVERY["mention"].append(f)
+            if ts: DISCOVERY.setdefault("clip", {})[f] = (min(ts) - MENTION_PAD_S, max(ts) + MENTION_PAD_S)
     out.sort(key=lambda f: os.path.getmtime(f))
     return out, base
 
@@ -339,12 +409,13 @@ def session_in_project(path, proj):
 def load_sessions(paths):
     mains = []; agents = []; extra_calls = []
     for session in paths:
-        mains.append(scan_transcript(session, True))
+        clip = DISCOVERY.get("clip", {}).get(session)
+        mains.append(scan_transcript(session, True, clip))
         sdir = session[:-6]
         for f in sorted(glob.glob(os.path.join(sdir, "subagents", "**", "agent-*.jsonl"), recursive=True)):
             try: meta = json.load(open(f[:-6] + ".meta.json"))
             except Exception: meta = {}
-            d = scan_transcript(f)
+            d = scan_transcript(f, False, clip)
             if not d["times"]: continue
             extra_calls.extend(d["calls"])
             wf = "workflows" in f.split(os.sep)
@@ -362,7 +433,7 @@ def load_sessions(paths):
 
 # ----------------------------------------------------------------- stage windows
 GATE_RE = re.compile(r"gate-check\.sh\s+(?:\.\s+)?(?:--closeout\s+\.\s*)?([P0-6])?\b")
-def stage_boundaries(main, agents):
+def stage_boundaries(main, agents, info=None):
     """Start time per stage from session signals; honest fallbacks; monotonic."""
     tools = main["tools"]; sig = {}
     def first(pred):
@@ -377,6 +448,12 @@ def stage_boundaries(main, agents):
     sig["4"] = first(lambda e: e["name"] == "Agent" and re.search(r"Stage 4|build plan", e.get("desc", ""), re.I))
     sig["5"] = first(lambda e: "build" in e.get("skill", "") and "plan" not in e.get("skill", ""))
     sig["6"] = None
+    # Stage 4 to 5: one source of truth with PROJECT.md. The switch is the earliest evidenced of the Stage 4 sign-off row in
+    # PROJECT.md, the first exec.sh build step in the log, and the build skill signal above.
+    ev = [t for t in [sig.get("5"), first(lambda e: e["name"] == "Bash" and re.search(r"(^|[\s/])exec\.sh\b", e.get("cmd", "")))] if t]
+    so = (info or {}).get("signoff", {}).get("4")
+    if so and so[0]: ev.append(so[0])
+    if ev: sig["5"] = min(ev)
     return sig
 
 def build_windows(sig, t_start, t_end):
@@ -403,23 +480,132 @@ def agent_stage(a, wins):
     return stage_at(wins, a["t0"])
 
 # ----------------------------------------------------------------- build plan
+PHASE_RE = re.compile(r"^#{1,6}\s+(?:Phase|Slice)\s+(\d[0-9A-Za-z.]*)\s*(?:[\u2014\u2013\u00b7:-]\s*|\s+)(.*?)\s*$")
+def classify_state(raw):
+    """Row status by prefix, 'not built' checked before 'built'. built | partial | todo | skip."""
+    l = (raw or "").strip().lower().replace("**", "")
+    if l.startswith(("not built", "not done", "not started", "planned", "to do", "todo", "open", "pending", "blocked", "failed")): return "todo"
+    if l.startswith(("not needed", "n/a", "dropped", "skipped", "waived", "deferred")): return "skip"
+    if l.startswith(("built", "done", "complete", "verified", "proven", "passed")): return "built"
+    if l.startswith(("partial", "in progress", "started", "wip")): return "partial"
+    return "todo"
+
+def _cells(line):
+    c = re.split(r"(?<!\\)\|", line.strip())
+    if c and c[0].strip() == "": c = c[1:]
+    if c and c[-1].strip() == "": c = c[:-1]
+    return [x.replace("\\|", "|").replace("**", "").strip() for x in c]
+
+def parse_plan_md(path):
+    """Row state straight from build-plan.md: a Phase heading opens a phase, a table with a # column and a State or
+    Status column gives its rows (the last cell when a row is short). Returns [(id, name, [steps])] or []."""
+    try: lines = open(path, encoding="utf-8", errors="replace").read().splitlines()
+    except Exception: return []
+    phases = []; cur = None; i = 0
+    while i < len(lines):
+        h = PHASE_RE.match(lines[i])
+        if h: cur = (h.group(1), re.sub(r"\s*\*\(.*\)\*$", "", h.group(2)).strip(), []); phases.append(cur); i += 1; continue
+        if lines[i].lstrip().startswith("|") and i + 1 < len(lines) and re.match(r"^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$", lines[i + 1]):
+            hd = [x.strip("`").lower() for x in _cells(lines[i])]; i += 2
+            ci = {"n": next((k for k, x in enumerate(hd) if x in ("#", "no", "no.", "step", "row", "number")), None),
+                  "state": next((k for k, x in enumerate(hd) if x.startswith(("state", "status"))), None),
+                  "kind": next((k for k, x in enumerate(hd) if x.startswith("kind")), None),
+                  "step": next((k for k, x in enumerate(hd) if x == "step" or x.startswith("what") or x.startswith("do")), None)}
+            while i < len(lines) and lines[i].lstrip().startswith("|"):
+                c = _cells(lines[i]); i += 1
+                if ci["n"] is None or ci["state"] is None or not c or not re.match(r"^\d+$", c[ci["n"]] if ci["n"] < len(c) else ""): continue
+                if cur is None: cur = ("all", "All rows", []); phases.append(cur)
+                st = c[ci["state"]] if len(c) == len(hd) else c[-1]
+                cur[2].append({"number": c[ci["n"]], "kind": (c[ci["kind"]] if ci["kind"] is not None and ci["kind"] < len(c) else "") or "-",
+                               "step": (c[ci["step"]] if ci["step"] is not None and ci["step"] < len(c) and ci["step"] != ci["n"] else "")[:140], "state": st})
+            continue
+        i += 1
+    return [p for p in phases if p[2]]
+
+def finish_plan(phases, proj, generated, source):
+    out = []; kinds = collections.Counter(); tot = collections.Counter()
+    for pid, name, steps in phases:
+        c = collections.Counter(); kd = collections.Counter(); rows = []
+        for x in steps:
+            cl = classify_state(x.get("state")); c[cl] += 1; kd[x.get("kind") or "-"] += 1
+            if cl != "skip": kinds[x.get("kind") or "-"] += 1
+            rows.append({"n": x.get("number"), "kind": x.get("kind"), "step": x.get("step"), "state": x.get("state") or "", "cls": cl})
+        tot.update(c)
+        mods = os.path.join(proj, "architecture", "modules", name)
+        out.append({"id": pid, "name": name, "n": len(steps) - c["skip"], "built": c["built"], "partial": c["partial"], "todo": c["todo"], "skip": c["skip"], "kinds": dict(kd),
+                    "brief": os.path.isfile(os.path.join(mods, "module-brief.md")), "ledger": os.path.isfile(os.path.join(mods, "coverage-ledger.md")),
+                    "def": os.path.isfile(os.path.join(mods, "definition.md")), "steps": rows})
+    return {"phases": out, "kinds": dict(kinds), "built": tot["built"], "partial": tot["partial"], "todo": tot["todo"], "skip": tot["skip"],
+            "total": sum(tot.values()) - tot["skip"], "generated": generated, "source": source, "note": ""}
+
+def build_log_rows(proj):
+    """[(epoch, script, result)] from docs/BUILD-LOG.md exec rows, oldest first."""
+    rows = []
+    for line in read(os.path.join(proj, "docs", "BUILD-LOG.md")).splitlines():
+        m = re.match(r"^\|\s*(20\d\d-\d\d-\d\dT\d\d:\d\d:\d\d)(Z|[+-]\d\d:?\d\d)?\s*\|\s*(.*?)\s*\|", line)
+        if not m: continue
+        c = [x.strip() for x in line.strip().strip("|").split("|")]
+        try:
+            t = datetime.datetime.strptime(m.group(1), "%Y-%m-%dT%H:%M:%S")
+            z = m.group(2)
+            if z == "Z": t = t.replace(tzinfo=datetime.timezone.utc)
+            elif z:
+                sg = 1 if z[0] == "+" else -1; zz = z[1:].replace(":", ""); t = t.replace(tzinfo=datetime.timezone(sg * datetime.timedelta(hours=int(zz[:2]), minutes=int(zz[2:]))))
+            else: t = t.astimezone()
+            rows.append((t.timestamp(), re.sub(r"[`]", "", c[1] if len(c) > 1 else ""), c[3] if len(c) > 3 else ""))
+        except Exception: continue
+    rows.sort(); return rows
+
+def _num(txt):
+    m = re.search(r"([\d.]+)\s*([kKmM]?)", txt or "")
+    if not m: return None
+    try: v = float(m.group(1))
+    except ValueError: return None
+    return int(v * {"": 1, "k": 1e3, "m": 1e6}[m.group(2).lower()])
+
+def load_ledgers(proj):
+    """Fallback when no session log exists: docs/progress/TIME-LEDGER.md (minutes, sub-agent tokens, exec runs per phase),
+    docs/BUILD-LOG.md exec rows, .claude/loop/metrics-ledger.tsv (seconds per exec). None when none of them is there."""
+    out = {"phases": [], "exec_rows": 0, "exec_blocked": 0, "active_s": 0, "exec_s": None, "first": None, "last": None, "sources": []}
+    tl = read(os.path.join(proj, "docs", "progress", "TIME-LEDGER.md"))
+    for line in tl.splitlines():
+        c = [x.strip() for x in line.strip().strip("|").split("|")]
+        if line.lstrip().startswith("|") and len(c) >= 5 and c[0].lower() not in ("phase",) and not set(c[0]) <= set("-: "):
+            out["phases"].append({"phase": c[0], "start": c[1], "min": _num(c[2]), "min_txt": c[2], "tok": _num(c[3]), "tok_txt": c[3], "runs": c[4]})
+    if out["phases"]: out["sources"].append("docs/progress/TIME-LEDGER.md")
+    rows = build_log_rows(proj)
+    if rows:
+        out["exec_rows"] = len(rows); out["exec_blocked"] = sum(1 for r in rows if re.search(r"blocked|not-run|\U0001F6AB", r[2]))
+        ts = [r[0] for r in rows]; out["first"], out["last"] = ts[0], ts[-1]
+        out["active_s"] = sum(b - a for a, b in zip(ts, ts[1:]) if b - a <= IDLE_GAP_S)
+        out["sources"].append("docs/BUILD-LOG.md")
+    ml = read(os.path.join(proj, ".claude", "loop", "metrics-ledger.tsv")).splitlines()
+    if len(ml) > 1:
+        h = ml[0].split("\t")
+        if "elapsed_s" in h:
+            k = h.index("elapsed_s"); v = [float(r.split("\t")[k]) for r in ml[1:] if len(r.split("\t")) > k and re.match(r"^[\d.]+$", r.split("\t")[k])]
+            if v: out["exec_s"] = sum(v); out["exec_n"] = len(v); out["sources"].append(".claude/loop/metrics-ledger.tsv")
+    return out if out["sources"] else None
+
 def load_build_plan(path, proj=None):
-    try: d = json.load(open(path))
-    except Exception: return None
+    """The plan counts. build-plan.json is a derived copy of build-plan.md; when it is older than the md or than the
+    newest docs/BUILD-LOG.md row, the md is read instead (and the page says so), never a stale JSON with 0 built."""
     proj = proj or os.path.dirname(os.path.dirname(os.path.abspath(path)))
-    phases = []; kinds = collections.Counter(); built = 0; total = 0
-    for p in d.get("phases", []):
-        c = collections.Counter(); b = 0
-        for s in p.get("steps", []):
-            c[s["kind"]] += 1; kinds[s["kind"]] += 1; total += 1
-            if s.get("state") == "built": b += 1; built += 1
-        mods = os.path.join(proj, "architecture", "modules", p["name"])
-        phases.append({"id": p["id"], "name": p["name"], "n": len(p["steps"]), "built": b, "kinds": dict(c),
-                       "brief": os.path.isfile(os.path.join(mods, "module-brief.md")),
-                       "ledger": os.path.isfile(os.path.join(mods, "coverage-ledger.md")),
-                       "def": os.path.isfile(os.path.join(mods, "definition.md")),
-                       "steps": [{"n": x.get("number"), "kind": x.get("kind"), "step": x.get("step"), "state": x.get("state")} for x in p.get("steps", [])]})
-    return {"phases": phases, "kinds": dict(kinds), "built": built, "total": total, "generated": d.get("generatedAt")}
+    md = os.path.join(proj, "architecture", "build-plan.md")
+    try: d = json.load(open(path)); jt = os.path.getmtime(path)
+    except Exception: d = None; jt = None
+    mdp = parse_plan_md(md) if os.path.isfile(md) else []
+    log_t = (build_log_rows(proj) or [(0,)])[-1][0]
+    stale = jt is not None and ((os.path.isfile(md) and os.path.getmtime(md) > jt) or log_t > jt)
+    if mdp and (d is None or stale):
+        bp = finish_plan(mdp, proj, datetime.datetime.fromtimestamp(os.path.getmtime(md)).strftime("%Y-%m-%d %H:%M"), "md")
+        if d is not None: bp["note"] = "plan JSON was stale, counted from build-plan.md" + (" (build-plan.json is older than build-plan.md)" if os.path.getmtime(md) > jt else " (build-plan.json is older than the newest BUILD-LOG.md row)")
+        return bp
+    if d is None: return None
+    ph = [(p["id"], p["name"], p.get("steps", [])) for p in d.get("phases", [])]
+    bp = finish_plan([(i, n, [{"number": x.get("number"), "kind": x.get("kind"), "step": x.get("step"), "state": x.get("state")} for x in st]) for i, n, st in ph], proj, d.get("generatedAt"), "json")
+    if stale: bp["note"] = "plan JSON is older than the newest BUILD-LOG.md row and there is no readable build-plan.md to recount from; built counts may lag"
+    return bp
 
 # ----------------------------------------------------------------- analysis
 def zero(): return {"in": 0, "out": 0, "cr": 0, "cw": 0, "cost": 0.0, "n": 0}
@@ -433,7 +619,7 @@ def head(a): return a["in"] + a["out"] + a["cw"]
 def analyse(proj, info, gate, manifest, arts, main, agents, rates, bp):
     all_t = main["times"] + [x for a in agents for x in (a["t0"], a["t1"])]
     t0, t1 = min(all_t), max(all_t)
-    sig = stage_boundaries(main, agents); wins = build_windows(sig, t0, t1)
+    sig = stage_boundaries(main, agents, info); wins = build_windows(sig, t0, t1)
     S = {s: {"main": zero(), "sub": zero(), "wf": zero(), "agents": [], "wf_n": 0, "min": collections.Counter()} for s in ["pre"] + STAGES}
     for s_ in S: S[s_]["ctx"] = []
     mctx = []
@@ -802,6 +988,9 @@ svg text{fill:var(--ink);font-size:11px}svg .m{fill:var(--mut)}
 .adv{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}.adv .card{padding:12px}.adv h3{font-size:13px;color:var(--accent);margin-bottom:3px}.adv p{margin:0;font-size:13px}
 .phases{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
 .ph b{font-size:13px}.ph .k{font-size:11px;color:var(--mut);margin-top:4px}
+.stack3{display:flex;height:8px;border-radius:5px;overflow:hidden;background:var(--idle)}.stack3>i{display:block;height:100%}.stack3 .b{background:var(--ok)}.stack3 .p{background:var(--warn)}
+.ph.now{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}.nowtag{font-size:11px;color:var(--accent);font-weight:600;margin-left:4px}
+.stale{color:var(--warn)}.r-partial td:last-child{color:var(--warn)}.r-built td:last-child{color:var(--ok)}
 .stack{display:flex;height:16px;border-radius:5px;overflow:hidden;background:var(--idle)}.stack>i{display:block;height:100%}
 .note{font-size:12px;color:var(--mut);margin:4px 0}
 html{scroll-behavior:smooth}[id^=stage-],[id^=agents-],[id^=phase-],#tips{scroll-margin-top:56px}
@@ -833,6 +1022,27 @@ def stage_state(s, info, gate):
         return "progress" if s == info["current"] else "pending"
     return {"PASS": "passed", "PENDING": "pending"}.get(g, "pending")
 
+def ago(t):
+    d = time.time() - t
+    if d < 0: return "just now"
+    return ("%d min ago" % max(1, round(d / 60))) if d < 5400 else ("%.0f h ago" % (d / 3600)) if d < 172800 else ("%d days ago" % round(d / 86400))
+
+def render_ledgers(w, lg):
+    w("<div class='card ledgers'><div class=hd><h3>Time and effort from the project ledgers</h3><span class=sub>source: %s; not a session log</span></div>" % ", ".join(esc(x) for x in lg["sources"]))
+    k = []
+    if lg["phases"]:
+        mins = [p["min"] for p in lg["phases"] if p["min"] is not None]; toks = [p["tok"] for p in lg["phases"] if p["tok"]]
+        k.append(("Minutes logged", "%s" % fmt_dur(sum(mins) * 60) if mins else "n/a", "TIME-LEDGER.md, finished phases"))
+        if toks: k.append(("Sub-agent tokens", fmt_tok(sum(toks)), "TIME-LEDGER.md; lead session not counted"))
+    if lg["exec_rows"]: k.append(("Exec rows", "%d" % lg["exec_rows"], "BUILD-LOG.md, %d blocked or not run" % lg["exec_blocked"]))
+    if lg["exec_s"] is not None: k.append(("Exec time", fmt_dur(lg["exec_s"]), "metrics-ledger.tsv, %d runs, seconds as measured" % lg.get("exec_n", 0)))
+    elif lg["exec_rows"]: k.append(("Active time (est.)", fmt_dur(lg["active_s"]), "gaps under %d min between BUILD-LOG rows" % (IDLE_GAP_S // 60)))
+    w("<div class=kpis>" + "".join("<div class='card kpi'><div class=v>%s</div><div class=l>%s<br>%s</div></div>" % (esc(v), esc(l), esc(sm)) for l, v, sm in k) + "</div>")
+    if lg["phases"]:
+        w("<div class=tw><table><tr><th>Phase</th><th>Start</th><th class=n>Minutes</th><th class=n>Sub-agent tokens</th><th>Exec runs</th></tr>" + "".join(
+          "<tr><td>%s</td><td>%s</td><td class=n>%s</td><td class=n>%s</td><td>%s</td></tr>" % (esc(p["phase"]), esc(p["start"]), esc(p["min_txt"] or "-"), esc(p["tok_txt"] or "-"), esc(p["runs"] or "-")) for p in lg["phases"]) + "</table></div>")
+    w("</div>")
+
 def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, tot, peak, args):
     L = args.has_log
     def href(f): return urllib.parse.quote(os.path.relpath(f, args.outdir).replace(os.sep, "/"))
@@ -851,6 +1061,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         elif states[s] == "progress": prog[s] = min(pct(have, n), 95.0) if n else 0.0
         else: prog[s] = 0.0
         owed_txt[s] = "%d of %d promised artifacts present" % (have, n) if n else "no manifest rows"
+        if s == "5" and bp and bp["total"] and states[s] not in ("passed", "waived"): owed_txt[s] = "%d of %d plan rows built%s" % (bp["built"], bp["total"], (", %d partial" % bp["partial"]) if bp["partial"] else "")
     overall = sum(prog.values()) / len(STAGES)
     npass = sum(1 for s in STAGES if states[s] == "passed")
     dec = {s: collections.Counter(d[2] for d in info["decisions"] if d[0] == s) for s in STAGES}
@@ -864,21 +1075,28 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     w("<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>")
     w("<!-- generated-by: mxcli-project-toolkit/project-bin/build-plan-status.sh (progress-report.py) -->")
     w("<title>Progress report: %s</title><style>%s</style></head><body>" % (esc(info["name"]), CSS))
-    w("<nav class=snav aria-label='Stage navigation'><b>Stage</b>" + "".join("<a href='#stage-%s' class='%s' title='%s'>%s</a>" % (s_, ("cur " if s_ == info["current"] else "") + ("passed" if states[s_] == "passed" else ""), esc(STAGE_NAME[s_] + ": " + states[s_]), s_) for s_ in STAGES) + "<a href='#build-detail' style='margin-left:auto'>Plan</a>" + ("<a href='#tips'>Tips</a>" if L else "") + "</nav><main><div class='layout%s'><div class=content>" % ("" if L else " solo"))
+    w("<nav class=snav aria-label='Stage navigation'><b>Stage</b>" + "".join("<a href='#stage-%s' class='%s' title='%s'>%s</a>" % (s_, ("cur " if s_ == info["current"] else "") + ("passed" if states[s_] == "passed" else ""), esc(STAGE_NAME[s_] + ": " + states[s_]), s_) for s_ in STAGES) + "<a href='#build-detail' style='margin-left:auto'>Build</a>" + ("<a href='#tips'>Tips</a>" if L else "") + "</nav><main><div class='layout%s'><div class=content>" % ("" if L else " solo"))
     last_ev = datetime.datetime.fromtimestamp(an["t1"]).strftime("%Y-%m-%d %H:%M") if L else "no session log"
     w("<header><h1>Progress report: %s</h1>" % esc(info["name"]))
     w("<span class=updated id=stamp>Last updated %s %s</span> <span class=sub id=stamp>session log last event %s</span><br>" % (gen, datetime.datetime.now().astimezone().strftime("%Z"), last_ev))
     w("<div class=sub>Stage P to 6 &middot; entry mode %s &middot; <a href='%s'>PROJECT.md</a> &middot; <a href='%s'>gate-check page</a> &middot; replaces the former build-plan.html</div></header>" %
       (esc(info["entry_mode"]), href(os.path.join(proj, "PROJECT.md")), href(os.path.join(proj, "index.html"))))
+    if L and DISCOVERY.get("mention") and not args.session_log:
+        w("<div class='card note-card'><b>%d session log(s) were found by path mention, not by their folder.</b> Their working folder is not this project, but the project's path appears in them at least %d times, so they are counted. They can include other work: check the list in the footer and pass the right one with <code>--session-log &lt;path&gt;</code> to replace discovery.</div>" % (len(DISCOVERY["mention"]), MENTION_MIN))
     if not L:
-        w("<div class='card note-card'><b>Time, token and cost data are unavailable.</b> %s Everything below that comes from the project folder (stages, gates, artifacts, decisions, the plan) is shown as usual.</div>" % esc(args.log_note))
-    w("<div class='card' style='margin-top:14px'><div class=hd><h3><a href='#stage-%s'>%s</a></h3><span class=sub>%d of 8 gates passed</span></div>" % (info["current"] or "P", esc(info["current_line"] or "Current stage unknown"), npass))
+        dsc = DISCOVERY
+        looked = (" Looked in this project's own log folder and %d other project folders (%d logs from the last %d days)." % (dsc.get("other_dirs", 0), dsc.get("other_files", 0), SCAN_DAYS)) if dsc.get("searched") else ""
+        howto = (" To use a log from another place pass it with <code>--session-log &lt;path&gt;</code> (a .jsonl file, or a folder of them, for example <code>~/.claude/projects/&lt;slug&gt;/</code>), then regenerate: <code>project-bin/build-plan-status.sh &lt;project&gt; --html --session-log &lt;path&gt;</code>.") if not args.no_log else ""
+        ledgers = (" The time figures below come from the project ledgers (%s), not from a session log." % ", ".join("<code>%s</code>" % esc(x) for x in args.ledgers["sources"])) if args.ledgers else ""
+        w("<div class='card note-card'><b>Time, token and cost data from a session log are unavailable.</b> %s%s%s%s Everything else (stages, gates, artifacts, decisions, the plan) is shown as usual.</div>" % (esc(args.log_note), looked, howto, ledgers))
+        if args.ledgers: render_ledgers(w, args.ledgers)
+    w("<div class='card' style='margin-top:14px'><div class=hd><h3><a href='#stage-%s'>%s</a></h3><span class=sub>%d of 8 gates passed%s</span></div>" % (info["current"] or "P", esc(info["current_line"] or "Current stage unknown"), npass, (", %d waived" % sum(1 for s_ in STAGES if states[s_] == "waived")) if "waived" in states.values() else ""))
     w("<div class='bar big ok' style='margin:8px 0' title='mean of the eight stage bars'><i style='width:%.0f%%'></i></div>" % overall)
     w("<div class=sub>Overall progress %.0f%%: mean of the stage bars below (passed or waived stage = 100, current stage = promised artifacts present, Stage 5 = plan rows built).</div></div>" % overall)
     if gate["mtime"] and info["has_md"]:
         gp = [s for s in STAGES if gate["rows"].get(s, {}).get("status") == "PASS"]
         if set(gp) != set(info["passed"]):
-            w("<p class=note>Note: the gate-check page (index.html) lists passed stages %s, PROJECT.md lists %s. PROJECT.md is newer or authoritative here; re-run gate-check to refresh the page.</p>" % (esc(", ".join(gp) or "none"), esc(", ".join(info["passed"]) or "none")))
+            w("<p class='note stale'>Note: the gate-check page (index.html) lists passed stages %s, this page counts %s (PROJECT.md stage line and sign-off rows%s). Re-run gate-check to refresh the page.</p>" % (esc(", ".join(gp) or "none"), esc(", ".join(info["passed"]) or "none"), ", newer than the page" if info.get("gate_stale_s") else ""))
     # KPIs
     allc = [m["in"] + m["cr"] + m["cw"] for m in main["msgs"]] or [0]; ctx_avg = sum(allc) / len(allc)
     cwin, cnote = context_window(main["msgs"], main["compacts"], main.get("flag_1m", False))
@@ -942,6 +1160,11 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
             w("<dt>New tokens</dt><dd>%s &middot; est. %s</dd>" % (fmt_tok(head(tk)) if tk["n"] or head(tk) else "none", money(tk["cost"])))
             w("<dt>Main context</dt><dd>%s</dd>" % ("avg %s, peak %s (%s of %s)" % (fmt_tok(sum(cl) / len(cl)), fmt_tok(max(cl)), pw(max(cl)), fmt_tok(cwin) if cwin else "unknown window") if cl else "no requests"))
             w("<dt>Sub-agents</dt><dd>%d + %d workflow &middot; %s tokens</dd>" % (subn, wfn, fmt_tok(subh) if sd["agents"] else "0"))
+        if s == "5" and not L and args.ledgers:
+            lg = args.ledgers
+            tmin = sum(p["min"] for p in lg["phases"] if p["min"] is not None)
+            w("<dt>Build time (ledger)</dt><dd>%s</dd>" % esc((fmt_dur(tmin * 60) + " logged, " if tmin else "") + ("%d exec rows" % lg["exec_rows"] if lg["exec_rows"] else "no exec rows") + (", exec time %s" % fmt_dur(lg["exec_s"]) if lg["exec_s"] is not None else "")))
+        if s == "5" and bp: w("<dt>Build progress</dt><dd><a href='#build-detail'>%d of %d rows built%s</a></dd>" % (bp["built"], bp["total"], (", %d partial" % bp["partial"]) if bp["partial"] else ""))
         if s != "pre":
             c = dec[s]; w("<dt>Decisions</dt><dd class=dec><span class=c>%d confirmed</span><span class=a>%d assumed</span><span class=r>%d raised</span></dd>" % (c["CONFIRMED"], c["ASSUMED"], c["RAISED"]))
             if s == "2" and gate["extra"].get("raised"): w("<dt>BRD questions</dt><dd>%d raised</dd>" % gate["extra"]["raised"])
@@ -950,7 +1173,10 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
           (fmt_tok(tk["in"]), fmt_tok(tk["out"]), fmt_tok(tk["cw"]), fmt_tok(tk["cr"]), fmt_tok(head(sd["main"])), fmt_tok(subh)))
         if s != "pre":
             row = gate["rows"].get(s)
-            if row: w("<div class=sub title='%s'>Gate-check page: <b>%s</b> %s</div>" % (esc(row["detail"]), esc(row["status"]), esc(row["detail"][:110] + ("..." if len(row["detail"]) > 110 else ""))))
+            if states[s] == "passed" and info.get("gate_stale_s") and (not row or row["status"] != "PASS"):
+                age = time.time() - gate["mtime"]
+                w("<div class='sub stale' title='PROJECT.md says this stage passed; the generated gate-check page is older than PROJECT.md and does not list it'>Gate-check page is %s old, re-run gate-check</div>" % (("%d days" % round(age / 86400)) if age >= 86400 else ("%d hours" % max(1, round(age / 3600)))))
+            elif row: w("<div class=sub title='%s'>Gate-check page: <b>%s</b> %s</div>" % (esc(row["detail"]), esc(row["status"]), esc(row["detail"][:110] + ("..." if len(row["detail"]) > 110 else ""))))
             files = list(arts[s]["files"].items()); prim = [(f, i) for f, i in files if link_kind(f) == "html"]; rest = [(f, i) for f, i in files if link_kind(f) != "html"]
             def chip(f, cls=""):
                 return "<a class='chip %s' href='%s'>%s</a>" % (cls, href(f), esc(os.path.relpath(f, proj)))
@@ -1058,21 +1284,27 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         for t, p in adv: w("<div class=card><h3>%s</h3><p>%s</p></div>" % (esc(t), p if "&" in p else esc(p)))
         top5 = sorted(agents, key=lambda a: -a["tok"]["cost"])[:5]
         w("<div class=card><h3>Five most expensive sub-agents</h3><table>" + "".join("<tr><td>%s</td><td class=n>%s</td><td class=n>%s</td></tr>" % (esc(a["desc"]), esc(a["model"].replace("claude-", "")), money(a["tok"]["cost"])) for a in top5) + "</table></div></div>")
-    # build detail
-    w("<h2 id=build-detail>Build detail: plan, scripts and proof (Stages 4 and 5)</h2>")
+    # build progress (Stage 5): the plan's own phases, stacked built / partial / not built
+    w("<h2 id=build-detail>Build progress: Stage 5 plan, scripts and proof</h2>")
     if bp:
         kinds = bp["kinds"]; tr = ""
-        w("<div class=card><div class=hd><b>%d plan rows in %d phases; %d built</b><a href='#plan-tables'>Jump to the plan tables</a></div><div class=bar style='margin:8px 0'><i style='width:%.0f%%'></i></div>" %
-          (bp["total"], len(bp["phases"]), bp["built"], pct(bp["built"], bp["total"])))
+        cur = next((p for p in bp["phases"] if p["built"] < p["n"] and (p["built"] or p["partial"])), None) or next((p for p in bp["phases"] if p["built"] < p["n"]), None)
+        w("<div class=card><div class=hd><b>%d of %d rows built%s</b><a href='#plan-tables'>Jump to the plan tables</a></div><div class='stack3' style='margin:8px 0' title='built, partial, not built'><i class=b style='width:%.1f%%'></i><i class=p style='width:%.1f%%'></i></div>" %
+          (bp["built"], bp["total"], (", %d partial" % bp["partial"]) if bp["partial"] else "", pct(bp["built"], bp["total"]), pct(bp["partial"], bp["total"])))
+        w("<div class=legend><span><b style='background:var(--ok)'></b>built %d</span><span><b style='background:var(--warn)'></b>partial %d</span><span><b style='background:var(--idle)'></b>not built %d</span>%s</div>" % (bp["built"], bp["partial"], bp["todo"], ("<span>not needed %d (not counted)</span>" % bp["skip"]) if bp["skip"] else ""))
         w("<div class=stack>" + "".join("<i title='%s %d' style='width:%.1f%%;background:%s'></i>" % (k, v, pct(v, bp["total"]), KC.get(k, "#888")) for k, v in kinds.items()) + "</div>")
         w("<div class=legend>" + "".join("<span><b style='background:%s'></b>%s %d</span>" % (KC.get(k, "#888"), k, v) for k, v in kinds.items()) + "</div>")
-        w("<div class=note id=stamp>Kinds are the plan's own Kind column. Plan generated %s.</div></div>" % esc(bp.get("generated") or "unknown"))
+        lb = (build_log_rows(proj) or [None])[-1]
+        if lb: w("<div class=note id=stamp>Last build step: <code>%s</code> (%s), %s at %s.</div>" % (esc(lb[1][:90]), esc(re.sub(r"[^\w .,/()+-]", "", lb[2])[:40].strip() or "no result"), esc(ago(lb[0])), esc(datetime.datetime.fromtimestamp(lb[0]).strftime("%Y-%m-%d %H:%M"))))
+        if bp.get("note"): w("<div class='note stale'>%s.</div>" % esc(bp["note"]))
+        w("<div class=note id=stamp>Kinds are the plan's own Kind column; row state is the plan's State column read by prefix (built or done = built, partial or in progress = partial, anything else = not built). Plan read %s from %s.</div></div>" % (esc(bp.get("generated") or "unknown"), "architecture/build-plan.md" if bp.get("source") == "md" else "architecture/build-plan.json"))
         w("<div class=phases style='margin-top:10px'>")
         for p in bp["phases"]:
-            w("<details class='card ph' id='phase-%s'><summary><b>Phase %s: %s</b><div class=bar style='margin:6px 0'><i style='width:%.0f%%'></i></div><div class=sub>%d of %d rows built</div><div class=k>%s</div><div class=k>module files: %s</div><div class=k>Click to show the rows</div></summary>" %
-              (esc(p["id"]), esc(p["id"]), esc(p["name"]), pct(p["built"], p["n"]), p["built"], p["n"], esc(" ".join("%s %d" % kv for kv in p["kinds"].items())),
+            now = p is cur
+            w("<details class='card ph%s' id='phase-%s'><summary><b>Phase %s: %s</b>%s<div class='stack3' style='margin:6px 0'><i class=b style='width:%.0f%%'></i><i class=p style='width:%.0f%%'></i></div><div class=sub>%d of %d rows built%s</div><div class=k>%s</div><div class=k>module files: %s</div><div class=k>Click to show the rows</div></summary>" %
+              (" now" if now else "", esc(p["id"]), esc(p["id"]), esc(p["name"]), " <span class=nowtag>building now</span>" if now else "", pct(p["built"], p["n"]), pct(p["partial"], p["n"]), p["built"], p["n"], (", %d partial" % p["partial"]) if p["partial"] else "", esc(" ".join("%s %d" % kv for kv in p["kinds"].items())),
                esc(" ".join(("%s %s" % (n, "yes" if v else "no")) for n, v in (("definition", p["def"]), ("brief", p["brief"]), ("ledger", p["ledger"]))))))
-            w("<div class=tw><table class=steps><tr><th>#</th><th>Kind</th><th>Row</th><th>State</th></tr>" + "".join("<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (esc(x["n"]), esc(x["kind"]), esc(x["step"]), esc(x["state"])) for x in p["steps"]) + "</table></div></details>")
+            w("<div class=tw><table class=steps><tr><th>#</th><th>Kind</th><th>Row</th><th>State</th></tr>" + "".join("<tr class='r-%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (x["cls"], esc(x["n"]), esc(x["kind"]), esc(x["step"]), esc(x["state"][:90])) for x in p["steps"]) + "</table></div></details>")
         w("</div>")
     else: w("<div class=card>No plan to summarise yet: %s</div>" % esc(args.plan_msg or "architecture/build-plan.md was not read."))
     w("<div id=plan-tables class=frag>")
@@ -1093,7 +1325,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     w("<li><b>Known gaps.</b> Gate verdicts for Stages 5 and 6 cannot be evaluated before build; interactive time the user spends outside the session is not visible.</li>")
     shown = [esc(x) for x in args.sessions[:6]]
     logs_txt = ("<code>" + "</code>, <code>".join(shown) + "</code>" + (" and %d more" % (len(args.sessions) - 6) if len(args.sessions) > 6 else "")) if args.sessions else ("none found under <code>%s</code>" % esc(args.logs_base) if args.logs_base else "not read")
-    how = "chosen with --session-log" if args.session_log else "found by discovery"
+    how = "chosen with --session-log" if args.session_log else "found by discovery" + (", %d of them by path mention" % len(DISCOVERY["mention"]) if DISCOVERY.get("mention") else "")
     rates_txt = ("<code>%s</code>" % esc(args.rates_used)) if args.rates_used else "built-in placeholder rates (a file at <code>%s</code> or --rates would override them)" % esc(args.rates_default)
     regen = "project-bin/build-plan-status.sh &lt;project&gt; --html" + "".join(" --session-log &lt;path&gt;" for _ in args.session_log[:1])
     direct = "progress-report.py &lt;project&gt; " + (" ".join("--session-log <code>%s</code>" % esc(x) for x in args.session_log) if args.session_log else "--logs-dir &lt;dir&gt;")
@@ -1143,6 +1375,7 @@ def main_():
             if m and os.path.isfile(os.path.join(os.path.expanduser(m.group(1)), "bin", "lib", "artifact-manifest.tsv")):
                 tk = os.path.expanduser(m.group(1)); break
     info = load_project(proj); gate = load_gate_index(proj)
+    reconcile_gates(info, gate)
     WAIVED.update(info["waived"])
     global SELF_OUT
     SELF_OUT = re.sub(r"\.tmp\.\d+$", "", out_path)
@@ -1160,7 +1393,9 @@ def main_():
     if sessions:
         main, agents = load_sessions(sessions)
         a.has_log = bool(main["times"] or agents)
+    a.ledgers = None
     if not a.has_log:
+        a.ledgers = load_ledgers(proj)
         a.log_note = "No Claude Code session log was found for this project folder on this machine." if not a.no_log else "Session logs were not read."
     ledger_t = [os.path.getmtime(f) for f in (os.path.join(proj, ".claude", "loop", "metrics-ledger.tsv"), os.path.join(proj, "docs", "BUILD-LOG.md")) if os.path.isfile(f)]
     log_t = max(main["times"] + [x for g in agents for x in g["times"]] or [0])

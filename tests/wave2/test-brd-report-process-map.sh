@@ -275,7 +275,7 @@ js = """<script>setTimeout(function(){var c=document.querySelectorAll('.step');v
 var b=document.querySelector('.board');document.title='FIT:'+(r.right<=window.innerWidth+1?'inside':'clipped')+':'+Math.round(r.right)+'/'+window.innerWidth+':zoom'+(b.style.zoom||1);},2500);</script></body>"""
 open(f, 'w').write(s.replace('</body>', js, 1))
 PY
-  FITOUT="$("$PY" - "$CHROME" "$P/embed.html" <<'PY'
+cat > "$P/fitprobe.py" <<'PY'
 import subprocess, sys, re
 chrome, f = sys.argv[1], sys.argv[2]
 try:
@@ -286,7 +286,7 @@ try:
 except Exception as e:
     print('FIT:error ' + str(e))
 PY
-)"
+FITOUT="$("$PY" "$P/fitprobe.py" "$CHROME" "$P/embed.html")"
   case "$FITOUT" in
     FIT:unreadable|FIT:error*) echo "  skip browser fit probe ($FITOUT)";;
     *) has "last step card is inside the frame width ($FITOUT)" "$FITOUT" "FIT:inside";;

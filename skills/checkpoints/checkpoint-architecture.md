@@ -19,16 +19,16 @@ before any design system), the governing skills, and the optional artifacts on o
 ## What to Surface
 
 Pull from validated `F{NNN}.brd.json` files:
-- Total: entities, enumerations, microflows, pages, cross-module associations
-- Any entity referenced by 3+ BRDs (candidate for a Common/Shared module)
-- Any BRD with 0 cross-module dependencies (can be built independently)
+- Entities, enumerations, microflows, pages, cross-module associations
+- Entities used by 3+ BRDs (Common module candidates)
+- BRDs with no cross-module dependencies (independent)
 - Resolved open questions that affect architecture (e.g. auth strategy, data ownership)
+- Many questions: draft `process-map.md` (pass 1)
 
 ## What's Next
 
 `modularize-domain.md` maps feature BRDs to Mendix module boundaries — this is NOT a 1:1 mapping.
-The decisions made here determine module names, cross-module associations, and the Common module
-strategy before `.mx-brd.json` files are written.
+These decisions set module names, cross-module associations and the Common module strategy before `.mx-brd.json` files are written.
 
 ---
 

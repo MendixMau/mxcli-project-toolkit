@@ -223,7 +223,9 @@ Dwell must be long enough to *read*. A caption of N words needs roughly
 Type with a human-like per-character delay and click with an animated
 cursor-move-then-press helper — instant `fill()` and `click()` read as a
 machine. Inject a visible cursor: a click with no visible pointer is invisible
-on playback.
+on playback. `demo-recording-polish.md` has the tested helpers (a drawn cursor
+on a Bezier path, a click ripple, eased scrolling, 60 fps capture and a zoom
+rendered after the take) and the numbers behind each knob.
 
 ### 6. Show scrolling
 
@@ -242,6 +244,10 @@ async function showcase(page, distance = 320) {
 
 Target the app's real scroll port, not `window` — on a Mendix page with Atlas
 UI that's `.mx-scrollcontainer-center`; scrolling `window` does nothing.
+`scrollIntoView({behavior:'smooth'})` and raw `mouse.wheel` steps are the
+rough versions: the first has a duration you cannot set, the second teleports.
+`demo-recording-polish.md` → `scrollTo()` eases the real container over
+`clamp(400 + 0.5 × px, 600, 1400)` ms.
 
 ### 7. Show state changing, don't just claim it
 
@@ -519,6 +525,7 @@ be sorted.
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| Film looks janky: smeared text, stepping motion, no pointer, an unreadable dense page | `recordVideo` encodes 25 fps vp8 at 1 Mbit/s; no cursor; no zoom | `demo-recording-polish.md` — 2x screencast at 60 fps, drawn cursor, eased scroll, zoom afterwards |
 | First ~20s blank | `recordVideo` starts at context creation; cold runtime | Rule 1 — warm up, clapper board, trim |
 | Frame 0 still blank after trimming the measured lead-in | Playwright's video timeline does not track wall-clock time | Rule 1 — trim from the clapper, never from the clock |
 | Clapper never found in the recording even though it painted in the DOM | Chromium's screencast submits frames on compositor activity, not on a timer; an idle page with one style change can submit zero new frames | Rule 1 — force rasters with `page.screenshot()` across the hold |

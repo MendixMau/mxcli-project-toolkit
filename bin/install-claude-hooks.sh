@@ -68,7 +68,7 @@ TIER 2  --full         Changes your working rhythm. Useful after a bad bill;
   precompact-guard     Warns once before a compaction discards unfiled work.
   interview-gate       BLOCKS the end of a turn while questions the pipeline
                        generated have never been put to you, and writes
-                       docs/open-questions.html for you to review. Only fires on
+                       analysis/brd-report.html for you to review. Only fires on
                        projects that actually have BRDs; never blocks the same
                        question set twice, so it cannot trap a session.
 

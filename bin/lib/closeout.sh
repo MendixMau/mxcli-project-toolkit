@@ -166,7 +166,7 @@ _co_plain_artifact() {
     wireframes) echo "one wireframe per screen" ;;
     module-definition) echo "one definition document per module" ;;
     build-plan) echo "the numbered build plan" ;;
-    build-plan-html) echo "the build progress board" ;;
+    build-plan-html) echo "the progress report" ;;
     module-brief) echo "the first module's brief (what the builder gets)" ;;
     coverage-ledger) echo "the ledger proving every requirement is claimed by a build step" ;;
     ui-reviews) echo "the page review report" ;;

@@ -641,7 +641,7 @@ mxtk_gate_mxbuild() {
   mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
   case "${MXTK_MXBUILD_EXIT:-}" in
     1|3)
-      if [ ! -s "$_ef" ] && ! printf '%s\n' "${MXTK_MXBUILD_OUT:-}" | grep -Eq 'CE[0-9]{4}'; then
+      if [ ! -s "$_ef" ] && ! grep -Eq -- 'CE[0-9]{4}' <<<"${MXTK_MXBUILD_OUT:-}"; then
         echo "  ⚠ retry after infra exit: mxbuild exited $MXTK_MXBUILD_EXIT with no CE code and no errors file; building once more" >&2
         MXTK_GATE_RETRY_NOTE="retry after infra exit"
         : > "$_ef"

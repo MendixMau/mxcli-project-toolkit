@@ -438,6 +438,7 @@ GATE_STATE="not-run"   # not-run | skipped | unverified | pass | fail
 GATE_ERRORS="?"        # mxbuild error count behind a pass (0 = clean); recorded in the stamp
 MXB_WHY=""             # mxbuild's errors[] reason when it exited without checking the model
 MXB_LOG_NOTE=""        # "mxbuild log: <path>" when the gate's full output was saved (BUILD-LOG detail)
+GATE_NOTE=""           # "retry after infra exit" when a gate mxbuild was run twice
 
 # ── Exec approval (auto records itself) ──────────────────────────────────────
 # bin/exec-approval.sh decides ask vs auto; the ASKING happens before exec.sh ever runs (in
@@ -491,7 +492,7 @@ HDR2
   # The gate cell is read from GATE_STATE rather than passed in, so no caller
   # can omit it — a blank cell in this table reads as "fine", which is the exact
   # false-green the gate exists to prevent.
-  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
+  _detail="$2${CHANGE_CLASS:+ · change: $CHANGE_CLASS}${CR_ID:+ · cr: $CR_ID}${SCAN_NOTE:+ · $SCAN_NOTE}${GATE_NOTE:+ · $GATE_NOTE}${MXB_LOG_NOTE:+ · $MXB_LOG_NOTE}${HV_NOTE:+ · $HV_NOTE}$_EXEC_APPROVAL_SUFFIX${STEP_TIMES:+ · steps: $STEP_TIMES}"
   printf '| %s | `%s` | %s | %s | %s |\n' \
     "$(date '+%Y-%m-%dT%H:%M:%S%z')" "$LOG_NAME" \
     "${GATE_STATE:-not-run}" "$1" "$_detail" >> "$BUILD_LOG"
@@ -709,7 +710,7 @@ if [ "$LOCK_TAKEN" != 1 ]; then
   echo "  → Wait for the other exec to finish, then re-run. Nothing was written."
   exit 1
 fi
-trap 'exec_lock_release' EXIT
+trap 'mxtk_resume_watchers; exec_lock_release' EXIT
 
 # 3. A raw `mxcli exec` elsewhere on the machine is NOT this project's business. The old guard
 #    here (`pgrep -fl "mxcli exec"`) matched every exec on the machine, so a test run on a
@@ -1354,7 +1355,8 @@ if [ "${SKIP_BASELINE:-0}" != "1" ] && [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; 
   # can drift apart. Its own printed count is discarded here: this call site
   # already has err_set/err_count/err_codes on hand and needs BASELINE_SET
   # (the message set, not just a count) for the delta-gate comparison below.
-  mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$_BF" >/dev/null || true
+  mxtk_gate_mxbuild "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$_BF" >/dev/null || true
+  [ -n "$MXTK_GATE_RETRY_NOTE" ] && GATE_NOTE="$MXTK_GATE_RETRY_NOTE"
   # Studio Pro 11's mxbuild (its --help says so) writes --write-errors "only if the
   # project has errors": on a clean model the mktemp'd file stays EMPTY, json.load
   # fails, and this read "Model ALREADY has ? error(s) [?]" on every clean run
@@ -1634,30 +1636,45 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
   # discarded here: this call site keeps its own file-presence/exit-code
   # branching below unchanged, computing CE_COUNT via err_count once it knows
   # which branch applies.
-  mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$ERRORS_FILE" >/dev/null || true
+  mxtk_gate_mxbuild "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$ERRORS_FILE" >/dev/null || true
+  [ -n "$MXTK_GATE_RETRY_NOTE" ] && GATE_NOTE="$MXTK_GATE_RETRY_NOTE"
   MXBUILD_EXIT="$MXTK_MXBUILD_EXIT"
   MXBUILD_OUT="$MXTK_MXBUILD_OUT"
   MXB_WHY="${MXTK_MXBUILD_WHY:-}"
   step_done gate
 
-  # Keep the gate's full mxbuild output when the run did not end clean. The screen shows only
-  # the top lines (the failure detail is often in the tail), and the temp file behind
+  # Keep the gate's full mxbuild output when the gate did not pass. The screen shows only the
+  # top lines (the failure detail is often in the tail), and the temp file behind
   # mxtk_mxbuild_error_count is gone by now, so without this the evidence of a failed gate was
-  # lost (a field migration project lost the detail of a CE1613 this way). One file per run,
-  # under .mpr-snapshots/mxbuild-logs/ (git-ignored, outside the snapshot dirs restore_snapshot
-  # picks from), the newest 30 kept. Its project-relative path goes on screen and in the row.
+  # lost (a field migration project lost the detail of a CE1613 this way). mxbuild prints output
+  # on a clean build too, so the log is written from the failure branches below (mxb_log_hint)
+  # and never for a pass, a delta-gate pass over pre-existing errors included. The one exception
+  # is a retry: the first attempt's output is the evidence of the infra exit, so a retry always
+  # leaves a log, with both attempts in it. One file per run, under .mpr-snapshots/.mxbuild-logs/,
+  # the newest 30 kept. The DOT in the name is load-bearing: restore-mpr.sh (no argument picks
+  # the newest) and snapshot-mpr.sh (keeps 5) glob `.mpr-snapshots/*/`, which skips dot dirs.
+  # Its project-relative path goes on screen and in the row.
   MXB_LOG_REL=""
-  if [ -n "$MXBUILD_OUT" ] && { [ "$MXBUILD_EXIT" -ne 0 ] || [ -s "$ERRORS_FILE" ]; }; then
-    _MXB_LOG_DIR="$PROJECT_ROOT/.mpr-snapshots/mxbuild-logs"
-    MXB_LOG_REL=".mpr-snapshots/mxbuild-logs/$(date +%Y%m%d-%H%M%S)-$$.log"
-    if mkdir -p "$_MXB_LOG_DIR" 2>/dev/null && printf '%s\n' "$MXBUILD_OUT" > "$PROJECT_ROOT/$MXB_LOG_REL" 2>/dev/null; then
+  mxb_save_log() {
+    [ -z "$MXB_LOG_REL" ] || return 0
+    [ -n "$MXBUILD_OUT$MXTK_GATE_FIRST_OUT" ] || return 0
+    _MXB_LOG_DIR="$PROJECT_ROOT/.mpr-snapshots/.mxbuild-logs"
+    MXB_LOG_REL=".mpr-snapshots/.mxbuild-logs/$(date +%Y%m%d-%H%M%S)-$$.log"
+    if mkdir -p "$_MXB_LOG_DIR" 2>/dev/null && {
+      if [ -n "$MXTK_GATE_RETRY_NOTE" ]; then
+        printf '=== attempt 1 (exit %s, infra failure, retried) ===\n%s\n=== attempt 2 (final, exit %s) ===\n%s\n' \
+          "$MXTK_GATE_FIRST_EXIT" "$MXTK_GATE_FIRST_OUT" "$MXBUILD_EXIT" "$MXBUILD_OUT"
+      else
+        printf '%s\n' "$MXBUILD_OUT"
+      fi > "$PROJECT_ROOT/$MXB_LOG_REL"; } 2>/dev/null; then
       MXB_LOG_NOTE="mxbuild log: $MXB_LOG_REL"
       ls -t "$_MXB_LOG_DIR"/*.log 2>/dev/null | sed -n '31,$p' | while IFS= read -r _old; do rm -f "$_old"; done
     else
       MXB_LOG_REL=""
     fi
-  fi
-  mxb_log_hint() { [ -z "$MXB_LOG_REL" ] || echo "    full mxbuild output: $MXB_LOG_REL"; }
+  }
+  mxb_log_hint() { mxb_save_log; [ -z "$MXB_LOG_REL" ] || echo "    full mxbuild output: $MXB_LOG_REL"; }
+  if [ -n "$MXTK_GATE_RETRY_NOTE" ]; then mxb_save_log; fi
 
   if [ -f "$ERRORS_FILE" ] && [ -s "$ERRORS_FILE" ]; then
     CE_COUNT=$(err_count "$ERRORS_FILE")
@@ -1729,6 +1746,7 @@ if [ -x "$MXBUILD" ] && [ -x "$JAVA_EXE" ]; then
         rm -f "$ERRORS_FILE"
       else
         GATE_STATE="fail"
+        mxb_save_log
         CE_CODES=$(err_codes "$ERRORS_FILE")
         read -r NEW_COUNT NEW_CODES <<EOF
 $(err_report count "$ERRORS_FILE")
@@ -1773,7 +1791,7 @@ EOF
           BASE_ERRS=$(mktemp /tmp/mxbuild-base.XXXXXX)
           # Same shared run+capture as the pre-flight baseline and the main gate
           # above (mxtk_mxbuild_error_count, _common.sh) — one implementation.
-          mxtk_mxbuild_error_count "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$BASE_ERRS" >/dev/null || true
+          mxtk_gate_mxbuild "$MPR" "${MXTK_GATE_TIMEOUT:-0}" "$BASE_ERRS" >/dev/null || true
           # Same empty-file rule as the pre-flight baseline: SP 11 mxbuild writes no
           # errors file on a clean build, and that plus exit 0 is a verified 0.
           if [ ! -s "$BASE_ERRS" ] && [ "$MXTK_MXBUILD_EXIT" -eq 0 ]; then

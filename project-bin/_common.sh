@@ -583,39 +583,61 @@ find_java_exe() {
 # watcher. Only the watcher process itself is stopped. Its runtime keeps serving, and a rebuild
 # the watcher already started before the pause can still collide, which is what the retry below
 # is for. exec.sh resumes the watcher in its EXIT trap too, so an interrupted run does not leave
-# it stopped; after a SIGKILL of exec.sh itself, run `kill -CONT <pid>` by hand.
+# it stopped. A SIGKILL runs no trap, so the paused pids are also written to
+# .mpr-snapshots/.watcher-paused; the next exec.sh resumes them once it holds the lock. The file
+# is a dot FILE: the `*/` snapshot globs in restore-mpr.sh and snapshot-mpr.sh never match it.
 # ---------------------------------------------------------------------------
 MXTK_PAUSED_PIDS=""
+MXTK_PAUSED_FILE=""
 MXTK_GATE_RETRY_NOTE=""
 MXTK_GATE_FIRST_OUT=""
 MXTK_GATE_FIRST_EXIT=""
 
 # mxtk_watcher_pids <project-root> - pids of `mxcli run --local --watch` that belong to this
-# project: the command line names the project root, or the process runs with it as its cwd.
+# project. Exact match only: the watcher's project dir (the directory of its -p argument,
+# resolved against its cwd, or its cwd when it has no -p) must equal the root after pwd -P. A
+# substring test also hit a sibling `<App>-copy` and a nested `.claude/worktrees/x` watcher.
 mxtk_watcher_pids() {
-  local _root _pid _cmd _cwd
+  local _root _pid _cmd _cwd _p _dir
   _root="$(cd "$1" 2>/dev/null && pwd -P)" || return 0
   for _pid in $(pgrep -f 'run --local' 2>/dev/null || true); do  # portability-ok: pgrep -f ships with Linux procps and macOS; Windows has no watcher to pause here
     [ "$_pid" = "$$" ] && continue
     _cmd="$(ps -o command= -p "$_pid" 2>/dev/null)" || continue
     case "$_cmd" in *mxcli*"run --local"*--watch*) ;; *) continue ;; esac
     _cwd="$(readlink "/proc/$_pid/cwd" 2>/dev/null || lsof -a -p "$_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
-    case "$_cmd" in *"$_root"*) echo "$_pid"; continue ;; esac
-    [ -n "$_cwd" ] && [ "$_cwd" = "$_root" ] && echo "$_pid"
+    [ -n "$_cwd" ] && _cwd="$(cd "$_cwd" 2>/dev/null && pwd -P)"
+    _p=""
+    case "$_cmd" in
+      *" -p "*) _p="${_cmd#* -p }"; _p="${_p%% *}" ;;
+      *" --project "*) _p="${_cmd#* --project }"; _p="${_p%% *}" ;;
+    esac
+    if [ -n "$_p" ]; then
+      case "$_p" in /*) ;; *) [ -n "$_cwd" ] || continue; _p="$_cwd/$_p" ;; esac
+      if [ -d "$_p" ]; then _dir="$_p"; else _dir="$(dirname "$_p")"; fi
+      _dir="$(cd "$_dir" 2>/dev/null && pwd -P)" || continue
+    else
+      _dir="$_cwd"
+    fi
+    [ -n "$_dir" ] && [ "$_dir" = "$_root" ] && echo "$_pid"
   done
   return 0
 }
 
-# mxtk_pause_watchers <project-root> - SIGSTOP every watcher of this project, remember the pids.
+# mxtk_pause_watchers <project-root> - SIGSTOP every watcher of this project, remember the pids
+# (in memory, and in <root>/.mpr-snapshots/.watcher-paused for a SIGKILL of this process).
 mxtk_pause_watchers() {
   local _pid
   MXTK_PAUSED_PIDS=""
+  MXTK_PAUSED_FILE="$1/.mpr-snapshots/.watcher-paused"
   for _pid in $(mxtk_watcher_pids "$1"); do
     if kill -STOP "$_pid" 2>/dev/null; then
       MXTK_PAUSED_PIDS="$MXTK_PAUSED_PIDS $_pid"
       echo "  → paused the run --local --watch watcher (pid $_pid) for the gate; it resumes right after" >&2
     fi
   done
+  if [ -n "$MXTK_PAUSED_PIDS" ]; then
+    { mkdir -p "$1/.mpr-snapshots" && echo "$$$MXTK_PAUSED_PIDS" > "$MXTK_PAUSED_FILE"; } 2>/dev/null || true
+  fi
   return 0
 }
 
@@ -623,7 +645,25 @@ mxtk_pause_watchers() {
 mxtk_resume_watchers() {
   local _pid
   for _pid in $MXTK_PAUSED_PIDS; do kill -CONT "$_pid" 2>/dev/null || true; done
+  [ -n "$MXTK_PAUSED_FILE" ] && rm -f "$MXTK_PAUSED_FILE"
   MXTK_PAUSED_PIDS=""
+  return 0
+}
+
+# mxtk_resume_leftover <project-root> - call once the exec lock is held. A watcher left stopped
+# by an exec.sh that was SIGKILLed (its record is still on disk) is resumed when its pid still
+# exists and is still a watcher of this project; the record is then cleared.
+mxtk_resume_leftover() {
+  local _f="$1/.mpr-snapshots/.watcher-paused" _rec _pid _live _n=0
+  [ -f "$_f" ] || return 0
+  _rec="$(head -1 "$_f" 2>/dev/null || true)"
+  _live="$(mxtk_watcher_pids "$1")"
+  for _pid in ${_rec#* }; do
+    case "$_pid" in ''|*[!0-9]*) continue ;; esac
+    if grep -Fxq -- "$_pid" <<<"$_live" && kill -CONT "$_pid" 2>/dev/null; then _n=$((_n+1)); fi
+  done
+  rm -f "$_f"
+  [ "$_n" -gt 0 ] && echo "  → resumed $_n watcher(s) left stopped by an exec.sh that was killed during the gate"
   return 0
 }
 

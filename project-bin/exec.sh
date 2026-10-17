@@ -711,6 +711,7 @@ if [ "$LOCK_TAKEN" != 1 ]; then
   exit 1
 fi
 trap 'mxtk_resume_watchers; exec_lock_release' EXIT
+mxtk_resume_leftover "$PROJECT_ROOT"   # a watcher an earlier, SIGKILLed exec.sh left stopped
 
 # 3. A raw `mxcli exec` elsewhere on the machine is NOT this project's business. The old guard
 #    here (`pgrep -fl "mxcli exec"`) matched every exec on the machine, so a test run on a

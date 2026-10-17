@@ -6,7 +6,8 @@ load test is never a build-plan step and never a gate.
 client protocol by hand, and without a report that overclaims.
 **Source:** a field implementation on a warehouse demo app (Mendix 11, `mxcli run --local`
 with OTel to Jaeger), 16 recorded runs from 2026-09-09 to 2026-10-08, bursts of 1000 and
-2000 concurrent calls. Every trap below was hit in those runs.
+2000 concurrent calls. Every trap below was hit in those runs, except trap 9, which comes from
+parallel journey runs against local apps.
 
 **Instrument:** none ships in `project-tests/` yet. Build it in the project's `tests/e2e/` on
 top of the shipped `helpers.js` (login, nav) and `otel.js` (`capture`, `liveness`). This file

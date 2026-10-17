@@ -126,18 +126,22 @@ mkdir -p "$WORK/proj-copy" "$P/.claude/worktrees/x"
 SPID=$!
 ( cd "$P/.claude/worktrees/x" && exec "$P/mxcli" run --local --watch -p Fixture.mpr ) >/dev/null 2>&1 &
 NPID=$!
-XPIDS="$SPID $NPID"
+# a Finder or Explorer duplicate ("<proj> copy", with its own .mpr): ps drops the quotes around -p
+mkdir -p "$P copy" && cp "$P/Fixture.mpr" "$P copy/Fixture.mpr"
+( cd "$WORK" && exec "$P/mxcli" run --local --watch -p "$P copy/Fixture.mpr" ) >/dev/null 2>&1 &
+CPID=$!
+XPIDS="$SPID $NPID $CPID"
 sleep 1
 MXB_STATES="$WORK/states"; : > "$MXB_STATES"
 MXB_OTHERS="$WORK/others"; : > "$MXB_OTHERS"
-export MXB_WATCH_PID="$WPID" MXB_STATES MXB_OTHER_PIDS="$SPID $NPID" MXB_OTHERS
+export MXB_WATCH_PID="$WPID" MXB_STATES MXB_OTHER_PIDS="$SPID $NPID $CPID" MXB_OTHERS
 RC=$(run D ok,ok)
 unset MXB_WATCH_PID MXB_OTHER_PIDS
 [ "$RC" -eq 0 ] && kept && ok "exit 0, write kept" || bad "D rc=$RC" "$(tail -8 "$WORK/out.D")"
 [ "$(wc -l < "$MXB_STATES" | tr -d ' ')" -eq 2 ] && ! grep -qv 'T' "$MXB_STATES" && ok "watcher stopped (T) during both mxbuild runs" || bad "D: states" "$(cat "$MXB_STATES")"
 case "$(ps -o stat= -p "$WPID" 2>/dev/null)" in T*) bad "D: watcher still stopped after exec" ;; "") bad "D: watcher is gone" ;; *) ok "watcher running again after exec" ;; esac
-[ "$(wc -l < "$MXB_OTHERS" | tr -d ' ')" -eq 4 ] && ! grep -q ' T' "$MXB_OTHERS" \
-  && ok "sibling <proj>-copy and nested .claude/worktrees/x watchers never stopped" || bad "D: other projects' watchers" "$(cat "$MXB_OTHERS")"
+[ "$(wc -l < "$MXB_OTHERS" | tr -d ' ')" -eq 6 ] && ! grep -q ' T' "$MXB_OTHERS" \
+  && ok "sibling <proj>-copy, \"<proj> copy\" and nested .claude/worktrees/x watchers never stopped" || bad "D: other projects' watchers" "$(cat "$MXB_OTHERS")"
 [ ! -e "$P/.mpr-snapshots/.watcher-paused" ] && ok "pause record cleared after a normal exit" || bad "D: .watcher-paused left behind"
 
 echo "== E: exec.sh SIGKILLed mid-gate: the next exec.sh resumes the watcher =="

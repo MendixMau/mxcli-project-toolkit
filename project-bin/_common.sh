@@ -606,11 +606,14 @@ mxtk_watcher_pids() {
     [ -n "$_cwd" ] && _cwd="$(cd "$_cwd" 2>/dev/null && pwd -P)"
     _p=""
     case "$_cmd" in
-      *" -p "*) _p="${_cmd#* -p }"; _p="${_p%% *}" ;;
-      *" --project "*) _p="${_cmd#* --project }"; _p="${_p%% *}" ;;
+      *" -p "*) _p="${_cmd#* -p }" ;;
+      *" --project "*) _p="${_cmd#* --project }" ;;
     esac
     if [ -n "$_p" ]; then
       case "$_p" in /*) ;; *) [ -n "$_cwd" ] || continue; _p="$_cwd/$_p" ;; esac
+      # ps drops the quotes, so "-p /x/App copy/App.mpr" must not read as /x/App: keep the
+      # longest run of words that exists on disk (it also drops any flags after the path).
+      while [ ! -e "$_p" ]; do case "$_p" in *" "*) _p="${_p% *}" ;; *) continue 2 ;; esac; done
       if [ -d "$_p" ]; then _dir="$_p"; else _dir="$(dirname "$_p")"; fi
       _dir="$(cd "$_dir" 2>/dev/null && pwd -P)" || continue
     else
@@ -624,10 +627,15 @@ mxtk_watcher_pids() {
 # mxtk_pause_watchers <project-root> - SIGSTOP every watcher of this project, remember the pids
 # (in memory, and in <root>/.mpr-snapshots/.watcher-paused for a SIGKILL of this process).
 mxtk_pause_watchers() {
-  local _pid
+  local _pid _cands
   MXTK_PAUSED_PIDS=""
   MXTK_PAUSED_FILE="$1/.mpr-snapshots/.watcher-paused"
-  for _pid in $(mxtk_watcher_pids "$1"); do
+  _cands="$(mxtk_watcher_pids "$1" | tr '\n' ' ')"
+  [ -n "$_cands" ] || return 0
+  # Record before stopping: a SIGKILL between kill -STOP and the record would leave a stopped
+  # watcher nobody resumes. Resuming a pid that was never stopped is harmless.
+  { mkdir -p "$1/.mpr-snapshots" && echo "$$ $_cands" > "$MXTK_PAUSED_FILE"; } 2>/dev/null || true
+  for _pid in $_cands; do
     if kill -STOP "$_pid" 2>/dev/null; then
       MXTK_PAUSED_PIDS="$MXTK_PAUSED_PIDS $_pid"
       echo "  → paused the run --local --watch watcher (pid $_pid) for the gate; it resumes right after" >&2

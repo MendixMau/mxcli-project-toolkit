@@ -590,6 +590,8 @@ find_java_exe() {
 MXTK_PAUSED_PIDS=""
 MXTK_PAUSED_FILE=""
 MXTK_GATE_RETRY_NOTE=""
+MXTK_GATE_FIRST_OUT=""
+MXTK_GATE_FIRST_EXIT=""
 
 # mxtk_watcher_pids <project-root> - pids of `mxcli run --local --watch` that belong to this
 # project. Exact match only: the watcher's project dir (the directory of its -p argument,
@@ -680,11 +682,13 @@ mxtk_resume_leftover() {
 # on the model; a real model error always names a CE code. An errors file with content (for
 # example a version mismatch in errors[]) is deterministic and is not retried.
 # Prints nothing on stdout (callers discard the count); sets the same MXTK_MXBUILD_* globals as
-# mxtk_mxbuild_error_count, plus MXTK_GATE_RETRY_NOTE ("retry after infra exit" or empty).
+# mxtk_mxbuild_error_count, plus MXTK_GATE_RETRY_NOTE ("retry after infra exit" or empty); after a
+# retry MXTK_GATE_FIRST_OUT / MXTK_GATE_FIRST_EXIT hold the FIRST attempt's output and exit code
+# (the MXTK_MXBUILD_* globals describe the final attempt only).
 # Returns mxtk_mxbuild_error_count's code for the final attempt.
 mxtk_gate_mxbuild() {
   local _mpr="$1" _timeout="${2:-0}" _ef="$3" _rc=0
-  MXTK_GATE_RETRY_NOTE=""
+  MXTK_GATE_RETRY_NOTE=""; MXTK_GATE_FIRST_OUT=""; MXTK_GATE_FIRST_EXIT=""
   mxtk_pause_watchers "${PROJECT_ROOT:-$(dirname "$_mpr")}"
   mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
   case "${MXTK_MXBUILD_EXIT:-}" in
@@ -692,6 +696,7 @@ mxtk_gate_mxbuild() {
       if [ ! -s "$_ef" ] && ! grep -Eq -- 'CE[0-9]{4}' <<<"${MXTK_MXBUILD_OUT:-}"; then
         echo "  ⚠ retry after infra exit: mxbuild exited $MXTK_MXBUILD_EXIT with no CE code and no errors file; building once more" >&2
         MXTK_GATE_RETRY_NOTE="retry after infra exit"
+        MXTK_GATE_FIRST_OUT="${MXTK_MXBUILD_OUT:-}"; MXTK_GATE_FIRST_EXIT="$MXTK_MXBUILD_EXIT"
         : > "$_ef"
         _rc=0
         mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?

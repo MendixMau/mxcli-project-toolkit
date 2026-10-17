@@ -13,7 +13,9 @@
 #   A  infra exit once, then clean: retried, write kept, "retry after infra exit" in output + row
 #   B  infra exit twice: the #424 rollback still applies to the final failure (model identical)
 #   C  a real CE error list (exit 1): NOT retried, normal gate-failed rollback [guard]
-#   D  a live watcher of this project is stopped while mxbuild runs and running again after
+#   D  a live watcher of this project is stopped while mxbuild runs and running again after;
+#      a sibling `<proj>-copy` watcher and a nested .claude/worktrees/x watcher are NOT stopped
+#   E  exec.sh SIGKILLed mid-gate leaves the watcher stopped; the next exec.sh resumes it
 #
 # Synthetic only: throwaway git repo, stub mxcli, stub mxbuild, stub java. Nothing real runs.
 set -uo pipefail
@@ -22,8 +24,8 @@ TOOLKIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SUBJECT="${1:-$TOOLKIT/project-bin/exec.sh}"
 case "$SUBJECT" in /*) ;; *) SUBJECT="$PWD/$SUBJECT" ;; esac
 WORK="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/exec-retry.XXXXXX")" && pwd -P)" || exit 2
-WPID=""
-trap '[ -n "$WPID" ] && { pkill -KILL -P "$WPID" 2>/dev/null; kill -KILL "$WPID" 2>/dev/null; }; rm -rf "$WORK"' EXIT
+WPID=""; XPIDS=""
+trap 'for _w in $WPID $XPIDS; do pkill -KILL -P "$_w" 2>/dev/null; kill -KILL "$_w" 2>/dev/null; done; rm -rf "$WORK"' EXIT
 PASS=0; FAIL=0
 ok()  { PASS=$((PASS+1)); echo "  ok   - $1"; }
 bad() { FAIL=$((FAIL+1)); echo "  FAIL - $1${2:+: $2}"; }
@@ -58,14 +60,18 @@ MXCLI
 chmod +x "$P/bin/"*.sh "$P/mxcli"
 # mxbuild: MXB_MODES per call number, comma list: ok | infra (exit 1, no CE code, no errors file) | err (a CE0001 error list)
 # MXB_WATCH_PID: record that process's state (ps stat) at the start of every call
+# MXB_OTHER_PIDS: the same for more pids, as `<pid> <stat>` lines in MXB_OTHERS
+# hang (mode): record the pid in MXB_HANGPID and sleep, so the test can SIGKILL exec.sh mid-gate
 cat > "$WORK/mxbuild" <<'MXB'
 #!/usr/bin/env bash
 n=$(( $(cat "$MXB_N" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$MXB_N"
 mode="$(printf '%s\n' "$MXB_MODES" | tr ',' '\n' | sed -n "${n}p")"; mode="${mode:-ok}"
 [ -n "${MXB_WATCH_PID:-}" ] && ps -o stat= -p "$MXB_WATCH_PID" >> "$MXB_STATES"
+for q in ${MXB_OTHER_PIDS:-}; do echo "$q $(ps -o stat= -p "$q")" >> "$MXB_OTHERS"; done
 err=""; for a in "$@"; do case "$a" in --write-errors=*) err="${a#--write-errors=}" ;; esac; done
 case "$mode" in
   ok)    [ -n "$err" ] && printf '{"problems":[]}' > "$err"; exit 0 ;;
+  hang)  echo $$ > "$MXB_HANGPID"; exec sleep 60 ;;
   infra) echo "Directory not empty : deployment/web" >&2; exit 1 ;;
   err)   [ -n "$err" ] && printf '{"problems":[{"severity":"Error","code":"CE0001","message":"boom","element":{"document":"M.X"}}]}' > "$err"; exit 1 ;;
 esac
@@ -80,7 +86,8 @@ sum() { cat "$P/Fixture.mpr" "$P/mprcontents/a.mxunit" | cksum; }
 BEFORE="$(sum)"   # the committed model; run() resets to it
 # run <label> <modes> - resets the model, runs the default path, prints the exit code
 run() {
-  ( cd "$P" && git checkout -q -- Fixture.mpr mprcontents && rm -rf .mpr-snapshots docs .claude ) >/dev/null 2>&1
+  [ -n "${NORESET:-}" ] || ( cd "$P" && git checkout -q -- Fixture.mpr mprcontents && rm -rf .mpr-snapshots docs \
+    && { find .claude -mindepth 1 -maxdepth 1 ! -name worktrees -exec rm -rf {} + 2>/dev/null; true; } ) >/dev/null 2>&1
   rm -f "$WORK/n"; mkdir -p "$WORK/tmp"
   ( cd "$P" && TMPDIR="$WORK/tmp" SP_RESTART=0 MXTK_NO_INSTALL=1 MXB_N="$WORK/n" MXB_MODES="$2" \
       MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" ./bin/exec.sh mdlsource/test.mdl ) >"$WORK/out.$1" 2>&1
@@ -113,14 +120,46 @@ lastrow | grep -q 'gate failed' && ok "gate failed row" || bad "C: row" "$(lastr
 echo "== D: a live watcher of this project is paused during mxbuild =="
 ( cd "$P" && exec ./mxcli run --local --watch -p Fixture.mpr ) >/dev/null 2>&1 &
 WPID=$!
+# a sibling copy (absolute -p) and a nested lane worktree (relative -p, matched by cwd): not this project's
+mkdir -p "$WORK/proj-copy" "$P/.claude/worktrees/x"
+( cd "$WORK/proj-copy" && exec "$P/mxcli" run --local --watch -p "$WORK/proj-copy/Fixture.mpr" ) >/dev/null 2>&1 &
+SPID=$!
+( cd "$P/.claude/worktrees/x" && exec "$P/mxcli" run --local --watch -p Fixture.mpr ) >/dev/null 2>&1 &
+NPID=$!
+XPIDS="$SPID $NPID"
 sleep 1
 MXB_STATES="$WORK/states"; : > "$MXB_STATES"
-export MXB_WATCH_PID="$WPID" MXB_STATES
+MXB_OTHERS="$WORK/others"; : > "$MXB_OTHERS"
+export MXB_WATCH_PID="$WPID" MXB_STATES MXB_OTHER_PIDS="$SPID $NPID" MXB_OTHERS
 RC=$(run D ok,ok)
-unset MXB_WATCH_PID
+unset MXB_WATCH_PID MXB_OTHER_PIDS
 [ "$RC" -eq 0 ] && kept && ok "exit 0, write kept" || bad "D rc=$RC" "$(tail -8 "$WORK/out.D")"
 [ "$(wc -l < "$MXB_STATES" | tr -d ' ')" -eq 2 ] && ! grep -qv 'T' "$MXB_STATES" && ok "watcher stopped (T) during both mxbuild runs" || bad "D: states" "$(cat "$MXB_STATES")"
 case "$(ps -o stat= -p "$WPID" 2>/dev/null)" in T*) bad "D: watcher still stopped after exec" ;; "") bad "D: watcher is gone" ;; *) ok "watcher running again after exec" ;; esac
+[ "$(wc -l < "$MXB_OTHERS" | tr -d ' ')" -eq 4 ] && ! grep -q ' T' "$MXB_OTHERS" \
+  && ok "sibling <proj>-copy and nested .claude/worktrees/x watchers never stopped" || bad "D: other projects' watchers" "$(cat "$MXB_OTHERS")"
+[ ! -e "$P/.mpr-snapshots/.watcher-paused" ] && ok "pause record cleared after a normal exit" || bad "D: .watcher-paused left behind"
+
+echo "== E: exec.sh SIGKILLed mid-gate: the next exec.sh resumes the watcher =="
+export MXB_HANGPID="$WORK/hangpid"; rm -f "$MXB_HANGPID"
+( cd "$P" && git checkout -q -- Fixture.mpr mprcontents && rm -rf .mpr-snapshots docs ) >/dev/null 2>&1
+rm -f "$WORK/n"
+( cd "$P" && exec env TMPDIR="$WORK/tmp" SP_RESTART=0 MXTK_NO_INSTALL=1 MXB_N="$WORK/n" MXB_MODES="hang" \
+    MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" ./bin/exec.sh mdlsource/test.mdl ) >"$WORK/out.E1" 2>&1 &
+KPID=$!
+i=0; while [ ! -s "$MXB_HANGPID" ] && [ "$i" -lt 100 ]; do sleep 0.2; i=$((i+1)); done
+case "$(ps -o stat= -p "$WPID" 2>/dev/null)" in T*) ok "watcher stopped while the gate runs" ;; *) bad "E: watcher not stopped mid-gate" ;; esac
+grep -q "^$KPID $WPID" "$P/.mpr-snapshots/.watcher-paused" 2>/dev/null && ok "pause record names exec pid and watcher pid" || bad "E: record" "$(cat "$P/.mpr-snapshots/.watcher-paused" 2>/dev/null)"
+kill -KILL "$KPID" 2>/dev/null; wait "$KPID" 2>/dev/null
+kill -KILL "$(cat "$MXB_HANGPID")" 2>/dev/null
+case "$(ps -o stat= -p "$WPID" 2>/dev/null)" in T*) ok "after SIGKILL the watcher is left stopped (no trap ran)" ;; *) bad "E: watcher not left stopped" ;; esac
+( cd "$P" && ./bin/restore-mpr.sh ) >"$WORK/out.E2" 2>&1 && ok "restore-mpr.sh (no argument) ignores the dot file" || bad "E: restore-mpr.sh" "$(tail -3 "$WORK/out.E2")"
+export MXB_HANGPID=/dev/null
+RC=$(NORESET=1 run E ok,ok)
+[ "$RC" -eq 0 ] && ok "next exec.sh ran clean" || bad "E rc=$RC" "$(tail -8 "$WORK/out.E")"
+grep -q 'resumed 1 watcher' "$WORK/out.E" && ok "prints one line about the resumed leftover" || bad "E: no resume line" "$(head -12 "$WORK/out.E")"
+case "$(ps -o stat= -p "$WPID" 2>/dev/null)" in T*) bad "E: watcher still stopped" ;; "") bad "E: watcher is gone" ;; *) ok "watcher running again" ;; esac
+[ ! -e "$P/.mpr-snapshots/.watcher-paused" ] && ok "record cleared" || bad "E: record left behind"
 
 echo ""
 echo "PASS: $PASS  FAIL: $FAIL"

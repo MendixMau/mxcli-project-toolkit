@@ -1609,9 +1609,10 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
             w("<div class=tw><table class=steps><tr><th>#</th><th>Kind</th><th>Row</th><th>State</th></tr>" + "".join("<tr class='r-%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (x["cls"], esc(x["n"]), esc(x["kind"]), esc(x["step"]), esc(x["state"][:90])) for x in p["steps"]) + "</table></div></details>")
         w("</div>")
     else: w("<div class=card>No plan to summarise yet: %s</div>" % esc(args.plan_msg or "architecture/build-plan.md was not read."))
-    w("<div id=plan-tables class=frag>")
-    w(args.fragment or "")
-    w("</div>")
+    if args.fragment:   # the full plan tables repeat the phase cards above row by row, so they start folded
+        w("<details id=plan-tables class='card frag'><summary><b>Full plan tables and views A and B</b><div class=sub>Every row of build-plan.md with its claims and drift, the script folders (A) and module proof (B). The phase cards above already show each row.</div></summary>")
+        w(args.fragment)
+        w("</details>")
     # footer
     w("<footer><h2>How these numbers are derived</h2><ul>")
     if L:

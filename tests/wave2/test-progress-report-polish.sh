@@ -11,6 +11,8 @@
 #   P5  every State the build-plan skill lists (built / partial / not built / blocked) and the spellings the card
 #       counts (complete, verified, in progress, ...) are read the same way by the card, the plan header and the
 #       phase badge; a genuinely unreadable value is still reported as unreadable.
+#   P6  the full plan tables (the fragment) start folded under the phase cards, which already list every row; the
+#       "Jump to the plan tables" link still lands on them (openTarget opens a targeted <details>).
 #   P3  no session log: one calm line (not the orange box), the regenerate hint inside "How this was measured";
 #       with --no-log the page never claims it looked in folders or logs.
 #
@@ -62,6 +64,12 @@ has "$R" "<b class=st-built>2 built</b>, <b class=st-progress>0 partial</b>, <b 
 hasnt "$R" "cannot read" "no State cell is called unreadable"
 has "$R" "1 of 2 rows built" "Phase 2 shows 1 of 2 built"
 hasnt "$R" 'st-unknown">unknown' "no phase is labelled unknown"
+
+echo "P6 full plan tables start folded"
+has "$R" "<details id=plan-tables class='card frag'><summary>" "plan tables sit in a <details> with a summary"
+hasnt "$R" "<details id=plan-tables[^>]* open" "plan tables are closed by default"
+has "$R" "href='#plan-tables'" "the jump link still points at them"
+hasnt "$R" "<div id=plan-tables" "the old open <div> wrapper is gone"
 
 echo "P2 placeholder failure on a later stage is pending"
 P2="$WORK/p2"; mkproj "$P2" "**Stage P - Kickoff**, in progress - gates passed: none"

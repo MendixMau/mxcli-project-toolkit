@@ -6,7 +6,7 @@
 <title>mxcli Project Toolkit — How This Works</title>
 <style>
   /* ── Shared shell tokens ─────────────────────────────────────────────
-     Every stage HTML surface (triage.html, architecture/blueprint.html, build-plan.html,
+     Every stage HTML surface (triage.html, architecture/blueprint.html, progress-report.html,
      test-report.html, index.html …) copies this :root block + base styles as its
      shell, so all project artifacts read as one system. These are the neutral
      bootstrap tokens; once Stage 3 produces design/design-system.html, THAT file's
@@ -331,7 +331,7 @@ never a sibling next to it.</span></pre>
   <p style="font-size:13.5px; color:var(--ink-soft); margin-top:10px;">Nothing here requires reinstalling anything or starting over. Git commits at every phase gate are the real safety history.</p>
 
   <h2>8 · For agents: this page is also the shared HTML shell</h2>
-  <p style="font-size:14px;">Every stage HTML surface (<code>triage.html</code>, <code>architecture/blueprint.html</code>, <code>build-plan.html</code>, <code>test-report.html</code>, …) copies this file's <code>:root</code> token block and base styles, so all project artifacts look like one system. Once Stage 3 produces <code>design/design-system.html</code>, that file's tokens supersede these for artifacts generated afterwards. Copying the tokens does <em>not</em> mean opening this page: opening is governed by the first-touch rule in <code>CLAUDE.md</code> — only when <code>&lt;project-root&gt;/.claude/.guide-shown</code> is absent, and <code>touch</code> it immediately after.</p>
+  <p style="font-size:14px;">Every stage HTML surface (<code>triage.html</code>, <code>architecture/blueprint.html</code>, <code>progress-report.html</code>, <code>test-report.html</code>, …) copies this file's <code>:root</code> token block and base styles, so all project artifacts look like one system. Once Stage 3 produces <code>design/design-system.html</code>, that file's tokens supersede these for artifacts generated afterwards. Copying the tokens does <em>not</em> mean opening this page: opening is governed by the first-touch rule in <code>CLAUDE.md</code> — only when <code>&lt;project-root&gt;/.claude/.guide-shown</code> is absent, and <code>touch</code> it immediately after.</p>
 
   <h2>9 · First session on your harness — flip one setting</h2>
   <p style="font-size:13.5px; color:var(--ink-soft);">The AGENT-side default (whether it asks before a listed write) is one knob, <code>bin/exec-approval.sh</code> — rule text lives once, in <code>bin/lib/wiring-item3.sh</code>, not here. This page covers the other half: the HARNESS you're running in also prompts before it will even run <code>bin/exec.sh</code>, separately, unless you tell it not to. <code>bin/init-project.sh</code> and <code>bin/sync-project.sh</code> both call <code>bin/install-harness-permissions.sh</code>, which does this automatically for the harnesses that have a project-level setting for it — this table is what to check or flip by hand if that didn't run, or on a harness that has no project-level setting at all.</p>
@@ -402,7 +402,7 @@ never a sibling next to it.</span></pre>
     <text x="542" y="278" font-size="10.5" fill="var(--ink-soft)" text-anchor="middle">row, or catalogued as not built</text>
     <text x="542" y="294" font-size="10" fill="var(--warn-ink)" text-anchor="middle">brain plan may replace it — research, PR #93</text>
     <rect x="656" y="230" width="210" height="72" rx="6" fill="var(--bg)" stroke="var(--fail-ink)"/>
-    <text x="761" y="248" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--fail-ink)" text-anchor="middle">docs/open-questions.html</text>
+    <text x="761" y="248" font-size="12" font-family="var(--mono)" font-weight="700" fill="var(--fail-ink)" text-anchor="middle">brd-report.html (questions)</text>
     <text x="761" y="264" font-size="10.5" fill="var(--ink-soft)" text-anchor="middle">anything the pipeline could not settle,</text>
     <text x="761" y="278" font-size="10.5" fill="var(--ink-soft)" text-anchor="middle">batched per gate by bin/open-questions.sh</text>
     <text x="761" y="294" font-size="10" fill="var(--fail-ink)" text-anchor="middle">blocks the gate while anything is unanswered</text>
@@ -483,7 +483,7 @@ never a sibling next to it.</span></pre>
     <tr><td><code>PROJECT.md</code></td><td>the agent at a gate, after asking you</td><td><code>gate-check.sh</code>, <code>checkpoint.sh</code>, every stage</td><td>a stage runs on a decision you never saw; gates block on <code>UNSYNCED</code></td></tr>
     <tr><td><code>docs/brain/</code></td><td><code>mxcli brain capture</code> when a session learns something</td><td>the next session, <code>brain check</code> before every commit</td><td>the next session reasonably decides the opposite</td></tr>
     <tr><td>coverage ledger</td><td>Stage 4, from build-plan <code>claims</code></td><td>Stage 4 gate, Stage 5 build rows</td><td>a requirement is silently neither built nor descoped</td></tr>
-    <tr><td><code>docs/open-questions.html</code></td><td><code>bin/open-questions.sh</code>, from BRD <code>openQuestions</code> + SME notes</td><td>you, at every gate</td><td>a product decision gets taken in a file nobody opens</td></tr>
+    <tr><td><code>analysis/brd-report.html</code> (open questions under the process map)</td><td><code>bin/brd-report.sh</code>, from <code>bin/open-questions.sh</code> (BRD <code>openQuestions</code> + SME notes)</td><td>you, at every gate</td><td>a product decision gets taken in a file nobody opens</td></tr>
     <tr><td><code>brd/*.brd.json</code></td><td>Stage 2 (extractor, KB, interview or by hand)</td><td>Stage 3, 4, the brief, the ledger</td><td>the build drifts from the requirement — see the drift-sync rule</td></tr>
     <tr><td><code>&lt;Module&gt;-brief.md</code></td><td>ba-agent (roles, screens, rules) + architect (entities, dependencies, stubs)</td><td>the build agent, first, for that module only</td><td>the build agent improvises what nobody wrote down</td></tr>
     <tr><td><code>docs/BUILD-LOG.md</code> · <code>docs/report.json</code></td><td><code>bin/exec.sh</code> and every instrument</td><td><code>status.sh</code>, <code>index.html</code>, the test-result audit</td><td>"done" becomes a claim instead of a record</td></tr>

@@ -301,7 +301,7 @@ function pct(n, total) {
  * above the verdict word, echoed on stdout, and reused verbatim wherever a run is
  * summarised, so two summaries on one page can never disagree.
  * Vocabulary reused, not invented: "NOTHING EXAMINED" is bin/open-questions.sh's
- * rc-3 state, and bin/questions-report.sh:72 refuses outright to render a clean
+ * rc-3 state, and bin/brd-report.sh (exit 3) refuses outright to render a clean
  * zero over it. This renderer does not refuse — nothing here blocks — but it says
  * the same words in the same place a refusal would have gone. */
 function executionLine(c) {

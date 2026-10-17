@@ -67,7 +67,7 @@ are all strictly less severe than the FAULT (rc 2) they replaced. Every level st
 knows, what it does not, and what would upgrade it. Louder and clearer, never stricter.
 
 **rc 3 is "NOTHING EXAMINED", not "clean".** Same contract as `bin/open-questions.sh` rc 3 and
-`bin/questions-report.sh`, which refuses to render a clean-looking zero over an empty directory.
+`bin/brd-report.sh`, which exits 3 instead of rendering a clean-looking zero over an empty directory.
 An instrument that examined nothing must not exit 0, because 0 reads as green everywhere it is
 consumed.
 

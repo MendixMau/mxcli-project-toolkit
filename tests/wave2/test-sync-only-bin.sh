@@ -31,8 +31,9 @@ set -uo pipefail
 SYNC="${1:?usage: test-sync-only-bin.sh /path/to/sync-project.sh}"
 case "$SYNC" in /*) ;; *) SYNC="$PWD/$SYNC" ;; esac
 TK="$(cd "$(dirname "$SYNC")/.." && pwd)"
-# O6 needs an older exec.sh the toolkit really shipped (CI checks out full history).
-OLD_EXEC_REV="$(git -C "$TK" log --format=%H -n2 -- project-bin/exec.sh 2>/dev/null | sed -n 2p)"
+# O6 needs an older exec.sh the toolkit really shipped (CI checks out full history). Merges are
+# skipped: past-stock reads non-merge commits only, so a version made by a merge would read as edited.
+OLD_EXEC_REV="$(git -C "$TK" log --no-merges --format=%H -n2 -- project-bin/exec.sh 2>/dev/null | sed -n 2p)"
 INIT="$TK/bin/init-project.sh"
 WORK="$(mktemp -d /tmp/onlybin.XXXXXX)"
 trap 'rm -f "$MXTK_LEAKGUARD_DENYFILE"; rm -rf "$WORK"' EXIT

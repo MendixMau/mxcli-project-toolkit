@@ -59,6 +59,7 @@ case "$CMD" in build|check|show) ;; *)
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "$0")" && pwd)/lib/discover-brds.sh"
 
+PROJECT_DIR="$(native_path "$PROJECT_DIR")"  # newline-joined KBS goes to Python via env; MSYS converts only line 1
 KBS=$(discover_brds "$PROJECT_DIR" | sed 's|/brd/[^/]*$||' | sort -u)
 [ -n "$KBS" ] || { echo "facts-lock: no <kb>/brd directory found under $PROJECT_DIR" >&2; exit 2; }
 

@@ -19,6 +19,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 
 ## Unreleased
 
+- fix(windows): **Git Bash MSYS paths no longer break `brd-report.sh` and the progress report's session lookup.** A native Windows Python cannot open `/c/work/proj`; `brd-report.sh` now converts the project dir and `--html` through a new `native_path` (`cygpath -m` on MINGW/MSYS, a no-op elsewhere), and `progress-report.py` turns an MSYS path into `C:/...`, builds the log-folder slug from the Windows path, reads `"cwd"` records written with escaped backslashes or forward slashes, and compares case-insensitively on Windows, so the page shows time, token and cost figures again. Test: `tests/wave2/test-windows-msys-paths.sh` (Fixes #460) — MendixMau
 - fix(process-map): answered and consented questions no longer show as open; answers, consent, options and CONFIRMED register rows reach the map, the header counts only what is still open, an Open only filter is added and long decision titles are cut at a word (#458) — MendixMau
 
 - fix(doctor): **`--install` picks the native arm64 mxcli on Windows ARM64 (falling back to amd64 for a pinned release without it), and the docs say `--install --yes` when there is no terminal.** Git Bash there runs emulated so `uname -m` says x86_64 and doctor fetched the amd64 .exe; the arch now also reads the `uname -s` -ARM64 suffix and PROCESSOR_ARCHITEW6432/PROCESSOR_ARCHITECTURE. Agents following the bare `--install` examples got "nothing downloaded" (#459) — MendixMau

@@ -25,7 +25,9 @@ printf '#!/bin/sh\n[ "$1" = "-m" ] || exit 9\nshift; [ "$1" = "--" ] && shift\ne
 chmod +x "$STUB/uname" "$STUB/cygpath"
 export CYG_LOG="$TMP/cyg.log"; : > "$CYG_LOG"
 check "MINGW: runs cygpath -m" "$(PATH="$STUB:$PATH" native_path /c/work/proj)" "C:/mapped/c/work/proj"
-check "Linux or macOS: unchanged" "$(native_path /c/work/proj)" "/c/work/proj"
+# Fake a POSIX uname, so this check also holds when the suite itself runs under Git Bash.
+mkdir -p "$TMP/posix"; printf '#!/bin/sh\necho Linux\n' > "$TMP/posix/uname"; chmod +x "$TMP/posix/uname"
+check "Linux or macOS: unchanged" "$(PATH="$TMP/posix:$PATH" native_path /c/work/proj)" "/c/work/proj"
 printf '#!/bin/sh\nexit 1\n' > "$STUB/cygpath"
 check "MINGW without a working cygpath: unchanged" "$(PATH="$STUB:$PATH" native_path /c/work/proj)" "/c/work/proj"
 

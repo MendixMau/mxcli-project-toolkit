@@ -71,7 +71,8 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 
 1. **`doctor.sh`** names any missing prerequisite (bash, Python 3, sqlite3, line endings, mxcli,
    mxbuild) and exits non-zero if a stage would break. `doctor.sh --install <project>` fetches
-   mxcli and mxbuild after showing the plan and asking. Windows and Linux: read
+   mxcli and mxbuild after showing the plan and asking (an agent or any shell with no terminal
+   must add `--yes`, or nothing is downloaded). Windows and Linux: read
    [Platform support](#platform-support) first.
 2. **`init-project.sh`** scaffolds the project folder: `intake.md`, `PROJECT.md`,
    `CLAUDE.local.md` (the wiring every session reads), the six agent stubs, `bin/` instruments
@@ -251,7 +252,8 @@ they would have saved, restarted or reopened it. Everything either side of that 
 > ```
 >
 > `bin/doctor.sh --install <project>` closes the gap without Studio Pro: it fetches a
-> version-matched mxbuild that `exec.sh` then finds on its own.
+> version-matched mxbuild that `exec.sh` then finds on its own. With no terminal to answer the
+> prompt (an agent, CI), add `--yes`: `bin/doctor.sh --install --yes <project>`.
 
 **Existing clone from before 2026-08-18?** You predate `.gitattributes`, so if git checked the
 scripts out with CRLF they will not run. Fix once:

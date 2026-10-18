@@ -57,7 +57,7 @@
 #
 # --install never downloads silently: it prints the plan first — what, from where, how big,
 # why, and the detected OS/arch — then asks [y/N] at a terminal, or requires --yes when there
-# is no terminal to ask on. $MXCLI_VERSION=vX.Y.Z pins the mxcli release; default is latest.
+# is no terminal to ask on (agents and CI: always pass --yes). $MXCLI_VERSION=vX.Y.Z pins the mxcli release; default is latest.
 #
 # --install is the one deliberate exception to the no-dependency rule: it needs network access
 # (and curl or wget), runs only when asked, and a failed or declined download degrades to the
@@ -722,17 +722,30 @@ if [ "$INSTALL" -eq 1 ]; then
     # `-c` input changed shape (navigation, DynamicClasses, `show entity` refused). The
     # toolkit's instruments read both shapes, so a project mid-build may stay on its version
     # (MXCLI_VERSION=v0.24.0) and move when it chooses.
+    # Git Bash on Windows ARM64 runs emulated, so `uname -m` says x86_64 there. On Windows the
+    # real hardware shows in the `uname -s` suffix (...-ARM64) and in PROCESSOR_ARCHITEW6432
+    # (set for emulated processes) / PROCESSOR_ARCHITECTURE; those win over `uname -m`.
     MXCLI_ARCH="$(uname -m 2>/dev/null || echo unknown)"
     case "$MXCLI_ARCH" in
       x86_64|amd64) MXCLI_ARCH=amd64 ;;
       arm64|aarch64) MXCLI_ARCH=arm64 ;;
     esac
+    if [ "$PLATFORM" = gitbash ]; then
+      case "$UNAME:${PROCESSOR_ARCHITEW6432:-}:${PROCESSOR_ARCHITECTURE:-}" in
+        *-ARM64:*|*:ARM64:*|*:*:ARM64) MXCLI_ARCH=arm64 ;;
+      esac
+    fi
+    MXCLI_FALLBACK_ASSET=""
     case "$PLATFORM-$MXCLI_ARCH" in
       macos-amd64)   MXCLI_ASSET="mxcli-darwin-amd64";      MXCLI_DEST="mxcli" ;;
       macos-arm64)   MXCLI_ASSET="mxcli-darwin-arm64";      MXCLI_DEST="mxcli" ;;
       linux-amd64|wsl-amd64) MXCLI_ASSET="mxcli-linux-amd64"; MXCLI_DEST="mxcli" ;;
       linux-arm64|wsl-arm64) MXCLI_ASSET="mxcli-linux-arm64"; MXCLI_DEST="mxcli" ;;
       gitbash-amd64) MXCLI_ASSET="mxcli-windows-amd64.exe"; MXCLI_DEST="mxcli.exe" ;;
+      # Windows ARM64: native build; releases before it existed fall back to the amd64 .exe,
+      # which Windows on ARM runs under emulation.
+      gitbash-arm64) MXCLI_ASSET="mxcli-windows-arm64.exe"; MXCLI_DEST="mxcli.exe"
+                     MXCLI_FALLBACK_ASSET="mxcli-windows-amd64.exe" ;;
       *)             MXCLI_ASSET=""; MXCLI_DEST="" ;;
     esac
     if [ -n "${MXCLI_VERSION:-}" ]; then
@@ -804,7 +817,12 @@ if [ "$INSTALL" -eq 1 ]; then
         MXCLI_READY=1
         if [ "$NEED_MXCLI" -eq 1 ]; then
           note "fetching $MXCLI_ASSET from the mxcli releases..."
-          if $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && chmod +x "$PROJECT_DIR/$MXCLI_DEST" \
+          if ! $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && [ -n "$MXCLI_FALLBACK_ASSET" ]; then
+            warn "$MXCLI_ASSET is not published for this mxcli version; trying $MXCLI_FALLBACK_ASSET (runs emulated)."
+            MXCLI_URL="${MXCLI_URL%/*}/$MXCLI_FALLBACK_ASSET"
+            $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" || true
+          fi
+          if [ -s "$PROJECT_DIR/$MXCLI_DEST" ] && chmod +x "$PROJECT_DIR/$MXCLI_DEST" \
              && probe_runs "$PROJECT_DIR/$MXCLI_DEST"; then
             ok "mxcli fetched into the project root: $(probe_line)"
             PMXCLI="$PROJECT_DIR/$MXCLI_DEST"

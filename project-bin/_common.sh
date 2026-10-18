@@ -932,7 +932,7 @@ mxtk_ensure_mxbuild() {
     mxcli=""
   done
   if [ -z "$mxcli" ]; then
-    echo "  mxbuild not found and no project ./mxcli to download it with (bin/doctor.sh --install fetches both)." >&2
+    echo "  mxbuild not found and no project ./mxcli to download it with (bin/doctor.sh --install --yes fetches both)." >&2
     [ -n "$found" ] && printf '%s\n' "$found"
     return 1
   fi

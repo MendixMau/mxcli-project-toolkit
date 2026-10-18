@@ -963,6 +963,30 @@ run_lint_gate() {
   # row at all (measured on the first wired run in a real project, 2026-09-24). Capture explicitly.
   LINT_RC=0
   bash "$PROJECT_ROOT/bin/lint-gate.sh" >"$_lo" 2>&1 || LINT_RC=$?
+  # Self-heal a re-seed (#461). mxcli's SessionStart hook runs `mxcli init --sync-skills`, which
+  # rewrites its bundled lint rules from the binary on every compaction and subagent start, with
+  # no opt-out; the toolkit's fixed rules revert to stock and lint-gate reports BLIND. Failing
+  # blind there only sent the user to sync-project.sh. The installer's own classification decides
+  # what is safe (stock or receipt-matching copies are restored; a hand edit is never lost),
+  # so run it, then lint once more. A rule it will not restore stays BLIND, as before.
+  _restored=""
+  if [ "$LINT_RC" -eq 1 ] && [ "${MXTK_NO_LINT_RESTORE:-}" != "1" ] \
+     && grep -q '^BLIND — lint rules reverted to stock' "$_lo"; then
+    _tk=""
+    type find_toolkit_root >/dev/null 2>&1 && _tk="$(find_toolkit_root 2>/dev/null || true)"
+    if [ -n "$_tk" ] && [ -f "$_tk/bin/lib/install-lint-rules.sh" ]; then
+      _restored=$(sed -n '/^!! LINT RULES REVERTED TO STOCK/,/^$/p' "$_lo" \
+                   | grep -oE '^ +[A-Za-z0-9_.-]+\.star:' | tr -d ' :' | paste -sd, -)
+      echo "  ↻ lint rules reverted to stock (mxcli's session-start refresh?): restoring the toolkit versions from $_tk"
+      # Capture to a file first: piping the installer into head can stop it after 12 lines of output.
+      _io="$(mktemp)"
+      ( . "$_tk/bin/lib/install-lint-rules.sh"; mxtk_install_lint_rules "$_tk" "$PROJECT_ROOT" 0 "" ) >"$_io" 2>&1 || true
+      head -12 "$_io" | sed 's/^/    /'
+      rm -f "$_io"
+      LINT_RC=0
+      bash "$PROJECT_ROOT/bin/lint-gate.sh" >"$_lo" 2>&1 || LINT_RC=$?
+    fi
+  fi
   # lint-gate's non-blocking SEC014 note (#312: rule installed, decision not made) is otherwise
   # visible only on a failing run, because the capture above is shown only then. Always echo it.
   [ -f "$_lo" ] && { grep '^note: SEC014' "$_lo" 2>/dev/null | sed 's/^/    /' || true; }
@@ -1004,6 +1028,9 @@ run_lint_gate() {
     *) LINT_DETAIL="lint could not run (lint-gate exit $LINT_RC)"; echo "  ⚠ $LINT_DETAIL"
        tail -5 "$_lo" | sed 's/^/    /' ;;
   esac
+  # Said in the row either way: a restored run is lint on the toolkit's rules, and the reader
+  # should know the files changed under them.
+  [ -n "$_restored" ] && [ "$LINT_RC" -ne 3 ] && LINT_DETAIL="$LINT_DETAIL; toolkit lint rules auto-restored after a stock re-seed (${_restored})"
   rm -f "$_lo"
 }
 # One place decides the applied-row wording, so both mxbuild-clean branches agree.

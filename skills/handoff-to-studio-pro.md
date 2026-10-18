@@ -29,7 +29,8 @@ Before anything else, the recipient runs:
 
     <toolkit>/bin/doctor.sh <project-dir>            # what is missing, in plain language
     <toolkit>/bin/doctor.sh --install <project-dir>  # and offer to download it (mxcli +
-                                                     # mxbuild toolchain; asks before fetching)
+                                                     # mxbuild toolchain; asks before fetching;
+                                                     # add --yes when there is no terminal)
 
 A machine with no Studio Pro can still verify every model write this way — the gate runs on
 the downloaded toolchain. (Field case, 2026-08-31: a colleague's first hours on a handed-over

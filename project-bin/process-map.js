@@ -354,12 +354,38 @@ if (pagesOffMap.length) warn(pagesOffMap.length + ' wireframe(s) on no process s
 const questionsFile = model.questions ? rel(model.questions) : null;
 const anchorsFile = model.anchors ? rel(model.anchors) : path.join(designDir, 'question-anchors.json');
 const registerFile = rel(model.register || 'PROJECT.md');
+const DECIDED = [];     // CONFIRMED register rows: shown as decided, never pinned or anchored
 const ITEMS = [];       // { id, kind: question|decision, title, text, blocking, assumption, risk, askWho, refs:[oqKey], fingerprint }
 const itemById = {};
 const oqToItem = {};
 const clean = s => String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
 const fp = s => clean(s).slice(0, 80);
 function addItem(it) { if (itemById[it.id]) return; ITEMS.push(it); itemById[it.id] = it; }
+// What the BRD says about one question: its state and the answer, the consent and the options.
+// state: answered | consented (assumed, owner agreed) | assumed (waiting for confirmation) | open.
+function qFacts(q) {
+  const st = clean(q.status).toUpperCase();
+  const state = st === 'ANSWERED' ? 'answered' : st === 'ASSUMED' ? (clean(q.consentBy) ? 'consented' : 'assumed') : 'open';
+  const opts = Array.isArray(q.options) ? q.options.map(clean).filter(Boolean) : [];
+  return { state, status: st, answer: clean(q.answer), answeredBy: clean(q.answeredBy), answeredAt: clean(q.answeredAt),
+    consentBy: clean(q.consentBy), consentAt: clean(q.consentAt), options: opts, recommendation: clean(q.recommendation) };
+}
+// A consolidated question that lists BRD questions is settled only when every one of them is:
+// all answered gives answered, all settled gives consented, any open gives open.
+function foldFacts(base, refKeys) {
+  const fs_ = refKeys.map(k => qFacts(OQ[k].raw));
+  if (!fs_.length) return base;
+  const states = fs_.map(f => f.state);
+  const state = states.every(x => x === 'answered') ? 'answered'
+    : states.every(x => x === 'answered' || x === 'consented') ? 'consented'
+    : states.includes('open') ? 'open' : 'assumed';
+  const first = k => (fs_.find(f => f[k]) || {})[k] || '';
+  const answers = [...new Set(fs_.map(f => f.answer).filter(Boolean))];
+  return Object.assign({}, base, { state, status: state === 'answered' ? 'ANSWERED' : state === 'open' ? 'OPEN' : 'ASSUMED',
+    answer: answers.join(' | '), answeredBy: first('answeredBy'), answeredAt: first('answeredAt'),
+    consentBy: first('consentBy'), consentAt: first('consentAt'), options: base.options.length ? base.options : fs_[0].options,
+    recommendation: base.recommendation || first('recommendation') });
+}
 if (questionsFile) {
   if (!fs.existsSync(questionsFile)) die('questions file ' + model.questions + ' named in the model does not exist');
   const qj = readJson(questionsFile, 'questions file');
@@ -374,16 +400,17 @@ if (questionsFile) {
     }
     addItem({ id, kind: 'question', title: clean(q.title) || clean(q.question).slice(0, 80), text: clean(q.question),
       blocking: q.blocking === true, assumption: clean(q.assumption), risk: clean(q.risk), askWho: clean(q.askWho),
-      category: clean(q.category), refs, fingerprint: fp(q.question) });
+      category: clean(q.category), refs, fingerprint: fp(q.question), facts: foldFacts(qFacts(q), refs) });
   }
 }
 for (const key of Object.keys(OQ).sort(byteSort)) {
   if (oqToItem[key]) continue;
   const q = OQ[key].raw;
-  if (q.consolidatedId && itemById[q.consolidatedId]) { oqToItem[key] = q.consolidatedId; itemById[q.consolidatedId].refs.push(key); continue; }
+  if (q.consolidatedId && itemById[q.consolidatedId]) { oqToItem[key] = q.consolidatedId; itemById[q.consolidatedId].refs.push(key);
+    itemById[q.consolidatedId].facts = foldFacts(itemById[q.consolidatedId].facts, itemById[q.consolidatedId].refs); continue; }
   addItem({ id: key, kind: 'question', title: clean(q.question).slice(0, 80), text: clean(q.question), blocking: q.blocking === true,
     assumption: clean(q.assumption), risk: clean(q.risk), askWho: clean(q.askWho), category: BRDS[OQ[key].brd].doc.title || '',
-    refs: [key], fingerprint: fp(q.question) });
+    refs: [key], fingerprint: fp(q.question), facts: qFacts(q) });
   oqToItem[key] = key;
 }
 // ASSUMED decisions: rows of any register table whose header has Decision and Status columns.
@@ -402,14 +429,27 @@ if (fs.existsSync(registerFile)) {
     }
     if (hdr.skip || /^[-:\s|]+$/.test(l.replace(/\|/g, ''))) continue;
     const status = c[hdr.si] || '', text = clean(c[hdr.di] || '');
-    if (!/ASSUMED/.test(status) || !text) continue;
+    // Decided means the status starts with CONFIRMED and is not an assumption: UNCONFIRMED and
+    // "ASSUMED, NOT CONFIRMED" stay pinned assumptions (gate-check.sh made the same fix for the hard gate).
+    const su = status.replace(/[*_`]/g, '').trim().toUpperCase();
+    const confirmed = /^CONFIRMED\b/.test(su) && !/ASSUMED|\bNOT\b/.test(su);
+    if (!/ASSUMED|CONFIRMED/.test(su) || !text) continue;
     const stage = hdr.st >= 0 ? clean(c[hdr.st]) : '';
     const own = text.match(/^([A-Z][A-Z0-9]*-[A-Z]*\d+)\s*:/);
+    const shortTitle = t => { if (t.length <= 90) return t; const cut = t.slice(0, 90), sp = cut.lastIndexOf(' '); return (sp > 40 ? cut.slice(0, sp) : cut) + '\u2026'; };
+    if (confirmed) {
+      ord[stage + '#c'] = (ord[stage + '#c'] || 0) + 1;
+      const cid = own ? own[1] : 'C' + (stage || 'x') + '-' + String(ord[stage + '#c']).padStart(2, '0');
+      if (!itemById[cid] && !DECIDED.some(d => d.id === cid))
+        DECIDED.push({ id: cid, kind: 'decision', title: shortTitle(text.replace(/^[A-Z][A-Z0-9]*-[A-Z]*\d+\s*:\s*/, '')), text, blocking: false,
+          assumption: text, risk: '', status: clean(status), stage, state: 'answered', refs: [] });
+      continue;
+    }
     ord[stage] = (ord[stage] || 0) + 1;
     const id = own ? own[1] : 'D' + (stage || 'x') + '-' + String(ord[stage]).padStart(2, '0');
-    addItem({ id, kind: 'decision', title: text.replace(/^[A-Z][A-Z0-9]*-[A-Z]*\d+\s*:\s*/, '').slice(0, 90), text, blocking: false,
+    addItem({ id, kind: 'decision', title: shortTitle(text.replace(/^[A-Z][A-Z0-9]*-[A-Z]*\d+\s*:\s*/, '')), text, blocking: false,
       assumption: text, risk: clean((c.slice(-1)[0] || '').match(/risk:(.*)$/i) ? c.slice(-1)[0].match(/risk:(.*)$/i)[1] : ''),
-      status: clean(status), stage, refs: [], fingerprint: fp(text) });
+      status: clean(status), stage, refs: [], fingerprint: fp(text), state: /consent/i.test(status) && !/\b(no|not|without)\b[^|]*consent/i.test(status) ? 'consented' : 'assumed' });
   }
 }
 
@@ -634,8 +674,12 @@ const data = {
       next: s._next.map(n => ({ to: n.to, label: n.label || '' })), note: s.note || '' })) })),
   useCases: Object.fromEntries(Object.keys(UC).sort(byteSort).map(k => [k, UC[k].title])),
   standalone: standalone.map(s => ({ useCase: normUc(s.useCase), reason: s.reason || '' })),
-  items: ITEMS.map(it => ({ id: it.id, kind: it.kind, title: it.title, text: it.text, blocking: it.blocking,
+  items: ITEMS.concat(DECIDED).map(it => Object.assign({ id: it.id, kind: it.kind, title: it.title, text: it.text, blocking: it.blocking,
     assumption: it.kind === 'question' ? it.assumption : '', risk: it.risk, askWho: it.askWho || '', status: it.status || '',
+    state: it.state || (it.facts && it.facts.state) || 'open',
+    answer: (it.facts && it.facts.answer) || '', answeredBy: (it.facts && it.facts.answeredBy) || '', answeredAt: (it.facts && it.facts.answeredAt) || '',
+    consentBy: (it.facts && it.facts.consentBy) || '', consentAt: (it.facts && it.facts.consentAt) || '',
+    options: (it.facts && it.facts.options) || [], recommendation: (it.facts && it.facts.recommendation) || '',
     anchoredBy: ANCH[it.id] ? ANCH[it.id].anchoredBy : '', basis: ANCH[it.id] ? ANCH[it.id].basis : '',
     targets: ANCH[it.id] ? ANCH[it.id].targets.map(t => (t.type === 'page' ? { type: 'page', page: resolvePage(t.page) } : t)) : [] })),
   stats, wireframes: wfOut, pagesOffMap, ds: dsCss,

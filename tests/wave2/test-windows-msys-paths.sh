@@ -44,6 +44,14 @@ case "$(cat "$CYG_LOG")" in *"$P"*) ok "  cygpath was asked about the project di
 bash "$TOOLKIT/bin/brd-report.sh" "$P" --json >/dev/null 2>&1
 check "no conversion off Windows" "$(wc -c < "$CYG_LOG" | tr -d ' ')" "0"
 
+echo "== extraction-report.sh and facts-lock.sh convert the project dir =="
+: > "$CYG_LOG"
+PATH="$STUB:$PATH" bash "$TOOLKIT/bin/extraction-report.sh" "$P" --json >/dev/null 2>&1
+case "$(cat "$CYG_LOG")" in *"$P"*) ok "extraction-report: cygpath was asked about the project dir" ;; *) bad "extraction-report: cygpath was asked about the project dir" "$(cat "$CYG_LOG")" ;; esac
+: > "$CYG_LOG"
+PATH="$STUB:$PATH" bash "$TOOLKIT/bin/facts-lock.sh" "$P" show >/dev/null 2>&1
+case "$(cat "$CYG_LOG")" in *"$P"*) ok "facts-lock: cygpath was asked about the project dir" ;; *) bad "facts-lock: cygpath was asked about the project dir" "$(cat "$CYG_LOG")" ;; esac
+
 echo "== progress-report.py path functions, Windows inputs =="
 "$PY" - "$TOOLKIT/project-bin/progress-report.py" <<'PYEOF'
 import importlib.util, json, os, sys, tempfile
@@ -67,6 +75,8 @@ check("cwd in forward form is under the root", pr.under("C:/work/demo", roots, T
 check("drive letter case is ignored on Windows", pr.under("c:\\WORK\\Demo", roots, True), True)
 check("case matters off Windows", pr.under("c:/work/demo", ["C:/work/demo"], False), False)
 check("a sibling with the same prefix is not under", pr.under("C:\\work\\demo-other", roots, True), False)
+check("root forms include the Git Bash spelling", "/c/work/demo" in roots, True)
+check("touches: Bash cd in Git Bash spelling", pr.touches("Bash", {"command": "cd /c/work/demo && ls"}, None, roots, True), True)
 nd = pr.needle_for(roots, True)
 check("needle matches the JSON-escaped backslash form", bool(nd.search(b'{"cwd":"C:\\\\work\\\\demo\\\\x"}')), True)
 check("needle matches the forward-slash form", bool(nd.search(b'cd C:/work/demo && ls')), True)

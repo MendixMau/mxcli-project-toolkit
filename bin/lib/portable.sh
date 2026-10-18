@@ -63,7 +63,8 @@ require_py() {
 # --- native paths for a Windows interpreter -----------------------------------------------
 #
 # Git Bash spells C:\work\proj as /c/work/proj. A native Windows Python cannot open that, and
-# MSYS only rewrites some argv, never an env var or a path read back from a pipe. native_path
+# MSYS converts only the leading path of an env var, so a newline-joined path list (or a path read
+# back from a pipe) is the risk: later entries stay /c/.... native_path
 # echoes the mixed form (C:/work/proj, which bash and Windows both open) on MINGW/MSYS/Cygwin and
 # the path unchanged everywhere else, or when cygpath is missing.
 native_path() {

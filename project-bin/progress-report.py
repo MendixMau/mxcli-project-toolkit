@@ -338,9 +338,8 @@ def fix_msys(p, win=None):
     m = _MSYS_RE.match(p) if win else None
     return "%s:/%s" % (m.group(1).upper(), m.group(2) or "") if m else p
 
-def real_path(p, win=None):
+def real_path(p):
     """realpath, except that a Windows drive path is taken as it is when it is not this machine's own (tests)."""
-    win = IS_WIN if win is None else win
     if _DRIVE_RE.match(p) and os.name != "nt": return p
     return os.path.realpath(p)
 
@@ -367,10 +366,14 @@ def under(c, roots, win=None):
 def root_forms(proj, win=None):
     """Every spelling of the project folder a log may carry: realpath and abspath, with / and \\ separators on Windows."""
     win = IS_WIN if win is None else win
-    base = {real_path(proj, win), proj if _DRIVE_RE.match(proj) else os.path.abspath(proj)}
+    base = {real_path(proj), proj if _DRIVE_RE.match(proj) else os.path.abspath(proj)}
     out = set(base)
     if win:
-        for b in base: out.add(b.replace("\\", "/")); out.add(b.replace("/", "\\"))
+        for b in base:
+            out.add(b.replace("\\", "/")); out.add(b.replace("/", "\\"))
+            m = _DRIVE_RE.match(b)
+            if m:  # Git Bash spelling (C:/work/proj -> /c/work/proj), as in `cd /c/work/proj && ...`
+                out.add("/" + b[0].lower() + b[2:].replace("\\", "/"))
     return sorted(out, key=len, reverse=True)
 
 def needle_for(roots, win=None):
@@ -493,7 +496,7 @@ def find_sessions(proj, logs_dir=None, cache_path=None, win=None):
     if not os.path.isdir(base): return [], base
     win = IS_WIN if win is None else win
     proj = fix_msys(proj, win)
-    me = slug(real_path(proj, win)); out = []
+    me = slug(real_path(proj)); out = []
     mel = me.lower() if win else me
     def own_dir(name):
         n = name.lower() if win else name
@@ -512,7 +515,7 @@ def find_sessions(proj, logs_dir=None, cache_path=None, win=None):
     needle = needle_for(roots, win)
     cpath = cache_path or os.path.join(proj, ".claude", "progress-report-sessions.txt")
     cache = load_cache(cpath); entries = {}; cands = []
-    root_id = real_path(proj, win)
+    root_id = real_path(proj)
     # A cache belongs to one project path and one rule set: a copied or moved project, or a toolkit update that changed the
     # thresholds, reads it as cold (its verdicts are about another folder or another rule).
     if cache and (cache["root"] != root_id or cache["rules"] != cache_rules()): cache = None

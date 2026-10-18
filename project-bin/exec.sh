@@ -967,7 +967,7 @@ run_lint_gate() {
   # rewrites its bundled lint rules from the binary on every compaction and subagent start, with
   # no opt-out; the toolkit's fixed rules revert to stock and lint-gate reports BLIND. Failing
   # blind there only sent the user to sync-project.sh. The installer's own classification decides
-  # what is safe (stock or receipt-matching copies are restored; a hand edit is never written),
+  # what is safe (stock or receipt-matching copies are restored; a hand edit is never lost),
   # so run it, then lint once more. A rule it will not restore stays BLIND, as before.
   _restored=""
   if [ "$LINT_RC" -eq 1 ] && [ "${MXTK_NO_LINT_RESTORE:-}" != "1" ] \
@@ -978,8 +978,11 @@ run_lint_gate() {
       _restored=$(sed -n '/^!! LINT RULES REVERTED TO STOCK/,/^$/p' "$_lo" \
                    | grep -oE '^ +[A-Za-z0-9_.-]+\.star:' | tr -d ' :' | paste -sd, -)
       echo "  ↻ lint rules reverted to stock (mxcli's session-start refresh?): restoring the toolkit versions from $_tk"
-      ( . "$_tk/bin/lib/install-lint-rules.sh"; mxtk_install_lint_rules "$_tk" "$PROJECT_ROOT" 0 "" ) 2>&1 \
-        | head -12 | sed 's/^/    /' || true
+      # Capture to a file first: piping the installer into head can stop it after 12 lines of output.
+      _io="$(mktemp)"
+      ( . "$_tk/bin/lib/install-lint-rules.sh"; mxtk_install_lint_rules "$_tk" "$PROJECT_ROOT" 0 "" ) >"$_io" 2>&1 || true
+      head -12 "$_io" | sed 's/^/    /'
+      rm -f "$_io"
       LINT_RC=0
       bash "$PROJECT_ROOT/bin/lint-gate.sh" >"$_lo" 2>&1 || LINT_RC=$?
     fi

@@ -169,7 +169,7 @@ fi
 MXCLI=""
 case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) [ -x ./mxcli.exe ] && MXCLI=./mxcli.exe ;; esac
 [ -n "$MXCLI" ] || { [ -x ./mxcli ] && MXCLI=./mxcli; }
-[ -n "$MXCLI" ] || { echo "lint-gate: no runnable mxcli in $ROOT (Windows: mxcli.exe) — bin/doctor.sh --install" >&2; exit 2; }
+[ -n "$MXCLI" ] || { echo "lint-gate: no runnable mxcli in $ROOT (Windows: mxcli.exe) — bin/doctor.sh --install --yes <project>" >&2; exit 2; }
 [ -e "$MPR" ]  || { echo "lint-gate: $MPR not found" >&2; exit 2; }
 
 # Build the --exclude list from the vendor file (comments and blanks stripped).

@@ -327,17 +327,73 @@ def scan_transcript(path, is_main=False, clip=None):
                         tools.append(ev)
     return {"flag_1m": flag_1m, "msgs": list(msgs.values()), "times": times, "compacts": compacts, "prompts": prompts, "tools": tools, "calls": list(calls.values())}
 
-def touches(name, inp, cwd, roots):
+IS_WIN = os.name == "nt"
+_MSYS_RE = re.compile(r"^/([A-Za-z])(?:/(.*))?$")
+_DRIVE_RE = re.compile(r"^[A-Za-z]:[\\/]")
+
+def fix_msys(p, win=None):
+    """Git Bash hands native Windows Python an MSYS path (/c/work/proj), which no Windows API can open.
+    On Windows only, turn it into C:/work/proj; every other path, and every other platform, is unchanged."""
+    win = IS_WIN if win is None else win
+    m = _MSYS_RE.match(p) if win else None
+    return "%s:/%s" % (m.group(1).upper(), m.group(2) or "") if m else p
+
+def real_path(p, win=None):
+    """realpath, except that a Windows drive path is taken as it is when it is not this machine's own (tests)."""
+    win = IS_WIN if win is None else win
+    if _DRIVE_RE.match(p) and os.name != "nt": return p
+    return os.path.realpath(p)
+
+def path_key(p, win=None):
+    """A comparable form: forward slashes, no trailing slash; on Windows also lower case (the file system ignores case)."""
+    win = IS_WIN if win is None else win
+    k = p.replace("\\", "/")
+    if len(k) > 1: k = k.rstrip("/") or "/"
+    return k.lower() if win else k
+
+def unescape_json_str(s):
+    """The inside of a JSON string literal as the string it denotes (C:\\\\work\\\\x -> C:\\work\\x); unchanged when not valid."""
+    try: return json.loads('"' + s + '"')
+    except Exception: return s
+
+def under(c, roots, win=None):
+    """Is path c at or under one of the roots, whatever the slash style and (on Windows) the case."""
+    ck = path_key(c, win)
+    for r in roots:
+        rk = path_key(r, win)
+        if ck == rk or ck.startswith(rk.rstrip("/") + "/"): return True
+    return False
+
+def root_forms(proj, win=None):
+    """Every spelling of the project folder a log may carry: realpath and abspath, with / and \\ separators on Windows."""
+    win = IS_WIN if win is None else win
+    base = {real_path(proj, win), proj if _DRIVE_RE.match(proj) else os.path.abspath(proj)}
+    out = set(base)
+    if win:
+        for b in base: out.add(b.replace("\\", "/")); out.add(b.replace("/", "\\"))
+    return sorted(out, key=len, reverse=True)
+
+def needle_for(roots, win=None):
+    """Byte pattern over raw log lines. A backslash is doubled in JSON text, so on Windows each root is also matched in that form."""
+    win = IS_WIN if win is None else win
+    pats = set()
+    for n in roots:
+        pats.add(n)
+        if win: pats.add(n.replace("\\", "\\\\"))
+    return re.compile(b"|".join(re.escape(n.encode()) for n in sorted(pats, key=len, reverse=True)), re.I if win else 0)
+
+def touches(name, inp, cwd, roots, win=None):
     """Does this tool call operate on the project: a path under the root in its input, a Bash command that cds into the
     root or names a path under it, or a working directory at or under it. Words in prose never count."""
-    for r in roots:
-        if cwd and (cwd == r or cwd.startswith(r + "/")): return True
-        for k in ("file_path", "notebook_path", "path"):
-            v = inp.get(k)
-            if isinstance(v, str) and (v == r or v.startswith(r + "/")): return True
-        if name == "Bash":
-            c = inp.get("command") or ""
-            if re.search(r"(?<![A-Za-z0-9_.\-])" + re.escape(r) + r"(?![A-Za-z0-9_.\-])", c): return True
+    win = IS_WIN if win is None else win
+    if cwd and under(cwd, roots, win): return True
+    for k in ("file_path", "notebook_path", "path"):
+        v = inp.get(k)
+        if isinstance(v, str) and under(v, roots, win): return True
+    if name == "Bash":
+        c = inp.get("command") or ""
+        for r in roots:
+            if re.search(r"(?<![A-Za-z0-9_.\-])" + re.escape(r) + r"(?![A-Za-z0-9_.\-])", c, re.I if win else 0): return True
     return False
 
 TS_RE = re.compile(rb'"timestamp"\s*:\s*"([^"]+)"')
@@ -429,32 +485,37 @@ def slug(path):
 
 def have_own(out): return set(out)
 
-def find_sessions(proj, logs_dir=None, cache_path=None):
+def find_sessions(proj, logs_dir=None, cache_path=None, win=None):
     """Main-thread session logs that belong to this project on this machine, oldest first.
     Looks in the project's own slug folder, its ancestors' and its descendants'; a session counts when
     at least one record's cwd is at or under the project folder (the folder name alone is not proof)."""
     base = logs_dir or os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude"), "projects")
     if not os.path.isdir(base): return [], base
-    me = slug(os.path.realpath(proj)); out = []
+    win = IS_WIN if win is None else win
+    proj = fix_msys(proj, win)
+    me = slug(real_path(proj, win)); out = []
+    mel = me.lower() if win else me
+    def own_dir(name):
+        n = name.lower() if win else name
+        return n == mel or mel.startswith(n + "-") or n.startswith(mel + "-")
     for name in sorted(os.listdir(base)):
         d = os.path.join(base, name)
-        if not (os.path.isdir(d) and (name == me or me.startswith(name + "-") or name.startswith(me + "-"))): continue
+        if not (os.path.isdir(d) and own_dir(name)): continue
         for f in sorted(glob.glob(os.path.join(d, "*.jsonl"))):
-            if session_in_project(f, proj): out.append(f)
+            if session_in_project(f, proj, win): out.append(f)
     # Sessions started elsewhere (another folder's slug): last 30 days, newest first, a capped number of files. A log counts
     # when a record's cwd is the project, or when at least TOOL_SHARE of its tool calls (and TOOL_MIN of them) operate on the
     # project path. Text mentions never count. Listed on the page.
     DISCOVERY.update({"other_dirs": 0, "other_files": 0, "mention": [], "searched": True, "used": [], "skipped_report": 0, "cache": "cold"})
     cutoff = time.time() - SCAN_DAYS * 86400; started = time.time()
-    roots = sorted({os.path.realpath(proj), os.path.abspath(proj)}, key=len, reverse=True)
-    needle = re.compile(b"|".join(re.escape(n.encode()) for n in roots))
+    roots = root_forms(proj, win)
+    needle = needle_for(roots, win)
     cpath = cache_path or os.path.join(proj, ".claude", "progress-report-sessions.txt")
     cache = load_cache(cpath); entries = {}; cands = []
-    root_id = os.path.realpath(proj)
+    root_id = real_path(proj, win)
     # A cache belongs to one project path and one rule set: a copied or moved project, or a toolkit update that changed the
     # thresholds, reads it as cold (its verdicts are about another folder or another rule).
     if cache and (cache["root"] != root_id or cache["rules"] != cache_rules()): cache = None
-    def own_dir(name): return name == me or me.startswith(name + "-") or name.startswith(me + "-")
     if cache:   # warm: known files are stat-ed; only a changed or a new file is read; only directories touched since the last run are listed
         DISCOVERY["cache"] = "warm"
         for f, e in cache["entries"].items():
@@ -520,16 +581,16 @@ def explicit_sessions(paths):
     seen = set()
     return [f for f in out if not (f in seen or seen.add(f))]
 
-def session_in_project(path, proj):
-    roots = {os.path.realpath(proj), os.path.abspath(proj)}
+def session_in_project(path, proj, win=None):
+    win = IS_WIN if win is None else win
+    roots = root_forms(fix_msys(proj, win), win)
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
             for i, line in enumerate(f):
                 if i > 4000: break
                 m = re.search(r'"cwd"\s*:\s*"((?:[^"\\]|\\.)*)"', line)
                 if m:
-                    c = m.group(1)
-                    if any(c == r or c.startswith(r.rstrip("/") + "/") for r in roots): return True
+                    if under(unescape_json_str(m.group(1)), roots, win): return True
     except Exception: pass
     return False
 
@@ -1668,7 +1729,10 @@ def main_():
     ap.add_argument("--session-cache", help="discovery cache file (default <project>/.claude/progress-report-sessions.txt)")
     ap.add_argument("--no-log", action="store_true", help="skip session log discovery")
     a = ap.parse_args()
-    proj = os.path.abspath(os.path.expanduser(a.project))
+    for _k in ("out", "fragment", "plan_json", "logs_dir", "session_cache", "toolkit"):
+        if getattr(a, _k, None): setattr(a, _k, fix_msys(getattr(a, _k)))
+    a.session_log = [fix_msys(x) for x in a.session_log]
+    proj = os.path.abspath(os.path.expanduser(fix_msys(a.project)))
     a.outdir = os.path.dirname(os.path.abspath(a.out)) if a.out else os.path.join(proj, "architecture")
     out_path = a.out or os.path.join(a.outdir, REPORT_FILE)
     tk = a.toolkit or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

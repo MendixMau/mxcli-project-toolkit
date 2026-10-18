@@ -96,6 +96,9 @@ while [ $# -gt 0 ]; do
 done
 
 [ -d "$PROJECT_DIR" ] || { echo "brd-report: not a directory: $PROJECT_DIR" >&2; exit 2; }
+# Git Bash hands the interpreter /c/work/proj, which native Windows Python cannot open.
+PROJECT_DIR="$(native_path "$PROJECT_DIR")"
+[ -z "$HTML_OUT" ] || HTML_OUT="$(native_path "$HTML_OUT")"
 
 # Was: `command -v python3` in the scripts this one is modelled on — which succeeds on the
 # Windows Store alias stub. require_py probes by running the interpreter.

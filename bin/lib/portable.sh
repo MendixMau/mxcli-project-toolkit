@@ -60,6 +60,19 @@ require_py() {
   export PY
 }
 
+# --- native paths for a Windows interpreter -----------------------------------------------
+#
+# Git Bash spells C:\work\proj as /c/work/proj. A native Windows Python cannot open that, and
+# MSYS only rewrites some argv, never an env var or a path read back from a pipe. native_path
+# echoes the mixed form (C:/work/proj, which bash and Windows both open) on MINGW/MSYS/Cygwin and
+# the path unchanged everywhere else, or when cygpath is missing.
+native_path() {
+  case "$(uname -s 2>/dev/null)" in
+    MINGW*|MSYS*|CYGWIN*) cygpath -m -- "$1" 2>/dev/null || printf '%s\n' "$1" ;;
+    *) printf '%s\n' "$1" ;;
+  esac
+}
+
 # --- stat(1) -------------------------------------------------------------------------------
 #
 # `stat -f` is BSD, `stat -c` is GNU coreutils. Neither is a Windows/Linux/macOS common subset,

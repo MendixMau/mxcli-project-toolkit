@@ -429,8 +429,11 @@ if (fs.existsSync(registerFile)) {
     }
     if (hdr.skip || /^[-:\s|]+$/.test(l.replace(/\|/g, ''))) continue;
     const status = c[hdr.si] || '', text = clean(c[hdr.di] || '');
-    const confirmed = /CONFIRMED/.test(status);
-    if (!(/ASSUMED/.test(status) || confirmed) || !text) continue;
+    // Decided means the status starts with CONFIRMED and is not an assumption: UNCONFIRMED and
+    // "ASSUMED, NOT CONFIRMED" stay pinned assumptions (gate-check.sh made the same fix for the hard gate).
+    const su = status.replace(/[*_`]/g, '').trim().toUpperCase();
+    const confirmed = /^CONFIRMED\b/.test(su) && !/ASSUMED|\bNOT\b/.test(su);
+    if (!/ASSUMED|CONFIRMED/.test(su) || !text) continue;
     const stage = hdr.st >= 0 ? clean(c[hdr.st]) : '';
     const own = text.match(/^([A-Z][A-Z0-9]*-[A-Z]*\d+)\s*:/);
     const shortTitle = t => { if (t.length <= 90) return t; const cut = t.slice(0, 90), sp = cut.lastIndexOf(' '); return (sp > 40 ? cut.slice(0, sp) : cut) + '\u2026'; };
@@ -446,7 +449,7 @@ if (fs.existsSync(registerFile)) {
     const id = own ? own[1] : 'D' + (stage || 'x') + '-' + String(ord[stage]).padStart(2, '0');
     addItem({ id, kind: 'decision', title: shortTitle(text.replace(/^[A-Z][A-Z0-9]*-[A-Z]*\d+\s*:\s*/, '')), text, blocking: false,
       assumption: text, risk: clean((c.slice(-1)[0] || '').match(/risk:(.*)$/i) ? c.slice(-1)[0].match(/risk:(.*)$/i)[1] : ''),
-      status: clean(status), stage, refs: [], fingerprint: fp(text), state: /consent/i.test(status) ? 'consented' : 'assumed' });
+      status: clean(status), stage, refs: [], fingerprint: fp(text), state: /consent/i.test(status) && !/\b(no|not|without)\b[^|]*consent/i.test(status) ? 'consented' : 'assumed' });
   }
 }
 

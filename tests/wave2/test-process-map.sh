@@ -192,6 +192,13 @@ has "the page has an answered legend entry" "$H" "Answered or decided"
 BRDA="$(run anchor --project "$P")"
 has "CONFIRMED rows are not pinned or anchored" "$BRDA" "anchors: 6 item(s)"
 hasnt "CONFIRMED rows are not in the anchors file" "$(cat "$P/design/question-anchors.json")" "Module structure"
+P3="$(fresh notconfirmed)"
+sed -i.bak 's/^| 3 | Hosting: one environment for the demo | ASSUMED | risk: none for the demo |$/| 3 | Hosting: one environment for the demo | ASSUMED, NOT CONFIRMED | risk: none for the demo |\
+| 3 | Audit trail: keep every status change | UNCONFIRMED | risk: none |\
+| 3 | Retention: one year | ASSUMED, no consent yet | risk: none |/' "$P3/PROJECT.md"
+run build --project "$P3" >/dev/null
+NJ="$(node -e 'const h=require("fs").readFileSync(process.argv[1],"utf8");const m=h.match(/\nvar D = (.*);\n/);const d=JSON.parse(m[1]);console.log(["Hosting","Audit trail","Retention"].map(w=>{const i=d.items.find(x=>x.text&&x.text.indexOf(w)===0);return i?i.state:"missing"}).join("|"))' "$P3/design/process-map.html")"
+check "NOT CONFIRMED, UNCONFIRMED and no-consent register rows stay assumptions" "$NJ" "assumed|assumed|assumed"
 P2="$(fresh consolidated)"
 jedit "$P2/brd/F001-orders.brd.json" 'j.openQuestions[0].status="ANSWERED"; j.openQuestions[0].answer="No maximum."; j.openQuestions[1].status="ANSWERED"; j.openQuestions[1].answer="Different person."; j.openQuestions[2].status="OPEN"'
 printf '%s' '{"questions":[{"cid":"C1","title":"Limits","question":"Which limits apply?","sources":[{"brd":"F001","id":"Q01"},{"brd":"F001","id":"Q02"}]},{"cid":"C2","title":"History","question":"What does history show?","sources":[{"brd":"F001","id":"Q01"},{"brd":"F001","id":"Q03"}]}]}' > "$P2/design/questions.json"

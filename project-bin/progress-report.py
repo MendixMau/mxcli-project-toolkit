@@ -53,6 +53,16 @@ EXTRA_ARTIFACTS = {
           "architecture/modules/*/module-brief.md", "architecture/modules/*/coverage-ledger.md"],
     "5": [], "6": [],
 }
+# Project pages section: the HTML pages found on disk, grouped by folder. Only these top-level folders are scanned
+# ("" = files directly in the project root, never below it); the inventory itself is never listed here, it is read from
+# disk on every render. A folder named in PAGE_SKIP_DIRS (or starting with a dot) is never entered, at any depth.
+PAGE_DIRS = ["", "analysis", "architecture", "design", "docs", "reports", "journeys", "knowledge-base", "questions",
+             "playwright-report", "test-results"]
+PAGE_SKIP_DIRS = frozenset("node_modules .mpr-snapshots deployment mprcontents theme theme-cache .git vendor vendorlib "
+                           "userlib javascriptsource widgets bower_components __pycache__ site-packages".split())
+PAGE_MAX_DEPTH = 6        # folder levels below a scanned top-level folder
+PAGE_GROUP_OPEN = 8       # a folder with more pages than this is folded behind a details with its count
+PAGE_MAX = 500            # pages listed at most; the rest are counted, not linked
 # Project advisory thresholds (each rule says which one fired).
 ADV = {"opus_cost_share": 0.40, "ctx_avg_tokens": 180_000, "ctx_peak_frac": 0.98, "compactions": 1,   # context: average under 180k is fine; the window counts as reached only at this share of the real window (or after a compaction). Context is never red
        "hang_amber_s": 600, "hang_red_s": 1800, "repeat_fail_red_n": 3, "min_lost_s": 60,   # red only for a key script failing on every run (at least this many runs) or one hang or stall past hang_red_s; amber from hang_amber_s
@@ -247,6 +257,67 @@ def collect_artifacts(proj, manifest):
 def link_kind(path):
     e = os.path.splitext(path)[1].lower()
     return "html" if e == ".html" else "md" if e == ".md" else "data"
+
+def rel_href(f, outdir, pm=os.path):
+    """A relative, percent-encoded href from the page's folder to f. pm is the path module (ntpath in tests), so a
+    Windows path gives forward slashes too."""
+    return urllib.parse.quote(pm.relpath(f, outdir).replace(pm.sep, "/"))
+
+def collect_pages(proj, skip=()):
+    """{folder relative to proj ("." for the root): [(path, mtime)]}, plus the number of pages past PAGE_MAX. Walks only
+    PAGE_DIRS, never enters PAGE_SKIP_DIRS or dot folders, does not follow links, and leaves out the paths in skip."""
+    skipk = {os.path.normcase(os.path.abspath(s)) for s in skip if s}
+    found = []
+    def take(path):
+        if not path.lower().endswith((".html", ".htm")) or os.path.basename(path) == REPORT_FILE: return
+        if os.path.normcase(os.path.abspath(path)) in skipk or not os.path.isfile(path): return
+        try: found.append((path, os.path.getmtime(path)))
+        except OSError: pass
+    for top in PAGE_DIRS:
+        base = os.path.join(proj, top) if top else proj
+        if not os.path.isdir(base): continue
+        if not top:
+            for n in sorted(os.listdir(base)): take(os.path.join(base, n))
+            continue
+        if top.lower() in PAGE_SKIP_DIRS: continue
+        for d, ds, fs in os.walk(base):
+            depth = os.path.relpath(d, base).count(os.sep) + (0 if d == base else 1)
+            ds[:] = sorted(x for x in ds if not x.startswith(".") and x.lower() not in PAGE_SKIP_DIRS and depth < PAGE_MAX_DEPTH)
+            for n in sorted(fs): take(os.path.join(d, n))
+    def key(x):
+        r = os.path.relpath(x[0], proj).replace(os.sep, "/"); d = r.rpartition("/")[0]
+        nat = lambda t: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", t.lower())]   # w2 before w10
+        return (d != "", nat(d), nat(r))   # the root's own pages first, then folders by path
+    found.sort(key=key)
+    groups = collections.OrderedDict()
+    for f, mt in found[:PAGE_MAX]:
+        groups.setdefault(os.path.relpath(os.path.dirname(f), proj).replace(os.sep, "/"), []).append((f, mt))
+    return groups, max(0, len(found) - PAGE_MAX)
+
+def render_pages(proj, outdir, skip=()):
+    """The Project pages section: one row per folder, indented under the nearest listed parent folder, each page a
+    relative link with its modified date (date only, so a refresh on the same day does not rewrite the page)."""
+    groups, extra = collect_pages(proj, skip)
+    n = sum(len(v) for v in groups.values())
+    out = ["<h2 id=pages>Project pages: the HTML pages in this project, by folder</h2><div class=sub>Found on disk under %s; "
+           "each link opens the page. Dates are when the file last changed. Folders like node_modules, theme and deployment are "
+           "not scanned (PAGE_DIRS and PAGE_SKIP_DIRS in the script).</div>" % esc(", ".join((d + "/") if d else "the project root" for d in PAGE_DIRS))]
+    if not groups:
+        out.append("<div class=card>No HTML pages found yet.</div>"); return "".join(out)
+    out.append("<div class='card pages'><div class=sub>%d page%s in %d folder%s%s</div><div class=tree>" % (n, "" if n == 1 else "s", len(groups), "" if len(groups) == 1 else "s", (", %d more not listed (PAGE_MAX)" % extra) if extra else ""))
+    depth = {}
+    for g, files in groups.items():
+        par = max((p for p in depth if p != "." and g.startswith(p + "/")), key=len, default=None)
+        depth[g] = depth[par] + 1 if par else 0
+        label = "project root" if g == "." else (g[len(par) + 1:] if par else g) + "/"
+        items = "".join("<li><a href='%s'>%s</a> <span class=mut>%s</span></li>" % (esc(rel_href(f, outdir)), esc(os.path.basename(f)), datetime.datetime.fromtimestamp(mt).strftime("%Y-%m-%d")) for f, mt in files)
+        if len(files) > PAGE_GROUP_OPEN:
+            newest = datetime.datetime.fromtimestamp(max(mt for _, mt in files)).strftime("%Y-%m-%d")
+            body = "<details id='pages-%s'><summary>%d pages, newest %s</summary><ul>%s</ul></details>" % (esc(re.sub(r"[^A-Za-z0-9]+", "-", g).strip("-") or "root"), len(files), newest, items)
+        else: body = "<ul>%s</ul>" % items
+        out.append("<div class=pg style='padding-left:%dpx'><b class=dir title='%s'>%s</b>%s</div>" % (16 * depth[g], esc(g + "/" if g != "." else "./"), esc(label), body))
+    out.append("</div></div>")
+    return "".join(out)
 
 # ----------------------------------------------------------------- session
 def rate_for(model, rates):
@@ -1349,7 +1420,7 @@ svg text{fill:var(--ink);font-size:11px}svg .m{fill:var(--mut)}
 .stale{color:var(--warn)}.r-partial td:last-child{color:var(--warn)}.r-built td:last-child{color:var(--ok)}
 .stack{display:flex;height:16px;border-radius:5px;overflow:hidden;background:var(--idle)}.stack>i{display:block;height:100%}
 .note{font-size:12px;color:var(--mut);margin:4px 0}
-html{scroll-behavior:smooth}[id^=stage-],[id^=agents-],[id^=phase-],#tips{scroll-margin-top:56px}
+html{scroll-behavior:smooth}[id^=stage-],[id^=agents-],[id^=phase-],#tips,#pages{scroll-margin-top:56px}
 .snav{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 16px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .snav b{font-size:12px;color:var(--mut);margin-right:4px}.snav a{min-width:34px;text-align:center;padding:4px 10px;border-radius:8px;background:var(--card);border:1px solid var(--line);font-weight:650;font-size:13px;color:var(--ink)}
 .snav a.passed{border-color:var(--ok)}.snav a.cur{background:var(--accent);color:#fff;border-color:var(--accent)}.snav a:hover{text-decoration:none;border-color:var(--accent)}
@@ -1365,8 +1436,10 @@ details.ph[open]{grid-column:1/-1}.steps td{font-size:12px;padding:3px 6px}
 .frag .st-todo,.frag .pending{color:var(--mut)}.frag .st-person{color:#8b5cf6}.frag .st-unknown{color:var(--mut);font-style:italic}
 .frag .FINDINGS,.frag .drift{color:var(--bad)}.frag .drift{font-size:12px}.frag .claims{font-size:12px}.frag .warn summary{color:var(--warn)}
 .frag .badge{margin-left:6px;border:1px solid currentColor;background:transparent}
+.pages .tree{margin-top:6px;font-size:13px}.pg{display:grid;grid-template-columns:minmax(120px,220px) minmax(0,1fr);gap:2px 12px;padding:5px 0;border-bottom:1px solid var(--line)}.pg:last-child{border-bottom:0}
+.pg .dir{font-weight:600;overflow-wrap:anywhere}.pg ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:3px 14px}.pg li{overflow-wrap:anywhere}.pg details{margin:0}.pg details ul{margin-top:4px}
 footer{margin-top:36px;font-size:13px;color:var(--mut)}footer li{margin:3px 0}
-@media(max-width:520px){code,pre,.stage dd,.stage dt{overflow-wrap:anywhere;min-width:0}.stage dl{grid-template-columns:minmax(0,1fr)}.stage dd{text-align:left}.hd .sub{white-space:normal;flex:1 1 100%}.snav{padding:6px 12px;flex-wrap:nowrap;overflow-x:auto;max-width:100%}.snav a{flex:0 0 auto}.snav b{flex:0 0 auto}.updated{max-width:100%;overflow-wrap:anywhere}.advl{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rail{grid-template-columns:minmax(0,1fr)}main{padding:12px}h1{font-size:20px}.kpi .v{font-size:19px}}
+@media(max-width:520px){code,pre,.stage dd,.stage dt{overflow-wrap:anywhere;min-width:0}.stage dl{grid-template-columns:minmax(0,1fr)}.stage dd{text-align:left}.hd .sub{white-space:normal;flex:1 1 100%}.snav{padding:6px 12px;flex-wrap:nowrap;overflow-x:auto;max-width:100%}.snav a{flex:0 0 auto}.snav b{flex:0 0 auto}.updated{max-width:100%;overflow-wrap:anywhere}.advl{grid-template-columns:minmax(0,1fr)}.pg{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rail{grid-template-columns:minmax(0,1fr)}main{padding:12px}h1{font-size:20px}.kpi .v{font-size:19px}}
 """
 KC = {"BRIEF": "#8b5cf6", "BUILD": "#2f6fed", "PROVE": "#1f9d63", "HARNESS": "#d98a0b", "RUN": "#c93c3c"}
 
@@ -1430,7 +1503,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     w("<!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>")
     w("<!-- generated-by: mxcli-project-toolkit/project-bin/build-plan-status.sh (progress-report.py) -->")
     w("<title>Progress report: %s</title><style>%s</style></head><body>" % (esc(info["name"]), CSS))
-    w("<nav class=snav aria-label='Stage navigation'><b>Stage</b>" + "".join("<a href='#stage-%s' class='%s' title='%s'>%s</a>" % (s_, ("cur " if s_ == info["current"] else "") + ("passed" if states[s_] == "passed" else ""), esc(STAGE_NAME[s_] + ": " + states[s_]), s_) for s_ in STAGES) + "<a href='#build-detail' style='margin-left:auto'>Build</a>" + ("<a href='#tips'>Tips</a>" if L else "") + "</nav><main><div class='layout%s'><div class=content>" % ("" if L else " solo"))
+    w("<nav class=snav aria-label='Stage navigation'><b>Stage</b>" + "".join("<a href='#stage-%s' class='%s' title='%s'>%s</a>" % (s_, ("cur " if s_ == info["current"] else "") + ("passed" if states[s_] == "passed" else ""), esc(STAGE_NAME[s_] + ": " + states[s_]), s_) for s_ in STAGES) + "<a href='#build-detail' style='margin-left:auto'>Build</a><a href='#pages'>Pages</a>" + ("<a href='#tips'>Tips</a>" if L else "") + "</nav><main><div class='layout%s'><div class=content>" % ("" if L else " solo"))
     last_ev = datetime.datetime.fromtimestamp(an["t1"]).strftime("%Y-%m-%d %H:%M") if L else "no session log"
     w("<header><h1>Progress report: %s</h1>" % esc(info["name"]))
     w("<span class=updated id=stamp>Last updated %s %s</span> <span class=sub id=stamp>session log last event %s</span>%s<br>" % (gen, datetime.datetime.now().astimezone().strftime("%Z"), last_ev,
@@ -1677,6 +1750,7 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         w("<details id=plan-tables class='card frag'><summary><b>Full plan tables and views A and B</b><div class=sub>Every row of build-plan.md with its claims and drift, the script folders (A) and module proof (B). The phase cards above already show each row.</div></summary>")
         w(args.fragment)
         w("</details>")
+    w(render_pages(proj, args.outdir, [SELF_OUT]))
     # footer
     w("<footer><h2>How these numbers are derived</h2><ul>")
     if L:

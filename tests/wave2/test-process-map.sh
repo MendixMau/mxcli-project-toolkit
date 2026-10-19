@@ -168,6 +168,45 @@ check "person steps stay tasks, a named screen is kept as a label, a system step
 OUT="$(run validate --strict --project "$P")"; RC=$?
 check "pass 1 with every question anchored passes --strict" "$RC" "0"
 
+echo "== T11: answered, consented and open questions are told apart; answers reach the map =="
+P="$(fresh answers)"
+jedit "$P/brd/F001-orders.brd.json" 'const q=j.openQuestions;
+  q[0].status="OPEN"; q[0].options=["A: no maximum","B: cap at 10000"]; q[0].recommendation="A: no maximum";
+  q[1].status="ANSWERED"; q[1].answer="No: the approver must be a different person than the requester."; q[1].answeredBy="owner"; q[1].answeredAt="2026-10-17";
+  q[2].status="ASSUMED"; q[2].consentBy="owner"; q[2].consentAt="2026-10-17";
+  q[3].status="ASSUMED"'
+sed -i.bak 's/^| 3 | Hosting: one environment for the demo | ASSUMED | risk: none for the demo |$/| 3 | Hosting: one environment for the demo, shared by every team that needs to look at the build during the review week | ASSUMED | risk: none for the demo |/' "$P/PROJECT.md"
+OUT="$(run build --project "$P")"; RC=$?
+check "exit 0" "$RC" "0"
+H="$(cat "$P/design/process-map.html")"
+DJ="$(printf '%s' "$H" | node -e 'const h=require("fs").readFileSync(0,"utf8");const m=h.match(/\nvar D = (.*);\n/);const d=JSON.parse(m[1]);
+  const by=s=>d.items.filter(i=>i.state===s).length;
+  const it=d.items.find(i=>i.id==="F001:Q02");const dec=d.items.find(i=>/Hosting/.test(i.text));
+  console.log([by("open"),by("answered"),by("consented"),by("assumed"),it.answer.slice(0,12),it.answeredBy,it.answeredAt,d.items.find(i=>i.id==="F001:Q03").consentBy,d.items.find(i=>i.id==="F001:Q01").options.length,d.items.find(i=>i.id==="F001:Q01").recommendation,dec.title.slice(-1),dec.text.length>dec.title.length,dec.text.endsWith("review week")].join("|"))')"
+# open: Q01 only; answered: Q02 + the CONFIRMED register row; consented: Q03; assumed waiting: Q04 + 2 ASSUMED register rows
+check "state counts and fields reach D.items" "$DJ" "1|2|1|3|No: the appr|owner|2026-10-17|owner|2|A: no maximum|…|true|true"
+has "the answer text is in the page" "$H" "No: the approver must be a different person than the requester."
+has "the CONFIRMED register row is shown as decided" "$H" "Module structure: one module Orders"
+has "the page has an Open only filter" "$H" 'id="openOnly"'
+has "the page has an answered legend entry" "$H" "Answered or decided"
+BRDA="$(run anchor --project "$P")"
+has "CONFIRMED rows are not pinned or anchored" "$BRDA" "anchors: 6 item(s)"
+hasnt "CONFIRMED rows are not in the anchors file" "$(cat "$P/design/question-anchors.json")" "Module structure"
+P3="$(fresh notconfirmed)"
+sed -i.bak 's/^| 3 | Hosting: one environment for the demo | ASSUMED | risk: none for the demo |$/| 3 | Hosting: one environment for the demo | ASSUMED, NOT CONFIRMED | risk: none for the demo |\
+| 3 | Audit trail: keep every status change | UNCONFIRMED | risk: none |\
+| 3 | Retention: one year | ASSUMED, no consent yet | risk: none |/' "$P3/PROJECT.md"
+run build --project "$P3" >/dev/null
+NJ="$(node -e 'const h=require("fs").readFileSync(process.argv[1],"utf8");const m=h.match(/\nvar D = (.*);\n/);const d=JSON.parse(m[1]);console.log(["Hosting","Audit trail","Retention"].map(w=>{const i=d.items.find(x=>x.text&&x.text.indexOf(w)===0);return i?i.state:"missing"}).join("|"))' "$P3/design/process-map.html")"
+check "NOT CONFIRMED, UNCONFIRMED and no-consent register rows stay assumptions" "$NJ" "assumed|assumed|assumed"
+P2="$(fresh consolidated)"
+jedit "$P2/brd/F001-orders.brd.json" 'j.openQuestions[0].status="ANSWERED"; j.openQuestions[0].answer="No maximum."; j.openQuestions[1].status="ANSWERED"; j.openQuestions[1].answer="Different person."; j.openQuestions[2].status="OPEN"'
+printf '%s' '{"questions":[{"cid":"C1","title":"Limits","question":"Which limits apply?","sources":[{"brd":"F001","id":"Q01"},{"brd":"F001","id":"Q02"}]},{"cid":"C2","title":"History","question":"What does history show?","sources":[{"brd":"F001","id":"Q01"},{"brd":"F001","id":"Q03"}]}]}' > "$P2/design/questions.json"
+jedit "$P2/design/process-model.json" 'j.questions="design/questions.json"'
+run anchor --project "$P2" >/dev/null; run build --project "$P2" >/dev/null
+CJ="$(node -e 'const h=require("fs").readFileSync(process.argv[1],"utf8");const m=h.match(/\nvar D = (.*);\n/);const d=JSON.parse(m[1]);console.log(["C1","C2"].map(id=>{const i=d.items.find(x=>x.id===id);return i.state+":"+i.answer}).join("|"))' "$P2/design/process-map.html")"
+check "consolidated status comes from the referenced BRD questions" "$CJ" "answered:No maximum. | Different person.|open:No maximum."
+
 echo "== T9: Stage-3 gate fails a missing or stale process map =="
 gatefix() { # a full Stage-3 PASS scaffold plus the process map fixture
   local d; d="$(fresh "$1")"

@@ -28,13 +28,22 @@
 # --html and --json outputs and never touches the .mpr.
 #
 # Usage:
-#   build-plan-status.sh [project-dir] [--html] [--json] [--quiet] [--refresh]   (flags and path in any order)
-#     --html    also write architecture/build-plan.html (self-contained, no external deps): the
+#   build-plan-status.sh [project-dir] [--html] [--json] [--quiet] [--refresh] [--open]   (flags and path in any order)
+#     --html    also write architecture/progress-report.html (self-contained, no external deps),
+#               which replaced architecture/build-plan.html: stages P to 6, time and token data
+#               when a Claude Code session log exists (project-bin/progress-report.py), and the
 #               plan itself (phases, rows, claims from build-plan.md, see "P." below) followed
-#               by views A and B
+#               by views A and B. An existing build-plan.html is left alone.
+#     --session-log PATH  use this Claude Code session log (a .jsonl file or a folder of them; repeatable) instead of
+#               discovery, for a session started outside the project folder. Passed to progress-report.py.
 #     --refresh the unattended form of --html, for exec.sh and gate-check.sh: quiet, writes only
-#               when build-plan.md exists, never over a build-plan.html this script did not
-#               write, and leaves the file untouched when nothing but the timestamp would change
+#               when build-plan.md exists, never over a progress-report.html this script did not
+#               write, and leaves the file untouched when nothing but the stamp lines would change
+#               It also keeps an EXISTING architecture/build-plan.json current (same parser as
+#               --json, same no-rewrite-for-a-timestamp rule) and never creates one
+#     --open    --html, then show it: on macOS reload the Chrome tab whose URL contains
+#               progress-report.html, else open the file once; elsewhere a no-op
+#     PROJECT.md `Progress report: off | ask | auto` (default ask): off = never write the page
 #     --json    also write architecture/build-plan.json, parsed from architecture/build-plan.md's
 #               Step-5 Phase headings, row tables and claims: blocks (see "C." below)
 #     --quiet   suppress the stdout table (useful when only --html/--json output is wanted)
@@ -53,9 +62,15 @@ WRITE_HTML=0
 WRITE_JSON=0
 QUIET=0
 REFRESH=0
+OPEN=0
+SESSION_LOGS=()
+_want_log=0
 for a in "$@"; do
+  if [ "$_want_log" -eq 1 ]; then SESSION_LOGS+=("$a"); _want_log=0; continue; fi
   case "$a" in
+    --session-log) _want_log=1 ;;
     --html)  WRITE_HTML=1 ;;
+    --open)  WRITE_HTML=1; OPEN=1 ;;
     --refresh) WRITE_HTML=1; REFRESH=1; QUIET=1 ;;
     --json)  WRITE_JSON=1 ;;
     --quiet) QUIET=1 ;;
@@ -63,15 +78,35 @@ for a in "$@"; do
     *) if [ -z "$ROOT" ]; then ROOT="$a"; else echo "unexpected second path: $a (first was $ROOT)" >&2; exit 2; fi ;;
   esac
 done
+[ "$_want_log" -eq 0 ] || { echo "--session-log needs a path" >&2; exit 2; }
 [ -n "$ROOT" ] || ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 cd "$ROOT" || exit 0
+ROOT="$(pwd)"  # a relative project path must survive the cd (the page is written under $ROOT)
 
 MDLSOURCE="$ROOT/mdlsource"
 MODULES_DIR="$ROOT/architecture/modules"
 REGISTER="$ROOT/docs/improvement-register.md"
 BUILD_PLAN="$ROOT/architecture/build-plan.md"
 STAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# PROJECT.md `Progress report: off | ask | auto` (default ask). off = this script never writes the
+# page; ask and auto only change what the agent does at a stage gate or module close (the skills
+# say: ask once, or open it), so the script treats them the same.
+report_name() {  # the page name lives in progress-report.py (REPORT_FILE); asked once, here
+  REPORT_FILE="$("${PY:-python3}" "$(dirname "${BASH_SOURCE[0]}")/progress-report.py" --print-name 2>/dev/null)"  # portability-ok: PY is resolve_py output; python3 only if unset
+  [ -n "$REPORT_FILE" ] || REPORT_FILE="progress-report.html"
+}
+progress_report_setting() {
+  _v="$(grep -iE '^[[:space:]>*_-]*Progress report[[:space:]]*:' "$ROOT/PROJECT.md" 2>/dev/null | head -1 \
+        | sed -E 's/^[^:]*:[[:space:]*_`]*//' | tr 'A-Z' 'a-z')"
+  case "$_v" in
+    *"|"*) echo ask ;;   # the option list pasted verbatim is not a choice
+    off*) echo off ;;
+    auto*) echo auto ;;
+    *) echo ask ;;
+  esac
+}
 
 # ── A. Build-plan phase progress, from mdlsource/<phase>/done- counts ───────
 # Phase folders are read as they exist on disk, not matched against build-plan.md's prose Phase
@@ -265,18 +300,27 @@ def column_map(headers):
                 m[key] = i
     return m if "number" in m and "state" in m else None
 
+# Same prefixes as classify_state in progress-report.py, so the phase card, the plan header and
+# the phase badge give one count. brd-to-build-plan.md lists `built` / `partial` / `not built` /
+# `blocked`; the rest are the spellings the card already counts. `blocked` counts as not built.
+# A "not needed" style row is out of the count and out of the rollup. None = cannot be read.
 def classify(state):
-    s = state.lower()
-    if s.startswith("not built"): return "not built"
-    if s.startswith("built"): return "built"
+    s = state.lower().replace("**", "").strip()
     if s.startswith("pending a person"): return "pending a person"
+    if s.startswith(("blocked",)): return "blocked"
+    if s.startswith(("not built", "not done", "not started", "planned", "to do", "todo", "open", "pending", "failed")): return "not built"
+    if s.startswith(("not needed", "n/a", "dropped", "skipped", "waived", "deferred")): return "skipped"
+    if s.startswith(("built", "done", "complete", "verified", "proven", "passed")): return "built"
+    if s.startswith(("partial", "in progress", "started", "wip")): return "partial"
     return None
 
 def rollup(steps):
     kinds = [classify(s["state"]) for s in steps]
-    if not kinds or None in kinds: return "unknown"
+    if None in kinds: return "unknown"
+    kinds = [k for k in kinds if k != "skipped"]
+    if not kinds: return "unknown"
     if all(k == "built" for k in kinds): return "built"
-    if all(k == "not built" for k in kinds): return "not built"
+    if all(k in ("not built", "blocked") for k in kinds): return "not built"
     if all(k in ("built", "pending a person") for k in kinds): return "pending a person"
     return "in progress"
 
@@ -425,6 +469,20 @@ if [ "$WRITE_JSON" -eq 1 ] || [ "$WRITE_HTML" -eq 1 ]; then
     case $? in
       0) PLAN_JSON="$PLAN_TARGET"
          JSON_MSG="wrote ${JSON_OUT#$ROOT/}"
+         if [ "$REFRESH" -eq 1 ] && [ "$WRITE_JSON" -eq 0 ] && [ -f "$JSON_OUT" ]; then
+           # --refresh keeps an EXISTING build-plan.json current (never creates one): exec.sh and
+           # gate-check.sh run --refresh after every build step, so a json written once at Stage 4
+           # would otherwise read 0 built after a day of building. Same parser as --json; the
+           # write is skipped when only generatedAt would differ, like the html below.
+           if "$PY" -c 'import json,sys
+def load(f):
+    d=json.load(open(f,encoding="utf-8")); d.pop("generatedAt",None); return d
+sys.exit(0 if load(sys.argv[1])==load(sys.argv[2]) else 1)' "$JSON_OUT" "$PLAN_TARGET" >/dev/null 2>&1; then
+             JSON_MSG="${JSON_OUT#$ROOT/} already current"
+           else
+             cp -f "$PLAN_TARGET" "$JSON_OUT" 2>/dev/null && JSON_MSG="refreshed ${JSON_OUT#$ROOT/}"
+           fi
+         fi
          if [ "$WRITE_JSON" -eq 1 ]; then
            # A producer guarantees its own output is ignored (snapshot-mpr.sh's rule). The JSON
            # is a build product: regenerated on demand in under a second, derived entirely from
@@ -507,19 +565,23 @@ def on_disk(pat):
     if any(fnmatch.fnmatchcase(f, pat) for f in files): return "written"
     return "missing"
 
-def classify(state):  # the parser's rollup reading, per row
-    s = (state or "").lower()
-    if s.startswith("not built"): return "not built"
-    if s.startswith("built"): return "built"
+def classify(state):  # the parser's rollup reading, per row (keep in step with classify in parse_plan)
+    s = (state or "").lower().replace("**", "").strip()
     if s.startswith("pending a person"): return "pending a person"
+    if s.startswith("blocked"): return "blocked"
+    if s.startswith(("not built", "not done", "not started", "planned", "to do", "todo", "open", "pending", "failed")): return "not built"
+    if s.startswith(("not needed", "n/a", "dropped", "skipped", "waived", "deferred")): return "skipped"
+    if s.startswith(("built", "done", "complete", "verified", "proven", "passed")): return "built"
+    if s.startswith(("partial", "in progress", "started", "wip")): return "partial"
     return None
 
 CLS = {"built": "st-built", "not built": "st-todo", "pending a person": "st-person",
+       "partial": "st-progress", "blocked": "st-todo", "skipped": "st-todo",
        "in progress": "st-progress", "unknown": "st-unknown", None: "st-unknown"}
 
 phases = d.get("phases", [])
 all_steps = [s for p in phases for s in p["steps"]]
-tally = {"built": 0, "not built": 0, "pending a person": 0, None: 0}
+tally = {"built": 0, "not built": 0, "pending a person": 0, "partial": 0, "blocked": 0, "skipped": 0, None: 0}
 for s in all_steps:
     tally[classify(s["state"])] += 1
 named_total = named_done = drift_rows = 0
@@ -558,9 +620,12 @@ for p in phases:
 plural = lambda n, w: "%d %s%s" % (n, w, "" if n == 1 else "s")
 print("<h2>The plan</h2>")
 print("<p class=lede>From <code>architecture/build-plan.md</code>: %s, %s: "
-      "<b class=st-built>%d built</b>, <b class=st-todo>%d not built</b>, <b class=st-person>%d pending a person</b>%s.</p>" % (
+      "<b class=st-built>%d built</b>, <b class=st-progress>%d partial</b>, <b class=st-todo>%d not built</b>%s, <b class=st-person>%d pending a person</b>%s%s.</p>" % (
       plural(len(phases), "phase"), plural(len(all_steps), "row"),
-      tally["built"], tally["not built"], tally["pending a person"],
+      tally["built"], tally["partial"], tally["not built"] + tally["blocked"],
+      (" (%d of them blocked)" % tally["blocked"]) if tally["blocked"] else "",
+      tally["pending a person"],
+      (", %d not needed" % tally["skipped"]) if tally["skipped"] else "",
       (", <b class=st-unknown>%d with a State cell this page cannot read</b>" % tally[None]) if tally[None] else ""))
 if named_total:
     print("<p class=note>Scripts named in the plan: %d, of which %d are renamed <code>done-</code> under <code>mdlsource/</code>.%s</p>" % (
@@ -598,51 +663,38 @@ if w:
 PYEOF
 }
 
+# ── Progress report page ──────────────────────────────────────────────────
+# architecture/progress-report.html replaced build-plan.html. The page is rendered by
+# progress-report.py (stages P to 6, session time and token data when a Claude Code log exists);
+# this script contributes the part only it can read: the plan tables and views A and B, written
+# to a scratch fragment above and embedded as the page's build detail. An older project's
+# architecture/build-plan.html is left exactly where it is: not read, not rewritten, not deleted.
 if [ "$WRITE_HTML" -eq 1 ]; then
-  OUT="$ROOT/architecture/build-plan.html"
   SKIP_HTML=""
-  if [ "$REFRESH" -eq 1 ]; then
+  GEN="$(dirname "${BASH_SOURCE[0]}")/progress-report.py"
+  report_name
+  OUT="$ROOT/architecture/$REPORT_FILE"
+  SETTING="$(progress_report_setting)"
+  if [ "$SETTING" = "off" ]; then
+    SKIP_HTML="PROJECT.md says Progress report: off"
+  elif [ "$REFRESH" -eq 1 ] && [ ! -f "$BUILD_PLAN" ]; then
     # Unattended callers (exec.sh, gate-check.sh) get gate-check.sh's index.html rules: no plan,
-    # no page; and never over a page this script did not write (before 2026-08-19 agents wrote
-    # this file by hand, and a project may still carry one). Every render from this script names
-    # it in the stamp line, so older renders are recognised and adopted.
-    if [ ! -f "$BUILD_PLAN" ]; then
-      SKIP_HTML="no build-plan.md"
-    elif [ -f "$OUT" ] && ! grep -qF 'build-plan-status.sh' "$OUT"; then
-      SKIP_HTML="architecture/build-plan.html was not written by this script"
-    fi
+    # no page; and never over a page this script did not write.
+    SKIP_HTML="no build-plan.md"
+  elif [ -f "$OUT" ] && ! grep -qF 'build-plan-status.sh' "$OUT"; then
+    SKIP_HTML="architecture/$REPORT_FILE was not written by this script"
+  elif [ -z "${PY:-}" ]; then
+    SKIP_HTML="no working Python 3 found (tried python3, python, py), which the report needs"  # portability-ok: names in a diagnostic
+  elif [ ! -f "$GEN" ]; then
+    SKIP_HTML="progress-report.py is not next to this script (run bin/sync-project.sh)"
   fi
   if [ -n "$SKIP_HTML" ]; then
-    [ "$QUIET" -eq 0 ] && echo "" && echo "  build-plan.html not written: $SKIP_HTML"
+    [ "$QUIET" -eq 0 ] && echo "" && echo "  $REPORT_FILE not written: $SKIP_HTML"
   else
     mkdir -p "$ROOT/architecture"
     OUT_TMP="$OUT.tmp.$$"
+    FRAG_TMP="$OUT.frag.$$"
     {
-      echo '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-      echo '<!-- generated-by: mxcli-project-toolkit/project-bin/build-plan-status.sh -->'
-      echo '<title>Build Plan</title>'
-      echo '<style>
-:root{--ink:#1c1f24;--muted:#646b75;--line:#e3e6ea;--bg:#fff;--ok:#0a7d2c;--warn:#a66a00;--bad:#b3261e;--person:#6a3fb5}
-@media (prefers-color-scheme:dark){:root{--ink:#e6e8eb;--muted:#9aa1ab;--line:#2f343b;--bg:#16181c;--ok:#5cc27a;--warn:#e0a640;--bad:#f07167;--person:#b49af0}}
-body{font:14px/1.5 -apple-system,Segoe UI,sans-serif;margin:0;padding:2rem 16px;color:var(--ink);background:var(--bg)}
-main{max-width:1200px;margin:0 auto}
-h1{font-size:1.35rem;margin:0} h2{font-size:1.1rem;margin-top:2.2rem;border-bottom:1px solid var(--line);padding-bottom:.3rem}
-h3{font-size:1rem;margin:1.6rem 0 .2rem}
-.scroll{overflow-x:auto}
-table{border-collapse:collapse;width:100%;margin-top:.5rem}
-th,td{text-align:left;vertical-align:top;padding:.4rem .6rem;border-bottom:1px solid var(--line);font-size:.88rem}
-th{color:var(--muted);font-weight:600;white-space:nowrap}
-code{font-size:.85em}
-.badge{font-size:.75rem;font-weight:600;padding:.1rem .5rem;border:1px solid currentColor;border-radius:999px;margin-left:.4rem;vertical-align:middle}
-.st-built,.done,.CLEAN{color:var(--ok)} .st-progress,.in-progress,.INCOMPLETE{color:var(--warn)}
-.st-todo,.pending{color:var(--muted)} .st-person{color:var(--person)} .st-unknown{color:var(--muted);font-style:italic}
-.FINDINGS,.drift{color:var(--bad)} .drift{font-size:.8rem;margin-top:.15rem}
-.note,.empty{color:var(--muted);font-size:.85rem} .lede{font-size:.95rem}
-details{margin:.5rem 0} summary{cursor:pointer;color:var(--muted);font-size:.85rem}
-.claims{font-size:.82rem} .warn summary{color:var(--warn)}
-</style></head><body><main>'
-      echo "<h1>Build Plan</h1><p class=note id=stamp>Generated $STAMP by project-bin/build-plan-status.sh from architecture/build-plan.md, mdlsource/ and the module review files. exec.sh and gate-check.sh regenerate it; never hand-edit.</p>"
-
       render_plan_section
 
       echo "<h2>A. Script folders: how much is built</h2>"
@@ -672,17 +724,64 @@ details{margin:.5rem 0} summary{cursor:pointer;color:var(--muted);font-size:.85r
         echo "</table></div>"
       fi
       echo "<p class=note>The plan: what build-plan.md says. A: built, from mdlsource/ done- prefixes. B: proven, from verify-module.sh + docs/improvement-register.md. A phase at 100% with no reviewed row in B is built, not proven.</p>"
-      echo '</main></body></html>'
-    } > "$OUT_TMP"
-    # Two renders of the same state differ only in the stamp line. A refresh that changed nothing
-    # leaves the file alone, or every exec.sh run would dirty the working tree.
-    if [ "$REFRESH" -eq 1 ] && [ -f "$OUT" ] \
-       && [ "$(grep -v 'id=stamp' "$OUT")" = "$(grep -v 'id=stamp' "$OUT_TMP")" ]; then
-      rm -f "${OUT_TMP:?}"
+    } > "$FRAG_TMP"
+    GEN_ARGS=(--out "$OUT_TMP" --fragment "$FRAG_TMP" --plan-msg "${PLAN_MSG:-}")
+    [ -n "$PLAN_JSON" ] && GEN_ARGS+=(--plan-json "$PLAN_JSON")
+    for _sl in ${SESSION_LOGS[@]+"${SESSION_LOGS[@]}"}; do GEN_ARGS+=(--session-log "$_sl"); done
+    if "$PY" "$GEN" "$ROOT" "${GEN_ARGS[@]}" >/dev/null 2>"$OUT.err.$$"; then
+      # Two renders of the same state differ only in the stamp lines. A refresh that changed
+      # nothing leaves the file alone, or every exec.sh run would dirty the working tree.
+      if [ "$REFRESH" -eq 1 ] && [ -f "$OUT" ] \
+         && [ "$(grep -v 'id=stamp' "$OUT")" = "$(grep -v 'id=stamp' "$OUT_TMP")" ]; then
+        rm -f "${OUT_TMP:?}"
+      else
+        mv -f "$OUT_TMP" "$OUT"
+      fi
+      [ "$QUIET" -eq 0 ] && echo "" && echo "  wrote ${OUT#$ROOT/}"
     else
-      mv -f "$OUT_TMP" "$OUT"
+      rm -f "${OUT_TMP:?}"
+      _why="$(tail -n 1 "$OUT.err.$$" 2>/dev/null | head -c 200)"
+      if [ "$QUIET" -eq 0 ]; then echo "" && echo "  $REPORT_FILE not written: the generator failed: $(head -c 300 "$OUT.err.$$" 2>/dev/null)"
+      else echo "WARN: $REPORT_FILE not updated, progress-report.py failed: ${_why:-no message}" >&2; fi   # unattended callers stay quiet on success, never on a crash
     fi
-    [ "$QUIET" -eq 0 ] && echo "" && echo "  wrote ${OUT#$ROOT/}"
+    rm -f "${FRAG_TMP:?}" "${OUT}.err.$$"
+  fi
+fi
+
+# ── --open: show the page ────────────────────────────────────────────────────
+# macOS with Chrome running: reload the tab showing this project's report (its exact file:// URL), never a new
+# window when a tab exists. Otherwise open the file once. Anywhere else (Linux, Windows, no GUI)
+# it does nothing and says so. The setting gates the write above; this only needs the file.
+if [ "$OPEN" -eq 1 ]; then report_name; fi
+if [ "$OPEN" -eq 1 ] && [ -f "$ROOT/architecture/$REPORT_FILE" ] && [ "$(progress_report_setting)" != "off" ]; then
+  if [ "$(uname -s)" = "Darwin" ]; then
+    _res="none"
+    if pgrep -x "Google Chrome" >/dev/null 2>&1; then  # portability-ok: --open is macOS-only by design (guarded by uname)
+      # Match this project's file URL exactly (file:// + absolute path, percent-encoded), never any tab that
+      # merely contains the page name: another project's report must not be reloaded in its place.
+      _url="file://$("${PY:-python3}" -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1]))' "$ROOT/architecture/$REPORT_FILE" 2>/dev/null)"  # portability-ok: PY is resolve_py output
+      _as='tell application "Google Chrome"
+repeat with w in windows
+repeat with t in tabs of w
+set u to URL of t
+if u is "'"$_url"'" or u starts with "'"$_url"'#" or u starts with "'"$_url"'?" then
+reload t
+return "reloaded"
+end if
+end repeat
+end repeat
+end tell
+return "none"'
+      _res="$(osascript -e "$_as" 2>/dev/null || echo none)"  # portability-ok: --open is macOS-only by design (guarded by uname)
+    fi
+    if [ "$_res" = "reloaded" ]; then
+      [ "$QUIET" -eq 0 ] && echo "  reloaded the open $REPORT_FILE tab"
+    else
+      open "$ROOT/architecture/$REPORT_FILE" >/dev/null 2>&1 || true  # portability-ok: --open is macOS-only by design (guarded by uname)
+      [ "$QUIET" -eq 0 ] && echo "  opened architecture/$REPORT_FILE"
+    fi
+  else
+    [ "$QUIET" -eq 0 ] && echo "  --open does nothing outside macOS; open architecture/$REPORT_FILE yourself"
   fi
 fi
 

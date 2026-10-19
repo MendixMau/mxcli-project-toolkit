@@ -11,7 +11,7 @@
   --bg:#f5f6f8; --panel:#ffffff; --ink:#1a1d21; --muted:#5d6672; --faint:#8a929c; --line:#d8dde4;
   --lane:#eef1f5; --lane-sys:#e7eefb; --lane-sch:#efe9fb; --lane-ext:#f3f4f6;
   --accent:#1f5fd6; --accent-ink:#ffffff; --edge:#7d8794;
-  --block:#c62828; --open:#b86e00; --dec:#6d3fc7; --ok:#2e7d32;
+  --block:#c62828; --open:#b86e00; --dec:#6d3fc7; --ok:#2e7d32; --ans:#2e7d32; --cons:#00796b;
   --shadow:0 1px 2px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.05);
   color-scheme:light;
 }
@@ -19,7 +19,7 @@
   --bg:#121417; --panel:#1b1e23; --ink:#e7e9ec; --muted:#a3abb5; --faint:#78818c; --line:#2f343b;
   --lane:#181b20; --lane-sys:#162033; --lane-sch:#1f1830; --lane-ext:#1c1e22;
   --accent:#6ea1ff; --accent-ink:#0b1220; --edge:#7c8693;
-  --block:#ff6b6b; --open:#f0a03c; --dec:#a989ff; --ok:#6fcf73;
+  --block:#ff6b6b; --open:#f0a03c; --dec:#a989ff; --ok:#6fcf73; --ans:#6fcf73; --cons:#4dd0c4;
   --shadow:0 1px 2px rgba(0,0,0,.4); color-scheme:dark;
 }
 *{box-sizing:border-box}
@@ -36,6 +36,7 @@ button{font:inherit;color:inherit}
 .toggle{display:inline-flex;gap:6px;align-items:center;padding:5px 10px;border:1px solid var(--line);border-radius:999px;cursor:pointer;background:var(--panel);user-select:none}
 .toggle input{accent-color:var(--block);margin:0}
 .btn{padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn[hidden]{display:none}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 main{padding:16px;max-width:1600px;margin:0 auto}
 main.wide{max-width:none}
@@ -46,12 +47,13 @@ h2{font-size:16px;margin:28px 0 10px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;color:var(--muted);font-size:12.5px;margin:6px 0 14px}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 .dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
-.dot.block{background:var(--block)} .dot.open{background:var(--open)} .dot.dec{background:var(--dec)}
+.dot.block{background:var(--block)} .dot.open{background:var(--open)} .dot.dec{background:var(--dec)} .dot.answered{background:var(--ans)} .dot.cons{background:var(--cons)}
 .stats{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 6px}
 .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:110px}
 .stat b{display:block;font-size:22px;line-height:1.1}
 .stat span{color:var(--muted);font-size:12px}
 .stat.warn b{color:var(--block)}
+.stat.done b{color:var(--ans)}
 /* index cards */
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;text-decoration:none;color:inherit;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px}
@@ -68,10 +70,12 @@ h2{font-size:16px;margin:28px 0 10px}
 .mini em{font-style:normal;font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:10px}
 .pinrow{display:inline-flex;gap:6px;align-items:center}
 .pc{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600}
-.pc.block{color:var(--block)} .pc.open{color:var(--open)} .pc.dec{color:var(--dec)}
+.pc.block{color:var(--block)} .pc.open{color:var(--open)} .pc.dec{color:var(--dec)} .pc.ans{color:var(--ans)}
 /* board */
 .boardwrap{overflow-x:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
-.board{position:relative;display:grid;padding:30px 16px 16px 0;min-width:min-content}
+.board{position:relative;display:grid;padding:30px 40px 16px 0;min-width:min-content}
+.board.long .step{width:150px;margin:8px 4px}
+.board.long .step .thumb{display:none}
 .board svg.edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:1}
 .board svg.labels{z-index:4}
 .lanelabel{position:sticky;left:0;z-index:3;display:flex;align-items:center;padding:0 12px 0 16px;font-weight:650;font-size:13px;background:var(--panel);border-right:1px solid var(--line)}
@@ -99,7 +103,7 @@ h2{font-size:16px;margin:28px 0 10px}
 .step .xlink{display:inline-block;margin-top:6px;font-size:11.5px}
 .pins{position:absolute;top:-10px;right:-8px;display:flex;gap:3px;z-index:4}
 .pin{min-width:22px;height:22px;border-radius:11px;padding:0 6px;color:#fff;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.25)}
-.pin.block{background:var(--block)} .pin.open{background:var(--open)} .pin.dec{background:var(--dec)}
+.pin.block{background:var(--block)} .pin.open{background:var(--open)} .pin.dec{background:var(--dec)} .pin.ans{background:var(--ans)}
 .edge{fill:none;stroke:var(--edge);stroke-width:1.6}
 .edge.back{stroke-dasharray:5 4}
 .elabel{font-size:11.5px;font-weight:600;fill:var(--ink)}
@@ -140,7 +144,7 @@ table.uc td{border-top:1px solid var(--line);padding:4px 6px;vertical-align:top}
 .sec{margin-top:16px}
 .sec h3{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:0 0 6px}
 .qcard{border:1px solid var(--line);border-left:4px solid var(--open);border-radius:8px;padding:10px 12px;margin-bottom:8px}
-.qcard.block{border-left-color:var(--block)} .qcard.dec{border-left-color:var(--dec)}
+.qcard.block{border-left-color:var(--block)} .qcard.dec{border-left-color:var(--dec)} .qcard.answered{border-left-color:var(--ans)} .qcard.cons{border-left-color:var(--cons)}
 .qcard .h{font-weight:650}
 .qcard dl{margin:6px 0 0;display:grid;grid-template-columns:110px 1fr;gap:4px 10px;font-size:13px}
 .qcard dt{color:var(--muted)}
@@ -151,7 +155,10 @@ table.uc td{border-top:1px solid var(--line);padding:4px 6px;vertical-align:top}
 .chip{border:1px solid var(--line);border-radius:999px;padding:1px 8px;font-size:12px;background:var(--bg)}
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:39}
 .scrim[hidden]{display:none}
-.hidepins .pin.open,.hidepins .pin.dec,.hidepins .q.nb{display:none}
+.hidepins .pin.open,.hidepins .pin.dec,.hidepins .pin.ans,.hidepins .q.nb,.hidepins .q.settled{display:none}
+.openonly .pin.ans,.openonly .q.settled{display:none}
+.q .qa{color:var(--ans);font-size:12.5px;font-weight:550}
+.q .qa.cons{color:var(--cons)}
 @media (max-width:640px){
   .step{width:180px;margin:10px 8px}
   .step .thumb{height:106px}
@@ -160,6 +167,15 @@ table.uc td{border-top:1px solid var(--line);padding:4px 6px;vertical-align:top}
   .preview iframe{transform:scale(.3)}
   .qcard dl{grid-template-columns:1fr}
 }
+/* embed mode: the maps alone, inside a host page's iframe */
+body.embed .top{display:none}
+.embedhint{margin:6px 2px 0;font-size:12px;color:var(--muted)}
+.embedhint[hidden]{display:none}
+body.embed main{padding:8px 4px 16px;max-width:none}
+body.embed section.proc{margin:0 0 22px}
+body.embed section.proc h2{margin:6px 0 4px;font-size:15px}
+body.embed section.proc .lede{margin:0 0 8px;font-size:13px}
+body.embed .step.sel{outline:3px solid var(--accent);outline-offset:1px}
 </style>
 </head>
 <body>
@@ -167,6 +183,8 @@ table.uc td{border-top:1px solid var(--line);padding:4px 6px;vertical-align:top}
   <div class="crumb"><a href="#/">Process map</a><span class="app" id="crumb"></span></div>
   <div class="ctl">
     <label class="toggle" title="Show only questions that block the build"><input type="checkbox" id="blockOnly"> Blocking only</label>
+    <label class="toggle" title="Hide questions that are answered and assumptions that are consented"><input type="checkbox" id="openOnly"> Open only</label>
+    <a class="btn" id="protolink" href="#" hidden title="All wireframes as one clickable prototype">Wireframes</a>
     <button class="btn" id="theme" type="button" title="Switch light or dark">Theme</button>
   </div>
 </header>
@@ -178,6 +196,8 @@ table.uc td{border-top:1px solid var(--line);padding:4px 6px;vertical-align:top}
 'use strict';
 var D = "__DATA__";
 var HIDE = '[class^="wf-"],[class*=" wf-"],table.bind,table.bt,.anno,.annot,.anno-wrap,.rail-note{display:none!important}';
+var EMBED = !!D.embed;
+if (EMBED) document.body.classList.add('embed');
 var view = document.getElementById('view'), drawer = document.getElementById('drawer'), scrim = document.getElementById('scrim');
 var root = document.documentElement;
 function store(k, v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k, v);}catch(e){ return null; } }
@@ -189,10 +209,15 @@ document.getElementById('theme').onclick = function(){
 };
 var blockOnly = document.getElementById('blockOnly');
 blockOnly.checked = store('pb-block') === '1';
-function applyFilter(){ document.body.classList.toggle('hidepins', blockOnly.checked); store('pb-block', blockOnly.checked?'1':'0'); }
+var openOnly = document.getElementById('openOnly');
+openOnly.checked = store('pb-open') === '1';
+function applyFilter(){ document.body.classList.toggle('hidepins', blockOnly.checked); document.body.classList.toggle('openonly', openOnly.checked);
+  store('pb-block', blockOnly.checked?'1':'0'); store('pb-open', openOnly.checked?'1':'0'); }
 blockOnly.onchange = function(){ applyFilter(); route(); };
+openOnly.onchange = function(){ applyFilter(); route(); };
 applyFilter();
 document.getElementById('crumb').textContent = D.app ? D.app : '';
+if (D.protoHref){ var pl = document.getElementById('protolink'); pl.href = D.protoHref; pl.hidden = false; }
 
 function h(tag, attrs, kids){
   var e = document.createElement(tag);
@@ -219,13 +244,29 @@ function itemsForStep(s){
   (pinsOf[s.id]||[]).concat(s.page ? (pageItems[s.page]||[]) : []).forEach(function(it){ if(!seen[it.id]){ seen[it.id]=1; out.push(it);} });
   return out;
 }
-function cls(it){ return it.kind==='decision' ? 'dec' : (it.blocking ? 'block' : 'open'); }
-function counts(list){ var c={block:0,open:0,dec:0}; list.forEach(function(it){ c[cls(it)]++; }); return c; }
+// state comes from the builder: answered | consented | assumed | open. Settled items are never red or amber.
+function cls(it){
+  if (it.state==='answered') return 'answered';
+  if (it.state==='consented') return 'cons';
+  if (it.state==='assumed' || it.kind==='decision') return 'dec';
+  return it.blocking ? 'block' : 'open';
+}
+function settled(it){ return it.state==='answered' || it.state==='consented'; }
+function stateLabel(it){
+  if (it.state==='answered') return it.kind==='decision' ? 'Decided (confirmed)' : 'Answered';
+  if (it.state==='consented') return 'Assumed, consented';
+  if (it.state==='assumed') return 'Assumed, waiting for confirmation';
+  return it.blocking ? 'Open, blocks the build' : 'Open';
+}
+function byAt(by, at){ return [by, at].filter(Boolean).join(', '); }
+function counts(list){ var c={block:0,open:0,dec:0,ans:0}; list.forEach(function(it){ var k=cls(it); c[(k==='answered'||k==='cons')?'ans':k]++; }); return c; }
+var ORD = {block:0,open:1,dec:2,cons:3,answered:4};
 function pinBadges(list){
   var c = counts(list), box = h('div',{class:'pins'});
   if (c.block) box.appendChild(h('span',{class:'pin block',title:c.block+' blocking question(s)',text:String(c.block)}));
   if (c.open) box.appendChild(h('span',{class:'pin open',title:c.open+' open question(s)',text:String(c.open)}));
-  if (c.dec) box.appendChild(h('span',{class:'pin dec',title:c.dec+' assumption(s)',text:String(c.dec)}));
+  if (c.dec) box.appendChild(h('span',{class:'pin dec',title:c.dec+' assumption(s) waiting for confirmation',text:String(c.dec)}));
+  if (c.ans) box.appendChild(h('span',{class:'pin ans',title:c.ans+' answered or decided',text:String(c.ans)}));
   return box;
 }
 function srcdoc(page){
@@ -246,6 +287,8 @@ function legend(){
     h('span',null,[h('i',{class:'dot block'}),'Open question that blocks the build']),
     h('span',null,[h('i',{class:'dot open'}),'Open question']),
     h('span',null,[h('i',{class:'dot dec'}),'Assumption we made (please confirm)']),
+    h('span',null,[h('i',{class:'dot cons'}),'Assumed, and the owner agreed']),
+    h('span',null,[h('i',{class:'dot answered'}),'Answered or decided']),
     h('span',null,['Dashed card: the system does this, no screen']),
     h('span',null,['◇ a decision'])
   ]);
@@ -258,9 +301,13 @@ function whereLabel(it){
   }).join(', ') || 'not placed yet';
 }
 function qrow(it){
-  var b = h('button',{class:'q'+(it.kind==='decision'||!it.blocking?' nb':''),type:'button',onclick:function(){ openItem(it); }},[
+  var sub = it.kind==='decision' ? (it.text!==it.title ? it.text : (it.state==='answered' ? 'Decided in the project register' : 'Assumption')) : (it.text.length>it.title.length+4 ? it.text : '');
+  var extra = [];
+  if (it.state==='answered' && it.answer) extra.push(h('div',{class:'qa'},['Answer: '+it.answer]));
+  else if (it.state==='consented') extra.push(h('div',{class:'qa cons'},['Assumed, consented'+(it.consentBy?' by '+byAt(it.consentBy,it.consentAt):'')+(it.assumption&&it.kind==='question'?': '+it.assumption:'')]));
+  var b = h('button',{class:'q'+(it.kind==='decision'||!it.blocking?' nb':'')+(settled(it)?' settled':''),type:'button',title:it.text,onclick:function(){ openItem(it); }},[
     h('i',{class:'dot '+cls(it)}),
-    h('div',null,[h('div',{class:'qt'},[it.title, h('span',{class:'tag',text:it.id})]), h('div',{class:'qs',text: it.kind==='decision' ? 'Assumption' : (it.text.length>it.title.length+4 ? it.text : '')})]),
+    h('div',null,[h('div',{class:'qt'},[it.title, h('span',{class:'tag',text:it.id}), h('span',{class:'tag',text:stateLabel(it)})]), h('div',{class:'qs',text: sub})].concat(extra)),
     h('div',{class:'where',text:whereLabel(it)})
   ]);
   return b;
@@ -272,16 +319,18 @@ function howto(big, small){
 }
 function renderIndex(){
   view.innerHTML = '';
-  var nQ = D.items.filter(function(i){return i.kind==='question';}).length, nD = D.items.length - nQ;
-  var nB = D.items.filter(function(i){return i.blocking;}).length;
+  var nQ = D.items.filter(function(i){return i.kind==='question' && i.state==='open';}).length;
+  var nD = D.items.filter(function(i){return i.state==='assumed';}).length;
+  var nA = D.items.filter(settled).length;
+  var nB = D.items.filter(function(i){return i.blocking && i.state==='open';}).length;
   var nSteps = 0; D.processes.forEach(function(p){ nSteps += p.steps.length; });
   view.appendChild(h('h1',{text:(D.app?D.app+': ':'')+'how the work flows'}));
   view.appendChild(h('p',{class:'lede',text:'Each map below is one business process. Rows are the people (and the system) doing the work, cards are the steps in order, and each card shows the screen where the step happens. Coloured pins mark the open questions and our assumptions, stuck to the step they change. Click a map to open it, click a step to see its screen and its questions.'}));
   view.appendChild(howto('Click a process card to open its map','Each map shows the steps, the screen for each step and the questions pinned to it.'));
   view.appendChild(legend());
   var st = h('div',{class:'stats'});
-  [[D.processes.length,'processes'],[nSteps,'steps'],[Object.keys(D.wireframes).length,'screens shown'],[nQ,'open questions'],[nB,'block the build'],[nD,'assumptions to confirm']].forEach(function(x,i){
-    st.appendChild(h('div',{class:'stat'+(i===4&&x[0]?' warn':'')},[h('b',{text:String(x[0])}),h('span',{text:x[1]})]));
+  [[D.processes.length,'processes'],[nSteps,'steps'],[Object.keys(D.wireframes).length,'screens shown'],[nQ,'open questions'],[nB,'block the build'],[nD,'assumptions to confirm'],[nA,'answered or decided']].forEach(function(x,i){
+    st.appendChild(h('div',{class:'stat'+(i===4&&x[0]?' warn':'')+(i===6?' done':'')},[h('b',{text:String(x[0])}),h('span',{text:x[1]})]));
   });
   if (D.stats.unanchored) st.appendChild(h('div',{class:'stat warn'},[h('b',{text:String(D.stats.unanchored)}),h('span',{text:'not placed yet'})]));
   view.appendChild(st);
@@ -299,7 +348,7 @@ function renderIndex(){
       mini.appendChild(h('em',{text:laneById[lid].label}));
       for (var ci=0; ci<cols; ci++){
         var s = p.steps.filter(function(x){ return x.lane===lid && x.col===ci; })[0];
-        var hot = s && itemsForStep(s).some(function(it){ return it.blocking; });
+        var hot = s && itemsForStep(s).some(function(it){ return it.blocking && it.state==='open'; });
         mini.appendChild(h('i',{class: s ? 'on'+(s.kind==='system'||s.kind==='end'?' sys':'')+(s.kind==='decision'?' dec':'')+(hot?' hot':'') : ''}));
       }
     });
@@ -307,6 +356,7 @@ function renderIndex(){
     if (c.block) pins.appendChild(h('span',{class:'pc block'},[h('i',{class:'dot block'}),String(c.block)]));
     if (c.open && !blockOnly.checked) pins.appendChild(h('span',{class:'pc open'},[h('i',{class:'dot open'}),String(c.open)]));
     if (c.dec && !blockOnly.checked) pins.appendChild(h('span',{class:'pc dec'},[h('i',{class:'dot dec'}),String(c.dec)]));
+    if (c.ans && !blockOnly.checked && !openOnly.checked) pins.appendChild(h('span',{class:'pc ans'},[h('i',{class:'dot answered'}),String(c.ans)]));
     cards.appendChild(h('a',{class:'card',href:'#/'+encodeURIComponent(p.id)},[
       h('h3',{text:p.title}), p.summary ? h('p',{text:p.summary}) : null, mini,
       h('div',{class:'meta'},[h('span',{text:p.steps.length+' steps'}), h('span',{text:laneIds.map(function(l){return laneById[l].label;}).join(', ')}), pins]),
@@ -320,15 +370,17 @@ function renderIndex(){
   });
   if (offStep.length){
     view.appendChild(h('h2',{text:'Questions and assumptions not tied to one step ('+offStep.length+')'}));
-    view.appendChild(h('p',{class:'lede',text:'These apply to the whole app or to one kind of data, not to a single moment in a process. They are grouped by topic.'}));
+    view.appendChild(h('p',{class:'lede',text:'These apply to the whole app or to one kind of data, not to a single moment in a process. They are grouped by topic. Answered and decided items stay listed here; tick "Open only" to hide them.'}));
     var groups = {};
     offStep.forEach(function(it){
-      var g = it.targets.length ? (it.targets[0].type==='global' ? it.targets[0].bucket : 'Screen '+shortPage(it.targets[0].page)) : 'Not placed yet';
+      var g = it.targets.length ? (it.targets[0].type==='global' ? it.targets[0].bucket : 'Screen '+shortPage(it.targets[0].page)) : (it.kind==='decision' && it.state==='answered' ? 'Decided in the project register' : 'Not placed yet');
       (groups[g]=groups[g]||[]).push(it);
     });
     Object.keys(groups).sort().forEach(function(g){
-      view.appendChild(h('h3',{style:'font-size:13.5px;margin:14px 0 6px',text:g}));
-      var l = h('div',{class:'qlist'}); groups[g].forEach(function(it){ l.appendChild(qrow(it)); }); view.appendChild(l);
+      var l = h('div',{class:'qlist'}); groups[g].forEach(function(it){ l.appendChild(qrow(it)); });
+      var d = h('details',{class:'more'},[h('summary',{text:g+' ('+groups[g].length+')'}), l]);
+      if (groups[g].some(function(it){ return it.blocking && it.state==='open'; }) || Object.keys(groups).length===1) d.open = true;
+      view.appendChild(d);
     });
   }
   if (D.standalone.length){
@@ -339,18 +391,25 @@ function renderIndex(){
 }
 
 // ---------- one process ----------
-function renderProcess(p){
-  view.innerHTML = '';
-  view.appendChild(h('p',{style:'margin:0'},[h('a',{href:'#/',text:'← All processes'})]));
-  view.appendChild(h('h1',{text:p.title}));
-  if (p.summary) view.appendChild(h('p',{class:'lede',text:p.summary}));
-  view.appendChild(howto('Click any step card to see its screen large and the questions about it','Coloured pins count the questions on that step. Scroll sideways to follow the process.'));
-  view.appendChild(legend());
+var HINT_BASE = 'Coloured pins count the questions on that step.';
+function renderProcess(p, host){
+  var emb = !!host; host = host || view;
+  var hintEl = null, embHint = null;
+  if (!emb){
+    view.innerHTML = '';
+    view.appendChild(h('p',{style:'margin:0'},[h('a',{href:'#/',text:'← All processes'})]));
+    view.appendChild(h('h1',{text:p.title}));
+    if (p.summary) view.appendChild(h('p',{class:'lede',text:p.summary}));
+    var hw = howto('Click any step card to see its screen large and the questions about it', HINT_BASE);
+    hintEl = hw.querySelector('small');
+    view.appendChild(hw);
+    view.appendChild(legend());
+  }
   var laneIds = []; p.steps.forEach(function(s){ if (laneIds.indexOf(s.lane)<0) laneIds.push(s.lane); });
   laneIds.sort(function(a,b){ return laneById[a].i-laneById[b].i; });
   var cols = 0; p.steps.forEach(function(s){ cols = Math.max(cols, s.col+1); });
   var wrap = h('div',{class:'boardwrap'});
-  var board = h('div',{class:'board',style:'grid-template-columns:150px repeat('+cols+',auto);grid-template-rows:repeat('+laneIds.length+',auto)'});
+  var board = h('div',{class:'board'+(p.steps.length>12?' long':''),style:'grid-template-columns:150px repeat('+cols+',auto);grid-template-rows:repeat('+laneIds.length+',auto)'});
   var svgNS = 'http://www.w3.org/2000/svg';
   var svg = document.createElementNS(svgNS,'svg'); svg.setAttribute('class','edges');
   board.appendChild(svg);
@@ -366,7 +425,8 @@ function renderProcess(p){
     var r = laneIds.indexOf(s.lane)+1;
     var items = itemsForStep(s);
     var kids = [pinBadges(items)];
-    if (s.kind==='task'){
+    // an embedded pass-1 map has no screens at all: a grey "no wireframe" box per step is only noise there
+    if (s.kind==='task' && !(EMBED && !Object.keys(D.wireframes).length)){
       kids.push(h('div',{class:'thumb'},[ s.page && D.wireframes[s.page] ? frame(s.page) : h('div',{class:'nowf',text: (s.page ? 'No wireframe yet' : 'No screen yet') + (typeof s.pageMissing==='string' ? ': '+s.pageMissing : '')}) ]));
     }
     var body = h('div',{class:'body'},[
@@ -379,12 +439,30 @@ function renderProcess(p){
     ]);
     s.next.forEach(function(n){ if (procOf[n.to] && procOf[n.to]!==p) body.appendChild(h('a',{class:'xlink',href:'#/'+encodeURIComponent(procOf[n.to].id),onclick:function(e){e.stopPropagation();},text:'continues in: '+procOf[n.to].title+' →'})); });
     kids.push(body);
-    var card = h('button',{type:'button',class:'step k-'+s.kind,style:'grid-row:'+r+';grid-column:'+(s.col+2),'data-step':s.id,onclick:function(){ openStep(s); }}, kids);
+    var card = h('button',{type:'button',class:'step k-'+s.kind,style:'grid-row:'+r+';grid-column:'+(s.col+2),'data-step':s.id,onclick:function(){ if (EMBED) pickStep(s); else openStep(s); }}, kids);
     el[s.id] = card; board.appendChild(card);
   });
-  wrap.appendChild(board); view.appendChild(wrap);
-  if (store('pb-clicked')!=='1'){ var first = board.querySelector('.step'); if (first) first.classList.add('pulse'); }
+  wrap.appendChild(board); host.appendChild(wrap);
+  if (emb){ embHint = h('p',{class:'embedhint',text:'The map is wider than this page: scroll sideways inside it to follow the process.'}); embHint.hidden = true; host.appendChild(embHint); }
+  if (!EMBED && store('pb-clicked')!=='1'){ var first = board.querySelector('.step'); if (first) first.classList.add('pulse'); }
+  // A long process, or any map in the embedded report, is scaled to fit its box (not below 50%);
+  // past that it scrolls inside the box only. The hint says which of the three cases the reader is in.
+  function fit(){
+    var scalable = board.classList.contains('long') || EMBED;
+    board.style.zoom = 1;
+    var z = 1, over = false;
+    if (scalable){
+      z = Math.max(0.5, Math.min(1, (wrap.clientWidth - 4) / board.scrollWidth));
+      board.style.zoom = z;
+      over = board.scrollWidth * z > wrap.clientWidth + 2;
+    } else over = board.scrollWidth > wrap.clientWidth + 2;
+    var many = p.steps.length > 12;
+    if (hintEl) hintEl.textContent = HINT_BASE + (z < 1 ? ' The map is scaled to fit the page.' : '') +
+      (many ? ' More than 12 steps is hard to read: split it in two.' : '') + (over ? ' Scroll sideways to follow the process.' : '');
+    if (embHint) embHint.hidden = !over;
+  }
   function draw(){
+    fit();
     while (svg.firstChild) svg.removeChild(svg.firstChild);
     var defs = document.createElementNS(svgNS,'defs');
     defs.innerHTML = '<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--edge)"/></marker>';
@@ -428,12 +506,13 @@ function renderProcess(p){
       });
     });
   }
-  requestAnimationFrame(draw);
-  if (window.ResizeObserver) new ResizeObserver(function(){ draw(); }).observe(board);
+  requestAnimationFrame(draw); REDRAW.push(draw);
+  if (window.ResizeObserver){ var ro = new ResizeObserver(function(){ draw(); }); ro.observe(board); ro.observe(wrap); }
+  if (emb) return;
   // the list under the map: every question on this process, in step order
   var seen = {}, list = [];
   p.steps.forEach(function(s){ itemsForStep(s).forEach(function(it){ if(!seen[it.id]){ seen[it.id]=1; list.push(it);} }); });
-  list.sort(function(a,b){ var o={block:0,open:1,dec:2}; return o[cls(a)]-o[cls(b)]; });
+  list.sort(function(a,b){ return ORD[cls(a)]-ORD[cls(b)]; });
   view.appendChild(h('h2',{text:'Questions and assumptions on this process ('+list.length+')'}));
   var ql = h('div',{class:'qlist'}); list.forEach(function(it){ ql.appendChild(qrow(it)); }); view.appendChild(ql);
 }
@@ -454,6 +533,12 @@ function qcard(it, withWhere){
     dl.appendChild(h('dt',{text:'Question'})); dl.appendChild(h('dd',{text:it.text}));
     if (it.assumption){ dl.appendChild(h('dt',{text:'We assume'})); dl.appendChild(h('dd',{text:it.assumption})); }
   } else { dl.appendChild(h('dt',{text:'Assumption'})); dl.appendChild(h('dd',{text:it.text})); }
+  if (it.options && it.options.length && !settled(it)){ dl.appendChild(h('dt',{text:'Options'})); dl.appendChild(h('dd',null,it.options.map(function(o){ return h('div',{text:o}); }))); }
+  if (it.recommendation && !settled(it)){ dl.appendChild(h('dt',{text:'We recommend'})); dl.appendChild(h('dd',{text:it.recommendation})); }
+  if (it.answer){ dl.appendChild(h('dt',{text:'Answer'})); dl.appendChild(h('dd',{text:it.answer})); }
+  dl.appendChild(h('dt',{text:'Status'})); dl.appendChild(h('dd',{text:stateLabel(it)+(it.kind==='decision'&&it.status?' ('+it.status+')':'')}));
+  if (it.answeredBy || it.answeredAt){ dl.appendChild(h('dt',{text:'Answered by'})); dl.appendChild(h('dd',{text:byAt(it.answeredBy,it.answeredAt)})); }
+  if (it.consentBy || it.consentAt){ dl.appendChild(h('dt',{text:'Consent by'})); dl.appendChild(h('dd',{text:byAt(it.consentBy,it.consentAt)})); }
   if (it.risk){ dl.appendChild(h('dt',{text:'If wrong'})); dl.appendChild(h('dd',{text:it.risk})); }
   if (it.askWho){ dl.appendChild(h('dt',{text:'Ask'})); dl.appendChild(h('dd',{text:it.askWho})); }
   if (withWhere){ dl.appendChild(h('dt',{text:'Where'})); var dd=h('dd');
@@ -461,8 +546,8 @@ function qcard(it, withWhere){
       if (t.type==='step') dd.appendChild(h('a',{href:'#/'+encodeURIComponent(procOf[t.step].id),onclick:function(){ setTimeout(function(){ openStep(stepById[t.step]); },60); },text:procOf[t.step].title+', step '+stepById[t.step].n+' ('+stepById[t.step].title+')'}));
       else dd.appendChild(document.createTextNode(t.type==='page' ? 'screen '+shortPage(t.page) : 'general: '+t.bucket)); });
     if (!it.targets.length) dd.textContent = 'not placed yet'; dl.appendChild(dd); }
-  return h('div',{class:'qcard '+cls(it)+(it.kind==='decision'||!it.blocking?' nbq':'')},[
-    h('div',{class:'h'},[ (it.blocking?'Blocks the build: ':'') + it.title, h('span',{class:'tag',text:it.id})]), dl,
+  return h('div',{class:'qcard '+cls(it)+(it.kind==='decision'||!it.blocking?' nbq':'')+(settled(it)?' settled':''),title:it.text},[
+    h('div',{class:'h'},[ (it.blocking&&it.state==='open'?'Blocks the build: ':'') + it.title, h('span',{class:'tag',text:it.id})]), dl,
     h('div',{class:'src',text:(it.anchoredBy==='judged'?'Placed by review':'Placed from the requirements')+(it.basis?' ('+it.basis+')':'')})
   ]);
 }
@@ -498,8 +583,8 @@ function openStep(s){
   }
   var items = itemsForStep(s);
   var qs = h('div',{class:'sec'},[h('h3',{text:items.length ? 'Questions and assumptions here ('+items.length+')' : 'No open questions on this step'})]);
-  items.sort(function(a,c2){ var o={block:0,open:1,dec:2}; return o[cls(a)]-o[cls(c2)]; }).forEach(function(it){
-    var card = qcard(it, false); if (blockOnly.checked && !it.blocking) card.style.display='none'; qs.appendChild(card); });
+  items.sort(function(a,c2){ return ORD[cls(a)]-ORD[cls(c2)]; }).forEach(function(it){
+    var card = qcard(it, false); if ((blockOnly.checked && (!it.blocking || settled(it))) || (openOnly.checked && settled(it))) card.style.display='none'; qs.appendChild(card); });
   b.appendChild(qs);
   var tech = h('details',{class:'more'},[h('summary',{text:'Technical details (for the build team)'})]);
   var t = h('table',{class:'uc'});
@@ -516,6 +601,40 @@ function openItem(it){
   b.appendChild(qcard(it, true));
 }
 
+// ---------- embed (host page iframe) ----------
+// The host page (bin/brd-report.sh) lists requirements and questions under the map. A click on a
+// step tells it which step; the host answers with a select so the card stays highlighted.
+function markStep(id){
+  Array.prototype.forEach.call(document.querySelectorAll('.step.sel'), function(e){ e.classList.remove('sel'); });
+  if (id){ var c = document.querySelector('.step[data-step="'+id+'"]'); if (c) c.classList.add('sel'); }
+}
+function pickStep(s){ markStep(s.id); try{ parent.postMessage({pm:'step', step:s.id, proc:procOf[s.id].id}, '*'); }catch(e){} }
+function sendHeight(){
+  try{
+    // the bottom of the last block, not of #view itself: #view can report a collapsed box in a short frame
+    var last = view.lastElementChild, b = (last ? last.getBoundingClientRect().bottom : view.getBoundingClientRect().bottom) + (window.pageYOffset||0);
+    if (!window.innerWidth || b < 40) return;   // not laid out yet: a zero here would collapse the frame
+    parent.postMessage({pm:'height', h:Math.ceil(b) + 16}, '*');
+  }catch(e){}
+}
+var REDRAW = [];
+function draws(){ REDRAW.forEach(function(f){ try{ f(); }catch(e){} }); }
+function renderEmbed(){
+  view.className = 'wide'; view.innerHTML = '';
+  view.appendChild(legend());
+  D.processes.forEach(function(p){
+    var sec = h('section',{class:'proc','data-proc':p.id},[h('h2',{text:p.title}), p.summary ? h('p',{class:'lede',text:p.summary}) : null]);
+    view.appendChild(sec); renderProcess(p, sec);
+  });
+  window.addEventListener('message', function(e){ var d = e.data||{}; if (d.pm==='select') markStep(d.step); });
+  if (window.ResizeObserver) new ResizeObserver(sendHeight).observe(view);
+  // The frame may not have its width yet when this first runs, so report again once it has settled.
+  sendHeight(); window.addEventListener('load', sendHeight); window.addEventListener('resize', function(){ draws(); sendHeight(); });
+  [60, 250, 700, 1500].forEach(function(ms){ setTimeout(function(){ draws(); sendHeight(); }, ms); });
+  requestAnimationFrame(function(){ requestAnimationFrame(sendHeight); });
+  try{ parent.postMessage({pm:'ready'}, '*'); }catch(e){}
+}
+
 // ---------- routing ----------
 function route(){
   var id = decodeURIComponent((location.hash||'').replace(/^#\/?/, ''));
@@ -526,8 +645,8 @@ function route(){
   else { renderIndex(); document.title = (D.app?D.app+' ':'')+'process map'; }
   window.scrollTo(0,0);
 }
-window.addEventListener('hashchange', route);
-route();
+if (EMBED) renderEmbed();
+else { window.addEventListener('hashchange', route); route(); }
 })();
 </script>
 </body>

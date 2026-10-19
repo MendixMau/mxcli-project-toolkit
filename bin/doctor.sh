@@ -57,7 +57,7 @@
 #
 # --install never downloads silently: it prints the plan first — what, from where, how big,
 # why, and the detected OS/arch — then asks [y/N] at a terminal, or requires --yes when there
-# is no terminal to ask on. $MXCLI_VERSION=vX.Y.Z pins the mxcli release; default is latest.
+# is no terminal to ask on (agents and CI: always pass --yes). $MXCLI_VERSION=vX.Y.Z pins the mxcli release; default is latest.
 #
 # --install is the one deliberate exception to the no-dependency rule: it needs network access
 # (and curl or wget), runs only when asked, and a failed or declined download degrades to the
@@ -533,6 +533,45 @@ fi
 
 fi
 
+# --- installed Claude hooks: copies that call a toolkit script which is gone ------------------
+#
+# install-claude-hooks.sh writes COPIES into ~/.claude/hooks with the toolkit path filled in.
+# When a toolkit update removes a script (bin/questions-report.sh was retired in v1.0), an old
+# copy keeps calling it: the hook still runs but silently loses its output. A warning only,
+# never a failure: the hooks are user-global and optional.
+if [ -d "$HOME/.claude/hooks" ]; then
+  head_ "Installed Claude hooks (~/.claude/hooks)"
+  STALE_HOOKS=0
+  HOOKS_SEEN=0
+  for hf in "$HOME"/.claude/hooks/*.sh; do
+    [ -f "$hf" ] || continue
+    HOOKS_SEEN=$((HOOKS_SEEN + 1))
+    # The toolkit root the installer wrote, e.g. TOOLKIT="/path/to/toolkit".
+    HOOK_ROOT="$(sed -n 's/^[A-Z_]*TOOLKIT[A-Z_]*="\(\/[^"]*\)".*/\1/p' "$hf" | head -1)"
+    HOOK_REFS=""
+    if [ -n "$HOOK_ROOT" ]; then
+      HOOK_REFS="$(grep -oE '[$][{]?[A-Z_]*TOOLKIT[A-Z_]*[}]?/[A-Za-z0-9_./-]+[.](sh|py|js|tsv)' "$hf" 2>/dev/null \
+        | sed -e 's/^[$][{]*[A-Z_]*[}]*//' -e "s|^|$HOOK_ROOT|" | sort -u)"
+    fi
+    HOOK_GONE=""
+    while IFS= read -r ref; do
+      [ -n "$ref" ] || continue
+      [ -e "$ref" ] || HOOK_GONE="$HOOK_GONE ${ref##*/}"
+    done <<EOF_REFS
+$HOOK_REFS
+EOF_REFS
+    if [ -n "$HOOK_GONE" ]; then
+      STALE_HOOKS=$((STALE_HOOKS + 1))
+      warn "installed hook $(basename "$hf") calls a toolkit script that no longer exists:$HOOK_GONE"
+    fi
+  done
+  if [ "$STALE_HOOKS" -gt 0 ]; then
+    note "The installed copy is older than this toolkit. Re-run: $TOOLKIT_ROOT/bin/install-claude-hooks.sh --full"
+  elif [ "$HOOKS_SEEN" -gt 0 ]; then
+    ok "installed hooks only call toolkit scripts that exist"
+  fi
+fi
+
 # --- command line tools ---------------------------------------------------------------------
 
 head_ "Command line tools"
@@ -683,17 +722,30 @@ if [ "$INSTALL" -eq 1 ]; then
     # `-c` input changed shape (navigation, DynamicClasses, `show entity` refused). The
     # toolkit's instruments read both shapes, so a project mid-build may stay on its version
     # (MXCLI_VERSION=v0.24.0) and move when it chooses.
+    # Git Bash on Windows ARM64 runs emulated, so `uname -m` says x86_64 there. On Windows the
+    # real hardware shows in the `uname -s` suffix (...-ARM64) and in PROCESSOR_ARCHITEW6432
+    # (set for emulated processes) / PROCESSOR_ARCHITECTURE; those win over `uname -m`.
     MXCLI_ARCH="$(uname -m 2>/dev/null || echo unknown)"
     case "$MXCLI_ARCH" in
       x86_64|amd64) MXCLI_ARCH=amd64 ;;
       arm64|aarch64) MXCLI_ARCH=arm64 ;;
     esac
+    if [ "$PLATFORM" = gitbash ]; then
+      case "$UNAME:${PROCESSOR_ARCHITEW6432:-}:${PROCESSOR_ARCHITECTURE:-}" in
+        *-ARM64:*|*:ARM64:*|*:*:ARM64) MXCLI_ARCH=arm64 ;;
+      esac
+    fi
+    MXCLI_FALLBACK_ASSET=""
     case "$PLATFORM-$MXCLI_ARCH" in
       macos-amd64)   MXCLI_ASSET="mxcli-darwin-amd64";      MXCLI_DEST="mxcli" ;;
       macos-arm64)   MXCLI_ASSET="mxcli-darwin-arm64";      MXCLI_DEST="mxcli" ;;
       linux-amd64|wsl-amd64) MXCLI_ASSET="mxcli-linux-amd64"; MXCLI_DEST="mxcli" ;;
       linux-arm64|wsl-arm64) MXCLI_ASSET="mxcli-linux-arm64"; MXCLI_DEST="mxcli" ;;
       gitbash-amd64) MXCLI_ASSET="mxcli-windows-amd64.exe"; MXCLI_DEST="mxcli.exe" ;;
+      # Windows ARM64: native build; releases before it existed fall back to the amd64 .exe,
+      # which Windows on ARM runs under emulation.
+      gitbash-arm64) MXCLI_ASSET="mxcli-windows-arm64.exe"; MXCLI_DEST="mxcli.exe"
+                     MXCLI_FALLBACK_ASSET="mxcli-windows-amd64.exe" ;;
       *)             MXCLI_ASSET=""; MXCLI_DEST="" ;;
     esac
     if [ -n "${MXCLI_VERSION:-}" ]; then
@@ -765,7 +817,12 @@ if [ "$INSTALL" -eq 1 ]; then
         MXCLI_READY=1
         if [ "$NEED_MXCLI" -eq 1 ]; then
           note "fetching $MXCLI_ASSET from the mxcli releases..."
-          if $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && chmod +x "$PROJECT_DIR/$MXCLI_DEST" \
+          if ! $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" && [ -n "$MXCLI_FALLBACK_ASSET" ]; then
+            warn "$MXCLI_ASSET is not published for this mxcli version; trying $MXCLI_FALLBACK_ASSET (runs emulated)."
+            MXCLI_URL="${MXCLI_URL%/*}/$MXCLI_FALLBACK_ASSET"
+            $MXCLI_FETCH "$PROJECT_DIR/$MXCLI_DEST" "$MXCLI_URL" || true
+          fi
+          if [ -s "$PROJECT_DIR/$MXCLI_DEST" ] && chmod +x "$PROJECT_DIR/$MXCLI_DEST" \
              && probe_runs "$PROJECT_DIR/$MXCLI_DEST"; then
             ok "mxcli fetched into the project root: $(probe_line)"
             PMXCLI="$PROJECT_DIR/$MXCLI_DEST"
@@ -1465,6 +1522,17 @@ if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ]; then
     printf '\n# Machine-local tool locations (bin/doctor.sh / project-bin/_common.sh)\n/.claude/toolkit.env\n' \
       >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
     note "(added /.claude/toolkit.env to the project's .gitignore — it holds this machine's paths)"
+  fi
+  # The progress report's session cache holds absolute session-log paths (user name, session ids).
+  # -e, not -d: in a git worktree .git is a file. --no-index: a tracked file is never "ignored" otherwise,
+  # and the line would be appended again on every run.
+  if [ -e "$PROJECT_DIR/.git" ] && ! git -C "$PROJECT_DIR" check-ignore -q --no-index .claude/progress-report-sessions.txt 2>/dev/null; then
+    printf '\n# Machine-local progress report session cache (absolute session-log paths)\n/.claude/progress-report-sessions.txt\n' \
+      >> "$PROJECT_DIR/.gitignore" 2>/dev/null || true
+    note "(added /.claude/progress-report-sessions.txt to the project's .gitignore — the cache is machine-local)"
+  fi
+  if [ -e "$PROJECT_DIR/.git" ] && git -C "$PROJECT_DIR" ls-files --error-unmatch .claude/progress-report-sessions.txt >/dev/null 2>&1; then
+    note "(.claude/progress-report-sessions.txt is already tracked by git; untrack it with: git rm --cached .claude/progress-report-sessions.txt)"
   fi
 fi
 

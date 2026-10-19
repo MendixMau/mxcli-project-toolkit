@@ -25,6 +25,11 @@ Do it when any of these hold:
 
 Skip it for a one-screen app or a project whose questions are all closed. Record the skip as one line in `PROJECT.md`.
 
+## Where the map shows up
+
+- **Stage 2.** `bin/brd-report.sh` draws the pass-1 map at the top of `analysis/brd-report.html` (it calls `process-map.js build --embed`, the same renderer, so nothing is copied). Under it the report lists every requirement (use case) and every open question or assumption with the steps it is about. A click on a step filters that list to its rows; a row on no step stays under "whole app". This page replaced `docs/open-questions.html`. The report needs no extra step: re-run it after `anchor`.
+- **Stage 3.** `design/process-map.html` (the full map, with screens) sits beside the wireframes. `assemble-prototype.js` adds a "Process map" link to `design/prototype.html` whenever `design/process-model.json` exists, and the map's header has a "Wireframes" button back to the prototype. The progress report links to both.
+
 ## Inputs and outputs
 
 | File | Who writes it | Notes |
@@ -75,18 +80,21 @@ Rules the validator enforces:
 
 - **Lanes**: `kind` is `role`, `system`, `scheduled` or `external`. One lane per role from the Stage-3 role model, one for the app, one per scheduled job or outside system that acts on its own.
 - **Steps**: `kind` is `task` (a person on a screen; needs `page` once wireframes exist), `system` (the app does it, no screen), `decision` (needs two or more `next` outcomes, each with a `label`) or `end`. Default: `task` when `page` is set or the lane is a `role` lane, else `system`.
-- **page** resolves against the wireframes by `data-mx-page` (`Module.Page`), else the short name or the filename. A page with no wireframe is an error; set `"wireframeMissing": "<reason>"` when that is a recorded decision, and it becomes a warning.
+- **page** resolves against the wireframes by `data-mx-page` (`Module.Page`), then `design/wireframes/PAGE-MAP.tsv` (short name, tab, file; for wireframes without `data-mx-page`), then the filename stem. The error names what was tried. A page with no wireframe is an error; set `"wireframeMissing": "<reason>"` when that is a recorded decision, and it becomes a warning.
 - **useCases** are `"<BRD id>:<use case id>"`. The part before the colon is the BRD's `id` field. When the use case ids carry their own prefix, it is `"F004:UC-F004-01"`. An unknown one is an error.
 - **next** may point into another process (the card shows "continues in"). A step that loops back draws a dashed edge over the top.
 - **col** is the column. It counts up by itself; set it only to line steps up (two lanes in the same column) or to leave a gap. Two steps in one lane and column is an error.
 - **actions**, **status**, **does** and **events** are what the reviewer reads as "what happens". Use microflow names in `actions`: they are also the strongest anchoring signal.
 - **questions** (optional): a consolidated questions file (look under the analysis questions folder; omit the key when the project keeps none), an array or `{ "questions": [...] }` with `cid`, `title`, `question`, `blocking`, `assumption`, `risk`, `askWho`, `sources: [{ "brd", "id" }]`. Without it, each BRD open question is its own item.
 - **register** (optional, default `PROJECT.md`): any table with a Decision and a Status column. Rows whose status says ASSUMED become decision items. Expect many of them to be build plan and environment decisions; most end in a global bucket.
-- **ignorePages** (optional): a list of wireframe pages (`Module.Page`, short name or filename) that are layout sketches, not screens. They need no step and do not trigger the "wireframe on no step" warning. A name that matches no wireframe warns.
+- **What each state looks like.** A BRD question shows as answered (green, with the answer on the row and the card), as assumed and consented (teal, with who agreed), as assumed and waiting for confirmation (purple), or as open (amber, red when it blocks the build). A consolidated question takes its state from the BRD questions it lists: answered only when every one is answered. The header counts only what is still open; answered and decided items get their own tile, and the "Open only" filter hides them.
+- **CONFIRMED register rows are shown as decided, on purpose.** They appear green in the "Decided in the project register" group at the bottom, so a reviewer sees what is settled. They are never pinned to a step and never need an anchor, so they add nothing to the unanchored count.
+- **ignorePages** (optional): a list of wireframe pages (`Module.Page`, short name or filename) that are layout sketches, not screens. They need no step and do not trigger the "wireframe on no step" warning. A name that matches no wireframe warns. On an existing app the wireframe index and the navigation pages usually belong here.
+- **brdDirs** (optional): the folders that hold the `*.brd.json` files. Default search: `analysis/knowledge-base/brd`, `analysis/*/knowledge-base/brd`, `knowledge-base/brd`. A use case not found lists the folders searched; set `brdDirs` when yours is elsewhere.
 
 Write titles as plain verbs a business owner says: "Approve or reject?", not "ACT_Approve". Microflow names go in `actions`, behind the technical details click.
 
-Run `process-map.js validate` until it reports 0 errors. Read every warning; a wireframe on no step usually means a missing step.
+Run `process-map.js validate` until it reports 0 errors. When most errors share one cause (BRD path or page names) it prints one `CAUSE` line with the fix first; apply that, then re-run. Read every warning; a wireframe on no step usually means a missing step.
 
 ## Step 3: Anchor every question and assumption
 
@@ -113,11 +121,13 @@ Derived entries are recomputed on every run. For each item left over, and for an
 - Targets: `{ "type": "step", "step": "P1-03" }`, `{ "type": "page", "page": "Order_Overview" }` (a screen on no step), or `{ "type": "global", "bucket": "Hosting and operations" }`.
 - Pin to the step where the answer changes what happens. Up to three targets.
 - Standard bucket names for global items, so the whole-app list stays short: `Build plan`, `Hosting and operations`, `Security`, `Data`, `Scope`, `Look and feel`, `App structure`. ASSUMED register rows about build, environment, security, data or scope usually land here.
-- Use a global bucket only for items about the whole app or the way of working (hosting, build plan, look and feel, app structure). Global is allowed and counted, never hidden.
+- Use a global bucket only for items about the whole app or the way of working (hosting, build plan, look and feel, app structure). Global is allowed and counted, never hidden; the map groups them by bucket and collapses each group, so use the standard names (39 globals on an existing app then read as seven short groups, not a wall).
 - `basis` is one plain sentence; the reviewer sees it as "Placed by review (...)".
 - The fingerprint ties the judgment to the item text. When the item is reworded, the judged entry is dropped with a warning and the item is unanchored again, so a stale placement never survives silently.
 
 Judged entries go into the `anchors` array of the anchors file, next to the derived ones. The skeletons from `anchor --json` already carry `anchoredBy: "judged"` and empty `targets`: fill `targets` and `basis` in place and keep `id`, `kind` and `fingerprint` (`text` can go).
+
+`anchor` prints `carried over: N judged from <file>`; a project whose model still points `anchors` at an old path runs `process-map.js migrate` once: it moves the entries to `design/question-anchors.json`, keeps the old file as `*.bak` and rewrites the model key.
 
 Re-run `anchor` until it reports `0 unanchored`. `anchor` exits 1 while items remain; that is expected, not an error. `validate --strict` fails on any unanchored item.
 
@@ -148,7 +158,7 @@ shot --window-size=1800,1400 --screenshot=/tmp/map-index.png "$B#/"
 shot --window-size=3000,1300 --screenshot=/tmp/map-P1.png "$B#/P1"
 ```
 
-Use `--virtual-time-budget` and wrap the call in a timeout as shown. Never use Chrome's `--timeout` flag: it made the run hang past two minutes. A map with 10 to 12 steps fits 3000 px; for a wider one, split the process or screenshot at 4000 px.
+Use `--virtual-time-budget` and wrap the call in a timeout as shown. Never use Chrome's `--timeout` flag: it made the run hang past two minutes. A process above 12 steps is scaled to fit its box (down to 50%); a wide one with fewer steps scrolls sideways inside its own box, never the page. Screenshot at 1440 for a long process and at 3000 for a wide one (validate warns above 12 steps: split the process).
 
 Use `--headless=new`: the old headless mode often paints the wireframe thumbnails blank. Check:
 

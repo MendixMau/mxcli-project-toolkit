@@ -71,7 +71,8 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 
 1. **`doctor.sh`** names any missing prerequisite (bash, Python 3, sqlite3, line endings, mxcli,
    mxbuild) and exits non-zero if a stage would break. `doctor.sh --install <project>` fetches
-   mxcli and mxbuild after showing the plan and asking. Windows and Linux: read
+   mxcli and mxbuild after showing the plan and asking (an agent or any shell with no terminal
+   must add `--yes`, or nothing is downloaded). Windows and Linux: read
    [Platform support](#platform-support) first.
 2. **`init-project.sh`** scaffolds the project folder: `intake.md`, `PROJECT.md`,
    `CLAUDE.local.md` (the wiring every session reads), the six agent stubs, `bin/` instruments
@@ -251,7 +252,8 @@ they would have saved, restarted or reopened it. Everything either side of that 
 > ```
 >
 > `bin/doctor.sh --install <project>` closes the gap without Studio Pro: it fetches a
-> version-matched mxbuild that `exec.sh` then finds on its own.
+> version-matched mxbuild that `exec.sh` then finds on its own. With no terminal to answer the
+> prompt (an agent, CI), add `--yes`: `bin/doctor.sh --install --yes <project>`.
 
 **Existing clone from before 2026-08-18?** You predate `.gitattributes`, so if git checked the
 scripts out with CRLF they will not run. Fix once:
@@ -605,7 +607,8 @@ Every mxcli project has a `.ai-context/skills/` directory (bundled by `mxcli ini
 |---|---|
 | Dispatching a build step to a helper — generate its one-file pack (the brief's Build steps row, mxcli brain brief, live DESCRIBEs, example, folder) and hand over the path instead of a reading list. Measured: 25-38% fewer tool calls and 30-41% less time, same quality; the token saving is not proven | `project-bin/context-pack.sh` |
 | An exec.sh guard refused a write (not a permission prompt), or building a module with mxcli — verified, iterative, coverage-checklist gated; on a refusal: commit, wait or stop, never FORCE_EXEC | `skills/iterative-build-loop.md` |
-| After marking a module done, or any time "how much is built vs proven" is asked — renders build-plan.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views; --json writes architecture/build-plan.json parsed from build-plan.md's Phase headings (a plan with no Phase headings gets no file) | `project-bin/build-plan-status.sh` |
+| Adding a second language, a language picker or a translation script — and the moment a language picker errors, shows a blank label or changes nothing: source language, enabled languages, the user's starting language, a switch a non-admin role can use | `skills/learned-multilingual-app.md` |
+| After marking a module done, or any time "how much is built vs proven" is asked — renders progress-report.html from done- prefixes and verify-module.sh/improvement-register.md, kept as two honestly separate views; --json writes architecture/build-plan.json parsed from build-plan.md's Phase headings (a plan with no Phase headings gets no file); --refresh keeps an existing build-plan.json current but never creates one | `project-bin/build-plan-status.sh` |
 | Turning a client-derived Mendix app into a clean, shareable demo with zero client fingerprint — branding, data, custom widgets | `skills/anonymize-client-app-for-demo.md` |
 | Handing a headless-built model to a person — opening it in Studio Pro, a free sandbox, or a colleague's machine: the model travels, the demo data and runtime config (keys, an agent's bound model) do not, and each needs its own re-establish step | `skills/handoff-to-studio-pro.md` |
 | Stage 5 start, before the first module of any entry mode — one entity, flow, page, nav, demo user, journey and screenshot proven in the running app, so build/run/look/test are known to work before a module depends on them | `skills/walking-skeleton.md` |

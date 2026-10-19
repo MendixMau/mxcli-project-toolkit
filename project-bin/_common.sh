@@ -570,6 +570,143 @@ find_java_exe() {
 }
 
 # ---------------------------------------------------------------------------
+# Watcher pause and infra retry around the exec gate's mxbuild.
+#
+# Field (a migration project, 12 modules, 2026-10-16/17): the gate's mxbuild and a live
+# `mxcli run --local --watch` on the SAME project both write deployment/. One of the two dies
+# part-way ("Directory not empty: .../deployment/web", mxbuild exit 1 or 3, no errors file):
+# 17 of 27 failed gates, against 0 of 22 gates run in watcher-free copies of the same project.
+#
+# Chosen fix: pause the watcher for the length of the gate (SIGSTOP, then SIGCONT). mxbuild
+# has no option that moves the deploy target's output out of <project>/deployment, so a
+# separate output dir is not available; a pause needs no mxbuild support and no change to the
+# watcher. Only the watcher process itself is stopped. Its runtime keeps serving, and a rebuild
+# the watcher already started before the pause can still collide, which is what the retry below
+# is for. exec.sh resumes the watcher in its EXIT trap too, so an interrupted run does not leave
+# it stopped. A SIGKILL runs no trap, so the paused pids are also written to
+# .mpr-snapshots/.watcher-paused; the next exec.sh resumes them once it holds the lock. The file
+# is a dot FILE: the `*/` snapshot globs in restore-mpr.sh and snapshot-mpr.sh never match it.
+# ---------------------------------------------------------------------------
+MXTK_PAUSED_PIDS=""
+MXTK_PAUSED_FILE=""
+MXTK_GATE_RETRY_NOTE=""
+MXTK_GATE_FIRST_OUT=""
+MXTK_GATE_FIRST_EXIT=""
+
+# mxtk_watcher_pids <project-root> - pids of `mxcli run --local --watch` that belong to this
+# project. Exact match only: the watcher's project dir (the directory of its -p argument,
+# resolved against its cwd, or its cwd when it has no -p) must equal the root after pwd -P. A
+# substring test also hit a sibling `<App>-copy` and a nested `.claude/worktrees/x` watcher.
+mxtk_watcher_pids() {
+  local _root _pid _cmd _cwd _p _dir
+  _root="$(cd "$1" 2>/dev/null && pwd -P)" || return 0
+  for _pid in $(pgrep -f 'run --local' 2>/dev/null || true); do  # portability-ok: pgrep -f ships with Linux procps and macOS; Windows has no watcher to pause here
+    [ "$_pid" = "$$" ] && continue
+    _cmd="$(ps -o command= -p "$_pid" 2>/dev/null)" || continue
+    case "$_cmd" in *mxcli*"run --local"*--watch*) ;; *) continue ;; esac
+    _cwd="$(readlink "/proc/$_pid/cwd" 2>/dev/null || lsof -a -p "$_pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+    [ -n "$_cwd" ] && _cwd="$(cd "$_cwd" 2>/dev/null && pwd -P)"
+    _p=""
+    case "$_cmd" in
+      *" -p "*) _p="${_cmd#* -p }" ;;
+      *" --project "*) _p="${_cmd#* --project }" ;;
+    esac
+    if [ -n "$_p" ]; then
+      case "$_p" in /*) ;; *) [ -n "$_cwd" ] || continue; _p="$_cwd/$_p" ;; esac
+      # ps drops the quotes, so "-p /x/App copy/App.mpr" must not read as /x/App: keep the
+      # longest run of words that exists on disk (it also drops any flags after the path).
+      while [ ! -e "$_p" ]; do case "$_p" in *" "*) _p="${_p% *}" ;; *) continue 2 ;; esac; done
+      if [ -d "$_p" ]; then _dir="$_p"; else _dir="$(dirname "$_p")"; fi
+      _dir="$(cd "$_dir" 2>/dev/null && pwd -P)" || continue
+    else
+      _dir="$_cwd"
+    fi
+    [ -n "$_dir" ] && [ "$_dir" = "$_root" ] && echo "$_pid"
+  done
+  return 0
+}
+
+# mxtk_pause_watchers <project-root> - SIGSTOP every watcher of this project, remember the pids
+# (in memory, and in <root>/.mpr-snapshots/.watcher-paused for a SIGKILL of this process).
+mxtk_pause_watchers() {
+  local _pid _cands
+  MXTK_PAUSED_PIDS=""
+  MXTK_PAUSED_FILE="$1/.mpr-snapshots/.watcher-paused"
+  _cands="$(mxtk_watcher_pids "$1" | tr '\n' ' ')"
+  [ -n "$_cands" ] || return 0
+  # Record before stopping: a SIGKILL between kill -STOP and the record would leave a stopped
+  # watcher nobody resumes. Resuming a pid that was never stopped is harmless.
+  { mkdir -p "$1/.mpr-snapshots" && echo "$$ $_cands" > "$MXTK_PAUSED_FILE"; } 2>/dev/null || true
+  for _pid in $_cands; do
+    if kill -STOP "$_pid" 2>/dev/null; then
+      MXTK_PAUSED_PIDS="$MXTK_PAUSED_PIDS $_pid"
+      echo "  → paused the run --local --watch watcher (pid $_pid) for the gate; it resumes right after" >&2
+    fi
+  done
+  if [ -n "$MXTK_PAUSED_PIDS" ]; then
+    { mkdir -p "$1/.mpr-snapshots" && echo "$$$MXTK_PAUSED_PIDS" > "$MXTK_PAUSED_FILE"; } 2>/dev/null || true
+  fi
+  return 0
+}
+
+# mxtk_resume_watchers - SIGCONT whatever mxtk_pause_watchers stopped. Safe to call twice.
+mxtk_resume_watchers() {
+  local _pid
+  for _pid in $MXTK_PAUSED_PIDS; do kill -CONT "$_pid" 2>/dev/null || true; done
+  [ -n "$MXTK_PAUSED_FILE" ] && rm -f "$MXTK_PAUSED_FILE"
+  MXTK_PAUSED_PIDS=""
+  return 0
+}
+
+# mxtk_resume_leftover <project-root> - call once the exec lock is held. A watcher left stopped
+# by an exec.sh that was SIGKILLed (its record is still on disk) is resumed when its pid still
+# exists and is still a watcher of this project; the record is then cleared.
+mxtk_resume_leftover() {
+  local _f="$1/.mpr-snapshots/.watcher-paused" _rec _pid _live _n=0
+  [ -f "$_f" ] || return 0
+  _rec="$(head -1 "$_f" 2>/dev/null || true)"
+  _live="$(mxtk_watcher_pids "$1")"
+  for _pid in ${_rec#* }; do
+    case "$_pid" in ''|*[!0-9]*) continue ;; esac
+    if grep -Fxq -- "$_pid" <<<"$_live" && kill -CONT "$_pid" 2>/dev/null; then _n=$((_n+1)); fi
+  done
+  rm -f "$_f"
+  [ "$_n" -gt 0 ] && echo "  → resumed $_n watcher(s) left stopped by an exec.sh that was killed during the gate"
+  return 0
+}
+
+# mxtk_gate_mxbuild <mpr> <timeout-seconds> <errors-file> - the exec gate's way to run
+# mxbuild: mxtk_mxbuild_error_count with this project's watcher paused around it, and ONE
+# retry when mxbuild exits 1 or 3 and left no sign of a model problem (no CE code in its
+# output, nothing in the errors file). That shape is an infrastructure failure, not a verdict
+# on the model; a real model error always names a CE code. An errors file with content (for
+# example a version mismatch in errors[]) is deterministic and is not retried.
+# Prints nothing on stdout (callers discard the count); sets the same MXTK_MXBUILD_* globals as
+# mxtk_mxbuild_error_count, plus MXTK_GATE_RETRY_NOTE ("retry after infra exit" or empty); after a
+# retry MXTK_GATE_FIRST_OUT / MXTK_GATE_FIRST_EXIT hold the FIRST attempt's output and exit code
+# (the MXTK_MXBUILD_* globals describe the final attempt only).
+# Returns mxtk_mxbuild_error_count's code for the final attempt.
+mxtk_gate_mxbuild() {
+  local _mpr="$1" _timeout="${2:-0}" _ef="$3" _rc=0
+  MXTK_GATE_RETRY_NOTE=""; MXTK_GATE_FIRST_OUT=""; MXTK_GATE_FIRST_EXIT=""
+  mxtk_pause_watchers "${PROJECT_ROOT:-$(dirname "$_mpr")}"
+  mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+  case "${MXTK_MXBUILD_EXIT:-}" in
+    1|3)
+      if [ ! -s "$_ef" ] && ! grep -Eq -- 'CE[0-9]{4}' <<<"${MXTK_MXBUILD_OUT:-}"; then
+        echo "  ⚠ retry after infra exit: mxbuild exited $MXTK_MXBUILD_EXIT with no CE code and no errors file; building once more" >&2
+        MXTK_GATE_RETRY_NOTE="retry after infra exit"
+        MXTK_GATE_FIRST_OUT="${MXTK_MXBUILD_OUT:-}"; MXTK_GATE_FIRST_EXIT="$MXTK_MXBUILD_EXIT"
+        : > "$_ef"
+        _rc=0
+        mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+      fi ;;
+  esac
+  mxtk_resume_watchers
+  return "$_rc"
+}
+
+# ---------------------------------------------------------------------------
 # mxtk_mxbuild_error_count — run mxbuild once, print its Error-severity count.
 #
 # Pulled out of project-bin/exec.sh, where this exact sequence (run mxbuild with
@@ -795,7 +932,7 @@ mxtk_ensure_mxbuild() {
     mxcli=""
   done
   if [ -z "$mxcli" ]; then
-    echo "  mxbuild not found and no project ./mxcli to download it with (bin/doctor.sh --install fetches both)." >&2
+    echo "  mxbuild not found and no project ./mxcli to download it with (bin/doctor.sh --install --yes fetches both)." >&2
     [ -n "$found" ] && printf '%s\n' "$found"
     return 1
   fi

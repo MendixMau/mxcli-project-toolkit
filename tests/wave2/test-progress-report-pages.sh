@@ -14,8 +14,14 @@
 #   P5  two tree (.mpr under app/): the same links from the repo root; app/theme, app/deployment and
 #       app/mprcontents pages are not listed.
 #   P6  Windows: rel_href gives forward-slash, percent-encoded hrefs for a Windows path (ntpath).
-#   P7  a --refresh with nothing changed leaves the page untouched (the dates do not churn it).
+#   P7  dates are days: a listed page edited again on the same day leaves a --refresh with nothing
+#       else changed from rewriting the page; a new page does rewrite it.
 #   P8  a project with no pages yet says so instead of an empty card.
+#   P9  600 pages in one folder never push another folder off the page: every folder keeps its row,
+#       a folder lists at most PAGE_FOLDER_MAX (100) links and counts the rest.
+#   P10 folders sort part by part: wireframes/ and wireframes/sub/ come before wireframes-v1/.
+#   P11 folded folders get unique details ids, even when their slugs collide (wire frames, wire-frames).
+#   P12 a top-level scanned folder that is a symlink (out of the project) is not walked.
 #
 # Usage: bash tests/wave2/test-progress-report-pages.sh /path/to/build-plan-status.sh
 
@@ -63,15 +69,17 @@ mkpages() {  # repo-root: the pages the toolkit writes, plus decoys that must st
   page "$r/design/design-system.html"; page "$r/design/process-map.html"
   for i in 1 2 3 4 5 6 7 8 9 10 11 12; do page "$r/design/wireframes/screen-$i.html"; done
   page "$r/design/ui-reviews/ui-review-2026-01-02.html"
-  page "$r/docs/verification/report.html"; page "$r/journeys/orders/journey report.html"
+  page "$r/design/wireframes/order list.html"
+  page "$r/docs/verification/report.html"; page "$r/reports/test-report.html"
   touch -t 202601021200 "$r/design/ui-reviews/ui-review-2026-01-02.html"
   # decoys
   page "$r/node_modules/pkg/index.html"; page "$r/analysis/node_modules/x/readme.html"
   page "$r/.mpr-snapshots/20260101/stale.html"; page "$r/design/.git/hook.html"
   page "$r/docs/vendor/lib.html"; page "$r/sources/legacy/screen.html"; page "$r/design/notes.md"
+  page "$r/journeys/orders/journey.html"   # no producer writes HTML there, so it is not a scanned folder
 }
-# 1 root + 3 analysis + 2 architecture + 2 design + 12 wireframes + 1 ui-review + 1 docs + 1 journeys
-WANT_PAGES=23; WANT_FOLDERS=9
+# 1 root + 3 analysis + 2 architecture + 2 design + 13 wireframes + 1 ui-review + 1 docs + 1 reports
+WANT_PAGES=24; WANT_FOLDERS=9
 
 check_layout() {  # label repo-root
   local L="$1" R="$2" S
@@ -88,10 +96,11 @@ check_layout() {  # label repo-root
   has "$S" "href='../design/wireframes/screen-12.html'" "$L: wireframes linked"
   has "$S" "href='../design/ui-reviews/ui-review-2026-01-02.html'" "$L: ui review linked"
   has "$S" "href='../docs/verification/report.html'" "$L: test report linked"
-  has "$S" "href='../journeys/orders/journey%20report.html'" "$L: journey report linked, space percent-encoded"
+  has "$S" "href='../design/wireframes/order%20list.html'" "$L: wireframe with a space linked, percent-encoded"
+  has "$S" "href='../reports/test-report.html'" "$L: reports/ test report linked"
   hasnt "$S" "progress-report.html" "$L: the report never lists itself"
-  hasnt "$S" "node_modules\|mpr-snapshots\|stale.html\|hook.html\|lib.html\|legacy\|notes.md" "$L: excluded and unscanned folders stay out"
-  has "$S" "<summary>12 pages, newest" "$L: 12 wireframes folded behind a count"
+  hasnt "$S" "node_modules\|mpr-snapshots\|stale.html\|hook.html\|lib.html\|legacy\|notes.md\|journey" "$L: excluded and unscanned folders stay out"
+  has "$S" "<summary>13 pages, newest" "$L: 13 wireframes folded behind a count"
   [ "$(printf '%s' "$S" | grep -o "<details" | wc -l | tr -d ' ')" -eq 1 ] && ok "$L: only the big folder is folded" || bad "$L: only the big folder is folded"
   has "$S" "style='padding-left:16px'><b class=dir title='design/wireframes/'>wireframes/" "$L: subfolder indented under design/"
   has "$S" "ui-review-2026-01-02.html</a> <span class=mut>2026-01-02<" "$L: modified date shown"
@@ -113,7 +122,7 @@ S2="$(section "$P2/architecture/progress-report.html")"
 hasnt "$S2" "app/\|theme\|deployment" "two-tree: nothing from the app tree is listed"
 
 echo "P6 Windows hrefs"
-"$PY" - "$ROOT/project-bin/progress-report.py" <<'PYEOF' && ok "rel_href: Windows path gives a forward-slash, encoded href" || bad "rel_href: Windows path gives a forward-slash, encoded href"
+PYTHONDONTWRITEBYTECODE=1 "$PY" - "$ROOT/project-bin/progress-report.py" <<'PYEOF' && ok "rel_href: Windows path gives a forward-slash, encoded href" || bad "rel_href: Windows path gives a forward-slash, encoded href"
 import sys, ntpath, importlib.util
 sp = importlib.util.spec_from_file_location("pr", sys.argv[1]); m = importlib.util.module_from_spec(sp); sp.loader.exec_module(m)
 got = m.rel_href("C:\\work\\shop\\design\\wireframes\\order list.html", "C:\\work\\shop\\architecture", ntpath)
@@ -122,20 +131,54 @@ assert m.rel_href("C:\\work\\shop\\index.html", "C:\\work\\shop\\architecture", 
 assert m.rel_href("C:\\work\\shop\\architecture\\blueprint.html", "C:\\work\\shop\\architecture", ntpath) == "blueprint.html"
 PYEOF
 
-echo "P7 a refresh with nothing changed does not rewrite the page"
-touch -t 202601011200 "$P1/architecture/progress-report.html"
+echo "P7 dates are days: a same-day edit of a listed page does not rewrite the page"
+mtime() { "$PY" -c 'import os,sys;print(int(os.path.getmtime(sys.argv[1])))' "$1"; }
+setday() {  # file seconds-after-local-midnight-today
+  "$PY" -c 'import os,sys,time;t=time.localtime();m=time.mktime((t.tm_year,t.tm_mon,t.tm_mday,0,0,0,0,0,-1));os.utime(sys.argv[1],(m+int(sys.argv[2]),)*2)' "$1" "$2"
+}
+setday "$P1/design/design-system.html" 30
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P1" --html --quiet >/dev/null 2>&1
+touch -t 202601011200 "$P1/architecture/progress-report.html"; BEFORE="$(mtime "$P1/architecture/progress-report.html")"
+setday "$P1/design/design-system.html" 50
 CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P1" --refresh >/dev/null 2>&1
-"$PY" -c 'import os,sys,time;sys.exit(0 if time.localtime(os.path.getmtime(sys.argv[1])).tm_year==2026 and time.localtime(os.path.getmtime(sys.argv[1])).tm_yday==1 else 1)' "$P1/architecture/progress-report.html" \
-  && ok "unchanged refresh leaves the page alone" || bad "unchanged refresh leaves the page alone"
+[ "$(mtime "$P1/architecture/progress-report.html")" = "$BEFORE" ] && ok "same-day edit of a listed page: refresh leaves the page alone" || bad "same-day edit of a listed page: refresh leaves the page alone"
 page "$P1/design/wireframes/screen-13.html"
 CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P1" --refresh >/dev/null 2>&1
-has "$(section "$P1/architecture/progress-report.html")" "<summary>13 pages" "a new page does rewrite it"
+has "$(section "$P1/architecture/progress-report.html")" "<summary>14 pages" "a new page does rewrite it"
 
 echo "P8 no pages yet"
 P3="$WORK/bare"; mkplan "$P3"
 CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P3" --html --quiet >/dev/null 2>&1
 has "$(section "$P3/architecture/progress-report.html")" "No HTML pages found yet" "an empty project says so"
 grep -q "<a href='#pages'>Pages</a>" "$P3/architecture/progress-report.html" && ok "stage nav links to the section" || bad "stage nav links to the section"
+
+echo "P9-P11 a crowded project"
+P4="$WORK/crowded"; mkplan "$P4"; page "$P4/design/design-system.html"
+"$PY" -c 'import os,sys
+d=os.path.join(sys.argv[1],"analysis","gen"); os.makedirs(d)
+for i in range(600): open(os.path.join(d,"gen-%d.html" % i),"w").write("x")' "$P4"
+page "$P4/design/wireframes/screen-1.html"; page "$P4/design/wireframes/sub/detail.html"; page "$P4/design/wireframes-v1/old.html"
+for i in 1 2 3 4 5 6 7 8 9; do page "$P4/design/wire frames/a$i.html"; page "$P4/design/wire-frames/b$i.html"; done
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P4" --html --quiet >/dev/null 2>&1
+S4="$(section "$P4/architecture/progress-report.html")"
+has "$S4" "href='../design/design-system.html'" "600 pages in analysis/gen/ do not push design/ off the page"
+has "$S4" "+500 more not listed (PAGE_FOLDER_MAX)" "the big folder lists 100 and counts the other 500"
+[ "$(printf '%s' "$S4" | grep -o "href='../analysis/gen/" | wc -l | tr -d ' ')" -eq 100 ] && ok "exactly 100 links for the 600-page folder" || bad "exactly 100 links for the 600-page folder"
+has "$S4" "<summary>600 pages" "the folded summary still counts all 600"
+has "$S4" "622 pages in 7 folders" "the section count covers every page found"
+"$PY" - "$S4" <<'PYEOF' && ok "wireframes/ and wireframes/sub/ sort before wireframes-v1/" || bad "wireframes/ and wireframes/sub/ sort before wireframes-v1/"
+import sys; s = sys.argv[1]; a, b, c = (s.find("title='design/%s'" % x) for x in ("wireframes/", "wireframes/sub/", "wireframes-v1/"))
+sys.exit(0 if 0 <= a < b < c else 1)
+PYEOF
+IDS="$(printf '%s' "$S4" | grep -o "<details id='[^']*'" | sort)"
+[ "$(printf '%s\n' "$IDS" | wc -l | tr -d ' ')" -eq 3 ] && [ "$(printf '%s\n' "$IDS" | uniq | wc -l | tr -d ' ')" -eq 3 ] && ok "three folded folders, three unique details ids" || bad "three folded folders, three unique details ids ($IDS)"
+
+echo "P12 a symlinked top-level folder is not walked"
+P5="$WORK/linked"; mkplan "$P5"; page "$WORK/outside/secret-page.html"
+if ln -s "$WORK/outside" "$P5/docs" 2>/dev/null && [ -L "$P5/docs" ]; then
+  CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P5" --html --quiet >/dev/null 2>&1
+  hasnt "$(section "$P5/architecture/progress-report.html")" "secret-page" "a symlinked docs/ pointing outside the project is skipped"
+else echo "  SKIP: no symlinks on this file system"; fi
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

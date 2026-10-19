@@ -55,14 +55,22 @@ EXTRA_ARTIFACTS = {
 }
 # Project pages section: the HTML pages found on disk, grouped by folder. Only these top-level folders are scanned
 # ("" = files directly in the project root, never below it); the inventory itself is never listed here, it is read from
-# disk on every render. A folder named in PAGE_SKIP_DIRS (or starting with a dot) is never entered, at any depth.
-PAGE_DIRS = ["", "analysis", "architecture", "design", "docs", "reports", "journeys", "knowledge-base", "questions",
-             "playwright-report", "test-results"]
+# disk on every render. A folder named in PAGE_SKIP_DIRS (or starting with a dot) is never entered, at any depth, and a
+# top-level folder that is a symlink or resolves outside the project is skipped. Each folder is here because a producer
+# writes HTML into it (paths as in bin/lib/artifact-manifest.tsv):
+PAGE_DIRS = ["",                # index.html (bin/gate-check.sh), test-report.html, module-design.html
+             "analysis",        # brd-report.sh, app-report.sh, source-ledger.sh, extraction-report.sh, triage pages
+             "architecture",    # blueprint.html (architecture-blueprint.md Step 7), module-design.html
+             "design",          # design-system.html, process-map.js, wireframes/, ui-reviews/ (review-agent)
+             "docs",            # render-improvement-register.sh, verify-module.sh (docs/verification/report.html)
+             "reports",         # verify-module.sh's reports/test-report.html shape
+             "knowledge-base"]  # extraction-report.sh's knowledge-base/extraction-report.html shape
 PAGE_SKIP_DIRS = frozenset("node_modules .mpr-snapshots deployment mprcontents theme theme-cache .git vendor vendorlib "
                            "userlib javascriptsource widgets bower_components __pycache__ site-packages".split())
 PAGE_MAX_DEPTH = 6        # folder levels below a scanned top-level folder
 PAGE_GROUP_OPEN = 8       # a folder with more pages than this is folded behind a details with its count
-PAGE_MAX = 500            # pages listed at most; the rest are counted, not linked
+PAGE_FOLDER_MAX = 100     # pages linked per folder at most; the rest are counted ("+K more"). Bounds what is listed, not
+                          # what is walked: every folder keeps its row
 # Project advisory thresholds (each rule says which one fired).
 ADV = {"opus_cost_share": 0.40, "ctx_avg_tokens": 180_000, "ctx_peak_frac": 0.98, "compactions": 1,   # context: average under 180k is fine; the window counts as reached only at this share of the real window (or after a compaction). Context is never red
        "hang_amber_s": 600, "hang_red_s": 1800, "repeat_fail_red_n": 3, "min_lost_s": 60,   # red only for a key script failing on every run (at least this many runs) or one hang or stall past hang_red_s; amber from hang_amber_s
@@ -264,9 +272,11 @@ def rel_href(f, outdir, pm=os.path):
     return urllib.parse.quote(pm.relpath(f, outdir).replace(pm.sep, "/"))
 
 def collect_pages(proj, skip=()):
-    """{folder relative to proj ("." for the root): [(path, mtime)]}, plus the number of pages past PAGE_MAX. Walks only
-    PAGE_DIRS, never enters PAGE_SKIP_DIRS or dot folders, does not follow links, and leaves out the paths in skip."""
+    """{folder relative to proj ("." for the root): [(path, mtime)]}, every page found, sorted. Walks only PAGE_DIRS,
+    never enters PAGE_SKIP_DIRS or dot folders, does not follow links, skips a top-level folder that is a symlink or
+    resolves outside the project, and leaves out the paths in skip."""
     skipk = {os.path.normcase(os.path.abspath(s)) for s in skip if s}
+    real_proj = os.path.normcase(os.path.realpath(proj))
     found = []
     def take(path):
         if not path.lower().endswith((".html", ".htm")) or os.path.basename(path) == REPORT_FILE: return
@@ -279,41 +289,44 @@ def collect_pages(proj, skip=()):
         if not top:
             for n in sorted(os.listdir(base)): take(os.path.join(base, n))
             continue
-        if top.lower() in PAGE_SKIP_DIRS: continue
+        rb = os.path.normcase(os.path.realpath(base))
+        if top.lower() in PAGE_SKIP_DIRS or os.path.islink(base) or not rb.startswith(real_proj.rstrip(os.sep) + os.sep): continue
         for d, ds, fs in os.walk(base):
             depth = os.path.relpath(d, base).count(os.sep) + (0 if d == base else 1)
             ds[:] = sorted(x for x in ds if not x.startswith(".") and x.lower() not in PAGE_SKIP_DIRS and depth < PAGE_MAX_DEPTH)
             for n in sorted(fs): take(os.path.join(d, n))
+    nat = lambda t: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", t.lower())]   # w2 before w10
     def key(x):
-        r = os.path.relpath(x[0], proj).replace(os.sep, "/"); d = r.rpartition("/")[0]
-        nat = lambda t: [int(x) if x.isdigit() else x for x in re.split(r"(\d+)", t.lower())]   # w2 before w10
-        return (d != "", nat(d), nat(r))   # the root's own pages first, then folders by path
+        r = os.path.relpath(x[0], proj).replace(os.sep, "/"); d, _, name = r.rpartition("/")
+        return (d != "", [nat(c) for c in d.split("/")] if d else [], nat(name))   # root first; folders part by part, so wireframes/x sits before wireframes-v1/
     found.sort(key=key)
     groups = collections.OrderedDict()
-    for f, mt in found[:PAGE_MAX]:
+    for f, mt in found:
         groups.setdefault(os.path.relpath(os.path.dirname(f), proj).replace(os.sep, "/"), []).append((f, mt))
-    return groups, max(0, len(found) - PAGE_MAX)
+    return groups
 
 def render_pages(proj, outdir, skip=()):
     """The Project pages section: one row per folder, indented under the nearest listed parent folder, each page a
-    relative link with its modified date (date only, so a refresh on the same day does not rewrite the page)."""
-    groups, extra = collect_pages(proj, skip)
+    relative link with its modified date. Dates are days, so the section is unchanged on the same day unless a listed
+    page changed (added, removed or renamed; an edit only moves its date, on a later day), and a --refresh leaves the page alone."""
+    groups = collect_pages(proj, skip)
     n = sum(len(v) for v in groups.values())
-    out = ["<h2 id=pages>Project pages: the HTML pages in this project, by folder</h2><div class=sub>Found on disk under %s; "
+    out = ["<h2 id=pages>Project pages: HTML pages found in the project's output folders</h2><div class=sub>Found on disk under %s; "
            "each link opens the page. Dates are when the file last changed. Folders like node_modules, theme and deployment are "
            "not scanned (PAGE_DIRS and PAGE_SKIP_DIRS in the script).</div>" % esc(", ".join((d + "/") if d else "the project root" for d in PAGE_DIRS))]
     if not groups:
         out.append("<div class=card>No HTML pages found yet.</div>"); return "".join(out)
-    out.append("<div class='card pages'><div class=sub>%d page%s in %d folder%s%s</div><div class=tree>" % (n, "" if n == 1 else "s", len(groups), "" if len(groups) == 1 else "s", (", %d more not listed (PAGE_MAX)" % extra) if extra else ""))
+    out.append("<div class='card pages'><div class=sub>%d page%s in %d folder%s</div><div class=tree>" % (n, "" if n == 1 else "s", len(groups), "" if len(groups) == 1 else "s"))
     depth = {}
-    for g, files in groups.items():
+    day = lambda t: datetime.datetime.fromtimestamp(t).strftime("%Y-%m-%d")
+    for gi, (g, files) in enumerate(groups.items()):
         par = max((p for p in depth if p != "." and g.startswith(p + "/")), key=len, default=None)
         depth[g] = depth[par] + 1 if par else 0
         label = "project root" if g == "." else (g[len(par) + 1:] if par else g) + "/"
-        items = "".join("<li><a href='%s'>%s</a> <span class=mut>%s</span></li>" % (esc(rel_href(f, outdir)), esc(os.path.basename(f)), datetime.datetime.fromtimestamp(mt).strftime("%Y-%m-%d")) for f, mt in files)
+        items = "".join("<li><a href='%s'>%s</a> <span class=mut>%s</span></li>" % (esc(rel_href(f, outdir)), esc(os.path.basename(f)), day(mt)) for f, mt in files[:PAGE_FOLDER_MAX])
+        if len(files) > PAGE_FOLDER_MAX: items += "<li class=mut>+%d more not listed (PAGE_FOLDER_MAX)</li>" % (len(files) - PAGE_FOLDER_MAX)
         if len(files) > PAGE_GROUP_OPEN:
-            newest = datetime.datetime.fromtimestamp(max(mt for _, mt in files)).strftime("%Y-%m-%d")
-            body = "<details id='pages-%s'><summary>%d pages, newest %s</summary><ul>%s</ul></details>" % (esc(re.sub(r"[^A-Za-z0-9]+", "-", g).strip("-") or "root"), len(files), newest, items)
+            body = "<details id='pages-%d-%s'><summary>%d pages, newest %s</summary><ul>%s</ul></details>" % (gi, esc(re.sub(r"[^A-Za-z0-9]+", "-", g).strip("-") or "root"), len(files), day(max(mt for _, mt in files)), items)
         else: body = "<ul>%s</ul>" % items
         out.append("<div class=pg style='padding-left:%dpx'><b class=dir title='%s'>%s</b>%s</div>" % (16 * depth[g], esc(g + "/" if g != "." else "./"), esc(label), body))
     out.append("</div></div>")

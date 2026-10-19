@@ -333,6 +333,7 @@ Your move is one of three — **commit, wait, or stop and report** — never an 
 | The mxbuild gate cannot run, even after its own download | Stop and report; run `bin/doctor.sh`. `ALLOW_UNVERIFIED=1` only when the person says so |
 | Pre-exec check or a NEW mxbuild error | Fix the script. That is the gate working |
 | `PRE-EXISTING <codes>` — errors already in the model before this script | Not the script's cause. Stop and report: it needs Studio Pro (e.g. "Update security") or a separate fix script, not a retry |
+| `LINT ROSE` after a clean mxbuild (exit 1, write kept) | Expected often in a growing app, and not a broken script: do not re-apply it. Fix the new lint findings, or stop and report; only the person accepts a rise, with `bin/lint-gate.sh --update-baseline --reason "<why>"` |
 | Any other refusal | Read the remedy exec.sh prints and do that; the table above is not the full list of guards |
 
 **Never set `FORCE_EXEC=1` on your own initiative** — only when the person tells you to, naming

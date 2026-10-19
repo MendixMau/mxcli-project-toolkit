@@ -169,8 +169,11 @@ release notes name contributors too.
 
 ## Releases
 
-Merged changes ship on a release train tagged `vYYYY.MM.DD` (the cycle is defined at the top of
-`CHANGELOG.md`). Tags are published from 1.0 on; earlier dated CHANGELOG sections were never
+From 1.0 on, changes ship in bundled releases: work collects on a release branch while master
+stays stable, then lands as one tagged release with notes on what changed, how to update and what
+is still a known gap. Your field learnings and feedback are what the next release is built from
+([We need your input](#we-need-your-input)). Each release is tagged `vYYYY.MM.DD` on the train
+(the cycle is defined at the top of `CHANGELOG.md`). Tags are published from 1.0 on; earlier dated CHANGELOG sections were never
 pushed as tags. On top of the train, named milestones get curated notes: start
 with [**1.0**](docs/releases/v1.0.md). What a milestone promises, major versus minor, deprecation,
 and how to check, upgrade or pin the version a project uses: `docs/RELEASE-PROCESS.md` §8.

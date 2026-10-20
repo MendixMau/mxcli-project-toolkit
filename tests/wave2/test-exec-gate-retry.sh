@@ -17,6 +17,19 @@
 #      a sibling `<proj>-copy` watcher and a nested .claude/worktrees/x watcher are NOT stopped
 #   E  exec.sh SIGKILLed mid-gate leaves the watcher stopped; the next exec.sh resumes it
 #
+# Exit codes (#443, #448; exec.sh header "Exit codes"):
+#   F  errors file holding only "Compilation of the app bundle failed." + exit 3, then clean:
+#      retried once, exit 0, kept (master: no retry, exit 0 UNVERIFIED)
+#   G  bundle-only twice: retried once, then UNVERIFIED, exit 5, write kept, no stamp
+#   H  version mismatch in errors[] + exit 3: NOT retried [guard], exit 5
+#   I  clean build + lint rise: exit 4, write kept, last line "gate passed, lint only",
+#      no extra mxbuild (2 runs) (master: exit 1)
+#   J  clean build + lint unchanged: exit 0, 2 mxbuild runs [guard: happy path costs nothing new]
+#   K  the same bundle-only failure on every build: the baseline retries it, the gate does not
+#      (at most 3 mxbuild runs, not 4), still exit 5
+#   L  usage errors exit 2 and touch nothing: no script, --patch with a missing file, --patch
+#      with a file it cannot run
+#
 # Synthetic only: throwaway git repo, stub mxcli, stub mxbuild, stub java. Nothing real runs.
 set -uo pipefail
 
@@ -74,6 +87,11 @@ case "$mode" in
   hang)  echo $$ > "$MXB_HANGPID"; exec sleep 60 ;;
   infra) echo "Directory not empty : deployment/web" >&2; exit 1 ;;
   err)   [ -n "$err" ] && printf '{"problems":[{"severity":"Error","code":"CE0001","message":"boom","element":{"document":"M.X"}}]}' > "$err"; exit 1 ;;
+  # #448 field shapes (mxbuild exit 3, problems[] empty): a deploy-stage message, in the dict and
+  # the plain-string errors[] form, and the deterministic version mismatch (never retried)
+  bundle)  printf '{"errors":[{"message":"Compilation of the app bundle failed.","details":""}],"problems":[]}' > "$err"; echo "Compilation of the app bundle failed."; exit 3 ;;
+  bundle2) printf '{"problems":[],"errors":["An error occurred while compiling Theme files"]}' > "$err"; exit 3 ;;
+  version) printf '{"errors":[{"message":"The MPR file located at /x/App.mpr could not be opened: Project version '"'"'11.12.2'"'"' does not exactly match MxBuild version '"'"'11.14.0'"'"'. Use loose version check option for less strict version checking.","details":""}],"problems":[]}' > "$err"; exit 3 ;;
 esac
 MXB
 printf '#!/usr/bin/env bash\nexit 0\n' > "$WORK/jdk/bin/java"
@@ -164,6 +182,64 @@ RC=$(NORESET=1 run E ok,ok)
 grep -q 'resumed 1 watcher' "$WORK/out.E" && ok "prints one line about the resumed leftover" || bad "E: no resume line" "$(head -12 "$WORK/out.E")"
 case "$(ps -o stat= -p "$WPID" 2>/dev/null)" in T*) bad "E: watcher still stopped" ;; "") bad "E: watcher is gone" ;; *) ok "watcher running again" ;; esac
 [ ! -e "$P/.mpr-snapshots/.watcher-paused" ] && ok "record cleared" || bad "E: record left behind"
+
+export MXB_HANGPID=/dev/null
+calls() { cat "$WORK/n"; }
+
+echo "== F: bundle-only errors file + exit 3, then clean: retried once, exit 0 =="
+RC=$(run F ok,bundle,ok)
+[ "$(calls)" -eq 3 ] && ok "mxbuild ran 3 times (baseline, gate, retry)" || bad "F: mxbuild calls" "$(calls)"
+[ "$RC" -eq 0 ] && kept && ok "exit 0, write kept" || bad "F rc=$RC" "$(tail -8 "$WORK/out.F")"
+lastrow | grep -q 'retry after infra exit' && lastrow | grep -q '| pass |' && ok "pass row carries the retry note" || bad "F: row" "$(lastrow)"
+
+echo "== G: bundle-only twice: retried once, then UNVERIFIED, exit 5 =="
+RC=$(run G ok,bundle2,bundle2)
+[ "$(calls)" -eq 3 ] && ok "retried exactly once" || bad "G: mxbuild calls" "$(calls)"
+[ "$RC" -eq 5 ] && ok "exit 5 (unverified), not 0" || bad "G rc=$RC, expected 5" "$(tail -6 "$WORK/out.G")"
+kept && ok "write kept" || bad "G: write rolled back"
+lastrow | grep -q 'applied, UNVERIFIED' && ok "UNVERIFIED row" || bad "G: row" "$(lastrow)"
+tail -1 "$WORK/out.G" | grep -q 'UNVERIFIED (exit 5)' && ok "last line names exit 5" || bad "G: last line" "$(tail -1 "$WORK/out.G")"
+
+echo "== H: version mismatch + exit 3: no retry [guard], exit 5 =="
+RC=$(run H ok,version)
+[ "$(calls)" -eq 2 ] && ok "not retried (baseline, gate)" || bad "H: mxbuild calls" "$(calls)"
+grep -q 'retry after infra exit' "$WORK/out.H" && bad "H: retried a version mismatch" || ok "no retry message"
+[ "$RC" -eq 5 ] && kept && ok "exit 5, write kept" || bad "H rc=$RC, expected 5"
+
+# lint-gate stub: LINT_MODE=rose prints one risen rule in lint-gate's FAIL table shape and exits 1
+cat > "$P/bin/lint-gate.sh" <<'LG'
+#!/usr/bin/env bash
+if [ "${LINT_MODE:-}" = rose ]; then printf 'FAIL\n  SEC003     security   9 -> 10   (+1)\n'; exit 1; fi
+echo PASS; exit 0
+LG
+chmod +x "$P/bin/lint-gate.sh"
+
+echo "== I: clean build + lint rise: exit 4, kept, lint-only last line =="
+RC=$(LINT_MODE=rose run I ok,ok)
+[ "$RC" -eq 4 ] && kept && ok "exit 4, write kept" || bad "I rc=$RC, expected 4" "$(tail -6 "$WORK/out.I")"
+[ "$(calls)" -eq 2 ] && ok "no extra mxbuild (baseline, gate)" || bad "I: mxbuild calls" "$(calls)"
+tail -1 "$WORK/out.I" | grep -q '^gate passed, lint only' && ok "last line: gate passed, lint only" || bad "I: last line" "$(tail -1 "$WORK/out.I")"
+lastrow | grep -q 'applied, LINT ROSE' && lastrow | grep -q 'SEC003' && ok "LINT ROSE row names the rule" || bad "I: row" "$(lastrow)"
+
+echo "== J: clean build + lint unchanged: exit 0, 2 mxbuild runs [guard] =="
+RC=$(run J ok,ok)
+[ "$RC" -eq 0 ] && kept && ok "exit 0, write kept" || bad "J rc=$RC" "$(tail -6 "$WORK/out.J")"
+[ "$(calls)" -eq 2 ] && ok "happy path: baseline + gate only" || bad "J: mxbuild calls" "$(calls)"
+rm -f "$P/bin/lint-gate.sh"
+
+echo "== K: a persistent bundle-only failure: the gate does not retry what the baseline already did =="
+RC=$(run K bundle,bundle,bundle,bundle)
+[ "$(calls)" -le 3 ] && ok "at most 3 mxbuild runs ($(calls))" || bad "K: mxbuild calls" "$(calls)"
+[ "$RC" -eq 5 ] && kept && ok "exit 5, write kept (unchanged)" || bad "K rc=$RC, expected 5" "$(tail -6 "$WORK/out.K")"
+grep -q 'no retry: mxbuild failed with the same deploy-stage message' "$WORK/out.K" && ok "says why the gate did not retry" || bad "K: no reason printed"
+
+echo "== L: usage errors exit 2, nothing touched =="
+( cd "$P" && git checkout -q -- Fixture.mpr mprcontents && rm -rf .mpr-snapshots docs ) >/dev/null 2>&1
+printf 'not runnable\n' > "$WORK/plain.txt"
+for args in "" "--patch $WORK/no-such.py" "--patch $WORK/plain.txt"; do
+  ( cd "$P" && TMPDIR="$WORK/tmp" MXTK_NO_INSTALL=1 MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" ./bin/exec.sh $args ) >"$WORK/out.L" 2>&1; RC=$?
+  [ "$RC" -eq 2 ] && ! kept && [ ! -f "$LOG" ] && ok "exec.sh ${args:-<no script>}: exit 2, nothing written" || bad "L '${args}': rc=$RC" "$(tail -3 "$WORK/out.L")"
+done
 
 echo ""
 echo "PASS: $PASS  FAIL: $FAIL"

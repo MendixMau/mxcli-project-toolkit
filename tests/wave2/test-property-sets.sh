@@ -212,6 +212,14 @@ grep -qx "fix property-sets -p $P/App.mpr" "$P/.stub-log" && ok "the patch step 
 P="$(mkproj fix-clean)"; echo clean > "$P/.stub-state"; mkdir -p "$P/bin"; cp "$WORK/fix-noexec/bin/exec.sh" "$P/bin/"
 "$DOCTOR" --fix-property-sets "$P" >/dev/null 2>&1; RC=$?
 [ "$RC" -eq 0 ] && [ ! -f "$P/.exec-log" ] && ok "clean model: no repair dispatched" || bad "clean model dispatched a repair (rc=$RC)"
+# exec.sh exit 4 (#443): the patch was kept on a passed gate and only lint rose. Not a failed repair.
+P="$(mkproj fix-lint4)"; mkdir -p "$P/bin"
+sed 's/^bash "\$s" "\$(pwd)\/App.mpr" "\$@"$/bash "$s" "$(pwd)\/App.mpr" "$@" || exit 1; exit 4/' "$WORK/fix-noexec/bin/exec.sh" > "$P/bin/exec.sh"
+chmod +x "$P/bin/exec.sh"; grep -q 'exit 4$' "$P/bin/exec.sh" || bad "P7b stub was not rewritten"
+OUT="$("$DOCTOR" --fix-property-sets "$P" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q "repair kept; exec.sh reports a lint rise" && printf '%s' "$OUT" | grep -q "re-checking" \
+  && ! printf '%s' "$OUT" | grep -q "the repair was not kept" \
+  && ok "exec.sh exit 4: repair reported kept, re-checked, exit 0" || bad "exit-4 repair rc=$RC" "$OUT"
 
 echo "== P8 --quick compares the receipt with the installed mxcli =="
 P="$(mkproj quick)"; echo clean > "$P/.stub-state"

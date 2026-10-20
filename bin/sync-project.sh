@@ -1157,6 +1157,10 @@ known_fix_note() {
       fi
       echo "bin/_common.sh predates the WINDOWS MXBUILD GATE fix (toolkit, 2026-08-25). This is where find_sp_app/find_mxbuild, JAVA_HOME resolution and mxtk_platform actually live — exec.sh only calls them. So upgrading exec.sh ALONE does not deliver the fix, and grepping exec.sh for mxtk_platform reports 0 even on a fully patched project: grep _common.sh instead. Without this file the mxbuild gate is skipped on every Windows exec and nothing checks your builds. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh." ;;
     exec.sh)
+      if grep -q 'PATCH_MODE' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null \
+         && ! grep -q 'fail_rc' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
+        echo "bin/exec.sh predates the EXIT CODES fix (#443/#448, toolkit, 2026-10-20, field project): a clean build with a lint rise exited 1 like a failed gate, and an UNVERIFIED gate exited 0 like a pass, so agents learned to ignore 1 and trust 0. Now 4 = applied, lint only; 5 = applied, unverified; 1 = not applied. Its _common.sh also retries a bundle-only mxbuild exit 3 once. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh."; return
+      fi
       if grep -q 'RESTORER=' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null \
          && ! grep -q 'PATCH_MODE' "$PROJECT_DIR/bin/exec.sh" 2>/dev/null; then
         echo "bin/exec.sh predates --patch (toolkit, 2026-09-27, field project): a one-off script that edits the .mpr directly (a Python BSON patch) had no guarded path — no snapshot, no mxbuild gate, no restore, no BUILD-LOG row — and Claude Code's auto-mode classifier refused it run bare. Now: ./bin/exec.sh --patch <script> [args] runs it through the same chain and keeps it only on a verified gate. Upgrade: --upgrade-bin exec.sh."; return

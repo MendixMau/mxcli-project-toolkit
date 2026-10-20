@@ -147,9 +147,10 @@ RC=$(STUB_VER=v0.24.0 HV_SEQ= run F)
 grep -q "NOT RUN — this mxcli has no 'fix hashes'" "$WORK/out.F" && ok "loud NOT RUN" || bad "F: silent"
 [ "$(verifies)" -eq 0 ] && ok "never called fix hashes" || bad "F: called fix hashes on v0.24"
 
-echo "== G: patch exits 2: restored, no verify after it [guard] =="
+echo "== G: patch exits 2: restored, no verify after it, exec.sh exits 1 =="
+# 1, not the patch's own 2: exec.sh's 2 means "usage error, nothing touched" ("Exit codes").
 RC=$(PATCH_EXIT=2 HV_SEQ=verify-clean-v0.26.0 run G)
-[ "$RC" -eq 2 ] && ! kept && ok "exit 2, restored" || bad "G rc=$RC"
+[ "$RC" -eq 1 ] && ! kept && ok "exit 1, restored" || bad "G rc=$RC (expected 1)"
 [ "$(verifies)" -eq 1 ] && ok "baseline only" || bad "G: $(verifies) verify calls"
 
 echo "== H: baseline unclassifiable (project not found): NOT RUN, kept on the gate [guard] =="

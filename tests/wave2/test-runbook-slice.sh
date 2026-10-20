@@ -43,7 +43,7 @@ SP="$(bash "$SUT" --spans 2)"
 S2="$(grep -n '^### Stage 2 — ' "$RB" | head -1 | cut -d: -f1)"
 S1B="$(grep -n '^## 1b\.' "$RB" | head -1 | cut -d: -f1)"
 case "$SP" in
-  "skills/conversion-runbook.md §1b lines $S1B–"*" + Stage 2 lines $S2–"*) ok "--spans starts each span at its real heading ($S1B, $S2)" ;;
+  "skills/conversion-runbook.md §1b lines ${S1B}–"*" + Stage 2 lines ${S2}–"*) ok "--spans starts each span at its real heading ($S1B, $S2)" ;;
   *) bad "--spans wrong: $SP" ;;
 esac
 E2="${SP##*–}"

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Wireframe: Sales.Product_NewEdit (popup)</title>
+<link rel="stylesheet" href="../ds.css">
+</head>
+<body>
+<div class="wf-bar">Wireframe · Sales.Product_NewEdit · popup over Product_Overview</div>
+<div class="popup-stage">
+  <div class="shell-behind">
+    <div class="sidebar"><div class="brand">Catalog</div></div>
+    <div class="main">
+      <div class="page-head">
+        <h1>Product catalog</h1>
+        <p class="sub">Every item offered on sales orders.</p>
+        <div class="page-actions"><button class="btn btn-primary">New item</button></div>
+      </div>
+      <div class="card">
+        <h2>Active items</h2>
+        <p class="card-sub">Filtered by category and brand.</p>
+      </div>
+    </div>
+  </div>
+  <div class="dialog-scrim">
+    <div class="dialog" role="dialog" aria-label="Catalog item">
+      <div class="dialog-head"><h2>Catalog item</h2></div>
+      <div class="form-grid">
+        <div class="form-group"><label>SKU *</label><input>
+          <p class="form-help">Set when the item is created. It cannot change afterwards.</p></div>
+        <div class="form-group"><label>Name *</label><input></div>
+        <div class="form-group span-2"><label>Description</label><textarea></textarea></div>
+        <div class="form-group"><label>Category</label><input></div>
+        <div class="form-group"><label>Unit price *</label><input></div>
+        <div class="form-group"><label>Brand *</label><select></select></div>
+        <div class="form-group"><label>Active</label><input type="checkbox">
+          <p class="form-help">Inactive items are not offered on new sales orders.</p></div>
+      </div>
+      <div class="dialog-foot">
+        <button class="btn">Cancel</button>
+        <button class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="wf-note">The overview behind the scrim is the caller's page, drawn for context only.</div>
+</body>
+</html>

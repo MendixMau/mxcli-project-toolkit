@@ -67,6 +67,21 @@ while IFS= read -r f; do
     report "$f" 1 "CRLF line endings" "bash fails on line 1. Ensure .gitattributes has *.sh text eol=lf."
   fi
 
+  # 2. A bare $NAME followed directly by a non-ASCII byte (an em-dash, an ellipsis). In a
+  # single-byte locale bash reads that byte as part of the variable NAME (macOS bash 3.2 did
+  # it under en_US.UTF-8 too), so set -u aborts with "NAME<byte>: unbound variable" (#467:
+  # status.sh --brief died before printing NEXT). Checked before is_meta: no file is exempt
+  # from this one. Matched byte-wise (LC_ALL=C) so the result does not depend on the locale
+  # it is meant to guard against. Fix: brace it, ${NAME}—.
+  while IFS= read -r hit; do
+    [ -n "$hit" ] || continue
+    case "$hit" in *portability-ok:*) continue ;; esac
+    report "$f" "${hit%%:*}" "bare \$NAME followed by a non-ASCII character" \
+      'Brace the name: ${NAME}. A single-byte locale (and bash 3.2) reads the first byte as part of the name; set -u then aborts.'
+  done <<EOF
+$(code_lines "$f" | LC_ALL=C grep -E '^[0-9]+:.*\$[A-Za-z_][A-Za-z0-9_]*[^[:print:][:cntrl:]]')
+EOF
+
   is_meta "$f" && continue
 
   while IFS= read -r hit; do
@@ -154,6 +169,21 @@ while IFS= read -r f; do
         if grep -Eq -- '-v [A-Za-z_][A-Za-z_0-9]*="[^"]*\\' <<<"$(printf '%s' "$txt" | sed 's/\$([^)]*)//g')"; then
           report "$f" "$ln" "backslash inside an awk -v value (gawk rewrites escapes, mawk does not)" \
             'Pass patterns without backslashes: [|] for a literal pipe, [.] for a dot, or read the regex from ENVIRON["re"].'
+        fi ;;
+    esac
+
+    # \t inside a sed/grep bracket expression is not a tab. BSD/macOS sed reads [ \t] as
+    # "space, backslash or t" (GNU sed alone expands it), and grep reads it that way on
+    # every platform, so a trim stripped a trailing "t": Mod.ENUM_Product became
+    # Mod.ENUM_Produc in context-pack.sh (#468). awk expands \t in a regex everywhere, so
+    # only a bracket that FOLLOWS sed/grep on the line counts; a bracket inside a $'...'
+    # string holds a real tab and is skipped.
+    case "$txt" in
+      *sed*'\t'*|*grep*'\t'*)
+        if grep -Eq -- '(^|[^[:alnum:]_])(sed|grep)([[:space:]]|$)[^|]*\[[^]]*\\t' <<<"$txt" \
+           && ! grep -Eq -- "\\\$'[^']*\\[[^]]*\\\\t" <<<"$txt"; then
+          report "$f" "$ln" "\\t inside a sed/grep bracket expression (BSD: backslash or t, not tab)" \
+            'Use [[:blank:]] (space or tab) or [[:space:]], or a real tab via $'"'"'\t'"'"'.'
         fi ;;
     esac
 

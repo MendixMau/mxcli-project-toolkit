@@ -1433,7 +1433,7 @@ svg text{fill:var(--ink);font-size:11px}svg .m{fill:var(--mut)}
 .stale{color:var(--warn)}.r-partial td:last-child{color:var(--warn)}.r-built td:last-child{color:var(--ok)}
 .stack{display:flex;height:16px;border-radius:5px;overflow:hidden;background:var(--idle)}.stack>i{display:block;height:100%}
 .note{font-size:12px;color:var(--mut);margin:4px 0}
-html{scroll-behavior:smooth}[id^=stage-],[id^=agents-],[id^=phase-],#tips,#pages{scroll-margin-top:56px}
+html{scroll-behavior:smooth}[id^=stage-],[id^=agents-],[id^=phase-],#stages,#build-detail,#tips,#pages{scroll-margin-top:56px}
 .snav{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 16px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .snav a{min-width:34px;text-align:center;padding:4px 10px;border-radius:8px;background:var(--card);border:1px solid var(--line);font-weight:650;font-size:13px;color:var(--ink)}
 .snav a:hover{text-decoration:none;border-color:var(--accent)}
@@ -1452,7 +1452,7 @@ details.ph[open]{grid-column:1/-1;border-color:var(--accent);box-shadow:0 0 0 1p
 .pages .tree{margin-top:6px;font-size:13px}.pg{display:grid;grid-template-columns:minmax(120px,220px) minmax(0,1fr);gap:2px 12px;padding:5px 0;border-bottom:1px solid var(--line)}.pg:last-child{border-bottom:0}
 .pg .dir{font-weight:600;overflow-wrap:anywhere}.pg ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:3px 14px}.pg li{overflow-wrap:anywhere}.pg details{margin:0}.pg details ul{margin-top:4px}
 footer{margin-top:36px;font-size:13px;color:var(--mut)}footer li{margin:3px 0}
-@media(max-width:520px){code,pre,.stage dd,.stage dt{overflow-wrap:anywhere;min-width:0}.stage dl{grid-template-columns:minmax(0,1fr)}.stage dd{text-align:left}.hd .sub{white-space:normal;flex:1 1 100%}.snav{padding:6px 12px;flex-wrap:nowrap;overflow-x:auto;max-width:100%}.snav a{flex:0 0 auto}.snav b{flex:0 0 auto}.updated{max-width:100%;overflow-wrap:anywhere}.advl{grid-template-columns:minmax(0,1fr)}.pg{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rail{grid-template-columns:minmax(0,1fr)}main{padding:12px}h1{font-size:20px}.kpi .v{font-size:19px}}
+@media(max-width:520px){code,pre,.stage dd,.stage dt{overflow-wrap:anywhere;min-width:0}.stage dl{grid-template-columns:minmax(0,1fr)}.stage dd{text-align:left}.hd .sub{white-space:normal;flex:1 1 100%}.snav{padding:6px 12px;flex-wrap:nowrap;overflow-x:auto;max-width:100%}.snav a{flex:0 0 auto}.updated{max-width:100%;overflow-wrap:anywhere}.advl{grid-template-columns:minmax(0,1fr)}.pg{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.rail{grid-template-columns:minmax(0,1fr)}main{padding:12px}h1{font-size:20px}.kpi .v{font-size:19px}}
 """
 KC = {"BRIEF": "#8b5cf6", "BUILD": "#2f6fed", "PROVE": "#1f9d63", "HARNESS": "#d98a0b", "RUN": "#c93c3c"}
 
@@ -1523,8 +1523,9 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     w("<header><h1>Progress report: %s</h1>" % esc(info["name"]))
     w("<span class=updated id=stamp data-stamp>Last updated %s %s</span> <span class=sub id=lastevent data-stamp>session log last event %s</span>%s<br>" % (gen, datetime.datetime.now().astimezone().strftime("%Z"), last_ev,
       " <span class=live>&middot; <span id=livetxt>Live &middot; refreshes every 30 s</span> &middot; <a href='#' id=livebtn>Pause</a></span>" if args.reload else ""))
-    w("<div class=sub><span class=nowstage>Current stage: <a href='#stage-%s'>%s</a></span> &middot; Stage P to 6 &middot; entry mode %s &middot; <a href='%s'>PROJECT.md</a> &middot; <a href='%s'>gate-check page</a></div></header>" %
-      (info["current"] or "P", esc(("Stage %s: %s" % (info["current"], STAGE_NAME[info["current"]])) if info["current"] in STAGE_NAME else "unknown"), esc(info["entry_mode"]), href(os.path.join(proj, "PROJECT.md")), href(os.path.join(proj, "index.html"))))
+    nowstage = ("<a href='#stage-%s'>Stage %s: %s</a>" % (info["current"], info["current"], esc(STAGE_NAME[info["current"]]))) if info["current"] in STAGE_NAME else "unknown"
+    w("<div class=sub><span class=nowstage>Current stage: %s</span> &middot; Stage P to 6 &middot; entry mode %s &middot; <a href='%s'>PROJECT.md</a> &middot; <a href='%s'>gate-check page</a></div></header>" %
+      (nowstage, esc(info["entry_mode"]), href(os.path.join(proj, "PROJECT.md")), href(os.path.join(proj, "index.html"))))
     how_parts = []
     if L and DISCOVERY.get("mention") and not args.session_log:
         rows = "".join("<tr><td><code>%s</code></td><td>%s</td><td class=n>%d%%</td></tr>" % (esc(u["id"]), datetime.datetime.fromtimestamp(u["t"]).strftime("%Y-%m-%d"), round(u["share"] * 100)) for u in sorted(DISCOVERY.get("used", []), key=lambda u: u["t"]))

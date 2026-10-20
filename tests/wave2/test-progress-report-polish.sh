@@ -169,6 +169,9 @@ assert not re.search(r"href='#stage-", nav) and "<b>" not in nav, nav           
 assert "id=stages" in h and h.index("id=stages") < h.index("id='stage-P'"), "Stages target sits above the stage cards"
 for s_ in ["P", "0", "1", "2", "3", "4", "5", "6"]: assert "id='stage-%s'" % s_ in h, s_
 assert ".snav{position:sticky;top:0" in gen and ".snav{padding:6px 12px;flex-wrap:nowrap;overflow-x:auto" in gen
+sm = re.search(r"([^{}]*)\{scroll-margin-top:56px\}", gen).group(1).split(",")
+assert "#stages" in sm and "#build-detail" in sm, sm   # nav targets clear the sticky bar
+assert ".snav b{" not in gen, "no rule for the removed <b>Stage</b> label"
 head = h[h.index("<header>"):h.index("</header>")]
 assert re.search(r"Current stage: <a href='#stage-5'>Stage 5: [^<]+</a>", head), "current stage in the header"
 assert "replaces the former build-plan.html" not in head
@@ -182,6 +185,9 @@ for marker in ("Last updated", "session log last event", "Last build step", "Lat
 assert "id=livetxt" in st[0] and "id=livebtn" in st[0], "autoreload's live controls ride on the stamp line"
 PYEOF7
 hasnt "$R7" "replaces the former build-plan.html" "the old build-plan.html wording is gone from the page header"
+P7u="$WORK/p7u"; mkproj "$P7u" "**Somewhere in the middle**, no stage named"
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P7u" --html >/dev/null 2>&1
+has "$P7u/architecture/progress-report.html" "<span class=nowstage>Current stage: unknown</span>" "an unreadable current stage reads plain 'unknown', no link to #stage-P"
 # --refresh still leaves an unchanged page alone: the volatile lines are found by id=stamp or data-stamp
 SUM7="$(cksum < "$R7")"; sleep 1
 CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P7" --refresh >/dev/null 2>&1

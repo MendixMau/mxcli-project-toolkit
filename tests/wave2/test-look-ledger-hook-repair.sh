@@ -86,7 +86,11 @@ out="$("$TK/bin/sync-project.sh" "$D" 2>&1)"
 E="$WORK/fmt"; mkdir -p "$E/.claude"
 printf '{\n    "note": "f\xc3\xbcr",\n    "hooks": {}\n}\n' > "$E/.claude/settings.json"
 "$TK/bin/install-claude-permissions.sh" "$E" --hooks-only >/dev/null 2>&1
-{ ! grep -q '"permissions"' "$E/.claude/settings.json" && grep -q '^    "note": "f.r"' "$E/.claude/settings.json" \
+# Exact bytes, whole line: `f.r` matched only where the locale is UTF-8 (under LC_ALL=C the ü is
+# two bytes, `.` matches one, and H7 failed with the file intact). CRs stripped first: the
+# settings writer emits CRLF on native Windows Python, and -x would then miss the line. A
+# here-string, not `tr | grep -q`: this file runs under pipefail (test-pipefail-grep-q.sh).
+{ ! grep -q '"permissions"' "$E/.claude/settings.json" && grep -qxF "$(printf '    "note": "f\303\274r",')" <<<"$(tr -d '\r' < "$E/.claude/settings.json")" \
     && grep -q 'look-ledger.sh seen' "$E/.claude/settings.json" && ! ls "$E/.claude"/*.bak* >/dev/null 2>&1; } \
   && ok "H7: --hooks-only adds no empty allow/deny, no .bak, keeps 4-space indent and non-ASCII" \
   || bad "H7: --hooks-only reformatted or added keys" "$(cat "$E/.claude/settings.json")"

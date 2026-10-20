@@ -16,7 +16,8 @@
 #   1. $PROJECT_ROOT, if the caller set it — always wins.
 #   2. The sourcing script's location (bin/ -> ..), when that parent IS a project.
 #      This is the installed-copy case: <project>/bin/verify-module.sh.
-#   3. The current directory's project root, found by walking up for an .mpr.
+#   3. The current directory's project root, found by walking up for an .mpr (at the root,
+#      under app/, or under apps/<X>/) and never past the first project folder (#420).
 #
 # Tier 3 is why this is not a one-liner any more. The toolkit's own copy of these
 # scripts used to resolve tier 2 to the TOOLKIT, so running
@@ -26,24 +27,50 @@
 # obvious thing, that it was aimed at the wrong directory. Copying the script into
 # every project was the workaround. Tier 3 removes the need for it: the shared
 # toolkit copy now works from inside any wired project, no env var, no install.
+#
+# Where a model may sit under a project root — the three layouts, probed one level each, the
+# same probe find_mpr makes: <root>/*.mpr (single tree), <root>/app/*.mpr (two-tree), and
+# <root>/apps/<X>/*.mpr (multi-app folder, one app per subfolder).
+_mxtk_has_model() {
+  ls "$1"/*.mpr >/dev/null 2>&1 || ls "$1"/app/*.mpr >/dev/null 2>&1 || ls "$1"/apps/*/*.mpr >/dev/null 2>&1
+}
+# A folder that is a project whether or not a model was found in it: it holds an installed
+# bin/_common.sh (init-project.sh installs one into every project), or a .claude/ beside a
+# PROJECT.md (the wired-project pair init-project.sh writes). A bare .claude/ is NOT enough:
+# Claude Code creates one in whatever folder it runs in (a stray /tmp/.claude stopped the walk
+# in testing), and $HOME's is the user config. The toolkit's own copy lives in project-bin/
+# and the toolkit has no PROJECT.md, so the toolkit is not a project folder.
+_mxtk_is_project_dir() {
+  [ -f "$1/bin/_common.sh" ] && return 0
+  [ -d "$1/.claude" ] && [ -f "$1/PROJECT.md" ] && [ "$1" != "${HOME:-/nonexistent}" ]
+}
+# mxtk_walk_root <dir> — walk up from <dir>; print the first folder that holds a model (any of
+# the three layouts) or is a project folder, whichever comes first. rc 1 when neither is found
+# below /. The marker stop is what keeps the walk inside the project (#420): a multi-app folder
+# (apps/<X>/X.mpr) failed the root/app probe, the walk climbed on, and the first ancestor with
+# ANY .mpr became PROJECT_ROOT, so look-ledger rows landed in another folder's ledger.
+mxtk_walk_root() {
+  local d="$1"
+  while [ -n "$d" ] && [ "$d" != "/" ]; do
+    if _mxtk_has_model "$d" || _mxtk_is_project_dir "$d"; then printf '%s\n' "$d"; return 0; fi
+    d=$(dirname "$d")
+  done
+  return 1
+}
 _mxtk_resolve_root() {
-  local self_parent d
+  local self_parent
   self_parent=$(cd "$(dirname "${BASH_SOURCE[2]:-${BASH_SOURCE[1]:-${BASH_SOURCE[0]}}}")/.." 2>/dev/null && pwd)
-  # tier 2: the script sits in a real project's bin/ (model at the root, or under app/ on a
-  # two-tree checkout — the same one-level probe find_mpr makes)
-  if [ -n "$self_parent" ] && { ls "$self_parent"/*.mpr >/dev/null 2>&1 || ls "$self_parent"/app/*.mpr >/dev/null 2>&1; }; then
+  # tier 2: the script sits in a real project's bin/ (a model in any of the three layouts)
+  if [ -n "$self_parent" ] && _mxtk_has_model "$self_parent"; then
     printf '%s\n' "$self_parent"; return 0
   fi
-  # tier 3: walk up from $PWD looking for the .mpr (root or app/).
+  # tier 3: walk up from $PWD (mxtk_walk_root).
   # WHY app/ (2026-09-26, card-disbursement requirements-driven build): on a two-tree checkout
   # with no root .mpr, tiers 2 and 3 used to find nothing AT the project and kept climbing — and
   # the first stray .mpr in any ancestor directory became PROJECT_ROOT. A scratch copy under a
   # folder holding one unrelated .mpr pointed model-stamp.sh at that file and its hook passed.
-  d=$(pwd)
-  while [ "$d" != "/" ]; do
-    if ls "$d"/*.mpr >/dev/null 2>&1 || ls "$d"/app/*.mpr >/dev/null 2>&1; then printf '%s\n' "$d"; return 0; fi
-    d=$(dirname "$d")
-  done
+  # WHY apps/*/ and the project-folder stop (#420): the same climb, for a multi-app folder.
+  mxtk_walk_root "$(pwd)" && return 0
   # nothing found: keep the old behaviour so the caller's own error is the one seen
   printf '%s\n' "${self_parent:-$(pwd)}"
 }
@@ -135,6 +162,16 @@ find_mpr() {
       found="$f"
     done
   fi
+  # Multi-app folder: one app per apps/<X>/ (#420). The root resolver accepts this layout, so
+  # the model lookup must too; with more than one app it refuses to guess, like any other pair.
+  local multi=0
+  if [ "$count" -eq 0 ] && [ -d "$PROJECT_ROOT/apps" ]; then
+    for f in "$PROJECT_ROOT"/apps/*/*.mpr; do
+      [ -e "$f" ] || continue
+      count=$((count + 1)); multi=1
+      found="$f"
+    done
+  fi
 
   if [ "$count" -eq 0 ]; then
     echo "ERROR: no .mpr found in $PROJECT_ROOT" >&2
@@ -143,7 +180,12 @@ find_mpr() {
   if [ "$count" -gt 1 ]; then
     echo "ERROR: $count .mpr files in $PROJECT_ROOT — refusing to guess which model to write." >&2
     for f in "$PROJECT_ROOT"/*.mpr; do [ -e "$f" ] && echo "  $(basename "$f")" >&2; done
-    echo "Set MPR_FILE=<name>.mpr to choose." >&2
+    if [ "$multi" = 1 ]; then
+      for f in "$PROJECT_ROOT"/apps/*/*.mpr; do [ -e "$f" ] && echo "  ${f#"$PROJECT_ROOT"/}" >&2; done
+      echo "Set MPR_FILE=apps/<X>/<X>.mpr (relative to $PROJECT_ROOT) to choose." >&2
+    else
+      echo "Set MPR_FILE=<name>.mpr to choose." >&2
+    fi
     return 1
   fi
   echo "$found"

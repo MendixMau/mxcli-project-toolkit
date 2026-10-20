@@ -347,8 +347,21 @@ if [ -n "$PS_MODE" ]; then
   . "$TOOLKIT_ROOT/project-bin/_common.sh"
   MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
   [ -n "$MPR" ] || MPR="$(ls "$PROJECT_DIR"/app/*.mpr 2>/dev/null | head -1)"
+  # Multi-app folder (#420): MPR_FILE picks the app; otherwise the first is checked and the
+  # screen says so, naming the others, rather than silently checking one of several.
+  _ps_apps=""
+  if [ -z "$MPR" ] && ls "$PROJECT_DIR"/apps/*/*.mpr >/dev/null 2>&1; then
+    if [ -n "${MPR_FILE:-}" ] && [ -f "$PROJECT_DIR/${MPR_FILE#"$PROJECT_DIR"/}" ]; then
+      MPR="$PROJECT_DIR/${MPR_FILE#"$PROJECT_DIR"/}"
+    else
+      MPR="$(ls "$PROJECT_DIR"/apps/*/*.mpr | head -1)"
+      [ "$(ls "$PROJECT_DIR"/apps/*/*.mpr | wc -l | tr -d ' ')" -gt 1 ] \
+        && _ps_apps="$(cd "$PROJECT_DIR" && ls apps/*/*.mpr | paste -s -d, - | sed 's/,/, /g')"
+    fi
+  fi
   PMXCLI_PROBE="$(find_project_mxcli 2>/dev/null || true)"
   head_ "Property sets (Studio Pro merge safety): $PROJECT_DIR"
+  [ -n "$_ps_apps" ] && note "multi-app folder ($_ps_apps): checking ${MPR#"$PROJECT_DIR"/} only — rerun with MPR_FILE=apps/<X>/<X>.mpr for each other app"
   if [ "$PS_IF_STALE" = 1 ] && [ "$PS_MODE" = check ] && [ -n "$PMXCLI_PROBE" ]; then
     PS_VER="$(ps_version "$PMXCLI_PROBE")"
     if [ -n "$PS_VER" ] && ! ps_stale; then
@@ -1183,6 +1196,12 @@ if [ -n "$PROJECT_DIR" ]; then
     # Two-tree checkout (cloud-dev-environment.md: `mxcli new --output-dir ./app`) — the app
     # lives under app/. Reported "no .mpr found" on a healthy pilot, 2026-09-04.
     [ -n "$MPR" ] || MPR="$(ls "$PROJECT_DIR"/app/*.mpr 2>/dev/null | head -1)"
+    # Multi-app folder (apps/<X>/X.mpr, #420): report every app, not "no .mpr found".
+    if [ -z "$MPR" ] && ls "$PROJECT_DIR"/apps/*/*.mpr >/dev/null 2>&1; then
+      MPR="$(ls "$PROJECT_DIR"/apps/*/*.mpr | head -1)"
+      _apps="$(cd "$PROJECT_DIR" && ls apps/*/*.mpr | paste -s -d, - | sed 's/,/, /g')"
+      [ "$(ls "$PROJECT_DIR"/apps/*/*.mpr | wc -l | tr -d ' ')" -gt 1 ] && note "multi-app folder: $_apps — instruments need MPR_FILE=apps/<X>/<X>.mpr to pick one"
+    fi
     [ -n "$MPR" ] && ok "model: ${MPR#$PROJECT_DIR/}" || {
       warn "no .mpr found in the project root"
       note "If the model lives elsewhere, point doctor at the folder that contains it;"

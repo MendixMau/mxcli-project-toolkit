@@ -66,7 +66,8 @@ has "$R" "1 of 2 rows built" "Phase 2 shows 1 of 2 built"
 hasnt "$R" 'st-unknown">unknown' "no phase is labelled unknown"
 
 echo "P6 one plan view: rows once, in the phase cards; the now phase starts open; views A and B stay"
-for n in 3; do [ "$(grep -c "<td>$n</td>" "$R")" = 1 ] && ok "row $n appears once" || bad "row $n appears once"; done
+[ "$(grep -c "<td>3</td>" "$R")" = 1 ] && ok "row 3 appears once" || bad "row 3 appears once"
+[ "$(grep -c ">done 2026-10-12</td>" "$R")" = 1 ] && ok "row 2 state appears once" || bad "row 2 state appears once"
 hasnt "$R" "Full plan tables" "the duplicate plan-tables block is gone"
 has "$R" "<details class='card ph now' id='phase-2' open>" "the now phase renders open"
 hasnt "$R" "<details class='card ph' id='phase-1'[^>]* open" "other phases start closed"
@@ -74,7 +75,8 @@ has "$R" "<th>Produces / Proves</th><th>Depends on</th><th>State</th><th>Scripts
 has "$R" "<h2>A\\. Script folders" "view A stays"
 has "$R" "<h2>B\\. Modules" "view B stays"
 has "$R" "href='#plan-tables'" "the jump link still points at views A and B"
-has "$R" "details.ph\\[open\\]" "accordion script present"
+has "$R" "addEventListener(.\\?'toggle" "accordion toggle handler present in the script"
+[ "$(grep -o "addEventListener(.\\?'toggle" "$R" | wc -l)" = 1 ] && ok "accordion handler is not duplicated" || bad "accordion handler is not duplicated"
 
 echo "P2 placeholder failure on a later stage is pending"
 P2="$WORK/p2"; mkproj "$P2" "**Stage P - Kickoff**, in progress - gates passed: none"

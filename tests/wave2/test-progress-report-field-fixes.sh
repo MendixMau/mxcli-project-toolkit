@@ -373,7 +373,7 @@ if [ -n "$ADD" ] && git -C "$ROOT" show "$ADD^:project-bin/build-plan-status.sh"
   [ "$RC" -eq 0 ] && ok "build-plan-status.sh --html runs without error" || { bad "build-plan-status.sh --html exit $RC"; tail -5 "$WORK/bps11.out"; }
   hasnt "$WORK/bps11.out" "Traceback\|not written\|WARN" "no error or warning in its output"
   [ -s "$P11/architecture/progress-report.html" ] && ok "architecture/progress-report.html written" || bad "architecture/progress-report.html written"
-  has "$P11/architecture/progress-report.html" "replaces the former build-plan.html" "the page says it replaces build-plan.html"
+  hasnt "$P11/architecture/progress-report.html" "replaces the former build-plan.html" "the header no longer carries the 1.0 build-plan.html note (#479)"
   [ "$(cksum < "$P11/architecture/build-plan.html")" = "$OLDSUM" ] && ok "the old build-plan.html is left exactly as it was (documented)" || bad "old build-plan.html untouched"
   hasnt "$P11/architecture/progress-report.html" "href='[^']*progress-report" "the report never links itself"
 else
@@ -502,6 +502,9 @@ has "$WORK/out14/r.html" "history.scrollRestoration='manual'" "scrollRestoration
 has "$WORK/out14/r.html" "sessionStorage" "scroll position and open details go to sessionStorage"
 has "$WORK/out14/r.html" "id=livebtn" "Pause control present"
 has "$WORK/out14/r.html" "Live &middot; refreshes every 30 s" "live indicator present"
+[ "$(grep -c 'id=stamp' "$WORK/out14/r.html")" -eq 1 ] && ok "exactly one id=stamp on the live page (#479)" || bad "id=stamp count $(grep -c 'id=stamp' "$WORK/out14/r.html")"
+grep 'id=stamp' "$WORK/out14/r.html" | grep -q "Last updated.*id=livetxt.*id=livebtn" && ok "the autoreload finds its stamp: Last updated and the live controls share the one id=stamp line" || bad "autoreload stamp line"
+for _id in livetxt livebtn; do [ "$(grep -o "id=$_id\b" "$WORK/out14/r.html" | wc -l | tr -d ' ')" -eq 1 ] && ok "id=$_id is unique" || bad "id=$_id not unique"; done
 if command -v node >/dev/null 2>&1; then
 node - "$WORK/out14/r.html" <<'JSEOF' && ok "node: state saved and restored, no reload within 20 s of input, Pause stops it" || bad "autoreload behaviour (node)"
 const fs = require("fs");

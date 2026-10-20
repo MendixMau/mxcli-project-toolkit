@@ -16,6 +16,10 @@
 #   P6b an older progress-report.py without --phase-detail (a partial sync) still renders, with the short row tables.
 #   P6c the page's own scripts, run in node against a DOM shim: the now phase is open on load, opening phase 1
 #       closes phase 2, a #phase-3 link on load wins over the default, and restored state wins over the default.
+#   P7  top bar and header (#479): one group of section links (Stages, Build, Pages), no stage chips; the bar stays
+#       sticky and phone-safe; every #stage-N card anchor stays; the header states the current stage; exactly one
+#       id=stamp, every other volatile line marked data-stamp, every id on the page unique; the autoreload's
+#       live controls sit on the id=stamp line; no "replaces the former build-plan.html" in the header.
 #   P3  no session log: one calm line (not the orange box), the regenerate hint inside "How this was measured";
 #       with --no-log the page never claims it looked in folders or logs.
 #
@@ -146,6 +150,42 @@ const saved = {"pr-view:/r.html": JSON.stringify({y: 0, d: {"phase-1": true, "ph
 assert.deepStrictEqual(load("", saved).open(), ["phase-1"], "restored state wins over the default");
 JSEOF
 else ok "SKIP: node not available for the accordion behaviour test"; fi
+
+echo "P7 top bar, unique stamp id, header wording (#479)"
+P7="$WORK/p7"; mkproj "$P7" "**Stage 5 - Build**, in progress - gates passed: P, 0, 1, 2, 3, 4"
+cp "$P1/architecture/build-plan.md" "$P7/architecture/"
+mkdir -p "$P7/.claude/loop"   # recent activity, so the page carries the autoreload script and its live controls
+printf 'ts\tscript\tgate\tresult\telapsed_s\tmxbuild_errors\tlint_rc\tlint_total\trestored\tscore\n%s\t02-billing.mdl\tpass\tapplied\t40\t0\t0\t\t0\t90.0\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$P7/.claude/loop/metrics-ledger.tsv"
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P7" --html >/dev/null 2>&1
+R7="$P7/architecture/progress-report.html"
+[ "$(grep -c 'id=stamp' "$R7")" -le 1 ] && ok "grep -c 'id=stamp' is at most 1 ($(grep -c 'id=stamp' "$R7"))" || bad "id=stamp appears $(grep -c 'id=stamp' "$R7") times"
+"$PY" - "$R7" "$ROOT/project-bin/progress-report.py" <<'PYEOF7' && ok "one nav group with Stages, sticky and phone-safe; stage anchors kept; current stage in the header; ids unique; volatile lines marked; autoreload controls on the stamp line" || bad "top bar / stamp / header (P7)"
+import re, sys, collections
+h = open(sys.argv[1], encoding="utf-8").read(); gen = open(sys.argv[2], encoding="utf-8").read()
+nav = re.search(r"<nav class=snav[^>]*>(.*?)</nav>", h).group(1)
+links = re.findall(r"<a href='([^']+)'[^>]*>([^<]+)</a>", nav)
+assert [t for _, t in links] == ["Stages", "Build", "Pages"], links            # no Tips without a session log
+assert not re.search(r"href='#stage-", nav) and "<b>" not in nav, nav           # the chip group is gone
+assert "id=stages" in h and h.index("id=stages") < h.index("id='stage-P'"), "Stages target sits above the stage cards"
+for s_ in ["P", "0", "1", "2", "3", "4", "5", "6"]: assert "id='stage-%s'" % s_ in h, s_
+assert ".snav{position:sticky;top:0" in gen and ".snav{padding:6px 12px;flex-wrap:nowrap;overflow-x:auto" in gen
+head = h[h.index("<header>"):h.index("</header>")]
+assert re.search(r"Current stage: <a href='#stage-5'>Stage 5: [^<]+</a>", head), "current stage in the header"
+assert "replaces the former build-plan.html" not in head
+ids = re.findall(r"""\bid=['"]?([\w:.-]+)""", h)
+dup = [i for i, c in collections.Counter(ids).items() if c > 1]; assert not dup, dup
+lines = h.split("\n")
+st = [l for l in lines if "id=stamp" in l]; assert len(st) == 1 and "Last updated" in st[0], st
+for marker in ("Last updated", "session log last event", "Last build step", "Latest model score", "Plan read", "Rebuild: project-bin"):
+    for l in lines:
+        if marker in l and "<script" not in l: assert "data-stamp" in l or "id=stamp" in l, marker
+assert "id=livetxt" in st[0] and "id=livebtn" in st[0], "autoreload's live controls ride on the stamp line"
+PYEOF7
+hasnt "$R7" "replaces the former build-plan.html" "the old build-plan.html wording is gone from the page header"
+# --refresh still leaves an unchanged page alone: the volatile lines are found by id=stamp or data-stamp
+SUM7="$(cksum < "$R7")"; sleep 1
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P7" --refresh >/dev/null 2>&1
+[ "$(cksum < "$R7")" = "$SUM7" ] && ok "--refresh leaves the page byte-identical when only stamp lines would change" || bad "--refresh rewrote an unchanged page"
 
 echo "P2 placeholder failure on a later stage is pending"
 P2="$WORK/p2"; mkproj "$P2" "**Stage P - Kickoff**, in progress - gates passed: none"

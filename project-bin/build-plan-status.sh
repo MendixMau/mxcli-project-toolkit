@@ -739,8 +739,10 @@ if [ "$WRITE_HTML" -eq 1 ]; then
     if "$PY" "$GEN" "$ROOT" "${GEN_ARGS[@]}" >/dev/null 2>"$OUT.err.$$"; then
       # Two renders of the same state differ only in the stamp lines. A refresh that changed
       # nothing leaves the file alone, or every exec.sh run would dirty the working tree.
+      # Stamp lines carry a data-stamp attribute (one of them also id=stamp); 'id=stamp' is kept in
+      # the pattern so a page written before #479, with id=stamp on every such line, still compares.
       if [ "$REFRESH" -eq 1 ] && [ -f "$OUT" ] \
-         && [ "$(grep -v 'id=stamp' "$OUT")" = "$(grep -v 'id=stamp' "$OUT_TMP")" ]; then
+         && [ "$(grep -vE 'id=stamp|data-stamp' "$OUT")" = "$(grep -vE 'id=stamp|data-stamp' "$OUT_TMP")" ]; then
         rm -f "${OUT_TMP:?}"
       else
         mv -f "$OUT_TMP" "$OUT"

@@ -165,7 +165,7 @@ while IFS= read -r f; do
     # string holds a real tab and is skipped.
     case "$txt" in
       *sed*'\t'*|*grep*'\t'*)
-        if grep -Eq -- '(sed|grep)[^|]*\[[^]]*\\t' <<<"$txt" \
+        if grep -Eq -- '(^|[^[:alnum:]_])(sed|grep)([[:space:]]|$)[^|]*\[[^]]*\\t' <<<"$txt" \
            && ! grep -Eq -- "\\\$'[^']*\\[[^]]*\\\\t" <<<"$txt"; then
           report "$f" "$ln" "\\t inside a sed/grep bracket expression (BSD: backslash or t, not tab)" \
             'Use [[:blank:]] (space or tab) or [[:space:]], or a real tab via $'"'"'\t'"'"'.'

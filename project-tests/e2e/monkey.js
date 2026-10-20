@@ -153,7 +153,42 @@ async function typeSafely(page, handle, text) {
 // toggle), so Back left the app — to login.html, then to about:blank. The oracle scored the
 // non-app page "blank page", every later round on that target scored it again, and the next
 // target was never reached: 10 crash-class findings, one target unfuzzed, no app defect.
-const SIGN_OUT = /\b(sign|log)\s*(out|off)\b/i;
+//
+// SIGN_OUT IS MULTILINGUAL, AND A PROJECT CAN ADD TO IT (#469). The English-only pattern missed
+// a Dutch app's "Afmelden": the monkey signed itself out in round 1, scored login.html as a
+// CRASH, and fuzzed nothing more (seed 204262061: 3 observations, 1 crash-class; 24 and 0 once
+// the label was excluded). The default covers the common captions of the languages Mendix apps
+// ship in most; anything else goes in project.config.js `signOutPattern` (a RegExp or a regex
+// string) or the SIGN_OUT_PATTERN env var, and is ADDED to the default, never a replacement.
+const SIGN_OUT_DEFAULT = new RegExp('\\b(?:' + [
+  '(?:sign|log)\\s*(?:out|off)',                  // en: Sign out, Log off, Logout
+  'afmelden', 'uitloggen',                        // nl
+  'abmelden', 'ausloggen',                        // de
+  'se\\s+d[ée]connecter', 'd[ée]connexion',       // fr
+  'cerrar\\s+sesi[óo]n',                          // es
+  '(?:terminar|encerrar)\\s+sess[ãa]o',           // pt
+  'disconnetti',                                  // it
+].join('|') + ')\\b', 'i');
+function signOutPattern(extra) {
+  if (!extra) return SIGN_OUT_DEFAULT;
+  const src = extra instanceof RegExp ? extra.source : String(extra);
+  try { return new RegExp(`(?:${SIGN_OUT_DEFAULT.source})|(?:${src})`, 'i'); }
+  catch (e) {
+    console.log(`  ⚠ signOutPattern ${JSON.stringify(src)} is not a valid regex (${e.message}) — using the built-in sign-out captions only`);
+    return SIGN_OUT_DEFAULT;
+  }
+}
+const SIGN_OUT = signOutPattern(cfg.signOutPattern);
+// The keyboard can reach controls the button locator never offers: the layout's top bar, a
+// navigation item, an icon-only button whose caption is its aria-label or title.
+async function focusIsSignOut(page) {
+  const label = await page.evaluate(() => {
+    const e = document.activeElement;
+    if (!e || e === document.body) return '';
+    return [e.innerText || e.textContent || '', e.getAttribute('aria-label') || '', e.getAttribute('title') || ''].join(' | ');
+  }).catch(() => '');
+  return SIGN_OUT.test(label);
+}
 function leftApp(url, baseUrl) {
   const base = String(baseUrl).replace(/\/+$/, '');
   if (!url || (url !== base && !url.startsWith(base + '/'))) return true;
@@ -208,7 +243,10 @@ async function round(page, target, bucket) {
       }
     } else if (abuse === 'rapidTab') {
       for (let i = 0; i < 15; i++) await page.keyboard.press('Tab').catch(() => {});
-      await page.keyboard.press('Enter').catch(() => {});
+      // Never press Enter on a sign-out control (#469): step past it, a few Tabs at most.
+      for (let k = 0; k < 5 && await focusIsSignOut(page); k++) await page.keyboard.press('Tab').catch(() => {});
+      if (await focusIsSignOut(page)) what += ' (focus stayed on a sign-out control: Enter skipped)';
+      else await page.keyboard.press('Enter').catch(() => {});
     } else if (abuse === 'reloadMidFlow') {
       if (btn) btn.click({ force: true, timeout: 4000 }).catch(() => {});
       await page.waitForTimeout(300);
@@ -224,7 +262,7 @@ async function round(page, target, bucket) {
 }
 
 // leftApp is exported for tests/wave2/test-monkey-left-app.sh; requiring this file runs nothing.
-module.exports = { leftApp, SIGN_OUT };
+module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern };
 
 // ── main ────────────────────────────────────────────────────────────────────
 if (require.main === module) (async () => {

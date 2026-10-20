@@ -143,7 +143,7 @@ function innerBalanced(html, openRe) {
   return html.slice(open, end);
 }
 
-function contentOf(html) {
+function contentOf(html, popupLayout) {
   // Boundary preference, most-specific first:
   //   <main>            ToeicBuddy shape — content-only wireframes
   //   div.main          the topbar portal full-page shape — the wireframe mocks the WHOLE app
@@ -161,17 +161,27 @@ function contentOf(html) {
   //                     06/07 .mockup-frame. Measured, not assumed — every one of them
   //                     fell through to <body> before this list existed.
   //   div.content       same shape when the wireframe has no .main wrapper
-  //   <body>            popup/dialog wireframes with annotation siblings
-  // then strip annotation chrome either way.
+  //   <body>            popup/dialog wireframes with annotation siblings — a bare `.dialog`
+  //                     popup with no stage and no scrim still lands here, as it always did
+  // then strip annotation chrome either way. Ahead of the whole list, only with popup
+  // evidence: the dialog itself (see POPUP below).
   //
-  // POPUP FIRST (#471). A popup wireframe draws the CALLER's page behind a scrim for context:
-  // `.popup-stage > .shell-behind + .dialog-scrim > .dialog`. The shell behind carries its own
-  // div.main, so the list below landed on the caller's page and scored the popup against it:
-  // 29% in the field for a popup whose fields and bindings all matched, every miss in the
-  // shell. When the wireframe draws a `.dialog`, the dialog is the page; the shell is not
-  // scored at all. Matched on the class WORD, so `dialog-scrim`/`dialog-head` do not count.
+  // POPUP, ONLY WITH POPUP EVIDENCE (#471). A popup wireframe draws the CALLER's page behind a
+  // scrim for context: `.popup-stage > .shell-behind + .dialog-scrim > .dialog`. The shell
+  // behind carries its own div.main, so the list above landed on the caller's page and scored
+  // the popup against it: 29% in the field for a popup whose fields and bindings all matched,
+  // every miss in the shell. So when the wireframe is a popup, the dialog is the page.
+  //
+  // But `.dialog` alone is not evidence: it is the toolkit's own design-system component, and
+  // a full-page wireframe may draw an inline confirm with it. Switching on any `.dialog` scored
+  // a grouped overview plus a confirm as the confirm alone (39% on master, 5% on the first cut
+  // of this fix; review of #482). Evidence is a `.popup-stage` or `.dialog-scrim` in the
+  // wireframe, or a page whose MDL names a popup layout (`Layout: …Popup…`, the same test the
+  // chrome set uses). Matched on the class WORD, so `dialog-head`/`dialog-foot` never count.
   const cls = name => new RegExp(`<(div|section|dialog|aside)\\b[^>]*class="(?:[^"]*\\s)?${name}(?:\\s[^"]*)?"`, 'i');
-  const popup = innerBalanced(html, cls('dialog'))
+  const popupEvidence = !!popupLayout || cls('popup-stage').test(html) || cls('dialog-scrim').test(html);
+  const popup = !popupEvidence ? null
+    : innerBalanced(html, cls('dialog'))
     || (() => {                                   // a stage with no .dialog: everything but the shell
       const stage = innerBalanced(html, cls('popup-stage'));
       return stage === null ? null : dropBalanced(stage, cls('shell-behind'));
@@ -332,7 +342,7 @@ function bindRows(html) {
   return rows;
 }
 
-function wfFacts(html) {
+function wfFacts(html, popupLayout) {
   // HTML COMMENTS ARE NOT PAGE. contentOf() picks its boundary with a regex, and a template
   // whose header comment says "put the screen inside <main> … the bind table goes AFTER
   // </main>" handed it the comment text as the page. Field case, 2026-10-02, two builds
@@ -341,7 +351,7 @@ function wfFacts(html) {
   // neither describing the page. Strip comments before anything reads the document.
   html = html.replace(/<!--[\s\S]*?-->/g, ' ');
   const mock = localMockClasses(html);
-  let main = contentOf(html);
+  let main = contentOf(html, popupLayout);
   const mockUsed = [];
   const structural = [];
   for (const c of mock) {
@@ -753,9 +763,10 @@ function score(wf, mdl, chromeExtra) {
   return { pct: den ? Math.round(100 * num / den) : null, h, b, k, c, bd };
 }
 
-const wf = wfFacts(readWireframe());
 const ownMdl = pageMdl();
 if (!ownMdl.trim()) { console.error('page-fidelity: no declaration of page "' + PAGE + '" found in input'); process.exit(2); }
+// Read first: a popup layout is evidence that a `.dialog` in the wireframe is the page (#471).
+const wf = wfFacts(readWireframe(), /Layout:\s*[^,)\n]*Popup/i.test(ownMdl));
 const snips = expandSnippets(ownMdl);
 const mdl = ownMdl + snips.extra;
 const lay = layoutChrome(SRCS, ownMdl);

@@ -4,8 +4,8 @@
 
 > **Agents: this README is orientation, not the spec.** For any pipeline work, the executable authority is `skills/conversion-runbook.md` (stages, gates, interview protocol) plus each stage's owning skill — load those before producing anything. Stage summaries here and in `toolkit-guide.html` are routing, not deliverable lists.
 
-**Build and change Mendix apps with an AI coding agent, and get a result you can review.**
-Every decision written down, every stage gated, every rule backed by a real incident.
+**A harness for AI coding agents that build and change Mendix apps, so the result is one you can review and trust.**
+Every decision written down, every stage gated, every rule learned on a real project.
 
 ## What it is
 

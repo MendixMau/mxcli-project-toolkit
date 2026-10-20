@@ -2349,6 +2349,8 @@ strip quotes the same way page param resolution already does).
 
 ## BUG-70: A widget-level `action: show_page Page(Param: value, ...)` action property unconditionally drops ALL params — not just in the `create_object ... then show_page(...)` chained form previously logged; this is a general defect in the plain, non-chained widget-action form too
 
+> **REFUSED AT `check` on v0.26.0 — captured 2026-10-20 (#445).** The same page-level shape (button outside any data widget, `$SomeRef` argument; mxcli's own `1029-showpage-arg-without-context.fail.mdl`) now fails `mxcli check` with MDL-PAGEARG01, so `bin/exec.sh` refuses it before writing. Not re-run through `exec` or mxbuild, and the BUG-95 entry was not re-probed. Capture: `tests/wave2/fixtures/exec-check-refusal/pagearg-v0.26.0.out`.
+
 > **CONFIRMED STILL OPEN on v0.21.0 — verified 2026-09-14. A page-level ACTIONBUTTON (no enclosing data widget) with `Action: SHOW_PAGE Detail(Item: $SomeRef)`, `$SomeRef` a page Variable, execs/checks clean; `DESCRIBE PAGE` shows the argument silently rebound to `$currentObject`; native mxbuild `[CE1571]`. `mxcli syntax page`'s own MDL-PAGEARG01 note still does not fire for this page-level, no-enclosing-widget shape. See also BUG-95.** See [mxlabs-v0.21.0-retest-2026-09-14.md](mxlabs-v0.21.0-retest-2026-09-14.md).
 
 > **CONFIRMED STILL OPEN on v0.20.0 — verified 2026-08-31. v0.19's MDL-PAGEARG01 refusal does NOT cover a page-level button in CREATE PAGE: args are silently rebound to `$currentObject`, CE1571 per param + CE0117 at build. See also BUG-95.** See [mxlabs-v0.20.0-retest-2026-08-31.md](mxlabs-v0.20.0-retest-2026-08-31.md).

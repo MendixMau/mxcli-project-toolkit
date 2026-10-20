@@ -1065,25 +1065,31 @@ step_done guards
 # failure is "- line N:M ..." under "Syntax errors found:". Rule id first, so truncation keeps it.
 check_refusal_reason() {  # $1 = captured check output
   _esc="$(printf '\033')"
-  sed "s/${_esc}\[[0-9;]*m//g" "$1" 2>/dev/null | awk '
+  tr -d '\r' < "$1" 2>/dev/null | sed "s/${_esc}\[[0-9;]*m//g" | awk '
     /^(Syntax|Reference) errors( found)?:$/ { hdr = 1; next }
     hdr && h == "" && NF { h = $0 }
     e == "" && /^ *✗ / && !/ found$/ { e = $0 }
     f == "" && /[Ee]rror/ && !/^WARNING: / { f = $0 }
     END { r = (e != "") ? e : ((h != "") ? h : f); print r }' \
-  | sed -e 's/^ *✗ *//' -e 's/^ *- //' -e 's/[[:space:]][[:space:]]*/ /g' -e 's/ *$//' \
+  | sed -e 's/^ *✗ *//' -e 's/^ *- //' -e 's/^ *//' -e 's/[[:space:]][[:space:]]*/ /g' -e 's/ *$//' \
         -e 's/^\(.*\) \[\([A-Z][A-Z0-9-]*[0-9]\)\]$/\2: \1/' -e 's/|/\\|/g' \
-  | LC_ALL=C awk -v hi="$(printf '\200')" '{ s = $0; if (length(s) > 160) {
-      s = substr(s, 1, 160); while (s != "" && substr(s, length(s), 1) >= hi) s = substr(s, 1, length(s) - 1)
+  | LC_ALL=C awk -v c80="$(printf '\200')" -v c0="$(printf '\300')" -v e0="$(printf '\340')" \
+      -v f0="$(printf '\360')" -v f8="$(printf '\370')" '{ s = $0; if (length(s) > 160) {
+      # Cut at byte 160 on a UTF-8 boundary: count the trailing continuation bytes, then keep the
+      # character they belong to only if its lead byte says it is complete.
+      s = substr(s, 1, 160); n = length(s); k = 0
+      while (k < n && (c = substr(s, n - k, 1)) >= c80 && c < c0) k++
+      l = (k < n) ? substr(s, n - k, 1) : ""
+      need = (l >= f0 && l < f8) ? 3 : (l >= e0 && l < f0) ? 2 : (l >= c0 && l < e0) ? 1 : -1
+      if (need == k) {} else if (need > 0) s = substr(s, 1, n - k - 1); else s = substr(s, 1, n - k)
       s = s "..." }; print s }'
 }
 if [ "$PATCH_MODE" = "1" ]; then
   echo "→ --patch: no pre-exec mxcli check (not MDL). The mxbuild gate below is this write's only check."
 elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
   echo "→ Pre-exec check: mxcli check (grammar + references)..."
-  _co="$(mktemp "${TMPDIR:-/tmp}/exec-check.XXXXXX")"; _crc=0
-  "$PMXCLI" check "$SCRIPT" -p "$MPR" --references >"$_co" 2>&1 || _crc=$?
-  cat "$_co"
+  _co="$(mktemp "${TMPDIR:-/tmp}/exec-check.XXXXXX")"
+  "$PMXCLI" check "$SCRIPT" -p "$MPR" --references 2>&1 | tee "$_co"; _crc=${PIPESTATUS[0]}
   if [ "$_crc" -ne 0 ]; then
     _why="$(check_refusal_reason "$_co")"; rm -f "$_co"
     echo ""

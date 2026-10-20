@@ -4,10 +4,13 @@
 # usage: bash tests/wave2/test-exec-check-refusal.sh [path-to-exec.sh]
 #
 # Field (#445, a migration project, 2026-10-16/17): three 🚫 rows said only "mxcli check failed
-# pre-exec", so the rule that refused them (MDL-PAGEARG01, new in mxcli) was never recorded.
+# pre-exec". Their check output was not kept, so what refused them is unknown; the issue quotes
+# MDL-PAGEARG01 (in mxcli since about v0.19, see BUG-70) as the likely rule.
 #
 # Golden input, captured verbatim from mxcli v0.26.0 (not hand-written), in
-# fixtures/exec-check-refusal/:
+# fixtures/exec-check-refusal/. Both captures ran `mxcli check <file>` without `-p --references`;
+# exec.sh adds those flags, and a reference-tier violation prints the same "✗ ... [RULE]" line,
+# which the parser reads first:
 #   pagearg-v0.26.0.out  `mxcli check` of mendixlabs/mxcli
 #                        mdl-examples/bug-tests/1029-showpage-arg-without-context.fail.mdl:
 #                        three warnings first, then the error line, ANSI colour though piped
@@ -17,6 +20,7 @@
 #   B  the syntax row carries the parse error, with its pipes escaped: the row keeps 5 cells
 #   C  the screen still shows mxcli's own output, and mxcli check ran exactly once
 #   D  a plain one-line refusal (no rule bracket) is recorded too
+#   E  a reason in non-Latin text longer than 160 bytes is cut on a character boundary, not to "..."
 #
 # Synthetic project, stub mxcli replaying the capture. Nothing real runs.
 set -uo pipefail
@@ -87,6 +91,16 @@ printf 'error MDL-PAGEARG01: show page with two parameters\n' > "$WORK/plain.out
 run "$WORK/plain.out"
 case "$ROW" in *"check: error MDL-PAGEARG01: show page with two parameters"*) ok "D: one-line refusal recorded" ;;
   *) bad "D: one-line refusal recorded" "$ROW" ;; esac
+
+# E
+{ printf '  \033[31m✗\033[0m '; for i in $(seq 10); do printf 'परीक्षण'; done; printf ' [MDL-REF01]\r\n'; } > "$WORK/long.out"
+run "$WORK/long.out"
+case "$ROW" in *"check: MDL-REF01: परीक्षणपरीक्षण"*"..."*) ok "E: long multibyte reason kept, cut with ..." ;;
+  *) bad "E: long multibyte reason kept, cut with ..." "$ROW" ;; esac
+_why="${ROW#*check: }"; _why="${_why%%...*}"
+if printf '%s' "$_why" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1 && [ "$(printf '%s' "$_why" | wc -c)" -le 160 ] \
+   && [ "$(printf '%s' "$_why" | wc -c)" -ge 157 ]; then ok "E: cut is valid UTF-8, 157-160 bytes"
+else bad "E: cut is valid UTF-8, 157-160 bytes" "$(printf '%s' "$_why" | wc -c) bytes"; fi
 
 echo ""
 echo "== $PASS passed, $FAIL failed"

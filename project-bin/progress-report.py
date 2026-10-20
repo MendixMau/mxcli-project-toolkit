@@ -1443,11 +1443,11 @@ html{scroll-behavior:smooth}[id^=stage-],[id^=agents-],[id^=phase-],#tips,#pages
 details.ph>summary{list-style:none;cursor:pointer;color:var(--ink)}details.ph>summary::-webkit-details-marker{display:none}
 details.ph[open]{grid-column:1/-1;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--soft)}.steps td{font-size:12px;padding:3px 6px}
 .nolog{margin:10px 0;font-size:13px}.note-card{margin-top:14px;border-left:4px solid var(--warn)}.live{font-size:12px;color:var(--muted)}.live a{color:inherit}details.how{margin:10px 0;font-size:13px;color:var(--muted)}details.how summary{cursor:pointer}
-.frag section.phase{margin-top:14px}.frag h2{font-size:16px;margin:24px 0 4px}.frag h3{margin:14px 0 2px}.frag .scroll{overflow-x:auto}
+.frag h2{font-size:16px;margin:24px 0 4px}.frag h3{margin:14px 0 2px}.frag .scroll{overflow-x:auto}
 .frag .lede{font-size:14px}.frag .empty{color:var(--mut)}.frag code{font-size:12px}
 .frag .st-built,.ph .st-built,.frag .done,.frag .CLEAN{color:var(--ok)}.frag .st-progress,.ph .st-progress,.frag .in-progress,.frag .INCOMPLETE{color:var(--warn)}
 .frag .st-todo,.ph .st-todo,.frag .pending{color:var(--mut)}.frag .st-person,.ph .st-person{color:#8b5cf6}.frag .st-unknown,.ph .st-unknown{color:var(--mut);font-style:italic}
-.frag .FINDINGS,.frag .drift,.ph .drift{color:var(--bad)}.frag .drift,.ph .drift{font-size:12px}.ph .scroll{overflow-x:auto}.ph .claims{font-size:12px}.frag .claims{font-size:12px}.frag .warn summary{color:var(--warn)}
+.frag .FINDINGS,.frag .drift,.ph .drift{color:var(--bad)}.frag .drift,.ph .drift{font-size:12px}.ph .claims{font-size:12px}.frag .claims{font-size:12px}.frag .warn summary{color:var(--warn)}
 .frag .badge,.ph .badge{margin-left:6px;border:1px solid currentColor;background:transparent}
 .pages .tree{margin-top:6px;font-size:13px}.pg{display:grid;grid-template-columns:minmax(120px,220px) minmax(0,1fr);gap:2px 12px;padding:5px 0;border-bottom:1px solid var(--line)}.pg:last-child{border-bottom:0}
 .pg .dir{font-weight:600;overflow-wrap:anywhere}.pg ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:3px 14px}.pg li{overflow-wrap:anywhere}.pg details{margin:0}.pg details ul{margin-top:4px}

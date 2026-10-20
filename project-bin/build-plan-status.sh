@@ -729,7 +729,11 @@ if [ "$WRITE_HTML" -eq 1 ]; then
       fi
       echo "<p class=note>The plan: what build-plan.md says. A: built, from mdlsource/ done- prefixes. B: proven, from verify-module.sh + docs/improvement-register.md. A phase at 100% with no reviewed row in B is built, not proven.</p>"
     } > "$FRAG_TMP"
-    GEN_ARGS=(--out "$OUT_TMP" --fragment "$FRAG_TMP" --phase-detail "$PHASE_DETAIL" --plan-msg "${PLAN_MSG:-}")
+    GEN_ARGS=(--out "$OUT_TMP" --fragment "$FRAG_TMP" --plan-msg "${PLAN_MSG:-}")
+    # An older progress-report.py (a `sync-project.sh --only-bin build-plan-status.sh` run, or a hand-edited
+    # copy) has no --phase-detail and would exit "unrecognized arguments", writing no page at all. Pass the
+    # flag only when the generator knows it; without it the phase cards keep their short row tables.
+    grep -q -- '--phase-detail' "$GEN" 2>/dev/null && GEN_ARGS+=(--phase-detail "$PHASE_DETAIL")
     [ -n "$PLAN_JSON" ] && GEN_ARGS+=(--plan-json "$PLAN_JSON")
     for _sl in ${SESSION_LOGS[@]+"${SESSION_LOGS[@]}"}; do GEN_ARGS+=(--session-log "$_sl"); done
     if "$PY" "$GEN" "$ROOT" "${GEN_ARGS[@]}" >/dev/null 2>"$OUT.err.$$"; then

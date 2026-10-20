@@ -19,7 +19,7 @@ Sections dated before 2026-09-19 predate the cycle and stay as they are. Named m
 
 ## Unreleased
 
-- fix(progress-report): **the build plan is shown once: the phase cards are the plan.** Expanding a card now shows its full rows (#, Kind, Step, Produces/Proves, Depends on, State, Scripts) and Claims, which only the duplicate "Full plan tables" block carried; that block is gone and views A (script folders) and B (module proof) are their own section. The `now` phase renders open with a selected style, opening another phase closes the previous one (accordion; `#phase-N` links still open their card), and a viewer's saved open/closed state survives the 30 s reload and wins over the default (#474) — field feedback from a requirements-driven project at Stage 5
+- fix(progress-report): **the build plan is shown once: the phase cards are the plan.** Expanding a card now shows its full rows (#, Kind, Step, Produces/Proves, Depends on, State, Scripts) and Claims, which only the duplicate "Full plan tables" block carried; that block is gone and views A (script folders) and B (module proof) are their own section. The `now` phase renders open with a selected style, opening another phase closes the previous one (accordion; `#phase-N` links still open their card), and a viewer's saved open/closed state survives the 30 s reload and wins over the default (#474) — field feedback from a requirements-driven project at Stage 5 — MendixMau (field feedback 2026-10-20)
 
 ## v2026.10.19
 

@@ -360,10 +360,23 @@ probe() {
   esac
   if [ $rc -ne 0 ]; then echo "ABSENT"; return; fi
   if [ -z "$(printf '%s' "$out" | tr -d '[:space:]')" ]; then echo "ABSENT"; return; fi
-  case "$out" in
-    Error:*|*"not found"*) echo "ABSENT"; return ;;
-    *"(0 "*)               echo "ABSENT"; return ;;   # empty result set, e.g. "(0 entities)"
-  esac
+  # Read the two absence markers only where mxcli prints them, never in the definition body.
+  # A substring match read a DESCRIBE whose documentation said "HttpStatus (0 = no response or
+  # time-out)" as an empty set, and the verbatim v0.25.0 `describe navigation` of mxcli's public
+  # test app carries "  not found page Pages.Vehicle_Overview" (a navigation setting): both
+  # scored ABSENT, so built rows went STALE (#470). mxcli prints an error as a line starting
+  # `Error:` (stderr is merged above), and a table's summary as its own last line,
+  # `fmt.Fprintf("\n%s\n", Summary)` with Summary = "(%d entities)", "(%d workflow group(s))", …
+  # A body line never starts at column 0 with either: documentation is " * …", statements are
+  # indented. CR stripped for a Windows-built mxcli. Here-strings, not `printf | grep -q`:
+  # under pipefail that pipe can lose to SIGPIPE on a long definition (test-pipefail-grep-q.sh).
+  local last
+  out="$(tr -d '\r' <<<"$out")"
+  if grep -q '^Error:' <<<"$out"; then echo "ABSENT"; return; fi
+  last="$(sed '/^[[:space:]]*$/d' <<<"$out" | tail -n 1)"
+  if grep -Eq '^\(0 .*\)[[:space:]]*$' <<<"$last"; then
+    echo "ABSENT"; return   # empty result set, e.g. "(0 entities)"
+  fi
   echo "PRESENT"
 }
 

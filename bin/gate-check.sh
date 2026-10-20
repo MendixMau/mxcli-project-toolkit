@@ -1074,11 +1074,22 @@ has_confirmed_decision() {
 # Notes |`; conversion-runbook.md §2 closes a gate on "its ✋ decisions CONFIRMED and gate-check
 # run"), so a stage counts as approved on either of two pieces of evidence, both in CONFIRMED
 # rows of the Decisions table (same table scoping and status anchoring as above):
-#   1. an explicit exit row for Stage N: its decision reads "Stage N approved / exit / gate
-#      approved / signed off / closed / complete", "Gate approved|signed off|passed|closed", or
-#      is a short "<artifact> approved|signed off" phrase ("Build plan approved");
-#   2. the project moved past it: a CONFIRMED row for a LATER stage (P < 0 < 1 … < 7), which is
-#      how the #207 field case read (a Stage-4 approval, then 47 scripts built on it).
+#   1. an explicit exit row for Stage N, in one of four wordings:
+#        "Stage N approved|exit…|gate: signed off|closed|complete|done|passed" (separators may be
+#        spaces, ":", "-", or an em/en dash: "Stage 4 — approved with conditions");
+#        "Approved: Stage N …";
+#        "Gate approved|signed off|passed|closed" ("gate" as the first word);
+#        "<artifact> approved|signed off", the artifact from a fixed list (build plan, plan,
+#        blueprint, architecture, design (system), wireframes, scope, triage, BRDs,
+#        requirements), so domain decisions ("Requests over 5k must be approved") never match.
+#      No checkpoint writes such a row today, so in practice rule 2 does the work; having the
+#      CAC checkpoint write one is the follow-up.
+#   2. the project moved past it: Stage N has CONFIRMED rows of its own AND a CONFIRMED row for
+#      a later stage up to 6 exists (the #207 field case: a Stage-4 approval, then 47 scripts
+#      built on it). Stage 7 is excluded and so is any row reading N/A / skip / no cutover:
+#      checkpoint-cutover.md and existing-app-change.md tell projects to record "No legacy
+#      system, no cutover" early, and that is not evidence that Stage 5 was signed off. A stage
+#      with no rows of its own is never "approved" by a forward-filed decision either.
 # A mid-stage decision is neither, so it no longer raises the flag.
 stage_exit_recorded() {
   local stage="$1"
@@ -1086,7 +1097,13 @@ stage_exit_recorded() {
   [ -n "$f" ] && [ -f "$f" ] || return 1
   awk -F'|' -v want="$stage" '
     function rank(s) { s = toupper(s); if (s == "P") return 0; if (s ~ /^[0-7]$/) return s + 1; return -1 }
-    BEGIN { wr = rank(want); w = tolower(want) }
+    BEGIN {
+      wr = rank(want); w = tolower(want); r6 = rank("6")
+      # Separators: space, tab, colon, hyphen, or an em/en dash. The dashes are multi-byte, so
+      # they are an alternation, never inside a bracket class (POSIX awk reads bytes there).
+      SEP = "([ \t:-]|—|–)*"
+      ARTS = "^(the )?(build plan|plan|blueprint|architecture|design( system)?|wireframes?|scope|triage|brds?|requirements)"
+    }
     !/^\|/ { intab = 0; next }
     {
       h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
@@ -1101,18 +1118,21 @@ stage_exit_recorded() {
         if (f ~ /^CONFIRMED([ \t]|$)/) confirmed = 1
       }
       if (!confirmed) next
-      r = rank(s)
-      if (wr >= 0 && r > wr) { if (intab) tlater = 1; alater = 1 }
-      if (tolower(s) != w) next
       d = tolower($3); gsub(/^[ \t]+|[ \t.]+$/, "", d)
-      words = split(d, junk, /[ \t]+/)
-      if (d ~ ("(^|[^a-z0-9])stage[ \t]*" w "[ \t:-]*((gate|exit)[ \t:-]*)?(approv|sign|closed|complete|done|passed)") ||
-          d ~ /(^|[^a-z])gate[ \t:-]*(approved|signed[ -]off|sign-off|passed|closed)/ ||
-          (words <= 6 && d ~ /[ \t](approved|signed[ -]off|sign-off)$/)) {
+      r = rank(s)
+      if (wr >= 0 && r > wr && r <= r6 && d !~ /(^|[^a-z])(n\/a|not applicable|skip(ped|s)?|no cutover)([^a-z]|$)/) {
+        if (intab) tlater = 1; alater = 1
+      }
+      if (tolower(s) != w) next
+      if (intab) town = 1; aown = 1
+      if (d ~ ("(^|[^a-z0-9])stage[ \t]*" w SEP "((gate|exit)" SEP ")?(approv|sign|closed|complete|done|passed)") ||
+          d ~ ("^approved" SEP "stage[ \t]*" w "([^0-9]|$)") ||
+          d ~ ("^gate" SEP "(approved|signed[ -]off|sign-off|passed|closed)") ||
+          d ~ (ARTS SEP "(approved|signed[ -]off)$")) {
         if (intab) texit = 1; aexit = 1
       }
     }
-    END { exit !(hdr ? (texit || tlater) : (aexit || alater)) }
+    END { exit !(hdr ? (texit || (town && tlater)) : (aexit || (aown && alater))) }
   ' "$f"
 }
 

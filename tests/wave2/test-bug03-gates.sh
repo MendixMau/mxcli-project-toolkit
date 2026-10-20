@@ -324,6 +324,32 @@ V="$(t17 t17h "$MID" "## Open questions" "" "| # | Question | Raised at | Status
 case "$V" in *'APPROVED OVER'*) bad "an Open-questions row stood in for the approval: $V" ;;
              *) ok "an Open-questions row is not a stage approval (same table scoping as T13)" ;; esac
 
+# Review of #483: the exit wordings people actually write, and rows that must not count.
+V="$(t17 t17i "| 4 | Stage 4 — approved with conditions | CONFIRMED | |")"
+flagged "$V" && ok "'Stage 4 — approved with conditions' (em dash) is an approval" || bad "em-dash exit row not flagged: $V"
+V="$(t17 t17j "| 4 | Approved: Stage 4 build plan | CONFIRMED | |")"
+flagged "$V" && ok "'Approved: Stage 4 build plan' is an approval" || bad "'Approved: Stage N' form not flagged: $V"
+for d in 'Status values: draft, submitted, approved' 'Requests over 5k must be approved' 'Approval gate closed after 30 days' 'Stage 40 approved'; do
+  V="$(t17 t17k "| 4 | $d | CONFIRMED | |")"
+  case "$V" in *'APPROVED OVER'*) bad "a domain decision raised the flag: '$d'" ;;
+               *) ok "domain wording is not an approval: '$d'" ;; esac
+done
+# A failing Stage 5 with no rows of its own: the LOOK obligation owes one unseen page.
+t17s5() {  # t17s5 <name> <register rows...> -> the Stage 5 line, and the summary line if any
+  local P; P="$(mkproj "$1")"; shift
+  printf '%s\n' "$@" >> "$P/PROJECT.md"
+  mkdir -p "$P/.claude/loop/look"
+  printf '%s\t%s\t%s\t%s\n' "$(date +%s)" "2026-10-20T10:00:00Z" "Orders.Order_Overview" "10-orders.mdl" > "$P/.claude/loop/look/owed.tsv"
+  "$GATE" --no-html "$P" 2>&1 | grep -E '^Stage 5 |^Approved over a failing gate:'
+}
+V="$(t17s5 t17l "| 7 | No legacy system, no cutover | CONFIRMED | |")"
+case "$V" in *FAIL*) ;; *) bad "t17l setup: Stage 5 did not FAIL: $V" ;; esac
+case "$V" in *'APPROVED OVER'*|*'Approved over'*) bad "an early 'no cutover' Stage-7 row flagged a mid-build Stage 5: $V" ;;
+             *) ok "a Stage-7 'No legacy system, no cutover' row is not evidence Stage 5 was approved" ;; esac
+V="$(t17s5 t17m "| 6 | Test depth: journeys per module | CONFIRMED | |")"
+case "$V" in *'APPROVED OVER'*|*'Approved over'*) bad "a forward-filed Stage-6 row flagged a Stage 5 with no rows of its own: $V" ;;
+             *) ok "a forward-filed Stage-6 decision does not approve a Stage 5 with no rows of its own" ;; esac
+
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"
 [ "$FAIL" -eq 0 ]

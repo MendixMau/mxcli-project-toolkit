@@ -26,7 +26,7 @@
 #   0  applied, and the mxbuild gate passed (clean, or no new error over a measured baseline)
 #   1  NOT applied, or rolled back: a refusal, a failed pre-exec check, a gate that failed or
 #      could not run, a patch that failed or was not verified. Also a PARTIAL application.
-#   2  usage error (bad argument, missing file); nothing was touched
+#   2  usage error (no script, bad argument, missing or unrunnable file); nothing was touched
 #   4  applied and the gate passed, but LINT ROSE or LINT BLIND. The write is KEPT: do not
 #      re-apply it. The last line of output reads "gate passed, lint only".
 #   5  applied, but UNVERIFIED: the gate ran and did not check the model (mxbuild exited
@@ -34,8 +34,8 @@
 #      no verification stamp; run ./bin/verify-model.sh before the next exec or commit.
 # Until 2026-10-20, 4 was 1 and 5 was 0: in one field build 57 of 58 clean builds exited 1 on a
 # lint rise, agents learned to ignore 1, and 10 UNVERIFIED runs exiting 0 read as success.
-# A PARTIAL run used to pass mxcli's own exit code through; it is now 1 whenever that code
-# would read as 4 or 5 (any other non-zero code is still passed through).
+# A PARTIAL run, or a --patch script that failed, used to pass the script's own exit code
+# through, so mxcli's 2 read as "nothing touched" and a 4 or 5 as "applied". It is now always 1.
 #
 # --cr (2026-10-13): names the PROJECT.md "## Change log" row this run applies
 # (skills/change-intake.md). It lands in the BUILD-LOG detail cell as "cr: CR-07", the same way
@@ -103,9 +103,9 @@ _T0=$(date +%s)
 # run (the costliest ones) logs its gate seconds too.
 _TLAST=$_T0; STEP_TIMES=""
 step_done() { _tn=$(date +%s); STEP_TIMES="${STEP_TIMES:+$STEP_TIMES }$1 $((_tn - _TLAST))s"; _TLAST=$_tn; }
-# A failed script's own exit code, passed through unless it would read as 4 (lint only) or
-# 5 (unverified), which both mean "applied" (see Exit codes above).
-fail_rc() { case "$1" in 4|5) echo 1 ;; *) echo "$1" ;; esac; }
+# A failed script's own exit code becomes 1: passed through, its 2 would read as "nothing
+# touched" and its 4 or 5 as "applied" (see Exit codes above).
+fail_rc() { case "$1" in 0) echo 0 ;; *) echo 1 ;; esac; }
 
 # ── Change class (advisory, added 2026-10-13) ────────────────────────────────
 # Tags each run `ui-only` or `logic`, so the run summary can say which TEST LANE applies
@@ -408,15 +408,15 @@ LOG_NAME="$(basename "$SCRIPT")"
 if [ -z "$SCRIPT" ]; then
   echo "Usage: ./bin/exec.sh [--commit-first] [--cr CR-NN] <script.mdl>"
   echo "       ./bin/exec.sh [--commit-first] [--cr CR-NN] --patch <script> [args...]"
-  exit 1
+  exit 2
 fi
 if [ "$PATCH_MODE" = "1" ]; then
   # Resolve the path BEFORE the cd below, so a path relative to the caller's cwd keeps working.
-  [ -f "$SCRIPT" ] || { echo "✗ --patch: no such file: $SCRIPT"; exit 1; }
+  [ -f "$SCRIPT" ] || { echo "✗ --patch: no such file: $SCRIPT"; exit 2; }
   SCRIPT="$(cd "$(dirname "$SCRIPT")" && pwd)/$(basename "$SCRIPT")"
   case "$SCRIPT" in
     *.py|*.sh) ;;
-    *) [ -x "$SCRIPT" ] || { echo "✗ --patch: $SCRIPT is not .py, not .sh and not executable — cannot tell how to run it."; exit 1; } ;;
+    *) [ -x "$SCRIPT" ] || { echo "✗ --patch: $SCRIPT is not .py, not .sh and not executable — cannot tell how to run it."; exit 2; } ;;
   esac
 fi
 

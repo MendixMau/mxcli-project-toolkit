@@ -25,6 +25,10 @@
 #   I  clean build + lint rise: exit 4, write kept, last line "gate passed, lint only",
 #      no extra mxbuild (2 runs) (master: exit 1)
 #   J  clean build + lint unchanged: exit 0, 2 mxbuild runs [guard: happy path costs nothing new]
+#   K  the same bundle-only failure on every build: the baseline retries it, the gate does not
+#      (at most 3 mxbuild runs, not 4), still exit 5
+#   L  usage errors exit 2 and touch nothing: no script, --patch with a missing file, --patch
+#      with a file it cannot run
 #
 # Synthetic only: throwaway git repo, stub mxcli, stub mxbuild, stub java. Nothing real runs.
 set -uo pipefail
@@ -222,6 +226,20 @@ RC=$(run J ok,ok)
 [ "$RC" -eq 0 ] && kept && ok "exit 0, write kept" || bad "J rc=$RC" "$(tail -6 "$WORK/out.J")"
 [ "$(calls)" -eq 2 ] && ok "happy path: baseline + gate only" || bad "J: mxbuild calls" "$(calls)"
 rm -f "$P/bin/lint-gate.sh"
+
+echo "== K: a persistent bundle-only failure: the gate does not retry what the baseline already did =="
+RC=$(run K bundle,bundle,bundle,bundle)
+[ "$(calls)" -le 3 ] && ok "at most 3 mxbuild runs ($(calls))" || bad "K: mxbuild calls" "$(calls)"
+[ "$RC" -eq 5 ] && kept && ok "exit 5, write kept (unchanged)" || bad "K rc=$RC, expected 5" "$(tail -6 "$WORK/out.K")"
+grep -q 'no retry: mxbuild failed with the same deploy-stage message' "$WORK/out.K" && ok "says why the gate did not retry" || bad "K: no reason printed"
+
+echo "== L: usage errors exit 2, nothing touched =="
+( cd "$P" && git checkout -q -- Fixture.mpr mprcontents && rm -rf .mpr-snapshots docs ) >/dev/null 2>&1
+printf 'not runnable\n' > "$WORK/plain.txt"
+for args in "" "--patch $WORK/no-such.py" "--patch $WORK/plain.txt"; do
+  ( cd "$P" && TMPDIR="$WORK/tmp" MXTK_NO_INSTALL=1 MXBUILD_PATH="$WORK/mxbuild" JAVA_HOME="$WORK/jdk" ./bin/exec.sh $args ) >"$WORK/out.L" 2>&1; RC=$?
+  [ "$RC" -eq 2 ] && ! kept && [ ! -f "$LOG" ] && ok "exec.sh ${args:-<no script>}: exit 2, nothing written" || bad "L '${args}': rc=$RC" "$(tail -3 "$WORK/out.L")"
+done
 
 echo ""
 echo "PASS: $PASS  FAIL: $FAIL"

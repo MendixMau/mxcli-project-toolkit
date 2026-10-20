@@ -634,6 +634,7 @@ MXTK_PAUSED_FILE=""
 MXTK_GATE_RETRY_NOTE=""
 MXTK_GATE_FIRST_OUT=""
 MXTK_GATE_FIRST_EXIT=""
+MXTK_GATE_INFRA_PERSISTENT=""   # errors[] text that already failed a build AND its retry this run
 
 # mxtk_watcher_pids <project-root> - pids of `mxcli run --local --watch` that belong to this
 # project. Exact match only: the watcher's project dir (the directory of its -p argument,
@@ -760,7 +761,11 @@ mxtk_gate_mxbuild() {
   mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
   case "${MXTK_MXBUILD_EXIT:-}" in
     1|3)
-      if ! grep -Eq -- 'CE[0-9]{4}' <<<"${MXTK_MXBUILD_OUT:-}" \
+      # A deploy-stage message that already survived one retry in this run (the baseline's)
+      # is persistent, not a collision: building a 4th time would only cost time.
+      if [ -n "$MXTK_GATE_INFRA_PERSISTENT" ] && [ "${MXTK_MXBUILD_WHY:-}" = "$MXTK_GATE_INFRA_PERSISTENT" ]; then
+        echo "  ⚠ no retry: mxbuild failed with the same deploy-stage message on the earlier build and its retry (${MXTK_MXBUILD_WHY})" >&2
+      elif ! grep -Eq -- 'CE[0-9]{4}' <<<"${MXTK_MXBUILD_OUT:-}" \
          && { [ ! -s "$_ef" ] || mxtk_mxbuild_infra_only "$_ef"; }; then
         echo "  ⚠ retry after infra exit: mxbuild exited $MXTK_MXBUILD_EXIT with no CE code and no model problem${MXTK_MXBUILD_WHY:+ ($MXTK_MXBUILD_WHY)}; building once more" >&2
         MXTK_GATE_RETRY_NOTE="retry after infra exit"
@@ -768,6 +773,12 @@ mxtk_gate_mxbuild() {
         : > "$_ef"
         _rc=0
         mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
+        # Same deploy-stage failure twice: remember its text, so a later build in this run
+        # (the gate after the baseline) does not retry it again (#494 review).
+        case "${MXTK_MXBUILD_EXIT:-}" in
+          1|3) [ -n "${MXTK_MXBUILD_WHY:-}" ] && mxtk_mxbuild_infra_only "$_ef" \
+                 && MXTK_GATE_INFRA_PERSISTENT="$MXTK_MXBUILD_WHY" ;;
+        esac
       fi ;;
   esac
   mxtk_resume_watchers

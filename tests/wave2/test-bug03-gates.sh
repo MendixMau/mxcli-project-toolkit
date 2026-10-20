@@ -282,6 +282,48 @@ V="$(verdict "$P" 4)"
 case "$V" in *FAIL*'no module has one'*) ok "with no briefs yet, a plan still owes at least one module close row" ;;
              *) bad "a plan with no module dirs and no close row passed: $V" ;; esac
 
+echo "== T17: a mid-stage decision is not the stage approval (#477) =="
+# #207 prefixes a FAIL with APPROVED OVER A FAILING GATE when the register says the stage was
+# approved. It read ANY CONFIRMED row of that stage as the approval, so the field project's
+# mid-Stage-5 "| 5 | Sub-agents run on Sonnet | CONFIRMED | user in chat |" (verbatim from the
+# issue) raised it on a stage still being built, and status.sh told the lead to re-open an
+# approval nobody gave. Stage 4 stands in for 5 here: its FAIL needs only a plan with no closing
+# rows (T16), so no harness obligations have to be staged. The approval must still be flagged
+# when it is real: an explicit exit row, or the project having moved on to a later stage.
+# Positive control: on the pre-fix script t17a and t17f print the flag.
+t17() {  # t17 <name> <register rows...> -> the Stage 4 line, and the summary line if any
+  local P; P="$(mkproj "$1")"; shift
+  printf '%s\n' "$@" >> "$P/PROJECT.md"
+  mkdir -p "$P/architecture/modules/Orders"
+  printf "# Plan\n\n$HDR| 1 | BUILD | 10-orders.mdl | | | none | built |\n" > "$P/architecture/build-plan.md"
+  "$GATE" --no-html "$P" 2>&1 | grep -E '^Stage 4 |^Approved over a failing gate:'
+}
+flagged() { case "$1" in *'APPROVED OVER A FAILING GATE'*'Approved over a failing gate: Stage 4'*) return 0 ;; esac; return 1; }
+MID='| 4 | Sub-agents run on Sonnet | CONFIRMED | user in chat |'
+V="$(t17 t17a "$MID")"
+case "$V" in *FAIL*) ;; *) bad "t17a setup: Stage 4 did not FAIL: $V" ;; esac
+case "$V" in *'APPROVED OVER'*|*'Approved over'*) bad "a mid-stage decision raised APPROVED OVER A FAILING GATE (#477): $V" ;;
+             *) ok "a mid-stage CONFIRMED decision does not read as the stage approval" ;; esac
+V="$(t17 t17b "| 4 | Purchase requests above 5k need approval | CONFIRMED | |")"
+case "$V" in *'APPROVED OVER'*) bad "a domain decision mentioning approval raised the flag: $V" ;;
+             *) ok "a domain decision that mentions approval is not a stage approval" ;; esac
+V="$(t17 t17c "$MID" "| 4 | Stage 4 approved | CONFIRMED | user in chat |")"
+flagged "$V" && ok "an explicit 'Stage 4 approved' row over a FAIL is still flagged, in the note and the summary" \
+  || bad "an explicit Stage-4 approval over a FAIL was not flagged: $V"
+V="$(t17 t17d "| 4 | Stage 4 gate: signed off | CONFIRMED 2026-10-20 | |")"
+flagged "$V" && ok "'Stage 4 gate: signed off' with a dated CONFIRMED is an approval" || bad "dated gate sign-off not flagged: $V"
+V="$(t17 t17e "| 4 | Build plan approved | CONFIRMED | |")"
+flagged "$V" && ok "a short '<artifact> approved' row is an approval" || bad "'Build plan approved' not flagged: $V"
+V="$(t17 t17f "$MID" "| 5 | Test depth: journeys per module | CONFIRMED | |")"
+flagged "$V" && ok "a CONFIRMED decision for a later stage means the project moved past Stage 4: flagged" \
+  || bad "moving on to Stage 5 over a failing Stage 4 was not flagged: $V"
+V="$(t17 t17g "| 4 | Stage 4 approved | ASSUMED | |" "| 3 | Stage 4 approved | CONFIRMED | |")"
+case "$V" in *'APPROVED OVER'*) bad "an ASSUMED exit row, or another stage's row, raised the flag: $V" ;;
+             *) ok "only a CONFIRMED exit row of Stage 4 itself counts" ;; esac
+V="$(t17 t17h "$MID" "## Open questions" "" "| # | Question | Raised at | Status |" "|---|---|---|---|" "| 5 | Stage 4 approved? | Stage 4 | CONFIRMED |")"
+case "$V" in *'APPROVED OVER'*) bad "an Open-questions row stood in for the approval: $V" ;;
+             *) ok "an Open-questions row is not a stage approval (same table scoping as T13)" ;; esac
+
 printf '\n%s: %d ok, %d FAIL\n' "$(basename "$0")" "$PASS" "$FAIL"
 rm -rf "$WORK"
 [ "$FAIL" -eq 0 ]

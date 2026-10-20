@@ -1059,6 +1059,63 @@ has_confirmed_decision() {
   ' "$f"
 }
 
+# stage_exit_recorded <N> — does the register say Stage N was APPROVED AS DONE, not merely that
+# some decision was taken during it? Used only by the "approved over a failing gate" flag (#207);
+# the Stage 3/4 checks keep has_confirmed_decision, where any CONFIRMED row is the evidence that
+# the stage's interview was held.
+#
+# Why not has_confirmed_decision (#477). Any CONFIRMED row whose Stage cell is N counted as the
+# approval, so a stage still being worked on raised the flag the moment the user answered any
+# question in it: a Stage-5 build with "| 5 | Sub-agents run on Sonnet | CONFIRMED |" read
+# "APPROVED OVER A FAILING GATE", and status.sh told the lead to re-open an approval nobody gave,
+# burying the real gap (PENDING obligations) under a wrong diagnosis.
+#
+# The register has no dedicated exit row (init-project.sh writes `| Stage | Decision | Status |
+# Notes |`; conversion-runbook.md §2 closes a gate on "its ✋ decisions CONFIRMED and gate-check
+# run"), so a stage counts as approved on either of two pieces of evidence, both in CONFIRMED
+# rows of the Decisions table (same table scoping and status anchoring as above):
+#   1. an explicit exit row for Stage N: its decision reads "Stage N approved / exit / gate
+#      approved / signed off / closed / complete", "Gate approved|signed off|passed|closed", or
+#      is a short "<artifact> approved|signed off" phrase ("Build plan approved");
+#   2. the project moved past it: a CONFIRMED row for a LATER stage (P < 0 < 1 … < 7), which is
+#      how the #207 field case read (a Stage-4 approval, then 47 scripts built on it).
+# A mid-stage decision is neither, so it no longer raises the flag.
+stage_exit_recorded() {
+  local stage="$1"
+  local f="$REGISTER"
+  [ -n "$f" ] && [ -f "$f" ] || return 1
+  awk -F'|' -v want="$stage" '
+    function rank(s) { s = toupper(s); if (s == "P") return 0; if (s ~ /^[0-7]$/) return s + 1; return -1 }
+    BEGIN { wr = rank(want); w = tolower(want) }
+    !/^\|/ { intab = 0; next }
+    {
+      h = tolower($2); gsub(/^[ \t]+|[ \t]+$/, "", h)
+      if (h == "stage") { intab = 1; hdr = 1; next }
+      if ($2 ~ /^[ \t:]*-+[ \t:-]*$/) next
+      s = $2
+      gsub(/^[ \t]+|[ \t]+$/, "", s)
+      sub(/^[Ss]tage[ \t]*/, "", s)
+      confirmed = 0
+      for (i = 3; i <= NF; i++) {
+        f = toupper($i); gsub(/^[ \t]+|[ \t]+$/, "", f)
+        if (f ~ /^CONFIRMED([ \t]|$)/) confirmed = 1
+      }
+      if (!confirmed) next
+      r = rank(s)
+      if (wr >= 0 && r > wr) { if (intab) tlater = 1; alater = 1 }
+      if (tolower(s) != w) next
+      d = tolower($3); gsub(/^[ \t]+|[ \t.]+$/, "", d)
+      words = split(d, junk, /[ \t]+/)
+      if (d ~ ("(^|[^a-z0-9])stage[ \t]*" w "[ \t:-]*((gate|exit)[ \t:-]*)?(approv|sign|closed|complete|done|passed)") ||
+          d ~ /(^|[^a-z])gate[ \t:-]*(approved|signed[ -]off|sign-off|passed|closed)/ ||
+          (words <= 6 && d ~ /[ \t](approved|signed[ -]off|sign-off)$/)) {
+        if (intab) texit = 1; aexit = 1
+      }
+    }
+    END { exit !(hdr ? (texit || tlater) : (aexit || alater)) }
+  ' "$f"
+}
+
 # Counts the Screen Inventory table in design/target-ui.md (design-artifacts.md Step 2): a
 # markdown table under a "## Screen Inventory" heading, one row per screen. Prints two numbers
 # separated by a space: total inventoried rows, and how many of those rows record that the
@@ -2825,8 +2882,10 @@ for stage in "${STAGE_NAMES[@]}"; do
   # and 47 scripts were built on that plan. Delegating the approval is legitimate; an approval
   # nobody compared to its gate is not. Same verdict, same exit code — the note names the
   # mismatch, and the summary repeats it so status.sh can quote it.
-  if [ "$status" = "FAIL" ] && ! reg_unavailable && has_confirmed_decision "$stage"; then
-    note="APPROVED OVER A FAILING GATE — Stage $stage is CONFIRMED in $(basename "${REGISTER:-PROJECT.md}"), but: $note"
+  # Approval means an exit row or a later stage's decision (stage_exit_recorded, #477), not any
+  # decision taken while the stage is still open.
+  if [ "$status" = "FAIL" ] && ! reg_unavailable && stage_exit_recorded "$stage"; then
+    note="APPROVED OVER A FAILING GATE — Stage $stage is approved in $(basename "${REGISTER:-PROJECT.md}"), but: $note"
     APPROVED_OVER_FAIL="${APPROVED_OVER_FAIL:+$APPROVED_OVER_FAIL, }Stage $stage"
   fi
   case "$status" in

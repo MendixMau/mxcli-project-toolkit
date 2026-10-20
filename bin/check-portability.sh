@@ -67,6 +67,21 @@ while IFS= read -r f; do
     report "$f" 1 "CRLF line endings" "bash fails on line 1. Ensure .gitattributes has *.sh text eol=lf."
   fi
 
+  # 2. A bare $NAME followed directly by a non-ASCII byte (an em-dash, an ellipsis). In a
+  # single-byte locale bash reads that byte as part of the variable NAME (macOS bash 3.2 did
+  # it under en_US.UTF-8 too), so set -u aborts with "NAME<byte>: unbound variable" (#467:
+  # status.sh --brief died before printing NEXT). Checked before is_meta: no file is exempt
+  # from this one. Matched byte-wise (LC_ALL=C) so the result does not depend on the locale
+  # it is meant to guard against. Fix: brace it, ${NAME}—.
+  while IFS= read -r hit; do
+    [ -n "$hit" ] || continue
+    case "$hit" in *portability-ok:*) continue ;; esac
+    report "$f" "${hit%%:*}" "bare \$NAME followed by a non-ASCII character" \
+      'Brace the name: ${NAME}. A single-byte locale (and bash 3.2) reads the first byte as part of the name; set -u then aborts.'
+  done <<EOF
+$(code_lines "$f" | LC_ALL=C grep -E '^[0-9]+:.*\$[A-Za-z_][A-Za-z0-9_]*[^[:print:][:cntrl:]]')
+EOF
+
   is_meta "$f" && continue
 
   while IFS= read -r hit; do

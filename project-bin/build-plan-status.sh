@@ -532,10 +532,10 @@ render_plan_section() {  # stdout: the plan section's HTML
     echo "<h2>The plan</h2><p class=empty>Nothing to show yet: ${PLAN_MSG:-build-plan.md was not read}.</p>"
     return 0
   fi
-  "$PY" - "$PLAN_JSON" "$MDLSOURCE" <<'PYEOF' || echo "<h2>The plan</h2><p class=empty>Could not render the plan section from build-plan.md.</p>"
+  "$PY" - "$PLAN_JSON" "$MDLSOURCE" "${PHASE_DETAIL:-/dev/null}" <<'PYEOF' || echo "<h2>The plan</h2><p class=empty>Could not render the plan section from build-plan.md.</p>"
 import fnmatch, html, json, os, re, sys
 
-src, mdl = sys.argv[1], sys.argv[2]
+src, mdl, detail_out = sys.argv[1], sys.argv[2], sys.argv[3]
 d = json.load(open(src, encoding="utf-8"))
 e = lambda s: html.escape(s or "", quote=True)
 # `code` spans in plan cells render as <code>, not literal backticks
@@ -631,29 +631,32 @@ if named_total:
     print("<p class=note>Scripts named in the plan: %d, of which %d are renamed <code>done-</code> under <code>mdlsource/</code>.%s</p>" % (
         named_total, named_done,
         (" <span class=drift>&#9888; %s where the plan and the disk disagree.</span>" % plural(drift_rows, "row")) if drift_rows else ""))
+# One view of the plan: each phase's rows and claims go to the detail file, which progress-report.py
+# splices into that phase's card. They are not printed here, or the rows would appear twice.
+det = []
 for p, out in zip(phases, rows_html):
-    print('<section class=phase><h3>Phase %s &mdash; %s <span class="badge %s">%s</span></h3>' % (
-        e(p["id"]), e(p["name"]), CLS.get(p["state"], "st-unknown"), e(p["state"])))
+    h = ['<!--phase:%s-->' % e(p["id"]),
+         '<p class=note>Phase state: <span class="badge %s">%s</span></p>' % (CLS.get(p["state"], "st-unknown"), e(p["state"]))]
     if p.get("note"):
-        print("<p class=note>%s</p>" % e(p["note"]))
+        h.append("<p class=note>%s</p>" % e(p["note"]))
     if p["steps"]:
-        b = sum(1 for s in p["steps"] if classify(s["state"]) == "built")
-        print("<p class=note>%d of %s built</p>" % (b, plural(len(p["steps"]), "row")))
-        print("<div class=scroll><table><tr><th>#</th><th>Kind</th><th>Step</th><th>Produces / Proves</th>"
-              "<th>Depends on</th><th>State</th><th>Scripts</th></tr>")
-        print("\n".join(out))
-        print("</table></div>")
+        h.append("<div class=tw><table class=steps><tr><th>#</th><th>Kind</th><th>Step</th><th>Produces / Proves</th>"
+                 "<th>Depends on</th><th>State</th><th>Scripts</th></tr>")
+        h.append("\n".join(out))
+        h.append("</table></div>")
     else:
-        print("<p class=empty>No row table under this phase.</p>")
+        h.append("<p class=empty>No row table under this phase.</p>")
     if p.get("claims"):
-        print("<details><summary>Claims (%d)</summary><ul class=claims>" % len(p["claims"]))
+        h.append("<details><summary>Claims (%d)</summary><ul class=claims>" % len(p["claims"]))
         for c in p["claims"]:
             extra = (" (%d)" % c["count"] if c.get("count") is not None else "") + (" [%s]" % c["brd"] if c.get("brd") else "")
-            print("<li><code>%s</code>%s</li>" % (e(c["pointer"]), e(extra)))
-        print("</ul></details>")
+            h.append("<li><code>%s</code>%s</li>" % (e(c["pointer"]), e(extra)))
+        h.append("</ul></details>")
     elif p.get("claimsNote"):
-        print("<p class=note>Claims: %s</p>" % e(p["claimsNote"]))
-    print("</section>")
+        h.append("<p class=note>Claims: %s</p>" % e(p["claimsNote"]))
+    h.append('<!--/phase-->')
+    det.append("\n".join(h))
+open(detail_out, "w", encoding="utf-8").write("\n".join(det))
 w = d.get("warnings") or []
 if w:
     print("<details class=warn><summary>Parser notes (%d): lines in build-plan.md this page could not read as plan data</summary><ul>" % len(w))
@@ -694,6 +697,7 @@ if [ "$WRITE_HTML" -eq 1 ]; then
     mkdir -p "$ROOT/architecture"
     OUT_TMP="$OUT.tmp.$$"
     FRAG_TMP="$OUT.frag.$$"
+    PHASE_DETAIL="$OUT.phases.$$"
     {
       render_plan_section
 
@@ -725,7 +729,7 @@ if [ "$WRITE_HTML" -eq 1 ]; then
       fi
       echo "<p class=note>The plan: what build-plan.md says. A: built, from mdlsource/ done- prefixes. B: proven, from verify-module.sh + docs/improvement-register.md. A phase at 100% with no reviewed row in B is built, not proven.</p>"
     } > "$FRAG_TMP"
-    GEN_ARGS=(--out "$OUT_TMP" --fragment "$FRAG_TMP" --plan-msg "${PLAN_MSG:-}")
+    GEN_ARGS=(--out "$OUT_TMP" --fragment "$FRAG_TMP" --phase-detail "$PHASE_DETAIL" --plan-msg "${PLAN_MSG:-}")
     [ -n "$PLAN_JSON" ] && GEN_ARGS+=(--plan-json "$PLAN_JSON")
     for _sl in ${SESSION_LOGS[@]+"${SESSION_LOGS[@]}"}; do GEN_ARGS+=(--session-log "$_sl"); done
     if "$PY" "$GEN" "$ROOT" "${GEN_ARGS[@]}" >/dev/null 2>"$OUT.err.$$"; then
@@ -744,7 +748,7 @@ if [ "$WRITE_HTML" -eq 1 ]; then
       if [ "$QUIET" -eq 0 ]; then echo "" && echo "  $REPORT_FILE not written: the generator failed: $(head -c 300 "$OUT.err.$$" 2>/dev/null)"
       else echo "WARN: $REPORT_FILE not updated, progress-report.py failed: ${_why:-no message}" >&2; fi   # unattended callers stay quiet on success, never on a crash
     fi
-    rm -f "${FRAG_TMP:?}" "${OUT}.err.$$"
+    rm -f "${FRAG_TMP:?}" "${PHASE_DETAIL:?}" "${OUT}.err.$$"
   fi
 fi
 

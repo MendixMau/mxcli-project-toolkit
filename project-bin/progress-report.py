@@ -1392,7 +1392,7 @@ def advisory(info, an, main, agents, rates, tot, peak):
     health = run_health(cs)
     return fired[:ADV["max_items"]], quiet + fired[ADV["max_items"]:], health, cs, hidden[0]
 
-JS = "<script>\n" + 'function openTarget(){var h=location.hash.slice(1);if(!h)return;var e=document.getElementById(h);if(!e)return;\n if(e.tagName===\'DETAILS\')e.open=true;var d=e.closest&&e.closest(\'details\');if(d)d.open=true;}\nwindow.addEventListener(\'hashchange\',openTarget);openTarget();\n(function(){var links=[].slice.call(document.querySelectorAll(\'.snav a[href^="#stage-"]\'));\n if(!(\'IntersectionObserver\' in window))return;var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){\n  links.forEach(function(l){l.style.outline=l.getAttribute(\'href\')===\'#\'+en.target.id?\'2px solid var(--accent)\':\'none\'});}})},{rootMargin:\'-60px 0px -70% 0px\'});\n links.forEach(function(l){var t=document.querySelector(l.getAttribute(\'href\'));if(t)io.observe(t)});})();\n' + "</script>"
+JS = "<script>\n" + 'function openTarget(){var h=location.hash.slice(1);if(!h)return;var e=document.getElementById(h);if(!e)return;\n if(e.tagName===\'DETAILS\')e.open=true;var d=e.closest&&e.closest(\'details\');if(d)d.open=true;}\nwindow.addEventListener(\'hashchange\',openTarget);openTarget();\ndocument.addEventListener(\'toggle\',function(ev){var t=ev.target;if(!t.open||!t.classList||!t.classList.contains(\'ph\'))return;[].forEach.call(document.querySelectorAll(\'details.ph[open]\'),function(o){if(o!==t)o.open=false})},true);\ndocument.addEventListener(\'toggle\',function(ev){var t=ev.target;if(!t.open||!t.classList||!t.classList.contains(\'ph\'))return;[].forEach.call(document.querySelectorAll(\'details.ph[open]\'),function(o){if(o!==t)o.open=false})},true);\n(function(){var links=[].slice.call(document.querySelectorAll(\'.snav a[href^="#stage-"]\'));\n if(!(\'IntersectionObserver\' in window))return;var io=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting){\n  links.forEach(function(l){l.style.outline=l.getAttribute(\'href\')===\'#\'+en.target.id?\'2px solid var(--accent)\':\'none\'});}})},{rootMargin:\'-60px 0px -70% 0px\'});\n links.forEach(function(l){var t=document.querySelector(l.getAttribute(\'href\'));if(t)io.observe(t)});})();\n' + "</script>"
 # ----------------------------------------------------------------- render
 CSS = """
 :root{--bg:#f6f7f9;--card:#fff;--ink:#1c2430;--mut:#667085;--line:#e3e7ee;--accent:#2f6fed;--ok:#1f9d63;--warn:#d98a0b;--bad:#c93c3c;--idle:#d9dde5;--main:#2f6fed;--sub:#8b5cf6;--soft:#eef2fb;--shadow:0 1px 2px rgba(20,30,50,.06)}
@@ -1441,14 +1441,14 @@ html{scroll-behavior:smooth}[id^=stage-],[id^=agents-],[id^=phase-],#tips,#pages
 .layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:16px;align-items:start}.layout.solo{display:block}.content{min-width:0}.side{position:sticky;top:52px;max-height:calc(100vh - 64px);overflow:auto;padding-right:2px}.side h2{margin-top:0}.health{margin-top:8px}.health .hi{font-size:13px;margin-top:3px}.grp{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:var(--card)}.grp>summary{cursor:pointer;padding:9px 12px;font-size:14px}.grp .speed,.grp>.split,.grp>div,.grp .tip{padding:0 12px 10px}.tip{border-top:1px solid var(--line);padding-top:10px}.tip h3{font-size:13px;margin:0 0 4px}.tip p{margin:0 0 4px;font-size:12.5px}.p-info{background:#8793a6;color:#fff}@media(max-width:1000px){.layout{grid-template-columns:minmax(0,1fr)}.side{position:static;max-height:none}}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}.p-green{background:#2e9e5b;color:#fff}.p-amber{background:#e0a100;color:#fff}.p-red{background:#d1383d;color:#fff}.pill{padding:1px 9px;margin-left:6px;border-radius:99px;font-size:12px}.speed{margin-top:8px;font-size:13px}.split{display:flex;gap:2px;margin:6px 0}.seg{background:var(--accent);color:#fff;font-size:11px;padding:3px 6px;border-radius:4px;white-space:nowrap;overflow:hidden}.seg:nth-child(2){opacity:.75}.seg:nth-child(3){background:var(--idle);color:var(--ink)}.seg:nth-child(4){opacity:.55}.muted{color:var(--mut);font-size:12px}\n.advl{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:10px;margin-top:8px}
 .advi{border-left:4px solid var(--warn)}.advi.hi{border-left-color:var(--bad)}.advi .rk{font-size:12px;color:var(--mut)}.advi h3{margin:2px 0 6px}.advi p{margin:4px 0;font-size:13px}.advi .why{color:var(--mut);font-size:12px}
 details.ph>summary{list-style:none;cursor:pointer;color:var(--ink)}details.ph>summary::-webkit-details-marker{display:none}
-details.ph[open]{grid-column:1/-1}.steps td{font-size:12px;padding:3px 6px}
+details.ph[open]{grid-column:1/-1;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);background:var(--soft)}.steps td{font-size:12px;padding:3px 6px}
 .nolog{margin:10px 0;font-size:13px}.note-card{margin-top:14px;border-left:4px solid var(--warn)}.live{font-size:12px;color:var(--muted)}.live a{color:inherit}details.how{margin:10px 0;font-size:13px;color:var(--muted)}details.how summary{cursor:pointer}
 .frag section.phase{margin-top:14px}.frag h2{font-size:16px;margin:24px 0 4px}.frag h3{margin:14px 0 2px}.frag .scroll{overflow-x:auto}
 .frag .lede{font-size:14px}.frag .empty{color:var(--mut)}.frag code{font-size:12px}
-.frag .st-built,.frag .done,.frag .CLEAN{color:var(--ok)}.frag .st-progress,.frag .in-progress,.frag .INCOMPLETE{color:var(--warn)}
-.frag .st-todo,.frag .pending{color:var(--mut)}.frag .st-person{color:#8b5cf6}.frag .st-unknown{color:var(--mut);font-style:italic}
-.frag .FINDINGS,.frag .drift{color:var(--bad)}.frag .drift{font-size:12px}.frag .claims{font-size:12px}.frag .warn summary{color:var(--warn)}
-.frag .badge{margin-left:6px;border:1px solid currentColor;background:transparent}
+.frag .st-built,.ph .st-built,.frag .done,.frag .CLEAN{color:var(--ok)}.frag .st-progress,.ph .st-progress,.frag .in-progress,.frag .INCOMPLETE{color:var(--warn)}
+.frag .st-todo,.ph .st-todo,.frag .pending{color:var(--mut)}.frag .st-person,.ph .st-person{color:#8b5cf6}.frag .st-unknown,.ph .st-unknown{color:var(--mut);font-style:italic}
+.frag .FINDINGS,.frag .drift,.ph .drift{color:var(--bad)}.frag .drift,.ph .drift{font-size:12px}.ph .scroll{overflow-x:auto}.ph .claims{font-size:12px}.frag .claims{font-size:12px}.frag .warn summary{color:var(--warn)}
+.frag .badge,.ph .badge{margin-left:6px;border:1px solid currentColor;background:transparent}
 .pages .tree{margin-top:6px;font-size:13px}.pg{display:grid;grid-template-columns:minmax(120px,220px) minmax(0,1fr);gap:2px 12px;padding:5px 0;border-bottom:1px solid var(--line)}.pg:last-child{border-bottom:0}
 .pg .dir{font-weight:600;overflow-wrap:anywhere}.pg ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:3px 14px}.pg li{overflow-wrap:anywhere}.pg details{margin:0}.pg details ul{margin-top:4px}
 footer{margin-top:36px;font-size:13px;color:var(--mut)}footer li{margin:3px 0}
@@ -1739,8 +1739,8 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
     if bp:
         kinds = bp["kinds"]; tr = ""
         runs_by = {str(k_[0]): d["runs"] for k_, d in (facts["phases"] if facts else []) if k_[0] != ""}
-        cur = now_phase(bp, proj)
-        w("<div class=card><div class=hd><b>%d of %d rows built%s</b><a href='#plan-tables'>Jump to the plan tables</a></div><div class='stack3' style='margin:8px 0' title='built, partial, not built'><i class=b style='width:%.1f%%'></i><i class=p style='width:%.1f%%'></i></div>" %
+        cur = now_phase(bp, proj); phase_detail = args.phase_detail
+        w("<div class=card><div class=hd><b>%d of %d rows built%s</b><a href='#plan-tables'>Jump to script folders and module proof</a></div><div class='stack3' style='margin:8px 0' title='built, partial, not built'><i class=b style='width:%.1f%%'></i><i class=p style='width:%.1f%%'></i></div>" %
           (bp["built"], bp["total"], (", %d partial" % bp["partial"]) if bp["partial"] else "", pct(bp["built"], bp["total"]), pct(bp["partial"], bp["total"])))
         w("<div class=legend><span><b style='background:var(--ok)'></b>built %d</span><span><b style='background:var(--warn)'></b>partial %d</span><span><b style='background:var(--idle)'></b>not built %d</span>%s</div>" % (bp["built"], bp["partial"], bp["todo"], ("<span>not needed %d (not counted)</span>" % bp["skip"]) if bp["skip"] else ""))
         w("<div class=stack>" + "".join("<i title='%s %d' style='width:%.1f%%;background:%s'></i>" % (k, v, pct(v, bp["total"]), KC.get(k, "#888")) for k, v in kinds.items()) + "</div>")
@@ -1753,16 +1753,18 @@ def render(proj, info, gate, manifest, arts, main, agents, rates, bp, an, adv, t
         w("<div class=phases style='margin-top:10px'>")
         for p in bp["phases"]:
             now = p is cur
-            w("<details class='card ph%s' id='phase-%s'><summary><b>Phase %s: %s</b>%s<div class='stack3' style='margin:6px 0'><i class=b style='width:%.0f%%'></i><i class=p style='width:%.0f%%'></i></div><div class=sub>%d of %d rows built%s%s</div><div class=k>%s</div><div class=k>module files: %s</div><div class=k>Click to show the rows</div></summary>" %
-              (" now" if now else "", esc(p["id"]), esc(p["id"]), esc(p["name"]), " <span class=nowtag>building now</span>" if now else "", pct(p["built"], p["n"]), pct(p["partial"], p["n"]), p["built"], p["n"], (", %d partial" % p["partial"]) if p["partial"] else "", (" &middot; %d runs" % runs_by.get(str(p["id"]), 0)) if runs_by.get(str(p["id"])) else "", esc(" ".join("%s %d" % kv for kv in p["kinds"].items())),
+            w("<details class='card ph%s' id='phase-%s'%s><summary><b>Phase %s: %s</b>%s<div class='stack3' style='margin:6px 0'><i class=b style='width:%.0f%%'></i><i class=p style='width:%.0f%%'></i></div><div class=sub>%d of %d rows built%s%s</div><div class=k>%s</div><div class=k>module files: %s</div><div class=k>Click to show the rows</div></summary>" %
+              (" now" if now else "", esc(p["id"]), " open" if now else "", esc(p["id"]), esc(p["name"]), " <span class=nowtag>building now</span>" if now else "", pct(p["built"], p["n"]), pct(p["partial"], p["n"]), p["built"], p["n"], (", %d partial" % p["partial"]) if p["partial"] else "", (" &middot; %d runs" % runs_by.get(str(p["id"]), 0)) if runs_by.get(str(p["id"])) else "", esc(" ".join("%s %d" % kv for kv in p["kinds"].items())),
                esc(" ".join(("%s %s" % (n, "yes" if v else "no")) for n, v in (("definition", p["def"]), ("brief", p["brief"]), ("ledger", p["ledger"]))))))
-            w("<div class=tw><table class=steps><tr><th>#</th><th>Kind</th><th>Row</th><th>State</th></tr>" + "".join("<tr class='r-%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (x["cls"], esc(x["n"]), esc(x["kind"]), esc(x["step"]), esc(x["state"][:90])) for x in p["steps"]) + "</table></div></details>")
+            if str(p["id"]) in phase_detail: w(phase_detail[str(p["id"])])
+            else: w("<div class=tw><table class=steps><tr><th>#</th><th>Kind</th><th>Row</th><th>State</th></tr>" + "".join("<tr class='r-%s'><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (x["cls"], esc(x["n"]), esc(x["kind"]), esc(x["step"]), esc(x["state"][:90])) for x in p["steps"]) + "</table></div>")
+            w("</details>")
         w("</div>")
     else: w("<div class=card>No plan to summarise yet: %s</div>" % esc(args.plan_msg or "architecture/build-plan.md was not read."))
-    if args.fragment:   # the full plan tables repeat the phase cards above row by row, so they start folded
-        w("<details id=plan-tables class='card frag'><summary><b>Full plan tables and views A and B</b><div class=sub>Every row of build-plan.md with its claims and drift, the script folders (A) and module proof (B). The phase cards above already show each row.</div></summary>")
+    if args.fragment:   # plan tally, views A (script folders) and B (module proof); the per-phase rows live in the cards above
+        w("<section id=plan-tables class='card frag'>")
         w(args.fragment)
-        w("</details>")
+        w("</section>")
     w(render_pages(proj, args.outdir, [SELF_OUT]))
     # footer
     w("<footer><h2>How these numbers are derived</h2><ul>")
@@ -1812,6 +1814,7 @@ def main_():
     ap.add_argument("--out"); ap.add_argument("--toolkit")
     ap.add_argument("--rates", help="rates file (glob input cache-write cache-read output per line); default <project>/.claude/progress-report-rates.txt if present, else placeholder rates")
     ap.add_argument("--fragment", help="HTML file with the plan tables and views A and B, embedded as the build detail")
+    ap.add_argument("--phase-detail", help="HTML file of <!--phase:ID-->...<!--/phase--> blocks (rows with Produces, Depends on, Scripts, and Claims), spliced into each phase card")
     ap.add_argument("--plan-json", help="parsed build plan (build-plan-status.sh --json shape)")
     ap.add_argument("--plan-msg", default="")
     ap.add_argument("--logs-dir", help="folder holding the <slug>/ session log folders (default: <CLAUDE_CONFIG_DIR or ~/.claude>/projects)")
@@ -1819,7 +1822,7 @@ def main_():
     ap.add_argument("--session-cache", help="discovery cache file (default <project>/.claude/progress-report-sessions.txt)")
     ap.add_argument("--no-log", action="store_true", help="skip session log discovery")
     a = ap.parse_args()
-    for _k in ("out", "fragment", "plan_json", "logs_dir", "session_cache", "toolkit"):
+    for _k in ("out", "fragment", "phase_detail", "plan_json", "logs_dir", "session_cache", "toolkit"):
         if getattr(a, _k, None): setattr(a, _k, fix_msys(getattr(a, _k)))
     a.session_log = [fix_msys(x) for x in a.session_log]
     proj = os.path.abspath(os.path.expanduser(fix_msys(a.project)))
@@ -1842,7 +1845,7 @@ def main_():
     rates = load_rates(rf if os.path.isfile(rf) else None)
     a.rates_used = rf if os.path.isfile(rf) else ""; a.rates_default = rf
     bp = load_build_plan(a.plan_json or os.path.join(proj, "architecture", "build-plan.json"), proj)
-    a.fragment = read(a.fragment) if a.fragment else ""; a.plan_msg = a.plan_msg
+    a.fragment = read(a.fragment) if a.fragment else ""; a.phase_detail = {m.group(1): m.group(2) for m in re.finditer(r"<!--phase:(.*?)-->(.*?)<!--/phase-->", read(a.phase_detail) if a.phase_detail else "", re.S)}; a.plan_msg = a.plan_msg
     if a.session_log and not a.no_log:
         sessions, base = explicit_sessions(a.session_log), ""
     else: sessions, base = ([], "") if a.no_log else find_sessions(proj, a.logs_dir, a.session_cache)

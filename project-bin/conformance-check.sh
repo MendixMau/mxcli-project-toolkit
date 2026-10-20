@@ -364,17 +364,25 @@ probe() {
   # A substring match read a DESCRIBE whose documentation said "HttpStatus (0 = no response or
   # time-out)" as an empty set, and the verbatim v0.25.0 `describe navigation` of mxcli's public
   # test app carries "  not found page Pages.Vehicle_Overview" (a navigation setting): both
-  # scored ABSENT, so built rows went STALE (#470). mxcli prints an error as a line starting
-  # `Error:` (stderr is merged above), and a table's summary as its own last line,
-  # `fmt.Fprintf("\n%s\n", Summary)` with Summary = "(%d entities)", "(%d workflow group(s))", …
-  # A body line never starts at column 0 with either: documentation is " * …", statements are
-  # indented. CR stripped for a Windows-built mxcli. Here-strings, not `printf | grep -q`:
-  # under pipefail that pipe can lose to SIGPIPE on a long definition (test-pipefail-grep-q.sh).
-  local last
+  # scored ABSENT, so built rows went STALE (#470).
+  #   Error   — mxcli puts its error FIRST (stderr is merged above, and `-c` pairs it with exit 1,
+  #             which the rc test already scored); so only the first non-blank line is read, the
+  #             old `Error:*` start-of-output meaning. Not any line: a body line CAN start at
+  #             column 0 — enumerations, scheduled events and image collections print their
+  #             documentation raw inside `/** … */` (one ` * ` on the first line only), and a
+  #             multi-line string prints raw too, so a doc line "Error: …" is still PRESENT.
+  #   (0 …)   — a table's summary is printed as its own LAST line, `fmt.Fprintf("\n%s\n", Summary)`
+  #             with Summary = "(%d entities)", "(%d workflow group(s))", …; a definition ends in
+  #             `/`, `;` or a grant, never in a parenthesised count.
+  # CR stripped for a Windows-built mxcli (printed "\n%s\n", so nothing else trails the summary).
+  # Here-strings, not `printf | grep -q`: under pipefail
+  # that pipe can lose to SIGPIPE on a long definition (test-pipefail-grep-q.sh).
+  local first last
   out="$(tr -d '\r' <<<"$out")"
-  if grep -q '^Error:' <<<"$out"; then echo "ABSENT"; return; fi
+  first="$(sed -n '/[^[:space:]]/{p;q;}' <<<"$out")"
+  case "$first" in Error:*) echo "ABSENT"; return ;; esac
   last="$(sed '/^[[:space:]]*$/d' <<<"$out" | tail -n 1)"
-  if grep -Eq '^\(0 .*\)[[:space:]]*$' <<<"$last"; then
+  if grep -Eq '^\(0 .*\)$' <<<"$last"; then   # no trailing class: the CR strip above is what lets CRLF output match
     echo "ABSENT"; return   # empty result set, e.g. "(0 entities)"
   fi
   echo "PRESENT"

@@ -31,8 +31,13 @@
 #   5. an empty set whose noun has parentheses, "(0 workflow group(s))", stays ABSENT
 #   6. a missing element ("Error: … not found", rc 1) stays ABSENT
 #   7. an "Error:" line with rc 0 is still ABSENT
-#   8. CRLF output (a Windows-built mxcli) reads the same: the doc'd microflow PRESENT, the
-#      empty set ABSENT
+#   8. CRLF output (a Windows-built mxcli): the doc'd microflow PRESENT, and the empty set
+#      ABSENT — the summary regex has no trailing-space class, so this passes only because of
+#      the CR strip (delete the `tr -d '\r'` and it fails); an rc-0 "Error:" first line ABSENT
+#   9. an enumeration whose documentation has a raw line starting "Error:" stays PRESENT: mxcli
+#      prints enumeration docs as "/**\n * %s\n */" with the multi-line text raw
+#      (mdl/executor/cmd_enumerations.go), so a doc line can start at column 0. Built from that
+#      printer, not captured.
 
 set -uo pipefail
 
@@ -68,6 +73,8 @@ setup() {  # setup <single|two> <crlf|lf> -> sets P
     "$MF" > "$P/cap/mfdoc.out"
   printf '| Name |\n|------|\n\n(0 entities)\n' > "$P/cap/empty.out"
   printf '| Name |\n|------|\n\n(0 workflow group(s))\n' > "$P/cap/emptyparen.out"
+  printf '/**\n * Payment states.\nError: shown when the provider rejects the payment.\n */\ncreate or modify enumeration Sales.PayStatus (\n  Paid '"'"'Paid'"'"',\n  Error '"'"'Error'"'"'\n);\n/\n' > "$P/cap/enum.out"
+  printf 'Error: microflow not found: Sales.ACT_Rc0\n' > "$P/cap/rc0.out"
   if [ "$2" = crlf ]; then
     for f in "$P"/cap/*.out; do sed 's/$/\r/' "$f" > "$f.tmp" && mv "$f.tmp" "$f"; done
   fi
@@ -81,7 +88,8 @@ case "$cmd" in
   "DESCRIBE MICROFLOW Sales.ACT_Doc")   cat "$c/mfdoc.out" ;;
   "SHOW ENTITIES IN Empty")           cat "$c/empty.out" ;;
   "SHOW WORKFLOWS IN Empty")          cat "$c/emptyparen.out" ;;
-  "DESCRIBE MICROFLOW Sales.ACT_Rc0") echo "Error: microflow not found: Sales.ACT_Rc0" ;;
+  "DESCRIBE MICROFLOW Sales.ACT_Rc0") cat "$c/rc0.out" ;;
+  "DESCRIBE ENUMERATION Sales.PayStatus") cat "$c/enum.out" ;;
   *) echo "Error: microflow not found: ${cmd##* }" >&2; exit 1 ;;
 esac
 EOF
@@ -96,6 +104,7 @@ EOF
 | `/workflows/0` | workflow | Nothing | 1.5 | exec.sh | `SHOW WORKFLOWS IN Empty` | not-built |
 | `/microflows/2` | microflow | ACT_Gone | 1.6 | exec.sh | `DESCRIBE MICROFLOW Sales.ACT_Gone` | not-built |
 | `/microflows/3` | microflow | ACT_Rc0 | 1.7 | exec.sh | `DESCRIBE MICROFLOW Sales.ACT_Rc0` | not-built |
+| `/enumerations/0` | enumeration | PayStatus | 1.8 | exec.sh | `DESCRIBE ENUMERATION Sales.PayStatus` | built |
 EOF
 }
 
@@ -124,10 +133,17 @@ for layout in single two; do
         || bad "$tag 6. missing element read as $(observed /microflows/2)"
       [ "$(observed /microflows/3)" = ABSENT ] && ok "$tag 7. Error line with rc 0 is ABSENT" \
         || bad "$tag 7. rc-0 Error read as $(observed /microflows/3)"
+      [ "$(observed /enumerations/0)" = PRESENT ] && ok "$tag 9. enum doc with a raw 'Error:' line stays PRESENT" \
+        || bad "$tag 9. enum doc line 'Error: …' read as $(observed /enumerations/0)"
     else
-      [ "$(observed /microflows/1)" = PRESENT ] && [ "$(observed /entities/0)" = ABSENT ] \
-        && ok "$tag 8. CRLF: doc'd microflow PRESENT, empty set ABSENT" \
-        || bad "$tag 8. CRLF misread" "mf=$(observed /microflows/1) empty=$(observed /entities/0)"
+      [ "$(observed /microflows/1)" = PRESENT ] && ok "$tag 8a. CRLF: doc'd microflow PRESENT" \
+        || bad "$tag 8a. CRLF doc'd microflow read as $(observed /microflows/1)"
+      [ "$(observed /entities/0)" = ABSENT ] && [ "$(observed /workflows/0)" = ABSENT ] \
+        && ok "$tag 8b. CRLF: '(0 …)\\r' summaries are ABSENT (the CR strip, not a trailing-space class)" \
+        || bad "$tag 8b. CRLF empty set misread" "entities=$(observed /entities/0) workflows=$(observed /workflows/0)"
+      [ "$(observed /microflows/3)" = ABSENT ] && [ "$(observed /enumerations/0)" = PRESENT ] \
+        && ok "$tag 8c. CRLF: rc-0 'Error:' first line ABSENT, enum doc 'Error:' line PRESENT" \
+        || bad "$tag 8c. CRLF Error handling" "rc0=$(observed /microflows/3) enum=$(observed /enumerations/0)"
     fi
   done
 done

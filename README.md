@@ -1,21 +1,63 @@
 # mxcli-project-toolkit
 
+[![Release](https://img.shields.io/github/v/release/MendixMau/mxcli-project-toolkit?label=release)](https://github.com/MendixMau/mxcli-project-toolkit/releases/latest) [![Checks](https://github.com/MendixMau/mxcli-project-toolkit/actions/workflows/checks.yml/badge.svg?branch=master)](https://github.com/MendixMau/mxcli-project-toolkit/actions/workflows/checks.yml)
+
 > **Agents: this README is orientation, not the spec.** For any pipeline work, the executable authority is `skills/conversion-runbook.md` (stages, gates, interview protocol) plus each stage's owning skill — load those before producing anything. Stage summaries here and in `toolkit-guide.html` are routing, not deliverable lists.
+
+**A harness for AI coding agents that build and change Mendix apps, so the result is one you can review and trust.**
+Every decision written down, every stage gated, every rule learned on a real project.
 
 ## What it is
 
-A shared process layer for building and changing **Mendix apps with an AI coding agent** and
-[mxcli](https://github.com/mendixlabs/mxcli). You clone it once; each of your projects points at
-it. It gives the agent a staged pipeline, a single place to record decisions, skills it loads
-only when a task calls for them, and mechanical checks that report what is actually in your
-project rather than what the agent believes is there.
+```mermaid
+flowchart LR
+  you["🧑 You<br/>answer the questions"] --> agent["🤖 AI agent<br/>Claude Code, Copilot, Cursor..."]
+  agent --> tk["🧰 This toolkit<br/>stages · skills · gates"]
+  tk --> cli["mxcli"] --> app[("Mendix app<br/>.mpr")]
+  tk --> rep["📊 Reports<br/>you can read"]
+```
 
-It is for Mendix developers and leads who already use (or want to use) an agent such as Claude
-Code to migrate a legacy app, build from requirements, or change a live app, and who want the
-result to be reviewable: every decision written down, every stage gated, every rule backed by a
-real incident.
+A process layer on top of [mxcli](https://github.com/mendixlabs/mxcli). Clone it once; each
+project points at it.
+
+**Measured in 1.0** ([release notes](docs/releases/v1.0.md)):
+
+| **5 of 5** vs 0 of 5 | **~40%** | **0 to 1** of 20 |
+|:---:|:---:|:---:|
+| drafts that refused a planted bad binding, with vs without the toolkit | fewer tool calls with a context pack | journey files a typical change re-runs |
 
 ## How it works
+
+```mermaid
+flowchart LR
+  subgraph U["1 · Understand"]
+    direction TB
+    P[P kickoff] --> T0[0 triage ✋] --> A1[1 analysis] --> R2[2 requirements]
+  end
+  subgraph D["2 · Design"]
+    direction TB
+    D3[3 architecture and design ✋] --> B4[4 build plan ✋]
+  end
+  subgraph S["3 · Build and ship"]
+    direction TB
+    B5[5 build, module by module] --> T6[6 test] --> C7[7 cutover ✋<br/>migrations only]
+  end
+  U --> D --> S
+```
+
+✋ = hard gate: the agent asks, waits, and records your answer. Nothing before Stage 5 touches
+the model.
+
+| Piece | What it does |
+|---|---|
+| 📝 `PROJECT.md` | One register: every answer as `CONFIRMED` or `ASSUMED` |
+| 📚 `skills/` | The method, loaded only when its trigger happens |
+| 🚦 `bin/gate-check.sh` | Per stage: `PASS` / `PENDING` / `FAIL` / `WAIVED` |
+| 🛡️ `bin/exec.sh` | Every model write: snapshot, mxbuild, lint, rollback on failure |
+| 🧪 Tests at key moments | Per change only what it touched; everything at build end and before deploy |
+
+<details>
+<summary>More on stages, gates and instruments</summary>
 
 - **Stages and gates.** Work moves through the same stages for every project: kickoff (P),
   triage (0), analysis (1), requirements (2), architecture and design (3), build plan (4), build
@@ -38,28 +80,33 @@ real incident.
   `verify-module.sh`, `page-fidelity.js`, `lint-gate.sh` and the rest. `bin/sync-project.sh`
   keeps the copies you did not edit current.
 
-```
-P kickoff → 0 triage ✋ → 1 analysis → 2 requirements → 3 architecture & design ✋
-          → 4 build plan ✋ → 5 build (module by module, gated) → 6 test → 7 cutover ✋
-```
 
 `✋` is a hard gate. Nothing before Stage 5 touches the model: a wrong module boundary is cheaper
 to fix in a diagram than after 40 MDL scripts assume it. Each entry mode's walk, with the
 commands that run at every step: `docs/pipeline-walks.html`.
 
+</details>
+
+## What you see
+
+| Page | When | Shows |
+|---|---|---|
+| **Process map + BRD report** (`bin/brd-report.sh`) | Stages 2 and 3 | Swimlanes per process, questions pinned to each step |
+| **Progress report** (`architecture/progress-report.html`) | Stage 5 onward | Stages P to 6, phases built and proven, time and cost |
+| **Project dashboard** (`index.html`) | Every gate run | Gate status per stage and module |
+| **Bug log** (`docs/bugs.jsonl`, `bin/file-bugs.sh`) | Any time | Bugs, redacted before filing |
+
 ## Ways to use it
 
-Four pipeline entry modes share the same stages, plus one route with no pipeline at all. The
-agent proposes the mode at kickoff with evidence and you confirm it; it is never silently
-inferred (`skills/conversion-runbook.md` → "Entry Modes").
+| Mode | Pick it when | Stages |
+|---|---|---|
+| **Migration** | Legacy source code exists | P, 0 to 7 |
+| **Requirements-driven** | Specs, BRDs or wireframes, no code | P, 0 to 6 |
+| **Greenfield** | Just an idea or a plan | P (light), 0, 5, 6 |
+| **Change an existing app** | A live `.mpr` you add to or alter | P, 0 to 6 per change |
+| **À la carte assurance** | Audit or a test net only | none |
 
-| Mode | Pick it when | Stages | Start from |
-|---|---|---|---|
-| **Migration** | Legacy source code exists (OutSystems, Java/Angular, Node/React, or another stack) | P, 0–7 | `bin/init-project.sh`, then `skills/conversion-runbook.md`; extractors in `pipelines/` |
-| **Requirements-driven** | Specs, BRDs, workshop output or wireframes, no legacy code | P, 0–6 | `bin/init-project.sh`; document discovery replaces code extraction |
-| **Greenfield** | Starting from a conversation or a plan you already have | P (light), 0 (scope), 5–6 | `bin/init-project.sh` |
-| **Change an existing app** | A live `.mpr` you are adding to or altering, the rest stays | P, 0–6 per change | `bin/init-project.sh`, then `skills/existing-app-change.md` |
-| **À la carte assurance** | Audit, lint, or put a regression/e2e net under an app you have, no pipeline | none | `skills/existing-app-assurance.md` |
+The agent proposes the mode at kickoff; you confirm it.
 
 ## Quick start
 
@@ -68,6 +115,12 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 ~/Mendix/mxcli-project-toolkit/bin/doctor.sh                       # what is missing on this machine
 ~/Mendix/mxcli-project-toolkit/bin/init-project.sh <project-root>  # one command per project
 ```
+
+Then open your agent in the project folder and say where you start:
+*"Start the toolkit pipeline. I have the legacy source in `source/`."*
+
+<details>
+<summary>Step by step, upgrading and pinning</summary>
 
 1. **`doctor.sh`** names any missing prerequisite (bash, Python 3, sqlite3, line endings, mxcli,
    mxbuild) and exits non-zero if a stage would break. `doctor.sh --install <project>` fetches
@@ -93,7 +146,15 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 Everything a project produces lives inside its own folder; this clone stays clean
 ([Consuming this toolkit](#consuming-this-toolkit)).
 
+</details>
+
 ## Make it yours
+
+Every opinion has a switch that survives `git pull` and sync. All project settings in one table:
+[1.0 notes, section 2](docs/releases/v1.0.md#2-settings-you-control).
+
+<details>
+<summary>How to adjust each opinion</summary>
 
 The toolkit is opinionated, and every opinion has a supported way to adjust it that survives
 `git pull` + `sync-project.sh`. Use these instead of editing toolkit files in place, which is the
@@ -114,7 +175,14 @@ drift a fork gets.
 If an opinion is wrong for everyone, not just you, change it upstream: see
 [We need your input](#we-need-your-input).
 
+</details>
+
 ## Testing and quality
+
+CI on every PR, every instrument proven to fail where it must, every merge independently reviewed.
+
+<details>
+<summary>What the toolkit tests about itself, and in your app</summary>
 
 **What the toolkit tests about itself.**
 
@@ -142,43 +210,34 @@ If an opinion is wrong for everyone, not just you, change it upstream: see
 - **Behaviour:** Playwright journeys plus OQL database assertions (`skills/testing-shape.md`,
   `skills/journey-proof.md`), and `bin/verify-module.sh` to run every instrument at module close.
 
+</details>
+
 ## We need your input
 
-Every rule in this toolkit traces to something that went wrong on a real project: a corrupted
-model, a gate that went green over a broken feature, a question nobody asked. That is also its
-limit. It knows the walls its users have hit so far, and it learns about yours only if you tell
-it. Field feedback is how it improves.
+Every rule here came from a real project hitting a wall. Tell us about yours: it becomes a better
+foundation for every team.
 
-Ways in, from least to most effort ([CONTRIBUTING.md](CONTRIBUTING.md) has the detail):
-
-1. **Drop a file in `contrib/inbox/`** (copy `contrib/inbox/TEMPLATE.md`) and open a PR. No
-   quality bar: a bug-log entry, a diff, three sentences, raw terminal output.
-2. **Run `bin/harvest-learnings.sh <project-root>` at project wrap-up.** It drafts inbox files
-   from your project's bug logs, decision-register promotions and locally patched toolkit
-   scripts. Review them, then PR.
-3. **Open a direct PR** into `skills/`, `bin/` or `bug-logs/`, held to the field-proof bar.
-4. **Open a GitHub issue.** For a bug: the exact command, its verbatim output, and the
-   `Toolkit release:` line `bin/sync-project.sh` prints. For an idea: the failure it would
-   prevent.
+| Effort | How |
+|---|---|
+| ⚪ Lowest | Drop a file in `contrib/inbox/` (copy `TEMPLATE.md`) and open a PR. No quality bar |
+| 🟢 One command | `bin/harvest-learnings.sh <project-root>` at wrap-up drafts inbox files for you |
+| 🟡 Issue | The exact command, its output, and the `Toolkit release:` line sync prints |
+| 🔵 Direct PR | Into `skills/`, `bin/` or `bug-logs/`, held to the field-proof bar |
 
 **No client data**, anywhere: no client, partner or person names, codenames, internal hosts or
-real paths. Genericize first; the leak guard runs in CI but cannot know your client.
-
-Merged contributions get a `CHANGELOG.md` line crediting you or your project by name, and the
-release notes name contributors too.
+real paths. Contributors are credited by name in `CHANGELOG.md` and the release notes.
+Detail: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Releases
 
-From 1.0 on, changes ship in bundled releases: work collects on a release branch while master
-stays stable, then lands as one tagged release with notes on what changed, how to update and what
-is still a known gap. Your field learnings and feedback are what the next release is built from
-([We need your input](#we-need-your-input)). Each release is tagged `vYYYY.MM.DD` on the train
-(the cycle is defined at the top of `CHANGELOG.md`). Tags are published from 1.0 on; earlier dated CHANGELOG sections were never
-pushed as tags. On top of the train, named milestones get curated notes: start
-with [**1.0**](docs/releases/v1.0.md). What a milestone promises, major versus minor, deprecation,
-and how to check, upgrade or pin the version a project uses: `docs/RELEASE-PROCESS.md` §8.
+**Bundled releases** from 1.0 on: master stays stable, then one tagged release (`vYYYY.MM.DD`)
+with notes. Latest: [**1.0**](docs/releases/v1.0.md).
 
----
+```bash
+git -C ~/Mendix/mxcli-project-toolkit pull && ~/Mendix/mxcli-project-toolkit/bin/sync-project.sh <project-root>
+```
+
+Pinning, major vs minor and deprecation: `docs/RELEASE-PROCESS.md` §8.
 
 ## Reference
 

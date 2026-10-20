@@ -247,6 +247,25 @@ hasnt "no layout hint when no missed class looks like chrome" "$OUT19" "is not i
 hasnt "no layout hint for page classes (seg-tabs, dg-*)"     "$OUT6"  "is not in the input"
 has   "the hint names the layout when region-* is missed"   "$OUT16" "layout LayoutTest.App_Default is not in the input"
 
+echo "  -- a popup wireframe scores the dialog, not the caller's page behind it (#471)"
+# fixtures/page-fidelity-popup/CAPTURE.md: the MDL is a verbatim mxcli v0.23.0 describe of a
+# popup page; the wireframe draws it in the issue's shape, .popup-stage > .shell-behind +
+# .dialog-scrim > .dialog, with the caller's overview (div.main, h1, card) behind the scrim.
+PF="$TOOLKIT/tests/wave2/fixtures/page-fidelity-popup"
+OUT20=$(cd "$TMP" && node "$SUT" --no-log "$PF/product-newedit-popup.html" Product_NewEdit "$PF/product-newedit-describe-v023.mdl" 2>&1)
+echo "$OUT20" | sed 's/^/    | /'
+hasnt "the caller's h1 behind the scrim is not scored"      "$OUT20" "heading: Product catalog"
+hasnt "the caller's card behind the scrim is not scored"    "$OUT20" "heading: Active items"
+hasnt "the caller's button is not an owed action"           "$OUT20" "action:  New item"
+has   "the dialog's fields and buttons all match"           "$OUT20" "text-match 100%"
+sed 's/class="dialog" /class="sheet" /' "$PF/product-newedit-popup.html" > "$TMP/stage-only.html"
+OUT21=$(cd "$TMP" && node "$SUT" --no-log "$TMP/stage-only.html" Product_NewEdit "$PF/product-newedit-describe-v023.mdl" 2>&1)
+hasnt "a .popup-stage with no .dialog still drops the shell" "$OUT21" "heading: Product catalog"
+has   "...and still scores what is in front of it"           "$OUT21" "headings 1/1"
+sed 's/class="dialog" /class="panel" /; s/class="popup-stage"/class="stage"/' "$PF/product-newedit-popup.html" > "$TMP/no-popup.html"
+OUT22=$(cd "$TMP" && node "$SUT" --no-log "$TMP/no-popup.html" Product_NewEdit "$PF/product-newedit-describe-v023.mdl" 2>&1)
+has   "without .dialog/.popup-stage, dialog-scrim alone does not switch boundary (div.main, as before)" "$OUT22" "heading: Product catalog"
+
 echo
 printf 'test-page-fidelity-mocks: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

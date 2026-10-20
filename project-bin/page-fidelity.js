@@ -163,8 +163,22 @@ function contentOf(html) {
   //   div.content       same shape when the wireframe has no .main wrapper
   //   <body>            popup/dialog wireframes with annotation siblings
   // then strip annotation chrome either way.
-  const m = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
-  let s = m ? m[1]
+  //
+  // POPUP FIRST (#471). A popup wireframe draws the CALLER's page behind a scrim for context:
+  // `.popup-stage > .shell-behind + .dialog-scrim > .dialog`. The shell behind carries its own
+  // div.main, so the list below landed on the caller's page and scored the popup against it:
+  // 29% in the field for a popup whose fields and bindings all matched, every miss in the
+  // shell. When the wireframe draws a `.dialog`, the dialog is the page; the shell is not
+  // scored at all. Matched on the class WORD, so `dialog-scrim`/`dialog-head` do not count.
+  const cls = name => new RegExp(`<(div|section|dialog|aside)\\b[^>]*class="(?:[^"]*\\s)?${name}(?:\\s[^"]*)?"`, 'i');
+  const popup = innerBalanced(html, cls('dialog'))
+    || (() => {                                   // a stage with no .dialog: everything but the shell
+      const stage = innerBalanced(html, cls('popup-stage'));
+      return stage === null ? null : dropBalanced(stage, cls('shell-behind'));
+    })();
+  const m = popup === null ? html.match(/<main[^>]*>([\s\S]*?)<\/main>/i) : null;
+  let s = popup !== null ? popup
+    : m ? m[1]
     : innerBalanced(html, /<(div)[^>]*class="[^"]*\bwf-screen\b[^"]*"/i)
     || innerBalanced(html, /<(div)[^>]*class="[^"]*\bwf-shell\b[^"]*"/i)
     || innerBalanced(html, /<(div)[^>]*class="[^"]*\bmockup-frame\b[^"]*"/i)

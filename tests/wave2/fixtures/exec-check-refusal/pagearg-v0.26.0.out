@@ -1,0 +1,25 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+Checking syntax: pagearg.mdl
+✓ Syntax OK (4 statements)
+
+[36m(no module)[0m
+-----------
+  [33m⚠[0m page Probe1029.Detail: DataView `dv` contains input fields but is not inside a layout grid — label and input widths only render correctly inside a layoutgrid [2m[MPR010][0m
+      at [2m[0m
+      [32m→[0m Wrap dataview `dv` in `layoutgrid { row { column (desktopwidth: autofill) { … } } }`
+
+  [33m⚠[0m line 43: `show page M.P(Param: expr)` (argument) is deprecated; write `show page M.P(Param = expr)` — same meaning. Refused from `mdl 2`. (mxcli help MDL-DEPR007) [2m[MDL-DEPR007][0m
+      at [2m[0m
+      [32m→[0m Rewrite the colon as `=`: `Param: expr` -> `Param = expr`. `:` sets a model property and `=` binds a runtime value (R3). An argument binds a value, so it takes `=` wherever the call appears: show page, call microflow/nanoflow/java action and the other call statements, and page/button actions and data sources (`Action: microflow M.F(Param = expr)`).
+
+  [33m⚠[0m line 43: `show_page, save_changes, close_page, microflow M.F, …` (show_page -> show page) is deprecated; write `show page, save changes, close page, call microflow M.F, …` — same meaning. Refused from `mdl 2`. (mxcli help MDL-DEPR020) [2m[MDL-DEPR020][0m
+      at [2m[0m
+      [32m→[0m Rewrite the page action as words: the underscore becomes a space (`show_page` -> `show page`, also `save_changes`, `cancel_changes`, `close_page`, `create_object`, `open_link`, `sign_out`, `complete_task`); `delete_object` -> `delete`; `microflow M.F` / `nanoflow M.F` -> `call microflow M.F` / `call nanoflow M.F`. The words are the ones a microflow uses for the same activity. A navigation menu's `sign_out` is the same keyword. Arguments are unchanged.
+
+[36mProbe1029[0m
+---------
+  [31m✗[0m page Probe1029.List: show page Probe1029.Detail: argument Item: $SomeRef cannot be stored — widget `btnOpen` is not inside a data view, list view or grid row, so there is no context object at all, and a widget's page argument is always that object. The page would be opened with no argument, which mxbuild reports as CE1571 "No argument has been selected for parameter 'Item'". Put the button inside a data widget bound to the object, or call a microflow that shows the page with it [2m[MDL-PAGEARG01][0m
+      at [2mProbe1029.List[0m
+
+
+4 issues: 1 errors, 3 warnings, 0 info

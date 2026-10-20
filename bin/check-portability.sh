@@ -157,6 +157,21 @@ while IFS= read -r f; do
         fi ;;
     esac
 
+    # \t inside a sed/grep bracket expression is not a tab. BSD/macOS sed reads [ \t] as
+    # "space, backslash or t" (GNU sed alone expands it), and grep reads it that way on
+    # every platform, so a trim stripped a trailing "t": Mod.ENUM_Product became
+    # Mod.ENUM_Produc in context-pack.sh (#468). awk expands \t in a regex everywhere, so
+    # only a bracket that FOLLOWS sed/grep on the line counts; a bracket inside a $'...'
+    # string holds a real tab and is skipped.
+    case "$txt" in
+      *sed*'\t'*|*grep*'\t'*)
+        if grep -Eq -- '(sed|grep)[^|]*\[[^]]*\\t' <<<"$txt" \
+           && ! grep -Eq -- "\\\$'[^']*\\[[^]]*\\\\t" <<<"$txt"; then
+          report "$f" "$ln" "\\t inside a sed/grep bracket expression (BSD: backslash or t, not tab)" \
+            'Use [[:blank:]] (space or tab) or [[:space:]], or a real tab via $'"'"'\t'"'"'.'
+        fi ;;
+    esac
+
     case "$txt" in
       *'grep -P'*|*'grep -qP'*|*'grep -oP'*)
         report "$f" "$ln" "grep -P is GNU-only" \

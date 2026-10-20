@@ -761,7 +761,7 @@ check_stage_P() {
       else if (l ~ /^unverified/ && l ~ /how to verify/) ok=1
     }
     END { flush(); print bad }' "$f")
-  total=$(grep -c '^##[ \t]' "$f")
+  total=$(grep -c '^##[[:blank:]]' "$f")
 
   # Always name the file that was graded. A Stage P line that does not is what let the
   # wrong-file bug survive for weeks: the output was locally coherent and globally wrong.

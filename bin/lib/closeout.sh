@@ -107,7 +107,7 @@ _co_checkpoints() {
   esac
 }
 
-_co_trim() { printf '%s' "$1" | sed -E 's/^[ \t]+//; s/[ \t]+$//; s/^\*+//; s/\*+$//; s/^[ \t]+//; s/[ \t]+$//'; }
+_co_trim() { printf '%s' "$1" | sed -E 's/^[[:blank:]]+//; s/[[:blank:]]+$//; s/^\*+//; s/\*+$//; s/^[[:blank:]]+//; s/[[:blank:]]+$//'; }
 # Truncate to N chars on a word boundary, with an ellipsis. Cells in a real register run to
 # 2,000 characters; the block is a recap, the register is the record.
 _co_trunc() {
@@ -117,7 +117,7 @@ _co_trunc() {
 }
 # Stage cell → bare stage token ("Stage 3" → 3, "P" → P). Empty when it is not a stage.
 _co_stage_of() {
-  local s; s="$(_co_trim "$1" | sed -E 's/^[Ss]tage[ \t]*//')"
+  local s; s="$(_co_trim "$1" | sed -E 's/^[Ss]tage[[:blank:]]*//')"
   case "$s" in P|p) echo P ;; [0-7]) echo "$s" ;; *) echo "" ;; esac
 }
 # First word of a status cell, upper-cased, punctuation stripped — the same "controlled

@@ -114,7 +114,7 @@ SLICE="$(printf '%s' "$ROW" | cut -d'|' -f4)"
 case "$SLICE" in -|—|none) SLICE="" ;; esac
 
 # a cell is a comma-separated list of qualified names; "—" or "-" means none
-names() { printf '%s\n' "$1" | tr ',' '\n' | sed 's/^[ \t]*//; s/[ \t]*$//' | grep -vE '^(-|—|none)?$'; }
+names() { printf '%s\n' "$1" | tr ',' '\n' | sed 's/^[[:blank:]]*//; s/[[:blank:]]*$//' | grep -vE '^(-|—|none)?$'; }
 
 # folder for a document: its row in the "Document folder plan" table, by full or short name
 folder_of() {

@@ -459,7 +459,7 @@ grep -q "discovery cold" "$WORK/out15.b" && ok "a copied project with its cache 
 hasnt "$WORK/out15/b.html" "Sessions from other folders (1)" "the copy does not show the original project's sessions"
 CLAUDE_CONFIG_DIR="$CFG15" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P15" --out "$WORK/out15/c.html" >"$WORK/out15.c" 2>&1
 grep -q "discovery warm" "$WORK/out15.c" && ok "the original's own cache is still warm" || bad "the original's cache is warm"
-sed -i.bak '1s/rules=[^\t]*/rules=share=0.10;calls=5/' "$P15/.claude/progress-report-sessions.txt"; rm -f "$P15/.claude/progress-report-sessions.txt.bak"
+sed -i.bak $'1s/rules=[^\t]*/rules=share=0.10;calls=5/' "$P15/.claude/progress-report-sessions.txt"; rm -f "$P15/.claude/progress-report-sessions.txt.bak"
 CLAUDE_CONFIG_DIR="$CFG15" PROGRESS_REPORT_DEBUG=1 "$PY" "$GEN" "$P15" --out "$WORK/out15/d.html" >"$WORK/out15.d" 2>&1
 grep -q "discovery cold" "$WORK/out15.d" && ok "a cache written under other thresholds is rebuilt" || bad "other thresholds rebuild the cache"
 

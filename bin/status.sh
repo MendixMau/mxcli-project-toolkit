@@ -38,6 +38,20 @@ REG="$PROJECT_DIR/PROJECT.md"
 [ -f "$REG" ] || { echo "no PROJECT.md in $PROJECT_DIR — run bin/init-project.sh first" >&2; exit 1; }
 NAME="$(basename "$PROJECT_DIR")"
 
+# --- session folder (#447) ------------------------------------------------------------------
+# Claude Code finds .claude/agents/ (and CLAUDE.md) by walking UP from the folder the session was
+# launched in. A lead started in a sibling folder saw no project agents and ran a whole Stage 5
+# build (110 execs) on general-purpose agents, with nothing saying why (field 2026-10-17).
+# status.sh runs in the session's cwd, so it can say so. Silent at the root or any folder below
+# it (two pwd -P builtins); only the warning path asks _common.sh's own walk (mxtk_walk_root, in
+# a subshell so its env loading cannot leak) which project the cwd belongs to instead.
+CWD_NOTE=""
+_pd="$(cd "$PROJECT_DIR" && pwd -P)"; _cw="$(pwd -P)"
+case "$_cw/" in "$_pd"/*) ;; *)
+  _cr="$(PROJECT_ROOT="$PROJECT_DIR" . "$TOOLKIT_ROOT/project-bin/_common.sh" >/dev/null 2>&1; mxtk_walk_root "$_cw" 2>/dev/null)"
+  CWD_NOTE="session cwd $_cw is not the project root${_cr:+ (it belongs to $_cr)}: project agents and CLAUDE.md will not load; restart the session in $PROJECT_DIR" ;;
+esac
+
 # --- register facts -------------------------------------------------------------------------
 STAGE_LINE="$(awk '/^## Current stage/{f=1;next} f && /^\*\*Stage/{print;exit}' "$REG" | sed -E 's/\*\*//g; s/,? *(in progress)?\.?$//')"
 [ -n "$STAGE_LINE" ] || STAGE_LINE="(no Current stage line in PROJECT.md)"
@@ -276,6 +290,7 @@ for _w in "${APPROVED_OVER:+APPROVED OVER A FAILING GATE: $APPROVED_OVER}" "$DON
   [ -n "$_w" ] && WATCH="${WATCH:+$WATCH · }$_w"
 done
 if [ "$BRIEF" = 1 ]; then
+  [ -n "$CWD_NOTE" ] && echo "CWD     $CWD_NOTE"
   echo "WHERE   $NAME · $STAGE_LINE${ENTRY:+ · $ENTRY}${ADOPTED:+ · joined at $ADOPTED}"
   [ -n "$ROUND_LINE" ] && echo "ROUND   $ROUND_LINE"
   echo "STATE   scripts $N_SCRIPTS written / $N_PASS gate-pass / $N_DONE done- · modules opened $MOD_OPENED${SKELETON:+ · skeleton $SKELETON} · UNSYNCED $UNSYNCED · open questions $OPEN_Q${MANUAL:+ · $MANUAL}${APPMAP:+ · $APPMAP}"
@@ -286,6 +301,7 @@ if [ "$BRIEF" = 1 ]; then
 fi
 printf '\n%s — %s%s%s\n' "$NAME" "$STAGE_LINE" "${ENTRY:+ · $ENTRY}" "${ADOPTED:+ · joined at stage $ADOPTED}"
 printf '%s\n\n' "$TK"
+[ -n "$CWD_NOTE" ] && printf 'CWD       %s\n' "$CWD_NOTE"
 [ -n "$ROUND_LINE" ] && printf 'ROUND     %s\n' "$ROUND_LINE"
 printf 'DONE      scripts: %s written, %s gate-pass, %s done-  ·  modules opened: %s%s\n' "$N_SCRIPTS" "$N_PASS" "$N_DONE" "$MOD_OPENED" "${SKELETON:+  ·  skeleton proven $SKELETON}"
 printf 'OVERDUE   %s  ·  %s  ·  %s  ·  UNSYNCED markers: %s  ·  open questions: %s\n' "$DOCTOR" "$LINT" "${COH:-coherence: cadence script not installed}" "$UNSYNCED" "$OPEN_Q"

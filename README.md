@@ -84,7 +84,10 @@ git clone https://github.com/MendixMau/mxcli-project-toolkit.git ~/Mendix/mxcli-
 4. **Open your agent in the project folder and say where you are starting from**, for example:
    *"Start the toolkit pipeline. I have the legacy source in `source/`."* or *"I want to add an
    approval flow to this app."* The agent reads the runbook, proposes an entry mode and starts
-   the kickoff interview. In later sessions, `bin/status.sh` is the first command.
+   the kickoff interview. In later sessions, `bin/status.sh` is the first command. Launch every
+   lead session with the project folder as its working directory: Claude Code finds
+   `.claude/agents/` by walking up from there, so a session started in a sibling folder gets no
+   project agents (`bin/status.sh` prints a `CWD` warning when this happens).
 5. **Upgrade** with `git -C ~/Mendix/mxcli-project-toolkit pull`, then
    `bin/sync-project.sh <project-root>` for each project. Skills update with the pull; sync
    refreshes what was copied into the project and prints the `Toolkit release:` you are on once

@@ -160,19 +160,27 @@ async function typeSafely(page, handle, text) {
 // the label was excluded). The default covers the common captions of the languages Mendix apps
 // ship in most; anything else goes in project.config.js `signOutPattern` (a RegExp or a regex
 // string) or the SIGN_OUT_PATTERN env var, and is ADDED to the default, never a replacement.
-const SIGN_OUT_DEFAULT = new RegExp('\\b(?:' + [
-  '(?:sign|log)\\s*(?:out|off)',                  // en: Sign out, Log off, Logout
-  'afmelden', 'uitloggen',                        // nl
-  'abmelden', 'ausloggen',                        // de
-  'se\\s+d[ée]connecter', 'd[ée]connexion',       // fr
-  'cerrar\\s+sesi[óo]n',                          // es
-  '(?:terminar|encerrar)\\s+sess[ãa]o',           // pt
-  'disconnetti',                                  // it
-].join('|') + ')\\b', 'i');
+//
+// The non-English words match the WHOLE caption only. They are also ordinary verbs, so a word
+// match left "Ziek afmelden" (report sick), "Afmelden nieuwsbrief", "Vom Kurs abmelden" and
+// "Disconnetti dispositivo" unfuzzed. The English phrase keeps its word match, as before.
+const SIGN_OUT_DEFAULT = new RegExp(
+  '\\b(?:sign|log)\\s*(?:out|off)\\b' +           // en: Sign out, Log off, Logout
+  '|^\\s*(?:' + [
+    'afmelden', 'uitloggen',                      // nl
+    'abmelden', 'ausloggen',                      // de
+    'se\\s+d[ée]connecter', 'd[ée]connexion',     // fr
+    'cerrar\\s+sesi[óo]n',                        // es
+    '(?:terminar|encerrar)\\s+sess[ãa]o',         // pt
+    'disconnetti',                                // it
+  ].join('|') + ')\\s*$', 'i');
+// A project RegExp keeps its own flags (m, s, u, …), merged with the default's `i`; `g` and `y`
+// are dropped because they make .test() stateful across calls.
 function signOutPattern(extra) {
   if (!extra) return SIGN_OUT_DEFAULT;
   const src = extra instanceof RegExp ? extra.source : String(extra);
-  try { return new RegExp(`(?:${SIGN_OUT_DEFAULT.source})|(?:${src})`, 'i'); }
+  const flags = [...new Set(('i' + (extra instanceof RegExp ? extra.flags : '')).replace(/[gy]/g, ''))].join('');
+  try { return new RegExp(`(?:${SIGN_OUT_DEFAULT.source})|(?:${src})`, flags); }
   catch (e) {
     console.log(`  ⚠ signOutPattern ${JSON.stringify(src)} is not a valid regex (${e.message}) — using the built-in sign-out captions only`);
     return SIGN_OUT_DEFAULT;
@@ -182,13 +190,15 @@ const SIGN_OUT = signOutPattern(cfg.signOutPattern);
 // The keyboard can reach controls the button locator never offers: the layout's top bar, a
 // navigation item, an icon-only button whose caption is its aria-label or title.
 async function focusIsSignOut(page) {
-  const label = await page.evaluate(() => {
+  const labels = await page.evaluate(() => {
     const e = document.activeElement;
-    if (!e || e === document.body) return '';
-    return [e.innerText || e.textContent || '', e.getAttribute('aria-label') || '', e.getAttribute('title') || ''].join(' | ');
-  }).catch(() => '');
-  return SIGN_OUT.test(label);
+    if (!e || e === document.body) return [];
+    return [e.innerText || e.textContent || '', e.getAttribute('aria-label') || '', e.getAttribute('title') || ''];
+  }).catch(() => []);
+  return isSignOutLabel(labels);
 }
+// Each label on its own: the non-English captions are anchored to the whole caption.
+function isSignOutLabel(labels) { return labels.some(t => t && SIGN_OUT.test(t)); }
 function leftApp(url, baseUrl) {
   const base = String(baseUrl).replace(/\/+$/, '');
   if (!url || (url !== base && !url.startsWith(base + '/'))) return true;
@@ -262,7 +272,7 @@ async function round(page, target, bucket) {
 }
 
 // leftApp is exported for tests/wave2/test-monkey-left-app.sh; requiring this file runs nothing.
-module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern };
+module.exports = { leftApp, SIGN_OUT, SIGN_OUT_DEFAULT, signOutPattern, isSignOutLabel };
 
 // ── main ────────────────────────────────────────────────────────────────────
 if (require.main === module) (async () => {

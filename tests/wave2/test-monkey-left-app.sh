@@ -72,6 +72,13 @@ X('cfgstr', '\\bkirjaudu ulos\\b', 'Kirjaudu ulos');
 X('cfgkeeps', /\bkirjaudu ulos\b/i, 'Afmelden');
 X('cfgbad', '(', 'Afmelden');
 X('cfgnone', null, 'Kirjaudu ulos');
+// Review of #481: ordinary verbs inside a longer caption are not sign-out controls.
+['Ziek afmelden', 'Afmelden nieuwsbrief', 'Vom Kurs abmelden', 'Disconnetti dispositivo', '  Afmelden  '].forEach(S);
+X('cfgflags', /^kirjaudu ulos$/m, 'Valikko\nKirjaudu ulos');
+const I = (k, labels) => console.log(`I:${k} ${typeof M.isSignOutLabel === 'function' ? M.isSignOutLabel(labels) : 'NOFN'}`);
+I('aria', ['', 'Afmelden', '']);
+I('title', ['\ue000', '', 'Uitloggen']);
+I('none', ['Ziek afmelden', 'Menu', '']);
 process.exit(0);
 EOF
 OUT="$(cd "$WORK/tests/e2e" && printf '%s' "$JS" | APP_PORT=1 timeout 30 node - 2>&1)"
@@ -93,7 +100,7 @@ fi
 [ "$(line OTHER)" = true ] && ok "a lookalike origin (port prefix match) is outside the app" || bad "prefix match leaks another origin in" "$(line OTHER)"
 [ "$(line SLASHBASE)" = false ] && ok "a baseUrl with a trailing slash still matches its routes" || bad "trailing-slash baseUrl breaks the match" "$(line SLASHBASE)"
 
-s() { printf '%s\n' "$OUT" | sed -n "s/^S:$1 //p"; }
+s() { printf '%s\n' "$OUT" | K="S:$1" awk '{b=$NF; sub(/ [^ ]*$/, ""); if ($0 == ENVIRON["K"]) print b}'; }   # exact label: "Afmelden" must not read "Afmelden nieuwsbrief"
 [ "$(s 'Sign out')" = true ] && [ "$(s 'Log off')" = true ] && [ "$(s 'Logout')" = true ] \
   && ok "SIGN_OUT matches Sign out (captured), Log off, Logout" || bad "a sign-out label is not excluded" "$(s 'Sign out')/$(s 'Log off')/$(s 'Logout')"
 [ "$(s 'Switch theme')" = false ] && [ "$(s 'Signature')" = false ] && [ "$(s 'Log in')" = false ] \
@@ -112,10 +119,20 @@ x() { printf '%s\n' "$OUT" | sed -n "s/^X:$1 //p"; }
 [ "$(x cfgkeeps)" = true ] && ok "a project pattern adds to the default, it does not replace it" || bad "project pattern dropped the default" "$(x cfgkeeps)"
 [ "$(x cfgbad)" = true ] && [ "$(x cfgnone)" = false ] && ok "an invalid project pattern falls back to the default; none means default only" \
   || bad "invalid/absent project pattern mishandled" "$(x cfgbad)/$(x cfgnone)"
+[ "$(s 'Ziek afmelden')" = false ] && [ "$(s 'Afmelden nieuwsbrief')" = false ] && [ "$(s 'Vom Kurs abmelden')" = false ] && [ "$(s 'Disconnetti dispositivo')" = false ] \
+  && ok "a non-English verb inside a longer caption stays fuzzable (Ziek afmelden, Afmelden nieuwsbrief, Vom Kurs abmelden, Disconnetti dispositivo)" \
+  || bad "SIGN_OUT over-matches an ordinary caption" "$(s 'Ziek afmelden')/$(s 'Afmelden nieuwsbrief')/$(s 'Vom Kurs abmelden')/$(s 'Disconnetti dispositivo')"
+[ "$(s '  Afmelden  ')" = true ] && ok "a whole caption with surrounding whitespace still matches" || bad "padded caption missed" "$(s '  Afmelden  ')"
+[ "$(x cfgflags)" = true ] && ok "a project RegExp keeps its own flags (m)" || bad "project RegExp flags dropped" "$(x cfgflags)"
+i() { printf '%s\n' "$OUT" | sed -n "s/^I:$1 //p"; }
+[ "$(i aria)" = true ] && [ "$(i title)" = true ] && [ "$(i none)" = false ] \
+  && ok "focus labels (text, aria-label, title) are tested one by one" || bad "focus label test wrong" "$(i aria)/$(i title)/$(i none)"
 grep -q 'signOutPattern: *process.env.SIGN_OUT_PATTERN' "$E2E/config.js" && grep -q '^ *signOutPattern:' "$CFG" \
   && ok "config.js reads signOutPattern (env, then project.config) and the template declares it" \
   || bad "signOutPattern is not plumbed through config.js / the template (a consumer with no producer)"
-awk '/rapidTab/ {r=1} r && /focusIsSignOut\(page\)/ {f=1} f && /keyboard\.press\(.Enter.\)/ {e=1} END{exit !e}' "$SUT" \
+# Scoped to the rapidTab branch itself: the ABUSES list and focusIsSignOut's definition also
+# mention these names, and an unscoped match passed a blind Enter (review of #481).
+awk '/abuse === .rapidTab./{r=1;next} r&&/else if \(abuse ===/{r=0} r&&/focusIsSignOut\(page\)/{f=1} r&&/press\(.Enter.\)/{if(!f)bad=1; e=1} END{exit !(e&&!bad)}' "$SUT" \
   && ok "rapidTab checks focus for a sign-out control before Enter" || bad "rapidTab presses Enter without checking what has focus (#469)"
 
 # The tested functions must be the ones the rounds use.

@@ -717,12 +717,37 @@ mxtk_resume_leftover() {
   return 0
 }
 
+# mxtk_mxbuild_infra_only <errors-file> - true when mxbuild's errors file reports no Error
+# problem and every errors[] message is a generic deploy-stage failure, never a reason about the
+# model. Verbatim messages from a field build (#448, 2026-10-16, Mendix 11.15, exit 3, problems[]
+# empty), each of which passed on the next build with no model change:
+#   "Compilation of the app bundle failed."  ·  "An error occurred while compiling Theme files"
+#   "An error occurred while cleaning excluded jar files & copying files."
+#   "An error occurred while compiling Java actions"
+# A version mismatch ("The MPR file located at ... could not be opened: Project version ...")
+# matches neither form, so it is still never retried. No Python 3: false (no retry, as before).
+mxtk_mxbuild_infra_only() {
+  local _py="${PY:-$(resolve_py 2>/dev/null || true)}"
+  [ -s "$1" ] && [ -n "$_py" ] || return 1
+  "$_py" -c '
+import json, re, sys
+d = json.load(open(sys.argv[1]))
+if any(isinstance(p, dict) and p.get("severity") == "Error" for p in d.get("problems") or []): sys.exit(1)
+m = [(e.get("message", "") if isinstance(e, dict) else str(e)).strip() for e in d.get("errors") or []]
+ok = re.compile(r"^(Compilation of the app bundle failed\.?|An error occurred while [^:]*)$")
+sys.exit(0 if m and all(ok.match(x) and not re.search(r"CE[0-9]{4}", x) for x in m) else 1)
+' "$(native_path "$1")" 2>/dev/null
+}
+
 # mxtk_gate_mxbuild <mpr> <timeout-seconds> <errors-file> - the exec gate's way to run
 # mxbuild: mxtk_mxbuild_error_count with this project's watcher paused around it, and ONE
 # retry when mxbuild exits 1 or 3 and left no sign of a model problem (no CE code in its
 # output, nothing in the errors file). That shape is an infrastructure failure, not a verdict
 # on the model; a real model error always names a CE code. An errors file with content (for
-# example a version mismatch in errors[]) is deterministic and is not retried.
+# example a version mismatch in errors[]) is deterministic and is not retried, with one
+# exception (#448): a file whose only content is a generic deploy-stage message is the same
+# infra shape (mxtk_mxbuild_infra_only, above). The retry check runs only after exit 1 or 3,
+# so a clean build never pays for it.
 # Prints nothing on stdout (callers discard the count); sets the same MXTK_MXBUILD_* globals as
 # mxtk_mxbuild_error_count, plus MXTK_GATE_RETRY_NOTE ("retry after infra exit" or empty); after a
 # retry MXTK_GATE_FIRST_OUT / MXTK_GATE_FIRST_EXIT hold the FIRST attempt's output and exit code
@@ -735,8 +760,9 @@ mxtk_gate_mxbuild() {
   mxtk_mxbuild_error_count "$_mpr" "$_timeout" "$_ef" >/dev/null || _rc=$?
   case "${MXTK_MXBUILD_EXIT:-}" in
     1|3)
-      if [ ! -s "$_ef" ] && ! grep -Eq -- 'CE[0-9]{4}' <<<"${MXTK_MXBUILD_OUT:-}"; then
-        echo "  ⚠ retry after infra exit: mxbuild exited $MXTK_MXBUILD_EXIT with no CE code and no errors file; building once more" >&2
+      if ! grep -Eq -- 'CE[0-9]{4}' <<<"${MXTK_MXBUILD_OUT:-}" \
+         && { [ ! -s "$_ef" ] || mxtk_mxbuild_infra_only "$_ef"; }; then
+        echo "  ⚠ retry after infra exit: mxbuild exited $MXTK_MXBUILD_EXIT with no CE code and no model problem${MXTK_MXBUILD_WHY:+ ($MXTK_MXBUILD_WHY)}; building once more" >&2
         MXTK_GATE_RETRY_NOTE="retry after infra exit"
         MXTK_GATE_FIRST_OUT="${MXTK_MXBUILD_OUT:-}"; MXTK_GATE_FIRST_EXIT="$MXTK_MXBUILD_EXIT"
         : > "$_ef"

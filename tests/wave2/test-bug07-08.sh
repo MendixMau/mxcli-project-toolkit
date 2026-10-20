@@ -16,8 +16,10 @@
 #
 # Run it against the PRE-fix script and cases C, E, F, I, J and the #7 block
 # must FAIL — that is the positive control. A suite that has only ever seen the
-# fix cannot show that it discriminates. Cases A, B, D, G, H2 pass on both; they
-# are regression guards, not discriminators, and are labelled [guard]. Case H
+# fix cannot show that it discriminates. Cases A, B, D, G pass on both; they
+# are regression guards, not discriminators, and are labelled [guard]. H2's and K's exit 5
+# (applied, unverified) discriminate against every script before 2026-10-20 (#443), which
+# exited 0. Case H
 # (gate cannot run -> refuse) discriminates against every script before 2026-09-17.
 # Case K (mxbuild refused the model: exit 3, errors[], empty problems[]) discriminates
 # against every script before 2026-09-27 — the pre-fix row reads "pass · mxbuild clean".
@@ -187,11 +189,12 @@ grep -q 'refused' "$LOG" 2>/dev/null && ok "row says refused" || bad "no 'refuse
 grep -q 'REFUSING' "$WORK/out.H" && ok "refusal named on screen" || bad "no REFUSING line on screen"
 grep -q 'Snapshot saved' "$WORK/out.H" && bad "snapshot taken despite refusal" || ok "no snapshot taken"
 
-# ── H2: ALLOW_UNVERIFIED=1 is the explicit "write anyway" — exit 0, UNVERIFIED row
-echo "== H2: mxbuild missing + ALLOW_UNVERIFIED=1 -> UNVERIFIED, exit 0 =="
+# ── H2: ALLOW_UNVERIFIED=1 is the explicit "write anyway" — exit 5 (applied, unverified;
+# exec.sh "Exit codes", #443 — it was 0, which read as a verified pass), UNVERIFIED row
+echo "== H2: mxbuild missing + ALLOW_UNVERIFIED=1 -> UNVERIFIED, exit 5 =="
 BEFORE=$(rows)
 RC=$(ALLOW_UNVERIFIED=1 MXB_OVERRIDE="$WORK/no-such-mxbuild" run H2)
-[ "$RC" -eq 0 ] && ok "[guard] exit 0" || bad "[guard] exit $RC, expected 0"
+[ "$RC" -eq 5 ] && ok "exit 5 (applied, unverified)" || bad "exit $RC, expected 5"
 [ "$(rows)" -gt "$BEFORE" ] && ok "[guard] UNVERIFIED row logged" || bad "no row logged"
 grep -q 'UNVERIFIED' "$LOG" 2>/dev/null && ok "row says UNVERIFIED" || bad "no UNVERIFIED row"
 
@@ -273,6 +276,7 @@ rm -f "$P/.mpr-snapshots/.exec.lock"
 BEFORE=$(rows)
 RC=$(MODE_BUILD=refused MODE_BUILD_EXIT=3 run K)
 LAST=$(grep '^| [0-9]' "$LOG" 2>/dev/null | tail -1)
+[ "$RC" -eq 5 ] && ok "exit 5 (unverified), not 0" || bad "K exit $RC, expected 5"
 [ "$(rows)" -gt "$BEFORE" ] && ok "row logged" || bad "no row logged"
 case "$LAST" in
   *"mxbuild clean"*|*"| pass |"*) bad "FALSE GREEN: a refused build logged as clean: $LAST" ;;

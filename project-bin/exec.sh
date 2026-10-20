@@ -21,6 +21,22 @@
 #        ./bin/exec.sh --cr CR-07 <script.mdl>        (any mode: tag the run with its change request)
 #        Leading flags (--cr, --commit-first, then --patch) may come in any order.
 #
+# Exit codes (#443, #448). This block is the one definition; skills/iterative-build-loop.md
+# repeats the table for agents. Branch on the code, then read the BUILD-LOG row for the detail.
+#   0  applied, and the mxbuild gate passed (clean, or no new error over a measured baseline)
+#   1  NOT applied, or rolled back: a refusal, a failed pre-exec check, a gate that failed or
+#      could not run, a patch that failed or was not verified. Also a PARTIAL application.
+#   2  usage error (no script, bad argument, missing or unrunnable file); nothing was touched
+#   4  applied and the gate passed, but LINT ROSE or LINT BLIND. The write is KEPT: do not
+#      re-apply it. The last line of output reads "gate passed, lint only".
+#   5  applied, but UNVERIFIED: the gate ran and did not check the model (mxbuild exited
+#      non-zero with no model problem), or ALLOW_UNVERIFIED=1 skipped it. The write is kept with
+#      no verification stamp; run ./bin/verify-model.sh before the next exec or commit.
+# Until 2026-10-20, 4 was 1 and 5 was 0: in one field build 57 of 58 clean builds exited 1 on a
+# lint rise, agents learned to ignore 1, and 10 UNVERIFIED runs exiting 0 read as success.
+# A PARTIAL run, or a --patch script that failed, used to pass the script's own exit code
+# through, so mxcli's 2 read as "nothing touched" and a 4 or 5 as "applied". It is now always 1.
+#
 # --cr (2026-10-13): names the PROJECT.md "## Change log" row this run applies
 # (skills/change-intake.md). It lands in the BUILD-LOG detail cell as "cr: CR-07", the same way
 # the change-class tag does; the metrics-ledger columns are unchanged. Optional — a planned build
@@ -87,6 +103,9 @@ _T0=$(date +%s)
 # run (the costliest ones) logs its gate seconds too.
 _TLAST=$_T0; STEP_TIMES=""
 step_done() { _tn=$(date +%s); STEP_TIMES="${STEP_TIMES:+$STEP_TIMES }$1 $((_tn - _TLAST))s"; _TLAST=$_tn; }
+# A failed script's own exit code becomes 1: passed through, its 2 would read as "nothing
+# touched" and its 4 or 5 as "applied" (see Exit codes above).
+fail_rc() { case "$1" in 0) echo 0 ;; *) echo 1 ;; esac; }
 
 # ── Change class (advisory, added 2026-10-13) ────────────────────────────────
 # Tags each run `ui-only` or `logic`, so the run summary can say which TEST LANE applies
@@ -389,15 +408,15 @@ LOG_NAME="$(basename "$SCRIPT")"
 if [ -z "$SCRIPT" ]; then
   echo "Usage: ./bin/exec.sh [--commit-first] [--cr CR-NN] <script.mdl>"
   echo "       ./bin/exec.sh [--commit-first] [--cr CR-NN] --patch <script> [args...]"
-  exit 1
+  exit 2
 fi
 if [ "$PATCH_MODE" = "1" ]; then
   # Resolve the path BEFORE the cd below, so a path relative to the caller's cwd keeps working.
-  [ -f "$SCRIPT" ] || { echo "✗ --patch: no such file: $SCRIPT"; exit 1; }
+  [ -f "$SCRIPT" ] || { echo "✗ --patch: no such file: $SCRIPT"; exit 2; }
   SCRIPT="$(cd "$(dirname "$SCRIPT")" && pwd)/$(basename "$SCRIPT")"
   case "$SCRIPT" in
     *.py|*.sh) ;;
-    *) [ -x "$SCRIPT" ] || { echo "✗ --patch: $SCRIPT is not .py, not .sh and not executable — cannot tell how to run it."; exit 1; } ;;
+    *) [ -x "$SCRIPT" ] || { echo "✗ --patch: $SCRIPT is not .py, not .sh and not executable — cannot tell how to run it."; exit 2; } ;;
   esac
 fi
 
@@ -940,7 +959,7 @@ fi
 # is a suggestion; one that lives here runs. So lint runs HERE, after a clean
 # mxbuild, and its verdict lands in the same BUILD-LOG row as the mxbuild verdict.
 #
-# Semantics: a rise vs the committed baseline exits 1 but does NOT restore the
+# Semantics: a rise vs the committed baseline exits 4 (was 1 until #443) but does NOT restore the
 # snapshot — lint findings are about shape, not corruption, and the write is
 # fixable by a follow-up script; a restore here would teach people to skip it.
 # SKIP_LINT=<reason> is the only override and the reason is written into the row.
@@ -1565,7 +1584,7 @@ if [ "$PATCH_MODE" = "1" ]; then
       log_build "❌ patch failed" "script exit $EXEC_STATUS — NOT rolled back (restore did not run)"
     fi
     rm -f "$HV_BASE"
-    exit "$EXEC_STATUS"
+    exit "$(fail_rc "$EXEC_STATUS")"
   fi
   if [ "$HV_ON" = "1" ]; then
     echo "→ ContentsHash verify: mxcli fix hashes (read-only)..."
@@ -2020,7 +2039,7 @@ if [ "$EXEC_STATUS" -ne 0 ]; then
   if [ -x ./bin/model-stamp.sh ]; then
     ./bin/model-stamp.sh clear >/dev/null 2>&1 || true
   fi
-  exit "$EXEC_STATUS"
+  exit "$(fail_rc "$EXEC_STATUS")"
 fi
 
 # ── Verification stamp ───────────────────────────────────────────────────────
@@ -2111,22 +2130,26 @@ if [ "$GATE_STATE" != "pass" ]; then
   echo "    Nothing has verified the model, and it carries no verification stamp: the commit"
   echo "    hook will refuse it until ./bin/verify-model.sh has run the gate over it."
   log_build "⚠️ applied, UNVERIFIED" "gate $GATE_STATE${MXB_WHY:+ (mxbuild exit ${MXBUILD_EXIT:-?}: $MXB_WHY)} — model not verified"
-  exit 0
+  echo "applied, UNVERIFIED (exit 5): run ./bin/verify-model.sh before the next exec; do not re-apply this script"
+  exit 5
 fi
 
+# Lint only: the write is kept and the gate passed, so the code is 4, never 1 (see Exit codes).
 if [ "$LINT_RC" -eq 3 ]; then
   echo ""
   echo "✗ Script applied and mxbuild is clean, but a LINT RULE IS BLIND — this is not a pass."
   echo "  $LINT_DETAIL"
   echo "  The write is kept. Fix the rule's configuration before trusting any lint result."
-  exit 1
+  echo "gate passed, lint only (exit 4: LINT BLIND; write kept, do not re-apply)"
+  exit 4
 fi
 if [ "$LINT_RC" -eq 1 ]; then
   echo ""
   echo "✗ Script applied and mxbuild is clean, but LINT ROSE — this is not a pass."
   echo "  $LINT_DETAIL"
   echo "  The write is kept (lint is shape, not corruption). Fix it before calling the task done."
-  exit 1
+  echo "gate passed, lint only (exit 4: LINT ROSE; write kept, do not re-apply)"
+  exit 4
 fi
 
 echo ""

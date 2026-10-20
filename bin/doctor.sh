@@ -324,6 +324,8 @@ ps_apply() {
   note "repairing through bin/exec.sh --patch (snapshot, fix, mxbuild gate, kept only on a verified gate)…"
   _psa_rc=0
   ( cd "$PROJECT_DIR" && ./bin/exec.sh --patch "$TOOLKIT_ROOT/bin/doctor.sh" --property-sets-apply-step "$PMXCLI_PROBE" ) || _psa_rc=$?
+  # exec.sh exit 4 = kept on a passed gate, lint rose (exec.sh "Exit codes"); not a failed repair.
+  [ "$_psa_rc" -eq 4 ] && { note "property sets: repair kept; exec.sh reports a lint rise (see its BUILD-LOG row)"; _psa_rc=0; }
   if [ "$_psa_rc" -ne 0 ]; then
     bad "property sets: exec.sh --patch exited $_psa_rc — the repair was not kept (its output above says why)"
     return 0

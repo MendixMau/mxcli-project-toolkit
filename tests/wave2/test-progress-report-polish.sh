@@ -11,8 +11,11 @@
 #   P5  every State the build-plan skill lists (built / partial / not built / blocked) and the spellings the card
 #       counts (complete, verified, in progress, ...) are read the same way by the card, the plan header and the
 #       phase badge; a genuinely unreadable value is still reported as unreadable.
-#   P6  the full plan tables (the fragment) start folded under the phase cards, which already list every row; the
-#       "Jump to the plan tables" link still lands on them (openTarget opens a targeted <details>).
+#   P6  one plan view (#474): every row appears once, inside its phase card with Produces, Depends on, Scripts and
+#       Claims; the now phase renders open; views A and B stay as their own section.
+#   P6b an older progress-report.py without --phase-detail (a partial sync) still renders, with the short row tables.
+#   P6c the page's own scripts, run in node against a DOM shim: the now phase is open on load, opening phase 1
+#       closes phase 2, a #phase-3 link on load wins over the default, and restored state wins over the default.
 #   P3  no session log: one calm line (not the orange box), the regenerate hint inside "How this was measured";
 #       with --no-log the page never claims it looked in folders or logs.
 #
@@ -65,11 +68,84 @@ hasnt "$R" "cannot read" "no State cell is called unreadable"
 has "$R" "1 of 2 rows built" "Phase 2 shows 1 of 2 built"
 hasnt "$R" 'st-unknown">unknown' "no phase is labelled unknown"
 
-echo "P6 full plan tables start folded"
-has "$R" "<details id=plan-tables class='card frag'><summary>" "plan tables sit in a <details> with a summary"
-hasnt "$R" "<details id=plan-tables[^>]* open" "plan tables are closed by default"
-has "$R" "href='#plan-tables'" "the jump link still points at them"
-hasnt "$R" "<div id=plan-tables" "the old open <div> wrapper is gone"
+echo "P6 one plan view: rows once, in the phase cards; the now phase starts open; views A and B stay"
+[ "$(grep -c "<td>3</td>" "$R")" = 1 ] && ok "row 3 appears once" || bad "row 3 appears once"
+[ "$(grep -c ">done 2026-10-12</td>" "$R")" = 1 ] && ok "row 2 state appears once" || bad "row 2 state appears once"
+hasnt "$R" "Full plan tables" "the duplicate plan-tables block is gone"
+has "$R" "<details class='card ph now' id='phase-2' open>" "the now phase renders open"
+hasnt "$R" "<details class='card ph' id='phase-1'[^>]* open" "other phases start closed"
+has "$R" "<th>Produces / Proves</th><th>Depends on</th><th>State</th><th>Scripts</th>" "cards carry the full row columns"
+has "$R" "<h2>A\\. Script folders" "view A stays"
+has "$R" "<h2>B\\. Modules" "view B stays"
+has "$R" "href='#plan-tables'" "the jump link still points at views A and B"
+has "$R" "addEventListener(.\\?'toggle" "accordion toggle handler present in the script"
+[ "$(grep -o "addEventListener(.\\?'toggle" "$R" | wc -l)" = 1 ] && ok "accordion handler is not duplicated" || bad "accordion handler is not duplicated"
+
+echo "P6b an older progress-report.py without --phase-detail still renders the page, with the short row tables"
+OLD="$WORK/oldbin"; mkdir -p "$OLD"
+cp "$SCRIPT" "$ROOT/project-bin/_common.sh" "$OLD/"
+# The generator as it was before #474: no --phase-detail option (the attribute defaults to empty).
+sed 's/ap\.add_argument("--phase-detail", help="[^"]*")/ap.set_defaults(phase_detail=None)/' "$ROOT/project-bin/progress-report.py" > "$OLD/progress-report.py"
+if grep -q -- '--phase-detail' "$OLD/progress-report.py"; then bad "old-generator copy still names --phase-detail"
+else
+  "$PY" "$OLD/progress-report.py" "$P1" --no-log --out "$WORK/old-direct.html" --phase-detail /dev/null >/dev/null 2>&1 \
+    && bad "control: the old-generator copy should reject --phase-detail" || ok "control: the old-generator copy rejects --phase-detail"
+  P6B="$WORK/p6b"; mkproj "$P6B" "**Stage 5 - Build**, in progress - gates passed: P, 0, 1, 2, 3, 4"
+  cp "$P1/architecture/build-plan.md" "$P6B/architecture/"
+  CLAUDE_CONFIG_DIR="$EMPTY" bash "$OLD/build-plan-status.sh" "$P6B" --html >"$WORK/p6b.out" 2>&1
+  R6B="$P6B/architecture/progress-report.html"
+  [ -f "$R6B" ] && ok "page written by the older generator" || bad "page written by the older generator ($(tail -n 1 "$WORK/p6b.out"))"
+  has "$R6B" "<th>#</th><th>Kind</th><th>Row</th><th>State</th>" "phase cards fall back to the short row table"
+  hasnt "$R6B" "unrecognized arguments" "no argparse error on the page"
+fi
+
+echo "P6c accordion and load order, run in node against a DOM shim"
+if command -v node >/dev/null 2>&1; then
+P6="$WORK/p6"; mkproj "$P6" "**Stage 5 - Build**, in progress - gates passed: P, 0, 1, 2, 3, 4"
+cp "$P1/architecture/build-plan.md" "$P6/architecture/"
+printf '\n### Phase 3 - Reports\n\n| # | Kind | Step | Produces | Depends on | State |\n|---|---|---|---|---|---|\n| 4 | BUILD | report page | 04-report.mdl | 3 | not built |\n' >> "$P6/architecture/build-plan.md"
+mkdir -p "$P6/.claude/loop"   # recent activity, so the page carries its autoreload (state save/restore) script
+printf 'ts\tscript\tgate\tresult\telapsed_s\tmxbuild_errors\tlint_rc\tlint_total\trestored\tscore\n%s\t02-billing.mdl\tpass\tapplied\t40\t0\t0\t\t0\t90.0\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$P6/.claude/loop/metrics-ledger.tsv"
+CLAUDE_CONFIG_DIR="$EMPTY" bash "$SCRIPT" "$P6" --html >/dev/null 2>&1
+node - "$P6/architecture/progress-report.html" <<'JSEOF' && ok "node: now phase open on load; opening phase 1 closes phase 2; #phase-3 beats the default; saved state beats the default" || bad "accordion and load order (node)"
+const fs = require("fs"), assert = require("assert");
+const h = fs.readFileSync(process.argv[2], "utf8");
+const main = h.match(/<script>([\s\S]*?)<\/script>/)[1];
+const reload = h.match(/<script id=autoreload>([\s\S]*?)<\/script>/)[1];
+const cards = [...h.matchAll(/<details class='card ph[^']*' id='(phase-[^']+)'( open)?>/g)].map(m => [m[1], !!m[2]]);
+assert.deepStrictEqual(cards.map(c => c[0]), ["phase-1", "phase-2", "phase-3"]);
+// One page load: details elements whose open setter queues a coalesced 'toggle' (as browsers do, also for the
+// open attribute at parse time), the page's two scripts run in order, then the queued toggles are dispatched.
+function load(hash, store) {
+  const pending = [], caps = [], els = {};
+  const queue = e => { if (!pending.includes(e)) pending.push(e); };
+  for (const [id, open] of cards) {
+    const e = {id, tagName: "DETAILS", _o: open, classList: {contains: c => c === "ph"}, closest: s => s === "details" ? e : null};
+    Object.defineProperty(e, "open", {get() { return this._o; }, set(v) { v = !!v; if (v !== this._o) { this._o = v; queue(this); } }});
+    els[id] = e; if (open) queue(e);
+  }
+  const all = Object.values(els);
+  const doc = {documentElement: {style: {}, scrollTop: 0}, getElementById: id => els[id] || null,
+    querySelectorAll: s => s === "details.ph[open]" ? all.filter(e => e.open) : s === "details[id]" ? all : [],
+    addEventListener: (n, f, cap) => { if (n === "toggle") caps.push(f); }};
+  const win = {pageYOffset: 0, addEventListener: () => {}, scrollTo: () => {}};
+  const ss = {getItem: k => k in store ? store[k] : null, setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; }};
+  const run = src => new Function("window", "document", "history", "location", "sessionStorage", "setTimeout", src)(
+    win, doc, {}, {hash, pathname: "/r.html", reload() {}}, ss, () => {});
+  run(main); run(reload);
+  const flush = () => { while (pending.length) { const t = pending.shift(); caps.forEach(f => f({target: t})); } };
+  flush();
+  return {els, flush, open: () => all.filter(e => e.open).map(e => e.id)};
+}
+let p = load("", {});
+assert.deepStrictEqual(p.open(), ["phase-2"], "the now phase is open on load");
+p.els["phase-1"].open = true; p.flush();
+assert.deepStrictEqual(p.open(), ["phase-1"], "opening phase 1 closes phase 2");
+assert.deepStrictEqual(load("#phase-3", {}).open(), ["phase-3"], "#phase-3 on load wins over the default");
+const saved = {"pr-view:/r.html": JSON.stringify({y: 0, d: {"phase-1": true, "phase-2": false, "phase-3": false}})};
+assert.deepStrictEqual(load("", saved).open(), ["phase-1"], "restored state wins over the default");
+JSEOF
+else ok "SKIP: node not available for the accordion behaviour test"; fi
 
 echo "P2 placeholder failure on a later stage is pending"
 P2="$WORK/p2"; mkproj "$P2" "**Stage P - Kickoff**, in progress - gates passed: none"

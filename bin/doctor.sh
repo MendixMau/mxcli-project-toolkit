@@ -347,6 +347,7 @@ if [ -n "$PS_MODE" ]; then
   . "$TOOLKIT_ROOT/project-bin/_common.sh"
   MPR="$(ls "$PROJECT_DIR"/*.mpr 2>/dev/null | head -1)"
   [ -n "$MPR" ] || MPR="$(ls "$PROJECT_DIR"/app/*.mpr 2>/dev/null | head -1)"
+  [ -n "$MPR" ] || MPR="$(ls "$PROJECT_DIR"/apps/*/*.mpr 2>/dev/null | head -1)"   # multi-app folder (#420)
   PMXCLI_PROBE="$(find_project_mxcli 2>/dev/null || true)"
   head_ "Property sets (Studio Pro merge safety): $PROJECT_DIR"
   if [ "$PS_IF_STALE" = 1 ] && [ "$PS_MODE" = check ] && [ -n "$PMXCLI_PROBE" ]; then
@@ -1183,6 +1184,12 @@ if [ -n "$PROJECT_DIR" ]; then
     # Two-tree checkout (cloud-dev-environment.md: `mxcli new --output-dir ./app`) — the app
     # lives under app/. Reported "no .mpr found" on a healthy pilot, 2026-09-04.
     [ -n "$MPR" ] || MPR="$(ls "$PROJECT_DIR"/app/*.mpr 2>/dev/null | head -1)"
+    # Multi-app folder (apps/<X>/X.mpr, #420): report every app, not "no .mpr found".
+    if [ -z "$MPR" ] && ls "$PROJECT_DIR"/apps/*/*.mpr >/dev/null 2>&1; then
+      MPR="$(ls "$PROJECT_DIR"/apps/*/*.mpr | head -1)"
+      _apps="$(cd "$PROJECT_DIR" && ls apps/*/*.mpr | paste -s -d, - | sed 's/,/, /g')"
+      [ "$(ls "$PROJECT_DIR"/apps/*/*.mpr | wc -l | tr -d ' ')" -gt 1 ] && note "multi-app folder: $_apps — instruments need MPR_FILE=apps/<X>/<X>.mpr to pick one"
+    fi
     [ -n "$MPR" ] && ok "model: ${MPR#$PROJECT_DIR/}" || {
       warn "no .mpr found in the project root"
       note "If the model lives elsewhere, point doctor at the folder that contains it;"

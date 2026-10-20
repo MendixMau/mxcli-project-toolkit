@@ -75,25 +75,62 @@ fi
 # WHY (2026-09-25, same build). `find_mpr` failing used to end every command here, `check`
 # included — so the pre-commit hook refused the Stage P intake commit with "no .mpr found"
 # although nothing model-related was staged, and each pre-model commit needed the override.
-# `check` now passes when no .mpr exists at the root or under app/ AND no model path
+# `check` now passes when no .mpr exists at the root, under app/ or under apps/<X>/ AND no model path
 # (*.mpr, mprcontents/) is staged; a staged model that no .mpr resolves still refuses, and
 # two .mpr files still refuse (find_mpr's "refusing to guess"). Every other command still
 # needs a model: a stamp or fingerprint over no model would be a constant.
-_mxtk_any_mpr() { local f; for f in "$PROJECT_ROOT"/*.mpr "$PROJECT_ROOT"/app/*.mpr; do [ -e "$f" ] && return 0; done; return 1; }
-if [ "${1:-}" = "check" ] && [ -z "${MPR_FILE:-}" ] && ! _mxtk_any_mpr; then
+# The same three-layout probe as the root search (_common.sh _mxtk_has_model, #420): without
+# apps/<X>/ a staged model in a multi-app folder exited 1 "no .mpr resolves". The inline
+# fallback is for an older hand-edited _common.sh that sync held back.
+_mxtk_any_mpr() {
+  if type _mxtk_has_model >/dev/null 2>&1; then _mxtk_has_model "$PROJECT_ROOT"; return; fi
+  local f; for f in "$PROJECT_ROOT"/*.mpr "$PROJECT_ROOT"/app/*.mpr "$PROJECT_ROOT"/apps/*/*.mpr; do [ -e "$f" ] && return 0; done; return 1
+}
+# A multi-app folder with several apps (apps/A/A.mpr, apps/B/B.mpr) has no single model either:
+# find_mpr refuses to guess, and that refusal must not block every commit (#420). So `check`
+# treats it like the no-model case: nothing model-related staged passes; staged files that all
+# sit under ONE apps/<X>/ are checked against that app's .mpr; staged files across several apps
+# refuse and name MPR_FILE.
+_mxtk_several_apps() {
+  ls "$PROJECT_ROOT"/*.mpr >/dev/null 2>&1 && return 1
+  ls "$PROJECT_ROOT"/app/*.mpr >/dev/null 2>&1 && return 1
+  [ "$(ls "$PROJECT_ROOT"/apps/*/*.mpr 2>/dev/null | wc -l | tr -d ' ')" -gt 1 ]
+}
+_several=0
+if [ "${1:-}" = "check" ] && [ -z "${MPR_FILE:-}" ] && _mxtk_several_apps; then _several=1; fi
+if [ "${1:-}" = "check" ] && [ -z "${MPR_FILE:-}" ] && { [ "$_several" = 1 ] || ! _mxtk_any_mpr; }; then
   _q=0; for a in "$@"; do case "$a" in -q|--quiet) _q=1 ;; esac; done
   _staged=""
   if git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
     _staged="$(git -C "$PROJECT_ROOT" diff --cached --name-only --diff-filter=d 2>/dev/null \
       | grep -E '(^|/)[^/]+\.mpr$|(^|/)mprcontents/' || true)"
+    # the same list relative to the project folder, to tell which apps/<X>/ it touches
+    [ "$_several" = 1 ] && _staged="$(git -C "$PROJECT_ROOT" diff --cached --name-only --relative --diff-filter=d 2>/dev/null \
+      | grep -E '(^|/)[^/]+\.mpr$|(^|/)mprcontents/' || true)"
   fi
   if [ -z "$_staged" ]; then
-    [ "$_q" = 1 ] || echo "  no model in this project yet (no .mpr at the root or under app/) — nothing to verify"
+    if [ "$_several" = 1 ]; then
+      [ "$_q" = 1 ] || echo "  several apps under apps/ and no model files staged — nothing to verify"
+    else
+      [ "$_q" = 1 ] || echo "  no model in this project yet (no .mpr at the root, under app/ or under apps/<X>/) — nothing to verify"
+    fi
     exit 0
   fi
-  echo "  ✗ model files are staged, but no .mpr resolves under $PROJECT_ROOT (root or app/):" >&2
-  printf '%s\n' "$_staged" | head -5 | sed 's/^/      /' >&2
-  exit 1
+  if [ "$_several" = 1 ]; then
+    _apps="$(printf '%s\n' "$_staged" | sed -n 's#^\(apps/[^/]*\)/.*#\1#p' | sort -u)"
+    if [ "$(printf '%s\n' "$_staged" | grep -vc '^apps/[^/]*/')" -eq 0 ] && [ "$(printf '%s\n' "$_apps" | grep -c .)" -eq 1 ] \
+       && [ "$(ls "$PROJECT_ROOT/$_apps"/*.mpr 2>/dev/null | wc -l | tr -d ' ')" -eq 1 ]; then
+      MPR_FILE="$_apps/$(basename "$(ls "$PROJECT_ROOT/$_apps"/*.mpr)")"; export MPR_FILE
+    else
+      echo "  ✗ model files are staged across several apps, or outside apps/<X>/ — set MPR_FILE=apps/<X>/<X>.mpr to choose:" >&2
+      printf '%s\n' "$_staged" | head -5 | sed 's/^/      /' >&2
+      exit 1
+    fi
+  else
+    echo "  ✗ model files are staged, but no .mpr resolves under $PROJECT_ROOT (root, app/ or apps/<X>/):" >&2
+    printf '%s\n' "$_staged" | head -5 | sed 's/^/      /' >&2
+    exit 1
+  fi
 fi
 
 MPR="$(find_mpr)" || exit 1

@@ -26,6 +26,15 @@
 #   R10 bin/check-requirements.sh (same walk): multi-app root named; a model-less project exits 2
 #   R11 a bare .claude/ (no PROJECT.md) is not a project folder: a stray /tmp/.claude above an
 #       unmarked project must not capture the walk; the old self-parent fallback still applies
+#   The consumers that probe for the model themselves, in the apps/<X>/ layout:
+#   R12 model-stamp.sh check, one app: a staged model reaches the stamp check (not "no .mpr
+#       resolves"); nothing staged still passes `check --staged`
+#   R13 model-stamp.sh check, two apps: nothing staged passes (a multi-app folder must not block
+#       every commit); staged under one app is checked against that app; across two refuses
+#   R14 lint-gate.sh: one app gets past model discovery; two apps refuse naming MPR=apps/<X>
+#   R15 doctor.sh <project>: reports the app's model, and names MPR_FILE when there are two
+#   R16 a model-less git worktree under <project>/.claude/worktrees/<w> (it carries its own
+#       bin/_common.sh) resolves to the worktree, no longer to the main project above it
 set -u
 
 COMMON="${1:?usage: $0 project-bin/_common.sh}"
@@ -118,6 +127,55 @@ cp "$COMMON" "$P/project-bin/_common.sh"; cp "$TKP" "$P/project-bin/probe.sh"
 eq "R11a unmarked project under a bare .claude/: self-parent fallback, as before" "$(root "$P" "$P/project-bin/probe.sh")" "$P"
 : > "$T/r11/Up.mpr"
 eq "R11b ... and a model above the bare .claude/ is still found, as before" "$(root "$P" "$P/project-bin/probe.sh")" "$T/r11"
+
+echo "== R12/R13 model-stamp.sh check in a multi-app folder =="
+TKB="$TK_SRC/project-bin"
+mkms() {  # mkms <dir> <app>... — a git project with an installed model-stamp.sh and the apps
+  local d="$1" a; shift; mkdir -p "$d/bin"; wire "$d"
+  cp "$COMMON" "$d/bin/_common.sh"; cp "$TKB/model-stamp.sh" "$d/bin/"
+  for a in "$@"; do mkdir -p "$d/apps/$a/mprcontents"; echo m > "$d/apps/$a/$a.mpr"; echo u > "$d/apps/$a/mprcontents/u.mxunit"; done
+  ( cd "$d" && git init -q . && git -c user.email=t@example.com -c user.name=t commit -q --allow-empty -m init )
+}
+ms() { (cd "$1" && shift && env -i PATH="$PATH" HOME="$T/nohome" bash bin/model-stamp.sh "$@" 2>&1); }
+P="$T/r12/proj"; mkms "$P" A
+out="$(ms "$P" check --staged)"; rc=$?
+case "$rc:$out" in 0:*"no model files staged"*) ok "R12a one app, nothing staged: check --staged passes" ;; *) fail "R12a rc=$rc: $out" ;; esac
+(cd "$P" && git add apps)
+out="$(ms "$P" check --staged)"; rc=$?
+case "$out" in *"no .mpr resolves"*) fail "R12b staged model still reads as no model: $out" ;;
+  *UNVERIFIED*) ok "R12b one app, model staged: reaches the stamp check (UNVERIFIED, rc $rc)" ;; *) fail "R12b rc=$rc: $out" ;; esac
+P="$T/r13/proj"; mkms "$P" A B
+out="$(ms "$P" check --staged)"; rc=$?
+case "$rc:$out" in 0:*) ok "R13a two apps, nothing staged: check --staged passes" ;; *) fail "R13a rc=$rc: $out" ;; esac
+out="$(ms "$P" check)"; rc=$?
+case "$rc:$out" in 0:*"several apps"*) ok "R13b two apps, nothing staged: plain check passes and says why" ;; *) fail "R13b rc=$rc: $out" ;; esac
+(cd "$P" && git add apps/A)
+out="$(ms "$P" check --staged)"; rc=$?
+case "$out" in *UNVERIFIED*) ok "R13c staged under apps/A only: checked against apps/A (UNVERIFIED, rc $rc)" ;; *) fail "R13c rc=$rc: $out" ;; esac
+(cd "$P" && git add apps/B)
+out="$(ms "$P" check --staged)"; rc=$?
+case "$rc:$out" in 1:*"MPR_FILE=apps/"*) ok "R13d staged across two apps: refused, MPR_FILE named" ;; *) fail "R13d rc=$rc: $out" ;; esac
+
+echo "== R14 lint-gate.sh model discovery in a multi-app folder =="
+P="$T/r14/proj"; mkdir -p "$P/bin" "$P/apps/A"; wire "$P"; : > "$P/apps/A/A.mpr"
+cp "$COMMON" "$P/bin/_common.sh"; cp "$TKB/lint-gate.sh" "$P/bin/"
+out="$(cd "$P" && env -i PATH="$PATH" HOME="$T/nohome" bash bin/lint-gate.sh 2>&1)"
+case "$out" in *"no .mpr found"*) fail "R14a one app: lint-gate found no model: $out" ;; *) ok "R14a one app: lint-gate gets past model discovery" ;; esac
+mkdir -p "$P/apps/B"; : > "$P/apps/B/B.mpr"
+out="$(cd "$P" && env -i PATH="$PATH" HOME="$T/nohome" bash bin/lint-gate.sh 2>&1)"; rc=$?
+case "$rc:$out" in 2:*"MPR=apps/"*"apps/A/A.mpr"*"apps/B/B.mpr"*) ok "R14b two apps: refused (rc 2), both listed" ;; *) fail "R14b rc=$rc: $out" ;; esac
+
+echo "== R15 doctor.sh <project> in a multi-app folder =="
+P="$T/r15/proj"; mkdir -p "$P/apps/A" "$P/apps/B"; : > "$P/apps/A/A.mpr"
+out="$(env -i PATH="$PATH" HOME="$T/nohome" bash "$TK_SRC/bin/doctor.sh" "$P" 2>&1)"
+case "$out" in *"model: apps/A/A.mpr"*) ok "R15a one app: model reported" ;; *) fail "R15a: $(printf '%s' "$out" | grep -i 'mpr' | head -3)" ;; esac
+: > "$P/apps/B/B.mpr"
+out="$(env -i PATH="$PATH" HOME="$T/nohome" bash "$TK_SRC/bin/doctor.sh" "$P" 2>&1)"
+case "$out" in *"multi-app folder: apps/A/A.mpr, apps/B/B.mpr"*MPR_FILE*) ok "R15b two apps: both named, MPR_FILE pointed at" ;; *) fail "R15b: $(printf '%s' "$out" | grep -i 'mpr' | head -3)" ;; esac
+
+echo "== R16 a model-less worktree under .claude/worktrees/ =="
+P="$T/r16/proj"; W="$P/.claude/worktrees/w"; install "$P"; : > "$P/App.mpr"; install "$W"; mkdir -p "$W/docs"
+eq "R16 toolkit copy from the worktree's docs/: the worktree" "$(root "$W/docs" "$TKP")" "$W"
 
 echo
 echo "root-multiapp: $PASS passed, $FAIL failed"

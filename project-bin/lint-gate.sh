@@ -108,9 +108,19 @@ if [ -z "${MPR:-}" ]; then
   if [ -z "$MPR" ] && ls "$ROOT"/app/*.mpr >/dev/null 2>&1; then
     MPR="app/$(basename "$(ls "$ROOT"/app/*.mpr | head -1)")"
   fi
+  # Multi-app folder (apps/<X>/X.mpr, #420): one app is linted as it is found; several are not
+  # guessed between (exit 2, naming MPR=apps/<X>/<X>.mpr), the same refusal as find_mpr.
+  if [ -z "$MPR" ] && ls "$ROOT"/apps/*/*.mpr >/dev/null 2>&1; then
+    if [ "$(ls "$ROOT"/apps/*/*.mpr | wc -l | tr -d ' ')" -gt 1 ]; then
+      echo "lint-gate: several apps under $ROOT/apps — set MPR=apps/<X>/<X>.mpr to choose:" >&2
+      ls "$ROOT"/apps/*/*.mpr | sed "s#^$ROOT/#  #" >&2
+      exit 2
+    fi
+    MPR="$(cd "$ROOT" && ls apps/*/*.mpr | head -1)"
+  fi
 fi
 if [ -z "$MPR" ] || [ ! -f "$ROOT/$MPR" ]; then
-  echo "lint-gate: no .mpr found in $ROOT or $ROOT/app — set MPR=<name>.mpr" >&2
+  echo "lint-gate: no .mpr found in $ROOT, $ROOT/app or $ROOT/apps/<X> — set MPR=<name>.mpr" >&2
   exit 2
 fi
 if [ "$(ls "$ROOT"/*.mpr 2>/dev/null | wc -l | tr -d " ")" -gt 1 ] && [ -z "${MPR_EXPLICIT:-}" ]; then

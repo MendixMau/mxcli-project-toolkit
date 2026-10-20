@@ -30,7 +30,7 @@ esac; done
 # under apps/<X>/, and never past the project's own folder. This loop used to be a private copy
 # that probed the root only, so on a two-tree or multi-app project it climbed to the first
 # ancestor holding any .mpr, and --fix installed tests/e2e into that folder (#420).
-. "$(cd "$(dirname "$0")/.." && pwd)/project-bin/_common.sh"
+. "$(cd "$(dirname "$0")/.." && pwd)/project-bin/_common.sh" || { echo "cannot load _common.sh" >&2; exit 2; }
 ROOT="$(mxtk_walk_root "$(pwd)")" || ROOT=""
 if [ -z "$ROOT" ] || ! _mxtk_has_model "$ROOT"; then
   echo "✗ no .mpr found walking up from $(pwd)${ROOT:+ (stopped at the project folder $ROOT)} — not inside a Mendix project" >&2

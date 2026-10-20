@@ -1145,6 +1145,9 @@ known_fix_note() {
     page-scope.sh)
       echo "bin/page-scope.sh predates the HEADER_WORDS fix (F-042, 2026-08-28): SHOW PAGES header columns Excluded/Folder/Params were parsed as page rows, inflating the page denominator (measured: 6 real pages counted as 13), so every consumer of page-scope.json graded against furniture. One-line fix — recommended upgrade." ;;
     _common.sh)
+      if ! grep -q '_mxtk_has_model' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null; then
+        echo "bin/_common.sh predates the MULTI-APP ROOT fix (#420, toolkit, 2026-10-20): in a multi-app folder (apps/<X>/X.mpr) its root search climbed to the first ancestor holding any .mpr, so ledgers, stamps and lint landed in another folder. A hand-edited copy also holds back every older script that depends on it. Take just this file (your copy is backed up): $0 $PROJECT_DIR --only-bin _common.sh --upgrade-bin _common.sh"
+      fi
       if grep -q 'mxtk_ensure_mxbuild' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null \
          && ! grep -q 'mxtk_model_version' "$PROJECT_DIR/bin/_common.sh" 2>/dev/null; then
         echo "bin/_common.sh predates the VERSION-MISMATCH FALSE GREEN fix (toolkit, 2026-09-27, field project): find_mxbuild picked the NEWEST mxbuild, which refuses a model of another Mendix version (exit 3, reason in errors[], problems[] empty), and the gate counted that as 0 errors — 29 of 29 execs logged 'mxbuild clean' on one machine and a CE0066 shipped. Now: the mxbuild matching the model's _ProductVersion is preferred, and a non-zero exit with 0 problems is unverified, never clean. Upgrade BOTH: --upgrade-bin _common.sh --upgrade-bin exec.sh (and verify-model.sh)."; return

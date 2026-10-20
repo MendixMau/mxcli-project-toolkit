@@ -34,12 +34,15 @@
 _mxtk_has_model() {
   ls "$1"/*.mpr >/dev/null 2>&1 || ls "$1"/app/*.mpr >/dev/null 2>&1 || ls "$1"/apps/*/*.mpr >/dev/null 2>&1
 }
-# A folder that is a project whether or not a model was found in it: it holds the project's
-# .claude/ (not $HOME's — that is Claude Code's user config, not a project) or an installed
-# bin/_common.sh. The toolkit's own copy lives in project-bin/, so the toolkit is not one.
+# A folder that is a project whether or not a model was found in it: it holds an installed
+# bin/_common.sh (init-project.sh installs one into every project), or a .claude/ beside a
+# PROJECT.md (the wired-project pair init-project.sh writes). A bare .claude/ is NOT enough:
+# Claude Code creates one in whatever folder it runs in (a stray /tmp/.claude stopped the walk
+# in testing), and $HOME's is the user config. The toolkit's own copy lives in project-bin/
+# and the toolkit has no PROJECT.md, so the toolkit is not a project folder.
 _mxtk_is_project_dir() {
   [ -f "$1/bin/_common.sh" ] && return 0
-  [ -d "$1/.claude" ] && [ "$1" != "${HOME:-/nonexistent}" ]
+  [ -d "$1/.claude" ] && [ -f "$1/PROJECT.md" ] && [ "$1" != "${HOME:-/nonexistent}" ]
 }
 # mxtk_walk_root <dir> — walk up from <dir>; print the first folder that holds a model (any of
 # the three layouts) or is a project folder, whichever comes first. rc 1 when neither is found

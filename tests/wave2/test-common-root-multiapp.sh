@@ -7,8 +7,8 @@
 # <root>/app/. A multi-app project (apps/<X>/X.mpr) matched neither, so tier 3 kept walking up
 # from $PWD and the first ancestor holding ANY .mpr became PROJECT_ROOT; with none above, it fell
 # back to the toolkit. look-ledger `seen` rows then landed in that other folder's ledger.
-# The fix probes apps/*/ as a third layout and stops the walk at the first project folder (one
-# holding .claude/ — not $HOME's — or an installed bin/_common.sh).
+# The fix probes apps/*/ as a third layout and stops the walk at the first project folder (an
+# installed bin/_common.sh, or .claude/ beside PROJECT.md — not in $HOME).
 #
 # Every case runs in its own `env -i` shell with PROJECT_ROOT unset, from a chosen $PWD, through
 # a probe script that sources _common.sh the way the instruments do — either an installed copy
@@ -24,6 +24,8 @@
 #   R8  PWD inside one app's folder: that app's folder (state follows the model, as before)
 #   R9  find_mpr: one app under apps/ found; two refused with both listed; MPR_FILE picks one
 #   R10 bin/check-requirements.sh (same walk): multi-app root named; a model-less project exits 2
+#   R11 a bare .claude/ (no PROJECT.md) is not a project folder: a stray /tmp/.claude above an
+#       unmarked project must not capture the walk; the old self-parent fallback still applies
 set -u
 
 COMMON="${1:?usage: $0 project-bin/_common.sh}"
@@ -41,8 +43,10 @@ PROBE='. "$(dirname "$0")/_common.sh"; printf "%s\n" "$PROJECT_ROOT"'
 # The shared toolkit copy, in a folder of its own beside the projects.
 mkdir -p "$T/tk/project-bin"; cp "$COMMON" "$T/tk/project-bin/_common.sh"
 printf '#!/usr/bin/env bash\n%s\n' "$PROBE" > "$T/tk/project-bin/probe.sh"
+# wire <dir> — the .claude/ + PROJECT.md pair init-project.sh writes
+wire() { mkdir -p "$1/.claude"; : > "$1/PROJECT.md"; }
 # install <project> — an installed copy, as init-project.sh lays it out
-install() { mkdir -p "$1/bin" "$1/.claude"; cp "$COMMON" "$1/bin/_common.sh"; cp "$T/tk/project-bin/probe.sh" "$1/bin/probe.sh"; }
+install() { mkdir -p "$1/bin"; wire "$1"; cp "$COMMON" "$1/bin/_common.sh"; cp "$T/tk/project-bin/probe.sh" "$1/bin/probe.sh"; }
 # root <pwd> <probe script> [HOME] — the PROJECT_ROOT that script resolves from that directory
 root() { (cd "$1" && env -i PATH="$PATH" HOME="${3:-$T/nohome}" bash "$2"); }
 TKP="$T/tk/project-bin/probe.sh"
@@ -54,7 +58,7 @@ eq "R1b toolkit copy, PWD=project"       "$(root "$P" "$TKP")" "$P"
 eq "R1c toolkit copy, PWD=project/docs"  "$(root "$P/docs" "$TKP")" "$P"
 
 echo "== R2 multi-app, nothing above =="
-P="$T/r2/proj"; mkdir -p "$P/apps/A" "$P/docs"; : > "$P/apps/A/A.mpr"; mkdir -p "$P/.claude"
+P="$T/r2/proj"; mkdir -p "$P/apps/A" "$P/docs"; : > "$P/apps/A/A.mpr"; wire "$P"
 eq "R2 toolkit copy, PWD=project/docs: the project, not the toolkit" "$(root "$P/docs" "$TKP")" "$P"
 
 echo "== R3 single tree / R4 two-tree, unchanged =="
@@ -64,13 +68,13 @@ eq "R3b single tree, toolkit copy from mdlsource/" "$(root "$P/mdlsource" "$TKP"
 S="$T/r4/stray"; P="$S/proj"; mkdir -p "$P/app" "$P/docs"; : > "$S/stray.mpr"; : > "$P/app/App.mpr"; install "$P"
 eq "R4a two-tree, installed copy"           "$(root "$P" "$P/bin/probe.sh")" "$P"
 eq "R4b two-tree, toolkit copy from docs/"  "$(root "$P/docs" "$TKP")" "$P"
-rm -rf "$P/bin" "$P/.claude"
+rm -rf "$P/bin" "$P/.claude" "$P/PROJECT.md"
 eq "R4c two-tree, unwired (no markers): found by the app/ probe" "$(root "$P/docs" "$TKP")" "$P"
 
 echo "== R5 nested multi-app folders =="
 O="$T/r5/outer"; I="$O/work/inner"
 mkdir -p "$O/apps/X" "$I/apps/A" "$I/docs" "$O/work/notes"; : > "$O/apps/X/X.mpr"; : > "$I/apps/A/A.mpr"
-mkdir -p "$O/.claude" "$I/.claude"
+wire "$O"; wire "$I"
 eq "R5a from inside the inner project"      "$(root "$I/docs" "$TKP")" "$I"
 eq "R5b from between the two: the outer one" "$(root "$O/work/notes" "$TKP")" "$O"
 
@@ -81,15 +85,15 @@ out="$(cd "$P" && env -i PATH="$PATH" HOME="$T/nohome" bash -c ". '$T/tk/project
 case "$rc:$out" in 1:*"no .mpr found in $P"*) ok "R6b find_mpr fails naming the project, not the stray" ;; *) fail "R6b find_mpr rc=$rc: $out" ;; esac
 
 echo "== R7 \$HOME's .claude/ is not a project folder =="
-H="$T/r7/home"; mkdir -p "$H/.claude" "$H/scratch/sub"; : > "$T/r7/Above.mpr"
+H="$T/r7/home"; mkdir -p "$H/scratch/sub"; wire "$H"; : > "$T/r7/Above.mpr"
 eq "R7 walk passes \$HOME and finds the model above it" "$(root "$H/scratch/sub" "$TKP" "$H")" "$T/r7"
 
 echo "== R8 PWD inside one app's folder =="
-P="$T/r8/proj"; mkdir -p "$P/apps/A/javasource" "$P/.claude"; : > "$P/apps/A/A.mpr"
+P="$T/r8/proj"; mkdir -p "$P/apps/A/javasource"; wire "$P"; : > "$P/apps/A/A.mpr"
 eq "R8 apps/A/javasource -> apps/A (the model's own folder)" "$(root "$P/apps/A/javasource" "$TKP")" "$P/apps/A"
 
 echo "== R9 find_mpr in a multi-app folder =="
-P="$T/r9/proj"; mkdir -p "$P/apps/A" "$P/.claude"; : > "$P/apps/A/A.mpr"
+P="$T/r9/proj"; mkdir -p "$P/apps/A"; wire "$P"; : > "$P/apps/A/A.mpr"
 fm() { (cd "$P" && env -i PATH="$PATH" HOME="$T/nohome" ${1:+MPR_FILE="$1"} bash -c ". '$T/tk/project-bin/_common.sh'; find_mpr; d=\$(find_model_dir) && echo \"dir=\$d\"" 2>&1); }
 eq "R9a one app: found, model dir is apps/A" "$(fm)" "$P/apps/A/A.mpr
 dir=$P/apps/A"
@@ -100,13 +104,20 @@ eq "R9c MPR_FILE=apps/B/B.mpr picks B (echoed as given, as before)" "$(fm apps/B
 
 echo "== R10 bin/check-requirements.sh uses the same walk =="
 CR="$TK_SRC/bin/check-requirements.sh"
-S="$T/r10/stray"; P="$S/proj"; mkdir -p "$P/apps/A"; : > "$S/stray.mpr"; : > "$P/apps/A/A.mpr"; mkdir -p "$P/.claude"
+S="$T/r10/stray"; P="$S/proj"; mkdir -p "$P/apps/A"; : > "$S/stray.mpr"; : > "$P/apps/A/A.mpr"; wire "$P"
 out="$(cd "$P" && env -i PATH="$PATH" HOME="$T/nohome" bash "$CR" 2>&1)"
 line="$(printf '%s\n' "$out" | grep 'project root' | sed 's/.*project root *//; s/ *$//')"
 eq "R10a multi-app root reported, not the stray" "$line" "$P"
 rm -f "$P/apps/A/A.mpr"
 out="$(cd "$P" && env -i PATH="$PATH" HOME="$T/nohome" bash "$CR" 2>&1)"; rc=$?
 case "$rc:$out" in 2:*"stopped at the project folder $P"*) ok "R10b model-less project: exit 2, names where the walk stopped" ;; *) fail "R10b rc=$rc: $out" ;; esac
+
+echo "== R11 a bare .claude/ is not a project folder =="
+B="$T/r11/tmpish"; P="$B/work/proj"; mkdir -p "$B/.claude" "$P/project-bin"
+cp "$COMMON" "$P/project-bin/_common.sh"; cp "$TKP" "$P/project-bin/probe.sh"
+eq "R11a unmarked project under a bare .claude/: self-parent fallback, as before" "$(root "$P" "$P/project-bin/probe.sh")" "$P"
+: > "$T/r11/Up.mpr"
+eq "R11b ... and a model above the bare .claude/ is still found, as before" "$(root "$P" "$P/project-bin/probe.sh")" "$T/r11"
 
 echo
 echo "root-multiapp: $PASS passed, $FAIL failed"

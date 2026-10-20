@@ -122,13 +122,34 @@ if [ "${1:-}" = "check" ] && [ -z "${MPR_FILE:-}" ] && { [ "$_several" = 1 ] || 
        && [ "$(ls "$PROJECT_ROOT/$_apps"/*.mpr 2>/dev/null | wc -l | tr -d ' ')" -eq 1 ]; then
       MPR_FILE="$_apps/$(basename "$(ls "$PROJECT_ROOT/$_apps"/*.mpr)")"; export MPR_FILE
     else
-      echo "  ✗ model files are staged across several apps, or outside apps/<X>/ — set MPR_FILE=apps/<X>/<X>.mpr to choose:" >&2
+      # Not "set MPR_FILE": that verifies one app and would let the others' staged changes
+      # through unverified (the stamp covers one model's paths). One app per commit.
+      echo "  ✗ model files are staged across several apps (or outside apps/<X>/) — commit one app at a time:" >&2
       printf '%s\n' "$_staged" | head -5 | sed 's/^/      /' >&2
+      echo "    git reset apps/<Y>   (unstage the other apps), then" >&2
+      echo "    MPR_FILE=apps/<X>/<X>.mpr ./bin/verify-model.sh   then commit; repeat per app" >&2
       exit 1
     fi
   else
     echo "  ✗ model files are staged, but no .mpr resolves under $PROJECT_ROOT (root, app/ or apps/<X>/):" >&2
     printf '%s\n' "$_staged" | head -5 | sed 's/^/      /' >&2
+    exit 1
+  fi
+fi
+
+# Several apps and MPR_FILE set (by the caller, or derived above): the stamp covers that one
+# app's paths only, so a staged model path in ANY other folder would pass unverified. Refuse it
+# and name the paths (#420 review: MPR_FILE=apps/A/A.mpr with A and B staged let B through).
+if [ "${1:-}" = "check" ] && [ -n "${MPR_FILE:-}" ] && [ -d "$PROJECT_ROOT/apps" ] \
+   && [ "$(ls "$PROJECT_ROOT"/apps/*/*.mpr 2>/dev/null | wc -l | tr -d ' ')" -gt 1 ] \
+   && git -C "$PROJECT_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  _mdir="$(dirname "${MPR_FILE#"$PROJECT_ROOT"/}")"
+  _outside="$(git -C "$PROJECT_ROOT" diff --cached --name-only --relative --diff-filter=d 2>/dev/null \
+    | grep -E '(^|/)[^/]+\.mpr$|(^|/)mprcontents/' | grep -v "^$_mdir/" || true)"
+  if [ -n "$_outside" ]; then
+    echo "  ✗ MPR_FILE=$MPR_FILE covers $_mdir/ only, but model files outside it are staged:" >&2
+    printf '%s\n' "$_outside" | head -5 | sed 's/^/      /' >&2
+    echo "    commit one app at a time: git reset those paths, verify and commit $_mdir/, then the next app" >&2
     exit 1
   fi
 fi

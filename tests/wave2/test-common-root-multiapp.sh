@@ -31,6 +31,8 @@
 #       resolves"); nothing staged still passes `check --staged`
 #   R13 model-stamp.sh check, two apps: nothing staged passes (a multi-app folder must not block
 #       every commit); staged under one app is checked against that app; across two refuses
+#       with "one app at a time"; MPR_FILE=apps/A with A and B staged refuses naming apps/B (the
+#       stamp covers A only); MPR_FILE=apps/A with only A staged and A stamped passes
 #   R14 lint-gate.sh: one app gets past model discovery; two apps refuse naming MPR=apps/<X>
 #   R15 doctor.sh <project>: reports the app's model, and names MPR_FILE when there are two
 #   R16 a model-less git worktree under <project>/.claude/worktrees/<w> (it carries its own
@@ -154,7 +156,14 @@ out="$(ms "$P" check --staged)"; rc=$?
 case "$out" in *UNVERIFIED*) ok "R13c staged under apps/A only: checked against apps/A (UNVERIFIED, rc $rc)" ;; *) fail "R13c rc=$rc: $out" ;; esac
 (cd "$P" && git add apps/B)
 out="$(ms "$P" check --staged)"; rc=$?
-case "$rc:$out" in 1:*"MPR_FILE=apps/"*) ok "R13d staged across two apps: refused, MPR_FILE named" ;; *) fail "R13d rc=$rc: $out" ;; esac
+case "$rc:$out" in 1:*"one app at a time"*"git reset apps/"*) ok "R13d staged across two apps: refused, one app at a time" ;; *) fail "R13d rc=$rc: $out" ;; esac
+msA() { (cd "$P" && env -i PATH="$PATH" HOME="$T/nohome" MPR_FILE=apps/A/A.mpr bash bin/model-stamp.sh "$@" 2>&1); }
+msA write pass fixture >/dev/null
+out="$(msA check --staged)"; rc=$?
+case "$rc:$out" in 1:*"covers apps/A/ only"*"apps/B/"*) ok "R13e MPR_FILE=apps/A, A and B staged: refused, apps/B paths named" ;; *) fail "R13e rc=$rc: $out" ;; esac
+(cd "$P" && git reset -q apps/B)
+out="$(msA check --staged)"; rc=$?
+case "$rc" in 0) ok "R13f MPR_FILE=apps/A, only A staged (and stamped): passes" ;; *) fail "R13f rc=$rc: $out" ;; esac
 
 echo "== R14 lint-gate.sh model discovery in a multi-app folder =="
 P="$T/r14/proj"; mkdir -p "$P/bin" "$P/apps/A"; wire "$P"; : > "$P/apps/A/A.mpr"
@@ -172,6 +181,8 @@ case "$out" in *"model: apps/A/A.mpr"*) ok "R15a one app: model reported" ;; *) 
 : > "$P/apps/B/B.mpr"
 out="$(env -i PATH="$PATH" HOME="$T/nohome" bash "$TK_SRC/bin/doctor.sh" "$P" 2>&1)"
 case "$out" in *"multi-app folder: apps/A/A.mpr, apps/B/B.mpr"*MPR_FILE*) ok "R15b two apps: both named, MPR_FILE pointed at" ;; *) fail "R15b: $(printf '%s' "$out" | grep -i 'mpr' | head -3)" ;; esac
+out="$(env -i PATH="$PATH" HOME="$T/nohome" bash "$TK_SRC/bin/doctor.sh" --property-sets "$P" 2>&1)"
+case "$out" in *"checking apps/A/A.mpr only"*"MPR_FILE="*) ok "R15c --property-sets, two apps: says which app it checked" ;; *) fail "R15c: $(printf '%s' "$out" | head -5)" ;; esac
 
 echo "== R16 a model-less worktree under .claude/worktrees/ =="
 P="$T/r16/proj"; W="$P/.claude/worktrees/w"; install "$P"; : > "$P/App.mpr"; install "$W"; mkdir -p "$W/docs"

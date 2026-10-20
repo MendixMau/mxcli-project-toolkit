@@ -240,9 +240,9 @@ next_action() {
   esac
   if [ "$UNSYNCED" -gt 0 ]; then echo "ba-agent flushes $UNSYNCED UNSYNCED marker(s) in PROJECT.md — every gate is blocked until then (conversion-runbook.md §3b)"; return; fi
   case "$COH" in *"DUE"*) echo "run process-coherence-pass.md — the cross-module seam check is due"; return ;; esac   # process-coherence-pass.md
-  if [ -n "$LAST_FAIL" ]; then echo "last gate FAILED for: $LAST_FAIL— fix and re-exec (docs/BUILD-LOG.md, .mpr-snapshots/last-mxbuild-errors.json)"; return; fi   # iterative-build-loop.md Gate: BUILD
+  if [ -n "$LAST_FAIL" ]; then echo "last gate FAILED for: ${LAST_FAIL}— fix and re-exec (docs/BUILD-LOG.md, .mpr-snapshots/last-mxbuild-errors.json)"; return; fi   # iterative-build-loop.md Gate: BUILD
   if [ -n "$DONE_STALL" ]; then echo "$DONE_STALL — done- needs the coverage checklist; run bin/coverage-preflight.sh to see what blocks it (iterative-build-loop.md)"; return; fi
-  if [ -n "$NOT_DONE_PASS" ]; then echo "gate-passed but not done-: $NOT_DONE_PASS— walk the happy path + coverage checklist, then git mv to done- (iterative-build-loop.md step 13-15)"; return; fi
+  if [ -n "$NOT_DONE_PASS" ]; then echo "gate-passed but not done-: ${NOT_DONE_PASS}— walk the happy path + coverage checklist, then git mv to done- (iterative-build-loop.md step 13-15)"; return; fi
   if [ -n "$OB_NEXT" ]; then echo "discharge: $OB_NEXT (bin/lib/obligations.tsv names the artifact each owes)"; return; fi
   [ -n "$GC_NEXT" ] && { echo "$GC_NEXT"; return; }
   echo "nothing overdue — take the next script in architecture/build-plan.md"

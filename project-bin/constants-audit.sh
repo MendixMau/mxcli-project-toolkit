@@ -167,7 +167,7 @@ while IFS= read -r line; do
   # four sentences — and printing it whole turns a 30-row table into a wall. The register is
   # the place to read it; this column only has to prove a reason exists.
   short=$(printf '%s' "$reason" | cut -c1-58)
-  [ "${#reason}" -gt 58 ] && short="$short…"
+  [ "${#reason}" -gt 58 ] && short="${short}…"
 
   ROWS="$ROWS$(printf '%-13s %-44s %-10s %-8s %s' "$verdict" "$qname" "$type" "$state" "$short")
 "

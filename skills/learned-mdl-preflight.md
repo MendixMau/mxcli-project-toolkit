@@ -63,6 +63,10 @@ Re-probed on mxcli v0.24.0 / Mendix 11.13.0 (2026-09-30); rules that now work or
 | 26 🔎 | Bind a DataGrid 2 column over an **association** | **STOP → write the column path unquoted.** Use `Attribute: Assoc_A_B/Name`, never `"Assoc_A_B/Name"`. This is the one place a quote-every-identifier convention must break. | A quoted path is stored as one attribute named `Assoc_A_B/Name`. v0.24.0: passes `check --references`, then `[CE1613] attribute 'Mod.Entity."Assoc_A_B/Name"' no longer exists` at `mx check`; the unquoted form builds at 0 errors, and so does `sort by Assoc/Attr`. `BUG-DRAFT-dg2-association-path-bindings` |
 | 27 | *(retired 2026-09-30 — marketplace install by content id and by `--file` both stamp `FromAppStore`, `AppStoreGuid`, `PackageId` and `Version` (BSON-verified; `SHOW MODULES` shows `Marketplace v<version>`); how Studio Pro groups the module was not testable)* | | |
 | 28 | Change an existing microflow near a `return` in a dense flow | **Plan drop + create in one script, after `show access on microflow` (re-grant what it lists).** A passing `check -p --references` skips exec's free-room test. | v0.25.0: `check` passed, exec refused `insert before return $LiveResult: there is no free room for the fragment`. BUG-156 |
+| 29 | Use a constant in a nanoflow | **Set `ExposedToClient: true`, or use a microflow.** | `check` passes; mxbuild CE0117. #445 |
+| 30 | Put a `dynamicimage` on a React-client page | **Use the pluggable `image` widget.** | `check` passes; mxbuild CE0582. #445 |
+| 31 | Bind an attribute across 2+ associations in a data view or microflow expression | **One hop per step: nest a data view, or retrieve first.** | `check` passes; mxbuild CE1613. A database-sourced grid allows it (BUG-04). #445 |
+| 32 | Give a widget's `show page` an argument besides its context object: `M.P(A = $currentObject, B = $x)` | **Call a microflow that shows the page.** | v0.26.0 `check` refuses: MDL-PAGEARG01. #445 |
 
 **Default to the CLI for everything in the table above that is not a STOP row** (`./bin/exec.sh`, Studio Pro closed).
 

@@ -1,0 +1,4 @@
+WARNING: This is a vibe-coded PoC, alpha quality, use with caution.
+Checking syntax: syn.mdl
+Syntax errors found:
+  - line 4:0 missing ')' at ';'  [see: mxcli syntax <topic>, e.g. entity | microflow | page]

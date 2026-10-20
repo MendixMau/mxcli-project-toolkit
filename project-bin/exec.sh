@@ -1058,17 +1058,41 @@ log_applied() {  # $1 = mxbuild detail
 # the model accepts (log why, in the script).
 PMXCLI="$(find_project_mxcli 2>/dev/null || true)"
 step_done guards
+# The refusal reason for the 🚫 row, from the output the one check run already printed (#445: a
+# field BUILD-LOG kept 3 refusals as bare "mxcli check failed pre-exec", the rule id lost).
+# Shapes are real mxcli v0.26.0 captures (tests/wave2/fixtures/exec-check-refusal/): an error
+# violation is "✗ <message> [RULE]" after any warnings, in ANSI colour even when piped; a parse
+# failure is "- line N:M ..." under "Syntax errors found:". Rule id first, so truncation keeps it.
+check_refusal_reason() {  # $1 = captured check output
+  _esc="$(printf '\033')"
+  sed "s/${_esc}\[[0-9;]*m//g" "$1" 2>/dev/null | awk '
+    /^(Syntax|Reference) errors( found)?:$/ { hdr = 1; next }
+    hdr && h == "" && NF { h = $0 }
+    e == "" && /^ *✗ / && !/ found$/ { e = $0 }
+    f == "" && /[Ee]rror/ && !/^WARNING: / { f = $0 }
+    END { r = (e != "") ? e : ((h != "") ? h : f); print r }' \
+  | sed -e 's/^ *✗ *//' -e 's/^ *- //' -e 's/[[:space:]][[:space:]]*/ /g' -e 's/ *$//' \
+        -e 's/^\(.*\) \[\([A-Z][A-Z0-9-]*[0-9]\)\]$/\2: \1/' -e 's/|/\\|/g' \
+  | LC_ALL=C awk -v hi="$(printf '\200')" '{ s = $0; if (length(s) > 160) {
+      s = substr(s, 1, 160); while (s != "" && substr(s, length(s), 1) >= hi) s = substr(s, 1, length(s) - 1)
+      s = s "..." }; print s }'
+}
 if [ "$PATCH_MODE" = "1" ]; then
   echo "→ --patch: no pre-exec mxcli check (not MDL). The mxbuild gate below is this write's only check."
 elif [ "${SKIP_CHECK:-0}" != "1" ] && [ -n "$PMXCLI" ]; then
   echo "→ Pre-exec check: mxcli check (grammar + references)..."
-  if ! "$PMXCLI" check "$SCRIPT" -p "$MPR" --references; then
+  _co="$(mktemp "${TMPDIR:-/tmp}/exec-check.XXXXXX")"; _crc=0
+  "$PMXCLI" check "$SCRIPT" -p "$MPR" --references >"$_co" 2>&1 || _crc=$?
+  cat "$_co"
+  if [ "$_crc" -ne 0 ]; then
+    _why="$(check_refusal_reason "$_co")"; rm -f "$_co"
     echo ""
     echo "  ✗ mxcli check failed — refusing to exec. NOTHING was written to the model."
     echo "    Fix the script, or re-run with SKIP_CHECK=1 if you know why the parser is wrong."
-    log_build "🚫 blocked" "mxcli check failed pre-exec — nothing written to the model"
+    log_build "🚫 blocked" "mxcli check failed pre-exec — nothing written to the model${_why:+; check: $_why}"
     exit 1
   fi
+  rm -f "$_co"
   echo "  ✓ check clean"
 fi
 

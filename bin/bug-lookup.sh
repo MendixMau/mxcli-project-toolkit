@@ -30,8 +30,9 @@ LOG="${MXTK_BUG_LOG:-$ROOT/bug-logs/mxcli-bugs.md}"
 usage() { sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 
 index() {
-  grep -n '^## ' "$LOG" | grep -v '^[0-9]*:## Provenance' | sed -E 's/^([0-9]+):## /\1\t/' \
-    | awk -F'\t' '{ flags=""; if ($2 ~ /RESOLVED|NOT REPRODUCED|RETIRED|SUPERSEDED/) flags=" [closed]"; if ($2 ~ /NOT YET FILED|unfiled/) flags=flags " [unfiled]"; print $2 flags }'
+  # awk strips the "N:## " prefix itself: a sed replacement \t is a literal t on BSD sed (#488).
+  grep -n '^## ' "$LOG" | grep -v '^[0-9]*:## Provenance' \
+    | awk '{ t=$0; sub(/^[0-9]+:## /, "", t); sub(/\t.*/, "", t); flags=""; if (t ~ /RESOLVED|NOT REPRODUCED|RETIRED|SUPERSEDED/) flags=" [closed]"; if (t ~ /NOT YET FILED|unfiled/) flags=flags " [unfiled]"; print t flags }'
 }
 FULL=""; EXACT=0
 while [ "$#" -gt 0 ]; do

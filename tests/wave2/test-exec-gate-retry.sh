@@ -25,7 +25,7 @@
 #   I  clean build + lint rise: exit 4, write kept, last line "gate passed, lint only",
 #      no extra mxbuild (2 runs) (master: exit 1)
 #   I2 the same with `Lint gate: hard` in PROJECT.md: exit 1, write kept (#496; master: 4);
-#      any other value keeps 4 [guard]
+#      env MXTK_LINT_GATE=soft wins (exit 4); any other value keeps 4 and is noted [guard]
 #   J  clean build + lint unchanged: exit 0, 2 mxbuild runs [guard: happy path costs nothing new]
 #   K  the same bundle-only failure on every build: the baseline retries it, the gate does not
 #      (at most 3 mxbuild runs, not 4), still exit 5
@@ -228,9 +228,12 @@ printf '# Project\n\n- **Lint gate:** `hard`\n' > "$P/PROJECT.md"
 RC=$(LINT_MODE=rose run I2 ok,ok)
 [ "$RC" -eq 1 ] && kept && ok "exit 1, write kept" || bad "I2 rc=$RC, expected 1" "$(tail -6 "$WORK/out.I2")"
 tail -1 "$WORK/out.I2" | grep -q "LINT ROSE under 'Lint gate: hard' (exit 1: write kept" && ok "last line names the hard gate" || bad "I2: last line" "$(tail -1 "$WORK/out.I2")"
-printf -- '- **Lint gate:** soft\n' > "$P/PROJECT.md"
+RC=$(MXTK_LINT_GATE=soft LINT_MODE=rose run I2e ok,ok)
+[ "$RC" -eq 4 ] && ok "env MXTK_LINT_GATE=soft wins over PROJECT.md hard: exit 4" || bad "I2e rc=$RC, expected 4"
+printf -- '- **Lint gate:** sfot\n' > "$P/PROJECT.md"
 RC=$(LINT_MODE=rose run I3 ok,ok)
 [ "$RC" -eq 4 ] && ok "any other value keeps exit 4 [guard]" || bad "I3 rc=$RC, expected 4"
+grep -q "^note: 'Lint gate: sfot' not recognised (hard | default)" "$WORK/out.I3" && ok "unrecognised value noted" || bad "I3: no note" "$(tail -8 "$WORK/out.I3")"
 rm -f "$P/PROJECT.md"
 
 echo "== J: clean build + lint unchanged: exit 0, 2 mxbuild runs [guard] =="

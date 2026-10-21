@@ -320,8 +320,8 @@ Every MDL script, and every one-off model patch (`--patch`), is applied with `./
 A raw `./mxcli exec` writes no BUILD-LOG row, takes no snapshot and runs no gate, so the change
 shows as "not recorded" to everything that reads the build log (status, done-drift, proof views).
 
-When a guard refuses, the script's change is not in the model, unless exec.sh says the write is kept (exit 4 or 5, ⚠️ PARTIAL) — then do not re-apply it.
-Exit codes (defined in the `exec.sh` header): `0` applied, gate passed · `1` not applied or rolled back, or ⚠️ PARTIAL · `2` usage ·
+When a guard refuses, the script's change is not in the model, unless exec.sh says the write is kept (exit 4 or 5, exit 1 under `Lint gate: hard`, ⚠️ PARTIAL) — then do not re-apply it.
+Exit codes (defined in the `exec.sh` header): `0` applied, gate passed · `1` not applied or rolled back, or ⚠️ PARTIAL (kept: a LINT ROSE under `Lint gate: hard`) · `2` usage ·
 `4` applied, gate passed, lint only (LINT ROSE/BLIND) · `5` applied, UNVERIFIED: run `./bin/verify-model.sh` before the next exec. Most refusals also write a
 BUILD-LOG row (uncommitted model, `--commit-first`, a failed pre-exec check, a gate that could
 not run, PRE-EXISTING errors, a NEW gate error); the plain Studio Pro refusal, the lock refusal and argument errors only print.

@@ -99,8 +99,10 @@ PROJECT_ROOT="${PROJECT_ROOT:-$(_mxtk_resolve_root)}"
 # find_mpr still refuses and names MPR_FILE.
 # An auto-pick is marked MXTK_MPR_PICKED (both exported). A child that inherits it while its own
 # cwd sits inside a DIFFERENT apps/<X>/ re-derives; at the project root it keeps the pick (that
-# is exec.sh's cd, the case this exists for). A MPR_FILE the user set is never touched.
+# is exec.sh's cd, the case this exists for). A pick inherited from ANOTHER project is dropped.
+# A MPR_FILE the user set is never touched.
 if [ -n "${MXTK_MPR_PICKED:-}" ] && [ "${MPR_FILE:-}" = "$MXTK_MPR_PICKED" ]; then
+  case "$MPR_FILE" in "$PROJECT_ROOT"/*) ;; *) unset MPR_FILE MXTK_MPR_PICKED ;; esac
   case "$PWD/" in
     "${MPR_FILE%/*}"/*) ;;
     "$PROJECT_ROOT"/apps/?*/*) unset MPR_FILE MXTK_MPR_PICKED ;;

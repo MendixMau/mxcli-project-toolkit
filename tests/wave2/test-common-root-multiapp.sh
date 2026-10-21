@@ -43,7 +43,8 @@
 #       an app folder that is a project of its own keeps its root (g, h); any letter case (i, j)
 #   R18 from inside apps/A the app is picked at source time and survives exec.sh's cd to the
 #       root and its child snapshot-mpr.sh; explicit MPR_FILE wins; outside any app refuses;
-#       an inherited auto-pick re-derives in another app's folder (f), a user's never (g)
+#       an inherited auto-pick re-derives in another app's folder (f), a user's never (g),
+#       and is dropped in another project (h)
 set -u
 
 COMMON="${1:?usage: $0 project-bin/_common.sh}"
@@ -261,6 +262,10 @@ out="$(cd "$P/apps/A" && env -i PATH="$PATH" HOME="$T/nohome" bash -c "$CHILD" _
 eq "R18f parent picks apps/A, child in apps/B: apps/B" "$out" "$P/apps/B"
 out="$(cd "$P/apps/A" && env -i PATH="$PATH" HOME="$T/nohome" MPR_FILE="$P/apps/A/A.mpr" bash -c "$CHILD" _ "$P" 2>&1)"
 eq "R18g a user-set MPR_FILE inherited into apps/B still wins: apps/A" "$out" "$P/apps/A"
+# R18h: a pick made in one project's apps/A must not follow a child into another project
+P2="$T/r18/other"; install "$P2"; : > "$P2/Other.mpr"
+out="$(cd "$P/apps/A" && env -i PATH="$PATH" HOME="$T/nohome" bash -c '. "$1/bin/_common.sh"; cd "$2" && bash -c ". \"$2/bin/_common.sh\"; find_mpr"' _ "$P" "$P2" 2>&1)"
+eq "R18h pick in P1/apps/A, child at P2's root: P2's own model" "$out" "$P2/Other.mpr"
 P="$T/r18/two"; install "$P"; cp "$TKB/snapshot-mpr.sh" "$P/bin/"; mkdir -p "$P/app/mprcontents" "$P/app/javasource" "$P/apps/Z"
 echo m > "$P/app/App.mpr"; echo u > "$P/app/mprcontents/u.mxunit"; echo m > "$P/apps/Z/Z.mpr"
 out="$(ex "$P/apps/Z" "$P")"; rc=$?

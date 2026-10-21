@@ -133,6 +133,21 @@ for mf in apps/A/A.mpr "$M/apps/B/B.mpr"; do
   else bad "MPR_FILE=${mf#"$WORK"/}: rc $rc, mxcli args: $(tr '\n' ' ' < "$M/mxcli-args" 2>/dev/null)" "$out"; fi
 done
 
+echo "T-MF an MPR_FILE that does not resolve under the root falls back to discovery, never exit 2 (#489)"
+# exec.sh logs lint-gate's exit 2 as "lint could not run", so an unresolvable MPR_FILE used to
+# turn lint off on a single-app project. mkp <dir> <mpr relpath>: a project with a recording mxcli.
+mkp() { mkdir -p "$1/bin" "$1/.claude" "$(dirname "$1/$2")"; : > "$1/PROJECT.md"; printf 'mpr' > "$1/$2"
+  cp "$GATE" "$1/bin/lint-gate.sh"; [ -f "$TK/project-bin/_common.sh" ] && cp "$TK/project-bin/_common.sh" "$1/bin/"
+  printf '#!/bin/sh\nfor a; do printf "%%s\\n" "$a"; done > "%s/mxcli-args"\nprintf "{\\"violations\\":[],\\"summary\\":{}}"\n' "$1" > "$1/mxcli"; chmod +x "$1/mxcli"; }
+S1="$WORK/real/s1"; mkp "$S1" App.mpr; ln -s "$WORK/real" "$WORK/link"
+out=$(cd "$S1" && MPR_FILE="$WORK/link/s1/App.mpr" bash bin/lint-gate.sh --update-baseline 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && grep -qx 'App.mpr' "$S1/mxcli-args" 2>/dev/null; then ok "absolute MPR_FILE through a symlinked path: discovered and linted App.mpr"
+else bad "symlinked absolute MPR_FILE: rc $rc, mxcli args: $(tr '\n' ' ' < "$S1/mxcli-args" 2>/dev/null)" "$out"; fi
+S2="$WORK/s2"; mkp "$S2" app/App.mpr
+out=$(cd "$S2/app" && MPR_FILE=App.mpr bash ../bin/lint-gate.sh --update-baseline 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && grep -qx 'app/App.mpr' "$S2/mxcli-args" 2>/dev/null; then ok "cwd-relative MPR_FILE=App.mpr from app/: discovered and linted app/App.mpr"
+else bad "cwd-relative MPR_FILE: rc $rc, mxcli args: $(tr '\n' ' ' < "$S2/mxcli-args" 2>/dev/null)" "$out"; fi
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

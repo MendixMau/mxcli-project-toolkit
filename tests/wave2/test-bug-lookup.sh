@@ -20,7 +20,8 @@
 #   Q  dev and held-out scores (top-1, top-3, confident-wrong) are at or above their floors
 #   W  a ranked answer stays short: at most 200 words per query
 #   X  every other awk on PATH (mawk, gawk, original-awk = BWK) prints the same ranking
-#   L  one word keeps the full-entry path: BUG-n, CE code, keyword, --index, --exact
+#   L  one word keeps the full-entry path: BUG-n, CE code, keyword, --index, --exact; --index
+#      prints the same entries under a BSD-sed shim (\t read as t, #488)
 #   F  --full N prints the N-th ranked entry in full and stops at the next entry
 #   U  usage: no query exits 1; --full 0 exits 2; a backslash in the query survives (`\\n` is
 #      not read as a newline: same ranking as the query with the backslashes spaced out)
@@ -128,6 +129,18 @@ printf '%s\n' "$o" | grep -q '^## ' && ! printf '%s\n' "$o" | grep -qE '^[0-9]+\
   && ok "CE0053: entries in full, not ranked" || bad "CE0053: $(printf '%s\n' "$o" | head -2)"
 n_hdr=$(grep '^## ' "$MXTK_BUG_LOG" | grep -vc '^## Provenance')
 [ "$(bash "$SUBJ" --index | wc -l | tr -d ' ')" = "$n_hdr" ] && ok "--index: $n_hdr lines, one per entry" || bad "--index line count"
+# BSD sed reads \t outside a bracket as the letter t (#488); GNU sed cannot be made to, so a
+# shim rewrites every backslash-t in sed's arguments to t. wc -l above counts empty lines too,
+# which is how an --index of 222 blank lines would have passed on macOS.
+mkdir -p "$WORK/bsdsed"
+printf '#!/usr/bin/env bash\na=(); for x in "$@"; do a+=("${x//\\\\t/t}"); done\nexec "%s" "${a[@]}"\n' "$(command -v sed)" > "$WORK/bsdsed/sed"
+chmod +x "$WORK/bsdsed/sed"
+if [ "$(printf 'x\n' | PATH="$WORK/bsdsed:$PATH" sed 's/x/\t/')" = t ]; then   # portability-ok: probes the shim's BSD reading on purpose
+  [ "$(PATH="$WORK/bsdsed:$PATH" bash "$SUBJ" --index)" = "$(bash "$SUBJ" --index)" ] \
+    && [ "$(PATH="$WORK/bsdsed:$PATH" bash "$SUBJ" --index | grep -c .)" = "$n_hdr" ] \
+    && ok "--index under a BSD-sed shim: the same $n_hdr non-empty lines" \
+    || bad "--index under a BSD-sed shim: $(PATH="$WORK/bsdsed:$PATH" bash "$SUBJ" --index | grep -c .) non-empty lines, want $n_hdr"
+else bad "BSD-sed shim did not turn \\t into t"; fi
 o="$(bash "$SUBJ" --exact "widget name")"; rc=$?
 ! printf '%s\n' "$o" | grep -qE '^[0-9]+\. \[' && ok "--exact: literal path, not ranked (exit $rc)" || bad "--exact ranked"
 

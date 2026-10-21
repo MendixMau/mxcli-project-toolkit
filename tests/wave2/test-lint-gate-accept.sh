@@ -118,6 +118,21 @@ else
   echo "  skip (no project-bin/metrics-ledger.sh in this tree)"
 fi
 
+echo "T-MA a multi-app folder: MPR_FILE names the model lint-gate lints (#489)"
+# exec.sh run from apps/A exports MPR_FILE (absolute) via _common.sh and cd's to the root;
+# lint-gate ignored it and exited 2 "several apps". The stub mxcli records its -p argument.
+M="$WORK/multi"; mkdir -p "$M/bin" "$M/.claude" "$M/apps/A" "$M/apps/B"; : > "$M/PROJECT.md"
+cp "$GATE" "$M/bin/lint-gate.sh"; [ -f "$TK/project-bin/_common.sh" ] && cp "$TK/project-bin/_common.sh" "$M/bin/"
+printf 'mpr' > "$M/apps/A/A.mpr"; printf 'mpr' > "$M/apps/B/B.mpr"
+printf '#!/bin/sh\nfor a; do printf "%%s\\n" "$a"; done > "%s/mxcli-args"\nprintf "{\\"violations\\":[],\\"summary\\":{}}"\n' "$M" > "$M/mxcli"; chmod +x "$M/mxcli"
+for mf in apps/A/A.mpr "$M/apps/B/B.mpr"; do
+  rm -f "$M/mxcli-args"
+  out=$(cd "$M" && MPR_FILE="$mf" bash bin/lint-gate.sh --update-baseline 2>&1); rc=$?
+  want="${mf#"$M"/}"
+  if [ "$rc" -eq 0 ] && grep -qx "$want" "$M/mxcli-args" 2>/dev/null; then ok "MPR_FILE=${mf#"$WORK"/}: linted $want"
+  else bad "MPR_FILE=${mf#"$WORK"/}: rc $rc, mxcli args: $(tr '\n' ' ' < "$M/mxcli-args" 2>/dev/null)" "$out"; fi
+done
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

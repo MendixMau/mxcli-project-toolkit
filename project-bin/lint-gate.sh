@@ -99,6 +99,9 @@ require_py
 # The .mpr is discovered, not hardcoded. A per-project default here is how this script
 # was previously un-promotable: it named PROJECT-C.mpr and silently linted nothing anywhere
 # else (mxcli exits 0 on a missing project, so the gate reported a clean PASS).
+# MPR_FILE (the user's, or _common.sh's pick from the cwd inside one apps/<X>/) names the model
+# when MPR does not; without it exec.sh run from apps/A reached the "several apps" refusal (#489).
+if [ -z "${MPR:-}" ] && [ -n "${MPR_FILE:-}" ]; then MPR="${MPR_FILE#"$ROOT"/}"; fi
 if [ -z "${MPR:-}" ]; then
   MPR="$(ls "$ROOT"/*.mpr 2>/dev/null | head -1)"
   MPR="$(basename "${MPR:-}")"

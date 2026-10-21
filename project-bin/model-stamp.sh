@@ -147,7 +147,8 @@ if [ "${1:-}" = "check" ] && [ -n "${MPR_FILE:-}" ] && [ -d "$PROJECT_ROOT/apps"
   _outside="$(git -C "$PROJECT_ROOT" diff --cached --name-only --relative --diff-filter=d 2>/dev/null \
     | grep -E '(^|/)[^/]+\.mpr$|(^|/)mprcontents/' | grep -v "^$_mdir/" || true)"
   if [ -n "$_outside" ]; then
-    echo "  ✗ MPR_FILE=$MPR_FILE covers $_mdir/ only, but model files outside it are staged:" >&2
+    _how=""; [ -n "${MXTK_MPR_PICKED:-}" ] && [ "$MPR_FILE" = "$MXTK_MPR_PICKED" ] && _how=" (picked from your cwd)"
+    echo "  ✗ MPR_FILE=$MPR_FILE$_how covers $_mdir/ only, but model files outside it are staged:" >&2
     printf '%s\n' "$_outside" | head -5 | sed 's/^/      /' >&2
     echo "    commit one app at a time: git reset those paths, verify and commit $_mdir/, then the next app" >&2
     exit 1

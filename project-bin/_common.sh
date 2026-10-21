@@ -97,6 +97,15 @@ PROJECT_ROOT="${PROJECT_ROOT:-$(_mxtk_resolve_root)}"
 # when the root holds no *.mpr and no app/*.mpr, and exactly one apps/<X>/*.mpr sits in a
 # folder holding $PWD. Globs and builtins only. Outside any one app nothing is picked, so
 # find_mpr still refuses and names MPR_FILE.
+# An auto-pick is marked MXTK_MPR_PICKED (both exported). A child that inherits it while its own
+# cwd sits inside a DIFFERENT apps/<X>/ re-derives; at the project root it keeps the pick (that
+# is exec.sh's cd, the case this exists for). A MPR_FILE the user set is never touched.
+if [ -n "${MXTK_MPR_PICKED:-}" ] && [ "${MPR_FILE:-}" = "$MXTK_MPR_PICKED" ]; then
+  case "$PWD/" in
+    "${MPR_FILE%/*}"/*) ;;
+    "$PROJECT_ROOT"/apps/?*/*) unset MPR_FILE MXTK_MPR_PICKED ;;
+  esac
+fi
 if [ -z "${MPR_FILE:-}" ] && [ -d "$PROJECT_ROOT/apps" ]; then
   _mxtk_n=0; _mxtk_pick=""
   for _mxtk_f in "$PROJECT_ROOT"/*.mpr "$PROJECT_ROOT"/app/*.mpr; do [ -e "$_mxtk_f" ] && _mxtk_n=2; done
@@ -106,7 +115,7 @@ if [ -z "${MPR_FILE:-}" ] && [ -d "$PROJECT_ROOT/apps" ]; then
       case "$PWD/" in "${_mxtk_f%/*}"/*) _mxtk_n=$((_mxtk_n + 1)); _mxtk_pick="$_mxtk_f" ;; esac
     done
   fi
-  if [ "$_mxtk_n" -eq 1 ]; then MPR_FILE="$_mxtk_pick"; export MPR_FILE; fi
+  if [ "$_mxtk_n" -eq 1 ]; then MPR_FILE="$_mxtk_pick"; MXTK_MPR_PICKED="$_mxtk_pick"; export MPR_FILE MXTK_MPR_PICKED; fi
   unset _mxtk_n _mxtk_pick _mxtk_f
 fi
 

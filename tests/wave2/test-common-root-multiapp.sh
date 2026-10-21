@@ -42,7 +42,8 @@
 #       installed and toolkit copies both answer the project (#489); unmarked, the app folder;
 #       an app folder that is a project of its own keeps its root (g, h); any letter case (i, j)
 #   R18 from inside apps/A the app is picked at source time and survives exec.sh's cd to the
-#       root and its child snapshot-mpr.sh; explicit MPR_FILE wins; outside any app refuses
+#       root and its child snapshot-mpr.sh; explicit MPR_FILE wins; outside any app refuses;
+#       an inherited auto-pick re-derives in another app's folder (f), a user's never (g)
 set -u
 
 COMMON="${1:?usage: $0 project-bin/_common.sh}"
@@ -180,6 +181,9 @@ case "$rc:$out" in 1:*"covers apps/A/ only"*"apps/B/"*) ok "R13e MPR_FILE=apps/A
 (cd "$P" && git reset -q apps/B)
 out="$(msA check --staged)"; rc=$?
 case "$rc" in 0) ok "R13f MPR_FILE=apps/A, only A staged (and stamped): passes" ;; *) fail "R13f rc=$rc: $out" ;; esac
+(cd "$P" && git add apps/B)
+out="$(cd "$P/apps/A" && env -i PATH="$PATH" HOME="$T/nohome" bash "$P/bin/model-stamp.sh" check --staged 2>&1)"; rc=$?
+case "$rc:$out" in 1:*"(picked from your cwd)"*"apps/B/"*) ok "R13g from apps/A, A and B staged: refused, the pick named as from the cwd" ;; *) fail "R13g rc=$rc: $out" ;; esac
 
 echo "== R14 lint-gate.sh model discovery in a multi-app folder =="
 P="$T/r14/proj"; mkdir -p "$P/bin" "$P/apps/A"; wire "$P"; : > "$P/apps/A/A.mpr"
@@ -250,6 +254,13 @@ out="$(ex "$P/apps/A/javasource" "$P" "$P/apps/B/B.mpr")"; rc=$?
 eq "R18b an explicit MPR_FILE still wins over the cwd's app" "$rc:$out" "0:$P/apps/B"
 mkdir -p "$P/docs"; out="$(ex "$P/docs" "$P")"; rc=$?
 case "$rc" in 3) ok "R18c PWD outside any app (docs/): still refused (find_model_dir rc 1)" ;; *) fail "R18c rc=$rc: $out" ;; esac
+# R18f: a parent auto-picks apps/A, a child sourced inside apps/B re-derives apps/B; at the root
+# the inherited pick is kept (R18a). R18g: a MPR_FILE the user set is inherited unchanged.
+CHILD='. "$1/bin/_common.sh"; cd "$1/apps/B" && bash -c ". \"$1/bin/_common.sh\"; find_model_dir" _ "$1"'
+out="$(cd "$P/apps/A" && env -i PATH="$PATH" HOME="$T/nohome" bash -c "$CHILD" _ "$P" 2>&1)"
+eq "R18f parent picks apps/A, child in apps/B: apps/B" "$out" "$P/apps/B"
+out="$(cd "$P/apps/A" && env -i PATH="$PATH" HOME="$T/nohome" MPR_FILE="$P/apps/A/A.mpr" bash -c "$CHILD" _ "$P" 2>&1)"
+eq "R18g a user-set MPR_FILE inherited into apps/B still wins: apps/A" "$out" "$P/apps/A"
 P="$T/r18/two"; install "$P"; cp "$TKB/snapshot-mpr.sh" "$P/bin/"; mkdir -p "$P/app/mprcontents" "$P/app/javasource" "$P/apps/Z"
 echo m > "$P/app/App.mpr"; echo u > "$P/app/mprcontents/u.mxunit"; echo m > "$P/apps/Z/Z.mpr"
 out="$(ex "$P/apps/Z" "$P")"; rc=$?

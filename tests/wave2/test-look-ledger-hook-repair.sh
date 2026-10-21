@@ -116,7 +116,7 @@ out="$("$TK/bin/sync-project.sh" "$O" 2>&1)"; dout="$(bash "$TK/bin/doctor.sh" "
 printf '{"allow":["Bash(./mxcli:*)"],"deny":[]}\n' > "$P/.claude/.mxtk-permissions-added.json"
 out="$("$TK/bin/sync-project.sh" "$P" 2>&1)"
 S="$P/.claude/settings.json"
-grep -qF 'bash bin/look-ledger.sh seen || true' "$S" && grep -qF 'bash bin/session-check.sh || true' "$S" \
+grep -qF 'CLAUDE_PROJECT_DIR' "$S" && grep -qF 'bin/look-ledger.sh seen' "$S" && grep -qF 'bash bin/session-check.sh || true' "$S" \
   && printf '%s' "$out" | grep -q 'Added: Claude Code hooks' \
   && ok "H4: sync-project.sh added both hooks" || bad "H4: hooks not added" "$out"
 grep -qF 'sh .claude/bootstrap-mxcli.sh' "$S" && grep -qF '"Bash(./mxcli:*)"' "$S" \

@@ -1261,6 +1261,9 @@ if [ -n "$PROJECT_DIR" ]; then
     HOOK_GAP=""
     grep -qF 'bin/session-check.sh' "$PSET" 2>/dev/null || HOOK_GAP="session-check (SessionStart)"
     grep -qF 'bin/look-ledger.sh seen' "$PSET" 2>/dev/null || HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen (PostToolUse Read)"
+    # #446: the pre-2026-10-21 relative form records nothing from any cwd but the project root.
+    # Any look hook not in the root-resolving form (one JSON string per line, so per-line is exact).
+    grep -F 'look-ledger.sh seen' "$PSET" 2>/dev/null | grep -vqF 'CLAUDE_PROJECT_DIR' && HOOK_GAP="${HOOK_GAP:+$HOOK_GAP and }look-ledger seen run from the project root (a look hook that does not cd to \$CLAUDE_PROJECT_DIR first records nothing from any other cwd)"
     if [ -n "$HOOK_GAP" ] && [ -f "$PROJECT_DIR/.mxtk/no-hook-repair" ]; then
       ok "hook gap ($HOOK_GAP) accepted: .mxtk/no-hook-repair is set"
     elif [ -n "$HOOK_GAP" ]; then
